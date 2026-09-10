@@ -40,6 +40,44 @@ def _width(label: str, size: float) -> float:
     return plain * size * GLYPH
 
 
+_TRANSLATE = re.compile(r"translate\(\s*(-?[\d.]+)[\s,]+(-?[\d.]+)?\s*\)")
+_ROTATE = re.compile(r"\brotate\(")
+
+
+def _offset(svg: str, at: int) -> "tuple[float, float] | None":
+    """The accumulated translate() of every group enclosing this position.
+
+    WITHOUT THIS THE CHECK IS BLIND BOTH WAYS, which is why it was added
+    (2026-09-10). These drawings put whole panels inside
+    `<g transform="translate(30, 310)">`, so two panels drawn far apart share
+    raw y values — the check reported them as overlapping when they are
+    hundreds of pixels apart, AND it could not see a genuine collision between
+    two labels inside the same translated group. Both failure modes were live
+    on explorer.html.
+
+    Returns None when a rotation is in play: a rotated label's box is not
+    axis-aligned, so measuring its width along x is meaningless. Skipping is
+    honest; guessing is what produced "a stroke runs through
+    'confident -> immediate'" for a label drawn vertically beside the arrow.
+    """
+    dx = dy = 0.0
+    depth = 0
+    for m in reversed(list(re.finditer(r"<g\b([^>]*)>|</g>", svg[:at]))):
+        if m.group(0) == "</g>":
+            depth += 1
+            continue
+        if depth:
+            depth -= 1
+            continue
+        tr = dict(_ATTR.findall(m.group(1) or "")).get("transform", "")
+        if _ROTATE.search(tr):
+            return None
+        for gx, gy in _TRANSLATE.findall(tr):
+            dx += float(gx)
+            dy += float(gy or 0)
+    return dx, dy
+
+
 def _inherited_anchor(svg: str, at: int) -> str:
     """The nearest enclosing group's text-anchor, or "start"."""
     depth = 0
@@ -64,7 +102,15 @@ def _boxes(svg: str):
         # render without a charset declaration, which means one em-dash is
         # seven characters of source. Measuring the source would make every
         # label look far wider than it draws.
-        label = html.unescape(re.sub(r"<[^>]+>", "", inner)).strip()
+        # COLLAPSE WHITESPACE BEFORE MEASURING. SVG collapses runs of
+        # whitespace in text content, so a label the author wrapped across two
+        # source lines renders as one space -- but measuring the source counted
+        # the newline and its indentation as glyphs. That inflated every
+        # wrapped label by ~10 characters and reported the box's own border as
+        # "a stroke running through" it. Found on explorer.html's "language
+        # model", which is 14 characters and was being measured as 25.
+        label = re.sub(r"\s+", " ",
+                       html.unescape(re.sub(r"<[^>]+>", "", inner))).strip()
         if not label:
             continue
         try:
@@ -77,6 +123,12 @@ def _boxes(svg: str):
         # let the labels inside pick it up. Reading only the element's own
         # attribute measured centred text from its left edge, which put the
         # box in the wrong place and hid real collisions.
+        if _ROTATE.search(a.get("transform", "")):
+            continue                       # not axis-aligned; see _offset
+        off = _offset(svg, match.start())
+        if off is None:
+            continue                       # inside a rotated group
+        x, y = x + off[0], y + off[1]
         anchor = a.get("text-anchor") or _inherited_anchor(svg, match.start())
         left = x - w if anchor == "end" else x - w / 2 if anchor == "middle" else x
         yield y, left, left + w, label, size
@@ -109,17 +161,24 @@ def _segments(svg: str):
         a = dict(_ATTR.findall(m.group(1)))
         if not _opaque(a):
             continue
+        off = _offset(svg, m.start())
+        if off is None:
+            continue
         try:
-            yield (float(a.get("x1", 0)), float(a.get("y1", 0)),
-                   float(a.get("x2", 0)), float(a.get("y2", 0)))
+            yield (float(a.get("x1", 0)) + off[0], float(a.get("y1", 0)) + off[1],
+                   float(a.get("x2", 0)) + off[0], float(a.get("y2", 0)) + off[1])
         except ValueError:
             continue
     for m in _RECT.finditer(svg):
         a = dict(_ATTR.findall(m.group(1)))
         if a.get("stroke", "none") in ("none", "") or not _opaque(a):
             continue                       # a fill-only rect is a background, not an edge
+        off = _offset(svg, m.start())
+        if off is None:
+            continue
         try:
-            x, y = float(a.get("x", 0)), float(a.get("y", 0))
+            x = float(a.get("x", 0)) + off[0]
+            y = float(a.get("y", 0)) + off[1]
             w, h = float(a.get("width", 0)), float(a.get("height", 0))
         except ValueError:
             continue
