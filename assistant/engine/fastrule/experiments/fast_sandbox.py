@@ -45,10 +45,16 @@ for _v, _n in (("DB", "calendar.db"), ("MEMORY_DB", "mem.db"),
 os.environ["MACALENDAR_NO_WARMUP"] = "1"
 os.environ["MACALENDAR_OBSERVANCE"] = "0"
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-_S = "DOCUMENTATION/experiments/memory_scaling/output/dummy_3000.db"
-SOURCE = ROOT / _S if (ROOT / _S).exists() else \
-    pathlib.Path("/Users/USER/Desktop/Personal_Projects/MACalendar") / _S
+# `parents[1]` is the STAGE folder (experiments/ -> fastrule/), not the repo
+# root — the trap the per-stage restructure left in several of these files. The
+# source db lives under DOCUMENTATION/, so the path has to climb to the repo
+# root: fastrule/ -> engine/ -> assistant/ -> repo. It used to fall back to a
+# hardcoded absolute path on one developer's machine, which meant this script
+# could only ever run in one checkout and silently pointed outside the worktree
+# in the other three.
+STAGE = pathlib.Path(__file__).resolve().parents[1]
+ROOT = STAGE.parents[2]
+SOURCE = ROOT / "DOCUMENTATION/experiments/memory_scaling/output/dummy_3000.db"
 
 
 def main() -> int:

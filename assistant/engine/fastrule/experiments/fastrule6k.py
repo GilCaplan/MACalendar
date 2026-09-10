@@ -1,7 +1,13 @@
-"""FS1 — score FastRule against its own 6,000-row dataset (all six metrics).
+"""FS1 — score FastRule against its own dataset (all six metrics).
 
     python -m assistant.engine.fastrule.experiments.fastrule6k                # train 4,800: full board + mining
-    python -m assistant.engine.fastrule.experiments.fastrule6k --split test   # test 1,200: AGGREGATES ONLY
+    python -m assistant.engine.fastrule.experiments.fastrule6k --split test   # test 2,400: AGGREGATES ONLY
+
+The NAME says 6k and the set is 7,200 — it grew by 1,200 test-only rows via
+`force_split: "test"`, which is the mechanism for adding held-out coverage
+without disturbing train (train stayed 4,800, and its invariance is asserted
+at generation). The file name is kept because the boards and RESULTS.md refer
+to this one as FS1; renaming it would break more references than it fixes.
 
 Ground truth is by construction (assistant/engine/fastrule/datasets/DATASET.md). Scoring per
 row, against `expect`:

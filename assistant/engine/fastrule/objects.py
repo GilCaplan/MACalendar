@@ -85,12 +85,6 @@ def _get_rule_parser():
     return _rule_parser
 
 
-def reset_parsers() -> None:
-    """Tests swap config; cached parsers must not outlive it."""
-    global _parser, _rule_parser
-    _parser = None
-    _rule_parser = None
-
 
 # A joiner that all but announces a second request. Deliberately much narrower
 # than segment's _COMPOUND_HINT: a plain "and" joins guests and groceries far

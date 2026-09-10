@@ -143,7 +143,27 @@ instead of deferring them" is a result; "53.5" is not.
 ```
 fastrule/
     ARCHITECTURE.md   this file
-    fastrule.py       the system itself
+    PLAN.md           the four-phase restructure (A port · B build+wire · C measure · D stop)
+    fastrule.py       the rule engine: Atomicity, Scorer, FastRule, the DEFER contract
+    objects.py        the per-item build loop, the parser/registry accessors
+    stage.py          the Stage wrapper: X3 -> X4
     datasets/         7,200 rows + the banks that generate them
-    experiments/      fastrule_shape.py · fastrule6k.py · fast_sandbox.py
+    experiments/      fastrule_shape.py (PRIMARY board) · fastrule6k.py (FS1, six
+                      metrics) · fast_sandbox.py (the deterministic fast lane)
 ```
+
+**The generator is NOT here, and that is the bug** — `scripts/gen_fastrule_dataset.py`
+still writes the 7,200 rows, and it still points at the pre-restructure
+`dataset/fastrule/banks/`, so it raises `FileNotFoundError` and the set cannot be
+rebuilt or extended. Moving it to `datasets/generate.py` is phase C's first step;
+see `PLAN.md` §3.
+
+`OBJECTS.md` was removed 2026-09-09. It described the retired `generate` stage
+under that stage's name, was referenced by nothing, and carried its own
+"Status: not yet dug into" — but the reason it had to go rather than be updated
+is that one of its two load-bearing claims had become FALSE: it promised "the
+raw transcript travels alongside the structured input, so no stage can drift".
+X3 deliberately ends the transcript *before* FastRule, precisely so this stage
+has nothing left to re-read. Its other claim (every model call is
+schema-constrained) survives in `DOCUMENTATION/ENGINE.md`, where the model now
+lives.

@@ -118,7 +118,13 @@ def _phrase_to_date(phrase: str, today: "_dt.date") -> "str | None":
 #: an annoyance; a wrong DELETE destroys something they may not get back. The
 #: project already rules that "deleting is destructive" — the metric should
 #: say so too, or the loop has no reason to prefer failing safely.
-_NOW_RE = re.compile(r"\\b(?:right\\s+now|now|immediately|asap)\\b", re.I)
+# NB the escaping: this was written `r"\\b…\\b"` — a raw string with a DOUBLED
+# backslash, so it matched a literal "\b" and never a word boundary. The
+# pattern could not fire, `NOW_N` stayed 0, and `if NOW_N:` meant the whole
+# midnight section below was silently absent from every board this file has
+# ever printed. A metric that cannot report is worse than no metric: it reads
+# as "nothing to see".
+_NOW_RE = re.compile(r"\b(?:right\s+now|now|immediately|asap)\b", re.I)
 
 #: A title that names nothing — the word for a calendar entry rather than a
 #: name for one. Same shape as fastrule's `_GENERIC_TARGET_RE`.
