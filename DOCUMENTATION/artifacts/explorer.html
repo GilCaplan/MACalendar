@@ -173,7 +173,11 @@
     padding: 10px 14px;
     font: 400 11.5px/1.6 'IBM Plex Mono', monospace;
     color: var(--ink);
-    max-width: 380px;
+    /* 380px could not fit BESIDE a vertical arrow on this canvas -- every
+       candidate placement overlapped a stage box, so the ranking below always
+       had to settle for the least-bad one. 300 fits, which lets the tooltip
+       sit clear of the diagram instead of on top of it. */
+    max-width: 300px;
     pointer-events: none;
     opacity: 0;
     transition: opacity .18s;
@@ -526,6 +530,41 @@
   }
 
   /* nav hint */
+  /* THE VIEW SWITCHER. `buildViews()` has always built a button per view, into
+     a nav that was `display:none` with no rule of its own -- so two of the four
+     views the page defines (the loop, the evaluation) and the 22 panels behind
+     them were unreachable by any means. */
+  #views {
+    max-width: 1120px;
+    margin: 14px auto 0;
+    padding: 0 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  #views button {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    font: 500 12px/1 'IBM Plex Mono', monospace;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+
+  #views button:hover {
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  #views button.on {
+    border-color: var(--amber);
+    background: var(--amber-soft);
+    color: var(--amber);
+  }
+
   .hint {
     max-width: 1080px;
     margin: 6px auto 0;
@@ -898,7 +937,7 @@
 </style>
 
 <header>
-  <nav id="views" style="display: none;"></nav>
+  <nav id="views" aria-label="Switch view"></nav>
   <h1>MACalendar Software System</h1>
   <p class="lede">Every command flows through <strong>six stages</strong>. Click any box to see what happens inside.
     Hover an arrow to see the data it carries.</p>
@@ -1198,11 +1237,14 @@
 
       <!-- ====== STAGE 5: LLMJUDGE ====== -->
       <g data-stage="llmjudge" role="button" tabindex="0"
-        aria-label="LLMJudge: answers what FastRule could not build, then extracts what was asked and diffs it against what was produced. The model never judges and never picks the blame.">
+        aria-label="LLMJudge: answers what FastRule could not build, then checks every object field against the words. One model call, and it is asked to quote the supporting words, never for a verdict.">
         <rect class="frame" x="680" y="298" width="280" height="60" rx="8" fill="var(--screen)" stroke="var(--line)"
           stroke-width="1.5" />
         <text x="820" y="322" text-anchor="middle" font-size="11" font-weight="600">LLMJudge</text>
-        <text x="820" y="338" text-anchor="middle" font-size="8" fill="var(--muted)">answer · extract · diff · blame</text>
+        <!-- Re-cut 2026-09-10: the ask EXTRACTION is gone (it re-derived
+             segmentation's answer with a weaker instrument) and with it the
+             blame router. One model call now, per object. -->
+        <text x="820" y="338" text-anchor="middle" font-size="8" fill="var(--muted)">answer · ground · route</text>
       </g>
 
       <!-- arrow: down to COMMIT -->
@@ -1210,17 +1252,24 @@
 
       <!-- ====== STAGE 6: COMMIT + LABEL ====== -->
       <g data-stage="commit_label" role="button" tabindex="0"
-        aria-label="COMMIT + label: the only write to the DB. Category, colour, tags.">
-        <rect class="frame" x="680" y="416" width="280" height="60" rx="8" fill="var(--screen)" stroke="var(--good)"
+        aria-label="COMMIT and label: the only write to the database. An event gets one of thirteen categories and its colour, a task gets its tags — written in the same step as the row, so nothing is ever saved uncategorised.">
+        <rect class="frame" x="680" y="416" width="280" height="72" rx="8" fill="var(--screen)" stroke="var(--good)"
           stroke-width="1.8" />
-        <text x="820" y="440" text-anchor="middle" font-size="11" font-weight="600" fill="var(--good)">COMMIT +
+        <text x="820" y="438" text-anchor="middle" font-size="11" font-weight="600" fill="var(--good)">COMMIT +
           label</text>
-        <text x="820" y="456" text-anchor="middle" font-size="8" fill="var(--muted)">the only write · category · colour
-          · tags</text>
+        <!-- The LABELS were the half this box never showed (Gil, 2026-09-10:
+             "i think its missing labels"). Naming both classifiers matters
+             because they are different problems: an event gets ONE of thirteen
+             categories, a task gets a SET of tags. -->
+        <text x="820" y="453" text-anchor="middle" font-size="8" fill="var(--muted)">the only write — row and label
+          together</text>
+        <text x="820" y="466" text-anchor="middle" font-size="7.5" fill="var(--muted)">event → 1 of 13 categories +
+          colour</text>
+        <text x="820" y="477" text-anchor="middle" font-size="7.5" fill="var(--muted)">task → a set of tags</text>
       </g>
 
       <!-- ====== FAST COMMIT PATH ====== -->
-      <path d="M 960 200 L 990 200 L 990 446 L 960 446" fill="none" stroke="var(--good)" stroke-width="1.8"
+      <path d="M 960 200 L 990 200 L 990 452 L 960 452" fill="none" stroke="var(--good)" stroke-width="1.8"
         marker-end="url(#mg)" />
       <!-- 30px apart, but each label is ~75px long once rotated, so they were
            drawn straight through one another ("confideatMJadgemeditbes after").
@@ -1273,6 +1322,146 @@
         <text x="16" y="54" font-size="8" fill="var(--muted)">A flagged one commits with a note</text>
       </g>
           </g>
+    </svg>
+
+    <svg id="view-loop" class="stage off" viewBox="0 0 1000 560" role="group"
+      aria-label="The improvement loop: six steps that run in a cycle, three guards that bound it, and three things that keep the record.">
+      <g class="world">
+      <text x="30" y="72" font-size="10.5" letter-spacing="1.4" fill="var(--muted)">THE CYCLE · six steps, then round again</text>
+      <g data-panel="backlog" role="button" tabindex="0" aria-label="1 · queue: ranked, not a wish list">
+        <rect class="frame" x="30" y="96" width="140" height="66" rx="8" fill="var(--screen)" stroke="var(--line)" stroke-width="1.5" />
+        <text x="100" y="125" text-anchor="middle" font-size="11" font-weight="600">1 · queue</text>
+        <text x="100" y="141" text-anchor="middle" font-size="8" fill="var(--muted)">ranked, not a wish list</text>
+      </g>
+      <g data-panel="predict" role="button" tabindex="0" aria-label="2 · predict: registered up front">
+        <rect class="frame" x="190" y="96" width="140" height="66" rx="8" fill="var(--screen)" stroke="var(--line)" stroke-width="1.5" />
+        <text x="260" y="125" text-anchor="middle" font-size="11" font-weight="600">2 · predict</text>
+        <text x="260" y="141" text-anchor="middle" font-size="8" fill="var(--muted)">registered up front</text>
+      </g>
+      <g data-panel="change" role="button" tabindex="0" aria-label="3 · change ONE: one component only">
+        <rect class="frame" x="350" y="96" width="140" height="66" rx="8" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.8" />
+        <text x="420" y="125" text-anchor="middle" font-size="11" font-weight="600" fill="var(--amber)">3 · change ONE</text>
+        <text x="420" y="141" text-anchor="middle" font-size="8" fill="var(--muted)">one component only</text>
+      </g>
+      <g data-panel="measure" role="button" tabindex="0" aria-label="4 · measure: the smallest useful slice">
+        <rect class="frame" x="510" y="96" width="140" height="66" rx="8" fill="var(--screen)" stroke="var(--line)" stroke-width="1.5" />
+        <text x="580" y="125" text-anchor="middle" font-size="11" font-weight="600">4 · measure</text>
+        <text x="580" y="141" text-anchor="middle" font-size="8" fill="var(--muted)">the smallest useful slice</text>
+      </g>
+      <g data-panel="compare" role="button" tabindex="0" aria-label="5 · compare: actual against predicted">
+        <rect class="frame" x="670" y="96" width="140" height="66" rx="8" fill="var(--screen)" stroke="var(--line)" stroke-width="1.5" />
+        <text x="740" y="125" text-anchor="middle" font-size="11" font-weight="600">5 · compare</text>
+        <text x="740" y="141" text-anchor="middle" font-size="8" fill="var(--muted)">actual against predicted</text>
+      </g>
+      <g data-panel="bank" role="button" tabindex="0" aria-label="6 · bank it: negatives included">
+        <rect class="frame" x="830" y="96" width="140" height="66" rx="8" fill="var(--screen)" stroke="var(--line)" stroke-width="1.5" />
+        <text x="900" y="125" text-anchor="middle" font-size="11" font-weight="600">6 · bank it</text>
+        <text x="900" y="141" text-anchor="middle" font-size="8" fill="var(--muted)">negatives included</text>
+      </g>
+      <line x1="170" y1="129" x2="218" y2="129" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#mi)" />
+      <line x1="330" y1="129" x2="378" y2="129" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#mi)" />
+      <line x1="490" y1="129" x2="538" y2="129" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#mi)" />
+      <line x1="650" y1="129" x2="698" y2="129" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#mi)" />
+      <line x1="810" y1="129" x2="858" y2="129" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#mi)" />
+      <path d="M 900 162 L 900 200 L 100 200 L 100 164" fill="none" stroke="var(--amber)" stroke-width="1.8"
+        stroke-dasharray="6 4" marker-end="url(#mA)" />
+      <text x="500" y="194" text-anchor="middle" font-size="8" fill="var(--amber)">a cycle ends by starting the next one</text>
+      <text x="30" y="258" font-size="10.5" letter-spacing="1.4" fill="var(--muted)">THE GUARDS · what the loop may not do</text>
+      <g data-panel="seal" role="button" tabindex="0" aria-label="the seal: the half you may never look at">
+        <rect class="frame" x="30" y="276" width="300" height="72" rx="8" fill="var(--screen)" stroke="var(--good)" stroke-width="1.8" />
+        <text x="180" y="308" text-anchor="middle" font-size="11" font-weight="600" fill="var(--good)">the seal</text>
+        <text x="180" y="324" text-anchor="middle" font-size="8" fill="var(--muted)">the half you may never look at</text>
+      </g>
+      <g data-panel="dualgate" role="button" tabindex="0" aria-label="dual gate: it has to win twice">
+        <rect class="frame" x="350" y="276" width="300" height="72" rx="8" fill="var(--screen)" stroke="var(--good)" stroke-width="1.8" />
+        <text x="500" y="308" text-anchor="middle" font-size="11" font-weight="600" fill="var(--good)">dual gate</text>
+        <text x="500" y="324" text-anchor="middle" font-size="8" fill="var(--muted)">it has to win twice</text>
+      </g>
+      <g data-panel="designline" role="button" tabindex="0" aria-label="design line: implementation, or design?">
+        <rect class="frame" x="670" y="276" width="300" height="72" rx="8" fill="var(--screen)" stroke="var(--good)" stroke-width="1.8" />
+        <text x="820" y="308" text-anchor="middle" font-size="11" font-weight="600" fill="var(--good)">design line</text>
+        <text x="820" y="324" text-anchor="middle" font-size="8" fill="var(--muted)">implementation, or design?</text>
+      </g>
+      <text x="30" y="404" font-size="10.5" letter-spacing="1.4" fill="var(--muted)">THE RECORD · why a number can be trusted later</text>
+      <g data-panel="instruments" role="button" tabindex="0" aria-label="instruments: four, and one outranks them">
+        <rect class="frame" x="30" y="422" width="300" height="72" rx="8" fill="var(--screen)" stroke="var(--line)" stroke-width="1.5" />
+        <text x="180" y="454" text-anchor="middle" font-size="11" font-weight="600">instruments</text>
+        <text x="180" y="470" text-anchor="middle" font-size="8" fill="var(--muted)">four, and one outranks them</text>
+      </g>
+      <g data-panel="negatives" role="button" tabindex="0" aria-label="negatives: a negative is a result">
+        <rect class="frame" x="350" y="422" width="300" height="72" rx="8" fill="var(--screen)" stroke="var(--line)" stroke-width="1.5" />
+        <text x="500" y="454" text-anchor="middle" font-size="11" font-weight="600">negatives</text>
+        <text x="500" y="470" text-anchor="middle" font-size="8" fill="var(--muted)">a negative is a result</text>
+      </g>
+      <g data-panel="eras" role="button" tabindex="0" aria-label="eras: history kept, comparisons reset">
+        <rect class="frame" x="670" y="422" width="300" height="72" rx="8" fill="var(--screen)" stroke="var(--line)" stroke-width="1.5" />
+        <text x="820" y="454" text-anchor="middle" font-size="11" font-weight="600">eras</text>
+        <text x="820" y="470" text-anchor="middle" font-size="8" fill="var(--muted)">history kept, comparisons reset</text>
+      </g>
+      </g>
+    </svg>
+
+    <svg id="view-eval" class="stage off" viewBox="0 0 1000 560" role="group"
+      aria-label="The evaluation: five boards from the whole engine down to real usage, the three datasets that feed them, and two ideas that cut across all of it.">
+      <g class="world">
+      <text x="40" y="72" font-size="10.5" letter-spacing="1.4" fill="var(--muted)">THE FIVE BOARDS · each answers a different question</text>
+      <g data-panel="lvl1" role="button" tabindex="0" aria-label="1 · engine: the whole command, end to end">
+        <rect class="frame" x="40" y="90" width="340" height="58" rx="8" fill="var(--screen)" stroke="var(--line)" stroke-width="1.5" />
+        <text x="210" y="115" text-anchor="middle" font-size="11" font-weight="600">1 · engine</text>
+        <text x="210" y="131" text-anchor="middle" font-size="8" fill="var(--muted)">the whole command, end to end</text>
+      </g>
+      <g data-panel="lvl2" role="button" tabindex="0" aria-label="2 · FastRule: measured by what it is FOR">
+        <rect class="frame" x="40" y="158" width="340" height="58" rx="8" fill="var(--screen)" stroke="var(--line)" stroke-width="1.5" />
+        <text x="210" y="183" text-anchor="middle" font-size="11" font-weight="600">2 · FastRule</text>
+        <text x="210" y="199" text-anchor="middle" font-size="8" fill="var(--muted)">measured by what it is FOR</text>
+      </g>
+      <g data-panel="lvl3" role="button" tabindex="0" aria-label="3 · classifiers: atomicity · operation · kind">
+        <rect class="frame" x="40" y="226" width="340" height="58" rx="8" fill="var(--screen)" stroke="var(--line)" stroke-width="1.5" />
+        <text x="210" y="251" text-anchor="middle" font-size="11" font-weight="600">3 · classifiers</text>
+        <text x="210" y="267" text-anchor="middle" font-size="8" fill="var(--muted)">atomicity · operation · kind</text>
+      </g>
+      <g data-panel="lvl4" role="button" tabindex="0" aria-label="4 · speakers: and the spread between them">
+        <rect class="frame" x="40" y="294" width="340" height="58" rx="8" fill="var(--screen)" stroke="var(--line)" stroke-width="1.5" />
+        <text x="210" y="319" text-anchor="middle" font-size="11" font-weight="600">4 · speakers</text>
+        <text x="210" y="335" text-anchor="middle" font-size="8" fill="var(--muted)">and the spread between them</text>
+      </g>
+      <g data-panel="lvl5" role="button" tabindex="0" aria-label="5 · real usage: the outer gate — outranks the rest">
+        <rect class="frame" x="40" y="362" width="340" height="58" rx="8" fill="var(--screen)" stroke="var(--good)" stroke-width="1.8" />
+        <text x="210" y="387" text-anchor="middle" font-size="11" font-weight="600" fill="var(--good)">5 · real usage</text>
+        <text x="210" y="403" text-anchor="middle" font-size="8" fill="var(--muted)">the outer gate — outranks the rest</text>
+      </g>
+      <text x="560" y="72" font-size="10.5" letter-spacing="1.4" fill="var(--muted)">THE DATA · three sources, three roles</text>
+      <g data-panel="poolset" role="button" tabindex="0" aria-label="the pool: 3,000 real utterances">
+        <rect class="frame" x="560" y="90" width="380" height="62" rx="8" fill="var(--screen)" stroke="var(--line)" stroke-width="1.5" />
+        <text x="750" y="117" text-anchor="middle" font-size="11" font-weight="600">the pool</text>
+        <text x="750" y="133" text-anchor="middle" font-size="8" fill="var(--muted)">3,000 real utterances</text>
+      </g>
+      <g data-panel="fastset" role="button" tabindex="0" aria-label="generated: 7,200 rows, gold by construction">
+        <rect class="frame" x="560" y="170" width="380" height="62" rx="8" fill="var(--screen)" stroke="var(--line)" stroke-width="1.5" />
+        <text x="750" y="197" text-anchor="middle" font-size="11" font-weight="600">generated</text>
+        <text x="750" y="213" text-anchor="middle" font-size="8" fill="var(--muted)">7,200 rows, gold by construction</text>
+      </g>
+      <g data-panel="personaset" role="button" tabindex="0" aria-label="personas: six invented speakers">
+        <rect class="frame" x="560" y="250" width="380" height="62" rx="8" fill="var(--screen)" stroke="var(--line)" stroke-width="1.5" />
+        <text x="750" y="277" text-anchor="middle" font-size="11" font-weight="600">personas</text>
+        <text x="750" y="293" text-anchor="middle" font-size="8" fill="var(--muted)">six invented speakers</text>
+      </g>
+      <path d="M 560 121 L 480 121 L 480 250 L 392 250" fill="none" stroke="var(--muted)" stroke-width="1.4" marker-end="url(#mi)" />
+      <path d="M 560 201 L 480 201" fill="none" stroke="var(--muted)" stroke-width="1.4" />
+      <path d="M 560 281 L 480 281 L 480 250" fill="none" stroke="var(--muted)" stroke-width="1.4" />
+      <text x="436" y="242" text-anchor="middle" font-size="8" fill="var(--muted)">feed</text>
+      <text x="560" y="404" font-size="10.5" letter-spacing="1.4" fill="var(--muted)">AND TWO THAT CUT ACROSS ALL OF IT</text>
+            <g data-panel="unify" role="button" tabindex="0" aria-label="one pair: two questions, four grains">
+        <rect class="frame" x="560" y="422" width="185" height="62" rx="8" fill="var(--screen)" stroke="var(--line)" stroke-width="1.5" />
+        <text x="652" y="449" text-anchor="middle" font-size="11" font-weight="600">one pair</text>
+        <text x="652" y="465" text-anchor="middle" font-size="8" fill="var(--muted)">two questions, four grains</text>
+      </g>
+      <g data-panel="notpr" role="button" tabindex="0" aria-label="the three: where P/R cannot reach">
+        <rect class="frame" x="755" y="422" width="185" height="62" rx="8" fill="var(--screen)" stroke="var(--line)" stroke-width="1.5" />
+        <text x="848" y="449" text-anchor="middle" font-size="11" font-weight="600">the three</text>
+        <text x="848" y="465" text-anchor="middle" font-size="8" fill="var(--muted)">where P/R cannot reach</text>
+      </g>
+      </g>
     </svg>
 
     <!-- ============ DRILLDOWN 2 CONTAINER ============ -->
@@ -1369,8 +1558,9 @@
       asked only about the pieces the rules could not read, grounded on that piece's own words.</li>
       <li><strong>Check the fields.</strong> Ten named rules run on the finished objects &mdash; and
       the observance gate, on what the assistant itself books.</li>
-      <li><strong>Judge.</strong> The model lists what the raw words asked for; code diffs that against
-      what was produced and re-runs the stage that lost something.</li>
+      <li><strong>Judge.</strong> Every field of every object is traced back to your words &mdash; the when
+      in code, the subject by asking the model to quote it. What checks out commits; what names something
+      you never said is reworded and re-parsed, at most three times.</li>
       <li><strong>Commit, label, answer</strong> &mdash; and remember the command with what it produced.</li>
     </ol>
 
@@ -2201,43 +2391,76 @@ series_id   NULL
     crosscheck: {
       view: "engine", tag: "stage 6", name: "crosscheck", rl: "6 crosscheck", title: "crosscheck — the judge",
       z: [820, 328, 2.0],
-      sum: `<p>The model is asked what your <em>words</em> asked for — never &ldquo;were you right?&rdquo;. Code diffs that list against what was produced, and a fixed map decides which stage runs again.</p>
-    <p class="figs">extraction, not self-grading · the model never picks the stage to blame</p>`,
-      more: `<svg viewBox="0 0 380 210" role="img" aria-label="A cycle: the model extracts the asks, code diffs them against what was produced, a fixed map blames a stage, that stage re-runs — at most three times, after which the last parse is judged and committed anyway.">
-      <rect x="20" y="10" width="150" height="38" rx="4" fill="var(--screen)" stroke="var(--model)"/>
-      <text x="95" y="26" text-anchor="middle" font-size="8" font-weight="600" fill="var(--model)">1 · EXTRACT</text>
-      <text x="95" y="38" text-anchor="middle" font-size="6.8" fill="var(--muted)">the model lists the asks</text>
-      <rect x="210" y="10" width="150" height="38" rx="4" fill="var(--screen)" stroke="var(--line)"/>
-      <text x="285" y="26" text-anchor="middle" font-size="8" font-weight="600">2 · DIFF</text>
-      <text x="285" y="38" text-anchor="middle" font-size="6.8" fill="var(--muted)">code compares, not the model</text>
-      <rect x="210" y="100" width="150" height="38" rx="4" fill="var(--screen)" stroke="var(--line)"/>
-      <text x="285" y="116" text-anchor="middle" font-size="8" font-weight="600">3 · BLAME</text>
-      <text x="285" y="128" text-anchor="middle" font-size="6.8" fill="var(--muted)">a fixed map picks the stage</text>
-      <rect x="20" y="100" width="150" height="38" rx="4" fill="var(--screen)" stroke="var(--amber)"/>
-      <text x="95" y="116" text-anchor="middle" font-size="8" font-weight="600" fill="var(--amber)">4 · RE-RUN</text>
-      <text x="95" y="128" text-anchor="middle" font-size="6.8" fill="var(--muted)">that stage, mistake in hand</text>
+      sum: `<p>Every object is checked against your <em>words</em>, field by field. The model is asked to quote the words behind a field &mdash; never &ldquo;were you right?&rdquo; &mdash; and code turns the answers into a verdict.</p>
+    <p class="figs">quoting, not self-grading · the model never decides what commits</p>`,
+      more: `<svg viewBox="0 0 380 220" role="img" aria-label="Each object's fields are checked: the date and time deterministically against what decompose_validate resolved, the title by asking the model to quote the words behind it. Three outcomes follow: commit, rewrite the failed ask and try again, or send it to the review panel.">
+      <rect x="20" y="8" width="150" height="42" rx="4" fill="var(--screen)" stroke="var(--line)"/>
+      <text x="95" y="24" text-anchor="middle" font-size="8" font-weight="600">1 &middot; THE WHEN</text>
+      <text x="95" y="35" text-anchor="middle" font-size="6.6" fill="var(--muted)">checked in code, no model:</text>
+      <text x="95" y="45" text-anchor="middle" font-size="6.6" fill="var(--muted)">did the words give a date?</text>
+      <rect x="210" y="8" width="150" height="42" rx="4" fill="var(--screen)" stroke="var(--model)"/>
+      <text x="285" y="24" text-anchor="middle" font-size="8" font-weight="600" fill="var(--model)">2 &middot; THE SUBJECT</text>
+      <text x="285" y="35" text-anchor="middle" font-size="6.6" fill="var(--muted)">the model quotes the words</text>
+      <text x="285" y="45" text-anchor="middle" font-size="6.6" fill="var(--muted)">behind the title, or says none</text>
       <path d="M 172 29 L 206 29" fill="none" stroke="var(--muted)" marker-end="url(#mi)"/>
-      <path d="M 285 50 L 285 96" fill="none" stroke="var(--muted)" marker-end="url(#mi)"/>
-      <path d="M 206 119 L 174 119" fill="none" stroke="var(--muted)" marker-end="url(#mi)"/>
-      <path d="M 95 96 L 95 52" fill="none" stroke="var(--amber)" stroke-width="1.4" marker-end="url(#ma)"/>
-      <text x="190" y="78" text-anchor="middle" font-size="7.5" font-weight="600" fill="var(--amber)">at most 3 re-entries</text>
-      <path d="M 285 140 L 285 156" fill="none" stroke="var(--muted)" stroke-dasharray="3 2" marker-end="url(#mi)"/>
-      <rect x="20" y="158" width="340" height="34" rx="4" fill="none" stroke="var(--line)" stroke-dasharray="4 3"/>
-      <text x="190" y="174" text-anchor="middle" font-size="7.5" font-weight="600">budget spent</text>
-      <text x="190" y="186" text-anchor="middle" font-size="7" fill="var(--muted)">the last parse is judged anyway, committed, and the reply says so</text>
+      <path d="M 95 52 L 95 74" fill="none" stroke="var(--muted)" marker-end="url(#mi)"/>
+      <path d="M 285 52 L 285 74" fill="none" stroke="var(--muted)" marker-end="url(#mi)"/>
+      <rect x="20" y="76" width="340" height="28" rx="4" fill="var(--screen)" stroke="var(--line)"/>
+      <text x="190" y="94" text-anchor="middle" font-size="8" font-weight="600">3 &middot; ROUTE &mdash; a fixed table, one row per kind of fault</text>
+      <rect x="20" y="126" width="105" height="44" rx="4" fill="var(--screen)" stroke="var(--good)"/>
+      <text x="72" y="142" text-anchor="middle" font-size="7.5" font-weight="600" fill="var(--good)">COMMIT</text>
+      <text x="72" y="153" text-anchor="middle" font-size="6.5" fill="var(--muted)">every field traced</text>
+      <text x="72" y="163" text-anchor="middle" font-size="6.5" fill="var(--muted)">back to the words</text>
+      <rect x="137" y="126" width="105" height="44" rx="4" fill="var(--screen)" stroke="var(--amber)"/>
+      <text x="190" y="142" text-anchor="middle" font-size="7.5" font-weight="600" fill="var(--amber)">REWRITE</text>
+      <text x="190" y="153" text-anchor="middle" font-size="6.5" fill="var(--muted)">the subject is not</text>
+      <text x="190" y="163" text-anchor="middle" font-size="6.5" fill="var(--muted)">in your words &rarr; X1&#39;</text>
+      <rect x="254" y="126" width="106" height="44" rx="4" fill="var(--screen)" stroke="var(--line)"/>
+      <text x="307" y="142" text-anchor="middle" font-size="7.5" font-weight="600">PANEL</text>
+      <text x="307" y="153" text-anchor="middle" font-size="6.5" fill="var(--muted)">nothing here was</text>
+      <text x="307" y="163" text-anchor="middle" font-size="6.5" fill="var(--muted)">asked for at all</text>
+      <path d="M 120 106 L 90 122" fill="none" stroke="var(--good)" marker-end="url(#mg)"/>
+      <path d="M 190 106 L 190 122" fill="none" stroke="var(--amber)" marker-end="url(#ma)"/>
+      <path d="M 260 106 L 292 122" fill="none" stroke="var(--muted)" marker-end="url(#mi)"/>
+      <text x="190" y="188" text-anchor="middle" font-size="7.5" font-weight="600" fill="var(--amber)">a rewrite is tried at most three times</text>
+      <text x="190" y="202" text-anchor="middle" font-size="7" fill="var(--muted)">a value the words never gave commits anyway &mdash; and the reply says what was assumed</text>
+      <text x="190" y="214" text-anchor="middle" font-size="7" fill="var(--muted)">only the good objects are re-parsed &mdash; the rest are kept, so nothing is built twice</text>
     </svg>
-    <figcaption>Small local models extract far more reliably than they judge, so the check is built from the job they are good at. A finding re-runs the stage that lost it, with the mistake quoted into that stage's own prompt, at most three times per command.</figcaption>
+    <figcaption>Small local models quote far more reliably than they judge, so the check is built from the job they are good at. Asked whether an object is <em>correct</em>, an 8B says yes; asked which of your words produced its title, it either points at them or admits it cannot.</figcaption>
+    <p>The date and the time never reach the model at all. A calendar object is stamped with today&rsquo;s date
+    the moment it exists, so asking whether the words support it would flag every correct event that happens
+    to be today &mdash; the honest record is what the stage before resolved, and that is read directly.</p>
+    <p>Only one kind of fault earns a retry. A rewrite cannot invent a time nobody said, so that one commits
+    with a note instead of looping; an object nothing asked for is not made real by parsing it again. This is
+    what stops a command spending thirty seconds re-reading itself to the same answer.</p>
     <p>Behind a fast answer the same check runs as a verifier, and its patches are <em>tiered</em>: renaming
-    a placeholder title is applied silently, while adding or removing something you can see is proposed
-    rather than done. Measured caution — an earlier always-on checker proposed dozens of changes and fixed
-    none of them. When a removal <em>is</em> applied, the row is captured first so one tap puts it back.</p>`
+    a placeholder title is applied silently, while removing something you can see is proposed rather than
+    done. Measured caution &mdash; an earlier always-on checker proposed dozens of changes and fixed none of
+    them. When a removal <em>is</em> applied, the row is captured first so one tap puts it back.</p>`
     },
     commit: {
       view: "engine", tag: "the only write", name: "commit", rl: "commit", title: "commit — the only write",
       z: [820, 446, 2.0],
       sum: `<p>The single place the engine touches the database, and it goes through the same action classes the calendar window uses. Everything upstream produces intents; only this executes them.</p>
     <p class="figs">a blocked item is refused out loud · guessing is never the answer</p>`,
-      more: `<p>Three honest outcomes it will not paper over:</p>
+      more: `<h3>The label is written with the row, not after it</h3>
+    <p>An <strong>event</strong> gets one of thirteen categories and the colour that goes with it; a
+    <strong>task</strong> gets a set of tags. Both are decided in the same step as the write, so a row is
+    never saved uncategorised &mdash; there is no window in which one exists without its label.</p>
+    <p>The two are different problems, which is why they have different machinery. A category is a single
+    choice out of thirteen. Tags are a <em>set</em>: a task can be groceries and an errand at once, and
+    answering with only the strongest one would quietly drop the other.</p>
+    <p>Both are keyword scoring today, and both are getting a learned classifier &mdash; measured, and
+    shipped behind a switch that is off by default. The models do not replace the rules: a keyword match is
+    nearly always right when it fires and rarely fires, so the rules answer first and keep that precision,
+    and the model only fills a row they had no opinion about. On vocabulary the training never saw, the
+    learned event classifier reads 49% against the rules&rsquo; 33%; across six synthetic speakers it is
+    roughly three times more even-handed than the keyword lists, which serve whoever wrote them best.</p>
+    <p>Nothing about a person&rsquo;s corrections leaves their machine. The shipped model is fitted on
+    generated vocabulary belonging to nobody; a second, personal one is fitted on top of it from the labels
+    that person has actually changed &mdash; and only the ones they changed, because a label nobody
+    objected to is not agreement, and training on it would teach the model its own output.</p>
+    <h3>Three honest outcomes it will not paper over</h3>
     <ul>
       <li>A <strong>blocked</strong> item — one the observance gate refused — is reported with its reason,
       never silently dropped.</li>
@@ -3119,11 +3342,88 @@ series_id   NULL
       "</span><span class=\"tip-explain\">" + d[2] +
       "</span><code class=\"tip-ex\">" + d[3] + "</code>";
     atip.classList.add("show");
+
+    /* MEASURE FROM A KNOWN POSITION FIRST.
+       This used to read offsetWidth/offsetHeight while the tooltip was still
+       wherever the previous hover left it. Its width is content-driven up to
+       max-width, so a stale position meant a stale wrap, a stale HEIGHT, and a
+       placement computed from a box that no longer existed once it moved --
+       which is why the "does it fit above?" test kept failing and every tip
+       dropped BELOW its arrow, on top of the next stage box. */
+    atip.style.left = "0px";
+    atip.style.top = "0px";
+    const tw = atip.offsetWidth, th = atip.offsetHeight;
+
     const r = g.getBoundingClientRect(), w = wrap.getBoundingClientRect();
-    let x = r.left - w.left + r.width / 2 - atip.offsetWidth / 2;
-    x = Math.max(8, Math.min(x, w.width - atip.offsetWidth - 8));
-    let y = r.top - w.top - atip.offsetHeight - 10;
-    if (y < 0) y = r.bottom - w.top + 10;
+    const ax = r.left - w.left, ay = r.top - w.top;
+    const clampX = v => Math.max(8, Math.min(v, w.width - tw - 8));
+    const clampY = v => Math.max(8, Math.min(v, w.height - th - 8));
+    let x, y;
+
+    /* PICK THE FIRST PLACEMENT THAT DOES NOT COVER A STAGE BOX.
+       A fixed rule cannot work in a diagram this dense: above and below a
+       VERTICAL arrow are exactly where the two boxes it joins are drawn (X3's
+       tip hid FastRule completely), and beside a horizontal one is where the
+       next stage sits. So the candidates are ranked and the first clean one
+       wins; if none is clean the least-overlapping is used, which is still
+       strictly better than always choosing the same wrong side. */
+    const boxes = Array.from(
+      wrap.querySelectorAll("[data-stage] .frame, [data-stage] rect, .stagebox"))
+      .map(el => {
+        const b = el.getBoundingClientRect();
+        return {l: b.left - w.left, t: b.top - w.top, r: b.right - w.left,
+                b: b.bottom - w.top};
+      });
+    const overlap = (px, py) => boxes.reduce((sum, bx) => {
+      const ox = Math.max(0, Math.min(px + tw, bx.r) - Math.max(px, bx.l));
+      const oy = Math.max(0, Math.min(py + th, bx.b) - Math.max(py, bx.t));
+      return sum + ox * oy;
+    }, 0);
+
+    const vertical = r.height > r.width;
+    const cands = vertical
+      ? [[ax + r.width + 14, ay + r.height / 2 - th / 2],
+         [ax - tw - 14,      ay + r.height / 2 - th / 2],
+         [ax + r.width + 14, ay - th - 10],
+         [ax - tw - 14,      ay - th - 10],
+         [ax + r.width + 14, ay + r.height + 10],
+         [ax - tw - 14,      ay + r.height + 10]]
+      : [[ax + r.width / 2 - tw / 2, ay - th - 10],
+         [ax + r.width / 2 - tw / 2, ay + r.height + 10],
+         [ax + r.width + 14,         ay + r.height / 2 - th / 2],
+         [ax - tw - 14,              ay + r.height / 2 - th / 2]];
+
+    let best = null, bestScore = Infinity;
+    for (const [cx, cy] of cands) {
+      const px = clampX(cx), py = clampY(cy);
+      const score = overlap(px, py);
+      if (score === 0) { best = [px, py]; bestScore = 0; break; }
+      if (score < bestScore) { best = [px, py]; bestScore = score; }
+    }
+
+    /* NOTHING FIT: SLIDE UNTIL IT DOES.
+       On the top row there is no room above the arrow and the boxes sit
+       immediately below it, so every candidate overlaps something and the
+       tooltip clipped two stages whichever one won. Sliding the best candidate
+       along the free axis — away from the arrow, in 16px steps — finds the gap
+       the fixed positions cannot express. It stays as close to its arrow as the
+       diagram allows, which is the property that matters for a tooltip. */
+    if (bestScore > 0) {
+      const step = 16, limit = 24;
+      const along = vertical ? "x" : "y";
+      for (const dir of [1, -1]) {
+        let px = best[0], py = best[1];
+        for (let i = 1; i <= limit; i++) {
+          if (along === "y") py = clampY(best[1] + dir * step * i);
+          else px = clampX(best[0] + dir * step * i);
+          const score = overlap(px, py);
+          if (score === 0) { best = [px, py]; bestScore = 0; break; }
+        }
+        if (bestScore === 0) break;
+      }
+    }
+    x = best[0]; y = best[1];
+
     atip.style.left = x + "px";
     atip.style.top = y + "px";
   }
