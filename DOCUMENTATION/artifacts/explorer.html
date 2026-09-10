@@ -618,6 +618,62 @@
     color: var(--ink);
   }
 
+  /* #pfull sits beside #pclose and had no rule of its own, so it inherited
+     the browser's default button chrome next to a styled one. */
+  #pfull {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font: 13px/1 sans-serif;
+    cursor: pointer;
+    margin-right: 2px;
+  }
+
+  #pfull:hover {
+    background: var(--panel);
+    color: var(--amber);
+  }
+
+  /* THE STEP-THROUGH NAV had no styling at all -- three default buttons on a
+     bare strip, in the sidebar as well as in full mode. It is the only way to
+     walk the components in order, so it should look like a control. */
+  .pnav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--line);
+  }
+
+  .pnav button {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 7px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    font: 500 11.5px/1.2 'IBM Plex Mono', monospace;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pnav button:hover {
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  .pnav #phome {
+    flex: 0 0 auto;
+    width: 34px;
+    text-align: center;
+  }
+
   #pbody {
     padding: 16px 14px;
     overflow-y: auto;
@@ -671,6 +727,128 @@
 
   .morebtn:hover {
     background: var(--amber-soft);
+  }
+
+  /* ---------------------------------------------------------------------
+     A PAGE DEEPER, not a taller column.
+
+     `showMore()` has always added `.full`, and `#pfull` has always toggled
+     it -- but no rule for it was ever written, so "full detail" left the
+     reader in the same 340px sidebar with a 380-wide diagram squeezed into
+     it. The sub-component figures are the whole point of going deeper and
+     they were the least readable thing on the page.
+
+     Full mode is now a real page: it leaves the stage behind entirely,
+     centres one column at a comfortable measure, and gives the figures room
+     to be read.
+     --------------------------------------------------------------------- */
+  #panel.full {
+    position: fixed;
+    inset: 0;
+    width: auto;
+    max-width: none;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    z-index: 60;
+    background: var(--bg);
+    animation: fadeUp .22s cubic-bezier(.22, .85, .3, 1);
+  }
+
+  #panel.full .pbar {
+    position: sticky;
+    top: 0;
+    background: var(--screen);
+    padding: 14px clamp(16px, 5vw, 48px);
+    z-index: 2;
+  }
+
+  #panel.full #pbody {
+    padding: 30px clamp(16px, 5vw, 48px) 64px;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  /* one column, at a measure that is actually comfortable to read */
+  #panel.full #pbody > * {
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  #panel.full .pnav {
+    position: sticky;
+    bottom: 0;
+    background: var(--screen);
+    justify-content: center;
+    padding: 12px clamp(16px, 5vw, 48px);
+  }
+
+  #panel.full .pnav button {
+    flex: 0 1 auto;
+    max-width: 280px;
+    font-size: 12.5px;
+    padding: 8px 16px;
+  }
+
+  /* THE FIGURES. They carry a viewBox and no width, so without this they
+     render at whatever the box happens to be -- which in the sidebar was
+     unreadably small. */
+  #pbody svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 4px auto 10px;
+  }
+
+  #panel.full #pbody svg {
+    max-width: 760px;
+  }
+
+  #pbody figcaption {
+    font: 400 11.5px/1.5 'IBM Plex Mono', monospace;
+    color: var(--muted);
+    border-left: 2px solid var(--line);
+    padding-left: 10px;
+    margin: 0 0 16px;
+  }
+
+  #panel.full #pbody figcaption {
+    font-size: 12px;
+  }
+
+  #pbody h3 {
+    font: 600 13px/1.4 'IBM Plex Mono', monospace;
+    color: var(--amber);
+    margin: 18px 0 8px;
+  }
+
+  #panel.full #pbody h3 {
+    font-size: 14.5px;
+  }
+
+  #pbody pre {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 12px;
+    overflow-x: auto;
+    font: 12px/1.5 'IBM Plex Mono', monospace;
+  }
+
+  #pbody table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 12.5px;
+    margin: 0 0 14px;
+  }
+
+  #pbody th,
+  #pbody td {
+    border-bottom: 1px solid var(--line);
+    padding: 5px 8px;
+    text-align: left;
+    vertical-align: top;
   }
 </style>
 
@@ -2595,6 +2773,10 @@ series_id   NULL
     if (m) { m.hidden = false; }
     if (b) { b.remove(); }
     panel.classList.add("full");
+    // the drawing is fully covered now; leaving it zoomed just means a
+    // lurch when the reader comes back out
+    resetWorld(view);
+    pbody.scrollTop = 0;
   }
   function close() {
     cur = null;
