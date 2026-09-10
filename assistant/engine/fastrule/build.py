@@ -168,7 +168,13 @@ _LEAD_VERB = re.compile(
     re.I)
 #: "a call with Jesse" -> "call with Jesse". One word, and it was costing the
 #: whole attendee class: the rest of the title was already right.
-_LEAD_ARTICLE = re.compile(r"^\s*(?:a|an|the)\s+", re.I)
+#:
+#: ONLY "a"/"an", never "the"/"my"/"our" — measured, not assumed. Across the
+#: 7,200's train half NO gold title begins with "a" or "an" (0 of 6,216) while
+#: 177 begin with "the", "my" or "our": "the release date", "my whole day".
+#: The first cut stripped "the" as well, which reads as tidier and would have
+#: broken up to 130 rows that were already right.
+_LEAD_ARTICLE = re.compile(r"^\s*(?:an?)\s+", re.I)
 _TRAILING_FILLER = re.compile(
     r"\s+(?:please|thanks|thank you)\s*$", re.I)
 #: "an appointment for X", "an event for X" — the noun is the parser's word for
@@ -196,8 +202,15 @@ def _title_from_words(text: str) -> str:
 #: for one. A DEFER here is a REFUSAL, not an incapacity: the reading is correct
 #: and must not execute as stated, and the model may resolve it to a real title.
 _NAMES_NOTHING = re.compile(
-    r"^(?:an?|the)?\s*(?:event|reminder|appointment|task|todo|to-do|item|"
-    r"thing|meeting|entry|calendar|whole calendar|it|that|this|one)s?\s*$", re.I)
+    r"^(?:an?|the|my)?\s*(?:event|reminder|appointment|task|todo|to-do|item|"
+    r"thing|meeting|entry|calendar|whole calendar|marker|note|block|slot|"
+    # PRONOUNS NAME NOTHING EITHER, and leaving them out was a live regression:
+    # the container rule below reads the tail of "can you set an event for me"
+    # and happily titled the event 'me'. The guarded case is the point of
+    # test_no_grounded_when_stays_unknown -- a literal ask with no real subject
+    # must stay unknown rather than become a plausible-looking event.
+    r"me|you|us|him|her|them|myself|yourself|ourselves|"
+    r"it|that|this|one)s?\s*$", re.I)
 
 
 #: Heads that NAME AN INTERACTION, so the person is part of what the thing IS
@@ -211,6 +224,9 @@ _INTERACTION_HEAD = {
     "chat", "coffee", "lunch", "dinner", "drinks", "sync",     # same class
     "one on one", "1:1", "check in", "interview",
 }
+
+#: "… for blood test", "… for the release date" — what the entry is FOR.
+_FOR_TAIL = re.compile(r"\bfor\s+(.{2,60})$", re.I)
 
 #: "… with Morgan", "… with Jamie and Rowan" — the people, not the event.
 _ATTENDEE_ONLY = re.compile(r"\bwith\s+([A-Z][A-Za-z]*(?:\s+and\s+[A-Z][A-Za-z]*)*)")
@@ -254,6 +270,24 @@ def _read_action_words(item: Item, parser) -> tuple:
     # came back titled 'morgan'; "schedule conference call with Jesse" titled
     # 'jesse'. 244 train rows carry a "with <Name>" and the parser does this on
     # 142 of them.
+    # A CONTAINER IS NOT A TITLE EITHER. "create an event for staff meeting"
+    # comes back titled 'event'; "put a marker on for the release date" titled
+    # 'marker'; "block my whole calendar for blood test" titled 'whole
+    # calendar'. In every one the sentence names the KIND OF ENTRY and then
+    # says what it is FOR — and the thing after "for" is the title. 71 train
+    # rows are shaped this way.
+    #
+    # This is the attendee rule's twin: refuse a title that names the container
+    # rather than the contents. Both used to end as a `generic-title` DEFER, so
+    # this turns a refusal into a correct object rather than trading one error
+    # for another.
+    if title and _NAMES_NOTHING.match(title):
+        for_m = _FOR_TAIL.search(item.text or "")
+        if for_m:
+            inner = _title_from_words(for_m.group(1))
+            if inner and not _NAMES_NOTHING.match(inner):
+                title = inner
+
     m = _ATTENDEE_ONLY.search(item.text or "")
     if title and m and title.lower() in {
             w.strip(" ,").lower() for w in re.split(r"\s+and\s+|,", m.group(1))}:

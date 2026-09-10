@@ -570,3 +570,79 @@ truncation (the parser dropping a task's own leading verb) and segmentation
 leaving stray words in the action. And the 115 withheld target-taking builds are
 the largest single block of unrealised reach; lifting that needs the store check,
 which is LLMJudge's.
+
+---
+
+## Title batch 2 — the container rule, and two measured guesses — 2026-09-10
+
+Same lane as before: 1,200 atomic TRAIN rows, converter only, **sound input
+only** (1,018 of 1,200; the other 182 are attributed upstream).
+
+| | start of session | batch 1 | **batch 2** |
+|---|---:|---:|---:|
+| operation right | 95.0% | 95.5% | **95.5%** |
+| **title right** | 60.9% | 67.2% | **69.7%** |
+| correct-on-handled | 60.6% | 67.1% | **69.6%** |
+| handled | 63.9% | 63.9% | 63.9% |
+
+**Nine points of correctness on the same number of objects.** `handled` is flat
+by design — this batch fixed titles and refused inventions in equal measure, and
+the pair is reported together precisely so that trade is visible.
+
+### The container rule — the attendee rule's twin
+
+`"create an event for staff meeting"` came back titled `'event'`; `"put a marker
+on for the release date"` titled `'marker'`; `"block my whole calendar for blood
+test"` titled `'whole calendar'`. In every case the sentence names **the kind of
+entry** and then says what it is **for**. 71 train rows are shaped this way.
+
+Both this and the attendee case are the same defect — *a title that names the
+container rather than the contents* — and both previously ended as a
+`generic-title` DEFER, so fixing them turns a refusal into a correct object
+rather than trading one error for another.
+
+### Two guesses, both caught by measuring instead of asserting
+
+**1 · The article strip was too broad, and would have broken 130 rows.**
+Batch 1 stripped a leading `a|an|the`. Reading the corpus instead of the rule:
+
+    gold titles starting "a" or "an"        0 of 6,216
+    gold titles starting "the"/"my"/"our"   177
+
+So `"the release date"` and `"my whole day"` ARE the titles. Narrowed to `a|an`.
+Stripping "the" reads as tidier and is simply wrong here.
+
+**2 · The container rule invented an event, and a test caught it.**
+`"can you set an event for me"` has a `for` tail, so the first cut titled the
+event `'me'` and built it — exactly the invention
+`test_no_grounded_when_stays_unknown` exists to prevent ("a literal ask with no
+grounded when stays unknown; a guessed event is worse than none"). Pronouns now
+name nothing, alongside the container nouns.
+
+That fix **lowered `handled` 65.1% → 63.9% and raised correct-on-handled 68.3% →
+69.6%** — twelve fewer answers, all of them better. That is the direction the
+pair is supposed to move when a guess is removed, and it is why neither number
+is reported alone.
+
+### THE FULL STAGE, with the model — the rescue wiring verified
+
+`stage_board.py --llm`, **60 rows only** (each deferral is a live model call, so
+this is an indicative check that the wiring works, NOT a board):
+
+    HANDLED               94.3%   (converter-only lane: 63.9%)
+    correct-on-handled    62.0%
+    who produced it       converter 32 rows (65.6% right)
+                          rescue    18 rows (55.6% right)
+
+**The rescue path works end to end against a live model**, and it lifts handled
+from 63.9% to 94.3% by picking up the target-taking operations the commit policy
+withholds. Two caveats, both load-bearing: n = 53 sound rows is far too small to
+rank the two producers, and the converter being *ahead* of the model here
+(65.6 vs 55.6) is interesting rather than established. A proper --llm board is
+worth running once the title work stops moving.
+
+**Next:** title 69.7% is still the constraint. The remaining class is
+truncation — the parser dropping a task's own leading verb (`"pay the electricity
+bill"` → `'electricity bill'`, `"water the garden"` → `'water'`) — which the
+earlier A/B says cannot be fixed by preferring the in-stage read wholesale, so it
+needs the same treatment this batch got: mine the shape first, then rule.
