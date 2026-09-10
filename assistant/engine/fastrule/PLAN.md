@@ -62,6 +62,19 @@ GUI and server each with their own parser. The fix is to stop asking it about ti
 returns nothing scores zero confidence by construction — so this is where that mass
 most plausibly sits. **B1** below measures it before anything is moved.
 
+> **B1 RAN, 2026-09-10 — and the mechanism is not what this paragraph guessed.**
+> Full result in `experiments/RESULTS.md`. The parser does not "return nothing"
+> because it failed to understand; it **withholds the intent when the when is
+> unfilled** — `"create an event for staff meeting"` gives conf 0.317 and no
+> intent with `missing: ['date','start_time']`, and the same sentence plus
+> `"tomorrow"` gives conf 1.0 and a `create_event`. So `below-threshold` is the
+> parser refusing a question `build()` will no longer ask it. Between **163 and
+> 332 of the 573** are buildable once the values are copied (28.4% strict, 50.1%
+> with a clean carve); `decompose_validate` resolves the when on **573/573 =
+> 100%** of them. The binding constraint inside `build()` is the **title**
+> (29.8% exact), not the operation (78.7%) — and the titles fail by swallowing
+> the date words, which is this section's claim confirmed at scale.
+
 ## 2b · It does FOUR jobs; three are other components' (Gil, 2026-09-09)
 
 > *"FastRule's job is only to take each Item and make it into an object format the
@@ -214,7 +227,7 @@ baseline unchanged.
 
 | # | step | why here |
 |---|---|---|
-| B1 | **Measure the ceiling** — of the 573 `below-threshold` deferrals, how many carry slots the parser failed to read | a number before a refactor. If it is small, the converter is not the lever and B2 changes shape |
+| ✅ **B1** | **Measure the ceiling** — DONE 2026-09-10, `experiments/RESULTS.md` + `experiments/b1_ceiling.py`. **163–332 of the 573 are buildable** (28.4% strict / 50.1% clean-carve); values readable upstream on 573/573. **Not small, so B2 proceeds as written** — but the title, not the copy, is where the rows move | a number before a refactor. If it is small, the converter is not the lever and B2 changes shape |
 | B2 | **`build(item, *, today)`** — COPY all eight slots, parse only operation / title / attendees / target. Unit-tested ALONE, not yet wired | the substance; everything else is arrangement. It is a pure function, so it can be proven before the engine ever calls it |
 | **B3** | **WIRE IT INTO THE ENGINE** (Gil, 2026-09-09) — the five touch-points below | *"once initial working implementation is done, fix wiring to the engine."* A converter nothing calls is not a working stage |
 | B4 | Move `Atomicity` + `fast_propose` to a **new `fastrule/fast_track.py`**, and follow the one call site | safe once `build` no longer needs them. The file does not exist yet |
