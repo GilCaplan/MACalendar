@@ -82,14 +82,22 @@ unsupported date is an invention, and the board counts them.
 `decompose_validate/ARCHITECTURE.md` is the stage's own reference — the X3
 field list, the conventions, the boards and what they have caught.
 
-**FastRule** — turns items into objects that can be written. Rules first, a
-model only where they cannot decide, and a DEFER verdict that is a contract:
-`REFUSAL` must not be overturned, `STRUCTURE` means split further, `INCAPACITY`
-hands over its partial parse rather than starting cold.
+**FastRule** — turns items into objects that can be written, and **calls no
+model at all** (2026-09-10). It COPIES the values `decompose_validate` already
+resolved and reads only what is genuinely left: the operation, the title, the
+people, the target. Every item gets one of three answers — the object, a
+**BadItem** (it arrived damaged; this stage reports rather than repairs), or a
+**NotAnObject** (segmentation tagged it `other`; not calendar work). Anything it
+cannot decide becomes a DEFER left ON THE ITEM for LLMJudge, and the DEFER is a
+contract: `REFUSAL` must not be overturned, `STRUCTURE` means split further,
+`INCAPACITY` hands over its partial parse rather than starting cold.
 
-**LLMJudge** — the last check before anything is trusted. The model **extracts**
-what the raw text asked for; deterministic code diffs that against what was
-produced. The model never judges and never picks the blame.
+**LLMJudge** — two jobs since 2026-09-10. First it **answers FastRule's
+DEFERs**: this is where the model lives now, and it picks them off the items at
+its own entry rather than being called forward. Then the last check before
+anything is trusted — the model **extracts** what the raw text asked for and
+deterministic code diffs that against what was produced. The model never judges
+and never picks the blame.
 
 **COMMIT + label** — the only place that writes to the DB. Category and colour
 for events, tags for tasks; adjacent events never share a colour.
@@ -108,8 +116,8 @@ for events, tags for tasks; adjacent events never share a colour.
 | Component, not a Stage | in |
 |---|---|
 | `FastSeg` · `LLMSeg` · `old_seg` | `segmentation/` |
-| `Atomicity` · `Scorer` | `fastrule/` |
-| `Gatekeeper` · the LLM fallback + its three guards | `llmjudge/` — **moved 2026-09-09**; FastRule still calls them |
+| `Atomicity` · `Scorer` | `fastrule/fastrule.py` — behind the FRONT DOOR (`fast_track.py`), not in the converter |
+| `Gatekeeper` · the LLM fallback + its three guards · the DEFER consumer | `llmjudge/` — **moved 2026-09-09**; FastRule stopped calling them 2026-09-10 (B5), so the edge is gone as well as the code |
 | `Engine` | the whole pipeline as one runnable thing |
 
 Two consequences worth knowing:
@@ -169,7 +177,7 @@ which asserts the shape at every boundary and runs commands end to end.
 | Ingest & fix | `Stage("transcript")` | `ingest/repair.py` + `ingest/coalesce.py` |
 | Segmentation | `Stage("segment")` | `segmentation/` — FastSeg, LLMSeg **off** |
 | decompose_validate | `Stage("decompose_validate")` | `decompose_validate/stage.py` |
-| FastRule | `Stage("fastrule")` | `fastrule/stage.py` → `fastrule/objects.py` |
+| FastRule | `Stage("fastrule")` | `fastrule/stage.py` → `fastrule/build.py` (`objects.py` deleted 2026-09-10) |
 | LLMJudge | `Stage("llmjudge")` | `llmjudge/llmjudge.py` |
 | COMMIT + label | inside `_commit` | orchestrator + `label/label.py` |
 

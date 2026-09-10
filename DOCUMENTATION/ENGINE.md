@@ -44,7 +44,7 @@ text ─▶ 0 ingest      orchestrator   queue + coalescing
      ─▶ 2 segment     segment.py     split into typed items
      ─▶ 3 decompose   decompose.py   items that are several things, or one × N
      ─▶ 4 validate    validate.py    named format rules, text repair, observance
-     ─▶ 5 generate    generate.py    items → intents (rules first, LLM for gaps)
+     ─▶ 5 fastrule    fastrule/      items → objects (rules ONLY; DEFERs go to 6)
      ─▶ 4′ validate.run_objects      field-level named rules on the intents
      ─▶   commit      orchestrator   execute via the action registry
      ─▶ 7 label       label.py       category / tag read-back
@@ -195,8 +195,44 @@ gym at 7 and should i add yoga?" the question half keeps its pre-ruling
 behaviour and the booking runs. Without `supports_confirm` nothing changes,
 which is what keeps old clients working.
 
-### 5 · fastrule (`fastrule/stage.py` → `fastrule/objects.py` · trace `rule`/`llm` · tests `test_engine_generate.py` + integration)
-Owns ALL text→intent conversion. **`FastRule`** (`engine/fastrule/fastrule.py`) is the
+### 5 · fastrule (`fastrule/stage.py` → `fastrule/build.py` · trace `rule` · tests `test_fastrule_build.py`, `test_engine_generate.py` + integration)
+
+**RESTRUCTURED 2026-09-10.** `objects.py` is gone. The stage is a CONVERTER —
+`List[Item]` in, objects out — and it **calls no model**, directly or
+transitively. Its contract:
+
+| in | out |
+|---|---|
+| `X3` items, values already resolved by decompose_validate | `X4` `item.action` + `item.intent` |
+| | or a **DEFER** on `item.slots["fastrule_defer"]`, which LLMJudge takes at its own entry |
+| | or a **flag**: `item.blocked` + `item.slots["fastrule_result"]` ∈ {`bad_item`, `not_an_ask`} |
+
+`build(item, *, today) -> Built | Defer | BadItem | NotAnObject` is the whole of
+it, and it is a PURE function — no model, no database, no clock of its own — so
+its board is a table of items and expected objects. It COPIES the eight values
+(`date`, `start_time`, `end_time`, `recurrence`, `recur_days`, `recur_until`,
+`quantity`, `reminder_minutes`) and re-derives none of them; it reads only the
+OPERATION, the TITLE, the PEOPLE and the TARGET. `item.kind` may re-kind a
+CREATE or a QUERY, never a target-taking operation — that would change which
+STORE is searched for an existing record.
+
+**A BadItem is a SUCCESS, not a failure**: the item arrived damaged and the
+stage reports that rather than guessing at words nobody said. Which upstream
+stage did the damage is attributed by the board, not by the runtime.
+
+`fastrule/fast_track.py` holds the separate whole-command FRONT DOOR
+(`fast_propose`), which is where `Atomicity` belongs — at the front door there
+is no Item yet, so "one ask or several?" is the right question there and nowhere
+else.
+
+The model half — the fallback, both kind fallbacks, and the kind-primed retry —
+lives in `llmjudge/rescue.py`. **`fastrule_shape.py` measures the front door and
+`stage_board.py` measures the stage; they are different boxes, do not compare
+them.**
+
+#### The front door's classifier (unchanged)
+
+**`FastRule`** (`engine/fastrule/fastrule.py`) is the
 deterministic rule parser + its abstention gates + a confidence threshold, as
 a self-contained SELECTIVE CLASSIFIER: `FastRule(threshold).run(prompt)`
 returns a commit-or-abstain verdict (`.committed`, `.intents`, `.confidence`,
@@ -238,8 +274,11 @@ the row-75 fix). Slots from decomposition land on the intent (`quantity`).
 interrogative create never takes the fast track whatever the rules score it
 (`is_interrogative_create`): only deep can hold a parse and ask first.
 
-Two deterministic fallbacks close the honest-failure ladder (both pinned in
-`test_engine_generate.py`): **task_fallback** (run 12) — a task-kind item
+Two deterministic fallbacks close the honest-failure ladder. **They live in
+`llmjudge/rescue.py` since 2026-09-10** — they fire only after a model parse
+comes back empty, so they belong with the model — and are still pinned in
+`test_engine_generate.py`, which now runs both stages the way the orchestrator
+does. **task_fallback** (run 12) — a task-kind item
 never parses to nothing; the item text IS the task. **event_fallback**
 (cycle 5) — an event-kind item that still parses to unknown after the
 event-kind retry becomes a default-titled event ONLY when the words

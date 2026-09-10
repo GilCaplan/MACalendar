@@ -77,13 +77,13 @@ STAGE_INFO = {
             "Each ask is broken down until it is a single thing \u2014 two times is two events, a list is one task per thing, a recurrence becomes a series \u2014 and then repaired by named rules: dates, am/pm, end-before-start, until/through, and rounding a recurrence to daily, weekly or monthly (announced, never silent). The observance gate lives here: what the assistant may book on Shabbat, yom tov and fast days."),
         "make each object": (
             "Make each object",
-            "Every ask becomes the actual thing to write \u2014 this event, that task, this question to answer. Rules do it wherever they can; one schema-constrained model call is made only where they cannot decide, grounded on your raw words."),
+            "Every ask becomes the actual thing to write \u2014 this event, that task, this question to answer. This step is now entirely deterministic: it copies the date, time and recurrence the previous step already worked out, and reads only what is left \u2014 the operation, the title, the people. It never calls the language model. When an ask cannot become an object it says which of two things happened \u2014 the words reached it damaged, or they were not calendar work at all \u2014 and hands anything it is unsure of to the judge rather than guessing."),
         "write \u00b7 label": (
             "Write and label",
             "The objects are written to the local database and categorised in the same step \u2014 an event gets its colour, a task its tags \u2014 so nothing is ever saved uncategorised. Nothing here reaches the internet; the database is a file on the machine."),
         "judge": (
             "Judge",
-            "Before the answer is trusted, the model lists what your words actually asked for and deterministic code compares that against what was produced. If something is missing, the judge can restate your command more clearly and send it back through \u2014 at most three times."),
+            "The judge does two jobs. First it answers whatever the previous step could not build, which is where the language model now lives. Then, before the answer is trusted, it lists what your words actually asked for and deterministic code compares that against what was produced. If something is missing, the judge can restate your command more clearly and send it back through \u2014 at most three times."),
         "done": (
             "Done",
             "The command is finished. A fast-lane answer committed instantly and the judge kept checking behind it; a deep answer ran the whole chain in front of you. Every step above, and its timing, is this run."),

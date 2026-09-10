@@ -64,6 +64,37 @@ def _may_commit(action: str) -> bool:
     return action.split("_")[0] in _COMMITTABLE
 
 
+#: How each flagged outcome reads on the review panel. The two are NOT the same
+#: thing and must not collapse into one row: `bad_item` says an upstream stage
+#: handed this part over damaged, `not_an_ask` says the part was read correctly
+#: and simply is not calendar work. A user seeing "I skipped this" needs to know
+#: which, because only one of them is a bug.
+_FLAG_TITLES = {
+    "bad_item":   "Arrived unusable",
+    "not_an_ask": "Not a calendar ask",
+}
+
+
+def _flag(state, item, reason: str, kind: str) -> None:
+    """Record a non-object outcome ON THE ITEM and IN THE TRACE.
+
+    On the item so the orchestrator reports it to the speaker; in the trace so
+    the review panel can DRAW it. Before this, a flagged item was invisible on
+    both paths — the panel is downstream of the trace, so an outcome that emits
+    no step cannot be shown however the panel is written.
+    """
+    item.action, item.intent = "unknown", None
+    item.blocked = reason
+    item.slots = dict(item.slots or {})
+    item.slots["fastrule_result"] = kind
+    if state.trace:
+        from assistant.trace import RULE
+        state.trace.step(RULE, _FLAG_TITLES.get(kind, "Not built"),
+                         f"“{(item.text or '')[:48]}” — {reason}",
+                         ok=(kind == "not_an_ask"),
+                         fastrule_result=kind, item_id=item.id)
+
+
 def run(state, cfg):
     """X3 -> X4. Convert every Item, hand what could not convert to LLMJudge,
     then apply decompose_validate's field rules to the objects."""
@@ -76,26 +107,20 @@ def run(state, cfg):
     built = flagged = bad = 0
     for item, res in zip(items, results):
         if isinstance(res, BadItem):
+            _flag(state, item, res.reason, "bad_item")
             # A BAD ITEM IS AN ANSWER (Gil): the stage reports what it was
             # handed rather than repairing it. Same carrier as a non-ask —
             # `blocked` — but a DIFFERENT reason, because the review panel
             # shows them differently and because the two mean different
             # things: this one says an upstream stage produced damage.
-            item.action, item.intent = "unknown", None
-            item.blocked = res.reason
-            item.slots = dict(item.slots or {})
-            item.slots["fastrule_result"] = "bad_item"
             bad += 1
             continue
         if isinstance(res, NotAnObject):
+            _flag(state, item, res.reason, "not_an_ask")
             # A FLAG IS AN OUTCOME, not a gap. `blocked` is the frozen field
             # for exactly this — "refusal reason, never executed, reported
             # honestly" — and the orchestrator reports it before it skips an
             # empty intent, which is what made this silent before.
-            item.action, item.intent = "unknown", None
-            item.blocked = res.reason
-            item.slots = dict(item.slots or {})
-            item.slots["fastrule_result"] = "not_an_ask"
             flagged += 1
             continue
         if isinstance(res, Built):

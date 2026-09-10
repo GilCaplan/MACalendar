@@ -55,11 +55,12 @@ What that removed:
 | the whole fast track, re-run per item | the item is atomic BY CONTRACT — segmentation already split it |
 | the date/time, re-read from `item.spoken()` | `decompose_validate` resolved them; B1 measured it right on **573/573** of the rows this stage was deferring |
 | event-vs-task, re-decided | segmentation's `tag` decided it |
-| the model, called from here | it lives in `llmjudge/rescue.py` now — *"if there's an issue it tells LLMVerify"* |
+| the model, called from here | it lives in `llmjudge/rescue.py` now — and since **B5 (2026-09-10)** this stage does not even CALL it: the DEFER is written onto the item and LLMJudge, already the next stage, picks it up at its own entry. *"If there's an issue it tells LLMVerify"* — a hand-off, not a call |
 
-**This stage no longer calls the model at all**, which is a checkable fact:
+**This stage no longer calls the model at all — not directly and not
+transitively**, which is a checkable fact:
 `test_the_count_of_model_calling_stages_is_current` went from five stages to
-four.
+four, and `stage.py` no longer imports `llmjudge` in any path.
 
 ### The score (2026-09-10, `experiments/stage_board.py`, 600 atomic train rows)
 

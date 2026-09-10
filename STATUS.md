@@ -21,26 +21,32 @@ Gil. **LLMJudge does not start before D, and D is Gil's call, not the plan's.**
     B1  the ceiling ..... ✅           163–332 of the 573 below-threshold rows
     B2  build() ......... ✅           pure converter + 32 tests, unwired
     B3  WIRE IT IN ...... ✅           83.5% of atomic train rows built
-    B4  fast_track.py ... ⬜           move Atomicity + fast_propose
-    B5/B6 the trim ...... ⬜           GATED on LLMJudge consuming the DEFER
+    B4  fast_track.py ... ✅           the front door is its own module
+    B5  the hand-off .... ✅           DEFERs ride the item; LLMJudge takes them
+    B6  objects.py ...... ✅           deleted; accessors to engine/llm.py
     C0  the generator ... ✅           moved to datasets/, byte-identical
-    C1  gold `item` ..... ⬜  NEXT     so the board can feed build(item)
-    C3  rebuild the board ⬜           fastrule_shape feeds items, not text
+    C1  gold `item` ..... ✅           the isolation lane exists
+    C2  additive ........ ✅           0 of 7,200 existing fields changed
+    C3  the stage board . ✅           experiments/stage_board.py
+    C4  iterate ......... 🔄           three batches; title is the constraint
 
-**What FastRule now is:** `build(item, *, today) -> Built | Defer` — one Item to
-one object. It COPIES the eight values `decompose_validate` already resolved and
-reads only the operation, title, attendees and target. No model, no database, no
-clock of its own. `objects.run` tries it per item, accepts a CREATE or a QUERY,
-and everything else falls through to the old rules+model path — **that
-fall-through is scaffolding that B5 deletes**, not the design.
+**What FastRule now is:** a CONVERTER. `build(item, *, today)` returns one of
+**four** things — the object, a `Defer` (LLMJudge answers it), a `BadItem` (it
+arrived damaged; reported, never repaired), or a `NotAnObject` (tagged `other`;
+not calendar work). It COPIES the eight values `decompose_validate` resolved and
+reads only the operation, title, people and target. **No model, directly or
+transitively** — `objects.py` is deleted, the model lives in `llmjudge/rescue.py`,
+and the DEFER rides the item rather than being called forward.
 
-**The numbers, and what they mean** (7,200 train half, real chain, no LLM):
-`build` produces the object on **83.5%** of atomic rows, operation right
-**90.8%**, **title right 55.5%**. The title is the binding constraint and two
-hypotheses for it are already REFUTED — reading it in-stage instead of taking
-the parser's span costs 17 points, and choosing by operation costs 4. Both
-sources are wrong on 43.4% of rows, so **the title needs its own instrument
-before it needs another rule**. That is what C1/C3 are for.
+**The numbers that count are the ISOLATED ones** — 1,200 atomic train rows fed
+GOLD items (`stage_board.py --input gold`), so no upstream is in the path:
+
+    operation right     96.1%
+    title right         62.9%    <- the binding constraint
+    correct-on-handled  62.8%
+
+⚠️ **Anything quoting a "sound input" number reads ~7 points high** — that filter
+is biased, because the rows segmentation gets right are the easier rows.
 
 **Do not judge this stage by a whole-engine run.** Segmentation is FROZEN (Gil,
 2026-09-09), so `engine_dataset_compare` is dominated by an upstream loss we have

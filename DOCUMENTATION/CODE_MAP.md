@@ -23,7 +23,9 @@ parts are wired today versus planned in `ENGINE_REWIRE.md`.
 | Step 2: deterministic splits + (gated) LLM segmentation | `engine/segmentation/old_seg/segment.py` |
 | Step 3: time-list → two events, task lists, quantities | `engine/decompose_validate/decompose.py` |
 | Step 4: the named rules (`past_date_bump`, `bare_hour_pm`, …) + observance gate | `engine/decompose_validate/validate.py` |
-| Step 5: `FastRule(threshold).run()` (selective classifier) + per-item parse | `engine/fastrule/fastrule.py`, `engine/generate/generate.py` |
+| Step 5: the CONVERTER `build(item)` — no model | `engine/fastrule/build.py`, `engine/fastrule/stage.py` |
+| The whole-command FRONT DOOR: `FastRule(threshold).run()` (selective classifier) | `engine/fastrule/fastrule.py`, `engine/fastrule/fast_track.py` |
+| Step 6a: the DEFER consumer — the model, both kind fallbacks | `engine/llmjudge/rescue.py` |
 | Step 6: BLAME router + MAX_REENTRIES (implementation pending) | `engine/llmjudge/llmjudge.py` |
 | Step 7: label read-back | `engine/label/label.py` |
 | Contract pins | `tests/unit/test_engine_contracts.py` |
@@ -401,7 +403,7 @@ All signals that trigger widget rebuild use `QTimer.singleShot(0, signal.emit)` 
 | Enter key in new task field does nothing | `_commit()` in `_make_new_task_row()` — check `blockSignals` not left True |
 | Expanded task row doesn't resize | `_update_item_size()` in `TodoItemWidget` L829 |
 | Subtasks not deleted with parent task | `_on_deleted()` in `TodoListWidget` — must call `delete_subtasks_for_todo()` first |
-| Voice command goes to LLM instead of fast path | `RULE_THRESHOLD = 0.80` (whole) / `SUBITEM_RULE_THRESHOLD = 0.60` (fragment) — tuned 2026-09-07; check confidence in `RuleParseResult` |
+| Voice command goes to LLM instead of fast path | `RULE_THRESHOLD = 0.80` at the front door — check confidence in `RuleParseResult`. There is no per-fragment bar any more: the deep track's per-item re-parse was removed 2026-09-10, and `SUBITEM_RULE_THRESHOLD` went with it |
 | Background verifier applying stale correction | `_detect_user_change()` in `pipeline.py:562` |
 | New DB field not persisting | Add to `_TODO_MIGRATIONS` list AND to `update_todo`'s `allowed` set |
 | View doesn't switch after voice action | Set `view_switch` on action class; handle value in `_handle_status()` `window.py:540` |
