@@ -137,3 +137,79 @@ from the action words alone. Expect the second to be where the rows actually mov
 correct object for **at least 163 (28.4%)** — the strict floor measured with a
 damaged carve — and the primary board's atomic handle-rate should rise from
 69.1% train. Reported against the same bracket, so the comparison is honest.
+
+---
+
+## B2 — `build()` exists, and writing its tests found two defects — 2026-09-10
+
+**The step (PLAN.md §3).** *"`build(item, *, today)` — COPY all eight slots,
+parse only operation / title / attendees / target. Unit-tested ALONE, not yet
+wired."*
+
+`assistant/engine/fastrule/build.py`, 32 tests in
+`tests/unit/test_fastrule_build.py`, **nothing in the engine points at it yet** —
+that is B3. B2 and B3 are separate on purpose: `build()` is a pure function of
+`(Item, today)`, so it can be proven from a table before anything calls it, and
+a failure afterwards can only be the wiring.
+
+**No number moved, and none should have.** 1349 unit tests pass; the product-
+shape board is untouched because the stage still runs its old path. The four
+remaining reds are `explorer.html`, deferred by Gil.
+
+### The two defects, both found by a test rather than by reading
+
+**1 · The copy has to go INTO the constructor, or events end before they begin.**
+`CalendarIntent.fill_defaults` is a pydantic `model_validator(mode="after")`: the
+moment the object exists it stamps `date = today`, `start_time = <the current
+hour>`, and `end_time = start + 1h`. So the obvious shape — construct the object,
+then assign the copied values — is wrong in a way that is invisible until you look
+at the third field:
+
+    CalendarIntent(title="gym")        -> date=today, start=07:00, end=08:00
+    intent.start_time = "11:00"        -> start=11:00, end=08:00   <- three hours
+                                                                      BEFORE it starts
+
+`end_time` was derived from a default start that no longer exists. Handing the
+values to the constructor instead lets the validators derive from the truth.
+
+**2 · The predecessor's quantity copy has never fired.** `_apply_slots` guards it
+with `hasattr(item.intent, "quantity")` — and the field on `CreateTodoIntent` is
+`quantities`. The attribute does not exist, so the branch is False on every row it
+could ever run on. PLAN §2b credits the old eleven-line function with copying *two
+of eight* values; it was really copying **one** (`reminder_minutes`, whose
+`hasattr` does hold).
+
+`quantity` also turns out to be the one value that must land **after**
+construction, for the opposite reason to the first defect:
+`CreateTodoIntent.fold_quantities` recomputes `quantities` from the TITLES
+unconditionally — *"filled by the validator below, never by the model"* — so a
+count passed to the constructor is discarded on the way in. It has to be written
+over the validator's answer, not through it.
+
+### A third finding, recorded rather than fixed
+
+**`fill_defaults` is where the board's "INVENTED a time" rows are actually made.**
+An item with no when at all still comes out dated today at the current hour — not
+because any regex guessed, but because the intent class fills itself in. That is
+shared with every other producer of these objects (the LLM path included), so
+changing it would move numbers across the whole engine and is not this stage's
+call. It is named here so the next person reading `INVENTED a time 4.4%` looks in
+the right place. `test_an_empty_slot_is_not_copied_over_nothing` pins the real
+division of responsibility rather than a purity this stage does not have.
+
+### Two decisions inside `build()` that B1 paid for
+
+- **Segmentation's `kind` beats the parser's route** on event-vs-task. B1 measured
+  66 rows of `create_todo`/`create_event` confusion — the whole gap between the
+  strict 78.7% operation accuracy and the family-level 90.2%. The upstream tag was
+  read from more evidence and this stage has no better information.
+- **`complete` has no event form.** When the verb says complete and the kind says
+  event, the kind wins and the operation falls back to update. This is B1's
+  `mark X as the Y` collision: 122 wrong-operation rows, dominated by that shape
+  routing to `complete_todo` when the ask was `create_event` — on a destructive
+  operation the user cannot easily undo.
+
+**Registered for B3:** the wiring's acceptance test is the shape at every
+boundary, not a score — `test_engine_contracts.py`, `test_engine_flow.py`,
+`test_panel_agreement.py`, and `scripts/engine_pipeline_check.py`. The board is
+re-run after it, and against B1's floor: **at least 163 of the 573** (28.4%).
