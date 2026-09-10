@@ -618,6 +618,28 @@
     color: var(--ink);
   }
 
+  #pback {
+    display: none;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    font: 500 11.5px/1 'IBM Plex Mono', monospace;
+    padding: 7px 12px;
+    margin-right: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  #pback:hover {
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  #panel.full #pback {
+    display: inline-block;
+  }
+
   /* #pfull sits beside #pclose and had no rule of its own, so it inherited
      the browser's default button chrome next to a styled one. */
   #pfull {
@@ -1273,6 +1295,10 @@
 
   <aside id="panel" hidden aria-label="Detail panel">
     <div class="pbar">
+      <!-- Only shown on the full page, where the diagram is gone and a bare
+           icon is not an obvious way home. In the sidebar the drawing is still
+           on screen behind the panel, so this would be noise. -->
+      <button id="pback" type="button" hidden>← the flowchart</button>
       <span class="pdot" aria-hidden="true"></span>
       <span class="ptt"><span id="ptag"></span><span id="ptitle"></span></span>
       <button id="pfull" title="Expand to full detail" aria-label="Expand to full detail">⤢</button>
@@ -1681,7 +1707,7 @@ series_id   NULL
     /* ================= THE ENGINE ================= */
     engine: {
       view: "engine", tag: "the orchestrator", name: "Engine", rl: "◆ Engine", title: "Engine",
-      z: [500, 67, 1.9],
+      z: [620, 264, 1.2],
       sum: `<p><code>Engine</code> is the brain as an object. It builds the shared state, runs the transcript stage, picks a track, commits, labels, and does the bookkeeping. <strong>It adds structure, never logic</strong> — the parsing lives in the stages.</p>
     <p class="figs">engine/__init__.py · intake · track selection · commit · bookkeeping</p>`,
       more: `<h3>What it owns</h3>
@@ -1704,7 +1730,7 @@ series_id   NULL
     },
     plumbing: {
       view: "engine", tag: "the plumbing", name: "EngineState", rl: "the plumbing", title: "EngineState · Stage · Component",
-      z: [858, 806, 2.2],
+      z: [620, 264, 1.2],
       sum: `<p>Stages exchange exactly one object and nothing else: no imports of another stage's internals, no side channels. A test pins every field name, and going red on an innocent rename is the point.</p>
     <p class="figs">state.py · component.py · the contracts are frozen</p>`,
       more: `<h3>EngineState — who may write what</h3>
@@ -1729,7 +1755,7 @@ series_id   NULL
     },
     transcript: {
       view: "engine", tag: "stage 1", name: "transcript", rl: "1 transcript", title: "transcript — repair the words",
-      z: [500, 128, 2.4],
+      z: [310, 82, 2.2],
       sum: `<p>Raw words in, the working transcript out. <strong>This is the only person-specific stage</strong> — the personal vocabulary and the spoken-noise cleanup both live here, so everything downstream is generic and works for anybody.</p>
     <p class="figs">stop word → false start → cleanup → vocabulary → the doubt gate</p>`,
       more: `<h3>In order</h3>
@@ -1757,7 +1783,7 @@ series_id   NULL
     },
     fastrule: {
       view: "engine", tag: "stage 4", name: "FastRule", rl: "◆ FastRule", title: "FastRule — the converter",
-      z: [245, 320, 1.9],
+      z: [820, 200, 2.0],
       sum: `<p>One item in, one object out — and <strong>no language model</strong>. The stages before it already worked out the date, the time and the recurrence; this one copies those and reads only what is left: the operation, the title, the people, the target.</p>
     <p class="figs">two boxes in one folder · the front door, and the converter</p>`,
       more: `<svg viewBox="0 0 380 268" role="img" aria-label="Two separate boxes. The front door reads a whole command and either commits it instantly or steps aside. The converter takes one already-split item, copies the values the previous stage resolved, reads the action words, and returns one of four things: an object, a deferral for the judge, a bad-item flag, or a not-an-ask flag.">
@@ -1815,7 +1841,7 @@ series_id   NULL
     },
     parse: {
       view: "engine", tag: "fastrule · step 1", name: "the parse", rl: "1 parse", title: "parse — normalize, route, fill",
-      z: [245, 248, 2.5],
+      z: [820, 200, 2.2],
       sum: `<p>Seven phases, every one of them arithmetic on the words themselves. Nothing here calls the language model.</p>
     <p class="figs">preprocess · split · times · route · slots · anaphora · confidence<br>84 verb mappings · 9 of the 15 actions reachable this way</p>`,
       more: `<pre><code>"add mtg w/ sam tmrw at 3"
@@ -1863,7 +1889,7 @@ series_id   NULL
     },
     atomicity: {
       view: "engine", tag: "fastrule · layer 0", name: "Atomicity", rl: "2 Atomicity", title: "Atomicity — one item, or several?",
-      z: [245, 296, 2.5],
+      z: [820, 200, 2.2],
       sum: `<p>The call the whole architecture rests on: FastRule executes atomic items, the deep system atomizes. This layer answers <strong>that one question</strong> and nothing else.</p>
     <p class="figs">rule gates &cup; a trained model — a union, not a fallback</p>`,
       more: `<svg viewBox="0 0 380 116" role="img" aria-label="Both tiers are asked unconditionally: the rule gates read announced joiners and the dependency parse, the model reads the shape of the whole utterance, and either one saying compound is enough.">
@@ -1893,7 +1919,7 @@ series_id   NULL
     },
     gatekeeper: {
       view: "engine", tag: "fastrule · step 3", name: "Gatekeeper", rl: "3 Gatekeeper", title: "Gatekeeper — the vetoes",
-      z: [245, 344, 2.5],
+      z: [820, 200, 2.2],
       sum: `<p>Three intent-level refusals, in a fixed order. A perfect score is necessary but not sufficient: the fast lane refuses rather than guesses.</p>
     <p class="figs">interrogative-create · rename-misroute · generic-target</p>`,
       more: `<div class="tblwrap"><table>
@@ -1923,7 +1949,7 @@ series_id   NULL
     },
     scorer: {
       view: "engine", tag: "fastrule · step 4", name: "Scorer", rl: "4 Scorer", title: "Scorer — the commit predicate",
-      z: [245, 392, 2.5],
+      z: [820, 200, 2.2],
       sum: `<p>Commit only when <strong>confident AND clean</strong>: the score is at or above the bar, no required slot is missing, and there is at least one intent. Anything else defers.</p>
     <p class="figs">0.8 at the front door · the converter has no bar at all · below-threshold outranks missing-slots</p>`,
       more: `<p>The threshold buys speed, not autonomy. A committed answer is still compared against your words
@@ -1941,7 +1967,7 @@ series_id   NULL
     },
     reasons: {
       view: "engine", tag: "the handoff", name: "the reason", rl: "the reason", title: "A deferral carries a reason",
-      z: [500, 690, 2.0],
+      z: [820, 200, 2.2],
       sum: `<p>Deferring is not one thing. The reason's <strong>class</strong> decides which stage picks the command up, and what that stage is allowed to do with it.</p>
     <p class="figs">REFUSAL · STRUCTURE · INCAPACITY — three exits, three destinations</p>`,
       more: `<svg viewBox="0 0 380 168" role="img" aria-label="Three arrows leave FastRule for three different destinations: a refusal the judge must honour, a structure verdict that sends it back to segment, and an incapacity that hands it to the model.">
@@ -1971,7 +1997,7 @@ series_id   NULL
     },
     router: {
       view: "engine", tag: "the small models", name: "ModelRouter", rl: "◆ the classifiers", title: "ModelRouter — three small models",
-      z: [245, 564, 2.0],
+      z: [820, 200, 2.2],
       sum: `<p>Three logistic classifiers, fitted offline and shipped as a file of JSON weights. Inference is a hand-written dot product, so the running engine imports no machine-learning library.</p>
     <p class="figs">and they may only speak when SURE</p>`,
       more: `<svg viewBox="0 0 380 190" role="img" aria-label="Operation and kind are two separate classifiers whose answers are composed into one action, and only when both margins clear their floors.">
@@ -2000,7 +2026,7 @@ series_id   NULL
     },
     deepsystem: {
       view: "engine", tag: "the deep track", name: "DeepSystem", rl: "◆ DeepSystem", title: "DeepSystem — the atomizer",
-      z: [735, 370, 1.9],
+      z: [620, 264, 1.3],
       sum: `<p>Its main idea is <strong>breaking a command down to atomic items</strong>, so FastRule can then create the right event or task for each one. <code>DeepSystem</code> is an ordered, re-runnable list of <code>Stage</code> objects, plus the judge and its loop-back.</p>
     <p class="figs">segment · decompose_validate · fastrule · the field rules · the judge</p>`,
       more: `<p>The parse half is re-runnable, and that is a design decision with teeth: when the judge sends
@@ -2016,7 +2042,7 @@ series_id   NULL
     },
     segment: {
       view: "engine", tag: "stage 2", name: "segment", rl: "2 segment", title: "segment — into independent asks",
-      z: [764, 244, 2.4],
+      z: [540, 82, 2.2],
       sum: `<p>One transcript in, typed items out. Three tiers, and it falls through to the next only when the one above found nothing.</p>
     <p class="figs">biased to under-split — a wrong merge is recoverable, a wrong split is not</p>`,
       more: `<svg viewBox="0 0 380 196" role="img" aria-label="A cascade: free delimiters split it first; only if they found nothing and the words hint at a compound is one model call made; otherwise the command stays one item.">
@@ -2045,7 +2071,7 @@ series_id   NULL
     },
     decompose: {
       view: "engine", tag: "stage 3", name: "decompose", rl: "3 decompose", title: "decompose — into atomic pieces",
-      z: [764, 286, 2.4],
+      z: [820, 82, 2.0],
       sum: `<p>One item in, N items out — in <strong>one bounded pass</strong>. An item may split once, never again from what it became.</p>
     <p class="figs">two times · a list · a count — and the one that must not split</p>`,
       more: `<svg viewBox="0 0 380 200" role="img" aria-label="One item enters and several leave, by three named splitters: two spoken times become two events, a list becomes one task per thing, and a count becomes one task carrying a number. Beside them, the case that must never split.">
@@ -2072,7 +2098,7 @@ series_id   NULL
     },
     validate: {
       view: "engine", tag: "stage 4 · first pass", name: "validate", rl: "4 validate", title: "validate — tidy the words",
-      z: [735, 328, 2.4],
+      z: [820, 82, 2.0],
       sum: `<p>Before anything is turned into an action, each item's plain text gets a pass: stray brackets and quotes stripped, doubled whitespace collapsed — and, only when the words look clearly garbled, one guarded rewrite.</p>
     <p class="figs">deterministic first; the model only through a narrow gate</p>`,
       more: `<p>The cheap fixes run on every item. Dictation brackets and stray quotes around a single word
@@ -2086,7 +2112,7 @@ series_id   NULL
     },
     generate: {
       view: "engine", tag: "stage 5 · inside the judge", name: "the rescue", rl: "5 the rescue", title: "The rescue — what the converter could not build",
-      z: [735, 370, 2.4],
+      z: [820, 328, 2.0],
       sum: `<p>Where the language model actually lives. The converter before it builds what it can and leaves a <em>reason</em> on anything it cannot; this step picks those up and answers them — nothing else.</p>
     <p class="figs">rules first, then the model · only the leftovers · nothing is invented</p>`,
       more: `<p>The model is not asked to start from zero. When FastRule defers with an INCAPACITY reason, its
@@ -2116,7 +2142,7 @@ series_id   NULL
     },
     validateobj: {
       view: "engine", tag: "stage 4 · second pass", name: "the field rules", rl: "4′ field rules", title: "The ten named rules",
-      z: [735, 412, 2.4],
+      z: [820, 82, 2.0],
       sum: `<p>Ten named rules run in a fixed order on the finished objects — each with a name, its own test, and its own line in the trace when it fires.</p>
     <p class="figs">no model involved · every applied fix is shown under its name</p>`,
       more: `<div class="tblwrap"><table>
@@ -2148,7 +2174,7 @@ series_id   NULL
     },
     crosscheck: {
       view: "engine", tag: "stage 6", name: "crosscheck", rl: "6 crosscheck", title: "crosscheck — the judge",
-      z: [764, 454, 2.4],
+      z: [820, 328, 2.0],
       sum: `<p>The model is asked what your <em>words</em> asked for — never &ldquo;were you right?&rdquo;. Code diffs that list against what was produced, and a fixed map decides which stage runs again.</p>
     <p class="figs">extraction, not self-grading · the model never picks the stage to blame</p>`,
       more: `<svg viewBox="0 0 380 210" role="img" aria-label="A cycle: the model extracts the asks, code diffs them against what was produced, a fixed map blames a stage, that stage re-runs — at most three times, after which the last parse is judged and committed anyway.">
@@ -2182,7 +2208,7 @@ series_id   NULL
     },
     commit: {
       view: "engine", tag: "the only write", name: "commit", rl: "commit", title: "commit — the only write",
-      z: [735, 496, 2.4],
+      z: [820, 446, 2.0],
       sum: `<p>The single place the engine touches the database, and it goes through the same action classes the calendar window uses. Everything upstream produces intents; only this executes them.</p>
     <p class="figs">a blocked item is refused out loud · guessing is never the answer</p>`,
       more: `<p>Three honest outcomes it will not paper over:</p>
@@ -2199,7 +2225,7 @@ series_id   NULL
     },
     label: {
       view: "engine", tag: "stage 7", name: "label", rl: "7 label", title: "label — read the labels back",
-      z: [735, 538, 2.4],
+      z: [820, 446, 2.0],
       sum: `<p>Categories, colours and tags are applied by the actions themselves. This stage <em>reads them back</em> onto the items, so the reply, the trace and the audit can all see what was chosen.</p>
     <p class="figs">reporting, never worth failing a command over</p>`,
       more: `<p>The separation matters for measurement: labels were the unscored layer for a long time,
@@ -2212,7 +2238,7 @@ series_id   NULL
     },
     readers: {
       view: "engine", tag: "shared readers", name: "the readers", rl: "the readers", title: "One copy, two callers",
-      z: [413, 806, 2.0],
+      z: [620, 264, 1.2],
       sum: `<p>Small deterministic readers that both tracks need. They live in one place because the alternative — a copy per caller — is how the lead-time reader ended up fixing only half the system.</p>
     <p class="figs">cleanup · lead_time · recurrence · coordination · list_split · quantity</p>`,
       more: `<div class="tblwrap"><table>
@@ -2773,6 +2799,7 @@ series_id   NULL
     if (m) { m.hidden = false; }
     if (b) { b.remove(); }
     panel.classList.add("full");
+    pback.textContent = "← " + (VIEWS[view] ? VIEWS[view].label.replace(/^\W+\s*/, "") : "the flowchart");
     // the drawing is fully covered now; leaving it zoomed just means a
     // lurch when the reader comes back out
     resetWorld(view);
@@ -2798,6 +2825,13 @@ series_id   NULL
     // and clicking FastRule opened Scorer -- a step INSIDE the front door, not
     // the stage the reader had just clicked. Both had a correct panel sitting
     // unreachable.
+    // NOTE ON `z:` -- every engine panel's zoom target was recomputed on
+    // 2026-09-10 from the diagram's ACTUAL box coordinates. They had been
+    // authored for an older layout that ran the stages down x=245 and x=735,
+    // so after the diagram was redrawn they all pointed at the wrong place:
+    // clicking Segmentation flew to (764,244), which is on top of the FastRule
+    // box. A stale zoom target is invisible in a test and obvious to anyone
+    // using the page.
     const stageMap = {
       "ingest": "transcript",
       "segmentation": "segment",
@@ -2835,6 +2869,12 @@ series_id   NULL
   });
   document.getElementById("pclose").addEventListener("click", close);
   document.getElementById("phome").addEventListener("click", close);
+  // Names the view it returns to, so it reads as a destination rather than a
+  // generic "back" -- and it closes the panel outright, because from a full
+  // page the thing the reader wants is the drawing, not a narrower panel.
+  const pback = document.getElementById("pback");
+  pback.addEventListener("click", close);
+
   document.getElementById("pfull").addEventListener("click", () => {
     if (panel.classList.contains("full")) { panel.classList.remove("full"); }
     else { showMore(); }
