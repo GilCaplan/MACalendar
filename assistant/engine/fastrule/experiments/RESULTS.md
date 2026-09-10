@@ -318,3 +318,94 @@ owner. Phase C's board decides whether to lift it.
 (`FileNotFoundError`, pre-restructure paths), and nothing else in C can happen
 until it runs. Then the title batch: `with <name>` is the single largest legible
 class in the 44.5% of built rows whose title is wrong.
+
+---
+
+## The title batch — two hypotheses, both REFUTED — 2026-09-10
+
+B1 and B3 both named the title as the binding constraint (55.5% right on built
+rows, against 90.8% for the operation), so this batch went after it. **Neither
+idea survived contact with the data, and the refutations are the result** —
+they redirect the work rather than costing a cycle.
+
+**Dataset:** 1,083 atomic TRAIN rows where `build()` picked a route, through the
+real chain. **Metric:** exact title match against the gold title.
+
+### Where the title actually goes wrong (993 built rows)
+
+| class | rows | of built |
+|---|---:|---:|
+| **TRUNCATED** — a fragment of the real title | 228 | 23.0% |
+| unrelated span | 108 | 10.9% |
+| OVERLONG — extra words kept | 70 | 7.0% |
+| attendee stolen (`with <name>`) | 19 | 1.9% |
+| time words in the title | 5 | 0.5% |
+| empty | 3 | 0.3% |
+
+Truncation dominates, and it has one shape: **the parser drops the task's own
+leading verb.** `"pay the electricity bill"` → `'electricity bill'`,
+`"water the garden"` → `'water'`, `"sort and file the paperwork"` →
+`'paperwork'`.
+
+### Hypothesis 1 — read the title in-stage instead. REFUTED.
+
+PLAN §2d assigns the title to this stage, and the truncation above is the
+parser's span failing, so reading it from the action words ourselves should win.
+
+    title from the PARSER's span     47.8%   <- today
+    title read IN-STAGE from words   30.7%   <- the proposal
+    either would be right            56.6%   <- the ceiling of choosing well
+
+**Switching wholesale would cost 17 points.** The parser is better than a
+verb-stripper at nearly everything; it is worse at exactly one thing.
+
+### Hypothesis 2 — choose by operation. REFUTED.
+
+The two sources fail in complementary ways, and the complementarity *looked*
+like it tracked the operation: in-stage wins on plain creates the parser
+truncates (`"gotta talk to Alex"` → parser `'alex'`, in-stage
+`'talk to alex'`), the parser wins where an operative wrapper survives
+stripping (`"extend open house by an hour"`, `"add restock the pantry to my
+todo list"`, `"rename flu shot to sales call"`). So: in-stage for a CREATE, the
+parser's span otherwise.
+
+    the rule            43.8%      parser alone   47.8%
+
+**Also worse.** The per-operation board says why — the parser beats in-stage
+*within every operation*, creates included:
+
+| | n | parser | in-stage |
+|---|---:|---:|---:|
+| create | 744 | **49.6%** | 43.7% |
+| update | 138 | **50.7%** | 4.3% |
+| delete | 119 | **47.9%** | 0.8% |
+| complete | 79 | **27.8%** | 0.0% |
+
+The complementarity is real but it is not the operation; the operation was a
+confound.
+
+### What the two refutations actually establish
+
+**The title gap is not a source-choice problem.** A PERFECT chooser between the
+two available sources reaches 56.6% against 47.8% — about nine points, and
+`build()` already banks part of that by falling back when the parser's span is
+empty. **Both sources are wrong on 43.4% of rows**, and that is the number that
+matters: there is no cheap rearrangement of what we already have.
+
+Two of the "neither" rows show the shape of what is left:
+
+    "block my whole calendar today for town hall"  want 'town hall'
+        parser 'whole calendar'   in-stage 'my whole calendar for town hall'
+    "remind me to return the rental car tommorow"  want 'return the rental car'
+        parser 'return the rental car tomorrow'    in-stage '...tommorow'
+
+The first needs a `for <X>` reading neither source attempts. The second is
+upstream: segmentation left the MISSPELLED time word in the action words, so
+both sources inherit it — and segmentation is frozen.
+
+**So the title needs its own instrument before it needs another rule**, which is
+what phase C is for. Per CLAUDE.md: say so plainly rather than grinding a third
+variant of a refuted idea.
+
+**Next: C0 — the dataset generator is broken** (`FileNotFoundError` on
+pre-restructure paths) and blocks every other step in phase C.
