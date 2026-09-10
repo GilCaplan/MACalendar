@@ -409,3 +409,46 @@ variant of a refuted idea.
 
 **Next: C0 — the dataset generator is broken** (`FileNotFoundError` on
 pre-restructure paths) and blocks every other step in phase C.
+
+---
+
+## C0 + C2 — the generator runs again, and reproduces the dataset exactly — 2026-09-10
+
+**The blocker (PLAN.md §3).** *"C0 — FIX THE GENERATOR, it is broken today.
+Blocker for everything below."* Phase C rebuilds this stage's dataset and
+boards; none of it is possible while the dataset cannot be rebuilt.
+
+`scripts/gen_fastrule_dataset.py` still pointed at the pre-restructure
+`dataset/fastrule/banks/`, so it raised `FileNotFoundError` on its first bank
+load. **Its own docstring already named the new paths** — the prose was updated
+in the restructure and the code was not, which is why reading it did not reveal
+the bug and running it did.
+
+Moved to `assistant/engine/fastrule/datasets/generate.py`, matching
+`decompose_validate/datasets/generate.py`. The two scripts that import its slot
+machinery — `gen_personas.py`, `gen_realspeech.py` — follow it.
+
+**C2's assertion passes:**
+
+    before   md5 c387bb6de818f7f36ca9f9f6b2628e82
+    after    md5 c387bb6de818f7f36ca9f9f6b2628e82      IDENTICAL
+
+Regeneration reproduces the committed 7,200 rows byte-for-byte, so the move
+changed only the address — no row content, no split assignment. C2 gets
+re-asserted after C1 adds the gold `item` field, where it does the job it was
+actually written for: proving the new field is ADDITIVE, or the train/test split
+is void.
+
+**Why it rotted, which is the part worth keeping.** This was the **fourth**
+instance of the class CLAUDE.md names, after segmentation's generator, FastRule's
+primary board and `fit_route_models.py` — and it survived a sweep that fixed the
+other three. The distinguishing feature is not subtle: **it was the only one
+still living in `scripts/` rather than in the stage folder that owns it.** All
+four are manual steps whose OUTPUT is committed, so a stale `.jsonl` keeps
+working and nothing goes red. Moving it is therefore the only one of the four
+repairs that also stops it recurring, and CLAUDE.md now says so.
+
+**Next: C1** — teach the generator to emit a gold `item` per row, so the board
+can feed `build(item)`. The non-circular route is the generator's own templates:
+it composed the sentence from named slots, so it knows which words are the action
+and which are the time without any stage's implementation in the path.

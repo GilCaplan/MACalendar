@@ -336,12 +336,15 @@ judgement).
   things kept pointing at the old locations: segmentation's dataset
   GENERATOR (`FileNotFoundError`, so the dataset could not be rebuilt),
   FastRule's PRIMARY BOARD, `scripts/fit_route_models.py` — the script that
-  fits the logistic weights — and `scripts/gen_fastrule_dataset.py`, found still
+  fits the logistic weights — and FastRule's dataset GENERATOR, found still
   broken on 2026-09-09, a month after the first three were fixed. **Finding some
   of these is not finding all of them**, and the survivor was the one still living
   in `scripts/` rather than in the stage folder that owns it. Nothing noticed
   because all four are manual steps whose OUTPUT is committed, so the stale
-  `.jsonl` and `.json` kept working.
+  `.jsonl` and `.json` kept working. All four are now fixed, the last by moving
+  it to `assistant/engine/fastrule/datasets/generate.py` (2026-09-10) — **put a
+  generator in the folder whose data it generates**, which is the only one of
+  these repairs that also stops it recurring.
   **Before trusting any board, run it.** And note the trap in these files: `ROOT =
   parents[1]` meant the repo root before the move and means the STAGE folder after
   it, so a path that merely looks wrong may be right and vice versa.

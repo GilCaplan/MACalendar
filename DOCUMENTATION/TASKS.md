@@ -293,7 +293,7 @@ board feeds raw TEXT into `FastRule.run(text)`; the restructured box takes an
 FastRule would be unmeasurable exactly when it has just been rewritten.
 
 ⚠️ **And phase C opens on a blocker found 2026-09-09: FastRule's dataset generator
-is broken.** `scripts/gen_fastrule_dataset.py:56-57` still points at
+is broken.** `assistant/engine/fastrule/datasets/generate.py:56-57` still points at
 `dataset/fastrule/banks/`; the banks moved to
 `assistant/engine/fastrule/datasets/banks/` in the stage restructure, so it raises
 `FileNotFoundError` on the first bank load. **The 7,200-row dataset cannot currently

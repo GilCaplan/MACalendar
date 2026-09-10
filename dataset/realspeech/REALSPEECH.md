@@ -172,7 +172,7 @@ from `banks/fillers.json`. Ground truth falls out of composition: the
 generator chose the asks, so it knows the event count, the task count, the
 action, whether the utterance is atomic, and what went into every slot.
 Placeholders follow the FastRule generator's contract
-(`scripts/gen_fastrule_dataset.BASE_INFO`), imported rather than copied, so
+(`assistant/engine/fastrule/datasets/generate.BASE_INFO`), imported rather than copied, so
 the same scorers read both datasets.
 
 **Layer 2 — the speech layer.** The clean base is then run through the

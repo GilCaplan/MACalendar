@@ -161,7 +161,7 @@ structure, every template's slot set matching its structure's — and the leak
 gate. Any violation raises instead of writing.
 
 It never touches `~/.assistant_tools/` except to *read* `vocab.json` for the
-leak gate. It imports `scripts/gen_fastrule_dataset.py`'s slot machinery
+leak gate. It imports `assistant/engine/fastrule/datasets/generate.py`'s slot machinery
 (`placeholder_info`, `resolve_slots`, `family_capacity`, …) rather than
 reimplementing it, so "which placeholder becomes which slot key" has exactly
 one definition in the repo.

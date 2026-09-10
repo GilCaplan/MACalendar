@@ -188,11 +188,16 @@ fastrule/
                       deterministic fast lane) · b1_ceiling.py · b3_live_chain.py
 ```
 
-**The generator is NOT here, and that is the bug** — `scripts/gen_fastrule_dataset.py`
-still writes the 7,200 rows, and it still points at the pre-restructure
-`dataset/fastrule/banks/`, so it raises `FileNotFoundError` and the set cannot be
-rebuilt or extended. Moving it to `datasets/generate.py` is phase C's first step;
-see `PLAN.md` §3.
+**The generator lives here now** — `datasets/generate.py`, moved 2026-09-10
+(phase C0). It had been the one piece of this stage left in `scripts/` after the
+per-stage restructure, and that is exactly why it rotted: it still pointed at the
+pre-restructure `dataset/fastrule/banks/` and raised `FileNotFoundError`, so **the
+7,200 rows could not be rebuilt or extended** — which is precisely what phase C
+needs to do. Regenerating from its new home reproduces the committed dataset
+**byte-for-byte**, which is how we know the move changed only the address.
+
+    python -m assistant.engine.fastrule.datasets.generate            # generate + verify
+    python -m assistant.engine.fastrule.datasets.generate --no-write  # composition table only
 
 `OBJECTS.md` was removed 2026-09-09. It described the retired `generate` stage
 under that stage's name, was referenced by nothing, and carried its own

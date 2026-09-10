@@ -410,13 +410,17 @@ rewritten. Phase C's steps, in order:
 
 | # | step | note |
 |---|---|---|
-| **C0** | **FIX THE GENERATOR — it is broken today** | blocker for everything below |
+| ✅ **C0** | **FIX THE GENERATOR** — DONE 2026-09-10. Moved to `datasets/generate.py`; the two importers (`gen_personas`, `gen_realspeech`) follow it | blocker for everything below |
 | C1 | Teach the generator to emit a gold `item` per row | the non-circular route, below |
-| C2 | Regenerate; assert the existing 7,200 rows are byte-identical | the new field is ADDITIVE or the split is void |
+| ✅ **C2** | Regenerate; assert the existing 7,200 rows are byte-identical — **PASSES** (md5 `c387bb6d…` either side), so the move changed only the address. Re-assert after C1 adds the gold `item` | the new field is ADDITIVE or the split is void |
 | C3 | Rewrite `fastrule_shape.py` to feed `build(item)` | the board follows the box |
 | C4 | Iterate: read failing rows → fix the implementation → rerun | until Gil is satisfied |
 
-**C0, found 2026-09-09.** `scripts/gen_fastrule_dataset.py:56-57` still points at
+**C0, found 2026-09-09 — FIXED 2026-09-10.** It was as described below, and it is
+now at `assistant/engine/fastrule/datasets/generate.py`, running and byte-identical.
+The diagnosis is kept because the *cause* is the reusable part.
+
+`scripts/gen_fastrule_dataset.py:56-57` still pointed at
 `dataset/fastrule/banks/` and `dataset/fastrule/fastrule_7200.jsonl` — the
 pre-restructure locations. The banks now live at
 `assistant/engine/fastrule/datasets/banks/`, so the generator raises

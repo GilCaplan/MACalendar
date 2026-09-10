@@ -33,8 +33,8 @@ reseed every family's RNG stream and break every existing row, which is
 exactly the one thing this growth was required not to do.
 
 Usage:
-    python -m scripts.gen_fastrule_dataset            # generate + verify
-    python -m scripts.gen_fastrule_dataset --no-write  # verify-only dry run
+    python -m assistant.engine.fastrule.datasets.generate            # generate + verify
+    python -m assistant.engine.fastrule.datasets.generate --no-write  # verify-only dry run
 
 See assistant/engine/fastrule/datasets/DATASET.md for the schema and design rationale, and
 assistant/engine/TRAIN_TEST_SPLIT_CONVENTION.md for how the 80/20 train/test split is built and
@@ -52,9 +52,27 @@ import tempfile
 from collections import Counter, defaultdict
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-BANKS = ROOT / "dataset" / "fastrule" / "banks"
-OUT = ROOT / "dataset" / "fastrule" / "fastrule_7200.jsonl"
+# MOVED HERE 2026-09-10, from scripts/gen_fastrule_dataset.py. It was the one
+# piece of this stage that did not move in the per-stage restructure, and it is
+# why it rotted: BANKS and OUT still pointed at the pre-restructure
+# `dataset/fastrule/`, so the generator raised FileNotFoundError on its first
+# bank load and THE DATASET COULD NOT BE REBUILT OR EXTENDED. Nothing noticed
+# because the output is committed — a stale .jsonl keeps working. This is the
+# fourth instance of that class (CLAUDE.md), after segmentation's generator,
+# FastRule's primary board and fit_route_models.py, and the survivor was
+# precisely the one still living in scripts/ rather than in the stage folder
+# that owns it. Gil's rule: a stage owns its folder and the datasets used to
+# improve it.
+#
+# MIND THE `ROOT` TRAP, which is what made the first repair of the other three
+# worse: from here, `parents[1]` is the STAGE folder, not the repo root. The
+# banks and the output are siblings of this file; only the sys.path insert in
+# setup_label_env() wants the repo, four levels up
+# (datasets -> fastrule -> engine -> assistant -> repo).
+HERE = Path(__file__).resolve().parent
+REPO = Path(__file__).resolve().parents[4]
+BANKS = HERE / "banks"
+OUT = HERE / "fastrule_7200.jsonl"
 CATEGORIES_FIXTURE = BANKS / "categories_fixture.json"
 
 # Changing SEED changes every row's fillers and the split assignment — only
@@ -153,8 +171,8 @@ def setup_label_env():
     can ever read or write ~/.assistant_tools/.
     """
     import sys
-    if str(ROOT) not in sys.path:
-        sys.path.insert(0, str(ROOT))
+    if str(REPO) not in sys.path:
+        sys.path.insert(0, str(REPO))
     scratch = Path(tempfile.mkdtemp(prefix="fastrule_gen_"))
     os.environ["MACALENDAR_CATEGORIES"] = str(CATEGORIES_FIXTURE)
     os.environ.setdefault("MACALENDAR_VOCAB", str(scratch / "vocab.json"))
