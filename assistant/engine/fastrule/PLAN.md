@@ -230,9 +230,9 @@ baseline unchanged.
 | ✅ **B1** | **Measure the ceiling** — DONE 2026-09-10, `experiments/RESULTS.md` + `experiments/b1_ceiling.py`. **163–332 of the 573 are buildable** (28.4% strict / 50.1% clean-carve); values readable upstream on 573/573. **Not small, so B2 proceeds as written** — but the title, not the copy, is where the rows move | a number before a refactor. If it is small, the converter is not the lever and B2 changes shape |
 | ✅ **B2** | **`build(item, *, today)`** — DONE 2026-09-10, `build.py` + 32 tests. Its tests found two defects: the copy must go INTO the constructor (`fill_defaults` stamps today/now, so construct-then-assign leaves `end_time` derived from a default start — an event ending before it begins), and the predecessor's `quantity` copy **had never fired** (`hasattr(intent, "quantity")` guarding a field named `quantities`) | the substance; everything else is arrangement. It is a pure function, so it can be proven before the engine ever calls it |
 | ✅ **B3** | **WIRED 2026-09-10.** Shape checks green + `engine_pipeline_check` passes every boundary; front-door board byte-identical. **Load-bearing: 83.5% of atomic train rows built** through the real chain, operation 90.8%, title 55.5%, all eight values copied (`experiments/b3_live_chain.py`). W4's flagged defect CONFIRMED live and fixed. New rule: `item.kind` may re-kind a CREATE or QUERY, never a target-taking op → new reason `kind-conflict` | *"once initial working implementation is done, fix wiring to the engine."* A converter nothing calls is not a working stage |
-| B4 | Move `Atomicity` + `fast_propose` to a **new `fastrule/fast_track.py`**, and follow the one call site | safe once `build` no longer needs them. The file does not exist yet |
-| B5 | Delete FastRule's call sites into the phase-A code | the STAGE BOUNDARY changes here — after the converter works and is wired, never beside it |
-| B6 | Delete what is now dead | phase A's import redirect, and `_parse_item`'s branch once nothing takes it |
+| ✅ **B4** | **DONE 2026-09-10** — `fastrule/fast_track.py` holds `fast_propose` + `kind_for`; `Atomicity` stays behind the front door in `fastrule.py`, which is where it is asked. The one call site (`engine/__init__.py`) follows it | safe once `build` no longer needs them. The file does not exist yet |
+| ⬜ **B5** | **THE ONE STRUCTURAL ITEM STILL OPEN, and it can only be closed from the LLMJudge side.** `stage.py` calls `llmjudge.rescue`, so the stage still reaches the model transitively. `llmjudge` already runs AFTER `fastrule` in the chain, so the fix is for the DEFERs to travel on `state` and for LLMJudge's own `run` to consume them — which is LLMJudge's work, not this file's | the STAGE BOUNDARY changes here — after the converter works and is wired, never beside it |
+| ✅ **B6** | **DONE 2026-09-10** — `objects.py` is deleted; `_parse_item` went with it. The accessors moved to `engine/llm.py` (W5) and the frozen contract's pinned stage module is re-cut to `fastrule.stage`, recorded in the test's docstring as a design change | phase A's import redirect, and `_parse_item`'s branch once nothing takes it |
 
 B1 is measured on the CURRENT board, which still works because phase B has not
 changed the box's input shape yet. **That stops being true the moment B2 lands** —
@@ -411,10 +411,10 @@ rewritten. Phase C's steps, in order:
 | # | step | note |
 |---|---|---|
 | ✅ **C0** | **FIX THE GENERATOR** — DONE 2026-09-10. Moved to `datasets/generate.py`; the two importers (`gen_personas`, `gen_realspeech`) follow it | blocker for everything below |
-| C1 | Teach the generator to emit a gold `item` per row | the non-circular route, below |
+| ✅ **C1** | **DONE 2026-09-10** — `gold_item()` in `datasets/generate.py` derives `{text, time, kind}` from the TEMPLATE, so no stage's implementation is in the path. It is what makes the isolation lane possible | the non-circular route, below |
 | ✅ **C2** | Regenerate; assert the existing 7,200 rows are byte-identical — **PASSES** (md5 `c387bb6d…` either side), so the move changed only the address. Re-assert after C1 adds the gold `item` | the new field is ADDITIVE or the split is void |
-| C3 | Rewrite `fastrule_shape.py` to feed `build(item)` | the board follows the box |
-| C4 | Iterate: read failing rows → fix the implementation → rerun | until Gil is satisfied |
+| ✅ **C3** | **DONE 2026-09-10** — as a NEW board, `experiments/stage_board.py`, rather than a rewrite: `fastrule_shape.py` measures the FRONT DOOR (`FastRule(0.80).run(text)`), which the restructure did not touch and which is still worth having. The stage board takes `--input gold` (this stage alone) or `--input chain` | the board follows the box |
+| 🔄 **C4** | **THREE BATCHES RUN.** Two title hypotheses refuted (in-stage read −17pt, choose-by-operation −4pt); two landed (attendee-as-title, container-as-title). Chain-lane title 60.9% → 69.7%; ISOLATED title 62.9%, operation 96.1%. **Title is still the constraint** | until Gil is satisfied |
 
 **C0, found 2026-09-09 — FIXED 2026-09-10.** It was as described below, and it is
 now at `assistant/engine/fastrule/datasets/generate.py`, running and byte-identical.

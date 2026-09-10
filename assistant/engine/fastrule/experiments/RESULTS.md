@@ -646,3 +646,63 @@ truncation — the parser dropping a task's own leading verb (`"pay the electric
 bill"` → `'electricity bill'`, `"water the garden"` → `'water'`) — which the
 earlier A/B says cannot be fixed by preferring the in-stage read wholesale, so it
 needs the same treatment this batch got: mine the shape first, then rule.
+
+---
+
+## PHASE D — where FastRule actually stands, 2026-09-10
+
+The plan's phase D is *"stop and report to Gil"*, and this is the report. **The
+decision is Gil's**; this is the state it would be made on.
+
+### Structure — done, with ONE item open that is not ours to close
+
+| | |
+|---|---|
+| ✅ A · port · B1 ceiling · B2 `build()` · B3 wire · B4 `fast_track` · B6 delete `objects.py` | |
+| ✅ C0 generator · C1 gold items · C2 byte-identity · C3 the stage board | |
+| ⬜ **B5 — the back-edge** | `stage.py` calls `llmjudge.rescue`, so the stage still reaches the model transitively. **It can only be closed from the LLMJudge side**: `llmjudge` already runs AFTER `fastrule` in the chain, so the fix is for DEFERs to ride `state` and LLMJudge's own `run` to consume them. |
+| 🔄 **C4 — iterate** | three batches run; title is still the constraint |
+
+The box is what Gil specified: `List[Item]` in, objects out, three output kinds
+(`Built` · `BadItem` · `NotAnObject`), no re-deriving of what the upstream
+decided, and a pure converter with no model, no database and no clock.
+
+### The numbers, isolated — 1,200 atomic TRAIN rows, gold items, no model
+
+    operation right      96.1%     <- this part is good
+    title right          62.9%     <- this part is not
+    correct-on-handled   62.8%
+    handled              64.1%
+
+**These are the honest ones.** The chain lane reads ~7 points higher on "sound
+input" because that filter is biased — the rows segmentation gets right are the
+easier rows. Everything before 2026-09-10 in this file that quotes a
+sound-input number is measuring through a frozen upstream and reads high.
+
+### What is left on FastRule, and why two of the three are LLMJudge's
+
+1. **The title, 62.9%** — genuinely ours, and the only one of the three that is.
+   The remaining class is truncation (the parser dropping a task's own leading
+   verb: `"pay the electricity bill"` → `'electricity bill'`). The A/B already
+   refuted fixing it by preferring the in-stage read wholesale, so it needs the
+   same treatment the last two batches got: mine the shape, then rule.
+2. **The 18% of rows built but WITHHELD** — target-taking operations the commit
+   policy refuses because verifying the target needs a store lookup this stage
+   deliberately cannot do. That is the single largest block of unrealised reach,
+   and **only LLMJudge can unlock it** (`_names_something_real` went there in
+   phase A).
+3. **The rescue's own quality** — on the one live-model sample (n=60,
+   indicative) the converter was right on 65.6% of what it produced and the
+   rescue on 55.6%. If that holds at size, the model half is now the weaker
+   half, and it is LLMJudge's.
+
+### The read
+
+**Two of the three biggest remaining wins are on the other side of the
+boundary**, and the one structural item still open (B5) cannot be closed from
+here at all. FastRule's own remaining work is one metric — the title — which has
+already had three batches and is into diminishing, mine-first territory.
+
+So the honest recommendation is **yes, move to LLMJudge**, with the title batch
+left registered rather than abandoned: it is a real 62.9%, it is this stage's
+own, and it should be picked up again once LLMJudge's phase reaches a boundary.
