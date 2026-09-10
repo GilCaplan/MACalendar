@@ -370,11 +370,23 @@
     display: block;
   }
 
-  #drill-svg-wrap svg text,
-  #drill3-svg-wrap svg text {
+  #drill-svg-wrap svg text {
     font-family: 'IBM Plex Mono', ui-monospace, monospace;
     fill: var(--ink);
     user-select: none;
+  }
+
+  /* BLACK TEXT ON A DARK PANEL. The figures inside the detail panel had no
+     fill rule of ANY kind, and SVG text with no fill defaults to black -- so
+     unlabelled labels in five panel diagrams computed to rgb(0,0,0) against a
+     near-black background. Measured, not guessed.
+
+     The rule goes on the <svg>, NOT on `text`. `fill` is an inherited
+     property, so this supplies a DEFAULT that each label's own fill attribute
+     still overrides; a `text` selector would beat those presentation
+     attributes and flatten every deliberate green and amber in the figures. */
+  #pbody svg {
+    fill: var(--ink);
   }
 
   /* inner boxes in drill-down (Layer 3 targets) */
@@ -720,6 +732,17 @@
     margin-bottom: 6px;
   }
 
+  /* A <code> INSIDE A <pre> must not keep the INLINE code metrics. This rule
+     sets line-height 1, which is right for a chip in a sentence and clips the
+     ascenders off every line of a multi-line block -- the listings in the
+     panel were rendering with their tops shaved off. */
+  #pbody pre code {
+    font: inherit;
+    line-height: inherit;
+    background: none;
+    padding: 0;
+  }
+
   #pbody code {
     font: 12px/1 'IBM Plex Mono', monospace;
     padding: 2px 4px;
@@ -951,28 +974,31 @@
 
         <g data-door="engine" id="system-btn-brain" role="button" tabindex="0" style="cursor:pointer;"
           aria-label="The assistant: click to open the Engine">
-          <rect class="frame" x="250" y="128" width="205" height="256" rx="8" fill="var(--amber-soft)"
+          <rect class="frame" x="250" y="140" width="187" height="226" rx="8" fill="var(--amber-soft)"
             stroke="var(--amber)" stroke-width="2" />
-          <text x="352" y="250" text-anchor="middle" font-size="15" font-weight="600" letter-spacing="1.5"
+          <text x="343" y="247" text-anchor="middle" font-size="15" font-weight="600" letter-spacing="1.5"
             fill="var(--amber)">THE ASSISTANT</text>
-          <text x="352" y="270" text-anchor="middle" font-size="10" fill="var(--muted)">click to open engine ▸</text>
+          <text x="343" y="267" text-anchor="middle" font-size="10" fill="var(--muted)">click to open engine ▸</text>
         </g>
 
-        <line x1="457" y1="150" x2="474" y2="150" stroke="var(--muted)" marker-end="url(#mi)" />
-        <text x="466" y="122" text-anchor="middle" font-size="8" fill="var(--muted)">answer</text>
+        <line x1="439" y1="158" x2="474" y2="158" stroke="var(--muted)" marker-end="url(#mi)" />
+        <text x="456" y="152" text-anchor="middle" font-size="8" fill="var(--muted)">answer</text>
 
-        <!-- All three used to begin INSIDE the assistant's box (x=258 and
-             x=447 against a box spanning 250..455), so each drew a segment
-             across the box's own interior and read as a stub floating loose
-             rather than a wire leaving it. They now leave the bottom EDGE at
-             the x of the store they feed. -->
-        <path d="M 297 386 L 297 398" fill="none" stroke="var(--muted)" marker-end="url(#mi)" />
-        <text x="291" y="380" text-anchor="end" font-size="8" fill="var(--muted)">writes</text>
-        <path d="M 407 386 L 407 398" fill="none" stroke="var(--muted)" marker-end="url(#mi)" />
-        <text x="413" y="380" font-size="8" fill="var(--muted)">remembers</text>
-        <path d="M 450 386 L 450 392 L 517 392 L 517 398" fill="none" stroke="var(--muted)"
+        <!-- Each wire leaves the assistant's bottom BORDER at the x of the
+             store it feeds, and its label sits BESIDE the arrow in the gap
+             below the box. Two earlier versions were wrong in opposite ways:
+             the first began inside the box and drew a segment across its own
+             interior; the second put the labels inside the yellow shape, so
+             they read as contents of the assistant rather than names for the
+             wires leaving it. -->
+        <path d="M 297 366 L 297 398" fill="none" stroke="var(--muted)" marker-end="url(#mi)" />
+        <text x="291" y="385" text-anchor="end" font-size="8" fill="var(--muted)">writes</text>
+        <path d="M 407 366 L 407 398" fill="none" stroke="var(--muted)" marker-end="url(#mi)" />
+        <text x="401" y="385" text-anchor="end" font-size="8" fill="var(--muted)">remembers</text>
+        <!-- the trace log sits outside the box's span, so this one steps across -->
+        <path d="M 425 366 L 425 380 L 517 380 L 517 398" fill="none" stroke="var(--muted)"
           marker-end="url(#mi)" />
-        <text x="527" y="390" font-size="8" fill="var(--muted)">appends</text>
+        <text x="472" y="375" text-anchor="middle" font-size="8" fill="var(--muted)">appends</text>
 
         <!-- calendar window -->
         <g data-panel="window" role="button" tabindex="0">
@@ -2814,9 +2840,15 @@ series_id   NULL
     markRail();
   }
   function step(d) {
-    if (cur === null) { open(d > 0 ? ORDER[0] : ORDER[ORDER.length - 1]); return; }
+    // STAY WHERE THE READER IS. `open()` clears `.full`, so stepping to the
+    // next component while reading a full page dropped you back into a
+    // cramped sidebar over a re-zoomed diagram -- the one thing you had just
+    // chosen to leave.
+    const wasFull = panel.classList.contains("full");
+    const resume = () => { if (wasFull) showMore(); };
+    if (cur === null) { open(d > 0 ? ORDER[0] : ORDER[ORDER.length - 1]); resume(); return; }
     const i = ORDER.indexOf(cur);
-    open(ORDER[(i + d + ORDER.length) % ORDER.length]);
+    open(ORDER[(i + d + ORDER.length) % ORDER.length]); resume();
   }
 
   document.querySelectorAll("svg.stage").forEach(svg => {
