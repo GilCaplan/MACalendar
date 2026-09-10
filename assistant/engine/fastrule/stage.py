@@ -22,10 +22,13 @@ What that removed, when this file was rewritten on 2026-09-10:
                                               573/573 of the rows we deferred
     event-vs-task, re-decided and re-tried     segmentation's `tag` decided it
 
-The model is no longer called from this stage at all. When `build` cannot
-produce an object it returns a `Defer`, and `llmjudge.rescue` — which is where
-the model lives — takes it from there, starting from the partial parse rather
-than cold. That is the whole of *"if there's an issue it tells LLMVerify"*.
+**The model is not called from this stage at all** — not directly and not
+transitively. When `build` cannot produce an object it returns a `Defer`, which
+is written onto the item as `slots["fastrule_defer"]` and left there. LLMJudge
+is the NEXT stage in the chain and picks them up at its own entry. That is the
+whole of *"if there's an issue it tells LLMVerify"*, and it is a hand-off rather
+than a call: this file used to reach forward into `llmjudge.rescue`, which
+duplicated the orchestrator's ordering and made "no model here" untrue.
 
 It ends by running decompose_validate's OBJECT pass. Those are that stage's
 rules, not this one's; they run here only because they need `item.intent` to
@@ -36,7 +39,6 @@ from __future__ import annotations
 from assistant.engine.decompose_validate import stage as _decompose_validate
 from assistant.engine.fastrule.build import (
     BadItem, Built, Defer, NotAnObject, build_all)
-from assistant.engine.state import Item
 
 
 #: WHICH BUILT OBJECTS THIS STAGE MAY COMMIT — a commit decision, deliberately
@@ -124,34 +126,21 @@ def run(state, cfg):
             + (f"; {flagged} not an ask" if flagged else "")
             + (f"; {bad} arrived unusable" if bad else ""))
 
-    if pending:
-        # THE ONLY REMAINING BACK-EDGE, and it points the right way: the stage
-        # that produces DEFERs calls the stage that consumes them. It is a
-        # function-local import so nothing resolves at import time.
-        from assistant.engine.llmjudge import rescue as _rescue
-        _rescue.rescue(state, cfg, pending)
-        _expand(state)
+    # THE DEFERS RIDE THE ITEM. They are not called forward: `llmjudge` is
+    # already the NEXT STAGE in the chain, so this stage reaching into it was a
+    # back-edge that duplicated the orchestrator's own ordering — and it meant a
+    # stage advertised as model-free reached the model transitively.
+    #
+    # A DEFER is this item's RESULT, so the item is where it belongs; no new
+    # EngineState field, and nothing frozen changes.
+    for item, verdict in pending:
+        item.slots = dict(item.slots or {})
+        item.slots["fastrule_defer"] = {
+            "reason": verdict.reason,
+            "reason_class": verdict.reason_class,
+            **(verdict.fields or {}),
+        }
+        item.slots["fastrule_result"] = "deferred"
 
     _decompose_validate.run_objects(state, cfg)
     return state
-
-
-def _expand(state) -> None:
-    """An item whose words parsed into SEVERAL intents becomes one sub-item per
-    intent — per-item attribution is what keeps feedback from corrupting a
-    neighbour (the row-75 lesson). The splice lives here because this stage
-    owns the shape of `state.items`; `rescue` only reports what it found.
-    """
-    from assistant.engine.fastrule.fast_track import kind_for
-
-    out: list = []
-    for item in state.items:
-        got = (item.slots or {}).pop("_expanded", None)
-        if not got:
-            out.append(item)
-            continue
-        for j, (name, intent) in enumerate(got, start=1):
-            out.append(Item(id=f"{item.id}-{j}", kind=kind_for(name),
-                            text=item.text, slots=dict(item.slots),
-                            action=name, intent=intent))
-    state.items = out

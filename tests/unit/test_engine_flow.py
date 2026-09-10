@@ -12,6 +12,7 @@ import pytest
 import assistant.engine as engine
 import assistant.engine.llm as engine_llm
 import assistant.engine.fastrule.stage as generate
+import assistant.engine.llmjudge.rescue as _rescue
 import assistant.engine.fastrule.fast_track as fast_track
 import assistant.stt.vocab as vocab_mod
 from assistant.engine.state import EngineState, Item
@@ -278,6 +279,7 @@ def test_a_task_kind_item_never_parses_to_nothing(monkeypatch, cfg):
     st = EngineState(raw_text="x", text="x")
     st.items = [Item(id="item_1", kind="task", text="submit the Haxaga grades")]
     generate.run(st, cfg)
+    _rescue.take_deferrals(st, cfg)
     assert st.items[0].action == "create_todo"
     assert st.items[0].intent.titles == ["submit the Haxaga grades"]
 
@@ -303,6 +305,7 @@ def test_an_event_kind_item_gets_a_kind_primed_retry(monkeypatch, cfg):
     st.items = [Item(id="item_1", kind="event",
                      text="send a calendar invite to James and Alice for brunch at 11 am")]
     generate.run(st, cfg)
+    _rescue.take_deferrals(st, cfg)
     assert st.items[0].action == "create_event"
     assert parser.parse.call_args_list[1][0][0].startswith("set an event: ")
     assert "event_kind_retry" in [f.rule for f in st.fixes]
@@ -321,6 +324,7 @@ def test_a_confident_event_parse_is_not_retried(monkeypatch, cfg):
     st = EngineState(raw_text="x", text="x")
     st.items = [Item(id="item_1", kind="event", text="gym tuesday at 7am")]
     generate.run(st, cfg)
+    _rescue.take_deferrals(st, cfg)
     assert parser.parse.call_count == 1
 
 

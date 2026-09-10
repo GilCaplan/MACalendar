@@ -43,9 +43,19 @@ def dead_llm(monkeypatch):
 
 
 def _run(text, kind, cfg):
+    """The chain as the orchestrator runs it: FastRule converts, then LLMJudge
+    answers what it deferred.
+
+    Two calls, not one, since 2026-09-10 (B5): FastRule leaves a DEFER on the
+    item and stops rather than reaching forward into llmjudge, because llmjudge
+    is already the next stage. A test that calls only the first would be
+    testing half a chain and would show the deterministic ladder never firing.
+    """
     st = EngineState(raw_text=text, text=text)
     st.items = [Item(id="item_1", kind=kind, text=text)]
-    return stage.run(st, cfg).items[0]
+    stage.run(st, cfg)
+    rescue.take_deferrals(st, cfg)
+    return st.items[0]
 
 
 # --- event_fallback: the grounded default-title event (cycle 5) ----------

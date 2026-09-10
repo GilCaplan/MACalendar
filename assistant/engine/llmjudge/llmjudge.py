@@ -173,6 +173,14 @@ def _produced(state: EngineState) -> list:
 
 def run(state: EngineState, cfg) -> EngineState:
     from assistant.trace import VERIFY
+    from assistant.engine.llmjudge import rescue as _rescue
+
+    # FIRST, answer what FastRule could not build. It leaves a DEFER on the item
+    # and stops; this stage is the next in the chain and owns the model, so the
+    # hand-off happens here rather than FastRule reaching forward into it.
+    # Before the crosscheck, because the crosscheck compares what was PRODUCED
+    # against what was said, and a deferred item has not been produced yet.
+    _rescue.take_deferrals(state, cfg)
 
     asks = extract_asks(state, cfg)
     if asks is None:

@@ -105,6 +105,65 @@ def _ask_the_model(item: Item, state: EngineState, cfg, verdict) -> "list | None
     return got
 
 
+def take_deferrals(state: EngineState, cfg) -> None:
+    """LLMJudge's FIRST job: answer whatever FastRule could not build.
+
+    FastRule leaves a `Defer` on each item it declined (`slots["fastrule_defer"]`)
+    and stops. This is the receiving end. It runs at the top of the llmjudge
+    stage, BEFORE the crosscheck, because the crosscheck compares what was
+    produced against what was said — and an item still waiting on the model has
+    not been produced yet.
+    """
+    pending = []
+    for item in list(getattr(state, "items", []) or []):
+        d = (item.slots or {}).pop("fastrule_defer", None)
+        if d is None:
+            continue
+        pending.append((item, _Verdict(d.get("reason") or "",
+                                       d.get("reason_class"))))
+    if not pending:
+        return
+    rescue(state, cfg, pending)
+    _expand(state)
+    # The rescued intents still owe decompose_validate's object pass -- they did
+    # not exist when the FastRule stage ran it.
+    from assistant.engine.decompose_validate import stage as _dv
+    _dv.run_objects(state, cfg)
+
+
+class _Verdict:
+    """The DEFER, rebuilt from what rode the item. Only the two fields the
+    rescue reads survive the trip, which is deliberate: a partial PARSE object
+    cannot be put on an item without making `slots` un-serialisable, and the
+    model is given the item's words either way."""
+
+    __slots__ = ("reason", "reason_class", "partial")
+
+    def __init__(self, reason: str, reason_class: "str | None") -> None:
+        self.reason = reason
+        self.reason_class = reason_class
+        self.partial = None
+
+
+def _expand(state: EngineState) -> None:
+    """An item whose words parsed into SEVERAL intents becomes one sub-item per
+    intent — per-item attribution is what keeps feedback from corrupting a
+    neighbour (the row-75 lesson)."""
+    from assistant.engine.fastrule.fast_track import kind_for
+
+    out: list = []
+    for item in state.items:
+        got = (item.slots or {}).pop("_expanded", None)
+        if not got:
+            out.append(item)
+            continue
+        for j, (name, intent) in enumerate(got, start=1):
+            out.append(Item(id=f"{item.id}-{j}", kind=kind_for(name),
+                            text=item.text, slots=dict(item.slots),
+                            action=name, intent=intent))
+    state.items = out
+
+
 def rescue(state: EngineState, cfg, pending: list) -> None:
     """Consume FastRule's DEFERs. `pending` is [(item, Defer), …].
 
