@@ -8,8 +8,49 @@
 **One-screen reference. A fresh conversation reads this first, then CLAUDE.md.**
 Keep it current and short; details live in the files it points to.
 
-_Updated 2026-09-08 — sprint cycle A parts 1 and 2 closed and banked; part 3
-(the never-measured LLM lane) is in flight._
+_Updated 2026-09-10 — the FASTRULE RESTRUCTURE is the live work; the sprint
+below it is paused behind stage isolation._
+
+## THE LIVE WORK: FastRule's restructure (2026-09-10)
+
+**`assistant/engine/fastrule/PLAN.md` is the plan; `experiments/RESULTS.md` is
+the run log.** Four phases — A port · B build+wire · C measure · D report to
+Gil. **LLMJudge does not start before D, and D is Gil's call, not the plan's.**
+
+    A   PORT OUT ........ ✅ 46f7967   Gatekeeper + the LLM fallback to llmjudge/
+    B1  the ceiling ..... ✅           163–332 of the 573 below-threshold rows
+    B2  build() ......... ✅           pure converter + 32 tests, unwired
+    B3  WIRE IT IN ...... ✅           83.5% of atomic train rows built
+    B4  fast_track.py ... ⬜           move Atomicity + fast_propose
+    B5/B6 the trim ...... ⬜           GATED on LLMJudge consuming the DEFER
+    C0  the generator ... ✅           moved to datasets/, byte-identical
+    C1  gold `item` ..... ⬜  NEXT     so the board can feed build(item)
+    C3  rebuild the board ⬜           fastrule_shape feeds items, not text
+
+**What FastRule now is:** `build(item, *, today) -> Built | Defer` — one Item to
+one object. It COPIES the eight values `decompose_validate` already resolved and
+reads only the operation, title, attendees and target. No model, no database, no
+clock of its own. `objects.run` tries it per item, accepts a CREATE or a QUERY,
+and everything else falls through to the old rules+model path — **that
+fall-through is scaffolding that B5 deletes**, not the design.
+
+**The numbers, and what they mean** (7,200 train half, real chain, no LLM):
+`build` produces the object on **83.5%** of atomic rows, operation right
+**90.8%**, **title right 55.5%**. The title is the binding constraint and two
+hypotheses for it are already REFUTED — reading it in-stage instead of taking
+the parser's span costs 17 points, and choosing by operation costs 4. Both
+sources are wrong on 43.4% of rows, so **the title needs its own instrument
+before it needs another rule**. That is what C1/C3 are for.
+
+**Do not judge this stage by a whole-engine run.** Segmentation is FROZEN (Gil,
+2026-09-09), so `engine_dataset_compare` is dominated by an upstream loss we have
+agreed not to touch. The product-shape board is the instrument.
+
+⚠️ **`DOCUMENTATION/artifacts/explorer.html` is dirty and stale** — Gil:
+"we will fix later". Its 4 test_artifact failures are the only reds in the
+suite; everything else is 1350 green.
+
+---
 
 **The loop is self-driving.** A cycle ends by STARTING THE NEXT ONE — banking
 the result in `dataset/RESULTS.md` is the report, and the next prediction is
