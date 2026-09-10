@@ -331,11 +331,21 @@ rule in its most expensive direction: blaming this stage for another's loss.
 **Not started. Recorded here so it is not lost, because the engine half landed
 first and the two are easy to leave out of step.**
 
-FastRule now returns a third kind of result: `NotAnObject` — an item there is
-nothing to build from, which segmentation tagged `other` ("thanks", "play some
-music"). Gil's framing: *"those you don't create an object, you can just flag to
-the user for this item it's not an object. This in itself can be a type of
-object."*
+FastRule now returns THREE kinds of result, and the panel has to tell them
+apart. Gil, 2026-09-10: *"for a valid item make a relevant object; for a bad
+item a bad item object is expected — not expecting to fix a bad item; an item
+tagged as other and not event/task/review is a DIFFERENT object which we will
+use to show on the review panel later."*
+
+| `item.slots["fastrule_result"]` | when | what the panel should say |
+|---|---|---|
+| *(absent)* | a valid item | the object, as today |
+| `bad_item` | the item ARRIVED malformed | *this part reached me damaged* — and WHICH upstream stage, once that is attributable at runtime |
+| `not_an_ask` | segmentation tagged it `other` | *this wasn't something for the calendar* |
+
+The two flags share a carrier (`item.blocked`) but mean different things: one is
+an upstream defect, the other is a correct reading of a non-ask. Collapsing them
+in the UI would lose exactly the distinction the user needs.
 
 The ENGINE side is done (`fastrule/build.py::NotAnObject`, flagged onto
 `item.blocked`, reported by `_commit` as *"I left 'X' alone — …"* and pinned by

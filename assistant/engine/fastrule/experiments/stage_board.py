@@ -123,6 +123,9 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--llm", action="store_true",
                     help="run the full stage including the LLMJudge rescue")
+    ap.add_argument("--input", choices=("gold", "chain"), default="gold",
+                    help="gold = the Item the upstream SHOULD produce (this "
+                         "stage ALONE); chain = the real segmenter's output")
     ap.add_argument("-n", type=int, default=int(os.environ.get("N", "600")))
     a = ap.parse_args()
 
@@ -133,6 +136,8 @@ def main() -> int:
     from assistant.engine.fastrule.build import Built, build_all
     from assistant.engine.fastrule.stage import _may_commit
     from assistant.engine.state import EngineState
+    from assistant.engine.decompose_validate import stage as _dv
+    from assistant.engine.state import Item
     from assistant.engine.fastrule.experiments.fastrule_shape import _CLOCK
 
     cfg = engine.load_config()
@@ -156,6 +161,8 @@ def main() -> int:
     blame: collections.Counter = collections.Counter()
     withheld: collections.Counter = collections.Counter()
     built_n = [0]
+    bad_n = [0]
+    bad_faithful = [0]
     defers: collections.Counter = collections.Counter()
     samples = collections.defaultdict(list)
 
@@ -166,19 +173,35 @@ def main() -> int:
             want_t = _norm(gold.get("title"))
 
             st = EngineState(raw_text=r["text"], text=r["text"], source="test")
-            try:
-                engine._segment.run(st, cfg)
-                engine._decompose_validate.run(st, cfg)
-            except Exception:
-                continue
-            if not st.items:
-                blame["segmentation: produced no item at all"] += 1
-                continue
+            if a.input == "gold":
+                # ISOLATION. The Item the upstream SHOULD have produced, built
+                # by the generator from its own templates — so no stage's
+                # implementation is in the path and this measures FastRule and
+                # nothing else. `slots` are resolved from the gold when phrase
+                # by decompose_validate's resolver, which is the component that
+                # owns that job; its own boards score it separately.
+                gi = r["expect"].get("item") or {}
+                item = Item(id="item_1", kind=gi.get("kind") or "event",
+                            text=gi.get("text") or r["text"],
+                            time=gi.get("time"))
+                st.items = [item]
+                try:
+                    _dv.resolve_values(st, _CLOCK.date())
+                except Exception:
+                    pass
+                bad = None
+            else:
+                try:
+                    engine._segment.run(st, cfg)
+                    engine._decompose_validate.run(st, cfg)
+                except Exception:
+                    continue
+                if not st.items:
+                    blame["segmentation: produced no item at all"] += 1
+                    continue
+                item = st.items[0]
+                bad = audit_input(item, gold, want, len(st.items))
             n += 1
-            item = st.items[0]
-
-            # --- AUDIT THE INPUT, before the stage touches it ---------------
-            bad = audit_input(item, gold, want, len(st.items))
 
             # --- run the stage ---------------------------------------------
             if a.llm:
@@ -223,12 +246,29 @@ def main() -> int:
             e2e_correct += ok
 
             if bad:
-                # NOT this stage's row. Attribute it and move on.
-                if not ok:
-                    blame[bad.split(":")[0] + ": " + bad.split(": ", 1)[1][:52]] += 1
-                    if len(samples["upstream"]) < 8:
-                        samples["upstream"].append(
-                            f"{r['text'][:44]!r}\n           {bad}")
+                # GIL, 2026-09-10: "if the input to FastRule was a BAD item and
+                # the output was IN ACCORDANCE, then I would mark that in the
+                # scoring metric as a SUCCESS."
+                #
+                # So a broken input is not excused OR punished — it is scored
+                # against the item that actually arrived. The reference cannot
+                # be the utterance's gold object (the item no longer says
+                # that), so it is FAITHFULNESS: an object whose title is drawn
+                # from the received item's OWN words, inventing nothing. That
+                # is exactly what a correct converter does with words it was
+                # handed, and it is the only thing this stage can be held to
+                # once the words are already wrong.
+                faithful = produced and _content(_title_of(got_intent)) <= _content(item.text)
+                blame[bad.split(":")[0] + ": " + bad.split(": ", 1)[1][:52]] += 1
+                bad_n[0] += 1
+                bad_faithful[0] += bool(faithful)
+                if not faithful and len(samples["unfaithful"]) < 8:
+                    samples["unfaithful"].append(
+                        f"{r['text'][:40]!r}\n           item={item.text[:34]!r} "
+                        f"got={got_action}/{_title_of(got_intent)!r}\n           {bad}")
+                elif len(samples["upstream"]) < 6:
+                    samples["upstream"].append(
+                        f"{r['text'][:44]!r}\n           {bad}")
                 continue
 
             # --- SOUND INPUT: this row is FastRule's to answer --------------
@@ -255,13 +295,23 @@ def main() -> int:
                     f"{_title_of(got_intent)!r}")
 
     pc = lambda x, y: f"{100.0*x/y:.1f}%" if y else "—"
-    lane = "FULL STAGE (converter + LLMJudge rescue)" if a.llm \
-        else "CONVERTER ONLY (no model)"
+    lane = ("FULL STAGE (converter + LLMJudge rescue)" if a.llm
+            else "CONVERTER ONLY (no model)")
+    src = ("GOLD items — THIS STAGE ALONE" if a.input == "gold"
+           else "the real chain's items")
     print(f"FastRule STAGE board — {n} atomic TRAIN rows · {lane}")
-    print("segmentation -> decompose_validate -> the stage\n")
-    print(f"INPUT AUDIT   sound input {sound}/{n} = {pc(sound, n)}"
-          f"   ({n - sound} rows were already broken when they arrived)\n")
-    print("THIS STAGE'S SCORE — over sound input only")
+    print(f"input: {src}\n")
+    if a.input == "chain":
+        print(f"INPUT AUDIT   sound input {sound}/{n} = {pc(sound, n)}"
+              f"   ({n - sound} arrived already broken)")
+        print(f"  of the {bad_n[0]} broken, FAITHFULLY converted anyway "
+              f"(counted a SUCCESS): {bad_faithful[0]}  {pc(bad_faithful[0], bad_n[0])}\n")
+    total_ok = correct + bad_faithful[0]
+    total_rows = sound + bad_n[0]
+    if a.input == "chain":
+        print(f"THIS STAGE'S SCORE — right on sound input, FAITHFUL on broken")
+        print(f"  {total_ok}/{total_rows} = {pc(total_ok, total_rows)}\n")
+    print("ON SOUND INPUT" if a.input == "chain" else "THIS STAGE'S SCORE")
     print(f"  HANDLED (an object came out)   {handled:4d}  {pc(handled, sound)}")
     print(f"  CORRECT-ON-HANDLED             {correct:4d}  {pc(correct, handled)}")
     print(f"     operation right             {op_ok:4d}  {pc(op_ok, handled)}")

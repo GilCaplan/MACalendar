@@ -60,6 +60,26 @@ class Built:
 
 
 @dataclass
+class BadItem:
+    """The item ARRIVED malformed, and this stage does not try to repair it.
+
+    Gil, 2026-09-10: *"for a valid item make a relevant object; for a bad item
+    a BAD ITEM OBJECT is expected — not expecting to fix a bad item."*
+
+    So this is a SUCCESS for this stage, not a failure: the words it was handed
+    cannot support an object, it says so, and the damage is attributed to
+    whoever produced them. Repairing upstream damage here is the thing that
+    would be wrong — it hides which stage failed, and it is guesswork about
+    words nobody said.
+
+    Distinct from `Defer`, which means *"I cannot, but the model might"*. A
+    `BadItem` is not deferrable: there is nothing in it for anyone to read.
+    """
+    reason: str
+    item_id: str = ""
+
+
+@dataclass
 class NotAnObject:
     """The item is not something the software can hold at all.
 
@@ -230,6 +250,28 @@ _FOR_TAIL = re.compile(r"\bfor\s+(.{2,60})$", re.I)
 
 #: "… with Morgan", "… with Jamie and Rowan" — the people, not the event.
 _ATTENDEE_ONLY = re.compile(r"\bwith\s+([A-Z][A-Za-z]*(?:\s+and\s+[A-Z][A-Za-z]*)*)")
+
+
+#: Words that cannot, alone, be an ask: they carry no subject. A stripped item
+#: made of nothing but these arrived broken.
+_NO_SUBJECT = re.compile(
+    r"^(?:\s*(?:please|thanks|ok|okay|and|then|also|hey|um|uh|so|"
+    r"a|an|the|my|to|for|of|on|at|in|it|that|this)\b)+\s*$", re.I)
+
+
+def _why_unusable(item: Item) -> "str | None":
+    """Whether the ITEM is malformed, independent of what could be built.
+
+    Deliberately conservative — it answers "are there words here at all",
+    not "are they the right words". Judging the CONTENT would be re-deciding
+    segmentation's job, which is the thing this stage stopped doing.
+    """
+    text = (getattr(item, "text", "") or "").strip()
+    if not text:
+        return "the item arrived with no action words"
+    if _NO_SUBJECT.match(text):
+        return f"the item's words name nothing to act on: {text!r}"
+    return None
 
 
 def _read_action_words(item: Item, parser) -> tuple:
@@ -454,6 +496,12 @@ def build(item: Item, *, today: "_dt.date | None" = None,
     if parser is None:
         from assistant.engine import llm as _llm
         parser = _llm.get_rule_parser()
+
+    # IS THE ITEM ITSELF USABLE? Asked BEFORE the parser, because a parser
+    # handed nothing will invent a reading of nothing.
+    unusable = _why_unusable(item)
+    if unusable:
+        return BadItem(unusable, item_id=getattr(item, "id", ""))
 
     slots = dict(item.slots or {})
     route, title, attendees = _read_action_words(item, parser)

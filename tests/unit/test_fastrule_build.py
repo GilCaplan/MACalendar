@@ -235,7 +235,7 @@ def test_the_time_words_never_become_the_title():
 # ---------------------------------------------------------------------------
 
 def test_a_defer_is_returned_and_carries_a_reason_class():
-    res = _build("", kind="event", raw={})
+    res = _build("book gym", kind="event", raw={})
     assert isinstance(res, Defer)
     assert res.reason_class in ("incapacity", "refusal", "structure")
 
@@ -340,3 +340,50 @@ def test_the_flag_reaches_the_user_instead_of_vanishing():
     engine._commit(st, load_config())
 
     assert any("thanks" in m for m in st.messages), st.messages
+
+
+# ---------------------------------------------------------------------------
+# 7 · THE THREE OUTPUT KINDS (Gil, 2026-09-10)
+# ---------------------------------------------------------------------------
+#
+#   a VALID item   -> a relevant object
+#   a BAD item     -> a BAD ITEM object. We do not try to fix it.
+#   an `other` tag -> a different object again, for the review panel
+#
+# The distinction is not bookkeeping: repairing upstream damage here would hide
+# which stage failed, and it would be guesswork about words nobody said.
+
+
+def test_a_valid_item_makes_a_relevant_object():
+    res = _build("flu shot", kind="event", slots={"date": "2026-09-21"},
+                 raw={"create_event": {"title": "flu shot"}})
+    assert isinstance(res, Built) and res.action == "create_event"
+
+
+def test_a_bad_item_makes_a_BAD_ITEM_object_rather_than_a_guess():
+    """An item with no action words cannot support an object, and this stage
+    says so instead of inventing one. Gil: "for a bad item a bad item object is
+    expected — not expecting to fix a bad item"."""
+    from assistant.engine.fastrule.build import BadItem
+    for text in ("", "   ", "and then", "please the"):
+        res = _build(text, kind="event", raw={"create_event": {"title": "x"}})
+        assert isinstance(res, BadItem), f"{text!r} -> {res}"
+        assert res.reason
+
+
+def test_the_three_kinds_are_distinguishable_downstream():
+    """The review panel has to tell them apart, so the stage records which it
+    was rather than collapsing all three into an empty intent."""
+    from assistant.engine import load_config
+    from assistant.engine.fastrule import stage
+    from assistant.engine.state import EngineState
+
+    cases = {"bad_item": _item("", kind="event"),
+             "not_an_ask": _item("thanks", kind="other")}
+    for expected, item in cases.items():
+        st = EngineState(raw_text="x", text="x")
+        st.items = [item]
+        stage.run(st, load_config())
+        got = (st.items[0].slots or {}).get("fastrule_result")
+        assert got == expected, f"{expected}: got {got!r}"
+        assert st.items[0].blocked

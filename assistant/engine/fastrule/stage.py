@@ -35,7 +35,7 @@ from __future__ import annotations
 
 from assistant.engine.decompose_validate import stage as _decompose_validate
 from assistant.engine.fastrule.build import (
-    Built, Defer, NotAnObject, build_all)
+    BadItem, Built, Defer, NotAnObject, build_all)
 from assistant.engine.state import Item
 
 
@@ -71,8 +71,20 @@ def run(state, cfg):
     results = build_all(items)
 
     pending: list = []          # [(item, Defer)] — LLMJudge's to answer
-    built = flagged = 0
+    built = flagged = bad = 0
     for item, res in zip(items, results):
+        if isinstance(res, BadItem):
+            # A BAD ITEM IS AN ANSWER (Gil): the stage reports what it was
+            # handed rather than repairing it. Same carrier as a non-ask —
+            # `blocked` — but a DIFFERENT reason, because the review panel
+            # shows them differently and because the two mean different
+            # things: this one says an upstream stage produced damage.
+            item.action, item.intent = "unknown", None
+            item.blocked = res.reason
+            item.slots = dict(item.slots or {})
+            item.slots["fastrule_result"] = "bad_item"
+            bad += 1
+            continue
         if isinstance(res, NotAnObject):
             # A FLAG IS AN OUTCOME, not a gap. `blocked` is the frozen field
             # for exactly this — "refusal reason, never executed, reported
@@ -80,6 +92,8 @@ def run(state, cfg):
             # empty intent, which is what made this silent before.
             item.action, item.intent = "unknown", None
             item.blocked = res.reason
+            item.slots = dict(item.slots or {})
+            item.slots["fastrule_result"] = "not_an_ask"
             flagged += 1
             continue
         if isinstance(res, Built):
@@ -102,12 +116,13 @@ def run(state, cfg):
             continue
         pending.append((item, res))
 
-    if state.trace and (built or pending or flagged):
+    if state.trace and (built or pending or flagged or bad):
         state.trace.step(
             RULE, "Built the objects",
             f"{built} of {len(items)} converted"
             + (f"; {len(pending)} to the model" if pending else "")
-            + (f"; {flagged} not an object" if flagged else ""))
+            + (f"; {flagged} not an ask" if flagged else "")
+            + (f"; {bad} arrived unusable" if bad else ""))
 
     if pending:
         # THE ONLY REMAINING BACK-EDGE, and it points the right way: the stage
