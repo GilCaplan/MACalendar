@@ -213,3 +213,108 @@ division of responsibility rather than a purity this stage does not have.
 boundary, not a score — `test_engine_contracts.py`, `test_engine_flow.py`,
 `test_panel_agreement.py`, and `scripts/engine_pipeline_check.py`. The board is
 re-run after it, and against B1's floor: **at least 163 of the 573** (28.4%).
+
+---
+
+## B3 — wired into the engine, and it is load-bearing — 2026-09-10
+
+**The step (PLAN.md §3).** *"WIRE IT INTO THE ENGINE — the five touch-points.
+'Once initial working implementation is done, fix wiring to the engine.' A
+converter nothing calls is not a working stage."*
+
+**B3's acceptance test is the wiring's own, not a score**, and it passes:
+`test_engine_contracts.py`, `test_engine_flow.py`, `test_panel_agreement.py`
+green, and `scripts/engine_pipeline_check.py` reports *"every stage boundary
+matched its contract"*. 1350 unit tests pass. **The front-door product-shape
+board is byte-identical** — handled 69.1%, correct-on-handled 94.2%, harm
+165/129 — which is exactly right: `build()` is wired into the PER-ITEM path,
+and that board measures the whole-command fast track.
+
+### Is it actually doing anything? 600 atomic train rows through the real chain
+
+`experiments/b3_live_chain.py` — segmentation → decompose_validate → `build()`,
+no LLM anywhere in the path. Not phase C's board; this answers one question,
+because a converter that defers everything is wired but not working.
+
+| | | |
+|---|---:|---|
+| **BUILT** | **83.5%** | 501 of 600 |
+| deferred | 16.5% | 99 — kind-conflict 46, skip 27, generic-title 14, generic-target 12 |
+| of those built — **operation right** | **90.8%** | |
+| of those built — **title right** | **55.5%** | |
+| both | 54.3% | |
+
+**And the values are finally being copied.** Per built row: `date` 90.8%,
+`start_time` 36.1%, `recurrence` 12.4%, `end_time` 8.6%, `recur_days` 4.0%,
+`recur_until` 3.2%, `reminder_minutes` 2.0%, `quantity` 1.4%. All eight, from
+`item.slots`. The predecessor copied one (B2 — the other of its two branches
+could never fire).
+
+**B1's prediction holds exactly.** The title is the binding constraint — 55.5%
+against 90.8% for the operation — which is what B1 said the rows would turn on,
+and it is where the next batch goes. The failure classes are legible:
+
+    "book workshop with Morgan for next monday"   -> title 'morgan'
+    "schedule conference call with Jesse tomorrow" -> title 'jesse'
+    "reschedule the call with Casey and Emerson"  -> title 'casey'
+    "i finished water the garden"                 -> title 'water'
+
+The first three are one class: **`with <name>` hands back the attendee as the
+title.** That is a rule, not a long tail.
+
+### The measurement trap this run walked into first
+
+The first pass reported **build 0.0%, deferred 100%, every reason `skip`** — a
+convincing-looking disaster. It was the instrument. `fastrule_shape.py` carries
+the line `fr.run(...)  # warm outside the frozen clock`; this harness did not,
+so spaCy's pipeline was first built *under* `freeze_time`, `analyze()` raised,
+and `build()` turned that into a `skip` DEFER. **A stage that converts an
+infrastructure failure into its ordinary "I couldn't read this" answer reads as
+a model result.** Recorded because the same shape will recur: the harness now
+warms the parser first, and says why.
+
+### Two defects the wiring exposed, and the rule that came out of them
+
+Wiring `build()` in front of the tuned path turned two tests red immediately —
+which is what B2/B3 being separate steps is for.
+
+1. **`build()` read `title` and `titles` but not `match_title`.** Every
+   target-taking operation carries its target in that third field, so
+   `"set a reminder note for three o'clock"` fell through to the fallback and
+   made the WHOLE UTTERANCE the target — an update aimed at a record called
+   *"a reminder note for three o'clock"*.
+2. **Re-kinding a target-taking operation invents a target.**
+   `"set reminder for three o'clock"` routes to `update_todo`; `item.kind` says
+   event; the first cut dutifully produced `update_event` aimed at a record
+   called *"three o'clock"*.
+
+**The rule that resolves it: `item.kind` may re-kind a CREATE or a QUERY, never
+an UPDATE, DELETE or COMPLETE.** A create needs a title, so moving it between
+the calendar and the task list changes only where the new record lands. A
+target-taking operation names an EXISTING record, and the kind decides which
+STORE is searched for it — a different, destructive action. When the route's
+store and the kind disagree there is no way to choose, so it DEFERs with a new
+reason, **`kind-conflict`** (an INCAPACITY: nothing is wrong with the reading,
+there are simply two of them). It is 46 of the 99 deferrals — the largest
+bucket, and it is doing real work: `"can you mark tomorrow as my birthday"` is
+B1's destructive `mark X as the Y` shape, now refused instead of completing
+somebody's todo.
+
+### One restriction, deliberately at the wiring rather than in `build()`
+
+`objects.run` accepts a `Built` **only for creates and queries**; everything
+else falls through to the existing path. Knowing whether a target names a real
+record needs a store lookup, and `build()` is pure by design —
+`_names_something_real` left with Gatekeeper in phase A. Committing one
+unchecked is the expensive direction: the board weights a wrong delete at 4 and
+a wrong update or complete at 2, against 1 for a create.
+
+It lives at the wiring because **PLAN §2c says a commit decision is not
+`build()`'s job**. `build()` can construct all nine actions and is unit-tested
+doing so; what the stage will COMMIT is a separate question with a separate
+owner. Phase C's board decides whether to lift it.
+
+**Registered for phase C:** C0 first — the dataset generator is still broken
+(`FileNotFoundError`, pre-restructure paths), and nothing else in C can happen
+until it runs. Then the title batch: `with <name>` is the single largest legible
+class in the 44.5% of built rows whose title is wrong.

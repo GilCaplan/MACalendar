@@ -156,8 +156,13 @@ def test_mark_x_as_the_y_no_longer_completes_a_todo():
     res = _build("mark as the release date", kind="event",
                  slots={"date": "2026-09-13"},
                  raw={"complete_todo": {"title": "the release date"}})
-    assert isinstance(res, Built)
-    assert res.action != "complete_todo"
+    # A DEFER is the honest answer, not a second guess: the parser says
+    # "complete a task", segmentation says "an event", and the two disagree
+    # about which STORE holds the record. What must not happen is the
+    # destructive commit, and it does not.
+    assert not (isinstance(res, Built) and res.action == "complete_todo")
+    assert isinstance(res, Defer) and res.reason == "kind-conflict"
+    assert res.reason_class == "incapacity"
 
 
 def test_no_kind_from_upstream_keeps_whatever_the_verb_routed_to():

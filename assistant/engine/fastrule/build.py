@@ -112,6 +112,19 @@ _ACTION_FOR = {
     ("query", "task"): "query_todos",
 }
 
+#: Which operations may be re-kinded from `item.kind`. A create or a query is
+#: safe: it needs a title, not a target, so choosing the calendar over the task
+#: list changes where the new record lands and nothing else. An update, a delete
+#: or a complete names an EXISTING record, and the kind decides which store is
+#: searched for it — see the DEFER in `build` for why that is not a re-kind.
+_RE_KINDABLE = ("create", "query")
+
+#: Which store a route reads, for the target-taking operations.
+_STORE_OF = {
+    "update_event": "event", "delete_event": "event",
+    "update_todo": "task", "delete_todo": "task", "complete_todo": "task",
+}
+
 #: `complete` has no event form — you do not tick off an appointment. When the
 #: verb says complete and the kind says event, the kind is the thing that was
 #: read from more evidence, so it wins and the operation falls back to update.
@@ -183,7 +196,13 @@ def _read_action_words(item: Item, parser) -> tuple:
         return None, "", []
     route = next(iter(raw))
     slots = raw.get(route) or {}
-    title = slots.get("title") or ""
+    # THREE NAMES FOR THE SAME THING, and missing one of them is a real defect:
+    # a create carries `title` (events) or `titles` (todos), and every
+    # target-taking operation carries `match_title`. Reading only the first two
+    # sent "set a reminder note for three o'clock" through the fallback, which
+    # made the whole utterance the target -- an update aimed at a record called
+    # "a reminder note for three o'clock".
+    title = slots.get("title") or slots.get("match_title") or ""
     if not title:
         titles = slots.get("titles") or []
         title = titles[0] if titles else ""
@@ -353,10 +372,25 @@ def build(item: Item, *, today: "_dt.date | None" = None,
     if kind is None:
         # segmentation had no opinion; keep whatever the verb routed to
         action = route
-    else:
-        if op in _NO_EVENT_FORM and kind == "event":
-            op = "update"
+    elif op in _RE_KINDABLE:
+        # A create or a query only needs a title, so moving it between the
+        # calendar and the task list is safe and `item.kind` is the better
+        # evidence — this is where B1's 66 rows of create_todo/create_event
+        # confusion get fixed.
         action = _ACTION_FOR.get((op, kind)) or route
+    elif _STORE_OF.get(route) == kind or (kind == "review"):
+        action = route
+    else:
+        # A TARGET-TAKING OPERATION WHOSE STORE THE KIND DISAGREES WITH.
+        # Re-kinding here would change WHICH STORE is searched for the record
+        # to change or remove, which is a different and destructive action --
+        # "set reminder for three o'clock" routes to update_todo, and re-kinding
+        # it to update_event produced an event-update aimed at a record called
+        # "three o'clock". Neither reading is trustworthy when the two
+        # disagree, so this is exactly what the DEFER is for: the deep track
+        # gets the conflict and the partial parse rather than a guess.
+        return Defer("kind-conflict",
+                     fields={"route": route, "kind": kind, "title": title})
 
     # --- 2 · the object's own fields ---------------------------------------
     if not title:

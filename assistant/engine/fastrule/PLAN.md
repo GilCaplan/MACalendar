@@ -228,8 +228,8 @@ baseline unchanged.
 | # | step | why here |
 |---|---|---|
 | ✅ **B1** | **Measure the ceiling** — DONE 2026-09-10, `experiments/RESULTS.md` + `experiments/b1_ceiling.py`. **163–332 of the 573 are buildable** (28.4% strict / 50.1% clean-carve); values readable upstream on 573/573. **Not small, so B2 proceeds as written** — but the title, not the copy, is where the rows move | a number before a refactor. If it is small, the converter is not the lever and B2 changes shape |
-| B2 | **`build(item, *, today)`** — COPY all eight slots, parse only operation / title / attendees / target. Unit-tested ALONE, not yet wired | the substance; everything else is arrangement. It is a pure function, so it can be proven before the engine ever calls it |
-| **B3** | **WIRE IT INTO THE ENGINE** (Gil, 2026-09-09) — the five touch-points below | *"once initial working implementation is done, fix wiring to the engine."* A converter nothing calls is not a working stage |
+| ✅ **B2** | **`build(item, *, today)`** — DONE 2026-09-10, `build.py` + 32 tests. Its tests found two defects: the copy must go INTO the constructor (`fill_defaults` stamps today/now, so construct-then-assign leaves `end_time` derived from a default start — an event ending before it begins), and the predecessor's `quantity` copy **had never fired** (`hasattr(intent, "quantity")` guarding a field named `quantities`) | the substance; everything else is arrangement. It is a pure function, so it can be proven before the engine ever calls it |
+| ✅ **B3** | **WIRED 2026-09-10.** Shape checks green + `engine_pipeline_check` passes every boundary; front-door board byte-identical. **Load-bearing: 83.5% of atomic train rows built** through the real chain, operation 90.8%, title 55.5%, all eight values copied (`experiments/b3_live_chain.py`). W4's flagged defect CONFIRMED live and fixed. New rule: `item.kind` may re-kind a CREATE or QUERY, never a target-taking op → new reason `kind-conflict` | *"once initial working implementation is done, fix wiring to the engine."* A converter nothing calls is not a working stage |
 | B4 | Move `Atomicity` + `fast_propose` to a **new `fastrule/fast_track.py`**, and follow the one call site | safe once `build` no longer needs them. The file does not exist yet |
 | B5 | Delete FastRule's call sites into the phase-A code | the STAGE BOUNDARY changes here — after the converter works and is wired, never beside it |
 | B6 | Delete what is now dead | phase A's import redirect, and `_parse_item`'s branch once nothing takes it |
@@ -272,6 +272,16 @@ accessors need a home before B5/B6 delete the file, and the natural one is
 `assistant/engine/llm.py`, which already exists and is already what `llmjudge.py:116`
 reaches for. **Decide this in B3, not in B6** — discovering it during a deletion is
 how a warm-up path silently stops warming up.
+
+> **W4's defect is CONFIRMED and FIXED, 2026-09-10.** The live check this
+> section asked for was run: `objects.run` on the synthesised item returns
+> `action="unknown", intent=None`, so `_commit(sub, cfg)` really was handed
+> nothing and the recovery reply could never fire. `kind="other"` had NOT been
+> chosen for a reason that is no longer visible — it was the only place in the
+> codebase that wrote `Item.kind` by hand, and the two meanings of `other`
+> collided ("unclassified" here, "segmentation decided this is not a calendar
+> ask" there). The path now lets segmentation tag the words like every other
+> item. Pinned by `test_the_missing_ask_recovery_actually_builds_something`.
 
 **A probable live defect found while mapping W4.** `_commit_missing_ask`
 (`engine/__init__.py:600-616`) is the recovery path for a `missing` finding — the

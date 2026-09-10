@@ -16,6 +16,38 @@ complete input, its answer commits instantly.
 
 ---
 
+## 0 · Where this stage stands (2026-09-10)
+
+**The restructure is mid-flight, and this file describes BOTH halves** — which
+is the honest state, not an oversight. `PLAN.md` §3 is the four phases; A, B1,
+B2 and B3 are done.
+
+    THE NEW BOX      build(item, *, today) -> Built | Defer     build.py
+                     one Item -> one object. Copies the eight values
+                     decompose_validate resolved; reads only the operation,
+                     title, attendees and target. No model, no database,
+                     no clock of its own.
+
+    THE OLD BOX      FastRule(threshold).run(text)              fastrule.py
+                     the whole-command FAST TRACK, unchanged. Still the
+                     front door, still what the product-shape board measures.
+
+    HOW THEY MEET    objects.run tries `build` per item first and accepts a
+                     CREATE or a QUERY; anything else, and every DEFER, falls
+                     through to the old rules+model path below it.
+
+**That fall-through is scaffolding, not the design.** B5 deletes it once
+LLMJudge consumes the DEFER at its own end. Sections 1–2 below describe the old
+box, which is still live; do not read them as a description of `build`.
+
+**Measured, 600 atomic train rows through the real chain** (2026-09-10,
+`experiments/b3_live_chain.py`): `build` produces the object on **83.5%**,
+operation right **90.8%**, title right **55.5%**. The title is the binding
+constraint and the next batch's target — `experiments/RESULTS.md` has the
+failing classes.
+
+---
+
 ## 1 · The organizing idea
 
 Every judgement is the same tiered decision — **rules when confident, a tiny
@@ -144,12 +176,16 @@ instead of deferring them" is a result; "53.5" is not.
 fastrule/
     ARCHITECTURE.md   this file
     PLAN.md           the four-phase restructure (A port · B build+wire · C measure · D stop)
+    build.py          THE CONVERTER — build(item) -> Built | Defer. The target
+                      shape (PLAN §2d); pure, no model, no I/O
     fastrule.py       the rule engine: Atomicity, Scorer, FastRule, the DEFER contract
-    objects.py        the per-item build loop, the parser/registry accessors
+    objects.py        the per-item loop (build first, then the old path), the
+                      parser/registry accessors
     stage.py          the Stage wrapper: X3 -> X4
     datasets/         7,200 rows + the banks that generate them
-    experiments/      fastrule_shape.py (PRIMARY board) · fastrule6k.py (FS1, six
-                      metrics) · fast_sandbox.py (the deterministic fast lane)
+    experiments/      RESULTS.md (the run log) · fastrule_shape.py (PRIMARY board)
+                      · fastrule6k.py (FS1, six metrics) · fast_sandbox.py (the
+                      deterministic fast lane) · b1_ceiling.py · b3_live_chain.py
 ```
 
 **The generator is NOT here, and that is the bug** — `scripts/gen_fastrule_dataset.py`

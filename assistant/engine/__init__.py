@@ -604,11 +604,26 @@ def _commit_missing_ask(state: EngineState, cfg, finding) -> "str | None":
     if not m:
         return None
     words = m.group(1)
-    from assistant.engine.state import Item
     sub = EngineState(raw_text=words, text=words, source=state.source,
                       current_view=state.current_view, mode="background")
-    sub.items = [Item(id="item_1", kind="other", text=words)]
     try:
+        # LET SEGMENTATION TAG THE WORDS. This used to hand-build
+        # `Item(kind="other")`, and that was a dead recovery path: `other` means
+        # "NOT a calendar ask" to the stage below, which skips every such item
+        # with action="unknown", intent=None -- so `_commit` was handed nothing
+        # and the "I first missed part of that" reply could never fire. The two
+        # meanings of `other` collided: here it meant "unclassified", there it
+        # means "segmentation already decided this is none of event/task/review".
+        #
+        # Confirmed live before the fix (fastrule/PLAN.md §3 W4 asked for exactly
+        # that check, since `kind="other"` might have been chosen for a reason no
+        # longer visible). It was not: this was the ONLY place in the codebase
+        # that wrote the kind by hand, and everywhere else segmentation decides
+        # it. These words came from a `missing` finding -- something the speaker
+        # actually said and the chain dropped -- so they deserve the same
+        # treatment as any other item, not a pre-judgement.
+        _segment.run(sub, cfg)
+        _decompose_validate.run(sub, cfg)
         _generate.run(sub, cfg)
         _dv_objects.run_objects(sub, cfg)
         _commit(sub, cfg)

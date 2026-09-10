@@ -28,6 +28,7 @@ import logging
 import re
 
 from assistant.engine.state import EngineState, Item
+from assistant.engine.fastrule.build import Built as _Built, build as _build
 
 #: PORTED OUT 2026-09-09 (Gil) — the model half's helpers and its three
 #: guards now live in `llmjudge/llm_fallback.py`, where the model lives.
@@ -253,6 +254,59 @@ def run(state: EngineState, cfg) -> EngineState:
                           note="tagged `other` by segmentation")
             out.append(item)
             continue
+        # ---- B3: THE CONVERTER FIRST -----------------------------------
+        # `build` is what this stage is FOR (PLAN.md §2d): it copies the eight
+        # values decompose_validate already resolved and reads only what is
+        # genuinely left -- operation, title, attendees, target. B1 measured
+        # the alternative: re-deriving the when is why "i need to talk to Sage
+        # the 3rd about yoga class" produced an event titled '3rd', and why 573
+        # atomic rows defer as below-threshold while the stage that owns those
+        # values reads them correctly on 573/573.
+        #
+        # A DEFER falls through to the path below exactly as before. That
+        # fall-through is scaffolding, not the design -- it is what B5 deletes
+        # once LLMJudge consumes the DEFER at its own end. Wiring the converter
+        # and removing the old path in one step would mean a failure could be
+        # either.
+        try:
+            built = _build(item)
+        except Exception:       # a converter must never take a command down
+            built = None
+        # WHICH BUILT OBJECTS MAY COMMIT HERE — a commit decision, which is
+        # deliberately NOT build()'s job (PLAN.md §2c: "no commit decision"),
+        # so it lives at the wiring where it can be measured and lifted.
+        #
+        # Creates and queries only, for now. A target-taking operation names an
+        # EXISTING record, and knowing whether it names a real one needs a store
+        # lookup that `build` cannot do -- purity is the whole point of the
+        # stage, and `_names_something_real` moved to LLMJudge with Gatekeeper
+        # in phase A. Committing one unchecked is the expensive direction: the
+        # board weights a wrong delete at 4 and a wrong update or complete at 2,
+        # against 1 for a create. "set a reminder note for three o'clock" is the
+        # worked example -- the parser routes it to update_todo, and the tuned
+        # task fallback below turns it into the create it actually is.
+        #
+        # Phase C's board decides whether to lift this; it is a restriction with
+        # a reason and an owner, not a permanent shape.
+        if isinstance(built, _Built) and built.action.split("_")[0] in ("create", "query"):
+            item.action, item.intent = built.action, built.intent
+            if state.trace:
+                from assistant.trace import RULE
+                state.trace.step(RULE, f"Built {_friendly(item.id)}",
+                                 f"{built.action} — values copied: "
+                                 + (", ".join(built.copied) or "none"),
+                                 actions=[built.action])
+            out.append(item)
+            continue
+        if built is not None and getattr(built, "reason", None):
+            state.fastrule_verdict = {
+                "reason": built.reason,
+                "reason_class": built.reason_class,
+                "confidence": None,
+                "actions": [],
+                "item": item.id,
+            }
+        # ----------------------------------------------------------------
         try:
             got = _parse_item(item, state, cfg)
         except (LLMUnavailableError, LLMTimeoutError):

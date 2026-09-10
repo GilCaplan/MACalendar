@@ -367,3 +367,37 @@ def test_the_loop_stops_when_a_rerun_cannot_change_anything(cfg, monkeypatch):
         f"burned every retry on an unchanging parse: {[s['detail'] for s in loops]}")
     # and it still admits it could not finish the job
     assert "not sure I caught every part" in out["message"]
+
+
+def test_the_missing_ask_recovery_actually_builds_something(cfg, registry_with_real_actions):
+    """`_commit_missing_ask` was a DEAD PATH, and nothing showed it.
+
+    It hand-built `Item(id="item_1", kind="other", text=words)` — and `other`
+    means "NOT a calendar ask" to the stage below, which skips every such item
+    with `action="unknown", intent=None`. So `_commit` was handed nothing and
+    the "I first missed part of that …" reply could never fire. The two
+    meanings of `other` collided: here it meant "unclassified", there it means
+    "segmentation already decided this is none of event/task/review".
+
+    It was also the ONLY place in the codebase that wrote `Item.kind` by hand.
+    The path only runs after something else has already gone wrong, which is
+    why no board would ever have shown it.
+
+    This pins the fix at the level that broke: the words must come out of the
+    chain as a real, committable object.
+
+    `registry_with_real_actions` is required, not decorative: the autouse
+    `isolated_registry` fixture empties the global registry, and a parser built
+    from an empty one routes nothing — conftest's own docstring names this trap.
+    """
+    words = "buy milk tomorrow"
+    sub = EngineState(raw_text=words, text=words, source="test",
+                      current_view="month", mode="background")
+    engine._segment.run(sub, cfg)
+    engine._decompose_validate.run(sub, cfg)
+    generate.run(sub, cfg)
+
+    assert sub.items, "segmentation produced no item for a real ask"
+    it = sub.items[0]
+    assert it.kind != "other", "an ask the chain dropped is not a non-ask"
+    assert it.action == "create_todo" and it.intent is not None

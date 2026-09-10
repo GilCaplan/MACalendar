@@ -99,6 +99,11 @@ _REASON_CLASS = {
     "clause-coordination": STRUCTURE,
     "mixed-mode-compound": STRUCTURE,
     "model-compound": STRUCTURE,
+    # The parser's route and segmentation's tag disagree about WHICH STORE a
+    # target-taking operation should search. An incapacity, not a refusal:
+    # there is nothing wrong with the reading that must not execute — we simply
+    # have two readings and no way to choose, which is what the model is for.
+    "kind-conflict": INCAPACITY,
     "below-threshold": INCAPACITY,
     "missing-slots": INCAPACITY,
     "skip": INCAPACITY,
