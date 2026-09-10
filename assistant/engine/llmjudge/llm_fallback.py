@@ -70,7 +70,7 @@ def _honour_refusal(got, res, item: Item, state: EngineState):
     # resolves the other at import time and no cycle is possible. When phase B
     # dismantles `objects.py` this import fails loudly, which is the point:
     # a tripwire beats a silent loss.
-    from assistant.engine.fastrule.objects import _friendly
+    from assistant.engine.llmjudge.rescue import friendly as _friendly
     kept = []
     for name, intent in got:
         if name.startswith(("update_", "delete_", "complete_")):

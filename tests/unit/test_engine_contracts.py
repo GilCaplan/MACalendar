@@ -89,10 +89,24 @@ def test_check_finding_fields():
 
 def test_every_stage_module_exposes_run():
     """One module per step, one public entry point: run(state, cfg) -> state.
-    (ingest lives inside the orchestrator, so it has no module.)"""
+    (ingest lives inside the orchestrator, so it has no module.)
+
+    RECORDED MODULE RE-CUT, 2026-09-10 — the FastRule stage's module is now
+    `fastrule.stage`, not `fastrule.objects`. This line is deliberately part of
+    the frozen contract, so changing it is a design change and not a fix: it is
+    written down here, in `fastrule/PLAN.md` §3 (phase B6) and in that stage's
+    ARCHITECTURE.md, the same way the 2026-09-08 re-cut was.
+
+    What changed is which module IS the stage, not the contract it satisfies.
+    `objects.py` was four things at once — the per-item loop, the fast track,
+    the LLM fallback and the engine's shared parser accessors — and only the
+    first was ever the stage. The other three moved to `fastrule/fast_track.py`,
+    `llmjudge/rescue.py` and `engine/llm.py`. `run(state, cfg) -> state` is
+    unchanged, which is why this is a one-name edit and not a new contract.
+    """
     import assistant.engine.llmjudge.llmjudge
     import assistant.engine.decompose_validate.decompose
-    import assistant.engine.fastrule.objects
+    import assistant.engine.fastrule.stage
     import assistant.engine.label.label
     import assistant.engine.segmentation.old_seg.segment
     import assistant.engine.ingest.repair
@@ -100,7 +114,7 @@ def test_every_stage_module_exposes_run():
 
     for mod in (assistant.engine.ingest.repair, assistant.engine.segmentation.old_seg.segment,
                 assistant.engine.decompose_validate.decompose, assistant.engine.decompose_validate.stage,
-                assistant.engine.fastrule.objects, assistant.engine.llmjudge.llmjudge,
+                assistant.engine.fastrule.stage, assistant.engine.llmjudge.llmjudge,
                 assistant.engine.label.label):
         run = getattr(mod, "run", None)
         assert callable(run), f"{mod.__name__}.run missing — {FROZEN}"
@@ -116,10 +130,24 @@ def test_validate_has_object_pass():
     assert params == ["state", "cfg"], FROZEN
 
 
-def test_generate_owns_the_fast_track():
-    import assistant.engine.fastrule.objects as g
+def test_fastrule_owns_the_fast_track():
+    """The whole-command front door. It moved to its own module on 2026-09-10
+    (`fastrule/fast_track.py`) because it is NOT the stage: at the front door
+    there is no Item yet, which is exactly why "one ask or several?" belongs
+    there and nowhere else. The signature is unchanged."""
+    import assistant.engine.fastrule.fast_track as g
     params = list(inspect.signature(g.fast_propose).parameters)
     assert params == ["state", "cfg"], FROZEN
+
+
+def test_the_fastrule_stage_is_a_converter():
+    """X3 -> X4 is `List[Item]` -> objects, and `build` is a PURE function of
+    one item: no model, no database, no clock of its own. That purity is what
+    makes the stage testable from a table, so it is worth pinning."""
+    import inspect as _i
+    from assistant.engine.fastrule.build import build, build_all
+    assert list(_i.signature(build).parameters)[0] == "item"
+    assert list(_i.signature(build_all).parameters)[0] == "items"
 
 
 def test_orchestrator_signature():

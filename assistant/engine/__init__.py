@@ -41,7 +41,8 @@ from typing import Any
 from assistant.engine import segmentation as _segment
 from assistant.engine.decompose_validate import stage as _decompose_validate
 from assistant.engine.decompose_validate import stage as _dv_objects
-from assistant.engine.fastrule import objects as _generate   # registry + commit helpers
+from assistant.engine.fastrule import fast_track as _fast_track
+from assistant.engine import llm as _llm
 from assistant.engine.fastrule import stage as _fastrule
 from assistant.engine.ingest import repair as _transcript
 from assistant.engine.ingest.coalesce import coalesce  # noqa: F401  (re-exported: server.py and tests import it from here)
@@ -243,7 +244,7 @@ class Engine(Component):
 
         # -- track selection ------------------------------------------------
         try:
-            fast = cfg.engine.fast_track and _generate.fast_propose(state, cfg)
+            fast = cfg.engine.fast_track and _fast_track.fast_propose(state, cfg)
             if fast:
                 _dv_objects.run_objects(state, cfg)
                 _commit(state, cfg)      # labels inside
@@ -350,7 +351,7 @@ def _commit(state: EngineState, cfg) -> None:
     from assistant.intent.context import ContextMemory
     from assistant.trace import EXECUTE
 
-    registry = _generate.get_registry()
+    registry = _llm.get_registry()
     ctx = ContextMemory()
     refresh_set: set = set()
 
@@ -359,7 +360,16 @@ def _commit(state: EngineState, cfg) -> None:
         if item.blocked:
             # Refused, and the refusal explained — never silently dropped.
             title = getattr(item.intent, "title", None) or item.text[:40]
-            state.messages.append(f"I didn't book '{title}': {item.blocked}.")
+            if item.intent is None:
+                # NOT AN OBJECT AT ALL, rather than an object held back. The
+                # two want different words: "I didn't book 'thanks'" implies
+                # there was something to book. This branch has to come before
+                # the `intent is None` skip below, which is what silently
+                # swallowed these items until 2026-09-10.
+                state.messages.append(
+                    f"I left '{item.text[:40]}' alone — {item.blocked}.")
+            else:
+                state.messages.append(f"I didn't book '{title}': {item.blocked}.")
             if state.trace:
                 state.trace.step(EXECUTE, "Held back", f"{item.id}: {item.blocked}", ok=False)
             continue
@@ -537,7 +547,7 @@ def _background_verify(state: EngineState, cfg) -> "dict | None":
         ev = get_db().get_event(ex.record[1])
         if ev and is_placeholder_title(ev["title"], cfg):
             try:
-                better = _generate._get_parser(cfg).fix_title_async(
+                better = _llm.get_parser(cfg).fix_title_async(
                     state.text, ev["title"])
             except Exception:
                 better = None
@@ -624,8 +634,7 @@ def _commit_missing_ask(state: EngineState, cfg, finding) -> "str | None":
         # treatment as any other item, not a pre-judgement.
         _segment.run(sub, cfg)
         _decompose_validate.run(sub, cfg)
-        _generate.run(sub, cfg)
-        _dv_objects.run_objects(sub, cfg)
+        _fastrule.run(sub, cfg)
         _commit(sub, cfg)
     except Exception:
         return None
@@ -840,7 +849,7 @@ def _recheck_not_found(state: EngineState, cfg, item) -> "tuple | None":
                          f"{(item.action or '').replace('_', ' ')} found no target "
                          "— asking the LLM instead")
     try:
-        retried = _generate._get_parser(cfg).parse(state.text) or []
+        retried = _llm.get_parser(cfg).parse(state.text) or []
     except Exception as e:
         if state.trace:
             state.trace.step(LLM, "LLM", f"Unavailable ({e}) — keeping the answer", ok=False)
@@ -954,7 +963,7 @@ def _mine_reformulations(state: EngineState, cfg) -> None:
         return
 
     def _was_a_retry(wrong: str, right: str) -> bool:
-        parser = _generate._get_parser(cfg)
+        parser = _llm.get_parser(cfg)
         answer = parser.call_llm_json(
             "You judge whether a second voice command was a RETRY of the first — "
             "the speaker being misheard or misunderstood, and saying it again — "

@@ -593,7 +593,7 @@ _STAGE_FILES = {
     # `text_repair.py` (rewriting a mangled item's words). Pointing this at
     # checks.py would say the stage never calls the model, which is not true.
     "validate":   "decompose_validate/text_repair.py",
-    "fastrule":   "fastrule/objects.py",
+    "fastrule":   "fastrule/build.py",
     "crosscheck": "llmjudge/llmjudge.py",
     "label":      "label/label.py",
 }
@@ -683,16 +683,23 @@ def test_the_deferral_reason_classes_are_current(all_prose):
                 f"{name} describes the deferral contract without naming {cls.upper()}")
 
 
-def test_the_two_fastrule_thresholds_are_current(all_prose):
-    """The front door's bar and the per-fragment bar are different numbers."""
-    from assistant.engine.fastrule.objects import SUBITEM_RULE_THRESHOLD
+def test_the_fastrule_threshold_is_current(all_prose):
+    """THERE IS ONLY ONE BAR NOW (2026-09-10). `SUBITEM_RULE_THRESHOLD = 0.60`
+    was the relaxed bar the DEEP track used when it re-ran FastRule per
+    fragment. That re-run is gone: an item reaching the stage is atomic by
+    contract, and `build` converts it with no confidence score at all — B1
+    measured the old score to be dominated by time-reading, which is the one
+    signal that left this stage. The constant was deleted with the path that
+    used it rather than left behind as a number nothing reads.
+
+    A page still describing a per-fragment bar is therefore describing a
+    machine that no longer exists, and this check says so."""
     from assistant.intent.rule_parser import RULE_THRESHOLD
     for name, text in all_prose.items():
         if "per fragment" not in text:
             continue
-        for value in (RULE_THRESHOLD, SUBITEM_RULE_THRESHOLD):
-            assert re.search(rf"{re.escape(str(value))}(?![0-9])", text), (
-                f"{name} quotes the two FastRule bars, but {value} is not one of them")
+        assert re.search(rf"{re.escape(str(RULE_THRESHOLD))}(?![0-9])", text), (
+            f"{name} quotes the FastRule bar, but {RULE_THRESHOLD} is not it")
 
 
 def test_the_number_of_shipped_classifiers_is_current(all_prose):

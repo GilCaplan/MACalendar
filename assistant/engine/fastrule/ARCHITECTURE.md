@@ -18,33 +18,61 @@ complete input, its answer commits instantly.
 
 ## 0 · Where this stage stands (2026-09-10)
 
-**The restructure is mid-flight, and this file describes BOTH halves** — which
-is the honest state, not an oversight. `PLAN.md` §3 is the four phases; A, B1,
-B2 and B3 are done.
+**The restructure LANDED.** `objects.py` is gone; the stage is what Gil's box
+says it is.
 
-    THE NEW BOX      build(item, *, today) -> Built | Defer     build.py
-                     one Item -> one object. Copies the eight values
-                     decompose_validate resolved; reads only the operation,
-                     title, attendees and target. No model, no database,
-                     no clock of its own.
+    IN    List[Item]   everything segmentation and decompose_validate worked out
+    OUT   the objects the software accepts
+    ELSE  a flag — a DEFER for LLMJudge, or "this is not an object" for the user
 
-    THE OLD BOX      FastRule(threshold).run(text)              fastrule.py
-                     the whole-command FAST TRACK, unchanged. Still the
-                     front door, still what the product-shape board measures.
+```
+    List[Item] ──► build(item) per item
+                     1. COPY item.slots onto the object — all eight values
+                     2. read the ACTION WORDS for operation · title ·
+                        attendees · target
+                     3. one of three results, always:
 
-    HOW THEY MEET    objects.run tries `build` per item first and accepts a
-                     CREATE or a QUERY; anything else, and every DEFER, falls
-                     through to the old rules+model path below it.
+                          Built        an object, committable
+                          Defer        LLMJudge answers it, from the partial
+                          NotAnObject  nothing to build — FLAGGED to the user
+```
 
-**That fall-through is scaffolding, not the design.** B5 deletes it once
-LLMJudge consumes the DEFER at its own end. Sections 1–2 below describe the old
-box, which is still live; do not read them as a description of `build`.
+**`build_all` is TOTAL.** Every Item gets a result; nothing falls out of the
+list. `NotAnObject` exists because the absence used to be silent: an item
+segmentation tagged `other` was set to `intent=None`, and the execute loop
+skips an empty intent before it looks at anything else, so the speaker was told
+**nothing at all** — indistinguishable from success. Gil, 2026-09-10: *"those
+you don't create an object, you can just flag to the user for this item it's not
+an object. This in itself can be a type of object."*
 
-**Measured, 600 atomic train rows through the real chain** (2026-09-10,
-`experiments/b3_live_chain.py`): `build` produces the object on **83.5%**,
-operation right **90.8%**, title right **55.5%**. The title is the binding
-constraint and the next batch's target — `experiments/RESULTS.md` has the
-failing classes.
+**It does not redo what the upstream did.** Six of the ten fields an object
+needs were decided before this stage ran. What is genuinely left is the
+OPERATION, the TITLE, the PEOPLE and the TARGET, and that is all it reads for.
+What that removed:
+
+| removed | why |
+|---|---|
+| the whole fast track, re-run per item | the item is atomic BY CONTRACT — segmentation already split it |
+| the date/time, re-read from `item.spoken()` | `decompose_validate` resolved them; B1 measured it right on **573/573** of the rows this stage was deferring |
+| event-vs-task, re-decided | segmentation's `tag` decided it |
+| the model, called from here | it lives in `llmjudge/rescue.py` now — *"if there's an issue it tells LLMVerify"* |
+
+**This stage no longer calls the model at all**, which is a checkable fact:
+`test_the_count_of_model_calling_stages_is_current` went from five stages to
+four.
+
+### The score (2026-09-10, `experiments/stage_board.py`, 600 atomic train rows)
+
+**Measured on SOUND INPUT ONLY** — Gil's rule: *"if it receives bad input the
+output should be the same; the question then becomes what stage failed and
+where, and to flag in the relevant md file."* 104 of the 600 rows arrived
+already broken and are attributed upstream, not scored here.
+
+    operation right      95.0%
+    title right          67.2%     <- the binding constraint
+    correct-on-handled   66.9%
+    handled              63.9%     (the converter BUILT 83.5%; the rest is the
+                                    commit policy withholding target-taking ops)
 
 ---
 
@@ -68,6 +96,11 @@ model when they cannot be, DEFER when neither is sure** — applied three times:
 | **Atomicity** | one item, or several? | rules **or** model, both unconditional |
 | **Gatekeeper** | is this a reading that must not execute as stated? | veto |
 | **Scorer** | threshold + missing slots | DEFER |
+
+> **§1 and §2 describe the FRONT DOOR** (`fastrule.py` + `fast_track.py`),
+> which is unchanged. They are NOT a description of `build` — the converter has
+> no Atomicity test, no Gatekeeper and no Scorer, because an Item arriving at it
+> is atomic by contract and the commit decision is the stage's, not its.
 
 **`Gatekeeper` no longer lives in this folder** (2026-09-09, Gil). Its code —
 the class, the two store lookups and the three gate regexes — moved to
@@ -176,17 +209,27 @@ instead of deferring them" is a result; "53.5" is not.
 fastrule/
     ARCHITECTURE.md   this file
     PLAN.md           the four-phase restructure (A port · B build+wire · C measure · D stop)
-    build.py          THE CONVERTER — build(item) -> Built | Defer. The target
-                      shape (PLAN §2d); pure, no model, no I/O
-    fastrule.py       the rule engine: Atomicity, Scorer, FastRule, the DEFER contract
-    objects.py        the per-item loop (build first, then the old path), the
-                      parser/registry accessors
-    stage.py          the Stage wrapper: X3 -> X4
+    stage.py          THE STAGE. X3 -> X4: List[Item] -> objects, flags the rest
+    build.py          THE CONVERTER. build(item) -> Built | Defer | NotAnObject
+                      pure: no model, no database, no clock of its own
+    fast_track.py     THE FRONT DOOR. fast_propose — the whole-command instant
+                      commit. Atomicity belongs here, where no Item exists yet
+    fastrule.py       the rule engine behind the front door: Atomicity, Scorer,
+                      FastRule, and the DEFER contract
     datasets/         7,200 rows + the banks that generate them
-    experiments/      RESULTS.md (the run log) · fastrule_shape.py (PRIMARY board)
-                      · fastrule6k.py (FS1, six metrics) · fast_sandbox.py (the
-                      deterministic fast lane) · b1_ceiling.py · b3_live_chain.py
+    experiments/      RESULTS.md (the run log) · stage_board.py (THE STAGE's
+                      board, attributed) · fastrule_shape.py (the FRONT DOOR's
+                      board) · fastrule6k.py · fast_sandbox.py · b1_ceiling.py
+                      · b3_live_chain.py
+    datasets/         7,200 rows, the banks, and generate.py
 ```
+
+**Two boards, and they measure DIFFERENT BOXES** — do not compare them:
+
+| board | box | |
+|---|---|---|
+| `stage_board.py` | `List[Item] -> objects` | THE STAGE. Attributes upstream failures instead of scoring them here |
+| `fastrule_shape.py` | `FastRule(0.80).run(text)` | the whole-command FRONT DOOR, unchanged by the restructure |
 
 **The generator lives here now** — `datasets/generate.py`, moved 2026-09-10
 (phase C0). It had been the one piece of this stage left in `scripts/` after the

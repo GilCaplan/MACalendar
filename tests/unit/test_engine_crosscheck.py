@@ -12,7 +12,7 @@ import pytest
 
 import assistant.engine as engine
 import assistant.engine.llmjudge.llmjudge as crosscheck
-import assistant.engine.fastrule.objects as generate
+import assistant.engine.fastrule.stage as generate
 import assistant.engine.llm as engine_llm
 from assistant.engine.state import EngineState, ExecutedAction, Item
 
@@ -146,7 +146,7 @@ def test_loop_back_reruns_segment_with_the_mistake(cfg, monkeypatch):
         ]}, 2
 
     monkeypatch.setattr(engine_llm, "call_json", scripted_llm)
-    monkeypatch.setattr(generate, "_get_rule_parser", lambda: None)
+    monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: None)
 
     parser = MagicMock()
 
@@ -161,7 +161,7 @@ def test_loop_back_reruns_segment_with_the_mistake(cfg, monkeypatch):
     parser.last_llm_ms = 1
     parser.last_examples_used = 0
     parser.last_raw_response = ""
-    monkeypatch.setattr(generate, "_get_parser", lambda c: parser)
+    monkeypatch.setattr(engine_llm, "get_parser", lambda c: parser)
 
     registry = MagicMock()
 
@@ -171,7 +171,7 @@ def test_loop_back_reruns_segment_with_the_mistake(cfg, monkeypatch):
         return cls
 
     registry.get.side_effect = _get
-    monkeypatch.setattr(generate, "get_registry", lambda: registry)
+    monkeypatch.setattr(engine_llm, "get_registry", lambda: registry)
 
     out = engine.run_transcript(text, source="test")
     assert out["parse"] == "deep"
@@ -194,7 +194,7 @@ def test_loop_budget_is_finite_and_admitted(cfg, monkeypatch):
                          {"kind": "event", "words": "gym at 7"}]}, 1
 
     monkeypatch.setattr(engine_llm, "call_json", scripted_llm)
-    monkeypatch.setattr(generate, "_get_rule_parser", lambda: None)
+    monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: None)
     parser = MagicMock()
     parser.parse.return_value = [("create_event", SimpleNamespace(
         title="gym", date=None, start_time=None, end_time=None,
@@ -202,11 +202,11 @@ def test_loop_budget_is_finite_and_admitted(cfg, monkeypatch):
     parser.last_llm_ms = 1
     parser.last_examples_used = 0
     parser.last_raw_response = ""
-    monkeypatch.setattr(generate, "_get_parser", lambda c: parser)
+    monkeypatch.setattr(engine_llm, "get_parser", lambda c: parser)
     registry = MagicMock()
     registry.get.side_effect = lambda name: MagicMock(
         **{"return_value.execute.return_value": "did it"})
-    monkeypatch.setattr(generate, "get_registry", lambda: registry)
+    monkeypatch.setattr(engine_llm, "get_registry", lambda: registry)
 
     out = engine.run_transcript("tomorrow gym at 7 am and a meeting with Tal at 11",
                                 source="test")
@@ -227,7 +227,7 @@ def test_placeholder_title_is_renamed_in_background(cfg, monkeypatch):
                             {"kind": "event", "words": "meeting with Ravid at Kems"}]}, 2))
     parser = MagicMock()
     parser.fix_title_async.return_value = "Meeting with Ravid at Kems"
-    monkeypatch.setattr(generate, "_get_parser", lambda c: parser)
+    monkeypatch.setattr(engine_llm, "get_parser", lambda c: parser)
 
     st = _state_with([_event_item("item_1", "meeting",
                                   text="meeting with Ravid at Kems at 3pm")],
@@ -346,7 +346,7 @@ def test_the_loop_stops_when_a_rerun_cannot_change_anything(cfg, monkeypatch):
                          {"kind": "task", "words": "buy milk"}]}, 1
 
     monkeypatch.setattr(engine_llm, "call_json", scripted_llm)
-    monkeypatch.setattr(generate, "_get_rule_parser", lambda: None)
+    monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: None)
     parser = MagicMock()
     parser.parse.return_value = [("create_event", SimpleNamespace(
         title="gym", date=None, start_time=None, end_time=None,
@@ -354,11 +354,11 @@ def test_the_loop_stops_when_a_rerun_cannot_change_anything(cfg, monkeypatch):
     parser.last_llm_ms = 1
     parser.last_examples_used = 0
     parser.last_raw_response = ""
-    monkeypatch.setattr(generate, "_get_parser", lambda c: parser)
+    monkeypatch.setattr(engine_llm, "get_parser", lambda c: parser)
     registry = MagicMock()
     registry.get.side_effect = lambda name: MagicMock(
         **{"return_value.execute.return_value": "did it"})
-    monkeypatch.setattr(generate, "get_registry", lambda: registry)
+    monkeypatch.setattr(engine_llm, "get_registry", lambda: registry)
 
     out = engine.run_transcript("tomorrow gym at 7 am and a meeting with Tal at 11",
                                 source="test")

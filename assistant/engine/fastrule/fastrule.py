@@ -104,6 +104,10 @@ _REASON_CLASS = {
     # there is nothing wrong with the reading that must not execute — we simply
     # have two readings and no way to choose, which is what the model is for.
     "kind-conflict": INCAPACITY,
+    # Built, but it aims at an EXISTING record and this stage cannot check that
+    # the record is real — see fastrule/stage.py's _COMMITTABLE. An incapacity:
+    # the reading may well be right, we simply cannot verify it from here.
+    "needs-target-check": INCAPACITY,
     "below-threshold": INCAPACITY,
     "missing-slots": INCAPACITY,
     "skip": INCAPACITY,
@@ -249,10 +253,10 @@ class FastRule:
         self.scorer = Scorer(threshold)
 
     def run(self, text: str, current_view: str = "month") -> FastRuleResult:
-        from assistant.engine.fastrule import objects as _generate
+        from assistant.engine import llm as _llm
         from assistant.intent.rule_parser import RuleParserSkip
 
-        rp = _generate._get_rule_parser()
+        rp = _llm.get_rule_parser()
         if rp is None:
             return FastRuleResult(False, [], 0.0, "no-parser")
         try:

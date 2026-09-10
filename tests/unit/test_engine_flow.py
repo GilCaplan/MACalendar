@@ -10,7 +10,9 @@ from unittest.mock import MagicMock
 import pytest
 
 import assistant.engine as engine
-import assistant.engine.fastrule.objects as generate
+import assistant.engine.llm as engine_llm
+import assistant.engine.fastrule.stage as generate
+import assistant.engine.fastrule.fast_track as fast_track
 import assistant.stt.vocab as vocab_mod
 from assistant.engine.state import EngineState, Item
 from assistant.exceptions import OllamaUnavailableError
@@ -30,7 +32,7 @@ def _fake_registry(monkeypatch, results):
         return cls
 
     registry.get.side_effect = _get
-    monkeypatch.setattr(generate, "get_registry", lambda: registry)
+    monkeypatch.setattr(engine_llm, "get_registry", lambda: registry)
     return registry
 
 
@@ -50,7 +52,7 @@ def test_confident_rules_take_the_fast_track(monkeypatch, cfg):
                          intents=[("query_schedule", SimpleNamespace())])
     rp = MagicMock()
     rp.analyze.return_value = rr
-    monkeypatch.setattr(generate, "_get_rule_parser", lambda: rp)
+    monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: rp)
     _fake_registry(monkeypatch, {"query_schedule": ["all clear"]})
 
     out = engine.run_transcript("what do I have today", source="test")
@@ -61,14 +63,14 @@ def test_unconfident_rules_take_the_deep_track(monkeypatch):
     rr = SimpleNamespace(confidence=0.30, missing_slots=["start_time"], intents=[])
     rp = MagicMock()
     rp.analyze.return_value = rr
-    monkeypatch.setattr(generate, "_get_rule_parser", lambda: rp)
+    monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: rp)
     parser = MagicMock()
     parser.parse.return_value = [("create_event", SimpleNamespace(title="x"))]
     parser.parse_with_context.side_effect = Exception("no context parse")
     parser.last_llm_ms = 3
     parser.last_examples_used = 0
     parser.last_raw_response = ""
-    monkeypatch.setattr(generate, "_get_parser", lambda cfg: parser)
+    monkeypatch.setattr(engine_llm, "get_parser", lambda cfg: parser)
     _fake_registry(monkeypatch, {"create_event": ["made it"]})
 
     out = engine.run_transcript("do the thing with the stuff sometime", source="test")
@@ -105,7 +107,7 @@ def test_gate_never_fires_for_an_old_client(monkeypatch, cfg):
                          intents=[("query_schedule", SimpleNamespace())])
     rp = MagicMock()
     rp.analyze.return_value = rr
-    monkeypatch.setattr(generate, "_get_rule_parser", lambda: rp)
+    monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: rp)
     _fake_registry(monkeypatch, {"query_schedule": ["all clear"]})
 
     out = engine.run_transcript("call noa tomorrow at nine", source="test",
@@ -121,7 +123,7 @@ def test_gate_off_means_best_guess(monkeypatch, cfg):
                          intents=[("query_schedule", SimpleNamespace())])
     rp = MagicMock()
     rp.analyze.return_value = rr
-    monkeypatch.setattr(generate, "_get_rule_parser", lambda: rp)
+    monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: rp)
     _fake_registry(monkeypatch, {"query_schedule": ["all clear"]})
 
     out = engine.run_transcript("call noa tomorrow at nine", source="test",
@@ -146,7 +148,7 @@ def test_a_blocked_item_is_reported_never_silent(monkeypatch, cfg):
 # --- offline queue ---------------------------------------------------------
 
 def test_llm_offline_queues_the_command(monkeypatch):
-    monkeypatch.setattr(generate, "fast_propose", lambda state, cfg: False)
+    monkeypatch.setattr(fast_track, "fast_propose", lambda state, cfg: False)
     monkeypatch.setattr(generate, "run",
                         lambda state, cfg: (_ for _ in ()).throw(
                             OllamaUnavailableError("Ollama offline at localhost")))
@@ -200,7 +202,7 @@ def test_the_endpoint_learns_and_bypasses_the_gate(scratch_vocab, monkeypatch, c
                          intents=[("query_schedule", SimpleNamespace())])
     rp = MagicMock()
     rp.analyze.return_value = rr
-    monkeypatch.setattr(generate, "_get_rule_parser", lambda: rp)
+    monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: rp)
     _fake_registry(monkeypatch, {"query_schedule": ["all clear"]})
 
     app = server.create_app()
@@ -244,7 +246,7 @@ def test_repeated_attempt_messages_fold_into_one(monkeypatch):
     """A loop-back that fails the same way each attempt must apologise once,
     not once per re-entry (found live: three identical "couldn't read"s)."""
     from assistant.exceptions import ParseError
-    monkeypatch.setattr(generate, "fast_propose", lambda state, cfg: False)
+    monkeypatch.setattr(fast_track, "fast_propose", lambda state, cfg: False)
 
     def failing_run(state, cfg):
         state.messages.append("Sorry, I couldn't read this part: “x”.")
@@ -271,8 +273,8 @@ def test_a_task_kind_item_never_parses_to_nothing(monkeypatch, cfg):
     parser.last_llm_ms = 1
     parser.last_examples_used = 0
     parser.last_raw_response = ""
-    monkeypatch.setattr(generate, "_get_parser", lambda c: parser)
-    monkeypatch.setattr(generate, "_get_rule_parser", lambda: None)
+    monkeypatch.setattr(engine_llm, "get_parser", lambda c: parser)
+    monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: None)
     st = EngineState(raw_text="x", text="x")
     st.items = [Item(id="item_1", kind="task", text="submit the Haxaga grades")]
     generate.run(st, cfg)
@@ -295,8 +297,8 @@ def test_an_event_kind_item_gets_a_kind_primed_retry(monkeypatch, cfg):
     parser.last_llm_ms = 1
     parser.last_examples_used = 0
     parser.last_raw_response = ""
-    monkeypatch.setattr(generate, "_get_parser", lambda c: parser)
-    monkeypatch.setattr(generate, "_get_rule_parser", lambda: None)
+    monkeypatch.setattr(engine_llm, "get_parser", lambda c: parser)
+    monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: None)
     st = EngineState(raw_text="x", text="x")
     st.items = [Item(id="item_1", kind="event",
                      text="send a calendar invite to James and Alice for brunch at 11 am")]
@@ -314,8 +316,8 @@ def test_a_confident_event_parse_is_not_retried(monkeypatch, cfg):
     parser.last_llm_ms = 1
     parser.last_examples_used = 0
     parser.last_raw_response = ""
-    monkeypatch.setattr(generate, "_get_parser", lambda c: parser)
-    monkeypatch.setattr(generate, "_get_rule_parser", lambda: None)
+    monkeypatch.setattr(engine_llm, "get_parser", lambda c: parser)
+    monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: None)
     st = EngineState(raw_text="x", text="x")
     st.items = [Item(id="item_1", kind="event", text="gym tuesday at 7am")]
     generate.run(st, cfg)
@@ -331,7 +333,7 @@ def test_the_brain_version_is_stamped_on_every_command(monkeypatch, cfg):
     rr = SimpleNamespace(confidence=0.97, missing_slots=[],
                          intents=[("query_schedule", SimpleNamespace())])
     rp = MagicMock(); rp.analyze.return_value = rr
-    monkeypatch.setattr(generate, "_get_rule_parser", lambda: rp)
+    monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: rp)
     _fake_registry(monkeypatch, {"query_schedule": ["clear"]})
     out = engine.run_transcript("what do I have today", source="test")
     assert out["brain"] == BRAIN_VERSION
@@ -361,20 +363,20 @@ def test_a_strong_joiner_with_one_intent_refuses_the_fast_commit(monkeypatch, cf
     single-intent parse of two-request wording takes the deep track,
     whatever its confidence."""
     from assistant.engine.state import EngineState
-    monkeypatch.setattr(generate, "_get_rule_parser",
+    monkeypatch.setattr(engine_llm, "get_rule_parser",
                         lambda: _rp([("create_todo", SimpleNamespace())]))
     st = EngineState(raw_text="", text="remind me to meet James at work tomorrow "
                                        "at 9am, and then remind me of my meeting")
-    assert generate.fast_propose(st, cfg) is False
+    assert fast_track.fast_propose(st, cfg) is False
 
 
 def test_a_plain_and_still_commits_fast(monkeypatch, cfg):
     from assistant.engine.state import EngineState
-    monkeypatch.setattr(generate, "_get_rule_parser",
+    monkeypatch.setattr(engine_llm, "get_rule_parser",
                         lambda: _rp([("create_event", SimpleNamespace())]))
     st = EngineState(raw_text="", text="meeting with Tal and Ravid at Kems "
                                        "tomorrow at 7")
-    assert generate.fast_propose(st, cfg) is True
+    assert fast_track.fast_propose(st, cfg) is True
     assert st.parse_path == "fast"
 
 
@@ -382,11 +384,11 @@ def test_a_two_intent_parse_keeps_fast_despite_a_joiner(monkeypatch, cfg):
     """When the rule parser itself read TWO requests, it did not swallow the
     compound — the gate must not slow it."""
     from assistant.engine.state import EngineState
-    monkeypatch.setattr(generate, "_get_rule_parser",
+    monkeypatch.setattr(engine_llm, "get_rule_parser",
                         lambda: _rp([("create_event", SimpleNamespace()),
                                      ("create_todo", SimpleNamespace())]))
     st = EngineState(raw_text="", text="book gym at 7. Also, add milk to my list")
-    assert generate.fast_propose(st, cfg) is True
+    assert fast_track.fast_propose(st, cfg) is True
 
 
 def test_fastrule_work_travels_forward_when_it_declines(registry_with_real_actions):
@@ -395,13 +397,13 @@ def test_fastrule_work_travels_forward_when_it_declines(registry_with_real_actio
     context for the LLM stages. It used to be discarded on defer, so the
     deep track started cold on a command that had already been read once."""
     from assistant.engine import load_config
-    from assistant.engine.fastrule import objects as generate
+    from assistant.engine.fastrule import fast_track as generate
     from assistant.engine.state import EngineState
 
     st = EngineState(raw_text="book the gym at 6 and remind me to buy milk",
                      text="book the gym at 6 and remind me to buy milk",
                      source="test")
-    assert generate.fast_propose(st, load_config()) is False   # a compound
+    assert fast_track.fast_propose(st, load_config()) is False   # a compound
     v = st.fastrule_verdict
     assert v and v["reason"], "the verdict must survive the deferral"
     assert v["reason_class"] == "structure"      # "this is more than one item"

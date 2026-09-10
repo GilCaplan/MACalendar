@@ -60,6 +60,27 @@ class Built:
 
 
 @dataclass
+class NotAnObject:
+    """The item is not something the software can hold at all.
+
+    Gil, 2026-09-10: *"those you don't create an object — you can just flag to
+    the user for this item it's not an object. This in itself can be a type of
+    object."* So it is one. `build_all` is a TOTAL function: every Item gets a
+    result, and "there is nothing here to build" is an answer with a name
+    rather than an absence.
+
+    That matters because the absence was silent. Segmentation tags "thanks" or
+    "play some music" as `other`; the old code set `action="unknown",
+    intent=None` and the orchestrator's execute loop skips a `None` intent
+    BEFORE it looks at anything else — so the speaker was told nothing at all.
+    A command that quietly does nothing is the worst outcome available: the
+    user cannot tell it from success.
+    """
+    reason: str
+    item_id: str = ""
+
+
+@dataclass
 class Defer:
     """FastRule's other product. A DEFER is an OUTPUT, not an exception.
 
@@ -145,6 +166,9 @@ _LEAD_VERB = re.compile(
     r"i want to|i have to|gotta|remind me to|remind me|"
     r"set up|set|make|create|add|schedule|book|put|block)\s+)+",
     re.I)
+#: "a call with Jesse" -> "call with Jesse". One word, and it was costing the
+#: whole attendee class: the rest of the title was already right.
+_LEAD_ARTICLE = re.compile(r"^\s*(?:a|an|the)\s+", re.I)
 _TRAILING_FILLER = re.compile(
     r"\s+(?:please|thanks|thank you)\s*$", re.I)
 #: "an appointment for X", "an event for X" — the noun is the parser's word for
@@ -164,6 +188,7 @@ def _title_from_words(text: str) -> str:
     t = _ENTRY_NOUN.sub("", t)
     t = _LEAD_VERB.sub("", t)
     t = _TRAILING_FILLER.sub("", t)
+    t = _LEAD_ARTICLE.sub("", t)
     return t.strip(" ,.;:").strip()
 
 
@@ -173,6 +198,22 @@ def _title_from_words(text: str) -> str:
 _NAMES_NOTHING = re.compile(
     r"^(?:an?|the)?\s*(?:event|reminder|appointment|task|todo|to-do|item|"
     r"thing|meeting|entry|calendar|whole calendar|it|that|this|one)s?\s*$", re.I)
+
+
+#: Heads that NAME AN INTERACTION, so the person is part of what the thing IS
+#: rather than someone attending it. The first five are measured — they are the
+#: entire KEEP set of the 137 train rows. The rest are the same class of word
+#: and are NOT measured here; they are included because a closed set of five
+#: would be a template artifact rather than a rule about English, and real
+#: speech has more ways to say it.
+_INTERACTION_HEAD = {
+    "meeting", "call", "catch up", "speak", "touch base",      # measured
+    "chat", "coffee", "lunch", "dinner", "drinks", "sync",     # same class
+    "one on one", "1:1", "check in", "interview",
+}
+
+#: "… with Morgan", "… with Jamie and Rowan" — the people, not the event.
+_ATTENDEE_ONLY = re.compile(r"\bwith\s+([A-Z][A-Za-z]*(?:\s+and\s+[A-Z][A-Za-z]*)*)")
 
 
 def _read_action_words(item: Item, parser) -> tuple:
@@ -207,7 +248,30 @@ def _read_action_words(item: Item, parser) -> tuple:
         titles = slots.get("titles") or []
         title = titles[0] if titles else ""
     attendees = list(slots.get("attendees") or [])
-    return route, str(title or "").strip(), attendees
+    title = str(title or "").strip()
+
+    # A BARE ATTENDEE NAME IS NEVER THE TITLE. "book workshop with Morgan"
+    # came back titled 'morgan'; "schedule conference call with Jesse" titled
+    # 'jesse'. 244 train rows carry a "with <Name>" and the parser does this on
+    # 142 of them.
+    m = _ATTENDEE_ONLY.search(item.text or "")
+    if title and m and title.lower() in {
+            w.strip(" ,").lower() for w in re.split(r"\s+and\s+|,", m.group(1))}:
+        head = _title_from_words((item.text or "")[:m.start()])
+        people = [w.strip(" ,") for w in re.split(r"\s+and\s+|,", m.group(1))
+                  if w.strip(" ,")]
+        if head:
+            # WHETHER THE `with` PHRASE IS PART OF THE TITLE depends on the
+            # HEAD, and the corpus settles it exactly: keep it for an
+            # INTERACTION ("a call with Jesse", "catch up with Cameron" — 137
+            # rows), drop it for an event someone merely attends ("workshop",
+            # "job interview", "sales call" — 107 rows). Note the match is on
+            # the WHOLE head, not a substring: "call" keeps, "sales call"
+            # drops, and treating them alike would get one of the two wrong.
+            title = (f"{head} with {' and '.join(people)}"
+                     if head.lower() in _INTERACTION_HEAD else head)
+            attendees = attendees or people
+    return route, title, attendees
 
 
 # ---------------------------------------------------------------------------
@@ -354,8 +418,8 @@ def build(item: Item, *, today: "_dt.date | None" = None,
     shared accessor. It is consulted for the ACTION WORDS only.
     """
     if parser is None:
-        from assistant.engine.fastrule.objects import _get_rule_parser
-        parser = _get_rule_parser()
+        from assistant.engine import llm as _llm
+        parser = _llm.get_rule_parser()
 
     slots = dict(item.slots or {})
     route, title, attendees = _read_action_words(item, parser)
@@ -419,3 +483,42 @@ def build(item: Item, *, today: "_dt.date | None" = None,
     if _apply_quantity(action, intent, slots):
         copied = copied + ("quantity",)
     return Built(action=action, intent=intent, copied=copied)
+
+
+# ---------------------------------------------------------------------------
+# 5 · the STAGE's shape — List[Item] -> List[BuildResult]
+# ---------------------------------------------------------------------------
+
+def build_all(items: "list[Item]", *, today: "_dt.date | None" = None,
+              parser=None) -> list:
+    """Every Item converted. `None` in the result means "not a calendar ask".
+
+    This is the shape Gil's box describes — `List[Item]` in, objects out — and
+    it is deliberately a plain map with no state of its own. Each item is
+    converted from ITS OWN words and its own slots, so the question "which
+    date belongs to which event" is never asked here; segmentation and
+    decompose_validate already answered it.
+
+    The parser is resolved ONCE for the whole list rather than per item: it is
+    a cached singleton either way, but looking it up here makes it obvious that
+    a converter is not entitled to a different one per row.
+    """
+    if parser is None:
+        from assistant.engine import llm as _llm
+        parser = _llm.get_rule_parser()
+
+    out: list = []
+    for item in items:
+        if getattr(item, "kind", None) == "other":
+            # NOT A CALENDAR ASK. Segmentation already decided this is none of
+            # event/task/review ("thanks", "play some music", "turn on the
+            # lights"), so there is nothing here to turn into an object — and
+            # re-deciding it is exactly what this stage stopped doing.
+            out.append(NotAnObject("not something I can put on the calendar "
+                                   "or a list", item_id=item.id))
+            continue
+        try:
+            out.append(build(item, today=today, parser=parser))
+        except Exception as exc:      # a converter never takes a command down
+            out.append(Defer("error", fields={"why": str(exc)[:100]}))
+    return out

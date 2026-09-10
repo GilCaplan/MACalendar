@@ -187,7 +187,9 @@ def test_the_parsers_title_is_used_when_it_read_one():
     ("clean and organize the garage", "clean and organize the garage"),
     ("create an event for staff meeting", "staff meeting"),
     ("book an appointment for flu shot", "flu shot"),
-    ("schedule a meeting with Dana", "a meeting with Dana"),
+    # the leading article is stripped (2026-09-10): "a call with Jesse"
+    # was failing the gold "call with Jesse" on that one word alone
+    ("schedule a meeting with Dana", "meeting with Dana"),
     ("remind me to call the plumber", "call the plumber"),
     ("mark as the school holiday please", "mark as the school holiday"),
 ])
@@ -283,3 +285,58 @@ def test_the_module_imports_nothing_that_needs_a_model_or_a_database():
     src = open(m.__file__).read()
     for forbidden in ("import ollama", "requests.", "sqlite3", "call_llm"):
         assert forbidden not in src
+
+
+# ---------------------------------------------------------------------------
+# 6 · THE STAGE IS TOTAL — every Item gets an answer, including "no"
+# ---------------------------------------------------------------------------
+
+def test_a_non_ask_is_an_answer_with_a_name_not_an_absence():
+    """Gil, 2026-09-10: "those you don't create an object — you can just flag
+    to the user for this item it's not an object. This in itself can be a type
+    of object."
+
+    So it is one. `build_all` is TOTAL: every Item gets a result, and "there is
+    nothing here to build" has a name rather than being a gap in the list."""
+    from assistant.engine.fastrule.build import NotAnObject, build_all
+    res = build_all([_item("thanks so much", kind="other")],
+                    parser=FakeParser({}))
+    assert isinstance(res[0], NotAnObject)
+    assert res[0].reason and res[0].item_id == "item_1"
+
+
+def test_every_item_leaves_the_stage_either_built_or_flagged():
+    """The property that makes the stage total, checked at the stage.
+
+    Before this, an `other` item was set to `action="unknown", intent=None` and
+    the orchestrator's execute loop skipped a None intent BEFORE looking at
+    anything else — so the speaker was told NOTHING. A command that quietly
+    does nothing is the worst outcome available: it is indistinguishable from
+    success."""
+    from assistant.engine import load_config
+    from assistant.engine.fastrule import stage
+    from assistant.engine.state import EngineState
+
+    st = EngineState(raw_text="thanks", text="thanks")
+    st.items = [_item("thanks", kind="other")]
+    stage.run(st, load_config())
+
+    it = st.items[0]
+    assert it.intent is None
+    assert it.blocked, "a non-ask must leave the stage FLAGGED, not empty"
+
+
+def test_the_flag_reaches_the_user_instead_of_vanishing():
+    """`item.blocked` is checked before the empty-intent skip, so the flag
+    becomes a sentence the speaker actually sees."""
+    import assistant.engine as engine
+    from assistant.engine import load_config
+    from assistant.engine.state import EngineState
+
+    st = EngineState(raw_text="thanks", text="thanks")
+    it = _item("thanks", kind="other")
+    it.blocked = "not something I can put on the calendar or a list"
+    st.items = [it]
+    engine._commit(st, load_config())
+
+    assert any("thanks" in m for m in st.messages), st.messages

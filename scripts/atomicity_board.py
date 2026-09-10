@@ -137,12 +137,12 @@ def predictions(rows, floor: "float | None" = None):
     all three predictors come out of the same pass.
     """
     from freezegun import freeze_time
-    from assistant.engine.fastrule import objects as _generate
+    from assistant.engine import llm as _generate
     from assistant.engine.fastrule.fastrule import Atomicity
     from assistant.intent.classifier import ROUTER
 
     atom = Atomicity()
-    rp = _generate._get_rule_parser()
+    rp = _generate.get_rule_parser()
     ROUTER.load()
     fl = ROUTER.ATOMIC_MARGIN_FLOOR if floor is None else floor
     rules, model, layer = [], [], []

@@ -452,3 +452,121 @@ repairs that also stops it recurring, and CLAUDE.md now says so.
 can feed `build(item)`. The non-circular route is the generator's own templates:
 it composed the sentence from named slots, so it knows which words are the action
 and which are the time without any stage's implementation in the path.
+
+---
+
+## THE RESTRUCTURE LANDED — and the stage got its own board — 2026-09-10
+
+Gil: *"if the core structure of FastRule isn't good then fix it. The idea: input
+is `List[Item]` and output is objects committable to the software"* … *"it also
+shouldn't be redoing what previous components did, it should be focused on its
+own task and do that well."*
+
+`objects.py` is gone. It was four things at once and only one of them was the
+stage:
+
+| what it was | where it went |
+|---|---|
+| the per-item loop | `fastrule/stage.py` — **the stage** |
+| the whole-command front door | `fastrule/fast_track.py` |
+| the LLM fallback + both kind fallbacks | `llmjudge/rescue.py` |
+| the registry + both parser accessors | `engine/llm.py` (where a duplicate `_get_parser` already lived — two caches of one object, one reset by `reset()` and one not) |
+
+**The redo is gone.** `_parse_item` re-ran the ENTIRE fast track per item —
+Atomicity, Gatekeeper, Scorer — on an item that is atomic by contract, then
+handed the model `item.spoken()`, the action words **with the time re-injected**,
+so the same date was derived three times in one chain. Now `build` copies the
+eight values `decompose_validate` resolved and reads only the four things nobody
+upstream decided: operation, title, people, target.
+
+**Checkable consequence:** `test_the_count_of_model_calling_stages_is_current`
+went **5 → 4**. This stage is deterministic end to end.
+
+### The new board, and the rule it is built on
+
+`experiments/stage_board.py`. Gil: *"if it receives bad input then the output
+should be the same — the question then becomes what stage failed and where, and
+to flag in the relevant md file to go fix there."*
+
+So **every row is audited BEFORE the stage runs** and failures are attributed.
+Scoring an upstream loss here is the expensive mistake: it makes this stage
+chase problems that happened before it ran, and hides the stage that failed.
+
+**600 atomic TRAIN rows · converter lane (no model) · sound input only:**
+
+| | before the title batch | after |
+|---|---:|---:|
+| operation right | 95.0% | **95.0%** |
+| **title right** | 60.9% | **67.2%** |
+| correct-on-handled | 60.6% | **66.9%** |
+| handled | 63.9% | 63.9% |
+
+The converter BUILT an object for **83.5%** of rows; the gap to `handled`
+(63.9%) is the commit policy withholding 115 target-taking operations that need
+a store check this stage cannot do. Those go to the model.
+
+**104 of 600 rows arrived already broken** — flagged, not scored:
+
+    39  segmentation: split an atomic row into 2 items
+    20  segmentation: tagged 'event', gold is 'task'
+    17  segmentation: tagged 'task', gold is 'event'
+     6  segmentation: the action words lost a word
+
+### The title batch — REGISTERED, then measured
+
+Earlier two title hypotheses were refuted (reading it in-stage: −17pt; choosing
+by operation: −4pt). This one was different because it was mined first.
+
+**Prediction:** title 60.9% → 64–68% on sound input, driven by the
+attendee-as-title class; operation unchanged. **Actual: 67.2%, operation 95.0%.**
+Inside the range.
+
+**What it was.** The parser returns a bare attendee name as the title on **142 of
+the 244** train rows containing `with <Name>`: `"book workshop with Morgan"` →
+titled `'morgan'`. A name is never the title of the event that person attends.
+
+**And whether the `with` phrase belongs in the title is settled by the corpus,
+not guessed:**
+
+    KEEP it   137 rows   head is an INTERACTION — meeting · call · catch up ·
+                         speak · touch base    ("a call with Jesse")
+    DROP it   107 rows   head is an event someone attends — workshop, job
+                         interview, sales call, moving day
+
+Note the match is on the **whole head**, not a substring: `call` keeps and
+`sales call` drops, and treating them alike gets one of the two wrong.
+
+**One word was worth most of a percentage point on its own.** `"a call with
+Jesse"` failed the gold `"call with Jesse"` on the leading article, with the rest
+of the title already correct. `_LEAD_ARTICLE` strips it. The first cut of this
+batch moved the board **+0.3pt** and looked like another refutation; it was the
+article, and reading the rows rather than the number is what found it.
+
+### The front door is untouched
+
+`fastrule_shape.py` on the 7,200 train half is **byte-identical** across the
+whole restructure — handled 69.1%, correct-on-handled 94.2%, harm 165/129. It
+measures a different box (`FastRule(0.80).run(text)`), and the `fast_track` move
+was code motion. **Do not compare the two boards.**
+
+### `NotAnObject` — a flag is an outcome
+
+Gil: *"those you don't create an object, you can just flag to the user for this
+item it's not an object. This in itself can be a type of object."*
+
+`build_all` is now TOTAL — every Item gets one of three results, and
+`NotAnObject` is the third. It exists because the absence was **silent**: an item
+segmentation tagged `other` got `intent=None`, and `_commit` skips an empty
+intent before it looks at anything else, so the speaker was told nothing at all —
+indistinguishable from success. It now lands on `item.blocked` and comes back as
+*"I left 'X' alone — …"*.
+
+**The client half is NOT done and is recorded in `DOCUMENTATION/TASKS.md`**: the
+thinking panel and the iOS timeline should SHOW a flagged item, and currently
+have no place to draw it.
+
+**Next:** title 67.2% is still the binding constraint — the remaining classes are
+truncation (the parser dropping a task's own leading verb) and segmentation
+leaving stray words in the action. And the 115 withheld target-taking builds are
+the largest single block of unrealised reach; lifting that needs the store check,
+which is LLMJudge's.

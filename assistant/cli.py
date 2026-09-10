@@ -204,7 +204,7 @@ def check_engine(deep: bool = False) -> Check:
         ("decompose_validate", "assistant.engine.decompose_validate.resolve"),
         ("decompose_validate", "assistant.engine.decompose_validate.targeting"),
         ("decompose_validate", "assistant.engine.decompose_validate.object_rules"),
-        ("generate",           "assistant.engine.fastrule.objects"),
+        ("fastrule",           "assistant.engine.fastrule.build"),
         ("llmjudge",           "assistant.engine.llmjudge.llmjudge"),
         ("label",              "assistant.engine.label.label"),
     ]

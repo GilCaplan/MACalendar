@@ -1,4 +1,4 @@
-"""Step 5 — the generate stage's deterministic fallbacks.
+"""X3 -> X4 — the FastRule stage's deterministic fallbacks.
 
 The LLM paths live in tests/integration (Ollama guard); what's pinned here
 is the honest-failure ladder: a task-kind item never parses to nothing
@@ -6,13 +6,26 @@ is the honest-failure ladder: a task-kind item never parses to nothing
 for an event/reminder with a grounded when becomes a default-titled event
 instead of dying unknown (event_fallback, cycle 5) — while everything less
 grounded stays unknown, because a guessed event is worse than none.
+
+RETARGETED 2026-09-10, when `fastrule/objects.py` was dismantled. The
+behaviour pinned here did not change; three modules now own what one did:
+
+    the stage        fastrule/stage.py     List[Item] -> objects
+    the front door   fastrule/fast_track.py  fast_propose
+    the rescue       llmjudge/rescue.py    the model, the two fallbacks and
+                                            the invention guard
+
+The ladder is the same ladder; only its address moved.
 """
 
 from __future__ import annotations
 
 import pytest
 
-import assistant.engine.fastrule.objects as generate
+import assistant.engine.fastrule.fast_track as fast_track
+import assistant.engine.fastrule.stage as stage
+import assistant.engine.llmjudge.rescue as rescue
+import assistant.engine.llmjudge.llm_fallback as guards
 from assistant.engine import load_config
 from assistant.engine.state import EngineState, Item
 
@@ -24,18 +37,15 @@ def cfg():
 
 @pytest.fixture
 def dead_llm(monkeypatch):
-    """Both the per-item parse and the event-kind retry come back empty."""
-    monkeypatch.setattr(generate, "_parse_item", lambda item, state, cfg: [])
-    class _P:
-        def parse(self, text):
-            return []
-    monkeypatch.setattr(generate, "_get_parser", lambda cfg: _P())
+    """The model comes back empty, so the deterministic ladder is what runs."""
+    monkeypatch.setattr(rescue, "_ask_the_model",
+                        lambda item, state, cfg, verdict: [])
 
 
 def _run(text, kind, cfg):
     st = EngineState(raw_text=text, text=text)
     st.items = [Item(id="item_1", kind=kind, text=text)]
-    return generate.run(st, cfg).items[0]
+    return stage.run(st, cfg).items[0]
 
 
 # --- event_fallback: the grounded default-title event (cycle 5) ----------
@@ -102,10 +112,10 @@ class _StubParser:
 
 def _fast(monkeypatch, cfg, text, intents):
     from types import SimpleNamespace
-    monkeypatch.setattr(generate, "_get_rule_parser",
-                        lambda: _StubParser(intents))
+    from assistant.engine import llm as _llm
+    monkeypatch.setattr(_llm, "get_rule_parser", lambda: _StubParser(intents))
     st = EngineState(raw_text=text, text=text)
-    return generate.fast_propose(st, cfg), st
+    return fast_track.fast_propose(st, cfg), st
 
 
 def test_mutation_on_a_bare_ask_noun_routes_deep(monkeypatch, cfg):
@@ -137,7 +147,7 @@ def test_fabricated_title_is_dropped():
     item = Item(id="item_1", kind="event",
                 text="new scenario, time or calendar to new list")
     got = [("create_event", SimpleNamespace(title="New Event"))]
-    assert generate._guard_inventions(got, item, st) == []
+    assert guards._guard_inventions(got, item, st) == []
     assert any("invention_guard" in str(f) for f in st.fixes)
 
 
@@ -146,7 +156,7 @@ def test_paraphrased_title_survives_via_stems():
     st = EngineState(raw_text="x", text="x")
     item = Item(id="item_1", kind="event", text="meet Dana tomorrow at noon")
     got = [("create_event", SimpleNamespace(title="Meeting with Dana"))]
-    assert generate._guard_inventions(got, item, st) == got
+    assert guards._guard_inventions(got, item, st) == got
 
 
 def test_grounded_title_untouched():
@@ -154,7 +164,7 @@ def test_grounded_title_untouched():
     st = EngineState(raw_text="x", text="x")
     item = Item(id="item_1", kind="event", text="dentist on Wednesday at noon")
     got = [("create_event", SimpleNamespace(title="Dentist"))]
-    assert generate._guard_inventions(got, item, st) == got
+    assert guards._guard_inventions(got, item, st) == got
 
 
 def test_non_event_actions_never_guarded():
@@ -162,7 +172,7 @@ def test_non_event_actions_never_guarded():
     st = EngineState(raw_text="x", text="x")
     item = Item(id="item_1", kind="task", text="whatever garble")
     got = [("create_todo", SimpleNamespace(titles=["Unrelated Words"]))]
-    assert generate._guard_inventions(got, item, st) == got
+    assert guards._guard_inventions(got, item, st) == got
 
 
 def test_the_deep_track_does_not_undo_a_refusal(monkeypatch, cfg):

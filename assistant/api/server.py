@@ -176,17 +176,17 @@ def warm_up_components() -> None:
     def _go() -> None:
         import time as _t
         from assistant.engine import load_config as _engine_cfg
-        from assistant.engine.fastrule import objects as _gen
+        from assistant.engine import llm as _gen
         t0 = _t.perf_counter()
-        for name, fn in (("rule parser", _gen._get_rule_parser),
+        for name, fn in (("rule parser", _gen.get_rule_parser),
                          ("whisper", _get_stt),
-                         ("llm parser", lambda: _gen._get_parser(_engine_cfg()))):
+                         ("llm parser", lambda: _gen.get_parser(_engine_cfg()))):
             try:
                 fn()
             except Exception as e:
                 logger.warning("Warm-up of %s failed: %s", name, e)
         try:
-            rp = _gen._get_rule_parser()
+            rp = _gen.get_rule_parser()
             if rp is not None:
                 rp.analyze("meeting tomorrow at 3pm")  # forces spaCy + datetime models
         except Exception:

@@ -22,7 +22,8 @@ from assistant.actions.calendar.intent import CalendarIntent
 from assistant.actions.todo.intent import CompleteTodoIntent
 from assistant.exceptions import TargetNotFound
 import assistant.api.server as server
-import assistant.engine.fastrule.objects as generate
+import assistant.engine.fastrule.stage as generate
+import assistant.engine.llm as engine_llm
 
 SAID = "Walk Mark Stalk today at 230PM"
 
@@ -49,14 +50,14 @@ def _wire(monkeypatch, rule_intents, reparse, execute_results):
     """Point the engine at a fake rule parser, LLM parser and action registry."""
     rp = MagicMock()
     rp.analyze.return_value = _RuleResult(rule_intents)
-    monkeypatch.setattr(generate, "_get_rule_parser", lambda: rp)
+    monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: rp)
 
     parser = MagicMock()
     parser.parse.return_value = reparse
     parser.last_llm_ms = 0
     parser.last_examples_used = 0
     parser.last_raw_response = ""
-    monkeypatch.setattr(generate, "_get_parser", lambda cfg: parser)
+    monkeypatch.setattr(engine_llm, "get_parser", lambda cfg: parser)
 
     registry = MagicMock()
 
@@ -67,7 +68,7 @@ def _wire(monkeypatch, rule_intents, reparse, execute_results):
         return cls
 
     registry.get.side_effect = _get
-    monkeypatch.setattr(generate, "get_registry", lambda: registry)
+    monkeypatch.setattr(engine_llm, "get_registry", lambda: registry)
     return parser
 
 
@@ -149,7 +150,7 @@ def test_a_deep_track_misread_gets_the_same_second_opinion(monkeypatch, client):
     rp = MagicMock()
     rp.analyze.return_value = SimpleNamespace(confidence=0.2, missing_slots=["x"],
                                               intents=[])
-    monkeypatch.setattr(generate, "_get_rule_parser", lambda: rp)
+    monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: rp)
 
     parser = MagicMock()
     parser.parse.side_effect = [
@@ -163,7 +164,7 @@ def test_a_deep_track_misread_gets_the_same_second_opinion(monkeypatch, client):
     parser.last_llm_ms = 1
     parser.last_examples_used = 0
     parser.last_raw_response = ""
-    monkeypatch.setattr(generate, "_get_parser", lambda cfg: parser)
+    monkeypatch.setattr(engine_llm, "get_parser", lambda cfg: parser)
 
     registry = MagicMock()
 
@@ -177,7 +178,7 @@ def test_a_deep_track_misread_gets_the_same_second_opinion(monkeypatch, client):
         return cls
 
     registry.get.side_effect = _get
-    monkeypatch.setattr(generate, "get_registry", lambda: registry)
+    monkeypatch.setattr(engine_llm, "get_registry", lambda: registry)
 
     body = client.post("/voice/text", json={
         "transcript": "night shift on wednesday from 8 pm to 6 am"}).get_json()

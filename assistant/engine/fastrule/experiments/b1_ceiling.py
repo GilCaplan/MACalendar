@@ -92,12 +92,12 @@ def main() -> int:
     from freezegun import freeze_time
     from assistant.engine.fastrule.fastrule import FastRule
     from assistant.intent.rule_parser import RULE_THRESHOLD, RuleParserSkip
-    from assistant.engine.fastrule import objects as _objects
+    from assistant.engine import llm as _objects
     from assistant.engine.decompose_validate import resolve as _resolve
 
     fr = FastRule(RULE_THRESHOLD)
     fr.run("book gym tomorrow at 7am")
-    rp = _objects._get_rule_parser()
+    rp = _objects.get_rule_parser()
 
     rows = [json.loads(l) for l in DATA.open()]
     rows = [r for r in rows if r["split"] == "train"]

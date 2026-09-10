@@ -326,6 +326,42 @@ rule in its most expensive direction: blaming this stage for another's loss.
 `Atomicity` are Components, not Stages; the chain's shape is unchanged. This is the
 `old_seg -> FastSeg` case, not the rename case.
 
+## OPEN — the review panel must SHOW the flagged items (Gil, 2026-09-10)
+
+**Not started. Recorded here so it is not lost, because the engine half landed
+first and the two are easy to leave out of step.**
+
+FastRule now returns a third kind of result: `NotAnObject` — an item there is
+nothing to build from, which segmentation tagged `other` ("thanks", "play some
+music"). Gil's framing: *"those you don't create an object, you can just flag to
+the user for this item it's not an object. This in itself can be a type of
+object."*
+
+The ENGINE side is done (`fastrule/build.py::NotAnObject`, flagged onto
+`item.blocked`, reported by `_commit` as *"I left 'X' alone — …"* and pinned by
+`test_every_item_leaves_the_stage_either_built_or_flagged`). **The CLIENT side
+is not.** The thinking panel and the iOS timeline draw a command's chain from
+its trace, and a flagged item currently has no place in that drawing — so the
+user sees the reply sentence but not *which part* of what they said was set
+aside, or why.
+
+What this needs, per CLAUDE.md's *"the review panel is downstream of the
+pipeline"* rule:
+
+- a trace step for a flagged item, distinguishable from a REFUSAL (which is a
+  correct reading held back) and from a DEFER (which the model then answered)
+- the Mac `thinking_panel.py` and the iOS `ThinkingView` rendering it — an item
+  that produced nothing should be *visible* as a decision, not an absence
+- check whether this is a `CHAINS`/`BRAIN_VERSION` matter: it is a new step
+  KIND, not a new stage, so probably not — but `test_panel_agreement.py` is the
+  arbiter and should be run before assuming either way
+
+**Why it matters more than it looks:** the silent version of this was a real
+defect. Before 2026-09-10 an `other` item was set to `intent=None` and the
+execute loop skipped an empty intent before it looked at anything else, so the
+speaker was told *nothing at all* — indistinguishable from success. The engine
+now says something; the panel should show it.
+
 ## Working agreements
 - Everything on the phone is local: no third-party services; the only network peer is the Mac over Tailscale.
 - Prefer doing work directly over spawning sub-agents; keep context small (`/compact` between big tasks).

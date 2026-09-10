@@ -49,8 +49,8 @@ def main():
     # same line for the same reason: building spaCy's pipeline under freezegun
     # raises, and build() turns that into a `skip` DEFER -- so the whole run
     # reads "defers everything" when the truth is "never got a parser".
-    from assistant.engine.fastrule import objects as _g
-    _g._get_rule_parser().analyze("book gym tomorrow at 7am", current_view="month")
+    from assistant.engine import llm as _g
+    _g.get_rule_parser().analyze("book gym tomorrow at 7am", current_view="month")
 
     rows = [json.loads(l) for l in DATA.open()]
     rows = [r for r in rows if r["split"] == "train"

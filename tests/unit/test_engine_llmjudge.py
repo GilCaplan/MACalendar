@@ -72,7 +72,7 @@ def test_the_ported_code_lives_here_now(fastrule):
     reintroduced that shape; this asserts it is a move.
     """
     from assistant.engine.fastrule import fastrule as fr
-    from assistant.engine.fastrule import objects as fo
+    from assistant.engine.llmjudge import llm_fallback as fo
     from assistant.engine.llmjudge import gatekeeper as gk
     from assistant.engine.llmjudge import llm_fallback as lf
 
