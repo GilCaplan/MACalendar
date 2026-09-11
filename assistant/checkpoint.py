@@ -48,21 +48,26 @@ import os
 import pathlib
 import time
 
-#: THE REAL CLOCK, captured at import BEFORE anything can freeze it.
+#: THE REAL CLOCK — the one `freezegun` cannot reach.
 #:
-#: Every board in this project runs inside `freezegun.freeze_time(CLOCK)`, so
-#: that a case whose plant depends on "the day after tomorrow" resolves the same
-#: way every run. freezegun patches `time.time` AND `time.monotonic`, so a
-#: progress meter that calls either one inside the frozen block reads a fixed
-#: instant: elapsed came out NEGATIVE (the frozen date is in the past relative
-#: to the real boot clock), clamped to 1e-6, and Board D's first progress line
-#: read "1500000000/min · 0m elapsed".
+#: Every board here runs inside `freeze_time(CLOCK)` so that a case depending on
+#: "the day after tomorrow" resolves identically every run. freezegun patches
+#: far more than `time.time`: `monotonic`, `perf_counter` and `datetime` all
+#: return the frozen instant, and **binding the function object at import does
+#: not escape it** — the first attempt at this fix did exactly that and the
+#: meter still read "eta 1249741750m · 0/min · 29814215m elapsed", because
+#: `monotonic()` was handing back epoch-scale seconds from the frozen date while
+#: the start time was a real boot-relative one.
 #:
-#: Binding the function object here keeps a handle on the real implementation,
-#: because freezegun replaces the module ATTRIBUTE rather than the object.
-#: Wall-clock progress is about the operator watching the run, and must not be
-#: subject to the experiment's own reproducibility fiction.
-_now = time.monotonic
+#: `time.clock_gettime(CLOCK_MONOTONIC)` goes straight to the OS and is
+#: unpatched (measured, not assumed). Wall-clock progress belongs to the
+#: operator watching a five-hour run, and must not be subject to the
+#: experiment's own reproducibility fiction.
+def _now() -> float:
+    try:
+        return time.clock_gettime(time.CLOCK_MONOTONIC)
+    except (AttributeError, OSError):       # not POSIX
+        return time.monotonic()
 
 #: Run artefacts, not personal data and not repo content — they are the
 #: by-product of a measurement and belong beside the other things this project

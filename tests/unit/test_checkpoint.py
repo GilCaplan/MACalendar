@@ -141,7 +141,14 @@ def test_progress_is_real_time_even_inside_a_frozen_clock(scratch, capsys):
             ck.record(f"row-{i}", i)
     out = capsys.readouterr().out
     assert "[frozen] 2/4" in out
-    # The absurd rate is the signature of reading the frozen clock.
-    assert "1500000000/min" not in out
+
+    # ASSERT A SANE RANGE IN BOTH DIRECTIONS. The first version of this test
+    # only rejected an absurdly HIGH rate, so it passed against a fix that did
+    # not work: binding `time.monotonic` at import does not escape freezegun,
+    # and the meter then read 29,814,215 minutes elapsed — a rate of 0/min,
+    # which sailed through an upper-bound-only check. A test that can only
+    # catch one of the two ways a number goes wrong is half a test.
+    elapsed_m = float(out.rsplit("·", 1)[-1].strip().split("m elapsed")[0])
+    assert 0 <= elapsed_m < 1, f"elapsed read a frozen clock: {out!r}"
     rate = float(out.split("·")[-2].strip().split("/min")[0])
-    assert 0 <= rate < 10_000_000, f"progress read the frozen clock: {out!r}"
+    assert 0 < rate < 10_000_000, f"rate read a frozen clock: {out!r}"
