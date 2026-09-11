@@ -66,7 +66,7 @@
   }
 
   header {
-    max-width: 1080px;
+    max-width: 1360px;
     margin: 0 auto;
     padding: 34px 20px 8px;
   }
@@ -99,7 +99,11 @@
   }
 
   .stagewrap {
-    max-width: 1120px;
+    /* 1120 scaled the 1000-unit viewBox to 1.10, so the drawings' own 8px
+       labels landed at 8.8px on screen -- Gil: "some of the text seems a bit
+       too small". Widening scales the whole drawing up together, which costs
+       no layout risk at all; the prose below keeps its own 60ch measure. */
+    max-width: 1400px;
     margin: 12px auto 0;
     padding: 0 12px;
     position: relative;
@@ -346,7 +350,7 @@
 
   #drill-header,
   #drill3-header {
-    max-width: 1080px;
+    max-width: 1360px;
     margin: 0 auto;
     padding: 16px 20px 8px;
     display: flex;
@@ -387,7 +391,7 @@
 
   #drill-svg-wrap,
   #drill3-svg-wrap {
-    max-width: 1120px;
+    max-width: 1400px;
     margin: 8px auto 0;
     padding: 0 12px;
   }
@@ -560,7 +564,7 @@
      views the page defines (the loop, the evaluation) and the 22 panels behind
      them were unreachable by any means. */
   #views {
-    max-width: 1120px;
+    max-width: 1400px;
     margin: 14px auto 0;
     padding: 0 20px;
     display: flex;
@@ -591,7 +595,7 @@
   }
 
   .hint {
-    max-width: 1080px;
+    max-width: 1360px;
     margin: 6px auto 0;
     padding: 0 20px;
     font: 400 11.5px/1.5 'IBM Plex Mono', monospace;
@@ -910,8 +914,25 @@
     margin: 4px auto 10px;
   }
 
+  /* A figure may run wider than the prose: text wants ~760px to stay
+     readable, a diagram only gets clearer with room.
+
+     The drill-in body is wrapped in .pmore, so the 760px measure above landed
+     on the WRAPPER and every figure inside inherited it -- which is why the
+     diagrams stayed at 760 however wide their own cap was. The wrapper now
+     runs to the figure width, and the prose measure moves onto its children. */
   #panel.full #pbody svg {
+    max-width: 900px;
+  }
+
+  #panel.full #pbody > .pmore {
+    max-width: 900px;
+  }
+
+  #panel.full .pmore > :not(svg) {
     max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   #pbody figcaption {
@@ -1030,10 +1051,10 @@
         <g class="modelwire" aria-hidden="true">
           <path d="M 248 224 L 212 224" fill="none" stroke="var(--model)" stroke-width="1.3"
             marker-end="url(#mm)" />
-          <text x="230" y="217" text-anchor="middle" font-size="7.5" fill="var(--model)">asks</text>
+          <text x="230" y="217" text-anchor="middle" font-size="8" fill="var(--model)">asks</text>
           <path d="M 212 258 L 248 258" fill="none" stroke="var(--model)" stroke-width="1.3"
             stroke-dasharray="3 2" marker-end="url(#mm)" />
-          <text x="230" y="272" text-anchor="middle" font-size="7.5" fill="var(--muted)">answers</text>
+          <text x="230" y="272" text-anchor="middle" font-size="8" fill="var(--muted)">answers</text>
         </g>
 
         <g data-door="engine" id="system-btn-brain" role="button" tabindex="0" style="cursor:pointer;"
@@ -1073,13 +1094,13 @@
           <circle cx="496" cy="136" r="2" fill="var(--muted)" />
           <rect x="484" y="150" width="26" height="11" rx="2" fill="var(--amber-soft)" stroke="var(--amber)"
             stroke-width=".8" />
-          <text x="497" y="158.5" text-anchor="middle" font-size="6.5" fill="var(--amber)">month</text>
+          <text x="497" y="158.5" text-anchor="middle" font-size="8" fill="var(--amber)">month</text>
           <rect x="513" y="150" width="22" height="11" rx="2" fill="none" stroke="var(--line)" stroke-width=".8" />
-          <text x="524" y="158.5" text-anchor="middle" font-size="6.5" fill="var(--muted)">tasks</text>
+          <text x="524" y="158.5" text-anchor="middle" font-size="8" fill="var(--muted)">tasks</text>
           <rect x="538" y="150" width="24" height="11" rx="2" fill="none" stroke="var(--line)" stroke-width=".8" />
-          <text x="550" y="158.5" text-anchor="middle" font-size="6.5" fill="var(--muted)">timer</text>
+          <text x="550" y="158.5" text-anchor="middle" font-size="8" fill="var(--muted)">timer</text>
           <rect x="565" y="150" width="30" height="11" rx="2" fill="none" stroke="var(--line)" stroke-width=".8" />
-          <text x="580" y="158.5" text-anchor="middle" font-size="6.5" fill="var(--muted)">course</text>
+          <text x="580" y="158.5" text-anchor="middle" font-size="8" fill="var(--muted)">course</text>
           <g stroke="var(--line)" stroke-width=".7" opacity=".85">
             <line x1="486" y1="169" x2="592" y2="169" />
             <line x1="486" y1="180" x2="592" y2="180" />
@@ -1103,15 +1124,15 @@
           <text x="544" y="242" text-anchor="middle" font-size="9" font-weight="600">review panel</text>
           <g fill="var(--muted)">
             <circle cx="496" cy="256" r="2" fill="var(--good)" />
-            <text x="503" y="258.5" font-size="6.5">heard</text>
-            <text x="596" y="258.5" font-size="6.5" text-anchor="end">0.4s</text>
+            <text x="503" y="258.5" font-size="8">heard</text>
+            <text x="596" y="258.5" font-size="8" text-anchor="end">0.4s</text>
             <circle cx="496" cy="267" r="2" fill="var(--good)" />
-            <text x="503" y="269.5" font-size="6.5">corrected 1 word</text>
+            <text x="503" y="269.5" font-size="8">corrected 1 word</text>
             <circle cx="496" cy="278" r="2" fill="var(--amber)" />
-            <text x="503" y="280.5" font-size="6.5">rules · 1.00</text>
-            <text x="596" y="280.5" font-size="6.5" text-anchor="end">0.1s</text>
+            <text x="503" y="280.5" font-size="8">rules · 1.00</text>
+            <text x="596" y="280.5" font-size="8" text-anchor="end">0.1s</text>
             <circle cx="496" cy="289" r="2" fill="var(--good)" />
-            <text x="503" y="291.5" font-size="6.5">wrote event</text>
+            <text x="503" y="291.5" font-size="8">wrote event</text>
           </g>
         </g>
         <line x1="540" y1="404" x2="548" y2="302" stroke="var(--muted)" stroke-dasharray="3 3" marker-end="url(#mi)" />
@@ -1151,7 +1172,7 @@
           <rect x="636" y="296" width="90" height="34" rx="5" fill="var(--panel)" stroke="var(--line)"
             stroke-dasharray="3 2" />
           <text x="681" y="310" text-anchor="middle" font-size="8" font-weight="600">private mesh VPN</text>
-          <text x="681" y="322" text-anchor="middle" font-size="7.5" fill="var(--muted)">words ↔ results</text>
+          <text x="681" y="322" text-anchor="middle" font-size="8" fill="var(--muted)">words ↔ results</text>
         </g>
 
         <g data-panel="queue" role="button" tabindex="0"
@@ -1288,9 +1309,9 @@
              categories, a task gets a SET of tags. -->
         <text x="820" y="453" text-anchor="middle" font-size="8" fill="var(--muted)">the only write — row and label
           together</text>
-        <text x="820" y="466" text-anchor="middle" font-size="7.5" fill="var(--muted)">event → 1 of 13 categories +
+        <text x="820" y="466" text-anchor="middle" font-size="8" fill="var(--muted)">event → 1 of 13 categories +
           colour</text>
-        <text x="820" y="477" text-anchor="middle" font-size="7.5" fill="var(--muted)">task → a set of tags</text>
+        <text x="820" y="477" text-anchor="middle" font-size="8" fill="var(--muted)">task → a set of tags</text>
       </g>
 
       <!-- ====== FAST COMMIT PATH ====== -->
@@ -1299,9 +1320,9 @@
       <!-- 30px apart, but each label is ~75px long once rotated, so they were
            drawn straight through one another ("confideatMJadgemeditbes after").
            Spread along the path they annotate. -->
-      <text x="978" y="262" text-anchor="middle" font-size="7.5" fill="var(--good)"
+      <text x="978" y="262" text-anchor="middle" font-size="8" fill="var(--good)"
         transform="rotate(90 978 262)">confident → commits now</text>
-      <text x="978" y="386" text-anchor="middle" font-size="7" fill="var(--muted)"
+      <text x="978" y="386" text-anchor="middle" font-size="8" fill="var(--muted)"
         transform="rotate(90 978 386)">judged afterwards</text>
 
       <!-- ====== LOOP: LLMJudge → Segmentation ====== -->
@@ -1313,10 +1334,10 @@
       <path d="M 680 328 L 490 328 L 490 200 L 490 112" fill="none" stroke="var(--amber)" stroke-width="2"
         stroke-dasharray="6 4" marker-end="url(#mA)" />
       <text x="478" y="222" text-anchor="end" font-size="8" font-weight="600" fill="var(--amber)">X1'</text>
-      <text x="478" y="236" text-anchor="end" font-size="7" fill="var(--muted)">rewrite</text>
+      <text x="478" y="236" text-anchor="end" font-size="8" fill="var(--muted)">rewrite</text>
       <rect x="420" y="252" width="58" height="22" rx="4" fill="var(--amber-soft)" stroke="var(--amber)"
         stroke-width="1" />
-      <text x="449" y="266" text-anchor="middle" font-size="7.5" font-weight="600" fill="var(--amber)">≤ 3×</text>
+      <text x="449" y="266" text-anchor="middle" font-size="8" font-weight="600" fill="var(--amber)">≤ 3×</text>
 
       <!-- ====== LEGEND ====== -->
       <g transform="translate(30, 180)">

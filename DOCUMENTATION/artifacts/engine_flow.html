@@ -21,7 +21,7 @@
   *{box-sizing:border-box}
   body{background:var(--bg); color:var(--ink); margin:0; padding:0 0 64px;
        font:16px/1.62 'IBM Plex Serif',Georgia,serif;}
-  header{max-width:1400px; margin:0 auto; padding:22px 24px 6px;}
+  header{max-width:1500px; margin:0 auto; padding:22px 24px 6px;}
   .eyebrow{font:11px/1 'IBM Plex Mono',ui-monospace,monospace; letter-spacing:2.2px;
            color:var(--muted); text-transform:uppercase; margin:0 0 10px;}
   h1{font:600 32px/1.05 'IBM Plex Mono',ui-monospace,monospace; letter-spacing:-1px;
@@ -29,7 +29,7 @@
   .lede{max-width:62ch; margin:0 0 6px;}
   .hint{font:13px/1.6 'IBM Plex Mono',ui-monospace,monospace; color:var(--muted); margin:.4rem 0 0;}
   .hint b{color:var(--ink); font-weight:600;}
-  main{max-width:1400px; margin:0 auto; padding:2px 24px;}
+  main{max-width:1500px; margin:0 auto; padding:2px 24px;}
   svg.flow{width:100%; height:auto; display:block;
            max-height:calc(100vh - 250px);}
   .box{fill:var(--screen); stroke:var(--line); stroke-width:1.4;}
@@ -37,19 +37,19 @@
   .box.model{stroke:var(--model);}
   .name{font:600 13px 'IBM Plex Mono',ui-monospace,monospace; fill:var(--ink);
         text-anchor:middle; pointer-events:none;}
-  .step{font:9px 'IBM Plex Mono',ui-monospace,monospace; fill:var(--muted);
+  .step{font:10.5px 'IBM Plex Mono',ui-monospace,monospace; fill:var(--muted);
         text-anchor:middle; pointer-events:none;}
   .edge{stroke:var(--line); stroke-width:1.5; fill:none;}
   .edge.loop{stroke:var(--amber); stroke-dasharray:5 3;}
   .edge.two-way{stroke:var(--model); stroke-width:1.8;}
-  .elabel{font:9px 'IBM Plex Mono',ui-monospace,monospace; fill:var(--muted);
+  .elabel{font:10.5px 'IBM Plex Mono',ui-monospace,monospace; fill:var(--muted);
           text-anchor:middle; pointer-events:none;}
   .hit{stroke:transparent; stroke-width:22; fill:none; cursor:help;
        pointer-events:stroke;}
   g.node{cursor:help;}
   g.wire:hover .edge{stroke:var(--amber); stroke-width:2.4;}
   g.node:hover .box{stroke:var(--amber); stroke-width:2.4;}
-  .legend{max-width:1400px; margin:14px auto 0; padding:0 24px;
+  .legend{max-width:1500px; margin:14px auto 0; padding:0 24px;
           font:12px/1.9 'IBM Plex Mono',ui-monospace,monospace; color:var(--muted);}
   .legend b{color:var(--ink);}
   .legend svg{vertical-align:middle;}
@@ -120,9 +120,9 @@
     <text class="step" x="1063" y="211">step 5</text>
   </g>
   <g class="node" data-tip="COMMIT + label -- label/ and the orchestrator. The only place the engine&#10;touches the database, through the same action classes the calendar window&#10;uses.&#10;&#10;The LABEL IS WRITTEN WITH THE ROW, not after it: an event takes one of 13&#10;categories and its colour, a task takes a SET of tags. There is no window&#10;in which a row exists without its label.&#10;&#10;Two different problems, so two kinds of answer. A category is one choice;&#10;tags are a set, because a task can be groceries and an errand at once and&#10;keeping only the strongest would quietly drop the other.&#10;&#10;A blocked item is refused OUT LOUD, never dropped quietly -- a command&#10;that silently does nothing cannot be told apart from one that worked.&#10;&#10;Everything upstream produces intents; only this executes them." aria-label="COMMIT + label">
-    <rect class="box accent" x="1190" y="168" width="158" height="62" rx="8"/>
-    <text class="name" x="1269" y="195">COMMIT + label</text>
-    <text class="step" x="1269" y="211">the only write</text>
+    <rect class="box accent" x="1212" y="168" width="158" height="62" rx="8"/>
+    <text class="name" x="1291" y="195">COMMIT + label</text>
+    <text class="step" x="1291" y="211">the only write</text>
   </g>
   <g class="wire" data-tip="carries  X0 -- the raw transcript. A STRING, not audio.&#10;&#10;Whisper has already run, on the GPU from a cached model, before the&#10;engine is called. Typed text enters by exactly the same door, which is&#10;why typing works as well as speaking.&#10;&#10;    &quot;book teh dentist tomorow at 3&quot;" aria-label="X0: the raw transcript">
     <line class="edge" x1="115" y1="199" x2="160" y2="199" marker-end="url(#ar)"/>
@@ -150,13 +150,13 @@
     <text class="elabel" x="960" y="190">X4</text>
   </g>
   <g class="wire" data-tip="carries  the verdict. An APPROVAL is the permission to write.&#10;&#10;Anything else is a finding:&#10;    type         ungrounded_subject | unsupported_field | not_an_ask&#10;    item_id      the object concerned&#10;    detail       the sentence shown in the trace&#10;&#10;NOT every finding loops. A rewrite cannot invent a value nobody said,&#10;and an object nothing asked for is not made real by parsing it again --&#10;those commit WITH A NOTE and go to the review panel instead." aria-label="approve: approve, or X1'">
-    <line class="edge" x1="1142" y1="199" x2="1190" y2="199" marker-end="url(#ar)"/>
-    <line class="hit" x1="1142" y1="199" x2="1190" y2="199"/>
-    <text class="elabel" x="1166" y="190">approve</text>
+    <line class="edge" x1="1142" y1="199" x2="1212" y2="199" marker-end="url(#ar)"/>
+    <line class="hit" x1="1142" y1="199" x2="1212" y2="199"/>
+    <text class="elabel" x="1177" y="190">approve</text>
   </g>
   <g class="wire" data-tip="THE FAST COMMIT. FastRule confident -&gt; COMMIT immediately, skipping the&#10;judge on the way in.&#10;&#10;The judge STILL RUNS afterwards. So the answer arrives in milliseconds and&#10;is checked behind your back rather than in front of you -- and if the check&#10;fails, the commit is retracted and re-committed.&#10;&#10;This is the whole reason the engine has two speeds instead of one." aria-label="the fast commit: FastRule confident commits immediately, and the judge checks afterwards">
-    <path class="edge" d="M 857 230 L 857 300 L 1269 300 L 1269 232" style="stroke:var(--good);stroke-width:1.8" marker-end="url(#arg)"/>
-    <path class="hit" d="M 857 230 L 857 300 L 1269 300 L 1269 232"/>
+    <path class="edge" d="M 857 230 L 857 300 L 1291 300 L 1291 232" style="stroke:var(--good);stroke-width:1.8" marker-end="url(#arg)"/>
+    <path class="hit" d="M 857 230 L 857 300 L 1291 300 L 1291 232"/>
     <text class="elabel" x="1063" y="315" fill="var(--good)">confident &#8594; commit now, judged afterwards</text>
   </g>
   <g class="wire" data-tip="carries  X1' -- the utterance REWORDED, a string in X1's format.&#10;&#10;At most 3 rounds per command.&#10;&#10;It is a REWRITE and not a re-run, and that distinction is the whole design:&#10;re-entering a DETERMINISTIC segmenter with unchanged text cannot produce a&#10;new answer. No rewrite, no loop.&#10;&#10;THE REWRITE IS STILL A STUB, so this wire is wired and INERT today. A&#10;diagram of a system that does not exist is how documentation starts lying.&#10;&#10;On exhaustion the last parse is judged anyway, committed, and the reply says&#10;so." aria-label="the rewrite loop: reworded to X1 prime, back to segmentation, at most three rounds">
@@ -164,7 +164,7 @@
     <path class="hit" d="M 1063 168 L 1063 70 L 445 70 L 445 162"/>
     <text class="elabel" x="754" y="58">reworded to X1&#8242; &#183; &#8804; 3 rounds &#183; stub today</text>
   </g>
-  <text class="elabel" x="1269" y="158">the answer, to whichever client asked</text>
+  <text class="elabel" x="1262" y="158">the answer, to whichever client asked</text>
 </svg>
 </main>
 
