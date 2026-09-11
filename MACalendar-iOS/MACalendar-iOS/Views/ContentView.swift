@@ -273,6 +273,16 @@ struct ContentView: View {
                         .tag(5)
                 }
 
+                // ── Teach Tab ────────────────────────────────────────────
+                // The labelling game. Behind the same switch pattern as Timer:
+                // it is only useful while there are hard rows to label, and an
+                // always-present tab for an occasional task is clutter.
+                if settings.showTeachTab {
+                    LabelGameView()
+                        .tabItem { Label("Teach", systemImage: "brain.head.profile") }
+                        .tag(6)
+                }
+
                 // ── Settings Tab ─────────────────────────────────────────
                 SettingsView()
                     .tabItem { Label("Settings", systemImage: "gear") }
@@ -622,6 +632,7 @@ struct VoiceQueueView: View {
     @EnvironmentObject var api: APIClient
     @EnvironmentObject var settings: AppSettings
     @Environment(\.dismiss) private var dismiss
+    @State private var editing: PendingVoiceCommand?
 
     var body: some View {
         NavigationView {
@@ -637,11 +648,30 @@ struct VoiceQueueView: View {
                         icon(for: cmd.status)
                             .frame(width: 22)
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(label(for: cmd.status)).font(.subheadline.weight(.medium))
+                            Text(label(for: cmd)).font(.subheadline.weight(.medium))
+                            // WHAT THE PHONE HEARD, shown while it waits. The
+                            // Mac's Whisper is better and still does the real
+                            // transcription — this is here so a queued command
+                            // is not an anonymous row you can only inspect
+                            // after it has already changed your calendar.
+                            if !cmd.displayText.isEmpty {
+                                Text("“\(cmd.displayText)”")
+                                    .font(.footnote)
+                                    .foregroundColor(cmd.edited == nil ? .secondary : .primary)
+                                    .italic(cmd.edited == nil)
+                            }
                             Text(cmd.recordedAt.formatted(date: .abbreviated, time: .shortened))
                                 .font(.caption).foregroundColor(.secondary)
                             if !cmd.result.isEmpty {
                                 Text(cmd.result).font(.footnote).foregroundColor(.secondary)
+                            }
+                            if cmd.status == .queued || cmd.status == .failed {
+                                Button(cmd.displayText.isEmpty ? "Type it instead" : "Edit") {
+                                    editing = cmd
+                                    store.holdVoiceForEdit(cmd.id, true)
+                                }
+                                .font(.caption.weight(.medium))
+                                .buttonStyle(.borderless)
                             }
                         }
                     }
@@ -662,6 +692,20 @@ struct VoiceQueueView: View {
                 ToolbarItem(placement: .navigationBarTrailing) { Button("Done") { dismiss() } }
             }
             .task { await api.syncPendingVoice() }
+            .sheet(item: $editing) { cmd in
+                QueuedCommandEditor(text: cmd.displayText) { corrected in
+                    if let corrected {
+                        store.editVoice(cmd.id, text: corrected)
+                        // Reconnected while they were typing? Send it NOW —
+                        // the hold existed to protect the edit, not to delay
+                        // the result once the edit is finished.
+                        Task { await api.syncPendingVoice() }
+                    } else {
+                        store.holdVoiceForEdit(cmd.id, false)
+                    }
+                    editing = nil
+                }
+            }
         }
     }
 
@@ -675,12 +719,69 @@ struct VoiceQueueView: View {
         }
     }
 
-    private func label(for status: PendingVoiceCommand.Status) -> String {
-        switch status {
-        case .queued:  return "Waiting for your Mac"
+    /// The STAGE, not just the status (Gil, 2026-09-10: *"show what stage it's
+    /// at"*). A queued command has really been through two steps — recorded,
+    /// and heard by the phone — and saying only "waiting" hides both, plus the
+    /// fact that it is being held back because you are editing it.
+    private func label(for cmd: PendingVoiceCommand) -> String {
+        switch cmd.status {
+        case .queued:
+            if cmd.heldForEdit { return "Editing — won't send until you're done" }
+            if cmd.edited != nil { return "Edited — will send as text" }
+            if cmd.draft.isEmpty { return "Recorded — waiting for your Mac" }
+            return "Heard on this phone — waiting for your Mac"
         case .running: return "Running now…"
         case .done:    return "Done"
         case .failed:  return "Didn't run"
+        }
+    }
+}
+
+/// Correct what the phone heard, before it is sent.
+///
+/// Separate from `EditTranscriptionSheet` (VoiceButton.swift) on purpose: that
+/// one answers the Mac's `needs_edit` round-trip and highlights the specific
+/// words the vocabulary doubted. This one has no Mac and no doubtful-word list
+/// — the phone's own recogniser produced the text and has no opinion about
+/// which parts are shaky — so it is a plain editor with an honest caption.
+///
+/// `onDone(nil)` means cancelled: the draft is untouched and the hold is
+/// released, so the command reverts to being sent as AUDIO.
+struct QueuedCommandEditor: View {
+    let text: String
+    let onDone: (String?) -> Void
+
+    @State private var draft: String = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section {
+                    TextEditor(text: $draft)
+                        .frame(minHeight: 120)
+                        .focused($focused)
+                } header: {
+                    Text("What this phone heard")
+                } footer: {
+                    Text("Your Mac transcribes the recording properly when it's "
+                         + "back, so you only need to touch this if the phone got "
+                         + "it wrong. If you do edit it, the text you leave here "
+                         + "is what runs — the recording is not used.")
+                }
+            }
+            .navigationTitle("Edit command")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { onDone(nil) }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { onDone(draft) }
+                        .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .onAppear { draft = text; focused = true }
         }
     }
 }

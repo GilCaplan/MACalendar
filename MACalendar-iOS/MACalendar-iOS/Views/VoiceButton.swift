@@ -355,7 +355,11 @@ struct VoiceButton: View {
         // replay it when the Mac is back, rather than polling for a result that
         // cannot exist and then reporting a failure.
         if (try? await api.health()) == nil {
-            LocalStore.shared.enqueueVoice(audio)
+            // Keep what the on-device recogniser heard. `liveText` is already
+            // published for the thinking sheet's "hearing…" row, so this costs
+            // nothing — and without it a queued command is an anonymous row the
+            // user cannot check or correct until after it has run.
+            LocalStore.shared.enqueueVoice(audio, draft: recorder.liveText)
             if settings.showThinking {
                 steps.append(TraceStep(stage: "verify", title: "Saved for later",
                                        detail: "Your Mac isn't reachable. This command is queued and will "
