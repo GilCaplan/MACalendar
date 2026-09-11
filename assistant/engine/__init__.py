@@ -4,22 +4,30 @@
 `Engine` object (Q7, Gil-approved 2026-09-06: object structure, identical
 logic). The API server hands it text (from the phone, the Mac GUI, the
 audit, the pending-retry loop) and gets back the response dict every client
-already understands. `Engine` holds the once-per-command stages and a
-`Engine`, whose ordered Stage list is the 7-step deep track (`DOCUMENTATION/ENGINE.md` is the canonical contract
-reference):
+already understands. `Engine` holds `transcript` — which runs once, before the
+fast/deep decision — plus the re-runnable `stages`, the judge and the label
+step (`assistant/engine/ARCHITECTURE.md` is the map, `DOCUMENTATION/ENGINE.md`
+the canonical contract reference):
 
-    0 ingest      (here)            queueing + coalescing
-    1 transcript  transcript.py     vocabulary repair + confidence gate
-    2 segment     segment.py        split into typed items
-    3 decompose   decompose.py      items that are several things, or one × N
-    4 validate    validate.py       named format rules, text repair, observance
-    5 generate    generate.py       items → intents (rules first, LLM for gaps)
-    6 crosscheck  crosscheck.py     raw text vs. produced objects, loop-back
-    7 label       label.py          category / tag read-back
+    X0 -> ingest -X1-> segmentation -X2-> decompose_validate
+       -X3-> fastrule -X4-> llmjudge -> commit(+label)
+
+    ingest              ingest/coalesce.py      queueing + coalescing
+    transcript          ingest/repair.py        vocabulary repair + the gate
+    segment             segmentation/           split into typed items
+    decompose_validate  decompose_validate/stage.py  resolve, check, flag
+    fastrule            fastrule/stage.py       items → objects to commit
+    llmjudge            llmjudge/llmjudge.py    raw text vs. produced objects
+    commit + label      here + label/label.py   write and categorise, one step
+
+Re-cut 2026-09-08 with the rewire — decompose+validate became one box,
+generate became fastrule, crosscheck became llmjudge, and label moved inside
+commit. `state.STAGES` is the authoritative list; this docstring described the
+superseded 8-step chain for a year of commits after it stopped being true.
 
 The fast track is the same machinery short-circuited: when the rule parser is
-confident about the whole input (generate.fast_propose), the answer is
-committed instantly and the deep track's cross-check runs behind it.
+confident about the whole input (`fastrule.objects.fast_propose`), the answer
+is committed instantly and the deep track's cross-check runs behind it.
 
 Stages exchange ONLY the EngineState (state.py). Each is replaceable alone;
 fixing a weak stage never means touching this orchestrator or another stage.
@@ -181,7 +189,20 @@ class Engine(Component):
         # exited straight into this message, which was written from findings
         # describing objects that no longer existed. Judge what we are about
         # to commit, then speak from THAT.
-        self.llmjudge.run(state, cfg)
+        #
+        # ONLY WHEN A RE-RUN ACTUALLY HAPPENED. `rewrite_for_retry` is a
+        # deliberate stub returning None, so the common path through this loop
+        # is: judge once (above), find something missing, get no rewrite,
+        # break — and then judge the SAME state a second time. Both blame
+        # classes are loopable (`llmjudge` blames "segment" when items < asks
+        # and "fastrule" otherwise; `_loop_target` accepts both), so EVERY
+        # deep command with an unmatched ask paid two schema-constrained LLM
+        # extractions on the same raw_text for an identical answer — on the
+        # rows that are already the slowest (p95 ~50 s, dataset/loop_log.csv).
+        # With reentries == 0 nothing has changed since the judge above, so
+        # its findings are already the ones we are about to commit against.
+        if reentries:
+            self.llmjudge.run(state, cfg)
         if any(f.type == "missing" for f in state.findings):
             state.messages.append(
                 "I'm not sure I caught every part of that — worth a glance.")
