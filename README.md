@@ -300,3 +300,20 @@ Full API reference: [DOCUMENTATION/API_REFERENCE.md](DOCUMENTATION/API_REFERENCE
 Start with **[CLAUDE.md](CLAUDE.md)** for the workflow — how to keep tests out of
 your real vocabulary and command memory, how to measure a change to the
 assistant, and the things that have bitten before. Then **[SYSTEM.md](DOCUMENTATION/SYSTEM.md)**. It contains the full project architecture, recent core enhancements (Streaming STT, Universal LLM Parser), and current state details to help you resume work without loss of context.
+
+### How big is it?
+
+**[DOCUMENTATION/CODE_SIZE.md](DOCUMENTATION/CODE_SIZE.md)** — lines and files
+per part of the system: engine, Mac app, iOS app, review panel, model code,
+microphone, tests, and the boards that measure it all.
+
+That file is generated, and no count is repeated here, because a number typed
+into a README is wrong by the following week:
+
+```bash
+python -m scripts.code_stats            # print it
+python -m scripts.code_stats --write    # regenerate the doc
+```
+
+`tests/unit/test_code_size.py` fails the build once the written figure drifts
+more than 2% from the real tree, which is the reminder to rerun it.
