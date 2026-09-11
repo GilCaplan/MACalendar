@@ -93,6 +93,8 @@ struct ThinkingView: View {
     @State private var feedbackSent: String? = nil
     /// The step whose ⓘ was tapped — drives the in-depth explanation popover.
     @State private var infoSlot: ChainSlot? = nil
+    /// Which flow-strip pill is open, if any.
+    @State private var expandedBoundary: String? = nil
 
     // -- chain-rail live timer (mirrors the Mac's _ChainRail) --------------
     // The slot currently glowing, when it lit, and the redraw tick that keeps
@@ -112,6 +114,7 @@ struct ThinkingView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         chainRail
+                        flowStrip
                         ForEach(Array(steps.enumerated()), id: \.element.id) { idx, step in
                             row(step, isLast: idx == steps.count - 1)
                                 .id(step.id)
@@ -172,6 +175,74 @@ struct ThinkingView: View {
     /// The engine's chain of thought as a compact scaffold, lit up as the live
     /// steps arrive, naming the brain version with an ⓘ per step. Empty for an
     /// unknown brain, so the timeline falls back to the raw steps as before.
+    /// X0 → X1 → X2 → X3 → X4: the VALUE each stage handed the next.
+    ///
+    /// The chain rail above shows what the engine DID; this shows what it was
+    /// holding while it did it — the thing every stage contract in
+    /// `engine/ARCHITECTURE.md` is written in terms of. The Mac panel has drawn
+    /// it since 2026-09-10 and the phone did not, which was backwards: most
+    /// commands are spoken to the phone.
+    ///
+    /// A pill is dim until its value arrives. The fast track never produces X2
+    /// or X3, and leaving those dim is the honest way to show a path that
+    /// skipped them rather than hiding that it had a choice.
+    @ViewBuilder
+    private var flowStrip: some View {
+        let arrived = Dictionary(uniqueKeysWithValues:
+            (response?.boundaries ?? []).map { ($0.label, $0) })
+        let x0 = response?.transcript ?? response?.originalTranscript
+        if !arrived.isEmpty || (x0?.isEmpty == false) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 4) {
+                    ForEach(Array(["X0", "X1", "X2", "X3", "X4"].enumerated()), id: \.element) { i, label in
+                        if i > 0 {
+                            Text("\u{2192}").font(.caption2).foregroundColor(.secondary)
+                        }
+                        let lit = label == "X0" ? (x0?.isEmpty == false) : (arrived[label] != nil)
+                        Text(label)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundColor(lit ? settings.accentColor : .secondary)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .overlay(Capsule().stroke(lit ? settings.accentColor : Color(.separator),
+                                                      lineWidth: 1))
+                            .contentShape(Capsule())
+                            .onTapGesture {
+                                guard lit else { return }
+                                if expandedBoundary == label { expandedBoundary = nil }
+                                else { expandedBoundary = label }
+                            }
+                            .accessibilityLabel(boundaryA11y(label, arrived[label], x0))
+                    }
+                    Spacer()
+                }
+                // One at a time: the sheet is phone-width and four open values
+                // is a wall.
+                if let open = expandedBoundary {
+                    let detail = open == "X0"
+                        ? "what was heard, before anything is repaired"
+                        : (arrived[open]?.detail ?? "")
+                    let value = open == "X0" ? (x0 ?? "") : (arrived[open]?.value ?? "")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(open) \u{00b7} \(detail)")
+                            .font(.caption2).foregroundColor(.secondary)
+                        Text(value).font(.caption.monospaced())
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(6)
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(6)
+                }
+            }
+            .padding(.leading, 2).padding(.bottom, 10)
+        }
+    }
+
+    private func boundaryA11y(_ label: String, _ b: TraceBoundary?, _ x0: String?) -> String {
+        if label == "X0" { return "X0, the raw transcript: \(x0 ?? "")" }
+        guard let b else { return "\(label), not produced on this path" }
+        return "\(label), \(b.detail ?? ""): \(b.value)"
+    }
+
     @ViewBuilder
     private var chainRail: some View {
         let brain = response?.brain ?? "engine-v2"
@@ -367,6 +438,16 @@ struct ThinkingView: View {
         .foregroundColor(.orange)
     }
 
+    /// `nil` for anything that produced an object — the badge is only for the
+    /// two outcomes that did not.
+    static func flagBadge(_ kind: String) -> (text: String, tint: Color)? {
+        switch kind {
+        case "bad_item":   return ("reached me damaged", .orange)
+        case "not_an_ask": return ("not calendar work", .secondary)
+        default:           return nil
+        }
+    }
+
     private func icon(for stage: String) -> AssistantIconName {
         switch stage {
         case "stt":      return .heard
@@ -421,6 +502,20 @@ struct ThinkingView: View {
                          ? String(format: "%.1f s", Double(step.ms) / 1000)
                          : String(format: "%.2f s", Double(step.ms) / 1000))
                         .font(.caption2.monospacedDigit()).foregroundColor(.secondary)
+                }
+                // THE TWO NON-OBJECT OUTCOMES, told apart. Both leave an item
+                // with nothing committed, and only ONE of them is a defect:
+                // `bad_item` means an earlier stage handed this part over
+                // damaged, `not_an_ask` means it was read correctly and simply
+                // is not calendar work. Rendered identically, a user cannot
+                // tell "something went wrong" from "there was nothing to do".
+                if let kind = step.fastruleResult, let badge = Self.flagBadge(kind) {
+                    Text(badge.text)
+                        .font(.caption2.weight(.medium))
+                        .foregroundColor(badge.tint)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(badge.tint.opacity(0.14))
+                        .clipShape(Capsule())
                 }
                 if !step.detail.isEmpty {
                     Text(step.detail)
