@@ -854,3 +854,96 @@ def test_an_outcome_row_still_fits_inside_the_card(hud):
         assert need <= PANEL_WIDTH, (
             f"the {outcome!r} row needs {need}px in a {PANEL_WIDTH}px card — "
             "it will render clipped")
+
+
+# ---------------------------------------------------------------------------
+# A clamped note says it is clamped
+# ---------------------------------------------------------------------------
+#
+# The 3-line clamp is a `maximumHeight`, which on its own CLIPS: a longer note
+# stopped mid-sentence with nothing to say it had. Measured on a real command
+# — the observance flags on "book gym tomorrow at 7" need 70px in a 44px box —
+# and in the card it read as text running into the row below.
+
+_LONG = ("flag:observance (2026-09-12 falls inside Shabbat or yom tov and this "
+         "is not leyning, a meal or davening); flag:observance: gym (that lands "
+         "on Shabbat (Saturday, Sep 12) - after 19:25 works); date_floor: "
+         "2026-09-12")
+
+
+def _detail_row(widget, app, detail):
+    """A step row's detail label, LAID OUT.
+
+    The HUD — the TOP-LEVEL window, not the panel inside it — is shown and
+    events processed, because eliding depends on the label's real width and
+    `resizeEvent` is not delivered to a hidden widget inside a layout. Showing
+    the panel alone does nothing while its parent is hidden, which is how this
+    test first went green-on-the-wrong-thing. Calling `_clamp()` by hand would
+    pass while the real path stayed broken, which is the failure mode this
+    whole file exists to avoid.
+    """
+    p = widget.panel
+    p.add_step({"stage": "validate", "title": "Sanity fixes", "detail": detail,
+                "ms": 90, "at_ms": 90, "ok": True})
+    widget.show()
+    app.processEvents()
+    return p._rows[-1]._detail
+
+
+def test_a_note_too_long_for_the_clamp_ends_in_an_ellipsis(hud):
+    widget, _, app = hud
+    p = widget.panel
+    p.begin("Mac")
+    label = _detail_row(widget, app, _LONG)
+    p.finish({"message": "ok", "brain": "engine-v3"})
+    p._body.adjustSize()
+    app.processEvents()
+
+    assert label.is_clipped(), "the long note is not being elided at all"
+    assert label.text().endswith("…")
+    assert label.text() != _LONG
+    assert _LONG.startswith(label.text()[:-1].rstrip()), \
+        "the shown text is not a prefix of the real note"
+    # And it still fits the clamp it was elided for. `heightForWidth` at the
+    # label's REAL width, not `sizeHint()` — a word-wrapped QLabel's sizeHint
+    # is measured at its own preferred width, so it reports the unwrapped
+    # height and would fail here on correct code.
+    assert label.heightForWidth(label.width()) <= label.maximumHeight()
+    assert label.toolTip() == _LONG, "the full note should be readable on hover"
+
+
+def test_a_short_note_is_left_exactly_as_it_is(hud):
+    widget, _, app = hud
+    p = widget.panel
+    p.begin("Mac")
+    label = _detail_row(widget, app, "No corrections needed")
+    p._body.adjustSize()
+    app.processEvents()
+
+    assert not label.is_clipped()
+    assert label.text() == "No corrections needed"
+    assert label.toolTip() == "", "a note that fits needs no hover copy"
+
+
+def test_clicking_a_clipped_note_opens_it(hud):
+    """A real click on the real label — the ellipsis is the affordance, so if
+    clicking it does not open the note the affordance is a lie."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtTest import QTest
+    widget, _, app = hud
+    p = widget.panel
+    p.begin("Mac")
+    label = _detail_row(widget, app, _LONG)
+    p._body.adjustSize()
+    app.processEvents()
+    assert label.is_clipped()
+
+    QTest.mouseClick(label, Qt.MouseButton.LeftButton)
+    app.processEvents()
+
+    assert not label.is_clipped()
+    assert label.text() == _LONG
+
+    QTest.mouseClick(label, Qt.MouseButton.LeftButton)   # and closes again
+    app.processEvents()
+    assert label.is_clipped()

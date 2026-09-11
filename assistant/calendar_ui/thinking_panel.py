@@ -228,20 +228,89 @@ class _Spinner(QWidget):
 
 
 class _DetailLabel(QLabel):
-    """Wrapped detail text, clamped to 3 lines until clicked (like iOS)."""
+    """Wrapped detail text, clamped to 3 lines until clicked (like iOS).
+
+    The clamp is a `maximumHeight`, which on its own CLIPS: a four-line note
+    simply stopped mid-sentence with nothing to say it had. Measured on a real
+    command — the observance flags on "book gym tomorrow at 7" need 70px in a
+    44px box — and in the card it reads as text running into the row below
+    rather than as something you can open. So the text is ELIDED to what fits
+    and ends in an ellipsis, which is the whole difference between "there is
+    more here" and "this is broken".
+
+    Kept as a height clamp plus elision rather than a plain `setMaximumHeight`
+    on its own, because the full text still has to be there to expand to.
+    """
+
+    LINES = 3
 
     def __init__(self, text: str, parent=None) -> None:
         super().__init__(text, parent)
+        self._full = text
         self.setWordWrap(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._expanded = False
         self._clamp()
 
+    def _clamp_height(self) -> int:
+        return int(self.fontMetrics().lineSpacing() * self.LINES) + 2
+
+    def _fits(self, text: str, width: int) -> bool:
+        """Does `text` wrap into the clamp at `width`?
+
+        Measured with QFontMetrics rather than by setting the text and asking
+        the widget — that would relayout on every probe of the binary search
+        below, and re-enter this from `resizeEvent`.
+        """
+        rect = self.fontMetrics().boundingRect(
+            0, 0, max(1, width), 0,
+            int(Qt.TextFlag.TextWordWrap), text)
+        return rect.height() <= self._clamp_height()
+
+    def _elided(self, width: int) -> str:
+        """The longest prefix of the full text that fits, plus an ellipsis.
+
+        Binary search on the cut point: the alternative is laying the text out
+        by hand with QTextLayout to find the third line's end, and this is a
+        handful of cheap measurements on a string that is already short.
+        """
+        if self._fits(self._full, width):
+            return self._full
+        lo, hi = 0, len(self._full)
+        while lo < hi:
+            mid = (lo + hi + 1) // 2
+            if self._fits(self._full[:mid].rstrip() + "…", width):
+                lo = mid
+            else:
+                hi = mid - 1
+        return self._full[:lo].rstrip() + "…"
+
     def _clamp(self) -> None:
         if self._expanded:
             self.setMaximumHeight(16777215)
-        else:
-            self.setMaximumHeight(int(self.fontMetrics().lineSpacing() * 3) + 2)
+            if self.text() != self._full:
+                self.setText(self._full)
+            self.setToolTip("")
+            return
+        self.setMaximumHeight(self._clamp_height())
+        width = self.width()
+        if width <= 1:
+            return              # not laid out yet; resizeEvent does it
+        shown = self._elided(width)
+        if self.text() != shown:
+            self.setText(shown)
+        # The whole note on hover, so the clipped half is readable without
+        # committing to expanding the row.
+        self.setToolTip(self._full if shown != self._full else "")
+
+    def resizeEvent(self, event) -> None:        # noqa: N802
+        super().resizeEvent(event)
+        self._clamp()
+
+    def is_clipped(self) -> bool:
+        """Showing less than it has — what a test should ask, rather than
+        comparing pixel heights."""
+        return self.text() != self._full
 
     def mousePressEvent(self, _event) -> None:   # noqa: N802
         self._expanded = not self._expanded
