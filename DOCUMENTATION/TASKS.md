@@ -298,16 +298,22 @@ board feeds raw TEXT into `FastRule.run(text)`; the restructured box takes an
 `Item`. So the moment `build()` lands, the primary board cannot run at all, and
 FastRule would be unmeasurable exactly when it has just been rewritten.
 
-⚠️ **And phase C opens on a blocker found 2026-09-09: FastRule's dataset generator
-is broken.** `scripts/gen_fastrule_dataset.py:56-57` still points at
-`dataset/fastrule/banks/`; the banks moved to
-`assistant/engine/fastrule/datasets/banks/` in the stage restructure, so it raises
-`FileNotFoundError` on the first bank load. **The 7,200-row dataset cannot currently
-be rebuilt or extended** — which is exactly what phase C needs to do. This is the
-**fourth** instance of the rot class in "Things that have bitten before", after
-segmentation's generator, FastRule's primary board and `fit_route_models.py`; the
-fix moves it to `fastrule/datasets/generate.py` where the stage owns it, minding the
-`ROOT = parents[1]` inversion that made the first repair of the other three worse.
+✅ **The phase-C blocker is GONE — verified 2026-09-11.** This paragraph used to
+read that `scripts/gen_fastrule_dataset.py:56-57` still pointed at
+`dataset/fastrule/banks/` and raised `FileNotFoundError`, so the 7,200-row
+dataset could not be rebuilt or extended. It was fixed at some point and this
+entry was not. Checked by RUNNING it, per "before trusting any board, run it":
+it builds 7,200 rows, exits 0, and regenerates the committed jsonl
+**byte-identically** (md5 `c387bb6de818f7f36ca9f9f6b2628e82`) — deterministic,
+and the committed dataset is exactly what the generator produces.
+
+All four sites of the rot class are healthy as of 2026-09-11: segmentation's
+generator, FastRule's primary board, `fit_route_models.py` and
+`gen_fastrule_dataset.py`. **Mind the `ROOT = parents[1]` inversion when
+checking them** — it is the repo root for the two under `scripts/` and the
+STAGE folder for `fastrule_shape.py`, so a naive sweep reports the board as
+broken when its path is correct. That false positive was hit, and corrected,
+during this very check.
 
 **Segmentation is FROZEN — Gil, 2026-09-09**: *"For now segmentation we leave, I
 don't want to edit or make changes there."* The order is FastRule → LLMJudge →
