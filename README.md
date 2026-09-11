@@ -311,9 +311,15 @@ That file is generated, and no count is repeated here, because a number typed
 into a README is wrong by the following week:
 
 ```bash
-python -m scripts.code_stats            # print it
-python -m scripts.code_stats --write    # regenerate the doc
+python -m scripts.code_stats --install-hook   # refresh it on every commit
+python -m scripts.code_stats                  # print it
+python -m scripts.code_stats --write          # regenerate by hand
+python -m scripts.code_stats --check          # is it current?
 ```
 
-`tests/unit/test_code_size.py` fails the build once the written figure drifts
-more than 2% from the real tree, which is the reminder to rerun it.
+Install the hook once and the numbers look after themselves: it rewrites the
+breakdown from the staged index before each commit, so the figure always
+describes the commit it ships in, and it stages nothing when the counts have
+not moved. It never blocks a commit. `tests/unit/test_code_size.py` is the
+backstop for a checkout without the hook — red once the written figure is more
+than 2% out.

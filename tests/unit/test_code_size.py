@@ -13,6 +13,7 @@ a week; what this catches is the doc being wrong enough to mislead someone.
 
 from __future__ import annotations
 
+import os
 import pathlib
 
 import pytest
@@ -50,6 +51,19 @@ def test_the_categories_add_up_to_the_total(stats):
     plausible-looking table that sums to something else."""
     assert sum(nl for _c, (_nf, nl) in stats["rows"]) == stats["total_lines"]
     assert sum(nf for _c, (nf, _nl) in stats["rows"]) == stats["total_files"]
+
+
+def test_the_commit_hook_is_shipped_and_runnable():
+    """The hook is a versioned file, not a thing each machine sets up its own
+    copy of — `--install-hook` only points `core.hooksPath` at it. So it has to
+    BE here, and be executable, or installing it silently does nothing."""
+    hook = pathlib.Path(code_stats.ROOT) / code_stats.HOOKS_DIR / "pre-commit"
+    assert hook.exists(), f"{hook} is missing — --install-hook would be a no-op"
+    assert os.access(hook, os.X_OK), (
+        f"{hook} is not executable; git will skip it silently. chmod +x it.")
+    body = hook.read_text(encoding="utf-8")
+    assert "scripts.code_stats --write" in body
+    assert "exit 0" in body, "the hook must never be able to block a commit"
 
 
 def test_the_readme_points_at_the_generated_file_and_carries_no_count():

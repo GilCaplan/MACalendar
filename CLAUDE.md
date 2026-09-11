@@ -345,15 +345,15 @@ judgement).
   **Before trusting any board, run it.** And note the trap in these files: `ROOT =
   parents[1]` meant the repo root before the move and means the STAGE folder after
   it, so a path that merely looks wrong may be right and vice versa.
-- **Two docs are GENERATED — regenerate them in the commit that invalidates
-  them, never by hand.** The API reference, after adding or changing an
-  endpoint: `python scripts/gen_api_reference.py`. And the code-size breakdown
-  the README links to, whenever a commit adds or removes a meaningful amount of
-  code — a new module, a deleted one, a stage folder, a retired system:
-  `python -m scripts.code_stats --write`. Small edits need nothing;
-  `tests/unit/test_code_size.py` goes red once the written figure is more than
-  2% out, and that red IS the reminder. A count typed into a README instead of
-  generated is stale by the following week and nobody ever notices.
+- **Two docs are GENERATED — never edit them by hand.** The API reference,
+  after adding or changing an endpoint: `python scripts/gen_api_reference.py`.
+  The code-size breakdown the README links to (`DOCUMENTATION/CODE_SIZE.md`)
+  looks after itself — run `python -m scripts.code_stats --install-hook` once
+  per checkout and the pre-commit hook rewrites it from the staged index, so
+  the figure always describes the commit it ships in. Without the hook,
+  `--write` by hand; either way `tests/unit/test_code_size.py` goes red once it
+  is more than 2% out. A count typed into a README instead of generated is
+  stale by the following week and nobody ever notices.
 - **The API reloads itself; nothing else does.** It runs with `--reload`, so
   editing anything under `assistant/` restarts it (tests, scripts and
   DOCUMENTATION are excluded). The **calendar GUI and the thinking HUD do

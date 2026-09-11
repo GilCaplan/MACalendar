@@ -3,6 +3,7 @@
     python -m scripts.code_stats            # print the report
     python -m scripts.code_stats --write    # rewrite DOCUMENTATION/CODE_SIZE.md
     python -m scripts.code_stats --check    # exit 1 if the file has drifted
+    python -m scripts.code_stats --install-hook   # refresh it on every commit
 
 A hand-typed line count is stale the day after it is written, so this counts
 from `git ls-files` — tracked files only, so a virtualenv or a scratch run can
@@ -27,7 +28,6 @@ import os
 import re
 import subprocess
 import sys
-import datetime
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "DOCUMENTATION", "CODE_SIZE.md")
@@ -197,10 +197,13 @@ def render(s: dict) -> str:
         "# Code size, by category",
         "",
         f"<!-- code-stats: {stamp} -->",
-        "**Generated — do not edit by hand.** `python -m scripts.code_stats --write`",
-        f"(last run {datetime.date.today().isoformat()}). "
-        "`tests/unit/test_code_size.py` fails when this drifts more than "
-        f"{DRIFT_PCT:g}% from the real tree.",
+        "**Generated — do not edit by hand.** The pre-commit hook "
+        "(`python -m scripts.code_stats --install-hook`) rewrites this whenever "
+        "the numbers move, so it describes the commit it ships in. By hand: "
+        "`python -m scripts.code_stats --write`; "
+        "`--check` says whether it is current, and "
+        "`tests/unit/test_code_size.py` fails once it is more than "
+        f"{DRIFT_PCT:g}% out.",
         "",
         f"**{s['total_lines']:,} lines of source across {s['total_files']} files.** "
         f"Of that, **{live:,} lines are the live product** — the rest is tests, "
@@ -266,12 +269,58 @@ def drift(s: dict) -> "tuple[float, dict | None]":
     return 100.0 * delta / s["total_lines"], was
 
 
+HOOKS_DIR = os.path.join("scripts", "hooks")
+
+
+def install_hook(remove: bool = False) -> int:
+    """Point git at `scripts/hooks/`, so the doc refreshes itself on commit.
+
+    `core.hooksPath` rather than copying into `.git/hooks`: the hook is then a
+    versioned file that everyone gets with the repo, and editing it is an
+    ordinary commit instead of a thing each machine has its own copy of. The
+    cost is that it REPLACES `.git/hooks` wholesale, so anything already living
+    there stops running — checked for and reported rather than silently taken
+    over.
+    """
+    if remove:
+        subprocess.run(["git", "config", "--unset", "core.hooksPath"],
+                       cwd=ROOT, check=False)
+        print("hook removed — git is back to .git/hooks")
+        return 0
+
+    existing = [f for f in os.listdir(os.path.join(ROOT, ".git", "hooks"))
+                if not f.endswith(".sample")] \
+        if os.path.isdir(os.path.join(ROOT, ".git", "hooks")) else []
+    if existing:
+        print("NOT installed: .git/hooks already has " + ", ".join(existing) +
+              ", and setting core.hooksPath would stop them running.\n"
+              "Move them into scripts/hooks/ first, or install by hand.",
+              file=sys.stderr)
+        return 1
+
+    hook = os.path.join(ROOT, HOOKS_DIR, "pre-commit")
+    os.chmod(hook, 0o755)
+    subprocess.run(["git", "config", "core.hooksPath", HOOKS_DIR],
+                   cwd=ROOT, check=True)
+    print(f"installed — core.hooksPath={HOOKS_DIR}\n"
+          "CODE_SIZE.md now refreshes itself on every commit that moves it.\n"
+          "Undo with: python -m scripts.code_stats --uninstall-hook")
+    return 0
+
+
 def main(argv: "list[str]") -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--write", action="store_true", help="rewrite CODE_SIZE.md")
     ap.add_argument("--check", action="store_true",
                     help="exit 1 if CODE_SIZE.md has drifted")
+    ap.add_argument("--install-hook", action="store_true",
+                    help="refresh the doc automatically on every commit")
+    ap.add_argument("--uninstall-hook", action="store_true",
+                    help="stop refreshing it automatically")
     args = ap.parse_args(argv)
+
+    if args.install_hook or args.uninstall_hook:
+        return install_hook(remove=args.uninstall_hook)
 
     s = collect()
     text = render(s)

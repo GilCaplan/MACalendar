@@ -1,0 +1,51 @@
+#!/bin/sh
+# Keep DOCUMENTATION/CODE_SIZE.md's numbers true, without anyone remembering to.
+#
+# Installed by `python -m scripts.code_stats --install-hook`, which points
+# core.hooksPath at this directory. It regenerates the breakdown and stages it,
+# so the figure in the commit always describes the commit.
+#
+# Two things this relies on:
+#
+#   • `git ls-files` reads the INDEX, not the working tree. At pre-commit time
+#     the index holds exactly what is about to be committed — new files added,
+#     deleted ones gone — so the count is right for THIS commit rather than for
+#     whatever happens to be on disk.
+#   • It stages the doc only when the numbers actually moved, so a commit that
+#     changes no code carries no CODE_SIZE.md diff.
+#
+# It NEVER fails a commit. A stats script that blocks your work gets deleted;
+# `tests/unit/test_code_size.py` is the backstop that catches a doc gone stale
+# because this did not run.
+
+set -u
+
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+DOC="DOCUMENTATION/CODE_SIZE.md"
+
+# The project venv first: a bare `python3` may be a shim without this project's
+# deps. code_stats needs only the standard library, but the venv is the one
+# interpreter this repo guarantees.
+if [ -x "$ROOT/.venv/bin/python" ]; then
+    PY="$ROOT/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+    PY=python3
+else
+    exit 0
+fi
+
+before=$(git -C "$ROOT" hash-object "$ROOT/$DOC" 2>/dev/null || echo none)
+
+if ! (cd "$ROOT" && "$PY" -m scripts.code_stats --write >/dev/null 2>&1); then
+    echo "pre-commit: could not refresh $DOC (committing anyway)" >&2
+    exit 0
+fi
+
+after=$(git -C "$ROOT" hash-object "$ROOT/$DOC" 2>/dev/null || echo none)
+
+if [ "$before" != "$after" ]; then
+    git -C "$ROOT" add "$DOC" 2>/dev/null || true
+    echo "pre-commit: refreshed $DOC"
+fi
+
+exit 0
