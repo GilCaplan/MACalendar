@@ -8,53 +8,90 @@
 **One-screen reference. A fresh conversation reads this first, then CLAUDE.md.**
 Keep it current and short; details live in the files it points to.
 
-_Updated 2026-09-10 — the FASTRULE RESTRUCTURE is the live work; the sprint
-below it is paused behind stage isolation._
+_Updated 2026-09-10 — LLMJUDGE is rebuilt and measured; the LABEL stage gained
+two learned classifiers; four commit/label defects found, two fixed._
 
-## THE LIVE WORK: FastRule's restructure (2026-09-10)
+## THE LIVE WORK
 
-**`assistant/engine/fastrule/PLAN.md` is the plan; `experiments/RESULTS.md` is
-the run log.** Four phases — A port · B build+wire · C measure · D report to
-Gil. **LLMJudge does not start before D, and D is Gil's call, not the plan's.**
+### 1 · LLMJudge — rebuilt, re-cut, and on a sealed board
 
-    A   PORT OUT ........ ✅ 46f7967   Gatekeeper + the LLM fallback to llmjudge/
-    B1  the ceiling ..... ✅           163–332 of the 573 below-threshold rows
-    B2  build() ......... ✅           pure converter + 32 tests, unwired
-    B3  WIRE IT IN ...... ✅           83.5% of atomic train rows built
-    B4  fast_track.py ... ✅           the front door is its own module
-    B5  the hand-off .... ✅           DEFERs ride the item; LLMJudge takes them
-    B6  objects.py ...... ✅           deleted; accessors to engine/llm.py
-    C0  the generator ... ✅           moved to datasets/, byte-identical
-    C1  gold `item` ..... ✅           the isolation lane exists
-    C2  additive ........ ✅           0 of 7,200 existing fields changed
-    C3  the stage board . ✅           experiments/stage_board.py
-    C4  iterate ......... 🔄           three batches; title is the constraint
+`assistant/engine/llmjudge/PLAN.md` §6 is the agreed design;
+`experiments/RESULTS.md` is the cycle log. **The stage is per-object and makes
+ONE model call.**
 
-**What FastRule now is:** a CONVERTER. `build(item, *, today)` returns one of
-**four** things — the object, a `Defer` (LLMJudge answers it), a `BadItem` (it
-arrived damaged; reported, never repaired), or a `NotAnObject` (tagged `other`;
-not calendar work). It COPIES the eight values `decompose_validate` resolved and
-reads only the operation, title, people and target. **No model, directly or
-transitively** — `objects.py` is deleted, the model lives in `llmjudge/rescue.py`,
-and the DEFER rides the item rather than being called forward.
+The ask EXTRACTION was removed on Gil's instruction — *"that defeats the point of
+what segmentation → decompose_validate → FastRule did"* — because it re-derived
+segmentation's answer with a weaker instrument and blamed segmentation for the
+disagreement. Findings are now three, each about ONE object:
 
-**The numbers that count are the ISOLATED ones** — 1,200 atomic train rows fed
-GOLD items (`stage_board.py --input gold`), so no upstream is in the path:
+    ungrounded_subject  the title/target is not in the words   -> X1' rewrite
+    unsupported_field   a value the words never gave           -> commit + say so
+    not_an_ask          nothing about it is supported          -> review panel
 
-    operation right     96.1%
-    title right         62.9%    <- the binding constraint
-    correct-on-handled  62.8%
+    SEALED BOARD (test half, 623 cases):  catch 97.5%  ·  false-flag 2.3%
+    train half (753 cases):               catch 99.5%  ·  false-flag 2.0%
 
-⚠️ **Anything quoting a "sound input" number reads ~7 points high** — that filter
-is biased, because the rows segmentation gets right are the easier rows.
+**`near_miss_title` was 0% for thirteen cycles and is now 100% / 96.3%** — a
+title sharing a content word with the command but naming the wrong thing. Cycle 7
+was right that no PROMPT solves it: llama3.1:8b cannot make the call by
+validating a shown title (1/19) or by producing one (0/6). The answer was not a
+prompt. The shipped identity test asked *is NOT ONE word of this title spoken*,
+which a near miss passes by construction; `verdict.unspoken_word` asks *is there
+a word here nobody said*, and answers 63 of 63. Cycle 2 had rejected exactly that
+test on one unpriced anecdote ("gym session" from "gym saturday" — a title the
+real chain never builds). Priced on **7,640 titles the real chain produced**, it
+costs 0.18% against zero-overlap's 0.00%, and all fourteen fires are one FastRule
+defect. RESULTS.md §Cycle 15.
 
-**Do not judge this stage by a whole-engine run.** Segmentation is FROZEN (Gil,
-2026-09-09), so `engine_dataset_compare` is dominated by an upstream loss we have
-agreed not to touch. The product-shape board is the instrument.
+**The one model call is worth nothing, measured six ways.** On 32 hand-written
+cases the judge scores identically with and without it, row for row. The model
+does not do the copying task: shown a title of "gym membership" it quotes "gym
+session" — the words behind the title the object SHOULD have had — and that
+non-`none` answer is accepted. Every candidate for the one call has now been
+measured and rejected; the stage's strength is entirely deterministic.
 
-⚠️ **`DOCUMENTATION/artifacts/explorer.html` is dirty and stale** — Gil:
-"we will fix later". Its 4 test_artifact failures are the only reds in the
-suite; everything else is 1350 green.
+### 2 · Label — two learned classifiers, shipped OFF by default
+
+`assistant/engine/label/ARCHITECTURE.md` is the design;
+`experiments/RESULTS.md` the numbers. They **stack behind** the keyword rules.
+
+    novel vocabulary   event 49.1% vs rules 33.0%  ·  tasks 46.8% vs 38.3%
+    real usage         tasks 95.7% exact-set vs rules 88.6% (macro F1 41.1->49.6)
+    persona spread     rules 28.5 pt  ·  model 10.4 pt
+
+**The fix was DATA, not models**: ~11 → ~33 → ~57 training subjects per class
+took logistic regression 20.8% → 36.6% → 49.1% with nothing about the models
+changed. Datasets are generated FROM the label, so the ground truth is not the
+rules' own output.
+
+**Tasks are ready to enable. Events are not** — their real-usage column is not
+usable gold (4 of 14 rows are test traffic; dog-walking is labelled three ways),
+and the authored vocabulary is generic where Gil's calendar is Hebrew/Jewish
+terms and named people.
+
+### 3 · Commit + label — four defects, two fixed
+
+| | |
+|---|---|
+| every voice-created event got the UI ACCENT colour, not its category's | **FIXED** — 43/43 adjacent clashes → 1/43 |
+| series instances written with no category | **FIXED** |
+| `Running`/`Gym` outside the 13-item palette | **FIXED** — both fold into `Fitness` |
+| two live events carry `start_time = '30:00'` | **OPEN** — filed to decompose_validate, TASKS.md |
+
+### Also landed
+
+- **One stream per source** — the pending-retry loop coalesced across devices
+  and relabelled everything `ios`. A `test` sandbox's words could execute as a
+  real command. `pending.source` was recorded all along and never read.
+- **iOS offline queue** shows what the phone heard, lets you edit it, and holds
+  it while you do. `sendAudio` no longer calls every failure "offline" — that is
+  what put the orange banner above a green Test Connection.
+- **explorer.html** — tooltip placement rewritten (X3 used to hide FastRule
+  entirely), LLMJudge and COMMIT panels re-cut, two claim checks added and one
+  that had silently stopped checking re-keyed.
+
+**Suite: 1417 unit tests green. Nothing committed — branch
+`engine-component-folders`.**
 
 ---
 

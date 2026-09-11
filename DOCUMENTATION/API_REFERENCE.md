@@ -25,6 +25,14 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `POST` | `/voice/text` | Accept a JSON transcript and execute directly (skips STT). |
 | `GET` | `/voice/verify/<token>` | Poll for background LLM verification of a rule-path voice command. |
 
+## /devices
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/devices` | What has enrolled, when it last spoke, and whether it is revoked — |
+| `POST` | `/devices/<device_id>/revoke` | Retire one device. It keeps working as an ISOLATED stream rather |
+| `POST` | `/devices/enroll` | Issue this client a device id and a token. Called once, on first run. |
+
 ## /vocab
 
 | Method | Path | What it does |
@@ -144,6 +152,14 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `DELETE` | `/todos/completed` |  |
 | `POST` | `/todos/reorder` |  |
 | `POST` | `/todos/sync` |  |
+
+## /labels
+
+| Method | Path | What it does |
+|---|---|---|
+| `POST` | `/labels` | {"kind": "event", "text": "...", "label": "Fitness"} — or `labels` |
+| `GET` | `/labels/next` | Items worth labelling, hardest-first. |
+| `POST` | `/labels/retrain` | Refit now. The gate still applies — a model that is not better than |
 
 ## /tags
 

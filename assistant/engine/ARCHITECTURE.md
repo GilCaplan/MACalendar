@@ -95,9 +95,17 @@ contract: `REFUSAL` must not be overturned, `STRUCTURE` means split further,
 **LLMJudge** — two jobs since 2026-09-10. First it **answers FastRule's
 DEFERs**: this is where the model lives now, and it picks them off the items at
 its own entry rather than being called forward. Then the last check before
-anything is trusted — the model **extracts** what the raw text asked for and
-deterministic code diffs that against what was produced. The model never judges
-and never picks the blame.
+anything is trusted, in BOTH directions: the model **extracts** what the raw
+text asked for (catching an ask nothing covers) and **quotes the words behind
+each field** of each object (catching a field nothing said). Deterministic code
+diffs both. The model never judges, never scores and never picks the blame.
+
+The temporal fields are decided WITHOUT it: `CalendarIntent` stamps a date and a
+clock the moment an object exists, so `item.slots` — what `decompose_validate`
+actually resolved — is the only honest record of whether the words gave one.
+A finding's ROUTE is then a property of its TYPE (`llmjudge/findings.py`), not
+an opinion: two types earn a rewrite round, one commits with a notice, one goes
+to the review panel.
 
 **COMMIT + label** — the only place that writes to the DB. Category and colour
 for events, tags for tasks; adjacent events never share a colour.
@@ -188,7 +196,7 @@ hidden:
 |---|---|
 | **LLMSeg** | off by default (`MACALENDAR_LLMSEG`). Measured net-negative four ways — §6. |
 | **`decompose_validate/resolve.py`** | built and scored (100% on its generated set, 0 model calls) but **not yet the wired path** — `stage.py` still runs the legacy `decompose.py`/`validate.py`. Wiring waits on `checks.py`, the validate half, so the stage is replaced once rather than half-swapped. |
-| **the loop** | `llmjudge.rewrite_for_retry` is a stub returning None, so no loop fires. The contract and its single call site are in place; the rewrite itself wants a model call grounded on `state.raw_text`. |
+| ~~**the loop**~~ | **LIVE since 2026-09-10.** `llmjudge/rewrite.py` produces X1' — the failed asks only, reworded — and the orchestrator FREEZES the good objects rather than re-parsing them. It still fails CLOSED: a rewrite whose content words are not all in the transcript is refused, and no rewrite means no loop. |
 
 **What the loop is FOR, decided 2026-09-09** (Gil) — `llmjudge/PLAN.md` §1.3 has
 the detail, and it changes what `rewrite_for_retry` has to produce:
@@ -208,6 +216,12 @@ Segmentation is deterministic, so re-entering it with the same text returns the
 same items — the retry can only spend the budget. Real usage, 2026-09-08: *"Let
 an event to go out for a run now"* looped three times to the identical result
 and apologised after 30 seconds. So: **no rewrite, no loop.**
+
+Built 2026-09-10, and the gate stayed. Two further conditions now have to hold
+before a round is spent: the finding's type must ROUTE to a rewrite (a value the
+words never gave cannot be recovered by rewording, so it does not try), and the
+rewrite's content words must all already be in the transcript (the first attempt
+rewrote from `finding.detail` and segmentation parsed the EXPLANATION).
 
 Also still open, recorded in `segmentation/ARCHITECTURE.md` §6b: the month can
 be severed from its ordinal (`the 20th of November`), which is the one NEW test

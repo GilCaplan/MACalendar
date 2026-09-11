@@ -62,11 +62,26 @@ judge check behind it. **`assistant/engine/ARCHITECTURE.md` is the map** — the
 chain, each stage as a black box, and what is wired versus inert. Open it first;
 `DOCUMENTATION/ENGINE.md` is the per-stage contract reference underneath it.
 
-Two things are wired and deliberately INERT, so do not read their presence as
-working behaviour: **LLMSeg is off** (`MACALENDAR_LLMSEG`), and the judge's
-**loop-back is gated on a rewrite that is still a stub** — no rewrite, no loop.
-Re-entering a DETERMINISTIC segmenter with unchanged text cannot produce a new
-answer, which is why the gate exists rather than a plain re-run.
+**LLMSeg is wired and deliberately INERT** (`MACALENDAR_LLMSEG`) — do not read
+its presence as working behaviour.
+
+**The judge's loop-back is LIVE** (since 2026-09-10; this said "still a stub"
+until then and the stale line would have you dismiss a loop bug as impossible).
+`rewrite_for_retry` builds X1' from the failed asks in the speaker's own words,
+deterministically and with no model call. Two consequences:
+
+- It re-enters Segmentation with DIFFERENT text, which is the whole point: a
+  deterministic segmenter given the same string returns the same items.
+- **It fires only on `ungrounded_subject`** — a wrong subject. The judge can no
+  longer detect an ask with nothing built for it, because that needed the ask
+  diff Gil removed. Under-splitting is segmentation's to fix, on segmentation's
+  board.
+
+**And LLMJudge makes no model call at all** (2026-09-10, Gil approved): it was
+57% of the system's Ollama traffic and changed no outcome. `retired/llmjudge-
+grounding-call/` has the module and the ledger. `llmjudge/rescue.py` still calls
+one — that is job 0, parsing what FastRule DEFERRED, which is the model doing a
+parse rather than judging one.
 
 **Each STAGE owns a FOLDER, and everything about it lives there** (Gil,
 2026-09-08): its code, the datasets used to improve it, the experiments run
@@ -153,6 +168,55 @@ all four at a scratch directory *before* importing anything from `assistant`
 (the paths are read at import time, so a fixture is too late):
 
     MACALENDAR_DB  MACALENDAR_MEMORY_DB  MACALENDAR_VOCAB  MACALENDAR_CATEGORIES
+
+**Three more joined them on 2026-09-10**, redirected by `conftest.py` alongside
+the rest:
+
+    MACALENDAR_MODELS          the user's fitted label models
+    MACALENDAR_LABEL_FEEDBACK  the corrections they are fitted on
+    MACALENDAR_MODEL_LOCK      the cross-process gate on ollama
+    MACALENDAR_DEVICE_SECRET   the HMAC key device tokens are signed with
+    MACALENDAR_DEVICES         the enrolment registry
+
+The feedback file is the one to be careful with: it holds the user's own
+CORRECTIONS, which are the only non-circular label source this project has, so
+junk written into it trains the shipped classifier on junk.
+
+The lock matters for the opposite reason: a suite that `flock`s the REAL one
+makes the running assistant wait on the test run.
+
+## One ollama, many callers: `assistant/model_protocol.py`
+
+Four processes on this Mac share one ollama, and so does every phone on the
+tailnet. Until 2026-09-10 nothing arbitrated it — measured while a board ran, a
+trivial five-token call took **2.0s, then 42.5s, then 43.9s**, none of it
+inference. Two rules, one module, because they are the same rule:
+
+- **Identity is the DEVICE, and it is ISSUED not asserted.** `source` is
+  `mac|ios|test` — a category — and every iPhone reports `ios`, so the pending
+  queue merged two phones' commands into one utterance. Clients now enrol
+  (`POST /devices/enroll`) and get an id plus an HMAC token; `EngineState.device`
+  is what they CLAIMED and `EngineState.stream` is what the server CONCLUDED.
+  **Same device may merge** into `("a")and("b")`; **different devices never
+  merge**. An unverified claim is not refused, it is ISOLATED —
+  `ios:untrusted:…` — so spoofing an id buys a queue of your own and touches
+  nobody's backlog. Same for a revoked device, which is what makes a leaked
+  token survivable.
+- **Live traffic never waits for a board, and a real device never waits for a
+  test.** Priority is per REQUEST (`model_protocol.serving(source)`), because
+  the API server is one process serving the phone, the Mac and any test curl —
+  an env var describes a process and could not express that. Anything driving
+  the engine programmatically also sets `MACALENDAR_LLM_PRIORITY=background` in
+  its env block; a test enforces this, because `priority()` defaults to LIVE
+  and a board that forgets is invisible to every other check.
+- **Bytes are not text.** The device secret is random bytes and was being
+  `.strip()`ed on read — 4.61% of keys came back short, failed a length check
+  and were silently regenerated, un-enrolling every device at once. It surfaced
+  as a 1-in-20 flaky test.
+
+Every call that generates or loads goes through `model_protocol.hold()`, and a
+test reads the tree to prove there is no fourth door — `llmseg` has its own
+socket, so a gate placed only in the parser would have had a silent hole.
 
 Set them in any script that exercises the engine. If you are unsure whether
 something wrote to the real files, check: `md5 ~/.assistant_tools/vocab.json`

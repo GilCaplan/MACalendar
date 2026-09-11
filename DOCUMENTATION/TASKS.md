@@ -372,6 +372,167 @@ execute loop skipped an empty intent before it looked at anything else, so the
 speaker was told *nothing at all* — indistinguishable from success. The engine
 now says something; the panel should show it.
 
+## Deferred, filed 2026-09-10 — three things found while working elsewhere
+
+Each one is real, each was found by a board rather than by reading, and none is
+being fixed in the change that found it.
+
+### 1 · decompose_validate — an invalid clock time reaches the database
+
+`start_time = '30:00'` on live rows **1993 ("Walk Val")** and **1994 ("shool")**,
+both written at `18:41:59` on 2026-09-09 — the same second as row 1995
+("Walk Mark"), so ONE compound command produced all three and two came out
+corrupt.
+
+`30:00` is not a time. `CalendarIntent`'s validator rejects hours > 23, so these
+reached the DB down a path that skipped it. Gil, 2026-09-10: *"this is something
+that should be fixed in the decompose_validate step."*
+
+**To do:** reproduce from the compound that made them, find which path writes a
+clock without validating, fix it there. Check whether other rows carry
+out-of-range values — the query that found these is in `label/experiments/`.
+
+### 2 · segmentation — does a DROPPED ASK ever actually happen?
+
+LLMJudge stopped extracting the asks from the raw text (2026-09-10, Gil: *"that
+defeats the point of what segmentation → decompose_validate → FastRule did"*).
+It was re-deriving segmentation's answer with a weaker instrument and blaming
+segmentation when the two disagreed — and the one false flag on its own board
+was exactly that, the extraction inventing an ask from *"i already handled it"*.
+
+**What was given up:** nothing in this engine now notices when segmentation
+MERGES two asks into one. A well-grounded object built from half a command looks
+perfect to a per-object check.
+
+**Two places it bites, not one:**
+
+- the foreground loop can no longer raise `missing`, so X1' is never triggered by
+  a dropped ask;
+- the fast track's BACKGROUND patcher loses the same finding, which makes
+  `_commit_missing_ask` unreachable — the path that added a missed ask behind an
+  instant commit.
+
+**To do (Gil: "mark to test later in segmentation and see if it requires
+fixing"):** measure on segmentation's OWN board how often a real command loses an
+ask. If it is rare, this was free. If it is not, the fix belongs in segmentation,
+not in a downstream stage second-guessing it.
+
+### 3 · categories — `Running` and `Gym` are not in the palette
+
+40 of 54 live events carry one of them; neither is one of the 13 defaults, and
+`~/.assistant_tools/categories.json` does not exist — so `color_for()` falls back
+to Personal's colour for all of them, and they are invisible to every
+per-category setting.
+
+**Ruled (Gil, 2026-09-10): both fold into ONE category, and it is `Fitness`** —
+already in the palette, so nothing new is introduced.
+
+**To do:** find where the training planner stamps `Running`/`Gym`, change it to
+`Fitness`, add the keywords so `classify()` agrees, and migrate the existing rows.
+
+## explorer.html — BOTTOM PRIORITY, filed 2026-09-10 (Gil)
+
+The published explainer is downstream of the code, and the code moved. Three
+things, none urgent, all real.
+
+### 1 · the LLMJudge box is out of date
+
+The stage was re-cut on 2026-09-10: the ask extraction is gone, it makes ONE
+model call instead of two, and the findings are now three per-object types
+(`ungrounded_subject` → X1' · `unsupported_field` → commit and say so ·
+`not_an_ask` → review panel) instead of four. The page still describes the
+extract-and-diff design.
+
+Check `tests/unit/test_artifact_claims.py` first — the model-calling-stage count
+is read out of the code and the page must agree with it.
+
+### 2 · the stage-to-stage arrow TOOLTIP renders wrong
+
+**Specifically `X_i`.** The input/output tooltip on the arrows between stages
+does not render the subscript correctly. Reproduce by hovering an arrow in the
+chain diagram; compare against the `X0 / X1 / X2 …` naming the engine's own
+`ARCHITECTURE.md` uses.
+
+### 3 · COMMIT + LABEL is missing its labels, and should say where they are going
+
+Gil, 2026-09-10: *"i think its missing labels, i want it to be a ML model."*
+
+Two separate things to write there:
+
+- **what it does today** — an event gets a CATEGORY (13 of them, keyword-scored
+  by `actions/calendar/categories.py::classify`) and its colour; a task gets
+  TAGS (multi-label, `actions/todo/tagging.py`). The page should show the label
+  as part of the commit step, since a row is written and categorised together.
+- **where it is going** — both classifiers become ML models. **The measured
+  state, and the honest reason it has not happened yet**, is in
+  `assistant/engine/label/experiments/RESULTS.md`: the rules currently BEAT
+  every model on real data (events 71.4% vs 50%, tasks 88.6% vs 81.4%) because
+  the only labels this project owns are the rules' own output. The blocker is
+  data, not model choice. A page that shows an ML classifier shipping today
+  would be claiming something untrue.
+
+## decompose_validate — three malformed values reaching the intents (2026-09-10)
+
+Found as free diagnostics in **Board D's stderr**, not by looking for them: 25
+rows out of the first ~600 built an intent that pydantic then REFUSED, so the
+row silently produced nothing. All three are value-shape defects upstream of
+FastRule, and none is LLMJudge's to fix.
+
+    18   delete_event   "Either match_title or match_start_time must be provided"
+    10                  "time must be HH:MM, got '09:59:59'"
+     2   create_event   "Event title cannot be empty"
+
+The middle one is a SIBLING of the already-filed `start_time = '30:00'`: a clock
+value reaching the intent with seconds on it. Both say the resolver is emitting
+a shape the intent contract does not accept, and the contract is right — a time
+is HH:MM. Fix the producer, not the validator.
+
+The first is the larger count and the more interesting one: a delete built with
+BOTH identifiers empty is a delete aimed at nothing, and this project's rule is
+that when the engine cannot identify what to delete, empty slots surfacing as
+"I couldn't find …" is the right answer. It is currently surfacing as a
+swallowed exception instead, which is the same outcome by accident rather than
+by design — and an accident that stops being safe the moment the fields are
+half-populated.
+
+**Reproduce:** any `board_d` run prints them to stderr; `-n 200` is enough.
+
+## A queued command's "tomorrow" means the wrong day — DECISION NEEDED (2026-09-10)
+
+Found while making the offline queue behave. Not a bug with an obvious fix: a
+question about what the speaker meant, which is Gil's to answer.
+
+`decompose_validate.resolve_values(state, anchor=None)` falls back to
+`dt.date.today()`, and `run()` passes no anchor. So a relative date resolves
+against **when the command was FLUSHED**, not when it was spoken:
+
+    spoken Monday, phone in a tunnel until Thursday
+    "book gym tomorrow"   ->  books FRIDAY
+
+Both queues have this. The phone's `LocalStore` holds commands that never
+reached the Mac; the server's `pending` table holds commands that arrived while
+ollama was down. Either can span a day boundary.
+
+**Three readings, and they disagree about a real case:**
+
+1. **Anchor on when it was SPOKEN.** Truest to intent — they meant Tuesday. But
+   by Thursday that date is in the past, so `past_date_bump` fires and moves it
+   somewhere else anyway; we would have traded one wrong day for another.
+2. **Anchor on the flush (today's behaviour).** Never books the past, always
+   books a day the speaker did not mean.
+3. **Announce it.** This project's own idiom for exactly this shape — *"the
+   rounding is announced in the reply rather than done quietly"*, and the same
+   rule that makes a recurrence round out loud. The command runs, and the reply
+   says the relative date was read against today because it was queued for N
+   days.
+
+I lean 3, and it needs no new semantics — but it is a product decision about
+what the user is told, so it is filed rather than chosen.
+
+**Reproduce:** queue a row with a `ts` a few days old and a relative date word,
+then run `retry_pending_once`. `tests/unit/test_offline_queue_scenarios.py` has
+the harness.
+
 ## Working agreements
 - Everything on the phone is local: no third-party services; the only network peer is the Mac over Tailscale.
 - Prefer doing work directly over spawning sub-agents; keep context small (`/compact` between big tasks).
