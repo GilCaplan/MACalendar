@@ -1,0 +1,4 @@
+# Sweep outputs are run artifacts, like engine_compare's. The FINDINGS go in
+# dataset/RESULTS.md; a raw sweep-*.json is only useful next to the machine
+# that produced it.
+sweep-*.json
