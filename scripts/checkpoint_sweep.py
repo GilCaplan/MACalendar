@@ -55,7 +55,10 @@ discount it.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import hashlib
 import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -234,19 +237,57 @@ def run_checkpoint(tag: str, rows: list, scratch_root: pathlib.Path) -> dict:
     tree = _tree_for(tag)
     if not tree.exists():
         return {"tag": tag, "error": f"no worktree at {tree} — run --setup"}
-    scratch = scratch_root / tag
-    scratch.mkdir(parents=True, exist_ok=True)
-    child = scratch / "_child.py"
-    child.write_text(_CHILD)
-    rows_path = scratch / "rows.json"
-    rows_path.write_text(json.dumps(rows))
-    out_path = scratch / "result.json"
+
+    # ---- the sandbox ------------------------------------------------------
+    # One directory per checkpoint, rebuilt from scratch, and it is also the
+    # child's CWD. Everything the run can reach is inside it.
+    box = scratch_root / tag
+    if box.exists():
+        shutil.rmtree(box)          # never inherit a previous run's rows
+    (box / "stores").mkdir(parents=True)
+
+    # CONFIG IS PINNED PER CHECKPOINT, and this is not cosmetic. `load_config`
+    # resolves "config.yaml" then "config.example.yaml" RELATIVE TO CWD. The
+    # worktrees have no config.yaml (gitignored), but the live checkout on a
+    # real machine DOES — so with cwd set to each tree, `main` would run under
+    # the developer's personal settings (their location, observance flags,
+    # thresholds) while the other four ran on example defaults. That is a
+    # confound in the one checkpoint that matters most.
+    #
+    # Each checkpoint gets ITS OWN config.example.yaml copied in as
+    # config.yaml: schema-compatible with that era's pydantic models (a later
+    # example can carry fields older code rejects, and vice versa), and no
+    # personal config can leak in. Verified 2026-09-11 that llm_engine
+    # "ollama" / model "llama3.1:8b" are identical across all five examples,
+    # so the sweep compares SYSTEMS, not models.
+    example = tree / "config.example.yaml"
+    if example.exists():
+        shutil.copy(example, box / "config.yaml")
+
+    (box / "_child.py").write_text(_CHILD)
+    (box / "rows.json").write_text(json.dumps(rows))
+    out_path = box / "result.json"
+
+    # AN EXPLICIT ENVIRONMENT, not the parent's. Inheriting the caller's shell
+    # is how a stray MACALENDAR_* or MACALENDAR_LLM_DISABLED from an earlier
+    # experiment silently changes one checkpoint's behaviour and nothing says
+    # so. Only what a run legitimately needs is passed through.
+    env = {k: v for k, v in os.environ.items()
+           if k in ("PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "SSL_CERT_FILE",
+                    "OLLAMA_HOST", "VIRTUAL_ENV", "PYTHONHOME")}
+    env["PYTHONDONTWRITEBYTECODE"] = "1"    # no __pycache__ in the worktrees
+    # The BLAS pin conftest.py applies for the same reason: spaCy/torch each
+    # bring a threading runtime and the combination segfaults.
+    for var in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
+                "BLIS_NUM_THREADS", "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
+        env[var] = "1"
 
     t0 = time.perf_counter()
     proc = subprocess.run(
-        [sys.executable, str(child), str(tree), str(scratch),
-         str(rows_path), str(out_path)],
-        cwd=str(tree),          # never today's root, so `assistant` cannot leak in
+        [sys.executable, str(box / "_child.py"), str(tree), str(box / "stores"),
+         str(box / "rows.json"), str(out_path)],
+        cwd=str(box),           # the sandbox, NOT a source tree: pins the config
+        env=env,
         capture_output=True, text=True, timeout=None)
     wall = time.perf_counter() - t0
 
@@ -255,8 +296,73 @@ def run_checkpoint(tag: str, rows: list, scratch_root: pathlib.Path) -> dict:
                 "stderr": proc.stderr[-1500:], "stdout": proc.stdout[-500:]}
     out = json.loads(out_path.read_text())
     out.update({"tag": tag, "wall_s": round(wall, 1),
+                "sandbox": str(box),
+                "config": str(example) if example.exists() else None,
                 "stderr_tail": proc.stderr[-1500:] if proc.returncode else ""})
     return out
+
+
+#: The real stores. NOTHING here may change during a sweep — the overrides
+#: redirect what a process OPENS, and a single missed one writes junk into a
+#: hand-curated vocabulary or the command memory that feeds the review flows.
+REAL_STORES = pathlib.Path.home() / ".assistant_tools"
+
+
+def _store_fingerprint() -> dict:
+    """md5 of every real store, for the before/after guard.
+
+    CLAUDE.md says to do exactly this by hand when unsure ("check: md5
+    ~/.assistant_tools/vocab.json before and after"). A 10-hour unattended
+    sweep is precisely when nobody is going to.
+    """
+    out = {}
+    if not REAL_STORES.exists():
+        return out
+    for p in sorted(REAL_STORES.iterdir()):
+        if p.is_file():
+            with contextlib.suppress(OSError):
+                out[p.name] = hashlib.md5(p.read_bytes()).hexdigest()
+    return out
+
+
+def _rows_fingerprint(rows: list) -> str:
+    """Identity of the exact prompt list every checkpoint was given.
+
+    "Same data" is otherwise an assumption. This makes it a value the report
+    asserts on, in the spirit of the run archives' manifest: identity is
+    recorded at the time, because inferring it later already put a wrong
+    figure in RESULTS.md once.
+    """
+    h = hashlib.md5()
+    for r in rows:
+        h.update(f"{r['id']}\x00{r['text']}\x00{r.get('ts')}\n".encode())
+    return f"{h.hexdigest()[:12]}:{len(rows)}"
+
+
+@contextlib.contextmanager
+def _one_at_a_time(work: pathlib.Path):
+    """Refuse to run beside another sweep.
+
+    The checkpoints run SEQUENTIALLY by construction (a plain loop over
+    blocking subprocess calls) — but two sweeps started in two terminals would
+    still collide, and they would collide on the worst possible thing: one
+    Ollama, one machine, two model-loading jobs side by side, which CLAUDE.md
+    records as a segfault and which RAM here cannot take anyway. The lock makes
+    "one at a time" enforced rather than merely intended.
+    """
+    lock = work / ".sweep.lock"
+    work.mkdir(parents=True, exist_ok=True)
+    if lock.exists():
+        raise SystemExit(
+            f"A sweep is already running (lock: {lock}, pid {lock.read_text().strip()}).\n"
+            "Checkpoints must run one at a time — same machine, same Ollama.\n"
+            "If that process is dead, delete the lock.")
+    lock.write_text(str(os.getpid()))
+    try:
+        yield
+    finally:
+        with contextlib.suppress(OSError):
+            lock.unlink()
 
 
 def _pct(values: list, q: float):
@@ -271,6 +377,12 @@ def report(results: list) -> None:
     print("\n" + "=" * 78)
     print("CHECKPOINT SWEEP — same rows, same scorer, same machine, today")
     print("=" * 78)
+    prints = {r.get("rows_fingerprint") for r in results if r.get("rows_fingerprint")}
+    if len(prints) > 1:
+        print(f"\n*** NOT THE SAME DATA — fingerprints differ: {prints} ***")
+        print("    The comparison is void. Do not read the board below.\n")
+    elif prints:
+        print(f"same data across all checkpoints: {prints.pop()}")
     for r in results:
         tag = r.get("tag")
         if r.get("error"):
@@ -310,7 +422,9 @@ def main() -> int:
     ap.add_argument("--test", action="store_true", help="the SEALED 300 (milestone only)")
     ap.add_argument("--rows", type=int, help="first N rows")
     ap.add_argument("--checkpoints", help="comma-separated subset of tags")
-    ap.add_argument("--keep", action="store_true", help="keep the scratch dirs")
+    ap.add_argument("--keep", action="store_true", help="keep the sandboxes")
+    ap.add_argument("--work", help="sandbox root (default: a temp dir; give a "
+                                   "stable path to keep sandboxes across runs)")
     args = ap.parse_args()
 
     if args.setup:
@@ -321,25 +435,56 @@ def main() -> int:
         want = {s.strip() for s in args.checkpoints.split(",")}
         tags = [t for t in tags if t in want]
     rows = _load_rows(args)
-    print(f"{len(rows)} row(s) × {len(tags)} checkpoint(s)")
 
-    scratch_root = pathlib.Path(tempfile.mkdtemp(prefix="checkpoint_sweep_"))
+    # ONE prompt list, built once, handed to every checkpoint unchanged.
+    fingerprint = _rows_fingerprint(rows)
+    print(f"{len(rows)} row(s) × {len(tags)} checkpoint(s), SEQUENTIALLY")
+    print(f"  data fingerprint: {fingerprint}")
+
+    scratch_root = (pathlib.Path(args.work) if args.work
+                    else pathlib.Path(tempfile.mkdtemp(prefix="checkpoint_sweep_")))
+
+    before = _store_fingerprint()
     results = []
-    try:
-        for tag in tags:
-            print(f"  running {tag} …", flush=True)
-            results.append(run_checkpoint(tag, rows, scratch_root))
-        report(results)
-        OUT.mkdir(parents=True, exist_ok=True)
-        stamp = time.strftime("%Y%m%dT%H%M")
-        dest = OUT / f"sweep-{stamp}.json"
-        dest.write_text(json.dumps(results, indent=1))
-        print(f"wrote {dest}")
-    finally:
-        if args.keep:
-            print(f"scratch kept at {scratch_root}")
-        else:
-            shutil.rmtree(scratch_root, ignore_errors=True)
+    with _one_at_a_time(scratch_root):
+        try:
+            # SEQUENTIAL, deliberately. One machine, one Ollama, one model in
+            # memory at a time — CLAUDE.md's "never two model-loading jobs side
+            # by side". Each subprocess.run blocks until that checkpoint is
+            # finished, so the next one starts from a quiet machine and its
+            # latency numbers mean something.
+            for i, tag in enumerate(tags, 1):
+                print(f"  [{i}/{len(tags)}] {tag} …", flush=True)
+                r = run_checkpoint(tag, rows, scratch_root)
+                r["rows_fingerprint"] = fingerprint
+                results.append(r)
+            report(results)
+            OUT.mkdir(parents=True, exist_ok=True)
+            stamp = time.strftime("%Y%m%dT%H%M")
+            dest = OUT / f"sweep-{stamp}.json"
+            dest.write_text(json.dumps(
+                {"fingerprint": fingerprint, "sequential": True,
+                 "rows": len(rows), "results": results}, indent=1))
+            print(f"wrote {dest}")
+        finally:
+            if args.keep or args.work:
+                print(f"sandboxes kept at {scratch_root}")
+            else:
+                shutil.rmtree(scratch_root, ignore_errors=True)
+
+    # THE GUARD. If any real store moved, the sandbox leaked and every number
+    # from this sweep is suspect — say so loudly rather than reporting a board.
+    after = _store_fingerprint()
+    if before != after:
+        changed = sorted(set(before) ^ set(after)) or \
+            sorted(k for k in before if before.get(k) != after.get(k))
+        print("\n*** SANDBOX LEAK — the real stores changed during this sweep ***")
+        print(f"    {REAL_STORES}: {', '.join(changed)}")
+        print("    Treat this run's numbers as void and find the missed override.")
+        return 2
+    if before:
+        print(f"sandbox clean — {len(before)} real store(s) unchanged")
+
     return 0 if all(not r.get("error") for r in results) else 1
 
 
