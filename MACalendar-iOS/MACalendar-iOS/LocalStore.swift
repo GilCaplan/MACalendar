@@ -398,6 +398,31 @@ class LocalStore: ObservableObject {
               let rows = try? JSONDecoder().decode([PendingVoiceCommand].self, from: data)
         else { return }
         pendingVoice = rows
+        reclaimStaleRunning()
+    }
+
+    /// A command marked `.running` on disk is an ORPHAN — nothing is running it.
+    ///
+    /// `syncPendingVoice` sets `.running`, awaits the upload, then writes
+    /// `.done` / `.queued` / `.failed`. If the process does not survive that
+    /// await — and iOS suspends and kills backgrounded apps freely, well inside
+    /// the 120 s the voice request allows — the status persists as `.running`
+    /// and nothing ever moves it again: the replay loop only picks up `.queued`
+    /// and `.failed`, and `clearFinishedVoice` only drops `.done` and
+    /// `.failed`. The row is stranded, shown as running forever, and the
+    /// recording it is holding is never replayed.
+    ///
+    /// So at load — and on any flush that finds one while no flush is in
+    /// progress — a `.running` row goes back to `.queued`. Replaying is the
+    /// safe direction: the alternative is a command the speaker gave and the
+    /// Mac never saw.
+    func reclaimStaleRunning() {
+        var changed = false
+        for i in pendingVoice.indices where pendingVoice[i].status == .running {
+            pendingVoice[i].status = .queued
+            changed = true
+        }
+        if changed { persistVoice() }
     }
 
     private func persistVoice() {

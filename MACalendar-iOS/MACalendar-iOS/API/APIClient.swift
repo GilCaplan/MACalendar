@@ -190,6 +190,14 @@ class APIClient: ObservableObject {
         // poll loop, opening the queue screen); replaying the same audio twice
         // would create the event twice.
         guard !isFlushingVoice else { return 0 }
+        // Past the guard, so nothing is flushing — which means any `.running`
+        // row is an ORPHAN left by a process that did not survive its upload.
+        // Reclaim before filtering: the filter below takes only `.queued` and
+        // `.failed`, so an orphan would never be retried, and
+        // `clearFinishedVoice` only drops `.done` and `.failed`, so it would
+        // never be cleared either. This covers a foreground-resume, where the
+        // app was suspended rather than killed and `loadVoice` does not re-run.
+        LocalStore.shared.reclaimStaleRunning()
         let queued = LocalStore.shared.pendingVoice.filter { $0.status == .queued || $0.status == .failed }
         guard !queued.isEmpty else { return 0 }
         isFlushingVoice = true
