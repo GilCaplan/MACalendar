@@ -375,6 +375,115 @@ class _InfoDot(QLabel):
                           self._rich, self)
 
 
+class _FlowStrip(QWidget):
+    """X0 → X1 → X2 → X3 → X4: the VALUE each stage handed the next.
+
+    The chain rail above it shows what the engine DID. This shows what it was
+    holding while it did it, which is the thing `engine/ARCHITECTURE.md` names
+    in every contract and nothing has ever displayed:
+
+        X1  one repaired command string
+        X2  typed items — the time still as spoken
+        X3  items, complete — every field resolved
+        X4  the objects, ready to write
+
+    Each boundary lands as it happens (`Trace.on_boundary` → the bus →
+    `add_boundary`), so on a slow command you watch the value move rather than
+    seeing it assembled at the end. A pill is dim until its value arrives and
+    lights when it does — the fast track never produces X2 or X3, and leaving
+    those dim is the honest way to show a path that skipped them.
+    """
+
+    def __init__(self, theme, parent=None) -> None:
+        super().__init__(parent)
+        self._theme = theme
+        self._pills: dict = {}
+        self._expanded: str | None = None
+        lay = QVBoxLayout()
+        lay.setContentsMargins(0, 2, 0, 6)
+        lay.setSpacing(4)
+        self.setLayout(lay)
+
+        row = QWidget(self)
+        self._row_lay = QHBoxLayout()
+        self._row_lay.setContentsMargins(0, 0, 0, 0)
+        self._row_lay.setSpacing(3)
+        row.setLayout(self._row_lay)
+        for i, label in enumerate(("X0", "X1", "X2", "X3", "X4")):
+            if i:
+                arrow = QLabel("\u2192", row)
+                arrow.setStyleSheet(f"color:{theme.text2}; font-size:9px;")
+                self._row_lay.addWidget(arrow)
+            # A BUTTON, not a QLabel with `mousePressEvent` reassigned. That
+            # monkeypatch shadows a C++ virtual from Python and aborted the
+            # interpreter the moment the panel was rebuilt under a click
+            # (test_hud_history_view, 2026-09-10). CLAUDE.md already says it:
+            # connect `clicked` through a lambda.
+            pill = QPushButton(label, row)
+            pill.setFlat(True)
+            pill.setCursor(Qt.CursorShape.PointingHandCursor)
+            pill.setToolTip("waiting")
+            pill.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            self._style(pill, lit=False)
+            pill.clicked.connect(lambda _checked=False, k=label: self._toggle(k))
+            self._pills[label] = pill
+            self._row_lay.addWidget(pill)
+        self._row_lay.addStretch(1)
+        lay.addWidget(row)
+
+        # The expanded value of whichever pill was last clicked. One at a time:
+        # the card is a few hundred pixels wide and four open values is a wall.
+        self._detail = QLabel("", self)
+        self._detail.setWordWrap(True)
+        self._detail.setStyleSheet(
+            f"color:{theme.text2}; font-size:9px; padding:3px 5px;"
+            f"background:{theme.surface}; border-radius:4px;")
+        self._detail.hide()
+        lay.addWidget(self._detail)
+        self._values: dict = {}
+
+    def _style(self, pill, lit: bool) -> None:
+        t = self._theme
+        colour = t.accent if lit else t.text2
+        pill.setStyleSheet(
+            f"color:{colour}; font-size:9px; font-weight:600;"
+            f"border:1px solid {colour}; border-radius:7px; padding:1px 5px;"
+            f"background:{'transparent' if not lit else t.surface};")
+
+    def add_boundary(self, b: dict) -> None:
+        label = str(b.get("label") or "")
+        pill = self._pills.get(label)
+        if pill is None:                    # "verdict" and anything newer
+            return
+        value = str(b.get("value") or "")
+        self._values[label] = (value, str(b.get("detail") or ""))
+        self._style(pill, lit=True)
+        pill.setToolTip(f"{b.get('detail') or label}\n\n{value}")
+        if self._expanded == label:
+            self._toggle(label, force_open=True)
+
+    def seed_input(self, text: str) -> None:
+        """X0 is the raw transcript — nothing produces it, so it is set from
+        the input rather than waiting for a stage that never emits it."""
+        self._values["X0"] = (text, "what was heard, before anything is repaired")
+        self._style(self._pills["X0"], lit=True)
+        self._pills["X0"].setToolTip(f"the raw transcript\n\n{text}")
+
+    def _toggle(self, label: str, force_open: bool = False) -> None:
+        got = self._values.get(label)
+        if got is None:
+            return
+        if self._expanded == label and not force_open:
+            self._expanded = None
+            self._detail.hide()
+            return
+        self._expanded = label
+        value, detail = got
+        self._detail.setText(f"{label} \u00b7 {detail}\n{value}" if detail
+                             else f"{label}\n{value}")
+        self._detail.show()
+
+
 class _ChainRail(QFrame):
     """The engine's canonical chain of thought (assistant.trace.CHAINS[brain]),
     drawn as a compact scaffold that lights up as the live steps arrive — so the
@@ -569,7 +678,13 @@ class _ChainRail(QFrame):
             elif self._finished:
                 color, label_col = theme.border, theme.text2
                 mark_stack.setCurrentWidget(state)
-                state.setText("skipped")
+                # A SINGLE GLYPH. The slot is `mark_box`, fixed at 14x14 so the
+                # tick and the spinner can swap without resizing the row -- and
+                # the word "skipped" was being centred in it and clipped to
+                # "pp". The dash says the same thing in the space there is; the
+                # word moves to the tooltip.
+                state.setText("\u2013")
+                state.setToolTip("skipped \u2014 this path did not need it")
                 spinner.set_running(False)
                 time_lbl.setText("")
             else:
@@ -1178,6 +1293,7 @@ class ThinkingPanel(QFrame):
             self._history.append(self._result_card)
         self._rows = []
         self._notices = []
+        self._flow = None
         self._rail = None
         self._result_card = None
         self._trim_history()
@@ -1187,6 +1303,10 @@ class ThinkingPanel(QFrame):
         # (older) trace names a different one.
         self._rail = _ChainRail(_trace.BRAIN_VERSION, self._theme, self._body)
         self._body_lay.insertWidget(self._body_lay.indexOf(self._working), self._rail)
+        # The DATA moving between the boxes, under the chain that shows the
+        # boxes themselves. Two different questions, so two rows.
+        self._flow = _FlowStrip(self._theme, self._body)
+        self._body_lay.insertWidget(self._body_lay.indexOf(self._working), self._flow)
 
         self._finished = False
         self._empty.hide()
@@ -1228,6 +1348,15 @@ class ThinkingPanel(QFrame):
             self._body_lay.insertWidget(self._body_lay.indexOf(self._working), bar)
         self._update_count()
         QTimer.singleShot(0, self._scroll_to_bottom)
+
+    def add_boundary(self, b: dict) -> None:
+        """One X_i value, as it crosses. Live — this is the point of it."""
+        if self._flow is not None:
+            self._flow.add_boundary(b)
+
+    def set_input(self, text: str) -> None:
+        if self._flow is not None and text:
+            self._flow.seed_input(text)
 
     def finish(self, result: dict | None = None) -> None:
         # The brain that produced this run (assistant.trace.BRAIN_VERSION),

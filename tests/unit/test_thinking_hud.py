@@ -549,10 +549,18 @@ def test_finishing_freezes_the_time_and_stops_the_spinner(hud):
     assert not done_spinner._timer.isActive()
     assert _secs(done_time.text()) > 0
 
-    # Never reached at all: "skipped", no time — unchanged from before this
-    # feature, and not accidentally given a duration.
+    # Never reached at all: marked skipped, no time — and not accidentally
+    # given a duration.
+    #
+    # The MARK IS ONE GLYPH (2026-09-10). This used to assert the word
+    # "skipped", which is what the code set — and the slot it goes in is fixed
+    # at 14x14 so the tick and the spinner can swap without resizing the row,
+    # so the word was centred in fourteen pixels and rendered as "pp" on every
+    # unused step. The test was pinning the bug. A screenshot of the real
+    # widget found it; the word now lives in the tooltip.
     _, _, _, _, skip_time, _sstack, skip_state, skip_spinner = _row_for(rail, "judge")
-    assert skip_state.text() == "skipped"
+    assert skip_state.text() == "–"
+    assert "skipped" in skip_state.toolTip()
     assert skip_time.text() == ""
     assert not skip_spinner._timer.isActive()
 
