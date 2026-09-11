@@ -112,7 +112,8 @@ def fast_propose(state: EngineState, cfg) -> bool:
 
     if res.committed:
         state.items = [
-            Item(id=f"item_{i + 1}", kind=_kind_for(name), text=state.text,
+            Item(id=f"item_{i + 1}", kind=_kind_for(name),
+                 text=_fast_item_words(intent, state.text),
                  action=name, intent=intent)
             for i, (name, intent) in enumerate(res.intents)
         ]
@@ -140,6 +141,38 @@ def fast_propose(state: EngineState, cfg) -> bool:
                          confidence=round(res.confidence, 2),
                          missing=res.missing_slots)
     return False
+
+
+def _fast_item_words(intent, whole: str) -> str:
+    """The words THIS fast intent can honestly claim, not the whole command.
+
+    Every fast item used to be built with `text=state.text`, so a two-ask
+    command committed on the fast path produced two items both carrying the
+    entire utterance. `llmjudge._produced` tokenizes `it.text` into the set it
+    matches asks against, so both items presented the same token set — every
+    ask overlapped every item and `_overlap` could not tell them apart. The
+    background judge is the ONLY check on the fast path, which commits BEFORE
+    it runs, so the discrimination was worst exactly where it matters most.
+
+    FastRule returns intents, not spans, so the item's own words cannot be
+    recovered from the parse — but the title is what the intent claims those
+    words said, and it is what every reader of `item.text` on this path
+    actually wants (the judge's token set, the reply's title fallback at
+    `engine/__init__.py:382`, the loop-back's re-run signature at :171).
+    `titles` first: a fast `create_todo` carries every title in ONE intent
+    ("milk, eggs and bread"), and one of the three is not the item.
+
+    Falls back to the whole command when the intent names nothing — a
+    `query_schedule` has no title, and there the old behaviour was right.
+    """
+    titles = [t for t in (getattr(intent, "titles", None) or []) if t]
+    if titles:
+        return ", ".join(titles)
+    for field in ("title", "match_title"):
+        value = (getattr(intent, field, None) or "").strip()
+        if value:
+            return value
+    return whole
 
 
 def _kind_for(action_name: str) -> str:
@@ -247,9 +280,15 @@ def _parse_item(item: Item, state: EngineState, cfg) -> "list | None":
             # did not change this item's words must skip straight to the LLM
             # rather than burn a re-parse that is guaranteed to fail again.
             seen = state.asked_fastrule
-            asked_before = item.text in seen
-            seen.add(item.text)
-            res = None if asked_before else FastRule(bar).run(item.spoken(), state.current_view)
+            # Keyed on what FastRule is ASKED, which is `spoken()` — the action
+            # WITH its time. Keyed on `text` (the action alone), "gym at 7" and
+            # "gym at 9" are one key: the second item was recorded as already
+            # asked and skipped FastRule entirely, on a verdict formed from a
+            # different time.
+            asked = item.spoken()
+            asked_before = asked in seen
+            seen.add(asked)
+            res = None if asked_before else FastRule(bar).run(asked, state.current_view)
             if res is None:
                 if state.trace:
                     from assistant.trace import RULE
@@ -287,9 +326,18 @@ def _parse_item(item: Item, state: EngineState, cfg) -> "list | None":
                 got = _honour_refusal(got, res, item, state)
             return got
         except RuleParserSkip:
-            pass
+            pass          # the designed "the rules decline" signal
         except Exception:
-            pass
+            # NOT the same thing, and it used to be indistinguishable. This
+            # `try` wraps the model call and its guards as well as the rule
+            # parse, so anything raised in there fell through to the bare
+            # `parser.parse` below — a second model call WITHOUT
+            # `_honour_refusal`, which is the gate CLAUDE.md records as having
+            # been re-implemented-without-its-gates once already. Still
+            # non-fatal (one unreadable item must not take its neighbours
+            # down), but no longer silent.
+            logger.exception("The rule path raised on item %s (%r); falling "
+                             "back to the model", item.id, item.spoken()[:60])
     got = parser.parse(item.spoken())
     _llm_trace(state, parser, cfg, f"Read {_friendly(item.id)}")
     return _guard_inventions(got, item, state)

@@ -86,3 +86,74 @@ def test_the_ported_code_lives_here_now(fastrule):
     # of its consumers.
     assert fr.REFUSAL == "refusal" and fr.reason_class("generic-target") == fr.REFUSAL
     assert not hasattr(gk, "REFUSAL"), "the reason-class contract stays in fastrule"
+
+
+# ---------------------------------------------------------------------------
+# A fast item's words are ITS words (reported by the review session, 2026-09-11)
+# ---------------------------------------------------------------------------
+#
+# `fast_propose` built every fast item with `text=state.text`, so a two-ask
+# command committed on the fast path produced two items both carrying the whole
+# utterance. `_produced` tokenizes `it.text` into the set it matches asks
+# against, so every ask overlapped every item and the matching went degenerate
+# — on the ONE path that commits before it is checked.
+
+def _fast_items(text, intents):
+    """What `fast_propose` builds, without needing a rule parse to produce it."""
+    from assistant.engine.fastrule.objects import _fast_item_words, _kind_for
+    from assistant.engine.state import EngineState, Item
+
+    st = EngineState(raw_text=text, text=text)
+    st.parse_path = "fast"
+    st.items = [Item(id=f"item_{i + 1}", kind=_kind_for(name),
+                     text=_fast_item_words(intent, text),
+                     action=name, intent=intent)
+                for i, (name, intent) in enumerate(intents)]
+    return st
+
+
+class _Made:
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+
+def test_two_fast_items_do_not_carry_the_same_words():
+    st = _fast_items(
+        "book gym tomorrow at 7 and remind me to buy milk",
+        [("create_event", _Made(title="gym")),
+         ("create_todo", _Made(title="buy milk"))])
+    texts = [it.text for it in st.items]
+    assert texts == ["gym", "buy milk"], texts
+    assert len(set(texts)) == 2, "both fast items carry the same words"
+
+
+def test_the_judge_can_tell_two_fast_items_apart():
+    """The point of the fix, measured where it bites: the token sets
+    `_produced` builds must not be identical."""
+    from assistant.engine.llmjudge import llmjudge
+
+    st = _fast_items(
+        "book gym tomorrow at 7 and remind me to buy milk",
+        [("create_event", _Made(title="gym")),
+         ("create_todo", _Made(title="buy milk"))])
+    produced = llmjudge._produced(st)
+    assert len(produced) == 2
+    gym, milk = produced[0][2], produced[1][2]
+    assert gym != milk, "the two items present the same token set to the judge"
+    assert "milk" not in gym, "the gym item still claims the whole utterance"
+    assert "gym" not in milk
+
+
+def test_a_multi_title_todo_keeps_every_title():
+    """One fast `create_todo` carries every title in ONE intent, and its
+    capacity is titles×N — the words must cover all of them."""
+    st = _fast_items("buy milk, eggs and bread",
+                     [("create_todo", _Made(titles=["milk", "eggs", "bread"]))])
+    assert st.items[0].text == "milk, eggs, bread"
+
+
+def test_an_intent_that_names_nothing_keeps_the_whole_command():
+    """A query has no title, and there the old behaviour was right."""
+    st = _fast_items("what do i have on friday",
+                     [("query_schedule", _Made())])
+    assert st.items[0].text == "what do i have on friday"

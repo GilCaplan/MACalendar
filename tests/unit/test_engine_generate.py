@@ -238,3 +238,58 @@ def test_the_two_outcomes_are_not_the_same_value(cfg):
 def test_an_ordinary_item_carries_no_outcome(dead_llm, cfg, trace):
     _traced("Set reminder for three o'clock", "event", cfg, trace)
     assert _outcomes(trace) == []
+
+
+# ---------------------------------------------------------------------------
+# The FastRule memo is keyed on what FastRule was ASKED
+# ---------------------------------------------------------------------------
+#
+# Q12's skip exists because FastRule is deterministic: asking it the same text
+# twice cannot give a new answer. But the memo was keyed on `item.text` (the
+# action alone) while FastRule is run on `item.spoken()` (the action WITH its
+# time) — so "gym at 7" and "gym at 9" shared one key and the second item
+# skipped FastRule on a verdict formed from a different time.
+# Reported by the second review session, 2026-09-11.
+
+def test_two_items_with_the_same_words_but_different_times_both_reach_fastrule(
+        monkeypatch, cfg):
+    from assistant.engine.state import EngineState, Item
+
+    asked = []
+
+    class _Res:
+        committed, intents, confidence = False, [], 0.0
+        reason, missing_slots, rule_result = "below-threshold", [], None
+
+    class _FR:
+        def __init__(self, bar):
+            pass
+
+        def run(self, text, view=None):
+            asked.append(text)
+            return _Res()
+
+    import assistant.engine.fastrule.fastrule as fr_mod
+    monkeypatch.setattr(fr_mod, "FastRule", _FR)
+    monkeypatch.setattr(generate, "_get_rule_parser", lambda: object())
+
+    class _P:
+        last_llm_ms = 0          # `_llm_trace` adds this to state.llm_ms
+
+        def parse(self, text):
+            return []
+
+        def parse_with_context(self, text, rr):
+            return []
+    monkeypatch.setattr(generate, "_get_parser", lambda cfg: _P())
+
+    st = EngineState(raw_text="gym at 7 and gym at 9", text="gym at 7 and gym at 9")
+    st.items = [Item(id="item_1", kind="event", text="gym", time="at 7"),
+                Item(id="item_2", kind="event", text="gym", time="at 9")]
+    for item in st.items:
+        generate._parse_item(item, st, cfg)
+
+    assert len(asked) == 2, (
+        f"the second item skipped FastRule — it was asked {asked}")
+    assert asked[0] != asked[1]
+    assert st.asked_fastrule == set(asked)
