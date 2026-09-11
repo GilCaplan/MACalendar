@@ -45,9 +45,42 @@ on — no human labelling needed.
     experiments/                              run outputs (gitignored)
     METRICS.md                                the metric definitions (canonical)
     RESULTS.md                                per-implementation results log (prose: hypotheses, actual-vs-expected)
-    loop_log.csv (now incl. an `adj_pct` column — the product-adjusted count-correct, backfilled for all runs)                              one row per measurement run — timestamps, duration, commit, metrics; the plottable trajectory
+    loop_log.csv (incl. `adj_pct`, the product-adjusted count-correct, backfilled for all runs; and `era`, below)   one row per measurement run — timestamps, duration, commit, metrics; the plottable trajectory
     HYPOTHESES.md                             the ranked experiment queue — take the top, re-rank after every rerun
     snapshots/                                code snapshots of meaningful iterations, to revert/compare
+
+## `era` — which runs may be compared to each other
+
+**Two runs are comparable only if they share an ERA and a SLICE.** `era` is a
+column in `loop_log.csv`, and it is the whole rule: a boundary means something
+changed that makes a cycle-over-cycle read meaningless, so a number on one side
+may not be subtracted from a number on the other.
+
+| era | runs | what changed at the boundary |
+|---|---|---|
+| 0 | 1–7 | — (the original harness) |
+| 1 | 8–15 | the **frozen-clock epoch**, 2026-09-05: rows replay at their recorded ts with observance gating off. Re-baselined at 78.4 / 81.2-adj |
+| 2 | 16– | the **integration**, 2026-09-06: FastRule object + F1/F2/F3 + the 0.80 threshold. STATUS: *"boards compare within-era only — the integration changed too much for cycle-vs-cycle reads against era 1"* |
+
+**Declaring a new era is a cell in this log**, next to the measurements it
+governs. It used to be `EPOCH_BOUNDARY_RUN = 8` — a single hardcoded int inside
+`scripts/plot_loop.py`, which was the only machine-readable record of
+comparability anywhere in the repo. The era-2 boundary existed solely as prose
+in STATUS.md, so the trajectory chart never drew it and joined runs 15 and 16
+into a 78.0 → 77.0 "regression" that is really a re-baseline. The renderer no
+longer decides this; the log does.
+
+`scripts/plot_loop.py` groups by `(era, slice)` and draws one line per group,
+so a line only ever joins comparable runs. **A row with an empty `era` forms
+its own group and is drawn detached** — an unstated comparability claim is not
+a claim, and failing to a detached point is the safe direction.
+
+Open, and not a thing to change casually: the era-0/1 boundary sits at 7.5,
+which puts run 8 (`rebaseline-alldeep-bug`) in the new epoch even though run 9
+is the one labelled `epoch-baseline` and supplies the 78.4/81.2 re-baseline.
+That is exactly where `EPOCH_BOUNDARY_RUN = 8` already drew it and was carried
+over unchanged rather than silently moved — moving it changes which
+comparisons the boards sanction, so it wants a decision, not a guess.
 
 **Frozen vs regenerable.** Only `inputs/*.json` are frozen, checked-in ground
 truth. The `dummy_*.db` baselines are *replayed through the LLM* (~75%
