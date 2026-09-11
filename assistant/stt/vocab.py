@@ -74,15 +74,42 @@ _PROTECTED = {
 _ENGLISH: set[str] | None = None
 
 
+#: Where a system word list lives. macOS ships `words`; a Debian/Ubuntu box has
+#: it only once `wamerican` (or `wbritish`) is installed, and then usually as a
+#: symlink to the language-specific file — so both are tried.
+_DICT_PATHS = ("/usr/share/dict/words",
+               "/usr/share/dict/american-english",
+               "/usr/share/dict/british-english",
+               "/usr/dict/words")
+
+
 def _english() -> set[str]:
-    """System dictionary — a fuzzy match must never rewrite a real English word."""
+    """System dictionary — a fuzzy match must never rewrite a real English word.
+
+    An EMPTY result turns that guard off completely: every real English word
+    becomes eligible for replacement by a vocabulary entry that merely sounds
+    like it, so "a shawl for Tal" comes back "a Shaul for Tal". That is the
+    whole failure this list exists to prevent, and it used to happen SILENTLY
+    on any machine without the file — which is every stock Linux box and every
+    CI runner. It is still degraded there, because nothing may be downloaded
+    (CLAUDE.md), but it now says so once instead of never.
+    """
     global _ENGLISH
     if _ENGLISH is None:
-        try:
-            with open("/usr/share/dict/words", encoding="utf-8", errors="ignore") as f:
-                _ENGLISH = {w.strip().lower() for w in f if w.strip()}
-        except OSError:
+        for path in _DICT_PATHS:
+            try:
+                with open(path, encoding="utf-8", errors="ignore") as f:
+                    _ENGLISH = {w.strip().lower() for w in f if w.strip()}
+                break
+            except OSError:
+                continue
+        if not _ENGLISH:
             _ENGLISH = set()
+            logger.warning(
+                "No system word list (tried %s). The guard that stops a "
+                "phonetic match rewriting a real English word is OFF — install "
+                "`wamerican` (Debian/Ubuntu) to restore it.",
+                ", ".join(_DICT_PATHS))
     return _ENGLISH
 
 

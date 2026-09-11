@@ -185,14 +185,14 @@ collection errors and phantom failures that look like real regressions. This
 cost a wrong "15 tests were already failing" reading on 2026-09-09; the same
 suite was 1336-green on the venv.
 
-**⏸ CI IS PAUSED — turn it back on when the rebuild is done** (Gil,
-2026-09-09). `.github/workflows/tests.yml` is `workflow_dispatch:` only, so
-nothing runs on push while FastRule and LLMJudge are being rebuilt. **Restore
-the `push`/`pull_request` triggers once that work lands**, and fix the job if
-it is still red — the file carries the diagnosis. It was NOT paused for
-failing tests: the last runs died in *Install native libs*, before pytest ran,
-on `apt-get update` hitting a Hash Sum mismatch in the Chrome apt repo the
-runner image ships and this project never uses.
+**CI runs on push and PR again** (re-enabled 2026-09-11). Three things had to
+be true first, and each was invisible on a Mac with Ollama running: the runner
+image's Chrome apt list is now removed rather than tolerated (it was failing
+`apt-get update` before pytest ever started); `wamerican` is installed, because
+`vocab._english()` reads `/usr/share/dict/words` and a MISSING list turns the
+"never rewrite a real English word" guard off silently; and the job copies
+`config.example.yaml` to the gitignored `config.yaml`, without which seven
+tests fail. `pytest tests/` is green: 1368 passed, 31 skipped.
 
 Integration tests must skip when Ollama is not running — copy the `pytestmark`
 guard from `tests/integration/test_ollama_intent.py`. CI has no Ollama, so a

@@ -52,6 +52,17 @@ def test_punctuation_preserved(vocab):
 
 
 def test_english_words_and_known_words_are_never_rewritten(vocab):
+    """Needs a system word list — the guard IS that list.
+
+    Skipped rather than failed where there is none, because there the guard is
+    genuinely off and the test would be reporting the machine, not the code.
+    `vocab._english()` warns in that case, and CI installs `wamerican` so this
+    runs there for real.
+    """
+    from assistant.stt.vocab import _english
+    if not _english():
+        pytest.skip("no system word list; see vocab._english() — install wamerican")
+
     vocab.add_word("Shaul"); vocab.add_word("Tal"); vocab.add_word("Nachman"); vocab.add_word("Shacharit")
     text = "a shawl for Tal, talk to Nachman after Shacharit"
     fixed, fixes = vocab.correct(text)

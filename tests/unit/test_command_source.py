@@ -27,13 +27,23 @@ def bus(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def client():
+def client(registry_with_real_actions):
     """The real rule parser, deliberately.
 
     Stubbing it out forces the LLM path, and CI has no Ollama — the parse then
     errors before anything is written to the bus and every assertion here fails
     for a reason that has nothing to do with what is being tested. The commands
     below are ones the rules answer on their own.
+
+    `registry_with_real_actions` is what makes that true, and its absence is
+    why this file spent some time not testing what it says. `isolated_registry`
+    empties the global ActionRegistry before EVERY test; without asking for the
+    real actions back, the rule parser has nothing to build an intent from,
+    scores 1.00 and still reports `missing-slots`, and the command falls
+    through to the deep track. On a machine with Ollama running that is
+    invisible — the model answers, the bus gets its line, the test passes
+    green while exercising the exact path the docstring says it avoids. On CI,
+    with no Ollama, it fails.
     """
     app = server.create_app()
     app.config.update(TESTING=True)
