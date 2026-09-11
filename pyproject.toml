@@ -53,6 +53,12 @@ dev = [
     "recognizers-text-date-time>=1.0.2a0",
     "emoji<2.0",
     "soundfile>=0.12",  # tests/audio/ — macOS-only STT round-trip tests
+    # Every board that replays a dated row freezes the clock at that row's
+    # recorded timestamp (the measurement-epoch rule in DATASET.md). It was
+    # never declared, so a fresh checkout could install the dev extras and
+    # still have seven boards die on `import freezegun` — found 2026-09-11 by
+    # running them.
+    "freezegun>=1.4",
 ]
 
 [project.scripts]

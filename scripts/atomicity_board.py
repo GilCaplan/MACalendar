@@ -64,7 +64,7 @@ for _b in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-B_DATA = ROOT / "dataset" / "fastrule" / "fastrule_7200.jsonl"
+B_DATA = ROOT / "assistant" / "engine" / "fastrule" / "datasets" / "fastrule_7200.jsonl"
 A_DATA = ROOT / "DOCUMENTATION" / "experiments" / "memory_scaling" / "hwu64_sample.json"
 _CLOCK = _dt.datetime(2026, 9, 9, 10, 0)
 

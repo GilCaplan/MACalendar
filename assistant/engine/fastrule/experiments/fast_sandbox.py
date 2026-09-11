@@ -45,10 +45,18 @@ for _v, _n in (("DB", "calendar.db"), ("MEMORY_DB", "mem.db"),
 os.environ["MACALENDAR_NO_WARMUP"] = "1"
 os.environ["MACALENDAR_OBSERVANCE"] = "0"
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-_S = "DOCUMENTATION/experiments/memory_scaling/output/dummy_3000.db"
-SOURCE = ROOT / _S if (ROOT / _S).exists() else \
-    pathlib.Path("/Users/USER/Desktop/Personal_Projects/MACalendar") / _S
+# TWO roots, deliberately named apart. `parents[1]` is the STAGE folder since
+# the per-stage move — which is what its neighbours `fastrule6k` and
+# `fastrule_shape` mean by ROOT — but this file went on joining a
+# REPO-relative path to it ("DOCUMENTATION/experiments/…"), so it resolved
+# under `assistant/engine/fastrule/` and never existed. It then fell back to a
+# hardcoded path on the dataset owner's laptop. CLAUDE.md names this exact
+# trap: "a path that merely looks wrong may be right and vice versa".
+STAGE = pathlib.Path(__file__).resolve().parents[1]
+REPO = pathlib.Path(__file__).resolve().parents[4]
+#: the replay baseline — gitignored and local, same file
+#: `scripts/engine_dataset_compare.py` defaults to.
+SOURCE = REPO / "dataset" / "baseline" / "dummy_3000.db"
 
 
 def main() -> int:
@@ -82,6 +90,11 @@ def main() -> int:
         where += f" AND tier_rank >= {int(a.min_rank)}"
     if a.max_rank:
         where += f" AND tier_rank <= {int(a.max_rank)}"
+    if not SOURCE.exists():
+        print(f"no replay baseline at {SOURCE}\n"
+              "It is gitignored and local — build it as dataset/DATASET.md "
+              "describes, or pass a checkout that has one.", file=sys.stderr)
+        return 2
     with sqlite3.connect(f"file:{SOURCE}?mode=ro", uri=True) as c:
         rows = c.execute(
             "SELECT COALESCE(NULLIF(raw_transcript,''), transcript), ts, tier_rank "

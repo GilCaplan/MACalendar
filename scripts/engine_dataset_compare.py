@@ -61,15 +61,17 @@ import tempfile
 import time
 
 WORKTREE = pathlib.Path(__file__).resolve().parents[1]
-MAIN = pathlib.Path("/Users/USER/Desktop/Personal_Projects/MACalendar")
-# The dataset is first-class now: dataset/ in the tree (inputs committed,
-# baseline dbs gitignored+local). Falls back to the dataset owner's original
-# location in the main checkout until the merge migrates it (see dataset/DATASET.md).
+# The dataset is first-class: `dataset/` in this tree (inputs committed,
+# baseline dbs gitignored and local). The fallback that used to sit here —
+# "/Users/USER/Desktop/Personal_Projects/MACalendar", the dataset owner's
+# original checkout, kept "until the merge migrates it" — outlived the merge
+# and became a hardcoded path to one person's laptop. It resolved to nothing on
+# any other machine and said nothing about it, which is the failure mode
+# CLAUDE.md's "a path in an experiment rots silently" warns about.
 _LOCAL = WORKTREE / "dataset"
-EXP = MAIN / "DOCUMENTATION" / "experiments" / "memory_scaling"
-DATASET_INPUTS = _LOCAL / "inputs" if (_LOCAL / "inputs").exists() else EXP / "dataset"
-DATASET_FIXTURE = (_LOCAL / "inputs" / "hwu64_sample.json") if (_LOCAL / "inputs" / "hwu64_sample.json").exists() else EXP / "hwu64_sample.json"
-DATASET_BASELINE = _LOCAL / "baseline" if (_LOCAL / "baseline").exists() else EXP / "output"
+DATASET_INPUTS = _LOCAL / "inputs"
+DATASET_FIXTURE = _LOCAL / "inputs" / "hwu64_sample.json"
+DATASET_BASELINE = _LOCAL / "baseline"
 
 # --- isolate BEFORE importing anything from assistant ----------------------
 _TMP = tempfile.mkdtemp(prefix="engine_compare_")
@@ -97,9 +99,12 @@ RAW_KEY = "COALESCE(NULLIF(raw_transcript, ''), transcript)"
 
 
 def _load_scorer():
-    """Import the main checkout's scorer BY FILE PATH — both checkouts have a
-    scripts/ tree, and a name import would resolve to the wrong one."""
-    path = MAIN / "scripts" / "score_dataset_run.py"
+    """Import the scorer BY FILE PATH — with two worktrees in play a name
+    import can resolve to the other one's `scripts/` tree. It is THIS
+    checkout's scorer: pinning it to the main checkout's absolute path meant
+    the loop scored its own run with a copy it could not see, and broke
+    outright anywhere that path did not exist."""
+    path = WORKTREE / "scripts" / "score_dataset_run.py"
     spec = importlib.util.spec_from_file_location("score_dataset_run_main", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

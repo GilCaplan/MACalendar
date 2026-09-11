@@ -67,7 +67,7 @@ _REAL_CLOCK_RE = re.compile(
     r"|\bat\s+\d{1,2}\b|\b(?:noon|midday|midnight)\b", re.I)
 
 DATASETS = {
-    "fastrule": ROOT / "dataset" / "fastrule" / "fastrule_7200.jsonl",
+    "fastrule": ROOT / "assistant" / "engine" / "fastrule" / "datasets" / "fastrule_7200.jsonl",
     "personas": ROOT / "dataset" / "personas" / "personas.jsonl",
     "realspeech": ROOT / "dataset" / "realspeech" / "realspeech_1200.jsonl",
 }

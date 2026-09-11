@@ -27,11 +27,16 @@ REPO = Path(__file__).resolve().parents[2]
 RUNNABLE = [
     "tests/test_ollama_parser.py",
     "tests/test_todo_parser.py",
-    "scripts/test_pipeline.py",
-    "scripts/test_ollama.py",
     "scripts/test_stt.py",
     "scripts/benchmark_models.py",
 ]
+# `scripts/test_pipeline.py` and `scripts/test_ollama.py` moved to
+# `retired/old-brain-v1/` on 2026-09-11. They drove the OLD brain — an
+# `OllamaIntentParser` that no longer exists and a confirmation-then-Graph-API
+# chain that was retired with it — so both had been un-importable for some
+# time, and nothing noticed because nothing imports them. Kept rather than
+# deleted, beside the brain they drive (CLAUDE.md, "Retiring a system
+# version"). Retired scripts are not RUNNABLE, so they are not listed here.
 
 
 @pytest.mark.parametrize("relpath", RUNNABLE)

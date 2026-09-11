@@ -45,6 +45,11 @@ from assistant.engine.decompose_validate.eval_metrics import score as S
 rows = [json.loads(l) for l in open(os.path.join(
     ROOT, "assistant/engine/decompose_validate/datasets/generated.jsonl"))]
 split = sys.argv[1] if len(sys.argv) > 1 else "train"
+_splits = sorted({r["split"] for r in rows})
+if split not in _splits:
+    # Silently matching nothing turned an unknown split into a ZeroDivisionError
+    # several screens later, which reads as a broken board rather than a typo.
+    sys.exit(f"unknown split {split!r} — the dataset has {_splits}")
 rows = [r for r in rows if r["split"] == split]
 
 FIELDS = ("date", "start_time", "end_time", "recurrence", "quantity", "reminder_minutes")

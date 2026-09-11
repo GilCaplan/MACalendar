@@ -95,9 +95,9 @@ for _b in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-B_DATA = ROOT / "dataset" / "fastrule" / "fastrule_7200.jsonl"
-B_SIMPLE = ROOT / "dataset" / "fastrule" / "banks" / "simple_patterns.json"
-B_COMPLEX = ROOT / "dataset" / "fastrule" / "banks" / "complex_patterns.json"
+B_DATA = ROOT / "assistant" / "engine" / "fastrule" / "datasets" / "fastrule_7200.jsonl"
+B_SIMPLE = ROOT / "assistant" / "engine" / "fastrule" / "datasets" / "banks" / "simple_patterns.json"
+B_COMPLEX = ROOT / "assistant" / "engine" / "fastrule" / "datasets" / "banks" / "complex_patterns.json"
 P_DATA = ROOT / "dataset" / "personas" / "personas.jsonl"
 
 #: same frozen clock the FastRule boards use, so the three are comparable

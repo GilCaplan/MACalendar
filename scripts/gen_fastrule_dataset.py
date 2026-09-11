@@ -53,8 +53,8 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BANKS = ROOT / "dataset" / "fastrule" / "banks"
-OUT = ROOT / "dataset" / "fastrule" / "fastrule_7200.jsonl"
+BANKS = ROOT / "assistant" / "engine" / "fastrule" / "datasets" / "banks"
+OUT = ROOT / "assistant" / "engine" / "fastrule" / "datasets" / "fastrule_7200.jsonl"
 CATEGORIES_FIXTURE = BANKS / "categories_fixture.json"
 
 # Changing SEED changes every row's fillers and the split assignment — only
