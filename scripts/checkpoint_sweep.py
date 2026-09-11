@@ -61,6 +61,7 @@ import json
 import os
 import pathlib
 import shutil
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -254,8 +255,51 @@ def _provenance() -> dict:
     return out
 
 
+PERSONAS = ROOT / "dataset" / "personas" / "personas.jsonl"
+
+
+def _load_personas(n: int) -> list:
+    """A stratified sample of the personas set — the second, CLEAN test half.
+
+    Why this set and not 300 more HWU rows: ITERATION_PROTOCOL says the other
+    2,699 rows of the 3000-pool are the training pool ("mine them, train on
+    them, tune against them freely"), and the 3000-pool's "aggregate replays
+    and threshold sweeps had touched all ranks" — which is why FastRule needed
+    its own data. The sealed 300 took the last clean draw from there. The
+    personas set is 2,520 rows with `split: "test"` on every one, ground truth
+    BY CONSTRUCTION, and it measures the weakness the project has already
+    named: swapping vocabulary moves the classifiers 0-3 pt, swapping PHRASING
+    moves them 7-29 pt.
+
+    Stratified over persona x tier so all six voices are represented equally —
+    the spread BETWEEN personas is the finding, so an uneven draw would hide it.
+    """
+    rows = [json.loads(l) for l in PERSONAS.read_text().splitlines() if l.strip()]
+    buckets: dict = {}
+    for r in rows:
+        buckets.setdefault((r["persona"], r.get("tier")), []).append(r)
+    for key in buckets:
+        buckets[key].sort(key=lambda r: r["id"])      # deterministic, no seed
+    out, i = [], 0
+    keys = sorted(buckets)
+    while len(out) < n and any(len(buckets[k]) > i for k in keys):
+        for k in keys:                                 # round-robin the strata
+            if len(buckets[k]) > i and len(out) < n:
+                out.append(buckets[k][i])
+        i += 1
+    return [{"id": r["id"], "text": r["text"], "tier": r.get("tier"),
+             "persona": r["persona"], "family": r.get("family"),
+             "expect": r.get("expect") or {}, "gold": r.get("gold") or {},
+             # personas carry no timestamp: they are not a history, so there is
+             # no recorded moment to replay them at and the clock stays live.
+             "ts": None}
+            for r in out]
+
+
 def _load_rows(args) -> list:
     """The prompts to replay, as [{id, text, tier, ts}]."""
+    if getattr(args, "personas", None):
+        return _load_personas(args.personas)
     src = (ROOT / "dataset" / "inputs" /
            ("test_split.json" if args.test else "history_3000.json"))
     data = json.loads(src.read_text()).get("rows", [])
@@ -435,7 +479,92 @@ def _one_at_a_time(work: pathlib.Path):
             lock.unlink()
 
 
-def _score(result: dict) -> dict:
+def _score_personas(db_path: pathlib.Path, rows: list) -> dict:
+    """Grade a personas run, mirroring score_db's predicate exactly.
+
+    WHY NOT score_db ITSELF. It derives the expectation from a provenance
+    `intent` string and its three compound buckets — event+event, task+task,
+    event+task. Personas carry EXACT expectations, and 65 of the 2,520 want
+    (2 events, 1 task), which no bucket expresses: forcing them into
+    "event+task" would pass a row that produced one event when two were asked
+    for. So the predicate is reproduced rather than the plumbing reused.
+
+    THE PREDICATE IS THE SAME ONE: did the command create at least the events
+    and tasks that were asked for. That is what makes a COMBINED number across
+    the two halves honest — same question, two sources of the answer.
+    """
+    import sqlite3 as _sq
+    expect = {r["text"]: r for r in rows}
+    with _sq.connect(f"file:{db_path}?mode=ro", uri=True) as c:
+        cols = {r[1] for r in c.execute("PRAGMA table_info(examples)")}
+        key = "COALESCE(NULLIF(raw_transcript, ''), transcript)"
+        db_rows = c.execute(
+            f"SELECT {key}, actions_json, parse_path, total_ms FROM examples"
+        ).fetchall()
+
+    from scripts.score_dataset_run import _GARBAGE_TITLES
+    scored = []
+    for text, actions_json, parse_path, total_ms in db_rows:
+        want = expect.get(text)
+        if want is None:
+            continue
+        try:
+            actions = json.loads(actions_json or "[]")
+        except json.JSONDecodeError:
+            actions = []
+        n_events = sum(1 for a in actions
+                       if a.get("action", "").startswith("create_event"))
+        titles = []
+        for a in actions:
+            if a.get("action", "").startswith("create_todo"):
+                titles += [t for t in (a.get("parameters", {}).get("titles") or [])
+                           if isinstance(t, str)]
+        n_tasks = len(titles)
+        ev_titles = [a.get("parameters", {}).get("title", "") for a in actions
+                     if a.get("action", "").startswith("create_event")]
+        garbage = [t for t in titles + ev_titles
+                   if t.strip().lower() in _GARBAGE_TITLES]
+        exp = want.get("expect") or {}
+        want_e, want_t = int(exp.get("events") or 0), int(exp.get("tasks") or 0)
+        if want_e == 0 and want_t == 0:
+            # A query, a delete or a completion: the claim is that NOTHING was
+            # created. Same reading score_db takes for query/remove — against a
+            # fresh scratch DB, whether the delete found its target is not the
+            # test, and "I couldn't find that" is the correct answer.
+            ok = (n_events + n_tasks) == 0
+        else:
+            ok = n_events >= want_e and n_tasks >= want_t
+        scored.append({"count_ok": ok, "garbage": bool(garbage),
+                       "parse_path": parse_path, "total_ms": total_ms or 0,
+                       "tier": want.get("tier"), "persona": want.get("persona")})
+
+    def agg(rs: list) -> dict:
+        n = len(rs)
+        if not n:
+            return {"n": 0}
+        ms = sorted(r["total_ms"] for r in rs)
+        return {
+            "n": n,
+            "count_ok_rate": sum(1 for r in rs if r["count_ok"]) / n,
+            "count_ok_adj_rate": None,   # no conventions layer for personas
+            "garbage_title_rate": sum(1 for r in rs if r["garbage"]) / n,
+            "event_dates_collapsed_rate": None,
+            "total_ms_p50": statistics.median(ms),
+            "total_ms_p95": ms[min(len(ms) - 1, int(n * .95))],
+            "parse_path": {p_: sum(1 for r in rs if r["parse_path"] == p_)
+                           for p_ in sorted({r["parse_path"] for r in rs})},
+        }
+
+    personas = sorted({r["persona"] for r in scored})
+    return {"overall": agg(scored),
+            "by_complexity": {t: agg([r for r in scored if r["tier"] == t])
+                              for t in ("simple", "medium", "complex")},
+            "by_persona": {p_: agg([r for r in scored if r["persona"] == p_])
+                           for p_ in personas},
+            "by_compound_kind": {}}
+
+
+def _score(result: dict, rows: "list | None" = None) -> dict:
     """Grade a checkpoint's run with TODAY's scorer.
 
     The whole point of the sweep: score_db opens the run DB read-only and
@@ -448,6 +577,9 @@ def _score(result: dict) -> dict:
         return {"error": "no engine_run.db — nothing was recorded"}
     try:
         sys.path.insert(0, str(ROOT))
+        if rows and any(r.get("expect") for r in rows):
+            return {"aggregate": _score_personas(pathlib.Path(db), rows),
+                    "half": "personas"}
         from scripts import score_dataset_run as scorer
         prov = scorer.load_provenance(
             ROOT / "dataset" / "inputs" / "hwu64_sample.json")
@@ -458,7 +590,9 @@ def _score(result: dict) -> dict:
                 "traceback": traceback.format_exc()[-800:]}
     # Keep the aggregates; per_prompt is large and, on a --test run, is row
     # detail the sealed-set rule says must not be reported.
-    return {k: v for k, v in scored.items() if k != "per_prompt"}
+    out = {k: v for k, v in scored.items() if k != "per_prompt"}
+    out["half"] = "sealed"
+    return out
 
 
 def _pct(values: list, q: float):
@@ -538,7 +672,18 @@ def report(results: list) -> None:
             for tier in ("simple", "medium", "complex"):
                 print(_line(tier, (sc.get("by_complexity") or {}).get(tier, {})))
             for kind in ("event+event", "task+task", "event+task"):
-                print(_line(kind, (sc.get("by_compound_kind") or {}).get(kind, {})))
+                blk = (sc.get("by_compound_kind") or {}).get(kind, {})
+                if blk:
+                    print(_line(kind, blk))
+            # The SPREAD between personas is the finding, not any one row.
+            for who, blk in sorted((sc.get("by_persona") or {}).items()):
+                print(_line(who, blk))
+            byp = sc.get("by_persona") or {}
+            rates = [b["count_ok_rate"] for b in byp.values()
+                     if b.get("count_ok_rate") is not None]
+            if len(rates) > 1:
+                print(f"    persona spread: {min(rates)*100:.1f} – "
+                      f"{max(rates)*100:.1f} ({(max(rates)-min(rates))*100:.1f} pt)")
             qmv = (sc.get("overall") or {}).get("query_mutation_violations")
             if qmv:
                 print(f"    query-no-mutation violations: {qmv}")
@@ -551,6 +696,9 @@ def main() -> int:
     ap.add_argument("--smoke", action="store_true", help="one row per checkpoint")
     ap.add_argument("--test", action="store_true", help="the SEALED 300 (milestone only)")
     ap.add_argument("--rows", type=int, help="first N rows")
+    ap.add_argument("--personas", type=int, metavar="N",
+                    help="N stratified rows from the personas set "
+                         "(the second clean test half)")
     ap.add_argument("--checkpoints", help="comma-separated subset of tags")
     ap.add_argument("--keep", action="store_true", help="keep the sandboxes")
     ap.add_argument("--work", help="sandbox root (default: a temp dir; give a "
@@ -588,7 +736,7 @@ def main() -> int:
                 r = run_checkpoint(tag, rows, scratch_root)
                 r["rows_fingerprint"] = fingerprint
                 if not r.get("error"):
-                    r["scored"] = _score(r)
+                    r["scored"] = _score(r, rows)
                 results.append(r)
             report(results)
             OUT.mkdir(parents=True, exist_ok=True)
