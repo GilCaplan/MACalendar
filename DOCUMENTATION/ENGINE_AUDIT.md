@@ -21,6 +21,35 @@ number looks wrong.)
 
 ---
 
+## Status, re-checked 2026-09-11
+
+The audit was written 2026-09-07 and the engine was rewired on the 8th, so
+several findings describe code that has since moved or gone. Nothing recorded
+which — a twelve-finding audit with no status column is a document nobody can
+act on. Each finding below now carries one, verified BY SYMBOL against the
+current tree, and the ones not re-verified say so rather than guessing.
+
+| | status | |
+|---|---|---|
+| P1 | CLOSED | refusals are honoured |
+| P2 | **OPEN** | four readers of "is this a question?" |
+| P3 | likely closed | ruled by DEVQA Q15; metric half unchecked |
+| P4 | not re-verified | the atomicity layer was rebuilt under it |
+| P5 | **OPEN** | cadence still rounded in two places |
+| P6 | partly closed | the two outcomes are out; three repairs still invisible |
+| P7 | not re-verified | the loop-back was rewired |
+| P8 | CLOSED | `_no_bg()` guards the spawn |
+| P9 | not re-verified | both scorers moved |
+| P10 | **OPEN** | four deciders of "which domain" |
+| P11 | **OPEN** | the matching threshold is still a bare 0.25 |
+| P12 | note | work in flight, not a finding |
+
+**The three still open and unambiguous are P2, P5 and P10, and they are the
+same shape**: one question answered in several places, with the copies free to
+disagree. That is the shape that produced this audit's other findings too.
+
+---
+
 ## 0 · The headline
 
 The architecture Gil settled on is **written down in three places and built in
@@ -186,6 +215,8 @@ Not code, but it costs the same thing: the next agent trusts it.
 
 ### P1 · The deep track re-commits what FastRule's gates refused
 
+> **Status (re-checked 2026-09-11): **CLOSED**** — `_honour_refusal` lives in `llmjudge/llm_fallback.py:50` and `fastrule/objects.py` calls it on the REFUSAL class; CLAUDE.md now carries the deferral contract as a rule.
+
 **The problem.** When FastRule vetoes a command at the front door, the
 orchestrator sends it to the deep track (`__init__.py:238-248`). For a
 **single-item** command, segment produces one item whose text equals
@@ -229,6 +260,8 @@ confirm the net, because it will shift rows from rule-commit to LLM.
 
 ### P2 · Three different readers answer "is this a question?", and they disagree
 
+> **Status (re-checked 2026-09-11): **OPEN**** — still four readers: `llmjudge/gatekeeper.py:50` `_INTERROGATIVE_RE`, `decompose_validate/object_rules.py:37,41` `_QUESTION_START` / `_QUERY_OPENER`, and `old_seg/segment.py`.
+
 | reader | location | shape it accepts |
 |---|---|---|
 | `is_interrogative_create` | `segment.py:124-141` | narrow: question-shaped **AND** first-person weighing (`should I`, `what if we`) **AND** a create verb |
@@ -251,6 +284,8 @@ already claims, with the breadth question settled once (§4 Q2). Have
 `fastrule.Gatekeeper` and `validate` both call it.
 
 ### P3 · The daypart defaults invent times that nothing penalises and nothing scores
+
+> **Status (re-checked 2026-09-11): **LIKELY CLOSED — behaviour ruled, metric not checked**** — DEVQA Q15 (2026-09-07) ruled a daypart is not a clock time, and `resolve.window_for` now returns a WINDOW and returns None when the sentence states a clock. The second half of the finding — that nothing SCORES an invented daypart — was not re-checked.
 
 `_SPOKEN_TIMES` (`rule_parser.py:237-253`) is applied unconditionally inside
 `_preprocess` (`:452-453`), **before** temporal extraction:
@@ -290,6 +325,8 @@ currently unmeasurable.**
 
 ### P4 · The complexity gate is a word-count proxy for atomicity, and it runs *before* the atomicity layer
 
+> **Status (re-checked 2026-09-11): **NOT RE-VERIFIED**** — the atomicity layer was rebuilt (F16-F18b) and now leads layer 0, so the ordering this describes may no longer hold. Needs a read before it is trusted either way.
+
 `_preprocess` (`rule_parser.py:472-497`) hard-skips on:
 
 - `len(content_words) > 12`
@@ -327,6 +364,8 @@ FastRule-lane experiment and does **not** need a full-engine run.
 
 ### P5 · Cadence rounding is implemented twice, with different tables, and one gap is silent
 
+> **Status (re-checked 2026-09-11): **OPEN**** — `recurrence.RecurrenceSpec` carries `rounded_from` as the finding asks, but no module under `decompose_validate/` imports `assistant.intent.recurrence` — so the second reader is still deriving cadence from its own table.
+
 | | `intent/recurrence.py:30-41` (`_PATTERNS`) | `engine/decompose_validate/validate.py:50-57` (`_UNSUPPORTED_CADENCE`) |
 |---|---|---|
 | every other X | → weekly, `rounded_from` set | → announced |
@@ -356,6 +395,8 @@ announce.
 
 ### P6 · `state.fixes` is invisible outside `validate`
 
+> **Status (re-checked 2026-09-11): **PARTLY CLOSED 2026-09-11**** — see the note under the finding.
+
 `state.add_fix` is called from `generate` five times — `invention_guard`
 (`:214`), `event_kind_retry` (`:264`), `event_fallback` (`:270`),
 `task_fallback` (`:283`), `item_parse_failed` (`:242`) — and **none of them
@@ -383,6 +424,8 @@ genuine repairs — `invention_guard`, `event_kind_retry`, `event_fallback`,
 block" fix above is for.
 
 ### P7 · The loop-back commits an unjudged parse and feeds stale mistakes back in
+
+> **Status (re-checked 2026-09-11): **NOT RE-VERIFIED**** — the loop-back was rewired on 2026-09-08 and its re-entry is now gated on a rewrite that is still a stub (ARCHITECTURE.md), which may have removed this by construction.
 
 `the Engine's stage list.judge` (`__init__.py:141-165`):
 
@@ -419,6 +462,8 @@ final re-parse (or judge before deciding to loop again), and reset
 
 ### P8 · Background threads are not gated by `MACALENDAR_NO_WARMUP`, and one writes to the DB during measurement
 
+> **Status (re-checked 2026-09-11): **CLOSED**** — `_start_background_verify` returns early on `_no_bg() or state.source == "test"` (`engine/__init__.py:492`), and the memory writer at :938 does the same.
+
 `CLAUDE.md` states: "The engine reads the same flag before starting any daemon
 thread." Of three thread spawns in `engine/__init__.py`, **one** checks it:
 
@@ -450,6 +495,8 @@ next row's foreground work, on every dev-fast-250 run.
 
 ### P9 · The two FastRule scorers disagree about what an atomicity abstain is
 
+> **Status (re-checked 2026-09-11): **NOT RE-VERIFIED**** — both scorers moved into `assistant/engine/fastrule/experiments/` in the per-stage restructure.
+
 ```
 assistant/engine/fastrule/experiments/fastrule_shape.py:40  _ATOMICITY_REASONS = {"strong-compound", "clause-coordination",
                                                     "mixed-mode-compound", "model-compound"}
@@ -469,6 +516,8 @@ to `Atomicity` in `fastrule.py` — which is where the reasons are produced.
 No measurement needed; this is a correctness fix to the instrument.
 
 ### P10 · "Which domain is this?" is answered in four independent places
+
+> **Status (re-checked 2026-09-11): **OPEN**** — four deciders: `old_seg/segment.py:294` `_kind_of`, `fastseg.py:634` `_lexicon_kind`, `fastseg.py:663` `tag`, `fastrule/objects.py:145` `_kind_for`.
 
 | answer | location |
 |---|---|
@@ -495,6 +544,8 @@ is how F13's kind of surprise happens.
 
 ### P11 · The crosscheck's matching threshold is an unexplained constant
 
+> **Status (re-checked 2026-09-11): **OPEN**** — `llmjudge.py:199,201` still match against a bare `0.25`. The long comment at :218 explains a DIFFERENT 0.25 (the atomicity margin floor), which is easy to mistake for this one.
+
 `crosscheck.py:199,201`: `best_score >= 0.25` on a
 `len(a & b) / min(len(a), len(b))` token overlap, after a hand-written
 16-word stopword list (`:97-99`). Every other threshold in the engine carries
@@ -508,6 +559,8 @@ It is load-bearing: it decides `missing` (which triggers a 3× loop-back) and
 is built, this constant is the first thing it should sweep.
 
 ### P12 · Note on work in flight — domain-agnostic entries for ambiguous verbs
+
+> **Status (re-checked 2026-09-11): **NOTE, not a finding**** — work in flight at the time.
 
 Observation only, on the F19 batch landing while this audit was written (it
 has a registered prediction, so it is inside the protocol). Four of the new
