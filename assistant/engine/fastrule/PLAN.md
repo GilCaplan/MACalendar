@@ -393,6 +393,13 @@ rewritten. Phase C's steps, in order:
 | C3 | Rewrite `fastrule_shape.py` to feed `build(item)` | the board follows the box |
 | C4 | Iterate: read failing rows → fix the implementation → rerun | until Gil is satisfied |
 
+**C0 — FIXED 2026-09-11** (the generator now reads
+`assistant/engine/fastrule/datasets/`, and `--no-write` was run to confirm it
+rebuilds without touching the committed set). The same sweep found two more
+boards with the identical rot, `atomicity_board` and `atomizer_board`, so the
+count below is **six**, not four. The move into the stage folder is still open.
+The diagnosis as written on 2026-09-09:
+
 **C0, found 2026-09-09.** `scripts/gen_fastrule_dataset.py:56-57` still points at
 `dataset/fastrule/banks/` and `dataset/fastrule/fastrule_7200.jsonl` — the
 pre-restructure locations. The banks now live at

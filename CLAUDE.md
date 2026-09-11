@@ -187,16 +187,26 @@ suite was 1336-green on the venv.
 
 **⏸ CI IS PAUSED — turn it back on when the rebuild is done** (Gil,
 2026-09-09). `.github/workflows/tests.yml` is `workflow_dispatch:` only, so
-nothing runs on push while FastRule and LLMJudge are being rebuilt. **Restore
-the `push`/`pull_request` triggers once that work lands**, and fix the job if
-it is still red — the file carries the diagnosis. It was NOT paused for
-failing tests: the last runs died in *Install native libs*, before pytest ran,
-on `apt-get update` hitting a Hash Sum mismatch in the Chrome apt repo the
-runner image ships and this project never uses.
+nothing runs on push while FastRule and LLMJudge are being rebuilt. **Restoring
+the `push`/`pull_request` triggers is now the only edit left** — the job itself
+was repaired 2026-09-11: the step drops the runner's Chrome apt repo (the Hash
+Sum mismatch that killed the last two runs before pytest ever ran, which is
+what the pause was actually for) and installs `wamerican`, and the four tests
+that had drifted red behind the pause are fixed.
+
+**A paused build hides drift, so re-run the suite on a CLEAN machine before
+trusting it.** Everything those four tests broke on was machine state a dev Mac
+happens to have and a runner does not — `config.yaml` (gitignored),
+`/usr/share/dict/words`, a running Ollama. Each passed locally and would have
+failed the first green build.
 
 Integration tests must skip when Ollama is not running — copy the `pytestmark`
 guard from `tests/integration/test_ollama_intent.py`. CI has no Ollama, so a
-test that fails instead of skipping turns the build red.
+test that fails instead of skipping turns the build red. **A unit test must not
+need it at all**: `test_command_source` asked for the rule parser but not for
+`registry_with_real_actions`, and conftest's autouse `isolated_registry` empties
+the registry — so the rules had nothing to produce, every command fell through
+to the LLM, and the test only passed where Ollama was up.
 
 `conftest.py` sets `MACALENDAR_NO_WARMUP=1`: `create_app()` otherwise spawns a
 thread that unzips Whisper and spaCy while the suite runs, and two model loads

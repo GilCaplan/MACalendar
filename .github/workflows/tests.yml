@@ -43,11 +43,22 @@ jobs:
 
       - name: Install native libs (PortAudio for sounddevice, EGL/xcb for PyQt6)
         run: |
+          # The runner image ships a Chrome apt repo this project never uses,
+          # and a Hash Sum mismatch in it failed the whole step — which is what
+          # actually reddened the last two runs, before pytest was ever reached.
+          # Drop it rather than let an unrelated repo fail the build.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list
           sudo apt-get update
           sudo apt-get install -y portaudio19-dev \
             libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3 \
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
-            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
+            wamerican
+          # wamerican provides /usr/share/dict/words. macOS always has it;
+          # a bare Linux runner does not, and stt/vocab._english() then falls
+          # back to an EMPTY set and stops protecting real English words —
+          # "a shawl for Tal" becomes "a Shaul for Tal". Verified 2026-09-11:
+          # test_vocab_memory_trace fails without this package and passes with it.
 
       - name: Install dependencies
         run: |

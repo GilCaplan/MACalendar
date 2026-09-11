@@ -46,7 +46,7 @@ parts are wired today versus planned in `ENGINE_REWIRE.md`.
 | FastRule's product-shape board / atomicity board / persona board | `assistant/engine/fastrule/experiments/fastrule_shape.py`, `scripts/atomicity_board.py`, `scripts/persona_board.py` |
 | Fit the routing models (train halves only, deterministic) | `scripts/fit_route_models.py` |
 | Per-stage live gates | `scripts/engine_stage_check.py` |
-| K1 kind scorer — fit + offline eval (16 explainable weights; wiring = K2) | `scripts/kind_classifier_experiment.py` |
+| K1 kind scorer — fit + offline eval (16 explainable weights; wiring = K2) | `assistant/intent/classifier.py` (`Kind` featurizer + `LogisticModel`), fitted by `scripts/fit_route_models.py` · scored by `scripts/kind_board.py` |
 | Mac gate dialog (`ask_transcript_edit`, STATUS_EDIT) | `calendar_ui/window.py`, `pipeline.py` |
 
 ## Database — `assistant/db.py`
