@@ -8,6 +8,13 @@ they exist. Epoch boundaries (harness changes that reset comparability) are
 drawn as vertical lines — points across them are not comparable. Dev-full
 confirm runs are hollow markers so the tuning slice and the wider slice are
 never visually conflated.
+
+SEALED runs are drawn as detached stars and the trend line BREAKS at them
+(2026-09-11). They are a different dataset, not a later point on the tuning
+slice: run 21 is the sealed 300 and every run around it is dev-fast-250, so
+joining them draws a 79→83 "gain" that is really just a change of subject —
+which is the same conflation the hollow dev-full markers already exist to
+prevent, and the reason this file knows about slices at all.
 """
 from __future__ import annotations
 
@@ -39,6 +46,13 @@ def main() -> int:
         return 1
     x = [int(r["run"]) for r in rows]
     devfull = [r["slice"].startswith("dev-full") for r in rows]
+    # A sealed run measures a DIFFERENT DATASET; it never joins the trend line.
+    sealed = [r["slice"].startswith("sealed") for r in rows]
+
+    def _line(ys):
+        """The series with sealed points punched out, so the line breaks
+        rather than implying continuity across a change of dataset."""
+        return [None if s else y for y, s in zip(ys, sealed)]
 
     fig, (a1, a2) = plt.subplots(2, 1, figsize=(11, 8), sharex=True)
     series1 = [("overall_pct", "overall", "black"),
@@ -48,11 +62,14 @@ def main() -> int:
                ("task_task_pct", "task+task", "tab:green")]
     for key, label, color in series1:
         ys = [_f(r.get(key)) for r in rows]
-        a1.plot(x, ys, "-", color=color, alpha=.8, label=label)
-        for xi, yi, full in zip(x, ys, devfull):
+        a1.plot(x, _line(ys), "-", color=color, alpha=.8, label=label)
+        for xi, yi, full, seal in zip(x, ys, devfull, sealed):
             if yi is None:
                 continue
-            a1.plot(xi, yi, "o", mfc="none" if full else color, mec=color)
+            if seal:
+                a1.plot(xi, yi, "*", ms=13, mfc=color, mec="black", mew=.6)
+            else:
+                a1.plot(xi, yi, "o", mfc="none" if full else color, mec=color)
     a1.set_ylabel("count-correct %")
     a1.legend(loc="lower right", fontsize=8)
     a1.grid(alpha=.3)
@@ -66,9 +83,13 @@ def main() -> int:
         ys = [_f(r.get(key)) for r in rows]
         if not any(y is not None for y in ys):
             continue
-        a2.plot(x, ys, "o-", color=color, alpha=.8, label=label)
+        a2.plot(x, _line(ys), "o-", color=color, alpha=.8, label=label)
+        for xi, yi, seal in zip(x, ys, sealed):
+            if yi is not None and seal:
+                a2.plot(xi, yi, "*", ms=13, mfc=color, mec="black", mew=.6)
     a2.set_ylabel("newer metrics %")
-    a2.set_xlabel("run # (hollow = dev-full confirm; dashed line = epoch reset)")
+    a2.set_xlabel("run # (hollow = dev-full confirm; ★ = sealed set, a different "
+                  "dataset — the line breaks there; dashed line = epoch reset)")
     a2.legend(loc="lower right", fontsize=8)
     a2.grid(alpha=.3)
 

@@ -113,11 +113,21 @@ hand-written audit corpus is now only a regression floor.
 
 ## Plan of record
 
-**THE NUMBER THAT MATTERS MOST (2026-09-07):** the sealed benchmark reads
-85% while Gil's REAL usage reads 50% (20 real commands, flag rate 50%,
-`scripts/weekly_review.py` — now filtered to exclude our own test traffic,
-which had been inflating it to 83%). The benchmarks are not lying; they
-measure clean prompts. Real speech is rambling multi-event dictation with
+**THE NUMBER THAT MATTERS MOST (2026-09-07; figures corrected 2026-09-11):**
+the sealed benchmark reads **count-correct 83% raw / 82% product-adjusted on
+the full sealed 300** (run 21, `RESULTS.md`) while Gil's REAL usage reads a
+**50% flag rate** (20 real commands, `scripts/weekly_review.py` — now
+filtered to exclude our own test traffic, which had been inflating it to
+83%).
+
+This line used to say 85%, which was the PARTIAL eval (163 of 300 rows); the
+full run came in ~2 pt lower and supersedes it. Two other 85s are in
+circulation and are not this one — the partial's raw 85%, and the sealed
+300's item-level F1 of 85.2. Note also that the pair above is two DIFFERENT
+INSTRUMENTS — count-correctness on constructed prompts against the share of
+real commands Gil marked wrong — so the gap is real and large, but it is not
+a 33-point subtraction and must not be quoted as one. The benchmarks are not
+lying; they measure clean prompts. Real speech is rambling multi-event dictation with
 transcript damage, which no dataset we own contains. **A self-driven loop
 started against the current boards would optimise clean prompts and could
 leave that 50% untouched.** The real-speech dataset is the fix, and it is
@@ -134,11 +144,18 @@ half-executed compounds 40 → 31 on its own test half; the atomicity model
 now LEADS layer 0 (compound recall 68.8 → 87.9%). Engine: the deferral
 contract (REFUSAL / STRUCTURE / INCAPACITY) is live, FastRule's verdict
 travels forward to segment, background-verify no longer fires in
-measurement runs, 137 duplicated lines gone. Last engine read: a PARTIAL
-sealed-test eval (163 of 300 rows) at raw 85% / adjusted 83%, complex 69%,
-fast-path 94% — encouraging but partial, and its latency was inflated by
-the background-verify bug now fixed. **NEXT: a clean full run on the sealed
-300 for a trustworthy board, then cycles resume against it.**
+measurement runs, 137 duplicated lines gone.
+
+**Last engine read — the clean full run, DONE** (run 21, 2026-09-07, archived
+as `dataset/runs/run21-preloop-sealed-baseline-300rows`): the sealed 300 at
+**count-correct raw 83% / adjusted 82%**, F1 85.2, simple 90 / medium 92 /
+**complex 67**, fast path 90% correct on 135 of 301 rows, deep 77% on 166,
+garbage 0%, **p95 70.4 s**. The full table and its honest read are in
+`RESULTS.md`. It supersedes the PARTIAL eval (163 of 300 rows, raw 85% /
+adjusted 83%) this section used to call the last read — the full run landed
+~2 pt lower. Backfilled into `loop_log.csv` on 2026-09-11; it had been banked
+in RESULTS.md prose only, which is why the plottable trajectory stopped at
+run 20 while the milestone everything is judged against sat outside it.
 
 **STAGE ISOLATION (Gil, 2026-09-07) — see DOCUMENTATION/STAGE_ISOLATION_PLAN.md.**
 Engine cycles paused. Order: (1) FastRule dataset+metrics right — defers on
