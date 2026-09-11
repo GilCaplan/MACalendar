@@ -27,11 +27,33 @@ import os
 import tempfile
 
 # The stores, and the environment variable each one honours.
+#
+# THIS IS THE ONE LIST. `tests/conftest.py` iterates it rather than keeping a
+# second copy, and `test_data_isolation` asserts it covers every
+# `~/.assistant_tools/` path the app reads — because the same omission has now
+# happened three times, each found only by accident:
+#
+#   MACALENDAR_LOCATION    2026-09-06, when two checkouts' suites raced through
+#                          the shared location.json
+#   MACALENDAR_TRACE_BUS   "the fifth, and it was missed for a long time" —
+#                          test commands published into the HUD's real history
+#   MACALENDAR_HEARTBEATS  2026-09-11. heartbeat.py's docstring already SAID
+#                          "overridable with MACALENDAR_HEARTBEATS, which the
+#                          tests point at a scratch dir". They did not: a
+#                          `pytest tests/` run wrote a beat into the real
+#                          ~/.assistant_tools/heartbeats/, so `assistant
+#                          doctor` read a test's timestamp as a live surface.
+#
+# A hand-kept list is exactly what kept failing, so the list is now checked.
 STORES = {
     "MACALENDAR_DB": "calendar.db",
     "MACALENDAR_MEMORY_DB": "nlu_memory.db",
     "MACALENDAR_VOCAB": "vocab.json",
     "MACALENDAR_CATEGORIES": "categories.json",
+    "MACALENDAR_LOCATION": "location.json",
+    "MACALENDAR_TRACE_BUS": "trace_bus.jsonl",
+    "MACALENDAR_HEARTBEATS": "heartbeats",
+    "MACALENDAR_HUD_STATE": "hud_position.json",
 }
 
 REAL_DIR = os.path.expanduser("~/.assistant_tools")

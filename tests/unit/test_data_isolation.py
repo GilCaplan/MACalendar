@@ -103,3 +103,39 @@ def test_the_guard_lets_the_real_app_through():
                          cwd=str(REPO))
     assert out.returncode == 0, out.stderr
     assert "allowed" in out.stdout
+
+
+def test_every_personal_store_the_app_reads_is_in_the_isolation_list():
+    """The list must cover every `~/.assistant_tools/` path the app can open.
+
+    A hand-kept list was the actual failure mode three times over — the
+    device-location store (2026-09-06), the trace bus ("the fifth, and it was
+    missed for a long time") and the heartbeats directory (2026-09-11, whose
+    own docstring claimed the tests already redirected it). Each was found by
+    noticing real data had changed, never by a test.
+
+    The rule this checks is narrow on purpose: a `MACALENDAR_*` variable that
+    is read with `~/.assistant_tools/...` as its fallback IS a personal store,
+    and must be in STORES. Flags like MACALENDAR_NO_WARMUP have no path and are
+    not caught by it.
+    """
+    from tests.isolation import STORES
+
+    pattern = re.compile(
+        r'os\.environ\.get\(\s*"(MACALENDAR_[A-Z_]+)"\s*\)[^\n]*(?:\n[^\n]*)?'
+        r'~/\.assistant_tools'
+    )
+    found: dict[str, str] = {}
+    for path in (REPO / "assistant").rglob("*.py"):
+        if "__pycache__" in path.parts:
+            continue
+        for m in pattern.finditer(path.read_text()):
+            found.setdefault(m.group(1), str(path.relative_to(REPO)))
+
+    assert found, "found no personal stores at all — the pattern has rotted"
+    missing = {v: where for v, where in found.items() if v not in STORES}
+    assert not missing, (
+        "these personal stores are read by the app but are NOT redirected by "
+        f"tests/isolation.py's STORES: {missing}. A test run writes them into "
+        f"the real ~/.assistant_tools. Add each to STORES with its filename."
+    )

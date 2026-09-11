@@ -148,15 +148,21 @@ vocabulary and the event categories. **None of it is test data.** The
 vocabulary is hand-curated and the command memory feeds the review flows, so
 writing junk into either quietly degrades the assistant.
 
-Every store honours an environment override, and `tests/conftest.py` points
-all four at a scratch directory *before* importing anything from `assistant`
-(the paths are read at import time, so a fixture is too late):
+Every store honours an environment override, and **`tests/isolation.py`'s
+`STORES` is the one list of them** (eight, as of 2026-09-11: the four above
+plus location, trace bus, heartbeats and HUD position). `tests/conftest.py`
+iterates it *before* importing anything from `assistant` — the paths are read
+at import time, so a fixture is too late — and any script that exercises the
+engine should call `tests.isolation.isolate()` the same way.
 
-    MACALENDAR_DB  MACALENDAR_MEMORY_DB  MACALENDAR_VOCAB  MACALENDAR_CATEGORIES
-
-Set them in any script that exercises the engine. If you are unsure whether
-something wrote to the real files, check: `md5 ~/.assistant_tools/vocab.json`
-before and after.
+**The list itself is now checked**, because forgetting an entry was the actual
+failure mode three times running — location (2026-09-06), the trace bus, and
+heartbeats (2026-09-11, whose own docstring already claimed the tests
+redirected it while a `pytest tests/` run wrote a beat into the real store).
+`test_data_isolation` asserts that every `MACALENDAR_*` variable the app reads
+with a `~/.assistant_tools/` fallback appears in `STORES`, and names the ones
+that do not. If you are still unsure whether something wrote to the real
+files, check: `md5 ~/.assistant_tools/vocab.json` before and after.
 
 **An HTTP request to the live API ignores all of them.** The overrides redirect
 what *this* process opens; a POST to `127.0.0.1:8080` is served by the running
@@ -166,12 +172,11 @@ what *this* process opens; a POST to `127.0.0.1:8080` is served by the running
 now refuses loopback:API-port on both `requests` and `urllib`; use the Flask
 test client instead.
 
-**`MACALENDAR_TRACE_BUS` is the fifth**, and it was missed for a long time.
-`trace_bus.jsonl` is the durable log the thinking card's History reads back,
-so a script that leaves it alone publishes its commands into the record of
-what you actually asked the assistant. Anything driving the API
-programmatically should also post `"source": "test"`, which the History
-filters out by default.
+**`MACALENDAR_TRACE_BUS` is the one to remember by hand.** `trace_bus.jsonl`
+is the durable log the thinking card's History reads back, so a script that
+leaves it alone publishes its commands into the record of what you actually
+asked the assistant. Anything driving the API programmatically should also
+post `"source": "test"`, which the History filters out by default.
 
 ## Testing
 

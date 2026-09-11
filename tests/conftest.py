@@ -40,17 +40,16 @@ _os.environ.setdefault("MACALENDAR_NO_WARMUP", "1")
 # the LLM paths monkeypatch assistant.engine.llm.call_json instead.
 _os.environ.setdefault("MACALENDAR_LLM_DISABLED", "1")
 
+# The store list lives in tests/isolation.py and nowhere else. It used to be
+# repeated here, the two copies disagreed, and the difference was always a
+# store writing to the REAL ~/.assistant_tools — location.json in 2026-09-06,
+# heartbeats/ in 2026-09-11. isolation.py imports nothing from `assistant`, so
+# reading it here is still before the app.
+sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from tests.isolation import STORES as _STORES              # noqa: E402
+
 _SCRATCH = _tempfile.mkdtemp(prefix="macalendar-tests-")
-for _var, _name in (("MACALENDAR_DB", "calendar.db"),
-                    ("MACALENDAR_MEMORY_DB", "nlu_memory.db"),
-                    ("MACALENDAR_VOCAB", "vocab.json"),
-                    ("MACALENDAR_CATEGORIES", "categories.json"),
-                    # the device-location store was missed for a long time —
-                    # its tests were writing the REAL ~/.assistant_tools/
-                    # location.json (caught 2026-09-06 when two checkouts'
-                    # suites raced through the shared file)
-                    ("MACALENDAR_LOCATION", "location.json"),
-                    ("MACALENDAR_TRACE_BUS", "trace_bus.jsonl")):
+for _var, _name in _STORES.items():
     _os.environ.setdefault(_var, _os.path.join(_SCRATCH, _name))
 
 import json
