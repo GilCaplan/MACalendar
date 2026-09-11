@@ -258,6 +258,41 @@ boundary are not comparable. Standing policies: **merge the loop branch into
 deltas, so a cycle that targets one component sees THAT component move, not
 just the overall blur.
 
+## A long run is checkpointed, or it is not a run (Gil, 2026-09-10)
+
+Anything that will take more than a few minutes uses `assistant/checkpoint.py`.
+Three requirements, and they are not negotiable separately:
+
+    ONE UNIT PER LINE     appended, flushed and fsynced before the next starts,
+                          so `kill -9` costs the row in flight and nothing else
+    RE-RUNNING RESUMES    `has(key)` skips completed work rather than repeating
+                          hours of model calls
+    PROGRESS IS PRINTED   a line with a rate and an ETA, so "is it working?" is
+                          answered by LOOKING
+
+**Board D is the case that wrote this rule.** It ran three and a half hours and
+printed nothing until the end. `ps` reported the process alive at 0.0% CPU,
+which is what a slow ollama call looks like and also what a hang looks like —
+indistinguishable, so progress could only be guessed at from the rate its
+stderr happened to grow. A crash at 90% would have lost every model call, and
+because it runs one ARM fully before the other, dying late would not even have
+left a comparable half.
+
+The compounding cost is the one to remember: **a measurement you cannot watch
+and cannot resume is one you become reluctant to start.** Board D's own
+docstring said *"this board has never run"* for two days, and that was why.
+
+Two rules that follow from it:
+
+- **A board that runs two ARMS interleaves them per row**, or checkpoints each
+  arm separately. Finishing arm A entirely before starting arm B means a run
+  killed at 90% yields nothing comparable, when it could have yielded a
+  complete paired result for the rows it did reach.
+- **`MACALENDAR_CHECKPOINTS` is scratched by `conftest.py`.** A suite that
+  resumed a real run would read half a board's rows as its own and report a
+  number produced by two different configurations — the same class of error as
+  editing one stage's dataset to suit another.
+
 ## A cycle ends by starting the next one (Gil, 2026-09-08)
 
 **The loop does not stop to report.** Banking the result in `RESULTS.md` IS

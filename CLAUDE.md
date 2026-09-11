@@ -389,6 +389,33 @@ engine is live. It reports a **flag rate** and refuses an accuracy below three
 approvals; it drops verdicts arriving in bursts (a cleared backlog is not a
 judgement).
 
+## A long run must be watchable and resumable
+
+**Checkpoint anything that runs for more than a few minutes** (Gil,
+2026-09-10). `assistant/checkpoint.py` is the helper; `Checkpoint(name, total)`
+plus `has()` / `record()` is the whole API.
+
+Board D is why. It ran **three and a half hours and printed nothing**, and two
+things were wrong with that:
+
+- **Progress was unobservable.** `ps` said alive at 0.0% CPU, which is exactly
+  what a slow ollama call looks like AND what a hang looks like. "Is it
+  working?" could not be answered, only guessed at from how fast its stderr
+  happened to grow.
+- **A crash at 90% would have cost everything.** Three hours of model calls,
+  nothing on disk. Worse, Board D runs one ARM fully before the other, so dying
+  late would not even have left a usable half.
+
+A measurement you cannot watch and cannot resume is one you become reluctant to
+start — which is how Board D spent two days with *"this board has never run"*
+in its own docstring.
+
+So: **one unit per line, flushed and fsynced before the next begins** (a
+`kill -9` costs the row in flight and nothing else), **re-running resumes**, and
+**a progress line with a rate and an ETA** so the answer is visible rather than
+inferred. `MACALENDAR_CHECKPOINTS` is the store, scratched by `conftest.py` —
+a suite that resumed a real run would mix two configurations into one board.
+
 ## Things that have bitten before
 
 - **Don't run the audit and the test suite at once.** Both load spaCy and

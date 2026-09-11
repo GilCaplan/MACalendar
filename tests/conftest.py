@@ -73,7 +73,12 @@ for _var, _name in (("MACALENDAR_DB", "calendar.db"),
                     # phantom devices, and one that read the real SECRET would
                     # mint tokens valid against the running assistant.
                     ("MACALENDAR_DEVICE_SECRET", "device_secret"),
-                    ("MACALENDAR_DEVICES", "devices.json")):
+                    ("MACALENDAR_DEVICES", "devices.json"),
+                    # Experiment checkpoints. Scratched so a suite can never
+                    # RESUME a real measurement run — it would read half a
+                    # board's results as its own and report a number that came
+                    # from two different configurations.
+                    ("MACALENDAR_CHECKPOINTS", "checkpoints")):
     _os.environ.setdefault(_var, _os.path.join(_SCRATCH, _name))
 
 import json

@@ -44,6 +44,8 @@ import random
 import re
 import tempfile
 
+from assistant.checkpoint import Checkpoint
+
 _S = pathlib.Path(os.environ.get("BOARD_D_SCRATCH",
                                  tempfile.mkdtemp(prefix="board_d_")))
 _S.mkdir(parents=True, exist_ok=True)
@@ -72,6 +74,18 @@ _STOP = {"the", "a", "an", "my", "to", "for", "of", "on", "at", "in", "and"}
 def _content(s) -> set:
     return {w for w in re.findall(r"[a-z0-9']+", str(s or "").lower())
             if w not in _STOP}
+
+
+def _as_json(outcome):
+    """An outcome is a tuple of tuples; JSON has only lists. Round-tripping it
+    explicitly keeps a resumed row byte-identical to a fresh one, rather than
+    comparing a tuple against a list and silently scoring every resumed row as
+    "changed"."""
+    return None if outcome is None else [list(x) for x in outcome]
+
+
+def _as_outcome(blob):
+    return None if blob is None else tuple(tuple(x) for x in blob)
 
 
 def _outcome(state) -> tuple:
@@ -111,6 +125,11 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("-n", type=int, default=int(os.environ.get("N", "120")))
     ap.add_argument("--show", type=int, default=8)
+    ap.add_argument("--checkpoint", default="board_d",
+                    help="checkpoint name; a second CONFIGURATION needs a "
+                         "second name, or its rows merge into this board")
+    ap.add_argument("--fresh", action="store_true",
+                    help="ignore any existing checkpoint and start over")
     a = ap.parse_args()
 
     from freezegun import freeze_time
@@ -139,36 +158,65 @@ def main() -> int:
 
     eng = engine.Engine()
     real_rewrite = _rw.rewrite_for_retry
-    results = {}
+    import assistant.engine.llmjudge.llmjudge as _lj
 
-    for arm in ("off", "on"):
-        if arm == "off":
-            _rw.rewrite_for_retry = lambda state, cfg: None
-        else:
-            _rw.rewrite_for_retry = real_rewrite
-        import assistant.engine.llmjudge.llmjudge as _lj
-        _lj.rewrite_for_retry = _rw.rewrite_for_retry
-        engine._crosscheck.rewrite_for_retry = _rw.rewrite_for_retry
+    def _set_arm(on: bool) -> None:
+        fn = real_rewrite if on else (lambda state, cfg: None)
+        _rw.rewrite_for_retry = fn
+        _lj.rewrite_for_retry = fn
+        engine._crosscheck.rewrite_for_retry = fn
 
-        got = {}
-        with freeze_time(CLOCK):
-            for r in rows:
-                st = EngineState(raw_text=r["text"], text=r["text"], source="test")
-                try:
-                    eng.parse(st, cfg)
-                    eng.judge(st, cfg)
-                except Exception:
-                    got[r["id"]] = None
-                    continue
-                got[r["id"]] = _outcome(st)
-        results[arm] = got
+    def _run_one(row) -> "tuple | None":
+        st = EngineState(raw_text=row["text"], text=row["text"], source="test")
+        try:
+            eng.parse(st, cfg)
+            eng.judge(st, cfg)
+        except Exception:
+            return None
+        return _outcome(st)
+
+    # INTERLEAVED, one row at a time through BOTH arms (2026-09-10).
+    #
+    # This used to run arm "off" over every row and only then start arm "on",
+    # which meant a run killed at 90% yielded NOTHING comparable — and the first
+    # attempt at this board was killed at 3h32m with exactly that result.
+    # Per-row pairing means an interrupted run is a complete board over fewer
+    # rows, which is a usable measurement rather than a wasted afternoon.
+    #
+    # It also removes a confound the split version carried: the two arms ran
+    # hours apart, so any drift in the model server sat between them.
+    ck = Checkpoint(a.checkpoint, total=len(rows), every=25,
+                    resume=not a.fresh)
+    results = {"off": {}, "on": {}}
+    with freeze_time(CLOCK):
+        for r in rows:
+            rid = str(r["id"])
+            cached = ck.get(rid) if ck.has(rid) else None
+            if cached is not None:
+                results["off"][rid] = _as_outcome(cached.get("off"))
+                results["on"][rid] = _as_outcome(cached.get("on"))
+                continue
+            _set_arm(False)
+            off = _run_one(r)
+            _set_arm(True)
+            on = _run_one(r)
+            results["off"][rid] = off
+            results["on"][rid] = on
+            # On disk BEFORE the next row starts: a kill costs this row only.
+            ck.record(rid, {"off": _as_json(off), "on": _as_json(on),
+                            "text": r["text"][:120]})
+    ck.finish()
 
     _rw.rewrite_for_retry = real_rewrite
 
     fixed, broken, changed_same = [], [], 0
     n_off = n_on = 0
     for r in rows:
-        off, on = results["off"].get(r["id"]), results["on"].get(r["id"])
+        # `str(r["id"])`: checkpoint keys are JSON object keys, which are
+        # strings. Looking up the raw id would miss every row and score the
+        # whole board as "the loop changed nothing" — a silent zero.
+        rid = str(r["id"])
+        off, on = results["off"].get(rid), results["on"].get(rid)
         ok_off, ok_on = _correct(off, r), _correct(on, r)
         n_off += ok_off
         n_on += ok_on
