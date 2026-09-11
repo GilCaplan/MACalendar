@@ -48,6 +48,22 @@ import os
 import pathlib
 import time
 
+#: THE REAL CLOCK, captured at import BEFORE anything can freeze it.
+#:
+#: Every board in this project runs inside `freezegun.freeze_time(CLOCK)`, so
+#: that a case whose plant depends on "the day after tomorrow" resolves the same
+#: way every run. freezegun patches `time.time` AND `time.monotonic`, so a
+#: progress meter that calls either one inside the frozen block reads a fixed
+#: instant: elapsed came out NEGATIVE (the frozen date is in the past relative
+#: to the real boot clock), clamped to 1e-6, and Board D's first progress line
+#: read "1500000000/min · 0m elapsed".
+#:
+#: Binding the function object here keeps a handle on the real implementation,
+#: because freezegun replaces the module ATTRIBUTE rather than the object.
+#: Wall-clock progress is about the operator watching the run, and must not be
+#: subject to the experiment's own reproducibility fiction.
+_now = time.monotonic
+
 #: Run artefacts, not personal data and not repo content — they are the
 #: by-product of a measurement and belong beside the other things this project
 #: keeps outside the tree. Overridable like every other store; `conftest.py`
@@ -67,7 +83,7 @@ class Checkpoint:
         self.every = max(1, every)
         self.path = CHECKPOINT_DIR / f"{name}.jsonl"
         self._done: dict = {}
-        self._t0 = time.time()
+        self._t0 = _now()
         self._since_print = 0
         self._fh = None
 
@@ -133,7 +149,7 @@ class Checkpoint:
 
     def progress(self) -> None:
         n = len(self._done)
-        el = max(time.time() - self._t0, 1e-6)
+        el = max(_now() - self._t0, 1e-6)
         rate = n / el
         line = f"  [{self.name}] {n}"
         if self.total:

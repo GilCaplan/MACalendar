@@ -117,3 +117,31 @@ def test_an_unwritable_checkpoint_never_stops_the_run(tmp_path, monkeypatch, cap
     ck.finish()
     assert "cannot write" in capsys.readouterr().out
     assert ck.has("a")                      # still correct in memory
+
+
+def test_progress_is_real_time_even_inside_a_frozen_clock(scratch, capsys):
+    """EVERY BOARD IN THIS PROJECT RUNS UNDER `freeze_time`.
+
+    Cases are generated at a fixed CLOCK so a plant that depends on "the day
+    after tomorrow" resolves the same way every run — and freezegun patches
+    `time.time` and `time.monotonic` alike. A progress meter that reads either
+    one inside the frozen block sees a fixed instant: Board D's first real
+    progress line read "1500000000/min · 0m elapsed", because elapsed came out
+    negative against the frozen past date and clamped to a microsecond.
+
+    The operator watching a five-hour run is not part of the experiment's
+    reproducibility fiction.
+    """
+    import datetime as dt
+    from freezegun import freeze_time
+
+    ck = Checkpoint("frozen", total=4, every=2)
+    with freeze_time(dt.datetime(2026, 9, 9, 10, 0)):
+        for i in range(2):
+            ck.record(f"row-{i}", i)
+    out = capsys.readouterr().out
+    assert "[frozen] 2/4" in out
+    # The absurd rate is the signature of reading the frozen clock.
+    assert "1500000000/min" not in out
+    rate = float(out.split("·")[-2].strip().split("/min")[0])
+    assert 0 <= rate < 10_000_000, f"progress read the frozen clock: {out!r}"
