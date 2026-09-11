@@ -56,6 +56,73 @@ def _inherited_anchor(svg: str, at: int) -> str:
     return "start"
 
 
+_TRANSLATE = re.compile(r"translate\(\s*(-?[\d.]+)(?:[\s,]+(-?[\d.]+))?\s*\)")
+
+
+def _translate(svg: str, at: int) -> tuple[float, float]:
+    """The summed translate() of every group enclosing `at`.
+
+    Mirrors `_inherited_anchor`: same backwards walk, same depth counting, but
+    it accumulates every enclosing group rather than stopping at the first.
+
+    The engine view started nesting boxes in translated groups on 2026-09-10.
+    Read flat, a group at translate(30, 310) reported its labels in another
+    box's coordinates, and both checks below produced pure fiction -- three
+    "overlaps" between notes that sit 300px apart on screen, and strokes
+    "running through" labels in a different part of the drawing. Only
+    translate is handled; a scale or rotate on a group would need the real
+    matrix, and none of these drawings uses one.
+    """
+    dx = dy = 0.0
+    depth = 0
+    for m in reversed(list(re.finditer(r"<g\b([^>]*)>|</g>", svg[:at]))):
+        if m.group(0) == "</g>":
+            depth += 1
+            continue
+        if depth:
+            depth -= 1
+            continue
+        found = _TRANSLATE.search(dict(_ATTR.findall(m.group(1) or "")).get("transform", ""))
+        if found:
+            dx += float(found.group(1))
+            dy += float(found.group(2) or 0)
+    return dx, dy
+
+
+_TURNED = re.compile(r"\b(rotate|matrix|skew[XY])\s*\(")
+
+
+def _turned(svg: str, at: int, attrs: dict) -> bool:
+    """Is this element drawn at an angle, by itself or by a group above it?
+
+    The width estimate below assumes a label runs left to right, so a rotated
+    one is measured as a wide horizontal box where it actually occupies a
+    narrow vertical strip -- reporting collisions with everything beside it.
+    The two on the engine view are rotated ON PURPOSE, to run along the wire
+    they annotate. Measuring them properly needs the real transform; until
+    something needs that, skipping is honest and a false alarm is not.
+    """
+    if _TURNED.search(attrs.get("transform", "")):
+        return True
+    depth = 0
+    for m in reversed(list(re.finditer(r"<g\b([^>]*)>|</g>", svg[:at]))):
+        if m.group(0) == "</g>":
+            depth += 1
+            continue
+        if depth:
+            depth -= 1
+            continue
+        if _TURNED.search(dict(_ATTR.findall(m.group(1) or "")).get("transform", "")):
+            return True
+    return False
+
+
+def _own_translate(attrs: dict) -> tuple[float, float]:
+    """A translate on the element itself, which nests the same way."""
+    found = _TRANSLATE.search(attrs.get("transform", ""))
+    return (float(found.group(1)), float(found.group(2) or 0)) if found else (0.0, 0.0)
+
+
 def _boxes(svg: str):
     for match in _TEXT.finditer(svg):
         attrs, inner = match.group(1), match.group(2)
@@ -64,7 +131,13 @@ def _boxes(svg: str):
         # render without a charset declaration, which means one em-dash is
         # seven characters of source. Measuring the source would make every
         # label look far wider than it draws.
-        label = html.unescape(re.sub(r"<[^>]+>", "", inner)).strip()
+        #
+        # Collapse whitespace for the same reason. A <text> wrapped across two
+        # source lines still draws as ONE line -- SVG collapses the newline and
+        # its indent to a single space -- so "language\n            model"
+        # measured 25 characters where it renders 14, a box 55px too wide that
+        # then collided with its own container's border.
+        label = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", "", inner))).strip()
         if not label:
             continue
         try:
@@ -77,13 +150,23 @@ def _boxes(svg: str):
         # let the labels inside pick it up. Reading only the element's own
         # attribute measured centred text from its left edge, which put the
         # box in the wrong place and hid real collisions.
+        if _turned(svg, match.start(), a):
+            continue
         anchor = a.get("text-anchor") or _inherited_anchor(svg, match.start())
         left = x - w if anchor == "end" else x - w / 2 if anchor == "middle" else x
+        gx, gy = _translate(svg, match.start())
+        ox, oy = _own_translate(a)
+        left, y = left + gx + ox, y + gy + oy
         yield y, left, left + w, label, size
 
 
 _LINE = re.compile(r"<line\b([^>]*)>")
 _RECT = re.compile(r"<rect\b([^>]*)>")
+_PATH = re.compile(r"<path\b([^>]*)>")
+#: An orthogonal path is a run of absolute M/L points. These drawings route
+#: every connector that way, so the straight runs between the points are
+#: exactly the strokes that can sit across a label.
+_MOVETO = re.compile(r"[ML]\s*(-?[\d.]+)[\s,]+(-?[\d.]+)")
 
 
 #: Strokes fainter than this read as background — a spine a label sits on
@@ -110,10 +193,14 @@ def _segments(svg: str):
         if not _opaque(a):
             continue
         try:
-            yield (float(a.get("x1", 0)), float(a.get("y1", 0)),
-                   float(a.get("x2", 0)), float(a.get("y2", 0)))
+            x1, y1 = float(a.get("x1", 0)), float(a.get("y1", 0))
+            x2, y2 = float(a.get("x2", 0)), float(a.get("y2", 0))
         except ValueError:
             continue
+        gx, gy = _translate(svg, m.start())
+        ox, oy = _own_translate(a)
+        dx, dy = gx + ox, gy + oy
+        yield (x1 + dx, y1 + dy, x2 + dx, y2 + dy)
     for m in _RECT.finditer(svg):
         a = dict(_ATTR.findall(m.group(1)))
         if a.get("stroke", "none") in ("none", "") or not _opaque(a):
@@ -123,10 +210,31 @@ def _segments(svg: str):
             w, h = float(a.get("width", 0)), float(a.get("height", 0))
         except ValueError:
             continue
+        gx, gy = _translate(svg, m.start())
+        ox, oy = _own_translate(a)
+        x, y = x + gx + ox, y + gy + oy
         yield (x, y, x + w, y)             # the four borders
         yield (x, y + h, x + w, y + h)
         yield (x, y, x, y + h)
         yield (x + w, y, x + w, y + h)
+    # Connectors are <path>, and reading only <line> made this check blind to
+    # them: a green riser was drawn straight through "the answer, to whichever
+    # client asked" on the engine flow and the suite stayed green. Curves (C/Q)
+    # are skipped -- `_crosses` judges only axis-aligned strokes anyway.
+    for m in _PATH.finditer(svg):
+        a = dict(_ATTR.findall(m.group(1)))
+        if a.get("stroke", "none") in ("none", "") and "stroke:" not in a.get("style", ""):
+            continue
+        if not _opaque(a):
+            continue
+        pts = [(float(px), float(py)) for px, py in _MOVETO.findall(a.get("d", ""))]
+        if len(pts) < 2:
+            continue
+        gx, gy = _translate(svg, m.start())
+        ox, oy = _own_translate(a)
+        dx, dy = gx + ox, gy + oy
+        for (x1, y1), (x2, y2) in zip(pts, pts[1:]):
+            yield (x1 + dx, y1 + dy, x2 + dx, y2 + dy)
 
 
 def _crosses(seg, box) -> bool:

@@ -45,3 +45,9 @@ israel
 # own category names on the engine explainer, not personal details
 davening
 leyning
+
+# 'night' is in the word list as a correction target, but on these pages it is
+# plain English doing necessary work: "in a single night", and the Hebrew
+# calendar's day boundary, where "a Saturday night" is the precise phrase.
+# Rewording either would cost clarity to dodge a word that says nothing personal.
+night
