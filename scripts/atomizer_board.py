@@ -95,9 +95,12 @@ for _b in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-B_DATA = ROOT / "dataset" / "fastrule" / "fastrule_7200.jsonl"
-B_SIMPLE = ROOT / "dataset" / "fastrule" / "banks" / "simple_patterns.json"
-B_COMPLEX = ROOT / "dataset" / "fastrule" / "banks" / "complex_patterns.json"
+#: the stage owns its dataset since the restructure — these three still said
+#: `dataset/fastrule/`, so the board raised FileNotFoundError (2026-09-11)
+_FR = ROOT / "assistant" / "engine" / "fastrule" / "datasets"
+B_DATA = _FR / "fastrule_7200.jsonl"
+B_SIMPLE = _FR / "banks" / "simple_patterns.json"
+B_COMPLEX = _FR / "banks" / "complex_patterns.json"
 P_DATA = ROOT / "dataset" / "personas" / "personas.jsonl"
 
 #: same frozen clock the FastRule boards use, so the three are comparable

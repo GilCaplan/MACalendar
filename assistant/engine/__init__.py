@@ -68,14 +68,10 @@ _run_lock = threading.Lock()
 def load_config():
     """config.yaml is local-only (gitignored); fall back to the example, then
     defaults (CI). The engine owns its config loading — it must never import
-    from the API layer, which imports it."""
-    from assistant.config import AppConfig, ConfigError, load_config as _load
-    for path in ("config.yaml", "config.example.yaml"):
-        try:
-            return _load(path)
-        except ConfigError:
-            continue
-    return AppConfig()
+    from the API layer, which imports it — so this defers to the shared
+    tolerant loader in `assistant.config`, which both layers already import."""
+    from assistant.config import load_config_or_default
+    return load_config_or_default()
 
 
 def _no_bg() -> bool:

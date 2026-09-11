@@ -136,12 +136,36 @@ def test_voice_text_create_todo_rule_fast_path(app_client):
     assert any("milk" in t["title"].lower() for t in todos)
 
 
-def test_voice_text_create_event_rule_fast_path(app_client, sample_config):
+@pytest.fixture
+def wants_background_verify(monkeypatch):
+    """Let the two verify-token tests spawn the background self-check.
+
+    `_start_background_verify` declines twice over for anything the suite does
+    by default: `MACALENDAR_NO_WARMUP=1` (conftest sets it, and the engine
+    reads it as "no daemon threads" — the gate added to stop a per-row LLM
+    call during measurement runs), and `source == "test"`, which an unlabelled
+    POST becomes. Both gates are right; they just mean a test of the verify
+    flow has to opt out of them, and these two did not — so they asserted on a
+    token the engine had already decided not to issue and failed on every
+    clean checkout. Nothing noticed because CI has been paused since
+    2026-09-09. (Found 2026-09-11.)
+
+    The thread it starts is safe here for the reason this module's docstring
+    gives: with no Ollama reachable the cross-check fails closed on its own
+    exception. No model is loaded, so the segfault NO_WARMUP guards against
+    cannot happen either.
+    """
+    import assistant.engine as engine
+    monkeypatch.setattr(engine, "_no_bg", lambda: False)
+
+
+def test_voice_text_create_event_rule_fast_path(app_client, sample_config, wants_background_verify):
     client, db = app_client
     # The verify token is what this asserts, so ask for it explicitly rather than
     # relying on the default — the background self-check ships off.
     sample_config.verify_fast_path = True
-    resp = client.post("/voice/text", json={"transcript": "schedule a meeting tomorrow at 3pm"})
+    resp = client.post("/voice/text", json={"transcript": "schedule a meeting tomorrow at 3pm",
+                                            "source": "ios"})
     assert resp.status_code == 200
     data = resp.get_json()
     assert "create_event" in data["actions"]
@@ -192,13 +216,13 @@ def test_voice_verify_unknown_token_returns_404(app_client):
     assert resp.status_code == 404
 
 
-def test_voice_verify_pending_before_ready(app_client, sample_config):
+def test_voice_verify_pending_before_ready(app_client, sample_config, wants_background_verify):
     """Immediately after a rule-path response, the verify token exists but the
     background thread almost certainly hasn't finished — poll returns pending.
     """
     client, _ = app_client
     sample_config.verify_fast_path = True      # the flow under test; ships off
-    resp = client.post("/voice/text", json={"transcript": "buy milk"})
+    resp = client.post("/voice/text", json={"transcript": "buy milk", "source": "ios"})
     token = resp.get_json().get("verify_token")
     assert token is not None
     poll = client.get(f"/voice/verify/{token}")

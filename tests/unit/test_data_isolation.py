@@ -27,16 +27,24 @@ REPO = Path(__file__).resolve().parents[2]
 RUNNABLE = [
     "tests/test_ollama_parser.py",
     "tests/test_todo_parser.py",
-    "scripts/test_pipeline.py",
-    "scripts/test_ollama.py",
     "scripts/test_stt.py",
     "scripts/benchmark_models.py",
 ]
+# `scripts/test_pipeline.py` and `scripts/test_ollama.py` were removed on
+# 2026-09-11: both imported `OllamaIntentParser`, a class the engine rewrite
+# deleted, so both had raised ImportError on their first line for months.
 
 
 @pytest.mark.parametrize("relpath", RUNNABLE)
 def test_every_runnable_script_isolates_before_importing_assistant(relpath):
-    src = (REPO / relpath).read_text()
+    path = REPO / relpath
+    # A hand-kept list rots the moment a script is renamed or deleted, and the
+    # rot reads as a crash in an unrelated test rather than as "fix the list".
+    assert path.exists(), (
+        f"{relpath} is listed here but no longer exists — delete the entry, "
+        "or point it at wherever the script moved."
+    )
+    src = path.read_text()
 
     isolate_at = src.find("isolate(")
     assert isolate_at != -1, (

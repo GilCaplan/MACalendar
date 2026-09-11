@@ -45,10 +45,18 @@ for _v, _n in (("DB", "calendar.db"), ("MEMORY_DB", "mem.db"),
 os.environ["MACALENDAR_NO_WARMUP"] = "1"
 os.environ["MACALENDAR_OBSERVANCE"] = "0"
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+#: NOTE the trap CLAUDE.md warns about: after the per-stage restructure
+#: `parents[1]` is the STAGE folder (`assistant/engine/fastrule/`), not the
+#: repo root — so `ROOT / "DOCUMENTATION/…"` could never resolve, and the
+#: fallback beside it was an absolute `/Users/USER/…` the PII scrub had
+#: already emptied of meaning. Both arms of the expression were dead.
+#: (2026-09-11)
+STAGE = pathlib.Path(__file__).resolve().parents[1]
+ROOT = STAGE.parents[2]          # assistant/engine/fastrule -> repo root
 _S = "DOCUMENTATION/experiments/memory_scaling/output/dummy_3000.db"
-SOURCE = ROOT / _S if (ROOT / _S).exists() else \
-    pathlib.Path("/Users/USER/Desktop/Personal_Projects/MACalendar") / _S
+#: gitignored local baseline: present on the machine that built it, absent in
+#: a fresh checkout. main() reports it rather than dying on an import-time path.
+SOURCE = ROOT / _S
 
 
 def main() -> int:
@@ -56,6 +64,13 @@ def main() -> int:
     ap.add_argument("--max-rank", type=int, default=250)
     ap.add_argument("--min-rank", type=int, default=0)
     a = ap.parse_args()
+
+    if not SOURCE.exists():
+        print(f"no replay source at {SOURCE}\n"
+              "  It is the gitignored local baseline db (dataset/DATASET.md);\n"
+              "  build it with scripts/build_memory_scaling_pool.py, or run this\n"
+              "  on the checkout that already has it.", file=sys.stderr)
+        return 2
 
     from freezegun import freeze_time
 

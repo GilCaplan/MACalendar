@@ -145,8 +145,11 @@ def annotate(rows: "list[dict]", cfg=None) -> "list[dict]":
     """Add reminder_minutes/notify_at/notify_suppressed_reason to event
     payloads — the serialization hook GET /events* runs every row through."""
     if cfg is None:
-        from assistant.config import load_config
-        cfg = load_config().notifications
+        # Tolerant: config.yaml is gitignored, and this runs on the
+        # serialization path of every GET /events* — a checkout without one
+        # used to get a 500 here rather than an un-annotated row.
+        from assistant.config import load_config_or_default
+        cfg = load_config_or_default().notifications
     for r in rows:
         at, why = notify_verdict(r, cfg)
         r["notify_at"] = at

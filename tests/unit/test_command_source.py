@@ -27,13 +27,22 @@ def bus(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def client():
+def client(registry_with_real_actions):
     """The real rule parser, deliberately.
 
     Stubbing it out forces the LLM path, and CI has no Ollama — the parse then
     errors before anything is written to the bus and every assertion here fails
     for a reason that has nothing to do with what is being tested. The commands
     below are ones the rules answer on their own.
+
+    `registry_with_real_actions` is what makes that true, and it was missing:
+    conftest's autouse `isolated_registry` EMPTIES the global registry for
+    every test, so the rule parser had no `create_event` to produce, declined,
+    and the command fell through to the LLM — the exact failure the docstring
+    above says it is avoiding. It passed only on a machine with Ollama up,
+    where the LLM path wrote a bus row anyway; with Ollama down (CI, and any
+    clean checkout) all five parametrisations failed on an empty bus. Found
+    2026-09-11 running the suite on a fresh Linux checkout.
     """
     app = server.create_app()
     app.config.update(TESTING=True)

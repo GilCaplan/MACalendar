@@ -28,6 +28,11 @@ dependencies = [
     # Sunset/nightfall for workout scheduling. Pure Python, fully offline.
     "astral>=3.2",
     "Flask>=3.0",
+    # POST /voice/audio decodes the upload with soundfile before Whisper ever
+    # sees it (api/audio_utils.py); pydub is only the ffmpeg fallback. It was
+    # declared under [dev] as a test-only dependency, so a plain install of
+    # this package could not decode a single recording.
+    "soundfile>=0.12",
 ]
 
 [project.optional-dependencies]
@@ -52,7 +57,13 @@ dev = [
     "spacy>=3.7,<4.0",
     "recognizers-text-date-time>=1.0.2a0",
     "emoji<2.0",
-    "soundfile>=0.12",  # tests/audio/ — macOS-only STT round-trip tests
+    # Every measurement board and the replay harness freeze the clock with
+    # this — scripts/{atomicity,atomizer,persona}_board.py,
+    # engine_dataset_compare.py and the three fastrule experiments. It was
+    # declared nowhere at all, so a fresh checkout could not run any board
+    # (found 2026-09-11: `atomicity_board` died on ModuleNotFoundError).
+    "freezegun>=1.4",
+    "matplotlib>=3.8",   # scripts/plot_loop.py — the loop trajectory plot
 ]
 
 [project.scripts]

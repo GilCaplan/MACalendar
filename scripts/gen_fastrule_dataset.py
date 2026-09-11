@@ -53,8 +53,15 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BANKS = ROOT / "dataset" / "fastrule" / "banks"
-OUT = ROOT / "dataset" / "fastrule" / "fastrule_7200.jsonl"
+#: The per-stage restructure moved this dataset into the stage that owns it.
+#: These three lines still pointed at `dataset/fastrule/` — so the GENERATOR
+#: for FastRule's 7,200-row set raised FileNotFoundError and the set could not
+#: be rebuilt. Same rot as segmentation's generator and FastRule's board; this
+#: one survived the first sweep because it lives in `scripts/` rather than in
+#: the stage folder. (2026-09-11)
+_DATASETS = ROOT / "assistant" / "engine" / "fastrule" / "datasets"
+BANKS = _DATASETS / "banks"
+OUT = _DATASETS / "fastrule_7200.jsonl"
 CATEGORIES_FIXTURE = BANKS / "categories_fixture.json"
 
 # Changing SEED changes every row's fillers and the split assignment — only

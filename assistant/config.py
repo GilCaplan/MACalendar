@@ -340,3 +340,28 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         return AppConfig(**data)
     except Exception as e:
         raise ConfigError(f"Configuration error: {e}") from e
+
+
+def load_config_or_default(path: str = "config.yaml") -> AppConfig:
+    """`load_config`, but never raises when the file is simply absent.
+
+    `config.yaml` is gitignored — it holds a real location and real account
+    details — so a fresh checkout, a CI runner and a scratch worktree all have
+    only `config.example.yaml`, and anything that loads config at import or
+    request time has to cope with that. Two identical copies of this fallback
+    had already grown, in `api/server.py` and `engine/__init__.py`, each
+    carrying the same comment; `notify.py` had none and answered GET
+    /events/<id> with a 500 on any checkout without a config.yaml (found
+    2026-09-11 running the suite on a fresh Linux clone — four tests red for
+    a missing personal file).
+
+    It lives HERE rather than in either caller because the engine must never
+    import from the API layer, which imports the engine — `assistant.config`
+    is the one module both already depend on.
+    """
+    for candidate in (path, "config.example.yaml"):
+        try:
+            return load_config(candidate)
+        except ConfigError:
+            continue
+    return AppConfig()

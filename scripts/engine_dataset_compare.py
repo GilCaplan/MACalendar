@@ -61,7 +61,41 @@ import tempfile
 import time
 
 WORKTREE = pathlib.Path(__file__).resolve().parents[1]
-MAIN = pathlib.Path("/Users/USER/Desktop/Personal_Projects/MACalendar")
+
+
+def _main_checkout() -> pathlib.Path:
+    """The MAIN checkout, so every worktree scores with one scorer.
+
+    Two checkouts run side by side (CLAUDE.md, "Two work streams"), and both
+    have a `scripts/` tree — so the scorer is loaded by PATH, from main, or a
+    name import would silently pick up the local copy and two runs would stop
+    being comparable. That intent is right; the way it was written was not: an
+    absolute `/Users/<name>/Desktop/...` literal, which the PII scrub then
+    rewrote to the literal string "USER". Since then the path has existed on
+    no machine at all, and `_load_scorer()` — the first thing a run does —
+    raised FileNotFoundError, so THE PRIMARY EVALUATION HARNESS COULD NOT RUN.
+    Found 2026-09-11 on a fresh checkout.
+
+    `--git-common-dir` is the same fact without the literal: from inside a
+    linked worktree it resolves to the main checkout's `.git`; from the main
+    checkout it resolves to its own. Falls back to this worktree when git is
+    not available or this is not a checkout at all.
+    """
+    import subprocess
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(WORKTREE), "rev-parse",
+             "--path-format=absolute", "--git-common-dir"],
+            capture_output=True, text=True, timeout=10, check=True).stdout.strip()
+        main = pathlib.Path(out).parent
+        if (main / "scripts" / "score_dataset_run.py").exists():
+            return main
+    except Exception:
+        pass
+    return WORKTREE
+
+
+MAIN = _main_checkout()
 # The dataset is first-class now: dataset/ in the tree (inputs committed,
 # baseline dbs gitignored+local). Falls back to the dataset owner's original
 # location in the main checkout until the merge migrates it (see dataset/DATASET.md).

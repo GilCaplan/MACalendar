@@ -331,20 +331,24 @@ judgement).
   torch, and the combination used to segfault. `tests/conftest.py` pins BLAS
   to one thread, which fixed it, but the audit does not. The same applies to
   any two model-loading jobs side by side.
-- **A path in an experiment or generator rots silently, and only breaks when you
-  next run it.** The per-stage restructure moved datasets and banks, and **four**
-  things kept pointing at the old locations: segmentation's dataset
-  GENERATOR (`FileNotFoundError`, so the dataset could not be rebuilt),
-  FastRule's PRIMARY BOARD, `scripts/fit_route_models.py` — the script that
-  fits the logistic weights — and `scripts/gen_fastrule_dataset.py`, found still
-  broken on 2026-09-09, a month after the first three were fixed. **Finding some
-  of these is not finding all of them**, and the survivor was the one still living
-  in `scripts/` rather than in the stage folder that owns it. Nothing noticed
-  because all four are manual steps whose OUTPUT is committed, so the stale
-  `.jsonl` and `.json` kept working.
-  **Before trusting any board, run it.** And note the trap in these files: `ROOT =
-  parents[1]` meant the repo root before the move and means the STAGE folder after
-  it, so a path that merely looks wrong may be right and vice versa.
+- **A path in a board, experiment or generator rots silently, and only breaks
+  when you next run it.** The per-stage restructure moved datasets and banks;
+  **three sweeps have now found more of the survivors, and none found them all.**
+  Latest, 2026-09-11: `atomicity_board`, `atomizer_board` and
+  `gen_fastrule_dataset` were all still reading `dataset/fastrule/`, and
+  `engine_dataset_compare` — THE PRIMARY HARNESS — loaded its scorer from an
+  absolute `/Users/.../MACalendar` literal that the PII scrub had rewritten to
+  the string `USER`, so it existed on no machine. `fast_sandbox`'s replay source
+  was dead in both arms of its fallback. Every one of these raised at the first
+  line of a run, and nothing noticed, because each is a manual step whose OUTPUT
+  is committed: the stale `.jsonl` and `.json` keep working.
+  **Before trusting any board, RUN IT — the whole thing, not an import.** Two
+  traps: `ROOT = parents[1]` meant the repo root before the move and means the
+  STAGE folder after it, so a path that looks wrong may be right and vice versa;
+  and never hard-code a checkout's absolute path — derive the main checkout with
+  `git rev-parse --git-common-dir`, which is correct from every worktree.
+  Same for hand-kept lists of files (`test_data_isolation.RUNNABLE`): they rot
+  in both directions and the breakage reads as an unrelated test crashing.
 - **The API reference is generated.** After adding or changing an endpoint:
   `python scripts/gen_api_reference.py`.
 - **The API reloads itself; nothing else does.** It runs with `--reload`, so
