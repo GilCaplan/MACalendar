@@ -235,14 +235,20 @@ protocol's Paired-track section.)*
   (invention-shaped).
 
 
-- **BUG (open; found 2026-09-06 by the query-no-mutation check): queries can
-  emit mutations.** "Is my appointment to the dentist still on for tomorrow
+- **BUG (FIXED 2026-09-11; found 2026-09-06 by the query-no-mutation check):
+  queries could emit mutations.** "Is my appointment to the dentist still on for tomorrow
   morning?" → deep produced `update_event(match_title="dentist")` — a
   question that MOVES the appointment on a real calendar. Present in every
   archived run (14 hits on the full-3000 sweep). Deterministic guard: an
   interrogative with no imperative verb must not generate
   delete_*/update_*/complete_* actions. Bugs are exempt from
   one-change-per-cycle; fix when the engine tree is next idle.
+  → **Done**: `object_rules._rule_question_mutates_nothing`, the sibling of the
+  `_rule_question_creates_nothing` that had guarded CREATE since the dataset
+  triage. An imperative wearing a question mark ("can you move my dentist
+  appointment to 3?") still runs — `_MUTATE_VERB` is what separates the two.
+  Needs a full-engine run to confirm the 14 hits are gone; the guard itself is
+  pinned by `tests/unit/test_engine_checks.py`.
 
 
 0. ✅ **Resolved (Gil, 2026-09-05) — frozen replay clock + observance flag.**

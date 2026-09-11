@@ -318,3 +318,45 @@ def test_a_dated_i_need_to_meet_is_an_event_q1():
     # counterexamples: errand with a date stays a task; undated encounter too
     assert _enforce_pinned_kinds("task", "I need to buy groceries tomorrow") == "task"
     assert _enforce_pinned_kinds("task", "I need to talk to Greg") == "task"
+
+
+# ---------------------------------------------------------------------------
+# Politeness at the end of an utterance is not a calendar ask
+# ---------------------------------------------------------------------------
+
+def test_a_greeting_with_its_usual_tail_is_not_calendar_work():
+    """Bare "thanks" was tagged `other`; "thanks so much" was read as an EVENT.
+
+    The `^…$` anchor meant the politeness people actually say was the thing
+    that made a non-ask look like one — and "thanks so much" is Gil's own
+    example of an utterance the assistant should decline. Found while wiring
+    the review panel's not-an-ask badge, which had nothing to render because
+    segmentation never produced the tag.
+    """
+    import importlib
+    _fs = importlib.import_module(
+        "assistant.engine.segmentation.fastseg.fastseg")   # the MODULE, not the
+                                                           # function the package
+                                                           # re-exports by the
+                                                           # same name
+
+    for said in ("thanks", "thanks so much", "thank you very much",
+                 "thanks a lot", "cheers mate"):
+        assert _fs._is_not_calendar(said), f"{said!r} should not be calendar work"
+        assert _fs.tag(said, "") == "other"
+
+
+def test_a_real_ask_that_merely_ends_politely_is_untouched():
+    """The closed list is closed on purpose: anything longer than an
+    intensifier is a sentence, and a sentence may well be an ask."""
+    import importlib
+    _fs = importlib.import_module(
+        "assistant.engine.segmentation.fastseg.fastseg")   # the MODULE, not the
+                                                           # function the package
+                                                           # re-exports by the
+                                                           # same name
+
+    for said in ("book the gym tomorrow thanks",
+                 "thanks for booking the gym, now cancel it",
+                 "no thanks to the meeting, delete it"):
+        assert not _fs._is_not_calendar(said), f"{said!r} is a real ask"

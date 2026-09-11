@@ -227,6 +227,7 @@ def run_objects(state: EngineState, cfg) -> EngineState:
                                                carried_day)
 
     _obj._rule_question_creates_nothing(state, cfg, pairs)
+    _obj._rule_question_mutates_nothing(state, cfg, pairs)
     _obj._rule_cadence_round_and_announce(state, tl)
 
     applied = state.fixes[fixes_before:]

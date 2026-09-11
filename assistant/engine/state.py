@@ -50,7 +50,24 @@ class Fix:
     note: str = ""
 
     def human(self) -> str:
-        core = f"{self.before}→{self.after}" if self.before or self.after else self.rule
+        """What the review panel shows for this fix.
+
+        A ONE-SIDED fix names its rule instead of pretending to be an arrow.
+        Most rules here fill something that was empty or clear something that
+        should not have been there, and `→2026-09-12` (or worse,
+        `None→2026-09-12`, which is what a None `before` used to stringify to)
+        reads as a value changing FROM something. Seen in the thinking panel on
+        a real command, where "Sanity fixes" rendered
+        `gym→ (…); None→2026-09-12`.
+        """
+        if self.before and self.after:
+            core = f"{self.before}→{self.after}"
+        elif self.after:
+            core = f"{self.rule}: {self.after}"
+        elif self.before:
+            core = f"{self.rule}: {self.before}"
+        else:
+            core = self.rule
         return f"{core} ({self.note})" if self.note else core
 
 
@@ -187,7 +204,11 @@ class EngineState:
 
     def add_fix(self, stage: str, rule: str, before: str = "", after: str = "",
                 note: str = "") -> Fix:
-        fx = Fix(stage=stage, rule=rule, before=str(before), after=str(after), note=note)
+        # None means "there was nothing here", not the four letters N-o-n-e.
+        # str(None) put the literal word in front of readers.
+        fx = Fix(stage=stage, rule=rule,
+                 before="" if before is None else str(before),
+                 after="" if after is None else str(after), note=note)
         self.fixes.append(fx)
         return fx
 

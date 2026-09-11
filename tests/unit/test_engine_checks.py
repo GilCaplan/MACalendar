@@ -310,3 +310,70 @@ def test_one_ask_alone_is_never_touched():
         [("task", "submit the grades", "friday", FRIDAY)],
         "submit the grades friday", "friday")
     assert dicts[0]["date"] == FRIDAY and fixes == []
+
+
+# ---------------------------------------------------------------------------
+# A question must never move or delete anything
+# ---------------------------------------------------------------------------
+#
+# HYPOTHESES.md, open since 2026-09-06: "Is my appointment to the dentist still
+# on for tomorrow morning?" produced update_event(match_title="dentist") — a
+# question that reschedules a real appointment. 14 hits on the full-3000 sweep.
+# `_rule_question_creates_nothing` had guarded CREATE since the dataset triage;
+# this is the same rule for the half that can destroy something.
+
+from assistant.engine.decompose_validate import object_rules as _obj  # noqa: E402
+from assistant.engine.state import EngineState, Item                  # noqa: E402
+
+
+class _Intent:
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+
+def _mutate(text, action="update_event", **fields):
+    st = EngineState(raw_text=text, text=text)
+    item = Item(id="item_1", kind="event", text=text)
+    item.intent = _Intent(match_title="dentist", **fields)
+    item.action = action
+    st.items = [item]
+    _obj._rule_question_mutates_nothing(st, None, [(item, action, item.intent)])
+    return item, st
+
+
+@pytest.mark.parametrize("action", ["update_event", "delete_event", "complete_todo"])
+def test_a_question_never_mutates(action):
+    item, st = _mutate("Is my appointment to the dentist still on for tomorrow morning?",
+                       action=action)
+    assert item.intent is None, f"{action} survived a question"
+    assert [f.rule for f in st.fixes] == ["question_mutates_nothing"]
+
+
+def test_a_question_word_opener_counts_even_without_the_mark():
+    """Speech has no punctuation — Whisper drops the question mark constantly."""
+    item, _ = _mutate("is my dentist appointment still on")
+    assert item.intent is None
+
+
+def test_an_instruction_wearing_a_question_mark_still_runs():
+    """"can you move my dentist appointment to 3?" is an instruction. The
+    mutation verb is what tells it apart from an enquiry."""
+    item, st = _mutate("can you move my dentist appointment to 3?")
+    assert item.intent is not None and st.fixes == []
+
+
+@pytest.mark.parametrize("text", [
+    "cancel my dentist appointment",
+    "move the standup to 4",
+    "delete the gym event",
+])
+def test_a_plain_instruction_is_untouched(text):
+    item, st = _mutate(text)
+    assert item.intent is not None and st.fixes == []
+
+
+def test_a_create_is_not_this_rule_s_business():
+    """`_rule_question_creates_nothing` owns that half; this one must not
+    double up on it, or a question-create gets two fixes for one problem."""
+    item, st = _mutate("does my daughter have a recital?", action="create_event")
+    assert item.intent is not None and st.fixes == []

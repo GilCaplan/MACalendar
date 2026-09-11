@@ -580,7 +580,14 @@ _NOT_CALENDAR = (
     # greetings, thanks, acknowledgements — a whole utterance, not a fragment
     r"^(?:hi|hey|hello|thanks|thank\s+you|cheers|ta|bye|goodbye|good\s+(?:morning|"
     r"night)|ok(?:ay)?(?:\s+(?:cool|great|thanks|then))?|cool|great|nice|sure|yes|"
-    r"no|yeah|yep|nope|never\s+mind|nevermind|forget\s+it|scrap\s+that)$",
+    r"no|yeah|yep|nope|never\s+mind|nevermind|forget\s+it|scrap\s+that)"
+    # ...and the intensifier people actually say after it. Anchored `$` alone,
+    # bare "thanks" was tagged `other` and "thanks so much" was read as an
+    # EVENT — so the politeness at the end of a real command was the thing that
+    # made it look like a command. Kept to a closed list: anything longer than
+    # these is a sentence, and a sentence may well be an ask.
+    r"(?:\s+(?:so\s+much|very\s+much|a\s+lot|again|mate|man|buddy|"
+    r"anyway|though))?$",
     # abandoning the thought
     r"\b(?:never\s+mind|forget\s+it|forget\s+that|scrap\s+that|ignore\s+that|"
     r"my\s+mistake|wrong\s+one)\b",

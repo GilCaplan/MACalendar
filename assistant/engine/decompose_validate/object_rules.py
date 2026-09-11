@@ -168,6 +168,55 @@ def _rule_question_creates_nothing(state, cfg, pairs) -> None:
             item.intent = None
 
 
+#: The verbs that make a sentence an INSTRUCTION to change something. A
+#: question containing one is still an instruction ("can you move my dentist
+#: appointment to 3?"); a question containing none is just a question.
+#: Deliberately the same shape as `_CREATE_VERB` and read beside it, rather
+#: than a fifth opinion about what an imperative looks like — audit P2 is that
+#: this codebase already answers "is this a question?" in four places.
+_MUTATE_VERB = re.compile(
+    r"\b(move|change|reschedule|shift|push|postpone|delay|rename|retitle|"
+    r"update|edit|cancel|delete|remove|drop|clear|complete|finish|"
+    r"tick|check\s+off|mark)\b", re.I)
+
+
+def _rule_question_mutates_nothing(state, cfg, pairs) -> None:
+    """A question must never MOVE or DELETE anything.
+
+    HYPOTHESES.md, open bug found 2026-09-06 by the query-no-mutation check:
+    "Is my appointment to the dentist still on for tomorrow morning?" produced
+    `update_event(match_title="dentist")` — a question that reschedules a real
+    appointment. 14 hits on the full-3000 sweep, present in every archived run.
+
+    `_rule_question_creates_nothing` above has guarded CREATE since the
+    dataset triage; this is the same rule for the other half, and the half
+    that can destroy something the speaker already has. Asking about a thing
+    is the most common way to mention it, so the blast radius is larger here
+    than for create, not smaller.
+
+    The exception is an imperative wearing a question mark — "can you move my
+    dentist appointment to 3?" is an instruction, and `_MUTATE_VERB` is what
+    tells the two apart. Emptying the intent (rather than rewriting it to a
+    query) is deliberate: the engine's honest answer to "I read this as a
+    question" is to answer the question, and an empty slot surfaces as
+    "I couldn't find…", which CLAUDE.md prefers to a guess.
+    """
+    for item, action, intent in pairs:
+        if item.intent is None or not action:
+            continue
+        if not action.startswith(("update_", "delete_", "complete_")):
+            continue
+        text = (item.text or "").strip()
+        asks = bool(text.endswith("?")) or bool(_QUESTION_START.match(text))
+        if not asks or _MUTATE_VERB.search(text) or _CREATE_VERB.search(text):
+            continue
+        title = (getattr(intent, "match_title", None)
+                 or getattr(intent, "title", None) or text[:30])
+        state.add_fix("validate", "question_mutates_nothing", str(title), "",
+                      note=f"{action} from a question with no instruction in it")
+        item.intent = None
+
+
 def _rule_interrogative_create_asks_first(state, cfg, item, pairs) -> bool:
     """Gil's ruling (2026-09-07, DEVQA Q9): an interrogative create —
     "should i add yoga to my calendar tomorrow?" — must neither auto-create
