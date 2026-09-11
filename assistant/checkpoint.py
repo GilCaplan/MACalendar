@@ -106,8 +106,14 @@ class Checkpoint:
             # measurement is the point and this is bookkeeping. It degrades to
             # the old behaviour, loudly.
             print(f"  [checkpoint] cannot write {self.path} — running without one")
+        #: Units reclaimed from disk. They cost no time THIS run, so counting
+        #: them in the rate makes a resumed job look enormously fast and hands
+        #: back an ETA far shorter than the truth — Board D resumed 111 rows and
+        #: reported "eta 27m" for what was really a three-hour run. An ETA you
+        #: cannot trust is worse than none, because you plan around it.
+        self._resumed = len(self._done)
         if self._done:
-            print(f"  [checkpoint] resuming {name}: {len(self._done)} unit(s) "
+            print(f"  [checkpoint] resuming {name}: {self._resumed} unit(s) "
                   f"already done")
 
     def _load(self) -> None:
@@ -154,15 +160,16 @@ class Checkpoint:
 
     def progress(self) -> None:
         n = len(self._done)
+        did = n - self._resumed            # work actually done THIS run
         el = max(_now() - self._t0, 1e-6)
-        rate = n / el
+        rate = did / el
         line = f"  [{self.name}] {n}"
         if self.total:
-            pct = 100.0 * n / self.total
-            line += f"/{self.total} ({pct:.0f}%)"
+            line += f"/{self.total} ({100.0 * n / self.total:.0f}%)"
             if rate > 0:
-                eta = (self.total - n) / rate
-                line += f" · eta {eta/60:.0f}m"
+                line += f" · eta {((self.total - n) / rate) / 60:.0f}m"
+        if self._resumed:
+            line += f" · {self._resumed} resumed"
         line += f" · {rate*60:.0f}/min · {el/60:.0f}m elapsed"
         print(line, flush=True)
 

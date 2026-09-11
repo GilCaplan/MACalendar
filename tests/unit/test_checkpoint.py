@@ -152,3 +152,36 @@ def test_progress_is_real_time_even_inside_a_frozen_clock(scratch, capsys):
     assert 0 <= elapsed_m < 1, f"elapsed read a frozen clock: {out!r}"
     rate = float(out.split("·")[-2].strip().split("/min")[0])
     assert 0 < rate < 10_000_000, f"rate read a frozen clock: {out!r}"
+
+
+def test_resumed_units_do_not_inflate_the_rate_or_the_eta(scratch, capsys,
+                                                          monkeypatch):
+    """An ETA you cannot trust is worse than none, because you plan around it.
+
+    Board D resumed 111 rows and immediately reported "eta 27m" for what was
+    really a three-hour run: the reclaimed rows cost no time THIS run, so
+    counting them in the rate made the job look enormously fast.
+
+    The clock is driven by hand. A unit test finishes in microseconds, so ANY
+    rate computed against real elapsed time is enormous and the assertion could
+    not tell the two behaviours apart — which is how the previous version of
+    this test failed against correct code.
+    """
+    first = Checkpoint("t")
+    for i in range(100):
+        first.record(f"old-{i}", i)
+    first.finish()
+    capsys.readouterr()
+
+    ticks = iter([0.0] + [60.0] * 10)       # construct at t=0, report at t=60s
+    monkeypatch.setattr(ckmod, "_now", lambda: next(ticks))
+
+    second = Checkpoint("t", total=200, every=1)
+    second.record("new-0", 0)
+    out = capsys.readouterr().out
+
+    assert "100 resumed" in out
+    # ONE unit of real work in 60 seconds. Counting the 100 reclaimed rows
+    # would report 101/min and an ETA 100x too short.
+    assert "· 1/min ·" in out, out
+    assert "eta 99m" in out, out
