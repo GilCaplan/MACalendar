@@ -11,6 +11,8 @@ in the same commit — the assertion failure text says so on purpose.)
 
 from __future__ import annotations
 
+import pathlib
+
 import dataclasses
 import inspect
 
@@ -44,7 +46,18 @@ def test_item_kinds_are_fixed():
 def test_engine_state_fields():
     assert _field_names(EngineState) == {
         # ingest
-        "raw_text", "source", "current_view", "supports_edit",
+        "raw_text", "source",
+        # `device` added 2026-09-10 (Gil): WHICH client, where `source` is only
+        # what KIND of client. Two iPhones are two request streams and must
+        # never be concatenated; `source` says "ios" for both. Contract
+        # EXTENSION, recorded in DOCUMENTATION/ENGINE.md in the same change.
+        "device",
+        # `stream` added 2026-09-10 (Gil, "prevents malicious actors"): what the
+        # server CONCLUDED, where `device` is what the client CLAIMED. A caller
+        # can assert any device id, so the grouping identity must be the
+        # post-verification one. Contract EXTENSION — ENGINE.md in the same change.
+        "stream",
+        "current_view", "supports_edit",
         "supports_confirm", "mode",
         # step 1
         "text", "corrections", "needs_edit",
@@ -68,6 +81,16 @@ def test_item_fields():
         # drift — see assistant/engine/segmentation/ARCHITECTURE.md.
         "id", "kind", "text", "time", "slots", "action", "intent", "blocked",
         "labels",
+        # `source` added 2026-09-10 (Gil): the VERBATIM span this item was cut
+        # from. A DELIBERATE contract extension, like `time` before it — the
+        # reasoning is on the field in state.py and in DOCUMENTATION/ENGINE.md.
+        #
+        # It exists so a finished ask can be subtracted from the command
+        # EXACTLY. `text` cannot: the time is split off it and
+        # decompose_validate may repair its words, so it stops being a
+        # substring of anything. Without a span the trim in X1' is something
+        # the model is INSTRUCTED to do rather than something already done.
+        "source",
     }, FROZEN
 
 
@@ -155,14 +178,69 @@ def test_orchestrator_signature():
     its shape is the outermost contract."""
     from assistant.engine import run_transcript
     params = list(inspect.signature(run_transcript).parameters)
-    assert params == ["text", "trace", "source", "current_view",
-                      "trace_run", "supports_edit", "supports_confirm"], FROZEN
+    # `device` added 2026-09-10 (Gil) beside `source`, which it completes
+    # rather than replaces: source is what KIND of client, device is WHICH one.
+    # Contract EXTENSION — DOCUMENTATION/ENGINE.md moves in the same change.
+    # Safe in this position because no caller passes past `text` positionally
+    # (checked); every one uses keywords.
+    assert params == ["text", "trace", "source", "device", "stream",
+                      "current_view", "trace_run", "supports_edit",
+                      "supports_confirm"], FROZEN
 
 
-def test_crosscheck_blame_router_is_deterministic():
-    """The model never picks the stage: mismatch type → stage is a fixed map,
-    and every target is a real stage."""
-    from assistant.engine.llmjudge.llmjudge import BLAME, MAX_REENTRIES
-    assert set(BLAME) == {"missing", "extra", "wrong_fields", "format"}, FROZEN
-    assert all(stage in STAGES for stage in BLAME.values()), FROZEN
+def test_llmjudge_router_is_deterministic():
+    """The model never picks the route or the stage: finding type → route is a
+    fixed map, every finding type has one, and every blamed stage is real.
+
+    RE-CUT 2026-09-10 (Gil): `missing` and `extra` are gone with the ask
+    extraction — *"that defeats the point of what segmentation →
+    decompose_validate → FastRule did"*. Every remaining finding is a statement
+    about ONE OBJECT, checkable against the transcript alone, so the stage no
+    longer needs a second opinion on how many asks a command contained.
+    """
+    from assistant.engine.llmjudge import findings as F
+    from assistant.engine.llmjudge.llmjudge import MAX_REENTRIES
+
+    types = {F.UNGROUNDED_SUBJECT, F.UNSUPPORTED_FIELD, F.NOT_AN_ASK}
+    assert set(F.ROUTE) == types, FROZEN
+    assert set(F.BLAMED) == types, FROZEN
+    assert set(F.ROUTE.values()) == {F.REWRITE, F.COMMIT_FLAGGED, F.PANEL}, FROZEN
+    assert all(stage in STAGES for stage in F.BLAMED.values()), FROZEN
+    # Only the SUBJECT earns a round. A rewrite cannot invent a value nobody
+    # said, and an object nothing asks for is not made real by re-parsing —
+    # both are the 2026-09-08 loop storm in code form.
+    assert {t for t, r in F.ROUTE.items() if r == F.REWRITE} == {
+        F.UNGROUNDED_SUBJECT}, FROZEN
     assert MAX_REENTRIES == 3, FROZEN
+
+
+def test_the_judge_makes_no_model_call_at_all():
+    """The stage JUDGES deterministically. There is no model call left in it.
+
+    Pinned because each removal was the design, not a cleanup, and both would be
+    easy to restore helpfully:
+
+    * `extract_asks` (gone 2026-09-10) re-derived segmentation's answer with an
+      8B and then blamed segmentation for the disagreement.
+    * `ground_claims` (gone the same day, Gil approved) asked the model to quote
+      the words behind each field. It was **57% of every Ollama call the system
+      made** and it changed no outcome — 32 hand-written cases score identically
+      with and without it. Shown a title of "gym membership" the model quotes
+      "gym session", the words behind the title the object SHOULD have had, and
+      a non-`none` answer is an accepted one. `retired/llmjudge-grounding-call/`
+      has the module and the ledger.
+
+    `rescue.py` still calls a model and that is correct: parsing what FastRule
+    DEFERRED is the model doing a parse, not judging one.
+    """
+    from assistant.engine.llmjudge import llmjudge, verdict
+    assert not pathlib.Path("assistant/engine/llmjudge/evidence.py").exists(), FROZEN
+    for mod in (llmjudge, verdict):
+        src = pathlib.Path(mod.__file__).read_text()
+        code = "\n".join(ln for ln in src.splitlines()
+                          if not ln.lstrip().startswith("#"))
+        assert "call_json" not in code, (
+            f"{mod.__name__} calls the model again — {FROZEN}")
+    import inspect
+    assert list(inspect.signature(verdict.judge).parameters) == ["state", "produced"], (
+        f"judge() grew a model argument back — {FROZEN}")

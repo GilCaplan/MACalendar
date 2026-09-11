@@ -130,9 +130,14 @@ def check_llm() -> Check:
             c.add(pulled, f"model {want} {'pulled' if pulled else 'NOT pulled'}")
             if pulled:
                 # listed != working — confirm it actually generates a token.
-                g = requests.post(f"{cfg.ollama.base_url}/api/generate",
-                                  json={"model": want, "prompt": "hi", "stream": False,
-                                        "options": {"num_predict": 1}}, timeout=30)
+                # Gated: it is a real completion, so `assistant doctor` run while
+                # a board is going would otherwise add one more contender to the
+                # queue it is trying to report on.
+                from assistant import model_protocol
+                with model_protocol.hold():
+                    g = requests.post(f"{cfg.ollama.base_url}/api/generate",
+                                      json={"model": want, "prompt": "hi", "stream": False,
+                                            "options": {"num_predict": 1}}, timeout=30)
                 c.add(g.ok and bool(g.json().get("response") is not None),
                       "model generates (a real one-token completion)")
         except Exception as e:

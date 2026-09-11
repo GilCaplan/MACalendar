@@ -46,8 +46,14 @@ def test_the_engine_layer_covers_every_real_engine_stage():
     # the stage modules the engine actually ships
     import pkgutil
     import assistant.engine as E
+    # Modules that are INFRASTRUCTURE, not stages. `boundary` joined them on
+    # 2026-09-10: it renders the value crossing between two stages for the
+    # review panel, so it has no `run(state, cfg)` and nothing for the doctor
+    # to check that checking the stages does not already cover.
+    _NOT_A_STAGE = ("state", "llm", "fastrule", "component", "boundary",
+                    "__init__")
     real = {m.name for m in pkgutil.iter_modules(E.__path__)
-            if m.name not in ("state", "llm", "fastrule", "component", "__init__")}
+            if m.name not in _NOT_A_STAGE}
     for stage in real:
         assert f'"{stage}"' in src, (
             f"engine stage '{stage}' exists but cli.check_engine does not verify it — "

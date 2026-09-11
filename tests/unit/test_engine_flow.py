@@ -427,3 +427,206 @@ def test_background_verify_is_silent_in_measurement_runs(monkeypatch):
     st = EngineState(raw_text="buy milk", text="buy milk", source="test")
     engine._start_background_verify(st, engine.load_config())
     assert spawned == []
+
+
+# ---------------------------------------------------------------------------
+# ONE STREAM PER SOURCE (Gil, 2026-09-10)
+# ---------------------------------------------------------------------------
+
+def test_coalesce_groups_map_back_to_their_rows():
+    """The group IS the row mapping. The previous code re-derived the batch size
+    by counting ")and(" in the RENDERED string, which desynchronises the moment
+    a transcript contains that literal — and then the wrong pending row gets
+    marked done."""
+    from assistant.engine.ingest.coalesce import coalesce_groups, wrap
+
+    texts = ["book gym at 7", 'weird )and( text', "buy milk"]
+    groups = coalesce_groups(texts, max_tokens=300)
+    assert groups == [texts]                       # one batch, three members
+    rendered = wrap(groups[0])
+    # The naive count would say FOUR commands went in. The group says three.
+    assert rendered.count(")and(") == 3
+    assert len(groups[0]) == 3
+
+
+def test_the_retry_loop_never_mixes_two_sources():
+    """A `test` sandbox's queued words must never be concatenated with a real
+    phone command — the sandbox's prompt would execute on the real calendar, and
+    the batch would be attributed to one source, defeating weekly_review's
+    test-traffic filter.
+
+    `pending.source` was recorded on every row all along and simply never read
+    by the retry loop."""
+    from assistant.api.server import retry_pending_once
+
+    rows = [
+        {"id": 1, "source": "ios",  "transcript": "book gym at 7",     "attempts": 0},
+        {"id": 2, "source": "test", "transcript": "delete everything", "attempts": 0},
+        {"id": 3, "source": "ios",  "transcript": "buy milk",          "attempts": 0},
+        {"id": 4, "source": "mac",  "transcript": "call the dentist",  "attempts": 0},
+    ]
+    resolved: list = []
+
+    class _Mem:
+        def pending(self): return list(rows)
+        def resolve_pending(self, rid, status, result=""): resolved.append((rid, status))
+        def bump_pending(self, rid): pass
+
+    seen: list = []
+
+    def _run(text, **kw):
+        seen.append((kw.get("source"), text))
+        return {"parse": "fast", "message": "ok"}
+
+    assert retry_pending_once(_run, _Mem(), 300) == 3      # one batch per source
+
+    by_source = dict(seen)
+    assert set(by_source) == {"ios", "test", "mac"}
+    # The two iOS commands DID coalesce with each other — that is the feature.
+    assert "gym" in by_source["ios"] and "milk" in by_source["ios"]
+    # …and nothing crossed a source boundary.
+    assert "delete everything" not in by_source["ios"]
+    assert "gym" not in by_source["test"] and "milk" not in by_source["test"]
+    assert by_source["mac"] == "call the dentist"
+    assert {r for r, _ in resolved} == {1, 2, 3, 4}
+
+
+def test_two_different_iphones_are_never_spoken_as_one_utterance():
+    """THE DEFECT `source`-GROUPING COULD NOT SEE (Gil, 2026-09-10).
+
+    *"each device is its own unique requests; two different iphones or my
+    laptop that send requests should be queued; the same device can merge."*
+
+    `source` is "ios" for every iPhone on the tailnet, so the flush treated all
+    of them as ONE stream: two people's queued commands were concatenated into
+    ("a")and("b") and parsed as one person speaking. Nothing about the old test
+    above could catch it — both phones pass every assertion it makes.
+    """
+    from assistant.api.server import retry_pending_once
+
+    rows = [
+        {"id": 1, "source": "ios", "device": "phone-A",
+         "transcript": "book gym at 7", "attempts": 0},
+        {"id": 2, "source": "ios", "device": "phone-B",
+         "transcript": "cancel my dentist", "attempts": 0},
+        {"id": 3, "source": "ios", "device": "phone-A",
+         "transcript": "buy milk", "attempts": 0},
+    ]
+
+    class _Mem:
+        def pending(self): return list(rows)
+        def resolve_pending(self, rid, status, result=""): pass
+        def bump_pending(self, rid): pass
+
+    seen: list = []
+
+    def _run(text, **kw):
+        seen.append((kw.get("source"), text))
+        return {"parse": "fast", "message": "ok"}
+
+    assert retry_pending_once(_run, _Mem(), 300) == 2      # one batch PER PHONE
+
+    texts = [t for _src, t in seen]
+    a = next(t for t in texts if "gym" in t)
+    b = next(t for t in texts if "dentist" in t)
+    # phone A's two commands merged with each other — that is the feature.
+    assert "milk" in a
+    # …and phone B's never joined them, in either direction.
+    assert "dentist" not in a
+    assert "gym" not in b and "milk" not in b
+    # Both batches are still attributed to the SOURCE the engine understands.
+    # `EngineState.source` is "mac"|"ios"|"test"; a stream key like "ios:phone-A"
+    # is not one of them, and passing the key through would put an unknown
+    # source on every trace, vocabulary correction and memory row — which is the
+    # value `weekly_review.py` filters test traffic on.
+    assert {src for src, _ in seen} == {"ios"}
+
+
+def test_the_same_phone_still_merges_after_the_split():
+    """The split must not cost the feature it was protecting: one device's
+    backlog is one person's, and coalescing it into one parse is the point."""
+    from assistant.api.server import retry_pending_once
+
+    rows = [{"id": i, "source": "ios", "device": "phone-A",
+             "transcript": t, "attempts": 0}
+            for i, t in enumerate(("buy milk", "call Sam", "book gym"), start=1)]
+
+    class _Mem:
+        def pending(self): return list(rows)
+        def resolve_pending(self, rid, status, result=""): pass
+        def bump_pending(self, rid): pass
+
+    seen: list = []
+    assert retry_pending_once(lambda text, **kw: (seen.append(text),
+                                                  {"parse": "fast", "message": "ok"})[1],
+                              _Mem(), 300) == 1
+    assert len(seen) == 1
+    for word in ("milk", "Sam", "gym"):
+        assert word in seen[0]
+    # The wrapper is the deterministic one segmentation knows how to split.
+    assert seen[0].count(")and(") == 2
+
+
+def test_a_client_that_sends_no_device_id_behaves_exactly_as_before():
+    """Old clients must keep working. With no id, grouping degrades to source —
+    a Mac still never merges with a phone, and two silent phones merge as they
+    always did. Worse than knowing which phone, better than today, and pinned
+    here so the degradation is a decision rather than a surprise."""
+    from assistant.api.server import retry_pending_once
+
+    rows = [
+        {"id": 1, "source": "ios", "device": "", "transcript": "buy milk", "attempts": 0},
+        {"id": 2, "source": "ios", "device": "", "transcript": "book gym", "attempts": 0},
+        {"id": 3, "source": "mac", "device": "", "transcript": "call Sam", "attempts": 0},
+    ]
+
+    class _Mem:
+        def pending(self): return list(rows)
+        def resolve_pending(self, rid, status, result=""): pass
+        def bump_pending(self, rid): pass
+
+    seen: list = []
+    assert retry_pending_once(lambda text, **kw: (seen.append((kw.get("source"), text)),
+                                                  {"parse": "fast", "message": "ok"})[1],
+                              _Mem(), 300) == 2
+    by_source = dict(seen)
+    assert "milk" in by_source["ios"] and "gym" in by_source["ios"]
+    assert by_source["mac"] == "call Sam"
+
+
+def test_rows_written_before_the_device_column_existed_still_flush():
+    """A live queue has rows from before the migration. They carry no `device`
+    key at all — not an empty one — and the flush must not raise on them."""
+    from assistant.api.server import retry_pending_once
+
+    rows = [{"id": 1, "source": "ios", "transcript": "buy milk", "attempts": 0}]
+
+    class _Mem:
+        def pending(self): return list(rows)
+        def resolve_pending(self, rid, status, result=""): pass
+        def bump_pending(self, rid): pass
+
+    seen: list = []
+    assert retry_pending_once(lambda text, **kw: (seen.append(text),
+                                                  {"parse": "fast", "message": "ok"})[1],
+                              _Mem(), 300) == 1
+    assert seen == ["buy milk"]
+
+
+def test_a_single_queued_command_is_not_wrapped():
+    """One command from one source is passed through untouched — the ("…")and(…)
+    wrapper exists for BATCHES and would otherwise be noise segmentation has to
+    undo."""
+    from assistant.api.server import retry_pending_once
+
+    class _Mem:
+        def pending(self):
+            return [{"id": 1, "source": "ios", "transcript": "book gym at 7",
+                     "attempts": 0}]
+        def resolve_pending(self, *a, **k): pass
+        def bump_pending(self, *a, **k): pass
+
+    seen: list = []
+    retry_pending_once(lambda text, **kw: (seen.append(text), {"parse": "fast"})[1],
+                       _Mem(), 300)
+    assert seen == ["book gym at 7"]

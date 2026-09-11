@@ -56,6 +56,58 @@ def _build_stt(config: AppConfig):
         return GoogleSTT(config.google_stt)
 
 
+def _identity(port: int) -> tuple:
+    """This machine's ISSUED name and token — `(device_id, token)`.
+
+    Enrols once, on first run, and keeps the result. Enrolment matters because
+    a self-chosen id is only a CLAIM: two machines could pick the same one by
+    accident, and any caller could elect to be your phone. The server issues the
+    id and signs it, so the id in a request is a fact rather than an assertion.
+
+    An unverified client is never rejected — it is ISOLATED, getting its own
+    queue instead of joining anyone's — so every failure here degrades to
+    exactly the behaviour before enrolment existed:
+
+      * the server is not up yet (the GUI can start first) — retry next command;
+      * the file cannot be written — no identity, and the Mac is anonymous;
+      * an old server with no `/devices/enroll` — the id is sent unsigned.
+
+    Stored beside the other personal state, with the usual env override. The
+    token is a bearer credential, so the file is created 0600.
+    """
+    import json
+    import os
+    import pathlib as _pl
+    import requests as _rq
+
+    path = _pl.Path(os.environ.get("MACALENDAR_DEVICE_FILE")
+                    or (_pl.Path.home() / ".assistant_tools" / "device.json"))
+    try:
+        got = json.loads(path.read_text())
+        if got.get("device_id"):
+            return got["device_id"], got.get("token", "")
+    except (OSError, ValueError):
+        pass
+    try:
+        import socket
+        label = f"Mac · {socket.gethostname()}"
+        r = _rq.post(f"http://127.0.0.1:{port}/devices/enroll",
+                     json={"source": "mac", "label": label}, timeout=5)
+        r.raise_for_status()
+        got = r.json()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(str(path), os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
+        try:
+            os.write(fd, json.dumps(got).encode())
+        finally:
+            os.close(fd)
+        logger.info("🔑 Enrolled this Mac as %s (%s)", got["device_id"], label)
+        return got["device_id"], got.get("token", "")
+    except Exception as e:
+        logger.debug("device enrolment deferred: %s", e)
+        return "", ""
+
+
 class Pipeline:
     """
     Coordinates:
@@ -449,9 +501,15 @@ class Pipeline:
             logger.debug("🖥️ %d correction(s) carried from the pending queue", len(corrections))
 
         port = getattr(self.config.api, "port", 8080)
+        _dev_id, _dev_token = _identity(port)
         payload = {
             "transcript": transcript,
             "source": "mac",
+            # WHICH Mac, not just "a Mac" (Gil, 2026-09-10). `source` is a
+            # category; two machines sharing one brain over Tailscale are two
+            # request streams and their queued commands must never be
+            # concatenated. See assistant/model_protocol.py.
+            "device_id": _dev_id,
             "current_view": self.current_view,
             # This client can show the "check the transcription" dialog, so the
             # engine's gate may answer needs_edit here.
@@ -468,7 +526,11 @@ class Pipeline:
         req = urllib.request.Request(
             f"http://127.0.0.1:{port}/voice/text",
             data=_json.dumps(payload).encode(),
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json",
+                     # The token proves the id was ISSUED, not invented. Without
+                     # it the request still works — it is isolated rather than
+                     # refused — so an un-enrolled Mac degrades, never breaks.
+                     **({"X-Device-Token": _dev_token} if _dev_token else {})},
             method="POST",
         )
         key = getattr(self.config.api, "key", None)
@@ -747,6 +809,7 @@ class Pipeline:
         trace = Trace(source="mac")
         self._trace_run = trace_bus.publish_begin("Mac")
         trace.on_step(lambda st: trace_bus.publish_step(self._trace_run, st.to_dict()))
+        trace.on_boundary(lambda b: trace_bus.publish_boundary(self._trace_run, b))
         return trace
 
     @staticmethod
