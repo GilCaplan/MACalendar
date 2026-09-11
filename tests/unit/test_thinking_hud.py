@@ -483,7 +483,15 @@ def _secs(text: str) -> float:
     return float(text[:-2])
 
 
-def test_the_active_row_gets_a_live_increasing_timer_and_a_spinner(hud):
+def test_the_running_row_shows_a_spinner_and_no_number(hud):
+    """The live counter is GONE (Gil, 2026-09-11: "remove the elapsed time
+    thing its annoying").
+
+    It ticked at 10Hz, which made it the most eye-catching thing on a card
+    whose job is to show what the assistant did — and it said nothing anyone
+    could act on. The SPINNER is what marks the step in progress; the duration
+    is worth reading once it is final.
+    """
     from PyQt6.QtTest import QTest
     widget, _, app = hud
     p = widget.panel
@@ -495,24 +503,36 @@ def test_the_active_row_gets_a_live_increasing_timer_and_a_spinner(hud):
 
     _, _stage, _icon, _text, time_lbl, mark_stack, _state, spinner = _row_for(rail, "rules first")
 
-    # It's the slot in progress: the spinner occupies the mark slot and is
+    # It is the slot in progress: the spinner occupies the mark slot and is
     # actually ticking, not merely constructed.
     assert mark_stack.currentWidget() is spinner
     assert spinner._timer.isActive(), "the active row's spinner is not animating"
 
+    assert time_lbl.text() == "", "the running row is showing a duration again"
     QTest.qWait(150)
     app.processEvents()
-    first = _secs(time_lbl.text())
-    QTest.qWait(150)
-    app.processEvents()
-    second = _secs(time_lbl.text())
-
-    assert second > first, f"live counter did not advance: {first} -> {second}"
+    assert time_lbl.text() == "", "something is still counting on the active row"
 
     # A slot the run hasn't reached yet shows neither a mark nor a time.
     untouched = _row_for(rail, "judge")
     assert untouched[6].text() == ""            # state label
     assert untouched[4].text() == ""            # time label
+
+
+def test_nothing_repaints_the_rail_while_a_run_is_in_flight(hud):
+    """The ticker was a QTimer per rail. A dozen finished rails sitting in
+    history each owning a 10Hz timer was the cost it carried; this pins that
+    the timer is gone rather than merely quiet."""
+    widget, _, _ = hud
+    p = widget.panel
+    p.begin("Mac")
+    p.add_step(_step("vocab", "Vocabulary"))
+    rail = p._rail
+
+    assert not hasattr(rail, "_live_timer"), "the rail still owns a live timer"
+    assert not hasattr(rail, "_tick_live")
+    # `_active_since` STAYS — finish() needs it to freeze the last slot's span.
+    assert rail._active_since is not None
 
 
 def test_finishing_freezes_the_time_and_stops_the_spinner(hud):
@@ -681,23 +701,32 @@ def test_a_late_step_unfolds_the_chain_it_is_walking_again(hud):
     assert rail._slots[rail._active][1] == "judge"
 
 
-def test_a_freshly_lit_slot_resets_its_own_timer(hud):
-    """Each slot's live counter starts from zero when IT becomes active, not
-    from whenever the rail itself was created."""
+def test_a_slot_that_lights_late_still_gets_its_own_span(hud):
+    """Replaces `test_a_freshly_lit_slot_resets_its_own_timer`, which asserted
+    the live counter started near zero on each newly lit slot. There is no live
+    counter now — but the thing it was really protecting still matters: a
+    slot's frozen duration must be ITS span, not the whole run's, so
+    `_active_since` has to be reset when the slot lights."""
     from PyQt6.QtTest import QTest
     widget, _, app = hud
     p = widget.panel
     p.begin("Mac")
     p.add_step(_step("vocab", "Vocabulary"))
     rail = p._rail
-    QTest.qWait(200)                            # "fix words" ticks for a while
+    QTest.qWait(200)                            # "fix words" sits active a while
     app.processEvents()
 
+    lit_at = rail._active_since
     p.add_step(_step("rule", "Rules"))          # "rules first" only just lit
     app.processEvents()
-    _, _, _, _, new_time, _stack, _state, _spinner = _row_for(rail, "rules first")
-    assert _secs(new_time.text()) < 0.1, \
-        f"new active row started at {new_time.text()!r}, not close to zero"
+    assert rail._active_since > lit_at, \
+        "the newly lit slot inherited the previous slot's start"
+
+    p.finish({"message": "ok", "brain": "engine-v3"})
+    app.processEvents()
+    _, _, _, _, time_lbl, _stack, _state, _spinner = _row_for(rail, "rules first")
+    assert _secs(time_lbl.text()) < 0.2, \
+        f"the last slot was charged for the whole run: {time_lbl.text()!r}"
 
 
 # ---------------------------------------------------------------------------
