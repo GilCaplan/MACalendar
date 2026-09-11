@@ -215,8 +215,25 @@ class NotificationsConfig(BaseModel):
     none". default_lead_minutes 0 means opt-in only: reminders fire only
     where an event or category asked for one."""
     enabled: bool = True
+
+    # THE DAY PANEL (Gil, 2026-09-11): "it's on or off and it shows in a nice
+    # manner the event calendar and tasks for today". One summary of the day,
+    # not a stream of things about to start — so `daily_digest` is the single
+    # switch the iOS app exposes, and `digest_time` is a config knob rather
+    # than another control to think about.
+    daily_digest: bool = True
+    digest_time: str = "07:00"          # local, HH:MM
+
+    # The PRE-EVENT reminders (a banner N minutes before something starts).
+    # Off by default since the day panel replaced them — Gil asked for the
+    # panel "and not when something is about to pop up". The machinery below
+    # is intact and dormant rather than deleted: `reminder_minutes` is a
+    # frozen engine contract and "with a 15 minute reminder" still parses and
+    # stores, so turning this back on restores it whole.
+    pre_event: bool = False
     default_lead_minutes: int = 0
     category_leads: dict[str, int] = {}
+
     respect_observance: bool = True
     catch_up_minutes: int = 10          # Mac: fire late if missed by <= this
     sound: bool = True

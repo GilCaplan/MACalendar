@@ -28,7 +28,7 @@ purely backend (no client code beyond displaying the effects).
 | hybrid | [Tasks](#tasks--to-dos) | Today/General lists, priorities, quantities | `db.py`, `TasksView` |
 | hybrid | [Tag discovery](#tag-discovery--the-class-set-grows-with-consent) | consent-based new classes + history | `actions/todo/tag_discovery.py` |
 | hybrid | [Share event as .ics](#share-event-as-ics) | one event → RFC 5545 file, both platforms | `ics_export.py`, `event_dialog.py` |
-| hybrid | [Pre-event notifications](#pre-event-notifications) | phone rings from its cache; server computes policy; per-category mute; live "Up Next" lock-screen card | `notify.py`, `ReminderScheduler.swift`, `LiveActivityManager.swift` |
+| hybrid | [The day panel](#the-day-panel) | one on/off summary of today's events + tasks; server owns the wording; pre-event banners now dormant | `notify.py`, `notifier.py`, `GET /digest` |
 | hybrid | [Voice I/O & capture controls](#voice-in--voice-out--capture-controls) | hotkey/stop-phrases/review-bar; engine-selectable STT; spoken replies | `stt/`, `Voice/`, `tts/` |
 | hybrid | [Edit-transcription gate](#the-edit-transcription-round-trip-needs_edit) | doubted words → editor → learned | `engine/ingest/repair.py` |
 | hybrid | [Confirm-create gate](#the-confirm-create-gate-confirm_create) | "should I add yoga tomorrow?" → Add / No, never a silent guess | `engine/decompose_validate/validate.py`, `/voice/confirm` |
@@ -50,7 +50,7 @@ purely backend (no client code beyond displaying the effects).
 | backend | [Categories & stacking](#events-categories-colours--binder-stacking) | auto-colour/categorise; overlaps stack | `actions/calendar/categories.py` |
 | backend | [Hebrew calendar & observance](#hebrew-calendar--observance) | sundown-bounded halachic windows + gate | `observance.py`, `hebrew_calendar.py` |
 | backend | [Recurring events](#recurring-events) | daily/weekly/monthly, announced rounding | `db.py`, `engine/decompose_validate/validate.py` |
-| backend | [API server](#the-api-server) | the single front door, 112 endpoints | `api/server.py` |
+| backend | [API server](#the-api-server) | the single front door, 113 endpoints | `api/server.py` |
 | backend | [Hosted calendar sync](#hosted-calendar-sync) | optional Outlook two-way / ICS read | `calendar_sync/` |
 | backend | [Self-improvement loop](#the-self-improvement-loop) | the AI measures & improves itself | `dataset/`, `scripts/` |
 | backend | [Diagnostics & logs](#diagnostics--self-observation-logs) | NLU tracking, LLM-judge bug log, audit, calibration | `scripts/` |
@@ -416,7 +416,42 @@ row straddles two), `timer_view.py` (`_on_export_csv`).
 same boundary as undo-restore); CSV derives rows from the panel's own
 aggregation helper so file and tiles can't disagree.
 
-### Pre-event notifications
+### The day panel
+
+**What:** One summary of today — the day's events in the order they happen,
+then today's tasks — delivered once, at `notifications.digest_time` (07:00
+local by default). **On or off, and that is the whole control** (Gil,
+2026-09-11: *"it's on or off and it shows in a nice manner the event calendar
+and tasks for today"*). It replaced a stream of "starting soon" banners.
+
+**Where:** `assistant/notify.py` — `digest_verdict` (when, and whether a
+Shabbat/yom tov window holds it) and `build_digest` (what it says);
+`GET /digest[?date=]` serves it; the Mac fires it from `notifier.py`
+(`DIGEST_KEY`, a negative sentinel in `reminder_log`, is the once-a-day
+guard — the same UNIQUE row that dedupes reminders); the switch is
+`notifications.daily_digest`, writable through the existing `PATCH /config`.
+
+**How, and why it matters:** the SERVER owns the wording, not just the rows.
+`build_digest` returns the finished `title` and `body`, so the Mac banner and
+the phone's notification say the same thing — two clients formatting their own
+drift the moment one learns about all-day events and the other does not. A
+dated task belongs to its due date; an undated one is *outstanding*, which is
+a today concept, so it appears on today's panel and no other day's. Unlike a
+pre-event reminder, a late panel is NOT caught up: a reminder that arrives
+late is still about something that has not happened, but a summary of the day
+arriving at 4pm is the noise this replaced.
+
+**Not done:** iOS. `ReminderScheduler` still schedules per-event reminders and
+Settings still shows the lead-time controls; the phone needs to schedule one
+daily notification from `GET /digest` and show one toggle. Needs a machine
+with Xcode — see TASKS row 84.
+
+### Pre-event notifications (dormant)
+
+**Status:** `notifications.pre_event` ships **false** — the day panel replaced
+these. Nothing is deleted: `reminder_minutes` is a frozen engine contract,
+"with a 15 minute reminder" still parses and stores, and turning the flag on
+restores the whole path below (pinned by `test_digest.py`).
 
 **What:** "remind me before it starts." The server computes each event's
 `notify_at` (lead resolution: event override → category lead **or mute — a
@@ -540,7 +575,7 @@ it; weekly series start on the soonest named weekday.
 skipping applies per instance at creation.
 
 ### The API server
-**What:** The single front door — 112 endpoints; every surface is its client.
+**What:** The single front door — 113 endpoints; every surface is its client.
 **Where:** `assistant/api/server.py` (HTTP only — no parsing/execution);
 generated reference `DOCUMENTATION/API_REFERENCE.md`
 (`scripts/gen_api_reference.py`).

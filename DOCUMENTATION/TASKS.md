@@ -95,6 +95,10 @@ Running list of user-reported issues and feature requests, with status. Update w
 
 | 83 | **iOS ThinkingView lags the Mac panel** — no outcome badge (row 82) and no folded chain rail (row 81). Needs a machine with Xcode: `swiftc -parse` is not enough, it missed three real errors last session. | todo | `MACalendar-iOS/MACalendar-iOS/Views/ThinkingView.swift` |
 
+| 84 | **iOS half of the day panel.** The server side is done (row 85): `GET /digest` serves today's events + tasks with the wording already decided, `notifications.daily_digest` is the on/off through the existing `PATCH /config`, and the Mac fires it. The phone still schedules up to 55 per-event reminders in `ReminderScheduler.swift` and still shows lead-time controls in `SettingsView`; it needs to schedule ONE daily notification from the digest and show ONE toggle. Needs a machine with Xcode — unbuilt Swift does not ship (same constraint as row 83). | todo | `ReminderScheduler.swift`, `Views/SettingsView.swift` |
+
+| 85 | **The day panel replaced pre-event notifications** (Gil, 2026-09-11: "more of a panel that nicely shows what i have today and not when something is about to pop up… it's on or off"). One summary of today at `notifications.digest_time`, delivered once. `notify.digest_verdict` decides when (held through Shabbat/yom tov on DEVQA Q6's ruling, fails open); `notify.build_digest` decides what it SAYS as well as what is in it, so the Mac banner and the phone read identically. Mac delivery reuses `reminder_log`'s UNIQUE row with a negative sentinel id as the once-a-day guard rather than adding a table. Pre-event banners are dormant, not deleted — `pre_event: false`. A late panel is not caught up, unlike a late reminder: a summary arriving at 4pm is the noise this replaced. | done 2026-09-11 | `assistant/notify.py`, `assistant/notifier.py`, `GET /digest`, `tests/unit/test_digest.py` |
+
 **Q4 (Gil 2026-09-06, app stream):** Mac notification settings gains an
 "remind me even when the calendar is closed" option — the LaunchAgent detach
 ships BEHIND that toggle, default off (it changes the launch model: --reload,

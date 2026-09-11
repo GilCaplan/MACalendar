@@ -208,6 +208,12 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `GET` | `/observance/location` | Where sundown is currently computed for, and where that came from. |
 | `POST` | `/observance/location` | A device reporting where it is. |
 
+## /digest
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/digest` | Today's day panel: when it fires, what it says, and the rows behind it. |
+
 ## /config
 
 | Method | Path | What it does |

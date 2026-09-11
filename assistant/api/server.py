@@ -1819,6 +1819,26 @@ def create_app() -> Flask:
     _CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "config.yaml")
     _ALLOWED_PATCH_KEYS = {"llm_engine", "tts", "confirmation_level", "notifications"}
 
+    @app.get("/digest")
+    def digest():
+        """Today's day panel: when it fires, what it says, and the rows behind it.
+
+        One surface rather than "events plus todos plus work it out", because
+        the wording is policy too — the phone's notification and the Mac's
+        banner must say the same thing, and two clients formatting their own
+        drift the moment one learns about all-day events and the other does
+        not. `?date=` for any other day; defaults to today.
+        """
+        from assistant import notify as _notify
+
+        raw = request.args.get("date")
+        try:
+            day = datetime.date.fromisoformat(raw) if raw else datetime.date.today()
+        except ValueError:
+            return jsonify({"error": "date must be YYYY-MM-DD"}), 400
+        cfg = load_config().notifications
+        return jsonify(_notify.build_digest(day, cfg, get_db()))
+
     @app.get("/config")
     def config_get():
         cfg = load_config()
