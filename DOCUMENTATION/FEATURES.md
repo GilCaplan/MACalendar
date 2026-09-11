@@ -269,11 +269,21 @@ fast-lane answer no longer spends half a fixed-height card drawing the chain
 it did not walk. An unreached slot's mark is one glyph (`SKIP_MARK`): it
 shares a 14×14 box with the ✓ and the spinner, and the word that used to go
 there rendered as "pp".
+**The two non-object outcomes** — an item that leaves the object stage without
+an object — are rendered APART, because they are not the same event: a chip
+beside the step's title reads "not calendar work" (muted: the engine read the
+words correctly and there is no calendar work in them) or "reached me damaged"
+(amber: it *is* calendar work and something upstream handed the stage a broken
+item). Engine side, `fastrule/objects.NOT_AN_ASK` / `BAD_ITEM` on the trace
+step's `data["outcome"]`; panel side, `_StepRow._OUTCOMES`; tied together by
+`test_panel_agreement`. Red stays reserved for the error stage.
+*iOS has no equivalent badge yet — the Mac is ahead here.*
 **Looking at it:** `python -m scripts.shoot_panel "<command>" out.png [light]`
 renders the real panel against a real engine trace (scratch stores, no Ollama
 needed, `source: "test"`), writes the card unrolled to its full content
-height, and prints content-vs-card. Two panel defects shipped green because
-every test read a label's text back instead of looking at the pixels.
+height, and prints content-vs-card **and any step row wider than the card**.
+Three panel defects shipped green because every test read a label's text back
+instead of looking at the pixels.
 **Ergonomics:** menu-bar tray icon (show/hide/quit), sticky hide, corner
 parking, drag-to-reposition persisted across launches, idle translucency
 that solidifies on hover, minimise-to-header with live step count, joins

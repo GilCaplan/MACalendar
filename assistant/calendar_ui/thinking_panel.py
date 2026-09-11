@@ -259,10 +259,29 @@ class _StepRow(QWidget):
 
     The badge and the connector line are painted rather than laid out so the
     line always spans the row's real height, however far the detail text wraps.
+
+    A step carrying `data["outcome"]` — an item that left the object stage
+    without an object — also gets a worded chip beside its title. See
+    `_OUTCOMES`.
     """
 
     BADGE = 28
     GUTTER = 40
+
+    # The two non-object outcomes (`engine/fastrule/objects.py`), and the only
+    # place the panel decides what they LOOK like. They are rendered apart on
+    # purpose: one is a correct reading and one is an upstream defect, and a
+    # card that draws them the same way tells the reader that "this wasn't
+    # calendar work" and "this reached me broken" are the same event.
+    #
+    # Colour follows this file's standing rule — red is reserved for fatal.
+    # "not calendar work" is the assistant behaving properly, so it is muted,
+    # the same weight as a timing; "reached me damaged" is the system
+    # reporting a defect on itself, which is the amber case.
+    _OUTCOMES = {
+        "not_an_ask": ("not calendar work", "text2"),
+        "bad_item":   ("reached me damaged", "orange"),
+    }
 
     def __init__(self, step: dict, theme: _Theme, parent=None) -> None:
         super().__init__(parent)
@@ -286,6 +305,23 @@ class _StepRow(QWidget):
         f.setWeight(QFont.Weight.DemiBold)
         self._title.setFont(f)
         head.addWidget(self._title)
+
+        # The outcome chip, if this step carries one. A LAID-OUT label beside
+        # the title, not a glyph squeezed into a fixed box — the rail's
+        # "skipped" clipped to "pp" for exactly that reason, and this text is
+        # longer. It wraps to the row rather than truncating.
+        self._outcome = None
+        self._outcome_role = "text2"
+        outcome = ((step.get("data") or {}).get("outcome") or "").strip()
+        if outcome in self._OUTCOMES:
+            text, self._outcome_role = self._OUTCOMES[outcome]
+            self._outcome = QLabel(text)
+            of = self._outcome.font()
+            of.setPointSize(max(9, of.pointSize() - 2))
+            of.setWeight(QFont.Weight.DemiBold)
+            self._outcome.setFont(of)
+            head.addWidget(self._outcome)
+
         head.addStretch(1)
         self._ms = QLabel(_fmt_ms(int(step.get("ms", 0))))
         mf = QFont()
@@ -316,6 +352,11 @@ class _StepRow(QWidget):
         stage = self._step.get("stage", "")
         self._title.setStyleSheet(f"color: {theme.text};")
         self._ms.setStyleSheet(f"color: {theme.text2};")
+        if self._outcome is not None:
+            colour = {"text2": theme.text2, "orange": theme.orange}[self._outcome_role]
+            self._outcome.setStyleSheet(
+                f"color: {colour}; border: 1px solid {colour};"
+                f" border-radius: {_styles.RADIUS_SM}px; padding: 0px 5px;")
         if self._detail is not None:
             # Fatal (error stage) reads red; a review-stage note or soft
             # not-ok reads amber, not alarm-red.

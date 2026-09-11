@@ -83,13 +83,25 @@ def _measure(panel: ThinkingPanel) -> str:
     share = (100.0 * rail / content) if content else 0
     slots = len(panel._rail._slots) if panel._rail else 0
     folded = len(panel._rail.folded_slots()) if panel._rail else 0
-    return (
+    out = (
         f"  content {content}px in a {viewport}px viewport ({over:.2f}x)\n"
         f"  chain rail {rail}px ({share:.0f}% of content, "
         f"{slots - folded} of {slots} slots shown, {folded} folded away)\n"
         f"  step rows  {steps}px ({len(panel._rows)} rows)\n"
         f"  result card {card}px\n"
     )
+
+    # WIDTH, not just height. A row whose minimum width exceeds the card does
+    # not wrap — it clips, silently, on the right-hand edge, and the text that
+    # goes missing is the end of every sentence. Adding a chip beside a step
+    # title did exactly this and it was invisible in the numbers above.
+    too_wide = [(r._step.get("title", "?"), r.minimumSizeHint().width())
+                for r in panel._rows if r.minimumSizeHint().width() > PANEL_WIDTH]
+    if too_wide:
+        out += f"  !! {len(too_wide)} step row(s) WIDER than the {PANEL_WIDTH}px card:\n"
+        for title, w in too_wide:
+            out += f"       {w}px  {title!r}\n"
+    return out
 
 
 def main(argv: list[str]) -> int:
@@ -121,6 +133,9 @@ def main(argv: list[str]) -> int:
     panel._body.adjustSize()
     chrome = panel._header.sizeHint().height() + panel._rule.height()
     panel.setFixedSize(PANEL_WIDTH, chrome + panel._body.sizeHint().height())
+    # The card auto-scrolls to the newest step as a run arrives, so without
+    # this the unrolled grab starts partway down and cuts the top off the rail.
+    panel._scroll.verticalScrollBar().setValue(0)
     app.processEvents()
 
     panel.grab().save(out)

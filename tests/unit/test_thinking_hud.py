@@ -729,3 +729,99 @@ def test_a_plain_step_shows_no_revert_button(hud):
     p.begin("Mac")
     p.add_step(_step("execute", "Create Todo"))
     assert p._notices == []
+
+
+# ---------------------------------------------------------------------------
+# The two non-object outcomes
+# ---------------------------------------------------------------------------
+#
+# An item that leaves the object stage without an object is one of two very
+# different things, and the panel is where they are told apart: "this wasn't
+# calendar work" is the engine reading correctly, "this reached me damaged" is
+# an upstream defect. Drawn the same way, the card tells the reader they are
+# the same event.
+
+def _outcome_step(outcome, ok=True, title="Read part 1"):
+    return {"stage": "rule", "title": title,
+            "detail": "“play some music” — nothing writable here.",
+            "ms": 30, "at_ms": 30, "ok": ok, "data": {"outcome": outcome}}
+
+
+def _row_with(p, step):
+    p.add_step(step)
+    return p._rows[-1]
+
+
+def test_a_non_calendar_ask_is_labelled_as_one(hud):
+    from assistant.engine.fastrule import objects
+    widget, _, _ = hud
+    p = widget.panel
+    p.begin("Mac")
+    row = _row_with(p, _outcome_step(objects.NOT_AN_ASK))
+    assert row._outcome is not None
+    assert row._outcome.text() == "not calendar work"
+
+
+def test_a_damaged_item_is_labelled_as_damage(hud):
+    from assistant.engine.fastrule import objects
+    widget, _, _ = hud
+    p = widget.panel
+    p.begin("Mac")
+    row = _row_with(p, _outcome_step(objects.BAD_ITEM, ok=False))
+    assert row._outcome is not None
+    assert row._outcome.text() == "reached me damaged"
+
+
+def test_the_two_outcomes_do_not_look_the_same(hud):
+    """The whole point of the feature. A correct reading is muted; a defect is
+    amber — this file's standing rule, where red stays reserved for fatal."""
+    from assistant.engine.fastrule import objects
+    widget, _, _ = hud
+    p = widget.panel
+    p.begin("Mac")
+    ask = _row_with(p, _outcome_step(objects.NOT_AN_ASK))
+    bad = _row_with(p, _outcome_step(objects.BAD_ITEM, ok=False, title="Read part 2"))
+
+    assert ask._outcome.text() != bad._outcome.text()
+    assert ask._outcome.styleSheet() != bad._outcome.styleSheet()
+    assert p._theme.orange in bad._outcome.styleSheet()
+    assert p._theme.orange not in ask._outcome.styleSheet()
+    assert p._theme.destructive not in bad._outcome.styleSheet(), \
+        "red is reserved for the error stage; a flagged item is not fatal"
+
+
+def test_an_ordinary_step_gets_no_label(hud):
+    widget, _, _ = hud
+    p = widget.panel
+    p.begin("Mac")
+    row = _row_with(p, _step("rule", "Rule parser", "confident"))
+    assert row._outcome is None
+
+
+def test_an_outcome_the_panel_does_not_know_is_ignored_not_drawn(hud):
+    """A newer engine's outcome must not render as a blank chip or crash the
+    card — the panel draws what it knows and stays quiet about the rest."""
+    widget, _, _ = hud
+    p = widget.panel
+    p.begin("Mac")
+    row = _row_with(p, _outcome_step("some_future_outcome"))
+    assert row._outcome is None
+
+
+def test_an_outcome_row_still_fits_inside_the_card(hud):
+    """Measured, not eyeballed. A step row whose minimum width exceeds the
+    card does not wrap — it clips on the right, and what goes missing is the
+    end of every line. Adding the chip beside the title did exactly that on
+    the first cut, and no assertion about its TEXT would have caught it."""
+    from assistant.calendar_ui.thinking_panel import PANEL_WIDTH
+    from assistant.engine.fastrule import objects
+    widget, _, app = hud
+    p = widget.panel
+    p.begin("Mac")
+    for outcome in (objects.NOT_AN_ASK, objects.BAD_ITEM):
+        row = _row_with(p, _outcome_step(outcome))
+        app.processEvents()
+        need = row.minimumSizeHint().width()
+        assert need <= PANEL_WIDTH, (
+            f"the {outcome!r} row needs {need}px in a {PANEL_WIDTH}px card — "
+            "it will render clipped")

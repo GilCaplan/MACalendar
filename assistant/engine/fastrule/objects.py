@@ -157,6 +157,60 @@ def _friendly(item_id: str) -> str:
     return "part " + item_id.replace("item_", "").replace("-", ".")
 
 
+# --- the two ways an item leaves this stage without an object --------------
+#
+# Every other item becomes a calendar or to-do object. These two do not, and
+# they are NOT the same kind of thing, which is the whole reason they are named
+# rather than both just "nothing happened":
+#
+#   NOT_AN_ASK  a CORRECT READING. Segmentation placed the words outside the
+#               calendar altogether ("thanks", "play some music"). The engine
+#               behaved properly and there is nothing to fix.
+#   BAD_ITEM    an UPSTREAM DEFECT. The words were calendar work and the item
+#               still could not be read — something earlier in the chain handed
+#               this stage damage. Worth someone's attention.
+#
+# Until now both were recorded only in `state.fixes`, which nothing outside
+# decompose_validate ever traces (ENGINE_AUDIT.md P6), so the review panel —
+# the surface built to expose exactly this — showed a run that simply did
+# nothing. The step below is what carries them out, and `data["outcome"]` is
+# the key the panel renders them apart by.
+NOT_AN_ASK = "not_an_ask"
+BAD_ITEM = "bad_item"
+
+_OUTCOME_WHY = {
+    NOT_AN_ASK: "Nothing to add — these words aren't a calendar or to-do ask.",
+    BAD_ITEM: "It reads as calendar work, but nothing writable could be built "
+              "from it.",
+}
+
+
+def _trace_outcome(state: EngineState, outcome: str, item: Item,
+                   detail: str = "") -> None:
+    """Put a non-object outcome on the trace, tagged for the review panel.
+
+    Stage RULE, so it lands on the chain rail's "make each object" slot like
+    every other per-item step — this is a thing that HAPPENED to an item, not
+    a stage of its own. Titled like them too ("Read part 1"), because the
+    reader is looking at one list: what the OUTCOME was belongs in the panel's
+    chip, which is the one place the two are told apart, and repeating it in
+    the title would both say it twice and push the row wider than the card.
+
+    `ok` is False only for BAD_ITEM: a correct reading is not a failure, and
+    colouring it as one is how "we don't do that here" starts looking like a
+    bug.
+    """
+    if not state.trace:
+        return
+    from assistant.trace import RULE
+
+    body = f"“{item.text[:60]}” — {_OUTCOME_WHY[outcome]}"
+    if detail:
+        body = f"{body} ({detail})"
+    state.trace.step(RULE, f"Read {_friendly(item.id)}", body,
+                     ok=(outcome != BAD_ITEM), outcome=outcome, item=item.id)
+
+
 
 def _parse_item(item: Item, state: EngineState, cfg) -> "list | None":
     """One atomic item → intents. FastRule first, the LLM for what it can't
@@ -257,6 +311,7 @@ def run(state: EngineState, cfg) -> EngineState:
             item.action, item.intent = "unknown", None
             state.add_fix("generate", "not_a_calendar_ask", item.text[:40], "",
                           note="tagged `other` by segmentation")
+            _trace_outcome(state, NOT_AN_ASK, item)
             out.append(item)
             continue
         try:
@@ -270,6 +325,7 @@ def run(state: EngineState, cfg) -> EngineState:
             logger.warning("Item %s failed to parse: %s", item.id, e)
             state.add_fix("generate", "item_parse_failed", item.text[:40], "",
                           note=str(e)[:120])
+            _trace_outcome(state, BAD_ITEM, item, detail=str(e)[:120])
             state.messages.append(
                 f"Sorry, I couldn't read this part: “{item.text[:60]}”.")
             out.append(item)

@@ -98,3 +98,37 @@ def test_every_chain_slot_has_in_depth_info():
             heading, body = info[label]
             assert heading.strip() and body.strip(), (
                 f"STAGE_INFO[{version!r}][{label!r}] has an empty heading or body")
+
+
+def test_the_panel_knows_every_non_object_outcome_the_engine_emits():
+    """The other half of "the panel is downstream of the pipeline".
+
+    An item can leave the object stage without an object in exactly two ways,
+    and the panel renders them apart — a correct reading muted, an upstream
+    defect amber. A third outcome added to the engine without a panel entry
+    would draw as an ordinary step, which is the silent drift this whole file
+    exists to make loud.
+    """
+    from assistant.calendar_ui.thinking_panel import _StepRow
+    from assistant.engine.fastrule import objects
+
+    engine = {objects.NOT_AN_ASK, objects.BAD_ITEM}
+    missing = sorted(engine - set(_StepRow._OUTCOMES))
+    assert not missing, (
+        f"the object stage can emit outcomes {missing} that "
+        "thinking_panel._StepRow._OUTCOMES has no wording or colour for — add "
+        "them, or the review panel draws them as ordinary steps")
+
+    stale = sorted(set(_StepRow._OUTCOMES) - engine)
+    assert not stale, (
+        f"_StepRow._OUTCOMES still renders {stale}, which the engine no "
+        "longer emits")
+
+
+def test_every_outcome_the_engine_can_explain_has_wording():
+    """Each outcome needs the sentence the trace step puts under it."""
+    from assistant.engine.fastrule import objects
+
+    for outcome in (objects.NOT_AN_ASK, objects.BAD_ITEM):
+        why = objects._OUTCOME_WHY.get(outcome, "")
+        assert why.strip(), f"no _OUTCOME_WHY copy for {outcome!r}"

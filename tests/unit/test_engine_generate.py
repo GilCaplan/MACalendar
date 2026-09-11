@@ -173,3 +173,68 @@ def test_the_deep_track_does_not_undo_a_refusal(monkeypatch, cfg):
     from assistant.engine import run_transcript
     out = run_transcript("remove my reminder", source="test")
     assert out["actions"] == [], out
+
+
+# --- the two non-object outcomes, and why they are named apart ------------
+#
+# Every other item leaves this stage as a calendar or to-do object. These two
+# do not, and they are different KINDS of event: `not_an_ask` is the engine
+# reading the words correctly and finding no calendar work in them;
+# `bad_item` is an item that should have become something and could not.
+# Both were recorded only in `state.fixes`, which nothing outside
+# decompose_validate traces (ENGINE_AUDIT.md P6) — so the review panel built
+# to expose exactly this showed a run that simply did nothing.
+
+def _traced(text, kind, cfg, trace):
+    from assistant.engine.state import EngineState, Item
+    st = EngineState(raw_text=text, text=text, trace=trace)
+    st.items = [Item(id="item_1", kind=kind, text=text)]
+    return generate.run(st, cfg)
+
+
+@pytest.fixture
+def trace():
+    from assistant.trace import Trace
+    return Trace(source="test")
+
+
+def _outcomes(trace):
+    return [s.data.get("outcome") for s in trace.steps if s.data.get("outcome")]
+
+
+def test_a_non_calendar_ask_says_so_on_the_trace(cfg, trace):
+    _traced("play some music", "other", cfg, trace)
+    assert _outcomes(trace) == [generate.NOT_AN_ASK]
+
+
+def test_a_correct_reading_is_not_marked_as_a_failure(cfg, trace):
+    """`ok` is what the panel colours by, and amber on a correct reading is
+    how "we don't do that here" starts looking like a bug."""
+    _traced("play some music", "other", cfg, trace)
+    step = next(s for s in trace.steps if s.data.get("outcome"))
+    assert step.ok is True
+    assert "item_1" == step.data.get("item")
+
+
+def test_an_unreadable_item_is_marked_as_damage(monkeypatch, cfg, trace):
+    from assistant.exceptions import ParseError
+
+    def _boom(item, state, cfg):
+        raise ParseError("start_time: invalid time format")
+    monkeypatch.setattr(generate, "_parse_item", _boom)
+
+    _traced("bowling tuesday night whatever", "event", cfg, trace)
+    step = next(s for s in trace.steps if s.data.get("outcome"))
+    assert step.data["outcome"] == generate.BAD_ITEM
+    assert step.ok is False, "an upstream defect must not read as a clean step"
+    assert "invalid time format" in step.detail
+
+
+def test_the_two_outcomes_are_not_the_same_value(cfg):
+    """They are rendered apart, so they must BE apart."""
+    assert generate.NOT_AN_ASK != generate.BAD_ITEM
+
+
+def test_an_ordinary_item_carries_no_outcome(dead_llm, cfg, trace):
+    _traced("Set reminder for three o'clock", "event", cfg, trace)
+    assert _outcomes(trace) == []

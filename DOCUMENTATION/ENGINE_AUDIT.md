@@ -372,6 +372,16 @@ invisible in exactly the review surface built to expose it.
 **Smallest fix.** One trace step at the end of `generate.run` that emits the
 fixes added during that pass, mirroring validate's block. Five lines.
 
+**PARTLY CLOSED 2026-09-11.** The two that are OUTCOMES rather than repairs —
+`not_a_calendar_ask` and `item_parse_failed` — now emit their own trace step
+from `objects._trace_outcome`, tagged `data["outcome"]` with `NOT_AN_ASK` /
+`BAD_ITEM`, and the review panel renders them apart (a correct reading muted,
+an upstream defect amber). Before this, "play some music" produced a card that
+looked like the assistant had simply done nothing. **Still open:** the three
+genuine repairs — `invention_guard`, `event_kind_retry`, `event_fallback`,
+`task_fallback` — remain invisible, and they are what the "mirror validate's
+block" fix above is for.
+
 ### P7 · The loop-back commits an unjudged parse and feeds stale mistakes back in
 
 `the Engine's stage list.judge` (`__init__.py:141-165`):
