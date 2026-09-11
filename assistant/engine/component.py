@@ -40,7 +40,17 @@ class Stage(Component):
         self._attr = attr
 
     def run(self, state, cfg):
-        return getattr(self._module, self._attr)(state, cfg)
+        out = getattr(self._module, self._attr)(state, cfg)
+        # The VALUE this box hands the next one (X1, X2, …). Emitted here
+        # because this is the one place every stage passes through, so no stage
+        # has to remember to do it and none can drift out of step. It is not a
+        # trace STEP — see `assistant/trace.py::boundary` for why that matters.
+        try:
+            from assistant.engine import boundary as _b
+            _b.emit(self.name, state)
+        except Exception:
+            pass
+        return out
 
     def __repr__(self) -> str:  # the trace/debug-friendly handle
         return f"Stage({self.name})"

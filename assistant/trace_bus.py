@@ -84,6 +84,16 @@ def publish_step(run: str, step: dict[str, Any]) -> None:
     _append({"kind": "step", "run": run, "step": step})
 
 
+def publish_boundary(run: str, boundary: dict[str, Any]) -> None:
+    """One X_i value crossing between two stages, streamed as it happens.
+
+    Its own kind rather than a step: a step fills a slot in the chain of
+    thought, and a boundary is the DATA moving between two of them. A reader
+    that does not know the kind ignores the line, which is what keeps an older
+    HUD working against a newer engine."""
+    _append({"kind": "boundary", "run": run, "boundary": boundary})
+
+
 def publish_result(run: str, result: dict[str, Any] | None = None) -> None:
     _append({"kind": "result", "run": run, "result": result or {}})
 

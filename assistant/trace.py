@@ -184,11 +184,19 @@ class Trace:
         self._t0 = time.perf_counter()
         self._last = self._t0
         self.steps: list[TraceStep] = []
+        #: X1, X2, X3, X4 — the value handed between stages. See `boundary()`.
+        self.boundaries: list[dict[str, Any]] = []
+        self._boundary_listeners: list = []
         self._listeners: list = []
 
     def on_step(self, fn) -> None:
         """Register a callback invoked with each TraceStep as it's added."""
         self._listeners.append(fn)
+
+    def on_boundary(self, fn) -> None:
+        """Called with each `{label, value, detail, at_ms}` as it happens,
+        so the HUD can draw the value moving between boxes live."""
+        self._boundary_listeners.append(fn)
 
     def step(self, stage: str, title: str, detail: str = "", *, ok: bool = True,
              **data: Any) -> TraceStep:
@@ -216,6 +224,36 @@ class Trace:
     @property
     def total_ms(self) -> int:
         return int((time.perf_counter() - self._t0) * 1000)
+
+    # -- THE BOUNDARIES: what actually crossed between two stages ----------
+    #
+    # Separate from `steps` on purpose. A step fills a slot in `CHAINS`, so
+    # adding one per stage boundary would either invent chain slots nobody
+    # designed or land in a slot meant for something else — and
+    # `test_panel_agreement.py` would be right to go red. A boundary is not a
+    # step in the chain of thought; it is the VALUE handed from one box to the
+    # next, which is a different thing and gets its own channel.
+    #
+    # Listeners are notified so the HUD can draw it as it happens rather than
+    # after the fact: the point of showing X2 is watching it appear.
+
+    def boundary(self, label: str, value: str, detail: str = "") -> None:
+        """Record `X1`, `X2`, … and the value it carried."""
+        b = {"label": label, "value": value, "detail": detail,
+             "at_ms": int((time.perf_counter() - self._t0) * 1000)}
+        self.boundaries.append(b)
+        # A SEPARATE listener list, not `_listeners`. The step listeners are
+        # `lambda st: publish_step(run, st.to_dict())` — handed a plain dict
+        # they raise, and the wrapper swallows it, so the first version of this
+        # silently broke live streaming for every boundary it emitted.
+        for fn in self._boundary_listeners:
+            try:
+                fn(b)
+            except Exception:
+                pass
+
+    def boundaries_to_list(self) -> list[dict[str, Any]]:
+        return list(self.boundaries)
 
     def to_list(self) -> list[dict[str, Any]]:
         return [s.to_dict() for s in self.steps]
