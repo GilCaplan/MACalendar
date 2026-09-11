@@ -421,3 +421,76 @@ def test_background_verify_is_silent_in_measurement_runs(monkeypatch):
     st = EngineState(raw_text="buy milk", text="buy milk", source="test")
     engine._start_background_verify(st, engine.load_config())
     assert spawned == []
+
+
+# --- the judge loop: judge once unless a re-run actually happened -----------
+
+def _counting_judge(state_findings):
+    """A stand-in for the llmjudge Stage that counts calls and re-publishes
+    the same findings each time — which is what the real one does when
+    nothing upstream has changed."""
+    calls = []
+
+    class _Fake:
+        def run(self, state, cfg):
+            calls.append(1)
+            state.findings = list(state_findings)
+            return state
+
+    return _Fake(), calls
+
+
+def _missing(stage="fastrule"):
+    from assistant.engine.state import CheckFinding
+    return [CheckFinding(type="missing", item_id=None,
+                         detail="the words ask for a task — “buy milk” — "
+                                "but nothing produced covers it",
+                         blamed_stage=stage)]
+
+
+def test_a_clean_judgement_runs_the_model_once(cfg):
+    eng = engine.Engine()
+    eng.llmjudge, calls = _counting_judge([])
+    st = EngineState(raw_text="buy milk", text="buy milk", source="test")
+    st.items = [Item(id="item_1", kind="task", text="buy milk")]
+
+    eng.judge(st, cfg)
+    assert len(calls) == 1
+
+
+def test_an_unrewritable_complaint_does_not_judge_twice(monkeypatch, cfg):
+    """`rewrite_for_retry` is a deliberate stub returning None, so the common
+    path was: judge, find something missing, get no rewrite, break — and then
+    judge the SAME state again on the way out. Both blame classes are
+    loopable, so EVERY deep command with an unmatched ask paid two
+    schema-constrained LLM extractions on one raw_text for an identical
+    answer, on the rows that are already the slowest."""
+    eng = engine.Engine()
+    eng.llmjudge, calls = _counting_judge(_missing())
+    st = EngineState(raw_text="buy milk", text="buy milk", source="test")
+    st.items = [Item(id="item_1", kind="task", text="buy milk")]
+
+    eng.judge(st, cfg)
+
+    assert len(calls) == 1, "no re-run happened, so the first judgement stands"
+    # the honest warning still reaches the speaker
+    assert any("every part of that" in m for m in st.messages)
+
+
+def test_a_real_re_run_is_judged_before_it_commits(monkeypatch, cfg):
+    """The counterpart, and the reason the post-loop judge exists at all: once
+    a rewrite DOES re-parse, the objects about to be committed are not the
+    ones the last judgement described, so they must be judged again."""
+    eng = engine.Engine()
+    eng.llmjudge, calls = _counting_judge(_missing("segment"))
+    monkeypatch.setattr(engine._crosscheck, "rewrite_for_retry",
+                        lambda state, cfg: "buy milk")
+    monkeypatch.setattr(eng, "parse", lambda state, cfg: None)
+    st = EngineState(raw_text="buy milk", text="buy milk", source="test")
+    st.items = [Item(id="item_1", kind="task", text="buy milk")]
+
+    eng.judge(st, cfg)
+
+    # two rounds inside the loop, then the parse that will actually commit
+    assert len(calls) == 3
+    assert st.retries.get("segment") == 1
