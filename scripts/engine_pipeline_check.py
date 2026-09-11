@@ -32,7 +32,8 @@ for _k, _v in dict(
         MACALENDAR_VOCAB=f"{_SCRATCH}/vocab.json",
         MACALENDAR_CATEGORIES=f"{_SCRATCH}/categories.json",
         MACALENDAR_TRACE_BUS=f"{_SCRATCH}/trace_bus.jsonl",
-        MACALENDAR_NO_WARMUP="1").items():
+        MACALENDAR_NO_WARMUP="1",
+                 MACALENDAR_LLM_PRIORITY="background").items():
     os.environ[_k] = _v
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

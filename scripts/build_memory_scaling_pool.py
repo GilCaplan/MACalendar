@@ -52,6 +52,11 @@ TIERS = [60, 300, 1000, 3000]
 # --- isolate BEFORE importing the app, same pattern as scripts/audit_assistant.py
 _TMP = tempfile.mkdtemp(prefix="macal_scaling_")
 os.environ["MACALENDAR_NO_WARMUP"] = "1"
+# BACKGROUND traffic: this yields the model to the live assistant between
+# every call (assistant/model_protocol.py). Without it a board and a voice
+# command are indistinguishable to ollama, and a trivial live call measured
+# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
+os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 os.environ["MACALENDAR_DB"] = os.path.join(_TMP, "calendar.db")
 os.environ["MACALENDAR_MEMORY_DB"] = str(POOL_DB)   # the pool itself IS the memory db
 os.environ["MACALENDAR_VOCAB"] = os.path.join(_TMP, "vocab.json")          # intentionally empty —

@@ -51,7 +51,8 @@ os.makedirs(_S, exist_ok=True)
 for k, v in dict(MACALENDAR_DB=f"{_S}/c.db", MACALENDAR_MEMORY_DB=f"{_S}/m.db",
                  MACALENDAR_VOCAB=f"{_S}/v.json", MACALENDAR_CATEGORIES=f"{_S}/g.json",
                  MACALENDAR_TRACE_BUS=f"{_S}/t.jsonl",
-                 MACALENDAR_NO_WARMUP="1").items():
+                 MACALENDAR_NO_WARMUP="1",
+                 MACALENDAR_LLM_PRIORITY="background").items():
     os.environ.setdefault(k, v)
 
 from assistant.engine.segmentation.llmseg import llmseg

@@ -28,6 +28,11 @@ for v, n in (("DB","c.db"),("MEMORY_DB","m.db"),("VOCAB","v.json"),
              ("CATEGORIES","cat.json"),("TRACE_BUS","t.jsonl")):
     os.environ[f"MACALENDAR_{v}"] = str(S/n)
 os.environ["MACALENDAR_NO_WARMUP"] = "1"
+# BACKGROUND traffic: this yields the model to the live assistant between
+# every call (assistant/model_protocol.py). Without it a board and a voice
+# command are indistinguishable to ollama, and a trivial live call measured
+# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
+os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 os.environ["MACALENDAR_OBSERVANCE"] = "0"
 
 # In experiments/, parents[1] is the STAGE folder (the CLAUDE.md ROOT trap).

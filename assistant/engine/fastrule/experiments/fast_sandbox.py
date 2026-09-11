@@ -43,6 +43,11 @@ for _v, _n in (("DB", "calendar.db"), ("MEMORY_DB", "mem.db"),
                ("TRACE_BUS", "trace_bus.jsonl"), ("LOCATION", "location.json")):
     os.environ[f"MACALENDAR_{_v}"] = os.path.join(_TMP, _n)
 os.environ["MACALENDAR_NO_WARMUP"] = "1"
+# BACKGROUND traffic: this yields the model to the live assistant between
+# every call (assistant/model_protocol.py). Without it a board and a voice
+# command are indistinguishable to ollama, and a trivial live call measured
+# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
+os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 os.environ["MACALENDAR_OBSERVANCE"] = "0"
 
 # `parents[1]` is the STAGE folder (experiments/ -> fastrule/), not the repo

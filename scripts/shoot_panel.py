@@ -39,6 +39,8 @@ for _v, _n in (("DB", "calendar.db"), ("MEMORY_DB", "mem.db"),
                ("TRACE_BUS", "trace_bus.jsonl")):
     os.environ[f"MACALENDAR_{_v}"] = str(_SCRATCH / _n)
 os.environ["MACALENDAR_NO_WARMUP"] = "1"
+# Background: yields the model to the live assistant between calls.
+os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 os.environ.setdefault("MACALENDAR_OBSERVANCE", "0")
 # Offscreen, so this never steals focus or needs a display.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
