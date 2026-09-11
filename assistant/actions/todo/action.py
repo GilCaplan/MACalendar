@@ -211,6 +211,14 @@ class CreateTodoAction(BaseAction):
                 tags = [auto_tag]
             elif infer:
                 tags = suggest_tags(title, palette)
+                if not tags:
+                    # Stacked behind the rules, same as the event side: the
+                    # model fills a BLANK and never overrules a keyword match.
+                    try:
+                        from assistant.engine.label import model as _lm
+                        tags, _who = _lm.tags_for(title, tags, _config)
+                    except Exception:
+                        pass
             else:
                 tags = []
             qty = intent.quantity_for(index)

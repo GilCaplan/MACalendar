@@ -519,7 +519,25 @@ def _memory_feedback(record_type: str, record_id: int, feedback: str,
         pass
 
 
-_AUTO_COLORS = {"#0078d4", "", None}   # "no colour chosen" markers → pick by category
+#: THE "NO COLOUR CHOSEN" MARKERS — a caller passing one of these is saying
+#: *pick a colour from the category*, not *use this colour*.
+#:
+#: `None` is the canonical one; the rest are legacy. `"#0078d4"` was the app's
+#: hardcoded blue back when there was exactly one, and rows and clients still
+#: send it.
+#:
+#: **This set must never be "whatever the UI accent currently is".** That is the
+#: bug it was involved in (2026-09-10): `calendar_ui.styles.BLUE` was renamed to
+#: the CONFIGURABLE accent — "kept name for call-site compatibility" — and two
+#: call sites kept passing it as a default. The accent is not in this set, so
+#: `auto_category_and_color` read it as a deliberate user choice and returned it
+#: unchanged, `pick_color` never ran, and every voice-created event came out the
+#: same amber whatever its category. 11 of 54 real events, from 2026-09-08 on.
+#:
+#: Adding the accent here would "fix" it and break colour-picking instead: the
+#: accent is one of the swatches a user can genuinely choose. The right fix is
+#: the one that was made — a caller with no colour to honour passes None.
+_AUTO_COLORS = {"#0078d4", "", None}
 
 
 def _neighbour_colors(conn: sqlite3.Connection, date: str, start_time: str, exclude_id: int | None = None) -> list[str]:
@@ -543,6 +561,18 @@ def auto_category_and_color(conn: sqlite3.Connection, title: str, date: str, sta
     try:
         from assistant.actions.calendar import categories as _cat
         cat = category or _cat.classify(title, attendees, location, description)
+        if not category:
+            # THE LEARNED LABELLER, STACKED BEHIND THE RULES. It only answers
+            # where `classify` fell through to the catch-all, so every row the
+            # keyword rules were confident about keeps their measured 91.7%
+            # precision. Off unless `labels.model_event` is on; a missing model
+            # or an unconfident one falls back silently. See engine/label/model.py.
+            try:
+                from assistant.config import load_config as _lc
+                from assistant.engine.label import model as _lm
+                cat, _who = _lm.category_for(title, cat, _lc("config.yaml"))
+            except Exception:
+                pass
         if color not in _AUTO_COLORS and not category:
             return cat, color                      # explicit user colour wins
         if color not in _AUTO_COLORS and category:
@@ -838,8 +868,15 @@ class CalendarDB:
     # Create
     # ------------------------------------------------------------------
 
-    def create_event(self, intent: CalendarIntent, color: str = "#0078d4") -> int:
-        """Insert a single event (or first instance of a series). Returns new row id."""
+    def create_event(self, intent: CalendarIntent, color: "str | None" = None) -> int:
+        """Insert a single event (or first instance of a series). Returns new row id.
+
+        `color=None` means CHOOSE BY CATEGORY, and it is the default because
+        that is what almost every caller wants — only a user who actually
+        picked a swatch has a colour to honour. It used to default to the
+        literal `"#0078d4"`, which worked only for as long as that string
+        stayed the app's idea of "no choice"; see `_AUTO_COLORS`.
+        """
         recurrence = getattr(intent, "recurrence", None) or ""
         recur_until = getattr(intent, "recur_until", None) or ""
 
@@ -880,7 +917,7 @@ class CalendarDB:
             if recurrence:
                 # Create all subsequent instances and link them with series_id
                 self._create_series_instances(
-                    conn, first_id, intent, recurrence, recur_until, color
+                    conn, first_id, intent, recurrence, recur_until, color, category
                 )
 
         return first_id
@@ -893,8 +930,15 @@ class CalendarDB:
         recurrence: str,
         recur_until: str,
         color: str,
+        category: str = "",
     ) -> None:
-        """Generate and insert all recurrence instances; also back-fill series_id on first row."""
+        """Generate and insert all recurrence instances; also back-fill series_id on first row.
+
+        `category` is the one the FIRST row resolved to, passed in rather than
+        re-derived: every instance is the same event with the same title, so
+        re-classifying per instance could only disagree with itself — and the
+        instances used to get no category at all (2026-09-10).
+        """
         end_date = (
             datetime.date.fromisoformat(recur_until)
             if recur_until
@@ -935,12 +979,25 @@ class CalendarDB:
                 # returns '' on chol hamoed, Chanukah and Purim, which are
                 # ordinary days you can daven and run on.
                 continue
+            # EVERY INSTANCE CARRIES THE SERIES' CATEGORY (2026-09-10). This
+            # insert used to omit `category`, `updated_at` and
+            # `reminder_minutes` entirely, so instance 1 of a weekly event was
+            # categorised and instances 2..n were not — they came back with an
+            # empty category, fell through `color_for()` to Personal's colour,
+            # and were invisible to any per-category setting (reminders,
+            # notification leads, filters).
+            #
+            # The category is COPIED from the first row rather than
+            # re-classified: it is the same title and the same event, so
+            # re-running the classifier per instance could only disagree with
+            # itself, and the colour must match the series anyway.
             conn.execute(
                 """
                 INSERT INTO events
                     (title, date, start_time, end_time, attendees, location, description,
-                     color, created_at, series_id, recurrence, recurrence_end)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     color, created_at, updated_at, series_id, recurrence, recurrence_end,
+                     category, reminder_minutes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     intent.title,
@@ -952,9 +1009,12 @@ class CalendarDB:
                     intent.description or "",
                     color,
                     datetime.datetime.now().isoformat(),
+                    _utcnow_iso(),
                     first_id,
                     recurrence,
                     recur_until,
+                    category,
+                    getattr(intent, "reminder_minutes", None),
                 ),
             )
             count += 1
@@ -1143,7 +1203,35 @@ class CalendarDB:
             return not (row and row["two_way"])
         return False
 
+    def _note_label_change(self, kind: str, row_id: int, fields: dict) -> None:
+        """A person changed a label — the one signal worth learning from.
+
+        Recorded here because this is where every surface converges: the Mac
+        dialog, the iOS sheet and the HTTP PATCH all land on `update_event` /
+        `set_todo_tags`, so hooking them catches a correction wherever it was
+        made. Failures are swallowed — collecting training data must never
+        break a user's edit.
+
+        **Only a CHANGE is recorded.** A label the system assigned and nobody
+        objected to is not agreement, and training on it would teach the model
+        its own output; `engine/label/feedback.py` carries the full reasoning.
+        """
+        try:
+            from assistant.engine.label import feedback as _fb
+            if kind == "event" and "category" in fields:
+                row = self.get_event(row_id) or {}
+                _fb.record_category(row.get("title", ""), row.get("category"),
+                                    str(fields["category"]), origin=_fb.CORRECTION)
+            elif kind == "todo" and "tags" in fields:
+                row = self.get_todo(row_id) or {}
+                _fb.record_tags(row.get("title", ""), row.get("tags"),
+                                list(fields["tags"] or []), origin=_fb.CORRECTION)
+        except Exception:
+            pass
+
     def update_event(self, event_id: int, **fields) -> None:
+        if "category" in fields:
+            self._note_label_change("event", event_id, fields)
         allowed = {"title", "date", "start_time", "end_time", "attendees",
                    "location", "description", "color", "recurrence",
                    "recurrence_end", "category", "reminder_minutes"}
@@ -1661,6 +1749,7 @@ class CalendarDB:
                     conn.execute("UPDATE todos SET tags = ? WHERE id = ?", (json.dumps(kept), r["id"]))
 
     def set_todo_tags(self, todo_id: int, tags: List[str]) -> None:
+        self._note_label_change("todo", todo_id, {"tags": tags})
         self.update_todo(todo_id, tags=tags)
 
     # ------------------------------------------------------------------
