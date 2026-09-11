@@ -549,12 +549,136 @@ def test_finishing_freezes_the_time_and_stops_the_spinner(hud):
     assert not done_spinner._timer.isActive()
     assert _secs(done_time.text()) > 0
 
-    # Never reached at all: "skipped", no time — unchanged from before this
-    # feature, and not accidentally given a duration.
+    # Never reached at all: the not-needed mark, no time, and not accidentally
+    # given a duration. "judge" is folded away on a run this short, so this
+    # reads the row that stands behind the fold — the mark is what an unfolded
+    # chain shows.
     _, _, _, _, skip_time, _sstack, skip_state, skip_spinner = _row_for(rail, "judge")
-    assert skip_state.text() == "skipped"
+    assert skip_state.text() == rail.SKIP_MARK
     assert skip_time.text() == ""
     assert not skip_spinner._timer.isActive()
+
+
+def test_the_not_needed_mark_fits_the_box_it_is_drawn_in(hud):
+    """The mark shares a 14×14 box with the ✓ and the spinner.
+
+    This used to be the word "skipped", which clipped to its two middle
+    characters and shipped as "pp" — green, because the test read the label's
+    text back and never looked at the pixels. One glyph is the contract; the
+    row says the rest in a tooltip.
+    """
+    widget, _, app = hud
+    p = widget.panel
+    p.begin("Mac")
+    p.add_step(_step("vocab", "Vocabulary"))
+    p.finish({"message": "ok", "brain": "engine-v2"})
+    app.processEvents()
+
+    rail = p._rail
+    _, _, _, _, _, mark_stack, state, _ = _row_for(rail, "judge")
+    assert len(rail.SKIP_MARK) == 1, f"{rail.SKIP_MARK!r} cannot fit a 14px box"
+    assert state.text() == rail.SKIP_MARK
+    assert rail.SKIP_TIP in state.toolTip()
+    # Measured, not assumed: what the label wants is what the box gives it.
+    box = mark_stack.parentWidget()
+    assert state.sizeHint().width() <= box.width(), (
+        f"the mark {state.text()!r} needs {state.sizeHint().width()}px in a "
+        f"{box.width()}px box — it will render clipped")
+
+
+# ---------------------------------------------------------------------------
+# Folding the road not taken
+# ---------------------------------------------------------------------------
+#
+# The rail drew all eight slots however few the run walked: on a fast-lane
+# answer that is four icons, four labels and four marks for a chain nothing
+# went down — 42% of a fixed 440px card. It still shows every slot WHILE the
+# run is in flight, where the unlit ones are what is coming next.
+
+def _visible_slots(rail) -> set:
+    return {rail._slots[i][1] for i in range(len(rail._slots))
+            if not rail._hosts[i].isHidden()}
+
+
+def test_every_slot_is_on_screen_while_the_run_is_still_going(hud):
+    widget, _, app = hud
+    p = widget.panel
+    p.begin("Mac")
+    p.add_step(_step("vocab", "Vocabulary"))
+    app.processEvents()
+
+    rail = p._rail
+    assert rail.folded_slots() == set()
+    assert _visible_slots(rail) == {label for _stage, label in rail._slots}
+
+
+def test_a_finished_run_folds_the_slots_it_never_reached(hud):
+    widget, _, app = hud
+    p = widget.panel
+    p.begin("Mac")
+    p.add_step(_step("vocab", "Vocabulary"))
+    p.add_step(_step("rule", "Rule parser"))
+    p.finish({"message": "ok", "brain": "engine-v2"})
+    app.processEvents()
+
+    rail = p._rail
+    folded = {rail._slots[i][1] for i in rail.folded_slots()}
+    # Everything it walked stays; the tail it never reached goes behind one line.
+    assert {"fix words", "rules first"} <= _visible_slots(rail)
+    assert "judge" in folded and "write · label" in folded
+    assert not folded & _visible_slots(rail)
+
+    # isHidden(), not isVisible(): the HUD itself is never shown in the suite,
+    # so every descendant reports invisible however it was configured.
+    fold = rail._folds[min(rail.folded_slots())]
+    assert not fold.isHidden()
+    assert str(len(rail.folded_slots())) in fold.text()
+
+
+def test_clicking_the_fold_puts_the_whole_chain_back(hud):
+    """A real mouse click on the real control — the fold is how the rest of
+    the chain is reachable at all, so a test that called the handler would
+    prove nothing about whether anyone can get to it."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtTest import QTest
+    widget, _, app = hud
+    p = widget.panel
+    p.begin("Mac")
+    p.add_step(_step("vocab", "Vocabulary"))
+    p.finish({"message": "ok", "brain": "engine-v2"})
+    app.processEvents()
+
+    rail = p._rail
+    hidden_before = rail.folded_slots()
+    assert hidden_before, "nothing was folded, so there is nothing to click"
+    fold = rail._folds[min(hidden_before)]
+
+    QTest.mouseClick(fold, Qt.MouseButton.LeftButton)
+    app.processEvents()
+
+    assert rail.folded_slots() == set()
+    assert _visible_slots(rail) == {label for _stage, label in rail._slots}
+    assert fold.isHidden()
+
+
+def test_a_late_step_unfolds_the_chain_it_is_walking_again(hud):
+    """The background self-check reopens a finished timeline. Its slot may be
+    one of the folded ones — lighting a hidden row would light nothing."""
+    widget, _, app = hud
+    p = widget.panel
+    p.begin("Mac")
+    p.add_step(_step("vocab", "Vocabulary"))
+    p.finish({"message": "ok", "brain": "engine-v2"})
+    app.processEvents()
+    assert p._rail.folded_slots(), "precondition: the tail was folded away"
+
+    rail = p._rail
+    p.add_step(_step("verify", "Reviewed the answer"))
+    app.processEvents()
+
+    assert rail.folded_slots() == set()
+    assert "judge" in _visible_slots(rail)
+    assert rail._slots[rail._active][1] == "judge"
 
 
 def test_a_freshly_lit_slot_resets_its_own_timer(hud):

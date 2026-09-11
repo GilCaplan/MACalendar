@@ -262,6 +262,18 @@ trace source `assistant/trace.py` + `trace_bus.py`
 brain version: `CHAINS[BRAIN_VERSION]` scaffold rail with per-step ⓘ
 (copy from `trace.STAGE_INFO`, mirrored in Swift, drift-pinned by
 `test_stage_info_parity`). Red is reserved for fatal; review reads amber.
+The rail shows every slot *while the run is in flight* — the unlit ones are
+what is still ahead — and on finish folds each run of two or more unreached
+slots into one "N steps not needed" line that clicks back open, so a
+fast-lane answer no longer spends half a fixed-height card drawing the chain
+it did not walk. An unreached slot's mark is one glyph (`SKIP_MARK`): it
+shares a 14×14 box with the ✓ and the spinner, and the word that used to go
+there rendered as "pp".
+**Looking at it:** `python -m scripts.shoot_panel "<command>" out.png [light]`
+renders the real panel against a real engine trace (scratch stores, no Ollama
+needed, `source: "test"`), writes the card unrolled to its full content
+height, and prints content-vs-card. Two panel defects shipped green because
+every test read a label's text back instead of looking at the pixels.
 **Ergonomics:** menu-bar tray icon (show/hide/quit), sticky hide, corner
 parking, drag-to-reposition persisted across launches, idle translucency
 that solidifies on hover, minimise-to-header with live step count, joins

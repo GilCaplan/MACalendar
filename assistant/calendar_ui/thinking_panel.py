@@ -271,7 +271,11 @@ class _StepRow(QWidget):
         self._is_last = True
 
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(self.GUTTER, 2, 4, 14)
+        # The bottom gap was 14px. Seven rows of a two-item command is 98px of
+        # it — a quarter of the card's height spent on the space between
+        # rows — and the painted connector line already separates them, so the
+        # gap was doing the job twice. 8 still reads as separate steps.
+        lay.setContentsMargins(self.GUTTER, 2, 4, 8)
         lay.setSpacing(2)
 
         head = QHBoxLayout()
@@ -385,13 +389,34 @@ class _ChainRail(QFrame):
     It sits above the live per-step timeline, which still shows the real titles,
     timings and details; this is the map, those are the journey. The mapping
     from a live step to a slot is by stage, in order — so the two `rule` slots
-    and any stage the deep track self-skips resolve correctly."""
+    and any stage the deep track self-skips resolve correctly.
+
+    **While the run is in flight it shows every slot** — the unlit ones are
+    what is still ahead, which is the whole use of a map. **Once it finishes
+    they stop being a forecast and become dead weight**: a fast-lane answer
+    reaches four of the eight, and the other four were drawing an icon, a
+    label and a mark each for a road not taken — 42% of the card's height on
+    a chain nothing walked. So on `finish()` a run of two or more unreached
+    slots folds into one muted line naming how many; clicking it puts them
+    back. Nothing is removed, and while it matters it is all still there."""
 
     # Live elapsed counter on the active row: how often it repaints (10Hz —
     # fast enough to read as "live", cheap enough that a dozen finished rails
     # sitting idle in history cost nothing, since only a rail with a run still
     # in flight ever has its timer running at all).
     _LIVE_TICK_MS = 100
+
+    # The mark on a slot the run never reached. It shares a 14×14 box with the
+    # ✓ and the spinner, so it has to be ONE glyph: the word "skipped" used to
+    # go in here and rendered as "pp" — clipped to the two middle characters,
+    # green-lit by a test that read the label's text back instead of looking
+    # at it. Anything put here is a single character, and the row says the
+    # rest in its tooltip.
+    SKIP_MARK = "·"
+    SKIP_TIP = "not needed for this command"
+
+    # A fold is only worth a line of its own when it hides more than one slot.
+    _MIN_FOLD = 2
 
     def __init__(self, brain: str, theme: _Theme, parent=None) -> None:
         super().__init__(parent)
@@ -406,14 +431,24 @@ class _ChainRail(QFrame):
         self._finished = False
         # (index, stage, icon, label, time label, mark stack, mark label, spinner)
         self._rows: list[tuple[int, str, QLabel, QLabel, QLabel, QStackedLayout, QLabel, _Spinner]] = []
+        # slot index -> the widget holding that row, so a row can be hidden as
+        # a unit. Parallel to `_rows` rather than an extra element in its
+        # tuples: those are unpacked positionally by the tests that drive this.
+        self._hosts: dict[int, QWidget] = {}
+        # slot index -> the "N steps not needed" line that stands in for the
+        # run of unreached slots STARTING at that index. Built for every slot
+        # up front and hidden, so folding later never has to re-index the
+        # layout; only the ones a finished run actually needs are shown.
+        self._folds: dict[int, QPushButton] = {}
+        self._folded: dict[int, list[int]] = {}    # fold index -> slots it hides
 
         self._live_timer = QTimer(self)
         self._live_timer.setInterval(self._LIVE_TICK_MS)
         self._live_timer.timeout.connect(self._tick_live)
 
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(10, 8, 10, 8)
-        lay.setSpacing(4)
+        lay.setContentsMargins(10, 6, 10, 6)
+        lay.setSpacing(2)
 
         head = QHBoxLayout()
         head.setSpacing(6)
@@ -433,7 +468,24 @@ class _ChainRail(QFrame):
         lay.addLayout(head)
 
         for i, (stage, label) in enumerate(self._slots):
-            row = QHBoxLayout()
+            # The fold that can stand in for a run of unreached slots starting
+            # here. Built hidden; `finish()` decides which ones are needed.
+            fold = QPushButton("")
+            fold.setFlat(True)
+            fold.setCursor(Qt.CursorShape.PointingHandCursor)
+            fold.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            ff = fold.font()
+            ff.setPointSize(max(9, ff.pointSize() - 1))
+            fold.setFont(ff)
+            fold.setToolTip("Show these steps")
+            fold.clicked.connect(lambda _=False, at=i: self._unfold(at))
+            fold.hide()
+            self._folds[i] = fold
+            lay.addWidget(fold)
+
+            host = QWidget()
+            row = QHBoxLayout(host)
+            row.setContentsMargins(0, 0, 0, 0)
             row.setSpacing(6)
             icon = QLabel()
             icon.setFixedSize(14, 14)
@@ -455,9 +507,10 @@ class _ChainRail(QFrame):
             time_lbl.setFont(tmf)
             row.addWidget(time_lbl)
 
-            # The ✓/skipped mark and the in-flight spinner share one fixed-size
-            # slot (a QStackedLayout) so swapping between them never resizes
-            # the row — only one of the two is ever showing.
+            # The ✓ / not-needed mark and the in-flight spinner share one
+            # fixed-size slot (a QStackedLayout) so swapping between them never
+            # resizes the row — only one of the two is ever showing. 14×14 is
+            # room for one glyph and no more: see SKIP_MARK.
             mark_box = QWidget()
             mark_box.setFixedSize(14, 14)
             mark_stack = QStackedLayout(mark_box)
@@ -476,8 +529,15 @@ class _ChainRail(QFrame):
 
             info = _trace.stage_info(brain, label)
             if info:
-                row.addWidget(_InfoDot(info[0], info[1], theme))
-            lay.addLayout(row)
+                dot = _InfoDot(info[0], info[1], theme)
+                # The ⓘ used to carry the widget default font, which is a point
+                # larger than the label beside it — and a row is as tall as its
+                # tallest child, so the smallest thing on the row was setting
+                # the height of all eight.
+                dot.setFont(tf)
+                row.addWidget(dot)
+            lay.addWidget(host)
+            self._hosts[i] = host
             self._rows.append((i, stage, icon, text, time_lbl, mark_stack, state, spinner))
 
         self.apply_theme(theme)
@@ -489,6 +549,11 @@ class _ChainRail(QFrame):
         stage = step.get("stage", "")
         if stage in ("stt", "memory", "error"):
             return
+        # A step arriving after finish() — the background self-check reopening
+        # the timeline — means the run is walking again, so the folds' "not
+        # needed" is no longer a fact. Put the whole chain back before lighting
+        # anything, or the slot that lights next may be inside a fold.
+        self._unfold_all()
         for i in range(self._ptr, len(self._slots)):
             if self._slots[i][0] == stage:
                 self._advance_to(i, freeze_ms=step.get("ms", 0))
@@ -497,6 +562,7 @@ class _ChainRail(QFrame):
         # pass) re-lights the last slot of that stage rather than falling off.
         for i in range(len(self._slots) - 1, -1, -1):
             if self._slots[i][0] == stage:
+                self._finished = False
                 self._active = i
                 self._active_since = _time.monotonic()
                 self._live_timer.start()
@@ -515,6 +581,7 @@ class _ChainRail(QFrame):
         if self._active is not None:
             self._done.add(self._active)
             self._durations[self._active] = int(freeze_ms or 0)
+        self._finished = False
         self._active = i
         self._ptr = i + 1
         self._active_since = _time.monotonic()
@@ -535,7 +602,55 @@ class _ChainRail(QFrame):
         self._active_since = None
         self._finished = True
         self._live_timer.stop()
+        self._fold_unreached()
         self._render()
+
+    # -- folding the road not taken ----------------------------------------
+
+    def _fold_unreached(self) -> None:
+        """Stand one line in for each run of slots the finished run never hit.
+
+        Only runs of `_MIN_FOLD` or more: folding a lone slot trades a row for
+        a row and costs the reader its name. An isolated unreached slot stays
+        where it is, muted, with its SKIP_MARK — so the chain still reads in
+        order either way.
+        """
+        run: list[int] = []
+        for i in range(len(self._slots) + 1):
+            reached = i < len(self._slots) and (i in self._done or i == self._active)
+            if i < len(self._slots) and not reached:
+                run.append(i)
+                continue
+            if len(run) >= self._MIN_FOLD:
+                self._fold(run)
+            run = []
+
+    def _fold(self, run: list[int]) -> None:
+        at = run[0]
+        for i in run:
+            self._hosts[i].hide()
+        self._folded[at] = list(run)
+        fold = self._folds[at]
+        names = ", ".join(self._slots[i][1] for i in run)
+        fold.setText(f"{len(run)} steps not needed  ›")
+        fold.setToolTip(f"Not needed for this command: {names}. Click to show them.")
+        fold.show()
+
+    def _unfold(self, at: int) -> None:
+        """Put a folded run back — the reader asked to see the whole chain."""
+        for i in self._folded.pop(at, []):
+            self._hosts[i].show()
+        self._folds[at].hide()
+        self._render()
+
+    def _unfold_all(self) -> None:
+        for at in list(self._folded):
+            self._unfold(at)
+
+    def folded_slots(self) -> set[int]:
+        """Which slot indices are currently hidden behind a fold — the thing a
+        test should read, rather than poking at widget visibility."""
+        return {i for run in self._folded.values() for i in run}
 
     def _tick_live(self) -> None:
         if self._active is None or self._active_since is None:
@@ -551,10 +666,17 @@ class _ChainRail(QFrame):
     def _render(self) -> None:
         theme = self._theme
         for i, stage, icon, text, time_lbl, mark_stack, state, spinner in self._rows:
+            # `mark_col` is the mark's own colour, separate from the row's,
+            # because the two part company on an unreached slot: the icon greys
+            # all the way to the border colour, but a border-coloured mark on
+            # the surface behind it would be invisible — and a slot showing
+            # nothing at all in its mark column reads as one still to come.
+            mark_col = None
             if i in self._done:
                 color, label_col = theme.green, theme.text
                 mark_stack.setCurrentWidget(state)
                 state.setText("✓")            # ✓
+                state.setToolTip("")
                 spinner.set_running(False)
                 dur = self._durations.get(i)
                 time_lbl.setText(_fmt_ms(dur) if dur is not None else "")
@@ -567,20 +689,22 @@ class _ChainRail(QFrame):
                            if self._active_since is not None else 0)
                 time_lbl.setText(_fmt_live_ms(elapsed))
             elif self._finished:
-                color, label_col = theme.border, theme.text2
+                color, label_col, mark_col = theme.border, theme.text2, theme.text2
                 mark_stack.setCurrentWidget(state)
-                state.setText("skipped")
+                state.setText(self.SKIP_MARK)
+                state.setToolTip(self.SKIP_TIP)
                 spinner.set_running(False)
                 time_lbl.setText("")
             else:
                 color, label_col = theme.border, theme.text2
                 mark_stack.setCurrentWidget(state)
                 state.setText("")
+                state.setToolTip("")
                 spinner.set_running(False)
                 time_lbl.setText("")
             icon.setPixmap(icons.pixmap(_STAGE_ICONS.get(stage, "pending"), color, 12))
             text.setStyleSheet(f"color: {label_col}; background: transparent;")
-            state.setStyleSheet(f"color: {color}; background: transparent;")
+            state.setStyleSheet(f"color: {mark_col or color}; background: transparent;")
             time_lbl.setStyleSheet(f"color: {theme.text2}; background: transparent;")
 
     def apply_theme(self, theme: _Theme) -> None:
@@ -591,6 +715,13 @@ class _ChainRail(QFrame):
         )
         self._cap.setStyleSheet(f"color: {theme.text2}; background: transparent;")
         self._ver.setStyleSheet(f"color: {theme.text2}; background: transparent;")
+        for fold in self._folds.values():
+            # Indented past the icon column so it lines up with the slot labels
+            # it stands in for, rather than starting a column of its own.
+            fold.setStyleSheet(
+                f"QPushButton {{ color: {theme.text2}; background: transparent;"
+                f" border: none; text-align: left; padding: 0px 0px 0px 20px; }}"
+            )
         self._render()
 
 
@@ -748,7 +879,11 @@ class _ResultCard(QFrame):
 
         transcript = (result.get("transcript") or "").strip()
         if transcript:
-            heard = QLabel("I heard")
+            # "Click a word to fix it" used to be its own line under the chips.
+            # It is a permanent instruction for an occasional action, and it
+            # read as a third thing in a card that already had too many — so it
+            # rides on the heading it belongs to instead of costing a row.
+            heard = QLabel("I heard · click a word to fix it")
             self._labels.append((heard, "text2"))
             lay.addWidget(heard)
             chips_host = QWidget()
@@ -760,9 +895,6 @@ class _ResultCard(QFrame):
                 flow.addWidget(chip)
                 self._chips.append(chip)
             lay.addWidget(chips_host)
-            tip = QLabel("Click a word to fix it")
-            self._labels.append((tip, "text2"))
-            lay.addWidget(tip)
 
         corrections = result.get("corrections") or []
         if corrections:
