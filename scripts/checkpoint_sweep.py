@@ -81,76 +81,137 @@ CHECKPOINTS = [
 
 # The child runs inside the checkpoint's own tree. It is written out rather
 # than passed with -c so a failure has a real traceback with line numbers.
-_CHILD = '''\
-import json, os, pathlib, sys, time
+_CHILD = """\
+import json, os, pathlib, sqlite3, sys, time
 
-tree, scratch, rows_path, out_path = sys.argv[1:5]
+tree, box, rows_path, out_path = sys.argv[1:5]
+box = pathlib.Path(box)
+stores = box / "stores"
 
 # BEFORE importing assistant: every store is read at import time, so a fixture
-# (or an assignment after the import) is too late. This is tests/conftest.py's
-# rule, and the reason it is a rule.
-s = pathlib.Path(scratch)
-s.mkdir(parents=True, exist_ok=True)
-for var, name in (("MACALENDAR_DB", "calendar.db"),
-                  ("MACALENDAR_MEMORY_DB", "nlu_memory.db"),
-                  ("MACALENDAR_VOCAB", "vocab.json"),
-                  ("MACALENDAR_CATEGORIES", "categories.json"),
-                  ("MACALENDAR_LOCATION", "location.json"),
-                  ("MACALENDAR_TRACE_BUS", "trace_bus.jsonl")):
-    os.environ[var] = str(s / name)
-os.environ["MACALENDAR_NO_WARMUP"] = "1"   # no daemon model loads beside the run
+# (or an assignment after the import) is too late. tests/conftest.py's rule.
+stores.mkdir(parents=True, exist_ok=True)
+ENGINE_DB = str(stores / "engine_run.db")
+os.environ["MACALENDAR_DB"] = str(stores / "calendar.db")
+# THE SCORER'S INPUT IS THE COMMAND MEMORY, not the calendar: score_db reads
+# the `examples` table. Pointing MEMORY_DB somewhere else produces a run with
+# nothing to score, which looks like a working sweep.
+os.environ["MACALENDAR_MEMORY_DB"] = ENGINE_DB
+os.environ["MACALENDAR_TRACE_BUS"] = str(stores / "trace_bus.jsonl")
+os.environ["MACALENDAR_LOCATION"] = str(stores / "location.json")
+os.environ["MACALENDAR_NO_WARMUP"] = "1"
+# Observance OFF for replays (Gil, 2026-09-05): the dataset's ground truth has
+# no concept of Shabbat, and a Friday replay otherwise penalises a checkpoint
+# for CORRECTLY refusing. engine_dataset_compare sets the same flag.
+os.environ["MACALENDAR_OBSERVANCE"] = "0"
+
+# vocab and categories are COPIED FROM THE REAL STORES, read-only, exactly as
+# engine_dataset_compare does. They are not incidental: the personal
+# vocabulary repairs the transcript before anything parses it, so a blank one
+# measures a different system. Copying is a read; the guard still catches writes.
+import shutil
+for var, real, name in (
+        ("MACALENDAR_VOCAB", os.path.expanduser("~/.assistant_tools/vocab.json"), "vocab.json"),
+        ("MACALENDAR_CATEGORIES", os.path.expanduser("~/.assistant_tools/categories.json"), "categories.json")):
+    dst = stores / name
+    if os.path.exists(real):
+        shutil.copyfile(real, dst)
+    os.environ[var] = str(dst)
 
 sys.path.insert(0, tree)
 
-result = {"tree": tree, "rows": [], "error": None}
+RAW_KEY = "COALESCE(NULLIF(raw_transcript, ''), transcript)"
+result = {"tree": tree, "rows": [], "error": None, "engine_db": ENGINE_DB}
 try:
     import assistant
     result["assistant_from"] = assistant.__file__
     from assistant.api.server import create_app
     app = create_app()
-    # Otherwise Flask converts every failure into an opaque 500 HTML page and
-    # the sweep reports "HTTP 500" for a missing model, a missing config and a
-    # genuine break in old code alike.
+    app.config["TESTING"] = True
     app.config["PROPAGATE_EXCEPTIONS"] = True
-    app.testing = True
     client = app.test_client()
+
+    def reset_calendar():
+        from assistant.db import get_db
+        db = get_db()
+        assert str(db.path).startswith(str(stores)), "refusing to reset a non-scratch DB"
+        with db._conn() as conn:
+            for table in ("events", "todos", "subtasks"):
+                try:
+                    conn.execute("DELETE FROM " + table)
+                except sqlite3.OperationalError:
+                    pass
+
+    # WARM THE RULE PARSER OUTSIDE THE FREEZE. freezegun's FakeDatetime breaks
+    # class definitions that subclass datetime (metaclass conflict), and the
+    # engine builds its rule parser on the FIRST request. Warming inside the
+    # first row's freeze made every fast_propose raise, so all 250 rows
+    # silently took the deep track — caught on the 2026-09-05 re-baseline.
+    try:
+        from assistant.engine.fastrule import objects as _gen
+        _rp = _gen._get_rule_parser()
+        if _rp is not None:
+            _rp.analyze("book gym tomorrow at 7am", current_view="month")
+    except Exception:
+        try:   # pre-engine-v2 has no engine package; warm its own rule parser
+            from assistant.intent.rule_parser import RuleBasedParser
+        except Exception:
+            pass
+
+    import datetime as _dt
+    import contextlib
+    from freezegun import freeze_time
 
     rows = json.loads(pathlib.Path(rows_path).read_text())
     for row in rows:
-        body = {"transcript": row["text"], "source": "test",
-                "supports_edit": False, "supports_confirm": False}
+        reset_calendar()
+        ts = row.get("ts")
+        # tick=True: the clock STARTS at the row's recorded ts and then advances
+        # naturally, so dates resolve in the recorded frame while durations stay
+        # real instead of freezing to 0.
+        frozen = freeze_time(_dt.datetime.fromtimestamp(ts), tick=True) if ts \
+            else contextlib.nullcontext()
         t0 = time.perf_counter()
         try:
-            r = client.post("/voice/text", json=body)
+            with frozen:
+                r = client.post("/voice/text",
+                                json={"transcript": row["text"], "source": "test"})
             ms = int((time.perf_counter() - t0) * 1000)
             payload = r.get_json(silent=True) or {}
-            rec = {
-                "id": row.get("id"), "tier": row.get("tier"),
-                "status": r.status_code, "ms": ms,
-                "parse": payload.get("parse"),
-                "actions": payload.get("actions"),
-                "message": (payload.get("message") or "")[:200],
-            }
+            rec = {"id": row.get("id"), "tier": row.get("tier"),
+                   "status": r.status_code, "ms": ms,
+                   "parse": payload.get("parse"),
+                   "actions": payload.get("actions")}
             if r.status_code != 200:
-                # A bare status code is not a diagnosis. Keep the body so a
-                # failing checkpoint says WHY — missing model, missing config,
-                # or a genuine break in the old code.
-                rec["body"] = r.get_data(as_text=True)[-800:]
+                rec["body"] = r.get_data(as_text=True)[-500:]
             result["rows"].append(rec)
         except Exception as e:
             result["rows"].append({
-                "id": row.get("id"), "tier": row.get("tier"),
-                "status": None, "ms": int((time.perf_counter() - t0) * 1000),
-                "error": f"{type(e).__name__}: {e}",
-            })
+                "id": row.get("id"), "tier": row.get("tier"), "status": None,
+                "ms": int((time.perf_counter() - t0) * 1000),
+                "error": "%s: %s" % (type(e).__name__, e)})
+
+    # tier_rank is experiment-only; the engine's memory schema lacks it. The
+    # scorer joins provenance on it, so stamp each replayed row by its text.
+    with sqlite3.connect(ENGINE_DB) as c:
+        try:
+            c.execute("ALTER TABLE examples ADD COLUMN tier_rank INTEGER")
+        except sqlite3.OperationalError:
+            pass
+        stamped = 0
+        for row in rows:
+            cur = c.execute(
+                "UPDATE examples SET tier_rank = ? WHERE " + RAW_KEY + " = ?",
+                (row.get("id"), row["text"]))
+            stamped += 1 if cur.rowcount else 0
+    result["stamped"] = stamped
 except Exception as e:
     import traceback
-    result["error"] = f"{type(e).__name__}: {e}"
+    result["error"] = "%s: %s" % (type(e).__name__, e)
     result["traceback"] = traceback.format_exc()
 
-result["db"] = str(s / "calendar.db")
 pathlib.Path(out_path).write_text(json.dumps(result, indent=1))
-'''
+"""
 
 
 def setup() -> int:
@@ -284,7 +345,10 @@ def run_checkpoint(tag: str, rows: list, scratch_root: pathlib.Path) -> dict:
 
     t0 = time.perf_counter()
     proc = subprocess.run(
-        [sys.executable, str(box / "_child.py"), str(tree), str(box / "stores"),
+        # The child appends "stores" itself — pass the SANDBOX, not the store
+        # dir, or everything lands in <box>/stores/stores and the scorer looks
+        # for a database one level above where the run wrote it.
+        [sys.executable, str(box / "_child.py"), str(tree), str(box),
          str(box / "rows.json"), str(out_path)],
         cwd=str(box),           # the sandbox, NOT a source tree: pins the config
         env=env,
@@ -309,19 +373,25 @@ REAL_STORES = pathlib.Path.home() / ".assistant_tools"
 
 
 def _store_fingerprint() -> dict:
-    """md5 of every real store, for the before/after guard.
+    """md5 of the real DATA stores, for the before/after guard.
 
-    CLAUDE.md says to do exactly this by hand when unsure ("check: md5
-    ~/.assistant_tools/vocab.json before and after"). A 10-hour unattended
-    sweep is precisely when nobody is going to.
+    ONLY the data stores. `~/.assistant_tools` also holds api.log,
+    assistant.log, launch.log, heartbeats/ and model.lock, all of which change
+    continuously while the live stack runs — hashing those would cry
+    SANDBOX LEAK on every sweep and the guard would be ignored within a day.
+
+    A change in one of THESE means either a genuine leak or that the assistant
+    was used during the run; both are reasons to distrust the numbers, which
+    is why the check reports rather than guesses.
     """
+    names = ("calendar.db", "nlu_memory.db", "vocab.json", "categories.json",
+             "location.json", "trace_bus.jsonl")
     out = {}
-    if not REAL_STORES.exists():
-        return out
-    for p in sorted(REAL_STORES.iterdir()):
+    for name in names:
+        p = REAL_STORES / name
         if p.is_file():
             with contextlib.suppress(OSError):
-                out[p.name] = hashlib.md5(p.read_bytes()).hexdigest()
+                out[name] = hashlib.md5(p.read_bytes()).hexdigest()
     return out
 
 
@@ -363,6 +433,32 @@ def _one_at_a_time(work: pathlib.Path):
     finally:
         with contextlib.suppress(OSError):
             lock.unlink()
+
+
+def _score(result: dict) -> dict:
+    """Grade a checkpoint's run with TODAY's scorer.
+
+    The whole point of the sweep: score_db opens the run DB read-only and
+    grades the OUTPUT, so one scorer can grade five system states. Failures
+    are recorded, never raised — a checkpoint that cannot be scored must not
+    take the other four down with it.
+    """
+    db = result.get("engine_db")
+    if not db or not pathlib.Path(db).exists():
+        return {"error": "no engine_run.db — nothing was recorded"}
+    try:
+        sys.path.insert(0, str(ROOT))
+        from scripts import score_dataset_run as scorer
+        prov = scorer.load_provenance(
+            ROOT / "dataset" / "inputs" / "hwu64_sample.json")
+        scored = scorer.score_db(pathlib.Path(db), prov)
+    except Exception as e:
+        import traceback
+        return {"error": f"{type(e).__name__}: {e}",
+                "traceback": traceback.format_exc()[-800:]}
+    # Keep the aggregates; per_prompt is large and, on a --test run, is row
+    # detail the sealed-set rule says must not be reported.
+    return {k: v for k, v in scored.items() if k != "per_prompt"}
 
 
 def _pct(values: list, q: float):
@@ -412,6 +508,40 @@ def report(results: list) -> None:
             if body:
                 for line in body.splitlines()[-4:]:
                     print(f"        {line[:110]}")
+
+        sc = (r.get("scored") or {}).get("aggregate") or {}
+        if (r.get("scored") or {}).get("error"):
+            print(f"    scoring failed: {r['scored']['error']}")
+        elif sc:
+            def _pc(block, key):
+                v = block.get(key)
+                return "-" if v is None else f"{v * 100:.1f}"
+
+            def _line(name, block):
+                if not block or not block.get("n"):
+                    return f"    {name:<12} n=0"
+                return (f"    {name:<12} n={block['n']:<4} "
+                        f"raw {_pc(block, 'count_ok_rate'):>5} · "
+                        f"adj {_pc(block, 'count_ok_adj_rate'):>5} · "
+                        f"garbage {_pc(block, 'garbage_title_rate'):>5} · "
+                        f"collapse {_pc(block, 'event_dates_collapsed_rate'):>5} · "
+                        f"p50 {block.get('total_ms_p50', '-')}ms "
+                        f"p95 {block.get('total_ms_p95', '-')}ms")
+
+            # Every number with the slice it describes — never one headline.
+            # The scorer already breaks latency down by tier, which is the
+            # comparison that matters: complex rows are both the weak tier and
+            # the slow one, and only a per-tier read shows whether a checkpoint
+            # bought accuracy with seconds.
+            print("    " + "-" * 70)
+            print(_line("OVERALL", sc.get("overall", {})))
+            for tier in ("simple", "medium", "complex"):
+                print(_line(tier, (sc.get("by_complexity") or {}).get(tier, {})))
+            for kind in ("event+event", "task+task", "event+task"):
+                print(_line(kind, (sc.get("by_compound_kind") or {}).get(kind, {})))
+            qmv = (sc.get("overall") or {}).get("query_mutation_violations")
+            if qmv:
+                print(f"    query-no-mutation violations: {qmv}")
     print()
 
 
@@ -457,6 +587,8 @@ def main() -> int:
                 print(f"  [{i}/{len(tags)}] {tag} …", flush=True)
                 r = run_checkpoint(tag, rows, scratch_root)
                 r["rows_fingerprint"] = fingerprint
+                if not r.get("error"):
+                    r["scored"] = _score(r)
                 results.append(r)
             report(results)
             OUT.mkdir(parents=True, exist_ok=True)
