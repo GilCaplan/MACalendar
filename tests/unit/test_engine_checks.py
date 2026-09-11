@@ -211,3 +211,102 @@ def test_a_defect_that_cannot_apply_falls_back_to_a_control(kind):
 def perturb_applicable(kind, item):
     from assistant.engine.decompose_validate.datasets import perturb
     return perturb.applicable(item, kind)
+
+
+# ---------------------------------------------------------------------------
+# Q16 — a trailing date is shared only when MARKED, and only onto tasks
+# ---------------------------------------------------------------------------
+#
+# Gil, 2026-09-11: "if explicit add, otherwise don't, for tasks" — in
+# decompose_validate, "fixing the dates from item type". Asked rather than
+# measured because 0 of 10,920 corpus rows carry the shape, so these cases ARE
+# the specification.
+#
+# The rule TAKES AWAY. Segmentation's `assign_times` already gives a trailing
+# reference to every ask with no time of its own, so the marked case already
+# worked and the bare one shared just as eagerly. What is pinned here is the
+# narrowing, and the three ways it must keep its hands off.
+
+from assistant.engine.decompose_validate import stage as _stage   # noqa: E402
+
+FRIDAY = "2026-09-11"                 # the friday after ANCHOR (Tue 2026-09-08)
+
+
+def _scope(items, said, shared_time):
+    """The rule on the dicts as `resolve_values` builds them. `shared_time` is
+    the reference string `assign_times` copied onto every ask that had none."""
+    dicts = [{"kind": k, "text": t, "time": tm, "date": d}
+             for k, t, tm, d in items]
+    fixes = _stage._scope_trailing_date(dicts, said, ANCHOR)
+    return dicts, fixes
+
+
+def test_a_bare_trailing_date_is_withdrawn_from_the_earlier_ask():
+    dicts, fixes = _scope(
+        [("task", "submit the grades", "friday", FRIDAY),
+         ("task", "prepare the slides", "friday", FRIDAY)],
+        "submit the grades and prepare the slides friday", "friday")
+    assert dicts[0]["date"] is None, "an unmarked trailing date must not scope"
+    assert dicts[1]["date"] == FRIDAY, "the ask it sits in keeps it"
+    assert [f.rule for f in fixes] == ["trailing_date_scope"]
+    # The COPIED REFERENCE goes too. `_words` reads an item's own `time` as
+    # what it said, so leaving it behind lets `agree_with_words` hand the date
+    # straight back — which is what the first cut did, with these tests green
+    # and the end-to-end behaviour unchanged.
+    assert dicts[0]["time"] is None, "the copied reference must go with the date"
+
+
+def test_an_explicit_deadline_is_left_on_every_task():
+    dicts, fixes = _scope(
+        [("task", "submit the grades", "by friday", FRIDAY),
+         ("task", "prepare the slides", "by friday", FRIDAY)],
+        "submit the grades and prepare the slides by friday", "by friday")
+    assert dicts[0]["date"] == FRIDAY and fixes == []
+
+
+def test_an_event_does_not_keep_a_shared_deadline():
+    """An event's date is when it HAPPENS, not when it is due."""
+    dicts, fixes = _scope(
+        [("event", "gym", "by friday", FRIDAY),
+         ("task", "submit the grades", "by friday", FRIDAY)],
+        "gym and submit the grades by friday", "by friday")
+    assert dicts[0]["date"] is None
+    assert "event takes a date" in fixes[0].why
+
+
+def test_an_ask_that_named_its_own_day_is_untouched():
+    """Its `time` is its own string, not a copy of the owner's."""
+    dicts, fixes = _scope(
+        [("task", "submit the grades", "wednesday", "2026-09-09"),
+         ("task", "prepare the slides", "friday", FRIDAY)],
+        "submit the grades wednesday and prepare the slides friday", "friday")
+    assert dicts[0]["date"] == "2026-09-09" and fixes == []
+
+
+def test_a_day_said_twice_is_never_withdrawn():
+    """"...friday and ...friday" gives both asks the same string and neither
+    got it by sharing, so the rule keeps out of it entirely."""
+    dicts, fixes = _scope(
+        [("task", "submit the grades", "friday", FRIDAY),
+         ("task", "prepare the slides", "friday", FRIDAY)],
+        "submit the grades friday and prepare the slides friday", "friday")
+    assert dicts[0]["date"] == FRIDAY and fixes == []
+
+
+@pytest.mark.parametrize("said", [
+    "pick up milk and stop by the shops",
+    "email the team and book a room by the window",
+])
+def test_by_that_names_no_day_is_not_a_deadline(said):
+    """The RESOLVER decides whether a day was spoken, not the regex."""
+    dicts, fixes = _scope(
+        [("task", "first", "today", "2026-09-08"),
+         ("task", "second", "today", "2026-09-08")], said, "today")
+    assert fixes == []
+
+
+def test_one_ask_alone_is_never_touched():
+    dicts, fixes = _scope(
+        [("task", "submit the grades", "friday", FRIDAY)],
+        "submit the grades friday", "friday")
+    assert dicts[0]["date"] == FRIDAY and fixes == []

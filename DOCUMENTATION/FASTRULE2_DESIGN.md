@@ -1,5 +1,15 @@
 # FastRule v2 — restructure proposal (for Gil's review)
 
+> **SUPERSEDED — do not build from this (2026-09-11).** The five components
+> below were built the same day this was written (4657fe9, 2026-09-07), and the
+> design was replaced two days later by
+> [`assistant/engine/fastrule/PLAN.md`](../assistant/engine/fastrule/PLAN.md)
+> (2026-09-09), which reframes FastRule as a **converter, not a parser** — it
+> takes `List[Item]` from segmentation and decompose_validate and makes objects,
+> instead of re-reading the raw text. That plan's four phases are the live order
+> of work. This file is kept for the reasoning behind the component split
+> (DEVQA Q11, withdrawn).
+
 _2026-09-07. Design only — nothing builds until approved. Prompted by Gil:
 "restructure from scratch… use the ideas/stages/components that worked well
 (especially the ML model classification routing on operation and kind) but

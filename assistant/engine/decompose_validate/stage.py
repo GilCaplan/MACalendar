@@ -247,6 +247,100 @@ def _as_dict(item) -> dict:
     return out
 
 
+# Did the speaker MARK the trailing reference as a deadline? Only the marker
+# is matched here — WHERE the reference is and what it says are answered by
+# segmentation's own `find_time_refs`, not by a second reader invented in this
+# module. (A first cut did invent one, and its greedy tail read "book a room by
+# the window" as a date; four readers of one question is already audit finding
+# P10.)
+_MARKER = r"(?:by|before|due(?:\s+(?:by|on))?|no\s+later\s+than)"
+#: the marker sits INSIDE the reference `find_time_refs` returns ("by friday"
+#: comes back whole) ...
+_MARKED_REF_RE = re.compile(rf"^\s*{_MARKER}\b", re.I)
+#: ... or immediately before it, when the reader stopped at the bare day.
+_MARKER_BEFORE_RE = re.compile(rf"\b{_MARKER}\s*$", re.I)
+
+
+def _scope_trailing_date(dicts: list, said: str, anchor) -> list:
+    """Q16 (Gil, 2026-09-11): a trailing date is shared only when MARKED, and
+    only onto TASKS.
+
+    "submit the grades and prepare the slides **by friday**" — friday is the
+    deadline for both. "submit the grades and prepare the slides friday" is
+    not: with no marker the date belongs to the ask it sits in. And an event
+    never takes a shared deadline, because an event's date is when it HAPPENS,
+    not when it is due.
+
+    **This takes away rather than gives.** `assign_times` already hands a
+    trailing reference to every ask with no time of its own, and that is
+    deliberate — its docstring cites this exact worked case. So the marked
+    behaviour already existed; what did not is the bare one, which shared just
+    as eagerly. Measured before writing anything: of seven shapes run through
+    the real stage, only the unmarked one disagreed with the ruling.
+
+    Three things make the withdrawal safe rather than a guess:
+
+    * **The reference is found by `find_time_refs`** — segmentation's reader,
+      the one that put the value there. A phrase it does not call a time is not
+      a date, however much it looks like one.
+    * **A distributed time is identical to its owner's.** `assign_times` copies
+      the reference verbatim, so a recipient's `time` string equals the last
+      ask's; an ask that named its own day has its own string.
+    * **The words must appear ONCE.** "submit the grades friday and prepare the
+      slides friday" gives both asks the same string and neither got it by
+      sharing, so a phrase said twice is left alone entirely.
+
+    Runs BEFORE `checks.run`: `date_floor` is unconditional, so a date cleared
+    here becomes today, which is what an ask with no day of its own should be.
+    """
+    if len(dicts) < 2:
+        return []
+
+    from assistant.engine.segmentation.fastseg.fastseg import find_time_refs
+
+    refs = find_time_refs(said or "")
+    if not refs:
+        return []
+    last = refs[-1]
+    if (said[last.end:] or "").strip(" \t.!?,"):
+        return []                      # something follows it: not trailing
+
+    when = last.text
+    read = _resolve.resolve(when, anchor, when, action="")
+    if read.get("date_floored") or not read.get("date"):
+        return []                      # no day was actually named
+    spoke = read["date"]
+
+    # Said more than once? Then a second ask naming the same day said it itself.
+    if len(re.findall(rf"\b{re.escape(when)}\b", said, re.I)) != 1:
+        return []
+
+    marked = bool(_MARKED_REF_RE.match(when)) or \
+        bool(_MARKER_BEFORE_RE.search(said[:last.start]))
+
+    owner = dicts[-1]
+    if owner.get("date") != spoke:
+        return []                      # the tail is not what the last ask took
+
+    fixes = []
+    for d in dicts[:-1]:
+        if d.get("date") != spoke or d.get("time") != owner.get("time"):
+            continue                   # not a copy of the owner's reference
+        if marked and d.get("kind") == "task":
+            continue                   # the one case that DOES scope over
+        why = ("an event takes a date, not a deadline"
+               if marked else f"{when!r} was said once, with no deadline marker")
+        fixes.append(_checks.Fix("trailing_date_scope", "date", spoke, None, why))
+        # The COPIED REFERENCE goes too, not just the date it produced. `_words`
+        # reads each item's own `time` string as what it "said", so leaving the
+        # copy in place means `agree_with_words` hands the date straight back —
+        # which is exactly what the first version of this did, silently, with
+        # its unit tests passing. This ask named no time at all; saying so is
+        # what makes `date_floor` give it today.
+        d["date"] = d["time"] = None
+    return fixes
+
+
 def resolve_values(state, anchor: "dt.date | None" = None):
     """The TEXT pass's value fill: values into `item.slots`, before objects exist.
 
@@ -272,7 +366,9 @@ def resolve_values(state, anchor: "dt.date | None" = None):
                                  or _resolve.resolve_lead_time(d["text"]))
         dicts.append(d)
 
+    shared = _scope_trailing_date(dicts, said, anchor)
     checked, fixes, flags = _checks.run(dicts, said, anchor)
+    fixes = shared + fixes
     for item, d in zip(items, checked):
         if item.slots is None:
             item.slots = {}

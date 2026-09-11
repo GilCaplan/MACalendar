@@ -8,34 +8,6 @@ to the log below so decisions stay findable.
 
 ## Open
 
-**Q16 — Does a trailing deadline scope over every task, or only the last
-one?** (2026-09-08, from cycle A's diagnosis.) "submit the grades and prepare
-the slides **by friday**" — is friday the deadline for both, or only for the
-slides? English supports both readings, and this project's standing convention
-is to pick one and apply it everywhere rather than guess per sentence (the same
-call already made for "until" vs "through").
-
-**Why I am asking instead of measuring.** I looked, and the data cannot decide
-it: **0 of 10,920 corpus rows have the explicit-marker shape**, and the nearest
-attested shape has self-contradictory gold — 45 train rows attach the trailing
-date to ask 1, 15 attach it to ask 2, and none attach it to both. So any rule I
-picked would be my preference wearing a measurement's clothes.
-
-**Why it matters now.** Segment's clause tier deliberately shares only a date
-the utterance OPENS with, never a trailing one, because a repeated relative
-date silently overwriting real dates was a shipped bug (a987aba). That
-asymmetry is currently a safety choice, not a ruling — and a wrong due date is
-user-visible harm in both directions: sharing invents a deadline nobody gave,
-not sharing drops one they did.
-
-My recommendation, if you want one: **share it for TASKS with an explicit
-marker ("by friday", "before monday"), not for events, and not for a bare
-trailing date.** A deadline marker scopes naturally over a list; an event's
-date does not. But this is your call, and I will implement whichever way you
-say — including "leave it alone", which is the current behaviour and costs
-nothing measurable today.
-
-
 **Q13 — Is a fast commit on a compound a violation when it produces exactly
 the right records?** (F16, 2026-09-07.) `fastrule_shape` scores ANY commit
 on a non-atomic row as a routing violation. On B-test 129 such commits
@@ -52,19 +24,6 @@ and routing commits anyway when the parse covers every ask
 **Question: is that carve-out right, or is "FastRule never commits a
 compound, full stop" the ruling?** If the latter, delete the function —
 one line — and the shape board jumps, at the cost above.
-
-**Q11 — [DESIGN] FastRule v2 restructure** (Gil proposed 2026-09-07; the
-draft is `DOCUMENTATION/FASTRULE2_DESIGN.md`): five single-responsibility
-components (Normalizer=lexical-only / Router=the Q10 two-subsystem center /
-SlotFiller=specs-as-data / Scorer=named signals / Gatekeeper=the gates),
-semantic rewrites retired, models kept at the F12 state, parallel build +
-diff-gated switch. Three sub-questions at the doc's end (identical-first
-port?; calibration before or after?; slot-spec extensions in or out?).
-
-
-**Q6 — Reminders for events INSIDE Shabbat/yom tov (e.g. Shabbat lunch):
-suppress entirely (shipped default) or roll into one pre-candle-lighting
-digest banner?** Lifestyle call, not engineering.
 
 ## Answered (log)
 
@@ -106,6 +65,31 @@ digest banner?** Lifestyle call, not engineering.
 - 2026-09-04 — **Date-only occasion reminders**: calendar events. → Cycle 2.
 
 ## Answered log
+
+**Q16 (2026-09-11, Gil): a trailing deadline is shared ONLY when it is
+EXPLICIT.** "submit the grades and prepare the slides **by friday**" — the
+marker ("by", "before", "due") scopes friday over every TASK in the utterance.
+A bare trailing date shares nothing, and events never share at all: an event's
+date belongs to that event. Gil: *"if explicit add, otherwise don't, for
+tasks"* — and *"this should be what decompose_validate does, fixing the dates
+if possible from item type."* So it is a DATE rule keyed on `item.kind`, in the
+stage that already resolves dates, not a segmentation change. The asymmetry
+that prompted the question (segment shares only an OPENING date, never a
+trailing one) stays exactly as it is; this adds the explicit-marker case on
+top of it, downstream.
+
+**Q11 (2026-09-11): WITHDRAWN — the question was out of date.**
+`FASTRULE2_DESIGN.md` asked permission to build five components. They were
+built the same day it was written (4657fe9, 2026-09-07: "Rebuild: one object
+per component… v2 wired into the engine"), and the design was then superseded
+two days later by `assistant/engine/fastrule/PLAN.md` (2026-09-09), which
+reframes FastRule as a CONVERTER rather than a parser and supersedes the v2
+component split. Nothing was waiting on an answer. `FASTRULE2_DESIGN.md` now
+says so at the top; `fastrule/PLAN.md` is the live plan.
+
+**Q6 (2026-09-11, Gil): NO reminders for events inside Shabbat / yom tov.**
+Confirms the shipped default — suppress entirely; no pre-candle digest. The
+alternative is closed, not deferred.
 
 **Q15 (2026-09-07, Gil): a DAYPART IS NOT A CLOCK TIME.** "remind me to take
 the trash out tonight" is **a task to do in the evening**, not a calendar
