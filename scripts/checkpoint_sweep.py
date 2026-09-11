@@ -407,7 +407,22 @@ def run_checkpoint(tag: str, rows: list, scratch_root: pathlib.Path) -> dict:
                 "sandbox": str(box),
                 "config": str(example) if example.exists() else None,
                 "stderr_tail": proc.stderr[-1500:] if proc.returncode else ""})
+    # WRITE THE ENRICHMENT BACK. The child knows what it ran; only the parent
+    # knows how long it took and, later, what it scored — and result.json is
+    # what sweep_monitor archives. Leaving the enrichment in memory meant the
+    # DURABLE RECORD had no wall time and no scores, and the only copy of them
+    # was the sweep-*.json the parent writes after ALL checkpoints finish: lose
+    # the process and a completed checkpoint's timing was gone with it.
+    _persist(out_path, out)
     return out
+
+
+def _persist(out_path: pathlib.Path, out: dict) -> None:
+    """result.json is the archived record — keep it current as facts arrive."""
+    try:
+        out_path.write_text(json.dumps(out, indent=1))
+    except OSError:
+        pass
 
 
 #: The real stores. NOTHING here may change during a sweep — the overrides
@@ -737,6 +752,10 @@ def main() -> int:
                 r["rows_fingerprint"] = fingerprint
                 if not r.get("error"):
                     r["scored"] = _score(r, rows)
+                    # Scores are computed by the parent too, so the archived
+                    # result.json only carries them if written back here.
+                    if r.get("sandbox"):
+                        _persist(pathlib.Path(r["sandbox"]) / "result.json", r)
                 results.append(r)
             report(results)
             OUT.mkdir(parents=True, exist_ok=True)

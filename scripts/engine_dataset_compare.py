@@ -51,6 +51,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import datetime as _dt
+import subprocess as _sp
 import importlib.util
 import json
 import os
@@ -205,6 +206,82 @@ def _prf(scored, prov, keep=lambda r: True):
             "matched": matched, "expected": expected, "created": created}
 
 
+
+def _log_run(args, scored, rows, started_at, duration_s) -> "str | None":
+    """Append this run's row to dataset/loop_log.csv.
+
+    THIS USED TO BE A REMINDER. The script printed "rename with the loop run
+    number when logging this run in loop_log.csv" and left the row to a human,
+    which is the failure mode CLAUDE.md already names — a manual step whose
+    OUTPUT is committed, so a missed one is invisible. Run 21, the sealed-300
+    milestone that every sprint cycle is judged against, sat in RESULTS.md
+    prose and OUT of the log for four days; the plottable trajectory stopped at
+    run 20 while the one run that mattered most was not in it.
+
+    What the harness cannot know is left EMPTY rather than guessed: `label`,
+    `cycle` and `summary` are the human's, and a fabricated label is worse than
+    a blank one. `era` carries forward from the newest row — a new era is a
+    DECLARATION (see DATASET.md), never something a run infers about itself.
+    """
+    import csv as _csv
+    log = _LOCAL / "loop_log.csv"
+    if not log.exists():
+        return None
+    with log.open() as f:
+        existing = list(_csv.DictReader(f))
+    hdr = list(existing[0].keys()) if existing else []
+    if not hdr:
+        return None
+
+    run_no = max((int(r["run"]) for r in existing if r.get("run", "").isdigit()),
+                 default=0) + 1
+    slice_name = ("sealed-300" if args.test else
+                  "dev-100" if args.dev100 else
+                  f"dev-{args.max_rank}" if args.max_rank else "custom")
+    agg = (scored.get("aggregate") or {}).get("overall", {})
+    by_c = (scored.get("aggregate") or {}).get("by_complexity") or {}
+    by_k = (scored.get("aggregate") or {}).get("by_compound_kind") or {}
+
+    def pct(block, key):
+        v = (block or {}).get(key)
+        return "" if v is None else f"{v * 100:.1f}"
+
+    try:
+        commit = _sp.run(["git", "rev-parse", "--short", "HEAD"], cwd=WORKTREE,
+                         capture_output=True, text=True).stdout.strip()
+    except Exception:
+        commit = ""
+
+    row = {c: "" for c in hdr}
+    row.update({
+        "run": str(run_no),
+        "slice": slice_name,
+        "era": existing[-1].get("era", "") if existing else "",
+        "commit": commit,
+        "started_at": started_at,
+        "finished_at": _dt.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        "duration_s": str(int(duration_s)),
+        "overall_pct": pct(agg, "count_ok_rate"),
+        "adj_pct": pct(agg, "count_ok_adj_rate"),
+        "garbage_pct": pct(agg, "garbage_title_rate"),
+        "ee_date_collapse_pct": pct(agg, "event_dates_collapsed_rate"),
+        "p50_ms": str(int(agg.get("total_ms_p50") or 0)),
+        "p95_ms": str(int(agg.get("total_ms_p95") or 0)),
+        "n_deep": str((agg.get("parse_path") or {}).get("deep", "")),
+        "n_fast": str((agg.get("parse_path") or {}).get("fast", "")),
+        "simple_pct": pct(by_c.get("simple"), "count_ok_rate"),
+        "medium_pct": pct(by_c.get("medium"), "count_ok_rate"),
+        "complex_pct": pct(by_c.get("complex"), "count_ok_rate"),
+        "event_event_pct": pct(by_k.get("event+event"), "count_ok_rate"),
+        "task_task_pct": pct(by_k.get("task+task"), "count_ok_rate"),
+        "event_task_pct": pct(by_k.get("event+task"), "count_ok_rate"),
+        "summary": "AUTO-LOGGED — fill in label, cycle and summary by hand.",
+    })
+    with log.open("a", newline="") as f:
+        _csv.DictWriter(f, fieldnames=hdr, lineterminator="\n").writerow(row)
+    return f"run {run_no} ({slice_name}, {len(rows)} rows)"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--source", type=pathlib.Path,
@@ -227,6 +304,11 @@ def main() -> int:
                          "stays offline; this is a harness-only simulation "
                          "(Gil, 2026-09-06).")
     args = ap.parse_args()
+
+    # Stamped here so the logged row's duration covers the WHOLE run,
+    # not just the replay loop.
+    _started_at = _dt.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+    _t_start = time.perf_counter()
     if args.test:
         # sealed-test leakage guard: the scorer suppresses every row-level
         # section; only the aggregate board comes back from a milestone run
@@ -493,8 +575,15 @@ def main() -> int:
         from scripts.archive_run import archive as _archive
         stamp = _dt.datetime.now().strftime("%Y%m%dT%H%M")
         dest = _archive(pathlib.Path(_TMP), None, f"auto-{stamp}-{len(rows)}rows")
-        print(f"Archived scratch -> {dest}  (rename with the loop run number "
-              f"when logging this run in loop_log.csv)")
+        print(f"Archived scratch -> {dest}")
+        try:
+            logged = _log_run(args, engine_scored, rows, _started_at,
+                              time.perf_counter() - _t_start)
+            if logged:
+                print(f"Logged to loop_log.csv as {logged} — "
+                      f"fill in label / cycle / summary by hand.")
+        except Exception as e:                  # never fail a run over logging
+            print(f"WARNING: could not log the run ({e}) — add the row by hand")
     except Exception as e:                                  # never fail a run over archiving
         print(f"WARNING: scratch archive failed ({e}) — copy {_TMP} by hand")
     return 0
