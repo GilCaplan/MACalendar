@@ -1,0 +1,10 @@
+{
+ "checked_at": "2026-09-11T13:39:38",
+ "checkpoints": {
+  "pre-engine-v2": {
+   "done": false,
+   "rows": 237,
+   "md5": "88632d05bf24b5a669cbf500c3330ac5"
+  }
+ }
+}

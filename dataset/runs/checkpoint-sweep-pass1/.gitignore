@@ -1,0 +1,8 @@
+# Match the run-archive convention: the MANIFEST is the committed identity
+# record, the data is local-only (DATASET.md: "Archive DATA is local-only
+# (gitignored, Gil's call); the manifests are committed as the identity
+# record"). rows.json is derived — the sealed texts already live in
+# dataset/inputs/test_split.json — and config.yaml is reproducible from the
+# checkpoint's own tag.
+rows.json
+config.yaml
