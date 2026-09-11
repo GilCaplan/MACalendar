@@ -168,7 +168,7 @@ which asserts the shape at every boundary and runs commands end to end.
 |---|---|---|
 | Ingest & fix | `Stage("transcript")` | `ingest/repair.py` + `ingest/coalesce.py` |
 | Segmentation | `Stage("segment")` | `segmentation/` — FastSeg, LLMSeg **off** |
-| decompose_validate | `Stage("decompose_validate")` | `decompose_validate/stage.py` |
+| decompose_validate | `Stage("decompose_validate")` | `decompose_validate/stage.py` → `resolve.py` + `checks.py` |
 | FastRule | `Stage("fastrule")` | `fastrule/stage.py` → `fastrule/objects.py` |
 | LLMJudge | `Stage("llmjudge")` | `llmjudge/llmjudge.py` |
 | COMMIT + label | inside `_commit` | orchestrator + `label/label.py` |
@@ -179,8 +179,17 @@ hidden:
 | | state |
 |---|---|
 | **LLMSeg** | off by default (`MACALENDAR_LLMSEG`). Measured net-negative four ways — §6. |
-| **`decompose_validate/resolve.py`** | built and scored (100% on its generated set, 0 model calls) but **not yet the wired path** — `stage.py` still runs the legacy `decompose.py`/`validate.py`. Wiring waits on `checks.py`, the validate half, so the stage is replaced once rather than half-swapped. |
-| **the loop** | `llmjudge.rewrite_for_retry` is a stub returning None, so no loop fires. The contract and its single call site are in place; the rewrite itself wants a model call grounded on `state.raw_text`. |
+| **the loop** | `llmjudge.rewrite_for_retry` is a stub returning None, so no loop fires. The contract and its single call site are in place; the rewrite itself wants a model call grounded on `state.raw_text`. Because the stub makes the no-rewrite exit the COMMON path, the judge's post-loop re-run is guarded on `reentries` — without that guard every command with an unmatched ask paid two LLM extractions for one answer. |
+
+> **`resolve.py` is no longer on this list** (corrected 2026-09-11). It used to
+> read *"not yet the wired path — `stage.py` still runs the legacy
+> `decompose.py`/`validate.py`"*, and that stopped being true on 2026-09-08:
+> `validate.py` was **deleted** with its index-pinning date rules, and
+> `resolve.py` + `checks.py` became authoritative — `run_objects` writes their
+> values onto the built intents, so the calendar rows come from them.
+> `stage.py`'s own docstring has said so since; this table did not, which is
+> the exact failure the file's own warning names. The heading says "two things"
+> because there are now two.
 
 **What the loop is FOR, decided 2026-09-09** (Gil) — `llmjudge/PLAN.md` §1.3 has
 the detail, and it changes what `rewrite_for_retry` has to produce:
