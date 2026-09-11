@@ -6,3 +6,7 @@
 # checkpoint's own tag.
 rows.json
 config.yaml
+
+# result.json carries the run's own enrichment; the manifest is the
+# committed identity record, as with every other archive here.
+result.json

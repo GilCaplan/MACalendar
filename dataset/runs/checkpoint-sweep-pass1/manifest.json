@@ -1,10 +1,15 @@
 {
- "checked_at": "2026-09-11T13:39:38",
+ "checked_at": "2026-09-11T18:19:39",
  "checkpoints": {
-  "pre-engine-v2": {
+  "fast-lane-pre-integration": {
    "done": false,
-   "rows": 237,
-   "md5": "88632d05bf24b5a669cbf500c3330ac5"
+   "rows": 243,
+   "md5": "97661f5b70bb08c54ebe631bb2b6f2ad"
+  },
+  "pre-engine-v2": {
+   "done": true,
+   "rows": 300,
+   "md5": "40b39f48f983fdbf4605209c377d3923"
   }
  }
 }

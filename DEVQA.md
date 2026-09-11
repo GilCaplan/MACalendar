@@ -8,24 +8,24 @@ to the log below so decisions stay findable.
 
 ## Open
 
-**Q13 — Is a fast commit on a compound a violation when it produces exactly
-the right records?** (F16, 2026-09-07.) `fastrule_shape` scores ANY commit
-on a non-atomic row as a routing violation. On B-test 129 such commits
-exist and **103 of them produce the right events/tasks** — the rule parser
-read both asks and executed both. Deferring all of them lifts the
-non-atomic defer rate 77.1 → **95.6%** and cuts violations to 25, but (a)
-throws away 96 complete correct answers into a ~35 s deep pass, and (b)
-**loses them entirely when Ollama is down** — measured: "book gym on
-tuesday at 7am and remind me to buy milk" produces NOTHING on the deep
-track with the LLM unreachable, where fast produced both records. Shipped
-for now: layer 0 reports "compound" honestly (its board is what improved),
-and routing commits anyway when the parse covers every ask
-(`_parse_covers_the_compound`, gated on intent-count ≥ ask-joiners + 1).
-**Question: is that carve-out right, or is "FastRule never commits a
-compound, full stop" the ruling?** If the latter, delete the function —
-one line — and the shape board jumps, at the cost above.
+*(nothing open — Q13 ruled 2026-09-11.)*
 
 ## Answered (log)
+
+- 2026-09-11 — **Q13 (fast commit on a compound)**: the carve-out is FINE —
+  Gil: *"Q13 seems like that is fine."* `_parse_covers_the_compound` STAYS:
+  when the rule parser has itself read every ask (intent count >= ask-joiners
+  + 1) FastRule commits, even though layer 0 called the row non-atomic. Layer
+  0 keeps reporting "compound" honestly — that is its board, and it is the one
+  that improved — while ROUTING is allowed to act on a complete answer. The
+  cost of the alternative is what decided it: deferring all 129 such commits
+  would throw away 103 correct answers into a ~35 s deep pass, and lose them
+  ENTIRELY when Ollama is down ("book gym on tuesday at 7am and remind me to
+  buy milk" produces nothing on the deep track with the model unreachable,
+  where fast produced both records). So `fastrule_shape`'s non-atomic defer
+  rate stays ~78.2% rather than 95.6%, and that gap is a known, chosen
+  reading of the board rather than a defect to chase. **Do not "fix" the
+  defer rate by deleting the carve-out.**
 
 - 2026-09-07 — **Q9 (interrogative creates)**: "should i add yoga to my
   calendar tomorrow?" must neither auto-create nor be silently dropped — pop a
