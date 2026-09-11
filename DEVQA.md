@@ -8,6 +8,34 @@ to the log below so decisions stay findable.
 
 ## Open
 
+**Q16 — Does a trailing deadline scope over every task, or only the last
+one?** (2026-09-08, from cycle A's diagnosis.) "submit the grades and prepare
+the slides **by friday**" — is friday the deadline for both, or only for the
+slides? English supports both readings, and this project's standing convention
+is to pick one and apply it everywhere rather than guess per sentence (the same
+call already made for "until" vs "through").
+
+**Why I am asking instead of measuring.** I looked, and the data cannot decide
+it: **0 of 10,920 corpus rows have the explicit-marker shape**, and the nearest
+attested shape has self-contradictory gold — 45 train rows attach the trailing
+date to ask 1, 15 attach it to ask 2, and none attach it to both. So any rule I
+picked would be my preference wearing a measurement's clothes.
+
+**Why it matters now.** Segment's clause tier deliberately shares only a date
+the utterance OPENS with, never a trailing one, because a repeated relative
+date silently overwriting real dates was a shipped bug (a987aba). That
+asymmetry is currently a safety choice, not a ruling — and a wrong due date is
+user-visible harm in both directions: sharing invents a deadline nobody gave,
+not sharing drops one they did.
+
+My recommendation, if you want one: **share it for TASKS with an explicit
+marker ("by friday", "before monday"), not for events, and not for a bare
+trailing date.** A deadline marker scopes naturally over a list; an event's
+date does not. But this is your call, and I will implement whichever way you
+say — including "leave it alone", which is the current behaviour and costs
+nothing measurable today.
+
+
 **Q13 — Is a fast commit on a compound a violation when it produces exactly
 the right records?** (F16, 2026-09-07.) `fastrule_shape` scores ANY commit
 on a non-atomic row as a routing violation. On B-test 129 such commits
@@ -78,6 +106,28 @@ digest banner?** Lifestyle call, not engineering.
 - 2026-09-04 — **Date-only occasion reminders**: calendar events. → Cycle 2.
 
 ## Answered log
+
+**Q15 (2026-09-07, Gil): a DAYPART IS NOT A CLOCK TIME.** "remind me to take
+the trash out tonight" is **a task to do in the evening**, not a calendar
+event. The pinned reminder convention turns on a real clock time ("remind me
+about the dentist tomorrow AT 9AM" = event; "remind me TO <verb>" = task),
+but `segment._CLOCKISH_RE` lists `tonight|morning|evening|afternoon`
+alongside actual times, so any remind-phrased errand with a vague daypart
+became a calendar entry. A daypart is a rough WHEN — it belongs in the
+task's due time, not in the decision of what kind of thing this is. This is
+the single largest mis-kind driver: **499 of 609** on the FastRule test half,
+383 of 418 on the personas. Fixed in sprint cycle B.
+
+**Q14 (2026-09-07, Gil): "buy apples and eggs" is TWO tasks** — same action,
+separate items ("buy eggs", "buy apples"). This settles a contradiction the
+atomizer board found between our own documents: `decompose.py` and
+`list_split.py` split shopping lists; `assistant/engine/fastrule/datasets/DATASET.md` labelled
+them one task titled "apples and eggs". The CODE was right. Every over-split
+in the FastRule test half was this disagreement and nothing else — so those
+were never defects. **The dataset's np_decoy families need relabelling**
+(a list of things for one verb = one item PER THING); the genuine
+never-split case is a list of PEOPLE or a shared object ("meeting with Tal
+and Sam", "wash and fold the laundry").
 
 **Q13 (2026-09-07, Gil): non-atomic behaviour is DIAGNOSTIC, not a target.**
 "I just want to see that it succeeds on recognising and executing well on

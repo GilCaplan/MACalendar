@@ -537,10 +537,18 @@ def _public_words() -> set[str]:
 
 
 def test_the_named_rule_count_matches_validate(all_prose):
-    """"Fifteen named rules" on the explorer must track the module that owns
-    them — a rule added without updating the page is how numbers rot."""
-    import assistant.engine.validate as v
-    n = sum(1 for name in dir(v) if name.startswith("_rule_"))
+    """The explorer's named-rule count must track the modules that own them — a
+    rule added without updating the page is how numbers rot.
+
+    They used to live in one file (`validate.py`, retired 2026-09-08); now they
+    are split by what they are FOR, so the count is the sum across the modules
+    that hold them. Nine date rules were deleted in the same change, which is why
+    the number went down rather than up.
+    """
+    import assistant.engine.decompose_validate.object_rules as o
+    import assistant.engine.decompose_validate.targeting as t
+    n = sum(1 for m in (t, o)
+            for name in vars(m) if name.startswith("_rule_"))
     word = _word(n)
     for name, text in all_prose.items():
         if "named rule" not in text.lower():
@@ -550,10 +558,323 @@ def test_the_named_rule_count_matches_validate(all_prose):
 
 
 def test_the_loop_budget_matches_crosscheck(all_prose):
-    from assistant.engine.crosscheck import MAX_REENTRIES
+    from assistant.engine.llmjudge.llmjudge import MAX_REENTRIES
     word = _word(MAX_REENTRIES)
     for name, text in all_prose.items():
         if "loop" not in text.lower() or "re-runs the stage" not in text.lower():
             continue
         assert re.search(rf"at most {word} times", text, re.I), (
             f"the loop budget is {MAX_REENTRIES}; {name} says otherwise")
+
+
+# ---------------------------------------------------------------------------
+# The engine's components — the page names them, so the names must be real
+#
+# The explorer page draws the engine as its actual objects rather than as
+# friendly labels, which is worth more to a reader and rots faster: a class
+# renamed in a refactor leaves a page naming something that no longer exists.
+# Each check below reads the name out of the module that owns it. They fire
+# only on a page that makes the claim (the marker phrase), so a page that
+# describes the system at a different altitude is not held to it.
+# ---------------------------------------------------------------------------
+
+#: Only a page that draws FastRule's internals uses this phrase.
+_ENGINE_MARK = "atomic-item executor"
+
+#: Where each engine stage module lives. Components moved into per-component
+#: folders (2026-09-08), so the stage NAME is no longer the file name — this map
+#: is the single place that knows the difference.
+_STAGE_FILES = {
+    "transcript": "ingest/repair.py",
+    "segment":    "segmentation/old_seg/segment.py",
+    "decompose":  "decompose_validate/decompose.py",
+    # The stage's model call moved with the retirement of validate.py: `checks.py`
+    # is deterministic by design, and the LLM call this stage still makes lives in
+    # `text_repair.py` (rewriting a mangled item's words). Pointing this at
+    # checks.py would say the stage never calls the model, which is not true.
+    "validate":   "decompose_validate/text_repair.py",
+    "fastrule":   "fastrule/objects.py",
+    "crosscheck": "llmjudge/llmjudge.py",
+    "label":      "label/label.py",
+}
+_FASTRULE_PY = "assistant/engine/fastrule/fastrule.py"
+#: `Gatekeeper` MOVED here 2026-09-09 (the port, `llmjudge/PLAN.md` §1.0). It is
+#: a Component, not a Stage, so the chain's shape — and `BRAIN_VERSION` — did
+#: not change; only which folder owns the veto did.
+_GATEKEEPER_PY = "assistant/engine/llmjudge/gatekeeper.py"
+
+
+def _classes(path: pathlib.Path) -> set:
+    return {m.group(1) for m in re.finditer(r"^class (\w+)", path.read_text(), re.M)}
+
+
+def test_the_fastrule_components_named_on_the_page_exist(all_prose):
+    """FastRule's inner objects, by the names the page prints.
+
+    `Gatekeeper` is checked against LLMJudge's folder rather than FastRule's:
+    the veto moved there because as a veto it could only refuse, and the
+    objection it raises is one a model can actually answer. The page names it
+    under LLMJudge for the same reason.
+    """
+    have = _classes(ROOT / _FASTRULE_PY)
+    for cls in ("FastRule", "Atomicity", "Scorer"):
+        assert cls in have, f"{cls} is no longer a class in {_FASTRULE_PY}"
+    assert "Gatekeeper" in _classes(ROOT / _GATEKEEPER_PY), (
+        f"Gatekeeper is no longer a class in {_GATEKEEPER_PY} — if it moved "
+        "again, the page and this check move with it")
+    for name, text in all_prose.items():
+        if _ENGINE_MARK not in text:
+            continue
+        for cls in ("Atomicity", "Gatekeeper", "Scorer"):
+            assert cls in text, (
+                f"{name} draws FastRule but never names {cls}, which is one of "
+                "the objects it is made of")
+
+
+def test_the_engine_objects_named_on_the_page_exist(all_prose):
+    """Engine / Stage / Component / EngineState.
+
+    The stage-list wrapper class was REMOVED 2026-09-08 — it held no logic of
+    its own, and the loop that rewrites the utterance makes the boundary it
+    marked explicit instead. A page that still names it is describing an object
+    that is gone, which is exactly what this file exists to catch.
+    """
+    orchestrator = _classes(ROOT / "assistant" / "engine" / "__init__.py")
+    component = _classes(ROOT / "assistant" / "engine" / "component.py")
+    state = _classes(ROOT / "assistant" / "engine" / "state.py")
+    assert {"Engine"} <= orchestrator, "the orchestrator's classes moved"
+    assert "DeepSystem" not in orchestrator, (
+        "the stage-list wrapper was removed; if it is back, the pages and this "
+        "test need it again")
+    assert {"Component", "Stage"} <= component, "component.py's classes moved"
+    assert "EngineState" in state, "EngineState is no longer defined in state.py"
+    for name, text in all_prose.items():
+        if _ENGINE_MARK not in text:
+            continue
+        for ident in ("EngineState", "Component", "Stage"):
+            assert ident in text, f"{name} draws the engine but never names {ident}"
+
+
+def test_the_deep_stage_names_match_the_state_contract(all_prose):
+    """The stage names are the ones `state.STAGES` declares, in the code."""
+    from assistant.engine.state import STAGES
+    for name, text in all_prose.items():
+        if _ENGINE_MARK not in text:
+            continue
+        for stage in STAGES:
+            if stage == "ingest":
+                continue          # the orchestrator's own half, drawn as Engine
+            assert stage in text, (
+                f"{name} draws the deep track but never names the {stage} stage")
+
+
+def test_the_deferral_reason_classes_are_current(all_prose):
+    """A deferral's class decides the handoff — there are exactly three."""
+    from assistant.engine.fastrule.fastrule import (INCAPACITY, REFUSAL, STRUCTURE,
+                                           _REASON_CLASS)
+    classes = {REFUSAL, STRUCTURE, INCAPACITY}
+    assert set(_REASON_CLASS.values()) == classes, (
+        "a deferral reason now maps to a class the page does not describe")
+    for name, text in all_prose.items():
+        if "deferral carries a" not in text.lower():
+            continue
+        for cls in classes:
+            assert cls.upper() in text, (
+                f"{name} describes the deferral contract without naming {cls.upper()}")
+
+
+def test_the_two_fastrule_thresholds_are_current(all_prose):
+    """The front door's bar and the per-fragment bar are different numbers."""
+    from assistant.engine.fastrule.objects import SUBITEM_RULE_THRESHOLD
+    from assistant.intent.rule_parser import RULE_THRESHOLD
+    for name, text in all_prose.items():
+        if "per fragment" not in text:
+            continue
+        for value in (RULE_THRESHOLD, SUBITEM_RULE_THRESHOLD):
+            assert re.search(rf"{re.escape(str(value))}(?![0-9])", text), (
+                f"{name} quotes the two FastRule bars, but {value} is not one of them")
+
+
+def test_the_number_of_shipped_classifiers_is_current(all_prose):
+    """Three small logistic models ride inside the fast path."""
+    from assistant.intent.classifier import ModelRouter
+    n = sum(1 for v in vars(ModelRouter()).values() if hasattr(v, "featurizer"))
+    for name, text in all_prose.items():
+        if "fitted classifiers" not in text:
+            continue
+        assert re.search(rf"\b{n}\b\s+fitted classifiers", text), (
+            f"the router carries {n} fitted classifiers; {name} says otherwise")
+
+
+def test_the_classifier_feature_counts_are_current(all_prose):
+    """Each featurizer's signal count, read from its own `names` list.
+
+    Named signals are the point of these models — a page that quotes how many
+    there are has to track the list, or it is quoting a number from a model
+    that no longer exists.
+    """
+    from assistant.intent.classifier import (AtomicityFeatures, KindFeatures,
+                                             OperationFeatures)
+    counts = {"OperationFeatures": len(OperationFeatures.names),
+              "KindFeatures": len(KindFeatures.names),
+              "AtomicityFeatures": len(AtomicityFeatures.names)}
+    for name, text in all_prose.items():
+        for cls, n in counts.items():
+            if cls not in text:
+                continue
+            assert f"{cls} with {n} signals" in text, (
+                f"{cls} holds {n} named signals; {name} quotes a different count")
+
+
+def test_the_count_of_model_calling_stages_is_current(all_prose):
+    """"Five of the seven engine stages may call the language model."
+
+    The claim a reader is most likely to act on — how much of the pipeline is
+    deterministic — so it is read from the stage modules themselves.
+    """
+    engine = ROOT / "assistant" / "engine"
+    callers = [name for name, rel in _STAGE_FILES.items()
+               if re.search(r"call_json\(|parser\.parse",
+                            (engine / rel).read_text())]
+    for name, text in all_prose.items():
+        if "stages may call the language model" not in text:
+            continue
+        assert re.search(rf"\b{_word(len(callers))} of the seven engine stages", text, re.I), (
+            f"{len(callers)} of the seven stages can call the model; {name} says otherwise")
+# ---------------------------------------------------------------------------
+# The datasets the evaluation section describes
+# ---------------------------------------------------------------------------
+
+def test_the_dataset_sizes_quoted_are_current(all_prose):
+    """Row counts read from the dataset files, not from the prose that cites them.
+
+    These are the numbers a reader would use to judge whether the evaluation
+    means anything, and every one of them moves when a set is regenerated.
+    """
+    import collections
+    import json
+    pool = ROOT / "dataset" / "inputs" / "history_3000.json"
+    sealed = ROOT / "dataset" / "inputs" / "test_split.json"
+    # FastRule's dataset moved into its component folder (2026-09-08).
+    generated = (ROOT / "assistant" / "engine" / "fastrule" / "datasets"
+                 / "fastrule_7200.jsonl")
+    personas = ROOT / "dataset" / "personas" / "personas.jsonl"
+    if not all(p.exists() for p in (pool, sealed, generated, personas)):
+        pytest.skip("the datasets are not present in this checkout")
+
+    n_pool = json.loads(pool.read_text())["n"]
+    n_sealed = json.loads(sealed.read_text())["n"]
+    splits = collections.Counter()
+    for line in generated.open():
+        splits[json.loads(line)["split"]] += 1
+    rows = [json.loads(line) for line in personas.open()]
+    speakers = {r["persona"] for r in rows}
+    assert {r["split"] for r in rows} == {"test"}, (
+        "a persona row is no longer test-only — the page says every one of them is")
+
+    for name, text in all_prose.items():
+        if "real voice utterances" in text:
+            assert f"{n_pool:,} real voice utterances" in text, (
+                f"{name} miscounts the verification pool; it holds {n_pool:,}")
+        if "rows sealed" in text:
+            assert f"{n_sealed} rows sealed" in text, (
+                f"{name} miscounts the sealed rows; there are {n_sealed}")
+        if "rows expanded from pattern skeletons" in text:
+            total = splits["train"] + splits["test"]
+            assert f"{total:,} rows expanded from pattern skeletons" in text, (
+                f"{name} miscounts the generated set; it holds {total:,} rows")
+            assert f"{splits['train']:,} to train and tune on" in text, (
+                f"{name} miscounts its training half ({splits['train']:,})")
+            assert f"{splits['test']:,} held back" in text, (
+                f"{name} miscounts its held-back half ({splits['test']:,})")
+        if "synthetic users" in text:
+            assert re.search(rf"\b{_word(len(speakers))} synthetic users", text, re.I), (
+                f"there are {len(speakers)} personas; {name} says otherwise")
+            assert f"{len(rows):,} rows" in text, (
+                f"{name} miscounts the persona rows; there are {len(rows):,}")
+
+
+def test_the_split_drawn_on_the_loop_view_matches_the_files():
+    """The seal is now a PICTURE — a bar split train | sealed — not a paragraph.
+
+    Every other check on this page runs against `_prose`, which strips the
+    <svg> blocks out on purpose: diagram geometry is full of bare numbers and
+    matching a claim against a path coordinate would let it pass for the wrong
+    reason. But the loop view's seal guard draws the split with its two row
+    counts printed on the bar, and a number a reader can see is a claim
+    whatever element it lives in. So this one reads the raw file, and only for
+    the two strings the drawing actually prints — narrow enough that a
+    coordinate cannot satisfy it by accident.
+
+    The group carries data-claim="seal-split" so the check fires on the
+    drawing rather than on any page that happens to mention a seal.
+    """
+    import json
+    pool = ROOT / "dataset" / "inputs" / "history_3000.json"
+    sealed = ROOT / "dataset" / "inputs" / "test_split.json"
+    if not (pool.exists() and sealed.exists()):
+        pytest.skip("the datasets are not present in this checkout")
+    n_pool = json.loads(pool.read_text())["n"]
+    n_sealed = json.loads(sealed.read_text())["n"]
+
+    drew = False
+    for path in PAGES:
+        raw = path.read_text()
+        if 'data-claim="seal-split"' not in raw:
+            continue
+        drew = True
+        assert f"train &#183; {n_pool - n_sealed:,}" in raw or \
+               f"train · {n_pool - n_sealed:,}" in raw, (
+            f"{path.name} draws the training half, but the pool holds {n_pool} "
+            f"rows of which {n_sealed} are sealed — the bar should say "
+            f"{n_pool - n_sealed:,}")
+        assert f"sealed &#183; {n_sealed}" in raw or f"sealed · {n_sealed}" in raw, (
+            f"{path.name} draws the sealed half as a different number; "
+            f"test_split.json holds {n_sealed} rows")
+    if not drew:
+        pytest.skip("no published page draws the split")
+
+
+def test_the_metric_formulas_on_the_evaluation_view_match_the_scorers():
+    """The evaluation view's hover tooltips spell out how each number is
+    computed — the severity weights, the field-quality weights, the brevity
+    cutoff. Those are constants in the scorers, and a page that quotes them
+    goes stale the moment one is tuned.
+
+    Reads the RAW file, not `all_prose`: the tooltips live in <title> inside
+    <svg>, and the prose fixture strips <svg> on purpose. Written against
+    `all_prose` first, this test passed happily while the severity weight was
+    perturbed to 5 — a check that cannot fail is worse than no check, so it is
+    verified to go red before being trusted.
+    """
+    import re as _re
+    shape = (ROOT / "assistant" / "engine" / "fastrule" / "experiments"
+             / "fastrule_shape.py").read_text()
+    fieldq = (ROOT / "scripts" / "field_quality.py").read_text()
+
+    sev = dict(_re.findall(
+        r'"(delete_event|update_event|complete_todo|create_event)":\s*(\d)', shape))
+    weights = dict(_re.findall(
+        r'weights\["(when|title|extras)"\]\s*=\s*([\d.]+)', fieldq))
+    brevity = _re.search(r"len\(words\)\s*<=\s*(\d+)", fieldq)
+    assert sev and weights and brevity, "could not read the constants out of the scorers"
+
+    checked = False
+    for path in PAGES:
+        raw = path.read_text()
+        if "THE PRODUCT-SHAPE BOARD" not in raw:
+            continue
+        checked = True
+        name = path.name
+        for label, value in (("delete", sev["delete_event"]),
+                             ("update", sev["update_event"]),
+                             ("create", sev["create_event"])):
+            assert f"{label} {value}" in raw, (
+                f"{name}: harm weights the {label} at {value}; the page says otherwise")
+        for slot in ("when", "title", "extras"):
+            assert f"{slot} {weights[slot]}" in raw, (
+                f"{name}: field quality weights `{slot}` at {weights[slot]}")
+        assert f"up to {brevity.group(1)} words" in raw, (
+            f"{name}: the title brevity cutoff is {brevity.group(1)} words")
+    if not checked:
+        pytest.skip("no page carries the evaluation formulas")

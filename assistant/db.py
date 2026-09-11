@@ -106,7 +106,8 @@ CREATE TABLE IF NOT EXISTS events (
     color          TEXT    NOT NULL DEFAULT '#0078d4',
     created_at     TEXT    NOT NULL,
     series_id      INTEGER,               -- NULL = not recurring; shared by all instances
-    recurrence     TEXT    NOT NULL DEFAULT '',   -- '' | 'daily' | 'weekly' | 'monthly'
+    recurrence     TEXT    NOT NULL DEFAULT '',   -- '' | 'daily' | 'weekly' | 'monthly' | 'yearly'
+    recur_days     TEXT    NOT NULL DEFAULT '',   -- weekly only: 'tuesday,thursday'
     recurrence_end TEXT    NOT NULL DEFAULT ''    -- '' or ISO date (last allowed date)
 )
 """
@@ -125,6 +126,10 @@ _MIGRATIONS = [
     # Pre-event notifications: NULL = inherit (category default, then global),
     # 0 = explicitly none, N>0 = fire N minutes before start_time.
     "ALTER TABLE events ADD COLUMN reminder_minutes INTEGER",
+    # A weekly series can name SEVERAL weekdays ("every tuesday and thursday").
+    # Stored comma-separated and lowercase; empty means "the same weekday as the
+    # first instance", which is every series written before 2026-09-08.
+    "ALTER TABLE events ADD COLUMN recur_days TEXT NOT NULL DEFAULT ''",
 ]
 
 _CREATE_CALENDAR_SOURCES_TABLE = """
@@ -447,8 +452,19 @@ def _utcnow_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
-def _next_date(d: datetime.date, recurrence: str, anchor_day: int | None = None) -> datetime.date:
+_WEEKDAY_NUM = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+                "friday": 4, "saturday": 5, "sunday": 6}
+
+
+def _next_date(d: datetime.date, recurrence: str, anchor_day: int | None = None,
+               recur_days: "list[str] | None" = None) -> datetime.date:
     """Advance d by one recurrence period.
+
+    `recur_days` makes a WEEKLY series able to name several weekdays — "gym
+    every tuesday and thursday" (Gil, 2026-09-08). Without it, a multi-weekday
+    ask had only bad answers: keep one day and silently lose the other, or make
+    two separate series for one spoken sentence. With it, the series steps to
+    the next NAMED day instead of always +7.
 
     For monthly recurrence, `anchor_day` (the original series day-of-month, e.g.
     31 for a "31st of every month" series) is used instead of `d.day` so a
@@ -459,6 +475,12 @@ def _next_date(d: datetime.date, recurrence: str, anchor_day: int | None = None)
     if recurrence == "daily":
         return d + datetime.timedelta(days=1)
     if recurrence == "weekly":
+        wanted = sorted({_WEEKDAY_NUM[x] for x in (recur_days or [])
+                         if x in _WEEKDAY_NUM})
+        if len(wanted) > 1:
+            # The soonest named weekday strictly after d, wrapping the week.
+            ahead = [(n - d.weekday()) % 7 or 7 for n in wanted]
+            return d + datetime.timedelta(days=min(ahead))
         return d + datetime.timedelta(weeks=1)
     if recurrence == "monthly":
         month = d.month + 1
@@ -468,6 +490,17 @@ def _next_date(d: datetime.date, recurrence: str, anchor_day: int | None = None)
             year += 1
         day = anchor_day if anchor_day is not None else d.day
         # Clamp day to the last valid day of the target month
+        max_day = calendar.monthrange(year, month)[1]
+        return datetime.date(year, month, min(day, max_day))
+    if recurrence == "yearly":
+        # A FOURTH CADENCE (Gil, 2026-09-08). Feb 29 is the whole difficulty:
+        # stepping it a year lands on a date that does not exist, so it clamps to
+        # the 28th — and `anchor_day` is not enough to undo that, because the
+        # month matters too. Chaining from the previous instance would turn one
+        # leap-day series into a permanent 28th, so the ANCHOR month/day is what
+        # each step is computed from where it is known.
+        day = anchor_day if anchor_day is not None else d.day
+        year, month = d.year + 1, d.month
         max_day = calendar.monthrange(year, month)[1]
         return datetime.date(year, month, min(day, max_day))
     raise ValueError(f"Unknown recurrence: {recurrence!r}")
@@ -525,11 +558,11 @@ def _skip_for_observance(date: datetime.date, start_time: str = "",
     """Should a repeating event skip this slot?
 
     Shabbat and yom tov are bounded by candle lighting and tzeit hakochavim at
-    the configured location, not by midnight. That matters: candle lighting in
-    Jerusalem is 18:43 in September and 16:20 in December, so a 19:00 event on a
-    Friday is outside Shabbat in one and well inside it in the other. Using the
-    date alone would skip a whole Friday in summer and admit a Friday evening
-    in winter, both wrong.
+    the configured location, not by midnight. That matters: at Israeli
+    latitudes candle lighting swings well over two hours between September and
+    December, so a 19:00 event on a Friday is outside Shabbat in one and well
+    inside it in the other. Using the date alone would skip a whole Friday in
+    summer and admit a Friday evening in winter, both wrong.
 
     Meals are the exception, because they are what the day is for — kiddush and
     seudah belong on Shabbat. Unless it is a fast, where a meal is the one thing
@@ -886,7 +919,8 @@ class CalendarDB:
         max_instances = 500  # hard safety cap
 
         while count < max_instances:
-            current = _next_date(current, recurrence, anchor_day=anchor_day)
+            current = _next_date(current, recurrence, anchor_day=anchor_day,
+                                 recur_days=getattr(intent, "recur_days", None))
             if current > end_date:
                 break
             if not anchored_on_holy and _skip_for_observance(

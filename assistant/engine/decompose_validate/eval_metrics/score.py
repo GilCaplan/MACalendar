@@ -1,0 +1,637 @@
+"""Score decompose_validate: did each item's VALUES match what was said.
+
+Segmentation is scored on WORDS — did the right words land in the right item.
+This stage is scored on VALUES — did `"next friday"` become a Friday. The two
+cannot be confused, which is the point of having both.
+
+The metric names come from TempEval-3 / ISO-TimeML, which splits the same way:
+Task A is (a) the EXTENT of a time expression and (b) its normalized WREN against
+an anchor. Extent is segmentation's board; WREN is this one. So the headline is
+**value accuracy conditioned on the item matching**, which keeps a segmentation
+mistake from being charged to this stage.
+
+    A  VALUES        per field, and all-fields-exact — the headline
+    B  TRACEABILITY  a value no words support is an INVENTION (must be 0)
+    C  HONOURED      every time phrase in the text reached some item's value
+    D  CONTRADICTIONS internal impossibilities that need no gold at all
+    E  COST          calls and latency per row
+    F  COMPOSITION   what the score was computed OVER — anchors, traps, fields
+
+Six boards, never one number. `dataset/METRICS.md`'s rule: a single figure hides
+WHICH WAY a run fails, and the ways cost differently.
+
+Imports are stdlib only — no `assistant`, no spacy, no torch — so this is safe
+to import from inside a process that already holds a model.
+
+    python -m assistant.engine.decompose_validate.eval_metrics.score   # self-test
+"""
+from __future__ import annotations
+
+import argparse
+import collections
+import datetime as dt
+import json
+import re
+
+#: The fields this stage is responsible for filling. `text`/`time`/`kind` are
+#: segmentation's and are NOT scored here — scoring them would double-count a
+#: segmentation error and make this board unreadable.
+VALUE_FIELDS = ("date", "start_time", "end_time", "recurrence",
+                "quantity", "reminder_minutes")
+
+#: HARM — not every wrong field costs the same, so counting them equally hides
+#: which failures actually hurt. Weights are a PRODUCT judgement, written here
+#: so they can be argued with rather than buried in a total:
+#:
+#:   recurrence  a wrong cadence is wrong EVERY week until someone notices —
+#:               the only failure that repeats itself, so it is the worst
+#:   date/start  you miss the thing
+#:   end         the event is there, just the wrong length
+#:   quantity    "buy 3" instead of "buy 5" — visible on the list
+#:   reminder    you get nudged at the wrong moment, or not at all
+HARM_WEIGHT = {"recurrence": 4, "date": 3, "start_time": 3,
+               "end_time": 1, "quantity": 1, "reminder_minutes": 1}
+
+_WEEKDAY_NAME = ("monday", "tuesday", "wednesday", "thursday",
+                 "friday", "saturday", "sunday")
+
+
+# ---------------------------------------------------------------------------
+# Matching — pair predicted items to gold, on the ACTION, not on position
+# ---------------------------------------------------------------------------
+
+def _tokens(s) -> set:
+    return set(re.findall(r"[a-z0-9']+", str(s or "").lower()))
+
+
+def match_items(gold: list, pred: list, threshold: float = 0.5):
+    """Greedy best-first on action-token overlap. Returns (pairs, unmatched).
+
+    Position would be the easy way and the wrong one: if the stage drops or
+    reorders an item, position-matching charges every LATER item with a value
+    error it did not make, and one boundary slip looks like total collapse.
+    """
+    cands = []
+    for gi, g in enumerate(gold):
+        for pi, p in enumerate(pred):
+            a, b = _tokens(g.get("text")), _tokens(p.get("text"))
+            if not a or not b:
+                continue
+            score = 2 * len(a & b) / (len(a) + len(b))
+            if score >= threshold:
+                cands.append((-score, gi, pi))
+    cands.sort()
+    used_g, used_p, pairs = set(), set(), []
+    for _s, gi, pi in cands:
+        if gi in used_g or pi in used_p:
+            continue
+        used_g.add(gi)
+        used_p.add(pi)
+        pairs.append((gi, pi))
+    return (pairs,
+            [i for i in range(len(gold)) if i not in used_g],
+            [i for i in range(len(pred)) if i not in used_p])
+
+
+# ---------------------------------------------------------------------------
+# B · TRACEABILITY — the invariant, and this stage's analogue of no-invention
+# ---------------------------------------------------------------------------
+
+_SPOKEN_DIGIT = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
+                 7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven",
+                 12: "twelve"}
+
+
+def _own_words(item: dict, text: str) -> str:
+    """The words THIS item is answerable for — its own time and action.
+
+    NOT the whole transcript. Both checks below asked the transcript at first,
+    and both threw false positives for the same reason the stage they measure
+    used to: in "book standup the 21st and yoga in two days", the `21st` belongs
+    to the FIRST item, so charging the second with it is charging an item for a
+    neighbour's words. Segmentation already decided who owns what; the checks
+    have to respect that or they measure segmentation, not this stage.
+
+    `text` is still accepted and used as a fallback for an item that carries no
+    time of its own, where the transcript is all there is.
+    """
+    own = f"{item.get('time') or ''} {item.get('text') or ''}".strip()
+    return (own or (text or "")).lower()
+
+
+def untraceable(item: dict, text: str, today: str) -> list:
+    """Values the words cannot support. Empty list = every value is grounded.
+
+    The mirror of segmentation's no-invention rule, one level up: there the
+    question is "did you add a WORD nobody said", here it is "did you add a
+    VALUE nobody's words support".
+
+    Deliberately CONSERVATIVE — it only fires when it is certain, because a
+    false invention report would send someone hunting a bug that is not there.
+    A date equal to the anchor is always fine (the floor), and a value whose
+    number appears in the text is fine.
+    """
+    out = []
+    tl = _own_words(item, text)
+
+    date = item.get("date")
+    if date and date != today:
+        try:
+            d = dt.date.fromisoformat(date)
+        except ValueError:
+            out.append(f"date {date!r} is not a date")
+            d = None
+        if d is not None:
+            # Grounded if the text names its weekday, its day-of-month, its
+            # month, or any relative phrase at all.
+            says_weekday = _WEEKDAY_NAME[d.weekday()] in tl
+            says_dom = re.search(rf"\b{d.day}(?:st|nd|rd|th)?\b", tl) is not None
+            says_month = d.strftime("%B").lower() in tl
+            # A SERIES' START IS DERIVED, not spoken: "twice a week" names no
+            # date, yet the first instance has to land somewhere. The check knew
+            # only `every`/`each`, so every once-a-week and twice-a-week start was
+            # reported as an invented date. Also `end of ...`, which names a day.
+            says_relative = re.search(
+                r"\b(tomorrow|tonight|today|next|this|coming|"
+                r"in \w+ (?:day|week|month)s?|\w+ (?:day|week|month)s? from|"
+                r"christmas|new year|every|each|weekend|end of|"
+                r"everyday|biweekly|fortnightly|"
+                r"(?:once|twice|thrice|\d+ times) a)\b", tl) is not None
+            if not (says_weekday or says_dom or says_month or says_relative):
+                out.append(f"date {date} unsupported by the words")
+
+    for field in ("start_time", "end_time"):
+        wren = item.get(field)
+        if not wren:
+            continue
+        m = re.match(r"(\d{1,2}):(\d{2})", str(wren))
+        if not m:
+            out.append(f"{field} {wren!r} is not a time")
+            continue
+        h, mins = int(m.group(1)), m.group(2)
+        h12 = h % 12 or 12
+        # NOT \b — "7am" has no word boundary after the 7, so \b7\b misses it
+        # and a CORRECT answer got reported as an invention. Digit-boundary
+        # instead: not preceded or followed by another digit, which also stops
+        # "17:00" matching a 7.
+        # A SPOKEN HOUR LICENSES ITS DIGIT. Whisper writes "ten thirty", which
+        # contains no digit at all, so a digits-only search reported 26 CORRECT
+        # answers as inventions. Written out here rather than imported from the
+        # resolver: the scorer must never agree with the code under test by
+        # sharing its table.
+        # Three more spellings of the same truth, each of which was reporting a
+        # CORRECT answer as an invention:
+        #
+        #  - ZERO-PADDED. "at 09:30" holds no bare 9 — the 9 is preceded by a 0,
+        #    which the digit-boundary guard (rightly) rejects.
+        #  - A "TO" HOUR. "twenty to seven" is 18:40, so the hour SPOKEN is one
+        #    MORE than the hour resolved; looking for "six" never found it.
+        #  - A DERIVED END. "book staff meeting for 45 minutes" at 09:30 ends
+        #    10:15, and no part of "10:15" appears in the words. The duration is
+        #    what grounds it, and a range word grounds an end the same way.
+        words = [_SPOKEN_DIGIT.get(h), _SPOKEN_DIGIT.get(h12)]
+        if re.search(r"\b(?:quarter|five|ten|twenty|twenty[\s-]five)\s+to\b", tl):
+            words.append(_SPOKEN_DIGIT.get(h12 % 12 + 1))
+        derived_end = field == "end_time" and re.search(
+            r"\bfor\s+(?:\d+|[a-z]+(?:[\s-][a-z]+)?)\s+(?:min|minute|hour)s?\b"
+            r"|\b(?:to|until|till|through|and)\b", tl)
+        if not (re.search(rf"(?<!\d){h}(?!\d)|(?<!\d){h12}(?!\d)", tl)
+                or re.search(rf"(?<!\d){h:02d}(?!\d)|(?<!\d){h12:02d}(?!\d)", tl)
+                or any(w and re.search(rf"\b{w}\b", tl) for w in words)
+                or derived_end
+                # THE WHOLE COARSE VOCABULARY. "night" was missing, so every
+                # correct 21:00 from "tomorrow night" was reported as invented —
+                # the same shape of board bug as the other five: the check knew
+                # some spellings of the truth and not all of them.
+                or re.search(r"\b(noon|midday|midnight|lunchtime|morning|"
+                             r"afternoon|evening|tonight|night|dawn|dusk|"
+                             r"half past|quarter)\b", tl)):
+            out.append(f"{field} {wren} unsupported by the words")
+
+    q = item.get("quantity")
+    if q and not re.search(rf"\b{q}\b", tl) and not re.search(
+            r"\b(two|three|four|five|six|eight|twelve|dozen|couple|few)\b", tl):
+        out.append(f"quantity {q} unsupported by the words")
+
+    # Same blind spot as the trigger in `resolve_recurrence` had: the one-word
+    # and frequency cadences. 115 CORRECT weekly recurrences were reported as
+    # invented because the check had never heard of "twice a week".
+    # SEVENTH TIME. Every one of this board's false positives has had the same
+    # shape: the check knows SOME spellings of the truth. The vocabulary below is
+    # hand-maintained and drifts behind the resolver every time a form is added
+    # (this round: yearly/annually).
+    #
+    # The structural fix is written up in ARCHITECTURE.md: derive the vocabulary
+    # from `normalization.py`'s closed tables — the GOLD's own words, so the board
+    # stays independent of `resolve.py` while it stops drifting. Not done here
+    # because it is a board refactor, not a one-line vocabulary patch.
+    rec = item.get("recurrence")
+    if rec and not re.search(r"\b(every|each|daily|weekly|monthly|nightly|everyday|"
+                             r"biweekly|fortnightly|yearly|annually|annual|"
+                             r"(?:once|twice|thrice|\d+\s+times)\s+a)\b", tl):
+        out.append(f"recurrence {rec!r} unsupported by the words")
+    return out
+
+
+# ---------------------------------------------------------------------------
+# D · CONTRADICTIONS — checkable with no gold at all
+# ---------------------------------------------------------------------------
+
+def contradictions(item: dict, text: str, today: str) -> list:
+    """Internal impossibilities. These need NO gold, so they can be run over
+    real traffic where no labels exist — which is what makes them worth having
+    separately from the value board."""
+    out = []
+    tl = _own_words(item, text)
+    st, en = item.get("start_time"), item.get("end_time")
+    if st and en and str(en) <= str(st):
+        out.append(f"end {en} is not after start {st}")
+
+    date, until = item.get("date"), item.get("recur_until")
+    if date and until and str(until) < str(date):
+        out.append(f"recur_until {until} precedes the start {date}")
+
+    if item.get("recur_until") and not item.get("recurrence"):
+        out.append("recur_until with no recurrence")
+
+    if date and today and str(date) < str(today):
+        out.append(f"date {date} is in the past (anchor {today})")
+
+    # A weekly series named its weekday(s): the start must be ONE OF THEM.
+    # `want` may be a single name or a LIST -- "every tuesday and thursday" is
+    # one series on two days. Comparing a string to a list always differs, so
+    # the first version reported every multi-day series as a contradiction.
+    want = item.get("recurrence_weekday") or item.get("recur_days")
+    wanted = {want} if isinstance(want, str) else set(want or ())
+    # An explicit "starting X" overrides: the speaker chose the first instance,
+    # and a series may legitimately begin before its first named weekday.
+    starts_explicitly = re.search(r"\b(starting|from|beginning)\b", tl) is not None
+    if wanted and date and not starts_explicitly:
+        try:
+            got = _WEEKDAY_NAME[dt.date.fromisoformat(date).weekday()]
+            if got not in wanted:
+                out.append(f"series is on {sorted(wanted)} but starts on a {got}")
+        except ValueError:
+            pass
+
+    # The words name a day-of-month; the resolved date must use it — UNLESS an
+    # until/through puts that ordinal on the series' END. "every weekend through
+    # the 30th" starts on the coming weekend and finishes on the 30th, and the
+    # check flagged five CORRECT items for not starting on it. It has to know
+    # which end of the range the ordinal names, exactly as the resolver does.
+    bound = re.search(r"\b(?:until|till|up to|through|thru|including)\b", tl)
+    m = re.search(r"\bthe (\d{1,2})(?:st|nd|rd|th)\b", tl)
+    if m and date and not (bound and bound.start() < m.start()):
+        try:
+            if dt.date.fromisoformat(date).day != int(m.group(1)):
+                out.append(f"text says the {m.group(1)}th but date is {date}")
+        except ValueError:
+            pass
+
+    return out
+
+
+# ---------------------------------------------------------------------------
+# C · HONOURED — every time phrase in the text reached some value
+# ---------------------------------------------------------------------------
+
+_PHRASE = re.compile(
+    r"\b(today|tonight|tomorrow|yesterday|monday|tuesday|wednesday|thursday|"
+    r"friday|saturday|sunday|next \w+|this \w+|in \w+ (?:days?|weeks?|months?)|"
+    r"the \d{1,2}(?:st|nd|rd|th)|january|february|march|april|may|june|july|"
+    r"august|september|october|november|december|every \w+|daily|weekly|"
+    r"monthly|noon|midnight)\b", re.I)
+
+
+def unhonoured(text: str, items: list) -> list:
+    """Time phrases in the text that no item's `time` accounts for.
+
+    The value-level analogue of segmentation's no-LOSS rule. Segmentation
+    guarantees no WORD is dropped; this asks whether every time phrase actually
+    reached a value. It is what catches a phrase being half-read — the month
+    severed from its ordinal, for instance.
+    """
+    said = {m.group(0).lower() for m in _PHRASE.finditer(text or "")}
+    covered = set()
+    for item in items:
+        blob = f"{item.get('time','')} {item.get('text','')}".lower()
+        covered |= {p for p in said if p in blob}
+    return sorted(said - covered)
+
+
+# ---------------------------------------------------------------------------
+
+def score_rows(rows: list, predict, samples: int = 8) -> dict:
+    """rows -> the six boards. `predict(text, today) -> list[item] | dict`."""
+    n = len(rows)
+    field_ok = collections.Counter()
+    field_n = collections.Counter()
+    all_ok = matched = 0
+    inv_items = inv_rows = 0
+    contra_items = 0
+    unhon_rows = unhon_phrases = 0
+    miss_g = miss_p = 0
+    calls = seconds = 0.0
+    rows_reporting = 0
+    harm = 0
+    harm_by_field = collections.Counter()
+    answered = collections.Counter()      # gold had a value AND we produced one
+    asked = collections.Counter()         # gold had a value
+    fix_improved = fix_broke = fix_still = 0
+    by_anchor = collections.defaultdict(lambda: [0, 0])
+    by_trap = collections.defaultdict(lambda: [0, 0])
+    failures = []
+
+    for row in rows:
+        gold, text, today = row["gold"], row["text"], row["today"]
+        out = predict(text, today)
+        meta = out if isinstance(out, dict) else {}
+        pred = (out.get("items") if isinstance(out, dict) else out) or []
+        if meta:
+            rows_reporting += 1
+            calls += meta.get("calls") or 0
+            seconds += meta.get("seconds") or 0.0
+
+        before = (out.get("before") if isinstance(out, dict) else None) or []
+        pairs, mg, mp = match_items(gold, pred)
+        # G · FIXES — did validate's repairs help? Compared per matched item,
+        # BEFORE the repairs against AFTER, both against gold. Without this the
+        # board measures the resolver and says nothing about the stage's own
+        # job, and a repair that damages correct items is invisible.
+        if before:
+            bp, _bg, _bpp = match_items(gold, before)
+            was = {gi: all(str(gold[gi].get(f)) == str(before[pi].get(f))
+                           for f in VALUE_FIELDS) for gi, pi in bp}
+            for gi, pi in pairs:
+                now = all(str(gold[gi].get(f)) == str(pred[pi].get(f))
+                          for f in VALUE_FIELDS)
+                if gi not in was:
+                    continue
+                if was[gi] and not now:
+                    fix_broke += 1
+                elif not was[gi] and now:
+                    fix_improved += 1
+                elif not was[gi] and not now:
+                    fix_still += 1
+        miss_g += len(mg)
+        miss_p += len(mp)
+
+        row_ok = not mg and not mp
+        for gi, pi in pairs:
+            matched += 1
+            g, p = gold[gi], pred[pi]
+            item_ok = True
+            for f in VALUE_FIELDS:
+                want, got = g.get(f), p.get(f)
+                if want is None and got is None:
+                    continue
+                field_n[f] += 1
+                if str(want) == str(got):
+                    field_ok[f] += 1
+                else:
+                    item_ok = False
+            for f in VALUE_FIELDS:
+                if g.get(f) is not None:
+                    asked[f] += 1
+                    if p.get(f) is not None:
+                        answered[f] += 1
+                if g.get(f) is not None or p.get(f) is not None:
+                    if str(g.get(f)) != str(p.get(f)):
+                        harm += HARM_WEIGHT.get(f, 1)
+                        harm_by_field[f] += HARM_WEIGHT.get(f, 1)
+            bad = untraceable(p, text, today)
+            if bad:
+                inv_items += 1
+            if contradictions(p, text, today):
+                contra_items += 1
+            row_ok = row_ok and item_ok
+        if any(untraceable(p, text, today) for p in pred):
+            inv_rows += 1
+        lost = unhonoured(text, pred)
+        if lost:
+            unhon_rows += 1
+            unhon_phrases += len(lost)
+
+        all_ok += row_ok
+        by_anchor[today][0] += 1
+        by_anchor[today][1] += row_ok
+        for t in (row.get("traps") or ["(none)"]):
+            by_trap[t][0] += 1
+            by_trap[t][1] += row_ok
+        if not row_ok and len(failures) < samples:
+            failures.append({"id": row.get("id"), "text": text, "today": today,
+                             "gold": gold, "pred": pred,
+                             "why": (unhonoured(text, pred)
+                                     or [c for p in pred for c in contradictions(p, text, today)]
+                                     or ["a field value differs"])[:2]})
+
+    return {
+        "n_rows": n,
+        "values": {"all_fields_exact": all_ok, "matched_items": matched,
+                   "per_field": {f: (field_ok[f], field_n[f]) for f in VALUE_FIELDS}},
+        "traceability": {"invention_items": inv_items, "invention_rows": inv_rows},
+        "honoured": {"rows_with_a_lost_phrase": unhon_rows,
+                     "phrases_lost": unhon_phrases},
+        "contradictions": {"items": contra_items},
+        "harm": {"total": harm, "per_item": harm / matched if matched else 0,
+                 "by_field": dict(harm_by_field)},
+        "abstention": {f: (answered[f], asked[f]) for f in VALUE_FIELDS},
+        "fixes": {"improved": fix_improved, "broke": fix_broke,
+                  "still_wrong": fix_still, "ran": bool(before)},
+        "matching": {"unmatched_gold": miss_g, "unmatched_pred": miss_p},
+        "cost": {"rows_reporting": rows_reporting, "calls": calls,
+                 "calls_per_row": calls / n if n else 0,
+                 "seconds_per_row": seconds / n if n else 0},
+        "composition": {
+            "by_anchor": {k: tuple(v) for k, v in sorted(by_anchor.items())},
+            "by_trap": {k: tuple(v) for k, v in
+                        sorted(by_trap.items(), key=lambda kv: -kv[1][0])}},
+        "failures": failures,
+    }
+
+
+def _pc(ok, n) -> str:
+    """THE project rate format (Gil, 2026-09-08): padded, and ALWAYS with x/n.
+
+    `53.5%` alone cannot be read — 53 of 100 and 5,350 of 10,000 print the same
+    and mean very different things. The denominator is what makes a rate a
+    result. Three boards printed this three ways; this is the one.
+    """
+    return f"{ok / n:6.1%}  ({ok}/{n})" if n else "     —  (0/0)"
+
+
+def format_board(r: dict) -> str:
+    L: list = []
+    add = L.append
+    n = r["n_rows"]
+    v = r["values"]
+    add(f"decompose_validate board — {n} rows, {v['matched_items']} matched items")
+    add("(items paired by action overlap ≥ 0.50, so a segmentation slip is not "
+        "charged here)")
+
+    add("\nA · VALUES — did the words become the right value")
+    add(f"   all fields exact (row)     {_pc(v['all_fields_exact'], n)}   <- the headline")
+    for f, (ok, fn) in v["per_field"].items():
+        add(f"   {f:<24}  {_pc(ok, fn)}")
+
+    t = r["traceability"]
+    add("\nB · TRACEABILITY — a value the words do not support is an INVENTION")
+    add(f"   invention items            {t['invention_items']}   MUST BE 0")
+    add(f"   invention rows             {t['invention_rows']}")
+
+    h = r["honoured"]
+    add("\nC · HONOURED — every time phrase in the text reached a value")
+    add(f"   rows with a lost phrase    {h['rows_with_a_lost_phrase']}   MUST BE 0")
+    add(f"   phrases lost               {h['phrases_lost']}")
+
+    add("\nD · CONTRADICTIONS — impossible on their own terms (no gold needed)")
+    add(f"   items                      {r['contradictions']['items']}   MUST BE 0")
+
+    ab = r["abstention"]
+    add("\nB2 · ABSTENTION — of the items that NAMED a value, did we commit one")
+    add("   (a resolver that declines everything scores 0 inventions and is useless)")
+    for f, (got, want) in ab.items():
+        if want:
+            add(f"   {f:<24}  {_pc(got, want)}")
+
+    h = r["harm"]
+    add("\nD2 · HARM — wrong fields weighted by what they cost")
+    add(f"   harm per matched item      {h['per_item']:.3f}")
+    if h["by_field"]:
+        add("   where it comes from: " + " · ".join(
+            f"{k} {v}" for k, v in sorted(h["by_field"].items(), key=lambda kv: -kv[1])))
+
+    fx = r["fixes"]
+    add("\nG · FIXES — did validate's repairs pay for themselves")
+    if not fx["ran"]:
+        add("   not run (the predictor reported no BEFORE state)")
+    else:
+        add(f"   improved                   {fx['improved']}")
+        add(f"   BROKE                      {fx['broke']}   <- the one that matters")
+        add(f"   still wrong                {fx['still_wrong']}")
+        add("   (improved and BROKE are never summed: a repair that damages a "
+            "correct\n    item is not paid for by one that helps elsewhere)")
+
+    m = r["matching"]
+    add(f"\n   (matching: {m['unmatched_gold']} gold items unmatched, "
+        f"{m['unmatched_pred']} predicted items spurious)")
+
+    c = r["cost"]
+    add("\nE · COST")
+    add(f"   model calls / row          {c['calls_per_row']:.2f}")
+    add(f"   seconds / row              {c['seconds_per_row']:.3f}")
+
+    comp = r["composition"]
+    add("\nF · COMPOSITION — what the numbers were computed OVER")
+    add("   by anchor (the reference date the row was spoken on)")
+    for anchor, (rn, ok) in comp["by_anchor"].items():
+        add(f"      {anchor}  {rn:4d} rows   all-fields {_pc(ok, rn)}")
+    add("   by trap")
+    for trap, (rn, ok) in list(comp["by_trap"].items())[:14]:
+        add(f"      {trap:<28} n={rn:<5} all-fields {_pc(ok, rn)}")
+
+    if r.get("failures"):
+        add("\n--- reading the failures (a pointer, not a board) ---")
+        for f in r["failures"]:
+            add(f"   [{f['id']}] {f['text'][:66]}   (anchor {f['today']})")
+            add(f"      why  {f['why']}")
+    return "\n".join(L)
+
+
+# ---------------------------------------------------------------------------
+# Self-test — the scorer must be able to SEE each defect it claims to measure
+# ---------------------------------------------------------------------------
+
+def _selftest() -> int:
+    rows = [{"id": "t1", "text": "book gym tomorrow at 7am", "today": "2026-09-08",
+             "traps": ["basic"],
+             "gold": [{"kind": "event", "text": "book gym", "time": "tomorrow at 7am",
+                       "date": "2026-09-09", "start_time": "07:00", "end_time": None,
+                       "recurrence": None, "quantity": None,
+                       "reminder_minutes": None}]}]
+
+    def perfect(text, today):
+        return [dict(rows[0]["gold"][0])]
+
+    def wrong_date(text, today):
+        it = dict(rows[0]["gold"][0]); it["date"] = "2026-09-08"; return [it]
+
+    def invents(text, today):
+        it = dict(rows[0]["gold"][0]); it["quantity"] = 7; return [it]
+
+    def contradicts(text, today):
+        it = dict(rows[0]["gold"][0]); it["end_time"] = "06:00"; return [it]
+
+    def loses_phrase(text, today):
+        it = dict(rows[0]["gold"][0]); it["time"] = ""; return [it]
+
+    checks = []
+    r = score_rows(rows, perfect)
+    checks.append(("perfect scores 1/1", r["values"]["all_fields_exact"] == 1))
+    checks.append(("perfect invents nothing", r["traceability"]["invention_items"] == 0))
+    r = score_rows(rows, wrong_date)
+    checks.append(("a wrong date fails the row", r["values"]["all_fields_exact"] == 0))
+    checks.append(("...and is counted on the date field",
+                   r["values"]["per_field"]["date"] == (0, 1)))
+    r = score_rows(rows, invents)
+    checks.append(("an unsupported quantity is an invention",
+                   r["traceability"]["invention_items"] == 1))
+    r = score_rows(rows, contradicts)
+    checks.append(("end before start is a contradiction",
+                   r["contradictions"]["items"] == 1))
+    r = score_rows(rows, loses_phrase)
+    checks.append(("a dropped time phrase is unhonoured",
+                   r["honoured"]["phrases_lost"] >= 1))
+
+    # The three newest boards must also SEE their own defect, or they are
+    # decoration. Added with them rather than after, on the principle that an
+    # unverified board is worse than no board — it reads as evidence.
+    def abstains(text, today):
+        it = dict(rows[0]["gold"][0]); it["start_time"] = None; return [it]
+
+    r = score_rows(rows, abstains)
+    checks.append(("declining a value shows on ABSTENTION",
+                   r["abstention"]["start_time"] == (0, 1)))
+    checks.append(("...and costs harm", r["harm"]["total"] == HARM_WEIGHT["start_time"]))
+
+    r = score_rows(rows, wrong_date)
+    checks.append(("a wrong date is weighted by its harm",
+                   r["harm"]["by_field"].get("date") == HARM_WEIGHT["date"]))
+
+    def repaired(text, today):
+        """BEFORE was wrong, AFTER is right — an improvement."""
+        bad_item = dict(rows[0]["gold"][0]); bad_item["date"] = "2026-01-01"
+        return {"items": [dict(rows[0]["gold"][0])], "before": [bad_item]}
+
+    def damaged(text, today):
+        """BEFORE was right, AFTER is wrong — the failure that matters."""
+        bad_item = dict(rows[0]["gold"][0]); bad_item["date"] = "2026-01-01"
+        return {"items": [bad_item], "before": [dict(rows[0]["gold"][0])]}
+
+    r = score_rows(rows, repaired)
+    checks.append(("a repair that helps counts as improved",
+                   r["fixes"]["improved"] == 1 and r["fixes"]["broke"] == 0))
+    r = score_rows(rows, damaged)
+    checks.append(("a repair that DAMAGES a correct item is caught",
+                   r["fixes"]["broke"] == 1 and r["fixes"]["improved"] == 0))
+
+    bad = [name for name, ok in checks if not ok]
+    for name, ok in checks:
+        print(f"   {'ok  ' if ok else 'FAIL'} {name}")
+    print("\n" + ("self-test PASSED — every board sees its own defect"
+                  if not bad else f"self-test FAILED: {bad}"))
+    return 1 if bad else 0
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--rows", nargs="*", help="score gold files instead of self-testing")
+    a = ap.parse_args()
+    if not a.rows:
+        raise SystemExit(_selftest())
+    rows = [json.loads(l) for p in a.rows for l in open(p) if l.strip()]
+    print(f"{len(rows)} rows loaded")
+
+
+if __name__ == "__main__":
+    main()

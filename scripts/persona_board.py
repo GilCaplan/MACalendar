@@ -7,7 +7,7 @@ cannot move the trained classifiers, which read STRUCTURE. If that holds, every
 persona's board looks the same and the variance rows are ~0. If it does not,
 the variance rows say by how much, and which persona pays.
 
-The metrics are `scripts/fastrule_shape.py`'s, unchanged and imported from it
+The metrics are `assistant/engine/fastrule/experiments/fastrule_shape.py`'s, unchanged and imported from it
 rather than recopied, so a persona board and a FastRule board mean the same
 thing:
 
@@ -50,7 +50,7 @@ if str(ROOT) not in sys.path:
 # Importing this ALSO pins every MACALENDAR_* store at a scratch dir, sets
 # MACALENDAR_NO_WARMUP and pins BLAS to one thread — see its module header.
 # It must happen before anything under assistant/ is imported.
-from scripts import fastrule_shape as FS       # noqa: E402
+from assistant.engine.fastrule.experiments import fastrule_shape as FS  # noqa: E402
 
 DATA = ROOT / "dataset" / "personas" / "personas.jsonl"
 BASE = ["observant_student", "household_parent", "freelance_consultant",
@@ -219,7 +219,7 @@ def pc(x):
 def score(rows, examples: int):
     """Run FastRule over every row once; bucket by (persona, structure)."""
     from freezegun import freeze_time
-    from assistant.engine.fastrule import FastRule
+    from assistant.engine.fastrule.fastrule import FastRule
     from assistant.intent.rule_parser import RULE_THRESHOLD
 
     fr = FastRule(RULE_THRESHOLD)
@@ -421,7 +421,7 @@ def main() -> int:
     print(f"PERSONA BOARDS — {path.name} "
           f"({len(rows)} rows, {len(PERSONAS)} columns x {len(rows)//len(PERSONAS)}, "
           "TEST-ONLY)\nfast track only (FastRule + gates, no LLM, no execution) · "
-          "metrics from scripts/fastrule_shape.py")
+          "metrics from assistant/engine/fastrule/experiments/fastrule_shape.py")
     print("=" * 100)
     hdr = f"{'':30s}" + "".join(f"{SHORT[p]:>15s}" for p in PERSONAS)
     print(hdr)

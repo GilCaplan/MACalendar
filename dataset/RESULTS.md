@@ -446,7 +446,7 @@ input).
 
 ## Q7 object refactor — CONFIRMED behavior-identical (2026-09-07, merged)
 
-Confirmation run on the refactored Engine/DeepSystem objects, dev-fast 250:
+Confirmation run on the refactored Engine/the Engine's stage list objects, dev-fast 250:
 **routing fingerprint identical** (163 deep / 87 fast — the deterministic
 path decided every row the same way), board within noise of run 17 (raw
 77.0 · adjusted 80.0 · F1 81.2 · fieldq 85.9 · fast 90% · garbage 0%). Not
@@ -1451,6 +1451,35 @@ the rules' ~36%), which is why that rewiring worked and this one does not.
 kind models reach the atomicity model's standard. Banked so no future cycle
 re-tries it blind.
 
+## MILESTONE — the pre-loop baseline on the SEALED 300 (run 21, 2026-09-07)
+
+**Dataset: the sealed test set (300 rows, never mined, never trained on,
+never used to pick a fix). Aggregates only, tooling-enforced.** This is the
+first objective read on the engine, and the reference every sprint cycle is
+judged against.
+
+| metric | value | meaning |
+|---|---|---|
+| count-correct raw | **83%** | of 301 commands, the right number of events/tasks |
+| product-adjusted | **82%** | after the conventions layer |
+| item-level F1 | **85.2** (P 87.2 / R 83.3) | it invents less than it drops |
+| simple / medium / complex | 90% / 92% / **67%** | the hard tier is the weak one, as always |
+| event+event / task+task / event+task | 63% / 78% / **59%** | mixed compounds are the worst family |
+| fast path | **90%** correct, 135 of 301 rows | nearly half the traffic, and the best path |
+| deep path | 77% correct, 166 rows | |
+| garbage titles | **0%** | |
+| field quality / when-correct | 88.9% / 81.9% | |
+| latency p50 / p95 | 12.0 s / **70.4 s** | |
+
+**Read honestly.** The headline is the best the engine has produced and the
+fast path carries 45% of traffic at 90% correct — the FastRule work landed.
+But three things temper it: **complex is 67%** and mixed compounds 59%,
+which the atomizer board explains exactly (6.2% of compounds atomized
+correctly); **p95 is 70 seconds**, which is not a product-acceptable tail
+even after the background-verify fix; and most importantly **this measures
+clean prompts** — the same engine scores 50% on Gil's real speech. The
+sprint is aimed at all three.
+
 ## PERSONA FINDING (2026-09-07) — the engine is tuned to SENTENCE SHAPES, not vocabulary
 
 **Dataset:** 6 synthetic personas × 420 rows (`dataset/personas/`), ground
@@ -1492,3 +1521,521 @@ overrides an explicit clock time. "book the coffee MORNING … thursday at
 7pm" → 08:00, while "coffee meetup" → 19:00. "the siyum TONIGHT at 8:45am"
 → 20:45. The substitution is unanchored and runs before temporal
 extraction, so a title word silently rewrites the user's stated time.
+
+## SPRINT CYCLE A — THE ATOMIZER — REGISTERED PREDICTION 2026-09-07
+
+**Baseline to beat** (atomizer board, deterministic path): compounds
+atomized correctly **6.2%** on the FastRule 7,200 test half, **0.0%** on the
+personas; segment split NOTHING in 4,920 rows; mis-typed 41.6%; decompose
+net-negative on personas (0 rescued, 17 damaged). Engine sealed-300
+reference (run 21): raw 83%, complex 67%, event+task 59%, fast path 90%.
+
+**Changes** (all implementation; architecture frozen):
+1. `coordination` returns the clause BOUNDARY it already computes, not a
+   boolean; segment splits deterministically at a confident boundary and
+   falls back to the LLM otherwise (its under-split bias preserved — an
+   unconfident boundary does not split).
+2. The four board-found bugs: `_split_tasks` hard-coding `kind="task"`;
+   the wrapper-phrase tear producing garbage titles; the lost shared
+   deadline; `_TASK_RE` recognising no non-create todo verb.
+3. Q15: a daypart is NOT a clock time (the largest mis-kind driver, 499 of
+   609).
+4. Q14: relabel the np_decoy families — a list of things for one verb is one
+   item PER THING.
+
+**Predict:**
+- atomizer board, B-test: compounds atomized correctly **6.2% → 25–40%**
+  (segment gains a mechanism that fires on speech); personas **0.0% → 15–30%**
+  (the boundary detector is not wording-specific, unlike decompose's rules);
+  mis-typed **41.6% → 15–25%** (the daypart rule and `_TASK_RE` are the two
+  named drivers); OVER stays ≤3% (the bias is preserved).
+- FastRule shape board: unchanged ±1 — this cycle does not touch FastRule.
+- engine dev-100: complex tier UP 5–15 pt; overall raw up 2–5 pt. (Noise
+  floor ~2.5–3 pt on dev-100, so only the complex movement is expected to
+  be legible.)
+- **Risk:** a deterministic splitter that fires wrongly creates garbage items
+  immediately, where an under-split gets recovered downstream. If OVER rises
+  above 3% or boundary-integrity degrades, that is a banked negative.
+
+### CYCLE A — RESULT (part 1 of 4: the boundary splitter) — 2026-09-07
+
+Change 1 of the four shipped and measured on its own, so the delta has one
+cause. Changes 2–4 (`_TASK_RE`, the daypart rule, the np_decoy relabel) are
+still ahead; the mis-typed prediction belongs to those and is NOT judged here.
+
+**What changed.** `coordination.clause_boundaries` keeps the position the
+check already computed instead of throwing it away, and `segment` gained a
+deterministic tier that splits there. Then two guard families the board's own
+failures named:
+
+- **a modifier is not an ask.** A trailing lead-time offset ("…at 1pm and give
+  me a nudge an hour before"), an anaphoric commit ("…, put that in the
+  diary", "…, please change it"), a bare annotation ("…and add a note") and a
+  completion marker ("submit the report, wrapped up") all point back at the
+  ask already spoken. An ask has to NAME something; these do not.
+- **a date inside the first ask is not shared.** Only a date the utterance
+  OPENS with is copied into later parts — the mirror of the repeated-relative-
+  date bug fixed in a987aba.
+
+**Boundary integrity — the headline** (compounds with distinguishable anchors,
+test halves):
+
+| | FastRule 7,200 | personas |
+|---|---|---|
+| clean (each item = one whole ask) | 5.8% → **41.7%** | 0.0% → **43.2%** |
+| bleed (two asks in one item) | 93.7% → 57.8% | 100.0% → 56.8% |
+| lost (words survive in no item) | 0.5% → 0.5% | 0.0% → **0.0%** |
+| duplicated | 0.0% → 0.0% | 0.0% → 0.0% |
+
+**Count-correctness by tier:**
+
+| | FastRule 7,200 | personas |
+|---|---|---|
+| complex count-correct | 60.4% → **75.1%** | 49.8% → **70.5%** |
+| complex UNDER | 36.7% → 22.0% | 48.9% → 27.7% |
+| complex OVER | 2.9% → **2.9%** | 1.4% → **1.8%** |
+| simple count-correct | 99.9% → 99.6% | 100.0% → **100.0%** |
+
+**Every persona improved**, 4.5 to 12.6 points of count-correctness:
+retiree 79.5→92.1, freelance_consultant 77.4→88.8, esl_speaker 76.9→88.3,
+observant_student 75.0→83.8, household_parent 70.0→81.4, uni_student
+75.5→80.0. The spread widened (9.5 → 12.1 pt) because the gains were uneven,
+not because anyone regressed.
+
+**Segment stopped being a no-op**: rows it returned as >1 item went 0 (0.0%)
+→ 312 (12.4%) on personas. And it got CHEAPER — segment model calls 1150→890
+and 991→684, about 25–30% fewer, because a confident boundary no longer needs
+the gated LLM call.
+
+**Verdict against the prediction: confirmed, and OVER held.** The predicted
+range (25–40% / 15–30% atomized) was beaten on both halves. The stated risk —
+"if OVER rises above 3% that is a banked negative" — did not fire: 2.9% and
+1.8%. Simple-tier correctness, the thing Gil ranked first, is intact.
+
+**It did not arrive that way.** The first cut over-split **139 persona rows and
+28 FastRule rows** that were atomic, and dipped simple-tier correctness to
+95.4% — a real regression on the tier that matters most. Both guard families
+above exist because those rows were read one at a time rather than the
+headline being accepted. Over-splits now 5 and 3.
+
+**Banked, unfixed:** 4 rows where spaCy tags the gerund in "washing up liquid"
+as a verb and splits a shopping list; 3 FastRule rows still lost (0.5%,
+unchanged from baseline — not caused here).
+
+**Not judged yet:** mis-typing rose in absolute terms (personas complex
+25/606 → 133/807) because splitting EXPOSES second items that then need
+kinding, and `_TASK_RE` still recognises no non-create todo verb. That is
+cycle A change 2, measured next.
+
+## CYCLE A PART 2 — THE KIND DECISION — REGISTERED PREDICTION 2026-09-08
+
+**Why this is the next cycle, chosen by the last one's own result.** Part 1
+raised compound count-correctness a lot (complex 49.8%→70.5% personas,
+60.4%→75.1% FastRule) and mis-typing rose with it: personas complex 25/606 →
+133/807. Splitting EXPOSES second items, and each exposed item now needs a
+kind. The kind logic was never the binding constraint while segment split
+nothing; it is now.
+
+**Baseline to beat** (atomizer board, test halves, deterministic path, as of
+a222f60): personas complex mis-typed **133/807 (16.5%)**, simple 393/1302
+(30.2%); FastRule complex **320/825 (38.8%)**, simple 360/797 (45.2%).
+
+**The mechanism, read out of the code before measuring:** kind is decided in
+`segment._kind_of` / `_enforce_pinned_kinds`, and `decompose.run()` then
+branches ENTIRELY on it. So one wrong kind costs two errors — the wrong label
+AND the wrong decomposition (an event gets time-splitting, a task gets
+list-splitting and quantity extraction).
+
+**Changes** (all implementation; contracts frozen):
+1. **`_TASK_RE` recognises only CREATE-shaped to-do phrasing.** No complete,
+   update or delete verb matches it, so "cross off buy milk" / "mark the
+   laundry done" / "take the dentist off my list" fall through to "event".
+2. **Q15: a daypart is not a clock time.** `_CLOCKISH_RE` ends with
+   `(noon|midnight|tonight|morning|evening|afternoon)`, and both kind call
+   sites use it to promote a reminder to the calendar — against Gil's
+   explicit ruling that "remind me to take the trash out tonight" is a task
+   due in the evening. The daypart belongs in the due time.
+3. **`_strip_reminder_clause` runs only for events**, so a task carrying a
+   lead-time keeps the whole clause in its title.
+4. **The wrapper tear** in `list_split`, producing titles like "Jordan to my
+   to-do list".
+
+**Predict:**
+- atomizer board, both test halves: **mis-typed down 10–20 pt** on the complex
+  tier (personas 16.5% → 5–10%; FastRule 38.8% → 22–30%). Change 2 is the
+  largest single driver by the earlier attribution (499 of 609), change 1 the
+  second.
+- **count-correctness must not regress**: complex holds at or above 70.5% /
+  75.1%, simple holds at 100% / 99.6%. A kind fix that costs count-correctness
+  is a bad trade and would be banked as a negative.
+- **OVER stays ≤3%.** Nothing here should split more.
+- FastRule shape board: **kind/action correctness up**, handle rate ±1 —
+  FastRule's own router is untouched, but it receives better-kinded items.
+- **Risk, stated up front:** change 1 widens a regex, and this project's bias
+  is that a wrong action beats no action only when the action is additive.
+  Adding delete/complete verbs to a TASK matcher moves rows toward
+  destructive operations. If harm (weighted destructive errors) rises at all,
+  that is a banked negative regardless of what mis-typed does.
+
+### CYCLE A PART 2 — RESULT — 2026-09-08
+
+**Prediction met on every registered line, and the guard conditions held.**
+
+A new instrument first: `scripts/kind_board.py`. The kind decision had no
+board, which is why it stayed broken — the atomizer board reported "mis-typed"
+as one undirected number, and the failure was almost entirely one direction.
+
+**The kind board, both held-out halves (unseen families — the split is by
+family, so these are constructions the fix never saw):**
+
+| | FastRule 7,200 test | personas test | realspeech test |
+|---|---|---|---|
+| kind accuracy | 59.4% → **73.7%** | 79.1% → **87.7%** | 93.8% → **97.8%** |
+| non-create to-do ops | 1.2% → **51.6%** | 0.9% → **45.0%** | — |
+| create to-do | 29.3% → **50.3%** | 53.6% → **70.9%** | 78.3% → 97.8% |
+| create event (the cost) | 91.2% → 90.6% | 100% → **100%** | 100% → 100% |
+
+On the TRAIN half, task recall went 0.341 → 0.745 and task precision 0.902 →
+0.982; the train/test gap is unseen families, not a fake gain — every held-out
+half moved.
+
+**The atomizer board (the registered metric), test halves:**
+
+| | FastRule | personas |
+|---|---|---|
+| complex mis-typed | 38.8% → **24.8%** | 16.5% → **10.7%** |
+| simple mis-typed | 45.2% → **28.8%** | 30.2% → **17.7%** |
+| complex count-correct | 75.1% → **76.2%** | 70.5% → 70.5% |
+| simple count-correct | 99.6% → **99.8%** | 100% → **100%** |
+| complex OVER (budget ≤3%) | 2.9% → **2.6%** | 1.8% → **1.8%** |
+
+Count-correctness was predicted to HOLD and instead rose; OVER stayed inside
+budget. The simple-tier mis-typing gain was not predicted and is the larger
+one — simple rows are the majority of real traffic.
+
+**What was actually wrong**, in the order the board found it:
+1. `_REVIEW_RE`'s "my schedule" arm was UNANCHORED, so "drop piano lesson
+   from my schedule" — a delete — scored as a question. Review F1
+   0.766 → 0.925.
+2. `_TASK_RE` recognised only CREATE-shaped to-do wording. The strongest fix
+   needed no verb at all: an explicit list DESTINATION ("on my list", "from
+   my tasks"), which is what makes a delete or an edit a to-do.
+3. `_kind_of` ignored the pinned "remind me TO <verb>" errand form that
+   `_enforce_pinned_kinds` already honoured, so any remind-worded row with a
+   clock time went to the calendar.
+4. `^get` claimed "get rid of" (a delete), and naming the calendar outright
+   ("get rid of that task ON MY CALENDAR") did not outrank the to-do signals.
+
+**A negative worth banking: fixing kind BROKE the splitter, and the board saw
+it before the tests did.** `decompose.run()` branches entirely on kind, so
+correcting the kind routed hundreds of items into `_split_tasks` for the first
+time — and `list_split` is pure string work that cuts at "and" without being
+able to tell a request from the words around one. OVER jumped to 8.6% and
+"lost" to 5.8% ("wash the car, done and dusted" → "wash done" + "wash
+dusted"; "pack and label the boxes" → a task called "pack"). This is the SAME
+shape as part 1: fixing the upstream stage exposes the downstream one.
+
+The fix is `assistant/intent/asks.py` — one shared reader, `is_an_ask`, in the
+layer both stages can call, so segment's clause tier and decompose's list tier
+cannot drift. A split is refused WHOLE rather than dropping the bad piece:
+those words still belong to the command, and a merged item is recoverable
+where deleted words are not. **Verified end to end: zero content words lost
+across all 4,920 test rows.**
+
+(The board's own `lost` line reads 2.8% on the FastRule half. That is not word
+destruction — it counts a gold ask whose anchor no longer appears as a
+distinguishable item, i.e. an under-split artifact. Measured directly, word
+loss is zero.)
+
+**Also fixed, incidentally:** `tests/unit/test_mixed_commands.py::test_a_list_
+of_things_to_buy_makes_exactly_its_items`, the order-dependent failure logged
+in TASKS.md, now passes in the full suite — "add buy milk and buy bread to my
+list" reads as a task, so the list splitter runs on it instead of generate
+failing to route an event. 1311 passed, 0 failed. The logged diagnosis stands
+as the reason it was order-dependent; the kind fix removed the dependency.
+
+**Still open:** shopping lists ("pick up folders and light bulbs from the
+store") split into two where the dataset says one — that is the pending Q14
+np_decoy relabel, not a defect. 20 reviews still read as events.
+
+## CYCLE A PART 3 — THE UNMEASURED LANE — REGISTERED PREDICTION 2026-09-08
+
+**Chosen by part 2's board, not by the plan.** With kind fixed, the breakdown
+by ask-count is stark on the FastRule test half: **1 ask 98.4% count-correct,
+2 asks 44.1% (UNDER 55.9%), 3 asks 38.0%**. Single-item commands are close to
+solved; compounds are where everything is lost.
+
+**And the number everyone has been reading is from a lane with the model
+switched off.** The atomizer board runs deterministic-only by default. It
+reports 341 of 626 compounds "reaching the call" — a call that never happens
+in that lane. So the deep track's actual splitting ability has NEVER been
+measured, on any dataset. Every compound conclusion so far describes the
+deterministic tier alone.
+
+This cycle measures rather than changes. That is deliberate: the next fix
+would otherwise be aimed at a stage nobody has observed working.
+
+**Predict:**
+- `--llm` lane, FastRule test half: compounds atomized correctly **43.5% →
+  60–75%**. The LLM tier receives 341 compounds the deterministic tier
+  declined and its prompt is built for exactly this job.
+- **2-ask count-correct 44.1% → 65–80%**; 3-ask stays worst.
+- **OVER rises but stays ≤6%** — the model splits more eagerly than the parse,
+  and the under-split bias is enforced in code after the call, not by it.
+- Atomic rows: **kept-at-1 must stay ≥97%**. 30.9% of atomic rows reach the
+  call as pure cost, and a model that splits them is worse than no call.
+- **If the lane does NOT beat the deterministic path**, that is the finding —
+  it would mean the compound ceiling is the prompt or the model rather than
+  the gate, and the next cycle aims there instead of at coverage.
+
+### CYCLE A PART 3 — RESULT — the LLM lane, measured at last
+
+**FastRule 7,200 test half. Deterministic-only (the lane every previous
+conclusion came from) vs `--llm`:**
+
+| | deterministic | with the model | |
+|---|---|---|---|
+| boundary clean | 41.4% | **89.4%** | +48.0 |
+| bleed (two asks in one item) | 55.8% | **7.3%** | −48.5 |
+| complex count-correct | 76.2% | **84.4%** | +8.2 |
+| complex UNDER | 21.2% | **2.8%** | −18.4 |
+| complex OVER | 2.6% | **12.8%** | +10.2 |
+| simple count-correct | 99.8% | **95.1%** | −4.7 |
+| simple OVER | 0.2% | **4.9%** | +4.7 |
+| rows segment split | 10.8% | **33.2%** | |
+
+**Prediction: half right, and the half it got wrong is the important half.**
+Compound splitting beat the predicted range — under-splitting essentially
+disappears (21.2% → 2.8%), which is what the deep track was built to do. But
+both guard conditions FAILED: OVER was predicted to stay ≤6% and is **12.8%**,
+and atomic rows were predicted to stay ≥97% kept-at-1 and are **95.1%**.
+
+**What that means, and it is the finding of this cycle:** the model does not
+have the under-split bias the architecture depends on. The deterministic tiers
+enforce that bias in code — a fragment is refused, a modifier is refused, an
+unconfident boundary does not split. The LLM tier enforces almost none of it:
+its only post-call guard is "no part shorter than two words". So switching the
+lane on trades a cheap error (a merge, recoverable by two later stages) for
+the expensive one (garbage items, immediate and user-visible). Under this
+project's own stated ordering that is not obviously a win, which is exactly
+why the lane had to be measured before anything was aimed at it.
+
+**Where it over-splits is diagnostic, not random** (count-correct · OVER):
+generic_target_complex 37.3% · **62.7%**; date_marking 65.2% · 34.8%; all_day
+66.7% · 33.3%; propose_confirm 72.5% · 27.1%; three_ask 70.4% · 19.7%. These
+are the shapes with no second ask to find — a vague target, a date being
+marked, an all-day event, a question weighing one action. The model invents
+structure when there is none to find, and the families where it does are
+nameable.
+
+**So the next change is not "turn the lane on" — it is to give the LLM tier
+the discipline the deterministic tiers already have.** `intent/asks.py`
+exists and is applied to segment's clause tier and decompose's list tier; the
+LLM tier never got it. That is cycle A part 4.
+
+_(Capture note: I ran the board through `tail -60`, so the M1–M3 block —
+including the headline "compounds atomized correctly" line and the by-ask-count
+table — scrolled off. The numbers above are all from M5/M7/tier sections that
+survived. The next run captures the whole board.)_
+
+## CYCLE A PART 4 — REGISTERED PREDICTION 2026-09-08
+
+Two changes, deliberately paired because they are measurable in DIFFERENT
+LANES — so bundling them costs no attribution.
+
+**4a — give the LLM tier the discipline the deterministic tiers have.**
+(Shows only in `--llm`.) `intent/asks.py` is applied to segment's clause tier
+and decompose's list tier and was never applied to the model's own output,
+whose only post-call guard is "no part shorter than two words". Part 3
+measured the consequence: OVER 12.8% on complex, 4.9% on simple.
+
+**4b — `_enforce_pinned_kinds` on the deterministic path.** (Shows only in the
+default lane.) It is called from exactly ONE place, inside `_llm_segments`;
+`segment.run()` builds items with `_kind_of` alone. So every item the clause
+splitter produces bypasses the pinned conventions — the reminder-about-an-
+occasion rule, the "i need to meet" encounter rule, the calendar-invite rule.
+The splitter added in part 1 made that path carry most of the traffic, which
+is part of why mis-typing rose. Found by the diagnosis fan-out, verified in
+the source.
+
+**Predict:**
+- 4a, `--llm` lane: complex OVER **12.8% → 5–8%**, simple count-correct
+  **95.1% → ≥98%**. Complex count-correct must not fall below 80% — refusing
+  a genuine split is the cost, and if it lands under 80 the guard is too
+  strict and gets loosened rather than kept.
+- 4b, default lane: complex mis-typed **24.8% → 20–23%**, kind-board accuracy
+  on the FastRule test half **73.7% → 76–80%**. Count-correctness unchanged
+  (this touches labels, not splitting).
+- Both: no change to the OTHER lane. If 4b moves the `--llm` numbers or 4a
+  moves the deterministic ones, my model of the call graph is wrong and that
+  is the finding.
+
+### CYCLE A PART 4b — RESULT — the pinned conventions now apply on every path
+
+**Correct change, far smaller effect than predicted.** Deterministic lane,
+FastRule test half: complex mis-typed **24.8% → 24.2%** (209 → 204 of 843) —
+five rows. Predicted 20–23%; missed low. Count-correctness unchanged (76.2%
+complex, 99.8% simple) exactly as predicted, and the `--llm` lane is untouched,
+so the call-graph model was right.
+
+**Why the prediction over-shot, and it is a lesson about the instrument:**
+`kind_board._predict` applies `_kind_of` AND `_enforce_pinned_kinds`. So the
+board was already simulating the fixed pipeline — 4b makes the PIPELINE match
+what the board had been measuring all along, which by construction the board
+cannot show. I predicted a kind-board movement that was impossible.
+
+That is worth writing down: **a board that models the fix cannot measure the
+fix.** The kind board's `_predict` is a reimplementation of the pipeline's kind
+path, and a reimplementation can be AHEAD of the real thing. Its 73.7% was
+never the deterministic path's real accuracy; it was the accuracy the path
+would have had if it called both functions. The real path was worse, and
+nothing was reporting that.
+
+**Banked as a small positive with a correction to the instrument's meaning.**
+The change stands on its own terms — the pinned conventions are product rules
+and must hold wherever an item came from, not only when a model produced it.
+
+### CYCLE A PART 4a — RESULT — the guard works, and the lane is production
+
+**FastRule test half, `--llm` lane, before and after giving the LLM tier
+`intent/asks.py`:**
+
+| | before 4a | after 4a | predicted |
+|---|---|---|---|
+| complex count-correct | 84.4% | **90.1%** | ≥80% ✓ |
+| complex OVER | 12.8% | **6.8%** | 5–8% ✓ |
+| simple count-correct | 95.1% | **96.6%** | ≥98% ✗ |
+| simple OVER | 4.9% | **3.4%** | |
+| compounds atomized correctly | — | **89.6%** | |
+| 2-ask count-correct | — | **92.3%** | (part 3 predicted 65–80%) |
+
+**Two of three guards met.** Over-splitting halved into the predicted band and
+count-correctness ROSE rather than paying for it — refusing the model's bad
+splits does not cost its good ones. The atomic-row guard missed: 96.6% against
+≥98%, so 120 of 1,774 single-ask commands are still split by the model. The
+guard is not tight enough for the shapes part 3 named (generic_target,
+date_marking, all_day, propose_confirm) and that is where the next tightening
+goes.
+
+**And the reframing, which matters more than the numbers: THIS LANE IS
+PRODUCTION.** `segment.run()` calls `_llm_segments` whenever the deterministic
+tiers found nothing, so the model tier is live. The board's DEFAULT lane —
+the one every result before part 3 was measured in — is the artificial one; it
+disables the model to isolate the deterministic tier.
+
+That isolation is legitimate and it is how parts 1, 2 and 4b were correctly
+attributed. But it means the deterministic numbers were never the product's
+behaviour, and this cycle is the first time the product's own compound
+handling has been on a board at all:
+
+| | deterministic (isolation) | with the model (production) |
+|---|---|---|
+| compounds atomized correctly | 43.5% | **89.6%** |
+| 2-ask count-correct | 44.1% | **92.3%** |
+| complex count-correct | 76.2% | **90.1%** |
+| simple count-correct | 99.8% | 96.6% |
+
+The product is much better at compounds than the isolation lane suggested,
+and somewhat worse at leaving single commands alone. Net on this slice, the
+model tier is worth about +198 correct rows of 2,400.
+
+**Carried forward as the named next constraint:** 120 atomic rows over-split
+by the model, concentrated in four nameable families. Not a mystery — a
+target.
+
+### CYCLE A PART 5 — STOPPED BY THE LEAKAGE RULE, AND THAT IS THE RESULT
+
+4a left a named target: 120 atomic rows the model still splits, concentrated
+in `all_day` (33.3% OVER), `three_ask` (19.7%), `generic_target_complex`
+(21.6%), `propose_confirm` (11.0%). I went to mine the training half for the
+mechanism and **there is nothing there to mine**: the train pool holds only 49
+atomic rows across those families, and segment over-splits **0 of them**.
+
+The FastRule 7,200 split is BY FAMILY. So the failing constructions are, by
+construction, ones the training half does not contain. Direction may only come
+from training-pool failures (ITERATION_PROTOCOL, the sealed-set rule), and
+there are none — the honest options are to tune against held-out rows, which
+is forbidden and would make every subsequent number meaningless, or to stop.
+
+**Stopping. This is the "change the data, not the code" case**, and it is the
+first time this loop has actually hit it: a component stops improving on its
+dataset because the dataset no longer contains the failures that remain. The
+next cycle is a DATA cycle — generate training-half coverage for the four
+shapes, then re-aim.
+
+Worth noting what this does NOT mean. The four families are not mysterious:
+each is a shape with no second ask to find (an all-day block, a three-part
+list, a vague target, a question weighing one action). A rule could be written
+from the family NAMES alone without looking at a single held-out row. That
+would still be tuning to the test set through a side channel, so it is not
+being done — the generated rows have to come first and the rule has to be
+validated on them.
+
+**Also visible and train-reachable, so it becomes the other half of the next
+cycle:** `remind_then` is 50.0% UNDER-split (14 rows) — "remind me to X and
+then remind me to Y" is a compound the model merges. Under-splitting is the
+cheap error, but 50% of a named family is not noise.
+
+### CYCLE A PART 5b — RESULT — the second half, which WAS train-reachable
+
+`remind_then` was 50% UNDER-split and, unlike the four over-split families,
+its shape is well represented in the training half (167 rows). Mining it
+showed one parse failure, twice: on lowercase STT spaCy tags a second
+imperative's VERB as a noun COMPOUND of its own object — "…and then BOOK
+tennis lesson" makes `book` a compound of `lesson` — so the conjunct is the
+object noun and the verb gate rejects the clause.
+
+**FastRule TRAIN half** (mined for direction, as the protocol requires):
+
+| | before | after |
+|---|---|---|
+| remind_then split correctly | 109/167 | **118/167** |
+| compounds split to the exact count | 511/1399 | **523/1399** |
+| atomic rows over-split | 64/3401 | **64/3401** |
+
+**Test half, deterministic lane:** complex count-correct 76.2% → **76.9%**,
+boundary-clean 41.4% → **43.2%**, OVER unchanged at 2.6%, simple unchanged at
+99.8%. Suite 1311 passed.
+
+**The first cut cost 4 atomic rows and they were all one bug**, worth
+recording because the shape recurs: "buy apples and **water** bottles" split
+into "buy apples" + "water bottles", because `water` is in the verb inventory
+and sits as a compound of `bottles`. The rescue had overridden the very thing
+this module exists to do — refuse NP-coordination. The discriminator is that a
+real second imperative attaches to the ROOT verb, while a coordinated object
+attaches to another verb's object; requiring the former took the cost from 4
+to 0 and kept 12 of the 14 gained compounds.
+
+**I predicted this failure mode in the comment before measuring it** ("book
+club" was the example I wrote down), which is the argument for measuring the
+guard rather than trusting the reasoning that produced it.
+
+## CYCLE B — REAL USAGE — REGISTERED PREDICTION 2026-09-08
+
+**Aimed by the instrument that outranks the others.** Two real failures came
+off Gil's phone today and both were genuine engine defects, not dataset
+artefacts: a run booked at midnight because "now" was never read as a time,
+and a create committed at confidence 1.00 titled "event". Neither was visible
+on any board — the FastRule shape board scores counts and action families,
+and an event called "event" at 00:00 has the right count and the right family.
+
+**So the hypothesis is about the INSTRUMENT before the code:** the boards
+cannot see the two things that actually reached the user. If that is true,
+the real-speech board should barely move despite today's fixes, and the gap
+is a metric gap rather than an engine gap.
+
+**Baseline** (before 643b01f): realspeech faithful/test — handled 70.3%,
+correct-on-handled 85.9%, explicit time right 96.2% (n=26), 0 destructive.
+
+**Predict:**
+- realspeech faithful/test: **correct-on-handled moves ≤2 pt** either way, and
+  the "now" fix shows up on **no line of the board** — because no row in that
+  set says "now", and the board has no title-quality column at all.
+- The engine board's **garbage-titles** line is the only existing metric that
+  could have caught the "event" title, and it only counts a fixed junk list
+  ({then, and, also, and then, so, please, now}) — which does NOT contain
+  "event". So it could not have caught it either.
+- **If both hold, cycle B's deliverable is a metric, not a patch**: a
+  title-quality line on the product-shape board, and "event"/"appointment"/
+  "reminder" added to the garbage list, then re-measure to find how many
+  existing rows were silently passing with a meaningless title.

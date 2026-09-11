@@ -19,15 +19,18 @@ from typing import Any
 # Stage names, in pipeline order. The orchestrator wires them; step 6 may jump
 # execution back to one of them by name (its blame router only ever names one
 # of these).
+# One entry per BOX in the chain (assistant/engine/ARCHITECTURE.md).
+# Re-cut 2026-09-08 with the rewire: decompose+validate became one box,
+# generate became fastrule (the stage IS object-making), crosscheck became
+# llmjudge, and label moved inside commit.
 STAGES = (
-    "intake",      # step 0 — queue + coalescing (lives in the orchestrator)
-    "transcript",  # step 1 — vocabulary repair + confidence gate
-    "segment",     # step 2 — split into typed items (events / tasks / review)
-    "decompose",   # step 3 — recursive per-item breakdown
-    "validate",    # step 4 — format rules, text repair, observance gate
-    "generate",    # step 5 — items → concrete intents (rule parser else LLM)
-    "crosscheck",  # step 6 — raw text vs. produced objects, loop-back
-    "label",       # step 7 — category / tag consistency
+    "ingest",              # X0 → X1  queue + coalescing + vocabulary repair
+    "transcript",          #          the repair half, still its own Stage
+    "segment",             # X1 → X2  split into (action, time, tag) items
+    "decompose_validate",  # X2 → X3  atomise, repair, observance gate
+    "fastrule",            # X3 → X4  items → calendar / to-do objects
+    "llmjudge",            # X4 →     judge, and rewrite-and-loop if unhappy
+    "commit",              #          write + label, one step
 )
 
 # What an item is *about*. Edits and deletes of an event are kind "event" —
@@ -61,7 +64,14 @@ class Item:
 
     id: str
     kind: str                 # one of ITEM_KINDS
-    text: str                 # the words for this item; stages may repair it
+    text: str                 # the ACTION words for this item; stages may
+                              # repair it. Since segmentation returns
+                              # (action, time, tag), the time is NOT in here —
+                              # it is in `time`. Use `spoken()` when you need
+                              # the command as the speaker said it.
+    time: str | None = None   # step 2: the time reference AS SPOKEN, never
+                              # resolved ("next friday", not a date). None when
+                              # the implementation does not separate it.
     slots: dict = field(default_factory=dict)   # structured hints: quantity,
                                                 # recurrence, attendees, times…
     action: str | None = None                   # step 5: registry action name
@@ -69,6 +79,28 @@ class Item:
     blocked: str | None = None                  # step 4: refusal reason (never
                                                 # executed; reported honestly)
     labels: dict = field(default_factory=dict)  # step 7: category / tag
+
+    def spoken(self) -> str:
+        """This item as the speaker said it — the action WITH its time.
+
+        Anything that parses an item for a date or a duration wants this, not
+        `text`. `FastRule` and the LLM parser both extract the time from the
+        string they are given, so handing them `text` alone silently produced
+        events with no time at all.
+
+        The date FLOOR is left out when the speaker never said it: SPEC defaults
+        an untimed item to "today", and pasting that in would put a word in the
+        title that nobody uttered.
+        """
+        when = (self.time or "").strip()
+        if not when:
+            return self.text
+        keep = [w for w in when.split()
+                if w.lower() != "today" or "today" in self.text.lower()]
+        tail = " ".join(keep).strip()
+        if not tail or tail.lower() in self.text.lower():
+            return self.text
+        return f"{self.text} {tail}"
 
 
 @dataclass
@@ -99,7 +131,7 @@ class CheckFinding:
 class EngineState:
     """Everything about one command's journey through the engine."""
 
-    # -- set at intake, read-only afterwards --------------------------------
+    # -- set at ingest, read-only afterwards --------------------------------
     raw_text: str                 # exactly what arrived
     source: str = "test"          # "mac" | "ios" | "test"
     current_view: str = "month"

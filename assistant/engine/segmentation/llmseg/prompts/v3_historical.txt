@@ -1,0 +1,44 @@
+# SUPERSEDED — this is the V3 prompt, kept as the record of the 14-case
+# bake-off it won (V1 5/14, V2 1/14, V3 11/14, V6 8/14). The prompt the code
+# actually ships is V4, in llmseg.py, and it differs on five points an audit
+# found V3 getting wrong once the gold moved: the symmetric edge rule, a
+# missing date floor, a dropped preposition, a half-stated floor, and nothing
+# about what the tag means for a delete. Do not copy from this file.
+# `experiments/check_prompt.py` validates the LIVE prompt, not this one.
+
+COMMAND (exactly as spoken):
+tomorrow gym at 7 and meeting at 11
+
+A parser proposed this decomposition. It may be right or wrong:
+{"1": ["gym", "tomorrow at 7", "event"], "2": ["meeting", "at 11", "event"]}
+
+An item is ONE independent thing the speaker asked for. Each item has three parts:
+  action - the item's words with the time reference removed. Keep EVERYTHING else:
+           the verb, the object, people, places, quantities ("5 apples").
+  time   - the time reference for this item, copied from the command AS SPOKEN.
+  tag    - one of: event, task, review
+
+HOW TIME IS ASSIGNED
+  - a time reference sitting INSIDE an item belongs to that item alone
+  - a time reference at either END of the command, belonging to no single item,
+    applies to EVERY item that has none of its own
+  - a repeating time ("every friday") IS the time
+  - an item with no time reference at all gets "today"
+
+EXAMPLES
+  "tomorrow gym at 7 and meeting at 11"
+  {"1": ["gym", "tomorrow at 7", "event"], "2": ["meeting", "tomorrow at 11", "event"]}
+  "gym session at 7, tomorrow meeting at 10"
+  {"1": ["gym session", "today at 7", "event"], "2": ["meeting", "tomorrow at 10", "event"]}
+  "buy 5 apples"
+  {"1": ["buy 5 apples", "today", "task"]}
+  "meeting with Sam and Alex at 8"
+  {"1": ["meeting with Sam and Alex", "at 8", "event"]}
+  the "and" joins two PEOPLE - one item, not two
+  "wash and fold the laundry"
+  {"1": ["wash and fold the laundry", "today", "task"]}
+  two verbs, one object - one item
+
+Output the CORRECT decomposition as one JSON object. If the proposal above is
+already correct, output it unchanged. Output the JSON and nothing else - no
+explanation, no preamble, no code fence.

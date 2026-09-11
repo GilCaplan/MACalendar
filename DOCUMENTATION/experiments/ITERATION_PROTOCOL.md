@@ -41,7 +41,7 @@ improve.** Hypotheses come from the training pool's failures only. A test
 score may be REPORTED (to Gil, in RESULTS.md as a milestone line) but never
 ANALYZED for direction; if a test run disappoints, the response is more
 training-pool mining, never a peek at which test rows failed. The same rule
-binds the FastRule 6000 set's test half (SPLIT.md there). **The other 2,699 rows are the training pool**: mine them, train
+binds the FastRule 6000 set's test half (engine/TRAIN_TEST_SPLIT_CONVENTION.md there). **The other 2,699 rows are the training pool**: mine them, train
 on them, tune against them freely. dev-fast 250 / dev-full 600 remain the
 working slices inside that pool. The old "held-out 601–3000, aggregates
 only" rule is retired — the sealed 300 replace it.
@@ -50,7 +50,7 @@ only" rule is retired — the sealed 300 replace it.
 aggregate replays and threshold sweeps had touched all ranks, so for
 FastRule-specific evaluation a fresh 6,000-prompt set is being built
 (2,000 simple / 4,000 complex, ground truth by construction, 80–20
-train–test) under `dataset/fastrule/`.
+train–test) under `assistant/engine/fastrule/datasets/`.
 
 ## FastRule's three data sources, and what each may tune (Gil, 2026-09-07)
 
@@ -59,7 +59,7 @@ our schema, our conventions. Powers the fits that were data-starved: K1
 kind-scorer retrains, R2's reliability diagram → multiplier calibration,
 threshold re-sweeps. Real usage-shaped text; judged by our ground truth.
 
-**B — the generated 6,000 (`dataset/fastrule/`): the STRUCTURE-SUPERVISION
+**B — the generated 6,000 (`assistant/engine/fastrule/datasets/`): the STRUCTURE-SUPERVISION
 source.** Ground truth by construction (atomic flag, action, slots) gives
 FastRule supervision it never had: per-gate precision/recall by family,
 slot-level (title/date/time) scoring, per-family regression floors (a regex
@@ -112,7 +112,7 @@ lines). **Whole-engine cycles RESUME from here**, with two changes to how
 they are judged:
 
 1. **Two boards, not one.** A change to FastRule is judged on the FastRule
-   7,200's test half FIRST (`scripts/fastrule_shape.py` — atomic handle-rate
+   7,200's test half FIRST (`assistant/engine/fastrule/experiments/fastrule_shape.py` — atomic handle-rate
    and correct-on-handled are primary; the non-atomic bucket is diagnostic
    per Gil's Q13), and only then on an engine run.
 2. **The dual gate still binds**: no FastRule batch ships if it regresses
@@ -143,7 +143,7 @@ graduates when its metric stops being the binding constraint on the stage
 below it.
 
 **FastRule's shape metric (the model for the others):** it is scored by what
-it is FOR — `scripts/fastrule_shape.py` reports handled-rate and
+it is FOR — `assistant/engine/fastrule/experiments/fastrule_shape.py` reports handled-rate and
 correct-on-handled for ATOMIC rows, defer-rate for NON-ATOMIC rows (a commit
 there is a routing violation, and the defer is split into "knew it was
 compound" vs "deferred by accident"), and defer-rate for Q9 propose rows.
@@ -258,6 +258,36 @@ boundary are not comparable. Standing policies: **merge the loop branch into
 deltas, so a cycle that targets one component sees THAT component move, not
 just the overall blur.
 
+## A cycle ends by starting the next one (Gil, 2026-09-08)
+
+**The loop does not stop to report.** Banking the result in `RESULTS.md` IS
+the report; the next cycle's prediction is registered in the same breath and
+the work continues. Gil: "keep running more cycles — it's supposed to be
+automatic."
+
+This is written down because the opposite happened: cycle A part 1 was
+measured, banked and then *narrated*, and the loop sat idle waiting for a
+"go" that was never needed. Nothing in this protocol said where a cycle ends,
+so it ended at the nearest satisfying stopping point — a summary.
+
+The rule, concretely, after `compare` and `bank`:
+
+1. Read the result for what it CHANGED about the binding constraint. A cycle
+   that fixes one thing usually promotes another to first place — part 1
+   raised compound splitting and thereby made the kind decision the new
+   ceiling, which is what chose part 2. The queue is re-ranked by the run,
+   not by the plan.
+2. Register the next prediction BEFORE writing any code.
+3. Keep going. Ask Gil only for a DESIGN decision (a contract change, a
+   convention with two defensible readings, a product ruling) — never for
+   permission to continue, and never merely to show a number.
+
+**What still stops the loop**, and only these: a design question that needs a
+person; three consecutive cycles that move nothing past the noise floor (say
+so plainly and change the instrument, the slice or the dataset rather than
+grinding); or a measurement that says the last change made the product worse
+in a way that is not obviously repairable.
+
 ## One cycle — a hypothesis, tested
 
 Every cycle is an experiment with a **written prediction**, so the result can be
@@ -365,6 +395,42 @@ md5s, loop run number. Rules:
   **~1.5 pt are noise** — judge a cycle by its targeted slice, and measure
   twice when the predicted effect is under ~4 rows.
 
+## Two kinds of hypothesis (Gil, 2026-09-07)
+
+A cycle does not have to ask "will this help?". It can ask **"which of these
+two implementations is better?"** — and often should.
+
+**1. The improvement hypothesis.** Predict what one change does to a named
+metric on a named slice, make it, compare actual vs predicted. The default.
+
+**2. The COMPARISON hypothesis.** Build BOTH implementations and let the data
+choose. Better than the first whenever the honest answer to "which approach?"
+is a judgment call, because it converts an opinion into evidence — and it
+controls for everything else, since both arms face the same rows on the same
+day.
+
+Rules that keep a comparison honest:
+
+- **Both arms get built properly.** A lazy arm is not a fair test; if one is
+  cheaper to build, say so and account for it rather than letting effort
+  decide the winner.
+- **A prediction is still registered** — which arm wins, and WHY. When the
+  prediction is wrong, the model of the system was wrong, and that is the
+  finding worth more than the result.
+- **Same boards, same data, same conditions**, reported side by side.
+- **Watch for arms that fail DIFFERENTLY.** Two approaches can score the same
+  and fail in ways that are not equally acceptable. A parser that is unsure
+  DEFERS — visible and recoverable. A rewriter that misreads produces a
+  confident wrong action. When failure modes differ, the harm line decides,
+  not the headline.
+- **A tie is a result**: take the simpler one, and record why.
+- **Complementary is a legitimate verdict** — the answer may be "use A for
+  these shapes and B for the rest", and the cycle should be allowed to say so
+  rather than being forced to crown a winner.
+
+First use: sprint cycle B (teach the models the phrasings vs canonicalise
+them in cleanup) — see `SPRINT_PROPOSAL.md`.
+
 ## The four instruments, and what each is for
 
 | instrument | question it answers | when |
@@ -425,7 +491,7 @@ row is scored with its parse path. Rules that keep attribution honest:
 
 ## The fast-sandbox lane (Gil, 2026-09-07)
 
-`python -m scripts.fast_sandbox --max-rank 250` replays the FAST track
+`python -m assistant.engine.fastrule.experiments.fast_sandbox --max-rank 250` replays the FAST track
 alone — rule parser + gates, no LLM, no execution — in ~18s (vs ~55min),
 scored as a SELECTIVE classifier: commit rate x correct-on-committed (an
 abstain is deep's job, never a failure). Rules: tweak batches carry ONE

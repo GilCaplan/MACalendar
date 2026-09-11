@@ -52,11 +52,43 @@ warns at startup if it is above 0.
 
 ## Working on the engine
 
-`assistant/engine/` is the 7-step deep track: transcript repair → segment →
-decompose → validate → generate → crosscheck → label, with a fast track that
-commits a confident rule parse instantly. `DOCUMENTATION/ENGINE.md` is the
-canonical contract reference — open it before touching any stage.
+`assistant/engine/` is the chain, one BOX per stage folder:
 
+    X0 -> ingest -X1-> segmentation -X2-> decompose_validate -X3-> fastrule
+       -X4-> llmjudge -> commit(+label)
+
+with a fast track that commits a confident rule parse instantly and lets the
+judge check behind it. **`assistant/engine/ARCHITECTURE.md` is the map** — the
+chain, each stage as a black box, and what is wired versus inert. Open it first;
+`DOCUMENTATION/ENGINE.md` is the per-stage contract reference underneath it.
+
+Two things are wired and deliberately INERT, so do not read their presence as
+working behaviour: **LLMSeg is off** (`MACALENDAR_LLMSEG`), and the judge's
+**loop-back is gated on a rewrite that is still a stub** — no rewrite, no loop.
+Re-entering a DETERMINISTIC segmenter with unchanged text cannot produce a new
+answer, which is why the gate exists rather than a plain re-run.
+
+**Each STAGE owns a FOLDER, and everything about it lives there** (Gil,
+2026-09-08): its code, the datasets used to improve it, the experiments run
+against it, and an `ARCHITECTURE.md` explaining all four.
+
+    ingest/  segmentation/  decompose_validate/  fastrule/  llmjudge/  label/
+    state.py  component.py  llm.py  __init__.py
+
+Three things this shape is bought with:
+
+- **A folder name is not an import path.** `decompose_validate/` holds two
+  stage modules; `segmentation/` holds four packages. `cli.check_engine` keeps
+  `(folder, module)` pairs for exactly this reason.
+- **`Stage` vs `Component`.** A **Stage** is a box in the chain:
+  `run(state, cfg) -> state`, ordered, trace-visible, owns a folder. A
+  **Component** is any runnable unit. `Stage ⊂ Component`, so the pieces INSIDE
+  a stage folder — `FastSeg`, `LLMSeg`, `Atomicity`, `Gatekeeper`, `Scorer` —
+  are Components that are not Stages. Swapping a piece is invisible to the
+  trace; changing the chain's shape is not, and needs the panel procedure below.
+- **The datasets moved with their stages.** `dataset/` still holds the
+  cross-stage verification corpus; the FastRule and Segmentation sets are now
+  under `assistant/engine/<stage>/datasets/`.
 - **Stage I/O contracts are frozen.** `tests/unit/test_engine_contracts.py`
   pins them. Fix a weak stage inside its own module, against its own tests —
   never by reshaping `EngineState`, editing the orchestrator, or reaching into
@@ -147,6 +179,21 @@ filters out by default.
     pytest tests/integration          # needs Ollama; skips without it
     pytest tests/                     # what CI runs
 
+**Use the project venv — `./.venv/bin/python -m pytest`.** A bare `python` may
+be a pyenv shim without `astral`, `pytest` or spaCy, and the suite then reports
+collection errors and phantom failures that look like real regressions. This
+cost a wrong "15 tests were already failing" reading on 2026-09-09; the same
+suite was 1336-green on the venv.
+
+**⏸ CI IS PAUSED — turn it back on when the rebuild is done** (Gil,
+2026-09-09). `.github/workflows/tests.yml` is `workflow_dispatch:` only, so
+nothing runs on push while FastRule and LLMJudge are being rebuilt. **Restore
+the `push`/`pull_request` triggers once that work lands**, and fix the job if
+it is still red — the file carries the diagnosis. It was NOT paused for
+failing tests: the last runs died in *Install native libs*, before pytest ran,
+on `apt-get update` hitting a Hash Sum mismatch in the Chrome apt repo the
+runner image ships and this project never uses.
+
 Integration tests must skip when Ollama is not running — copy the `pytestmark`
 guard from `tests/integration/test_ollama_intent.py`. CI has no Ollama, so a
 test that fails instead of skipping turns the build red.
@@ -197,7 +244,7 @@ is proven on its OWN dataset before the system is reconnected:
 `DOCUMENTATION/STAGE_ISOLATION_PLAN.md` is the plan; per-stage data lives in
 `dataset/stages/<stage>/`, never edited to suit another stage, each with its
 own train–test split under the usual leakage rules. FastRule's is
-`dataset/fastrule/` (7,200 rows) scored by `scripts/fastrule_shape.py`
+`assistant/engine/fastrule/datasets/` (7,200 rows) scored by `assistant/engine/fastrule/experiments/fastrule_shape.py`
 against its product shape: **defer on non-atomic items, create the right
 event/task otherwise**. The whole-system improvement loop below is intact
 and resumes once the parts are proven.
@@ -214,7 +261,8 @@ frozen), rerun.
 **Start on the smallest rich-enough slice and upsize only as gains slow — never
 the full 3000 as the working loop:**
 
-    python -m scripts.engine_dataset_compare --limit 0 --max-rank 250   # dev-fast (~80 min)
+    python -m scripts.engine_dataset_compare --limit 0 --dev100          # iterate (~25 min)
+    python -m scripts.engine_dataset_compare --limit 0 --max-rank 250   # confirm (~80 min)
     python -m scripts.engine_dataset_compare --limit 0 --max-rank 600   # dev-full
     python -m scripts.engine_dataset_compare --limit 0 --test           # SEALED 300 (milestone only)
 
@@ -227,7 +275,7 @@ comes from training-pool failures alone. Same rule for the FastRule 6000
 set's test half.
 
 The deterministic FAST track has its own lane: `python -m
-scripts.fast_sandbox` (seconds, full-3000 allowed, selective-classifier
+assistant.engine.fastrule.experiments.fast_sandbox` (seconds, full-3000 allowed, selective-classifier
 scoring, held-out aggregates only) — rules in ITERATION_PROTOCOL.md.
 
 (`--limit 0` lifts the script's default 150-row cap — without it a rank slice
@@ -235,7 +283,15 @@ silently returns only its first 150 rows.)
 
 **Each cycle is a hypothesis:** predict the component you'll change and the
 metric+slice you expect to move, then compare actual vs. expected — and note any
-novel effects — in `dataset/RESULTS.md`. A score is a pointer, not the point:
+novel effects — in `dataset/RESULTS.md`.
+
+**A cycle ends by starting the next one** (Gil, 2026-09-08). Banking the
+result IS the report — register the next prediction in the same breath and
+keep going. Implementation fixes and cleanups between cycles are fine and do
+not need asking. Stop only for a DESIGN decision, or when three cycles running
+move nothing past the noise floor (then change the instrument, slice or
+dataset — say so plainly rather than grinding). Never stop merely to show a
+number. A score is a pointer, not the point:
 read the breakdown and the failing rows to understand what it *means*, never
 just the number. Full protocol: `DOCUMENTATION/experiments/ITERATION_PROTOCOL.md`.
 
@@ -275,6 +331,20 @@ judgement).
   torch, and the combination used to segfault. `tests/conftest.py` pins BLAS
   to one thread, which fixed it, but the audit does not. The same applies to
   any two model-loading jobs side by side.
+- **A path in an experiment or generator rots silently, and only breaks when you
+  next run it.** The per-stage restructure moved datasets and banks, and **four**
+  things kept pointing at the old locations: segmentation's dataset
+  GENERATOR (`FileNotFoundError`, so the dataset could not be rebuilt),
+  FastRule's PRIMARY BOARD, `scripts/fit_route_models.py` — the script that
+  fits the logistic weights — and `scripts/gen_fastrule_dataset.py`, found still
+  broken on 2026-09-09, a month after the first three were fixed. **Finding some
+  of these is not finding all of them**, and the survivor was the one still living
+  in `scripts/` rather than in the stage folder that owns it. Nothing noticed
+  because all four are manual steps whose OUTPUT is committed, so the stale
+  `.jsonl` and `.json` kept working.
+  **Before trusting any board, run it.** And note the trap in these files: `ROOT =
+  parents[1]` meant the repo root before the move and means the STAGE folder after
+  it, so a path that merely looks wrong may be right and vice versa.
 - **The API reference is generated.** After adding or changing an endpoint:
   `python scripts/gen_api_reference.py`.
 - **The API reloads itself; nothing else does.** It runs with `--reload`, so
@@ -293,9 +363,14 @@ judgement).
 
 ## Recurring events
 
-`recurrence` is only ever `daily`, `weekly` or `monthly`. Anything a speaker
+`recurrence` is only ever `daily`, `weekly`, `monthly` or `yearly` (the fourth
+added 2026-09-08: rounding a yearly series to monthly is 12x wrong and fires
+eleven times nobody asked for, so it is the one cadence rounding could not
+honestly cover). Anything a speaker
 says that is not one of those gets rounded to one that is, and the rounding is
-announced in the reply rather than done quietly — "every other tuesday" became
+announced in the reply rather than done quietly. **A weekly series may name
+SEVERAL weekdays** — `recur_days` carries them ("every tuesday and thursday");
+that is WHICH days a weekly series lands on, not a fourth cadence — "every other tuesday" became
 one event before anyone noticed, and "every weekday" books Shabbat.
 
 **"until" excludes the day it names; "through" and "including" keep it.**
@@ -309,10 +384,10 @@ a Wednesday.
 
 **Series skip Shabbat and yom tov**, bounded by candle lighting and tzeit at
 the configured location (`hebrew_calendar` / `observance` settings in
-config.yaml — latitude, longitude, timezone), not by midnight. Candle lighting
-in Jerusalem is 18:43 in September and 16:20 in December, so a 19:00 Friday
-event is outside Shabbat in one and inside it in the other; a date-only rule
-gets a whole season wrong.
+config.yaml — latitude, longitude, timezone), not by midnight. At Israeli
+latitudes candle lighting swings well over two hours between September and
+December, so a 19:00 Friday event is outside Shabbat in one and inside it in
+the other; a date-only rule gets a whole season wrong.
 
 Three exceptions, each with a reason:
 

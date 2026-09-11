@@ -15,7 +15,13 @@ class CalendarIntent(BaseIntent):
     attendees: List[str] = []             # names or email addresses
     location: Optional[str] = None
     description: Optional[str] = None
-    recurrence: Optional[str] = None      # 'daily', 'weekly', 'monthly'
+    recurrence: Optional[str] = None      # 'daily' | 'weekly' | 'monthly' | 'yearly'
+    # WEEKLY ONLY: the weekdays a series lands on, lowercase, when the speaker
+    # named more than one ("every tuesday and thursday"). Empty means the same
+    # weekday as the first instance, which is how every series behaved before
+    # 2026-09-08. The cadence stays daily|weekly|monthly -- this says WHICH
+    # days a weekly one uses, it does not add a fourth cadence.
+    recur_days: List[str] = []
     recur_until: Optional[str] = None     # ISO 8601 date, e.g. "2026-12-31"
     # Spoken lead time ("…and give me a heads-up half an hour before"):
     # minutes before start_time; None = inherit category/global default.
@@ -40,12 +46,17 @@ class CalendarIntent(BaseIntent):
     @field_validator("recurrence", mode="after")
     @classmethod
     def recurrence_known(cls, v: Any) -> Any:
-        """Only daily/weekly/monthly; LLM noise ('unknown', 'none', 'once', 'every monday') → None/weekly."""
+        """Only daily/weekly/monthly/yearly; LLM noise ('unknown', 'none', 'once',
+        'every monday') → None/weekly."""
         if v is None:
             return None
         sv = str(v).strip().lower()
-        if sv in ("daily", "weekly", "monthly"):
+        if sv in ("daily", "weekly", "monthly", "yearly"):
             return sv
+        # YEARLY before the substring heuristics below, which would otherwise
+        # fall through to None: "yearly" contains no "day", "week" or "month".
+        if "year" in sv or sv in ("annual", "annually"):
+            return "yearly"
         if "day" in sv and "week" not in sv and "mon" not in sv:
             return "daily"
         if "week" in sv or any(d in sv for d in ("mon", "tue", "wed", "thu", "fri", "sat", "sun")):
@@ -110,6 +121,17 @@ class CalendarIntent(BaseIntent):
             return None
         import re as _re
         t = str(v).strip().lower().replace(".", ":")
+        # "now" is a time the speaker gave, not a missing one — resolve it
+        # rather than rejecting the whole item. Real usage, 2026-09-08: "an
+        # event to go out for a run NOW" produced a correct create_event from
+        # the model, which was thrown away here because `now` is not HH:MM.
+        # The engine then blamed segmentation, re-ran it three times to the
+        # same answer, and apologised after 30 seconds — for a command it had
+        # actually understood.
+        if t in ("now", "right now", "immediately", "asap",
+                 "straight away", "right away", "at once"):
+            import datetime as _dt
+            return _dt.datetime.now().strftime("%H:%M")
         m = (_re.fullmatch(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm|a:m|p:m)?", t)
              or _re.fullmatch(r"(\d{2})(\d{2})()", t)
              or _re.fullmatch(r"(\d{1,2})(\d{2})\s*(am|pm|a:m|p:m)", t))
@@ -136,8 +158,11 @@ class CalendarIntent(BaseIntent):
             now = datetime.datetime.now()
             self.start_time = f"{now.hour:02d}:00"
 
-        # 3. End time defaults to start_time + 1 hour
-        if not self.end_time:
+        # 3. End time defaults to start_time + 1 hour.
+        #    An end EQUAL to the start counts as missing: a zero-length event
+        #    is not something a speaker asks for, and it is what "go for a run
+        #    NOW" produces once both ends resolve to the same clock reading.
+        if not self.end_time or self.end_time == self.start_time:
             try:
                 h, m = map(int, self.start_time.split(":"))
                 end_min = h * 60 + m + 60

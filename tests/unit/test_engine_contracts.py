@@ -27,9 +27,13 @@ def _field_names(cls) -> set:
 
 
 def test_stage_roster_is_fixed():
+    # Re-cut 2026-09-08 with the rewire (Gil's chain) — a DESIGN change, made
+    # deliberately and recorded, not drift: decompose+validate became one box,
+    # generate became fastrule, crosscheck became llmjudge, label moved into
+    # commit. See assistant/engine/ARCHITECTURE.md.
     assert STAGES == (
-        "intake", "transcript", "segment", "decompose",
-        "validate", "generate", "crosscheck", "label",
+        "ingest", "transcript", "segment", "decompose_validate",
+        "fastrule", "llmjudge", "commit",
     ), FROZEN
 
 
@@ -39,7 +43,7 @@ def test_item_kinds_are_fixed():
 
 def test_engine_state_fields():
     assert _field_names(EngineState) == {
-        # intake
+        # ingest
         "raw_text", "source", "current_view", "supports_edit",
         "supports_confirm", "mode",
         # step 1
@@ -58,7 +62,12 @@ def test_engine_state_fields():
 
 def test_item_fields():
     assert _field_names(Item) == {
-        "id", "kind", "text", "slots", "action", "intent", "blocked", "labels",
+        # `time` added 2026-09-08 (Gil): segmentation returns
+        # (action, time, tag), so the item carries the time separately instead
+        # of leaving it buried in `text`. A deliberate contract change, not a
+        # drift — see assistant/engine/segmentation/ARCHITECTURE.md.
+        "id", "kind", "text", "time", "slots", "action", "intent", "blocked",
+        "labels",
     }, FROZEN
 
 
@@ -80,19 +89,19 @@ def test_check_finding_fields():
 
 def test_every_stage_module_exposes_run():
     """One module per step, one public entry point: run(state, cfg) -> state.
-    (intake lives inside the orchestrator, so it has no module.)"""
-    import assistant.engine.crosscheck
-    import assistant.engine.decompose
-    import assistant.engine.generate
-    import assistant.engine.label
-    import assistant.engine.segment
-    import assistant.engine.transcript
-    import assistant.engine.validate
+    (ingest lives inside the orchestrator, so it has no module.)"""
+    import assistant.engine.llmjudge.llmjudge
+    import assistant.engine.decompose_validate.decompose
+    import assistant.engine.fastrule.objects
+    import assistant.engine.label.label
+    import assistant.engine.segmentation.old_seg.segment
+    import assistant.engine.ingest.repair
+    import assistant.engine.decompose_validate.stage
 
-    for mod in (assistant.engine.transcript, assistant.engine.segment,
-                assistant.engine.decompose, assistant.engine.validate,
-                assistant.engine.generate, assistant.engine.crosscheck,
-                assistant.engine.label):
+    for mod in (assistant.engine.ingest.repair, assistant.engine.segmentation.old_seg.segment,
+                assistant.engine.decompose_validate.decompose, assistant.engine.decompose_validate.stage,
+                assistant.engine.fastrule.objects, assistant.engine.llmjudge.llmjudge,
+                assistant.engine.label.label):
         run = getattr(mod, "run", None)
         assert callable(run), f"{mod.__name__}.run missing — {FROZEN}"
         params = list(inspect.signature(run).parameters)
@@ -102,13 +111,13 @@ def test_every_stage_module_exposes_run():
 def test_validate_has_object_pass():
     """Step 4 runs twice by design: on items before generation, on generated
     objects after — both entry points are contract."""
-    import assistant.engine.validate as v
+    import assistant.engine.decompose_validate.stage as v
     params = list(inspect.signature(v.run_objects).parameters)
     assert params == ["state", "cfg"], FROZEN
 
 
 def test_generate_owns_the_fast_track():
-    import assistant.engine.generate as g
+    import assistant.engine.fastrule.objects as g
     params = list(inspect.signature(g.fast_propose).parameters)
     assert params == ["state", "cfg"], FROZEN
 
@@ -125,7 +134,7 @@ def test_orchestrator_signature():
 def test_crosscheck_blame_router_is_deterministic():
     """The model never picks the stage: mismatch type → stage is a fixed map,
     and every target is a real stage."""
-    from assistant.engine.crosscheck import BLAME, MAX_REENTRIES
+    from assistant.engine.llmjudge.llmjudge import BLAME, MAX_REENTRIES
     assert set(BLAME) == {"missing", "extra", "wrong_fields", "format"}, FROZEN
     assert all(stage in STAGES for stage in BLAME.values()), FROZEN
     assert MAX_REENTRIES == 3, FROZEN

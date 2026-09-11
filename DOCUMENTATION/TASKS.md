@@ -85,9 +85,9 @@ Running list of user-reported issues and feature requests, with status. Update w
 | 78 | **Linux/PC host migration checked, deferred.** Core (parser, Ollama, spaCy, API, DB, GUI via PyQt6, default STT) is already cross-platform — no work needed. One real blocker: TTS shells out to macOS `say` directly, on by default, in the live voice pipeline (not just dev tooling) — needs swapping for a cross-platform engine (`pyttsx3` / `espeak`) before a Linux host would actually speak replies. Minor, non-blocking degradations: the thinking HUD's "join all Spaces" polish is an AppKit best-effort layer with no Linux equivalent yet (falls back to a normal always-on-top window); optional macOS Calendar.app import wouldn't apply; launch script and weekly-review scheduling are trivially cron-able | todo | `assistant/tts/speaker.py` |
 | 79 | **Dataset redefined by actual spec, and a reusable scorer built.** "Complex" means genuine multi-action (event+event/task+task/event+task compounds, constructed by joining real utterances — HWU-64 is one action per utterance, so this doesn't occur naturally and had to be built), not just longer sentences. `scripts/score_dataset_run.py` scores a `dummy_<N>.db` with no hand-written ground truth — compound provenance gives free deterministic expectations (a task+task compound should yield ≥2 task rows) — and diffs two runs (which prompts flipped pass/fail). About half its metrics are dataset-specific (need `hwu64_sample.json`'s provenance); half are fully general and will run against real production traffic once there is any, unchanged. First real findings (1000/3000 partial build): complex 28% correct vs simple/medium 91%/89%; event+task failures are specifically a dropped *event* (68%), not a random mix; the earlier date-collapse fix accounts for only ~3% of event+event failures, so most of that failure mode is still unexplained; hybrid parse path underperforms both pure rule and pure LLM (57% vs 75%/77%) | in progress 2026-09-03 | `scripts/score_dataset_run.py`, `DOCUMENTATION/experiments/memory_scaling/METRICS.md` |
 
-| 79 | **Engine v2 — the brain rebuilt as the 7-step deep track** (branch `engine-v2`). The old `_run_transcript` (~800 lines of interleaved heuristics, plus four background bolt-ons) retired and replaced by `assistant/engine/`: frozen per-stage contracts (`state.py`, `ENGINE.md`, `test_engine_contracts.py`), fast track (instant rule-parser commit) + deep track (segment → decompose → validate → generate → commit → label → crosscheck), every old named rule ported into `validate.py` with its regression tests, observance gate for AI-created events (leyning/meals/davening on holy days, fasts exclude meals), `needs_edit` transcript-confirmation round-trip gated on `supports_edit`. All eight stages live and stage-gated (LLM gates for segment/decompose/crosscheck passed against real Ollama); step-1 gate + learning loop + Mac dialog/settings done; intake lock + coalescing done (pending-retry loop batches its backlog); per-stage audit lines added. **Primary instrument now the verification dataset (user decision 2026-09-04): improve against its metrics (count-correct by complexity/compound-kind, missing-half, garbage titles, date collapse); the hand corpus is the regression floor.** Pilot: engine 73% vs old 70% (compounds 2-3x better); full-3000 comparison running overnight → its per-metric report becomes the improvement backlog. Merged to `main` 2026-09-04 (bce502e); iOS edit sheet, one-tap revert, versioned panel all shipped; dataset-driven tune cycles continue as the improvement loop (see below) | done 2026-09-04 | `assistant/engine/`, `DOCUMENTATION/ENGINE.md` |
+| 79 | **Engine v2 — the brain rebuilt as the 7-step deep track** (branch `engine-v2`). The old `_run_transcript` (~800 lines of interleaved heuristics, plus four background bolt-ons) retired and replaced by `assistant/engine/`: frozen per-stage contracts (`state.py`, `ENGINE.md`, `test_engine_contracts.py`), fast track (instant rule-parser commit) + deep track (segment → decompose → validate → generate → commit → label → crosscheck), every old named rule ported into `validate.py` with its regression tests, observance gate for AI-created events (leyning/meals/davening on holy days, fasts exclude meals), `needs_edit` transcript-confirmation round-trip gated on `supports_edit`. All eight stages live and stage-gated (LLM gates for segment/decompose/crosscheck passed against real Ollama); step-1 gate + learning loop + Mac dialog/settings done; ingest lock + coalescing done (pending-retry loop batches its backlog); per-stage audit lines added. **Primary instrument now the verification dataset (user decision 2026-09-04): improve against its metrics (count-correct by complexity/compound-kind, missing-half, garbage titles, date collapse); the hand corpus is the regression floor.** Pilot: engine 73% vs old 70% (compounds 2-3x better); full-3000 comparison running overnight → its per-metric report becomes the improvement backlog. Merged to `main` 2026-09-04 (bce502e); iOS edit sheet, one-tap revert, versioned panel all shipped; dataset-driven tune cycles continue as the improvement loop (see below) | done 2026-09-04 | `assistant/engine/`, `DOCUMENTATION/ENGINE.md` |
 
-| 80 | **Voice lead-times (notifications phase 3, inline shape)** — "book gym tomorrow at 6:30 and give me a heads-up half an hour before" / "with a 15 minute reminder" attaches `reminder_minutes` to the created event. Design: decompose strips the reminder clause into `slots["reminder_minutes"]` BEFORE validate (its `_EXCLUSIVE_END` regex reads a bare "before" as a recurrence-end marker — the C-design catch); generate's `_apply_slots` maps the slot onto `CalendarIntent.reminder_minutes` (new optional field, pinned in `test_engine_contracts.py` in the same change). Standalone-update shape ("remind me 30 min before my meeting" as its own command) deferred to a follow-up row. | done 2026-09-06 | `engine/decompose.py`, `engine/generate.py`, `actions/calendar/intent.py` | run 14 (run 14: board flat as predicted, fieldq 85.3 best-ever; behavioral goal delivered) |
+| 80 | **Voice lead-times (notifications phase 3, inline shape)** — "book gym tomorrow at 6:30 and give me a heads-up half an hour before" / "with a 15 minute reminder" attaches `reminder_minutes` to the created event. Design: decompose strips the reminder clause into `slots["reminder_minutes"]` BEFORE validate (its `_EXCLUSIVE_END` regex reads a bare "before" as a recurrence-end marker — the C-design catch); generate's `_apply_slots` maps the slot onto `CalendarIntent.reminder_minutes` (new optional field, pinned in `test_engine_contracts.py` in the same change). Standalone-update shape ("remind me 30 min before my meeting" as its own command) deferred to a follow-up row. | done 2026-09-06 | `engine/decompose_validate/decompose.py`, `engine/generate/generate.py`, `actions/calendar/intent.py` | run 14 (run 14: board flat as predicted, fieldq 85.3 best-ever; behavioral goal delivered) |
 
 **Q4 (Gil 2026-09-06, app stream):** Mac notification settings gains an
 "remind me even when the calendar is closed" option — the LaunchAgent detach
@@ -144,6 +144,187 @@ Decisions still waiting on a number: the eviction policy (row 60 — run 8 says
 protect real, reviewed examples; bulk data has no measured value), the
 confidence weights (row 57, waiting on a week of real use), whether labelling
 should move to the LLM.
+
+## CLOSED 2026-09-08 — the order-dependent unit test (was: open bug)
+
+`tests/unit/test_mixed_commands.py::test_a_list_of_things_to_buy_makes_exactly_its_items`
+fails in the full suite and passes on its own. It had been dismissed as an
+Ollama flake in chat more than once, including by me; it is not.
+
+What the bisect establishes:
+
+- **Deterministic, not random.** 4/4 failures inside `pytest tests/unit`,
+  8/8 passes running the test alone.
+- **Not caused by the segment splitter** (a222f60). It reproduces identically
+  with `segment.py` and `coordination.py` checked out at `a222f60~1`.
+- **The trigger is `tests/unit/test_command_source.py` running first** —
+  that file alone, before this test, reproduces it. Files 1-11 of the suite
+  before it do not.
+- **Ruled out**: few-shot memory injection (`nlu.memory_examples` is 0);
+  background verify threads (`_no_bg()` gates them and conftest sets
+  `MACALENDAR_NO_WARMUP=1`); an LLM exception swallowed by `_llm_segments`
+  (Ollama returns 200 on every call in the failing run).
+
+What is left: the model gives a different segmentation for the same prompt
+after `test_command_source` has posted six commands through `/voice/text` in
+the same process. The remaining suspect is Ollama-side session state (the
+project already has a `keep_alive` gotcha on record), which would make this a
+test-isolation problem rather than an engine defect — but that is a
+hypothesis, not a finding.
+
+Why it matters beyond the red tick: if prior traffic in the same process can
+change a later parse of the same words, that is worth knowing about the
+product, not just the suite.
+
+**Closed by the kind fix (bb2b80c), not by touching the test.** "add buy milk
+and buy bread to my list" now reads as a TASK — `_TASK_RE` recognises the list
+destination — so decompose's list splitter runs on it, instead of generate
+failing to route an event and returning no actions. The suite is 1311 passed,
+0 failed, in full-suite order.
+
+The diagnosis above still stands as the reason it was order-dependent, and the
+underlying question is NOT answered: it remains unexplained why the model
+returned a different segmentation for the same prompt after earlier commands
+had gone through the same process. That row was removed from the failing path
+rather than the mechanism being understood, so if a later cycle sees the same
+shape again, start from here.
+
+## Segmentation — PAUSED 2026-09-09, and where it got to
+
+`assistant/engine/segmentation/PLAN.md` §0 is the status; `ARCHITECTURE.md` §0 is
+the standing overview and §2 is FastSeg phase by phase with the flow chart.
+
+    exact-row        51.3% -> 68.2% train, 66.5% SEALED
+    spoken time      73.4% -> 91.9% train, 93.5% sealed
+    tag              87.3% -> 89.7% train, 90.2% sealed
+    END TO END       51.6% -> 85.9%
+    inventions           0 -> 0
+
+The sealed 660 rows were read once, aggregates only, and land within 1-4 points of
+train while being better on five metrics — weakest on item count, which is exactly
+where the work stopped.
+
+**FROZEN by Gil, 2026-09-09** — *"for now segmentation we leave, I don't want to
+edit or make changes there."* Not paused-and-drifting: no edits to
+`assistant/engine/segmentation/` at all while FastRule and LLMJudge are the work.
+The list below is where it resumes, kept intact so nothing has to be re-derived.
+
+**When it resumes, pick it up at PLAN.md §0's ordered list.** First is 3b, the
+under-split compounds (108 rows, the biggest remaining lever, and the risky half).
+Second is **re-testing LLMSeg**: its four measurements were taken against a much
+weaker FastSeg and are stale in both directions, and board D — the one built to
+answer "does the correction pay for itself" — has never run at all.
+
+## The measurement that set the priority (2026-09-09)
+
+`decompose_validate/eval_metrics/end_to_end.py` settles which stage to work on. On
+its 1,924 train rows, running the REAL segmenter:
+
+- **decompose_validate makes 0 value errors of its own.** All 1,445 value errors on
+  matched items are cases where different WORDS arrived; the resolver computed each
+  correctly from what it was given.
+- **Segmentation loses 265 of 2,557 items** (recall 89.6%), invents 162, and emits
+  106 provably malformed ones (54 with two clocks in one item, 52 with an action
+  ending in a joiner) — the last two countable without any gold.
+
+So end-to-end row accuracy is **51.6%** against 99.9% gold-fed, and the gap is
+segmentation's. **Segmentation is the next stage to work on, not FastRule** —
+whose own board would be read through the same lossy input. Its §8.1 already names
+the two defects, and §7b now carries these numbers from the receiving end.
+
+## decompose_validate — carried forward (2026-09-08)
+
+The stage is rebuilt, measured and wired; v1 is retired and tagged
+(`decompose-validate-v1`). What is deliberately NOT done, in the order it is
+worth doing:
+
+| # | item | why it is not blocking |
+|---|---|---|
+| 1 | **`decompose.py` is the last v1 file** (194 lines: item splitting). This stage's settled design says it does NOT split — segmentation does. | **Partly answered 2026-09-08**: disabled, the 25-case audit is IDENTICAL (76% / 81%) and all 1336 tests pass. Three of four probe cases are identical and the fourth is *worse with it* (see below). Evidence says removable; it deserves the FULL audit corpus both ways before deleting, not a 25-case slice — the slice is events-only and the splitter's list path is a task path. |
+| 2 | **FastRule re-parses instead of reading `item.slots`.** | Behaviour is already right (values reach the intents in `run_objects`), so this is duplicated parsing rather than a wrong answer. Natural to do while working on FastRule. |
+| 3 | **11 sealed rows still fail** (of 840; date 99.1%). | They sit in a construction class **train has no failing instance of**, so fixing them means growing train speculatively — and the sealing rule forbids reading the test rows. Below the noise floor. |
+| 4 | **The traceability board's vocabulary is hand-maintained** and has drifted 7 times. | Fix is to derive it from `normalization.py`'s closed tables — the gold's own words, so the board stays independent of `resolve.py` while it stops drifting. Do it before the next batch of forms lands, not after. |
+| 4b | **`"walk the dog at 9 and 2:30"` is broken BOTH ways** — found while testing item 1. Without the splitter: one event, titled `'dog'`, and the 9 o'clock lost. With it: a spurious todo *plus* an `'Untitled Event'`. It should be two events. | A segmentation failure (§8.1), not this stage's — but it is a live wrong answer on a case the docs use as a trap example, so it is worth someone's attention rather than a footnote. |
+| 5 | **Segmentation §8.1 / §8.2 / §8.3** are recorded for Gil, §8.3 being the date FLOOR injected into `time` as a word. | Another stage's work. §8.3 already costs two workarounds and caused one live audit failure, so it is the one with a price attached. |
+
+## FastRule + LLMJudge — the restructure is PLANNED, not started (2026-09-09)
+
+`assistant/engine/fastrule/PLAN.md` and `assistant/engine/llmjudge/PLAN.md` are
+written; **no code has been touched.** Gil's definition of the box is what the plan
+is measured against:
+
+> *"FastRule's job is only to take each Item and make it into an object format the
+> system accepts, so we can commit when ready."*
+
+Against that, ~423 of ~890 lines in `fastrule.py` + `objects.py` belong elsewhere,
+and the function doing the job the stage exists for is **eleven lines** copying
+**two of eight** available values. The plan's target is one entry point,
+`build(item, *, today) -> BuildResult`, with no model, no database and no opinion
+about whether to commit.
+
+**Four phases, in this order** (Gil, 2026-09-09) — `fastrule/PLAN.md` §3:
+
+| | | where |
+|---|---|---|
+| **A · PORT OUT** | `Gatekeeper` + the LLM fallback into `llmjudge/` — a move with an import redirect, behaviour identical, **no number moves** | `llmjudge/PLAN.md` §1.0 |
+| **B · RESTRUCTURE** | measure the ceiling → `build(item, today)` proven alone → **B3 WIRE IT INTO THE ENGINE** (five touch-points, the format, and the md files) → `Atomicity`+`fast_propose` → a new `fast_track.py` → delete the call sites and the dead code | `fastrule/PLAN.md` §3 |
+| **C · MEASURE** | fix the generator, add gold Items, rewrite the board to feed `build()`, iterate until satisfied | `fastrule/PLAN.md` §3 |
+| **D · STOP** | report to Gil. **LLMJudge's own work does not start before this** | — |
+
+Phase A exists because Gil asked for it directly — *"before we start breaking
+FastRule code, port what's relevant to the LLMJudge folder"* — and the reason holds
+up: trim first and the ported guards exist only in git history, so "port" becomes
+"rewrite from memory". `_guard_inventions` is the one that would be lost first, and
+it exists because a model once fabricated an event onto the calendar (cycle 7).
+
+**Two things B3 settles that are easy to get wrong.** `BuildResult` is **internal**
+— X4 stays `item.action` + `item.intent` on the frozen `Item`, so most of the
+pipeline needs no change at all; what changes is that the values are COPIED from
+`item.slots` instead of re-parsed. Making `BuildResult` the stage's real output
+would be an `Item`-contract change and therefore a design decision for this file,
+not a step inside phase B. And **`fastrule/objects.py` is the engine's shared
+accessor** for the action registry and both parsers — six call sites outside the
+stage, including `server.py`'s warm-up — so those need a home (`engine/llm.py`)
+*before* anything deletes the file, not during.
+
+**Phase C is mandatory, not polish** — B2 invalidates the instrument. The 7,200-row
+board feeds raw TEXT into `FastRule.run(text)`; the restructured box takes an
+`Item`. So the moment `build()` lands, the primary board cannot run at all, and
+FastRule would be unmeasurable exactly when it has just been rewritten.
+
+⚠️ **And phase C opens on a blocker found 2026-09-09: FastRule's dataset generator
+is broken.** `scripts/gen_fastrule_dataset.py:56-57` still points at
+`dataset/fastrule/banks/`; the banks moved to
+`assistant/engine/fastrule/datasets/banks/` in the stage restructure, so it raises
+`FileNotFoundError` on the first bank load. **The 7,200-row dataset cannot currently
+be rebuilt or extended** — which is exactly what phase C needs to do. This is the
+**fourth** instance of the rot class in "Things that have bitten before", after
+segmentation's generator, FastRule's primary board and `fit_route_models.py`; the
+fix moves it to `fastrule/datasets/generate.py` where the stage owns it, minding the
+`ROOT = parents[1]` inversion that made the first repair of the other three worse.
+
+**Segmentation is FROZEN — Gil, 2026-09-09**: *"For now segmentation we leave, I
+don't want to edit or make changes there."* The order is FastRule → LLMJudge →
+Gil decides. This supersedes the "segmentation is the next stage to work on"
+verdict below **as an order of work**; it does not touch it as a measurement,
+which still stands and still says where the score is lost.
+
+**What the freeze changes is the instrument.** With segmentation fixed, its
+265-item loss is a permanent ceiling rather than a thing to fix, so a whole-engine
+number is no longer evidence about FastRule at all:
+
+- **Use `fastrule/experiments/fastrule_shape.py`** — the 7,200 product-shape set
+  feeds FastRule directly, so segmentation is not in the path and the board is
+  unaffected by the freeze.
+- **Not `scripts/engine_dataset_compare.py`** for judging this work — it runs the
+  real segmenter, so it measures the upstream loss we have agreed not to touch.
+
+Reporting the second as a FastRule result would break the dataset/metric/meaning
+rule in its most expensive direction: blaming this stage for another's loss.
+
+**`BRAIN_VERSION` is not bumped by any of it.** `Gatekeeper`, the fallback and
+`Atomicity` are Components, not Stages; the chain's shape is unchanged. This is the
+`old_seg -> FastSeg` case, not the rename case.
 
 ## Working agreements
 - Everything on the phone is local: no third-party services; the only network peer is the Mac over Tailscale.

@@ -24,7 +24,19 @@ needing one is marked **[Gil]** and is blocked until asked.
 
 ## The queue
 
-**NEXT UP — cycle work authorised by Gil (2026-09-07 evening).** All three
+**THE SPRINT (Gil, 2026-09-07): three broad cycles with unlimited
+IMPLEMENTATION latitude, since the architecture is settled — then narrow
+again.** Full proposal: `DOCUMENTATION/experiments/SPRINT_PROPOSAL.md`.
+A: the atomizer (it is the ceiling on everything — 6.2% of compounds
+atomized correctly, and segment's deterministic tier is a no-op on speech
+because it looks for punctuation the phone inserts). B: speech that is not
+Gil's (72.2% vs 33.9% handle-rate across personas; the cause is `^`-anchored
+features, not vocabulary). C: what the user actually sees (times 82.6%,
+dates 90.4%, 35 destructive errors, 31 half-executed compounds).
+Prerequisite alongside A: the real-speech dataset, without which the sprint
+optimises clean prompts and could leave real usage at 50%.
+
+**Also queued (2026-09-07 evening):** All three
 are IMPLEMENTATION (no contract, component or flow changes), so they run
 inside the loop under the normal discipline: registered prediction first,
 judged on the FastRule 7,200 test half AND the persona boards, dual-gated
@@ -93,7 +105,7 @@ may worsen the complex board.
 §three-data-sources has the doctrine.)*
 
 - **[infra] FS1 — field-level scorer for the generated 6000**: fast_sandbox
-  (or a sibling) reads `dataset/fastrule/fastrule_6000.jsonl`; scores counts,
+  (or a sibling) reads `assistant/engine/fastrule/datasets/fastrule_6000.jsonl`; scores counts,
   action, ATOMIC flag per gate, slots, AND label-correctness (category
   acc + macro-PRF on events, tag micro-PRF on tasks, canonical fixture via
   MACALENDAR_CATEGORIES — Gil, 2026-09-07); per-family lines; test half
@@ -179,7 +191,7 @@ or "not yet integrated" predates that. Era 2: new baseline = the joint
 confirmation run. The FastRule lane keeps iterating in parallel on full-3000
 in its worktree; graduates integrate every 2–3 cycles. Order of play:
 (1) joint confirmation lands → era-2 baseline; (2) Gil reviews the
-DeepSystem structure [his checkpoint — cycle 10 blocked on it]; (3) cycle 10
+the Engine's stage list structure [his checkpoint — cycle 10 blocked on it]; (3) cycle 10
 full rules-first-per-fragment [DESIGN CHANGE, Gil-authorized if step 1 paid,
 which cycle 9 confirmed]; (4) path-B crosscheck precision; (5) F4+ sandbox
 batches ride alongside throughout.)*

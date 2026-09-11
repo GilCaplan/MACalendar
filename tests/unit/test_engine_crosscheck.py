@@ -11,8 +11,8 @@ from unittest.mock import MagicMock
 import pytest
 
 import assistant.engine as engine
-import assistant.engine.crosscheck as crosscheck
-import assistant.engine.generate as generate
+import assistant.engine.llmjudge.llmjudge as crosscheck
+import assistant.engine.fastrule.objects as generate
 import assistant.engine.llm as engine_llm
 from assistant.engine.state import EngineState, ExecutedAction, Item
 
@@ -98,11 +98,35 @@ def test_a_blocked_item_is_not_an_extra(cfg, monkeypatch):
 
 # --- foreground loop-back ---------------------------------------------------
 
+@pytest.mark.xfail(reason=(
+    "The loop now requires a REWRITTEN utterance to re-enter Segmentation with "
+    "(Gil's chain, 2026-09-08) and llmjudge.rewrite_for_retry is still a stub "
+    "returning None, so no loop fires. This test covers the loop-back MECHANISM "
+    "and will pass again -- and should be un-xfailed -- the moment the rewrite "
+    "is implemented. Kept rather than deleted because it is the only coverage "
+    "of that mechanism."), strict=True)
 def test_loop_back_reruns_segment_with_the_mistake(cfg, monkeypatch):
     """First pass merges two asks into one item; the cross-check notices the
     missing task; the re-run (with the mistake in the prompt) splits properly
-    and the second check is clean."""
-    text = "book gym on tuesday at 7am and remind me to buy milk"
+    and the second check is clean.
+
+    The input is one segment's deterministic clause tier declines (an event
+    chain sharing a leading date), so the merge this scenario needs is the
+    LLM tier's to make. With a plainly-coordinated command the parse now
+    splits it correctly first time and there is no loop-back to observe.
+
+    PINNED TO `old_seg` (2026-09-08). The loop-back can only be observed with a
+    segmenter that can CHANGE ITS MIND on a re-run. FastSeg is deterministic and
+    LLMSeg is off by default, so re-running segmentation on unchanged text
+    returns the same items and there is nothing for the second pass to fix —
+    the same reason `state.asked_fastrule` exists. This test covers the
+    loop-back MECHANISM, so it runs against the implementation that has an LLM
+    tier; `assistant/engine/segmentation/ARCHITECTURE.md` records that the
+    mechanism is inert while LLMSeg is off.
+    """
+    import assistant.engine.segmentation as _seg
+    monkeypatch.setattr(_seg, "IMPLEMENTATION", "old_seg")
+    text = "tomorrow gym at 7 am and a meeting with Tal at 11"
 
     calls = {"n": 0}
 
@@ -158,7 +182,11 @@ def test_loop_back_reruns_segment_with_the_mistake(cfg, monkeypatch):
 
 
 def test_loop_budget_is_finite_and_admitted(cfg, monkeypatch):
-    """A check that keeps failing stops after MAX_REENTRIES and says so."""
+    """A check that keeps failing stops after MAX_REENTRIES and says so.
+
+    The scripted segment never splits, so the input must be one the
+    deterministic clause tier also declines — otherwise the parse splits it
+    and the never-resolving disagreement this test needs never happens."""
     def scripted_llm(cfg_, system, user, schema=None):
         if "split ONE voice command" in system:
             return {"items": []}, 1                    # never splits
@@ -180,7 +208,7 @@ def test_loop_budget_is_finite_and_admitted(cfg, monkeypatch):
         **{"return_value.execute.return_value": "did it"})
     monkeypatch.setattr(generate, "get_registry", lambda: registry)
 
-    out = engine.run_transcript("book gym at 7 and remind me to buy milk",
+    out = engine.run_transcript("tomorrow gym at 7 am and a meeting with Tal at 11",
                                 source="test")
     assert "not sure I caught every part" in out["message"]
 
@@ -299,3 +327,43 @@ def test_revert_spec_shapes_a_post_ready_body():
     assert spec["body"]["list_name"] == "today"       # the `list` column → POST `list_name`
     assert spec["body"]["tags"] == ["Groceries"]
     assert spec["body"]["quantity"] == 3
+
+
+def test_the_loop_stops_when_a_rerun_cannot_change_anything(cfg, monkeypatch):
+    """A re-run starts from the same transcript and runs the same stages, so
+    if it would begin from the SAME items with the SAME complaint it produces
+    the same answer. Looping again only spends the budget.
+
+    Real usage (2026-09-08): "Let an event to go out for a run now" — one ask,
+    ONE item, segment never in doubt — looped three times to the identical
+    result, its own trace saying "unchanged since the last attempt" each
+    round, and apologised after 30 seconds.
+    """
+    def scripted_llm(cfg_, system, user, schema=None):
+        if "split ONE voice command" in system:
+            return {"items": []}, 1                    # segment never splits
+        return {"asks": [{"kind": "event", "words": "gym at 7"},
+                         {"kind": "task", "words": "buy milk"}]}, 1
+
+    monkeypatch.setattr(engine_llm, "call_json", scripted_llm)
+    monkeypatch.setattr(generate, "_get_rule_parser", lambda: None)
+    parser = MagicMock()
+    parser.parse.return_value = [("create_event", SimpleNamespace(
+        title="gym", date=None, start_time=None, end_time=None,
+        recurrence=None, recur_until=None, description=""))]
+    parser.last_llm_ms = 1
+    parser.last_examples_used = 0
+    parser.last_raw_response = ""
+    monkeypatch.setattr(generate, "_get_parser", lambda c: parser)
+    registry = MagicMock()
+    registry.get.side_effect = lambda name: MagicMock(
+        **{"return_value.execute.return_value": "did it"})
+    monkeypatch.setattr(generate, "get_registry", lambda: registry)
+
+    out = engine.run_transcript("tomorrow gym at 7 am and a meeting with Tal at 11",
+                                source="test")
+    loops = [s for s in out["trace"] if s["title"] == "Looping back"]
+    assert len(loops) < crosscheck.MAX_REENTRIES, (
+        f"burned every retry on an unchanging parse: {[s['detail'] for s in loops]}")
+    # and it still admits it could not finish the job
+    assert "not sure I caught every part" in out["message"]

@@ -43,7 +43,7 @@ WHAT IT MEASURES (all counts as well as rates — the errors are asymmetric)
 
 TWO DATASETS, reported separately
 
-    B  dataset/fastrule/fastrule_7200.jsonl  — ground truth BY CONSTRUCTION,
+    B  assistant/engine/fastrule/datasets/fastrule_7200.jsonl  — ground truth BY CONSTRUCTION,
        split by pattern family.  Test half is the reported number.
     P  dataset/personas/personas.jsonl — 6 synthetic speakers, TEST-ONLY
        forever (dataset/personas/PERSONAS.md).  Rambling vs terse speakers
@@ -282,7 +282,7 @@ class Runner:
         self.use_fastrule = use_fastrule
         self.fr = None
         if use_fastrule:
-            from assistant.engine.fastrule import FastRule
+            from assistant.engine.fastrule.fastrule import FastRule
             from assistant.intent.rule_parser import RULE_THRESHOLD
             self.fr = FastRule(RULE_THRESHOLD)
             self.fr.run("book gym tomorrow at 7am")   # warm off the frozen clock
@@ -290,13 +290,13 @@ class Runner:
     def state(self, text: str):
         """Everything the deep track has when segment receives the command:
         the repaired transcript, and FastRule's verdict travelling forward."""
-        from assistant.engine import transcript
+        from assistant.engine.ingest import repair as transcript
         from assistant.engine.state import EngineState
         st = EngineState(raw_text=text, text=text, source="test")
         transcript.run(st, self.cfg)
         committed = False
         if self.fr is not None:
-            from assistant.engine.fastrule import reason_class
+            from assistant.engine.fastrule.fastrule import reason_class
             res = self.fr.run(st.text)
             if res and res.committed:
                 committed = True
@@ -312,7 +312,8 @@ class Runner:
     def run_row(self, text: str) -> dict:
         """One row through segment, then decompose.  Returns both snapshots
         plus the model-call attempt counts per stage."""
-        from assistant.engine import decompose, segment
+        from assistant.engine.segmentation.old_seg import segment
+        from assistant.engine.decompose_validate import decompose
         st, committed = self.state(text)
         if st.ignored:
             return {"ignored": True, "fast": committed}
@@ -404,6 +405,7 @@ def report(title: str, rows, results, groups_label: str, mining: bool):
     rescued = rescue_pool = 0            # M7
     damaged = damage_pool = 0
     dec_helped = dec_hurt = dec_touched = 0
+    seg_split = 0                        # rows segment returned as >1 item
     fast_committed = ignored = 0
     seg_calls = dec_calls = 0
     ask_hist = collections.Counter()
@@ -446,6 +448,8 @@ def report(title: str, rows, results, groups_label: str, mining: bool):
             reach_a_hit += 1 if res["seg_calls"] else 0
 
         ns, nd = len(seg_kinds), len(dec_kinds)
+        if ns > 1:
+            seg_split += 1
         if nd != ns:
             dec_touched += 1
             before, after = abs(ns - n), abs(nd - n)
@@ -530,8 +534,11 @@ def report(title: str, rows, results, groups_label: str, mining: bool):
               f" ({reach_a_hit / reach_a:.1%})   (pure cost: a call that should return 1 item)")
     print(f"  model calls attempted             segment {seg_calls} · decompose {dec_calls}")
 
-    print(f"\nM7 — decompose's own contribution")
-    print(f"  changed the item count            {dec_touched:>5}"
+    print(f"\nM7 — who does the splitting at all")
+    print(f"  rows SEGMENT returned as >1 item  {seg_split:>5}"
+          f" ({seg_split / n_used:.1%})   (0 here means step 2's deterministic "
+          f"tier is a no-op on this register)")
+    print(f"  rows DECOMPOSE changed the count  {dec_touched:>5}"
           f"   (helped {dec_helped} · hurt {dec_hurt})")
     print(f"  RESCUE  segment under-split, decompose fixed it   "
           f"{rescued:>5}/{rescue_pool}"
@@ -547,6 +554,10 @@ def report(title: str, rows, results, groups_label: str, mining: bool):
         print(_fmt(dec_tier[k], k))
 
     print(f"\nBy {groups_label} — ATOMIZER (worst count-correct first)")
+    print("  READ THIS COLUMN-WISE, NOT ROW-WISE: while segment splits nothing, a"
+          " group's\n  count-correct is mostly its ATOMIC SHARE (composition), not"
+          " its quality. The\n  quality columns are OVER (garbage manufactured) and"
+          " mis-typed.")
     order = sorted(dec_by, key=lambda g: (dec_by[g].exact / dec_by[g].n) if dec_by[g].n else 1)
     for g in order:
         t = dec_by[g]
