@@ -1,165 +1,165 @@
 # MACalendar — Code Map
 
-> **Purpose**: Precise file + line pointers for common bug-fixing and feature work.  
-> Read this before searching the codebase. Updated as code evolves.
+> **Purpose**: where to look first for common bug-fixing and feature work.
+> Read this before searching the codebase.
+
+> **No line numbers, on purpose** (2026-09-11). This file used to carry a line
+> number per row, and every single one had rotted: `analyze()` was listed at
+> L1003 and lives at 1753, `create_app` at L134 and lives at 252, `CalendarDB`
+> at L93 and lives at 655. Worse, the numbers made the *dead* rows look alive —
+> three files and a script listed here no longer existed. A line number is
+> stale the first time anyone edits above it and nothing tests it, so rows now
+> name a **file and a symbol**, which `grep` finds and which survives an edit.
+> If you add a row, name the symbol, not the line.
 
 ---
 
 ## The Engine — `assistant/engine/` (THE BRAIN)
 
-**Start at `assistant/engine/ARCHITECTURE.md`** — the chain as a
-diagram, each stage as a black box, and a status table saying which
-parts are wired today versus planned in `ENGINE_REWIRE.md`.
-
+**Start at `assistant/engine/ARCHITECTURE.md`** — the chain as a diagram, each
+stage as a black box, and a status table saying which parts are wired today
+versus planned in `ENGINE_REWIRE.md`.
 
 > Contracts frozen — read `DOCUMENTATION/ENGINE.md` before touching a stage.
+> FastRule is mid-restructure; `assistant/engine/fastrule/PLAN.md` §3 is the
+> phase plan, and the module rows below change when phase B lands.
 
 | What | Location |
 |------|----------|
 | Orchestrator `run_transcript` (response contract, track selection) | `engine/__init__.py` |
+| `Engine.judge` — the crosscheck loop and its re-entry budget | `engine/__init__.py` |
 | Commit (only DB touchpoint; TargetNotFound recheck `_recheck_not_found`) | `engine/__init__.py` |
 | `EngineState` / `Item` / `Fix` dataclasses (the inter-stage contract) | `engine/state.py` |
-| Step 1: stop words, trivial filter, vocab, `needs_edit` gate | `engine/ingest/repair.py` |
-| Step 2: deterministic splits + (gated) LLM segmentation | `engine/segmentation/old_seg/segment.py` |
-| Step 3: time-list → two events, task lists, quantities | `engine/decompose_validate/decompose.py` |
-| Step 4: the named rules (`past_date_bump`, `bare_hour_pm`, …) + observance gate | `engine/decompose_validate/validate.py` |
-| Step 5: `FastRule(threshold).run()` (selective classifier) + per-item parse | `engine/fastrule/fastrule.py`, `engine/generate/generate.py` |
-| Step 6: BLAME router + MAX_REENTRIES (implementation pending) | `engine/llmjudge/llmjudge.py` |
-| Step 7: label read-back | `engine/label/label.py` |
+| The authoritative ordered stage list | `engine/state.py` → `STAGES` |
+| Ingest: stop words, trivial filter, vocab, `needs_edit` gate | `engine/ingest/repair.py` |
+| Ingest: queue coalescing | `engine/ingest/coalesce.py` |
+| Segmentation entry + envelope split (FastSeg is the DEFAULT) | `engine/segmentation/__init__.py` |
+| decompose_validate — the stage entry, both passes | `engine/decompose_validate/stage.py` |
+| …its value resolver and checks (authoritative since 2026-09-08) | `decompose_validate/resolve.py`, `checks.py` |
+| …targeting, object rules, observance gate | `decompose_validate/targeting.py`, `object_rules.py`, `observance_gate.py` |
+| FastRule the component (Atomicity / Scorer, the DEFER reason classes) | `engine/fastrule/fastrule.py` |
+| FastRule the stage: items → intents, `fast_propose`, `_parse_item` | `engine/fastrule/stage.py`, `engine/fastrule/objects.py` |
+| LLMJudge: extract-and-compare, BLAME router, `MAX_REENTRIES` | `engine/llmjudge/llmjudge.py` |
+| …Gatekeeper and the LLM fallback (ported here 2026-09-09) | `llmjudge/gatekeeper.py`, `llmjudge/llm_fallback.py` |
+| Label read-back (runs inside commit) | `engine/label/label.py` |
 | Contract pins | `tests/unit/test_engine_contracts.py` |
-| **Per-component docs** — what it is, its datasets, its metrics, its results | `engine/<component>/ARCHITECTURE.md` |
-| Segmentation's new halves (not yet promoted over `old_seg`) | `engine/segmentation/fastseg/`, `engine/segmentation/llmseg/` |
-| Segmentation's dataset (1,694 rows) and boards | `engine/segmentation/datasets/`, `engine/segmentation/experiments/` |
+| **Per-stage docs** — what it is, its datasets, its metrics, its results | `engine/<stage>/ARCHITECTURE.md` |
+| Segmentation's two halves | `engine/segmentation/fastseg/`, `engine/segmentation/llmseg/` (LLMSeg **off** by default) |
+| Segmentation's datasets and boards | `engine/segmentation/datasets/`, `engine/segmentation/experiments/` |
 | FastRule's dataset (7,200 rows) and boards | `engine/fastrule/datasets/`, `engine/fastrule/experiments/` |
-| Ingest's two halves: word repair, and queue coalescing | `engine/ingest/repair.py`, `engine/ingest/coalesce.py` |
-| Intake lock + `coalesce()` (step 0) | `engine/__init__.py` |
-| Background verify + patch tiers (`_background_verify`) | `engine/__init__.py` |
-| Gate learning (`learn_from_edit`, `confirm_unchanged`, confirms sidecar) | `engine/ingest/repair.py` |
-| Shared LLM transport (`call_json`, MACALENDAR_LLM_DISABLED guard) | `engine/llm.py` |
-| FastRule — the atomic-item executor (Atomicity / Gatekeeper / Scorer) | `engine/fastrule/fastrule.py` |
-| The three routing classifiers + one shared LogisticModel | `intent/classifier.py` |
-| Spoken-noise cleanup — filler, courtesy, hedges, self-corrections (transcript stage + FastRule) | `intent/cleanup.py` |
+| Shared LLM transport (`call_json`, `MACALENDAR_LLM_DISABLED` guard) | `engine/llm.py` |
+| The three routing classifiers + one shared `LogisticModel` | `intent/classifier.py` |
+| Spoken-noise cleanup — filler, courtesy, hedges, self-corrections | `intent/cleanup.py` |
 | Lead-time reader (shared by FastRule AND decompose — one copy) | `intent/lead_time.py` |
 | Recurrence as a SLOT (cadence, rounding, series anchor) | `intent/recurrence.py` |
 | NP- vs clause-coordination — a feature, a gate, AND the split boundary | `intent/coordination.py` |
-| Is this fragment an ASK? (shared by segment's clause tier and decompose's list tier) | `intent/asks.py` |
-| FastRule's product-shape board / atomicity board / persona board | `assistant/engine/fastrule/experiments/fastrule_shape.py`, `scripts/atomicity_board.py`, `scripts/persona_board.py` |
+| Is this fragment an ASK? (segment's clause tier and decompose's list tier) | `intent/asks.py` |
+| Product-shape board / atomicity board / persona board / kind board | `engine/fastrule/experiments/fastrule_shape.py`, `scripts/atomicity_board.py`, `scripts/persona_board.py`, `scripts/kind_board.py` |
 | Fit the routing models (train halves only, deterministic) | `scripts/fit_route_models.py` |
 | Per-stage live gates | `scripts/engine_stage_check.py` |
-| K1 kind scorer — fit + offline eval (16 explainable weights; wiring = K2) | `scripts/kind_classifier_experiment.py` |
-| Mac gate dialog (`ask_transcript_edit`, STATUS_EDIT) | `calendar_ui/window.py`, `pipeline.py` |
+| Mac gate dialog (`ask_transcript_edit`, `STATUS_EDIT`) | `calendar_ui/window.py`, `pipeline.py` |
 
-## Database — `assistant/db.py`
-
-| What | Location |
-|------|----------|
-| `CalendarDB` class | L93 |
-| `__init__` (table creation, migrations) | L96–107 |
-| `_conn()` context manager | L131–139 |
-| `_migrate_todos()` | L120–129 |
-| `_TODO_MIGRATIONS` list (additive ALTER TABLE stmts) | L33–40 |
-| `_CREATE_SUBTASKS_TABLE` | L42–52 |
-| `get_db()` singleton | L789 |
-| **Events CRUD** | L144–518 |
-| `create_event` | L145 |
-| `update_event` (allowed fields set) | L332 |
-| `delete_event` (re-root logic for series) | L441 |
-| `update_series` / `delete_series_from` | L373 / L484 |
-| **Todos CRUD** | L520–706 |
-| `create_todo` | L524 |
-| `get_todos` | L565 |
-| `update_todo` (allowed fields set — add new fields here) | L611 |
-| `toggle_todo_complete` | L621 |
-| `delete_completed_todos` | L645 |
-| `reorder_todos` | L656 |
-| `sync_calendar_to_todos` | L669 |
-| **Subtasks CRUD** | L709–770 |
-| `get_subtasks` / `create_subtask` | L710 / L721 |
-| `update_subtask` / `delete_subtask` | L733 / L742 |
-| `delete_subtasks_for_todo` (call before `delete_todo`) | L745 |
-| `reorder_subtasks` | L751 |
-
-**Timer CRUD:**
-| What | Location |
-|------|----------|
-| `create_timer` / `get_timers` / `update_timer` / `delete_timer` | L811 / L820 / L829 / L842 |
-| `create_timer_session` / `get_timer_sessions` / `get_running_session` | L852 / L862 / L871 |
-| `update_timer_session` / `stop_timer_session` / `delete_timer_session` | L880 / L893 / L901 |
-| `split_timer_session` (splits at midpoint or given ISO datetime) | L906 |
-
-**Schema — `timers` table:** `id, title, hourly_rate, color, created_at, archived`  
-**Schema — `timer_sessions` table:** `id, timer_id, title, start_time, end_time (NULL=running), notes, created_at`
+**Two things are wired but deliberately INERT** — do not read their presence as
+behaviour: LLMSeg (`MACALENDAR_LLMSEG`), and the judge's loop-back, which is
+gated on `llmjudge.rewrite_for_retry` — a stub returning `None`, so no loop
+fires.
 
 ---
 
-**Schema — `todos` table columns:**
-`id, title, list, completed, priority, due_date, notes, source, source_event_id, created_at, completed_at, position, attachments`
+## Database — `assistant/db.py`
 
-**Schema — `subtasks` table columns:**
-`id, todo_id, title, completed, position, created_at`
+One class, `CalendarDB`, plus a `get_db()` singleton. Find a method by name.
+
+| What | Symbol |
+|------|--------|
+| Table creation, migrations | `CalendarDB.__init__`, `_migrate_todos`, `_TODO_MIGRATIONS`, `_CREATE_SUBTASKS_TABLE` |
+| Connection context manager | `CalendarDB._conn` |
+| **Events** | `create_event`, `create_event_from_dict`, `update_event`, `delete_event` |
+| Series | `update_series`, `delete_series_from` |
+| **Todos** | `create_todo`, `get_todos`, `update_todo` (allowed-fields set), `toggle_todo_complete` |
+| | `delete_completed_todos`, `reorder_todos`, `sync_calendar_to_todos` |
+| **Subtasks** | `get_subtasks`, `create_subtask`, `update_subtask`, `delete_subtask`, `reorder_subtasks` |
+| | `delete_subtasks_for_todo` — **call before `delete_todo`** |
+| **Timers** | `create_timer`, `get_timers`, `update_timer`, `delete_timer` |
+| Timer sessions | `create_timer_session`, `get_timer_sessions`, `get_running_session` |
+| | `update_timer_session`, `stop_timer_session`, `delete_timer_session`, `split_timer_session` |
+
+**Schema — `todos`:** `id, title, list, completed, priority, due_date, notes,
+source, source_event_id, created_at, completed_at, position, attachments`
+**Schema — `subtasks`:** `id, todo_id, title, completed, position, created_at`
+**Schema — `timers`:** `id, title, hourly_rate, color, created_at, archived`
+**Schema — `timer_sessions`:** `id, timer_id, title, start_time, end_time
+(NULL = running), notes, created_at`
 
 ---
 
 ## GUI voice client — `assistant/pipeline.py` (records + posts; NEVER parses)
 
-| What | Location |
-|------|----------|
-| `Pipeline` class | L56 |
-| `__init__` (registry, config, status callback) | L65 |
-| `trigger()` — mic button handler, session queuing | L90 |
-| `_run_pipeline()` — full STT→parse→execute flow | L146 |
-| Rule-parser fast path decision point | L259 |
-| `parse_with_context()` call (partial handoff to LLM) | L275 |
-| Full LLM parse call | L285 |
-| `view_switch` extraction after execute | L375–381 |
-| `_set_status()` → sends signal to `CalendarWindow` | L706 |
-| `_background_verify()` — LLM judge thread | L421 |
-| `_detect_user_change()` — guard before applying correction | L562 |
-| `_parse_segment()` — per-segment parse helper | L625 |
-| `_append_scenario_bug()` — writes to `DOCUMENTATION/SCENARIO_BUG.md` | L587 |
-| `_append_nlu_log()` — writes to `DOCUMENTATION/NLU_TRACKING.md` | L650 |
+The GUI records audio and POSTs the transcript to `127.0.0.1:8080/voice/text`.
+**All parsing and execution happen in `assistant.api` → the engine.** Rows about
+a rule-parser decision point, `parse_with_context`, `_background_verify`,
+`_detect_user_change` or `_parse_segment` used to live here and are gone with
+the code — if you are looking for any of those, you want `assistant/engine/`.
+(`Pipeline._parser` survives for `health_check()` only.)
 
-**Status values** (defined in `window.py` L43–52):  
-`STATUS_IDLE`, `STATUS_LISTENING`, `STATUS_PROCESSING`, `STATUS_ERROR`, `STATUS_REFRESH`, `STATUS_SWITCH_TODAY`, `STATUS_SWITCH_TODO`
+| What | Symbol |
+|------|--------|
+| `Pipeline` class, status callback | `Pipeline.__init__` |
+| Mic button handler, session queuing | `Pipeline.trigger` |
+| The record → STT → POST flow | `Pipeline._run_pipeline`, `_process_transcript` |
+| Review / edit / confirm gates the engine can ask for | `_await_review`, `_await_transcript_edit`, `_await_create_confirm` |
+| Status → `CalendarWindow` | `Pipeline._set_status` |
+| Opens the Mac's streaming trace-bus run | `Pipeline._trace_begin` |
+| Writes `DOCUMENTATION/SCENARIO_BUG.md` / `NLU_TRACKING.md` | `_append_scenario_bug`, `_append_nlu_log` |
+
+**Status values** (`pipeline.py`): `STATUS_IDLE`, `STATUS_LISTENING`,
+`STATUS_PROCESSING`, `STATUS_DONE`, `STATUS_ERROR`, `STATUS_REVIEW`,
+`STATUS_EDIT`, `STATUS_CONFIRM`. The view-switch ones (`STATUS_REFRESH`,
+`STATUS_SWITCH_TODAY`, `STATUS_SWITCH_TODO`) are in `calendar_ui/window.py`.
 
 ---
 
 ## Rule-Based NLU — `assistant/intent/rule_parser.py`
 
-| What | Location |
-|------|----------|
-| `RULE_THRESHOLD = 0.85` | L66 |
-| `RuleParseResult` dataclass | L75 |
-| `RuleParserSkip` exception (raised → LLM fallback) | L86 |
-| Phase 0 — preprocess + complexity gate | L269 / L1013 |
-| Phase 1 — multi-intent split | L332 / L1020 |
-| Phase 2 — temporal extraction | L398 / L1031 |
-| Phase 3 — intent/domain routing | L554 / L1034 |
-| Phase 4 — slot filling | L715 / L1042 |
-| Phase 5 — anaphora resolution | L899 / L1045 |
-| Phase 6 — confidence scoring | L944 / L1050 |
-| `RuleBasedParser.analyze()` — entry point | L1003 |
-| `RuleBasedParser.parse()` — raises `RuleParserSkip` if low confidence | L1090 |
+| What | Symbol |
+|------|--------|
+| `RULE_THRESHOLD = 0.80` (whole command; tuned 2026-09-07) | module constant |
+| `RuleParseResult` dataclass | `RuleParseResult` |
+| `RuleParserSkip` exception (raised → LLM fallback) | `RuleParserSkip` |
+| Phase 0 — preprocess + complexity gate | `_preprocess` |
+| Phase 1 — multi-intent split | `_split_intents`, `_lexicon_split_points` |
+| Phase 2 — temporal extraction | `_extract_temporal`, `_normalize_time` |
+| Phase 3 — intent/domain routing | `_route_intent` |
+| Phase 4 — slot filling | `_fill_slots`, `_extract_title`, `_clean_title` |
+| Phase 5 — anaphora resolution | `_resolve_anaphora` |
+| Phase 6 — confidence scoring | `_compute_confidence`, `_compute_missing_slots` |
+| Entry point | `RuleBasedParser.analyze` |
+| Raises `RuleParserSkip` if low confidence | `RuleBasedParser.parse` |
+
+spaCy and the date recognizer are **probed at import, loaded on first parse**
+(`_ensure_nlp`, `_ensure_dt`). Absent spaCy disables the rule parser entirely
+and every command takes the deep track — which is what a dev box without the
+`nlp` extra looks like.
 
 ---
 
 ## Assistant trace — `assistant/trace_bus.py` + `assistant/thinking_hud.py`
 
-The card showing what the assistant did is its own process. Producers publish
-to an append-only JSONL file; the HUD tails it. Two line shapes: a whole run at
-once (`kind: "trace"` — what the API server publishes for the phone) or a run
+The card showing what the assistant did is its own process. Producers append to
+a JSONL file; the HUD tails it. Two line shapes: a whole run at once
+(`kind: "trace"` — what the API server publishes for the phone) or a run
 streaming as it happens (`begin` / `step` … / `result` — what the Mac pipeline
 publishes, so the card fills in live).
 
-| What | Location |
-|------|----------|
-| `publish()` — one finished run | `trace_bus.py` L66 |
-| `publish_begin()` / `publish_step()` / `publish_result()` — a streaming run | `trace_bus.py` L75–88 |
-| `_trim()` — only ever runs at a run's start, so no run is cut in half | `trace_bus.py` L91 |
-| `Pipeline._trace_begin()` — where the Mac's run is opened | `pipeline.py` L1106 |
-| `ThinkingHUD` — frameless, always-on-top, never focused | `thinking_hud.py` L98 |
-| `ThinkingHUD.apply_entry()` — renders one bus line | `thinking_hud.py` L201 |
-| `_BusReader.poll()` — tails the bus and notices config.yaml changing | `thinking_hud.py` L323 |
+| What | Symbol |
+|------|--------|
+| One finished run | `trace_bus.publish` |
+| A streaming run | `publish_begin`, `publish_step`, `publish_result` |
+| Trims only at a run's start, so no run is cut in half | `trace_bus._trim` |
+| Frameless, always-on-top, never focused | `ThinkingHUD` |
+| Renders one bus line | `ThinkingHUD.apply_entry` |
+| Tails the bus, notices `config.yaml` changing | `_BusReader.poll` |
+| `BRAIN_VERSION` + `CHAINS` — what the panel renders from | `assistant/trace.py` |
 
 Three ways this window has already managed to be invisible while insisting it
 was fine (`isVisible()` true, right size, right place):
@@ -191,205 +191,193 @@ tasks and the verb is shared out ("buy rice", not "rice"); an "and" after a
 preposition ("a gift for mom and dad") or inside a name ("fish and chips") is
 not a separator. Pure strings, no spaCy.
 
-| What | Location |
-|------|----------|
-| `ACTION_VERBS` / `ACTION_PHRASES` — verbs a title can start with | L26 / L37 |
-| `split_on_and()` — the separator-vs-internal "and" decision | L70 |
-| `distribute_lead_verb()` — hands the verb to conjuncts without one | L89 |
-| `split_items()` — the whole thing; used by the rule parser and the todo actions | L106 |
+| What | Symbol |
+|------|--------|
+| Verbs a title can start with | `ACTION_VERBS`, `ACTION_PHRASES` |
+| The separator-vs-internal "and" decision | `split_on_and` |
+| Hands the verb to conjuncts without one | `distribute_lead_verb` |
+| The whole thing; used by the rule parser and the todo actions | `split_items` |
 
 ## Task tags — `assistant/actions/todo/tagging.py`
 
 Keyword classifier over a task title, same shape as the event categories.
 Returns a tag only when the palette has it, and nothing when unsure.
 
-| What | Location |
-|------|----------|
-| `KEYWORDS` — per-tag word lists | L22 |
-| `infer_tag()` | L85 |
-| `suggest_tags()` / `resolve_tags()` — palette-aware wrappers | L119 / L131 |
+| What | Symbol |
+|------|--------|
+| Per-tag word lists | `KEYWORDS` |
+| The classifier | `infer_tag` |
+| Palette-aware wrappers | `suggest_tags`, `resolve_tags` |
 
 ---
 
 ## LLM Intent Parser — `assistant/intent/parser.py`
 
-| What | Location |
-|------|----------|
-| `IntentParser` class | L38 |
-| `parse()` — full LLM parse from scratch | L67 |
-| `parse_with_context()` — partial handoff (fills gaps only) | L104 |
-| `verify_fast_path_async()` — background judge thread | L140 |
-
----
+| What | Symbol |
+|------|--------|
+| The class | `IntentParser` |
+| Full LLM parse from scratch | `IntentParser.parse` |
+| Partial handoff (fills gaps from the rules' analysis) | `IntentParser.parse_with_context` |
+| Background judge thread | `IntentParser.verify_fast_path_async` |
 
 ## Context Memory — `assistant/intent/context.py`
 
-| What | Location |
-|------|----------|
-| `ContextMemory` Borg singleton | L14 |
-| Module-level `context_memory` instance | L69 |
+| What | Symbol |
+|------|--------|
+| Borg singleton | `ContextMemory` |
+| Module-level instance | `context_memory` |
 
-Used by rule parser (L899) and actions for anaphora ("delete it", "move that").
+Used by the rule parser (`_resolve_anaphora`) and by actions for "delete it",
+"move that".
 
 ---
 
 ## Actions System
 
 ### Registry — `assistant/actions/__init__.py`
-| What | Location |
-|------|----------|
-| `ActionRegistry` class | L12 |
-| `register` decorator | L169 |
-| `build_system_prompt()` — assembles LLM system prompt | L51 |
+| What | Symbol |
+|------|--------|
+| The registry | `ActionRegistry` |
+| The decorator action classes self-register with | `register` |
+| Assembles the LLM system prompt | `build_system_prompt` |
 
 ### Base class — `assistant/actions/base.py`
-| What | Location |
-|------|----------|
-| `BaseAction` ABC | L14 |
-| `view_switch: ClassVar[Optional[str]]` | L37 — set on subclass to auto-switch UI view |
-| `execute()` abstract method | L40 |
+| What | Symbol |
+|------|--------|
+| The ABC | `BaseAction` |
+| Set on a subclass to auto-switch the UI view | `view_switch: ClassVar[Optional[str]]` |
+| Abstract | `execute()` |
 
 ### Calendar actions — `assistant/actions/calendar/action.py`
-| Class | Location | view_switch |
-|-------|----------|-------------|
-| `CreateEventAction` | L28 | — |
-| `UpdateEventAction` | L77 | — |
-| `DeleteEventAction` | L159 | — |
-| `QueryScheduleAction` | L204 | `"switch_today"` |
-| `_find_event()` fuzzy matcher | L334 | |
+| Class | view_switch |
+|-------|-------------|
+| `CreateEventAction` | — |
+| `UpdateEventAction` | — |
+| `DeleteEventAction` | — |
+| `QueryScheduleAction` | `"switch_today"` |
+| `_find_event()` fuzzy matcher | |
 
 ### Todo actions — `assistant/actions/todo/action.py`
-| Class | Location | view_switch |
-|-------|----------|-------------|
-| `CreateTodoAction` | L60 | `"switch_todo"` |
-| `CompleteTodoAction` | L125 | — |
-| `DeleteTodoAction` | L173 | — |
-| `UpdateTodoAction` | L211 | — |
-| `QueryTodoAction` | L277 | `"switch_todo"` |
-| `_find_todo()` fuzzy matcher | L22 | |
+| Class | view_switch |
+|-------|-------------|
+| `CreateTodoAction` | `"switch_todo"` |
+| `CompleteTodoAction` | — |
+| `DeleteTodoAction` | — |
+| `UpdateTodoAction` | — |
+| `QueryTodoAction` | `"switch_todo"` |
+| `_find_todo()` fuzzy matcher | |
 
 ### Intent models
 | File | Contents |
 |------|----------|
 | `assistant/actions/calendar/intent.py` | `CalendarIntent`, `UpdateEventIntent`, `DeleteEventIntent`, `QueryScheduleIntent` |
-| `assistant/actions/todo/intent.py` | `CreateTodoIntent` (supports `titles: List[str]`), `CompleteTodoIntent`, `DeleteTodoIntent`, `UpdateTodoIntent`, `QueryTodoIntent` |
+| `assistant/actions/todo/intent.py` | `CreateTodoIntent` (`titles: List[str]`), `CompleteTodoIntent`, `DeleteTodoIntent`, `UpdateTodoIntent`, `QueryTodoIntent` |
 
 ---
 
 ## Mac UI — `assistant/calendar_ui/`
 
 ### Main Window — `window.py`
-| What | Location |
-|------|----------|
-| `CalendarWindow` class | L117 |
-| `_build_ui()` — view stack setup | L162 |
-| `_build_toolbar()` — top toolbar | L214 |
-| `_handle_status()` — receives pipeline status, triggers refresh/view-switch | L540 |
-| `refresh_calendar()` / `refresh_todos()` | L561 / L567 |
-| `_set_view()` — switches Month/Week/Day/Tasks stack | L377 |
-| `_on_event_clicked()` — opens EventDetailView | L455 |
-| `_apply_theme()` | L600 |
-| `_apply_ui_config()` | L626 |
-| `_on_settings_popup()` | L663 |
+| What | Symbol |
+|------|--------|
+| The window | `CalendarWindow` |
+| View stack setup | `_build_ui` |
+| Top toolbar | `_build_toolbar` |
+| Receives pipeline status, triggers refresh / view-switch | `_poll_status` (100 ms timer) → `_handle_status` |
+| Refreshes | `refresh_calendar`, `refresh_todos` |
+| Switches Month / Week / Day / Tasks | `_set_view` |
+| Opens the event detail view | `_on_event_clicked` |
+| Theme and config | `_apply_theme`, `_apply_ui_config`, `_on_settings_popup` |
 
-**How pipeline → UI refresh works:**  
-`Pipeline._set_status()` → `CalendarWindow._poll_status()` (L524, 100ms timer) → `_handle_status()` (L540) → `refresh_calendar()` or `refresh_todos()` or `_set_view()`.
-
-**Adding a new view:** Add a stack page in `_build_ui()`, handle a new `STATUS_SWITCH_XXX` value in `_handle_status()`, set `view_switch = "switch_xxx"` on the action class.
+**Adding a new view:** add a stack page in `_build_ui()`, handle a new
+`STATUS_SWITCH_XXX` in `_handle_status()`, set `view_switch = "switch_xxx"` on
+the action class.
 
 ### Tasks (Todo) View — `todo_view.py`
-| What | Location |
-|------|----------|
-| `InsertLinkDialog` | L58 — 2-field modal for embedded hyperlinks |
-| `SubtaskRow` | L102 — compact checkbox row for subtasks |
-| `TodoDetailPanel` | L160 — expandable inline panel |
-| `TodoDetailPanel._build()` | L196 — layout: notes stack → subtasks → attachments → metadata |
-| `TodoDetailPanel.load()` | L415 — reload all fields from todo dict |
-| `TodoDetailPanel._switch_to_edit()` | L461 |
-| `TodoDetailPanel._on_insert_link()` | L490 — InsertLinkDialog → inserts `<a href>` |
-| `TodoDetailPanel._reload_subtasks()` | L506 |
-| `TodoDetailPanel._on_add_attachment()` | L611 |
-| `TodoItemWidget` | L700 — single task row |
-| `TodoItemWidget._build()` | L744 — outer VBox + title HBox + hidden detail panel |
-| `TodoItemWidget._toggle_expand()` | L813 — show/hide detail panel + update size hint |
-| `TodoItemWidget._update_item_size()` | L829 — recalculate QListWidget height after expand |
-| `TodoItemWidget.set_list_item()` | L797 — called by TodoListWidget post-insertion |
-| `TodoListWidget` | L905 |
-| `TodoListWidget.populate()` | L941 — clears + rebuilds QListWidget from DB |
-| `TodoListWidget._on_deleted()` | L1096 — deletes subtasks first, then todo |
-| `TodoListWidget._make_new_task_row()` | L1020 |
-| `SectionHeader` | L1110 |
-| `TodoView` | L1245 |
-| `TodoView.refresh()` | L1320 |
+| What | Symbol |
+|------|--------|
+| 2-field modal for embedded hyperlinks | `InsertLinkDialog` |
+| Compact checkbox row for subtasks | `SubtaskRow` |
+| Expandable inline panel | `TodoDetailPanel` (`_build`, `load`, `_switch_to_edit`, `_on_insert_link`, `_reload_subtasks`, `_on_add_attachment`) |
+| Single task row | `TodoItemWidget` (`_build`, `_toggle_expand`, `_update_item_size`, `set_list_item`) |
+| The list | `TodoListWidget` (`populate`, `_on_deleted`, `_make_new_task_row`) |
+| Section header, the view | `SectionHeader`, `TodoView.refresh` |
 
-**Crash prevention pattern (important):**  
-All signals that trigger widget rebuild use `QTimer.singleShot(0, signal.emit)` to prevent re-entrant `deleteLater()` crashes. See `_on_toggled`, `_on_edited`, `_on_deleted` in `TodoListWidget`.
+**Crash prevention pattern (important):** every signal that triggers a widget
+rebuild uses `QTimer.singleShot(0, signal.emit)` to prevent re-entrant
+`deleteLater()` crashes — see `_on_toggled`, `_on_edited`, `_on_deleted`.
 
-**QListWidget expand pattern:**  
-`_toggle_expand()` → `_detail_panel.show()/hide()` → `_update_item_size()` → `item.setSizeHint(self.sizeHint())` + `list_widget.setFixedHeight(recalculated)`.
+**QListWidget expand pattern:** `_toggle_expand()` → `_detail_panel.show()/hide()`
+→ `_update_item_size()` → `item.setSizeHint(self.sizeHint())` +
+`list_widget.setFixedHeight(recalculated)`.
 
 ### Timer View — `timer_view.py`
-| What | Location |
-|------|----------|
-| `TimerView` | L433 — main container, 1s `QTimer` drives all live displays |
-| `TimerCard` | L252 — single timer card (header + collapsible sessions) |
-| `SessionsPanel` | L197 — collapsible list of `SessionRow` widgets |
-| `SessionRow` | L153 — title, date range, duration, edit/split/delete buttons |
-| `TimerDialog` | L107 — create/edit title, hourly rate, colour |
-| `SessionEditDialog` | L162 — edit session title, start/end time, notes |
-| `_fmt_duration` / `_fmt_earnings` | L73 / L80 — HH:MM:SS and $X.XX helpers |
-| `split_timer_session` in DB | db.py:L906 — midpoint-split a session |
+| What | Symbol |
+|------|--------|
+| Main container, 1 s `QTimer` drives all live displays | `TimerView` |
+| Single timer card (header + collapsible sessions) | `TimerCard` |
+| Collapsible list of `SessionRow` widgets | `SessionsPanel`, `SessionRow` |
+| Create/edit dialogs | `TimerDialog`, `SessionEditDialog` |
+| HH:MM:SS and $X.XX helpers | `_fmt_duration`, `_fmt_earnings` |
 
-**Adding a new timer tab action:** Timer is purely UI-local (no voice action). Data stays in local SQLite, never synced to iOS.
+Timer is purely UI-local (no voice action). Data stays in local SQLite, never
+synced to iOS.
 
 ### Other Views
 | File | Class | Key method |
 |------|-------|------------|
 | `day_view.py` | `DayView` | `_build_timeline()`, resize handles (top/bottom 8px) |
 | `week_view.py` | `WeekView` | 7-column grid |
-| `month_view.py` | `MonthView` | `_render_month()` |
+| `month_view.py` | `MonthView` | `refresh()` → `_rebuild_grid()`; cells are `DayCell`, `EventPill`, `HolidayBanner` |
+| `agenda_view.py` | `AgendaView` | flat upcoming list |
 | `sidebar.py` | `Sidebar` | mini calendar, date selection |
 | `event_dialog.py` | `EventDialog` | create/edit event form |
-| `styles.py` | — | `get_app_style(dark)` — full Qt stylesheet; color constants |
+| `styles.py` | — | `get_app_style(dark)` — full Qt stylesheet; colour constants |
 
 ---
 
 ## Flask API — `assistant/api/server.py`
 
-| What | Location |
-|------|----------|
-| `create_app()` Flask factory | L134 |
-| `_api_key_required` decorator | L141 |
-| `_run_transcript()` — shared voice logic (rule→hybrid→LLM) | L202 |
-| `voice_audio` POST `/voice` | L329 |
-| `voice_text` POST `/voice/text` | L356 |
-| `voice_verify` GET `/voice/verify/<token>` | L172 |
-| Events endpoints (list/get/create/update/delete) | L370–432 |
-| Todos endpoints (list/create/update/toggle/delete/reorder) | L435–517 |
-| `config_get` / `config_patch` | L521 / L531 |
+Every route is nested inside the `create_app()` factory; find one by its view
+function name.
+
+| What | Symbol |
+|------|--------|
+| The factory | `create_app` |
+| API-key guard (`X-API-Key`; null key = no auth) | `_enforce_api_key` |
+| Shared voice logic — hands text to the engine, never parses | `_run_transcript` |
+| POST `/voice`, POST `/voice/text` | `voice_audio`, `voice_audio_stream`, `voice_text` |
+| GET `/voice/verify/<token>` — the background-check poll | `voice_verify` |
+| POST `/voice/confirm` — the Q9 confirm-create answer | `voice_confirm` |
+| Events, todos, categories, timers, counters, vocab, memory, pending | `events_list`, `event_get`, `event_ics`, `categories_*`, `timers_*`, `counters_*`, `vocab_*`, `memory_*`, `pending_*` |
+
+**`DOCUMENTATION/API_REFERENCE.md` is GENERATED** — after adding or changing an
+endpoint run `python scripts/gen_api_reference.py`; never hand-edit it.
 
 ---
 
 ## Config — `assistant/config.py`
 
-| Model | Location | Key fields |
-|-------|----------|------------|
-| `AppConfig` | L113 | `llm_engine`, `confirmation_level`, `verify_fast_path` |
-| `UIConfig` | L101 | `font_month/week/day/tasks`, `compact_layout`, `dark_mode` |
-| `TodoConfig` | L95 | `show_completed`, `sync.mode` |
-| `AudioConfig` | L69 | `silence_duration_sec`, `device_index` |
-| `TTSConfig` | L84 | `voice`, `rate`, `mute` |
-| `load_config()` | L141 | reads `config.yaml` |
+| Model | Key fields |
+|-------|------------|
+| `AppConfig` | `llm_engine`, `confirmation_level` (inert — see CLAUDE.md), `verify_fast_path`, `engine`, `nlu` |
+| `UIConfig` | `font_month/week/day/tasks/coursework`, `compact_ui`, `accent_color`, `show_week_numbers`, `show_thinking`, `thinking_corner` |
+| `TodoConfig` | `show_completed`, `sync.mode` |
+| `AudioConfig` | `silence_duration_sec`, `device_index`, `event_separator` |
+| `TTSConfig` | `voice`, `rate`, `mute` |
+| Loader | `load_config()` — reads `config.yaml` |
+
+`config.yaml` is gitignored; mirror any new setting into `config.example.yaml`.
 
 ---
 
 ## Adding a New Action (checklist)
 
-1. Add intent model to `assistant/actions/<domain>/intent.py`
-2. Add `@register` class to `assistant/actions/<domain>/action.py` (see `BaseAction` in `base.py:14`)
-3. Set `view_switch: ClassVar[str]` if the action should auto-switch UI view
+1. Add the intent model to `assistant/actions/<domain>/intent.py`
+2. Add a `@register` class to `assistant/actions/<domain>/action.py` (see `BaseAction`)
+3. Set `view_switch: ClassVar[str]` if the action should auto-switch the UI view
 4. Re-export from `assistant/actions/<domain>/__init__.py`
-5. The `ActionRegistry` and LLM system prompt pick it up automatically
+5. `ActionRegistry` and the LLM system prompt pick it up automatically
 
 ---
 
@@ -397,12 +385,13 @@ All signals that trigger widget rebuild use `QTimer.singleShot(0, signal.emit)` 
 
 | Symptom | Where to look |
 |---------|--------------|
-| Task list doesn't update after change | `QTimer.singleShot(0, self.todo_changed.emit)` pattern in `TodoListWidget`; `TodoView.refresh()` L1320 |
+| Task list doesn't update after change | the `QTimer.singleShot(0, …emit)` pattern in `TodoListWidget`; `TodoView.refresh` |
 | Enter key in new task field does nothing | `_commit()` in `_make_new_task_row()` — check `blockSignals` not left True |
-| Expanded task row doesn't resize | `_update_item_size()` in `TodoItemWidget` L829 |
-| Subtasks not deleted with parent task | `_on_deleted()` in `TodoListWidget` — must call `delete_subtasks_for_todo()` first |
-| Voice command goes to LLM instead of fast path | `RULE_THRESHOLD = 0.80` (whole) / `SUBITEM_RULE_THRESHOLD = 0.60` (fragment) — tuned 2026-09-07; check confidence in `RuleParseResult` |
-| Background verifier applying stale correction | `_detect_user_change()` in `pipeline.py:562` |
-| New DB field not persisting | Add to `_TODO_MIGRATIONS` list AND to `update_todo`'s `allowed` set |
-| View doesn't switch after voice action | Set `view_switch` on action class; handle value in `_handle_status()` `window.py:540` |
-| iOS sync not seeing new field | Check `Models.swift` `Todo` struct and `APIClient.swift` `updateTodo()` |
+| Expanded task row doesn't resize | `TodoItemWidget._update_item_size` |
+| Subtasks not deleted with parent task | `TodoListWidget._on_deleted` must call `delete_subtasks_for_todo()` first |
+| Voice command goes to LLM instead of fast path | `RULE_THRESHOLD = 0.80` (whole) / `SUBITEM_RULE_THRESHOLD = 0.60` (fragment) — check `RuleParseResult.confidence` |
+| Every command takes the deep track on a dev box | spaCy missing — `_RULE_PARSER_AVAILABLE` is False and the rule parser is disabled entirely |
+| New DB field not persisting | add to `_TODO_MIGRATIONS` **and** to `update_todo`'s `allowed` set |
+| View doesn't switch after voice action | set `view_switch` on the action class; handle the value in `CalendarWindow._handle_status` |
+| iOS sync not seeing new field | check `Models.swift` `Todo` struct and `APIClient.swift` `updateTodo()` |
+| A change to the GUI or HUD "has no effect" | only the API reloads itself; restart the calendar GUI and the HUD by hand |
