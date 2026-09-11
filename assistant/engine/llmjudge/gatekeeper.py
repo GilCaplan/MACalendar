@@ -37,7 +37,13 @@ import re
 
 _GENERIC_TARGET_RE = re.compile(
     r"^(?:my |the |a |an |this )?(?:reminder|alert|event|appointment|task|todo|list)s?$"
-    r"|^(?:you|it|me|this|that|them)$",
+    # `i` and `we` joined the pronoun list on 2026-09-10. The list already held
+    # you/it/me/this/that/them, and "i" fell through every check: it is 1
+    # character, so the content-word filters drop it and `names_nothing_spoken`
+    # returns False on an empty word list. Measured: "i'm free christmas day so
+    # book staff meeting at 5 pm" produced an event titled **"i"** with no
+    # finding raised against it.
+    r"|^(?:you|i|we|us|it|me|this|that|them)$",
     re.I)
 
 # "Can you create/add/make …" is a polite imperative, not a question —

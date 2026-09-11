@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import re
 
+from assistant.engine.llmjudge.verdict import tokens as _tokens
 from assistant.engine.state import EngineState, Item
 
 
@@ -98,11 +99,11 @@ def _grounded_title(title: str, text: str) -> bool:
     own words, prefix-stemmed so "Meeting" grounds on "meet". A title the
     words never said is a fabrication (hypothesis #5: garble input produced
     "New Event", conference room, 10:00-11:00 — none of it in the words)."""
-    words = [w for w in re.findall(r"[a-z']+", title.casefold())
+    words = [w for w in _tokens(title)
              if len(w) > 2 and w not in _TITLE_STOP]
     if not words:
         return True                       # bare/stopword titles judged elsewhere
-    toks = set(re.findall(r"[a-z']+", text.casefold()))
+    toks = set(_tokens(text))
     def ok(w: str) -> bool:
         stem = w[:4]
         return any(tk.startswith(stem) or w.startswith(tk[:4])

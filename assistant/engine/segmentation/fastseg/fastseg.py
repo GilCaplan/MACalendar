@@ -773,7 +773,43 @@ def fastseg(text: str) -> "list[dict]":
     clean = _invariant.strip_discourse_tail(strip_spoken_noise(text or ""))
     pieces = cut(clean)
     pairs = _expand_enumerations(assign_times(clean, pieces))
-    return [{"action": a, "time": t, "tag": tag(a, t)} for a, t in pairs]
+    return [{"action": a, "time": t, "tag": tag(a, t),
+             "source": _source_piece(a, pieces)} for a, t in pairs]
+
+
+def _source_piece(action: str, pieces: "list[str]") -> str:
+    """The VERBATIM substring this item was cut from (Gil, 2026-09-10).
+
+    A fourth value beside (action, time, tag), and it exists for one reason:
+    once an object is validated, its words have to come OUT of the command so
+    the retry carries only what failed. `action` cannot do that job — the time
+    has been split off it and `decompose_validate` may have repaired it, so it
+    is no longer a substring of anything. The piece is.
+
+    An ENUMERATION maps several items onto one piece ("walk the dog at 9 and
+    2:30"), and they honestly share a source: they were cut from the same span.
+    Removing it removes both, which is right — they succeed or fail together.
+
+    Matched by containment first, then by word overlap, because `assign_times`
+    strips the time out of the action and the two no longer match literally.
+    """
+    a = (action or "").strip().lower()
+    if not a or not pieces:
+        return action or ""
+    for piece in pieces:
+        if a in piece.lower():
+            return piece
+    import re as _re
+    want = {w for w in _re.findall(r"[a-z0-9']+", a) if len(w) > 2}
+    if not want:
+        return action or ""
+    best, score = action or "", 0
+    for piece in pieces:
+        have = {w for w in _re.findall(r"[a-z0-9']+", piece.lower()) if len(w) > 2}
+        n = len(want & have)
+        if n > score:
+            best, score = piece, n
+    return best
 
 
 if __name__ == "__main__":                          # pragma: no cover

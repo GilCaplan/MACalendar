@@ -1,290 +1,145 @@
-"""Step 6 — cross-check what was produced against what was said.
+"""LLMJudge — the last check before anything is trusted.
 
 Contract (see DOCUMENTATION/ENGINE.md):
   reads   state.raw_text, state.text, state.items, state.executed
   writes  state.findings (CheckFinding), state.mistakes, trace steps (VERIFY)
-  run(state, cfg) NEVER touches the database or loops itself — the
-  orchestrator owns the loop-back (foreground, pre-commit) and the patch
-  application (background, post-commit).
+  run(state, cfg) NEVER touches the database or loops itself — the orchestrator
+  owns the loop-back (foreground, pre-commit) and the patch application
+  (background, post-commit).
 
-The design splits the work by who is good at it:
+TWO JOBS, in this order:
 
-  1. EXTRACT, don't judge. The LLM lists the separate things the RAW text
-     asks for (schema-constrained). Small models extract far more reliably
-     than they self-evaluate — the model is never asked "is this right?".
-  2. COMPARE deterministically. Code diffs the extraction against the
-     produced items: an extracted ask nothing covers is `missing`; a produced
-     create nothing asked for is `extra`.
-  3. BLAME by mismatch type, never by LLM opinion: the fixed BLAME map names
-     the stage to re-run, and the model has no say in it.
+  0. ANSWER FASTRULE'S DEFERS (`rescue.py`). FastRule leaves a `Defer` on each
+     item it could not build and stops; this stage is next in the chain and owns
+     the model, so the hand-off happens here. Before the check, because the
+     check compares what was PRODUCED against what was said and a deferred item
+     has not been produced yet.
+  1. JUDGE what came out, against the raw text.
 
-On transport failure (model offline, disabled) there are simply no findings —
-a command must never fail because its checker could not run.
+## How job 1 is split, and why the split is the whole design
+
+    render.py    what an object SAYS — one canonical string, defaults dropped
+    verdict.py   deterministic code, which does all the deciding
+    findings.py  the taxonomy and the router — what goes where
+    rewrite.py   X1', when and only when an honest one exists
+
+**The model extracts; deterministic code judges.** Asked "is this object
+correct?" an 8B says yes — the accept bias, and the same family as the
+verbosity, position and rubric-order effects the judge literature measures. So
+it is asked instead to LIST the asks in the words, and to QUOTE the words behind
+each field. Both are copying. `verdict.py` turns the two lists into findings, and
+the model never sees a score, never names a stage, and never decides what
+commits.
+
+**The temporal fields never reach the model at all.** `CalendarIntent` stamps
+`date = today` / `start_time = the current hour` / `end_time = start + 1h` the
+moment an object exists, so an object's date is present whether or not anyone
+said one — and grounding it against the words would flag every correct event
+that happens to be today. `item.slots` is the honest record of what
+`decompose_validate` actually resolved, and `render.unsupported_by_slots` reads
+it. Deterministic-first, exactly as the rest of the engine works.
+
+On transport failure (model offline, disabled) there are simply no
+model-derived findings — a command must never fail because its checker could not
+run. The slot check still runs; it never needed a model.
 """
 
 from __future__ import annotations
 
-import re
+from assistant.engine.llmjudge import findings as F, rewrite, verdict
+from assistant.engine.llmjudge.findings import ROUTE            # noqa: F401
+from assistant.engine.llmjudge.rewrite import rewrite_for_retry  # noqa: F401
 
-from assistant.engine.state import CheckFinding, EngineState
-
-# The deterministic blame router: mismatch type → the stage re-run. The model
-# never picks the stage.
-BLAME = {
-    "missing": "segment",
-    "extra": "segment",
-    "wrong_fields": "fastrule",
-    "format": "decompose_validate",
-}
 MAX_REENTRIES = 3   # total per command, all stages combined
 
-_EXTRACT_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "asks": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "kind": {"type": "string", "enum": ["event", "task", "review"]},
-                    "words": {"type": "string"},
-                },
-                "required": ["kind", "words"],
-            },
-        },
-    },
-    "required": ["asks"],
-}
 
-_EXTRACT_SYSTEM = """You read ONE voice command to a calendar assistant and list \
-the separate things it asks for.
-
-For each ask give:
-- kind: "event" (books, moves, cancels or changes something WITH a date/time),
-  "task" (a to-do / shopping / reminder-to-do item), "review" (asks what is
-  scheduled).
-- words: the speaker's OWN words for that ask, copied — include its verb and
-  its time if said. Never rephrase, never summarise, never invent.
-
-How to count asks (this must match how the assistant itself counts):
-- A list of things to do or buy is one ask PER thing, each carrying the verb:
-  "buy milk, eggs and bread" = three asks (buy milk / buy eggs / buy bread).
-- A count is ONE ask: "buy 5 apples" is one ask, never five.
-- People joined by "and" share one ask: "meeting with Tal and Ravid" is one.
-- One thing plus its description is one ask: "a gift for mom and dad" is one.
-- The same activity at two times is two asks: "walk the dog at 9 and 2:30".
-- Moving, renaming, deleting or completing something is an ask too.
-Do not list an ask twice. When unsure whether something is one ask or two,
-say ONE.
-
-Examples:
-"book gym tomorrow at 7am and remind me to buy milk"
-→ {"asks": [{"kind": "event", "words": "book gym tomorrow at 7am"},
-            {"kind": "task", "words": "remind me to buy milk"}]}
-"add buy milk, eggs and bread to my list"
-→ {"asks": [{"kind": "task", "words": "buy milk"},
-            {"kind": "task", "words": "buy eggs"},
-            {"kind": "task", "words": "buy bread"}]}
-"meeting with Tal and Ravid at Kems tomorrow evening"
-→ {"asks": [{"kind": "event", "words": "meeting with Tal and Ravid at Kems tomorrow evening"}]}
-"buy 5 apples"
-→ {"asks": [{"kind": "task", "words": "buy 5 apples"}]}
-"move my haircut to 6pm"
-→ {"asks": [{"kind": "event", "words": "move my haircut to 6pm"}]}
-
-Return JSON: {"asks": [{"kind": ..., "words": ...}, ...]}"""
-
-_STOPWORDS = frozenset(
-    "a an the and or to for of on at in with my me i please add book schedule "
-    "set remind buy get make new tomorrow today tonight".split())
-
-
-def _tokens(text: str) -> set:
-    return {w for w in re.findall(r"[a-z0-9']+", (text or "").lower())
-            if w not in _STOPWORDS and len(w) > 1}
-
-
-def _overlap(a: set, b: set) -> float:
-    if not a or not b:
-        return 0.0
-    return len(a & b) / min(len(a), len(b))
-
-
-def extract_asks(state: EngineState, cfg) -> "list[tuple[str, str]] | None":
-    """The LLM's reading of the raw text: [(kind, words), …]. None = the model
-    could not be consulted (offline/disabled) — no findings can be made."""
-    from assistant.engine import llm as _llm
-
-    try:
-        out, ms = _llm.call_json(cfg, _EXTRACT_SYSTEM,
-                                 f"The command: {state.raw_text}", _EXTRACT_SCHEMA)
-        state.llm_ms += ms
-    except Exception:
-        return None
-    asks = []
-    for d in (out.get("asks") or []):
-        if not isinstance(d, dict):
-            continue
-        kind = str(d.get("kind", "")).strip()
-        words = str(d.get("words", "")).strip()
-        if kind in ("event", "task", "review") and words:
-            asks.append((kind, words))
-    return asks or None
-
-
-def _produced(state: EngineState) -> list:
-    """Everything the engine decided about — the comparable surface.
-
-    A BLOCKED item is included: the observance gate answered that ask (with an
-    explained refusal), and counting it "missing" once sent almost every gated
-    command into a full loop-back storm — three re-parses that could never
-    change a policy refusal. Updates/deletes/completes are included too: the
-    extraction has no way to know "move the meeting" is not a fresh event, and
-    treating those asks as uncovered was another loop with no possible win.
-    Each entry: (item, kind, tokens, removable, capacity) — only a genuinely
-    created row is `removable` (an extra-finding candidate), and `capacity` is
-    how many ASKS the item can cover: a fast-track create_todo carries every
-    title in ONE intent ("milk, eggs and bread" = titles×3), and letting it
-    satisfy only one ask was exactly what invented two "missing" tasks and
-    had the background patch add duplicates."""
-    out = []
-    for it in state.items:
-        if it.intent is None:
-            continue
-        if it.action in ("create_event", "create_todo"):
-            kind = "event" if it.action == "create_event" else "task"
-            titles = list(getattr(it.intent, "titles", None) or [])
-            if not titles:
-                titles = [getattr(it.intent, "title", "") or it.text]
-            toks = _tokens(it.text)
-            for t in titles:
-                toks |= _tokens(t)
-            out.append((it, kind, toks, not it.blocked, max(1, len(titles))))
-        elif it.action in ("update_event", "delete_event", "update_todo",
-                           "delete_todo", "complete_todo", "add_subtask"):
-            kind = "event" if "event" in it.action else "task"
-            title = getattr(it.intent, "match_title", None) or \
-                getattr(it.intent, "title", None) or it.text
-            out.append((it, kind, _tokens(title) | _tokens(it.text), False, 1))
-        elif it.action == "query_schedule":
-            out.append((it, "review", _tokens(it.text), False, 1))
-    return out
-
-
-def run(state: EngineState, cfg) -> EngineState:
+def run(state, cfg):
+    """X4 + the raw text -> findings. Nothing is committed and nothing loops."""
     from assistant.trace import VERIFY
     from assistant.engine.llmjudge import rescue as _rescue
 
-    # FIRST, answer what FastRule could not build. It leaves a DEFER on the item
-    # and stops; this stage is the next in the chain and owns the model, so the
-    # hand-off happens here rather than FastRule reaching forward into it.
-    # Before the crosscheck, because the crosscheck compares what was PRODUCED
-    # against what was said, and a deferred item has not been produced yet.
     _rescue.take_deferrals(state, cfg)
 
-    asks = extract_asks(state, cfg)
-    if asks is None:
-        return state
+    produced = verdict.collect(state)
+    found = verdict.judge(state, produced)
+    state.findings = found
+    state.mistakes = [f.detail for f in found]
+    _flag_panel_items(state, found)
 
-    produced = _produced(state)
-    capacity = {id(it): cap for it, _k, _t, _r, cap in produced}
-    unmatched_asks = []
-    for kind, words in asks:
-        toks = _tokens(words)
-        # Two passes: same-kind first, then any kind — the extraction
-        # regularly mislabels a task as an event, and a kind quibble must not
-        # become a false "missing" (which costs three pointless re-parses).
-        best, best_score = None, 0.0
-        for same_kind_only in (True, False):
-            for it, pkind, ptoks, _removable, _cap in produced:
-                if capacity[id(it)] <= 0:
-                    continue
-                if same_kind_only and pkind != kind:
-                    continue
-                score = _overlap(toks, ptoks)
-                if score > best_score:
-                    best, best_score = it, score
-            if best is not None and best_score >= 0.25:
-                break
-        if best is not None and best_score >= 0.25:
-            capacity[id(best)] -= 1
-        else:
-            unmatched_asks.append((kind, words))
-
-    findings: list = []
-    # A missing ask blames SEGMENT only when segment could plausibly be at
-    # fault — when there are FEWER items than asks, i.e. it merged two asks
-    # into one item. When the items already cover the asks, segment did its
-    # job and re-running it is a guaranteed no-op: it returns the same items,
-    # generate fails the same way, and the budget burns.
-    #
-    # Real usage, 2026-09-08: "Let an event to go out for a run now" (Whisper
-    # heard "Let" for a create verb). One ask extracted, ONE item segmented,
-    # no action produced — and the loop re-ran segment three times, the trace
-    # saying "unchanged since the last attempt" each round, ~23 s of the 30 s
-    # the command took. The atomicity model called it atomic at margin 9.20
-    # against a floor of 0.25; nothing about segmentation was ever in doubt.
-    #
-    # This is ENGINE.md's own stated default, applied where it was missing:
-    # generate when the blame is ambiguous, because most errors live there.
-    blame_missing = "segment" if len(state.items) < len(asks) else "fastrule"
-    for kind, words in unmatched_asks:
-        findings.append(CheckFinding(
-            type="missing", item_id=None,
-            detail=f"the words ask for a {kind} — “{words}” — but nothing produced covers it",
-            blamed_stage=blame_missing))
-    for it, pkind, _ptoks, removable, cap in produced:
-        if removable and capacity[id(it)] >= cap:   # nothing matched it at all
-            title = getattr(it.intent, "title", None) or it.text
-            findings.append(CheckFinding(
-                type="extra", item_id=it.id,
-                detail=f"a {pkind} — “{title}” — was produced but the words never asked for it",
-                blamed_stage=BLAME["extra"]))
-
-    state.findings = findings
-    for f in findings:
-        state.mistakes.append(f.detail)
     if state.trace:
-        if findings:
-            state.trace.step(VERIFY, "Cross-check",
-                             "; ".join(f.detail for f in findings), ok=False,
-                             findings=[f.type for f in findings])
+        if found:
+            state.trace.step(
+                VERIFY, "Cross-check",
+                "; ".join(f.detail for f in found), ok=False,
+                findings=[f.type for f in found],
+                routes=sorted({F.route(f.type) for f in found}))
         else:
-            state.trace.step(VERIFY, "Cross-check",
-                             f"{len(asks)} ask(s) in the words — all covered")
+            state.trace.step(
+                VERIFY, "Cross-check",
+                f"{len(produced)} object(s) — every field traced back to the "
+                f"words")
     return state
 
 
-# ---------------------------------------------------------------------------
-# THE LOOP-BACK CONTRACT (Gil, 2026-09-08) — rewrite, do not re-run
-# ---------------------------------------------------------------------------
+def _flag_panel_items(state, found) -> None:
+    """Mark PANEL-routed objects so the review panel can DRAW them.
 
-def rewrite_for_retry(state: EngineState, cfg) -> "str | None":
-    """X4 + the findings -> X1', a clearer utterance for Segmentation.
+    A SIBLING key to FastRule's `slots["fastrule_result"]`, not the same one:
+    FastRule's says the converter refused to build, this one says the judge
+    found nothing that asked for it. The panel draws them in the same row and
+    the two must stay distinguishable, because only one of them is a bug.
 
-    THE CONTRACT (Gil, 2026-09-08). The loop used to re-enter Segmentation with
-    the SAME text, which cannot work: Segmentation is deterministic (FastSeg,
-    LLMSeg off), so the same string yields the same items and the retry burns
-    the budget to reach the identical answer. Real usage, 2026-09-08: "Let an
-    event to go out for a run now" looped three times to the same result and
-    apologised after 30 seconds.
-
-    So the judge must REWRITE — restate the command, same meaning, clearer
-    boundaries — and the chain re-enters at Segmentation on that string.
-
-    NOT IMPLEMENTED YET, and it returns None on purpose rather than guessing.
-
-    The first attempt built X1' out of `finding.detail`, which is the
-    human-readable EXPLANATION ("the words ask for a task — “buy milk” — but
-    nothing produced covers it"), not the command. Segmentation then parsed the
-    explanation. A rewrite that invents text is worse than no rewrite: it
-    replaces the user's words with the machine's.
-
-    Returning None means "no rewrite, so no loop", which leaves today's
-    behaviour exactly as it was — the loop was already inert for the same
-    deterministic reason. What this adds is the CONTRACT and its single call
-    site, so implementing it later is filling in one function rather than
-    rewiring the chain. It wants a model call grounded on `state.raw_text`.
-    See DOCUMENTATION/ENGINE_REWIRE.md.
+    **It does not block the commit, and that is deliberate.** Gil's third bucket
+    is *"objects which are not meant to be committed"*, and blocking is where
+    this is going — but `extra` is the finding this engine is measurably worst
+    at: segment is under-split-biased, so an extra is far more often the
+    matcher's artefact than real over-production (run 8: 39 loop storms, mostly
+    exactly that). Dropping a correct object on a false positive is a worse
+    failure than mentioning a real one. **The gate is the isolation board's
+    false-flag rate on `extra`** — `experiments/judge_board.py` — and flipping
+    this to blocking is a one-line change once that number says it is safe.
     """
-    return None
+    from assistant.trace import VERIFY
+
+    by_id = {it.id: it for it in state.items}
+    for f in found:
+        if F.route(f.type) != F.PANEL or not f.item_id:
+            continue
+        it = by_id.get(f.item_id)
+        if it is None:
+            continue
+        it.slots = dict(it.slots or {})
+        it.slots["judge_result"] = "not_asked"
+        it.slots["judge_detail"] = f.detail
+        # AND A TRACE STEP, because the panel is downstream of the trace: an
+        # outcome that emits no step cannot be drawn however the panel is
+        # written. Writing only to `slots` made this bucket exist on the server
+        # and nowhere the user could see it — the same silent shape FastRule's
+        # `not_an_ask` had before it got a step of its own (2026-09-10).
+        #
+        # `ok=True`: this is a correct reading held back, not a failure. Red is
+        # reserved for something fatal.
+        if state.trace:
+            title = getattr(it.intent, "title", None) or (it.text or "")[:40]
+            state.trace.step(VERIFY, "Not a calendar ask",
+                             f"“{title}” — {f.detail}", ok=True,
+                             judge_result="not_asked", item_id=it.id)
+
+
+def notices(state) -> "list[str]":
+    """What to TELL the speaker about objects that committed with an assumption.
+
+    Called once by the orchestrator after the loop settles, never from `run`:
+    `run` executes on every round, and appending here would apologise three
+    times for one doubt. `COMMIT_FLAGGED` is the only route that owes the user a
+    sentence — REWRITE is handled by looping and PANEL by the panel.
+    """
+    out, seen = [], set()
+    for f in state.findings:
+        if F.route(f.type) != F.COMMIT_FLAGGED:
+            continue
+        msg = f"I went ahead, but {f.detail}."
+        if msg not in seen:
+            seen.add(msg)
+            out.append(msg)
+    return out

@@ -52,31 +52,6 @@ def test_all_asks_covered_means_no_findings(cfg, monkeypatch):
     assert st.findings == []
 
 
-def test_a_missing_ask_is_found_and_blamed_on_segment(cfg, monkeypatch):
-    monkeypatch.setattr(engine_llm, "call_json", lambda *a, **k: ({"asks": [
-        {"kind": "event", "words": "gym on tuesday at 7am"},
-        {"kind": "task", "words": "buy milk"},
-    ]}, 4))
-    st = _state_with([_event_item("item_1", "gym")],
-                     text="book gym on tuesday at 7am and remind me to buy milk")
-    crosscheck.run(st, cfg)
-    assert [f.type for f in st.findings] == ["missing"]
-    assert st.findings[0].blamed_stage == "segment"
-    assert any("buy milk" in m for m in st.mistakes)
-
-
-def test_an_extra_production_is_found(cfg, monkeypatch):
-    monkeypatch.setattr(engine_llm, "call_json", lambda *a, **k: ({"asks": [
-        {"kind": "task", "words": "buy milk"},
-    ]}, 4))
-    st = _state_with([_task_item("item_1", "buy milk"),
-                      _task_item("item_2", "buy groceries")],
-                     text="add buy milk to my list")
-    crosscheck.run(st, cfg)
-    assert [f.type for f in st.findings] == ["extra"]
-    assert st.findings[0].item_id == "item_2"
-
-
 def test_no_model_means_no_findings_not_a_failure(cfg, monkeypatch):
     def _down(*a, **k):
         raise RuntimeError("offline")
@@ -91,7 +66,11 @@ def test_a_blocked_item_is_not_an_extra(cfg, monkeypatch):
     monkeypatch.setattr(engine_llm, "call_json", lambda *a, **k: ({"asks": []}, 4))
     it = _event_item("item_1", "gym session")
     it.blocked = "that lands on Shabbat"
-    st = _state_with([it], text="gym saturday")
+    # The text SAYS "gym session": since 2026-09-10 the identity test flags a
+    # title word the transcript never said, and this test is about a BLOCKED
+    # item, not about grounding. Leaving it "gym saturday" would have it fail
+    # for the other reason and stop testing what it names.
+    st = _state_with([it], text="book gym session on saturday")
     crosscheck.run(st, cfg)
     assert st.findings == []
 
@@ -99,12 +78,21 @@ def test_a_blocked_item_is_not_an_extra(cfg, monkeypatch):
 # --- foreground loop-back ---------------------------------------------------
 
 @pytest.mark.xfail(reason=(
-    "The loop now requires a REWRITTEN utterance to re-enter Segmentation with "
-    "(Gil's chain, 2026-09-08) and llmjudge.rewrite_for_retry is still a stub "
-    "returning None, so no loop fires. This test covers the loop-back MECHANISM "
-    "and will pass again -- and should be un-xfailed -- the moment the rewrite "
-    "is implemented. Kept rather than deleted because it is the only coverage "
-    "of that mechanism."), strict=True)
+    "REASON REPLACED 2026-09-10 -- the old one said `rewrite_for_retry` was a "
+    "stub, and it has not been since cycle 11. The loop IS live; this scenario "
+    "is one it deliberately cannot reach.\n\n"
+    "The row needs the judge to notice an ask with NOTHING built for it -- the "
+    "old `missing` finding -- and `missing` came from the ask diff, which Gil "
+    "removed on 2026-09-10: 'i dont want extraction, that defeats the point of "
+    "what segmentation -> decompose_validate -> FastRule did'. Segmentation "
+    "already decides how many asks there are; re-deriving that with an 8B "
+    "produced a weaker second opinion and blamed segmentation for every "
+    "disagreement.\n\n"
+    "So the loop now fires ONLY on `ungrounded_subject`, and an under-split is "
+    "segmentation's defect to fix on segmentation's board. Kept rather than "
+    "deleted because it documents exactly which failure the judge stopped "
+    "claiming to catch, and un-xfailing it would mean re-adding the ask diff."),
+    strict=True)
 def test_loop_back_reruns_segment_with_the_mistake(cfg, monkeypatch):
     """First pass merges two asks into one item; the cross-check notices the
     missing task; the re-run (with the mistake in the prompt) splits properly
@@ -190,14 +178,20 @@ def test_loop_budget_is_finite_and_admitted(cfg, monkeypatch):
     def scripted_llm(cfg_, system, user, schema=None):
         if "split ONE voice command" in system:
             return {"items": []}, 1                    # never splits
-        return {"asks": [{"kind": "task", "words": "buy milk"},
-                         {"kind": "event", "words": "gym at 7"}]}, 1
+        # The judge asks for GROUNDING now. `none` on the title is an
+        # UNGROUNDED_SUBJECT, which is the one finding that earns a round —
+        # and the same reply carries no "command" key, so `rewrite_for_retry`
+        # finds no honest rewrite and the loop stops instead of spinning.
+        return {"grounding": [{"id": "item_1", "field": "title",
+                               "words": "none"}]}, 1
 
     monkeypatch.setattr(engine_llm, "call_json", scripted_llm)
     monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: None)
     parser = MagicMock()
+    # A title no word of which is in the transcript — the fabrication case, and
+    # the deterministic subject test catches it with or without the model.
     parser.parse.return_value = [("create_event", SimpleNamespace(
-        title="gym", date=None, start_time=None, end_time=None,
+        title="physiotherapy", date=None, start_time=None, end_time=None,
         recurrence=None, recur_until=None, description=""))]
     parser.last_llm_ms = 1
     parser.last_examples_used = 0
@@ -210,7 +204,7 @@ def test_loop_budget_is_finite_and_admitted(cfg, monkeypatch):
 
     out = engine.run_transcript("tomorrow gym at 7 am and a meeting with Tal at 11",
                                 source="test")
-    assert "not sure I caught every part" in out["message"]
+    assert "not sure I got every part of that right" in out["message"]
 
 
 # --- background patch tiers -------------------------------------------------
@@ -251,8 +245,12 @@ def test_extra_row_is_advisory_by_default(cfg, monkeypatch):
                           due_date="", notes="")
     extra = db.create_todo(title="buy groceries", list_name="today", priority="none",
                            due_date="", notes="")
-    monkeypatch.setattr(engine_llm, "call_json", lambda *a, **k: ({"asks": [
-        {"kind": "task", "words": "buy milk"}]}, 2))
+    # The stage asks ONE question now — "which words support this field?" —
+    # and answers for the object that IS supported. "buy groceries" is caught
+    # without the model: its subject noun appears nowhere in the words, and the
+    # shared verb "buy" is a stop word precisely so it cannot launder it.
+    monkeypatch.setattr(engine_llm, "call_json", lambda *a, **k: ({"grounding": [
+        {"id": "item_1", "field": "title", "words": "buy milk"}]}, 2))
 
     st = _state_with([_task_item("item_1", "buy milk"),
                       _task_item("item_2", "buy groceries")],
@@ -280,8 +278,12 @@ def test_extra_row_is_removed_when_apply_is_on(cfg, monkeypatch):
                           due_date="", notes="")
     extra = db.create_todo(title="buy groceries", list_name="today", priority="none",
                            due_date="", notes="")
-    monkeypatch.setattr(engine_llm, "call_json", lambda *a, **k: ({"asks": [
-        {"kind": "task", "words": "buy milk"}]}, 2))
+    # The stage asks ONE question now — "which words support this field?" —
+    # and answers for the object that IS supported. "buy groceries" is caught
+    # without the model: its subject noun appears nowhere in the words, and the
+    # shared verb "buy" is a stop word precisely so it cannot launder it.
+    monkeypatch.setattr(engine_llm, "call_json", lambda *a, **k: ({"grounding": [
+        {"id": "item_1", "field": "title", "words": "buy milk"}]}, 2))
     monkeypatch.setattr(cfg, "self_check_apply", True)
 
     st = _state_with([_task_item("item_1", "buy milk"),
@@ -348,8 +350,10 @@ def test_the_loop_stops_when_a_rerun_cannot_change_anything(cfg, monkeypatch):
     monkeypatch.setattr(engine_llm, "call_json", scripted_llm)
     monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: None)
     parser = MagicMock()
+    # A title no word of which is in the transcript — the fabrication case, and
+    # the deterministic subject test catches it with or without the model.
     parser.parse.return_value = [("create_event", SimpleNamespace(
-        title="gym", date=None, start_time=None, end_time=None,
+        title="physiotherapy", date=None, start_time=None, end_time=None,
         recurrence=None, recur_until=None, description=""))]
     parser.last_llm_ms = 1
     parser.last_examples_used = 0
@@ -366,38 +370,6 @@ def test_the_loop_stops_when_a_rerun_cannot_change_anything(cfg, monkeypatch):
     assert len(loops) < crosscheck.MAX_REENTRIES, (
         f"burned every retry on an unchanging parse: {[s['detail'] for s in loops]}")
     # and it still admits it could not finish the job
-    assert "not sure I caught every part" in out["message"]
+    assert "not sure I got every part of that right" in out["message"]
 
 
-def test_the_missing_ask_recovery_actually_builds_something(cfg, registry_with_real_actions):
-    """`_commit_missing_ask` was a DEAD PATH, and nothing showed it.
-
-    It hand-built `Item(id="item_1", kind="other", text=words)` — and `other`
-    means "NOT a calendar ask" to the stage below, which skips every such item
-    with `action="unknown", intent=None`. So `_commit` was handed nothing and
-    the "I first missed part of that …" reply could never fire. The two
-    meanings of `other` collided: here it meant "unclassified", there it means
-    "segmentation already decided this is none of event/task/review".
-
-    It was also the ONLY place in the codebase that wrote `Item.kind` by hand.
-    The path only runs after something else has already gone wrong, which is
-    why no board would ever have shown it.
-
-    This pins the fix at the level that broke: the words must come out of the
-    chain as a real, committable object.
-
-    `registry_with_real_actions` is required, not decorative: the autouse
-    `isolated_registry` fixture empties the global registry, and a parser built
-    from an empty one routes nothing — conftest's own docstring names this trap.
-    """
-    words = "buy milk tomorrow"
-    sub = EngineState(raw_text=words, text=words, source="test",
-                      current_view="month", mode="background")
-    engine._segment.run(sub, cfg)
-    engine._decompose_validate.run(sub, cfg)
-    generate.run(sub, cfg)
-
-    assert sub.items, "segmentation produced no item for a real ask"
-    it = sub.items[0]
-    assert it.kind != "other", "an ask the chain dropped is not a non-ask"
-    assert it.action == "create_todo" and it.intent is not None
