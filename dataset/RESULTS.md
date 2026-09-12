@@ -1451,6 +1451,82 @@ the rules' ~36%), which is why that rewiring worked and this one does not.
 kind models reach the atomicity model's standard. Banked so no future cycle
 re-tries it blind.
 
+## MILESTONE — THE CHECKPOINT RETROSPECTIVE, sealed 300 (2026-09-12)
+
+**Five system states, the same 300 rows, one scorer, one machine, measured
+today.** `loop_log.csv` is 21 readings under three harnesses with two declared
+comparability boundaries, so its trajectory cannot be read end to end. This
+can: every point comes from the same instrument, so there are no eras to
+reconcile. Fingerprint `6dc8c8674e39:300`. Aggregates only.
+
+**THE ERROR BAR, measured for the first time: 0.6 pt.** `main` ran the sealed
+300 twice — 77.3 and 76.7. So on this slice a gap under ~1 pt is noise and
+anything above it is real. (The loop's standing "~1.5 pt" figure is for
+dev-fast-250 and was inferred from rows flipping during ordinary cycles, never
+measured by a repeat run.)
+
+| checkpoint | raw | adj | simple | medium | complex | p50 | p95 |
+|---|---|---|---|---|---|---|---|
+| pre-engine-v2 (old brain) | 79.0 | 78.7 | 91.8 | 92.0 | 54.4 | 53.2 s | 84.4 s |
+| fast-lane-pre-integration | 77.3 | 77.7 | 88.7 | 87.0 | 57.3 | 52.3 s | 103.5 s |
+| **fastrule-v1** | **79.7** | 79.7 | 88.7 | 91.0 | **60.2** | 48.2 s | 84.4 s |
+| decompose-validate-v1 | 75.3 | 76.3 | 89.7 | 90.0 | 47.6 | 41.1 s | 53.6 s |
+| main | 77.3 | 78.3 | 91.8 | 93.0 | 48.5 | **40.2 s** | **52.6 s** |
+| main (2nd pass) | 76.7 | 77.7 | 90.7 | 92.0 | 48.5 | 40.5 s | 53.5 s |
+
+### The result, read honestly
+
+**Count-correctness did not improve. Latency did, and so did the fast path.**
+`main` (77.3) sits below the old brain (79.0) and below `fastrule-v1` (79.7),
+and complex fell 60.2 → 48.5. Against a 0.6 pt error bar these are real.
+
+**On MATCHED rows** — the same 300, split by where `main` routes them:
+
+| slice | fastrule-v1 | decompose-validate-v1 | main |
+|---|---|---|---|
+| the 130 `main` routes FAST | 88.5% | 90.8% | **93.1%** |
+| the 170 `main` routes DEEP | **72.9%** | 63.5% | 65.3% |
+| all 300 | 79.7% | 75.3% | 77.3% |
+
+That separates two opposite movements the headline had hidden:
+
+- **The fast path is a genuine win.** 88.5 → 93.1 on the same rows, and 93.1%
+  correct on the 130 it takes. Latency p50 53.2 → 40.2 s, p95 84.4 → 52.6 s.
+- **The deep path REGRESSED −7.6 pt** on the same 170 rows, and it landed at
+  `decompose-validate-v1` (72.9 → 63.5, "wire the resolver into the live
+  path"); `main` recovered ~1.8 of it.
+
+Row flips, fastrule-v1 → main: **33 broke, 26 fixed, net −7.** Of the 33
+broken, **29 were on the deep path and 25 were complex**. Compound families
+move the same way: e+t 53.1 → 40.6, t+t 58.3 → 47.2, e+e 68.6 → 57.1.
+
+**Why the loop never saw it:** every cycle is scored within-era on
+dev-fast-250, and this crosses both the era boundary and the slice.
+
+### THE LEAKAGE RULE STILL BINDS
+
+This is a REPORT, not a direction. ITERATION_PROTOCOL: *"no test result — not
+a number, not a slice, not a surprising delta — is ever used to decide what to
+improve."* So the deep-path regression **does not become a hypothesis from
+here**. It is reproducible between two tags on the TRAINING pool, and that is
+where the work must start — `fastrule-v1` vs `main` on dev-fast-250, which is
+freely mineable. Any fix is justified by what that shows, never by this table.
+
+### Caveats carried
+
+- **Six sealed reads spent** (5 + the error-bar pass). A deliberate one-off for
+  a retrospective, **not a precedent**.
+- **pre-engine-v2 latency, ids ~139-146** — a second model job ran beside the
+  sweep for ~11 minutes. Accuracy untouched; latency p50 53.1 → 52.1 s and p95
+  84.3 → 79.6 s excluding them.
+- **The guard fired on pass 1** (`calendar.db` changed). Investigated and
+  CLEARED: three to-dos Gil created at 15:26-15:28 Friday
+  ("Windbreaker cycling shirt", "Bike light for roadbike", "Weights"). None
+  appears in any of the 300 sealed transcripts or in any sandbox. Real usage,
+  not a leak — the run stands. Only latency inside that ~3-minute window is
+  contended.
+
+
 ## MILESTONE — the pre-loop baseline on the SEALED 300 (run 21, 2026-09-07)
 
 **Dataset: the sealed test set (300 rows, never mined, never trained on,
