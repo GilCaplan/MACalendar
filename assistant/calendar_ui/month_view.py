@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import calendar
 import datetime
+import logging
 from typing import List, Optional
 
 from PyQt6.QtCore import Qt, QMimeData, QByteArray, QPoint, pyqtSignal
@@ -18,6 +19,8 @@ from PyQt6.QtWidgets import (
 )
 
 import assistant.calendar_ui.styles as _styles
+
+logger = logging.getLogger(__name__)
 from assistant.calendar_ui.styles import (
     BLUE,
     GRAY_BORDER,
@@ -330,10 +333,21 @@ class DayCell(QWidget):
     def dropEvent(self, event):
         self._drag_hover = False
         self.update()
-        if event.mimeData().hasFormat("application/x-event-id"):
+        if not event.mimeData().hasFormat("application/x-event-id"):
+            return
+        # This is an overridden Qt virtual method: PyQt6 aborts the whole
+        # process if a Python exception escapes it (the C++ object is left in
+        # an undefined state, so it treats that as unrecoverable) rather than
+        # just failing the drop — one bad drag used to take the whole app
+        # down. `self.event_rescheduled.emit(...)` below runs its connected
+        # slot SYNCHRONOUSLY, so a DB error on the other end unwinds back
+        # through here too; the whole body needs the guard, not just the parse.
+        try:
             event_id = int(bytes(event.mimeData().data("application/x-event-id")).decode())
             self.event_rescheduled.emit(event_id, {"date": self.date.isoformat()})
             event.acceptProposedAction()
+        except Exception:
+            logger.exception("Dropping an event on the month view failed; drop ignored")
 
     def paintEvent(self, event):
         super().paintEvent(event)
