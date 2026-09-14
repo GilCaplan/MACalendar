@@ -83,6 +83,12 @@ def note(kind: str, detail: str, **extra) -> None:
     Same stream on purpose: the console's value is seeing a concatenation and
     the calls it produced in one ordered list.
     """
+    # Same rule as record(): a measurement run must not write into the real
+    # log. record() had this guard and note() did not, so every sweep would
+    # have published its lock waits and coalesces into ~/.assistant_tools —
+    # the asymmetry only mattered once protocol events became frequent.
+    if extra.get("source") == "test":
+        return
     try:
         entry = {"ts": time.time(), "transport": "protocol", "kind": kind,
                  "detail": detail, "caller": "", "model": "", "ms": 0}
@@ -95,9 +101,23 @@ def note(kind: str, detail: str, **extra) -> None:
         pass
 
 
+#: Cheap gate before the expensive check. A line here averages well under
+#: 1 KB, so a file under this cannot hold MAX_ENTRIES*2 lines and does not
+#: need reading to find that out.
+_TRIM_PROBE_BYTES = MAX_ENTRIES * 2 * 200
+
+
 def _trim() -> None:
     try:
-        if not os.path.exists(BUS_PATH):
+        # SIZE FIRST. This used to readlines() the WHOLE file before every
+        # append — fine when protocol events were rare, but the live view
+        # raises the rate to several per command, twice around the engine's
+        # lock. A full read+write of up to 800 lines inside the request path
+        # is not something a visualisation should cost.
+        try:
+            if os.path.getsize(BUS_PATH) < _TRIM_PROBE_BYTES:
+                return
+        except OSError:
             return
         with open(BUS_PATH, encoding="utf-8") as f:
             lines = f.readlines()
