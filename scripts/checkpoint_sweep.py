@@ -72,12 +72,19 @@ WORKTREES = ROOT.parent / "MACalendar-checkpoints"
 OUT = ROOT / "DOCUMENTATION" / "experiments" / "checkpoints"
 
 #: The system states being compared, oldest first. `main` is the live tree.
+#: name -> extra environment for the child. The one-shot is `main` with the
+#: chain switched off, not a separate tree — same code, one variable, which is
+#: the only way its number is comparable to main's.
+CHECKPOINT_ENV = {"one-shot-llm": {"MACALENDAR_ONESHOT": "1"}}
+CHECKPOINT_TREE = {"one-shot-llm": "main"}
+
 CHECKPOINTS = [
     ("pre-engine-v2", "the old brain, before the engine rewrite"),
     ("fast-lane-pre-integration", "FastRule sandbox, pre-integration"),
     ("fastrule-v1", "before the FastRule v2 restructure"),
     ("decompose-validate-v1", "resolver wired into the live path"),
     ("main", "today"),
+    ("one-shot-llm", "main, chain off: ONE model call"),
 ]
 
 # The child runs inside the checkpoint's own tree. It is written out rather
@@ -105,6 +112,9 @@ os.environ["MACALENDAR_NO_WARMUP"] = "1"
 # no concept of Shabbat, and a Friday replay otherwise penalises a checkpoint
 # for CORRECTLY refusing. engine_dataset_compare sets the same flag.
 os.environ["MACALENDAR_OBSERVANCE"] = "0"
+for _k in ("MACALENDAR_ONESHOT",):          # variants ride in on the env
+    if os.environ.get(_k):
+        os.environ[_k] = os.environ[_k]
 
 # vocab and categories are COPIED FROM THE REAL STORES, read-only, exactly as
 # engine_dataset_compare does. They are not incidental: the personal
@@ -232,6 +242,7 @@ def setup() -> int:
 
 
 def _tree_for(tag: str) -> pathlib.Path:
+    tag = CHECKPOINT_TREE.get(tag, tag)
     return ROOT if tag == "main" else WORKTREES / tag
 
 
@@ -261,34 +272,57 @@ PERSONAS = ROOT / "dataset" / "personas" / "personas.jsonl"
 def _load_personas(n: int) -> list:
     """A stratified sample of the personas set — the second, CLEAN test half.
 
-    Why this set and not 300 more HWU rows: ITERATION_PROTOCOL says the other
-    2,699 rows of the 3000-pool are the training pool ("mine them, train on
-    them, tune against them freely"), and the 3000-pool's "aggregate replays
-    and threshold sweeps had touched all ranks" — which is why FastRule needed
-    its own data. The sealed 300 took the last clean draw from there. The
-    personas set is 2,520 rows with `split: "test"` on every one, ground truth
-    BY CONSTRUCTION, and it measures the weakness the project has already
-    named: swapping vocabulary moves the classifiers 0-3 pt, swapping PHRASING
-    moves them 7-29 pt.
+    Why this set and not 300 more HWU rows: ITERATION_PROTOCOL makes the other
+    2,699 rows of the 3000-pool the training pool, and the pool's "aggregate
+    replays and threshold sweeps had touched all ranks". The sealed 300 took
+    the last clean draw. personas.jsonl is 2,520 rows with `split: "test"` on
+    every one, ground truth BY CONSTRUCTION, and it measures the weakness the
+    project has already named: vocabulary moves the classifiers 0-3 pt,
+    PHRASING moves them 7-29 pt.
 
-    Stratified over persona x tier so all six voices are represented equally —
-    the spread BETWEEN personas is the finding, so an uneven draw would hide it.
+    STRATIFIED ON persona x structure, NOT persona x tier. The first version
+    bucketed by (persona, tier) — only 12 buckets — and walked each in id
+    order. Ids cluster by structure family, so it drew the same few families
+    over and over: the resulting 300 had **49% two-event compounds against 6%
+    in the full set, and ZERO queries or task-only rows against 42%**. Every
+    checkpoint was still measured on identical rows, so the comparison held —
+    but it was a board about two-event compounds wearing the label "six
+    speaking styles", and the one-shot's 15.3% looked like a collapse when it
+    was mostly the hardest family, 8x over-weighted.
+
+    Structure is what varies the ASK; persona is what varies the VOICE. The
+    sample has to span both or it measures neither.
     """
     rows = [json.loads(l) for l in PERSONAS.read_text().splitlines() if l.strip()]
-    buckets: dict = {}
+    by_persona: dict = {}
     for r in rows:
-        buckets.setdefault((r["persona"], r.get("tier")), []).append(r)
-    for key in buckets:
-        buckets[key].sort(key=lambda r: r["id"])      # deterministic, no seed
-    out, i = [], 0
-    keys = sorted(buckets)
-    while len(out) < n and any(len(buckets[k]) > i for k in keys):
-        for k in keys:                                 # round-robin the strata
-            if len(buckets[k]) > i and len(out) < n:
-                out.append(buckets[k][i])
-        i += 1
+        by_persona.setdefault(r.get("persona"), {}).setdefault(
+            r.get("structure") or r.get("family", ""), []).append(r)
+
+    # EQUAL SHARE PER VOICE, and within a voice, round-robin the structures.
+    # Balancing voices is not cosmetic: the SPREAD between personas is what
+    # this board exists to measure (72.2% for the persona who talks like Gil
+    # against 33.9% for a terse student), and a draw that gives one voice
+    # twice another's rows reports that spread through a sampling artefact.
+    # A flat round-robin over (persona, structure) did exactly that — the
+    # alphabetically-early personas got 66 rows and the late ones 33.
+    per_voice = n // max(1, len(by_persona))
+    out: list = []
+    for persona in sorted(by_persona):
+        structs = by_persona[persona]
+        for key in structs:
+            structs[key].sort(key=lambda r: r["id"])   # deterministic, no seed
+        picked, i, keys = [], 0, sorted(structs)
+        while len(picked) < per_voice and any(len(structs[k]) > i for k in keys):
+            for k in keys:
+                if len(structs[k]) > i and len(picked) < per_voice:
+                    picked.append(structs[k][i])
+            i += 1
+        out.extend(picked)
+    out = out[:n]
     return [{"id": r["id"], "text": r["text"], "tier": r.get("tier"),
              "persona": r["persona"], "family": r.get("family"),
+             "structure": r.get("structure"),
              "expect": r.get("expect") or {}, "gold": r.get("gold") or {},
              # personas carry no timestamp: they are not a history, so there is
              # no recorded moment to replay them at and the clock stays live.
@@ -380,7 +414,8 @@ def run_checkpoint(tag: str, rows: list, scratch_root: pathlib.Path) -> dict:
     env = {k: v for k, v in os.environ.items()
            if k in ("PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "SSL_CERT_FILE",
                     "OLLAMA_HOST", "VIRTUAL_ENV", "PYTHONHOME")}
-    env["PYTHONDONTWRITEBYTECODE"] = "1"    # no __pycache__ in the worktrees
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env.update(CHECKPOINT_ENV.get(tag, {}))    # no __pycache__ in the worktrees
     # The BLAS pin conftest.py applies for the same reason: spaCy/torch each
     # bring a threading runtime and the combination segfaults.
     for var in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",

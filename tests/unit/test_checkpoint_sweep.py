@@ -139,3 +139,65 @@ def test_personas_carry_no_timestamp():
     """They are not a history, so there is no recorded moment to freeze to —
     the clock stays live rather than being frozen to an invented one."""
     assert all(r["ts"] is None for r in cs._load_personas(30))
+
+
+def test_the_personas_draw_is_representative_of_the_full_set():
+    """The first sampler bucketed by (persona, tier) and walked each bucket in
+    id order. Ids cluster by structure family, so it drew the same few families
+    repeatedly: 49% two-event compounds against 6% in the full set, and ZERO
+    queries or task-only rows against 42%. Every checkpoint was measured on
+    identical rows, so the comparison held — but it was a board about two-event
+    compounds wearing the label "six speaking styles".
+
+    A board is only named honestly if its sample looks like the thing it names.
+    """
+    import collections
+    import json
+    import pathlib
+
+    full = [json.loads(l) for l in
+            pathlib.Path("dataset/personas/personas.jsonl").read_text().splitlines()
+            if l.strip()]
+    draw = cs._load_personas(300)
+
+    def shape(rows):
+        c = collections.Counter(
+            (int((r.get("expect") or {}).get("events") or 0),
+             int((r.get("expect") or {}).get("tasks") or 0)) for r in rows)
+        return {k: v / len(rows) for k, v in c.items()}
+
+    want, got = shape(full), shape(draw)
+    for key, share in want.items():
+        if share < 0.02:            # a cell that rare cannot be held to a point
+            continue
+        assert abs(got.get(key, 0) - share) < 0.06, (
+            f"ask-shape {key} is {got.get(key, 0):.0%} of the draw but {share:.0%} "
+            "of the personas set — the sample is not representative")
+
+
+def test_every_voice_gets_an_equal_share():
+    """The SPREAD between personas is what this board measures — 72.2% for the
+    persona who talks like Gil against 33.9% for a terse student. A draw giving
+    one voice twice another's rows reports that spread through a sampling
+    artefact. The flat round-robin did exactly that: 66 rows for the
+    alphabetically-early voices, 33 for the late ones."""
+    import collections
+    draw = cs._load_personas(300)
+    counts = collections.Counter(r["persona"] for r in draw)
+    assert len(counts) == 6, f"expected six voices, got {sorted(counts)}"
+    assert len(set(counts.values())) == 1, (
+        f"voices are unbalanced: {dict(counts)} — the persona spread would be "
+        "partly a sampling artefact")
+
+
+def test_the_draw_spans_every_structure():
+    """Structure is what varies the ASK; persona is what varies the VOICE. A
+    sample has to span both or it measures neither."""
+    import json
+    import pathlib
+    full = [json.loads(l) for l in
+            pathlib.Path("dataset/personas/personas.jsonl").read_text().splitlines()
+            if l.strip()]
+    all_structures = {r.get("structure") for r in full}
+    drawn = {r.get("structure") for r in cs._load_personas(300)}
+    assert drawn == all_structures, f"missing structures: {sorted(all_structures - drawn)}"
