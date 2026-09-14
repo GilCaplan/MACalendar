@@ -2,348 +2,253 @@
 
 > Naming note (2026-09-08): `crosscheck.py` is now
 > `assistant/engine/llmjudge/llmjudge.py` and `generate.py` is
-> `assistant/engine/fastrule/objects.py`. Older entries below use the
+> `assistant/engine/fastrule/objects.py`. Older entries in other docs use the
 > old names; the chain is in `assistant/engine/ARCHITECTURE.md`.
 
 **One-screen reference. A fresh conversation reads this first, then CLAUDE.md.**
 Keep it current and short; details live in the files it points to.
 
-_Updated 2026-09-08 — sprint cycle A parts 1 and 2 closed and banked; part 3
-(the never-measured LLM lane) is in flight._
+_Updated 2026-09-14 — rewritten against the code. The previous version was
+datelined 2026-09-08 with 50 commits since: it had a cycle "in flight" that had
+ended, three queued items that were already done, and a dataset it called "the
+fix" that Gil has since dropped. Every claim below cites a file, a commit or a
+run._
 
-**The loop is self-driving.** A cycle ends by STARTING THE NEXT ONE — banking
-the result in `dataset/RESULTS.md` is the report, and the next prediction is
-registered in the same breath (CLAUDE.md, and the rule in
-`ITERATION_PROTOCOL.md`). Implementation fixes and cleanups between cycles
-need no permission. Stop only for a DESIGN decision, or when three cycles
-running move nothing past the noise floor.
+## Nothing is in flight
 
-**Where the sprint is (`DOCUMENTATION/experiments/SPRINT_PROPOSAL.md`):**
+No engine cycle, no lane batch, no experiment. The checkpoint retrospective —
+the last thing in motion — finished 2026-09-14 when the personas board landed
+(`c7f1b11`). What remains is a queue, not a run.
 
-1. **Cycle A part 1 — the atomizer, DONE** (a222f60). Segment could only split
-   on delimiters the PHONE inserts, so it split nothing in 4,920 rows of
-   speech. It now splits at the clause boundary the coordination check was
-   already computing and discarding. Boundary-clean 5.8%→41.7% and 0%→43.2%;
-   complex count-correct 60.4%→75.1% and 49.8%→70.5%; all six personas up
-   4.5–12.6 pt; ~25–30% fewer model calls.
-2. **Cycle A part 2 — the kind decision, DONE** (bb2b80c). Part 1 promoted it
-   to the binding constraint: splitting exposes second items, and each needs a
-   kind. `_TASK_RE` recognised only CREATE-shaped to-do wording, so completing,
-   editing and un-listing a task all fell through to "event". Held-out kind
-   accuracy 59.4%→73.7%, 79.1%→87.7%, 93.8%→97.8%. New instrument:
-   `scripts/kind_board.py`.
-3. **Cycle A part 3 — IN FLIGHT.** The atomizer board's default lane runs with
-   the model OFF, so the deep track's actual splitting ability has never been
-   measured. Prediction registered in RESULTS.md. Run:
-   `python -m scripts.atomizer_board --split test --dataset B --llm`.
+**ENGINE CYCLES ARE PAUSED** (Gil, 2026-09-07) —
+`DOCUMENTATION/STAGE_ISOLATION_PLAN.md:3-4`: *"Supersedes the whole-engine cycle
+loop until it completes. Engine cycles stay PAUSED."* `dataset/loop_log.csv`
+ending at run 21 is correct, not a gap.
 
-**The next constraint is already named by part 2's board:** 1-ask rows are at
-98.4% count-correct, 2-ask rows at 44.1% (UNDER 55.9%). Compounds are the
-whole remaining gap. Part 3 decides whether the fix belongs in coverage (more
-compounds reaching the model) or in the prompt/model itself.
+**One process is still alive that should not be.** `scripts.sweep_monitor` (pid
+21022, started 2026-09-11, still running 2026-09-14) loops with no completion
+check (`scripts/sweep_monitor.py:96`, whose only exit is `--once`) and rewrites
+`dataset/runs/checkpoint-sweep-pass1/manifest.json` every 10 minutes — which is
+why that file is dirty in the working tree. Stop it BEFORE enriching that
+manifest, or the enrichment is overwritten.
 
-**Two lessons this sprint keeps re-teaching, worth reading before starting:**
+## Read the retrospective — nothing else points at it
 
-- **Fixing a stage exposes the next one.** Part 1's splitter made the kind
-  decision the ceiling; part 2's kind fix routed hundreds of items into
-  `_split_tasks` for the first time and surfaced its tearing. Expect the
-  measurement after a win to look worse somewhere, and check downstream first.
-- **Look at the rows, not the headline.** Part 1's first cut over-split 139
-  atomic rows; part 2's first cut destroyed words. Both were caught by reading
-  failures, and neither by the top-line number, which had improved.
+`DOCUMENTATION/experiments/checkpoints/` holds `RUN_STATUS.md` (the boards, the
+caveats, the per-voice spread) and `RECOMMENDATIONS.md` (what they say to fix).
+**A repo-wide `git grep` for either filename returns ZERO hits** — no tracker,
+no doc, no CLAUDE.md path reaches them, so the retrospective is invisible from
+the read order every session follows. That is why its three findings sat
+unnoticed. This paragraph is the link; keep it until TASKS.md carries one too.
 
 ## The state
 
-- **The brain was rebuilt** as `assistant/engine/` (8 stages, frozen
-  contracts; branch `engine-v2`, now merged). `DOCUMENTATION/ENGINE.md` is
-  the contract reference.
-- **LIVE in production (cut over 2026-09-04, merge bce502e).** The engine is
-  the brain on `main`; smoke-verified (parse=fast, brain=engine-v2).
-- The old brain is archived at `retired/old-brain-v1/` (+ tag `pre-engine-v2`).
-  Rollback: `git reset --hard 4c61f82` (keeps the dataset work, drops the
-  engine) then relaunch.
+- **The brain is `assistant/engine/`** (frozen stage contracts), LIVE in
+  production since 2026-09-04 (merge `bce502e`). `DOCUMENTATION/ENGINE.md` is the
+  contract reference; `assistant/engine/ARCHITECTURE.md` is the map.
+- The old brain is archived at `retired/old-brain-v1/` (tag `pre-engine-v2`), and
+  `fastrule-v1`, `decompose-validate-v1` and `fast-lane-pre-integration` are tags
+  too — which is what made the checkpoint sweep possible. Rollback:
+  `git reset --hard 4c61f82`, then relaunch.
 
-## Primary evaluation
+## The last measurements
 
-The verification dataset (`dataset/`, see `dataset/DATASET.md`) — 3000 real
-utterances, count-correctness + 4 other metrics, dev/held-out subsets. The
-hand-written audit corpus is now only a regression floor.
+The first two are **retrospective only** — every row in both is `split:"test"`,
+and no test result (not a number, not a slice, not a surprising delta) may decide
+what to improve; a hypothesis comes from training-pool failures and is measured
+there. The third, real usage, is the one that may direct work.
 
-- **Current anchor (epoch baseline, run 9, 2026-09-05):** count-correct
-  **78.4% raw / 81.2% product-adjusted** on dev-fast-250, F1 82.1, field
-  quality 84.6 (frozen row-timestamps, observance off — the epoch reset;
-  pre-2026-09-05 rows in loop_log.csv are not comparable). Full record:
-  `dataset/RESULTS.md`.
-- **Two standing instruments (2026-09-06):** every run auto-archives its
-  scratch to `dataset/runs/` (manifest = identity; `scripts/rescore_runs.py
-  --write` recomputes the whole history when a metric changes), and the
-  conventions-overrides layer (`dataset/inputs/convention_overrides.json`)
-  reports product-adjusted `count_ok_adj` beside raw — its query-no-mutation
-  check found an OPEN engine bug (a query emitting `update_event`; queue row
-  in HYPOTHESES.md).
-- Frontier: fast/deep rescue is largely harvested (deep rescues 7/21 fast
-  failures but breaks 6/82 passes — net +1 row); remaining losses are
-  convention/capability rows. Model-comparison closed: the tuned local llama
-  beat Claude Sonnet/Haiku drop-ins on identical rows (worktree
-  `dataset/MODEL_COMPARISON.md`) — do not respawn the sims.
+**SEALED 300 · count-correctness · `dataset/inputs/test_split.json`, fingerprint
+`6dc8c8674e39:300`** (`dataset/RESULTS.md:1547-1655`, sweep 2026-09-12):
+pre-engine-v2 **79.0** · fastrule-v1 **79.7** · fast-lane-pre-integration 77.3 ·
+decompose-validate-v1 75.3 · **main 77.3** · one-shot-llm 66.0 — seven sealed
+reads spent, a deliberate one-off for a retrospective and **not a precedent**.
+**The error bar was measured for the first time by running `main` twice: 0.6 pt
+(77.3 / 76.7).** What it means:
+across the whole rebuild count-correctness did not improve — main is 1.7 pt below
+the old brain and 2.4 below `fastrule-v1`, both outside the bar. What improved is
+latency (p50 53.2 → 40.2 s, p95 84.4 → 52.6) and the fast path. On the SAME 300
+rows, split by where main routes them: the 130 it sends FAST go 88.5% → **93.1%**;
+the 170 it sends DEEP go 72.9% → **65.3%**.
 
-## Forward roadmap (2026-09-07)
+**PERSONAS 300 · count-correctness · stratified from
+`dataset/personas/personas.jsonl`, fingerprint `1a3064b09c1c:300`**
+(`checkpoints/RUN_STATUS.md:140-199`, `c7f1b11`): pre-engine-v2 72.3 ·
+decompose-validate-v1 79.7 · **fastrule-v1 80.0** · fast-lane-pre-integration 79.0
+· main 79.3 · one-shot-llm 50.3; p50 **14.4 s → 6.4 s** (main vs the old brain).
+What it means: the sealed board's shape reappears on rows it shares nothing with
+— main +5/+7 on simple, **−8 on complex** — and the headline hides a robustness
+regression. **The mean rose and the per-voice spread WIDENED, 18 pt → 30 pt**:
+observant_student 62 → 92, uni_student 66 → 62, household_parent 76 → 72. Two
+voices are worse than the brain they replaced.
 
-1. ✅ **INTEGRATED @ effebeb (2026-09-07)** — FastRule object + F1/F2/F3 +
-   0.80 threshold on the loop tree; sandbox matches (34%/93.0% adj); joint
-   confirmation run **CONFIRMED 2026-09-06** (run 16 = era-2 baseline: adj
-   80.0 flat-within-noise, fast correct 79→90). **Merged to main**; fastlane
-   worktree reset onto the integrated state (pre-integration tag kept). Original plan:
-   INTEGRATE the stacked fast-lane work into the loop tree — F1+F2+F3
-   vetoes + tuned RULE_THRESHOLD 0.80 + SUBITEM 0.60 + cycle-9 sub-item
-   trust — and run ONE joint full-engine cycle (the remerge gate: nothing
-   from the sandbox counts on the main board until this confirms).
-2. **HARD CHECKPOINT (Gil, 2026-09-07): describe the updated algorithm
-   structure and get Gil's read BEFORE running the next cycle.** No cycle 10
-   until then.
-3. **Cycle 10** — full rules-first-per-fragment (green-lit by cycle 9's
-   latency win), LLM = end-judge only, at the 0.60 sub-item bar.
-4. **F4+ sandbox** — parse-quality batches (task+task soft spot, safe
-   low-conf recoverables) in parallel.
-5. **Path B** — crosscheck-precision metric → improve crosscheck.py → flip
-   self_check_apply (verify auto-updates fast commits).
-6. **Per-instance/context threshold fine-tuning** (Gil's forward idea) —
-   once integrated, thresholds per FastRule instance/command class.
-7. Queued hypotheses (dentist bug, list-op, fieldq anomaly) reopen last.
+**REAL USAGE · flag rate · `scripts/weekly_review.py`, week to 2026-09-09**
+(`DOCUMENTATION/WEEKLY_REVIEW.md`, `2bdb5e5`): **11 of 23 real commands flagged
+wrong or corrected — 48%**; accuracy on reviewed 48% (10/21); test traffic
+excluded. This instrument **outranks the other two** — it is the only one
+measuring real speech. It supersedes the "50% on 20 commands" this file used to
+quote. It is a DIFFERENT INSTRUMENT from the boards above (share of real commands
+Gil marked wrong, vs count-correctness on constructed prompts), so the gap is
+real and large but is not a subtraction and must not be quoted as one.
 
-## Plan of record
+## Open decisions — Gil's, not mine
 
-**THE NUMBER THAT MATTERS MOST (2026-09-07; figures corrected 2026-09-11):**
-the sealed benchmark reads **count-correct 83% raw / 82% product-adjusted on
-the full sealed 300** (run 21, `RESULTS.md`) while Gil's REAL usage reads a
-**50% flag rate** (20 real commands, `scripts/weekly_review.py` — now
-filtered to exclude our own test traffic, which had been inflating it to
-83%).
+1. **`engine-component-folders` — merge, rebase, or abandon.** 34 commits of
+   finished, tested engine work (FastRule phases B and C; LLMJudge's
+   stage-isolation work including a real 286-line `rewrite.py` where HEAD still
+   has `return None` at `llmjudge/llmjudge.py:282`; Label's two learned
+   classifiers; the `engine/llm.py` accessor move — 58 files, +38.9k lines across
+   those three stages). It diverged from HEAD at `46f7967` (2026-09-09) and HEAD
+   then went 50 commits its own way, so this is a judgement call, not a
+   mechanical merge. **It is now PUSHED** — `origin/engine-component-folders` =
+   `8fac94d` — so the "one disk failure and it is gone" risk is closed. The cost
+   of leaving it undecided is that FastRule phase B gets written a second time:
+   its `PLAN.md` marks B1–B4, B6 and C0–C3 DONE on 2026-09-10, and B2's 32 tests
+   caught two real defects on the way.
+2. **The fast-path fence vs. the retrospective.** The fence stands. It is Gil's,
+   so it is quoted verbatim:
+   > **Backlog — user-gated, do not start unprompted:** add fast-rule-parser
+   > rules mined from the user's real data + the dataset. Only on Gil's explicit
+   > say-so, and only after the deep track is improved — not on my own
+   > initiative.
+   The retrospective measures the deep track at 65.3% against the fast path's
+   93.1% on the same 170 sealed rows and names raising fast-path coverage the
+   highest-leverage lever available (`checkpoints/RECOMMENDATIONS.md:34-39`). The
+   fence forbids starting the thing the evidence points at. **Unresolved, and not
+   mine to resolve** — recorded so it is in front of Gil rather than settled by
+   silence.
 
-This line used to say 85%, which was the PARTIAL eval (163 of 300 rows); the
-full run came in ~2 pt lower and supersedes it. Two other 85s are in
-circulation and are not this one — the partial's raw 85%, and the sealed
-300's item-level F1 of 85.2. Note also that the pair above is two DIFFERENT
-INSTRUMENTS — count-correctness on constructed prompts against the share of
-real commands Gil marked wrong — so the gap is real and large, but it is not
-a 33-point subtraction and must not be quoted as one. The benchmarks are not
-lying; they measure clean prompts. Real speech is rambling multi-event dictation with
-transcript damage, which no dataset we own contains. **A self-driven loop
-started against the current boards would optimise clean prompts and could
-leave that 50% untouched.** The real-speech dataset is the fix, and it is
-queued.
+## Rulings that were only ever spoken (written down 2026-09-14)
 
-**PERSONA FINDING:** the engine is tuned to sentence SHAPES, not vocabulary
-— swapping content nouns moves the classifiers 0–3 pt, swapping phrasing
-moves them 7–29 pt. Atomic handle-rate 72.2% for the persona who talks like
-Gil vs 33.9% for a terse student. Cause: `^`-anchored operation features.
+- **The real-speech dataset is DROPPED.** Gil: *"dont do the real speech dataset
+  then."* The built artefacts stay on disk (`dataset/realspeech/` — 1,200 rows,
+  generator, board, `REALSPEECH.md`); what is dropped is further work on it. It
+  is no longer "the fix" for the real-usage gap, which is what this file called
+  it and what nothing in the repo recorded until now. `dataset/RESULTS.md` has
+  since banked the ruling and marked the open cycle's *realspeech faithful/test*
+  baseline history rather than a live one — no cycle registers a prediction
+  against that board again.
+- **The segmentation freeze is PARTIALLY LIFTED.** Gil: *"well segmentation as
+  long as the structure remains the same, and just fixing implementations then
+  its fine. same for fastrules."* **Implementation** fixes inside
+  `assistant/engine/segmentation/` are ALLOWED; **structure and design** changes
+  are not. This supersedes the blanket "no edits to that tree at all" gloss the
+  docs have carried since 2026-09-09, and it retroactively explains `8fa8e72` and
+  `b7687ea` — implementation fixes, therefore permitted. Note
+  `segmentation/experiments/RESULTS.md` was last written 2026-09-08 and does not
+  cover them: re-measure before quoting that board.
+- **DEVQA Q13 is RULED and closed** (`DEVQA.md:11-16`, 2026-09-11): a fast commit
+  on a compound the parse fully covers is fine, and `_parse_covers_the_compound`
+  stays. This file used to carry it as open for Gil.
+- **Standing preference (Gil):** *"i don't really want to make structural changes
+  if i don't have to."* Read every proposal against it.
 
-**LOOP STATE (2026-09-07).** Stage isolation closed; whole-engine cycles
-resume. FastRule: 13 batches, atomic handle-rate 49.7 → 58.4% and
-half-executed compounds 40 → 31 on its own test half; the atomicity model
-now LEADS layer 0 (compound recall 68.8 → 87.9%). Engine: the deferral
-contract (REFUSAL / STRUCTURE / INCAPACITY) is live, FastRule's verdict
-travels forward to segment, background-verify no longer fires in
-measurement runs, 137 duplicated lines gone.
+## The queue
 
-**Last engine read — the clean full run, DONE** (run 21, 2026-09-07, archived
-as `dataset/runs/run21-preloop-sealed-baseline-300rows`): the sealed 300 at
-**count-correct raw 83% / adjusted 82%**, F1 85.2, simple 90 / medium 92 /
-**complex 67**, fast path 90% correct on 135 of 301 rows, deep 77% on 166,
-garbage 0%, **p95 70.4 s**. The full table and its honest read are in
-`RESULTS.md`. It supersedes the PARTIAL eval (163 of 300 rows, raw 85% /
-adjusted 83%) this section used to call the last read — the full run landed
-~2 pt lower. Backfilled into `loop_log.csv` on 2026-09-11; it had been banked
-in RESULTS.md prose only, which is why the plottable trajectory stopped at
-run 20 while the milestone everything is judged against sat outside it.
+`DOCUMENTATION/TASKS.md` is the tracker and carries the order of play at its
+bottom — move a row there rather than starting a parallel list;
+`dataset/HYPOTHESES.md` is the ranked experiment queue for when cycles resume.
+The four items with the strongest evidence, each re-verified on HEAD today:
 
-**STAGE ISOLATION (Gil, 2026-09-07) — see DOCUMENTATION/STAGE_ISOLATION_PLAN.md.**
-Engine cycles paused. Order: (1) FastRule dataset+metrics right — defers on
-non-atomic, creates otherwise; (2) every other stage tested in isolation
-with its OWN dataset (separate dir, own train-test split, no leakage),
-improved separately, each an object where that helps; (3) rebuild the
-system from proven parts and measure connected. Segment + decompose first —
-they ARE the atomizer FastRule depends on.
+1. **`llm_ms` is not recorded on the fast path.** `_recheck_not_found`
+   (`assistant/engine/__init__.py:907-932`) calls the model and never adds to
+   `state.llm_ms`; `grep 'llm_ms +='` finds six sites and none is this one. Rows
+   that spent ~40 s record `llm_ms 0` against `total_ms 40,000`, so every board
+   splitting latency by `llm_ms` is wrong on the fast path. Fix the instrument
+   before the thing it measures.
+2. **Gate `_recheck_not_found` on candidates existing.** Same function: no store
+   query anywhere in it. With no candidate rows the model cannot read a target
+   into existence, so the ~40 s call is pure cost — 25 of the 30 slow fast-path
+   rows (`checkpoints/RECOMMENDATIONS.md:20-32`). **Caveat for the commit
+   message:** `checkpoint_sweep.py:178` calls
+   `reset_calendar()` before every row, so every delete in that board faced an
+   empty store. Keep the recheck where candidates exist — the run-9 *"Walk Mark's
+   dog"* case it was built for.
+3. **FastRule's primary board has never reported its NOW rows.**
+   `fastrule/experiments/fastrule_shape.py:121` compiles
+   `r"\\b(?:right\\s+now|now|…)\\b"` — doubled escapes inside a raw string, so
+   the pattern never matches, `NOW_N` stays 0 and the `if NOW_N:` gate at `:341`
+   silently omits the whole NOW section. The check exists because 152 rows in
+   this dataset say "now" and were landing at midnight scoring as fine (`:302`).
+   One character class.
+4. **The fast path can still book a monthly series for a yearly ask.**
+   `assistant/intent/recurrence.py:41` is still
+   `(r"\bevery\s+year\b|\byearly\b|\bannually\b", "monthly", True)` while
+   `resolve.py` added `yearly` on 2026-09-08 — the one cadence CLAUDE.md says
+   rounding cannot honestly cover. A live user-visible wrong answer, not a metric
+   line.
 
-**ENGINE CYCLES PAUSED (Gil, 2026-09-07, until further notice).** Lane-only
-work: FastRule F-batches toward F15 + K-model iteration. No engine runs, no
-integration (even at F15) without Gil's go.
+**App stream** — app work happens in the `../MACalendar-app` worktree (branch
+`app-features`), merged between cycles, never during a run. The 2026-09-06
+approved queue is fully shipped (.ics share, search + jump-to-date, duplicate
+event, ISO week numbers, Timer CSV, agenda view, observance checkbox, iOS
+`/heartbeat`). **Notifications is no longer blocked**: DEVQA Q4/Q5/Q6 were
+answered 2026-09-06 and phases 1, 2 and 4 shipped (`assistant/notify.py`,
+`assistant/notifier.py`, `ReminderScheduler.swift`, `LiveActivityManager.swift`).
+Phase 5 is what is left — `BGAppRefreshTask` + `UIBackgroundModes` (zero hits
+anywhere under `MACalendar-iOS/`, both Info.plists included), the
+"remind me even when the calendar is closed" toggle Gil ruled in on 2026-09-06,
+and snooze, which is the one item with no ruling at all: keep or kill is Gil's.
 
-**LAYER 0 (atomicity) — F16–F18b landed on `fast-lane`, 2026-09-07.**
-`python -m scripts.atomicity_board` is the new instrument: the binary
-"one item or several" board, three predictors (rules / model / the wired
-layer) × two datasets, both error kinds as COUNTS because the cost is
-asymmetric. **B-test (FastRule 7,200 test half): layer accuracy 88.0 →
-93.5%, compound recall 68.8 → 87.9%, half-executable misses 195 → 76.
-A-test (verification pool, real wordings): 93.3 → 97.9%, recall 85.0 →
-99.1%, misses 34 → 2.** Downstream `fastrule_shape` B-test: handle rate
-53.5 → 54.2%, defer 77.1 → 78.2%, actual half-executions 26 → 20.
-**Open for Gil: DEVQA Q13** — is a fast commit on a compound a routing
-violation when it produces exactly the right records? The answer moves the
-non-atomic defer rate between 78.2% and 95.6%.
+## Stage isolation — the plan of record
 
-**Data plan (Gil, 2026-09-07):** sealed 300 on the real pool + FastRule's
-own 6,000 (80–20 by family) + external corpora as train-side augmentation
-only. Three sources, three roles — A real pool = calibration, B generated =
-structure supervision (dual-gate rule: win on B-train AND no regress on A),
-C external = wording coverage after a conventions pass. Test results never
-drive improvement (tooling-enforced, aggregates only). **Every 10th cycle =
-a sealed-test milestone run on the main engine — pure eval, one aggregate
-line in RESULTS, first at era-2 cycle 10.** Lane order (SIMPLE-FIRST, Gil 2026-09-07): F7 targeting →
-R2 calibration + simple-slice sweep → title spans → K1b/K2. Target: simple
-commit 66→80%+ at ≥90% correct. Complex work (gate recall, EXT0/EXT1)
-deferred until that holds; complex regression floor enforced.
+`DOCUMENTATION/STAGE_ISOLATION_PLAN.md` (Gil, 2026-09-07). Order: (1) FastRule's
+dataset and metrics right — defer on non-atomic, create otherwise
+(`assistant/engine/fastrule/datasets/`, 7,200 rows, scored by
+`fastrule/experiments/fastrule_shape.py`); (2) every other stage tested in
+isolation on its OWN dataset, own train–test split, no leakage; (3) rebuild from
+proven parts and measure connected. `ingest` is the only stage with neither
+`datasets/` nor `experiments/` — on either branch — and it is first in the chain,
+so everything it gets wrong is charged to every stage below it.
 
-**Era 2 opens with the joint confirmation run** (Gil, 2026-09-06): cycle
-history kept, but boards compare within-era only — the integration changed
-too much for cycle-vs-cycle reads against era 1. **FastRule lane cadence**:
-sandbox keeps iterating on full-3000 in ../MACalendar-fastlane while cycles
-run the loop tree's pinned FastRule; graduates integrate every 2–3 cycles at
-a boundary, joint-confirmed. **Design choices stay frozen** — implementation
-improvements are the loop's initiative, algorithm changes are Gil's call,
-asked at boundaries. **Slice growth**: dev-fast 250 is the working slice;
-climb to dev-full 600 when target-slice gains near the ~1.5-pt noise floor
-(or the target slice is too thin in 250); held-out 601–3000 only to seal
-milestones — never mined. (Gil, 2026-09-07) — this order, before ANY new hypotheses
+## When cycles resume
 
-1. **Track 1 — improve the rule system in its sandbox** (fast-lane worktree,
-   full-3000 measurable). Batch F3, F4… until abstention + parse quality
-   plateau. Self-contained.
-2. **Track 2 — restructure the deep pipeline around the rule system.** Vision:
-   LLM segments/decomposes → EACH fragment parsed by RULES (not LLM) → the
-   assembled events/tasks judged TOGETHER by the LLM once (crosscheck) →
-   loop/proceed. Replace N per-item LLM parses with rules + one judgment.
-   - Cycle 9 (IN FLIGHT) = conservative step 1: fragments trust rules at 0.60,
-     LLM per-item fallback still allowed. Reads latency + accuracy.
-   - Cycle 10 = the FULL version — CONFIRMED by Gil (2026-09-07) to run right
-     after cycle 9's read: after decompose's separation, EACH fragment goes
-     through the rule system; the LLM is the end-judge (crosscheck) only, not
-     a per-item parser. Gil-authorized design change.
-3. **Verify-and-auto-update, safely (Gil chose B, 2026-09-07).** The LLM
-   crosscheck ALREADY verifies every FastRule commit (reconcile:"always",
-   incl. 100%-confident); what's gated is auto-APPLYING its corrections
-   (self_check_apply, default false — the old auto-applier fixed 0/broke 1
-   in the audit). Path B: make the crosscheck's correction PRECISION a loop
-   target (improve its extract-and-blame accuracy — a legit implementation
-   cycle on crosscheck.py) until false-corrections are measurably rare, THEN
-   flip self_check_apply:true. Needs a metric: crosscheck-correction
-   precision on the dataset (proposed-and-right / proposed) + a regression
-   floor (the retracted-time "2pm sorry 3pm" case must never re-break).
-4. Only after these tracks plateau do queued hypotheses reopen (dentist
-   query-mutation bug, #4 list-op misreads, simple-tier fieldq anomaly).
+The protocol is `dataset/DATASET.md` +
+`DOCUMENTATION/experiments/ITERATION_PROTOCOL.md` (smallest rich-enough subset,
+one component's implementation per cycle, compare actual vs expected in
+`RESULTS.md`, and a cycle ends by starting the next one). One warning to carry
+into it, from `RECOMMENDATIONS.md:48-54`: **more cycles against dev-fast-250 is
+what NOT to do** — four of the last five moved less than the noise floor, and the
+personas board shows why (the rebuild delivered phrasing robustness the sealed
+board cannot see, because every sealed row is one voice).
 
-## The two improvement lanes
+**Two lessons this project keeps re-teaching, worth reading before starting:**
 
-**Deep lane** — the 55-min dev-fast cycles below, now pairable (one [fast]
-+ one [deep] hypothesis per run; [routing] rides alone — protocol).
-**Fast-sandbox lane (live 2026-09-07)** — `python -m assistant.engine.fastrule.experiments.fast_sandbox`
-scores the rule system alone as a selective classifier in ~18s (commit
-rate × adjusted-on-committed; an abstain is deep's job). Batched
-predictions, dev-full gate, sealed held-out, and NOTHING lands on the main
-board until a joint full run confirms. Batch F1 graduated at sandbox level
-(89.9%/90.1% adjusted-on-committed, from 82.5 baseline). The
-personalization layers are guarded, not metricized — see the protocol's
-personalization-guard section (weekly flag rate = post-merge tripwire;
-personal rule mining ships shadow-mode).
+- **Fixing a stage exposes the next one.** The splitter made the kind decision
+  the ceiling; the kind fix then surfaced tearing in `_split_tasks`. Expect the
+  measurement after a win to look worse somewhere, and check downstream first.
+- **Look at the rows, not the headline.** Both of those first cuts passed on the
+  top-line number and were caught only by reading the failures.
 
-## The loop
+## Shipped since the last STATUS (2026-09-13/14, branch `claude/codebase-ai-system-review-o2p8xu`, pushed)
 
-`dataset/DATASET.md` + `DOCUMENTATION/experiments/ITERATION_PROTOCOL.md`:
-a supervised-ML loop — run the **smallest rich-enough subset** (dev-fast, ranks
-1–250, ~80 min; **never the full 3000 as the working loop**) → score via the
-metrics →
-understand *why* (read the breakdown + the failing rows, not just the number) →
-**hypothesise** and fix ONE component's implementation (design frozen) → rerun →
-compare actual vs. expected in `RESULTS.md` → upsize only as gains slow.
-
-## In flight / next
-
-- **App stream (worktree `../MACalendar-app`, branch `app-features`) — the
-  whole approved queue SHIPPED 2026-09-06** (243d99f → 3b89809): .ics share
-  (server+Mac+iOS), search + jump-to-date (server+Mac toolbar+iOS offline
-  sheet), duplicate event, ISO week numbers, Timer CSV, agenda view,
-  observance settings checkbox, iOS /heartbeat, ThinkingView file move.
-  Two bugs found+fixed on the way: the extracted settings dialog dropped
-  imports (NameError on open) and pydantic silently discarded
-  `observance.enabled` (field never declared). **Notifications is planned
-  only** (`DOCUMENTATION/NOTIFICATIONS_PLAN.md` + preview artifact), blocked
-  on Gil's DEVQA Q4–Q6. Merge app-features + loop-cycle-1 + main at the next
-  cycle boundary.
-- **Client/UI** (endorsed 2026-09-04) — all three done:
-  - ✅ iOS edit-transcription sheet — server threads `supports_edit` through the
-    audio routes; iOS shows the editor on `needs_edit` and resubmits.
-  - ✅ Thinking panel renders *by brain version* — a `CHAINS[BRAIN_VERSION]`
-    scaffold rail with per-step ⓘ (in-depth copy from `trace.STAGE_INFO`), Mac
-    panel + iOS `ThinkingView`; iOS red→amber consistency fix folded in. See
-    `ENGINE.md`'s render section. **HUD needs a restart to show it.**
-  - ✅ One-tap revert — a destructive background patch carries `revert` specs
-    (ready-to-POST bodies); Mac `_RevertBar` + iOS banner re-create what was
-    undone. Dormant until `self_check_apply` is on (removals are advisory by
-    default). **HUD needs a restart to show it.**
-- **Deep-track improvement loop — RUNNING (branch `loop-cycle-1`), cycle 5
-  in flight** (hypothesis #2, grounded default-title events —
-  `event_fallback` @ b3c6656; prediction 78.4 → 79.4–79.9 recorded first).
-  History: cycles 1–4 took the old-epoch dev-fast 73.2 → 77.6 (dev-full
-  74.2 → 78.0, all four graduated); then the epoch reset re-baselined at
-  78.4/81.2-adj.
-  Full record:
-  `dataset/RESULTS.md` (prose) + `dataset/loop_log.csv` (plottable, one row
-  per run — a protocol requirement now). Run outputs preserved per cycle in
-  `DOCUMENTATION/experiments/engine_compare/<label>/`.
-  **If a session ends mid-loop, resume here:** read the newest RESULTS.md entry
-  + loop_log.csv row, then continue the protocol
-  (`DOCUMENTATION/experiments/ITERATION_PROTOCOL.md`): take the top unblocked
-  entry of **`dataset/HYPOTHESES.md`** (the ranked experiment queue), write its
-  prediction in RESULTS.md, fix ONE stage, rerun dev-fast, re-rank the queue.
-  A dev-full confirm is batched with the next graduated win. Since
-  2026-09-05 the harness replays each row frozen at its recorded ts with
-  observance gating off (measurement epoch reset — re-baseline first);
-  questions for Gil live in `DEVQA.md`; the loop branch merges into `main`
-  every few graduated cycles.
-- **Backlog — user-gated, do not start unprompted:** add fast-rule-parser rules
-  mined from the user's real data + the dataset. Only on Gil's explicit say-so,
-  and only after the deep track is improved — not on my own initiative.
-
-## App stream — next session picks up here (Gil, 2026-09-06)
-
-Work happens in THIS worktree (`../MACalendar-app`, branch `app-features`);
-merge with `main` + the loop branch between cycles. Queue, in order:
-
-1. **Model-comparison — CLOSED (Gil stopped it, 2026-09-06).** Partial-data
-   verdict in `dataset/MODEL_COMPARISON.md`: on identical rows the tuned
-   local llama beat both Claude drop-ins (deep rows: 80% vs Sonnet 60% /
-   Haiku 53%) — the engine's llama tuning + mechanical schema constraint
-   outweigh raw model strength; privacy costs nothing. Do not respawn sims.
-2. **Notifications** — PLANNED 2026-09-06: `DOCUMENTATION/NOTIFICATIONS_PLAN.md`
-   (5 phases; phone = reliable ringer from the offline cache, server computes
-   `notify_at`, Mac banners best-effort, observance quiet windows on the fire
-   time) + visual preview artifact linked there. Build blocked on Gil's three
-   answers (DEVQA Q4-Q6): Mac-with-calendar-closed?, default lead 0 or 30?,
-   in-Shabbat events suppress or pre-candle digest?
-3. ✅ **.ics export/share** — DONE @ 243d99f (ics_export.py, GET
-   /events/<id>.ics, Mac dialog button; iOS share sheet ✅ @ 7c9d3ab).
-4. ✅ **Search** — DONE @ 243d99f (GET /search, Mac toolbar box +
-   jump-to-date; iOS offline SearchView ✅ @ 7c9d3ab).
-5. **Small wins** — mostly DONE @ 243d99f: duplicate-event ✅ · week
-   numbers ✅ (`ui.show_week_numbers`) · Timer CSV ✅ · observance checkbox ✅
-   (found + fixed the pydantic-drops-`observance.enabled` bug, DEVQA Q2
-   closed). Agenda view ✅ @ 3b89809 · iOS `/heartbeat` ✅ @ 7c9d3ab (endpoint
-   already existed server-side). **The approved queue is fully shipped.**
-6. ✅ **Convolution #1** — DONE @ 243d99f: ThinkingView + EngineChain live in
-   `Views/ThinkingView.swift` (byte-identical move, simulator build green).
-7. ✅ **Confirm-create gate (DEVQA Q9, ruled 2026-09-07)** — DONE: an
-   interrogative create ("should i add yoga to my calendar tomorrow?") is
-   neither executed nor silently dropped. Step 4 holds the validated intent
-   (`interrogative_create_asks_first`), the orchestrator answers
-   `parse: "confirm_create"` with ready-to-POST `proposal` bodies, and
-   `POST /voice/confirm` accepts (replay-safe) or declines (files the memory
-   record as rejected). Gated on `supports_confirm`, so old clients are
-   unchanged. Mac Add/No box + iOS "Add this?" alert; **the phone needs a
-   reinstall** to get it. FEATURES.md + ENGINE.md carry the detail.
+- `003330b` — **the engine streams every run to the trace bus.** In the bus's
+  whole 8-day history there was not one `begin` line: `on_step` was hooked only
+  when a caller passed `trace_run`, and zero of 47 Swift files pass one — so a
+  phone command published nothing for its entire 4–40 s and then appeared,
+  already finished, in one line. This is what makes the HUD's live chain work.
+- `9db46f6` + `b7687ea` — **the LLM console**: a third panel view logging every
+  Ollama call with its caller, via `assistant/llm_bus.py`. `9481853` — a parallel
+  **one-shot LLM engine** (`assistant/engine/LLM_one_shot/`, 245 lines):
+  transcript in, objects out, one model call. It is the floor on both boards
+  above, not a contender.
+- `8c6c3f4` — **the HUD launcher works.** PlistBuddy edits after `osacompile`
+  broke the ad-hoc seal, so the bundle had no stable identity and macOS would not
+  list it in Privacy ▸ Files and Folders — it could not be granted the Desktop
+  access this project needs. Plus `--show`: the card opened invisible.
+- `117dd69` — **labelling moved into the store**: `create_todo` infers when
+  `tags is None`, `update_todo`/`update_event` relabel on rename. A task's tags
+  used to depend on which surface created it.
+- `2322f9a`..`1c1cb25` — the checkpoint sweep harness, each run sandboxed behind a
+  guard that fails if any real store moved. `c7f1b11` — the personas board.
 
 ## Working notes
 
 - Two Claude sessions share this project's checkouts; re-read a `main`-checkout
-  file immediately before editing (uncommitted work has no git net).
+  file immediately before editing (uncommitted work has no git net). The working
+  tree is dirty as of this writing — check `git status` before assuming HEAD is
+  what is on disk.
 - Never run an audit/replay beside another model-loading job (spaCy/torch
-  segfault). RAM is near full — LLM replays are serial.
+  segfault). RAM is near full — LLM replays are serial, one Ollama job at a time.
+- The API reloads itself; the calendar GUI and the thinking HUD do not. The phone
+  needs a reinstall.

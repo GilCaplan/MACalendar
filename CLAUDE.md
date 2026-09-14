@@ -185,14 +185,12 @@ collection errors and phantom failures that look like real regressions. This
 cost a wrong "15 tests were already failing" reading on 2026-09-09; the same
 suite was 1336-green on the venv.
 
-**CI runs on push and PR again** (re-enabled 2026-09-11). Three things had to
-be true first, and each was invisible on a Mac with Ollama running: the runner
-image's Chrome apt list is now removed rather than tolerated (it was failing
-`apt-get update` before pytest ever started); `wamerican` is installed, because
-`vocab._english()` reads `/usr/share/dict/words` and a MISSING list turns the
-"never rewrite a real English word" guard off silently; and the job copies
-`config.example.yaml` to the gitignored `config.yaml`, without which seven
-tests fail. `pytest tests/` is green: 1368 passed, 31 skipped.
+**CI runs on push and PR** (re-enabled 2026-09-11). Three things the workflow
+does that a Mac with Ollama never needs, so don't strip them: removing the
+runner's Chrome apt list (it failed `apt-get update` before pytest started),
+installing `wamerican` (`vocab._english()` reads `/usr/share/dict/words`, and
+a MISSING list turns the "never rewrite a real English word" guard off
+*silently*), and copying `config.example.yaml` to the gitignored `config.yaml`.
 
 Integration tests must skip when Ollama is not running — copy the `pytestmark`
 guard from `tests/integration/test_ollama_intent.py`. CI has no Ollama, so a
@@ -237,17 +235,36 @@ segment uses it as both evidence and prompt grounding. **And FastRule is
 DETERMINISTIC** — a loop-back on unchanged text cannot get a new answer, so
 `state.asked_fastrule` sends it straight to the model instead.
 
-## Where we are working right now (2026-09-07)
+## Where we are working right now (2026-09-14)
 
-**STAGE ISOLATION mode — whole-engine cycles are PAUSED** (Gil). Each stage
-is proven on its OWN dataset before the system is reconnected:
-`DOCUMENTATION/STAGE_ISOLATION_PLAN.md` is the plan; per-stage data lives in
-`dataset/stages/<stage>/`, never edited to suit another stage, each with its
-own train–test split under the usual leakage rules. FastRule's is
-`assistant/engine/fastrule/datasets/` (7,200 rows) scored by `assistant/engine/fastrule/experiments/fastrule_shape.py`
-against its product shape: **defer on non-atomic items, create the right
-event/task otherwise**. The whole-system improvement loop below is intact
-and resumes once the parts are proven.
+**STAGE ISOLATION mode — whole-engine cycles are PAUSED** (Gil, 2026-09-07).
+Each stage is proven on its OWN dataset before the system is reconnected:
+`DOCUMENTATION/STAGE_ISOLATION_PLAN.md` is the plan; per-stage data lives with
+its stage, never edited to suit another, each with its own train–test split
+under the usual leakage rules. FastRule's is
+`assistant/engine/fastrule/datasets/` (7,200 rows) scored by
+`assistant/engine/fastrule/experiments/fastrule_shape.py` against its product
+shape: **defer on non-atomic items, create the right event/task otherwise**.
+The whole-system loop below is intact and resumes once the parts are proven.
+
+**Segmentation: IMPLEMENTATION fixes are allowed, design changes are not**
+(Gil, 2026-09-12) — *"as long as the structure remains the same, and just
+fixing implementations then it's fine. Same for fastrules."* This narrows the
+2026-09-09 freeze, which several docs still quote as "no edits at all"; the
+standing preference behind it is *"I don't really want to make structural
+changes if I don't have to."*
+
+**The live queue is the checkpoint retrospective, not `TASKS.md` alone** —
+`DOCUMENTATION/experiments/checkpoints/` (RECOMMENDATIONS.md, RUN_STATUS.md).
+Six system states were measured on two sealed 300-row boards in September;
+nothing pointed at that folder, so three of its findings went unnoticed for
+weeks. Both boards are `split:"test"`: **retrospective only, and they may
+never pick the next thing to work on.**
+
+**One decision is blocking**: `engine-component-folders` carries 34 commits of
+finished, tested engine work (FastRule phases B and C, LLMJudge's `rewrite.py`)
+that HEAD does not have, while `TASKS.md` still calls that work "not started".
+Merge, rebase or abandon — but do not write it a second time.
 
 ## Measuring a change to the assistant
 
@@ -331,20 +348,22 @@ judgement).
   torch, and the combination used to segfault. `tests/conftest.py` pins BLAS
   to one thread, which fixed it, but the audit does not. The same applies to
   any two model-loading jobs side by side.
-- **A path in an experiment or generator rots silently, and only breaks when you
-  next run it.** The per-stage restructure moved datasets and banks, and **four**
-  things kept pointing at the old locations: segmentation's dataset
-  GENERATOR (`FileNotFoundError`, so the dataset could not be rebuilt),
-  FastRule's PRIMARY BOARD, `scripts/fit_route_models.py` — the script that
-  fits the logistic weights — and `scripts/gen_fastrule_dataset.py`, found still
-  broken on 2026-09-09, a month after the first three were fixed. **Finding some
-  of these is not finding all of them**, and the survivor was the one still living
-  in `scripts/` rather than in the stage folder that owns it. Nothing noticed
-  because all four are manual steps whose OUTPUT is committed, so the stale
-  `.jsonl` and `.json` kept working.
-  **Before trusting any board, run it.** And note the trap in these files: `ROOT =
-  parents[1]` meant the repo root before the move and means the STAGE folder after
-  it, so a path that merely looks wrong may be right and vice versa.
+- **A path or import in an experiment, generator or checker rots silently, and
+  only breaks when you next run it.** The per-stage restructure broke four
+  boards and generators this way (all four verified healthy 2026-09-11), and
+  the 2026-09-08 `crosscheck.py` → `llmjudge/llmjudge.py` rename broke a fifth:
+  `scripts/engine_stage_check.py` raised `ImportError` on `--stage all` — while
+  this very file called it the working per-stage gate — and was still broken on
+  2026-09-14, a day after the identical defect was fixed in `assistant/cli.py`.
+  **Finding some of these is not finding all of them**, and the survivors are
+  always the copy in `scripts/` rather than in the stage folder that owns it.
+  Nothing notices, because these are manual steps whose OUTPUT is committed, so
+  the stale `.jsonl` keeps working.
+  **Before trusting any board or checker, run it.** Two traps: `ROOT =
+  parents[1]` means the repo root under `scripts/` and the STAGE folder inside
+  one, so a path that looks wrong may be right; and `assistant.engine.state.
+  STAGES` is the authoritative stage list — anything keeping its own copy has
+  already drifted.
 - **Two docs are GENERATED — never edit them by hand.** The API reference,
   after adding or changing an endpoint: `python scripts/gen_api_reference.py`.
   The code-size breakdown the README links to (`DOCUMENTATION/CODE_SIZE.md`)
@@ -435,7 +454,9 @@ starting a parallel list. `DOCUMENTATION/FEATURES.md` is the feature catalog
 its entry there in the same change.** `DOCUMENTATION/MODELS.md` is the canonical answer to
 which models do what. `DOCUMENTATION/ENGINE.md` is the engine's stage-contract
 reference. `DOCUMENTATION/ARTIFACT_BUILDER.md` is the brief for the published
-explainer pages.
+explainer pages. `DOCUMENTATION/experiments/checkpoints/` holds the
+retrospective and the recommendations queued out of it. `DEVQA.md` is the
+decision log — a question answered there is settled; check it before re-asking.
 
 ## Conventions
 

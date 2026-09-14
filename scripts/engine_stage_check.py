@@ -211,7 +211,14 @@ def _cases_crosscheck(cfg):
     """Extraction quality against seeded mistakes: the check must notice a
     dropped ask and an invented row, and stay quiet when all is covered."""
     from types import SimpleNamespace
-    from assistant.engine.llmjudge import crosscheck
+    # `crosscheck.py` became `llmjudge/llmjudge.py` in the 2026-09-08 rename.
+    # This import was never updated, so --stage crosscheck and --stage all
+    # raised ImportError before a single model loaded — CLAUDE.md meanwhile
+    # presents this script as the working per-stage gate. The identical
+    # defect in assistant/cli.py was fixed 2026-09-13 (c82d5f8); this copy
+    # survived because it lives in scripts/ rather than in the stage folder
+    # that owns it — the exact rot class CLAUDE.md warns about.
+    from assistant.engine.llmjudge import llmjudge as crosscheck
 
     def _ev(id, title, text=""):
         return _item("event", text or title, id=id, action="create_event",
@@ -248,14 +255,31 @@ def _cases_crosscheck(cfg):
             ("an invented row is noticed", True, invented_row)]
 
 
+# Keyed by the engine's OWN stage names (`assistant.engine.state.STAGES` is
+# authoritative), with the pre-rewrite names kept as aliases so existing
+# invocations and docs keep working. The old set listed six stages that no
+# longer all exist and omitted `ingest`, `fastrule`, `llmjudge` and `label`
+# entirely, which is how `--stage all` came to mean "four of seven".
 STAGES = {
-    "transcript": _cases_transcript,
-    "segment": _cases_segment,
-    "decompose": _cases_decompose,
-    "validate": _cases_validate,
-    "generate": _cases_generate,
-    "crosscheck": _cases_crosscheck,
+    "transcript":         _cases_transcript,   # ingest/repair.py
+    "segment":            _cases_segment,      # NOTE: exercises old_seg, the
+                                               # rollback path, NOT the live
+                                               # FastSeg. Its own board is
+                                               # segmentation/experiments/.
+    "decompose_validate": _cases_decompose,
+    "fastrule":           _cases_generate,     # fastrule/objects.py
+    "llmjudge":           _cases_crosscheck,   # llmjudge/llmjudge.py
+    # Pre-2026-09-08 names, kept so older commands and docs still resolve.
+    "decompose":          _cases_decompose,
+    "validate":           _cases_validate,
+    "generate":           _cases_generate,
+    "crosscheck":         _cases_crosscheck,
 }
+
+# Stages with NO case set here, so `--stage all` does not quietly imply they
+# were checked: `ingest` (coalesce.py) and `commit`/`label`. Both are covered
+# by `assistant-cli check engine`'s wiring layer, not by behaviour cases.
+UNCOVERED_STAGES = ("ingest", "commit")
 
 
 def main() -> int:

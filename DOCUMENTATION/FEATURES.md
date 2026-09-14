@@ -29,14 +29,16 @@ purely backend (no client code beyond displaying the effects).
 | hybrid | [Tag discovery](#tag-discovery--the-class-set-grows-with-consent) | consent-based new classes + history | `actions/todo/tag_discovery.py` |
 | hybrid | [Share event as .ics](#share-event-as-ics) | one event → RFC 5545 file, both platforms | `ics_export.py`, `event_dialog.py` |
 | hybrid | [Pre-event notifications](#pre-event-notifications) | phone rings from its cache; server computes policy; per-category mute; live "Up Next" lock-screen card | `notify.py`, `ReminderScheduler.swift`, `LiveActivityManager.swift` |
+| hybrid | [Home-screen widget (iOS)](#the-home-screen-widget-ios) | "Up Next" + what's left of today, advancing with nothing of ours running | `MACalendarWidgets/UpNextHomeWidget.swift` |
 | hybrid | [Voice I/O & capture controls](#voice-in--voice-out--capture-controls) | hotkey/stop-phrases/review-bar; engine-selectable STT; spoken replies | `stt/`, `Voice/`, `tts/` |
 | hybrid | [Edit-transcription gate](#the-edit-transcription-round-trip-needs_edit) | doubted words → editor → learned | `engine/ingest/repair.py` |
-| hybrid | [Confirm-create gate](#the-confirm-create-gate-confirm_create) | "should I add yoga tomorrow?" → Add / No, never a silent guess | `engine/decompose_validate/validate.py`, `/voice/confirm` |
+| hybrid | [Confirm-create gate](#the-confirm-create-gate-confirm_create) | "should I add yoga tomorrow?" → Add / No, never a silent guess | `decompose_validate/object_rules.py`, `/voice/confirm` |
 | hybrid | [Self-check & revert](#background-self-check--one-tap-revert) | background re-reasoning, one-tap undo | `engine/__init__.py`, panels |
 | hybrid | [Review panel / HUD](#the-review-panel-thinking-hud--ios-timeline) | live chain-of-thought card + history | `thinking_hud.py`, `ThinkingView` |
+| hybrid | [LLM console](#the-llm-console) | the panel's third view: every model call, with its caller | `llm_bus.py`, `thinking_panel.py` |
 | hybrid | [Personal vocabulary](#personal-vocabulary) | user's words fix transcripts first | `stt/vocab.py` |
 | hybrid | [Command memory](#command-memory--feedback) | every command + verdicts, mined | `intent/memory.py` |
-| hybrid | [Tag discovery](#tag-suggestion-history) | consent-based new classes + history | `actions/todo/tag_discovery.py` |
+| hybrid | [Tag suggestion history](#tag-suggestion-history) | the reviewable record behind the ask | `TagHistoryView.swift` |
 | hybrid | [Import & connected calendars](#calendar-import--connected-calendars) | .ics/macOS import; ICS subscribe; Outlook 2-way | `window.py`, `calendar_sync/` |
 | hybrid | [Workout & training](#workout--training-scheduling) | templates, live sessions, observance-aware planning | `actions/workout*`, `Views/Workout/` |
 | hybrid | [Timer](#timer-work-tracking) | per-project work + earnings | db `timers*`, `TimerView` |
@@ -44,12 +46,13 @@ purely backend (no client code beyond displaying the effects).
 | hybrid | [Coursework](#coursework) | courses + assignments tab | db `courses*`, `CourseworkView` |
 | hybrid | [iOS app & offline](#ios-app--offline-queues) | full client, 3 offline queues, Tailscale | `MACalendar-iOS/` |
 | hybrid | [Health CLI & heartbeats](#heartbeats--the-health-cli) | `assistant doctor`, 6 layers | `cli.py`, `heartbeat.py` |
-| backend | [The engine](#the-engine-engine-v2--the-brain) | the AI brain: fast track + 7-step deep track | `assistant/engine/` |
+| backend | [The engine](#the-engine-engine-v3--the-brain) | the AI brain: a fast track and a six-box deep chain | `assistant/engine/` |
+| backend | [One-shot LLM engine](#the-one-shot-llm-engine--a-measuring-instrument) | a parallel brain of one model call, off by default | `engine/LLM_one_shot/` |
 | backend | [The action set](#the-action-set) | the 15 things a command can do | `assistant/actions/` |
 | backend | [Task tags](#task-tags--a-finite-classification) | closed-set classification w/ healing | `actions/todo/tagging.py` |
 | backend | [Categories & stacking](#events-categories-colours--binder-stacking) | auto-colour/categorise; overlaps stack | `actions/calendar/categories.py` |
-| backend | [Hebrew calendar & observance](#hebrew-calendar--observance) | sundown-bounded halachic windows + gate | `observance.py`, `hebrew_calendar.py` |
-| backend | [Recurring events](#recurring-events) | daily/weekly/monthly, announced rounding | `db.py`, `engine/decompose_validate/validate.py` |
+| backend | [Hebrew calendar & observance](#hebrew-calendar--observance) | sundown-bounded halachic windows; series skip, one-offs flagged | `observance.py`, `hebrew_calendar.py` |
+| backend | [Recurring events](#recurring-events) | daily/weekly/monthly/yearly, several weekdays, announced rounding | `db.py`, `decompose_validate/resolve.py` |
 | backend | [API server](#the-api-server) | the single front door, 112 endpoints | `api/server.py` |
 | backend | [Hosted calendar sync](#hosted-calendar-sync) | optional Outlook two-way / ICS read | `calendar_sync/` |
 | backend | [Self-improvement loop](#the-self-improvement-loop) | the AI measures & improves itself | `dataset/`, `scripts/` |
@@ -183,7 +186,10 @@ actively there; a reviewable history allows reversing or hiding past verdicts.
 **Where:** `assistant/actions/todo/tag_discovery.py`; API `/tags/suggestion`,
 `/tags/suggestion/answer`, `/tags/suggestions/history`,
 `/tags/suggestions/revise`; Mac popup in `calendar_ui/window.py`
-(`_fetch_tag_suggestion`); iOS alert in `Views/ContentView.swift`.
+(`_fetch_tag_suggestion`); iOS alert in `Views/ContentView.swift:498`, and the
+history screen behind Tasks ▸ Manage tags ▸ Suggestion history —
+`Views/TagHistoryView.swift`, reached from `TasksView.swift:572` (shipped
+`902e8a4`).
 **How:** Politeness is structural: evidence bar, ≤1 ask/7 days charged on
 hand-out, refusals stored forever (`tag_suggestion_state` table), server never
 pushes — clients pull only when foregrounded. Un-accepting from history
@@ -221,8 +227,10 @@ carries `edited_from` and bypasses the gate once.
 calendar tomorrow?", "what if I booked town hall for the 3rd?" — is neither
 executed nor silently dropped. The parse is finished and offered: the client
 shows what it would create, Add creates it, No discards it.
-**Where:** reader `is_interrogative_create` in `engine/segmentation/old_seg/segment.py`; rule
-`interrogative_create_asks_first` in `engine/decompose_validate/validate.py`; short-circuit
+**Where:** reader `is_interrogative_create` in `engine/segmentation/old_seg/segment.py:215`; rule
+`_rule_interrogative_create_asks_first` in `engine/decompose_validate/object_rules.py:220`
+(it lived in `validate.py` until that module was retired on 2026-09-08, `c3364df` —
+the original is in `retired/decompose-validate-v1/`); short-circuit
 `_confirm_proposal` / `_confirm_response` in `engine/__init__.py`; token store
 and `POST /voice/confirm` in `api/server.py`; Mac `ask_create_confirm` in
 `calendar_ui/window.py` (via `pipeline.py`, `supports_confirm: true`); iOS
@@ -272,6 +280,20 @@ permitted` — which reads like a broken venv and is a missing TCC grant. The
 build script re-signs last and VERIFIES, and fails the build if the seal or
 the identifier is wrong. `scripts/hud_demo.py` streams a synthetic run to the
 real bus (as `source: "test"`, which History filters) to watch the rail live.
+**Live, from every surface** (2026-09-14, `003330b`) — and it was not, for the
+bus's whole recorded history. `on_step` was hooked only when a CALLER supplied
+a `trace_run`, which only the Mac GUI ever did; zero of 47 Swift files pass
+one, so a phone command published nothing for its entire 4–40 seconds and then
+appeared, already finished, in a single line. Not one `begin` line existed in
+eight days of bus. The streaming machinery was complete, wired and dormant. The
+engine now mints its own run id when the caller has none
+(`engine/__init__.py:245-257`), so every command from every surface streams
+`begin → step → step → result`. Two consequences to know: the durable
+whole-run `trace` line is still written alongside, sharing ONE run id, because
+`read_history` returns only whole-run lines and the first version of this
+change silently emptied History (the HUD dedups on the id); and
+`trace_bus.MAX_ENTRIES` moved 200 → 2000, since the budget counts LINES and a
+streamed run occupies about ten where it used to occupy one.
 **How:** The HUD talks to no process — it tails the bus file. Renders by
 brain version: `CHAINS[BRAIN_VERSION]` scaffold rail with per-step ⓘ
 (copy from `trace.STAGE_INFO`, mirrored in Swift, drift-pinned by
@@ -304,6 +326,49 @@ that solidifies on hover, minimise-to-header with live step count, joins
 every macOS Space including over full-screen apps, right-click menu; result
 cards carry click-to-fix word chips, uncertain-word candidate chips, Retry
 now, 👍/👎, and the Revert bar.
+
+### The LLM console
+
+**What:** the panel's THIRD view — an "LLM" button in the header beside
+"History", both flipping to "Back" — showing every model call
+the system made, newest last, each row saying **where in the system it came
+from**, how long it took and whether it was schema-constrained — and expanding
+to the actual system prompt, user prompt and response. Search over caller,
+prompt and response; two filters only, "Slow (>5s)" and "Failed"; a Clear
+button. Shipped 2026-09-13/14 (`9db46f6`, `b7687ea`).
+**Where:** the stream is `assistant/llm_bus.py`
+(`~/.assistant_tools/llm_calls.jsonl`, override `MACALENDAR_LLM_BUS`); the view
+is `_LLMRow` + `toggle_llm`/`_load_llm` in `calendar_ui/thinking_panel.py:1131`
+and `:1686-1730`; the HUD process drains it with a second offset in
+`thinking_hud.py:545-580`; tests `tests/unit/test_llm_console.py`. Adding it
+also collapsed the view switching into one place: `_set_view` (`:1643`) is now
+THE truth table for which view is visible — with two views the old pair of
+recomputed booleans was a duplicate, with three it is where a drift would
+have shown a card with two views at once.
+**How — and why it is a SECOND file, not the trace bus.** Three properties of
+the HUD's own code make sharing impossible: `apply_entry` keeps a single
+`_current_run` and would tear the timeline when a call interleaves with a run;
+`trace_bus.read_since` closes over a module-global `BUS_PATH` with no path
+parameter and one scalar offset, so two streams need two readers; and the trim
+budget counts LINES, so a chatty second stream would evict finished runs from
+the durable record the History view reads back. So: its own file, its own
+offset, its own budget (`MAX_ENTRIES = 400`), the same shape.
+`caller_label()` (`llm_bus.py:190-214`) walks the stack for the OUTERMOST
+interesting frame rather than the innermost — the immediate caller of a
+transport is always the transport wrapper, and what a reader wants is the stage
+(`llmjudge.extract_asks`, `_recheck_not_found`, `objects._parse_item`), so
+frames inside `intent/parser.py`, `engine/llm.py` and the bus itself are
+skipped.
+**It holds real transcripts**, verbatim prompts and responses included, so it
+lives beside the other personal stores in `~/.assistant_tools/`, honours its
+env override, and drops `source: "test"` traffic entirely — the same rule the
+NLU log and the History view already apply. Prompts are clipped at 4,000
+characters with the original length kept, so the row can say "12 KB, showing
+the first 4" instead of silently lying about the prompt.
+**Why it exists:** "Slow" is the filter that matters. A `_recheck_not_found`
+call spending ~40 s was invisible in every latency board because that path
+records no `llm_ms` (`assistant/intent/parser.py:515-518` says so itself); the
+console shows it regardless of what the boards count.
 
 ### Personal vocabulary
 **What:** The user's names/places/phrases; transcripts auto-correct through it
@@ -449,10 +514,12 @@ count-up once it starts and then rolling on to the following event.
 `reminder_log` (`db.py`); Mac thread `assistant/notifier.py` (osascript);
 settings `settings_dialog.py` + iOS `SettingsView`; phone
 `ReminderScheduler.swift` + `NotificationRouter` (tap deep-links to the
-event); per-event picker in both edit surfaces; config `notifications:`
+event); per-event picker **on the iPhone only** — `EventDetailView.swift:124`
+(Inherit / None / N-minutes, `-1` meaning "no stored override") plus the plain
+reading of `notify_suppressed_reason` at `:51-64`; config `notifications:`
 section (PATCH /config). Live Activity: app-side
 `LiveActivityManager.swift`, shared contract
-`MACalendar-iOS/Shared/UpNextActivityAttributes.swift` (compiled into both
+`MACalendar-iOS/MACalendar-iOS/Shared/UpNextActivityAttributes.swift` (compiled into both
 targets), UI in the new `MACalendarWidgets` app-extension target
 (`UpNextLiveActivity.swift`, bundle id `com.macalendar.app.widgets`,
 deployment target 16.2, embedded via "Embed Foundation Extensions");
@@ -470,20 +537,113 @@ changes, which it does from the paths where it already wakes
 `LiveActivityManager.sync()`. Cards carry a `staleDate` at exactly the
 moment they stop being true, so a transition missed while the phone is
 locked is dimmed by iOS rather than shown as a lie. Starts only within the
-8 h ActivityKit cap, and respects the device-local reminders toggle. Voice
-phrase → lead time (phase 3) lands after the next branch merge. Plan:
+8 h ActivityKit cap, and respects the device-local reminders toggle.
+**The Mac has no per-event picker** (corrected 2026-09-14 — this entry claimed
+"both edit surfaces" and that was never true). `calendar_ui/event_dialog.py:147-238`
+lays out Date, Time, Attendees, Location, Notes, Repeat, Until, Colour and
+nothing else; `grep -ci remind` over that file returns 0. Everything under it
+is already there — the column (`db.py:128`), the PATCH allow-set (`db.py:1182`)
+— so it is one form row, not a feature. Worth knowing before building it:
+reminders ship **opt-in** (`notifications.default_lead_minutes: 0`,
+`config.example.yaml:141` / `NotificationsConfig` `config.py:218`), so until an
+event or a category asks for a lead, nothing fires anywhere — a per-event
+picker is exactly how an event would ask. (The 2026-09-14 audit called this
+path "dormant behind `notifications.pre_event=false`"; there is no such
+setting — `grep -rn pre_event` over the repo returns nothing. The opt-in
+default is the real mechanism.)
+**Voice phrase → lead time (phase 3) SHIPPED**, in two steps: the inline form
+on 2026-09-06 (`1172811` — "book gym tomorrow at 6:30 and give me a heads-up
+half an hour before" attaches `reminder_minutes=30`), then the reader moved
+into `assistant/intent/lead_time.py` on 2026-09-07 (`816cea7`, `7ff29b8`) so
+both tracks share one copy: `decompose.py:151-163` strips the clause per item
+on the deep track, `rule_parser.py:471-472` strips it during FastRule
+normalization, and `fastrule/objects.py:472-478` puts the slot on the intent.
+Stripping happens BEFORE the until/through rule deliberately — a bare surviving
+"before" reads as a recurrence-end marker.
+**Two halves of phase 3 are still missing** (verified 2026-09-14): `_apply_slots`
+applies `reminder_minutes` only when `item.action == "create_event"`
+(`objects.py:476`), so there is no voice path for *changing* a reminder on an
+event that already exists; and nothing announces a suppressed reminder in the
+spoken reply — `notify.py:145-154` computes `notify_suppressed_reason` and the
+iPhone renders it, but no reply string anywhere mentions it. Plan:
 `NOTIFICATIONS_PLAN.md`.
 
-### The engine (engine-v2) — the brain
+### The home-screen widget (iOS)
+
+**What:** a small or medium home-screen widget — "UP NEXT" (or "NOW", once the
+event is running) in that event's category colour, its title and clock time,
+up to three rows on the medium size, and "N more today" alongside.
+Unlike the lock-screen Live Activity next door, **the pointer advances on its
+own**: the widget rolls to the next event at exactly its start time with the
+app not running.
+**Where:** `MACalendar-iOS/MACalendarWidgets/UpNextHomeWidget.swift` (342
+lines — the widget, its timeline provider and both views), registered beside
+the Live Activity in `MACalendarWidgetsBundle.swift`; the app↔extension
+contract is `MACalendar-iOS/MACalendar-iOS/Shared/WidgetSnapshot.swift`
+(compiled into BOTH targets, Foundation-only, like
+`UpNextActivityAttributes.swift`); the app side is
+`LocalStore.refreshWidgetSnapshot()` (`LocalStore.swift:208-231`) and
+`LocalStore.widgetItems` (`:242-267`). Shipped `902e8a4`.
+**How:** the two widgets are fed two opposite ways on purpose. A Live Activity
+is *pushed* its content and can only change while the app is awake; a widget
+timeline is handed to WidgetKit **once**, with future-dated entries, and the
+system swaps them in with nothing of ours running. `changePoints()`
+(`WidgetSnapshot.swift:135-148`) is that trick: every start, every end still
+ahead, plus the next midnight, capped at 30 entries.
+The extension runs in its own process and cannot see the app's Documents, so
+the channel is an **App Group** (`group.com.macalendar.app`, declared in both
+`.entitlements` files): the app mirrors a small JSON snapshot into the shared
+container on every `LiveActivityManager.sync()` — and only when the content
+actually moved, because WidgetKit budgets timeline reloads and spending them
+redrawing an unchanged widget is how a widget ends up refusing to update at the
+moment it matters. The extension owns no formatter, no locale knowledge and no
+colour policy: `timeLabel` and `colorHex` arrive already resolved. Snapshot
+caps: 12 items, `staleAfter` 36 h (older than that says "Not synced / Open
+MACalendar" rather than pretending the day is empty).
+**The honest caveat — it may never have drawn anything real.** App Groups need
+a provisioning profile from the paid developer program, and
+`NOTIFICATIONS_PLAN.md:141-147` records that only `com.macalendar.app` has a
+profile on this Mac while `com.macalendar.app.widgets` has none, and that a
+headless `xcodebuild` cannot mint one ("No Accounts"). **This is a doc
+assertion nobody has re-tested** — the 2026-09-14 audit could not verify it
+either, and no commit after `902e8a4` records a device check. Every failure
+path is handled (`WidgetBridge.containerURL` is nil, the app's mirror is a
+silent no-op, the widget draws its placeholder), so nothing crashes; but
+`902e8a4`'s own message says that if App Groups turn out to be unavailable the
+widget *"placeholders forever and the honest fix is dropping it."* One Run from
+Xcode.app with the phone reachable settles it.
+
+### The engine (engine-v3) — the brain
 **What:** Speech/text → events, tasks, answers. A fast track (confident rule
-parse commits instantly, deep track verifies behind) and a 7-step deep track
-(transcript repair → segment → decompose → validate → generate → crosscheck →
-label) with loop-back on disagreement.
-**Where:** `assistant/engine/` (one module per stage, `state.py` holds the
-frozen contracts); entered only via `assistant.api` (`/voice*` routes).
-**How:** `DOCUMENTATION/ENGINE.md` is the canonical stage-contract reference.
-Deterministic-first everywhere; every LLM call schema-constrained and grounded
-on the raw words; per-stage tests + `scripts/engine_stage_check.py`.
+parse commits instantly, the deep track verifies behind it) and a deep chain of
+six boxes, one stage per folder:
+
+    X0 -> ingest -X1-> segmentation -X2-> decompose_validate
+       -X3-> fastrule -X4-> llmjudge -> commit(+label)
+
+**Where:** `assistant/engine/` (one FOLDER per stage — its code, its datasets,
+its experiments and its own `ARCHITECTURE.md`; `state.py` holds the frozen
+contracts and `state.STAGES` is the authoritative stage list); entered only via
+`assistant.api` (`/voice*` routes).
+**The chain was re-cut 2026-09-08** (`a962a9f`, Gil's drawing): decompose and
+validate became one box, generate became `fastrule` (the stage IS
+object-making), crosscheck became `llmjudge`, and label moved INSIDE commit so
+a row can never be written and left unlabelled. `BRAIN_VERSION` is `engine-v3`
+(`assistant/trace.py:22`) and `CHAINS["engine-v3"]` is what the review panel
+draws. This entry described the superseded 7-step chain until 2026-09-14 — the
+same drift `assistant/engine/__init__.py:23-26` admits to in its own docstring.
+**How:** `DOCUMENTATION/ENGINE.md` is the canonical stage-contract reference
+and `assistant/engine/ARCHITECTURE.md` is the map. Deterministic-first
+everywhere — a stage may call the model only when its deterministic reading
+found nothing; every LLM call schema-constrained and grounded on the raw
+transcript. Per-stage tests (`test_engine_<stage>.py`), per-stage boards under
+each folder, and `scripts/engine_stage_check.py --stage <name>` for one stage
+against the real local LLM.
+**Two things are wired and deliberately INERT**, so their presence is not
+working behaviour: LLMSeg is off (`MACALENDAR_LLMSEG`), and the judge's
+loop-back is gated on a rewrite that is still a stub — re-entering a
+DETERMINISTIC segmenter with unchanged text cannot produce a new answer, which
+is why the gate exists rather than a plain re-run.
 **Notable behaviours (each a named, tested rule):** ingest coalescing of
 queued commands; stop-word stripping; trivial/false-start filtering (ignored
 AND not remembered); anaphora ("the one I just made" → context memory);
@@ -495,6 +655,50 @@ event drop; quantity extraction ("5 apples" → one task ×5); shared-verb list
 splitting ("buy chicken and rice"); same-activity multi-time split ("walk
 the dog at 9 and 2:30" → two events); prompt-injection defense (refuses
 "ignore previous instructions" transcripts).
+
+### The one-shot LLM engine — a measuring instrument
+
+**What:** a PARALLEL brain that replaces the whole chain with a single
+schema-constrained model call — transcript in, objects out. `MACALENDAR_ONESHOT=1`
+routes every command to it; off by default, and the chain is untouched either
+way. Gil, 2026-09-13: *"build a parallel engine which is just an LLM trying to
+one shot"*. Shipped `9481853`.
+**Where:** `assistant/engine/LLM_one_shot/__init__.py` (245 lines — `SCHEMA`,
+`build_objects`, `_to_intents`, and a stage-shaped `run(state, cfg)`); the
+branch point is `assistant/engine/__init__.py:317-333`; it is listed as a
+component but explicitly NOT a stage in `assistant/cli.py:236-237`, and
+`tests/unit/test_cli.py:77` pins that exception; the sweep harness selects it
+with `CHECKPOINT_ENV` at `scripts/checkpoint_sweep.py:78`.
+**Why it exists:** to answer a question the chain cannot answer from inside
+itself — **does the six-box deep track earn its complexity?** It is deliberately
+the dumbest honest baseline: the raw transcript, today's date, and a schema. No
+vocabulary repair, no segmentation, no rules, no validation, no judge, no
+retry. Anything it gets right it gets right from the model alone. It is not a
+proposal to replace the engine.
+**How:** Ollama is format-constrained by `SCHEMA`, so the model *cannot* emit a
+shape the mapper does not understand — only wrong content, which is the thing
+under test. Anything malformed is DROPPED rather than repaired, because quietly
+fixing the output would measure the fixer. And it commits through the same
+`_commit`: the objects become the same `(action, intent)` pairs on the same
+`Item`s, so a scorer sees two runs that differ in HOW the objects were decided
+and in nothing else.
+**What it measured** (the checkpoint sweep, 2026-09-14):
+**count-correctness 66.0% on the sealed 300** — `dataset/runs/checkpoint-sweep-oneshot-sealed/manifest.json`,
+`count_ok_rate 0.66` on rows fingerprint `6dc8c8674e39:300` — against `main`'s
+**77.3%** on the byte-identical rows
+(`DOCUMENTATION/experiments/checkpoints/RUN_STATUS.md:105-113`); and
+**count-correctness 50.3% on the personas 300** —
+`dataset/runs/checkpoint-sweep-personas-v2/manifest.json`, `count_ok_rate
+0.5033` on fingerprint `1a3064b09c1c:300` — against `main`'s **79.3%** on the
+same rows. The error bar was measured for the first time by running `main`
+twice on the sealed set: 77.3 / 76.7, so **0.6 pt**, and both gaps are far
+outside it. Read plainly: one schema-constrained call is 11 points behind the
+machine on clean prompts and 29 points behind on the persona voices, so the
+chain IS holding the number up — which is worth knowing before anyone
+simplifies it. It is also roughly seven times faster (p50 5.4 s vs 40.2 s on
+the sealed 300), which is the other half of the trade. **Both boards are `split:"test"` rows and are RETROSPECTIVE
+ONLY**: they may never pick the next thing to work on
+(`DOCUMENTATION/experiments/ITERATION_PROTOCOL.md`).
 
 ### The action set
 **What:** What a voice command can *do* — 15 registered actions: create /
@@ -549,24 +753,66 @@ every write path (voice, GUI, API) gets it.
 ### Hebrew calendar & observance
 **What:** Jewish/Israeli holidays in the views; Shabbat/yom tov/fast windows
 computed from the sky (candle lighting → tzeit) at the user's actual location;
-the observance gate on AI-created events; recurring series skip holy days
-(meals excepted, fasts inverted, Shabbat-anchored kept).
+the observance check on AI-created one-offs (a FLAG since 2026-09-08, see
+below); recurring series skip holy days (meals excepted, fasts inverted,
+Shabbat-anchored kept).
 **Where:** `assistant/observance.py`, `hebrew_calendar.py`;
-`db._skip_for_observance`; engine gate in `engine/decompose_validate/validate.py`; location from
+`db._skip_for_observance`; engine gate in
+`engine/decompose_validate/observance_gate.py` (moved out of the retired
+`validate.py` on 2026-09-08, `c3364df`), consumed at
+`decompose_validate/stage.py:213-221`; location from
 the phone via `/observance/location`; iOS `HebrewDate.swift`,
 `DeviceLocation.swift`.
+**The one-off gate FLAGS, it no longer refuses** (Gil, 2026-09-08, same
+commit): the verdict logic moved across intact — an engine-created one-off
+inside Shabbat or yom tov must be leyning, a meal or davening, and on a fast a
+meal must not be booked before the fast ends — but a positive verdict now lands
+as `flag:observance` on the fix list and an `observance: <reason>` entry in
+`item.slots["flags"]`, and the event is still created. The argument is in the
+module header: a blocked item is a command that silently did nothing, and the
+speaker is better served by the row existing with a note they can act on. The
+SERIES rule (`db._skip_for_observance`) is unchanged and still skips.
 **How:** `pyluach` + `astral`, sundown-bounded not midnight-bounded. All
 gating sits behind `observance.enabled` (config, default on;
 `MACALENDAR_OBSERVANCE` env override — the test harness turns it off).
 
 ### Recurring events
-**What:** daily/weekly/monthly series — anything else is rounded and the
-rounding is announced; "until" excludes its day, "through"/"including" keep
-it; weekly series start on the soonest named weekday.
-**Where:** `db.create_event`/series instancing; rules re-checked in
-`engine/decompose_validate/validate.py`.
+**What:** daily / weekly / monthly / **yearly** series — anything else is
+rounded and the rounding is announced; "until" excludes its day,
+"through"/"including" keep it; weekly series start on the soonest named
+weekday, and a weekly series may name **several** weekdays.
+**Where:** `db.create_event` + `db._next_date` (`db.py:459-505`) do the series
+instancing; the cadence is read by `decompose_validate/resolve.py:450` (`resolve_recurrence`) on
+the deep track and by `intent/recurrence.py` on the fast track; the rounding
+announcement is `_rule_cadence_round_and_announce`
+(`decompose_validate/object_rules.py:253`), whose unsupported-cadence table
+is `decompose_validate/text_helpers.py:35-43` (`unsupported_cadence`, `:98`).
 **How:** Series instances materialise as rows sharing `series_id`; observance
 skipping applies per instance at creation.
+**The fourth cadence** (Gil, 2026-09-08; `61f2fe6`): rounding a yearly ask to
+monthly is 12× wrong and fires eleven times nobody asked for, so `yearly` is a
+real cadence rather than a rounding. `db.py:495-504` steps it from the ANCHOR
+month/day, because chaining from the previous instance would turn one leap-day
+series into a permanent 28th.
+**Several weekdays** (`3fa9bde`, 2026-09-08): `events.recur_days`
+(`db.py:110,132`) carries "tuesday,thursday" for a WEEKLY series, so "gym every
+tuesday and thursday" steps to the next NAMED day instead of always +7. It is
+which days a weekly series lands on, not a fifth cadence. It is filled on the
+deep track only — `resolve.py:689` → `stage.py:117,147` → `CalendarIntent.recur_days`
+→ `db.py:923`.
+**Two things the docs used to claim that the code still contradicts** (both
+re-verified 2026-09-14, both live, neither fixed here):
+- **The fast path still rounds yearly to monthly.** `intent/recurrence.py:40`
+  is `(r"\bevery\s+year\b|\byearly\b|\bannually\b", "monthly", True)`, and
+  `rule_parser.py:1324-1331` writes that cadence straight into the slots. So a
+  confident rule parse of "book the check-up every year" still books a monthly
+  series — the exact case the fourth cadence was added to stop.
+  `resolve.py:481-483` was fixed; this second reader never was.
+- **The rounding announcement is stale in two places.** `text_helpers.py:41`
+  still lists `every <x>day and <y>day` as an unsupported cadence and announces
+  a rounding that `recur_days` no longer performs, and the reply string at
+  `object_rules.py:266` still reads *"I can only repeat daily, weekly or
+  monthly"*, omitting the fourth.
 
 ### The API server
 **What:** The single front door — 112 endpoints; every surface is its client.
@@ -596,7 +842,21 @@ loop_changes.csv); harness `scripts/engine_dataset_compare.py`,
 **How:** Frozen-clock replays at each row's recorded timestamp; metrics:
 count-correctness, item-level P/R/F1, field quality (when-paramount,
 similarity titles, classification tags), latency; noise floor and graduation
-rules in `DOCUMENTATION/experiments/ITERATION_PROTOCOL.md`.
+rules in `DOCUMENTATION/experiments/ITERATION_PROTOCOL.md`. Metrics are
+organised BY COMPONENT, not as one flat list — `dataset/METRICS.md` is the map,
+and REAL USAGE (`weekly_review`) outranks the rest because it is the only
+instrument measuring real speech.
+**Two standing constraints on it**, both live as of 2026-09-14:
+- **A SEALED 300.** Since 2026-09-07 the stratified 300 in
+  `dataset/inputs/test_split.json` is excluded from every run by default; the
+  other 2,699 rows are free for mining and training. A `--test` run reports
+  aggregates only and never spawns a hypothesis — direction comes from
+  training-pool failures alone.
+- **Whole-engine cycles are PAUSED.** `DOCUMENTATION/STAGE_ISOLATION_PLAN.md:3-4`
+  (Gil, 2026-09-07) supersedes the whole-engine loop until each stage is proven
+  on its own dataset; `dataset/loop_log.csv` ends at run 21, the sealed
+  pre-loop baseline. The loop itself is intact and resumes once the parts are
+  proven — what is paused is the scheduling, not the machinery.
 
 ### Diagnostics & self-observation logs
 **What:** The system writes evidence about itself: `NLU_TRACKING.md` (every
@@ -604,9 +864,20 @@ parse with path + source), `SCENARIO_BUG.md` (an LLM-as-judge records cases
 where the rule parser and the model disagreed), the hand-written audit
 corpus (regression floor), and a routing-confidence calibration checker.
 **Where:** appended by the engine/server; `scripts/audit_assistant.py`,
-`scripts/calibration.py`.
+`scripts/calibration.py`. The audit corpus writes
+`DOCUMENTATION/ASSISTANT_AUDIT_SUMMARY.md`; it is a **regression floor only**,
+not the primary number (that is the verification dataset — see the
+self-improvement loop).
 **How:** All read-only instruments — they observe the live system, never
 steer it.
+**The calibration checker is measuring the wrong line** (verified 2026-09-14,
+not fixed here). `scripts/calibration.py` hardcodes 0.85 as the routing
+threshold in five places (`:3, 93, 99, 102, 112-120`), while the live one is
+`RULE_THRESHOLD = 0.80` (`assistant/intent/rule_parser.py:102`, tuned
+2026-09-07) with a sub-item bar of 0.60
+(`assistant/engine/fastrule/objects.py:46`). So its "at or above 0.85 / below
+0.85" split does not name the decision the engine actually makes — anything it
+says about where to move the threshold is answering a question nobody asked.
 
 ### Published explainer pages
 **What:** Public artifact pages (architecture, explorer, internals) whose

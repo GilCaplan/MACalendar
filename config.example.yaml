@@ -31,8 +31,6 @@ ollama:
   verify_model: null       # stronger/slower model for the background self-check (null = same as model)
   base_url: "http://localhost:11434"
   model: "llama3.1:8b"
-  keep_alive: -1           # keep the model loaded between commands (-1 = forever, or "30m")
-  warm_up: true            # preload the model at startup so the first command is fast
   temperature: 0.1
   timeout_seconds: 180
 

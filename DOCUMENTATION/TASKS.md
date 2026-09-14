@@ -17,7 +17,7 @@ Running list of user-reported issues and feature requests, with status. Update w
 | 11 | Recording: Redo / Add more / Send after stop; option to disable silence auto-stop | done 2026-08-27 | `VoiceButton.swift`, Settings → Voice |
 | 12 | Guests on events: names from voice, Contacts lookup, invite via Messages / WhatsApp / Mail / .ics share | done 2026-08-27 | `GuestsSection.swift` |
 | 13 | Swift Sendable warnings (AVFoundation, UserNotifications) | done 2026-08-27 | `@preconcurrency import` |
-| 14 | Verify every claim in the .md docs against the code | in progress | see commit history |
+| 14 | Verify every claim in the .md docs against the code | standing — last full reconciliation 2026-09-14 | a 15-agent adversarial audit (file:line over doc assertions); its findings are folded into this file, `STATUS.md` and `FEATURES.md` |
 | 15 | Weekly assistant review | scheduled 2026-09-02 | `scripts/weekly_review.py`, LaunchAgent |
 | 16 | Mac gets the iOS thinking timeline: live stage-by-stage panel, result card, tap-a-word fix, 👍/👎 | done 2026-08-27 | `assistant/calendar_ui/thinking_panel.py`, `Pipeline` trace |
 | 17 | Mac "Review commands" backlog (👍 / 👎 / Fix…) — was iOS-only | done 2026-08-27 | `assistant/calendar_ui/review_dialog.py` |
@@ -61,10 +61,10 @@ Running list of user-reported issues and feature requests, with status. Update w
 | 54 | Personal vocabulary gained two more powers beyond spelling fixes: expand an acronym, and carry a label used for task tags and event colours | done 2026-09-01 | `assistant/stt/vocab.py`, `assistant/actions/todo/tagging.py` |
 | 55 | **Settings UI for the vocabulary** — view, edit and clear labels and acronyms on both iOS and macOS, with the user's permission required before anything is added | done 2026-09-03 | `VocabularyView.swift`, Mac Settings |
 | 56 | **The harness** — `--memory` replays against a copy of the real history and `--memory-k N` changes the retrieval count, so k=0 vs k=4 is one flag. Originally: a memory-aware audit mode so the personalisation layer can be measured at all — does history help, is `k=4` right, are verified examples better | done 2026-09-03 | `scripts/audit_assistant.py --memory` |
-| 57 | **Confidence calibration** — the score is now recorded (`examples.confidence`) and `scripts/calibration.py` reads it back; waiting on a week of real use to have anything to say. Originally: the multipliers in `_compute_confidence` are hand-picked and have never been checked against outcomes. The audit already records score and correctness, so bucketing by score answers it | todo | `assistant/intent/rule_parser.py` |
+| 57 | **Confidence calibration IS fast-path coverage — one job that was being tracked from two ends, merged here 2026-09-14 so it is not built twice.** The knobs are hand-picked and have never been checked against outcomes: `rule_parser.py:102 RULE_THRESHOLD = 0.80`, `objects.py:46 SUBITEM_RULE_THRESHOLD = 0.60`, and the four multipliers in `_compute_confidence` (`*= 0.95`, `*= 0.85`, `*= 0.80`, `*= 0.7`). The checkpoint retrospective arrived at the same work from the other side and calls it the highest-leverage lever available (`DOCUMENTATION/experiments/checkpoints/RECOMMENDATIONS.md` §2), and `fastrule.py:83 CONFIDENCE_SIGNALS` names itself its target. Three things bind it. **(a) The hypothesis may not come from the boards that motivated it** — every row of the sealed 300 and the personas 300 is `split:"test"`, so re-derive on `fastrule-v1` vs `main` over dev-fast-250, which is freely mineable; expect that re-derivation to be most of the cost. **(b) The instrument is stale:** `scripts/calibration.py` hardcodes 0.85 as the routing line in five places (`:93,:99,:100,:102,:112`) while the live threshold is 0.80 — and its original "waiting on a week of real use" blocker is satisfied, the read has simply never been done. **(c) The multipliers are pinned to a published page** at `tests/unit/test_artifact_claims.py:128-142`, so changing them goes red by design — that is the guard working, not a problem. **Blocked on a ruling, not on work:** `STATUS.md:302-306` fences fast-rule mining behind *"only after the deep track is improved"*, and this points straight at it | todo — needs Gil's decision first | `assistant/intent/rule_parser.py`, `assistant/engine/fastrule/fastrule.py`, `scripts/calibration.py` |
 | 58 | Two-level label hierarchy (Exercise → Running / Gym) and promoting the planner's ad-hoc categories into the registry | todo | `categories.py`, `tagging.py` |
-| 59 | Ask for 👍/👎 only when the self-check is unsure, instead of on every command — `scratchpad/flag_precision.py` measures whether its opinion agrees with the user's before this is built | todo | review flow |
-| 60 | Few-shot pool: prefer verified examples, and stop recency from evicting corrections | todo | `assistant/intent/parser.py` `_few_shot_for` |
+| 59 | Ask for 👍/👎 only when the self-check is unsure, instead of on every command. **This is TWO jobs and the first was never started.** The row names `scratchpad/flag_precision.py` — the measurement of whether the self-check's opinion agrees with the user's — as its own prerequisite, and that file **does not exist and never did**: `git log --all -- "*flag_precision*"` is empty and there is no `scratchpad/` directory in the checkout. Write the measurement first; gating the prompt before it is building on an unmeasured assumption | todo (the measurement) · blocked (the gate) | review flow |
+| 60 | Few-shot pool: prefer verified examples, and stop recency from evicting corrections. **Genuinely unwritten** — `memory.py:461-475` only *labels* corrected rows after retrieval — **but the path it would improve is dormant**: `config.example.yaml:188` ships `memory_examples: 0`, `config.yaml` sets no value at all, and `FEATURES.md:325-328` records few-shot injection as *"measured to hurt the engine"*. Ranking a pool that nothing reads buys nothing | closed 2026-09-14 as superseded — reopen only paired with a decision to turn k>0 back on | `assistant/intent/parser.py` `_few_shot_for` |
 | 61 | Three iOS fixes committed but not installed on the device — poll storm, counter history sheet, speech continuing after it was turned off | done 2026-09-02 | `xcrun devicectl device install app` |
 | 62 | Explainer artifacts: big-picture done; internals page still needs genericising, a first-time-reader rewrite, and interactive figures | done 2026-09-03 | `DOCUMENTATION/ARTIFACT_BUILDER.md` |
 | 63 | **"pasta times 5" made five identical tasks.** Neither parse path could represent a count, so the only way the LLM could say "five" was to repeat the title five times — and five identical rows mean ticking one tells you nothing. Counts are now read from the words, repeats are folded, and the number shows on the task row | done 2026-09-02 | `assistant/intent/quantity.py`, `todos.quantity`, `TaskRowView.swift`, `todo_view.py` |
@@ -72,18 +72,18 @@ Running list of user-reported issues and feature requests, with status. Update w
 | 65 | Device location: the phone reports its coordinates so sundown follows you, off by default, with a Settings toggle that also clears it | done 2026-09-03 | `observance.set_location`, `/observance/location`, `DeviceLocation.swift` |
 | 66 | Sundown verified against published times rather than trusted: fetched once from an authority, checked in, compared offline. 126 comparisons over 6 cities, worst disagreement 28 s — no fix needed | done 2026-09-03 | `scripts/fetch_zmanim_reference.py`, `tests/unit/test_zmanim_accuracy.py` |
 | 67 | **Misheard names could never be learned.** Every failed name was already in the word list, but the matcher compared letters while speech fails phonetically, so no correction was made, none was learned, and the same command failed forever. A sound-code gate recovers 5 of 6 on first encounter, up from 1 | done 2026-09-03 | `vocab.phonetic_key`, `tests/unit/test_vocab_phonetic.py` |
-| 68 | Third explainer: an explorable drawing rather than 6,600 words of prose | in review | `DOCUMENTATION/artifacts/explorer.html` |
+| 68 | Third explainer: an explorable drawing rather than 6,600 words of prose | done — row closed 2026-09-14, bookkeeping only: the page is 235 KB, last touched by `2930186` (2026-09-13) and maintained alongside the other three artifact pages, and its two child defect rows (69, 70) were both closed *after* it | `DOCUMENTATION/artifacts/explorer.html` |
 | 69 | Explorer: the trace log opened the review panel's text (both carried the same panel id); storage panel too long to read; nothing described how several events in one sentence, or a queue of recordings, are handled | done 2026-09-03 | `DOCUMENTATION/artifacts/explorer.html` |
 | 70 | Explorer named the deciding process "the brain" and the model host "model server", so a reader concluded the server held all three models. It holds one — spaCy and Whisper load inside the deciding process, which the drawing hid | done 2026-09-03 | `explorer.html`, `test_artifact_claims.py` |
 | 71 | **Reformulation mining**: when a command is deleted and a near-identical one succeeds moments later, the pair is a correction the user already gave for free. Runs after every command, on a daemon thread. Finds nothing in the current history — the loose version found three pairs and two were nonsense | done 2026-09-03 | `assistant/intent/memory.py` |
 | 72 | Four false starts ("Execute.", "No.", "I need a b-") were parsed, executed and remembered as real commands, teaching the model that junk is normal | done 2026-09-03 | `server.is_trivial_transcript` |
 | 73 | **Ran the memory comparison.** k=4 98% vs k=0 97% over 89 commands — but the LLM path, the only place examples enter the prompt, is 100% in both arms, so the corpus cannot detect an effect on it. No measurable difference, and the instrument is the limitation | done 2026-09-03 | `ASSISTANT_AUDIT_SUMMARY.md` run 7 |
-| 74 | Build a corpus from the real history's *failures* to measure the memory — the hand-written one is at ceiling on the path that matters, so it can only detect harm | in progress 2026-09-03 | `scripts/audit_assistant.py` corpus, see 75/76 |
+| 74 | Build a corpus from the real history's *failures* to measure the memory — the hand-written one is at ceiling on the path that matters, so it can only detect harm | **delivered, and the follow-on work is DROPPED** (Gil, 2026-09-14: *"dont do the real speech dataset then"*) | It shipped under another name: `dataset/realspeech/` — 1,200 rows, a generator, a board and `REALSPEECH.md`, with a baseline banked at `RESULTS.md:2103` (realspeech faithful/test: handled 70.3% before `643b01f`). **The built artefacts stay on disk; what is dropped is further work on them.** Do not schedule realspeech cycles, and read `RESULTS.md`'s citation of it as a record, not a live target |
 | 75 | **Found and fixed while mining row 74**: editing one event in a same-typed batch ("book gym, then a meeting, then dinner") applied that edit's fields to every same-typed action in the batch, corrupting the others' stored correction — `example_records` only tracked action *type*, not which specific action a record came from. Two real corpus cases added from the same mining pass (duration arithmetic, a dropped self-correction), both still reproduce live | done 2026-09-03 | `assistant/intent/memory.py` `feedback_for_record`, `tests/unit/test_vocab_memory_trace.py` |
 | 76 | **Memory scaling study, in progress overnight**: does retrieval pool *size* matter, and is any k>0 effect about personalisation specifically or just "having more examples"? Real history (74 commands, 65% from one day) can't grow, so built a second pool from HWU-64 (Liu et al. IWSDS 2019, CC BY 4.0) — 3000 real calendar/reminder utterances run through the actual parser against scratch DBs, nested tiers at 60/300/1000/3000. Comparing k-sweep on the real history, a held-out slice (dominant day + the row 75 bug's corrupted correction removed), and each external tier. Fixture and build script checked in, `.db` outputs regenerable and gitignored. **Answered**: real history +3pts at k=4 (95% vs 92%), survives the held-out slice; external pool flat 91–93% at every size — personalisation, not volume. Keep k=4; don't grow the pool with non-personal data. Full write-up: `ASSISTANT_AUDIT_SUMMARY.md` § "The memory-scaling study" (unnumbered — the engine-v2 sessions took run numbers 8–13) | done 2026-09-04 | `scripts/fetch_hwu64_sample.py`, `scripts/build_memory_scaling_pool.py`, `DOCUMENTATION/experiments/memory_scaling/` — results land in `ASSISTANT_AUDIT_SUMMARY.md` |
 | 77 | **The audit's headline "N% accurate" collapsed two different failure modes**: missing something asked for vs. producing something extra. `_check()` now tracks each expected item individually and counts extra actions/task rows explicitly, so the report gets recall and precision — overall, by area, by parse path — plus a dedicated "produced more than expected" section. Confirmed it surfaces something real: tasks area is 95% recall but 79% precision, driven by the row 75/76-adjacent duplicate-task bug. Headline number also now labelled explicitly as case-level exact match against the hand-written corpus, not a real-usage or human-judged figure. `A_k0`/`A_k1` of the overnight run predate this and lack the breakdown — cheap to backfill (~15-20 min each) once the rest finishes | done 2026-09-03 | `scripts/audit_assistant.py` `_check`, `_recall_precision` |
 | 78 | **Linux/PC host migration checked, deferred.** Core (parser, Ollama, spaCy, API, DB, GUI via PyQt6, default STT) is already cross-platform — no work needed. One real blocker: TTS shells out to macOS `say` directly, on by default, in the live voice pipeline (not just dev tooling) — needs swapping for a cross-platform engine (`pyttsx3` / `espeak`) before a Linux host would actually speak replies. Minor, non-blocking degradations: the thinking HUD's "join all Spaces" polish is an AppKit best-effort layer with no Linux equivalent yet (falls back to a normal always-on-top window); optional macOS Calendar.app import wouldn't apply; launch script and weekly-review scheduling are trivially cron-able | todo | `assistant/tts/speaker.py` |
-| 79 | **Dataset redefined by actual spec, and a reusable scorer built.** "Complex" means genuine multi-action (event+event/task+task/event+task compounds, constructed by joining real utterances — HWU-64 is one action per utterance, so this doesn't occur naturally and had to be built), not just longer sentences. `scripts/score_dataset_run.py` scores a `dummy_<N>.db` with no hand-written ground truth — compound provenance gives free deterministic expectations (a task+task compound should yield ≥2 task rows) — and diffs two runs (which prompts flipped pass/fail). About half its metrics are dataset-specific (need `hwu64_sample.json`'s provenance); half are fully general and will run against real production traffic once there is any, unchanged. First real findings (1000/3000 partial build): complex 28% correct vs simple/medium 91%/89%; event+task failures are specifically a dropped *event* (68%), not a random mix; the earlier date-collapse fix accounts for only ~3% of event+event failures, so most of that failure mode is still unexplained; hybrid parse path underperforms both pure rule and pure LLM (57% vs 75%/77%) | in progress 2026-09-03 | `scripts/score_dataset_run.py`, `DOCUMENTATION/experiments/memory_scaling/METRICS.md` |
+| 79 | **Dataset redefined by actual spec, and a reusable scorer built.** "Complex" means genuine multi-action (event+event/task+task/event+task compounds, constructed by joining real utterances — HWU-64 is one action per utterance, so this doesn't occur naturally and had to be built), not just longer sentences. `scripts/score_dataset_run.py` scores a `dummy_<N>.db` with no hand-written ground truth — compound provenance gives free deterministic expectations (a task+task compound should yield ≥2 task rows) — and diffs two runs (which prompts flipped pass/fail). About half its metrics are dataset-specific (need `hwu64_sample.json`'s provenance); half are fully general and will run against real production traffic once there is any, unchanged. First real findings (1000/3000 partial build): complex 28% correct vs simple/medium 91%/89%; event+task failures are specifically a dropped *event* (68%), not a random mix; the earlier date-collapse fix accounts for only ~3% of event+event failures, so most of that failure mode is still unexplained; hybrid parse path underperforms both pure rule and pure LLM (57% vs 75%/77%) | done — row closed 2026-09-14 | `scripts/score_dataset_run.py` is live and is the scorer `scripts/checkpoint_sweep.py:555,633` imports. **One known debt rides on it**, still open under cycle B in `dataset/RESULTS.md`: `score_dataset_run.py:43 _GARBAGE_TITLES` is still the old `{"then","and","also","and then","so","please","now"}` set that the FastRule board already outgrew (`fastrule_shape.py:115-119 _EMPTY_TITLE_RE`), and `checkpoint_sweep.py` inherits the blind spot by importing it — the five-word edit is trivial, the open debt is the re-measure the prediction existed to produce. **Numbering collision:** this row and the Engine-v2 row below were both written as 79 and are both cited by number elsewhere, so neither is renumbered — read the title, not the digit. Also `DOCUMENTATION/experiments/memory_scaling/METRICS.md` |
 
 | 79 | **Engine v2 — the brain rebuilt as the 7-step deep track** (branch `engine-v2`). The old `_run_transcript` (~800 lines of interleaved heuristics, plus four background bolt-ons) retired and replaced by `assistant/engine/`: frozen per-stage contracts (`state.py`, `ENGINE.md`, `test_engine_contracts.py`), fast track (instant rule-parser commit) + deep track (segment → decompose → validate → generate → commit → label → crosscheck), every old named rule ported into `validate.py` with its regression tests, observance gate for AI-created events (leyning/meals/davening on holy days, fasts exclude meals), `needs_edit` transcript-confirmation round-trip gated on `supports_edit`. All eight stages live and stage-gated (LLM gates for segment/decompose/crosscheck passed against real Ollama); step-1 gate + learning loop + Mac dialog/settings done; ingest lock + coalescing done (pending-retry loop batches its backlog); per-stage audit lines added. **Primary instrument now the verification dataset (user decision 2026-09-04): improve against its metrics (count-correct by complexity/compound-kind, missing-half, garbage titles, date collapse); the hand corpus is the regression floor.** Pilot: engine 73% vs old 70% (compounds 2-3x better); full-3000 comparison running overnight → its per-metric report becomes the improvement backlog. Merged to `main` 2026-09-04 (bce502e); iOS edit sheet, one-tap revert, versioned panel all shipped; dataset-driven tune cycles continue as the improvement loop (see below) | done 2026-09-04 | `assistant/engine/`, `DOCUMENTATION/ENGINE.md` |
 
@@ -93,49 +93,134 @@ Running list of user-reported issues and feature requests, with status. Update w
 
 | 82 | **The panel could not tell "this wasn't calendar work" from "this reached me damaged".** Both are items that leave the object stage without an object, and they are opposite kinds of event — one is the engine reading correctly, one is an upstream defect. Neither was visible AT ALL: both were recorded only in `state.fixes`, which nothing outside decompose_validate traces (ENGINE_AUDIT P6), so `"play some music"` drew a card that looked like the assistant had done nothing — verified with `shoot_panel` before changing anything. Fix: `objects._trace_outcome` emits a per-item trace step tagged `data["outcome"]` (`NOT_AN_ASK` / `BAD_ITEM`, `ok=False` only for the defect), titled `Read part N` like the per-item steps beside it; the panel's `_StepRow._OUTCOMES` draws a chip — muted for the correct reading, amber for the defect, red still reserved for the error stage. `test_panel_agreement` now fails the build if the engine gains an outcome the panel has no wording for. No chain change, so no BRAIN_VERSION bump. **The first cut pushed the row wider than the 400px card and clipped the end of every line** — invisible in the text assertions, caught in the picture; `shoot_panel` now reports any row wider than the card, and a test measures it. **Not done: iOS**, which has no equivalent badge — this container has no Swift toolchain and the rule here is that unbuilt Swift does not ship (row 83). Also noted: `"thanks so much"` is NOT currently tagged `other` by fastseg (bare `"thanks"` is), so it reaches this path as an event — a segmentation gap, not a panel one. | done 2026-09-11 | `assistant/engine/fastrule/objects.py`, `assistant/calendar_ui/thinking_panel.py`, `tests/unit/test_panel_agreement.py` |
 
-| 83 | **iOS ThinkingView lags the Mac panel** — no outcome badge (row 82) and no folded chain rail (row 81). Needs a machine with Xcode: `swiftc -parse` is not enough, it missed three real errors last session. | todo | `MACalendar-iOS/MACalendar-iOS/Views/ThinkingView.swift` |
+| 83 | **iOS ThinkingView lags the Mac panel** — no outcome badge (row 82) and no folded chain rail (row 81). **Re-verified 2026-09-14, and it has not moved:** `ThinkingView.swift:341-345 stateMark()` still returns the literal string `"skipped"` into the 14×14 box it shares with the ✓ and the spinner, so it draws as "pp" — precisely the defect the Mac fixed at `thinking_panel.py:456 SKIP_MARK = "·"` and pinned in `test_thinking_hud.py`; and a grep for `outcome|NOT_AN_ASK|BAD_ITEM` across `MACalendar-iOS/` returns nothing engine-related, so there is no outcome chip and no "N steps not needed" fold either. Three commits touched the file after the Mac fixes landed and none added them. CLAUDE.md's rule is that the panel is downstream of the pipeline, so this is a real divergence rather than cosmetics. Needs a machine with Xcode: `swiftc -parse` is not enough, it missed three real errors last session | todo | `MACalendar-iOS/MACalendar-iOS/Views/ThinkingView.swift` |
 
-**Q4 (Gil 2026-09-06, app stream):** Mac notification settings gains an
-"remind me even when the calendar is closed" option — the LaunchAgent detach
-ships BEHIND that toggle, default off (it changes the launch model: --reload,
-HUD, shutdown ownership — the plan's riskiest phase, now opt-in).
 
-**Q9 confirm-prompt flow (Gil 2026-09-07, app stream, IN BUILD):** an
-interrogative create ("should i add yoga…?") pops a confirmation box with
-the parsed proposal — yes creates, no discards. Response-contract pattern of
-the transcript gate: server returns `parse:"confirm_create"` + proposal
-payload only when the request declares `supports_confirm`; POST /voice/confirm
-executes or discards; older clients keep deep-decides. Mac dialog + iOS
-sheet. Dataset: 16 interrogative families relabeled action="propose" (251
-rows) — a fast commit on them now scores as a violation.
+The rows below were opened 2026-09-14 out of the reconciliation audit. Each one
+was already true in the code and recorded nowhere a person would look — most of
+them only in `DOCUMENTATION/experiments/checkpoints/`, which until today nothing
+in the repo linked to.
 
-## How we are working right now
+| # | Item | Status | Where |
+|---|------|--------|-------|
+| 84 | **`llm_ms` is never recorded on the fast path, so every latency board is wrong there.** `engine/__init__.py:907-931 _recheck_not_found` calls the model and never adds to `state.llm_ms`. Verified by grep: `llm_ms +=` has exactly six sites (`llmjudge/llm_fallback.py:41`, `llmjudge/llmjudge.py:121`, `segmentation/old_seg/segment.py:631`, `LLM_one_shot/__init__.py:231`, `decompose_validate/decompose.py:88`, `decompose_validate/text_repair.py:57`) and this is not one of them, though every other model caller does it. Rows that spent ~40 s record `llm_ms 0` against `total_ms ~40,000`. A second half sits in the transport, which indicts itself at `intent/parser.py:515-518`: *“Its callers — call_llm_json's four, and fix_title_async — record no llm_ms at all, which is how a 40-second call stayed invisible in every latency board.”* **Do this before row 85** — it is the instrument row 85 is judged with, and `RECOMMENDATIONS.md` §3 says this gap is *why* row 85 went unnoticed for weeks. One line for the recheck, a handful for the transport | todo | `assistant/engine/__init__.py`, `assistant/intent/parser.py` |
+| 85 | **Gate `_recheck_not_found` on candidates actually existing.** Same function, and there is no store query anywhere in it — it goes from the trace step straight to `_generate._get_parser(cfg).parse(state.text)`. When the target store holds no candidate rows the model cannot read a target into existence, so the ~40 s call is pure cost: measured at 25 of the 30 slow fast-path rows, ~20% of fast-path traffic (`checkpoints/RECOMMENDATIONS.md` §1). **Two things must ride in the commit message.** (a) `scripts/checkpoint_sweep.py:178` calls `reset_calendar()` before every row, so *every* delete in that board targeted an empty store — the measurement was taken under exactly the condition that guarantees the finding. (b) The recheck earns its place where candidates DO exist: the sealed run's own row detail shows it changed the outcome on 5 of 32 slow rows, including the run-9 `“Walk Mark's dog”` case it was built for. **Gate it; do not delete it.** A count check in one ~25-line function | todo | `assistant/engine/__init__.py:907-931` |
+| 86 | **FastRule's PRIMARY board has never once reported its “NOW rows” section.** `fastrule/experiments/fastrule_shape.py:121` reads `re.compile(r"\\b(?:right\\s+now|now|immediately|asap)\\b", re.I)` — doubled backslashes inside a raw string, so the compiled pattern hunts for literal backslashes, `NOW_N` stays 0, and line 341's `if NOW_N:` silently omits the whole section. The correct sibling is `decompose_validate/object_rules.py:30`, single-escaped. The check exists specifically because ~152 rows saying “now” were landing at midnight and scoring as fine, and CLAUDE.md makes this board FastRule's primary instrument. One character class | todo | `assistant/engine/fastrule/experiments/fastrule_shape.py:121` |
+| 87 | **The decompose_validate traceability board's vocabulary is hand-maintained and has drifted seven times.** `decompose_validate/eval_metrics/score.py:216-232` indicts itself — *“SEVENTH TIME… The vocabulary below is hand-maintained and drifts behind the resolver every time a form is added (this round: yearly/annually)… Not done here because it is a board refactor”* — and then at `:230-232` ships yet another hand-maintained alternation. Two recorded instances of the cost: 115 correct weekly recurrences reported as invented because the board had never heard of “twice a week”, and every correct 21:00 from “tomorrow night” reported as invented because “night” was missing. Fix is to derive the vocabulary from `normalization.py`'s closed tables — the gold's own words — which keeps the board independent of `resolve.py` while removing the drift. **Timing is load-bearing:** do it BEFORE the next batch of forms lands. What it manufactures is false *invention* failures, and a whole cycle can be spent chasing a defect that does not exist. (Same item as decompose_validate carried-forward #4 below; tracked here so it is visible from the tracker rather than only from a stage note) | todo | `assistant/engine/decompose_validate/eval_metrics/score.py` |
+| 88 | **`scripts/engine_stage_check.py` is broken, not merely stale** — and CLAUDE.md presents it as the working per-stage gate. `:251-258` declares `STAGES = {transcript, segment, decompose, validate, generate, crosscheck}`: no `fastrule`, `llmjudge`, `label` or `ingest`. Worse, `:214` does `from assistant.engine.llmjudge import crosscheck` and no such module exists (the folder holds `gatekeeper.py`, `llm_fallback.py`, `llmjudge.py`), so `--stage crosscheck` and `--stage all` raise `ImportError` before any model loads; and `:82` imports `old_seg.segment`, i.e. it verifies the segmenter that does not run. **The identical defect in `assistant/cli.py` was found and fixed 2026-09-13 (`c82d5f8`) and this copy was missed** — and it is the copy still living in `scripts/` rather than in a stage folder that owns it, which is exactly the shape of CLAUDE.md's path-rot warning. Copy the stage list from `cli.py`. **Depends on row 91** for what the correct list is, if the branch lands | todo | `scripts/engine_stage_check.py` |
+| 89 | **Ingest has no dataset and no board — the only stage with neither.** `assistant/engine/ingest/` holds `ARCHITECTURE.md`, `__init__.py`, `coalesce.py`, `repair.py` and nothing else, on HEAD and on `engine-component-folders` alike; its own doc says so at `ARCHITECTURE.md:51` (*“Not yet dug into. Moved here for structure; no dataset, no board of its own”*) and `STAGE_ISOLATION_PLAN.md`'s stage table still carries it under its old name `transcript`, status **not started**. It is the FIRST stage in the chain, so anything it gets wrong is charged to every stage below it, and the vocabulary rewrite happens before every parse — a regression here is invisible to every downstream board yet changes what the whole engine sees. **The one stage-isolation item that is neither frozen nor already done on the branch.** Constraint: the (word, corrected word) pairs come from the real `~/.assistant_tools/vocab.json`, which CLAUDE.md rules is hand-curated personal data — point `MACALENDAR_VOCAB` at scratch | todo | `assistant/engine/ingest/` |
+| 90 | **The fast path can still book a MONTHLY series for a YEARLY ask.** `assistant/intent/recurrence.py:41` is still `(r"\bevery\s+year\b|\byearly\b|\bannually\b", "monthly", True)`, and `rule_parser.py:1327-1329` writes that cadence straight into the slots. `resolve.py:481-483` added `yearly` on 2026-09-08 to fix exactly this; **the second reader was never updated**, and it is not fixed on `engine-component-folders` either. CLAUDE.md is explicit that yearly is the one cadence rounding could not honestly cover — twelve times wrong, firing eleven times nobody asked for. **This is a live user-visible wrong answer, not a metric line.** Two stale dependants fall out of the same duplication: `decompose_validate/text_helpers.py:41` still announces a rounding for “every tuesday and thursday” that no longer happens (`recur_days` is supported end to end — `db.py:110,460-478,923`), and `object_rules.py:266`'s reply still tells the user *“I can only repeat daily, weekly or monthly”*, omitting the fourth cadence | todo | `assistant/intent/recurrence.py`, `assistant/intent/rule_parser.py`, `assistant/engine/decompose_validate/text_helpers.py`, `assistant/engine/decompose_validate/object_rules.py` |
+| 91 | **`engine-component-folders`: 34 finished, tested commits, unmerged — decide merge / rebase / abandon.** Verified 2026-09-14: `origin/engine-component-folders` is at `8fac94d` and **it is pushed**, so nothing is one disk failure away any more; `git rev-list --left-right --count HEAD...origin/engine-component-folders` reports `50 34`. It carries FastRule phases B and C (`fastrule/build.py`, `fast_track.py`, `experiments/b1_ceiling.py`, `b3_live_chain.py`, `stage_board.py`), LLMJudge's stage-isolation work (`rewrite.py`, `verdict.py`, `rescue.py`, `findings.py`, `render.py` — **none of which exist on HEAD**), Label's two learned classifiers, and the accessor move into `engine/llm.py`. Not a mechanical merge: both sides touched the same files for different reasons. **Until it is decided, anyone told to “start FastRule phase B” writes it a second time** and loses the two real defects the branch's 32 tests already caught | decision for Gil | — |
 
-**The current thread is the deep-track improvement loop** (branch
-`loop-cycle-1`; protocol in `DOCUMENTATION/experiments/ITERATION_PROTOCOL.md`,
-queue in `dataset/HYPOTHESES.md`, record in `dataset/RESULTS.md` +
-`dataset/loop_log.csv`). Cycles 1–4 graduated 2026-09-04; the measurement
-epoch reset 2026-09-05 (frozen row clocks + observance flag; baseline
-78.4 raw / 81.2 adjusted); **cycle 5 in flight 2026-09-06** (grounded
-default-title events). Standing instruments: the runs archive
-(`dataset/runs/` + `scripts/rescore_runs.py`) and the conventions-overrides
-layer (`count_ok_adj`). Open engine bug queued in HYPOTHESES.md: queries can
-emit mutations (the dentist `update_event`).
+**Q4 (Gil 2026-09-06, app stream) — RULED IN, STILL UNBUILT.** Mac
+notification settings gains a "remind me even when the calendar is closed"
+option; the LaunchAgent detach ships BEHIND that toggle, default off (it
+changes the launch model: --reload, HUD, shutdown ownership — the plan's
+riskiest phase, which is exactly why it is opt-in). Checked 2026-09-14: neither
+half exists. `settings_dialog.py:218-266` has exactly four notification
+controls — "Pre-event notifications", the lead-time spin, "Spoken heads-up",
+"Hold on Shabbat & yom tov" — and none of them is this; `find . -name "*.plist"`
+finds no launchd plist for `assistant.api`. **It has been unblocked since
+2026-09-06** and two docs went on calling it blocked. Carried in the order of
+play as notifications phase 5.
 
-**The app stream** runs in the `../MACalendar-app` worktree (branch
-`app-features`, CLAUDE.md "Two work streams"): the whole Gil-approved queue
-shipped 2026-09-06 (243d99f → 3b89809) — .ics share, search + jump-to-date,
-duplicate event, week numbers, Timer CSV, agenda view, observance checkbox,
-iOS heartbeat/share/search, ThinkingView file move; two bugs found+fixed
-(settings-dialog imports; pydantic dropping `observance.enabled`).
-Notifications is planned only (`DOCUMENTATION/NOTIFICATIONS_PLAN.md`),
-blocked on DEVQA Q4–Q6. Shipped 2026-09-07: the **confirm-create gate**
-(DEVQA Q9) — an interrogative create is offered rather than executed or
-dropped (`parse: "confirm_create"` + `proposal`, `POST /voice/confirm`, Mac
-Add/No box, iOS alert); see FEATURES.md and ENGINE.md.
-Merge all three branches at the next cycle boundary.
+**Q9 confirm-prompt flow (Gil 2026-09-07, app stream) — SHIPPED 2026-09-07**,
+and this note said "IN BUILD" until 2026-09-14 while the paragraph 29 lines
+below already recorded it as shipped. An interrogative create ("should i add
+yoga…?") pops a confirmation box with the parsed proposal — yes creates, no
+discards. Response-contract pattern of the transcript gate: the server returns
+`parse:"confirm_create"` + a proposal payload only when the request declares
+`supports_confirm` (`api/server.py:379,387`), `POST /voice/confirm`
+(`server.py:598`) executes or discards, older clients keep deep-decides. Mac
+dialog + iOS sheet. Dataset: 16 interrogative families relabeled
+action="propose" (251 rows) — a fast commit on them now scores as a violation.
 
-Previous thread, as of 2026-09-03 (still relevant on `main`):
+## How we are working right now (2026-09-14)
+
+**STAGE ISOLATION, not the whole-engine loop.**
+`DOCUMENTATION/STAGE_ISOLATION_PLAN.md` is the plan of record and says so in its
+own second line: *"Supersedes the whole-engine cycle loop until it completes.
+Engine cycles stay PAUSED"* (Gil, 2026-09-07). Each stage is proven on its own
+dataset before the system is reconnected. `dataset/loop_log.csv` ends at run 21
+— the pre-loop sealed milestone, backfilled 2026-09-11 — and the last era-2
+*cycle* in it is run 20 / e2c4.
+
+*What used to stand here said "cycle 5 in flight 2026-09-06". There was no
+cycle 5; the epoch reset of 2026-09-05 was followed by four era-2 cycles and
+then the pause. The branch it named, `loop-cycle-1`, is not where work happens
+any more.*
+
+**Where the live queue actually lives.** The checkpoint retrospective is at
+`DOCUMENTATION/experiments/checkpoints/` — `RECOMMENDATIONS.md` (what is worth
+fixing, 2026-09-13) and `RUN_STATUS.md` (the six-checkpoint boards). Until
+2026-09-14 a repo-wide grep for either filename returned **zero** hits outside
+that folder: it was unreachable from CLAUDE.md → STATUS.md → TASKS.md, which is
+how rows 84, 85 and the other half of row 57 survived unnoticed for weeks. This
+file is the link now. Its three surviving recommendations are **row 85** (gate
+the not-found recheck), **row 57** (fast-path coverage) and **row 84** (the
+`llm_ms` recording gap); a fourth — A/B the segmentation swap via
+`MACALENDAR_SEGMENTATION` — was dropped by Gil on 2026-09-13 as not relevant.
+
+**Two streams, two checkouts, unchanged.** App features and cleanups happen in
+`../MACalendar-app` (branch `app-features`), merged between cycles, never during
+a measurement run. `origin/main` is at `5561883` with `app-features` and
+`fast-lane` merged into it; only the *local* `main` ref is stale, at `18f95d9`.
+A fetch fixes that — it is not work, and it is not "176 commits behind".
+
+### Standing rulings recorded here 2026-09-14 because they exist nowhere else
+
+These came out of a working session and the audit could not find them anywhere
+in the repo. They are real, and two of them contradict what other docs still
+say, so they belong in the tracker rather than in a chat log.
+
+- **The real-speech dataset is DROPPED.** Gil, verbatim: *"dont do the real
+  speech dataset then."* The built artefacts stay on disk — `dataset/realspeech/`
+  (1,200 rows, generator, board, `REALSPEECH.md`) — and what is dropped is
+  further work on it. `dataset/RESULTS.md` still cites its baseline as though it
+  were a live target; read that as a record. See row 74.
+- **The segmentation freeze is PARTIALLY LIFTED.** Gil, verbatim: *"well
+  segmentation as long as the structure remains the same, and just fixing
+  implementations then its fine. same for fastrules."* So **implementation fixes
+  inside `assistant/engine/segmentation/` are allowed; structure and design
+  changes are not.** This supersedes the blanket *"no edits to
+  `assistant/engine/segmentation/` at all"* gloss the segmentation section below
+  used to carry, and it retroactively explains the two commits the audit flagged
+  as freeze breaches — see that section.
+- **Prefer not to restructure.** Gil: *"i don't really want to make structural
+  changes if i don't have to."* Read every open row through that: a fix inside a
+  module beats a reshaping of the chain, and CLAUDE.md's rule that stage I/O
+  contracts are frozen is the same instinct written down.
+
+**The app stream's Gil-approved queue shipped 2026-09-06** (243d99f → 3b89809):
+.ics share, search + jump-to-date, duplicate event, week numbers, Timer CSV,
+agenda view, observance checkbox, iOS heartbeat/share/search, ThinkingView file
+move; two bugs found and fixed (settings-dialog imports; pydantic dropping
+`observance.enabled`).
+
+**Notifications is NOT "planned only, blocked on DEVQA Q4–Q6".** Q4, Q5 and Q6
+were all answered 2026-09-06 (`DEVQA.md:178-190`; Q6 re-confirmed at `:90`
+2026-09-11), and phases 1, 2 and 4 shipped and merged: `assistant/notify.py`
+(155 lines), `assistant/notifier.py` (225), the DB column and `reminder_log`
+table, `NotificationsConfig`, the Mac settings section, `ReminderScheduler.swift`,
+`LiveActivityManager.swift`. Phase 3 shipped its inline half as row 80. What is
+genuinely left is phase 5 — see the order of play. The pre-Shabbat digest in
+that row is **closed, not deferred** (`DEVQA.md:90-92`).
+
+**The confirm-create gate (DEVQA Q9) shipped 2026-09-07** — an interrogative
+create is offered rather than executed or dropped (`parse: "confirm_create"` +
+`proposal`, `POST /voice/confirm`, Mac Add/No box, iOS alert); see FEATURES.md
+and ENGINE.md.
+
+**The dentist bug is fixed, 2026-09-11** — it was queued here and in STATUS.md
+as an open engine bug ("queries can emit mutations"). `object_rules.py:183
+_rule_question_mutates_nothing` is the rule, with the imperative-wearing-a-
+question-mark discrimination beside it, pinned by `test_engine_checks.py:319-354`
+and written up in `8fa8e72`. Residue: `HYPOTHESES.md:247` still wants a
+full-engine run to confirm the 14 sweep hits are gone — that can ride any future
+sweep, it is not its own job.
+
+Previous thread, as of 2026-09-03 — history, kept because the k=4 finding still
+binds:
 
 **Row 76 landed** (2026-09-04, overnight): the full A/B/C comparison is
 written up as run 8 in `ASSISTANT_AUDIT_SUMMARY.md`, and `k` is no longer an
@@ -146,10 +231,25 @@ session works the compound-parsing problem next. Note for tooling: every join
 against the pool keys on `raw_transcript` (verbatim input), because the
 pipeline can rewrite a transcript before storing it.
 
-Decisions still waiting on a number: the eviction policy (row 60 — run 8 says
-protect real, reviewed examples; bulk data has no measured value), the
-confidence weights (row 57, waiting on a week of real use), whether labelling
-should move to the LLM.
+Decisions that were "waiting on a number" then, and where each actually stands
+now (2026-09-14):
+
+- **The eviction policy (row 60)** — moot rather than answered. Run 8 said
+  protect real, reviewed examples and that bulk data has no measured value; the
+  few-shot path then shipped at `memory_examples: 0` and `FEATURES.md:325-328`
+  records it measured to HURT the engine. Row 60 is closed as superseded.
+- **The confidence weights (row 57)** — the blocker is gone and the read was
+  never done. A read-only run during the 2026-09-14 audit reported 91 real
+  commands, 69 with a human verdict, 13 of those also carrying a confidence, and
+  4 of 6 buckets too thin to read. n=13 is thin, but "waiting on a week of real
+  use" is no longer the reason nothing has happened. Row 57 now carries this together with the
+  retrospective's fast-path-coverage job.
+- **Whether labelling should move to the LLM** — partly overtaken by
+  `117dd69` (2026-09-13), which moved task/event labelling INTO the store:
+  `create_todo` infers when `tags is None`, and `update_todo`/`update_event`
+  relabel on rename. That settles *where* labelling happens; it does not settle
+  *what decides*. The Label stage's two learned classifiers exist on
+  `engine-component-folders` (row 91) and would.
 
 ## CLOSED 2026-09-08 — the order-dependent unit test (was: open bug)
 
@@ -211,15 +311,57 @@ train while being better on five metrics — weakest on item count, which is exa
 where the work stopped.
 
 **FROZEN by Gil, 2026-09-09** — *"for now segmentation we leave, I don't want to
-edit or make changes there."* Not paused-and-drifting: no edits to
-`assistant/engine/segmentation/` at all while FastRule and LLMJudge are the work.
-The list below is where it resumes, kept intact so nothing has to be re-derived.
+edit or make changes there."* The list below is where it resumes, kept intact so
+nothing has to be re-derived.
 
-**When it resumes, pick it up at PLAN.md §0's ordered list.** First is 3b, the
-under-split compounds (108 rows, the biggest remaining lever, and the risky half).
-Second is **re-testing LLMSeg**: its four measurements were taken against a much
-weaker FastSeg and are stale in both directions, and board D — the one built to
-answer "does the correction pay for itself" — has never run at all.
+**PARTIALLY LIFTED — Gil, 2026-09-14**, and this is the ruling that matters when
+reading everything below. Verbatim: *"well segmentation as long as the structure
+remains the same, and just fixing implementations then its fine. same for
+fastrules."* So the line is **STRUCTURE, not the folder**:
+
+- **Allowed:** implementation fixes inside `assistant/engine/segmentation/` — a
+  regex that reads a case wrong, a rule that fires where it shouldn't, a board
+  that miscounts.
+- **Not allowed:** structure and design — adding or removing a component,
+  changing what FastSeg and LLMSeg are to each other, changing the stage's
+  contract or its place in the chain. Those are DESIGN decisions and go to Gil.
+
+This supersedes the earlier gloss that read *"no edits to
+`assistant/engine/segmentation/` at all"*, which was a tightening this file added
+on top of what Gil actually said. **It also settles the two commits the
+2026-09-14 audit flagged as freeze breaches: both were implementation, so both
+were permitted.** `8fa8e72` (2026-09-11) changed nine lines of
+`fastseg/fastseg.py` so that "thanks so much" tags as `other` — a closed list of
+intensifiers riding the greeting group — and measured both sides: exact-set
+76.6%, right item count 85.3%, item F1 94.6%, over-split 46 / under-split 108
+rows, IDENTICAL either way on the segmentation train corpus. `b7687ea`
+(2026-09-13) added 25 lines to `llmseg/llmseg.py` so that its model calls appear
+in the new LLM console — observability, no behaviour. **One real piece of
+bookkeeping survives:** `segmentation/experiments/RESULTS.md` was last written
+2026-09-08 and does not carry `8fa8e72`'s measurement, so the board's own record
+is two fixes behind the code it describes.
+
+**When it resumes in full, pick it up at PLAN.md §0's ordered list.** First is
+3b, the under-split compounds (`PLAN.md:42-43`: 108 under-split rows;
+`and_compound` 53.6%, `joiner` 50.0%, `remind_then` 45.8%; multi-ask rows 17
+points behind single-ask on the segmentation train corpus) — the biggest
+remaining lever and the risky half, because over-split is garbage immediately.
+Second is **re-testing LLMSeg**: its four refutations were measured against a
+FastSeg scoring 51.5% exact-row (`PLAN.md:78,273`) and FastSeg is now 68.2%
+train / 66.5% sealed (`PLAN.md:15`), so they are stale in *both* directions, and
+board D — the one built to answer "does the correction pay for itself" — has
+never produced a number. That second one is a measurement, not a code change,
+and is therefore the cheapest thing here to restart.
+
+Two items in that list need a ruling before anyone picks them up. **§8.3, the
+injected date floor** (`fastseg.py:352` writes the literal word "today" into
+`time`, costing two live workarounds at `state.py:108-115` and
+`stage.py:100-106`, and one past audit failure) is the only frozen item actively
+costing something today — but it needs the dataset regenerated, which makes it a
+cycle of its own rather than an implementation fix. And **a board for the `other`
+tag** is arguably exempt from the freeze entirely, since a board measures
+segmentation without editing it and could live in `scripts/` — but it needs a
+dataset of unusable inputs built first. Ask rather than assume.
 
 ## The measurement that set the priority (2026-09-09)
 
@@ -238,6 +380,18 @@ segmentation's. **Segmentation is the next stage to work on, not FastRule** —
 whose own board would be read through the same lossy input. Its §8.1 already names
 the two defects, and §7b now carries these numbers from the receiving end.
 
+**A second measurement, 2026-09-13, points somewhere else, and both are true.**
+The checkpoint sweep scored `main`'s two paths on the SAME 170 sealed rows:
+fast path (rules only) **93.1%** count-correct, deep path (six stages + the
+model) **65.3%** — 28 points apart, on identical rows, with the cheap path
+ahead. It reproduces on 300 persona rows that share nothing with the sealed set
+(`RUN_STATUS.md`: `main` +5 to +7 on simple and −8 on complex against
+`fastrule-v1`). These do not contradict each other: this section says
+segmentation is where items are LOST, and the sweep says that everything
+downstream of the loss does worse than not going there at all. **Both boards are
+`split:"test"`, so neither may pick the next thing to work on** — see row 57 for
+the legal re-derivation route.
+
 ## decompose_validate — carried forward (2026-09-08)
 
 The stage is rebuilt, measured and wired; v1 is retired and tagged
@@ -247,17 +401,49 @@ worth doing:
 | # | item | why it is not blocking |
 |---|---|---|
 | 1 | **`decompose.py` is the last v1 file** (194 lines: item splitting). This stage's settled design says it does NOT split — segmentation does. | **Partly answered 2026-09-08**: disabled, the 25-case audit is IDENTICAL (76% / 81%) and all 1336 tests pass. Three of four probe cases are identical and the fourth is *worse with it* (see below). Evidence says removable; it deserves the FULL audit corpus both ways before deleting, not a 25-case slice — the slice is events-only and the splitter's list path is a task path. |
-| 2 | **FastRule re-parses instead of reading `item.slots`.** | Behaviour is already right (values reach the intents in `run_objects`), so this is duplicated parsing rather than a wrong answer. Natural to do while working on FastRule. |
+| 2 | **FastRule re-parses instead of reading `item.slots`.** | Behaviour is already right (values reach the intents in `run_objects`), so this is duplicated parsing rather than a wrong answer. **WRITTEN, not merged (2026-09-14):** it is phase B3 on `engine-component-folders` — *"83.5% of atomic train rows built through the real chain, operation 90.8%, title 55.5%, all eight values copied"* — and its 32 tests caught two real defects on the way. This is now merge work (row 91), not implementation work. |
 | 3 | **11 sealed rows still fail** (of 840; date 99.1%). | They sit in a construction class **train has no failing instance of**, so fixing them means growing train speculatively — and the sealing rule forbids reading the test rows. Below the noise floor. |
-| 4 | **The traceability board's vocabulary is hand-maintained** and has drifted 7 times. | Fix is to derive it from `normalization.py`'s closed tables — the gold's own words, so the board stays independent of `resolve.py` while it stops drifting. Do it before the next batch of forms lands, not after. |
-| 4b | **`"walk the dog at 9 and 2:30"` is broken BOTH ways** — found while testing item 1. Without the splitter: one event, titled `'dog'`, and the 9 o'clock lost. With it: a spurious todo *plus* an `'Untitled Event'`. It should be two events. | A segmentation failure (§8.1), not this stage's — but it is a live wrong answer on a case the docs use as a trap example, so it is worth someone's attention rather than a footnote. |
+| 4 | **The traceability board's vocabulary is hand-maintained** and has drifted 7 times. | Fix is to derive it from `normalization.py`'s closed tables — the gold's own words, so the board stays independent of `resolve.py` while it stops drifting. Do it before the next batch of forms lands, not after. **Now tracked as row 87** so it is visible from the tracker; still true and still unfixed — `eval_metrics/score.py:230-232` ships yet another hand-maintained alternation. |
+| 4b | ~~**`"walk the dog at 9 and 2:30"` is broken BOTH ways**~~ — **STALE. Do not schedule a fix against this row.** | **Re-checked and found already fixed, 2026-09-11 (`8fa8e72`)**, which took this recorded-but-unfixed list in order and checked each case before touching it: the command now produces exactly two events, both titled "walk the dog", at 09:00 and 14:30. Cycle A part 1's clause-boundary splitter fixed it downstream and nobody closed the note. Kept here rather than deleted because the shape still teaches: a recorded defect can be fixed by unrelated work, so **check before you schedule**. |
 | 5 | **Segmentation §8.1 / §8.2 / §8.3** are recorded for Gil, §8.3 being the date FLOOR injected into `time` as a word. | Another stage's work. §8.3 already costs two workarounds and caused one live audit failure, so it is the one with a price attached. |
 
-## FastRule + LLMJudge — the restructure is PLANNED, not started (2026-09-09)
+## FastRule + LLMJudge — phase A on HEAD, B and C on a branch (corrected 2026-09-14)
 
-`assistant/engine/fastrule/PLAN.md` and `assistant/engine/llmjudge/PLAN.md` are
-written; **no code has been touched.** Gil's definition of the box is what the plan
-is measured against:
+**This section said "PLANNED, not started… no code has been touched" until
+2026-09-14. That was false twice over**, and the cost of leaving it standing is
+that anyone told to start phase B writes it a second time.
+
+| phase | actual state, verified 2026-09-14 |
+|---|---|
+| **A · PORT OUT** | **LANDED ON HEAD** at `46f7967` (*"Port Gatekeeper and the LLM fallback to llmjudge/, before FastRule is broken up"*). `class Gatekeeper` now exists at `assistant/engine/llmjudge/gatekeeper.py:106` **and nowhere else** — `grep -rn "class Gatekeeper" assistant/` returns exactly that one line — and `fastrule.py:47-55` carries the `PORTED OUT 2026-09-09 (Gil)` import redirect, which is the plan's own design: the code moved, the call sites did not, behaviour unchanged. |
+| **B · RESTRUCTURE** | **DONE 2026-09-10 on `engine-component-folders`**, not on HEAD. That branch has `fastrule/build.py`, `fast_track.py` and the B-phase boards (`experiments/b1_ceiling.py`, `b3_live_chain.py`, `stage_board.py`); HEAD's `fastrule/` still has `objects.py` and no `build.py`. Its own PLAN.md marks B1–B4 and B6 done, B3 reading: *"83.5% of atomic train rows built through the real chain, operation 90.8%, title 55.5%, all eight values copied."* |
+| **C · MEASURE** | **DONE on the same branch** (C0–C3 marked done), together with LLMJudge's stage-isolation work — `rewrite.py`, `verdict.py`, `rescue.py`, `findings.py`, `render.py`, `datasets/` and six boards, **none of which exist on HEAD**. |
+| **D · STOP** | Not reached, because B and C were never merged. |
+
+**So the open work here is a MERGE DECISION, not implementation — row 91.** Two
+specific things that look open on HEAD and are not: `rewrite_for_retry` is
+`return None` here but is a 286-line `rewrite.py` on the branch, already
+embodying Gil's 2026-09-09 TRIM ruling; and LLMJudge's 0.25 ask-matching
+threshold, which an earlier audit said "should be swept", **must not be swept** —
+the branch deletes the matcher it belongs to, because ask extraction was removed
+on Gil's instruction (*"that defeats the point of what segmentation →
+decompose_validate → FastRule did"*).
+
+**Q13 is ruled and the carve-out stays** (Gil, 2026-09-07, re-confirmed
+2026-09-14: *"Q13 seems like that is fine"*). A fast commit on a compound that
+the parse fully covers is FINE: `_parse_covers_the_compound`
+(`fastrule.py:188`, used at `:268`) is deliberate, not a leak. The
+non-atomic bucket is a DIAGNOSTIC split — covered / half-executed / deferred —
+with no single "violation" number; the primary metrics are atomic handle-rate
+and correct-on-handled. See `DEVQA.md:116-127`.
+
+**FastRule's own freeze is lifted on the same terms as segmentation's** (Gil,
+2026-09-14: *"same for fastrules"*) — implementation fixes yes, structure no.
+Rows 86 and 57 are both implementation.
+
+The plan below is kept because it is still the record of WHY the box is shaped
+the way it is, and because the merge decision is judged against it. Gil's
+definition of the box is what it was measured against:
 
 > *"FastRule's job is only to take each Item and make it into an object format the
 > system accepts, so we can commit when ready."*
@@ -268,14 +454,15 @@ and the function doing the job the stage exists for is **eleven lines** copying
 `build(item, *, today) -> BuildResult`, with no model, no database and no opinion
 about whether to commit.
 
-**Four phases, in this order** (Gil, 2026-09-09) — `fastrule/PLAN.md` §3:
+**Four phases, in this order** (Gil, 2026-09-09) — `fastrule/PLAN.md` §3, with
+where each one actually is as of 2026-09-14:
 
-| | | where |
-|---|---|---|
-| **A · PORT OUT** | `Gatekeeper` + the LLM fallback into `llmjudge/` — a move with an import redirect, behaviour identical, **no number moves** | `llmjudge/PLAN.md` §1.0 |
-| **B · RESTRUCTURE** | measure the ceiling → `build(item, today)` proven alone → **B3 WIRE IT INTO THE ENGINE** (five touch-points, the format, and the md files) → `Atomicity`+`fast_propose` → a new `fast_track.py` → delete the call sites and the dead code | `fastrule/PLAN.md` §3 |
-| **C · MEASURE** | fix the generator, add gold Items, rewrite the board to feed `build()`, iterate until satisfied | `fastrule/PLAN.md` §3 |
-| **D · STOP** | report to Gil. **LLMJudge's own work does not start before this** | — |
+| | | where | state |
+|---|---|---|---|
+| **A · PORT OUT** | `Gatekeeper` + the LLM fallback into `llmjudge/` — a move with an import redirect, behaviour identical, **no number moves** | `llmjudge/PLAN.md` §1.0 | ✅ on HEAD, `46f7967` |
+| **B · RESTRUCTURE** | measure the ceiling → `build(item, today)` proven alone → **B3 WIRE IT INTO THE ENGINE** (five touch-points, the format, and the md files) → `Atomicity`+`fast_propose` → a new `fast_track.py` → delete the call sites and the dead code | `fastrule/PLAN.md` §3 | ✅ on `engine-component-folders`, unmerged |
+| **C · MEASURE** | fix the generator, add gold Items, rewrite the board to feed `build()`, iterate until satisfied | `fastrule/PLAN.md` §3 | ✅ on `engine-component-folders`, unmerged |
+| **D · STOP** | report to Gil. **LLMJudge's own work does not start before this** | — | not reached — blocked on row 91 |
 
 Phase A exists because Gil asked for it directly — *"before we start breaking
 FastRule code, port what's relevant to the LLMJudge folder"* — and the reason holds
@@ -293,10 +480,24 @@ accessor** for the action registry and both parsers — six call sites outside t
 stage, including `server.py`'s warm-up — so those need a home (`engine/llm.py`)
 *before* anything deletes the file, not during.
 
+**The branch did that (B6) and HEAD still carries the duplication it removes.**
+On HEAD there are two independent `IntentParser` caches of the same object —
+`engine/llm.py:17` and `fastrule/objects.py:65`, both `global _parser`, both
+built from `get_registry()` — and `engine/__init__.py:274` has to reset both in
+a loop (`for _mod in ("assistant.engine.llm", "assistant.engine.fastrule.objects")`)
+because of it. That loop is the tell: a single accessor would not need it. Not a
+live wrong answer, but a real piece of what row 91 buys.
+
 **Phase C is mandatory, not polish** — B2 invalidates the instrument. The 7,200-row
 board feeds raw TEXT into `FastRule.run(text)`; the restructured box takes an
 `Item`. So the moment `build()` lands, the primary board cannot run at all, and
 FastRule would be unmeasurable exactly when it has just been rewritten.
+
+*The branch solved this by ADDING rather than rewriting* (C3): `fastrule_shape.py`
+stays as the FRONT-DOOR board — `FastRule(0.80).run(text)`, which the restructure
+does not touch — and `experiments/stage_board.py` is a new board for the box,
+taking `--input gold` or `--input chain`. Worth knowing before the merge, because
+it means row 86's fix to `fastrule_shape.py` is not thrown away by it.
 
 ✅ **The phase-C blocker is GONE — verified 2026-09-11.** This paragraph used to
 read that `scripts/gen_fastrule_dataset.py:56-57` still pointed at
@@ -315,11 +516,25 @@ STAGE folder for `fastrule_shape.py`, so a naive sweep reports the board as
 broken when its path is correct. That false positive was hit, and corrected,
 during this very check.
 
+⚠️ **There was a FIFTH site, and the same lesson applies to it** (found
+2026-09-14, now row 88): `scripts/engine_stage_check.py` — the per-stage gate
+CLAUDE.md points at — imports `assistant.engine.llmjudge.crosscheck`, which does
+not exist, and lists a stage set three renames out of date. The identical defect
+in `assistant/cli.py` was found and fixed the day before (`c82d5f8`) and this
+copy was not, because **finding some of these is not finding all of them** — and
+once again the survivor is the one living in `scripts/` rather than in the folder
+that owns it. Healthy *as of a date* means checked on that date, in that sweep,
+against that list.
+
 **Segmentation is FROZEN — Gil, 2026-09-09**: *"For now segmentation we leave, I
 don't want to edit or make changes there."* The order is FastRule → LLMJudge →
 Gil decides. This supersedes the "segmentation is the next stage to work on"
 verdict below **as an order of work**; it does not touch it as a measurement,
 which still stands and still says where the score is lost.
+**Amended 2026-09-14:** the freeze now bars STRUCTURE, not the folder —
+implementation fixes are allowed in both segmentation and FastRule (Gil: *"same
+for fastrules"*). See the segmentation section above for the full ruling and for
+what it says about the two commits that were flagged as breaches.
 
 **What the freeze changes is the instrument.** With segmentation fixed, its
 265-item loss is a permanent ceiling rather than a thing to fix, so a whole-engine

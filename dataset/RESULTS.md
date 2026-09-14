@@ -1451,6 +1451,99 @@ the rules' ~36%), which is why that rewiring worked and this one does not.
 kind models reach the atomicity model's standard. Banked so no future cycle
 re-tries it blind.
 
+## MILESTONE — THE PERSONAS BOARD, 300 rows (2026-09-14)
+
+**The companion board to the sealed retrospective, on rows it shares nothing
+with — and its headline hides its finding.** Six checkpoints, the SAME 300
+rows, run one at a time on one machine, today's scorer.
+`rows_fingerprint 1a3064b09c1c:300` on every one
+(`dataset/runs/checkpoint-sweep-personas-v2/manifest.json`, committed in
+`c7f1b11`).
+
+**Dataset:** `dataset/personas/personas.jsonl` — 2,520 rows, six speaking
+styles at 420 each, **every row `split:"test"`** (checked: the split counter
+over the whole file is `{'test': 2520}`). The 300 are stratified on
+persona × structure. **Metric:** count-correctness — did the command produce
+the right NUMBER of the right KINDS of object. Garbage titles 0.0% on all six.
+
+| checkpoint | count-ok | simple | complex | p50 | wall |
+|---|---|---|---|---|---|
+| pre-engine-v2 (old brain) | 72.3 | 81 | 61 | 14.4 s | 80m |
+| decompose-validate-v1 | 79.7 | 84 | 74 | 6.2 s | 31m |
+| **fastrule-v1** | **80.0** | 78 | **83** | 8.3 s | 54m |
+| fast-lane-pre-integration | 79.0 | 76 | **83** | 9.6 s | 62m |
+| main | 79.3 | 83 | 75 | **6.4 s** | 31m |
+| one-shot-llm | 50.3 | 56 | 43 | 5.5 s | 28m |
+
+The six count-ok rates, the fingerprint and the wall times are in the
+committed manifest. The per-tier, per-voice and p50 detail is transcribed from
+`DOCUMENTATION/experiments/checkpoints/RUN_STATUS.md:68-127` and `c7f1b11` —
+the run databases are local-only and gitignored, so that half is not
+re-derivable from the repo.
+
+**The sealed board's shape reappears on data it shares nothing with.**
+fastrule-v1 nominally top; `main` is 0.7 pt behind it, against the 0.6 pt
+error bar measured on the sealed set — and that bar was measured on a
+different slice, so read those two as TIED, not ranked. The one-shot is far
+below both. Two things the sealed board could not show:
+
+- **Latency is where `main` actually won.** p50 14.4 s → 6.4 s against the old
+  brain (2.3×), and 23% under fastrule-v1 at an accuracy gap inside the noise
+  floor. That is the trade the rebuild made, and on this board it is a good one.
+- **The deep track is the same hole, measured a second time.** `main` is +5 to
+  +7 on simple and **−8 on complex** against fastrule-v1 and fast-lane, which
+  both reach 83% there. That is the sealed board's fast +4.6 / deep −7.6 split
+  again, on different rows.
+
+### The spread — which is what this board exists to measure
+
+count-correctness per voice, n=50 each:
+
+| voice | pre-engine-v2 | main | Δ |
+|---|---|---|---|
+| observant_student | 62 | **92** | **+30** |
+| esl_speaker | 80 | 84 | +4 |
+| freelance_consultant | 70 | 82 | +12 |
+| retiree | 80 | 84 | +4 |
+| household_parent | 76 | 72 | **−4** |
+| uni_student | 66 | 62 | **−4** |
+
+**The mean rose and the spread WIDENED — 18 pt to 30 pt.** That is the result;
+72.3 → 79.3 is the part that hides it. The rebuild moved one voice enormously
+and left two slightly WORSE than the brain it replaced. `observant_student` is
+the register the vocabulary, the Hebrew keyword lists and the observance rules
+were all built for, so +30 there is the system working as designed — but
+`uni_student` at 62% is now the worst voice on `main` and was not the worst on
+the old brain. A uniform-looking +7 is a robustness regression for two
+speakers.
+
+### The superseded draw, and the number it inflates
+
+`dataset/runs/checkpoint-sweep-personas/` (`537dcfbc4dbd:300`) is the same
+experiment on the pre-fix sampler, which bucketed by (persona, tier) and drew
+**49% two-event compounds against 6% in the full set, with no queries and no
+task-only rows** (`scripts/checkpoint_sweep.py:283-294`). Every checkpoint was
+still measured on identical rows, so its internal comparison holds — but it
+was a board about two-event compounds wearing the label "six speaking styles".
+Against the corrected draw it overstates the rebuild by 19 points:
+**pre-engine-v2 54.7 → main 81.0 (+26.3) on the old sampler, against
+72.3 → 79.3 (+7.0) here** — both numbers sit in the two committed manifests.
+Anything still quoting "+26.3" or "54.7 → 81.0" is quoting the superseded draw.
+
+### THE LEAKAGE RULE BINDS HERE TOO
+
+Every persona row is `split:"test"`. This is a RETROSPECTIVE, not a direction:
+per ITERATION_PROTOCOL and CLAUDE.md, no test result — "not a number, not a
+slice, not a surprising delta" — may pick the next thing to work on. Neither
+the complex-tier hole nor the two weak voices becomes a hypothesis from this
+table. If they are worked on, the failure has to be reproduced on the training
+pool and the fix measured there.
+
+Not a loop cycle: `dataset/loop_log.csv` ends at run 21 and this is a
+different slice under a different harness, so the committed record is the
+manifest plus `RUN_STATUS.md`, and this entry is its bank in the ledger.
+
+
 ## MILESTONE — THE CHECKPOINT RETROSPECTIVE, sealed 300 (2026-09-12)
 
 **Five system states, the same 300 rows, one scorer, one machine, measured
@@ -1512,10 +1605,43 @@ here**. It is reproducible between two tags on the TRAINING pool, and that is
 where the work must start — `fastrule-v1` vs `main` on dev-fast-250, which is
 freely mineable. Any fix is justified by what that shows, never by this table.
 
+### THE SEVENTH SEALED READ — the one-shot control (2026-09-13)
+
+**The five-checkpoint table had no control for "what if there were no chain at
+all".** `one-shot-llm` is that control: `main`'s own tree with
+`MACALENDAR_ONESHOT=1`, which routes the transcript through
+`assistant/engine/LLM_one_shot/` — transcript in, objects out, ONE model call
+(`scripts/checkpoint_sweep.py:78-79,87`; engine added `9481853`, 2026-09-13).
+Same code, one variable, which is the only way its number is comparable to
+main's.
+
+**Same 300 sealed rows, same fingerprint `6dc8c8674e39:300`, same scorer:
+count-correctness 66.0 against `main`'s 77.3** — 11.3 pt down, ~19× the
+measured 0.6 pt error bar. Evidence:
+`dataset/runs/checkpoint-sweep-oneshot-sealed/manifest.json`
+(`count_ok_rate 0.66`, committed in `c7f1b11`); the raw sweep JSON is
+gitignored, so the manifest is the only committed record. On the personas
+board the same build reads 50.3 against `main`'s 79.3.
+
+**What it means:** the six-stage chain is worth ~11 pt of count-correctness on
+clean sealed prompts over asking the model once, and ~29 pt on persona speech
+— and on personas it costs ~0.9 s of p50 to buy that (5.5 s one-shot vs 6.4 s
+main), so the chain's advantage there is close to free.
+
+**What this does NOT license:** reading it as "the deep path is no better than
+one model call". The one-shot's 66.0 is over all 300 rows including the 130
+`main` routes fast; the deep path's 65.3% is over the 170 harder rows only. A
+route-matched comparison needs per-row detail, which a `--test` run suppresses
+by design. And the leakage rule above covers this read too: sealed rows,
+aggregates only, retrospective — it cannot spawn a hypothesis any more than
+the five checkpoints can.
+
 ### Caveats carried
 
-- **Six sealed reads spent** (5 + the error-bar pass). A deliberate one-off for
-  a retrospective, **not a precedent**.
+- **Seven sealed reads spent** — the 5 checkpoints, the error-bar pass
+  (2026-09-12), and the one-shot control (2026-09-13). A deliberate one-off for
+  a retrospective, **not a precedent**. (This line said six until 2026-09-14;
+  the seventh read had been sitting unbanked in the one-shot manifest.)
 - **pre-engine-v2 latency, ids ~139-146** — a second model job ran beside the
   sweep for ~11 minutes. Accuracy untouched; latency p50 53.1 → 52.1 s and p95
   84.3 → 79.6 s excluding them.
@@ -2115,3 +2241,101 @@ correct-on-handled 85.9%, explicit time right 96.2% (n=26), 0 destructive.
   title-quality line on the product-shape board, and "event"/"appointment"/
   "reminder" added to the garbage list, then re-measure to find how many
   existing rows were silently passing with a meaningless title.
+
+
+### CYCLE B — RESULT — closed 2026-09-14: the instrument half shipped, the rest did not
+
+**The prediction was that the boards, not the engine, were the problem — and
+on the two legs that can be checked it was right.**
+
+**Leg 1 held, for a slightly different reason than predicted.** The claim was
+that the "now" fix could not show on the real-speech board because no row in
+that set says "now". Checked: 14 of the 1,200 rows match
+`now|right now|immediately|asap`, but only **2 of the 325 test rows** do, and
+both use it as a discourse filler ("now, set a meeting for me this weekend at
+6.30 p.m. …"), never as a time. So the fix was genuinely invisible there — the
+count was not zero, the *time-carrying* count was.
+
+**The leg that can never be settled now.** The prediction's headline number —
+realspeech faithful/test correct-on-handled moving ≤2 pt either way — was never
+measured: the board was not re-run after the fixes, and no realspeech number
+after 2026-09-08 exists anywhere in the repo. With the set now dropped (see
+below) it stays unresolved, permanently. Banked as unmeasured rather than as
+confirmed.
+
+**Leg 2 held as written.** `scripts/score_dataset_run.py:43`'s garbage list is
+`{"then","and","also","and then","so","please","now"}` and does not contain
+"event", so the one metric that could have caught a create titled "event"
+could not have caught it.
+
+**What shipped (c03b20a, 2026-09-08):** the TITLE QUALITY line on FastRule's
+product-shape board — `_EMPTY_TITLE_RE` at
+`assistant/engine/fastrule/experiments/fastrule_shape.py:125-128`, counted at
+`:297-299`, printed at `:337-340`. The same commit added a "NOW" ROWS section
+for the rows whose time is the word itself — 152 of them, by c03b20a's own
+count.
+
+**What did not ship, and is still not shipped:**
+
+1. **The garbage list was never widened.** `score_dataset_run.py:43` is
+   unchanged since it was written (`9d5240e`, one commit in its whole history),
+   so the ENGINE board's garbage-titles line still cannot see "event",
+   "appointment" or "reminder" — and `scripts/checkpoint_sweep.py:555` imports
+   that same set, so every checkpoint board in this ledger inherits the blind
+   spot.
+2. **The re-measure the deliverable existed to produce was never taken.** No
+   title-quality number appears anywhere in this ledger or in any run record.
+   The only occurrence of that board line outside the board's own source is a
+   formatting example in `DOCUMENTATION/EVAL_METRICS_FORMAT.md:165-166`, whose
+   figures match no run. So "how many rows were silently passing with a
+   meaningless title" is still unanswered.
+3. **The "NOW" rows section has never reported a number**, and that was found
+   while closing this cycle. `fastrule_shape.py:121` is
+   `re.compile(r"\\b(?:right\\s+now|now|immediately|asap)\\b", re.I)` —
+   doubled backslashes inside a raw string, so the compiled pattern looks for
+   literal backslashes. Verified directly:
+   `re.search(pat, "book gym now", re.I)` returns `None` while the
+   single-escape sibling matches. `NOW_N` therefore stays 0 and the `if NOW_N:`
+   guard at `:341` omits the entire section. Of the two metrics this cycle put
+   on the board, one works and one has never printed.
+
+**The engine fixes themselves are live** — this cycle's premise, not its
+deliverable: `_rule_now_means_now` at
+`assistant/engine/decompose_validate/object_rules.py:71-100` (with the
+three-way guard: the speaker said it, did not say midnight, and the object is
+on exactly the 00:00 default), the spoken-time fallback at
+`assistant/intent/rule_parser.py:863-870`, and the generic-TITLE veto at
+`assistant/engine/llmjudge/gatekeeper.py:142-161`. Note the prediction dates
+its baseline "before 643b01f": that commit is **not an ancestor of HEAD**
+(`git merge-base --is-ancestor 643b01f HEAD` fails), so the work reached the
+live tree by another route — cite the file anchors above, not the hash.
+
+**Verdict: PARTIAL, banked as such.** The hypothesis was confirmed — the gap
+was in the instruments — and then only one of the two instrument fixes landed.
+The open debt is three small implementation items (widen the garbage set, fix
+the doubled-escape regex, then run the board and record the two numbers with
+their n). It is implementation work, not a hypothesis, and per
+`DOCUMENTATION/STAGE_ISOLATION_PLAN.md` the whole-engine cycle loop is PAUSED,
+so no successor cycle is registered here.
+
+### THE REAL-SPEECH DATASET IS DROPPED (Gil, recorded 2026-09-14)
+
+Verbatim: *"dont do the real speech dataset then."* Recorded here because the
+ruling was made in session and appears nowhere in the repo — a 15-agent
+document/code audit on 2026-09-14 went looking for it, found nothing, and
+noted that this file still cited the board as a live baseline.
+
+**What is dropped is further work on it, not the artefacts.** These stay on
+disk and stay readable: `dataset/realspeech/realspeech_1200.jsonl` (1,200 rows,
+794 KB), `dataset/realspeech/banks/`, `dataset/realspeech/REALSPEECH.md`,
+`scripts/gen_realspeech.py`, `scripts/realspeech_board.py`.
+
+**What it means for this ledger.** The Cycle B baseline above — realspeech
+faithful/test: handled 70.3%, correct-on-handled 85.9%, explicit time right
+96.2% (n=26), 0 destructive (`REALSPEECH.md:415-419`) — is **history, not a
+live baseline**: it will not be re-measured and no cycle should register a
+prediction against that board. The realspeech column in CYCLE A PART 2's kind
+board stays where it is, as the record of what was measured on 2026-09-08.
+REAL USAGE is still the instrument that outranks the others, and it is
+`scripts/weekly_review.py` — dropping this set removes a proxy for real speech,
+not the measurement of it.
