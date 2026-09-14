@@ -62,3 +62,6 @@ dataset/runs/**/*.gz
 # regenerable render output from scripts/shoot_explorer.py
 DOCUMENTATION/artifacts/_shots/
 .scratch_kind_board/
+
+# The HUD launcher bundle is built by scripts/build_hud_app.sh, not edited
+MACalendar HUD.app/
