@@ -166,8 +166,23 @@ def check_storage() -> Check:
         c.add(False, f"calendar db not readable — {e}")
     try:
         mem = os.environ.get("MACALENDAR_MEMORY_DB") or os.path.expanduser("~/.assistant_tools/nlu_memory.db")
-        ok = os.path.exists(mem)
-        c.add(ok, f"memory db {'present' if ok else 'MISSING'} ({mem})")
+        if os.path.exists(mem):
+            c.add(True, f"memory db present ({mem})")
+        else:
+            # A FRESH INSTALL IS NOT BROKEN INFRASTRUCTURE. The command memory
+            # is created on first use, so its absence before the first command
+            # is expected — exactly like the trace log two lines below, which
+            # this layer already reports as informational. Calling it ✘ made
+            # `doctor` red on a clean machine and, as CI proved on the first
+            # run, made a fresh checkout fail a health check that was
+            # describing normal state.
+            #
+            # What WOULD be broken is a directory we cannot write it into, so
+            # that is what gets asserted instead.
+            parent = os.path.dirname(mem) or "."
+            c.add(os.access(parent, os.W_OK) if os.path.isdir(parent) else None,
+                  f"memory db not yet created — will be written on the first "
+                  f"command ({mem})")
     except Exception as e:
         c.add(False, f"memory db check failed — {e}")
     try:
