@@ -262,9 +262,28 @@ class Engine(Component):
                     "corrections": state.corrections, "trace": trace.to_list(),
                     "uncertain_words": state.needs_edit, "brain": _brain_version()}
 
+        # -- the PARALLEL one-shot engine (measuring instrument, off by
+        # default) --------------------------------------------------------
+        # MACALENDAR_ONESHOT=1 replaces the whole chain with a single
+        # schema-constrained model call (engine/LLM_one_shot). It exists to
+        # answer whether the deep track earns its complexity, and it commits
+        # through the SAME `_commit` below so the only difference between the
+        # two runs is how the objects were decided.
+        oneshot = os.environ.get("MACALENDAR_ONESHOT") == "1"
+
         # -- track selection ------------------------------------------------
         try:
-            fast = cfg.engine.fast_track and _generate.fast_propose(state, cfg)
+            if oneshot:
+                # The whole chain replaced by ONE call. Falls through to the
+                # same bookkeeping below — reply, memory, trace, response dict
+                # — so the two runs differ in how the objects were decided and
+                # in nothing else.
+                from assistant.engine import LLM_one_shot as _oneshot
+                _oneshot.run(state, cfg)
+                _commit(state, cfg)      # labels inside
+                fast = False
+            else:
+                fast = cfg.engine.fast_track and _generate.fast_propose(state, cfg)
             if fast:
                 _dv_objects.run_objects(state, cfg)
                 _commit(state, cfg)      # labels inside
@@ -272,7 +291,7 @@ class Engine(Component):
                 # based cross-check against what was just committed, patched
                 # through the verify-token contract the clients already speak.
                 _start_background_verify(state, cfg)
-            else:
+            elif not oneshot:
                 self.parse(state, cfg)
                 # The confirm gate (Q9), the same shape as the needs_edit
                 # gate: parse finished and validated, nothing written, the
