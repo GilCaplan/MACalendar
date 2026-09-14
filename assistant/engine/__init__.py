@@ -228,7 +228,29 @@ class Engine(Component):
             from assistant import trace_bus as _tb
             trace.on_step(lambda st: _tb.publish_step(trace_run, st.to_dict()))
 
+        # THE LOCK WAIT, MADE VISIBLE. The Trace is constructed above, before
+        # the acquire, so queueing time lands inside the trace clock and shows
+        # up folded into the first stage — a "Vocabulary" step reading 4 s is
+        # usually this. It is a real quantity and nothing named it.
+        from assistant import llm_bus as _bus
+        import time as _t
+        _held = _run_lock.locked()
+        _t0 = _t.perf_counter()
         with _run_lock:
+            waited = int((_t.perf_counter() - _t0) * 1000)
+            if _held and source != "test":
+                _bus.note("lock", f"waited {waited} ms behind another command",
+                          waited_ms=waited, source=source)
+            # So every call this run makes is attributed and test traffic is
+            # dropped at the transport rather than here.
+            for _mod in ("assistant.engine.llm", "assistant.engine.fastrule.objects"):
+                try:
+                    import importlib
+                    _m = importlib.import_module(_mod)
+                    if getattr(_m, "_parser", None) is not None:
+                        _m._parser._bus_source = source
+                except Exception:
+                    pass
             return self._locked(text, trace, source, current_view, trace_run,
                                 supports_edit, supports_confirm, cfg)
 

@@ -512,11 +512,31 @@ class IntentParser:
             "keep_alive": conf.keep_alive,
             "options": {"temperature": 0.0, "num_ctx": conf.num_ctx},  # deterministic judgment
         }
-        resp = self._session.post(
-            f"{conf.base_url}/api/chat", json=payload, timeout=60
-        )
-        resp.raise_for_status()
-        return resp.json()["message"]["content"]
+        # The UNSCHEMA'd transport. Its callers — call_llm_json's four, and
+        # fix_title_async — record no llm_ms at all, which is how a 40-second
+        # call stayed invisible in every latency board. Logged here so the
+        # console sees it even though no counter does.
+        from assistant import llm_bus as _bus
+        import time as _t
+        _who, _t0 = _bus.caller_label(), _t.perf_counter()
+        try:
+            resp = self._session.post(
+                f"{conf.base_url}/api/chat", json=payload, timeout=60
+            )
+            resp.raise_for_status()
+            content = resp.json()["message"]["content"]
+        except Exception as e:
+            _bus.record(transport="chat", caller=_who,
+                        model=conf.verify_model or conf.model, system=sys,
+                        user=user, error=f"{type(e).__name__}: {e}",
+                        ms=int((_t.perf_counter() - _t0) * 1000),
+                        source=getattr(self, "_bus_source", ""))
+            raise
+        _bus.record(transport="chat", caller=_who,
+                    model=conf.verify_model or conf.model, system=sys, user=user,
+                    response=content, ms=int((_t.perf_counter() - _t0) * 1000),
+                    source=getattr(self, "_bus_source", ""))
+        return content
 
     # ------------------------------------------------------------------
     # Backends
@@ -550,13 +570,32 @@ class IntentParser:
             "keep_alive": conf.keep_alive,
             "options": {"temperature": conf.temperature, "num_ctx": conf.num_ctx},
         }
+        # Every call is logged to the LLM console's stream — recorded at the
+        # TRANSPORT, not at the call sites, because there are a dozen callers
+        # and a new one must not be able to bypass the log by forgetting to.
+        from assistant import llm_bus as _bus
+        import time as _t
+        _who, _t0 = _bus.caller_label(), _t.perf_counter()
         try:
             resp = self._session.post(f"{conf.base_url}/api/chat", json=payload, timeout=timeout)
             resp.raise_for_status()
-            return resp.json()["message"]["content"]
+            content = resp.json()["message"]["content"]
+            _bus.record(transport="chat+schema", caller=_who, model=conf.model,
+                        system=sys, user=user, response=content,
+                        ms=int((_t.perf_counter() - _t0) * 1000), schema=True,
+                        source=getattr(self, "_bus_source", ""))
+            return content
         except requests.ConnectionError as e:
+            _bus.record(transport="chat+schema", caller=_who, model=conf.model,
+                        system=sys, user=user, error=f"offline: {e}",
+                        ms=int((_t.perf_counter() - _t0) * 1000), schema=True,
+                        source=getattr(self, "_bus_source", ""))
             raise OllamaUnavailableError(f"Ollama offline at {conf.base_url}") from e
         except requests.Timeout as e:
+            _bus.record(transport="chat+schema", caller=_who, model=conf.model,
+                        system=sys, user=user, error=f"timeout after {timeout}s",
+                        ms=int((_t.perf_counter() - _t0) * 1000), schema=True,
+                        source=getattr(self, "_bus_source", ""))
             raise OllamaTimeoutError("Ollama timed out") from e
 
     def _call_openai(self, sys: str, user: str) -> str:

@@ -7,7 +7,30 @@ pins the budget, the overflow and the single-input case.
 from __future__ import annotations
 
 
-def coalesce(texts: "list[str]", max_tokens: int = 300) -> "list[str]":
+def coalesce(*args, **kwargs):
+    """Logged wrapper — see `_coalesce_impl` for the batching itself.
+
+    This is the ONE place in the system where several transcripts really are
+    concatenated into `("a")and("b")`, and its single production caller is the
+    pending-retry loop. Worth seeing in the console precisely because it is
+    rare and surprising: a reader watching a batch appear wants to know what
+    went in, what came out, and against what budget.
+    """
+    from assistant import llm_bus as _bus
+    out = _coalesce_impl(*args, **kwargs)
+    try:
+        texts = args[0] if args else kwargs.get("texts") or []
+        if len(out) != len(texts):
+            _bus.note("coalesce",
+                      f"{len(texts)} transcript(s) batched into {len(out)}",
+                      n_in=len(texts), n_out=len(out),
+                      batches=[b[:200] for b in out][:5])
+    except Exception:
+        pass
+    return out
+
+
+def _coalesce_impl(texts: "list[str]", max_tokens: int = 300) -> "list[str]":
     """Queued inputs combined into ("…")and("…") batches up to a token budget
     (≈4 chars/token), so several short queued commands cost one parse instead
     of several; overflow runs in later batches. The wrapper is deterministic

@@ -206,6 +206,31 @@ explanation, no preamble, no code fence."""
 
 
 def call_model(prompt: str, timeout: int = 180) -> str:
+    """The segmentation tier's own transport — logged like the other two.
+
+    It is the one that bypasses everything else: hardcoded host and model,
+    ignoring cfg.ollama, and it does NOT honour MACALENDAR_LLM_DISABLED. Inert
+    at runtime today (LLMSeg is off by default) but live in the segmentation
+    experiments, so a reader of the console must be able to see it fire rather
+    than wonder why the numbers moved.
+    """
+    from assistant import llm_bus as _bus
+    import time as _t
+    _who, _t0 = _bus.caller_label(), _t.perf_counter()
+    try:
+        out = _call_model_impl(prompt, timeout)
+    except Exception as e:
+        _bus.record(transport="llmseg", caller=_who, model=MODEL, system="",
+                    user=prompt, error=f"{type(e).__name__}: {e}",
+                    ms=int((_t.perf_counter() - _t0) * 1000))
+        raise
+    _bus.record(transport="llmseg", caller=_who, model=MODEL, system="",
+                user=prompt, response=out,
+                ms=int((_t.perf_counter() - _t0) * 1000))
+    return out
+
+
+def _call_model_impl(prompt: str, timeout: int = 180) -> str:
     # keep_alive matters more than it looks: without it Ollama evicts the model
     # between calls and every request pays the reload, which is most of the
     # ~19s/row a scoring pass was showing. It changes latency only — the

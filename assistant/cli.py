@@ -207,6 +207,12 @@ def check_engine(deep: bool = False) -> Check:
         ("generate",           "assistant.engine.fastrule.objects"),
         ("llmjudge",           "assistant.engine.llmjudge.llmjudge"),
         ("label",              "assistant.engine.label.label"),
+        # NOT a stage — a parallel engine, off unless MACALENDAR_ONESHOT=1.
+        # Listed because it lives under engine/ and the coverage guard walks
+        # that package: better to verify it imports than to teach the guard to
+        # skip folders, which is how a real stage would eventually be skipped
+        # too.
+        ("LLM_one_shot",       "assistant.engine.LLM_one_shot"),
     ]
     import importlib
     for component, module in stages:
