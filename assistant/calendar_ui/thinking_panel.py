@@ -1128,6 +1128,140 @@ class _RunDivider(QWidget):
         self._line.setStyleSheet(f"background: {theme.text2}; border: none;")
 
 
+class _LLMRow(QFrame):
+    """One model call, or one protocol event, in the LLM console.
+
+    Collapsed it answers the three questions a reader has at a glance — WHERE
+    in the system it came from, how long it took, and whether it was
+    schema-constrained. Clicking expands the prompts and the response, which is
+    the part no existing surface shows at all: the trace says a stage ran, the
+    boards say how long, and nothing anywhere says what was actually sent.
+
+    A protocol event (a lock wait, a coalesce) renders in the same list rather
+    than a separate one, because the value is seeing a concatenation and the
+    calls it produced in one ordered sequence.
+    """
+
+    def __init__(self, entry: dict, theme, parent=None) -> None:
+        super().__init__(parent)
+        self._entry = entry
+        self._theme = theme
+        self._expanded = False
+        self.setFrameShape(QFrame.Shape.NoFrame)
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(8, 5, 8, 5)
+        lay.setSpacing(3)
+
+        head = QHBoxLayout()
+        head.setContentsMargins(0, 0, 0, 0)
+        head.setSpacing(6)
+        self._who = QLabel(self._headline())
+        self._who.setWordWrap(False)
+        head.addWidget(self._who, 1)
+        self._meta = QLabel(self._timing())
+        head.addWidget(self._meta)
+        lay.addLayout(head)
+
+        self._detail = QLabel("")
+        self._detail.setWordWrap(True)
+        self._detail.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self._detail.hide()
+        lay.addWidget(self._detail)
+
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.apply_theme(theme)
+
+    # -- what the row says ------------------------------------------------
+    def _is_protocol(self) -> bool:
+        return self._entry.get("transport") == "protocol"
+
+    def _headline(self) -> str:
+        e = self._entry
+        when = _dt.datetime.fromtimestamp(e.get("ts", 0)).strftime("%H:%M:%S")
+        if self._is_protocol():
+            return f"{when}  ⚙ {e.get('kind', 'event')} — {e.get('detail', '')}"
+        return f"{when}  {e.get('caller') or 'unknown'}"
+
+    def _timing(self) -> str:
+        e = self._entry
+        if self._is_protocol():
+            return ""
+        if e.get("error"):
+            return "failed"
+        ms = e.get("ms") or 0
+        mark = " ⛓" if e.get("schema") else ""
+        return (f"{ms / 1000:.1f}s{mark}" if ms >= 1000 else f"{ms}ms{mark}")
+
+    def matches(self, needle: str, slow_only: bool, errors_only: bool) -> bool:
+        e = self._entry
+        if slow_only and (e.get("ms") or 0) < 5000:
+            return False
+        if errors_only and not e.get("error"):
+            return False
+        if not needle:
+            return True
+        hay = " ".join(str(e.get(k, "")) for k in
+                       ("caller", "user", "system", "response", "detail", "kind",
+                        "model", "transport")).lower()
+        return needle.lower() in hay
+
+    # -- expand ------------------------------------------------------------
+    def mousePressEvent(self, event):       # noqa: N802 (Qt naming)
+        self._expanded = not self._expanded
+        if self._expanded and not self._detail.text():
+            self._detail.setText(self._body())
+        self._detail.setVisible(self._expanded)
+        super().mousePressEvent(event)
+
+    def _body(self) -> str:
+        e = self._entry
+        if self._is_protocol():
+            extra = {k: v for k, v in e.items()
+                     if k not in ("ts", "transport", "kind", "detail", "caller",
+                                  "model", "ms")}
+            return "\n".join(f"{k}: {v}" for k, v in extra.items()) or "(no detail)"
+
+        def block(label, text, full_len):
+            text = text or ""
+            # Say what was TRUNCATED rather than showing a clipped prompt as if
+            # it were the whole thing — a 12 KB system prompt shown as 4 KB with
+            # no note is a lie about what the model was sent.
+            note = (f"  [{full_len:,} chars, showing {len(text):,}]"
+                    if full_len > len(text) else f"  [{full_len:,} chars]")
+            return f"▸ {label}{note}\n{text}" if text else ""
+
+        parts = [
+            f"model: {e.get('model', '?')}   transport: {e.get('transport', '?')}"
+            + ("   schema-constrained" if e.get("schema") else "   free-form"),
+            block("SYSTEM", e.get("system"), e.get("system_len", 0)),
+            block("USER", e.get("user"), e.get("user_len", 0)),
+            block("RESPONSE", e.get("response"), e.get("response_len", 0)),
+        ]
+        if e.get("error"):
+            parts.append(f"▸ ERROR\n{e['error']}")
+        return "\n\n".join(p for p in parts if p)
+
+    def apply_theme(self, theme) -> None:
+        self._theme = theme
+        e = self._entry
+        if self._is_protocol():
+            colour = theme.purple
+        elif e.get("error"):
+            colour = theme.destructive
+        elif (e.get("ms") or 0) >= 5000:
+            colour = theme.orange          # the 40-second calls stand out
+        else:
+            colour = theme.text
+        self.setStyleSheet(
+            f"_LLMRow {{ background: {theme.surface}; border-radius: 6px; }}")
+        self._who.setStyleSheet(f"color: {colour}; font-size: 11px;")
+        self._meta.setStyleSheet(f"color: {theme.text2}; font-size: 11px;")
+        self._detail.setStyleSheet(
+            f"color: {theme.text2}; font-family: Menlo, monospace; font-size: 10px;")
+
+
+
 class ThinkingPanel(QFrame):
     """Floating card that mirrors the iOS thinking timeline.
 
@@ -1191,6 +1325,16 @@ class ThinkingPanel(QFrame):
         # nothing. The minimise button beside it already does this.
         self._hist_btn.clicked.connect(lambda: self.toggle_history())
         head.addWidget(self._hist_btn)
+
+        self._llm_btn = QPushButton("LLM")
+        self._llm_btn.setFlat(True)
+        self._llm_btn.setFixedHeight(24)
+        self._llm_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._llm_btn.setToolTip("Every model call: where it came from, what was "
+                                 "sent, what came back")
+        # Through a lambda for the same reason as History above.
+        self._llm_btn.clicked.connect(lambda: self.toggle_llm())
+        head.addWidget(self._llm_btn)
 
         self._min_btn = QPushButton("–")
         self._min_btn.setFlat(True)
@@ -1311,6 +1455,73 @@ class ThinkingPanel(QFrame):
         self._showing_history = False
         self._hist_rows: list = []
 
+        # -- the LLM console ------------------------------------------------
+        # Built here, not lazily on first open: the HUD's _make_read_only()
+        # sweep runs once over the whole tree and forces NoFocus on every child
+        # except QLineEdit, so a view created later would miss it.
+        self._llm_tools = QWidget()
+        ltools = QVBoxLayout(self._llm_tools)
+        ltools.setContentsMargins(8, 6, 8, 4)
+        ltools.setSpacing(4)
+        self._llm_search = QLineEdit()
+        self._llm_search.setPlaceholderText("Search a caller, a prompt, a response…")
+        self._llm_search.setClearButtonEnabled(True)
+        self._llm_search.textChanged.connect(self._apply_llm_filter)
+        ltools.addWidget(self._llm_search)
+
+        lchips = QHBoxLayout()
+        lchips.setContentsMargins(0, 0, 0, 0)
+        lchips.setSpacing(4)
+        self._llm_chips: dict[str, QPushButton] = {}
+        # Two filters, not five. "Slow" is the one that matters — it is how the
+        # 40-second not-found recheck would have been visible instead of hiding
+        # behind an llm_ms of 0 — and "Failed" is the other question worth
+        # asking of a call log.
+        for key, text in (("slow", "Slow (>5s)"), ("failed", "Failed")):
+            b = QPushButton(text)
+            b.setCheckable(True)
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.setFixedHeight(20)
+            b.clicked.connect(lambda _=False: self._apply_llm_filter())
+            self._llm_chips[key] = b
+            lchips.addWidget(b)
+        lchips.addStretch(1)
+        self._llm_clear = QPushButton("Clear")
+        self._llm_clear.setFlat(True)
+        self._llm_clear.setFixedHeight(20)
+        self._llm_clear.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._llm_clear.setToolTip("Empty the call log")
+        self._llm_clear.clicked.connect(lambda _=False: self.clear_llm_log())
+        lchips.addWidget(self._llm_clear)
+        ltools.addLayout(lchips)
+
+        self._llm_count = QLabel("")
+        f = self._llm_count.font(); f.setPointSize(max(9, f.pointSize() - 2))
+        self._llm_count.setFont(f)
+        ltools.addWidget(self._llm_count)
+        self._llm_tools.hide()
+        root.addWidget(self._llm_tools)
+
+        self._llm_scroll = QScrollArea()
+        self._llm_scroll.setWidgetResizable(True)
+        self._llm_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._llm_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._llm_body = QWidget()
+        self._llm_lay = QVBoxLayout(self._llm_body)
+        self._llm_lay.setContentsMargins(8, 8, 8, 8)
+        self._llm_lay.setSpacing(3)
+        self._llm_empty = QLabel(
+            "No model calls yet. The fast path answers without one — this fills "
+            "up when a command takes the deep track.")
+        self._llm_empty.setWordWrap(True)
+        self._llm_lay.addWidget(self._llm_empty)
+        self._llm_lay.addStretch(1)
+        self._llm_scroll.setWidget(self._llm_body)
+        self._llm_scroll.hide()
+        root.addWidget(self._llm_scroll, 1)
+        self._llm_rows: list = []
+        self._view = "timeline"
+
         self._fade = QPropertyAnimation(self, b"windowOpacity", self)
         self._fade.setDuration(160)
         self._fade.setEasingCurve(QEasingCurve.Type.OutCubic)
@@ -1429,17 +1640,102 @@ class ThinkingPanel(QFrame):
     def running(self) -> bool:
         return not self._finished
 
+    def _set_view(self, view: str) -> None:
+        """THE one place view visibility is decided.
+
+        It used to be decided in two — toggle_history and toggle_minimised each
+        recomputed setVisible() for every view widget from (_showing_history,
+        _minimised). With two views that was a duplicated pair of booleans; with
+        three it is a truth table, and the second copy is where it would drift.
+        A third view arriving would have had to be added to both, correctly, or
+        the card shows two views at once.
+
+        `_showing_history` is kept as a property so existing callers and tests
+        that read it still work.
+        """
+        self._view = view
+        shown = {} if self._minimised else {view}
+        self._scroll.setVisible("timeline" in shown)
+        self._hist_scroll.setVisible("history" in shown)
+        self._hist_tools.setVisible("history" in shown)
+        self._llm_scroll.setVisible("llm" in shown)
+        self._llm_tools.setVisible("llm" in shown)
+        self._rule.setVisible(not self._minimised)
+        self._hist_btn.setText("Back" if view == "history" else "History")
+        self._hist_btn.setToolTip("Back to the current command" if view == "history"
+                                  else "Every command the assistant has run")
+        self._llm_btn.setText("Back" if view == "llm" else "LLM")
+        self._llm_btn.setToolTip(
+            "Back to the current command" if view == "llm"
+            else "Every model call: where it came from, what was sent, what came back")
+
+    @property
+    def _showing_history(self) -> bool:
+        return getattr(self, "_view", "timeline") == "history"
+
+    @_showing_history.setter
+    def _showing_history(self, on: bool) -> None:
+        self._view = "history" if on else "timeline"
+
     def toggle_history(self, on: bool | None = None) -> None:
         """Swap the timeline for the list of everything it has ever run."""
-        self._showing_history = (not self._showing_history) if on is None else on
-        if self._showing_history:
+        want = (self._view != "history") if on is None else on
+        if want:
             self._load_history()
-        self._scroll.setVisible(not self._showing_history and not self._minimised)
-        self._hist_scroll.setVisible(self._showing_history and not self._minimised)
-        self._hist_tools.setVisible(self._showing_history and not self._minimised)
-        self._hist_btn.setText("Back" if self._showing_history else "History")
-        self._hist_btn.setToolTip("Back to the current command" if self._showing_history
-                                  else "Every command the assistant has run")
+        self._set_view("history" if want else "timeline")
+
+    def toggle_llm(self, on: bool | None = None) -> None:
+        """Swap to the LLM console — every model call, newest last."""
+        want = (self._view != "llm") if on is None else on
+        if want:
+            self._load_llm()
+        self._set_view("llm" if want else "timeline")
+
+    def clear_llm_log(self) -> None:
+        """Empty the call log and the view with it."""
+        from assistant import llm_bus
+        llm_bus.clear()
+        self._load_llm()
+
+    def _load_llm(self) -> None:
+        """Rebuild the console from the call log — the durable record.
+
+        Read fresh each time, like the history view: it is the only copy that
+        survives this process restarting, and the HUD is a separate process
+        from the one making the calls.
+        """
+        from assistant import llm_bus
+        for row in self._llm_rows:
+            row.setParent(None)
+            row.deleteLater()
+        self._llm_rows = []
+        entries = llm_bus.read_history(200)
+        for entry in entries:
+            row = _LLMRow(entry, self._theme, self._llm_body)
+            self._llm_lay.insertWidget(self._llm_lay.count() - 1, row)
+            self._llm_rows.append(row)
+        self._llm_empty.setVisible(not entries)
+        self._apply_llm_filter()
+        # Deferred: the scrollbar maximum is wrong until the layout pass has
+        # run, the same reason add_step defers _scroll_to_bottom.
+        QTimer.singleShot(0, self._scroll_llm_to_bottom)
+
+    def _scroll_llm_to_bottom(self) -> None:
+        bar = self._llm_scroll.verticalScrollBar()
+        bar.setValue(bar.maximum())
+
+    def _apply_llm_filter(self) -> None:
+        needle = self._llm_search.text().strip()
+        slow = self._llm_chips["slow"].isChecked()
+        failed = self._llm_chips["failed"].isChecked()
+        shown = 0
+        for row in self._llm_rows:
+            ok = row.matches(needle, slow, failed)
+            row.setVisible(ok)
+            shown += 1 if ok else 0
+        total = len(self._llm_rows)
+        self._llm_count.setText(
+            f"{shown} of {total} call(s)" if shown != total else f"{total} call(s)")
 
     def _load_history(self) -> None:
         """Rebuild the list from the bus file — the durable record.
@@ -1561,10 +1857,8 @@ class ThinkingPanel(QFrame):
     def toggle_minimised(self, minimised: bool | None = None) -> None:
         """Collapse to the title bar, or restore."""
         self._minimised = (not self._minimised) if minimised is None else minimised
-        self._scroll.setVisible(not self._minimised and not self._showing_history)
-        self._hist_scroll.setVisible(not self._minimised and self._showing_history)
-        self._hist_tools.setVisible(not self._minimised and self._showing_history)
-        self._rule.setVisible(not self._minimised)
+        # Delegates rather than recomputing: one truth table, one place.
+        self._set_view(self._view)
         self._min_btn.setText("+" if self._minimised else "–")
         self._min_btn.setToolTip("Restore" if self._minimised else "Minimise")
         if self._minimised:
@@ -1665,3 +1959,24 @@ class ThinkingPanel(QFrame):
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
             effect.setColor(QColor(0, 0, 0, 150 if dark else 60))
+
+        # The new view's persistent widgets. apply_theme on the PANEL takes a
+        # bool and builds a _Theme; on a child it takes the _Theme. Mixing them
+        # is silent until first use, so rows get `theme`, never `dark`.
+        for _row in getattr(self, "_llm_rows", []):
+            _row.apply_theme(theme)
+        if hasattr(self, "_llm_count"):
+            self._llm_count.setStyleSheet(f"color: {theme.text2}; background: transparent;")
+            self._llm_empty.setStyleSheet(f"color: {theme.text2}; background: transparent;")
+            self._llm_btn.setStyleSheet(
+                f"QPushButton {{ background: transparent; border: none; color: {theme.text2};"
+                f" font-size: 11px; }} QPushButton:hover {{ color: {theme.text}; }}")
+            for _c in self._llm_chips.values():
+                _c.setStyleSheet(
+                    f"QPushButton {{ background: transparent; border: 1px solid {theme.border};"
+                    f" border-radius: 9px; padding: 0 7px; color: {theme.text2}; font-size: 10px; }}"
+                    f"QPushButton:checked {{ background: {theme.accent}; color: {theme.on_accent};"
+                    f" border-color: {theme.accent}; }}")
+            self._llm_clear.setStyleSheet(
+                f"QPushButton {{ background: transparent; border: none; color: {theme.destructive};"
+                f" font-size: 10px; }} QPushButton:hover {{ text-decoration: underline; }}")

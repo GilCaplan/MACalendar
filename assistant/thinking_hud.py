@@ -317,6 +317,22 @@ class ThinkingHUD(QWidget):
 
     # -------------------------------------------------------------- feeding
 
+    def apply_llm_calls(self, calls: list) -> None:
+        """New model calls arrived — refresh the console if it is open.
+
+        Only when it is OPEN. The console reads the log fresh each time it is
+        shown, so a background refresh while the user is looking at the
+        timeline would rebuild rows nobody is watching, on every poll, at 120
+        ms. The log is durable; the view catches up when it is opened.
+        """
+        if not calls:
+            return
+        try:
+            if getattr(self.panel, "_view", "timeline") == "llm":
+                self.panel._load_llm()
+        except Exception as exc:
+            log.debug("LLM console refresh failed: %s", exc)
+
     def apply_entry(self, entry: dict) -> None:
         """Render one bus line. See assistant/trace_bus.py for the shapes."""
         kind = entry.get("kind", "trace")
@@ -504,6 +520,12 @@ class _BusReader:
         self._hud = hud
         self._path = config_path
         self._offset = trace_bus.size()      # only what happens from now on
+        # A SECOND OFFSET for the LLM stream. trace_bus.read_since closes over
+        # the module-global BUS_PATH and takes no path argument, and this
+        # reader holds one scalar offset — so two streams need two offsets,
+        # tracked separately. Seeded the same way: only what happens from now.
+        from assistant import llm_bus as _llm_bus
+        self._llm_offset = _llm_bus.size()
         self._cfg_mtime = self._mtime()
 
     def _mtime(self) -> float:
@@ -523,6 +545,16 @@ class _BusReader:
                 beat("hud")
             except Exception:
                 pass
+        # The LLM stream, drained first so a call that a step refers to is
+        # already in the console when the step arrives.
+        try:
+            from assistant import llm_bus as _llm_bus
+            calls, self._llm_offset = _llm_bus.read_since(self._llm_offset)
+            if calls:
+                self._hud.apply_llm_calls(calls)
+        except Exception as exc:
+            log.debug("LLM stream poll failed: %s", exc)
+
         entries, self._offset = trace_bus.read_since(self._offset)
         for entry in entries:
             try:
