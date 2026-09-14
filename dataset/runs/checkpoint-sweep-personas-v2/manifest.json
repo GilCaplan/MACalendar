@@ -1,0 +1,53 @@
+{
+ "checked_at": "2026-09-14T04:59:55",
+ "checkpoints": {
+  "decompose-validate-v1": {
+   "done": true,
+   "rows": 300,
+   "rows_fingerprint": "1a3064b09c1c:300",
+   "count_ok_rate": 0.7966666666666666,
+   "wall_s": 1877.9,
+   "md5": "5201dbad7159ce2a62eb64af087e904f"
+  },
+  "fast-lane-pre-integration": {
+   "done": true,
+   "rows": 300,
+   "rows_fingerprint": "1a3064b09c1c:300",
+   "count_ok_rate": 0.79,
+   "wall_s": 3698.6,
+   "md5": "ecfd877bb5d05baceb0d4b69e32430a8"
+  },
+  "fastrule-v1": {
+   "done": true,
+   "rows": 300,
+   "rows_fingerprint": "1a3064b09c1c:300",
+   "count_ok_rate": 0.8,
+   "wall_s": 3257.8,
+   "md5": "d9bec079f8fe2be28dbec5356e14620e"
+  },
+  "main": {
+   "done": true,
+   "rows": 300,
+   "rows_fingerprint": "1a3064b09c1c:300",
+   "count_ok_rate": 0.7933333333333333,
+   "wall_s": 1850.6,
+   "md5": "7e336f2939fca2f77f418473bbfd8e21"
+  },
+  "one-shot-llm": {
+   "done": true,
+   "rows": 300,
+   "rows_fingerprint": "1a3064b09c1c:300",
+   "count_ok_rate": 0.5033333333333333,
+   "wall_s": 1703.9,
+   "md5": "a7bbba18d1efc41af2be55ded9c5fe0c"
+  },
+  "pre-engine-v2": {
+   "done": true,
+   "rows": 300,
+   "rows_fingerprint": "1a3064b09c1c:300",
+   "count_ok_rate": 0.7233333333333334,
+   "wall_s": 4786.4,
+   "md5": "cf023d260515bcfc07d10f4401d5b75b"
+  }
+ }
+}

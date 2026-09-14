@@ -1,15 +1,30 @@
 {
- "checked_at": "2026-09-11T18:19:39",
+ "checked_at": "2026-09-14T04:50:05",
  "checkpoints": {
+  "decompose-validate-v1": {
+   "done": true,
+   "rows": 300,
+   "md5": "8aad5abca4d7190477967e51d083780f"
+  },
   "fast-lane-pre-integration": {
-   "done": false,
-   "rows": 243,
-   "md5": "97661f5b70bb08c54ebe631bb2b6f2ad"
+   "done": true,
+   "rows": 300,
+   "md5": "89f395af8848b9ad1fbe7fcfbc03be92"
+  },
+  "fastrule-v1": {
+   "done": true,
+   "rows": 300,
+   "md5": "326587ab7b8724c99e9b6e9d9ce8a82d"
+  },
+  "main": {
+   "done": true,
+   "rows": 300,
+   "md5": "026a8493c37fdd409d0db08baff107c0"
   },
   "pre-engine-v2": {
    "done": true,
    "rows": 300,
-   "md5": "40b39f48f983fdbf4605209c377d3923"
+   "md5": "5234487e05c83693571ee6980ad32057"
   }
  }
 }

@@ -1,0 +1,45 @@
+{
+ "checked_at": "2026-09-14T04:59:55",
+ "checkpoints": {
+  "decompose-validate-v1": {
+   "done": true,
+   "rows": 300,
+   "rows_fingerprint": "537dcfbc4dbd:300",
+   "count_ok_rate": 0.78,
+   "wall_s": 2846.1,
+   "md5": "5e118d30e4ff9563ece29959b4aec290"
+  },
+  "fast-lane-pre-integration": {
+   "done": true,
+   "rows": 300,
+   "rows_fingerprint": "537dcfbc4dbd:300",
+   "count_ok_rate": 0.7866666666666666,
+   "wall_s": 5035.6,
+   "md5": "db5a2d2c76d45d8ea3b64045c4e8310e"
+  },
+  "fastrule-v1": {
+   "done": true,
+   "rows": 300,
+   "rows_fingerprint": "537dcfbc4dbd:300",
+   "count_ok_rate": 0.8366666666666667,
+   "wall_s": 4011.6,
+   "md5": "41449b01912991fb774c2250274d1690"
+  },
+  "main": {
+   "done": true,
+   "rows": 300,
+   "rows_fingerprint": "537dcfbc4dbd:300",
+   "count_ok_rate": 0.81,
+   "wall_s": 2794.0,
+   "md5": "8a6afefdaf4c81a74fbce227912704b9"
+  },
+  "pre-engine-v2": {
+   "done": true,
+   "rows": 300,
+   "rows_fingerprint": "537dcfbc4dbd:300",
+   "count_ok_rate": 0.5466666666666666,
+   "wall_s": 4457.8,
+   "md5": "18771258677500887669222dfdad7795"
+  }
+ }
+}

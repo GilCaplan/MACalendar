@@ -1,0 +1,13 @@
+{
+ "checked_at": "2026-09-14T04:59:55",
+ "checkpoints": {
+  "one-shot-llm": {
+   "done": true,
+   "rows": 300,
+   "rows_fingerprint": "6dc8c8674e39:300",
+   "count_ok_rate": 0.66,
+   "wall_s": 3566.7,
+   "md5": "d4eaa0263a90d24360dff87496dae990"
+  }
+ }
+}

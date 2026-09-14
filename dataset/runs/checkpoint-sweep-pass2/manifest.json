@@ -1,0 +1,13 @@
+{
+ "checked_at": "2026-09-14T04:59:55",
+ "checkpoints": {
+  "main": {
+   "done": true,
+   "rows": 300,
+   "rows_fingerprint": "6dc8c8674e39:300",
+   "count_ok_rate": 0.7666666666666667,
+   "wall_s": 8561.1,
+   "md5": "bc8ea6d79ff6f48cb520c51abbffb100"
+  }
+ }
+}
