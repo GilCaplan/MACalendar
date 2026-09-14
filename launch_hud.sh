@@ -1,6 +1,12 @@
 #!/bin/zsh
 # Start (or restart) the thinking HUD on its own.
 #
+# NOT a .command, deliberately. A .command is what Finder double-clicks INTO A
+# TERMINAL WINDOW, and `Launch Calendar.command` carries a whole osascript block
+# to minimise the window Finder opens for it. This script is only ever called by
+# "MACalendar HUD.app" through `do shell script`, which is headless — so naming
+# it .command only created a file that pops a Terminal if anyone clicks it.
+#
 # `Launch Calendar.command` starts the whole stack — ollama, the API, the HUD
 # and the GUI. This starts ONLY the card, for the two cases that come up
 # constantly:
@@ -38,8 +44,19 @@ if pgrep -f "assistant.thinking_hud" > /dev/null; then
   sleep 1
 fi
 
+# NOT `nohup ... &`. Launch Calendar.command explains why, and it applies here
+# with more force: this project lives under ~/Desktop, and macOS TCC blocks a
+# freshly-spawned or re-parented process from touching it ("Operation not
+# permitted") unless that process has its own Desktop access. `do shell script`
+# already gives the applet a TCC identity the user approves once; a detached
+# grandchild does not inherit it reliably.
+#
+# setsid-style detachment is also unnecessary: `do shell script` returns when
+# the command returns, so the HUD needs only to outlive this script, which
+# a plain background job inside the applet's own session does.
 echo "$(date '+%F %T')  starting the HUD" >> "$LOG"
-nohup "$PY" -m assistant.thinking_hud >> "$LOG" 2>&1 &
+"$PY" -m assistant.thinking_hud >> "$LOG" 2>&1 &
+disown 2>/dev/null || true
 
 # Confirm it actually came up: a HUD that dies on import would otherwise be a
 # silent no-op — you click the icon and nothing ever appears.
