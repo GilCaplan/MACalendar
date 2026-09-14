@@ -1143,6 +1143,39 @@ class CalendarDB:
             return not (row and row["two_way"])
         return False
 
+    def _relabelled(self, conn: sqlite3.Connection, event_id: int, updates: dict) -> dict:
+        """`updates` plus a refreshed category/colour, when the words changed."""
+        if "title" not in updates or "category" in updates:
+            return updates
+        row = conn.execute(
+            "SELECT title, date, start_time, attendees, location, description, color, category "
+            "FROM events WHERE id = ?", (event_id,)).fetchone()
+        if row is None:
+            return updates
+        was = dict(zip(("title", "date", "start_time", "attendees",
+                        "location", "description", "color", "category"), row))
+        now = {**was, **{k: v for k, v in updates.items() if k in was}}
+        # `_AUTO_COLORS` only recognises a colour NOBODY has touched yet, so it
+        # says "hand-picked" about every event that has ever been categorised —
+        # the category's own colour was written at creation. A colour that is
+        # still its category's colour was assigned by this code, not chosen, so
+        # it may follow the new category; anything else the user picked and keeps.
+        color_in = now["color"]
+        try:
+            from assistant.actions.calendar.categories import color_for
+            if was["category"] and color_in in color_for(was["category"]):
+                color_in = None
+        except Exception:                   # pragma: no cover - defensive
+            pass
+        cat, color = auto_category_and_color(
+            conn, now["title"], now["date"], now["start_time"], now["attendees"] or "",
+            now["location"] or "", now["description"] or "", color_in,
+            None, exclude_id=event_id)
+        out = dict(updates, category=cat)
+        if "color" not in updates:
+            out["color"] = color
+        return out
+
     def update_event(self, event_id: int, **fields) -> None:
         allowed = {"title", "date", "start_time", "end_time", "attendees",
                    "location", "description", "color", "recurrence",
@@ -1151,11 +1184,19 @@ class CalendarDB:
         if not updates:
             return
         _memory_feedback("event", event_id, "corrected", updates)
-        set_clause = ", ".join(f"{k} = ?" for k in updates)
-        values = list(updates.values()) + [_utcnow_iso(), event_id]
         with self._conn() as conn:
             if self._is_externally_locked(conn, event_id):
                 return
+            # Rename an event and its label should follow the words. Renaming
+            # is how a manual add gets fixed — book "meeting", correct it to
+            # "gym" — and the category used to keep describing the typo, which
+            # also means the wrong COLOUR for the rest of that event's life.
+            # Only ever fills in what nobody chose: a caller passing `category`
+            # has decided, and `auto_category_and_color` still refuses to
+            # overwrite a colour picked by hand.
+            updates = self._relabelled(conn, event_id, updates)
+            set_clause = ", ".join(f"{k} = ?" for k in updates)
+            values = list(updates.values()) + [_utcnow_iso(), event_id]
             # updated_at is stamped in UTC (comparable against Graph's
             # lastModifiedDateTime for last-write-wins conflict resolution).
             # sync_dirty is only ever set here for outlook-sourced rows — the
@@ -1371,6 +1412,27 @@ class CalendarDB:
     # Todos: Create
     # ------------------------------------------------------------------
 
+    def _infer_tags(self, title: str) -> List[str]:
+        """Tags for a task nobody chose tags for.
+
+        Events have had this since the beginning: `create_event_from_dict` runs
+        the classifier itself, so an event is labelled no matter which surface
+        made it. Tasks put the same job on every CALLER instead, and the callers
+        disagreed — the API and the GUI's quick-add both remembered to infer,
+        while calendar sync, the workout planner and the coursework view did
+        not, so whether a task got a tag depended on where it came from rather
+        than on what it said.
+
+        `None` means "nobody chose"; an empty list means "chosen to be none" —
+        which the todo list's Untagged filter relies on, so the two must stay
+        distinguishable and only `None` may be filled in here.
+        """
+        try:
+            from assistant.actions.todo.tagging import suggest_tags
+            return suggest_tags(title, [r["name"] for r in self.get_tags()])
+        except Exception:      # labelling is never worth failing a create over
+            return []
+
     def create_todo(
         self,
         title: str,
@@ -1396,6 +1458,8 @@ class CalendarDB:
             existing = self.get_todo_by_client_token(token)
             if existing is not None:
                 return int(existing["id"])
+        if tags is None:
+            tags = self._infer_tags(title)
         tags_json = self._encode_tags(tags or [])
         new_id: Optional[int] = None
         with self._conn() as conn:
@@ -1570,9 +1634,21 @@ class CalendarDB:
                 del updates["quantity"]
         if not updates:
             return
-        set_clause = ", ".join(f"{k} = ?" for k in updates)
-        values = list(updates.values()) + [_utcnow_iso(), todo_id]
         with self._conn() as conn:
+            # Same rule as events: a renamed task gets a label from its new
+            # words — but only if it has none. An existing tag was chosen (by
+            # the user, or by the classifier on a title they kept), and
+            # replacing it on every edit would undo that silently. This is what
+            # leaves calendar-sync tasks untagged: sync renames them through
+            # here and never passes tags.
+            if "title" in updates and "tags" not in updates:
+                row = conn.execute("SELECT tags FROM todos WHERE id = ?", (todo_id,)).fetchone()
+                if row is not None and not self._decode_tags({"tags": row[0]})["tags"]:
+                    inferred = self._infer_tags(updates["title"])
+                    if inferred:
+                        updates["tags"] = self._encode_tags(inferred)
+            set_clause = ", ".join(f"{k} = ?" for k in updates)
+            values = list(updates.values()) + [_utcnow_iso(), todo_id]
             conn.execute(f"UPDATE todos SET {set_clause}, updated_at = ? WHERE id = ?", values)
 
     def toggle_todo_complete(self, todo_id: int) -> bool:

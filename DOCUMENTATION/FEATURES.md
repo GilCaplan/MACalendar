@@ -258,6 +258,20 @@ every command ever run.
 trace source `assistant/trace.py` + `trace_bus.py`
 (`~/.assistant_tools/trace_bus.jsonl`); iOS `ThinkingView` in
 `Views/ThinkingView.swift` (moved out of `VocabularyView.swift` 2026-09-06).
+**Launching it** (2026-09-14): `MACalendar HUD.app` → `launch_hud.sh` →
+`python -m assistant.thinking_hud --show`, rebuilt by `scripts/build_hud_app.sh`.
+Two traps live there. (1) The card is invisible until a command arrives, so
+clicking the icon looked exactly like the app failing to start — `--show`
+opens it, and `reopen()` re-fits so an idle card is not left at the last run's
+height. (2) `osacompile` ad-hoc-signs the bundle and every PlistBuddy edit
+afterwards BREAKS that seal; an unsealed bundle has no stable identity, so
+macOS files it under the bare executable name "applet" in Settings ▸ Privacy ▸
+Files and Folders, with no working toggle. Since the project lives under
+~/Desktop, the HUD then dies with `realpath: .venv/bin/: Operation not
+permitted` — which reads like a broken venv and is a missing TCC grant. The
+build script re-signs last and VERIFIES, and fails the build if the seal or
+the identifier is wrong. `scripts/hud_demo.py` streams a synthetic run to the
+real bus (as `source: "test"`, which History filters) to watch the rail live.
 **How:** The HUD talks to no process — it tails the bus file. Renders by
 brain version: `CHAINS[BRAIN_VERSION]` scaffold rail with per-step ⓘ
 (copy from `trace.STAGE_INFO`, mirrored in Swift, drift-pinned by
@@ -505,6 +519,14 @@ Coursework… + user customs) with per-tag colours, filtering, and "tag mode"
 near-misses to the closest class (case, plural stems incl. y↔ies, tight fuzzy
 at 0.8) and drops far-off hallucinations — the finite set never grows by
 accident.
+**Inference is the STORE's, not each caller's** (2026-09-14): `create_todo`
+infers when `tags` is `None` ("nobody chose") and leaves `[]` alone ("chosen to
+be none" — what the Untagged filter relies on). It used to be every caller's
+job and they disagreed: the API and the GUI quick-add inferred, calendar sync,
+the workout planner and the coursework view did not, so a task's tag depended
+on which surface made it. `update_todo` labels a renamed task that is still
+untagged — how a calendar-sync task gets one when its event is renamed — and
+never replaces a tag that already exists. Pinned by `tests/unit/test_autolabel.py`.
 
 ### Events: categories, colours & binder stacking
 **What:** Every event auto-categorised and coloured — adjacent events never
@@ -513,6 +535,13 @@ stack like binders.
 **Where:** `assistant/actions/calendar/categories.py`; stacking Mac-side in the
 views + iOS `Views/EventStacking.swift`; category registry
 `~/.assistant_tools/categories.json`.
+**Renaming moves the label** (2026-09-14): renaming is how a manual add gets
+fixed — book "meeting", correct it to "gym" — and the category used to keep
+describing the typo, and with it the colour. `update_event` reclassifies when
+the title changes and the caller passed no `category`. The colour follows only
+if it is still the OLD category's colour, i.e. this code wrote it; `_AUTO_COLORS`
+alone cannot tell, since it only recognises a colour nothing has touched and so
+calls every categorised event hand-picked.
 **How:** Deterministic classifier over title/attendees/location with a
 per-category palette; `auto_category_and_color` runs inside event INSERTs so
 every write path (voice, GUI, API) gets it.
