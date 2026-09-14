@@ -44,7 +44,12 @@ BUS_PATH = os.environ.get("MACALENDAR_TRACE_BUS") or os.path.expanduser(
 # Traces are only interesting for a few seconds after they happen; keep enough
 # to survive a slow poll, not a history. A streaming run is many lines, so this
 # counts lines rather than runs.
-MAX_ENTRIES = 200
+#: Raised from 200 when the engine began streaming every run (2026-09-14).
+#: A streamed run is a `begin`, one line per step and a `result` — roughly ten
+#: lines where it used to write one — and this budget counts LINES, not runs.
+#: Left at 200 the file would have held about eighteen runs, gutting the
+#: History view that reads it back as the durable record.
+MAX_ENTRIES = 2000
 
 
 def new_run() -> str:
@@ -63,9 +68,15 @@ def _append(entry: dict[str, Any]) -> None:
         logger.debug("trace bus publish failed: %s", exc)
 
 
-def publish(source: str, steps: list[dict[str, Any]], result: dict[str, Any] | None = None) -> str:
-    """Append one finished run, all at once. Returns its id."""
-    run = new_run()
+def publish(source: str, steps: list[dict[str, Any]], result: dict[str, Any] | None = None,
+            run: str | None = None) -> str:
+    """Append one finished run, all at once. Returns its id.
+
+    `run` reuses an id that was already streamed, so the durable line and the
+    live lines describe the SAME run and the HUD can tell it has already drawn
+    it. Minting a fresh id here would make every streamed command render twice.
+    """
+    run = run or new_run()
     _trim()                       # only ever between runs, never mid-run
     _append({"kind": "trace", "run": run, "source": source,
              "steps": steps, "result": result or {}})

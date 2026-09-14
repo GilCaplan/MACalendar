@@ -338,6 +338,15 @@ class ThinkingHUD(QWidget):
         kind = entry.get("kind", "trace")
         run = entry.get("run")
         if kind == "trace":
+            # A streamed run ALSO writes a whole-run `trace` line at the end,
+            # so History has something durable to read back. Rendering it again
+            # would replay the command the user just watched arrive.
+            # getattr, not attribute access: _start creates this list, so on
+            # the very first entry it does not exist yet — and an AttributeError
+            # here is swallowed by the reader's try/except, which silently drops
+            # the entry and the card never appears at all.
+            if run and run in getattr(self, "_rendered_runs", ()):
+                return
             self.panel.begin(source=entry.get("source") or "Mac")
             for step in entry.get("steps") or []:
                 self.panel.add_step(step)
@@ -374,6 +383,16 @@ class ThinkingHUD(QWidget):
         this — so a command that happens while the card is closed is still in
         the history when you next open it.
         """
+        # Remember which runs have been DRAWN. A streamed run also writes a
+        # trailing whole-run `trace` line so History has something durable to
+        # read back, and without this the card would replay the command the
+        # user just watched arrive.
+        seen = getattr(self, "_rendered_runs", None)
+        if seen is None:
+            seen = self._rendered_runs = []
+        if run:
+            seen.append(run)
+            del seen[:-64]
         self._current_run = run
         if not self._enabled():
             return

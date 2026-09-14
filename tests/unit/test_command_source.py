@@ -51,9 +51,27 @@ def client(registry_with_real_actions):
 
 
 def _sources(bus):
+    """The distinct sources this bus recorded, in order.
+
+    Reads only the lines that CARRY a source. Since the engine began streaming
+    every run (2026-09-14) one command writes `begin` and `trace` — both
+    labelled — plus `step` and `result` lines, which are keyed by run id and
+    have no source of their own. Taking `["source"]` off every line raised
+    KeyError on the first step; taking it off the labelled lines and
+    de-duplicating keeps this test asserting exactly what it always asserted —
+    which source a command was recorded under — rather than how many lines the
+    bus happens to use to say it.
+    """
     if not bus.exists():
         return []
-    return [json.loads(line)["source"] for line in bus.read_text().splitlines() if line.strip()]
+    out = []
+    for line in bus.read_text().splitlines():
+        if not line.strip():
+            continue
+        src = json.loads(line).get("source")
+        if src is not None and (not out or out[-1] != src):
+            out.append(src)
+    return out
 
 
 @pytest.mark.parametrize("body, expected", [

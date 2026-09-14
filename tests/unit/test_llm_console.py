@@ -246,3 +246,72 @@ def test_a_call_refreshes_the_console_only_while_it_is_open(panel, bus,
 
     refresh(hud, [])
     assert rebuilds == [1], "rebuilt on an empty batch"
+
+
+# --- streaming: the live path that had never fired ------------------------
+
+def test_every_run_streams_and_still_lands_in_history(tmp_path, monkeypatch):
+    """The card advertises that it fills in live while a command runs, and
+    across the bus's whole recorded history there was not one `begin` line —
+    for any surface. `on_step` was hooked only when a CALLER supplied a
+    trace_run, which only the Mac GUI ever did; zero of 47 Swift files pass
+    one, so a phone command published nothing for its entire 4-40 s.
+
+    Both halves are asserted together on purpose: the first fix made every run
+    stream and silently emptied History, because `read_history` returns only
+    `trace` lines and the durable branch had stopped being reached."""
+    import collections
+    import json
+
+    from assistant import trace_bus
+    bus = tmp_path / "tb.jsonl"
+    monkeypatch.setattr(trace_bus, "BUS_PATH", str(bus))
+
+    run = trace_bus.publish_begin("iPhone")
+    trace_bus.publish_step(run, {"stage": "vocab", "title": "Heard you"})
+    trace_bus.publish_result(run, {"message": "ok"})
+    trace_bus.publish("iPhone", [{"stage": "vocab", "title": "Heard you"}],
+                      {"message": "ok"}, run=run)
+
+    kinds = collections.Counter(json.loads(l)["kind"] for l in bus.read_text().splitlines())
+    assert kinds == {"begin": 1, "step": 1, "result": 1, "trace": 1}
+    assert len(trace_bus.read_history(10)) == 1, "History lost the run"
+
+
+def test_the_durable_line_reuses_the_streamed_run_id(tmp_path, monkeypatch):
+    """Minting a fresh id for the trailing `trace` line would make the HUD draw
+    every streamed command twice — once as it arrived, once as a replay."""
+    import json
+
+    from assistant import trace_bus
+    bus = tmp_path / "tb.jsonl"
+    monkeypatch.setattr(trace_bus, "BUS_PATH", str(bus))
+    run = trace_bus.publish_begin("Mac")
+    trace_bus.publish("Mac", [], {}, run=run)
+    ids = {json.loads(l)["run"] for l in bus.read_text().splitlines()}
+    assert ids == {run}
+
+
+def test_the_hud_does_not_redraw_a_run_it_already_streamed(qapp, tmp_path,
+                                                           monkeypatch):
+    from types import SimpleNamespace
+
+    from assistant import thinking_hud as hud_mod
+    drawn = []
+    panel = SimpleNamespace(
+        begin=lambda source=None: drawn.append("begin"),
+        add_step=lambda step: drawn.append("step"),
+        finish=lambda result: drawn.append("finish"),
+        _view="timeline")
+    hud = SimpleNamespace(panel=panel, _current_run=None, _rendered_runs=[])
+    hud._start = lambda run: (hud._rendered_runs.append(run),
+                              setattr(hud, "_current_run", run))
+    apply = hud_mod.ThinkingHUD.apply_entry
+
+    apply(hud, {"kind": "begin", "run": "r1", "source": "Mac"})
+    apply(hud, {"kind": "step", "run": "r1", "step": {}})
+    apply(hud, {"kind": "result", "run": "r1", "result": {}})
+    streamed = list(drawn)
+    # the durable line for the SAME run arrives next and must be ignored
+    apply(hud, {"kind": "trace", "run": "r1", "steps": [{}], "result": {}})
+    assert drawn == streamed, "the run was drawn twice"

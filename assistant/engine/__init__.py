@@ -224,8 +224,36 @@ class Engine(Component):
 
         cfg = load_config()
         trace = trace or Trace(source=source)
+
+        # STREAM EVERY RUN, not only the ones a caller opened for us.
+        #
+        # This used to hook `on_step` only when the caller supplied a
+        # `trace_run` — which only the Mac GUI ever does. Zero of 47 Swift
+        # files pass one, so a phone command published NOTHING for its whole
+        # 4-40 seconds and then appeared, already finished, in one line. The
+        # card advertises that it "fills in live while a command runs"; across
+        # the bus's entire recorded history there is not one `begin` line, for
+        # any surface. The live path existed and had never fired.
+        #
+        # The engine mints its own id when the caller has none, so the HUD sees
+        # begin -> step -> step -> result for every command from every surface.
+        # The final whole-run `trace` line is still written by `_publish`,
+        # because `read_history` returns only those and History would otherwise
+        # empty out — the cost is that a streamed run occupies ~10 lines
+        # instead of 1, which is why MAX_ENTRIES moves with this change.
+        from assistant import trace_bus as _tb
+        if not trace_run:
+            try:
+                # The RAW source ("mac" / "ios"), matching the durable trace
+                # line the same run writes at the end. Mapping to a display
+                # name here gave one run two labels — begin said "iPhone" and
+                # trace said "ios" — and the panel already renders either as
+                # "from your iPhone", so the mapping bought nothing and broke
+                # the guard that a command is recorded under one source.
+                trace_run = _tb.publish_begin(source or "mac")
+            except Exception:
+                trace_run = None
         if trace_run:
-            from assistant import trace_bus as _tb
             trace.on_step(lambda st: _tb.publish_step(trace_run, st.to_dict()))
 
         # THE LOCK WAIT, MADE VISIBLE. The Trace is constructed above, before
@@ -1025,8 +1053,14 @@ def _mine_reformulations(state: EngineState, cfg) -> None:
 
 
 def _publish(state: EngineState, resp: dict, trace_run: "str | None") -> None:
-    """Let the HUD (a separate process) see this run: stream into the caller's
-    open bus run when there is one, else publish the whole thing."""
+    """Let the HUD see this run — live, and then durably.
+
+    BOTH lines are written. `publish_result` closes the live run the card is
+    already drawing, and `publish` appends the whole-run `trace` line, which is
+    the ONLY shape `read_history` returns. Writing just the first left History
+    empty the moment every run began streaming, because `trace_run` was then
+    always set and the durable branch stopped being reached.
+    """
     try:
         from assistant import trace_bus
         payload = {
@@ -1039,8 +1073,12 @@ def _publish(state: EngineState, resp: dict, trace_run: "str | None") -> None:
         }
         if trace_run:
             trace_bus.publish_result(trace_run, payload)
-        else:
-            trace_bus.publish(state.trace.source if state.trace else state.source,
-                              resp["trace"], payload)
+        # ALWAYS the durable line too. `read_history` returns only `trace`
+        # entries, so a run that streamed and never wrote one is invisible to
+        # History — including the error and confirm paths, which return early
+        # and would otherwise be dropped from the record entirely. The HUD
+        # dedups by run id, so writing both renders once.
+        trace_bus.publish(state.trace.source if state.trace else state.source,
+                          resp.get("trace") or [], payload, run=trace_run)
     except Exception:
         pass
