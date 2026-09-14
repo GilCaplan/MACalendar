@@ -8,7 +8,7 @@ import threading
 import time
 from typing import Optional
 
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QCloseEvent, QColor, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QFrame,
@@ -128,6 +128,38 @@ class ElidingLabel(QLabel):
         fm = self.fontMetrics()
         elided = fm.elidedText(self._full_text, Qt.TextElideMode.ElideRight, self.width())
         super().setText(elided)
+
+
+class _ElasticSearchBox(QLineEdit):
+    """The toolbar search box: ~180px wide when there is room, shrinking down
+    to 90px rather than forcing an overlap when there is not.
+
+    `setFixedSize(180, 30)` was the actual bug behind Gil's report — it made
+    the search box the one item in the toolbar row that could NEVER give up
+    space, while every one of the ~20 other buttons/icons around it is also
+    fixed-size or close to it. Summed, the row's own minimum content width
+    sits above `CalendarWindow`'s own `setMinimumSize(900, 640)` floor, so at
+    a narrow-but-explicitly-allowed window width something had to give and
+    nothing could — widgets ended up drawn on top of each other instead of
+    the layout simply refusing to shrink further.
+
+    A plain `setMinimumWidth`/`setMaximumWidth` pair with a Preferred size
+    policy is not enough on its own: `QLineEdit.sizeHint()` is not 180px, so
+    without overriding it the box would sit at its SMALLEST allowed width
+    even in the ordinary, roomy case — it only grows toward a stretch factor
+    pulling on it, and giving it one would eat into the space the toolbar
+    intentionally leaves as pure margin before the view tabs. Overriding
+    `sizeHint()` (what the layout hands out when there IS room) while leaving
+    `minimumSizeHint()` at the real floor (what the layout shrinks toward
+    under pressure) gets both without touching the rest of the row's balance
+    — the same fix `ElidingLabel` above makes for the title, one class down.
+    """
+
+    def sizeHint(self):  # noqa: N802 — overriding QLineEdit's API
+        return QSize(180, 30)
+
+    def minimumSizeHint(self):  # noqa: N802
+        return QSize(90, 30)
 
 
 class ToastLabel(QLabel):
@@ -554,10 +586,10 @@ class CalendarWindow(QMainWindow):
         layout.addWidget(today_btn, alignment=v_center)
 
         layout.addSpacing(6)
-        self._search_box = QLineEdit()
+        self._search_box = _ElasticSearchBox()
         self._search_box.setObjectName("toolbar_search")
         self._search_box.setPlaceholderText("Search, or a date…")
-        self._search_box.setFixedSize(180, 30)
+        self._search_box.setFixedHeight(30)
         self._search_box.setClearButtonEnabled(True)
         self._search_box.returnPressed.connect(lambda: self._on_search())
         layout.addWidget(self._search_box, alignment=v_center)
