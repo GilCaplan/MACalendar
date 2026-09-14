@@ -1,6 +1,7 @@
 # The `assistant` CLI — infrastructure health
 
-`python -m assistant.cli` (console script: `assistant`). It is an
+`python -m assistant.cli` (console script: **`assistant-cli`** — plain
+`assistant` is the GUI, `assistant.main:main`). It is an
 **infrastructure health harness, not a quality harness** — it never asks "is
 the assistant smart / accurate". It answers one question: **is every layer of
 the stack wired and healthy, so the infrastructure is correctly in place?**

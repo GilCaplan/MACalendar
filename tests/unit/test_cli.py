@@ -38,17 +38,54 @@ def test_base_url_honours_the_env_port(monkeypatch):
 # --- the version-coupling guard ---------------------------------------------
 
 def test_the_engine_layer_covers_every_real_engine_stage():
-    """check_engine hard-codes the stage list it verifies is wired. If the
-    engine gains/renames a stage module and the doctor is not updated, this
-    fails — so the health check can never silently miss a new component."""
-    import inspect
-    src = inspect.getsource(cli.check_engine)
-    # the stage modules the engine actually ships
+    """Every folder under engine/ is verified by the doctor, so a new
+    component can never be silently missed."""
     import pkgutil
     import assistant.engine as E
+    from assistant.cli import ENGINE_STAGES
+    modules = " ".join(m for _c, m in ENGINE_STAGES)
     real = {m.name for m in pkgutil.iter_modules(E.__path__)
             if m.name not in ("state", "llm", "fastrule", "component", "__init__")}
     for stage in real:
-        assert f'"{stage}"' in src, (
-            f"engine stage '{stage}' exists but cli.check_engine does not verify it — "
-            "add it to the stage list (see DOCUMENTATION/CLI.md, version-tied)")
+        assert f"assistant.engine.{stage}" in modules, (
+            f"engine folder '{stage}' exists but cli.ENGINE_STAGES imports nothing "
+            "from it — add it (see DOCUMENTATION/CLI.md, version-tied)")
+
+
+def test_the_engine_layer_names_every_stage_the_chain_declares():
+    """The OTHER direction, which was missing and cost a year of drift.
+
+    The old guard only asked "does every folder appear?". It could not see a
+    NAME the doctor verifies that the engine no longer uses, so `("generate",
+    ...)` survived long after that stage was renamed `fastrule` at the
+    2026-09-08 rewire, and `doctor` reported a chain the engine had stopped
+    running. state.STAGES is what the chain actually runs."""
+    from assistant.cli import ENGINE_STAGES
+    from assistant.engine.state import STAGES
+    named = {comp for comp, _m in ENGINE_STAGES}
+    missing = [s for s in STAGES if s not in named]
+    assert not missing, (
+        f"state.STAGES declares {missing} but cli.ENGINE_STAGES never names them — "
+        "the doctor would report a chain it does not check")
+
+
+def test_the_engine_layer_names_no_stage_that_does_not_exist():
+    """And the reverse of that: a name the doctor verifies must be a real
+    stage, or a retired component keeps being reported as healthy."""
+    from assistant.cli import ENGINE_STAGES
+    from assistant.engine.state import STAGES
+    extra = {c for c, _m in ENGINE_STAGES} - set(STAGES) - {"LLM_one_shot"}
+    assert not extra, (
+        f"cli.ENGINE_STAGES names {sorted(extra)}, which state.STAGES does not "
+        "declare — a renamed or retired stage is still being reported")
+
+
+def test_every_module_the_engine_layer_claims_actually_imports():
+    """A path in the list that has rotted should fail here, not in production.
+    `segmentation.old_seg.segment` was the ONLY segmenter the doctor imported
+    long after FastSeg became the default — it verified the one that does not
+    run."""
+    import importlib
+    from assistant.cli import ENGINE_STAGES
+    for _component, module in ENGINE_STAGES:
+        importlib.import_module(module)

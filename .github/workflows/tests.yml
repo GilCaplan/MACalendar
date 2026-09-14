@@ -63,3 +63,39 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         # Integration tests skip without Ollama, which CI has none of.
         run: python -m pytest tests/ -v
+
+      # The CLI is the infrastructure health harness, and until now CI never
+      # ran it — only the unit tests that inspect it. Those check the stage
+      # LIST; this checks the command actually executes end to end: imports
+      # resolve in a clean interpreter, the console-script entry point is
+      # wired, and no layer raises.
+      #
+      # `doctor` is NOT expected to be green here and never will be: it exits
+      # non-zero when any layer is ✘, and CI has no Ollama, no HUD heartbeat
+      # and no GUI heartbeat, so llm/panel/macos are correctly red. What must
+      # hold is that it RUNS — a traceback is a real failure, a red layer is
+      # the honest answer. Asserting green would mean weakening the harness
+      # until it agreed with an empty machine.
+      - name: CLI — the layers that do not need a running stack
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          set -euo pipefail
+          python -m assistant.cli check engine
+          python -m assistant.cli check storage
+          python -m assistant.cli endpoints > /dev/null
+          assistant-cli endpoints > /dev/null   # the console-script entry point
+          # NB `assistant` is the GUI (assistant.main:main); the CLI is
+          # `assistant-cli`. Running the wrong one here would launch Qt.
+
+      - name: CLI — doctor runs without raising (red layers are expected)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          set -uo pipefail
+          out=$(python -m assistant.cli doctor 2>&1) || true
+          echo "$out"
+          if echo "$out" | grep -q "Traceback"; then
+            echo "::error::assistant doctor raised — a layer crashed rather than reporting red"
+            exit 1
+          fi

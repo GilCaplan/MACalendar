@@ -182,6 +182,47 @@ def check_storage() -> Check:
     return c
 
 
+#: Every stage of the chain, as (STAGE NAME, module to import).
+#:
+#: NAMED AFTER state.STAGES, not after the folders. The folder is where code
+#: lives; the STAGE is what the chain calls it, and the two diverged at the
+#: 2026-09-08 rewire. This list said "generate" long after that stage became
+#: fastrule, and named ONLY old_seg long after FastSeg became the default
+#: segmenter — so `doctor` reported a stage name the engine had stopped using
+#: and verified the segmenter that does not run.
+#:
+#: It is module-level DATA on purpose. The guard that checks it used to grep
+#: `inspect.getsource(check_engine)`, and a COMMENT mentioning a stage name
+#: satisfied the grep — a test its own prose can defeat is worse than no test,
+#: because it reports covered when it is not. Tests read this list directly.
+ENGINE_STAGES = [
+    ("ingest",             "assistant.engine.ingest.coalesce"),
+    ("transcript",         "assistant.engine.ingest.repair"),
+    # The LIVE segmenter first; old_seg is still wired and one env var away
+    # (MACALENDAR_SEGMENTATION=old_seg), so both are verified.
+    ("segment",            "assistant.engine.segmentation"),
+    ("segment",            "assistant.engine.segmentation.fastseg.fastseg"),
+    ("segment",            "assistant.engine.segmentation.old_seg.segment"),
+    ("decompose_validate", "assistant.engine.decompose_validate.stage"),
+    ("decompose_validate", "assistant.engine.decompose_validate.decompose"),
+    ("decompose_validate", "assistant.engine.decompose_validate.checks"),
+    ("decompose_validate", "assistant.engine.decompose_validate.resolve"),
+    ("decompose_validate", "assistant.engine.decompose_validate.targeting"),
+    ("decompose_validate", "assistant.engine.decompose_validate.object_rules"),
+    ("fastrule",           "assistant.engine.fastrule.stage"),
+    ("fastrule",           "assistant.engine.fastrule.fastrule"),
+    ("fastrule",           "assistant.engine.fastrule.objects"),
+    ("llmjudge",           "assistant.engine.llmjudge.llmjudge"),
+    ("llmjudge",           "assistant.engine.llmjudge.gatekeeper"),
+    ("llmjudge",           "assistant.engine.llmjudge.llm_fallback"),
+    # `commit` is the seventh STAGE and owns no folder — it lives in the
+    # orchestrator, so the layer covers all seven rather than six and a silence.
+    ("commit",             "assistant.engine.label.label"),
+    # NOT a stage — a parallel engine, off unless MACALENDAR_ONESHOT=1.
+    ("LLM_one_shot",       "assistant.engine.LLM_one_shot"),
+]
+
+
 def check_engine(deep: bool = False) -> Check:
     """Layer 3 — each stage of THIS engine version is wired, and the live path
     answers. Version-tied: reads CHAINS[BRAIN_VERSION]. See DOCUMENTATION/CLI.md."""
@@ -195,25 +236,7 @@ def check_engine(deep: bool = False) -> Check:
     # Both are needed since the component-folder restructure: a component can
     # hold more than one stage module (decompose_validate holds two) and the
     # folder name is no longer the import path.
-    stages = [
-        ("ingest",             "assistant.engine.ingest.repair"),
-        ("ingest",             "assistant.engine.ingest.coalesce"),
-        ("segmentation",       "assistant.engine.segmentation.old_seg.segment"),
-        ("decompose_validate", "assistant.engine.decompose_validate.decompose"),
-        ("decompose_validate", "assistant.engine.decompose_validate.checks"),
-        ("decompose_validate", "assistant.engine.decompose_validate.resolve"),
-        ("decompose_validate", "assistant.engine.decompose_validate.targeting"),
-        ("decompose_validate", "assistant.engine.decompose_validate.object_rules"),
-        ("generate",           "assistant.engine.fastrule.objects"),
-        ("llmjudge",           "assistant.engine.llmjudge.llmjudge"),
-        ("label",              "assistant.engine.label.label"),
-        # NOT a stage — a parallel engine, off unless MACALENDAR_ONESHOT=1.
-        # Listed because it lives under engine/ and the coverage guard walks
-        # that package: better to verify it imports than to teach the guard to
-        # skip folders, which is how a real stage would eventually be skipped
-        # too.
-        ("LLM_one_shot",       "assistant.engine.LLM_one_shot"),
-    ]
+    stages = ENGINE_STAGES
     import importlib
     for component, module in stages:
         leaf = module.rsplit(".", 1)[-1]
@@ -222,6 +245,20 @@ def check_engine(deep: bool = False) -> Check:
             c.add(True, f"stage wired: {component}/{leaf}")
         except Exception as e:
             c.add(False, f"stage MISSING: {component}/{leaf} — {e}")
+    # `commit` is a function in the orchestrator, not a module.
+    try:
+        import assistant.engine as _E
+        c.add(callable(getattr(_E, "_commit", None)),
+              "stage wired: commit/_commit (the only DB touchpoint)")
+    except Exception as e:
+        c.add(False, f"stage MISSING: commit/_commit — {e}")
+
+    from assistant.engine.state import STAGES
+    named = {comp for comp, _m in stages}
+    missed = [st for st in STAGES if st not in named]
+    c.add(not missed, "every stage in state.STAGES is verified"
+          + (f" — MISSING {', '.join(missed)}" if missed else f" ({len(STAGES)})"))
+
     # the version has a documented chain of thought
     c.add(BRAIN_VERSION in CHAINS, f"chain-of-thought spec defined for {BRAIN_VERSION}")
     # the live path answers with a coherent trace + the right version

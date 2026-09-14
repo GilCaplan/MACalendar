@@ -790,6 +790,25 @@ def _extract_temporal(span_text: str, today: datetime.date) -> dict:
                         candidate = raw
                         if candidate >= today.isoformat():
                             result["date"] = candidate
+                        elif "_dt_past_fallback" not in result:
+                            # A PAST-ONLY date is kept as a fallback, exactly as
+                            # the datetime branch above already does. It used to
+                            # be dropped on the floor, and the asymmetry was
+                            # invisible for a specific reason: a bare weekday
+                            # ("friday") resolves to TWO values, past and future,
+                            # so the future one set the date on the next
+                            # iteration and nothing was lost. "this friday"
+                            # resolves to exactly ONE — the current week's — so
+                            # from Saturday onward it is in the past and the
+                            # command lost its date entirely.
+                            #
+                            # Losing it is the worst outcome available: the
+                            # speaker said a day. Recovering it lets
+                            # `_rule_past_date_bump` do its job — "within a week
+                            # back it's a weekday that just went → same weekday
+                            # next week" — which turns "this friday" said on a
+                            # Sunday into the coming Friday.
+                            result["_dt_past_fallback"] = (candidate, None)
 
                 elif timex_type == "time" and not result["start_time"]:
                     # May have multiple values (AM/PM ambiguity) — pick business hours
