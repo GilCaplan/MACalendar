@@ -23,7 +23,13 @@
 # card must read the REAL stores, or it shows an empty History and none of the
 # commands you actually gave.
 set -u
-cd "$(dirname "$0")"
+# The repo path is EXPLICIT, not inferred from $0. `cd "$(dirname "$0")"` is
+# right only while this file sits in the repo; a copy installed anywhere else —
+# which is exactly how the launcher app came to call it — lands in a directory
+# with no .venv and reports "no ./.venv" for a venv that is perfectly fine.
+# REPO_DIR can be overridden for a checkout somewhere else.
+REPO_DIR="${MACALENDAR_REPO:-/Users/USER/Desktop/Personal_Projects/MACalendar}"
+cd "$REPO_DIR" || { echo "$(date '+%F %T')  no repo at $REPO_DIR" >> ~/.assistant_tools/hud.log; exit 1; }
 
 LOG=~/.assistant_tools/hud.log
 mkdir -p ~/.assistant_tools

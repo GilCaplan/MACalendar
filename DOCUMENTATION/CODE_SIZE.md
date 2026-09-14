@@ -1,9 +1,9 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 376, "total_lines": 102966} -->
+<!-- code-stats: {"total_files": 376, "total_lines": 102972} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**102,966 lines of source across 376 files.** Of that, **61,893 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**102,972 lines of source across 376 files.** Of that, **61,899 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
@@ -19,8 +19,8 @@
 | Microphone / speech (record, STT, TTS) | 17 | 2,652 |
 | API server (the front door) | 4 | 2,125 |
 | Model / Ollama code | 7 | 969 |
-| Launch scripts | 3 | 274 |
-| **TOTAL** | **376** | **102,966** |
+| Launch scripts | 3 | 280 |
+| **TOTAL** | **376** | **102,972** |
 
 ### By language
 
@@ -28,7 +28,7 @@
 |---|---:|---:|
 | Python | 324 | 87,722 |
 | Swift | 47 | 14,928 |
-| shell | 4 | 190 |
+| shell | 4 | 196 |
 | launch script | 1 | 126 |
 
 Not counted above, and deliberately so:
