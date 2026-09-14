@@ -443,6 +443,11 @@ class ThinkingHUD(QWidget):
     def reopen(self) -> None:
         """Show the card again after it was closed, with its history intact."""
         self._dismissed_run = None
+        # Size to what is actually in it. Reopening skipped this, so an idle
+        # card opened at whatever height the last run had left behind — a
+        # one-line "press the mic" message in a half-screen of empty panel.
+        self.panel.show()
+        self._fit()
         self._park()
         self.show()
         self._follow_every_space()
@@ -600,6 +605,13 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(description="Assistant thinking HUD")
     parser.add_argument("--config", default="config.yaml")
+    # Launching the app IS a request to see the card. Without this the HUD
+    # starts invisible — it only appears when a command arrives — so clicking
+    # the icon looked identical to the app failing to start, which is exactly
+    # how it was reported. Closing the card is still sticky; this only says
+    # that an explicit launch is not a "closed" state.
+    parser.add_argument("--show", action="store_true",
+                        help="show the card immediately instead of waiting for a command")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO,
@@ -654,6 +666,9 @@ def main(argv: list[str] | None = None) -> int:
         logger.warning("No menu bar item (%s) — the card will reappear on the "
                        "next command instead of staying hidden", exc)
         hud.allow_reappear_without_tray()
+    if args.show:
+        hud.reopen()
+
     reader = _BusReader(hud, args.config)
     timer = QTimer()
     timer.timeout.connect(reader.poll)

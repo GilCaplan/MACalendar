@@ -61,7 +61,7 @@ fi
 # the command returns, so the HUD needs only to outlive this script, which
 # a plain background job inside the applet's own session does.
 echo "$(date '+%F %T')  starting the HUD" >> "$LOG"
-"$PY" -m assistant.thinking_hud >> "$LOG" 2>&1 &
+"$PY" -m assistant.thinking_hud --show >> "$LOG" 2>&1 &
 disown 2>/dev/null || true
 
 # Confirm it actually came up: a HUD that dies on import would otherwise be a
