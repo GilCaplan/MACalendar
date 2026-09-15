@@ -55,6 +55,27 @@ HARM_WEIGHT = {"recurrence": 4, "date": 3, "start_time": 3,
 _WEEKDAY_NAME = ("monday", "tuesday", "wednesday", "thursday",
                  "friday", "saturday", "sunday")
 
+#: The recurrence check's vocabulary (TASKS.md row 87). Hand-maintained here
+#: on purpose — this file stays stdlib-only so it is safe to import from a
+#: process that already holds a model, and "the scorer must never agree with
+#: the code under test by sharing its table" (see the time-word check below)
+#: rules out importing `resolve.py`'s own patterns. But it CAN and must agree
+#: with the GOLD's closed table, `decompose_validate/datasets/normalization.py`
+#: RECURRENCES — that table is what the dataset was generated from, so any word
+#: it uses that this board doesn't know is a guaranteed false "invented"
+#: report, not a maybe. Seven incidents were exactly this (this round:
+#: yearly/annually) because nothing enforced agreement — now
+#: `test_decompose_validate_score_vocab.py` does: it imports RECURRENCES (a
+#: test may; this file may not) and fails the moment a new key uses a word not
+#: listed here, so a form the gold learns is a form this board is TOLD it
+#: learned rather than one it silently stops seeing.
+RECURRENCE_VOCAB = (
+    r"\b(every|each|daily|weekly|monthly|nightly|everyday|"
+    r"biweekly|fortnightly|yearly|annually|annual|"
+    r"morning|evening|weekday|weekend|night|"
+    r"(?:once|twice|thrice|\d+\s+times)\s+a)\b"
+)
+
 
 # ---------------------------------------------------------------------------
 # Matching — pair predicted items to gold, on the ACTION, not on position
