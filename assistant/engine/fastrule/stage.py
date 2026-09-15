@@ -89,10 +89,16 @@ def _flag(state, item, reason: str, kind: str) -> None:
     item.slots["fastrule_result"] = kind
     if state.trace:
         from assistant.trace import RULE
+        # `outcome` (not just `fastrule_result`) is the key the review panel
+        # reads (`thinking_panel.py`'s `_StepRow._OUTCOMES`, ported from
+        # `objects.py`'s `_trace_outcome` before it was deleted, TASKS.md row
+        # 91) — written independently here without it, so a flagged item
+        # reached the trace but the panel could never draw it: right values,
+        # wrong key name.
         state.trace.step(RULE, _FLAG_TITLES.get(kind, "Not built"),
                          f"“{(item.text or '')[:48]}” — {reason}",
                          ok=(kind == "not_an_ask"),
-                         fastrule_result=kind, item_id=item.id)
+                         fastrule_result=kind, outcome=kind, item_id=item.id)
 
 
 def run(state, cfg):
