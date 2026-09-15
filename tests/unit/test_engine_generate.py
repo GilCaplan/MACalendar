@@ -264,6 +264,75 @@ def test_an_ordinary_item_carries_no_outcome(dead_llm, cfg, trace):
 
 
 # ---------------------------------------------------------------------------
+# The model going away MID-COMMAND must not discard a sibling it already
+# answered (TASKS.md row 92)
+# ---------------------------------------------------------------------------
+#
+# `rescue()` used to re-raise LLMUnavailableError/LLMTimeoutError straight out
+# of its per-item loop ("the orchestrator owns offline queueing") — which
+# unwound past `_commit()` in the orchestrator, so a batch where the model
+# answered item 1 and then dropped on item 2 lost item 1 too, not just item 2.
+
+def test_a_sibling_the_model_already_answered_still_commits(monkeypatch, cfg):
+    from assistant.engine.llmjudge import rescue
+    from assistant.exceptions import LLMUnavailableError
+
+    calls = []
+
+    def _flaky(item, state, cfg, verdict):
+        calls.append(item.id)
+        if item.id == "item_2":
+            raise LLMUnavailableError("Ollama offline at http://localhost:11434")
+        return [("create_todo", type("I", (), {"title": "buy milk",
+                                                "titles": None})())]
+    monkeypatch.setattr(rescue, "_ask_the_model", _flaky)
+
+    st = EngineState(raw_text="buy milk and something else", text="buy milk and something else")
+    st.items = [
+        Item(id="item_1", kind="task", text="buy milk",
+            slots={"fastrule_defer": {"reason": "below-threshold", "reason_class": "incapacity"}}),
+        Item(id="item_2", kind="task", text="something else",
+            slots={"fastrule_defer": {"reason": "below-threshold", "reason_class": "incapacity"}}),
+    ]
+
+    rescue.take_deferrals(st, cfg)   # must not raise
+
+    assert calls == ["item_1", "item_2"], calls
+    resolved = next(it for it in st.items if it.id == "item_1")
+    assert resolved.action == "create_todo", "the item the model DID answer must still commit"
+    unresolved = next(it for it in st.items if it.id == "item_2")
+    assert unresolved.action is None
+    assert any("something else" in m for m in st.messages)
+
+
+def test_a_third_item_is_not_individually_retried_once_the_model_is_gone(monkeypatch, cfg):
+    """Once unreachable, the remaining items are marked unread rather than
+    each paying their own timeout for an identical failure."""
+    from assistant.engine.llmjudge import rescue
+    from assistant.exceptions import LLMTimeoutError
+
+    calls = []
+
+    def _flaky(item, state, cfg, verdict):
+        calls.append(item.id)
+        raise LLMTimeoutError("Ollama timed out")
+    monkeypatch.setattr(rescue, "_ask_the_model", _flaky)
+
+    st = EngineState(raw_text="a, b and c", text="a, b and c")
+    st.items = [Item(id=f"item_{i}", kind="task", text=w,
+                     slots={"fastrule_defer": {"reason": "below-threshold",
+                                               "reason_class": "incapacity"}})
+                for i, w in enumerate(("a", "b", "c"), start=1)]
+
+    rescue.take_deferrals(st, cfg)
+
+    assert calls == ["item_1"], (
+        f"items after the first failure were asked again: {calls}")
+    assert all(it.action is None for it in st.items)
+    assert len(st.messages) == 3, "each unread item still gets its own honest apology"
+
+
+# ---------------------------------------------------------------------------
 # GONE, not fixed: the per-item FastRule memo (`state.asked_fastrule`)
 # ---------------------------------------------------------------------------
 #

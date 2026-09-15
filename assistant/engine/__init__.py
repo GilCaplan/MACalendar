@@ -405,6 +405,21 @@ class Engine(Component):
                 # through the verify-token contract the clients already speak.
                 _start_background_verify(state, cfg)
             elif not oneshot:
+                # FAIL FAST (TASKS.md row 92). FastRule declined, so the deep
+                # track is about to walk segmentation, decompose_validate and
+                # fastrule before the FIRST model call even happens — paying
+                # for all of it only to fail at the end on a Mac that was
+                # already offline. `start_pending_retry_loop` already checks
+                # this before EVERY retry; a live command gets the same
+                # question before its FIRST attempt. `_parse_error_response`
+                # (below) already knows how to queue on "offline" in the
+                # message and give the honest reply — this reuses that path
+                # rather than duplicating it.
+                from assistant.engine import llm as _reach
+                if not _reach.is_reachable(cfg):
+                    from assistant.exceptions import OllamaUnavailableError
+                    raise OllamaUnavailableError(
+                        f"Ollama offline at {cfg.ollama.base_url}")
                 self.parse(state, cfg)
                 # The confirm gate (Q9), the same shape as the needs_edit
                 # gate: parse finished and validated, nothing written, the

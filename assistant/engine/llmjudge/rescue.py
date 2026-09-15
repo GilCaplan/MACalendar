@@ -170,19 +170,46 @@ def rescue(state: EngineState, cfg, pending: list) -> None:
     Each item is handled on its own: one unreadable item must not kill its
     neighbours (a validation error on "bowling tuesday night" once took a whole
     command down). Honest per-item failure; the rest still executes.
+
+    THE SAME HOLDS FOR THE MODEL GOING AWAY MID-COMMAND (TASKS.md row 92).
+    Re-raising `LLMUnavailableError`/`LLMTimeoutError` used to unwind all the
+    way past `_commit()` in the orchestrator — so a three-item command where
+    the model answered two items and then dropped lost ALL THREE, not just
+    the one it never got to. The gate `Engine.parse()`'s caller now runs
+    before entering the deep track at all handles the common case (offline
+    from the start); this is the narrower one, the model going away partway
+    through a batch of deferred items. Once it is confirmed unreachable,
+    retrying each remaining item would each pay its own timeout for an
+    identical answer, so the rest are marked unread rather than attempted —
+    honest per-item failure, same as a ParseError, not a silent auto-retry
+    (which would risk the Mac's own pending-command queue and this loop both
+    replaying the same words later).
     """
     from assistant.exceptions import (LLMTimeoutError, LLMUnavailableError,
                                       ParseError)
     from assistant.actions.todo.intent import CreateTodoIntent
 
+    model_gone = False
     for item, verdict in pending:
         if item.slots is None:
             item.slots = {}
         item.slots["built_by"] = "model"
+        if model_gone:
+            state.add_fix("llmjudge", "item_parse_failed", item.text[:40], "",
+                          note="the model was unreachable for an earlier item")
+            state.messages.append(
+                f"Sorry, I couldn't read this part: “{item.text[:60]}”.")
+            continue
         try:
             got = _ask_the_model(item, state, cfg, verdict)
-        except (LLMUnavailableError, LLMTimeoutError):
-            raise                      # the orchestrator owns offline queueing
+        except (LLMUnavailableError, LLMTimeoutError) as e:
+            model_gone = True
+            logger.warning("Model unreachable on item %s: %s", item.id, e)
+            state.add_fix("llmjudge", "item_parse_failed", item.text[:40], "",
+                          note=str(e)[:120])
+            state.messages.append(
+                f"Sorry, I couldn't read this part: “{item.text[:60]}”.")
+            continue
         except ParseError as e:
             logger.warning("Item %s failed to parse: %s", item.id, e)
             state.add_fix("llmjudge", "item_parse_failed", item.text[:40], "",

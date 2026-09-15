@@ -150,6 +150,7 @@ def test_a_blocked_item_is_reported_never_silent(monkeypatch, cfg):
 
 def test_llm_offline_queues_the_command(monkeypatch):
     monkeypatch.setattr(fast_track, "fast_propose", lambda state, cfg: False)
+    monkeypatch.setattr(engine_llm, "is_reachable", lambda cfg: True)   # the row-92 gate: known-up here
     monkeypatch.setattr(generate, "run",
                         lambda state, cfg: (_ for _ in ()).throw(
                             OllamaUnavailableError("Ollama offline at localhost")))
@@ -157,6 +158,26 @@ def test_llm_offline_queues_the_command(monkeypatch):
     out = engine.run_transcript("book squash with Yuval next thursday at 8", source="test")
     assert out["parse"] == "error"
     assert "offline" in out["message"].lower() or "saved" in out["message"].lower()
+    assert out.get("pending_id") is not None
+
+
+def test_a_known_offline_model_skips_the_deep_track_walk(monkeypatch):
+    """TASKS.md row 92 — the gate. Distinct from the test above: that one
+    proves a failure discovered MID-walk still queues correctly; this one
+    proves a Mac ALREADY known to be offline never starts the walk at all,
+    which is the whole latency point of the fix (segmentation and
+    decompose_validate can call the model too, not just this stage)."""
+    walked = []
+    monkeypatch.setattr(fast_track, "fast_propose", lambda state, cfg: False)
+    monkeypatch.setattr(engine_llm, "is_reachable", lambda cfg: False)
+    monkeypatch.setattr(generate, "run",
+                        lambda state, cfg: walked.append(1) or state)
+
+    out = engine.run_transcript("book squash with Yuval next thursday at 8", source="test")
+
+    assert walked == [], "the deep track ran despite a known-offline model"
+    assert out["parse"] == "error"
+    assert "offline" in out["message"].lower()
     assert out.get("pending_id") is not None
 
 

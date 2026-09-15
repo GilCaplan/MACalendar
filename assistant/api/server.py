@@ -200,16 +200,6 @@ def warm_up_components() -> None:
     _threading.Thread(target=_go, daemon=True, name="warm-up").start()
 
 
-def _llm_reachable(cfg) -> bool:
-    if cfg.llm_engine != "ollama":
-        return True
-    try:
-        import requests as _rq
-        return _rq.get(f"{cfg.ollama.base_url}/api/tags", timeout=1.5).ok
-    except Exception:
-        return False
-
-
 def retry_pending_once(run_transcript, mem, budget: int) -> int:
     """One pass of the pending queue. Returns how many batches were run.
 
@@ -338,7 +328,8 @@ def start_pending_retry_loop(run_transcript, interval: float = 30.0) -> None:
             _time.sleep(interval)
             try:
                 cfg = load_config()
-                if not _llm_reachable(cfg):
+                from assistant.engine import llm as _llm
+                if not _llm.is_reachable(cfg):
                     continue
                 budget = int(getattr(cfg.engine, "coalesce_max_tokens", 300))
                 retry_pending_once(run_transcript, get_memory(), budget)

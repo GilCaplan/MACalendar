@@ -89,6 +89,21 @@ def reset() -> None:
     _registry = None
 
 
+def is_reachable(cfg) -> bool:
+    """A cheap (1.5 s max) check of whether the configured LLM will actually
+    answer right now — moved here from `api/server.py`'s `retry_pending_once`
+    (TASKS.md row 92) so a live command can use the SAME check before paying
+    for a walk through the deep track that a known-offline model cannot
+    finish anyway, not just the pending-retry loop that already had it."""
+    if cfg.llm_engine != "ollama":
+        return True
+    try:
+        import requests as _rq
+        return _rq.get(f"{cfg.ollama.base_url}/api/tags", timeout=1.5).ok
+    except Exception:
+        return False
+
+
 def call_json(cfg, system: str, user: str, schema: "dict | None" = None) -> "tuple[dict, int]":
     """One structured-output call. Returns (parsed dict, elapsed ms).
 
