@@ -981,11 +981,36 @@ def _remove_extra(state: EngineState, finding) -> "tuple[str | None, dict | None
     return None, None
 
 
+def _has_candidates(item) -> bool:
+    """Does the store hold ANY row of the kind this item's target would be?
+
+    A cheap existence check, not a real match — "is the well not empty", not
+    "is the water the right one". Row 85 (TASKS.md): with no candidate rows
+    at all the model cannot read a target into existence either, so the
+    ~40 s recheck call was pure cost on 25 of 30 slow fast-path rows.
+    """
+    from assistant.db import get_db
+    table = "events" if "event" in (item.action or "") else "todos"
+    with get_db()._conn() as conn:
+        return conn.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone() is not None
+
+
 def _recheck_not_found(state: EngineState, cfg, item) -> "tuple | None":
     """One LLM second opinion on a confident parse whose target is missing.
     Returns (action, intent) to run instead, or None to let the not-found
     stand — including when the LLM agrees the target really is absent."""
     from assistant.trace import LLM, RULE
+
+    if not _has_candidates(item):
+        # Nothing of this kind exists at all — a recheck earns its place only
+        # where candidates DO exist (row 85: it changed the outcome on 5 of 32
+        # slow sealed rows, including the "Walk Mark's dog" case it was built
+        # for), and `scripts/checkpoint_sweep.py` resets the store before every
+        # replayed row, which is exactly the condition that made this finding.
+        if state.trace:
+            state.trace.step(LLM, "LLM",
+                             "Skipped — nothing of that kind exists to find", ok=False)
+        return None
 
     if state.trace:
         state.trace.step(RULE, "Nothing matched — rechecking",
