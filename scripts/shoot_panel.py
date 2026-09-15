@@ -34,6 +34,10 @@ for _var, _name in (("MACALENDAR_DB", "calendar.db"),
                     ("MACALENDAR_TRACE_BUS", "trace_bus.jsonl")):
     os.environ.setdefault(_var, os.path.join(_SCRATCH, _name))
 os.environ.setdefault("MACALENDAR_NO_WARMUP", "1")
+# BACKGROUND traffic: yields the model to the live assistant between calls
+# (assistant/model_protocol.py) — this drives the engine outside a test, so
+# without it a live voice command would queue behind this tool's model calls.
+os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt6.QtCore import QTimer                     # noqa: E402

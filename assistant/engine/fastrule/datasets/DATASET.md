@@ -28,7 +28,7 @@ is schema and composition, not the leakage discipline.
                                     no-mining rule — ENGINE-WIDE, every stage's dataset obeys it
     DATASET.md                      this file
 
-`scripts/gen_fastrule_dataset.py` is the only code involved: it reads the
+`assistant/engine/fastrule/datasets/generate.py` is the only code involved: it reads the
 banks, expands them into rows, assigns ground truth **by construction** (it
 put the fillers in, so it knows what the correct parse is), and writes
 `fastrule_7200.jsonl`. There is no hand-labelling step and no LLM in this
@@ -170,7 +170,7 @@ third `tags_3`. Absent when `events`/`tasks` is 0 for that row, same as any
 other not-applicable slot.
 
 **These are computed by calling the real classifier, not a reimplementation
-of it.** `scripts/gen_fastrule_dataset.py`'s `setup_label_env()` points
+of it.** `assistant/engine/fastrule/datasets/generate.py`'s `setup_label_env()` points
 `MACALENDAR_CATEGORIES` at `banks/categories_fixture.json` and imports
 `assistant.actions.calendar.categories.classify()` directly — the exact
 function the live engine calls — so `category` in this dataset is *by
@@ -282,7 +282,7 @@ rather than a boundary past it, per the project's own rule.
 
 ## Composition (this generation — regenerate to reproduce exactly)
 
-    python -m scripts.gen_fastrule_dataset
+    python -m assistant.engine.fastrule.datasets.generate
 
 prints this table and writes `fastrule_7200.jsonl`; `--no-write` runs the
 same generation + verification without touching the file (useful for
@@ -361,7 +361,7 @@ rows to, `propose_confirm` is new that round):
 | texture* | 16 | 245 | misspellings, STT filler words, quoted targets, rambling — in compound/complex context |
 | extra* | 17 | 236 | topping up thin action buckets (update_event/update_todo/query/delete_*/complete_todo) with complex-register phrasing |
 
-**Label coverage** (`python -m scripts.gen_fastrule_dataset --no-write` prints this):
+**Label coverage** (`python -m assistant.engine.fastrule.datasets.generate --no-write` prints this):
 
 | event category | count | share of expected events |
 |---|---:|---:|
@@ -401,7 +401,7 @@ train-invariance proof. Short version: a family may declare
 `"force_split": "test"` and is then assigned directly to test, entirely
 bypassing the stratified 80/20's hash-based bucket assignment — so adding
 one can never reshuffle any *other* family's train/test side, and can never
-produce a train row (`build_forced_test()` in `scripts/gen_fastrule_dataset.py`
+produce a train row (`build_forced_test()` in `assistant/engine/fastrule/datasets/generate.py`
 asserts both). **These rows are eval-only, exactly like the rest of
 `split == "test"`** — the leakage rule at the top of `engine/TRAIN_TEST_SPLIT_CONVENTION.md` (test
 results are never mined) makes no distinction between the two test pools.
@@ -427,11 +427,11 @@ date arithmetic against it.
 
 ## How to regenerate
 
-    python -m scripts.gen_fastrule_dataset            # writes fastrule_7200.jsonl
-    python -m scripts.gen_fastrule_dataset --no-write  # prints the composition table, doesn't write
+    python -m assistant.engine.fastrule.datasets.generate            # writes fastrule_7200.jsonl
+    python -m assistant.engine.fastrule.datasets.generate --no-write  # prints the composition table, doesn't write
 
 Fully deterministic: `SEED = "fastrule-6000-v1"` in
-`scripts/gen_fastrule_dataset.py` (a fixed historical identifier now, not a
+`assistant/engine/fastrule/datasets/generate.py` (a fixed historical identifier now, not a
 live row-count description — see the module docstring; changing the STRING
 would reseed every family's RNG independently and break every row, forced
 or not), the current bank files (including `categories_fixture.json`), and
@@ -461,7 +461,7 @@ To extend the dataset: add a family to `banks/simple_patterns.json` or
 `banks/complex_patterns.json` (simple needs only `family`/`action`/
 `template`; complex additionally needs `atomic`/`events`/`tasks` stated
 explicitly — see the module docstring and `validate_family()` in
-`scripts/gen_fastrule_dataset.py` for the placeholder-suffix convention that
+`assistant/engine/fastrule/datasets/generate.py` for the placeholder-suffix convention that
 avoids two asks silently clobbering the same slot key), then regenerate.
 **Two ways to add a family, with different blast radii** (`engine/TRAIN_TEST_SPLIT_CONVENTION.md` has
 the full mechanism): a plain family joins the stratified 80/20 pool and

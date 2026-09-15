@@ -1650,10 +1650,13 @@
     It holds one. Whisper loads in the API process and spaCy in the rule parser &mdash; both inside the
     process that does the deciding &mdash; and the language model sits beside them in <strong>its own
     process</strong>, answering when asked.</p>
-    <p>Five of the seven engine stages may call the language model, each with its own schema-constrained
-    question: split this command, split this item's times, repair these garbled words, read this item, and
-    list what the raw words asked for. The other two &mdash; the transcript stage and the label stage
-    &mdash; never call it at all. Same weights, five different questions.</p>
+    <p>Four of the seven engine stages may call the language model, each with its own schema-constrained
+    question: split this command, split this item's times, repair these garbled words, and list what the
+    raw words asked for. The other three &mdash; the transcript stage, the FastRule stage and the label
+    stage &mdash; never call it at all. FastRule stopped asking in the 2026-09-10 restructure: it converts
+    an already-atomic item into an object with no model and no opinion about committing, and what it
+    cannot build it hands to LLMJudge rather than asking a second time itself. Same weights, four
+    different questions.</p>
     <h3>And three small ones you would not call models</h3>
     <p>Three logistic classifiers ride inside the fast path: <em>is this one item or several</em>, <em>which
     operation</em>, <em>which kind</em>. They are fitted offline with scikit-learn and shipped as a file of

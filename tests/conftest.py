@@ -39,6 +39,9 @@ _os.environ.setdefault("MACALENDAR_NO_WARMUP", "1")
 # reading", so refusing here keeps the suite fast and deterministic. Tests of
 # the LLM paths monkeypatch assistant.engine.llm.call_json instead.
 _os.environ.setdefault("MACALENDAR_LLM_DISABLED", "1")
+# A test run is BACKGROUND traffic: if it ever does reach a model it
+# stands aside for the live assistant rather than racing it.
+_os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 
 _SCRATCH = _tempfile.mkdtemp(prefix="macalendar-tests-")
 for _var, _name in (("MACALENDAR_DB", "calendar.db"),
@@ -50,7 +53,32 @@ for _var, _name in (("MACALENDAR_DB", "calendar.db"),
                     # location.json (caught 2026-09-06 when two checkouts'
                     # suites raced through the shared file)
                     ("MACALENDAR_LOCATION", "location.json"),
-                    ("MACALENDAR_TRACE_BUS", "trace_bus.jsonl")):
+                    ("MACALENDAR_TRACE_BUS", "trace_bus.jsonl"),
+                    # The label learner's two stores (2026-09-10). The feedback
+                    # file is the one that matters: it holds the user's own
+                    # CORRECTIONS, which are the only non-circular label source
+                    # this project has, and a test writing junk into it trains
+                    # the shipped classifier on junk. Redirected here for the
+                    # same reason as the vocabulary — the paths are read at
+                    # import time, so a fixture would be too late.
+                    ("MACALENDAR_MODELS", "models"),
+                    ("MACALENDAR_LABEL_FEEDBACK", "label_feedback.jsonl"),
+                    # The cross-process model gate. Scratch it like the rest:
+                    # a suite that flock()s the REAL lock file would make the
+                    # running assistant wait on the test run, which is the exact
+                    # interference this mechanism exists to prevent.
+                    ("MACALENDAR_MODEL_LOCK", "model.lock"),
+                    # The device HMAC key and the enrolment registry. A suite
+                    # that enrolled into the REAL registry would fill it with
+                    # phantom devices, and one that read the real SECRET would
+                    # mint tokens valid against the running assistant.
+                    ("MACALENDAR_DEVICE_SECRET", "device_secret"),
+                    ("MACALENDAR_DEVICES", "devices.json"),
+                    # Experiment checkpoints. Scratched so a suite can never
+                    # RESUME a real measurement run — it would read half a
+                    # board's results as its own and report a number that came
+                    # from two different configurations.
+                    ("MACALENDAR_CHECKPOINTS", "checkpoints")):
     _os.environ.setdefault(_var, _os.path.join(_SCRATCH, _name))
 
 import json

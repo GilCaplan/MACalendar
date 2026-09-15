@@ -44,11 +44,11 @@ text ─▶ 0 ingest      orchestrator   queue + coalescing
      ─▶ 2 segment     segment.py     split into typed items
      ─▶ 3 decompose   decompose.py   items that are several things, or one × N
      ─▶ 4 validate    validate.py    named format rules, text repair, observance
-     ─▶ 5 generate    generate.py    items → intents (rules first, LLM for gaps)
+     ─▶ 5 fastrule    fastrule/      items → objects (rules ONLY; DEFERs go to 6)
      ─▶ 4′ validate.run_objects      field-level named rules on the intents
      ─▶   commit      orchestrator   execute via the action registry
      ─▶ 7 label       label.py       category / tag read-back
-     ─▶ 6 crosscheck  crosscheck.py  raw text vs. produced objects, loop-back
+     ─▶ 6 llmjudge    llmjudge/      raw text vs. produced objects, loop-back
 ```
 
 Every command runs the deep track. The **fast track** is the same machinery
@@ -72,6 +72,7 @@ channel to mutate state through.
 | Field | Written by | Read by | Meaning |
 |---|---|---|---|
 | `raw_text`, `source`, `current_view`, `supports_edit`, `supports_confirm`, `mode` | ingest | all | read-only after ingest; `mode` is `foreground` or `background` (fast-track verify pass) |
+| `device` | ingest | `model_protocol.stream_key` | **CONTRACT EXTENSION, 2026-09-10 (Gil).** WHICH client, where `source` is only what KIND. Every iPhone reports `source="ios"`, so the pending queue treated the whole tailnet as one stream and concatenated two phones' queued commands into a single utterance. Client-supplied and opaque — a grouping key, never parsed. Empty when the client sends none, which degrades to source-only grouping: a Mac still never merges with a phone. Read-only after ingest. |
 | `text` | transcript | all later | the working transcript (stop words stripped, vocab applied) |
 | `corrections` | transcript | response | vocab fixes, client shape |
 | `needs_edit` | transcript | orchestrator | doubtful words; non-empty ⇒ the gate fired, nothing executes |
@@ -86,6 +87,34 @@ channel to mutate state through.
 | `trace`, `parse_path`, `llm_ms`, `rule_confidence`, `memory_id`, `verify_token`, `pending_id` | orchestrator + stages as noted | response | bookkeeping |
 
 ## The stages
+
+## One ollama, many callers
+
+`assistant/model_protocol.py` is the single answer to *who gets the model next*
+and *whose words may be spoken in one breath* — they are the same question,
+because identity decides both.
+
+    stream_key(source, device)   the identity a request belongs to
+    may_merge(a, b)              same DEVICE only; never across devices
+    hold()                       the cross-process gate around one model call
+
+**Merge or queue.** Commands from the same device may be coalesced into
+`("a")and("b")` — one person's backlog, one parse. Commands from different
+devices are never concatenated; they queue. Two iPhones are two people.
+
+**Live traffic never waits for a board.** The gate is `fcntl.flock` on a file,
+chosen because the kernel releases it when the holder dies — a crashed board
+must not wedge the assistant, and a stale-lock reaper would be a second bug.
+The asymmetry is the design: LIVE tries for ~50ms then proceeds anyway (so a
+command degrades to slow, never to failed), while BACKGROUND blocks and
+releases between every call, plus a short yield gap so two boards cannot starve
+each other. Declared by `MACALENDAR_LLM_PRIORITY`, defaulting to LIVE so that
+forgetting makes a board rude rather than making a user wait.
+
+Every call that generates or loads is inside a `hold()`, and
+`tests/unit/test_model_protocol.py` reads the tree to prove it — `llmseg` owns
+its own socket, so a gate placed only in `IntentParser` would have had a silent
+hole, and a gate with a known hole is worse than none.
 
 ### 0 · ingest (`ingest/coalesce.py` + the orchestrator's run lock)
 Two halves, both live. **Serialization**: `run_transcript` holds a lock — one
@@ -195,8 +224,44 @@ gym at 7 and should i add yoga?" the question half keeps its pre-ruling
 behaviour and the booking runs. Without `supports_confirm` nothing changes,
 which is what keeps old clients working.
 
-### 5 · fastrule (`fastrule/stage.py` → `fastrule/objects.py` · trace `rule`/`llm` · tests `test_engine_generate.py` + integration)
-Owns ALL text→intent conversion. **`FastRule`** (`engine/fastrule/fastrule.py`) is the
+### 5 · fastrule (`fastrule/stage.py` → `fastrule/build.py` · trace `rule` · tests `test_fastrule_build.py`, `test_engine_generate.py` + integration)
+
+**RESTRUCTURED 2026-09-10.** `objects.py` is gone. The stage is a CONVERTER —
+`List[Item]` in, objects out — and it **calls no model**, directly or
+transitively. Its contract:
+
+| in | out |
+|---|---|
+| `X3` items, values already resolved by decompose_validate | `X4` `item.action` + `item.intent` |
+| | or a **DEFER** on `item.slots["fastrule_defer"]`, which LLMJudge takes at its own entry |
+| | or a **flag**: `item.blocked` + `item.slots["fastrule_result"]` ∈ {`bad_item`, `not_an_ask`} |
+
+`build(item, *, today) -> Built | Defer | BadItem | NotAnObject` is the whole of
+it, and it is a PURE function — no model, no database, no clock of its own — so
+its board is a table of items and expected objects. It COPIES the eight values
+(`date`, `start_time`, `end_time`, `recurrence`, `recur_days`, `recur_until`,
+`quantity`, `reminder_minutes`) and re-derives none of them; it reads only the
+OPERATION, the TITLE, the PEOPLE and the TARGET. `item.kind` may re-kind a
+CREATE or a QUERY, never a target-taking operation — that would change which
+STORE is searched for an existing record.
+
+**A BadItem is a SUCCESS, not a failure**: the item arrived damaged and the
+stage reports that rather than guessing at words nobody said. Which upstream
+stage did the damage is attributed by the board, not by the runtime.
+
+`fastrule/fast_track.py` holds the separate whole-command FRONT DOOR
+(`fast_propose`), which is where `Atomicity` belongs — at the front door there
+is no Item yet, so "one ask or several?" is the right question there and nowhere
+else.
+
+The model half — the fallback, both kind fallbacks, and the kind-primed retry —
+lives in `llmjudge/rescue.py`. **`fastrule_shape.py` measures the front door and
+`stage_board.py` measures the stage; they are different boxes, do not compare
+them.**
+
+#### The front door's classifier (unchanged)
+
+**`FastRule`** (`engine/fastrule/fastrule.py`) is the
 deterministic rule parser + its abstention gates + a confidence threshold, as
 a self-contained SELECTIVE CLASSIFIER: `FastRule(threshold).run(prompt)`
 returns a commit-or-abstain verdict (`.committed`, `.intents`, `.confidence`,
@@ -238,8 +303,11 @@ the row-75 fix). Slots from decomposition land on the intent (`quantity`).
 interrogative create never takes the fast track whatever the rules score it
 (`is_interrogative_create`): only deep can hold a parse and ask first.
 
-Two deterministic fallbacks close the honest-failure ladder (both pinned in
-`test_engine_generate.py`): **task_fallback** (run 12) — a task-kind item
+Two deterministic fallbacks close the honest-failure ladder. **They live in
+`llmjudge/rescue.py` since 2026-09-10** — they fire only after a model parse
+comes back empty, so they belong with the model — and are still pinned in
+`test_engine_generate.py`, which now runs both stages the way the orchestrator
+does. **task_fallback** (run 12) — a task-kind item
 never parses to nothing; the item text IS the task. **event_fallback**
 (cycle 5) — an event-kind item that still parses to unknown after the
 event-kind retry becomes a default-titled event ONLY when the words
@@ -263,18 +331,39 @@ Categories/colours and task tags are applied by the actions themselves
 `item.labels` so reply, trace and audit can see them. The two-level hierarchy
 (row 58) lands here.
 
-### 6 · llmjudge (`llmjudge/llmjudge.py` · trace `verify` · gate: extraction + blame tests)
-1. EXTRACT, don't judge: the LLM lists items the RAW text mentions
-   (schema-constrained) — small models extract far better than they
-   self-evaluate.
-2. COMPARE deterministically: diff against produced objects → `missing` /
-   `extra` / `wrong_fields` findings.
-3. BLAME by mismatch type via the fixed `BLAME` map (missing/extra → segment,
-   wrong_fields → generate, format → validate; generate when ambiguous). The
-   model never picks the stage.
-Loop-back: re-run from the blamed stage with the mistake in that stage's
-prompt context; ≤ `MAX_REENTRIES` (3) per command; on exhaustion commit the
-best attempt, say so, mark the memory record uncertain. On the fast track this
+### 6 · llmjudge (`llmjudge/llmjudge.py` · trace `verify` · gate: extraction + router tests)
+
+**Rebuilt 2026-09-10** (`llmjudge/PLAN.md` §6, Gil). Job 0 answers FastRule's
+DEFERs (`rescue.py`); job 1 is the check, and it runs in BOTH directions:
+
+0. **EXTRACT, don't judge.** Two schema-constrained COPYING questions, never an
+   evaluation — small models extract far better than they self-evaluate, and
+   asked "is this right?" an 8B says yes.
+   - `extract_asks` — the separate things the RAW text asks for (**recall**).
+   - `ground_claims` — the words behind each field of each object
+     (**precision**). This direction is new; the stage previously had only the
+     first, and an invented field had nothing looking for it.
+1. **DECIDE deterministically** (`verdict.py`). The temporal fields never reach
+   the model: `CalendarIntent` stamps a date and a clock the moment an object
+   exists, so `item.slots` — what decompose_validate really resolved — is the
+   only honest record, and `render.unsupported_by_slots` reads it for free.
+   Findings: `missing` · `ungrounded_subject` · `unsupported_field` · `extra`.
+   (`wrong_fields` and `format` are GONE: the old `BLAME` map listed both and no
+   code path ever constructed either.)
+2. **ROUTE by finding TYPE, never by opinion** (`findings.py::ROUTE`, pinned by
+   `test_engine_contracts.py`): `missing` and `ungrounded_subject` → REWRITE;
+   `unsupported_field` → COMMIT with a notice; `extra` → the review panel. Only
+   the first two spend a round, because a rewrite cannot invent a date nobody
+   said and a re-run cannot un-produce an extra.
+
+Loop-back: `rewrite.py` builds **X1' — the failed asks only, reworded** — and
+the orchestrator FREEZES the objects that passed (`engine.parse(frozen=…)`,
+ids re-prefixed per round) rather than re-parsing them, so nothing is built
+twice and `_commit` still runs exactly once. ≤ `MAX_REENTRIES` (3) per command;
+on exhaustion commit the best attempt, say so, mark the memory record
+uncertain. **The rewrite fails CLOSED**: every content word of X1' must already
+appear in the transcript (creation verbs exempt, destructive verbs never), and
+no honest rewrite means no loop. On the fast track this
 stage patches the committed answer — **tiered**: additive fixes silent,
 destructive corrections visible with one-tap revert. It owns what used to be
 four bolt-ons: the background verify, both placeholder-title fixers, the

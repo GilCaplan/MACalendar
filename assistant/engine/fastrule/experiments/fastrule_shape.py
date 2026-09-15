@@ -40,6 +40,11 @@ for _v, _n in (("DB", "c"), ("MEMORY_DB", "m"), ("VOCAB", "v"),
                ("CATEGORIES", "cat"), ("TRACE_BUS", "t"), ("LOCATION", "l")):
     os.environ[f"MACALENDAR_{_v}"] = os.path.join(_T, _n)
 os.environ["MACALENDAR_NO_WARMUP"] = "1"
+# BACKGROUND traffic: this yields the model to the live assistant between
+# every call (assistant/model_protocol.py). Without it a board and a voice
+# command are indistinguishable to ollama, and a trivial live call measured
+# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
+os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 for _b in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
     os.environ.setdefault(_b, "1")
 
@@ -118,7 +123,13 @@ def _phrase_to_date(phrase: str, today: "_dt.date") -> "str | None":
 #: an annoyance; a wrong DELETE destroys something they may not get back. The
 #: project already rules that "deleting is destructive" — the metric should
 #: say so too, or the loop has no reason to prefer failing safely.
-_NOW_RE = re.compile(r"\\b(?:right\\s+now|now|immediately|asap)\\b", re.I)
+# NB the escaping: this was written `r"\\b…\\b"` — a raw string with a DOUBLED
+# backslash, so it matched a literal "\b" and never a word boundary. The
+# pattern could not fire, `NOW_N` stayed 0, and `if NOW_N:` meant the whole
+# midnight section below was silently absent from every board this file has
+# ever printed. A metric that cannot report is worse than no metric: it reads
+# as "nothing to see".
+_NOW_RE = re.compile(r"\b(?:right\s+now|now|immediately|asap)\b", re.I)
 
 #: A title that names nothing — the word for a calendar entry rather than a
 #: name for one. Same shape as fastrule's `_GENERIC_TARGET_RE`.

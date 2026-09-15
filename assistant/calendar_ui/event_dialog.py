@@ -67,7 +67,17 @@ class EventDialog(QDialog):
     ):
         super().__init__(parent)
         self._event = event  # None = create mode
+        # WHAT THE DIALOG SHOWS vs WHAT IT SENDS. The swatch has to be painted
+        # with something, but a NEW event whose picker was never touched has no
+        # colour choice to report — and sending the paint colour as if it were a
+        # choice is exactly what suppressed category colours for voice-created
+        # events (2026-09-10; `db._AUTO_COLORS` carries the full story).
+        #
+        # So the displayed colour and the reported one are separate: `_picked`
+        # stays False until the user actually clicks a swatch, and `""` — an
+        # auto marker — is what goes to the server until they do.
         self._selected_color = (event or {}).get("color", BLUE)
+        self._picked = bool((event or {}).get("color"))
         self._default_time = default_time
         self.event_data: Optional[dict] = None
         self.delete_requested: bool = False
@@ -329,6 +339,7 @@ class EventDialog(QDialog):
 
     def _on_color_selected(self, color: str) -> None:
         self._selected_color = color
+        self._picked = True          # an actual click — now there IS a choice
         self._update_color_dots()
 
     def _update_color_dots(self) -> None:
@@ -388,7 +399,7 @@ class EventDialog(QDialog):
             "attendees": self._attendees.text().strip(),
             "location": self._location.text().strip(),
             "description": self._description.toPlainText().strip(),
-            "color": self._selected_color,
+            "color": self._selected_color if self._picked else "",
             "recurrence": recurrence,
             "recurrence_end": recur_until,
         }

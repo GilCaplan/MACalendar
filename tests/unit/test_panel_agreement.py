@@ -110,9 +110,13 @@ def test_the_panel_knows_every_non_object_outcome_the_engine_emits():
     exists to make loud.
     """
     from assistant.calendar_ui.thinking_panel import _StepRow
-    from assistant.engine.fastrule import objects
+    from assistant.engine.fastrule import stage
 
-    engine = {objects.NOT_AN_ASK, objects.BAD_ITEM}
+    # `stage._FLAG_TITLES` is the dispatch table `_flag()` actually emits
+    # `outcome=` from (build.py's `objects.py` replacement, TASKS.md row 91) —
+    # reading it directly, the same discipline CLAUDE.md asks of every board
+    # here, beats hand-copying the two kind names a second time.
+    engine = set(stage._FLAG_TITLES)
     missing = sorted(engine - set(_StepRow._OUTCOMES))
     assert not missing, (
         f"the object stage can emit outcomes {missing} that "
@@ -126,9 +130,8 @@ def test_the_panel_knows_every_non_object_outcome_the_engine_emits():
 
 
 def test_every_outcome_the_engine_can_explain_has_wording():
-    """Each outcome needs the sentence the trace step puts under it."""
-    from assistant.engine.fastrule import objects
+    """Each outcome needs the row title the trace step is filed under."""
+    from assistant.engine.fastrule import stage
 
-    for outcome in (objects.NOT_AN_ASK, objects.BAD_ITEM):
-        why = objects._OUTCOME_WHY.get(outcome, "")
-        assert why.strip(), f"no _OUTCOME_WHY copy for {outcome!r}"
+    for outcome, title in stage._FLAG_TITLES.items():
+        assert title.strip(), f"no _FLAG_TITLES wording for {outcome!r}"

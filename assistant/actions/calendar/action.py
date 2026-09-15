@@ -60,8 +60,13 @@ class CreateEventAction(BaseAction):
         from assistant.db import get_db
         db = get_db()
 
-        from assistant.calendar_ui.styles import BLUE
-        event_id = db.create_event(intent, color=BLUE)
+        # NO COLOUR IS PASSED, and that is the point: a spoken command never
+        # carries a colour choice, so claiming one suppresses the category
+        # colour. This used to pass `styles.BLUE`, which stopped meaning "the
+        # default blue" when the accent became configurable and started meaning
+        # "the user picked amber" — every voice-created event then came out the
+        # same colour whatever its category (2026-09-10).
+        event_id = db.create_event(intent)
 
         context_memory.update_event(event_id, intent.title, intent.date)
 

@@ -58,6 +58,11 @@ for _v, _n in (("DB", "c"), ("MEMORY_DB", "m"), ("VOCAB", "v"),
                ("CATEGORIES", "cat"), ("TRACE_BUS", "t"), ("LOCATION", "l")):
     os.environ[f"MACALENDAR_{_v}"] = os.path.join(_T, _n)
 os.environ["MACALENDAR_NO_WARMUP"] = "1"
+# BACKGROUND traffic: this yields the model to the live assistant between
+# every call (assistant/model_protocol.py). Without it a board and a voice
+# command are indistinguishable to ollama, and a trivial live call measured
+# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
+os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 for _b in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
     os.environ.setdefault(_b, "1")
 
@@ -137,12 +142,12 @@ def predictions(rows, floor: "float | None" = None):
     all three predictors come out of the same pass.
     """
     from freezegun import freeze_time
-    from assistant.engine.fastrule import objects as _generate
+    from assistant.engine import llm as _generate
     from assistant.engine.fastrule.fastrule import Atomicity
     from assistant.intent.classifier import ROUTER
 
     atom = Atomicity()
-    rp = _generate._get_rule_parser()
+    rp = _generate.get_rule_parser()
     ROUTER.load()
     fl = ROUTER.ATOMIC_MARGIN_FLOOR if floor is None else floor
     rules, model, layer = [], [], []

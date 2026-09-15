@@ -77,13 +77,13 @@ STAGE_INFO = {
             "Each ask is broken down until it is a single thing \u2014 two times is two events, a list is one task per thing, a recurrence becomes a series \u2014 and then repaired by named rules: dates, am/pm, end-before-start, until/through, and rounding a recurrence to daily, weekly or monthly (announced, never silent). The observance gate lives here: what the assistant may book on Shabbat, yom tov and fast days."),
         "make each object": (
             "Make each object",
-            "Every ask becomes the actual thing to write \u2014 this event, that task, this question to answer. Rules do it wherever they can; one schema-constrained model call is made only where they cannot decide, grounded on your raw words."),
+            "Every ask becomes the actual thing to write \u2014 this event, that task, this question to answer. This step is now entirely deterministic: it copies the date, time and recurrence the previous step already worked out, and reads only what is left \u2014 the operation, the title, the people. It never calls the language model. When an ask cannot become an object it says which of two things happened \u2014 the words reached it damaged, or they were not calendar work at all \u2014 and hands anything it is unsure of to the judge rather than guessing."),
         "write \u00b7 label": (
             "Write and label",
             "The objects are written to the local database and categorised in the same step \u2014 an event gets its colour, a task its tags \u2014 so nothing is ever saved uncategorised. Nothing here reaches the internet; the database is a file on the machine."),
         "judge": (
             "Judge",
-            "Before the answer is trusted, the model lists what your words actually asked for and deterministic code compares that against what was produced. If something is missing, the judge can restate your command more clearly and send it back through \u2014 at most three times."),
+            "The judge does two jobs. First it answers whatever the previous step could not build, which is where the language model now lives. Then, before the answer is trusted, it lists what your words actually asked for and deterministic code compares that against what was produced. If something is missing, the judge can restate your command more clearly and send it back through \u2014 at most three times."),
         "done": (
             "Done",
             "The command is finished. A fast-lane answer committed instantly and the judge kept checking behind it; a deep answer ran the whole chain in front of you. Every step above, and its timing, is this run."),
@@ -184,11 +184,19 @@ class Trace:
         self._t0 = time.perf_counter()
         self._last = self._t0
         self.steps: list[TraceStep] = []
+        #: X1, X2, X3, X4 — the value handed between stages. See `boundary()`.
+        self.boundaries: list[dict[str, Any]] = []
+        self._boundary_listeners: list = []
         self._listeners: list = []
 
     def on_step(self, fn) -> None:
         """Register a callback invoked with each TraceStep as it's added."""
         self._listeners.append(fn)
+
+    def on_boundary(self, fn) -> None:
+        """Called with each `{label, value, detail, at_ms}` as it happens,
+        so the HUD can draw the value moving between boxes live."""
+        self._boundary_listeners.append(fn)
 
     def step(self, stage: str, title: str, detail: str = "", *, ok: bool = True,
              **data: Any) -> TraceStep:
@@ -216,6 +224,36 @@ class Trace:
     @property
     def total_ms(self) -> int:
         return int((time.perf_counter() - self._t0) * 1000)
+
+    # -- THE BOUNDARIES: what actually crossed between two stages ----------
+    #
+    # Separate from `steps` on purpose. A step fills a slot in `CHAINS`, so
+    # adding one per stage boundary would either invent chain slots nobody
+    # designed or land in a slot meant for something else — and
+    # `test_panel_agreement.py` would be right to go red. A boundary is not a
+    # step in the chain of thought; it is the VALUE handed from one box to the
+    # next, which is a different thing and gets its own channel.
+    #
+    # Listeners are notified so the HUD can draw it as it happens rather than
+    # after the fact: the point of showing X2 is watching it appear.
+
+    def boundary(self, label: str, value: str, detail: str = "") -> None:
+        """Record `X1`, `X2`, … and the value it carried."""
+        b = {"label": label, "value": value, "detail": detail,
+             "at_ms": int((time.perf_counter() - self._t0) * 1000)}
+        self.boundaries.append(b)
+        # A SEPARATE listener list, not `_listeners`. The step listeners are
+        # `lambda st: publish_step(run, st.to_dict())` — handed a plain dict
+        # they raise, and the wrapper swallows it, so the first version of this
+        # silently broke live streaming for every boundary it emitted.
+        for fn in self._boundary_listeners:
+            try:
+                fn(b)
+            except Exception:
+                pass
+
+    def boundaries_to_list(self) -> list[dict[str, Any]]:
+        return list(self.boundaries)
 
     def to_list(self) -> list[dict[str, Any]]:
         return [s.to_dict() for s in self.steps]

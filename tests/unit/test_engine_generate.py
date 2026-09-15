@@ -1,4 +1,4 @@
-"""Step 5 — the generate stage's deterministic fallbacks.
+"""X3 -> X4 — the FastRule stage's deterministic fallbacks.
 
 The LLM paths live in tests/integration (Ollama guard); what's pinned here
 is the honest-failure ladder: a task-kind item never parses to nothing
@@ -6,13 +6,26 @@ is the honest-failure ladder: a task-kind item never parses to nothing
 for an event/reminder with a grounded when becomes a default-titled event
 instead of dying unknown (event_fallback, cycle 5) — while everything less
 grounded stays unknown, because a guessed event is worse than none.
+
+RETARGETED 2026-09-10, when `fastrule/objects.py` was dismantled. The
+behaviour pinned here did not change; three modules now own what one did:
+
+    the stage        fastrule/stage.py     List[Item] -> objects
+    the front door   fastrule/fast_track.py  fast_propose
+    the rescue       llmjudge/rescue.py    the model, the two fallbacks and
+                                            the invention guard
+
+The ladder is the same ladder; only its address moved.
 """
 
 from __future__ import annotations
 
 import pytest
 
-import assistant.engine.fastrule.objects as generate
+import assistant.engine.fastrule.fast_track as fast_track
+import assistant.engine.fastrule.stage as stage
+import assistant.engine.llmjudge.rescue as rescue
+import assistant.engine.llmjudge.llm_fallback as guards
 from assistant.engine import load_config
 from assistant.engine.state import EngineState, Item
 
@@ -24,18 +37,25 @@ def cfg():
 
 @pytest.fixture
 def dead_llm(monkeypatch):
-    """Both the per-item parse and the event-kind retry come back empty."""
-    monkeypatch.setattr(generate, "_parse_item", lambda item, state, cfg: [])
-    class _P:
-        def parse(self, text):
-            return []
-    monkeypatch.setattr(generate, "_get_parser", lambda cfg: _P())
+    """The model comes back empty, so the deterministic ladder is what runs."""
+    monkeypatch.setattr(rescue, "_ask_the_model",
+                        lambda item, state, cfg, verdict: [])
 
 
 def _run(text, kind, cfg):
+    """The chain as the orchestrator runs it: FastRule converts, then LLMJudge
+    answers what it deferred.
+
+    Two calls, not one, since 2026-09-10 (B5): FastRule leaves a DEFER on the
+    item and stops rather than reaching forward into llmjudge, because llmjudge
+    is already the next stage. A test that calls only the first would be
+    testing half a chain and would show the deterministic ladder never firing.
+    """
     st = EngineState(raw_text=text, text=text)
     st.items = [Item(id="item_1", kind=kind, text=text)]
-    return generate.run(st, cfg).items[0]
+    stage.run(st, cfg)
+    rescue.take_deferrals(st, cfg)
+    return st.items[0]
 
 
 # --- event_fallback: the grounded default-title event (cycle 5) ----------
@@ -102,10 +122,10 @@ class _StubParser:
 
 def _fast(monkeypatch, cfg, text, intents):
     from types import SimpleNamespace
-    monkeypatch.setattr(generate, "_get_rule_parser",
-                        lambda: _StubParser(intents))
+    from assistant.engine import llm as _llm
+    monkeypatch.setattr(_llm, "get_rule_parser", lambda: _StubParser(intents))
     st = EngineState(raw_text=text, text=text)
-    return generate.fast_propose(st, cfg), st
+    return fast_track.fast_propose(st, cfg), st
 
 
 def test_mutation_on_a_bare_ask_noun_routes_deep(monkeypatch, cfg):
@@ -137,7 +157,7 @@ def test_fabricated_title_is_dropped():
     item = Item(id="item_1", kind="event",
                 text="new scenario, time or calendar to new list")
     got = [("create_event", SimpleNamespace(title="New Event"))]
-    assert generate._guard_inventions(got, item, st) == []
+    assert guards._guard_inventions(got, item, st) == []
     assert any("invention_guard" in str(f) for f in st.fixes)
 
 
@@ -146,7 +166,7 @@ def test_paraphrased_title_survives_via_stems():
     st = EngineState(raw_text="x", text="x")
     item = Item(id="item_1", kind="event", text="meet Dana tomorrow at noon")
     got = [("create_event", SimpleNamespace(title="Meeting with Dana"))]
-    assert generate._guard_inventions(got, item, st) == got
+    assert guards._guard_inventions(got, item, st) == got
 
 
 def test_grounded_title_untouched():
@@ -154,7 +174,7 @@ def test_grounded_title_untouched():
     st = EngineState(raw_text="x", text="x")
     item = Item(id="item_1", kind="event", text="dentist on Wednesday at noon")
     got = [("create_event", SimpleNamespace(title="Dentist"))]
-    assert generate._guard_inventions(got, item, st) == got
+    assert guards._guard_inventions(got, item, st) == got
 
 
 def test_non_event_actions_never_guarded():
@@ -162,7 +182,7 @@ def test_non_event_actions_never_guarded():
     st = EngineState(raw_text="x", text="x")
     item = Item(id="item_1", kind="task", text="whatever garble")
     got = [("create_todo", SimpleNamespace(titles=["Unrelated Words"]))]
-    assert generate._guard_inventions(got, item, st) == got
+    assert guards._guard_inventions(got, item, st) == got
 
 
 def test_the_deep_track_does_not_undo_a_refusal(monkeypatch, cfg):
@@ -189,7 +209,7 @@ def _traced(text, kind, cfg, trace):
     from assistant.engine.state import EngineState, Item
     st = EngineState(raw_text=text, text=text, trace=trace)
     st.items = [Item(id="item_1", kind=kind, text=text)]
-    return generate.run(st, cfg)
+    return stage.run(st, cfg)
 
 
 @pytest.fixture
@@ -204,7 +224,7 @@ def _outcomes(trace):
 
 def test_a_non_calendar_ask_says_so_on_the_trace(cfg, trace):
     _traced("play some music", "other", cfg, trace)
-    assert _outcomes(trace) == [generate.NOT_AN_ASK]
+    assert _outcomes(trace) == ["not_an_ask"]
 
 
 def test_a_correct_reading_is_not_marked_as_a_failure(cfg, trace):
@@ -213,26 +233,29 @@ def test_a_correct_reading_is_not_marked_as_a_failure(cfg, trace):
     _traced("play some music", "other", cfg, trace)
     step = next(s for s in trace.steps if s.data.get("outcome"))
     assert step.ok is True
-    assert "item_1" == step.data.get("item")
+    assert "item_1" == step.data.get("item_id")
 
 
-def test_an_unreadable_item_is_marked_as_damage(monkeypatch, cfg, trace):
-    from assistant.exceptions import ParseError
-
-    def _boom(item, state, cfg):
-        raise ParseError("start_time: invalid time format")
-    monkeypatch.setattr(generate, "_parse_item", _boom)
-
-    _traced("bowling tuesday night whatever", "event", cfg, trace)
+def test_an_unreadable_item_is_marked_as_damage(cfg, trace):
+    """"Damage" post-restructure means `build._why_unusable`: the item itself
+    is malformed (no words at all), checked BEFORE parsing rather than caught
+    from a parse exception — `build_all` now routes an exception during a
+    real parse to a `Defer` (the model gets a chance to salvage it), not
+    straight to `bad_item`. An empty-text item is the case nothing downstream
+    can recover."""
+    from assistant.engine.state import EngineState, Item
+    st = EngineState(raw_text="", text="", trace=trace)
+    st.items = [Item(id="item_1", kind="event", text="")]
+    stage.run(st, cfg)
     step = next(s for s in trace.steps if s.data.get("outcome"))
-    assert step.data["outcome"] == generate.BAD_ITEM
+    assert step.data["outcome"] == "bad_item"
     assert step.ok is False, "an upstream defect must not read as a clean step"
-    assert "invalid time format" in step.detail
+    assert "no action words" in step.detail
 
 
 def test_the_two_outcomes_are_not_the_same_value(cfg):
     """They are rendered apart, so they must BE apart."""
-    assert generate.NOT_AN_ASK != generate.BAD_ITEM
+    assert "not_an_ask" != "bad_item"
 
 
 def test_an_ordinary_item_carries_no_outcome(dead_llm, cfg, trace):
@@ -241,55 +264,21 @@ def test_an_ordinary_item_carries_no_outcome(dead_llm, cfg, trace):
 
 
 # ---------------------------------------------------------------------------
-# The FastRule memo is keyed on what FastRule was ASKED
+# GONE, not fixed: the per-item FastRule memo (`state.asked_fastrule`)
 # ---------------------------------------------------------------------------
 #
-# Q12's skip exists because FastRule is deterministic: asking it the same text
-# twice cannot give a new answer. But the memo was keyed on `item.text` (the
-# action alone) while FastRule is run on `item.spoken()` (the action WITH its
-# time) — so "gym at 7" and "gym at 9" shared one key and the second item
-# skipped FastRule on a verdict formed from a different time.
-# Reported by the second review session, 2026-09-11.
-
-def test_two_items_with_the_same_words_but_different_times_both_reach_fastrule(
-        monkeypatch, cfg):
-    from assistant.engine.state import EngineState, Item
-
-    asked = []
-
-    class _Res:
-        committed, intents, confidence = False, [], 0.0
-        reason, missing_slots, rule_result = "below-threshold", [], None
-
-    class _FR:
-        def __init__(self, bar):
-            pass
-
-        def run(self, text, view=None):
-            asked.append(text)
-            return _Res()
-
-    import assistant.engine.fastrule.fastrule as fr_mod
-    monkeypatch.setattr(fr_mod, "FastRule", _FR)
-    monkeypatch.setattr(generate, "_get_rule_parser", lambda: object())
-
-    class _P:
-        last_llm_ms = 0          # `_llm_trace` adds this to state.llm_ms
-
-        def parse(self, text):
-            return []
-
-        def parse_with_context(self, text, rr):
-            return []
-    monkeypatch.setattr(generate, "_get_parser", lambda cfg: _P())
-
-    st = EngineState(raw_text="gym at 7 and gym at 9", text="gym at 7 and gym at 9")
-    st.items = [Item(id="item_1", kind="event", text="gym", time="at 7"),
-                Item(id="item_2", kind="event", text="gym", time="at 9")]
-    for item in st.items:
-        generate._parse_item(item, st, cfg)
-
-    assert len(asked) == 2, (
-        f"the second item skipped FastRule — it was asked {asked}")
-    assert asked[0] != asked[1]
-    assert st.asked_fastrule == set(asked)
+# This test pinned a real bug in `objects.py::_parse_item` — the memo was
+# keyed on `item.text` (the action alone) while FastRule ran on
+# `item.spoken()` (the action WITH its time), so "gym at 7" and "gym at 9"
+# shared one key and the second item skipped FastRule on a verdict formed
+# from a different time (second review session, 2026-09-11).
+#
+# There is nothing to port forward: `_parse_item` itself — "FastRule first,
+# the LLM for what it can't", re-asked per item — is what the 2026-09-10
+# restructure removed on purpose (`fastrule/stage.py`'s docstring: "the whole
+# fast track, re-run per item... on an item already atomic BY CONTRACT").
+# A deferred item now goes straight to the model (`llmjudge/rescue.py
+# ::_ask_the_model`) with no FastRule recheck at all, so there is no
+# redundant call left for a memo to guard against. `state.asked_fastrule`
+# is still a field on `EngineState` (frozen contract) but nothing reads or
+# writes it any more — confirmed by grep, not assumed.

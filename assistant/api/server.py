@@ -7,6 +7,9 @@ Start with:
 
 from __future__ import annotations
 
+import hashlib
+import re
+
 import datetime
 import logging
 import os
@@ -14,6 +17,8 @@ import sqlite3
 from typing import Any
 
 import yaml
+
+from assistant import model_protocol as _mp
 from flask import Flask, jsonify, request
 
 from assistant.config import AppConfig, ConfigError, load_config as _load_config_file
@@ -176,17 +181,17 @@ def warm_up_components() -> None:
     def _go() -> None:
         import time as _t
         from assistant.engine import load_config as _engine_cfg
-        from assistant.engine.fastrule import objects as _gen
+        from assistant.engine import llm as _gen
         t0 = _t.perf_counter()
-        for name, fn in (("rule parser", _gen._get_rule_parser),
+        for name, fn in (("rule parser", _gen.get_rule_parser),
                          ("whisper", _get_stt),
-                         ("llm parser", lambda: _gen._get_parser(_engine_cfg()))):
+                         ("llm parser", lambda: _gen.get_parser(_engine_cfg()))):
             try:
                 fn()
             except Exception as e:
                 logger.warning("Warm-up of %s failed: %s", name, e)
         try:
-            rp = _gen._get_rule_parser()
+            rp = _gen.get_rule_parser()
             if rp is not None:
                 rp.analyze("meeting tomorrow at 3pm")  # forces spaCy + datetime models
         except Exception:
@@ -205,45 +210,138 @@ def _llm_reachable(cfg) -> bool:
         return False
 
 
+def retry_pending_once(run_transcript, mem, budget: int) -> int:
+    """One pass of the pending queue. Returns how many batches were run.
+
+    Extracted from the daemon loop so it can be TESTED — the rule it enforces is
+    a correctness rule and a rule with no test is a rule that regresses. Driving
+    the thread from a test instead meant hooking `sleep`, which is flaky.
+
+    ONE STREAM PER SOURCE (Gil, 2026-09-10). Commands are only ever concatenated
+    with others from the SAME device. Merging across sources is silent and
+    expensive three ways: a `test` sandbox's words would execute as the user's
+    real command; the Mac's queue and the phone's would parse as one utterance;
+    and the whole batch would be attributed to one source, defeating
+    `weekly_review.py`'s test-traffic filter — the filter that had been
+    inflating real-usage accuracy to 83%.
+
+    `pending.source` was already recorded on every row and simply never read.
+    """
+    from assistant.engine.ingest.coalesce import coalesce_groups, wrap
+
+    def _field(row, name, default):
+        """A pending row is a dict here and a `sqlite3.Row` in production, and
+        neither `.get` nor `in` works on both — `sqlite3.Row` has no `.get`, and
+        a bare `in` on it tests VALUES. `keys()` is the one thing both answer."""
+        try:
+            return row[name] if name in row.keys() else default
+        except (AttributeError, TypeError):
+            return row.get(name, default)
+
+    rows = mem.pending()
+    if not rows:
+        return 0
+    live = []
+    for row in rows:
+        if row["attempts"] >= 5:
+            mem.resolve_pending(row["id"], "failed", "gave up after 5 attempts")
+        elif (row["transcript"] or "").strip():
+            live.append(row)          # empties would desync the batch map
+    # ONE STREAM PER DEVICE, not per source KIND (2026-09-10). This grouped on
+    # `row["source"]` — "mac"|"ios"|"test" — so every iPhone on the tailnet was
+    # the SAME stream and two phones' queued commands were concatenated into one
+    # utterance. `model_protocol.stream_key` is the identity; it falls back to
+    # source-only for rows a client wrote without an id.
+    from assistant.model_protocol import stream_key
+    from assistant.model_protocol import priority_for as stream_priority
+    by_source: dict = {}
+    for row in live:
+        # The stream was RESOLVED AT THE DOOR, where the token was available.
+        # Re-deriving it here would have to assume a trust level this code
+        # cannot check, and assuming "trusted" is exactly the mistake. Rows
+        # written before the column existed fall back to source-only grouping.
+        key = (_field(row, "stream", "")
+               or stream_key(row["source"], _field(row, "device", "")))
+        by_source.setdefault(key, []).append(row)
+
+    ran = 0
+    # REAL DEVICES FIRST (Gil, 2026-09-10: *"real device takes precedence over
+    # test, so push real device to the front of the queue of requests"*).
+    #
+    # A flush can run many batches back to back, and each one holds the engine's
+    # run lock for the length of a parse. Iterating a dict meant a `test`
+    # sandbox's backlog could sit in front of a person's — the phone's commands
+    # waiting behind a sandbox's, which is exactly backwards. Ordering by
+    # priority costs nothing and cannot starve the test rows: every stream still
+    # runs in this same pass, just later.
+    ordered_streams = sorted(
+        by_source.items(),
+        key=lambda kv: (stream_priority(kv[1][0]["source"]) != "live",
+                        _field(kv[1][0], "ts", 0.0)))
+    for stream, src_rows in ordered_streams:
+        # A ROW THAT HAS ALREADY FAILED ONCE RUNS ALONE (2026-09-10).
+        #
+        # A batch is all-or-nothing: `parse == "error"` bumps EVERY row in it.
+        # So one unparseable command took its batch-mates down with it — five
+        # passes, five collective failures, and four perfectly good commands
+        # marked `failed` having never once been tried on their own. The user
+        # loses commands they gave, because of a command they also gave.
+        #
+        # Coalescing is an OPTIMISATION (one parse instead of five). Retrying
+        # is CORRECTNESS. So the optimisation is dropped the moment it starts
+        # costing correctness: first attempt batches, every attempt after that
+        # is individual, which guarantees each command its own chance before
+        # anything is given up on.
+        src_rows = sorted(src_rows,
+                          key=lambda r: (r["attempts"] > 0, _field(r, "ts", 0.0)))
+        # The KEY identifies the stream; the SOURCE is what the engine wants.
+        # `EngineState.source` is "mac"|"ios"|"test" and a key like "ios:A1B2"
+        # is not one of them — passing the key through would put an unknown
+        # source on every trace, vocabulary correction and memory row, and
+        # `weekly_review.py` filters on exactly that value.
+        src = src_rows[0]["source"] or "ios"
+        taken = 0
+        # `coalesce_groups`, not `coalesce`: the group IS the row mapping.
+        # Re-deriving it by counting ")and(" in the rendered string
+        # desynchronises the moment a transcript contains that literal, and
+        # then the wrong row gets marked done.
+        fresh = [r for r in src_rows if r["attempts"] == 0]
+        alone = [r for r in src_rows if r["attempts"] > 0]
+        groups = (coalesce_groups([r["transcript"] for r in fresh], budget)
+                  + [[r["transcript"]] for r in alone])
+        ordered = fresh + alone
+        for group in groups:
+            batch_rows = ordered[taken:taken + len(group)]
+            taken += len(group)
+            batch = wrap(group)
+            logger.info("📱 Retrying %d queued command(s) from %s: %s",
+                        len(batch_rows), stream, batch[:80])
+            result = run_transcript(batch, source=src)
+            ran += 1
+            for row in batch_rows:
+                if result.get("parse") == "error":
+                    mem.bump_pending(row["id"])
+                else:
+                    mem.resolve_pending(row["id"], "done", result.get("message", ""))
+    return ran
+
+
 def start_pending_retry_loop(run_transcript, interval: float = 30.0) -> None:
     """Daemon: whenever the LLM is reachable, re-run queued commands (max 5
     tries each). Queued inputs are the engine's step-0 case in the flesh —
     several commands parked while the model was away — so they are coalesced
-    into ("…")and("…") batches under the token budget and each batch costs one
-    parse; overflow batches run sequentially."""
+    into ("…")and("…") batches under the token budget, PER SOURCE, and each
+    batch costs one parse; overflow batches run sequentially."""
     def _loop() -> None:
-        from assistant.engine import coalesce
         from assistant.intent.memory import get_memory
         while True:
             _time.sleep(interval)
             try:
-                mem = get_memory()
-                rows = mem.pending()
-                if not rows:
-                    continue
                 cfg = load_config()
                 if not _llm_reachable(cfg):
                     continue
-                live = []
-                for row in rows:
-                    if row["attempts"] >= 5:
-                        mem.resolve_pending(row["id"], "failed", "gave up after 5 attempts")
-                    elif (row["transcript"] or "").strip():
-                        live.append(row)   # empties would desync the batch map
                 budget = int(getattr(cfg.engine, "coalesce_max_tokens", 300))
-                taken = 0
-                for batch in coalesce([r["transcript"] for r in live], budget):
-                    n = batch.count(")and(") + 1 if ")and(" in batch else 1
-                    batch_rows = live[taken:taken + n]
-                    taken += n
-                    logger.info("📱 Retrying %d queued command(s): %s",
-                                len(batch_rows), batch[:80])
-                    result = run_transcript(batch)
-                    for row in batch_rows:
-                        if result.get("parse") == "error":
-                            mem.bump_pending(row["id"])
-                        else:
-                            mem.resolve_pending(row["id"], "done", result.get("message", ""))
+                retry_pending_once(run_transcript, get_memory(), budget)
             except Exception as e:
                 logger.warning("📱 Pending retry loop error: %s", e)
     _threading.Thread(target=_loop, daemon=True, name="pending-retry").start()
@@ -368,7 +466,8 @@ def create_app() -> Flask:
     # ------------------------------------------------------------------
 
     def _run_transcript(transcript: str, trace: "Trace | None" = None,
-                        source: str = "ios", current_view: str = "month",
+                        source: str = "ios", device: str = "",
+                        stream: str = "", current_view: str = "month",
                         trace_run: str | None = None,
                         supports_edit: bool = False,
                         supports_confirm: bool = False) -> dict[str, Any]:
@@ -380,7 +479,8 @@ def create_app() -> Flask:
         out, so every voice route offers the prompt identically — the token and
         its TTL are HTTP bookkeeping, which is what this layer is for."""
         from assistant.engine import run_transcript as _engine_run
-        resp = _engine_run(transcript, trace=trace, source=source,
+        resp = _engine_run(transcript, trace=trace, source=source, device=device,
+                           stream=stream,
                            current_view=current_view, trace_run=trace_run,
                            supports_edit=supports_edit,
                            supports_confirm=supports_confirm)
@@ -537,6 +637,54 @@ def create_app() -> Flask:
         return Response(stream_with_context(gen()), mimetype="application/x-ndjson",
                         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
+    # ------------------------------------------------------------------
+    # Devices — a name the server ISSUED, not one the caller asserted
+    # ------------------------------------------------------------------
+
+    @app.post("/devices/enroll")
+    def devices_enroll():
+        """Issue this client a device id and a token. Called once, on first run.
+
+        **Enrolment is as protected as the API is**: `_enforce_api_key` runs
+        before every route except `/health`, so when a key is configured only a
+        caller holding it can enrol. Without a key the tailnet is the boundary,
+        which is the same trust model the rest of the API already has — this
+        endpoint does not widen it.
+
+        The alternative — letting clients choose their own ids — is what this
+        replaces: two devices could collide by accident, and any caller could
+        elect to be your phone.
+        """
+        body = request.get_json(silent=True) or {}
+        src = (body.get("source") or "").strip().lower()
+        if src not in ("ios", "mac", "test"):
+            return jsonify({"error": "source must be ios|mac|test", "code": 400}), 400
+        got = _mp.enroll(src, (body.get("label") or "").strip())
+        if not got.get("token"):
+            # No secret means no trust is possible. Say so rather than issuing a
+            # token that will never verify and look like an attack later.
+            return jsonify({"error": "device secret unavailable", "code": 503}), 503
+        logger.info("🔑 Enrolled %s device %s (%s)", src, got["device_id"], got["label"])
+        return jsonify(got)
+
+    @app.get("/devices")
+    def devices_list():
+        """What has enrolled, when it last spoke, and whether it is revoked —
+        so the user can SEE what is talking to their assistant."""
+        return jsonify({"devices": _mp.devices()})
+
+    @app.post("/devices/<device_id>/revoke")
+    def devices_revoke(device_id: str):
+        """Retire one device. It keeps working as an ISOLATED stream rather
+        than being cut off — it simply can never rejoin the stream it owned.
+        That is what makes a leaked token survivable instead of catastrophic,
+        and it is why revocation does not need to be raced against the thief."""
+        ok = _mp.revoke(device_id)
+        if not ok:
+            return jsonify({"error": "unknown device", "code": 404}), 404
+        logger.info("🔑 Revoked device %s", device_id)
+        return jsonify({"revoked": device_id})
+
     @app.post("/voice/text")
     def voice_text():
         """Accept a JSON transcript and execute directly (skips STT)."""
@@ -559,6 +707,32 @@ def create_app() -> Flask:
         src = (body.get("source") or "test").strip().lower()
         if src not in ("ios", "mac", "test"):
             src = "test"
+        # WHICH client, where `source` is only what KIND (Gil, 2026-09-10).
+        # Opaque to the server and never parsed — it is a grouping key, so the
+        # only thing that matters is that one device sends the same one every
+        # time and two devices never send the same one. Bounded and stripped of
+        # anything but id characters because it reaches a log line and a SQL
+        # parameter, and an unbounded client-supplied string in a group key is
+        # a cheap way to be handed a 10MB one.
+        dev = re.sub(r"[^A-Za-z0-9_.:-]", "", (body.get("device_id") or ""))[:64]
+        # VERIFY, then resolve the identity ONCE, here, where the token is.
+        #
+        # A caller can assert any `device_id` it likes, so the id alone is a
+        # claim and not a fact. `X-Device-Token` is the server's own HMAC over
+        # (source, device_id), issued by POST /devices/enroll. An unverified
+        # claim is NOT rejected — rejecting would break every old client — it is
+        # ISOLATED: `stream_key` puts it in a separate namespace, so an imposter
+        # presenting your phone's exact id gets its own queue and never joins
+        # your phone's. Spoofing buys nothing.
+        tok = (request.headers.get("X-Device-Token") or body.get("device_token") or "")
+        _trusted = _mp.verify(src, dev, tok) if dev else False
+        if _trusted:
+            _mp.seen(dev)
+        # An anonymous caller is identified by where it came from, so two
+        # unlabelled clients on different machines are still two entities.
+        _anon = hashlib.sha256(
+            (request.remote_addr or "?").encode()).hexdigest()[:12]
+        stream = _mp.stream_key(src, dev, trusted=_trusted, anon=_anon)
         view = (body.get("current_view") or "month").strip().lower()
         logger.info("%s Text command: %s", "🖥️" if src == "mac" else "📱", transcript)
         run = (body.get("trace_run") or "").strip() or None
@@ -589,7 +763,8 @@ def create_app() -> Flask:
                     logger.info("Whitelisted after repeated confirmation: %s",
                                 ", ".join(promoted))
             edit_ok = False
-        return jsonify(_run_transcript(transcript, source=src, current_view=view,
+        return jsonify(_run_transcript(transcript, source=src, device=dev,
+                                       stream=stream, current_view=view,
                                        trace_run=run, supports_edit=edit_ok,
                                        supports_confirm=confirm_ok))
 
@@ -1397,6 +1572,128 @@ def create_app() -> Flask:
     # ------------------------------------------------------------------
     # Todo tags
     # ------------------------------------------------------------------
+
+    # ---------------------------------------------------------------- labels
+    #
+    # The labelling game (Gil, 2026-09-10): a tab on the phone that shows one
+    # title and the categories as buttons, so labelling is a few taps instead of
+    # a spreadsheet. What it produces is the only non-circular label source this
+    # project has — see `engine/label/feedback.py` for why an untouched label is
+    # not one.
+
+    @app.get("/labels/next")
+    def labels_next():
+        """Items worth labelling, hardest-first.
+
+        ACTIVE LEARNING, not a random sample. A tap is only worth something if
+        the system could not already answer, so the queue is ordered by where it
+        is weakest:
+
+          1. rows the RULES punted to the catch-all AND the model was unsure
+             about — nothing can label these today
+          2. rows where the rules and the model DISAGREE — one of them is wrong
+          3. rows the catch-all took, model confident — a cheap confirmation
+
+        Rows already labelled by hand are excluded: asking twice wastes the tap
+        and, if the answers differ, quietly corrupts the set.
+        """
+        from assistant.actions.calendar import categories as _cat
+        from assistant.engine.label import feedback as _fb
+        from assistant.engine.label.model import LabelModel
+
+        kind = (request.args.get("kind") or "event").strip()
+        want = max(1, min(int(request.args.get("n") or 20), 100))
+        done = {t.lower() for t, _l in _fb.gold(kind)}
+
+        db = get_db()
+        rows = []
+        if kind == "event":
+            model = LabelModel.load("event")
+            seen = set()
+            for ev in db.search_events("", limit=400) or []:
+                title = (ev.get("title") or "").strip()
+                key = title.lower()
+                if not title or key in seen or key in done:
+                    continue
+                seen.add(key)
+                rule = _cat.classify(title)
+                got = model.predict(title) if model else None
+                if rule == "Personal" and got is None:
+                    rank = 0
+                elif got and got[0] != rule:
+                    rank = 1
+                elif rule == "Personal":
+                    rank = 2
+                else:
+                    continue                  # the rules were confident: skip
+                rows.append({"id": ev.get("id"), "text": title, "rank": rank,
+                             "current": rule,
+                             "suggestion": got[0] if got else None})
+            options = [c["name"] for c in _cat.all_categories()]
+        else:
+            from assistant.actions.todo import tagging as _tag
+            options = sorted(_tag.KEYWORDS)
+            seen = set()
+            for td in db.get_todos(list_name=None) if hasattr(db, "get_todos") else []:
+                title = (td.get("title") or "").strip()
+                key = title.lower()
+                if not title or key in seen or key in done:
+                    continue
+                seen.add(key)
+                got = _tag.suggest_tags(title, options)
+                if got:
+                    continue                  # the rules fired; not the weak spot
+                rows.append({"id": td.get("id"), "text": title, "rank": 0,
+                             "current": None, "suggestion": None})
+
+        rows.sort(key=lambda r: r["rank"])
+        return jsonify({"kind": kind, "options": options, "items": rows[:want],
+                        "remaining": max(0, len(rows) - want),
+                        "labelled": len(done)})
+
+    @app.post("/labels")
+    def labels_record():
+        """{"kind": "event", "text": "...", "label": "Fitness"} — or `labels`
+        (a list) for a task.
+
+        Recorded as an EXPLICIT pick: the user chose it, which is one of the two
+        origins `feedback.py` will train on. Nothing here writes to the calendar
+        row itself — the label being learned and the label on an existing event
+        are different things, and conflating them would let one screen quietly
+        rewrite the other.
+        """
+        from assistant.engine.label import feedback as _fb
+
+        b = request.get_json(silent=True) or {}
+        kind = str(b.get("kind") or "event")
+        text = str(b.get("text") or "").strip()
+        if not text:
+            return jsonify({"ok": False, "error": "no text"}), 400
+        if kind == "event":
+            label = str(b.get("label") or "").strip()
+            if not label:
+                return jsonify({"ok": False, "error": "no label"}), 400
+            _fb.record_category(text, b.get("current"), label, origin=_fb.EXPLICIT)
+        else:
+            labels = [str(x) for x in (b.get("labels") or []) if str(x).strip()]
+            if not labels:
+                return jsonify({"ok": False, "error": "no labels"}), 400
+            _fb.record_tags(text, b.get("current"), labels, origin=_fb.EXPLICIT)
+        counts = _fb.counts(kind)
+        return jsonify({"ok": True, "counts": counts,
+                        "retrain_due": _fb.should_retrain(kind)})
+
+    @app.post("/labels/retrain")
+    def labels_retrain():
+        """Refit now. The gate still applies — a model that is not better than
+        the installed one does not ship, however many labels arrived."""
+        from assistant.engine.label import train as _train
+        kind = str((request.get_json(silent=True) or {}).get("kind") or "event")
+        try:
+            out = _train.train(kind, force=True, verbose=False)
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)[:200]}), 500
+        return jsonify({"ok": True, "result": out})
 
     @app.get("/tags")
     def tags_list():

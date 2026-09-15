@@ -374,3 +374,33 @@ def test_stray_quotes_are_shed_before_parsing(cfg, monkeypatch):
     st = _state("x", [Item(id="item_1", kind="event", text="add 'christmas' to calendar")])
     validate.run(st, cfg)
     assert st.items[0].text == "add christmas to calendar"
+
+
+def test_a_value_fix_names_the_field_not_the_whole_command():
+    """The note lands in the review panel, so it is written for a reader.
+
+    It used to be `f"{item.text!r}: {said or spoken!r}"` — and on the fast path
+    `item.text` IS the whole transcript, so every fix repeated the entire
+    command TWICE. Two of them filled the card with a wall of quoted text, which
+    is what a screenshot of the real panel showed. `before → after` already
+    carries the values; what the reader cannot otherwise see is which field
+    moved.
+    """
+    from assistant.engine import load_config
+    from assistant.engine.decompose_validate import stage as _dv
+    from assistant.engine.state import EngineState, Item
+    from assistant.actions.calendar.intent import CalendarIntent
+
+    text = "book gym tomorrow at 7 and remind me to buy milk"
+    st = EngineState(raw_text=text, text=text)
+    it = Item(id="item_1", kind="event", text=text,
+              action="create_event",
+              intent=CalendarIntent(title="gym", date="2026-09-11",
+                                    start_time="19:00", end_time="20:00"))
+    st.items = [it]
+    _dv.run_objects(st, load_config())
+
+    notes = [f.note for f in st.fixes if f.rule == "resolve_from_own_words"]
+    for n in notes:
+        assert text not in n, f"the note repeats the whole command: {n!r}"
+        assert len(n) < 24, f"a note this long is a wall, not a label: {n!r}"

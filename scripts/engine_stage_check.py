@@ -29,6 +29,11 @@ os.environ.setdefault("MACALENDAR_VOCAB", os.path.join(_scratch, "vocab.json"))
 os.environ.setdefault("MACALENDAR_CATEGORIES", os.path.join(_scratch, "categories.json"))
 os.environ.setdefault("MACALENDAR_TRACE_BUS", os.path.join(_scratch, "trace_bus.jsonl"))
 os.environ.setdefault("MACALENDAR_NO_WARMUP", "1")
+# BACKGROUND traffic: this yields the model to the live assistant between
+# every call (assistant/model_protocol.py). Without it a board and a voice
+# command are indistinguishable to ollama, and a trivial live call measured
+# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
+os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 
 GREEN, RED, YELLOW, DIM, END = "\033[32m", "\033[31m", "\033[33m", "\033[2m", "\033[0m"
 
@@ -189,7 +194,7 @@ def _cases_validate(cfg):
 
 
 def _cases_generate(cfg):
-    from assistant.engine.fastrule import objects as generate
+    from assistant.engine.fastrule import stage as generate
 
     def case(text, kind, want_actions, needs_llm):
         def run():
@@ -199,25 +204,40 @@ def _cases_generate(cfg):
             return got == want_actions, f"{got}"
         return (text[:56], needs_llm, run)
 
+    def update_defers():
+        # `stage._COMMITTABLE = ("create", "query")` (2026-09-10 restructure):
+        # a target-taking action names an EXISTING record, and confirming it
+        # names a REAL one needs a store lookup the stage cannot do — so an
+        # update no longer commits here at all, it always defers to LLMJudge.
+        # This case used to expect `["update_event"]` straight out of this
+        # stage; that behaviour moved on purpose, not a regression.
+        st = _items_state([_item("event", "move my haircut to 6pm")])
+        generate.run(st, cfg)
+        it = st.items[0]
+        ok = it.action is None and bool((it.slots or {}).get("fastrule_defer"))
+        return ok, f"action={it.action!r} defer={(it.slots or {}).get('fastrule_defer')!r}"
+
     return [
         case("book gym tomorrow at 7am", "event", ["create_event"], False),
         case("add milk to my shopping list", "task", ["create_todo"], False),
         case("what do I have on friday", "review", ["query_schedule"], False),
-        case("move my haircut to 6pm", "event", ["update_event"], True),
+        ("move my haircut to 6pm (defers, not committed)", False, update_defers),
     ]
 
 
 def _cases_crosscheck(cfg):
-    """Extraction quality against seeded mistakes: the check must notice a
-    dropped ask and an invented row, and stay quiet when all is covered."""
+    """Extraction quality against a seeded mistake: the check must notice an
+    invented row and stay quiet when all is covered.
+
+    A third case — "a dropped ask is noticed", asserting `f.type == "missing"`
+    — is GONE, not fixed: the RE-CUT judge (2026-09-10, PLAN.md §6) removed ask
+    EXTRACTION entirely ("that defeats the point of what segmentation →
+    decompose_validate → FastRule did", Gil), and `findings.py` has no
+    `"missing"` type any more (`ungrounded_subject` / `unsupported_field` /
+    `not_an_ask` replaced it). There is nothing to port forward — the
+    capability was deliberately deleted, not lost.
+    """
     from types import SimpleNamespace
-    # `crosscheck.py` became `llmjudge/llmjudge.py` in the 2026-09-08 rename.
-    # This import was never updated, so --stage crosscheck and --stage all
-    # raised ImportError before a single model loaded — CLAUDE.md meanwhile
-    # presents this script as the working per-stage gate. The identical
-    # defect in assistant/cli.py was fixed 2026-09-13 (c82d5f8); this copy
-    # survived because it lives in scripts/ rather than in the stage folder
-    # that owns it — the exact rot class CLAUDE.md warns about.
     from assistant.engine.llmjudge import llmjudge as crosscheck
 
     def _ev(id, title, text=""):
@@ -235,23 +255,18 @@ def _cases_crosscheck(cfg):
         crosscheck.run(st, cfg)
         return st.findings == [], f"{[(f.type, f.detail) for f in st.findings]}"
 
-    def dropped_ask():
-        st = _items_state([_ev("item_1", "gym", "book gym tomorrow at 7am")])
-        st.raw_text = "book gym tomorrow at 7am and remind me to buy milk"
-        crosscheck.run(st, cfg)
-        ok = [f.type for f in st.findings] == ["missing"]
-        return ok, f"{[(f.type, f.detail) for f in st.findings]}"
-
     def invented_row():
+        # Was `("extra", "item_2")` — the RE-CUT judge routes an unsupported
+        # object through `not_an_ask` now (findings.py), not a separate
+        # "extra" type.
         st = _items_state([_td("item_1", "buy milk"),
                            _td("item_2", "buy groceries")])
         st.raw_text = "add buy milk to my shopping list"
         crosscheck.run(st, cfg)
-        ok = [(f.type, f.item_id) for f in st.findings] == [("extra", "item_2")]
+        ok = [(f.type, f.item_id) for f in st.findings] == [("not_an_ask", "item_2")]
         return ok, f"{[(f.type, f.item_id, f.detail) for f in st.findings]}"
 
     return [("all asks covered → quiet", True, clean),
-            ("a dropped ask is noticed", True, dropped_ask),
             ("an invented row is noticed", True, invented_row)]
 
 
@@ -267,7 +282,7 @@ STAGES = {
                                                # FastSeg. Its own board is
                                                # segmentation/experiments/.
     "decompose_validate": _cases_decompose,
-    "fastrule":           _cases_generate,     # fastrule/objects.py
+    "fastrule":           _cases_generate,     # fastrule/stage.py (objects.py deleted 2026-09-10)
     "llmjudge":           _cases_crosscheck,   # llmjudge/llmjudge.py
     # Pre-2026-09-08 names, kept so older commands and docs still resolve.
     "decompose":          _cases_decompose,

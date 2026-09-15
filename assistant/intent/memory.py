@@ -161,6 +161,20 @@ class CommandMemory:
         existing_records = {r[1] for r in c.execute("PRAGMA table_info(example_records)")}
         if "action_index" not in existing_records:
             c.execute("ALTER TABLE example_records ADD COLUMN action_index INTEGER NOT NULL DEFAULT -1")
+        # WHICH DEVICE, not which KIND of device (2026-09-10). `source` is
+        # "mac"|"ios"|"test" — a category — and the flush grouped on it, so two
+        # different iPhones were one stream and their queued commands were
+        # concatenated into a single utterance. Empty for rows written before
+        # this column existed and by clients that send no id, which
+        # `model_protocol.stream_key` degrades to source-only grouping.
+        existing_pending = {r[1] for r in c.execute("PRAGMA table_info(pending)")}
+        if "device" not in existing_pending:
+            c.execute("ALTER TABLE pending ADD COLUMN device TEXT NOT NULL DEFAULT ''")
+        # The RESOLVED identity, decided once at the door where trust is known.
+        # The flush groups on this rather than re-deriving it, so a row cannot
+        # be re-classified later by code that no longer has the token.
+        if "stream" not in existing_pending:
+            c.execute("ALTER TABLE pending ADD COLUMN stream TEXT NOT NULL DEFAULT ''")
 
     def _conn(self) -> sqlite3.Connection:
         c = sqlite3.connect(self._path, timeout=5)
@@ -477,14 +491,25 @@ class CommandMemory:
 
     # ------------------------------------------------------------ pending
 
-    def add_pending(self, transcript: str, reason: str, source: str = "ios") -> int:
+    def add_pending(self, transcript: str, reason: str, source: str = "ios",
+                    device: str = "", stream: str = "") -> int:
         with self._lock, self._conn() as c:
-            dup = c.execute("SELECT id FROM pending WHERE status='pending' AND transcript=?",
-                            (transcript,)).fetchone()
+            # DEDUP IS PER STREAM, not per transcript (2026-09-10). Two
+            # different phones queuing "what's on today" are two people asking
+            # two questions; collapsing them to one row answers one of them and
+            # silently drops the other. The same phone repeating itself IS a
+            # duplicate, which is what this guard was built for.
+            key = stream or f"{source}:{device}"
+            dup = c.execute(
+                "SELECT id FROM pending WHERE status='pending' AND transcript=?"
+                " AND source=? AND COALESCE(NULLIF(stream,''), source||':'||device)=?",
+                (transcript, source, key)).fetchone()
             if dup:
                 return int(dup["id"])
-            cur = c.execute("INSERT INTO pending (ts, source, transcript, reason) VALUES (?,?,?,?)",
-                            (time.time(), source, transcript, reason))
+            cur = c.execute("INSERT INTO pending"
+                            " (ts, source, transcript, reason, device, stream)"
+                            " VALUES (?,?,?,?,?,?)",
+                            (time.time(), source, transcript, reason, device, stream))
             return int(cur.lastrowid)
 
     def pending(self, include_done: bool = False) -> list[dict[str, Any]]:

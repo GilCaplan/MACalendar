@@ -130,9 +130,14 @@ def check_llm() -> Check:
             c.add(pulled, f"model {want} {'pulled' if pulled else 'NOT pulled'}")
             if pulled:
                 # listed != working — confirm it actually generates a token.
-                g = requests.post(f"{cfg.ollama.base_url}/api/generate",
-                                  json={"model": want, "prompt": "hi", "stream": False,
-                                        "options": {"num_predict": 1}}, timeout=30)
+                # Gated: it is a real completion, so `assistant doctor` run while
+                # a board is going would otherwise add one more contender to the
+                # queue it is trying to report on.
+                from assistant import model_protocol
+                with model_protocol.hold():
+                    g = requests.post(f"{cfg.ollama.base_url}/api/generate",
+                                      json={"model": want, "prompt": "hi", "stream": False,
+                                            "options": {"num_predict": 1}}, timeout=30)
                 c.add(g.ok and bool(g.json().get("response") is not None),
                       "model generates (a real one-token completion)")
         except Exception as e:
@@ -226,7 +231,11 @@ ENGINE_STAGES = [
     ("decompose_validate", "assistant.engine.decompose_validate.object_rules"),
     ("fastrule",           "assistant.engine.fastrule.stage"),
     ("fastrule",           "assistant.engine.fastrule.fastrule"),
-    ("fastrule",           "assistant.engine.fastrule.objects"),
+    # objects.py deleted 2026-09-10 (TASKS.md row 91): FastRule restructured
+    # into a converter (build.py) + a front-door selective classifier
+    # (fast_track.py), neither of which redoes the upstream's parsing.
+    ("fastrule",           "assistant.engine.fastrule.build"),
+    ("fastrule",           "assistant.engine.fastrule.fast_track"),
     ("llmjudge",           "assistant.engine.llmjudge.llmjudge"),
     ("llmjudge",           "assistant.engine.llmjudge.gatekeeper"),
     ("llmjudge",           "assistant.engine.llmjudge.llm_fallback"),

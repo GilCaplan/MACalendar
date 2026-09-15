@@ -454,3 +454,162 @@ been broken once in this codebase.
 it only reports with LLMSeg on — see segmentation's `ARCHITECTURE.md` §3. The one
 board built to ask *"does the correction pay for itself"* has no data, and that is
 worth fixing before trusting any verdict this stage produces.
+
+---
+
+# 6 · THE AGREED STRUCTURE (Gil, 2026-09-10)
+
+§1–§5 above are the history: what moved here in phase A and what §1.3 sketched
+the loop to be. **This section supersedes §1.3's mechanism** (not its intent) and
+is what gets built. Gil's framing, and the four amendments agreed in the same
+conversation.
+
+## 6.1 · Gil's structure
+
+> *"X4 from FastRule — the judge looks at each object (or the tostring of it,
+> because looking at the pointer reference is kind of meaningless). Pass valid
+> objects on to be committed. Objects labeled bad but potentially good, rewrite
+> the prompt i.e. X1' (omitting valid objects — no point doing double work).
+> And objects which are not meant to be committed, pass to the review panel to
+> show the user this isn't relevant to be put into the calendar/task list."*
+
+Three buckets, two steps: a per-object verdict, then a router that sends each
+bucket where it goes. That shape is adopted. Four things change inside it.
+
+## 6.2 · Amendment 1 — the model gives EVIDENCE, not a verdict
+
+The founding rule of this stage stands: **the model extracts, deterministic code
+judges.** "Is this object correct?" asked of an 8B is answered *yes* — that is
+the measured accept bias, and the same family as the verbosity / position /
+rubric-order biases the judge literature documents. Here a rubber-stamp puts a
+wrong row on the calendar.
+
+So the per-object pass is a GROUNDING pass, in the FActScore / MiniCheck shape:
+the object's FIELDS are its atomic claims, and the model is asked, per field,
+to **quote the words that support it or say `none`**. That is extraction, which
+small models do well. Code turns spans into the verdict.
+
+    NOT   "create_event dentist 2026-09-14 15:00 — is this right?"  -> "yes"
+    BUT   "which words support title=dentist? date=2026-09-14? 15:00?"
+          -> "dentist" / "next monday" / none        -> code: start_time invented
+
+The same output serves all three consumers: the router (which bucket), the
+rewrite (which field to clarify), and the panel (the span that justified a
+field). One extraction, three uses.
+
+## 6.3 · Amendment 2 — BOTH directions of comparison
+
+The stage today walks text → objects. Gil's proposal walks objects → text.
+Neither subsumes the other and both are needed:
+
+| direction | catches | machinery |
+|---|---|---|
+| text → objects | an ask nothing covers — **missing** | `extract_asks` (kept; its counting rules are earned) |
+| objects → text | a field nothing said — **invented** | the grounding pass, new |
+
+Recall and precision. `extract_asks`'s prompt survives verbatim; what does not
+survive is `_produced`/`_tokens`/`_overlap`/the 0.25 threshold — a weak matcher
+with patches around it, and the source of the false missing/extra that drove the
+2026-09-08 loop storms.
+
+## 6.4 · Amendment 3 — the router keys on the FINDING, not on an opinion
+
+"Bad but potentially good" vs "not meant to be committed" is not one decision and
+not the model's to make. It is a table, keyed the way the DEFER classes already
+are:
+
+| finding | route | why |
+|---|---|---|
+| `missing_ask` | **REWRITE** → X1' | a re-segmentation can genuinely recover a merged ask |
+| `generic_target` | **REWRITE** → X1' | Gatekeeper's objection; anaphora is what the model is FOR |
+| `unsupported_field` | **COMMIT, field dropped + flagged** | a retry cannot invent a date nobody said |
+| `not_asked` | **PANEL** — "not relevant" | never retried |
+| `not_an_ask` | **PANEL** | segmentation tagged it `other`; already decided |
+
+Only the top two spend loop budget. That is the discipline that keeps *"Let an
+event to go out for a run now"* — three dead rounds, 30 seconds — from returning
+in a new costume.
+
+**`not_asked` and `not_an_ask` use the SAME carrier** as FastRule's
+`NotAnObject` (`item.blocked` + `slots["fastrule_result"]`), so the panel draws
+one outcome, not two.
+
+## 6.5 · Amendment 4 — FREEZE, don't commit mid-loop
+
+§1.3 said the good objects commit while the bad ones loop. That moves `_commit`
+INSIDE the judge loop: partial commits, a retract-and-re-commit path, and
+memory/revert bookkeeping spanning rounds — for no user-visible gain, since the
+reply is only spoken at the end anyway.
+
+**Instead: the good items stay in `state.items` and are FROZEN; only the failed
+asks are re-parsed from X1' and APPENDED.**
+
+    parse()   state.items = []                 -> keeps the frozen items,
+              re-runs all three stages            re-runs the three stages on X1'
+                                                  and extends
+
+Same benefit — no double work, no double commit, each round a smaller problem —
+with one commit point and no retract machinery. And coverage stays correct for
+free: the ask diff still runs against the **original** text every round, with the
+frozen objects counting as covering their asks.
+
+## 6.6 · X1' is grounded, or it is not sent
+
+The recorded failure: the first attempt built X1' out of `finding.detail`, the
+human-readable EXPLANATION, and segmentation parsed the explanation.
+
+The invariant that kills the whole class — `_grounded_title` lifted from title to
+sentence:
+
+> **every content word of X1' must appear in `raw_text`.**
+
+X1' is a RESTATEMENT of the speaker's words, never a description of the problem.
+Deterministic, cheap, testable, and it fails closed: not grounded → no rewrite →
+no loop, which is exactly today's safe behaviour.
+
+## 6.7 · The prompt structure, and why
+
+Four parts, each blocking a documented failure mode:
+
+1. **the source first, verbatim** — the raw transcript, named as the only truth.
+2. **the objects rendered canonically** — one line each, **only the fields that
+   are set** (a pydantic dump with twelve nulls invites commentary on nulls),
+   in a **fixed field order** (order shifts judge scores measurably), with a
+   stable id. `render.py` owns this, and the panel shows the SAME string, so
+   what the judge saw is what the user sees.
+3. **a per-field extraction instruction** — "quote the supporting words or say
+   `none`". No scores, no "is this good".
+4. **schema-constrained output**, as every other call here already is.
+
+Explicitly NOT: a numeric quality score, a holistic verdict, or letting the
+model name the blamed stage.
+
+## 6.8 · What is kept, what is rebuilt
+
+| | |
+|---|---|
+| **kept verbatim** | `gatekeeper.py`, the three guards in `llm_fallback.py` — every one is a paid-for bug |
+| **kept** | `rescue.py` — job #1 (answer the DEFERs) runs before job #2 and is untouched |
+| **kept** | `_EXTRACT_SYSTEM`'s counting rules |
+| **rebuilt** | `_produced` / `_tokens` / `_overlap` / 0.25 / the capacity accounting |
+| **rebuilt** | `BLAME` + `_loop_target` → the §6.4 router |
+| **built** | `render.py`, `evidence.py`, `verdict.py`, `rewrite.py` |
+
+## 6.9 · Measurement — two stages, and the metric must be a PAIR
+
+**Stage 1, ISOLATION** (`experiments/judge_board.py`, `datasets/`). Labels come
+free from FastRule's 7,200: build the gold object from `expect`, then MUTATE it
+in controlled ways, one mutation per finding type. A naturally-mined set is
+dominated by valid objects, so an always-accept judge scores ~90% on it —
+**accuracy is gameable here.** The board reports a pair, per finding type:
+
+    catch rate      flagged / planted          (recall on invalid objects)
+    false-flag rate flagged / genuinely valid  (the cost of the catch)
+
+Train half mines; the test half stays sealed, same rule as everywhere else.
+
+**Stage 2, CONNECTED.** This is Board D, which §5 admits **has never run**. The
+metric is the project's own framing: *rows the judge FIXED minus rows the judge
+BROKE*, net. A stage with a beautiful isolated board and a negative net is a
+liability. Expect most findings to point at segmentation, which is FROZEN — those
+go to TASKS.md, not into this stage's work.

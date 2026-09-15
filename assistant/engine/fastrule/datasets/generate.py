@@ -33,8 +33,8 @@ reseed every family's RNG stream and break every existing row, which is
 exactly the one thing this growth was required not to do.
 
 Usage:
-    python -m scripts.gen_fastrule_dataset            # generate + verify
-    python -m scripts.gen_fastrule_dataset --no-write  # verify-only dry run
+    python -m assistant.engine.fastrule.datasets.generate            # generate + verify
+    python -m assistant.engine.fastrule.datasets.generate --no-write  # verify-only dry run
 
 See assistant/engine/fastrule/datasets/DATASET.md for the schema and design rationale, and
 assistant/engine/TRAIN_TEST_SPLIT_CONVENTION.md for how the 80/20 train/test split is built and
@@ -52,9 +52,23 @@ import tempfile
 from collections import Counter, defaultdict
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-BANKS = ROOT / "assistant" / "engine" / "fastrule" / "datasets" / "banks"
-OUT = ROOT / "assistant" / "engine" / "fastrule" / "datasets" / "fastrule_7200.jsonl"
+# MOVED HERE 2026-09-10 (from `scripts/gen_fastrule_dataset.py`, brought in by
+# the `engine-component-folders` merge, TASKS.md row 91). HEAD had fixed the
+# same rot IN PLACE at the old path (`ROOT = parents[1]` from `scripts/` is the
+# repo root, which was correct there); this merge instead takes the branch's
+# fix, which also relocates the file — "a stage owns its folder and the
+# datasets used to improve it" (CLAUDE.md), matching where every other stage's
+# generator already lives.
+#
+# MIND THE `ROOT` TRAP, which is what made the first repair of the other three
+# worse: from here, `parents[1]` is the STAGE folder, not the repo root. The
+# banks and the output are siblings of this file; only the sys.path insert in
+# setup_label_env() wants the repo, four levels up
+# (datasets -> fastrule -> engine -> assistant -> repo).
+HERE = Path(__file__).resolve().parent
+REPO = Path(__file__).resolve().parents[4]
+BANKS = HERE / "banks"
+OUT = HERE / "fastrule_7200.jsonl"
 CATEGORIES_FIXTURE = BANKS / "categories_fixture.json"
 
 # Changing SEED changes every row's fillers and the split assignment — only
@@ -153,8 +167,8 @@ def setup_label_env():
     can ever read or write ~/.assistant_tools/.
     """
     import sys
-    if str(ROOT) not in sys.path:
-        sys.path.insert(0, str(ROOT))
+    if str(REPO) not in sys.path:
+        sys.path.insert(0, str(REPO))
     scratch = Path(tempfile.mkdtemp(prefix="fastrule_gen_"))
     os.environ["MACALENDAR_CATEGORIES"] = str(CATEGORIES_FIXTURE)
     os.environ.setdefault("MACALENDAR_VOCAB", str(scratch / "vocab.json"))
@@ -286,6 +300,75 @@ def placeholder_info(token: str):
     raise ValueError(f"unknown placeholder token: {{{token}}}")
 
 
+#: Which BASE_INFO placeholders are a WHEN. Read off the bank each token draws
+#: from, so a new time placeholder cannot be forgotten here — it has to name one
+#: of these banks to be a time at all.
+TIME_BANKS = {"dates", "times", "time_ranges", "recurrences", "durations",
+              "lead_times", "query_ranges"}
+
+#: Prepositions and connectives that exist ONLY to attach the time that follows
+#: them. Removed with it, or the action words keep a dangling "at".
+_TIME_LEADIN = re.compile(
+    r"(?:\s+(?:at|on|in|for|by|from|until|till|through|starting|beginning|"
+    r"every|due)\b)?\s*$", re.I)
+
+
+def _is_time_token(tok: str) -> bool:
+    bank_key, _semantic, _base = placeholder_info(tok)
+    return bank_key in TIME_BANKS
+
+
+def gold_item(fam: dict, template: str, values: dict) -> dict:
+    """The Item segmentation and decompose_validate SHOULD hand FastRule.
+
+    This is the whole point of C1 (`fastrule/PLAN.md` §3): FastRule's board was
+    feeding it the REAL segmenter's output, so the stage was being measured
+    through an upstream that is frozen and lossy — and the rows it did get were
+    a biased subset (the ones segmentation happened to get right). Gold items
+    let the stage be tested ALONE.
+
+    **The gold cannot come from running the pipeline** — that would score
+    FastRule against what the upstream produced rather than against truth, and
+    bake in the upstream's 265 lost items and 162 invented ones. It comes from
+    the TEMPLATE, which is not circular: the generator composed the sentence
+    from named slots, so it knows which words are the action and which are the
+    time BEFORE any stage reads them.
+
+    Returns `{"text", "time", "kind"}` — `Item.text` (the action words),
+    `Item.time` (the when, AS SPOKEN, unresolved), and the tag.
+    """
+    action_parts: list[str] = []
+    time_parts: list[str] = []
+    pos = 0
+    for m in TOKEN_RE.finditer(template):
+        tok = m.group(1)
+        before = template[pos:m.start()]
+        if _is_time_token(tok):
+            # drop the connective that only existed to attach this time
+            action_parts.append(_TIME_LEADIN.sub("", before))
+            time_parts.append(before[len(_TIME_LEADIN.sub("", before)):])
+            time_parts.append("{" + tok + "}")
+        else:
+            action_parts.append(before)
+            action_parts.append("{" + tok + "}")
+        pos = m.end()
+    action_parts.append(template[pos:])
+
+    def _render(parts):
+        s = "".join(parts).format(**values)
+        return re.sub(r"\s+", " ", s).strip(" ,.")
+
+    action = _render(action_parts)
+    when = _render(time_parts)
+
+    act = fam.get("action") or ""
+    kind = ("task" if act.endswith("todo")
+            else "event" if act.endswith("event")
+            else "review" if act.startswith("query")
+            else "event")
+    return {"text": action, "time": when or None, "kind": kind}
+
+
 def family_tokens(template: str):
     seen = []
     for tok in TOKEN_RE.findall(template):
@@ -353,7 +436,8 @@ def resolve_slots(fam: dict, values: dict, tokens: list[str]) -> dict:
     return slots
 
 
-def gen_family_rows(fam: dict, quota: int, fillers: dict, global_seen: set) -> list[tuple[str, dict]]:
+def gen_family_rows(fam: dict, quota: int, fillers: dict,
+                    global_seen: set) -> list[tuple[str, dict, dict]]:
     tokens = family_tokens(fam["template"])
     value_lists = {}
     for tok in tokens:
@@ -381,7 +465,11 @@ def gen_family_rows(fam: dict, quota: int, fillers: dict, global_seen: set) -> l
             continue
         slots = resolve_slots(fam, values, tokens)
         global_seen.add(text)
-        rows.append((text, slots))
+        # The GOLD ITEM, computed here because `values` is only in scope here.
+        # C1: it makes FastRule testable ALONE, without the real segmenter in
+        # the path. See `gold_item` for why the template is the only
+        # non-circular source for it.
+        rows.append((text, slots, gold_item(fam, fam["template"], values)))
     return rows
 
 
@@ -479,7 +567,7 @@ def _emit_family_rows(fam: dict, split_name: str, quota: int, tier: str, fillers
             f"unique rows — widen its filler banks")
     out = []
     counter = 0
-    for text, slots in fam_rows:
+    for text, slots, item in fam_rows:
         counter += 1
         add_labels(fam, slots, categories_mod, tagging_mod, task_tag_keywords)
         out.append({
@@ -494,6 +582,10 @@ def _emit_family_rows(fam: dict, split_name: str, quota: int, tier: str, fillers
                 "action": fam["action"],
                 "atomic": fam["atomic"],
                 "slots": slots,
+                # The Item the two upstream stages SHOULD produce (C1,
+                # 2026-09-10). ADDITIVE — every field above is untouched, which
+                # C2 asserts by regenerating and diffing with this key removed.
+                "item": item,
             },
         })
     return out

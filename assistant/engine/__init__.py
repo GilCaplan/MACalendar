@@ -49,7 +49,8 @@ from typing import Any
 from assistant.engine import segmentation as _segment
 from assistant.engine.decompose_validate import stage as _decompose_validate
 from assistant.engine.decompose_validate import stage as _dv_objects
-from assistant.engine.fastrule import objects as _generate   # registry + commit helpers
+from assistant.engine.fastrule import fast_track as _fast_track
+from assistant.engine import llm as _llm
 from assistant.engine.fastrule import stage as _fastrule
 from assistant.engine.ingest import repair as _transcript
 from assistant.engine.ingest.coalesce import coalesce  # noqa: F401  (re-exported: server.py and tests import it from here)
@@ -123,12 +124,35 @@ class Engine(Component):
         # in one step, so nothing can be committed and left unlabelled.
         self.label = Stage("label", _label)
 
-    def parse(self, state: EngineState, cfg) -> None:
+    def parse(self, state: EngineState, cfg, frozen: "list | None" = None,
+              round_no: int = 0) -> None:
         """Steps 2→5 + the field rules — re-runnable (fresh items each time;
-        loop-back mistakes are already on the state for the stages' prompts)."""
+        loop-back mistakes are already on the state for the stages' prompts).
+
+        FREEZE AND APPEND (Gil, 2026-09-10, `llmjudge/PLAN.md` §6.5). On a
+        loop-back, `frozen` holds the objects the judge was happy with. They are
+        NOT re-parsed — X1' describes only the failed asks, so re-parsing the
+        good ones would either lose them or build them twice — and they are put
+        back in front of whatever the retry produced.
+
+        The alternative was committing the good ones mid-loop, which moves
+        `_commit` inside the judge loop and buys partial commits, a
+        retract-and-re-commit path and memory bookkeeping spanning rounds — for
+        no user-visible gain, since the reply is only spoken once at the end
+        either way.
+
+        New items are re-identified with a round prefix. Segmentation numbers
+        from `item_1` every time, so without this the retry's first item and a
+        frozen `item_1` would be the same id — and item id is what per-item
+        attribution, the revert specs and the command memory all key on.
+        """
         state.items = []
         for stage in self.stages:
             stage.run(state, cfg)
+        if frozen:
+            for it in state.items:
+                it.id = f"r{round_no}_{it.id}"
+            state.items = list(frozen) + state.items
 
     def judge(self, state: EngineState, cfg) -> None:
         """The crosscheck loop alone — split from run() so the Q9 confirm
@@ -160,6 +184,7 @@ class Engine(Component):
             self.llmjudge.run(state, cfg)
             loop_to = _loop_target(state)
             if loop_to is None:
+                self._settle(state)
                 return                      # judged and clean — commit it
             # X1' — the judge rewrites the utterance rather than handing the
             # same string back. Re-running a DETERMINISTIC Segmentation on
@@ -182,7 +207,8 @@ class Engine(Component):
                                  f"segmentation "
                                  f"({reentries}/{_crosscheck.MAX_REENTRIES})")
             state.text = rewritten          # re-enter Segmentation on X1'
-            self.parse(state, cfg)
+            self.parse(state, cfg, frozen=_frozen_items(state),
+                       round_no=reentries)
 
         # Budget spent. The parse that will actually be committed is the one
         # from the LAST re-run, and until now it was never judged: the loop
@@ -190,27 +216,41 @@ class Engine(Component):
         # describing objects that no longer existed. Judge what we are about
         # to commit, then speak from THAT.
         #
-        # ONLY WHEN A RE-RUN ACTUALLY HAPPENED. `rewrite_for_retry` is a
-        # deliberate stub returning None, so the common path through this loop
-        # is: judge once (above), find something missing, get no rewrite,
-        # break — and then judge the SAME state a second time. Both blame
-        # classes are loopable (`llmjudge` blames "segment" when items < asks
-        # and "fastrule" otherwise; `_loop_target` accepts both), so EVERY
-        # deep command with an unmatched ask paid two schema-constrained LLM
-        # extractions on the same raw_text for an identical answer — on the
-        # rows that are already the slowest (p95 ~50 s, dataset/loop_log.csv).
-        # With reentries == 0 nothing has changed since the judge above, so
-        # its findings are already the ones we are about to commit against.
+        # ONLY WHEN A RE-RUN ACTUALLY HAPPENED. With reentries == 0 nothing has
+        # changed since the judge above, so its findings are already the ones
+        # we are about to commit against — re-judging the SAME state a second
+        # time paid a full schema-constrained LLM extraction for an identical
+        # answer, on rows that are already the slowest (p95 ~50 s,
+        # dataset/loop_log.csv). This held even before the rewrite went live
+        # (when reentries was always 0): the guard is about whether the state
+        # changed, not about whether the rewrite exists.
         if reentries:
             self.llmjudge.run(state, cfg)
-        if any(f.type == "missing" for f in state.findings):
+        # `state.findings` post-restructure (llmjudge/findings.py): the old
+        # "missing" type doesn't exist any more — ungrounded_subject /
+        # unsupported_field / not_an_ask replaced it — so ANY finding is now
+        # the signal, not a type filter that would silently never match.
+        if state.findings:
             state.messages.append(
-                "I'm not sure I caught every part of that — worth a glance.")
+                "I'm not sure I got every part of that right — worth a glance.")
+        self._settle(state)
+
+    def _settle(self, state: EngineState) -> None:
+        """What the judge owes the speaker once the loop has stopped moving.
+
+        Only COMMIT_FLAGGED findings produce a sentence, and only here — `run`
+        executes on every round, so saying it there would apologise three times
+        for one doubt.
+        """
+        for msg in _crosscheck.notices(state):
+            if msg not in state.messages:
+                state.messages.append(msg)
 
 
 
 
     def run(self, text: str, trace: Any = None, source: str = "ios",
+            device: str = "", stream: str = "",
             current_view: str = "month", trace_run: "str | None" = None,
             supports_edit: bool = False, supports_confirm: bool = False) -> dict:
         """Parse and execute one transcript; return the API response dict.
@@ -255,6 +295,7 @@ class Engine(Component):
                 trace_run = None
         if trace_run:
             trace.on_step(lambda st: _tb.publish_step(trace_run, st.to_dict()))
+            trace.on_boundary(lambda b: _tb.publish_boundary(trace_run, b))
 
         # THE LOCK WAIT, MADE VISIBLE. The Trace is constructed above, before
         # the acquire, so queueing time lands inside the trace clock and shows
@@ -264,14 +305,24 @@ class Engine(Component):
         import time as _t
         _held = _run_lock.locked()
         _t0 = _t.perf_counter()
-        with _run_lock:
+        # EVERY model call made below inherits this request's priority.
+        #
+        # The env var describes a PROCESS, and the API server is one process
+        # serving the phone, the Mac and any test curl alike — so a
+        # `source: "test"` command was getting LIVE priority purely by arriving
+        # at a live process, and could sit in front of a real device's command.
+        # Gil, 2026-09-10: *"real device takes precedence over test."*
+        from assistant import model_protocol as _mp
+        with _mp.serving(source), _run_lock:
             waited = int((_t.perf_counter() - _t0) * 1000)
             if _held and source != "test":
                 _bus.note("lock", f"waited {waited} ms behind another command",
                           waited_ms=waited, source=source)
             # So every call this run makes is attributed and test traffic is
-            # dropped at the transport rather than here.
-            for _mod in ("assistant.engine.llm", "assistant.engine.fastrule.objects"):
+            # dropped at the transport rather than here. Only one IntentParser
+            # cache exists post-restructure (engine/llm.py) — fastrule/objects.py
+            # used to keep an independent second one; it is gone (TASKS.md row 91).
+            for _mod in ("assistant.engine.llm",):
                 try:
                     import importlib
                     _m = importlib.import_module(_mod)
@@ -279,14 +330,16 @@ class Engine(Component):
                         _m._parser._bus_source = source
                 except Exception:
                     pass
-            return self._locked(text, trace, source, current_view, trace_run,
-                                supports_edit, supports_confirm, cfg)
+            return self._locked(text, trace, source, device, stream,
+                                current_view, trace_run, supports_edit,
+                                supports_confirm, cfg)
 
-    def _locked(self, text, trace, source, current_view, trace_run,
-                supports_edit, supports_confirm, cfg) -> dict:
+    def _locked(self, text, trace, source, device, stream, current_view,
+                trace_run, supports_edit, supports_confirm, cfg) -> dict:
         from assistant.trace import DONE
 
-        state = EngineState(raw_text=text, source=source, current_view=current_view,
+        state = EngineState(raw_text=text, source=source, device=device,
+                            stream=stream, current_view=current_view,
                             supports_edit=supports_edit,
                             supports_confirm=supports_confirm, trace=trace)
 
@@ -333,9 +386,19 @@ class Engine(Component):
                 _commit(state, cfg)      # labels inside
                 fast = False
             else:
-                fast = cfg.engine.fast_track and _generate.fast_propose(state, cfg)
+                fast = cfg.engine.fast_track and _fast_track.fast_propose(state, cfg)
             if fast:
                 _dv_objects.run_objects(state, cfg)
+                # THE FAST TRACK HAS NO X2 OR X3, and the panel should say so
+                # rather than showing a gap. The rules read the whole command
+                # and produced objects in one move — that IS the fast track —
+                # so the boundary it publishes is X4 with a note that the two
+                # middle values were never formed.
+                try:
+                    from assistant.engine import boundary as _b
+                    _b.emit_fast(state)
+                except Exception:
+                    pass
                 _commit(state, cfg)      # labels inside
                 # The deep track runs BEHIND the instant answer: extraction-
                 # based cross-check against what was just committed, patched
@@ -393,6 +456,9 @@ class Engine(Component):
             "original_transcript": state.raw_text,
             "corrections": state.corrections,
             "trace": trace.to_list(),
+            # The X_i values, for the panel's flow strip. A client that does
+            # not know the key ignores it; the response contract is additive.
+            "boundaries": trace.boundaries_to_list(),
             "uncertain_words": _transcript.uncertain_words(state.text),
             "brain": _brain_version(),
         }
@@ -413,13 +479,15 @@ _engine = Engine()
 
 
 def run_transcript(text: str, trace: Any = None, source: str = "ios",
+                   device: str = "", stream: str = "",
                    current_view: str = "month", trace_run: "str | None" = None,
                    supports_edit: bool = False,
                    supports_confirm: bool = False) -> dict:
     """Thin shim over Engine.run — the entry point every caller already has.
     Kept by design (Q7): the server, the audit and the pending-retry loop go
     on calling this; the brain behind it is the Engine object."""
-    return _engine.run(text, trace=trace, source=source,
+    return _engine.run(text, trace=trace, source=source, device=device,
+                       stream=stream,
                        current_view=current_view, trace_run=trace_run,
                        supports_edit=supports_edit,
                        supports_confirm=supports_confirm)
@@ -440,7 +508,7 @@ def _commit(state: EngineState, cfg) -> None:
     from assistant.intent.context import ContextMemory
     from assistant.trace import EXECUTE
 
-    registry = _generate.get_registry()
+    registry = _llm.get_registry()
     ctx = ContextMemory()
     refresh_set: set = set()
 
@@ -449,7 +517,16 @@ def _commit(state: EngineState, cfg) -> None:
         if item.blocked:
             # Refused, and the refusal explained — never silently dropped.
             title = getattr(item.intent, "title", None) or item.text[:40]
-            state.messages.append(f"I didn't book '{title}': {item.blocked}.")
+            if item.intent is None:
+                # NOT AN OBJECT AT ALL, rather than an object held back. The
+                # two want different words: "I didn't book 'thanks'" implies
+                # there was something to book. This branch has to come before
+                # the `intent is None` skip below, which is what silently
+                # swallowed these items until 2026-09-10.
+                state.messages.append(
+                    f"I left '{item.text[:40]}' alone — {item.blocked}.")
+            else:
+                state.messages.append(f"I didn't book '{title}': {item.blocked}.")
             if state.trace:
                 state.trace.step(EXECUTE, "Held back", f"{item.id}: {item.blocked}", ok=False)
             continue
@@ -536,18 +613,40 @@ def _commit(state: EngineState, cfg) -> None:
     _label.run(state, cfg)
 
 def _loop_target(state: EngineState) -> "str | None":
-    """The earliest stage the findings blame, or None when there is nothing
-    to loop for. Only MISSING findings earn a loop: a re-run can recover an
-    ask that was merged away, but it cannot un-produce an extra (segment is
-    under-split-biased, so an "extra" is far more often the matcher's
-    artefact than real over-production — run 8 measured 39 loop storms, most
-    of them exactly that). Extras stay advisory findings. Only stages whose
-    re-run rebuilds intents are loopable — re-running the field rules on the
-    SAME objects would double-apply them."""
-    for f in state.findings:
-        if f.type == "missing" and f.blamed_stage in ("segment", "fastrule"):
-            return "segment"   # a segment re-run rebuilds everything after it
-    return None
+    """"segment", or None when nothing here earns a loop.
+
+    The decision moved into `llmjudge/findings.py::ROUTE` on 2026-09-10
+    (PLAN.md §6.4): the route is a property of the FINDING TYPE, decided in one
+    table, rather than a condition spelled out at each call site. Two types earn
+    a round and two do not, and the two that do not are the 2026-09-08 loop
+    storm in code form — a rewrite cannot invent a date nobody said, and a
+    re-run cannot un-produce an extra (segment is under-split-biased, so an
+    extra is far more often the matcher's artefact than real over-production;
+    run 8 measured 39 loop storms, most of them exactly that).
+
+    The TARGET is still always segment: it is the earliest re-runnable stage and
+    a segment re-run rebuilds everything after it. Only stages whose re-run
+    rebuilds intents are loopable — re-running the field rules on the SAME
+    objects would double-apply them.
+    """
+    from assistant.engine.llmjudge import findings as _findings
+    return "segment" if _findings.wants_rewrite(state.findings) else None
+
+
+def _frozen_items(state: EngineState) -> list:
+    """The objects the judge did NOT send back — everything X1' leaves out.
+
+    An item is frozen when no rewrite-routed finding names it. A `missing`
+    finding names no item at all (nothing was produced for it), so it freezes
+    nothing and simply adds an ask the retry has to recover. An
+    `ungrounded_subject` names the object whose subject failed, and that one is
+    the object being retried, so it is not frozen.
+    """
+    from assistant.engine.llmjudge import findings as _findings
+
+    blamed = {f.item_id for f in _findings.rewritable(state.findings) if f.item_id}
+    return [it for it in state.items
+            if it.id not in blamed and it.intent is not None and it.action]
 
 
 # ---------------------------------------------------------------------------
@@ -627,7 +726,7 @@ def _background_verify(state: EngineState, cfg) -> "dict | None":
         ev = get_db().get_event(ex.record[1])
         if ev and is_placeholder_title(ev["title"], cfg):
             try:
-                better = _generate._get_parser(cfg).fix_title_async(
+                better = _llm.get_parser(cfg).fix_title_async(
                     state.text, ev["title"])
             except Exception:
                 better = None
@@ -637,21 +736,22 @@ def _background_verify(state: EngineState, cfg) -> "dict | None":
                 refresh.add("events")
 
     _crosscheck.run(state, cfg)
+    # THE `missing` BRANCH IS GONE (2026-09-10). This stage no longer builds an
+    # ask list, so it cannot know an ask was dropped, and `_commit_missing_ask`
+    # became unreachable with it — the path that added a missed ask behind an
+    # instant commit. That capability is given up deliberately along with the
+    # extraction; TASKS.md §2 carries the reason and the follow-up, which is to
+    # measure on SEGMENTATION's own board how often a real command loses an ask.
+    #
+    # Removing the branch rather than leaving it dead is the point: a branch on
+    # a finding type nothing produces reads as working behaviour to the next
+    # person, and this file has been bitten by exactly that before.
+    from assistant.engine.llmjudge import findings as _findings
     for f in state.findings:
-        if f.type == "missing":
-            # Run 8's lesson, same as the old verifier's: the check PROPOSES
-            # far more than it should apply — four commands were broken by
-            # confident duplicate adds ("add eggs" vs the row "buy eggs").
-            # Additive lands only under self_check_apply; advisory otherwise.
-            if getattr(cfg, "self_check_apply", False):
-                made = _commit_missing_ask(state, cfg, f)
-                if made:
-                    speech.append(made)
-                    refresh.update(("events", "todos"))
-            else:
-                severity = "major"
-                speech.append(f"Worth a look: {f.detail}.")
-        elif f.type == "extra":
+        if f.type == _findings.NOT_AN_ASK:
+            # Run 8's lesson: the check PROPOSES far more than it should
+            # apply. Removal lands only under self_check_apply; advisory
+            # otherwise, and advisory is the default.
             if getattr(cfg, "self_check_apply", False):
                 undone, spec = _remove_extra(state, f)
                 if undone:
@@ -685,29 +785,6 @@ def _background_verify(state: EngineState, cfg) -> "dict | None":
     if reverts:
         result["revert"] = reverts
     return result
-
-
-def _commit_missing_ask(state: EngineState, cfg, finding) -> "str | None":
-    """An ask the fast parse dropped: parse just its words and commit it."""
-    import re as _re
-    m = _re.search(r"“(.+?)”", finding.detail)
-    if not m:
-        return None
-    words = m.group(1)
-    from assistant.engine.state import Item
-    sub = EngineState(raw_text=words, text=words, source=state.source,
-                      current_view=state.current_view, mode="background")
-    sub.items = [Item(id="item_1", kind="other", text=words)]
-    try:
-        _generate.run(sub, cfg)
-        _dv_objects.run_objects(sub, cfg)
-        _commit(sub, cfg)
-    except Exception:
-        return None
-    done = [m2 for m2 in sub.messages if m2]
-    if any(ex.ok for ex in sub.executed):
-        return "I first missed part of that — " + " ".join(done)
-    return None
 
 
 def _revert_spec(kind: str, row: "dict | None") -> "dict | None":
@@ -914,7 +991,7 @@ def _recheck_not_found(state: EngineState, cfg, item) -> "tuple | None":
         state.trace.step(RULE, "Nothing matched — rechecking",
                          f"{(item.action or '').replace('_', ' ')} found no target "
                          "— asking the LLM instead")
-    parser = _generate._get_parser(cfg)
+    parser = _llm.get_parser(cfg)
     try:
         retried = parser.parse(state.text) or []
     except Exception as e:
@@ -952,7 +1029,10 @@ def _parse_error_response(state: EngineState, cfg, e: AssistantError) -> dict:
     if retryable:
         try:
             from assistant.intent.memory import get_memory
-            pending_id = get_memory().add_pending(state.text, msg, source=state.source)
+            pending_id = get_memory().add_pending(state.text, msg,
+                                                  source=state.source,
+                                                  device=state.device,
+                                                  stream=state.stream)
         except Exception as pe:
             logger.warning("Could not queue command: %s", pe)
     if "offline" in msg.lower():
@@ -1035,7 +1115,7 @@ def _mine_reformulations(state: EngineState, cfg) -> None:
         return
 
     def _was_a_retry(wrong: str, right: str) -> bool:
-        parser = _generate._get_parser(cfg)
+        parser = _llm.get_parser(cfg)
         answer = parser.call_llm_json(
             "You judge whether a second voice command was a RETRY of the first — "
             "the speaker being misheard or misunderstood, and saying it again — "
@@ -1071,6 +1151,8 @@ def _publish(state: EngineState, resp: dict, trace_run: "str | None") -> None:
         from assistant import trace_bus
         payload = {
             "transcript": state.text,
+            "boundaries": (state.trace.boundaries_to_list()
+                           if state.trace is not None else []),
             "message": resp["message"],
             "actions": resp["actions"],
             "corrections": state.corrections,

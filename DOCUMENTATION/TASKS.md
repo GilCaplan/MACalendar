@@ -107,10 +107,10 @@ in the repo linked to.
 | 85 | **Gate `_recheck_not_found` on candidates actually existing.** Same function, and there is no store query anywhere in it — it goes from the trace step straight to `_generate._get_parser(cfg).parse(state.text)`. When the target store holds no candidate rows the model cannot read a target into existence, so the ~40 s call is pure cost: measured at 25 of the 30 slow fast-path rows, ~20% of fast-path traffic (`checkpoints/RECOMMENDATIONS.md` §1). **Two things must ride in the commit message.** (a) `scripts/checkpoint_sweep.py:178` calls `reset_calendar()` before every row, so *every* delete in that board targeted an empty store — the measurement was taken under exactly the condition that guarantees the finding. (b) The recheck earns its place where candidates DO exist: the sealed run's own row detail shows it changed the outcome on 5 of 32 slow rows, including the run-9 `“Walk Mark's dog”` case it was built for. **Gate it; do not delete it.** A count check in one ~25-line function | todo | `assistant/engine/__init__.py:907-931` |
 | 86 | **FastRule's PRIMARY board has never once reported its “NOW rows” section.** `fastrule/experiments/fastrule_shape.py:121` reads `re.compile(r"\\b(?:right\\s+now|now|immediately|asap)\\b", re.I)` — doubled backslashes inside a raw string, so the compiled pattern hunts for literal backslashes, `NOW_N` stays 0, and line 341's `if NOW_N:` silently omits the whole section. The correct sibling is `decompose_validate/object_rules.py:30`, single-escaped. The check exists specifically because ~152 rows saying “now” were landing at midnight and scoring as fine, and CLAUDE.md makes this board FastRule's primary instrument. One character class | todo | `assistant/engine/fastrule/experiments/fastrule_shape.py:121` |
 | 87 | **The decompose_validate traceability board's vocabulary is hand-maintained and has drifted seven times.** `decompose_validate/eval_metrics/score.py:216-232` indicts itself — *“SEVENTH TIME… The vocabulary below is hand-maintained and drifts behind the resolver every time a form is added (this round: yearly/annually)… Not done here because it is a board refactor”* — and then at `:230-232` ships yet another hand-maintained alternation. Two recorded instances of the cost: 115 correct weekly recurrences reported as invented because the board had never heard of “twice a week”, and every correct 21:00 from “tomorrow night” reported as invented because “night” was missing. Fix is to derive the vocabulary from `normalization.py`'s closed tables — the gold's own words — which keeps the board independent of `resolve.py` while removing the drift. **Timing is load-bearing:** do it BEFORE the next batch of forms lands. What it manufactures is false *invention* failures, and a whole cycle can be spent chasing a defect that does not exist. (Same item as decompose_validate carried-forward #4 below; tracked here so it is visible from the tracker rather than only from a stage note) | todo | `assistant/engine/decompose_validate/eval_metrics/score.py` |
-| 88 | **`scripts/engine_stage_check.py` is broken, not merely stale** — and CLAUDE.md presents it as the working per-stage gate. `:251-258` declares `STAGES = {transcript, segment, decompose, validate, generate, crosscheck}`: no `fastrule`, `llmjudge`, `label` or `ingest`. Worse, `:214` does `from assistant.engine.llmjudge import crosscheck` and no such module exists (the folder holds `gatekeeper.py`, `llm_fallback.py`, `llmjudge.py`), so `--stage crosscheck` and `--stage all` raise `ImportError` before any model loads; and `:82` imports `old_seg.segment`, i.e. it verifies the segmenter that does not run. **The identical defect in `assistant/cli.py` was found and fixed 2026-09-13 (`c82d5f8`) and this copy was missed** — and it is the copy still living in `scripts/` rather than in a stage folder that owns it, which is exactly the shape of CLAUDE.md's path-rot warning. Copy the stage list from `cli.py`. **Depends on row 91** for what the correct list is, if the branch lands | todo | `scripts/engine_stage_check.py` |
+| 88 | **`scripts/engine_stage_check.py` — closed 2026-09-15, riding row 91's merge.** The `crosscheck` import and the `STAGES` dict had already been fixed by the time row 91 landed (the `llmjudge as crosscheck` import and the seven-stage dict were already correct, unclear exactly when) — verified by RUNNING `--stage all`, not by reading it. What was still broken: two cases in `_cases_generate`/`_cases_crosscheck` tested behaviour the 2026-09-10 restructure changed on purpose. `update_event` no longer commits at the FastRule stage alone (`stage._COMMITTABLE = ("create", "query")` — a target-taking action always defers to LLMJudge now, since confirming it names a real record needs a store lookup the stage cannot do), so the case was rewritten to assert the defer instead of a committed action. The "dropped ask" case asserted `finding.type == "missing"`, a type the RE-CUT judge (PLAN.md §6, ask extraction removed) no longer produces at all — removed, not fixed, same as the identical case in row 91's own test fixes. `--stage all` is clean now except one fixture artifact (see row 91) | done 2026-09-15 | `scripts/engine_stage_check.py` |
 | 89 | **Ingest has no dataset and no board — the only stage with neither.** `assistant/engine/ingest/` holds `ARCHITECTURE.md`, `__init__.py`, `coalesce.py`, `repair.py` and nothing else, on HEAD and on `engine-component-folders` alike; its own doc says so at `ARCHITECTURE.md:51` (*“Not yet dug into. Moved here for structure; no dataset, no board of its own”*) and `STAGE_ISOLATION_PLAN.md`'s stage table still carries it under its old name `transcript`, status **not started**. It is the FIRST stage in the chain, so anything it gets wrong is charged to every stage below it, and the vocabulary rewrite happens before every parse — a regression here is invisible to every downstream board yet changes what the whole engine sees. **The one stage-isolation item that is neither frozen nor already done on the branch.** Constraint: the (word, corrected word) pairs come from the real `~/.assistant_tools/vocab.json`, which CLAUDE.md rules is hand-curated personal data — point `MACALENDAR_VOCAB` at scratch | todo | `assistant/engine/ingest/` |
 | 90 | **The fast path can still book a MONTHLY series for a YEARLY ask.** `assistant/intent/recurrence.py:41` is still `(r"\bevery\s+year\b|\byearly\b|\bannually\b", "monthly", True)`, and `rule_parser.py:1327-1329` writes that cadence straight into the slots. `resolve.py:481-483` added `yearly` on 2026-09-08 to fix exactly this; **the second reader was never updated**, and it is not fixed on `engine-component-folders` either. CLAUDE.md is explicit that yearly is the one cadence rounding could not honestly cover — twelve times wrong, firing eleven times nobody asked for. **This is a live user-visible wrong answer, not a metric line.** Two stale dependants fall out of the same duplication: `decompose_validate/text_helpers.py:41` still announces a rounding for “every tuesday and thursday” that no longer happens (`recur_days` is supported end to end — `db.py:110,460-478,923`), and `object_rules.py:266`'s reply still tells the user *“I can only repeat daily, weekly or monthly”*, omitting the fourth cadence | todo | `assistant/intent/recurrence.py`, `assistant/intent/rule_parser.py`, `assistant/engine/decompose_validate/text_helpers.py`, `assistant/engine/decompose_validate/object_rules.py` |
-| 91 | **`engine-component-folders`: 34 finished, tested commits, unmerged — decide merge / rebase / abandon.** Verified 2026-09-14: `origin/engine-component-folders` is at `8fac94d` and **it is pushed**, so nothing is one disk failure away any more; `git rev-list --left-right --count HEAD...origin/engine-component-folders` reports `50 34`. It carries FastRule phases B and C (`fastrule/build.py`, `fast_track.py`, `experiments/b1_ceiling.py`, `b3_live_chain.py`, `stage_board.py`), LLMJudge's stage-isolation work (`rewrite.py`, `verdict.py`, `rescue.py`, `findings.py`, `render.py` — **none of which exist on HEAD**), Label's two learned classifiers, and the accessor move into `engine/llm.py`. Not a mechanical merge: both sides touched the same files for different reasons. **Until it is decided, anyone told to “start FastRule phase B” writes it a second time** and loses the two real defects the branch's 32 tests already caught | decision for Gil | — |
+| 91 | **`engine-component-folders` merged into `main`, 2026-09-15.** Gil's call: merge. Brought in FastRule's restructure (`fastrule/build.py` the converter, `fast_track.py` the front door; `objects.py` deleted), LLMJudge's stage-isolation rebuild (`rewrite.py` — the loop-back is now LIVE, not a stub — plus `verdict.py`, `rescue.py`, `findings.py`, `render.py`), Label's two learned classifiers, and the `engine/llm.py` accessor consolidation (one `IntentParser` cache, not two). **Not mechanical — ~23 files conflicted**, resolved by reading both sides' intent rather than picking one blind (docs superseded by whichever side was chronologically later; code reconciled by tracing actual callers, e.g. `_call_ollama`/`_call_ollama_verify` needed BOTH sides' independent additions, `llm_bus` logging and `model_protocol` gating, not one or the other). **One real regression found and fixed**: the branch's `objects.py` deletion would have silently reintroduced a HEAD-only bugfix (`_fast_item_words` — a two-item fast-path command giving both items the whole transcript instead of just their own words); ported into `fast_track.py`, tested. **One more found fixing it**: `fastrule/stage.py`'s `_flag()` tagged trace steps `fastrule_result=` but the review panel reads `data["outcome"]` — two independently-written pieces of the merge that never agreed on a key name, so a flagged item never rendered on the panel; fixed by also writing `outcome=`. A second suspected regression (`asked_fastrule` keying) turned out to be moot — the per-item FastRule recheck it protected was deliberately removed by the restructure, not lost by accident (see STATUS.md for the full trace). Full suite green: 1650 unit + 32 integration. `scripts/engine_stage_check.py` (row 88, also fixed here — it was already mostly right, just needed `--stage all`'s case set updated for the new `_COMMITTABLE` restriction on updates/deletes) still flags one case (`Shabbat gym refused`) that traces to a `SimpleNamespace` test fixture not behaving like a real `CalendarIntent`, not a real defect — the 79 real observance/Shabbat tests in the pytest suite are all green | done 2026-09-15 | `assistant/engine/fastrule/`, `assistant/engine/llmjudge/`, `assistant/engine/label/`, `assistant/engine/llm.py`, `assistant/engine/__init__.py` |
 | 92 | **The deep track drives the whole pipeline before learning the LLM is unreachable, and discards resolved sibling items when one item's LLM call fails.** Found 2026-09-15 tracing the phone's offline voice queue against a live simulation (scratch server, `MACALENDAR_LLM_DISABLED`/a real disconnected-Ollama POST to `/voice/text`), then verified by reading the two functions directly rather than guessing. **(a) The retry loop already does the right thing; the first attempt doesn't.** `start_pending_retry_loop` (`api/server.py:207-248`) checks `_llm_reachable(cfg)` — a 1.5 s ping to `{base_url}/api/tags`, `api/server.py:197-204` — before ever re-calling `run_transcript` on a queued command, and skips the whole batch if it's down. But a LIVE command has no equivalent gate: `_run_locked` (`engine/__init__.py:131-209`) walks the entire deep track — segmentation, decompose_validate, generate.py's real Ollama call — before the failure surfaces, on every command needing the deep track while the model is down, paying for both the deterministic stages and however long the doomed HTTP call takes to time out. **(b) A multi-item command loses more than the failing item.** `generate.run()`'s per-item loop re-raises `LLMUnavailableError`/`LLMTimeoutError` (`generate.py:255` `except (LLMUnavailableError, LLMTimeoutError): raise`) out of the whole function, so `_commit()` never runs at all — an already-resolved sibling item (parsed by `rule_parser`, no LLM needed) is thrown away along with the one that actually failed. **Agreed fix, not yet built:** gate `_deep_parse` behind the same `_llm_reachable()` check `start_pending_retry_loop` already uses, so a known-offline Mac queues immediately instead of walking the pipeline first; and let resolved items reach `_commit()` independently of a sibling's LLM failure, so only the item(s) that actually needed the model get deferred. **Explicitly rejected as over-scoped:** persisting a partial `EngineState` at queue time and resuming specifically at llmjudge on reconnect — the stages it would skip are milliseconds, not worth the complexity of serializing state across a reconnect (and a possible Mac restart); reconnect stays "re-run the queued transcript from scratch", unchanged. A related but separate bug was found and fixed the same session on the phone side (not engine, so tracked in the app-features worktree, uncommitted as of this writing): `syncPendingVoice` was marking a queued voice command `.done` — and telling the user "Ran your queued command" — for exactly the `parse:"error"`/`pendingId` response this row's case (a) produces, when the Mac had actually only queued it server-side; left uncorrected, retrying that command in the old (30 s timeout) code path would have handed the Mac a second copy of the same transcript, which `start_pending_retry_loop` could then execute twice | todo | `assistant/engine/__init__.py`, `assistant/engine/generate.py`, `assistant/api/server.py` |
 
 **Q4 (Gil 2026-09-06, app stream) — RULED IN, STILL UNBUILT.** Mac
@@ -553,6 +553,213 @@ rule in its most expensive direction: blaming this stage for another's loss.
 **`BRAIN_VERSION` is not bumped by any of it.** `Gatekeeper`, the fallback and
 `Atomicity` are Components, not Stages; the chain's shape is unchanged. This is the
 `old_seg -> FastSeg` case, not the rename case.
+
+## OPEN — the review panel must SHOW the flagged items (Gil, 2026-09-10)
+
+**Not started. Recorded here so it is not lost, because the engine half landed
+first and the two are easy to leave out of step.**
+
+FastRule now returns THREE kinds of result, and the panel has to tell them
+apart. Gil, 2026-09-10: *"for a valid item make a relevant object; for a bad
+item a bad item object is expected — not expecting to fix a bad item; an item
+tagged as other and not event/task/review is a DIFFERENT object which we will
+use to show on the review panel later."*
+
+| `item.slots["fastrule_result"]` | when | what the panel should say |
+|---|---|---|
+| *(absent)* | a valid item | the object, as today |
+| `bad_item` | the item ARRIVED malformed | *this part reached me damaged* — and WHICH upstream stage, once that is attributable at runtime |
+| `not_an_ask` | segmentation tagged it `other` | *this wasn't something for the calendar* |
+
+The two flags share a carrier (`item.blocked`) but mean different things: one is
+an upstream defect, the other is a correct reading of a non-ask. Collapsing them
+in the UI would lose exactly the distinction the user needs.
+
+The ENGINE side is done (`fastrule/build.py::NotAnObject`, flagged onto
+`item.blocked`, reported by `_commit` as *"I left 'X' alone — …"* and pinned by
+`test_every_item_leaves_the_stage_either_built_or_flagged`). **The CLIENT side
+is not.** The thinking panel and the iOS timeline draw a command's chain from
+its trace, and a flagged item currently has no place in that drawing — so the
+user sees the reply sentence but not *which part* of what they said was set
+aside, or why.
+
+What this needs, per CLAUDE.md's *"the review panel is downstream of the
+pipeline"* rule:
+
+- a trace step for a flagged item, distinguishable from a REFUSAL (which is a
+  correct reading held back) and from a DEFER (which the model then answered)
+- the Mac `thinking_panel.py` and the iOS `ThinkingView` rendering it — an item
+  that produced nothing should be *visible* as a decision, not an absence
+- check whether this is a `CHAINS`/`BRAIN_VERSION` matter: it is a new step
+  KIND, not a new stage, so probably not — but `test_panel_agreement.py` is the
+  arbiter and should be run before assuming either way
+
+**Why it matters more than it looks:** the silent version of this was a real
+defect. Before 2026-09-10 an `other` item was set to `intent=None` and the
+execute loop skipped an empty intent before it looked at anything else, so the
+speaker was told *nothing at all* — indistinguishable from success. The engine
+now says something; the panel should show it.
+
+## Deferred, filed 2026-09-10 — three things found while working elsewhere
+
+Each one is real, each was found by a board rather than by reading, and none is
+being fixed in the change that found it.
+
+### 1 · decompose_validate — an invalid clock time reaches the database
+
+`start_time = '30:00'` on live rows **1993 ("Walk Val")** and **1994 ("shool")**,
+both written at `18:41:59` on 2026-09-09 — the same second as row 1995
+("Walk Mark"), so ONE compound command produced all three and two came out
+corrupt.
+
+`30:00` is not a time. `CalendarIntent`'s validator rejects hours > 23, so these
+reached the DB down a path that skipped it. Gil, 2026-09-10: *"this is something
+that should be fixed in the decompose_validate step."*
+
+**To do:** reproduce from the compound that made them, find which path writes a
+clock without validating, fix it there. Check whether other rows carry
+out-of-range values — the query that found these is in `label/experiments/`.
+
+### 2 · segmentation — does a DROPPED ASK ever actually happen?
+
+LLMJudge stopped extracting the asks from the raw text (2026-09-10, Gil: *"that
+defeats the point of what segmentation → decompose_validate → FastRule did"*).
+It was re-deriving segmentation's answer with a weaker instrument and blaming
+segmentation when the two disagreed — and the one false flag on its own board
+was exactly that, the extraction inventing an ask from *"i already handled it"*.
+
+**What was given up:** nothing in this engine now notices when segmentation
+MERGES two asks into one. A well-grounded object built from half a command looks
+perfect to a per-object check.
+
+**Two places it bites, not one:**
+
+- the foreground loop can no longer raise `missing`, so X1' is never triggered by
+  a dropped ask;
+- the fast track's BACKGROUND patcher loses the same finding, which makes
+  `_commit_missing_ask` unreachable — the path that added a missed ask behind an
+  instant commit.
+
+**To do (Gil: "mark to test later in segmentation and see if it requires
+fixing"):** measure on segmentation's OWN board how often a real command loses an
+ask. If it is rare, this was free. If it is not, the fix belongs in segmentation,
+not in a downstream stage second-guessing it.
+
+### 3 · categories — `Running` and `Gym` are not in the palette
+
+40 of 54 live events carry one of them; neither is one of the 13 defaults, and
+`~/.assistant_tools/categories.json` does not exist — so `color_for()` falls back
+to Personal's colour for all of them, and they are invisible to every
+per-category setting.
+
+**Ruled (Gil, 2026-09-10): both fold into ONE category, and it is `Fitness`** —
+already in the palette, so nothing new is introduced.
+
+**To do:** find where the training planner stamps `Running`/`Gym`, change it to
+`Fitness`, add the keywords so `classify()` agrees, and migrate the existing rows.
+
+## explorer.html — BOTTOM PRIORITY, filed 2026-09-10 (Gil)
+
+The published explainer is downstream of the code, and the code moved. Three
+things, none urgent, all real.
+
+### 1 · the LLMJudge box is out of date
+
+The stage was re-cut on 2026-09-10: the ask extraction is gone, it makes ONE
+model call instead of two, and the findings are now three per-object types
+(`ungrounded_subject` → X1' · `unsupported_field` → commit and say so ·
+`not_an_ask` → review panel) instead of four. The page still describes the
+extract-and-diff design.
+
+Check `tests/unit/test_artifact_claims.py` first — the model-calling-stage count
+is read out of the code and the page must agree with it.
+
+### 2 · the stage-to-stage arrow TOOLTIP renders wrong
+
+**Specifically `X_i`.** The input/output tooltip on the arrows between stages
+does not render the subscript correctly. Reproduce by hovering an arrow in the
+chain diagram; compare against the `X0 / X1 / X2 …` naming the engine's own
+`ARCHITECTURE.md` uses.
+
+### 3 · COMMIT + LABEL is missing its labels, and should say where they are going
+
+Gil, 2026-09-10: *"i think its missing labels, i want it to be a ML model."*
+
+Two separate things to write there:
+
+- **what it does today** — an event gets a CATEGORY (13 of them, keyword-scored
+  by `actions/calendar/categories.py::classify`) and its colour; a task gets
+  TAGS (multi-label, `actions/todo/tagging.py`). The page should show the label
+  as part of the commit step, since a row is written and categorised together.
+- **where it is going** — both classifiers become ML models. **The measured
+  state, and the honest reason it has not happened yet**, is in
+  `assistant/engine/label/experiments/RESULTS.md`: the rules currently BEAT
+  every model on real data (events 71.4% vs 50%, tasks 88.6% vs 81.4%) because
+  the only labels this project owns are the rules' own output. The blocker is
+  data, not model choice. A page that shows an ML classifier shipping today
+  would be claiming something untrue.
+
+## decompose_validate — three malformed values reaching the intents (2026-09-10)
+
+Found as free diagnostics in **Board D's stderr**, not by looking for them: 25
+rows out of the first ~600 built an intent that pydantic then REFUSED, so the
+row silently produced nothing. All three are value-shape defects upstream of
+FastRule, and none is LLMJudge's to fix.
+
+    18   delete_event   "Either match_title or match_start_time must be provided"
+    10                  "time must be HH:MM, got '09:59:59'"
+     2   create_event   "Event title cannot be empty"
+
+The middle one is a SIBLING of the already-filed `start_time = '30:00'`: a clock
+value reaching the intent with seconds on it. Both say the resolver is emitting
+a shape the intent contract does not accept, and the contract is right — a time
+is HH:MM. Fix the producer, not the validator.
+
+The first is the larger count and the more interesting one: a delete built with
+BOTH identifiers empty is a delete aimed at nothing, and this project's rule is
+that when the engine cannot identify what to delete, empty slots surfacing as
+"I couldn't find …" is the right answer. It is currently surfacing as a
+swallowed exception instead, which is the same outcome by accident rather than
+by design — and an accident that stops being safe the moment the fields are
+half-populated.
+
+**Reproduce:** any `board_d` run prints them to stderr; `-n 200` is enough.
+
+## A queued command's "tomorrow" means the wrong day — DECISION NEEDED (2026-09-10)
+
+Found while making the offline queue behave. Not a bug with an obvious fix: a
+question about what the speaker meant, which is Gil's to answer.
+
+`decompose_validate.resolve_values(state, anchor=None)` falls back to
+`dt.date.today()`, and `run()` passes no anchor. So a relative date resolves
+against **when the command was FLUSHED**, not when it was spoken:
+
+    spoken Monday, phone in a tunnel until Thursday
+    "book gym tomorrow"   ->  books FRIDAY
+
+Both queues have this. The phone's `LocalStore` holds commands that never
+reached the Mac; the server's `pending` table holds commands that arrived while
+ollama was down. Either can span a day boundary.
+
+**Three readings, and they disagree about a real case:**
+
+1. **Anchor on when it was SPOKEN.** Truest to intent — they meant Tuesday. But
+   by Thursday that date is in the past, so `past_date_bump` fires and moves it
+   somewhere else anyway; we would have traded one wrong day for another.
+2. **Anchor on the flush (today's behaviour).** Never books the past, always
+   books a day the speaker did not mean.
+3. **Announce it.** This project's own idiom for exactly this shape — *"the
+   rounding is announced in the reply rather than done quietly"*, and the same
+   rule that makes a recurrence round out loud. The command runs, and the reply
+   says the relative date was read against today because it was queued for N
+   days.
+
+I lean 3, and it needs no new semantics — but it is a product decision about
+what the user is told, so it is filed rather than chosen.
+
+**Reproduce:** queue a row with a `ts` a few days old and a relative date word,
+then run `retry_pending_once`. `tests/unit/test_offline_queue_scenarios.py` has
+the harness.
 
 ## Working agreements
 - Everything on the phone is local: no third-party services; the only network peer is the Mac over Tailscale.

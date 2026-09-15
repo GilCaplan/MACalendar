@@ -240,8 +240,17 @@ def _call_model_impl(prompt: str, timeout: int = 180) -> str:
                        "options": {"temperature": 0},
                        "messages": [{"role": "user", "content": prompt}]}).encode()
     req = urllib.request.Request(ENDPOINT, body, {"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read())["message"]["content"].strip()
+    # GATED like the parser's two doors, even though this one is INERT.
+    #
+    # This module talks to ollama through its OWN `urllib` socket rather than
+    # through `IntentParser`, so a gate placed only in the parser would have a
+    # silent hole here — and a gate with a known hole is worse than no gate,
+    # because it invites the assumption of coverage. `test_model_protocol.py`
+    # pins that every `/api/chat` in the tree sits inside a `hold()`.
+    from assistant import model_protocol
+    with model_protocol.hold():
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read())["message"]["content"].strip()
 
 
 def parse_items(raw: str, proposal: "list[dict]") -> "list[dict] | None":
@@ -255,7 +264,8 @@ def parse_items(raw: str, proposal: "list[dict]") -> "list[dict] | None":
         if not isinstance(value, (list, tuple)) or len(value) < 2:
             return None
         fallback = proposal[i]["tag"] if i < len(proposal) else "event"
-        items.append({"action": str(value[0]).strip(),
+        items.append({"source": str(value[0]).strip(),
+                      "action": str(value[0]).strip(),
                       "time": str(value[1]).strip() or "today",
                       "tag": normalise_tag(value[2] if len(value) > 2 else "",
                                            fallback)})

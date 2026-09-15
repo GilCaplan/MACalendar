@@ -558,13 +558,25 @@ def test_the_named_rule_count_matches_validate(all_prose):
 
 
 def test_the_loop_budget_matches_crosscheck(all_prose):
+    """The published pages quote the retry budget; `MAX_REENTRIES` owns it.
+
+    The TRIGGER moved on 2026-09-10 with the stage. It used to look for "re-runs
+    the stage", which described the old blame router — the judge no longer
+    re-runs a named stage, it rewrites the failed ask and re-enters at
+    segmentation. A trigger phrase that no longer appears anywhere is a check
+    that silently stops checking, so it now keys on the behaviour that is
+    actually described.
+    """
     from assistant.engine.llmjudge.llmjudge import MAX_REENTRIES
     word = _word(MAX_REENTRIES)
+    checked = 0
     for name, text in all_prose.items():
-        if "loop" not in text.lower() or "re-runs the stage" not in text.lower():
+        if "reworded and re-parsed" not in text.lower():
             continue
+        checked += 1
         assert re.search(rf"at most {word} times", text, re.I), (
             f"the loop budget is {MAX_REENTRIES}; {name} says otherwise")
+    assert checked, "no page describes the retry loop — did the wording change again?"
 
 
 # ---------------------------------------------------------------------------
@@ -593,8 +605,17 @@ _STAGE_FILES = {
     # `text_repair.py` (rewriting a mangled item's words). Pointing this at
     # checks.py would say the stage never calls the model, which is not true.
     "validate":   "decompose_validate/text_repair.py",
-    "fastrule":   "fastrule/objects.py",
-    "crosscheck": "llmjudge/llmjudge.py",
+    "fastrule":   "fastrule/build.py",
+    # Third time this entry has moved WITHIN its folder, and the last move is
+    # the meaningful one (2026-09-10, Gil approved). `evidence.py` — the judge's
+    # grounding call — is RETIRED, so the stage no longer calls a model to JUDGE
+    # anything. It still calls one in `rescue.py`, for job 0: parsing what
+    # FastRule DEFERRED. That is the model doing a parse, not judging one, and
+    # it is why LLMJudge still counts among the stages that may call the model.
+    #
+    # Point this at `llmjudge.py` and the count silently drops by one, telling
+    # readers a stage is deterministic when it is not.
+    "crosscheck": "llmjudge/rescue.py",
     "label":      "label/label.py",
 }
 _FASTRULE_PY = "assistant/engine/fastrule/fastrule.py"
@@ -683,16 +704,23 @@ def test_the_deferral_reason_classes_are_current(all_prose):
                 f"{name} describes the deferral contract without naming {cls.upper()}")
 
 
-def test_the_two_fastrule_thresholds_are_current(all_prose):
-    """The front door's bar and the per-fragment bar are different numbers."""
-    from assistant.engine.fastrule.objects import SUBITEM_RULE_THRESHOLD
+def test_the_fastrule_threshold_is_current(all_prose):
+    """THERE IS ONLY ONE BAR NOW (2026-09-10). `SUBITEM_RULE_THRESHOLD = 0.60`
+    was the relaxed bar the DEEP track used when it re-ran FastRule per
+    fragment. That re-run is gone: an item reaching the stage is atomic by
+    contract, and `build` converts it with no confidence score at all — B1
+    measured the old score to be dominated by time-reading, which is the one
+    signal that left this stage. The constant was deleted with the path that
+    used it rather than left behind as a number nothing reads.
+
+    A page still describing a per-fragment bar is therefore describing a
+    machine that no longer exists, and this check says so."""
     from assistant.intent.rule_parser import RULE_THRESHOLD
     for name, text in all_prose.items():
         if "per fragment" not in text:
             continue
-        for value in (RULE_THRESHOLD, SUBITEM_RULE_THRESHOLD):
-            assert re.search(rf"{re.escape(str(value))}(?![0-9])", text), (
-                f"{name} quotes the two FastRule bars, but {value} is not one of them")
+        assert re.search(rf"{re.escape(str(RULE_THRESHOLD))}(?![0-9])", text), (
+            f"{name} quotes the FastRule bar, but {RULE_THRESHOLD} is not it")
 
 
 def test_the_number_of_shipped_classifiers_is_current(all_prose):
@@ -878,3 +906,46 @@ def test_the_metric_formulas_on_the_evaluation_view_match_the_scorers():
             f"{name}: the title brevity cutoff is {brevity.group(1)} words")
     if not checked:
         pytest.skip("no page carries the evaluation formulas")
+
+
+def test_the_label_classifier_numbers_cite_a_run_that_exists(all_prose):
+    """The commit panel quotes measured classifier figures. ARTIFACT_BUILDER.md:
+    *a measured number must cite a run that still exists* — so each one is
+    checked against `label/experiments/RESULTS.md`, which is that run's record.
+
+    Without this the page keeps yesterday's number for ever: the boards are
+    re-run often, and prose has no way of knowing.
+    """
+    results = (ROOT / "assistant" / "engine" / "label" / "experiments"
+               / "RESULTS.md")
+    assert results.exists(), "the label board's run log is gone; the page cites it"
+    log = results.read_text()
+
+    for name, text in all_prose.items():
+        low = text.lower()
+        if "learned event classifier" not in low:
+            continue
+        m = re.search(r"learned event classifier reads (\d+)% against the "
+                      r"rules[^0-9]{0,20}(\d+)%", text, re.I)
+        assert m, f"{name} quotes the event classifier without a readable pair"
+        model, rules = m.group(1), m.group(2)
+        assert re.search(rf"logistic regression\s+{model}\.\d%", log), (
+            f"{name} says the model reads {model}%; RESULTS.md does not record that")
+        assert re.search(rf"RULES\s+{rules}\.\d%", log), (
+            f"{name} says the rules read {rules}%; RESULTS.md does not record that")
+
+
+def test_the_persona_spread_claim_matches_the_board(all_prose):
+    """"roughly three times more even-handed" is a measured ratio (28.5 pt for
+    the rules against 10.4 pt for the model). Pinned to the same run log."""
+    results = (ROOT / "assistant" / "engine" / "label" / "experiments"
+               / "RESULTS.md")
+    log = results.read_text()
+    for name, text in all_prose.items():
+        if "even-handed" not in text.lower():
+            continue
+        m = re.search(r"rules\s+([\d.]+) pt\s+model\s+([\d.]+) pt", log)
+        assert m, "RESULTS.md no longer records a persona spread"
+        ratio = float(m.group(1)) / float(m.group(2))
+        assert 2.0 <= ratio <= 4.0, (
+            f"{name} says roughly three times; the board now says {ratio:.1f}x")

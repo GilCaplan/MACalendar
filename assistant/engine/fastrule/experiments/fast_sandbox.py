@@ -5,7 +5,7 @@ a selective classifier, no deep track, no LLM, no execution.
     python -m assistant.engine.fastrule.experiments.fast_sandbox --max-rank 600
 
 Rows replay frozen at their recorded timestamps (same epoch conventions as
-the main harness). Per row, generate.fast_propose() runs exactly as in
+the main harness). Per row, fast_track.fast_propose() runs exactly as in
 production — gates included — and the PROPOSED intents are scored against
 the dataset's count expectations directly (create_event/create_todo intent
 counts; nothing is executed, no db is touched).
@@ -43,20 +43,24 @@ for _v, _n in (("DB", "calendar.db"), ("MEMORY_DB", "mem.db"),
                ("TRACE_BUS", "trace_bus.jsonl"), ("LOCATION", "location.json")):
     os.environ[f"MACALENDAR_{_v}"] = os.path.join(_TMP, _n)
 os.environ["MACALENDAR_NO_WARMUP"] = "1"
+# BACKGROUND traffic: this yields the model to the live assistant between
+# every call (assistant/model_protocol.py). Without it a board and a voice
+# command are indistinguishable to ollama, and a trivial live call measured
+# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
+os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 os.environ["MACALENDAR_OBSERVANCE"] = "0"
 
-# TWO roots, deliberately named apart. `parents[1]` is the STAGE folder since
-# the per-stage move — which is what its neighbours `fastrule6k` and
-# `fastrule_shape` mean by ROOT — but this file went on joining a
-# REPO-relative path to it ("DOCUMENTATION/experiments/…"), so it resolved
-# under `assistant/engine/fastrule/` and never existed. It then fell back to a
-# hardcoded path on the dataset owner's laptop. CLAUDE.md names this exact
-# trap: "a path that merely looks wrong may be right and vice versa".
+# `parents[1]` is the STAGE folder (experiments/ -> fastrule/), not the repo
+# root — the trap the per-stage restructure left in several of these files. The
+# source db lives under DOCUMENTATION/, so the path has to climb to the repo
+# root: fastrule/ -> engine/ -> assistant/ -> repo. It used to fall back to a
+# hardcoded absolute path on one developer's machine, which meant this script
+# could only ever run in one checkout and silently pointed outside the worktree
+# in the other three. (Verified 2026-09-15: `dataset/baseline/dummy_3000.db`,
+# an earlier fix's guess at this path, does not exist on disk; this one does.)
 STAGE = pathlib.Path(__file__).resolve().parents[1]
-REPO = pathlib.Path(__file__).resolve().parents[4]
-#: the replay baseline — gitignored and local, same file
-#: `scripts/engine_dataset_compare.py` defaults to.
-SOURCE = REPO / "dataset" / "baseline" / "dummy_3000.db"
+ROOT = STAGE.parents[2]
+SOURCE = ROOT / "DOCUMENTATION/experiments/memory_scaling/output/dummy_3000.db"
 
 
 def main() -> int:
@@ -69,7 +73,8 @@ def main() -> int:
 
     from assistant.config import load_config
     from assistant.intent.rule_parser import RULE_THRESHOLD
-    from assistant.engine.fastrule import objects as generate
+    from assistant.engine import llm as _llm
+    from assistant.engine.fastrule import fast_track
     from assistant.engine.state import EngineState
     from scripts.score_dataset_run import load_overrides, load_provenance
 
@@ -77,7 +82,7 @@ def main() -> int:
     prov = load_provenance()
     overrides = load_overrides()
 
-    rp = generate._get_rule_parser()
+    rp = _llm.get_rule_parser()
     # Warm the recognizer's lazy first-analyze OUTSIDE any frozen clock —
     # the metaclass lesson from the main harness (epoch reset).
 
@@ -122,7 +127,7 @@ def main() -> int:
             st = EngineState(raw_text=text, text=text)
             ok_commit = False
             with contextlib.suppress(Exception):
-                ok_commit = generate.fast_propose(st, cfg)
+                ok_commit = fast_track.fast_propose(st, cfg)
         if not ok_commit:
             # RECOVERABLE-ABSTAIN: would FastRule's raw parse have been right?
             # (the selective classifier's second error type — headroom +

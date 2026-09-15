@@ -108,6 +108,10 @@ os.environ["MACALENDAR_MEMORY_DB"] = ENGINE_DB
 os.environ["MACALENDAR_TRACE_BUS"] = str(stores / "trace_bus.jsonl")
 os.environ["MACALENDAR_LOCATION"] = str(stores / "location.json")
 os.environ["MACALENDAR_NO_WARMUP"] = "1"
+# BACKGROUND traffic: yields the model to the live assistant between calls
+# (assistant/model_protocol.py) — a sweep run beside a live voice command
+# would otherwise be indistinguishable from one to ollama.
+os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 # Observance OFF for replays (Gil, 2026-09-05): the dataset's ground truth has
 # no concept of Shabbat, and a Friday replay otherwise penalises a checkpoint
 # for CORRECTLY refusing. engine_dataset_compare sets the same flag.
@@ -159,8 +163,8 @@ try:
     # first row's freeze made every fast_propose raise, so all 250 rows
     # silently took the deep track — caught on the 2026-09-05 re-baseline.
     try:
-        from assistant.engine.fastrule import objects as _gen
-        _rp = _gen._get_rule_parser()
+        from assistant.engine import llm as _gen
+        _rp = _gen.get_rule_parser()
         if _rp is not None:
             _rp.analyze("book gym tomorrow at 7am", current_view="month")
     except Exception:

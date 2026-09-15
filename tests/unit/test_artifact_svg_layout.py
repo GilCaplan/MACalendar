@@ -40,6 +40,44 @@ def _width(label: str, size: float) -> float:
     return plain * size * GLYPH
 
 
+_TRANSLATE = re.compile(r"translate\(\s*(-?[\d.]+)[\s,]+(-?[\d.]+)?\s*\)")
+_ROTATE = re.compile(r"\brotate\(")
+
+
+def _offset(svg: str, at: int) -> "tuple[float, float] | None":
+    """The accumulated translate() of every group enclosing this position.
+
+    WITHOUT THIS THE CHECK IS BLIND BOTH WAYS, which is why it was added
+    (2026-09-10). These drawings put whole panels inside
+    `<g transform="translate(30, 310)">`, so two panels drawn far apart share
+    raw y values — the check reported them as overlapping when they are
+    hundreds of pixels apart, AND it could not see a genuine collision between
+    two labels inside the same translated group. Both failure modes were live
+    on explorer.html.
+
+    Returns None when a rotation is in play: a rotated label's box is not
+    axis-aligned, so measuring its width along x is meaningless. Skipping is
+    honest; guessing is what produced "a stroke runs through
+    'confident -> immediate'" for a label drawn vertically beside the arrow.
+    """
+    dx = dy = 0.0
+    depth = 0
+    for m in reversed(list(re.finditer(r"<g\b([^>]*)>|</g>", svg[:at]))):
+        if m.group(0) == "</g>":
+            depth += 1
+            continue
+        if depth:
+            depth -= 1
+            continue
+        tr = dict(_ATTR.findall(m.group(1) or "")).get("transform", "")
+        if _ROTATE.search(tr):
+            return None
+        for gx, gy in _TRANSLATE.findall(tr):
+            dx += float(gx)
+            dy += float(gy or 0)
+    return dx, dy
+
+
 def _inherited_anchor(svg: str, at: int) -> str:
     """The nearest enclosing group's text-anchor, or "start"."""
     depth = 0
@@ -150,6 +188,11 @@ def _boxes(svg: str):
         # let the labels inside pick it up. Reading only the element's own
         # attribute measured centred text from its left edge, which put the
         # box in the wrong place and hid real collisions.
+        # `_turned` (not the narrower own-element-only `_ROTATE` check some
+        # history had here): a label inside a rotated GROUP is just as
+        # unmeasurable as one rotated itself, and the offset this box needs is
+        # applied once, below, by `_translate`/`_own_translate` — applying
+        # `_offset`'s accumulation here too would double-count it.
         if _turned(svg, match.start(), a):
             continue
         anchor = a.get("text-anchor") or _inherited_anchor(svg, match.start())
@@ -192,7 +235,13 @@ def _segments(svg: str):
         a = dict(_ATTR.findall(m.group(1)))
         if not _opaque(a):
             continue
+        off = _offset(svg, m.start())
+        if off is None:
+            continue
         try:
+            # `off` (above) only gates rotated groups here; the actual offset
+            # is applied once, below, by `_translate`/`_own_translate` — same
+            # reasoning as `_boxes`, and applying `off` too would double it.
             x1, y1 = float(a.get("x1", 0)), float(a.get("y1", 0))
             x2, y2 = float(a.get("x2", 0)), float(a.get("y2", 0))
         except ValueError:
@@ -205,8 +254,12 @@ def _segments(svg: str):
         a = dict(_ATTR.findall(m.group(1)))
         if a.get("stroke", "none") in ("none", "") or not _opaque(a):
             continue                       # a fill-only rect is a background, not an edge
+        off = _offset(svg, m.start())
+        if off is None:
+            continue
         try:
-            x, y = float(a.get("x", 0)), float(a.get("y", 0))
+            x = float(a.get("x", 0)) + off[0]
+            y = float(a.get("y", 0)) + off[1]
             w, h = float(a.get("width", 0)), float(a.get("height", 0))
         except ValueError:
             continue
@@ -300,3 +353,108 @@ def test_no_two_labels_on_a_baseline_overlap(page):
                         f"figure {n + 1}, y={y}: {a!r} and {b!r} overlap by "
                         f"{r1 - l2:.0f}px")
     assert not problems, f"{page.name}:\n  " + "\n  ".join(problems)
+
+
+# ---------------------------------------------------------------------------
+# Black text on a dark page
+# ---------------------------------------------------------------------------
+
+_STYLE = re.compile(r"<style[^>]*>(.*?)</style>", re.S)
+_SVG = re.compile(r"<svg\b([^>]*)>(.*?)</svg>", re.S)
+
+
+def _fill_selectors(page_src: str) -> set:
+    """Every CSS selector on the page that sets a `fill`."""
+    out = set()
+    for style in _STYLE.findall(page_src):
+        # strip comments so a commented-out rule is not counted as coverage
+        style = re.sub(r"/\*.*?\*/", " ", style, flags=re.S)
+        for sel, body in re.findall(r"([^{}]+)\{([^{}]*)\}", style):
+            if re.search(r"(^|[;\s])fill\s*:", body):
+                for one in sel.split(","):
+                    out.add(one.strip())
+    return out
+
+
+def _covered_by_css(selectors: set, svg_attrs: dict, text_attrs: dict) -> bool:
+    """Does some `fill:` rule plausibly reach this text element?
+
+    Deliberately generous — it asks whether a rule mentions the SVG's id or
+    class, or the text's own class. A false PASS here just means this check is
+    quiet about a page that renders correctly anyway; a false FAIL would make
+    it noise. The failure it exists for is the total absence of any rule.
+    """
+    svg_id = svg_attrs.get("id", "")
+    svg_cls = set((svg_attrs.get("class") or "").split())
+    txt_cls = set((text_attrs.get("class") or "").split())
+    for sel in selectors:
+        if svg_id and f"#{svg_id}" in sel:
+            return True
+        if any(f".{c}" in sel for c in svg_cls | txt_cls):
+            return True
+    return False
+
+
+@pytest.mark.parametrize("path", PAGES, ids=lambda p: p.name)
+def test_no_svg_text_falls_back_to_black(path):
+    """SVG `<text>` with no fill renders BLACK, which is invisible on these
+    pages — they are dark by default.
+
+    This was live: the figures inside explorer.html's detail panel had no fill
+    rule of ANY kind, so five diagrams drew their headings in rgb(0,0,0) on a
+    near-black panel. Measured in a browser before it was fixed.
+
+    The fix belongs on the container, not on `text` — `fill` is inherited, so a
+    default on the `<svg>` is overridden by each label's own fill attribute,
+    while a `text` selector would beat those presentation attributes and
+    flatten every deliberate colour in the drawing.
+    """
+    src = path.read_text()
+    selectors = _fill_selectors(src)
+
+    # A figure written inside the page SCRIPT is not markup — it is injected
+    # into a container at click time, so what colours it is that container's
+    # rule (`#pbody svg { fill: … }`), which no selector-versus-attributes
+    # comparison on the fragment itself could ever see.
+    script_at = src.find("<script")
+    container_default = any(
+        re.search(r"#[\w-]+\s+svg\s*$", sel) for sel in selectors)
+
+    offenders = []
+    for m in _SVG.finditer(src):
+        if script_at != -1 and m.start() > script_at and container_default:
+            continue
+        svg_attrs = dict(_ATTR.findall(m.group(1)))
+        body = m.group(2)
+        if "fill" in svg_attrs:
+            continue                      # the container supplies a default
+        for tm in _TEXT.finditer(body):
+            t_attrs = dict(_ATTR.findall(tm.group(1)))
+            label = re.sub(r"\s+", " ", html.unescape(
+                re.sub(r"<[^>]+>", "", tm.group(2)))).strip()
+            if not label or "fill" in t_attrs:
+                continue
+            if _inherited_fill(body, tm.start()) or _covered_by_css(
+                    selectors, svg_attrs, t_attrs):
+                continue
+            offenders.append(label[:40])
+    assert not offenders, (
+        f"{path.name}: {len(offenders)} <text> would render BLACK on a dark "
+        f"page — no fill on the element, no enclosing fill, no CSS rule: "
+        f"{offenders[:6]}")
+
+
+def _inherited_fill(svg: str, at: int) -> "str | None":
+    """The nearest enclosing group's fill, if any."""
+    depth = 0
+    for m in reversed(list(re.finditer(r"<g\b([^>]*)>|</g>", svg[:at]))):
+        if m.group(0) == "</g>":
+            depth += 1
+            continue
+        if depth:
+            depth -= 1
+            continue
+        found = dict(_ATTR.findall(m.group(1) or "")).get("fill")
+        if found:
+            return found
+    return None

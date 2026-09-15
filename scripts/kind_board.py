@@ -44,6 +44,11 @@ os.environ.setdefault("MACALENDAR_VOCAB", str(_SCRATCH / "vocab.json"))
 os.environ.setdefault("MACALENDAR_CATEGORIES", str(_SCRATCH / "cats.json"))
 os.environ.setdefault("MACALENDAR_TRACE_BUS", str(_SCRATCH / "bus.jsonl"))
 os.environ.setdefault("MACALENDAR_NO_WARMUP", "1")
+# BACKGROUND traffic: this yields the model to the live assistant between
+# every call (assistant/model_protocol.py). Without it a board and a voice
+# command are indistinguishable to ollama, and a trivial live call measured
+# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
+os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 
 sys.path.insert(0, str(ROOT))
 

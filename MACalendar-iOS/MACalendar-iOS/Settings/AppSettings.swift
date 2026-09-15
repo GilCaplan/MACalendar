@@ -91,6 +91,10 @@ class AppSettings: ObservableObject {
     @Published var showWorkoutTab: Bool {
         didSet { UserDefaults.standard.set(showWorkoutTab, forKey: "showWorkoutTab") }
     }
+    /// The labelling game. Same pattern as the tabs above.
+    @Published var showTeachTab: Bool {
+        didSet { UserDefaults.standard.set(showTeachTab, forKey: "showTeachTab") }
+    }
 
     // Show the assistant's step-by-step "thinking" timeline while a voice
     // command runs (streams live from the Mac). Local-only preference.
@@ -196,5 +200,7 @@ class AppSettings: ObservableObject {
             ? true : UserDefaults.standard.bool(forKey: "showTimerTab")
         self.showWorkoutTab = UserDefaults.standard.object(forKey: "showWorkoutTab") == nil
             ? true : UserDefaults.standard.bool(forKey: "showWorkoutTab")
+        self.showTeachTab = UserDefaults.standard.object(forKey: "showTeachTab") == nil
+            ? true : UserDefaults.standard.bool(forKey: "showTeachTab")
     }
 }

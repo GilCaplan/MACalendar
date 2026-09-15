@@ -1,7 +1,13 @@
-"""FS1 — score FastRule against its own 6,000-row dataset (all six metrics).
+"""FS1 — score FastRule against its own dataset (all six metrics).
 
     python -m assistant.engine.fastrule.experiments.fastrule6k                # train 4,800: full board + mining
-    python -m assistant.engine.fastrule.experiments.fastrule6k --split test   # test 1,200: AGGREGATES ONLY
+    python -m assistant.engine.fastrule.experiments.fastrule6k --split test   # test 2,400: AGGREGATES ONLY
+
+The NAME says 6k and the set is 7,200 — it grew by 1,200 test-only rows via
+`force_split: "test"`, which is the mechanism for adding held-out coverage
+without disturbing train (train stayed 4,800, and its invariance is asserted
+at generation). The file name is kept because the boards and RESULTS.md refer
+to this one as FS1; renaming it would break more references than it fixes.
 
 Ground truth is by construction (assistant/engine/fastrule/datasets/DATASET.md). Scoring per
 row, against `expect`:
@@ -47,6 +53,11 @@ for _v, _n in (("DB", "c.db"), ("MEMORY_DB", "m.db"), ("VOCAB", "v.json"),
     os.environ[f"MACALENDAR_{_v}"] = os.path.join(_T, _n)
 os.environ["MACALENDAR_CATEGORIES"] = str(_FIXTURE)
 os.environ["MACALENDAR_NO_WARMUP"] = "1"
+# BACKGROUND traffic: this yields the model to the live assistant between
+# every call (assistant/model_protocol.py). Without it a board and a voice
+# command are indistinguishable to ollama, and a trivial live call measured
+# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
+os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 
 # deterministic clock: date phrases resolve against a fixed Wednesday morning
 _CLOCK = _dt.datetime(2026, 9, 9, 10, 0, 0)

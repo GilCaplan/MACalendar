@@ -1,4 +1,5 @@
 import Foundation
+import Security
 import UIKit
 @preconcurrency import UserNotifications
 
@@ -190,20 +191,60 @@ class APIClient: ObservableObject {
         // poll loop, opening the queue screen); replaying the same audio twice
         // would create the event twice.
         guard !isFlushingVoice else { return 0 }
-        // Past the guard, so nothing is flushing — which means any `.running`
-        // row is an ORPHAN left by a process that did not survive its upload.
-        // Reclaim before filtering: the filter below takes only `.queued` and
-        // `.failed`, so an orphan would never be retried, and
-        // `clearFinishedVoice` only drops `.done` and `.failed`, so it would
-        // never be cleared either. This covers a foreground-resume, where the
-        // app was suspended rather than killed and `loadVoice` does not re-run.
-        LocalStore.shared.reclaimStaleRunning()
-        let queued = LocalStore.shared.pendingVoice.filter { $0.status == .queued || $0.status == .failed }
+        // Recover anything stranded in `.running` by a killed process or an
+        // upload that never returned. Without this the row is invisible to the
+        // filter below and can never be retried — one sat at "Running now…" for
+        // five and a half hours before this was found (2026-09-10). Time-gated
+        // (900 s default) rather than "any `.running` row found here is stale":
+        // this runs before EVERY flush, not just on relaunch, and a row that is
+        // still genuinely in flight must not be reclaimed out from under itself.
+        _ = LocalStore.shared.reviveStalledVoice()
+        // A row being edited is SKIPPED, not sent. Reconnect, foregrounding, the
+        // 30 s poll and opening the queue screen can all trigger a flush, and any
+        // of them could otherwise fire mid-sentence and send the half-corrected
+        // version out from under the user (Gil, 2026-09-10).
+        let queued = LocalStore.shared.pendingVoice.filter {
+            ($0.status == .queued || $0.status == .failed) && !$0.heldForEdit
+        }
         guard !queued.isEmpty else { return 0 }
         isFlushingVoice = true
         defer { isFlushingVoice = false }
         var ran = 0
         for cmd in queued {
+            // EDITED → send the TEXT; UNTOUCHED → send the AUDIO.
+            //
+            // The phone's on-device draft is worse than Whisper-plus-vocabulary
+            // on the Mac, so an untouched command must still go as audio — the
+            // draft was only ever for the user to read. But a correction the
+            // user typed beats any re-transcription, so once they have edited
+            // it the text is the better input and the audio is stale.
+            if let text = cmd.outgoingText {
+                LocalStore.shared.updateVoice(cmd.id, status: .running)
+                do {
+                    let response = try await sendText(text, editedFrom: cmd.draft)
+                    // See the audio path below for why `parse == "error"` +
+                    // `pendingId` is a handoff to the Mac's own retry queue,
+                    // not a completion.
+                    if response.parse == "error", response.pendingId != nil {
+                        LocalStore.shared.removeVoice(cmd.id)
+                        Self.notify(title: "Your Mac is running this on its own", body: response.message)
+                        continue
+                    }
+                    LocalStore.shared.updateVoice(cmd.id, status: .done,
+                                                  result: response.message.isEmpty ? "Done" : response.message)
+                    Self.notify(title: "Ran your queued command", body: response.message)
+                    ran += 1
+                    burstRefresh()
+                    requestRefresh()
+                } catch APIError.offline {
+                    LocalStore.shared.updateVoice(cmd.id, status: .queued)
+                    break
+                } catch {
+                    LocalStore.shared.updateVoice(cmd.id, status: .failed,
+                                                  result: error.localizedDescription)
+                }
+                continue
+            }
             guard let audio = LocalStore.shared.voiceAudio(cmd) else {
                 LocalStore.shared.removeVoice(cmd.id)
                 continue
@@ -211,6 +252,20 @@ class APIClient: ObservableObject {
             LocalStore.shared.updateVoice(cmd.id, status: .running)
             do {
                 let response = try await sendAudio(audio)
+                // The Mac answered, but `parse == "error"` with a `pendingId`
+                // means it never actually ran the command — the model was
+                // offline/slow, so the Mac queued it in ITS OWN retry store
+                // (assistant/engine's `add_pending`, `start_pending_retry_loop`)
+                // and will run it on its own. Marking this `.done` would be a
+                // lie, and leaving it `.queued` would replay the same audio
+                // again later — handing the Mac a second copy of the same
+                // command, which its own loop could then execute twice once
+                // the model is back. The Mac owns it now; drop our copy.
+                if response.parse == "error", response.pendingId != nil {
+                    LocalStore.shared.removeVoice(cmd.id)
+                    Self.notify(title: "Your Mac is running this on its own", body: response.message)
+                    continue
+                }
                 LocalStore.shared.updateVoice(cmd.id, status: .done,
                                               result: response.message.isEmpty ? "Done" : response.message)
                 Self.notify(title: "Ran your queued command", body: response.message)
@@ -262,6 +317,43 @@ class APIClient: ObservableObject {
     func health() async throws -> HealthResponse {
         let data = try await request("/health")
         return try decode(HealthResponse.self, from: data)
+    }
+
+    // MARK: - Teaching the labeller
+
+    /// A batch of items worth labelling, hardest-first. The server does the
+    /// ranking — see `/labels/next` — because "which of these would teach the
+    /// most" is a question about the model, and the model is on the Mac.
+    func labelQueue(kind: String = "event", n: Int = 20) async throws -> LabelBatch {
+        let data = try await request("/labels/next?kind=\(kind)&n=\(n)")
+        return try decode(LabelBatch.self, from: data)
+    }
+
+    /// Record one answer. Returns whether enough NEW answers have accumulated
+    /// to be worth re-learning.
+    @discardableResult
+    func recordLabel(kind: String, text: String, label: String,
+                     current: String?) async throws -> Bool {
+        var body: [String: Any] = ["kind": kind, "text": text, "label": label]
+        if let current { body["current"] = current }
+        let data = try await request("/labels", method: "POST", body: body)
+        let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        return (obj?["retrain_due"] as? Bool) ?? false
+    }
+
+    /// Refit now. The promotion gate still applies on the Mac: a model that is
+    /// not better than the installed one does not ship, however many labels
+    /// arrived — so this can legitimately report "kept the old one".
+    func retrainLabels(kind: String = "event") async throws -> String {
+        let data = try await request("/labels/retrain", method: "POST",
+                                     body: ["kind": kind])
+        let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let result = obj?["result"] as? [String: Any]
+        if result == nil { return "Nothing new to learn from yet." }
+        if (result?["promoted"] as? Bool) == true {
+            return "Learned. The new version is better, so it's the one in use."
+        }
+        return "Learned, but the old version was better — keeping it."
     }
 
     // MARK: - Heartbeat
@@ -729,12 +821,102 @@ class APIClient: ObservableObject {
         // Identify the client. The server treats an unlabelled caller as a
         // test, so that a curl during development cannot masquerade as a
         // command you actually gave the phone.
+        await enrollIfNeeded()
         var body: [String: Any] = ["transcript": transcript, "source": "ios"]
+        if !Self.deviceID.isEmpty { body["device_id"] = Self.deviceID }
+        if !Self.deviceToken.isEmpty { body["device_token"] = Self.deviceToken }
         if supportsEdit { body["supports_edit"] = true }
         if supportsConfirm { body["supports_confirm"] = true }
         if let editedFrom { body["edited_from"] = editedFrom }
         let data = try await request("/voice/text", method: "POST", body: body)
         return try decode(VoiceResponse.self, from: data)
+    }
+
+    // MARK: - Device identity
+
+    /// This phone's ISSUED name and token — not a name it chose for itself.
+    ///
+    /// Every iPhone posts `source: "ios"`, so the host used to treat the whole
+    /// tailnet as one stream and concatenate two phones' queued commands into a
+    /// single utterance. The host now groups on the device instead.
+    ///
+    /// **Enrolled, not self-declared.** A self-chosen id is only a CLAIM: two
+    /// phones could pick the same one by accident, and any caller could elect to
+    /// be your phone. `POST /devices/enroll` has the host issue the id and sign
+    /// it, so what arrives in a request is a fact rather than an assertion.
+    ///
+    /// An unsigned client is never refused — the host ISOLATES it, giving it its
+    /// own queue rather than letting it join anyone's — so every failure here
+    /// degrades to the behaviour before enrolment existed: the phone still
+    /// works, it simply is not grouped with its own earlier self until the next
+    /// successful enrolment.
+    private enum DeviceStore {
+        static let idKey = "macalendar.device_id"
+        static let tokenKey = "macalendar.device_token"
+
+        /// The token is a BEARER CREDENTIAL — anything holding it can speak as
+        /// this phone — so it lives in the Keychain, not `UserDefaults`.
+        /// `UserDefaults` is a plist in the app container: readable from a
+        /// backup, and not protected when the device is locked.
+        /// `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` keeps it off
+        /// backups and off any other device, while still being readable when
+        /// the app runs in the background after a reboot+unlock.
+        static func loadToken() -> String? {
+            let q: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: "MACalendar",
+                kSecAttrAccount as String: tokenKey,
+                kSecReturnData as String: true,
+            ]
+            var out: CFTypeRef?
+            guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess,
+                  let data = out as? Data,
+                  let s = String(data: data, encoding: .utf8), !s.isEmpty
+            else { return nil }
+            return s
+        }
+
+        static func saveToken(_ token: String) {
+            let base: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: "MACalendar",
+                kSecAttrAccount as String: tokenKey,
+            ]
+            SecItemDelete(base as CFDictionary)
+            var add = base
+            add[kSecValueData as String] = Data(token.utf8)
+            add[kSecAttrAccessible as String] =
+                kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            SecItemAdd(add as CFDictionary, nil)
+        }
+    }
+
+    /// The id, once enrolled. Empty until the host has been reachable once.
+    static var deviceID: String {
+        UserDefaults.standard.string(forKey: DeviceStore.idKey) ?? ""
+    }
+
+    static var deviceToken: String { DeviceStore.loadToken() ?? "" }
+
+    /// Enrol if we have not already. Safe to call before every send: it is a
+    /// no-op once an id exists, and a single failed attempt costs one short
+    /// request that the caller ignores.
+    func enrollIfNeeded() async {
+        guard Self.deviceID.isEmpty || Self.deviceToken.isEmpty else { return }
+        let label = "iPhone · " + UIDevice.current.name
+        do {
+            let data = try await request("/devices/enroll", method: "POST",
+                                         body: ["source": "ios", "label": label])
+            guard let got = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let id = got["device_id"] as? String, !id.isEmpty,
+                  let token = got["token"] as? String, !token.isEmpty
+            else { return }
+            UserDefaults.standard.set(id, forKey: DeviceStore.idKey)
+            DeviceStore.saveToken(token)
+        } catch {
+            // Offline, or an older host with no /devices/enroll. Either way the
+            // phone keeps working, unenrolled and isolated.
+        }
     }
 
     /// Answer a confirm_create proposal. The host does the creating, through
@@ -750,7 +932,12 @@ class APIClient: ObservableObject {
         guard !base.isEmpty, let url = URL(string: base + "/voice") else {
             throw APIError.badURL
         }
-        var req = URLRequest(url: url, timeoutInterval: 30)
+        // Same pipeline as /voice/stream, run synchronously instead of
+        // reported step by step — same 120 s budget, or a deep-track command
+        // (p50 ~40 s, p95 ~84 s per dataset/RESULTS.md) times out client-side
+        // while the Mac keeps running it, gets requeued, and is replayed a
+        // second time on the next retry.
+        var req = URLRequest(url: url, timeoutInterval: 120)
         req.httpMethod = "POST"
         if !settings.apiKey.isEmpty {
             req.setValue(settings.apiKey, forHTTPHeaderField: "X-API-Key")
@@ -766,9 +953,30 @@ class APIClient: ObservableObject {
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
         req.httpBody = body
         do {
-            let (data, _) = try await URLSession.shared.data(for: req)
+            let (data, resp) = try await URLSession.shared.data(for: req)
             isOnline = true
+            // The Mac answered — that alone doesn't mean the command ran; an
+            // unhandled exception in the engine reaches here as a non-2xx,
+            // non-JSON body (Flask's default error page), which would
+            // otherwise fail `decode` and get mislabeled below.
+            guard let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+                throw APIError.serverError(String(data: data, encoding: .utf8) ?? "Unknown error")
+            }
             return try decode(VoiceResponse.self, from: data)
+        } catch let err as APIError {
+            // The Mac ANSWERED and we disliked the answer. That is not offline,
+            // and saying it is put the app in the state Gil screenshotted on
+            // 2026-09-10: the orange "Offline — changes saved locally" banner
+            // sitting directly above Settings › Test Connection reporting
+            // "✓ ollama (llama3.1:8b) — ok".
+            throw err
+        } catch let err as URLError where err.code == .timedOut {
+            // A 30 s audio upload times out on a weak link long before an 8 s
+            // GET does, so ONE slow upload used to mark the whole app offline
+            // while every other request was succeeding. A timeout on a big body
+            // is not proof the Mac is gone; leave `isOnline` alone and let the
+            // small, fast requests decide reachability.
+            throw APIError.offline(err.localizedDescription)
         } catch {
             isOnline = false
             throw APIError.offline(error.localizedDescription)

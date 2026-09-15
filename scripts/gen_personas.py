@@ -70,7 +70,7 @@ if str(ROOT) not in sys.path:
 # placeholder -> (bank, semantic slot key) is the contract that makes these
 # rows readable by the same scorers, and one copy of it is the only safe
 # number of copies. (Read-only import; this script never writes there.)
-from scripts.gen_fastrule_dataset import (      # noqa: E402
+from assistant.engine.fastrule.datasets.generate import (      # noqa: E402
     family_capacity,
     family_tokens,
     placeholder_info,

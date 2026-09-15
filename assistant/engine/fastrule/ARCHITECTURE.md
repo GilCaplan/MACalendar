@@ -16,6 +16,67 @@ complete input, its answer commits instantly.
 
 ---
 
+## 0 · Where this stage stands (2026-09-10)
+
+**The restructure LANDED.** `objects.py` is gone; the stage is what Gil's box
+says it is.
+
+    IN    List[Item]   everything segmentation and decompose_validate worked out
+    OUT   the objects the software accepts
+    ELSE  a flag — a DEFER for LLMJudge, or "this is not an object" for the user
+
+```
+    List[Item] ──► build(item) per item
+                     1. COPY item.slots onto the object — all eight values
+                     2. read the ACTION WORDS for operation · title ·
+                        attendees · target
+                     3. one of three results, always:
+
+                          Built        an object, committable
+                          Defer        LLMJudge answers it, from the partial
+                          NotAnObject  nothing to build — FLAGGED to the user
+```
+
+**`build_all` is TOTAL.** Every Item gets a result; nothing falls out of the
+list. `NotAnObject` exists because the absence used to be silent: an item
+segmentation tagged `other` was set to `intent=None`, and the execute loop
+skips an empty intent before it looks at anything else, so the speaker was told
+**nothing at all** — indistinguishable from success. Gil, 2026-09-10: *"those
+you don't create an object, you can just flag to the user for this item it's not
+an object. This in itself can be a type of object."*
+
+**It does not redo what the upstream did.** Six of the ten fields an object
+needs were decided before this stage ran. What is genuinely left is the
+OPERATION, the TITLE, the PEOPLE and the TARGET, and that is all it reads for.
+What that removed:
+
+| removed | why |
+|---|---|
+| the whole fast track, re-run per item | the item is atomic BY CONTRACT — segmentation already split it |
+| the date/time, re-read from `item.spoken()` | `decompose_validate` resolved them; B1 measured it right on **573/573** of the rows this stage was deferring |
+| event-vs-task, re-decided | segmentation's `tag` decided it |
+| the model, called from here | it lives in `llmjudge/rescue.py` now — and since **B5 (2026-09-10)** this stage does not even CALL it: the DEFER is written onto the item and LLMJudge, already the next stage, picks it up at its own entry. *"If there's an issue it tells LLMVerify"* — a hand-off, not a call |
+
+**This stage no longer calls the model at all — not directly and not
+transitively**, which is a checkable fact:
+`test_the_count_of_model_calling_stages_is_current` went from five stages to
+four, and `stage.py` no longer imports `llmjudge` in any path.
+
+### The score (2026-09-10, `experiments/stage_board.py`, 600 atomic train rows)
+
+**Measured on SOUND INPUT ONLY** — Gil's rule: *"if it receives bad input the
+output should be the same; the question then becomes what stage failed and
+where, and to flag in the relevant md file."* 104 of the 600 rows arrived
+already broken and are attributed upstream, not scored here.
+
+    operation right      95.0%
+    title right          67.2%     <- the binding constraint
+    correct-on-handled   66.9%
+    handled              63.9%     (the converter BUILT 83.5%; the rest is the
+                                    commit policy withholding target-taking ops)
+
+---
+
 ## 1 · The organizing idea
 
 Every judgement is the same tiered decision — **rules when confident, a tiny
@@ -36,6 +97,11 @@ model when they cannot be, DEFER when neither is sure** — applied three times:
 | **Atomicity** | one item, or several? | rules **or** model, both unconditional |
 | **Gatekeeper** | is this a reading that must not execute as stated? | veto |
 | **Scorer** | threshold + missing slots | DEFER |
+
+> **§1 and §2 describe the FRONT DOOR** (`fastrule.py` + `fast_track.py`),
+> which is unchanged. They are NOT a description of `build` — the converter has
+> no Atomicity test, no Gatekeeper and no Scorer, because an Item arriving at it
+> is atomic by contract and the commit decision is the stage's, not its.
 
 **`Gatekeeper` no longer lives in this folder** (2026-09-09, Gil). Its code —
 the class, the two store lookups and the three gate regexes — moved to
@@ -143,7 +209,46 @@ instead of deferring them" is a result; "53.5" is not.
 ```
 fastrule/
     ARCHITECTURE.md   this file
-    fastrule.py       the system itself
+    PLAN.md           the four-phase restructure (A port · B build+wire · C measure · D stop)
+    stage.py          THE STAGE. X3 -> X4: List[Item] -> objects, flags the rest
+    build.py          THE CONVERTER. build(item) -> Built | Defer | NotAnObject
+                      pure: no model, no database, no clock of its own
+    fast_track.py     THE FRONT DOOR. fast_propose — the whole-command instant
+                      commit. Atomicity belongs here, where no Item exists yet
+    fastrule.py       the rule engine behind the front door: Atomicity, Scorer,
+                      FastRule, and the DEFER contract
     datasets/         7,200 rows + the banks that generate them
-    experiments/      fastrule_shape.py · fastrule6k.py · fast_sandbox.py
+    experiments/      RESULTS.md (the run log) · stage_board.py (THE STAGE's
+                      board, attributed) · fastrule_shape.py (the FRONT DOOR's
+                      board) · fastrule6k.py · fast_sandbox.py · b1_ceiling.py
+                      · b3_live_chain.py
+    datasets/         7,200 rows, the banks, and generate.py
 ```
+
+**Two boards, and they measure DIFFERENT BOXES** — do not compare them:
+
+| board | box | |
+|---|---|---|
+| `stage_board.py` | `List[Item] -> objects` | THE STAGE. Attributes upstream failures instead of scoring them here |
+| `fastrule_shape.py` | `FastRule(0.80).run(text)` | the whole-command FRONT DOOR, unchanged by the restructure |
+
+**The generator lives here now** — `datasets/generate.py`, moved 2026-09-10
+(phase C0). It had been the one piece of this stage left in `scripts/` after the
+per-stage restructure, and that is exactly why it rotted: it still pointed at the
+pre-restructure `dataset/fastrule/banks/` and raised `FileNotFoundError`, so **the
+7,200 rows could not be rebuilt or extended** — which is precisely what phase C
+needs to do. Regenerating from its new home reproduces the committed dataset
+**byte-for-byte**, which is how we know the move changed only the address.
+
+    python -m assistant.engine.fastrule.datasets.generate            # generate + verify
+    python -m assistant.engine.fastrule.datasets.generate --no-write  # composition table only
+
+`OBJECTS.md` was removed 2026-09-09. It described the retired `generate` stage
+under that stage's name, was referenced by nothing, and carried its own
+"Status: not yet dug into" — but the reason it had to go rather than be updated
+is that one of its two load-bearing claims had become FALSE: it promised "the
+raw transcript travels alongside the structured input, so no stage can drift".
+X3 deliberately ends the transcript *before* FastRule, precisely so this stage
+has nothing left to re-read. Its other claim (every model call is
+schema-constrained) survives in `DOCUMENTATION/ENGINE.md`, where the model now
+lives.

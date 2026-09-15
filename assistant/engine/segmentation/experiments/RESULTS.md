@@ -189,3 +189,60 @@ accuracy, +16.4pp task recall.
 this is a train-derived hypothesis and only counts once it survives the sealed
 half. It is also a *lexicon*, which is the kind of thing that overfits
 quietly — the test-half number is the one to believe.
+
+---
+
+## FLAGGED FROM DOWNSTREAM — FastRule's board, 2026-09-10
+
+**Not measured here, and not fixed here.** Segmentation is FROZEN (Gil,
+2026-09-09), so this is a note left for whoever unfreezes it, filed under the
+rule that produced it (Gil, 2026-09-10):
+
+> *"If it receives bad input then the output should be the same — the question
+> then becomes what stage failed and where, and to flag in the relevant md file
+> to go fix there."*
+
+FastRule's stage board (`assistant/engine/fastrule/experiments/stage_board.py`)
+audits every item BEFORE converting it, so that it scores its own conversion
+rather than the chain's. The rows it refuses to score are attributed here.
+
+**1,200 atomic rows of the FastRule 7,200 TRAIN half. 182 (15.2%) arrived at
+FastRule already broken:**
+
+| rows | what the audit saw |
+|---:|---|
+| **61** | an ATOMIC row split into 2 items |
+| **41** | tagged `task`, the gold is an event |
+| **31** | tagged `event`, the gold is a task |
+| 12 | the action words lost a word (`about`, `with`, `this`) |
+
+**The 72 kind mis-tags are the interesting half**, because they are nearly
+symmetric and this stage's own tag accuracy reads 89.7% train / 90.2% sealed —
+so these are not a surprise so much as the same number seen from downstream,
+where it costs an object. Worked examples:
+
+    "note to self, pay the electricity bill"     tagged event, gold task
+    "i need to talk to Charlie on next tuesday"  tagged task,  gold event
+    "scrap the back up the laptop task"          tagged event, gold task
+    "rename mail the package to change the air"  tagged event, gold task
+
+Three of those four contain an explicit task word (`note to self`, `task`, and a
+to-do title) and were still tagged `event`.
+
+**The 61 over-splits are of an atomic row**, and they line up with the
+`over-split 46` line in the §0 table rather than contradicting it — different
+corpus, same defect. The shape is a trailing conjunct that is not a second ask:
+
+    "extend open house by an hour and let Avery know"
+    "extend staff meeting by an hour and let Jordan know"
+    "call Charlie and Dana at the end of the month"
+
+The first two are one edit plus a courtesy clause; the third is one call with two
+people. All three become two items.
+
+**Why this is worth having written down even while frozen:** FastRule now takes
+segmentation's `tag` as the kind rather than re-deriving it, deliberately — the
+upstream decided it on more evidence. That makes these 72 rows unrecoverable
+downstream by design, where previously a re-derivation might accidentally have
+corrected some of them. The trade is right (re-deciding cost more than it saved),
+but it means the tag's accuracy is now load-bearing in a way it was not before.

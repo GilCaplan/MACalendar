@@ -87,11 +87,18 @@ def app_client(tmp_path, monkeypatch, sample_config, isolated_registry):
 
     # Reset module-level lazy singletons so each test gets a clean registry/parser
     # built against the mocked config, rather than reusing state from a prior test.
-    import assistant.engine.fastrule.objects as engine_generate
+    #
+    # They live in `assistant.engine.llm` — the ONE cache, which is what its
+    # `reset()` exists for. This used to poke `fastrule.stage._parser` and
+    # `_rule_parser`, which moved there in the per-stage restructure and left
+    # this fixture pointing at attributes that no longer exist: 16 integration
+    # tests ERRORED at setup, silently, because nothing runs this suite without
+    # ollama. The same "a path rots and only breaks when you next run it" class
+    # CLAUDE.md already records for the dataset generators.
     import assistant.engine.llm as engine_llm
-    monkeypatch.setattr(engine_generate, "_parser", None)
-    monkeypatch.setattr(engine_generate, "_rule_parser", None)
     monkeypatch.setattr(engine_llm, "_parser", None)
+    monkeypatch.setattr(engine_llm, "_rule_parser", None)
+    monkeypatch.setattr(engine_llm, "_registry", None)
     monkeypatch.setattr(server_module, "_stt", None)
 
     app = server_module.create_app()
@@ -137,35 +144,45 @@ def test_voice_text_create_todo_rule_fast_path(app_client):
 
 
 @pytest.fixture
-def background_verify(monkeypatch):
-    """Let the background self-check actually start, for the two tests about it.
+def verify_flow(monkeypatch):
+    """Let the verify TOKEN be issued without letting a daemon thread run.
 
-    It is gated TWICE, and both gates are deliberate:
+    `_start_verify` returns early when `_no_bg()` — and `conftest.py` sets
+    `MACALENDAR_NO_WARMUP=1` for the whole suite, because a background model
+    load beside a running suite segfaults the interpreter. That flag is
+    load-bearing and must not be switched off wholesale.
 
-      * `_no_bg()` — `MACALENDAR_NO_WARMUP`, which `tests/conftest.py` sets for
-        the whole suite. Engine audit P8: a measurement run must not spawn an
-        LLM call per fast-committed row (p95 hit 136 s on the sealed eval).
-      * `state.source == "test"` — and an UNLABELLED post defaults to "test"
-        (see tests/unit/test_command_source.py), which is what these two were
-        sending.
+    So this turns off only the guard, and stubs the WORK the thread would do.
+    What is left is exactly what these two tests are about: a token is minted,
+    parked in the store, and polls as pending until something resolves it. The
+    real background verification is exercised where it belongs, not here.
 
-    So the verify token they assert on stopped being issued and the tests went
-    red for a reason that had nothing to do with the token. They ask for it
-    explicitly now: a real client's source, and the daemon gate lifted. The
-    thread itself fails closed without Ollama, as this file's docstring says.
+    (These tests had not run in a long time: the fixture above pointed at
+    `fastrule.stage._parser`, which moved in the per-stage restructure, so all
+    16 tests in this file ERRORED at setup instead of failing. Nothing noticed,
+    because this suite is skipped without ollama.)
     """
     import assistant.engine as engine_module
     monkeypatch.setattr(engine_module, "_no_bg", lambda: False)
+    monkeypatch.setattr(engine_module, "_background_verify",
+                        lambda state, cfg: None)
 
-
-def test_voice_text_create_event_rule_fast_path(
-        app_client, sample_config, background_verify):
+def test_voice_text_create_event_rule_fast_path(app_client, sample_config,
+                                                verify_flow):
     client, db = app_client
     # The verify token is what this asserts, so ask for it explicitly rather than
     # relying on the default — the background self-check ships off.
     sample_config.verify_fast_path = True
-    resp = client.post("/voice/text", json={"transcript": "schedule a meeting tomorrow at 3pm",
-                                            "source": "mac"})
+    # `source: "mac"` because the BACKGROUND SELF-CHECK IS SKIPPED FOR
+    # TEST TRAFFIC — `_no_bg() or state.source == "test"` — and
+    # `/voice/text` defaults an unlabelled caller to "test" (that
+    # default changed on purpose, after 328 curl entries became
+    # indistinguishable from real phone commands). So a request with no
+    # source never gets a verify_token, and this test was asserting a
+    # flow it had opted out of. A real client always says who it is.
+    resp = client.post("/voice/text",
+                       json={"transcript": "schedule a meeting tomorrow at 3pm",
+                             "source": "mac"})
     assert resp.status_code == 200
     data = resp.get_json()
     assert "create_event" in data["actions"]
@@ -216,15 +233,18 @@ def test_voice_verify_unknown_token_returns_404(app_client):
     assert resp.status_code == 404
 
 
-def test_voice_verify_pending_before_ready(
-        app_client, sample_config, background_verify):
+def test_voice_verify_pending_before_ready(app_client, sample_config,
+                                           verify_flow):
     """Immediately after a rule-path response, the verify token exists but the
     background thread almost certainly hasn't finished — poll returns pending.
     """
     client, _ = app_client
     sample_config.verify_fast_path = True      # the flow under test; ships off
-    resp = client.post("/voice/text",
-                       json={"transcript": "buy milk", "source": "mac"})
+    # Labelled "mac" for the same reason as the fast-path test above: test
+    # traffic deliberately skips the background self-check, so an unlabelled
+    # request is never issued a verify token.
+    resp = client.post("/voice/text", json={"transcript": "buy milk",
+                                            "source": "mac"})
     token = resp.get_json().get("verify_token")
     assert token is not None
     poll = client.get(f"/voice/verify/{token}")

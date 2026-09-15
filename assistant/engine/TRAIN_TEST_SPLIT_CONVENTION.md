@@ -76,7 +76,7 @@ Instead, the split unit is the **pattern family** (the skeleton — e.g.
 `c_and_et_1`: `"book {event_title} {date} at {time} and remind me to
 {task_title2}"`). Every row generated from a family goes entirely to one
 side. **A family present in `test` never appears in `train`, and vice
-versa** — enforced mechanically by `scripts/gen_fastrule_dataset.py`
+versa** — enforced mechanically by `assistant/engine/fastrule/datasets/generate.py`
 (`stratified_split()`), and checked again as a hard assertion right before
 the file is written (`leaked families` must be empty or the script raises).
 
@@ -103,7 +103,7 @@ would silently stop measuring that slice. So the split is stratified by
    losing coverage on one side, and train is where mining happens anyway.
 4. Everything else in the bucket is `train`.
 
-Verified on the current generation (`python -m scripts.gen_fastrule_dataset
+Verified on the current generation (`python -m assistant.engine.fastrule.datasets.generate
 --no-write` prints this): **every one of the 17 `(tier, action)` buckets has
 at least one family in both `train` and `test`** — the smallest are
 `complex × query` (1 family each side) and `complex × delete_todo` /
@@ -137,7 +137,7 @@ on every run; the script refuses to write the file if this is ever nonzero.
 The goal: widen test's **unseen-wording** coverage without touching train at
 all, and without perturbing the stratified 80/20's own hash-based bucket
 membership for any of the original 417 families. Mechanism
-(`scripts/gen_fastrule_dataset.py`):
+(`assistant/engine/fastrule/datasets/generate.py`):
 
 1. A family may declare `"force_split": "test"` in `simple_patterns.json` /
    `complex_patterns.json`. Everything else about it — `template`,
@@ -209,7 +209,7 @@ used to be train became test, or vice versa.
 
 ## Regenerating
 
-`python -m scripts.gen_fastrule_dataset` rebuilds the whole dataset from
+`python -m assistant.engine.fastrule.datasets.generate` rebuilds the whole dataset from
 scratch every time — it is not a stored assignment, it's a pure function of
 the bank files + `SEED`. Adding a new NON-force_split family to
 `banks/simple_patterns.json` or `banks/complex_patterns.json` **may
@@ -220,6 +220,6 @@ membership), so treat a stratified-pool bank edit as "regenerate and re-read
 "test"` family carries none of that risk — by construction it can only ever
 add test rows and can only ever change which OTHER forced families' quotas
 absorb the largest-remainder rounding, never anything about `free` families
-or train. `SEED` in `scripts/gen_fastrule_dataset.py` is the only knob that
+or train. `SEED` in `assistant/engine/fastrule/datasets/generate.py` is the only knob that
 changes the *stratified* split deterministically; changing it is a
 deliberate act, noted here and in `DATASET.md`, not a routine operation.

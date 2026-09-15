@@ -198,3 +198,14 @@ engine:
   reconcile: always          # step 6 on the fast track: always | uncertain (decided by telemetry)
   fast_track: true           # false = every command takes the foreground deep track
   coalesce_max_tokens: 300   # step 0: queued commands coalesced into one input up to this budget
+
+# Learned labellers (engine/label/). OFF by default: a model deciding an event's
+# category changes what lands on your calendar, so it ships behind a flag with
+# the keyword rules as the default — the same caution `self_check_apply` has.
+#
+# They STACK behind the rules rather than replacing them: the rules answer first
+# and keep their measured 91.7% precision, and a model only fills a row they had
+# no opinion about. Train with `python -m assistant.engine.label.train`.
+labels:
+  model_event: false     # learned event-category classifier
+  model_task: false      # learned task-tag classifier

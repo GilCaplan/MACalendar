@@ -58,6 +58,7 @@ purely backend (no client code beyond displaying the effects).
 | backend | [Self-improvement loop](#the-self-improvement-loop) | the AI measures & improves itself | `dataset/`, `scripts/` |
 | backend | [Diagnostics & logs](#diagnostics--self-observation-logs) | NLU tracking, LLM-judge bug log, audit, calibration | `scripts/` |
 | backend | [Explainer pages](#published-explainer-pages) | public pages, build-enforced claims | `artifacts/*.html` |
+| backend | [Request protocol](#request-protocol) | one ollama, many callers: enrolled devices, merge-vs-queue, live beats background | `model_protocol.py`, `api/server.py` |
 | backend | [Weekly review](#weekly-review) | real-usage flag-rate report | `scripts/weekly_review.py` |
 
 ---
@@ -894,3 +895,89 @@ accuracy (refuses below 3 approvals, drops verdict bursts).
 **Where:** `scripts/weekly_review.py`; LaunchAgent;
 `WEEKLY_REVIEW.md` output.
 **How:** The real-world scoreboard the dataset loop eventually hands off to.
+
+
+### Learned labellers — event category and task tags
+**What:** Two classifiers that label what the assistant writes: a title → one
+of thirteen event categories (and its colour), or → a set of task tags. They
+**stack behind** the keyword rules rather than replacing them, and ship **off by
+default**.
+**Where:** `assistant/engine/label/` (`model.py`, `train.py`, `feedback.py`,
+`datasets/`, `experiments/`); config `labels.model_event` /
+`labels.model_task`; call sites `db.auto_category_and_color` and
+`actions/todo/action.py`; tests `tests/unit/test_label_learning.py`.
+**How:** Logistic regression over word 1-2 grams ∪ char_wb 3-5 grams. The rules
+answer first and keep their measured 91.7% precision; the model only fills a row
+they had no opinion about; below a confidence bar it abstains to the catch-all.
+Two tiers — a BASE model identical for every user, built from committed
+class-conditional datasets on first use, and a PERSONAL one fitted on top from
+that user's own corrections and never leaving the machine. On vocabulary the
+training never saw: event category 49.1% vs the rules' 33.0%, task tags 95.7%
+exact-set on real data vs 88.6%. Numbers and method:
+`engine/label/experiments/RESULTS.md`.
+
+### Passive label learning — corrections become training data
+**What:** When a person *changes* an assigned category or tag, that correction
+is recorded and the personal model is refitted once enough have accumulated.
+**Where:** `engine/label/feedback.py`; hooks in `db.update_event` and
+`db.set_todo_tags`; `~/.assistant_tools/label_feedback.jsonl`
+(`MACALENDAR_LABEL_FEEDBACK`).
+**How:** **Only corrections and explicit picks are gold.** A label the system
+assigned and nobody objected to is recorded but never trained on — silence is
+not agreement, and training on it would teach the model its own output. Refits
+trigger on new *gold* rows, not new items. A refit ships only through a
+promotion gate: it must not regress on a frozen generic set and must improve on
+a time-ordered held-out slice of that user's own corrections, with the incumbent
+re-scored on the same rows.
+
+### Offline command queue — see it, edit it, hold it
+**What:** A command spoken while the Mac is unreachable shows what the phone
+heard, can be corrected before it runs, and is not sent while you are editing it.
+**Where:** iOS `LocalStore.swift` (`PendingVoiceCommand`), `APIClient.swift`
+(`syncPendingVoice`), `ContentView.swift` (`VoiceQueueView`,
+`QueuedCommandEditor`), `VoiceButton.swift`.
+**How:** The on-device recogniser's `liveText` is kept as a draft when the
+command is queued, so the row is not anonymous. Untouched → the audio is sent
+and the Mac transcribes it properly; edited → the *text* is sent, because a
+correction beats any re-transcription. `heldForEdit` makes every flush —
+reconnect, foregrounding, the poll loop, opening the screen — walk past a row
+being edited.
+
+
+## Request protocol
+
+**What it is.** One ollama serves four processes on the Mac and every phone on
+the tailnet. This decides two things — *whose words may be spoken in one breath*
+and *who gets the model next* — which are the same question, because identity
+answers both.
+
+**Where it lives.** `assistant/model_protocol.py`, wired into
+`assistant/api/server.py` (verification, the `/devices/*` routes, the pending
+flush), `assistant/intent/parser.py` and `llmseg` (the gate), and both clients.
+
+**How it works.**
+
+- **Enrolment.** `POST /devices/enroll` returns a server-generated id and an
+  HMAC-SHA256 token over `(source, id)`. Clients enrol once and send both. A
+  self-chosen id is only a claim: two devices could collide by accident, and any
+  caller could elect to be your phone.
+- **Merge or queue.** One device's queued commands coalesce into
+  `("a")and("b")` — one person's backlog, one parse. Different devices never
+  concatenate. Two iPhones are two people.
+- **Unverified means ISOLATED, not refused.** A caller presenting an id it
+  cannot prove lands in `ios:untrusted:<hash>` — its own queue. So spoofing buys
+  nothing, a revoked device cannot rejoin the stream it owned, and old clients
+  that send nothing keep working.
+- **Priority.** A live device beats a background board, and a real device beats
+  a test. It is a *yield* signal, not a mutex: LIVE tries for 50ms then proceeds
+  anyway (a command degrades to slow, never to failed), BACKGROUND blocks and
+  releases between every call.
+- **The gate is `fcntl.flock`**, chosen because the kernel releases it when the
+  holder dies — a crashed board must not wedge the assistant.
+- **A failed retry stops batching.** A batch is all-or-nothing, so one
+  unparseable command used to bump every row beside it; first attempt coalesces,
+  every attempt after runs alone.
+
+**Measured** (2026-09-10): before it existed, a trivial five-token call behind a
+running board took 2.0s → 42.5s → 43.9s. With it, live waits 52-74ms while a
+board is mid-inference; a killed board frees the gate in 0ms.

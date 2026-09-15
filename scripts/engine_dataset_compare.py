@@ -81,6 +81,11 @@ os.environ["MACALENDAR_DB"] = os.path.join(_TMP, "calendar.db")
 os.environ["MACALENDAR_MEMORY_DB"] = ENGINE_DB
 os.environ["MACALENDAR_TRACE_BUS"] = os.path.join(_TMP, "trace_bus.jsonl")
 os.environ["MACALENDAR_NO_WARMUP"] = "1"
+# BACKGROUND traffic: this yields the model to the live assistant between
+# every call (assistant/model_protocol.py). Without it a board and a voice
+# command are indistinguishable to ollama, and a trivial live call measured
+# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
+os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 # The dataset's ground truth has no concept of Shabbat — a Friday replay was
 # penalising the engine for correctly refusing "tomorrow" (cycle 2). Gil's
 # call (2026-09-05): gating off for replays, via the observance.enabled flag's
@@ -415,8 +420,8 @@ def main() -> int:
     # which used to happen inside the first row's freeze, so every fast_propose
     # raised and all 250 rows silently took the deep track (caught on the
     # 2026-09-05 re-baseline: parse paths {'deep': 250}).
-    from assistant.engine.fastrule import objects as _gen
-    _rp = _gen._get_rule_parser()
+    from assistant.engine import llm as _gen
+    _rp = _gen.get_rule_parser()
     if _rp is not None:
         try:
             # The conflict arises on the FIRST analyze (lazy class definitions

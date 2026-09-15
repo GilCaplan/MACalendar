@@ -114,7 +114,7 @@
     <text class="name" x="857" y="195">FastRule</text>
     <text class="step" x="857" y="211">step 4 &#183; no model</text>
   </g>
-  <g class="node" data-tip="LLMJudge -- llmjudge/. The last check before anything is trusted.&#10;&#10;The model EXTRACTS what the raw words asked for and is made to QUOTE the&#10;words behind every field; deterministic code then diffs that against what&#10;was produced. The model never picks the stage to blame.&#10;&#10;It grounds on the ORIGINAL transcript on purpose, not on the repaired&#10;text -- a stage that lost something would otherwise be checked against&#10;its own loss.&#10;&#10;Unsatisfied, it REWRITES the utterance into X1' -- a string in X1's&#10;format -- and re-enters at Segmentation, bounded at 3 rounds. A commit&#10;already made is retracted and re-committed.&#10;&#10;THE LOOP-BACK IS GATED ON THAT REWRITE, and the rewrite is still a STUB:&#10;no rewrite, no loop. Wired, and deliberately inert.&#10;&#10;On exhaustion the last parse is judged anyway, committed, and the reply&#10;says so. It is never silently dropped." aria-label="LLMJudge">
+  <g class="node" data-tip="LLMJudge -- llmjudge/. The last check before anything is trusted.&#10;&#10;The model EXTRACTS what the raw words asked for and is made to QUOTE the&#10;words behind every field; deterministic code then diffs that against what&#10;was produced. The model never picks the stage to blame.&#10;&#10;It grounds on the ORIGINAL transcript on purpose, not on the repaired&#10;text -- a stage that lost something would otherwise be checked against&#10;its own loss.&#10;&#10;Unsatisfied, it REWRITES the utterance into X1' -- a string in X1's&#10;format -- and re-enters at Segmentation, bounded at 3 rounds. A commit&#10;already made is retracted and re-committed.&#10;&#10;THE LOOP-BACK IS GATED ON THAT REWRITE, which is LIVE (since 2026-09-10):&#10;a rewrite whose content words are not all in the transcript is refused,&#10;and no rewrite still means no loop.&#10;&#10;On exhaustion the last parse is judged anyway, committed, and the reply&#10;says so. It is never silently dropped." aria-label="LLMJudge">
     <rect class="box" x="984" y="168" width="158" height="62" rx="8"/>
     <text class="name" x="1063" y="195">LLMJudge</text>
     <text class="step" x="1063" y="211">step 5</text>
@@ -162,7 +162,7 @@
   <g class="wire" data-tip="carries  X1' -- the utterance REWORDED, a string in X1's format.&#10;&#10;At most 3 rounds per command.&#10;&#10;It is a REWRITE and not a re-run, and that distinction is the whole design:&#10;re-entering a DETERMINISTIC segmenter with unchanged text cannot produce a&#10;new answer. No rewrite, no loop.&#10;&#10;THE REWRITE IS STILL A STUB, so this wire is wired and INERT today. A&#10;diagram of a system that does not exist is how documentation starts lying.&#10;&#10;On exhaustion the last parse is judged anyway, committed, and the reply says&#10;so." aria-label="the rewrite loop: reworded to X1 prime, back to segmentation, at most three rounds">
     <path class="edge loop" d="M 1063 168 L 1063 70 L 445 70 L 445 162" marker-end="url(#ara)"/>
     <path class="hit" d="M 1063 168 L 1063 70 L 445 70 L 445 162"/>
-    <text class="elabel" x="754" y="58">reworded to X1&#8242; &#183; &#8804; 3 rounds &#183; stub today</text>
+    <text class="elabel" x="754" y="58">reworded to X1&#8242; &#183; &#8804; 3 rounds</text>
   </g>
   <text class="elabel" x="1262" y="158">the answer, to whichever client asked</text>
 </svg>

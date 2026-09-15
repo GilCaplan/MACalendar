@@ -379,12 +379,23 @@ def schedule(
 # Materialising into the calendar
 # ---------------------------------------------------------------------------
 
-# Category names the plan writes onto its events, so they pick up their own
-# colours from the existing categories store rather than the default blue.
-CATEGORY_RUN = "Running"
-CATEGORY_STRENGTH = "Gym"
+# The category the plan writes onto its events.
+#
+# BOTH DISCIPLINES USE `Fitness` (Gil, 2026-09-10). They used to write "Running"
+# and "Gym", and neither is one of the 13 categories in
+# `actions/calendar/categories.py::DEFAULTS` — so `color_for()` fell back to
+# Personal's colour for all of them, and 40 of 54 live events were invisible to
+# every per-category setting: reminder leads, notification rules, filters.
+#
+# A category the palette does not know is not a category; it is a string in a
+# column. `Fitness` already exists, so this introduces nothing new.
+CATEGORY_RUN = "Fitness"
+CATEGORY_STRENGTH = "Fitness"
 
-_COLORS = {CATEGORY_RUN: "#1f7a6f", CATEGORY_STRENGTH: "#a96b14"}
+# The two disciplines keep their own COLOURS — that distinction is worth seeing
+# on the calendar — but they are one category, which is what the rest of the app
+# reasons about.
+_COLORS = {"run": "#1f7a6f", "strength": "#a96b14"}
 
 
 def materialise(db, plan_id: str, *, include_rest: bool = False) -> int:
@@ -402,8 +413,12 @@ def materialise(db, plan_id: str, *, include_rest: bool = False) -> int:
     for item in plan["items"]:
         if item["kind"] == "rest" and not include_rest:
             continue
+        # One CATEGORY, two COLOURS: the app reasons about `Fitness`, the
+        # calendar still shows a run and a gym session apart. Keyed on the
+        # discipline rather than the category, which are no longer the same
+        # thing (2026-09-10).
         category = CATEGORY_RUN if item["discipline"] == "run" else CATEGORY_STRENGTH
-        color = _COLORS.get(category, "#0078d4")
+        color = _COLORS.get(item["discipline"], "#0078d4")
         description = item["detail"] or ""
         if item["observance_note"]:
             description = (description + "\n" if description else "") + item["observance_note"]

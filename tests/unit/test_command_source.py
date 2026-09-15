@@ -90,3 +90,214 @@ def test_an_unlabelled_caller_never_passes_as_a_phone(client, bus):
     """The specific regression: this used to default to "ios"."""
     client.post("/voice/text", json={"transcript": "remind me to buy milk"})
     assert "ios" not in _sources(bus)
+
+
+# ---------------------------------------------------------------------------
+# WHICH client, not just what KIND — the device half of the same rule
+# ---------------------------------------------------------------------------
+
+def test_the_device_id_reaches_the_engine(client, monkeypatch):
+    """End to end over HTTP: a phone says which phone it is, and the engine
+    holds it. Without this the whole two-iPhones fix is inert — the queue can
+    only group on what the client actually sent."""
+    seen = {}
+
+    def _spy(text, trace=None, source="ios", device="", **kw):
+        seen["source"], seen["device"] = source, device
+        return {"message": "ok", "actions": [], "refresh": "", "parse": "fast",
+                "transcript": text, "original_transcript": text,
+                "corrections": [], "trace": [], "uncertain_words": []}
+
+    monkeypatch.setattr("assistant.engine.run_transcript", _spy)
+    client.post("/voice/text", json={"transcript": "book gym tomorrow at 7am",
+                                     "source": "ios", "device_id": "phone-A"})
+    assert seen == {"source": "ios", "device": "phone-A"}
+
+
+def test_a_device_id_is_bounded_and_stripped(client, monkeypatch):
+    """It is client-supplied, opaque, and reaches a log line and a SQL
+    parameter. It is never parsed or matched, so the only properties that matter
+    are stability and uniqueness — which means nothing is lost by refusing
+    everything but id characters, and an unbounded string in a group key is a
+    cheap way to be handed a 10MB one."""
+    seen = {}
+
+    def _spy(text, trace=None, source="ios", device="", **kw):
+        seen["device"] = device
+        return {"message": "ok", "actions": [], "refresh": "", "parse": "fast",
+                "transcript": text, "original_transcript": text,
+                "corrections": [], "trace": [], "uncertain_words": []}
+
+    monkeypatch.setattr("assistant.engine.run_transcript", _spy)
+    client.post("/voice/text", json={"transcript": "book gym tomorrow at 7am",
+                                     "device_id": "a b/c;drop\ttable-1"})
+    assert seen["device"] == "abcdroptable-1"
+
+    client.post("/voice/text", json={"transcript": "book gym tomorrow at 7am",
+                                     "device_id": "x" * 500})
+    assert len(seen["device"]) == 64
+
+
+def test_a_client_that_sends_no_device_id_is_accepted(client, monkeypatch):
+    """Old clients must keep working — the field is additive."""
+    seen = {}
+
+    def _spy(text, trace=None, source="ios", device="", **kw):
+        seen["device"] = device
+        return {"message": "ok", "actions": [], "refresh": "", "parse": "fast",
+                "transcript": text, "original_transcript": text,
+                "corrections": [], "trace": [], "uncertain_words": []}
+
+    monkeypatch.setattr("assistant.engine.run_transcript", _spy)
+    r = client.post("/voice/text", json={"transcript": "book gym tomorrow at 7am",
+                                         "source": "mac"})
+    assert r.status_code == 200
+    assert seen["device"] == ""
+
+
+def test_two_phones_queue_separately_all_the_way_from_http(tmp_path, monkeypatch):
+    """THE WHOLE POINT, through the real memory store rather than fake rows.
+
+    Two phones each park a command while the model is away. The flush must run
+    two batches, not one utterance containing both people's words.
+    """
+    from assistant.intent.memory import CommandMemory
+    from assistant.api.server import retry_pending_once
+
+    mem = CommandMemory(str(tmp_path / "mem.db"))
+    mem.add_pending("book gym at 7", "offline", source="ios", device="phone-A")
+    mem.add_pending("cancel my dentist", "offline", source="ios", device="phone-B")
+    mem.add_pending("buy milk", "offline", source="ios", device="phone-A")
+
+    seen: list = []
+    ran = retry_pending_once(
+        lambda text, **kw: (seen.append(text),
+                            {"parse": "fast", "message": "ok"})[1], mem, 300)
+    assert ran == 2, "two phones were spoken as one utterance"
+    gym = next(t for t in seen if "gym" in t)
+    assert "milk" in gym and "dentist" not in gym
+
+
+def test_the_same_words_from_two_phones_are_two_rows(tmp_path):
+    """Dedup is per stream. Two people asking "what's on today" are two
+    questions; collapsing them answers one and silently drops the other."""
+    from assistant.intent.memory import CommandMemory
+
+    mem = CommandMemory(str(tmp_path / "mem.db"))
+    a = mem.add_pending("what's on today", "offline", source="ios", device="phone-A")
+    b = mem.add_pending("what's on today", "offline", source="ios", device="phone-B")
+    again = mem.add_pending("what's on today", "offline", source="ios", device="phone-A")
+    assert a != b, "two phones' identical questions collapsed into one row"
+    assert again == a, "the same phone repeating itself is still a duplicate"
+
+
+# ---------------------------------------------------------------------------
+# Enrolment over HTTP, and what an imposter actually gets
+# ---------------------------------------------------------------------------
+
+def test_a_client_enrols_and_is_then_trusted(client, monkeypatch):
+    """The whole loop: enrol once, then every request carries the token."""
+    got = client.post("/devices/enroll",
+                      json={"source": "ios", "label": "Gil's iPhone"}).get_json()
+    assert got["device_id"].startswith("ios-")
+    assert got["label"] == "Gil's iPhone"
+
+    seen = {}
+
+    def _spy(text, trace=None, source="ios", device="", stream="", **kw):
+        seen["stream"], seen["device"] = stream, device
+        return {"message": "ok", "actions": [], "refresh": "", "parse": "fast",
+                "transcript": text, "original_transcript": text,
+                "corrections": [], "trace": [], "uncertain_words": []}
+
+    monkeypatch.setattr("assistant.engine.run_transcript", _spy)
+    client.post("/voice/text",
+                json={"transcript": "book gym tomorrow at 7am", "source": "ios",
+                      "device_id": got["device_id"]},
+                headers={"X-Device-Token": got["token"]})
+    assert seen["stream"] == f"ios:{got['device_id']}", "a verified device was not trusted"
+
+
+def test_an_imposter_with_the_real_id_lands_in_a_different_stream(client, monkeypatch):
+    """THE ATTACK, end to end.
+
+    Someone learns your phone's device id — from a log, a packet, a shoulder.
+    They post as it, without the token. They must NOT join your phone's queue:
+    if they did, their words would be concatenated into your backlog and
+    executed as yours.
+    """
+    real = client.post("/devices/enroll",
+                       json={"source": "ios", "label": "Gil's iPhone"}).get_json()
+    streams: list = []
+
+    def _spy(text, trace=None, source="ios", device="", stream="", **kw):
+        streams.append(stream)
+        return {"message": "ok", "actions": [], "refresh": "", "parse": "fast",
+                "transcript": text, "original_transcript": text,
+                "corrections": [], "trace": [], "uncertain_words": []}
+
+    monkeypatch.setattr("assistant.engine.run_transcript", _spy)
+    # the real phone
+    client.post("/voice/text",
+                json={"transcript": "buy milk", "source": "ios",
+                      "device_id": real["device_id"]},
+                headers={"X-Device-Token": real["token"]})
+    # the imposter: same id, no token
+    client.post("/voice/text",
+                json={"transcript": "delete everything", "source": "ios",
+                      "device_id": real["device_id"]})
+    # …and with a made-up token
+    client.post("/voice/text",
+                json={"transcript": "delete everything", "source": "ios",
+                      "device_id": real["device_id"], "device_token": "deadbeef"})
+
+    assert streams[0] == f"ios:{real['device_id']}"
+    assert streams[1] != streams[0], "an imposter joined the real phone's stream"
+    assert streams[2] != streams[0], "a forged token was accepted"
+    assert streams[1].startswith("ios:untrusted:")
+    # The claimed id is never reflected verbatim into the grouping key.
+    assert real["device_id"] not in streams[1]
+
+
+def test_a_revoked_device_cannot_rejoin_its_old_stream(client, monkeypatch):
+    real = client.post("/devices/enroll",
+                       json={"source": "ios", "label": "old phone"}).get_json()
+    assert client.post(f"/devices/{real['device_id']}/revoke").status_code == 200
+
+    streams: list = []
+
+    def _spy(text, trace=None, source="ios", device="", stream="", **kw):
+        streams.append(stream)
+        return {"message": "ok", "actions": [], "refresh": "", "parse": "fast",
+                "transcript": text, "original_transcript": text,
+                "corrections": [], "trace": [], "uncertain_words": []}
+
+    monkeypatch.setattr("assistant.engine.run_transcript", _spy)
+    client.post("/voice/text",
+                json={"transcript": "buy milk", "source": "ios",
+                      "device_id": real["device_id"]},
+                headers={"X-Device-Token": real["token"]})
+    assert streams[0] != f"ios:{real['device_id']}"
+    assert streams[0].startswith("ios:untrusted:")
+
+
+def test_enrolment_refuses_a_source_the_engine_does_not_know(client):
+    r = client.post("/devices/enroll", json={"source": "hax", "label": "x"})
+    assert r.status_code == 400
+
+
+def test_the_user_can_see_what_is_talking_to_their_assistant(client, tmp_path,
+                                                              monkeypatch):
+    # A FRESH registry: the real one accumulates across a session, which is
+    # correct behaviour (a device stays enrolled) and would make an exact-set
+    # assertion here depend on which tests ran first.
+    from assistant import model_protocol as mp
+    monkeypatch.setattr(mp, "REGISTRY_PATH", tmp_path / "devices.json")
+    a = client.post("/devices/enroll", json={"source": "ios", "label": "phone"}).get_json()
+    client.post("/devices/enroll", json={"source": "mac", "label": "laptop"})
+    listed = client.get("/devices").get_json()["devices"]
+    assert {v["label"] for v in listed.values()} == {"phone", "laptop"}
+    # …and the token is NEVER listed back. Knowing what enrolled must not be
+    # the same as being able to impersonate it.
+    assert all("token" not in v for v in listed.values())
+    assert all(a["token"] not in str(v) for v in listed.values())

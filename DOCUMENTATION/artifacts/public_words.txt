@@ -22,6 +22,9 @@ fast day
 
 # Ordinary English that happens to be in the word list
 tomorrow
+# "a Saturday night" / "nightfall" on the observance pages — the word is
+# the boundary tzeit is defined against, not a detail about anyone.
+night
 
 # Invented examples used throughout the pages
 dentist appointment

@@ -350,7 +350,15 @@ class ThinkingHUD(QWidget):
             self.panel.begin(source=entry.get("source") or "Mac")
             for step in entry.get("steps") or []:
                 self.panel.add_step(step)
-            self.panel.finish(entry.get("result") or {})
+            res = entry.get("result") or {}
+            # A finished run carries its boundaries in the result payload rather
+            # than as separate lines; replay them so a run published all at once
+            # draws the same strip a streamed one does.
+            if res.get("transcript"):
+                self.panel.set_input(res["transcript"])
+            for b in res.get("boundaries") or []:
+                self.panel.add_boundary(b)
+            self.panel.finish(res)
             self._start(run)
         elif kind == "begin":
             self.panel.begin(source=entry.get("source") or "Mac")
@@ -362,9 +370,19 @@ class ThinkingHUD(QWidget):
                 self.panel.begin(source=entry.get("source") or "Mac")
                 self._start(run)
             self.panel.add_step(entry.get("step") or {})
+        elif kind == "boundary":
+            # Same tolerance as a step: a trim between the producer's begin and
+            # our poll can leave us seeing a boundary for a run we never opened.
+            if run != self._current_run:
+                self.panel.begin(source=entry.get("source") or "Mac")
+                self._start(run)
+            self.panel.add_boundary(entry.get("boundary") or {})
         elif kind == "result":
             if run == self._current_run:
-                self.panel.finish(entry.get("result") or {})
+                res = entry.get("result") or {}
+                if res.get("transcript"):
+                    self.panel.set_input(res["transcript"])
+                self.panel.finish(res)
 
     def _start(self, run: str | None) -> None:
         """A new run has begun. Appear only if appearing is warranted.

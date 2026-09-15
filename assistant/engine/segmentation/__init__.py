@@ -1,6 +1,6 @@
 """Segmentation — the engine's step 2, and the switch between its two engines.
 
-    text  ->  [Item(kind=tag, text=action, time=time), ...]
+    text  ->  [Item(kind=tag, text=action, time=time, source=span), ...]
 
 Two implementations live here and either can be the one that runs:
 
@@ -91,7 +91,11 @@ def _segment_items(text: str):
     from assistant.engine.segmentation.llmseg.llmseg import segment
 
     out = segment(text)
-    return [(i["action"], i["time"], i["tag"]) for i in out["items"]]
+    # The fourth value is the VERBATIM span the item was cut from — see
+    # `fastseg._source_piece`. It falls back to the action so a component that
+    # does not supply one still satisfies the contract.
+    return [(i["action"], i["time"], i["tag"], i.get("source") or i["action"])
+            for i in out["items"]]
 
 
 def run(state, cfg):
@@ -111,7 +115,7 @@ def run(state, cfg):
 
     items: "list[Item]" = []
     for envelope in envelopes:
-        for action, when, tag in _segment_items(envelope):
+        for action, when, tag, source in _segment_items(envelope):
             # `other` is one of ITEM_KINDS and is passed THROUGH. It used to fall
             # to the else branch and be re-read as an event, which threw away the
             # one verdict that says "this is not a calendar ask at all" — so the
@@ -119,10 +123,10 @@ def run(state, cfg):
             kind = tag if tag in ("event", "task", "review", "other") else \
                 _enforce_pinned_kinds(_kind_of(action), action)
             items.append(Item(id=f"item_{len(items) + 1}", kind=kind,
-                              text=action, time=when))
+                              text=action, time=when, source=source))
 
     if not items:                      # never hand on an empty decomposition
-        items = [Item(id="item_1", text=state.text,
+        items = [Item(id="item_1", text=state.text, source=state.text,
                       kind=_enforce_pinned_kinds(_kind_of(state.text), state.text))]
     state.items = items
 

@@ -57,7 +57,7 @@ if str(ROOT) not in sys.path:
 # Reuse the FastRule generator's slot contract and the persona generator's leak
 # gate rather than reimplementing either — one copy of each is the only safe
 # number. Both imports are read-only; this script writes nothing of theirs.
-from scripts.gen_fastrule_dataset import (      # noqa: E402
+from assistant.engine.fastrule.datasets.generate import (      # noqa: E402
     distribute_quota,
     placeholder_info,
     stable_int,

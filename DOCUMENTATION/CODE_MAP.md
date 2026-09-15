@@ -38,8 +38,10 @@ versus planned in `ENGINE_REWIRE.md`.
 | …its value resolver and checks (authoritative since 2026-09-08) | `decompose_validate/resolve.py`, `checks.py` |
 | …targeting, object rules, observance gate | `decompose_validate/targeting.py`, `object_rules.py`, `observance_gate.py` |
 | FastRule the component (Atomicity / Scorer, the DEFER reason classes) | `engine/fastrule/fastrule.py` |
-| FastRule the stage: items → intents, `fast_propose`, `_parse_item` | `engine/fastrule/stage.py`, `engine/fastrule/objects.py` |
+| FastRule the CONVERTER — `build(item)`, no model | `engine/fastrule/build.py`, `engine/fastrule/stage.py` |
+| The whole-command FRONT DOOR — `FastRule(threshold).run()`, the selective classifier | `engine/fastrule/fastrule.py`, `engine/fastrule/fast_track.py` |
 | LLMJudge: extract-and-compare, BLAME router, `MAX_REENTRIES` | `engine/llmjudge/llmjudge.py` |
+| …the DEFER consumer — the model, both kind fallbacks | `engine/llmjudge/rescue.py` |
 | …Gatekeeper and the LLM fallback (ported here 2026-09-09) | `llmjudge/gatekeeper.py`, `llmjudge/llm_fallback.py` |
 | Label read-back (runs inside commit) | `engine/label/label.py` |
 | Contract pins | `tests/unit/test_engine_contracts.py` |
@@ -389,7 +391,8 @@ endpoint run `python scripts/gen_api_reference.py`; never hand-edit it.
 | Enter key in new task field does nothing | `_commit()` in `_make_new_task_row()` — check `blockSignals` not left True |
 | Expanded task row doesn't resize | `TodoItemWidget._update_item_size` |
 | Subtasks not deleted with parent task | `TodoListWidget._on_deleted` must call `delete_subtasks_for_todo()` first |
-| Voice command goes to LLM instead of fast path | `RULE_THRESHOLD = 0.80` (whole) / `SUBITEM_RULE_THRESHOLD = 0.60` (fragment) — check `RuleParseResult.confidence` |
+| Voice command goes to LLM instead of fast path | `RULE_THRESHOLD = 0.80` at the front door — check `RuleParseResult.confidence`. **Verify `SUBITEM_RULE_THRESHOLD` still exists post-merge** — the branch's restructure removed the deep track's separate per-fragment re-parse (and the bar with it); if that's still true here, this row needs updating again |
+| Background verifier applying stale correction | `_detect_user_change()` in `pipeline.py` |
 | Every command takes the deep track on a dev box | spaCy missing — `_RULE_PARSER_AVAILABLE` is False and the rule parser is disabled entirely |
 | New DB field not persisting | add to `_TODO_MIGRATIONS` **and** to `update_todo`'s `allowed` set |
 | View doesn't switch after voice action | set `view_switch` on the action class; handle the value in `CalendarWindow._handle_status` |

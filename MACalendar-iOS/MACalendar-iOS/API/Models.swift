@@ -174,6 +174,9 @@ struct VoiceResponse: Codable {
     let originalTranscript: String?  // raw Whisper output
     let corrections: [VocabCorrection]?
     let trace: [TraceStep]?
+    /// X1…X4 — the value each stage handed the next. Optional so an older
+    /// server still decodes.
+    let boundaries: [TraceBoundary]?
     let memoryId: Int?               // row in the command memory (for feedback)
     let pendingId: Int?              // set when the command was queued (LLM offline/slow)
     let uncertainWords: [UncertainWord]?
@@ -191,6 +194,7 @@ struct VoiceResponse: Codable {
 
     enum CodingKeys: String, CodingKey {
         case message, actions, refresh, parse, transcript, corrections, trace, brain
+        case boundaries
         case verifyToken = "verify_token"
         case originalTranscript = "original_transcript"
         case memoryId = "memory_id"
@@ -241,12 +245,84 @@ struct TraceStep: Codable, Identifiable, Equatable {
     let atMs: Int
     let ok: Bool
 
+    /// Which non-object outcome this step reported, when it reported one:
+    /// "bad_item" (the words reached the converter damaged) or "not_an_ask"
+    /// (read correctly, and simply not calendar work). Only one of the two is
+    /// a defect, and the timeline has to be able to say which.
+    ///
+    /// Lifted out of the step's `data` bag rather than decoding all of it:
+    /// `data` is heterogeneous (numbers, lists, strings), and a Codable that
+    /// tried to model it would break the first time a stage added a field.
+    let fastruleResult: String?
+
     enum CodingKeys: String, CodingKey {
-        case stage, title, detail, ms, ok
+        case stage, title, detail, ms, ok, data
         case atMs = "at_ms"
     }
 
+    private enum DataKeys: String, CodingKey {
+        case fastruleResult = "fastrule_result"
+    }
+
+    /// The memberwise init, restored by hand. Declaring `init(from:)` below
+    /// suppresses the one Swift would synthesise, and `VoiceButton` builds
+    /// steps directly in ten places — the client's own "Sending", "Retrying",
+    /// "Saved for later" entries, which never come from the server and so have
+    /// no `fastruleResult`.
+    init(stage: String, title: String, detail: String = "", ms: Int = 0,
+         atMs: Int = 0, ok: Bool = true, fastruleResult: String? = nil) {
+        self.stage = stage
+        self.title = title
+        self.detail = detail
+        self.ms = ms
+        self.atMs = atMs
+        self.ok = ok
+        self.fastruleResult = fastruleResult
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        stage = try c.decode(String.self, forKey: .stage)
+        title = try c.decode(String.self, forKey: .title)
+        detail = (try? c.decode(String.self, forKey: .detail)) ?? ""
+        ms = (try? c.decode(Int.self, forKey: .ms)) ?? 0
+        atMs = (try? c.decode(Int.self, forKey: .atMs)) ?? 0
+        ok = (try? c.decode(Bool.self, forKey: .ok)) ?? true
+        let d = try? c.nestedContainer(keyedBy: DataKeys.self, forKey: .data)
+        fastruleResult = try? d?.decode(String.self, forKey: .fastruleResult)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(stage, forKey: .stage)
+        try c.encode(title, forKey: .title)
+        try c.encode(detail, forKey: .detail)
+        try c.encode(ms, forKey: .ms)
+        try c.encode(atMs, forKey: .atMs)
+        try c.encode(ok, forKey: .ok)
+    }
+
     static func == (a: TraceStep, b: TraceStep) -> Bool { a.id == b.id && a.detail == b.detail }
+}
+
+/// One value handed from one stage to the next — X1, X2, X3, X4.
+///
+/// The Mac panel has shown these since 2026-09-10 and the phone did not, which
+/// is backwards: most commands are spoken to the phone. The server already
+/// sent them (the voice routes return the engine's whole result); nothing here
+/// decoded them.
+struct TraceBoundary: Codable, Identifiable, Equatable {
+    let label: String      // "X1" … "X4"
+    let value: String      // what it carried, rendered for a human
+    let detail: String?    // what that boundary IS, from the stage contract
+    let atMs: Int?
+
+    var id: String { label }
+
+    enum CodingKeys: String, CodingKey {
+        case label, value, detail
+        case atMs = "at_ms"
+    }
 }
 
 struct VocabCorrection: Codable, Identifiable, Equatable {

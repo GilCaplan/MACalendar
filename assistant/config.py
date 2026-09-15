@@ -261,6 +261,28 @@ class EngineConfig(BaseModel):
     coalesce_max_tokens: int = 300
 
 
+class LabelsConfig(BaseModel):
+    """The learned labellers (`assistant/engine/label/`).
+
+    DECLARED, not just documented. pydantic silently DISCARDS a section that is
+    not a field — `observance.enabled` was set in config.yaml and ignored for
+    weeks because of exactly that, and the fix was declaring it. A flag the user
+    can set and the code can never see is worse than no flag.
+
+    Both default OFF. A model deciding an event's category changes what lands on
+    the calendar, so it ships behind a switch with the keyword rules as the
+    default — the same caution `self_check_apply` carries.
+    """
+
+    model_event: bool = False
+    model_task: bool = False
+    #: Retrain in the background once this many NEW user CORRECTIONS have
+    #: accumulated. Corrections, not items: fifty tasks nobody corrected teach
+    #: nothing.
+    retrain_every: int = 25
+    auto_retrain: bool = False
+
+
 class AppConfig(BaseModel):
     hotkey: HotkeyConfig
     stt_engine: Literal["whisper", "mlx", "google"] = "whisper"
@@ -284,6 +306,7 @@ class AppConfig(BaseModel):
     # verifier proposes changes on ~98% of commands and fixes fewer than it breaks, so
     # by default it is ADVISORY: logged + shown in the trace, not applied.
     self_check_apply: bool = False
+    labels: LabelsConfig = LabelsConfig()
     audio: AudioConfig = AudioConfig()
     tts: TTSConfig = TTSConfig()
     todo: TodoConfig = TodoConfig()

@@ -14,6 +14,57 @@ ended, three queued items that were already done, and a dataset it called "the
 fix" that Gil has since dropped. Every claim below cites a file, a commit or a
 run._
 
+**2026-09-15 — `engine-component-folders` merged (row 91, TASKS.md).** 34
+commits, unmerged since `46f7967` (Phase A), are in: FastRule restructured into
+`build.py`/`fast_track.py` (the "CONVERTER" design — `build(item) -> BuildResult`,
+no model, no opinion about committing), LLMJudge's stage-isolation work
+(`rewrite.py`, `verdict.py`, `rescue.py`, `findings.py`, `render.py`), and
+Label's two learned classifiers. The branch's own numbers, carried forward
+because HEAD had no equivalent measurement:
+
+    LLMJudge sealed board (623 cases, test half):  catch 97.5%  ·  false-flag 2.3%
+    LLMJudge train half (753 cases):               catch 99.5%  ·  false-flag 2.0%
+    Label, novel vocabulary:  event 49.1% vs rules 33.0%  ·  tasks 46.8% vs 38.3%
+    Label, real usage:        tasks 95.7% exact-set vs rules 88.6% (macro F1 41.1->49.6)
+    Label, persona spread:    rules 28.5 pt  ·  model 10.4 pt
+
+Label's classifiers ship **OFF by default** — tasks are ready to enable, events
+are not (real-usage gold is only 14 rows, 4 of them test traffic; the authored
+vocabulary doesn't cover Gil's Hebrew/Jewish terms and named people). Full design
+and cycle logs: `assistant/engine/llmjudge/PLAN.md` §6 + `experiments/RESULTS.md`,
+`assistant/engine/label/ARCHITECTURE.md` + `experiments/RESULTS.md`.
+
+**One real regression found and ported in with the merge, now fixed and
+tested**: a two-item fast-path command gave both items the whole transcript
+as their text instead of just their own words — found comparing the branch's
+replacement code against what HEAD's own 50 commits had fixed in the file
+the branch deletes, `fastrule/objects.py`. Ported `_fast_item_words` into
+`fastrule/fast_track.py`, wired into `fast_propose`, 4/4 tests green
+(`test_engine_llmjudge.py`).
+
+**A second suspected regression turned out not to be one.** `asked_fastrule`
+(keyed on an item's text alone instead of `spoken()`, colliding "gym at 7"
+with "gym at 9") protected a per-item FastRule recheck inside the OLD
+`objects.py::_parse_item` — "FastRule first, the LLM for what it can't",
+re-asked per item. That whole mechanism is GONE on purpose in the 2026-09-10
+restructure (`fastrule/stage.py`'s own docstring: "the whole fast track,
+re-run per item... on an item already atomic BY CONTRACT" is exactly what was
+removed); a deferred item now goes straight to the model
+(`llmjudge/rescue.py::_ask_the_model`), so there is no redundant FastRule call
+left for a memo to guard against. `state.asked_fastrule` is still a field on
+`EngineState` (frozen contract) but confirmed by grep to have no reader or
+writer anywhere in the codebase — dead, not broken. `test_engine_generate.py`'s
+test for it removed, with the same finding recorded there.
+
+**Also found and fixed while verifying these**: `fastrule/stage.py`'s `_flag()`
+tagged trace steps `fastrule_result=kind` but the review panel
+(`thinking_panel.py`) reads `data["outcome"]` — two independently-written
+pieces of the merge that never agreed on a key name, so a flagged item
+(`not_an_ask` / `bad_item`) reached the trace but the panel could never draw
+it. Fixed by also writing `outcome=kind`; `test_panel_agreement.py` and
+`test_thinking_hud.py` (both had to be repointed off the deleted
+`fastrule.objects` too) confirm it end to end.
+
 ## Nothing is in flight
 
 No engine cycle, no lane batch, no experiment. The checkpoint retrospective —

@@ -45,12 +45,55 @@ struct PendingVoiceCommand: Codable, Identifiable {
     var result: String        // what the Mac replied, once it has run
     var audioFile: String     // file name inside the store's directory
 
-    init(audioFile: String) {
+    /// What the PHONE heard, captured from the on-device recogniser while you
+    /// were speaking. Empty when recognition was off or produced nothing.
+    ///
+    /// This is a DRAFT and never authoritative: Whisper on the Mac, with your
+    /// personal vocabulary, is better. It exists so a queued command is not a
+    /// blank row — you can see what is waiting and correct it before it runs.
+    var draft: String = ""
+
+    /// What you changed the draft to. `nil` means untouched.
+    ///
+    /// The distinction decides HOW the command is sent. Untouched → the audio
+    /// goes, exactly as before, and the Mac transcribes it properly. Edited →
+    /// the TEXT goes, because your correction beats any re-transcription.
+    var edited: String?
+
+    /// When this row was last moved to `.running`.
+    ///
+    /// A row is marked running BEFORE the request goes out, and only leaves
+    /// that state when the request comes back. If the app is backgrounded, the
+    /// process is killed, or the upload never returns, nothing moves it — and
+    /// the flush only picks up `.queued` and `.failed`, so the row is stranded
+    /// where no retry can ever reach it. One was found stuck for five and a
+    /// half hours (2026-09-10), showing "Running now…" the whole time.
+    var startedAt: Date?
+
+    /// You are editing this right now, so a flush must walk past it.
+    ///
+    /// Several things ask for a flush at once — reconnect, foregrounding, the
+    /// 30 s poll, opening this screen — and any of them could fire mid-sentence
+    /// and send the half-corrected version out from under you.
+    var heldForEdit: Bool = false
+
+    /// What actually gets sent, and whether it is text or audio.
+    var outgoingText: String? {
+        guard let edited, !edited.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return nil }
+        return edited
+    }
+
+    /// The line the queue screen shows under the status.
+    var displayText: String { edited ?? draft }
+
+    init(audioFile: String, draft: String = "") {
         self.id = UUID()
         self.recordedAt = Date()
         self.status = .queued
         self.result = ""
         self.audioFile = audioFile
+        self.draft = draft
     }
 }
 
@@ -432,14 +475,60 @@ class LocalStore: ObservableObject {
     }
 
     /// Park a recording until the Mac is reachable. Returns the queued command.
+    ///
+    /// `draft` is what the on-device recogniser heard while you were speaking —
+    /// the recorder already publishes it as `liveText` for the thinking sheet,
+    /// so it costs nothing to keep. Without it a queued command is an anonymous
+    /// row you cannot check or correct until it has already run.
     @discardableResult
-    func enqueueVoice(_ audio: Data) -> PendingVoiceCommand {
+    func enqueueVoice(_ audio: Data, draft: String = "") -> PendingVoiceCommand {
         let name = "voice-\(UUID().uuidString).wav"
         try? audio.write(to: url(name))
-        let cmd = PendingVoiceCommand(audioFile: name)
+        let cmd = PendingVoiceCommand(audioFile: name, draft: draft)
         pendingVoice.append(cmd)
         persistVoice()
         return cmd
+    }
+
+    /// Put back any row that has been "running" for longer than a command can
+    /// plausibly take.
+    ///
+    /// Called before every flush and on launch. `.running` is a promise that
+    /// something is in flight; once nothing is, the promise is stale and the
+    /// row should be retryable again. Fifteen minutes is far beyond the slowest
+    /// real command (the deep path's worst measured case is ~30 s) and short
+    /// enough that a user who reopens the app finds it recovered.
+    func reviveStalledVoice(after seconds: TimeInterval = 900) -> Int {
+        let cutoff = Date().addingTimeInterval(-seconds)
+        var revived = 0
+        for i in pendingVoice.indices where pendingVoice[i].status == .running {
+            // No `startedAt` means the row predates this field — treat it as
+            // stale rather than leaving it stuck for ever.
+            if (pendingVoice[i].startedAt ?? .distantPast) < cutoff {
+                pendingVoice[i].status = .queued
+                pendingVoice[i].startedAt = nil
+                revived += 1
+            }
+        }
+        if revived > 0 { persistVoice() }
+        return revived
+    }
+
+    /// Mark a queued command as being edited (or no longer being edited).
+    /// While `held` is true no flush will send it.
+    func holdVoiceForEdit(_ id: UUID, _ held: Bool) {
+        guard let i = pendingVoice.firstIndex(where: { $0.id == id }) else { return }
+        pendingVoice[i].heldForEdit = held
+        persistVoice()
+    }
+
+    /// Store a correction. Sending switches from audio to text at the same time,
+    /// and the hold is released so the next flush picks it up.
+    func editVoice(_ id: UUID, text: String) {
+        guard let i = pendingVoice.firstIndex(where: { $0.id == id }) else { return }
+        pendingVoice[i].edited = text
+        pendingVoice[i].heldForEdit = false
+        persistVoice()
     }
 
     func voiceAudio(_ cmd: PendingVoiceCommand) -> Data? {
@@ -449,6 +538,9 @@ class LocalStore: ObservableObject {
     func updateVoice(_ id: UUID, status: PendingVoiceCommand.Status, result: String = "") {
         guard let i = pendingVoice.firstIndex(where: { $0.id == id }) else { return }
         pendingVoice[i].status = status
+        // Stamped on the way IN to `.running` so `reviveStalledVoice` can tell
+        // a command that is genuinely in flight from one that was abandoned.
+        pendingVoice[i].startedAt = (status == .running) ? Date() : nil
         if !result.isEmpty { pendingVoice[i].result = result }
         persistVoice()
     }

@@ -32,7 +32,8 @@ for _k, _v in dict(
         MACALENDAR_VOCAB=f"{_SCRATCH}/vocab.json",
         MACALENDAR_CATEGORIES=f"{_SCRATCH}/categories.json",
         MACALENDAR_TRACE_BUS=f"{_SCRATCH}/trace_bus.jsonl",
-        MACALENDAR_NO_WARMUP="1").items():
+        MACALENDAR_NO_WARMUP="1",
+                 MACALENDAR_LLM_PRIORITY="background").items():
     os.environ[_k] = _v
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -135,7 +136,7 @@ def run_shapes(text: str, verbose: bool) -> None:
     from assistant.engine import _label, _segment, _transcript
     from assistant.engine.decompose_validate import decompose as _decompose
     from assistant.engine.decompose_validate import stage as _validate
-    from assistant.engine.fastrule import objects as _generate
+    from assistant.engine.fastrule import stage as _generate
 
     cfg = load_config()
     state = EngineState(raw_text=text, text=text, source="test")

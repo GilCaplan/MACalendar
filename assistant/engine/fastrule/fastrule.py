@@ -76,16 +76,6 @@ class FastRuleResult:
     rule_result: object | None = None
 
 
-#: The Scorer's signal registry — every confidence penalty, named. The
-#: VALUES still live where they always did (rule_parser applies them during
-#: parsing); this table is the single place that lists them, and the target
-#: of R2's calibration refit. Keep in sync with rule_parser (test-pinned).
-CONFIDENCE_SIGNALS = {
-    "regex_date": 0.95,        # date came from regex, not the recognizer
-    "domain_guessed": 0.85,    # domain inferred from the open view / model-routed
-    "anaphora": 0.80,          # resolved "it"/"that one" to a past record
-    "two_clock_times": 0.70,   # two times in one span — probably two events
-}
 
 
 #: What a deferral MEANS — the contract the deep track branches on.
@@ -109,6 +99,15 @@ _REASON_CLASS = {
     "clause-coordination": STRUCTURE,
     "mixed-mode-compound": STRUCTURE,
     "model-compound": STRUCTURE,
+    # The parser's route and segmentation's tag disagree about WHICH STORE a
+    # target-taking operation should search. An incapacity, not a refusal:
+    # there is nothing wrong with the reading that must not execute — we simply
+    # have two readings and no way to choose, which is what the model is for.
+    "kind-conflict": INCAPACITY,
+    # Built, but it aims at an EXISTING record and this stage cannot check that
+    # the record is real — see fastrule/stage.py's _COMMITTABLE. An incapacity:
+    # the reading may well be right, we simply cannot verify it from here.
+    "needs-target-check": INCAPACITY,
     "below-threshold": INCAPACITY,
     "missing-slots": INCAPACITY,
     "skip": INCAPACITY,
@@ -226,8 +225,15 @@ def _parse_covers_the_compound(reason: str, text: str, intents) -> bool:
 
 
 class Scorer:
-    """The commit predicate: confident AND clean. (Signal VALUES are applied
-    during parsing; see CONFIDENCE_SIGNALS for the registry.)"""
+    """The commit predicate: confident AND clean.
+
+    The signal VALUES are applied during parsing and live at
+    `rule_parser.py`'s penalty table — there is no copy here. A duplicate
+    registry used to sit in this file claiming to be "kept in sync
+    (test-pinned)"; no such test existed, nothing read the dict, and only a
+    human diff kept the two equal. ENGINE_AUDIT §1.5 called it and it is now
+    deleted: one place holds the numbers, and it is the place that uses them.
+    """
 
     def __init__(self, threshold: float) -> None:
         self.threshold = threshold
@@ -247,10 +253,10 @@ class FastRule:
         self.scorer = Scorer(threshold)
 
     def run(self, text: str, current_view: str = "month") -> FastRuleResult:
-        from assistant.engine.fastrule import objects as _generate
+        from assistant.engine import llm as _llm
         from assistant.intent.rule_parser import RuleParserSkip
 
-        rp = _generate._get_rule_parser()
+        rp = _llm.get_rule_parser()
         if rp is None:
             return FastRuleResult(False, [], 0.0, "no-parser")
         try:

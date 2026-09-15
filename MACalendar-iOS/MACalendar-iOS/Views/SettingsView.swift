@@ -280,6 +280,7 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Toggle("Show Coursework Tab", isOn: $settings.showCourseworkTab)
                             Toggle("Show Workout Tab", isOn: $settings.showWorkoutTab)
+                            Toggle("Show Teach Tab", isOn: $settings.showTeachTab)
                             Toggle("Show Timer Tab", isOn: $settings.showTimerTab)
                         }
                     }

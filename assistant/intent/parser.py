@@ -148,11 +148,19 @@ class IntentParser:
         conf = self.config.ollama
         for model in dict.fromkeys([conf.model, conf.verify_model or conf.model]):
             try:
-                self._session.post(
-                    f"{conf.base_url}/api/generate",
-                    json={"model": model, "keep_alive": conf.keep_alive, "options": {"num_ctx": conf.num_ctx}},
-                    timeout=120,
-                )
+                # GATED even though it generates nothing: a model LOAD occupies
+                # ollama for as long as it takes to read the weights, so a
+                # warm-up that barges in is indistinguishable from an inference
+                # to everything queued behind it. As LIVE, it waits ~50ms for a
+                # background caller to stand aside and then proceeds — startup
+                # is never held up by a board.
+                from assistant import model_protocol
+                with model_protocol.hold():
+                    self._session.post(
+                        f"{conf.base_url}/api/generate",
+                        json={"model": model, "keep_alive": conf.keep_alive, "options": {"num_ctx": conf.num_ctx}},
+                        timeout=120,
+                    )
                 logger.info("Ollama model %s warmed (keep_alive=%s)", model, conf.keep_alive)
             except Exception as e:
                 logger.warning("Ollama warm-up of %s failed: %s", model, e)
@@ -529,12 +537,14 @@ class IntentParser:
         # call stayed invisible in every latency board. Logged here so the
         # console sees it even though no counter does.
         from assistant import llm_bus as _bus
+        from assistant import model_protocol
         import time as _t
         _who, _t0 = _bus.caller_label(), _t.perf_counter()
         try:
-            resp = self._session.post(
-                f"{conf.base_url}/api/chat", json=payload, timeout=60
-            )
+            with model_protocol.hold():
+                resp = self._session.post(
+                    f"{conf.base_url}/api/chat", json=payload, timeout=60
+                )
             resp.raise_for_status()
             content = resp.json()["message"]["content"]
         except Exception as e:
@@ -588,8 +598,18 @@ class IntentParser:
         from assistant import llm_bus as _bus
         import time as _t
         _who, _t0 = _bus.caller_label(), _t.perf_counter()
+        # THE GATE, and the timeout is started AFTER it (2026-09-10).
+        #
+        # `_estimate_timeout` is computed before the POST and used to cover the
+        # whole request, so time spent QUEUED behind another process was being
+        # charged to this command's budget: a voice command could fail with
+        # "Ollama timed out" having never reached the model. Waiting for the
+        # gate is not the model being slow, so it does not count against it.
+        from assistant import model_protocol
         try:
-            resp = self._session.post(f"{conf.base_url}/api/chat", json=payload, timeout=timeout)
+            with model_protocol.hold():
+                resp = self._session.post(f"{conf.base_url}/api/chat",
+                                          json=payload, timeout=timeout)
             resp.raise_for_status()
             content = resp.json()["message"]["content"]
             _bus.record(transport="chat+schema", caller=_who, model=conf.model,

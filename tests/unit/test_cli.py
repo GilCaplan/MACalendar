@@ -44,8 +44,17 @@ def test_the_engine_layer_covers_every_real_engine_stage():
     import assistant.engine as E
     from assistant.cli import ENGINE_STAGES
     modules = " ".join(m for _c, m in ENGINE_STAGES)
+    # Modules that are INFRASTRUCTURE, not stages. `boundary` joined them on
+    # 2026-09-10: it renders the value crossing between two stages for the
+    # review panel, so it has no `run(state, cfg)` and nothing for the doctor
+    # to check that checking the stages does not already cover. `fastrule` is
+    # NOT here — it is a real stage folder, and ENGINE_STAGES covers it with
+    # several `assistant.engine.fastrule.*` entries (build.py, fast_track.py,
+    # stage.py, fastrule.py); excluding it here would hide that check ever
+    # missing one of them.
+    _NOT_A_STAGE = ("state", "llm", "component", "boundary", "__init__")
     real = {m.name for m in pkgutil.iter_modules(E.__path__)
-            if m.name not in ("state", "llm", "fastrule", "component", "__init__")}
+            if m.name not in _NOT_A_STAGE}
     for stage in real:
         assert f"assistant.engine.{stage}" in modules, (
             f"engine folder '{stage}' exists but cli.ENGINE_STAGES imports nothing "

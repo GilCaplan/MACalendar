@@ -49,7 +49,8 @@ for _k, _v in (("MACALENDAR_DB", "/tmp/th.db"), ("MACALENDAR_MEMORY_DB", "/tmp/t
                ("MACALENDAR_VOCAB", "/tmp/th_v.json"),
                ("MACALENDAR_CATEGORIES", "/tmp/th_c.json"),
                ("MACALENDAR_TRACE_BUS", "/tmp/th_bus.jsonl"),
-               ("MACALENDAR_NO_WARMUP", "1"), ("OMP_NUM_THREADS", "1")):
+               ("MACALENDAR_NO_WARMUP", "1"), ("OMP_NUM_THREADS", "1"),
+               ("MACALENDAR_LLM_PRIORITY", "background")):
     os.environ.setdefault(_k, _v)
 
 from assistant.engine.segmentation.experiments import run_board as RB      # noqa: E402

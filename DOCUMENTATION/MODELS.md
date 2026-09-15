@@ -1,7 +1,7 @@
 # Models in the stack
 
-Three models. All of them run on this machine; none of them is reached over the
-internet. This file is the canonical answer to "how many models, which ones,
+**Five models** since 2026-09-10 — three that read, two that label. All of them
+run on this machine; none of them is reached over the internet. This file is the canonical answer to "how many models, which ones,
 what does each one do" — `DOCUMENTATION/ARTIFACT_BUILDER.md` and the artifacts
 cite it rather than restating it.
 
@@ -14,15 +14,37 @@ cite it rather than restating it.
 Set in `config.example.yaml` under `mlx_whisper.model`, hardcoded as
 `spacy.load("en_core_web_sm")` in the rule parser, and `ollama.model`.
 
-There is **no embedding model**. Retrieval of past commands is lexical —
+| 4 | **Event-category classifier** | logistic regression over word 1-2 grams ∪ char 3-5 grams | CPU, in-process | a title → 1 of 13 categories |
+| 5 | **Task-tag classifier** | the same features, one-vs-rest | CPU, in-process | a title → a SET of tags |
+
+Models 4 and 5 are new (2026-09-10) and are the reason this file no longer says
+"three". They live in `assistant/engine/label/`, ship **off by default**
+(`labels.model_event` / `labels.model_task`), and **stack behind the keyword
+rules rather than replacing them** — the rules answer first and keep their
+measured precision, and a model only fills a row they had no opinion about.
+
+**Two tiers.** A BASE model, identical for every user, fitted from committed
+datasets that contain nobody's data and built automatically on first use. A
+PERSONAL model on top of it, fitted from the labels *that* user has corrected,
+never leaving their machine. `experiments/RESULTS.md` carries the numbers;
+`ARCHITECTURE.md` in the same folder carries the design.
+
+There is **no embedding model**, and that is now a measured limitation rather
+than only a choice. TF-IDF has no semantic knowledge — character n-grams cannot
+know "kefir" is food — which caps generalisation to vocabulary the training
+never saw. Ollama's embedding endpoints were tried on 2026-09-10 and rejected:
+`llama3.1:8b` is not an embedding model, and pulling one (`nomic-embed-text`,
+~275 MB) needs the network. Retrieval of past commands is lexical —
 0.6 × Jaccard over word sets + 0.4 × `SequenceMatcher` ratio. That was a
 deliberate choice (a fourth model to load, for a corpus of a few hundred short
 strings) and it is one of the things the harness should re-examine.
 
-There is also **no model doing classification**. Category colours and task tags
-are keyword scoring plus the personal vocabulary — see
-`assistant/actions/calendar/categories.py` and `assistant/actions/todo/tagging.py`.
-Handing labelling to model 3 is open work, not shipped behaviour.
+Labelling **is** done by models now (4 and 5 above), with the keyword scoring in
+`assistant/actions/calendar/categories.py` and `assistant/actions/todo/tagging.py`
+kept in front of them as the high-precision first answer. Handing labelling to
+model 3 — the LLM — was the open idea this replaced, and it is not the shape
+that shipped: a classifier that runs in microseconds on CPU beats an 8B call for
+a decision this small.
 
 ## The six jobs model 3 does
 

@@ -158,8 +158,14 @@ def _resolve_onto_intent(state: EngineState, item, intent, today,
             setattr(intent, target, now)
         except Exception:
             continue                       # a validator refused it; leave it be
+        # THE NOTE IS FOR A HUMAN READING THE CARD, and it names the FIELD.
+        # It used to be `f"{item.text!r}: {said or spoken!r}"` -- and on the
+        # fast path `item.text` IS the whole transcript, so every fix repeated
+        # the entire command twice and two of them filled the review panel with
+        # a wall of quoted text. `before -> after` already carries the values;
+        # what the reader cannot see without being told is WHICH field moved.
         state.add_fix("validate", "resolve_from_own_words", str(was), str(now),
-                      note=f"{item.text!r}: {said or spoken!r}")
+                      note=target)
 
     for flag in flags:
         # A FLAG NEVER BLOCKS (Gil, 2026-09-08): it is recorded so the reply can

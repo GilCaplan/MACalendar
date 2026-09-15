@@ -753,21 +753,19 @@ def _row_with(p, step):
 
 
 def test_a_non_calendar_ask_is_labelled_as_one(hud):
-    from assistant.engine.fastrule import objects
     widget, _, _ = hud
     p = widget.panel
     p.begin("Mac")
-    row = _row_with(p, _outcome_step(objects.NOT_AN_ASK))
+    row = _row_with(p, _outcome_step("not_an_ask"))
     assert row._outcome is not None
     assert row._outcome.text() == "not calendar work"
 
 
 def test_a_damaged_item_is_labelled_as_damage(hud):
-    from assistant.engine.fastrule import objects
     widget, _, _ = hud
     p = widget.panel
     p.begin("Mac")
-    row = _row_with(p, _outcome_step(objects.BAD_ITEM, ok=False))
+    row = _row_with(p, _outcome_step("bad_item", ok=False))
     assert row._outcome is not None
     assert row._outcome.text() == "reached me damaged"
 
@@ -775,12 +773,11 @@ def test_a_damaged_item_is_labelled_as_damage(hud):
 def test_the_two_outcomes_do_not_look_the_same(hud):
     """The whole point of the feature. A correct reading is muted; a defect is
     amber — this file's standing rule, where red stays reserved for fatal."""
-    from assistant.engine.fastrule import objects
     widget, _, _ = hud
     p = widget.panel
     p.begin("Mac")
-    ask = _row_with(p, _outcome_step(objects.NOT_AN_ASK))
-    bad = _row_with(p, _outcome_step(objects.BAD_ITEM, ok=False, title="Read part 2"))
+    ask = _row_with(p, _outcome_step("not_an_ask"))
+    bad = _row_with(p, _outcome_step("bad_item", ok=False, title="Read part 2"))
 
     assert ask._outcome.text() != bad._outcome.text()
     assert ask._outcome.styleSheet() != bad._outcome.styleSheet()
@@ -814,11 +811,10 @@ def test_an_outcome_row_still_fits_inside_the_card(hud):
     end of every line. Adding the chip beside the title did exactly that on
     the first cut, and no assertion about its TEXT would have caught it."""
     from assistant.calendar_ui.thinking_panel import PANEL_WIDTH
-    from assistant.engine.fastrule import objects
     widget, _, app = hud
     p = widget.panel
     p.begin("Mac")
-    for outcome in (objects.NOT_AN_ASK, objects.BAD_ITEM):
+    for outcome in ("not_an_ask", "bad_item"):
         row = _row_with(p, _outcome_step(outcome))
         app.processEvents()
         need = row.minimumSizeHint().width()

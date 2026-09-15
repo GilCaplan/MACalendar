@@ -86,6 +86,20 @@ class Item:
                               # (action, time, tag), the time is NOT in here —
                               # it is in `time`. Use `spoken()` when you need
                               # the command as the speaker said it.
+    #: The VERBATIM substring of X1 this item was cut from (Gil, 2026-09-10).
+    #: A DELIBERATE contract addition, not drift — recorded here, in
+    #: `segmentation/__init__.py` and in DOCUMENTATION/ENGINE.md.
+    #:
+    #: Why `text` could not do this job: the time has been split off it and
+    #: `decompose_validate` may repair its words, so by the time anything wants
+    #: to subtract a finished ask from the command, `text` is no longer a
+    #: substring of it. The span is, which makes the removal exact.
+    #:
+    #: What it is FOR: when LLMJudge validates an object, that object's span
+    #: comes out of the command, and the retry (X1') carries only what is left.
+    #: The trim stops being something the model is INSTRUCTED to do and becomes
+    #: something the code has already done.
+    source: str = ""
     time: str | None = None   # step 2: the time reference AS SPOKEN, never
                               # resolved ("next friday", not a date). None when
                               # the implementation does not separate it.
@@ -150,7 +164,32 @@ class EngineState:
 
     # -- set at ingest, read-only afterwards --------------------------------
     raw_text: str                 # exactly what arrived
-    source: str = "test"          # "mac" | "ios" | "test"
+    source: str = "test"          # "mac" | "ios" | "test" — the KIND of client
+    #: WHICH client, not what kind of client (Gil, 2026-09-10). A DELIBERATE
+    #: contract addition — recorded here, in `test_engine_contracts.py` and in
+    #: DOCUMENTATION/ENGINE.md, the same way `Item.source` was.
+    #:
+    #: Gil: *"each device is its own unique requests… two different iphones or
+    #: my laptop that send requests should be queued; the same device can merge
+    #: if we choose."* `source` cannot express that — every iPhone reports
+    #: "ios" — so the pending queue was grouping two phones into one stream and
+    #: concatenating their commands into a single utterance.
+    #:
+    #: Empty when the client sends none, which degrades to source-only grouping:
+    #: a Mac still never merges with a phone, and two silent phones merge as
+    #: they did before. Worse than knowing, better than today, and VISIBLE.
+    #: `assistant.model_protocol.stream_key` is the only thing that reads it.
+    device: str = ""
+    #: What the SERVER CONCLUDED, where `device` is what the client CLAIMED.
+    #: Two different facts, and conflating them is how trust bugs happen: a
+    #: caller can assert any `device` it likes, so the grouping identity must be
+    #: the one computed after verification, not the one supplied with it.
+    #:
+    #: `model_protocol.stream_key` builds it, and an UNVERIFIED claim lands in a
+    #: separate namespace (`ios:untrusted:…`) rather than in the real device's
+    #: stream — so a spoofed id buys an isolated queue of its own and touches
+    #: nobody's backlog. Empty on rows and callers that predate this.
+    stream: str = ""
     current_view: str = "month"
     supports_edit: bool = False   # client can render a needs_edit round-trip
     supports_confirm: bool = False  # client can render a confirm_create prompt
