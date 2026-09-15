@@ -205,10 +205,15 @@ class EventDialog(QDialog):
 
         # Repeat
         self._repeat = QComboBox()
-        self._repeat.addItems(["None", "Daily", "Weekly", "Monthly"])
+        self._repeat.addItems(["None", "Daily", "Weekly", "Monthly", "Yearly"])
         self._repeat.setMinimumWidth(120)
         if self._event and self._event.get("recurrence"):
-            idx = {"daily": 1, "weekly": 2, "monthly": 3}.get(self._event["recurrence"], 0)
+            # Missing "yearly" here silently dropped a yearly event's
+            # recurrence to "None" the moment any OTHER field was edited and
+            # saved — the dropdown showed None selected, and saving read that
+            # back literally.
+            idx = {"daily": 1, "weekly": 2, "monthly": 3,
+                  "yearly": 4}.get(self._event["recurrence"], 0)
             self._repeat.setCurrentIndex(idx)
         form.addRow("Repeat", self._repeat)
 
@@ -388,7 +393,7 @@ class EventDialog(QDialog):
         end_str = self._end.time().toString("HH:mm")
 
         recur_idx = self._repeat.currentIndex()
-        recurrence = ["", "daily", "weekly", "monthly"][recur_idx]
+        recurrence = ["", "daily", "weekly", "monthly", "yearly"][recur_idx]
         recur_until = self._until.date().toString("yyyy-MM-dd") if recur_idx > 0 else ""
 
         self.event_data = {

@@ -47,7 +47,7 @@ class CreateEventAction(BaseAction):
             },
             "location": {"type": "string", "description": "Meeting link, room, or location address."},
             "description": {"type": "string", "description": "Detailed notes or agenda."},
-            "recurrence": {"type": "string", "description": "Optional: 'daily', 'weekly', or 'monthly'"},
+            "recurrence": {"type": "string", "description": "Optional: 'daily', 'weekly', 'monthly', or 'yearly'"},
             "recur_until": {"type": "string", "description": "Optional: ISO 8601 end date for recurrence"},
         },
         "required": ["title"],

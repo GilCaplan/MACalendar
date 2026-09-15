@@ -450,9 +450,9 @@ def resolve_range(said: str, context: str = "") -> "tuple[str, str] | None":
 def resolve_recurrence(said: str) -> "dict | None":
     """-> {cadence, days, rounded} or None.
 
-    `cadence` is only ever daily|weekly|monthly — the product's rule. Anything
-    else is ROUNDED to one of them and `rounded` says so, because the reply has
-    to announce it rather than change the meaning quietly.
+    `cadence` is only ever daily|weekly|monthly|yearly — the product's rule.
+    Anything else is ROUNDED to one of those and `rounded` says so, because
+    the reply has to announce it rather than change the meaning quietly.
 
     `days` lets a weekly series name several weekdays ("every tuesday and
     thursday"). That is WHICH days a weekly series lands on, not a fourth

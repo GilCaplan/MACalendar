@@ -25,14 +25,18 @@ _RECUR_WORDS = [
     (r"\bevery\s+month\b|\bmonthly\b", "monthly"),
 ]
 
-# Cadences the data model cannot express. recurrence is one of daily, weekly
-# or monthly, so each of these gets rounded to something else and produces a
-# confidently wrong series. Saying so beats approximating silently.
-
-
-# Cadences the data model cannot express. recurrence is one of daily, weekly
-# or monthly, so each of these gets rounded to something else and produces a
-# confidently wrong series. Saying so beats approximating silently.
+# Cadences the data model cannot express. recurrence is one of daily, weekly,
+# monthly or yearly, so anything else gets rounded to one of those and
+# produces a confidently wrong series. Saying so beats approximating
+# silently.
+#
+# "two days a week" ("every tuesday and thursday") is true only for the
+# fast/rule path (`intent/recurrence.py`), which has no slot for more than
+# one weekday — the deep track's `resolve.py` reads every named weekday into
+# `recur_days` and loses nothing, so the caller (`object_rules.py`) skips
+# this specific label when the committed object's own `recur_days` already
+# has more than one day in it, rather than announcing a rounding that did
+# not happen.
 _UNSUPPORTED_CADENCE = [
     (r"\bevery\s+other\b|\bfortnight|\bbi-?weekly\b|\balternate\s+\w+days?\b",
      "every other week"),
@@ -41,11 +45,6 @@ _UNSUPPORTED_CADENCE = [
     (r"\bevery\s+(weekday|week\s?day)\b", "weekdays only"),
     (r"\bevery\s+\w+day\s+and\s+\w+day\b", "two days a week"),
 ]
-
-# "until" names the boundary you stop at; "through"/"including" keep the day.
-# English is genuinely ambiguous — this is the project's reading, applied
-# everywhere rather than guessed per sentence.
-
 
 # "until" names the boundary you stop at; "through"/"including" keep the day.
 # English is genuinely ambiguous — this is the project's reading, applied

@@ -261,9 +261,17 @@ def _rule_cadence_round_and_announce(state, tl) -> None:
                  if it.action == "create_event" and it.intent is not None), None)
     if made is None:
         return
+    # "two days a week" is `unsupported_cadence`'s label for "every tuesday
+    # and thursday"-style text — TRUE for the fast/rule path, which has no
+    # way to carry more than one weekday, but not for whatever resolved this
+    # object if `recur_days` actually has more than one entry: `resolve.py`
+    # (the deep track) reads every named weekday into it, so nothing was
+    # lost and announcing a rounding that didn't happen is the false alarm.
+    if cadence == "two days a week" and len(getattr(made, "recur_days", None) or []) > 1:
+        return
     as_what = getattr(made, "recurrence", None) or "one-off"
     state.messages.append(
-        f"Note: I can only repeat daily, weekly or monthly, so "
+        f"Note: I can only repeat daily, weekly, monthly or yearly, so "
         f"“{cadence}” became {as_what} — adjust it if that is wrong.")
     state.add_fix("validate", "cadence_round_and_announce", cadence, str(as_what),
                   note="the model has no way to express the first")

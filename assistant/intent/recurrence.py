@@ -10,9 +10,12 @@ of the 7,200 dataset's atomic train rows and 72% of them failed.
 
 Two rules the project already fixed elsewhere and this must honour:
 
-  • the cadence is only ever daily / weekly / monthly — anything else is
-    ROUNDED to one of those, and `rounded_from` carries the original words
-    so the reply can announce it ("every other tuesday" → weekly).
+  • the cadence is only ever daily / weekly / monthly / yearly (the fourth
+    added 2026-09-08: rounding a yearly series to monthly is 12x wrong and
+    fires eleven times nobody asked for, so it is the one cadence rounding
+    could not honestly cover) — anything else is ROUNDED to one of those,
+    and `rounded_from` carries the original words so the reply can announce
+    it ("every other tuesday" → weekly).
   • a weekly series starts on the SOONEST day the sentence names, not on
     whatever date happened to parse.
 """
@@ -37,7 +40,7 @@ _PATTERNS = [
      "weekly", True),                                    # rounded: no N-per-period
     (r"\bevery\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
      r"mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)\b", "weekly", False),
-    (r"\bevery\s+year\b|\byearly\b|\bannually\b", "monthly", True),   # rounded
+    (r"\bevery\s+year\b|\byearly\b|\bannually\b", "yearly", False),
 ]
 
 #: "until the end of September", "through friday", "starting march 3"
