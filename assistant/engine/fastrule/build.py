@@ -57,6 +57,10 @@ class Built:
     action: str                 # registry action name, e.g. "create_event"
     intent: object              # the BaseIntent subclass instance
     copied: tuple = ()          # which VALUE_FIELDS were copied — trace/testing
+    rule_parse: object = None   # the RuleParseResult that produced it, for a
+                                 # caller that ends up deferring anyway (stage.py's
+                                 # not-ours-to-commit case) to hand the model as
+                                 # `Defer`'s `partial` instead of a cold re-read
 
 
 @dataclass
@@ -275,7 +279,7 @@ def _why_unusable(item: Item) -> "str | None":
 
 
 def _read_action_words(item: Item, parser) -> tuple:
-    """(route, title, attendees) — everything taken from the ACTION WORDS.
+    """(route, title, attendees, rr) — everything taken from the ACTION WORDS.
 
     Returns the route the parser SELECTED, not the intent it was willing to
     emit. B1's finding is the reason: the parser withholds an intent when the
@@ -283,16 +287,21 @@ def _read_action_words(item: Item, parser) -> tuple:
     missing ['date','start_time']), and after this restructure the when is
     supposed to be missing — it arrives in `item.slots`. Asking for the intent
     would throw away a route that is correct on 573/573 rows.
+
+    `rr`, the raw `RuleParseResult`, rides back too — a caller that ends up
+    deferring can hand it to the model as the "partial" `Defer` already
+    promises ("what WAS read, so LLMJudge starts warm") instead of the model
+    re-reading the same words cold.
     """
     if parser is None:
-        return None, "", []
+        return None, "", [], None
     try:
         rr = parser.analyze(item.text or "", current_view="month")
     except Exception:
-        return None, "", []
+        return None, "", [], None
     raw = getattr(rr, "raw_slots", None) or {}
     if not raw:
-        return None, "", []
+        return None, "", [], None
     route = next(iter(raw))
     slots = raw.get(route) or {}
     # THREE NAMES FOR THE SAME THING, and missing one of them is a real defect:
@@ -347,7 +356,7 @@ def _read_action_words(item: Item, parser) -> tuple:
             title = (f"{head} with {' and '.join(people)}"
                      if head.lower() in _INTERACTION_HEAD else head)
             attendees = attendees or people
-    return route, title, attendees
+    return route, title, attendees, rr
 
 
 # ---------------------------------------------------------------------------
@@ -504,7 +513,7 @@ def build(item: Item, *, today: "_dt.date | None" = None,
         return BadItem(unusable, item_id=getattr(item, "id", ""))
 
     slots = dict(item.slots or {})
-    route, title, attendees = _read_action_words(item, parser)
+    route, title, attendees, rr = _read_action_words(item, parser)
 
     if route is None:
         return Defer("no-parser" if parser is None else "skip",
@@ -564,7 +573,7 @@ def build(item: Item, *, today: "_dt.date | None" = None,
         return Defer("skip", fields={"action": action})
     if _apply_quantity(action, intent, slots):
         copied = copied + ("quantity",)
-    return Built(action=action, intent=intent, copied=copied)
+    return Built(action=action, intent=intent, copied=copied, rule_parse=rr)
 
 
 # ---------------------------------------------------------------------------

@@ -85,6 +85,41 @@ def _event_fallback(text: str):
                           end_time=t.get("end_time"))
 
 
+def _target_check_fallback(item: Item, verdict) -> "tuple | None":
+    """Narrow fallback for ONE shape: FastRule already built a valid object
+    for this item (a `needs-target-check` DEFER means it did — that reason is
+    only reached from a `Built`, see `fastrule/stage.py`) and asked the model
+    to confirm it before committing, and the model's own attempt then failed
+    validation outright (empty `match_title`, most often — see
+    `llmjudge/experiments/RESULTS.md` cycle 17).
+
+    Reusing FastRule's build is cheap (deterministic, no model call) and
+    turns a hard failure into whatever that object resolves to — including a
+    clean "I couldn't find …" when its title matches nothing, which this
+    project already treats as the right answer for an unidentifiable target,
+    rather than the generic "I couldn't read this part" a `ParseError`
+    produces today. It does NOT replace the model call above: the model is
+    still asked first and often improves on FastRule's own reading (measured
+    2026-09-15: FastRule's rule parser read "vet appointment" as "calender"
+    off "from my calender" — the model corrected it). This only covers the
+    model's own attempt failing outright, not a case where the model produced
+    a worse-but-valid answer.
+
+    Only for `needs-target-check` — every other Defer reason means FastRule
+    could not build an object at all, so there is nothing here to fall back
+    to, and re-deriving the reading that already produced a REFUSAL or a
+    missing-slots DEFER would not help.
+    """
+    if verdict is None or getattr(verdict, "reason", None) != "needs-target-check":
+        return None
+    from assistant.engine import llm as _llm
+    from assistant.engine.fastrule import build as _build
+    res = _build.build(item, parser=_llm.get_rule_parser())
+    if isinstance(res, _build.Built):
+        return res.action, res.intent
+    return None
+
+
 def _ask_the_model(item: Item, state: EngineState, cfg, verdict) -> "list | None":
     """One item the rules could not build → intents, from the model.
 
@@ -119,8 +154,21 @@ def take_deferrals(state: EngineState, cfg) -> None:
         d = (item.slots or {}).pop("fastrule_defer", None)
         if d is None:
             continue
-        pending.append((item, _Verdict(d.get("reason") or "",
-                                       d.get("reason_class"))))
+        v = _Verdict(d.get("reason") or "", d.get("reason_class"))
+        # `needs-target-check` carries the rule parser's OWN raw_slots forward
+        # (fastrule/stage.py) — the model starts from what was already read
+        # correctly instead of re-parsing cold. Reconstructed here rather than
+        # kept as a live object, because `item.slots` had to stay JSON-safe to
+        # cross the stage boundary.
+        if d.get("raw_slots") is not None:
+            from assistant.intent.rule_parser import RuleParseResult
+            v.partial = RuleParseResult(
+                confidence=d.get("rule_confidence") or 0.0,
+                intents=[],
+                missing_slots=d.get("missing_slots") or [],
+                raw_slots=d.get("raw_slots") or {},
+                transcript=d.get("transcript") or item.spoken())
+        pending.append((item, v))
     if not pending:
         return
     rescue(state, cfg, pending)
@@ -212,6 +260,14 @@ def rescue(state: EngineState, cfg, pending: list) -> None:
             continue
         except ParseError as e:
             logger.warning("Item %s failed to parse: %s", item.id, e)
+            fb = _target_check_fallback(item, verdict)
+            if fb is not None:
+                item.action, item.intent = fb
+                state.add_fix("llmjudge", "target_fallback", "", item.text[:40],
+                              note="the model discarded a target FastRule "
+                                   "already resolved; reused FastRule's own "
+                                   "build instead of failing the item")
+                continue
             state.add_fix("llmjudge", "item_parse_failed", item.text[:40], "",
                           note=str(e)[:120])
             state.messages.append(

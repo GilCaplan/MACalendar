@@ -144,19 +144,12 @@ real and large but is not a subtraction and must not be quoted as one.
 
 ## Open decisions — Gil's, not mine
 
-1. **`engine-component-folders` — merge, rebase, or abandon.** 34 commits of
-   finished, tested engine work (FastRule phases B and C; LLMJudge's
-   stage-isolation work including a real 286-line `rewrite.py` where HEAD still
-   has `return None` at `llmjudge/llmjudge.py:282`; Label's two learned
-   classifiers; the `engine/llm.py` accessor move — 58 files, +38.9k lines across
-   those three stages). It diverged from HEAD at `46f7967` (2026-09-09) and HEAD
-   then went 50 commits its own way, so this is a judgement call, not a
-   mechanical merge. **It is now PUSHED** — `origin/engine-component-folders` =
-   `8fac94d` — so the "one disk failure and it is gone" risk is closed. The cost
-   of leaving it undecided is that FastRule phase B gets written a second time:
-   its `PLAN.md` marks B1–B4, B6 and C0–C3 DONE on 2026-09-10, and B2's 32 tests
-   caught two real defects on the way.
-2. **The fast-path fence vs. the retrospective.** The fence stands. It is Gil's,
+**RESOLVED 2026-09-15** — `engine-component-folders` was merged (row 91,
+TASKS.md; commit `9701f59`), not rebased or abandoned. This section used to
+carry it as open; it wasn't, by the time this same file's own top section
+recorded the merge. Left here as the correction rather than silently deleted.
+
+1. **The fast-path fence vs. the retrospective.** The fence stands. It is Gil's,
    so it is quoted verbatim:
    > **Backlog — user-gated, do not start unprompted:** add fast-rule-parser
    > rules mined from the user's real data + the dataset. Only on Gil's explicit
@@ -199,35 +192,67 @@ real and large but is not a subtraction and must not be quoted as one.
 `DOCUMENTATION/TASKS.md` is the tracker and carries the order of play at its
 bottom — move a row there rather than starting a parallel list;
 `dataset/HYPOTHESES.md` is the ranked experiment queue for when cycles resume.
-The four items with the strongest evidence, each re-verified on HEAD today:
 
-1. **`llm_ms` is not recorded on the fast path.** `_recheck_not_found`
-   (`assistant/engine/__init__.py:907-932`) calls the model and never adds to
-   `state.llm_ms`; `grep 'llm_ms +='` finds six sites and none is this one. Rows
-   that spent ~40 s record `llm_ms 0` against `total_ms 40,000`, so every board
-   splitting latency by `llm_ms` is wrong on the fast path. Fix the instrument
-   before the thing it measures.
-2. **Gate `_recheck_not_found` on candidates existing.** Same function: no store
-   query anywhere in it. With no candidate rows the model cannot read a target
-   into existence, so the ~40 s call is pure cost — 25 of the 30 slow fast-path
-   rows (`checkpoints/RECOMMENDATIONS.md:20-32`). **Caveat for the commit
-   message:** `checkpoint_sweep.py:178` calls
-   `reset_calendar()` before every row, so every delete in that board faced an
-   empty store. Keep the recheck where candidates exist — the run-9 *"Walk Mark's
-   dog"* case it was built for.
-3. **FastRule's primary board has never reported its NOW rows.**
-   `fastrule/experiments/fastrule_shape.py:121` compiles
-   `r"\\b(?:right\\s+now|now|…)\\b"` — doubled escapes inside a raw string, so
-   the pattern never matches, `NOW_N` stays 0 and the `if NOW_N:` gate at `:341`
-   silently omits the whole NOW section. The check exists because 152 rows in
-   this dataset say "now" and were landing at midnight scoring as fine (`:302`).
-   One character class.
-4. **The fast path can still book a monthly series for a yearly ask.**
-   `assistant/intent/recurrence.py:41` is still
-   `(r"\bevery\s+year\b|\byearly\b|\bannually\b", "monthly", True)` while
-   `resolve.py` added `yearly` on 2026-09-08 — the one cadence CLAUDE.md says
-   rounding cannot honestly cover. A live user-visible wrong answer, not a metric
-   line.
+**All four items this section used to list here are FIXED, as of the commits
+below it in git log — this section was stale, not the work.** Kept as a record
+rather than deleted:
+
+1. ~~`llm_ms` not recorded on the fast path~~ — fixed, row 84, `167119f`.
+2. ~~Gate `_recheck_not_found` on candidates existing~~ — fixed, row 85,
+   `520b76b`.
+3. ~~FastRule's NOW rows never reported (doubled-escape regex)~~ — fixed;
+   `fastrule/experiments/fastrule_shape.py:128` now carries the corrected
+   pattern and a comment explaining the old defect in place of it.
+4. ~~Fast path booked MONTHLY for a YEARLY ask~~ — fixed, row 90, `943ef9a`.
+
+**The queue is empty.** `dataset/HYPOTHESES.md` needs its next entry
+registered before a cycle starts.
+
+**LLMJudge cycle 17, settled 2026-09-15** (`llmjudge/experiments/RESULTS.md`).
+Three Board D runs, in order: 120 rows fresh (NET +1) — 3,648 rows resumed
+from a stale checkpoint that turned out to score `objects.py`, the FastRule
+module retired by TODAY's `engine-component-folders` merge (`9701f59`), giving
+a false NET −7 "liability" reading that is **retracted**, `Checkpoint.has(rid)`
+having no code-revision check — then 400 rows fresh against HEAD `c826c83`
+(checkpoint literally named after the commit, so this can't repeat), which
+supersedes run 1 (same seed, same prefix) and gives **NET +0** (324/400 both
+arms, 1 fixed, 1 broke). **Read as settled**: on current HEAD the connected
+loop is neither a liability nor a fix, converging to zero as N grew
+120→400 — not worth another round without a reason to doubt it. **LLMJudge is
+cleared** as the deep track's bottleneck, this time on a number that holds.
+
+**What actually dominates the miss, confirmed across all three runs**: the
+malformed-value defect TASKS.md filed 2026-09-10 against `decompose_validate`
+— now with two MORE shapes than that filing had (a full ISO datetime, and
+bare `"morning"`/`"evening"` reaching `start_time`/`end_time` unresolved) on
+top of the original two (empty match_title/match_start_time on deletes;
+HH:MM:SS).
+
+**The delete/update-target half of that defect is FIXED (2026-09-15,
+llmjudge/experiments/RESULTS.md cycle 18), and it was never
+`decompose_validate`'s bug.** Traced one stage at a time rather than
+assumed: FastRule's `build()` already resolves the target correctly; the
+hand-off that was supposed to give the model that answer as a head start
+(`Defer.partial`, designed for exactly this) was dead code —
+`rescue.py`'s `_Verdict.partial` hardcoded to `None`, nothing in
+`assistant/engine/` ever setting it. Two fixes, each tested and measured
+separately per Gil's standing rule
+([[feedback_test_measure_each_change]]): the hint is now wired through
+(`fastrule/build.py`, `fastrule/stage.py`, `llmjudge/rescue.py`), and a
+deterministic fallback reuses FastRule's own build when the model still
+fails after being given it. Measured on the real population (884 rows, the
+full update/delete/complete pool, not a board subsample): raw model failure
+rate is 0.4% (much lower than the ~40-60% the hand-picked adversarial rows
+suggested), 94.4% → 94.7% after the fallback, both of the 2 recovered rows
+correct. Full unit suite green throughout (1655 passed).
+
+**The time-resolution half is NOT fixed** — "morning"/"evening"/HH:MM:SS/ISO-
+datetime reaching a clock field unresolved, plus two more shapes found
+2026-09-15 in `update_event` (`{'new_end_time': 'by an hour'}`,
+`{'new_end_time': '20 minutes'}`). **This is the queue's lead item now** —
+and cycle 18's lesson applies to it too: trace it stage-by-stage before
+assuming it's `decompose_validate`'s fix to make, the way the target-check
+half turned out not to be.
 
 **App stream** — app work happens in the `../MACalendar-app` worktree (branch
 `app-features`), merged between cycles, never during a run. The 2026-09-06

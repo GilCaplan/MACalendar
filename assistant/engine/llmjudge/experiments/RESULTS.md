@@ -1131,3 +1131,235 @@ weaker instrument**, which is where the next cycle goes.
        assert a date nobody spoke and the judge says nothing. Much larger blast
        radius than cycle 16's narrow gate — its own cycle, deliberately.
     3  relabel the 6 mislabelled clean rows in the generated set (titles of "i")
+
+## Cycle 17 — Board D, run for the first time (2026-09-15)
+
+**Prediction**, registered against the retrospective's deep-track-vs-fast-path
+gap (sealed 300, `split:"test"`, cited only as motivation — not as evidence,
+per protocol): since the isolated board already shows job 1 (`verdict.py`) is
+strong (97.5%+ catch), the loop's *connected* net effect was the one number
+this stage had never measured, and Board D's own docstring says so
+(`board_d.py:5`, *"this board has never run"*). Expected a small positive net,
+and expected reading the broken/fixed rows to point at whether any residual
+weakness is job 0 (`rescue.py`, unmeasured in isolation) or upstream.
+
+**Run 1** (`--checkpoint board_d_session1 -n 120`, fresh): 120 rows, 5 min,
+loop OFF 96/120 80.0%, ON 97/120 80.8%, **NET +1**. Read at the time as
+"noise-scale, not a liability" — **wrong, superseded within the hour by run 2**.
+The lesson survives on its own: 120 rows was not enough to trust a fixed-minus-
+broken count this small, and the direction itself flipped at scale.
+
+**Run 2 — the full population found on disk, and why its answer is INVALID
+for HEAD, corrected within the hour of being written.** Initially read as the
+real answer — 3,648 rows, dated 2026-09-11 02:17, NET −7, "the loop is a
+liability", plus a dominant delete-swallowing pattern (10+ of 16 broken rows
+turning a correct `delete_event` into an empty outcome). **All of that was
+measured against a system that stopped existing today.** `objects.py` — the
+FastRule module those 3,648 rows ran through — was dismantled on the
+`engine-component-folders` branch on 2026-09-10 (`11beb4a`), but that branch
+only merged into `main` **today**, 2026-09-15 (`9701f59`, 12:40). `main` on
+2026-09-11 02:17, when the overnight run actually executed, still had the OLD
+`objects.py`-based FastRule. Board D's checkpoint resume has no version
+check — `Checkpoint.has(rid)` is a bare id lookup, so replaying a row from a
+different code revision reads back as an ordinary cache hit. **The 3,648-row
+result and the delete-swallowing pattern are retracted as evidence about
+current HEAD.** They may describe a real defect in the code that existed
+until this morning; they say nothing confirmed about the code that exists
+now. Caught by tracing three of the "broken" rows directly against HEAD
+(`remove 'team meeting' from my calendar`, `delete vet appointment from my
+calender`, `clear open house off my calendar`) and finding a THIRD, different
+outcome for all three — see below.
+
+**So the only Board D reading that is actually about HEAD is run 1**: 120
+rows, fresh, NET +1 — noise-scale, and the honest state of this question is
+**still unmeasured at a size that means anything**. A trustworthy connected
+read of the post-merge loop needs a fresh run (real model calls, not a
+resumed checkpoint) at a size Gil is willing to spend the minutes on — the
+3,648-row pool took several hours overnight; CLAUDE.md's own checkpointing
+story is about exactly that kind of run.
+
+**What tracing those three rows against HEAD did surface, and it reproduces
+on every one of the three**: FastRule's `build()` throws
+`Validation failed for 'delete_event': Either match_title or
+match_start_time must be provided` on the FIRST parse, before the loop-back
+logic is even reachable — the SAME `decompose_validate` malformed-value
+defect `TASKS.md` filed on 2026-09-10 and never fixed, live again today, on
+both arms equally (confirmed by reproducing `board_d.py`'s own warm-up calls
+and frozen clock exactly, to rule those out as the difference). Since it
+fires identically pre- and post-loop, it cannot be what makes Board D's
+off/on arms diverge — but it is a real, currently-live defect, independent
+of this cycle's question. See `TASKS.md`'s 2026-09-10 entry, still open.
+
+**Novel effect, not predicted**: the run's stderr filled with the SAME
+pydantic rejections `TASKS.md` filed against `decompose_validate` on
+2026-09-10 and marked unfixed — `Either match_title or match_start_time must
+be provided` (empty-slot deletes) and `time must be HH:MM, got 'HH:MM:SS'` —
+plus **one shape TASKS.md's filing didn't have**: a full ISO datetime
+(`'2026-12-31T23:50:00'`) reaching the same HH:MM field. All three fire on
+BOTH arms of the same row (the defect is upstream of the judge, in
+`decompose_validate`/`fastrule`'s build), so they silently zero out the
+outcome on both sides and are invisible to Board D's fixed/broken/net split —
+they just sink both arms' accuracy together. `assistant/intent/rule_parser.py:
+634 _hhmm_from_iso`-shaped normalisation exists for the rule path; nothing in
+`decompose_validate/resolve.py` calls an equivalent before the value reaches
+the intent. **Five days old, still live, not this stage's bug to fix** — but
+a better-evidenced next target than anything internal to LLMJudge right now.
+
+**Process note for next time**: `Checkpoint`/`board_d.py` has no guard against
+resuming a checkpoint written under different code — `Checkpoint.has(rid)` is
+a bare id lookup with no code-revision fingerprint. A checkpoint found on disk
+should be treated as suspect until its date is checked against the git log of
+the code it exercises, the same discipline `STATUS.md` already applies to
+docs.
+
+**Run 3 — fresh, 400 rows, HEAD `c826c83`** (`--checkpoint
+board_d_head_c826c83`, named after the commit precisely so this cannot repeat
+run 2's mistake). Contains run 1's 120 rows as a prefix (same seed, same
+filtered pool, so `rows[:120] == rows[:400][:120]`) — supersedes it rather
+than adding to it.
+
+    correct, loop OFF   324/400  81.0%
+    correct, loop ON    324/400  81.0%
+    rows FIXED    1
+    rows BROKE    1
+    NET          +0
+
+**The clean answer this cycle was chasing.** Dead flat, and the single fixed
+and single broken row are unrelated one-offs (a `scrap` command the OFF arm
+missed entirely; a slow-down on a multi-clause create), not a repeat of the
+retracted delete-swallowing pattern — that pattern is confirmed specific to
+the pre-merge `objects.py`, not present on HEAD in this sample. **Read as
+settling the question**: on current HEAD, the connected loop is neither a
+liability nor a fix — negligible either way, converging toward zero as N grew
+(120 rows: +1 -> 400 rows: +0). Diminishing returns on scaling further; not
+recommending another round of this specific board without a reason to doubt
+the zero.
+
+**What dominates the miss instead, and it is not the loop**: the same
+`decompose_validate` malformed-value defect fired dozens of times across the
+400 rows — not just the two shapes TASKS.md filed 2026-09-10 (empty
+match_title/match_start_time on deletes; HH:MM:SS reaching an HH:MM field) but
+two more never logged before: a full ISO datetime reaching the same field, and
+the bare words **"morning"/"evening" reaching `start_time`/`end_time`
+directly**, unresolved to a clock time at all. Every one of these throws
+instead of committing a flagged best-effort object, so the item silently
+produces nothing on BOTH arms — a much larger share of the ~19% both-arms-wrong
+rows than anything inside this stage. **This is the actual next fix**, and it
+belongs to `decompose_validate`/`fastrule`, not LLMJudge.
+
+## Cycle 18 — the "malformed value" bug traced, and it was never
+decompose_validate's (2026-09-15)
+
+**Prediction, going in**: cycle 17 pointed at `decompose_validate` emitting
+values pydantic refuses. Tracing the exact `delete_event` shape
+(`Either match_title or match_start_time must be provided`) by running the
+three offending texts through the stages one at a time (not the whole engine
+at once) found something different at every layer:
+
+- `decompose_validate` resolves everything correctly.
+- **FastRule's `build()` also succeeds** — the deterministic rule parser
+  correctly extracts a valid `match_title` and constructs a fully valid
+  object.
+- `fastrule/stage.py`'s `_may_commit` refuses to let FastRule commit a
+  delete/update/complete on its own (`_COMMITTABLE = ("create", "query")`,
+  by design — "deleting is destructive"), so it wraps the ALREADY-CORRECT
+  object as `Defer("needs-target-check", ...)` and hands it to the model
+  for confirmation before it goes live.
+- **The hand-off was broken.** `Defer.partial` — the dataclass field that
+  has existed since this stage's restructure specifically for this, with
+  the comment *"what WAS read, so LLMJudge starts warm"* — was never
+  populated at this call site; `stage.py` only ever passed `fields={"action":
+  res.action}`. And on the receiving end, `rescue.py`'s `_Verdict.partial`
+  was hardcoded to `None` in `__init__` with nothing else in
+  `assistant/engine/` ever assigning it (confirmed by
+  `grep -rn '\.partial\s*=' assistant/engine/`). So `_ask_the_model` always
+  took the cold-parse branch — the model re-read the words from scratch,
+  with no idea FastRule had already solved it, and occasionally (measured
+  directly with logprobs, see below) gambled on leaving `match_title` empty.
+
+**Confidence, measured directly** (the model's own token logprobs, requested
+for the first time — nothing in the codebase asks Ollama for them today):
+on `"remove 'team meeting' from my calendar"` the model was confident (68%
+on its least-sure token) and never failed in 4 tries; on the two rows that
+DID flip between correct and empty across repeated identical calls
+("vet appointment", "open house"), the least-confident token sat at 37-43%.
+The uncertain token was the SAME spot every time — the opening quote of the
+`match_title` value — i.e. the model was not unsure what the answer was, it
+was unsure whether to commit to one at all. **Decided against building a
+confidence-threshold system on this**: it would cut against this stage's own
+founding rule (*"the model never judges, never scores... deterministic code
+does all the deciding"*), needs calibration data and adds a real request-size
+cost, and the actual fix was already a plumbing gap, not a modeling one.
+
+**Fix 1 — wire the hint that was already designed and never connected.**
+`fastrule/build.py`: `_read_action_words` now also returns the raw
+`RuleParseResult` (`rr`); `Built` gets a `rule_parse` field carrying it.
+`fastrule/stage.py`: the `needs-target-check` Defer's `fields` now carries
+`rr.raw_slots` / `.confidence` / `.transcript` / `.missing_slots` — JSON-safe
+primitives only, since `item.slots` crosses the stage boundary and has to
+stay that way (no back-edge into another stage's objects). `llmjudge/
+rescue.py`: `take_deferrals` reconstructs a `RuleParseResult` from those
+fields and sets it as `verdict.partial`, so `_ask_the_model` now takes the
+`parse_with_context` branch and the model sees *"Filled slot 'match_title':
+'team meeting'"* instead of nothing.
+
+**Fix 2 — a deterministic fallback for when the model still fails.**
+`llmjudge/rescue.py::_target_check_fallback`: on a `ParseError` from a
+`needs-target-check` item specifically (the only Defer reason this is
+reachable from a `Built`, per `stage.py`), re-run FastRule's own `build()` —
+cheap, deterministic, no model call — and use that object instead of failing
+the item outright. Scoped narrowly: every OTHER Defer reason means FastRule
+never built an object in the first place, so there is nothing to fall back
+to. Verified mechanically by forcing every model call to raise: 3/3 rows
+recovered, no exceptions, no generic "I couldn't read this part" message.
+
+**Measured, each fix on its own** (Gil, 2026-09-15: *"before goes into
+production every stage/component needs to be tested and measured at the
+very least"* — logged as [[feedback_test_measure_each_change]]):
+
+- Fix 1 alone: the three known-flaky rows go from a measured ~40-60%
+  per-call failure rate (the logprobs run above) to 18/18 across repeated
+  attempts. A fresh fresh 300-row Board D (`board_d_c826c83_partialfix`)
+  read 83.7%/82.3% vs the pre-fix 81.0%/81.0% — suggestive but not
+  conclusive at n=300 (95% CI on a proportion this size is roughly ±1.3 pt).
+- Fix 2 alone, same 300 rows: NET +2 on the loop, but the OFF arm itself
+  moved 83.7%→82.3% between two runs on the IDENTICAL row set with no loop
+  logic touched — Ollama's temperature (0.1, no seed pinned in the request)
+  is not fully deterministic, and 300 rows is not enough to separate that
+  from a real effect. **Board D was the wrong instrument for this
+  question** — most of its 3,648-row pool never reaches `needs-target-check`
+  at all, diluting the signal along with the noise.
+- **The real measurement**: every train row whose gold action is
+  update/delete/complete (884 rows, one model call each — no two-arm setup
+  needed) rather than a subsample of the whole board.
+  `targeted_fallback_c826c83`, 884 rows, 41 min:
+
+      needs-target-check reached          552 / 884
+      model's own attempt raised            2 / 552  =  0.4%
+      BEFORE fix 2 (raise = hard fail)    521 / 552  = 94.4%
+      AFTER  fix 2 (fallback engages)     523 / 552  = 94.7%
+      of the 2 that raised: fallback built something 2/2, correct 2/2
+
+**What it means**: the raw failure rate across the real population (0.4%) is
+far below what the three hand-picked adversarial rows suggested (~40-60%) —
+those were unusually hard cases (a quoted title, a misspelled "calender"),
+not representative. Fix 1 already does the heavy lifting, which is why the
+BEFORE number here is 94.4% rather than something alarming. Fix 2 is a
+small, cleanly-attributed, fully-verified safety net (+2 rows, both correct)
+for the residual — not the large lever it looked like from the board-level
+noise. Both fixes are tested (`tests/unit/test_fastrule.py`,
+`test_fastrule_build.py`, `test_engine_llmjudge.py`,
+`test_engine_contracts.py`, full unit suite: 1655 passed) and measured
+independently.
+
+**Corrected from cycle 17's framing**: the "morning"/"evening"/HH:MM:SS/ISO-
+datetime shapes are a REAL, separate, still-unaddressed defect family — but
+it was never `decompose_validate`'s per se either, going by this cycle's
+method; it needs the same per-stage trace before assuming where it lives.
+Two more shapes surfaced while measuring this cycle, both in `update_event`:
+bare relative-duration phrases reaching a clock field unresolved
+(`{'new_end_time': 'by an hour'}`, `{'new_end_time': '20 minutes'}`).
+
+**Next**: trace the time-resolution family the same way this cycle traced
+the target-check family — one text at a time, stage by stage — before
+assuming it is `decompose_validate`'s fix to make. Not started this cycle.

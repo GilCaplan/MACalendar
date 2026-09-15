@@ -725,6 +725,35 @@ half-populated.
 
 **Reproduce:** any `board_d` run prints them to stderr; `-n 200` is enough.
 
+**The first line (`delete_event`, empty match_title/match_start_time) is FIXED
+— 2026-09-15, `llmjudge/experiments/RESULTS.md` cycle 18 — and the "upstream of
+FastRule, none is LLMJudge's to fix" framing above was wrong for this one.**
+Traced stage-by-stage rather than assumed: `decompose_validate` and FastRule's
+`build()` both already resolve the target correctly; the model's OWN
+confirmation re-parse (`needs-target-check` → `llmjudge/rescue.py`) was
+occasionally discarding it, because the hand-off designed to show the model
+that answer (`Defer.partial`, "what WAS read, so LLMJudge starts warm") was
+dead code — `rescue.py`'s `_Verdict.partial` hardcoded to `None`, nothing else
+in `assistant/engine/` ever setting it. Two fixes, each tested and measured on
+its own: the hint is wired through (`fastrule/build.py`, `fastrule/stage.py`,
+`llmjudge/rescue.py`), and a deterministic fallback reuses FastRule's own build
+when the model still fails after being given it. Measured on the full
+update/delete/complete pool (884 rows, 552 reaching `needs-target-check`): raw
+model failure rate 0.4% (far below the ~40-60% three hand-picked adversarial
+rows suggested), 94.4% → 94.7% after the fallback. Full unit suite green
+(1655 passed). Not yet committed.
+
+**The other two lines (HH:MM:SS / seconds reaching a clock field, empty
+create_event title) are UNFIXED**, and two more shapes joined them
+2026-09-15: a full ISO datetime reaching the same field, bare
+`"morning"`/`"evening"` reaching `start_time`/`end_time` unresolved, and — in
+`update_event` specifically — a bare relative-duration phrase reaching a clock
+field (`{'new_end_time': 'by an hour'}`, `{'new_end_time': '20 minutes'}`).
+**Do not assume this is `decompose_validate`'s bug either** — that was the
+wrong guess for the delete-target line above, and cycle 18's method (trace one
+text through each stage individually, don't guess from the stack trace alone)
+is what found the real owner there. Next to investigate, not started.
+
 ## A queued command's "tomorrow" means the wrong day — DECISION NEEDED (2026-09-10)
 
 Found while making the offline queue behave. Not a bug with an obvious fix: a

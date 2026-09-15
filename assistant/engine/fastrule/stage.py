@@ -144,8 +144,22 @@ def run(state, cfg):
             # Built, but not ours to commit — see _may_commit. It still goes to
             # the model, and the object we made is not thrown away: it rides
             # along as the partial so the model starts from it.
+            #
+            # `fields` is what actually survives the trip — `item.slots` is the
+            # only carrier across the stage boundary (no back-edge into
+            # llmjudge), and it has to stay JSON-safe, so this is the rule
+            # parser's OWN raw_slots/confidence/transcript, not the built
+            # `BaseIntent` object itself. `Defer.partial` is left at its
+            # default here on purpose: nothing downstream reads it off a
+            # `Defer` directly — `llmjudge/rescue.py` reconstructs the partial
+            # from these `fields`, once the item's Defer has round-tripped
+            # through `item.slots["fastrule_defer"]`.
+            rr = res.rule_parse
+            hint = ({"raw_slots": rr.raw_slots, "rule_confidence": rr.confidence,
+                    "transcript": rr.transcript, "missing_slots": rr.missing_slots}
+                    if rr is not None else {})
             pending.append((item, Defer("needs-target-check",
-                                        fields={"action": res.action})))
+                                        fields={"action": res.action, **hint})))
             continue
         pending.append((item, res))
 
