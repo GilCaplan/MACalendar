@@ -914,12 +914,18 @@ def _recheck_not_found(state: EngineState, cfg, item) -> "tuple | None":
         state.trace.step(RULE, "Nothing matched — rechecking",
                          f"{(item.action or '').replace('_', ' ')} found no target "
                          "— asking the LLM instead")
+    parser = _generate._get_parser(cfg)
     try:
-        retried = _generate._get_parser(cfg).parse(state.text) or []
+        retried = parser.parse(state.text) or []
     except Exception as e:
         if state.trace:
             state.trace.step(LLM, "LLM", f"Unavailable ({e}) — keeping the answer", ok=False)
         return None
+    # Every other LLM caller does this (llm_fallback.py, llmjudge.py, decompose.py,
+    # text_repair.py, LLM_one_shot, old_seg/segment.py); this was the one that
+    # didn't, so a fast-path row that spent ~40 s here recorded `llm_ms: 0`
+    # against `total_ms: ~40,000` on every latency board (row 84, TASKS.md).
+    state.llm_ms += parser.last_llm_ms
     candidates = [(n, i) for n, i in retried if n != "unknown"]
     if len(candidates) == 1 and candidates[0][0] != item.action:
         if state.trace:

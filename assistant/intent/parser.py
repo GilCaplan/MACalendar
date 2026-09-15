@@ -271,16 +271,20 @@ class IntentParser:
         )
         try:
             engine = self.config.llm_engine
-            if engine == "ollama":
-                raw = self._call_ollama_verify(self._get_system_prompt(), "[SIDE TASK — ignore the JSON-envelope instructions above for this message]\n" + sys_prompt + "\n\n" + user_prompt)
-            elif engine == "openai":
-                raw = self._call_openai(sys_prompt, user_prompt)
-            elif engine == "gemini":
-                raw = self._call_gemini(sys_prompt, user_prompt)
-            elif engine == "claude":
-                raw = self._call_claude(sys_prompt, user_prompt)
-            else:
-                return None
+            t0 = time.perf_counter()
+            try:
+                if engine == "ollama":
+                    raw = self._call_ollama_verify(self._get_system_prompt(), "[SIDE TASK — ignore the JSON-envelope instructions above for this message]\n" + sys_prompt + "\n\n" + user_prompt)
+                elif engine == "openai":
+                    raw = self._call_openai(sys_prompt, user_prompt)
+                elif engine == "gemini":
+                    raw = self._call_gemini(sys_prompt, user_prompt)
+                elif engine == "claude":
+                    raw = self._call_claude(sys_prompt, user_prompt)
+                else:
+                    return None
+            finally:
+                self.last_llm_ms = int((time.perf_counter() - t0) * 1000)
             json_str = self._extract_json(raw)
             data = json.loads(json_str)
             title = data.get("title", "").strip().strip("\"'")
@@ -304,6 +308,7 @@ class IntentParser:
         or invalid JSON; caller decides how to handle validation of the parsed dict.
         """
         engine = self.config.llm_engine
+        t0 = time.perf_counter()
         try:
             if engine == "ollama":
                 raw = self._call_ollama_verify(self._get_system_prompt(), "[SIDE TASK — ignore the JSON-envelope instructions above for this message]\n" + sys_prompt + "\n\n" + user_prompt)
@@ -319,6 +324,13 @@ class IntentParser:
             raise
         except Exception as e:
             raise ParseError(f"Error calling {engine}: {e}") from e
+        finally:
+            # Unlike parse()'s dispatch, this one went uncounted — the transport
+            # half of row 84 (TASKS.md): `engine.llm.call_json`'s 5 production
+            # call sites time themselves externally and don't need this, but
+            # `last_llm_ms` itself should mean the same thing everywhere it's
+            # read, not just on the path that happened to get it first.
+            self.last_llm_ms = int((time.perf_counter() - t0) * 1000)
 
         json_str = self._extract_json(raw)
         try:
