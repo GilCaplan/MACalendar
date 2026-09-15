@@ -743,16 +743,61 @@ model failure rate 0.4% (far below the ~40-60% three hand-picked adversarial
 rows suggested), 94.4% → 94.7% after the fallback. Full unit suite green
 (1655 passed). Not yet committed.
 
-**The other two lines (HH:MM:SS / seconds reaching a clock field, empty
-create_event title) are UNFIXED**, and two more shapes joined them
-2026-09-15: a full ISO datetime reaching the same field, bare
-`"morning"`/`"evening"` reaching `start_time`/`end_time` unresolved, and — in
-`update_event` specifically — a bare relative-duration phrase reaching a clock
-field (`{'new_end_time': 'by an hour'}`, `{'new_end_time': '20 minutes'}`).
-**Do not assume this is `decompose_validate`'s bug either** — that was the
-wrong guess for the delete-target line above, and cycle 18's method (trace one
-text through each stage individually, don't guess from the stack trace alone)
-is what found the real owner there. Next to investigate, not started.
+**The HH:MM:SS/ISO-datetime/bare-phrase line is FIXED too — 2026-09-15,
+`llmjudge/experiments/RESULTS.md` cycle 19, and it was never
+`decompose_validate`'s bug either.** `decompose_validate.run_objects`
+already unconditionally re-resolves and overwrites `start_time`/`end_time`
+on every intent that reaches it — the model's own guess was always
+throwaway. The actual producer was `assistant/intent/parser.py::
+_parse_response`, constructing the model's raw JSON straight into pydantic
+without normalizing it first. Fixed with `_normalize_time_fields`: extract
+the HH:MM prefix an ISO datetime or HH:MM:SS carries, drop anything
+unparseable (a bare phrase, a relative duration like `"by an hour"`) to
+`None` rather than crash the item. Measured on the full create_event/
+update_event population (1,963 rows, ~54% of the eligible pool): 199 rows
+(10.1%) would have hit this; 73.6% → 79.8% correct overall, 122/199 of the
+recovered rows score fully correct. Full unit suite green (1655 passed).
+Not yet committed.
+
+**Empty create_event title is the one line still unfixed** from the
+original 2026-09-10 filing — smallest count (2/30) of the three, not yet
+traced.
+
+## Deferred — a structural convolution sweep over the engine (queued 2026-09-15)
+
+Gil asked for a pass over `assistant/engine/`'s seven areas (orchestrator +
+shared infra, ingest, segmentation, decompose_validate, fastrule, llmjudge,
+label) specifically for STRUCTURAL convolution — not correctness bugs, but
+places where the code's actual behavior has drifted from what its own
+comments/docstrings claim, fields/functions that exist but nothing reads or
+writes, a stage reaching into another's internals outside the documented
+Item/Defer boundary, or logic duplicated where it should be shared. Cycle
+18/19's own findings are the calibration example: `Defer.partial` existed,
+was documented ("what WAS read, so LLMJudge starts warm"), and was never
+wired end to end; `fastrule/stage.py` had a comment describing behavior the
+code next to it did not implement.
+
+**Deferred, not abandoned** — a 7-finder-plus-verifier workflow was launched
+and then stopped immediately (`wf_d0b846f7-7a5`, no findings produced) because
+weekly session quota was at 8% remaining at the time
+(`claude-session.py --advise`: "one lane only — finish what's in flight,
+don't start a wide batch"). Re-run once quota resets. The workflow script
+that was about to run is banked at
+`.claude/.../workflows/scripts/engine-structure-review-wf_d0b846f7-7a5.js`
+(session-local path, not in the repo) — re-invoke with that `scriptPath`
+rather than re-authoring it from scratch.
+
+## iPad view renders like the iPhone view — DEFERRED, not investigated (queued 2026-09-15)
+
+Gil, reported verbally, not yet reproduced or traced: the iPad layout looks
+like the iPhone layout rather than using the extra screen — sounds like a
+missing size-class / `UIUserInterfaceIdiom.pad` adaptation somewhere in
+`MACalendar-iOS/`, but that is a guess, not a finding; nobody has opened it
+on an iPad or the iPad simulator yet to confirm which views are affected.
+Belongs to the app stream (`../MACalendar-app` worktree, `app-features`
+branch) when picked up, not this checkout. Whoever starts this: the iOS
+simulator's own tap-automation isn't reliable for this project, so plan on a
+real device or manual simulator inspection rather than scripting it.
 
 ## A queued command's "tomorrow" means the wrong day — DECISION NEEDED (2026-09-10)
 

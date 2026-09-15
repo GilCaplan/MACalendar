@@ -30,6 +30,42 @@ from assistant.exceptions import (
 logger = logging.getLogger(__name__)
 
 
+#: Every parameter name that means a bare clock time, across every action.
+#: `match_start_time`/`match_end_time` included defensively — same failure
+#: shape is plausible there even though it was only observed on the others.
+_TIME_FIELDS = ("start_time", "end_time", "new_start_time", "new_end_time",
+                "match_start_time", "match_end_time")
+_HHMM = re.compile(r"^\d{2}:\d{2}$")
+#: An ISO datetime ("2026-09-09T14:45:00") or a clock with seconds
+#: ("18:00:00") both carry an HH:MM prefix; anything else (a bare phrase like
+#: "late afternoon", a relative duration like "by an hour") has none.
+_HHMM_PREFIX = re.compile(r"(?:^|T)(\d{2}:\d{2})(?::\d{2})?")
+
+
+def _normalize_time_fields(parameters: dict) -> dict:
+    """`decompose_validate.run_objects` RE-RESOLVES every clock field from the
+    item's own words and overwrites whatever is on the intent, unconditionally,
+    for every object that reaches it (`stage.py::_resolve_onto_intent`) — so
+    what the model puts here is thrown away regardless of whether it is right.
+    Measured 2026-09-15 (`llmjudge/experiments/RESULTS.md` cycle 19): the model
+    sometimes answers with a full ISO datetime, a clock WITH seconds, or the
+    bare English phrase instead of "HH:MM", and pydantic's `CalendarIntent`
+    validator — correctly, "a time is HH:MM" — refuses the whole object over a
+    value that was never going to survive to the calendar. Extract the HH:MM
+    prefix an ISO datetime or an HH:MM:SS both carry; drop anything else
+    (`fill_defaults` fills a placeholder, and `run_objects` replaces it) rather
+    than losing the item over a field decompose_validate owns anyway.
+    """
+    out = dict(parameters)
+    for field in _TIME_FIELDS:
+        v = out.get(field)
+        if not isinstance(v, str) or not v or _HHMM.match(v):
+            continue
+        m = _HHMM_PREFIX.search(v)
+        out[field] = m.group(1) if m else None
+    return out
+
+
 # --- Intent Metadata ---
 
 class UnknownIntent(BaseIntent):
@@ -737,7 +773,8 @@ class IntentParser:
                 continue
 
             try:
-                intent = action_cls.intent_model.model_validate(parameters)
+                intent = action_cls.intent_model.model_validate(
+                    _normalize_time_fields(parameters))
                 results.append((action_name, intent))
             except Exception as e:
                 raise ParseError(f"Validation failed for '{action_name}': {e}") from e

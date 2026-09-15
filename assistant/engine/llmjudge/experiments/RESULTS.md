@@ -1363,3 +1363,60 @@ bare relative-duration phrases reaching a clock field unresolved
 **Next**: trace the time-resolution family the same way this cycle traced
 the target-check family — one text at a time, stage by stage — before
 assuming it is `decompose_validate`'s fix to make. Not started this cycle.
+
+## Cycle 19 — the time-resolution family, traced and fixed (2026-09-15)
+
+Followed cycle 18's own method rather than guessing: found real reproducing
+rows first (`scan_time_bug.py`, 300 create_event/update_event train rows,
+one model call each), then traced the mechanism. All 4 real hits share a
+shape: `decompose_validate.run_objects`/`_resolve_onto_intent`
+(`stage.py:147-160`) **unconditionally re-resolves and overwrites**
+`start_time`/`end_time` from the item's own words on EVERY intent that
+reaches it, model-built or FastRule-built — so whatever the model puts in
+those fields is pure throwaway. The crash happens earlier: `assistant/
+intent/parser.py::_parse_response` constructs the model's raw JSON straight
+into the pydantic intent, and when the model answers with a full ISO
+datetime (`'2026-09-09T14:45:00'`), a clock with seconds (`'18:00:00'`), or
+the bare phrase itself (`'late afternoon'`), the validator correctly refuses
+it — over a value about to be discarded regardless. None of the 4 had a
+fix-18 partial hint (they hit `skip`/`generic-title`, not
+`needs-target-check`), so fixing that path doesn't reach this one.
+
+**Fix**: `parser.py::_normalize_time_fields`, called on `parameters` right
+before `model_validate` in `_parse_response`. Extracts the HH:MM prefix an
+ISO datetime or an HH:MM:SS both carry; drops anything else (a phrase, a
+relative duration like `"by an hour"`) to `None` rather than crash — `fill_
+defaults` stamps a placeholder and `run_objects` replaces it with the real
+value regardless, exactly as it already does for a value the model never
+supplied at all. Fixes the producer's OUTPUT normalization, not the
+validator — "a time is HH:MM" stays true.
+
+Verified against all 4 real reproducing rows: 4/4 build cleanly now: title
+and action both correct in every case; the only messages left are the
+system's existing HONEST FLAGS for a value it can't ground (e.g. "end_time
+= 19:00 — nothing in the words said it"), not crashes.
+
+**Measured on the full population** — every create_event/update_event train
+row (1,963 rows, the single largest action family, ~54% of the whole
+eligible pool), one model call each, "before" reconstructed in the same run
+by spying on whether the normalizer actually changed a value (it does that
+only when a fix-18-style before/after would apply, so no second pass or
+model call needed):
+
+    would have raised the HH:MM error   199 / 1963  =  10.1%
+    BEFORE this fix   1444/1963 = 73.6%
+    AFTER  this fix   1566/1963 = 79.8%
+    of the 199 that would have raised: 122/199 = 61.3% now score correct
+
+**+6.2 points on the largest action family in the dataset** — a much bigger
+lever than cycle 18's fix (+0.3 pt on a 552-row subset). The other 77 of the
+199 recovered-from-crashing rows still don't match gold — not regressions
+(they were failing before too), just not free wins either; a different
+defect each, not one shared cause worth chasing as a block. Full unit
+suite green throughout (1655 passed, 2 skipped, 1 xfailed).
+
+**Not yet committed** — session weekly quota dropped to 8% remaining mid-cycle
+(`claude-session.py --advise`), so a planned structural-convolution sweep
+over the rest of the engine was deferred (`TASKS.md`, queued 2026-09-15)
+rather than run as a wide multi-agent batch against the advice. This fix
+itself was cheap (no subagents) and is unaffected.
