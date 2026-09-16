@@ -6,30 +6,54 @@ from becoming convoluted. This file is how the stage WORKS.
 
 ---
 
-## 0 · Where this stage stands — 2026-09-09
+## 0 · Where this stage stands — 2026-09-16
 
 **Wired and live**: `IMPLEMENTATION = "fastseg"`, LLMSeg off, 0 model calls.
 Verified end to end through `engine.run_transcript`, not inferred from the boards.
 
 | | train (1,051 rows) | **SEALED (660 rows)** |
 |---|---|---|
-| exact-set (actions) | 76.6% | **75.5%** |
-| exact-row (action+time+tag) | 68.2% | **66.5%** |
-| **the CUT alone** — right item count | 85.3% | **81.4%** |
-| item precision · recall · F1 | 96.8 · 92.4 · 94.6 | **97.0 · 90.6 · 93.7** |
-| over-split · under-split | 46 · 108 | **28 · 95** |
-| time on a **spoken** time | 91.9% | **93.5%** |
-| tag accuracy | 89.7% | **90.2%** |
-| A2 — 2 of 3 fields | 91.6% | **93.6%** |
+| exact-set (actions) | 77.1% | **76.5%** |
+| exact-row (action+time+tag) | 68.6% | **67.4%** |
+| **the CUT alone** — right item count | 85.8% | **82.4%** |
+| item precision · recall · F1 | 96.8 · 92.7 · 94.7 | **97.0 · 91.2 · 94.0** |
+| over-split · under-split | 46 · 103 | **28 · 88** |
+| time on a **spoken** time | 92.2% | **93.4%** |
+| tag accuracy | 89.8% | **90.3%** |
+| A2 — 2 of 3 fields | 91.9% | **93.6%** |
 | NO-INVENTION violations | 0 | **0** |
-| cost | **0 model calls**, 3.5 s for 1,051 rows | same |
-| **downstream, end to end** | **85.9%** rows fully right | — |
+| cost | **0 model calls**, ~3 s for 1,051 rows | same |
+| **downstream, end to end** | 85.9% rows fully right *(not re-measured this pass)* | — |
 
 **The sealed half was read once, at the milestone, aggregates only** — and it
 holds: within 1–4 points of train on every metric and BETTER on five of them
 (tag, time-on-spoken, item precision, 2-of-3, over-split rate). The largest gap is
-item count, −3.9, which is the CUT — the part deliberately left unfinished. Work
+item count, −3.4, which is the CUT — the part deliberately left unfinished. Work
 that had been fitted to the train half would not look like this.
+
+**2026-09-16 — the compound-chain fix.** `assistant/intent/coordination.py`'s
+`_compound_command_verb` (the rescue that finds a command verb mis-tagged as a
+compound modifier — "remind me to wash the car and then **book** tennis
+lesson") only searched the conjunct's DIRECT children. spaCy parses a
+two-word object as either a flat sibling pair (`book`/`tennis` both children
+of `lesson`) or a nested chain (`book`→compound→`yoga`→compound→`class`)
+depending on the words, and the direct-children search missed the chained
+shape — "remind me to water the plants and then **book yoga class**" stayed
+one item. Fixed by walking the compound chain instead of just direct
+children, same safety gate (conjunct's head must be VERB/AUX/ROOT — the exact
+check that keeps "buy apples and water bottles" from splitting) unchanged.
++5 rows on train (108→103 under-split, over-split unchanged at 46 — no new
+false positives), +7 rows on sealed test (95→88 under-split, exact-set
+498→505), read once at this milestone. Full unit suite: 1691 passed —
+`coordination.py` is shared with FastRule's own compound gate, so this was
+checked beyond segmentation's own tests. A second, harder failure mode in the same trap
+family was found and left alone: when the hidden verb's conjunct attaches to
+the FIRST verb's own OBJECT rather than to the first verb directly
+("confirm the reservation and then **book** webinar" — parses with `webinar`
+conjunct of `reservation`, not of `confirm`), it is structurally
+indistinguishable from real NP-coordination ("buy apples and water
+bottles") without deeper lexical judgement, so widening the gate itself risks
+the exact false positive it exists to prevent. Filed, not fixed.
 
 ### THE BINDING CONSTRAINT IS NOW THE CUT
 
@@ -43,8 +67,11 @@ is the cut, and three readings say so independently:
 
 An 18-point gap between single- and multi-ask rows; under-split more than twice
 over-split, so the failure is *not cutting* rather than cutting wrongly; and every
-worst trap is a compound — `remind_then` 43.8%, `joiner` 46.2%, `and_compound`
-46.4%, `texture` 48.6%.
+worst trap is a compound. **2026-09-16, after the compound-chain fix above:**
+`remind_then` 43.8% → 50.0%, `and_compound` 46.4% → 53.6%, `joiner` 46.2% →
+52.6%; `texture` was already 41.7% (the 48.6% this line used to quote was
+stale, not a regression from this fix — checked against the pre-fix run).
+Still the worst four, still compounds, still the CUT's own open ground.
 
 The oracle ablation bounds it: perfect everything on correctly-cut rows is 84.5%,
 so the cut caps the row metric no matter how good the rest gets.

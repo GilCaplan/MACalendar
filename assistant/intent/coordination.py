@@ -344,6 +344,14 @@ def _compound_command_verb(tok):
     `lesson` as the conjunct and `book` as its compound — the verb is there,
     just mis-tagged. Only a modifier BEFORE the noun counts, and only one from
     the parser's own verb inventory, so "tennis lesson" stays one thing.
+
+    The compound can sit ONE level down too: "book yoga class" parses as a
+    CHAIN (`book` compound-of `yoga` compound-of `class`), not the flatter
+    two-siblings shape of "book tennis lesson" (`book` and `tennis` both
+    direct children of `lesson`) — spaCy picks whichever shape fits its own
+    parse of the two-word object, and both are real. A direct-children-only
+    search missed the chained form, so "remind me to water the plants and
+    then book yoga class" stayed one item.
     """
     if tok.pos_ not in ("NOUN", "PROPN"):
         return None
@@ -357,9 +365,21 @@ def _compound_command_verb(tok):
     head = tok.head
     if head.pos_ not in ("VERB", "AUX") and head.dep_ != "ROOT":
         return None
-    for child in tok.children:
-        if child.dep_ == "compound" and child.i < tok.i and _is_command_verb(child):
-            return child
+    # Walk the COMPOUND CHAIN leading up to the conjunct, not just its direct
+    # children, so a nested parse is found the same as a flat one. Restricted
+    # to dep_ == "compound" links and tokens before `tok`, same as before —
+    # only the search widened, not what counts as a hit.
+    frontier = [tok]
+    seen: set = set()
+    while frontier:
+        cur = frontier.pop()
+        for child in cur.children:
+            if child.dep_ != "compound" or child.i >= tok.i or child.i in seen:
+                continue
+            seen.add(child.i)
+            if _is_command_verb(child):
+                return child
+            frontier.append(child)
     return None
 
 
