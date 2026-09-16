@@ -135,6 +135,51 @@ def _rule_max_duration_cap(state, intent, cfg) -> None:
     intent.end_time = capped
 
 
+def _rule_quiet_hours_flag(state, item, intent, cfg) -> None:
+    """A window the engine will not place a start or end time in without
+    saying so (`engine.quiet_hours_start`/`_end`, default 23:00-06:00).
+
+    A FLAG, NOT A BLOCK — same shape as the observance gate just below: ANY
+    engine-built `create_event`, whether the time came from the speaker's own
+    words or a default, gets a note the speaker can act on rather than a
+    silent change. Runs after `_rule_max_duration_cap` so it flags the FINAL
+    end_time, not one a clip is about to replace.
+    """
+    eng = getattr(cfg, "engine", None)
+    win_start = getattr(eng, "quiet_hours_start", None) or "23:00"
+    win_end = getattr(eng, "quiet_hours_end", None) or "06:00"
+    try:
+        wsh, wsm = map(int, win_start.split(":"))
+        weh, wem = map(int, win_end.split(":"))
+    except (ValueError, AttributeError):
+        return
+    win_start_min = wsh * 60 + wsm
+    win_end_min = weh * 60 + wem
+    if win_start_min == win_end_min:
+        return                        # a zero-width window flags nothing
+
+    def _in_window(hhmm) -> bool:
+        try:
+            h, m = map(int, hhmm.split(":"))
+        except (ValueError, AttributeError, TypeError):
+            return False
+        t = h * 60 + m
+        if win_start_min < win_end_min:
+            return win_start_min <= t < win_end_min
+        return t >= win_start_min or t < win_end_min          # spans midnight
+
+    which = [label for label, val in (("start", getattr(intent, "start_time", None)),
+                                       ("end", getattr(intent, "end_time", None)))
+             if val and _in_window(val)]
+    if not which:
+        return
+    reason = (f"{' and '.join(which)} time is inside quiet hours "
+              f"({win_start}–{win_end})")
+    state.add_fix("validate", "flag:quiet_hours",
+                  getattr(intent, "title", ""), "", note=reason)
+    item.slots.setdefault("flags", []).append(f"quiet_hours: {reason}")
+
+
 def _rule_morning_title_guard(state, intent, transcript) -> None:
     """A morning word in the event's OWN title means morning — "Shacharit at
     6:30" was booked at 18:30. Scoped to the title so one "Shacharit" cannot

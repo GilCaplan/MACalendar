@@ -220,12 +220,14 @@ def run_objects(state: EngineState, cfg) -> EngineState:
             # A FLAG, NOT A BLOCK (Gil, 2026-09-08). The verdict's logic is
             # unchanged; only what happens to it is. A blocked item is a command
             # that silently did nothing, and the speaker is better served by the
-            # event existing with a note they can act on.
+            # event existing with a note they can act on. `_rule_quiet_hours_flag`
+            # (2026-09-16) is the same shape for a night-time window.
             reason = _gate._observance_verdict(intent, cfg)
             if reason:
                 state.add_fix("validate", "flag:observance",
                               getattr(intent, "title", ""), "", note=reason)
                 item.slots.setdefault("flags", []).append(f"observance: {reason}")
+            _obj._rule_quiet_hours_flag(state, item, intent, cfg)
         elif action == "create_todo":
             _target._rule_create_from_remove_guard(state, item, intent)
             if item.intent is None:

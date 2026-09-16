@@ -599,6 +599,14 @@ def _commit(state: EngineState, cfg) -> None:
             elif ctx.last_todo_id != td_before and ctx.last_todo_id is not None:
                 record = ("todo", ctx.last_todo_id, item.action, idx)
             state.messages.append(result or "")
+            # A FLAG, NOT A BLOCK (Gil, 2026-09-08; observance and quiet-hours
+            # share this mechanism) is only honest if it reaches the speaker —
+            # `item.slots["flags"]` was written since the observance gate's
+            # 2026-09-08 rewrite but nothing ever read it back until now, so
+            # every flagged event committed with no note at all.
+            for flag in item.slots.get("flags") or []:
+                reason = flag.split(": ", 1)[-1] if ": " in flag else flag
+                state.messages.append(f"Note: {reason}.")
             state.executed.append(ExecutedAction(
                 item_id=item.id, action=item.action, message=result or "",
                 ok=True, record=record))

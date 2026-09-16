@@ -146,6 +146,32 @@ def test_a_blocked_item_is_reported_never_silent(monkeypatch, cfg):
     assert st.executed == []
 
 
+def test_an_item_flag_reaches_the_reply(monkeypatch, cfg):
+    # item.slots["flags"] has been written by the observance gate (and now
+    # quiet_hours) since 2026-09-08, but nothing ever read it back until
+    # commit started surfacing it here — a flagged event used to commit with
+    # no note in the reply at all, silently, despite "a flag, not a block".
+    _fake_registry(monkeypatch, {"create_event": ["Created event 'gym'."]})
+    st = EngineState(raw_text="gym at 5am", text="gym at 5am")
+    st.items = [Item(id="item_1", kind="event", text="gym at 5am",
+                     action="create_event",
+                     intent=SimpleNamespace(title="gym"),
+                     slots={"flags": ["quiet_hours: start time is inside "
+                                      "quiet hours (23:00–06:00)"]})]
+    engine._commit(st, cfg)
+    assert any(m.startswith("Note: start time is inside quiet hours")
+               for m in st.messages)
+
+
+def test_an_item_with_no_flags_gets_no_extra_note(monkeypatch, cfg):
+    _fake_registry(monkeypatch, {"create_event": ["Created event 'gym'."]})
+    st = EngineState(raw_text="gym at 9am", text="gym at 9am")
+    st.items = [Item(id="item_1", kind="event", text="gym at 9am",
+                     action="create_event", intent=SimpleNamespace(title="gym"))]
+    engine._commit(st, cfg)
+    assert st.messages == ["Created event 'gym'."]
+
+
 # --- offline queue ---------------------------------------------------------
 
 def test_llm_offline_queues_the_command(monkeypatch):

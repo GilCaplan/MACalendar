@@ -657,7 +657,9 @@ splitting ("buy chicken and rice"); same-activity multi-time split ("walk
 the dog at 9 and 2:30" → two events); prompt-injection defense (refuses
 "ignore previous instructions" transcripts); max-duration cap (a `create_event`
 the engine itself builds longer than `engine.max_event_hours`, 4 by default,
-is clipped from the end — never a manual GUI edit).
+is clipped from the end — never a manual GUI edit); quiet-hours flag (a start
+or end time inside `engine.quiet_hours_start`/`_end`, 23:00–06:00 by default,
+is flagged in the reply rather than changed, spoken or defaulted alike).
 
 ### The one-shot LLM engine — a measuring instrument
 

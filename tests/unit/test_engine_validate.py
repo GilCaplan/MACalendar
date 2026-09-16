@@ -209,6 +209,79 @@ def test_an_unresolved_end_before_start_is_not_this_rules_to_fix(cfg):
     assert "max_duration_cap" not in _rules_applied(st)
 
 
+# --- quiet_hours_flag (engine-built events only, config: engine.quiet_hours_start/_end) --
+
+def test_a_start_time_inside_quiet_hours_is_flagged_not_changed(cfg):
+    it = _item("create_event", _event_intent(
+        title="flight", date="2026-09-10", start_time="05:00", end_time="06:00"))
+    st = _state("book flight tomorrow at 5am", [it])
+    validate.run_objects(st, cfg)
+    assert it.intent.start_time == "05:00"    # a flag, never a clip
+    assert it.intent.end_time == "06:00"
+    assert "flag:quiet_hours" in _rules_applied(st)
+    assert any(f.startswith("quiet_hours:") for f in it.slots["flags"])
+
+
+def test_a_time_outside_quiet_hours_is_not_flagged(cfg):
+    it = _item("create_event", _event_intent(
+        title="gym", date="2026-09-10", start_time="09:00", end_time="10:00"))
+    st = _state("book gym tomorrow at 9", [it])
+    validate.run_objects(st, cfg)
+    assert "flag:quiet_hours" not in _rules_applied(st)
+    assert "flags" not in it.slots
+
+
+def test_only_the_endpoint_that_falls_in_the_window_is_named(cfg):
+    # 22:00-23:30: the start is a normal evening hour, only the end dips into
+    # the default 23:00-06:00 window.
+    it = _item("create_event", _event_intent(
+        title="party", date="2026-09-10", start_time="22:00", end_time="23:30"))
+    st = _state("party tomorrow 10pm to 11:30pm", [it])
+    validate.run_objects(st, cfg)
+    reason = next(f for f in it.slots["flags"] if f.startswith("quiet_hours:"))
+    assert "end" in reason and "start" not in reason
+
+
+def test_the_window_boundary_is_start_inclusive_end_exclusive(cfg):
+    it = _item("create_event", _event_intent(
+        title="checkin", date="2026-09-10", start_time="23:00", end_time="23:59"))
+    st = _state("checkin tomorrow at exactly 11pm", [it])
+    validate.run_objects(st, cfg)
+    assert "flag:quiet_hours" in _rules_applied(st)     # 23:00 is inside (start of window)
+
+
+def test_the_quiet_hours_window_is_configurable(cfg):
+    cfg.engine.quiet_hours_start = "12:00"
+    cfg.engine.quiet_hours_end = "13:00"
+    it = _item("create_event", _event_intent(
+        title="lunch", date="2026-09-10", start_time="12:30", end_time="13:00"))
+    st = _state("book lunch tomorrow at 12:30", [it])
+    validate.run_objects(st, cfg)
+    assert "flag:quiet_hours" in _rules_applied(st)
+
+
+def test_a_zero_width_window_never_flags(cfg):
+    cfg.engine.quiet_hours_start = "23:00"
+    cfg.engine.quiet_hours_end = "23:00"
+    it = _item("create_event", _event_intent(
+        title="party", date="2026-09-10", start_time="23:00", end_time="23:59"))
+    st = _state("party tomorrow at 11pm", [it])
+    validate.run_objects(st, cfg)
+    assert "flag:quiet_hours" not in _rules_applied(st)
+
+
+def test_update_event_is_never_flagged_by_quiet_hours(cfg):
+    # Only create_event is wired to this rule (object_rules.py's own scope,
+    # matching every other engine-only rule here) — an update landing at 3am
+    # is the speaker moving their OWN existing event, not a new construction.
+    it = _item("update_event", _event_intent(
+        title="dentist", match_title="dentist", start_time="03:00", end_time="04:00"),
+        kind="event")
+    st = _state("move dentist to 3am", [it])
+    validate.run_objects(st, cfg)
+    assert "flag:quiet_hours" not in _rules_applied(st)
+
+
 # --- due_date_pin ------------------------------------------------------------
 
 def test_due_next_monday_is_deterministic(cfg):

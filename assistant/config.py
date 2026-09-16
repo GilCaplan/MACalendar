@@ -263,6 +263,11 @@ class EngineConfig(BaseModel):
     # applied to a manual GUI edit, which never reaches this stage. Exceeding
     # it clips end_time back to start_time + this many hours.
     max_event_hours: float = 4.0
+    # A window the engine will not place a start or end time in without
+    # saying so — a FLAG, not a clip, on ANY engine-built create_event
+    # (spoken or defaulted). "HH:MM"; start > end means it spans midnight.
+    quiet_hours_start: str = "23:00"
+    quiet_hours_end: str = "06:00"
 
 
 class LabelsConfig(BaseModel):
