@@ -198,7 +198,7 @@ The words then name no day at all, so there is nothing to repair from, and scori
 it as a failure would push validate toward guessing. That is a test of
 clairvoyance, not of validation.
 
-### Where it stands — 2026-09-08
+### Where it stands — 2026-09-16
 
 **Gold-fed items**, so a segmentation slip is never charged here.
 
@@ -206,17 +206,32 @@ The stage has two jobs, so it is measured two ways. **Clean** runs validate over
 decompose's own output and asks *does it damage correct work?* **Perturbed**
 injects defects and asks *does it repair?*
 
-| | train (1,924 / 296 fam) | **sealed test (840 / 21 fam)** |
+Grown a `period_clock` family this cycle (period-separated clock times,
+"11.15am" / bare "14.30") after a real live-usage row split "11.15 AM" into
+"11" + "15 AM" and read the clock as 15:00 — traced and fixed in `fastseg.py`
+and `resolve.py`, then this family added so it stays fixed. 100.0% (80/80
+train, 40/40 sealed test) on its own.
+
+| | train (2,004 / 298 fam) | **sealed test (880 / 22 fam)** |
 |---|---|---|
-| all fields exact — clean | 99.9% (1923/1924) | **98.7% (829/840)** |
-| all fields exact — perturbed | 99.9% (1923/1924) | 99.4% |
-| perturbed, WITHOUT validate | — | 31.2% (262/840) |
-| date · start_time (clean) | 100% · 99.9% | 99.1% · 99.9% |
+| all fields exact — clean | **100.0%** (2003/2004) | **98.8%** (873/880) |
+| perturbed, WITHOUT validate | — | — |
+| date · start_time (clean) | 100% · 99.9% | 99.5% · 99.9% |
 | end_time · recurrence · quantity · reminder | 100% each | **100% each** |
 | inventions · lost · contradictions | 0 · 0 · 0 | 0 · 0 · 0 |
-| board G — improved / **BROKE** | 1684 / **0** | — / **0** |
-| harm / matched item | 0.000 | 0.044 |
+| board G (perturbed) — improved / **BROKE** | — | 706 / **1** |
+| harm / matched item | 0.002 | 0.019 |
 | cost | 0 model calls, 0.000 s/row | same |
+
+The one remaining train failure is `series_bound`, unrelated to this cycle:
+"every thursday training session at morning through tonight" resolves
+09:00–12:00 in gold ("at morning") but 19:00–22:00 in practice — `window_for`
+matches whichever coarse part-of-day word it checks first when TWO appear in
+one sentence in different roles (the daily clock vs. the series' own bound),
+not by which one is actually in the daily-time clause. Not traced further
+this cycle. `--perturb`'s "WITHOUT validate" baseline for train and the
+prior table's exact re-run were not re-measured this pass; re-run with
+`--perturb` for a fresh baseline before citing that row again.
 
 ### H · END TO END — the honest number, and the attribution (2026-09-09)
 

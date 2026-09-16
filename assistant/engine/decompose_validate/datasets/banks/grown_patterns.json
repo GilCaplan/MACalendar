@@ -439,5 +439,32 @@
   "events": 0,
   "tasks": 0,
   "template": "what is on my calendar {query_range}"
+ },
+ {
+  "family": "dv_period_clock_1",
+  "nuance": "period_clock",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "book {event_title} {date} at {period_time}"
+ },
+ {
+  "family": "dv_period_clock_2",
+  "nuance": "period_clock",
+  "action": "add_todo",
+  "atomic": true,
+  "events": 0,
+  "tasks": 1,
+  "template": "remind me to {task_title} at {period_time}"
+ },
+ {
+  "family": "dv_period_clock_3",
+  "nuance": "period_clock",
+  "action": "create_event",
+  "atomic": false,
+  "events": 2,
+  "tasks": 0,
+  "template": "book {event_title} at {period_time} and {event_title2} at {period_time2}"
  }
 ]

@@ -126,6 +126,18 @@
   "late afternoon",
   "around lunchtime"
  ],
+ "period_times": [
+  "11.15am",
+  "11.15 am",
+  "9.05pm",
+  "2.30pm",
+  "6.45pm",
+  "8.15am",
+  "14.30",
+  "09.15",
+  "13.45",
+  "20.00"
+ ],
  "time_ranges": [
   "from 4 to 6",
   "between 3 and 5",

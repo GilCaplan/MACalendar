@@ -53,7 +53,8 @@ from assistant.engine.segmentation.fastseg import invariant                  # n
 #: ("tomorrow ... at 7"), and each distributes independently.
 _DAY_SLOTS = {"date", "date2", "date3", "recurrence", "recurrence2",
               "query_range", "query_range2"}
-_CLOCK_SLOTS = {"time", "time2", "time3", "time_range", "lead_time"}
+_CLOCK_SLOTS = {"time", "time2", "time3", "time_range", "lead_time",
+                "period_time", "period_time2"}
 _TIME_SLOTS = _DAY_SLOTS | _CLOCK_SLOTS
 
 #: `duration` ("by 30 minutes") modifies an update; it is not when the thing
@@ -253,7 +254,14 @@ _FILL = {"event_title": "event_titles", "event_title2": "event_titles",
          # row can change. decompose_validate's grown families use it.
          "event_duration": "event_durations",
          "quoted_item": "quotable", "generic_target": "generic_targets",
-         "query_range": "query_ranges", "query_range2": "query_ranges"}
+         "query_range": "query_ranges", "query_range2": "query_ranges",
+         # Purely additive, same as `event_duration` above: no segmentation
+         # template uses this slot, so no existing row can change.
+         # decompose_validate's own grown families use it (period-separated
+         # clock times, "11.15am" — 2026-09-16, kept out of the shared
+         # "times" bank on purpose so growing it can never perturb which
+         # filler an EXISTING family's `{time}` draw picks).
+         "period_time": "period_times", "period_time2": "period_times"}
 
 
 def _bind(template: str, banks: dict, rng: random.Random) -> dict:

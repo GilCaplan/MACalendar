@@ -124,9 +124,15 @@ def _norm_for(slot: str, value: str, anchor: dt.date, transcript: str = ""):
     base = slot.rstrip("23")
     if base in ("date", "query_range"):
         return N.resolve_date(value, anchor)
-    if base == "time":
+    if base in ("time", "period_time"):
         return N.resolve_time(value, transcript)   # `transcript` is the item's own
                                                    # words here; see _gold_item
+                                                   # `period_time` is its OWN bank
+                                                   # (grown_fillers.json), not
+                                                   # merged into "times" -- so
+                                                   # growing it can never shift
+                                                   # which filler an EXISTING
+                                                   # family's `{time}` draw picks
     if base == "time_range":
         return N.TIME_RANGES.get(value.strip().lower())
     if base == "recurrence":
@@ -206,7 +212,7 @@ def _gold_item(spec: dict, binding: dict, anchor: dt.date, transcript: str = "")
                 saw_day = True
             if hint:
                 coarse = hint            # applied after the loop, see below
-        elif base == "time":
+        elif base in ("time", "period_time"):
             item["start_time"] = got
             win = N.window(raw)
             if win:                       # a coarse part of day sets its END too

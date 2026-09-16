@@ -249,6 +249,18 @@ TIMES = {
     # 24-hour, which the set had exactly one of.
     "09:30": "09:30", "13:00": "13:00", "15:30": "15:30", "18:45": "18:45",
     "20:00": "20:00",
+    # PERIOD as the hour/minute separator ("11.15am"), 2026-09-16 growth —
+    # added after a real live-usage row spoke "11.15 AM" and the engine split
+    # it into "11" + "15 AM", reading the clock as 15:00. am/pm-qualified
+    # forms are unambiguous, same as the colon ones above. Bare (no am/pm)
+    # forms are included ONLY at hour >= 9, where fastseg/resolve.py's own
+    # bare-period pattern reads them as 24-hour directly rather than applying
+    # the bare-hour PM-bias heuristic — that heuristic's OWN independent gold
+    # already exists in BARE_HOURS below and a period-separated bare hour < 9
+    # is not yet covered there.
+    "11.15am": "11:15", "11.15 am": "11:15", "9.05pm": "21:05",
+    "2.30pm": "14:30", "6.45pm": "18:45", "8.15am": "08:15",
+    "14.30": "14:30", "09.15": "09:15", "13.45": "13:45", "20.00": "20:00",
     # Spoken, but with the half of day SAID -- so still unambiguous.
     "seven in the morning": "07:00", "nine in the morning": "09:00",
     "eight in the evening": "20:00", "ten thirty in the morning": "10:30",
