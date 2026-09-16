@@ -249,7 +249,111 @@ def clause_boundaries(text: str) -> "list[Boundary]":
             b = _boundary_at(doc, tok, text)
             if b is not None:
                 found.append(b)
+    if not found:
+        found = _lexicon_fallback_boundaries(doc, text)
     return found
+
+
+#: "remind me a day before", "notify me two hours before", "give me a heads
+#: up 30 minutes before", "warn me a week before that" — a lead time on the
+#: FIRST clause's own event, never a second ask by itself. Matched against a
+#: candidate second clause's FULL text (`^...$`) rather than searched for,
+#: because a clause that says MORE than this ("remind me to call the vet in
+#: an hour" has its own object, "call the vet") is a real second ask that
+#: happens to carry a lead-time-shaped tail, not this idiom.
+_REMINDER_LEAD_RE = re.compile(
+    r"^(?:(?:remind|notify|warn)\s+me|give\s+me\s+a\s+(?:heads?\s+up|nudge))\s+"
+    r"(?:\d+|a|an|half\s+an?|one|two|three|four|five|six|seven|eight|nine|ten)\s+"
+    r"(?:minutes?|mins?|hours?|days?|weeks?)?\s*"
+    r"before\b(?:\s+that)?\s*$",
+    re.I)
+
+
+def _is_reminder_lead_time(span) -> bool:
+    return bool(_REMINDER_LEAD_RE.match(span.text.strip()))
+
+
+def _lexicon_fallback_boundaries(doc, text: str) -> "list[Boundary]":
+    """When the walk above finds NOTHING — not one token, because spaCy
+    swallowed the FIRST clause's verb into being a noun-phrase SUBJECT of
+    the second clause rather than mis-tagging it as a stray compound.
+
+    "schedule budget review for next week and add water the plants to my
+    list" parses `review` as `nsubj` of `add` — the whole first clause reads
+    as "[Scheduling a budget review] adds water the plants", nonsensical,
+    and `schedule` never gets a `conj`/`dep` tag at all, so the main walk
+    above has nothing to visit for it. Every downstream check in this
+    module trusts a token's `.head`/`.subtree` because the walk above only
+    ever widens what counts as a VALID conjunct signature; this is a
+    different situation — there IS no conjunct signature, the parse itself
+    lost the clause boundary.
+
+    Ported from `rule_parser._lexicon_split_points` (FastRule's own,
+    independently-proven fix for the identical spaCy failure, first found
+    there) — WITH one addition that fix does not need: position alone
+    ("sentence-initial, or right after a coordinator") is not enough here.
+    "buy apples and water bottles" puts `water` in exactly that position
+    too, and `water` is a real `INTENT_MAP` verb — position can find the
+    NP-coordination false positive as easily as the real seam. What tells
+    them apart is the same family-mismatch evidence `_rescued_by_family`
+    already uses: `schedule` (create_event) and `add` (create_todo) differ,
+    `buy` and `water` do not (both create_todo). Boundaries are cut by RAW
+    TOKEN POSITION rather than `_boundary_at`'s subtree walk, because a
+    mistagged token's own subtree is exactly the thing that cannot be
+    trusted here.
+    """
+    points = []
+    for i, tok in enumerate(doc):
+        if not _is_command_verb(tok):
+            continue
+        sentence_initial = i == 0
+        follows_coord = i > 0 and (doc[i - 1].dep_ == "cc"
+                                   or doc[i - 1].lower_ in _COORD_WORDS)
+        if sentence_initial or follows_coord:
+            points.append(tok)
+    if len(points) < 2:
+        return []
+    out: list[Boundary] = []
+    for idx in range(len(points) - 1):
+        prev, nxt = points[idx], points[idx + 1]
+        # Each verb's OWN clause only — the words from it to the next point
+        # (or to the end, past the last point) — so one clause's "calendar"
+        # can never resolve the other clause's qualifier.
+        nxt_end = points[idx + 2].i if idx + 2 < len(points) else len(doc)
+        prev_words = {t.lower_ for t in doc[prev.i:nxt.i]}
+        nxt_words = {t.lower_ for t in doc[nxt.i:nxt_end]}
+        prev_family = _verb_intent_family(prev, prev_words)
+        nxt_family = _verb_intent_family(nxt, nxt_words)
+        if prev_family is None or nxt_family is None or prev_family == nxt_family:
+            continue
+        if _is_reminder_lead_time(doc[nxt.i:nxt_end]):
+            # "book webinar sunday at 8:30pm and remind me two hours before"
+            # IS a real family mismatch (book=event, remind=todo) and would
+            # otherwise rescue clean — but the second clause is nothing BUT a
+            # lead time on the FIRST clause's own event, not a second ask.
+            # fastseg.py's own splitter already knows this shape (`timed()`,
+            # "a LEAD TIME does not count... 20 rows of over-split the
+            # moment lead times became visible") — same rule, this module's
+            # own copy, since the two splitters never share one code path.
+            continue
+        first = nxt.i
+        j = nxt.i - 1
+        while j > prev.i and (doc[j].dep_ == "cc" or doc[j].lower_ in _COORD_WORDS
+                              or doc[j].is_punct):
+            first = j
+            j -= 1
+        if first == nxt.i:
+            continue                 # nothing joined them; not a real seam
+        ends_tok = doc[first - 1]
+        ends = ends_tok.idx + len(ends_tok.text)
+        begins = nxt.idx
+        if begins <= ends:
+            continue
+        if (len(text[:ends].split()) < _MIN_WORDS_PER_ASK
+                or len(text[begins:].split()) < _MIN_WORDS_PER_ASK):
+            continue
+        out.append(Boundary(ends, begins, text[ends:begins].strip()))
+    return out
 
 
 def split_clauses(text: str) -> "list[str]":
@@ -405,18 +509,36 @@ def _compound_command_verb(tok):
     return _hidden_verb_in_chain(tok)
 
 
-def _verb_intent_family(tok) -> "str | None":
+def _verb_intent_family(tok, words: "set | None" = None) -> "str | None":
     """This verb's own entry in `INTENT_MAP` ("create_event", "create_todo",
     ...) — the SAME table `_is_command_verb` already reads, reused rather
     than a second lexicon that could drift from it. `(word, None)` is the
-    verb's general entry; a handful of verbs are only keyed with a
-    qualifier, so that is checked second rather than reported as unknown.
+    verb's general entry, and most verbs have one.
+
+    A handful ("add") are keyed ONLY with a qualifier — `("add", "calendar")`
+    and `("add", "todo")`, nothing unqualified — because the same word
+    genuinely means two different things ("add it to my calendar" vs. "add
+    it to my list"). `words` (the clause's own words, lowercased — the
+    caller's to scope, so one clause's "calendar" cannot resolve the OTHER
+    clause's "add") is checked against the same `_CALENDAR_SIGNALS` /
+    `_TODO_SIGNALS` sets `_route_intent` resolves a verb's domain from,
+    before falling back to whichever qualified entry the table happens to
+    list first — which is a guess, not a resolution.
     """
-    from assistant.intent.rule_parser import INTENT_MAP
+    from assistant.intent.rule_parser import INTENT_MAP, _CALENDAR_SIGNALS, _TODO_SIGNALS
     word = (tok.lemma_ or tok.text).lower()
     direct = INTENT_MAP.get((word, None))
     if direct is not None:
         return direct
+    if words:
+        if words & _CALENDAR_SIGNALS:
+            qualified = INTENT_MAP.get((word, "calendar"))
+            if qualified is not None:
+                return qualified
+        if words & _TODO_SIGNALS:
+            qualified = INTENT_MAP.get((word, "todo"))
+            if qualified is not None:
+                return qualified
     return next((intent for (verb, _q), intent in INTENT_MAP.items() if verb == word), None)
 
 

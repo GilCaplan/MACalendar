@@ -98,3 +98,60 @@ def test_a_bare_object_followed_by_a_date_word_does_not_split():
     # an object — "tomorrow" must not be read as what was booked.
     assert split_clauses("meeting with Tal and Mark tomorrow") == \
         ["meeting with Tal and Mark tomorrow"]
+
+
+# --- the lexicon fallback: spaCy swallows the WHOLE first verb, not just one token ---
+
+def test_a_swallowed_root_verb_still_splits():
+    # "schedule budget review... and add water the plants..." parses `review`
+    # as nsubj of `add` — the whole first clause reads as a noun-phrase
+    # subject, and `schedule` gets no conj/dep tag at all for the main walk
+    # to find. The fallback trusts INTENT_MAP instead of the broken parse.
+    assert split_clauses(
+        "schedule budget review for next week and add water the plants to my list"
+    ) == ["schedule budget review for next week",
+          "add water the plants to my list"]
+
+
+def test_the_fallback_still_refuses_same_family_np_coordination():
+    # Position alone (sentence-initial / after a coordinator) would ALSO
+    # find `water` here — the family-mismatch check is still required, not
+    # just the parse-repair.
+    assert split_clauses("buy apples and water bottles") == \
+        ["buy apples and water bottles"]
+
+
+def test_the_fallback_never_fires_mid_clause():
+    assert split_clauses("the schedule needs an update") == \
+        ["the schedule needs an update"]
+
+
+def test_a_verb_with_no_unqualified_intent_map_entry_resolves_from_context():
+    # "add" has ONLY qualified entries (calendar / todo) — "to my list" must
+    # resolve it to create_todo, not whichever qualifier the table lists
+    # first, or it would falsely match "schedule"'s create_event family and
+    # never split.
+    assert split_clauses(
+        "schedule retrospective for in three weeks and add pay the electricity bill to my list"
+    ) == ["schedule retrospective for in three weeks",
+          "add pay the electricity bill to my list"]
+
+
+def test_a_lead_time_reminder_is_not_a_second_ask():
+    # "book webinar... and remind me two hours before" IS a real family
+    # mismatch (book=event, remind=todo) and would otherwise rescue clean —
+    # but the second clause is nothing but a lead time on the event just
+    # booked, the same idiom fastseg.py's own splitter already protects.
+    assert split_clauses(
+        "book webinar this sunday at 8:30pm and remind me two hours before"
+    ) == ["book webinar this sunday at 8:30pm and remind me two hours before"]
+
+
+def test_a_reminder_with_its_own_content_is_still_a_second_ask():
+    # The lead-time guard must not swallow a real second ask that happens to
+    # end in a similar-looking phrase — this one has its own object ("call
+    # the vet"), so it is not the bare "remind me ... before" idiom.
+    assert split_clauses(
+        "schedule budget review for next week and remind me to call the vet in an hour"
+    ) == ["schedule budget review for next week",
+          "remind me to call the vet in an hour"]

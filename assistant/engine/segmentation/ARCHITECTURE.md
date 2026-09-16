@@ -13,90 +13,106 @@ Verified end to end through `engine.run_transcript`, not inferred from the board
 
 | | train (1,051 rows) | **SEALED (660 rows)** |
 |---|---|---|
-| exact-set (actions) | 79.0% | **78.0%** |
-| exact-row (action+time+tag) | 70.0% | **68.3%** |
-| **the CUT alone** — right item count | 87.7% | **83.9%** |
-| item precision · recall · F1 | 96.9 · 94.1 · 95.4 | **97.0 · 92.1 · 94.5** |
-| over-split · under-split | 46 · 83 | **28 · 78** |
-| time on a **spoken** time | 93.6% | **93.8%** |
-| tag accuracy | 90.0% | **90.4%** |
-| A2 — 2 of 3 fields | 93.1% | **94.3%** |
+| exact-set (actions) | 82.3% | **83.6%** |
+| exact-row (action+time+tag) | 73.2% | **73.0%** |
+| **the CUT alone** — right item count | 91.1% | **89.5%** |
+| item precision · recall · F1 | 96.9 · 96.4 · 96.7 | **97.1 · 95.8 · 96.5** |
+| over-split · under-split | 46 · 48 | **28 · 41** |
+| time on a **spoken** time | 94.4% | **93.9%** |
+| tag accuracy | 90.8% | **92.1%** |
+| A2 — 2 of 3 fields | 95.3% | **96.4%** |
 | NO-INVENTION violations | 0 | **0** |
 | cost | **0 model calls**, ~3 s for 1,051 rows | same |
 | **downstream, end to end** | 85.9% rows fully right *(not re-measured this pass)* | — |
 
-**The sealed half was read once, at the milestone, aggregates only.** Four
-fixes this session, all to the same mechanism (§ below), +25 rows train /
-+17 rows sealed combined. Over-split is unchanged on BOTH halves across all
-four (46 train, 28 sealed) — every row gained is a genuine under-split fixed,
-none is a new false positive traded in.
+**The sealed half was read once, at the milestone, aggregates only.** Five
+fixes this session, all to `assistant/intent/coordination.py`'s
+`_compound_command_verb`/`clause_boundaries`, each measured separately
+before the next was attempted: **+60 rows train** (108→48 under-split),
+**+47 rows sealed** (95→41). Over-split is UNCHANGED on both halves across
+all five (46 train, 28 sealed, confirmed by exact row-id diff each time, not
+just the count) — every row gained is a genuine under-split fixed, none is a
+new false positive traded in. Sealed test moved as much as or more than
+train throughout — not overfitting, since none of the five reads gold or
+test content.
 
-**2026-09-16 — four fixes to `assistant/intent/coordination.py`'s
-`_compound_command_verb`/`clause_boundaries`, same session, each measured
-separately before the next was attempted.** The rescue finds a command verb
-spaCy mis-tags as a compound modifier — "remind me to wash the car and then
-**book** tennis lesson" parses with `book` as a compound of `lesson`, not a
-verb — and `clause_boundaries` decides whether a conjunct's object is
-substantial enough to count as a real second ask.
-
-1. **The compound-chain fix.** The rescue only searched DIRECT children.
-   spaCy parses a two-word object as a flat sibling pair (`book`/`tennis`
-   both children of `lesson`) or a nested chain
-   (`book`→compound→`yoga`→compound→`class`) depending on the words, and the
-   direct-children search missed the chained shape. Fixed by walking the
-   chain instead of just direct children, same safety gate (conjunct's head
-   must be VERB/AUX/ROOT) unchanged. **+5 train, +7 sealed.**
+1. **The compound-chain fix.** `_compound_command_verb`'s hidden-verb search
+   only checked DIRECT children. spaCy parses a two-word object as a flat
+   sibling pair (`book`/`tennis` both children of `lesson`) or a nested chain
+   (`book`→compound→`yoga`→compound→`class`) depending on the words; walking
+   the chain instead of just direct children, same safety gate (conjunct's
+   head must be VERB/AUX/ROOT) unchanged. **+5 train, +7 sealed.**
 2. **The family-mismatch rescue.** Some conjuncts' heads genuinely aren't a
    verb — "buy 3 bananas and book car service **appointment**" hangs
    `appointment` off `bananas` (a NOUN), structurally identical to "buy
    apples and water bottles", which the gate correctly refuses. What tells
    them apart: `book`/`buy` name DIFFERENT kinds of thing (`create_event` vs
-   `create_todo` in `INTENT_MAP`, the table `_is_command_verb` already
-   reads) while `water`/`buy` name the SAME kind. One more chance, gated on
-   that family difference, fires only after the primary gate has said no. A
-   verb outside `INTENT_MAP` rescues nothing — no family to compare is not a
-   guess. **+11 train, +0 sealed** (no row in this family-split half matched
-   the shape).
+   `create_todo` in `INTENT_MAP`) while `water`/`buy` name the SAME kind.
+   `_rescued_by_family` fires only after the primary gate has said no, and
+   only when both sides resolve to a real `INTENT_MAP` family that differs.
+   **+11 train, +0 sealed** (shape not present in this family-split half).
 3. **The `nmod` chain link.** spaCy tags the SAME hidden-verb relationship
    `compound` ("book yoga class") or `nmod` ("book annual **checkup**")
-   unpredictably, and the chain walk only followed `compound`. Checked
-   against the dangerous case first — `water` in "buy apples and water
-   bottles" is `compound` in every phrasing tried, never `nmod` — before
-   widening. **+1 train, +0 sealed.**
-4. **The bare-object extension — the largest of the four.** `book eye exam`
-   has no article at all (English never says "book AN eye exam" as a
-   command), so the existing "a determiner after a bare command verb proves
-   a real object" check never fired, and this shape recurred across roughly
-   a third of the remaining under-split families (`schedule budget review`,
-   `add water the garden`, `book staff meeting`, ...). Extended: a bare
-   NOUN/PROPN object counts too, UNLESS it opens a date — the exact guard
-   that already protects "…and MARK **tomorrow**" (a name collision, not an
-   object) reused unchanged for the new branch. **+8 train, +10 sealed** —
-   the only one of the four that moved sealed test on its own, and moved it
-   proportionally MORE than train.
+   unpredictably; `water` in "buy apples and water bottles" checked as
+   `compound` in every phrasing tried, never `nmod`, before widening.
+   **+1 train, +0 sealed.**
+4. **The bare-object extension.** `book eye exam` has no article at all
+   (English never says "book AN eye exam"), so "a determiner after a bare
+   command verb proves a real object" never fired for it — recurred across
+   roughly a third of the remaining under-split families. A bare NOUN/PROPN
+   object now counts too, UNLESS it opens a date — the guard that already
+   protects "…and MARK **tomorrow**" reused unchanged. **+8 train, +10
+   sealed.**
+5. **The lexicon fallback — the largest of the five.** Some rows swallow the
+   FIRST clause's verb entirely rather than mis-tagging one token: "schedule
+   budget review for next week and add water the plants to my list" parses
+   `review` as `nsubj` of `add`, so `schedule` gets no `conj`/`dep` tag at
+   all and the whole walk above has nothing to visit. `_lexicon_fallback_
+   boundaries` (ported from `rule_parser._lexicon_split_points`, FastRule's
+   own independently-proven fix for the identical spaCy failure) trusts
+   `INTENT_MAP` vocabulary at the two positions speech opens a new ask from
+   — sentence-initial, or right after a coordinator — instead of the broken
+   syntax. Needed TWO more guards position alone doesn't have: the same
+   family-mismatch check as #2 (`water` sits in exactly this position too),
+   and `_verb_intent_family` resolving a QUALIFIER-ONLY verb like `add`
+   (`INTENT_MAP` has no `(add, None)`, only `(add, "calendar")` and
+   `(add, "todo")`) from the clause's own words against `_CALENDAR_SIGNALS`/
+   `_TODO_SIGNALS` — the same signal sets `_route_intent` itself resolves a
+   verb's domain from — rather than whichever qualified entry the table
+   happens to list first. First measurement found a real new false-positive
+   class (over-split 46→52): "book webinar sunday at 8:30pm and remind me
+   two hours before" IS a genuine family mismatch (event vs todo) but the
+   second clause is a LEAD TIME on the event just booked, not a second ask —
+   the exact idiom `fastseg.py`'s OWN splitter already knows (`timed()`,
+   "20 rows of over-split the moment lead times became visible"), on a
+   different code path this fix doesn't share. Added `_is_reminder_lead_time`
+   as this module's own copy of that same rule; over-split returned to
+   EXACTLY 46/28, confirmed by exact row-id diff. **+35 train, +37 sealed.**
 
-Full unit suite (1701 passed) run after each of the four — `coordination.py`
+Full unit suite (1703 passed) run after each of the five — `coordination.py`
 is shared with FastRule's own compound gate, so every one was checked beyond
 segmentation's own tests. New direct tests: `tests/unit/test_coordination.py`
-(12 cases — no file existed for this module before this session).
+(18 cases — no file existed for this module before this session).
 
-**A fifth failure mode was found and left alone — genuinely pre-existing,
-not caused by any of the four fixes** (confirmed against a stash of the
-session's earlier state): "lunch with Reese and **Drew** this coming
-saturday" over-splits, because spaCy tags `Drew` as a past-tense VERB (the
-same word as "draw"), not a PROPN — a name collision the DET/bare-object
-checks can't see because POS tagging itself is what's wrong, not the
-downstream logic reading it. Filed, not fixed — this is the same
-class of problem as bucket 2 below (a genuinely broken parse), just for
-NP-coordination's false-positive side instead of clause-coordination's
-false-negative side.
+**Found and filed, not fixed — genuinely pre-existing, not caused by any of
+the five** (confirmed against a stash of the session's earlier state):
+"lunch with Reese and **Drew** this coming saturday" over-splits, because
+spaCy tags `Drew` as a past-tense VERB (the same word as "draw"), not a
+PROPN — a name collision none of the five checks can see, because the POS
+tag itself is what's wrong, not the logic reading it. Same class of problem
+as the mis-parsed-root bucket below, on NP-coordination's false-positive
+side instead of clause-coordination's false-negative side.
 
 **What's still open**: `clause_boundaries`'s main loop only visits tokens
 with `dep_ in ("conj", "dep")`, and some second-verb tokens land on neither —
 "remind me to change the air filter, then **book** staff **meeting**" parses
-`meeting` as `dep="advcl"`, invisible to the loop entirely. Same bucket as
-the 12% of under-split rows where spaCy's own parse is broken (§ below), not
-a new mechanism.
+`meeting` as `dep="advcl"`, invisible to the loop AND to the lexicon
+fallback (which only fires when the walk finds NOTHING — this row still
+finds `book` as a stray compound elsewhere, just not the right one). Also
+still open: a handful of rows use "along with that," as the joiner
+("schedule workshop... along with that, remind me...") and never reach the
+fallback's position check, since neither `sentence_initial` nor
+`follows_coord` (cc/`_COORD_WORDS`) matches across a period and a comma.
 
 ### THE BINDING CONSTRAINT IS NOW THE CUT
 
@@ -110,15 +126,14 @@ is the cut, and three readings say so independently:
 
 An 18-point gap between single- and multi-ask rows; under-split more than twice
 over-split, so the failure is *not cutting* rather than cutting wrongly; and every
-worst trap is a compound. **2026-09-16, after all four fixes above:**
-`remind_then` 43.8% → 52.1%, `and_compound` 46.4% → 65.5%, `joiner` 46.2% →
-57.7%; `texture` was already 41.7% (the 48.6% this line used to quote was
-stale, not a regression from any fix — checked against the pre-fix run) and
-none of the four moved it, since it is a different shape entirely (spaCy's
-root-verb POS tagging itself, not the coordination-boundary logic all four
-fixes touched). Still the worst four, still compounds — but `and_compound`
-and `joiner` have moved past halfway now, and `texture`'s 41.7% is the next
-real target precisely because nothing this session has touched it yet.
+worst trap is a compound. **2026-09-16, after all five fixes above:**
+`remind_then` 43.8% → 52.1%, `and_compound` 46.4% → 73.8%, `joiner` 46.2% →
+76.9%, `texture` 41.7%/48.6%-stale → 50.0% (fix 5's lexicon fallback reached
+some `texture` rows too — quoted strings weren't the only thing in that
+trap). `joiner` and `and_compound` have moved from the worst traps to
+above-average; `remind_then` is now the one furthest behind, worth its own
+look next — it wasn't the direct target of any of the five, so its own
+movement was collateral from the ones that overlap it.
 
 The oracle ablation bounds it: perfect everything on correctly-cut rows is 84.5%,
 so the cut caps the row metric no matter how good the rest gets.
