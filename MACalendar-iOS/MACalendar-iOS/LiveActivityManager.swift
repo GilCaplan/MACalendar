@@ -225,6 +225,36 @@ final class LiveActivityManager {
         a.currentId == b.currentId && a.items == b.items && a.staleDate == b.staleDate
     }
 
+    /// A one-shot text summary of the WHOLE day's agenda — every event today,
+    /// not just what's left — mirroring the Mac's "Brief Me" phrasing
+    /// (`_on_briefing_requested`, `window.py`) so the two surfaces read the
+    /// same. Unlike `currentCard`, no 8-hour horizon and no remaining-only
+    /// filter: a settings button asking to see today's plan wants the whole
+    /// day, whether it's checked at 6 AM or 11 PM.
+    static func todaysAgendaSummary(now: Date, events: [CalendarEvent]) -> String {
+        let today = DateFormatter.isoDay.string(from: now)
+        let todays = events.filter { $0.date == today }
+                            .sorted { $0.startTime < $1.startTime }
+
+        func label(_ e: CalendarEvent) -> String {
+            let title = e.title.isEmpty ? "Untitled event" : e.title
+            return e.displayTime.isEmpty ? title : "\(title) at \(e.displayTime)"
+        }
+
+        switch todays.count {
+        case 0:
+            return "Your schedule is clear today. Nothing planned."
+        case 1:
+            return "You have one event today: \(label(todays[0]))."
+        default:
+            let parts = todays.map(label)
+            let schedule = parts.count == 2
+                ? "\(parts[0]) and \(parts[1])"
+                : parts.dropLast().joined(separator: ", ") + ", and \(parts.last!)"
+            return "You have \(todays.count) events today: \(schedule)."
+        }
+    }
+
     /// The accent the calendar itself falls back to for an event with no
     /// category colour. Read straight from UserDefaults, the same way
     /// `ReminderScheduler.isEnabled` does, so no AppSettings instance is needed.

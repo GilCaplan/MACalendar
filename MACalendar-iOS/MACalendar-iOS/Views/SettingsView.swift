@@ -212,6 +212,16 @@ struct SettingsView: View {
 
                             permissionRow
 
+                            Button {
+                                let summary = LiveActivityManager.todaysAgendaSummary(
+                                    now: Date(), events: LocalStore.shared.allEvents())
+                                APIClient.notify(title: "Today's Agenda", body: summary)
+                            } label: {
+                                Label("Show today's agenda now", systemImage: "list.bullet.rectangle")
+                            }
+                            Text("Pops a notification with today's full schedule, on demand — separate from the reminders below, which fire on their own before each event.")
+                                .font(.caption).foregroundColor(.secondary)
+
                             Divider()
 
                             HStack {

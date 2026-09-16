@@ -410,13 +410,21 @@ lock-screen card (and Dynamic Island) showing today's remaining agenda, each
 row's title/time/category colour, with the running event (or failing that
 the soonest one) picked out by a coloured glow and the one after it by a
 lighter version of the same — no countdown number, current always outranking
-next.
+next. Also additive: a **"Show today's agenda now" button** in the phone's
+Reminders settings — pops one local notification, on demand, with the
+WHOLE day's events (not just what's left, and not gated on the reminders
+toggle or a horizon), phrased the same way the Mac's own "Brief Me" reads it
+aloud ("You have 3 events today: X at 9, Y at noon, and Z at 5").
 **Where:** policy `assistant/notify.py`; store `events.reminder_minutes` +
 `reminder_log` (`db.py`); Mac thread `assistant/notifier.py` (osascript);
 settings `settings_dialog.py` + iOS `SettingsView`; phone
 `ReminderScheduler.swift` + `NotificationRouter` (tap deep-links to the
 event); per-event picker in both edit surfaces; config `notifications:`
-section (PATCH /config). Live Activity: app-side
+section (PATCH /config). "Show today's agenda now": `SettingsView`'s
+Reminders section, `LiveActivityManager.todaysAgendaSummary(now:events:)`
+(a pure function over `LocalStore`'s cache, no server round-trip) fired
+through the existing `APIClient.notify(title:body:)` immediate-local-
+notification helper. Live Activity: app-side
 `LiveActivityManager.swift`, shared contract
 `MACalendar-iOS/Shared/UpNextActivityAttributes.swift` (compiled into both
 targets), UI in the new `MACalendarWidgets` app-extension target
