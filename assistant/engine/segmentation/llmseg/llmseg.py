@@ -60,6 +60,18 @@ ENDPOINT = "http://localhost:11434/api/chat"
 #:     FastSeg + LLMSeg (V4)    exact-row 43.8%      fixes 1 / breaks 42
 #:     cost                     10 ms/row -> 6.3 s/row
 #:
+#: RE-TESTED 2026-09-16 against the CURRENT, much stronger FastSeg (those four
+#: numbers predate a jump from 51.5% to 68%+ exact-row) — same verdict, and
+#: the oracle-gate ceiling (the best ANY routing rule could do, even a
+#: cheating one) fell from +3.8% to +0.0%: 0 rows fixed, 57 broken, on 204
+#: fresh rows. Two NEW task shapes were tried to fix the specific failure
+#: modes above — absolute word-index output (no verbatim copying) and local
+#: true/false at each candidate join (no position tracking either) — both
+#: also lost: `word-index` item-count 85.0% -> 15.0%, `mark2` exact-row
+#: 64.8% -> 57.0% on 293 rows. Five task shapes, six prompts, zero
+#: net-positive results — this model's judgement on this task is the
+#: bottleneck now, not the prompt. `experiments/prompt_lab.py` has both.
+#:
 #: Full numbers and the three limits of that conclusion are in
 #: `assistant/engine/segmentation/ARCHITECTURE.md`.
 #:

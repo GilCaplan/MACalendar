@@ -131,6 +131,163 @@ certain it is wrong. Never delete a word the speaker said - "remind me to buy
 milk" keeps "remind me to". If you are unsure, output the proposal unchanged."""
 
 
+# ---------------------------------------------------------------------------
+# P5 — word-index boundaries. `boundaries` (P2) asked the model to COPY each
+# piece verbatim and still came back with 4 NO-INVENTION violations that
+# should have been impossible if the copy were exact — proof that an 8B
+# retyping a span is not reliable even when told "copy exactly, change
+# nothing". `count` (P3) never lets the model add a split, only collapse
+# FastSeg's own pieces, so it structurally cannot fix an under-split, which
+# is the larger of the two error modes (108 rows vs 47).
+#
+# This asks for neither. The model sees the command with every WORD numbered
+# and outputs only the indices where a new item starts — integers, not text.
+# `_pieces_from_boundaries` then slices the ORIGINAL string at those exact
+# character offsets, so a piece is byte-identical to a substring of what was
+# said: no-invention and no-loss are true by construction, not by
+# instruction, and the model can both split an under-cut proposal and merge
+# an over-cut one from the same output shape.
+#
+# REFUTED on the first 20-row pilot (2026-09-16), worse than every prior
+# variant: item-count 85.0% -> 15.0%, fixes 0 / breaks 12. The raw replies
+# were not close-but-wrong arithmetic — "i need to sync up with Jordan next
+# monday" (one ask, 9 words) came back [1, 7], splitting mid-phrase with no
+# relationship to the sentence's structure, on a clearly single-ask row. An
+# 8B does not reliably track an absolute position in a numbered list long
+# enough to use it as a real constraint — this is a DIFFERENT failure mode
+# than P2's copying problem, not the same one restated, so it rules out
+# absolute-index schemes generally, not just this prompt's wording.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# P6 — mark the CANDIDATE joins inline, ask a local true/false per mark. P5's
+# failure was absolute position tracking over the WHOLE sentence; this asks
+# nothing about position at all. Every joiner word ("and", "then", "as well
+# as", ...) is a candidate split, numbered in place with a <N> marker right
+# where it sits in the text the model already has to read — so answering
+# "does a new ask start after <2>?" is a LOCAL judgement about the words
+# either side of a mark it can see, not a lookup into a list. Usually 1-2
+# marks per sentence, never the whole word count. Still copies nothing and
+# invents nothing: accepted marks become cut points at the joiner's own
+# character span, exactly like P5's reconstruction.
+#
+# `mark` (v1) shipped with the illustrative examples reusing the SAME "<1>"
+# placeholder five times in the rules text, above the real marked command.
+# On a 20-row pilot it looked flat (fixes 1 / breaks 1); on a 158-row
+# trap-stratified read it was net -19 (exact-row 72.8% -> 60.1%), and every
+# single failure inspected showed the model answering an EXTRA key that did
+# not correspond to any real mark ({"1": false, "2": true} on a ONE-mark
+# sentence) — evidence it was counting "<1>" occurrences across the whole
+# prompt, not just the command. `interpret()` already ignored the spurious
+# key safely (enumerate() over the real candidates only), so this was not a
+# scoring bug, but a model primed with a miscounted task is also the one
+# getting the REAL mark wrong in every inspected case. `mark2` states the
+# count up front ("exactly N marks") and replaces every illustrative "<1>"
+# with the word HERE, so the only numbered token in the whole prompt is the
+# real command's own marks. Different variant NAME, deliberately — the cache
+# is keyed by (variant, text) only, so reusing "mark" would have silently
+# replayed v1's answers under a prompt that was never actually sent.
+# ---------------------------------------------------------------------------
+
+_JOIN_RE = re.compile(r"\b(and then|and also|as well as|and|then|also|plus)\b", re.I)
+
+_MARK_PROMPT = """This command has exactly {n} mark{plural}, written as <1>{more}. Decide,
+for EACH mark and only these marks, whether a NEW separate ask begins right
+after it:
+
+{marked}
+
+An "ask" is ONE independent thing to do. A mark is TRUE when what follows is
+a separate activity. A mark is FALSE when it is still the SAME ask - for
+example (these use the word HERE for the join point, never a real mark):
+  - two people joined by "and"   ("meeting with Sam HERE Alex" = FALSE)
+  - two verbs sharing one object ("wash HERE fold the laundry" = FALSE)
+  - two things bought together   ("buy milk HERE eggs" = FALSE)
+  - a time range                 ("from 3 HERE 4pm" = FALSE)
+A mark is TRUE for a separate activity, even without its own verb
+  ("gym at 7 HERE dinner at 9" = TRUE)
+
+Output ONLY a JSON object with EXACTLY {n} key{plural} - "1"{more_keys} - each
+mapped to true or false. Output the JSON and nothing else, no explanation,
+no code fence."""
+
+
+def _mark_prompt(marked: str, n_marks: int) -> str:
+    more = "".join(f", <{i}>" for i in range(2, n_marks + 1)) if n_marks > 1 else ""
+    more_keys = "".join(f', "{i}"' for i in range(2, n_marks + 1)) if n_marks > 1 else ""
+    return _MARK_PROMPT.format(marked=marked, n=n_marks,
+                               plural="" if n_marks == 1 else "s",
+                               more=more, more_keys=more_keys)
+
+
+def _candidate_joins(text: str) -> "list[tuple[int, int]]":
+    return [(m.start(), m.end()) for m in _JOIN_RE.finditer(text)]
+
+
+def _mark_text(text: str, cands: "list[tuple[int, int]]") -> str:
+    marked = text
+    for i, (_s, e) in reversed(list(enumerate(cands, 1))):
+        marked = marked[:e] + f" <{i}>" + marked[e:]
+    return marked
+
+
+def _pieces_from_marks(text: str, cands: "list[tuple[int, int]]",
+                       verdicts: dict) -> "list[str] | None":
+    if not isinstance(verdicts, dict):
+        return None
+    accepted = [(s, e) for i, (s, e) in enumerate(cands, 1)
+                if verdicts.get(str(i)) is True]
+    if not accepted:
+        return [text]
+    pieces = []
+    prev = 0
+    for s, e in accepted:
+        pieces.append(text[prev:s].strip(" ,;."))
+        prev = e
+    pieces.append(text[prev:].strip(" ,;."))
+    return [p for p in pieces if p] or None
+
+_INDEX_PROMPT = """Split this command into the separate things the speaker asked for.
+
+COMMAND, word by word:
+{numbered}
+
+A parser proposed splitting it into {n_proposed} piece(s):
+{proposed_list}
+This may be right or wrong.
+
+An "ask" is ONE independent thing to do. Split ONLY between separate asks.
+Do NOT split:
+  - two people joined by "and"   ("meeting with Sam and Alex" = ONE)
+  - two verbs sharing one object ("wash and fold the laundry" = ONE)
+  - two things bought together   ("buy milk and eggs" = ONE)
+  - a time range                 ("from 3 to 4pm" = ONE)
+Do split:
+  - separate activities, even without a verb
+    ("gym at 7 and dinner at 9" = TWO)
+
+Output ONLY a JSON list of the WORD NUMBERS where a NEW item begins. The
+first item always starts at word 0 - never include 0. Only one item ->
+output []. Output the JSON and nothing else - no explanation, no code fence.
+
+Example: "gym at 7 and dinner at 9" is word 0:gym 1:at 2:7 3:and 4:dinner 5:at 6:9
+-> [4]   (the second item, "dinner at 9", begins at word 4)"""
+
+
+def _pieces_from_boundaries(text: str, boundaries) -> "list[str] | None":
+    """Slice ORIGINAL characters at word offsets — never a model-retyped
+    string — so a piece is always an exact substring of what was said."""
+    spans = [(m.start(), m.end()) for m in re.finditer(r"\S+", text)]
+    n = len(spans)
+    if n == 0 or not isinstance(boundaries, list):
+        return None
+    cuts = sorted({b for b in boundaries if isinstance(b, int) and 0 < b < n})
+    bounds = [0] + cuts + [n]
+    pieces = [text[spans[s][0]:spans[e - 1][1]]
+              for s, e in zip(bounds, bounds[1:]) if s < e]
+    return pieces or None
+
+
 def build(variant: str, text: str, proposal):
     if variant == "v4-full":
         return llmseg.build_prompt(text, proposal)
@@ -138,6 +295,16 @@ def build(variant: str, text: str, proposal):
         return _BOUNDARY_PROMPT.format(text=text)
     if variant == "count":
         return _COUNT_PROMPT.format(text=text)
+    if variant == "word-index":
+        numbered = " ".join(f"{i}:{w}" for i, w in enumerate(text.split()))
+        proposed_list = "\n".join(
+            f"  {i + 1}. {it['action']} ({it['time']})" for i, it in enumerate(proposal)
+        ) or "  (none)"
+        return _INDEX_PROMPT.format(numbered=numbered, n_proposed=len(proposal),
+                                    proposed_list=proposed_list)
+    if variant == "mark2":
+        cands = _candidate_joins(text)
+        return _mark_prompt(_mark_text(text, cands), len(cands))
     base = llmseg.build_prompt(text, proposal)
     if variant == "v4-surgical":
         return base.replace("Output the CORRECT decomposition",
@@ -184,6 +351,27 @@ def interpret(variant: str, raw: str, text: str, proposal):
         if not isinstance(blob, list) or not blob:
             return None
         return _items_from_pieces(text, [str(x) for x in blob])
+    if variant == "word-index":
+        try:
+            blob = json.loads(raw[raw.index("["):raw.rindex("]") + 1])
+        except Exception:
+            return None
+        pieces = _pieces_from_boundaries(text, blob)
+        if not pieces:
+            return None
+        return _items_from_pieces(text, pieces)
+    if variant == "mark2":
+        cands = _candidate_joins(text)
+        if not cands:
+            return proposal            # nothing to ask about; FastSeg stands
+        try:
+            blob = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+        except Exception:
+            return None
+        pieces = _pieces_from_marks(text, cands, blob)
+        if not pieces:
+            return None
+        return _items_from_pieces(text, pieces)
     return llmseg.parse_items(raw, proposal)
 
 
@@ -237,6 +425,16 @@ def main() -> None:
         secs = 0.0
         for i, r in enumerate(rows, 1):
             text = r["text"]
+            if variant == "mark2" and not _candidate_joins(text):
+                # Nothing to ask about — `interpret()` would force FastSeg's
+                # own answer regardless of what the model said, so asking is
+                # pure wasted latency on what is usually most of the corpus.
+                final, _why = llmseg.accept(text, fastseg(text), fastseg(text))
+                good = exact(r["gold"], final)
+                scored += 1
+                ok += good
+                cut_ok += counts_ok(r["gold"], final)
+                continue
             raw = cache.get((variant, text))
             if raw is None:
                 t0 = time.perf_counter()

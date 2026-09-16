@@ -416,25 +416,74 @@ swapping the reader for a Component inside the stage is invisible to the trace.
 
 ## 3 · LLMSeg — the model half, **OFF BY DEFAULT**
 
-> ### TEST LLMSEG AGAIN WHEN THIS STAGE IS PICKED BACK UP (Gil, 2026-09-09)
+> ### RE-TESTED 2026-09-16 — same verdict, on the CURRENT FastSeg, with the
+> ### stale-comparison caveat below now retired
 >
-> Its four measurements against FastSeg were taken when FastSeg was a **much weaker
-> segmenter** — exact-row 51.5%, time-on-a-spoken-time 74.2%, no lead times, no
-> ranges, no spoken clocks. FastSeg is now 68.2% train / 66.5% sealed with
-> time-on-spoken at 91.9%, so **every one of those comparisons is stale in both
-> directions**:
+> The prior four measurements were taken when FastSeg was 51.5% exact-row;
+> it is 64.8-68.2% now, so the 2026-09-09 caveat above was live until this
+> pass re-derived the numbers against today's baseline.
 >
-> - the gap LLMSeg had to close is far smaller, so it has less room to help;
-> - but the rows it was breaking may be rows FastSeg now gets right on its own,
->   which is exactly where a verifier stops being able to do harm.
+> **The oracle-gate ceiling collapsed from +3.8% to +0.0%.** `gate_sizing.py`
+> replays the cache and asks "how good could ANY gate be, including a
+> hindsight-cheating one?" — on 204 fresh TRAIN rows (V4, `use_model=True`,
+> current FastSeg as the anchor), LLMSeg fixed **zero** rows and broke 57.
+> Every one of the 13 runtime-computable gate features (`has_joiner`,
+> `times_exceed_pieces`, sentence length, "remind me"/"on my calendar"
+> markers, ...) scored negative or flat — there is no subset, however
+> identified, with anything to route TOWARD. A stronger FastSeg did not
+> just shrink LLMSeg's upside, as the caveat predicted; it looks to have
+> erased it.
 >
-> The oracle-gate figure (+3.8%) and the accept-step arithmetic in §6 are the
-> numbers to re-derive first. **Board D has never run** — it needs both a FastSeg
-> answer and a final prediction, so it only reports with LLMSeg on, which means the
-> one board built to answer "does the correction pay for itself" has no data at all.
-> Re-run it before deciding anything.
+> **Two new task shapes were tried, neither the four from 2026-09-08.**
+> Both let the model intervene only on the CUT (never the tag), scored on
+> item-count / exact-set rather than exact-row for that reason:
 >
-> Cheap to check and easy to get wrong by reusing the old conclusion.
+> - **`word-index`** — every word numbered, model outputs the word-indices
+>   where a new item starts (integers, not text, so no-loss/no-invention are
+>   true by construction). REFUTED harder than anything before it: 20-row
+>   pilot, item-count 85.0% -> 15.0%, fixes 0 / breaks 12. Inspecting the raw
+>   replies showed why: "i need to sync up with Jordan next monday" (one
+>   ask, 9 words) came back `[1, 7]`, splitting mid-phrase with no relation
+>   to the sentence. An 8B does not reliably hold an absolute position in a
+>   numbered list as a real constraint.
+> - **`mark`** — instead of positions, mark only the CANDIDATE joins
+>   ("and"/"then"/"as well as"/...) inline and ask a LOCAL true/false per
+>   mark ("does a new ask start right after `<2>`?"), reconstructing pieces
+>   from the joiner's own character span. A real, different mechanism from
+>   `word-index` — no counting, no copying. First version's few-shot
+>   examples reused the same `<1>` placeholder five times in the rules text
+>   above the real command; on 158 rows every inspected failure showed an
+>   EXTRA key with no matching mark (`{"1": false, "2": true}` on a
+>   ONE-mark sentence) — the model was counting `<1>` occurrences across
+>   the WHOLE prompt, not just the command. `mark2` states the count up
+>   front ("exactly N marks") and replaces every illustrative placeholder
+>   with the word HERE, leaving the real marks as the only numbered tokens
+>   anywhere in the prompt — confirmed fixed (every `mark2` reply has
+>   exactly as many keys as real marks). **Still net negative** on the full
+>   293-row trap-stratified TRAIN sample (48/48 traps, 95% CI +/-5.7%):
+>   exact-row 64.8% -> 57.0%, item-count 86.0% -> 75.1%, fixes 13 / breaks
+>   36. Fixing the counting bug did not rescue the judgement — inspected
+>   failures show the SAME sentence template ("scrap X off the calendar and
+>   throw Y on there instead") getting different true/false verdicts across
+>   near-identical rows, and the "every tuesday and thursday" recurrence
+>   mis-split recurring unchanged from `mark` v1.
+>
+> **Read together: five independent task shapes, six prompts, one model,
+> zero net-positive results.** Full-rewrite (V1-V6, V3, V4), cut-then-copy
+> (`boundaries`), count-only (`count`), absolute-position (`word-index`) and
+> local-classification (`mark`/`mark2`) all lose. The common thread is not
+> one prompt defect — each was tuned or bug-fixed and re-measured — it is
+> that **llama3.1:8b's judgement on where FastSeg's cut is wrong is
+> unreliable in the direction that matters**: it does not merely miss real
+> errors, it invents disagreements with correct proposals more often than it
+> catches real ones, on every framing tried. The next lever, if this is
+> picked up again, is a DIFFERENT MODEL — only llama3.1:8b is pulled
+> locally today — not another prompt for this one; `experiments/prompt_lab.py`
+> has the harness and the cache ready for whichever one arrives.
+>
+> Board D (needs both a FastSeg and a final prediction, so it only reports
+> with LLMSeg on) still has not run — moot while the oracle ceiling is 0%,
+> since there is nothing for it to find LLMSeg earning back.
 
 > ### The flag
 >
@@ -642,7 +691,7 @@ morning`, `9 in the morning`.
 | a similarity threshold can score the action | **NO** — see §5 |
 | **the logistic `kind` head is a better TAG** | **NO — 88.7% → 80.4%**, and refuted on all three slices including hand-written rows that cannot be in its fitting data. It over-predicts `task`: task recall rises 90.2% → 92.8% while **event recall collapses 87.7% → 71.4%**, event→task errors 106 → 247. Tried as a decisive-only tier (81.2%) and as a one-way veto over `event` (80.1%) — both worse. `experiments/tag_head.py` |
 
-### LLMSeg's standing — turned OFF, on four measurements
+### LLMSeg's standing — turned OFF, on SIX measurements now
 
 | test | result |
 |---|---|
@@ -650,6 +699,24 @@ morning`, `9 in the morning`.
 | `boundaries` — model cuts, FastSeg copies | exact-row −17.3pp, item-count −26.6pp, **NO-INVENTION 0 → 4** |
 | `count` — model returns only a digit | −2.4pp, breaks 19 |
 | **`v4-full` — every prompt defect fixed** | **−12pp; fixes 1, breaks 42** |
+| `word-index` — model outputs word-index cut points (2026-09-16) | item-count **85.0% → 15.0%**, fixes 0 / breaks 12 (20-row pilot; refuted too hard to need more) |
+| `mark2` — local true/false at each candidate join, no counting (2026-09-16) | exact-row 64.8% → 57.0%, item-count 86.0% → 75.1%, fixes 13 / breaks 36 (293 rows, 48/48 traps, 95% CI ±5.7%) |
+
+**2026-09-16 re-test against the CURRENT (much stronger) FastSeg**: the
+2026-09-09 note below this table said every prior comparison was stale
+because FastSeg had gone from 51.5% to 68%+ exact-row since these were
+measured. Re-run fresh (`gate_sizing.py` on 204 TRAIN rows, V4, current
+FastSeg as anchor): the oracle-gate ceiling — the best ANY gate could
+achieve, including a hindsight-cheating one — fell from +3.8% to **+0.0%**.
+LLMSeg fixed zero rows and broke 57; every one of 13 candidate runtime
+features scored as a gate came back negative or flat. Two new task shapes
+(`word-index`, `mark`/`mark2`, detailed in §3's callout) were tried
+specifically to fix the failure modes the four historical tests exposed —
+absolute-position output instead of verbatim copying, then local
+classification instead of absolute position — and both still lose. Five
+task shapes, six prompts, one model, zero net-positive results: the
+limiting factor reads as the model's judgement on this task, not the
+prompt's wording.
 
 Full board for `boundaries`, all twenty metrics, 571 identical rows:
 

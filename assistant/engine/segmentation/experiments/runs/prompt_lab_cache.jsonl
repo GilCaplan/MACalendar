@@ -1621,3 +1621,368 @@
 {"variant": "v4-full", "text": "book conference call in five days at 8 o'clock, yoga class tonight at first thing in the morning, and budget review next monday at quarter to nine", "raw": "{\n  \"1\": [\"book conference call\", \"in five days at 8 o'clock\", \"event\"],\n  \"2\": [\"yoga class\", \"tonight at first thing in the morning\", \"event\"],\n  \"3\": [\"budget review\", \"next monday at quarter to nine\", \"review\"]\n}"}
 {"variant": "v4-full", "text": "book moving day next wednesday at 9:15, staff meeting next month at 3:45pm, and book club the day after tomorrow at 5 pm", "raw": "{\n  \"1\": [\"book moving day\", \"next wednesday at 9:15\", \"event\"],\n  \"2\": [\"staff meeting\", \"next month at 3:45pm\", \"event\"],\n  \"3\": [\"book club\", \"the day after tomorrow at 5 pm\", \"event\"]\n}"}
 {"variant": "v4-full", "text": "book annual checkup this morning at 9 in the morning, blood test a week from today at noon, and open house on the 15th at 6:45", "raw": "{\n  \"1\": [\"book annual checkup\", \"this morning at 9 in the morning\", \"event\"],\n  \"2\": [\"blood test\", \"a week from today at noon\", \"event\"],\n  \"3\": [\"open house\", \"on the 15th at 6:45\", \"event\"]\n}"}
+{"variant": "word-index", "text": "coffee with a friend is an all-day thing on this sunday", "raw": "[1, 4, 6]"}
+{"variant": "word-index", "text": "loop in Jordan for product demo this weekend", "raw": "[1, 3, 6]"}
+{"variant": "word-index", "text": "loop in Charlie for networking event the day after tomorrow", "raw": "[1, 3, 6, 8]"}
+{"variant": "word-index", "text": "i need to sync up with Jordan next monday", "raw": "[1, 7]"}
+{"variant": "word-index", "text": "i need to sync up with Sage this sunday", "raw": "[1, 4, 7]"}
+{"variant": "word-index", "text": "get rid of whatever's on my calendar new year's eve, the one i mean", "raw": "[1, 4, 7, 10, 12]"}
+{"variant": "word-index", "text": "get rid of whatever's on my calendar next monday, the one i mean", "raw": "[1, 4, 7, 9, 12]"}
+{"variant": "word-index", "text": "get rid of whatever's on my calendar today, the one i mean", "raw": "[1, 4, 7, 9, 11]"}
+{"variant": "word-index", "text": "fix up that one on my list, you know the one", "raw": "[1, 3, 6, 9]"}
+{"variant": "word-index", "text": "fix up it on my list, you know the one", "raw": "[1, 5]"}
+{"variant": "word-index", "text": "schedule networking event for in five days. along with that, remind me to submit the report", "raw": "[1, 7, 10]"}
+{"variant": "word-index", "text": "schedule moving day for this sunday. along with that, remind me to refill the prescription", "raw": "[1, 6, 9, 12]"}
+{"variant": "word-index", "text": "ping me 30 minutes before ahead of oil change this morning at 7am", "raw": "[1, 4, 7, 9, 11]"}
+{"variant": "word-index", "text": "ping me 15 minutes before ahead of flu shot next wednesday at quarter to nine", "raw": "[1, 4, 10]"}
+{"variant": "word-index", "text": "scrap piano lesson off the calendar and throw vet appointment on there instead the 21st at 9:15", "raw": "[1, 10]"}
+{"variant": "word-index", "text": "scrap coffee with a friend off the calendar and throw workout session on there instead the 21st at 11am", "raw": "[1, 12]"}
+{"variant": "word-index", "text": "scrap car service appointment off the calendar and throw performance review on there instead next friday at first thing in the morning", "raw": "[1, 4, 12]"}
+{"variant": "word-index", "text": "make wash the car a every tuesday and thursday thing", "raw": "[1, 6, 9]"}
+{"variant": "word-index", "text": "make walk the dog a every other tuesday thing", "raw": "[1, 7]"}
+{"variant": "word-index", "text": "first prepare the presentation, then let's get orientation on the calendar for march 5th", "raw": "[1, 4, 7, 10]"}
+{"variant": "mark", "text": "coffee with a friend is an all-day thing on this sunday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "loop in Jordan for product demo this weekend", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false,\n  \"5\": true\n}\n```"}
+{"variant": "mark", "text": "loop in Charlie for networking event the day after tomorrow", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false,\n  \"5\": true\n}\n```"}
+{"variant": "mark", "text": "i need to sync up with Jordan next monday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "i need to sync up with Sage this sunday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "get rid of whatever's on my calendar new year's eve, the one i mean", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "get rid of whatever's on my calendar next monday, the one i mean", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "get rid of whatever's on my calendar today, the one i mean", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "fix up that one on my list, you know the one", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false,\n  \"5\": true\n}\n```"}
+{"variant": "mark", "text": "fix up it on my list, you know the one", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false,\n  \"5\": true\n}\n```"}
+{"variant": "mark", "text": "schedule networking event for in five days. along with that, remind me to submit the report", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false\n}\n```"}
+{"variant": "mark", "text": "schedule moving day for this sunday. along with that, remind me to refill the prescription", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "ping me 30 minutes before ahead of oil change this morning at 7am", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "ping me 15 minutes before ahead of flu shot next wednesday at quarter to nine", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "scrap piano lesson off the calendar and throw vet appointment on there instead the 21st at 9:15", "raw": "```json\n{\n  \"1\": true,\n  \"2\": false,\n  \"3\": false\n}\n```"}
+{"variant": "mark", "text": "scrap coffee with a friend off the calendar and throw workout session on there instead the 21st at 11am", "raw": "```json\n{\n  \"1\": true,\n  \"2\": false\n}\n```"}
+{"variant": "mark", "text": "scrap car service appointment off the calendar and throw performance review on there instead next friday at first thing in the morning", "raw": "```json\n{\n  \"1\": true,\n  \"2\": false\n}\n```"}
+{"variant": "mark", "text": "make wash the car a every tuesday and thursday thing", "raw": "```json\n{\n  \"1\": true,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "make walk the dog a every other tuesday thing", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": true\n}\n```"}
+{"variant": "mark", "text": "first prepare the presentation, then let's get orientation on the calendar for march 5th", "raw": "```json\n{\n  \"1\": true,\n  \"2\": false\n}\n```"}
+{"variant": "mark", "text": "swap project sync to 6:45 instead", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "flip the due date on review the contract to new year's eve", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false\n}\n```"}
+{"variant": "mark", "text": "flip the due date on order new office supplies to this friday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "flip the due date on mail the package to march 5th", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "book vet appointment for all day the 21st", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "book vet appointment for all day next week", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "oil change next week, all day", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "retrospective two weeks from now, all day", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false\n}\n```"}
+{"variant": "mark", "text": "mark next month as busy all day for school play", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "mark two weeks from now as busy all day for physical therapy", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "block my whole calendar christmas day for standup", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "block out the 30th to do the laundry, all day", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "book standup the 30th for the entire day and remind me an hour before", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "add vet appointment to my calendar in three weeks and haircut on the 15th", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "add staff meeting to my calendar in two days and onboarding session the 21st", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "set up vet appointment at 9 in the morning and yoga class at late afternoon", "raw": "```json\n{\n  \"1\": true,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "set up therapy session at 9:15 and workout session at 5 pm", "raw": "```json\n{\n  \"1\": true,\n  \"2\": false\n}\n```"}
+{"variant": "mark", "text": "book wedding rehearsal today and also put workshop on the calendar this coming saturday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "schedule retrospective for in three weeks and add pay the electricity bill to my list", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "schedule birthday dinner for a week from today and add water the garden to my list", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "set up birthday dinner at 5 pm and i need to water the plants", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "buy a couple of onions and book workout session the 3rd", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "buy twelve onions and book team meeting today", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me to clean the kitchen the day after tomorrow and add product demo to my calendar in five days", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "i need to book a flight and prepare the presentation", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "put charge the scooter and update the resume on my list", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "put clean the kitchen and change the air filter on my list", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me to walk the dog this sunday and to pay the electricity bill christmas day", "raw": "```json\n{\n  \"1\": true,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "set up time with Emerson this coming saturday at half past six", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "set up time with Reese march 5th at 3:45pm", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": true\n}\n```"}
+{"variant": "mark", "text": "book a meeting with Emerson a week from today at first thing in the morning to discuss school play", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "book a meeting with Robin next wednesday at first thing in the morning to discuss webinar", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false\n}\n```"}
+{"variant": "mark", "text": "schedule standup with Harper a week from today at 7am", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "book retrospective with Jordan for next monday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false,\n  \"5\": true\n}\n```"}
+{"variant": "mark", "text": "set up a meeting with Parker the 30th at 8 o'clock", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "invite Jamie to flight to Chicago next week", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "schedule a call with Robin for in five days at 8:30pm", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "book physical therapy for Devon on this evening", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "book book club for Charlie on next friday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "set up coffee with a friend with Taylor and Riley the 30th", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "set up conference call with Parker and Devon next wednesday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me to email Alex about physical therapy tomorrow", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "remind me to email Rowan about vet appointment next month", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me to email Charlie about book club next tuesday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "mark in five days as the renewal date", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false,\n  \"5\": true\n}\n```"}
+{"variant": "mark", "text": "mark next month as the release date on my calendar", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "mark next tuesday as the release date on my calendar", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false,\n  \"4\": false\n}\n```"}
+{"variant": "mark", "text": "mark the 3rd as the renewal date on my calendar", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": true\n}\n```"}
+{"variant": "mark", "text": "note the 30th as the project deadline", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false,\n  \"5\": true\n}\n```"}
+{"variant": "mark", "text": "note this evening as the big game", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false,\n  \"5\": true\n}\n```"}
+{"variant": "mark", "text": "label today as the release date on my calendar", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false\n}\n```"}
+{"variant": "mark", "text": "label next friday as the tax deadline on my calendar", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "mark next friday as the moving day, don't let me forget", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "mark next tuesday as the tax deadline please", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "mark the 3rd as the big game please", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": true\n}\n```"}
+{"variant": "mark", "text": "i have to meet Devon next friday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "i have to meet Avery the day after tomorrow", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "i have to meet Robin next tuesday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "i have to meet Jordan in three weeks", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "i need to catch up with Parker this friday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "need to touch base with Harper the 21st", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "schedule networking event with Parker every weekday at late afternoon", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "mark book a flight as done, finally got to it", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remove wash the car from my list, i already handled it", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "what's on my calendar this weekend, i have a lot going on", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "can you check what i have today before i commit to anything", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false,\n  \"5\": true\n}\n```"}
+{"variant": "mark", "text": "push haircut appointment back by to 90 minutes this coming saturday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "push team meeting back by by 30 minutes next friday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "change the due date of do the laundry to two weeks from now and add a note", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "change the due date of feed the cat to in five days and add a note", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false,\n  \"5\": true\n}\n```"}
+{"variant": "mark", "text": "rename cancel the subscription to review the contract on my list", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "check off that task, it's done", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false,\n  \"5\": true\n}\n```"}
+{"variant": "mark", "text": "um can you just delete the event for me", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "um can you just delete that task for me", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "get rid of my reminder on my calendar this evening", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "get rid of this reminder on my calendar this evening", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false\n}\n```"}
+{"variant": "mark", "text": "yeah just clear it off my list please", "raw": "{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false,\n  \"5\": true\n}"}
+{"variant": "mark", "text": "yeah just clear that appointment off my list please", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "reschedule that task to next month at 6:45", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "schedule parent-teacher conference every tuesday and thursday at noon, including on the 15th", "raw": "```json\n{\n  \"1\": true,\n  \"2\": false\n}\n```"}
+{"variant": "mark", "text": "pack for the trip every other tuesday, including next tuesday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "renew the passport monthly, including this morning", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false\n}\n```"}
+{"variant": "mark", "text": "set up vet appointment for next monday. also set up tennis lesson for a week from today", "raw": "```json\n{\n  \"1\": true,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "set up annual checkup for the 3rd. also set up school play for next monday", "raw": "```json\n{\n  \"1\": true,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "schedule dinner reservation for tonight and then set up physical therapy for next tuesday", "raw": "```json\n{\n  \"1\": true,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "schedule networking event for the 30th, then add fix the leaky faucet to my list", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "book coffee with a friend this weekend at 11am, plus product demo next wednesday at 14:00", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "book job interview in three weeks at 9 in the morning, plus school play next friday at 9:15", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me to organize the garage, plus book performance review next tuesday at 6 in the evening", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "add back up the laptop to my list, plus take out the trash", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "add pack for the trip to my list, plus schedule a haircut", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "add restock the pantry to my list and remind me an hour before", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "add take out the trash to my list and remind me a week before", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me 15 minutes before about sales call christmas day at 11am", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me a day before about flight to Chicago next week at 6:45", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "book eye exam this weekend at late afternoon and remind me two hours before", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me 15 minutes before before team meeting in two days at 6:45", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "set a reminder a day before for onboarding session the 21st", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false\n}\n```"}
+{"variant": "mark", "text": "book car service appointment christmas day at late afternoon with a reminder an hour before", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "how many tasks do i have and remind me to review the contract", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "how many tasks do i have and remind me to call the plumber", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "mark return the library books as done and add call the plumber to my list", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "check off organize the garage and remind me to submit the report", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "book budget review christmas day at 3:45pm and what's on my calendar this weekend", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "book sales call next friday at 5 pm and what's on my calendar today", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "delete call the plumber from my list and remind me to schedule a haircut", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "delete book a flight from my list and remind me to return the rental car", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "delete feed the cat from my list and remind me to order new office supplies", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "what's on my calendar this month and book workout session march 5th at 11am", "raw": "```json\n{\n  \"1\": true,\n  \"2\": false\n}\n```"}
+{"variant": "mark", "text": "what's on my calendar this afternoon and book doctor's appointment this sunday at quarter to nine", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "what's on my calendar this week and book school play this coming saturday at around lunchtime", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "clear physical therapy off my calendar and set up therapy session for in five days", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "clear retrospective off my calendar and set up team meeting for at the end of the month", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false\n}\n```"}
+{"variant": "mark", "text": "clear yoga class off my calendar and set up birthday dinner for this afternoon", "raw": "```json\n{\n  \"1\": true,\n  \"2\": false\n}\n```"}
+{"variant": "mark", "text": "buy paper towels and envelopes new year's eve", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "buy stamps and notebooks for the party next monday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "buy apples and light bulbs for the party in five days", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "call Rowan and Emerson this coming saturday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "cancel the meeting with Sage and Skyler", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "cancel the meeting with Robin and Blake", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me to buy notebooks and protein bars", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "reschedule the call with Harper and Blake to march 5th", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "reschedule the call with Sage and Charlie to at the end of the month", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "clean and organize the garage tomorrow", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "sort and file the paperwork this afternoon", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false,\n  \"5\": true\n}\n```"}
+{"variant": "mark", "text": "book a table for Jamie and Alex in three weeks at late afternoon", "raw": "```json\n{\n  \"1\": true,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "book project sync on the 15th between 2 and 4", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "schedule therapy session for this sunday from noon to 1", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "set up coffee with a friend from 3 to 4pm today", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "client call between 2 and 4 march 5th", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "blood test between 5 and 6:30 tonight", "raw": "```json\n{\n  \"1\": true,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "moving day from 9 to 2:30 the 30th", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "book job interview in five days from 9 to 2:30 with Avery", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false,\n  \"5\": true\n}\n```"}
+{"variant": "mark", "text": "block off time to water the garden from 9 to 2:30 the 3rd", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": true\n}\n```"}
+{"variant": "mark", "text": "set up annual checkup every weekday at around lunchtime for the rest of the year", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "set up annual checkup every tuesday and thursday at first thing in the morning for the rest of the year", "raw": "```json\n{\n  \"1\": true,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "set up blood test twice a week at 7:30am for the rest of the year", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "book tennis lesson every weekday at 7:30am, no exceptions", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": true,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "set up onboarding session every weekend at 8:30pm starting a week from today", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "set up client call every other tuesday at 9 in the morning starting in three weeks", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me to return the rental car every weekend", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me to water the plants every tuesday and thursday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "do the laundry every week at 14:00", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "submit the report every other tuesday at 7am", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "print the boarding pass daily at 14:00", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "book standup every other week except when i'm busy", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "book orientation every other tuesday except when i'm busy", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": true\n}\n```"}
+{"variant": "mark", "text": "remind me to restock the pantry and then remind me to back up the laptop tomorrow", "raw": "```json\n{\n  \"1\": true,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me to mail the package and then to vacuum the living room", "raw": "```json\n{\n  \"1\": true,\n  \"2\": false\n}\n```"}
+{"variant": "mark", "text": "remind me to vacuum the living room and then to review the contract", "raw": "```json\n{\n  \"1\": true,\n  \"2\": false\n}\n```"}
+{"variant": "mark", "text": "remind me to water the plants and then book yoga class the 30th at 11am", "raw": "```json\n{\n  \"1\": true,\n  \"2\": false\n}\n```"}
+{"variant": "mark", "text": "remind me to confirm the reservation and then book webinar this weekend at 11am", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me to return the library books in three weeks, then schedule physical therapy for next tuesday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me to pay the electricity bill, then add client call to my calendar in two days", "raw": "```json\n{\n  \"1\": true,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me to water the plants before haircut this afternoon at half past six", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me to feed the cat before car service appointment in five days at 7:30am", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me to organize the garage an hour before school play at around lunchtime", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "remind me to water the plants an hour before graduation ceremony at 8 o'clock", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "schedule retrospective every month at around lunchtime, i keep mispelling this but you know what i mean", "raw": "{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false,\n  \"5\": true\n}"}
+{"variant": "mark", "text": "you know i really should walk the dog this sunday at some point", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "book vet appointment for teusday at 7:30am", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "book orientation for teusday at first thing in the morning", "raw": "```json\n{\n  \"1\": false,\n  \"2\": false,\n  \"3\": false,\n  \"4\": false\n}\n```"}
+{"variant": "mark", "text": "book moving day for teusday at ten thirty", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true,\n  \"3\": false\n}\n```"}
+{"variant": "mark", "text": "um what's on my calendar this weekend and also book sales call at the end of the month at 14:00", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "um so i need to book eye exam at the end of the month at 6:45 and also remind me to clean the kitchen", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark", "text": "so like i gotta restock the pantry and back up the laptop next tuesday", "raw": "```json\n{\n  \"1\": true,\n  \"2\": true\n}\n```"}
+{"variant": "mark2", "text": "scrap piano lesson off the calendar and throw vet appointment on there instead the 21st at 9:15", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "scrap coffee with a friend off the calendar and throw workout session on there instead the 21st at 11am", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "scrap car service appointment off the calendar and throw performance review on there instead next friday at first thing in the morning", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "make wash the car a every tuesday and thursday thing", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "first prepare the presentation, then let's get orientation on the calendar for march 5th", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "book standup the 30th for the entire day and remind me an hour before", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "add vet appointment to my calendar in three weeks and haircut on the 15th", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "add staff meeting to my calendar in two days and onboarding session the 21st", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "set up vet appointment at 9 in the morning and yoga class at late afternoon", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "set up therapy session at 9:15 and workout session at 5 pm", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "book wedding rehearsal today and also put workshop on the calendar this coming saturday", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "schedule retrospective for in three weeks and add pay the electricity bill to my list", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "schedule birthday dinner for a week from today and add water the garden to my list", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "set up birthday dinner at 5 pm and i need to water the plants", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "buy a couple of onions and book workout session the 3rd", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "buy twelve onions and book team meeting today", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "remind me to clean the kitchen the day after tomorrow and add product demo to my calendar in five days", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark2", "text": "i need to book a flight and prepare the presentation", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "put charge the scooter and update the resume on my list", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark2", "text": "put clean the kitchen and change the air filter on my list", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "remind me to walk the dog this sunday and to pay the electricity bill christmas day", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "set up coffee with a friend with Taylor and Riley the 30th", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "set up conference call with Parker and Devon next wednesday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark2", "text": "change the due date of do the laundry to two weeks from now and add a note", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "change the due date of feed the cat to in five days and add a note", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "schedule parent-teacher conference every tuesday and thursday at noon, including on the 15th", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "set up vet appointment for next monday. also set up tennis lesson for a week from today", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "set up annual checkup for the 3rd. also set up school play for next monday", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "schedule dinner reservation for tonight and then set up physical therapy for next tuesday", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "schedule networking event for the 30th, then add fix the leaky faucet to my list", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "book coffee with a friend this weekend at 11am, plus product demo next wednesday at 14:00", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "book job interview in three weeks at 9 in the morning, plus school play next friday at 9:15", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "remind me to organize the garage, plus book performance review next tuesday at 6 in the evening", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "add back up the laptop to my list, plus take out the trash", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "add pack for the trip to my list, plus schedule a haircut", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "add restock the pantry to my list and remind me an hour before", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "add take out the trash to my list and remind me a week before", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "book eye exam this weekend at late afternoon and remind me two hours before", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "how many tasks do i have and remind me to review the contract", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "how many tasks do i have and remind me to call the plumber", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "mark return the library books as done and add call the plumber to my list", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "check off organize the garage and remind me to submit the report", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "book budget review christmas day at 3:45pm and what's on my calendar this weekend", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "book sales call next friday at 5 pm and what's on my calendar today", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "delete call the plumber from my list and remind me to schedule a haircut", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "delete book a flight from my list and remind me to return the rental car", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "delete feed the cat from my list and remind me to order new office supplies", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "what's on my calendar this month and book workout session march 5th at 11am", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "what's on my calendar this afternoon and book doctor's appointment this sunday at quarter to nine", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "what's on my calendar this week and book school play this coming saturday at around lunchtime", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "clear physical therapy off my calendar and set up therapy session for in five days", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "clear retrospective off my calendar and set up team meeting for at the end of the month", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "clear yoga class off my calendar and set up birthday dinner for this afternoon", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "buy paper towels and envelopes new year's eve", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "buy stamps and notebooks for the party next monday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark2", "text": "buy apples and light bulbs for the party in five days", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark2", "text": "call Rowan and Emerson this coming saturday", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "cancel the meeting with Sage and Skyler", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "cancel the meeting with Robin and Blake", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "remind me to buy notebooks and protein bars", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark2", "text": "reschedule the call with Harper and Blake to march 5th", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "reschedule the call with Sage and Charlie to at the end of the month", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "clean and organize the garage tomorrow", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "sort and file the paperwork this afternoon", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "book a table for Jamie and Alex in three weeks at late afternoon", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "book project sync on the 15th between 2 and 4", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "client call between 2 and 4 march 5th", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "blood test between 5 and 6:30 tonight", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "set up annual checkup every tuesday and thursday at first thing in the morning for the rest of the year", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "remind me to water the plants every tuesday and thursday", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "remind me to restock the pantry and then remind me to back up the laptop tomorrow", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "remind me to mail the package and then to vacuum the living room", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "remind me to vacuum the living room and then to review the contract", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "remind me to water the plants and then book yoga class the 30th at 11am", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "remind me to confirm the reservation and then book webinar this weekend at 11am", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "remind me to return the library books in three weeks, then schedule physical therapy for next tuesday", "raw": "```json\n{\n  \"1\": false\n}\n```"}
+{"variant": "mark2", "text": "remind me to pay the electricity bill, then add client call to my calendar in two days", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "um what's on my calendar this weekend and also book sales call at the end of the month at 14:00", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "um so i need to book eye exam at the end of the month at 6:45 and also remind me to clean the kitchen", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "so like i gotta restock the pantry and back up the laptop next tuesday", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "remove 'dentist appointment' from my calendar and book town hall this sunday at 9 in the morning", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "add piano lesson to my calender this friday and remind me to do the laundry", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "book therapy session today at ten thirty, wedding rehearsal in two days at 11am, and budget review in five days at 9:15", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "book annual checkup this morning at 9 in the morning, blood test a week from today at noon, and open house on the 15th at 6:45", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "set up training session on the 15th at midnight, flu shot the 3rd, and team meeting next friday", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "book eye exam this afternoon, moving day next wednesday, and remind me to vacuum the living room", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "book annual checkup this morning, onboarding session next wednesday, and add sign the permission slip to my list", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "book sales call this evening, flight to Chicago this afternoon, and add clean the kitchen to my list", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "book yoga class next week and remind me to water the plants and call the plumber", "raw": "```json\n{\n  \"1\": true,\n  \"2\": true\n}\n```"}
+{"variant": "mark2", "text": "i need to walk the dog, cancel the subscription, and take out the trash this friday", "raw": "{\n  \"1\": false,\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "i need to schedule a haircut, change the air filter, and do the laundry the 3rd", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "buy three light bulbs, apples, and shampoo", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "set up a meeting with sam and alex at 8", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "can you book dinner with jordan and casey for saturday night", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "coffee with riley and morgan tomorrow at half past ten", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "lunch tomorrow with morgan and casey at one", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "wash and fold the laundry before dinner", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "can you rinse and stack the dishes tonight", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "sweep and mop the kitchen floor on sunday", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "tidy and organize the garage on saturday", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "hoover and dust the living room tomorrow", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "can you defrost and clean out the freezer this week", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "walk the dog at 9 and 2:30", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "take the tablets at noon and at six", "raw": "{\"1\": true}"}
+{"variant": "mark2", "text": "guitar practice at 11 and 4 tomorrow", "raw": "{\"1\": true}"}
+{"variant": "mark2", "text": "book the gym at 1pm and give me a nudge an hour before", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "put the flight in for friday morning and ping me thirty minutes ahead", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "add the tax deadline on the 15th and warn me a week before that", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "add buy milk and buy bread to my list", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark2", "text": "put pick up the dry cleaning and call the vet on the to do list", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "stick eggs and washing powder on the shopping list", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark2", "text": "can you add renew the passport and book the mot to my tasks for this week", "raw": "{\n  \"1\": false,\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "two tasks due tomorrow buy groceries and return the book", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "three things for saturday cut the grass wash the car and fill up the tank", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "here's what i need doing this evening take the chicken out and start the dishwasher", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "order fish and chips for friday night", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "book us in for a cut and blow dry on saturday morning", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "put mac and cheese on the menu for tuesday", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "book the gym and remind me to pick up my prescription", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "schedule a haircut at 4 and order more coffee beans", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "sign me up for the pottery class and grab milk from the corner shop", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "call the vet then pick up the dry cleaning", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "drop the car at the garage then book my eye test with the optician", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "add swimming tomorrow, buy printer paper, and call the plumber", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "put out the bins, order dog food, and book a check up at the clinic", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "add the budget review at 2, ring the accountant, and print the contracts", "raw": "```json\n{\n  \"1\": false\n}\n```"}
+{"variant": "mark2", "text": "remind me to defrost the freezer and call the electrician and book the boiler service", "raw": "```json\n{\n  \"1\": true,\n  \"2\": true\n}\n```"}
+{"variant": "mark2", "text": "on thursday add the dermatologist, the parents evening, and a call with Riley", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "book the eye test, remind me to renew the parking permit, and add lunch with Casey at the italian place", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "add the check up on friday at 3 and put washing powder on the shopping list", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "book five a side for tuesday and add batteries to my list", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "book the swimming gala at 6:45 as well as the supplier call at 8:30", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "add the parents evening as well as the governors meeting on wednesday", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "remind me to ring the school and then remind me to order the tickets", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "remind me to pay the parking fine on friday and then remind me to send the meter reading", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "remind me to hoover the stairs and then book a tennis court at the leisure centre", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "add the strategy meeting and print the agenda", "raw": "```json\n{\n  \"1\": false\n}\n```"}
+{"variant": "mark2", "text": "pick up envelopes and sellotape from the stationers", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "grab bin bags and washing up liquid from the corner shop", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "tomorrow book the physio at 8 and the team sync at 11", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "on saturday add the market run and a coffee with Morgan at 4", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "next friday put in the site inspection and the safety briefing", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "submit the expenses and prepare the handover notes by thursday", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark2", "text": "file the tax return and send the receipts before the end of the month", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "proofread the report, chase the signatures, and update the tracker by friday", "raw": "```json\n{\n  \"1\": true\n}\n```"}
+{"variant": "mark2", "text": "call the surveyor and on friday book the valuation", "raw": "```json\n{\n  \"1\": false\n}\n```"}
+{"variant": "mark2", "text": "pick up the parcel and add the handover meeting tomorrow", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "print the tickets and put the flight in the diary on sunday", "raw": "```json\n{\n  \"1\": true\n}\n```"}
+{"variant": "mark2", "text": "on wednesday remind me to pay the deposit and add the viewing", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "every friday order the veg box and remind me to put the bins out", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "add the daily standup every weekday at 9:30 and book the retro", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "order 12 bagels and 2 tubs of cream cheese from the deli", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "remind me to buy 3 bags of compost and book the garden waste collection", "raw": "{\n  \"1\": false\n}"}
+{"variant": "mark2", "text": "pick up 6 eggs and add the school concert on thursday", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "call the optician and email the accountant", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "remind me to defrost the chicken, book the taxi, and tidy the spare room", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark2", "text": "sort the paperwork then shred the old statements", "raw": "{\n  \"1\": true\n}"}
+{"variant": "mark2", "text": "wash the dog and book the grooming appointment at 3", "raw": "```json\n{\n  \"1\": false,\n  \"2\": true\n}\n```"}
+{"variant": "mark2", "text": "call the plumber, order the tiles, and add the survey at 11", "raw": "{\n  \"1\": true\n}"}
