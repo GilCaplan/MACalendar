@@ -347,12 +347,17 @@ is two fixes behind the code it describes.
 `and_compound` 53.6%, `joiner` 50.0%, `remind_then` 45.8%; multi-ask rows 17
 points behind single-ask on the segmentation train corpus) — the biggest
 remaining lever and the risky half, because over-split is garbage immediately.
-Second is **re-testing LLMSeg**: its four refutations were measured against a
-FastSeg scoring 51.5% exact-row (`PLAN.md:78,273`) and FastSeg is now 68.2%
-train / 66.5% sealed (`PLAN.md:15`), so they are stale in *both* directions, and
-board D — the one built to answer "does the correction pay for itself" — has
-never produced a number. That second one is a measurement, not a code change,
-and is therefore the cheapest thing here to restart.
+Second was **re-testing LLMSeg** — **DONE 2026-09-16**, same verdict on the
+current FastSeg: the oracle-gate ceiling (the best ANY routing rule could do,
+even a cheating one) fell from the historical +3.8% to +0.0% on 204 fresh
+rows — 0 fixed, 57 broken. Two new task shapes designed against the old
+failure modes (`word-index`: absolute position output instead of verbatim
+copying; `mark`/`mark2`: local true/false at each candidate join instead of
+either) were also tried and also lost, `mark2` on a full 293-row
+trap-stratified sample (exact-row 64.8% -> 57.0%, fixes 13 / breaks 36). Board
+D still has not run — moot while the ceiling is 0%. Full numbers:
+`assistant/engine/segmentation/ARCHITECTURE.md` §3 and §6. The next lever, if
+this is picked up again, is a different local model, not another prompt.
 
 Two items in that list need a ruling before anyone picks them up. **§8.3, the
 injected date floor** (`fastseg.py:352` writes the literal word "today" into
