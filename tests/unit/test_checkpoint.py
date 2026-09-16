@@ -32,9 +32,11 @@ def test_a_completed_unit_is_on_disk_before_the_next_one_starts(scratch):
     crash would lose exactly the work the checkpoint exists to protect."""
     ck = Checkpoint("t", total=3)
     ck.record("a", {"ok": True})
-    # read it from ANOTHER handle, without closing — it must already be there
+    # read it from ANOTHER handle, without closing — it must already be there.
+    # The first line is the git-head stamp (test_checkpoint_versioning.py owns
+    # that behaviour); units are whatever comes after it.
     rows = [json.loads(l) for l in (scratch / "t.jsonl").read_text().splitlines() if l.strip()]
-    assert rows == [{"k": "a", "v": {"ok": True}}]
+    assert [r for r in rows if "k" in r] == [{"k": "a", "v": {"ok": True}}]
 
 
 def test_re_running_resumes_instead_of_redoing_hours_of_model_calls(scratch):

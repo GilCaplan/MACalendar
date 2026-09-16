@@ -77,6 +77,34 @@ CHECKPOINT_DIR = pathlib.Path(
     os.environ.get("MACALENDAR_CHECKPOINTS")
     or (pathlib.Path.home() / ".assistant_tools" / "checkpoints"))
 
+_REPO_DIR = pathlib.Path(__file__).resolve().parent
+
+
+def _git_head() -> "str | None":
+    """The commit this process's code is actually running, or None outside a
+    git checkout. Best-effort: a checkpoint must work in a stray sandbox with
+    no `git` on PATH exactly as well as it does in the repo."""
+    try:
+        import subprocess
+        out = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True,
+                             text=True, timeout=5, cwd=_REPO_DIR)
+        return out.stdout.strip() if out.returncode == 0 and out.stdout.strip() else None
+    except Exception:
+        return None
+
+
+def _git_dirty() -> "bool | None":
+    """Whether the working tree differs from HEAD, or None if that can't be
+    answered. A dirty tree means even a HEAD match doesn't prove the code
+    that produced this checkpoint is the code running now."""
+    try:
+        import subprocess
+        out = subprocess.run(["git", "diff", "--quiet", "HEAD"],
+                             capture_output=True, timeout=5, cwd=_REPO_DIR)
+        return out.returncode != 0 if out.returncode in (0, 1) else None
+    except Exception:
+        return None
+
 
 class Checkpoint:
     """One long run's completed units, on disk, resumable."""
@@ -88,6 +116,7 @@ class Checkpoint:
         self.every = max(1, every)
         self.path = CHECKPOINT_DIR / f"{name}.jsonl"
         self._done: dict = {}
+        self._meta: "dict | None" = None
         self._t0 = _now()
         self._since_print = 0
         self._fh = None
@@ -106,6 +135,29 @@ class Checkpoint:
             # measurement is the point and this is bookkeeping. It degrades to
             # the old behaviour, loudly.
             print(f"  [checkpoint] cannot write {self.path} — running without one")
+
+        # THE STAMP, AND THE CHECK IT EXISTS FOR. `has()`/`get()` are a bare id
+        # lookup with no idea what CODE produced the cached row — a checkpoint
+        # from before a code change reads back as an ordinary cache hit
+        # (`board_d_overnight.jsonl`, scored 2026-09-15 against the FastRule
+        # module a same-day merge had already retired). A mismatch does not
+        # refuse the resume — this project flags, it does not block — but it
+        # must not be possible to miss.
+        head = _git_head()
+        if self._meta is not None:
+            prior = self._meta.get("git_head")
+            if prior and head and prior != head:
+                print(f"  [checkpoint] WARNING — {name} was recorded at "
+                      f"commit {prior[:10]}, HEAD is now {head[:10]}. These "
+                      f"cached rows may describe code that no longer exists. "
+                      f"Resume only if you have checked the diff between "
+                      f"them; --fresh to discard and start over.")
+        elif not self._done and head is not None:
+            # A genuinely new checkpoint (nothing loaded — no prior run, no
+            # pre-stamp era file to leave alone) gets the stamp so the NEXT
+            # resume, whenever that is, can make this check.
+            self._write_meta({"git_head": head, "git_dirty": _git_dirty()})
+
         #: Units reclaimed from disk. They cost no time THIS run, so counting
         #: them in the rate makes a resumed job look enormously fast and hands
         #: back an ETA far shorter than the truth — Board D resumed 111 rows and
@@ -133,6 +185,22 @@ class Checkpoint:
                         continue
                     if "k" in row:
                         self._done[row["k"]] = row.get("v")
+                    elif "git_head" in row and self._meta is None:
+                        # The stamp line, if this file has one — always
+                        # written first, but found wherever it is rather than
+                        # assumed to be line 1, since old-format files being
+                        # read by new code have no such promise.
+                        self._meta = row
+        except OSError:
+            pass
+
+    def _write_meta(self, meta: dict) -> None:
+        if self._fh is None:
+            return
+        try:
+            self._fh.write(json.dumps(meta) + "\n")
+            self._fh.flush()
+            os.fsync(self._fh.fileno())
         except OSError:
             pass
 
