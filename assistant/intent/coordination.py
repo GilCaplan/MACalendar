@@ -175,7 +175,7 @@ def clause_boundaries(text: str) -> "list[Boundary]":
         # is a noun. Look through it: a command verb sitting as a compound
         # modifier IS the second ask's verb.
         verb = tok if (tok.pos_ in ("VERB", "AUX") or _is_command_verb(tok)) \
-            else _compound_command_verb(tok)
+            else _compound_command_verb(tok) or _rescued_by_family(doc, tok)
         if verb is None:
             continue
         if tok.dep_ == "dep" and verb is not tok and tok.pos_ not in ("NOUN", "PROPN"):
@@ -337,6 +337,32 @@ def _opens_a_date(doc, i: int) -> bool:
     return False
 
 
+def _hidden_verb_in_chain(tok):
+    """Walk `tok`'s COMPOUND CHAIN for a command verb, with NO gate on
+    `tok`'s own head — the gate is `_compound_command_verb`'s job for its
+    normal callers. Call this directly only when a DIFFERENT safety
+    condition already stands in for it, as `_rescued_by_family` below does.
+
+    The chain can be ONE level down: "book yoga class" parses as book
+    compound-of yoga compound-of class (nested), not the flatter two-
+    siblings shape of "book tennis lesson" (book and tennis both direct
+    children of lesson) — spaCy picks whichever shape fits its own parse of
+    the two-word object, and both are real, so both must be walked.
+    """
+    frontier = [tok]
+    seen: set = set()
+    while frontier:
+        cur = frontier.pop()
+        for child in cur.children:
+            if child.dep_ != "compound" or child.i >= tok.i or child.i in seen:
+                continue
+            seen.add(child.i)
+            if _is_command_verb(child):
+                return child
+            frontier.append(child)
+    return None
+
+
 def _compound_command_verb(tok):
     """The command verb hiding as a compound modifier of `tok`, or None.
 
@@ -344,14 +370,6 @@ def _compound_command_verb(tok):
     `lesson` as the conjunct and `book` as its compound — the verb is there,
     just mis-tagged. Only a modifier BEFORE the noun counts, and only one from
     the parser's own verb inventory, so "tennis lesson" stays one thing.
-
-    The compound can sit ONE level down too: "book yoga class" parses as a
-    CHAIN (`book` compound-of `yoga` compound-of `class`), not the flatter
-    two-siblings shape of "book tennis lesson" (`book` and `tennis` both
-    direct children of `lesson`) — spaCy picks whichever shape fits its own
-    parse of the two-word object, and both are real. A direct-children-only
-    search missed the chained form, so "remind me to water the plants and
-    then book yoga class" stayed one item.
     """
     if tok.pos_ not in ("NOUN", "PROPN"):
         return None
@@ -365,22 +383,59 @@ def _compound_command_verb(tok):
     head = tok.head
     if head.pos_ not in ("VERB", "AUX") and head.dep_ != "ROOT":
         return None
-    # Walk the COMPOUND CHAIN leading up to the conjunct, not just its direct
-    # children, so a nested parse is found the same as a flat one. Restricted
-    # to dep_ == "compound" links and tokens before `tok`, same as before —
-    # only the search widened, not what counts as a hit.
-    frontier = [tok]
-    seen: set = set()
-    while frontier:
-        cur = frontier.pop()
-        for child in cur.children:
-            if child.dep_ != "compound" or child.i >= tok.i or child.i in seen:
-                continue
-            seen.add(child.i)
-            if _is_command_verb(child):
-                return child
-            frontier.append(child)
-    return None
+    return _hidden_verb_in_chain(tok)
+
+
+def _verb_intent_family(tok) -> "str | None":
+    """This verb's own entry in `INTENT_MAP` ("create_event", "create_todo",
+    ...) — the SAME table `_is_command_verb` already reads, reused rather
+    than a second lexicon that could drift from it. `(word, None)` is the
+    verb's general entry; a handful of verbs are only keyed with a
+    qualifier, so that is checked second rather than reported as unknown.
+    """
+    from assistant.intent.rule_parser import INTENT_MAP
+    word = (tok.lemma_ or tok.text).lower()
+    direct = INTENT_MAP.get((word, None))
+    if direct is not None:
+        return direct
+    return next((intent for (verb, _q), intent in INTENT_MAP.items() if verb == word), None)
+
+
+def _rescued_by_family(doc, tok):
+    """One more chance for a conjunct `_compound_command_verb` refused
+    because its head isn't a VERB/AUX/ROOT — ordinarily NP-coordination,
+    correctly, most of the time. But when a real command verb hides in its
+    compound chain AND that verb names a DIFFERENT KIND of thing than the
+    sentence's own root verb, the difference is evidence neither the POS
+    tags nor the dependency tree could see on their own:
+
+    "buy apples and water bottles" — root `buy` (create_todo), hidden
+    `water` (create_todo) — SAME family, stays refused: exactly the case
+    the head-gate exists to catch, now doubly guarded.
+    "buy 3 bananas and book car service appointment" — root `buy`
+    (create_todo), hidden `book` (create_event) — DIFFERENT family,
+    rescued: `appointment`'s head is `bananas` (a NOUN, so the primary gate
+    refuses), but nobody books an appointment made of car-service the way
+    someone buys a bottle made of water.
+
+    A verb outside `INTENT_MAP` (root OR hidden) rescues nothing — no
+    family to compare means no evidence, not a guess.
+    """
+    if tok.pos_ not in ("NOUN", "PROPN"):
+        return None
+    root = next((t for t in doc if t.dep_ == "ROOT"), None)
+    if root is None:
+        return None
+    root_family = _verb_intent_family(root)
+    if root_family is None:
+        return None
+    hidden = _hidden_verb_in_chain(tok)
+    if hidden is None:
+        return None
+    hidden_family = _verb_intent_family(hidden)
+    if hidden_family is None or hidden_family == root_family:
+        return None
+    return hidden
 
 
 def _is_command_verb(tok) -> bool:

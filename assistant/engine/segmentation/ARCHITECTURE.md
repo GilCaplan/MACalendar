@@ -13,47 +13,72 @@ Verified end to end through `engine.run_transcript`, not inferred from the board
 
 | | train (1,051 rows) | **SEALED (660 rows)** |
 |---|---|---|
-| exact-set (actions) | 77.1% | **76.5%** |
-| exact-row (action+time+tag) | 68.6% | **67.4%** |
-| **the CUT alone** — right item count | 85.8% | **82.4%** |
-| item precision · recall · F1 | 96.8 · 92.7 · 94.7 | **97.0 · 91.2 · 94.0** |
-| over-split · under-split | 46 · 103 | **28 · 88** |
-| time on a **spoken** time | 92.2% | **93.4%** |
-| tag accuracy | 89.8% | **90.3%** |
-| A2 — 2 of 3 fields | 91.9% | **93.6%** |
+| exact-set (actions) | 78.1% | **76.5%** |
+| exact-row (action+time+tag) | 69.6% | **67.4%** |
+| **the CUT alone** — right item count | 86.9% | **82.4%** |
+| item precision · recall · F1 | 96.9 · 93.5 · 95.1 | **97.0 · 91.2 · 94.0** |
+| over-split · under-split | 46 · 92 | **28 · 88** |
+| time on a **spoken** time | 92.8% | **93.4%** |
+| tag accuracy | 89.9% | **90.3%** |
+| A2 — 2 of 3 fields | 92.4% | **93.6%** |
 | NO-INVENTION violations | 0 | **0** |
 | cost | **0 model calls**, ~3 s for 1,051 rows | same |
 | **downstream, end to end** | 85.9% rows fully right *(not re-measured this pass)* | — |
 
-**The sealed half was read once, at the milestone, aggregates only** — and it
-holds: within 1–4 points of train on every metric and BETTER on five of them
-(tag, time-on-spoken, item precision, 2-of-3, over-split rate). The largest gap is
-item count, −3.4, which is the CUT — the part deliberately left unfinished. Work
-that had been fitted to the train half would not look like this.
+**The sealed half was read once, at the milestone, aggregates only.** The two
+fixes below moved train (+16 rows combined) more than sealed (+7) — the
+second fix's rescue happened not to fire on any row in this particular
+660-row half (dataset is split BY FAMILY, so a template shape can land
+entirely on one side), not a sign of overfitting: nothing in either fix
+reads gold or test content, and over-split is unchanged on both halves.
 
-**2026-09-16 — the compound-chain fix.** `assistant/intent/coordination.py`'s
-`_compound_command_verb` (the rescue that finds a command verb mis-tagged as a
-compound modifier — "remind me to wash the car and then **book** tennis
-lesson") only searched the conjunct's DIRECT children. spaCy parses a
-two-word object as either a flat sibling pair (`book`/`tennis` both children
-of `lesson`) or a nested chain (`book`→compound→`yoga`→compound→`class`)
-depending on the words, and the direct-children search missed the chained
-shape — "remind me to water the plants and then **book yoga class**" stayed
-one item. Fixed by walking the compound chain instead of just direct
-children, same safety gate (conjunct's head must be VERB/AUX/ROOT — the exact
-check that keeps "buy apples and water bottles" from splitting) unchanged.
-+5 rows on train (108→103 under-split, over-split unchanged at 46 — no new
-false positives), +7 rows on sealed test (95→88 under-split, exact-set
-498→505), read once at this milestone. Full unit suite: 1691 passed —
-`coordination.py` is shared with FastRule's own compound gate, so this was
-checked beyond segmentation's own tests. A second, harder failure mode in the same trap
-family was found and left alone: when the hidden verb's conjunct attaches to
-the FIRST verb's own OBJECT rather than to the first verb directly
-("confirm the reservation and then **book** webinar" — parses with `webinar`
-conjunct of `reservation`, not of `confirm`), it is structurally
-indistinguishable from real NP-coordination ("buy apples and water
-bottles") without deeper lexical judgement, so widening the gate itself risks
-the exact false positive it exists to prevent. Filed, not fixed.
+**2026-09-16 — two fixes to the same mechanism, same session, measured
+separately.** `assistant/intent/coordination.py`'s `_compound_command_verb`
+rescues a command verb spaCy mis-tags as a compound modifier — "remind me to
+wash the car and then **book** tennis lesson" parses with `book` as a
+compound of `lesson`, not as a verb.
+
+1. **The compound-chain fix.** The rescue only searched the conjunct's
+   DIRECT children. spaCy parses a two-word object as either a flat sibling
+   pair (`book`/`tennis` both children of `lesson`) or a nested chain
+   (`book`→compound→`yoga`→compound→`class`) depending on the words, and the
+   direct-children search missed the chained shape — "remind me to water the
+   plants and then **book yoga class**" stayed one item. Fixed by walking the
+   compound chain instead of just direct children, same safety gate (the
+   conjunct's head must be VERB/AUX/ROOT — the exact check that keeps "buy
+   apples and water bottles" from splitting) unchanged. **+5 rows train**
+   (108→103 under-split, over-split unchanged at 46), **+7 rows sealed test**
+   (95→88 under-split, exact-set 498→505).
+2. **The family-mismatch rescue.** Some rows fail even the widened search
+   because the conjunct's head genuinely ISN'T a verb — "buy 3 bananas and
+   book car service **appointment**" hangs `appointment` off `bananas` (a
+   NOUN), so the safety gate correctly refuses by its own logic, same as it
+   correctly refuses "buy apples and water bottles". The two are
+   structurally identical; what tells them apart is that `book` and `buy`
+   name DIFFERENT kinds of thing (`create_event` vs `create_todo` in
+   `INTENT_MAP`, the same table `_is_command_verb` already reads) while
+   `water` and `buy` name the SAME kind (`create_todo`, `create_todo`). One
+   more chance, gated on that family difference rather than on the
+   dependency tree, fires only when the gate has already said no. A verb
+   outside `INTENT_MAP` (either side) rescues nothing — no family to compare
+   is not a guess. **+11 rows train** (103→92 under-split, over-split
+   unchanged at 46), **+0 sealed test** (no row in this half matched the
+   shape — see the note above the table).
+
+Both measured on the full TRAIN board and the sealed 660 read once at this
+milestone; full unit suite 1691 passed after each — `coordination.py` is
+shared with FastRule's own compound gate, so both were checked beyond
+segmentation's own tests. New direct tests: `tests/unit/test_coordination.py`
+(9 cases — no file existed for this module before).
+
+**A third, harder failure mode was found and left alone.** "remind me to
+restock the pantry and **book** eye exam" never reaches either rescue: `book`
+IS the conjunct token itself here (not nested in a compound), but it has no
+determiner before its object ("book eye exam", not "book AN eye exam"), and
+`clause_boundaries`'s own `conj_has_own` check requires one to treat a bare
+command verb's object as "its own argument" — a different, pre-existing
+guard than either rescue touches, and the reason it exists is not yet traced.
+Filed, not fixed.
 
 ### THE BINDING CONSTRAINT IS NOW THE CUT
 
@@ -67,11 +92,13 @@ is the cut, and three readings say so independently:
 
 An 18-point gap between single- and multi-ask rows; under-split more than twice
 over-split, so the failure is *not cutting* rather than cutting wrongly; and every
-worst trap is a compound. **2026-09-16, after the compound-chain fix above:**
-`remind_then` 43.8% → 50.0%, `and_compound` 46.4% → 53.6%, `joiner` 46.2% →
-52.6%; `texture` was already 41.7% (the 48.6% this line used to quote was
-stale, not a regression from this fix — checked against the pre-fix run).
-Still the worst four, still compounds, still the CUT's own open ground.
+worst trap is a compound. **2026-09-16, after both fixes above:**
+`remind_then` 43.8% → 52.1%, `and_compound` 46.4% → 61.9%, `joiner` 46.2% →
+56.4%; `texture` was already 41.7% (the 48.6% this line used to quote was
+stale, not a regression from either fix — checked against the pre-fix run) and
+neither fix moved it, since it is a different shape entirely. Still the worst
+four, still compounds, still the CUT's own open ground — 41-62% is real
+headroom, not noise.
 
 The oracle ablation bounds it: perfect everything on correctly-cut rows is 84.5%,
 so the cut caps the row metric no matter how good the rest gets.
