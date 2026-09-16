@@ -51,6 +51,7 @@ MACalendar.app/
 # raw voice transcripts (names, personal) — kept locally only
 DOCUMENTATION/NLU_TRACKING.md
 DOCUMENTATION/SCENARIO_BUG.md
+DOCUMENTATION/WEEKLY_REVIEW.md
 DOCUMENTATION/ASSISTANT_AUDIT.md.json
 dataset/baseline/
 dataset/experiments/
