@@ -26,7 +26,12 @@ class FakeParser:
     """Stands in for the rule parser, which is consulted for the ACTION WORDS
     only. `analyze` returns just enough of a `RuleParseResult`: the route it
     SELECTED and the fields it read — never an intent, because B1 established
-    that asking for one is asking the question `build()` does not ask."""
+    that asking for one is asking the question `build()` does not ask. Also
+    carries `confidence`/`transcript`/`missing_slots` — not read by `build()`
+    itself, but `hint_fields()` (fastrule/build.py) reads them off whatever
+    `analyze()` returns for a `kind-conflict`/`needs-target-check` Defer, so a
+    fake missing them fails with an AttributeError a real `RuleParseResult`
+    never would."""
 
     def __init__(self, raw_slots):
         self._raw = raw_slots
@@ -34,6 +39,9 @@ class FakeParser:
     def analyze(self, text, current_view="month"):
         class _R:
             raw_slots = self._raw
+            confidence = 1.0
+            transcript = text
+            missing_slots = []
         return _R()
 
 

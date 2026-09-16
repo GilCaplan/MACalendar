@@ -38,7 +38,7 @@ from __future__ import annotations
 
 from assistant.engine.decompose_validate import stage as _decompose_validate
 from assistant.engine.fastrule.build import (
-    BadItem, Built, Defer, NotAnObject, build_all)
+    BadItem, Built, Defer, NotAnObject, build_all, hint_fields)
 
 
 #: WHICH BUILT OBJECTS THIS STAGE MAY COMMIT — a commit decision, deliberately
@@ -145,21 +145,21 @@ def run(state, cfg):
             # the model, and the object we made is not thrown away: it rides
             # along as the partial so the model starts from it.
             #
-            # `fields` is what actually survives the trip — `item.slots` is the
-            # only carrier across the stage boundary (no back-edge into
+            # `hint_fields` is what actually survives the trip — `item.slots`
+            # is the only carrier across the stage boundary (no back-edge into
             # llmjudge), and it has to stay JSON-safe, so this is the rule
             # parser's OWN raw_slots/confidence/transcript, not the built
             # `BaseIntent` object itself. `Defer.partial` is left at its
             # default here on purpose: nothing downstream reads it off a
             # `Defer` directly — `llmjudge/rescue.py` reconstructs the partial
             # from these `fields`, once the item's Defer has round-tripped
-            # through `item.slots["fastrule_defer"]`.
-            rr = res.rule_parse
-            hint = ({"raw_slots": rr.raw_slots, "rule_confidence": rr.confidence,
-                    "transcript": rr.transcript, "missing_slots": rr.missing_slots}
-                    if rr is not None else {})
+            # through `item.slots["fastrule_defer"]`. Safe here specifically
+            # because `res` is `Built` — FastRule's own reading is trusted,
+            # just not ours to commit (see `hint_fields`'s docstring for why
+            # that is NOT true of every Defer reason).
             pending.append((item, Defer("needs-target-check",
-                                        fields={"action": res.action, **hint})))
+                                        fields={"action": res.action,
+                                                **hint_fields(res.rule_parse)})))
             continue
         pending.append((item, res))
 

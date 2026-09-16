@@ -125,6 +125,29 @@ class Defer:
         return reason_class(self.reason)
 
 
+def hint_fields(rr) -> dict:
+    """The rule parser's OWN reading, as JSON-safe primitives for a `Defer`'s
+    `fields` — the only channel that survives the trip, since `item.slots`
+    crosses the stage boundary and has to stay serializable (no back-edge
+    into another stage's live objects). `llmjudge/rescue.py` reconstructs a
+    `RuleParseResult` from these to give the model a head start instead of a
+    cold re-read.
+
+    ONLY for a Defer whose reading FastRule itself trusts — i.e. one it would
+    have committed if something else hadn't stopped it (`needs-target-check`:
+    a permission gate; `kind-conflict`: the title is fine, the STORE is in
+    question). Never for `generic-title` / `generic-target` / `missing-slots`:
+    those exist because FastRule rejected this exact reading as bad, and the
+    model is told "do not contradict filled slots" — handing it a rejected
+    value as a trusted one would make the model repeat the mistake rather
+    than fix it.
+    """
+    if rr is None:
+        return {}
+    return {"raw_slots": rr.raw_slots, "rule_confidence": rr.confidence,
+            "transcript": rr.transcript, "missing_slots": rr.missing_slots}
+
+
 # ---------------------------------------------------------------------------
 # 1 · the OPERATION — the verb decides, `item.kind` narrows
 # ---------------------------------------------------------------------------
@@ -545,7 +568,8 @@ def build(item: Item, *, today: "_dt.date | None" = None,
         # disagree, so this is exactly what the DEFER is for: the deep track
         # gets the conflict and the partial parse rather than a guess.
         return Defer("kind-conflict",
-                     fields={"route": route, "kind": kind, "title": title})
+                     fields={"route": route, "kind": kind, "title": title,
+                             **hint_fields(rr)})
 
     # --- 2 · the object's own fields ---------------------------------------
     if not title:
