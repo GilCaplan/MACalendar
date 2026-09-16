@@ -1584,7 +1584,7 @@
       view: "system", tag: "the thesis", name: "the brain", rl: "◆ one brain", title: "One brain",
       z: [352, 256, 1.9],
       sum: `<p>One process understands and executes everything. The host's own window and every attached surface are thin clients &mdash; <strong>none of them contains a parser</strong>.</p>
-    <p class="figs">15 actions · 9 of them reachable by rule alone · eleven named rules · a test suite</p>`,
+    <p class="figs">15 actions · 9 of them reachable by rule alone · twelve named rules · a test suite</p>`,
       more: `<h3>How one command becomes an answer</h3>
     <p>Read straight through for the story; the engine view has each component's own mechanics.</p>
     <ol>
@@ -1602,7 +1602,7 @@
       each of those into atomic pieces.</li>
       <li><strong>Read each piece.</strong> Every atomic piece goes back to FastRule first; the model is
       asked only about the pieces the rules could not read, grounded on that piece's own words.</li>
-      <li><strong>Check the fields.</strong> Eleven named rules run on the finished objects &mdash; and
+      <li><strong>Check the fields.</strong> Twelve named rules run on the finished objects &mdash; and
       the observance gate, on what the assistant itself books.</li>
       <li><strong>Judge.</strong> Every field of every object is traced back to your words &mdash; the when
       in code, the subject by asking the model to quote it. What checks out commits; what names something
@@ -2563,9 +2563,9 @@ series_id   NULL
     the rest of the command still runs.</p>`
     },
     validateobj: {
-      view: "engine", tag: "stage 4 · second pass", name: "the field rules", rl: "4′ field rules", title: "The eleven named rules",
+      view: "engine", tag: "stage 4 · second pass", name: "the field rules", rl: "4′ field rules", title: "The twelve named rules",
       z: [820, 82, 2.0],
-      sum: `<p>Eleven named rules run in a fixed order on the finished objects — each with a name, its own test, and its own line in the trace when it fires.</p>
+      sum: `<p>Twelve named rules run in a fixed order on the finished objects — each with a name, its own test, and its own line in the trace when it fires.</p>
     <p class="figs">no model involved · every applied fix is shown under its name</p>`,
       more: `<div class="tblwrap"><table>
       <tr><th>what it catches</th><th>the ruling</th></tr>
@@ -2579,6 +2579,7 @@ series_id   NULL
       <tr><td>&ldquo;does my daughter have a recital?&rdquo;</td><td>a question asks; it does not create</td></tr>
       <tr><td>&ldquo;should I add yoga tomorrow?&rdquo;</td><td>neither created nor dropped &mdash; offered, and it waits</td></tr>
       <tr><td>&ldquo;the one you just made&rdquo;</td><td>resolved as a reference, never guessed as a title</td></tr>
+      <tr><td>a booked event longer than the configured cap (4 hours, default)</td><td>clipped from the end &mdash; only what the assistant itself builds, never a manual edit</td></tr>
     </table></div>
     <p>English supports both readings of &ldquo;until&rdquo;, so the project picks one and applies it
     everywhere rather than guessing per sentence. A cadence is only ever daily, weekly or monthly; anything

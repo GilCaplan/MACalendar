@@ -100,6 +100,41 @@ def _rule_now_means_now(state, intent, transcript) -> None:
                   note="\"now\" is the clock, not midnight")
 
 
+def _rule_max_duration_cap(state, intent, cfg) -> None:
+    """A ceiling on what the ENGINE ITSELF builds. `engine.max_event_hours`
+    (default 4) — a `create_event` this stage produced longer than that is
+    clipped from the END, keeping the start the speaker gave. Never touches a
+    manual GUI edit, which never reaches this stage at all.
+
+    Scoped to the clear case only: `end_after_start` (checks.py) already ran
+    and either fixed a same-day span or left a flag on an unresolved one
+    (`end <= start`, e.g. an unread wraparound) — that flagged case is not
+    this rule's to fix, so it is left alone rather than guessed at.
+    """
+    start = getattr(intent, "start_time", None)
+    end = getattr(intent, "end_time", None)
+    if not start or not end:
+        return
+    try:
+        sh, sm = map(int, start.split(":"))
+        eh, em = map(int, end.split(":"))
+    except ValueError:
+        return
+    start_min = sh * 60 + sm
+    end_min = eh * 60 + em
+    if end_min <= start_min:
+        return
+    max_hours = getattr(getattr(cfg, "engine", None), "max_event_hours", 4.0)
+    max_min = int(max_hours * 60)
+    if end_min - start_min <= max_min:
+        return
+    capped_min = min(start_min + max_min, 24 * 60 - 1)
+    capped = f"{capped_min // 60:02d}:{capped_min % 60:02d}"
+    state.add_fix("validate", "max_duration_cap", end, capped,
+                  note=f"clipped to the {max_hours:g}-hour cap")
+    intent.end_time = capped
+
+
 def _rule_morning_title_guard(state, intent, transcript) -> None:
     """A morning word in the event's OWN title means morning — "Shacharit at
     6:30" was booked at 18:30. Scoped to the title so one "Shacharit" cannot

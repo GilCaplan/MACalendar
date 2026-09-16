@@ -216,6 +216,7 @@ def run_objects(state: EngineState, cfg) -> EngineState:
             _obj._rule_junk_event_drop(state, item, intent, n_events, pairs)
             if item.intent is None:
                 continue
+            _obj._rule_max_duration_cap(state, intent, cfg)
             # A FLAG, NOT A BLOCK (Gil, 2026-09-08). The verdict's logic is
             # unchanged; only what happens to it is. A blocked item is a command
             # that silently did nothing, and the speaker is better served by the

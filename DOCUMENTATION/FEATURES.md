@@ -655,7 +655,9 @@ silent; question-creates-nothing and remove-echo guards; junk/placeholder
 event drop; quantity extraction ("5 apples" → one task ×5); shared-verb list
 splitting ("buy chicken and rice"); same-activity multi-time split ("walk
 the dog at 9 and 2:30" → two events); prompt-injection defense (refuses
-"ignore previous instructions" transcripts).
+"ignore previous instructions" transcripts); max-duration cap (a `create_event`
+the engine itself builds longer than `engine.max_event_hours`, 4 by default,
+is clipped from the end — never a manual GUI edit).
 
 ### The one-shot LLM engine — a measuring instrument
 

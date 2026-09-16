@@ -259,6 +259,10 @@ class EngineConfig(BaseModel):
     # Step 0: queued commands are coalesced into one ("…")and("…") input up
     # to this budget; overflow runs sequentially.
     coalesce_max_tokens: int = 300
+    # A ceiling on what the engine itself may BUILD for a create_event — never
+    # applied to a manual GUI edit, which never reaches this stage. Exceeding
+    # it clips end_time back to start_time + this many hours.
+    max_event_hours: float = 4.0
 
 
 class LabelsConfig(BaseModel):

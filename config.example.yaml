@@ -198,6 +198,8 @@ engine:
   reconcile: always          # step 6 on the fast track: always | uncertain (decided by telemetry)
   fast_track: true           # false = every command takes the foreground deep track
   coalesce_max_tokens: 300   # step 0: queued commands coalesced into one input up to this budget
+  max_event_hours: 4.0       # a create_event the engine itself builds longer than this gets its
+                             # end_time clipped back; never applied to a manual GUI edit
 
 # Learned labellers (engine/label/). OFF by default: a model deciding an event's
 # category changes what lands on your calendar, so it ships behind a flag with

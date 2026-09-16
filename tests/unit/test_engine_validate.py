@@ -169,6 +169,46 @@ def test_generic_event_beside_real_todos_is_dropped(cfg):
     assert td.intent is not None
 
 
+# --- max_duration_cap (engine-built events only, config: engine.max_event_hours) --
+
+def test_a_construction_over_the_cap_is_clipped_from_the_end(cfg):
+    it = _item("create_event", _event_intent(
+        title="offsite", date="2026-09-10", start_time="09:00", end_time="20:00"))
+    st = _state("book offsite tomorrow 9am to 8pm", [it])
+    validate.run_objects(st, cfg)
+    assert it.intent.start_time == "09:00"     # the start the speaker gave stays
+    assert it.intent.end_time == "13:00"       # clipped to the default 4-hour cap
+    assert "max_duration_cap" in _rules_applied(st)
+
+
+def test_a_construction_at_or_under_the_cap_is_left_alone(cfg):
+    it = _item("create_event", _event_intent(
+        title="workshop", date="2026-09-10", start_time="09:00", end_time="12:00"))
+    st = _state("book workshop tomorrow 9 to 12", [it])
+    validate.run_objects(st, cfg)
+    assert it.intent.end_time == "12:00"
+    assert "max_duration_cap" not in _rules_applied(st)
+
+
+def test_the_cap_is_configurable(cfg):
+    cfg.engine.max_event_hours = 2.0
+    it = _item("create_event", _event_intent(
+        title="offsite", date="2026-09-10", start_time="09:00", end_time="13:00"))
+    st = _state("book offsite tomorrow 9am to 1pm", [it])
+    validate.run_objects(st, cfg)
+    assert it.intent.end_time == "11:00"
+
+
+def test_an_unresolved_end_before_start_is_not_this_rules_to_fix(cfg):
+    # end <= start is a wraparound `end_after_start` (checks.py) left flagged,
+    # not a long construction — clipping it would be a guess, not a fix.
+    it = _item("create_event", _event_intent(
+        title="party", date="2026-09-10", start_time="23:00", end_time="01:00"))
+    st = _state("party tomorrow at 11pm until 1am", [it])
+    validate.run_objects(st, cfg)
+    assert "max_duration_cap" not in _rules_applied(st)
+
+
 # --- due_date_pin ------------------------------------------------------------
 
 def test_due_next_monday_is_deterministic(cfg):
