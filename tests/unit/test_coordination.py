@@ -155,3 +155,27 @@ def test_a_reminder_with_its_own_content_is_still_a_second_ask():
         "schedule budget review for next week and remind me to call the vet in an hour"
     ) == ["schedule budget review for next week",
           "remind me to call the vet in an hour"]
+
+
+# --- the sentence-boundary exception: a period is stronger evidence than a coordinator ---
+
+def test_a_period_separated_sentence_splits_even_same_family():
+    # "remind me to X. also remind me to Y" is TWO spaCy sentences (the
+    # period is strong enough to split there), both `create_todo` — same
+    # family, which would normally block the fallback, but a real sentence
+    # boundary is punctuation-driven evidence a coordinator position never
+    # has, so the family check is skipped for it specifically.
+    assert split_clauses(
+        "remind me to pick up the dry cleaning. also remind me to renew the passport"
+    ) == ["remind me to pick up the dry cleaning",
+          "remind me to renew the passport"]
+
+
+def test_the_sentence_start_skips_leading_discourse_markers():
+    # The sentence's own first token is "also", not "remind" — the walk
+    # back to the sentence start must tolerate a leading coordinator word
+    # without losing the token as a valid split point.
+    assert split_clauses(
+        "remind me to return the library books. also remind me to book a flight"
+    ) == ["remind me to return the library books",
+          "remind me to book a flight"]

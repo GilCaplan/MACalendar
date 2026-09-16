@@ -303,14 +303,36 @@ def _lexicon_fallback_boundaries(doc, text: str) -> "list[Boundary]":
     trusted here.
     """
     points = []
+    hard_boundary: set = set()
     for i, tok in enumerate(doc):
         if not _is_command_verb(tok):
             continue
-        sentence_initial = i == 0
+        # "remind me to X. also remind me to Y" is TWO spaCy sentences, not
+        # one — the period is strong enough punctuation that its own
+        # sentencizer splits there, and the second "remind" gets its OWN
+        # ROOT rather than a conj/dep tag relative to the first. But the
+        # sentence's OWN first token is "also" here, not "remind" — a plain
+        # `tok.is_sent_start` check would miss it, so this walks back to the
+        # sentence's start and accepts a run of coordinator words/punct
+        # (`also`, `then`, ...) before the verb as still "sentence-initial",
+        # same idea as `i == 0` but per-sentence instead of doc-wide.
+        sent_start = tok.sent.start
+        sentence_initial = all(
+            doc[j].lower_ in _COORD_WORDS or doc[j].is_punct
+            for j in range(sent_start, i))
         follows_coord = i > 0 and (doc[i - 1].dep_ == "cc"
                                    or doc[i - 1].lower_ in _COORD_WORDS)
         if sentence_initial or follows_coord:
             points.append(tok)
+            if sentence_initial and i > 0:
+                # A MID-TEXT sentence boundary is punctuation-driven evidence
+                # a coordinator position never has — English does not put a
+                # sentence-ending period inside "buy apples and water
+                # bottles". Strong enough to trust WITHOUT the family check
+                # below, which exists for the weaker positions and would
+                # otherwise block a real "remind me to X. also remind me to
+                # Y" (same family on both sides, and rightly so).
+                hard_boundary.add(tok.i)
     if len(points) < 2:
         return []
     out: list[Boundary] = []
@@ -320,12 +342,13 @@ def _lexicon_fallback_boundaries(doc, text: str) -> "list[Boundary]":
         # (or to the end, past the last point) — so one clause's "calendar"
         # can never resolve the other clause's qualifier.
         nxt_end = points[idx + 2].i if idx + 2 < len(points) else len(doc)
-        prev_words = {t.lower_ for t in doc[prev.i:nxt.i]}
-        nxt_words = {t.lower_ for t in doc[nxt.i:nxt_end]}
-        prev_family = _verb_intent_family(prev, prev_words)
-        nxt_family = _verb_intent_family(nxt, nxt_words)
-        if prev_family is None or nxt_family is None or prev_family == nxt_family:
-            continue
+        if nxt.i not in hard_boundary:
+            prev_words = {t.lower_ for t in doc[prev.i:nxt.i]}
+            nxt_words = {t.lower_ for t in doc[nxt.i:nxt_end]}
+            prev_family = _verb_intent_family(prev, prev_words)
+            nxt_family = _verb_intent_family(nxt, nxt_words)
+            if prev_family is None or nxt_family is None or prev_family == nxt_family:
+                continue
         if _is_reminder_lead_time(doc[nxt.i:nxt_end]):
             # "book webinar sunday at 8:30pm and remind me two hours before"
             # IS a real family mismatch (book=event, remind=todo) and would
