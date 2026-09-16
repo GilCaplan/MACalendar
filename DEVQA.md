@@ -112,6 +112,51 @@ before you rule:
 
 ## Answered (log)
 
+- **2026-09-16 — Q14 REVERSED ("buy apples and eggs" is now ONE task).**
+  Found while investigating a FastSeg v2 rebuild: `c_npdecoy_buy_two_items`/
+  `c_npdecoy_buy_two_party` still gold "buy shampoo and apples" as ONE item,
+  directly contradicting Q14 (2026-09-07, below) — which ruled the opposite
+  and explicitly said those same families needed relabelling to split. That
+  relabelling was never done; the dataset has been sitting in a half-migrated
+  state for 9 days, and what looked like "two independently-authored template
+  families disagreeing by accident" was actually one incomplete migration.
+  Asked directly, twice — the answer changed once Q14's existence and its own
+  unfinished relabelling instruction were surfaced, so record BOTH turns
+  rather than only the final one: first, unprompted, *"I think its one action
+  so should be one action and then the validate_decompose step should handle
+  the recurrence (test there and note if need to fix it later)"*; then, shown
+  the Q14 conflict directly and asked to choose between finishing Q14 (relabel
+  the decoys to split) or reversing it, chose **"Reverse Q14 — one action
+  really is one item now."**
+  **The ruling, stated plainly: a shared verb applied to a bare, coordinated
+  NOUN-PHRASE object list is ONE atomic segmentation item** — "buy shampoo
+  and apples", "pick up envelopes and sellotape from the stationers", "buy
+  eight sticky notes, apples, and printer paper" — regardless of item count
+  (2 or 3+) or whether the objects are generic (groceries) or named
+  (calendar entries: "put in the site inspection and the safety briefing").
+  If a downstream stage genuinely needs N separate records for N objects,
+  that is `decompose_validate`'s job, the same way `_expand_enumerations`
+  already treats "walk the dog at 9 and 2:30" as one conceptual ask with
+  multiple times, expanded downstream of CUT — not segmentation's.
+  **This does NOT touch `wrapper-phrase`** (SPEC.md's own separate,
+  already-correct MUST-NOT-SPLIT rule for "add buy milk and buy bread to my
+  list" — one verb, one shared destination, already never split) — the two
+  traps were independently correct and incorrect respectively; only
+  `list-of-things` reverses. **14 rows corrected** across
+  `list-of-things-collect`, `list-of-things-source`, `quantity-not-time-
+  order`, `quantity-not-time-grab`, `c_threeask_ttt_2`, one `leading-edge-two`
+  row, one `as-well-as-plain` row, and two rows already misfiled inside
+  `nosplit_traps.jsonl` despite having 2-item gold (`wrapper-phrase-to-my-
+  list`/`wrapper-phrase-onto-the-calendar` — a separate, independent
+  confirmation this was a real bug, not a judgment call: those rows were
+  already living in the "must not split" file with gold that split anyway).
+  `SPEC.md`'s trap table and this file both updated in the same change;
+  `assistant/engine/segmentation/datasets/*.jsonl` corrected directly, not
+  regenerated, since these are hand-authored/hand-curated trap rows.
+  FastSeg v1's code is UNCHANGED by this — only the gold moved — so this
+  is a pure "how much of the residual gap was actually a gold problem"
+  measurement, not a new fix.
+
 - **2026-09-14 — Real-speech dataset: DROPPED.** Gil, verbatim: *"dont do the
   real speech dataset then."* The BUILT ARTEFACTS STAY on disk —
   `dataset/realspeech/realspeech_1200.jsonl` (1,200 rows, 794 KB), `banks/`,
@@ -239,16 +284,20 @@ before you rule:
   clock time needs a measured check, which needs a run — **do not schedule a fix
   against this row until someone has measured it.**
 
-- **2026-09-07 — Q14 ("buy apples and eggs" is TWO tasks)**, Gil — same action,
-  separate items ("buy eggs", "buy apples"). This settles a contradiction the
-  atomizer board found between our own documents: `decompose.py` and
-  `list_split.py` split shopping lists; `assistant/engine/fastrule/datasets/DATASET.md` labelled
-  them one task titled "apples and eggs". The CODE was right. Every over-split
-  in the FastRule test half was this disagreement and nothing else — so those
+- **2026-09-07 — Q14 ("buy apples and eggs" is TWO tasks)**, Gil —
+  **REVERSED 2026-09-16, see the top of this log.** Kept verbatim for the
+  history: same action, separate items ("buy eggs", "buy apples"). This
+  settled a contradiction the atomizer board found between our own
+  documents: `decompose.py` and `list_split.py` split shopping lists;
+  `assistant/engine/fastrule/datasets/DATASET.md` labelled them one task
+  titled "apples and eggs". The CODE was right. Every over-split in the
+  FastRule test half was this disagreement and nothing else — so those
   were never defects. **The dataset's np_decoy families need relabelling**
   (a list of things for one verb = one item PER THING); the genuine
   never-split case is a list of PEOPLE or a shared object ("meeting with Tal
-  and Sam", "wash and fold the laundry").
+  and Sam", "wash and fold the laundry"). **The relabelling was never done,
+  and by 2026-09-16 the ruling itself had changed — see the top of this
+  log.**
 
 - **2026-09-07 — Q13 (non-atomic behaviour is DIAGNOSTIC, not a target)**, Gil.
   *"I just want to see that it succeeds on recognising and executing well on

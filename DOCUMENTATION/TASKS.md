@@ -957,6 +957,66 @@ what the user is told, so it is filed rather than chosen.
 then run `retry_pending_once`. `tests/unit/test_offline_queue_scenarios.py` has
 the harness.
 
+## A bare-imperative multi-object task silently drops every object but the first — NOT FIXED, filed (2026-09-16)
+
+Found while testing whether `decompose_validate` handles a multi-object
+segmentation item correctly, after DEVQA.md's Q14 reversal (same date,
+above) — it doesn't get the chance to. Confirmed live via
+`assistant.engine.run_transcript`:
+
+    "buy eight sticky notes, apples, and printer paper"
+       -> saved as "buy sticky notes ×8"        (apples, printer paper GONE)
+    "buy shampoo and apples"
+       -> saved as "buy shampoo"                (apples GONE)
+    "pick up envelopes and sellotape from the stationers"
+       -> saved as "pick up envelopes"          (sellotape GONE)
+
+**Root cause, traced to the exact function**: `assistant/intent/
+rule_parser.py::_extract_title` (lines 1250-1261). For a bare imperative
+with no lead-in phrase ("buy X and Y", not "remind me to buy X and Y"),
+`_TODO_LEAD` (lines 1189-1198) doesn't match, so the CORRECT multi-item
+splitter (`_todo_titles_from_text` -> `list_split.split_items`, already
+capable of handling this — verified directly: `"I want to buy shampoo and
+apples"` -> `['buy shampoo', 'buy apples']`, correct) never runs. Code
+falls to `_extract_title`'s fallback, which walks spaCy `noun_chunks` and
+returns only the FIRST chunk whose `root.dep_ == "dobj"` — "apples" is a
+SEPARATE chunk with `dep_="conj"`, never looked at. This one truncated
+title then reaches `CreateTodoAction` via FastRule's instant fast-track
+(`fastrule/fast_track.py::fast_propose`, confidence 0.95 >= threshold)
+before segmentation or `decompose_validate` ever run — confirmed via trace,
+only "Rule parser Confident (0.95) — instant" then "execute". The "×8" on
+the sticky-notes case is `quantity.split_quantity` correctly parsing the
+ALREADY-TRUNCATED title; `quantity.py` is not the bug.
+
+**Long-standing, not introduced by today's session** — `_extract_title`/
+`_TODO_LEAD` predate the 2026-09-10 fast-track restructure that made this
+path instantly committable without a second look. `tests/unit/
+test_todo_item_splitting.py` already covers this exact class of bug, but
+every multi-object case in it is prefixed with a lead-in phrase ("I want
+to", "I need to", "remind me to", "add a task to") — the bare-imperative
+form is the untested gap.
+
+**Why it matters now, more than it looked like it did before today**: DEVQA
+Q14 reversal (above) makes "buy shampoo and apples"-shaped bare imperatives
+the OFFICIALLY correct, one-item segmentation behavior going forward, not
+just the `np_decoy` family's quiet exception — and this is an extremely
+common, natural way to give a real shopping-list voice command with no
+lead-in phrase at all. This bug has likely been silently losing items on
+real usage all along; it just had no segmentation-level gold checking the
+FULL downstream title to surface it.
+
+**Not fixed this session** — traced precisely, not touched, per standing
+guidance to test and note rather than bundle an unrelated stage's fix into
+the same change. Candidate fix directions for whoever picks this up: either
+widen `_TODO_LEAD` to also match on bare-imperative + NP-coordination (so
+`_todo_titles_from_text` fires without needing a lead-in), or make
+`_extract_title`'s fallback itself NP-coordination-aware (collect every
+`dobj`-or-sibling-`conj` chunk, not just the first `dobj`). Either needs the
+same test-and-measure discipline as everything else this session — a
+dedicated bare-imperative test class added to `test_todo_item_splitting.py`
+first, then the fix, then the whole FastRule dataset re-run to confirm no
+regression on the 7,200-row corpus.
+
 ## Working agreements
 - Everything on the phone is local: no third-party services; the only network peer is the Mac over Tailscale.
 - Prefer doing work directly over spawning sub-agents; keep context small (`/compact` between big tasks).

@@ -170,7 +170,6 @@ all of them, and each row lists which it exercises in `traps`.
 | `as-well-as` | `book school play at 6:45 as well as sales call at 8:30` | 2 |
 | `remind-then-remind` | `remind me to call the plumber and then remind me to book a flight` | 2 |
 | `verb-tagged-noun` | `remind me to wash the car and then book tennis lesson at 5` | 2 |
-| `list-of-things` | `pick up folders and light bulbs from the store` | 2 (Q14: one per THING) |
 
 ### MUST NOT SPLIT
 | trap | example | why |
@@ -186,6 +185,7 @@ all of them, and each row lists which it exercises in `traps`.
 | `wrapper-phrase` | `add buy milk and buy bread to my list` | one verb + one destination over both |
 | `enumeration-header` | `two tasks due tomorrow: buy groceries and return the book` | the header is not an ask |
 | `idiom` | `buy fish and chips` | one thing |
+| `list-of-things` | `pick up folders and light bulbs from the store` | one verb, bare NOUN-coordinated objects — one item (Q14 REVERSED 2026-09-16, DEVQA.md: was "2, one per THING" 2026-09-07-2026-09-16; a shared verb over a bare object list is now the SAME shape as `np_decoy`, regardless of item count or whether the objects are generic or named) |
 
 ### EDIT REQUIRED (the scoping cases)
 `shared-date-leading-edge` · `shared-deadline-trailing-edge` ·

@@ -4,38 +4,57 @@
 vocabulary is the measured lever, and it carries the rules that keep this folder
 from becoming convoluted. This file is how the stage WORKS.
 
-> ### FASTSEG v2 REBUILD IN PROGRESS (2026-09-16) — v1's rollback point
+> ### THE GOLD CONFLICT THAT PROMPTED A v2 LOOK — RESOLVED 2026-09-16,
+> ### NOT BY A REBUILD
 >
 > Six implementation fixes this session (§0 below) pushed FastSeg v1 from
 > exact-row 68.2%→73.7% train / 67.4%→73.0% sealed with zero new false
 > positives, each measured and verified individually. A seventh — object-list
-> enumeration expansion, "buy A, B, and C" → 3 tasks — hit a wall that isn't
-> an implementation gap: the dataset's own gold labels disagree with
-> themselves. An explicit, deliberately-named `c_npdecoy_buy_two_items`
-> family protects "buy shampoo and apples" as ONE item; other families
-> ("buy eight sticky notes, apples, and printer paper", "stick eggs and
-> washing powder on the shopping list") want the same shape to split, and no
-> single rule reconciles both — they read as independently-authored template
-> families rather than one coherent design.
+> enumeration expansion, "buy A, B, and C" → 3 tasks — hit what looked like a
+> gold-data conflict: an explicit, deliberately-named `c_npdecoy_buy_two_items`
+> family protecting "buy shampoo and apples" as ONE item, while other families
+> wanted the identical shape to split. `fastseg-v1` was tagged (commit
+> `05f7ac1`) as a rollback point and a three-proposal design panel was run for
+> a v2 rebuild — but a `fable`-model audit of the panel's own recommendation
+> found the real story first: this wasn't two template families disagreeing
+> by accident. **DEVQA.md's Q14 (2026-09-07, Gil) had already ruled on this
+> exact question** — "buy apples and eggs" is TWO tasks, one per thing — and
+> explicitly said the `np_decoy` families needed relabelling to match. That
+> relabelling was never done. The dataset had been sitting in a half-migrated
+> state for nine days, and rebuilding the cutter would have measured v2
+> against a target that was itself wrong.
 >
-> That is what triggered the decision (Gil, 2026-09-16) to build a v2 rather
-> than keep patching v1's dependency-parse-and-regex architecture — informed
-> by both the literature survey (§3's callout has the full account: BlendX,
-> DialogUSR, the multi-intent SLU survey, and what turned out NOT to help —
-> phrasplit, spacy-clausie) and this session's six concrete failure
-> mechanisms, catalogued precisely rather than papered over.
+> **Q14 was then REVERSED, not finished** (Gil, 2026-09-16, shown the conflict
+> directly — see DEVQA.md's 2026-09-16 entry for the full exchange): a shared
+> verb over a bare, NOUN-coordinated object list is now ONE atomic
+> segmentation item, regardless of count or whether the objects are generic
+> or named. 14 rows corrected across 9 families (`c_threeask_ttt_2`,
+> `list-of-things-collect`, `list-of-things-source`, `quantity-not-time-order`,
+> `quantity-not-time-grab`, `as-well-as-plain`, `leading-edge-two`, and two
+> rows already misfiled inside `nosplit_traps.jsonl` with split gold despite
+> living in the "must not split" file — an independent confirmation this was
+> a real bug, not just a judgment call). `wrapper-phrase` was untouched — it
+> was already correctly "must not split" the whole time, a genuinely
+> different, already-settled trap.
 >
-> **v1 is tagged `fastseg-v1`** (local tag, not yet pushed) at commit
-> `05f7ac1` — full numbers, all six fixes' reasoning, and the exact
-> gold-conflict finding that triggered the rebuild are in the tag message and
-> unchanged below. `IMPLEMENTATION = "fastseg"` is the live selector
-> (§0) — v1 remains the ACTUAL live implementation until v2 clears this bar
-> on the same 1,051/660-row split, not a moment before. If v2 does not clear
-> it, `git checkout fastseg-v1 -- assistant/intent/coordination.py
-> assistant/engine/segmentation/fastseg/fastseg.py` is the rollback (verify
-> against this file's own numbers below, not memory). Formal retirement to
-> `retired/fastseg-v1/` (README + tag, the `fastrule-v1` precedent) happens
-> at the moment v2 actually takes over, never before.
+> **FastSeg v1's CODE did not change for this** — only the gold moved — so the
+> resulting gain is a pure measurement of how much of the "residual gap" was
+> actually a stale dataset: **+9 rows train, +4 rows sealed, zero code
+> changes.** New headline: exact-row 74.6% train / 73.6% sealed (§0's table,
+> below, is now this state). A DIFFERENT, genuinely new bug was found and
+> filed while testing the downstream consequence of this ruling — a
+> bare-imperative multi-object task silently drops every object but the
+> first ("buy shampoo and apples" → saved as "buy shampoo") — traced to
+> `assistant/intent/rule_parser.py::_extract_title`, nothing to do with
+> segmentation at all; see `DOCUMENTATION/TASKS.md`'s 2026-09-16 entry.
+>
+> **Whether a v2 rebuild is still worth doing is an OPEN question again**,
+> now against the corrected numbers rather than a moving target — not
+> resolved by this entry. `fastseg-v1` stays tagged at `05f7ac1` as a
+> reference point regardless. §3's callout below still has the full design-
+> panel record (three proposals, the audit's findings) as institutional
+> memory if this is picked up again — none of it was wasted, it just isn't
+> this decision's answer by itself.
 
 ---
 
@@ -46,11 +65,11 @@ Verified end to end through `engine.run_transcript`, not inferred from the board
 
 | | train (1,051 rows) | **SEALED (660 rows)** |
 |---|---|---|
-| exact-set (actions) | 82.9% | **83.6%** |
-| exact-row (action+time+tag) | 73.7% | **73.0%** |
-| **the CUT alone** — right item count | 91.6% | **89.5%** |
-| item precision · recall · F1 | 97.0 · 96.8 · 96.9 | **97.1 · 95.8 · 96.5** |
-| over-split · under-split | 46 · 42 | **28 · 41** |
+| exact-set (actions) | 83.7% | **84.2%** |
+| exact-row (action+time+tag) | 74.6% | **73.6%** |
+| **the CUT alone** — right item count | 92.4% | **90.2%** |
+| item precision · recall · F1 | 96.9 · 97.7 · 97.3 | **97.1 · 96.2 · 96.7** |
+| over-split · under-split | 47 · 33 | **28 · 37** |
 | time on a **spoken** time | 94.4% | **93.9%** |
 | tag accuracy | 90.8% | **92.1%** |
 | A2 — 2 of 3 fields | 95.4% | **96.4%** |
@@ -68,6 +87,24 @@ just the count) — every row gained is a genuine under-split fixed, none is a
 new false positive traded in. Sealed test moved as much as or more than
 train through the first five; the sixth found no matching rows there either
 way (family-split dataset, as with fix 2).
+
+7. **The gold correction (Q14 reversed, not a code change).** A seventh
+   implementation attempt — object-list enumeration — surfaced a genuine
+   conflict in the dataset's own gold labels rather than an implementation
+   gap: some families wanted "buy A, B, and C" as one item, others wanted the
+   same shape split one-per-object. Tracing it found DEVQA.md's Q14
+   (2026-09-07) had already ruled on this and called for relabelling that
+   was never done. Q14 was reversed 2026-09-16 (Gil, shown the conflict
+   directly): a shared verb over a bare, NOUN-coordinated object list is now
+   ONE atomic item. 14 rows corrected, `assistant/intent/coordination.py`
+   **unchanged** — this is a pure measurement of how much of the residual gap
+   was a stale label, not a cutter defect. **+9 rows train** (784/1051,
+   under-split 42→33), **+4 rows sealed** (486/660, under-split 41→37).
+   Over-split ticked up by one on train only (46→47) — expected, not a
+   regression: the cutter's own behaviour didn't move, but a row whose gold
+   item-count the correction pulled down can now read as "predicted more
+   than gold" against the new target. Full detail, the corrected rows by
+   family, and both verbatim rulings: DEVQA.md's 2026-09-16 entry.
 
 1. **The compound-chain fix.** `_compound_command_verb`'s hidden-verb search
    only checked DIRECT children. spaCy parses a two-word object as a flat
@@ -152,8 +189,17 @@ as the mis-parsed-root bucket below, on NP-coordination's false-positive
 side instead of clause-coordination's false-negative side.
 
 **What's still open**, from a systematic breakdown of the 42 remaining
-under-split TRAIN rows (2026-09-16) rather than guessed at — three shapes,
-roughly a third each:
+under-split TRAIN rows (2026-09-16, before the gold correction below) — three
+shapes, roughly a third each. The third of those three shapes is now
+RESOLVED by the Q14 reversal (item 7 above) rather than by a code fix: "buy
+eight sticky notes, apples, and printer paper" and "stick eggs and washing
+powder on the shopping list" were counted as under-split against gold that
+wanted one item per enumerated object — FastSeg was already emitting ONE
+item for these (it never had an enumeration-expansion path for bare NOUN
+lists to begin with), so once the gold was corrected to match, these rows
+became exact matches with no code involved. That accounts for most of the
+33-row drop in remaining under-split (42→33); the other two shapes are
+unchanged and still open:
 
 - **"and"/"then" with a sane parse, still no boundary found (the largest
   slice).** Several distinct causes bundled under one symptom: an
@@ -173,11 +219,6 @@ roughly a third each:
   finds ONE boundary and stops one short. `cut()` already loops to a fixed
   point specifically to catch this, so this is `cut()`'s own iteration
   logic to trace, not `coordination.py`'s.
-- **Not clause-coordination at all.** "buy eight sticky notes, apples, and
-  printer paper" / "stick eggs and washing powder on the shopping list" are
-  ONE verb with an ENUMERATED object list, each item its own task — the
-  "EXPAND ENUMERATIONS" phase (fastseg's Phase 3, a separate mechanism this
-  session never touched), not a second ask with its own verb.
 
 `clause_boundaries`'s main loop also still only visits tokens with
 `dep_ in ("conj", "dep")` — "remind me to change the air filter, then
