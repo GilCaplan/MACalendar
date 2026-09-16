@@ -763,6 +763,55 @@ Not yet committed.
 original 2026-09-10 filing — smallest count (2/30) of the three, not yet
 traced.
 
+## A phantom "Reminder" event, found verifying cycle 19 (queued 2026-09-15)
+
+Not traced yet — a real repro, a hypothesis, and where to look, not a fix.
+
+    "book flu shot new year's eve at 9:15, notify me 15 minutes before"
+
+builds the flu shot event correctly (`item_1`), AND a second, fabricated
+event titled "Reminder" (`r1_item_1`, start 10:00, flagged "nothing in the
+words said it"). The `r1_` id prefix means round 1 of the judge's loop
+built it — so on round 0 something about "notify me 15 minutes before"
+earned an `ungrounded_subject` finding, got trimmed into X1' by
+`rewrite.py`, and X1' re-entering segmentation produced a standalone item
+for what should have stayed a `reminder_minutes` modifier on the flu-shot
+event.
+
+**Hypothesis, unconfirmed**: segmentation is splitting "notify me N minutes
+before" into its OWN item instead of recognizing it as a lead-time phrase
+attached to the preceding ask. `decompose_validate.resolve_lead_time`
+clearly exists to handle exactly this phrase shape when it stays attached —
+worth checking whether item_1 in THIS case actually got `reminder_minutes`
+set correctly despite the phantom sibling, which would narrow this to "the
+phrase gets read twice" rather than "it's never read at all."
+
+**Where to look first**: whatever produced the `ungrounded_subject` finding
+against the ORIGINAL segmentation of this sentence — `llmjudge/verdict.py`'s
+subject check, or segmentation's own item boundaries. Same method as
+cycles 18/19: find more real reproducing rows before touching anything
+(search the fastrule_7200 train split for "notify me" / "remind me" /
+"alert me" ... "before" combined with another ask), trace one stage at a
+time, don't guess the owner. A fabricated calendar event is a more visible
+failure than a dropped field, so this is worth prioritizing over new
+low-count items once picked up.
+
+## Empty create_event title — the one remaining line of the 2026-09-10 filing
+
+Smallest count of the original three (2/30), and possibly not a bug at all
+— unlike the other two lines this cycle fixed, there is no known downstream
+mechanism that re-derives a title the way `decompose_validate.run_objects`
+re-derives `start_time`/`end_time`. If FastRule's own `_title_from_words`
+already tried and found nothing (`build.py`'s `missing-slots` Defer,
+`missing: ["title"]`), the model failing too may mean there is genuinely no
+title in the words — in which case today's "I couldn't read this part"
+outcome, while not a great message, is not wrong either. **Needs real
+reproducing rows before deciding whether this is fixable at all** — same
+`scan_*.py` methodology as cycles 18/19 (find hits, THEN trace), not started
+this session. If it turns out genuinely undeterminable, the fix may be a
+better MESSAGE ("I couldn't tell what to call this") rather than a recovery
+mechanism.
+
 ## Deferred — a structural convolution sweep over the engine (queued 2026-09-15)
 
 Gil asked for a pass over `assistant/engine/`'s seven areas (orchestrator +
