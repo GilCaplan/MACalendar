@@ -225,6 +225,15 @@ def clause_boundaries(text: str) -> "list[Boundary]":
             # when the one event happens, not what a second ask acts on.
             conj_has_own = (nxt.pos_ in ("DET", "PRON")
                             and not _opens_a_date(doc, nxt.i))
+            # A BARE noun object opens one too, with no article at all —
+            # "book eye exam", "book staff meeting", "add water the garden"
+            # are all real objects, and English never articles a compound
+            # like this ("book an eye exam" is the only spoken form, "book
+            # the eye exam" implies one already discussed). Still gated on
+            # `_opens_a_date` for the same reason as the DET branch, so
+            # "…and MARK tomorrow" stays a name collision, not an object.
+            if not conj_has_own and nxt.pos_ in ("NOUN", "PROPN"):
+                conj_has_own = not _opens_a_date(doc, nxt.i)
         head_has_own = any(c.dep_ in OWN_ARG for c in tok.head.children
                            if c is not tok)
         if not head_has_own and tok.head.dep_ != "ROOT":
@@ -337,6 +346,16 @@ def _opens_a_date(doc, i: int) -> bool:
     return False
 
 
+#: The two dependency labels spaCy uses for "one noun modifying another,
+#: sitting before it" on lowercase, unpunctuated STT text — "compound" and
+#: "nmod" both show up for the exact same real relationship ("book annual
+#: checkup" tags `book` as nmod of `checkup`; "book yoga class" tags `book`
+#: as compound of `yoga`) and neither predicts the other. Checked against
+#: the case this walk must never rescue ("buy apples and WATER bottles"):
+#: `water` is `compound` there, never `nmod`, in every phrasing tried.
+_CHAIN_LINK = ("compound", "nmod")
+
+
 def _hidden_verb_in_chain(tok):
     """Walk `tok`'s COMPOUND CHAIN for a command verb, with NO gate on
     `tok`'s own head — the gate is `_compound_command_verb`'s job for its
@@ -354,7 +373,7 @@ def _hidden_verb_in_chain(tok):
     while frontier:
         cur = frontier.pop()
         for child in cur.children:
-            if child.dep_ != "compound" or child.i >= tok.i or child.i in seen:
+            if child.dep_ not in _CHAIN_LINK or child.i >= tok.i or child.i in seen:
                 continue
             seen.add(child.i)
             if _is_command_verb(child):

@@ -67,9 +67,34 @@ def test_the_same_intent_family_does_not_rescue_the_split():
         ["buy apples and water bottles"]
 
 
+def test_an_nmod_tagged_hidden_verb_is_found_too():
+    # spaCy tags the hidden verb "compound" ("book yoga class") or "nmod"
+    # ("book annual checkup") for the same real relationship, unpredictably —
+    # both links must be walked.
+    assert split_clauses("buy six stamps and then book annual checkup in two days") == \
+        ["buy six stamps", "book annual checkup in two days"]
+
+
 def test_a_verb_outside_the_lexicon_rescues_nothing():
     # "confirm" has no INTENT_MAP entry, so there is no family to compare —
     # the rescue must fail closed (no split), never guess.
     assert split_clauses(
         "confirm the reservation and then book webinar this weekend at 11am"
     ) == ["confirm the reservation and then book webinar this weekend at 11am"]
+
+
+# --- the bare-object extension: no article at all, English never puts one here ---
+
+def test_a_bare_noun_object_with_no_article_still_splits():
+    assert split_clauses(
+        "remind me to restock the pantry and book eye exam next month at quarter to nine"
+    ) == ["remind me to restock the pantry",
+          "book eye exam next month at quarter to nine"]
+
+
+def test_a_bare_object_followed_by_a_date_word_does_not_split():
+    # The exact case the article requirement existed to protect: a name that
+    # collides with a command verb, followed by a bare DATE word rather than
+    # an object — "tomorrow" must not be read as what was booked.
+    assert split_clauses("meeting with Tal and Mark tomorrow") == \
+        ["meeting with Tal and Mark tomorrow"]
