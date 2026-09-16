@@ -820,21 +820,65 @@ more real rows shaped like this ("notify me"/"remind me"/"alert me" ...
 "before", combined with another ask) to see how common the pattern is
 before choosing (a) or (b) — one repro is not enough to size the fix.
 
-## Empty create_event title — the one remaining line of the 2026-09-10 filing
+## Empty create_event title — CONCLUDED, not a bug (2026-09-15)
 
-Smallest count of the original three (2/30), and possibly not a bug at all
-— unlike the other two lines this cycle fixed, there is no known downstream
-mechanism that re-derives a title the way `decompose_validate.run_objects`
-re-derives `start_time`/`end_time`. If FastRule's own `_title_from_words`
-already tried and found nothing (`build.py`'s `missing-slots` Defer,
-`missing: ["title"]`), the model failing too may mean there is genuinely no
-title in the words — in which case today's "I couldn't read this part"
-outcome, while not a great message, is not wrong either. **Needs real
-reproducing rows before deciding whether this is fixable at all** — same
-`scan_*.py` methodology as cycles 18/19 (find hits, THEN trace), not started
-this session. If it turns out genuinely undeterminable, the fix may be a
-better MESSAGE ("I couldn't tell what to call this") rather than a recovery
-mechanism.
+Found real reproducing rows before deciding anything, same method as cycles
+18/19: scanned 500 create_event train rows, one model call each. **Exactly
+1 hit (0.2%)** — consistent with the original 2026-09-10 filing's 2/~600
+(≈0.3%), so the rate itself isn't in question, only whether it's fixable.
+
+    "i owe Blake a conversation, let's do on the 15th"
+
+FastRule's deterministic rule parser found NO route at all here (`skip`,
+`had_partial: False`) — this phrasing has no verb+object shape any pattern
+recognizes. The model, asked cold, ALSO produced no usable title. Both
+readers independently found nothing, which is the tell: unlike the two
+lines fixed this session, there is no known-correct answer sitting
+unused anywhere in the pipeline to recover — `decompose_validate` never
+re-derives a title the way it re-derives `start_time`/`end_time`, so there
+is nothing to fall back to.
+
+**Verdict: this is not a bug to fix, at this frequency, with this evidence.**
+Inventing a title ("conversation with Blake"?) would be exactly the kind of
+invention this project's architecture exists to refuse. Today's "I couldn't
+read this part" is honest, if generic. Not pursuing a special-cased message
+for a 0.2% edge case with no derivable answer — the cost of the abstraction
+would exceed the value of the fix.
+
+## A venue name after a comma still splits into a second event (2026-09-15)
+
+Surfaced verifying the period-clock fix above, on the SAME real utterance —
+fixing the clock reading exposed this as the remaining half of what Gil
+saw, exactly as CLAUDE.md's own lesson warns ("fixing a stage exposes the
+next one").
+
+    "Movie at Lincoln Square tomorrow, AMC, 11.15 AM tomorrow"
+
+now correctly resolves 11:15 (was 15:00) — but still becomes TWO events:
+"Movie at Lincoln Square" and "AMC", because segmentation splits at the
+comma before "AMC". One event, spoken with a venue name set off by commas
+as an aside, reads as two asks.
+
+**Where this lives**: `assistant/intent/coordination.py`'s `ASK_JOINER_RE`
+has a bare `[;,]` fallback — ANY comma counts as a possible ask-joiner,
+independent of the NP-vs-clause-coordination check this same module
+already does properly for "and" (spaCy dependency parse: a VERB conjunct is
+a second ask, a NOUN/PROPN conjunct is a longer noun phrase, per this
+module's own docstring). The comma path does not get that check at all.
+The module's own comment says this is a KNOWN, deliberate trade-off ("A
+comma inside a single ask over-counts, which is the safe direction... the
+downstream consumer prefers to defer") — meaning today's design expects
+FastRule's compound gate to catch an over-split comma and defer rather than
+build two objects, and evidently doesn't, at least not for this shape.
+
+**Not investigated further this session** — this is a candidate STRUCTURE
+change (how commas are read for coordination), squarely inside the
+segmentation-adjacent freeze, and deserves its own trace (does
+`_parse_covers_the_compound` see this case and fail to catch it, or does it
+never get asked) before anyone decides whether extending the NP/clause
+check to commas is an implementation fix or a structure change. Same method
+next time: find more real rows shaped like "X [location/name set off by
+commas], time" before touching anything.
 
 ## Deferred — a structural convolution sweep over the engine (queued 2026-09-15)
 
