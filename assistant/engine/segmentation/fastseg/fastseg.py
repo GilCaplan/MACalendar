@@ -736,14 +736,22 @@ _VAGUE_TIME_HEDGE = re.compile(
 #: "block off the whole day FOR client call" (a named event, no "to") stays
 #: `event` (measured 7/7); only the "to VERB" infinitive shape is `task`
 #: (measured 12/12 across both "block off time to…" and "block out … to…").
-_TIME_BLOCKING = re.compile(r"^block\s+(?:off|out)\b.*\bto\s+\w", re.I)
+#: "CARVE OUT"/"SET ASIDE" are the same self-time-reservation idiom with a
+#: different verb, not in the corpus but the same shape.
+_TIME_BLOCKING = re.compile(
+    r"^(?:block\s+(?:off|out)|carve\s+out|set\s+aside)\b.*\bto\s+\w", re.I)
 
 #: "GIVE ME A NUDGE (to do X)" is the same reminder framing as "remind me",
 #: just not spelled with a verb `_lexicon_kind` reads — head-of-action is
 #: "give me", neither in `_CALENDAR_VERBS` nor `_TASK_VERBS`, so the lexicon
 #: abstains and whatever the wrapped verb suggests ("book a flight" reads
 #: event-ish) stands unchallenged. Measured 6/6 `task` on the corpus.
-_NUDGE_IDIOM = re.compile(r"^give\s+me\s+a\s+nudge\b", re.I)
+#: Synonyms of "give me a nudge" this dataset never happened to spell —
+#: "poke"/"buzz"/"ping" me are the same REMINDER-FRAMING idiom with a
+#: different verb, and the closed regex above only matched the one dataset
+#: verb. Corpus-unverifiable (none of these appear in it) but not a guess:
+#: same idiom, same reasoning `_NUDGE_IDIOM`'s own docstring gives.
+_NUDGE_IDIOM = re.compile(r"^give\s+me\s+a\s+nudge\b|^(?:poke|buzz|ping)\s+me\b", re.I)
 
 #: A "before" that SURVIVES into the action (rather than being lifted into
 #: time_str as a deadline or a lead-time, both already handled upstream) is
@@ -756,7 +764,70 @@ _NUDGE_IDIOM = re.compile(r"^give\s+me\s+a\s+nudge\b", re.I)
 #: survives with no named object of its own — and "before/about I …", which
 #: is the "can you check what i have before i commit to anything" REVIEW
 #: shape, not a reminder.
-_ANCHORED_TO_EVENT = re.compile(r"\b(?:before|about)\s+(?!that\b|it\b|i\b)\w", re.I)
+#: "concerning"/"regarding"/"ahead of" are the same anchoring preposition as
+#: "about" — synonyms this dataset's templates never happened to render
+#: together with a NAMED object ("ahead of" already matters to
+#: `_LEAD_INTRANSITIVE` upstream, but only for the time-extraction question,
+#: never for TAG until "ping me ahead of conference call" regressed here).
+_ANCHORED_TO_EVENT = re.compile(
+    r"\b(?:before|about|concerning|regarding|ahead\s+of)\s+(?!that\b|it\b|i\b)\w",
+    re.I)
+
+
+#: "call/email/text/message/notify/write/send PERSON" is an OUTREACH task
+#: regardless of who the person is — the whole point of the verb is a
+#: one-way errand, not a scheduled encounter. `_has_person_argument` exists
+#: to protect ENCOUNTER verbs ("grab coffee with", "see", "catch up with")
+#: that happen to sit in `_TASK_VERBS` for their generic-object sense ("grab
+#: milk") — it must not ALSO protect these, or "call Dana and Avery" (task,
+#: a phone-call errand) gets talked back up to `event` for no better reason
+#: than the person's name being capitalised. Regressed 13 rows before this
+#: exclusion was added; caught by the row-ID diff, not anticipated.
+_OUTREACH_VERBS = frozenset({"call", "email", "text", "message", "notify",
+                             "write", "send", "ping"})
+
+
+def _head_is_outreach_verb(action: str) -> bool:
+    """Same head-of-action read `_lexicon_kind` uses (preamble skipped
+    first), checked against the outreach-verb subset specifically."""
+    words = [w.strip(".!?,") for w in action.lower().split()]
+    while words and words[0] in _PREAMBLE:
+        words.pop(0)
+    return bool(words and words[0] in _OUTREACH_VERBS)
+
+
+def _has_person_argument(action: str) -> bool:
+    """Does this action carry a capitalised proper noun as SOMEONE'S
+    argument — a verb's direct object, or the object of a preposition —
+    AND the head verb isn't one of the outreach verbs above?
+
+    "grab coffee with DEVESH" — STRUCTURAL, not a verb list: it generalises
+    "meet"/"sync up with" to any verb a speaker might use for a
+    person-ENCOUNTER ("catch up with", "see", "drop by", "grab lunch with",
+    ...) without enumerating them, the same distinction `experiments/
+    tag_structural.py`'s `_has_propn_argument` measured (and which that
+    experiment's classifier still lost overall — this is the ONE signal
+    from it worth porting into the rules directly, since it is structural
+    rather than a fitted weight, and it fixes a real veto-mode failure:
+    "grab" sits in `_TASK_VERBS`, so `_lexicon_kind` was talking a genuine
+    encounter back down to `task` with nothing to stop it).
+
+    Scanned over the WHOLE action rather than just the root's direct
+    children — spaCy's lowercase-STT parse is unreliable about exactly
+    which token "with X" attaches to ("grab coffee with Devesh" hangs it off
+    "coffee", not "grab", once "Devesh" is capitalised and the parse
+    reshuffles) — the action is already one segmented item by the time TAG
+    sees it, so there is no second clause here to accidentally match.
+    """
+    if _head_is_outreach_verb(action):
+        return False
+    from assistant.intent.coordination import parsed
+    doc = parsed(action)
+    if doc is None:
+        return False
+    return any(t.pos_ == "PROPN" and t.dep_ in ("dobj", "obj", "dative", "pobj")
+               for t in doc)
+
 
 #: "i have to MEET Quinn", "i need to SYNC UP with Jordan" — an encounter
 #: with a PERSON is always an event (6/6 each on the corpus), unlike the
@@ -783,7 +854,10 @@ _RUNDOWN_IDIOM = re.compile(r"\bgive\s+me\s+the\s+rundown\b", re.I)
 #: its own, per `_lexicon_kind`'s docstring: a NOUN inside the action must
 #: not decide, only the head — this is that same guard, extended to a
 #: closed two-word head phrase instead of one word).
-_DUE_DATE_EDIT = re.compile(r"^(?:change|flip)\s+the\s+due\s+date\b", re.I)
+#: "shift"/"push back"/"bump"/"move" are the same due-date-editing verb as
+#: "change"/"flip", not seen in the corpus but the same idiom.
+_DUE_DATE_EDIT = re.compile(
+    r"^(?:change|flip|shift|bump|move|push\s+back)\s+the\s+due\s+date\b", re.I)
 
 
 def _lexicon_kind(action: str) -> "str | None":
@@ -855,15 +929,35 @@ def tag(action: str, time_str: str) -> str:
         if _RUNDOWN_IDIOM.search(action):
             return "review"
         if _VAGUE_TIME_HEDGE.search(action) or _TIME_BLOCKING.search(action) \
-                or _NUDGE_IDIOM.match(action) or _DUE_DATE_EDIT.match(action):
+                or _DUE_DATE_EDIT.match(action):
+            return "task"
+        if _NUDGE_IDIOM.match(action) and not _ANCHORED_TO_EVENT.search(action):
+            # "ping me AHEAD OF conference call" is the anchored idiom (an
+            # actual named event), not the bare "give me a nudge TO submit
+            # the report" idiom "ping" was added to `_NUDGE_IDIOM` to cover —
+            # the anchor must win, or widening the verb list regressed a row
+            # this exact idiom already handled correctly (§0b, fix #10).
             return "task"
         verdict = _lexicon_kind(action)
-        if verdict == "task" and _STATED_CLOCK.search(time_str or ""):
+        anchored = _ANCHORED_TO_EVENT.search(action) and not _head_is_outreach_verb(action)
+        if verdict == "task" and (
+                _STATED_CLOCK.search(time_str or "")
+                or anchored
+                or _has_person_argument(action)):
             # A STATED CLOCK MEANS SCHEDULED. "walk the dog" is a to-do and "walk
             # the dog at 9" is an appointment — same verb, and the only thing that
             # changed is that the speaker named a time. The floor's bare "today"
             # does not count, because the engine wrote that rather than the
             # speaker. Second largest error class, 34 of 179.
+            #
+            # The other two guards catch what a stated clock cannot: "grab"
+            # sits in `_TASK_VERBS` (correctly, for "grab milk"), so "grab
+            # coffee with DEVESH" was being vetoed to `task` with nothing to
+            # stop it — a real person-argument or an anchor clause is the
+            # same "this is scheduled" evidence a clock is, just spelled
+            # differently. Found stress-testing §0b's fixes against phrasing
+            # the dataset never generated (Gil, 2026-09-16: "continuing more
+            # as is is definitely overfitting").
             return kind
         return verdict or kind
     if kind == "task":

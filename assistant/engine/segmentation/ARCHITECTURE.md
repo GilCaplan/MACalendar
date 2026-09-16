@@ -66,7 +66,7 @@ Verified end to end through `engine.run_transcript`, not inferred from the board
 | | train (1,051 rows) | **SEALED (660 rows)** |
 |---|---|---|
 | exact-set (actions) | 90.3% | **85.3%** |
-| exact-row (action+time+tag) | 87.5% | **76.4%** |
+| exact-row (action+time+tag) | 87.5% (920/1051) | **77.3% (510/660)** |
 | **the CUT alone** — right item count | 96.5% | **90.9%** |
 | item precision · recall · F1 | 99.7 · 97.7 · 98.7 | **97.6 · 96.2 · 96.9** |
 | over-split · under-split | 4 · 33 | **23 · 37** |
@@ -279,6 +279,75 @@ phrase rather than a coordinator word, and widening that tolerance risks
 false positives elsewhere; not attempted this pass. Everything else
 remaining is ones and twos — individually real, none big enough on its own
 to justify a dedicated mechanism at this dataset's current size.
+
+### 0c · The overfitting check — measured, not assumed (Gil: "continuing
+### more as is is definitely overfitting")
+
+Two things were tried, in this order, BEFORE touching `fastseg.py` again —
+both measured honestly rather than argued for.
+
+**First, could a fitted classifier replace the growing rule pile?**
+`experiments/tag_structural.py` retries `tag_head.py`'s already-refuted
+question (§6's refuted table) with a genuinely different feature space —
+DEPENDENCY-PARSE-derived signals (does the verb's own object carry a PROPN,
+is "before" transitive, the engine's own `_kind_of` verdict as an input) in
+place of `KindFeatures`' keyword-PRESENCE regexes (`with\s+[a-z]+` cannot
+tell "meeting WITH SAM" from "wash dishes WITH a sponge"). It closed most of
+the original gap (94.4% 5-fold-OOF vs the rules' 96.9%, both gold-item TAG
+accuracy over 1,501 items — up from the original head's 80.4%) but still
+lost. **Not a dead end for ML — a dead end at 1,051 rows split three ways
+with many idioms at 6–12 examples.** Full account and numbers in §6.
+
+**Second — the real question — do the 16 fixes generalise to phrasing the
+generator never produced, or are they fit to its exact words?**
+`experiments/adversarial_tag.py` is 31 hand-written sentences, none a
+near-paraphrase of any dataset row: different verbs (catch up with / grab
+coffee with / poke me / carve out / shift the due date), same underlying
+semantic categories §0b's fixes target. First run, before any widening:
+**18/31 (58%)** — against 87.5%/77.3% on the actual dataset. Confirmed,
+measured overfitting, exactly as predicted: every fix was a closed
+VOCABULARY item keyed to whichever exact word the generator's template
+banks happened to render (`before`/`about` but not `concerning`/
+`regarding`; "give me a nudge" but not "poke me"/"buzz me"; `change`/`flip`
+but not `shift`/`push back`; `block off`/`out` but not `carve out`/`set
+aside"`) — "verified against the whole corpus" gave false confidence,
+because the corpus itself only cycles a handful of PHRASINGS per category.
+
+Widened the mechanisms that were already general (synonym sets on
+`_ANCHORED_TO_EVENT`, `_TIME_BLOCKING`, `_DUE_DATE_EDIT`, `_NUDGE_IDIOM`) and
+added one genuinely new STRUCTURAL signal — `_has_person_argument`, the one
+feature from the refuted classifier worth porting directly: does the verb
+govern a capitalised proper noun, directly or through a preposition,
+generalising "meet"/"sync up with" to ANY encounter verb ("grab coffee
+with", "catch up with", "see") without enumerating them. First version
+regressed 13 train rows — "call Dana and Avery" (task, an outreach errand)
+was wrongly promoted to `event` for no better reason than the names being
+capitalised, and "ping me AHEAD OF conference call" (the anchored idiom) got
+swallowed by the newly-widened "ping me" nudge check before it reached the
+anchor test. Both caught by the row-ID diff, not anticipated: outreach verbs
+(call/email/text/message/notify/write/send/ping) were carved out of the new
+structural checks specifically, since "call/email/text SOMEONE" is an
+errand regardless of who, while "grab coffee with"/"see"/"catch up with"
+SOMEONE is the encounter itself — a real semantic distinction no purely
+structural (verb-blind) signal can make on its own.
+
+**Result: adversarial 58%→84% (26/31), zero regression on the real board**
+(train 920/1051 unchanged, sealed 504→510/660, +6 — the vocabulary widening
+generalised further than any single §0b fix did, since it isn't keyed to
+one family's exact template). Full test suite green throughout (1,715
+tests). Five cases in `adversarial_tag.py` remain honestly marked WRONG,
+not silently dropped: one base-engine-tagger misfire outside this stage's
+remaining scope, three CUT-level gaps (`INTENT_MAP` missing "finalize"/
+"draft"/"prep" as recognised verbs — `rule_parser.py`'s call, shared with
+FastRule, not this file's), and the bare-generic-booking idiom ("book a
+hotel") flagged and deliberately not chased earlier in §0b for the same
+reason: distinguishing a bare booking from a specific one needs a
+structural check this pass didn't build.
+
+**Run `adversarial_tag.py` after any future TAG/CUT change** — it is the
+one check in this stage not measuring the dataset, and the corpus-wide
+consistency check every fix in this file already passes is not, by itself,
+evidence a mechanism generalises past the generator's own phrasing.
 
 1. **The compound-chain fix.** `_compound_command_verb`'s hidden-verb search
    only checked DIRECT children. spaCy parses a two-word object as a flat
