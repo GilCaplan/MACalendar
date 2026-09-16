@@ -13,6 +13,26 @@ comments, which is why the surgery existed. This module keeps the good part
   • inline comments on a rewritten line are preserved.
 
     set_values({"tts": {"mute": True, "rate": 180}, "ui": {"theme": "dark"}})
+
+## Two defects found in the wild, 2026-09-15
+
+Real `config.yaml`, real corruption, no test had either shape:
+
+1. **A value containing `#` was read as its own trailing comment.**
+   `ui.accent_color: "#f5a524"` — the old value-vs-comment split had no idea
+   a `#` can sit INSIDE a quoted string, so
+   it read the value as `"` and the rest, `#f5a524"`, as a comment — which
+   then got preserved and RE-APPENDED on every subsequent save, compounding
+   into `"#f5a524"#f5a524'` after enough settings-dialog round trips.
+   `_VALUE` now matches a whole quoted string or flow-list as one unit before
+   ever considering where a comment could start.
+2. **Rewriting a key left its OLD value's continuation lines behind.**
+   `nlu.event_keywords` had been written as a YAML block list (`- meeting` /
+   `- appointment` / `- activity`) at some point; a later rewrite to the flow
+   form only replaced the `event_keywords:` header line, leaving the three
+   `-` lines as now-orphaned siblings — invalid YAML, and `AppConfig` refused
+   to load at all. A rewrite now swallows any block-list lines immediately
+   following the key it is replacing.
 """
 from __future__ import annotations
 
@@ -20,6 +40,16 @@ import os
 import re
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.yaml")
+
+#: A value as ONE unit before a comment is ever considered: a whole quoted
+#: string or flow-list first (either may legitimately contain "#"), a bare
+#: scalar otherwise. Order matters — the quoted/flow-list branches must be
+#: tried before the catch-all, or a value like "#f5a524" is never reached as
+#: a single alternative.
+_VALUE = r'(?:"[^"]*"|\[[^\]]*\]|[^#]*?)'
+#: A YAML block-list item — "- meeting" at any indent. A key rewritten to a
+#: flow form must swallow these or they survive as orphaned siblings.
+_LIST_ITEM_RE = re.compile(r"^\s*-\s")
 
 
 def _literal(value) -> str:
@@ -30,6 +60,23 @@ def _literal(value) -> str:
     if isinstance(value, (list, tuple)):
         return "[" + ", ".join(_literal(v) for v in value) + "]"
     return f'"{value}"'
+
+
+def _replace_key(lines: "list[str]", i: int, end: int, header: str, value) -> int:
+    """Overwrite `lines[i]` (a matched `key:` line) with the new value,
+    consuming any YAML block-list lines that were the OLD value's
+    continuation. Returns how many lines the span shrank by.
+
+    `header` is normalized to end in exactly one space before the value —
+    the captured group can be the bare `key:` with nothing after it (a block
+    list's header line), and `key:[value]` with no space is exactly the
+    ambiguous shape that read back as one giant scalar rather than a mapping
+    (the `nlu.event_keywords` corruption this fixes)."""
+    j = i + 1
+    while j < end and _LIST_ITEM_RE.match(lines[j]):
+        j += 1
+    lines[i:j] = [header.rstrip() + " " + _literal(value)]
+    return (j - i) - 1
 
 
 def _section_span(lines: "list[str]", section: str) -> "tuple[int, int] | None":
@@ -65,11 +112,18 @@ def set_values(updates: "dict[str, dict]", path: str = CONFIG_PATH) -> bool:
         if section == "":
             # top-level scalars (theme:, confirmation_level:, …)
             for key, value in kv.items():
-                pat = re.compile(rf"^({re.escape(key)}\s*:\s*)([^#]*?)(\s*#.*)?$")
+                pat = re.compile(rf"^({re.escape(key)}\s*:\s*)({_VALUE})(\s*#.*)?$")
                 for i, ln in enumerate(lines):
                     m = pat.match(ln)
                     if m:
-                        lines[i] = m.group(1) + _literal(value) + (m.group(3) or "")
+                        _replace_key(lines, i, len(lines), m.group(1), value)
+                        # a comment on the old line is discarded here on
+                        # purpose: unlike a section key, there is no `end`
+                        # to bound how far a stray "#" search could run, and
+                        # top-level scalars in this file carry no comments
+                        # worth preserving today.
+                        if m.group(3):
+                            lines[i] = lines[i].rstrip() + m.group(3)
                         break
                 else:
                     lines.append(f"{key}: {_literal(value)}")
@@ -82,11 +136,14 @@ def set_values(updates: "dict[str, dict]", path: str = CONFIG_PATH) -> bool:
             continue
         start, end = span
         for key, value in kv.items():
-            pat = re.compile(rf"^(\s+{re.escape(key)}\s*:\s*)([^#]*?)(\s*#.*)?$")
+            pat = re.compile(rf"^(\s+{re.escape(key)}\s*:\s*)({_VALUE})(\s*#.*)?$")
             for i in range(start, end):
                 m = pat.match(lines[i])
                 if m:
-                    lines[i] = m.group(1) + _literal(value) + (m.group(3) or "")
+                    shrank = _replace_key(lines, i, end, m.group(1), value)
+                    if m.group(3):
+                        lines[i] = lines[i].rstrip() + m.group(3)
+                    end -= shrank
                     break
             else:
                 # insert before the section's trailing blank lines
