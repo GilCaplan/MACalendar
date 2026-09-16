@@ -4,6 +4,39 @@
 vocabulary is the measured lever, and it carries the rules that keep this folder
 from becoming convoluted. This file is how the stage WORKS.
 
+> ### FASTSEG v2 REBUILD IN PROGRESS (2026-09-16) — v1's rollback point
+>
+> Six implementation fixes this session (§0 below) pushed FastSeg v1 from
+> exact-row 68.2%→73.7% train / 67.4%→73.0% sealed with zero new false
+> positives, each measured and verified individually. A seventh — object-list
+> enumeration expansion, "buy A, B, and C" → 3 tasks — hit a wall that isn't
+> an implementation gap: the dataset's own gold labels disagree with
+> themselves. An explicit, deliberately-named `c_npdecoy_buy_two_items`
+> family protects "buy shampoo and apples" as ONE item; other families
+> ("buy eight sticky notes, apples, and printer paper", "stick eggs and
+> washing powder on the shopping list") want the same shape to split, and no
+> single rule reconciles both — they read as independently-authored template
+> families rather than one coherent design.
+>
+> That is what triggered the decision (Gil, 2026-09-16) to build a v2 rather
+> than keep patching v1's dependency-parse-and-regex architecture — informed
+> by both the literature survey (§3's callout has the full account: BlendX,
+> DialogUSR, the multi-intent SLU survey, and what turned out NOT to help —
+> phrasplit, spacy-clausie) and this session's six concrete failure
+> mechanisms, catalogued precisely rather than papered over.
+>
+> **v1 is tagged `fastseg-v1`** (local tag, not yet pushed) at commit
+> `05f7ac1` — full numbers, all six fixes' reasoning, and the exact
+> gold-conflict finding that triggered the rebuild are in the tag message and
+> unchanged below. `IMPLEMENTATION = "fastseg"` is the live selector
+> (§0) — v1 remains the ACTUAL live implementation until v2 clears this bar
+> on the same 1,051/660-row split, not a moment before. If v2 does not clear
+> it, `git checkout fastseg-v1 -- assistant/intent/coordination.py
+> assistant/engine/segmentation/fastseg/fastseg.py` is the rollback (verify
+> against this file's own numbers below, not memory). Formal retirement to
+> `retired/fastseg-v1/` (README + tag, the `fastrule-v1` precedent) happens
+> at the moment v2 actually takes over, never before.
+
 ---
 
 ## 0 · Where this stage stands — 2026-09-16
