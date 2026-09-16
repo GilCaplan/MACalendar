@@ -395,9 +395,23 @@ class LocalStore: ObservableObject {
 
     private func loadVoice() {
         guard let data = try? Data(contentsOf: voiceURL),
-              let rows = try? JSONDecoder().decode([PendingVoiceCommand].self, from: data)
+              var rows = try? JSONDecoder().decode([PendingVoiceCommand].self, from: data)
         else { return }
+        // A row can only be `.running` for the lifetime of the `await
+        // sendAudio` call that set it — nothing persists that status back to
+        // disk except being mid-request. So a `.running` row surviving to a
+        // fresh launch proves the previous process died mid-replay (killed,
+        // suspended, network drop) before it could record done/failed.
+        // `syncPendingVoice()` only ever retries `.queued`/`.failed`
+        // (APIClient.swift), so left alone this row would sit there forever,
+        // stuck, no visible way to distinguish it from one still in flight.
+        var resetAny = false
+        for i in rows.indices where rows[i].status == .running {
+            rows[i].status = .queued
+            resetAny = true
+        }
         pendingVoice = rows
+        if resetAny { persistVoice() }
     }
 
     private func persistVoice() {

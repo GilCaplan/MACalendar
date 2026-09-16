@@ -203,6 +203,21 @@ class APIClient: ObservableObject {
             LocalStore.shared.updateVoice(cmd.id, status: .running)
             do {
                 let response = try await sendAudio(audio)
+                // The Mac answered, but `parse == "error"` with a `pendingId`
+                // means it never actually ran the command — the model was
+                // offline/slow, so the Mac queued it in ITS OWN retry store
+                // (assistant/engine's `add_pending`, driven by
+                // `start_pending_retry_loop`) and will run it on its own.
+                // Marking this `.done` would be a lie, and leaving it
+                // `.queued` here would replay the same audio again later —
+                // handing the Mac a second copy of the same command, which
+                // its own loop could then execute twice once the model is
+                // back. The Mac owns it now; drop our copy.
+                if response.parse == "error", response.pendingId != nil {
+                    LocalStore.shared.removeVoice(cmd.id)
+                    Self.notify(title: "Your Mac is running this on its own", body: response.message)
+                    continue
+                }
                 LocalStore.shared.updateVoice(cmd.id, status: .done,
                                               result: response.message.isEmpty ? "Done" : response.message)
                 Self.notify(title: "Ran your queued command", body: response.message)
@@ -742,7 +757,12 @@ class APIClient: ObservableObject {
         guard !base.isEmpty, let url = URL(string: base + "/voice") else {
             throw APIError.badURL
         }
-        var req = URLRequest(url: url, timeoutInterval: 30)
+        // Same pipeline as /voice/stream, run synchronously instead of
+        // reported step by step — same 120 s budget, or a deep-track command
+        // (p50 ~40 s, p95 ~84 s per dataset/RESULTS.md) times out client-side
+        // while the Mac keeps running it, gets requeued, and is replayed a
+        // second time on the next retry.
+        var req = URLRequest(url: url, timeoutInterval: 120)
         req.httpMethod = "POST"
         if !settings.apiKey.isEmpty {
             req.setValue(settings.apiKey, forHTTPHeaderField: "X-API-Key")
@@ -758,9 +778,19 @@ class APIClient: ObservableObject {
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
         req.httpBody = body
         do {
-            let (data, _) = try await URLSession.shared.data(for: req)
+            let (data, resp) = try await URLSession.shared.data(for: req)
             isOnline = true
+            // The Mac answered — that alone doesn't mean the command ran; an
+            // unhandled exception in the engine reaches here as a non-2xx,
+            // non-JSON body (Flask's default error page), which would
+            // otherwise fail `decode` and get mislabeled as "offline" below.
+            guard let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+                let msg = String(data: data, encoding: .utf8) ?? "Unknown error"
+                throw APIError.serverError(msg)
+            }
             return try decode(VoiceResponse.self, from: data)
+        } catch let err as APIError {
+            throw err
         } catch {
             isOnline = false
             throw APIError.offline(error.localizedDescription)

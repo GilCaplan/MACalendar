@@ -3,22 +3,23 @@ import ActivityKit
 import os
 
 /// Drives the "Up Next" Live Activity — the persistent lock-screen card that
-/// shows the next upcoming event and flips to "Now" once it starts.
+/// shows today's remaining agenda, with the running (or next) event picked
+/// out from the rest.
 ///
 /// **Why this can exist in a strictly local-only app.** Live Activities are
 /// normally kept alive by APNs push, which this project will never use. The
-/// trick is that the only thing changing second-by-second — the countdown — is
-/// drawn by the *system*: `Text(timerInterval:)` and `ProgressView(timerInterval:)`
-/// re-render on the lock screen with zero updates from us. The app therefore
-/// only has to push content when the *event* changes (next → now → the one
-/// after), and that is a handful of updates a day.
+/// card doesn't need it: the agenda only changes a handful of times a day (an
+/// event starts, an event ends, the list is edited), and the app is already
+/// woken for those moments — this pushes new content then and sits still the
+/// rest of the time. There is no live-ticking element left to justify on its
+/// own; the card is simply cheap to keep current.
 ///
 /// **The cost of no push.** Those handful of updates can only happen when iOS
 /// gives the app execution time: foregrounding, and the poll paths that already
-/// run while it is open. A card whose event started while the phone was locked
-/// therefore keeps saying "in 0:00" until the app next wakes — so every card
-/// carries a `staleDate` (`ContentState.staleDate`) at exactly the moment it
-/// stops being true, and iOS dims it rather than letting it lie.
+/// run while it is open. A card whose headline event started while the phone
+/// was locked therefore keeps saying "UP NEXT" until the app next wakes — so
+/// every card carries a `staleDate` (`ContentState.staleDate`) at exactly the
+/// moment it stops being true, and iOS dims it rather than letting it lie.
 ///
 /// Same inputs as `ReminderScheduler`: the `LocalStore` event cache and the
 /// device-local `remindersEnabled` toggle. It re-derives nothing about
@@ -31,8 +32,8 @@ final class LiveActivityManager {
     /// starting one for an event further out than that.
     static let horizon: TimeInterval = 8 * 3600
 
-    /// Assumed length of an event with no end time — enough for the "Now"
-    /// phase to have a sensible bar and a sensible `staleDate`.
+    /// Assumed length of an event with no end time — gives a running event a
+    /// sensible `staleDate` to go dim at instead of none at all.
     static let assumedDuration: TimeInterval = 3600
 
     private var pendingSync: Task<Void, Never>? = nil
@@ -110,11 +111,11 @@ final class LiveActivityManager {
             guard !Self.sameCard(activity.content.state, state) else { return }
             await activity.update(content)
             log.notice("""
-                updated Up Next → \(state.phase.rawValue, privacy: .public) \
-                event #\(state.eventId, privacy: .public) \
+                updated Up Next → \(state.items.count, privacy: .public) item(s), \
+                current=\(state.currentId.map(String.init) ?? "none", privacy: .public) \
                 (stale at \(state.staleDate, privacy: .public))
                 """)
-            print("[LiveActivity] updated → \(state.phase.rawValue) event #\(state.eventId)")
+            print("[LiveActivity] updated → \(state.items.count) item(s), current=\(state.currentId?.description ?? "none")")
         } else {
             do {
                 let activity = try Activity.request(
@@ -127,12 +128,11 @@ final class LiveActivityManager {
                 // without seeing the lock screen.
                 log.notice("""
                     STARTED Up Next id=\(activity.id, privacy: .public) \
-                    phase=\(state.phase.rawValue, privacy: .public) \
-                    event #\(state.eventId, privacy: .public) \
-                    starts \(state.start, privacy: .public)
+                    \(state.items.count, privacy: .public) item(s), \
+                    current=\(state.currentId.map(String.init) ?? "none", privacy: .public)
                     """)
-                print("[LiveActivity] STARTED id=\(activity.id) phase=\(state.phase.rawValue) "
-                      + "event #\(state.eventId) \"\(state.title)\" at \(state.timeLabel)")
+                print("[LiveActivity] STARTED id=\(activity.id) \(state.items.count) item(s), "
+                      + "current=\(state.currentId?.description ?? "none")")
             } catch {
                 log.error("Up Next request failed: \(error.localizedDescription, privacy: .public)")
                 print("[LiveActivity] request FAILED: \(error)")
@@ -153,21 +153,32 @@ final class LiveActivityManager {
 
     // MARK: - Choosing what the card shows
 
-    /// The event currently running, or failing that the soonest one starting
-    /// within the 8-hour horizon. Pure and static so it can be reasoned about
-    /// (and tested) without ActivityKit or a device.
+    /// How many rows the card shows. A lock-screen card, not the calendar —
+    /// the current/next item is the point, the rest is context.
+    static let maxAgendaItems = 5
+
+    /// Today's remaining agenda: the event currently running (if any), then
+    /// whatever else is left before midnight, soonest first. Pure and static
+    /// so it can be reasoned about (and tested) without ActivityKit or a
+    /// device.
     ///
-    /// An in-progress event wins over an upcoming one: a card that says
-    /// "Now: Standup" while standup is happening is the whole point of the
-    /// "then flips to the next one" behaviour.
+    /// The card only exists — same as before — when something is running or
+    /// something starts within the 8-hour ActivityKit horizon; once it does,
+    /// every other event still left today rides along in `items` rather than
+    /// being dropped, so the card reads as an agenda and not a single ticket.
+    /// An in-progress event always wins the `currentId` slot over an upcoming
+    /// one: a card that marks "Standup" current while standup is happening is
+    /// the whole point of the "then rolls to the next one" behaviour.
     @available(iOS 16.1, *)
     static func currentCard(now: Date,
                             events: [CalendarEvent],
                             accentHex: String) -> UpNextAttributes.ContentState? {
         struct Slot { let event: CalendarEvent; let start: Date; let end: Date }
 
+        let midnight = Calendar.current.startOfDay(for: now).addingTimeInterval(86_400)
+
         let slots: [Slot] = events.compactMap { e in
-            // An all-day / timeless row has nothing to count down to.
+            // An all-day / timeless row has no clock position to place.
             guard !e.startTime.isEmpty,
                   let start = ReminderScheduler.parseLocal("\(e.date)T\(e.startTime)")
             else { return nil }
@@ -179,37 +190,39 @@ final class LiveActivityManager {
             if end <= start { end = end.addingTimeInterval(86_400) }
             return Slot(event: e, start: start, end: end)
         }
+        // Today's remaining events only — this card is an agenda for the
+        // day, not a peek at tomorrow.
+        .filter { $0.end > now && $0.start < midnight }
         .sorted { $0.start < $1.start }
 
         let running = slots.last { $0.start <= now && now < $0.end }
         let next    = slots.first { $0.start > now && $0.start <= now.addingTimeInterval(horizon) }
+        guard running != nil || next != nil else { return nil }
 
-        guard let slot = running ?? next else { return nil }
-        let e = slot.event
+        let items = slots.prefix(maxAgendaItems).map { slot -> UpNextAttributes.ContentState.AgendaItem in
+            let e = slot.event
+            return UpNextAttributes.ContentState.AgendaItem(
+                id: e.id,
+                title: e.title.isEmpty ? "Untitled event" : e.title,
+                start: slot.start,
+                end: slot.end,
+                timeLabel: e.displayTime,
+                location: e.location,
+                colorHex: e.color.isEmpty ? accentHex : e.color)
+        }
+
         return UpNextAttributes.ContentState(
-            eventId: e.id,
-            title: e.title.isEmpty ? "Untitled event" : e.title,
-            start: slot.start,
-            end: slot.end,
-            timeLabel: e.displayTime,
-            location: e.location,
-            colorHex: e.color.isEmpty ? accentHex : e.color,
-            phase: running != nil ? .now : .upcoming,
-            issued: now
+            items: Array(items),
+            currentId: running?.event.id,
+            staleDate: running?.end ?? next?.start ?? now
         )
     }
 
-    /// Does this card show the same thing as that one? `issued` is excluded on
-    /// purpose — it moves on every sync, and comparing it would turn every
-    /// 30-second tick into an ActivityKit update for no visible change (and
-    /// would restart the progress bar's span each time).
+    /// Does this card show the same thing as that one?
     @available(iOS 16.1, *)
     static func sameCard(_ a: UpNextAttributes.ContentState,
                          _ b: UpNextAttributes.ContentState) -> Bool {
-        a.eventId == b.eventId && a.phase == b.phase && a.title == b.title
-            && a.start == b.start && a.end == b.end
-            && a.timeLabel == b.timeLabel && a.location == b.location
-            && a.colorHex == b.colorHex
+        a.currentId == b.currentId && a.items == b.items && a.staleDate == b.staleDate
     }
 
     /// The accent the calendar itself falls back to for an event with no
