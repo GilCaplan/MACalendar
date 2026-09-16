@@ -276,11 +276,21 @@ _LEADING_PREP = re.compile(
 
 
 def _absorb_preposition(text: str, start: int, taken: "list[bool]") -> int:
-    """Extend a reference left over the preposition it was spoken with."""
-    m = _LEADING_PREP.search(text, 0, start)
-    if not m or any(taken[m.start():start]):
-        return start
-    return m.start()
+    """Extend a reference left over the preposition(s) it was spoken with.
+
+    "for at the end of the month" stacks two — the generator glues "at" onto
+    "the end of the month" the same way it does everywhere else, and "for"
+    governs the whole deadline phrase on top of that — so one hop absorbed
+    "at" and left "for" stranded as a dangling word in the action. Looped
+    rather than a single hop, same reason `_tidy`'s own dangling-preposition
+    strip is a loop ("…for on" needs two passes) — one preposition can sit
+    directly in front of another.
+    """
+    while True:
+        m = _LEADING_PREP.search(text, 0, start)
+        if not m or any(taken[m.start():start]):
+            return start
+        start = m.start()
 
 
 # ---------------------------------------------------------------------------
@@ -394,6 +404,52 @@ def _split_verbless_conjuncts(piece: str) -> "list[str]":
 # PHASE 2 — ASSIGN TIME
 # ---------------------------------------------------------------------------
 
+#: What can follow "before" WITHOUT making it the object of that "before" —
+#: a to-infinitive ("...before TO submit the report"), a preposition fronting
+#: a separate clause about what the reminder concerns ("...before ABOUT
+#: annual checkup", "...before FOR flight to Chicago"), or another lead-marker
+#: synonym starting its OWN clause ("15 minutes BEFORE BEFORE team meeting",
+#: "30 minutes before AHEAD OF conference call" — two idioms concatenated by
+#: the generator, where the first "before" is the extractable duration-lead
+#: and the second is the transitive one governing the named event). English
+#: "before" is used BOTH transitively (governing a noun right after it:
+#: "before haircut") and intransitively/adverbially ("an hour before", full
+#: stop, or continued by a clause of its own) — this is the closed set the
+#: corpus's generated templates use for the second reading.
+_LEAD_INTRANSITIVE = re.compile(
+    r"^\s*(?:about|for|to|before|beforehand|ahead|prior|in\s+advance)\b", re.I)
+
+
+def _lead_has_no_object(text: str, ref: "TimeRef",
+                        spans: "list[tuple[int, int]]") -> bool:
+    """A DURATION-before reference ("an hour before") is its own time slot
+    only when "before" has no NOUN object of its own within this piece —
+    nothing follows it at all, or what follows is a to-infinitive/preposition
+    starting a new clause rather than the thing "before" governs.
+
+    "remind me to organize the garage an hour before SCHOOL PLAY at around
+    lunchtime" was matching "an hour before" as a clock-class ref on its own,
+    which stripped it from the action and left "school play" an orphaned
+    fragment glued onto whatever came before it ("…the garage school play") —
+    "before" here is TRANSITIVE, governing "school play" as its object, so the
+    object has to stay with it in the action, the same as any other
+    preposition-object pair ("with SAM", "to THE STORE").
+    "remind me two hours before about annual checkup the 30th at 14:00" is the
+    other reading: "before" here is used adverbially ("in advance"), and
+    "about annual checkup" is a SEPARATE clause naming what the reminder
+    concerns, not its object — the correct case to still treat "before" as
+    its own time reference (`_is_reminder_lead_time` is `coordination.py`'s
+    version of the same distinction, anchored to the whole clause instead of
+    to what immediately follows).
+    """
+    piece_end = next((e for s, e in spans if s <= ref.start and ref.end <= e),
+                     len(text))
+    tail = text[ref.end:piece_end]
+    if not re.search(r"[A-Za-z0-9]", tail):
+        return True                      # bare idiom, nothing follows at all
+    return bool(_LEAD_INTRANSITIVE.match(tail))
+
+
 def assign_times(text: str, pieces: "list[str]") -> "list[tuple[str, str]]":
     """(action, time) per piece, from the pieces AND the original together.
 
@@ -410,7 +466,8 @@ def assign_times(text: str, pieces: "list[str]") -> "list[tuple[str, str]]":
     first.
     """
     spans = _locate(text, pieces)
-    refs = find_time_refs(text)
+    refs = [r for r in find_time_refs(text)
+            if r.kind != "lead" or _lead_has_no_object(text, r, spans)]
 
     owned: "list[list[TimeRef]]" = [[] for _ in pieces]
     lead: "list[TimeRef]" = []
@@ -534,6 +591,16 @@ def _strip_spans(piece: str, spans: "list[tuple[int, int]]") -> str:
 #: object is gone.
 _DANGLING = re.compile(r"\s+(?:on|at|for|in|by|from|to|of|this|next)\s*$", re.I)
 
+#: A bare leading "to" is what's left of "remind me TO sign the permission
+#: slip" once cut() severs it from "remind me" at a clause boundary ("remind
+#: me to X and TO Y") — the infinitive marker belonged to the framing verb,
+#: not to this piece's own content. Checked against the whole corpus (1,711
+#: rows, both halves): not one gold action ever starts with "to " — the
+#: framing verb's OWN piece keeps "remind me to X" whole (there the "to" is
+#: attached to a verb IN this piece), so the strip is safe applied everywhere
+#: `_tidy` runs, not just at a clause boundary.
+_LEADING_TO = re.compile(r"^to\s+", re.I)
+
 
 def _tidy(s: str) -> str:
     s = re.sub(r"\s+", " ", s).strip(" ,;.")
@@ -541,6 +608,7 @@ def _tidy(s: str) -> str:
     while prev != s:                                # "…for on" needs two passes
         prev = s
         s = _DANGLING.sub("", s).strip(" ,;.")
+    s = _LEADING_TO.sub("", s).strip(" ,;.")
     return s
 
 
@@ -559,7 +627,7 @@ _CALENDAR_VERBS = frozenset("""
 """.split())
 
 _TASK_VERBS = frozenset("""
-    remind buy call email text pick collect grab wash clean fold pack sort
+    buy call email text pick collect grab wash clean fold pack sort
     file pay submit prepare print water walk take change top order renew
     return drop send finish write update fix charge vacuum feed refill
     restock organize review back
@@ -643,10 +711,79 @@ _PREAMBLE = frozenset("""
     so um uh er hmm ok okay and then also first next now just really
 """.split())
 
-#: A time the speaker STATED, as opposed to the floor's bare "today".
+#: A time the speaker STATED, as opposed to the floor's bare "today". Needed
+#: the SPOKEN clock forms too ("ten thirty") — Whisper writes what was said,
+#: and `find_time_refs`'s own "clock" kind already recognises them
+#: (`_HOURWORD` + `_MINWORD`), so this checked less than what actually lands
+#: in `time_str`.
 _STATED_CLOCK = re.compile(
-    r"\d{1,2}:\d{2}|\d{1,2}\s*(?:am|pm)|\bat\s+\d{1,2}\b|\bnoon\b|\bmidnight\b"
-    r"|\bo'?clock\b|\b(?:half|quarter)\s+(?:past|to)\b", re.I)
+    rf"\d{{1,2}}:\d{{2}}|\d{{1,2}}\s*(?:am|pm)|\bat\s+\d{{1,2}}\b|\bnoon\b|\bmidnight\b"
+    rf"|\bo'?clock\b|\b(?:half|quarter)\s+(?:past|to)\b"
+    rf"|\b(?:{_HOURWORD})\s+(?:{_MINWORD})\b", re.I)
+
+#: A hedge that says nothing was actually committed to a slot — "schedule a
+#: haircut AT SOME POINT" names an intention, not an appointment, whatever
+#: the verb. Closed list, same shape as `_is_not_calendar`'s own vocabulary
+#: veto: measured on the corpus (6/6 gold rows carrying this phrase are
+#: `task`), not a general "any vague time" heuristic.
+_VAGUE_TIME_HEDGE = re.compile(
+    r"\bat\s+some\s+(?:point|stage)\b|\bsometime\b|\bsome\s+time\b|\bwhenever\b",
+    re.I)
+
+#: "BLOCK OFF/OUT (time) TO do X" is reserving a slot for yourself, not
+#: scheduling an event with anyone or anything else — even though the head
+#: verb ("block") sits in `_CALENDAR_VERBS`. The "to VERB" is the tell:
+#: "block off the whole day FOR client call" (a named event, no "to") stays
+#: `event` (measured 7/7); only the "to VERB" infinitive shape is `task`
+#: (measured 12/12 across both "block off time to…" and "block out … to…").
+_TIME_BLOCKING = re.compile(r"^block\s+(?:off|out)\b.*\bto\s+\w", re.I)
+
+#: "GIVE ME A NUDGE (to do X)" is the same reminder framing as "remind me",
+#: just not spelled with a verb `_lexicon_kind` reads — head-of-action is
+#: "give me", neither in `_CALENDAR_VERBS` nor `_TASK_VERBS`, so the lexicon
+#: abstains and whatever the wrapped verb suggests ("book a flight" reads
+#: event-ish) stands unchallenged. Measured 6/6 `task` on the corpus.
+_NUDGE_IDIOM = re.compile(r"^give\s+me\s+a\s+nudge\b", re.I)
+
+#: A "before" that SURVIVES into the action (rather than being lifted into
+#: time_str as a deadline or a lead-time, both already handled upstream) is
+#: always transitive here — "before HAIRCUT", "before SCHOOL PLAY" — because
+#: the only other things "before" can govern (a date word, or nothing at
+#: all) are already gone by this point. "about" reaches the same shape one
+#: hop earlier — "remind me to email Robin ABOUT onboarding session" — no
+#: duration/"before" at all, just a reminder ANCHORED to a named event.
+#: Excludes a bare pronoun ("...a week before THAT") — the one idiom that
+#: survives with no named object of its own — and "before/about I …", which
+#: is the "can you check what i have before i commit to anything" REVIEW
+#: shape, not a reminder.
+_ANCHORED_TO_EVENT = re.compile(r"\b(?:before|about)\s+(?!that\b|it\b|i\b)\w", re.I)
+
+#: "i have to MEET Quinn", "i need to SYNC UP with Jordan" — an encounter
+#: with a PERSON is always an event (6/6 each on the corpus), unlike the
+#: generic task verbs this shape otherwise resembles ("i have to call/email/
+#: text Quinn" stay task-neutral, not promoted — meeting/syncing up IS the
+#: scheduled thing, not an errand about a person).
+_MEETING_HEAD = re.compile(r"\bmeet\b|\bsync(?:ing)?\s+up\b", re.I)
+
+#: "get X ON THE BOOKS" — the idiom for getting something scheduled
+#: (measured 6/6 `event`), not literally putting a book somewhere. The head
+#: verb "get" carries no signal of its own (not in either lexicon), so
+#: without this the wrapped noun phrase decides nothing and the engine
+#: tagger's own guess stands unchallenged.
+_ON_THE_BOOKS = re.compile(r"\bon\s+the\s+books\b", re.I)
+
+#: "GIVE ME THE RUNDOWN" asks what is scheduled — a review, not an event —
+#: measured 6/6 on the corpus. Neither "give" nor "rundown" is in either
+#: lexicon, so nothing else here would ever route it away from `event`.
+_RUNDOWN_IDIOM = re.compile(r"\bgive\s+me\s+the\s+rundown\b", re.I)
+
+#: "CHANGE/FLIP THE DUE DATE on X" — editing a task's own due date, always
+#: `task` (12/12) whatever the wrapped task-title X happens to look like
+#: ("…on confirm the reservation" reads event-ish to the engine tagger on
+#: its own, per `_lexicon_kind`'s docstring: a NOUN inside the action must
+#: not decide, only the head — this is that same guard, extended to a
+#: closed two-word head phrase instead of one word).
+_DUE_DATE_EDIT = re.compile(r"^(?:change|flip)\s+the\s+due\s+date\b", re.I)
 
 
 def _lexicon_kind(action: str) -> "str | None":
@@ -715,6 +852,11 @@ def tag(action: str, time_str: str) -> str:
         # place an event, so `event` is exactly where an unusable ask lands.
         if _is_not_calendar(action, time_str):
             return "other"
+        if _RUNDOWN_IDIOM.search(action):
+            return "review"
+        if _VAGUE_TIME_HEDGE.search(action) or _TIME_BLOCKING.search(action) \
+                or _NUDGE_IDIOM.match(action) or _DUE_DATE_EDIT.match(action):
+            return "task"
         verdict = _lexicon_kind(action)
         if verdict == "task" and _STATED_CLOCK.search(time_str or ""):
             # A STATED CLOCK MEANS SCHEDULED. "walk the dog" is a to-do and "walk
@@ -724,6 +866,23 @@ def tag(action: str, time_str: str) -> str:
             # speaker. Second largest error class, 34 of 179.
             return kind
         return verdict or kind
+    if kind == "task":
+        # The MIRROR promotion, still one-way and still narrow — not the
+        # blanket bidirectional override that measured worse above. Both
+        # triggers are STRUCTURAL, not a verb-list flip, so neither repeats
+        # the refuted experiment: a real stated time (day or clock — the
+        # bare "today" floor does not count, same distinction `_STATED_CLOCK`
+        # already draws for the mirror case) plus either a surviving
+        # "before/about NAMED EVENT" clause the engine tagger never reaches
+        # (it reads the head verb+object, "remind me to ORGANIZE THE
+        # GARAGE…", before the anchor clause that actually places this on a
+        # calendar), or the head verb being "meet" — meeting a person is the
+        # one verb in this shape where the whole point IS the encounter.
+        real_time = (time_str or "").strip().lower() not in ("", "today")
+        if real_time and (_ANCHORED_TO_EVENT.search(action)
+                          or _MEETING_HEAD.search(action)
+                          or _ON_THE_BOOKS.search(action)):
+            return "event"
     return kind
 
 

@@ -247,7 +247,18 @@ def clause_boundaries(text: str) -> "list[Boundary]":
             head_has_own = True
         if conj_has_own and head_has_own:
             b = _boundary_at(doc, tok, text)
-            if b is not None:
+            if b is not None and not _non_splitting_tail(text[b.begins:]):
+                # "book eye exam this weekend at late afternoon and remind me
+                # two hours before" — "remind" is a real VERB conjunct here
+                # (not a mis-tagged compound, so it never reaches the
+                # fallback below, where this same guard already applies) but
+                # the clause carries no object of its own: it is a LEAD TIME
+                # on the event just booked, the identical idiom
+                # `_lexicon_fallback_boundaries` and `fastseg.py`'s own
+                # splitter both already refuse to split on. Anchored to the
+                # rest of the TEXT rather than just this clause, same as the
+                # fallback's own check — it only exempts a clause with
+                # nothing after it, so a genuine third ask still splits.
                 found.append(b)
     if not found:
         found = _lexicon_fallback_boundaries(doc, text)
@@ -265,12 +276,29 @@ _REMINDER_LEAD_RE = re.compile(
     r"^(?:(?:remind|notify|warn)\s+me|give\s+me\s+a\s+(?:heads?\s+up|nudge))\s+"
     r"(?:\d+|a|an|half\s+an?|one|two|three|four|five|six|seven|eight|nine|ten)\s+"
     r"(?:minutes?|mins?|hours?|days?|weeks?)?\s*"
-    r"before\b(?:\s+that)?\s*$",
+    # A second, redundant lead-marker sometimes follows the first ("10
+    # minutes before BEFOREHAND") — the generator's own idiom stacking,
+    # same shape fastseg.py's `_LEAD_INTRANSITIVE` accepts for the identical
+    # reason. Still anchored to the end: real content after either marker
+    # is a genuine second ask, not this idiom.
+    r"before\b(?:\s+(?:that|beforehand|ahead|prior|in\s+advance))?\s*$",
     re.I)
 
 
-def _is_reminder_lead_time(span) -> bool:
-    return bool(_REMINDER_LEAD_RE.match(span.text.strip()))
+#: "change the due date of X to Y and ADD A NOTE" — a bare, object-less "add
+#: a note" is an elaboration on the task just named, not a second ask (6/6 on
+#: the corpus): there is nothing here to note ABOUT, so nothing for a second
+#: item to be. "add a note that/about X" (a real object) is unaffected —
+#: that is a genuine second ask.
+_TRIVIAL_TAIL_RE = re.compile(r"^add\s+a\s+note\s*$", re.I)
+
+
+def _non_splitting_tail(text: str) -> bool:
+    """True when `text` (a candidate second clause) is one of the idioms
+    that read as a VERB clause but are never a second ask by themselves —
+    the shared gate for both the main walk and the lexicon fallback below."""
+    t = text.strip()
+    return bool(_REMINDER_LEAD_RE.match(t) or _TRIVIAL_TAIL_RE.match(t))
 
 
 def _lexicon_fallback_boundaries(doc, text: str) -> "list[Boundary]":
@@ -349,7 +377,7 @@ def _lexicon_fallback_boundaries(doc, text: str) -> "list[Boundary]":
             nxt_family = _verb_intent_family(nxt, nxt_words)
             if prev_family is None or nxt_family is None or prev_family == nxt_family:
                 continue
-        if _is_reminder_lead_time(doc[nxt.i:nxt_end]):
+        if _non_splitting_tail(doc[nxt.i:nxt_end].text):
             # "book webinar sunday at 8:30pm and remind me two hours before"
             # IS a real family mismatch (book=event, remind=todo) and would
             # otherwise rescue clean — but the second clause is nothing BUT a

@@ -20,7 +20,7 @@ import re
 #: should have to keep it to satisfy the check.
 _STOP = frozenset(
     "a an the and or then also plus as well to of for on at in by with my me "
-    "i please can you it that this".split()
+    "i please can you it that this including".split()
     # Disfluencies. Dropping "um" is not losing information, and counting it as
     # loss made 35 of the 66 content-loss rows noise — which would have sent
     # the next cycle chasing a splitter bug that does not exist.

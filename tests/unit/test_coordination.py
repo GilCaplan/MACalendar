@@ -179,3 +179,43 @@ def test_the_sentence_start_skips_leading_discourse_markers():
         "remind me to return the library books. also remind me to book a flight"
     ) == ["remind me to return the library books",
           "remind me to book a flight"]
+
+
+# --- the MAIN WALK's own lead-time guard: "remind" as a real VERB conjunct
+# (not a mis-tagged compound) never reaches the fallback above, so it needed
+# its own copy of the same idiom check ---
+
+def test_a_real_verb_conjunct_lead_time_does_not_split():
+    # "remind" gets a proper conj tag off "book" here (unlike the fallback
+    # case above), so this exercises the MAIN walk's guard, not the
+    # fallback's — the two used to disagree before both shared one check.
+    assert split_clauses(
+        "book eye exam this weekend at late afternoon and remind me two hours before"
+    ) == ["book eye exam this weekend at late afternoon and remind me two hours before"]
+
+
+def test_a_stacked_lead_marker_still_does_not_split():
+    # "10 minutes before BEFOREHAND" — a second, redundant lead-marker the
+    # generator sometimes appends; `_REMINDER_LEAD_RE` must still anchor to
+    # the end past it.
+    assert split_clauses(
+        "set up client call next month and remind me 10 minutes before beforehand"
+    ) == ["set up client call next month and remind me 10 minutes before beforehand"]
+
+
+def test_a_bare_add_a_note_does_not_split():
+    # No object to note ABOUT, so nothing for a second item to be — the
+    # `_non_splitting_tail` idiom shared with the reminder-lead-time guard.
+    assert split_clauses(
+        "change the due date of do the laundry to two weeks from now and add a note"
+    ) == ["change the due date of do the laundry to two weeks from now and add a note"]
+
+
+def test_add_a_note_with_its_own_object_still_splits():
+    # "add a note ABOUT X" has a real object — not the bare idiom, so it is
+    # a genuine second ask.
+    assert split_clauses(
+        "change the due date of do the laundry to two weeks from now "
+        "and add a note about the delivery"
+    ) == ["change the due date of do the laundry to two weeks from now",
+          "add a note about the delivery"]

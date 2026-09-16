@@ -1017,6 +1017,34 @@ dedicated bare-imperative test class added to `test_todo_item_splitting.py`
 first, then the fix, then the whole FastRule dataset re-run to confirm no
 regression on the 7,200-row corpus.
 
+## `wrapper-phrase` gold contradicts its own SPEC.md example — NOT FIXED, filed (2026-09-16)
+
+Found while pushing FastSeg v1's exact-row further (see
+`assistant/engine/segmentation/ARCHITECTURE.md` §0b for the full session).
+`SPEC.md`'s own `wrapper-phrase` trap row uses **"add buy milk and buy bread
+to my list"** as its canonical MUST-NOT-SPLIT example — "one verb + one
+destination over both" — and `DEVQA.md`'s 2026-09-16 Q14 entry explicitly
+says this exact sentence was "already correct… already never split." The
+actual gold row (`ns-0049` in `nosplit_traps.jsonl`) splits it into two
+items, and two sibling rows in the same `wrapper-phrase-to-my-list` family
+(`ns-0050`, `ns-0052`) do too.
+
+This is the same SHAPE as the Q14 conflict (a documented ruling the dataset
+doesn't actually match) — it just wasn't caught by Q14's own fix, because
+`has_clause_coordination("add buy milk and buy bread to my list")` is TRUE
+here (two real "buy" VERB conjuncts, not a bare coordinated noun list),
+which correctly excluded these three rows from Q14's filter but says
+nothing about which reading is actually intended: wrapper-phrase's
+documented rule, or the row's own gold.
+
+**Not fixed** — this needs the same kind of explicit ruling Q14 got (see
+DEVQA.md), not a unilateral code or dataset change either way. Whoever picks
+this up: get a ruling first, then either (a) fix the 3 gold rows to match
+SPEC.md's documented rule (merge to one item each), or (b) reverse
+wrapper-phrase's own SPEC.md row and DEVQA.md's Q14 annotation to match the
+gold that's actually there. FastSeg v1's code should not change either way
+— like Q14, this is a labelling question, not an implementation one.
+
 ## Working agreements
 - Everything on the phone is local: no third-party services; the only network peer is the Mac over Tailscale.
 - Prefer doing work directly over spawning sub-agents; keep context small (`/compact` between big tasks).
