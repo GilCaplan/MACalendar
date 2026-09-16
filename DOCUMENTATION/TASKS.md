@@ -768,38 +768,57 @@ Committed (`b0cc371`, `a46fed1`).
 original 2026-09-10 filing — smallest count (2/30) of the three, not yet
 traced.
 
-## A phantom "Reminder" event, found verifying cycle 19 (queued 2026-09-15)
-
-Not traced yet — a real repro, a hypothesis, and where to look, not a fix.
+## A phantom "Reminder" event — TRACED, and it's a design decision, not a bug fix (2026-09-15)
 
     "book flu shot new year's eve at 9:15, notify me 15 minutes before"
 
-builds the flu shot event correctly (`item_1`), AND a second, fabricated
-event titled "Reminder" (`r1_item_1`, start 10:00, flagged "nothing in the
-words said it"). The `r1_` id prefix means round 1 of the judge's loop
-built it — so on round 0 something about "notify me 15 minutes before"
-earned an `ungrounded_subject` finding, got trimmed into X1' by
-`rewrite.py`, and X1' re-entering segmentation produced a standalone item
-for what should have stayed a `reminder_minutes` modifier on the flu-shot
-event.
+Traced stage by stage, same method as cycles 18/19. The full mechanism,
+confirmed:
 
-**Hypothesis, unconfirmed**: segmentation is splitting "notify me N minutes
-before" into its OWN item instead of recognizing it as a lead-time phrase
-attached to the preceding ask. `decompose_validate.resolve_lead_time`
-clearly exists to handle exactly this phrase shape when it stays attached —
-worth checking whether item_1 in THIS case actually got `reminder_minutes`
-set correctly despite the phantom sibling, which would narrow this to "the
-phrase gets read twice" rather than "it's never read at all."
+    after segment:              item_1 "book flu shot" (time="…9:15")
+                                 item_2 "notify me" (time="today 15 minutes before")
+    after decompose_validate:   item_1.slots: date/start_time resolved, NO reminder_minutes
+                                 item_2.slots: reminder_minutes=15 (correctly resolved!)
+    after fastrule:             item_1 builds fine; item_2 -> action=None (no title, no route)
+    final (model rescues item_2): item_1 "flu shot", reminder_minutes STILL None
+                                 item_2 becomes a fabricated "Notification"/"Reminder"
+                                 event, flagged unsupported_field (a made-up start_time) —
+                                 or, on a different sample, loops via ungrounded_subject
+                                 and the fabricated event gets an `r1_` id instead. Which
+                                 one happens varies with the model's own sampling; the root
+                                 cause is upstream of both.
 
-**Where to look first**: whatever produced the `ungrounded_subject` finding
-against the ORIGINAL segmentation of this sentence — `llmjudge/verdict.py`'s
-subject check, or segmentation's own item boundaries. Same method as
-cycles 18/19: find more real reproducing rows before touching anything
-(search the fastrule_7200 train split for "notify me" / "remind me" /
-"alert me" ... "before" combined with another ask), trace one stage at a
-time, don't guess the owner. A fabricated calendar event is a more visible
-failure than a dropped field, so this is worth prioritizing over new
-low-count items once picked up.
+**This is not a bug in any one stage — `decompose_validate` computes
+`reminder_minutes` correctly on `item_2`; the problem is nothing ever
+transfers it onto `item_1`, the event it is actually about.** `item_2` has
+no title, no action, and nothing to build on its own, so whatever handles it
+downstream (FastRule's Defer path, then the model) has no honest option
+except inventing something — the reminder value is real, computed
+correctly, and stranded on an item nothing knows how to attach to its
+neighbor.
+
+**Why this is filed as a decision, not fixed outright**: segmentation
+DELIBERATELY produced two items here — that is what its "STRUCTURE" gate is
+for when a command's words describe more than one component. Fixing this
+means either (a) segmentation should recognize a bare lead-time clause
+("notify me N minutes before") as a modifier of the PRECEDING item rather
+than a second ask, or (b) `decompose_validate` gets a new cross-item merge
+step that folds a reminder-only item's `reminder_minutes` onto its
+predecessor and drops the orphan. (a) is squarely a segmentation STRUCTURE
+change, which the 2026-09-12 ruling reserves for Gil's say-so
+(`STATUS.md`). (b) touches how many items reach FastRule, which is the same
+category of call — decompose_validate's own contract says "it never
+splits; segmentation already decided the boundaries," and merging two of
+segmentation's items back into one sits right against that line. Recorded
+here rather than implemented, per the standing rule to read every proposal
+against *"I don't really want to make structural changes if I don't have
+to"* and to route exactly this kind of call to Gil rather than decide it
+solo.
+
+**If Gil rules in favor of a fix**: search the fastrule_7200 train split for
+more real rows shaped like this ("notify me"/"remind me"/"alert me" ...
+"before", combined with another ask) to see how common the pattern is
+before choosing (a) or (b) — one repro is not enough to size the fix.
 
 ## Empty create_event title — the one remaining line of the 2026-09-10 filing
 
