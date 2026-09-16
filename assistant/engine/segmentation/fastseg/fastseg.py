@@ -86,6 +86,17 @@ _TIME_PATTERNS: "list[tuple[str, str]]" = [
     (r"\bat\s+(?:around\s+|about\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?"
      r"(?:\s*o'?clock)?\b", "clock"),
     (r"\b\d{1,2}:\d{2}\s*(?:am|pm|a\.m\.|p\.m\.)?\b", "clock"),
+    # PERIOD as the hour/minute separator ("11.15am", "11.15 AM") -- the
+    # international way of writing a clock time, and a real live-usage
+    # defect: without this, the bare "N (am|pm)" entry below can only match
+    # from the FIRST digit onward, so it finds nothing starting at "11"
+    # (followed by "." not "am") and matches "15 AM" instead -- stranding
+    # "11" in the action and reading the clock as 15:00 (3pm) rather than
+    # 11:15. `am`/`pm` is REQUIRED here (unlike the colon form above): a bare
+    # "11.15" with nothing else is at least as likely to be a decimal number
+    # or a price as a time, and inventing a clock from it is the wrong
+    # default for one that names no time at all.
+    (r"\b\d{1,2}\.\d{2}\s*(?:am|pm|a\.m\.|p\.m\.)\b", "clock"),
     (r"\b\d{1,2}\s*(?:am|pm|a\.m\.|p\.m\.)\b", "clock"),
     (r"\b(?:half\s+past|quarter\s+past|quarter\s+to)\s+\w+\b", "clock"),
     (r"\b(?:noon|midday|midnight)\b", "clock"),

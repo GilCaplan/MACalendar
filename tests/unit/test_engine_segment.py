@@ -360,3 +360,42 @@ def test_a_real_ask_that_merely_ends_politely_is_untouched():
                  "thanks for booking the gym, now cancel it",
                  "no thanks to the meeting, delete it"):
         assert not _fs._is_not_calendar(said), f"{said!r} is a real ask"
+
+
+def test_a_period_separated_clock_is_read_whole():
+    """Real live usage, 2026-09-15: "Movie at Lincoln Square tomorrow, AMC,
+    11.15 AM tomorrow" put "11" in the action text and "15 AM" in the time —
+    the bare "N (am|pm)" pattern can only match starting at a digit directly
+    followed by am/pm, so it skipped "11" (followed by "." not "am") and
+    matched "15 AM" instead, reading the clock as 15:00 rather than 11:15.
+    "11.15am" is the international way of writing an hour/minute separator;
+    `find_time_refs` must capture it as ONE span, the same way it already
+    does for the colon form, or the fragment reading wins by being findable
+    at all."""
+    import importlib
+    _fs = importlib.import_module(
+        "assistant.engine.segmentation.fastseg.fastseg")
+
+    for text, want in (
+        ("book flight at 11.15am", "at 11.15am"),   # the leading "at" is
+        ("Movie at Lincoln Square tomorrow, AMC, 11.15 AM tomorrow", "11.15 AM"),
+        ("meet at 9.05pm", "at 9.05pm"),             # absorbed on purpose (_absorb_preposition)
+    ):
+        refs = _fs.find_time_refs(text)
+        clocks = [r for r in refs if r.kind == "clock"]
+        assert len(clocks) == 1, f"{text!r}: expected one clock ref, got {refs}"
+        assert clocks[0].text.strip().lower() == want.lower()
+
+
+def test_a_bare_decimal_number_is_not_read_as_a_clock():
+    """The period form requires am/pm right after it — unlike the colon form,
+    which is unambiguous enough to stand alone. Without that guard, an
+    ordinary price or decimal ("$11.15", "9.99 for the ticket") would be
+    misread as a time nobody said."""
+    import importlib
+    _fs = importlib.import_module(
+        "assistant.engine.segmentation.fastseg.fastseg")
+
+    for text in ("that movie was $11.15", "it's 9.99 for the ticket"):
+        clocks = [r for r in _fs.find_time_refs(text) if r.kind == "clock"]
+        assert not clocks, f"{text!r} invented a clock: {clocks}"

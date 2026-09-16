@@ -365,7 +365,13 @@ def resolve_clock(said: str, context: str = "") -> "str | None":
                 minute = delta
             return _bare_hour(h, minute, ctx)
 
-    m = re.search(r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)\b", t)
+    # `[:.]` — a period is the international way of writing the hour/minute
+    # separator ("11.15am"). Safe to accept here specifically: this branch
+    # requires an explicit am/pm right after, so a bare decimal number or a
+    # price is never mistaken for a clock — only "N.NN" immediately followed
+    # by "am"/"pm" is (2026-09-15, a real live-usage row: segmentation used to
+    # tear "11.15 AM" into "11" + "15 AM", reading the clock as 15:00).
+    m = re.search(r"\b(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)\b", t)
     if m:
         h, minute = int(m.group(1)), int(m.group(2) or 0)
         ap = m.group(3)[0]
