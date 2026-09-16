@@ -754,10 +754,15 @@ without normalizing it first. Fixed with `_normalize_time_fields`: extract
 the HH:MM prefix an ISO datetime or HH:MM:SS carries, drop anything
 unparseable (a bare phrase, a relative duration like `"by an hour"`) to
 `None` rather than crash the item. Measured on the full create_event/
-update_event population (1,963 rows, ~54% of the eligible pool): 199 rows
-(10.1%) would have hit this; 73.6% → 79.8% correct overall, 122/199 of the
-recovered rows score fully correct. Full unit suite green (1655 passed).
-Not yet committed.
+update_event population (1,963 rows, ~54% of the eligible pool): 187 rows
+(9.5%) would have hit this; 79.9% → 88.6% correct overall, 171/187 of the
+recovered rows score fully correct. **Corrected same day**: the first
+measurement pass scored `update_event`/`delete_event` rows by reading
+`.title` (an attribute those intents don't have — they carry `.match_title`),
+silently undercounting BOTH sides; the originally reported 73.6%→79.8%
+(122/199 recovered) is retracted — see `llmjudge/experiments/RESULTS.md`
+cycle 19 for the full account. Full unit suite green (1664 passed).
+Committed (`b0cc371`, `a46fed1`).
 
 **Empty create_event title is the one line still unfixed** from the
 original 2026-09-10 filing — smallest count (2/30) of the three, not yet

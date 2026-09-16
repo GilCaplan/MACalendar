@@ -1403,20 +1403,36 @@ by spying on whether the normalizer actually changed a value (it does that
 only when a fix-18-style before/after would apply, so no second pass or
 model call needed):
 
-    would have raised the HH:MM error   199 / 1963  =  10.1%
-    BEFORE this fix   1444/1963 = 73.6%
-    AFTER  this fix   1566/1963 = 79.8%
-    of the 199 that would have raised: 122/199 = 61.3% now score correct
+    would have raised the HH:MM error   187 / 1963  =  9.5%
+    BEFORE this fix   1568/1963 = 79.9%
+    AFTER  this fix   1739/1963 = 88.6%
+    of the 187 that would have raised: 171/187 = 91.4% now score correct
 
-**+6.2 points on the largest action family in the dataset** — a much bigger
-lever than cycle 18's fix (+0.3 pt on a 552-row subset). The other 77 of the
-199 recovered-from-crashing rows still don't match gold — not regressions
-(they were failing before too), just not free wins either; a different
-defect each, not one shared cause worth chasing as a block. Full unit
-suite green throughout (1655 passed, 2 skipped, 1 xfailed).
+**CORRECTED 2026-09-15, same day, before this ever reached a commit
+message**: the first pass of this measurement scored `update_event`/
+`delete_event` rows by reading `.title`, an attribute those intents do not
+have (they carry `.match_title`) — so `getattr(intent, "title", None)`
+silently returned `None` and every correctly-built update/delete row scored
+as wrong, in BOTH the before and after buckets alike. Caught reading the 77
+"recovered but still wrong" rows by hand for a completely different reason
+(chasing one of the five ideas queued after cycle 19) and noticing ~70 of
+them were `update_event` rows with the RIGHT action and a title of exactly
+`None` — too clean a pattern to be 77 independent misses. Confirmed by
+tracing three of them directly: `"extend dentist appointment by 30
+minutes"` built `match_title='dentist appointment'` (correct) the whole
+time. Fixed the scorer (check `match_title` for target-taking actions) and
+re-ran the full 1,963 rows fresh — a stale checkpoint could not be
+rescored, since the original run never captured `match_title` to rescore
+from. **The corrected numbers are the ones above; the previously reported
+73.6%→79.8% (122/199 recovered) undercounted both sides and is retracted.**
 
-**Not yet committed** — session weekly quota dropped to 8% remaining mid-cycle
-(`claude-session.py --advise`), so a planned structural-convolution sweep
-over the rest of the engine was deferred (`TASKS.md`, queued 2026-09-15)
-rather than run as a wide multi-agent batch against the advice. This fix
-itself was cheap (no subagents) and is unaffected.
+**+8.7 points on the largest action family in the dataset, 91.4% of
+crash-recovered rows landing fully correct** — the fix is stronger than
+first reported, not weaker; this was a measurement bug, not an optimistic
+one. Full unit suite green throughout (1664 passed, 2 skipped, 1 xfailed).
+
+**Process note**: this is the second scoring/measurement bug this project
+has caught mid-session by refusing to accept a suspiciously clean pattern
+at face value (cycle 17's stale-checkpoint retraction was the first). Read
+the actual rows before banking a number, every time — a board's own output
+is not automatically ground truth about what it measured.
