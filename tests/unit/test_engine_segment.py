@@ -387,15 +387,31 @@ def test_a_period_separated_clock_is_read_whole():
         assert clocks[0].text.strip().lower() == want.lower()
 
 
-def test_a_bare_decimal_number_is_not_read_as_a_clock():
-    """The period form requires am/pm right after it — unlike the colon form,
-    which is unambiguous enough to stand alone. Without that guard, an
-    ordinary price or decimal ("$11.15", "9.99 for the ticket") would be
-    misread as a time nobody said."""
+def test_a_bare_period_clock_with_no_am_pm_is_read_too():
+    """Gil's call, 2026-09-15: protect a bare "H.MM" (a spoken 24-hour time
+    like "14.30") the same way the colon form already is, without requiring
+    am/pm. Knowingly accepted trade: a plain decimal or a price shaped the
+    same way is read as a clock too — see the next test."""
+    import importlib
+    _fs = importlib.import_module(
+        "assistant.engine.segmentation.fastseg.fastseg")
+
+    for text, want in (("meeting at 14.30 tomorrow", "at 14.30"),
+                       ("call starts 09.05", "09.05")):
+        clocks = [r for r in _fs.find_time_refs(text) if r.kind == "clock"]
+        assert len(clocks) == 1, f"{text!r}: expected one clock ref, got {clocks}"
+        assert clocks[0].text.strip().lower() == want.lower()
+
+
+def test_a_bare_decimal_number_is_now_read_as_a_clock_by_design():
+    """The accepted trade for the fix above: without an am/pm or a colon to
+    disambiguate, "$11.15" and "11.15" are the same shape, and there is no
+    general way to tell a price from a time. Documented here so the
+    behaviour reads as a decision, not a regression nobody noticed."""
     import importlib
     _fs = importlib.import_module(
         "assistant.engine.segmentation.fastseg.fastseg")
 
     for text in ("that movie was $11.15", "it's 9.99 for the ticket"):
         clocks = [r for r in _fs.find_time_refs(text) if r.kind == "clock"]
-        assert not clocks, f"{text!r} invented a clock: {clocks}"
+        assert clocks, f"{text!r}: expected the decimal to be read as a clock"

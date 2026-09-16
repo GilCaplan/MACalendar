@@ -366,11 +366,8 @@ def resolve_clock(said: str, context: str = "") -> "str | None":
             return _bare_hour(h, minute, ctx)
 
     # `[:.]` — a period is the international way of writing the hour/minute
-    # separator ("11.15am"). Safe to accept here specifically: this branch
-    # requires an explicit am/pm right after, so a bare decimal number or a
-    # price is never mistaken for a clock — only "N.NN" immediately followed
-    # by "am"/"pm" is (2026-09-15, a real live-usage row: segmentation used to
-    # tear "11.15 AM" into "11" + "15 AM", reading the clock as 15:00).
+    # separator ("11.15am"), 2026-09-15: segmentation used to tear "11.15 AM"
+    # into "11" + "15 AM", reading the clock as 15:00 on a real live-usage row.
     m = re.search(r"\b(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)\b", t)
     if m:
         h, minute = int(m.group(1)), int(m.group(2) or 0)
@@ -381,8 +378,14 @@ def resolve_clock(said: str, context: str = "") -> "str | None":
             h = 0
         return f"{h:02d}:{minute:02d}"
 
-    m = re.search(r"\b(\d{1,2}):(\d{2})\b", t)
+    m = re.search(r"\b(\d{1,2})[:.](\d{2})\b", t)
     if m:
+        # `.` here (Gil, 2026-09-15) is the SAME call as fastseg's matching
+        # bare-clock pattern, and the same trade: a bare "11.15" with no
+        # am/pm and no other clock word is now read as 11:15 rather than
+        # left alone, which means a plain decimal number or a price
+        # ("$11.15") in the same shape is read as a clock too and pulled out
+        # of whatever text it was part of.
         h, minute = int(m.group(1)), int(m.group(2))
         return f"{h:02d}:{minute:02d}" if h >= 9 else _bare_hour(h, minute, ctx)
 
