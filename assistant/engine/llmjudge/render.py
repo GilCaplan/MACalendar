@@ -214,7 +214,16 @@ def _is_derived_end(attr: str, intent) -> bool:
         eh, em = map(int, str(end).split(":"))
     except (ValueError, AttributeError, TypeError):
         return False
-    return (eh * 60 + em) - (sh * 60 + sm) == 60
+    start_min, end_min = sh * 60 + sm, eh * 60 + em
+    if start_min + 60 >= 24 * 60:
+        # `CalendarIntent.fill_defaults` caps an end that would cross
+        # midnight at "23:59" instead of rolling into the next day — a
+        # start hour of 23 with no time said produces a 59-minute gap, not
+        # 60, and this check missed it: a correct default got reported as
+        # an EXTRA invented value on top of the start time it already is,
+        # on every event fill_defaults dates near midnight.
+        return end_min == 23 * 60 + 59
+    return end_min - start_min == 60
 
 
 def claims(action: str, intent, slots: "dict | None" = None) -> "list[Claim]":

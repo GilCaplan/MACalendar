@@ -245,6 +245,29 @@ def test_a_pydantic_filled_when_is_unsupported_by_the_slots(registry_with_real_a
     assert [c.label for c in ok] == ["start_time"]
 
 
+def test_a_midnight_capped_end_is_still_a_derived_default(registry_with_real_actions):
+    """`fill_defaults` caps an end that would cross midnight at "23:59"
+    instead of rolling into the next day (`assistant/actions/calendar/
+    intent.py::fill_defaults`), so a start hour of 23 with nothing said
+    produces a 59-minute gap, not the usual 60. `_is_derived_end`'s exact
+    "== 60" check missed this and reported the capped end as an EXTRA
+    invented value on top of the start time it already is — for every event
+    `fill_defaults` dates during the 23:00 hour, discovered when a routine
+    test run at 23:18 local time turned up two "unrelated" failures that
+    were really this one bug. Deterministic — sets start/end directly
+    rather than depending on the real clock hitting 23:xx to reproduce."""
+    ev = CalendarIntent(title="gym", start_time="23:00", end_time="23:59")
+    bad = [c.label for c in render.unsupported_by_slots("create_event", ev, {})]
+    assert set(bad) == {"date", "start_time"}          # end_time NOT extra
+
+    # A genuinely different end (the speaker DID say something) must still
+    # survive as its own claim — this guard must not swallow real values.
+    said = CalendarIntent(title="gym", start_time="23:00", end_time="23:30")
+    bad_said = [c.label for c in render.unsupported_by_slots(
+        "create_event", said, {"end_time": "23:30"})]
+    assert "end_time" not in bad_said                  # it's slot-backed, not invented
+
+
 def test_the_judge_block_shows_only_word_claims(registry_with_real_actions):
     """Slot-backed claims are already decided; listing them would invite the
     model to re-decide an answer it cannot improve on."""
