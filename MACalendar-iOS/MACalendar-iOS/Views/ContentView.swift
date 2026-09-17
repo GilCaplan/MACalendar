@@ -176,6 +176,12 @@ struct ContentView: View {
         .onChange(of: settings.showWorkoutTab) { visible in
             if !visible && selectedTab == 4 { selectedTab = 0 }
         }
+        // Timer was the one optional tab with no bounce-off, so hiding it while
+        // it was on screen left `selectedTab` pointing at a layer the ZStack no
+        // longer builds — a blank screen with a working tab bar under it.
+        .onChange(of: settings.showTimerTab) { visible in
+            if !visible && selectedTab == 5 { selectedTab = 0 }
+        }
         .onChange(of: settings.showTeachTab) { visible in
             if !visible && selectedTab == 6 { selectedTab = 0 }
         }

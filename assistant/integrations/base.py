@@ -113,6 +113,18 @@ class Integration(ABC):
 
     # -- what the surfaces ask -------------------------------------------
 
+    def blueprint(self):
+        """This integration's Flask blueprint, or None if it has no HTTP surface.
+
+        Declared here rather than left to duck typing. `registry.register`
+        calls it inside a try/except, so an integration that merely misspelled
+        the name would have silently registered NO ROUTES and still started
+        cleanly — the failure would surface later as 404s from a client that
+        had no way to know the difference. A default of None makes "I have no
+        routes" a deliberate answer instead of an accident.
+        """
+        return None
+
     def extra_status(self) -> dict:
         """Integration-specific fields to merge into `status()`."""
         return {}
