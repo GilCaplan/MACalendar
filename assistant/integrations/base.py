@@ -125,6 +125,22 @@ class Integration(ABC):
         """
         return None
 
+    def readiness_problem(self) -> str:
+        """A blocker this integration can name for itself, or "".
+
+        Installed and switched on is not the same as ABLE TO ANSWER: an
+        integration can depend on data it cannot ship. Jude's vector index is
+        2.2 GB and lives outside both repositories, and when it went missing
+        every surface said "isn't running yet" — a sentence that is true,
+        useless, and indistinguishable from a slow start. Nobody could have
+        guessed from it that 924 MB of vectors had gone.
+
+        So a subclass gets to say what is actually wrong, in a sentence with
+        the fix in it. Checked after `installed`, because a missing checkout is
+        the more basic problem and its own message is the better one.
+        """
+        return ""
+
     def extra_status(self) -> dict:
         """Integration-specific fields to merge into `status()`."""
         return {}
@@ -158,6 +174,10 @@ class Integration(ABC):
             reason = (f"{self.label} isn't installed here. It is a separate "
                       f"repository — clone it, then point {self.name}.path at "
                       f"the checkout.")
+        elif self.readiness_problem():
+            # Before the running check: "it will start in a moment" is a lie
+            # when it cannot start at all.
+            reason = self.readiness_problem()
         elif not running:
             reason = (f"{self.label} isn't running yet — it starts on your first "
                       "question and takes a moment to load."
@@ -171,7 +191,7 @@ class Integration(ABC):
             "enabled": enabled,
             "installed": path is not None,
             "running": running,
-            "ready": enabled and path is not None,
+            "ready": enabled and path is not None and not self.readiness_problem(),
             "path": path or "",
             "port": port,
             "repo": self.repo,

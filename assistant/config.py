@@ -404,6 +404,17 @@ def load_config(path: str = "config.yaml") -> AppConfig:
       ASSISTANT_STT_ENGINE     → stt_engine
       ASSISTANT_CONFIRMATION   → confirmation_level
     """
+    # MACALENDAR_CONFIG redirects the DEFAULT config, like every other store in
+    # this project honours an override. It was the one that did not, and the
+    # gap was not theoretical: the moment `jude.enabled` was switched on in the
+    # real config.yaml, the test suite read it, found the real checkout beside
+    # it, and SPAWNED JUDE'S UVICORN — a 2 GB index load, from a unit test.
+    # Before that it was safe only because the flag happened to be false.
+    #
+    # An explicitly-named file still wins, so `load_config("config.example.yaml")`
+    # is unaffected; only "the default config" is redirectable.
+    if path == "config.yaml":
+        path = os.environ.get("MACALENDAR_CONFIG") or path
     path = os.path.expanduser(path)
     if not os.path.exists(path):
         raise ConfigError(

@@ -10,6 +10,7 @@ being ours.
 from __future__ import annotations
 
 import os
+import pathlib
 
 import pytest
 from flask import Flask
@@ -208,3 +209,26 @@ def test_routes_do_not_parse_or_execute():
     src = open("assistant/jude/routes.py").read()
     for forbidden in ("assistant.engine", "from assistant.pipeline", "EngineState"):
         assert forbidden not in src, f"routes.py reaches into the brain: {forbidden}"
+
+
+def test_a_missing_index_says_so_with_the_restore_command(jude):  # noqa: D401
+    """The blocker that cost an afternoon. `chroma_db/` is 2.2 GB, gitignored
+    in Jude's own repository and hosted on Hugging Face, so its absence is a
+    normal state for a fresh checkout — and must not read as "starting up"."""
+    problem = jude.readiness_problem()
+    assert "index is missing" in problem
+    assert "snapshot_download" in problem, "the sentence must carry the fix"
+    assert "RockyCo/jude-judaic-data" in problem
+    assert jude.status()["ready"] is False
+    # NB the `reason` here is "switched off": conftest forces that, and the
+    # branch order in `Integration.status` is deliberate — a more basic problem
+    # has the better message. `test_integrations.py` covers the branch itself.
+
+
+def test_an_index_present_clears_the_problem(jude):
+    """Only the readiness hook is under test here — `ready` also depends on
+    `enabled`, which conftest forces off so no test can start Jude's server."""
+    (pathlib.Path(jude.root()) / "chroma_db").mkdir()
+    assert jude.readiness_problem() == ""
+    assert "index is missing" not in jude.status()["reason"]
+

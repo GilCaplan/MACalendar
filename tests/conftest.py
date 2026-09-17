@@ -96,6 +96,27 @@ if not _os.path.exists(_os.environ["MACALENDAR_CONFIG"]):
         if _os.path.exists(_src):
             _shutil.copyfile(_src, _os.environ["MACALENDAR_CONFIG"])
             break
+    # EVERY INTEGRATION OFF. The scratch config is seeded from the real one, so
+    # switching `jude.enabled` on for actual use leaked straight into the suite:
+    # tests read it, found the real checkout beside this repo, and SPAWNED
+    # JUDE'S UVICORN — a 2 GB index load, from a unit test, twice.
+    #
+    # Hosting somebody else's server is never something a test does by
+    # accident; one that wants it running says so itself.
+    try:
+        import yaml as _yaml
+        with open(_os.environ["MACALENDAR_CONFIG"]) as _f:
+            _cfg = _yaml.safe_load(_f) or {}
+        for _name in ("jude",):
+            _block = _cfg.get(_name)
+            if isinstance(_block, dict):
+                _block["enabled"] = False
+            else:
+                _cfg[_name] = {"enabled": False}
+        with open(_os.environ["MACALENDAR_CONFIG"], "w") as _f:
+            _yaml.safe_dump(_cfg, _f)
+    except Exception:
+        pass
 
 import json
 import os

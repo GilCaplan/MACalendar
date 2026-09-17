@@ -242,3 +242,48 @@ def test_gate_start_is_idempotent(upstream):
         assert a == b and ollama_gate.is_running(port)
     finally:
         ollama_gate.stop(port)
+
+
+# ---------------------------------------------------------------------------
+# readiness_problem — "installed" is not "able to answer"
+# ---------------------------------------------------------------------------
+
+def test_a_readiness_problem_makes_it_not_ready(tmp_path):
+    """Installed and switched on is not the same as able to serve.
+
+    Jude's 2.2 GB index went missing and every surface said "isn't running
+    yet" — true, useless, and indistinguishable from a slow start. A client
+    drawing a composer on the strength of `ready` would invite a question that
+    could not be answered.
+    """
+    (tmp_path / "server").mkdir()
+    (tmp_path / "server" / "main.py").write_text("")
+
+    class _Blocked(_Fake):
+        def readiness_problem(self):
+            return "Its data is missing — restore it with `some command`."
+
+    st = _Blocked(path=str(tmp_path)).status()
+    assert st["installed"] is True
+    assert st["ready"] is False
+    assert "restore it with" in st["reason"]
+
+
+def test_a_readiness_problem_does_not_mask_a_missing_checkout(tmp_path):
+    """A missing checkout is the more basic problem and has the better
+    message, so it must win."""
+    class _Blocked(_Fake):
+        def readiness_problem(self):
+            return "data missing"
+
+    st = _Blocked(path="/nope").status()
+    assert "isn't installed" in st["reason"]
+
+
+def test_no_problem_means_the_old_behaviour(tmp_path):
+    (tmp_path / "server").mkdir()
+    (tmp_path / "server" / "main.py").write_text("")
+    st = _Fake(path=str(tmp_path)).status()
+    assert st["ready"] is True
+    assert "isn't running yet" in st["reason"]
+

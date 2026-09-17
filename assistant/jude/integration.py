@@ -123,6 +123,26 @@ class JudeIntegration(Integration):
             env["LLM_MODEL"] = model
         return env
 
+    def readiness_problem(self) -> str:
+        """Jude cannot answer without its ChromaDB index.
+
+        It is 2.2 GB, it lives in neither repository (gitignored in Jude's own,
+        hosted on Hugging Face), and its absence used to surface as "Jude isn't
+        running yet" — which is true and tells you nothing. The index went
+        missing here and that sentence is what we had to work backwards from.
+        """
+        root = self.root()
+        if root is None:
+            return ""                      # not installed: a better message exists
+        index = os.path.join(root, "chroma_db")
+        if not os.path.isdir(index):
+            return ("Jude's vector index is missing — it is 2.2 GB and ships "
+                    "with neither repository. Restore it in the checkout with: "
+                    "python -c \"from huggingface_hub import snapshot_download; "
+                    "snapshot_download(repo_id='RockyCo/jude-judaic-data', "
+                    "repo_type='dataset', local_dir='.')\"")
+        return ""
+
     def extra_status(self) -> dict:
         cfg = self.config()
         return {
