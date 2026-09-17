@@ -337,3 +337,33 @@ def test_the_ios_merge_keeps_a_local_choice_over_a_mac_default():
     # or the two disagree forever and every poll re-does this work.
     assert "setFeatureVisible" in swift
 
+
+
+def test_the_visibility_merge_has_no_suspension_point_in_its_critical_section():
+    """Reading the map and writing it back must not be separated by an `await`.
+
+    Raised as a possible race: a toggle made while `refresh` was in flight
+    being clobbered by the Mac's answer — the switch springing back with no
+    explanation. It does not apply, and this is what keeps it that way.
+
+    `FeatureVisibility` is `@MainActor`, so the only way another actor can
+    interleave is at a suspension point. The network call happens BEFORE the
+    snapshot is taken, and the push-up happens AFTER the commit; between the
+    read and the write there is no `await`, so the merge is atomic. Moving the
+    fetch between them would reintroduce the race without changing a line that
+    looks wrong.
+    """
+    import re
+    from tests.unit._ios_sources import ios_source
+    src = ios_source("FeatureRegistry.swift")
+    start = src.index("    func refresh(api: APIClient) async {")
+    body = src[start:]
+    body = body[:body.index("\n    }\n") + 6].split("\n")
+
+    snapshot = next(i for i, l in enumerate(body) if "var updated = map" in l)
+    commit = next(i for i, l in enumerate(body) if re.match(r"\s+map = updated", l))
+    assert snapshot < commit
+    between = [l.strip() for l in body[snapshot:commit + 1] if "await" in l]
+    assert not between, (
+        "an await sits between reading the visibility map and writing it back: "
+        f"{between} — a toggle made during the fetch can now be clobbered")

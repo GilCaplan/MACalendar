@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme LastUpgradeVersion = "1600" version = "1.7">
+   <!-- The app's own scheme, SHARED and committed.
+
+        It used to be auto-generated into xcuserdata. Adding the UI-test target
+        created the project's first shared scheme, and Xcode then stopped
+        autocreating the others — so `xcodebuild -scheme MACalendar-iOS`
+        started failing with "does not contain a scheme named MACalendar-iOS"
+        and the app vanished from the scheme picker. The target was fine the
+        whole time; only the scheme was gone.
+
+        Shared rather than per-user on purpose: a scheme that lives in
+        xcuserdata is not in the repository, so it can disappear exactly like
+        this and nobody can tell what it used to say. -->
+   <BuildAction parallelizeBuildables = "YES" buildImplicitDependencies = "YES">
+      <BuildActionEntries>
+         <BuildActionEntry buildForTesting = "YES" buildForRunning = "YES" buildForProfiling = "YES" buildForArchiving = "YES" buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "AA000040000000000000001A"
+               BuildableName = "MACalendar-iOS.app"
+               BlueprintName = "MACalendar-iOS"
+               ReferencedContainer = "container:MACalendar-iOS.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+      </BuildActionEntries>
+   </BuildAction>
+   <TestAction buildConfiguration = "Debug" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv = "YES">
+      <Testables>
+         <TestableReference skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "AB000008000000000000001A"
+               BuildableName = "MACalendarUITests.xctest"
+               BlueprintName = "MACalendarUITests"
+               ReferencedContainer = "container:MACalendar-iOS.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+      </Testables>
+   </TestAction>
+   <LaunchAction buildConfiguration = "Debug" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" launchStyle = "0" useCustomWorkingDirectory = "NO" ignoresPersistentStateOnLaunch = "NO" debugDocumentVersioning = "YES" debugServiceExtension = "internal" allowLocationSimulation = "YES">
+      <BuildableProductRunnable runnableDebuggingMode = "0">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "AA000040000000000000001A"
+            BuildableName = "MACalendar-iOS.app"
+            BlueprintName = "MACalendar-iOS"
+            ReferencedContainer = "container:MACalendar-iOS.xcodeproj">
+         </BuildableReference>
+      </BuildableProductRunnable>
+   </LaunchAction>
+   <ProfileAction buildConfiguration = "Release" shouldUseLaunchSchemeArgsEnv = "YES" savedToolIdentifier = "" useCustomWorkingDirectory = "NO" debugDocumentVersioning = "YES">
+      <BuildableProductRunnable runnableDebuggingMode = "0">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "AA000040000000000000001A"
+            BuildableName = "MACalendar-iOS.app"
+            BlueprintName = "MACalendar-iOS"
+            ReferencedContainer = "container:MACalendar-iOS.xcodeproj">
+         </BuildableReference>
+      </BuildableProductRunnable>
+   </ProfileAction>
+   <AnalyzeAction buildConfiguration = "Debug"></AnalyzeAction>
+   <ArchiveAction buildConfiguration = "Release" revealArchiveInOrganizer = "YES"></ArchiveAction>
+</Scheme>
