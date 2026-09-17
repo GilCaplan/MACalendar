@@ -256,6 +256,18 @@ anyway. Measured on 1,963 rows (`llmjudge/experiments/RESULTS.md` cycle 19):
 **79.9% → 88.6%**, with 91.4% of the 187 rows that would have raised now fully
 correct. Cycle 18's lesson held — it was not `decompose_validate`'s fix to make.
 
+**The `daterange` branch is RULED AND SHIPPED (2026-09-17, cycle 21).** Gil
+chose ask-don't-guess: the day is read and OFFERED through the existing
+confirm-create gate, from the fast parse with no model call; an update or
+delete with a range date refuses outright rather than acting on a day nobody
+said. Handle-rate 68.2% → **72.9%** across cycles 20+21 on the FastRule train
+half (3,200 atomic rows), DESTRUCTIVE errors **33 → 28**, harm flat at 170,
+half-executed unchanged. **The queue's lead item is now the 50 recurrence-
+BOUNDARY rows**, which need no ruling — until/through is already settled.
+The paragraph below is what this said while it was blocked.
+
+**(Superseded — kept as the record of the blocker.)**
+
 **The queue's lead item is now the `daterange` branch, and it is BLOCKED on a
 ruling from Gil** (filed in TASKS.md, 2026-09-17). `_extract_temporal` handles
 the timex types `datetime`, `date`, `time` and `timerange` and has none for
