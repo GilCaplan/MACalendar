@@ -34,6 +34,8 @@ struct JudeComposer: View {
 
             options
 
+            disclaimerRow
+
             HStack(alignment: .bottom, spacing: 8) {
                 TextField(placeholder, text: $draft, axis: .vertical)
                     .lineLimit(1...5)
@@ -98,5 +100,27 @@ struct JudeComposer: View {
             .frame(width: 92)
             .disabled(isBusy)
         }
+    }
+
+    /// The same sentence the Mac app carries (`jude/ui/composer.py`), because a
+    /// caveat that appears on one surface and not the other is worse than none:
+    /// it implies the other surface is the trustworthy one.
+    ///
+    /// It sits under the composer rather than over the answer deliberately —
+    /// visible whenever you are about to ask, not only after you have already
+    /// believed something. The model is `llama3.1:8b` doing synthesis over
+    /// retrieved passages: the CITATIONS are real and checkable on Sefaria,
+    /// the reasoning joining them is not authoritative.
+    private var disclaimerRow: some View {
+        HStack(alignment: .top, spacing: 4) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.caption2)
+            Text("Jude can misread its sources and state things they do not "
+                 + "say. The citations are real — check them on Sefaria — and "
+                 + "verify any ruling with a qualified rabbi.")
+                .font(.caption2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundColor(.secondary)
     }
 }

@@ -101,8 +101,8 @@ class APIClient: ObservableObject {
     // MARK: - Base
 
     /// Normalised server base URL. Accepts what people actually type:
-    /// "100.92.216.112", "100.92.216.112:8080", "http://100.92.216.112:8080/",
-    /// "macbook-air" (Tailscale MagicDNS) — and always yields http://host:port.
+    /// "100.x.x.x", "100.x.x.x:8080", "http://100.x.x.x:8080/", or a Tailscale
+    /// MagicDNS name like "my-mac" — and always yields http://host:port.
     var base: String {
         var url = settings.serverURL
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1552,7 +1552,8 @@ enum APIError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .badURL:
-            return "Server URL is not configured. Go to Settings and enter your Mac's Tailscale address (http://100.92.216.112:8080)."
+            return "Server URL is not configured. Go to Settings and enter your "
+                + "Mac's Tailscale address (\(AppSettings.defaultServerURL))."
         case .offline(let why):
             return "Mac is unreachable" + (why.isEmpty ? "" : " (\(why))") + " — changes saved locally and will sync when connected."
         case .serverError(let msg):

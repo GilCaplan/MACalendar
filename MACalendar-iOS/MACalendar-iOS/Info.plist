@@ -2,10 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Used only on this phone to notice when you say a stop word like “execute” so recording ends by itself. The transcript itself is made on your Mac.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>MACalendar talks to the assistant server running on your Mac over your local network or Tailscale.</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>MACalendar</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -23,14 +23,6 @@
 			</array>
 		</dict>
 	</array>
-	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<false/>
-	<key>NSContactsUsageDescription</key>
-	<string>Names from your contacts are added to the assistant's vocabulary so voice commands spell them correctly. They stay on your Mac.</string>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>$(DEVELOPMENT_LANGUAGE)</string>
-	<key>CFBundleDisplayName</key>
-	<string>MACalendar</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -47,17 +39,29 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<false/>
+	<key>MACalendarServerURL</key>
+	<string>$(MACALENDAR_SERVER_URL)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>MACalendar uses the microphone to let you add and manage calendar events with your voice.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Not used.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Names from your contacts are added to the assistant's vocabulary so voice commands spell them correctly. They stay on your Mac.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>MACalendar talks to the assistant server running on your Mac over your local network or Tailscale.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Sundown is computed for wherever you are, so repeating events skip Shabbat and festivals at the right hour when you travel. Your position stays on your own devices.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>MACalendar uses the microphone to let you add and manage calendar events with your voice.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Used only on this phone to notice when you say a stop word like “execute” so recording ends by itself. The transcript itself is made on your Mac.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -82,7 +86,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Sundown is computed for wherever you are, so repeating events skip Shabbat and festivals at the right hour when you travel. Your position stays on your own devices.</string>
 </dict>
 </plist>

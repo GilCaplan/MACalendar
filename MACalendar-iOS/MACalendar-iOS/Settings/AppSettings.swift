@@ -3,6 +3,32 @@ import Combine
 import SwiftUI
 
 class AppSettings: ObservableObject {
+    /// Where the Mac is, by default.
+    ///
+    /// This used to default to "" while the app hardcoded the address in THREE
+    /// other places — the Settings help text, a comment in `APIClient.base`,
+    /// and the very error message telling you to go and type it in. So a fresh
+    /// install could name the host it was refusing to call, and the app sat
+    /// there saying "Your Mac isn't reachable" about a Mac it knew the address
+    /// of.
+    ///
+    /// The tailnet IP rather than the MagicDNS name: MagicDNS needs the
+    /// tailnet's DNS to be on, and this is verified reachable. Anything you
+    /// type wins, and `APIClient.base` accepts a bare host, a host:port, or a
+    /// MagicDNS name just the same.
+    static let defaultServerURL: String = {
+        // From the build, not from source: `MACALENDAR_SERVER_URL` in
+        // Base.xcconfig (overridden by the gitignored Local.xcconfig) reaches
+        // us through the Info.plist key `MACalendarServerURL`. An address that
+        // names one laptop does not belong in a shared repository.
+        //
+        // Empty is a legitimate answer — Base.xcconfig ships the placeholder
+        // blank on purpose, so a fresh clone asks for an address rather than
+        // silently trying somebody else's.
+        let raw = Bundle.main.object(forInfoDictionaryKey: "MACalendarServerURL") as? String
+        return (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }()
+
     @Published var serverURL: String {
         didSet { UserDefaults.standard.set(serverURL, forKey: "serverURL") }
     }
@@ -144,7 +170,8 @@ class AppSettings: ObservableObject {
             ? true : UserDefaults.standard.bool(forKey: "remindersEnabled")
         self.showThinking = UserDefaults.standard.object(forKey: "showThinking") == nil
             ? true : UserDefaults.standard.bool(forKey: "showThinking")
-        self.serverURL = UserDefaults.standard.string(forKey: "serverURL") ?? ""
+        self.serverURL = UserDefaults.standard.string(forKey: "serverURL")
+            ?? Self.defaultServerURL
         self.apiKey    = UserDefaults.standard.string(forKey: "apiKey") ?? ""
         self.ttsVoice  = UserDefaults.standard.string(forKey: "ttsVoice") ?? "en-US"
         self.theme     = UserDefaults.standard.string(forKey: "userTheme") ?? "dark"

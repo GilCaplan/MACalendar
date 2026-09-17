@@ -1,0 +1,46 @@
+// Build settings for the iOS app. COMMITTED — edit Local.xcconfig, not this.
+//
+// The pattern, and why it is this shape:
+//
+//   Base.xcconfig    committed. Holds a working DEFAULT for every setting, so
+//                    a fresh clone builds without anyone creating a file.
+//   Local.xcconfig   gitignored. Yours. Overrides any of the below.
+//
+// The `#include?` at the bottom is Xcode's OPTIONAL include — the question
+// mark is what makes a missing Local.xcconfig silently fine rather than a
+// build error. Referencing the gitignored file directly would break every
+// fresh clone, which is the trap this avoids.
+//
+// Same split as config.yaml / config.example.yaml on the Mac side, and for the
+// same reason: nothing describing one machine belongs in the repository.
+
+// ---------------------------------------------------------------------------
+// MACALENDAR_SERVER_URL — where the app looks for your Mac by default
+// ---------------------------------------------------------------------------
+// Reaches Swift as `AppSettings.defaultServerURL`, via the Info.plist key
+// `MACalendarServerURL`.
+//
+// This was a string literal in three Swift files — the Settings help text, a
+// comment in APIClient.base, and the error message telling you to go and type
+// it in — while the setting itself defaulted to "". So a fresh install could
+// name the host it was refusing to call, and sat there reporting "Your Mac
+// isn't reachable" about a Mac whose address it was printing on screen.
+//
+// The placeholder below is deliberately not a real address: unset is honest,
+// and Settings then asks for one. Put yours in Local.xcconfig:
+//
+//     MACALENDAR_SERVER_URL = http://100.x.x.x:8080
+//
+// NO SCHEME. Write "100.x.x.x:8080", not "http://100.x.x.x:8080".
+//
+// In an xcconfig `//` STARTS A COMMENT, including inside a value — so
+// "http://host:8080" is silently truncated to "http:" and the app ends up
+// pointed at nothing. It builds, it installs, and it fails at runtime looking
+// exactly like an unreachable Mac. Caught here only by reading the value back
+// out of the BUILT Info.plist.
+//
+// `APIClient.base` prepends http:// anyway, and accepts a bare IP, "host:port"
+// or a Tailscale MagicDNS name. Find yours with `tailscale ip -4` on the Mac.
+MACALENDAR_SERVER_URL = 
+
+#include? "Local.xcconfig"

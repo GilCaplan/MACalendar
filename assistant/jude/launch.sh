@@ -12,10 +12,21 @@
 # one that can actually tell the user.
 set -u
 
-# EXPLICIT, not inferred from $0: a copy of this script installed anywhere else
-# — which is precisely how the launcher app comes to call it — would otherwise
-# cd into a directory with no .venv and report a broken venv that is fine.
-REPO_DIR="${MACALENDAR_REPO:-/Users/USER/Desktop/Personal_Projects/MACalendar}"
+# Where the repo is. Derived from THIS SCRIPT'S OWN LOCATION, then overridable
+# from .env (see .env.example) for a checkout kept somewhere else.
+#
+# It used to be a hardcoded absolute path, with a comment explaining that `$0`
+# could not be trusted because "a copy installed anywhere else lands in a
+# directory with no .venv". That was true when the launcher .app embedded its
+# own copy of this script — it no longer does: build_app.sh compiles the applet
+# to call the REPO copy by absolute path, precisely so the thing that runs
+# cannot drift from the thing that gets edited. So $0 is in the checkout, and a
+# path naming one laptop does not belong in a shared repository.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# .env is machine-local and gitignored; absent is the normal case.
+[ -f "$REPO_DIR/.env" ] && . "$REPO_DIR/.env"
+REPO_DIR="${MACALENDAR_REPO:-$REPO_DIR}"
 LOG=~/.assistant_tools/jude.log
 mkdir -p ~/.assistant_tools
 

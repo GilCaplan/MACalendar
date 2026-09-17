@@ -23,12 +23,21 @@
 # card must read the REAL stores, or it shows an empty History and none of the
 # commands you actually gave.
 set -u
-# The repo path is EXPLICIT, not inferred from $0. `cd "$(dirname "$0")"` is
-# right only while this file sits in the repo; a copy installed anywhere else —
-# which is exactly how the launcher app came to call it — lands in a directory
-# with no .venv and reports "no ./.venv" for a venv that is perfectly fine.
-# REPO_DIR can be overridden for a checkout somewhere else.
-REPO_DIR="${MACALENDAR_REPO:-/Users/USER/Desktop/Personal_Projects/MACalendar}"
+# Where the repo is. Derived from THIS SCRIPT'S OWN LOCATION, then overridable
+# from .env (see .env.example) for a checkout kept somewhere else.
+#
+# It used to be a hardcoded absolute path, with a comment explaining that `$0`
+# could not be trusted because "a copy installed anywhere else lands in a
+# directory with no .venv". That was true when the launcher .app embedded its
+# own copy of this script — it no longer does: build_app.sh compiles the applet
+# to call the REPO copy by absolute path, precisely so the thing that runs
+# cannot drift from the thing that gets edited. So $0 is in the checkout, and a
+# path naming one laptop does not belong in a shared repository.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/." && pwd)"
+# .env is machine-local and gitignored; absent is the normal case.
+[ -f "$REPO_DIR/.env" ] && . "$REPO_DIR/.env"
+REPO_DIR="${MACALENDAR_REPO:-$REPO_DIR}"
 cd "$REPO_DIR" || { echo "$(date '+%F %T')  no repo at $REPO_DIR" >> ~/.assistant_tools/hud.log; exit 1; }
 
 LOG=~/.assistant_tools/hud.log

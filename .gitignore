@@ -69,3 +69,8 @@ MACalendar HUD.app/
 
 # Same for Jude's, built by assistant/jude/build_app.sh
 Jude.app/
+
+# Machine-local settings: paths and addresses that describe ONE laptop.
+# .env.example is committed and explains each one; .env is yours.
+.env
+MACalendar-iOS/Local.xcconfig

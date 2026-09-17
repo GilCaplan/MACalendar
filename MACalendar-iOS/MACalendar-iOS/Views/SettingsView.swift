@@ -87,7 +87,9 @@ struct SettingsView: View {
                                 }
                             }
 
-                            Text("Your Mac's Tailscale IP — this Mac is 100.92.216.112 (the port 8080 and http:// are added for you)")
+                            Text("Your Mac's Tailscale address. Defaults to "
+                                 + AppSettings.defaultServerURL
+                                 + " — a bare IP, host:port or MagicDNS name all work.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
