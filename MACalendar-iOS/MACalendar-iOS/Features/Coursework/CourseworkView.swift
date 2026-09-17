@@ -88,15 +88,24 @@ struct CourseworkView: View {
         if let assignments = await a { store.cacheAllAssignments(assignments) }
     }
 
+    // The `try?` these used to be is what the whole offline queue was missing:
+    // with the Mac away it threw away the failure, the local cache said the
+    // course was gone, and the next sync downloaded it again. The client queues
+    // it now, so reaching here at all means the Mac ANSWERED and refused — the
+    // one case nothing will retry, and so the one worth saying out loud.
     private func deleteCourse(_ course: Course) {
         store.removeCourse(course.id)
-        Task { try? await api.deleteCourse(id: course.id) }
+        Task {
+            do { try await api.deleteCourse(id: course.id) }
+            catch { api.announceRefusal(error, doing: "delete that course") }
+        }
     }
 
     private func clearCompleted() {
         store.removeCompletedAssignments()
         Task {
-            try? await api.clearCompletedAssignments()
+            do { try await api.clearCompletedAssignments() }
+            catch { api.announceRefusal(error, doing: "clear the finished assignments") }
             await load()
         }
     }
@@ -182,26 +191,37 @@ private struct CourseSection: View {
         guard !title.isEmpty else { return }
         newAssignmentTitle = ""
         addingAssignment = false
-        // Insert locally with temp ID; refresh from server after create
-        let local = store.insertAssignment(courseId: course.id, title: title)
+        // The optimistic row belongs to the client now: it inserts the
+        // placeholder before asking the Mac, so the assignment is on screen
+        // either way, and either remaps it to the real id or queues the create
+        // carrying it. Doing it here as well made two rows whenever the Mac
+        // was away — one that synced and one that never would.
         Task {
-            if let newId = try? await api.createAssignment(courseId: course.id, title: title),
-               newId > 0 {
-                // Replace temp entry with server-assigned ID
-                store.removeAssignment(local.id)
-                if let fresh = try? await api.allAssignments() { store.cacheAllAssignments(fresh) }
+            do {
+                let newId = try await api.createAssignment(courseId: course.id, title: title)
+                if newId > 0, let fresh = try? await api.allAssignments() {
+                    store.cacheAllAssignments(fresh)
+                }
+            } catch {
+                api.announceRefusal(error, doing: "add that assignment")
             }
         }
     }
 
     private func toggleAssignment(_ assignment: Assignment) {
         store.toggleAssignment(assignment.id)
-        Task { try? await api.toggleAssignment(id: assignment.id) }
+        Task {
+            do { _ = try await api.toggleAssignment(id: assignment.id) }
+            catch { api.announceRefusal(error, doing: "tick that assignment off") }
+        }
     }
 
     private func deleteAssignment(_ assignment: Assignment) {
         store.removeAssignment(assignment.id)
-        Task { try? await api.deleteAssignment(id: assignment.id) }
+        Task {
+            do { try await api.deleteAssignment(id: assignment.id) }
+            catch { api.announceRefusal(error, doing: "delete that assignment") }
+        }
     }
 
     private func setDueDate(_ date: Date?, for assignment: Assignment) {
@@ -209,7 +229,10 @@ private struct CourseSection: View {
         let dateChanged = newStr != assignment.dueDate
         store.patchAssignment(assignment.id, dueDate: newStr)
         if dateChanged { store.clearCalendarEventId(assignment.id) }
-        Task { try? await api.updateAssignment(id: assignment.id, dueDate: newStr) }
+        Task {
+            do { try await api.updateAssignment(id: assignment.id, dueDate: newStr) }
+            catch { api.announceRefusal(error, doing: "save that due date") }
+        }
     }
 
     private func syncToCalendar(_ assignment: Assignment) {
@@ -223,9 +246,16 @@ private struct CourseSection: View {
                 "color":       course.color,
                 "description": "\(course.number) — \(course.name)"
             ]
-            guard let eventId = try? await api.createEvent(fields), eventId > 0 else { return }
+            // A placeholder id (negative, the Mac away) is kept rather than
+            // rejected: the event create is queued, and `remapTemporaryID`
+            // rewrites `calendar_event_id` here and in the queued PATCH once the
+            // Mac issues the real one. Requiring a positive id meant the event
+            // was made and the assignment never learned which one it was, so
+            // "Add to calendar" made a second copy later.
+            guard let eventId = try? await api.createEvent(fields), eventId != 0 else { return }
             store.patchAssignment(assignment.id, calendarEventId: eventId)
-            try? await api.updateAssignment(id: assignment.id, calendarEventId: eventId)
+            do { try await api.updateAssignment(id: assignment.id, calendarEventId: eventId) }
+            catch { api.announceRefusal(error, doing: "link that assignment to its event") }
         }
     }
 }
@@ -533,25 +563,24 @@ struct CourseEditSheet: View {
             store.patchCourse(existing.id, number: trimmedNumber, name: trimmedName,
                               color: selectedColor, partners: partners)
             Task {
-                try? await api.updateCourse(id: existing.id, number: trimmedNumber,
-                                            name: trimmedName, color: selectedColor,
-                                            partners: partners)
+                do {
+                    try await api.updateCourse(id: existing.id, number: trimmedNumber,
+                                               name: trimmedName, color: selectedColor,
+                                               partners: partners)
+                } catch { api.announceRefusal(error, doing: "save that course") }
             }
         } else {
+            // The local row is the client's doing (it needs the placeholder id
+            // to put in the queued create), so this no longer inserts one of its
+            // own on failure — that is what used to leave a duplicate course
+            // behind after the queued create finally landed.
             Task {
                 do {
                     let newId = try await api.createCourse(number: trimmedNumber, name: trimmedName,
-                                                          color: selectedColor, partners: partners)
-                    if newId > 0 {
-                        // Server returned real ID — refresh cache
-                        if let fresh = try? await api.courses() { store.cacheCourses(fresh) }
-                    } else {
-                        _ = store.insertCourse(number: trimmedNumber, name: trimmedName,
-                                               color: selectedColor, partners: partners)
-                    }
+                                                           color: selectedColor, partners: partners)
+                    if newId > 0, let fresh = try? await api.courses() { store.cacheCourses(fresh) }
                 } catch {
-                    _ = store.insertCourse(number: trimmedNumber, name: trimmedName,
-                                           color: selectedColor, partners: partners)
+                    api.announceRefusal(error, doing: "add that course")
                 }
             }
         }

@@ -112,6 +112,41 @@ before you rule:
 
 ## Answered (log)
 
+- **2026-09-17 — Q4/Q5/Q6 RE-RULED for notifications** (Gil). All three had
+  been answered on 2026-09-06 and two docs still called them blocked; these
+  supersede those answers. **Q6 is a reversal**, and of a ruling confirmed
+  twice.
+
+  - **Q4 — Mac reminders with the calendar closed: ALWAYS SHOW.** *"Always show
+    unless user has it turned off in settings or cleared it on lock screen."*
+    The 2026-09-06 answer made this an option defaulting to **off**; the
+    default now flips to **on**. Dismissing on the lock screen counts as the
+    user clearing it, and is not a reason to re-show. Still unbuilt: it changes
+    the launch model (a LaunchAgent, `--reload`, HUD lifetime, shutdown
+    ownership), which is why it was opt-in before — now it is on, that work is
+    on the critical path rather than behind a switch.
+
+  - **Q5 — default lead time: 0.** The 2026-09-06 answer said "per category",
+    which is the MECHANISM (`resolve_lead`: event override → category
+    lead/mute → fallback) and is unchanged. What changes is the FALLBACK at the
+    end of that chain: 0, i.e. fire at the event's start time. A category with
+    its own lead still wins.
+
+  - **Q6 — Shabbat/yom tov suppression: A SETTING, not a rule.** *"This
+    filter/block is controlled in settings by toggling on/off."* This
+    **reverses** 2026-09-06 and its 2026-09-11 re-confirmation, both of which
+    said suppress entirely and called the alternative "closed, not deferred".
+    It is now the user's choice, defaulting to suppress (the shipped
+    behaviour, so nobody's phone changes under them).
+
+    **Scope: notifications only.** It does NOT touch the engine's observance
+    rules — a series still skips Shabbat and yom tov, a one-off inside them
+    must still be leyning, a meal or davening, and nothing is skipped when
+    observance cannot be computed (CLAUDE.md, "Recurring events"). Those govern
+    what is CREATED; this governs whether a reminder for something already
+    there is allowed to ring.
+
+
 - **2026-09-16 — Q14 REVERSED ("buy apples and eggs" is now ONE task).**
   Found while investigating a FastSeg v2 rebuild: `c_npdecoy_buy_two_items`/
   `c_npdecoy_buy_two_party` still gold "buy shampoo and apples" as ONE item,

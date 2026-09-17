@@ -22,6 +22,8 @@ from __future__ import annotations
 
 from flask import Blueprint, jsonify, request
 
+from assistant.features.idempotency import idempotent_create
+
 blueprint = Blueprint("coursework", __name__)
 
 
@@ -51,13 +53,16 @@ def course_create():
     name = data.get("name", "").strip()
     if not name:
         return jsonify({"error": "Missing 'name'"}), 400
-    course_id = get_db().create_course(
+    # Idempotent on `client_token`: the phone queues this create while the Mac
+    # is away and replays it on reconnect, so a reply lost after the row was
+    # written would otherwise land a second course.
+    body, status = idempotent_create("courses", data, lambda: get_db().create_course(
         number=data.get("number", ""),
         name=name,
         color=data.get("color", "#1a6fc4"),
         partners=data.get("partners", []),
-    )
-    return jsonify({"id": course_id}), 201
+    ))
+    return jsonify(body), status
 
 
 @blueprint.patch("/courses/<int:course_id>")
@@ -100,12 +105,12 @@ def assignment_create():
     title     = data.get("title", "").strip()
     if not course_id or not title:
         return jsonify({"error": "Missing 'course_id' or 'title'"}), 400
-    asgn_id = get_db().create_assignment(
+    body, status = idempotent_create("assignments", data, lambda: get_db().create_assignment(
         course_id=int(course_id),
         title=title,
         due_date=data.get("due_date", ""),
-    )
-    return jsonify({"id": asgn_id}), 201
+    ))
+    return jsonify(body), status
 
 
 @blueprint.patch("/assignments/<int:asgn_id>")

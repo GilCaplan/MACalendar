@@ -131,16 +131,20 @@ extension APIClient {
         return try JSONDecoder().decode([JudeHistoryMessage].self, from: data)
     }
 
-    /// Forget a conversation on the Mac.
+    /// Forget a conversation on the Mac. Queued when it is away, like every
+    /// other write — `APIClient.mutate` explains why that decision is made in
+    /// one place rather than per surface.
     func judeDeleteChat(_ chatId: String) async throws {
-        _ = try await request("/jude/chats/\(judeEscape(chatId))", method: "DELETE")
+        try await mutate("/jude/chats/\(judeEscape(chatId))", method: "DELETE")
     }
 
     /// Confirm a topic pivot — the answer to the `topic_pivot` banner.
     ///
     /// Asynchronous by design: Jude keeps answering either way, so a client
     /// that never calls this loses nothing but the label on the conversation.
-    /// That is why the banner does not block the stream.
+    /// That is why the banner does not block the stream — and why it is not
+    /// queued: it answers a prompt the Mac raised, and one raised before the
+    /// Mac went away is stale by the time it comes back.
     func judeSetTopic(_ chatId: String, topic: String) async throws {
         _ = try await request("/jude/chats/\(judeEscape(chatId))/topic",
                               method: "PUT", body: ["topic": topic])

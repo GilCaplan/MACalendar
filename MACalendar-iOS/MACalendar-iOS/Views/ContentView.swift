@@ -151,6 +151,27 @@ struct ContentView: View {
                 .background(Color.orange)
             }
 
+            // A write the Mac ANSWERED and refused. Nothing will replay it — one
+            // it never received would have been queued instead — so this is the
+            // failure that has to be said out loud rather than absorbed, which
+            // is what `try?` used to do with all of them. Tap to dismiss.
+            if let refusal = api.lastRefusal {
+                Button { api.lastRefusal = nil } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                        Text(refusal).multilineTextAlignment(.leading)
+                        Spacer()
+                        Image(systemName: "xmark")
+                    }
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(Color.red)
+                }
+                .buttonStyle(.plain)
+            }
+
             // Voice commands parked because the Mac was away. Shown whether or
             // not we're online: while offline so you know it was kept, and after
             // reconnecting so you can see what it went on to do.

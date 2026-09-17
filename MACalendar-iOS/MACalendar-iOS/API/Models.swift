@@ -579,7 +579,10 @@ struct NotificationsConfig: Codable, Equatable {
 }
 
 struct Course: Identifiable, Codable, Equatable {
-    let id: Int           // negative = local temp, positive = server ID
+    // `var`, not `let`: a row created offline is remapped in place when the Mac
+    // answers with the real id (see CourseStore.remapTemporaryID), exactly as
+    // Todo and CalendarEvent already are.
+    var id: Int           // negative = local temp, positive = server ID
     var number: String
     var name: String
     var color: String
@@ -591,7 +594,7 @@ struct Course: Identifiable, Codable, Equatable {
 }
 
 struct Assignment: Identifiable, Codable, Equatable {
-    let id: Int           // negative = local temp, positive = server ID
+    var id: Int           // negative = local temp, positive = server ID
     var courseId: Int
     var title: String
     var dueDate: String   // "YYYY-MM-DD" or ""

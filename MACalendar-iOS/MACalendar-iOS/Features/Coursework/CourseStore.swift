@@ -1,8 +1,15 @@
 import Foundation
 
 /// Local JSON cache for courses and assignments.
-/// Mirrors LocalStore's pattern: temp IDs are negative ints; offline writes
-/// are queued in LocalStore.shared.enqueue() and replayed on reconnect.
+///
+/// Mirrors LocalStore's pattern: a row created offline gets a negative
+/// placeholder id, and the write itself is queued by `APIClient.mutate` /
+/// `enqueue` and replayed on reconnect. That second half was a LIE until
+/// 2026-09-17 — this comment claimed it while `/courses` and `/assignments`
+/// appeared in no enqueue call site at all, which is precisely what stopped
+/// anyone checking. When the create comes back with a real id,
+/// `LocalStore.remapTemporaryID` calls `remapTemporaryID` below so the rows
+/// here, and any queued write still naming the placeholder, follow it.
 @MainActor
 class CourseStore: ObservableObject {
     static let shared = CourseStore()
@@ -12,7 +19,16 @@ class CourseStore: ObservableObject {
 
     private let dir = FileManager.default
         .urls(for: .documentDirectory, in: .userDomainMask)[0]
-    private var nextTemp = -1
+
+    /// Placeholder ids live BELOW LocalStore's, never among them.
+    ///
+    /// Both stores counted down from -1, and `remapTemporaryID` matches on the
+    /// number alone — so a todo created offline as -1 and a course created
+    /// offline as -1 were the same key, and syncing the todo renamed the
+    /// course. A million apart keeps the two spaces disjoint without either
+    /// store having to know about the other's counter.
+    private static let tempBase = -1_000_000
+    private var nextTemp = tempBase - 1
 
     private init() { load() }
 
@@ -22,10 +38,12 @@ class CourseStore: ObservableObject {
         let d = JSONDecoder()
         courses     = (try? d.decode([Course].self,     from: Data(contentsOf: url("mc_courses.json"))))     ?? []
         assignments = (try? d.decode([Assignment].self, from: Data(contentsOf: url("mc_assignments.json")))) ?? []
-        // Start temp IDs below the lowest existing negative
+        // Start temp IDs below the lowest existing negative — and never above
+        // the base, so ids minted before the two spaces were separated cannot
+        // be handed out again.
         let negIds = courses.map { $0.id }.filter { $0 < 0 }
                    + assignments.map { $0.id }.filter { $0 < 0 }
-        nextTemp = (negIds.min().map { $0 - 1 }) ?? -1
+        nextTemp = min((negIds.min().map { $0 - 1 }) ?? Self.tempBase - 1, Self.tempBase - 1)
     }
 
     func persist() {
@@ -118,5 +136,32 @@ class CourseStore: ObservableObject {
     func removeCompletedAssignments() {
         assignments.removeAll { $0.isDone }
         persist()
+    }
+
+    // MARK: - Reconnect
+
+    /// Point everything here that still names a placeholder at the real id.
+    ///
+    /// Called by `LocalStore.remapTemporaryID` when a queued create comes back
+    /// with the id the Mac assigned. The `courseId` pass matters as much as the
+    /// `id` one: an assignment added to a course that had not synced yet is
+    /// filed under the course's placeholder, and would otherwise be orphaned
+    /// the moment the course became real.
+    func remapTemporaryID(_ tempID: Int, to realID: Int) {
+        guard tempID < 0 else { return }
+        var changed = false
+        for (i, c) in courses.enumerated() where c.id == tempID {
+            courses[i].id = realID
+            changed = true
+        }
+        for (i, a) in assignments.enumerated() {
+            if a.id == tempID       { assignments[i].id = realID;       changed = true }
+            if a.courseId == tempID { assignments[i].courseId = realID; changed = true }
+            // The calendar event an assignment was pinned to can be a
+            // placeholder too — it lives in LocalStore's id space, which is why
+            // the two spaces are kept apart (see `tempBase`).
+            if a.calendarEventId == tempID { assignments[i].calendarEventId = realID; changed = true }
+        }
+        if changed { persist() }
     }
 }

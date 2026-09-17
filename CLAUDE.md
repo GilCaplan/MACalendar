@@ -385,10 +385,12 @@ nothing pointed at that folder, so three of its findings went unnoticed for
 weeks. Both boards are `split:"test"`: **retrospective only, and they may
 never pick the next thing to work on.**
 
-**One decision is blocking**: `engine-component-folders` carries 34 commits of
-finished, tested engine work (FastRule phases B and C, LLMJudge's `rewrite.py`)
-that HEAD does not have, while `TASKS.md` still calls that work "not started".
-Merge, rebase or abandon — but do not write it a second time.
+**The `engine-component-folders` merge is DONE** (verified 2026-09-17: it is
+0 commits ahead of HEAD, which is 117 ahead of it). This paragraph
+said it was "one decision blocking" — 34 unmerged commits of finished engine
+work — for long enough that the note outlived the problem. A blocker that has
+quietly cleared is worse than one that never existed: it sends the next person
+looking for work that is already in the tree.
 
 ## Measuring a change to the assistant
 

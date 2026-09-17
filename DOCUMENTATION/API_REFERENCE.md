@@ -220,8 +220,8 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `PATCH` | `/timers/<int:tid>` |  |
 | `GET` | `/timers/<int:tid>/sessions` |  |
 | `POST` | `/timers/<int:tid>/sessions` | Log a session that already happened ("I forgot to start the timer"). |
-| `POST` | `/timers/<int:tid>/start` |  |
-| `POST` | `/timers/<int:tid>/stop` |  |
+| `POST` | `/timers/<int:tid>/start` | Start the clock. `start_time` optional — WHEN it started, if not now. |
+| `POST` | `/timers/<int:tid>/stop` | Stop the clock. `end_time` optional — WHEN it stopped, if not now. |
 
 ## /timer_sessions
 
@@ -240,7 +240,7 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `PATCH` | `/counters/<int:cid>` |  |
 | `POST` | `/counters/<int:cid>/cashout` |  |
 | `GET` | `/counters/<int:cid>/payouts` |  |
-| `POST` | `/counters/<int:cid>/press` |  |
+| `POST` | `/counters/<int:cid>/press` | One tap. `pressed_at` optional — WHEN it was tapped, if not now. |
 | `GET` | `/counters/<int:cid>/presses` |  |
 
 ## /counter_presses

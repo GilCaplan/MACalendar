@@ -30,6 +30,11 @@ final class BackgroundAssertion {
 class APIClient: ObservableObject {
     @Published var isLoading  = false
     @Published var lastError: String?
+    /// The last write the Mac REFUSED, in a sentence, until the user dismisses
+    /// it. Not the same thing as `lastError`: an unreachable Mac is queued and
+    /// says so in the offline banner, while a refusal is final and has nowhere
+    /// else to appear. See `announceRefusal`.
+    @Published var lastRefusal: String?
     @Published var isOnline   = true
     /// Bumped whenever every view should re-fetch from the Mac (foreground, 30 s poll,
     /// reconnect, voice command). Views subscribe with `.onReceive(api.$refreshTick)`.
@@ -177,6 +182,76 @@ class APIClient: ObservableObject {
     private func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         try JSONDecoder().decode(type, from: data)
     }
+
+    // MARK: - Writes
+
+    /// Do a write now, or keep it until the Mac is back. **Every write on this
+    /// client goes through here.**
+    ///
+    /// It used to be decided per method, and most of them decided wrong.
+    /// `deleteCourse` was a bare request, `CourseworkView` called it as `try?
+    /// await api.deleteCourse(id)`, and no `/courses` or `/assignments` path
+    /// had ever been enqueued — while `CourseStore`'s own header comment
+    /// promised they were. So a course deleted with the Mac away vanished
+    /// here, told nobody, and came back on the next sync; an assignment added
+    /// with the Mac away was gone by it. Timer, Counters, Categories, Vocab
+    /// and Teach all had the same hole, each written slightly differently.
+    /// One helper is the fix: a tab cannot forget what it never decides.
+    ///
+    /// `.offline` / `.badURL` mean the Mac was never ASKED, so the write is
+    /// queued and `nil` comes back — "not yet", never "no". Anything else is
+    /// the Mac ANSWERING and refusing, and that throws: a refusal replayed is
+    /// only refused again.
+    ///
+    /// `tests/unit/test_ios_offline.py` fails the build for a mutating request
+    /// that goes around this without a stated reason.
+    @discardableResult
+    func mutate(_ path: String, method: String, body: [String: Any]? = nil) async throws -> Data? {
+        do {
+            return try await request(path, method: method, body: body)
+        } catch APIError.offline, APIError.badURL {
+            LocalStore.shared.enqueue(method: method, path: path, body: body)
+            return nil
+        }
+    }
+
+    /// The same, for a write whose caller has nowhere to show an error — a row
+    /// action, a toggle, a tap on a counter. Offline still goes to the queue;
+    /// a refusal is SAID rather than swallowed, because a write that nothing
+    /// will replay and nobody is told about is the silence this file was full
+    /// of.
+    func mutateOrTell(_ path: String, method: String, body: [String: Any]? = nil) async {
+        do { _ = try await mutate(path, method: method, body: body) }
+        catch { announceRefusal(error, doing: "\(method) \(path)") }
+    }
+
+    /// Say that a write was refused. The Mac answered NO, so nothing will
+    /// replay it — if it is not said here it is not said anywhere.
+    ///
+    /// Both channels, because a refused write is usually a background one: the
+    /// banner for a user who is looking at the app, a notification for one who
+    /// is not — the same pair `syncPending` uses for a 409.
+    func announceRefusal(_ error: Error, doing what: String) {
+        let sentence = (error as? APIError)?.serverSentence ?? error.localizedDescription
+        lastError = "\(what): \(sentence)"
+        lastRefusal = "Couldn't \(what) — \(sentence)"
+        Self.notify(title: "Your Mac didn't accept that change", body: sentence)
+    }
+
+    /// The moment a write HAPPENED, in this phone's clock.
+    ///
+    /// A queued write is replayed at an unpredictable later time, so anything
+    /// whose meaning depends on "now" must carry the instant it meant — see
+    /// `startTimer`. The offset is written out rather than normalised to "Z"
+    /// because the Mac stores these strings as it receives them and reads them
+    /// back with `datetime.fromisoformat`.
+    static func stamp(_ date: Date = Date()) -> String { stampFormatter.string(from: date) }
+
+    private static let stampFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.timeZone = TimeZone.current
+        return f
+    }()
 
     // MARK: - Pending sync
 
@@ -384,12 +459,18 @@ class APIClient: ObservableObject {
 
     /// Record one answer. Returns whether enough NEW answers have accumulated
     /// to be worth re-learning.
+    ///
+    /// Queued when the Mac is away, and of everything here this is the one
+    /// least replaceable: the user's own corrections are the only non-circular
+    /// label source the project has. Answered on the train, they now arrive.
+    /// A queued answer reports "not due" — nothing can be retrained until it
+    /// has actually landed.
     @discardableResult
     func recordLabel(kind: String, text: String, label: String,
                      current: String?) async throws -> Bool {
         var body: [String: Any] = ["kind": kind, "text": text, "label": label]
         if let current { body["current"] = current }
-        let data = try await request("/labels", method: "POST", body: body)
+        guard let data = try await mutate("/labels", method: "POST", body: body) else { return false }
         let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         return (obj?["retrain_due"] as? Bool) ?? false
     }
@@ -686,9 +767,12 @@ class APIClient: ObservableObject {
         }
     }
 
+    /// The order is the user's own arrangement, so it is queued like any other
+    /// edit — a list dragged into shape with the Mac away used to snap back on
+    /// the next refresh.
     func reorderTodos(list: String, ids: [Int]) async throws {
-        _ = try await request("/todos/reorder", method: "POST",
-                              body: ["list": list, "ids": ids])
+        try await mutate("/todos/reorder", method: "POST",
+                         body: ["list": list, "ids": ids])
     }
 
     func updateTodo(id: Int, title: String? = nil, list: String? = nil,
@@ -716,7 +800,7 @@ class APIClient: ObservableObject {
 
     func clearCompletedTodos(list: String? = nil) async throws {
         let path = list != nil ? "/todos/completed?list=\(list!)" : "/todos/completed"
-        _ = try await request(path, method: "DELETE")
+        try await mutate(path, method: "DELETE")
     }
 
     // MARK: - Workout
@@ -1179,9 +1263,15 @@ class APIClient: ObservableObject {
     /// Tell the host where this device is. Only the position — how long before
     /// candle lighting a session must finish is a preference set on the host,
     /// not a fact a phone knows.
+    ///
+    /// Queued when the host is away, and `DeviceLocation` is why it has to be:
+    /// it marks a position as sent BEFORE sending it, so a failed send used to
+    /// be dropped and never retried until the phone moved another 25 km. The
+    /// queue replays positions in the order they were taken, so the last one
+    /// to land is the newest.
     func setObservanceLocation(latitude: Double, longitude: Double,
                                timezone: String, city: String = "") async throws {
-        _ = try await request("/observance/location", method: "POST", body: [
+        try await mutate("/observance/location", method: "POST", body: [
             "latitude": latitude, "longitude": longitude,
             "timezone": timezone, "city": city, "source": "ios",
         ])
@@ -1189,7 +1279,7 @@ class APIClient: ObservableObject {
 
     /// Forget it and go back to the place configured on the host.
     func clearObservanceLocation() async throws {
-        _ = try await request("/observance/location", method: "DELETE")
+        try await mutate("/observance/location", method: "DELETE")
     }
 
     // MARK: - Tag discovery (consent-based new classes)
@@ -1238,12 +1328,15 @@ class APIClient: ObservableObject {
         try decode(VocabState.self, from: try await request("/vocab"))
     }
 
+    // The vocabulary is hand-curated and irreplaceable — nothing regenerates a
+    // word you taught it — so every write below is queued rather than lost.
+
     func vocabAddWord(_ word: String, aliases: [String] = [],
                       label: String = "", expandsTo: String = "") async throws {
         var body: [String: Any] = ["word": word, "aliases": aliases]
         if !label.isEmpty     { body["label"]      = label }
         if !expandsTo.isEmpty { body["expands_to"] = expandsTo }
-        _ = try await request("/vocab", method: "POST", body: body)
+        try await mutate("/vocab", method: "POST", body: body)
     }
 
     /// Teach a correction: STT heard `wrong`, you meant `right`.
@@ -1260,11 +1353,11 @@ class APIClient: ObservableObject {
         if let aliases   { fields["aliases"]    = aliases }
         guard !fields.isEmpty else { return }
         let path = "/vocab/\(word.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? word)"
-        _ = try await request(path, method: "PATCH", body: fields)
+        try await mutate(path, method: "PATCH", body: fields)
     }
 
     func vocabTeach(wrong: String, right: String) async throws {
-        _ = try await request("/vocab/alias", method: "POST", body: ["wrong": wrong, "right": right])
+        try await mutate("/vocab/alias", method: "POST", body: ["wrong": wrong, "right": right])
     }
 
     func vocabDelete(word: String, alias: String? = nil) async throws {
@@ -1272,17 +1365,25 @@ class APIClient: ObservableObject {
         if let alias, let a = alias.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
             path += "?alias=" + a
         }
-        _ = try await request(path, method: "DELETE")
+        try await mutate(path, method: "DELETE")
     }
 
-    func vocabSettings(autoCorrect: Bool? = nil, learnAliases: Bool? = nil, threshold: Double? = nil) async throws -> VocabState {
+    /// nil when the Mac was away: the setting is queued, and the screen keeps
+    /// the state it already has rather than being handed an invented one.
+    func vocabSettings(autoCorrect: Bool? = nil, learnAliases: Bool? = nil, threshold: Double? = nil) async throws -> VocabState? {
         var body: [String: Any] = [:]
         if let autoCorrect { body["auto_correct"] = autoCorrect }
         if let learnAliases { body["learn_aliases"] = learnAliases }
         if let threshold { body["threshold"] = threshold }
-        return try decode(VocabState.self, from: try await request("/vocab/settings", method: "PATCH", body: body))
+        guard let data = try await mutate("/vocab/settings", method: "PATCH", body: body) else { return nil }
+        return try decode(VocabState.self, from: data)
     }
 
+    /// A POST that WRITES NOTHING — "mine this text for words I might want",
+    /// answered with candidates the user then picks from (`vocabAddWords` is
+    /// the write). So it is not queued: the answer is the whole point, and a
+    /// replay an hour later would hand a list of suggestions to a screen that
+    /// is no longer open — after parking a WhatsApp export in the write queue.
     func vocabImport(text: String? = nil, source: String? = nil, names: [String]? = nil) async throws -> [VocabCandidate] {
         var body: [String: Any] = [:]
         if let text { body["text"] = text }
@@ -1292,7 +1393,7 @@ class APIClient: ObservableObject {
     }
 
     func vocabAddWords(_ words: [String]) async throws {
-        _ = try await request("/vocab/bulk", method: "POST", body: ["words": words])
+        try await mutate("/vocab/bulk", method: "POST", body: ["words": words])
     }
 
     func vocabOnboarding() async throws -> VocabOnboarding {
@@ -1300,8 +1401,8 @@ class APIClient: ObservableObject {
     }
 
     func vocabOnboardingSubmit(answers: [String: [String]], presets: [String]) async throws {
-        _ = try await request("/vocab/onboarding", method: "POST",
-                              body: ["answers": answers, "presets": presets, "done": true])
+        try await mutate("/vocab/onboarding", method: "POST",
+                         body: ["answers": answers, "presets": presets, "done": true])
     }
 
     // MARK: - Pending (queued) commands
@@ -1320,16 +1421,24 @@ class APIClient: ObservableObject {
         (try? await unreviewedCommands(limit: 50).count) ?? 0
     }
 
+    /// Dismiss the backlog. Queued when the Mac is away; nil then, because
+    /// how many were dismissed is only known once it happens.
+    ///
+    /// A late replay dismisses whatever is unreviewed at that moment, which can
+    /// include a command the Mac ran in between. That is a missed review rather
+    /// than a wrong one — "skipped" is not "approved" and trains nothing.
     func skipAllUnreviewed() async -> Int? {
-        guard let d = try? await request("/memory/unreviewed/skip", method: "POST", body: [:]),
+        guard let d = try? await mutate("/memory/unreviewed/skip", method: "POST", body: [:]),
               let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return nil }
         return o["skipped"] as? Int
     }
 
+    /// A verdict on one remembered command, by its id — the same verdict
+    /// whenever it lands, so it is queued.
     func memoryFeedback(id: Int, feedback: String, correction: [[String: Any]]? = nil, notes: String = "") async {
         var body: [String: Any] = ["feedback": feedback, "notes": notes]
         if let correction { body["correction"] = correction }
-        _ = try? await request("/memory/\(id)/feedback", method: "POST", body: body)
+        await mutateOrTell("/memory/\(id)/feedback", method: "POST", body: body)
     }
 
     // MARK: - Timers & counters
@@ -1337,33 +1446,85 @@ class APIClient: ObservableObject {
     func timers(archived: Bool = false) async throws -> [WorkTimer] {
         try decode(TimersResponse.self, from: try await request("/timers" + (archived ? "?archived=1" : ""))).timers
     }
-    func createTimer(_ body: [String: Any]) async -> Bool { (try? await request("/timers", method: "POST", body: body)) != nil }
-    func updateTimer(_ id: Int, _ body: [String: Any]) async { _ = try? await request("/timers/\(id)", method: "PATCH", body: body) }
-    func deleteTimer(_ id: Int) async { _ = try? await request("/timers/\(id)", method: "DELETE") }
-    func startTimer(_ id: Int) async { _ = try? await request("/timers/\(id)/start", method: "POST", body: [:]) }
-    func stopTimer(_ id: Int) async { _ = try? await request("/timers/\(id)/stop", method: "POST", body: [:]) }
+    /// True when the timer exists or WILL exist: a create the Mac never saw is
+    /// queued, and the sheet closing is how the user is told it stuck. False
+    /// only when the Mac answered and refused.
+    @discardableResult
+    func createTimer(_ body: [String: Any]) async -> Bool {
+        // Stamped here, not at the call site: a token added by whoever builds
+        // the dictionary is a token somebody eventually forgets.
+        let body = body.merging(["client_token": UUID().uuidString]) { a, _ in a }
+        do { _ = try await mutate("/timers", method: "POST", body: body); return true }
+        catch { announceRefusal(error, doing: "add that timer"); return false }
+    }
+    func updateTimer(_ id: Int, _ body: [String: Any]) async { await mutateOrTell("/timers/\(id)", method: "PATCH", body: body) }
+    func deleteTimer(_ id: Int) async { await mutateOrTell("/timers/\(id)", method: "DELETE") }
+
+    // The clock's instants come from the PHONE, not from `now()` on the Mac.
+    //
+    // Everything else in the queue is safe to replay late because it says what
+    // it wants. "Start this timer" does not: it means "start it at the moment I
+    // tapped", and a Mac reading its own clock an hour later would bank an hour
+    // of work that never happened — corruption, not recovery, and the reason a
+    // queued write has to be judged one method at a time rather than by tab.
+    //
+    // So the tap's instant travels with the request. `/timers/<id>/start`,
+    // `/stop`, `/counters/<id>/press` and `/cashout`
+    // (`assistant/features/timer/routes.py`) honour it when it is there and
+    // fall back to their own clock when it is not — the db layer always
+    // accepted one, only the routes never passed it through. It is sent live
+    // as well as replayed, so there is one path rather than a replay-only one
+    // that nothing exercises until it matters.
+    func startTimer(_ id: Int) async {
+        await mutateOrTell("/timers/\(id)/start", method: "POST", body: ["start_time": Self.stamp()])
+    }
+    func stopTimer(_ id: Int) async {
+        await mutateOrTell("/timers/\(id)/stop", method: "POST", body: ["end_time": Self.stamp()])
+    }
     func timerSessions(_ id: Int) async throws -> [TimerSession] {
         try decode(TimerSessionsResponse.self, from: try await request("/timers/\(id)/sessions")).sessions
     }
-    func deleteTimerSession(_ id: Int) async { _ = try? await request("/timer_sessions/\(id)", method: "DELETE") }
+    func deleteTimerSession(_ id: Int) async { await mutateOrTell("/timer_sessions/\(id)", method: "DELETE") }
 
     /// Log time you forgot to start the timer for — the Mac's "Log past time…".
     /// `end` omitted creates a session that is still running.
+    ///
+    /// Queueable without any of the care above, because it already names its
+    /// own instants — which is exactly the shape start/stop were converted to.
     func logTimerSession(_ id: Int, start: Date, end: Date?, title: String = "") async -> Bool {
-        let f = ISO8601DateFormatter()
-        var body: [String: Any] = ["start_time": f.string(from: start), "title": title]
-        if let end { body["end_time"] = f.string(from: end) }
-        return (try? await request("/timers/\(id)/sessions", method: "POST", body: body)) != nil
+        var body: [String: Any] = ["start_time": Self.stamp(start), "title": title]
+        if let end { body["end_time"] = Self.stamp(end) }
+        do { _ = try await mutate("/timers/\(id)/sessions", method: "POST", body: body); return true }
+        catch { announceRefusal(error, doing: "log that session"); return false }
     }
 
     func counters(archived: Bool = false) async throws -> [TallyCounter] {
         try decode(CountersResponse.self, from: try await request("/counters" + (archived ? "?archived=1" : ""))).counters
     }
-    func createCounter(_ body: [String: Any]) async -> Bool { (try? await request("/counters", method: "POST", body: body)) != nil }
-    func updateCounter(_ id: Int, _ body: [String: Any]) async { _ = try? await request("/counters/\(id)", method: "PATCH", body: body) }
-    func deleteCounter(_ id: Int) async { _ = try? await request("/counters/\(id)", method: "DELETE") }
-    func pressCounter(_ id: Int, delta: Int) async { _ = try? await request("/counters/\(id)/press", method: "POST", body: ["delta": delta]) }
-    func cashOutCounter(_ id: Int) async { _ = try? await request("/counters/\(id)/cashout", method: "POST", body: [:]) }
+    @discardableResult
+    func createCounter(_ body: [String: Any]) async -> Bool {
+        let body = body.merging(["client_token": UUID().uuidString]) { a, _ in a }
+        do { _ = try await mutate("/counters", method: "POST", body: body); return true }
+        catch { announceRefusal(error, doing: "add that counter"); return false }
+    }
+    func updateCounter(_ id: Int, _ body: [String: Any]) async { await mutateOrTell("/counters/\(id)", method: "PATCH", body: body) }
+    func deleteCounter(_ id: Int) async { await mutateOrTell("/counters/\(id)", method: "DELETE") }
+
+    /// A tap, carrying the moment it happened: a counter's `today_count` is
+    /// bucketed by that timestamp, so a press made before midnight and replayed
+    /// after would otherwise be counted on the wrong day.
+    func pressCounter(_ id: Int, delta: Int) async {
+        await mutateOrTell("/counters/\(id)/press", method: "POST",
+                           body: ["delta": delta, "pressed_at": Self.stamp()])
+    }
+
+    /// Bank the current cycle, stamped with the moment it was asked for. The
+    /// COUNT stays the Mac's, computed from the presses it holds — which is the
+    /// right number, because the queue replays in order: every press made
+    /// before the cash-out lands before it, and every later one after it.
+    func cashOutCounter(_ id: Int) async {
+        await mutateOrTell("/counters/\(id)/cashout", method: "POST", body: ["cashed_at": Self.stamp()])
+    }
 
     /// Every tap on this counter, newest first. The server has served this
     /// since counters existed; nothing on the phone asked for it.
@@ -1382,8 +1543,10 @@ class APIClient: ObservableObject {
         return r.payouts
     }
 
+    /// Undo one tap. Named by the id the Mac issued, so it means the same thing
+    /// whenever it is replayed.
     func deleteCounterPress(_ pressID: Int) async {
-        _ = try? await request("/counter_presses/\(pressID)", method: "DELETE")
+        await mutateOrTell("/counter_presses/\(pressID)", method: "DELETE")
     }
 
     /// A few bytes that change whenever anything in the Mac's database does.
@@ -1399,6 +1562,13 @@ class APIClient: ObservableObject {
 
     /// Pull calendar events into the task list — the Mac's "Sync Today" button.
     /// `list` is "today" or "general".
+    ///
+    /// **Not queued**, unlike every other write here. It carries no content of
+    /// the user's: it asks the Mac to read ITS OWN calendar for TODAY and copy
+    /// what it finds. Replayed tomorrow it would do a different job from the one
+    /// that was asked for, and the count it returns — the only thing the button
+    /// shows — would be reported to nobody. It is a button you press when the
+    /// Mac is there, and pressing it again costs nothing.
     @discardableResult
     func syncTodosFromCalendar(list: String = "today") async -> Int {
         guard let data = try? await request("/todos/sync", method: "POST", body: ["list_name": list]),
@@ -1424,11 +1594,12 @@ class APIClient: ObservableObject {
     /// PATCH /config with a partial `notifications` section, e.g.
     /// ["default_lead_minutes": 15] or ["category_leads": fullUpdatedMap]
     /// (the server merges at the section level, so category_leads must be
-    /// sent whole). Returns whether the Mac accepted it.
+    /// sent whole). Returns whether the setting stuck — queued counts, since
+    /// it will; false is the Mac refusing it.
     @discardableResult
     func patchNotifications(_ fields: [String: Any]) async -> Bool {
-        (try? await request("/config", method: "PATCH",
-                            body: ["notifications": fields])) != nil
+        do { _ = try await mutate("/config", method: "PATCH", body: ["notifications": fields]); return true }
+        catch { announceRefusal(error, doing: "save that reminder setting"); return false }
     }
 
     // MARK: - Features (which surfaces exist, and which are switched on)
@@ -1461,14 +1632,21 @@ class APIClient: ObservableObject {
         try decode(CategoriesResponse.self, from: try await request("/categories")).categories
     }
 
+    /// A category and its colours are the user's own scheme, so an edit made
+    /// with the Mac away is queued rather than dropped. True means it stuck —
+    /// queued counts, because the sheet closing is how that is said.
+    @discardableResult
     func upsertCategory(name: String, color: String, alt: String, keywords: [String]) async -> Bool {
-        (try? await request("/categories", method: "POST",
-                            body: ["name": name, "color": color, "alt": alt, "keywords": keywords])) != nil
+        do {
+            _ = try await mutate("/categories", method: "POST",
+                                 body: ["name": name, "color": color, "alt": alt, "keywords": keywords])
+            return true
+        } catch { announceRefusal(error, doing: "save that category"); return false }
     }
 
     func deleteCategory(_ name: String) async {
         let enc = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? name
-        _ = try? await request("/categories/\(enc)", method: "DELETE")
+        await mutateOrTell("/categories/\(enc)", method: "DELETE")
     }
 
     func recolorEvents(force: Bool) async -> Int? {
@@ -1478,27 +1656,69 @@ class APIClient: ObservableObject {
     }
 
     // MARK: - Courses
+    //
+    // This tab is where the missing queue was found. `CourseStore`'s header
+    // said "offline writes are queued in LocalStore.shared.enqueue() and
+    // replayed on reconnect"; `/courses` and `/assignments` appeared in no
+    // enqueue call site at all, and `CourseworkView` swallowed the failure with
+    // `try?`. Delete a course offline and it came back on the next sync; add an
+    // assignment offline and it was gone by it.
 
     func courses() async throws -> [Course] {
         let data = try await request("/courses")
         return try decode([Course].self, from: data)
     }
 
+    /// The local row is minted FIRST, so the course is on screen this frame
+    /// whether or not the Mac is there — and its placeholder id rides into the
+    /// queue as `_temp_id`, which is how `syncPending` finds anything queued
+    /// behind it (an assignment added to this course, a change of colour) and
+    /// repoints it once the Mac answers with a real id.
     @discardableResult
     func createCourse(number: String, name: String, color: String, partners: [String]) async throws -> Int {
-        let body: [String: Any] = ["number": number, "name": name, "color": color, "partners": partners]
-        let data = try await request("/courses", method: "POST", body: body)
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        return json?["id"] as? Int ?? -1
+        // ONE token for this course, on the live attempt AND every replay:
+        // the Mac returns the row it already has instead of a second one. A
+        // create that commits and then loses its reply is the whole reason —
+        // see assistant/features/idempotency.py.
+        let body: [String: Any] = ["number": number, "name": name, "color": color,
+                                   "partners": partners,
+                                   "client_token": UUID().uuidString]
+        let local = CourseStore.shared.insertCourse(number: number, name: name,
+                                                    color: color, partners: partners)
+        do {
+            let data = try await request("/courses", method: "POST", body: body)
+            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            let realID = json?["id"] as? Int ?? -1
+            // Online, the placeholder lives for one round trip — but anything
+            // the user did in that time (adding an assignment to it) was
+            // already recorded against it, so it is remapped rather than
+            // deleted and refetched.
+            if realID > 0 { LocalStore.shared.remapTemporaryID(local.id, to: realID) }
+            return realID
+        } catch APIError.offline, APIError.badURL {
+            LocalStore.shared.enqueue(method: "POST", path: "/courses",
+                                      body: body.merging(["_temp_id": local.id]) { a, _ in a })
+            return local.id
+        } catch {
+            // The Mac ANSWERED and refused. Nothing will replay it, so the
+            // optimistic row has to go: a phantom course that no sync will ever
+            // clear is worse than the save the user can see failing.
+            CourseStore.shared.removeCourse(local.id)
+            throw error
+        }
     }
 
     func updateCourse(id: Int, number: String, name: String, color: String, partners: [String]) async throws {
         let body: [String: Any] = ["number": number, "name": name, "color": color, "partners": partners]
-        _ = try await request("/courses/\(id)", method: "PATCH", body: body)
+        try await mutate("/courses/\(id)", method: "PATCH", body: body)
     }
 
+    /// A course deleted while it was still only queued is left to replay as
+    /// create-then-delete rather than being cancelled: the DELETE is rewritten
+    /// onto the real id the create comes back with, so the Mac ends in the state
+    /// the user asked for either way.
     func deleteCourse(id: Int) async throws {
-        _ = try await request("/courses/\(id)", method: "DELETE")
+        try await mutate("/courses/\(id)", method: "DELETE")
     }
 
     // MARK: - Assignments
@@ -1508,12 +1728,31 @@ class APIClient: ObservableObject {
         return try decode([Assignment].self, from: data)
     }
 
+    /// Same shape as `createCourse`, and for the same reason — with one extra:
+    /// `course_id` may itself be a placeholder, when the course was created
+    /// offline a moment ago. `LocalStore.remapTemporaryID` rewrites `*_id`
+    /// fields inside queued bodies too, so this lands under the right course.
     @discardableResult
     func createAssignment(courseId: Int, title: String, dueDate: String = "") async throws -> Int {
-        let body: [String: Any] = ["course_id": courseId, "title": title, "due_date": dueDate]
-        let data = try await request("/assignments", method: "POST", body: body)
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        return json?["id"] as? Int ?? -1
+        let body: [String: Any] = ["course_id": courseId, "title": title,
+                                   "due_date": dueDate,
+                                   "client_token": UUID().uuidString]
+        let local = CourseStore.shared.insertAssignment(courseId: courseId, title: title,
+                                                        dueDate: dueDate)
+        do {
+            let data = try await request("/assignments", method: "POST", body: body)
+            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            let realID = json?["id"] as? Int ?? -1
+            if realID > 0 { LocalStore.shared.remapTemporaryID(local.id, to: realID) }
+            return realID
+        } catch APIError.offline, APIError.badURL {
+            LocalStore.shared.enqueue(method: "POST", path: "/assignments",
+                                      body: body.merging(["_temp_id": local.id]) { a, _ in a })
+            return local.id
+        } catch {
+            CourseStore.shared.removeAssignment(local.id)
+            throw error
+        }
     }
 
     func updateAssignment(id: Int, title: String? = nil, dueDate: String? = nil,
@@ -1522,23 +1761,28 @@ class APIClient: ObservableObject {
         if let v = title           { body["title"]             = v }
         if let v = dueDate         { body["due_date"]          = v }
         if let v = calendarEventId { body["calendar_event_id"] = v }
-        _ = try await request("/assignments/\(id)", method: "PATCH", body: body)
+        try await mutate("/assignments/\(id)", method: "PATCH", body: body)
     }
 
+    /// Queued, the phone's own copy is the answer — the view has already
+    /// flipped it, and the Mac will agree once it sees the tick. Same answer
+    /// `toggleTodo` gives.
     @discardableResult
     func toggleAssignment(id: Int) async throws -> Bool {
-        let data = try await request("/assignments/\(id)/toggle", method: "PATCH", body: [:])
+        guard let data = try await mutate("/assignments/\(id)/toggle", method: "PATCH", body: [:]) else {
+            return CourseStore.shared.assignments.first { $0.id == id }?.isDone ?? false
+        }
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         return (json?["completed"] as? Int ?? 0) != 0
     }
 
     func deleteAssignment(id: Int) async throws {
-        _ = try await request("/assignments/\(id)", method: "DELETE")
+        try await mutate("/assignments/\(id)", method: "DELETE")
     }
 
     func clearCompletedAssignments(courseId: Int? = nil) async throws {
         let path = courseId != nil ? "/assignments/completed?course_id=\(courseId!)" : "/assignments/completed"
-        _ = try await request(path, method: "DELETE")
+        try await mutate(path, method: "DELETE")
     }
 }
 

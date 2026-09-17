@@ -515,6 +515,17 @@ finished the command anyway); a background assertion keeps a voice command
 alive when the app is backgrounded; burst-refresh after actions;
 vertical-swipe month change; guests via the system Contacts picker with
 per-guest Message/WhatsApp actions; reaches the Mac over Tailscale only.
+**Every write survives the Mac being away.** Queueing used to be decided per
+tab, and most tabs decided wrong: Coursework, Timer, Counters, Categories,
+Vocabulary and Teach wrote straight to the Mac and swallowed the failure, so a
+course deleted offline came back on the next sync and an assignment added
+offline was gone by it. One helper decides now — `APIClient.mutate` performs the
+write or enqueues it — and `tests/unit/test_ios_offline.py` fails the build for
+a mutating call that goes around it without a declared reason. The writes whose
+replay depends on *when* it happens carry the instant they happened
+(`/timers/<id>/start` and `/stop`, `/counters/<id>/press` and `/cashout`), so a
+timer started on the train is not billed from the moment the Mac woke up.
+
 **Offline is instant, not eventually.** Reads always fell back to the cache —
 but only after each request had spent its full 8 s timeout, and a cold start
 ran several of those one after another, so the app opened on an empty calendar

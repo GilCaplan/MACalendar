@@ -63,6 +63,18 @@ _TODO_MIGRATIONS = [
     "ALTER TABLE todos ADD COLUMN client_token TEXT NOT NULL DEFAULT ''",
 ]
 
+#: Tables whose rows a CLIENT can create, and which therefore need a creation
+#: idempotency key. Same key, same reason and same shape as
+#: `todos.client_token`, which was added after 32 duplicate "buy groceries"
+#: rows accumulated in the Today list: a queued create that reaches the Mac but
+#: whose reply is lost stays at the head of the phone's queue and is replayed,
+#: and without a token the second attempt inserts a second row.
+#:
+#: `todos` is absent because it already has one. `events` has its own.
+_IDEMPOTENT_TABLES = ("courses", "assignments", "timers", "counters",
+                      "timer_sessions", "counter_presses")
+
+
 # Known tag names (so user-created tags persist even when no todo uses them).
 # `todos.tags` holds a JSON list of tag names; this table is the palette.
 _CREATE_TAGS_TABLE = """
@@ -738,6 +750,7 @@ class CalendarDB:
             conn.execute(_CREATE_WORKOUT_PLANS_TABLE)
             conn.execute(_CREATE_WORKOUT_PLAN_ITEMS_TABLE)
             self._migrate_workouts(conn)
+            self._migrate_client_tokens(conn)
             for stmt in _CREATE_INDEXES.strip().splitlines():
                 stmt = stmt.strip()
                 if stmt:
@@ -760,6 +773,46 @@ class CalendarDB:
                 n += 1
         return n
 
+    def row_by_client_token(self, table: str, client_token: str) -> "Optional[dict]":
+        """The row a client already created with this token, or None.
+
+        Table-agnostic on purpose: six tables need exactly this and a method
+        each would be six chances to write it slightly differently. The table
+        name is checked against a fixed tuple rather than interpolated blindly —
+        it reaches here from a route, and a route's input is never a table name.
+        """
+        token = (client_token or "").strip()
+        if not token or table not in _IDEMPOTENT_TABLES:
+            return None
+        with self._conn() as conn:
+            try:
+                row = conn.execute(
+                    f"SELECT * FROM {table} WHERE client_token = ?", (token,)).fetchone()
+            except sqlite3.OperationalError:
+                return None
+        return dict(row) if row else None
+
+    def set_client_token(self, table: str, row_id: int, client_token: str) -> bool:
+        """Stamp a freshly created row with the client's idempotency token.
+
+        False means the UNIQUE INDEX refused it — another pass created the row
+        first, between our lookup and our insert. That is not an error and must
+        not be logged as one: it is exactly the race the index exists to
+        referee, and the caller's job is then to return the row that won.
+        """
+        token = (client_token or "").strip()
+        if not token or table not in _IDEMPOTENT_TABLES:
+            return False
+        try:
+            with self._conn() as conn:
+                conn.execute(f"UPDATE {table} SET client_token = ? WHERE id = ?",
+                             (token, row_id))
+            return True
+        except sqlite3.IntegrityError:
+            return False
+        except sqlite3.OperationalError:
+            return False
+
     def _migrate(self, conn: sqlite3.Connection) -> None:
         """Apply any missing schema migrations safely."""
         existing = {r[1] for r in conn.execute("PRAGMA table_info(events)")}
@@ -781,6 +834,36 @@ class CalendarDB:
                     conn.execute(stmt)
                 except sqlite3.OperationalError:
                     pass  # already exists
+
+    def _migrate_client_tokens(self, conn: sqlite3.Connection) -> None:
+        """Give every client-creatable table a creation idempotency key.
+
+        The UNIQUE INDEX is the part that actually enforces it — the column
+        alone only lets a route look a token up, and two overlapping sync
+        passes can both look up, both miss, and both insert. It is PARTIAL
+        (`WHERE client_token != ''`) because every row created in-process —
+        voice, the Mac GUI, calendar import — has an empty token and must not
+        collide with the others.
+        """
+        for table in _IDEMPOTENT_TABLES:
+            try:
+                cols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+            except sqlite3.OperationalError:
+                continue                    # table not created yet
+            if not cols:
+                continue
+            if "client_token" not in cols:
+                try:
+                    conn.execute(f"ALTER TABLE {table} "
+                                 "ADD COLUMN client_token TEXT NOT NULL DEFAULT ''")
+                except sqlite3.OperationalError:
+                    pass
+            try:
+                conn.execute(
+                    f"CREATE UNIQUE INDEX IF NOT EXISTS idx_{table}_client_token "
+                    f"ON {table}(client_token) WHERE client_token != ''")
+            except sqlite3.OperationalError:
+                pass
 
     def _migrate_workouts(self, conn: sqlite3.Connection) -> None:
         """Apply any missing workout schema migrations safely.

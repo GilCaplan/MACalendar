@@ -28,6 +28,15 @@ struct PendingChange: Codable, Identifiable {
         PendingChange(id: id, method: method, path: newPath,
                       bodyJSON: bodyJSON, createdAt: createdAt)
     }
+
+    /// Same queued change with a rewritten body — for when the placeholder id
+    /// is INSIDE the request rather than in its path (`course_id`,
+    /// `calendar_event_id`).
+    func replacingBody(_ newBody: [String: Any]) -> PendingChange {
+        PendingChange(id: id, method: method, path: path,
+                      bodyJSON: try? JSONSerialization.data(withJSONObject: newBody),
+                      createdAt: createdAt)
+    }
 }
 
 /// A voice command recorded while the Mac was unreachable.
@@ -617,8 +626,33 @@ class LocalStore: ObservableObject {
             pending[i] = change.replacingPath(
                 change.path.replacingOccurrences(of: "/\(tempID)", with: "/\(realID)"))
         }
+        // A placeholder also travels INSIDE a queued body: an assignment added
+        // to a course that has not synced yet carries `course_id: -1000001`,
+        // and an assignment pointed at an event created offline carries
+        // `calendar_event_id: -3`. Rewriting only the path left those attached
+        // to an id the Mac never issued — the assignment arrived under no
+        // course at all. Only `*_id` keys are considered, so a number that
+        // happens to equal a placeholder (a quantity, a lead time) is left
+        // alone; `_temp_id` is skipped because it is the create's own name for
+        // itself, and it is about to be dropped with the row anyway.
+        for (i, change) in pending.enumerated() {
+            guard let data = change.bodyJSON,
+                  var obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            else { continue }
+            var rewritten = false
+            for (key, value) in obj where key.hasSuffix("_id") && key != "_temp_id" {
+                if let n = value as? Int, n == tempID { obj[key] = realID; rewritten = true }
+            }
+            if rewritten { pending[i] = change.replacingBody(obj) }
+        }
         for (i, t) in todos.enumerated() where t.id == tempID { todos[i].id = realID }
         for (i, e) in events.enumerated() where e.id == tempID { events[i].id = realID }
+        // Coursework keeps its own cache and mints its own placeholders, and
+        // nothing else knows about `mc_courses.json` — so it has to be told.
+        // Without this a course created offline kept its placeholder for ever:
+        // the next fetch brought the real row down beside it, and any edit made
+        // in between replayed against an id the Mac never issued.
+        CourseStore.shared.remapTemporaryID(tempID, to: realID)
         persist()
     }
 }

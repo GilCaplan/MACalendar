@@ -257,7 +257,9 @@ struct VocabularyView: View {
     }
 
     private func update(autoCorrect: Bool? = nil, learnAliases: Bool? = nil, threshold: Double? = nil) async {
-        do { state = try await api.vocabSettings(autoCorrect: autoCorrect, learnAliases: learnAliases, threshold: threshold) }
+        // nil means the Mac was away and the change is queued — keep the state
+        // on screen rather than blanking the settings a switch just moved.
+        do { if let fresh = try await api.vocabSettings(autoCorrect: autoCorrect, learnAliases: learnAliases, threshold: threshold) { state = fresh } }
         catch { self.error = error.localizedDescription }
     }
 }

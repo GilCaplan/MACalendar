@@ -32,7 +32,9 @@ They had already drifted, in ways nobody reported as bugs:
 - **Coursework's offline writes were dropped on the floor** while
   `CourseStore.swift` documented the opposite: *"offline writes are queued in
   LocalStore.shared.enqueue() and replayed on reconnect."* No `/courses` path
-  appears in any `enqueue` call site. Delete a course offline and it comes back.
+  appeared in any `enqueue` call site. Delete a course offline and it came
+  back. (Fixed 2026-09-17: every write goes through `APIClient.mutate`, and
+  `tests/unit/test_ios_offline.py` fails the build for one that does not.)
 - **`refresh()` on two Mac panels, `reload()` on two others**, which is why
   `window.py` could only refresh todos.
 - **Three visibility systems** — iOS `UserDefaults`, Mac `ui.show_*`, and
@@ -139,7 +141,12 @@ Mac is away.
 - **Decide offline behaviour ONCE, in the client, not per tab.** Three
   mechanisms and one silent data-loss bug is what per-tab choice produced.
   A write that cannot go out is queued or it FAILS LOUDLY — never `try?` and
-  a stale cache that the next sync overwrites.
+  a stale cache that the next sync overwrites. The one place that decides is
+  `APIClient.mutate`; the exceptions are listed, with a reason each, in
+  `tests/unit/test_ios_offline.py`'s `NOT_QUEUEABLE`. **A write whose replay
+  would be WRONG is not queued quietly** — `/timers/<id>/start` and
+  `/counters/<id>/press` now carry the instant they happened, precisely so
+  that they can be.
 - **Never let registration be two lists.** If adding a feature means editing
   the same knowledge in more than one place, that is the bug, and it will
   present as a blank screen months later.

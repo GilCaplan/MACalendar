@@ -30,6 +30,8 @@ import datetime
 
 from flask import Blueprint, jsonify, request
 
+from assistant.features.idempotency import idempotent_create
+
 blueprint = Blueprint("timer", __name__)
 
 
@@ -50,7 +52,11 @@ def get_db():
 
 def _dt(iso: str) -> datetime.datetime:
     try:
-        d = datetime.datetime.fromisoformat(iso)
+        # "…Z" is what an iOS ISO8601DateFormatter writes for GMT, and
+        # `fromisoformat` only learned to read it in 3.11. Unhandled it lands in
+        # the except below, which quietly answers "now" — a wrong session length
+        # that looks like a right one.
+        d = datetime.datetime.fromisoformat(iso.strip().replace("Z", "+00:00"))
     except Exception:
         return datetime.datetime.now().astimezone()
     return d if d.tzinfo else d.astimezone()
@@ -117,11 +123,19 @@ def timers_list():
 def timers_create():
     b = request.get_json(silent=True) or {}
     db = get_db()
-    tid = db.create_timer(title=str(b.get("title") or "Untitled Timer"), hourly_rate=float(b.get("hourly_rate") or 0),
-                          color=str(b.get("color") or "#1a6fc4"), timer_type=str(b.get("timer_type") or "work"),
-                          currency=str(b.get("currency") or "ILS"), max_session_minutes=int(b.get("max_session_minutes") or 0))
-    t = next(x for x in db.get_timers(include_archived=True) if x["id"] == tid)
-    return jsonify(_timer_out(db, t)), 201
+    # Idempotent on `client_token` — the phone queues this while the Mac is
+    # away and replays it, so a reply lost after the row was written would
+    # otherwise land a second timer. The full object is still returned either
+    # way; only the status distinguishes a fresh row from one already there.
+    body, status = idempotent_create("timers", b, lambda: db.create_timer(
+        title=str(b.get("title") or "Untitled Timer"), hourly_rate=float(b.get("hourly_rate") or 0),
+        color=str(b.get("color") or "#1a6fc4"), timer_type=str(b.get("timer_type") or "work"),
+        currency=str(b.get("currency") or "ILS"), max_session_minutes=int(b.get("max_session_minutes") or 0)), db=db)
+    t = next(x for x in db.get_timers(include_archived=True) if x["id"] == body["id"])
+    out = _timer_out(db, t)
+    if body.get("duplicate"):
+        out["duplicate"] = True
+    return jsonify(out), status
 
 
 @blueprint.patch("/timers/<int:tid>")
@@ -143,22 +157,43 @@ def timers_delete(tid: int):
 
 @blueprint.post("/timers/<int:tid>/start")
 def timers_start(tid: int):
+    """Start the clock. `start_time` optional — WHEN it started, if not now.
+
+    The phone sends it on every start, because a write it could not deliver is
+    replayed when the Mac comes back: "start this timer", read against the Mac's
+    own clock an hour later, banks an hour of work that never happened. The db
+    layer always accepted an explicit instant; only this route never passed one
+    through, which is what made the write unqueueable.
+    """
     b = request.get_json(silent=True) or {}
     db = get_db()
     run = db.get_running_session(tid)
     if run:
         return jsonify(_session_out(run))
-    sid = db.create_timer_session(tid, title=str(b.get("title") or ""))
+    sid = db.create_timer_session(tid, title=str(b.get("title") or ""),
+                                  start_time=str(b.get("start_time") or "").strip() or None)
     return jsonify(_session_out(next(x for x in db.get_timer_sessions(tid) if x["id"] == sid))), 201
 
 
 @blueprint.post("/timers/<int:tid>/stop")
 def timers_stop(tid: int):
+    """Stop the clock. `end_time` optional — WHEN it stopped, if not now.
+
+    Same reason as `/start`: a stop that sat in the phone's queue would
+    otherwise keep billing the hours it spent waiting there.
+    """
+    b = request.get_json(silent=True) or {}
     db = get_db()
     run = db.get_running_session(tid)
     if not run:
         return jsonify({"error": "Not running", "code": 409}), 409
-    db.stop_timer_session(run["id"])
+    end = str(b.get("end_time") or "").strip()
+    # Never before the session began: a clock the phone set wrong, or an end
+    # replayed against a session the Mac had already restarted, would otherwise
+    # store a negative duration.
+    if end and _dt(end) < _dt(run["start_time"]):
+        end = ""
+    db.stop_timer_session(run["id"], end or None)
     return jsonify(_session_out(next(x for x in db.get_timer_sessions(tid) if x["id"] == run["id"])))
 
 
@@ -228,9 +263,13 @@ def counters_list():
 def counters_create():
     b = request.get_json(silent=True) or {}
     db = get_db()
-    cid = db.create_counter(title=str(b.get("title") or "Untitled Counter"), price_per_unit=float(b.get("price_per_unit") or 0),
-                            currency=str(b.get("currency") or "ILS"), color=str(b.get("color") or "#1a6fc4"))
-    return jsonify(_counter_out(db, next(x for x in db.get_counters(include_archived=True) if x["id"] == cid))), 201
+    body, status = idempotent_create("counters", b, lambda: db.create_counter(
+        title=str(b.get("title") or "Untitled Counter"), price_per_unit=float(b.get("price_per_unit") or 0),
+        currency=str(b.get("currency") or "ILS"), color=str(b.get("color") or "#1a6fc4")), db=db)
+    out = _counter_out(db, next(x for x in db.get_counters(include_archived=True) if x["id"] == body["id"]))
+    if body.get("duplicate"):
+        out["duplicate"] = True
+    return jsonify(out), status
 
 
 @blueprint.patch("/counters/<int:cid>")
@@ -252,9 +291,16 @@ def counters_delete(cid: int):
 
 @blueprint.post("/counters/<int:cid>/press")
 def counters_press(cid: int):
+    """One tap. `pressed_at` optional — WHEN it was tapped, if not now.
+
+    `today_count` buckets presses by this timestamp, so a tap made before
+    midnight and replayed from the phone's offline queue after it would land on
+    the wrong day without one.
+    """
     b = request.get_json(silent=True) or {}
     db = get_db()
-    db.create_counter_press(cid, delta=int(b.get("delta") or 1), label=str(b.get("label") or ""))
+    db.create_counter_press(cid, delta=int(b.get("delta") or 1), label=str(b.get("label") or ""),
+                            pressed_at=str(b.get("pressed_at") or "").strip() or None)
     return jsonify(_counter_out(db, next(x for x in db.get_counters(include_archived=True) if x["id"] == cid)))
 
 
@@ -277,7 +323,11 @@ def counters_cashout(cid: int):
     if not c:
         return jsonify({"error": "Not found", "code": 404}), 404
     info = _counter_out(db, c)
-    now = datetime.datetime.now().astimezone().isoformat()
+    # `cashed_at` optional, for the same reason as `pressed_at`: a cash-out the
+    # phone queued names the moment it was asked for. The COUNT is still this
+    # Mac's, computed from the presses it holds — and the phone's queue replays
+    # in order, so every press made before the cash-out has already landed.
+    now = str(b.get("cashed_at") or "").strip() or datetime.datetime.now().astimezone().isoformat()
     cycle_start = info["cycle_started_at"] or (db.get_counter_presses(cid) or [{"pressed_at": c["created_at"]}])[0]["pressed_at"]
     amount = b.get("amount")
     amount = float(amount) if amount is not None else info["payout"]
