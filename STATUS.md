@@ -246,13 +246,33 @@ rate is 0.4% (much lower than the ~40-60% the hand-picked adversarial rows
 suggested), 94.4% → 94.7% after the fallback, both of the 2 recovered rows
 correct. Full unit suite green throughout (1655 passed).
 
-**The time-resolution half is NOT fixed** — "morning"/"evening"/HH:MM:SS/ISO-
-datetime reaching a clock field unresolved, plus two more shapes found
-2026-09-15 in `update_event` (`{'new_end_time': 'by an hour'}`,
-`{'new_end_time': '20 minutes'}`). **This is the queue's lead item now** —
-and cycle 18's lesson applies to it too: trace it stage-by-stage before
-assuming it's `decompose_validate`'s fix to make, the way the target-check
-half turned out not to be.
+**The time-resolution half IS fixed — this paragraph said otherwise for two
+days and named it "the queue's lead item", which is how a session picks up work
+that is already done.** `assistant/intent/parser.py::_normalize_time_fields`
+extracts the HH:MM prefix an ISO datetime or an HH:MM:SS both carry and drops
+anything else (a bare `"morning"`, a relative `"by an hour"`) rather than losing
+the whole object to pydantic over a field `decompose_validate` re-resolves
+anyway. Measured on 1,963 rows (`llmjudge/experiments/RESULTS.md` cycle 19):
+**79.9% → 88.6%**, with 91.4% of the 187 rows that would have raised now fully
+correct. Cycle 18's lesson held — it was not `decompose_validate`'s fix to make.
+
+**The queue's lead item is now the `daterange` branch, and it is BLOCKED on a
+ruling from Gil** (filed in TASKS.md, 2026-09-17). `_extract_temporal` handles
+the timex types `datetime`, `date`, `time` and `timerange` and has none for
+**`daterange`**, so `"next week"`, `"this weekend"`, `"in two weeks"` and
+`"by friday"` have their date silently dropped — 605 rows of the FastRule
+7,200 train half (12.6%), of which 263 are one-off atomic writes worth a
+**+6.3 pt** handle-rate ceiling. The ruling needed is what date a range phrase
+MEANS as an item's own date; the FastRule board excludes these rows from its
+date metric for precisely that reason, so the fix cannot be scored until the
+convention is picked.
+
+**The bare-ordinal half of the same defect is FIXED** (cycle 20, 2026-09-17):
+`"the 15th"` resolved nothing while `"on the 15th"` worked, so a task was
+created with no due date on the Today list at a confidence high enough to
+commit instantly. FastRule product-shape board, train half, 3,200 atomic rows:
+**handle-rate 68.2% → 70.4%, date correctness 91.3% → 93.0% over 100 MORE
+scored rows**, zero new destructive errors, half-executed unchanged at 72.
 
 **App stream** — app work happens in the `../MACalendar-app` worktree (branch
 `app-features`), merged between cycles, never during a run. The 2026-09-06

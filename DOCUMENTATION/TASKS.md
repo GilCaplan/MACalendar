@@ -1136,6 +1136,78 @@ tracing `_fill_slots`'s `create_todo` branch's `temporal.get("date")` path
 (`rule_parser.py`) against a proper set of relative-date phrasings before
 trusting due dates on tasks generally.
 
+## The bare-ordinal due date is FIXED; two defects found beside it are NOT (2026-09-17)
+
+The filed defect above (*"a todo's relative due-date silently falls back to
+today for some phrasings"*) is **half fixed**. `"the 15th"` / `"the 30th"` now
+resolve — `assistant/intent/rule_parser.py`, `_BARE_ORDINAL_DATE` +
+`_ordinal_to_date`, measured in `assistant/engine/fastrule/experiments/
+RESULTS.md` cycle 20 (handle-rate 68.2% → 70.4% on the FastRule 7,200 train
+half's 3,200 atomic rows). **`"in two weeks"` and `"by friday"` are NOT fixed**
+and are the next cycle, blocked on the ruling below.
+
+**RULING NEEDED — what date does a RANGE phrase mean as an item's own date?**
+`_extract_temporal` handles the timex types `datetime`, `date`, `time` and
+`timerange` and has no **`daterange`** branch, so the recogniser's answer for
+`"next week"` (start 2026-09-21, end 2026-09-28), `"this weekend"`, `"in two
+weeks"`, `"next month"` and `"by friday"` is thrown away and the date is
+silently dropped. 605 rows of the FastRule train half (12.6%) are affected;
+263 are one-off atomic writes, a **+6.3 pt** handle-rate ceiling.
+
+The blocker is not the code, it is that `"book yoga class next week"` has no
+single right answer and the FastRule board *deliberately* excludes these rows
+from its date metric for exactly that reason (`_phrase_to_date` returns None,
+commented "no single right answer"). Committing one means picking a
+convention. **Recommended: the soonest day in the named range** (the
+recogniser's `start` bound) — consistent with the two rulings the project
+already has, that a weekly series starts on the soonest weekday the sentence
+names and that "until the end of September" is inclusive. `"by friday"` is the
+exception and wants the `end` bound, since it names a deadline rather than a
+span. Not started either way.
+
+Two further shapes, each needing its own handling and NOT covered by that
+ruling: the 50 boundary rows where the range is a recurrence bound
+(`"every monday until the end of the month"` → `date_phrase_2` +
+`end_inclusive`, 28 inclusive / 22 exclusive in the train half, governed by the
+existing until/through ruling) and the 70 query rows, where a range is the
+ANSWER and not a field (`"what do I have this week"`).
+
+## A coordinated-verb task extracts NO title at all — NOT FIXED, filed (2026-09-17)
+
+Found while writing the bare-ordinal tests, when a test row turned out to carry
+a second, independent defect. Confirmed to be unrelated to dates — it fails
+identically with a date, without one, and with the date removed entirely:
+
+    "wash and fold the laundry the 30th"   -> missing_slots=['titles'], NO intent
+    "wash and fold the laundry tomorrow"   -> missing_slots=['titles'], NO intent
+    "wash and fold the laundry"            -> missing_slots=['titles'], NO intent
+    "wash the laundry the 30th"            -> create_todo 'wash laundry'  CORRECT
+
+A bare imperative with **two coordinated verbs over one object** extracts no
+title, so the row carries `create_todo` with no `titles` and produces no intent
+at all — it defers to the deep track rather than being wrong, so it costs
+latency and accuracy rather than data. Same family as the bare-imperative
+multi-object defect filed above (`_extract_title` walking `noun_chunks` and
+taking the first `dobj`), and it should probably be picked up with it, not
+separately.
+
+## The date text leaks into the title in the lead-in + and-split branch — NOT FIXED, filed (2026-09-17)
+
+Same session. With a lead-in phrase AND a coordinating "and", the todo-title
+path splits on the "and" and carries the date words into the second title,
+although the date itself resolves correctly:
+
+    "remind me to wash and fold the laundry the 30th"
+       -> titles ['wash', 'fold the laundry the 30th']   due_date 2026-09-30 (right)
+
+`_todo_titles_from_text` receives `temporal_spans` and the blocked span IS
+supplied by the new fallback (the non-split path proves it: `"wash the laundry
+the 30th"` → `'wash laundry'`, clean), so the spans are being ignored or
+recomputed somewhere inside the split branch. **Pre-existing** — the title text
+was equally wrong before this cycle, which only added the date beside it. Not
+touched, per the standing rule against bundling an unrelated fix into a
+measured change.
+
 ## Working agreements
 - Everything on the phone is local: no third-party services; the only network peer is the Mac over Tailscale.
 - Prefer doing work directly over spawning sub-agents; keep context small (`/compact` between big tasks).
