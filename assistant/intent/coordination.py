@@ -118,6 +118,108 @@ _COORD_WORDS = frozenset({"and", "then", "also", "plus", "or", "but",
 #: the next stage a blank item to invent a title for.
 _MIN_WORDS_PER_ASK = 2
 
+#: Dependency labels that mean "this verb carries an argument of its own" —
+#: what separates a real second ask ("remind ME", "delete THE GYM SESSION")
+#: from a bare verb sharing its neighbour's object ("wash and fold THE
+#: LAUNDRY"). Shared by the main walk and the subordinate-first path.
+_OWN_ARG = ("dobj", "obj", "ccomp", "xcomp", "dative", "attr", "oprd",
+            "npadvmod", "appos", "compound", "prep", "prt", "advcl")
+
+
+def _reads_as_an_ask(tok) -> bool:
+    """Is this clause head something the speaker is ASKING for, or a remark?
+
+    An ask is a base-form verb — an imperative, or the complement of a
+    modal ("i'd rather WALK the dog", "LET's get…") — or a head whose own
+    complement is one ("i need to BOOK…"), never negated. A remark is what
+    is left: past tense ("i already HANDLED it", "finally GOT to it"), a
+    participle ("it's DONE"), a negation ("i DON'T remember the name"), or
+    no verb at all ("NO EXCEPTIONS"). Tense, polarity and part of speech —
+    nothing here is a list of remark phrases.
+    """
+    if any(c.dep_ == "neg" for c in tok.children):
+        return False
+    if tok.pos_ == "VERB" and tok.tag_ == "VB":
+        return True
+    if tok.pos_ in ("NOUN", "PROPN") and _is_command_verb(tok):
+        return True                     # an imperative spaCy mis-tagged as a noun
+    for c in tok.children:
+        if (c.dep_ in ("xcomp", "ccomp") and c.pos_ == "VERB" and c.tag_ == "VB"
+                and not any(g.dep_ == "neg" for g in c.children)):
+            return True
+    return False
+
+
+def _subordinate_first_boundary(doc, tok, text: str) -> "Boundary | None":
+    """The seam after a command clause spaCy subordinated to a LATER verb.
+
+    "forget email the landlord, i'd rather walk the dog" parses `forget` as
+    `advcl` of `walk` (the ROOT, eight tokens later); "first prepare the
+    presentation, then let's get therapy session…" parses `prepare` as
+    `advcl` of `let`. Two asks either way, and the walk over conj/dep
+    never visits either — the subordinate clause has no coordinator tag
+    at all. This reads the shape instead of a list of phrases ("i'd
+    rather", "then let's"): the candidate must be a command verb that
+    CARRIES ITS OWN ARGUMENT and sits BEFORE the verb it hangs off, and the
+    main clause must carry one too.
+
+    Three structural guards keep genuine subordinate clauses — which are
+    NOT asks — from splitting off, each read from the parse, none from a
+    word list:
+      • it has no subject of its own — "when YOU get a chance, water the
+        plants" is a time clause, and `get` is a command verb, so this is
+        the guard that actually stands between it and a bogus split;
+      • it has no subordinating `mark` — "IF it rains…", "BEFORE i leave…";
+      • it is not an infinitival purpose clause — "call the plumber TO fix
+        the sink" hangs `fix` off `call` with an infinitival `to`, one ask.
+    And the MAIN clause has to be an ask too, not a remark about the first
+    one — "check off this reminder, IT'S DONE", "move that one to next
+    wednesday, I DON'T REMEMBER THE NAME", "book it every month at 7am, NO
+    EXCEPTIONS" all parse as exactly this shape (the command subordinated
+    to a trailing comment), and splitting them cost 17 rows on the first
+    measurement. `_reads_as_an_ask` tells them apart by tense, negation
+    and part of speech — read off the parse, not off the words.
+    And, as everywhere in this module, something must JOIN the two — a
+    comma, a "then" — or there is no seam: a subordinate clause with
+    nothing between it and its head is inside the same breath.
+    """
+    head = tok.head
+    if head.i <= tok.i:
+        return None                     # a trailing advcl is a tail, not a first ask
+    if tok.tag_ != "VB":
+        return None                     # not an imperative/base form ("book MOVING day…")
+    kids = list(tok.children)
+    if any(c.dep_ in ("nsubj", "nsubjpass", "csubj") for c in kids):
+        return None
+    if any(c.dep_ == "mark" for c in kids):
+        return None
+    if any(c.dep_ == "aux" and c.tag_ == "TO" for c in kids):
+        return None
+    if not any(c.dep_ in _OWN_ARG for c in kids):
+        return None
+    if not any(c.dep_ in _OWN_ARG for c in head.children if c is not tok):
+        return None
+    if not _reads_as_an_ask(head):
+        return None
+    right = max(t.i for t in tok.subtree)
+    if right >= head.i:
+        return None                     # the subtree swallowed the main clause: parse not trusted
+    j = right + 1
+    while j < head.i and (doc[j].is_punct or doc[j].dep_ == "cc"
+                          or doc[j].lower_ in _COORD_WORDS):
+        j += 1
+    if j == right + 1:
+        return None                     # nothing joined them; not a seam
+    ends_tok = doc[right]
+    ends = ends_tok.idx + len(ends_tok.text)
+    begins = doc[j].idx
+    if begins <= ends:
+        return None
+    if (len(text[:ends].split()) < _MIN_WORDS_PER_ASK
+            or len(text[begins:].split()) < _MIN_WORDS_PER_ASK):
+        return None
+    return Boundary(ends, begins, text[ends:begins].strip())
+
 
 def has_clause_coordination(text: str) -> bool:
     """True when the parse shows two coordinated CLAUSES (two asks).
@@ -157,10 +259,20 @@ def clause_boundaries(text: str) -> "list[Boundary]":
     doc = parsed(text)
     if doc is None:
         return []
-    OWN_ARG = ("dobj", "obj", "ccomp", "xcomp", "dative", "attr", "oprd",
-               "npadvmod", "appos", "compound", "prep", "prt", "advcl")
+    OWN_ARG = _OWN_ARG
     found: list[Boundary] = []
     for tok in doc:
+        # A command clause spaCy SUBORDINATED to a later verb — "FORGET email
+        # the landlord, i'd rather walk the dog" hangs `forget` off `walk` as
+        # `advcl` — never gets a conj/dep tag, so the walk below cannot see
+        # it, and `_boundary_at` cannot cut it either (it assumes the head
+        # precedes the conjunct; here it follows). Its own path, with its
+        # own guards, in `_subordinate_first_boundary`.
+        if tok.dep_ == "advcl" and _is_command_verb(tok):
+            b = _subordinate_first_boundary(doc, tok, text)
+            if b is not None and not _non_splitting_tail(text[b.begins:]):
+                found.append(b)
+            continue
         # "dep" is spaCy's I-don't-know label, and it is where a second
         # imperative lands when the joiner is a sequencer rather than a
         # coordinator — "call mom THEN pick up the dry cleaning" tags `pick`
@@ -234,6 +346,19 @@ def clause_boundaries(text: str) -> "list[Boundary]":
             # "…and MARK tomorrow" stays a name collision, not an object.
             if not conj_has_own and nxt.pos_ in ("NOUN", "PROPN"):
                 conj_has_own = not _opens_a_date(doc, nxt.i)
+            # The object may carry its own modifier first — "order NEW office
+            # supplies", "book QUICK haircut" — and the noun is one or two
+            # tokens further on. Looking only at the very next token missed
+            # every one of these (the "intervening ADJECTIVE" bucket in
+            # ARCHITECTURE.md §0). Skipped by POS, so this is not a list of
+            # adjectives; `_opens_a_date` still reads from the modifier, the
+            # same window it has always used.
+            if not conj_has_own:
+                k = tok.i + 1
+                while k < len(doc) and doc[k].pos_ in ("ADJ", "ADV"):
+                    k += 1
+                if k > tok.i + 1 and k < len(doc) and doc[k].pos_ in ("NOUN", "PROPN"):
+                    conj_has_own = not _opens_a_date(doc, tok.i + 1)
         head_has_own = any(c.dep_ in OWN_ARG for c in tok.head.children
                            if c is not tok)
         if not head_has_own and tok.head.dep_ != "ROOT":
@@ -348,6 +473,16 @@ def _lexicon_fallback_boundaries(doc, text: str) -> "list[Boundary]":
         sentence_initial = all(
             doc[j].lower_ in _COORD_WORDS or doc[j].is_punct
             for j in range(sent_start, i))
+        # The ROOT of a LATER sentence is sentence-initial whatever sits in
+        # front of it — "along with that, REMIND me…", "on top of that, BOOK
+        # the dentist" — because everything before a root inside its own
+        # sentence is a dependent of that root (a fronted adverbial), not a
+        # clause of its own. Read off the parse, so it needs no list of
+        # tolerated lead-in phrases; the coord-word walk above stays for the
+        # first sentence's own preamble, where there is no earlier sentence
+        # to have ended.
+        if tok.dep_ == "ROOT" and sent_start > 0:
+            sentence_initial = True
         follows_coord = i > 0 and (doc[i - 1].dep_ == "cc"
                                    or doc[i - 1].lower_ in _COORD_WORDS)
         if sentence_initial or follows_coord:

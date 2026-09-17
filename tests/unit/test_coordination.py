@@ -6,6 +6,8 @@ invisible until it shows up as a wrong count somewhere else entirely.
 """
 from __future__ import annotations
 
+import pytest
+
 from assistant.intent.coordination import split_clauses
 
 
@@ -209,6 +211,63 @@ def test_a_bare_add_a_note_does_not_split():
     assert split_clauses(
         "change the due date of do the laundry to two weeks from now and add a note"
     ) == ["change the due date of do the laundry to two weeks from now and add a note"]
+
+
+# --- structural, not enumerative (2026-09-17): a subordinate-FIRST command
+# clause, a second-sentence root behind a lead-in phrase, and an object that
+# carries a modifier -- three shapes the walk used to be blind to, none fixed
+# with a phrase list ---
+
+def test_a_subordinate_first_command_clause_splits():
+    # `prepare` is `advcl` of `let` (the ROOT, six tokens later) -- no conj/dep
+    # tag anywhere, so only the subordinate-first path can see it.
+    assert split_clauses(
+        "first prepare the presentation, then let's get therapy session on the calendar"
+    ) == ["first prepare the presentation",
+          "let's get therapy session on the calendar"]
+
+
+@pytest.mark.parametrize("text", [
+    # the same parse shape, but the main clause is a REMARK, not an ask --
+    # past tense, negation, a participle, no verb at all. 17 rows regressed
+    # the first time this path shipped without this guard.
+    "check off this reminder, it's done",
+    "move that one to next wednesday, i don't remember the name",
+    "book moving day every month at 7am, no exceptions",
+    "remove schedule a haircut from my list, i already handled it",
+])
+def test_a_command_followed_by_a_remark_stays_whole(text):
+    assert split_clauses(text) == [text]
+
+
+@pytest.mark.parametrize("text", [
+    # genuine subordinate clauses: a subject of its own, a subordinating
+    # marker, or an infinitival purpose -- each read from the parse
+    "when you get a chance, water the plants",
+    "if it rains, cancel the picnic",
+    "call the plumber to fix the sink",
+    "before i leave, remind me to lock up",
+])
+def test_a_real_subordinate_clause_stays_whole(text):
+    assert split_clauses(text) == [text]
+
+
+def test_a_second_sentence_root_behind_a_lead_in_splits():
+    # `remind` is the ROOT of a new sentence; "along with that," in front of
+    # it is its own fronted adverbial, not a clause -- read off `dep_ ==
+    # "ROOT"`, so no list of tolerated lead-in phrases is needed. The
+    # lead-in stays with the previous item, per the dataset's own gold.
+    parts = split_clauses(
+        "schedule workshop for on the 15th. along with that, remind me to file the taxes")
+    assert len(parts) == 2 and parts[1] == "remind me to file the taxes"
+
+
+def test_an_object_carrying_a_modifier_still_counts_as_an_object():
+    # "order NEW office supplies" -- the bare-object check used to look only
+    # at the very next token and see an adjective.
+    assert split_clauses(
+        "i need to fix the leaky faucet and order new office supplies"
+    ) == ["i need to fix the leaky faucet", "order new office supplies"]
 
 
 def test_add_a_note_with_its_own_object_still_splits():

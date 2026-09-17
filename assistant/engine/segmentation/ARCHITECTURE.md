@@ -371,6 +371,83 @@ one check in this stage not measuring the dataset, and the corpus-wide
 consistency check every fix in this file already passes is not, by itself,
 evidence a mechanism generalises past the generator's own phrasing.
 
+### 0d · "Is the structure sound?" — three structural CUT changes vs. word
+### vectors, measured head to head (Gil, 2026-09-17: "I don't want this to
+### be a purely rule-based algorithm")
+
+The honest phase-by-phase answer: the three-phase shape is sound and
+measured; CUT is genuinely structural (it reads the parse); ASSIGN TIME is
+regex and *should* be (a closed domain); TAG is where the word-list worry
+is real. Two candidate changes were tried, one with no dependency and one
+with a ~40 MB one, and measured against each other.
+
+**#2 — CUT: candidate clause heads by argument structure, not by
+dependency label.** The walk only visited `conj`/`dep` tokens, so three
+shapes were invisible, none of them fixable with a phrase list:
+
+1. **An object carrying a modifier** — "order NEW office supplies". The
+   bare-object check read only the very next token and saw an adjective;
+   it now skips ADJ/ADV by POS. **+1 train.**
+2. **A later sentence's ROOT behind a lead-in** — "…on the 15th. ALONG
+   WITH THAT, remind me…". The fallback's sentence-initial test walked back
+   over coordinator words only; a token that is `dep_ == "ROOT"` of a
+   non-first sentence is now sentence-initial whatever precedes it,
+   because everything before a root inside its own sentence is that
+   root's dependent. **+6 train** (the whole `c2_joiner2_2` family).
+3. **A command clause subordinated to a LATER verb** — "first PREPARE the
+   presentation, then let's get…" parses `prepare` as `advcl` of `let`,
+   eight tokens on; neither the walk nor `_boundary_at` (which assumes the
+   head precedes the conjunct) could see it. New path, `_subordinate_
+   first_boundary`, with structural guards: no subject of its own ("when
+   YOU get a chance, water the plants" — `get` IS a command verb, so this
+   guard is load-bearing), no `mark` ("IF it rains…"), not an infinitival
+   purpose ("call the plumber TO fix the sink"), and a real joiner between
+   the two. **First version regressed 17 rows** — "check off this reminder,
+   IT'S DONE", "move that one to next wednesday, I DON'T REMEMBER THE
+   NAME", "book it every month, NO EXCEPTIONS": the same parse shape with
+   the main clause a REMARK, not an ask. Caught by the row-ID diff, fixed
+   by `_reads_as_an_ask` — tense, negation and part of speech of the head
+   (a base-form verb or its complement; never past, negated, or a noun) —
+   read off the parse, not a list of remark phrases. **+3 train, 0 lost.**
+
+Net: train exact-row 920→930/1051 (87.5→88.5%), item-count 96.5→97.4%,
+under-split 33→23, over-split 4 unchanged; **sealed 510→516/660
+(77.3→78.2%), item-count 90.9→92.1%** — these moved sealed where the
+family-keyed §0b fixes could not, which is what "structural" buys.
+FastRule's atomic numbers are byte-identical on both halves; its
+non-atomic diagnostic moved the right way ("knew it was compound"
+63.7→66.1%, "by accident" 12.1→9.6% on the test half — the compound gate
+now defers *knowingly* more often). 35 tests in `test_coordination.py`.
+One shape is still open: "FORGET email the landlord, i'd rather…" — the
+path works, but "forget" is in no lexicon at all, so it is not a command
+verb. Vocabulary, not structure — which is exactly what #1 was for.
+
+**#1 — word vectors in place of the closed verb lists.** `en_core_web_sm`
+carries no vectors (`(0, 0)`), so `en_core_web_md` was installed in the
+venv for the experiment only — never added to any requirements file —
+and `sm` kept for parsing so every parse-dependent mechanism stayed
+byte-identical. `experiments/verb_vectors.py`: the existing lexicons ARE
+the prototypes (nothing new hand-written), a held-out verb is placed by
+nearest-prototype cosine, 35 held-out verbs asserted absent from every
+lexicon, plus 24 non-verbs. **Refuted on all three questions** — §6's
+table has the numbers. The decisive one is separation: at every
+threshold most NON-verbs ("budget"→`plan` 0.89, "friday"→`mark` 0.78,
+"groceries"→`cook` 0.76) read as command verbs — static vectors encode
+topic, not part of speech, and `_is_command_verb` feeds the CUT, where a
+promoted noun is a false split. Not a threshold problem and not fixable
+by a bigger model. TAG alone would drop from 96.9% to ~67–75%. `md`'s
+20k-row pruned table also collides unrelated words at exactly 1.00
+("mend"=`walk`, "bump"=`walk`); `lg` would fix the collisions but not the
+POS-blindness, so it was not requested.
+
+**Verdict: #2 shipped, #1 not adopted.** The stage is less rule-bound than
+it looks — CUT reads the parse and now covers three more structural shapes
+without a single new phrase — and the remaining word-list dependence (TAG's
+lexicons, `INTENT_MAP`) is, on this evidence, cheaper to extend by hand
+than to replace with vectors at this model size. `en_core_web_md` is left
+installed in the venv so the experiment re-runs; `pip uninstall
+en_core_web_md` removes it, nothing else references it.
+
 1. **The compound-chain fix.** `_compound_command_verb`'s hidden-verb search
    only checked DIRECT children. spaCy parses a two-word object as a flat
    sibling pair (`book`/`tennis` both children of `lesson`) or a nested chain
@@ -1158,6 +1235,7 @@ morning`, `9 in the morning`.
 | a similarity threshold can score the action | **NO** — see §5 |
 | **the logistic `kind` head is a better TAG** | **NO — 88.7% → 80.4%**, and refuted on all three slices including hand-written rows that cannot be in its fitting data. It over-predicts `task`: task recall rises 90.2% → 92.8% while **event recall collapses 87.7% → 71.4%**, event→task errors 106 → 247. Tried as a decisive-only tier (81.2%) and as a one-way veto over `event` (80.1%) — both worse. `experiments/tag_head.py` |
 | **a STRUCTURAL classifier (dependency-parse features, not keyword presence) beats the hand rules** | **NO, but closer — 94.4% 5-fold OOF vs the rules' 96.9%** (gold-item tag accuracy; hand-written slice 88.6% vs 89.9%), tried after §0b's 16 fixes specifically to test whether the ORIGINAL head's loss was about features (keyword-presence: `with\s+[a-z]+` cannot tell a verb's real argument from an unrelated word after a shared preposition) rather than about ML itself. It was: swapping to genuine parse-derived features (does the verb's own `dobj`/`prep→pobj` carry a PROPN, "before"'s transitivity, the engine's own `_kind_of` verdict as an input) recovered 14.0 of the 16.5-point gap (80.4%→94.4%), but 1,051 rows split three ways — many idioms at 6-12 examples — is not enough for ANY fitted model, however featured, to beat rules individually verified against the corpus's full label distribution. Tried as a one-way veto over `event` too (95.4% best, still below 96.9%): when it disagrees with the rules, it is wrong more often than right. `experiments/tag_structural.py` |
+| **word vectors (`en_core_web_md`) can replace the closed verb lists** | **NO, on all three questions.** Held-out verbs asserted absent from every lexicon, nearest-prototype cosine with the EXISTING lexicons as prototypes. TAG (task vs event): 66.7% (18/27 answered at threshold 0.30), 75% (6/8) at 0.60 — vs the rules' 96.9% (n=1,501). INTENT_MAP family: ~45% (13/29). **Separation is the decisive failure**: at threshold 0.40, 22/24 NON-verbs ("budget"→`plan` 0.89, "friday"→`mark` 0.78, "groceries"→`cook` 0.76) read as command verbs; even at 0.65 it is 10/24 nouns passing vs 10/35 verbs — no threshold separates them, because static vectors encode topic, not part of speech, and `_is_command_verb` feeds the CUT. `md`'s pruned 20k-row table also collides unrelated words at exactly 1.00 ("mend"=`walk`); `lg` would fix that, not the POS-blindness. Model installed in the venv only, never in requirements. `experiments/verb_vectors.py` |
 
 ### LLMSeg's standing — turned OFF, on SIX measurements now
 
