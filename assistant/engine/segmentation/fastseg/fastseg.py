@@ -630,7 +630,7 @@ _TASK_VERBS = frozenset("""
     buy call email text pick collect grab wash clean fold pack sort
     file pay submit prepare print water walk take change top order renew
     return drop send finish write update fix charge vacuum feed refill
-    restock organize review back
+    restock organize review back draft finalize prep
 """.split())
 
 

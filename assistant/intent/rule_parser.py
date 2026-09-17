@@ -335,6 +335,14 @@ INTENT_MAP: dict[tuple[str, str | None], str] = {
     ("renew", None): "create_todo",
     ("cook", None): "create_todo",
     ("prepare", None): "create_todo",
+    # Found missing via segmentation's adversarial stress test (§0c,
+    # 2026-09-16/17) — common task verbs with no entry at all, so a bare
+    # "finalize the budget and text karen" never even split (`_is_command_
+    # verb` reads this same table). "prep" is "prepare"'s own shorthand,
+    # already routed; "draft"/"finalize" are new.
+    ("draft", None): "create_todo",
+    ("finalize", None): "create_todo",
+    ("prep", None): "create_todo",
     # --- Todo complete ---
     ("mark", None): "complete_todo",
     ("check", "todo"): "complete_todo",   # "check off" / "check the task"

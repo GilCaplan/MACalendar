@@ -610,6 +610,15 @@ def _rescued_by_family(doc, tok):
     refuses), but nobody books an appointment made of car-service the way
     someone buys a bottle made of water.
 
+    A SECOND rescue, same-family: "finalize the budget and text KAREN about
+    the venue" — root `finalize`, hidden `text`, BOTH `create_todo` — family
+    alone would refuse this too, but `tok` (what the hidden verb is a
+    compound modifier OF) is a capitalised PROPER NOUN here, not a bare
+    object like "bottles"/"water" — nobody "texts" a water bottle, and a
+    verb hiding in a PERSON's name is evidence of a real second ask family
+    matching cannot see, the same signal `fastseg.py`'s `_has_person_
+    argument` already uses for the identical distinction one stage over.
+
     A verb outside `INTENT_MAP` (root OR hidden) rescues nothing — no
     family to compare means no evidence, not a guess.
     """
@@ -625,7 +634,9 @@ def _rescued_by_family(doc, tok):
     if hidden is None:
         return None
     hidden_family = _verb_intent_family(hidden)
-    if hidden_family is None or hidden_family == root_family:
+    if hidden_family is None:
+        return None
+    if hidden_family == root_family and tok.pos_ != "PROPN":
         return None
     return hidden
 

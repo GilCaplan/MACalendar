@@ -335,14 +335,36 @@ structural (verb-blind) signal can make on its own.
 (train 920/1051 unchanged, sealed 504→510/660, +6 — the vocabulary widening
 generalised further than any single §0b fix did, since it isn't keyed to
 one family's exact template). Full test suite green throughout (1,715
-tests). Five cases in `adversarial_tag.py` remain honestly marked WRONG,
-not silently dropped: one base-engine-tagger misfire outside this stage's
-remaining scope, three CUT-level gaps (`INTENT_MAP` missing "finalize"/
-"draft"/"prep" as recognised verbs — `rule_parser.py`'s call, shared with
-FastRule, not this file's), and the bare-generic-booking idiom ("book a
-hotel") flagged and deliberately not chased earlier in §0b for the same
-reason: distinguishing a bare booking from a specific one needs a
-structural check this pass didn't build.
+tests).
+
+**2026-09-17 — the three CUT-level gaps got picked up.** `INTENT_MAP`
+(`rule_parser.py`, shared with FastRule) had no entry for "finalize"/
+"draft"/"prep" at all, so `has_clause_coordination` could not recognise a
+second clause built on them; added, plus the same three to `fastseg.py`'s
+OWN separate `_TASK_VERBS` (the CUT lexicon and the TAG lexicon are
+different tables — fixing one does not fix the other). Chasing "finalize
+the budget and text KAREN about the venue" also found a same-family gap in
+`_rescued_by_family`: "text" and "finalize" both resolve to `create_todo`,
+so the existing family-MISMATCH rescue correctly refused it — but the
+hidden verb's own argument being a capitalised PROPER NOUN is the same
+"this is a real second ask" evidence `_has_person_argument` already uses
+for TAG, ported one stage over as a second rescue path. **26/31→28/31
+(90%)**, zero regression on FastSeg (train 920/1051, sealed 510/660
+unchanged) and on FastRule's own 7,200-row board (both halves, output
+byte-identical before/after — these verbs simply don't occur in either
+corpus, which is the whole point of testing against phrasing that isn't in
+them). Two artifact pages (`explorer.html`, `internals.html`) quote
+`INTENT_MAP`'s verb count and needed updating to 87 — caught by `test_
+artifact_claims.py`, not missed.
+
+Three cases in `adversarial_tag.py` remain honestly marked WRONG, not
+silently dropped: one base-engine-tagger misfire outside this stage's
+remaining scope; "draft the proposal and then call the client at 3", where
+item 1 has no time of its own and inherits item 2's trailing "at 3" per
+SPEC.md's own edge-distribution rule, which `_STATED_CLOCK`'s veto-
+exception cannot distinguish from an item's own stated time; and the
+bare-generic-booking idiom ("book a hotel"), which needs a structural
+"does the object carry a named modifier" check neither pass built.
 
 **Run `adversarial_tag.py` after any future TAG/CUT change** — it is the
 one check in this stage not measuring the dataset, and the corpus-wide

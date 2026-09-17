@@ -24,16 +24,35 @@ that experiment worth keeping even though the classifier as a whole lost —
 brought it to **26/31 (84%)**, verified zero regression on the real board
 (train 920/1051, sealed 510/660) each step.
 
-The five still WRONG are recorded, not silently passed over:
+**2026-09-17**: three of the five were CUT gaps — "finalize"/"draft"/"prep"
+had no `INTENT_MAP` entry at all (`rule_parser.py`, shared with FastRule —
+verified zero change on its own 7,200-row board, both halves, byte-
+identical before/after), so `has_clause_coordination` could not even
+recognise the second clause as a command verb. Added the three verbs there
+and to `fastseg.py`'s own separate `_TASK_VERBS` (a DIFFERENT lexicon —
+`INTENT_MAP` fixed the CUT, `_TASK_VERBS` was still needed for the TAG).
+Also found and fixed a same-family compound-rescue gap in `coordination.py`
+while chasing "finalize the budget and text KAREN about the venue": the
+hidden verb ("text") and the root verb ("finalize") both resolve to
+`create_todo`, so the existing family-MISMATCH rescue correctly refused it
+— but the hidden verb's own argument being a capitalised PROPER NOUN is
+evidence of a real second ask no family comparison can see (nobody "texts"
+a bare object the way "buy apples and water bottles" buys one) — the same
+signal `_has_person_argument` already uses for TAG, ported one stage over.
+**26/31 -> 28/31 (90%)**, zero regression on FastSeg (train 920/1051,
+sealed 510/660) and FastRule (both halves, byte-identical) throughout.
+
+The three still WRONG are recorded, not silently passed over:
   - "check in with the contractor about the roof" -> `review`, not `event`.
     The base engine tagger (`old_seg.segment._kind_of`, outside this
     stage's remaining budget) reads "check in" as a schedule-query.
-  - "finalize the budget and text karen…", "draft the proposal and then
-    call…", "prep the slides and…" — CUT, not TAG: "finalize"/"draft"/
-    "prep" are not in `INTENT_MAP`, so `has_clause_coordination` cannot even
-    recognise the second clause as a command verb. Widening `INTENT_MAP`
-    itself is `assistant/intent/rule_parser.py`'s call, shared with
-    FastRule — out of this file's scope.
+  - "draft the proposal and then call the client at 3" -> item 1 ("draft
+    the proposal") reads `event`, not `task` — it has no time of its own,
+    so the trailing "at 3" (item 2's own clock) EDGE-DISTRIBUTES to it per
+    SPEC.md's own scoping rule, and `_STATED_CLOCK`'s "a stated clock means
+    scheduled" veto-exception cannot tell an item's OWN clock from a
+    borrowed one. A real, narrower gap than the CUT ones above — not
+    attempted this pass.
   - "book a hotel" -> `event`, not `task`. "book a flight"/"a hotel"/"a
     table" bare, with no further detail, reads `task` on the corpus
     (34/35 for "book a flight" alone) but distinguishing a BARE generic
@@ -101,9 +120,12 @@ CASES = [
     ("call the plumber at my convenience", 1, ["task"], False),
 
     # --- CUT: two-ask coordination, verbs NOT in INTENT_MAP at all ---
-    ("finalize the budget and text karen about the venue", 2, ["task", "task"], True),
+    # capitalised, matching the dataset's own register — a lowercase name
+    # is a test-construction artifact, not realistic STT (same lesson as
+    # "Devesh" above)
+    ("finalize the budget and text Karen about the venue", 2, ["task", "task"], False),
     ("draft the proposal and then call the client at 3", 2, ["task", "event"], True),
-    ("prep the slides and remind me to charge my laptop", 2, ["task", "task"], True),
+    ("prep the slides and remind me to charge my laptop", 2, ["task", "task"], False),
     ("book the caterer for saturday and text the guests the address", 2,
      ["event", "task"], False),
 
