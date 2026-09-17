@@ -321,7 +321,12 @@ def clause_boundaries(text: str) -> "list[Boundary]":
                         if c.dep_ in ("dobj", "obj") and c.i > tok.i]
             if head_obj:
                 continue          # shared object → serial verb → one ask
-        conj_has_own = any(c.dep_ in OWN_ARG for c in tok.children)
+        # A DATE hanging off the conjunct is not an object of it — "…and DREW
+        # this coming saturday" attaches "saturday" to `Drew` as npadvmod,
+        # and counting that as an argument was the one thing that over-split
+        # an attendee list (ARCHITECTURE.md §0, the `Drew` row).
+        conj_has_own = any(c.dep_ in OWN_ARG and not _is_date_argument(doc, c)
+                           for c in tok.children)
         # When the head is a DATE rather than a verb, spaCy has mis-attached
         # the second ask's object to the first clause — "…on friday and book
         # a haircut" hangs `book` off `friday` with no children at all, so
@@ -398,7 +403,7 @@ def clause_boundaries(text: str) -> "list[Boundary]":
 #: an hour" has its own object, "call the vet") is a real second ask that
 #: happens to carry a lead-time-shaped tail, not this idiom.
 _REMINDER_LEAD_RE = re.compile(
-    r"^(?:(?:remind|notify|warn)\s+me|give\s+me\s+a\s+(?:heads?\s+up|nudge))\s+"
+    r"^(?:(?:remind|notify|warn|alert)\s+me|give\s+me\s+a\s+(?:heads?\s+up|nudge))\s+"
     r"(?:\d+|a|an|half\s+an?|one|two|three|four|five|six|seven|eight|nine|ten)\s+"
     r"(?:minutes?|mins?|hours?|days?|weeks?)?\s*"
     # A second, redundant lead-marker sometimes follows the first ("10
@@ -424,6 +429,71 @@ def _non_splitting_tail(text: str) -> bool:
     the shared gate for both the main walk and the lexicon fallback below."""
     t = text.strip()
     return bool(_REMINDER_LEAD_RE.match(t) or _TRIVIAL_TAIL_RE.match(t))
+
+
+#: What an object can be before a verb's particle or the object proper —
+#: "remind ME", "pick IT up" — skipped when looking past a verb for its
+#: object.
+_OBJ_PRONOUNS = frozenset({"me", "it", "that", "this", "them", "us", "him", "her"})
+
+
+def _is_date_argument(doc, c) -> bool:
+    """Is this child of a verb a DATE rather than an object?
+
+    Asked of the child ITSELF, not of what follows it — `_opens_a_date` is
+    a forward scan built for the slot after a verb, and pointed at a verb's
+    children it read "set up MOVING DAY for new year's eve" as three dates
+    (the particle "up", because "day" sits two tokens on; "day", an event
+    NAME that happens to contain a temporal word; and the prep, correctly).
+    So: a preposition is a date if its object opens one ("ON saturday
+    morning"); a nominal argument is a date if its own head is a temporal
+    word or a short number ("this coming SATURDAY", "the 3RD") — unless a
+    `compound` names it ("moving DAY", "game DAY"), which is a thing, not a
+    when. Everything else a verb can govern (a particle, a clause, a
+    dative) is never a date.
+    """
+    if c.dep_ == "prep":
+        return _opens_a_date(doc, c.i + 1)
+    if c.dep_ in ("npadvmod", "nmod", "dobj", "obj", "attr", "oprd", "appos"):
+        if any(k.dep_ == "compound" for k in c.children):
+            return False
+        word = (c.lemma_ or c.text).lower()
+        return word in _TEMPORAL_WORDS or bool(c.like_num and len(c.text) <= 4)
+    return False
+
+
+def _carries_an_object(doc, tok, end: int) -> bool:
+    """Does this candidate verb ask for anything — carry an argument of its
+    own that is not a DATE?
+
+    The main walk always had this test; the lexicon fallback never did, and
+    it showed the moment "meet" joined `INTENT_MAP`: "meeting with tal and
+    MARK tomorrow" — `mark` is a name colliding with a verb, "meeting"
+    (lemma "meet") is now a command verb, the families differ
+    (create_event vs complete_todo), and nothing else stood in the way. A
+    verb followed by a date word, or by nothing, asks for nothing.
+
+    A date is never an object even when spaCy hangs it off the verb —
+    "lunch with Reese and DREW this coming saturday" attaches "saturday"
+    to `Drew` as `npadvmod`, which is in `_OWN_ARG`, and that one
+    attachment was the whole reason this row over-split (ARCHITECTURE.md
+    §0, filed 2026-09-16). Excluding date-opening children closes it.
+    """
+    if any(c.dep_ in _OWN_ARG and not _is_date_argument(doc, c) for c in tok.children):
+        return True
+    k = tok.i + 1
+    while k < end and (doc[k].lower_ in _OBJ_PRONOUNS or doc[k].pos_ in ("ADJ", "ADV")):
+        k += 1
+    if k >= end or doc[k].is_punct:
+        return False
+    if doc[k].pos_ in ("DET", "PRON", "NOUN", "PROPN", "NUM"):
+        return not _opens_a_date(doc, k)
+    if doc[k].pos_ in ("ADP", "PART") and k + 1 < end:
+        # "talk TO taylor", "head TO standup", "sign UP for the class" — a
+        # preposition introduces an argument, unless that argument is a
+        # date ("…and MARK on friday"), the same test a `prep` child gets.
+        return not _opens_a_date(doc, k + 1)
+    return False
 
 
 def _lexicon_fallback_boundaries(doc, text: str) -> "list[Boundary]":
@@ -512,6 +582,8 @@ def _lexicon_fallback_boundaries(doc, text: str) -> "list[Boundary]":
             nxt_family = _verb_intent_family(nxt, nxt_words)
             if prev_family is None or nxt_family is None or prev_family == nxt_family:
                 continue
+        if not _carries_an_object(doc, nxt, nxt_end):
+            continue                 # "…and MARK tomorrow": a name, not an ask
         if _non_splitting_tail(doc[nxt.i:nxt_end].text):
             # "book webinar sunday at 8:30pm and remind me two hours before"
             # IS a real family mismatch (book=event, remind=todo) and would

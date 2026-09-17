@@ -343,6 +343,46 @@ INTENT_MAP: dict[tuple[str, str | None], str] = {
     ("draft", None): "create_todo",
     ("finalize", None): "create_todo",
     ("prep", None): "create_todo",
+    # --- Mined from REAL speech, 2026-09-17 (segmentation/experiments/
+    #     missing_verbs.py): ask-verbs used in HWU-64 (2,699 human-written
+    #     utterances, sealed 300 excluded), the author's own command memory
+    #     (lemma counts only), and FastRule's train half, that no lexicon
+    #     knew. Family from FastRule's own gold where it has the verb, from
+    #     the HWU examples otherwise — never from the generated corpus, whose
+    #     vocabulary is this table. Counts: hwu / memory / fastrule.
+    # encounters — create_event per gold (meet 127, talk 45/45, catch 15/15,
+    # touch 15/15, head 15/15, squeeze 14/14, pencil 13/13)
+    ("meet", None): "create_event",         # 48 / 3 / 21
+    ("talk", None): "create_event",         # 2 / 0 / 45   "talk to Taylor in five days"
+    ("catch", None): "create_event",        # 0 / 0 / 15   "catch up with Cameron"
+    ("touch", None): "create_event",        # 0 / 0 / 15   "touch base with Alex"
+    ("head", None): "create_event",         # 0 / 0 / 15   "head to standup"
+    ("squeeze", None): "create_event",      # 0 / 0 / 14   "squeeze in piano lesson"
+    ("pencil", None): "create_event",       # 3 / 0 / 13   "pencil me in for…"
+    ("attend", None): "create_event",       # 7 / 0 / 0
+    # reminder framing — create_event per gold (notify 17/17, alert 15/15):
+    # "alert me 2 hours before my meeting" is a reminder OF an event
+    ("notify", None): "create_event",       # 26 / 0 / 3
+    ("alert", None): "create_event",        # 14 / 0 / 3
+    ("label", "calendar"): "create_event",  # 0 / 0 / 15   "label the 15th as my birthday"
+    # errands — create_todo per gold (confirm 19, mail 24, sign 22 as the ask;
+    # the rest of their counts are rows where they are the wrapped title)
+    ("confirm", None): "create_todo",       # 0 / 0 / 48
+    ("mail", None): "create_todo",          # 0 / 0 / 35
+    ("sign", None): "create_todo",          # 0 / 0 / 25
+    ("tick", None): "complete_todo",        # 0 / 0 / 13   "tick X off my list"
+    # deletes — qualified like delete/remove/clear; rid splits 15/14 by domain
+    ("erase", "calendar"): "delete_event",  # 19 / 0 / 0   "erase the haircut i have scheduled"
+    ("erase", "todo"): "delete_todo",
+    ("rid", "calendar"): "delete_event",    # 4 / 0 / 29   "get rid of …"
+    ("rid", "todo"): "delete_todo",
+    # adds — qualified like add/put/create/make (HWU only)
+    ("place", "calendar"): "create_event",  # 9 / 0 / 0    "place this on the calendar"
+    ("place", "todo"): "create_todo",
+    ("enter", "calendar"): "create_event",  # 7 / 0 / 0    "enter a reminder in my calendar"
+    ("enter", "todo"): "create_todo",
+    ("include", "calendar"): "create_event",  # 8 / 0 / 0  "include an item to a list"
+    ("include", "todo"): "create_todo",
     # --- Todo complete ---
     ("mark", None): "complete_todo",
     ("check", "todo"): "complete_todo",   # "check off" / "check the task"

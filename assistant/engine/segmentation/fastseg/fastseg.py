@@ -624,6 +624,7 @@ def _tidy(s: str) -> str:
 _CALENDAR_VERBS = frozenset("""
     book schedule plan arrange reschedule rebook cancel move postpone
     delete clear block
+    meet talk catch touch head squeeze pencil attend
 """.split())
 
 _TASK_VERBS = frozenset("""
@@ -631,7 +632,30 @@ _TASK_VERBS = frozenset("""
     file pay submit prepare print water walk take change top order renew
     return drop send finish write update fix charge vacuum feed refill
     restock organize review back draft finalize prep
+    confirm mail sign tick
 """.split())
+# The last line of each list above was mined from REAL speech (HWU-64, the
+# author's command memory, FastRule's train half) and family-checked against
+# FastRule's own gold — `segmentation/experiments/missing_verbs.py`, and the
+# INTENT_MAP block in rule_parser.py carries the per-verb counts.
+
+#: Verb particles — a closed grammatical class (what spaCy tags `prt`), not
+#: vocabulary. The pronouns are the ones an object can take between verb and
+#: particle ("sign ME up", "pick IT up").
+_PARTICLES = frozenset("up off out in on down away back over".split())
+_OBJECT_PRONOUNS = frozenset("me it that this them us him her".split())
+
+#: Phrasal verbs whose kind differs from their bare verb's, or whose bare
+#: verb has no entry at all. Found the honest way — "sign me up for the
+#: pottery class" (split_traps sp-0003, gold `event`) regressed to `task`
+#: the moment "sign" (task, 22/22 on FastRule's gold for "sign the
+#: permission slip") joined `_TASK_VERBS`. Entries need the same evidence
+#: as the flat lists: sign up / set up / catch up / meet up are enrolments
+#: and encounters, the rest are to-do completions and errands.
+_PHRASAL_KINDS = {
+    "sign up": "event", "set up": "event", "catch up": "event", "meet up": "event",
+    "wrap up": "task", "tick off": "task", "check off": "task", "drop off": "task",
+}
 
 
 #: NOT A CALENDAR ASK AT ALL — `other`, the fourth value `ITEM_KINDS` has always
@@ -881,6 +905,22 @@ def _lexicon_kind(action: str) -> "str | None":
     words = [w.strip(".!?,") for w in action.lower().split()]
     while words and words[0] in _PREAMBLE:
         words.pop(0)
+    # A PHRASAL verb is a different word from its bare verb: "sign the
+    # permission slip" is a task, "sign me UP for the pottery class" is an
+    # event (enrolling). The particle may sit past an object pronoun ("sign
+    # ME up", "pick IT up"), so it is looked for within two tokens, skipping
+    # pronouns. Particles are a closed grammatical set, not vocabulary;
+    # only the phrasal FORMS are lexicon entries, and only those with
+    # evidence — `_PHRASAL_KINDS`.
+    if words:
+        for nxt in words[1:3]:
+            if nxt in _OBJECT_PRONOUNS:
+                continue
+            if nxt in _PARTICLES:
+                phrasal = _PHRASAL_KINDS.get(f"{words[0]} {nxt}")
+                if phrasal:
+                    return phrasal
+            break
     for word in words[:2]:
         if word in _CALENDAR_VERBS:
             return "event"

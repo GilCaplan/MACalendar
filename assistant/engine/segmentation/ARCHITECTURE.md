@@ -65,11 +65,11 @@ Verified end to end through `engine.run_transcript`, not inferred from the board
 
 | | train (1,051 rows) | **SEALED (660 rows)** |
 |---|---|---|
-| exact-set (actions) | 90.3% | **85.3%** |
-| exact-row (action+time+tag) | 87.5% (920/1051) | **77.3% (510/660)** |
-| **the CUT alone** — right item count | 96.5% | **90.9%** |
-| item precision · recall · F1 | 99.7 · 97.7 · 98.7 | **97.6 · 96.2 · 96.9** |
-| over-split · under-split | 4 · 33 | **23 · 37** |
+| exact-set (actions) | 91.4% (961/1051) | **85.6% (565/660)** |
+| exact-row (action+time+tag) | 88.9% (934/1051) | **78.2% (516/660)** |
+| **the CUT alone** — right item count | 97.6% | **92.1%** |
+| item precision · recall · F1 | 99.7 · 98.4 · 99.1 | **97.6 · 96.6 · 97.1** |
+| over-split · under-split | 3 · 22 | **22 · 34** |
 | time on a **spoken** time | 98.5% | **96.0%** |
 | tag accuracy | 96.0% | **92.6%** |
 | A2 — 2 of 3 fields | 98.2% | **96.9%** |
@@ -447,6 +447,60 @@ lexicons, `INTENT_MAP`) is, on this evidence, cheaper to extend by hand
 than to replace with vectors at this model size. `en_core_web_md` is left
 installed in the venv so the experiment re-runs; `pip uninstall
 en_core_web_md` removes it, nothing else references it.
+
+### 0e · Widening the lexicons from REAL speech, not from the corpus (Gil,
+### 2026-09-17: "see what keywords need to be added to lists")
+
+With vectors refuted, hand-extension is the honest route — but mining the
+generated corpus for missing verbs would only find the lexicons' own
+vocabulary. `experiments/missing_verbs.py` mines three real sources for
+verbs USED AS AN ASK (root with no or a 1st/2nd-person subject, a framing
+verb's complement, a coordinated verb) that no lexicon knows: HWU-64
+(2,699 human-written utterances, the sealed 300 excluded), the author's
+command memory (95 real rows, read-only, LEMMA COUNTS ONLY per
+REALSPEECH.md's privacy rule), and FastRule's train half. Family came
+from FastRule's own gold where it has the verb, from the HWU examples
+otherwise — and gold corrected two guesses: **notify/alert → create_event**
+(17/17, 15/15 — a reminder OF an event), **talk → create_event** (45/45,
+"talk to Taylor" is an encounter). 25 `INTENT_MAP` keys added (87→112;
+meet, talk, catch, touch, head, squeeze, pencil, attend, notify, alert,
+label·cal, confirm, mail, sign, tick, erase·2, rid·2, place·2, enter·2,
+include·2), the encounter verbs to `_CALENDAR_VERBS`, confirm/mail/sign/
+tick to `_TASK_VERBS`, "alert" to `_REMINDER_LEAD_RE`.
+
+Three things the measurement found that a word list alone could not:
+
+- **Phrasal verbs are different words.** "sign me UP for the pottery
+  class" (`sp-0003`, gold `event`) regressed to `task` the moment "sign"
+  (task, 22/22 for "sign the permission slip") joined `_TASK_VERBS`.
+  `_lexicon_kind` now looks past an object pronoun for a particle — a
+  closed grammatical class, what spaCy tags `prt` — and consults
+  `_PHRASAL_KINDS` first (sign up / set up / catch up / meet up → event;
+  wrap up / tick off / check off / drop off → task).
+- **The fallback never checked for an object.** "meeting with tal and
+  MARK tomorrow" split the moment "meeting" (lemma *meet*) became a
+  command verb: the families differed (event vs complete_todo) and
+  `_lexicon_fallback_boundaries` had a family test but no own-argument
+  test, unlike the main walk. `_carries_an_object` ports it, with a
+  preposition counting as an argument unless what it introduces is a date.
+- **A date is never an object.** The long-filed "lunch with Reese and
+  DREW this coming saturday" over-split (§0) was "saturday" hanging off
+  `Drew` as `npadvmod` and counting as an argument. `_is_date_argument`
+  asks the child ITSELF (a prep whose object opens a date; a temporal
+  head not named by a compound — "moving DAY" is an event, not a when).
+  The first cut used `_opens_a_date`, a forward scan built for the slot
+  after a verb, and pointed at children it read "set up MOVING DAY for
+  new year's eve" as three dates; caught by the row-ID diff.
+
+Net vs. §0d's state: train 930→934/1051 (88.5→88.9%), over-split 4→3,
+under-split 23→22, zero rows lost; sealed 516→516/660 — it rose to 519
+with the vocabulary alone and the object guard gave those back (sealed
+over-split 23→22, under-split 37→34); FastRule's sealed half handle-rate
+55.6→56.4%, correct-on-handled 70.2→70.5%, half-executed unchanged (21),
+"covered" 116→120. Adversarial 28/31 unchanged. The version that scored
+higher on sealed (the crude date scan) was NOT kept: it broke a train row
+for an explainable reason, and choosing by the sealed number is the one
+thing the split rule forbids.
 
 1. **The compound-chain fix.** `_compound_command_verb`'s hidden-verb search
    only checked DIRECT children. spaCy parses a two-word object as a flat

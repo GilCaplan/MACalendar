@@ -78,11 +78,19 @@ def test_an_nmod_tagged_hidden_verb_is_found_too():
 
 
 def test_a_verb_outside_the_lexicon_rescues_nothing():
-    # "confirm" has no INTENT_MAP entry, so there is no family to compare —
-    # the rescue must fail closed (no split), never guess.
+    # "photocopy" has no INTENT_MAP entry, so there is no family to compare —
+    # the rescue must fail closed (no split), never guess. (This used to use
+    # "confirm", which joined INTENT_MAP on 2026-09-17 from real-speech
+    # evidence — and the old sentence now correctly splits, below.)
+    assert split_clauses(
+        "photocopy the reservation and then book webinar this weekend at 11am"
+    ) == ["photocopy the reservation and then book webinar this weekend at 11am"]
+
+
+def test_a_newly_known_verb_now_rescues_the_same_shape():
     assert split_clauses(
         "confirm the reservation and then book webinar this weekend at 11am"
-    ) == ["confirm the reservation and then book webinar this weekend at 11am"]
+    ) == ["confirm the reservation", "book webinar this weekend at 11am"]
 
 
 # --- the bare-object extension: no article at all, English never puts one here ---
