@@ -49,21 +49,57 @@ struct ContentView: View {
     /// fit the screen at once, the row scrolls rather than hiding any of
     /// them behind an extra tap. Settings pins to the trailing edge, outside
     /// the scrolling region, so it never needs a scroll either.
+    /// The narrowest a tab may be before the row has to scroll instead.
+    private static let minTabWidth: CGFloat = 58
+
     private var customTabBar: some View {
-        HStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 0) {
-                    ForEach(contentTabs) { feature in
-                        tabBarButton(feature)
+        GeometryReader { geo in
+            // Settings is pinned outside the scrolling region, so it is taken
+            // off the top and the content tabs share what is left.
+            let reserved = Self.minTabWidth + 9          // the button + its divider
+            let available = max(geo.size.width - reserved, 0)
+            let fits = CGFloat(contentTabs.count) * Self.minTabWidth <= available
+
+            HStack(spacing: 0) {
+                Group {
+                    if fits {
+                        // They fit, so SPREAD them across the width.
+                        //
+                        // This used to be a ScrollView unconditionally, and a
+                        // horizontal ScrollView aligns its content to the
+                        // LEADING edge — so five tabs in a row sized for eight
+                        // clumped to the left and left a dead gap before the
+                        // divider. Hiding a tab made that gap BIGGER, which is
+                        // precisely when the row is supposed to look tidier.
+                        HStack(spacing: 0) {
+                            ForEach(contentTabs) { feature in
+                                tabBarButton(feature).frame(maxWidth: .infinity)
+                            }
+                        }
+                    } else {
+                        // Genuinely too many to show at once: scroll rather
+                        // than squeeze them into something unreadable, and
+                        // still never fold any away behind a "More" tab.
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 0) {
+                                ForEach(contentTabs) { feature in
+                                    tabBarButton(feature)
+                                }
+                            }
+                        }
                     }
                 }
+                .frame(width: available)
+
+                Divider().frame(height: 30)
+                Button { showSettings = true } label: {
+                    tabBarLabel(label: "Settings", icon: "gear", selected: false)
+                }
+                .buttonStyle(.plain)
+                .frame(width: Self.minTabWidth)
             }
-            Divider().frame(height: 30)
-            Button { showSettings = true } label: {
-                tabBarLabel(label: "Settings", icon: "gear", selected: false)
-            }
-            .buttonStyle(.plain)
         }
+        .frame(height: 46)
         .padding(.top, 6)
         .padding(.bottom, 2)
         .background(Color(.secondarySystemBackground))
@@ -84,10 +120,15 @@ struct ContentView: View {
     private func tabBarLabel(label: String, icon: String, selected: Bool) -> some View {
         VStack(spacing: 3) {
             Image(systemName: icon).font(.system(size: 21))
-            Text(label).font(.system(size: 10))
+            // One line, shrinking a little rather than truncating: "Coursework"
+            // is the longest label and is what made the row look crowded.
+            Text(label)
+                .font(.system(size: 10))
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
         }
         .foregroundColor(selected ? settings.accentColor : .secondary)
-        .frame(minWidth: 58)
+        .frame(minWidth: Self.minTabWidth)
         .padding(.vertical, 2)
     }
 
