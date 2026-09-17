@@ -309,3 +309,108 @@ def test_an_unknown_token_is_a_404(client):
 def test_a_missing_token_is_a_400(client):
     r = client.post("/voice/confirm", json={"accept": True})
     assert r.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# A RANGE DATE is the gate's second trigger (Gil, 2026-09-17)
+#
+# "book yoga class next week" names a SPAN, not a day. The recogniser returns
+# these as a `daterange` carrying no `value` at all and nothing read them, so
+# the date was silently dropped — the task landed on the Today list with no due
+# date, at a confidence over RULE_THRESHOLD, committed instantly and
+# indistinguishable from a command that named no date. Asked about the options,
+# Gil chose "ask instead of guessing", so the day is now READ and then OFFERED.
+#
+# The whole point of routing it through THIS gate is that no model is involved:
+# the proposal is built from the rule parse on the fast path, so the speaker
+# gets a specific day to accept in milliseconds rather than after ~40 s in the
+# deep track.
+# ---------------------------------------------------------------------------
+
+from assistant.config import load_config                     # noqa: E402
+
+
+def _fast(text: str, supports_confirm: bool = True):
+    state = EngineState(raw_text=text, text=text, source="test",
+                        supports_confirm=supports_confirm)
+    took = fast_track.fast_propose(state, load_config())
+    return state, took
+
+
+@pytest.fixture
+def real_actions(registry_with_real_actions):
+    """`fast_propose` validates against the REGISTRY, so an empty one makes
+    every row decline for want of an action class — which reads exactly like
+    the range gate refusing to commit. Reset the engine's cached registry and
+    parser around the swap, or the cache outlives the fixture."""
+    from assistant.engine import llm as _llm
+    _llm.reset()
+    yield registry_with_real_actions
+    _llm.reset()
+
+
+@pytest.mark.usefixtures("real_actions")
+class TestARangeDateIsOffered:
+
+    def test_the_day_is_read_and_held_for_confirmation(self):
+        state, took = _fast("book yoga class next week at 7am")
+        assert took, "the fast path should still handle the row"
+        assert state.parse_path == "fast"
+        assert len(state.items) == 1
+        item = state.items[0]
+        assert item.slots.get("confirm_create") is True, \
+            "a range date must be offered, not committed"
+        assert item.intent.date, "the day must be RESOLVED, not left empty"
+
+    def test_the_proposal_names_the_day_it_chose(self):
+        """The speaker cannot accept or reject a guess they cannot see."""
+        state, _ = _fast("book yoga class next week at 7am")
+        proposal = _confirm_proposal(state)
+        assert proposal, "a resolved create must produce a POSTable proposal"
+        assert proposal[0]["kind"] == "event"
+        assert state.items[0].intent.date in str(proposal[0]["body"])
+
+    def test_an_exact_day_is_still_committed_without_asking(self):
+        """The gate must not start asking about every date — only a chosen one."""
+        state, took = _fast("book yoga class tomorrow at 7am")
+        assert took
+        assert not state.items[0].slots.get("confirm_create")
+
+    def test_a_client_that_cannot_ask_still_gets_the_date(self):
+        """An old client declares nothing. Committing the read day is worse than
+        asking and far better than the silent drop this replaced, so the date
+        survives and the row commits."""
+        state, took = _fast("book yoga class next week at 7am",
+                            supports_confirm=False)
+        assert took
+        assert not state.items[0].slots.get("confirm_create")
+        assert state.items[0].intent.date
+
+    def test_a_compound_is_not_stranded_behind_the_dialog(self):
+        """A confirmation holds EVERYTHING, so a two-item command must not be
+        held over one item's range date — the same guard the interrogative rule
+        carries. Whatever the fast path does here, it must not be "ask"."""
+        state, took = _fast("book gym tomorrow at 7am and yoga next week at 8am")
+        if took:
+            assert not any(it.slots.get("confirm_create") for it in state.items)
+
+
+def test_a_range_date_proposal_needs_no_model(client, real_actions, monkeypatch):
+    """End to end through the API, with the deep track made to RAISE: if
+    anything reaches a model this test fails loudly rather than passing slowly.
+    """
+    import assistant.engine as _e
+
+    def explode(*a, **k):
+        raise AssertionError("the deep track ran — a range date should be "
+                            "offered from the fast parse alone")
+
+    monkeypatch.setattr(_e._engine, "parse", explode)
+    data = client.post("/voice/text", json={
+        "transcript": "book yoga class next week at 7am",
+        "source": "test", "supports_confirm": True}).get_json()
+
+    assert data["parse"] == "confirm_create"
+    assert data["actions"] == []
+    assert len(data["proposal"]) == 1
+    assert data["confirm_token"]

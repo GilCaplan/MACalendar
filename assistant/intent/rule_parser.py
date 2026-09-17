@@ -118,6 +118,10 @@ class RuleParseResult:
     transcript: str
     routed_to_llm: bool = False
     dropped_spans: int = 0   # parts of the command the rule parser could not route
+    #: Phrases whose date was CHOSEN out of a range ("next week") rather than
+    #: named. Non-empty ⇒ the caller asks before committing (Gil, 2026-09-17):
+    #: the day is a reading of the span, not the speaker's own word for it.
+    range_dates: "list[str] | None" = None
 
 
 class RuleParserSkip(Exception):
@@ -826,6 +830,39 @@ def _ordinal_to_date(day: int, today: datetime.date) -> "str | None":
         return None
 
 
+#: "in two weeks", "in a month" — a DURATION from now, not a named span. The
+#: recogniser returns these as a `daterange` whose START is badly wrong for the
+#: everyday reading: "in a week" came back as TOMORROW (the start of the coming
+#: week) and "in two months" as one month out. Its END is closer but off by one,
+#: the ranges being half-open, so the arithmetic is done here instead of
+#: inferring the library's convention. "in N days" is NOT here: the recogniser
+#: already returns a plain `date` for those and gets them right.
+_DURATION_AHEAD = re.compile(
+    r"\bin\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d{1,2})\s+"
+    r"(week|month|year)s?\b", re.IGNORECASE)
+_NUMBER_WORD = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
+                "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+
+
+def _duration_ahead_to_date(n: int, unit: str, today: datetime.date) -> "str | None":
+    """now + N weeks/months/years, clamped to a real day: "in two months" from
+    the 31st lands on the 30th rather than raising."""
+    unit = unit.lower()
+    if unit == "week":
+        return (today + datetime.timedelta(weeks=n)).isoformat()
+    months = n * 12 if unit == "year" else n
+    total = (today.year * 12 + today.month - 1) + months
+    year, month = divmod(total, 12)
+    month += 1
+    day = today.day
+    while day > 1:
+        try:
+            return datetime.date(year, month, day).isoformat()
+        except ValueError:
+            day -= 1                      # 31st of a 30-day month
+    return datetime.date(year, month, 1).isoformat()
+
+
 def _extract_temporal(span_text: str, today: datetime.date) -> dict:
     """Extract date/time information from a span of text.
 
@@ -841,7 +878,13 @@ def _extract_temporal(span_text: str, today: datetime.date) -> dict:
         "_source": "recognizer",
         "_used_anaphora": False,
         "_domain_inferred": False,
+        #: The phrase a RANGE date came from ("next week"), when the date below
+        #: is one day CHOSEN out of a span rather than one the speaker named.
+        #: The caller asks the speaker to confirm it instead of committing —
+        #: Gil's ruling, 2026-09-17. None when the date is unambiguous.
+        "_date_from_range": None,
     }
+    range_candidates: list = []
 
     if _DT_AVAILABLE:
         _ensure_dt()
@@ -858,6 +901,17 @@ def _extract_temporal(span_text: str, today: datetime.date) -> dict:
             resolution = getattr(res, "resolution", None) or {}
             for wren in resolution.get("values", []):
                 timex_type = wren.get("type", "")
+
+                # A RANGE ("next week", "this weekend", "by friday") carries no
+                # `value` at all — the answer is in `start`/`end`. Nothing read
+                # these, so the date was silently DROPPED: a task landed on the
+                # Today list with no due date at a confidence high enough to
+                # commit instantly. Collected here and applied only AFTER the
+                # loop, so an exact date anywhere in the span always wins.
+                if timex_type == "daterange" and not wren.get("value"):
+                    range_candidates.append(
+                        (res.start, res.end + 1, wren.get("start"), wren.get("end")))
+                    continue
 
                 if timex_type == "datetime" and not result["date"]:
                     raw = wren.get("value", "")
@@ -941,6 +995,41 @@ def _extract_temporal(span_text: str, today: datetime.date) -> dict:
                 raw = all_dt_vals[0].get("value", "")
                 if raw and " " in raw:
                     result["date"] = raw.split(" ")[0]
+
+    # A RANGE date, when the span named no exact day. Which END of the range is
+    # meant depends on the preposition: "by friday" is a DEADLINE and means the
+    # last day, while "next week" means the soonest day in it — the same
+    # instinct as the existing ruling that a weekly series starts on the
+    # soonest weekday the sentence names.
+    if not result["date"]:
+        m_dur = _DURATION_AHEAD.search(span_text)
+        if m_dur:
+            raw = m_dur.group(1).lower()
+            n = _NUMBER_WORD.get(raw) or (int(raw) if raw.isdigit() else None)
+            resolved = _duration_ahead_to_date(n, m_dur.group(2), today) if n else None
+            if resolved:
+                result["date"] = resolved
+                # Still a reading rather than a day the speaker named, so it is
+                # confirmed like a range — "in two weeks" is not a date the way
+                # "the 15th" is.
+                result["_date_from_range"] = m_dur.group(0).strip()
+                result["spans"].append((m_dur.start(), m_dur.end()))
+
+    if not result["date"] and range_candidates:
+        for c_start, c_end, r_from, r_to in range_candidates:
+            phrase = span_text[c_start:c_end]
+            deadline = re.search(r"\b(?:by|before|no later than)\s*$",
+                                 span_text[:c_start], re.IGNORECASE) is not None
+            picked = (r_to or r_from) if deadline else (r_from or r_to)
+            if not picked:
+                continue
+            picked = str(picked)[:10]
+            if picked < today.isoformat():
+                continue                     # a past reading; try the next one
+            result["date"] = picked
+            result["_date_from_range"] = phrase.strip()
+            result["spans"].append((c_start, c_end))
+            break
 
     # Regex fallback for simple "today" / "tomorrow" if recognizer missed them
     if not result["date"]:
@@ -1970,6 +2059,7 @@ class RuleBasedParser:
 
         all_intents: list[tuple[str, "BaseIntent"]] = []
         all_missing: list[str] = []
+        range_dates: list[str] = []
         all_raw_slots: dict = {}
         confidences: list[float] = []
         dropped_spans = 0
@@ -1993,6 +2083,8 @@ class RuleBasedParser:
             temporal["_n_times"] = len(re.findall(
                 r"(?<![\d:])(?:\d{1,2}:\d{2}\s*(?:am|pm|a\.m\.|p\.m\.)?|\d{1,2}\s*(?:am|pm|a\.m\.|p\.m\.)|noon|midnight|\d{1,2}\s*o'clock|at\s+\d{1,2}(?![\d:]))\b",
                 _tt, re.I))
+            if temporal.get("_date_from_range"):
+                range_dates.append(temporal["_date_from_range"])
             slots = _fill_slots(span, action_name, temporal, current_view)
             if "_reroute" in slots:
                 action_name = slots.pop("_reroute")
@@ -2047,6 +2139,7 @@ class RuleBasedParser:
             raw_slots=all_raw_slots,
             transcript=normalized,
             dropped_spans=dropped_spans,
+            range_dates=range_dates or None,
         )
 
     def parse(self, transcript: str, current_view: str = "month") -> list[tuple[str, "BaseIntent"]]:

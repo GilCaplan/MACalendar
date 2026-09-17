@@ -83,13 +83,37 @@ def fast_propose(state: EngineState, cfg) -> bool:
     state.rule_confidence = res.confidence
 
     if res.committed:
+        # A date CHOSEN out of a range ("book yoga class next week") is asked
+        # about rather than committed — Gil's ruling, 2026-09-17: ask instead of
+        # guessing. The item carries the same `confirm_create` flag the
+        # interrogative gate uses (DEVQA Q9), so the orchestrator's existing
+        # `_confirm_proposal` offers it with the chosen DAY NAMED and nothing is
+        # written until the speaker accepts. No model call: this is the fast
+        # path, and the proposal is built from the rule parse.
+        #
+        # Two guards, both bought with a real failure mode:
+        #   - only when the CLIENT can render the prompt, or a proposal is a
+        #     dead end and the date would be lost again;
+        #   - only on a SINGLE item, because a confirmation holds EVERYTHING —
+        #     "book gym at 7 and yoga next week" would strand the booking
+        #     behind a dialog about the yoga. Same guard the interrogative rule
+        #     carries, for the same reason.
+        ranged = getattr(res.rule_result, "range_dates", None)
+        ask_first = bool(ranged) and state.supports_confirm and len(res.intents) == 1
         state.items = [
             Item(id=f"item_{i + 1}", kind=kind_for(name),
                  text=_fast_item_words(intent, state.text),
-                 action=name, intent=intent)
+                 action=name, intent=intent,
+                 slots={"confirm_create": True} if ask_first else {})
             for i, (name, intent) in enumerate(res.intents)
         ]
         state.parse_path = "fast"
+        if ranged and state.trace:
+            state.trace.step(RULE, "Rule parser",
+                             f"\"{ranged[0]}\" is a span, not a day — "
+                             + ("asking which day" if ask_first
+                                else "taking its soonest day"),
+                             confidence=round(res.confidence, 2))
         if state.trace:
             state.trace.step(RULE, "Rule parser",
                              f"Confident ({res.confidence:.2f}) — instant: "

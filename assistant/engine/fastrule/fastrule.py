@@ -95,6 +95,14 @@ _REASON_CLASS = {
     "generic-title": REFUSAL,
     "rename-misroute": REFUSAL,
     "interrogative-create": REFUSAL,
+    # The date was CHOSEN out of a range ("cancel therapy session this
+    # weekend") and the operation aims at an existing record. A refusal, not an
+    # incapacity: the reading is probably right, but the project already rules
+    # that guessing is not an acceptable answer when the act is destructive —
+    # an update or a delete on a day the speaker never named is exactly that.
+    # A CREATE with a range date does not come here; it is offered to the
+    # speaker for confirmation instead (Gil, 2026-09-17).
+    "range-date-target": REFUSAL,
     "strong-compound": STRUCTURE,
     "clause-coordination": STRUCTURE,
     "mixed-mode-compound": STRUCTURE,
@@ -279,6 +287,15 @@ class FastRule:
             return FastRuleResult(False, rr.intents, float(rr.confidence), reason,
                                   rule_result=rr)
         if self.scorer.commits(rr):
+            # A range-derived date is a READING of a span, not a day the
+            # speaker said. For a create it is offered for confirmation by the
+            # caller (which knows whether the client can ask); for anything
+            # that touches an EXISTING record it must not execute at all.
+            if getattr(rr, "range_dates", None) and any(
+                    name not in ("create_event", "create_todo")
+                    for name, _ in rr.intents):
+                return FastRuleResult(False, rr.intents, float(rr.confidence),
+                                      "range-date-target", rule_result=rr)
             return FastRuleResult(True, rr.intents, float(rr.confidence), None,
                                   rule_result=rr)
         # v1's reason precedence: below-threshold outranks missing-slots

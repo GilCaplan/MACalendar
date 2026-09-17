@@ -418,6 +418,22 @@ class Engine(Component):
                     _b.emit_fast(state)
                 except Exception:
                     pass
+                # The confirm gate, on THIS branch too (Gil, 2026-09-17). It
+                # lived only on the deep side, so a fast row could not ask
+                # anything — and the row that most needs to ask is a fast one:
+                # a date CHOSEN out of a range ("book yoga next week"), flagged
+                # by `fast_propose`. Routing those to the deep track instead
+                # would buy the same question for a ~40 s model walk, so the
+                # gate moves to meet them. Same two calls the deep branch
+                # makes, after run_objects so the offer shows the final
+                # objects, and before _commit so nothing is written.
+                #
+                # No stage is added, renamed or reordered by this, so the chain
+                # `trace.CHAINS` publishes is unchanged and BRAIN_VERSION does
+                # not move; `test_panel_agreement.py` is the check on that.
+                proposal = _confirm_proposal(state)
+                if proposal:
+                    return _confirm_response(state, cfg, proposal, trace_run)
                 _commit(state, cfg)      # labels inside
                 # The deep track runs BEHIND the instant answer: extraction-
                 # based cross-check against what was just committed, patched

@@ -57,11 +57,45 @@ def test_f7_priority_setting_is_an_update(fastrule):
 
 def test_f10_mutation_phrases_delimit_multiword_titles(fastrule):
     """Noun-chunking drops multi-word titles in mutations; the phrase itself
-    delimits them. Generic targets still abstain (the veto judges captures)."""
+    delimits them. Generic targets still abstain (the veto judges captures).
+
+    NB the reschedule row said "to this weekend" until 2026-09-17. That is a
+    RANGE, and a mutation on a day the speaker never named no longer commits
+    (see `test_a_range_date_never_mutates_on_a_guess` below) — so the date is
+    now an explicit one, which is what this test was always about. The phrase
+    being tested is the delimiter, not the date.
+    """
     assert fastrule.run("delete wedding rehearsal from my calendar").committed
-    assert fastrule.run("reschedule haircut to this weekend").committed
+    assert fastrule.run("reschedule haircut to friday").committed
     assert fastrule.run("mark walk the dog complete").intents[0][0] == "complete_todo"
     assert not fastrule.run("delete this event").committed
+
+
+def test_a_range_date_never_mutates_on_a_guess(fastrule):
+    """Gil, 2026-09-17: ask instead of guessing — and where asking is not on
+    offer because the act is destructive, decline.
+
+    "this weekend" is a SPAN. Picking Saturday out of it and then deleting or
+    moving a real record acts on a day the speaker never said, which the
+    project already rules out ("deleting is destructive... guessing is not"
+    the right answer). A CREATE with the same phrase is offered for
+    confirmation instead — that path is `fast_propose`'s, since only it knows
+    whether the client can render a prompt.
+    """
+    for text in ("reschedule haircut to this weekend",
+                 "cancel therapy session this weekend",
+                 "move the dentist to next week"):
+        res = fastrule.run(text)
+        assert not res.committed, f"{text!r} committed on a guessed day"
+        assert res.reason == "range-date-target", f"{text!r} -> {res.reason}"
+
+    from assistant.engine.fastrule.fastrule import REFUSAL, reason_class
+    assert reason_class("range-date-target") == REFUSAL
+
+    # ...and the range itself WAS read: the deep track inherits the day rather
+    # than starting from a command with no date in it at all.
+    res = fastrule.run("cancel therapy session this weekend")
+    assert res.rule_result.range_dates == ["this weekend"]
 
 
 def test_f11_model_tier_fires_only_where_rules_found_nothing(fastrule):
