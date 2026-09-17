@@ -503,7 +503,16 @@ def open_settings(self) -> None:
             self.refresh_calendar()
     colors_btn.clicked.connect(_open_categories)
 
-    for btn in (vocab_btn, review_btn, colors_btn):
+    tips_btn = QPushButton(icons.icon("question"), "How to Talk to Me…")
+    tips_btn.setToolTip("A few short tips on phrasing voice commands so they land right the first time")
+    tips_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def _open_tips():
+        from assistant.calendar_ui.tips_dialog import TipsDialog
+        TipsDialog(self).exec()
+    tips_btn.clicked.connect(_open_tips)
+
+    for btn in (vocab_btn, review_btn, colors_btn, tips_btn):
         assistant.addWidget(btn)
 
     layout.addStretch(1)

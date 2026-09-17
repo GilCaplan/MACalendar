@@ -24,6 +24,7 @@ purely backend (no client code beyond displaying the effects).
 | UI | [Tasks power features](#tasks-power-features) | rich notes, sorts, reorder, cal→tasks sync | `todo_view.py` |
 | UI | [Search & jump-to-date](#search--jump-to-date) | toolbar search over events/tasks; type a date to jump | `window.py`, `SearchView.swift` |
 | UI | [Small conveniences](#small-conveniences) | duplicate event, week numbers, Timer CSV export | `event_dialog.py`, `month_view.py`, `timer_view.py` |
+| UI | ["How to Talk to Me" tips](#how-to-talk-to-me-tips) | 5 short, verified voice-phrasing tips (Settings → Assistant) | `tips.py`, `tips_dialog.py` |
 | hybrid | [Calendar views](#calendar-views-month--week--day) | month/week/day/agenda browsing + event CRUD, drag, undo | `calendar_ui/`, iOS views, `db.py` |
 | hybrid | [Tasks](#tasks--to-dos) | Today/General lists, priorities, quantities | `db.py`, `TasksView` |
 | hybrid | [Tag discovery](#tag-discovery--the-class-set-grows-with-consent) | consent-based new classes + history | `actions/todo/tag_discovery.py` |
@@ -495,6 +496,24 @@ row straddles two), `timer_view.py` (`_on_export_csv`).
 **How:** duplicate strips series identity (a copied instance is a one-off,
 same boundary as undo-restore); CSV derives rows from the panel's own
 aggregation helper so file and tiles can't disagree.
+
+### "How to Talk to Me" tips
+
+**What:** five short tips on effective voice phrasing (Settings → Assistant
+→ "How to Talk to Me…"), deliberately kept to five (Gil, 2026-09-16: don't
+overload the user with content). Mac only — not built for iOS this pass.
+**Where:** `assistant/tips.py` (content), `calendar_ui/tips_dialog.py`
+(the dialog), wired in from `settings_dialog.py`'s Assistant section
+alongside Vocabulary/Review/Categories.
+**How:** each tip is a factual claim about pipeline behavior, verified LIVE
+against `assistant.engine.run_transcript` when written — one candidate tip
+turned out false when checked and was dropped before shipping. Tied to
+`assistant.trace.BRAIN_VERSION` via `TIPS_BRAIN_VERSION`: `tests/unit/
+test_tips_current.py` fails the build the moment the engine version moves
+past what the tips were verified against, the same "downstream of the
+pipeline" contract `test_panel_agreement.py` holds the thinking panel to —
+so a future engine change forces a re-verification rather than silently
+shipping stale claims.
 
 ### Pre-event notifications
 

@@ -1079,6 +1079,25 @@ wrapper-phrase's own SPEC.md row and DEVQA.md's Q14 annotation to match the
 gold that's actually there. FastSeg v1's code should not change either way
 — like Q14, this is a labelling question, not an implementation one.
 
+## A todo's relative due-date silently falls back to today for some phrasings — NOT FIXED, filed (2026-09-17)
+
+Found while verifying claims for the new "how to talk to me" tips (below)
+against the live engine, before writing them down — not chased further,
+since it's unrelated to that task.
+
+    "renew the passport in two weeks"   -> due_date SILENTLY = today
+    "renew the passport the 15th"       -> due_date SILENTLY = today
+    "renew the passport ON the 15th"    -> due_date = the 15th, correct
+    "call mom next tuesday"             -> due_date = next tuesday, correct
+
+No error, no flag — the todo is just created with today's date, the same
+outcome as if no date had been said at all. `"on the 15th"` works;
+`"the 15th"` alone and `"in two weeks"` do not, from a very small,
+unsystematic sample (3 phrasings tried, not a real audit). Worth someone
+tracing `_fill_slots`'s `create_todo` branch's `temporal.get("date")` path
+(`rule_parser.py`) against a proper set of relative-date phrasings before
+trusting due dates on tasks generally.
+
 ## Working agreements
 - Everything on the phone is local: no third-party services; the only network peer is the Mac over Tailscale.
 - Prefer doing work directly over spawning sub-agents; keep context small (`/compact` between big tasks).
