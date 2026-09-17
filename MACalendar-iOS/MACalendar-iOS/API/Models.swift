@@ -630,3 +630,47 @@ struct ResolvedRecord: Codable, Equatable {
     var endTime: String? = nil
     enum CodingKeys: String, CodingKey { case type, id, action, title, date; case startTime = "start_time", endTime = "end_time" }
 }
+
+// MARK: - Sync bootstrap (GET /sync/bootstrap)
+
+/// Everything a cold start needs, in one payload — see
+/// `DOCUMENTATION/SYNC_PROTOCOL.md`. `timers` and `counters` ride along in the
+/// JSON too; they are not decoded here because the Timer tab loads its own
+/// (with a live `running` session that a snapshot would date instantly).
+struct BootstrapSnapshot: Codable {
+    struct Window: Codable { let start: String; let end: String }
+
+    let token: String
+    let window: Window
+    let events: [CalendarEvent]
+    let todos: [Todo]
+    let tags: [TodoTag]
+    let holidays: [Holiday]
+    var tagRules: TagRules? = nil
+
+    enum CodingKeys: String, CodingKey {
+        case token, window, events, todos, tags, holidays
+        case tagRules = "tag_rules"
+    }
+}
+
+/// The task-tag classifier as data (GET /tags/rules), so the phone can run the
+/// Mac's classifier without the Mac. `rev` changes whenever any of it does.
+struct TagRules: Codable, Equatable {
+    let rev: String
+    /// tag name → keywords, exactly `tagging.KEYWORDS`.
+    let keywords: [String: [String]]
+    /// Tags that are never inferred ("Personal" is the shrug bucket).
+    let neverInfer: [String]
+    /// The tags that actually exist, so a renamed or deleted one never returns.
+    let palette: [String]
+    /// The user's own vocabulary labels, lower-cased word → tag. These cannot
+    /// ship with the app: "Haxaga" is a course because they said so.
+    let personalLabels: [String: String]
+
+    enum CodingKeys: String, CodingKey {
+        case rev, keywords, palette
+        case neverInfer = "never_infer"
+        case personalLabels = "personal_labels"
+    }
+}

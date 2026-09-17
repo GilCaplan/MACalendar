@@ -1416,6 +1416,119 @@ def create_app() -> Flask:
         get_db().delete_tag(name)
         return jsonify({"deleted": name})
 
+    @app.get("/tags/rules")
+    def tag_rules():
+        """The task-tag classifier, as data, so a client can run it offline.
+
+        `assistant/actions/todo/tagging.py` is the one classifier — but it
+        only runs where the database is, so a task typed on the phone with the
+        Mac away was created untagged and stayed that way. The phone carries a
+        port of the scorer (`TagClassifier.swift`); this endpoint hands it the
+        table the scorer reads, so the two agree by construction instead of by
+        a second list nobody remembers to update.
+
+        Served, not hardcoded on the phone, for the same reason the palette is:
+        `personal_labels` is the user's OWN vocabulary labels ("Haxaga" is a
+        course), which no shipped list can contain. `rev` changes whenever any
+        of it does, so a client can tell in one comparison whether its copy is
+        current.
+        """
+        import hashlib
+        import json as _json
+
+        from assistant.actions.todo import tagging
+
+        palette = [row["name"] for row in get_db().get_tags()]
+        personal: dict = {}
+        try:
+            from assistant.stt.vocab import get_vocab
+            for entry in get_vocab().entries:
+                if entry.label:
+                    personal[entry.word.lower()] = entry.label
+        except Exception:      # no vocabulary yet, or it cannot be read
+            personal = {}
+
+        payload = {
+            "keywords": tagging.KEYWORDS,
+            "never_infer": sorted(tagging._NEVER_INFER),
+            "palette": palette,
+            "personal_labels": personal,
+        }
+        payload["rev"] = hashlib.sha1(
+            _json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:12]
+        return jsonify(payload)
+
+    @app.get("/sync/bootstrap")
+    def sync_bootstrap():
+        """Everything a client needs to draw itself, in ONE round trip.
+
+        A cold start used to be eight independent GETs, and the phone paid the
+        full timeout on each of them whenever the Mac was away — the app opened
+        on an empty calendar for the better part of a minute before falling
+        back to a cache it had all along. One request means one timeout, and
+        the answer carries the change token, so the client knows immediately
+        whether the cache it just drew is already current.
+
+        Window: the named month plus the one either side, which is what the
+        month/week/day views can reach without another fetch. Holidays cover
+        the same span, so the Hebrew calendar survives offline too — it was
+        the one part of the calendar with no cache at all.
+
+        This is a READ aggregate over the same helpers the individual routes
+        use; it is not a second way into the database and holds no logic of its
+        own (DOCUMENTATION/SYNC_PROTOCOL.md).
+        """
+        from assistant.actions.calendar import categories as _cat
+        from assistant.hebrew_calendar import enumerate_holidays
+        from assistant.notify import annotate
+
+        db = get_db()
+        today = datetime.date.today()
+        try:
+            year = int(request.args.get("year") or today.year)
+            month = int(request.args.get("month") or today.month)
+            first = datetime.date(year, month, 1)
+        except ValueError as e:
+            return jsonify({"error": str(e), "code": 400}), 400
+        israel = request.args.get("israel", "1") not in ("0", "false", "False")
+
+        months = []
+        for delta in (-1, 0, 1):
+            y, m = divmod((first.year * 12 + first.month - 1) + delta, 12)
+            months.append((y, m + 1))
+
+        events: list = []
+        for y, m in months:
+            events.extend(db.get_events_for_month(y, m))
+
+        start = datetime.date(months[0][0], months[0][1], 1)
+        last_y, last_m = months[-1]
+        end = (datetime.date(last_y + last_m // 12, last_m % 12 + 1, 1)
+               - datetime.timedelta(days=1))
+
+        return jsonify({
+            "token": changes_token().get_json()["token"],
+            "server_time": datetime.datetime.now().astimezone().isoformat(),
+            "window": {"start": start.isoformat(), "end": end.isoformat()},
+            "events": annotate(events),
+            "todos": db.get_todos(list_name=None, include_completed=False),
+            "tags": db.get_tags(),
+            "tag_rules": tag_rules().get_json(),
+            "categories": _cat.all_categories(),
+            "holidays": [
+                {
+                    "name_en": h.name_en,
+                    "name_he": h.name_he,
+                    "category": h.category,
+                    "gregorian_erev_start": h.gregorian_erev_start.isoformat(),
+                    "gregorian_end": h.gregorian_end.isoformat(),
+                }
+                for h in enumerate_holidays(start, end, israel=israel)
+            ],
+            "timers": [_timer_out(db, t) for t in db.get_timers()],
+            "counters": [_counter_out(db, c) for c in db.get_counters()],
+        })
+
     @app.get("/tags/suggestion")
     def tag_suggestion():
         """A new-tag proposal mined from the user's untagged history, or {}.

@@ -364,15 +364,28 @@ Mac Timer tab; iOS `Views/TimerView.swift`.
 ### iOS app & offline queues
 **What:** The full iPhone client — calendar, tasks, voice, review, vocabulary,
 workout, timer — working offline and syncing when the Mac returns.
-**Where:** `MACalendar-iOS/`; queues in `LocalStore.swift`; polling via
-`GET /changes/token`.
+**Where:** `MACalendar-iOS/`; queues and caches in `LocalStore.swift`; the
+circuit breaker and `bootstrap()` in `API/APIClient.swift`; polling via
+`GET /changes`; the protocol written down in
+`DOCUMENTATION/SYNC_PROTOCOL.md`.
 **How:** Three queues (CRUD ops with temp-id repointing, queued voice
-recordings, pending LLM commands) plus a local event/todo/tag cache so views
-work offline; lost-stream recovery (checks whether the Mac finished the
-command anyway); a background assertion keeps a voice command alive when the
-app is backgrounded; burst-refresh after actions; vertical-swipe month
-change; guests via the system Contacts picker with per-guest
-Message/WhatsApp actions; reaches the Mac over Tailscale only.
+recordings, pending LLM commands) plus a local event/todo/tag/**holiday**
+cache so views work offline; lost-stream recovery (checks whether the Mac
+finished the command anyway); a background assertion keeps a voice command
+alive when the app is backgrounded; burst-refresh after actions;
+vertical-swipe month change; guests via the system Contacts picker with
+per-guest Message/WhatsApp actions; reaches the Mac over Tailscale only.
+**Offline is instant, not eventually.** Reads always fell back to the cache —
+but only after each request had spent its full 8 s timeout, and a cold start
+ran several of those one after another, so the app opened on an empty calendar
+for tens of seconds. Three changes: an **offline circuit breaker** (after one
+failure, requests throw `.offline` immediately without touching the network;
+only `/health` and `/changes` still probe, on a 3 s leash, backing off
+2 → 20 s; the voice uploads check it too, so a recording is queued at once
+instead of waiting out a 120 s timeout); **one bootstrap request**
+(`GET /sync/bootstrap` — three months of events, tasks, tags, tag rules,
+categories and holidays in a single round trip); and **painting the cache
+before awaiting the network** on every month navigation.
 
 ### Heartbeats & the health CLI
 **What:** `assistant doctor` — is every layer wired: LLM, storage, engine,
@@ -552,6 +565,17 @@ Coursework… + user customs) with per-tag colours, filtering, and "tag mode"
 near-misses to the closest class (case, plural stems incl. y↔ies, tight fuzzy
 at 0.8) and drops far-off hallucinations — the finite set never grows by
 accident.
+**Offline, on the phone:** the Mac serves the classifier's table at
+`GET /tags/rules` (keywords, never-infer set, the real palette, and the user's
+own vocabulary labels) and `TagClassifier.swift` scores against it, so a task
+typed with the Mac away is tagged on the spot instead of landing untagged for
+good — the Mac never re-tags a task it did not create. The table is served
+rather than shipped: a second keyword list in a second language drifts, and
+`personal_labels` ("Haxaga" is a course) cannot be compiled into an app at
+all. The phone's answer is a **preview** — the queued create body still says
+what the user said, so the Mac classifies it itself on replay and its answer
+is the one that lands. `test_sync_bootstrap.py` transcribes the Swift
+algorithm back into Python and asserts it agrees with `infer_tag`.
 
 ### Events: categories, colours & binder stacking
 **What:** Every event auto-categorised and coloured — adjacent events never

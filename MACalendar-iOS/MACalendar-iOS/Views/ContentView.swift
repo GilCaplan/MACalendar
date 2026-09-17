@@ -332,6 +332,13 @@ struct ContentView: View {
                     _ = await api.syncPending()
                     await api.syncPendingVoice()
                     // Always re-fetch on foreground: the Mac app may have changed things.
+                    // The bootstrap refreshes what the poll loop never asks for
+                    // again — the tag palette, the tag classifier's table, the
+                    // holidays — and warms the neighbouring months' cache.
+                    await api.bootstrap(
+                        year: Calendar.current.component(.year, from: viewedDate),
+                        month: Calendar.current.component(.month, from: viewedDate),
+                        israel: settings.israelHolidays)
                     await loadMonth()
                     await refreshWorkoutIfNeeded()
                     api.requestRefresh()
@@ -377,35 +384,57 @@ struct ContentView: View {
             VocabImportView(initialText: sharedImportText, initialName: importInbox.pendingName)
         }
         .task {
-            // First run: once the Mac is reachable and the vocabulary hasn't
-            // been set up, ask the user to teach the assistant their words.
-            if !settings.vocabOnboardingDone, !settings.serverURL.isEmpty,
-               let ob = try? await api.vocabOnboarding(), !ob.done {
-                showVocabOnboarding = true
-            } else if let ob = try? await api.vocabOnboarding(), ob.done {
-                settings.vocabOnboardingDone = true
-            }
-
-            // Tell the host where we are, so sundown is computed for here
-            // rather than for wherever it was configured. One reading, only
-            // when it has moved far enough to change an answer, and only to
-            // your own host.
-            if settings.followMyLocation {
-                DeviceLocation.shared.refresh(using: api)
-            }
-
-            unreviewed = await api.unreviewedCount()
-
             // Wire the Workout store up to the network layer once, so its
             // local mutations (saveTemplate, finishSession, etc.) can push
             // themselves to the server immediately — see WorkoutStore.configure.
+            // No network of its own, so it goes first.
             WorkoutStore.shared.configure(api: api)
+
+            // ONE request for everything a cold start needs — events for three
+            // months, tasks, the tag palette, the tag classifier's table and
+            // the holidays (DOCUMENTATION/SYNC_PROTOCOL.md).
+            //
+            // This preamble used to be a handful of separate GETs run one after
+            // another — `vocabOnboarding` twice, `unreviewedCount`, then the
+            // month and its holidays — so opening the app away from the Mac
+            // spent tens of seconds on timeouts before anything fell back to
+            // caches it already had. Now: one timeout at worst, none at all
+            // once the client's offline circuit breaker has tripped.
+            var lastToken: String? = await api.bootstrap(
+                year: Calendar.current.component(.year, from: viewedDate),
+                month: Calendar.current.component(.month, from: viewedDate),
+                israel: settings.israelHolidays)
+            await loadMonth()
+
+            // The startup chores, off the critical path: none of them decides
+            // what the first screen looks like, so none of them should be able
+            // to delay it.
+            Task {
+                // First run: once the Mac is reachable and the vocabulary hasn't
+                // been set up, ask the user to teach the assistant their words.
+                if let ob = try? await api.vocabOnboarding() {
+                    if ob.done {
+                        settings.vocabOnboardingDone = true
+                    } else if !settings.vocabOnboardingDone, !settings.serverURL.isEmpty {
+                        showVocabOnboarding = true
+                    }
+                }
+
+                // Tell the host where we are, so sundown is computed for here
+                // rather than for wherever it was configured. One reading, only
+                // when it has moved far enough to change an answer, and only to
+                // your own host.
+                if settings.followMyLocation {
+                    DeviceLocation.shared.refresh(using: api)
+                }
+
+                unreviewed = await api.unreviewedCount()
+            }
 
             // While the app is open, retry sync every 30 s so pending
             // changes upload as soon as the Mac comes back online.
             var slept: TimeInterval = 0
             var sinceTokenCheck: TimeInterval = 0
-            var lastToken: String? = nil
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 slept += 1
@@ -576,7 +605,6 @@ struct ContentView: View {
     private func loadMonth() async {
         let year  = Calendar.current.component(.year,  from: viewedDate)
         let month = Calendar.current.component(.month, from: viewedDate)
-        loadingMonth = true
 
         let cal = Calendar.current
         let start = cal.date(from: DateComponents(year: year, month: month, day: 1)) ?? viewedDate
@@ -584,6 +612,28 @@ struct ContentView: View {
         let showHolidays = settings.showHolidays
         let israel = settings.israelHolidays
 
+        // Draw the cache first, then let the network correct it.
+        //
+        // These two calls fall back to the cache when the Mac is unreachable —
+        // but only after awaiting it, so every month navigation showed an empty
+        // grid for as long as the request took to give up, and then filled in
+        // from a cache that had been on disk the whole time. Painting it up
+        // front costs nothing and is what "instant offline" actually means; the
+        // await below then either replaces it with the same rows (online) or
+        // with itself (offline, and now immediately, thanks to the client's
+        // offline circuit breaker).
+        let startStr = ISO8601DateFormatter.yyyyMMdd.string(from: start)
+        let endStr = ISO8601DateFormatter.yyyyMMdd.string(from: end)
+        let cachedEvents = store.eventsForMonth(year, month)
+        if !cachedEvents.isEmpty { monthEvents = cachedEvents }
+        if showHolidays {
+            let cachedHolidays = store.holidaysBetween(startStr, endStr)
+            if !cachedHolidays.isEmpty { monthHolidays = cachedHolidays }
+        } else {
+            monthHolidays = []
+        }
+
+        loadingMonth = true
         // Independent requests — run concurrently instead of paying the sum
         // of both latencies on every month navigation.
         async let eventsResult: [CalendarEvent] = (try? await api.eventsForMonth(year: year, month: month)) ?? []
@@ -591,7 +641,12 @@ struct ContentView: View {
 
         monthEvents = await eventsResult
         loadingMonth = false
-        monthHolidays = await holidaysResult
+        let fresh = await holidaysResult
+        // An empty answer from an unreachable Mac must not wipe the cached
+        // list off the screen; showHolidays == false already cleared it above.
+        if showHolidays == false || !fresh.isEmpty || monthHolidays.isEmpty {
+            monthHolidays = fresh
+        }
     }
 
     private func fetchHolidays(showHolidays: Bool, start: Date, end: Date, israel: Bool) async -> [Holiday] {
