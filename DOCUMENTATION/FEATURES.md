@@ -42,6 +42,7 @@ purely backend (no client code beyond displaying the effects).
 | hybrid | [Timer](#timer-work-tracking) | per-project work + earnings | db `timers*`, `TimerView` |
 | hybrid | [Counters](#counters) | tap counters + payouts | db `counters*` |
 | hybrid | [Coursework](#coursework) | courses + assignments tab | db `courses*`, `CourseworkView` |
+| hybrid | [Jude](#jude--the-judaic-study-assistant) | Torah/Talmud/halacha study assistant — a separate repo, wired in | `assistant/jude/`, `jude_app.py`, `JudeView.swift` |
 | hybrid | [iOS app & offline](#ios-app--offline-queues) | full client, 3 offline queues, Tailscale | `MACalendar-iOS/` |
 | hybrid | [Health CLI & heartbeats](#heartbeats--the-health-cli) | `assistant doctor`, 6 layers | `cli.py`, `heartbeat.py` |
 | backend | [The engine](#the-engine-engine-v2--the-brain) | the AI brain: fast track + 7-step deep track | `assistant/engine/` |
@@ -364,6 +365,31 @@ one), so old servers still work.
 **Where:** db `counters`, `counter_presses`, `counter_payouts`; API
 `/counters*`.
 **How:** Same local-first pattern as timers.
+
+### Jude — the Judaic study assistant
+**What:** Ask about Torah, Talmud, halacha, midrash and machshava; a cited
+answer streamed from ~289,000 Sefaria passages, every source linking back to
+Sefaria. Three modes (Q&A, Study, Sources-only).
+**Where:** Jude itself is a **separate repository**
+(github.com/GilCaplan/JudeTheJudaicChatBot) — deliberately not vendored: it
+carries a ~3 GB corpus + index and is worked on separately. Here: the bridge
+`assistant/jude/bridge.py`, the routes `/jude/*` in `api/server.py`, the Mac
+app `assistant/jude_app.py` (📖 in the calendar toolbar; started by
+`Launch Calendar.command`), the iOS tab `Views/JudeView.swift` (Settings ›
+Tabs, off by default), config `jude:` in config.yaml.
+Full brief: `DOCUMENTATION/JUDE.md`.
+**How:** Two rules make it part of this system rather than a second system
+beside it. **Its LLM calls are ours** — Jude's own default is a cloud cascade
+(Gemini → LLMod → Ollama), so the bridge starts it with every role pinned to
+local Ollama on `ollama.model` (one resident model, not two) and the cloud
+keys blanked; nothing reaches the internet unless `jude.allow_cloud` is
+explicitly set. **It is reached through this API** — the phone POSTs to
+`/jude/chat` on 8080 with the usual key, and the server translates Jude's SSE
+into the NDJSON every client already renders for `/voice/stream`, so Jude's
+own port never leaves the machine and no client learns a second protocol.
+Missing checkout, switched off, or not started yet are all normal states that
+produce a sentence naming what to do. The brain is untouched: these routes are
+plumbing, and Jude cannot be asked to create an event.
 
 ### Coursework
 **What:** Courses + assignments tracking (the university tab).

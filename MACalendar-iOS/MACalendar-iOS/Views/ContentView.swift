@@ -273,6 +273,16 @@ struct ContentView: View {
                         .tag(5)
                 }
 
+                // ── Jude Tab ─────────────────────────────────────────────
+                // Off by default: Jude is a separate repository that has to be
+                // cloned on the Mac, and a tab that can only say "not
+                // installed" is not a feature. DOCUMENTATION/JUDE.md.
+                if settings.showJudeTab {
+                    JudeView()
+                        .tabItem { Label("Jude", systemImage: "books.vertical") }
+                        .tag(6)
+                }
+
                 // ── Settings Tab ─────────────────────────────────────────
                 SettingsView()
                     .tabItem { Label("Settings", systemImage: "gear") }
@@ -304,6 +314,9 @@ struct ContentView: View {
         }
         .onChange(of: settings.showWorkoutTab) { visible in
             if !visible && selectedTab == 4 { selectedTab = 0 }
+        }
+        .onChange(of: settings.showJudeTab) { visible in
+            if !visible && selectedTab == 6 { selectedTab = 0 }
         }
         .sheet(isPresented: $showSearch) {
             SearchView(

@@ -234,6 +234,16 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 |---|---|---|
 | `GET` | `/holidays` |  |
 
+## /jude
+
+| Method | Path | What it does |
+|---|---|---|
+| `POST` | `/jude/chat` | Ask Jude a question; stream the answer back as NDJSON. |
+| `GET` | `/jude/chats` |  |
+| `DELETE` | `/jude/chats/<chat_id>` |  |
+| `GET` | `/jude/chats/<chat_id>/history` |  |
+| `GET` | `/jude/status` | Never an error — a client draws whatever this says. `reason` is the |
+
 ## /calendar_sources
 
 | Method | Path | What it does |

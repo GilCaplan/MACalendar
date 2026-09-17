@@ -281,6 +281,14 @@ struct SettingsView: View {
                             Toggle("Show Coursework Tab", isOn: $settings.showCourseworkTab)
                             Toggle("Show Workout Tab", isOn: $settings.showWorkoutTab)
                             Toggle("Show Timer Tab", isOn: $settings.showTimerTab)
+                            Toggle(isOn: $settings.showJudeTab) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Show Jude Tab")
+                                    Text("Ask about Torah, Talmud and halacha. Needs Jude "
+                                         + "installed on your Mac — the tab says how if it isn't.")
+                                        .font(.caption).foregroundColor(.secondary)
+                                }
+                            }
                         }
                     }
                     .padding(.top, 4)

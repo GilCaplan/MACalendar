@@ -950,6 +950,90 @@ class APIClient: ObservableObject {
         }
     }
 
+    // MARK: - Jude (the Judaic study assistant)
+    //
+    // Jude is a separate project running beside the assistant on the Mac. The
+    // phone never talks to it directly: it goes through this API, on the same
+    // address, the same key and the same tailnet hop as everything else, and
+    // gets the same NDJSON stream shape `/voice/stream` uses. One way in —
+    // see DOCUMENTATION/JUDE.md.
+
+    /// What the Mac can currently offer. Never throws: `reason` is the
+    /// sentence to show when `ready` is false, and an unreachable Mac is one
+    /// of the answers rather than an error.
+    func judeStatus() async -> JudeStatus {
+        guard let data = try? await request("/jude/status"),
+              let st = try? JSONDecoder().decode(JudeStatus.self, from: data)
+        else {
+            return JudeStatus(enabled: false, installed: false, running: false,
+                              ready: false, model: "", repo: "",
+                              reason: "Your Mac isn't reachable. Jude does its thinking there, "
+                                      + "so this needs the Mac awake and on the tailnet.")
+        }
+        return st
+    }
+
+    /// Ask Jude a question. Each NDJSON line arrives on the main actor as it
+    /// does; the call returns when the stream ends.
+    ///
+    /// Deliberately NOT queued for later like a voice command: a voice command
+    /// is an instruction that still makes sense in an hour, and a question is
+    /// a conversation. Replaying one into the void would answer it to nobody.
+    func judeAsk(_ prompt: String, chatId: String?, mode: String,
+                 onEvent: @escaping (JudeEvent) -> Void) async throws {
+        guard !base.isEmpty, let url = URL(string: base + "/jude/chat") else {
+            throw APIError.badURL
+        }
+        if isBackingOff { throw APIError.offline("the Mac was unreachable a moment ago") }
+
+        var body: [String: Any] = ["prompt": prompt, "mode": mode]
+        if let chatId { body["chat_id"] = chatId }
+        // Generous: a local model synthesising a cited answer over retrieved
+        // passages is tens of seconds of work, and the first token is not the
+        // first thing that arrives (the stage lines are).
+        var req = URLRequest(url: url, timeoutInterval: 300)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if !settings.apiKey.isEmpty {
+            req.setValue(settings.apiKey, forHTTPHeaderField: "X-API-Key")
+        }
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let assertion = BackgroundAssertion()
+        assertion.begin("jude-question")
+        defer { assertion.end() }
+        do {
+            let (bytes, resp) = try await URLSession.shared.bytes(for: req)
+            guard let http = resp as? HTTPURLResponse else {
+                throw APIError.serverError("No response")
+            }
+            guard (200...299).contains(http.statusCode) else {
+                // The 503 for "Jude is off / not installed" carries a sentence
+                // written for a person; surface that, not the status code.
+                var detail = ""
+                for try await line in bytes.lines { detail += line }
+                let parsed = (try? JSONSerialization.jsonObject(with: Data(detail.utf8)))
+                    as? [String: Any]
+                throw APIError.serverError((parsed?["error"] as? String) ?? detail)
+            }
+            isOnline = true
+            noteReachable()
+            let decoder = JSONDecoder()
+            for try await line in bytes.lines {
+                guard !line.isEmpty, let data = line.data(using: .utf8),
+                      let event = try? decoder.decode(JudeEvent.self, from: data)
+                else { continue }
+                onEvent(event)
+            }
+        } catch let err as APIError {
+            throw err
+        } catch {
+            isOnline = false
+            noteUnreachable()
+            throw APIError.offline(error.localizedDescription)
+        }
+    }
+
     // MARK: - Vocabulary (STT auto-correct)
 
     // MARK: - Where sundown is computed for

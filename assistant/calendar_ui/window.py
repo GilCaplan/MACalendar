@@ -624,6 +624,18 @@ class CalendarWindow(QMainWindow):
         tag_history_btn.clicked.connect(self._on_tag_history)
         layout.addWidget(tag_history_btn, alignment=v_center)
 
+        # Jude — the Judaic study assistant, its own app (DOCUMENTATION/JUDE.md).
+        # Shown only when it is switched on, because a button that always
+        # answers "not installed" is worse than no button.
+        if getattr(getattr(self._config, "jude", None), "enabled", False):
+            jude_btn = QPushButton("📖")
+            jude_btn.setObjectName("icon_btn")
+            jude_btn.setFixedSize(30, 30)
+            jude_btn.setToolTip("Jude — ask about Torah, Talmud and halacha")
+            jude_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            jude_btn.clicked.connect(self._on_jude)
+            layout.addWidget(jude_btn, alignment=v_center)
+
         self._settings_btn = QPushButton("⚙")
         self._settings_btn.setObjectName("icon_btn")
         self._settings_btn.setFixedSize(30, 30)
@@ -1198,6 +1210,28 @@ class CalendarWindow(QMainWindow):
                 pass
 
         threading.Thread(target=_post, daemon=True, name="tag-suggest-answer").start()
+
+    def _on_jude(self) -> None:
+        """Bring the Jude window up, starting it if it is not running.
+
+        Its own process, like the thinking HUD and for the same reason: it
+        outlives the calendar window and has nothing to do with it. Launching
+        is fire-and-forget — a second click on an app that is already open is
+        handled by macOS bringing it forward, and a failure to start says so in
+        a toast rather than blocking the calendar.
+        """
+        import os as _os
+        import subprocess
+        import sys
+
+        repo = _os.path.dirname(_os.path.dirname(
+            _os.path.dirname(_os.path.abspath(__file__))))
+        try:
+            subprocess.Popen([sys.executable, "-m", "assistant.jude_app"],
+                             cwd=repo, start_new_session=True)
+            self.show_toast("Opening Jude…")
+        except Exception as exc:                      # noqa: BLE001
+            self.show_toast(f"Couldn't open Jude: {exc}")
 
     def _on_review_choice(self, choice: str) -> None:
         """Redo / Add more / Send / Cancel from the review bar."""
