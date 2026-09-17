@@ -192,9 +192,9 @@ class ReviewBar(QFrame):
         self._more = QPushButton("Add more")
         self._more.setToolTip("Keep what you said and carry on")
         self._send = QPushButton("Send")
-        self._cancel = QPushButton("×")
-        self._cancel.setToolTip("Discard")
-        self._cancel.setFixedWidth(26)
+        self._cancel = QPushButton("🗑")
+        self._cancel.setToolTip("Discard — throw this recording away without running it")
+        self._cancel.setFixedWidth(30)
         for btn, choice in ((self._redo, "redo"), (self._more, "add"),
                             (self._send, "send"), (self._cancel, "cancel")):
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -624,6 +624,18 @@ class CalendarWindow(QMainWindow):
         tag_history_btn.clicked.connect(self._on_tag_history)
         layout.addWidget(tag_history_btn, alignment=v_center)
 
+        # Jude — the Judaic study assistant, its own app (DOCUMENTATION/JUDE.md).
+        # Shown only when it is switched on, because a button that always
+        # answers "not installed" is worse than no button.
+        if getattr(getattr(self._config, "jude", None), "enabled", False):
+            jude_btn = QPushButton("📖")
+            jude_btn.setObjectName("icon_btn")
+            jude_btn.setFixedSize(30, 30)
+            jude_btn.setToolTip("Jude — ask about Torah, Talmud and halacha")
+            jude_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            jude_btn.clicked.connect(self._on_jude)
+            layout.addWidget(jude_btn, alignment=v_center)
+
         self._settings_btn = QPushButton("⚙")
         self._settings_btn.setObjectName("icon_btn")
         self._settings_btn.setFixedSize(30, 30)
@@ -651,6 +663,20 @@ class CalendarWindow(QMainWindow):
         if self._pipeline is not None:
             self._mic_btn.clicked.connect(self._pipeline.trigger)
         layout.addWidget(self._mic_btn, alignment=v_center)
+
+        # Discard, beside the mic and only while it is listening. Cancelling a
+        # recording was a double-tap on the mic, which is to say undiscoverable
+        # — and tapping the mic once sends, so changing your mind mid-sentence
+        # meant letting the command run and undoing it afterwards.
+        self._discard_btn = QPushButton("🗑")
+        self._discard_btn.setObjectName("icon_btn")
+        self._discard_btn.setFixedSize(30, 30)
+        self._discard_btn.setToolTip("Discard this recording — nothing is transcribed or run")
+        self._discard_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._discard_btn.hide()
+        if self._pipeline is not None:
+            self._discard_btn.clicked.connect(self._pipeline.cancel_recording)
+        layout.addWidget(self._discard_btn, alignment=v_center)
 
         return bar
 
@@ -1185,6 +1211,28 @@ class CalendarWindow(QMainWindow):
 
         threading.Thread(target=_post, daemon=True, name="tag-suggest-answer").start()
 
+    def _on_jude(self) -> None:
+        """Bring the Jude window up, starting it if it is not running.
+
+        Its own process, like the thinking HUD and for the same reason: it
+        outlives the calendar window and has nothing to do with it. Launching
+        is fire-and-forget — a second click on an app that is already open is
+        handled by macOS bringing it forward, and a failure to start says so in
+        a toast rather than blocking the calendar.
+        """
+        import os as _os
+        import subprocess
+        import sys
+
+        repo = _os.path.dirname(_os.path.dirname(
+            _os.path.dirname(_os.path.abspath(__file__))))
+        try:
+            subprocess.Popen([sys.executable, "-m", "assistant.jude_app"],
+                             cwd=repo, start_new_session=True)
+            self.show_toast("Opening Jude…")
+        except Exception as exc:                      # noqa: BLE001
+            self.show_toast(f"Couldn't open Jude: {exc}")
+
     def _on_review_choice(self, choice: str) -> None:
         """Redo / Add more / Send / Cancel from the review bar."""
         if self._pipeline is not None:
@@ -1208,6 +1256,9 @@ class CalendarWindow(QMainWindow):
         self._mic_btn.setObjectName(obj_name)
         self._mic_btn.style().unpolish(self._mic_btn)
         self._mic_btn.style().polish(self._mic_btn)
+        # Only offered while there is a recording to throw away; the review bar
+        # carries its own trash button for the few seconds it is up.
+        self._discard_btn.setVisible(status == STATUS_LISTENING)
 
         if status == STATUS_REVIEW:
             # The message is "<seconds>|<transcript snippet>" for the review bar,

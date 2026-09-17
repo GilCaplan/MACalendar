@@ -139,6 +139,34 @@ dropped (`parse: "confirm_create"` + `proposal`, `POST /voice/confirm`, Mac
 Add/No box, iOS alert); see FEATURES.md and ENGINE.md.
 Merge all three branches at the next cycle boundary.
 
+**Client + engine work, 2026-09-17** (branch
+`claude/ios-macos-perf-features-lh6du9`), all shipped:
+
+1. **Discard a recording** — a trash button beside the mic while it listens
+   and in the review bar, on both platforms. The phone had no way out of a
+   recording at all; the Mac's was a 400 ms double-tap.
+2. **Step 0 in the engine** — `repair.is_ignorable()` runs before the run lock
+   and the config load, and now catches the stop-word-only transcripts the old
+   single-strip check missed ("that's it", "set events").
+3. **Offline is instant** — an offline circuit breaker on the phone, one
+   `GET /sync/bootstrap` for a cold start, cached holidays, and `loadMonth`
+   painting the cache before it awaits. `DOCUMENTATION/SYNC_PROTOCOL.md` is
+   the protocol, written down for the first time.
+4. **Task tags offline** — `GET /tags/rules` + `TagClassifier.swift`, the
+   Mac's classifier running on the phone over a table the Mac serves. The
+   phone's answer is a preview; the Mac's is what lands.
+5. **Timer drift** — the Mac writes six fractional digits and iOS parses
+   three, so the phone's live counter sat at 00:00 and its total ran
+   backwards. Parser fixed; `start_epoch`/`end_epoch` served beside the
+   strings.
+6. **Jude** — the Judaic study assistant wired in as a separate repository
+   (`DOCUMENTATION/JUDE.md`): iOS tab (off by default), its own Mac app, LLM
+   calls pinned to the assistant's local Ollama, reached only through
+   `/jude/*` on 8080.
+
+**Open for Gil:** Jude's `jude.enabled` is false in `config.example.yaml`, so
+nothing turns on until the checkout is in place and the flag is flipped.
+
 Previous thread, as of 2026-09-03 (still relevant on `main`):
 
 **Row 76 landed** (2026-09-04, overnight): the full A/B/C comparison is

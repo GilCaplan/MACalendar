@@ -152,10 +152,17 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `GET` | `/tags` |  |
 | `POST` | `/tags` |  |
 | `DELETE` | `/tags/<path:name>` |  |
+| `GET` | `/tags/rules` | The task-tag classifier, as data, so a client can run it offline. |
 | `GET` | `/tags/suggestion` | A new-tag proposal mined from the user's untagged history, or {}. |
 | `POST` | `/tags/suggestion/answer` | {"name": "...", "accept": true\|false} — yes adds the class to the |
 | `GET` | `/tags/suggestions/history` | Every past suggestion + verdict, newest first, incl. hidden flags — |
 | `POST` | `/tags/suggestions/revise` | {"name": ..., "accept": bool} changes a past verdict (un-accepting |
+
+## /sync
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/sync/bootstrap` | Everything a client needs to draw itself, in ONE round trip. |
 
 ## /courses
 
@@ -226,6 +233,16 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | Method | Path | What it does |
 |---|---|---|
 | `GET` | `/holidays` |  |
+
+## /jude
+
+| Method | Path | What it does |
+|---|---|---|
+| `POST` | `/jude/chat` | Ask Jude a question; stream the answer back as NDJSON. |
+| `GET` | `/jude/chats` |  |
+| `DELETE` | `/jude/chats/<chat_id>` |  |
+| `GET` | `/jude/chats/<chat_id>/history` |  |
+| `GET` | `/jude/status` | Never an error — a client draws whatever this says. `reason` is the |
 
 ## /calendar_sources
 

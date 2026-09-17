@@ -104,6 +104,30 @@ API_PID=$!
 MACALENDAR_API_PORT=$PORT python -m assistant.thinking_hud &
 HUD_PID=$!
 
+# Start Jude — the Judaic study assistant — when it is switched on. It is its
+# own app for the same reason the HUD is: studying a sugya is not something you
+# do inside a calendar, and it should survive the calendar window being closed.
+#
+# Jude itself is a SEPARATE REPOSITORY and is not vendored here; this only
+# starts the window, which talks to Jude through this API on $PORT. If the
+# checkout is missing, the window says so and says where to get it.
+# See DOCUMENTATION/JUDE.md.
+JUDE_PID=""
+if python - <<'PYEOF' 2>/dev/null
+import sys
+from assistant.config import load_config, ConfigError
+try:
+    cfg = load_config("config.yaml")
+except ConfigError:
+    sys.exit(1)
+sys.exit(0 if cfg.jude.enabled else 1)
+PYEOF
+then
+    MACALENDAR_API_PORT=$PORT python -m assistant.jude_app &
+    JUDE_PID=$!
+    echo "📖 Jude started (PID $JUDE_PID)"
+fi
+
 echo "--------------------------------------------------------"
 echo "📱 iPhone API started (PID $API_PID)"
 echo "🪟 Thinking HUD started (PID $HUD_PID)"
@@ -121,6 +145,9 @@ python -m assistant.main
 # When the Mac app exits, shut down the API server and the HUD too
 kill $API_PID 2>/dev/null
 kill $HUD_PID 2>/dev/null
+if [ ! -z "$JUDE_PID" ]; then
+    kill $JUDE_PID 2>/dev/null
+fi
 if [ ! -z "$OLLAMA_PID" ]; then
     kill $OLLAMA_PID 2>/dev/null
 fi

@@ -55,6 +55,25 @@ struct VoiceButton: View {
                         Label(sendCountdown > 0 ? "Send \(sendCountdown)" : "Send", systemImage: "paperplane.fill")
                     }
                     .buttonStyle(.borderedProminent)
+                    discardButton
+                }
+                .font(.caption.weight(.medium))
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .padding(6)
+                .background(.regularMaterial)
+                .clipShape(Capsule())
+                .shadow(radius: 2)
+                .fixedSize()
+                .offset(y: -44)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            } else if status == .recording {
+                // Stopping the recording sends it — on the countdown path or
+                // straight away. Until this there was no way to change your
+                // mind mid-sentence except to let the command run and undo it.
+                HStack(spacing: 6) {
+                    Text("Listening…").foregroundColor(.secondary)
+                    discardButton
                 }
                 .font(.caption.weight(.medium))
                 .buttonStyle(.bordered)
@@ -87,6 +106,7 @@ struct VoiceButton: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: canReopen)
+        .animation(.easeInOut(duration: 0.2), value: status)
         .sheet(item: $editRequest) { req in
             EditTranscriptionSheet(text: req.text, doubtful: req.doubtful) { corrected in
                 resubmitEdited(corrected, editedFrom: req.text)
@@ -107,6 +127,17 @@ struct VoiceButton: View {
                  : req.prompt + "\n\n" + req.items.map { "\u{2022} " + $0.summary }
                     .joined(separator: "\n"))
         }
+    }
+
+    /// Throw the recording away without sending it. The Mac's review bar has
+    /// had this since it existed; the phone's only exits were Send and Redo,
+    /// so a recording started by accident had to be sent and then undone.
+    private var discardButton: some View {
+        Button(role: .destructive) { discard() } label: {
+            Image(systemName: "trash")
+        }
+        .tint(.red)
+        .accessibilityLabel("Discard recording")
     }
 
     private var micButton: some View {
@@ -278,6 +309,19 @@ struct VoiceButton: View {
             }
             sendPending()
         }
+    }
+
+    /// Discard whatever has been recorded — mid-sentence or during the review
+    /// countdown — and go back to idle. Nothing is uploaded, so nothing is
+    /// transcribed, executed or remembered.
+    private func discard() {
+        countdownTask?.cancel()
+        countdownTask = nil
+        sendCountdown = 0
+        pendingAudio = nil
+        recorder.cancel()
+        player.stop()
+        status = .idle
     }
 
     private func redo() {
