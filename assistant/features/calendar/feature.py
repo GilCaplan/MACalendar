@@ -14,3 +14,18 @@ class CalendarFeature(Feature):
     order = 0
     pinned = True
     default_visible = True
+
+    def panel(self):
+        """None, although `has_mac_panel` is True — and the asymmetry is real.
+
+        The calendar's Mac surface is FOUR widgets (month, week, day, agenda)
+        plus the mode switcher that moves between them, not one panel sitting
+        beside the others in the stack. It is the window's own furniture, so
+        `window.py` builds it directly; the registry drives the feature panels
+        around it.
+        """
+        return None
+
+    def blueprint(self):
+        from assistant.features.calendar.routes import blueprint
+        return blueprint

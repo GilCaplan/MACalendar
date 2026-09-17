@@ -39,7 +39,7 @@ here. See `assistant/integrations/CONVENTION.md`.
 | `assets/` | the app icon |
 | `build_app.sh` | builds `Jude.app` |
 
-The iOS half is `MACalendar-iOS/MACalendar-iOS/Jude/`.
+The iOS half is `MACalendar-iOS/MACalendar-iOS/Features/Jude/`.
 
 ## Two rules make it part of this system
 

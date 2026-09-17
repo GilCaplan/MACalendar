@@ -204,3 +204,76 @@ def test_jude_is_both_a_feature_and_an_integration():
     assert registry.get("jude") is not None
     assert integrations.get("jude") is not None
     assert registry.get("jude") is not integrations.get("jude")
+
+
+# ---------------------------------------------------------------------------
+# The phone declares the same seven
+# ---------------------------------------------------------------------------
+#
+# Structure is declared in CODE on each platform, on purpose — a tab bar built
+# from GET /features could not be drawn until the Mac answered, and with the Mac
+# asleep it would never be drawn at all. The price of that choice is TWO
+# declarations, and the convention's own last rule is "never let registration be
+# two lists". These tests are what keeps the price payable: the phone's list may
+# live in Swift, but it may not drift.
+
+def _ios_features():
+    """Parse `Feature(...)` out of the iOS registry.
+
+    By NAME, not by path (see `_ios_sources`): the file moved into
+    `Features/` in the same change that created it.
+    """
+    import re
+    from tests.unit._ios_sources import ios_source
+
+    source = ios_source("FeatureRegistry.swift")
+    body = source.split("static let all: [Feature] = [", 1)[1]
+    out = {}
+    for chunk in body.split("Feature(name:")[1:]:
+        name = re.search(r'^\s*"([a-z]+)"', chunk).group(1)
+        out[name] = {
+            "label": re.search(r'label:\s*"([^"]+)"', chunk).group(1),
+            "icon": re.search(r'icon:\s*"([^"]+)"', chunk).group(1),
+            "order": int(re.search(r"order:\s*(\d+)", chunk).group(1)),
+            "pinned": "pinned: true" in chunk,
+            "default_visible": "defaultVisible: false" not in chunk,
+        }
+    return out
+
+
+def test_the_ios_registry_declares_the_same_features():
+    ios = _ios_features()
+    mac = {f.name: f for f in registry.all_features()}
+    assert set(ios) == set(mac), "the two clients disagree about which tabs exist"
+    for name, declared in ios.items():
+        f = mac[name]
+        # `name` and `order` are the two that TRAVEL: the name is the URL
+        # segment and the config key, and the order is the one both tab bars
+        # sort by. A mismatch there is a tab that cannot be switched off from
+        # the other machine, or two surfaces in different places.
+        assert declared["order"] == f.order, name
+        assert declared["label"] == f.label, name
+        assert declared["icon"] == f.icon, name
+        assert declared["pinned"] == f.pinned, name
+        assert declared["default_visible"] == f.default_visible, name
+
+
+def test_the_phone_never_offers_a_pinned_feature_as_a_toggle():
+    """Settings loops over `FeatureRegistry.togglable`, so a pinned feature
+    has no switch to flip — the 409 exists for a PATCH from anywhere else."""
+    from tests.unit._ios_sources import ios_source
+
+    settings_view = ios_source("SettingsView.swift")
+    assert "ForEach(FeatureRegistry.togglable)" in settings_view
+    assert "showJudeTab" not in settings_view, "a hand-written tab toggle came back"
+
+
+def test_the_phone_has_one_bounce_off_for_every_feature():
+    """Timer was the optional tab nobody wrote an `onChange` handler for, so
+    hiding it while it was on screen left a blank screen with a working tab bar
+    under it. One generic rule, not seven."""
+    from tests.unit._ios_sources import ios_source
+
+    shell = ios_source("ContentView.swift")
+    assert "bounceOffHidden" in shell
+    assert "selectedTab" not in shell, "the magic Int tabs came back"

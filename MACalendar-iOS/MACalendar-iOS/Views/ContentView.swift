@@ -1,23 +1,25 @@
 import SwiftUI
 import UIKit
 
+/// The shell the features live in: the offline/queue banners, the tab bar, and
+/// the sheets that belong to no single tab.
+///
+/// It knows THAT there are features and nothing about WHICH ones. The tab bar,
+/// the layer stack and the bounce-off are one loop each over
+/// `FeatureRegistry.all` — see `Features/FeatureRegistry.swift` for why:
+/// those three used to be hand-synced lists, and Timer's missing bounce-off
+/// handler left a blank screen with a working tab bar under it.
 struct ContentView: View {
     @EnvironmentObject var api: APIClient
     @EnvironmentObject var settings: AppSettings
     @ObservedObject private var store = LocalStore.shared
+    @ObservedObject private var visibility = FeatureVisibility.shared
+    @ObservedObject private var router = FeatureRouter.shared
     @Environment(\.scenePhase) private var scenePhase
 
-    @State private var selectedTab = 0
     /// A mined new-tag proposal to confirm (server rate-limits to ~one/week).
     @State private var tagSuggestion: TagSuggestion? = nil
     @State private var showTagSuggestion = false
-    @State private var selectedDate = Date()
-    @State private var viewedDate = Date()
-    @State private var calendarView: CalendarMode = .month
-    @State private var monthEvents: [CalendarEvent] = []
-    @State private var monthHolidays: [Holiday] = []
-    @State private var loadingMonth = false
-    @State private var showCreateSheet = false
     @State private var showVocabOnboarding = false
     @State private var showVoiceQueue = false
     @ObservedObject private var importInbox = ImportInbox.shared
@@ -25,29 +27,21 @@ struct ContentView: View {
     @State private var sharedImportText: String? = nil
     @State private var unreviewed = 0
     @State private var showReview = false
-    @State private var showSearch = false
     // Settings moved OUT of the tab set (Gil, 2026-09-17: "I don't want
     // More -> Settings, just Settings" — every content tab, Jude included,
     // has to be a direct peer with no fold-away menu in between). It is a
     // sheet from a persistent gear button instead, one tap from any tab.
     @State private var showSettings = false
 
-    enum CalendarMode { case month, week, day }
+    /// The tab on screen, as a feature NAME. It was an `Int` with a hole at
+    /// tag 3 where Settings used to be, which encoded nothing and could not be
+    /// matched against the Mac, the config or the API.
+    private var selectedFeature: String { router.selected }
 
     /// The content tabs, in display order — everything BUT Settings, which
-    /// isn't one of these any more. `tag` is the same Int `selectedTab` has
-    /// always used elsewhere in this file (SearchView, NotificationRouter);
-    /// unchanged so those call sites needed no edits.
-    private var contentTabs: [(tag: Int, label: String, icon: String)] {
-        var tabs: [(Int, String, String)] = [(0, "Calendar", "calendar"),
-                                              (1, "Tasks", "checklist")]
-        if settings.showCourseworkTab { tabs.append((2, "Coursework", "graduationcap")) }
-        if settings.showWorkoutTab { tabs.append((4, "Workout", "figure.strengthtraining.traditional")) }
-        if settings.showTimerTab { tabs.append((5, "Timer", "timer")) }
-        if settings.showTeachTab { tabs.append((6, "Teach", "brain.head.profile")) }
-        if settings.showJudeTab { tabs.append((7, "Jude", "books.vertical")) }
-        return tabs
-    }
+    /// isn't one of these any more. Visibility comes from the local cache, so
+    /// this answers with the Mac asleep; structure comes from the registry.
+    private var contentTabs: [Feature] { visibility.visible }
 
     /// A native `TabView` folds anything past 5 items into "More", which is
     /// exactly the thing being avoided here — so this isn't one. Every
@@ -59,13 +53,16 @@ struct ContentView: View {
         HStack(spacing: 0) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 0) {
-                    ForEach(contentTabs, id: \.tag) { t in
-                        tabBarButton(tag: t.tag, label: t.label, icon: t.icon)
+                    ForEach(contentTabs) { feature in
+                        tabBarButton(feature)
                     }
                 }
             }
             Divider().frame(height: 30)
-            tabBarButton(tag: -1, label: "Settings", icon: "gear", isSettings: true)
+            Button { showSettings = true } label: {
+                tabBarLabel(label: "Settings", icon: "gear", selected: false)
+            }
+            .buttonStyle(.plain)
         }
         .padding(.top, 6)
         .padding(.bottom, 2)
@@ -73,25 +70,25 @@ struct ContentView: View {
         .overlay(Divider(), alignment: .top)
     }
 
-    @ViewBuilder
-    private func tabBarButton(tag: Int, label: String, icon: String, isSettings: Bool = false) -> some View {
+    private func tabBarButton(_ feature: Feature) -> some View {
         Button {
-            if isSettings {
-                showSettings = true
-            } else {
-                withAnimation(.easeInOut(duration: 0.15)) { selectedTab = tag }
-            }
+            withAnimation(.easeInOut(duration: 0.15)) { router.show(feature.name) }
         } label: {
-            VStack(spacing: 3) {
-                Image(systemName: icon).font(.system(size: 21))
-                Text(label).font(.system(size: 10))
-            }
-            .foregroundColor(!isSettings && selectedTab == tag ? settings.accentColor : .secondary)
-            .frame(minWidth: 58)
-            .padding(.vertical, 2)
+            tabBarLabel(label: feature.label, icon: feature.icon,
+                        selected: selectedFeature == feature.name)
         }
         .buttonStyle(.plain)
-        .accessibilityAddTraits(!isSettings && selectedTab == tag ? .isSelected : [])
+        .accessibilityAddTraits(selectedFeature == feature.name ? .isSelected : [])
+    }
+
+    private func tabBarLabel(label: String, icon: String, selected: Bool) -> some View {
+        VStack(spacing: 3) {
+            Image(systemName: icon).font(.system(size: 21))
+            Text(label).font(.system(size: 10))
+        }
+        .foregroundColor(selected ? settings.accentColor : .secondary)
+        .frame(minWidth: 58)
+        .padding(.vertical, 2)
     }
 
     var body: some View {
@@ -150,60 +147,14 @@ struct ContentView: View {
             tabContent
             customTabBar
         }
-        .sheet(isPresented: $showCreateSheet) {
-            let year    = Calendar.current.component(.year,  from: selectedDate)
-            let month   = Calendar.current.component(.month, from: selectedDate)
-            let day     = Calendar.current.component(.day,   from: selectedDate)
-            let dateStr = String(format: "%04d-%02d-%02d", year, month, day)
-
-            EventDetailView(
-                event: CalendarEvent(
-                    id: 0, title: "", date: dateStr,
-                    startTime: "10:00", endTime: "11:00",
-                    attendees: "", location: "",
-                    description: "", color: settings.accentColorHex,
-                    recurrence: "", recurrenceEnd: ""
-                ),
-                isNew: true,
-                onDismiss: { Task { await loadMonth() } }
-            )
-        }
-        .onChange(of: settings.showCourseworkTab) { visible in
-            // Bounce off the now-hidden tab so the user doesn't land on a
-            // blank TabView page.
-            if !visible && selectedTab == 2 { selectedTab = 0 }
-        }
-        .onChange(of: settings.showWorkoutTab) { visible in
-            if !visible && selectedTab == 4 { selectedTab = 0 }
-        }
-        // Timer was the one optional tab with no bounce-off, so hiding it while
-        // it was on screen left `selectedTab` pointing at a layer the ZStack no
-        // longer builds — a blank screen with a working tab bar under it.
-        .onChange(of: settings.showTimerTab) { visible in
-            if !visible && selectedTab == 5 { selectedTab = 0 }
-        }
-        .onChange(of: settings.showTeachTab) { visible in
-            if !visible && selectedTab == 6 { selectedTab = 0 }
-        }
-        .onChange(of: settings.showJudeTab) { visible in
-            if !visible && selectedTab == 7 { selectedTab = 0 }
-        }
-        .sheet(isPresented: $showSearch) {
-            SearchView(
-                onOpenEvent: { event in
-                    // Navigate the calendar to the event's day, in whatever
-                    // month/week/day mode is already showing. selectedDate and
-                    // viewedDate are the same state every other navigation
-                    // (Today button, grid taps, swipes) drives.
-                    if let d = DateFormatter.isoDay.date(from: event.date) {
-                        selectedDate = d
-                        viewedDate = d
-                    }
-                    selectedTab = 0
-                    Task { await loadMonth() }
-                },
-                onOpenTodo: { _ in selectedTab = 1 }
-            )
+        // ONE bounce-off for all seven features, instead of the per-tab
+        // `onChange` handlers this replaced — Timer never got one, so hiding it
+        // while it was on screen left the selection pointing at a layer the
+        // stack no longer builds: a blank screen with a working tab bar.
+        .onChange(of: visibility.map) { _ in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                router.bounceOffHidden(visibility)
+            }
         }
         .onChange(of: scenePhase) { phase in
             if phase == .active {
@@ -219,10 +170,14 @@ struct ContentView: View {
                     // again — the tag palette, the tag classifier's table, the
                     // holidays — and warms the neighbouring months' cache.
                     await api.bootstrap(
-                        year: Calendar.current.component(.year, from: viewedDate),
-                        month: Calendar.current.component(.month, from: viewedDate),
+                        year: Calendar.current.component(.year, from: CalendarNavigator.shared.viewedDate),
+                        month: Calendar.current.component(.month, from: CalendarNavigator.shared.viewedDate),
                         israel: settings.israelHolidays)
-                    await loadMonth()
+                    CalendarNavigator.shared.reload()
+                    // A tab may have been switched on or off from the Mac while
+                    // this phone was in someone's pocket. Cheap, and never
+                    // blocking: the tab bar is already on screen from the cache.
+                    await visibility.refresh(api: api)
                     await refreshWorkoutIfNeeded()
                     api.requestRefresh()
                     // Re-mirror reminders after the foreground sync — cheap
@@ -249,19 +204,19 @@ struct ContentView: View {
             if let t { sharedImportText = t; importInbox.pendingText = nil }
         }
         // A tapped "evt-*" reminder lands here (NotificationRouter is the
-        // UNUserNotificationCenter delegate). Navigate to the event's date —
-        // the same selectedDate/viewedDate/selectedTab route SearchView's
-        // onOpenEvent drives.
+        // UNUserNotificationCenter delegate). Bring the calendar forward and
+        // point it at the event's date — `CalendarNavigator` is the seam the
+        // calendar feature exposes for exactly this.
         .onReceive(notifRouter.$pendingEventId) { id in
             guard let id else { return }
             notifRouter.pendingEventId = nil
             if let e = LocalStore.shared.event(id),
                let d = DateFormatter.isoDay.date(from: e.date) {
-                selectedDate = d
-                viewedDate = d
+                CalendarNavigator.shared.show(d)
+            } else {
+                CalendarNavigator.shared.reload()
             }
-            selectedTab = 0
-            Task { await loadMonth() }
+            router.show(FeatureRegistry.home)
         }
         .sheet(isPresented: Binding(get: { sharedImportText != nil }, set: { if !$0 { sharedImportText = nil } })) {
             VocabImportView(initialText: sharedImportText, initialName: importInbox.pendingName)
@@ -284,15 +239,18 @@ struct ContentView: View {
             // caches it already had. Now: one timeout at worst, none at all
             // once the client's offline circuit breaker has tripped.
             var lastToken: String? = await api.bootstrap(
-                year: Calendar.current.component(.year, from: viewedDate),
-                month: Calendar.current.component(.month, from: viewedDate),
+                year: Calendar.current.component(.year, from: CalendarNavigator.shared.viewedDate),
+                month: Calendar.current.component(.month, from: CalendarNavigator.shared.viewedDate),
                 israel: settings.israelHolidays)
-            await loadMonth()
+            CalendarNavigator.shared.reload()
 
             // The startup chores, off the critical path: none of them decides
             // what the first screen looks like, so none of them should be able
-            // to delay it.
+            // to delay it. Which tabs are switched on is one of them — the bar
+            // is already drawn from the cache before this asks.
             Task {
+                await visibility.refresh(api: api)
+
                 // First run: once the Mac is reachable and the vocabulary hasn't
                 // been set up, ask the user to teach the assistant their words.
                 if let ob = try? await api.vocabOnboarding() {
@@ -333,7 +291,7 @@ struct ContentView: View {
                         if let previous = lastToken, previous != token {
                             lastToken = token
                             slept = 0
-                            await loadMonth()
+                            CalendarNavigator.shared.reload()
                             api.requestRefresh()
                             // Something changed on the Mac — a reminder may
                             // have moved with it (loadMonth → cacheEvents
@@ -392,7 +350,7 @@ struct ContentView: View {
                 if unchanged { continue }
 
                 // Poll: keep the phone in step with whatever was changed on the Mac.
-                await loadMonth()
+                CalendarNavigator.shared.reload()
                 api.requestRefresh()
             }
         }
@@ -428,170 +386,6 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Calendar tab content (its own property so the stack above
-    // can hold it as one layer among the others).
-    private var calendarContent: some View {
-        NavigationView {
-                    VStack(spacing: 0) {
-
-                        Picker("View", selection: $calendarView) {
-                            Text("Month").tag(CalendarMode.month)
-                            Text("Week").tag(CalendarMode.week)
-                            Text("Day").tag(CalendarMode.day)
-                        }
-                        .pickerStyle(.segmented)
-                        .padding(.horizontal)
-                        .padding(.vertical, 8)
-
-                        Divider()
-
-                        TabView(selection: $calendarView) {
-
-                            // ── Month ──
-                            VStack(spacing: 0) {
-                                HStack {
-                                    Button { shiftMonth(-1) } label: {
-                                        Image(systemName: "chevron.left")
-                                    }
-                                    Spacer()
-                                    Text(monthTitle).font(.headline)
-                                    Spacer()
-                                    Button { shiftMonth(1) } label: {
-                                        Image(systemName: "chevron.right")
-                                    }
-                                }
-                                .padding(.horizontal)
-                                .padding(.vertical, 8)
-
-                                MonthGridView(
-                                    year: Calendar.current.component(.year, from: viewedDate),
-                                    month: Calendar.current.component(.month, from: viewedDate),
-                                    selectedDate: $selectedDate,
-                                    events: monthEvents,
-                                    holidays: monthHolidays,
-                                    onDateSelected: { date in viewedDate = date }
-                                )
-                                Spacer()
-                            }
-                            .tag(CalendarMode.month)
-                            .task { await loadMonth() }
-                            .onChange(of: viewedDate) { _ in Task { await loadMonth() } }
-                            .onAppear { viewedDate = selectedDate }
-                            // Vertical swipe to move a month, in addition to the
-                            // chevron buttons. `simultaneousGesture` (rather than
-                            // `gesture`) so it doesn't steal the horizontal swipe
-                            // the outer page TabView uses to switch Month/Week/Day.
-                            .simultaneousGesture(
-                                DragGesture(minimumDistance: 24)
-                                    .onEnded { value in
-                                        let h = value.translation.height
-                                        let w = value.translation.width
-                                        guard abs(h) > abs(w) * 1.5, abs(h) > 40 else { return }
-                                        withAnimation { shiftMonth(h < 0 ? 1 : -1) }
-                                    }
-                            )
-
-                            // ── Week ──
-                            VStack(spacing: 0) {
-                                HStack {
-                                    Button { shiftWeek(-1) } label: {
-                                        Image(systemName: "chevron.left")
-                                    }
-                                    Spacer()
-                                    Text(weekTitle).font(.headline)
-                                    Spacer()
-                                    Button { shiftWeek(1) } label: {
-                                        Image(systemName: "chevron.right")
-                                    }
-                                }
-                                .padding(.horizontal)
-                                .padding(.vertical, 8)
-
-                                WeekView(
-                                    selectedDate: $selectedDate,
-                                    events: monthEvents,
-                                    holidays: monthHolidays,
-                                    onDateSelected: { date in
-                                        selectedDate = date
-                                        viewedDate = date
-                                        Task { await loadMonth() }
-                                    }
-                                )
-                            }
-                            .tag(CalendarMode.week)
-                            .onAppear {
-                                viewedDate = selectedDate
-                                Task { await loadMonth() }
-                            }
-
-                            // ── Day ──
-                            VStack(spacing: 0) {
-                                HStack {
-                                    Button { shiftDay(-1) } label: {
-                                        Image(systemName: "chevron.left")
-                                    }
-                                    Spacer()
-                                    Text(dayTitle).font(.headline)
-                                    Spacer()
-                                    Button { shiftDay(1) } label: {
-                                        Image(systemName: "chevron.right")
-                                    }
-                                }
-                                .padding(.horizontal)
-                                .padding(.vertical, 8)
-
-                                DayView(date: selectedDate)
-                            }
-                            .tag(CalendarMode.day)
-                            .onAppear { viewedDate = selectedDate }
-
-                        }
-                        .tabViewStyle(.page(indexDisplayMode: .never))
-
-                        Spacer(minLength: 0)
-                    }
-                    .navigationTitle("Calendar")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarLeading) {
-                            Button { showSearch = true } label: {
-                                Image(systemName: "magnifyingglass")
-                            }
-                            .accessibilityLabel("Search")
-                        }
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button("Today") {
-                                selectedDate = Date()
-                                viewedDate = Date()
-                                Task { await loadMonth() }
-                            }
-                        }
-                    }
-                    .overlay(alignment: .bottom) {
-                        HStack(spacing: 20) {
-                            VoiceButton(onRefresh: { refresh in
-                                if refresh == "events" || refresh == "both" {
-                                    Task { await loadMonth() }
-                                }
-                            })
-
-                            Button {
-                                showCreateSheet = true
-                            } label: {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 24, weight: .bold))
-                                    .foregroundColor(Color.onColor(hex: settings.accentColorHex))
-                                    .frame(width: 60, height: 60)
-                                    .background(settings.accentColor)
-                                    .clipShape(Circle())
-                                    .shadow(radius: 4)
-                            }
-                        }
-                        .padding(.bottom, 24)
-                    }
-                }
-    }
-
     // MARK: - The tab shell
 
     /// Every visible tab is BUILT ONCE and shown by opacity — the same
@@ -600,20 +394,14 @@ struct ContentView: View {
     /// in-flight requests when you switch away and back. Rebuilding on
     /// selection instead would be less code and would quietly reset every tab
     /// each time it was revealed, which is the kind of regression nobody
-    /// reports as a bug — it just feels wrong.
+    /// reports as a bug — it just feels wrong. (`ForEach` keeps each layer's
+    /// identity by feature name, so that still holds now the stack is a loop.)
     @ViewBuilder
     private var tabContent: some View {
         ZStack {
-            tabLayer(0) { calendarContent }
-            tabLayer(1) { TasksView() }
-            if settings.showCourseworkTab { tabLayer(2) { CourseworkView() } }
-            if settings.showWorkoutTab { tabLayer(4) { WorkoutView() } }
-            if settings.showTimerTab { tabLayer(5) { TimerView() } }
-            if settings.showTeachTab { tabLayer(6) { LabelGameView() } }
-            // Off by default: Jude is a separate repository that has to be
-            // cloned on the Mac, and a tab that can only say "not installed"
-            // is not a feature. assistant/jude/ARCHITECTURE.md.
-            if settings.showJudeTab { tabLayer(7) { JudeView() } }
+            ForEach(contentTabs) { feature in
+                tabLayer(feature.name) { feature.make() }
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -626,8 +414,8 @@ struct ContentView: View {
     /// announce six tabs' worth of content at once.
     @ViewBuilder
     private func tabLayer<Content: View>(
-        _ tag: Int, @ViewBuilder _ content: () -> Content) -> some View {
-        let active = selectedTab == tag
+        _ name: String, @ViewBuilder _ content: () -> Content) -> some View {
+        let active = selectedFeature == name
         content()
             .opacity(active ? 1 : 0)
             .allowsHitTesting(active)
@@ -636,49 +424,6 @@ struct ContentView: View {
 
 
     // MARK: - Helpers
-
-    private var monthTitle: String {
-        let f = DateFormatter()
-        f.dateFormat = "MMMM yyyy"
-        return f.string(from: viewedDate)
-    }
-
-    private var weekTitle: String {
-        var cal = Calendar(identifier: .gregorian)
-        cal.firstWeekday = 1
-        let weekday = cal.component(.weekday, from: selectedDate) - 1
-        guard let sunday   = cal.date(byAdding: .day, value: -weekday,    to: selectedDate),
-              let saturday = cal.date(byAdding: .day, value: 6 - weekday, to: selectedDate) else { return "" }
-        let f = DateFormatter()
-        f.dateFormat = "MMM d"
-        let year = Calendar.current.component(.year, from: sunday)
-        return "\(f.string(from: sunday)) – \(f.string(from: saturday)), \(year)"
-    }
-
-    private var dayTitle: String {
-        let f = DateFormatter()
-        f.dateFormat = "EEEE, MMM d, yyyy"
-        return f.string(from: selectedDate)
-    }
-
-    private func shiftMonth(_ delta: Int) {
-        guard let d = Calendar.current.date(byAdding: .month, value: delta, to: viewedDate) else { return }
-        viewedDate = d
-    }
-
-    private func shiftWeek(_ delta: Int) {
-        guard let d = Calendar.current.date(byAdding: .day, value: delta * 7, to: selectedDate) else { return }
-        selectedDate = d
-        viewedDate = d
-        Task { await loadMonth() }
-    }
-
-    private func shiftDay(_ delta: Int) {
-        guard let d = Calendar.current.date(byAdding: .day, value: delta, to: selectedDate) else { return }
-        selectedDate = d
-        viewedDate = d
-        Task { await loadMonth() }
-    }
 
     private var voiceQueueIcon: String {
         if store.pendingVoice.contains(where: { $0.status == .running }) { return "waveform" }
@@ -698,66 +443,15 @@ struct ContentView: View {
         return "Your queued command\(store.pendingVoice.count == 1 ? "" : "s") ran"
     }
 
-    private func loadMonth() async {
-        let year  = Calendar.current.component(.year,  from: viewedDate)
-        let month = Calendar.current.component(.month, from: viewedDate)
-
-        let cal = Calendar.current
-        let start = cal.date(from: DateComponents(year: year, month: month, day: 1)) ?? viewedDate
-        let end = cal.date(byAdding: DateComponents(month: 1, day: -1), to: start) ?? start
-        let showHolidays = settings.showHolidays
-        let israel = settings.israelHolidays
-
-        // Draw the cache first, then let the network correct it.
-        //
-        // These two calls fall back to the cache when the Mac is unreachable —
-        // but only after awaiting it, so every month navigation showed an empty
-        // grid for as long as the request took to give up, and then filled in
-        // from a cache that had been on disk the whole time. Painting it up
-        // front costs nothing and is what "instant offline" actually means; the
-        // await below then either replaces it with the same rows (online) or
-        // with itself (offline, and now immediately, thanks to the client's
-        // offline circuit breaker).
-        let startStr = ISO8601DateFormatter.yyyyMMdd.string(from: start)
-        let endStr = ISO8601DateFormatter.yyyyMMdd.string(from: end)
-        let cachedEvents = store.eventsForMonth(year, month)
-        if !cachedEvents.isEmpty { monthEvents = cachedEvents }
-        if showHolidays {
-            let cachedHolidays = store.holidaysBetween(startStr, endStr)
-            if !cachedHolidays.isEmpty { monthHolidays = cachedHolidays }
-        } else {
-            monthHolidays = []
-        }
-
-        loadingMonth = true
-        // Independent requests — run concurrently instead of paying the sum
-        // of both latencies on every month navigation.
-        async let eventsResult: [CalendarEvent] = (try? await api.eventsForMonth(year: year, month: month)) ?? []
-        async let holidaysResult: [Holiday] = fetchHolidays(showHolidays: showHolidays, start: start, end: end, israel: israel)
-
-        monthEvents = await eventsResult
-        loadingMonth = false
-        let fresh = await holidaysResult
-        // An empty answer from an unreachable Mac must not wipe the cached
-        // list off the screen; showHolidays == false already cleared it above.
-        if showHolidays == false || !fresh.isEmpty || monthHolidays.isEmpty {
-            monthHolidays = fresh
-        }
-    }
-
-    private func fetchHolidays(showHolidays: Bool, start: Date, end: Date, israel: Bool) async -> [Holiday] {
-        guard showHolidays else { return [] }
-        return (try? await api.holidays(start: start, end: end, israel: israel)) ?? []
-    }
-
-    /// Mirrors `loadMonth()`'s role for events: pulls fresh exercises/templates/
+    /// Mirrors the calendar's own month reload: pulls fresh exercises/templates/
     /// sessions after pending offline writes just flushed. WorkoutView's own
     /// `.task` handles the initial load when the tab is opened; this covers
     /// the background-refresh case so server-side changes (e.g. a routine
     /// generated on the Mac, or on another device) show up without requiring
-    /// the user to leave and re-enter the Workout tab.
+    /// the user to leave and re-enter the Workout tab. It asks the visibility
+    /// map rather than a `show*Tab` flag, because that flag no longer exists.
     private func refreshWorkoutIfNeeded() async {
-        guard settings.showWorkoutTab else { return }
+        guard visibility.isVisible("workout") else { return }
         _ = try? await api.workoutExercises()
         _ = try? await api.workoutTemplates(includeDrafts: false)
         _ = try? await api.workoutSessions(limit: 50)

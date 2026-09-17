@@ -25,4 +25,5 @@ class JudeFeature(Feature):
     icon = "books.vertical"
     order = 60
     pinned = False
+    has_mac_panel = False
     default_visible = False

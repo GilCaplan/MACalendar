@@ -121,6 +121,16 @@ visibility from `GET /features`. `mac: false` in the manifest is a legitimate
 answer — Teach is iOS-only — and the manifest says so rather than making a
 client guess.
 
+On the phone that declaration is one entry in
+`MACalendar-iOS/MACalendar-iOS/Features/FeatureRegistry.swift` — same `name`,
+same `order` — plus a folder under `Features/` holding the tab's own files.
+Everything downstream (the tab bar, the layer stack, the bounce-off when a
+visible tab is switched off, the Settings toggles) is a loop over that list,
+so nothing else on iOS learns the new name. Visibility lives in
+`FeatureVisibility`, cached in `UserDefaults` and seeded once from the old
+`show*Tab` keys; a toggle applies locally first and queues its PATCH when the
+Mac is away.
+
 ## Things that will bite
 
 - **`ready`/`visible` is not `working`.** A visible tab whose backend is absent

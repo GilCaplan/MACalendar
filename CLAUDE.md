@@ -218,6 +218,35 @@ Every call that generates or loads goes through `model_protocol.hold()`, and a
 test reads the tree to prove there is no fourth door — `llmseg` has its own
 socket, so a gate placed only in the parser would have had a silent hole.
 
+## Two conventions, and they are not the same one
+
+**`assistant/features/` is OUR OWN surfaces** — Calendar, Tasks, Coursework,
+Workout, Timer, Teach, Jude-the-tab. **`assistant/integrations/` is somebody
+else's PROGRAM** — its own repo, its own server, its own process. A tab has no
+checkout, no port and no subprocess, so making one an `Integration` means five
+methods returning `None` to satisfy a base class describing something it isn't.
+A test pins the distinction. Jude is the only thing that is both, and its two
+switches differ: `features.jude` is whether you want the tab, `jude.enabled` is
+whether the program behind it is wired up.
+
+They share one idea: **a surface owns a FOLDER, declares itself ONCE to a
+registry, ships its own ROUTES, and the generic layer never learns its name.**
+
+Adding a tab used to mean three hand-synced lists on iOS and five wiring sites
+in `window.py`, and they had already drifted — Timer had no bounce-off handler,
+so hiding it left a blank screen, and `window.py`'s DB-change poll reloaded
+Tasks and Timer while **Coursework and Workout went stale until restart**.
+`assistant/features/CONVENTION.md` is how to add one; the Mac contract is
+`calendar_ui/feature_panel.py` (`reload` / `apply_theme` / `apply_ui_config`,
+and `reload` is the verb — two panels called it `refresh` and were the only
+ones the window ever refreshed).
+
+**Visibility is ONE map**, `features:` in config.yaml, served by
+`GET /features`. It replaced three systems that did not talk to each other.
+Structure stays declared in code on each platform and only the on/off switch
+travels, because a tab bar built from a server response cannot be drawn on a
+train.
+
 ## Hosting another program: `assistant/integrations/`
 
 An **integration** is an external app — its own repository, its own deps, its

@@ -70,6 +70,8 @@ _PRIORITY_LABELS = ["none", "low", "medium", "high"]
 UNTAGGED_KEY = "__untagged__"
 
 
+from assistant.calendar_ui.feature_panel import FeaturePanel
+
 def _tag_colors(db) -> dict[str, str]:
     """name(lower) → hex color for every known tag (falls back to a stable hue)."""
     out: dict[str, str] = {}
@@ -2044,7 +2046,9 @@ class SectionHeader(QWidget):
 # TodoView — top-level widget
 # ---------------------------------------------------------------------------
 
-class TodoView(QWidget):
+class TodoView(FeaturePanel):
+    feature_name = "tasks"
+
     """
     Apple Reminders-style todo panel with two sections: Today and General.
     Integrates with CalendarDB for persistence and supports calendar sync.
@@ -2138,6 +2142,16 @@ class TodoView(QWidget):
     # ------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------
+
+    def reload(self) -> None:
+        """The FeaturePanel contract verb; this panel calls its own `refresh`.
+
+        The window used to call `refresh()` on this panel and `reload()` on
+        Timer and Workout — so its refresh path reached Tasks and nothing
+        else. One verb for the registry, the old name kept for the callers
+        that already use it.
+        """
+        self.refresh()
 
     def refresh(self) -> None:
         """Reload todos from DB and repopulate both lists."""

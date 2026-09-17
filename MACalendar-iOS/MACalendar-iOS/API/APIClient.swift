@@ -1431,6 +1431,30 @@ class APIClient: ObservableObject {
                             body: ["notifications": fields])) != nil
     }
 
+    // MARK: - Features (which surfaces exist, and which are switched on)
+
+    /// Every surface the Mac knows about, and whether it is switched on.
+    ///
+    /// Only `visible` is read from this — the tab bar's structure is declared
+    /// in `FeatureRegistry`, on purpose: a bar built from this answer could not
+    /// be drawn until the request came back, and with the Mac asleep it would
+    /// never be drawn at all. So nothing on the render path awaits this.
+    func features() async throws -> [FeatureManifest] {
+        try decode([FeatureManifest].self, from: try await request("/features"))
+    }
+
+    /// Switch one on or off. Throws rather than swallowing, because the Mac
+    /// REFUSES some of these: a pinned feature (Calendar, Tasks) answers 409
+    /// with a sentence saying why, and a toggle that springs back without it
+    /// reads as a bug in the app. `APIError.serverSentence` pulls it out.
+    @discardableResult
+    func setFeatureVisible(_ name: String, _ visible: Bool) async throws -> FeatureManifest {
+        let encoded = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? name
+        let data = try await request("/features/\(encoded)", method: "PATCH",
+                                     body: ["visible": visible])
+        return try decode(FeatureManifest.self, from: data)
+    }
+
     // MARK: - Event categories
 
     func categories() async throws -> [EventCategory] {
@@ -1534,6 +1558,23 @@ enum APIError: LocalizedError {
         case .serverError(let msg):
             return msg
         }
+    }
+
+    /// The Mac's own `error` sentence, when the refusal carried one.
+    ///
+    /// `serverError` holds the raw body, which for a refused request is
+    /// `{"error": "…", "code": 409}` — readable, but not something to show
+    /// someone. This also distinguishes the two failures that matter to a
+    /// write: a Mac that said NO (there is a sentence) from a Mac that was not
+    /// there at all (there is not), which decide opposite things about whether
+    /// a local change stands.
+    var serverSentence: String? {
+        guard case .serverError(let raw) = self,
+              let data = raw.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let sentence = obj["error"] as? String
+        else { return nil }
+        return sentence
     }
 }
 

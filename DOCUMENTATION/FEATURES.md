@@ -42,7 +42,7 @@ purely backend (no client code beyond displaying the effects).
 | hybrid | [Command memory](#command-memory--feedback) | every command + verdicts, mined | `intent/memory.py` |
 | hybrid | [Tag suggestion history](#tag-suggestion-history) | the reviewable record behind the ask | `TagHistoryView.swift` |
 | hybrid | [Import & connected calendars](#calendar-import--connected-calendars) | .ics/macOS import; ICS subscribe; Outlook 2-way | `window.py`, `calendar_sync/` |
-| hybrid | [Workout & training](#workout--training-scheduling) | templates, live sessions, observance-aware planning | `actions/workout*`, `Views/Workout/` |
+| hybrid | [Workout & training](#workout--training-scheduling) | templates, live sessions, observance-aware planning | `actions/workout*`, `Features/Workout/` |
 | hybrid | [Timer](#timer-work-tracking) | per-project work + earnings | db `timers*`, `TimerView` |
 | hybrid | [Counters](#counters) | tap counters + payouts | db `counters*` |
 | hybrid | [Coursework](#coursework) | courses + assignments tab | db `courses*`, `CourseworkView` |
@@ -124,7 +124,7 @@ modes.
 events; undo/redo. A fourth Agenda mode (Mac only) lists the next 30 days'
 events chronologically, grouped by day, with day headers skipping empty days.
 **Where:** Mac `assistant/calendar_ui/` (`window.py`, `month_view` / week / day
-/ `agenda_view.py` views, `styles.py`); iOS `Views/MonthGridView.swift`,
+/ `agenda_view.py` views, `styles.py`); iOS `Features/Calendar/MonthGridView.swift`,
 `WeekView.swift`, `DayView.swift`, `EventDetailView.swift`; data
 `assistant/db.py` (`events`).
 **How:** PyQt6 on Mac, SwiftUI on iOS; both are thin clients over the same
@@ -139,7 +139,7 @@ headers append the Hebrew date when `hebrew_calendar.display_mode` isn't
 **What:** Two lists (Today, General) with priorities, due dates, notes,
 attachments, quantities ("pasta ×5") and subtasks.
 **Where:** `assistant/db.py` (`todos`, `subtasks`); Mac tasks pane; iOS
-`Views/TasksView.swift`, `TaskRowView.swift`; API `/todos*`.
+`Features/Tasks/TasksView.swift`, `TaskRowView.swift`; API `/todos*`.
 **How:** Quantities parse from speech or typed titles
 (`assistant/intent/quantity.py`, `split_quantity`); list is a column, not a
 table — the two-list design is deliberate (see tag classes for the axis that
@@ -422,14 +422,14 @@ off.
 observance-aware run/gym planner (fast days, motzei constraints, frequency
 rules).
 **Where:** `assistant/actions/workout_routine.py`, `schedule_workout.py`; db
-`workout_*` tables; iOS `Views/Workout/*`, `Workout/WorkoutStore.swift`.
+`workout_*` tables; iOS `Features/Workout/*` (views + `WorkoutStore.swift`).
 **How:** The planner reads the same observance windows as the calendar;
 voice-triggered via `generate_workout_routine` / `schedule_workout` actions.
 
 ### Timer (work tracking)
 **What:** Multi-project timers with earnings calculation and sub-sessions.
 **Where:** db `timers`/`timer_sessions`; API `/timers*`, `/timer_sessions*`;
-Mac Timer tab; iOS `Views/TimerView.swift`.
+Mac Timer tab; iOS `Features/Timer/TimerView.swift`.
 **How:** Local-only SQLite; sessions editable after the fact. **The live
 counter is clock-driven on both surfaces** and must agree: the Mac ticks from
 the DB every second, the phone from `running.start_epoch` (the server serves
@@ -462,7 +462,7 @@ checkout is found and started (`integration.py`), the `/jude/*` blueprint
 (`routes.py`), the standalone Mac app (`app.py` + `ui/`, 📖 in the calendar
 toolbar, `Jude.app` built by `build_app.sh`), and the map
 (`ARCHITECTURE.md`, which also carries the wire contract both clients build
-against). The iOS tab is `MACalendar-iOS/MACalendar-iOS/Jude/` (Settings, off
+against). The iOS tab is `MACalendar-iOS/MACalendar-iOS/Features/Jude/` (Settings, off
 by default). Config: `jude:` in config.yaml.
 **How:** It is the first **integration** — an external app this assistant
 hosts, gates and proxies without absorbing it. The generic half is
@@ -498,7 +498,7 @@ role is pinned to `ollama.model`.
 ### Coursework
 **What:** Courses + assignments tracking (the university tab).
 **Where:** db `courses`/`assignments`; Mac Coursework tab; iOS
-`Views/CourseworkView.swift`, `CourseStore.swift`.
+`Features/Coursework/CourseworkView.swift`, `CourseStore.swift`.
 **How:** Toggleable tab (settings); feeds tags ("Coursework").
 
 ### iOS app & offline queues
@@ -891,7 +891,7 @@ algorithm back into Python and asserts it agrees with `infer_tag`.
 share a colour, hand-picked colours are never overridden; overlapping events
 stack like binders.
 **Where:** `assistant/actions/calendar/categories.py`; stacking Mac-side in the
-views + iOS `Views/EventStacking.swift`; category registry
+views + iOS `Features/Calendar/EventStacking.swift`; category registry
 `~/.assistant_tools/categories.json`.
 **Renaming moves the label** (2026-09-14): renaming is how a manual add gets
 fixed — book "meeting", correct it to "gym" — and the category used to keep

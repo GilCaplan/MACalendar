@@ -69,6 +69,8 @@
 		AA0000C900000000000000C1 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000B800000000000000C1 /* WidgetSnapshot.swift */; };
 		AA0000CA00000000000000C1 /* UpNextHomeWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000B900000000000000C1 /* UpNextHomeWidget.swift */; };
 		AA0000CB00000000000000C1 /* TagHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000BC00000000000000C1 /* TagHistoryView.swift */; };
+		AA0000FA000000000000F002 /* FeatureRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000FA000000000000F001 /* FeatureRegistry.swift */; };
+		AA0000FB000000000000F002 /* CalendarTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000FB000000000000F001 /* CalendarTabView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -137,6 +139,8 @@
 		AA0000BA00000000000000C1 /* MACalendar-iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "MACalendar-iOS.entitlements"; sourceTree = "<group>"; };
 		AA0000BB00000000000000C1 /* MACalendarWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MACalendarWidgets.entitlements; sourceTree = "<group>"; };
 		AA0000BC00000000000000C1 /* TagHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagHistoryView.swift; sourceTree = "<group>"; };
+		AA0000FA000000000000F001 /* FeatureRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureRegistry.swift; sourceTree = "<group>"; };
+		AA0000FB000000000000F001 /* CalendarTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTabView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
@@ -234,13 +238,11 @@
 				E447FB4142E7405F98384DBA /* DeviceLocation.swift */,
 				AA000014000000000000001B /* HebrewDate.swift */,
 				AA000016000000000000001B /* Theme.swift */,
-				AA000017000000000000001B /* CourseStore.swift */,
 				AA000032000000000000001A /* API */,
+				AA0000FC000000000000F000 /* Features */,
 				AA000033000000000000001A /* Views */,
-				AA0000090000000000000F1A /* Jude */,
 				AA000034000000000000001A /* Voice */,
 				AA000035000000000000001A /* Settings */,
-				AA000037000000000000001A /* Workout */,
 				AA000010000000000000001B /* Assets.xcassets */,
 				AA000012000000000000001B /* Info.plist */,
 				AA0000BA00000000000000C1 /* MACalendar-iOS.entitlements */,
@@ -275,16 +277,9 @@
 			isa = PBXGroup;
 			children = (
 				AA000002000000000000001B /* ContentView.swift */,
-				AA000015000000000000001B /* CourseworkView.swift */,
-				AA000006000000000000001B /* DayView.swift */,
-				AA000007000000000000001B /* EventDetailView.swift */,
-				AA000008000000000000001B /* MonthGridView.swift */,
 				AA0000A400000000000000B1 /* SearchView.swift */,
-				AA0000A400000000000000B9 /* LabelGameView.swift */,
 				AA000009000000000000001B /* SettingsView.swift */,
 				AA0000BC00000000000000C1 /* TagHistoryView.swift */,
-				AA00000A000000000000001B /* TaskRowView.swift */,
-				AA00000B000000000000001B /* TasksView.swift */,
 				AA00000C000000000000001B /* VoiceButton.swift */,
 				AA00009A00000000000000B1 /* VocabularyView.swift */,
 				AA0000A300000000000000B1 /* ThinkingView.swift */,
@@ -292,12 +287,7 @@
 				AA00009D00000000000000B1 /* VocabImportView.swift */,
 				AA00009E00000000000000B1 /* AssistantReviewView.swift */,
 				AA00009F00000000000000B1 /* CategoriesView.swift */,
-				AA0000A000000000000000B1 /* EventStacking.swift */,
-				AA0000A100000000000000B1 /* TimerView.swift */,
-				AA0000A200000000000000B1 /* GuestsSection.swift */,
 				AA00009C00000000000000B1 /* AssistantIcons.swift */,
-				AA00000D000000000000001B /* WeekView.swift */,
-				AA000038000000000000001A /* Workout */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -319,18 +309,58 @@
 			path = Settings;
 			sourceTree = "<group>";
 		};
+		AA0000FC000000000000F000 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000FA000000000000F001 /* FeatureRegistry.swift */,
+				AA0000FC000000000000F001 /* Calendar */,
+				AA0000FC000000000000F002 /* Tasks */,
+				AA0000FC000000000000F003 /* Coursework */,
+				AA000037000000000000001A /* Workout */,
+				AA0000FC000000000000F005 /* Timer */,
+				AA0000FC000000000000F006 /* Teach */,
+				AA0000090000000000000F1A /* Jude */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		AA0000FC000000000000F001 /* Calendar */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000FB000000000000F001 /* CalendarTabView.swift */,
+				AA000008000000000000001B /* MonthGridView.swift */,
+				AA00000D000000000000001B /* WeekView.swift */,
+				AA000006000000000000001B /* DayView.swift */,
+				AA000007000000000000001B /* EventDetailView.swift */,
+				AA0000A000000000000000B1 /* EventStacking.swift */,
+				AA0000A200000000000000B1 /* GuestsSection.swift */,
+			);
+			path = Calendar;
+			sourceTree = "<group>";
+		};
+		AA0000FC000000000000F002 /* Tasks */ = {
+			isa = PBXGroup;
+			children = (
+				AA00000B000000000000001B /* TasksView.swift */,
+				AA00000A000000000000001B /* TaskRowView.swift */,
+			);
+			path = Tasks;
+			sourceTree = "<group>";
+		};
+		AA0000FC000000000000F003 /* Coursework */ = {
+			isa = PBXGroup;
+			children = (
+				AA000015000000000000001B /* CourseworkView.swift */,
+				AA000017000000000000001B /* CourseStore.swift */,
+			);
+			path = Coursework;
+			sourceTree = "<group>";
+		};
 		AA000037000000000000001A /* Workout */ = {
 			isa = PBXGroup;
 			children = (
 				AA000018000000000000001B /* WorkoutModels.swift */,
 				AA000019000000000000001B /* WorkoutStore.swift */,
-			);
-			path = Workout;
-			sourceTree = "<group>";
-		};
-		AA000038000000000000001A /* Workout */ = {
-			isa = PBXGroup;
-			children = (
 				AA00001A000000000000001B /* WorkoutView.swift */,
 				AA00001B000000000000001B /* TemplateBuilderView.swift */,
 				AA00001C000000000000001B /* LiveSessionView.swift */,
@@ -338,6 +368,22 @@
 				AA00001E000000000000001B /* WorkoutStatsView.swift */,
 			);
 			path = Workout;
+			sourceTree = "<group>";
+		};
+		AA0000FC000000000000F005 /* Timer */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000A100000000000000B1 /* TimerView.swift */,
+			);
+			path = Timer;
+			sourceTree = "<group>";
+		};
+		AA0000FC000000000000F006 /* Teach */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000A400000000000000B9 /* LabelGameView.swift */,
+			);
+			path = Teach;
 			sourceTree = "<group>";
 		};
 		AA000036000000000000001A = {
@@ -502,6 +548,8 @@
 				AA00001C000000000000001A /* LiveSessionView.swift in Sources */,
 				AA00001D000000000000001A /* SessionHistoryView.swift in Sources */,
 				AA00001E000000000000001A /* WorkoutStatsView.swift in Sources */,
+				AA0000FA000000000000F002 /* FeatureRegistry.swift in Sources */,
+				AA0000FB000000000000F002 /* CalendarTabView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

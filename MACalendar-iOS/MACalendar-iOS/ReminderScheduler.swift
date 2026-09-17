@@ -181,8 +181,9 @@ enum NotificationPermission {
 /// The app's UNUserNotificationCenterDelegate: presents banners while the
 /// app is foregrounded, and turns a tap on an "evt-*" reminder into a
 /// calendar navigation. Publishes the tapped event's id; ContentView
-/// observes it and drives selectedDate/viewedDate/selectedTab — the same
-/// state SearchView's onOpenEvent uses. (An @Published projected publisher
+/// observes it, hands the date to `CalendarNavigator` and asks `FeatureRouter`
+/// for the calendar tab — the same two seams SearchView's onOpenEvent uses.
+/// (An @Published projected publisher
 /// replays its current value on subscription, so a cold-start tap set here
 /// before ContentView renders still lands.)
 final class NotificationRouter: NSObject, UNUserNotificationCenterDelegate, ObservableObject {

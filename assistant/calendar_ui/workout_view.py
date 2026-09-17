@@ -70,6 +70,8 @@ from assistant.calendar_ui.dialog_utils import install_enter_confirms
 # Helpers
 # ---------------------------------------------------------------------------
 
+from assistant.calendar_ui.feature_panel import FeaturePanel
+
 def _new_id() -> str:
     return str(uuid.uuid4())
 
@@ -1075,7 +1077,9 @@ class SessionDetailDialog(QDialog):
 # Main workout view
 # ---------------------------------------------------------------------------
 
-class WorkoutView(QWidget):
+class WorkoutView(FeaturePanel):
+    feature_name = "workout"
+
     """
     The full Workout tab: Templates (build/review) / History / Stats,
     switched via an internal segmented nav. No live tracking — see module

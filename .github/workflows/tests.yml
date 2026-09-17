@@ -64,6 +64,29 @@ jobs:
         # Integration tests skip without Ollama, which CI has none of.
         run: python -m pytest tests/ -v
 
+      # DOCUMENTATION/API_REFERENCE.md is GENERATED, and a generated doc that
+      # silently stops covering a surface is worse than one nobody wrote — it
+      # still looks complete. That is not hypothetical: when Jude's routes moved
+      # onto a Blueprint, the generator (which only scanned server.py) dropped
+      # all six /jude/* endpoints and said nothing. It now scans every
+      # feature's routes.py too, and this step is what stops the NEXT such
+      # blind spot from living in a committed file for weeks.
+      #
+      # Regenerate and diff: if the committed doc differs from what the code
+      # produces, whoever added the endpoint forgot to run the generator.
+      - name: Generated docs are not stale
+        env:
+          QT_QPA_PLATFORM: offscreen
+          MACALENDAR_NO_WARMUP: "1"
+        run: |
+          set -euo pipefail
+          python -m scripts.gen_api_reference
+          if ! git diff --quiet -- DOCUMENTATION/API_REFERENCE.md; then
+            echo "::error::API_REFERENCE.md is stale — run: python -m scripts.gen_api_reference"
+            git --no-pager diff -- DOCUMENTATION/API_REFERENCE.md
+            exit 1
+          fi
+
       # The CLI is the infrastructure health harness, and until now CI never
       # ran it — only the unit tests that inspect it. Those check the stage
       # LIST; this checks the command actually executes end to end: imports

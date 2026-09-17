@@ -44,6 +44,7 @@ from assistant.calendar_ui.undo import UndoManager
 import assistant.calendar_ui.styles as _styles
 from assistant.calendar_ui.styles import get_app_style, BLUE, GRAY_BORDER, GRAY_DARK, GRAY_TEXT, GRAY_BG
 from assistant.calendar_ui.week_view import WeekView
+from assistant.features import registry as _features
 from assistant.calendar_ui.importer import parse_ics, scan_macos_calendar, import_events
 from assistant.db import CalendarDB
 from assistant.pipeline import (
@@ -399,7 +400,8 @@ class CalendarWindow(QMainWindow):
         self._config = config
         self._db = CalendarDB()
         self._current_date = datetime.date.today()
-        self._view_mode = "month"  # "month" | "week" | "day" | "agenda" | "todo" | "timer" | "coursework" | "workout"
+        # Calendar modes, then one per feature panel (registry-driven).
+        self._view_mode = "month"
         self._undo_manager = UndoManager()
 
         self._dark = (config.theme == "dark") if config else False
@@ -494,28 +496,36 @@ class CalendarWindow(QMainWindow):
         self._sidebar.date_selected.connect(self._on_sidebar_date)
         splitter.addWidget(self._sidebar)
 
-        # Stacked: month / week / day / todo / timer
-        from assistant.calendar_ui.todo_view import TodoView
-        from assistant.calendar_ui.timer_view import TimerView as _TimerView
-        from assistant.calendar_ui.coursework_view import CourseworkView as _CourseworkView
-        from assistant.calendar_ui.workout_view import WorkoutView as _WorkoutView
+        # The calendar's own four views are MODES of one feature rather than
+        # panels beside it: they share the date, the title and the navigation,
+        # and switch between themselves. So the window builds them directly.
         self._stack = QStackedWidget()
         self._month_view = MonthView(self._db)
         self._week_view = WeekView(self._db)
         self._day_view = DayView(self._db)
         self._agenda_view = AgendaView(self._db)
-        self._todo_view = TodoView(self._db, config=self._config)
-        self._timer_view = _TimerView(self._db)
-        self._coursework_view = _CourseworkView(self._db, dark=self._dark)
-        self._workout_view = _WorkoutView(self._db)
-        self._stack.addWidget(self._month_view)
-        self._stack.addWidget(self._week_view)
-        self._stack.addWidget(self._day_view)
-        self._stack.addWidget(self._agenda_view)
-        self._stack.addWidget(self._todo_view)
-        self._stack.addWidget(self._timer_view)
-        self._stack.addWidget(self._coursework_view)
-        self._stack.addWidget(self._workout_view)
+        for _view in (self._month_view, self._week_view,
+                      self._day_view, self._agenda_view):
+            self._stack.addWidget(_view)
+
+        # Every other panel comes from the feature registry, so adding one is a
+        # folder plus a line in `assistant/features/registry.py` rather than the
+        # five edits in this file it used to take — import, construct,
+        # addWidget, the toolbar loop and the _set_view dict. Those five had
+        # already drifted apart; see assistant/features/CONVENTION.md.
+        self._panels: dict = {}
+        for _feature in _features.all_features():
+            _panel_cls = _feature.panel()
+            if _panel_cls is None:
+                continue
+            _panel = _panel_cls.create(self._db, config=self._config, dark=self._dark)
+            self._panels[_feature.name] = _panel
+            self._stack.addWidget(_panel)
+        # Named attributes for the call sites that already use them.
+        self._todo_view = self._panels.get("tasks")
+        self._timer_view = self._panels.get("timer")
+        self._coursework_view = self._panels.get("coursework")
+        self._workout_view = self._panels.get("workout")
         self._month_view.date_selected.connect(self._on_day_selected)
         self._month_view.date_double_clicked.connect(self._on_day_double_clicked)
         self._month_view.event_clicked.connect(self._on_event_clicked)
@@ -607,14 +617,15 @@ class CalendarWindow(QMainWindow):
         layout.addStretch()
 
         # ── Group 2: view toggle tabs ────────────────────────────────
-        for label, mode in [("Month", "month"), ("Week", "week"), ("Day", "day"), ("Agenda", "agenda"), ("Tasks", "todo"), ("Timer", "timer"), ("Coursework", "coursework"), ("Workout", "workout")]:
+        for label, mode in self._toolbar_modes():
             btn = QPushButton(label)
             btn.setObjectName("seg_btn")
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setFixedHeight(30)
             btn.clicked.connect(lambda _, m=mode: self._set_view(m))
-            if self._config and mode in ("coursework", "timer", "workout"):
-                btn.setVisible(getattr(self._config.ui, f"show_{mode}", True))
+            feature = _features.get(mode)
+            if feature is not None and not feature.pinned:
+                btn.setVisible(feature.visible())
             layout.addWidget(btn, alignment=v_center)
             setattr(self, f"_view_btn_{mode}", btn)
             # Styled by _apply_theme(), always called right after _build_ui()
@@ -749,7 +760,7 @@ class CalendarWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _on_prev(self) -> None:
-        if self._view_mode in ("todo", "timer", "coursework", "workout"):
+        if self._on_panel():
             return
         if self._view_mode == "month":
             d = self._current_date.replace(day=1) - datetime.timedelta(days=1)
@@ -761,7 +772,7 @@ class CalendarWindow(QMainWindow):
         self._navigate()
 
     def _on_next(self) -> None:
-        if self._view_mode in ("todo", "timer", "coursework", "workout"):
+        if self._on_panel():
             return
         if self._view_mode == "month":
             d = self._current_date.replace(day=28) + datetime.timedelta(days=4)
@@ -830,7 +841,7 @@ class CalendarWindow(QMainWindow):
         for t in todos:
             mark = "✓ " if t.get("completed") else ""
             act = menu.addAction(f"task  ·  {mark}{t['title'][:44]}")
-            act.triggered.connect(lambda _: self._set_view("todo"))
+            act.triggered.connect(lambda _: self._set_view("tasks"))
         menu.exec(self._search_box.mapToGlobal(
             self._search_box.rect().bottomLeft()))
 
@@ -846,7 +857,7 @@ class CalendarWindow(QMainWindow):
         self._update_title()
 
     def _navigate(self) -> None:
-        if self._view_mode in ("todo", "timer", "coursework", "workout"):
+        if self._on_panel():
             self._update_title()
             return
         if self._view_mode == "month":
@@ -860,20 +871,38 @@ class CalendarWindow(QMainWindow):
             self._day_view.navigate(self._current_date)
         self._update_title()
 
+    def _toolbar_modes(self) -> "list[tuple[str, str]]":
+        """The view row: the calendar's four modes, then one per feature panel.
+
+        Built from the registry so the row, the stack, `_set_view` and the
+        bounce-off can never disagree — they were five hand-kept lists, and
+        they had already drifted.
+        """
+        modes = [("Month", "month"), ("Week", "week"),
+                 ("Day", "day"), ("Agenda", "agenda")]
+        modes += [(f.label, f.name) for f in _features.all_features()
+                  if f.panel() is not None]
+        return modes
+
+    def _on_panel(self) -> bool:
+        """Is the current view a feature panel rather than a calendar view?
+
+        The date navigation, the title and the Today button all mean nothing on
+        a panel, and each site used to spell that out as the same hardcoded
+        tuple of four mode names.
+        """
+        return self._view_mode in self._panels
+
     def _set_view(self, mode: str) -> None:
         self._view_mode = mode
         widget = {
-            "month":      self._month_view,
-            "week":       self._week_view,
-            "day":        self._day_view,
-            "agenda":     self._agenda_view,
-            "todo":       self._todo_view,
-            "timer":      self._timer_view,
-            "coursework": self._coursework_view,
-            "workout":    self._workout_view,
-        }.get(mode, self._month_view)
+            "month":  self._month_view,
+            "week":   self._week_view,
+            "day":    self._day_view,
+            "agenda": self._agenda_view,
+        }.get(mode) or self._panels.get(mode) or self._month_view
         self._stack.setCurrentWidget(widget)
-        for m in ("month", "week", "day", "agenda", "todo", "timer", "coursework", "workout"):
+        for _label, m in self._toolbar_modes():
             btn = getattr(self, f"_view_btn_{m}", None)
             if btn:
                 self._style_seg_btn(btn, m == mode)
@@ -904,18 +933,14 @@ class CalendarWindow(QMainWindow):
         return heb if mode == "hebrew" else f"{base}   ·   {heb}"
 
     def _update_title(self) -> None:
-        if self._view_mode == "timer":
-            self._title_label.setText("Timer")
+        # A panel's title is its feature's label — declared once, in its own
+        # folder, rather than a branch per panel here.
+        if self._on_panel():
+            feature = _features.get(self._view_mode)
+            self._title_label.setText(
+                feature.label if feature else self._view_mode.title())
             return
-        if self._view_mode == "coursework":
-            self._title_label.setText("Coursework")
-            return
-        if self._view_mode == "workout":
-            self._title_label.setText("Workout")
-            return
-        if self._view_mode == "todo":
-            self._title_label.setText("Tasks")
-        elif self._view_mode == "month":
+        if self._view_mode == "month":
             base = self._current_date.strftime("%B %Y")
             # Mid-month as the representative date — the 1st can fall right
             # at a Hebrew month boundary and misrepresent most of the grid.
@@ -1325,7 +1350,7 @@ class CalendarWindow(QMainWindow):
             self._current_date = datetime.date.today()
             self._set_view("day")
         elif status == STATUS_SWITCH_TODO:
-            self._set_view("todo")
+            self._set_view("tasks")
             self.refresh_todos()
 
     def _show_transcript_edit(self, payload_json: str) -> None:
@@ -1353,13 +1378,27 @@ class CalendarWindow(QMainWindow):
             return
         if m != self._db_mtime:
             self._db_mtime = m
-            self.refresh_todos()   # refreshes calendar views too
-            tv = getattr(self, "_timer_view", None)
-            if tv is not None:
-                try:
-                    tv.reload()    # timers started/stopped from the phone
-                except Exception:
-                    pass
+            self.reload_panels()
+            self.refresh_calendar()
+
+    def reload_panels(self) -> None:
+        """Re-read every feature panel.
+
+        This file's DB is written by the API SERVER too — the phone starts a
+        timer, adds a course, logs a workout — so a change can arrive from
+        another process entirely. This used to reload Tasks and, as a
+        special case bolted on later, Timer; Coursework and Workout went stale
+        until the app was restarted, because each panel had to be remembered
+        by hand here and two of them never were.
+
+        One panel failing must not stop the others: a stale panel is a nuisance,
+        a half-refreshed window is a bug report nobody can reproduce.
+        """
+        for name, panel in getattr(self, "_panels", {}).items():
+            try:
+                panel.reload()
+            except Exception:                    # noqa: BLE001
+                logger.exception("panel %s failed to reload", name)
 
     def refresh_calendar(self) -> None:
         """Reload events from DB in all calendar views."""
@@ -1412,14 +1451,11 @@ class CalendarWindow(QMainWindow):
         self._day_view.apply_theme(dark)
         self._agenda_view.apply_theme(dark)
         self._sidebar.apply_theme(dark)
-        if hasattr(self, "_todo_view"):
-            self._todo_view.apply_theme(dark)
-        if hasattr(self, "_timer_view"):
-            self._timer_view.apply_theme(dark)
-        if hasattr(self, "_coursework_view"):
-            self._coursework_view.apply_theme(dark)
-        if hasattr(self, "_workout_view"):
-            self._workout_view.apply_theme(dark)
+        # One loop, not a hasattr chain per panel. Those guards were never a
+        # contract: a hasattr check for a method you are not calling passes
+        # trivially, which is how three panels went unrefreshed for months.
+        for panel in getattr(self, "_panels", {}).values():
+            panel.apply_theme(dark)
         if hasattr(self, "_review_bar"):
             self._review_bar.apply_theme(dark)
 
@@ -1448,14 +1484,8 @@ class CalendarWindow(QMainWindow):
         self._week_view.apply_ui_config(ui)
         self._day_view.apply_ui_config(ui)
         self._agenda_view.apply_ui_config(ui)
-        if hasattr(self, "_todo_view"):
-            self._todo_view.apply_ui_config(ui)
-        if hasattr(self, "_timer_view"):
-            self._timer_view.apply_ui_config(ui)
-        if hasattr(self, "_coursework_view"):
-            self._coursework_view.apply_ui_config(ui)
-        if hasattr(self, "_workout_view"):
-            self._workout_view.apply_ui_config(ui)
+        for panel in getattr(self, "_panels", {}).values():
+            panel.apply_ui_config(ui)
         hebrew = self._config.hebrew_calendar
         self._month_view.apply_hebrew_config(hebrew)
         self._week_view.apply_hebrew_config(hebrew)

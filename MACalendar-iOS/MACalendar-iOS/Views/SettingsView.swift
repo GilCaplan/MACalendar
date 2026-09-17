@@ -6,6 +6,7 @@ import UserNotifications
 struct SettingsView: View {
     @EnvironmentObject var settings: AppSettings
     @EnvironmentObject var api: APIClient
+    @ObservedObject private var visibility = FeatureVisibility.shared
     @State private var healthStatus: String? = nil
     @State private var checking = false
     @State private var unreviewed = 0
@@ -276,20 +277,38 @@ struct SettingsView: View {
                     }
 
                     // MARK: Tabs
+                    //
+                    // ONE loop over the registry, not five hand-written toggles:
+                    // a feature appears here by being declared in
+                    // `FeatureRegistry`, never by someone remembering to add a
+                    // row. Pinned features (Calendar, Tasks) are not offered at
+                    // all — they are what the app IS, and the Mac answers 409 to
+                    // a request to hide one.
                     GroupBox(label: Label("Tabs", systemImage: "square.grid.2x2")) {
                         VStack(alignment: .leading, spacing: 8) {
-                            Toggle("Show Coursework Tab", isOn: $settings.showCourseworkTab)
-                            Toggle("Show Workout Tab", isOn: $settings.showWorkoutTab)
-                            Toggle("Show Teach Tab", isOn: $settings.showTeachTab)
-                            Toggle("Show Timer Tab", isOn: $settings.showTimerTab)
-                            Toggle(isOn: $settings.showJudeTab) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Show Jude Tab")
-                                    Text("Ask about Torah, Talmud and halacha. Needs Jude "
-                                         + "installed on your Mac — the tab says how if it isn't.")
-                                        .font(.caption).foregroundColor(.secondary)
+                            ForEach(FeatureRegistry.togglable) { feature in
+                                Toggle(isOn: Binding(
+                                    get: { visibility.isVisible(feature) },
+                                    set: { visibility.set(feature, visible: $0, api: api) })) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Show \(feature.label) Tab")
+                                        if let note = feature.note {
+                                            Text(note)
+                                                .font(.caption).foregroundColor(.secondary)
+                                        }
+                                    }
                                 }
                             }
+                            // The Mac refusing a change is not the same as the
+                            // Mac being away: a switch that springs back with no
+                            // explanation reads as a bug, so its sentence shows.
+                            if let refusal = visibility.lastRefusal {
+                                Text(refusal).font(.caption).foregroundColor(.orange)
+                            }
+                            Text("Switched on and off on your Mac too — this "
+                                 + "applies here straight away and travels when "
+                                 + "the Mac is reachable.")
+                                .font(.caption).foregroundColor(.secondary)
                         }
                     }
                     .padding(.top, 4)
@@ -408,6 +427,10 @@ struct SettingsView: View {
                     settings.ttsVoice = "en-US"
                 }
                 Task { unreviewed = await api.unreviewedCount() }
+                // The tab switches may have been flipped on the Mac. The
+                // toggles render from the local cache first and correct
+                // themselves if and when this answers.
+                Task { await visibility.refresh(api: api) }
                 Task {
                     permStatus = await NotificationPermission.status()
                     notifConfig = try? await api.notificationsConfig()

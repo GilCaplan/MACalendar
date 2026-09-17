@@ -17,7 +17,7 @@ import pathlib
 import re
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-IOS = ROOT / "MACalendar-iOS" / "MACalendar-iOS"
+from tests.unit._ios_sources import all_ios_sources
 
 #: The complete vocabulary `_commit` can produce. "" means nothing was written
 #: and no client should reload.
@@ -40,8 +40,7 @@ def test_ios_branches_on_every_word_the_engine_can_send():
     """iOS is PRECISE — it reloads only the surface that changed — which means
     a word it does not know is silently ignored. That precision is what makes
     this test necessary."""
-    swift = "\n".join((IOS / "Views" / p).read_text()
-                      for p in ("ContentView.swift", "TasksView.swift"))
+    swift = all_ios_sources()
     handled = set(re.findall(r'refresh == "([a-z]+)"', swift))
     missing = {"events", "todos", "both"} - handled
     assert not missing, (

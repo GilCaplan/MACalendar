@@ -64,6 +64,8 @@ _COURSE_COLORS = [
 # ---------------------------------------------------------------------------
 
 
+from assistant.calendar_ui.feature_panel import FeaturePanel
+
 def _due_label(due_date: str) -> str:
     if not due_date:
         return ""
@@ -526,7 +528,9 @@ class _AssignmentPanel(QWidget):
 # ---------------------------------------------------------------------------
 
 
-class CourseworkView(QWidget):
+class CourseworkView(FeaturePanel):
+    feature_name = "coursework"
+
     def __init__(self, db: CalendarDB, dark: bool = False, font_size: int = 13, parent=None):
         super().__init__(parent)
         self._db        = db
@@ -584,6 +588,16 @@ class CourseworkView(QWidget):
         splitter.setStretchFactor(1, 1)
         splitter.setCollapsible(0, False)
         outer.addWidget(splitter, stretch=1)
+
+    def reload(self) -> None:
+        """The FeaturePanel contract verb; this panel calls its own `refresh`.
+
+        The window used to call `refresh()` on this panel and `reload()` on
+        Timer and Workout — so its refresh path reached Tasks and nothing
+        else. One verb for the registry, the old name kept for the callers
+        that already use it.
+        """
+        self.refresh()
 
     def refresh(self) -> None:
         self._courses = self._db.get_courses()

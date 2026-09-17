@@ -424,14 +424,33 @@ def cmd_say(args) -> int:
 
 
 def cmd_endpoints(args) -> int:
-    import re
-    import pathlib
-    src = (pathlib.Path(__file__).parent / "api" / "server.py").read_text()
-    routes = sorted(set(re.findall(r'@app\.(get|post|delete|patch)\("([^"]+)"', src)),
-                    key=lambda r: (r[1], r[0]))
-    for method, path in routes:
-        print(f"  {_c('33', method.upper()):<7} {path}")
-    print(_c("2", f"\n  {len(routes)} routes"))
+    """List the API surface, from the APP rather than from a regex.
+
+    This used to grep `server.py` for `@app.(get|post|delete|patch)("...")`,
+    which was wrong twice over: it never matched `@app.put`, and it could not
+    see a Blueprint at all — so once features and integrations began bringing
+    their own routes (assistant/features/CONVENTION.md) it reported **42 routes
+    for an API serving 127**, in the command whose whole job is to say what the
+    API serves.
+
+    Building the app is the only answer that cannot drift, because it is the
+    same object Flask will route with. It wants ROUTES, not models, so warm-up
+    is off — otherwise this spawns a thread that unzips Whisper and spaCy just
+    to print a list.
+    """
+    import os
+    os.environ.setdefault("MACALENDAR_NO_WARMUP", "1")
+    from assistant.api.server import create_app
+
+    rules = []
+    for rule in create_app().url_map.iter_rules():
+        if rule.endpoint == "static":
+            continue
+        for method in sorted(rule.methods - {"HEAD", "OPTIONS"}):
+            rules.append((method, str(rule.rule)))
+    for method, path in sorted(set(rules), key=lambda r: (r[1], r[0])):
+        print(f"  {_c('33', method):<7} {path}")
+    print(_c("2", f"\n  {len(set(rules))} routes"))
     return 0
 
 

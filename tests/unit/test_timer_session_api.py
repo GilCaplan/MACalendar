@@ -106,7 +106,7 @@ def test_auto_stop_is_settable_without_touching_anything_else(client):
     (60, "1 h"), (120, "2 h"), (150, "2 h 30 min"), (480, "8 h"),
 ])
 def test_the_menu_label_reads_like_a_person_wrote_it(minutes, shown):
-    # Mirrored by AutoStop.format in MACalendar-iOS/Views/TimerView.swift.
+    # Mirrored by AutoStop.format in the iOS TimerView.swift.
     pytest.importorskip("PyQt6.QtWidgets")
     from assistant.calendar_ui.timer_view import _fmt_minutes
     assert _fmt_minutes(minutes) == shown
@@ -119,8 +119,8 @@ def test_the_two_platforms_offer_the_same_presets():
     from pathlib import Path
     from assistant.calendar_ui.timer_view import TimerCard
 
-    swift = (Path(__file__).resolve().parents[2]
-             / "MACalendar-iOS/MACalendar-iOS/Views/TimerView.swift").read_text()
+    from tests.unit._ios_sources import ios_source
+    swift = ios_source("TimerView.swift")
     ios = [int(m) for m in re.findall(r'Preset\(label: "[^"]+", minutes: (\d+)\)', swift)]
     mac = [minutes for _label, minutes in TimerCard._AUTO_STOP_PRESETS]
     assert ios == mac, f"iOS presets {ios} != Mac presets {mac}"

@@ -113,6 +113,8 @@ _CURRENCIES: dict[str, tuple[str, str]] = {
 _DEFAULT_CURRENCY = "ILS"
 
 
+from assistant.calendar_ui.feature_panel import FeaturePanel
+
 def _currency_symbol(code: str) -> str:
     return _CURRENCIES.get(code, ("", code))[1]
 
@@ -2345,7 +2347,9 @@ class ArchivedTimerRow(QWidget):
 # Main timer view
 # ---------------------------------------------------------------------------
 
-class TimerView(QWidget):
+class TimerView(FeaturePanel):
+    feature_name = "timer"
+
     """
     The full Timer tab: dashboard of TimerCard widgets, daily summary,
     and a 1-second tick that drives all live displays.

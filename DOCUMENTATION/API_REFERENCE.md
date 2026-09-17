@@ -1,6 +1,6 @@
 # API reference
 
-Generated from `assistant/api/server.py` and each integration's `routes.py` by `python -m scripts.gen_api_reference` — do not edit by hand.
+Generated from `assistant/api/server.py` and each integration's and feature's `routes.py` by `python -m scripts.gen_api_reference` — do not edit by hand.
 All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app is the only client. Path parameters use Flask syntax (`<int:id>`).
 
 ## /health
@@ -74,6 +74,142 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `GET` | `/memory/unreviewed` | Commands with no feedback yet (for the phone's review screen). |
 | `POST` | `/memory/unreviewed/skip` | Dismiss the whole review backlog (e.g. stale seeded history). |
 
+## /observance
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/observance` | Training availability per day: what is blocked, and which windows remain. |
+| `DELETE` | `/observance/location` | Forget the reported position and go back to the configured place. |
+| `GET` | `/observance/location` | Where sundown is currently computed for, and where that came from. |
+| `POST` | `/observance/location` | A device reporting where it is. |
+
+## /digest
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/digest` | Today's day panel: when it fires, what it says, and the rows behind it. |
+
+## /config
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/config` |  |
+| `PATCH` | `/config` |  |
+
+## /calendar_sources
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/calendar_sources` |  |
+| `POST` | `/calendar_sources` |  |
+| `DELETE` | `/calendar_sources/<int:source_id>` |  |
+| `PATCH` | `/calendar_sources/<int:source_id>` |  |
+
+## /jude
+
+| Method | Path | What it does |
+|---|---|---|
+| `POST` | `/jude/chat` | Ask Jude a question; stream the answer back as NDJSON. |
+| `GET` | `/jude/chats` | List past conversations, newest first. |
+| `DELETE` | `/jude/chats/<chat_id>` | Forget one conversation. |
+| `GET` | `/jude/chats/<chat_id>/history` | Every message in one conversation. |
+| `PUT` | `/jude/chats/<chat_id>/topic` | Confirm a topic pivot. |
+| `GET` | `/jude/status` | Never an error — a client draws whatever this says. |
+
+## /categories
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/categories` |  |
+| `POST` | `/categories` | {"name": "Volunteering", "color": "#…", "alt": "#…", "keywords": [...], "add_keywords": [...]} |
+| `DELETE` | `/categories/<path:name>` |  |
+| `POST` | `/categories/classify` |  |
+| `POST` | `/categories/recolor` | Apply categories/colours to existing events. ?force=1 re-does everything. |
+
+## /events
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/events` |  |
+| `POST` | `/events` | Create an event. |
+| `DELETE` | `/events/<int:event_id>` |  |
+| `GET` | `/events/<int:event_id>` |  |
+| `PATCH` | `/events/<int:event_id>` |  |
+| `GET` | `/events/<int:event_id>.ics` | Share/export one event as an .ics file (import's symmetric half). |
+
+## /search
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/search` | Substring search over events and tasks for the toolbar/search UIs. |
+
+## /sync
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/sync/bootstrap` | Everything a client needs to draw itself, in ONE round trip. |
+
+## /holidays
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/holidays` |  |
+
+## /courses
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/courses` |  |
+| `POST` | `/courses` |  |
+| `DELETE` | `/courses/<int:course_id>` |  |
+| `PATCH` | `/courses/<int:course_id>` |  |
+| `GET` | `/courses/<int:course_id>/assignments` |  |
+
+## /assignments
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/assignments` | Return all assignments across every course. |
+| `POST` | `/assignments` |  |
+| `DELETE` | `/assignments/<int:asgn_id>` |  |
+| `PATCH` | `/assignments/<int:asgn_id>` |  |
+| `PATCH` | `/assignments/<int:asgn_id>/toggle` |  |
+| `DELETE` | `/assignments/completed` |  |
+
+## /todos
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/todos` |  |
+| `POST` | `/todos` | Create a task. Idempotent on `client_token` — a repeat returns 200 + the existing id. |
+| `DELETE` | `/todos/<int:todo_id>` |  |
+| `PATCH` | `/todos/<int:todo_id>` |  |
+| `PATCH` | `/todos/<int:todo_id>/toggle` |  |
+| `DELETE` | `/todos/completed` |  |
+| `POST` | `/todos/reorder` |  |
+| `POST` | `/todos/sync` |  |
+
+## /tags
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/tags` |  |
+| `POST` | `/tags` |  |
+| `DELETE` | `/tags/<path:name>` |  |
+| `GET` | `/tags/rules` | The task-tag classifier, as data, so a client can run it offline. |
+| `GET` | `/tags/suggestion` | A new-tag proposal mined from the user's untagged history, or {}. |
+| `POST` | `/tags/suggestion/answer` | {"name": "...", "accept": true\|false} — yes adds the class to the |
+| `GET` | `/tags/suggestions/history` | Every past suggestion + verdict, newest first, incl. hidden flags — |
+| `POST` | `/tags/suggestions/revise` | {"name": ..., "accept": bool} changes a past verdict (un-accepting |
+
+## /labels
+
+| Method | Path | What it does |
+|---|---|---|
+| `POST` | `/labels` | {"kind": "event", "text": "...", "label": "Fitness"} — or `labels` |
+| `GET` | `/labels/next` | Items worth labelling, hardest-first. |
+| `POST` | `/labels/retrain` | Refit now. The gate still applies — a model that is not better than |
+
 ## /timers
 
 | Method | Path | What it does |
@@ -113,94 +249,6 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 |---|---|---|
 | `DELETE` | `/counter_presses/<int:pid>` |  |
 
-## /categories
-
-| Method | Path | What it does |
-|---|---|---|
-| `GET` | `/categories` |  |
-| `POST` | `/categories` | {"name": "Volunteering", "color": "#…", "alt": "#…", "keywords": [...], "add_keywords": [...]} |
-| `DELETE` | `/categories/<path:name>` |  |
-| `POST` | `/categories/classify` |  |
-| `POST` | `/categories/recolor` | Apply categories/colours to existing events. ?force=1 re-does everything. |
-
-## /events
-
-| Method | Path | What it does |
-|---|---|---|
-| `GET` | `/events` |  |
-| `POST` | `/events` | Create an event. |
-| `DELETE` | `/events/<int:event_id>` |  |
-| `GET` | `/events/<int:event_id>` |  |
-| `PATCH` | `/events/<int:event_id>` |  |
-| `GET` | `/events/<int:event_id>.ics` | Share/export one event as an .ics file (import's symmetric half). |
-
-## /search
-
-| Method | Path | What it does |
-|---|---|---|
-| `GET` | `/search` | Substring search over events and tasks for the toolbar/search UIs. |
-
-## /todos
-
-| Method | Path | What it does |
-|---|---|---|
-| `GET` | `/todos` |  |
-| `POST` | `/todos` | Create a task. Idempotent on `client_token` — a repeat returns 200 + the existing id. |
-| `DELETE` | `/todos/<int:todo_id>` |  |
-| `PATCH` | `/todos/<int:todo_id>` |  |
-| `PATCH` | `/todos/<int:todo_id>/toggle` |  |
-| `DELETE` | `/todos/completed` |  |
-| `POST` | `/todos/reorder` |  |
-| `POST` | `/todos/sync` |  |
-
-## /labels
-
-| Method | Path | What it does |
-|---|---|---|
-| `POST` | `/labels` | {"kind": "event", "text": "...", "label": "Fitness"} — or `labels` |
-| `GET` | `/labels/next` | Items worth labelling, hardest-first. |
-| `POST` | `/labels/retrain` | Refit now. The gate still applies — a model that is not better than |
-
-## /tags
-
-| Method | Path | What it does |
-|---|---|---|
-| `GET` | `/tags` |  |
-| `POST` | `/tags` |  |
-| `DELETE` | `/tags/<path:name>` |  |
-| `GET` | `/tags/rules` | The task-tag classifier, as data, so a client can run it offline. |
-| `GET` | `/tags/suggestion` | A new-tag proposal mined from the user's untagged history, or {}. |
-| `POST` | `/tags/suggestion/answer` | {"name": "...", "accept": true\|false} — yes adds the class to the |
-| `GET` | `/tags/suggestions/history` | Every past suggestion + verdict, newest first, incl. hidden flags — |
-| `POST` | `/tags/suggestions/revise` | {"name": ..., "accept": bool} changes a past verdict (un-accepting |
-
-## /sync
-
-| Method | Path | What it does |
-|---|---|---|
-| `GET` | `/sync/bootstrap` | Everything a client needs to draw itself, in ONE round trip. |
-
-## /courses
-
-| Method | Path | What it does |
-|---|---|---|
-| `GET` | `/courses` |  |
-| `POST` | `/courses` |  |
-| `DELETE` | `/courses/<int:course_id>` |  |
-| `PATCH` | `/courses/<int:course_id>` |  |
-| `GET` | `/courses/<int:course_id>/assignments` |  |
-
-## /assignments
-
-| Method | Path | What it does |
-|---|---|---|
-| `GET` | `/assignments` | Return all assignments across every course. |
-| `POST` | `/assignments` |  |
-| `DELETE` | `/assignments/<int:asgn_id>` |  |
-| `PATCH` | `/assignments/<int:asgn_id>` |  |
-| `PATCH` | `/assignments/<int:asgn_id>/toggle` |  |
-| `DELETE` | `/assignments/completed` |  |
-
 ## /workout
 
 | Method | Path | What it does |
@@ -221,51 +269,3 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `DELETE` | `/workout/templates/<template_id>` |  |
 | `PATCH` | `/workout/templates/<template_id>` |  |
 | `PATCH` | `/workout/templates/<template_id>/approve` |  |
-
-## /observance
-
-| Method | Path | What it does |
-|---|---|---|
-| `GET` | `/observance` | Training availability per day: what is blocked, and which windows remain. |
-| `DELETE` | `/observance/location` | Forget the reported position and go back to the configured place. |
-| `GET` | `/observance/location` | Where sundown is currently computed for, and where that came from. |
-| `POST` | `/observance/location` | A device reporting where it is. |
-
-## /digest
-
-| Method | Path | What it does |
-|---|---|---|
-| `GET` | `/digest` | Today's day panel: when it fires, what it says, and the rows behind it. |
-
-## /config
-
-| Method | Path | What it does |
-|---|---|---|
-| `GET` | `/config` |  |
-| `PATCH` | `/config` |  |
-
-## /holidays
-
-| Method | Path | What it does |
-|---|---|---|
-| `GET` | `/holidays` |  |
-
-## /calendar_sources
-
-| Method | Path | What it does |
-|---|---|---|
-| `GET` | `/calendar_sources` |  |
-| `POST` | `/calendar_sources` |  |
-| `DELETE` | `/calendar_sources/<int:source_id>` |  |
-| `PATCH` | `/calendar_sources/<int:source_id>` |  |
-
-## /jude
-
-| Method | Path | What it does |
-|---|---|---|
-| `POST` | `/jude/chat` | Ask Jude a question; stream the answer back as NDJSON. |
-| `GET` | `/jude/chats` | List past conversations, newest first. |
-| `DELETE` | `/jude/chats/<chat_id>` | Forget one conversation. |
-| `GET` | `/jude/chats/<chat_id>/history` | Every message in one conversation. |
-| `PUT` | `/jude/chats/<chat_id>/topic` | Confirm a topic pivot. |
-| `GET` | `/jude/status` | Never an error — a client draws whatever this says. |

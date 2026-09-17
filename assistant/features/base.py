@@ -61,6 +61,13 @@ class Feature(ABC):
     #: needs a checkout on the Mac, and a tab that can only say "not installed"
     #: is not a feature.
     default_visible: bool = True
+    #: Does this feature have a panel in the Mac calendar window?
+    #:
+    #: A plain flag rather than `panel() is not None`, because `manifest()` is
+    #: served by the API — a HEADLESS process — and resolving the panel class
+    #: would import PyQt6 into it just to answer a question about a boolean.
+    #: Teach is iOS-only; Jude's Mac surface is a separate window, not a panel.
+    has_mac_panel: bool = True
 
     # -- visibility ------------------------------------------------------
 
@@ -89,8 +96,13 @@ class Feature(ABC):
         return None
 
     def panel(self):
-        """The Mac panel CLASS (a `FeaturePanel` subclass), or None if this
-        feature has no Mac surface. Teach is iOS-only and answers None."""
+        """The Mac panel CLASS (a `calendar_ui.feature_panel.FeaturePanel`
+        subclass), or None.
+
+        Imported LAZILY by the implementation, and called only by the Mac GUI —
+        never by the API server, which has no display and no business importing
+        Qt. `has_mac_panel` is what the manifest reports.
+        """
         return None
 
     # -- what the clients read -------------------------------------------
@@ -106,5 +118,5 @@ class Feature(ABC):
             "order": self.order,
             "pinned": self.pinned,
             "visible": self.visible(),
-            "mac": self.panel() is not None,
+            "mac": self.has_mac_panel,
         }

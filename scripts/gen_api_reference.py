@@ -5,12 +5,13 @@ cannot drift from the code. Run after adding endpoints:
 
     python -m scripts.gen_api_reference
 
-TWO SOURCES, not one. `server.py` holds most routes, but an INTEGRATION
-(assistant/integrations/CONVENTION.md) registers its own on a Blueprint inside
-its folder. Scanning only `server.py` silently dropped all six `/jude/*`
-endpoints from this reference the day they moved out — a generated doc that
-quietly stops covering a surface is worse than one that was never generated,
-because it still looks complete.
+SEVERAL SOURCES, not one. `server.py` holds the voice, vocab, memory, config
+and observance routes, but an INTEGRATION (assistant/integrations/CONVENTION.md)
+and a FEATURE (assistant/features/CONVENTION.md) each register their own on a
+Blueprint inside their folder. Scanning only `server.py` silently dropped all
+six `/jude/*` endpoints from this reference the day they moved out — a
+generated doc that quietly stops covering a surface is worse than one that was
+never generated, because it still looks complete.
 """
 
 from __future__ import annotations
@@ -25,10 +26,16 @@ OUT = os.path.join(ROOT, "DOCUMENTATION", "API_REFERENCE.md")
 
 
 def _sources() -> "list[str]":
-    """server.py, then every integration's routes.py."""
+    """server.py, then every integration's and every feature's routes.py.
+
+    TWO globs, not one: an integration's routes.py sits at
+    `assistant/<name>/routes.py` and a feature's one level deeper at
+    `assistant/features/<name>/routes.py`, and `*` does not cross a slash.
+    """
     import glob
     found = [os.path.join(ROOT, "assistant", "api", "server.py")]
     found += sorted(glob.glob(os.path.join(ROOT, "assistant", "*", "routes.py")))
+    found += sorted(glob.glob(os.path.join(ROOT, "assistant", "features", "*", "routes.py")))
     return found
 
 
@@ -77,8 +84,9 @@ def _collect(tree, groups) -> None:
 
 def _write(groups) -> None:
     lines = ["# API reference", "",
-             "Generated from `assistant/api/server.py` and each integration's "
-             "`routes.py` by `python -m scripts.gen_api_reference` — do not edit by hand.",
+             "Generated from `assistant/api/server.py` and each integration's and "
+             "feature's `routes.py` by `python -m scripts.gen_api_reference` — "
+             "do not edit by hand.",
              "All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app is the only client. "
              "Path parameters use Flask syntax (`<int:id>`).", ""]
     for group, items in groups.items():

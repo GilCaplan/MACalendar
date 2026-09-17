@@ -17,4 +17,9 @@ class TeachFeature(Feature):
     icon = "brain.head.profile"
     order = 50
     pinned = False
+    has_mac_panel = False
     default_visible = True
+
+    def blueprint(self):
+        from assistant.features.teach.routes import blueprint
+        return blueprint

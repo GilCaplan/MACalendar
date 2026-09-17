@@ -16,8 +16,7 @@ import pytest
 
 import assistant.trace as trace
 
-IOS = (pathlib.Path(__file__).resolve().parents[2]
-       / "MACalendar-iOS" / "MACalendar-iOS" / "Views" / "ThinkingView.swift")
+from tests.unit._ios_sources import ios_source
 
 
 def _norm(s: str) -> str:
@@ -26,9 +25,8 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
-@pytest.mark.skipif(not IOS.exists(), reason="iOS sources not present")
 def test_ios_chain_info_matches_the_host():
-    swift = _norm(IOS.read_text(encoding="utf-8"))
+    swift = _norm(ios_source("ThinkingView.swift"))
     for label, (heading, body) in trace.STAGE_INFO[trace.BRAIN_VERSION].items():
         assert _norm(label) in swift, (
             f"iOS scaffold (EngineChain.scaffold) is missing chain slot {label!r}")

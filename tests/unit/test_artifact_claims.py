@@ -299,13 +299,19 @@ def test_the_artifact_does_not_claim_an_embedding_model(prose):
 
 def test_the_endpoint_and_action_counts_on_the_summary_page(all_prose):
     """The architecture page opens with a stat block. Each number is checkable."""
-    # Counted across server.py AND every integration blueprint. Integrations
-    # (assistant/integrations/CONVENTION.md) register their routes on a
+    # Counted across server.py AND every blueprint — an integration's
+    # (assistant/integrations/CONVENTION.md) and a feature's
+    # (assistant/features/CONVENTION.md) alike. Both register their routes on a
     # Blueprint in their own folder rather than on `app` here, so a grep for
     # `@app.` alone silently UNDERCOUNTS — it read 121 for an API serving 127
     # the day Jude's routes moved out, and the gap grows with each new one.
+    #
+    # TWO globs, not one: an integration's routes.py sits at
+    # `assistant/<name>/routes.py`, a feature's one level deeper at
+    # `assistant/features/<name>/routes.py`, and `*` does not cross a slash.
     sources = [(ROOT / "assistant" / "api" / "server.py").read_text()]
     sources += [p.read_text() for p in ROOT.glob("assistant/*/routes.py")]
+    sources += [p.read_text() for p in ROOT.glob("assistant/features/*/routes.py")]
     endpoints = sum(
         len(re.findall(r"@(?:app|blueprint)\.(?:get|post|patch|delete|put)\(", src))
         for src in sources)

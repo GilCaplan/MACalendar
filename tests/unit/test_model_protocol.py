@@ -296,6 +296,13 @@ def test_every_board_declares_itself_background():
         "assistant/notifier.py",
         "assistant/api/server.py",
         "assistant/engine/__init__.py",
+        # `assistant-cli endpoints` builds the app to list its routes — it
+        # WANTS ROUTES, NOT MODELS, which is the same reason the three above
+        # set the flag. It makes no model call at all, so there is nothing for
+        # it to yield; and where the CLI does drive the engine (`cli say`) it
+        # is a person at a terminal waiting for an answer, which is live by
+        # the same rule that makes a phone live.
+        "assistant/cli.py",
     }
     missed = []
     for base in ("assistant", "scripts"):

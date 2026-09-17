@@ -78,32 +78,13 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(hideCompletedAssignments, forKey: "hideCompletedAssignments") }
     }
 
-    // Local-only, mirrors the Mac's config.yaml `ui.show_coursework` (default
-    // on) but isn't synced from it — same precedent as the settings above.
-    @Published var showCourseworkTab: Bool {
-        didSet { UserDefaults.standard.set(showCourseworkTab, forKey: "showCourseworkTab") }
-    }
-
-    // Same pattern as showCourseworkTab above, for the local-only Workout tab.
-    @Published var showTimerTab: Bool {
-        didSet { UserDefaults.standard.set(showTimerTab, forKey: "showTimerTab") }
-    }
-    @Published var showWorkoutTab: Bool {
-        didSet { UserDefaults.standard.set(showWorkoutTab, forKey: "showWorkoutTab") }
-    }
-    /// The labelling game. Same pattern as the tabs above.
-    @Published var showTeachTab: Bool {
-        didSet { UserDefaults.standard.set(showTeachTab, forKey: "showTeachTab") }
-    }
-
-    /// Jude — the Judaic study assistant (assistant/jude/ARCHITECTURE.md).
-    /// Off by default because it needs a checkout of a separate repository on the
-    /// Mac: a tab that can only say "not installed" is not a feature. The
-    /// Settings toggle says as much, and the tab itself reports what the Mac
-    /// actually has.
-    @Published var showJudeTab: Bool {
-        didSet { UserDefaults.standard.set(showJudeTab, forKey: "showJudeTab") }
-    }
+    // Which tabs are shown is NOT here any more. It used to be five
+    // `show*Tab` flags, each with its own UserDefaults key, its own hand-written
+    // Toggle in SettingsView and — where someone remembered — its own bounce-off
+    // handler in ContentView. It is now one map in `FeatureVisibility`, keyed by
+    // the feature name the Mac and the API already use, and shared with the Mac
+    // over /features. The five old keys are still READ ONCE to seed that map, so
+    // an existing install keeps the setup it had.
 
     // Show the assistant's step-by-step "thinking" timeline while a voice
     // command runs (streams live from the Mac). Local-only preference.
@@ -201,16 +182,5 @@ class AppSettings: ObservableObject {
 
         self.hideCompletedAssignments = UserDefaults.standard.object(forKey: "hideCompletedAssignments") == nil
             ? true : UserDefaults.standard.bool(forKey: "hideCompletedAssignments")
-
-        self.showCourseworkTab = UserDefaults.standard.object(forKey: "showCourseworkTab") == nil
-            ? true : UserDefaults.standard.bool(forKey: "showCourseworkTab")
-
-        self.showTimerTab = UserDefaults.standard.object(forKey: "showTimerTab") == nil
-            ? true : UserDefaults.standard.bool(forKey: "showTimerTab")
-        self.showWorkoutTab = UserDefaults.standard.object(forKey: "showWorkoutTab") == nil
-            ? true : UserDefaults.standard.bool(forKey: "showWorkoutTab")
-        self.showTeachTab = UserDefaults.standard.object(forKey: "showTeachTab") == nil
-            ? true : UserDefaults.standard.bool(forKey: "showTeachTab")
-        self.showJudeTab = UserDefaults.standard.bool(forKey: "showJudeTab")
     }
 }

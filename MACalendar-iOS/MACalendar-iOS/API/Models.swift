@@ -778,3 +778,24 @@ struct TagRules: Codable, Equatable {
         case personalLabelsRaw = "personal_labels"
     }
 }
+
+/// One surface, as the Mac describes it (`GET /features`).
+///
+/// The client declares its own features in code (`FeatureRegistry`) and reads
+/// only `visible` out of this — see `assistant/features/CONVENTION.md`:
+/// structure is declared on each platform, and only the on/off switch travels.
+/// The rest is carried anyway because the Mac sends one shape for every
+/// feature, and `mac: false` (Teach is iOS-only) is a real answer rather than
+/// something a client should have to guess.
+struct FeatureManifest: Codable, Identifiable, Equatable {
+    let name: String
+    let label: String
+    let icon: String
+    let order: Int
+    let pinned: Bool
+    let visible: Bool
+    /// Whether this feature also has a panel on the Mac.
+    let mac: Bool
+
+    var id: String { name }
+}
