@@ -23,7 +23,7 @@ class VoiceRecorder: NSObject, ObservableObject {
     /// Why the recording ended. A spoken stop word is an explicit "go", so the
     /// caller sends immediately instead of showing the Redo / Add more / Send
     /// countdown — saying "execute" and then waiting three seconds is silly.
-    enum StopReason { case manual, stopWord, silence }
+    enum StopReason { case manual, stopWord, silence, cancelled }
     private(set) var stopReason: StopReason = .manual
 
     private let engine = AVAudioEngine()
@@ -110,14 +110,30 @@ class VoiceRecorder: NSObject, ObservableObject {
 
     /// Stop and return a WAV file (16 kHz, mono, 16-bit) for the Mac.
     func stop() -> Data? {
+        teardown()
+        guard !pcm.isEmpty else { return nil }
+        return Self.wav(from: pcm, sampleRate: 16000)
+    }
+
+    /// Throw the recording away: stop listening and drop the audio unheard.
+    ///
+    /// Not `stop()` with the result ignored — `start(resume: true)` keeps `pcm`
+    /// on purpose, so audio that was merely discarded by the caller would come
+    /// back attached to the *next* recording. Cancelling has to clear it here.
+    func cancel() {
+        teardown()
+        pcm = Data()
+        liveText = ""
+        stopReason = .cancelled
+    }
+
+    private func teardown() {
         silenceTimer?.invalidate(); silenceTimer = nil
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         request?.endAudio(); task?.cancel(); task = nil; request = nil
         isRecording = false
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        guard !pcm.isEmpty else { return nil }
-        return Self.wav(from: pcm, sampleRate: 16000)
     }
 
     // MARK: - Internals

@@ -194,16 +194,22 @@ deletes the class again.
 ⌘⇧Space) with configurable stop phrases, silence auto-stop (2–12 s), a
 review-before-send Redo/Add-more/Send bar with countdown, a configurable
 event-separator phrase ("next event"), instant placeholder-event keywords,
-and mic multi-tap gestures (second tap within 400 ms cancels). Replies
+and mic multi-tap gestures (second tap within 400 ms cancels). A **trash
+button discards a recording outright** — beside the mic while it is listening
+and in the review bar on both platforms. Replies
 optionally spoken (mute, voice picker, speaking rate, Test Audio preview).
 **Where:** STT `assistant/stt/` (engine-selectable: local Whisper CPU,
 Apple-GPU mlx-whisper, or opt-in Google cloud STT); Mac capture
-`pipeline.py` + settings in `calendar_ui/window.py`; iOS
-`Voice/VoiceRecorder.swift` (on-device stop-word recognition),
+`pipeline.py` (`cancel_recording()`) + toolbar/review-bar buttons in
+`calendar_ui/window.py`; iOS `Voice/VoiceRecorder.swift` (`cancel()`,
+on-device stop-word recognition), `Views/VoiceButton.swift` (`discard()`),
 `SpeechPlayer.swift`; TTS `assistant/tts/speaker.py` (macOS `say`).
 **How:** Audio never leaves the machine on the default engines; the phone
 streams over Tailscale (`/voice/stream`, NDJSON). `test_offline.py` blocks
-non-loopback sockets in the build.
+non-loopback sockets in the build. Discarding happens entirely client-side —
+the audio is dropped before any upload, so nothing is transcribed, executed or
+remembered. On the phone `cancel()` also clears the PCM buffer, which
+`start(resume: true)` ("Add more") deliberately keeps.
 
 ### The edit-transcription round-trip (needs_edit)
 **What:** When the vocabulary doubts words in a transcript, nothing executes —
@@ -505,9 +511,15 @@ frozen contracts); entered only via `assistant.api` (`/voice*` routes).
 **How:** `DOCUMENTATION/ENGINE.md` is the canonical stage-contract reference.
 Deterministic-first everywhere; every LLM call schema-constrained and grounded
 on the raw words; per-stage tests + `scripts/engine_stage_check.py`.
+**Step 0 — is this a command at all?** `repair.is_ignorable()` runs at the
+engine's front door, before the run lock and before the config is read, so
+silence that transcribed to nothing and a recording that is only the word
+which ended it ("execute", "that's it", "set events") cost microseconds
+instead of queueing behind whatever is running. `run()` keeps the same check
+for the custom stop phrases the front door has not read yet.
 **Notable behaviours (each a named, tested rule):** ingest coalescing of
-queued commands; stop-word stripping; trivial/false-start filtering (ignored
-AND not remembered); anaphora ("the one I just made" → context memory);
+queued commands; stop-word peeling (every trailing keyword, not just the
+last); trivial/false-start filtering (ignored AND not remembered); anaphora ("the one I just made" → context memory);
 "another one at 7" title carry-over; not-found honesty on updates/deletes
 with one LLM second opinion — never a guess; am/pm correction; past-date
 bump; move-time fill ("from 9:30 to 9"); cadence rounding announced, never

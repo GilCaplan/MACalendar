@@ -192,9 +192,9 @@ class ReviewBar(QFrame):
         self._more = QPushButton("Add more")
         self._more.setToolTip("Keep what you said and carry on")
         self._send = QPushButton("Send")
-        self._cancel = QPushButton("×")
-        self._cancel.setToolTip("Discard")
-        self._cancel.setFixedWidth(26)
+        self._cancel = QPushButton("🗑")
+        self._cancel.setToolTip("Discard — throw this recording away without running it")
+        self._cancel.setFixedWidth(30)
         for btn, choice in ((self._redo, "redo"), (self._more, "add"),
                             (self._send, "send"), (self._cancel, "cancel")):
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -651,6 +651,20 @@ class CalendarWindow(QMainWindow):
         if self._pipeline is not None:
             self._mic_btn.clicked.connect(self._pipeline.trigger)
         layout.addWidget(self._mic_btn, alignment=v_center)
+
+        # Discard, beside the mic and only while it is listening. Cancelling a
+        # recording was a double-tap on the mic, which is to say undiscoverable
+        # — and tapping the mic once sends, so changing your mind mid-sentence
+        # meant letting the command run and undoing it afterwards.
+        self._discard_btn = QPushButton("🗑")
+        self._discard_btn.setObjectName("icon_btn")
+        self._discard_btn.setFixedSize(30, 30)
+        self._discard_btn.setToolTip("Discard this recording — nothing is transcribed or run")
+        self._discard_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._discard_btn.hide()
+        if self._pipeline is not None:
+            self._discard_btn.clicked.connect(self._pipeline.cancel_recording)
+        layout.addWidget(self._discard_btn, alignment=v_center)
 
         return bar
 
@@ -1208,6 +1222,9 @@ class CalendarWindow(QMainWindow):
         self._mic_btn.setObjectName(obj_name)
         self._mic_btn.style().unpolish(self._mic_btn)
         self._mic_btn.style().polish(self._mic_btn)
+        # Only offered while there is a recording to throw away; the review bar
+        # carries its own trash button for the few seconds it is up.
+        self._discard_btn.setVisible(status == STATUS_LISTENING)
 
         if status == STATUS_REVIEW:
             # The message is "<seconds>|<transcript snippet>" for the review bar,
