@@ -289,6 +289,11 @@ struct JudeView: View {
     @State private var lang = "en"
     @State private var topK: Double = 25
     @State private var showChats = false
+    /// Asking out loud. The recording goes to the Mac to be transcribed and
+    /// comes back as text in the field — Jude is asked only when you press send.
+    @StateObject private var recorder = VoiceRecorder()
+    @State private var transcribing = false
+    @State private var dictateError: String?
 
     var body: some View {
         NavigationView {
@@ -300,8 +305,16 @@ struct JudeView: View {
                     if let pivot = chat.pivot { pivotBanner(pivot) }
                     Divider()
                     JudeComposer(draft: $draft, mode: $mode, lang: $lang, topK: $topK,
-                                 isBusy: chat.asking, onSend: send)
+                                 isBusy: chat.asking, onSend: send,
+                                 recorder: recorder, isTranscribing: transcribing,
+                                 onDictate: dictate)
                 }
+            }
+            .alert("Couldn't use that recording",
+                   isPresented: .constant(dictateError != nil)) {
+                Button("OK") { dictateError = nil }
+            } message: {
+                Text(dictateError ?? "")
             }
             .navigationTitle(chat.chatTitle.isEmpty ? "Jude" : chat.chatTitle)
             .navigationBarTitleDisplayMode(.inline)
@@ -620,6 +633,38 @@ struct JudeView: View {
     }
 
     // MARK: - Sending
+
+    /// Start recording, or stop and turn it into words.
+    ///
+    /// It fills the field instead of asking straight away. Whisper is trained
+    /// on English and a Judaic question is largely words it has never heard —
+    /// the personal vocabulary fixes many of them server-side, and the rest you
+    /// want to see before they are asked.
+    private func dictate() {
+        if recorder.isRecording {
+            guard let wav = recorder.stop() else { return }
+            transcribing = true
+            Task {
+                defer { transcribing = false }
+                do {
+                    let text = try await api.judeTranscribe(wav)
+                    guard !text.isEmpty else {
+                        dictateError = "I didn't catch that."
+                        return
+                    }
+                    // Appended, not replaced: a second go adds to what is there
+                    // rather than silently discarding a question half-typed.
+                    draft = draft.isEmpty ? text
+                          : draft.trimmingCharacters(in: .whitespaces) + " " + text
+                } catch {
+                    dictateError = (error as? APIError)?.serverSentence
+                        ?? "Couldn't reach your Mac to transcribe that."
+                }
+            }
+        } else {
+            recorder.start()
+        }
+    }
 
     private func send() {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -22,6 +22,12 @@ struct JudeComposer: View {
         !isBusy && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// The shared recorder — the same one the calendar's voice button uses, so
+    /// there is one place that knows how to capture audio on this device.
+    @ObservedObject var recorder: VoiceRecorder
+    let isTranscribing: Bool
+    let onDictate: () -> Void
+
     var body: some View {
         VStack(spacing: 8) {
             Picker("Mode", selection: $mode) {
@@ -37,15 +43,45 @@ struct JudeComposer: View {
             disclaimerRow
 
             HStack(alignment: .bottom, spacing: 8) {
+                // Taller than the rest of the app's fields on purpose: a
+                // question for Jude is a sentence or two ("why do we light two
+                // candles, and does it differ on yom tov?"), not "add lunch at
+                // 1". Three lines before it scrolls instead of one.
                 TextField(placeholder, text: $draft, axis: .vertical)
-                    .lineLimit(1...5)
+                    .lineLimit(3...8)
+                    .frame(minHeight: 64, alignment: .top)
                     .textFieldStyle(.roundedBorder)
                     .focused($focused)
-                    .disabled(isBusy)
+                    .disabled(isBusy || isTranscribing)
                     // Hebrew is written right to left, and a left-aligned
                     // field put the caret before the first letter typed.
                     .environment(\.layoutDirection,
                                  lang == "he" ? .rightToLeft : .leftToRight)
+
+                // Ask out loud. It fills the field rather than sending, so a
+                // mangled word can be fixed before it is asked — Whisper is
+                // trained on English and these are the questions most full of
+                // words it has never heard.
+                Button {
+                    focused = false
+                    onDictate()
+                } label: {
+                    Image(systemName: recorder.isRecording ? "stop.circle.fill"
+                                    : (isTranscribing ? "waveform" : "mic.circle.fill"))
+                        .font(.system(size: 30))
+                        .foregroundColor(recorder.isRecording ? .red
+                                         : (isTranscribing ? .secondary : settings.accentColor))
+                        // Not `.symbolEffect(.pulse)` — that is iOS 17 and the
+                        // deployment target is 16.
+                        .opacity(isTranscribing ? 0.45 : 1)
+                        .animation(isTranscribing
+                                   ? .easeInOut(duration: 0.6).repeatForever(autoreverses: true)
+                                   : .default,
+                                   value: isTranscribing)
+                }
+                .disabled(isBusy || isTranscribing)
+                .accessibilityIdentifier("jude-dictate")
+                .accessibilityLabel(recorder.isRecording ? "Stop recording" : "Ask by voice")
 
                 Button {
                     focused = false
@@ -57,6 +93,13 @@ struct JudeComposer: View {
                 }
                 .disabled(!canSend)
                 .accessibilityLabel("Ask Jude")
+            }
+            if recorder.isRecording {
+                Text("Listening… tap ■ when you are done")
+                    .font(.caption2).foregroundColor(.secondary)
+            } else if isTranscribing {
+                Text("Turning that into words on your Mac…")
+                    .font(.caption2).foregroundColor(.secondary)
             }
         }
         .padding(12)

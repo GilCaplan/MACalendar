@@ -570,6 +570,45 @@ def create_app() -> Flask:
                                        supports_edit=_supports_edit(),
                                        supports_confirm=_supports_confirm()))
 
+    @app.post("/voice/transcribe")
+    def voice_transcribe():
+        """Audio in, words out. No parsing, no execution, nothing created.
+
+        `POST /voice` transcribes AND runs the engine, which is right when the
+        words are a command. Jude's are a question — they are going to a
+        different brain — so it needs the Whisper half on its own.
+
+        The personal vocabulary is applied (`learn=False`), because that is
+        precisely where it earns its keep here: Whisper is trained on English
+        and mangles exactly the words a Judaic question is made of. It is not
+        asked to LEARN from this, since nobody is confirming the result.
+        """
+        if "audio" not in request.files:
+            return jsonify({"error": "Missing 'audio' file field", "code": 400}), 400
+        audio_bytes = request.files["audio"].read()
+        try:
+            from assistant.api.audio_utils import audio_bytes_to_numpy
+            audio_np = audio_bytes_to_numpy(audio_bytes)
+        except Exception as e:                      # noqa: BLE001
+            return jsonify({"error": f"Audio decode failed: {e}", "code": 422}), 422
+        try:
+            transcript = _get_stt().transcribe(audio_np)
+        except Exception as e:                      # noqa: BLE001
+            return jsonify({"error": f"Transcription failed: {e}", "code": 500}), 500
+        raw = (transcript or "").strip()
+        if not raw:
+            return jsonify({"text": "", "raw": "", "corrections": []})
+        fixed, fixes = get_vocab().correct(raw, learn=False)
+        return jsonify({
+            "text": fixed,
+            "raw": raw,
+            # `Correction.to_dict()` rather than a hand-rolled shape: it is what
+            # every other vocabulary surface returns, down to `reason` and
+            # `score`, and a second spelling of the same record is how the two
+            # drift.
+            "corrections": [c.to_dict() for c in fixes],
+        })
+
     @app.post("/voice/stream")
     def voice_audio_stream():
         """Same as POST /voice but streams the thinking trace live as NDJSON.

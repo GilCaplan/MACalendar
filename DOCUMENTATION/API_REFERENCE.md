@@ -23,6 +23,7 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `POST` | `/voice/confirm` | Answer a confirm_create proposal: {"confirm_token", "accept": bool}. |
 | `POST` | `/voice/stream` | Same as POST /voice but streams the thinking trace live as NDJSON. |
 | `POST` | `/voice/text` | Accept a JSON transcript and execute directly (skips STT). |
+| `POST` | `/voice/transcribe` | Audio in, words out. No parsing, no execution, nothing created. |
 | `GET` | `/voice/verify/<token>` | Poll for background LLM verification of a rule-path voice command. |
 
 ## /devices

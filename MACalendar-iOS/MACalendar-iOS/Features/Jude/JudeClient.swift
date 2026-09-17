@@ -156,4 +156,47 @@ extension APIClient {
     private func judeEscape(_ id: String) -> String {
         id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
     }
+
+    /// Turn a recording into words, WITHOUT running the engine on them.
+    ///
+    /// `POST /voice` transcribes and then executes — right when the words are a
+    /// command, wrong when they are a question for Jude, which is a different
+    /// brain entirely. `/voice/transcribe` is the Whisper half on its own, with
+    /// the personal vocabulary applied: Whisper is trained on English and
+    /// mangles exactly the words a Judaic question is made of.
+    ///
+    /// Deliberately NOT queued for later. A question transcribed three hours
+    /// after it was asked is answered to nobody — the same reason Jude has no
+    /// offline cache at all.
+    func judeTranscribe(_ wav: Data) async throws -> String {
+        guard settings.serverEnabled else {
+            throw APIError.offline("working offline — the server is switched off in Settings")
+        }
+        guard !base.isEmpty, let url = URL(string: base + "/voice/transcribe") else {
+            throw APIError.badURL
+        }
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var req = URLRequest(url: url, timeoutInterval: 60)
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)",
+                     forHTTPHeaderField: "Content-Type")
+        if !settings.apiKey.isEmpty {
+            req.setValue(settings.apiKey, forHTTPHeaderField: "X-API-Key")
+        }
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"audio\"; filename=\"q.wav\"\r\n"
+                    .data(using: .utf8)!)
+        body.append("Content-Type: audio/wav\r\n\r\n".data(using: .utf8)!)
+        body.append(wav)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        req.httpBody = body
+
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        guard let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.serverError(String(data: data, encoding: .utf8) ?? "Transcription failed")
+        }
+        struct Reply: Codable { let text: String }
+        return (try JSONDecoder().decode(Reply.self, from: data)).text
+    }
 }

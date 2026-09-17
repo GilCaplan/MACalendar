@@ -244,13 +244,61 @@ class LocalStore: ObservableObject {
     @Published var timers: [WorkTimer] = []
     @Published var counters: [TallyCounter] = []
 
+    /// Merge rather than replace.
+    ///
+    /// The app normally fetches `archived=false`, so a wholesale replace meant
+    /// the cache only ever held UNARCHIVED rows — and "Show archived" offline
+    /// filtered a list that had never contained one, so the switch appeared to
+    /// do nothing. Merging by id keeps an archived row once it has been seen,
+    /// and the fresh copy still wins for anything in this answer.
     func cacheTimers(_ fresh: [WorkTimer]) {
-        timers = fresh
+        var byID = Dictionary(uniqueKeysWithValues: timers.map { ($0.id, $0) })
+        for t in fresh { byID[t.id] = t }
+        timers = byID.values.sorted { $0.id < $1.id }
         persist()
     }
 
     func cacheCounters(_ fresh: [TallyCounter]) {
-        counters = fresh
+        var byID = Dictionary(uniqueKeysWithValues: counters.map { ($0.id, $0) })
+        for c in fresh { byID[c.id] = c }
+        counters = byID.values.sorted { $0.id < $1.id }
+        persist()
+    }
+
+    /// Start a timer in the cache, so the clock runs from the moment of the tap.
+    ///
+    /// The same gap `bumpCounter` closed, on the surface where it shows most:
+    /// starting a timer offline queued the write correctly, but the cached
+    /// timer still said `running: nil`, so the row sat at 00:00 next to a
+    /// timer the user had just started. `TimerRow.liveSeconds` reads
+    /// `running.startedAt`; with no session there is nothing for the
+    /// once-a-second tick to count from.
+    ///
+    /// `id: 0` marks it as ours: the Mac assigns the real session id when the
+    /// queued start replays, and its answer replaces this wholesale.
+    func startTimerLocally(_ id: Int, at when: Date = Date()) {
+        guard let i = timers.firstIndex(where: { $0.id == id }), timers[i].running == nil else { return }
+        let stamp = ISO8601DateFormatter().string(from: when)
+        timers[i].running = TimerSession(
+            id: 0, title: timers[i].title, startTime: stamp, endTime: nil,
+            notes: "", seconds: 0, running: true,
+            startEpoch: when.timeIntervalSince1970, endEpoch: nil)
+        persist()
+    }
+
+    /// Stop it, and fold the elapsed time into the totals the row displays.
+    func stopTimerLocally(_ id: Int, at when: Date = Date()) {
+        guard let i = timers.firstIndex(where: { $0.id == id }),
+              let session = timers[i].running else { return }
+        let started = session.startEpoch
+            ?? ISO8601DateFormatter().date(from: session.startTime)?.timeIntervalSince1970
+            ?? when.timeIntervalSince1970
+        let elapsed = max(0, when.timeIntervalSince1970 - started)
+        timers[i].running = nil
+        timers[i].totalSeconds += elapsed
+        timers[i].todaySeconds += elapsed
+        timers[i].sessionCount += 1
+        timers[i].earnings = ((timers[i].totalSeconds / 3600) * timers[i].hourlyRate * 100).rounded() / 100
         persist()
     }
 

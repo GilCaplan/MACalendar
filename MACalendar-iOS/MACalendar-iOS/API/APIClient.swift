@@ -1535,10 +1535,19 @@ class APIClient: ObservableObject {
     // as well as replayed, so there is one path rather than a replay-only one
     // that nothing exercises until it matters.
     func startTimer(_ id: Int) async {
-        await mutateOrTell("/timers/\(id)/start", method: "POST", body: ["start_time": Self.stamp()])
+        // Local first: the clock has to run from the tap, not from the reply.
+        // The queued body carries this same instant, so a replay an hour later
+        // records the start the user actually made.
+        let now = Date()
+        LocalStore.shared.startTimerLocally(id, at: now)
+        await mutateOrTell("/timers/\(id)/start", method: "POST",
+                           body: ["start_time": Self.stamp(now)])
     }
     func stopTimer(_ id: Int) async {
-        await mutateOrTell("/timers/\(id)/stop", method: "POST", body: ["end_time": Self.stamp()])
+        let now = Date()
+        LocalStore.shared.stopTimerLocally(id, at: now)
+        await mutateOrTell("/timers/\(id)/stop", method: "POST",
+                           body: ["end_time": Self.stamp(now)])
     }
     func timerSessions(_ id: Int) async throws -> [TimerSession] {
         try decode(TimerSessionsResponse.self, from: try await request("/timers/\(id)/sessions")).sessions
