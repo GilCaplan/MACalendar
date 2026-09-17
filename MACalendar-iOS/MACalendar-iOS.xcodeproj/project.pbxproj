@@ -36,6 +36,8 @@
 		AA00000E000000000000001A /* SpeechPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E000000000000001B /* SpeechPlayer.swift */; };
 		AA00000F000000000000001A /* VoiceRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000F000000000000001B /* VoiceRecorder.swift */; };
 		AA000010000000000000001A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000010000000000000001B /* Assets.xcassets */; };
+		AA0000010000000000000F1A /* TagClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000F1B /* TagClassifier.swift */; };
+		AA0000020000000000000F1A /* JudeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000020000000000000F1B /* JudeView.swift */; };
 		AA000013000000000000001A /* LocalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000013000000000000001B /* LocalStore.swift */; };
 		AA000014000000000000001A /* HebrewDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000014000000000000001B /* HebrewDate.swift */; };
 		AA000015000000000000001A /* CourseworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000015000000000000001B /* CourseworkView.swift */; };
@@ -95,6 +97,8 @@
 		AA000010000000000000001B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA000011000000000000001B /* MACalendar-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "MACalendar-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA000012000000000000001B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA0000010000000000000F1B /* TagClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagClassifier.swift; sourceTree = "<group>"; };
+		AA0000020000000000000F1B /* JudeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeView.swift; sourceTree = "<group>"; };
 		AA000013000000000000001B /* LocalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStore.swift; sourceTree = "<group>"; };
 		AA000014000000000000001B /* HebrewDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HebrewDate.swift; sourceTree = "<group>"; };
 		AA000015000000000000001B /* CourseworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseworkView.swift; sourceTree = "<group>"; };
@@ -209,6 +213,7 @@
 		AA000031000000000000001A /* MACalendar-iOS */ = {
 			isa = PBXGroup;
 			children = (
+				AA0000010000000000000F1B /* TagClassifier.swift */,
 				AA000001000000000000001B /* MACalendarApp.swift */,
 				AA000013000000000000001B /* LocalStore.swift */,
 				AA0000A500000000000000B1 /* ReminderScheduler.swift */,
@@ -242,6 +247,7 @@
 		AA000033000000000000001A /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				AA0000020000000000000F1B /* JudeView.swift */,
 				AA000002000000000000001B /* ContentView.swift */,
 				AA000015000000000000001B /* CourseworkView.swift */,
 				AA000006000000000000001B /* DayView.swift */,
@@ -445,6 +451,8 @@
 				AA00000D000000000000001A /* WeekView.swift in Sources */,
 				AA00000E000000000000001A /* SpeechPlayer.swift in Sources */,
 				AA00000F000000000000001A /* VoiceRecorder.swift in Sources */,
+				AA0000010000000000000F1A /* TagClassifier.swift in Sources */,
+				AA0000020000000000000F1A /* JudeView.swift in Sources */,
 				AA000013000000000000001A /* LocalStore.swift in Sources */,
 				AA0000A500000000000000A1 /* ReminderScheduler.swift in Sources */,
 				AA0000C100000000000000C1 /* LiveActivityManager.swift in Sources */,

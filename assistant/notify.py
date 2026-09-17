@@ -109,6 +109,11 @@ def notify_verdict(event: dict, cfg) -> "tuple[Optional[str], Optional[str]]":
     """(notify_at ISO local datetime | None, suppressed_reason | None)."""
     if not getattr(cfg, "enabled", True):
         return None, None
+    if not getattr(cfg, "pre_event", False):
+        # The day panel replaced these (Gil, 2026-09-11: the panel "and not
+        # when something is about to pop up"). Dormant, not deleted — see
+        # NotificationsConfig.pre_event.
+        return None, None
     lead, _src = resolve_lead(event, cfg)
     if lead is None or not event.get("start_time") or not event.get("date"):
         return None, None
@@ -153,3 +158,144 @@ def annotate(rows: "list[dict]", cfg=None) -> "list[dict]":
         r["notify_suppressed_reason"] = why
         r.setdefault("reminder_minutes", None)
     return rows
+
+
+# --------------------------------------------------------------------------
+# THE DAY PANEL — one summary of today, instead of a stream of imminent things
+# --------------------------------------------------------------------------
+#
+# Gil, 2026-09-11: "I want it to be more of a panel that nicely shows what i
+# have today and not when something is about to pop up… it's on or off and it
+# shows in a nice manner the event calendar and tasks for today."
+#
+# Same division of labour as the pre-event half above, and for the same
+# reason: the server decides, the clients render. That now includes the
+# WORDING — `build_digest` returns the finished title and body as well as the
+# rows, so the phone's notification, the Mac's banner and anything added later
+# say the same thing. A client that formats its own would drift the moment one
+# of them learned about all-day events and the other did not.
+
+#: Sort key for an event with no clock: all-day rows lead the day.
+_ALL_DAY = "00:00"
+
+
+def digest_time(cfg) -> "Optional[datetime.time]":
+    """The configured local fire time, or None if it is unreadable.
+
+    Unreadable rather than invalid-and-crash: this is read on a daemon
+    thread, and a typo in config.yaml must not take the notifier down.
+    """
+    raw = (getattr(cfg, "digest_time", None) or "").strip()
+    try:
+        hh, mm = (int(x) for x in raw.split(":")[:2])
+        return datetime.time(hh, mm)
+    except (ValueError, TypeError):
+        logger.warning("notifications.digest_time is not HH:MM (%r); "
+                       "the day panel will not fire", raw)
+        return None
+
+
+def digest_verdict(day: datetime.date, cfg) -> "tuple[Optional[str], Optional[str]]":
+    """(fires_at ISO local datetime | None, suppressed_reason | None).
+
+    Suppressed inside a Shabbat / yom tov window, on the same ruling that
+    governs pre-event reminders (DEVQA Q6, 2026-09-11: no reminders for
+    events inside them) — a 07:00 panel on Shabbat morning is a notification
+    on Shabbat whatever it is summarising. Fails OPEN, like every other
+    observance decision here: no solar data means it fires.
+    """
+    if not getattr(cfg, "enabled", True) or not getattr(cfg, "daily_digest", True):
+        return None, None
+    at = digest_time(cfg)
+    if at is None:
+        return None, None
+    fire = datetime.datetime.combine(day, at)
+
+    if getattr(cfg, "respect_observance", True):
+        from assistant import observance as ob
+        if ob.is_enabled() and quiet_window_end(fire) is not None:
+            name = ob.yom_tov_name(day) if ob.is_yom_tov(day) else ""
+            return None, (f"yom_tov:{name}" if name else "shabbat")
+    return fire.isoformat(timespec="minutes"), None
+
+
+def _clock(value: "Optional[str]") -> str:
+    """"14:30" -> "2:30 PM"; anything unparseable stays as it came."""
+    try:
+        hh, mm = (int(x) for x in str(value).split(":")[:2])
+        return datetime.time(hh, mm).strftime("%-I:%M %p")
+    except (ValueError, TypeError):
+        return str(value or "")
+
+
+def digest_lines(events: "list[dict]", todos: "list[dict]") -> "tuple[list[str], list[str]]":
+    """(event lines, task lines) — the day, in the order it happens.
+
+    All-day rows first, then by clock, because that is the order the day is
+    lived in rather than the order the table returns.
+    """
+    ordered = sorted(events, key=lambda e: (e.get("start_time") or _ALL_DAY))
+    ev = []
+    for e in ordered:
+        title = (e.get("title") or "Untitled").strip()
+        start = e.get("start_time")
+        ev.append(f"{_clock(start)}  {title}" if start else f"All day  {title}")
+    td = [(t.get("title") or "Untitled").strip() for t in todos]
+    return ev, td
+
+
+def build_digest(day: datetime.date, cfg, db=None) -> dict:
+    """The whole day panel: when it fires, what it says, and the rows behind it.
+
+    `db` is injectable so a caller inside the API can pass the one it already
+    holds — and so tests never reach for the real calendar.
+    """
+    if db is None:
+        from assistant.db import get_db
+        db = get_db()
+
+    fires_at, suppressed = digest_verdict(day, cfg)
+    events = list(db.get_events_for_day(day) or [])
+    # A DATED task belongs to its due date. An UNDATED one is "outstanding",
+    # which is a today concept — carrying it onto every future day made
+    # `?date=` a week out claim three tasks that are not that day's business.
+    today = datetime.date.today()
+    todos = [t for t in (db.get_todos(list_name=None, include_completed=False) or [])
+             if (t.get("due_date") or "") == day.isoformat()
+             or (not t.get("due_date") and day == today)]
+
+    ev_lines, td_lines = digest_lines(events, todos)
+    heading = day.strftime("%A %-d %B")
+
+    # The COUNT belongs in the title, where a notification shows it without
+    # being opened; the detail belongs in the body. "Nothing on" is a real
+    # answer and reads better than an empty panel.
+    if ev_lines or td_lines:
+        parts = []
+        if ev_lines:
+            parts.append(f"{len(ev_lines)} event" + ("s" if len(ev_lines) != 1 else ""))
+        if td_lines:
+            parts.append(f"{len(td_lines)} task" + ("s" if len(td_lines) != 1 else ""))
+        title = f"{heading} — " + " · ".join(parts)
+    else:
+        title = f"{heading} — nothing on"
+
+    body = "\n".join(ev_lines + (["—"] if ev_lines and td_lines else []) + td_lines)
+
+    return {
+        "date": day.isoformat(),
+        "enabled": bool(getattr(cfg, "enabled", True)
+                        and getattr(cfg, "daily_digest", True)),
+        "fires_at": fires_at,
+        "suppressed_reason": suppressed,
+        "title": title,
+        "body": body,
+        "events": [{"id": e.get("id"), "title": e.get("title"),
+                    "start_time": e.get("start_time"),
+                    "end_time": e.get("end_time"),
+                    "category": e.get("category")} for e in
+                   sorted(events, key=lambda e: (e.get("start_time") or _ALL_DAY))],
+        "tasks": [{"id": t.get("id"), "title": t.get("title"),
+                   "list_name": t.get("list_name"),
+                   "tags": t.get("tags")} for t in todos],
+    }

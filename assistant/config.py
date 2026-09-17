@@ -215,8 +215,25 @@ class NotificationsConfig(BaseModel):
     none". default_lead_minutes 0 means opt-in only: reminders fire only
     where an event or category asked for one."""
     enabled: bool = True
+
+    # THE DAY PANEL (Gil, 2026-09-11): "it's on or off and it shows in a nice
+    # manner the event calendar and tasks for today". One summary of the day,
+    # not a stream of things about to start — so `daily_digest` is the single
+    # switch the iOS app exposes, and `digest_time` is a config knob rather
+    # than another control to think about.
+    daily_digest: bool = True
+    digest_time: str = "07:00"          # local, HH:MM
+
+    # The PRE-EVENT reminders (a banner N minutes before something starts).
+    # Off by default since the day panel replaced them — Gil asked for the
+    # panel "and not when something is about to pop up". The machinery below
+    # is intact and dormant rather than deleted: `reminder_minutes` is a
+    # frozen engine contract and "with a 15 minute reminder" still parses and
+    # stores, so turning this back on restores it whole.
+    pre_event: bool = False
     default_lead_minutes: int = 0
     category_leads: dict[str, int] = {}
+
     respect_observance: bool = True
     catch_up_minutes: int = 10          # Mac: fire late if missed by <= this
     sound: bool = True
@@ -292,6 +309,38 @@ class LabelsConfig(BaseModel):
     auto_retrain: bool = False
 
 
+class JudeConfig(BaseModel):
+    """Jude — the Judaic study assistant, integrated but NOT vendored.
+
+    Jude is its own repository (github.com/GilCaplan/JudeTheJudaicChatBot) with
+    its own corpus and a ~3 GB vector index; copying it in here would make this
+    repo unclonable and would fork a project that is still being worked on. So
+    `path` points at a checkout beside this one, and anyone else clones that
+    repo themselves — see DOCUMENTATION/JUDE.md.
+
+    Not found, or `enabled: false`, means every Jude surface says so politely
+    and nothing else changes.
+    """
+    enabled: bool = False
+    # Relative to this repository's root, or absolute. "~" is expanded.
+    path: str = "../JudeTheJudaicChatBot"
+    port: int = 8000
+    # Start Jude's server ourselves when it is not already listening. Off means
+    # "I run it myself"; the bridge then only connects.
+    autostart: bool = True
+    # Which Ollama model Jude's roles use. Empty = whatever `ollama.model` is,
+    # so Jude and the assistant share one loaded model rather than making a
+    # laptop hold two.
+    model: str = ""
+    # Jude ships a cloud fallback cascade (Gemini → LLMod → Ollama). This
+    # project does not touch the internet — tests/unit/test_offline.py fails
+    # the build if that stops being true — so the bridge pins every role to
+    # local Ollama. Setting this true hands Jude back its own .env and its
+    # cloud providers; it is then YOUR call, and the traffic is Jude's, not
+    # the assistant's.
+    allow_cloud: bool = False
+
+
 class AppConfig(BaseModel):
     hotkey: HotkeyConfig
     stt_engine: Literal["whisper", "mlx", "google"] = "whisper"
@@ -327,6 +376,7 @@ class AppConfig(BaseModel):
     hebrew_calendar: HebrewCalendarConfig = HebrewCalendarConfig()
     observance: ObservanceConfig = ObservanceConfig()
     notifications: NotificationsConfig = NotificationsConfig()
+    jude: JudeConfig = JudeConfig()
 
     @field_validator("confirmation_level")
     @classmethod

@@ -48,6 +48,44 @@ class APIClient: ObservableObject {
     func burstRefresh(seconds: TimeInterval = 45) { burstUntil = max(burstUntil, Date().addingTimeInterval(seconds)) }
     var pollInterval: TimeInterval { Date() < burstUntil ? 1 : 30 }
 
+    // MARK: - The offline circuit breaker
+    //
+    // Every read on this client already falls back to the cache — but it fell
+    // back only AFTER the request had sat out its full 8 s timeout. With the
+    // Mac away that is what the app felt like: eight seconds of blank month
+    // before a cache it had on disk the whole time, another eight for the
+    // holidays, and a cold start that ran several of those one after another
+    // before the first pixel of real content.
+    //
+    // So once a request fails to reach the Mac, the next ones do not try. They
+    // throw `.offline` at once — which is the same error the timeout produced,
+    // so every existing cache fallback and offline-queue path is unchanged,
+    // it just happens instantly. Only the two cheap probes below still go to
+    // the network, because something has to notice the Mac coming back.
+    //
+    // The wait between probes grows 2 → 4 → 8 → 16 → 20 s so a Mac that is off
+    // for an hour is not asked 1,800 times, and any success clears it.
+    private var offlineUntil = Date.distantPast
+    private var offlineBackoff: TimeInterval = 0
+    private static let probePaths: Set<String> = ["/health", "/changes"]
+    private static let maxBackoff: TimeInterval = 20
+
+    /// True while we have recently failed to reach the Mac and are waiting
+    /// before trying again. Callers that build their own URLRequest (the voice
+    /// uploads) check this so they can queue immediately instead of holding a
+    /// recording hostage to a 120 s timeout.
+    var isBackingOff: Bool { Date() < offlineUntil }
+
+    private func noteReachable() {
+        offlineUntil = .distantPast
+        offlineBackoff = 0
+    }
+
+    private func noteUnreachable() {
+        offlineBackoff = min(max(2, offlineBackoff * 2), Self.maxBackoff)
+        offlineUntil = Date().addingTimeInterval(offlineBackoff)
+    }
+
     private let settings: AppSettings
 
     init(settings: AppSettings) {
@@ -78,7 +116,14 @@ class APIClient: ObservableObject {
         guard !base.isEmpty, !isPlaceholder, let url = URL(string: base + path) else {
             throw APIError.badURL
         }
-        var req = URLRequest(url: url, timeoutInterval: 8)
+        // Everything before the "?" — a probe stays a probe with query args on it.
+        let isProbe = Self.probePaths.contains(path.prefix(while: { $0 != "?" }).description)
+        if isBackingOff && !isProbe {
+            throw APIError.offline("not retrying yet — the Mac was unreachable a moment ago")
+        }
+        // A believed-offline probe gets a short leash: its whole job is to
+        // find out quickly, and eight seconds of that per poll is the lag.
+        var req = URLRequest(url: url, timeoutInterval: isOnline ? 8 : 3)
         req.httpMethod = method
         if !settings.apiKey.isEmpty {
             req.setValue(settings.apiKey, forHTTPHeaderField: "X-API-Key")
@@ -94,6 +139,7 @@ class APIClient: ObservableObject {
                 let msg = String(data: data, encoding: .utf8) ?? "Unknown error"
                 throw APIError.serverError(msg)
             }
+            noteReachable()
             // Only assign when it actually changes: these are @Published, so a
             // redundant write still republishes and re-renders every subscriber.
             // With /changes polled every 2 s, blind assignment meant a full
@@ -114,6 +160,7 @@ class APIClient: ObservableObject {
             throw err
         } catch {
             // URLError / network unreachable — keep the real reason for Settings › Test Connection
+            noteUnreachable()
             if isOnline { isOnline = false }
             let reason = "\(url.absoluteString): \(error.localizedDescription)"
             if lastError != reason { lastError = reason }
@@ -416,13 +463,63 @@ class APIClient: ObservableObject {
     // MARK: - Holidays
 
     /// Jewish/Israeli holidays for [start, end]. Computed server-side (Mac)
-    /// so the holiday list stays identical across devices. Not cached for
-    /// offline use — returns [] if unreachable, same as any other refresh.
+    /// so the holiday list stays identical across devices — and cached here,
+    /// so it stays on screen when the Mac is away. It used to be the one part
+    /// of the calendar with no cache: going offline emptied the Hebrew
+    /// calendar out of every month, while the Hebrew dates next to it (which
+    /// iOS computes locally) carried on.
     func holidays(start: Date, end: Date, israel: Bool = true) async throws -> [Holiday] {
         let s = ISO8601DateFormatter.yyyyMMdd.string(from: start)
         let e = ISO8601DateFormatter.yyyyMMdd.string(from: end)
-        let data = try await request("/holidays?start=\(s)&end=\(e)&israel=\(israel ? 1 : 0)")
-        return try decode([Holiday].self, from: data)
+        do {
+            let data = try await request("/holidays?start=\(s)&end=\(e)&israel=\(israel ? 1 : 0)")
+            let items = try decode([Holiday].self, from: data)
+            LocalStore.shared.cacheHolidays(items, from: s, to: e)
+            return items
+        } catch APIError.offline, APIError.badURL {
+            return LocalStore.shared.holidaysBetween(s, e)
+        }
+    }
+
+    // MARK: - Bootstrap (one round trip for a cold start)
+
+    /// Everything a cold start needs, in one request — see
+    /// `DOCUMENTATION/SYNC_PROTOCOL.md`.
+    ///
+    /// Opening the app used to be eight independent GETs, and with the Mac
+    /// away the phone paid a timeout on each of them before falling back to
+    /// caches it already had. One request means one timeout; the circuit
+    /// breaker above means that after the first failure there is not even
+    /// one. Every list it carries lands in the same cache the individual
+    /// endpoints write, so nothing downstream knows the difference.
+    ///
+    /// Returns the Mac's change token, so the caller can seed its poll and
+    /// skip the refresh it would otherwise do straight afterwards. Nil when
+    /// the Mac is unreachable — which is not an error, it is Tuesday.
+    @discardableResult
+    func bootstrap(year: Int, month: Int, israel: Bool = true) async -> String? {
+        guard let data = try? await request(
+                "/sync/bootstrap?year=\(year)&month=\(month)&israel=\(israel ? 1 : 0)"),
+              let snap = try? JSONDecoder().decode(BootstrapSnapshot.self, from: data)
+        else { return nil }
+
+        let store = LocalStore.shared
+        store.cacheEvents(snap.events)
+        store.cacheTodos(snap.todos)
+        store.cacheTags(snap.tags)
+        store.cacheHolidays(snap.holidays, from: snap.window.start, to: snap.window.end)
+        if let rules = snap.tagRules { TagClassifier.shared.update(rules) }
+        requestRefresh()
+        return snap.token
+    }
+
+    /// The tag classifier's own table, when only it is wanted (the bootstrap
+    /// carries it too). Failure leaves the phone on the copy it already has,
+    /// which is the whole point of caching it.
+    func refreshTagRules() async {
+        guard let data = try? await request("/tags/rules"),
+              let rules = try? JSONDecoder().decode(TagRules.self, from: data) else { return }
+        TagClassifier.shared.update(rules)
     }
 
     /// Undo a destructive background patch by re-creating what the host removed.
@@ -510,7 +607,19 @@ class APIClient: ObservableObject {
             let obj  = try JSONSerialization.jsonObject(with: data) as? [String: Any]
             return obj?["id"] as? Int ?? 0
         } catch APIError.offline, APIError.badURL {
-            let local = LocalStore.shared.insertTodo(title: title, list: list, tags: tags)
+            // The Mac classifies a task it is asked to create, and never
+            // re-tags one it did not — so a task typed while it was away used
+            // to show untagged, drop out of whatever tag view you were looking
+            // at, and stay that way until the queued create replayed.
+            //
+            // `TagClassifier` is the Mac's own classifier running here, on the
+            // table the Mac serves, so it can be shown with its tag straight
+            // away. The QUEUED BODY is deliberately left alone: it still says
+            // what the user said (possibly nothing), so on replay the Mac
+            // classifies it itself and its answer is the one that lands. This
+            // is a preview, not a second source of truth.
+            let shown = tags.isEmpty ? TagClassifier.shared.tags(for: title) : tags
+            let local = LocalStore.shared.insertTodo(title: title, list: list, tags: shown)
             LocalStore.shared.enqueue(method: "POST", path: "/todos",
                                       body: body.merging(["_temp_id": local.id]) { a, _ in a })
             return local.id
@@ -932,6 +1041,7 @@ class APIClient: ObservableObject {
         guard !base.isEmpty, let url = URL(string: base + "/voice") else {
             throw APIError.badURL
         }
+        if isBackingOff { throw APIError.offline("the Mac was unreachable a moment ago") }
         // Same pipeline as /voice/stream, run synchronously instead of
         // reported step by step — same 120 s budget, or a deep-track command
         // (p50 ~40 s, p95 ~84 s per dataset/RESULTS.md) times out client-side
@@ -992,6 +1102,10 @@ class APIClient: ObservableObject {
         guard !base.isEmpty, let url = URL(string: base + "/voice/stream") else {
             throw APIError.badURL
         }
+        // A 120 s timeout is right for a Mac that is thinking and wrong for one
+        // that is not there: without this the phone sat on a finished recording
+        // for two minutes before queueing it.
+        if isBackingOff { throw APIError.offline("the Mac was unreachable a moment ago") }
         var req = URLRequest(url: url, timeoutInterval: 120)
         req.httpMethod = "POST"
         if !settings.apiKey.isEmpty {
@@ -1048,6 +1162,90 @@ class APIClient: ObservableObject {
             throw err
         } catch {
             isOnline = false
+            throw APIError.offline(error.localizedDescription)
+        }
+    }
+
+    // MARK: - Jude (the Judaic study assistant)
+    //
+    // Jude is a separate project running beside the assistant on the Mac. The
+    // phone never talks to it directly: it goes through this API, on the same
+    // address, the same key and the same tailnet hop as everything else, and
+    // gets the same NDJSON stream shape `/voice/stream` uses. One way in —
+    // see DOCUMENTATION/JUDE.md.
+
+    /// What the Mac can currently offer. Never throws: `reason` is the
+    /// sentence to show when `ready` is false, and an unreachable Mac is one
+    /// of the answers rather than an error.
+    func judeStatus() async -> JudeStatus {
+        guard let data = try? await request("/jude/status"),
+              let st = try? JSONDecoder().decode(JudeStatus.self, from: data)
+        else {
+            return JudeStatus(enabled: false, installed: false, running: false,
+                              ready: false, model: "", repo: "",
+                              reason: "Your Mac isn't reachable. Jude does its thinking there, "
+                                      + "so this needs the Mac awake and on the tailnet.")
+        }
+        return st
+    }
+
+    /// Ask Jude a question. Each NDJSON line arrives on the main actor as it
+    /// does; the call returns when the stream ends.
+    ///
+    /// Deliberately NOT queued for later like a voice command: a voice command
+    /// is an instruction that still makes sense in an hour, and a question is
+    /// a conversation. Replaying one into the void would answer it to nobody.
+    func judeAsk(_ prompt: String, chatId: String?, mode: String,
+                 onEvent: @escaping (JudeEvent) -> Void) async throws {
+        guard !base.isEmpty, let url = URL(string: base + "/jude/chat") else {
+            throw APIError.badURL
+        }
+        if isBackingOff { throw APIError.offline("the Mac was unreachable a moment ago") }
+
+        var body: [String: Any] = ["prompt": prompt, "mode": mode]
+        if let chatId { body["chat_id"] = chatId }
+        // Generous: a local model synthesising a cited answer over retrieved
+        // passages is tens of seconds of work, and the first token is not the
+        // first thing that arrives (the stage lines are).
+        var req = URLRequest(url: url, timeoutInterval: 300)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if !settings.apiKey.isEmpty {
+            req.setValue(settings.apiKey, forHTTPHeaderField: "X-API-Key")
+        }
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let assertion = BackgroundAssertion()
+        assertion.begin("jude-question")
+        defer { assertion.end() }
+        do {
+            let (bytes, resp) = try await URLSession.shared.bytes(for: req)
+            guard let http = resp as? HTTPURLResponse else {
+                throw APIError.serverError("No response")
+            }
+            guard (200...299).contains(http.statusCode) else {
+                // The 503 for "Jude is off / not installed" carries a sentence
+                // written for a person; surface that, not the status code.
+                var detail = ""
+                for try await line in bytes.lines { detail += line }
+                let parsed = (try? JSONSerialization.jsonObject(with: Data(detail.utf8)))
+                    as? [String: Any]
+                throw APIError.serverError((parsed?["error"] as? String) ?? detail)
+            }
+            isOnline = true
+            noteReachable()
+            let decoder = JSONDecoder()
+            for try await line in bytes.lines {
+                guard !line.isEmpty, let data = line.data(using: .utf8),
+                      let event = try? decoder.decode(JudeEvent.self, from: data)
+                else { continue }
+                onEvent(event)
+            }
+        } catch let err as APIError {
+            throw err
+        } catch {
+            isOnline = false
+            noteUnreachable()
             throw APIError.offline(error.localizedDescription)
         }
     }

@@ -107,10 +107,11 @@ class LocalStore: ObservableObject {
     /// Voice commands waiting for the Mac to come back, newest last.
     @Published private(set) var pendingVoice: [PendingVoiceCommand] = []
 
-    private var events:  [CalendarEvent] = []
-    private var todos:   [Todo]          = []
-    private var tags:    [TodoTag]       = []
-    private var pending: [PendingChange] = []
+    private var events:   [CalendarEvent] = []
+    private var todos:    [Todo]          = []
+    private var tags:     [TodoTag]       = []
+    private var holidays: [Holiday]       = []
+    private var pending:  [PendingChange] = []
     private var nextTemp = -1
 
     private let dir = FileManager.default
@@ -124,10 +125,11 @@ class LocalStore: ObservableObject {
 
     private func load() {
         let d = JSONDecoder()
-        events  = (try? d.decode([CalendarEvent].self, from: Data(contentsOf: url("mc_events.json"))))  ?? []
-        todos   = (try? d.decode([Todo].self,          from: Data(contentsOf: url("mc_todos.json"))))   ?? []
-        tags    = (try? d.decode([TodoTag].self,       from: Data(contentsOf: url("mc_tags.json"))))    ?? []
-        pending = (try? d.decode([PendingChange].self, from: Data(contentsOf: url("mc_pending.json")))) ?? []
+        events   = (try? d.decode([CalendarEvent].self, from: Data(contentsOf: url("mc_events.json"))))   ?? []
+        todos    = (try? d.decode([Todo].self,          from: Data(contentsOf: url("mc_todos.json"))))    ?? []
+        tags     = (try? d.decode([TodoTag].self,       from: Data(contentsOf: url("mc_tags.json"))))     ?? []
+        holidays = (try? d.decode([Holiday].self,       from: Data(contentsOf: url("mc_holidays.json")))) ?? []
+        pending  = (try? d.decode([PendingChange].self, from: Data(contentsOf: url("mc_pending.json"))))  ?? []
         pendingCount = pending.count
         // Prevent temp-ID collisions after a restart: start below the lowest existing negative ID.
         let negIDs = events.map { $0.id }.filter { $0 < 0 } + todos.map { $0.id }.filter { $0 < 0 }
@@ -137,11 +139,41 @@ class LocalStore: ObservableObject {
 
     func persist() {
         let e = JSONEncoder()
-        try? e.encode(events).write(to:  url("mc_events.json"))
-        try? e.encode(todos).write(to:   url("mc_todos.json"))
-        try? e.encode(tags).write(to:    url("mc_tags.json"))
-        try? e.encode(pending).write(to: url("mc_pending.json"))
+        try? e.encode(events).write(to:   url("mc_events.json"))
+        try? e.encode(todos).write(to:    url("mc_todos.json"))
+        try? e.encode(tags).write(to:     url("mc_tags.json"))
+        try? e.encode(holidays).write(to: url("mc_holidays.json"))
+        try? e.encode(pending).write(to:  url("mc_pending.json"))
         pendingCount = pending.count
+    }
+
+    // MARK: - Holidays (the Hebrew calendar, offline)
+
+    /// The Mac computes the holiday list (`pyluach`, one implementation, so
+    /// both devices agree) and this is where the answers are kept.
+    ///
+    /// They were the one part of the calendar with no cache at all: the fetch
+    /// returned `[]` when the Mac was unreachable, so going offline emptied the
+    /// Hebrew calendar out of every month view — while the Hebrew *dates* beside
+    /// them, which iOS computes locally, stayed. Holidays move slowly and a
+    /// bootstrap covers three months at a time, so keeping every one we have
+    /// ever been told costs a few kilobytes and survives a long trip.
+    func cacheHolidays(_ fresh: [Holiday], from start: String, to end: String) {
+        // Replace the window that was just refetched — a holiday the Mac has
+        // since dropped (a changed observance setting) must not linger — and
+        // keep everything outside it.
+        let outside = holidays.filter { $0.gregorianEnd < start || $0.gregorianErevStart > end }
+        var merged = outside + fresh
+        var seen = Set<String>()
+        merged = merged.filter { seen.insert($0.id).inserted }
+        holidays = merged.sorted { $0.gregorianErevStart < $1.gregorianErevStart }
+        persist()
+    }
+
+    /// Cached holidays overlapping [start, end] (ISO days), the same span the
+    /// server would have answered for.
+    func holidaysBetween(_ start: String, _ end: String) -> [Holiday] {
+        holidays.filter { $0.gregorianEnd >= start && $0.gregorianErevStart <= end }
     }
 
     // MARK: - Events

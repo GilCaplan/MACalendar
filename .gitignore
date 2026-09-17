@@ -66,3 +66,6 @@ DOCUMENTATION/artifacts/_shots/
 
 # The HUD launcher bundle is built by scripts/build_hud_app.sh, not edited
 MACalendar HUD.app/
+
+# Same for Jude's, built by scripts/build_jude_app.sh
+Jude.app/

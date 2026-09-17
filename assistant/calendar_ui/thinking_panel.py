@@ -64,11 +64,6 @@ def _fmt_ms(ms: int) -> str:
     return f"{secs:.2f} s" if round(secs, 2) < 1 else f"{secs:.1f} s"
 
 
-def _fmt_live_ms(ms: int) -> str:
-    """The chain rail's live, still-running counter — always one decimal so
-    the digits advance at a steady, readable rate instead of snapping between
-    one and two decimals the way the frozen `_fmt_ms` does at the 1s mark."""
-    return f"{max(0, ms) / 1000:.1f} s"
 
 
 # What the producers call themselves → what to call it on screen. The API
@@ -233,20 +228,89 @@ class _Spinner(QWidget):
 
 
 class _DetailLabel(QLabel):
-    """Wrapped detail text, clamped to 3 lines until clicked (like iOS)."""
+    """Wrapped detail text, clamped to 3 lines until clicked (like iOS).
+
+    The clamp is a `maximumHeight`, which on its own CLIPS: a four-line note
+    simply stopped mid-sentence with nothing to say it had. Measured on a real
+    command — the observance flags on "book gym tomorrow at 7" need 70px in a
+    44px box — and in the card it reads as text running into the row below
+    rather than as something you can open. So the text is ELIDED to what fits
+    and ends in an ellipsis, which is the whole difference between "there is
+    more here" and "this is broken".
+
+    Kept as a height clamp plus elision rather than a plain `setMaximumHeight`
+    on its own, because the full text still has to be there to expand to.
+    """
+
+    LINES = 3
 
     def __init__(self, text: str, parent=None) -> None:
         super().__init__(text, parent)
+        self._full = text
         self.setWordWrap(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._expanded = False
         self._clamp()
 
+    def _clamp_height(self) -> int:
+        return int(self.fontMetrics().lineSpacing() * self.LINES) + 2
+
+    def _fits(self, text: str, width: int) -> bool:
+        """Does `text` wrap into the clamp at `width`?
+
+        Measured with QFontMetrics rather than by setting the text and asking
+        the widget — that would relayout on every probe of the binary search
+        below, and re-enter this from `resizeEvent`.
+        """
+        rect = self.fontMetrics().boundingRect(
+            0, 0, max(1, width), 0,
+            int(Qt.TextFlag.TextWordWrap), text)
+        return rect.height() <= self._clamp_height()
+
+    def _elided(self, width: int) -> str:
+        """The longest prefix of the full text that fits, plus an ellipsis.
+
+        Binary search on the cut point: the alternative is laying the text out
+        by hand with QTextLayout to find the third line's end, and this is a
+        handful of cheap measurements on a string that is already short.
+        """
+        if self._fits(self._full, width):
+            return self._full
+        lo, hi = 0, len(self._full)
+        while lo < hi:
+            mid = (lo + hi + 1) // 2
+            if self._fits(self._full[:mid].rstrip() + "…", width):
+                lo = mid
+            else:
+                hi = mid - 1
+        return self._full[:lo].rstrip() + "…"
+
     def _clamp(self) -> None:
         if self._expanded:
             self.setMaximumHeight(16777215)
-        else:
-            self.setMaximumHeight(int(self.fontMetrics().lineSpacing() * 3) + 2)
+            if self.text() != self._full:
+                self.setText(self._full)
+            self.setToolTip("")
+            return
+        self.setMaximumHeight(self._clamp_height())
+        width = self.width()
+        if width <= 1:
+            return              # not laid out yet; resizeEvent does it
+        shown = self._elided(width)
+        if self.text() != shown:
+            self.setText(shown)
+        # The whole note on hover, so the clipped half is readable without
+        # committing to expanding the row.
+        self.setToolTip(self._full if shown != self._full else "")
+
+    def resizeEvent(self, event) -> None:        # noqa: N802
+        super().resizeEvent(event)
+        self._clamp()
+
+    def is_clipped(self) -> bool:
+        """Showing less than it has — what a test should ask, rather than
+        comparing pixel heights."""
+        return self.text() != self._full
 
     def mousePressEvent(self, _event) -> None:   # noqa: N802
         self._expanded = not self._expanded
@@ -550,12 +614,6 @@ class _ChainRail(QFrame):
     slots folds into one muted line naming how many; clicking it puts them
     back. Nothing is removed, and while it matters it is all still there."""
 
-    # Live elapsed counter on the active row: how often it repaints (10Hz —
-    # fast enough to read as "live", cheap enough that a dozen finished rails
-    # sitting idle in history cost nothing, since only a rail with a run still
-    # in flight ever has its timer running at all).
-    _LIVE_TICK_MS = 100
-
     # The mark on a slot the run never reached. It shares a 14×14 box with the
     # ✓ and the spinner, so it has to be ONE glyph: the word "skipped" used to
     # go in here and rendered as "pp" — clipped to the two middle characters,
@@ -591,10 +649,6 @@ class _ChainRail(QFrame):
         # layout; only the ones a finished run actually needs are shown.
         self._folds: dict[int, QPushButton] = {}
         self._folded: dict[int, list[int]] = {}    # fold index -> slots it hides
-
-        self._live_timer = QTimer(self)
-        self._live_timer.setInterval(self._LIVE_TICK_MS)
-        self._live_timer.timeout.connect(self._tick_live)
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(10, 6, 10, 6)
@@ -715,7 +769,6 @@ class _ChainRail(QFrame):
                 self._finished = False
                 self._active = i
                 self._active_since = _time.monotonic()
-                self._live_timer.start()
                 self._render()
                 return
 
@@ -735,7 +788,6 @@ class _ChainRail(QFrame):
         self._active = i
         self._ptr = i + 1
         self._active_since = _time.monotonic()
-        self._live_timer.start()
         self._render()
 
     def finish(self) -> None:
@@ -751,7 +803,6 @@ class _ChainRail(QFrame):
         self._active = None
         self._active_since = None
         self._finished = True
-        self._live_timer.stop()
         self._fold_unreached()
         self._render()
 
@@ -802,16 +853,6 @@ class _ChainRail(QFrame):
         test should read, rather than poking at widget visibility."""
         return {i for run in self._folded.values() for i in run}
 
-    def _tick_live(self) -> None:
-        if self._active is None or self._active_since is None:
-            return
-        elapsed = int((_time.monotonic() - self._active_since) * 1000)
-        # Update just the live row's number — a full _render() would also
-        # rebuild every icon/mark/style ten times a second for nothing.
-        for i, _stage, _icon, _text, time_lbl, _stack, _state, _spinner in self._rows:
-            if i == self._active:
-                time_lbl.setText(_fmt_live_ms(elapsed))
-                return
 
     def _render(self) -> None:
         theme = self._theme
@@ -835,9 +876,14 @@ class _ChainRail(QFrame):
                 spinner.set_color(theme.accent)
                 mark_stack.setCurrentWidget(spinner)
                 spinner.set_running(True)
-                elapsed = (int((_time.monotonic() - self._active_since) * 1000)
-                           if self._active_since is not None else 0)
-                time_lbl.setText(_fmt_live_ms(elapsed))
+                # No number while it runs. A counter ticking at 10Hz is the
+                # most eye-catching thing on the card and says nothing you
+                # can act on — the SPINNER already says "this is the step in
+                # progress", and the duration is worth reading once it is
+                # final. (Gil, 2026-09-11: "remove the elapsed time thing
+                # its annoying".) `_active_since` stays: `finish()` still
+                # needs it to freeze the last slot's real span.
+                time_lbl.setText("")
             elif self._finished:
                 color, label_col, mark_col = theme.border, theme.text2, theme.text2
                 mark_stack.setCurrentWidget(state)

@@ -26,54 +26,54 @@ def _ev(**kw):
 # --- resolution chain -----------------------------------------------------
 
 def test_event_lead_beats_category_and_default():
-    cfg = NotificationsConfig(default_lead_minutes=30,
+    cfg = NotificationsConfig(pre_event=True, default_lead_minutes=30,
                               category_leads={"Sports": 45})
     assert notify.resolve_lead(_ev(reminder_minutes=15), cfg) == (15, "event")
 
 
 def test_event_zero_means_explicitly_none():
-    cfg = NotificationsConfig(default_lead_minutes=30)
+    cfg = NotificationsConfig(pre_event=True, default_lead_minutes=30)
     assert notify.resolve_lead(_ev(reminder_minutes=0), cfg) == (None, "event_off")
 
 
 def test_category_lead_beats_default():
-    cfg = NotificationsConfig(default_lead_minutes=30,
+    cfg = NotificationsConfig(pre_event=True, default_lead_minutes=30,
                               category_leads={"Sports": 45})
     assert notify.resolve_lead(_ev(), cfg) == (45, "category")
 
 
 def test_category_zero_mutes_the_category():
     # Gil's rule: a category can opt out of notifications entirely.
-    cfg = NotificationsConfig(default_lead_minutes=30,
+    cfg = NotificationsConfig(pre_event=True, default_lead_minutes=30,
                               category_leads={"Sports": 0})
     assert notify.resolve_lead(_ev(), cfg) == (None, "category_muted")
 
 
 def test_default_zero_is_opt_in_only():
-    cfg = NotificationsConfig(default_lead_minutes=0)
+    cfg = NotificationsConfig(pre_event=True, default_lead_minutes=0)
     assert notify.resolve_lead(_ev(), cfg) == (None, "default_off")
 
 
 def test_default_applies_when_nothing_narrower_speaks():
-    cfg = NotificationsConfig(default_lead_minutes=30)
+    cfg = NotificationsConfig(pre_event=True, default_lead_minutes=30)
     assert notify.resolve_lead(_ev(category="Errands"), cfg) == (30, "default")
 
 
 # --- the verdict ----------------------------------------------------------
 
 def test_plain_weekday_event_fires_lead_before_start():
-    cfg = NotificationsConfig(default_lead_minutes=30)
+    cfg = NotificationsConfig(pre_event=True, default_lead_minutes=30)
     at, why = notify.notify_verdict(_ev(), cfg)     # Tue 2026-09-08
     assert at == "2026-09-08T18:00" and why is None
 
 
 def test_no_start_time_no_reminder():
-    cfg = NotificationsConfig(default_lead_minutes=30)
+    cfg = NotificationsConfig(pre_event=True, default_lead_minutes=30)
     assert notify.notify_verdict(_ev(start_time=""), cfg) == (None, None)
 
 
 def test_master_switch_off_kills_everything():
-    cfg = NotificationsConfig(enabled=False, default_lead_minutes=30)
+    cfg = NotificationsConfig(pre_event=True, enabled=False, default_lead_minutes=30)
     assert notify.notify_verdict(_ev(reminder_minutes=15), cfg) == (None, None)
 
 
@@ -82,7 +82,7 @@ def test_master_switch_off_kills_everything():
 def test_september_friday_evening_event_is_before_candles():
     # 18:00 Friday 2026-09-11: candle lighting ~18:36 in September — the
     # 17:30 fire time is a plain weekday moment.
-    cfg = NotificationsConfig(default_lead_minutes=30)
+    cfg = NotificationsConfig(pre_event=True, default_lead_minutes=30)
     at, why = notify.notify_verdict(_ev(date="2026-09-11", start_time="18:00"), cfg)
     assert at == "2026-09-11T17:30" and why is None
 
@@ -90,7 +90,7 @@ def test_september_friday_evening_event_is_before_candles():
 def test_december_friday_same_clock_time_is_inside_shabbat():
     # Same 18:00 Friday in December: candles ~16:20 — the event itself is
     # inside the window, so the reminder is suppressed with the reason.
-    cfg = NotificationsConfig(default_lead_minutes=30)
+    cfg = NotificationsConfig(pre_event=True, default_lead_minutes=30)
     at, why = notify.notify_verdict(_ev(date="2026-12-11", start_time="18:00"), cfg)
     assert at is None and why == "shabbat"
 
@@ -98,7 +98,7 @@ def test_december_friday_same_clock_time_is_inside_shabbat():
 def test_shabbat_lunch_suppressed():
     # 2026-12-12 is a plain Shabbat (2026-09-12 would be Rosh Hashana too —
     # the first draft of this test learned that from the code being right).
-    cfg = NotificationsConfig(default_lead_minutes=30)
+    cfg = NotificationsConfig(pre_event=True, default_lead_minutes=30)
     at, why = notify.notify_verdict(_ev(date="2026-12-12", start_time="12:00"), cfg)
     assert at is None and why == "shabbat"
 
@@ -107,7 +107,7 @@ def test_motzei_event_reminder_clamps_past_havdala():
     # Motzei Shabbat 2026-12-12: December tzeit ~17:2x; a 21:00 event with a
     # 300-minute lead would fire 16:00 (inside Shabbat) — clamped to
     # tzeit + motzei_buffer (30), landing after havdala but before the event.
-    cfg = NotificationsConfig(category_leads={"Sports": 300})
+    cfg = NotificationsConfig(pre_event=True, category_leads={"Sports": 300})
     at, why = notify.notify_verdict(_ev(date="2026-12-12", start_time="21:00"), cfg)
     assert why is None and at is not None
     t = datetime.datetime.fromisoformat(at)
@@ -117,13 +117,13 @@ def test_motzei_event_reminder_clamps_past_havdala():
 
 def test_yom_kippur_is_in_the_yom_tov_set():
     # Verify, don't assume (the plan's own instruction): YK 2026-09-21.
-    cfg = NotificationsConfig(default_lead_minutes=30)
+    cfg = NotificationsConfig(pre_event=True, default_lead_minutes=30)
     at, why = notify.notify_verdict(_ev(date="2026-09-21", start_time="17:00"), cfg)
     assert at is None and why is not None and why.startswith("yom_tov:")
 
 
 def test_respect_observance_off_ignores_shabbat():
-    cfg = NotificationsConfig(default_lead_minutes=30, respect_observance=False)
+    cfg = NotificationsConfig(pre_event=True, default_lead_minutes=30, respect_observance=False)
     at, why = notify.notify_verdict(_ev(date="2026-09-12", start_time="12:00"), cfg)
     assert at == "2026-09-12T11:30" and why is None
 
@@ -134,7 +134,7 @@ def test_fail_open_when_solar_data_missing(monkeypatch):
     from assistant import observance as ob
     monkeypatch.setattr(ob, "tzeit", lambda *a, **k: None)
     monkeypatch.setattr(ob, "candle_lighting", lambda *a, **k: None)
-    cfg = NotificationsConfig(default_lead_minutes=30)
+    cfg = NotificationsConfig(pre_event=True, default_lead_minutes=30)
     at, why = notify.notify_verdict(_ev(date="2026-09-12", start_time="12:00"), cfg)
     assert at == "2026-09-12T11:30" and why is None
 
@@ -143,7 +143,7 @@ def test_fail_open_when_solar_data_missing(monkeypatch):
 
 def test_annotate_adds_the_three_fields():
     rows = [_ev()]
-    out = notify.annotate(rows, NotificationsConfig(default_lead_minutes=15))
+    out = notify.annotate(rows, NotificationsConfig(pre_event=True, default_lead_minutes=15))
     assert out[0]["notify_at"] == "2026-09-08T18:15"
     assert out[0]["notify_suppressed_reason"] is None
     assert "reminder_minutes" in out[0]
@@ -164,11 +164,27 @@ def test_events_endpoint_serves_notify_fields():
     })
     try:
         with app.test_client() as c:
+            # The three fields are threaded through the payload whatever the
+            # policy says — that is what this test is about.
             row = c.get(f"/events/{eid}").get_json()
             assert row["reminder_minutes"] == 15
-            assert row["notify_at"] == "2026-09-08T08:45"
-            assert row["notify_suppressed_reason"] is None
+            assert "notify_at" in row and "notify_suppressed_reason" in row
             listed = c.get("/events?date=2026-09-08").get_json()
             assert all("notify_at" in e for e in listed)
+
+            # And with the pre-event half switched back on, the verdict itself
+            # rides along. It reads the REAL config by default, where
+            # `pre_event` now ships false (the day panel replaced it), so this
+            # half has to say which world it is asserting about.
+            import assistant.config as _config
+            real = _config.load_config()
+            real.notifications.pre_event = True
+            _saved, _config.load_config = _config.load_config, lambda *a, **k: real
+            try:
+                row = c.get(f"/events/{eid}").get_json()
+                assert row["notify_at"] == "2026-09-08T08:45"
+                assert row["notify_suppressed_reason"] is None
+            finally:
+                _config.load_config = _saved
     finally:
         db.delete_event(eid)

@@ -137,13 +137,16 @@ observance:
   allow_motzei_fallback: true    # Saturday night only to save a lost session
 
 notifications:
-  enabled: true                # pre-event notifications (assistant/notify.py)
-  default_lead_minutes: 0      # 0 = opt-in only; N = N min before everything
-  category_leads: {}           # e.g. {Work: 15, Sports: 30, Errands: 0} - 0 MUTES that category
-  respect_observance: true     # hold/clamp reminders around Shabbat & yom tov
-  catch_up_minutes: 10         # Mac: fire late if missed by <= this and event not started
+  enabled: true                # master switch for everything below
+  daily_digest: true           # THE DAY PANEL: one summary of today's events + tasks
+  digest_time: "07:00"         # local, HH:MM - when the day panel arrives
+  pre_event: false             # banners N min before something starts (replaced by the panel)
+  default_lead_minutes: 0      # pre_event only. 0 = opt-in; N = N min before everything
+  category_leads: {}           # pre_event only. e.g. {Work: 15, Errands: 0} - 0 MUTES that category
+  respect_observance: true     # hold the panel/reminders through Shabbat & yom tov
+  catch_up_minutes: 10         # Mac: fire late if missed by <= this
   sound: true
-  speak: false                 # Mac only: also read the heads-up aloud
+  speak: false                 # Mac only: also read it aloud
 
 hebrew_calendar:
   display_mode: "both"      # "english" | "hebrew" | "both" — Hebrew dates use gematria letters, never numerals
@@ -213,3 +216,23 @@ engine:
 labels:
   model_event: false     # learned event-category classifier
   model_task: false      # learned task-tag classifier
+
+# Jude — the Judaic study assistant (DOCUMENTATION/JUDE.md)
+#
+# Jude is its OWN repository, not vendored into this one: it carries a ~3 GB
+# vector index and is still being worked on separately. Clone it beside this
+# checkout and point `path` at it:
+#
+#     git clone https://github.com/GilCaplan/JudeTheJudaicChatBot
+#
+# Its LLM calls then go through this project's protocol — local Ollama only,
+# the same model the assistant has already loaded — and the phone reaches it
+# through this API on 8080, exactly like every other feature.
+jude:
+  enabled: false                   # true once the checkout is in place
+  path: "../JudeTheJudaicChatBot"  # relative to this repo, or absolute; ~ is expanded
+  port: 8000                       # where Jude's own server listens (localhost only)
+  autostart: true                  # start it with the assistant; false = you run it yourself
+  model: ""                        # "" = share `ollama.model`, so one model is loaded, not two
+  allow_cloud: false               # true hands Jude back its own .env and its cloud cascade.
+                                   # Left false, nothing here touches the internet.

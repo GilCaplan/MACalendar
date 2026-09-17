@@ -706,3 +706,134 @@ struct ResolvedRecord: Codable, Equatable {
     var endTime: String? = nil
     enum CodingKeys: String, CodingKey { case type, id, action, title, date; case startTime = "start_time", endTime = "end_time" }
 }
+
+// MARK: - Sync bootstrap (GET /sync/bootstrap)
+
+/// Everything a cold start needs, in one payload — see
+/// `DOCUMENTATION/SYNC_PROTOCOL.md`. `timers` and `counters` ride along in the
+/// JSON too; they are not decoded here because the Timer tab loads its own
+/// (with a live `running` session that a snapshot would date instantly).
+struct BootstrapSnapshot: Codable {
+    struct Window: Codable { let start: String; let end: String }
+
+    let token: String
+    let window: Window
+    let events: [CalendarEvent]
+    let todos: [Todo]
+    let tags: [TodoTag]
+    let holidays: [Holiday]
+    var tagRules: TagRules? = nil
+
+    enum CodingKeys: String, CodingKey {
+        case token, window, events, todos, tags, holidays
+        case tagRules = "tag_rules"
+    }
+}
+
+/// The task-tag classifier as data (GET /tags/rules), so the phone can run the
+/// Mac's classifier without the Mac. `rev` changes whenever any of it does.
+struct TagRules: Codable, Equatable {
+    let rev: String
+    /// tag name → keywords, exactly `tagging.KEYWORDS`.
+    let keywords: [String: [String]]
+    /// Tags that are never inferred ("Personal" is the shrug bucket).
+    let neverInfer: [String]
+    /// The tags that actually exist, so a renamed or deleted one never returns.
+    let palette: [String]
+
+    // Both of these arrived after the first version of this endpoint, and both
+    // are decoded as OPTIONAL for one reason: a non-optional property missing
+    // from the JSON fails the whole decode, and a failed decode here is silent
+    // — the phone would simply keep no rules and go back to tagging nothing.
+    // Degrading a field is better than losing the table.
+    private let orderRaw: [String]?
+    private let personalLabelsRaw: [PersonalLabel]?
+
+    /// The order to score `keywords` in — and NOT cosmetic. `infer_tag` keeps
+    /// the best score with a strict `>`, so a tie goes to whichever tag came
+    /// first. A Swift `Dictionary` has no order and is not stable between
+    /// runs, so without this the phone breaks ties at random and disagrees
+    /// with the Mac on about one title in five hundred.
+    ///
+    /// Falling back to sorted keys against an older Mac loses the Mac's
+    /// tie-break, but keeps the more important half: the same answer every
+    /// launch.
+    var order: [String] { orderRaw ?? keywords.keys.sorted() }
+
+    /// The user's own vocabulary labels, in the order `vocab.label_for`
+    /// considers them (longest word first). A LIST for the same reason `order`
+    /// is one. These cannot ship with the app: "Haxaga" is a course because
+    /// they said so.
+    var personalLabels: [PersonalLabel] { personalLabelsRaw ?? [] }
+
+    struct PersonalLabel: Codable, Equatable {
+        let word: String     // already lower-cased by the server
+        let label: String
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case rev, keywords, palette
+        case orderRaw = "order"
+        case neverInfer = "never_infer"
+        case personalLabelsRaw = "personal_labels"
+    }
+}
+
+// MARK: - Jude (GET /jude/status, POST /jude/chat)
+
+/// What the Mac can offer for Jude right now. `reason` is the sentence to show
+/// when `ready` is false — Jude is a separate repository that has to be cloned
+/// on the Mac, so "not installed" is a normal answer with something to do
+/// about it, not an error.
+struct JudeStatus: Codable, Equatable {
+    var enabled: Bool
+    var installed: Bool
+    var running: Bool
+    var ready: Bool
+    var model: String
+    var repo: String
+    var reason: String
+}
+
+/// One NDJSON line from POST /jude/chat. The server translates Jude's
+/// Server-Sent Events into the same line-per-object shape `/voice/stream`
+/// uses, so this is the only wire format the app has to know.
+struct JudeEvent: Codable {
+    let type: String          // stage | meta | token | tool_call | clarification | done | error
+    var name: String? = nil   // stage
+    var text: String? = nil   // token
+    var message: String? = nil // error
+    var chatId: String? = nil // meta
+    var sources: [JudeSource]? = nil
+    var halachicLabel: String? = nil
+    var halachicSeder: String? = nil
+    var question: String? = nil        // clarification
+    var options: [String]? = nil
+
+    enum CodingKeys: String, CodingKey {
+        case type, name, text, message, sources, question, options
+        case chatId = "chat_id"
+        case halachicLabel = "halachic_label"
+        case halachicSeder = "halachic_seder"
+    }
+}
+
+/// A retrieved passage. Jude's own convention is that every answer cites its
+/// sources and every source links back to Sefaria, which is what makes its
+/// answers checkable — so the phone shows them rather than just the prose.
+struct JudeSource: Codable, Identifiable, Equatable {
+    var ref: String
+    var enText: String?
+    var heText: String?
+    var url: String?
+    var isPrimary: Bool?
+
+    var id: String { ref }
+
+    enum CodingKeys: String, CodingKey {
+        case ref, url
+        case enText = "en_text"
+        case heText = "he_text"
+        case isPrimary = "is_primary"
+    }
+}

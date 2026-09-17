@@ -262,8 +262,27 @@ class Engine(Component):
         """
         from assistant.trace import Trace
 
-        cfg = load_config()
+        # Step 0 — is this a command at all? Silence that transcribed to
+        # nothing, and a recording that is only the word which ended it
+        # ("execute", "that's it"), are not. The check used to live inside
+        # stage 1, which meant a non-command first waited on `_run_lock`
+        # behind whatever was running (up to ~50 s on a deep command) and
+        # loaded the config, to then be thrown away. It is microseconds of
+        # regex, so it happens here, before either.
+        ignorable = _transcript.is_ignorable(text)
+
         trace = trace or Trace(source=source)
+
+        if ignorable:
+            from assistant.trace import DONE
+            logger.info("Nothing to act on in %r — exiting at ingest", (text or "")[:40])
+            trace.step(DONE, "Nothing to do",
+                       "Heard a stop word or a false start, nothing to act on.")
+            return {"message": "", "actions": [], "refresh": "", "parse": "ignored",
+                    "corrections": [], "trace": trace.to_list(), "memory_id": None,
+                    "brain": _brain_version()}
+
+        cfg = load_config()
 
         # STREAM EVERY RUN, not only the ones a caller opened for us.
         #

@@ -1134,6 +1134,18 @@ def create_app() -> Flask:
         out = dict(sess)
         out["seconds"] = round(_secs(sess["start_time"], sess.get("end_time")), 1)
         out["running"] = sess.get("end_time") in (None, "")
+        # The same instants as unambiguous numbers, beside the strings.
+        #
+        # `start_time` is what `datetime.now().astimezone().isoformat()` wrote,
+        # which is six fractional digits — and iOS's ISO8601DateFormatter parses
+        # exactly three, so the phone read nil for every running session the Mac
+        # had started and its live counter sat at 00:00 while the Mac counted
+        # up. The phone's parser is fixed, but a clock is the wrong place to
+        # depend on a string format at all: a client that reads these needs no
+        # parser, no timezone rule and no fractional-digit opinion.
+        out["start_epoch"] = _dt(sess["start_time"]).timestamp()
+        out["end_epoch"] = (_dt(sess["end_time"]).timestamp()
+                            if sess.get("end_time") else None)
         return out
 
     def _enforce_max(db, timer: dict, running: dict | None) -> dict | None:
@@ -1704,6 +1716,135 @@ def create_app() -> Flask:
         get_db().delete_tag(name)
         return jsonify({"deleted": name})
 
+    @app.get("/tags/rules")
+    def tag_rules():
+        """The task-tag classifier, as data, so a client can run it offline.
+
+        `assistant/actions/todo/tagging.py` is the one classifier — but it
+        only runs where the database is, so a task typed on the phone with the
+        Mac away was created untagged and stayed that way. The phone carries a
+        port of the scorer (`TagClassifier.swift`); this endpoint hands it the
+        table the scorer reads, so the two agree by construction instead of by
+        a second list nobody remembers to update.
+
+        Served, not hardcoded on the phone, for the same reason the palette is:
+        `personal_labels` is the user's OWN vocabulary labels ("Haxaga" is a
+        course), which no shipped list can contain. `rev` changes whenever any
+        of it does, so a client can tell in one comparison whether its copy is
+        current.
+        """
+        import hashlib
+        import json as _json
+
+        from assistant.actions.todo import tagging
+
+        palette = [row["name"] for row in get_db().get_tags()]
+
+        # ORDERED, and that is not cosmetic. `infer_tag` keeps the best score
+        # with a strict `>`, so a tie goes to whichever tag came first — and
+        # "buy twelve eggs and book haircut" is exactly that tie (Groceries 1.5,
+        # Errands 1.5). In Python the order is KEYWORDS' insertion order. In
+        # JSON it is whatever the serialiser felt like (Flask sorts keys), and
+        # in Swift a Dictionary has no order at all and is not even stable
+        # between runs — so the phone would break ties at random and disagree
+        # with the Mac about one title in five hundred. Measured: 20 of 10,200
+        # real strings, every one of them a tie. The order travels with the
+        # table.
+        personal: list = []
+        try:
+            from assistant.stt.vocab import get_vocab
+            # Exactly the order `vocab.label_for` considers them in: longest
+            # word first, over an `entries` list that is already sorted by
+            # word, and Python's sort is stable — so ties resolve identically
+            # on both sides instead of "whichever the dictionary yields".
+            for entry in sorted(get_vocab().entries, key=lambda e: -len(e.word)):
+                if entry.label:
+                    personal.append({"word": entry.word.lower(), "label": entry.label})
+        except Exception:      # no vocabulary yet, or it cannot be read
+            personal = []
+
+        payload = {
+            "keywords": tagging.KEYWORDS,
+            "order": list(tagging.KEYWORDS),
+            "never_infer": sorted(tagging._NEVER_INFER),
+            "palette": palette,
+            "personal_labels": personal,
+        }
+        payload["rev"] = hashlib.sha1(
+            _json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:12]
+        return jsonify(payload)
+
+    @app.get("/sync/bootstrap")
+    def sync_bootstrap():
+        """Everything a client needs to draw itself, in ONE round trip.
+
+        A cold start used to be eight independent GETs, and the phone paid the
+        full timeout on each of them whenever the Mac was away — the app opened
+        on an empty calendar for the better part of a minute before falling
+        back to a cache it had all along. One request means one timeout, and
+        the answer carries the change token, so the client knows immediately
+        whether the cache it just drew is already current.
+
+        Window: the named month plus the one either side, which is what the
+        month/week/day views can reach without another fetch. Holidays cover
+        the same span, so the Hebrew calendar survives offline too — it was
+        the one part of the calendar with no cache at all.
+
+        This is a READ aggregate over the same helpers the individual routes
+        use; it is not a second way into the database and holds no logic of its
+        own (DOCUMENTATION/SYNC_PROTOCOL.md).
+        """
+        from assistant.actions.calendar import categories as _cat
+        from assistant.hebrew_calendar import enumerate_holidays
+        from assistant.notify import annotate
+
+        db = get_db()
+        today = datetime.date.today()
+        try:
+            year = int(request.args.get("year") or today.year)
+            month = int(request.args.get("month") or today.month)
+            first = datetime.date(year, month, 1)
+        except ValueError as e:
+            return jsonify({"error": str(e), "code": 400}), 400
+        israel = request.args.get("israel", "1") not in ("0", "false", "False")
+
+        months = []
+        for delta in (-1, 0, 1):
+            y, m = divmod((first.year * 12 + first.month - 1) + delta, 12)
+            months.append((y, m + 1))
+
+        events: list = []
+        for y, m in months:
+            events.extend(db.get_events_for_month(y, m))
+
+        start = datetime.date(months[0][0], months[0][1], 1)
+        last_y, last_m = months[-1]
+        end = (datetime.date(last_y + last_m // 12, last_m % 12 + 1, 1)
+               - datetime.timedelta(days=1))
+
+        return jsonify({
+            "token": changes_token().get_json()["token"],
+            "server_time": datetime.datetime.now().astimezone().isoformat(),
+            "window": {"start": start.isoformat(), "end": end.isoformat()},
+            "events": annotate(events),
+            "todos": db.get_todos(list_name=None, include_completed=False),
+            "tags": db.get_tags(),
+            "tag_rules": tag_rules().get_json(),
+            "categories": _cat.all_categories(),
+            "holidays": [
+                {
+                    "name_en": h.name_en,
+                    "name_he": h.name_he,
+                    "category": h.category,
+                    "gregorian_erev_start": h.gregorian_erev_start.isoformat(),
+                    "gregorian_end": h.gregorian_end.isoformat(),
+                }
+                for h in enumerate_holidays(start, end, israel=israel)
+            ],
+            "timers": [_timer_out(db, t) for t in db.get_timers()],
+            "counters": [_counter_out(db, c) for c in db.get_counters()],
+        })
+
     @app.get("/tags/suggestion")
     def tag_suggestion():
         """A new-tag proposal mined from the user's untagged history, or {}.
@@ -2107,6 +2248,26 @@ def create_app() -> Flask:
     _CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "config.yaml")
     _ALLOWED_PATCH_KEYS = {"llm_engine", "tts", "confirmation_level", "notifications"}
 
+    @app.get("/digest")
+    def digest():
+        """Today's day panel: when it fires, what it says, and the rows behind it.
+
+        One surface rather than "events plus todos plus work it out", because
+        the wording is policy too — the phone's notification and the Mac's
+        banner must say the same thing, and two clients formatting their own
+        drift the moment one learns about all-day events and the other does
+        not. `?date=` for any other day; defaults to today.
+        """
+        from assistant import notify as _notify
+
+        raw = request.args.get("date")
+        try:
+            day = datetime.date.fromisoformat(raw) if raw else datetime.date.today()
+        except ValueError:
+            return jsonify({"error": "date must be YYYY-MM-DD"}), 400
+        cfg = load_config().notifications
+        return jsonify(_notify.build_digest(day, cfg, get_db()))
+
     @app.get("/config")
     def config_get():
         cfg = load_config()
@@ -2171,6 +2332,124 @@ def create_app() -> Flask:
             }
             for h in holidays
         ])
+
+    # ------------------------------------------------------------------
+    # Jude — the Judaic study assistant (DOCUMENTATION/JUDE.md)
+    # ------------------------------------------------------------------
+    #
+    # Jude is a separate repository with its own FastAPI server. It is reached
+    # THROUGH here rather than directly, for three reasons: the phone keeps one
+    # address, one API key and one tailnet hop; Jude's own port never has to
+    # leave the machine (it has no auth of its own); and the streaming shape
+    # becomes the NDJSON the clients already speak for /voice/stream instead of
+    # a second wire format. The brain is untouched — this is HTTP plumbing, and
+    # nothing here parses or executes anything (CLAUDE.md).
+
+    def _jude_cfg():
+        cfg = load_config()
+        return cfg.jude, cfg.ollama
+
+    @app.get("/jude/status")
+    def jude_status():
+        """Never an error — a client draws whatever this says. `reason` is the
+        sentence to show when `ready` is false."""
+        from assistant.jude import bridge
+        jude_cfg, ollama_cfg = _jude_cfg()
+        return jsonify(bridge.status(jude_cfg, ollama_cfg))
+
+    @app.post("/jude/chat")
+    def jude_chat():
+        """Ask Jude a question; stream the answer back as NDJSON.
+
+        Jude speaks Server-Sent Events. Every client here already renders
+        NDJSON (that is what /voice/stream is), so the translation happens
+        once, here, rather than in each client: one `data:` frame becomes one
+        JSON line, with the event types passed through unchanged
+        (stage / meta / token / tool_call / clarification / topic_pivot /
+        done / error) plus an `error` line of our own if Jude cannot be
+        reached at all.
+        """
+        from flask import Response, stream_with_context
+        import json as _json
+
+        from assistant.jude import bridge
+
+        body = request.get_json(silent=True) or {}
+        prompt = (body.get("prompt") or "").strip()
+        if not prompt:
+            return jsonify({"error": "Missing 'prompt'", "code": 400}), 400
+        jude_cfg, ollama_cfg = _jude_cfg()
+
+        # Starting Jude can take a while (it loads a multi-gigabyte index), so
+        # it happens before the response begins rather than inside the
+        # generator — a client that gets a 503 with a sentence in it can say
+        # something useful; one whose stream opens and then dies cannot.
+        try:
+            base = bridge.ensure_running(jude_cfg, ollama_cfg)
+        except bridge.JudeUnavailable as e:
+            return jsonify({"error": str(e), "code": 503}), 503
+
+        payload = {
+            "prompt": prompt,
+            "chat_id": body.get("chat_id"),
+            "lang": body.get("lang") or "en",
+            "mode": body.get("mode") or "qa",
+            "top_k": int(body.get("top_k") or 25),
+            "skip_clarification": bool(body.get("skip_clarification")),
+            "user": body.get("user") or "macalendar",
+        }
+
+        def gen():
+            import urllib.request
+            req = urllib.request.Request(
+                base + "/api/chat", method="POST",
+                data=_json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"})
+            try:
+                with urllib.request.urlopen(req, timeout=600) as r:
+                    for raw in r:
+                        line = raw.decode("utf-8", "replace").rstrip("\r\n")
+                        if not line.startswith("data:"):
+                            continue          # SSE blank separators and comments
+                        yield line[5:].strip() + "\n"
+            except Exception as e:            # noqa: BLE001 - the stream must say why
+                logger.warning("Jude stream failed: %s", e)
+                yield _json.dumps({"type": "error", "message": str(e)}) + "\n"
+
+        return Response(stream_with_context(gen()), mimetype="application/x-ndjson",
+                        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    def _jude_get(path: str, method: str = "GET"):
+        """One plain proxied call to Jude, or a 503 that explains itself."""
+        import json as _json
+        import urllib.request
+
+        from assistant.jude import bridge
+
+        jude_cfg, ollama_cfg = _jude_cfg()
+        try:
+            base = bridge.ensure_running(jude_cfg, ollama_cfg)
+        except bridge.JudeUnavailable as e:
+            return jsonify({"error": str(e), "code": 503}), 503
+        try:
+            req = urllib.request.Request(base + path, method=method)
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return jsonify(_json.loads(r.read().decode("utf-8") or "null"))
+        except Exception as e:                # noqa: BLE001
+            logger.warning("Jude %s %s failed: %s", method, path, e)
+            return jsonify({"error": str(e), "code": 502}), 502
+
+    @app.get("/jude/chats")
+    def jude_chats():
+        return _jude_get("/api/chats?user=macalendar")
+
+    @app.get("/jude/chats/<chat_id>/history")
+    def jude_chat_history(chat_id: str):
+        return _jude_get(f"/api/chats/{chat_id}/history")
+
+    @app.delete("/jude/chats/<chat_id>")
+    def jude_chat_delete(chat_id: str):
+        return _jude_get(f"/api/chats/{chat_id}?user=macalendar", method="DELETE")
 
     # ------------------------------------------------------------------
     # Connected calendars (ICS subscriptions + Outlook two-way sync)

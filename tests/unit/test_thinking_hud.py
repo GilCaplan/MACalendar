@@ -483,7 +483,15 @@ def _secs(text: str) -> float:
     return float(text[:-2])
 
 
-def test_the_active_row_gets_a_live_increasing_timer_and_a_spinner(hud):
+def test_the_running_row_shows_a_spinner_and_no_number(hud):
+    """The live counter is GONE (Gil, 2026-09-11: "remove the elapsed time
+    thing its annoying").
+
+    It ticked at 10Hz, which made it the most eye-catching thing on a card
+    whose job is to show what the assistant did — and it said nothing anyone
+    could act on. The SPINNER is what marks the step in progress; the duration
+    is worth reading once it is final.
+    """
     from PyQt6.QtTest import QTest
     widget, _, app = hud
     p = widget.panel
@@ -495,24 +503,36 @@ def test_the_active_row_gets_a_live_increasing_timer_and_a_spinner(hud):
 
     _, _stage, _icon, _text, time_lbl, mark_stack, _state, spinner = _row_for(rail, "rules first")
 
-    # It's the slot in progress: the spinner occupies the mark slot and is
+    # It is the slot in progress: the spinner occupies the mark slot and is
     # actually ticking, not merely constructed.
     assert mark_stack.currentWidget() is spinner
     assert spinner._timer.isActive(), "the active row's spinner is not animating"
 
+    assert time_lbl.text() == "", "the running row is showing a duration again"
     QTest.qWait(150)
     app.processEvents()
-    first = _secs(time_lbl.text())
-    QTest.qWait(150)
-    app.processEvents()
-    second = _secs(time_lbl.text())
-
-    assert second > first, f"live counter did not advance: {first} -> {second}"
+    assert time_lbl.text() == "", "something is still counting on the active row"
 
     # A slot the run hasn't reached yet shows neither a mark nor a time.
     untouched = _row_for(rail, "judge")
     assert untouched[6].text() == ""            # state label
     assert untouched[4].text() == ""            # time label
+
+
+def test_nothing_repaints_the_rail_while_a_run_is_in_flight(hud):
+    """The ticker was a QTimer per rail. A dozen finished rails sitting in
+    history each owning a 10Hz timer was the cost it carried; this pins that
+    the timer is gone rather than merely quiet."""
+    widget, _, _ = hud
+    p = widget.panel
+    p.begin("Mac")
+    p.add_step(_step("vocab", "Vocabulary"))
+    rail = p._rail
+
+    assert not hasattr(rail, "_live_timer"), "the rail still owns a live timer"
+    assert not hasattr(rail, "_tick_live")
+    # `_active_since` STAYS — finish() needs it to freeze the last slot's span.
+    assert rail._active_since is not None
 
 
 def test_finishing_freezes_the_time_and_stops_the_spinner(hud):
@@ -681,23 +701,32 @@ def test_a_late_step_unfolds_the_chain_it_is_walking_again(hud):
     assert rail._slots[rail._active][1] == "judge"
 
 
-def test_a_freshly_lit_slot_resets_its_own_timer(hud):
-    """Each slot's live counter starts from zero when IT becomes active, not
-    from whenever the rail itself was created."""
+def test_a_slot_that_lights_late_still_gets_its_own_span(hud):
+    """Replaces `test_a_freshly_lit_slot_resets_its_own_timer`, which asserted
+    the live counter started near zero on each newly lit slot. There is no live
+    counter now — but the thing it was really protecting still matters: a
+    slot's frozen duration must be ITS span, not the whole run's, so
+    `_active_since` has to be reset when the slot lights."""
     from PyQt6.QtTest import QTest
     widget, _, app = hud
     p = widget.panel
     p.begin("Mac")
     p.add_step(_step("vocab", "Vocabulary"))
     rail = p._rail
-    QTest.qWait(200)                            # "fix words" ticks for a while
+    QTest.qWait(200)                            # "fix words" sits active a while
     app.processEvents()
 
+    lit_at = rail._active_since
     p.add_step(_step("rule", "Rules"))          # "rules first" only just lit
     app.processEvents()
-    _, _, _, _, new_time, _stack, _state, _spinner = _row_for(rail, "rules first")
-    assert _secs(new_time.text()) < 0.1, \
-        f"new active row started at {new_time.text()!r}, not close to zero"
+    assert rail._active_since > lit_at, \
+        "the newly lit slot inherited the previous slot's start"
+
+    p.finish({"message": "ok", "brain": "engine-v3"})
+    app.processEvents()
+    _, _, _, _, time_lbl, _stack, _state, _spinner = _row_for(rail, "rules first")
+    assert _secs(time_lbl.text()) < 0.2, \
+        f"the last slot was charged for the whole run: {time_lbl.text()!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -821,3 +850,96 @@ def test_an_outcome_row_still_fits_inside_the_card(hud):
         assert need <= PANEL_WIDTH, (
             f"the {outcome!r} row needs {need}px in a {PANEL_WIDTH}px card — "
             "it will render clipped")
+
+
+# ---------------------------------------------------------------------------
+# A clamped note says it is clamped
+# ---------------------------------------------------------------------------
+#
+# The 3-line clamp is a `maximumHeight`, which on its own CLIPS: a longer note
+# stopped mid-sentence with nothing to say it had. Measured on a real command
+# — the observance flags on "book gym tomorrow at 7" need 70px in a 44px box —
+# and in the card it read as text running into the row below.
+
+_LONG = ("flag:observance (2026-09-12 falls inside Shabbat or yom tov and this "
+         "is not leyning, a meal or davening); flag:observance: gym (that lands "
+         "on Shabbat (Saturday, Sep 12) - after 19:25 works); date_floor: "
+         "2026-09-12")
+
+
+def _detail_row(widget, app, detail):
+    """A step row's detail label, LAID OUT.
+
+    The HUD — the TOP-LEVEL window, not the panel inside it — is shown and
+    events processed, because eliding depends on the label's real width and
+    `resizeEvent` is not delivered to a hidden widget inside a layout. Showing
+    the panel alone does nothing while its parent is hidden, which is how this
+    test first went green-on-the-wrong-thing. Calling `_clamp()` by hand would
+    pass while the real path stayed broken, which is the failure mode this
+    whole file exists to avoid.
+    """
+    p = widget.panel
+    p.add_step({"stage": "validate", "title": "Sanity fixes", "detail": detail,
+                "ms": 90, "at_ms": 90, "ok": True})
+    widget.show()
+    app.processEvents()
+    return p._rows[-1]._detail
+
+
+def test_a_note_too_long_for_the_clamp_ends_in_an_ellipsis(hud):
+    widget, _, app = hud
+    p = widget.panel
+    p.begin("Mac")
+    label = _detail_row(widget, app, _LONG)
+    p.finish({"message": "ok", "brain": "engine-v3"})
+    p._body.adjustSize()
+    app.processEvents()
+
+    assert label.is_clipped(), "the long note is not being elided at all"
+    assert label.text().endswith("…")
+    assert label.text() != _LONG
+    assert _LONG.startswith(label.text()[:-1].rstrip()), \
+        "the shown text is not a prefix of the real note"
+    # And it still fits the clamp it was elided for. `heightForWidth` at the
+    # label's REAL width, not `sizeHint()` — a word-wrapped QLabel's sizeHint
+    # is measured at its own preferred width, so it reports the unwrapped
+    # height and would fail here on correct code.
+    assert label.heightForWidth(label.width()) <= label.maximumHeight()
+    assert label.toolTip() == _LONG, "the full note should be readable on hover"
+
+
+def test_a_short_note_is_left_exactly_as_it_is(hud):
+    widget, _, app = hud
+    p = widget.panel
+    p.begin("Mac")
+    label = _detail_row(widget, app, "No corrections needed")
+    p._body.adjustSize()
+    app.processEvents()
+
+    assert not label.is_clipped()
+    assert label.text() == "No corrections needed"
+    assert label.toolTip() == "", "a note that fits needs no hover copy"
+
+
+def test_clicking_a_clipped_note_opens_it(hud):
+    """A real click on the real label — the ellipsis is the affordance, so if
+    clicking it does not open the note the affordance is a lie."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtTest import QTest
+    widget, _, app = hud
+    p = widget.panel
+    p.begin("Mac")
+    label = _detail_row(widget, app, _LONG)
+    p._body.adjustSize()
+    app.processEvents()
+    assert label.is_clipped()
+
+    QTest.mouseClick(label, Qt.MouseButton.LeftButton)
+    app.processEvents()
+
+    assert not label.is_clipped()
+    assert label.text() == _LONG
+
+    QTest.mouseClick(label, Qt.MouseButton.LeftButton)   # and closes again
+    app.processEvents()
+    assert label.is_clipped()

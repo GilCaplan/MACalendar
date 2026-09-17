@@ -55,11 +55,53 @@ def build_stop_re(extra_phrases: "list[str] | None" = None) -> "re.Pattern[str]"
 _STOP_RE = build_stop_re()
 
 
-def strip_stop_keyword(transcript: str, extra_phrases: "list[str] | None" = None) -> str:
-    """Remove trailing stop keywords from the transcript."""
+def _peel_stop_keywords(transcript: str, extra_phrases: "list[str] | None" = None) -> str:
+    """Every trailing stop keyword off, not just the last one.
+
+    The regex is anchored at the end, so one pass removes one keyword: "add
+    milk, done, execute" came out as "add milk, done" and the parser was left
+    to make sense of a title ending in "done". Peeling until nothing more
+    matches is also what makes the stop-word-only case visible — "that's it"
+    and "set events" reduce to nothing at all, which is the signal the engine's
+    front door reads (`is_ignorable`).
+    """
     stop_re = build_stop_re(extra_phrases) if extra_phrases else _STOP_RE
-    cleaned = stop_re.sub("", transcript).strip()
+    cur = (transcript or "").strip()
+    prev = None
+    while cur != prev:
+        prev = cur
+        cur = stop_re.sub("", cur).strip()
+    return cur
+
+
+def strip_stop_keyword(transcript: str, extra_phrases: "list[str] | None" = None) -> str:
+    """Remove trailing stop keywords from the transcript.
+
+    Falls back to the original when that leaves nothing: the words were ALL
+    stop words, and an empty string downstream is less informative than what
+    was actually said. `is_ignorable` is the check that catches that case.
+    """
+    cleaned = _peel_stop_keywords(transcript, extra_phrases)
     return cleaned if cleaned else transcript
+
+
+def is_ignorable(raw_text: str, extra_phrases: "list[str] | None" = None) -> bool:
+    """Nothing to act on — the cheapest read there is, and the first one taken.
+
+    Three shapes of non-command reach the brain: silence that transcribed to
+    nothing, a recording that is only the word that ended it ("execute"), and
+    a false start. All three used to be found by `run()` — i.e. AFTER the
+    engine had queued behind whatever command was already running and loaded
+    the config. The engine's front door calls this first instead, so an empty
+    transcript costs microseconds and never waits on the run lock.
+
+    `run()` keeps its own check: this one is deliberately built-in-stop-words
+    only (it is called before any config is read), so a user's custom stop
+    phrase is caught one step later rather than not at all.
+    """
+    if not (raw_text or "").strip():
+        return True
+    return is_trivial_transcript(_peel_stop_keywords(raw_text, extra_phrases))
 
 
 # ---------------------------------------------------------------------------
@@ -89,7 +131,13 @@ def run(state: EngineState, cfg) -> EngineState:
     from assistant.stt.vocab import apply_vocab, get_vocab
     from assistant.trace import VOCAB, DONE
 
-    text = strip_stop_keyword(state.raw_text, cfg.audio.stop_phrases)
+    # Peeled, not merely stripped — and the peeled value is what decides
+    # whether this is a command at all. "that's it" and "set events" are stop
+    # keywords that happen to be two words each, so the old
+    # strip-then-fall-back-to-the-original left two "meaningful" words on the
+    # state and the whole chain ran on a transcript that said nothing.
+    bare = _peel_stop_keywords(state.raw_text, cfg.audio.stop_phrases)
+    text = bare or state.raw_text
     # Spoken noise comes off HERE, once, so everything downstream is generic
     # (Gil's architecture call): the "mhmm"/"umm" openers, the courtesy
     # wrapper, a trailing "or something", a mid-sentence self-correction.
@@ -101,7 +149,7 @@ def run(state: EngineState, cfg) -> EngineState:
     from assistant.intent.cleanup import strip_spoken_noise
     text = strip_spoken_noise(text, drop_courtesy=False)
 
-    if is_trivial_transcript(text):
+    if not bare or is_trivial_transcript(text):
         state.ignored = True
         state.text = text
         state.parse_path = "ignored"

@@ -124,3 +124,72 @@ def test_the_two_platforms_offer_the_same_presets():
     ios = [int(m) for m in re.findall(r'Preset\(label: "[^"]+", minutes: (\d+)\)', swift)]
     mac = [minutes for _label, minutes in TimerCard._AUTO_STOP_PRESETS]
     assert ios == mac, f"iOS presets {ios} != Mac presets {mac}"
+
+
+# ---------------------------------------------------------------------------
+# The live counter — why the phone and the Mac disagreed
+#
+# `db.create_timer_session` stores `datetime.now().astimezone().isoformat()`,
+# which is SIX fractional digits: "2026-09-17T12:08:55.581429+03:00". iOS's
+# ISO8601DateFormatter parses exactly three with `.withFractionalSeconds`, and
+# rejects the fraction outright without it — so the phone parsed nil for every
+# running session the Mac had started. Its live counter read 00:00 beside a
+# timer the Mac was counting up, and its total ran backwards, because the total
+# subtracts the running session's server-computed length from a live elapsed
+# that was zero. It worked only in the one case where the microseconds landed
+# on zero and `isoformat` omitted the fraction entirely.
+#
+# The phone's parser is fixed. These pin the other half: a clock is the wrong
+# place to depend on a text format, so the same instants are served as numbers.
+# ---------------------------------------------------------------------------
+
+def test_the_stored_stamp_really_is_the_awkward_one(client):
+    """If this ever stops being true the epochs below are still correct — but
+    the bug this documents would no longer be reproducible, and someone should
+    know that before deleting the workaround on the phone."""
+    tid = _timer(client)
+    client.post(f"/timers/{tid}/start", json={})
+    started = client.get(f"/timers/{tid}/sessions").get_json()["sessions"][0]["start_time"]
+    fraction = started.partition(".")[2].partition("+")[0].partition("Z")[0]
+    assert len(fraction) > 3, f"{started!r} no longer has sub-millisecond digits"
+
+
+def test_a_running_session_carries_its_start_as_a_number(client):
+    tid = _timer(client)
+    client.post(f"/timers/{tid}/start", json={})
+    running = client.get("/timers").get_json()["timers"][0]["running"]
+    assert running["start_epoch"] > 0
+    assert running["end_epoch"] is None
+
+
+def test_the_epoch_is_the_same_instant_as_the_string(client):
+    tid = _timer(client)
+    now = datetime.datetime.now().astimezone()
+    start = now - datetime.timedelta(hours=2)
+    client.post(f"/timers/{tid}/sessions",
+                json={"start_time": start.isoformat(), "end_time": now.isoformat()})
+    s = client.get(f"/timers/{tid}/sessions").get_json()["sessions"][0]
+    assert s["start_epoch"] == pytest.approx(start.timestamp(), abs=0.001)
+    assert s["end_epoch"] == pytest.approx(now.timestamp(), abs=0.001)
+    # …and the pair agrees with the duration the server reports, so a client
+    # that uses the numbers reaches the Mac's own answer rather than its own.
+    assert s["end_epoch"] - s["start_epoch"] == pytest.approx(s["seconds"], abs=0.1)
+
+
+def test_a_naive_stamp_is_read_as_local(client):
+    """The Mac's "Log past time…" dialog writes Qt's ISODate, which carries no
+    offset. The server already read those as local; the epoch must agree."""
+    tid = _timer(client)
+    naive = datetime.datetime.now().replace(microsecond=0) - datetime.timedelta(hours=1)
+    client.post(f"/timers/{tid}/sessions", json={"start_time": naive.isoformat()})
+    s = client.get(f"/timers/{tid}/sessions").get_json()["sessions"][0]
+    assert s["start_epoch"] == pytest.approx(naive.astimezone().timestamp(), abs=1)
+
+
+def test_the_strings_are_still_served(client):
+    """A phone that has not been updated reads `start_time`; adding the numbers
+    must not take that away."""
+    tid = _timer(client)
+    client.post(f"/timers/{tid}/start", json={})
+    running = client.get("/timers").get_json()["timers"][0]["running"]
+    assert running["start_time"] and running["running"] is True

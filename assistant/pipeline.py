@@ -230,6 +230,25 @@ class Pipeline:
         """Stop the current recording immediately (button re-press or external call)."""
         self._audio.stop()
 
+    def cancel_recording(self) -> None:
+        """Throw the current recording away — nothing is transcribed or run.
+
+        The double-tap in `trigger` has always done this, but a double-tap is
+        not a control anybody discovers: the toolbar's trash button (and the
+        phone's) call this instead. Safe at any phase — while the review bar is
+        up it answers "cancel", and when nothing is recording it does nothing.
+        """
+        with self._trigger_lock:
+            if self._phase == STATUS_REVIEW:
+                self.review_choice("cancel")
+                return
+            if self._phase != STATUS_LISTENING:
+                return
+            self._recording_cancelled.set()
+            self._audio.stop()
+            self._queued = None
+            self._set_status(STATUS_IDLE, "❌ Recording discarded")
+
     def retry_pending(self, pending_id: int) -> bool:
         """Re-run a command that was parked because the LLM was unreachable.
 
@@ -304,7 +323,8 @@ class Pipeline:
         # 1. Listen
         self._recording_cancelled.clear()
         self._phase = STATUS_LISTENING
-        listen_hint = "🔗 Listening to add on… (say 'done' or tap twice to cancel)" if combine else "🎙 Listening… (tap to stop & re-record, tap twice to cancel)"
+        listen_hint = ("🔗 Listening to add on… (say 'done', or 🗑 to discard)" if combine
+                       else "🎙 Listening… (tap to stop & re-record, 🗑 to discard)")
         self._set_status(STATUS_LISTENING, listen_hint)
         trace.step(STT, "Listening",
                    "Adding on to the last command…" if combine

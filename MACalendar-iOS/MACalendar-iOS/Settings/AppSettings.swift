@@ -96,6 +96,15 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(showTeachTab, forKey: "showTeachTab") }
     }
 
+    /// Jude — the Judaic study assistant (DOCUMENTATION/JUDE.md). Off by
+    /// default because it needs a checkout of a separate repository on the
+    /// Mac: a tab that can only say "not installed" is not a feature. The
+    /// Settings toggle says as much, and the tab itself reports what the Mac
+    /// actually has.
+    @Published var showJudeTab: Bool {
+        didSet { UserDefaults.standard.set(showJudeTab, forKey: "showJudeTab") }
+    }
+
     // Show the assistant's step-by-step "thinking" timeline while a voice
     // command runs (streams live from the Mac). Local-only preference.
     @Published var showThinking: Bool {
@@ -202,5 +211,6 @@ class AppSettings: ObservableObject {
             ? true : UserDefaults.standard.bool(forKey: "showWorkoutTab")
         self.showTeachTab = UserDefaults.standard.object(forKey: "showTeachTab") == nil
             ? true : UserDefaults.standard.bool(forKey: "showTeachTab")
+        self.showJudeTab = UserDefaults.standard.bool(forKey: "showJudeTab")
     }
 }

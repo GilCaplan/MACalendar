@@ -85,7 +85,7 @@ def _notify_traces(eid: int) -> list:
 def test_due_reminder_fires_once_then_dedupes(db, runs, bus):
     eid = _seed(db, "Gym", "2026-09-08", "18:15", "19:15",
                 reminder=15, location="Holmes Place")
-    cfg = NotificationsConfig()                       # sound on, speak off
+    cfg = NotificationsConfig(pre_event=True, daily_digest=False)                       # sound on, speak off
 
     notifier._tick(db, cfg, now=NOW, last=LAST)
     osas = _osascripts(runs)
@@ -111,7 +111,7 @@ def test_due_reminder_fires_once_then_dedupes(db, runs, bus):
 
 def test_not_yet_due_does_not_fire(db, runs):
     _seed(db, "Gym", "2026-09-08", "19:00", "20:00", reminder=15)  # due 18:45
-    notifier._tick(db, NotificationsConfig(), now=NOW, last=LAST)
+    notifier._tick(db, NotificationsConfig(pre_event=True, daily_digest=False), now=NOW, last=LAST)
     assert runs == []
     assert _reminder_rows(db) == []
 
@@ -119,7 +119,7 @@ def test_not_yet_due_does_not_fire(db, runs):
 def test_titles_are_applescript_escaped(db, runs):
     _seed(db, 'Meet "Rav" \\ chevruta', "2026-09-08", "18:15", "19:00",
           reminder=15)
-    notifier._tick(db, NotificationsConfig(), now=NOW, last=LAST)
+    notifier._tick(db, NotificationsConfig(pre_event=True, daily_digest=False), now=NOW, last=LAST)
     script = _osascripts(runs)[0][2]
     assert '\\"Rav\\"' in script                      # quote escaped
     assert "\\\\" in script                           # backslash escaped
@@ -133,13 +133,13 @@ def test_late_beyond_catch_up_is_missed_silently(db, runs):
     # Due 17:00 (started 17:15); the Mac slept 16:30 → 18:00. An hour late
     # and already started: record the miss, show nothing.
     eid = _seed(db, "Daf", "2026-09-08", "17:15", "18:00", reminder=15)
-    notifier._tick(db, NotificationsConfig(), now=NOW,
+    notifier._tick(db, NotificationsConfig(pre_event=True, daily_digest=False), now=NOW,
                    last=NOW - datetime.timedelta(minutes=90))
     assert runs == []
     assert _reminder_rows(db) == [(eid, "2026-09-08T17:00", "missed")]
 
     # And the miss is recorded exactly once across further ticks.
-    notifier._tick(db, NotificationsConfig(), now=NOW,
+    notifier._tick(db, NotificationsConfig(pre_event=True, daily_digest=False), now=NOW,
                    last=NOW - datetime.timedelta(minutes=90))
     assert len(_reminder_rows(db)) == 1
 
@@ -148,7 +148,7 @@ def test_late_within_catch_up_fires_as_starting_soon(db, runs):
     # Due 17:55, now 18:00 — 5 min late (> the 30s interval), inside the
     # 10-min catch-up, and the 18:10 event hasn't started: fire, marked.
     eid = _seed(db, "Standup", "2026-09-08", "18:10", "18:25", reminder=15)
-    notifier._tick(db, NotificationsConfig(), now=NOW,
+    notifier._tick(db, NotificationsConfig(pre_event=True, daily_digest=False), now=NOW,
                    last=NOW - datetime.timedelta(minutes=60))
     osas = _osascripts(runs)
     assert len(osas) == 1
@@ -161,7 +161,7 @@ def test_late_within_catch_up_but_started_is_missed(db, runs):
     # Due 17:57 for an 17:58 start (1-min lead), now 18:00: only 3 min late,
     # but the event has begun — a banner now is noise, not a heads-up.
     eid = _seed(db, "Call", "2026-09-08", "17:58", "18:20", reminder=1)
-    notifier._tick(db, NotificationsConfig(), now=NOW,
+    notifier._tick(db, NotificationsConfig(pre_event=True, daily_digest=False), now=NOW,
                    last=NOW - datetime.timedelta(minutes=60))
     assert runs == []
     assert _reminder_rows(db) == [(eid, "2026-09-08T17:57", "missed")]
@@ -173,20 +173,20 @@ def test_late_within_catch_up_but_started_is_missed(db, runs):
 
 def test_disabled_config_does_nothing(db, runs):
     _seed(db, "Gym", "2026-09-08", "18:15", "19:15", reminder=15)
-    notifier._tick(db, NotificationsConfig(enabled=False), now=NOW, last=LAST)
+    notifier._tick(db, NotificationsConfig(pre_event=True, daily_digest=False, enabled=False), now=NOW, last=LAST)
     assert runs == []
     assert _reminder_rows(db) == []
 
 
 def test_sound_off_drops_the_sound_clause(db, runs):
     _seed(db, "Gym", "2026-09-08", "18:15", "19:15", reminder=15)
-    notifier._tick(db, NotificationsConfig(sound=False), now=NOW, last=LAST)
+    notifier._tick(db, NotificationsConfig(pre_event=True, daily_digest=False, sound=False), now=NOW, last=LAST)
     assert "sound name" not in _osascripts(runs)[0][2]
 
 
 def test_speak_adds_a_say_call_with_the_tts_voice(db, runs):
     _seed(db, "Gym", "2026-09-08", "18:15", "19:15", reminder=15)
-    notifier._tick(db, NotificationsConfig(speak=True), now=NOW, last=LAST,
+    notifier._tick(db, NotificationsConfig(pre_event=True, daily_digest=False, speak=True), now=NOW, last=LAST,
                    tts_voice="Samantha")
     says = [c for c in runs if c[0] == "say"]
     assert len(says) == 1
@@ -204,7 +204,7 @@ def test_suppressed_event_logged_and_traced_once(db, runs, bus):
     # (None, "shabbat"). No banner ever; one suppressed row keyed on the
     # event's start; one bus entry.
     eid = _seed(db, "Shabbat lunch", "2026-12-12", "12:00", "14:00")
-    cfg = NotificationsConfig(default_lead_minutes=30)
+    cfg = NotificationsConfig(pre_event=True, daily_digest=False, default_lead_minutes=30)
     friday = datetime.datetime(2026, 12, 11, 9, 0)
 
     notifier._tick(db, cfg, now=friday, last=friday - datetime.timedelta(seconds=30))
@@ -224,7 +224,7 @@ def test_event_without_reminder_is_ignored_entirely(db, runs, bus):
     # default_lead 0 = opt-in only: verdict (None, None) — not suppressed,
     # not fired, no bookkeeping at all.
     eid = _seed(db, "Errand", "2026-09-08", "18:15", "19:00")
-    notifier._tick(db, NotificationsConfig(), now=NOW, last=LAST)
+    notifier._tick(db, NotificationsConfig(pre_event=True, daily_digest=False), now=NOW, last=LAST)
     assert runs == []
     assert _reminder_rows(db) == []
     assert _notify_traces(eid) == []
@@ -242,7 +242,7 @@ def test_a_tick_opens_no_sockets(db, runs, bus, monkeypatch):
 
     monkeypatch.setattr(socket, "socket", NoSockets)
     _seed(db, "Gym", "2026-09-08", "18:15", "19:15", reminder=15)
-    notifier._tick(db, NotificationsConfig(speak=True), now=NOW, last=LAST)
+    notifier._tick(db, NotificationsConfig(pre_event=True, daily_digest=False, speak=True), now=NOW, last=LAST)
     assert len(_osascripts(runs)) == 1                # delivered, socket-free
 
 

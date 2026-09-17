@@ -29,7 +29,8 @@ purely backend (no client code beyond displaying the effects).
 | hybrid | [Tasks](#tasks--to-dos) | Today/General lists, priorities, quantities | `db.py`, `TasksView` |
 | hybrid | [Tag discovery](#tag-discovery--the-class-set-grows-with-consent) | consent-based new classes + history | `actions/todo/tag_discovery.py` |
 | hybrid | [Share event as .ics](#share-event-as-ics) | one event → RFC 5545 file, both platforms | `ics_export.py`, `event_dialog.py` |
-| hybrid | [Pre-event notifications](#pre-event-notifications) | phone rings from its cache; server computes policy; per-category mute; live "Up Next" lock-screen card | `notify.py`, `ReminderScheduler.swift`, `LiveActivityManager.swift` |
+| hybrid | [The day panel](#the-day-panel) | one on/off summary of today's events + tasks; server owns the wording; pre-event banners now dormant | `notify.py`, `notifier.py`, `GET /digest` |
+| hybrid | [Pre-event notifications (dormant)](#pre-event-notifications-dormant) | phone rings from its cache; server computes policy; per-category mute; live "Up Next" lock-screen card — superseded by the day panel above, kept behind a flag | `notify.py`, `ReminderScheduler.swift`, `LiveActivityManager.swift` |
 | hybrid | [Home-screen widget (iOS)](#the-home-screen-widget-ios) | "Up Next" + what's left of today, advancing with nothing of ours running | `MACalendarWidgets/UpNextHomeWidget.swift` |
 | hybrid | [Voice I/O & capture controls](#voice-in--voice-out--capture-controls) | hotkey/stop-phrases/review-bar; engine-selectable STT; spoken replies | `stt/`, `Voice/`, `tts/` |
 | hybrid | [Edit-transcription gate](#the-edit-transcription-round-trip-needs_edit) | doubted words → editor → learned | `engine/ingest/repair.py` |
@@ -45,6 +46,7 @@ purely backend (no client code beyond displaying the effects).
 | hybrid | [Timer](#timer-work-tracking) | per-project work + earnings | db `timers*`, `TimerView` |
 | hybrid | [Counters](#counters) | tap counters + payouts | db `counters*` |
 | hybrid | [Coursework](#coursework) | courses + assignments tab | db `courses*`, `CourseworkView` |
+| hybrid | [Jude](#jude--the-judaic-study-assistant) | Torah/Talmud/halacha study assistant — a separate repo, wired in | `assistant/jude/`, `jude_app.py`, `JudeView.swift` |
 | hybrid | [iOS app & offline](#ios-app--offline-queues) | full client, 3 offline queues, Tailscale | `MACalendar-iOS/` |
 | hybrid | [Health CLI & heartbeats](#heartbeats--the-health-cli) | `assistant doctor`, 6 layers | `cli.py`, `heartbeat.py` |
 | backend | [The engine](#the-engine-engine-v3--the-brain) | the AI brain: a fast track and a six-box deep chain | `assistant/engine/` |
@@ -54,7 +56,7 @@ purely backend (no client code beyond displaying the effects).
 | backend | [Categories & stacking](#events-categories-colours--binder-stacking) | auto-colour/categorise; overlaps stack | `actions/calendar/categories.py` |
 | backend | [Hebrew calendar & observance](#hebrew-calendar--observance) | sundown-bounded halachic windows; series skip, one-offs flagged | `observance.py`, `hebrew_calendar.py` |
 | backend | [Recurring events](#recurring-events) | daily/weekly/monthly/yearly, several weekdays, announced rounding | `db.py`, `decompose_validate/resolve.py` |
-| backend | [API server](#the-api-server) | the single front door, 112 endpoints | `api/server.py` |
+| backend | [API server](#the-api-server) | the single front door, 126 endpoints | `api/server.py` |
 | backend | [Hosted calendar sync](#hosted-calendar-sync) | optional Outlook two-way / ICS read | `calendar_sync/` |
 | backend | [Self-improvement loop](#the-self-improvement-loop) | the AI measures & improves itself | `dataset/`, `scripts/` |
 | backend | [Diagnostics & logs](#diagnostics--self-observation-logs) | NLU tracking, LLM-judge bug log, audit, calibration | `scripts/` |
@@ -202,16 +204,22 @@ deletes the class again.
 ⌘⇧Space) with configurable stop phrases, silence auto-stop (2–12 s), a
 review-before-send Redo/Add-more/Send bar with countdown, a configurable
 event-separator phrase ("next event"), instant placeholder-event keywords,
-and mic multi-tap gestures (second tap within 400 ms cancels). Replies
+and mic multi-tap gestures (second tap within 400 ms cancels). A **trash
+button discards a recording outright** — beside the mic while it is listening
+and in the review bar on both platforms. Replies
 optionally spoken (mute, voice picker, speaking rate, Test Audio preview).
 **Where:** STT `assistant/stt/` (engine-selectable: local Whisper CPU,
 Apple-GPU mlx-whisper, or opt-in Google cloud STT); Mac capture
-`pipeline.py` + settings in `calendar_ui/window.py`; iOS
-`Voice/VoiceRecorder.swift` (on-device stop-word recognition),
+`pipeline.py` (`cancel_recording()`) + toolbar/review-bar buttons in
+`calendar_ui/window.py`; iOS `Voice/VoiceRecorder.swift` (`cancel()`,
+on-device stop-word recognition), `Views/VoiceButton.swift` (`discard()`),
 `SpeechPlayer.swift`; TTS `assistant/tts/speaker.py` (macOS `say`).
 **How:** Audio never leaves the machine on the default engines; the phone
 streams over Tailscale (`/voice/stream`, NDJSON). `test_offline.py` blocks
-non-loopback sockets in the build.
+non-loopback sockets in the build. Discarding happens entirely client-side —
+the audio is dropped before any upload, so nothing is transcribed, executed or
+remembered. On the phone `cancel()` also clears the PCM buffer, which
+`start(resume: true)` ("Add more") deliberately keeps.
 
 ### The edit-transcription round-trip (needs_edit)
 **What:** When the vocabulary doubts words in a transcript, nothing executes —
@@ -422,13 +430,48 @@ voice-triggered via `generate_workout_routine` / `schedule_workout` actions.
 **What:** Multi-project timers with earnings calculation and sub-sessions.
 **Where:** db `timers`/`timer_sessions`; API `/timers*`, `/timer_sessions*`;
 Mac Timer tab; iOS `Views/TimerView.swift`.
-**How:** Local-only SQLite; sessions editable after the fact.
+**How:** Local-only SQLite; sessions editable after the fact. **The live
+counter is clock-driven on both surfaces** and must agree: the Mac ticks from
+the DB every second, the phone from `running.start_epoch` (the server serves
+each session's instants as numbers beside the ISO strings) plus a 1 s tick,
+reloading every 3 s while anything runs. The numbers exist because the strings
+were not enough — `isoformat()` writes six fractional digits and iOS's
+`ISO8601DateFormatter` parses three, so the phone parsed nil for every running
+session, showed 00:00 beside a Mac that was counting up, and subtracted the
+running session's length from the total. `TimerFormat.isoDate` now truncates
+the fraction and tolerates a naive stamp (the Mac's "Log past time…" writes
+one), so old servers still work.
 
 ### Counters
 **What:** Tap-counters with press history and payout tracking.
 **Where:** db `counters`, `counter_presses`, `counter_payouts`; API
 `/counters*`.
 **How:** Same local-first pattern as timers.
+
+### Jude — the Judaic study assistant
+**What:** Ask about Torah, Talmud, halacha, midrash and machshava; a cited
+answer streamed from ~289,000 Sefaria passages, every source linking back to
+Sefaria. Three modes (Q&A, Study, Sources-only).
+**Where:** Jude itself is a **separate repository**
+(github.com/GilCaplan/JudeTheJudaicChatBot) — deliberately not vendored: it
+carries a ~3 GB corpus + index and is worked on separately. Here: the bridge
+`assistant/jude/bridge.py`, the routes `/jude/*` in `api/server.py`, the Mac
+app `assistant/jude_app.py` (📖 in the calendar toolbar; started by
+`Launch Calendar.command`), the iOS tab `Views/JudeView.swift` (Settings ›
+Tabs, off by default), config `jude:` in config.yaml.
+Full brief: `DOCUMENTATION/JUDE.md`.
+**How:** Two rules make it part of this system rather than a second system
+beside it. **Its LLM calls are ours** — Jude's own default is a cloud cascade
+(Gemini → LLMod → Ollama), so the bridge starts it with every role pinned to
+local Ollama on `ollama.model` (one resident model, not two) and the cloud
+keys blanked; nothing reaches the internet unless `jude.allow_cloud` is
+explicitly set. **It is reached through this API** — the phone POSTs to
+`/jude/chat` on 8080 with the usual key, and the server translates Jude's SSE
+into the NDJSON every client already renders for `/voice/stream`, so Jude's
+own port never leaves the machine and no client learns a second protocol.
+Missing checkout, switched off, or not started yet are all normal states that
+produce a sentence naming what to do. The brain is untouched: these routes are
+plumbing, and Jude cannot be asked to create an event.
 
 ### Coursework
 **What:** Courses + assignments tracking (the university tab).
@@ -439,15 +482,28 @@ Mac Timer tab; iOS `Views/TimerView.swift`.
 ### iOS app & offline queues
 **What:** The full iPhone client — calendar, tasks, voice, review, vocabulary,
 workout, timer — working offline and syncing when the Mac returns.
-**Where:** `MACalendar-iOS/`; queues in `LocalStore.swift`; polling via
-`GET /changes/token`.
+**Where:** `MACalendar-iOS/`; queues and caches in `LocalStore.swift`; the
+circuit breaker and `bootstrap()` in `API/APIClient.swift`; polling via
+`GET /changes`; the protocol written down in
+`DOCUMENTATION/SYNC_PROTOCOL.md`.
 **How:** Three queues (CRUD ops with temp-id repointing, queued voice
-recordings, pending LLM commands) plus a local event/todo/tag cache so views
-work offline; lost-stream recovery (checks whether the Mac finished the
-command anyway); a background assertion keeps a voice command alive when the
-app is backgrounded; burst-refresh after actions; vertical-swipe month
-change; guests via the system Contacts picker with per-guest
-Message/WhatsApp actions; reaches the Mac over Tailscale only.
+recordings, pending LLM commands) plus a local event/todo/tag/**holiday**
+cache so views work offline; lost-stream recovery (checks whether the Mac
+finished the command anyway); a background assertion keeps a voice command
+alive when the app is backgrounded; burst-refresh after actions;
+vertical-swipe month change; guests via the system Contacts picker with
+per-guest Message/WhatsApp actions; reaches the Mac over Tailscale only.
+**Offline is instant, not eventually.** Reads always fell back to the cache —
+but only after each request had spent its full 8 s timeout, and a cold start
+ran several of those one after another, so the app opened on an empty calendar
+for tens of seconds. Three changes: an **offline circuit breaker** (after one
+failure, requests throw `.offline` immediately without touching the network;
+only `/health` and `/changes` still probe, on a 3 s leash, backing off
+2 → 20 s; the voice uploads check it too, so a recording is queued at once
+instead of waiting out a 120 s timeout); **one bootstrap request**
+(`GET /sync/bootstrap` — three months of events, tasks, tags, tag rules,
+categories and holidays in a single round trip); and **painting the cache
+before awaiting the network** on every month navigation.
 
 ### Heartbeats & the health CLI
 **What:** `assistant doctor` — is every layer wired: LLM, storage, engine,
@@ -515,7 +571,42 @@ pipeline" contract `test_panel_agreement.py` holds the thinking panel to —
 so a future engine change forces a re-verification rather than silently
 shipping stale claims.
 
-### Pre-event notifications
+### The day panel
+
+**What:** One summary of today — the day's events in the order they happen,
+then today's tasks — delivered once, at `notifications.digest_time` (07:00
+local by default). **On or off, and that is the whole control** (Gil,
+2026-09-11: *"it's on or off and it shows in a nice manner the event calendar
+and tasks for today"*). It replaced a stream of "starting soon" banners.
+
+**Where:** `assistant/notify.py` — `digest_verdict` (when, and whether a
+Shabbat/yom tov window holds it) and `build_digest` (what it says);
+`GET /digest[?date=]` serves it; the Mac fires it from `notifier.py`
+(`DIGEST_KEY`, a negative sentinel in `reminder_log`, is the once-a-day
+guard — the same UNIQUE row that dedupes reminders); the switch is
+`notifications.daily_digest`, writable through the existing `PATCH /config`.
+
+**How, and why it matters:** the SERVER owns the wording, not just the rows.
+`build_digest` returns the finished `title` and `body`, so the Mac banner and
+the phone's notification say the same thing — two clients formatting their own
+drift the moment one learns about all-day events and the other does not. A
+dated task belongs to its due date; an undated one is *outstanding*, which is
+a today concept, so it appears on today's panel and no other day's. Unlike a
+pre-event reminder, a late panel is NOT caught up: a reminder that arrives
+late is still about something that has not happened, but a summary of the day
+arriving at 4pm is the noise this replaced.
+
+**Not done:** iOS. `ReminderScheduler` still schedules per-event reminders and
+Settings still shows the lead-time controls; the phone needs to schedule one
+daily notification from `GET /digest` and show one toggle. Needs a machine
+with Xcode — see TASKS row 84.
+
+### Pre-event notifications (dormant)
+
+**Status:** `notifications.pre_event` ships **false** — the day panel replaced
+these. Nothing is deleted: `reminder_minutes` is a frozen engine contract,
+"with a 15 minute reminder" still parses and stores, and turning the flag on
+restores the whole path below (pinned by `test_digest.py`).
 
 **What:** "remind me before it starts." The server computes each event's
 `notify_at` (lead resolution: event override → category lead **or mute — a
@@ -664,9 +755,15 @@ working behaviour: LLMSeg is off (`MACALENDAR_LLMSEG`), and the judge's
 loop-back is gated on a rewrite that is still a stub — re-entering a
 DETERMINISTIC segmenter with unchanged text cannot produce a new answer, which
 is why the gate exists rather than a plain re-run.
+**Step 0 — is this a command at all?** `repair.is_ignorable()` runs at the
+engine's front door, before the run lock and before the config is read, so
+silence that transcribed to nothing and a recording that is only the word
+which ended it ("execute", "that's it", "set events") cost microseconds
+instead of queueing behind whatever is running. `run()` keeps the same check
+for the custom stop phrases the front door has not read yet.
 **Notable behaviours (each a named, tested rule):** ingest coalescing of
-queued commands; stop-word stripping; trivial/false-start filtering (ignored
-AND not remembered); anaphora ("the one I just made" → context memory);
+queued commands; stop-word peeling (every trailing keyword, not just the
+last); trivial/false-start filtering (ignored AND not remembered); anaphora ("the one I just made" → context memory);
 "another one at 7" title carry-over; not-found honesty on updates/deletes
 with one LLM second opinion — never a guess; am/pm correction; past-date
 bump; move-time fill ("from 9:30 to 9"); cadence rounding announced, never
@@ -755,6 +852,17 @@ the workout planner and the coursework view did not, so a task's tag depended
 on which surface made it. `update_todo` labels a renamed task that is still
 untagged — how a calendar-sync task gets one when its event is renamed — and
 never replaces a tag that already exists. Pinned by `tests/unit/test_autolabel.py`.
+**Offline, on the phone:** the Mac serves the classifier's table at
+`GET /tags/rules` (keywords, never-infer set, the real palette, and the user's
+own vocabulary labels) and `TagClassifier.swift` scores against it, so a task
+typed with the Mac away is tagged on the spot instead of landing untagged for
+good — the Mac never re-tags a task it did not create. The table is served
+rather than shipped: a second keyword list in a second language drifts, and
+`personal_labels` ("Haxaga" is a course) cannot be compiled into an app at
+all. The phone's answer is a **preview** — the queued create body still says
+what the user said, so the Mac classifies it itself on replay and its answer
+is the one that lands. `test_sync_bootstrap.py` transcribes the Swift
+algorithm back into Python and asserts it agrees with `infer_tag`.
 
 ### Events: categories, colours & binder stacking
 **What:** Every event auto-categorised and coloured — adjacent events never
@@ -839,7 +947,7 @@ re-verified 2026-09-14, both live, neither fixed here):
   monthly"*, omitting the fourth.
 
 ### The API server
-**What:** The single front door — 112 endpoints; every surface is its client.
+**What:** The single front door — 113 endpoints; every surface is its client.
 **Where:** `assistant/api/server.py` (HTTP only — no parsing/execution);
 generated reference `DOCUMENTATION/API_REFERENCE.md`
 (`scripts/gen_api_reference.py`).
