@@ -12,8 +12,9 @@ that matters even though Jude is on this same machine.
 from __future__ import annotations
 
 import logging
+from html import escape as _escape
 
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QHBoxLayout, QLabel, QMainWindow, QVBoxLayout, QWidget,
@@ -91,6 +92,8 @@ class JudeWindow(QMainWindow):
         # already is, not in a status bar at the bottom of the screen.
         self._status = QLabel("")
         self._status.setWordWrap(True)
+        self._status.setTextFormat(Qt.TextFormat.RichText)
+        self._status.setOpenExternalLinks(True)
         self._status.setStyleSheet(
             f"color:{self._theme.text2}; font-size:11px; padding:4px 16px 0;")
         main_lay.addWidget(self._status)
@@ -157,11 +160,17 @@ class JudeWindow(QMainWindow):
         self._ready = bool(status.get("ready"))
         self._composer.set_enabled(self._ready)
         if not self._ready:
-            # Only the reason. It is a sentence written for a person — "Jude
-            # isn't installed at …" — and anything drawn beside it competes
-            # with the one line that says what to do about it.
-            self._status.setText(status.get("reason")
-                                 or "Jude cannot answer right now.")
+            # The reason, plus the repository as a LINK.
+            #
+            # `reason` is prose and `repo` is structured — the sentence no
+            # longer contains the URL, because when both carried it every
+            # client printed it twice. So the sentence says what to do and the
+            # link is the thing you can actually click.
+            reason = status.get("reason") or "Jude cannot answer right now."
+            repo = (status.get("repo") or "").strip()
+            if repo:
+                reason += f'<br><a href="{_escape(repo)}">{_escape(repo)}</a>'
+            self._status.setText(reason)
             self._sidebar.set_footer("")
             return
         self._status.setText("")

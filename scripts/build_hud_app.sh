@@ -23,6 +23,15 @@ set -eu
 cd "$(dirname "$0")/.."
 REPO="$(pwd)"
 BUNDLE_ID="com.macalendar.hud"
+# Its OWN icon. This used to copy assistant/app_icon.icns, so the HUD and the
+# calendar were identical in the Dock — two apps you click for different
+# reasons wearing the same face.
+ICON="$REPO/assistant/calendar_ui/assets/hud_icon.icns"
+
+if [[ ! -f "$ICON" ]]; then
+  echo "no icon at $ICON — run: ./.venv/bin/python assistant/calendar_ui/assets/make_hud_icon.py"
+  exit 1
+fi
 
 build() {
   local out="$1"
@@ -39,7 +48,7 @@ build() {
     || /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$out/Contents/Info.plist"
   /usr/libexec/PlistBuddy -c "Add :LSUIElement bool true" "$out/Contents/Info.plist" 2>/dev/null || true
   /usr/libexec/PlistBuddy -c "Add :NSDesktopFolderUsageDescription string 'Starts the thinking card from the project folder.'" "$out/Contents/Info.plist" 2>/dev/null || true
-  cp assistant/app_icon.icns "$out/Contents/Resources/applet.icns"
+  cp "$ICON" "$out/Contents/Resources/applet.icns"
 
   # Re-seal. --identifier must match CFBundleIdentifier or the bundle is
   # inconsistent in the same way it was before, just less obviously.

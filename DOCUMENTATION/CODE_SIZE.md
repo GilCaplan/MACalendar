@@ -1,34 +1,34 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 504, "total_lines": 132758} -->
+<!-- code-stats: {"total_files": 505, "total_lines": 132935} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**132,758 lines of source across 504 files.** Of that, **77,381 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**132,935 lines of source across 505 files.** Of that, **77,549 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
 | Test code | 137 | 26,538 |
-| Mac application (calendar GUI) | 30 | 17,719 |
+| Mac application (calendar GUI) | 31 | 17,872 |
 | iOS application | 54 | 17,285 |
-| Actions, storage & domain (DB, config, observance, .ics) | 94 | 16,662 |
+| Actions, storage & domain (DB, config, observance, .ics) | 94 | 16,677 |
 | Engine (the brain, shipped path) | 48 | 14,482 |
 | Engine experiments & boards (not in the answer path) | 47 | 12,437 |
-| Dataset & measurement tooling | 40 | 10,063 |
+| Dataset & measurement tooling | 40 | 10,072 |
 | Retired (old brain, kept on purpose) | 12 | 6,339 |
 | Review panel (Mac card + iOS timeline) | 6 | 4,078 |
 | Microphone / speech (record, STT, TTS) | 17 | 2,716 |
 | Model / Ollama code | 12 | 2,563 |
 | API server (the front door) | 4 | 1,569 |
 | Launch scripts | 3 | 307 |
-| **TOTAL** | **504** | **132,758** |
+| **TOTAL** | **505** | **132,935** |
 
 ### By language
 
 | | files | lines |
 |---|---:|---:|
-| Python | 438 | 113,120 |
+| Python | 439 | 113,288 |
 | Swift | 59 | 19,105 |
-| shell | 6 | 380 |
+| shell | 6 | 389 |
 | launch script | 1 | 153 |
 
 Not counted above, and deliberately so:

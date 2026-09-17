@@ -144,14 +144,20 @@ class Integration(ABC):
         port = self.port()
         running = process.is_listening(port) if (enabled and port) else False
 
+        # `reason` is PROSE and `repo` is the LINK — the sentence does not
+        # contain the URL. Both used to carry it, so every client that did the
+        # right thing (show the sentence, and the repo as something tappable)
+        # printed the URL twice: once mid-sentence, wrapping across three
+        # lines, and once as a link underneath it.
         reason = ""
         if not enabled:
-            reason = (f"{self.label} is switched off — set {self.name}.enabled: true "
-                      f"in config.yaml once you have a checkout of {self.repo}.")
+            reason = (f"{self.label} is switched off — set {self.name}.enabled: "
+                      f"true in config.yaml once you have a checkout of its "
+                      f"repository.")
         elif path is None:
             reason = (f"{self.label} isn't installed here. It is a separate "
-                      f"repository: clone {self.repo} beside this one and point "
-                      f"{self.name}.path at it.")
+                      f"repository — clone it, then point {self.name}.path at "
+                      f"the checkout.")
         elif not running:
             reason = (f"{self.label} isn't running yet — it starts on your first "
                       "question and takes a moment to load."
