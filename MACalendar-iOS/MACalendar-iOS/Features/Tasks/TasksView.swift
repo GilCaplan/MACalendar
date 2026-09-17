@@ -371,7 +371,21 @@ struct TasksView: View {
     // MARK: - Data
 
     private func load() {
-        loading = true
+        // Draw the cache FIRST, then let the network correct it — the same
+        // thing the calendar does, and for the same reason.
+        //
+        // `api.todos()` falls back to the cache when the Mac is away, but only
+        // AFTER awaiting it. So the very first load of a launch — before the
+        // client's offline breaker has armed — showed an empty list for as
+        // long as the request took to give up, and then filled in from rows
+        // that had been on disk the whole time. The breaker makes every LATER
+        // request instant; this is what makes the first one instant too.
+        let cachedTodos = LocalStore.shared.allTodos(list: nil, includeCompleted: true)
+        if todos.isEmpty, !cachedTodos.isEmpty { todos = cachedTodos }
+        let cachedTags = LocalStore.shared.allTags()
+        if tags.isEmpty, !cachedTags.isEmpty { tags = cachedTags }
+
+        loading = todos.isEmpty      // only spin when there is nothing to show
         Task {
             do {
                 async let t = api.todos(list: "all", includeCompleted: true)

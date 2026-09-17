@@ -75,6 +75,20 @@ class APIClient: ObservableObject {
     private static let probePaths: Set<String> = ["/health", "/changes"]
     private static let maxBackoff: TimeInterval = 20
 
+    /// Whether the Mac was reachable when this app last ran.
+    ///
+    /// All of the above only helps AFTER the first failure. `isOnline` started
+    /// `true` on every launch, so a cold start with the Mac away paid the full
+    /// eight-second timeout before the breaker armed — and every view sat
+    /// behind it, waiting on a cache that was on disk the whole time. That is
+    /// the "preload is really slow when disconnected" you feel.
+    ///
+    /// Remembering it makes the first launch behave like the second: reads
+    /// answer from cache immediately, and a probe on a three-second leash puts
+    /// the app back online the moment the Mac returns. Being wrong costs one
+    /// probe; being right saves eight seconds of blank screen.
+    private static let reachableKey = "lastKnownReachable"
+
     /// True while we have recently failed to reach the Mac and are waiting
     /// before trying again. Callers that build their own URLRequest (the voice
     /// uploads) check this so they can queue immediately instead of holding a
@@ -90,17 +104,34 @@ class APIClient: ObservableObject {
     func noteReachable() {
         offlineUntil = .distantPast
         offlineBackoff = 0
+        UserDefaults.standard.set(true, forKey: Self.reachableKey)
     }
 
     func noteUnreachable() {
         offlineBackoff = min(max(2, offlineBackoff * 2), Self.maxBackoff)
         offlineUntil = Date().addingTimeInterval(offlineBackoff)
+        UserDefaults.standard.set(false, forKey: Self.reachableKey)
+    }
+
+    /// Start where we left off. Called once, from `init`.
+    ///
+    /// The backoff is armed only BRIEFLY (one second): long enough that the
+    /// launch burst — bootstrap, month, tasks, features — answers from cache
+    /// without touching the network, short enough that the Mac being back is
+    /// noticed almost at once. The probes ignore it anyway.
+    private func restoreReachability() {
+        let known = UserDefaults.standard.object(forKey: Self.reachableKey) as? Bool
+        guard known == false else { return }     // unknown or reachable: assume online
+        isOnline = false
+        offlineBackoff = 1
+        offlineUntil = Date().addingTimeInterval(1)
     }
 
     let settings: AppSettings
 
     init(settings: AppSettings) {
         self.settings = settings
+        restoreReachability()
     }
 
     // MARK: - Base
@@ -134,7 +165,13 @@ class APIClient: ObservableObject {
         }
         // A believed-offline probe gets a short leash: its whole job is to
         // find out quickly, and eight seconds of that per poll is the lag.
-        var req = URLRequest(url: url, timeoutInterval: isOnline ? 8 : 3)
+        //
+        // The online figure is 8s for a Mac that is THINKING — a voice command
+        // being parsed, an index being read. Discovering whether a Mac is
+        // there at all is a different question with a different answer: on the
+        // tailnet a reachable one replies in about 100ms, so a request that
+        // has not been answered in 5s is not slow, it is absent.
+        var req = URLRequest(url: url, timeoutInterval: isOnline ? 5 : 3)
         req.httpMethod = method
         if !settings.apiKey.isEmpty {
             req.setValue(settings.apiKey, forHTTPHeaderField: "X-API-Key")

@@ -285,6 +285,17 @@ struct TimerView: View {
     }
 
     private func load() async {
+        // Cache first, network second. Until the tab had a cache at all this
+        // was moot; now that it has one, awaiting before drawing would waste
+        // it on exactly the launch where it matters most.
+        if timers.isEmpty {
+            let cached = LocalStore.shared.allTimers(includeArchived: showArchived)
+            if !cached.isEmpty { timers = cached }
+        }
+        if counters.isEmpty {
+            let cached = LocalStore.shared.allCounters(includeArchived: showArchived)
+            if !cached.isEmpty { counters = cached }
+        }
         do {
             async let t = api.timers(archived: showArchived)
             async let c = api.counters(archived: showArchived)

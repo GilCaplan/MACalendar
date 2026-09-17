@@ -210,3 +210,99 @@ def test_a_counter_press_updates_the_cache_before_it_goes_out(client_src):
     assert bump < send, (
         "pressCounter contacts the Mac before updating the local count — "
         "offline the tap would appear to do nothing")
+
+
+# ---------------------------------------------------------------------------
+# Cache FIRST, network second — or the cache is wasted on the launch that needs it
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("view,loader", [
+    ("TasksView.swift", "load"),
+    ("TimerView.swift", "load"),
+    ("CalendarTabView.swift", "loadMonth"),
+])
+def test_a_tab_draws_its_cache_before_awaiting_the_mac(view, loader):
+    """Having a cache is not the same as showing it in time.
+
+    `api.todos()` and friends fall back to the cache when the Mac is away — but
+    only AFTER awaiting the request. The client's offline breaker makes every
+    LATER request throw instantly, so this is invisible once the app knows the
+    Mac is gone. The FIRST load of a launch does not know yet, and that is
+    exactly the moment the user is staring at the screen: reported as "the app
+    is really slow on preload when disconnected".
+
+    Calendar already did this. Tasks and Timer awaited first and drew nothing
+    until the request gave up.
+    """
+    src = ios_source(view)
+    start = src.index(f"func {loader}(")
+    body = src[start:]
+    # to the end of the function, by brace depth
+    depth, end = 0, 0
+    for i, ch in enumerate(body):
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                end = i
+                break
+    body = body[:end]
+
+    # Strip line comments first: the calendar's own explanation of this very
+    # ordering contains the word "await", and matching prose instead of code
+    # failed a function that was already correct.
+    body = "\n".join(re.sub(r"//.*$", "", line) for line in body.split("\n"))
+
+    reads = [m.start() for m in re.finditer(r"\b(LocalStore|CourseStore)\.shared\.(all|events|holidays|cached)", body)]
+    awaits = [m.start() for m in re.finditer(r"\bawait\b", body)]
+    assert reads, f"{view}.{loader} never consults the cache"
+    assert awaits, f"{view}.{loader} makes no request — test needs updating"
+    assert min(reads) < min(awaits), (
+        f"{view}.{loader} awaits the Mac before drawing its cache — the first "
+        f"load of a launch shows nothing until that request gives up")
+
+
+# ---------------------------------------------------------------------------
+# What a tap costs
+# ---------------------------------------------------------------------------
+
+def test_the_pending_queue_is_written_immediately_and_the_caches_are_not():
+    """The split is about what you can afford to lose.
+
+    `persist()` used to encode SEVEN files and write them synchronously on the
+    main actor, on every one of its twenty call sites. Tapping ＋ on a counter
+    rewrote the entire events cache and the holiday table with it — tens of
+    kilobytes of JSON on the thread that is supposed to be drawing.
+
+    The queue still writes immediately: it is the one file that is not a cache,
+    and a debounce would lose an offline edit if the app were killed a moment
+    later. The caches are debounced off the main actor, because the worst a
+    lost cache costs is one round trip to the Mac.
+    """
+    store = ios_source("LocalStore.swift")
+    body = store[store.index("    func persist() {"):]
+    body = body[:body.index("\n    }")]
+    assert "mc_pending.json" in body, "the queue is no longer written synchronously"
+    for cache in ("mc_events.json", "mc_todos.json", "mc_holidays.json"):
+        assert cache not in body, (
+            f"{cache} is still written on the main actor on every mutation")
+    assert "scheduleCacheWrite" in body
+
+
+def test_the_debounced_write_is_flushed_when_the_app_leaves_the_foreground():
+    """"In 150ms" is not a promise the system keeps once the app is
+    backgrounded, and a lost cache means the next launch draws nothing until
+    the Mac answers."""
+    shell = ios_source("ContentView.swift")
+    assert "flushCachesNow" in shell, (
+        "nothing flushes the debounced cache write on backgrounding")
+
+
+def test_the_background_write_does_not_reach_back_into_the_store():
+    """`LocalStore` is @MainActor: a detached task that touched it would hop
+    straight back to the main thread and undo the point of moving the work."""
+    store = ios_source("LocalStore.swift")
+    snap = store[store.index("private struct CacheSnapshot"):]
+    snap = snap[:snap.index("\n    }\n")]
+    assert "LocalStore.shared" not in snap and "self." not in snap

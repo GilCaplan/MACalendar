@@ -222,6 +222,12 @@ struct ContentView: View {
             }
         }
         .onChange(of: scenePhase) { phase in
+            // Leaving the app is the deadline for the debounced cache write:
+            // "in 150ms" is a promise the system need not keep once we are in
+            // the background, and a lost cache means the next launch draws
+            // nothing until the Mac answers — the exact lag the debounce was
+            // added to remove.
+            if phase != .active { LocalStore.shared.flushCachesNow() }
             if phase == .active {
                 // Fire-and-forget presence ping, separate from the sync path
                 // so an unreachable Mac can't delay the local refresh below.

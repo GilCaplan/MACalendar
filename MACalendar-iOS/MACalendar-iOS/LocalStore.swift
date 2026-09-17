@@ -148,16 +148,84 @@ class LocalStore: ObservableObject {
         loadVoice()
     }
 
+    private var cacheFlush: Task<Void, Never>?
+
+    /// Save. Called from every mutation — twenty call sites — so what it costs
+    /// is what a tap costs.
+    ///
+    /// It used to encode SEVEN files and write them all, synchronously, on the
+    /// main actor, on every single change. Tapping ＋ on a counter rewrote the
+    /// whole events cache and the holiday table with it. That is tens of
+    /// kilobytes of JSON per tap on the thread that is supposed to be drawing,
+    /// and it is the "laggy" you can feel rather than measure.
+    ///
+    /// Two changes, and the split between them is about what you can afford to
+    /// lose:
+    ///
+    /// - **The pending queue is written NOW.** It is the one thing that is not
+    ///   a cache: if the app is killed a moment after you add a task offline,
+    ///   a debounced write would lose it, and nothing would ever replay it.
+    ///   It is also the smallest file.
+    /// - **The caches are debounced and written OFF the main actor.** They can
+    ///   always be refetched from the Mac, so the worst a crash costs is one
+    ///   round trip. A burst of taps now collapses into one write instead of
+    ///   one per tap.
     func persist() {
-        let e = JSONEncoder()
-        try? e.encode(events).write(to:   url("mc_events.json"))
-        try? e.encode(todos).write(to:    url("mc_todos.json"))
-        try? e.encode(tags).write(to:     url("mc_tags.json"))
-        try? e.encode(holidays).write(to: url("mc_holidays.json"))
-        try? e.encode(timers).write(to:   url("mc_timers.json"))
-        try? e.encode(counters).write(to: url("mc_counters.json"))
-        try? e.encode(pending).write(to:  url("mc_pending.json"))
         pendingCount = pending.count
+        try? JSONEncoder().encode(pending).write(to: url("mc_pending.json"))
+        scheduleCacheWrite()
+    }
+
+    /// Coalesce the caches into a single write, shortly, somewhere else.
+    ///
+    /// The snapshot is taken HERE, on the main actor, so the background write
+    /// cannot see a half-applied change. Swift arrays are copy-on-write, so
+    /// taking it costs a retain rather than a copy.
+    private func scheduleCacheWrite() {
+        let snapshot = CacheSnapshot(events: events, todos: todos, tags: tags,
+                                     holidays: holidays, timers: timers,
+                                     counters: counters, dir: dir)
+        cacheFlush?.cancel()
+        cacheFlush = Task.detached(priority: .utility) {
+            // Long enough to swallow a burst of taps, short enough that
+            // backgrounding the app a moment later still catches it.
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            if Task.isCancelled { return }
+            snapshot.write()
+        }
+    }
+
+    /// Everything a cache write needs, detached from the store.
+    ///
+    /// A plain value carried into the background task, rather than the task
+    /// reaching back into `LocalStore` — which is `@MainActor`, so reaching
+    /// back would hop to the main thread and undo the point of moving it.
+    private struct CacheSnapshot {
+        let events: [CalendarEvent]
+        let todos: [Todo]
+        let tags: [TodoTag]
+        let holidays: [Holiday]
+        let timers: [WorkTimer]
+        let counters: [TallyCounter]
+        let dir: URL
+
+        func write() {
+            let e = JSONEncoder()
+            try? e.encode(events).write(to:   dir.appendingPathComponent("mc_events.json"))
+            try? e.encode(todos).write(to:    dir.appendingPathComponent("mc_todos.json"))
+            try? e.encode(tags).write(to:     dir.appendingPathComponent("mc_tags.json"))
+            try? e.encode(holidays).write(to: dir.appendingPathComponent("mc_holidays.json"))
+            try? e.encode(timers).write(to:   dir.appendingPathComponent("mc_timers.json"))
+            try? e.encode(counters).write(to: dir.appendingPathComponent("mc_counters.json"))
+        }
+    }
+
+    /// Write the caches now, without waiting for the debounce — for the moment
+    /// the app goes to the background, where "shortly" may never arrive.
+    func flushCachesNow() {
+        cacheFlush?.cancel()
+        CacheSnapshot(events: events, todos: todos, tags: tags, holidays: holidays,
+                      timers: timers, counters: counters, dir: dir).write()
     }
 
     // MARK: - Timers and counters, offline
