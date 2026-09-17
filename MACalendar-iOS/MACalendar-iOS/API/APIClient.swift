@@ -961,14 +961,38 @@ class APIClient: ObservableObject {
     /// What the Mac can currently offer. Never throws: `reason` is the
     /// sentence to show when `ready` is false, and an unreachable Mac is one
     /// of the answers rather than an error.
+    ///
+    /// Three failures used to share one `try?`, and they are not the same
+    /// thing: the Mac not answering; the Mac answering with something other
+    /// than a status (a 404 from an assistant older than Jude); and no address
+    /// configured at all. The first cut called all three "isn't reachable" —
+    /// while Settings, one tab over, had just shown the Mac online
+    /// (2026-09-17, the day Jude shipped and the Mac's API was still on the
+    /// previous branch).
     func judeStatus() async -> JudeStatus {
-        guard let data = try? await request("/jude/status"),
-              let st = try? JSONDecoder().decode(JudeStatus.self, from: data)
-        else {
-            return JudeStatus(enabled: false, installed: false, running: false,
-                              ready: false, model: "", repo: "",
-                              reason: "Your Mac isn't reachable. Jude does its thinking there, "
-                                      + "so this needs the Mac awake and on the tailnet.")
+        func unavailable(_ reason: String) -> JudeStatus {
+            JudeStatus(enabled: false, installed: false, running: false,
+                       ready: false, model: "", repo: "", reason: reason)
+        }
+        let data: Data
+        do {
+            data = try await request("/jude/status")
+        } catch APIError.badURL {
+            return unavailable("Set your Mac's address in Settings first — Jude does its "
+                               + "thinking there.")
+        } catch APIError.serverError(_) {
+            // The Mac answered, and not with a status. There is no /jude/status
+            // on an assistant older than Jude, and that is the likely story.
+            return unavailable("Your Mac answered, but its assistant has no Jude endpoint — "
+                               + "it is probably an older version. Update MACalendar on the "
+                               + "Mac and restart the API.")
+        } catch {
+            return unavailable("Your Mac isn't reachable. Jude does its thinking there, "
+                               + "so this needs the Mac awake and on the tailnet.")
+        }
+        guard let st = try? JSONDecoder().decode(JudeStatus.self, from: data) else {
+            return unavailable("Your Mac answered, but not in the shape this app expects — "
+                               + "the Mac and the phone are on different versions.")
         }
         return st
     }
