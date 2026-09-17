@@ -794,6 +794,10 @@ struct FeatureManifest: Codable, Identifiable, Equatable {
     let order: Int
     let pinned: Bool
     let visible: Bool
+    /// Whether `visible` is a CHOICE someone made, or just the Mac quoting its
+    /// own default back. The merge in `FeatureVisibility.refresh` turns on it:
+    /// a default must never overwrite a switch you actually flipped here.
+    let explicit: Bool
     /// Whether this feature also has a panel on the Mac.
     let mac: Bool
 

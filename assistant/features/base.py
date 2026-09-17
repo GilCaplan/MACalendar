@@ -118,5 +118,18 @@ class Feature(ABC):
             "order": self.order,
             "pinned": self.pinned,
             "visible": self.visible(),
+            # Whether that `visible` is a CHOICE or just this code's default.
+            # A client merges on it: an explicit value from the Mac wins, a
+            # default does not, and a client holding its own explicit value
+            # pushes it up instead of being overwritten by a default.
+            # Pinned features are always explicit — they cannot be changed.
+            "explicit": True if self.pinned else _settings_explicit(self.name),
             "mac": self.has_mac_panel,
         }
+
+
+def _settings_explicit(name: str) -> bool:
+    """Imported lazily: `settings` reads config.yaml, and `base` is imported by
+    the registry at app build time."""
+    from assistant.features import settings
+    return settings.is_explicit(name)

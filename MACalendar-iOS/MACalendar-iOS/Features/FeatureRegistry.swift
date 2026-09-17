@@ -226,17 +226,49 @@ final class FeatureVisibility: ObservableObject {
     /// label, icon and order are declared in code on both sides, and a client
     /// that believed the server's copy could not draw a tab bar until it had
     /// answered.
+    /// Merge the Mac's answer into the local map.
+    ///
+    /// EXPLICIT BEATS DEFAULT, in both directions, and that rule is the whole
+    /// point of this function. Without it, adopting the Mac's `visible`
+    /// wholesale meant a Mac that had never been asked about a feature — no
+    /// `features:` block in its config.yaml, so `visible` was just
+    /// `default_visible` — switched OFF a tab the user had switched on here.
+    /// Jude was exactly that: on, on the phone; off, by default, on the Mac;
+    /// off, after one refresh, with nothing to show the user why.
+    ///
+    /// So:
+    /// - the Mac chose -> adopt it, it is the source of truth;
+    /// - the Mac has no opinion but we do -> keep ours and PUSH IT UP, which
+    ///   makes it explicit there and ends the disagreement permanently;
+    /// - neither has an opinion -> leave it to the declared default.
+    ///
+    /// A name with a write still queued is skipped either way: the Mac has not
+    /// seen that change yet, so its answer is stale by construction.
     func refresh(api: APIClient) async {
         guard let manifests = try? await api.features() else { return }
         let waiting = queuedNames
         var updated = map
-        for manifest in manifests
-        where FeatureRegistry.get(manifest.name) != nil && !waiting.contains(manifest.name) {
-            updated[manifest.name] = manifest.visible
+        var toPush: [(Feature, Bool)] = []
+
+        for manifest in manifests where !waiting.contains(manifest.name) {
+            guard let feature = FeatureRegistry.get(manifest.name),
+                  !feature.pinned else { continue }
+            if manifest.explicit {
+                updated[manifest.name] = manifest.visible
+            } else if let mine = map[manifest.name], mine != manifest.visible {
+                toPush.append((feature, mine))
+            }
         }
-        guard updated != map else { return }
-        map = updated
-        persist()
+
+        if updated != map {
+            map = updated
+            persist()
+        }
+        // Done after the local merge so the UI settles first; each PATCH makes
+        // our value explicit on the Mac, so this happens once, not every poll.
+        for (feature, on) in toPush {
+            _ = try? await api.setFeatureVisible(feature.name, on)
+        }
     }
 
     /// Features whose change is still sitting in the offline queue. The Mac's

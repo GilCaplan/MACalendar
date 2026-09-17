@@ -79,6 +79,29 @@ def is_visible(name: str, default: bool = True) -> bool:
     return default
 
 
+def is_explicit(name: str) -> bool:
+    """Has anyone actually CHOSEN this feature's visibility?
+
+    The distinction is load-bearing, and its absence was a real bug. A client
+    refreshing from `GET /features` cannot otherwise tell "the Mac says off"
+    from "the Mac has no opinion and is quoting the default back at you" — so
+    a phone that had Jude switched ON had it switched off again by a Mac that
+    had never been asked about Jude at all. Its own config.yaml had no
+    `features:` block; `visible: false` was just `default_visible`.
+
+    Explicit means the `features:` map has the key, or the legacy `ui.show_*`
+    key it migrated from is present. Anything else is a default, and a default
+    must never overwrite somebody's choice.
+    """
+    data = _read()
+    features = data.get("features")
+    if isinstance(features, dict) and name in features:
+        return True
+    legacy = _LEGACY_UI_KEYS.get(name)
+    ui = data.get("ui")
+    return bool(legacy and isinstance(ui, dict) and legacy in ui)
+
+
 def set_visible(name: str, on: bool) -> None:
     """Write one flag, preserving everything else in the file.
 

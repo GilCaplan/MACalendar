@@ -277,3 +277,63 @@ def test_the_phone_has_one_bounce_off_for_every_feature():
     shell = ios_source("ContentView.swift")
     assert "bounceOffHidden" in shell
     assert "selectedTab" not in shell, "the magic Int tabs came back"
+
+
+# ---------------------------------------------------------------------------
+# explicit vs default — the merge rule, and the bug it exists to stop
+# ---------------------------------------------------------------------------
+
+def test_a_default_is_not_reported_as_a_choice(scratch_config):
+    """The bug: a phone with Jude switched ON had it switched off by a Mac that
+    had never been asked about Jude. `config.yaml` had no `features:` block, so
+    `visible: false` was just `default_visible` — and the client, unable to
+    tell a choice from a default, adopted it.
+    """
+    import yaml
+    scratch_config.write_text(yaml.dump({"ui": {"show_coursework": False}}))
+    assert settings.is_explicit("coursework") is True    # a legacy key IS a choice
+    assert settings.is_explicit("jude") is False         # nobody ever said
+    assert settings.is_explicit("teach") is False
+
+
+def test_writing_a_flag_makes_it_explicit(scratch_config):
+    assert settings.is_explicit("timer") is False
+    settings.set_visible("timer", True)
+    assert settings.is_explicit("timer") is True
+
+
+def test_manifest_carries_explicit_for_every_feature(scratch_config):
+    for f in registry.all_features():
+        m = f.manifest()
+        assert "explicit" in m, f.name
+        assert isinstance(m["explicit"], bool)
+
+
+def test_pinned_features_are_always_explicit():
+    """They cannot be changed, so there is no default to fall back to and
+    nothing for a client to push up."""
+    for f in registry.all_features():
+        if f.pinned:
+            assert f.manifest()["explicit"] is True, f.name
+
+
+def test_patching_turns_a_default_into_a_choice(client, scratch_config):
+    before = [f for f in client.get("/features").get_json() if f["name"] == "teach"][0]
+    assert before["explicit"] is False
+    client.patch("/features/teach", json={"visible": False})
+    after = [f for f in client.get("/features").get_json() if f["name"] == "teach"][0]
+    assert after["explicit"] is True and after["visible"] is False
+
+
+def test_the_ios_merge_keeps_a_local_choice_over_a_mac_default():
+    """Pinned in the Swift source, because it is the half of the rule that
+    cannot be checked from Python and is the half that broke."""
+    from tests.unit._ios_sources import ios_source
+    swift = ios_source("FeatureRegistry.swift")
+    assert "manifest.explicit" in swift, (
+        "the iOS refresh no longer branches on `explicit` — a Mac default can "
+        "again overwrite a switch the user flipped on the phone")
+    # And it must push its own value up rather than just keeping it locally,
+    # or the two disagree forever and every poll re-does this work.
+    assert "setFeatureVisible" in swift
+
