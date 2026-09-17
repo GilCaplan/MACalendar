@@ -32,10 +32,27 @@ struct TimerSession: Codable, Identifiable, Equatable {
     var notes: String
     var seconds: Double
     var running: Bool
+    /// The same instants as seconds since 1970, served beside the strings.
+    /// A clock is the wrong place to depend on a text format — see
+    /// `TimerFormat.isoDate` for what depending on one cost. Optional so a Mac
+    /// that has not been updated yet still works through the string.
+    var startEpoch: Double? = nil
+    var endEpoch: Double? = nil
 
     enum CodingKeys: String, CodingKey {
         case id, title, notes, seconds, running
         case startTime = "start_time", endTime = "end_time"
+        case startEpoch = "start_epoch", endEpoch = "end_epoch"
+    }
+
+    /// When this session started, however the Mac chose to say it.
+    var startedAt: Date? {
+        startEpoch.map { Date(timeIntervalSince1970: $0) } ?? TimerFormat.isoDate(startTime)
+    }
+
+    var endedAt: Date? {
+        if let e = endEpoch { return Date(timeIntervalSince1970: e) }
+        return endTime.flatMap(TimerFormat.isoDate)
     }
 }
 
@@ -103,12 +120,58 @@ enum TimerFormat {
         let sym = ["ILS": "₪", "USD": "$", "EUR": "€", "GBP": "£"][cur] ?? cur + " "
         return sym + String(format: v == v.rounded() ? "%.0f" : "%.2f", v)
     }
+    /// Parse a timestamp the Mac wrote. Harder than it looks, and getting it
+    /// wrong is why the phone's timers did not tick.
+    ///
+    /// `db.py` stores `datetime.now().astimezone().isoformat()`, which is
+    /// **six** fractional digits: `2026-09-17T12:08:55.581429+03:00`.
+    /// `ISO8601DateFormatter` with `.withFractionalSeconds` parses exactly
+    /// three, and the fallback without that option rejects the fraction
+    /// outright — so this returned nil for every running session the Mac had
+    /// started. `liveSeconds` then read 0 (the row showed 00:00 next to a
+    /// timer the Mac was counting up) and `totalNow` subtracted the running
+    /// session's length from the total, so the number on the phone ran
+    /// *backwards* from the one on the Mac. It only ever worked in the one
+    /// case in a million where the microseconds landed on zero and `isoformat`
+    /// omitted them.
+    ///
+    /// So: truncate the fraction to the three digits the parser accepts, and
+    /// accept a naive stamp too — the Mac's "Log past time…" dialog writes one
+    /// (Qt's ISODate, no offset), and the server reads those as local.
     static func isoDate(_ iso: String) -> Date? {
-        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = f.date(from: iso) { return d }
+        let s = iso.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !s.isEmpty else { return nil }
+        let trimmed = truncatingFraction(s)
+
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = f.date(from: trimmed) { return d }
         f.formatOptions = [.withInternetDateTime]
-        return f.date(from: iso)
+        if let d = f.date(from: trimmed) { return d }
+        // No zone at all: the Mac and this phone share a wall clock, which is
+        // the same assumption `_dt()` makes server-side and `ReminderScheduler`
+        // makes for `notify_at`.
+        return naiveLocal.date(from: trimmed)
     }
+
+    /// `…55.581429+03:00` → `…55.581+03:00`; a stamp with three or fewer
+    /// fractional digits, or none, comes back untouched.
+    static func truncatingFraction(_ iso: String) -> String {
+        guard let dot = iso.firstIndex(of: ".") else { return iso }
+        var digits = iso.index(after: dot)
+        while digits < iso.endIndex, iso[digits].isNumber { digits = iso.index(after: digits) }
+        let count = iso.distance(from: iso.index(after: dot), to: digits)
+        guard count > 3 else { return iso }
+        let keep = iso.index(dot, offsetBy: 4)      // "." + 3 digits
+        return String(iso[iso.startIndex..<keep]) + String(iso[digits...])
+    }
+
+    private static let naiveLocal: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        return f
+    }()
 }
 
 // MARK: - Tab
@@ -277,7 +340,7 @@ private struct TimerRow: View {
     let onToggle: () async -> Void
 
     private var liveSeconds: Double {
-        guard let r = timer.running, let s = TimerFormat.isoDate(r.startTime) else { return 0 }
+        guard let s = timer.running?.startedAt else { return 0 }
         return max(0, now.timeIntervalSince(s))
     }
     private var totalNow: Double { timer.totalSeconds + (timer.running != nil ? liveSeconds - timer.running!.seconds : 0) }
@@ -418,9 +481,9 @@ struct TimerSessionsView: View {
 
     private func when(_ s: TimerSession) -> String {
         let f = DateFormatter(); f.dateFormat = "EEE d MMM, HH:mm"
-        let start = TimerFormat.isoDate(s.startTime).map { f.string(from: $0) } ?? s.startTime
+        let start = s.startedAt.map { f.string(from: $0) } ?? s.startTime
         let t = DateFormatter(); t.dateFormat = "HH:mm"
-        let end = s.endTime.flatMap(TimerFormat.isoDate).map { t.string(from: $0) }
+        let end = s.endedAt.map { t.string(from: $0) }
         return end.map { "\(start) – \($0)" } ?? start
     }
 
@@ -707,25 +770,20 @@ struct CounterDetailSheet: View {
 
     /// The server sends ISO 8601 with an offset; show something a person reads.
     private static func stamp(_ iso: String) -> String {
-        guard let d = ISO8601DateFormatter.flexible.date(from: iso) else { return iso.prefix(16).description }
+        guard let d = TimerFormat.isoDate(iso) else { return iso.prefix(16).description }
         let f = DateFormatter(); f.dateFormat = "d MMM, HH:mm"
         return f.string(from: d)
     }
 
     private static func day(_ iso: String) -> String {
-        guard let d = ISO8601DateFormatter.flexible.date(from: iso) else { return iso.prefix(10).description }
+        guard let d = TimerFormat.isoDate(iso) else { return iso.prefix(10).description }
         let f = DateFormatter(); f.dateFormat = "d MMM yyyy"
         return f.string(from: d)
     }
 }
 
-extension ISO8601DateFormatter {
-    /// The API sends fractional seconds and an offset; the default parser
-    /// rejects fractional seconds, which is how a valid timestamp renders as
-    /// a raw string.
-    static let flexible: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
-}
+// `ISO8601DateFormatter.flexible` used to live here, and was not flexible
+// enough: `.withFractionalSeconds` parses three fractional digits and the Mac
+// writes six, so every counter press and payout in the history rendered as a
+// raw truncated string. Both call sites now use `TimerFormat.isoDate`, which
+// is the one parser for everything the Mac stamps.

@@ -347,7 +347,17 @@ voice-triggered via `generate_workout_routine` / `schedule_workout` actions.
 **What:** Multi-project timers with earnings calculation and sub-sessions.
 **Where:** db `timers`/`timer_sessions`; API `/timers*`, `/timer_sessions*`;
 Mac Timer tab; iOS `Views/TimerView.swift`.
-**How:** Local-only SQLite; sessions editable after the fact.
+**How:** Local-only SQLite; sessions editable after the fact. **The live
+counter is clock-driven on both surfaces** and must agree: the Mac ticks from
+the DB every second, the phone from `running.start_epoch` (the server serves
+each session's instants as numbers beside the ISO strings) plus a 1 s tick,
+reloading every 3 s while anything runs. The numbers exist because the strings
+were not enough — `isoformat()` writes six fractional digits and iOS's
+`ISO8601DateFormatter` parses three, so the phone parsed nil for every running
+session, showed 00:00 beside a Mac that was counting up, and subtracted the
+running session's length from the total. `TimerFormat.isoDate` now truncates
+the fraction and tolerates a naive stamp (the Mac's "Log past time…" writes
+one), so old servers still work.
 
 ### Counters
 **What:** Tap-counters with press history and payout tracking.

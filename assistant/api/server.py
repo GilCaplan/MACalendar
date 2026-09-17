@@ -968,6 +968,18 @@ def create_app() -> Flask:
         out = dict(sess)
         out["seconds"] = round(_secs(sess["start_time"], sess.get("end_time")), 1)
         out["running"] = sess.get("end_time") in (None, "")
+        # The same instants as unambiguous numbers, beside the strings.
+        #
+        # `start_time` is what `datetime.now().astimezone().isoformat()` wrote,
+        # which is six fractional digits — and iOS's ISO8601DateFormatter parses
+        # exactly three, so the phone read nil for every running session the Mac
+        # had started and its live counter sat at 00:00 while the Mac counted
+        # up. The phone's parser is fixed, but a clock is the wrong place to
+        # depend on a string format at all: a client that reads these needs no
+        # parser, no timezone rule and no fractional-digit opinion.
+        out["start_epoch"] = _dt(sess["start_time"]).timestamp()
+        out["end_epoch"] = (_dt(sess["end_time"]).timestamp()
+                            if sess.get("end_time") else None)
         return out
 
     def _enforce_max(db, timer: dict, running: dict | None) -> dict | None:
