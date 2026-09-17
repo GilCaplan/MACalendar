@@ -1290,15 +1290,41 @@ def create_app() -> Flask:
         with open(path) as f:
             current = yaml.safe_load(f) or {}
 
-        for key, wren in data.items():
-            if key in _ALLOWED_PATCH_KEYS:
-                if isinstance(wren, dict) and isinstance(current.get(key), dict):
-                    current[key].update(wren)
-                else:
-                    current[key] = wren
+        # Edited as TEXT, one line at a time. `yaml.dump` here rewrote the
+        # whole document and destroyed every comment in it — the notes saying
+        # what each block is for and which values are safe to change. Every
+        # VALUE survived, which is why it went unnoticed; config.yaml is
+        # gitignored, so there was nothing to restore from. It also reordered
+        # the file, because that dump had no `sort_keys=False`.
+        from assistant.features import yaml_text
+        with open(path) as f:
+            text = f.read()
 
-        with open(path, "w") as f:
-            yaml.dump(current, f, default_flow_style=False, allow_unicode=True)
+        for key, wren in data.items():
+            if key not in _ALLOWED_PATCH_KEYS:
+                continue
+            if isinstance(wren, dict):
+                for sub, value in wren.items():
+                    if isinstance(value, (dict, list)):
+                        return jsonify({"error": f"{key}.{sub} is not a scalar; "
+                                        "edit config.yaml by hand", "code": 400}), 400
+                    text = yaml_text.set_nested(text, key, sub, value)
+            elif isinstance(wren, list):
+                return jsonify({"error": f"{key} is a list; edit config.yaml "
+                                "by hand", "code": 400}), 400
+            else:
+                text = yaml_text.set_top(text, key, wren)
+
+        # It must still parse, or the assistant cannot boot next time.
+        try:
+            yaml.safe_load(text)
+        except yaml.YAMLError:
+            return jsonify({"error": "refusing to write config.yaml: the edit "
+                            "did not read back as valid YAML", "code": 500}), 500
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
+            f.write(text)
+        os.replace(tmp, path)
 
         return jsonify({"status": "ok"})
 

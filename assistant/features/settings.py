@@ -31,6 +31,8 @@ import threading
 
 import yaml
 
+from assistant.features import yaml_text
+
 _lock = threading.Lock()
 
 #: Old `ui:` keys, read only when `features:` has nothing to say about a name.
@@ -103,22 +105,38 @@ def is_explicit(name: str) -> bool:
 
 
 def set_visible(name: str, on: bool) -> None:
-    """Write one flag, preserving everything else in the file.
+    """Write one flag, preserving everything else in the file — INCLUDING the
+    comments.
 
-    Read-modify-write under a lock, and the whole document is rewritten from
-    what was just read — the same shape `PATCH /config` uses. A partial write
-    here would corrupt the file the assistant boots from.
+    This used to be load → mutate → `yaml.dump`, and the docstring said it
+    preserved "everything else in the file". It preserved every VALUE and
+    destroyed every COMMENT, which is why nobody noticed: flipping the
+    Coursework tab from the phone rewrote config.yaml and took with it the
+    notes explaining what each block is for. config.yaml is gitignored, so
+    there was nothing to restore from.
+
+    It is a TEXT edit now (`yaml_text.set_nested`): find the line, change the
+    line, leave every other byte alone. The write is still atomic — a partial
+    write would corrupt the file the assistant boots from.
     """
     with _lock:
-        data = _read()
-        features = data.get("features")
-        if not isinstance(features, dict):
-            features = {}
-        features[name] = bool(on)
-        data["features"] = features
         path = config_path()
+        try:
+            with open(path) as f:
+                text = f.read()
+        except OSError:
+            text = ""
+        updated = yaml_text.set_nested(text, "features", name, bool(on))
+        # Parse before replacing: a text edit that produced something YAML
+        # cannot read would leave the assistant unable to boot, and the whole
+        # point of editing text is that the file keeps working.
+        try:
+            parsed = yaml.safe_load(updated) or {}
+            assert bool(parsed.get("features", {}).get(name)) == bool(on)
+        except Exception:                       # noqa: BLE001
+            raise ValueError(f"refusing to write config.yaml: the edit for "
+                             f"{name!r} did not read back correctly")
         tmp = path + ".tmp"
         with open(tmp, "w") as f:
-            yaml.dump(data, f, default_flow_style=False, allow_unicode=True,
-                      sort_keys=False)
+            f.write(updated)
         os.replace(tmp, path)      # atomic: never a half-written config

@@ -112,6 +112,48 @@ An orange **"Offline — N changes pending sync"** banner appears at the top whe
 
 **Voice offline**: a command recorded while the Mac is unreachable is kept on the phone, shown in a banner and a Queued commands screen, replayed on reconnect, and its result delivered as a local notification.
 
+### Proving it: the offline round-trip UI test
+
+```bash
+scripts/offline_sync_check.sh          # ~5 min: booted simulator + a running assistant.api
+```
+
+The Coursework data-loss fix (`bbe7892`) was proven by reading the Swift and by
+server-side unit tests, which is how it shipped with a temp-id collision, a
+placeholder id travelling inside a queued body, and duplicate-on-replay still in
+it. `MACalendarUITests` (product type `bundle.ui-testing`, shared scheme
+`MACalendarUITests.xcscheme`) drives the real app in the simulator instead:
+
+1. add a course with the Mac away; it is on screen and the banner says a change
+   is pending;
+2. relaunch, still away — it is still there, so it came from the cache;
+3. relaunch pointed at the real Mac and let the queue flush;
+4. relaunch away again — the banner says nothing is pending, which is the queue
+   saying the Mac ACCEPTED the create;
+5. delete it while away, reconnect, and it must NOT come back. That last step is
+   the reported bug: the delete was swallowed by `try?` and the next sync
+   re-downloaded the row.
+
+**The Mac is taken away without touching the app**: `UserDefaults` reads `-key
+value` out of the argument domain, so `-serverURL 127.0.0.1:59999` points the
+app at a closed port — the same `URLError` an absent Mac produces — and the real
+address comes back from `MACALENDAR_SERVER_URL` (Base/Local.xcconfig) via the
+test bundle's own Info.plist. Nothing is mocked; this is the real `mutate` →
+`LocalStore.enqueue` → `syncPending` path.
+
+**Two halves, because neither sees the other's evidence.** The test asserts what
+the phone did; `scripts/offline_sync_check.sh` watches `GET /courses` on the Mac
+while it runs, so it can say the row ARRIVED (a single check at the end cannot —
+by then the test has deleted it, and "never there" and "there and then gone" look
+the same). The driver mints the course name and hands it over as
+`TEST_RUNNER_MACALENDAR_UITEST_COURSE`; it uninstalls the app first for a clean
+cache, and restores `features.coursework` and sweeps up any leftover `UITest …`
+row afterwards.
+
+`xcodebuild test -project MACalendar-iOS/MACalendar-iOS.xcodeproj -scheme
+MACalendarUITests -destination 'platform=iOS Simulator,id=<udid>'` runs the test
+alone; without the driver it leaves the Coursework tab switched on.
+
 ---
 
 ## Flask API (`assistant/api/`)
