@@ -1451,17 +1451,33 @@ def create_app() -> Flask:
         from assistant.actions.todo import tagging
 
         palette = [row["name"] for row in get_db().get_tags()]
-        personal: dict = {}
+
+        # ORDERED, and that is not cosmetic. `infer_tag` keeps the best score
+        # with a strict `>`, so a tie goes to whichever tag came first — and
+        # "buy twelve eggs and book haircut" is exactly that tie (Groceries 1.5,
+        # Errands 1.5). In Python the order is KEYWORDS' insertion order. In
+        # JSON it is whatever the serialiser felt like (Flask sorts keys), and
+        # in Swift a Dictionary has no order at all and is not even stable
+        # between runs — so the phone would break ties at random and disagree
+        # with the Mac about one title in five hundred. Measured: 20 of 10,200
+        # real strings, every one of them a tie. The order travels with the
+        # table.
+        personal: list = []
         try:
             from assistant.stt.vocab import get_vocab
-            for entry in get_vocab().entries:
+            # Exactly the order `vocab.label_for` considers them in: longest
+            # word first, over an `entries` list that is already sorted by
+            # word, and Python's sort is stable — so ties resolve identically
+            # on both sides instead of "whichever the dictionary yields".
+            for entry in sorted(get_vocab().entries, key=lambda e: -len(e.word)):
                 if entry.label:
-                    personal[entry.word.lower()] = entry.label
+                    personal.append({"word": entry.word.lower(), "label": entry.label})
         except Exception:      # no vocabulary yet, or it cannot be read
-            personal = {}
+            personal = []
 
         payload = {
             "keywords": tagging.KEYWORDS,
+            "order": list(tagging.KEYWORDS),
             "never_infer": sorted(tagging._NEVER_INFER),
             "palette": palette,
             "personal_labels": personal,

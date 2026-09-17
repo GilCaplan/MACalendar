@@ -664,14 +664,42 @@ struct TagRules: Codable, Equatable {
     let neverInfer: [String]
     /// The tags that actually exist, so a renamed or deleted one never returns.
     let palette: [String]
-    /// The user's own vocabulary labels, lower-cased word → tag. These cannot
-    /// ship with the app: "Haxaga" is a course because they said so.
-    let personalLabels: [String: String]
+
+    // Both of these arrived after the first version of this endpoint, and both
+    // are decoded as OPTIONAL for one reason: a non-optional property missing
+    // from the JSON fails the whole decode, and a failed decode here is silent
+    // — the phone would simply keep no rules and go back to tagging nothing.
+    // Degrading a field is better than losing the table.
+    private let orderRaw: [String]?
+    private let personalLabelsRaw: [PersonalLabel]?
+
+    /// The order to score `keywords` in — and NOT cosmetic. `infer_tag` keeps
+    /// the best score with a strict `>`, so a tie goes to whichever tag came
+    /// first. A Swift `Dictionary` has no order and is not stable between
+    /// runs, so without this the phone breaks ties at random and disagrees
+    /// with the Mac on about one title in five hundred.
+    ///
+    /// Falling back to sorted keys against an older Mac loses the Mac's
+    /// tie-break, but keeps the more important half: the same answer every
+    /// launch.
+    var order: [String] { orderRaw ?? keywords.keys.sorted() }
+
+    /// The user's own vocabulary labels, in the order `vocab.label_for`
+    /// considers them (longest word first). A LIST for the same reason `order`
+    /// is one. These cannot ship with the app: "Haxaga" is a course because
+    /// they said so.
+    var personalLabels: [PersonalLabel] { personalLabelsRaw ?? [] }
+
+    struct PersonalLabel: Codable, Equatable {
+        let word: String     // already lower-cased by the server
+        let label: String
+    }
 
     enum CodingKeys: String, CodingKey {
         case rev, keywords, palette
+        case orderRaw = "order"
         case neverInfer = "never_infer"
-        case personalLabels = "personal_labels"
+        case personalLabelsRaw = "personal_labels"
     }
 }
 

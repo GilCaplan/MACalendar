@@ -112,9 +112,24 @@ queued create replayed hours later it landed in the untagged pile for good.
 serves at `GET /tags/rules`:
 
 ```json
-{ "rev": "…", "keywords": {…}, "never_infer": ["personal"],
-  "palette": ["Groceries", …], "personal_labels": {"haxaga": "Coursework"} }
+{ "rev": "…",
+  "keywords": {…},
+  "order": ["Groceries", "Coursework", "Errands", "Work"],
+  "never_infer": ["personal"],
+  "palette": ["Groceries", …],
+  "personal_labels": [{"word": "haxaga", "label": "Coursework"}] }
 ```
+
+**`order` and the list-shaped `personal_labels` are not cosmetic.** `infer_tag`
+keeps the best score with a strict `>`, so a tie goes to whichever tag is
+scored first — and that order does not survive the trip: Flask sorts JSON keys,
+and a Swift `Dictionary` has no order at all and is not stable between runs. A
+comparison over 10,200 real strings found 20 disagreements, every one of them a
+tie ("buy twelve eggs and book haircut" is Groceries 1.5, Errands 1.5), and a
+different twenty on each launch. The order now travels with the table, and
+`personal_labels` likewise arrives in the order `vocab.label_for` considers
+them (longest word first) rather than as a dictionary the phone would have to
+re-sort and guess the ties of.
 
 Serving the table rather than shipping it is the whole design. A second keyword
 list, in a second language, in a separate release cycle, is a list that drifts;

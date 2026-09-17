@@ -79,10 +79,22 @@ final class TagClassifier: ObservableObject {
             return real
         }
 
+        // `rules.order`, never `rules.keywords` directly: a strict `>` below
+        // means a TIE goes to whichever tag is scored first, and a Swift
+        // Dictionary's iteration order is arbitrary and unstable between runs.
+        // Scoring in dictionary order made the phone disagree with the Mac on
+        // 20 of 10,200 real strings — every one of them a tie, and a different
+        // twenty each launch.
+        var scoringOrder = rules.order.filter { rules.keywords[$0] != nil }
+        for tag in rules.keywords.keys.sorted() where !scoringOrder.contains(tag) {
+            scoringOrder.append(tag)      // a table newer than its own order
+        }
+
         var best: String?
         var bestScore = 0.0
-        for (tag, keywords) in rules.keywords {
-            guard let real = allowed[tag.lowercased()] else { continue }
+        for tag in scoringOrder {
+            guard let keywords = rules.keywords[tag],
+                  let real = allowed[tag.lowercased()] else { continue }
             let s = Self.score(text, keywords)
             if s > bestScore { best = real; bestScore = s }
         }
@@ -160,11 +172,17 @@ final class TagClassifier: ObservableObject {
         return false
     }
 
-    /// `vocab.label_for` — the label implied by any of this user's own words,
-    /// longest word first so "Modern Computer Vision" wins over "vision".
+    /// `vocab.label_for` — the label implied by any of this user's own words.
+    ///
+    /// The server sends them in the order it considers them (longest word
+    /// first, ties by the vocabulary's own alphabetical order), so this walks
+    /// the list rather than re-sorting: "Modern Computer Vision" beats a
+    /// "vision" entry, and two words of equal length resolve the same way here
+    /// as they do on the Mac.
     private func personalLabel(in normalisedText: String, rules: TagRules) -> String? {
-        for word in rules.personalLabels.keys.sorted(by: { $0.count > $1.count }) {
-            if normalisedText.contains(" " + word + " ") { return rules.personalLabels[word] }
+        for entry in rules.personalLabels
+        where normalisedText.contains(" " + entry.word + " ") {
+            return entry.label
         }
         return nil
     }

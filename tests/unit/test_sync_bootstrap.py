@@ -137,7 +137,7 @@ def test_personal_labels_are_the_half_that_cannot_ship_in_an_app(client, tmp_pat
     _vocab.get_vocab().add_word("Haxaga", label="Coursework")
 
     rules = client.get("/tags/rules").get_json()
-    assert rules["personal_labels"].get("haxaga") == "Coursework"
+    assert {"word": "haxaga", "label": "Coursework"} in rules["personal_labels"]
 
 
 def test_the_bootstrap_serves_the_same_rules(client):
@@ -202,18 +202,23 @@ def _swift_port(title: str, rules: dict) -> "str | None":
         return None
     text = normalise(trimmed)
 
-    for word in sorted(rules["personal_labels"], key=len, reverse=True):
-        if f" {word} " in text:
-            label = rules["personal_labels"][word]
+    for entry in rules["personal_labels"]:
+        if f" {entry['word']} " in text:
+            label = entry["label"]
             if label.lower() in allowed:
                 return allowed[label.lower()]
             break
 
+    # `order`, not the keywords dict: a tie goes to whichever tag is scored
+    # first, and a Swift Dictionary has no order.
+    scoring_order = [t for t in rules["order"] if t in rules["keywords"]]
+    scoring_order += sorted(t for t in rules["keywords"] if t not in scoring_order)
+
     best, best_score = None, 0.0
-    for tag, keywords in rules["keywords"].items():
+    for tag in scoring_order:
         if tag.lower() not in allowed:
             continue
-        s = score(text, keywords)
+        s = score(text, rules["keywords"][tag])
         if s > best_score:
             best, best_score = allowed[tag.lower()], s
 
@@ -248,3 +253,93 @@ def test_the_swift_port_reaches_the_same_answer(client, title):
 
     rules = client.get("/tags/rules").get_json()
     assert _swift_port(title, rules) == infer_tag(title, rules["palette"])
+
+
+# ---------------------------------------------------------------------------
+# Tie-breaking — the bug the broad comparison found
+#
+# `infer_tag` keeps the best score with a strict `>`, so a TIE goes to whichever
+# tag was scored first: in Python, KEYWORDS' insertion order. That order does
+# not survive the trip. Flask sorts JSON keys, and a Swift `Dictionary` has no
+# order at all and is not even stable between runs — so the phone broke ties at
+# random and disagreed with the Mac on 20 of 10,200 real strings, a different
+# twenty each launch. The order now travels with the table.
+# ---------------------------------------------------------------------------
+
+def test_the_scoring_order_is_served_explicitly(client):
+    from assistant.actions.todo import tagging
+
+    rules = client.get("/tags/rules").get_json()
+    assert rules["order"] == list(tagging.KEYWORDS), (
+        "the order ties are broken in must travel with the table")
+    assert set(rules["order"]) == set(rules["keywords"]), (
+        "every scored tag needs a place in the order, and vice versa")
+
+
+def test_the_served_key_order_is_not_the_python_one(client):
+    """The reason `order` has to exist at all — proven, not assumed, so that
+    nobody deletes it as redundant."""
+    from assistant.actions.todo import tagging
+
+    served = list(client.get("/tags/rules").get_json()["keywords"])
+    assert served != list(tagging.KEYWORDS) or len(served) < 2, (
+        "if JSON ever preserves the order, this test can go — but check the "
+        "Swift side first: a Dictionary there still has none")
+
+
+def test_a_tie_goes_the_same_way_on_both_sides(client):
+    """"buy twelve eggs and book haircut" is Groceries 1.5, Errands 1.5."""
+    from assistant.actions.todo.tagging import infer_tag
+
+    rules = client.get("/tags/rules").get_json()
+    said = "buy twelve eggs and book haircut the 30th"
+    assert infer_tag(said, rules["palette"]) == "Groceries"
+    assert _swift_port(said, rules) == "Groceries"
+
+
+def test_personal_labels_keep_the_order_label_for_uses(client, tmp_path, monkeypatch):
+    """Longest word first, so a course called "Modern Computer Vision" wins
+    over a "vision" entry rather than depending on dictionary order."""
+    import assistant.stt.vocab as _vocab
+    monkeypatch.setattr(_vocab, "_store", _vocab.VocabStore(str(tmp_path / "vocab.json")))
+    v = _vocab.get_vocab()
+    v.add_word("vision", label="Work")
+    v.add_word("Modern Computer Vision", label="Coursework")
+
+    rules = client.get("/tags/rules").get_json()
+    words = [e["word"] for e in rules["personal_labels"]]
+    assert words.index("modern computer vision") < words.index("vision")
+    assert _swift_port("finish the Modern Computer Vision pset", rules) == "Coursework"
+
+
+# ---------------------------------------------------------------------------
+# The port, over real strings rather than chosen ones
+# ---------------------------------------------------------------------------
+
+def test_the_port_agrees_over_the_real_corpus(client):
+    """Eighteen hand-picked titles is a sanity check; this is the test. The
+    dataset's 3,000 real utterances are what found the tie-break bug — none of
+    the hand-picked ones was a tie."""
+    import json
+    import pathlib
+
+    from assistant.actions.todo.tagging import infer_tag
+
+    corpus = pathlib.Path("dataset/inputs/history_3000.json")
+    if not corpus.exists():
+        pytest.skip("the verification corpus is not in this checkout")
+    rows = json.loads(corpus.read_text())["rows"]
+    client.post("/tags", json={"name": "Volunteering"})   # a custom tag, no keywords
+    rules = client.get("/tags/rules").get_json()
+
+    disagreements = []
+    tagged = 0
+    for row in rows:
+        said = row["text"]
+        mac = infer_tag(said, rules["palette"])
+        if mac:
+            tagged += 1
+        if _swift_port(said, rules) != mac:
+            disagreements.append((said, _swift_port(said, rules), mac))
+    assert tagged > 100, "the corpus tagged almost nothing — the test is vacuous"
+    assert not disagreements, f"{len(disagreements)} of {len(rows)}: {disagreements[:5]}"

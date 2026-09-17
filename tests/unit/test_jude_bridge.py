@@ -7,8 +7,6 @@ cannot quietly put this project on the internet.
 """
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from assistant.config import JudeConfig, OllamaConfig
@@ -205,3 +203,204 @@ def test_asking_with_jude_off_is_a_503_with_a_sentence(client):
 
 def test_an_empty_question_is_a_400(client):
     assert client.post("/jude/chat", json={"prompt": "  "}).status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# The proxy, against a Jude that actually answers
+#
+# Jude streams Server-Sent Events; every client here renders the NDJSON
+# /voice/stream uses. The translation happens once, in the server, so this is
+# the test that it happens correctly — a fake Jude on a real socket, speaking
+# real SSE, read through the real route.
+# ---------------------------------------------------------------------------
+
+SSE_SCRIPT = [
+    'data: {"type": "stage", "name": "Routing question\\u2026"}\n\n',
+    ': a comment line, which SSE allows and NDJSON must not carry\n\n',
+    'data: {"type": "meta", "chat_id": "c1", "sources": [{"ref": "Shabbat 21b"}],'
+    ' "halachic_label": "Shabbat", "halachic_seder": "Moed"}\n\n',
+    'data: {"type": "token", "text": "The "}\n\n',
+    'data: {"type": "token", "text": "Gemara "}\n\n',
+    'data: {"type": "token", "text": "\\u05e9\\u05d1\\u05ea"}\n\n',   # Hebrew survives
+    'data: {"type": "done", "timing": {"total_ms": 12}}\n\n',
+]
+
+
+@pytest.fixture
+def fake_jude():
+    """A socket that speaks SSE the way Jude's /api/chat does."""
+    import http.server
+    import json
+    import threading
+
+    seen: dict = {}
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):            # noqa: N802 (http.server's name)
+            length = int(self.headers.get("Content-Length") or 0)
+            seen["path"] = self.path
+            seen["body"] = json.loads(self.rfile.read(length) or b"{}")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.end_headers()
+            for frame in SSE_SCRIPT:
+                self.wfile.write(frame.encode("utf-8"))
+                self.wfile.flush()
+
+        def log_message(self, *_a):   # keep pytest output clean
+            pass
+
+    class Server(http.server.ThreadingHTTPServer):
+        daemon_threads = True
+
+        def handle_error(self, request, client_address):
+            # `bridge.is_listening` probes the port by opening a connection and
+            # closing it without saying anything, which makes http.server print
+            # a traceback. Expected, and not a failure — swallow it so the only
+            # thing in pytest's output is the test result.
+            pass
+
+    server = Server(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        yield server.server_address[1], seen
+    finally:
+        server.shutdown()
+
+
+@pytest.fixture
+def wired(client, checkout, fake_jude, monkeypatch):
+    """The API, with Jude 'installed' and already listening on the fake port."""
+    port, seen = fake_jude
+    import assistant.api.server as srv
+    real_load = srv.load_config
+
+    def patched(*a, **k):
+        cfg = real_load(*a, **k)
+        cfg.jude.enabled = True
+        cfg.jude.path = str(checkout)
+        cfg.jude.port = port
+        return cfg
+
+    monkeypatch.setattr(srv, "load_config", patched)
+    return client, seen
+
+
+def test_sse_becomes_one_json_object_per_line(wired):
+    client, _ = wired
+    r = client.post("/jude/chat", json={"prompt": "may I carry on shabbat?"})
+    assert r.status_code == 200
+    assert r.mimetype == "application/x-ndjson"
+
+    import json
+    lines = [ln for ln in r.get_data(as_text=True).split("\n") if ln]
+    events = [json.loads(ln) for ln in lines]       # every line must parse alone
+    assert [e["type"] for e in events] == ["stage", "meta", "token", "token",
+                                           "token", "done"]
+
+
+def test_the_comment_frame_is_dropped(wired):
+    """SSE comments and blank separators are not events; a client decoding
+    NDJSON line-by-line would choke on them."""
+    client, _ = wired
+    body = client.post("/jude/chat", json={"prompt": "x"}).get_data(as_text=True)
+    assert "a comment line" not in body
+
+
+def test_the_answer_reassembles_from_its_tokens(wired):
+    import json
+    client, _ = wired
+    body = client.post("/jude/chat", json={"prompt": "x"}).get_data(as_text=True)
+    text = "".join(json.loads(ln).get("text", "")
+                   for ln in body.split("\n") if ln)
+    assert text == "The Gemara שבת", "tokens or Hebrew lost in translation"
+
+
+def test_the_metadata_a_client_needs_survives(wired):
+    import json
+    client, _ = wired
+    body = client.post("/jude/chat", json={"prompt": "x"}).get_data(as_text=True)
+    meta = next(json.loads(ln) for ln in body.split("\n")
+                if ln and json.loads(ln)["type"] == "meta")
+    assert meta["chat_id"] == "c1"
+    assert meta["sources"][0]["ref"] == "Shabbat 21b"
+    assert meta["halachic_label"] == "Shabbat" and meta["halachic_seder"] == "Moed"
+
+
+def test_what_the_request_carries_to_jude(wired):
+    client, seen = wired
+    client.post("/jude/chat", json={"prompt": "may I carry?", "mode": "study",
+                                    "chat_id": "c9"})
+    assert seen["path"] == "/api/chat"
+    assert seen["body"]["prompt"] == "may I carry?"
+    assert seen["body"]["mode"] == "study"
+    assert seen["body"]["chat_id"] == "c9"
+    # Jude scopes chats by user; everything from here is one user.
+    assert seen["body"]["user"] == "macalendar"
+
+
+def test_defaults_when_the_client_says_only_the_question(wired):
+    client, seen = wired
+    client.post("/jude/chat", json={"prompt": "hi"})
+    assert seen["body"]["mode"] == "qa"
+    assert seen["body"]["lang"] == "en"
+    assert seen["body"]["chat_id"] is None
+
+
+def test_status_sees_it_running(wired):
+    client, _ = wired
+    st = client.get("/jude/status").get_json()
+    assert st["ready"] is True and st["running"] is True and st["reason"] == ""
+
+
+def test_a_jude_that_drops_the_connection_says_so_in_the_stream(client, checkout,
+                                                               monkeypatch):
+    """The stream must never just stop. A client is waiting for `done`; if the
+    generator ends silently it waits for ever, so a failure has to arrive as an
+    event of its own."""
+    import json
+    import socket
+    import threading
+
+    # Listening, so `ensure_running` is satisfied — and then it hangs up
+    # without ever answering, which is what a Jude that has just died looks
+    # like from here.
+    srv_sock = socket.socket()
+    srv_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv_sock.bind(("127.0.0.1", 0))
+    srv_sock.listen(1)
+    port = srv_sock.getsockname()[1]
+
+    def serve():
+        # A LOOP, not one accept: `ensure_running` probes the port with its own
+        # connection first, so a single accept is spent before the request ever
+        # arrives — and the request then sits in the backlog until the 600 s
+        # timeout, which is a hung test rather than a failing one.
+        while True:
+            try:
+                conn, _ = srv_sock.accept()
+                conn.close()
+            except OSError:
+                return
+
+    threading.Thread(target=serve, daemon=True).start()
+
+    import assistant.api.server as srv_mod
+    real_load = srv_mod.load_config
+
+    def patched(*a, **k):
+        cfg = real_load(*a, **k)
+        cfg.jude.enabled = True
+        cfg.jude.path = str(checkout)
+        cfg.jude.port = port
+        return cfg
+
+    monkeypatch.setattr(srv_mod, "load_config", patched)
+    try:
+        body = client.post("/jude/chat", json={"prompt": "x"}).get_data(as_text=True)
+    finally:
+        srv_sock.close()
+    events = [json.loads(ln) for ln in body.split("\n") if ln]
+    assert events, "the stream produced nothing at all"
+    assert events[-1]["type"] == "error", f"stream ended without saying why: {events}"
+    assert events[-1]["message"], "an error event with no message is no better"
