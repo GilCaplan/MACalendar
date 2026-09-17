@@ -2096,7 +2096,6 @@ def create_app() -> Flask:
         }
 
         def gen():
-            import urllib.error
             import urllib.request
             req = urllib.request.Request(
                 base + "/api/chat", method="POST",
