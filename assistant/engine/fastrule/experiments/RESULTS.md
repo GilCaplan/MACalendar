@@ -799,3 +799,97 @@ with wrong dates. Recommended default, consistent with two rulings already in
 the project (a weekly series starts on the soonest weekday the sentence names;
 "until the end of September" is inclusive): **the soonest day in the named
 range** — the recogniser's `start` bound.
+
+---
+
+## Cycle 21 — the `daterange` branch, under Gil's "ask, don't guess" ruling (2026-09-17)
+
+**The ruling came first, and it changed the design.** Cycle 20 left this
+registered but BLOCKED, because committing `"book yoga class next week"`
+requires picking which day a span means. Asked, Gil chose **ask instead of
+guessing**: read the day, then OFFER it. So this cycle is not the fix the
+previous entry predicted, and its primary metric is not the one that entry
+named — recorded here rather than quietly re-scoped.
+
+### What shipped
+
+- `_extract_temporal` reads `daterange` (soonest day in the span; the LAST day
+  after `by`/`before`/`no later than`, which name a deadline). An exact date
+  anywhere in the span still wins — candidates are applied only after the
+  recogniser loop, never inside it.
+- **`"in two weeks"` turned out NOT to be a range problem.** The recogniser
+  returns it as a `daterange` whose start is badly wrong for the everyday
+  reading — `"in a week"` came back as **TOMORROW**, `"in two months"` as one
+  month out. Those are durations, so they are arithmetic now. Had the range
+  branch simply been trusted, this cycle would have shipped a confidently
+  wrong date on a common phrase.
+- A **create** is offered via the existing `confirm_create` gate (DEVQA Q9),
+  from the fast parse, **with no model call** — milliseconds, not the ~40 s a
+  deep-track walk would have cost to ask the same question.
+- An **update or delete** with a range date does not execute at all: new
+  refusal reason `range-date-target`, classed REFUSAL.
+
+**20 hand-built relative-date phrasings** (mine, a shape not a score): 9/20 →
+**19/20** carrying a correct date, rows with no date at all **11 → 1**.
+
+### Result — FastRule product-shape board, TRAIN half, 3,200 atomic rows
+
+Read the two columns as one arc; cycle 20 is the middle one.
+
+| metric | baseline | +ordinal | **+daterange** |
+|---|---|---|---|
+| **handled (atomic)** | 68.2% | 70.4% | **72.9%** |
+| correct-on-handled | 94.1% | 94.2% | **94.1%** |
+| resolvable date right | 91.3% (n=543) | 93.0% (n=643) | **93.5% (n=650)** |
+| INVENTED a time | 4.5% (n=287) | 4.2% (n=306) | **3.7% (n=352)** |
+| below-threshold deferrals | 581 | 501 | **346** |
+| harm score | 168 / 129 wrong | 170 / 131 | **170 / 138** |
+| DESTRUCTIVE errors | 16·11·5·1 (33) | 16·11·5·1 (33) | **12·11·4·1 (28)** |
+| non-atomic HALF-EXECUTED | 72 | 72 | **72** |
+| propose violations | 96 | 98 | **100** |
+
+**+4.7 pt of handle-rate across the two cycles** (68.2% → 72.9%), against a
+measured 0.6 pt error bar — FastRule reaches a decision on 150 more of the
+3,200 single-item commands than it did this morning, and `below-threshold`,
+its largest deferral reason, is down from 581 to 346.
+
+**The most important line is DESTRUCTIVE errors, and it went DOWN: 33 → 28.**
+Wrong commits ROSE (131 → 138) while the harm score held exactly flat at 170,
+because the composition moved out of `complete_todo` (16 → 12) and
+`delete_event` (5 → 4) and into `create`, where a mistake is a spurious row
+rather than something destroyed. That is the severity weighting doing the job
+Gil built it for, and it is `range-date-target` earning its place: 5 fewer
+destructive wrong commits, bought with 7 more cheap ones.
+
+**Invented-time rate fell while its denominator grew** (4.5% n=287 → 3.7%
+n=352): 65 more events are now reached, and a smaller share of them get a time
+nobody asked for.
+
+### Two honest caveats about what this board can and cannot see
+
+1. **The board calls `FastRule.run()` directly, not `fast_propose`.** So a
+   create with a range date reads here as **committed**, while in production it
+   is OFFERED and nothing is written until the speaker accepts. The
+   handle-rate rise means "FastRule now reaches a decision on these rows", not
+   "these rows now commit silently". The confirmation path is covered by tests
+   (`test_confirm_create.py`), including one that makes the deep track RAISE to
+   prove no model is involved — it is not covered by this board.
+2. **`range-date-target` is not in the board's `_ATOMICITY_REASONS`**, so a
+   NON-atomic row deferring on it is scored as an accidental defer rather than
+   a recognised compound. That is why "knew it was compound" reads 68.7% →
+   66.3% while total non-atomic deferral is flat (73.6% → 73.5%). A metric
+   attribution artifact, not a behaviour change — but the scorer's set is the
+   thing that is now slightly wrong, and editing it changes a reported metric,
+   so it is left alone and named here.
+
+### Next prediction (registered now)
+
+**The 50 recurrence-BOUNDARY rows** — `"every monday until the end of the
+month"`, where the range is a series bound and belongs in `date_phrase_2` +
+`end_inclusive` (28 inclusive / 22 exclusive in the train half). Unlike this
+cycle these need no new ruling: *"until" excludes the day it names; "through"
+and "including" keep it* is already settled, and the gold carries both fields.
+Predicted: handle-rate +0.5 to +1.0 pt on the 3,200 atomic rows, with
+`recurrence`/`end_inclusive` correctness as the real target and
+DESTRUCTIVE errors flat. Smaller than the last two, and the honest reason to
+do it is that a series firing past its end date is a wrong answer that repeats.
