@@ -85,10 +85,18 @@ def _hosted_toolbar(qapp):
 
 
 def _leaf_widgets(layout):
+    # HIDDEN widgets excluded: a QBoxLayout never positions one (Qt skips it
+    # in the size-hint/geometry pass, same as it excludes it from width),
+    # so it sits wherever it was constructed — (0, 0) for a fixed-size button
+    # nobody has moved yet. `_discard_btn` (shown only mid-recording) is
+    # exactly this shape and reads as "overlapping" the first thing near the
+    # origin every time, though nothing draws it there. A widget that is not
+    # drawn cannot visually overlap anything, which is the one thing this
+    # file checks.
     out = []
     for i in range(layout.count()):
         w = layout.itemAt(i).widget()
-        if w is not None:
+        if w is not None and not w.isHidden():
             out.append(w)
     return out
 
