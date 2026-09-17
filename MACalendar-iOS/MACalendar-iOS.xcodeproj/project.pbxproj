@@ -72,7 +72,8 @@
 		AA0000FA000000000000F002 /* FeatureRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000FA000000000000F001 /* FeatureRegistry.swift */; };
 		AA0000FB000000000000F002 /* CalendarTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000FB000000000000F001 /* CalendarTabView.swift */; };
 		AB000003000000000000001A /* OfflineSyncUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000002000000000000001B /* OfflineSyncUITests.swift */; };
-/* End PBXBuildFile section */
+		AC000001000000000000001A /* PendingQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC000002000000000000001A /* PendingQueueView.swift */; };
+		/* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		AA000001000000000000001B /* MACalendarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MACalendarApp.swift; sourceTree = "<group>"; };
@@ -146,7 +147,8 @@
 				AB000002000000000000001B /* OfflineSyncUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineSyncUITests.swift; sourceTree = "<group>"; };
 		AB00000E000000000000001B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AB000004000000000000001B /* MACalendarUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MACalendarUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-/* End PBXFileReference section */
+		AC000002000000000000001A /* PendingQueueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingQueueView.swift; sourceTree = "<group>"; };
+		/* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
 		AA0000F500000000000000C1 /* PBXContainerItemProxy */ = {
@@ -296,6 +298,7 @@
 		AA000033000000000000001A /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				AC000002000000000000001A /* PendingQueueView.swift */,
 				AA000002000000000000001B /* ContentView.swift */,
 				AA0000A400000000000000B1 /* SearchView.swift */,
 				AA000009000000000000001B /* SettingsView.swift */,
@@ -556,6 +559,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AC000001000000000000001A /* PendingQueueView.swift in Sources */,
 				E2B71CDD3565402A9538CB7E /* DeviceLocation.swift in Sources */,
 				AA000001000000000000001A /* MACalendarApp.swift in Sources */,
 				AA000002000000000000001A /* ContentView.swift in Sources */,

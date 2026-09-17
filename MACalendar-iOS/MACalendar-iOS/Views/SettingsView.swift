@@ -28,6 +28,9 @@ struct SettingsView: View {
         ("Karen (AU)",    "en-AU"),
     ]
 
+    @ObservedObject private var store = LocalStore.shared
+    @State private var showQueue = false
+
     var body: some View {
         NavigationView {
             ScrollView {
@@ -93,7 +96,45 @@ struct SettingsView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
+                        // Dimmed and inert while the connection is switched
+                        // off: the address and the test are about reaching a
+                        // Mac we are deliberately not reaching. `.disabled`
+                        // alone leaves them looking live, and `.opacity` alone
+                        // leaves them tappable — it needs both to read as off.
                         .padding(.top, 4)
+                        .disabled(!settings.serverEnabled)
+                        .opacity(settings.serverEnabled ? 1 : 0.35)
+                        .animation(.easeInOut(duration: 0.2), value: settings.serverEnabled)
+
+                        Divider().padding(.vertical, 4)
+
+                        Toggle(isOn: $settings.serverEnabled) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Connect to your Mac")
+                                Text(settings.serverEnabled
+                                     ? "Off means the app works entirely from its cache. "
+                                       + "Nothing is lost — changes queue up and sync when "
+                                       + "you switch it back on."
+                                     : "Working offline. Changes are saved here and will "
+                                       + "sync when you switch this back on.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .accessibilityIdentifier("server-connect-toggle")
+
+                        if store.pendingCount > 0 {
+                            Button { showQueue = true } label: {
+                                HStack {
+                                    Label("\(store.pendingCount) change\(store.pendingCount == 1 ? "" : "s") waiting to sync",
+                                          systemImage: "tray.full")
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption).foregroundColor(.secondary)
+                                }
+                            }
+                            .accessibilityIdentifier("pending-queue-link")
+                        }
                     }
 
                     // MARK: Appearance
@@ -424,6 +465,7 @@ struct SettingsView: View {
                 }
                 .padding()
             }
+            .sheet(isPresented: $showQueue) { PendingQueueView() }
             .navigationTitle("Settings")
             .onAppear {
                 if !validLanguages.contains(settings.ttsVoice) {

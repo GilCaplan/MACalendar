@@ -120,7 +120,10 @@ class LocalStore: ObservableObject {
     private var todos:    [Todo]          = []
     private var tags:     [TodoTag]       = []
     private var holidays: [Holiday]       = []
-    private var pending:  [PendingChange] = []
+    /// Readable so the queue can be SHOWN and edited (`PendingQueueView`), and
+    /// published so cancelling one updates the list under your finger.
+    /// `private(set)`: only this store decides what is queued.
+    @Published private(set) var pending: [PendingChange] = []
     private var nextTemp = -1
 
     private let dir = FileManager.default
@@ -728,6 +731,87 @@ class LocalStore: ObservableObject {
     func removePending(_ id: UUID) {
         pending.removeAll { $0.id == id }
         persist()
+    }
+
+    /// Drop a queued change the user has decided against — and anything that
+    /// only made sense because of it.
+    ///
+    /// The queue is a SEQUENCE, not a set. A create made offline gets a
+    /// negative placeholder id, and later edits and deletes are queued against
+    /// that id. Removing just the create would leave those pointed at a row
+    /// the Mac will never have: on reconnect they 404, get dropped, and the
+    /// user is none the wiser — except that the thing they DID want to keep
+    /// quietly did not happen.
+    ///
+    /// So cancelling a create cancels its dependants too, and the caller is
+    /// told how many went with it.
+    @discardableResult
+    func cancelPending(_ id: UUID) -> Int {
+        guard let change = pending.first(where: { $0.id == id }) else { return 0 }
+        var doomed: Set<UUID> = [id]
+
+        if change.method == "POST",
+           let data = change.bodyJSON,
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let temp = obj["_temp_id"] as? Int, temp < 0 {
+            for other in pending where other.id != id {
+                // Anything addressed to the placeholder, or carrying it as a
+                // parent (an assignment queued under an unsynced course).
+                if other.path.contains("/\(temp)") {
+                    doomed.insert(other.id)
+                } else if let d = other.bodyJSON,
+                          let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+                          o.contains(where: { $0.key.hasSuffix("_id") && ($0.value as? Int) == temp }) {
+                    doomed.insert(other.id)
+                }
+            }
+        }
+        pending.removeAll { doomed.contains($0.id) }
+        persist()
+        return doomed.count
+    }
+
+    /// Everything queued, thrown away. Used by "Clear all" behind a confirm.
+    func clearPending() {
+        pending.removeAll()
+        persist()
+    }
+
+    /// One queued change, in the words of what the user did.
+    ///
+    /// A queue you cannot read is one you have to trust blindly, and
+    /// "POST /todos" is not something anyone should have to decode to decide
+    /// whether they still want it.
+    nonisolated static func describe(_ c: PendingChange) -> String {
+        let body = c.bodyJSON.flatMap {
+            try? JSONSerialization.jsonObject(with: $0) as? [String: Any]
+        } ?? [:]
+        let title = (body["title"] as? String) ?? (body["name"] as? String) ?? ""
+        let named = title.isEmpty ? "" : " “\(title)”"
+        let noun: String
+        switch true {
+        case c.path.hasPrefix("/todos"):        noun = "task"
+        case c.path.hasPrefix("/events"):       noun = "event"
+        case c.path.hasPrefix("/courses"):      noun = "course"
+        case c.path.hasPrefix("/assignments"):  noun = "assignment"
+        case c.path.hasPrefix("/timers"):       noun = "timer"
+        case c.path.hasPrefix("/counters"):     noun = "counter"
+        case c.path.hasPrefix("/tags"):         noun = "tag"
+        case c.path.hasPrefix("/categories"):   noun = "category"
+        case c.path.hasPrefix("/vocab"):        noun = "vocabulary entry"
+        case c.path.hasPrefix("/labels"):       noun = "label"
+        default:                                noun = "change"
+        }
+        if c.path.contains("/toggle") { return "Tick off a \(noun)" }
+        if c.path.contains("/press")  { return "Count on a \(noun)" }
+        if c.path.contains("/start")  { return "Start a \(noun)" }
+        if c.path.contains("/stop")   { return "Stop a \(noun)" }
+        switch c.method {
+        case "POST":   return "Add \(noun)\(named)"
+        case "PATCH":  return "Edit \(noun)\(named)"
+        case "DELETE": return "Delete \(noun)\(named)"
+        default:       return "\(c.method) \(c.path)"
+        }
     }
 
     /// Rewrite queued requests that still refer to an item by the temporary

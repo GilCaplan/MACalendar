@@ -158,6 +158,14 @@ class APIClient: ObservableObject {
         guard !base.isEmpty, !isPlaceholder, let url = URL(string: base + path) else {
             throw APIError.badURL
         }
+        // Switched off in Settings: do not touch the network AT ALL — not even
+        // the probes, which is what makes this different from the Mac merely
+        // being unreachable. The error is the same `.offline` a timeout
+        // produces, so every cache fallback and every offline-queue path is
+        // unchanged; the app simply behaves as it does on a train, on purpose.
+        guard settings.serverEnabled else {
+            throw APIError.offline("working offline — the server is switched off in Settings")
+        }
         // Everything before the "?" — a probe stays a probe with query args on it.
         let isProbe = Self.probePaths.contains(path.prefix(while: { $0 != "?" }).description)
         if isBackingOff && !isProbe {
@@ -1174,6 +1182,11 @@ class APIClient: ObservableObject {
         // (p50 ~40 s, p95 ~84 s per dataset/RESULTS.md) times out client-side
         // while the Mac keeps running it, gets requeued, and is replayed a
         // second time on the next retry.
+        guard settings.serverEnabled else {
+            // Queued as audio, exactly as it is when the Mac is away — the
+            // phone cannot understand a recording, the brain is on the Mac.
+            throw APIError.offline("working offline — the server is switched off in Settings")
+        }
         var req = URLRequest(url: url, timeoutInterval: 120)
         req.httpMethod = "POST"
         if !settings.apiKey.isEmpty {

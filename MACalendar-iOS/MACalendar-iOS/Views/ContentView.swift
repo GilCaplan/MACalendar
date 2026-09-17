@@ -32,6 +32,8 @@ struct ContentView: View {
     // has to be a direct peer with no fold-away menu in between). It is a
     // sheet from a persistent gear button instead, one tap from any tab.
     @State private var showSettings = false
+    /// The pending-changes queue, opened from the offline banner or Settings.
+    @State private var showQueue = false
 
     /// The tab on screen, as a feature NAME. It was an `Int` with a hole at
     /// tag 3 where Settings used to be, which encoded nothing and could not be
@@ -137,13 +139,25 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
 
-            // Offline banner
-            if !api.isOnline {
+            // Offline banner.
+            //
+            // Two different states wearing one banner would be a mistake: a Mac
+            // that is ASLEEP is something to tell the user about, and a
+            // connection they SWITCHED OFF is not a problem at all. Same
+            // information — what is queued — in a calmer voice, and grey rather
+            // than orange, because nothing is wrong.
+            if !settings.serverEnabled || !api.isOnline {
+                let chosen = !settings.serverEnabled
+                let pending = store.pendingCount
                 HStack(spacing: 6) {
-                    Image(systemName: "wifi.slash")
-                    Text(store.pendingCount > 0
-                         ? "Offline — \(store.pendingCount) change\(store.pendingCount == 1 ? "" : "s") pending sync"
-                         : "Offline — changes saved locally")
+                    Image(systemName: chosen ? "icloud.slash" : "wifi.slash")
+                    Text(chosen
+                         ? (pending > 0
+                            ? "Working offline — \(pending) change\(pending == 1 ? "" : "s") will sync when you reconnect"
+                            : "Working offline")
+                         : (pending > 0
+                            ? "Offline — \(pending) change\(pending == 1 ? "" : "s") pending sync"
+                            : "Offline — changes saved locally"))
                         .accessibilityIdentifier("offline-banner")
                     Spacer()
                 }
@@ -151,7 +165,12 @@ struct ContentView: View {
                 .foregroundColor(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
-                .background(Color.orange)
+                .background(chosen ? Color.secondary : Color.orange)
+                .contentShape(Rectangle())
+                // The banner already says how many are waiting; tapping it to
+                // see WHICH is the obvious next question, and the queue is
+                // where you answer it.
+                .onTapGesture { if pending > 0 { showQueue = true } }
             }
 
             // A write the Mac ANSWERED and refused. Nothing will replay it — one
@@ -219,6 +238,23 @@ struct ContentView: View {
         .onChange(of: visibility.map) { _ in
             withAnimation(.easeInOut(duration: 0.15)) {
                 router.bounceOffHidden(visibility)
+            }
+        }
+        // Switching the connection back on is a reconnect: flush what queued
+        // up while it was off, rather than waiting for the 30s tick.
+        .onChange(of: settings.serverEnabled) { on in
+            guard on else { return }
+            Task {
+                _ = await api.syncPending()
+                await api.syncPendingVoice()
+                // Today's window: the calendar owns which month is on screen
+                // now, and it refreshes itself off `requestRefresh()` below.
+                let now = Date()
+                await api.bootstrap(
+                    year: Calendar.current.component(.year, from: now),
+                    month: Calendar.current.component(.month, from: now),
+                    israel: settings.israelHolidays)
+                api.requestRefresh()
             }
         }
         .onChange(of: scenePhase) { phase in
@@ -454,6 +490,9 @@ struct ContentView: View {
         // layout exists to remove — and Settings was the item it hid.
         .sheet(isPresented: $showSettings) {
             SettingsView()
+        }
+        .sheet(isPresented: $showQueue) {
+            PendingQueueView()
         }
     }
 

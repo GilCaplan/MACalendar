@@ -29,6 +29,17 @@ class AppSettings: ObservableObject {
         return (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     }()
 
+    /// Whether the app may talk to the Mac at all.
+    ///
+    /// A deliberate "work offline", distinct from the Mac merely being
+    /// unreachable. Everything keeps working from the cache and every write is
+    /// queued exactly as it is when the Mac is asleep — the difference is that
+    /// this is a CHOICE, so the app stops probing, stops waiting, and stops
+    /// reporting an unreachable Mac as a problem.
+    @Published var serverEnabled: Bool {
+        didSet { UserDefaults.standard.set(serverEnabled, forKey: "serverEnabled") }
+    }
+
     @Published var serverURL: String {
         didSet { UserDefaults.standard.set(serverURL, forKey: "serverURL") }
     }
@@ -170,6 +181,8 @@ class AppSettings: ObservableObject {
             ? true : UserDefaults.standard.bool(forKey: "remindersEnabled")
         self.showThinking = UserDefaults.standard.object(forKey: "showThinking") == nil
             ? true : UserDefaults.standard.bool(forKey: "showThinking")
+        self.serverEnabled = UserDefaults.standard.object(forKey: "serverEnabled") == nil
+            ? true : UserDefaults.standard.bool(forKey: "serverEnabled")
         self.serverURL = UserDefaults.standard.string(forKey: "serverURL")
             ?? Self.defaultServerURL
         self.apiKey    = UserDefaults.standard.string(forKey: "apiKey") ?? ""

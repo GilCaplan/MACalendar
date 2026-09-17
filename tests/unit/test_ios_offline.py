@@ -306,3 +306,55 @@ def test_the_background_write_does_not_reach_back_into_the_store():
     snap = store[store.index("private struct CacheSnapshot"):]
     snap = snap[:snap.index("\n    }\n")]
     assert "LocalStore.shared" not in snap and "self." not in snap
+
+
+# ---------------------------------------------------------------------------
+# Working offline as a CHOICE, and a queue you can edit
+# ---------------------------------------------------------------------------
+
+def test_the_connect_switch_stops_every_request_including_the_probes(client_src):
+    """Switched off is not the same as unreachable.
+
+    An unreachable Mac still gets probed — something has to notice it coming
+    back. A connection the user switched OFF should be left alone entirely, so
+    the guard sits above the probe exemption rather than below it.
+    """
+    body = next(b for n, b in _methods(client_src) if n == "request")
+    guard = body.index("settings.serverEnabled")
+    probe = body.index("isProbe")
+    assert guard < probe, (
+        "the probes are exempted before the switch is checked, so a switched-off "
+        "app still talks to the Mac twice a poll")
+
+
+def test_the_voice_upload_honours_the_switch_too(client_src):
+    """It builds its own URLRequest with a 120s timeout, so it misses the guard
+    in `request` — and holding a finished recording for two minutes against a
+    Mac we are deliberately not calling is the worst case in the app."""
+    body = next((b for n, b in _methods(client_src)
+                 if "timeoutInterval: 120" in b), None)
+    assert body, "the voice upload path moved — this test needs updating"
+    assert "settings.serverEnabled" in body
+
+
+def test_cancelling_a_queued_create_cancels_what_depended_on_it():
+    """The queue is a SEQUENCE. A create made offline gets a negative
+    placeholder id and later edits are queued against it; removing just the
+    create leaves those pointed at a row the Mac will never have. They 404 on
+    reconnect, get dropped, and the change the user DID want quietly does not
+    happen."""
+    store = ios_source("LocalStore.swift")
+    fn = store[store.index("func cancelPending("):]
+    fn = fn[:fn.index("\n    }")]
+    assert "_temp_id" in fn and "doomed" in fn
+    assert "_id" in fn, "a child queued under an unsynced parent is not cascaded"
+
+
+def test_the_queue_is_readable_before_it_is_editable():
+    """"POST /todos" is not something anyone should have to decode to decide
+    whether they still want it."""
+    store = ios_source("LocalStore.swift")
+    assert "static func describe(" in store
+    view = ios_source("PendingQueueView.swift")
+    assert "LocalStore.describe" in view
+    assert "cancelPending" in view and "clearPending" in view
