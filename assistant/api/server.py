@@ -2348,6 +2348,18 @@ def create_app() -> Flask:
     _integrations.register(app)
 
     # ------------------------------------------------------------------
+    # Features (this assistant's own surfaces — the tabs and panels)
+    # ------------------------------------------------------------------
+    #
+    # Not the same thing as an integration, and deliberately a separate
+    # registry: a Feature is a tab of ours, an Integration is somebody else's
+    # program. `GET /features` is the visibility map both clients read; each
+    # feature's own routes ride in on its blueprint.
+    # See assistant/features/CONVENTION.md.
+    from assistant.features import registry as _features
+    _features.register(app)
+
+    # ------------------------------------------------------------------
     # Connected calendars (ICS subscriptions + Outlook two-way sync)
     # ------------------------------------------------------------------
     # Note: this is a view/manage surface for sources — the Outlook OAuth

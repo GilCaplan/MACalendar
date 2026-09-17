@@ -81,6 +81,22 @@ for _var, _name in (("MACALENDAR_DB", "calendar.db"),
                     ("MACALENDAR_CHECKPOINTS", "checkpoints")):
     _os.environ.setdefault(_var, _os.path.join(_SCRATCH, _name))
 
+# config.yaml is WRITTEN, not just read: `PATCH /features/<name>` persists tab
+# visibility there (assistant/features/settings.py). A suite toggling a feature
+# would otherwise rewrite the file the running assistant boots from — and it
+# rewrites the WHOLE document, so the blast radius is every setting in it, not
+# just the flag under test. Seeded from the real config so what tests read is
+# still representative.
+_os.environ.setdefault("MACALENDAR_CONFIG", _os.path.join(_SCRATCH, "config.yaml"))
+if not _os.path.exists(_os.environ["MACALENDAR_CONFIG"]):
+    import shutil as _shutil
+    _repo_root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    for _candidate in ("config.yaml", "config.example.yaml"):
+        _src = _os.path.join(_repo_root, _candidate)
+        if _os.path.exists(_src):
+            _shutil.copyfile(_src, _os.environ["MACALENDAR_CONFIG"])
+            break
+
 import json
 import os
 from typing import Any
