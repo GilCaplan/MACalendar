@@ -176,6 +176,17 @@ if __name__ == "__main__":            # the child: import everything, report JSO
     import io
     import os
 
+    # Run by PATH, so sys.path[0] is tests/unit/, not the repo — and with the
+    # repo absent, `assistant` resolves through the venv's editable install to
+    # whichever checkout was `pip install -e`'d. In a WORKTREE that is the
+    # OTHER checkout: every board loaded from there, the first of the thirteen
+    # that `sys.path.insert(0, _ROOT)` put THAT root first, and `scripts.*`
+    # followed it. The audit then reported the neighbouring branch's rot as
+    # this one's — found 2026-09-17 when main's copy of a generator "went
+    # missing" that had only been moved on the other branch. This checkout
+    # goes first, ahead of the editable finder.
+    sys.path.insert(0, str(REPO))
+
     # A board whose work is at module level PRINTS that work as it imports, so
     # the report has to be the only thing on stdout. Their output is swallowed;
     # a traceback still reaches stderr, where the parent shows it.
