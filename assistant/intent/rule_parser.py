@@ -1284,6 +1284,73 @@ def _extract_title(span, temporal_spans: list[tuple[int, int]]) -> str | None:
     return None
 
 
+def _dobj_conjunct_title(span, temporal_spans: list[tuple[int, int]]) -> "str | None":
+    """The FULL coordinated object list, not just the first — "buy X, Y, and
+    Z" keeps every one (DEVQA Q14 reversed, 2026-09-16: a shared verb over a
+    bare, coordinated object list is ONE segmentation item, so its title
+    must not silently drop everything after the first object).
+
+    `_extract_title`'s Priority-1 branch returns on the FIRST `dobj` chunk
+    it finds — correct for a single-object command, wrong for a
+    coordinated one, and it was found live: "buy eight sticky notes,
+    apples, and printer paper" saved as a task titled "sticky notes ×8",
+    apples and printer paper silently gone (TASKS.md, 2026-09-16).
+
+    spaCy attaches a coordinated object's conjunct EITHER to the object noun
+    ("buy eight sticky notes, APPLES, and printer PAPER" — apples/paper
+    both `conj` of `notes`) OR to the ROOT VERB directly ("call the dentist
+    and the VET" — vet is `conj` of `call`, not of `dentist`) — both are
+    real spaCy outputs for genuinely coordinated objects, unpredictably
+    which one a given sentence gets, so both are walked.
+
+    The verb-attachment case needs ONE guard the noun-attachment case does
+    not: a coordinated PREPOSITIONAL OBJECT can ALSO surface as `conj` of
+    the root verb ("buy milk FROM THE STORE and the MARKET" — market is
+    `conj` of `buy`, not of `store`, even though it coordinates with
+    "store", not with "milk"). A `prep` child of the root verb sitting
+    BETWEEN the dobj and the candidate conjunct means the candidate belongs
+    to that prepositional phrase's own coordination, not the object's — the
+    guard this function checks for specifically, found by exactly this case
+    over-including "from the store and the market" in a task title before
+    it was added.
+    """
+    dobj_chunks = [
+        chunk for chunk in span.noun_chunks
+        if chunk.root.dep_ == "dobj"
+        and not any(_in_temporal(t, temporal_spans) for t in chunk)
+    ]
+    if not dobj_chunks:
+        return None
+    dobj = dobj_chunks[0]
+    root_verb = next((tok for tok in span if tok.dep_ == "ROOT"), dobj.root.head)
+    preps = [tok.i for tok in root_verb.children if tok.dep_ == "prep"]
+
+    frontier = [dobj.root, root_verb]
+    seen = {dobj.root.i, root_verb.i}
+    conj_roots: set = set()
+    while frontier:
+        tok = frontier.pop()
+        for child in tok.children:
+            if (child.dep_ == "conj" and child.i not in seen
+                    and child.pos_ in ("NOUN", "PROPN")
+                    and not any(dobj.root.i < p < child.i for p in preps)):
+                seen.add(child.i)
+                conj_roots.add(child.i)
+                frontier.append(child)
+    if not conj_roots:
+        return None                      # nothing coordinated — no widening needed
+
+    chunks = [dobj] + [c for c in span.noun_chunks
+                       if c.root.i in conj_roots
+                       and not any(_in_temporal(t, temporal_spans) for t in c)]
+    chunks.sort(key=lambda c: c.start)
+    first, last = chunks[0], chunks[-1]
+    # Sliced from the ORIGINAL text rather than rebuilt from the chunks, so
+    # the speaker's own commas and "and" survive verbatim — "eight sticky
+    # notes, apples, and printer paper" stays exactly that.
+    return _clean_title(span.doc[first.start:last.end].text)
+
+
 # Action verb lemmas that spaCy sometimes drags into noun chunks as compound modifiers
 _TITLE_STRIP_VERBS = frozenset({
     "schedule", "book", "plan", "cancel", "delete", "add", "create",
@@ -1515,6 +1582,15 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
         if phrase_titles:
             slots["titles"] = phrase_titles
         elif title and title.lower() not in _PRONOUN_TITLES:
+            # A bare imperative with no lead-in phrase never reaches
+            # `_todo_titles_from_text` above (its whole job is matching a
+            # LEAD-IN, which a bare "buy X and Y" has none of) — widen the
+            # single title to the FULL coordinated object list before the
+            # verb gets put back, or "buy eight sticky notes, apples, and
+            # printer paper" keeps only "sticky notes" (TASKS.md, 2026-09-16).
+            widened = _dobj_conjunct_title(span, temporal_spans)
+            if widened:
+                title = widened
             # The noun-chunk fallback keeps only the object: "call the dentist"
             # became a task called "dentist". Put the verb back so the task says
             # what to do rather than what it is about.

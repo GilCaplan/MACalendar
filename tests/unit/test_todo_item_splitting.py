@@ -238,6 +238,51 @@ def test_one_errand_for_two_people_stays_one_task(parser):
 
 
 # ---------------------------------------------------------------------------
+# BARE IMPERATIVE, no lead-in phrase — `_todo_titles_from_text` never fires
+# (its whole job is matching a lead-in a bare command has none of), so this
+# used to fall to `_extract_title`'s single-first-`dobj`-chunk fallback and
+# silently drop every object after the first (TASKS.md, 2026-09-16 — found
+# live via `run_transcript`: "buy eight sticky notes, apples, and printer
+# paper" was saved as a task titled "sticky notes ×8", apples and printer
+# paper gone). DEVQA's Q14 reversal (same date) makes this shape ONE
+# segmentation item going forward, so the FIX keeps it as ONE task too —
+# unlike the lead-in cases above, which intentionally still split (an
+# existing, separately-tested behavior; reconciling the two is a bigger
+# question than this fix, noted in TASKS.md, not resolved here).
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("text,expected", [
+    ("buy shampoo and apples", ["buy shampoo and apples"]),
+    # `_titles` reads the raw parse, before quantity-folding runs (a later
+    # stage — `run_transcript` end to end renders this one "…paper ×8"); at
+    # this level the point being tested is that apples/paper survive at all.
+    ("buy eight sticky notes, apples, and printer paper",
+     ["buy sticky notes, apples, and printer paper"]),
+    ("pick up envelopes and sellotape from the stationers",
+     ["pick up envelopes and sellotape"]),
+    # `_clean_title` strips ONE leading article ("the"/"a"/...) off the
+    # combined string, not one per noun phrase — pre-existing, unrelated to
+    # this fix.
+    ("call the dentist and the vet", ["call dentist and the vet"]),
+])
+def test_bare_imperative_keeps_every_coordinated_object(parser, text, expected):
+    assert _titles(parser, text) == expected
+
+
+def test_bare_imperative_single_object_is_unaffected(parser):
+    # no coordination at all — must not be widened into something it isn't
+    assert _titles(parser, "call the dentist") == ["call dentist"]
+
+
+def test_a_coordinated_prepositional_object_is_not_swept_into_the_title(parser):
+    # "the market" coordinates with "the store" (both `from ...`), not with
+    # "milk" — spaCy attaches it as a `conj` of the ROOT verb regardless,
+    # the same surface shape a genuine second object has, so the widening
+    # must tell them apart rather than over-including the whole PP.
+    assert _titles(parser, "buy milk from the store and the market") == ["buy milk"]
+
+
+# ---------------------------------------------------------------------------
 # The REST path the phone uses — same precedence as voice
 # ---------------------------------------------------------------------------
 

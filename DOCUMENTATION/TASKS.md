@@ -957,7 +957,41 @@ what the user is told, so it is filed rather than chosen.
 then run `retry_pending_once`. `tests/unit/test_offline_queue_scenarios.py` has
 the harness.
 
-## A bare-imperative multi-object task silently drops every object but the first — NOT FIXED, filed (2026-09-16)
+## A bare-imperative multi-object task silently drops every object but the first — FIXED (2026-09-17)
+
+**Fixed.** `_dobj_conjunct_title` (`rule_parser.py`, next to `_extract_title`)
+walks the coordination chain from the root verb's direct object — spaCy
+attaches a coordinated object's conjunct EITHER to the object noun ("buy
+notes, APPLES, and PAPER") or to the root verb directly ("call the dentist
+and the VET"), both real outputs, so both are walked — and slices the
+ORIGINAL text from the first object to the last, keeping the speaker's own
+commas and "and" rather than rebuilding them. One guard: a `prep` child of
+the root verb sitting between the dobj and a candidate conjunct means the
+candidate belongs to THAT prepositional phrase's own coordination ("buy milk
+FROM THE STORE and the MARKET" — market pairs with store, not milk), found
+by exactly that case over-including "from the store and the market" before
+the guard was added. Verified live via `run_transcript` on all three
+examples below (now keep every object); 6 new cases in
+`test_todo_item_splitting.py`; zero change on the FastRule 7,200-row board,
+both halves, output byte-identical before/after (this board's own TITLE
+QUALITY metric only flags empty/generic titles, not missing coordinated
+objects, so an unchanged score here is the expected confirmation of no
+regression, not evidence the board captured the fix).
+
+**A related tension, found but NOT resolved**: `_todo_titles_from_text`/
+`list_split.split_items` — the mechanism `_TODO_LEAD`-prefixed commands use
+("remind me to buy chicken and rice" → TWO tasks, tested and intentional,
+`test_the_reported_command_makes_two_tasks`) — still SPLITS a shared-verb
+bare object list into multiple tasks, the opposite of DEVQA's Q14 reversal
+(a bare "buy chicken and rice" with NO lead-in now correctly stays ONE task
+after this fix). So the same shape currently resolves two different ways
+depending only on whether a framing phrase like "remind me to" precedes it
+— not touched here, since reconciling it means either changing `split_items`
+tested, intentional multi-task behavior (a bigger, riskier change touching
+the FastRule corpus's own gold expectations for that shape) or accepting
+the inconsistency as a real product-level question for a ruling, the same
+way Q14 and `wrapper-phrase` got one. Whoever picks this up: get a ruling
+first.
 
 Found while testing whether `decompose_validate` handles a multi-object
 segmentation item correctly, after DEVQA.md's Q14 reversal (same date,
