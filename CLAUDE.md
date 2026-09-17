@@ -218,6 +218,37 @@ Every call that generates or loads goes through `model_protocol.hold()`, and a
 test reads the tree to prove there is no fourth door — `llmseg` has its own
 socket, so a gate placed only in the parser would have had a silent hole.
 
+## Hosting another program: `assistant/integrations/`
+
+An **integration** is an external app — its own repository, its own deps, its
+own server — that this assistant starts, gates and proxies **without vendoring
+it and without editing it**. Jude (`assistant/jude/`) is the first;
+`assistant/integrations/CONVENTION.md` is how to add the second, and
+`assistant/jude/ARCHITECTURE.md` is the worked example.
+
+Everything about one lives in ITS OWN FOLDER — integration, routes, Mac app,
+icon, build script, architecture doc — the same rule the engine's stages
+follow. `server.py` gets ONE line (`registry.register(app)`); the ~120 lines of
+Jude proxying that used to sit in the middle of it are `jude/routes.py` now.
+An integration's routes are HTTP plumbing: they do not parse and do not
+execute, so the brain is never reachable through one.
+
+**An integration that touches ollama is a FIFTH DOOR**, and you cannot lock it
+from the inside because it is somebody else's code. So the lock goes in front
+of ollama: `integrations/ollama_gate.py` takes `model_protocol.hold()` around
+every generating call, and the child is pointed at it with `OLLAMA_HOST`. Two
+things this was bought with:
+
+- **`OLLAMA_HOST` is not enough — grep the child for `11434` first.** Jude
+  hardcodes the address for its ChromaDB embedding function, so the gate had a
+  hole in the retrieval path, and a gate with a hole reads as covered. Since we
+  do not edit the child, the patch rides in as `integrations/shim/
+  sitecustomize.py` on its `PYTHONPATH`.
+- **Default the priority to `background`.** `hold()` is asymmetric — live waits
+  50ms then goes ANYWAY — so two live callers do not arbitrate at all. An
+  integration marked live RACES your voice commands instead of queueing behind
+  them, which is the contention the gate exists to remove.
+
 Set them in any script that exercises the engine. If you are unsure whether
 something wrote to the real files, check: `md5 ~/.assistant_tools/vocab.json`
 before and after.

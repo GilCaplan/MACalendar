@@ -2334,122 +2334,18 @@ def create_app() -> Flask:
         ])
 
     # ------------------------------------------------------------------
-    # Jude — the Judaic study assistant (DOCUMENTATION/JUDE.md)
+    # Integrations (Jude, and whatever comes next)
     # ------------------------------------------------------------------
     #
-    # Jude is a separate repository with its own FastAPI server. It is reached
-    # THROUGH here rather than directly, for three reasons: the phone keeps one
-    # address, one API key and one tailnet hop; Jude's own port never has to
-    # leave the machine (it has no auth of its own); and the streaming shape
-    # becomes the NDJSON the clients already speak for /voice/stream instead of
-    # a second wire format. The brain is untouched — this is HTTP plumbing, and
-    # nothing here parses or executes anything (CLAUDE.md).
-
-    def _jude_cfg():
-        cfg = load_config()
-        return cfg.jude, cfg.ollama
-
-    @app.get("/jude/status")
-    def jude_status():
-        """Never an error — a client draws whatever this says. `reason` is the
-        sentence to show when `ready` is false."""
-        from assistant.jude import bridge
-        jude_cfg, ollama_cfg = _jude_cfg()
-        return jsonify(bridge.status(jude_cfg, ollama_cfg))
-
-    @app.post("/jude/chat")
-    def jude_chat():
-        """Ask Jude a question; stream the answer back as NDJSON.
-
-        Jude speaks Server-Sent Events. Every client here already renders
-        NDJSON (that is what /voice/stream is), so the translation happens
-        once, here, rather than in each client: one `data:` frame becomes one
-        JSON line, with the event types passed through unchanged
-        (stage / meta / token / tool_call / clarification / topic_pivot /
-        done / error) plus an `error` line of our own if Jude cannot be
-        reached at all.
-        """
-        from flask import Response, stream_with_context
-        import json as _json
-
-        from assistant.jude import bridge
-
-        body = request.get_json(silent=True) or {}
-        prompt = (body.get("prompt") or "").strip()
-        if not prompt:
-            return jsonify({"error": "Missing 'prompt'", "code": 400}), 400
-        jude_cfg, ollama_cfg = _jude_cfg()
-
-        # Starting Jude can take a while (it loads a multi-gigabyte index), so
-        # it happens before the response begins rather than inside the
-        # generator — a client that gets a 503 with a sentence in it can say
-        # something useful; one whose stream opens and then dies cannot.
-        try:
-            base = bridge.ensure_running(jude_cfg, ollama_cfg)
-        except bridge.JudeUnavailable as e:
-            return jsonify({"error": str(e), "code": 503}), 503
-
-        payload = {
-            "prompt": prompt,
-            "chat_id": body.get("chat_id"),
-            "lang": body.get("lang") or "en",
-            "mode": body.get("mode") or "qa",
-            "top_k": int(body.get("top_k") or 25),
-            "skip_clarification": bool(body.get("skip_clarification")),
-            "user": body.get("user") or "macalendar",
-        }
-
-        def gen():
-            import urllib.request
-            req = urllib.request.Request(
-                base + "/api/chat", method="POST",
-                data=_json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"})
-            try:
-                with urllib.request.urlopen(req, timeout=600) as r:
-                    for raw in r:
-                        line = raw.decode("utf-8", "replace").rstrip("\r\n")
-                        if not line.startswith("data:"):
-                            continue          # SSE blank separators and comments
-                        yield line[5:].strip() + "\n"
-            except Exception as e:            # noqa: BLE001 - the stream must say why
-                logger.warning("Jude stream failed: %s", e)
-                yield _json.dumps({"type": "error", "message": str(e)}) + "\n"
-
-        return Response(stream_with_context(gen()), mimetype="application/x-ndjson",
-                        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
-
-    def _jude_get(path: str, method: str = "GET"):
-        """One plain proxied call to Jude, or a 503 that explains itself."""
-        import json as _json
-        import urllib.request
-
-        from assistant.jude import bridge
-
-        jude_cfg, ollama_cfg = _jude_cfg()
-        try:
-            base = bridge.ensure_running(jude_cfg, ollama_cfg)
-        except bridge.JudeUnavailable as e:
-            return jsonify({"error": str(e), "code": 503}), 503
-        try:
-            req = urllib.request.Request(base + path, method=method)
-            with urllib.request.urlopen(req, timeout=30) as r:
-                return jsonify(_json.loads(r.read().decode("utf-8") or "null"))
-        except Exception as e:                # noqa: BLE001
-            logger.warning("Jude %s %s failed: %s", method, path, e)
-            return jsonify({"error": str(e), "code": 502}), 502
-
-    @app.get("/jude/chats")
-    def jude_chats():
-        return _jude_get("/api/chats?user=macalendar")
-
-    @app.get("/jude/chats/<chat_id>/history")
-    def jude_chat_history(chat_id: str):
-        return _jude_get(f"/api/chats/{chat_id}/history")
-
-    @app.delete("/jude/chats/<chat_id>")
-    def jude_chat_delete(chat_id: str):
-        return _jude_get(f"/api/chats/{chat_id}?user=macalendar", method="DELETE")
+    # External apps — their own repositories, their own servers — that this
+    # assistant hosts, gates and proxies. Each one owns a folder and brings its
+    # own blueprint, so this file stays HTTP and never accumulates a second
+    # app's parsing the way it once accumulated Jude's ~120 lines of proxying.
+    #
+    # `GET /integrations` lists them all in one shape; `/jude/*` is Jude's own.
+    # See assistant/integrations/CONVENTION.md.
+    from assistant.integrations import registry as _integrations
+    _integrations.register(app)
 
     # ------------------------------------------------------------------
     # Connected calendars (ICS subscriptions + Outlook two-way sync)

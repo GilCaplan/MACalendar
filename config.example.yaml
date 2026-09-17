@@ -217,17 +217,22 @@ labels:
   model_event: false     # learned event-category classifier
   model_task: false      # learned task-tag classifier
 
-# Jude — the Judaic study assistant (DOCUMENTATION/JUDE.md)
+# Jude — the Judaic study assistant (assistant/jude/ARCHITECTURE.md)
 #
-# Jude is its OWN repository, not vendored into this one: it carries a ~3 GB
-# vector index and is still being worked on separately. Clone it beside this
-# checkout and point `path` at it:
+# An INTEGRATION: an external app this assistant hosts, gates and proxies
+# without vendoring or editing it. See assistant/integrations/CONVENTION.md for
+# how to add another one.
+#
+# Jude is its OWN repository, not vendored into this one: it carries a ~1.2 GB
+# corpus and a ~2 GB vector index and is still being worked on separately.
+# Clone it and point `path` at it:
 #
 #     git clone https://github.com/GilCaplan/JudeTheJudaicChatBot
 #
-# Its LLM calls then go through this project's protocol — local Ollama only,
-# the same model the assistant has already loaded — and the phone reaches it
-# through this API on 8080, exactly like every other feature.
+# Its model calls then go through this project's protocol — local Ollama only,
+# the same model the assistant has already loaded, arbitrated by
+# assistant/model_protocol.py — and the phone reaches it through this API on
+# 8080, exactly like every other feature.
 jude:
   enabled: false                   # true once the checkout is in place
   path: "../JudeTheJudaicChatBot"  # relative to this repo, or absolute; ~ is expanded
@@ -236,3 +241,7 @@ jude:
   model: ""                        # "" = share `ollama.model`, so one model is loaded, not two
   allow_cloud: false               # true hands Jude back its own .env and its cloud cascade.
                                    # Left false, nothing here touches the internet.
+  gate_port: 11435                 # the arbitrating ollama proxy Jude is pointed at, so its
+                                   # calls queue with everything else. NOT ollama's own port.
+  priority: background             # background = Jude YIELDS the model to your voice commands.
+                                   # "live" makes it race them instead — see ollama_gate.py.

@@ -26,8 +26,73 @@ struct ContentView: View {
     @State private var unreviewed = 0
     @State private var showReview = false
     @State private var showSearch = false
+    // Settings moved OUT of the tab set (Gil, 2026-09-17: "I don't want
+    // More -> Settings, just Settings" — every content tab, Jude included,
+    // has to be a direct peer with no fold-away menu in between). It is a
+    // sheet from a persistent gear button instead, one tap from any tab.
+    @State private var showSettings = false
 
     enum CalendarMode { case month, week, day }
+
+    /// The content tabs, in display order — everything BUT Settings, which
+    /// isn't one of these any more. `tag` is the same Int `selectedTab` has
+    /// always used elsewhere in this file (SearchView, NotificationRouter);
+    /// unchanged so those call sites needed no edits.
+    private var contentTabs: [(tag: Int, label: String, icon: String)] {
+        var tabs: [(Int, String, String)] = [(0, "Calendar", "calendar"),
+                                              (1, "Tasks", "checklist")]
+        if settings.showCourseworkTab { tabs.append((2, "Coursework", "graduationcap")) }
+        if settings.showWorkoutTab { tabs.append((4, "Workout", "figure.strengthtraining.traditional")) }
+        if settings.showTimerTab { tabs.append((5, "Timer", "timer")) }
+        if settings.showTeachTab { tabs.append((6, "Teach", "brain.head.profile")) }
+        if settings.showJudeTab { tabs.append((7, "Jude", "books.vertical")) }
+        return tabs
+    }
+
+    /// A native `TabView` folds anything past 5 items into "More", which is
+    /// exactly the thing being avoided here — so this isn't one. Every
+    /// content tab is ALWAYS a direct, equal button; if there are more than
+    /// fit the screen at once, the row scrolls rather than hiding any of
+    /// them behind an extra tap. Settings pins to the trailing edge, outside
+    /// the scrolling region, so it never needs a scroll either.
+    private var customTabBar: some View {
+        HStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 0) {
+                    ForEach(contentTabs, id: \.tag) { t in
+                        tabBarButton(tag: t.tag, label: t.label, icon: t.icon)
+                    }
+                }
+            }
+            Divider().frame(height: 30)
+            tabBarButton(tag: -1, label: "Settings", icon: "gear", isSettings: true)
+        }
+        .padding(.top, 6)
+        .padding(.bottom, 2)
+        .background(Color(.secondarySystemBackground))
+        .overlay(Divider(), alignment: .top)
+    }
+
+    @ViewBuilder
+    private func tabBarButton(tag: Int, label: String, icon: String, isSettings: Bool = false) -> some View {
+        Button {
+            if isSettings {
+                showSettings = true
+            } else {
+                withAnimation(.easeInOut(duration: 0.15)) { selectedTab = tag }
+            }
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: icon).font(.system(size: 21))
+                Text(label).font(.system(size: 10))
+            }
+            .foregroundColor(!isSettings && selectedTab == tag ? settings.accentColor : .secondary)
+            .frame(minWidth: 58)
+            .padding(.vertical, 2)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(!isSettings && selectedTab == tag ? .isSelected : [])
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -82,222 +147,8 @@ struct ContentView: View {
                 .buttonStyle(.plain)
             }
 
-            TabView(selection: $selectedTab) {
-
-                // ── Calendar Tab ──────────────────────────────────────────
-                NavigationView {
-                    VStack(spacing: 0) {
-
-                        Picker("View", selection: $calendarView) {
-                            Text("Month").tag(CalendarMode.month)
-                            Text("Week").tag(CalendarMode.week)
-                            Text("Day").tag(CalendarMode.day)
-                        }
-                        .pickerStyle(.segmented)
-                        .padding(.horizontal)
-                        .padding(.vertical, 8)
-
-                        Divider()
-
-                        TabView(selection: $calendarView) {
-
-                            // ── Month ──
-                            VStack(spacing: 0) {
-                                HStack {
-                                    Button { shiftMonth(-1) } label: {
-                                        Image(systemName: "chevron.left")
-                                    }
-                                    Spacer()
-                                    Text(monthTitle).font(.headline)
-                                    Spacer()
-                                    Button { shiftMonth(1) } label: {
-                                        Image(systemName: "chevron.right")
-                                    }
-                                }
-                                .padding(.horizontal)
-                                .padding(.vertical, 8)
-
-                                MonthGridView(
-                                    year: Calendar.current.component(.year, from: viewedDate),
-                                    month: Calendar.current.component(.month, from: viewedDate),
-                                    selectedDate: $selectedDate,
-                                    events: monthEvents,
-                                    holidays: monthHolidays,
-                                    onDateSelected: { date in viewedDate = date }
-                                )
-                                Spacer()
-                            }
-                            .tag(CalendarMode.month)
-                            .task { await loadMonth() }
-                            .onChange(of: viewedDate) { _ in Task { await loadMonth() } }
-                            .onAppear { viewedDate = selectedDate }
-                            // Vertical swipe to move a month, in addition to the
-                            // chevron buttons. `simultaneousGesture` (rather than
-                            // `gesture`) so it doesn't steal the horizontal swipe
-                            // the outer page TabView uses to switch Month/Week/Day.
-                            .simultaneousGesture(
-                                DragGesture(minimumDistance: 24)
-                                    .onEnded { value in
-                                        let h = value.translation.height
-                                        let w = value.translation.width
-                                        guard abs(h) > abs(w) * 1.5, abs(h) > 40 else { return }
-                                        withAnimation { shiftMonth(h < 0 ? 1 : -1) }
-                                    }
-                            )
-
-                            // ── Week ──
-                            VStack(spacing: 0) {
-                                HStack {
-                                    Button { shiftWeek(-1) } label: {
-                                        Image(systemName: "chevron.left")
-                                    }
-                                    Spacer()
-                                    Text(weekTitle).font(.headline)
-                                    Spacer()
-                                    Button { shiftWeek(1) } label: {
-                                        Image(systemName: "chevron.right")
-                                    }
-                                }
-                                .padding(.horizontal)
-                                .padding(.vertical, 8)
-
-                                WeekView(
-                                    selectedDate: $selectedDate,
-                                    events: monthEvents,
-                                    holidays: monthHolidays,
-                                    onDateSelected: { date in
-                                        selectedDate = date
-                                        viewedDate = date
-                                        Task { await loadMonth() }
-                                    }
-                                )
-                            }
-                            .tag(CalendarMode.week)
-                            .onAppear {
-                                viewedDate = selectedDate
-                                Task { await loadMonth() }
-                            }
-
-                            // ── Day ──
-                            VStack(spacing: 0) {
-                                HStack {
-                                    Button { shiftDay(-1) } label: {
-                                        Image(systemName: "chevron.left")
-                                    }
-                                    Spacer()
-                                    Text(dayTitle).font(.headline)
-                                    Spacer()
-                                    Button { shiftDay(1) } label: {
-                                        Image(systemName: "chevron.right")
-                                    }
-                                }
-                                .padding(.horizontal)
-                                .padding(.vertical, 8)
-
-                                DayView(date: selectedDate)
-                            }
-                            .tag(CalendarMode.day)
-                            .onAppear { viewedDate = selectedDate }
-
-                        }
-                        .tabViewStyle(.page(indexDisplayMode: .never))
-
-                        Spacer(minLength: 0)
-                    }
-                    .navigationTitle("Calendar")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarLeading) {
-                            Button { showSearch = true } label: {
-                                Image(systemName: "magnifyingglass")
-                            }
-                            .accessibilityLabel("Search")
-                        }
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button("Today") {
-                                selectedDate = Date()
-                                viewedDate = Date()
-                                Task { await loadMonth() }
-                            }
-                        }
-                    }
-                    .overlay(alignment: .bottom) {
-                        HStack(spacing: 20) {
-                            VoiceButton(onRefresh: { refresh in
-                                if refresh == "events" || refresh == "both" {
-                                    Task { await loadMonth() }
-                                }
-                            })
-
-                            Button {
-                                showCreateSheet = true
-                            } label: {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 24, weight: .bold))
-                                    .foregroundColor(Color.onColor(hex: settings.accentColorHex))
-                                    .frame(width: 60, height: 60)
-                                    .background(settings.accentColor)
-                                    .clipShape(Circle())
-                                    .shadow(radius: 4)
-                            }
-                        }
-                        .padding(.bottom, 24)
-                    }
-                }
-                .tabItem { Label("Calendar", systemImage: "calendar") }
-                .tag(0)
-
-                // ── Tasks Tab ────────────────────────────────────────────
-                TasksView()
-                    .tabItem { Label("Tasks", systemImage: "checklist") }
-                    .tag(1)
-
-                // ── Coursework Tab ───────────────────────────────────────
-                if settings.showCourseworkTab {
-                    CourseworkView()
-                        .tabItem { Label("Coursework", systemImage: "graduationcap") }
-                        .tag(2)
-                }
-
-                // ── Workout Tab ──────────────────────────────────────────
-                if settings.showWorkoutTab {
-                    WorkoutView()
-                        .tabItem { Label("Workout", systemImage: "figure.strengthtraining.traditional") }
-                        .tag(4)
-                }
-
-                // ── Timer Tab ────────────────────────────────────────────
-                if settings.showTimerTab {
-                    TimerView()
-                        .tabItem { Label("Timer", systemImage: "timer") }
-                        .tag(5)
-                }
-
-                // ── Teach Tab ────────────────────────────────────────────
-                // The labelling game. Behind the same switch pattern as Timer:
-                // it is only useful while there are hard rows to label, and an
-                // always-present tab for an occasional task is clutter.
-                if settings.showTeachTab {
-                    LabelGameView()
-                        .tabItem { Label("Teach", systemImage: "brain.head.profile") }
-                        .tag(6)
-                }
-
-                // ── Jude Tab ─────────────────────────────────────────────
-                // Off by default: Jude is a separate repository that has to be
-                // cloned on the Mac, and a tab that can only say "not
-                // installed" is not a feature. DOCUMENTATION/JUDE.md.
-                if settings.showJudeTab {
-                    JudeView()
-                        .tabItem { Label("Jude", systemImage: "books.vertical") }
-                        .tag(7)
-                }
-
-                // ── Settings Tab ─────────────────────────────────────────
-                SettingsView()
-                    .tabItem { Label("Settings", systemImage: "gear") }
-                    .tag(3)
-            }
+            tabContent
+            customTabBar
         }
         .sheet(isPresented: $showCreateSheet) {
             let year    = Calendar.current.component(.year,  from: selectedDate)
@@ -563,7 +414,220 @@ struct ContentView: View {
                  + (s.samples ?? []).prefix(2).joined(separator: " · ")
                  + ". You can review or reverse this later in the tag history.")
         }
+        // Settings is a SHEET, not a tab. A native TabView folds anything
+        // past five items into "More", which is exactly the extra tap this
+        // layout exists to remove — and Settings was the item it hid.
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+        }
     }
+
+    // MARK: - Calendar tab content (its own property so the stack above
+    // can hold it as one layer among the others).
+    private var calendarContent: some View {
+        NavigationView {
+                    VStack(spacing: 0) {
+
+                        Picker("View", selection: $calendarView) {
+                            Text("Month").tag(CalendarMode.month)
+                            Text("Week").tag(CalendarMode.week)
+                            Text("Day").tag(CalendarMode.day)
+                        }
+                        .pickerStyle(.segmented)
+                        .padding(.horizontal)
+                        .padding(.vertical, 8)
+
+                        Divider()
+
+                        TabView(selection: $calendarView) {
+
+                            // ── Month ──
+                            VStack(spacing: 0) {
+                                HStack {
+                                    Button { shiftMonth(-1) } label: {
+                                        Image(systemName: "chevron.left")
+                                    }
+                                    Spacer()
+                                    Text(monthTitle).font(.headline)
+                                    Spacer()
+                                    Button { shiftMonth(1) } label: {
+                                        Image(systemName: "chevron.right")
+                                    }
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 8)
+
+                                MonthGridView(
+                                    year: Calendar.current.component(.year, from: viewedDate),
+                                    month: Calendar.current.component(.month, from: viewedDate),
+                                    selectedDate: $selectedDate,
+                                    events: monthEvents,
+                                    holidays: monthHolidays,
+                                    onDateSelected: { date in viewedDate = date }
+                                )
+                                Spacer()
+                            }
+                            .tag(CalendarMode.month)
+                            .task { await loadMonth() }
+                            .onChange(of: viewedDate) { _ in Task { await loadMonth() } }
+                            .onAppear { viewedDate = selectedDate }
+                            // Vertical swipe to move a month, in addition to the
+                            // chevron buttons. `simultaneousGesture` (rather than
+                            // `gesture`) so it doesn't steal the horizontal swipe
+                            // the outer page TabView uses to switch Month/Week/Day.
+                            .simultaneousGesture(
+                                DragGesture(minimumDistance: 24)
+                                    .onEnded { value in
+                                        let h = value.translation.height
+                                        let w = value.translation.width
+                                        guard abs(h) > abs(w) * 1.5, abs(h) > 40 else { return }
+                                        withAnimation { shiftMonth(h < 0 ? 1 : -1) }
+                                    }
+                            )
+
+                            // ── Week ──
+                            VStack(spacing: 0) {
+                                HStack {
+                                    Button { shiftWeek(-1) } label: {
+                                        Image(systemName: "chevron.left")
+                                    }
+                                    Spacer()
+                                    Text(weekTitle).font(.headline)
+                                    Spacer()
+                                    Button { shiftWeek(1) } label: {
+                                        Image(systemName: "chevron.right")
+                                    }
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 8)
+
+                                WeekView(
+                                    selectedDate: $selectedDate,
+                                    events: monthEvents,
+                                    holidays: monthHolidays,
+                                    onDateSelected: { date in
+                                        selectedDate = date
+                                        viewedDate = date
+                                        Task { await loadMonth() }
+                                    }
+                                )
+                            }
+                            .tag(CalendarMode.week)
+                            .onAppear {
+                                viewedDate = selectedDate
+                                Task { await loadMonth() }
+                            }
+
+                            // ── Day ──
+                            VStack(spacing: 0) {
+                                HStack {
+                                    Button { shiftDay(-1) } label: {
+                                        Image(systemName: "chevron.left")
+                                    }
+                                    Spacer()
+                                    Text(dayTitle).font(.headline)
+                                    Spacer()
+                                    Button { shiftDay(1) } label: {
+                                        Image(systemName: "chevron.right")
+                                    }
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 8)
+
+                                DayView(date: selectedDate)
+                            }
+                            .tag(CalendarMode.day)
+                            .onAppear { viewedDate = selectedDate }
+
+                        }
+                        .tabViewStyle(.page(indexDisplayMode: .never))
+
+                        Spacer(minLength: 0)
+                    }
+                    .navigationTitle("Calendar")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button { showSearch = true } label: {
+                                Image(systemName: "magnifyingglass")
+                            }
+                            .accessibilityLabel("Search")
+                        }
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Today") {
+                                selectedDate = Date()
+                                viewedDate = Date()
+                                Task { await loadMonth() }
+                            }
+                        }
+                    }
+                    .overlay(alignment: .bottom) {
+                        HStack(spacing: 20) {
+                            VoiceButton(onRefresh: { refresh in
+                                if refresh == "events" || refresh == "both" {
+                                    Task { await loadMonth() }
+                                }
+                            })
+
+                            Button {
+                                showCreateSheet = true
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 24, weight: .bold))
+                                    .foregroundColor(Color.onColor(hex: settings.accentColorHex))
+                                    .frame(width: 60, height: 60)
+                                    .background(settings.accentColor)
+                                    .clipShape(Circle())
+                                    .shadow(radius: 4)
+                            }
+                        }
+                        .padding(.bottom, 24)
+                    }
+                }
+    }
+
+    // MARK: - The tab shell
+
+    /// Every visible tab is BUILT ONCE and shown by opacity — the same
+    /// eager-construction model `TabView` used before this replaced it. A tab
+    /// therefore keeps its scroll position, its editing state and its
+    /// in-flight requests when you switch away and back. Rebuilding on
+    /// selection instead would be less code and would quietly reset every tab
+    /// each time it was revealed, which is the kind of regression nobody
+    /// reports as a bug — it just feels wrong.
+    @ViewBuilder
+    private var tabContent: some View {
+        ZStack {
+            tabLayer(0) { calendarContent }
+            tabLayer(1) { TasksView() }
+            if settings.showCourseworkTab { tabLayer(2) { CourseworkView() } }
+            if settings.showWorkoutTab { tabLayer(4) { WorkoutView() } }
+            if settings.showTimerTab { tabLayer(5) { TimerView() } }
+            if settings.showTeachTab { tabLayer(6) { LabelGameView() } }
+            // Off by default: Jude is a separate repository that has to be
+            // cloned on the Mac, and a tab that can only say "not installed"
+            // is not a feature. assistant/jude/ARCHITECTURE.md.
+            if settings.showJudeTab { tabLayer(7) { JudeView() } }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// One layer of that stack.
+    ///
+    /// Opacity ALONE is not enough: a fully transparent view still takes
+    /// taps and is still read out by VoiceOver, so the hidden tabs would
+    /// swallow touches meant for the visible one and the screen would
+    /// announce six tabs' worth of content at once.
+    @ViewBuilder
+    private func tabLayer<Content: View>(
+        _ tag: Int, @ViewBuilder _ content: () -> Content) -> some View {
+        let active = selectedTab == tag
+        content()
+            .opacity(active ? 1 : 0)
+            .allowsHitTesting(active)
+            .accessibilityHidden(!active)
+    }
+
 
     // MARK: - Helpers
 

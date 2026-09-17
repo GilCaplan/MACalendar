@@ -299,8 +299,16 @@ def test_the_artifact_does_not_claim_an_embedding_model(prose):
 
 def test_the_endpoint_and_action_counts_on_the_summary_page(all_prose):
     """The architecture page opens with a stat block. Each number is checkable."""
-    server = (ROOT / "assistant" / "api" / "server.py").read_text()
-    endpoints = len(re.findall(r"@app\.(?:get|post|patch|delete|put)\(", server))
+    # Counted across server.py AND every integration blueprint. Integrations
+    # (assistant/integrations/CONVENTION.md) register their routes on a
+    # Blueprint in their own folder rather than on `app` here, so a grep for
+    # `@app.` alone silently UNDERCOUNTS — it read 121 for an API serving 127
+    # the day Jude's routes moved out, and the gap grows with each new one.
+    sources = [(ROOT / "assistant" / "api" / "server.py").read_text()]
+    sources += [p.read_text() for p in ROOT.glob("assistant/*/routes.py")]
+    endpoints = sum(
+        len(re.findall(r"@(?:app|blueprint)\.(?:get|post|patch|delete|put)\(", src))
+        for src in sources)
     actions = len(_loaded_registry())
     for name, text in all_prose.items():
         if "Endpoints" not in text:

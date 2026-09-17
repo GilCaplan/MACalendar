@@ -316,7 +316,7 @@ class JudeConfig(BaseModel):
     its own corpus and a ~3 GB vector index; copying it in here would make this
     repo unclonable and would fork a project that is still being worked on. So
     `path` points at a checkout beside this one, and anyone else clones that
-    repo themselves — see DOCUMENTATION/JUDE.md.
+    repo themselves — see assistant/jude/ARCHITECTURE.md.
 
     Not found, or `enabled: false`, means every Jude surface says so politely
     and nothing else changes.
@@ -334,11 +334,21 @@ class JudeConfig(BaseModel):
     model: str = ""
     # Jude ships a cloud fallback cascade (Gemini → LLMod → Ollama). This
     # project does not touch the internet — tests/unit/test_offline.py fails
-    # the build if that stops being true — so the bridge pins every role to
-    # local Ollama. Setting this true hands Jude back its own .env and its
-    # cloud providers; it is then YOUR call, and the traffic is Jude's, not
-    # the assistant's.
+    # the build if that stops being true — so every role is pinned to local
+    # Ollama. Setting this true hands Jude back its own .env and its cloud
+    # providers; it is then YOUR call, and the traffic is Jude's, not the
+    # assistant's. The ollama gate stays in place either way.
     allow_cloud: bool = False
+    # Where the arbitrating ollama proxy listens. Jude is pointed at THIS
+    # rather than at ollama, so every call it makes passes through
+    # model_protocol.hold() like every call this project makes — see
+    # assistant/integrations/ollama_gate.py. It must not be ollama's own port.
+    gate_port: int = 11435
+    # "background" (default) or "live". Background makes Jude YIELD the model
+    # to voice commands between calls; live makes it race them, which is the
+    # contention the gate exists to remove. See ollama_gate.py for why the
+    # asymmetry means "live" is almost never what you want here.
+    priority: str = "background"
 
 
 class AppConfig(BaseModel):

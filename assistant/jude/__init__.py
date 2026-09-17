@@ -1,35 +1,16 @@
 """Jude — the Judaic study assistant, wired in without being swallowed.
 
-Jude lives in its own repository (github.com/GilCaplan/JudeTheJudaicChatBot):
-a five-stage RAG pipeline over ~289,000 Sefaria passages, with its own corpus
-and a multi-gigabyte ChromaDB index. It is not vendored here and should not be
-— copying it in would make this repository unclonable, and would fork a
-project that is still being worked on separately. What lives here is the
-bridge: where the checkout is, how its server is started, and the two rules
-that make it part of *this* system rather than a second system running beside
-it.
+Everything about Jude lives in this folder: how its checkout is found and
+started (`integration.py`), the HTTP surface the clients use (`routes.py`),
+the Mac app (`app.py`, `ui/`) and the map of all of it (`ARCHITECTURE.md`).
+The generic machinery it stands on — spawn-and-wait, the status shape, the
+ollama gate — is `assistant/integrations/`, and Jude is its first consumer.
 
-**Rule one: it speaks this project's LLM protocol.** Jude ships a cloud
-fallback cascade (Gemini → LLMod → Ollama). This project does not touch the
-internet — `tests/unit/test_offline.py` blocks every non-loopback socket and
-fails the build if that stops being true — so `bridge.environment()` pins every
-one of Jude's roles to local Ollama, on the model the assistant has already
-loaded. One model resident, not two, and nothing leaves the machine.
-
-**Rule two: it is reached through this API.** The phone talks to
-`http://<mac>:8080/jude/*` with the same `X-API-Key` over the same tailnet as
-everything else; the server proxies to Jude on localhost. Jude's port is never
-exposed, and the phone learns no second address.
-
-See `DOCUMENTATION/JUDE.md`.
+Jude is its own repository (github.com/GilCaplan/JudeTheJudaicChatBot), a
+five-stage RAG pipeline over ~289,000 Sefaria passages with a ~2 GB vector
+index. It is NOT vendored here, it is NOT edited by us, and nothing in this
+project requires it: without a checkout `jude.enabled` stays false, the Mac
+app says so, and the iOS tab is off.
 """
 
-from assistant.jude.bridge import (  # noqa: F401
-    JudeUnavailable,
-    checkout_path,
-    ensure_running,
-    environment,
-    is_listening,
-    status,
-    stop,
-)
+from assistant.jude.integration import JudeIntegration  # noqa: F401

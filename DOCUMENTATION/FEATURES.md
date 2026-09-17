@@ -46,7 +46,7 @@ purely backend (no client code beyond displaying the effects).
 | hybrid | [Timer](#timer-work-tracking) | per-project work + earnings | db `timers*`, `TimerView` |
 | hybrid | [Counters](#counters) | tap counters + payouts | db `counters*` |
 | hybrid | [Coursework](#coursework) | courses + assignments tab | db `courses*`, `CourseworkView` |
-| hybrid | [Jude](#jude--the-judaic-study-assistant) | Torah/Talmud/halacha study assistant — a separate repo, wired in | `assistant/jude/`, `jude_app.py`, `JudeView.swift` |
+| hybrid | [Jude](#jude--the-judaic-study-assistant) | Torah/Talmud/halacha study assistant — a separate repo, hosted as an integration | `assistant/jude/`, `assistant/integrations/`, `MACalendar-iOS/.../Jude/` |
 | hybrid | [iOS app & offline](#ios-app--offline-queues) | full client, 3 offline queues, Tailscale | `MACalendar-iOS/` |
 | hybrid | [Health CLI & heartbeats](#heartbeats--the-health-cli) | `assistant doctor`, 6 layers | `cli.py`, `heartbeat.py` |
 | backend | [The engine](#the-engine-engine-v3--the-brain) | the AI brain: a fast track and a six-box deep chain | `assistant/engine/` |
@@ -451,27 +451,49 @@ one), so old servers still work.
 ### Jude — the Judaic study assistant
 **What:** Ask about Torah, Talmud, halacha, midrash and machshava; a cited
 answer streamed from ~289,000 Sefaria passages, every source linking back to
-Sefaria. Three modes (Q&A, Study, Sources-only).
+Sefaria. Three modes (Q&A, Study, Sources-only), halachic topic routing with
+primary/secondary source grouping, a pipeline trace, clarification prompts and
+topic-pivot confirmation.
 **Where:** Jude itself is a **separate repository**
-(github.com/GilCaplan/JudeTheJudaicChatBot) — deliberately not vendored: it
-carries a ~3 GB corpus + index and is worked on separately. Here: the bridge
-`assistant/jude/bridge.py`, the routes `/jude/*` in `api/server.py`, the Mac
-app `assistant/jude_app.py` (📖 in the calendar toolbar; started by
-`Launch Calendar.command`), the iOS tab `Views/JudeView.swift` (Settings ›
-Tabs, off by default), config `jude:` in config.yaml.
-Full brief: `DOCUMENTATION/JUDE.md`.
-**How:** Two rules make it part of this system rather than a second system
-beside it. **Its LLM calls are ours** — Jude's own default is a cloud cascade
-(Gemini → LLMod → Ollama), so the bridge starts it with every role pinned to
-local Ollama on `ollama.model` (one resident model, not two) and the cloud
-keys blanked; nothing reaches the internet unless `jude.allow_cloud` is
-explicitly set. **It is reached through this API** — the phone POSTs to
-`/jude/chat` on 8080 with the usual key, and the server translates Jude's SSE
-into the NDJSON every client already renders for `/voice/stream`, so Jude's
-own port never leaves the machine and no client learns a second protocol.
+(github.com/GilCaplan/JudeTheJudaicChatBot) — deliberately not vendored and
+never edited by us: it carries a ~1.2 GB corpus and a ~2 GB index and is worked
+on separately. Everything on this side lives in `assistant/jude/`: how the
+checkout is found and started (`integration.py`), the `/jude/*` blueprint
+(`routes.py`), the standalone Mac app (`app.py` + `ui/`, 📖 in the calendar
+toolbar, `Jude.app` built by `build_app.sh`), and the map
+(`ARCHITECTURE.md`, which also carries the wire contract both clients build
+against). The iOS tab is `MACalendar-iOS/MACalendar-iOS/Jude/` (Settings, off
+by default). Config: `jude:` in config.yaml.
+**How:** It is the first **integration** — an external app this assistant
+hosts, gates and proxies without absorbing it. The generic half is
+`assistant/integrations/` (`CONVENTION.md` is how to add another).
+
+Three rules make it part of this system rather than a second system beside it.
+**Its model calls go through our gate** — Jude makes five per question plus an
+embedding per retrieval, and synthesis alone is 30-90 seconds, so unarbitrated
+it was a fifth door onto the one ollama this machine has.
+`integrations/ollama_gate.py` takes `model_protocol.hold()` around every
+generating call and Jude is pointed at it with `OLLAMA_HOST`; because Jude also
+hardcodes ollama's address for its ChromaDB embedding function, a
+`sitecustomize` shim on the child's `PYTHONPATH` closes that hole without
+editing Jude. Priority is `background`, so Jude yields the model to voice
+commands rather than racing them. **Nothing reaches the internet** — Jude's own
+default is a cloud cascade (Gemini → LLMod → ollama), so every role is pinned
+to local ollama on `ollama.model` (one resident model, not two) and the cloud
+keys are blanked, unless `jude.allow_cloud` is explicitly set. **It is reached
+through this API** — both clients POST to `/jude/chat` on 8080 with the usual
+key, and the server translates Jude's SSE into the NDJSON every client already
+renders for `/voice/stream`, so Jude's own port never leaves the machine and no
+client learns a second protocol.
+
 Missing checkout, switched off, or not started yet are all normal states that
-produce a sentence naming what to do. The brain is untouched: these routes are
-plumbing, and Jude cannot be asked to create an event.
+produce a sentence naming what to do — `GET /jude/status` never errors. The
+brain is untouched: these routes are plumbing, and Jude cannot be asked to
+create an event.
+
+**Prerequisite:** Jude's retriever hardcodes `nomic-embed-text`, so that model
+must be pulled (`ollama pull nomic-embed-text`) even though every generating
+role is pinned to `ollama.model`.
 
 ### Coursework
 **What:** Courses + assignments tracking (the university tab).

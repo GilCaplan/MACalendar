@@ -38,6 +38,12 @@
 		AA000010000000000000001A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000010000000000000001B /* Assets.xcassets */; };
 		AA0000010000000000000F1A /* TagClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000F1B /* TagClassifier.swift */; };
 		AA0000020000000000000F1A /* JudeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000020000000000000F1B /* JudeView.swift */; };
+		AA00000030000000000000F1A /* JudeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000030000000000000F1B /* JudeModels.swift */; };
+		AA00000040000000000000F1A /* JudeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000040000000000000F1B /* JudeClient.swift */; };
+		AA00000050000000000000F1A /* JudeSourceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000050000000000000F1B /* JudeSourceCard.swift */; };
+		AA00000060000000000000F1A /* JudeTracePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000060000000000000F1B /* JudeTracePanel.swift */; };
+		AA00000070000000000000F1A /* JudeComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000070000000000000F1B /* JudeComposer.swift */; };
+		AA00000080000000000000F1A /* JudeChatList.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000080000000000000F1B /* JudeChatList.swift */; };
 		AA000013000000000000001A /* LocalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000013000000000000001B /* LocalStore.swift */; };
 		AA000014000000000000001A /* HebrewDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000014000000000000001B /* HebrewDate.swift */; };
 		AA000015000000000000001A /* CourseworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000015000000000000001B /* CourseworkView.swift */; };
@@ -99,6 +105,12 @@
 		AA000012000000000000001B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA0000010000000000000F1B /* TagClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagClassifier.swift; sourceTree = "<group>"; };
 		AA0000020000000000000F1B /* JudeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeView.swift; sourceTree = "<group>"; };
+		AA00000030000000000000F1B /* JudeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeModels.swift; sourceTree = "<group>"; };
+		AA00000040000000000000F1B /* JudeClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeClient.swift; sourceTree = "<group>"; };
+		AA00000050000000000000F1B /* JudeSourceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeSourceCard.swift; sourceTree = "<group>"; };
+		AA00000060000000000000F1B /* JudeTracePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeTracePanel.swift; sourceTree = "<group>"; };
+		AA00000070000000000000F1B /* JudeComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeComposer.swift; sourceTree = "<group>"; };
+		AA00000080000000000000F1B /* JudeChatList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeChatList.swift; sourceTree = "<group>"; };
 		AA000013000000000000001B /* LocalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStore.swift; sourceTree = "<group>"; };
 		AA000014000000000000001B /* HebrewDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HebrewDate.swift; sourceTree = "<group>"; };
 		AA000015000000000000001B /* CourseworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseworkView.swift; sourceTree = "<group>"; };
@@ -225,6 +237,7 @@
 				AA000017000000000000001B /* CourseStore.swift */,
 				AA000032000000000000001A /* API */,
 				AA000033000000000000001A /* Views */,
+				AA0000090000000000000F1A /* Jude */,
 				AA000034000000000000001A /* Voice */,
 				AA000035000000000000001A /* Settings */,
 				AA000037000000000000001A /* Workout */,
@@ -244,10 +257,23 @@
 			path = API;
 			sourceTree = "<group>";
 		};
-		AA000033000000000000001A /* Views */ = {
+		AA0000090000000000000F1A /* Jude */ = {
 			isa = PBXGroup;
 			children = (
 				AA0000020000000000000F1B /* JudeView.swift */,
+				AA00000030000000000000F1B /* JudeModels.swift */,
+				AA00000040000000000000F1B /* JudeClient.swift */,
+				AA00000050000000000000F1B /* JudeSourceCard.swift */,
+				AA00000060000000000000F1B /* JudeTracePanel.swift */,
+				AA00000070000000000000F1B /* JudeComposer.swift */,
+				AA00000080000000000000F1B /* JudeChatList.swift */,
+			);
+			path = Jude;
+			sourceTree = "<group>";
+		};
+		AA000033000000000000001A /* Views */ = {
+			isa = PBXGroup;
+			children = (
 				AA000002000000000000001B /* ContentView.swift */,
 				AA000015000000000000001B /* CourseworkView.swift */,
 				AA000006000000000000001B /* DayView.swift */,
@@ -453,6 +479,12 @@
 				AA00000F000000000000001A /* VoiceRecorder.swift in Sources */,
 				AA0000010000000000000F1A /* TagClassifier.swift in Sources */,
 				AA0000020000000000000F1A /* JudeView.swift in Sources */,
+				AA00000030000000000000F1A /* JudeModels.swift in Sources */,
+				AA00000040000000000000F1A /* JudeClient.swift in Sources */,
+				AA00000050000000000000F1A /* JudeSourceCard.swift in Sources */,
+				AA00000060000000000000F1A /* JudeTracePanel.swift in Sources */,
+				AA00000070000000000000F1A /* JudeComposer.swift in Sources */,
+				AA00000080000000000000F1A /* JudeChatList.swift in Sources */,
 				AA000013000000000000001A /* LocalStore.swift in Sources */,
 				AA0000A500000000000000A1 /* ReminderScheduler.swift in Sources */,
 				AA0000C100000000000000C1 /* LiveActivityManager.swift in Sources */,

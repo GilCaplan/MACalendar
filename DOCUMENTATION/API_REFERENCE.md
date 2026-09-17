@@ -1,6 +1,6 @@
 # API reference
 
-Generated from `assistant/api/server.py` by `python -m scripts.gen_api_reference` — do not edit by hand.
+Generated from `assistant/api/server.py` and each integration's `routes.py` by `python -m scripts.gen_api_reference` — do not edit by hand.
 All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app is the only client. Path parameters use Flask syntax (`<int:id>`).
 
 ## /health
@@ -250,16 +250,6 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 |---|---|---|
 | `GET` | `/holidays` |  |
 
-## /jude
-
-| Method | Path | What it does |
-|---|---|---|
-| `POST` | `/jude/chat` | Ask Jude a question; stream the answer back as NDJSON. |
-| `GET` | `/jude/chats` |  |
-| `DELETE` | `/jude/chats/<chat_id>` |  |
-| `GET` | `/jude/chats/<chat_id>/history` |  |
-| `GET` | `/jude/status` | Never an error — a client draws whatever this says. `reason` is the |
-
 ## /calendar_sources
 
 | Method | Path | What it does |
@@ -268,3 +258,14 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `POST` | `/calendar_sources` |  |
 | `DELETE` | `/calendar_sources/<int:source_id>` |  |
 | `PATCH` | `/calendar_sources/<int:source_id>` |  |
+
+## /jude
+
+| Method | Path | What it does |
+|---|---|---|
+| `POST` | `/jude/chat` | Ask Jude a question; stream the answer back as NDJSON. |
+| `GET` | `/jude/chats` | List past conversations, newest first. |
+| `DELETE` | `/jude/chats/<chat_id>` | Forget one conversation. |
+| `GET` | `/jude/chats/<chat_id>/history` | Every message in one conversation. |
+| `PUT` | `/jude/chats/<chat_id>/topic` | Confirm a topic pivot. |
+| `GET` | `/jude/status` | Never an error — a client draws whatever this says. |

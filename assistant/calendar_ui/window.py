@@ -656,7 +656,7 @@ class CalendarWindow(QMainWindow):
         tag_history_btn.clicked.connect(self._on_tag_history)
         layout.addWidget(tag_history_btn, alignment=v_center)
 
-        # Jude — the Judaic study assistant, its own app (DOCUMENTATION/JUDE.md).
+        # Jude — the Judaic study assistant, its own app (assistant/jude/ARCHITECTURE.md).
         # Shown only when it is switched on, because a button that always
         # answers "not installed" is worse than no button.
         if getattr(getattr(self._config, "jude", None), "enabled", False):
@@ -1259,7 +1259,7 @@ class CalendarWindow(QMainWindow):
         repo = _os.path.dirname(_os.path.dirname(
             _os.path.dirname(_os.path.abspath(__file__))))
         try:
-            subprocess.Popen([sys.executable, "-m", "assistant.jude_app"],
+            subprocess.Popen([sys.executable, "-m", "assistant.jude.app"],
                              cwd=repo, start_new_session=True)
             self.show_toast("Opening Jude…")
         except Exception as exc:                      # noqa: BLE001

@@ -111,7 +111,7 @@ HUD_PID=$!
 # Jude itself is a SEPARATE REPOSITORY and is not vendored here; this only
 # starts the window, which talks to Jude through this API on $PORT. If the
 # checkout is missing, the window says so and says where to get it.
-# See DOCUMENTATION/JUDE.md.
+# See assistant/jude/ARCHITECTURE.md.
 JUDE_PID=""
 if python - <<'PYEOF' 2>/dev/null
 import sys
@@ -123,7 +123,7 @@ except ConfigError:
 sys.exit(0 if cfg.jude.enabled else 1)
 PYEOF
 then
-    MACALENDAR_API_PORT=$PORT python -m assistant.jude_app &
+    MACALENDAR_API_PORT=$PORT python -m assistant.jude.app &
     JUDE_PID=$!
     echo "📖 Jude started (PID $JUDE_PID)"
 fi

@@ -158,7 +158,7 @@ action="propose" (251 rows) — a fast commit on them now scores as a violation.
    backwards. Parser fixed; `start_epoch`/`end_epoch` served beside the
    strings.
 6. **Jude** — the Judaic study assistant wired in as a separate repository
-   (`DOCUMENTATION/JUDE.md`): iOS tab (off by default), its own Mac app, LLM
+   (`assistant/jude/ARCHITECTURE.md`): iOS tab (off by default), its own Mac app, LLM
    calls pinned to the assistant's local Ollama, reached only through
    `/jude/*` on 8080.
 

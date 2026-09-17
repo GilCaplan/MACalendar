@@ -96,8 +96,8 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(showTeachTab, forKey: "showTeachTab") }
     }
 
-    /// Jude — the Judaic study assistant (DOCUMENTATION/JUDE.md). Off by
-    /// default because it needs a checkout of a separate repository on the
+    /// Jude — the Judaic study assistant (assistant/jude/ARCHITECTURE.md).
+    /// Off by default because it needs a checkout of a separate repository on the
     /// Mac: a tab that can only say "not installed" is not a feature. The
     /// Settings toggle says as much, and the tab itself reports what the Mac
     /// actually has.
