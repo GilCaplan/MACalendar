@@ -123,6 +123,22 @@ class JudeIntegration(Integration):
             env["LLM_MODEL"] = model
         return env
 
+    def before_request(self) -> None:
+        """Make sure the ollama gate is listening again.
+
+        Idempotent and ~free when it already is. Binding the SAME port is what
+        makes this transparent: Jude keeps the `OLLAMA_HOST` it was started
+        with, so a reloaded API repairs the path without restarting the child
+        or reloading its 2.4 GB index.
+        """
+        cfg = self.config()
+        if not getattr(cfg, "enabled", False):
+            return
+        ollama_gate.start(
+            int(getattr(cfg, "gate_port", 11435) or 11435),
+            self._ollama().base_url.rstrip("/"),
+            (getattr(cfg, "priority", "") or "background").strip().lower())
+
     def readiness_problem(self) -> str:
         """Jude cannot answer without its ChromaDB index.
 

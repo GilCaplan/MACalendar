@@ -125,6 +125,24 @@ class Integration(ABC):
         """
         return None
 
+    def before_request(self) -> None:
+        """Re-establish anything this integration needs, before proxying to it.
+
+        Called on EVERY proxied request, and must be idempotent and cheap.
+
+        It exists because of a lifetime mismatch that took Jude down silently.
+        The ollama gate is a daemon thread inside the API SERVER process, and
+        the API runs with `--reload` — so editing any file under `assistant/`
+        restarts it and takes the gate with it. Jude is a separate process, so
+        it survives that restart still pointed at `OLLAMA_HOST=127.0.0.1:11435`
+        with nothing listening there any more.
+
+        Nothing errored. Retrieval returned zero sources and the router
+        "finished" in 12ms, because every model call failed instantly and every
+        stage fell back to its default. An answer built on no sources is the
+        one failure this system must never produce quietly.
+        """
+
     def readiness_problem(self) -> str:
         """A blocker this integration can name for itself, or "".
 

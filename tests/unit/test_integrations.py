@@ -287,3 +287,65 @@ def test_no_problem_means_the_old_behaviour(tmp_path):
     assert st["ready"] is True
     assert "isn't running yet" in st["reason"]
 
+
+
+# ---------------------------------------------------------------------------
+# before_request — the lifetime mismatch that took Jude down silently
+# ---------------------------------------------------------------------------
+
+def test_before_request_is_called_on_every_proxied_call(monkeypatch):
+    """The ollama gate is a daemon thread in the API SERVER, and the API runs
+    with `--reload`. Editing any file under `assistant/` restarts it and takes
+    the gate with it — but the integration is a SEPARATE process and survives,
+    still pointed at a port nothing is listening on any more.
+
+    Nothing errored when this happened: retrieval returned zero sources and the
+    router "finished" in 12ms, because every model call failed instantly and
+    each stage fell back to its default. An answer built on no sources is the
+    one failure that must never be quiet, so the repair happens on every
+    request rather than only at spawn.
+    """
+    from assistant.integrations import process, proxy
+
+    calls = []
+
+    class _Watched(_Fake):
+        def before_request(self):
+            calls.append(1)
+
+    watched = _Watched(enabled=False)       # refuses at ensure_running
+    app = __import__("flask").Flask(__name__)
+    with app.test_request_context():
+        proxy.call(watched, "/whatever")
+        proxy.stream(watched, "/whatever", {})
+    assert len(calls) == 2, "before_request must run for both call and stream"
+
+
+def test_before_request_runs_before_the_availability_check(monkeypatch):
+    """Order matters: the gate must be back up BEFORE we decide the
+    integration can serve, or the first request after a reload still fails."""
+    from assistant.integrations import proxy
+
+    order = []
+
+    class _Ordered(_Fake):
+        def before_request(self):
+            order.append("gate")
+
+    def fake_ensure(_integration):
+        order.append("ensure")
+        from assistant.integrations.base import IntegrationUnavailable
+        raise IntegrationUnavailable("nope")
+
+    # `proxy` imports `process` inside the function, so patch the module
+    # itself rather than an attribute the proxy does not hold.
+    monkeypatch.setattr(process, "ensure_running", fake_ensure)
+    app = __import__("flask").Flask(__name__)
+    with app.test_request_context():
+        proxy.call(_Ordered(), "/x")
+    assert order == ["gate", "ensure"], order
+
+
+def test_the_default_hook_does_nothing_and_never_raises():
+    """Most integrations need no repair; the hook must cost them nothing."""
+    assert _Fake().before_request() is None

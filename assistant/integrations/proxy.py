@@ -42,6 +42,7 @@ def call(integration, path: str, method: str = "GET", payload: "dict | None" = N
     from assistant.integrations.base import IntegrationUnavailable
 
     try:
+        integration.before_request()
         base = process.ensure_running(integration)
     except IntegrationUnavailable as e:
         return jsonify({"error": str(e), "code": 503}), 503
@@ -72,6 +73,7 @@ def stream(integration, path: str, payload: dict, timeout: int = 900):
     from assistant.integrations.base import IntegrationUnavailable
 
     try:
+        integration.before_request()
         base = process.ensure_running(integration)
     except IntegrationUnavailable as e:
         return jsonify({"error": str(e), "code": 503}), 503
