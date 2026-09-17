@@ -68,6 +68,7 @@ struct CourseworkView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button { showAddCourse = true } label: { Image(systemName: "plus") }
+                        .accessibilityIdentifier("coursework-add-course")
                 }
             }
         }
@@ -313,6 +314,9 @@ private struct CourseHeaderView: View {
                     .foregroundColor(.secondary)
                     .padding(.vertical, 2)
             }
+            // Keyed by NAME so a UI test can open one particular course's menu:
+            // the id changes under it the moment an offline create syncs.
+            .accessibilityIdentifier("course-menu-\(course.name)")
         }
         .textCase(nil)
         .padding(.vertical, 4)
@@ -494,6 +498,7 @@ struct CourseEditSheet: View {
                     TextField("Course Number (e.g. 00960336)", text: $number)
                         .keyboardType(.numbersAndPunctuation)
                     TextField("Course Name", text: $name)
+                        .accessibilityIdentifier("course-name-field")
                 }
 
                 Section("Color") {
@@ -540,6 +545,7 @@ struct CourseEditSheet: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save", action: save)
+                        .accessibilityIdentifier("course-save")
                         .fontWeight(.semibold)
                         .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }

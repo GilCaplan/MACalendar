@@ -1443,8 +1443,17 @@ class APIClient: ObservableObject {
 
     // MARK: - Timers & counters
 
+    /// Cached like every other read. This was the ONLY read in the app with no
+    /// fallback, so the Timer tab was simply empty away from the Mac.
     func timers(archived: Bool = false) async throws -> [WorkTimer] {
-        try decode(TimersResponse.self, from: try await request("/timers" + (archived ? "?archived=1" : ""))).timers
+        do {
+            let items = try decode(TimersResponse.self,
+                                   from: try await request("/timers" + (archived ? "?archived=1" : ""))).timers
+            LocalStore.shared.cacheTimers(items)
+            return items
+        } catch APIError.offline, APIError.badURL {
+            return LocalStore.shared.allTimers(includeArchived: archived)
+        }
     }
     /// True when the timer exists or WILL exist: a create the Mac never saw is
     /// queued, and the sheet closing is how the user is told it stuck. False
@@ -1499,7 +1508,14 @@ class APIClient: ObservableObject {
     }
 
     func counters(archived: Bool = false) async throws -> [TallyCounter] {
-        try decode(CountersResponse.self, from: try await request("/counters" + (archived ? "?archived=1" : ""))).counters
+        do {
+            let items = try decode(CountersResponse.self,
+                                   from: try await request("/counters" + (archived ? "?archived=1" : ""))).counters
+            LocalStore.shared.cacheCounters(items)
+            return items
+        } catch APIError.offline, APIError.badURL {
+            return LocalStore.shared.allCounters(includeArchived: archived)
+        }
     }
     @discardableResult
     func createCounter(_ body: [String: Any]) async -> Bool {
@@ -1514,6 +1530,12 @@ class APIClient: ObservableObject {
     /// bucketed by that timestamp, so a press made before midnight and replayed
     /// after would otherwise be counted on the wrong day.
     func pressCounter(_ id: Int, delta: Int) async {
+        // Optimistic FIRST, so ＋ moves the number at the moment of the tap
+        // rather than a round trip later — and at all when the Mac is away.
+        // Reported as "＋ does nothing offline": the press was being queued
+        // correctly the whole time, but the tab had no cached count to apply
+        // it to, so nothing moved and the button looked dead.
+        LocalStore.shared.bumpCounter(id, delta: delta)
         await mutateOrTell("/counters/\(id)/press", method: "POST",
                            body: ["delta": delta, "pressed_at": Self.stamp()])
     }
@@ -1664,9 +1686,21 @@ class APIClient: ObservableObject {
     // `try?`. Delete a course offline and it came back on the next sync; add an
     // assignment offline and it was gone by it.
 
+    /// Cached and falling back HERE, like every other read.
+    ///
+    /// Coursework used to cache in its VIEW instead — `CourseworkView.load()`
+    /// called `try? api.courses()` and wrote the result to `CourseStore`. It
+    /// worked, but it meant you could not tell whether a surface had an
+    /// offline answer without opening its view file, and it is the same split
+    /// thinking that let the offline WRITES go missing. One place decides.
     func courses() async throws -> [Course] {
-        let data = try await request("/courses")
-        return try decode([Course].self, from: data)
+        do {
+            let items = try decode([Course].self, from: try await request("/courses"))
+            CourseStore.shared.cacheCourses(items)
+            return items
+        } catch APIError.offline, APIError.badURL {
+            return CourseStore.shared.courses
+        }
     }
 
     /// The local row is minted FIRST, so the course is on screen this frame
@@ -1724,8 +1758,13 @@ class APIClient: ObservableObject {
     // MARK: - Assignments
 
     func allAssignments() async throws -> [Assignment] {
-        let data = try await request("/assignments")
-        return try decode([Assignment].self, from: data)
+        do {
+            let items = try decode([Assignment].self, from: try await request("/assignments"))
+            CourseStore.shared.cacheAllAssignments(items)
+            return items
+        } catch APIError.offline, APIError.badURL {
+            return CourseStore.shared.assignments
+        }
     }
 
     /// Same shape as `createCourse`, and for the same reason — with one extra:

@@ -138,6 +138,8 @@ class LocalStore: ObservableObject {
         todos    = (try? d.decode([Todo].self,          from: Data(contentsOf: url("mc_todos.json"))))    ?? []
         tags     = (try? d.decode([TodoTag].self,       from: Data(contentsOf: url("mc_tags.json"))))     ?? []
         holidays = (try? d.decode([Holiday].self,       from: Data(contentsOf: url("mc_holidays.json")))) ?? []
+        timers   = (try? d.decode([WorkTimer].self,     from: Data(contentsOf: url("mc_timers.json"))))   ?? []
+        counters = (try? d.decode([TallyCounter].self,  from: Data(contentsOf: url("mc_counters.json")))) ?? []
         pending  = (try? d.decode([PendingChange].self, from: Data(contentsOf: url("mc_pending.json"))))  ?? []
         pendingCount = pending.count
         // Prevent temp-ID collisions after a restart: start below the lowest existing negative ID.
@@ -152,8 +154,58 @@ class LocalStore: ObservableObject {
         try? e.encode(todos).write(to:    url("mc_todos.json"))
         try? e.encode(tags).write(to:     url("mc_tags.json"))
         try? e.encode(holidays).write(to: url("mc_holidays.json"))
+        try? e.encode(timers).write(to:   url("mc_timers.json"))
+        try? e.encode(counters).write(to: url("mc_counters.json"))
         try? e.encode(pending).write(to:  url("mc_pending.json"))
         pendingCount = pending.count
+    }
+
+    // MARK: - Timers and counters, offline
+
+    /// The Timer tab was the ONLY surface with no cache at all.
+    ///
+    /// `APIClient.timers()`/`counters()` were the only reads in the app that
+    /// did not fall back to this store, so away from the Mac the tab had
+    /// nothing to draw — and tapping ＋ queued the press correctly while the
+    /// screen showed no count to increment, which reads as "the button is
+    /// broken". Queueing the write was never enough on its own: a surface with
+    /// no local state has nothing to apply it to.
+    @Published var timers: [WorkTimer] = []
+    @Published var counters: [TallyCounter] = []
+
+    func cacheTimers(_ fresh: [WorkTimer]) {
+        timers = fresh
+        persist()
+    }
+
+    func cacheCounters(_ fresh: [TallyCounter]) {
+        counters = fresh
+        persist()
+    }
+
+    func allTimers(includeArchived: Bool = false) -> [WorkTimer] {
+        includeArchived ? timers : timers.filter { $0.archived == 0 }
+    }
+
+    func allCounters(includeArchived: Bool = false) -> [TallyCounter] {
+        includeArchived ? counters : counters.filter { $0.archived == 0 }
+    }
+
+    /// Apply a press to the cached counter, so ＋ moves the number immediately
+    /// whether or not the Mac is there.
+    ///
+    /// This is a PREVIEW, not a second source of truth: the queued press
+    /// carries its own `pressed_at`, and when it replays the Mac recomputes
+    /// every total from the presses it holds. Its answer is the one that
+    /// lands. `payout` is derived here the same way the Mac derives it
+    /// (`count × price_per_unit`) so the two agree while offline.
+    func bumpCounter(_ id: Int, delta: Int) {
+        guard let i = counters.firstIndex(where: { $0.id == id }) else { return }
+        counters[i].count += delta
+        counters[i].totalCount += delta
+        counters[i].todayCount += delta
+        counters[i].payout = (Double(counters[i].count) * counters[i].pricePerUnit * 100).rounded() / 100
+        persist()
     }
 
     // MARK: - Holidays (the Hebrew calendar, offline)

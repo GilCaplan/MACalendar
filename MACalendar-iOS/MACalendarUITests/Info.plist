@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Where the Mac is, for the test that has to point the app back at it.
+	     Filled from MACALENDAR_SERVER_URL in Base.xcconfig / the gitignored
+	     Local.xcconfig — the same route the app's own Info.plist uses, so no
+	     address that names one laptop is written into the repository.
+	     GENERATE_INFOPLIST_FILE is still YES: Xcode adds the generated keys
+	     (CFBundle*, XCTContainsUITests) on top of this file. A custom key
+	     cannot go through INFOPLIST_KEY_* — that mechanism only knows Apple's
+	     own keys, and silently drops anything else. -->
+	<key>MACalendarServerURL</key>
+	<string>$(MACALENDAR_SERVER_URL)</string>
+</dict>
+</plist>

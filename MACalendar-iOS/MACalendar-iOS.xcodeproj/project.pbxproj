@@ -71,6 +71,7 @@
 		AA0000CB00000000000000C1 /* TagHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000BC00000000000000C1 /* TagHistoryView.swift */; };
 		AA0000FA000000000000F002 /* FeatureRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000FA000000000000F001 /* FeatureRegistry.swift */; };
 		AA0000FB000000000000F002 /* CalendarTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000FB000000000000F001 /* CalendarTabView.swift */; };
+		AB000003000000000000001A /* OfflineSyncUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000002000000000000001B /* OfflineSyncUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -142,7 +143,10 @@
 		AA0000FA000000000000F001 /* FeatureRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureRegistry.swift; sourceTree = "<group>"; };
 		AA0000FB000000000000F001 /* CalendarTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTabView.swift; sourceTree = "<group>"; };
 		AA0000A000000000000000C1 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
-		/* End PBXFileReference section */
+				AB000002000000000000001B /* OfflineSyncUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineSyncUITests.swift; sourceTree = "<group>"; };
+		AB00000E000000000000001B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AB000004000000000000001B /* MACalendarUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MACalendarUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
 		AA0000F500000000000000C1 /* PBXContainerItemProxy */ = {
@@ -151,6 +155,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = AA0000F000000000000000C1;
 			remoteInfo = MACalendarWidgets;
+		};
+		AB00000D000000000000001A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA000050000000000000001A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA000040000000000000001A;
+			remoteInfo = "MACalendar-iOS";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -185,6 +196,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AB000006000000000000001A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -193,6 +211,7 @@
 			children = (
 				AA000011000000000000001B /* MACalendar-iOS.app */,
 				AA0000B500000000000000C1 /* MACalendarWidgets.appex */,
+				AB000004000000000000001B /* MACalendarUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -393,9 +412,19 @@
 				AA0000A000000000000000C1 /* Base.xcconfig */,
 				AA000031000000000000001A /* MACalendar-iOS */,
 				AA0000D000000000000000C1 /* MACalendarWidgets */,
+				AB000001000000000000001A /* MACalendarUITests */,
 				AA000030000000000000001A /* Products */,
 				AA0000D100000000000000C1 /* Frameworks */,
 			);
+			sourceTree = "<group>";
+		};
+		AB000001000000000000001A /* MACalendarUITests */ = {
+			isa = PBXGroup;
+			children = (
+				AB000002000000000000001B /* OfflineSyncUITests.swift */,
+				AB00000E000000000000001B /* Info.plist */,
+			);
+			path = MACalendarUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -437,6 +466,24 @@
 			productReference = AA0000B500000000000000C1 /* MACalendarWidgets.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		AB000008000000000000001A /* MACalendarUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB000009000000000000001A /* Build configuration list for PBXNativeTarget "MACalendarUITests" */;
+			buildPhases = (
+				AB000005000000000000001A /* Sources */,
+				AB000006000000000000001A /* Frameworks */,
+				AB000007000000000000001A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AB00000C000000000000001A /* PBXTargetDependency */,
+			);
+			name = MACalendarUITests;
+			productName = MACalendarUITests;
+			productReference = AB000004000000000000001B /* MACalendarUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -452,6 +499,10 @@
 					};
 					AA0000F000000000000000C1 = {
 						CreatedOnToolsVersion = 15.0;
+					};
+					AB000008000000000000001A = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = AA000040000000000000001A;
 					};
 				};
 			};
@@ -470,6 +521,7 @@
 			targets = (
 				AA000040000000000000001A /* MACalendar-iOS */,
 				AA0000F000000000000000C1 /* MACalendarWidgets */,
+				AB000008000000000000001A /* MACalendarUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -484,6 +536,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AA0000E200000000000000C1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB000007000000000000001A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -567,6 +626,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AB000005000000000000001A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AB000003000000000000001A /* OfflineSyncUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -574,6 +641,11 @@
 			isa = PBXTargetDependency;
 			target = AA0000F000000000000000C1 /* MACalendarWidgets */;
 			targetProxy = AA0000F500000000000000C1 /* PBXContainerItemProxy */;
+		};
+		AB00000C000000000000001A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA000040000000000000001A /* MACalendar-iOS */;
+			targetProxy = AB00000D000000000000001A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -795,6 +867,46 @@
 			};
 			name = Release;
 		};
+		AB00000A000000000000001A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = AA0000A000000000000000C1 /* Base.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HPMNWWG455;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MACalendarUITests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.macalendar.app.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "MACalendar-iOS";
+			};
+			name = Debug;
+		};
+		AB00000B000000000000001A /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = AA0000A000000000000000C1 /* Base.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HPMNWWG455;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MACalendarUITests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.macalendar.app.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "MACalendar-iOS";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -821,6 +933,15 @@
 			buildConfigurations = (
 				AA0000F200000000000000C1 /* Debug */,
 				AA0000F300000000000000C1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AB000009000000000000001A /* Build configuration list for PBXNativeTarget "MACalendarUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB00000A000000000000001A /* Debug */,
+				AB00000B000000000000001A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

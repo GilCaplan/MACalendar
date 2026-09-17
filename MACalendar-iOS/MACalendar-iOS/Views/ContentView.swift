@@ -96,6 +96,7 @@ struct ContentView: View {
                     tabBarLabel(label: "Settings", icon: "gear", selected: false)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("tab-settings")
                 .frame(width: Self.minTabWidth)
             }
         }
@@ -114,6 +115,7 @@ struct ContentView: View {
                         selected: selectedFeature == feature.name)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("tab-\(feature.name)")
         .accessibilityAddTraits(selectedFeature == feature.name ? .isSelected : [])
     }
 
@@ -142,6 +144,7 @@ struct ContentView: View {
                     Text(store.pendingCount > 0
                          ? "Offline — \(store.pendingCount) change\(store.pendingCount == 1 ? "" : "s") pending sync"
                          : "Offline — changes saved locally")
+                        .accessibilityIdentifier("offline-banner")
                     Spacer()
                 }
                 .font(.caption.weight(.medium))

@@ -162,3 +162,51 @@ def test_the_token_is_minted_once_per_create(client_src):
         assert "client_token" in head, (
             f"{func} mints its token after the request begins — the queued "
             f"copy would carry a different one")
+
+
+# ---------------------------------------------------------------------------
+# Reads need a cache, or a queued write has nothing to show for itself
+# ---------------------------------------------------------------------------
+
+#: Reads that legitimately have no offline answer: they ask the Mac to think,
+#: or to report something only it knows.
+NO_CACHE_NEEDED = {
+    "health", "changes", "features",        # liveness and server-side state
+    "judeStatus", "judeChats", "judeHistory", "judeAsk",   # Jude needs the Mac
+    "vocabOnboarding", "vocabPreview", "tagSuggestion",    # computed on demand
+    "unreviewedCount", "unreviewed", "memoryDetail",
+    "digest", "observance", "holidays", "timerSessions", "counterPresses",
+    "labelNext", "workoutStats", "searchAll", "devices",
+}
+
+READING = re.compile(r'request\(\s*"([^"]*)"(?![^)]*method:\s*"(?:POST|PATCH|PUT|DELETE)")')
+
+
+def test_every_cached_surface_reads_from_the_cache_when_offline(client_src):
+    """A queued write is only half of working offline.
+
+    `timers()` and `counters()` were the only reads in the app with no
+    fallback, so away from the Mac the Timer tab drew nothing and `load()` set
+    "Couldn't reach the Mac". Tapping ＋ then queued the press correctly while
+    the screen showed no count to increment — which reads as a broken button,
+    and is what it was reported as.
+    """
+    for func in ("timers", "counters", "todos", "courses", "allAssignments"):
+        body = next((b for n, b in _methods(client_src) if n == func), None)
+        if body is None:
+            continue
+        cached = "LocalStore" in body or "CourseStore" in body
+        assert "APIError.offline" in body and cached, (
+            f"{func} has no offline fallback — its surface is empty away from "
+            f"the Mac, and any optimistic write has nothing to apply to")
+
+
+def test_a_counter_press_updates_the_cache_before_it_goes_out(client_src):
+    """Optimistic FIRST, network second — otherwise ＋ does nothing until a
+    round trip completes, and nothing at all when there is no round trip."""
+    body = next(b for n, b in _methods(client_src) if n == "pressCounter")
+    bump = body.index("bumpCounter")
+    send = body.index("mutateOrTell")
+    assert bump < send, (
+        "pressCounter contacts the Mac before updating the local count — "
+        "offline the tap would appear to do nothing")

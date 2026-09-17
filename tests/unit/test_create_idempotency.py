@@ -102,3 +102,61 @@ def test_the_lookup_refuses_a_table_it_was_not_given(tmp_path, monkeypatch):
     db = CalendarDB()
     assert db.row_by_client_token("sqlite_master", "x") is None
     assert db.set_client_token("sqlite_master", 1, "x") is False
+
+
+# ---------------------------------------------------------------------------
+# The sequence, not just the calls — this is the reported bug's server half
+# ---------------------------------------------------------------------------
+
+def test_the_queue_replayed_in_order_leaves_the_right_state(client):
+    """Play back exactly what `syncPending` emits after a spell offline.
+
+    The phone queues a create, then an edit, then a delete against the row it
+    created — all while the Mac is away, all against a NEGATIVE placeholder id
+    it minted itself. On reconnect it replays them in order, rewriting the
+    placeholder to the real id as soon as the create answers.
+
+    This asserts the end state the user should see, which is the thing the
+    reported bug got wrong: the course they deleted stayed deleted.
+    """
+    token = _token()
+    created = client.post("/courses", json={"name": "Offline Course",
+                                            "client_token": token,
+                                            "_temp_id": -1000001})
+    assert created.status_code == 201
+    real_id = created.get_json()["id"]
+
+    # The client rewrote `-1000001` to `real_id` in every queued path before
+    # replaying these two (LocalStore.remapTemporaryID).
+    assert client.patch(f"/courses/{real_id}",
+                        json={"name": "Renamed Offline"}).status_code == 200
+    assert client.delete(f"/courses/{real_id}").status_code == 200
+
+    names = [c["name"] for c in client.get("/courses").get_json()]
+    assert "Offline Course" not in names
+    assert "Renamed Offline" not in names, (
+        "the course deleted offline came back — the exact reported bug")
+
+
+def test_a_replayed_create_does_not_resurrect_a_deleted_row(client):
+    """The nastiest ordering: create offline, delete offline, and the create's
+    reply was lost so it is replayed.
+
+    The token must NOT resurrect it — `row_by_client_token` looks the row up,
+    finds it gone, and the create runs again as a NEW row. That is the honest
+    outcome: the user asked for a course and then asked to remove it, and the
+    queue is replayed in order, so the delete that follows removes it again.
+    """
+    token = _token()
+    first = client.post("/courses", json={"name": "Ghost", "client_token": token})
+    rid = first.get_json()["id"]
+    client.delete(f"/courses/{rid}")
+
+    replay = client.post("/courses", json={"name": "Ghost", "client_token": token})
+    assert replay.status_code == 201, (
+        "a token whose row is gone must create afresh, not return a dead id")
+    new_id = replay.get_json()["id"]
+    assert new_id != rid
+    # ...and the delete queued behind it removes that one too.
+    client.delete(f"/courses/{new_id}")
+    assert "Ghost" not in [c["name"] for c in client.get("/courses").get_json()]

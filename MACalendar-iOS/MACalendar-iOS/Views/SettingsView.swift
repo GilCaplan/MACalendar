@@ -300,6 +300,7 @@ struct SettingsView: View {
                                         }
                                     }
                                 }
+                                .accessibilityIdentifier("feature-toggle-\(feature.name)")
                             }
                             // The Mac refusing a change is not the same as the
                             // Mac being away: a switch that springs back with no
