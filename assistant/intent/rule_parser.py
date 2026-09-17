@@ -783,6 +783,49 @@ def _pick_business_hour_time(values: list[dict], said: str = "") -> str | None:
     return min(parsed, key=lambda x: abs(x[0] - 10))[1]  # closest to 10 AM
 
 
+#: Nouns that make "the Nth" an ordinal POSITION rather than a date — "remove
+#: the 2nd row from the list". Both this and the "of every" exclusion below come
+#: from the verification pool, not from imagination: real speech uses the same
+#: three words for a place in a list and for a day of the month.
+_ORD_NOT_A_DATE = (r"row|item|one|line|column|entry|element|paragraph|page|cell|"
+                   r"slot|place|position|step|section|chapter|floor|time|"
+                   r"anniversary|birthday")
+
+#: A BARE ordinal day — "the 30th", "call Jordan the 3rd". The DateTime
+#: recogniser resolves "ON the 15th" and returns NOTHING AT ALL for the bare
+#: form, so the date was silently dropped: the task was created with no due
+#: date, on the Today list, at a confidence high enough to commit instantly
+#: (filed 2026-09-17). Excluded: an ordinal position, and "the 15th of every
+#: month", which is a RECURRENCE — resolving that to one day would book a
+#: single event and lose the series.
+_BARE_ORDINAL_DATE = re.compile(
+    r"\bthe\s+(\d{1,2})(?:st|nd|rd|th)\b"
+    r"(?!\s+of\s+(?:every|each))"
+    r"(?!\s+(?:" + _ORD_NOT_A_DATE + r")\b)",
+    re.IGNORECASE,
+)
+
+
+def _ordinal_to_date(day: int, today: datetime.date) -> "str | None":
+    """A bare "the Nth" means THIS month if that day has not yet passed, else
+    NEXT month — the same convention the recogniser applies to "on the 15th",
+    so the two phrasings cannot disagree. None for a day that is not a day, and
+    for "the 31st" of a 30-day month: nothing beats a wrong date.
+    """
+    if not 1 <= day <= 31:
+        return None
+    if day >= today.day:
+        try:
+            return today.replace(day=day).isoformat()
+        except ValueError:
+            return None
+    nxt = (today.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
+    try:
+        return nxt.replace(day=day).isoformat()
+    except ValueError:
+        return None
+
+
 def _extract_temporal(span_text: str, today: datetime.date) -> dict:
     """Extract date/time information from a span of text.
 
@@ -907,6 +950,16 @@ def _extract_temporal(span_text: str, today: datetime.date) -> dict:
             result["date"] = today.isoformat()
         elif re.search(r"\btomorrow\b", lower):
             result["date"] = (today + datetime.timedelta(days=1)).isoformat()
+        else:
+            m_ord = _BARE_ORDINAL_DATE.search(span_text)
+            if m_ord:
+                resolved = _ordinal_to_date(int(m_ord.group(1)), today)
+                if resolved:
+                    result["date"] = resolved
+                    # Block the span, or the date words land in the TITLE —
+                    # the recogniser supplies these for every date it reads and
+                    # this fallback has to do it itself.
+                    result["spans"].append((m_ord.start(), m_ord.end()))
 
     # Regex fallback: "noon" → 12:00, "midnight" → 00:00, "now" → the clock.
     #

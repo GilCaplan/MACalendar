@@ -706,3 +706,96 @@ already had three batches and is into diminishing, mine-first territory.
 So the honest recommendation is **yes, move to LLMJudge**, with the title batch
 left registered rather than abandoned: it is a real 62.9%, it is this stage's
 own, and it should be picked up again once LLMJudge's phase reaches a boundary.
+
+---
+
+## Cycle 20 — the BARE ordinal date (2026-09-17)
+
+**Hypothesis registered before the change:** `_extract_temporal` has no
+fallback for a bare `"the Nth"`, so `create_todo`/`create_event` rows carrying
+one reach FastRule with no date, fall under `RULE_THRESHOLD` on a missing
+slot, and defer. Predicted: **handle-rate up ~3.7 pt at the ceiling, date
+correctness up, invented-time and harm flat.**
+
+### How the slice was sized first (step 0)
+
+The recogniser was asked what it actually returns, rather than a phrase list
+being written by hand. It resolves `"ON the 15th"` and returns **nothing at
+all** for the bare form — so this was never a mis-resolution, it was an absent
+one. On the FastRule 7,200 **train half** (leakage rule: the sealed half was
+not read):
+
+    atomic date-bearing write rows with a bare "the Nth" and NO date   174
+       FastRule handled them anyway                                     57  (32.8%)
+       FastRule DEFERRED                                               117  (67.2%)
+          below-threshold                                              102
+          skip / generic-target / model-compound                        15
+    ceiling if every deferral flipped                             +3.7 pt
+
+439 train rows contain a bare `"the Nth"` and **every one of them has a gold
+`date_phrase`** — so inside this corpus there is no false-positive risk at all.
+The verification pool, which is real English, is where the two counter-shapes
+came from, and both are now excluded by the pattern rather than by luck:
+
+    "Remove the 2nd row from the list"        an ordinal POSITION, not a day
+    "the 15th of every month"                 a RECURRENCE; one day loses the series
+
+### Result — FastRule product-shape board, TRAIN half, 3,200 atomic rows
+
+| metric | before | after | |
+|---|---|---|---|
+| **handled (atomic)** | 68.2% | **70.4%** | **+2.2 pt** |
+| **correct-on-handled** | 94.1% | **94.2%** | +0.1 |
+| resolvable date right | 91.3% (n=543) | **93.0% (n=643)** | +1.7 pt, **n +100** |
+| invented a time | 4.5% (n=287) | 4.2% (n=306) | −0.3 |
+| below-threshold deferrals | 581 | **501** | −80 |
+| harm score | 168 / 129 wrong | 170 / 131 wrong | **+2** |
+| DESTRUCTIVE errors | 16·11·5·1 | **16·11·5·1** | **unchanged** |
+| non-atomic HALF-EXECUTED | 72 (5.1%) | **72 (5.1%)** | **unchanged** |
+| propose defer rate | 52.2% (96 viol) | 51.2% (98 viol) | −1.0 pt |
+
+**What it means.** FastRule now acts on 70.4% of single-item commands instead
+of 68.2% — 80 rows that used to be handed to the ~40 s deep track (measured at
+65.3% correct on the sealed 300, against the fast path's 93.1%) are now
+committed deterministically. **The part that matters more than the headline is
+the date metric's DENOMINATOR**: 100 more rows now carry a date the board can
+score at all, and accuracy over that larger population went UP (91.3% → 93.0%),
+so the newly-committed rows are not being bought with wrong dates.
+
+**Actual vs. expected:** +2.2 pt against a +3.7 pt ceiling. The gap is the 15
+rows deferred for `skip`/`generic-target`/`model-compound` — reasons the date
+was never going to fix — plus rows that cleared the threshold and then failed
+on something else. Predicted direction on every metric; the magnitude came in
+at 59% of ceiling, which is the honest read of a ceiling computed by assuming
+every deferral flips.
+
+**The cost, stated plainly:** 2 more wrong commits and 2 more `propose`
+violations (an interrogative create that should have deferred now clears the
+threshold). Both are in the `create` severity bucket — a spurious row, easily
+removed. **Zero new destructive errors and half-executed unchanged**, which
+were the two guards this change had to clear.
+
+### Next prediction (registered now, per "a cycle ends by starting the next")
+
+**The `daterange` branch — BLOCKED on one ruling, see TASKS.md.**
+`_extract_temporal` handles the timex types `datetime`, `date`, `time` and
+`timerange` and has **no `daterange` branch**, so `"next week"`, `"this
+weekend"`, `"in two weeks"`, `"next month"` and `"by friday"` are dropped the
+same way the bare ordinal was. Measured the same way, train half: **605 rows
+(12.6%) would be newly reached**, of which **263 are one-off atomic writes**
+(ceiling **+6.3 pt** on handle-rate — larger than this cycle's), 50 are
+recurrence boundaries (`until`/`through`, where the date belongs in
+`date_phrase_2` + `end_inclusive`, NOT the item's own date), 86 are recurring,
+70 are queries wanting a span rather than a date, and 171 are non-atomic and
+must keep deferring.
+
+**Why it cannot start yet:** this board's date scorer *deliberately excludes*
+range phrases — `_phrase_to_date` returns None for them, documented as "no
+single right answer". So the instrument cannot see whether a newly-committed
+`"next week"` row got the right date, and committing one requires PICKING that
+answer, which is a product ruling of the same kind as Q14 and until/through.
+Making the fix before the ruling would move handle-rate blind and could buy it
+with wrong dates. Recommended default, consistent with two rulings already in
+the project (a weekly series starts on the soonest weekday the sentence names;
+"until the end of September" is inclusive): **the soonest day in the named
+range** — the recogniser's `start` bound.

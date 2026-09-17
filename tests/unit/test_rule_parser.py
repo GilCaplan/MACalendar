@@ -561,3 +561,89 @@ def test_f9_filler_and_courtesy_never_hide_the_command(parser):
     assert p.analyze("let's do birthday dinner next monday at 7pm"
                      ).intents[0][0] == "create_event"
     assert p.analyze("book piano lesson for tommorow at 8pm").intents
+
+
+# ---------------------------------------------------------------------------
+# A BARE ordinal date — "the 30th" with no preposition
+#
+# Filed 2026-09-17 (TASKS.md): `"renew the passport the 15th"` created the task
+# with NO due date, on the Today list, at confidence 0.95 — committed instantly
+# and indistinguishable from a task given no date at all. `"ON the 15th"` works,
+# because the DateTime recogniser resolves that form and returns NOTHING for the
+# bare one, and `_extract_temporal` had no fallback for it. Measured on the
+# FastRule 7,200 train half: 174 atomic write rows, 117 of them deferred
+# below-threshold for want of the date.
+# ---------------------------------------------------------------------------
+
+class TestBareOrdinalDate:
+    """`the Nth` is a date in the same this-month-or-next sense as `on the Nth`."""
+
+    @staticmethod
+    def _expected(day: int) -> str:
+        today = datetime.date.today()
+        if day >= today.day:
+            return today.replace(day=day).isoformat()
+        nxt = (today.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
+        return nxt.replace(day=day).isoformat()
+
+    def test_a_bare_ordinal_gives_a_todo_its_due_date(self, parser):
+        res = parser.analyze("remind me to renew the passport the 15th")
+        assert res.intents, "the row must still parse"
+        _, intent = res.intents[0]
+        assert intent.due_date == self._expected(15)
+
+    def test_the_bare_form_agrees_with_the_on_form(self, parser):
+        bare = parser.analyze("remind me to call Jordan the 21st")
+        with_on = parser.analyze("remind me to call Jordan on the 21st")
+        assert bare.intents and with_on.intents
+        assert bare.intents[0][1].due_date == with_on.intents[0][1].due_date
+
+    def test_an_event_gets_the_date_and_keeps_its_time(self, parser):
+        res = parser.analyze("book flu shot the 21st at 11am")
+        assert res.intents
+        _, intent = res.intents[0]
+        assert intent.date == self._expected(21)
+        assert intent.start_time == "11:00"
+
+    def test_the_date_words_do_not_end_up_in_the_title(self, parser):
+        """The recogniser blocks the characters of every date it reads so they
+        cannot become the title; this fallback has to do that itself.
+
+        NB the row here is deliberately `"wash the laundry"` and not `"wash AND
+        fold the laundry"`: the latter extracts NO title at all, with or without
+        a date, which is a separate coordinated-verb defect filed in TASKS.md
+        rather than fixed here.
+        """
+        res = parser.analyze("wash the laundry the 30th")
+        assert res.intents
+        _, intent = res.intents[0]
+        title = " ".join(getattr(intent, "titles", None) or [intent.title]).lower()
+        assert "30th" not in title, f"date text leaked into the title: {title!r}"
+        assert intent.due_date == self._expected(30)
+
+    # --- the two shapes that are NOT dates, both from the verification pool ---
+
+    def test_an_ordinal_POSITION_is_not_a_date(self, parser):
+        """"Remove the 2nd row from the list" — a position in a list, and the
+        row it names is not the second of the month."""
+        from assistant.intent import rule_parser as rp
+        rp._ensure_nlp(); rp._ensure_dt()
+        temporal = rp._extract_temporal("remove the 2nd row from the list",
+                                        datetime.date.today())
+        assert temporal["date"] is None
+
+    def test_an_ordinal_RECURRENCE_is_not_a_one_off_date(self, parser):
+        """"the 15th of every month" is a series; resolving it to one day would
+        book a single event and drop the recurrence."""
+        from assistant.intent import rule_parser as rp
+        rp._ensure_nlp(); rp._ensure_dt()
+        temporal = rp._extract_temporal("remind me at the 15th of every month",
+                                        datetime.date.today())
+        assert temporal["date"] is None
+
+    def test_an_impossible_day_is_refused_rather_than_guessed(self, parser):
+        """"the 99th" is not a day. Nothing is better than something wrong."""
+        from assistant.intent import rule_parser as rp
+        rp._ensure_nlp(); rp._ensure_dt()
+        temporal = rp._extract_temporal("call Sage the 99th", datetime.date.today())
+        assert temporal["date"] is None
