@@ -72,6 +72,7 @@
 		AA0000FA000000000000F002 /* FeatureRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000FA000000000000F001 /* FeatureRegistry.swift */; };
 		AA0000FB000000000000F002 /* CalendarTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000FB000000000000F001 /* CalendarTabView.swift */; };
 		AB000003000000000000001A /* OfflineSyncUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000002000000000000001B /* OfflineSyncUITests.swift */; };
+		AB000013000000000000001A /* DayPanelUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000012000000000000001B /* DayPanelUITests.swift */; };
 		AC000001000000000000001A /* PendingQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC000002000000000000001A /* PendingQueueView.swift */; };
 		/* End PBXBuildFile section */
 
@@ -145,6 +146,7 @@
 		AA0000FB000000000000F001 /* CalendarTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTabView.swift; sourceTree = "<group>"; };
 		AA0000A000000000000000C1 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 				AB000002000000000000001B /* OfflineSyncUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineSyncUITests.swift; sourceTree = "<group>"; };
+		AB000012000000000000001B /* DayPanelUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPanelUITests.swift; sourceTree = "<group>"; };
 		AB00000E000000000000001B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AB000004000000000000001B /* MACalendarUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MACalendarUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AC000002000000000000001A /* PendingQueueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingQueueView.swift; sourceTree = "<group>"; };
@@ -425,6 +427,7 @@
 			isa = PBXGroup;
 			children = (
 				AB000002000000000000001B /* OfflineSyncUITests.swift */,
+				AB000012000000000000001B /* DayPanelUITests.swift */,
 				AB00000E000000000000001B /* Info.plist */,
 			);
 			path = MACalendarUITests;
@@ -635,6 +638,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AB000003000000000000001A /* OfflineSyncUITests.swift in Sources */,
+				AB000013000000000000001A /* DayPanelUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

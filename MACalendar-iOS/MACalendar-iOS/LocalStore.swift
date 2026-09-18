@@ -120,6 +120,10 @@ class LocalStore: ObservableObject {
     private var todos:    [Todo]          = []
     private var tags:     [TodoTag]       = []
     private var holidays: [Holiday]       = []
+    /// The Mac's finished day panels, one per day, kept so the phone can
+    /// SCHEDULE tomorrow's notification tonight — and still fire it after a
+    /// week off the tailnet. See `ReminderScheduler`.
+    private var digests:  [DayDigest]      = []
     /// Readable so the queue can be SHOWN and edited (`PendingQueueView`), and
     /// published so cancelling one updates the list under your finger.
     /// `private(set)`: only this store decides what is queued.
@@ -141,6 +145,7 @@ class LocalStore: ObservableObject {
         todos    = (try? d.decode([Todo].self,          from: Data(contentsOf: url("mc_todos.json"))))    ?? []
         tags     = (try? d.decode([TodoTag].self,       from: Data(contentsOf: url("mc_tags.json"))))     ?? []
         holidays = (try? d.decode([Holiday].self,       from: Data(contentsOf: url("mc_holidays.json")))) ?? []
+        digests  = (try? d.decode([DayDigest].self,     from: Data(contentsOf: url("mc_digests.json"))))  ?? []
         timers   = (try? d.decode([WorkTimer].self,     from: Data(contentsOf: url("mc_timers.json"))))   ?? []
         counters = (try? d.decode([TallyCounter].self,  from: Data(contentsOf: url("mc_counters.json")))) ?? []
         pending  = (try? d.decode([PendingChange].self, from: Data(contentsOf: url("mc_pending.json"))))  ?? []
@@ -186,8 +191,8 @@ class LocalStore: ObservableObject {
     /// taking it costs a retain rather than a copy.
     private func scheduleCacheWrite() {
         let snapshot = CacheSnapshot(events: events, todos: todos, tags: tags,
-                                     holidays: holidays, timers: timers,
-                                     counters: counters, dir: dir)
+                                     holidays: holidays, digests: digests,
+                                     timers: timers, counters: counters, dir: dir)
         cacheFlush?.cancel()
         cacheFlush = Task.detached(priority: .utility) {
             // Long enough to swallow a burst of taps, short enough that
@@ -208,6 +213,7 @@ class LocalStore: ObservableObject {
         let todos: [Todo]
         let tags: [TodoTag]
         let holidays: [Holiday]
+        let digests: [DayDigest]
         let timers: [WorkTimer]
         let counters: [TallyCounter]
         let dir: URL
@@ -218,6 +224,7 @@ class LocalStore: ObservableObject {
             try? e.encode(todos).write(to:    dir.appendingPathComponent("mc_todos.json"))
             try? e.encode(tags).write(to:     dir.appendingPathComponent("mc_tags.json"))
             try? e.encode(holidays).write(to: dir.appendingPathComponent("mc_holidays.json"))
+            try? e.encode(digests).write(to:  dir.appendingPathComponent("mc_digests.json"))
             try? e.encode(timers).write(to:   dir.appendingPathComponent("mc_timers.json"))
             try? e.encode(counters).write(to: dir.appendingPathComponent("mc_counters.json"))
         }
@@ -228,7 +235,8 @@ class LocalStore: ObservableObject {
     func flushCachesNow() {
         cacheFlush?.cancel()
         CacheSnapshot(events: events, todos: todos, tags: tags, holidays: holidays,
-                      timers: timers, counters: counters, dir: dir).write()
+                      digests: digests, timers: timers, counters: counters,
+                      dir: dir).write()
     }
 
     // MARK: - Timers and counters, offline
@@ -355,6 +363,26 @@ class LocalStore: ObservableObject {
     func holidaysBetween(_ start: String, _ end: String) -> [Holiday] {
         holidays.filter { $0.gregorianEnd >= start && $0.gregorianErevStart <= end }
     }
+
+    // MARK: - Day panels
+
+    /// Replace the cached panels wholesale — the Mac recomputes all of them
+    /// together and a half-old set would schedule yesterday's wording for
+    /// tomorrow.
+    ///
+    /// Past days are dropped on the way in rather than accumulating: a panel
+    /// whose day has gone can never fire again, and the file is read on every
+    /// cold start.
+    func cacheDigests(_ fresh: [DayDigest]) {
+        let today = DateFormatter.isoDay.string(from: Date())
+        digests = fresh.filter { $0.date >= today }.sorted { $0.date < $1.date }
+        persist()
+        // New panels mean new notifications to schedule.
+        ReminderScheduler.shared.reconcile()
+    }
+
+    /// What ReminderScheduler turns into pending local notifications.
+    func allDigests() -> [DayDigest] { digests }
 
     // MARK: - Events
 

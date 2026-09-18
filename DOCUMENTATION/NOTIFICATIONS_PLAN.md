@@ -10,7 +10,13 @@ this file; the safe defaults the build shipped with survived all three. **One
 design change since:** on 2026-09-11 Gil replaced the stream of pre-event
 banners with a once-a-day DAY PANEL, so `notifications.pre_event` now ships
 `false` and the per-event path is dormant rather than deleted (`4168dc4`) —
-see "What changed after this plan was written". Produced by a design panel (4 read-only code sweeps → 3
+see "What changed after this plan was written". **The phone followed on
+2026-09-17** (TASKS row 94): `ReminderScheduler` schedules panels instead of
+per-event reminders, Settings shows one switch, and the phone lodges a WEEK of
+panels ahead (`GET /digest/upcoming`) because iOS notifications are scheduled
+rather than pushed — there is no server that can reach the phone at 07:00. The
+per-event path is therefore dormant on the Mac and RETIRED on iOS:
+`pre_event: true` would no longer bring the phone's banners back. Produced by a design panel (4 read-only code sweeps → 3
 independent designs: iOS-first / server-first / UX-first → adversarial judge
 + synthesis). The winning skeleton is the UX-first design (thinnest client
 data flow — `notify_at` embedded in event payloads, no second sync surface),

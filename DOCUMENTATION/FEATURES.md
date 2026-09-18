@@ -29,8 +29,8 @@ purely backend (no client code beyond displaying the effects).
 | hybrid | [Tasks](#tasks--to-dos) | Today/General lists, priorities, quantities | `db.py`, `TasksView` |
 | hybrid | [Tag discovery](#tag-discovery--the-class-set-grows-with-consent) | consent-based new classes + history | `actions/todo/tag_discovery.py` |
 | hybrid | [Share event as .ics](#share-event-as-ics) | one event → RFC 5545 file, both platforms | `ics_export.py`, `event_dialog.py` |
-| hybrid | [The day panel](#the-day-panel) | one on/off summary of today's events + tasks; server owns the wording; pre-event banners now dormant | `notify.py`, `notifier.py`, `GET /digest` |
-| hybrid | [Pre-event notifications (dormant)](#pre-event-notifications-dormant) | phone rings from its cache; server computes policy; per-category mute; live "Up Next" lock-screen card — superseded by the day panel above, kept behind a flag | `notify.py`, `ReminderScheduler.swift`, `LiveActivityManager.swift` |
+| hybrid | [The day panel](#the-day-panel) | one on/off summary of today's events + tasks; server owns the wording; the phone lodges a week ahead so it arrives with the Mac asleep | `notify.py`, `notifier.py`, `GET /digest[/upcoming]`, `ReminderScheduler.swift` |
+| hybrid | [Pre-event notifications (dormant)](#pre-event-notifications-dormant) | server computes policy; per-category mute — superseded by the day panel above, kept behind a flag on the MAC only (the phone's half is retired). The live "Up Next" lock-screen card is not dormant and still runs | `notify.py`, `LiveActivityManager.swift` |
 | hybrid | [Home-screen widget (iOS)](#the-home-screen-widget-ios) | "Up Next" + what's left of today, advancing with nothing of ours running | `MACalendarWidgets/UpNextHomeWidget.swift` |
 | hybrid | [Voice I/O & capture controls](#voice-in--voice-out--capture-controls) | hotkey/stop-phrases/review-bar; engine-selectable STT; spoken replies | `stt/`, `Voice/`, `tts/` |
 | hybrid | [Edit-transcription gate](#the-edit-transcription-round-trip-needs_edit) | doubted words → editor → learned | `engine/ingest/repair.py` |
@@ -629,17 +629,43 @@ pre-event reminder, a late panel is NOT caught up: a reminder that arrives
 late is still about something that has not happened, but a summary of the day
 arriving at 4pm is the noise this replaced.
 
-**Not done:** iOS. `ReminderScheduler` still schedules per-event reminders and
-Settings still shows the lead-time controls; the phone needs to schedule one
-daily notification from `GET /digest` and show one toggle. Needs a machine
-with Xcode — see TASKS row 84.
+**On the phone** (2026-09-17): `ReminderScheduler` lodges ONE notification per
+day, straight from the Mac's finished wording, and Settings › Today's panel is
+the one switch — shared with the Mac, so turning it off here stops its banner
+too. Offline the switch goes to the write queue like any other change, and the
+Mac's value is adopted on load only while nothing of this phone's is still
+queued.
+
+iOS notifications are **scheduled, not pushed**, and that is the one thing
+this feature's shape turns on. There is no server that can reach the phone at
+07:00 — iOS fires from a request lodged earlier — so the phone must already
+hold tomorrow's panel tonight. `GET /digest/upcoming?days=7` returns the week
+in one round trip; the phone caches it (`mc_digests.json`) and re-lodges the
+lot on cold start, on foreground and whenever the `/changes` token moves. The
+payoff is that a panel arrives on time with the Mac asleep, the tailnet down
+and the app never opened — which is the whole reason the phone is the ringer.
+Days held for Shabbat or yom tov come back with `fires_at: null` and the
+reason, and the phone schedules nothing for them rather than re-deriving an
+observance verdict it could not compute.
+
+**The permission ask is part of the feature, not an afterthought.** The panel
+ships ON, and until 2026-09-17 nothing on this path ever asked for
+authorization: a clean install fetched the week, called `add` seven times and
+iOS rejected all seven in silence. It now asks at the first moment it has a
+real panel to lodge. `DayPanelUITests` drives a clean install and fails if the
+ask stops happening — it is the test that found this.
 
 ### Pre-event notifications (dormant)
 
 **Status:** `notifications.pre_event` ships **false** — the day panel replaced
-these. Nothing is deleted: `reminder_minutes` is a frozen engine contract,
-"with a 15 minute reminder" still parses and stores, and turning the flag on
-restores the whole path below (pinned by `test_digest.py`).
+these. On the MAC nothing is deleted: `reminder_minutes` is a frozen engine
+contract, "with a 15 minute reminder" still parses and stores, and turning the
+flag on restores the whole path below (pinned by `test_digest.py`). **On the
+phone this half is retired, not dormant** (2026-09-17): `ReminderScheduler`
+schedules panels now, so flipping the flag would bring the banners back on the
+Mac alone. The scheduler still SWEEPS the old `evt-*` requests on every
+reconcile, because an app updating from an older build has up to 55 of them
+lodged with iOS that no code owns any more.
 
 **What:** "remind me before it starts." The server computes each event's
 `notify_at` (lead resolution: event override → category lead **or mute — a
@@ -652,8 +678,12 @@ Shabbat/yom tov gets no reminder (reason in the payload), a motzei lead is
 clamped past havdala, fasts don't suppress, fail-open like the series skip.
 Additive on top of the banner: an **"Up Next" Live Activity** — a persistent
 lock-screen card (and Dynamic Island) showing the next event's title, clock
-time, category colour and a live countdown, flipping to "NOW" with a
-count-up once it starts and then rolling on to the following event.
+time, category colour and a live countdown, flipping to "NOW" once it starts
+and then rolling on to the following event. It counts DOWN in both phases —
+to the start, then to the end — under one label, "to go". It used to count UP
+from the start under "elapsed" (Gil, 2026-09-17: *"Remove the elapsed. I don't
+want to see that it says elapsed time"*): time already spent is not something
+a lock-screen card can act on, and how long is left is.
 **Where:** policy `assistant/notify.py`; store `events.reminder_minutes` +
 `reminder_log` (`db.py`); Mac thread `assistant/notifier.py` (osascript);
 settings `settings_dialog.py` + iOS `SettingsView`; phone

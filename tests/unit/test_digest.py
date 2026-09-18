@@ -298,3 +298,34 @@ def test_the_digest_endpoint_serves_the_panel():
             assert c.get("/digest?date=not-a-date").status_code == 400
     finally:
         db.delete_event(eid)
+
+
+def test_the_phone_gets_a_week_of_panels_in_one_answer():
+    """The phone SCHEDULES ahead — it cannot ask at 06:59 for a 07:00 panel.
+
+    So /digest/upcoming hands it the next several days at once, today first,
+    and refuses to be talked into an unbounded range.
+    """
+    import datetime as _dt
+
+    from assistant.api.server import create_app
+
+    app = create_app()
+    app.config["TESTING"] = True
+    today = _dt.date.today()
+
+    with app.test_client() as c:
+        days = c.get("/digest/upcoming").get_json()["days"]
+        assert len(days) == 7, "the default horizon is a week"
+        assert days[0]["date"] == today.isoformat(), "today leads"
+        assert [d["date"] for d in days] == [
+            (today + _dt.timedelta(days=i)).isoformat() for i in range(7)]
+        # Every day is a whole panel, wording included — the phone formats
+        # nothing of its own.
+        assert all({"title", "body", "fires_at", "enabled"} <= set(d) for d in days)
+
+        assert len(c.get("/digest/upcoming?days=2").get_json()["days"]) == 2
+        # Clamped at both ends rather than trusted.
+        assert len(c.get("/digest/upcoming?days=99").get_json()["days"]) == 7
+        assert len(c.get("/digest/upcoming?days=0").get_json()["days"]) == 1
+        assert c.get("/digest/upcoming?days=lots").status_code == 400

@@ -1311,6 +1311,42 @@ def create_app() -> Flask:
         cfg = load_config().notifications
         return jsonify(_notify.build_digest(day, cfg, get_db()))
 
+    #: How many days ahead /digest/upcoming will build. A week covers a phone
+    #: left off the tailnet over a trip; past that the content is stale enough
+    #: that not firing is the more honest answer.
+    _DIGEST_HORIZON = 7
+
+    @app.get("/digest/upcoming")
+    def digest_upcoming():
+        """The next few days' panels in one answer, for the phone to SCHEDULE.
+
+        iOS local notifications are scheduled ahead of time, not pushed: the
+        phone must already hold tomorrow's panel before tomorrow's 07:00, and
+        it cannot ask for it at 06:59 because it may be asleep, in a pocket,
+        or off the tailnet. One round trip per sync rather than seven, because
+        this is called on every foreground.
+
+        Days whose panel is suppressed (Shabbat, yom tov) are INCLUDED with
+        `fires_at: null` and the reason, rather than omitted — the client
+        schedules nothing for them either way, and a caller reading the answer
+        can tell "held" apart from "not asked about".
+        """
+        from assistant import notify as _notify
+
+        try:
+            days = int(request.args.get("days", _DIGEST_HORIZON))
+        except (TypeError, ValueError):
+            return jsonify({"error": "days must be a whole number"}), 400
+        days = max(1, min(days, _DIGEST_HORIZON))
+
+        cfg = load_config().notifications
+        db = get_db()
+        today = datetime.date.today()
+        return jsonify({"days": [
+            _notify.build_digest(today + datetime.timedelta(days=i), cfg, db)
+            for i in range(days)
+        ]})
+
     @app.get("/config")
     def config_get():
         cfg = load_config()

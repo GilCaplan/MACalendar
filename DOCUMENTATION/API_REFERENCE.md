@@ -89,6 +89,7 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | Method | Path | What it does |
 |---|---|---|
 | `GET` | `/digest` | Today's day panel: when it fires, what it says, and the rows behind it. |
+| `GET` | `/digest/upcoming` | The next few days' panels in one answer, for the phone to SCHEDULE. |
 
 ## /config
 

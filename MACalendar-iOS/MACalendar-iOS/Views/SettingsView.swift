@@ -10,13 +10,9 @@ struct SettingsView: View {
     @State private var healthStatus: String? = nil
     @State private var checking = false
     @State private var unreviewed = 0
-    // Reminders: the server-side policy (nil until the Mac answers) and the
-    // category list its per-category leads are rendered against.
+    // The day panel: the server-side policy (nil until the Mac answers).
     @State private var notifConfig: NotificationsConfig? = nil
-    @State private var reminderCategories: [EventCategory] = []
     @State private var permStatus: UNAuthorizationStatus? = nil
-
-    private let leadChoices = [5, 10, 15, 30, 60]
     @FocusState private var urlFocused: Bool
     @FocusState private var keyFocused: Bool
 
@@ -239,18 +235,32 @@ struct SettingsView: View {
                         .padding(.top, 4)
                     }
 
-                    // MARK: Reminders
-                    GroupBox(label: Label("Reminders", systemImage: "bell.badge")) {
+                    // MARK: The day panel
+                    //
+                    // ONE switch (Gil, 2026-09-11: "it's on or off"). This
+                    // replaced a lead-time menu, a per-category lead menu and
+                    // a master toggle — three controls deciding when each of
+                    // fifty-five banners would interrupt you, for a feature
+                    // whose answer turned out to be "once, in the morning".
+                    GroupBox(label: Label("Today's panel", systemImage: "bell.badge")) {
                         VStack(alignment: .leading, spacing: 12) {
                             Toggle(isOn: $settings.remindersEnabled) {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Remind before events")
-                                    Text("This phone is the reliable ringer — it rings even when the Mac is asleep. What fires when is decided on the Mac.")
+                                    Text("Morning summary")
+                                    Text(panelBlurb)
                                         .font(.caption).foregroundColor(.secondary)
                                 }
                             }
                             .onChange(of: settings.remindersEnabled) { on in
                                 if on { Task { permStatus = await NotificationPermission.request() } }
+                                // Shared with the Mac, so its banner agrees
+                                // with this phone. Offline this goes to the
+                                // queue like any other write and replays.
+                                notifConfig?.dailyDigest = on
+                                Task {
+                                    await api.patchNotifications(["daily_digest": on])
+                                    await api.refreshDigests()
+                                }
                                 ReminderScheduler.shared.reconcile()
                             }
 
@@ -258,61 +268,21 @@ struct SettingsView: View {
 
                             Divider()
 
-                            HStack {
-                                Text("Default lead time")
-                                Spacer()
-                                Menu {
-                                    Button("Off") { setDefaultLead(0) }
-                                    ForEach(leadChoices, id: \.self) { m in
-                                        Button("\(m) min before") { setDefaultLead(m) }
-                                    }
-                                } label: {
-                                    Text(leadLabel(notifConfig?.defaultLeadMinutes))
-                                }
-                                .disabled(notifConfig == nil)
-                            }
-                            Text("Off = opt-in only: reminders fire only where an event or a category asks for one.")
-                                .font(.caption).foregroundColor(.secondary)
-
                             Toggle("Quiet on Shabbat & chagim", isOn: Binding(
                                 get: { notifConfig?.respectObservance ?? true },
                                 set: { on in
                                     notifConfig?.respectObservance = on
                                     Task {
                                         await api.patchNotifications(["respect_observance": on])
-                                        await refreshReminderVerdicts()
+                                        await api.refreshDigests()
                                     }
                                 }))
                                 .disabled(notifConfig == nil)
-                            Text("Holds reminders through Shabbat and yom tov, candle lighting to nightfall — computed on your Mac, never by the clock date alone.")
+                            Text("Holds the panel through Shabbat and yom tov, candle lighting to nightfall — computed on your Mac, never by the clock date alone.")
                                 .font(.caption).foregroundColor(.secondary)
 
-                            if notifConfig != nil && !reminderCategories.isEmpty {
-                                Divider()
-                                Text("Per category").font(.subheadline.weight(.semibold))
-                                ForEach(reminderCategories) { c in
-                                    HStack(spacing: 10) {
-                                        Circle().fill(Color(hex: c.color) ?? .gray)
-                                            .frame(width: 12, height: 12)
-                                        Text(c.name)
-                                        Spacer()
-                                        Menu {
-                                            Button("Default") { setCategoryLead(c.name, nil) }
-                                            Button("Off") { setCategoryLead(c.name, 0) }
-                                            ForEach(leadChoices, id: \.self) { m in
-                                                Button("\(m) min before") { setCategoryLead(c.name, m) }
-                                            }
-                                        } label: {
-                                            Text(categoryLeadLabel(c.name))
-                                        }
-                                    }
-                                }
-                                Text("Off mutes the whole category — its events never ring unless one asks by itself.")
-                                    .font(.caption).foregroundColor(.secondary)
-                            }
-
                             if notifConfig == nil {
-                                Text("Lead times live on your Mac — it isn't reachable right now.")
+                                Text("The panel's time is set on your Mac — it isn't reachable right now.")
                                     .font(.caption).foregroundColor(.orange)
                             }
                         }
@@ -479,13 +449,29 @@ struct SettingsView: View {
                 Task {
                     permStatus = await NotificationPermission.status()
                     notifConfig = try? await api.notificationsConfig()
-                    reminderCategories = (try? await api.categories()) ?? []
+                    // The switch is shared, so the Mac's answer wins — EXCEPT
+                    // while this phone is still holding one of its own. A
+                    // toggle flipped offline sits in the queue; adopting the
+                    // server's value before it replays would flip the switch
+                    // back under the user's finger and then un-flip it later.
+                    if let cfg = notifConfig,
+                       !LocalStore.shared.pending.contains(where: { $0.path == "/config" }) {
+                        settings.remindersEnabled = cfg.dailyDigest
+                    }
                 }
             }
         }
     }
 
-    // MARK: - Reminders helpers
+    // MARK: - Day panel helpers
+
+    /// What the switch promises, in the two situations that differ.
+    private var panelBlurb: String {
+        let at = notifConfig?.digestTime ?? "07:00"
+        return settings.remindersEnabled
+            ? "One notification at \(at) with the day's events and tasks. It arrives even with your Mac asleep — this phone holds the next week's."
+            : "Off — no notifications from the calendar, on this phone or the Mac."
+    }
 
     @ViewBuilder
     private var permissionRow: some View {
@@ -515,48 +501,6 @@ struct SettingsView: View {
         }
     }
 
-    private func leadLabel(_ v: Int?) -> String {
-        guard let v else { return "—" }
-        return v == 0 ? "Off" : "\(v) min"
-    }
-
-    private func categoryLeadLabel(_ name: String) -> String {
-        guard let leads = notifConfig?.categoryLeads else { return "—" }
-        guard let v = leads[name] else { return "Default" }
-        return v == 0 ? "Off" : "\(v) min"
-    }
-
-    private func setDefaultLead(_ v: Int) {
-        notifConfig?.defaultLeadMinutes = v
-        Task {
-            await api.patchNotifications(["default_lead_minutes": v])
-            if v > 0 { NotificationPermission.requestIfNeeded() }
-            await refreshReminderVerdicts()
-        }
-    }
-
-    private func setCategoryLead(_ name: String, _ v: Int?) {
-        guard var cfg = notifConfig else { return }
-        if let v { cfg.categoryLeads[name] = v } else { cfg.categoryLeads.removeValue(forKey: name) }
-        notifConfig = cfg
-        Task {
-            // PATCH /config merges at the section level, so the map goes whole.
-            await api.patchNotifications(["category_leads": cfg.categoryLeads])
-            if (v ?? 0) > 0 { NotificationPermission.requestIfNeeded() }
-            await refreshReminderVerdicts()
-        }
-    }
-
-    /// A policy edit changes every event's notify_at, but only on the Mac —
-    /// and a config write doesn't move the /changes token. Re-fetch the
-    /// current month so the cache (and, via cacheEvents → reconcile, the
-    /// scheduled notifications) pick the new verdicts up now, not on the
-    /// next event edit.
-    private func refreshReminderVerdicts() async {
-        let now = Date()
-        _ = try? await api.eventsForMonth(year: Calendar.current.component(.year, from: now),
-                                          month: Calendar.current.component(.month, from: now))
-    }
 
     private func checkHealth() {
         urlFocused = false

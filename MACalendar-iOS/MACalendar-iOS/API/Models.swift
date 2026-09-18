@@ -548,6 +548,13 @@ struct HealthResponse: Codable {
 /// and written back whole-field via PATCH /config.
 struct NotificationsConfig: Codable, Equatable {
     var enabled: Bool
+    /// THE day-panel switch — the one notification control this app shows.
+    /// Shared with the Mac on purpose (Gil, 2026-09-11: "it's on or off"), so
+    /// turning it off here stops the Mac's banner too.
+    var dailyDigest: Bool
+    /// Local "HH:MM" the panel fires at. Shown, not edited — a knob rather
+    /// than another control to think about.
+    var digestTime: String
     var defaultLeadMinutes: Int
     /// Category name → lead minutes; 0 mutes the whole category.
     var categoryLeads: [String: Int]
@@ -558,6 +565,8 @@ struct NotificationsConfig: Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case enabled, sound, speak
+        case dailyDigest        = "daily_digest"
+        case digestTime         = "digest_time"
         case defaultLeadMinutes = "default_lead_minutes"
         case categoryLeads      = "category_leads"
         case respectObservance  = "respect_observance"
@@ -569,12 +578,62 @@ struct NotificationsConfig: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         enabled            = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
+        dailyDigest        = try c.decodeIfPresent(Bool.self, forKey: .dailyDigest) ?? true
+        digestTime         = try c.decodeIfPresent(String.self, forKey: .digestTime) ?? "07:00"
         defaultLeadMinutes = try c.decodeIfPresent(Int.self,  forKey: .defaultLeadMinutes) ?? 0
         categoryLeads      = try c.decodeIfPresent([String: Int].self, forKey: .categoryLeads) ?? [:]
         respectObservance  = try c.decodeIfPresent(Bool.self, forKey: .respectObservance) ?? true
         catchUpMinutes     = try c.decodeIfPresent(Int.self,  forKey: .catchUpMinutes) ?? 10
         sound              = try c.decodeIfPresent(Bool.self, forKey: .sound) ?? true
         speak              = try c.decodeIfPresent(Bool.self, forKey: .speak) ?? false
+    }
+}
+
+/// One day's panel, built entirely on the Mac — `GET /digest/upcoming`.
+///
+/// **The wording arrives finished.** `title` and `body` are what the
+/// notification says, composed by `assistant/notify.py:build_digest`, so this
+/// phone's banner and the Mac's read identically. A client that formatted its
+/// own would drift the moment one of them learned about all-day events and the
+/// other did not — which is why there is no formatter anywhere on this side.
+struct DayDigest: Codable, Equatable, Identifiable {
+    /// "YYYY-MM-DD". Also the identity: one panel per day, and the scheduled
+    /// notification is keyed on it.
+    var date: String
+    var id: String { date }
+    /// Whether the panel is switched on at all (master switch AND daily_digest).
+    var enabled: Bool
+    /// Local "YYYY-MM-DDTHH:MM" the panel is due, or nil when it will not fire
+    /// — switched off, or held for Shabbat / yom tov.
+    var firesAt: String?
+    /// Why it will not fire: "shabbat", "yom_tov:<name>". nil when it will.
+    var suppressedReason: String?
+    var title: String
+    var body: String
+
+    enum CodingKeys: String, CodingKey {
+        case date, enabled, title, body
+        case firesAt          = "fires_at"
+        case suppressedReason = "suppressed_reason"
+    }
+
+    // Tolerant, like NotificationsConfig: an older Mac that does not serve
+    // this yet should leave the phone on what it already cached rather than
+    // failing the whole decode.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        date             = try c.decodeIfPresent(String.self, forKey: .date) ?? ""
+        enabled          = try c.decodeIfPresent(Bool.self,   forKey: .enabled) ?? false
+        firesAt          = try c.decodeIfPresent(String.self, forKey: .firesAt)
+        suppressedReason = try c.decodeIfPresent(String.self, forKey: .suppressedReason)
+        title            = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
+        body             = try c.decodeIfPresent(String.self, forKey: .body) ?? ""
+    }
+
+    init(date: String, enabled: Bool, firesAt: String?, suppressedReason: String?,
+         title: String, body: String) {
+        self.date = date; self.enabled = enabled; self.firesAt = firesAt
+        self.suppressedReason = suppressedReason; self.title = title; self.body = body
     }
 }
 

@@ -140,7 +140,7 @@ private struct UpNextLockScreenView: View {
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
-                Text(state.phase == .now ? "elapsed" : "to go")
+                Text("to go")
                     .font(.system(size: 10))
                     .foregroundStyle(.white.opacity(0.55))
             }
@@ -151,9 +151,15 @@ private struct UpNextLockScreenView: View {
 
 // MARK: - The one live element
 
-/// Counts down to the start while the event is upcoming, and up from the start
-/// once it is running. Both forms are `Text(timerInterval:)`, which the system
-/// re-renders every second on its own — the app is not involved.
+/// Always counting DOWN: to the start while the event is upcoming, then to
+/// the end once it is running. Both forms are `Text(timerInterval:)`, which
+/// the system re-renders every second on its own — the app is not involved.
+///
+/// The running half used to count UP from the start, labelled "elapsed" (Gil,
+/// 2026-09-17: *"Remove the elapsed. I don't want to see that it says elapsed
+/// time"*). Time already spent is not something a lock-screen card can act on;
+/// how long is left is. So one label — "to go" — is true in both phases, and
+/// the number under it answers the same question throughout.
 private struct CountdownText: View {
     let state: UpNextAttributes.ContentState
 
@@ -163,7 +169,7 @@ private struct CountdownText: View {
             Text(timerInterval: state.untilStart, countsDown: true)
                 .multilineTextAlignment(.trailing)
         case .now:
-            Text(timerInterval: state.duringEvent, countsDown: false)
+            Text(timerInterval: state.duringEvent, countsDown: true)
                 .multilineTextAlignment(.trailing)
         }
     }

@@ -1659,6 +1659,29 @@ class APIClient: ObservableObject {
         return n
     }
 
+    // MARK: - The day panel
+
+    /// Pull the next week of day panels and cache them.
+    ///
+    /// **Scheduled, not pushed.** iOS fires a local notification from a
+    /// request the phone lodged EARLIER, so the panel for tomorrow morning
+    /// has to be in hand tonight — the app cannot wake at 06:59 to ask. One
+    /// request covers the week, which is why this is safe to call on every
+    /// foreground.
+    ///
+    /// Failure is silent and leaves the phone on the panels it already holds:
+    /// that is the entire point of caching them, and a Mac that is asleep must
+    /// not cost tomorrow's panel.
+    @discardableResult
+    func refreshDigests() async -> Bool {
+        struct Envelope: Decodable { let days: [DayDigest] }
+        guard let data = try? await request("/digest/upcoming"),
+              let env = try? decode(Envelope.self, from: data)
+        else { return false }
+        LocalStore.shared.cacheDigests(env.days)
+        return true
+    }
+
     // MARK: - Notifications config (server-side reminder policy)
 
     /// The `notifications` section of GET /config. The Mac computes every

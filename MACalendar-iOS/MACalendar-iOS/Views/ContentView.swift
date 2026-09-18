@@ -286,6 +286,10 @@ struct ContentView: View {
                     // blocking: the tab bar is already on screen from the cache.
                     await visibility.refresh(api: api)
                     await refreshWorkoutIfNeeded()
+                    // The panels are SCHEDULED ahead, so this is the moment
+                    // that keeps tomorrow morning's accurate — foregrounding
+                    // is the main execution time iOS gives us.
+                    await api.refreshDigests()
                     api.requestRefresh()
                     // Re-mirror reminders after the foreground sync — cheap
                     // and idempotent (cacheEvents also triggers it; this
@@ -325,6 +329,19 @@ struct ContentView: View {
             }
             router.show(FeatureRegistry.home)
         }
+        // A tapped day panel lands here: it summarised ONE day, so open that
+        // day rather than today — tapping Thursday's panel on Friday morning
+        // should not show Friday.
+        .onReceive(notifRouter.$pendingDay) { day in
+            guard let day else { return }
+            notifRouter.pendingDay = nil
+            if let d = DateFormatter.isoDay.date(from: day) {
+                CalendarNavigator.shared.show(d)
+            } else {
+                CalendarNavigator.shared.reload()
+            }
+            router.show(FeatureRegistry.home)
+        }
         .sheet(isPresented: Binding(get: { sharedImportText != nil }, set: { if !$0 { sharedImportText = nil } })) {
             VocabImportView(initialText: sharedImportText, initialName: importInbox.pendingName)
         }
@@ -357,6 +374,11 @@ struct ContentView: View {
             // is already drawn from the cache before this asks.
             Task {
                 await visibility.refresh(api: api)
+
+                // The week's day panels. Off the critical path on purpose —
+                // nothing on screen depends on them; they are notifications
+                // being lodged for mornings this app may not be open for.
+                await api.refreshDigests()
 
                 // First run: once the Mac is reachable and the vocabulary hasn't
                 // been set up, ask the user to teach the assistant their words.
@@ -400,10 +422,11 @@ struct ContentView: View {
                             slept = 0
                             CalendarNavigator.shared.reload()
                             api.requestRefresh()
-                            // Something changed on the Mac — a reminder may
-                            // have moved with it (loadMonth → cacheEvents
-                            // reconciles too, but only when the month view's
-                            // fetch actually succeeds).
+                            // Something changed on the Mac, so what the day
+                            // panel would SAY changed with it — and the panel
+                            // for tomorrow is already lodged with iOS, holding
+                            // the old wording until it is replaced.
+                            await api.refreshDigests()
                             ReminderScheduler.shared.reconcile()
                             // …and the card may now be pointing at an event
                             // that was moved or deleted on the Mac.

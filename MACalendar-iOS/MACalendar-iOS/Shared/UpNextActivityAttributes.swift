@@ -68,7 +68,7 @@ struct UpNextAttributes: ActivityAttributes {
             return lo...max(start, lo.addingTimeInterval(1))
         }
 
-        /// Range for the count-up once the event is running.
+        /// Range for the countdown to the END, once the event is running.
         var duringEvent: ClosedRange<Date> {
             let lo = min(start, end)
             return lo...max(end, lo.addingTimeInterval(1))
