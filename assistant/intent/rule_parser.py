@@ -1414,6 +1414,12 @@ def _extract_temporal(span_text: str, today: datetime.date,
 # ---------------------------------------------------------------------------
 
 
+#: Q25 / Q15, shared with `fastseg.tag` — see `_route_intent`'s use below.
+_REMINDER_TASK_FRAME = re.compile(r"^\s*(?:please\s+)?remind me\s+to\b", re.I)
+_STATED_CLOCK_RE = re.compile(
+    r"\d{1,2}:\d{2}|\d{1,2}\s*(?:am|pm)\b|\bat\s+\d{1,2}\b|\bnoon\b|\bmidnight\b"
+    r"|\bo'?clock\b|\b(?:half|quarter)\s+(?:past|to)\b", re.I)
+
 _ROUTE_OVERRIDES = [
     (re.compile(r"^\s*(?:please\s+)?(?:add|put)\s+.+\s+(?:on|to)\s+(?:my|the)\s+(?:\w+\s+)?list\b"), "create_todo"),
     # F6a: an encounter being ARRANGED is an event — must outrank the
@@ -1634,6 +1640,19 @@ def _route_intent(span, current_view: str) -> tuple[str | None, str, bool, bool]
             gdomain = "todo" if "todo" in guessed else "calendar"
             return guessed, gdomain, True, True
         return None, domain, domain_inferred, True
+
+    # Q25, the same rule the SEGMENTER applies (`fastseg.tag`): a stated clock
+    # means scheduled. Both tracks need it or they disagree about the same
+    # sentence — which is exactly what happened when only the segmenter had it:
+    # `fastseg` called "file the taxes every weekday at 3:45pm" an event while
+    # this returned create_todo, and the product-shape board charged the
+    # difference as 8 wrong commits.
+    #
+    # Narrowed identically, so the two cannot drift: an explicit "remind me TO
+    # <verb>" is the speaker ASKING for a task (Q15) and outranks the clock.
+    if action == "create_todo" and not _REMINDER_TASK_FRAME.match(span_text) \
+            and _STATED_CLOCK_RE.search(span_text):
+        return "create_event", "calendar", True, domain_material
 
     return action, domain, domain_inferred, domain_material
 

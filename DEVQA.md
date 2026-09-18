@@ -365,6 +365,35 @@ before you rule:
   contract daily at 8:30pm"). The other 135 have no clock at all and this
   ruling does not reach them.
 
+  **NARROWED THE SAME DAY, because as stated it contradicted Q15** — which is
+  also Gil's, and which rules that *"remind me TO <verb>"* is a task. Taken
+  literally, Q25 would have overturned it and retired 42 corpus rows across two
+  DELIBERATE families (`s_ct_task_with_time` — named for the proposition — and
+  `c_recur_7`). Gil, shown the conflict: *"u decide just fix so there arent
+  conflicts."*
+
+  **The decision: a stated clock makes it an event, UNLESS the speaker used an
+  explicit reminder frame.** "remind me to feed the cat at 14:00" stays a task
+  — that phrasing is the speaker ASKING for one, and an explicit request
+  outranks an inference. Everything else with a clock is an event, including a
+  recurring one, so `c_recur_7`'s 10 clock rows were RELABELLED to
+  `create_event` rather than left contradicting a standing ruling. That family
+  is train-only, so no sealed row was read or touched.
+
+  **Both tracks got the identical rule, and that was not optional.** The
+  segmenter had a clock rule already but only inside its `event` branch, so a
+  `task` verdict was never revisited; the front door had none. Giving it to
+  only one made them disagree about the same sentence — `fastseg` calling
+  "file the taxes every weekday at 3:45pm" an event while `_route_intent`
+  returned create_todo — and the product-shape board charged the difference as
+  8 wrong commits. With both aligned:
+
+      kind accuracy, fastrule train (3,200)      94.2% -> 94.7%
+      kind accuracy, realspeech train (450)      91.3% -> 94.2%
+      correct-on-handled, FastRule product-shape 93.9% -> 94.4%
+      harm                                       185 -> 173 (153 -> 141 wrong commits)
+      handle-rate 78.1% -> 78.0%, DESTRUCTIVE flat at 28
+
   **The parallel task is NOT built.** Gil allows an event to also produce a
   task; nothing does that today, and it is a product change, not a kind fix.
   Filed, not started.

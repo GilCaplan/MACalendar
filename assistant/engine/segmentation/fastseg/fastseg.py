@@ -740,6 +740,11 @@ _PREAMBLE = frozenset("""
 #: and `find_time_refs`'s own "clock" kind already recognises them
 #: (`_HOURWORD` + `_MINWORD`), so this checked less than what actually lands
 #: in `time_str`.
+#: Q15's frame: the speaker ASKING for a reminder, which outranks the "a clock
+#: means scheduled" inference. "remind me TO feed the cat at 14:00" is a task;
+#: "remind me ABOUT the dentist at 9am" is not this shape and stays an event.
+_REMINDER_TASK_FRAME = re.compile(r"^\s*(?:please\s+)?remind me\s+to\b", re.I)
+
 _STATED_CLOCK = re.compile(
     rf"\d{{1,2}}:\d{{2}}|\d{{1,2}}\s*(?:am|pm)|\bat\s+\d{{1,2}}\b|\bnoon\b|\bmidnight\b"
     rf"|\bo'?clock\b|\b(?:half|quarter)\s+(?:past|to)\b"
@@ -957,6 +962,29 @@ def tag(action: str, time_str: str) -> str:
     kind = _enforce_pinned_kinds(_kind_of(action), action)
     if kind not in ("event", "task", "review"):
         kind = "event"
+    # Q25 (Gil, 2026-09-18): "anything that has an AM or PM time, like 1
+    # o'clock, 2.30, that is for sure an event... if we're just given a day,
+    # maybe it's an event, maybe it's a task, it depends on the context."
+    #
+    # The clock rule already existed BELOW, but only inside the `event` branch,
+    # where it stops the task lexicon vetoing an event. When `_kind_of` answers
+    # `task` up front the branch is never entered, so the clock never gets a
+    # say: "i need to go to the dentist on the 24th at 3 o'clock" stayed a
+    # task. This is the missing direction, not a new rule.
+    #
+    # NARROWED so Q25 and Q15 can both stand, which is the whole point of the
+    # guard. Q15 (2026-09-07) rules that "remind me TO <verb>" is a task, and
+    # the corpus carries 42 rows across two deliberate families saying so
+    # (`s_ct_task_with_time`, `c_recur_7`) — the first is literally named for
+    # the proposition. An explicit reminder frame is the speaker ASKING for a
+    # task, and that outranks the inference a clock supports.
+    if kind == "task" and _STATED_CLOCK.search(time_str or "") \
+            and not _REMINDER_TASK_FRAME.match(action) \
+            and not _VAGUE_TIME_HEDGE.search(action) \
+            and not _TIME_BLOCKING.search(action) \
+            and not _DUE_DATE_EDIT.match(action) \
+            and not _is_not_calendar(action, time_str):
+        return "event"
     if kind == "event":
         # A ONE-WAY VETO, over `event` only — the third time that asymmetry is the
         # thing that works here. The task lexicon below wins the same way (87.5%

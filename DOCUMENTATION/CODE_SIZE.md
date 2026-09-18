@@ -1,9 +1,9 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 527, "total_lines": 142120} -->
+<!-- code-stats: {"total_files": 527, "total_lines": 142167} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**142,120 lines of source across 527 files.** Of that, **82,603 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**142,167 lines of source across 527 files.** Of that, **82,650 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
@@ -11,7 +11,7 @@
 | iOS application | 59 | 20,209 |
 | Mac application (calendar GUI) | 33 | 18,297 |
 | Actions, storage & domain (DB, config, observance, .ics) | 96 | 17,099 |
-| Engine (the brain, shipped path) | 49 | 15,593 |
+| Engine (the brain, shipped path) | 49 | 15,640 |
 | Engine experiments & boards (not in the answer path) | 47 | 12,515 |
 | Dataset & measurement tooling | 45 | 11,799 |
 | Retired (old brain, kept on purpose) | 12 | 6,339 |
@@ -20,13 +20,13 @@
 | Model / Ollama code | 12 | 2,563 |
 | API server (the front door) | 4 | 1,732 |
 | Launch scripts | 3 | 316 |
-| **TOTAL** | **527** | **142,120** |
+| **TOTAL** | **527** | **142,167** |
 
 ### By language
 
 | | files | lines |
 |---|---:|---:|
-| Python | 454 | 119,242 |
+| Python | 454 | 119,289 |
 | Swift | 64 | 22,029 |
 | shell | 8 | 696 |
 | launch script | 1 | 153 |
@@ -34,7 +34,7 @@
 Not counted above, and deliberately so:
 
 - **Data** — the utterance corpus, fitted weights and fixtures: 187,371 lines across 117 files. Bigger than the code, and not written by hand.
-- **Prose** — markdown and the published HTML explainers: 38,714 lines across 112 files.
+- **Prose** — markdown and the published HTML explainers: 38,743 lines across 112 files.
 
 ### How the categories are drawn
 
