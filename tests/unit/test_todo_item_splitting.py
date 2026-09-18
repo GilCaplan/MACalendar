@@ -389,8 +389,11 @@ def test_mac_panel_tag_precedence(db):
     # bare trailing date — no preposition, so the old regexes never saw it
     ("remind me to buy milk and bread tomorrow", ["buy milk", "buy bread"]),
     ("remind me to wash the laundry the 30th", ["wash the laundry"]),
-    # a clock time, which the old code left in the name (Gil, 2026-09-18)
-    ("I need to walk Val at 3pm", ["walk val"]),
+    # a clock time, which the old code left in the name (Gil, 2026-09-18).
+    # "I need to walk Val at 3pm" is an EVENT now — the clock is the tell, and
+    # 30/30 atomic gold rows with a stated clock say so — so this case moved to
+    # `test_the_time_never_lands_in_an_event_title` below. What matters for
+    # BOTH is the same: the time is not part of the name.
     ("remind me to feed the cat at 14:00", ["feed the cat"]),
     # the date mid-sentence, where it always worked, must keep working
     ("remind me tomorrow to send the syllabus to Guri",
@@ -403,3 +406,20 @@ def test_the_time_never_lands_in_the_title(parser, phrase, expected):
     result = parser.analyze(phrase)
     titles = result.raw_slots.get("create_todo", {}).get("titles")
     assert titles == expected
+
+
+def test_the_time_never_lands_in_an_event_title(parser):
+    """The same rule on the event side of the routing split.
+
+    Gil reported "I need to walk Val at 3pm" as a task called 'walk val at
+    3pm'. Both halves of that were wrong and they were fixed separately: the
+    title (this file, 2026-09-18) and the ROUTING, since a stated clock makes
+    the need-to family an event. Asserted through `raw_slots` rather than the
+    built intent because the row legitimately defers — no day was said — and
+    the title is still what it should be while it does.
+    """
+    result = parser.analyze("I need to walk Val at 3pm")
+    assert "create_event" in result.raw_slots, (
+        f"a stated clock should route the need-to family to an event, "
+        f"got {list(result.raw_slots)}")
+    assert result.raw_slots["create_event"].get("title") == "walk val"

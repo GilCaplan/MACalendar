@@ -1269,6 +1269,56 @@ duration; the deep track merely fails more quietly.
 Whoever picks this up: decide where it lives before writing it, since an
 optional intent field is a contract question and the action layer is not.
 
+## CONTRACT CHANGE — decompose_validate may MULTIPLY an item, never RE-CUT one
+
+**Approved by Gil, 2026-09-18.** A DESIGN change to a frozen contract, filed
+here rather than slipped into a fix, per CLAUDE.md.
+
+`decompose_validate/ARCHITECTURE.md` says today:
+
+> **decompose RESOLVES. validate CHECKS. Neither one SPLITS.**
+> Splitting is segmentation's job and asking twice is how items get double-cut.
+
+Gil: *"the segmentation is just splitting it, but sometimes we also need to do
+more splits... in parallel to the recurrence... split first, then the
+recurrence, then the validate."* The reason it holds up: **some splits cannot
+be decided on words alone — they need resolved values.** Whether "at 9 and
+2:30" is two times or one range is a question about VALUES, and deciding it
+before resolution is deciding it blind. Same shape as Q16's "never": a rule
+stated absolutely because it was written against one failure mode.
+
+**THE RULE THAT KEEPS THE OLD BUG DEAD.** The stage may MULTIPLY an item; it
+may never RE-CUT one:
+
+    MULTIPLY   same ask, several occurrences — a recurrence fanning into
+               instances, one ask with two clock times. Every product has
+               the SAME TITLE.
+    RE-CUT     different asks — "buy milk and call mom". Segmentation's,
+               permanently.
+
+Double-cutting is always a re-cut and never a multiply, so this preserves
+exactly what the original prohibition protected. It is CHECKABLE rather than a
+matter of judgement, and it ships with its guard on day one: **a fan-out whose
+products have different titles FAILS THE BUILD.** Without that test this
+becomes the double-cut bug again in six months.
+
+So the order inside the stage becomes one new step, not two — split and
+recurrence are the same operation under this framing:
+
+    resolve  ->  fan out  ->  validate
+
+validate still runs last and still checks the fanned-out items against X1.
+
+**WHAT IT COSTS, and none of it is optional** (the panel procedure in
+CLAUDE.md): bump `BRAIN_VERSION`, update `CHAINS` in `assistant/trace.py`, the
+HUD render (`thinking_panel.py` + any new stage icon), the iOS `ThinkingView`,
+and the explorer diagram. `test_panel_agreement.py` goes red naming what is
+missing, and `test_engine_contracts.py` pins the I/O contract being changed.
+
+**NOT STARTED.** Sequenced after the routing fix and the command-frame repair,
+which are small and measurable on a board that already exists; this one needs
+its own run.
+
 ## A TRAILING day is not distributed; a LEADING one is — NOT FIXED, filed 2026-09-18
 
 `fastseg.assign_times` fills each ask's `time` from a day slot and a clock

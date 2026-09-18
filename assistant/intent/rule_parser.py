@@ -1447,6 +1447,25 @@ _ROUTE_OVERRIDES = [
     # of confident wrong).
     (re.compile(r"^\s*(?:please\s+)?(?:set|make)\s+.+\s+as\s+"
                 r"(?:high|medium|low)\s+priority\b"), "update_todo"),
+    # THE CLOCK TIME IS THE TELL — the same convention the pinned-reminder row
+    # below already applies to "remind me", extended to the need-to family
+    # because the gold says it holds there too. Gil reported this one from his
+    # phone (2026-09-18): "I need to walk Val at 3pm" became a TASK, and the
+    # kind board shows it is 4 out of 4 of that board's event-read-as-task
+    # errors.
+    #
+    # Measured on the FastRule 7,200 atomic rows before writing it:
+    #
+    #     with a stated clock      30 rows  -> create_event   30/30, no exceptions
+    #     with no clock           139 rows  -> 96 event / 43 todo   genuinely mixed
+    #
+    # So the clock decides and nothing else does — which is why this rule
+    # requires one rather than routing the whole family. "remind me TO …" keeps
+    # its own row below and stays a task even with a clock: that phrasing asks
+    # for a REMINDER, while "I need to" states a commitment.
+    (re.compile(r"^\s*(?:please\s+)?(?:i\s+)?(?:need|have|want|got)\s+to\s+.*"
+                r"(?:\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\bat\s+\d{1,2}\b"
+                r"|\b(?:noon|midnight)\b|\bo'?clock\b)"), "create_event"),
     (re.compile(r"^\s*(?:please\s+)?(?:i\s+)?(?:need|have|want|got)\s+to\s+"), "create_todo"),
     # The pinned reminder convention (project rule): "remind me to call Gil"
     # is a task, but "remind me about the dentist tomorrow at 9am" is a
