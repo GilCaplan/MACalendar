@@ -86,6 +86,48 @@ Per-persona boards plus the SPREAD between best and worst — the spread is
 the finding. Plus the vocabulary-vs-phrasing ablation, which showed the
 engine is tuned to sentence shapes (7–29 pt) and not to vocabulary (0–3 pt).
 
+## Level 4b — POSITION INVARIANCE (`scripts/invariance_board.py`) — CROSS-STAGE
+
+**The one metric that is not about being right — it is about being the SAME.**
+Gil, 2026-09-18: *"a very important part of the project is to make sure that
+we're invariant to where the time / title are located in the prompt."*
+
+Every row of the FastRule 7,200 set puts the time at the END — all 1,693
+train-half rows carrying a gold `(text, time)` split reconstruct exactly as
+`text + " " + time`, and not one is in any other order. So every FastRule
+number ever printed is an **end-position** measurement, and no board here
+could see a parser that only works when the time comes last.
+
+The variants are built from the dataset's OWN gold decomposition, never from
+a span detector — that detector is the thing under test, and using it would
+make the instrument circular. Generated at run time, never committed.
+
+| metric | question |
+|---|---|
+| **position-dependent** | of one row's variants, did the answers DISAGREE — the defect |
+| solid | they agree, and they are right |
+| consistently wrong | they agree, and they are wrong — an accuracy bug, counted apart so it is never read as a position bug |
+| correctness by position | action + title vs gold, per position, control = `end` |
+| which field moves | item count / action / date / title — a title that drifts with position is a different repair from a date that does |
+
+**Two questions, never collapsed**: AGREEMENT is variant-vs-variant,
+CORRECTNESS is variant-vs-gold. A parser wrong in all three positions is
+perfectly invariant, which is why "consistently wrong" has its own column.
+
+**Scored at four boundaries with one set of variants**, so a loss of
+invariance is attributed to a STAGE instead of inferred from the end of the
+chain: `segmentation` (the WORD PARTITION — which words went to `text`, which
+to `time`, compared as words because the order differs by construction) ·
+`decompose_validate` (the resolved slots) · `fastrule` (the built object) ·
+`front_door` (`FastRule.run()` on the raw utterance — the instant path, which
+skips the three stages above).
+
+**`front` and `front,` are separate positions on purpose.** The comma is not
+decoration: `"the 30th, wash and fold the laundry"` loses the date entirely
+while `"the 30th wash and fold the laundry"` resolves it. Emitting only the
+comma form would score a PUNCTUATION bug as a POSITION bug and send the fix
+to the wrong stage.
+
 ## Level 5 — REAL USAGE (`scripts/weekly_review.py`) — the outer gate
 
 Flag rate and accuracy on Gil's actual commands, test traffic excluded.

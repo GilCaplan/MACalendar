@@ -118,7 +118,7 @@ in the repo linked to.
 | 96 | **`assistant/integrations/` — the convention for hosting an external program.** Jude is its first consumer. Covers discovery, supervised spawn, a status shape that never raises, an ollama gate, and a `sitecustomize` shim for children we may not edit. | done 2026-09-17 | `assistant/integrations/CONVENTION.md` |
 | 97 | **`assistant/features/` — the convention for OUR OWN tabs/panels.** Deliberately NOT an Integration (a tab has no checkout, port or subprocess). One declaration per feature replaces three hand-synced iOS lists and five Mac wiring sites; visibility is one `features:` map in config.yaml served by `GET /features`, replacing three separate systems. | done 2026-09-17 | `assistant/features/CONVENTION.md` |
 | 98 | **Mac panels now keep a declared contract** (`FeaturePanel`: `reload` / `apply_theme` / `apply_ui_config`). Fixed a live bug: the DB-change poll reloaded Tasks and, as a bolted-on special case, Timer — **Coursework and Workout went stale until restart** when the phone changed them. | done 2026-09-17 | `assistant/calendar_ui/feature_panel.py`, `window.py` |
-| 99 | **Coursework offline writes are silently dropped — DATA LOSS, NOT FIXED.** `CourseStore.swift:5` documents *"offline writes are queued in LocalStore.shared.enqueue() and replayed on reconnect"*; no `/courses` or `/assignments` path appears in any `enqueue` call site. `CourseworkView` does `store.removeCourse(id)` then `try? await api.deleteCourse(id)`, so the failure is swallowed and the next sync re-downloads the course. **Delete a course offline and it comes back; add an assignment offline and it vanishes.** Timer and Teach have no offline handling at all. Fix by giving every feature ONE offline mechanism rather than per-tab folklore. | todo | `CourseStore.swift`, `CourseworkView.swift`, `APIClient.swift` |
+| 99 | **Coursework offline writes were silently dropped — FIXED (`bbe7892`), verified 2026-09-18.** `/courses` and `/assignments` now enqueue on `APIError.offline`, each create carries a `client_token` so a replay cannot duplicate, and `LocalStore.remapTemporaryID` repoints anything queued behind a placeholder id. `CourseworkView`'s `try?` is gone — a refused delete puts the row back. Regression-tested by `tests/unit/test_ios_offline.py` (`test_the_coursework_paths_are_actually_queued`) plus the offline-queue and idempotency suites: 53 passing. The row said NOT FIXED for a day after it was fixed, which is how a cleared blocker sends the next person looking for work already in the tree. | done | `CourseStore.swift`, `CourseworkView.swift`, `APIClient.swift` |
 | 100 | **Jude's data prerequisites.** Its retriever hardcodes `nomic-embed-text`, and the local `chroma_db` had lost `data_level0.bin` (924 MB of vectors) so the index would not load at all. | done 2026-09-17 — model pulled; index restored from Hugging Face in 30s rather than re-embedding for ~70min; Hebrew text migrated INTO the index so `chroma_db` is now the only artifact Jude needs, and the absolute `he_path` that made the published dataset work on one machine only is gone (HF `dbc22305`, GitHub `f6917c3`). | `assistant/jude/ARCHITECTURE.md` |
 
 **Q4 (Gil 2026-09-06, app stream) — RULED IN, STILL UNBUILT.** Mac
@@ -1268,6 +1268,50 @@ duration; the deep track merely fails more quietly.
 
 Whoever picks this up: decide where it lives before writing it, since an
 optional intent field is a contract question and the action layer is not.
+
+## POSITION INVARIANCE — MEASURED 2026-09-18, not yet fixed
+
+Gil, 2026-09-18: *"a very important part of the project is to make sure that
+we're invariant to where the time / title are located in the prompt."*
+
+New cross-stage instrument: `scripts/invariance_board.py`, metric defined in
+`dataset/METRICS.md` Level 4b, first run in
+`DOCUMENTATION/experiments/invariance/RESULTS.md`. It exists because **every
+row of the FastRule 7,200 set puts the time at the END**, so every number that
+board has printed is an end-position measurement and none of them could see
+this.
+
+First run, FastRule 7,200 train half, 1,548 comparable groups — **percentage
+of groups whose variants DISAGREE**:
+
+    segmentation         16.0%     <- the owner; loses the word partition 1 row in 6
+    decompose_validate    9.1%     <- inherits only, adds none
+    fastrule (stage)      7.9%     <- inherits only, adds none
+    front door           68.7%     <- a separate problem
+
+Invariance degrades UP the chain (16.0 -> 9.1 -> 7.9), which is evidence the
+per-item design in `decompose_validate` is holding: it cannot be adding
+position-dependence if there is less of it downstream. **Segmentation is the
+owner and is where a fix belongs**; the front door is a second, larger problem
+because it redoes both jobs on raw text.
+
+**NOT STARTED — Gil is deciding the direction** (2026-09-18: *"don't change
+the system. We're just testing the system for this invariant quality... then
+we can decide how we want to move forward"*). Three candidates, none begun:
+
+- fix segmentation's partition (implementation, allowed under the 2026-09-12
+  narrowing) — targets the 16.0%, and should not move the front door at all
+- normalise the time to the end inside the front door, the way `Item.spoken()`
+  already does for the deep track (implementation, one stage) — targets 68.7%
+- have the front door consume segmentation's items instead of raw text — a
+  CHAIN-SHAPE change, Gil's call, not to be slipped in under a defect fix
+
+Two defects found beside it and also unfixed: a leading time phrase FOLLOWED
+BY A COMMA loses the date entirely (`"the 30th, wash and fold the laundry"` ->
+`due_date=None`, while the same words without the comma resolve), and 36-38%
+of rows are *consistently* wrong across every position — an accuracy problem
+this board deliberately counts in its own column rather than confusing with a
+position one.
 
 ## Working agreements
 - Everything on the phone is local: no third-party services; the only network peer is the Mac over Tailscale.
