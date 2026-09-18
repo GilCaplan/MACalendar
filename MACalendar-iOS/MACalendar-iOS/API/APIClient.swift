@@ -710,6 +710,64 @@ class APIClient: ObservableObject {
         }
     }
 
+    // MARK: - Recurring series
+    //
+    // A series is ONE thing. `events.series_id` has linked the instances since
+    // it was added, and the Mac has propagated and re-generated them for just
+    // as long — but no route exposed it, so this app could only ever edit the
+    // single instance in front of it. Change the end date there and the other
+    // rows carried on regardless.
+    //
+    // These are deliberately NOT queued offline. Growing or trimming a series
+    // deletes and regenerates rows on the Mac, and replaying that against a
+    // database that moved on since would be guesswork about which instances
+    // the user meant. A one-instance edit still queues, as it always did.
+
+    struct EventSeries: Decodable {
+        var seriesId: Int?
+        var recurrence: String
+        var recurrenceEnd: String
+        var count: Int
+        var instances: [CalendarEvent]
+
+        enum CodingKeys: String, CodingKey {
+            case seriesId = "series_id"
+            case recurrence, count, instances
+            case recurrenceEnd = "recurrence_end"
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            seriesId      = try c.decodeIfPresent(Int.self, forKey: .seriesId)
+            recurrence    = (try? c.decode(String.self, forKey: .recurrence)) ?? ""
+            recurrenceEnd = (try? c.decode(String.self, forKey: .recurrenceEnd)) ?? ""
+            count         = (try? c.decode(Int.self, forKey: .count)) ?? 0
+            instances     = (try? c.decode([CalendarEvent].self, forKey: .instances)) ?? []
+        }
+    }
+
+    func eventSeries(id: Int) async throws -> EventSeries {
+        try decode(EventSeries.self, from: try await request("/events/\(id)/series"))
+    }
+
+    /// Edit the SERIES through one of its instances. `recurrence` and
+    /// `recurrence_end` change its shape — the Mac regenerates the future
+    /// instances, so extending grows it and shortening trims it.
+    @discardableResult
+    func updateSeries(id: Int, fields: [String: Any]) async throws -> EventSeries {
+        burstRefresh(seconds: 10)
+        let data = try await request("/events/\(id)/series", method: "PATCH", body: fields)
+        return try decode(EventSeries.self, from: data)
+    }
+
+    /// `future` keeps the instances already gone by — they are a record of
+    /// what happened, and that is what people mean when a weekly thing stops.
+    func deleteSeries(id: Int, futureOnly: Bool) async throws {
+        burstRefresh(seconds: 10)
+        let scope = futureOnly ? "?scope=future" : ""
+        _ = try await request("/events/\(id)/series\(scope)", method: "DELETE")
+    }
+
     // MARK: - Todos
 
     func todos(list: String = "all", includeCompleted: Bool = false) async throws -> [Todo] {

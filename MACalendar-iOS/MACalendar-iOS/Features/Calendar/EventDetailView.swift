@@ -19,6 +19,14 @@ struct EventDetailView: View {
     /// is the column being NULL.
     @State private var reminderChoice: Int
     @State private var saving = false
+    /// The SERIES rule. Separate from the instance fields above because
+    /// changing it edits every instance, not this row — the Save button writes
+    /// one event, "Apply to all" writes the series.
+    @State private var recurrence: String
+    @State private var recurrenceEnd: String
+    @State private var seriesCount = 0
+    @State private var seriesBusy = false
+    @State private var confirmSeriesDelete = false
     @State private var confirmDelete = false
     @State private var errorMessage: String?
     @State private var sharing = false
@@ -37,6 +45,8 @@ struct EventDetailView: View {
         self.isNew = isNew
         self.onDismiss = onDismiss
         _title     = State(initialValue: event.title)
+        _recurrence    = State(initialValue: event.recurrence)
+        _recurrenceEnd = State(initialValue: event.recurrenceEnd)
         _date      = State(initialValue: event.date)
         _startTime = State(initialValue: event.startTime)
         _endTime   = State(initialValue: event.endTime)
@@ -140,6 +150,25 @@ struct EventDetailView: View {
                         Text("Inherit uses the category's lead time, set on your Mac. Per-event reminders are off by default — Settings › Notifications is the one summary this phone shows.")
                     }
                 }
+                if !isNew {
+                    RepeatsSection(recurrence: $recurrence,
+                                   recurrenceEnd: $recurrenceEnd,
+                                   seriesCount: seriesCount,
+                                   busy: seriesBusy,
+                                   apply: applySeries,
+                                   deleteSeries: { confirmSeriesDelete = true })
+                    .confirmationDialog("Delete the whole series?",
+                                        isPresented: $confirmSeriesDelete,
+                                        titleVisibility: .visible) {
+                        Button("Delete this and future", role: .destructive) {
+                            removeSeries(futureOnly: true)
+                        }
+                        Button("Delete every instance", role: .destructive) {
+                            removeSeries(futureOnly: false)
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    }
+                }
                 // The event body. This is where a planned session keeps the
                 // part that matters — "2 × 10 min @ 4:40 — 2 min jog between" —
                 // so it needs room to wrap, not a one-line TextField.
@@ -194,6 +223,7 @@ struct EventDetailView: View {
                 }
             }
             .disabled(isReadOnly)
+            .onAppear(perform: loadSeriesCount)
             .navigationTitle(isNew ? "New Event" : "Edit Event")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -283,6 +313,58 @@ struct EventDetailView: View {
         }
     }
 
+    // MARK: - The series
+
+    /// How many instances are linked, so the footer can say so. Read-only and
+    /// best-effort: a phone with no Mac in reach just shows the generic text.
+    private func loadSeriesCount() {
+        guard !isNew, event.id > 0, !recurrence.isEmpty else { return }
+        Task {
+            if let s = try? await api.eventSeries(id: event.id) {
+                seriesCount = s.count
+            }
+        }
+    }
+
+    /// Write the RULE to every instance. `Save` writes this event; this writes
+    /// the series, and the Mac regenerates the later instances — so extending
+    /// the end date adds them and shortening it trims them.
+    private func applySeries() {
+        seriesBusy = true
+        Task {
+            defer { seriesBusy = false }
+            do {
+                let out = try await api.updateSeries(
+                    id: event.id,
+                    fields: ["recurrence": recurrence,
+                             "recurrence_end": recurrenceEnd])
+                seriesCount = out.count
+                onDismiss?()
+            } catch {
+                // Deliberately NOT queued offline: growing or trimming a series
+                // deletes and regenerates rows on the Mac, and replaying that
+                // against a database that moved on would be guesswork about
+                // which instances were meant.
+                errorMessage = "The series couldn't be updated — your Mac needs to be reachable for this one."
+            }
+        }
+    }
+
+    private func removeSeries(futureOnly: Bool) {
+        seriesBusy = true
+        Task {
+            defer { seriesBusy = false }
+            do {
+                try await api.deleteSeries(id: event.id, futureOnly: futureOnly)
+                dismiss()
+                onDismiss?()
+            } catch {
+                errorMessage = "The series couldn't be deleted — your Mac needs to be reachable for this one."
+                onDismiss?()
+            }
+        }
+    }
+
     // MARK: - Share as .ics
 
     /// A filesystem-safe slug of the title for the shared file's name.
@@ -320,6 +402,102 @@ struct EventDetailView: View {
 
 /// Identifiable wrapper so `.sheet(item:)` can present the share sheet the
 /// moment the .ics file lands on disk. ShareLink wants its item up front,
+/// The SERIES rule, as its own view.
+///
+/// Its own struct and not a computed property in `body` for the reason this
+/// project has already paid for once: a SwiftUI body that grows past a certain
+/// size stops type-checking in reasonable time and the build dies with
+/// "unable to type-check this expression in reasonable time" pointing at
+/// nothing useful. A picker, a date row and two buttons is exactly the amount
+/// that tips it.
+///
+/// The cadences are the four the product supports (CLAUDE.md) — anything else
+/// a speaker says is rounded to one of them and the rounding is announced, so
+/// offering a fifth here would promise something the engine cannot keep.
+private struct RepeatsSection: View {
+    @Binding var recurrence: String
+    @Binding var recurrenceEnd: String
+    let seriesCount: Int
+    let busy: Bool
+    let apply: () -> Void
+    let deleteSeries: () -> Void
+
+    private static let cadences = [("Never", ""), ("Every day", "daily"),
+                                   ("Every week", "weekly"),
+                                   ("Every month", "monthly"),
+                                   ("Every year", "yearly")]
+
+    /// "" means the series never ends. A DatePicker cannot express that, so
+    /// the toggle carries it and the picker only appears once there IS an end.
+    private var hasEnd: Binding<Bool> {
+        Binding(get: { !recurrenceEnd.isEmpty },
+                set: { on in
+                    if on {
+                        if recurrenceEnd.isEmpty {
+                            let soon = Calendar.current.date(byAdding: .month, value: 3,
+                                                             to: Date()) ?? Date()
+                            recurrenceEnd = Self.day.string(from: soon)
+                        }
+                    } else {
+                        recurrenceEnd = ""
+                    }
+                })
+    }
+
+    private var endDate: Binding<Date> {
+        Binding(get: { Self.day.date(from: recurrenceEnd) ?? Date() },
+                set: { recurrenceEnd = Self.day.string(from: $0) })
+    }
+
+    static let day: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    var body: some View {
+        Section {
+            Picker("Repeats", selection: $recurrence) {
+                ForEach(Self.cadences, id: \.1) { label, value in
+                    Text(label).tag(value)
+                }
+            }
+            if !recurrence.isEmpty {
+                Toggle("Has an end date", isOn: hasEnd)
+                if !recurrenceEnd.isEmpty {
+                    DatePicker("Ends", selection: endDate, displayedComponents: .date)
+                }
+                Button {
+                    apply()
+                } label: {
+                    HStack {
+                        Label("Apply to the whole series", systemImage: "repeat")
+                        if busy { Spacer(); ProgressView() }
+                    }
+                }
+                .disabled(busy)
+                Button(role: .destructive) { deleteSeries() } label: {
+                    Label("Delete series…", systemImage: "trash")
+                }
+                .disabled(busy)
+            }
+        } header: {
+            Text("Repeats")
+        } footer: {
+            if recurrence.isEmpty {
+                Text("Pick a cadence to turn this one event into a series.")
+            } else if seriesCount > 0 {
+                Text("\(seriesCount) events are linked. Changing the cadence or the "
+                     + "end date rebuilds the later ones — extending adds, shortening trims. "
+                     + "Save changes only this event.")
+            } else {
+                Text("Changing the cadence or the end date rebuilds the later events.")
+            }
+        }
+    }
+}
+
+
 /// which an async fetch can't provide — GuestsSection gets away with
 /// ShareLink because it composes its .ics synchronously on-device.
 private struct ShareFile: Identifiable {

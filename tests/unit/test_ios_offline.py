@@ -58,6 +58,13 @@ NOT_QUEUEABLE = {
     # Feature visibility has its own queueing in FeatureVisibility.set, which
     # also distinguishes a REFUSAL (409) from an unreachable Mac.
     "setFeatureVisible",
+    # A SERIES edit DELETES AND REGENERATES rows on the Mac. Replaying that
+    # against a database that moved on since is guesswork about which
+    # instances the user meant — extend a series offline, have the Mac trim it
+    # meanwhile, and the replay would resurrect instances nobody asked for.
+    # Editing ONE instance still queues, exactly as it always did, so the
+    # offline path loses nothing it used to have (Gil, 2026-09-18).
+    "updateSeries", "deleteSeries",
 }
 
 MUTATING = re.compile(r'request\(\s*"[^"]*"[^)]*?method:\s*"(POST|PATCH|PUT|DELETE)"', re.S)

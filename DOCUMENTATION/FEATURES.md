@@ -13,6 +13,36 @@ Entries are grouped by **layer**: pure UI (client-side only — the backend
 needs no knowledge of them), hybrid (coordinated frontend + backend), and
 purely backend (no client code beyond displaying the effects).
 
+
+## Recurring series, edited as one thing
+
+**What.** A repeating event is a linked group, not a pile of rows. Change its
+cadence or its end date from any instance — on the Mac or the phone — and the
+later instances are rebuilt: extending the end date ADDS them, shortening it
+TRIMS them. Deleting offers "this and future" as well as "all", because the
+instances already gone by are a record of what happened.
+
+**Where.** `events.series_id` links them (NULL = a one-off). The Mac's event
+dialog has had its interval picker for a long time; the phone got one on
+2026-09-18, together with the routes that both clients needed:
+
+    GET    /events/<id>/series              every instance + the rule
+    PATCH  /events/<id>/series              edit the SERIES through an instance
+    DELETE /events/<id>/series[?scope=future]
+
+**How.** `db.update_series` propagates the series-wide fields to every
+instance and regenerates the future ones whenever the schedule changes;
+`db.delete_series_from` re-roots the series so it stays editable after its
+first instance goes. Only `daily|weekly|monthly|yearly` are accepted — the
+product's four cadences — and anything else is a 400 rather than a silent
+rounding.
+
+**One deliberate limitation.** Series edits are NOT queued offline, unlike
+every other write on the phone. Growing or trimming a series deletes and
+regenerates rows, and replaying that against a database that moved on in the
+meantime would resurrect instances nobody asked for. Editing a SINGLE instance
+still queues exactly as before.
+
 ## The table
 
 | layer | feature | in one line | mainly lives in |

@@ -1,14 +1,14 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 527, "total_lines": 142867} -->
+<!-- code-stats: {"total_files": 527, "total_lines": 143110} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**142,867 lines of source across 527 files.** Of that, **82,996 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**143,110 lines of source across 527 files.** Of that, **83,232 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
-| Test code | 144 | 29,134 |
-| iOS application | 59 | 20,209 |
+| Test code | 144 | 29,141 |
+| iOS application | 59 | 20,445 |
 | Mac application (calendar GUI) | 33 | 18,297 |
 | Actions, storage & domain (DB, config, observance, .ics) | 96 | 17,222 |
 | Engine (the brain, shipped path) | 49 | 15,863 |
@@ -20,21 +20,21 @@
 | Model / Ollama code | 12 | 2,563 |
 | API server (the front door) | 4 | 1,732 |
 | Launch scripts | 3 | 316 |
-| **TOTAL** | **527** | **142,867** |
+| **TOTAL** | **527** | **143,110** |
 
 ### By language
 
 | | files | lines |
 |---|---:|---:|
-| Python | 454 | 119,989 |
-| Swift | 64 | 22,029 |
+| Python | 454 | 119,996 |
+| Swift | 64 | 22,265 |
 | shell | 8 | 696 |
 | launch script | 1 | 153 |
 
 Not counted above, and deliberately so:
 
 - **Data** — the utterance corpus, fitted weights and fixtures: 187,371 lines across 117 files. Bigger than the code, and not written by hand.
-- **Prose** — markdown and the published HTML explainers: 38,861 lines across 112 files.
+- **Prose** — markdown and the published HTML explainers: 38,891 lines across 112 files.
 
 ### How the categories are drawn
 
