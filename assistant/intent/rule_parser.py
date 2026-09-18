@@ -669,9 +669,72 @@ def _lexicon_split_points(doc) -> list:
             continue
         sentence_initial = i == 0
         follows_cc = i > 0 and doc[i - 1].dep_ == "cc" and doc[i - 1].lower_ in ("and", "or")
-        if sentence_initial or follows_cc:
-            points.append(tok)
+        if not (sentence_initial or follows_cc):
+            continue
+        # The same object-sharing guard the dependency path uses. Without it
+        # this fallback UNDOES that decision: suppressing the split above just
+        # drops `split_verbs` below two, which is the exact condition that
+        # hands the sentence to this function, and "sort and file the
+        # paperwork" was cut in half here instead of there.
+        if follows_cc and points and _serial_verbs(points[-1], tok):
+            continue
+        points.append(tok)
     return points
+
+
+#: dependency labels for "this verb has an object of its own"
+_OBJECT_DEPS = frozenset({"dobj", "dative", "attr", "obj", "oprd"})
+
+
+def _serial_verbs(head, conj) -> bool:
+    """Two coordinated verbs sharing ONE object — "wash and fold the laundry".
+
+    One task, not two, and its name keeps both verbs: 50 rows of the FastRule
+    7,200 set say so (families `c_npdecoy_serial_*`, gold title 'wash and fold
+    the laundry'). The engine used to cut at the "and" and produce a task
+    called 'wash', which is not a thing anyone can do.
+
+    The signal is what the FIRST verb is missing: it has no object, and the
+    second one does, so the object after the second verb is the object of both.
+    "buy milk and call mom" has one each and stays two tasks.
+
+    spaCy mistags the leading verb often enough here ("clean" comes back ADJ in
+    "clean and organize the garage") that the HEAD's tag is not checked — only
+    that it has no object. The conjunct's own VERB tag carries the reading.
+
+    ADJACENCY is what keeps that leniency safe. Serial verbs have nothing
+    between them but the conjunction, and requiring it is the difference
+    between this reading and a mistake: "book gym on tuesday at 7am and remind
+    me to buy milk" parses with ROOT=`gym` (NOUN — the tagger lost `book`
+    entirely), so `remind` is a conjunct of a head with no object, and without
+    adjacency this merged a real two-command sentence into one.
+    """
+    if conj.pos_ != "VERB":
+        return False
+    cc = conj.i - 1
+    if cc <= head.i or conj.doc[cc].dep_ != "cc" or cc - 1 != head.i:
+        return False
+    if not any(c.dep_ in _OBJECT_DEPS for c in conj.children):
+        return False
+    return not any(c.dep_ in _OBJECT_DEPS for c in head.children)
+
+
+def _serial_verb_pairs(span) -> "frozenset[str]":
+    """The "wash and fold" bigrams in a span, for `split_items` to keep whole.
+
+    `list_split` is pure string work by design and has no parse to consult, so
+    the parse is read HERE and handed down as pairs, the same way `_AND_IDIOMS`
+    already protects "fish and chips".
+    """
+    pairs = set()
+    for tok in span:
+        if tok.dep_ != "conj" or not _serial_verbs(tok.head, tok):
+            continue
+        cc = next((c for c in tok.head.children
+                   if c.dep_ == "cc" and c.i < tok.i), None)
+        if cc is not None:
+            pairs.add(f"{tok.head.text} {cc.text} {tok.text}".lower())
+    return frozenset(pairs)
 
 
 def _split_intents(doc) -> list:
@@ -687,6 +750,9 @@ def _split_intents(doc) -> list:
     split_verbs = [root] + [
         tok for tok in doc
         if tok.dep_ == "conj" and tok.head == root and tok.pos_ == "VERB"
+        # ...unless the two verbs share one object, in which case the "and"
+        # joins them rather than separating two commands (`_serial_verbs`).
+        and not _serial_verbs(root, tok)
     ]
 
     if len(split_verbs) < 2:
@@ -1618,7 +1684,8 @@ def _todo_titles_from_text(text: str, temporal_spans, span) -> list[str]:
     # Blanking leaves the preposition that introduced the date stranded
     # ("call mom at", "meeting on"), so each part is tidied the same way
     # `_subtractive_title` tidies its own.
-    parts = [_tidy_part(p) for p in split_items(body, drop=_PRONOUN_TITLES)[:10]]
+    parts = [_tidy_part(p) for p in split_items(
+        body, drop=_PRONOUN_TITLES, keep_together=_serial_verb_pairs(span))[:10]]
     return [p for p in parts if p]
 
 

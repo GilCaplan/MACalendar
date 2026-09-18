@@ -409,7 +409,7 @@ def test_the_multi_item_title_cap_is_current(all_prose):
     # the one-line return it used to sit on (2026-09-18, when each split part
     # started being tidied before it is handed back), and a claims test that
     # breaks on a refactor it does not describe teaches people to edit it.
-    m = re.search(r"split_items\(body, drop=_PRONOUN_TITLES\)\[:(\d+)\]", src)
+    m = re.search(r"drop=_PRONOUN_TITLES.*?\[:(\d+)\]", src, re.S)
     assert m, "the multi-item title split no longer caps itself the way this test expects"
     cap = int(m.group(1))
     words = {8: "eight", 9: "nine", 10: "ten", 12: "twelve"}

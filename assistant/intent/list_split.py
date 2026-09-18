@@ -67,8 +67,14 @@ def lead_verb(part: str) -> str | None:
     return None
 
 
-def split_on_and(segment: str) -> list[str]:
-    """Split a comma-free segment at task-separating 'and's only."""
+def split_on_and(segment: str, keep_together: Container[str] = frozenset()) -> list[str]:
+    """Split a comma-free segment at task-separating 'and's only.
+
+    `keep_together` is extra "X and Y" bigrams to treat like `_AND_IDIOMS`.
+    Nothing here has a parse to consult, so the caller that does supplies them
+    — the rule parser passes the coordinated verbs that share one object
+    ("wash and fold the laundry"), which read as one task, not two.
+    """
     out: list[str] = []
     rest = segment
     while True:
@@ -77,8 +83,10 @@ def split_on_and(segment: str) -> list[str]:
             break
         head, tail = rest[:m.start()], rest[m.end():]
         pair = " ".join(head.split()[-1:] + ["and"] + tail.split()[:2]).lower()
+        protected = [i for i in _AND_IDIOMS]
+        protected.extend(keep_together)
         if (_BLOCKING_PREPS.search(head)
-                or any(pair.startswith(i) or i.startswith(pair) for i in _AND_IDIOMS)):
+                or any(pair.startswith(i) or i.startswith(pair) for i in protected)):
             break            # the 'and' is internal — keep the segment whole
         out.append(head.strip(" ."))
         rest = tail
@@ -103,17 +111,19 @@ def distribute_lead_verb(parts: list[str]) -> list[str]:
     return out
 
 
-def split_items(body: str, drop: Container[str] = frozenset()) -> list[str]:
+def split_items(body: str, drop: Container[str] = frozenset(),
+                keep_together: Container[str] = frozenset()) -> list[str]:
     """One phrase → the list of things it names, verb shared out.
 
     `drop` is a set of lower-case titles to discard before the verb is shared
     (the rule parser drops bare pronouns that its dependency heuristics leak).
+    `keep_together` is passed through to `split_on_and`.
     """
     parts: list[str] = []
     for segment in re.split(r"\s*[,;]\s*", body or ""):
         segment = segment.strip(" .")
         if segment:
-            parts.extend(split_on_and(segment))
+            parts.extend(split_on_and(segment, keep_together))
     # Phase-1 span splitting cuts before the conjunction, so a part can end on a
     # dangling "and" ("remind me to wash the dishes and | call the dentist").
     parts = [_DANGLING_CONJ.sub("", p.strip(" .,")).strip(" .,") for p in parts]
