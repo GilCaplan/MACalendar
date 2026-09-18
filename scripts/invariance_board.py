@@ -227,6 +227,86 @@ def correctness(state, row) -> "bool | None":
     return (got or "").strip().lower() == want_title.strip().lower()
 
 
+# ---------------------------------------------------------------------------
+# ARM 2 — MULTI-ASK. Without this the board cannot charge for UNDER-splitting.
+#
+# `load_rows` filters to `atomic: true`, so every gold count in arm 1 is ONE and
+# a fix that wrongly MERGES two commands scores as an improvement — the variants
+# agree, and agreement is what the board rewards. That blind spot was found by
+# an adversarial check of a segmentation fix whose ledger turned out to be 83
+# atomic over-splits fixed against 31 genuine two-ask commands collapsed; arm 1
+# could see only the first number.
+#
+# The rows are BUILT here rather than mined, because the corpus has no per-item
+# gold for its non-atomic rows: two atomic golds are joined with "and", so the
+# expected count is 2 BY CONSTRUCTION and needs no labelling. The shared time is
+# then moved exactly as in arm 1.
+#
+# OVER- and UNDER-splitting are reported SEPARATELY and never summed — the
+# FastSeg board already refuses to sum them, for the same reason: they are
+# different failures with different costs, and a net figure hides both.
+# ---------------------------------------------------------------------------
+
+def multi_ask_rows(rows: list, limit: int = 0) -> list:
+    """[(utterance_by_position, expected_items)] built from pairs of gold rows."""
+    seeds = []
+    for r in rows:
+        it = r["expect"]["item"]
+        text, time = it["text"].strip(), it["time"].strip()
+        if _STRANDED.search(text) or len(text.split()) > 6:
+            continue
+        seeds.append((text, time))
+    out = []
+    for i in range(0, len(seeds) - 1, 2):
+        (a_text, a_time), (b_text, _) = seeds[i], seeds[i + 1]
+        if a_text.lower() == b_text.lower():
+            continue
+        body = f"{a_text} and {b_text}"
+        out.append({
+            "expect": 2,
+            "forms": {"end": f"{body} {a_time}",
+                      "front": f"{a_time} {body}",
+                      "front,": f"{a_time}, {body}"},
+        })
+        if limit and len(out) >= limit:
+            break
+    return out
+
+
+def run_multi(rows, cfg, eng, limit: int = 0) -> None:
+    from assistant.engine.state import EngineState
+
+    cases = multi_ask_rows(rows, limit)
+    print(f"\n[multi-ask] {len(cases)} built two-ask utterances "
+          f"(two atomic golds joined; expected count is 2 by construction)")
+    per_pos = collections.defaultdict(lambda: collections.Counter())
+    for case in cases:
+        for pos, utterance in case["forms"].items():
+            st = EngineState(raw_text=utterance, text=utterance)
+            try:
+                for stage in eng.stages:
+                    stage.run(st, cfg)
+                n = len(st.items or [])
+            except Exception:
+                per_pos[pos]["error"] += 1
+                continue
+            if n == case["expect"]:
+                per_pos[pos]["right"] += 1
+            elif n < case["expect"]:
+                per_pos[pos]["UNDER-split"] += 1
+            else:
+                per_pos[pos]["over-split"] += 1
+    print("   item COUNT vs the 2 asks that were joined "
+          "(under and over are NEVER summed)")
+    for pos in ("end", "front", "front,"):
+        c = per_pos[pos]
+        tot = sum(c.values()) or 1
+        print(f"      {pos:7} right {_pct(c['right'], tot)}"
+              f"   UNDER {c['UNDER-split']:4}"
+              f"   over {c['over-split']:4}"
+              f"   err {c['error']:3}   (n={tot})")
+
+
 BOUNDARIES = ("segmentation", "decompose_validate", "fastrule", "front_door")
 
 
@@ -234,6 +314,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0,
                     help="source rows to use (0 = all)")
+    ap.add_argument("--multi-limit", type=int, default=250,
+                    help="built two-ask utterances for arm 2 (0 = all)")
     a = ap.parse_args()
 
     from freezegun import freeze_time
@@ -321,6 +403,8 @@ def main() -> int:
 
     _report(rows, buckets, by_position, by_position_n, field_moves,
             variant_shape, examples, total_variants)
+    with freeze_time(_CLOCK):
+        run_multi(rows, cfg, eng, a.multi_limit)
     return 0
 
 
