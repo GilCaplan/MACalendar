@@ -386,3 +386,61 @@ def test_a_pathological_category_list_does_not_abort_the_dialog(
 
     assert seen["survivor"] is True
     assert seen["rows"] == 1        # only the one usable entry got a row
+
+
+def test_a_config_missing_a_brand_new_field_still_saves(app, real_config, monkeypatch):
+    """The calendar GUI does not reload itself.
+
+    So it can be running a config module from BEFORE a setting existed while
+    lazily importing `settings_dialog` fresh from disk the moment Settings is
+    opened. Gil hit exactly that on 2026-09-18: a new `agenda_card` checkbox
+    raised `"NotificationsConfig" object has no field "agenda_card"` on a machine
+    whose config.yaml had just been written perfectly well, and the dialog
+    reported it as "Could not save config.yaml".
+
+    A config object that refuses an unknown field must not turn a successful save
+    into a failed one — the value is already on disk by then, and a restart picks
+    it up.
+    """
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtTest import QTest
+    from PyQt6.QtWidgets import QMessageBox, QPushButton
+    cfg, cfg_path = real_config
+
+    # The dialog catches its own exceptions and shows them, so the failure is a
+    # MESSAGE BOX rather than a traceback. Record instead of display.
+    shown: list = []
+    monkeypatch.setattr(QMessageBox, "critical",
+                        staticmethod(lambda *a, **k: shown.append(a[2] if len(a) > 2 else a)))
+
+    class _Strict:
+        """Refuses anything it was not born with, the way pydantic does."""
+        __slots__ = ("enabled", "default_lead_minutes", "respect_observance",
+                     "speak", "sound", "category_leads")
+
+        def __init__(self):
+            self.enabled = True
+            self.default_lead_minutes = 0
+            self.respect_observance = True
+            self.speak = False
+            self.sound = True
+            self.category_leads = {}
+
+    cfg.notifications = _Strict()                 # no `agenda_card`, on purpose
+    window = _Window(cfg)
+    failures: list = []
+    seen: dict = {}
+
+    def interact(dlg):
+        save = next(b for b in dlg.findChildren(QPushButton)
+                    if b.text() == "Save Config")
+        QTest.mouseClick(save, Qt.MouseButton.LeftButton)
+
+    _drive(interact, failures)
+    open_settings(window)
+    if failures:
+        raise failures[0]
+
+    assert not shown, (
+        "saving with a config that lacks a newly-added field must not report an "
+        f"error — it showed: {shown}")

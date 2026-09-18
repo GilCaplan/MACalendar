@@ -152,6 +152,25 @@ def open_settings(self) -> None:
         layout.addWidget(box)
         return inner
 
+    def _apply(obj, field: str, value) -> None:
+        """Set a config field in memory, skipping one this object does not have.
+
+        **The calendar GUI does not reload itself** (CLAUDE.md), so it can be
+        running a config module from before a setting existed while lazily
+        importing THIS file fresh from disk the moment Settings is opened. That
+        mismatch made a brand-new checkbox raise `"NotificationsConfig" object
+        has no field "agenda_card"` on a machine whose config.yaml had just been
+        written perfectly well.
+
+        Skipping is right rather than lenient: the value is already persisted to
+        disk by the time this runs, so the only thing lost is the in-memory
+        update that a restart supplies anyway.
+        """
+        try:
+            setattr(obj, field, value)
+        except (AttributeError, ValueError, TypeError):
+            pass
+
     def hint(text: str) -> QLabel:
         lbl = QLabel(text)
         lbl.setWordWrap(True)
@@ -700,12 +719,14 @@ def open_settings(self) -> None:
             if ok:
                 _persist_category_leads(cat_leads)
                 if notif_cfg is not None:
-                    notif_cfg.enabled = notif_enabled_cb.isChecked()
-                    notif_cfg.default_lead_minutes = int(notif_lead_combo.currentData() or 0)
-                    notif_cfg.respect_observance = notif_observance_cb.isChecked()
-                    notif_cfg.agenda_card = notif_agenda_cb.isChecked()
-                    notif_cfg.speak = notif_speak_cb.isChecked()
-                    notif_cfg.category_leads = cat_leads
+                    _apply(notif_cfg, "enabled", notif_enabled_cb.isChecked())
+                    _apply(notif_cfg, "default_lead_minutes",
+                           int(notif_lead_combo.currentData() or 0))
+                    _apply(notif_cfg, "respect_observance",
+                           notif_observance_cb.isChecked())
+                    _apply(notif_cfg, "agenda_card", notif_agenda_cb.isChecked())
+                    _apply(notif_cfg, "speak", notif_speak_cb.isChecked())
+                    _apply(notif_cfg, "category_leads", cat_leads)
 
                 # Apply changes immediately
                 self._config.confirmation_level = 0 if auto_cb.isChecked() else 1
@@ -735,7 +756,16 @@ def open_settings(self) -> None:
                 self._apply_theme(self._dark)
 
         except Exception as e:
-            QMessageBox.critical(self, "Error Saving", f"Could not save config.yaml: {e}")
+            # The YAML write happens FIRST and has its own `ok`; everything after
+            # it only updates the objects already in memory. So this message has
+            # to say which half failed, or a successful save reads as a lost one
+            # — which is exactly what Gil saw (2026-09-18): config.yaml had been
+            # written correctly and the dialog said "Could not save config.yaml".
+            QMessageBox.critical(
+                self, "Error Saving",
+                f"config.yaml was written, but applying the settings to the "
+                f"running app failed: {e}\n\nRestart the calendar to pick them "
+                f"up." if ok else f"Could not save config.yaml: {e}")
 
         self.show_toast("Settings applied!")
         self.refresh_calendar()
