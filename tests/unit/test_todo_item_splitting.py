@@ -430,3 +430,40 @@ def test_the_time_never_lands_in_an_event_title(parser):
     # ...and with no clock the same frame is still a task.
     plain = parser.analyze("remind me to call the plumber")
     assert "create_todo" in plain.raw_slots
+
+
+def test_a_fronted_time_leaves_no_stranded_preposition(parser):
+    """The title must not change when the time moves to the front.
+
+    `_extract_temporal("at 6pm remind me …")` returns the span for "6pm" and
+    NOT the "at" that introduced it, so blanking left "at␣␣␣remind me …" — and
+    `_FRAME_LEAD`/`_TODO_LEAD` are anchored at ^, so the stranded preposition
+    stopped them stripping the lead-in and the whole frame became the title.
+    A BARE fronted date never had this problem, which is why it went unnoticed.
+    """
+    def title_of(text):
+        r = parser.analyze(text)
+        for slots in r.raw_slots.values():
+            t = slots.get("title") or (slots.get("titles") or [None])[0]
+            if t:
+                return t
+        return None
+
+    for front, end in (
+        ("at 6pm remind me to water the plants",
+         "remind me to water the plants at 6pm"),
+        ("on friday book the dentist", "book the dentist on friday"),
+    ):
+        assert title_of(front) == title_of(end), (
+            f"{front!r} and {end!r} must name the same thing")
+
+    # A comma is grown ONLY at position 0. Anywhere else it is `split_items`'
+    # item delimiter, and blanking it merges the list — 27 rows lost an item
+    # before this was gated.
+    assert parser.analyze("add buy milk, eggs and bread to my list").raw_slots[
+        "create_todo"]["titles"] == ["buy milk", "buy eggs", "buy bread"]
+    # ...and with a time in the middle, which is where the delimiter and the
+    # grown span could collide.
+    assert parser.analyze(
+        "remind me to buy milk tomorrow, eggs and bread").raw_slots[
+        "create_todo"]["titles"] == ["buy milk", "buy eggs", "buy bread"]

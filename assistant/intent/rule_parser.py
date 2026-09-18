@@ -1709,7 +1709,7 @@ def _todo_titles_from_text(text: str, temporal_spans, span) -> list[str]:
     — `_subtractive_title` blanks the same ones for events — so this is the
     reader that was skipped, not a rule that was missing.
     """
-    text = _blank_spans(text, temporal_spans or [])
+    text = _blank_spans(text, _grow_stranded(text, temporal_spans or []))
     t = text.strip().rstrip(".!?")
     m = _TODO_LEAD.match(t)
     if not m:
@@ -1848,6 +1848,55 @@ _SOURCE_TAIL = re.compile(
     r"(?:\s+and\s+(?:the\s+|my\s+|a\s+)?\w+)*\s*$", re.IGNORECASE)
 
 
+#: The preposition that INTRODUCED a time phrase, which the recogniser's span
+#: leaves behind. `_extract_temporal("at 6pm remind me …")` returns (3,6) —
+#: "6pm" — so blanking gives "at␣␣␣␣␣remind me …" and the stranded "at " sits
+#: at position 0, where `_FRAME_LEAD` and `_TODO_LEAD` are anchored. Both then
+#: fail to strip the lead-in and the whole frame becomes the title.
+#:
+#: `to` is deliberately ABSENT. "to Y" is the extend branch's NEW END TIME
+#: ("extend standup to 3pm"), and growing over it would eat the thing that
+#: branch reads.
+#:
+#: `due` is absent too, for a different reason: it is a predicate, not a date
+#: preposition — "remind me when my car is due" is not a stranded head.
+_HEAD_LEADIN = re.compile(
+    r"(?:\b(?:at|on|in|by|from|until|till|through|starting|beginning)\s+)+$",
+    re.IGNORECASE)
+
+#: The comma after a FRONTED adverbial: "tomorrow, remind me to …".
+_HEAD_COMMA = re.compile(r"^[\s]*[,;][\s,;]*")
+
+
+def _grow_stranded(text: str, spans) -> list:
+    r"""Widen each temporal span over the preposition that introduced it.
+
+    `_tidy_part` already right-trims what blanking strands off the TAIL, and
+    says "Only the end" deliberately. This is the head, and nothing did it.
+
+    THE COMMA IS GROWN ONLY AT POSITION 0, which is not fussiness — it is the
+    whole difference between a fix and a regression. `split_items` splits on
+    COMMAS ONLY (`re.split(r"\s*[,;]\s*", body)`), never on a whitespace run,
+    so blanking a comma anywhere else silently MERGES list items: measured, 28
+    rows changed and 27 of them LOST an item, the dominant shape being a
+    `mixed` row where the comma is the only boundary between the task and the
+    event. Gated on position 0 that becomes 1 row changed and 0 losing, and
+    every win survives — because a fronted adverbial's comma is the only comma
+    that is a boundary rather than a delimiter.
+    """
+    out = []
+    for a, b in spans or []:
+        m = _HEAD_LEADIN.search(text[:a])
+        start = m.start() if m else a
+        end = b
+        if start == 0:
+            t = _HEAD_COMMA.match(text[b:])
+            if t:
+                end = b + len(t.group(0).rstrip())
+        out.append((start, end))
+    return out
+
+
 def _blank_spans(text: str, spans) -> str:
     """Replace each (start, end) with spaces — equal length, so every later
     offset stays valid for the callers that index into this text."""
@@ -1886,7 +1935,13 @@ def _subtractive_title(span_text: str, temporal_spans) -> str:
     if rec.cadence and rec.span:
         spans.append(rec.span)
 
-    text = _blank_spans(span_text, spans)
+    # The temporal spans are grown LOCALLY here and in `_todo_titles_from_text`,
+    # never on `temporal["spans"]` itself: `_fill_slots` hands those to
+    # `_in_temporal` for token membership and to `_extract_title`'s chunk
+    # fallbacks, and widening them there would shift offsets those readers
+    # depend on. Local growth is an implementation fix; a wider span in the
+    # shared dict would be a contract change.
+    text = _blank_spans(span_text, _grow_stranded(span_text, spans))
     text = _DESTINATION.sub(" ", text)
     text = _FRAME_TAIL.sub("", text)
     # MID-STRING ONLY. At position 0 this is `_FRAME_LEAD`'s job, and it
