@@ -340,6 +340,35 @@ before you rule:
   *Re-confirmed by Gil 2026-09-14 and still wired:* `_parse_covers_the_compound`
   is at `assistant/engine/fastrule/fastrule.py:188`, consulted at `:268`.
 
+- **2026-09-18 — Q25 (A STATED CLOCK MAKES IT AN EVENT; a bare day decides
+  nothing)**, Gil. *"Anything that has an AM or PM time, like 1 o'clock, 2.30,
+  that is for sure an event. You can also make an additional task on top of
+  that in parallel, but it's definitely an event. If we're just given a day,
+  like on Friday, maybe it's an event, maybe it's a task — it depends on the
+  context."*
+
+  Two halves, and the second is as binding as the first: a CLOCK decides, a
+  DAY does not. So a kind rule may key on a stated clock time and must not key
+  on a bare date alone.
+
+  The project already had this convention for one phrasing — `_ROUTE_OVERRIDES`
+  routes "remind me about the dentist at 9am" to the calendar because "the
+  clock time is the tell" — and the ruling generalises it. Extended to the
+  need-to family the same day (f213ffb), measured 30/30 on the FastRule atomic
+  gold with no counterexamples.
+
+  **Measured size of the rest, so nobody over-reads it.** On 2,991 single-item
+  atomic train rows the live tagger is 94.9%, and of its 152 kind errors only
+  **17 turn on a clock** — 11 events read as tasks despite naming one, and 6
+  gold-task rows naming one, which are now GOLD-WRONG under this ruling and
+  need relabelling (all six are recurring-with-a-time, e.g. "review the
+  contract daily at 8:30pm"). The other 135 have no clock at all and this
+  ruling does not reach them.
+
+  **The parallel task is NOT built.** Gil allows an event to also produce a
+  task; nothing does that today, and it is a product change, not a kind fix.
+  Filed, not started.
+
 - **2026-09-18 — Q16 AMENDED: a bare shared DAY scopes over events; only a
   DEADLINE never does**, Gil. Q16 below said *"events never share at all"*, and
   `never` was too strong — it was written against deadlines and it caught plain

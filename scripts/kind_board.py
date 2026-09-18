@@ -100,12 +100,34 @@ def _predict(text: str) -> str:
     regexes are `^`-anchored. Feeding raw dataset text here makes "um i need
     to do the laundry" look like a miss that the real pipeline never has, and
     would send this cycle chasing a fault in the wrong stage.
+
+    **IT DRIFTED AGAIN, and this is the fix the comment above was standing in
+    for** (2026-09-18). `run()`'s kind assignment DID change: FastSeg became
+    the default segmenter and `fastseg.tag()` applies a lexicon correction on
+    top of `_kind_of` — deliberately asymmetric, consulted only to talk the
+    reader OUT of `event`. This function kept calling `_kind_of` alone, so it
+    was scoring a component that has not decided a kind in the live pipeline
+    for some time. Measured on the same 2,991 single-item atomic train rows:
+
+        LIVE   fastseg.tag        94.9%   task->event  59 · event->task  91
+        THIS   old_seg._kind_of   88.6%   task->event 323 · event->task  15
+
+    Not just 6.3 points pessimistic — it INVERTED the dominant error class.
+    Anyone reading this board to pick the next cycle would have gone after
+    tasks being promoted to the calendar, which is the smaller half live.
+
+    So it no longer reimplements anything: it asks the live segmenter, which
+    cannot drift from itself.
     """
-    from assistant.engine.segmentation.old_seg.segment import _kind_of, _enforce_pinned_kinds
+    from assistant.engine.segmentation.llmseg.llmseg import segment
     from assistant.intent.cleanup import strip_spoken_noise
 
     clean = strip_spoken_noise(text)
-    return _enforce_pinned_kinds(_kind_of(clean), clean)
+    items = segment(clean)["items"]
+    # This board scores rows with a SINGLE gold kind; a cut into several pieces
+    # is a segmentation disagreement, not a kind one, and the first piece is
+    # what the kind path would have been asked about.
+    return items[0]["tag"] if items else "event"
 
 
 def _prf(matrix, cls) -> "tuple[float, float, float, int]":
