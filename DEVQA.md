@@ -340,6 +340,46 @@ before you rule:
   *Re-confirmed by Gil 2026-09-14 and still wired:* `_parse_covers_the_compound`
   is at `assistant/engine/fastrule/fastrule.py:188`, consulted at `:268`.
 
+- **2026-09-18 — Q26 (WHAT PUTS SOMETHING ON THE CALENDAR)**, Gil, answering a
+  restated set after Q25's first narrowing was wrong. **This SUPERSEDES the
+  same-day narrowing below and REVERSES Q15's headline ruling.**
+
+  Gil's principle: *"An event is something that you put on the calendar. So
+  reminding me to do something at a specific time counts as an event."*
+
+  | the sentence names… | kind | also a task? |
+  |---|---|---|
+  | a CLOCK ("at 14:00"), any phrasing incl. "remind me to" | **event** | yes, on the day |
+  | a RANGE ("from 9 to 2:30") | **event** | — |
+  | a DAYPART ("tonight") | **event** at the daypart's time | yes |
+  | a bare DAY ("tomorrow"), no clock | **task** | — |
+  | no time at all | **task** | — |
+
+  **"Also a task" needs NO parser change and NO second object.** Gil: *"you
+  have the auto sync, which would add the feed the cat... the task, which only
+  is for today on that day."* `db.sync_calendar_to_todos(list_name="today")`
+  already pulls the day's events into the todo list, upserting by
+  `source_event_id` so a completion survives a re-sync. It is OFF in Gil's
+  config (`todo.sync.auto_sync_on_open: false`) and it fires on GUI OPEN, not
+  daily and not on the phone — so what is missing is a schedule, not a feature.
+  The parser creates ONE object, the event, exactly as today.
+
+  **Q15 IS REVERSED on dayparts.** It ruled "remind me to take the trash out
+  tonight" a TASK and called the opposite reading "the single largest mis-kind
+  driver: **499 of 609** on the FastRule test half". Gil now: *"there's a
+  daypart, so we can put an event at the designated time that we said that
+  tonight counts as."* `resolve.PART_OF_DAY` already carries the mapping
+  (`tonight -> 19:00-22:00`), so the value exists; what changes is the KIND.
+  **This is a large reversal and must not be implemented blind** — it is the
+  biggest single kind rule in the corpus and needs its own measured cycle plus
+  a dataset relabel, not a rider on the clock fix.
+
+  **Q15's parenthetical is also wrong** — *"remind me TO <verb>" = task* — and
+  with it 32 corpus rows that are gold=task while naming a clock or a range:
+  `s_ct_task_with_time` (9, train), `c_recur_12` (12, train), `c_range_ct_1`
+  (11, **sealed test half** — to be relabelled BY RULE, never by reading, the
+  way `c_recur_7` was).
+
 - **2026-09-18 — Q25 (A STATED CLOCK MAKES IT AN EVENT; a bare day decides
   nothing)**, Gil. *"Anything that has an AM or PM time, like 1 o'clock, 2.30,
   that is for sure an event. You can also make an additional task on top of
