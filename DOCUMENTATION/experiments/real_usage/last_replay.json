@@ -1,0 +1,2383 @@
+[
+ {
+  "id": 3,
+  "tier": "rejected",
+  "said": "on this coming thursday, please send an event for me at 1pm to go to tellmond to visit my friend tal with idor",
+  "status": 200,
+  "parse": "deep",
+  "ms": 198,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "me to go to tellmond to visit my friend tal with idor",
+     "date": "2026-08-27",
+     "start_time": "13:00",
+     "end_time": "14:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:21.975673",
+  "message": "I left '' alone \u2014 the item arrived with no action words. Created event 'me to go to tellmond to visit my friend tal with idor' on Thursday, Aug 27, 2026 from 1 PM to 2 PM.",
+  "error": null
+ },
+ {
+  "id": 4,
+  "tier": "rejected",
+  "said": "create event this coming thursday to go visit my friend tal at 1 p.m. on the night. got",
+  "status": 200,
+  "parse": "deep",
+  "ms": 29344,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Visit Tal",
+     "date": "2026-08-27",
+     "start_time": "13:00",
+     "end_time": "17:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:21.978734",
+  "message": "I went ahead, but end_time = 17:00 (5pm) \u2014 nothing in the words said it. I went ahead, but location = friend's place \u2014 the words never said \u201cplace\u201d. Created event 'Visit Tal' on Thursday, Aug 27, 2026",
+  "error": null
+ },
+ {
+  "id": 5,
+  "tier": "approved",
+  "said": "next week on monday on the 13th create event to ta class",
+  "status": 200,
+  "parse": "deep",
+  "ms": 4495,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "TA Class",
+     "date": "2026-09-13",
+     "start_time": "09:00",
+     "end_time": "10:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:21.981391",
+  "message": "I went ahead, but start_time = 09:00 (9am) \u2014 nothing in the words said it. I went ahead, but location = Unknown \u2014 the words never said \u201cunknown\u201d. Created event 'TA Class' on Sunday, Sep 13, 2026 from ",
+  "error": null
+ },
+ {
+  "id": 6,
+  "tier": "rejected",
+  "said": "the last event that you just created on next monday on the 13th fixer time is not 9 o'clock rather it's 4.30 to 5.30 pm",
+  "status": 200,
+  "parse": "deep",
+  "ms": 3505,
+  "actions": [
+   {
+    "action": "update_event",
+    "parameters": {}
+   }
+  ],
+  "created": [],
+  "clock": "2026-08-26T11:01:21.982779",
+  "message": "I'm not sure I got every part of that right \u2014 worth a glance. I went ahead, but new_end_time = 17:30 (5:30pm) \u2014 nothing in the words said it. I can't do that. I don't remember the last event.",
+  "error": null
+ },
+ {
+  "id": 7,
+  "tier": "approved",
+  "said": "no, edit event next week on the 13th. that says 9am, change it to the same title, but change it to 4.30pm to 5.30pm",
+  "status": 200,
+  "parse": "deep",
+  "ms": 9534,
+  "actions": [
+   {
+    "action": "update_event",
+    "parameters": {}
+   }
+  ],
+  "created": [],
+  "clock": "2026-08-26T11:01:21.985132",
+  "message": "I'm not sure I got every part of that right \u2014 worth a glance. I couldn't find an event matching 'no, edit event'. I can't do that. I don't remember the last event.",
+  "error": null
+ },
+ {
+  "id": 8,
+  "tier": "approved",
+  "said": "this week on friday set for 12 o'clock defend my eurovision homox execute at 12",
+  "status": 200,
+  "parse": "deep",
+  "ms": 121,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "for 12 o'clock defend my eurovision homework execute",
+     "date": "2026-08-28",
+     "start_time": "12:00",
+     "end_time": "13:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:21.986618",
+  "message": "I'm not sure I got every part of that right \u2014 worth a glance. Created event 'for 12 o'clock defend my eurovision homework execute' on Friday, Aug 28, 2026 from 12 PM to 1 PM.",
+  "error": null
+ },
+ {
+  "id": 10,
+  "tier": "rejected",
+  "said": "set event tomorrow at 4.30 pm for one hour with yarev regarding his bugroot",
+  "status": 200,
+  "parse": "fast",
+  "ms": 72,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "event with yariv",
+     "date": "2026-08-27",
+     "start_time": "16:30",
+     "end_time": "17:30",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:21.989002",
+  "message": "Created event 'event with yariv' on Thursday, Aug 27, 2026 from 4:30 PM to 5:30 PM.",
+  "error": null
+ },
+ {
+  "id": 11,
+  "tier": "rejected",
+  "said": "can you set a meeting for next week on the 14th on tuesday at 2pm to do a meeting with manachem to do a run of simulation with him",
+  "status": 200,
+  "parse": "fast",
+  "ms": 100,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "meeting with manachem",
+     "date": "2026-09-14",
+     "start_time": "14:00",
+     "end_time": "15:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:21.991427",
+  "message": "Created event 'meeting with manachem' on Monday, Sep 14, 2026 from 2 PM to 3 PM.",
+  "error": null
+ },
+ {
+  "id": 12,
+  "tier": "rejected",
+  "said": "today i have an event at 6 o'clock a meeting",
+  "status": 200,
+  "parse": "deep",
+  "ms": 4833,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Meeting",
+     "date": "2026-08-26",
+     "start_time": "18:00",
+     "end_time": "19:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:21.995025",
+  "message": "Created event 'Meeting' on Wednesday, Aug 26, 2026 from 6 PM to 7 PM.",
+  "error": null
+ },
+ {
+  "id": 14,
+  "tier": "rejected",
+  "said": "please make a meeting for me at 1040 on monday the 13th for makabi visiting the doctor",
+  "status": 200,
+  "parse": "fast",
+  "ms": 154,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "meeting",
+     "date": "2026-08-31",
+     "start_time": "00:00",
+     "end_time": "04:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.001328",
+  "message": "Created event 'meeting' on Monday, Aug 31, 2026 from 12 AM to 4 AM. Note: start and end time is inside quiet hours (23:00\u201306:00).",
+  "error": null
+ },
+ {
+  "id": 18,
+  "tier": "rejected",
+  "said": "set an appointment for tomorrow morning on tuesday at 910am",
+  "status": 200,
+  "parse": "deep",
+  "ms": 9183,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Appointment",
+     "date": "2026-08-27",
+     "start_time": "09:00",
+     "end_time": "12:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.007697",
+  "message": "I'm not sure I got every part of that right \u2014 worth a glance. Created event 'Appointment' on Thursday, Aug 27, 2026 from 9 AM to 12 PM.",
+  "error": null
+ },
+ {
+  "id": 21,
+  "tier": "rejected",
+  "said": "set a meeting tomorrow on tuesday at 6pm with etai",
+  "status": 200,
+  "parse": "fast",
+  "ms": 57,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "meeting with etai",
+     "date": "2026-08-27",
+     "start_time": "18:00",
+     "end_time": "19:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.012310",
+  "message": "Created event 'meeting with etai' on Thursday, Aug 27, 2026 from 6 PM to 7 PM.",
+  "error": null
+ },
+ {
+  "id": 22,
+  "tier": "rejected",
+  "said": "again, create an event tomorrow at 6pm with etie",
+  "status": 200,
+  "parse": "fast",
+  "ms": 57,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "event with etai",
+     "date": "2026-08-27",
+     "start_time": "18:00",
+     "end_time": "19:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.014991",
+  "message": "Created event 'event with etai' on Thursday, Aug 27, 2026 from 6 PM to 7 PM.",
+  "error": null
+ },
+ {
+  "id": 23,
+  "tier": "rejected",
+  "said": "start emitting for me on wednesday at 6.30. excuse me. excuse me.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 4556,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Excuse me",
+     "date": "2026-08-26",
+     "start_time": "18:00",
+     "end_time": "18:30",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.017222",
+  "message": "I went ahead, but end_time = 18:30 (6:30pm) \u2014 nothing in the words said it. Created event 'Excuse me' on Wednesday, Aug 26, 2026 from 6 PM to 6:30 PM.",
+  "error": null
+ },
+ {
+  "id": 24,
+  "tier": "rejected",
+  "said": "set a meeting tomorrow at 2 o'clock meeting with omri for project",
+  "status": 200,
+  "parse": "fast",
+  "ms": 60,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "meeting with omri",
+     "date": "2026-08-27",
+     "start_time": "14:00",
+     "end_time": "15:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.019795",
+  "message": "Created event 'meeting with omri' on Thursday, Aug 27, 2026 from 2 PM to 3 PM.",
+  "error": null
+ },
+ {
+  "id": 25,
+  "tier": "rejected",
+  "said": "create a meeting tomorrow at 2pm on wednesday meeting with omri for the project",
+  "status": 200,
+  "parse": "fast",
+  "ms": 57,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "meeting with omri",
+     "date": "2026-08-27",
+     "start_time": "14:00",
+     "end_time": "15:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.022729",
+  "message": "Created event 'meeting with omri' on Thursday, Aug 27, 2026 from 2 PM to 3 PM.",
+  "error": null
+ },
+ {
+  "id": 26,
+  "tier": "rejected",
+  "said": "set a meeting for me tomorrow at 11 a.m. and also set meeting for 5.30 p.m. to 6.30 p.m. tomorrow as well",
+  "status": 200,
+  "parse": "deep",
+  "ms": 117,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "me a.m",
+     "date": "2026-08-27",
+     "start_time": "11:00",
+     "end_time": "12:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "set meeting",
+     "date": "2026-08-27",
+     "start_time": "17:30",
+     "end_time": "18:30",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.025531",
+  "message": "Created event 'me a.m' on Thursday, Aug 27, 2026 from 11 AM to 12 PM. Created event 'set meeting' on Thursday, Aug 27, 2026 from 5:30 PM to 6:30 PM.",
+  "error": null
+ },
+ {
+  "id": 30,
+  "tier": "rejected",
+  "said": "set a meeting at 4pm today, but it is only 20 minutes meeting with one moment meeting with reards, okay, then let's do another meeting from 6 from 6 o'clock to 640 meetings with kids for project defense",
+  "status": 200,
+  "parse": "deep",
+  "ms": 9686,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Meeting",
+     "date": "2026-08-26",
+     "start_time": "16:00",
+     "end_time": "17:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Meeting with One Moment Meeting with Reards",
+     "date": "2026-08-26",
+     "start_time": "20:00",
+     "end_time": "20:20",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "640 meetings",
+     "date": "2026-08-26",
+     "start_time": "11:00",
+     "end_time": "12:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.032568",
+  "message": "I went ahead, but start_time = 20:00 (8pm) \u2014 nothing in the words said it. I went ahead, but end_time = 20:20 (8:20pm) \u2014 nothing in the words said it. I went ahead, but start_time = 11:00 (11am) \u2014 not",
+  "error": null
+ },
+ {
+  "id": 31,
+  "tier": "rejected",
+  "said": "i had a meeting today at 8.30pm with ora to work on project",
+  "status": 200,
+  "parse": "fast",
+  "ms": 100,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "meeting",
+     "date": "2026-08-26",
+     "start_time": "20:30",
+     "end_time": "21:30",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.035129",
+  "message": "Created event 'meeting' on Wednesday, Aug 26, 2026 from 8:30 PM to 9:30 PM.",
+  "error": null
+ },
+ {
+  "id": 32,
+  "tier": "rejected",
+  "said": "set tomorrow a meeting with ora at 5pm",
+  "status": 200,
+  "parse": "fast",
+  "ms": 54,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "meeting",
+     "date": "2026-08-27",
+     "start_time": "17:00",
+     "end_time": "18:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.037797",
+  "message": "Created event 'meeting' on Thursday, Aug 27, 2026 from 5 PM to 6 PM.",
+  "error": null
+ },
+ {
+  "id": 34,
+  "tier": "rejected",
+  "said": "set a meeting for me tomorrow at 4pm",
+  "status": 200,
+  "parse": "fast",
+  "ms": 50,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "meeting",
+     "date": "2026-08-27",
+     "start_time": "16:00",
+     "end_time": "17:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.041990",
+  "message": "Created event 'meeting' on Thursday, Aug 27, 2026 from 4 PM to 5 PM.",
+  "error": null
+ },
+ {
+  "id": 37,
+  "tier": "rejected",
+  "said": "please set a meeting for me tomorrow at 4pm with re for defense on homework",
+  "status": 200,
+  "parse": "fast",
+  "ms": 59,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "meeting with re",
+     "date": "2026-08-27",
+     "start_time": "16:00",
+     "end_time": "17:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.046786",
+  "message": "Created event 'meeting with re' on Thursday, Aug 27, 2026 from 4 PM to 5 PM.",
+  "error": null
+ },
+ {
+  "id": 38,
+  "tier": "rejected",
+  "said": "set a meeting tomorrow. sorry, not tomorrow. set a meeting on tuesday.",
+  "status": 200,
+  "parse": "fast",
+  "ms": 56,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "meeting",
+     "date": "2026-08-27",
+     "start_time": "00:00",
+     "end_time": "04:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.049401",
+  "message": "Created event 'meeting' on Thursday, Aug 27, 2026 from 12 AM to 4 AM. Note: start and end time is inside quiet hours (23:00\u201306:00).",
+  "error": null
+ },
+ {
+  "id": 39,
+  "tier": "rejected",
+  "said": "set a meeting for me tomorrow at 5.30 p.m. with pelic sorry, i mean edo",
+  "status": 200,
+  "parse": "deep",
+  "ms": 87,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "meeting with sorry",
+     "date": "2026-08-27",
+     "start_time": "17:30",
+     "end_time": "18:30",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.052168",
+  "message": "Created event 'meeting with sorry' on Thursday, Aug 27, 2026 from 5:30 PM to 6:30 PM.",
+  "error": null
+ },
+ {
+  "id": 40,
+  "tier": "rejected",
+  "said": "set meeting on thursday for three o'clock. thank you. is this why you made it?",
+  "status": 200,
+  "parse": "deep",
+  "ms": 4375,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Meeting",
+     "date": "2026-08-27",
+     "start_time": "15:00",
+     "end_time": "16:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.054810",
+  "message": "Created event 'Meeting' on Thursday, Aug 27, 2026 from 3 PM to 4 PM.",
+  "error": null
+ },
+ {
+  "id": 41,
+  "tier": "rejected",
+  "said": "set a meeting on thursday for 11 a.m. to",
+  "status": 200,
+  "parse": "fast",
+  "ms": 49,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "meeting",
+     "date": "2026-08-27",
+     "start_time": "11:00",
+     "end_time": "12:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.057236",
+  "message": "Created event 'meeting' on Thursday, Aug 27, 2026 from 11 AM to 12 PM.",
+  "error": null
+ },
+ {
+  "id": 42,
+  "tier": "rejected",
+  "said": "a meeting for me tomorrow at two one sorry one pm and four pm and then another one a pizza party at 6.30 pm at edo's",
+  "status": 200,
+  "parse": "deep",
+  "ms": 2373,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "me at two one sorry one pm",
+     "date": "2026-08-27",
+     "start_time": "11:00",
+     "end_time": "12:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "edo",
+     "date": "2026-08-27",
+     "start_time": "16:00",
+     "end_time": "17:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "edo",
+     "date": "2026-08-27",
+     "start_time": "18:30",
+     "end_time": "19:30",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T11:01:22.060069",
+  "message": "I went ahead, but start_time = 11:00 (11am) \u2014 nothing in the words said it. I went ahead, but start_time = 16:00 (4pm) \u2014 nothing in the words said it. I went ahead, but start_time = 18:30 (6:30pm) \u2014 n",
+  "error": null
+ },
+ {
+  "id": 45,
+  "tier": "approved",
+  "said": "What do I have on tomorrow, execute?",
+  "status": 200,
+  "parse": "fast",
+  "ms": 45,
+  "actions": [
+   {
+    "action": "query_schedule",
+    "parameters": {}
+   }
+  ],
+  "created": [],
+  "clock": "2026-08-26T11:25:58.292398",
+  "message": "Your schedule is clear tomorrow. Nothing planned.",
+  "error": null
+ },
+ {
+  "id": 46,
+  "tier": "corrected",
+  "said": "Right, set an event for today at 3.45 pm, which are already past, WalkJaydo the Dog, set for tomorrow at 8.40 am to WalkJaydo again, and then 9 am set a meeting with Vika for work, and then Saturday set for 10 am to relax, execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 4170,
+  "actions": [
+   {
+    "action": "query_schedule",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "meeting with vika",
+     "date": "2026-08-26",
+     "start_time": "09:00",
+     "end_time": "10:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "to relax",
+     "date": "2026-08-29",
+     "start_time": "10:00",
+     "end_time": "11:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T16:18:53.876469",
+  "message": "Sorry, I couldn't read this part: \u201cset an event\u201d. Your schedule is clear tomorrow. Nothing planned. Created event 'meeting with vika' on Wednesday, Aug 26, 2026 from 9 AM to 10 AM. Created event 'to r",
+  "error": null
+ },
+ {
+  "id": 47,
+  "tier": "corrected",
+  "said": "Set a meeting for 10 a.m. tomorrow morning, execute.",
+  "status": 200,
+  "parse": "fast",
+  "ms": 52,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "meeting",
+     "date": "2026-08-27",
+     "start_time": "10:00",
+     "end_time": "11:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T18:06:39.784082",
+  "message": "Created event 'meeting' on Thursday, Aug 27, 2026 from 10 AM to 11 AM.",
+  "error": null
+ },
+ {
+  "id": 48,
+  "tier": "rejected",
+  "said": "Can you fix the meeting tomorrow, the one meeting with V-Code, so that just says, work meeting with V-Code. The one that is tomorrow morning at 9 a.m. execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 9138,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "update_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Work meeting with V-Code",
+     "date": "2026-08-27",
+     "start_time": "10:00",
+     "end_time": "11:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-26T18:35:54.337621",
+  "message": "I'm not sure I got every part of that right \u2014 worth a glance. I went ahead, but new_start_time = 10:00 (10am) \u2014 nothing in the words said it. Created event 'Work meeting with V-Code' on Thursday, Aug ",
+  "error": null
+ },
+ {
+  "id": 49,
+  "tier": "corrected",
+  "said": "I had an event on the 17th of September, from 7 p.m. to 10 p.m. going with Barok, who is my guest, to Kupare Shea event, yeah, XQ.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 36549,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Kupare Shea event",
+     "date": "2026-08-27",
+     "start_time": "19:00",
+     "end_time": "22:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-27T03:22:10.490520",
+  "message": "Sorry, I couldn't read this part: \u201cI had an event\u201d. I went ahead, but start_time = 19:00 (7pm) \u2014 nothing in the words said it. I went ahead, but end_time = 22:00 (10pm) \u2014 nothing in the words said it.",
+  "error": null
+ },
+ {
+  "id": 50,
+  "tier": "rejected",
+  "said": "Edit today's date event from 10, instead of 10 it starts at 11, then it will go until...",
+  "status": 200,
+  "parse": "deep",
+  "ms": 4720,
+  "actions": [],
+  "created": [],
+  "clock": "2026-08-27T03:31:57.404021",
+  "message": "I went ahead, but new_end_time = 11:00 (11am) \u2014 nothing in the words said it. I couldn't find an event matching 'edit 's date event'. I couldn't find an event at 10:00 on 2026-08-27.",
+  "error": null
+ },
+ {
+  "id": 52,
+  "tier": "corrected",
+  "said": "Set a meeting for me this coming Sunday at... Let's see, it is...",
+  "status": 200,
+  "parse": "fast",
+  "ms": 77,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "meeting",
+     "date": "2026-09-06",
+     "start_time": "00:00",
+     "end_time": "04:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-27T06:22:46.814549",
+  "message": "Created event 'meeting' on Sunday, Sep 6, 2026 from 12 AM to 4 AM. Note: start and end time is inside quiet hours (23:00\u201306:00).",
+  "error": null
+ },
+ {
+  "id": 53,
+  "tier": "rejected",
+  "said": "The event you just made on Sunday, fix it, so is at 1pm to 2pm, it is a office meeting for the course I am the TA in, with Noah Bamberger, execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 6578,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "update_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "the course I am the TA in, with Noa Bamburger",
+     "date": "2026-08-30",
+     "start_time": "10:00",
+     "end_time": "11:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-27T06:23:31.639694",
+  "message": "I'm not sure I got every part of that right \u2014 worth a glance. I went ahead, but new_start_time = 10:00 (10am) \u2014 nothing in the words said it. Created event 'the course I am the TA in, with Noa Bamburg",
+  "error": null
+ },
+ {
+  "id": 54,
+  "tier": "rejected",
+  "said": "Set a meeting on this coming Sunday for 1 p.m. TA, Office Hour, meeting, excuse me.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 116,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "1 p.m. TA, Office Hour, meeting, excuse me",
+     "date": "2026-08-30",
+     "start_time": "09:00",
+     "end_time": "10:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-27T09:55:48.681311",
+  "message": "I went ahead, but start_time = 09:00 (9am) \u2014 nothing in the words said it. Created event '1 p.m. TA, Office Hour, meeting, excuse me' on Sunday, Aug 30, 2026 from 9 AM to 10 AM.",
+  "error": null
+ },
+ {
+  "id": 55,
+  "tier": "rejected",
+  "said": "Set a meeting of his hours meeting on Sunday at 1 p.m. this coming Sunday with Noa, execute.",
+  "status": 200,
+  "parse": "fast",
+  "ms": 66,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "meeting with noa",
+     "date": "2026-08-30",
+     "start_time": "13:00",
+     "end_time": "14:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-27T09:59:04.993878",
+  "message": "Created event 'meeting with noa' on Sunday, Aug 30, 2026 from 1 PM to 2 PM.",
+  "error": null
+ },
+ {
+  "id": 56,
+  "tier": "corrected",
+  "said": "set a date for tomorrow at 11 o'clock, in one second, one moment, one moment, bear with me, i want to be at one moment, is one moment, broads nosh bagels in new york city",
+  "status": 200,
+  "parse": "fast",
+  "ms": 122,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "date",
+     "date": "2026-08-28",
+     "start_time": "11:00",
+     "end_time": "12:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-27T20:22:28.319233",
+  "message": "Created event 'date' on Friday, Aug 28, 2026 from 11 AM to 12 PM.",
+  "error": null
+ },
+ {
+  "id": 57,
+  "tier": "rejected",
+  "said": "Created event brought Znazh Badjolz in New York City on Thursday, August 27, IMPI, 26, Khronachat, Israel, Pooachat, Israel, Bedakah, Khat, Lifene, Yatsolayman.",
+  "status": 200,
+  "parse": "fast",
+  "ms": 114,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "znazh badjolz",
+     "date": "2026-08-27",
+     "start_time": "00:00",
+     "end_time": "04:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-27T20:23:35.396719",
+  "message": "Created event 'znazh badjolz' on Thursday, Aug 27, 2026 from 12 AM to 4 AM. Note: start and end time is inside quiet hours (23:00\u201306:00).",
+  "error": null
+ },
+ {
+  "id": 68,
+  "tier": "corrected",
+  "said": "Sunday, set for 830, to go to Doven, pre-Shacharit, and then after that, there will be an event of of the training practice with Mark right after Doverning. Execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 4316,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "for 830, to go to daven, pre-Shacharit",
+     "date": "2026-08-30",
+     "start_time": "08:00",
+     "end_time": "09:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Training practice",
+     "date": "2026-08-30",
+     "start_time": "20:00",
+     "end_time": "21:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-27T20:38:15.946786",
+  "message": "I'm not sure I got every part of that right \u2014 worth a glance. I went ahead, but start_time = 08:00 (8am) \u2014 nothing in the words said it. I went ahead, but start_time = 20:00 (8pm) \u2014 nothing in the wor",
+  "error": null
+ },
+ {
+  "id": 116,
+  "tier": "rejected",
+  "said": "Execute.",
+  "status": 200,
+  "parse": "ignored",
+  "ms": 25,
+  "actions": [],
+  "created": [],
+  "clock": "2026-08-28T13:28:20.295525",
+  "message": "",
+  "error": null
+ },
+ {
+  "id": 118,
+  "tier": "corrected",
+  "said": "Add an event for 5 p.m. execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 89,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "5 p.m",
+     "date": "2026-08-28",
+     "start_time": "13:00",
+     "end_time": "14:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-28T13:28:38.616380",
+  "message": "I went ahead, but start_time = 13:00 (1pm) \u2014 nothing in the words said it. Created event '5 p.m' on Friday, Aug 28, 2026 from 1 PM to 2 PM.",
+  "error": null
+ },
+ {
+  "id": 119,
+  "tier": "approved",
+  "said": "Movie today at 4.30pm at the Lincoln AMC Theatre. Execute.",
+  "status": 200,
+  "parse": "fast",
+  "ms": 99,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "lincoln",
+     "date": "2026-08-30",
+     "start_time": "16:30",
+     "end_time": "17:30",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-08-30T10:01:57.828553",
+  "message": "Created event 'lincoln' on Sunday, Aug 30, 2026 from 4:30 PM to 5:30 PM.",
+  "error": null
+ },
+ {
+  "id": 120,
+  "tier": "rejected",
+  "said": "i need to buy some groceries, i need rice and chicken, the chicken i need to get far away, the rice i can get at whole foods",
+  "status": 200,
+  "parse": "deep",
+  "ms": 34594,
+  "actions": [
+   {
+    "action": "create_todo",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "buy rice",
+     "date": "2026-08-31"
+    }
+   },
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "buy chicken",
+     "date": "2026-08-31"
+    }
+   }
+  ],
+  "clock": "2026-08-31T14:39:27.184926",
+  "message": "Added 'buy rice' and 'buy chicken' to Today tagged Groceries.",
+  "error": null
+ },
+ {
+  "id": 121,
+  "tier": "rejected",
+  "said": "Walk Mark Stalk today at 230PM, execute.",
+  "status": 200,
+  "parse": "fast",
+  "ms": 95,
+  "actions": [],
+  "created": [],
+  "clock": "2026-09-02T09:11:37.577410",
+  "message": "I couldn't find a task matching 'walk mark stalk'.",
+  "error": null
+ },
+ {
+  "id": 122,
+  "tier": "approved",
+  "said": "Set for today to walk Mark's dog at 2.30pm, execute.",
+  "status": 200,
+  "parse": "fast",
+  "ms": 53,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "dog",
+     "date": "2026-09-02",
+     "start_time": "14:30",
+     "end_time": "15:30",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-09-02T09:25:31.169300",
+  "message": "Created event 'dog' on Wednesday, Sep 2, 2026 from 2:30 PM to 3:30 PM.",
+  "error": null
+ },
+ {
+  "id": 133,
+  "tier": "approved",
+  "said": "What do I have for the rest of this week, execute?",
+  "status": 200,
+  "parse": "deep",
+  "ms": 50,
+  "actions": [
+   {
+    "action": "query_schedule",
+    "parameters": {}
+   }
+  ],
+  "created": [],
+  "clock": "2026-09-02T15:06:28.083956",
+  "message": "Your schedule is clear today. Nothing planned.",
+  "error": null
+ },
+ {
+  "id": 134,
+  "tier": "rejected",
+  "said": "I need a b-",
+  "status": 200,
+  "parse": "ignored",
+  "ms": 10,
+  "actions": [],
+  "created": [],
+  "clock": "2026-09-02T15:27:34.729594",
+  "message": "",
+  "error": null
+ },
+ {
+  "id": 135,
+  "tier": "rejected",
+  "said": "Groceries, I need to buy zucchini, cold brew, execute.",
+  "status": 200,
+  "parse": "fast",
+  "ms": 54,
+  "actions": [
+   {
+    "action": "create_todo",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "zucchini",
+     "date": "2026-09-02"
+    }
+   }
+  ],
+  "clock": "2026-09-02T15:31:06.061480",
+  "message": "Added 'zucchini' to Today tagged Groceries.",
+  "error": null
+ },
+ {
+  "id": 136,
+  "tier": "corrected",
+  "said": "I need to buy cold brew, and I need to also buy, Conello oil, can, execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 95,
+  "actions": [
+   {
+    "action": "create_todo",
+    "parameters": {}
+   },
+   {
+    "action": "create_todo",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "buy cold brew",
+     "date": "2026-09-02"
+    }
+   },
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "also buy",
+     "date": "2026-09-02"
+    }
+   }
+  ],
+  "clock": "2026-09-02T15:31:21.648872",
+  "message": "Added 'buy cold brew' to Today tagged Groceries. Added 'also buy' to Today.",
+  "error": null
+ },
+ {
+  "id": 137,
+  "tier": "rejected",
+  "said": "10,000, you'd buy Gatorade and Dr. Brown, execute.",
+  "status": 200,
+  "parse": "fast",
+  "ms": 49,
+  "actions": [
+   {
+    "action": "create_todo",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "gatorade and dr. brown",
+     "date": "2026-09-02"
+    }
+   }
+  ],
+  "clock": "2026-09-02T15:33:52.007528",
+  "message": "Added 'gatorade and dr. brown' to Today tagged Groceries.",
+  "error": null
+ },
+ {
+  "id": 138,
+  "tier": "approved",
+  "said": "I need to buy Dr. Brown and Pepsi. Execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 64,
+  "actions": [
+   {
+    "action": "create_todo",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "buy dr. brown",
+     "date": "2026-09-02"
+    }
+   }
+  ],
+  "clock": "2026-09-02T15:34:07.896573",
+  "message": "Added 'buy dr. brown' to Today tagged Groceries.",
+  "error": null
+ },
+ {
+  "id": 139,
+  "tier": "corrected",
+  "said": "Fix on the tasks, the groceries to tag them as groceries, like the zucchini, the by Colbro, Canelo Oil, Gatorade, up the Roundham Pepsi. Execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 50964,
+  "actions": [
+   {
+    "action": "create_todo",
+    "parameters": {}
+   },
+   {
+    "action": "create_todo",
+    "parameters": {}
+   },
+   {
+    "action": "create_todo",
+    "parameters": {}
+   },
+   {
+    "action": "create_todo",
+    "parameters": {}
+   },
+   {
+    "action": "create_todo",
+    "parameters": {}
+   },
+   {
+    "action": "create_todo",
+    "parameters": {}
+   },
+   {
+    "action": "update_todo",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "buy chicken",
+     "date": "this Friday"
+    }
+   },
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "buy rice",
+     "date": "this Friday"
+    }
+   },
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "Fix up the Roundham Pepsi",
+     "date": ""
+    }
+   },
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "fix zucchini",
+     "date": "2026-09-02"
+    }
+   },
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "Fix the by Colbro",
+     "date": "2026-09-02"
+    }
+   },
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "Fix Canelo Oil",
+     "date": "2026-09-02"
+    }
+   },
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "Fix Gatorade",
+     "date": "2026-09-02"
+    }
+   }
+  ],
+  "clock": "2026-09-02T15:34:38.399277",
+  "message": "Added 'buy chicken' and 'buy rice' to Today tagged Groceries. Added 'fix groceries' to Today tagged Groceries. Added 'fix zucchini' to Today tagged Groceries. Added 'Fix the by Colbro' to Today. Added",
+  "error": null
+ },
+ {
+  "id": 140,
+  "tier": "rejected",
+  "said": "I need to buy some groceries, which includes pasta times 5, execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 121,
+  "actions": [
+   {
+    "action": "create_todo",
+    "parameters": {}
+   },
+   {
+    "action": "query_todos",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "buy some groceries",
+     "date": "2026-09-02"
+    }
+   }
+  ],
+  "clock": "2026-09-02T17:44:58.643761",
+  "message": "Added 'buy some groceries' to Today tagged Groceries. You have one task in your lists: buy some groceries (due today).",
+  "error": null
+ },
+ {
+  "id": 141,
+  "tier": "rejected",
+  "said": "Have a movie today from 3pm to 6pm, execute.",
+  "status": 200,
+  "parse": "fast",
+  "ms": 95,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "movie",
+     "date": "2026-09-03",
+     "start_time": "15:00",
+     "end_time": "18:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-09-03T12:01:32.592081",
+  "message": "Created event 'movie' on Thursday, Sep 3, 2026 from 3 PM to 6 PM.",
+  "error": null
+ },
+ {
+  "id": 142,
+  "tier": "approved",
+  "said": "Walk Mark's Dog on this coming Tuesday next week at 9am and 2.30pm, execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 40844,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Walk Mark Dog",
+     "date": "2026-09-08",
+     "start_time": "09:00",
+     "end_time": "13:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Walk Mark Dog",
+     "date": "2026-09-08",
+     "start_time": "30:00",
+     "end_time": "07:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-09-03T14:44:17.310436",
+  "message": "I went ahead, but end_time = 13:00 (1pm) \u2014 nothing in the words said it. I went ahead, but end_time = 07:00 (7am) \u2014 nothing in the words said it. Created event 'Walk Mark Dog' on Tuesday, Sep 8, 2026 ",
+  "error": null
+ },
+ {
+  "id": 143,
+  "tier": "corrected",
+  "said": "Alright, we have a few events set for Tuesday to walk Moxdog at 9 a.m. next week, as well as walk Moxdog at 2.30 p.m. on Tuesday as well. In addition to that, on the 17th of September, there is a Kupahre sheet event that Barack and I are going to, so put down the calendars in the evening that day. And then in addition to that, we have my bar mitzvah parashel, which I'm leaning on the 19th of September, which is Shabbat. the Jewish Center. So do that as well, execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 20018,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "few events",
+     "date": "2026-09-08",
+     "start_time": "09:00",
+     "end_time": "10:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Walk Moxdog",
+     "date": "2026-09-08",
+     "start_time": "14:00",
+     "end_time": "15:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Walk Moxdog",
+     "date": "2026-09-08",
+     "start_time": "14:00",
+     "end_time": "15:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Kupahre sheet event",
+     "date": "2026-09-08",
+     "start_time": "19:00",
+     "end_time": "22:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Bar Mitzvah Parashel",
+     "date": "2026-09-19",
+     "start_time": "14:00",
+     "end_time": "15:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-09-03T14:56:12.496857",
+  "message": "I went ahead, but location = unknown \u2014 the words never said \u201cunknown\u201d. I went ahead, but start_time = 14:00 (2pm) \u2014 nothing in the words said it. Created event 'few events' on Tuesday, Sep 8, 2026 fro",
+  "error": null
+ },
+ {
+  "id": 144,
+  "tier": "approved",
+  "said": "what do I have today",
+  "status": 200,
+  "parse": "fast",
+  "ms": 41,
+  "actions": [
+   {
+    "action": "query_schedule",
+    "parameters": {}
+   }
+  ],
+  "created": [],
+  "clock": "2026-09-04T10:36:13.062052",
+  "message": "Your schedule is clear today. Nothing planned.",
+  "error": null
+ },
+ {
+  "id": 145,
+  "tier": "approved",
+  "said": "Sarah Mindel, on my calendar, on the 10th of September, to email professor for for causal infant projects peeling the project execute.",
+  "status": 200,
+  "parse": "fast",
+  "ms": 91,
+  "actions": [
+   {
+    "action": "create_todo",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "professor",
+     "date": "2026-09-10"
+    }
+   }
+  ],
+  "clock": "2026-09-04T10:40:04.673972",
+  "message": "Added 'professor' to Today.",
+  "error": null
+ },
+ {
+  "id": 146,
+  "tier": "approved",
+  "said": "what do I have this week",
+  "status": 200,
+  "parse": "fast",
+  "ms": 30,
+  "actions": [
+   {
+    "action": "query_schedule",
+    "parameters": {}
+   }
+  ],
+  "created": [],
+  "clock": "2026-09-04T10:42:15.569232",
+  "message": "Your schedule is clear this week. Nothing planned.",
+  "error": null
+ },
+ {
+  "id": 147,
+  "tier": "approved",
+  "said": "what do I have tomorrow",
+  "status": 200,
+  "parse": "fast",
+  "ms": 28,
+  "actions": [
+   {
+    "action": "query_schedule",
+    "parameters": {}
+   }
+  ],
+  "created": [],
+  "clock": "2026-09-04T10:44:47.287653",
+  "message": "Your schedule is clear tomorrow. Nothing planned.",
+  "error": null
+ },
+ {
+  "id": 148,
+  "tier": "approved",
+  "said": "what do I have today",
+  "status": 200,
+  "parse": "fast",
+  "ms": 29,
+  "actions": [
+   {
+    "action": "query_schedule",
+    "parameters": {}
+   }
+  ],
+  "created": [],
+  "clock": "2026-09-04T12:07:30.705560",
+  "message": "Your schedule is clear today. Nothing planned.",
+  "error": null
+ },
+ {
+  "id": 149,
+  "tier": "approved",
+  "said": "what do I have today",
+  "status": 200,
+  "parse": "fast",
+  "ms": 28,
+  "actions": [
+   {
+    "action": "query_schedule",
+    "parameters": {}
+   }
+  ],
+  "created": [],
+  "clock": "2026-09-04T12:11:11.906817",
+  "message": "Your schedule is clear today. Nothing planned.",
+  "error": null
+ },
+ {
+  "id": 185,
+  "tier": "corrected",
+  "said": "Set for 2 p.m. tomorrow, CC event, execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 56,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "for 2 p.m. , CC event",
+     "date": "2026-09-07",
+     "start_time": "10:00",
+     "end_time": "11:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-09-06T10:55:51.180500",
+  "message": "I went ahead, but start_time = 10:00 (10am) \u2014 nothing in the words said it. Created event 'for 2 p.m. , CC event' on Monday, Sep 7, 2026 from 10 AM to 11 AM.",
+  "error": null
+ },
+ {
+  "id": 207,
+  "tier": "corrected",
+  "said": "WalkMoxDog today at 2pm, and also WalkMoxDog tomorrow at 8.30am, and I also have an interview at 9am tomorrow. execute",
+  "status": 200,
+  "parse": "deep",
+  "ms": 53673,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "WalkMoxDog",
+     "date": "2026-09-08",
+     "start_time": "14:00",
+     "end_time": "15:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "WalkMoxDog",
+     "date": "2026-09-09",
+     "start_time": "08:30",
+     "end_time": "09:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Interview",
+     "date": "2026-09-09",
+     "start_time": "09:00",
+     "end_time": "10:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-09-08T09:21:45.695759",
+  "message": "I went ahead, but end_time = 09:00 (9am) \u2014 nothing in the words said it. Created event 'WalkMoxDog' on Tuesday, Sep 8, 2026 from 2 PM to 3 PM. Created event 'WalkMoxDog' on Wednesday, Sep 9, 2026 from",
+  "error": null
+ },
+ {
+  "id": 208,
+  "tier": "approved",
+  "said": "Go for a run now, execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 8224,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Go for a run",
+     "date": "2026-09-08",
+     "start_time": "09:00",
+     "end_time": "10:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-09-08T09:27:12.759128",
+  "message": "I went ahead, but start_time = 09:00 (9am) \u2014 nothing in the words said it. Created event 'Go for a run' on Tuesday, Sep 8, 2026 from 9 AM to 10 AM.",
+  "error": null
+ },
+ {
+  "id": 211,
+  "tier": "corrected",
+  "said": "Create an event now to go out for a run, execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 112,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "run",
+     "date": "2026-09-08",
+     "start_time": "09:00",
+     "end_time": "10:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-09-08T09:40:08.498633",
+  "message": "I went ahead, but start_time = 09:00 (9am) \u2014 nothing in the words said it. Created event 'run' on Tuesday, Sep 8, 2026 from 9 AM to 10 AM.",
+  "error": null
+ },
+ {
+  "id": 212,
+  "tier": "rejected",
+  "said": "Poe Konaight tonight at 9 p.m. Execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 43996,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Poker Night",
+     "date": "2026-09-09",
+     "start_time": "09:00",
+     "end_time": "13:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-09-09T18:39:53.808658",
+  "message": "I'm not sure I got every part of that right \u2014 worth a glance. I went ahead, but end_time = 13:00 (1pm) \u2014 nothing in the words said it. Created event 'Poker Night' on Wednesday, Sep 9, 2026 from 9 AM t",
+  "error": null
+ },
+ {
+  "id": 213,
+  "tier": "rejected",
+  "said": "Poker, Night, at 9pm, and tomorrow morning, Walk Val at 6.30am, followed by afterwards, Laning in shool at 7.30am then walk Mark's dog at 9. Execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 19935,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Poker Night",
+     "date": "2026-09-09",
+     "start_time": "21:00",
+     "end_time": "22:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Walk Val",
+     "date": "2026-09-09",
+     "start_time": "06:30",
+     "end_time": "07:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Leyning in Shul",
+     "date": "2026-09-10",
+     "start_time": "07:30",
+     "end_time": "08:30",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Walk Mark",
+     "date": "2026-09-09",
+     "start_time": "09:00",
+     "end_time": "10:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-09-09T18:41:59.012473",
+  "message": "I'm not sure I got every part of that right \u2014 worth a glance. I went ahead, but end_time = 07:00 (7am) \u2014 nothing in the words said it. I went ahead, but location = Shul \u2014 the words never said \u201cshul\u201d. ",
+  "error": null
+ },
+ {
+  "id": 218,
+  "tier": "rejected",
+  "said": "We'll start an event for later, walking Jada at 2.30pm, execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 40791,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Walking Jada",
+     "date": "2026-09-15",
+     "start_time": "14:30",
+     "end_time": "15:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-09-15T11:12:44.081397",
+  "message": "I went ahead, but end_time = 15:00 (3pm) \u2014 nothing in the words said it. Created event 'Walking Jada' on Tuesday, Sep 15, 2026 from 2:30 PM to 3 PM.",
+  "error": null
+ },
+ {
+  "id": 219,
+  "tier": "corrected",
+  "said": "Movie at Lincoln Square tomorrow, AMC, 11.15 AM tomorrow, execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 9411,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   },
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Movie at Lincoln Square",
+     "date": "2026-09-16",
+     "start_time": "21:00",
+     "end_time": "22:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   },
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "AMC",
+     "date": "2026-09-16",
+     "start_time": "11:15",
+     "end_time": "12:15",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-09-15T21:14:12.102697",
+  "message": "I went ahead, but start_time = 21:00 (9pm) \u2014 nothing in the words said it. Created event 'Movie at Lincoln Square' on Wednesday, Sep 16, 2026 from 9 PM to 10 PM. Created event 'AMC' on Wednesday, Sep ",
+  "error": null
+ },
+ {
+  "id": 220,
+  "tier": "corrected",
+  "said": "Walk, Mark, Stog, at 5.30pm today, execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 41322,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "Walk, Mark, Dog",
+     "date": "2026-09-16",
+     "start_time": "17:30",
+     "end_time": "18:30",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-09-16T14:30:26.242151",
+  "message": "I'm not sure I got every part of that right \u2014 worth a glance. Created event 'Walk, Mark, Dog' on Wednesday, Sep 16, 2026 from 5:30 PM to 6:30 PM.",
+  "error": null
+ },
+ {
+  "id": 223,
+  "tier": "corrected",
+  "said": "I need to buy some ice, I need to buy green onion, and I also need to buy ice. No, I said that. I need to buy. Execute.",
+  "status": 200,
+  "parse": "deep",
+  "ms": 145,
+  "actions": [
+   {
+    "action": "create_todo",
+    "parameters": {}
+   },
+   {
+    "action": "create_todo",
+    "parameters": {}
+   },
+   {
+    "action": "create_todo",
+    "parameters": {}
+   },
+   {
+    "action": "create_todo",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "buy some ice",
+     "date": "2026-09-16"
+    }
+   },
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "buy green onion",
+     "date": "2026-09-16"
+    }
+   },
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "ice",
+     "date": "2026-09-16"
+    }
+   },
+   {
+    "action": "create_todo",
+    "parameters": {
+     "title": "I said that. I need to buy",
+     "date": "2026-09-16"
+    }
+   }
+  ],
+  "clock": "2026-09-16T16:00:51.578924",
+  "message": "Added 'buy some ice' to Today. Added 'buy green onion' to Today. Added 'ice' to Today. Added 'I said that. I need to buy' to Today.",
+  "error": null
+ }
+]

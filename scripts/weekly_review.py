@@ -184,6 +184,15 @@ def main() -> None:
     L.append("- Unreviewed commands: open the phone → Settings → *Review commands* and tap 👍/👎 — the memory only helps once it knows what was right.")
     L.append("- Anything under *Marked wrong*: say it again a different way, or add the word it missed to the vocabulary.")
     L.append("- Re-run the audit corpus against your real history: `python -m scripts.audit_assistant --history`.")
+    # The flag rate above says HOW OFTEN something was wrong; the board says WHAT
+    # was wrong and whether the engine has since improved on those exact rows.
+    # Every 👍/👎 tapped above makes it a little less small.
+    L.append("- **Score the engine on these very commands:** "
+             "`python -m scripts.real_usage_board` — replays your reviewed history "
+             "in a sandbox and reports which FIELD fails and in which class "
+             "(`DOCUMENTATION/experiments/real_usage/RESULTS.md`). It is the only "
+             "non-circular instrument this project has, and it grows every time "
+             "you review a command.")
     text = "\n".join(L)
     print(text)
     if args.out:

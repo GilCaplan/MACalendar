@@ -128,6 +128,28 @@ The breakdown, not the headline, is what picks Phase 2's target. Expect
 `stt-garbage` + `disfluency` to dominate; if they do not, **stop and say so
 before building Phase 2** — the plan's premise would be wrong.
 
+> **THEY DO NOT. Measured 2026-09-18, the board's first run** (n=50 non-approved
+> rows, `experiments/real_usage/RESULTS.md`):
+>
+>     generic-title   21  42%      <- the largest, by a distance
+>     disfluency       8  16%
+>     stt-garbage      6  12%
+>     anaphoric-edit   5  10%
+>     other            5  10%
+>     compound         3   6%
+>
+> The corrected tier agrees from the other direction: **`title` 33.3% right
+> (n=18) against `date` 78.6% (n=14)**. And the approved tier shows the title
+> extractor has REGRESSED on commands Gil blessed — `"Movie at Lincoln AMC"` is
+> now `"lincoln"`, `"mark's dog"` is now `"dog"`.
+>
+> **So the phase order below is wrong.** Phase 2 (unknown words) addresses 12%;
+> Phase 4a (the title extractor) addresses 42%, is the worst field, and is
+> actively regressing. 4a is the highest-value work available and it is the one
+> gated on a ruling — **DEVQA Q26**. Phase 3 (latency) is unaffected and can run
+> in parallel. `generic-title`, `anaphoric-edit` and `non-command` were added to
+> the taxonomy on that run, each with a reason recorded in `taxonomy.jsonl`.
+
 **Acceptance.** Runs end-to-end in one command, resumes after `kill -9`,
 guard passes, writes RESULTS.md with all three tiers + taxonomy + latency p50
 per parse path, and a second run on unchanged code reproduces the numbers
