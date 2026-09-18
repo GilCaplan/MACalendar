@@ -30,6 +30,23 @@ _OPENERS = re.compile(
     r"right|hey|yeah|yep|look|listen|actually|basically)[,\s]+)+",
     re.I)
 
+#: "now," as an opener — but ONLY with the comma. "now" alone is a real time
+#: word ("do it now"), so this is the one entry that cannot join the list
+#: above, where a bare space is enough. Measured on the realspeech corpus:
+#: every review-read-as-event error there opened this way — "now, do i have
+#: anything this week", "now, what do i have the rest of the day".
+_NOW_OPENER = re.compile(r"^\s*now\s*,\s*", re.I)
+
+#: A STUTTER: the same word twice in a row, which Whisper writes down
+#: faithfully. "remind me ME to prepare the presentation", "i need to go GO to
+#: kombucha order ON ON friday". It breaks the fixed command frames the
+#: routing depends on — "remind me to" stops matching — so the sentence is
+#: misrouted by a word the speaker did not mean to say twice.
+#:
+#: Punctuation between the copies is allowed because a repair often arrives
+#: with one: "fix the meeting tomorrow — tomorrow, the one with Parka".
+_STUTTER = re.compile(r"\b(\w+)(?:[\s,—–-]+\1\b)+", re.I)
+
 #: Courtesy wrappers that hide the command from anything anchored at ^.
 _COURTESY = re.compile(
     r"^(?:can|could|would|will)\s+you\s+(?:please\s+)?"
@@ -59,6 +76,8 @@ def strip_spoken_noise(text: str, drop_courtesy: bool = True) -> str:
     if not text:
         return text
     out = _OPENERS.sub("", text.strip())
+    out = _NOW_OPENER.sub("", out)
+    out = _STUTTER.sub(r"\1", out)
     if drop_courtesy:
         out = _COURTESY.sub("", out)
     out = _TRAILING_HEDGE.sub("", out)
