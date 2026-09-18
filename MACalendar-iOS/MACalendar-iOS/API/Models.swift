@@ -872,3 +872,48 @@ struct FeatureManifest: Codable, Identifiable, Equatable {
 
     var id: String { name }
 }
+
+/// One editable word list — `GET /lexicon`.
+///
+/// `builtIn` is READ-ONLY fact, read on the Mac out of the module that actually
+/// uses the words (`assistant/intent/lexicon.py`). It is shown rather than
+/// hidden because "linked to what's in the code" was the point of the request:
+/// you can see what the assistant already knows before adding to it.
+struct LexiconEntry: Codable, Equatable, Identifiable {
+    var name: String
+    var label: String
+    var why: String
+    var example: String
+    /// Where the built-in words live, e.g. `assistant.intent.rule_parser._EXTEND_VERBS`.
+    var source: String
+    var builtIn: [String]
+    var added: [String]
+
+    var id: String { name }
+
+    enum CodingKeys: String, CodingKey {
+        case name, label, why, example, source, added
+        case builtIn = "built_in"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name    = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
+        label   = try c.decodeIfPresent(String.self, forKey: .label) ?? name
+        why     = try c.decodeIfPresent(String.self, forKey: .why) ?? ""
+        example = try c.decodeIfPresent(String.self, forKey: .example) ?? ""
+        source  = try c.decodeIfPresent(String.self, forKey: .source) ?? ""
+        builtIn = try c.decodeIfPresent([String].self, forKey: .builtIn) ?? []
+        added   = try c.decodeIfPresent([String].self, forKey: .added) ?? []
+    }
+}
+
+struct LexiconState: Codable, Equatable {
+    var lexicons: [LexiconEntry]
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        lexicons = try c.decodeIfPresent([LexiconEntry].self, forKey: .lexicons) ?? []
+    }
+    enum CodingKeys: String, CodingKey { case lexicons }
+}

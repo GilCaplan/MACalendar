@@ -585,6 +585,19 @@ def open_settings(self) -> None:
         VocabDialog(self, pipeline=self._pipeline).exec()
     vocab_btn.clicked.connect(_open_vocab)
 
+    lexicon_btn = QPushButton(icons.icon("vocab"), "How I Say Things…")
+    lexicon_btn.setObjectName("lexicon_btn")
+    lexicon_btn.setToolTip(
+        "The words the assistant recognises for shortening, naming and the\n"
+        "rest — add the ones you use. Yours are added to what it already\n"
+        "knows, never instead of them.")
+    lexicon_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def _open_lexicon():
+        from assistant.calendar_ui.lexicon_dialog import LexiconDialog
+        LexiconDialog(self, dark=self._dark).exec()
+    lexicon_btn.clicked.connect(_open_lexicon)
+
     review_btn = QPushButton(icons.icon("thumbs_up"), "Review Commands…")
     review_btn.setToolTip("Say whether recent voice commands did the right thing — the assistant learns from it")
     review_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -624,7 +637,7 @@ def open_settings(self) -> None:
         TipsDialog(self).exec()
     tips_btn.clicked.connect(_open_tips)
 
-    for btn in (vocab_btn, review_btn, colors_btn, tips_btn):
+    for btn in (vocab_btn, lexicon_btn, review_btn, colors_btn, tips_btn):
         assistant.addWidget(btn)
 
     layout.addStretch(1)

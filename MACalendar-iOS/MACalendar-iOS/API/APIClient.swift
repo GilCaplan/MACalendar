@@ -1953,3 +1953,31 @@ extension ISO8601DateFormatter {
         return f
     }()
 }
+
+// MARK: - The personal lexicon
+
+extension APIClient {
+
+    /// The editable word lists, with what the code ships and what you added.
+    func lexicon() async throws -> LexiconState {
+        try decode(LexiconState.self, from: try await request("/lexicon"))
+    }
+
+    /// Add one of your own words. Additive only — the Mac refuses to remove a
+    /// built-in, so this can widen what the assistant understands and can never
+    /// take a word away from it.
+    ///
+    /// Queued like any other write when the Mac is away: a word you taught it is
+    /// hand-made and nothing regenerates it, the same argument the vocabulary
+    /// makes for itself.
+    func lexiconAdd(_ name: String, word: String) async throws {
+        try await mutate("/lexicon/\(name)", method: "POST", body: ["word": word])
+    }
+
+    /// Remove one of YOUR words. A built-in is not removable by design.
+    func lexiconRemove(_ name: String, word: String) async throws {
+        let encoded = word.addingPercentEncoding(
+            withAllowedCharacters: .urlPathAllowed) ?? word
+        try await mutate("/lexicon/\(name)/\(encoded)", method: "DELETE")
+    }
+}

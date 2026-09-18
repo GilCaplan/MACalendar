@@ -640,11 +640,17 @@ extend/shorten slot logic. API: `GET /lexicon`, `POST /lexicon/<name>`,
 - **A corrupt store degrades to the built-ins** rather than raising inside a
   voice command; `~/.assistant_tools` is hand-editable by design.
 
-**Still to build:** the settings screens themselves (Mac and iOS) — the API and
-the engine read-through are done and tested, the UI is not. Three lists are
-declared so far (`extend_verbs`, `title_strip_verbs`, `calendar_words`);
-declaring a fourth is one line, and both the API and the screen pick it up with
-no further wiring.
+**Both screens shipped 2026-09-18.** Mac: Settings ▸ Assistant ▸ *How I Say
+Things…* (`calendar_ui/lexicon_dialog.py`). iPhone: Settings ▸ Assistant ▸ *How
+I Say Things* (`Views/LexiconView.swift`), beside Vocabulary and deliberately
+distinct from it — the **Vocabulary** is what WHISPER should hear ("Conello oil"
+is a mishearing), the **lexicon** is what the PARSER acts on ("squeeze" is a word
+it was never taught). Both show the built-in words read-only with the module
+they come from, and both add rather than replace.
+
+Three lists are declared (`extend_verbs`, `title_strip_verbs`,
+`calendar_words`); declaring a fourth is one line in `LEXICONS` and both the API
+and the two screens pick it up with no further wiring.
 
 ### Foldable settings sections
 
