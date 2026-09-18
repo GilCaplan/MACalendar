@@ -539,6 +539,17 @@ a suite that resumed a real run would mix two configurations into one board.
 - **Deleting is destructive.** When the engine cannot identify what to delete,
   empty slots — which surface as "I couldn't find …" — are the right answer.
   Guessing is not.
+- **A ruling in `DEVQA.md` locks a DESIGN, not just an answer — and a
+  complaint about a surface is not permission to redesign it.** Gil chose the
+  lock-screen card's AGENDA over a countdown on 2026-09-17, with both built and
+  rendered side by side (Q23, LOCKED 2026-09-18). The next day a session that
+  had not read DEVQA took "remove the elapsed" as a request to patch the
+  countdown — and patched a design that had already been replaced on a branch
+  it never looked at. Both halves are the lesson: read the ruling, and read the
+  complaint against it, because "fix this" often means "this is the wrong
+  thing". Before changing a shipped surface, check DEVQA for a ruling and
+  `git log --oneline -- <file>` for a rework you are about to fight. Fixing a
+  bug INSIDE a locked design is ordinary work; changing its shape needs Gil.
 
 ## Recurring events
 
@@ -609,7 +620,8 @@ which models do what. `DOCUMENTATION/ENGINE.md` is the engine's stage-contract
 reference. `DOCUMENTATION/ARTIFACT_BUILDER.md` is the brief for the published
 explainer pages. `DOCUMENTATION/experiments/checkpoints/` holds the
 retrospective and the recommendations queued out of it. `DEVQA.md` is the
-decision log — a question answered there is settled; check it before re-asking.
+decision log — a question answered there is settled; check it before
+re-asking AND before changing what it settled.
 
 ## Conventions
 

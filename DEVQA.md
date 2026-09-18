@@ -157,6 +157,15 @@ before you rule:
   - **Look** — *"make sure its doesnt look to ai generated, a liquid glass look
     would be nice"*. Real `.glassEffect` on iOS 26, hand-built material below it.
 
+  **LOCKED, 2026-09-18** (Gil, on seeing the agenda card land on his phone:
+  *"Its good make sure in md file it doesnt get changed unless i request"*).
+  The card's SHAPE is settled: today's remaining agenda, current event picked
+  out by a glow, no countdown. Do not redesign it, do not reintroduce a
+  ticking number, and do not "restore" the countdown because a complaint
+  about the card sounds like it wants one — this ruling is what a complaint
+  should be read against. Only Gil asking reopens it. Fixing a bug in the
+  agenda card is not a redesign and needs no permission.
+
 - **2026-09-17 — Q22: a RANGE date is asked about, never guessed** (Gil). What
   should `"book yoga class next week"` mean, when the recogniser hands back a
   span (21–28 Sep) and not a day? Options put to him were: take the soonest day,

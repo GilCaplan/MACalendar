@@ -720,7 +720,10 @@ lock-screen card (and Dynamic Island) showing today's remaining agenda, each
 row's title/time/category colour, with the running event (or failing that
 the soonest one) picked out by a coloured glow and the one after it by a
 lighter version of the same — no countdown number, current always outranking
-next. **Clearing it keeps it cleared** (Gil, 2026-09-17: *"if i clear it, it
+next. **This shape is LOCKED** (Gil, 2026-09-18; DEVQA Q23): the agenda was
+chosen over a countdown with both built and rendered side by side, so it is
+not up for redesign and a ticking number must not come back unless he asks
+for one. Bug fixes inside it are ordinary work. **Clearing it keeps it cleared** (Gil, 2026-09-17: *"if i clear it, it
 shouldn't reappear"*): dismissing a Live Activity records nothing, so the next
 sync used to start a fresh card within seconds of the swipe. A dismissal now
 writes `agendaCardSuppressedUntil` and the card returns at **06:00** the next
