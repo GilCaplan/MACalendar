@@ -1582,7 +1582,25 @@ _TODO_TRAIL = re.compile(
 
 def _todo_titles_from_text(text: str, temporal_spans, span) -> list[str]:
     """'remind me tomorrow to send the syllabus to Guri' → ['send the syllabus to Guri'];
-    'add buy milk, eggs and bread to my list' → ['buy milk', 'buy eggs', 'buy bread']."""
+    'add buy milk, eggs and bread to my list' → ['buy milk', 'buy eggs', 'buy bread'].
+
+    The WHEN is blanked before anything else reads the sentence. This function
+    took `temporal_spans` from the day it was written and never once looked at
+    them — it stripped dates with two hand-written regexes instead, which only
+    matched a date at the very END and only when a preposition introduced it.
+    So every phrasing they missed carried the time into a task's NAME:
+
+        "remind me to buy milk and bread tomorrow"  -> [..., 'buy bread tomorrow']
+        "wash and fold the laundry the 30th"        -> [..., 'fold the laundry the 30th']
+        "I need to walk Val at 3pm"                 -> ['walk val at 3pm']
+
+    The last one is Gil's, reported from his phone on 2026-09-18, and it shows
+    the second cost: the date resolved correctly AS WELL, so the task was both
+    named after a time and due at it. The recogniser already found those spans
+    — `_subtractive_title` blanks the same ones for events — so this is the
+    reader that was skipped, not a rule that was missing.
+    """
+    text = _blank_spans(text, temporal_spans or [])
     t = text.strip().rstrip(".!?")
     m = _TODO_LEAD.match(t)
     if not m:
@@ -1597,7 +1615,11 @@ def _todo_titles_from_text(text: str, temporal_spans, span) -> list[str]:
     body = re.sub(r"\s+(?:due|by)\s+.*$", "", body, flags=re.IGNORECASE).strip(" ,;:")
     if not body:
         return []
-    return split_items(body, drop=_PRONOUN_TITLES)[:10]
+    # Blanking leaves the preposition that introduced the date stranded
+    # ("call mom at", "meeting on"), so each part is tidied the same way
+    # `_subtractive_title` tidies its own.
+    parts = [_tidy_part(p) for p in split_items(body, drop=_PRONOUN_TITLES)[:10]]
+    return [p for p in parts if p]
 
 
 # "put it on the groceries list" / "tag it as coursework" — the user naming a

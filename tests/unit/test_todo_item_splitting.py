@@ -14,6 +14,29 @@ from assistant.intent.list_split import split_items
 from assistant.actions.todo.tagging import infer_tag, resolve_tags
 
 
+@pytest.fixture
+def parser(isolated_registry):
+    """RuleBasedParser with the real actions, same shape as test_rule_parser's."""
+    from assistant.intent.rule_parser import RuleBasedParser
+    from assistant.actions.calendar.action import (
+        CreateEventAction, UpdateEventAction, DeleteEventAction, QueryScheduleAction,
+    )
+    from assistant.actions.todo.action import (
+        CreateTodoAction, CompleteTodoAction, DeleteTodoAction, UpdateTodoAction,
+        QueryTodoAction, AddSubtaskAction, CompleteSubtaskAction, DeleteSubtaskAction,
+    )
+    from assistant.actions.clarify import ClarifyAction
+
+    for cls in (CreateEventAction, UpdateEventAction, DeleteEventAction,
+                QueryScheduleAction, CreateTodoAction, CompleteTodoAction,
+                DeleteTodoAction, UpdateTodoAction, QueryTodoAction,
+                AddSubtaskAction, CompleteSubtaskAction, DeleteSubtaskAction,
+                ClarifyAction):
+        isolated_registry._actions[cls.action_name] = cls
+    return RuleBasedParser(isolated_registry)
+
+
+
 # ---------------------------------------------------------------------------
 # Splitting
 # ---------------------------------------------------------------------------
@@ -347,3 +370,36 @@ def test_mac_panel_tag_precedence(db):
     panel._auto_tag = ""
     panel._auto_tag_infer = False
     assert pick(panel, "buy chicken") == []
+
+
+# ---------------------------------------------------------------------------
+# The WHEN never belongs in the WHAT
+#
+# `_todo_titles_from_text` has taken `temporal_spans` since it was written and
+# never read them: it stripped dates with two hand-written regexes that only
+# matched at the END of the sentence, and only behind a preposition. Every
+# phrasing they missed put the time in the task's NAME — and resolved the date
+# correctly beside it, so the task was named after a time AND due at it.
+#
+# Gil reported the last of these from his phone on 2026-09-18: "I need to walk
+# Val at 3pm" became a task called 'walk val at 3pm'.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("phrase,expected", [
+    # bare trailing date — no preposition, so the old regexes never saw it
+    ("remind me to buy milk and bread tomorrow", ["buy milk", "buy bread"]),
+    ("remind me to wash the laundry the 30th", ["wash the laundry"]),
+    # a clock time, which the old code left in the name (Gil, 2026-09-18)
+    ("I need to walk Val at 3pm", ["walk val"]),
+    ("remind me to feed the cat at 14:00", ["feed the cat"]),
+    # the date mid-sentence, where it always worked, must keep working
+    ("remind me tomorrow to send the syllabus to Guri",
+     ["send the syllabus to guri"]),
+    # and a sentence with no time at all is untouched
+    ("add buy milk, eggs and bread to my list",
+     ["buy milk", "buy eggs", "buy bread"]),
+])
+def test_the_time_never_lands_in_the_title(parser, phrase, expected):
+    result = parser.analyze(phrase)
+    titles = result.raw_slots.get("create_todo", {}).get("titles")
+    assert titles == expected
