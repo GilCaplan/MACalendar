@@ -315,7 +315,13 @@ def cut(text: str, max_rounds: int = 3) -> "list[str]":
     from assistant.intent.coordination import split_clauses
 
     def once(piece: str) -> "list[str]":
-        parts = [q.strip() for q in split_clauses(piece) if q.strip()]
+        # Hand over the time spans this module has ALREADY found, position-
+        # independently. `clause_boundaries` cannot ask the parse where the
+        # time is — the parse is what moves — so the reader that located it
+        # supplies the answer.
+        parts = [q.strip() for q in split_clauses(
+            piece, date_spans=[(r.start, r.end) for r in find_time_refs(piece)])
+            if q.strip()]
         if len(parts) < 2 or not every_part_is_an_ask(parts):
             return _split_verbless_conjuncts(piece)
         return parts

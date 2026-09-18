@@ -231,7 +231,7 @@ def has_clause_coordination(text: str) -> bool:
     return bool(clause_boundaries(text))
 
 
-def clause_boundaries(text: str) -> "list[Boundary]":
+def clause_boundaries(text: str, date_spans=None) -> "list[Boundary]":
     """Every place two coordinated CLAUSES meet, in order.
 
     This is the same judgement `has_clause_coordination` reports, but keeping
@@ -364,8 +364,40 @@ def clause_boundaries(text: str) -> "list[Boundary]":
                     k += 1
                 if k > tok.i + 1 and k < len(doc) and doc[k].pos_ in ("NOUN", "PROPN"):
                     conj_has_own = not _opens_a_date(doc, tok.i + 1)
-        head_has_own = any(c.dep_ in OWN_ARG for c in tok.head.children
-                           if c is not tok)
+        # THE ASYMMETRY THIS CANCELS. The conjunct side above already discounts
+        # a date argument (`_is_date_argument`, line ~327); the head side did
+        # not. So "clean and organize the garage THIS AFTERNOON" is one ask —
+        # the head `clean` owns nothing — while "THIS AFTERNOON clean and
+        # organize the garage" is two, because the fronted phrase attaches to
+        # `clean` as `npadvmod` and counts as its content. Same words, same
+        # meaning, different number of asks, decided by word order.
+        head_kids = [c for c in tok.head.children if c is not tok]
+        head_has_own = any(c.dep_ in OWN_ARG for c in head_kids)
+        if head_has_own and date_spans and not any(
+                c.dep_ in OWN_ARG and not _is_edge_date_argument(c, text, date_spans)
+                for c in head_kids):
+            # The head's ONLY argument is the utterance's edge time phrase.
+            # That alone is NOT enough to refuse a boundary — emptying the head
+            # also makes "by tonight schedule a meeting with Quinn and buy
+            # groceries" look headless, and collapsing that loses an ask the
+            # speaker gave. Require the POSITIVE serial-verb signature as well:
+            # the conjunct owns the clause's only object, so both verbs govern
+            # it ("clean and organize THE GARAGE"). A head with an object of
+            # its own is a second ask, whatever the time phrase is doing.
+            # ANY real noun argument, not just `dobj`. `_OWN_ARG` has no
+            # `nsubj`, and spaCy mis-tags a bare imperative's object as the
+            # subject often enough to matter: "by tonight schedule A MEETING
+            # with Quinn and buy groceries" parses `meeting` as `nsubj` of a
+            # NOUN-tagged `schedule`. Checking `dobj` alone missed it, the gate
+            # fired, and a two-ask command collapsed into one — measured
+            # against the baseline, which split it correctly.
+            head_owns_object = any(
+                c.dep_ in ("dobj", "obj", "nsubj", "attr", "dative", "oprd",
+                           "ccomp", "xcomp")
+                and not _is_edge_date_argument(c, text, date_spans)
+                for c in head_kids)
+            if conj_obj and not head_owns_object:
+                head_has_own = False
         if not head_has_own and tok.head.dep_ != "ROOT":
             # The conjunct hangs off a token buried INSIDE the first clause —
             # typically its date ("…on friday and book a haircut" makes
@@ -435,6 +467,28 @@ def _non_splitting_tail(text: str) -> bool:
 #: "remind ME", "pick IT up" — skipped when looking past a verb for its
 #: object.
 _OBJ_PRONOUNS = frozenset({"me", "it", "that", "this", "them", "us", "him", "her"})
+
+
+def _is_edge_date_argument(c, text: str, date_spans) -> bool:
+    """Is this child ONLY the utterance's leading or trailing time phrase?
+
+    Decided from the CALLER's spans, never from the parse, because the parse is
+    what moves: "this afternoon" is `npadvmod` of the head when it is fronted
+    and of the conjunct when it trails, which is the whole asymmetry this
+    exists to cancel.
+
+    EDGE, not merely "is a date". An INTERIOR daypart names a thing — "cancel
+    the EVENING shiur", "set up the MORNING standup" — and must keep counting
+    as the head's own content, or those rows stop splitting.
+    """
+    if not date_spans:
+        return False
+    start, end = c.idx, c.idx + len(c.text)
+    n = len(text)
+    for span_start, span_end in date_spans:
+        if span_start <= start and end <= span_end and (span_start == 0 or span_end >= n):
+            return True
+    return False
 
 
 def _is_date_argument(doc, c) -> bool:
@@ -614,14 +668,14 @@ def _lexicon_fallback_boundaries(doc, text: str) -> "list[Boundary]":
     return out
 
 
-def split_clauses(text: str) -> "list[str]":
+def split_clauses(text: str, date_spans=None) -> "list[str]":
     """`text` cut into one string per ask — or `[text]` when it is one ask.
 
     The convenience segment wants: a caller that only needs the pieces should
     not have to know about offsets. Never returns an empty part, and never
     returns parts that lose words — the only thing dropped is the joiner.
     """
-    bounds = clause_boundaries(text)
+    bounds = clause_boundaries(text, date_spans=date_spans)
     if not bounds:
         return [text]
     parts, cursor = [], 0
