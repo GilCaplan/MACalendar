@@ -1269,6 +1269,49 @@ duration; the deep track merely fails more quietly.
 Whoever picks this up: decide where it lives before writing it, since an
 optional intent field is a contract question and the action layer is not.
 
+## NO WAY TO SAY "THAT ONE IS NOT RECURRING" — NOT FIXED, filed 2026-09-18
+
+Gil, from his phone, immediately after a misheard "every" booked a weekly
+series (fixed in 668660a — the CAUSE is gone, this is the CURE that is still
+missing):
+
+    "For the event tomorrow, it is not reoccurring, it's only tomorrow,
+     please fix, execute."
+
+    Rule parser        skip: no action matched  -> deep track
+    Split into commands  2 items: "For the event tomorrow" ·
+                         "it is not reoccurring, it's only , pleas"
+    Built the objects    0 of 2 converted; 2 to the model
+                         ...still working at 15.3s
+
+**It is not a parse bug, it is a missing capability.** `UpdateEventIntent`
+carries `match_title`, `match_date`, `match_start_time`, `new_title`,
+`new_date`, `new_start_time`, `new_end_time`, `new_location`,
+`new_description` — and NOTHING for recurrence. The intent cannot express
+"stop repeating", so no amount of parsing would help.
+
+**This is an intent-contract change and therefore Gil's call**, the same
+category as the relative-duration row above ("an optional intent field is a
+contract question and the action layer is not").
+
+The shape, if approved:
+
+- `new_recurrence: str | None` on `UpdateEventIntent`, where `""` CLEARS and a
+  cadence sets. Empty-string-clears rather than None-clears because None
+  already means "not mentioned" for every other `new_*` field on this intent,
+  and overloading it would make "don't touch the recurrence" unsayable.
+- Route the phrasings: "it is not recurring", "it's only tomorrow", "just
+  once", "make it a one-off", "stop repeating", "not every week". Note the
+  speaker says "reoccurring" as often as "recurring" — both, plus the
+  vocabulary path for the mishearings.
+- `UpdateEventAction.execute` then has to decide what CLEARING means for a
+  series that has already expanded into rows: delete the future instances and
+  keep the named one, or keep all and stop generating. That is the real
+  question in this row, not the parsing.
+
+Until it exists, the only way out of a wrongly-created series is the Mac GUI
+or the phone's event editor.
+
 ## CONTRACT CHANGE — decompose_validate may MULTIPLY an item, never RE-CUT one
 
 **Approved by Gil, 2026-09-18.** A DESIGN change to a frozen contract, filed
