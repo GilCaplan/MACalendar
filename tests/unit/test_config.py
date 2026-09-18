@@ -140,3 +140,64 @@ def test_the_example_config_documents_it():
     assert "agenda_card" in example["notifications"], \
         "a new setting must be mirrored into config.example.yaml"
     assert example["notifications"]["agenda_card"] is True
+
+
+# ---------------------------------------------------------------------------
+# Settings shared between the Mac and the phone (Gil, 2026-09-18: "mac and ios
+# should have same settings, everything should be synchronized").
+# ---------------------------------------------------------------------------
+
+def _client(tmp_path, monkeypatch):
+    import importlib
+    import shutil
+    import pathlib as _pl
+    root = _pl.Path(__file__).resolve().parents[2]
+    target = tmp_path / "config.yaml"
+    shutil.copyfile(root / "config.example.yaml", target)
+    monkeypatch.setenv("MACALENDAR_CONFIG", str(target))
+    import assistant.api.server as server
+    importlib.reload(server)
+    app = server.create_app()
+    app.config["TESTING"] = True
+    return app.test_client(), target
+
+
+def test_the_shared_settings_are_all_readable_in_one_call(tmp_path, monkeypatch):
+    """The phone adopts these from one `GET /config`. A key missing here is a
+    setting that silently stays two separate copies."""
+    client, _ = _client(tmp_path, monkeypatch)
+    got = client.get("/config").get_json()
+    for key in ("theme", "ui", "hebrew_calendar", "todo", "tts", "notifications"):
+        assert key in got, f"{key} is not shared, so the two screens will drift"
+    assert "accent_color" in got["ui"]
+    assert "show_completed" in got["todo"]
+    assert "mute" in got["tts"]
+
+
+def test_each_shared_setting_round_trips(tmp_path, monkeypatch):
+    client, _ = _client(tmp_path, monkeypatch)
+    edits = [
+        ({"theme": "light"}, lambda g: g["theme"] == "light"),
+        ({"ui": {"accent_color": "#123456"}},
+         lambda g: g["ui"]["accent_color"] == "#123456"),
+        ({"hebrew_calendar": {"show_holidays": False}},
+         lambda g: g["hebrew_calendar"]["show_holidays"] is False),
+        ({"todo": {"show_completed": True}},
+         lambda g: g["todo"]["show_completed"] is True),
+        ({"tts": {"mute": True}}, lambda g: g["tts"]["mute"] is True),
+    ]
+    for body, check in edits:
+        assert client.patch("/config", json=body).status_code == 200, body
+        assert check(client.get("/config").get_json()), f"{body} did not stick"
+
+
+def test_a_device_only_setting_is_refused(tmp_path, monkeypatch):
+    """Not everything should travel. The phone's address for the Mac means
+    nothing on the Mac, and writing it into the shared config would be wrong
+    rather than merely useless."""
+    client, target = _client(tmp_path, monkeypatch)
+    before = target.read_text()
+    assert client.patch("/config", json={"serverURL": "http://1.2.3.4"}).status_code == 200
+    assert "serverURL" not in target.read_text(), \
+        "an unknown key was written into the shared config"
+    assert "1.2.3.4" not in target.read_text()

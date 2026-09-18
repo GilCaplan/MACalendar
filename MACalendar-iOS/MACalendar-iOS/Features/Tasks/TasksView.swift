@@ -171,7 +171,12 @@ struct TasksView: View {
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarLeading) {
                     if hasCompleted {
-                        Button(action: { settings.hideCompletedTasks.toggle() }) {
+                        Button(action: {
+                            settings.hideCompletedTasks.toggle()
+                            // Shared with the Mac, which stores SHOW-completed.
+                            let show = !settings.hideCompletedTasks
+                            Task { await api.patchShared(["todo": ["show_completed": show]]) }
+                        }) {
                             Image(systemName: settings.hideCompletedTasks ? "eye" : "eye.slash")
                         }
                         .help(settings.hideCompletedTasks ? "Show completed" : "Hide completed")

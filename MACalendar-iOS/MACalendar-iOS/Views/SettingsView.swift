@@ -143,6 +143,9 @@ struct SettingsView: View {
                                 Text("Dark").tag("dark")
                             }
                             .pickerStyle(.segmented)
+                            .onChange(of: settings.theme) { v in
+                                Task { await api.patchShared(["theme": v]) }
+                            }
 
                             Divider().padding(.vertical, 4)
 
@@ -204,7 +207,15 @@ struct SettingsView: View {
                             .pickerStyle(.segmented)
 
                             Toggle("Show Jewish / Israeli holidays", isOn: $settings.showHolidays)
+                                .onChange(of: settings.showHolidays) { v in
+                                    Task { await api.patchShared(
+                                        ["hebrew_calendar": ["show_holidays": v]]) }
+                                }
                             Toggle("Israel holiday schedule", isOn: $settings.israelHolidays)
+                                .onChange(of: settings.israelHolidays) { v in
+                                    Task { await api.patchShared(
+                                        ["hebrew_calendar": ["israel_holidays": v]]) }
+                                }
                                 .disabled(!settings.showHolidays)
 
                             Text("Hebrew dates use gematria letters (e.g. כ״ט תשרי). Holidays begin at sundown the evening before their main day.")
@@ -390,6 +401,10 @@ struct SettingsView: View {
                             }
                             .pickerStyle(.segmented)
                             .disabled(!settings.speakReplies)
+                            .onChange(of: settings.speakReplies) { v in
+                                // The Mac stores MUTE; the phone asks SPEAK.
+                                Task { await api.patchShared(["tts": ["mute": !v]]) }
+                            }
 
                             Divider()
 
@@ -418,7 +433,23 @@ struct SettingsView: View {
                                         .font(.caption).foregroundColor(.secondary)
                                 }
                             }
+                        }
+                        .padding(.vertical, 4)
+                    }
 
+                    // MARK: Assistant
+                    //
+                    // Split out of Voice on 2026-09-18. Four screens about
+                    // TEACHING the assistant — reviewing what it did, the words
+                    // it should hear, the words it acts on, the colours it
+                    // assigns — were sitting inside a section about the
+                    // MICROPHONE, and a collapsed one at that. Gil went looking
+                    // for "How I Say Things" on the settings screen and could
+                    // not see it, because the only thing on screen was the word
+                    // "Voice". The Mac has had an Assistant section all along;
+                    // this is the same section, in the same order.
+                    CollapsibleSection("Assistant", systemImage: "sparkles", key: "assistant") {
+                        VStack(alignment: .leading, spacing: 12) {
                             NavigationLink {
                                 AssistantReviewView()
                             } label: {
@@ -513,6 +544,7 @@ struct SettingsView: View {
                 Task {
                     permStatus = await NotificationPermission.status()
                     notifConfig = try? await api.notificationsConfig()
+                    await adoptSharedSettings()
                     // The switch is shared, so the Mac's answer wins — EXCEPT
                     // while this phone is still holding one of its own. A
                     // toggle flipped offline sits in the queue; adopting the
@@ -544,6 +576,38 @@ struct SettingsView: View {
         return settings.remindersEnabled
             ? "One notification at \(at) with the day's events and tasks. It arrives even with your Mac asleep — this phone holds the next week's."
             : "Off — no notifications from the calendar, on this phone or the Mac."
+    }
+
+    /// Take the Mac's copy of the settings both screens show.
+    ///
+    /// Guarded by the same "not while a /config write is pending" condition the
+    /// reminders switch uses: a change made on this phone while the Mac was away
+    /// is sitting in the queue, and adopting the server's older value before it
+    /// replays would flip the control back under the user's finger and then
+    /// un-flip it a moment later.
+    private func adoptSharedSettings() async {
+        guard let shared = try? await api.sharedSettings() else { return }
+        guard !LocalStore.shared.pending.contains(where: { $0.path == "/config" })
+        else { return }
+        if shared.theme != settings.theme { settings.theme = shared.theme }
+        if !shared.accentColor.isEmpty, shared.accentColor != settings.accentColorHex {
+            settings.accentColorHex = shared.accentColor
+        }
+        if shared.hebrewDisplayMode != settings.hebrewDisplayMode {
+            settings.hebrewDisplayMode = shared.hebrewDisplayMode
+        }
+        if shared.showHolidays != settings.showHolidays {
+            settings.showHolidays = shared.showHolidays
+        }
+        if shared.israelHolidays != settings.israelHolidays {
+            settings.israelHolidays = shared.israelHolidays
+        }
+        if shared.hideCompletedTasks != settings.hideCompletedTasks {
+            settings.hideCompletedTasks = shared.hideCompletedTasks
+        }
+        if shared.speakReplies != settings.speakReplies {
+            settings.speakReplies = shared.speakReplies
+        }
     }
 
     /// What the connection switch means, in its two states. A stored property

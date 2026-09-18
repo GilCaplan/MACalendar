@@ -1323,8 +1323,30 @@ def create_app() -> Flask:
     # Config
     # ------------------------------------------------------------------
 
-    _CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "config.yaml")
-    _ALLOWED_PATCH_KEYS = {"llm_engine", "tts", "confirmation_level", "notifications"}
+    # `MACALENDAR_CONFIG` FIRST, like `config.py:428` and
+    # `features/settings.py:53`. This one endpoint did not honour it, so
+    # `PATCH /config` wrote the repo's real config.yaml whatever the environment
+    # said — which is the one file the suite's isolation exists to protect and
+    # the one file that is gitignored, so there is nothing to restore from.
+    # Found 2026-09-18 by writing `theme: light` into Gil's live config from a
+    # scratch-sandboxed script that had set the override correctly.
+    _CONFIG_PATH = (os.environ.get("MACALENDAR_CONFIG")
+                    or os.path.join(os.path.dirname(__file__), "..", "..", "config.yaml"))
+    #: Widened 2026-09-18 (Gil: "mac and ios should have same settings,
+    #: everything should be synchronized"). The Mac already STORED theme, the
+    #: accent colour, the Hebrew conventions and show-completed; the phone just
+    #: kept private copies of all four and neither knew about the other.
+    #:
+    #: NOT here, and each for a reason rather than an omission: the server
+    #: address and API key describe the phone's route to this Mac and mean
+    #: nothing on it; `followMyLocation` is about THIS device's position; the
+    #: font sizes are deliberately per-device (a phone and a 27-inch screen want
+    #: different numbers, and `AppSettings` has said so since they were added);
+    #: and the tab filters, list scope and fold state are UI chrome, not
+    #: preferences about the calendar.
+    _ALLOWED_PATCH_KEYS = {"llm_engine", "tts", "confirmation_level",
+                           "notifications", "theme", "ui", "todo",
+                           "hebrew_calendar"}
 
     @app.get("/digest")
     def digest():
@@ -1391,6 +1413,11 @@ def create_app() -> Flask:
             "confirmation_level": cfg.confirmation_level,
             "todo": cfg.todo.model_dump(),
             "notifications": cfg.notifications.model_dump(),
+            # Shared with the phone so both screens show one value rather than
+            # two copies that drift (see `_ALLOWED_PATCH_KEYS`).
+            "theme": cfg.theme,
+            "ui": cfg.ui.model_dump(),
+            "hebrew_calendar": cfg.hebrew_calendar.model_dump(),
         })
 
     @app.patch("/config")

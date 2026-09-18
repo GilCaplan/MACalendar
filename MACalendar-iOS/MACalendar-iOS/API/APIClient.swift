@@ -1981,3 +1981,77 @@ extension APIClient {
         try await mutate("/lexicon/\(name)/\(encoded)", method: "DELETE")
     }
 }
+
+// MARK: - Settings shared with the Mac
+
+/// The values both screens show, so there is ONE of each rather than two copies
+/// that drift (Gil, 2026-09-18: "mac and ios should have same settings,
+/// everything should be synchronized").
+///
+/// What is NOT here is deliberate, not missing: the server address and API key
+/// describe this phone's route to the Mac and mean nothing on it;
+/// `followMyLocation` is about THIS device; the font sizes are per-device on
+/// purpose, because a phone and a 27-inch screen want different numbers; and the
+/// tag filters, list scope and fold state are UI chrome rather than preferences
+/// about the calendar.
+/// Decodable only: it is never encoded — a change is pushed as an explicit
+/// `["theme": ...]` dict, because the Mac patches one key at a time.
+struct SharedSettings: Decodable, Equatable {
+    var theme: String
+    var accentColor: String
+    var hebrewDisplayMode: String
+    var showHolidays: Bool
+    var israelHolidays: Bool
+    var hideCompletedTasks: Bool
+    var speakReplies: Bool
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        theme = try c.decodeIfPresent(String.self, forKey: .theme) ?? "dark"
+
+        let ui = try? c.nestedContainer(keyedBy: UIKeys.self, forKey: .ui)
+        accentColor = (try? ui?.decodeIfPresent(String.self, forKey: .accentColor)) as? String ?? ""
+
+        let heb = try? c.nestedContainer(keyedBy: HebrewKeys.self, forKey: .hebrewCalendar)
+        hebrewDisplayMode = (try? heb?.decodeIfPresent(String.self, forKey: .displayMode)) as? String ?? "both"
+        showHolidays = ((try? heb?.decodeIfPresent(Bool.self, forKey: .showHolidays)) as? Bool) ?? true
+        israelHolidays = ((try? heb?.decodeIfPresent(Bool.self, forKey: .israelHolidays)) as? Bool) ?? true
+
+        let todo = try? c.nestedContainer(keyedBy: TodoKeys.self, forKey: .todo)
+        // The Mac stores SHOW-completed; the phone has always asked HIDE.
+        let show = ((try? todo?.decodeIfPresent(Bool.self, forKey: .showCompleted)) as? Bool) ?? false
+        hideCompletedTasks = !show
+
+        let tts = try? c.nestedContainer(keyedBy: TTSKeys.self, forKey: .tts)
+        // Same inversion: the Mac stores MUTE, the phone asks SPEAK.
+        let mute = ((try? tts?.decodeIfPresent(Bool.self, forKey: .mute)) as? Bool) ?? false
+        speakReplies = !mute
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case theme, ui, todo, tts
+        case hebrewCalendar = "hebrew_calendar"
+    }
+    enum UIKeys: String, CodingKey { case accentColor = "accent_color" }
+    enum HebrewKeys: String, CodingKey {
+        case displayMode = "display_mode"
+        case showHolidays = "show_holidays"
+        case israelHolidays = "israel_holidays"
+    }
+    enum TodoKeys: String, CodingKey { case showCompleted = "show_completed" }
+    enum TTSKeys: String, CodingKey { case mute }
+}
+
+extension APIClient {
+
+    func sharedSettings() async throws -> SharedSettings {
+        try decode(SharedSettings.self, from: try await request("/config"))
+    }
+
+    /// Push one shared value back. Queued offline like any other write.
+    @discardableResult
+    func patchShared(_ body: [String: Any]) async -> Bool {
+        do { _ = try await mutate("/config", method: "PATCH", body: body); return true }
+        catch { announceRefusal(error, doing: "save that setting"); return false }
+    }
+}
