@@ -485,6 +485,21 @@ def _duration_minutes(m) -> "int | None":
 # For these, "at X" = match_start_time (finder) and "to Y" = new_end_time (change)
 _EXTEND_VERBS = frozenset({"extend", "lengthen", "stretch", "prolong", "shorten", "trim"})
 
+
+def _extend_verbs() -> "frozenset[str]":
+    """`_EXTEND_VERBS` plus anything the person added in Settings.
+
+    Read through `lexicon` rather than used directly, so "the way I say it" is a
+    setting and not a code change (Gil, 2026-09-18). The union is one-way: an
+    edit can only ever widen this, never take a verb away — see
+    `assistant/intent/lexicon.py`.
+    """
+    try:
+        from assistant.intent.lexicon import effective
+        return effective("extend_verbs") or _EXTEND_VERBS
+    except Exception:                       # a broken store must never stop a parse
+        return _EXTEND_VERBS
+
 # Anaphoric references that trigger context memory lookup
 _ANAPHORS = frozenset({
     "it", "that", "this", "the meeting", "the event", "that event",
@@ -1434,6 +1449,14 @@ def _route_intent(span, current_view: str) -> tuple[str | None, str, bool, bool]
 
     def _maps_to_action(lemma: str) -> tuple[str | None, bool]:
         """Returns (action_name, domain_was_material) — see docstring above."""
+        # A verb Gil added in Settings routes like the built-in ones it sits
+        # beside. Checked BEFORE `INTENT_MAP` only in the sense that it is
+        # checked at all: without this the added word reached the extend/shorten
+        # SLOT logic and never the router, so "squeeze the event ... to be 15
+        # minutes" parsed as nothing at all. One list in one place is not enough
+        # — which is the drift this whole feature exists to stop.
+        if lemma in _extend_verbs() and lemma not in _EXTEND_VERBS:
+            return "update_event", False
         domain_specific = INTENT_MAP.get((lemma, domain))
         if domain_specific:
             return domain_specific, True
@@ -1978,7 +2001,9 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
             if cand and cand.lower() not in _CALENDAR_SIGNALS:
                 slots.setdefault("match_title", cand)
         # Detect whether this is an extend/shorten action (vs. a move/reschedule)
-        is_extend = any(tok.lemma_.lower() in _EXTEND_VERBS for tok in span)
+        _ext = _extend_verbs()
+        is_extend = any(tok.lemma_.lower() in _ext for tok in span) or any(
+            w in _ext for w in span.text.lower().split())
 
         if is_extend:
             # Extend/shorten semantics:

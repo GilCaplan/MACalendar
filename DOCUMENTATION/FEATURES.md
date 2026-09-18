@@ -25,6 +25,7 @@ purely backend (no client code beyond displaying the effects).
 | UI | [Search & jump-to-date](#search--jump-to-date) | toolbar search over events/tasks; type a date to jump | `window.py`, `SearchView.swift` |
 | UI | [Small conveniences](#small-conveniences) | duplicate event, week numbers, Timer CSV export | `event_dialog.py`, `month_view.py`, `timer_view.py` |
 | UI | ["How to Talk to Me" tips](#how-to-talk-to-me-tips) | 5 short, verified voice-phrasing tips (Settings → Assistant) | `tips.py`, `tips_dialog.py` |
+| assistant | [Personal lexicon](#personal-lexicon) | the engine's word lists, extendable from Settings so it learns how you say things | `intent/lexicon.py`, `/lexicon` |
 | UI | [Foldable settings sections](#foldable-settings-sections) | every Settings section collapses, and stays collapsed, on both apps | `settings_dialog.py`, `SettingsView.swift` |
 | hybrid | [Calendar views](#calendar-views-month--week--day) | month/week/day/agenda browsing + event CRUD, drag, undo | `calendar_ui/`, iOS views, `db.py` |
 | hybrid | [Tasks](#tasks--to-dos) | Today/General lists, priorities, quantities | `db.py`, `TasksView` |
@@ -604,6 +605,46 @@ past what the tips were verified against, the same "downstream of the
 pipeline" contract `test_panel_agreement.py` holds the thinking panel to —
 so a future engine change forces a re-verification rather than silently
 shipping stale claims.
+
+### Personal lexicon
+
+**What:** the engine's word lists, extendable by the person who speaks them
+(Gil, 2026-09-18): *"in the settings we should have a section where these are
+all listed out and linked to what's in the code and can be dynamically updated
+... so that it can be fine-tuned to how he speaks"*. Add "squeeze" to the
+shorten-verbs and `"squeeze the event at 2pm to be 15 minutes"` starts working.
+
+**Why it exists:** `"Can you shorten the event at 2pm walk Jada to be 15
+minutes"` silently did nothing, because one hand-typed verb list had never
+learned the word "shorten" while another had known it for weeks. There are
+**239 pattern constants** under `intent/` and `engine/`; every one is a place
+the engine's idea of English can fall behind its user.
+
+**Where:** `assistant/intent/lexicon.py` (`LEXICONS` declares each list and the
+module constant it mirrors; `LexiconStore` holds the person's additions in
+`~/.assistant_tools/lexicon.json`, `MACALENDAR_LEXICON`). Read through
+`rule_parser._extend_verbs()`, consulted by both the router and the
+extend/shorten slot logic. API: `GET /lexicon`, `POST /lexicon/<name>`,
+`DELETE /lexicon/<name>/<word>`.
+
+**How it stays safe:**
+
+- **Additive only.** `effective()` is `built_in | user`, always. No edit can
+  take a word away, so tuning your phrasing can never break a command that
+  used to work. A built-in has no removal path at all.
+- **A declaration points at real code** — `built_in()` imports the module and
+  reads the constant, so the settings screen shows fact rather than a second
+  copy. A second copy is the defect this feature exists to prevent, and
+  `test_lexicon.py` fails if a declaration names an attribute that no longer
+  exists.
+- **A corrupt store degrades to the built-ins** rather than raising inside a
+  voice command; `~/.assistant_tools` is hand-editable by design.
+
+**Still to build:** the settings screens themselves (Mac and iOS) — the API and
+the engine read-through are done and tested, the UI is not. Three lists are
+declared so far (`extend_verbs`, `title_strip_verbs`, `calendar_words`);
+declaring a fourth is one line, and both the API and the screen pick it up with
+no further wiring.
 
 ### Foldable settings sections
 

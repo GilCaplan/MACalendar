@@ -84,7 +84,12 @@ for _var, _name in (("MACALENDAR_DB", "calendar.db"),
                     # still redirected: the default is the user's REAL macOS
                     # preferences, so a suite building the settings dialog would
                     # reach into the app Gil has open and fold his boxes.
-                    ("MACALENDAR_UI_STATE", "ui_state.ini")):
+                    ("MACALENDAR_UI_STATE", "ui_state.ini"),
+                    # The personal LEXICON — the word lists Gil can extend from
+                    # Settings. Same family as the vocabulary: hand-curated, and
+                    # a suite writing junk into it would quietly change how the
+                    # running assistant reads his speech.
+                    ("MACALENDAR_LEXICON", "lexicon.json")):
     _os.environ.setdefault(_var, _os.path.join(_SCRATCH, _name))
 
 # config.yaml is WRITTEN, not just read: `PATCH /features/<name>` persists tab

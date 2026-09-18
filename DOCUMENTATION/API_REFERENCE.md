@@ -34,6 +34,14 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `POST` | `/devices/<device_id>/revoke` | Retire one device. It keeps working as an ISOLATED stream rather |
 | `POST` | `/devices/enroll` | Issue this client a device id and a token. Called once, on first run. |
 
+## /lexicon
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/lexicon` | Every editable word list: what the code ships, and what Gil added. |
+| `POST` | `/lexicon/<name>` | Add one of your own words to a list. Additive only — a built-in can |
+| `DELETE` | `/lexicon/<name>/<path:word>` | Remove one of YOUR words. A built-in is not removable by design. |
+
 ## /vocab
 
 | Method | Path | What it does |

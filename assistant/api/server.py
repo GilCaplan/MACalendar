@@ -904,6 +904,41 @@ def create_app() -> Flask:
     # Personal vocabulary (STT auto-correct)
     # ------------------------------------------------------------------
 
+    @app.get("/lexicon")
+    def lexicon_list():
+        """Every editable word list: what the code ships, and what Gil added.
+
+        `built_in` is READ-ONLY fact sourced from the module that uses it — the
+        "linked to what's in the code" half of the request. `source` names that
+        module so the screen can say where a word actually takes effect.
+        """
+        from assistant.intent.lexicon import get_lexicon
+        return jsonify({"lexicons": get_lexicon().describe()})
+
+    @app.post("/lexicon/<name>")
+    def lexicon_add(name: str):
+        """Add one of your own words to a list. Additive only — a built-in can
+        never be removed, so no edit can break a command that used to work."""
+        from assistant.intent.lexicon import LEXICONS, get_lexicon
+        if name not in LEXICONS:
+            return jsonify({"error": f"no such lexicon {name!r}"}), 404
+        word = (request.get_json(silent=True) or {}).get("word", "")
+        if not str(word).strip():
+            return jsonify({"error": "word is required"}), 400
+        added = get_lexicon().add(name, str(word))
+        return jsonify({"ok": True, "added": added,
+                        "words": get_lexicon().added(name)})
+
+    @app.delete("/lexicon/<name>/<path:word>")
+    def lexicon_remove(name: str, word: str):
+        """Remove one of YOUR words. A built-in is not removable by design."""
+        from assistant.intent.lexicon import LEXICONS, get_lexicon
+        if name not in LEXICONS:
+            return jsonify({"error": f"no such lexicon {name!r}"}), 404
+        removed = get_lexicon().remove(name, word)
+        return jsonify({"ok": True, "removed": removed,
+                        "words": get_lexicon().added(name)})
+
     @app.get("/vocab")
     def vocab_get():
         from assistant.stt.vocab import get_vocab
