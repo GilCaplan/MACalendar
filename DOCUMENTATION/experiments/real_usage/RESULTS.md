@@ -1,6 +1,6 @@
 # Real-usage board
 
-_Run 2026-09-18 10:35. `python -m scripts.real_usage_board`._
+_Run 2026-09-18 10:43. `python -m scripts.real_usage_board`._
 
 > Guard passed: no real store changed during the run.
 
@@ -26,7 +26,7 @@ _`start_time`/`end_time` read LOW for a reason beyond the parse: on a row whose 
 ## Regression and movement
 
 - **Approved tier (n=16):** the replay still produces what he accepted on **43.8%**. Anything less than 100% is a regression against a command he blessed.
-- **Rejected tier (n=41):** the output CHANGED on **63.4%**. Changed is not fixed — there is no gold here — but unchanged is certainly not fixed.
+- **Rejected tier (n=41):** the output CHANGED on **61.0%**. Changed is not fixed — there is no gold here — but unchanged is certainly not fixed.
 
 ## Failure taxonomy
 
@@ -49,11 +49,24 @@ _Hand-classified once over 50 non-approved rows, stored in `taxonomy.jsonl` keye
 
 `REAL_SPEECH_PLAN.md` predicted `stt-garbage` + `disfluency` would dominate and ordered its phases on that. **They do not**, and the plan says in that case to stop and say so rather than build Phase 2 anyway. See this file's git history for the correction.
 
+## The error bar, measured
+
+Two full replays of the same 73 rows on unchanged code, 2026-09-18:
+
+| tier | run 1 | run 2 |
+|---|---|---|
+| corrected, all fields (n=9) | 11.1% | 11.1% |
+| corrected, count (n=9) | 77.8% | 77.8% |
+| approved, unchanged (n=16) | 43.8% | 43.8% |
+| rejected, changed (n=41) | 63.4% | 61.0% |
+
+**The corrected and approved tiers reproduced exactly; the rejected tier moved 2.4 pt.** That is the deep track's model output varying between runs, and it lands only on the rejected tier because that tier's question is "did the output change at all" — the most sensitive thing one could ask. So: treat a move under ~3 pt on the rejected tier as noise, and anything on the other two as real. Re-measure this after any change to the deep track.
+
 ## Latency, by the path the replay took
 
 | parse path | n | p50 | p95 |
 |---|---|---|---|
-| deep | 40 | 4.7s | 51.0s |
+| deep | 40 | 4.6s | 26.4s |
 | fast | 31 | 0.1s | 0.1s |
 | ignored | 2 | 0.0s | 0.0s |
 
@@ -107,6 +120,8 @@ No parse produces that, and scoring it would cap this metric forever and blame t
   - set meeting on thursday for three o'clock. thank you. is this why you 
 - id=41 [generic-title] ['create_event']
   - set a meeting on thursday for 11 a.m. to
+- id=48 [anaphoric-edit] ['update_event']
+  - Can you fix the meeting tomorrow, the one meeting with V-Code, so that
 - id=55 [generic-title] ['create_event']
   - Set a meeting of his hours meeting on Sunday at 1 p.m. this coming Sun
 - id=135 [?] ['create_todo']

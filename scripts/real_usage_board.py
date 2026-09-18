@@ -106,6 +106,32 @@ def _store_fingerprint() -> dict:
     return out
 
 
+def _real_contents() -> dict:
+    """The real calendar's newest rows, so a fingerprint change can EXPLAIN itself.
+
+    The md5 guard can tell that something moved but not what, and its own
+    docstring says a change means "either a genuine leak or the assistant was
+    used during the run". The first time it fired here it was the second — Gil
+    added two todos by hand while the board ran — and establishing that took
+    hand forensics against the live store. So the guard now carries the rows
+    with it: a leak shows up as rows whose titles came from the REPLAY, and
+    ordinary use shows up as rows that did not.
+    """
+    out = {"events": [], "todos": []}
+    db = REAL_STORES / "calendar.db"
+    if not db.is_file():
+        return out
+    with contextlib.suppress(Exception):
+        con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+        con.row_factory = sqlite3.Row
+        out["events"] = [f"{r['id']}:{r['title']}" for r in con.execute(
+            "SELECT id, title FROM events ORDER BY id DESC LIMIT 12")]
+        out["todos"] = [f"{r['id']}:{r['title']}" for r in con.execute(
+            "SELECT id, title FROM todos ORDER BY id DESC LIMIT 12")]
+        con.close()
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Reading the history (read-only, always)
 # ---------------------------------------------------------------------------
@@ -511,18 +537,32 @@ def pct(k: int, n: int) -> str:
     return f"{100.0 * k / n:.1f}%" if n else "—"
 
 
-def report(res: dict, rows: list, taxonomy: dict, guard: tuple) -> str:
+def report(res: dict, rows: list, taxonomy: dict, guard: tuple,
+           appeared: "dict | None" = None) -> str:
     before, after = guard
     moved = [k for k in before if before.get(k) != after.get(k)]
+    new_rows = [x for v in (appeared or {}).values() for x in v]
     c, a, r = res["corrected"], res["approved"], res["rejected"]
     L = []
     L.append("# Real-usage board\n")
     L.append(f"_Run {time.strftime('%Y-%m-%d %H:%M')}. "
              f"`python -m scripts.real_usage_board`._\n")
     if moved:
-        L.append(f"> **SANDBOX LEAK — DISTRUST THESE NUMBERS.** These real stores "
-                 f"changed during the run: {', '.join(moved)}. Either an override "
-                 f"was missed or the assistant was used while it ran.\n")
+        L.append(f"> **A real store changed during the run:** {', '.join(moved)}. "
+                 f"Either an override was missed (a leak — distrust everything "
+                 f"below) or the assistant was simply used while the board ran.\n")
+        if new_rows:
+            L.append("> Rows that appeared in the real calendar meanwhile. If any "
+                     "of these is a title from the replay list, it IS a leak; if "
+                     "they are things Gil typed, it is ordinary use:\n")
+            for x in new_rows[:10]:
+                L.append(f">   - {x}")
+            L.append("")
+        else:
+            L.append("> No rows appeared in the real calendar, so nothing the board "
+                     "created reached it — the change was elsewhere (a log, a "
+                     "setting, the command memory the live app writes on every "
+                     "command).\n")
     else:
         L.append("> Guard passed: no real store changed during the run.\n")
 
@@ -596,6 +636,22 @@ def report(res: dict, rows: list, taxonomy: dict, guard: tuple) -> str:
                  "dominate and ordered its phases on that. **They do not**, and the "
                  "plan says in that case to stop and say so rather than build Phase 2 "
                  "anyway. See this file's git history for the correction.\n")
+    L.append("## The error bar, measured\n")
+    L.append("Two full replays of the same 73 rows on unchanged code, 2026-09-18:\n")
+    L.append("| tier | run 1 | run 2 |")
+    L.append("|---|---|---|")
+    L.append("| corrected, all fields (n=9) | 11.1% | 11.1% |")
+    L.append("| corrected, count (n=9) | 77.8% | 77.8% |")
+    L.append("| approved, unchanged (n=16) | 43.8% | 43.8% |")
+    L.append("| rejected, changed (n=41) | 63.4% | 61.0% |")
+    L.append("")
+    L.append("**The corrected and approved tiers reproduced exactly; the rejected "
+             "tier moved 2.4 pt.** That is the deep track's model output varying "
+             "between runs, and it lands only on the rejected tier because that "
+             "tier's question is \"did the output change at all\" — the most "
+             "sensitive thing one could ask. So: treat a move under ~3 pt on the "
+             "rejected tier as noise, and anything on the other two as real. "
+             "Re-measure this after any change to the deep track.\n")
     L.append("## Latency, by the path the replay took\n")
     L.append("| parse path | n | p50 | p95 |")
     L.append("|---|---|---|---|")
@@ -667,6 +723,7 @@ def main() -> int:
     print(f"taxonomy entries: {len(taxonomy)}", flush=True)
 
     before = _store_fingerprint()
+    before_rows = _real_contents()
     if a.score_only:
         if not REPLAY_OUT.is_file():
             raise SystemExit("no stored replay; run without --score-only first")
@@ -679,9 +736,12 @@ def main() -> int:
         replayed = replay(rows, scratch)
         REPLAY_OUT.write_text(json.dumps(replayed, indent=1))
     after = _store_fingerprint()
+    after_rows = _real_contents()
 
     res = score(replayed, rows, taxonomy)
-    text = report(res, rows, taxonomy, (before, after))
+    appeared = {k: [x for x in after_rows[k] if x not in before_rows[k]]
+                for k in after_rows}
+    text = report(res, rows, taxonomy, (before, after), appeared)
     pathlib.Path(a.out).write_text(text)
 
     c = res["corrected"]
@@ -693,7 +753,15 @@ def main() -> int:
     print(f"REJECTED   changed    {pct(res['rejected']['changed'], res['rejected']['n'])} "
           f"(n={res['rejected']['n']})")
     moved = [k for k in before if before.get(k) != after.get(k)]
-    print(f"GUARD      {'LEAK: ' + ', '.join(moved) if moved else 'passed'}")
+    if moved:
+        print(f"GUARD      CHANGED: {', '.join(moved)}")
+        for k, v in appeared.items():
+            for x in v[:6]:
+                print(f"           + real {k}: {x}")
+        if not any(appeared.values()):
+            print("           (no rows appeared in the real calendar — not the board)")
+    else:
+        print("GUARD      passed")
     print(f"\nwrote {a.out}")
     return 1 if moved else 0
 
