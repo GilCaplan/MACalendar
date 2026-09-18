@@ -201,11 +201,19 @@ the not-found recheck), **row 57** (fast-path coverage) and **row 84** (the
 `llm_ms` recording gap); a fourth — A/B the segmentation swap via
 `MACALENDAR_SEGMENTATION` — was dropped by Gil on 2026-09-13 as not relevant.
 
-**Two streams, two checkouts, unchanged.** App features and cleanups happen in
-`../MACalendar-app` (branch `app-features`), merged between cycles, never during
-a measurement run. `origin/main` is at `5561883` with `app-features` and
-`fast-lane` merged into it; only the *local* `main` ref is stale, at `18f95d9`.
-A fetch fixes that — it is not work, and it is not "176 commits behind".
+**Two streams, two checkouts — and the branch positions below were stale.** App
+features and cleanups still happen in `../MACalendar-app` (branch
+`app-features`), merged between cycles, never during a measurement run.
+
+**Corrected 2026-09-17:** `app-features` is MERGED into `main` (its Live Activity
+agenda design is what shipped, on Gil's choice between the two designs), and
+`jude-status-wording` is retired rather than merged — its one commit patched a
+file the Feature-convention refactor had already moved the code out of, so the
+fix was re-applied at the new location instead. The `origin/main is at 5561883`
+and `local main is stale at 18f95d9` readings above are both wrong now; both
+`main` and `origin/main` are checked with `git log -1`, not from this paragraph.
+The lesson the old text was trying to teach still stands: a stale local ref is a
+fetch, not work, and never "176 commits behind".
 
 ### Standing rulings recorded here 2026-09-14 because they exist nowhere else
 

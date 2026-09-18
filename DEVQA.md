@@ -112,6 +112,48 @@ before you rule:
 
 ## Answered (log)
 
+- **2026-09-17 — Q23: the lock-screen card is the day's AGENDA, not a
+  countdown** (Gil). Both designs were built, rendered side by side and put in
+  front of him rather than argued about; he rejected the countdown outright
+  (*"Option A is against what i want"*) and chose the agenda (*"option B where
+  it shows day agenda and dynamically has a light over the current event is much
+  better"*). `app-features` merged into `main` on that ruling; the countdown's
+  `Text(timerInterval:)` / `ProgressView(timerInterval:)` are gone.
+
+  Worth keeping for the next time two branches solve the same complaint: the
+  countdown had been PATCHED the same day, on his feedback to remove an
+  "elapsed" label — because the agenda rewrite was sitting on an unmerged branch
+  and the card on his phone was still the old one. The feedback that looked like
+  "fix this design" was probably "this is the wrong design", and only showing him
+  both settled it.
+
+  Three behaviours came with the choice, all his words:
+  - **A cleared card stays cleared** — *"if i clear it, it shouldn't reappear"*.
+    Until 06:00 the next morning.
+  - **06:00 respawn** — *"It should respawn everyday at 6am"*. Best-effort:
+    `BGAppRefreshTask` is a request, not a timer, and exactness would need an
+    APNs push this project will never have. Recorded as a limit, not hidden.
+  - **Its own switch** — *"can also make it respawn or shut off with a toggle
+    button in the settings"*, and shared with the Mac so the two screens cannot
+    disagree.
+  - **Look** — *"make sure its doesnt look to ai generated, a liquid glass look
+    would be nice"*. Real `.glassEffect` on iOS 26, hand-built material below it.
+
+- **2026-09-17 — Q22: a RANGE date is asked about, never guessed** (Gil). What
+  should `"book yoga class next week"` mean, when the recogniser hands back a
+  span (21–28 Sep) and not a day? Options put to him were: take the soonest day,
+  take it uniformly, keep deferring, or ask. He chose **ask** — the day is
+  resolved and then OFFERED through the existing confirm-create gate (Q9), from
+  the fast parse with no model call.
+
+  Consequences, because this one changed a metric as well as a behaviour: a
+  create with a range date no longer commits silently, and an update or delete
+  with one does not execute at all (`range-date-target`, a REFUSAL) — acting on
+  a day the speaker never said is the destructive guess the project already
+  rules out. The FastRule board deliberately EXCLUDES range phrases from its
+  date metric ("no single right answer"), which is why this needed a ruling
+  before it could be scored at all.
+
 - **2026-09-17 — Q4/Q5/Q6 RE-RULED for notifications** (Gil). All three had
   been answered on 2026-09-06 and two docs still called them blocked; these
   supersede those answers. **Q6 is a reversal**, and of a ruling confirmed

@@ -33,6 +33,16 @@ ENV/
 *.swo
 .DS_Store
 
+# Xcode's per-user WINDOW state — which files were open, where the cursor was.
+# Binary, rewritten constantly, and it conflicted on every single merge between
+# the two work streams (twice on 2026-09-17 alone) while carrying nothing anyone
+# would want to keep.
+#
+# Deliberately narrow: `xcuserdata/**/xcschemes/` is NOT ignored. Those hold the
+# scheme list, and `d0948f5` exists because removing the app's build scheme broke
+# it — this is the one Xcode user file worth tracking.
+*.xcuserstate
+
 # Testing
 .pytest_cache/
 .coverage

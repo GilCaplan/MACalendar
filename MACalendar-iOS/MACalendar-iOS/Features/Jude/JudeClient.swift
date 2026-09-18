@@ -21,15 +21,44 @@ extension APIClient {
     /// invents: the Mac knows whether Jude is uninstalled, switched off or
     /// misconfigured, and the phone does not. The one sentence written here is
     /// the one case the Mac cannot report, because it is about the Mac.
+    /// Three failures used to share one `try?`, and they are not the same thing:
+    /// the Mac not answering; the Mac ANSWERING with something that is not a
+    /// status (a 404 from an assistant older than Jude); and no address
+    /// configured at all. All three said "isn't reachable" — while Settings, one
+    /// tab over, had just shown the Mac online (2026-09-17, the day Jude
+    /// shipped and the Mac's API was still on the previous branch).
     func judeStatus() async -> JudeStatus {
-        guard let data = try? await request("/jude/status"),
-              let st = try? JSONDecoder().decode(JudeStatus.self, from: data)
-        else {
-            return JudeStatus(
-                ready: false,
-                reason: "Your Mac isn't reachable. Jude does its thinking there, "
-                        + "so this needs the Mac awake and on the tailnet.",
-                repo: "https://github.com/GilCaplan/JudeTheJudaicChatBot")
+        let repo = "https://github.com/GilCaplan/JudeTheJudaicChatBot"
+        func unavailable(_ reason: String) -> JudeStatus {
+            JudeStatus(ready: false, reason: reason, repo: repo)
+        }
+
+        let data: Data
+        do {
+            data = try await request("/jude/status")
+        } catch APIError.badURL {
+            return unavailable("Set your Mac's address in Settings first — Jude "
+                               + "does its thinking there.")
+        } catch APIError.serverError {
+            // The Mac answered, and not with a status. There is no
+            // /jude/status on an assistant older than Jude, and that is the
+            // likely story — telling the user their Mac is unreachable when it
+            // just replied is the one answer that sends them looking in the
+            // wrong place.
+            return unavailable("Your Mac answered, but its assistant has no Jude "
+                               + "endpoint — it is probably an older version. "
+                               + "Update MACalendar on the Mac.")
+        } catch {
+            return unavailable("Your Mac isn't reachable. Jude does its thinking "
+                               + "there, so this needs the Mac awake and on the "
+                               + "tailnet.")
+        }
+
+        guard let st = try? JSONDecoder().decode(JudeStatus.self, from: data) else {
+            // Reached the route and could not read the answer: still not an
+            // unreachable Mac.
+            return unavailable("Your Mac answered with something this app could "
+                               + "not read. It may be a different version.")
         }
         return st
     }

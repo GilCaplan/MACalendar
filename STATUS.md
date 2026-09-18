@@ -286,17 +286,38 @@ commit instantly. FastRule product-shape board, train half, 3,200 atomic rows:
 **handle-rate 68.2% → 70.4%, date correctness 91.3% → 93.0% over 100 MORE
 scored rows**, zero new destructive errors, half-executed unchanged at 72.
 
-**App stream** — app work happens in the `../MACalendar-app` worktree (branch
-`app-features`), merged between cycles, never during a run. The 2026-09-06
-approved queue is fully shipped (.ics share, search + jump-to-date, duplicate
-event, ISO week numbers, Timer CSV, agenda view, observance checkbox, iOS
-`/heartbeat`). **Notifications is no longer blocked**: DEVQA Q4/Q5/Q6 were
-answered 2026-09-06 and phases 1, 2 and 4 shipped (`assistant/notify.py`,
-`assistant/notifier.py`, `ReminderScheduler.swift`, `LiveActivityManager.swift`).
-Phase 5 is what is left — `BGAppRefreshTask` + `UIBackgroundModes` (zero hits
-anywhere under `MACalendar-iOS/`, both Info.plists included), the
-"remind me even when the calendar is closed" toggle Gil ruled in on 2026-09-06,
-and snooze, which is the one item with no ruling at all: keep or kill is Gil's.
+**App stream — `app-features` IS MERGED (2026-09-17).** It is no longer a
+pending branch: `main` carries it. The stream's rule still holds (app work in the
+`../MACalendar-app` worktree, merged between cycles, never during a run), but do
+not read "app-features" anywhere as unmerged work. The 2026-09-06 approved queue
+was already shipped (.ics share, search + jump-to-date, duplicate event, ISO week
+numbers, Timer CSV, agenda view, observance checkbox, iOS `/heartbeat`).
+
+**The Live Activity is the day's AGENDA, not a countdown** — Gil chose between
+the two designs after seeing both rendered side by side (*"Option A is against
+what i want"*). The card shows today's remaining events with the running one lit;
+`Text(timerInterval:)` and `ProgressView(timerInterval:)` are gone. Any doc that
+still describes a countdown, a "to go" label or an "elapsed" label is describing
+the rejected design. With it came three behaviours Gil asked for: **a cleared
+card stays cleared** until **06:00**, it has **its own Settings toggle** (shared
+with the Mac through `notifications.agenda_card`, so the two screens cannot
+disagree), and its rows are **Liquid Glass** on iOS 26.
+
+**Phase 5 moved.** `BGAppRefreshTask` + `UIBackgroundModes: fetch` are now
+REGISTERED (`LiveActivityManager.registerBackgroundRefresh`,
+`com.macalendar.app.agenda-refresh`) — the line above that said "zero hits
+anywhere under `MACalendar-iOS/`" is no longer true. What is left of phase 5 is
+using that wake to roll the card BETWEEN events while the phone is locked, plus
+the "remind me even when the calendar is closed" toggle Gil ruled in on
+2026-09-06, and snooze, which is the one item with no ruling at all: keep or kill
+is Gil's.
+
+**`jude-status-wording` is retired, not merged.** Its one commit patched
+`APIClient.swift`, and the Feature-convention refactor (`1beebe9`) moved that
+code to `Features/Jude/JudeClient.swift` — so the branch could only ever conflict
+against a file that no longer holds what it fixes. The BUG was still live, so the
+fix was re-applied where the code actually lives. Delete the branch; there is
+nothing in it `main` does not now have.
 
 ## Stage isolation — the plan of record
 

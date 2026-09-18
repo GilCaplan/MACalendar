@@ -244,31 +244,72 @@ tag toggles (expanded row or long-press → Tags). Filter/mode persist in
 ## SwiftUI App (`MACalendar-iOS/`)
 
 ### Structure
+
+_Re-read off the tree 2026-09-17. The previous listing predated the Feature
+convention, the widgets target and notifications — it showed a four-tab
+`ContentView` and no `Features/` at all, so anyone using it to find the calendar
+views was looking in a folder that had not held them for weeks._
+
+**A tab lives in its own `Features/<Name>/` folder and declares itself once** —
+`assistant/features/CONVENTION.md` is the contract, `FeatureRegistry.swift` is
+this side of it. Visibility comes from the Mac (`GET /features`); structure stays
+declared in code here.
+
 ```
-MACalendar-iOS/
-  MACalendarApp.swift       @main, injects APIClient + AppSettings as EnvironmentObjects
+MACalendar-iOS/                 (the app target)
+  MACalendarApp.swift       @main; injects APIClient + AppSettings, sets the
+                            notification delegate, registers the 06:00 background refresh
   LocalStore.swift          JSON cache + offline pending queue (singleton)
+  Theme.swift               the shared dark-first palette + accent
+  HebrewDate.swift          local Hebrew date rendering (no server call)
+  DeviceLocation.swift      this phone's location, for sundown
+  TagClassifier.swift       on-device task tagging
+  LiveActivityManager.swift the lock-screen AGENDA card: what it shows, when it
+                            starts, the dismissal-until-06:00 rule, BGAppRefreshTask
+  ReminderScheduler.swift   schedules the local notifications the Mac describes
   API/
     APIClient.swift         URLSession wrapper — offline-aware, falls back to LocalStore
-    Models.swift            CalendarEvent, Todo (+tags), TodoTag, VoiceResponse, HealthResponse (Codable)
-  CourseStore.swift         Local-only JSON store for Course + Assignment (singleton, no Mac sync)
-  Views/
-    ContentView.swift       TabView: Calendar | Tasks | Coursework | Settings + offline banner
-    CalendarView.swift      Month/Week/Day switcher
-    MonthGridView.swift     7-col grid (Sun first), tap → day detail
-    WeekView.swift          Horizontal week strip
-    DayView.swift           Hourly timeline
-    EventDetailView.swift   View + edit single event
-    TasksView.swift         Tag filter bar + tag mode + Today/General sections + ManageTagsSheet
-    TaskRowView.swift       Checkbox row + tag chips + swipe-to-delete; TagChip pill view
-    CourseworkView.swift    Course list with assignments, due dates, calendar sync
-    VoiceButton.swift       Mic button — records WAV, POSTs to /voice, speaks response
-    SettingsView.swift      Server URL, API key, TTS voice (3 options), Test Connection
+    Models.swift            CalendarEvent, Todo, TodoTag, VoiceResponse,
+                            NotificationsConfig, DayDigest … (Codable, tolerant decoders)
+  Shared/                   compiled into BOTH the app and the widgets target,
+                            so dependency-free: Foundation/ActivityKit only
+    UpNextActivityAttributes.swift  the Live Activity contract (items + currentId)
+    WidgetSnapshot.swift            the home-screen widget's data
+  Features/
+    FeatureRegistry.swift   one declaration per tab; the tab bar is built from it
+    Calendar/               CalendarTabView, MonthGridView, WeekView, DayView,
+                            EventDetailView, EventStacking, GuestsSection
+    Tasks/                  TasksView, TaskRowView
+    Coursework/             CourseworkView, CourseStore (local-only, no Mac sync)
+    Workout/                WorkoutView + store, models, templates, live session, stats
+    Timer/                  TimerView
+    Teach/                  LabelGameView
+    Jude/                   JudeView, JudeClient, JudeModels, chat list, composer,
+                            source card, trace panel  (an INTEGRATION — someone
+                            else's program, see assistant/integrations/CONVENTION.md)
+  Views/                    screens that are not a tab of their own
+    ContentView.swift       the tab bar + offline banner; tabs come from FeatureRegistry
+    SettingsView.swift      foldable sections: Server, Appearance, Hebrew Calendar,
+                            Today's panel, Tabs, Voice, About
+    VoiceButton.swift       mic button — records WAV, POSTs, speaks the reply
+    ThinkingView.swift      the command's chain of thought, from its trace
+    AssistantReviewView.swift · PendingQueueView.swift · SearchView.swift
+    CategoriesView.swift · TagHistoryView.swift · AssistantIcons.swift
+    VocabularyView.swift · VocabImportView.swift · VocabOnboardingView.swift
   Voice/
-    VoiceRecorder.swift     AVAudioRecorder → 16kHz mono WAV bytes
+    VoiceRecorder.swift     AVAudioRecorder → 16 kHz mono WAV bytes
     SpeechPlayer.swift      AVSpeechSynthesizer reads response.message
   Settings/
-    AppSettings.swift       @AppStorage: serverURL, apiKey, ttsVoice, theme, fontMonth, fontWeek, fontDay, fontTasks
+    AppSettings.swift       the device-local prefs (serverURL, apiKey, theme, fonts,
+                            remindersEnabled, agendaCardEnabled, …)
+
+MACalendarWidgets/              (app-extension target, iOS 16.2+)
+  MACalendarWidgetsBundle.swift  the bundle
+  UpNextLiveActivity.swift       lock screen + Dynamic Island for the agenda card
+  UpNextHomeWidget.swift         the home-screen widget
+
+MACalendarUITests/              (UI tests — real taps, not handler calls)
+  DayPanelUITests.swift · OfflineSyncUITests.swift
 ```
 
 ### Offline flow (LocalStore)
