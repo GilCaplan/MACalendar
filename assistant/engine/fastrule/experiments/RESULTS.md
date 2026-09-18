@@ -1009,3 +1009,36 @@ re-entered the spaCy load it was itself waiting on. The board and pytest were
 unaffected because they run from the repo root. **Never name a scratch file after
 an importable module**; `faulthandler.dump_traceback_later` is what found it,
 after three wrong guesses (lock contention, memory pressure, BLAS threads).
+
+**CORRECTED 2026-09-18, same session, before any work started on it.** The
+"next prediction" above names the cadence reader and says all 15 deferrals lose
+their date because `recurrence.detect()` returns None for "every other tuesday" /
+"every weekend" / "twice a week". **Two of those three were wrong, and so was the
+dominant cause.** Checked by running `detect()` and then reading the deferred
+rows themselves rather than the sample of six I had in front of me:
+
+    every other tuesday  ->  weekly, rounded   (READ, not missed)
+    twice a week         ->  weekly, rounded   (READ, not missed)
+    every weekend        ->  None              (missed)
+    once a week          ->  None              (missed)
+
+Of the 19 bounded rows now deferring below-threshold, the causes are:
+
+    ~13   missing TITLE — "book parent-teacher conference WEEKLY at 3:45pm",
+          "book annual checkup MONTHLY at 8:30pm": the cadence word sitting
+          right after the title breaks `_extract_title`. The cadence itself is
+          read correctly. This is the title extractor — FastRule's own 62.9%,
+          already flagged as "mine-first, diminishing" — tripped by one adverb.
+      6   cadence None — "every weekend", "once a week" only.
+
+So the registered next cycle is re-aimed: **the title extractor on cadence
+adverbs first** (the larger and the simpler: the adverb is a known word from
+`recurrence.py`'s own table, so the fix is to blank it the way temporal spans
+are blanked), with the two missing cadences as the second, smaller half.
+Predicted handle-rate +0.4 pt (13 rows) and +0.2 pt (6 rows) respectively on the
+3,200 atomic rows, `FIRES FOREVER` → near 0 across both, DESTRUCTIVE flat.
+
+The commit message for `1d72d1a` carries the wrong diagnosis and cannot be
+edited; this note is the correction. The lesson is the one this file keeps
+teaching: the sample I read was six rows, the population was nineteen, and the
+six happened not to contain the dominant case.
