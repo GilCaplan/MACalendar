@@ -205,8 +205,15 @@ rather than deleted:
    pattern and a comment explaining the old defect in place of it.
 4. ~~Fast path booked MONTHLY for a YEARLY ask~~ — fixed, row 90, `943ef9a`.
 
-**The queue is empty.** `dataset/HYPOTHESES.md` needs its next entry
-registered before a cycle starts.
+**The queue is `DOCUMENTATION/REAL_SPEECH_PLAN.md` (2026-09-18).** Three
+FastRule cycles won +4.2 pt on the corpus while the fast path stands at 12
+approved to 24 flagged on Gil's own commands, and the corpus contains none of
+the failure classes those 24 show. The plan: build the real-usage board from
+`nlu_memory.db` (95 rows, 32 with gold), gate unknown words on the instant
+commit through the confirm gate, instrument then cut deep-track latency; the
+title extractor and temporal resolver are gated on Gil (DEVQA Q24–Q26). The
+FastRule reader-gap cycles continue as the background loop. Engine commits
+since `2bc032c` sit on `fastrule-recurrence-bounds`, fast-forwardable.
 
 **LLMJudge cycle 17, settled 2026-09-15** (`llmjudge/experiments/RESULTS.md`).
 Three Board D runs, in order: 120 rows fresh (NET +1) — 3,648 rows resumed

@@ -1240,6 +1240,14 @@ was equally wrong before this cycle, which only added the date beside it. Not
 touched, per the standing rule against bundling an unrelated fix into a
 measured change.
 
+## Order of play (2026-09-18) — `DOCUMENTATION/REAL_SPEECH_PLAN.md`
+
+The plan for the next stretch of engine work, written for whichever session
+picks it up. Phase 1 (real-usage board) → Phase 2 (unknown-word gate) →
+Phase 3 (latency: instrument, then cut) → Phase 4 gated on Gil. Rows for each
+phase go in this table as they start; the plan is the spec, this file is the
+tracker. Do not start a parallel list.
+
 ## Working agreements
 - Everything on the phone is local: no third-party services; the only network peer is the Mac over Tailscale.
 - Prefer doing work directly over spawning sub-agents; keep context small (`/compact` between big tasks).

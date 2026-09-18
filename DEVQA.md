@@ -18,6 +18,24 @@ code. The previous text here read *"nothing open"*, which had been false for a
 while: three of these were sitting in other documents marked "for Gil" and had
 simply never been moved in front of anyone.
 
+**Q24 — unknown-word confirmations: default ON?** `REAL_SPEECH_PLAN.md`
+Phase 2. A fast-path title containing a word that is not English, not in the
+vocabulary and not a known name ("Poe Konaight") would be OFFERED through the
+confirm gate with the vocab's phonetic guess, instead of committed in 400 ms.
+Built on `engine.confirm_unknown_words` either way; the default follows Q22
+(ask, don't guess). A no here flips the default, nothing else.
+
+**Q25 — is the real-usage board the primary direction-setter?** Phase 1
+replays the 95 real commands with Gil's corrections as gold. CLAUDE.md already
+ranks real usage above every board; ITERATION_PROTOCOL says direction comes
+from "the training pool". This asks whether that pool is now the history —
+with the corpus boards as regression floors. It is NOT the synthetic
+realspeech dataset that was dropped; it is the data that already exists.
+
+**Q26 — Phase 4: may the title extractor and/or the temporal resolver be
+rewritten?** Both inside `rule_parser.py`, contracts untouched, both rewrites
+of a function that every FastRule cycle has hit. Not started without a yes.
+
 **Q17 — Snooze: keep or kill?** It is the ONE notifications phase-5 item with no
 ruling. The phase is the phase-5 row of `DOCUMENTATION/NOTIFICATIONS_PLAN.md`
 (*"snooze action"*), and everything else there has an answer — the Live
