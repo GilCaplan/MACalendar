@@ -96,6 +96,12 @@ LEXICONS: "dict[str, Lexicon]" = {
                 "Words that change how long an event lasts, rather than moving it.",
                 "assistant.intent.rule_parser", "_EXTEND_VERBS",
                 example="shorten, extend, trim"),
+        Lexicon("mutate_verbs", "Words that change something",
+                "Words that mean you are CHANGING or REMOVING something that "
+                "already exists — they are what stops a question being treated "
+                "as an instruction.",
+                "assistant.engine.decompose_validate.object_rules", "_MUTATE_VERBS",
+                example="move, cancel, shorten"),
         Lexicon("title_strip_verbs", "Words to leave out of a title",
                 "Instruction words that should not end up in the NAME of the "
                 "thing — \"book the dentist\" is called \"the dentist\".",

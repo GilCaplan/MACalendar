@@ -267,13 +267,49 @@ def _rule_question_creates_nothing(state, cfg, pairs) -> None:
 #:
 #: `test_engine_checks` now asserts this covers `rule_parser._EXTEND_VERBS` and
 #: every update/delete verb in `_VERB_ACTION`, so the two cannot drift again.
-_MUTATE_VERB = re.compile(
-    r"\b(move|change|reschedule|shift|push|postpone|delay|rename|retitle|"
-    r"update|edit|cancel|delete|remove|drop|clear|complete|finish|"
-    r"tick|check\s+off|mark|"
-    # the duration family — `rule_parser._EXTEND_VERBS`, and the reason this
-    # comment exists
-    r"extend|lengthen|shorten|stretch|prolong|trim)\b", re.I)
+#: WORDS, not a pattern. The pattern is built from them below, so there is ONE
+#: representation instead of two — and so this list can be shown and extended in
+#: Settings like every other (`assistant/intent/lexicon.py`). It was a hand-typed
+#: regex until 2026-09-18, which is exactly why "shorten" could be missing from
+#: it while `rule_parser` had known the word for weeks.
+_MUTATE_VERBS = frozenset({
+    "move", "change", "reschedule", "shift", "push", "postpone", "delay",
+    "rename", "retitle", "update", "edit", "cancel", "delete", "remove",
+    "drop", "clear", "complete", "finish", "tick", "check off", "mark",
+    # the duration family — `rule_parser._EXTEND_VERBS`
+    "extend", "lengthen", "shorten", "stretch", "prolong", "trim",
+})
+
+
+def _verb_pattern(words) -> "re.Pattern":
+    r"""A word-boundary alternation over `words`. A space in a phrase becomes
+    ``\s+``, so "check off" still matches "check  off"."""
+    parts = [re.escape(w).replace(r"\ ", r"\s+").replace(" ", r"\s+")
+             for w in sorted(words, key=len, reverse=True)]
+    return re.compile(r"\b(" + "|".join(parts) + r")\b", re.I)
+
+
+_MUTATE_VERB = _verb_pattern(_MUTATE_VERBS)
+
+#: Rebuilt only when the effective word set changes, so the common path is a
+#: dict lookup and one regex rather than one regex per word.
+_mutate_cache: dict = {}
+
+
+def _mutates(text: str) -> bool:
+    """Does `text` contain a mutation verb — including any Gil added in Settings?"""
+    try:
+        from assistant.intent.lexicon import effective
+        words = effective("mutate_verbs") or _MUTATE_VERBS
+    except Exception:            # a broken store must never stop a parse
+        words = _MUTATE_VERBS
+    key = frozenset(words)
+    pattern = _mutate_cache.get(key)
+    if pattern is None:
+        pattern = _verb_pattern(key)
+        _mutate_cache.clear()    # one entry: the set changes rarely
+        _mutate_cache[key] = pattern
+    return bool(pattern.search(text))
 
 
 def _rule_question_mutates_nothing(state, cfg, pairs) -> None:
@@ -304,7 +340,7 @@ def _rule_question_mutates_nothing(state, cfg, pairs) -> None:
             continue
         text = (item.text or "").strip()
         asks = bool(text.endswith("?")) or bool(_QUESTION_START.match(text))
-        if not asks or _MUTATE_VERB.search(text) or _CREATE_VERB.search(text):
+        if not asks or _mutates(text) or _CREATE_VERB.search(text):
             continue
         title = (getattr(intent, "match_title", None)
                  or getattr(intent, "title", None) or text[:30])

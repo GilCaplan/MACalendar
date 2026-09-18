@@ -648,9 +648,24 @@ is a mishearing), the **lexicon** is what the PARSER acts on ("squeeze" is a wor
 it was never taught). Both show the built-in words read-only with the module
 they come from, and both add rather than replace.
 
-Three lists are declared (`extend_verbs`, `title_strip_verbs`,
-`calendar_words`); declaring a fourth is one line in `LEXICONS` and both the API
-and the two screens pick it up with no further wiring.
+**Four lists are declared:** `extend_verbs` (6 words), `mutate_verbs` (27),
+`title_strip_verbs` (40), `calendar_words` (17). Declaring a fifth is one line in
+`LEXICONS` and both the API and the two screens pick it up with no further
+wiring.
+
+`mutate_verbs` is the list the whole feature was born from, and adding it meant
+reshaping it first: it was a hand-typed REGEX sitting beside a hand-typed set,
+which is exactly how "shorten" went missing from one while `rule_parser` had
+known the word for weeks. The words are the source now and
+`object_rules._verb_pattern` builds the pattern from them, so there is one
+representation instead of two.
+
+**What is NOT editable, and why it is a limitation rather than an oversight:**
+the router's verb map (`rule_parser.INTENT_MAP`, 90 verbs) and the cadence
+phrases (`recurrence._PATTERNS`) both map a word to a MEANING — "zap" to WHICH
+action, "every weekend" to WHICH cadence — so adding one needs a two-field
+screen this does not have. `test_lexicon.py` asserts every exposed list is a
+flat set of words, so nothing mapped can be declared by accident.
 
 ### Tasks list scope — Both / Today / General
 

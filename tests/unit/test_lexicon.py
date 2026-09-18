@@ -126,3 +126,47 @@ def test_the_store_round_trips_through_json(fresh_store):
     store.add("extend_verbs", "pad out")
     on_disk = json.loads(pathlib.Path(fresh_store).read_text())
     assert on_disk["extend_verbs"] == ["pad out", "squeeze"]
+
+
+def test_a_mutate_verb_added_here_stops_the_question_veto(fresh_store):
+    """The list that caused the bug this feature was born from.
+
+    `question_mutates_nothing` empties an update/delete that looks like a
+    question, unless the sentence carries a mutation verb. "Can you shorten…"
+    was thrown away because `_MUTATE_VERBS` had never learned "shorten"; adding
+    your own word must now be enough to teach it.
+    """
+    from assistant.engine.decompose_validate.object_rules import _mutates
+
+    assert not _mutates("can you zhuzh the meeting"), "premise changed"
+    lx.get_lexicon().add("mutate_verbs", "zhuzh")
+    assert _mutates("can you zhuzh the meeting"), \
+        "the added verb did not reach the safety net"
+
+
+def test_the_mutate_words_and_their_pattern_cannot_drift(fresh_store):
+    """They are ONE representation now: the pattern is built from the words.
+
+    It was a hand-typed regex beside a hand-typed set, which is precisely how
+    "shorten" went missing from one while the other had known it for weeks.
+    """
+    from assistant.engine.decompose_validate.object_rules import (
+        _MUTATE_VERB, _MUTATE_VERBS)
+    for word in _MUTATE_VERBS:
+        assert _MUTATE_VERB.search(word), f"{word!r} is in the list but not the pattern"
+
+
+def test_every_exposed_list_is_a_plain_set_of_words(fresh_store):
+    """A lexicon has to be a flat set to be editable from Settings.
+
+    The router's verb map and the cadence phrases are NOT here, and that is a
+    real limitation rather than an oversight: both map a word to a MEANING
+    ("zap" -> which action? "every weekend" -> which cadence?), so adding one
+    needs a two-field screen this does not have. Recorded so the gap is known.
+    """
+    import importlib
+    for name, entry in lx.LEXICONS.items():
+        mod = importlib.import_module(entry.module)
+        value = getattr(mod, entry.attr)
+        assert isinstance(value, (set, frozenset, list, tuple)), \
+            f"{name} -> {entry.attr} is a {type(value).__name__}, not a word set"

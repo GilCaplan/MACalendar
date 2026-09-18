@@ -1,14 +1,10 @@
 # Real-usage board
 
-_Run 2026-09-18 11:28. `python -m scripts.real_usage_board`._
+_Run 2026-09-18 12:23. `python -m scripts.real_usage_board`._
 
-> **A real store changed during the run:** calendar.db, nlu_memory.db, vocab.json, trace_bus.jsonl. Either an override was missed (a leak — distrust everything below) or the assistant was simply used while the board ran.
+> **A real store changed during the run:** calendar.db. Either an override was missed (a leak — distrust everything below) or the assistant was simply used while the board ran.
 
-> Rows that appeared in the real calendar meanwhile. If any of these is a title from the replay list, it IS a leak; if they are things Gil typed, it is ordinary use:
-
->   - 2023:dragon arena
->   - 207:cook food for shabbat
->   - 206:4Minum
+> No rows appeared in the real calendar, so nothing the board created reached it — the change was elsewhere (a log, a setting, the command memory the live app writes on every command).
 
 ## The headline
 
@@ -72,7 +68,7 @@ Two full replays of the same 73 rows on unchanged code, 2026-09-18:
 
 | parse path | n | p50 | p95 |
 |---|---|---|---|
-| deep | 33 | 5.7s | 23.4s |
+| deep | 33 | 4.3s | 20.9s |
 | fast | 38 | 0.1s | 0.1s |
 | ignored | 2 | 0.0s | 0.0s |
 
