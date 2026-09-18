@@ -44,6 +44,49 @@ gold `(text, time)` split) · 4,778 variants · 1,548 groups comparable
 
 ---
 
+## Run 2 — 2026-09-18, after four fixes
+
+Same board, same 1,548 groups, plus the new multi-ask arm.
+
+| boundary | run 1 | run 2 |
+|---|---|---|
+| segmentation | 16.0% | **13.8%** |
+| decompose_validate | 9.1% | **6.3%** |
+| fastrule (stage) | 7.9% | **4.8%** |
+| front door | 68.7% | **50.3%** |
+
+**Correctness by position — the gap is what closed.**
+
+| position | run 1 | run 2 |
+|---|---|---|
+| `end` (control) | 55.8% | 56.7% |
+| `front` | 50.9% | **55.4%** |
+| `front,` | 49.8% | **55.0%** |
+| end→`front,` GAP | **6.0 pt** | **1.7 pt** |
+
+That last row is the result. The engine did not just get better; it got
+better *in a way that no longer depends on where the speaker put the time*.
+
+**What produced it**, each measured on its own board before being banked:
+
+1. `_grow_stranded` — the recogniser's span excludes the preposition that
+   introduced it, so blanking left "at␣␣␣" at position 0 where `_FRAME_LEAD`
+   is anchored. Front door 72.4% → 46.5% on the 300-row slice.
+2. `_kind_of`'s fall-through consults `_REMIND_TO_VERB_RE` — a damaged frame
+   ("remind mitt to") is still a task. realspeech kind 94.2% → 95.1%.
+3. `clause_boundaries` discounts an EDGE date on the head side, as it always
+   did on the conjunct side — gated on the positive serial-verb signature so
+   it cannot collapse a real second ask. segmentation 16.0% → 14.2%, and
+   **dv and fastrule improved because they inherit less**.
+4. A dropped, action-less span now leaves its resolved date behind. 20 of 23
+   reachable variants, no board movement — banked because the rows it touches
+   were silently wrong, not because a number moved.
+
+**The multi-ask arm did its job.** Fix 3's first shape collapsed
+"by tonight schedule a meeting with Quinn and buy groceries" into one ask; the
+arm and a baseline comparison caught it, and the positive-evidence guard was
+added before anything was committed.
+
 ## What it means
 
 **1 — The prediction was half wrong, and the wrong half matters.**

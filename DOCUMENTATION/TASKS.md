@@ -1393,7 +1393,7 @@ Beside it, and separate: a FRONTED marked deadline is not extracted into
 `time` at all — `"by friday file the taxes and call Jordan"` leaves a task
 titled `'call Jordan by friday'` and both dates floored to today.
 
-## POSITION INVARIANCE — MEASURED 2026-09-18, not yet fixed
+## POSITION INVARIANCE — MEASURED AND FOUR FIXES LANDED, 2026-09-18
 
 Gil, 2026-09-18: *"a very important part of the project is to make sure that
 we're invariant to where the time / title are located in the prompt."*
@@ -1419,7 +1419,16 @@ position-dependence if there is less of it downstream. **Segmentation is the
 owner and is where a fix belongs**; the front door is a second, larger problem
 because it redoes both jobs on raw text.
 
-**NOT STARTED — Gil is deciding the direction** (2026-09-18: *"don't change
+**FOUR FIXES LANDED** (58d6794, 964e093, 15b9229, 9f7d44a) — front door
+68.7% → 50.3%, segmentation 16.0% → 13.8%, dv 9.1% → 6.3%, fastrule 7.9% →
+4.8%, and the end→front correctness gap 6.0 pt → 1.7 pt. Run 2 and what
+produced each number are in `DOCUMENTATION/experiments/invariance/RESULTS.md`.
+The remaining front-door 50.3% is mostly `_ROUTE_OVERRIDES`, all 16 of which
+are `^`-anchored on RAW text — measured as 55.4% of divergent groups but
+mostly BENIGN (91.5% keep the same action and move only the title, which the
+title fixes now handle). **The original framing below is kept for the history.**
+
+**WAS: NOT STARTED — Gil is deciding the direction** (2026-09-18: *"don't change
 the system. We're just testing the system for this invariant quality... then
 we can decide how we want to move forward"*). Three candidates, none begun:
 
