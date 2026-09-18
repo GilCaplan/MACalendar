@@ -209,6 +209,13 @@ def main() -> int:
     B_N = B_HELD = B_WITH = B_RIGHT = B_RIGHT_N = B_FOREVER = 0
     HARM = 0
     TITLE_N = TITLE_BAD = NOW_N = NOW_MIDNIGHT = 0                              # severity-weighted cost of wrong commits
+    # TITLE CORRECTNESS, added 2026-09-18. The gold has carried `slots.title`
+    # all along and this board only ever asked whether a title NAMED NOTHING —
+    # so "meeting" for "meeting with Omri for the project" scored as a perfect
+    # title, which is the single largest real-usage failure class (42%,
+    # DOCUMENTATION/experiments/real_usage/RESULTS.md). Exact after casefold and
+    # whitespace, plus a CONTAINS count that separates "wrong" from "truncated".
+    T_OK_EXACT = T_CONTAINED = T_SCORED = 0
     HARM_BY: collections.Counter = collections.Counter()
     viol: collections.Counter = collections.Counter()
     miss_reason: collections.Counter = collections.Counter()
@@ -340,6 +347,32 @@ def main() -> int:
                         TITLE_N += 1
                         if _EMPTY_TITLE_RE.match(tt):
                             TITLE_BAD += 1
+                # Against the gold, one title per row: `slots.title` is
+                # singular, so a multi-title row is scored on its first, which
+                # is the one the gold names.
+                want = str((e.get("slots") or {}).get("title") or "").strip()
+                got = ""
+                for nm, iv in res.intents:
+                    if nm.startswith("create"):
+                        got = str(getattr(iv, "title", "")
+                                  or (getattr(iv, "titles", None) or [""])[0] or "")
+                        break
+                if want and got:
+                    T_SCORED += 1
+                    # NOT `a`/`b`: `a` is the argparse namespace in this scope,
+                    # and rebinding it printed the header as
+                    # "[<built-in method split ...>]" instead of "[train]".
+                    want_n = " ".join(want.lower().split())
+                    got_n = " ".join(got.lower().split())
+                    if want_n == got_n:
+                        T_OK_EXACT += 1
+                        T_CONTAINED += 1
+                    elif want_n in got_n or got_n in want_n:
+                        # One is a truncation or an extension of the other —
+                        # "meeting" for "meeting with Omri". A different defect
+                        # from naming the wrong thing entirely, and the one a
+                        # subtractive title is meant to move.
+                        T_CONTAINED += 1
             # --- "NOW" ROWS. `time correctness` only scores an EXPLICIT clock
             # phrase, so every row whose time is the word "now" was skipped —
             # 152 of them in this dataset alone. They are the rows that landed
@@ -385,6 +418,11 @@ def main() -> int:
         print(f"   ...and it was the right day {pc(B_RIGHT, B_RIGHT_N)}  (n={B_RIGHT_N}; "
               f"range phrases excluded, same reason as dates)")
         print(f"   FIRES FOREVER            {B_FOREVER}  <- a series committed with no end")
+    if T_SCORED:
+        print(f"\nTITLE CORRECTNESS (committed creates whose gold names a title)")
+        print(f"   exactly right            {pc(T_OK_EXACT, T_SCORED)}  (n={T_SCORED})")
+        print(f"   right or a substring of it {pc(T_CONTAINED, T_SCORED)}  "
+              f"— the gap to exact is TRUNCATION, not a wrong name")
     if TITLE_N:
         print(f"\nTITLE QUALITY (on committed creates)")
         print(f"   titles that name nothing  {pc(TITLE_BAD, TITLE_N)}  "

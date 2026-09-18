@@ -1563,8 +1563,194 @@ def _todo_tags_from_text(text: str) -> list[str]:
     return tags
 
 
-def _extract_title(span, temporal_spans: list[tuple[int, int]]) -> str | None:
-    """Extract the best title from a span, blocking temporal token positions."""
+# ---------------------------------------------------------------------------
+# THE SUBTRACTIVE TITLE (Gil approved the design change 2026-09-18)
+#
+# `_extract_title` below picks ONE noun chunk. That is why "set a meeting
+# tomorrow at 2 o'clock meeting with omri for project" is titled "meeting": the
+# first dobj chunk wins and everything naming the thing is discarded. On the
+# corpus that reads title exactly-right 41.8% (n=1535) against
+# right-OR-A-SUBSTRING 85.6% — 44 points of TRUNCATION. On real speech it is the
+# largest failure class outright, 42% of 50 reviewed commands
+# (DOCUMENTATION/experiments/real_usage/RESULTS.md).
+#
+# Subtractive instead: every reader that already claimed words gives them up —
+# temporal spans, the cadence phrase, the series bound (blanked upstream), the
+# destination, the stop keyword, the imperative shell — and the title is what is
+# left. The same move the series-bound fix made for one phrase, applied on
+# purpose.
+# ---------------------------------------------------------------------------
+
+#: The imperative shell. Stripped from the FRONT only: "book" frames in "book
+#: the dentist" and is the object in "return the book", and position is the only
+#: thing that tells them apart.
+_FRAME_LEAD = re.compile(
+    r"^(?:\s*(?:please|kindly|can you|could you|would you|i want to|i need to|"
+    r"i'd like to|let's|lets|go ahead and|um|uh|ok|okay|alright|right)\b[,\s]*)*"
+    r"(?:\s*(?:set|create|make|add|book|schedule|put|arrange|organise|organize|"
+    r"remind me to|remind me|start|get|have)\b\s*)?"
+    r"(?:\s*(?:up|an|a|the|my|me|for me|for us)\b\s*)*",
+    re.IGNORECASE)
+
+#: The framing verb is not always at the FRONT. "next week on monday on the 13th
+#: create event to ta class" put it in the middle, and an anchored pattern left
+#: it in the title — "create event to ta class", against a row Gil had approved
+#: as "TA Class". Only the verb+entry-word pair is safe to remove anywhere:
+#: a bare "set"/"add" mid-sentence is often content ("add milk").
+_FRAME_ANYWHERE = re.compile(
+    r"\b(?:set|create|make|add|book|schedule|put|arrange)\s+"
+    r"(?:up\s+)?(?:an?|the|my)?\s*"
+    r"(?:event|meeting|appointment|reminder|task|todo|entry)s?\b",
+    re.IGNORECASE)
+
+#: A subtractive title longer than this has not understood the sentence — it has
+#: copied it. id=145 produced twelve words of rambling transcript where the old
+#: reader produced one wrong word; both are wrong, and the long one is worse to
+#: look at on a lock screen. Over the cap, the chunk-based reader is used instead.
+#: Eight is a judgement, not a measurement: the longest sensible real title seen
+#: in the corpus gold is six words.
+_TITLE_MAX_WORDS = 8
+
+_FRAME_TAIL = re.compile(
+    r"(?:\s*[,.]?\s*\b(?:execute|thanks|thank you|please)\b\s*[.!]?\s*)+$",
+    re.IGNORECASE)
+_DESTINATION = re.compile(
+    r"\s*\b(?:on|to|in|onto|into)\s+(?:my|the)\s+"
+    r"(?:calendar|schedule|list|todos?|tasks?|agenda|diary)\b", re.IGNORECASE)
+
+#: The generic word for an entry. Kept when it is all that was said ("Add an
+#: event for 5 p.m."), and it takes a qualifier rather than losing to one.
+_GENERIC_ENTRY = re.compile(
+    r"^(?:an?|the|my|this)?\s*"
+    r"(?:reminder|alert|event|appointment|meeting|task|todo|thing|item|"
+    r"entry|session)s?$", re.IGNORECASE)
+
+#: A surviving phrase that QUALIFIES the one before it instead of replacing it.
+#: `at`/`in`/`on` belong here — "Movie" + "at the Lincoln AMC" is one title, and
+#: treating that `at` as stranded produced "Movie the Lincoln AMC Theatre".
+_TITLE_QUALIFIER = re.compile(
+    r"^(?:with|for|about|regarding|re|at|in|on)\b", re.IGNORECASE)
+
+#: A part that is ONLY function words — what a blanked phrase leaves behind
+#: ("on" from "on tuesday"). Dropped whole. That is what distinguishes it from a
+#: preposition whose object SURVIVED and which therefore still means something.
+_ONLY_FUNCTION = re.compile(
+    r"^(?:at|on|in|for|to|from|by|of|with|and|the|a|an|my|me|is|it|"
+    r"until|till|through|that|this)(?:\s+(?:at|on|in|for|to|from|by|of|with|"
+    r"and|the|a|an|my|me|is|it|until|till|through|that|this))*$", re.IGNORECASE)
+
+_INFINITIVE_LEAD = re.compile(r"^to\s+(?=\w)", re.IGNORECASE)
+_STRANDED_TAIL = re.compile(
+    r"\s*\b(?:at|on|in|for|to|from|by|of|with|and|the|a|an|until|till|through)$",
+    re.IGNORECASE)
+_FOR_ME = re.compile(r"\bfor\s+(?:me|us)\b", re.IGNORECASE)
+
+#: A trailing SOURCE phrase — "buy milk FROM THE STORE AND THE MARKET". Where the
+#: thing came from is not part of its name, and sweeping it in is a defect
+#: `test_todo_item_splitting` was written for. Deliberately only `from`: `at` is a
+#: VENUE and belongs in the title ("Movie at the Lincoln AMC Theatre").
+_SOURCE_TAIL = re.compile(
+    r"\s+\bfrom\s+(?:the\s+|my\s+|a\s+|an\s+)?\w+"
+    r"(?:\s+and\s+(?:the\s+|my\s+|a\s+)?\w+)*\s*$", re.IGNORECASE)
+
+
+def _blank_spans(text: str, spans) -> str:
+    """Replace each (start, end) with spaces — equal length, so every later
+    offset stays valid for the callers that index into this text."""
+    chars = list(text)
+    for a, b in spans:
+        for i in range(max(0, a), min(len(chars), b)):
+            chars[i] = " "
+    return "".join(chars)
+
+
+def _tidy_part(text: str) -> str:
+    """Drop a part that is only function words; strip stranded ones off the END.
+
+    Only the end. A leading preposition whose object survived still means
+    something ("at the Lincoln AMC"); a trailing one lost its object to the
+    blanking and says nothing ("meeting with ora at").
+    """
+    out = _FOR_ME.sub(" ", text)
+    out = re.sub(r"\s+", " ", out).strip(" ,.;:-")
+    if not out or _ONLY_FUNCTION.match(out):
+        return ""
+    out = _INFINITIVE_LEAD.sub("", out).strip(" ,.;:-")
+    for _ in range(4):
+        before = out
+        out = _STRANDED_TAIL.sub("", out).strip(" ,.;:-")
+        if out == before:
+            break
+    return "" if _ONLY_FUNCTION.match(out) else out
+
+
+def _subtractive_title(span_text: str, temporal_spans) -> str:
+    """The title as what REMAINS once every other reader has taken its words."""
+    spans = list(temporal_spans or [])
+    from assistant.intent import recurrence as _recur
+    rec = _recur.detect(span_text)
+    if rec.cadence and rec.span:
+        spans.append(rec.span)
+
+    text = _blank_spans(span_text, spans)
+    text = _DESTINATION.sub(" ", text)
+    text = _FRAME_TAIL.sub("", text)
+    # MID-STRING ONLY. At position 0 this is `_FRAME_LEAD`'s job, and it
+    # deliberately keeps the entry word so "schedule a meeting with Harper"
+    # stays "meeting with Harper". Letting this pattern fire there instead
+    # removed the head and left "with Harper" — 1.6 pt of corpus title
+    # exactness, measured.
+    text = re.sub(
+        _FRAME_ANYWHERE,
+        lambda m: m.group(0) if m.start() == 0 else "  ",
+        text)
+    text = _FRAME_LEAD.sub("", text, count=1)
+
+    # Two or more blanked characters is a real gap, so the pieces either side
+    # are separate things rather than one phrase.
+    parts = [_tidy_part(p) for p in re.split(r"\s{2,}|[,;]", text)]
+    parts = [p for p in parts if p]
+    if not parts:
+        return ""
+
+    head, rest = parts[0], parts[1:]
+    quals = [p for p in rest if _TITLE_QUALIFIER.match(p)]
+    things = [p for p in rest if not _TITLE_QUALIFIER.match(p)]
+    if _GENERIC_ENTRY.match(head) and things:
+        out = " ".join(things + quals)          # "event" loses to "movie at X"
+    else:
+        out = " ".join([head] + things + quals)  # "meeting" keeps "with etai"
+    out = _SOURCE_TAIL.sub("", _tidy_part(out))
+    # "for for causal infant projects" — a doubled function word is the mark of
+    # two fragments joined at a blank, not of anything the speaker said.
+    out = re.sub(r"\b(\w+)(\s+\1\b)+", r"\1", out, flags=re.IGNORECASE)
+    if len(out.split()) > _TITLE_MAX_WORDS:
+        return ""                                # hand back to the chunk reader
+    return out
+
+
+def _extract_title(span, temporal_spans: list[tuple[int, int]],
+                   *, subtractive: bool = True) -> str | None:
+    """Extract the best title from a span, blocking temporal token positions.
+
+    SUBTRACTIVE FIRST (2026-09-18): what survives once every other reader has
+    taken its words. The noun-chunk priorities below are the fallback for when
+    subtraction leaves nothing at all — they were the whole method until now,
+    and they are why a title truncated to "meeting".
+
+    **`subtractive=False` for a target-taking operation, and the difference is
+    destructive.** This same function supplies `match_title`, which is a NEEDLE
+    for finding a record that already exists — and a richer phrase is a worse
+    needle. Turned on for updates and deletes, the corpus board's `update_todo`
+    destructive errors went from 1 to 27 in one run. Naming a new thing wants
+    every word the speaker said; finding an old one wants the few that identify
+    it.
+    """
+    if subtractive:
+        chosen = _subtractive_title(span.text, temporal_spans)
+        if chosen:
+            return chosen
+
     # Priority 1: noun chunk containing dobj of root verb
     dobj_chunks = [
         chunk for chunk in span.noun_chunks
@@ -1695,7 +1881,10 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
     temporal_spans = temporal.get("spans", [])
     slots: dict = {}
 
-    title = _extract_title(span, temporal_spans)
+    # Only a CREATE is naming something new; everything else is looking for a
+    # record that already exists (see `_extract_title`).
+    title = _extract_title(span, temporal_spans,
+                           subtractive=action_name in ("create_event", "create_todo"))
 
     if action_name == "create_event":
         if title:

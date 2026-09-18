@@ -1042,3 +1042,122 @@ The commit message for `1d72d1a` carries the wrong diagnosis and cannot be
 edited; this note is the correction. The lesson is the one this file keeps
 teaching: the sample I read was six rows, the population was nineteen, and the
 six happened not to contain the dominant case.
+
+---
+
+## Cycle 23 — the SUBTRACTIVE title (2026-09-18)
+
+**The design change Gil approved** (DEVQA Q26, *"Ok you can try it"*), and the
+first cycle picked by the real-usage board rather than by the corpus.
+
+### Why this one and not the registered next cycle
+
+Cycle 22 registered the cadence reader. The real-usage board's first run
+(`DOCUMENTATION/experiments/real_usage/RESULTS.md`) put that aside: on Gil's own
+commands the largest failure class is **`generic-title`, 21 of 50 reviewed rows
+(42%)** — the title stopping at the generic word while "with omri for project"
+sat right there in the sentence. So a **title-correctness metric was added to
+this board first**, because it had none — it only ever asked whether a title
+NAMED NOTHING, which "meeting" passes. It read:
+
+    exactly right              41.8%  (n=1535)
+    right or a substring of it  85.6%
+
+**44 points of pure TRUNCATION**, which is the same defect from the other
+direction and the number that justified the rewrite.
+
+### What changed
+
+`_extract_title` picked ONE noun chunk (dobj, else pobj, else nearest to root).
+It is now **subtractive**: every reader that already claimed words gives them up
+— temporal spans, the cadence phrase (`Recurrence.span`, added here), the series
+bound, the destination, the stop keyword, the imperative shell — and the title is
+what remains. The same move cycle 22 made for one phrase, applied on purpose.
+
+Four rules carry most of the work, each bought with a measured failure:
+
+- **A generic head TAKES a qualifier, it does not lose to one.** Dropping it left
+  the bare `"with ora"`; keeping it gives `"meeting with ora"`. A part that does
+  NOT open with a preposition is its own thing and outranks the generic head
+  (`"event"` + `"movie at the AMC"` → `"movie at the AMC"`).
+- **Stranded function words go off the END only.** A leading preposition whose
+  object survived still means something (`"at the Lincoln AMC"`); a trailing one
+  lost its object to the blanking (`"meeting with ora at"`). Treating them alike
+  produced `"Movie the Lincoln AMC Theatre"`.
+- **The framing verb is stripped mid-string but not at position 0**, where
+  `_FRAME_LEAD` deliberately keeps the entry word. Letting it fire at 0 removed
+  the head from `"schedule a meeting with Harper"` and cost **1.6 pt** of corpus
+  title exactness, measured.
+- **A runaway title hands back to the chunk reader.** Subtraction that leaves a
+  sentence has copied it; over 8 words it returns empty. One real row produced 12
+  words of transcript.
+
+### THE ONE THAT MATTERS: naming is not finding
+
+`_extract_title` also supplies `match_title` — the NEEDLE for a record that
+already exists — and a richer phrase is a WORSE needle. Shipped subtractive for
+everything, the board's `update_todo` DESTRUCTIVE errors went **1 → 27** in a
+single run. `subtractive=` is now chosen by the action: a create names something
+new and wants every word; an update or delete finds an old one and wants the few
+that identify it. With that split the destructive line is **unchanged**.
+
+### Result — FastRule product-shape board, TRAIN half, 3,200 atomic rows
+
+| metric | before | after | |
+|---|---|---|---|
+| **handled (atomic)** | 72.4% | **76.9%** | **+4.5 pt** |
+| **correct-on-handled** | 94.1% | **94.4%** | **+0.3** |
+| **title exactly right** | 41.8% (n=1535) | **48.5% (n=1677)** | **+6.7 pt** |
+| **title right or a substring** | 85.6% | **97.1%** | **+11.5 pt** |
+| titles that name nothing | 0.2% (3/1554) | **0.0% (0/1721)** | gone |
+| resolvable date right | 93.5% (n=650) | 93.6% (n=716) | flat, larger n |
+| bounded: carried an end | 75.8% | 78.2% | +2.4 |
+| bounded: right day | 88.1% (n=42) | 89.6% (n=48) | +1.5 |
+| INVENTED a time | 3.7% | 3.5% | −0.2 |
+| harm score | 168 / 136 wrong | 171 / 139 | +3 |
+| **DESTRUCTIVE errors** | 12·11·4·1 | **12·11·4·1** | **flat** |
+| half-executed | 72 (5.1%) | 74 (5.3%) | +2 |
+| non-atomic covered | 299 (21.4%) | 331 (23.7%) | +32 |
+
+### Result — REAL-USAGE board, the instrument that chose this work
+
+| metric | before | after |
+|---|---|---|
+| **title right (corrected tier)** | 33.3% (n=18) | **38.9%** |
+| start_time / end_time right | 42.9% (n=14) | **50.0%** |
+| date right | 78.6% (n=14) | 78.6% |
+| all fields right | 11.1% (n=9) | 11.1% |
+| approved tier unchanged | 43.8% (n=16) | 43.8% |
+| rejected tier changed | 63.4% (n=41) | 75.6% |
+
+**What it means.** The truncation is essentially gone: 97.1% of committed titles
+are now the gold or a substring of it, and FastRule acts on 76.9% of single-item
+commands against 72.4% this morning. On Gil's own speech `"lincoln"` is now
+`"movie at the lincoln amc theatre"` and `"dog"` is `"walk mark dog"` — two rows
+he had already approved with better titles than the engine was producing.
+
+**All-fields on the real board did not move (11.1%, n=9)** and that is honest:
+every remaining row fails on something other than the title — hand-edited clock
+times, item counts on compounds, STT garbage. n=9 means one row is 11 points, so
+this number cannot show a 5.6 pt field-level gain at all. The per-field column is
+the one to read at this sample size.
+
+### Next prediction (registered)
+
+**`start_time`/`end_time`, on the real board.** They are 50.0% (n=14) and moved
++7.1 pt as a side effect of this change, which suggests time words were being
+swept into titles and are now being read where they belong. The corpus agrees
+there is room: explicit time right 81.3% (n=481). Predicted: **+3 pt or better on
+real-usage times and +1 pt on corpus explicit-time**, with INVENTED-a-time as the
+guard (it must not rise — a time invented is worse than a time missed). The
+FastRule cadence reader from cycle 22 stays queued behind it: `"every weekend"`
+and `"once a week"` are still unread, worth ~6 rows.
+
+### Filed, not fixed
+
+**The temporal reader over-claims, and subtraction makes it visible.** `"book
+annual checkup monthly at 8:30pm"` titles itself `"checkup"` because
+`_extract_temporal` claims the span of `"annual"` as a date. The old chunk reader
+kept the word by accident. Pinned by a test that asserts BOTH the over-claim and
+its consequence, so narrowing the recogniser's claim shows up as a change rather
+than a surprise.

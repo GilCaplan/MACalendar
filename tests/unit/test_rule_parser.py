@@ -732,3 +732,128 @@ class TestSeriesBound:
         assert intent.recur_until, "db.create_event bounds the series from this field"
         # The series starts on a MONDAY, not on the bound's day.
         assert datetime.date.fromisoformat(intent.date).weekday() == 0
+
+
+# ---------------------------------------------------------------------------
+# THE SUBTRACTIVE TITLE (Gil approved the design change 2026-09-18)
+#
+# `_extract_title` used to pick ONE noun chunk, so "set a meeting tomorrow at 2
+# o'clock meeting with omri for project" was titled "meeting". Corpus: title
+# exactly-right 41.8% against right-OR-A-SUBSTRING 85.6% — 44 points of pure
+# truncation. Real speech: the largest failure class outright, 42% of 50
+# reviewed commands.
+#
+# Subtractive: every reader that already claimed words gives them up — temporal
+# spans, the cadence phrase, the series bound, the destination, the stop keyword,
+# the imperative shell — and the title is what is left.
+# ---------------------------------------------------------------------------
+
+class TestSubtractiveTitle:
+
+    WED = datetime.date(2026, 9, 9)
+
+    def _title(self, text):
+        from assistant.intent import rule_parser as rp
+        rp._ensure_nlp(); rp._ensure_dt()
+        temporal = rp._extract_temporal(text, self.WED)
+        return rp._subtractive_title(text, temporal.get("spans") or [])
+
+    # --- what the old reader threw away ---
+
+    def test_a_generic_head_keeps_the_words_that_name_it(self):
+        assert self._title("set a meeting tomorrow at 2 o'clock meeting with omri "
+                           "for project") == "meeting with omri for project"
+
+    def test_with_whom_is_kept_not_replaced(self):
+        """The bug in the obvious fix: drop the generic head and "meeting with
+        ora" becomes the bare "with ora"."""
+        assert self._title("set tomorrow a meeting with ora at 5pm") == "meeting with ora"
+
+    def test_a_named_thing_outranks_a_generic_head(self):
+        t = self._title("Movie today at 4.30pm at the Lincoln AMC Theatre. Execute.")
+        assert t.lower() == "movie at the lincoln amc theatre"
+
+    def test_a_verb_the_speaker_said_survives(self):
+        """"walk Mark's dog", not "dog" — the old reader took the noun chunk."""
+        assert self._title("Set for today to walk Mark's dog at 2.30pm, execute.") \
+            == "walk Mark's dog"
+
+    # --- the stranded-word rules, which are most of the work ---
+
+    def test_a_trailing_preposition_whose_object_was_blanked_goes(self):
+        assert self._title("set a meeting tomorrow on tuesday at 6pm with etai") \
+            == "meeting with etai"
+
+    def test_a_leading_preposition_whose_object_SURVIVED_stays(self):
+        """"at the Lincoln AMC" is part of the title; treating that `at` as
+        stranded produced "Movie the Lincoln AMC Theatre"."""
+        assert "at the" in self._title(
+            "Movie today at 4.30pm at the Lincoln AMC Theatre.").lower()
+
+    def test_the_cadence_word_is_not_part_of_the_title(self):
+        assert self._title("book open house every monday at ten thirty") == "open house"
+
+    def test_a_temporal_over_claim_upstream_takes_the_word_with_it(self):
+        """Not a defect in subtraction — a defect it makes VISIBLE, filed in
+        TASKS.md.
+
+        "book annual checkup monthly at 8:30pm" titles itself "checkup", because
+        `_extract_temporal` claims the span of "annual" as a date. Subtraction
+        removes what the temporal reader took, faithfully, so an over-claim
+        upstream now costs a word in the title where the old chunk reader would
+        have kept it by accident. Pinned so that narrowing the recogniser's claim
+        shows up here as a change rather than a surprise.
+        """
+        from assistant.intent import rule_parser as rp
+        rp._ensure_nlp(); rp._ensure_dt()
+        text = "book annual checkup monthly at 8:30pm"
+        spans = rp._extract_temporal(text, self.WED)["spans"]
+        assert any(text[a:b] == "annual" for a, b in spans), \
+            "the premise changed: the temporal reader no longer claims 'annual'"
+        assert self._title(text) == "checkup"
+
+    def test_the_stop_keyword_and_destination_go(self):
+        assert self._title("put sales call on my calendar tomorrow, execute") \
+            == "sales call"
+
+    # --- the two guards, each bought with a measured regression ---
+
+    def test_a_framing_verb_that_is_not_at_the_front_is_still_removed(self):
+        """"next week on monday on the 13th create event to ta class" titled
+        itself "create event to ta class" — against a row Gil had APPROVED as
+        "TA Class"."""
+        t = self._title("next week on monday on the 13th create event to ta class")
+        assert "create event" not in t.lower(), t
+        assert "ta class" in t.lower(), t
+
+    def test_at_the_front_the_entry_word_is_kept(self):
+        """The same pattern firing at position 0 removed the head and left
+        "with Harper" — 1.6 pt of corpus title exactness, measured."""
+        assert self._title("schedule a meeting with Harper next month at 9:15") \
+            == "meeting with Harper"
+
+    def test_a_runaway_title_hands_back_to_the_chunk_reader(self):
+        """Subtraction that leaves a sentence has copied it, not understood it.
+        Over the word cap it returns empty so `_extract_title` falls through."""
+        rambling = ("Sarah Mindel, on my calendar, on the 10th of September, to "
+                    "email professor for causal infant projects peeling the project")
+        assert self._title(rambling) == ""
+
+    # --- and the one that matters most ---
+
+    def test_subtraction_is_for_NAMING_never_for_FINDING(self, parser):
+        """`_extract_title` also supplies `match_title`, the NEEDLE for a record
+        that already exists — and a richer phrase is a worse needle. Turned on
+        for updates and deletes, the corpus board's `update_todo` DESTRUCTIVE
+        errors went from 1 to 27 in a single run."""
+        from assistant.intent import rule_parser as rp
+        rp._ensure_nlp(); rp._ensure_dt()
+        text = "delete the meeting with ora tomorrow"
+        doc = rp._NLP(text)
+        temporal = rp._extract_temporal(text, self.WED)
+        spans = temporal.get("spans") or []
+        naming = rp._extract_title(doc[:], spans, subtractive=True)
+        finding = rp._extract_title(doc[:], spans, subtractive=False)
+        assert naming != finding, \
+            "a target must not be read the same way as a new thing's name"
+        assert finding and len(finding.split()) <= len(naming.split())

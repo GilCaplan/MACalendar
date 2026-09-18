@@ -50,14 +50,20 @@ _UNTIL_RE = re.compile(r"\b(?:until|till|through|thru|up to)\b", re.I)
 class Recurrence:
     """What one command said about repeating. `cadence` None ⇒ not recurring."""
 
-    __slots__ = ("cadence", "anchor_weekday", "rounded_from", "has_until")
+    __slots__ = ("cadence", "anchor_weekday", "rounded_from", "has_until", "span")
 
     def __init__(self, cadence=None, anchor_weekday=None,
-                 rounded_from=None, has_until=False):
+                 rounded_from=None, has_until=False, span=None):
         self.cadence = cadence
         self.anchor_weekday = anchor_weekday     # 0=Monday … 6=Sunday, or None
         self.rounded_from = rounded_from         # the words we rounded, or None
         self.has_until = has_until
+        #: (start, end) of the cadence phrase in the text it was read from, or
+        #: None. The subtractive title blanks it: "book annual checkup MONTHLY
+        #: at 8:30pm" titled itself "annual checkup monthly" without this, and
+        #: the adverb sitting right after the title is 13 of the 19 bounded-row
+        #: deferrals the last cycle left behind.
+        self.span = span
 
     def __bool__(self) -> bool:
         return self.cadence is not None
@@ -86,5 +92,6 @@ def detect(text: str) -> Recurrence:
                 break
         return Recurrence(cadence, anchor,
                           m.group(0) if rounds else None,
-                          bool(_UNTIL_RE.search(low)))
+                          bool(_UNTIL_RE.search(low)),
+                          (m.start(), m.end()))
     return Recurrence()

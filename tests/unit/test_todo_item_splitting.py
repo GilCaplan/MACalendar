@@ -271,7 +271,12 @@ def test_bare_imperative_keeps_every_coordinated_object(parser, text, expected):
 
 def test_bare_imperative_single_object_is_unaffected(parser):
     # no coordination at all — must not be widened into something it isn't
-    assert _titles(parser, "call the dentist") == ["call dentist"]
+    # "call THE dentist" since 2026-09-18, and that is the improvement rather
+    # than the regression: the FastRule corpus gold keeps its determiners
+    # ("feed the cat", "pay the electricity bill"), and the subtractive title
+    # stopping the old cosmetic strip is part of why corpus title exactness rose
+    # 41.8% -> 48.5% (n=1677). A title is what a person would write down.
+    assert _titles(parser, "call the dentist") == ["call the dentist"]
 
 
 def test_a_coordinated_prepositional_object_is_not_swept_into_the_title(parser):

@@ -1,8 +1,14 @@
 # Real-usage board
 
-_Run 2026-09-18 10:43. `python -m scripts.real_usage_board`._
+_Run 2026-09-18 11:28. `python -m scripts.real_usage_board`._
 
-> Guard passed: no real store changed during the run.
+> **A real store changed during the run:** calendar.db, nlu_memory.db, vocab.json, trace_bus.jsonl. Either an override was missed (a leak — distrust everything below) or the assistant was simply used while the board ran.
+
+> Rows that appeared in the real calendar meanwhile. If any of these is a title from the replay list, it IS a leak; if they are things Gil typed, it is ordinary use:
+
+>   - 2023:dragon arena
+>   - 207:cook food for shabbat
+>   - 206:4Minum
 
 ## The headline
 
@@ -12,10 +18,10 @@ _Run 2026-09-18 10:43. `python -m scripts.real_usage_board`._
 
 | field | right | scored |
 |---|---|---|
-| title | 33.3% | 18 |
+| title | 38.9% | 18 |
 | date | 78.6% | 14 |
-| start_time | 42.9% | 14 |
-| end_time | 42.9% | 14 |
+| start_time | 50.0% | 14 |
+| end_time | 50.0% | 14 |
 | recurrence | — | 0 |
 | recur_until | — | 0 |
 
@@ -26,7 +32,7 @@ _`start_time`/`end_time` read LOW for a reason beyond the parse: on a row whose 
 ## Regression and movement
 
 - **Approved tier (n=16):** the replay still produces what he accepted on **43.8%**. Anything less than 100% is a regression against a command he blessed.
-- **Rejected tier (n=41):** the output CHANGED on **61.0%**. Changed is not fixed — there is no gold here — but unchanged is certainly not fixed.
+- **Rejected tier (n=41):** the output CHANGED on **75.6%**. Changed is not fixed — there is no gold here — but unchanged is certainly not fixed.
 
 ## Failure taxonomy
 
@@ -66,8 +72,8 @@ Two full replays of the same 73 rows on unchanged code, 2026-09-18:
 
 | parse path | n | p50 | p95 |
 |---|---|---|---|
-| deep | 40 | 4.6s | 26.4s |
-| fast | 31 | 0.1s | 0.1s |
+| deep | 33 | 5.7s | 23.4s |
+| fast | 38 | 0.1s | 0.1s |
 | ignored | 2 | 0.0s | 0.0s |
 
 ## Why half the corrected gold cannot be scored
@@ -91,39 +97,27 @@ No parse produces that, and scoring it would cap this metric forever and blame t
   - I need to buy cold brew, and I need to also buy, Conello oil, can, exe
 - id=143 [compound] count 5/4, wrong: title, date, start_time, end_time
   - Alright, we have a few events set for Tuesday to walk Moxdog at 9 a.m.
-- id=185 [generic-title] count 1/1, wrong: title, start_time, end_time
-  - Set for 2 p.m. tomorrow, CC event, execute.
 - id=207 [stt-garbage] count 3/3, wrong: title
   - WalkMoxDog today at 2pm, and also WalkMoxDog tomorrow at 8.30am, and I
 - id=219 [stutter-split] count 2/2, wrong: start_time, end_time
   - Movie at Lincoln Square tomorrow, AMC, 11.15 AM tomorrow, execute.
 - id=220 [stt-garbage] count 1/1, wrong: title
   - Walk, Mark, Stog, at 5.30pm today, execute.
+- id=223 [disfluency] count 4/4, wrong: title
+  - I need to buy some ice, I need to buy green onion, and I also need to 
 
 ### Rejected, output unchanged (still wrong the same way)
 
 - id=6 [anaphoric-edit] ['update_event']
   - the last event that you just created on next monday on the 13th fixer 
-- id=12 [generic-title] ['create_event']
-  - today i have an event at 6 o'clock a meeting
-- id=14 [generic-title] ['create_event']
-  - please make a meeting for me at 1040 on monday the 13th for makabi vis
 - id=18 [generic-title] ['create_event']
   - set an appointment for tomorrow morning on tuesday at 910am
-- id=32 [generic-title] ['create_event']
-  - set tomorrow a meeting with ora at 5pm
 - id=34 [generic-title] ['create_event']
   - set a meeting for me tomorrow at 4pm
-- id=38 [disfluency] ['create_event']
-  - set a meeting tomorrow. sorry, not tomorrow. set a meeting on tuesday.
 - id=40 [disfluency] ['create_event']
   - set meeting on thursday for three o'clock. thank you. is this why you 
 - id=41 [generic-title] ['create_event']
   - set a meeting on thursday for 11 a.m. to
-- id=48 [anaphoric-edit] ['update_event']
-  - Can you fix the meeting tomorrow, the one meeting with V-Code, so that
-- id=55 [generic-title] ['create_event']
-  - Set a meeting of his hours meeting on Sunday at 1 p.m. this coming Sun
 - id=135 [?] ['create_todo']
   - Groceries, I need to buy zucchini, cold brew, execute.
 - id=137 [?] ['create_todo']
