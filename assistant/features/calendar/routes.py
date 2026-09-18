@@ -205,6 +205,129 @@ def event_delete(event_id: int):
     return jsonify({"deleted": event_id})
 
 
+# ------------------------------------------------------------------
+# A SERIES, as one thing
+#
+# `db` has had the whole vocabulary for a long time — `series_id` on every
+# instance ("NULL = not recurring; shared by all instances"), `update_series`
+# which propagates and RE-GENERATES the future slots when the cadence or the
+# end date moves, `delete_series_from`, and the re-rooting that keeps a series
+# editable after you delete its first instance. None of it was reachable over
+# HTTP, so the phone could edit ONE instance and nothing else: change the end
+# date there and the other rows carried on regardless.
+#
+# Gil, 2026-09-18: "recurring events are all linked to each other, so if in
+# event i change the end date for repetition it updates accordingly, or if i
+# extend it. And an option to choose in what interval."
+# ------------------------------------------------------------------
+
+def _series_id_of(event: dict) -> "int | None":
+    """The id every instance of this series shares, or None if it is a one-off.
+
+    The ROOT instance carries `series_id == id`; `db.create_event` back-fills
+    that after inserting the first row. A row with a recurrence but no
+    `series_id` yet has not been promoted, and its own id is what the series
+    will be keyed on.
+    """
+    if event.get("series_id"):
+        return int(event["series_id"])
+    return int(event["id"]) if event.get("recurrence") else None
+
+
+@blueprint.get("/events/<int:event_id>/series")
+def series_get(event_id: int):
+    """Every instance of the series this event belongs to, plus its rule."""
+    db = get_db()
+    event = db.get_event(event_id)
+    if event is None:
+        return jsonify({"error": "Event not found", "code": 404}), 404
+    series_id = _series_id_of(event)
+    if series_id is None:
+        return jsonify({"series_id": None, "recurrence": "", "instances": [event]})
+    instances = db.get_series_events(series_id)
+    return jsonify({
+        "series_id": series_id,
+        "recurrence": event.get("recurrence") or "",
+        "recurrence_end": event.get("recurrence_end") or "",
+        "recur_days": event.get("recur_days") or "",
+        "count": len(instances),
+        "instances": instances,
+    })
+
+
+@blueprint.patch("/events/<int:event_id>/series")
+def series_update(event_id: int):
+    """Edit the SERIES through one of its instances.
+
+    Body is the same field names `PATCH /events/<id>` takes. `recurrence`
+    ("daily" | "weekly" | "monthly" | "yearly") and `recurrence_end` (ISO date,
+    "" for no end) are the two that change the SHAPE — `db.update_series`
+    deletes the instances after this one and regenerates them, so extending an
+    end date grows the series and shortening it trims.
+
+    A one-off is PROMOTED when the body names a recurrence, so "make this
+    repeat weekly" is the same request as "change the cadence".
+    """
+    data = request.get_json(silent=True) or {}
+    db = get_db()
+    event = db.get_event(event_id)
+    if event is None:
+        return jsonify({"error": "Event not found", "code": 404}), 404
+    if db.is_event_locked(event):
+        return jsonify({"error": "Event is read-only (synced source)", "code": 403}), 403
+
+    base = str(data.pop("base_updated_at", "") or "")
+    if base and str(event.get("updated_at") or "") not in ("", base):
+        return jsonify({"error": "Event changed on the Mac since you edited it",
+                        "code": 409, "current": event}), 409
+
+    cadence = str(data.get("recurrence", event.get("recurrence") or "")).strip()
+    if cadence and cadence not in ("daily", "weekly", "monthly", "yearly"):
+        return jsonify({"error": f"recurrence must be daily|weekly|monthly|yearly, "
+                                 f"not {cadence!r}", "code": 400}), 400
+
+    series_id = _series_id_of(event)
+    if series_id is None:
+        # A one-off being made to repeat: write the rule onto the row, then let
+        # the existing promotion build the instances.
+        if not cadence:
+            return jsonify({"error": "This event does not repeat; send a "
+                                     "`recurrence` to make it", "code": 400}), 400
+        db.update_event(event_id, **data)
+        db.promote_to_series(event_id)
+        series_id = _series_id_of(db.get_event(event_id) or event) or event_id
+    else:
+        db.update_series(series_id, event_id, **data)
+
+    instances = db.get_series_events(series_id)
+    return jsonify({"series_id": series_id, "count": len(instances),
+                    "instances": instances})
+
+
+@blueprint.delete("/events/<int:event_id>/series")
+def series_delete(event_id: int):
+    """Delete the whole series, or `?scope=future` for this one and later.
+
+    `scope=future` is the one people actually want when a weekly thing stops:
+    the instances already gone by are a record of what happened.
+    """
+    db = get_db()
+    event = db.get_event(event_id)
+    if event is None:
+        return jsonify({"error": "Event not found", "code": 404}), 404
+    if db.is_event_locked(event):
+        return jsonify({"error": "Event is read-only (synced source)", "code": 403}), 403
+    series_id = _series_id_of(event)
+    if series_id is None:
+        db.delete_event(event_id)
+        return jsonify({"deleted": 1, "series_id": None})
+    if request.args.get("scope") == "future":
+        removed = db.delete_series_from(series_id, str(event.get("date") or ""))
+    else:
+        removed = db.delete_series(series_id)
+    return jsonify({"deleted": removed, "series_id": series_id})
+
+
 @blueprint.get("/sync/bootstrap")
 def sync_bootstrap():
     """Everything a client needs to draw itself, in ONE round trip.

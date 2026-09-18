@@ -452,3 +452,122 @@ def test_review_feed_excludes_probe_traffic(app_client):
     rows = client.get("/memory/unreviewed").get_json()["examples"]
     ids = {r["id"] for r in rows}
     assert b in ids and a not in ids
+
+
+# ---------------------------------------------------------------------------
+# A SERIES, as one thing (Gil, 2026-09-18)
+#
+# `db` has carried the whole vocabulary for a long time — `series_id` on every
+# instance, `update_series` which propagates AND re-generates the future slots
+# when the cadence or the end date moves, `delete_series_from`, and the
+# re-rooting that keeps a series editable after its first instance is deleted.
+# None of it was reachable over HTTP, so the phone could edit ONE instance and
+# nothing else: change the end date there and the other rows carried on.
+# ---------------------------------------------------------------------------
+
+def _weekly(client, until=""):
+    body = {"title": "gym", "date": "2026-09-21", "start_time": "07:00",
+            "end_time": "08:00", "recurrence": "weekly"}
+    if until:
+        body["recurrence_end"] = until
+    r = client.post("/events", json=body)
+    assert r.status_code in (200, 201), r.get_json()
+    return r.get_json()["id"]
+
+
+def _series(client, eid):
+    return client.get(f"/events/{eid}/series").get_json()
+
+
+def test_the_series_reads_back_as_one_thing(app_client):
+    client, _ = app_client
+    eid = _weekly(client, until="2026-10-19")
+    got = _series(client, eid)
+    assert got["series_id"], got
+    assert got["recurrence"] == "weekly"
+    assert got["count"] >= 2, "a weekly series to mid-October is several rows"
+    assert all(i["title"] == "gym" for i in got["instances"])
+
+
+def test_extending_the_end_date_grows_the_series(app_client):
+    client, _ = app_client
+    eid = _weekly(client, until="2026-10-05")
+    before = _series(client, eid)["count"]
+    r = client.patch(f"/events/{eid}/series", json={"recurrence_end": "2026-11-30"})
+    assert r.status_code == 200, r.get_json()
+    after = r.get_json()["count"]
+    assert after > before, f"extending should add instances ({before} -> {after})"
+
+
+def test_shortening_the_end_date_trims_it(app_client):
+    client, _ = app_client
+    eid = _weekly(client, until="2026-11-30")
+    before = _series(client, eid)["count"]
+    after = client.patch(f"/events/{eid}/series",
+                         json={"recurrence_end": "2026-10-05"}).get_json()["count"]
+    assert after < before, f"shortening should remove instances ({before} -> {after})"
+
+
+def test_changing_the_interval_regenerates(app_client):
+    client, _ = app_client
+    eid = _weekly(client, until="2026-11-30")
+    weekly = _series(client, eid)["count"]
+    daily = client.patch(f"/events/{eid}/series",
+                         json={"recurrence": "daily"}).get_json()["count"]
+    assert daily > weekly, f"daily is denser than weekly ({weekly} -> {daily})"
+
+
+def test_a_title_change_reaches_every_instance(app_client):
+    client, _ = app_client
+    eid = _weekly(client, until="2026-10-19")
+    out = client.patch(f"/events/{eid}/series", json={"title": "swimming"}).get_json()
+    assert [i["title"] for i in out["instances"]] == ["swimming"] * out["count"]
+
+
+def test_only_the_four_cadences_are_accepted(app_client):
+    client, _ = app_client
+    eid = _weekly(client, until="2026-10-19")
+    r = client.patch(f"/events/{eid}/series", json={"recurrence": "fortnightly"})
+    assert r.status_code == 400
+    assert "daily|weekly|monthly|yearly" in r.get_json()["error"]
+
+
+def test_a_one_off_can_be_made_to_repeat(app_client):
+    client, _ = app_client
+    eid = client.post("/events", json={"title": "standup", "date": "2026-09-21",
+                                       "start_time": "09:00",
+                                       "end_time": "09:15"}).get_json()["id"]
+    assert _series(client, eid)["series_id"] is None
+    out = client.patch(f"/events/{eid}/series",
+                       json={"recurrence": "weekly",
+                             "recurrence_end": "2026-10-19"}).get_json()
+    assert out["series_id"] and out["count"] >= 2, out
+
+
+def test_a_one_off_with_no_cadence_is_refused_rather_than_guessed(app_client):
+    client, _ = app_client
+    eid = client.post("/events", json={"title": "dentist", "date": "2026-09-21",
+                                       "start_time": "09:00",
+                                       "end_time": "10:00"}).get_json()["id"]
+    assert client.patch(f"/events/{eid}/series",
+                        json={"title": "dentist v2"}).status_code == 400
+
+
+def test_deleting_from_here_keeps_the_past(app_client):
+    client, _ = app_client
+    eid = _weekly(client, until="2026-11-30")
+    everything = _series(client, eid)
+    later = [i for i in everything["instances"] if i["date"] > "2026-10-12"]
+    assert later, "need a later instance to delete from"
+    client.delete(f"/events/{later[0]['id']}/series?scope=future")
+    left = _series(client, eid)
+    assert left["count"] < everything["count"]
+    assert all(i["date"] < later[0]["date"] for i in left["instances"])
+
+
+def test_deleting_the_series_removes_all_of_it(app_client):
+    client, _ = app_client
+    eid = _weekly(client, until="2026-11-30")
+    n = _series(client, eid)["count"]
+    assert client.delete(f"/events/{eid}/series").get_json()["deleted"] == n
+    assert client.get(f"/events/{eid}").status_code == 404

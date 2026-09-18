@@ -146,6 +146,9 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `GET` | `/events/<int:event_id>` |  |
 | `PATCH` | `/events/<int:event_id>` |  |
 | `GET` | `/events/<int:event_id>.ics` | Share/export one event as an .ics file (import's symmetric half). |
+| `DELETE` | `/events/<int:event_id>/series` | Delete the whole series, or `?scope=future` for this one and later. |
+| `GET` | `/events/<int:event_id>/series` | Every instance of the series this event belongs to, plus its rule. |
+| `PATCH` | `/events/<int:event_id>/series` | Edit the SERIES through one of its instances. |
 
 ## /search
 
