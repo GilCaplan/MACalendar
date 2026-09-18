@@ -223,10 +223,23 @@ def test_a_start_time_inside_quiet_hours_is_flagged_not_changed(cfg):
 
 
 def test_a_time_outside_quiet_hours_is_not_flagged(cfg):
-    it = _item("create_event", _event_intent(
-        title="gym", date="2026-09-10", start_time="09:00", end_time="10:00"))
-    st = _state("book gym tomorrow at 9", [it])
-    validate.run_objects(st, cfg)
+    """FAILED ONE DAY IN SEVEN until 2026-09-18, and not for its own reason.
+
+    `run_objects` re-resolves the date from the item's own WORDS, so the
+    hard-coded `date=` above is overwritten by whatever "tomorrow" means when the
+    suite runs. On a Friday that is Shabbat, the observance rule adds a flag, and
+    this test asserted `"flags" not in it.slots` — so a test about QUIET HOURS
+    went red over an observance flag that was entirely correct.
+
+    Frozen to a Wednesday: "tomorrow" is then a Thursday whatever the real date,
+    and the strong assertion (nothing flagged at all) can stay.
+    """
+    from freezegun import freeze_time
+    with freeze_time("2026-09-09"):              # a Wednesday
+        it = _item("create_event", _event_intent(
+            title="gym", date="2026-09-10", start_time="09:00", end_time="10:00"))
+        st = _state("book gym tomorrow at 9", [it])
+        validate.run_objects(st, cfg)
     assert "flag:quiet_hours" not in _rules_applied(st)
     assert "flags" not in it.slots
 
