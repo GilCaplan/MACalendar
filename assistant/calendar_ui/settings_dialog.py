@@ -116,7 +116,16 @@ def open_settings(self) -> None:
         outer.setSpacing(6)
 
         key = f"settings/section_open/{title}"
-        open_ = _ui_state().value(key, True, type=bool)
+        # FOLDED by default (Gil, 2026-09-18: "Default is minimized please"),
+        # matching the phone. Both screens shipped opening every section, which
+        # undid most of the point: what is hard to find on a long settings
+        # screen is a section's NAME, and six open bodies push five of the six
+        # names off it. Folded, the list of names IS the screen.
+        #
+        # Only sections nobody has touched change — `QSettings` holds a value
+        # for a section only once it has been folded or opened by hand, so a
+        # deliberate choice survives this.
+        open_ = _ui_state().value(key, False, type=bool)
 
         header = QToolButton()
         header.setObjectName(f"section_header_{title.lower().replace(' ', '_')}")

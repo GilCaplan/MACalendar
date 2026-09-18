@@ -141,7 +141,14 @@ def _body_of(header: QToolButton) -> QWidget:
 # ── the tests ────────────────────────────────────────────────────────
 
 
-def test_every_section_starts_open_and_has_a_fold_header(app):
+def test_every_section_starts_folded_and_has_a_fold_header(app):
+    """Gil, 2026-09-18: "Default is minimized please".
+
+    This asserted the opposite until then — "a first run must show every
+    section open" — on the reasoning that an all-folded screen looks empty.
+    It reads as a list of section NAMES, which is what you are scanning for;
+    six open bodies push five of the six names off the screen.
+    """
     window = _Window()
     failures: list = []
     seen: dict = {}
@@ -157,12 +164,12 @@ def test_every_section_starts_open_and_has_a_fold_header(app):
     if failures:
         raise failures[0]
 
-    assert all(seen["headers"].values()), \
-        f"a first run must show every section open, got {seen['headers']}"
-    assert all(a == Qt.ArrowType.DownArrow for a in seen["arrows"].values())
+    assert not any(seen["headers"].values()), \
+        f"a first run must show every section folded, got {seen['headers']}"
+    assert all(a == Qt.ArrowType.RightArrow for a in seen["arrows"].values())
 
 
-def test_clicking_a_header_hides_that_section_and_turns_its_arrow(app):
+def test_clicking_a_header_shows_that_section_and_turns_its_arrow(app):
     window = _Window()
     failures: list = []
     seen: dict = {}
@@ -175,7 +182,12 @@ def test_clicking_a_header_hides_that_section_and_turns_its_arrow(app):
                          Qt.KeyboardModifier.NoModifier,
                          QPoint(8, h.height() // 2))
         seen["after"] = (h.isChecked(), body.isVisible(), h.arrowType())
-        # ...and the section next to it is untouched.
+        # ...and again, which must put it back.
+        QTest.mouseClick(h, Qt.MouseButton.LeftButton,
+                         Qt.KeyboardModifier.NoModifier,
+                         QPoint(8, h.height() // 2))
+        seen["again"] = (h.isChecked(), body.isVisible(), h.arrowType())
+        # ...and the section next to it is untouched throughout.
         seen["neighbour"] = _body_of(_header(dlg, "appearance")).isVisible()
 
     _drive(interact, failures)
@@ -183,25 +195,33 @@ def test_clicking_a_header_hides_that_section_and_turns_its_arrow(app):
     if failures:
         raise failures[0]
 
-    assert seen["before"] == (True, True, Qt.ArrowType.DownArrow)
-    assert seen["after"] == (False, False, Qt.ArrowType.RightArrow), \
-        "a real click must fold the body away and turn the arrow"
-    assert seen["neighbour"] is True, "folding one section moved another"
+    assert seen["before"] == (False, False, Qt.ArrowType.RightArrow)
+    assert seen["after"] == (True, True, Qt.ArrowType.DownArrow), \
+        "a real click must reveal the body and turn the arrow"
+    assert seen["again"] == (False, False, Qt.ArrowType.RightArrow), \
+        "clicking a second time must fold it back"
+    assert seen["neighbour"] is False, "opening one section moved another"
 
 
-def test_a_folded_section_is_still_folded_next_time(app):
-    """The whole point: fold what you never use and it stays folded."""
+def test_a_section_you_opened_is_still_open_next_time(app):
+    """The whole point, the way round it now runs: open what you use and it
+    stays open, while everything you never touched stays folded.
+
+    Before the default flipped this folded a section and checked it stayed
+    folded — which a `return False` would also have passed. Opening is the
+    direction that now carries information.
+    """
     window = _Window()
     failures: list = []
 
-    def fold(dlg):
+    def unfold(dlg):
         h = _header(dlg, "tabs")
         QTest.mouseClick(h, Qt.MouseButton.LeftButton,
                          Qt.KeyboardModifier.NoModifier,
                          QPoint(8, h.height() // 2))
-        assert not h.isChecked()
+        assert h.isChecked()
 
-    _drive(fold, failures)
+    _drive(unfold, failures)
     open_settings(window)
     if failures:
         raise failures[0]
@@ -220,6 +240,6 @@ def test_a_folded_section_is_still_folded_next_time(app):
     if failures:
         raise failures[0]
 
-    assert seen["tabs"] is False, "the fold was forgotten between openings"
-    assert seen["tabs_body"] is False
-    assert seen["voice"] is True, "a section nobody folded came back folded"
+    assert seen["tabs"] is True, "the choice was forgotten between openings"
+    assert seen["tabs_body"] is True
+    assert seen["voice"] is False, "a section nobody opened came back open"

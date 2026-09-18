@@ -664,18 +664,22 @@ helper now returns a folding box, so all six got it in one change and a seventh
 would too. iOS `Views/SettingsView.swift` — `CollapsibleSection`, which WRAPS
 `GroupBox` rather than replacing it, so every section keeps exactly the look it
 had.
-**They start FOLDED on the phone** (Gil, 2026-09-18: *"By default can
-everything be minimized in settings"*). The first version opened every section,
-reasoning that "a first run must not look like an empty screen" — but seven
-open sections are a screen you scroll through to find anything, and what was
-actually hard to find was a section's NAME (the same day, Gil could not find
-the notification settings at all). Folded, all seven names fit at once and the
-screen is its own table of contents. **Only sections you have never touched
-change**: `@AppStorage` writes on change and not on read, so a section you
-deliberately opened or closed keeps what you chose. **The Mac still opens its
-sections by default** — `settings_dialog.py` defaults its `QSettings` lookup to
-`True` — so the two screens disagree on this one point until that is flipped
-too.
+**They start FOLDED, on BOTH screens** (Gil, 2026-09-18: *"By default can
+everything be minimized in settings"*, then *"Default is minimized please"*).
+Both shipped opening every section, reasoning that "a first run must not look
+like an empty screen" — but six or seven open sections are a screen you scroll
+through to find anything, and what was actually hard to find was a section's
+NAME (the same day, Gil could not find the notification settings at all).
+Folded, every name fits at once and the screen is its own table of contents.
+**Only sections you have never touched change**: both stores write on change
+and not on read — iOS `@AppStorage`, Mac `QSettings` holds a value for a
+section only once it has been folded or opened by hand — so a deliberate
+choice survives the new default.
+
+The Mac's three collapse tests were inverted with it, and one changed
+direction rather than just its expected value: it used to fold a section and
+check it stayed folded, which a `return False` would also pass. It now OPENS
+one and checks that survives, while an untouched neighbour stays folded.
 
 **How:** the fold state is per-machine UI chrome and is stored as such — Mac
 `QSettings` (redirected by `MACALENDAR_UI_STATE`, which `conftest.py` scratches),
