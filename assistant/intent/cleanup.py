@@ -37,6 +37,22 @@ _OPENERS = re.compile(
 #: anything this week", "now, what do i have the rest of the day".
 _NOW_OPENER = re.compile(r"^\s*now\s*,\s*", re.I)
 
+#: FILLER PHRASES that interrupt a command mid-sentence: "can you YOU KNOW,
+#: remind me to clean the kitchen", "remind me I MEAN, to book the course",
+#: "HANG ON, HANG ON, organize the garage".
+#:
+#: A TRAILING COMMA IS REQUIRED, and that is the whole safety argument: these
+#: words are ordinary content without the pause — "do you know when the meeting
+#: is" must survive untouched — and a speaker who interrupts themselves pauses.
+#:
+#: It runs BEFORE `_STUTTER`, which is not cosmetic ordering. "can you you
+#: know, remind me" is "you" followed by the filler "you know", NOT a stutter;
+#: collapsing first produced "can you know, remind me" and the courtesy
+#: stripper then left a junk "know," in front of the command. Measured while
+#: adding the stutter rule, which is how the ordering was found.
+_FILLER_PHRASE = re.compile(
+    r"[,\s]+(?:you know|i mean|hang on|hold on)\s*,\s*", re.I)
+
 #: A STUTTER: the same word twice in a row, which Whisper writes down
 #: faithfully. "remind me ME to prepare the presentation", "i need to go GO to
 #: kombucha order ON ON friday". It breaks the fixed command frames the
@@ -77,6 +93,13 @@ def strip_spoken_noise(text: str, drop_courtesy: bool = True) -> str:
         return text
     out = _OPENERS.sub("", text.strip())
     out = _NOW_OPENER.sub("", out)
+    # Repeated until stable: the pattern eats the comma that would have
+    # started the next match, so "hang on, hang on," needs a second pass.
+    for _ in range(4):
+        cut = _FILLER_PHRASE.sub(" ", out)
+        if cut == out:
+            break
+        out = cut
     out = _STUTTER.sub(r"\1", out)
     if drop_courtesy:
         out = _COURTESY.sub("", out)
