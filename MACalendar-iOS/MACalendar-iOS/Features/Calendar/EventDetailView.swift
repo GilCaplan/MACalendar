@@ -137,7 +137,7 @@ struct EventDetailView: View {
                     if let note = suppressionNote {
                         Label(note, systemImage: "moon.stars")
                     } else if reminderChoice == -1 {
-                        Text("Inherit uses the category's lead time, set on your Mac. Per-event reminders are off by default — Settings › Today's panel is the one summary this phone shows.")
+                        Text("Inherit uses the category's lead time, set on your Mac. Per-event reminders are off by default — Settings › Notifications is the one summary this phone shows.")
                     }
                 }
                 // The event body. This is where a planned session keeps the

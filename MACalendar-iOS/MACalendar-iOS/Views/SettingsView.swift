@@ -235,14 +235,20 @@ struct SettingsView: View {
                         .padding(.top, 4)
                     }
 
-                    // MARK: The day panel
+                    // MARK: Notifications
                     //
                     // ONE switch (Gil, 2026-09-11: "it's on or off"). This
                     // replaced a lead-time menu, a per-category lead menu and
                     // a master toggle — three controls deciding when each of
                     // fifty-five banners would interrupt you, for a feature
                     // whose answer turned out to be "once, in the morning".
-                    CollapsibleSection("Today's panel", systemImage: "bell.badge", key: "panel") {
+                    // "Notifications" is what the Mac's settings dialog calls
+                    // the same section (`settings_dialog.py`), and Gil went
+                    // looking for that word and could not find it here
+                    // (2026-09-18). The `key:` stays "panel" on purpose — it
+                    // stores whether the section is folded, and renaming it
+                    // would spring open every screen that had it closed.
+                    CollapsibleSection("Notifications", systemImage: "bell.badge", key: "panel") {
                         VStack(alignment: .leading, spacing: 12) {
                             Toggle(isOn: $settings.remindersEnabled) {
                                 VStack(alignment: .leading, spacing: 2) {
@@ -273,7 +279,14 @@ struct SettingsView: View {
                             } label: {
                                 Label("Show today's agenda now", systemImage: "list.bullet.rectangle")
                             }
-                            Text("Pops a notification with today's full schedule, on demand — separate from the reminders below, which fire on their own before each event.")
+                            // Accuracy matters more than brevity here: this
+                            // summary and the morning one are built by
+                            // DIFFERENT machines from different data, and the
+                            // caption used to point at "the reminders below,
+                            // which fire on their own before each event" —
+                            // a section that stopped existing when the day
+                            // panel replaced per-event banners.
+                            Text("Sends today's events to your notifications now. This one is built on your phone, so it works with the Mac asleep; the morning summary is the Mac's, and adds your tasks.")
                                 .font(.caption).foregroundColor(.secondary)
 
                             Divider()
@@ -580,7 +593,7 @@ struct SettingsView: View {
 ///
 /// Gil, 2026-09-17: *"perhaps add a minimize on each section starting to be a
 /// lot of things there"* — seven sections had grown past what one screen can
-/// hold, and the two anyone actually visits (Server, Today's panel) sit above
+/// hold, and the two anyone actually visits (Server, Notifications) sit above
 /// and below things nobody touches twice.
 ///
 /// It wraps `GroupBox` rather than replacing it, so every section keeps exactly

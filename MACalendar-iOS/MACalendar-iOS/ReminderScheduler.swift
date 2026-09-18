@@ -51,7 +51,7 @@ final class ReminderScheduler {
 
     private init() {}
 
-    /// Device-local master switch (Settings › Today's panel). Read straight
+    /// Device-local master switch (Settings › Notifications). Read straight
     /// from UserDefaults so the scheduler needs no AppSettings instance.
     ///
     /// The key is the old `remindersEnabled` on purpose: it is the same

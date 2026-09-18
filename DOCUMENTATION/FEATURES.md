@@ -652,7 +652,7 @@ no further wiring.
 until you open it again (Gil, 2026-09-17: *"perhaps add a minimize on each
 section starting to be a lot of things there"*). Six sections on the Mac and
 seven on the phone had grown past one screenful, so the ones nobody visits twice
-were pushing Server and Today's panel off the screen.
+were pushing Server and Notifications off the screen.
 **Where:** Mac `calendar_ui/settings_dialog.py` — the existing `section()`
 helper now returns a folding box, so all six got it in one change and a seventh
 would too. iOS `Views/SettingsView.swift` — `CollapsibleSection`, which WRAPS
@@ -710,7 +710,7 @@ late is still about something that has not happened, but a summary of the day
 arriving at 4pm is the noise this replaced.
 
 **On the phone** (2026-09-17): `ReminderScheduler` lodges ONE notification per
-day, straight from the Mac's finished wording, and Settings › Today's panel is
+day, straight from the Mac's finished wording, and Settings › Notifications is
 the one switch — shared with the Mac, so turning it off here stops its banner
 too. Offline the switch goes to the write queue like any other change, and the
 Mac's value is adopted on load only while nothing of this phone's is still
