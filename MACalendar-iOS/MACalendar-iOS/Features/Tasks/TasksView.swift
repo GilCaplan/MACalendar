@@ -41,12 +41,26 @@ struct TasksView: View {
         return false
     }
 
+    /// Which list is on screen. The TAG filter applies INSIDE this, so
+    /// "Groceries" while General is selected means general groceries rather than
+    /// every grocery task on both lists (Gil, 2026-09-18).
+    private func inScope(_ todo: Todo) -> Bool {
+        switch settings.taskListScope {
+        case "today":   return todo.list == "today"
+        case "general": return todo.list == "general"
+        default:        return true
+        }
+    }
+
     private var visibleTodos: [Todo] {
         let v = settings.hideCompletedTasks ? todos.filter { !$0.isDone } : todos
-        return v.filter(matchesFilter)
+        return v.filter { inScope($0) && matchesFilter($0) }
     }
     private var todayTasks: [Todo]   { visibleTodos.filter { $0.list == "today" } }
     private var generalTasks: [Todo] { visibleTodos.filter { $0.list == "general" } }
+
+    private var showsToday: Bool   { settings.taskListScope != "general" }
+    private var showsGeneral: Bool { settings.taskListScope != "today" }
 
     private var hasCompleted: Bool {
         todos.contains { $0.isDone }
@@ -60,7 +74,11 @@ struct TasksView: View {
     }
 
     private func count(for tagName: String) -> Int {
-        let base = settings.hideCompletedTasks ? todos.filter { !$0.isDone } : todos
+        // Counted INSIDE the current scope. Without this a chip reads "7" while
+        // the list under it shows two, because the other five are on the list
+        // you are not looking at.
+        let all = settings.hideCompletedTasks ? todos.filter { !$0.isDone } : todos
+        let base = all.filter(inScope)
         if tagName == Self.untaggedKey { return base.filter { $0.tags.isEmpty }.count }
         return base.filter { $0.hasTag(tagName) }.count
     }
@@ -71,6 +89,7 @@ struct TasksView: View {
         NavigationView {
             VStack(spacing: 0) {
                 filterBar
+                scopeBar
                     .padding(.vertical, 8)
                     .background(Color(.systemGroupedBackground))
 
@@ -110,6 +129,7 @@ struct TasksView: View {
                         }
                     }
 
+                    if showsToday {
                     Section(header: sectionHeader("Today", count: todayTasks.count)) {
                         if todayTasks.isEmpty {
                             Text(isFiltering ? "Nothing tagged here for today" : "No tasks for today")
@@ -125,7 +145,9 @@ struct TasksView: View {
                     .onDrop(of: ["public.text"], isTargeted: nil) { providers in
                         handleDrop(providers: providers, toList: "today")
                     }
+                    }
 
+                    if showsGeneral {
                     Section(header: sectionHeader("General", count: generalTasks.count)) {
                         if generalTasks.isEmpty {
                             Text(isFiltering ? "Nothing tagged here" : "No general tasks")
@@ -140,6 +162,7 @@ struct TasksView: View {
                     }
                     .onDrop(of: ["public.text"], isTargeted: nil) { providers in
                         handleDrop(providers: providers, toList: "general")
+                    }
                     }
                 }
                 .environment(\.editMode, $editMode)
@@ -310,6 +333,32 @@ struct TasksView: View {
                 .accessibilityLabel("Manage tags")
             }
             .padding(.horizontal, 16)
+        }
+    }
+
+    /// Both / Today / General — which list the tag filter above applies to.
+    ///
+    /// A segmented control rather than more chips on purpose: the tag row is a
+    /// MULTI-select of things that combine, and this is a single choice between
+    /// three that exclude each other. Making them look alike would say they
+    /// behave alike.
+    private var scopeBar: some View {
+        Picker("Which list", selection: $settings.taskListScope) {
+            Text("Both").tag("both")
+            Text("Today").tag("today")
+            Text("General").tag("general")
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+        .accessibilityIdentifier("task-scope-picker")
+        .accessibilityHint("Chooses which list the tag filters apply to")
+        .onChange(of: settings.taskListScope) { scope in
+            // Point the add row at the list you are looking at, or typing a
+            // task while scoped to General files it under Today and it
+            // disappears as you add it. Same instinct as `effectiveAutoTags`,
+            // which makes a new task inherit the tag you are filtering by.
+            if scope == "today" || scope == "general" { newTaskList = scope }
         }
     }
 

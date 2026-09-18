@@ -21,7 +21,7 @@ purely backend (no client code beyond displaying the effects).
 | UI | [Design system & theming](#design-system--theming) | light/dark, live accent, fonts, toasts | `styles.py`, `Theme.swift` |
 | UI | [Direct editing & undo](#direct-manipulation-editing--undo) | drag-reschedule/resize, dbl-click create, ⌘Z | views, `window.py` |
 | UI | [Morning briefing](#morning-briefing) | Brief Me: today summarised + spoken | `day_view.py` |
-| UI | [Tasks power features](#tasks-power-features) | rich notes, sorts, reorder, cal→tasks sync | `todo_view.py` |
+| UI | [Tasks power features](#tasks-power-features) | rich notes, sorts, reorder, cal→tasks sync, Both/Today/General scope | `todo_view.py`, `TasksView.swift` |
 | UI | [Search & jump-to-date](#search--jump-to-date) | toolbar search over events/tasks; type a date to jump | `window.py`, `SearchView.swift` |
 | UI | [Small conveniences](#small-conveniences) | duplicate event, week numbers, Timer CSV export | `event_dialog.py`, `month_view.py`, `timer_view.py` |
 | UI | ["How to Talk to Me" tips](#how-to-talk-to-me-tips) | 5 short, verified voice-phrasing tips (Settings → Assistant) | `tips.py`, `tips_dialog.py` |
@@ -651,6 +651,30 @@ they come from, and both add rather than replace.
 Three lists are declared (`extend_verbs`, `title_strip_verbs`,
 `calendar_words`); declaring a fourth is one line in `LEXICONS` and both the API
 and the two screens pick it up with no further wiring.
+
+### Tasks list scope — Both / Today / General
+
+**What:** a segmented control under the tag filters on the iPhone's Tasks tab
+(Gil, 2026-09-18). The TAG filter then applies only inside the chosen list, so
+"Groceries" with **General** selected means general groceries rather than every
+grocery task on both lists.
+
+**Where:** `Features/Tasks/TasksView.swift` — `scopeBar`, `inScope(_:)`,
+`showsToday`/`showsGeneral`; persisted as `AppSettings.taskListScope`
+("both" | "today" | "general").
+
+**Three details it needs to be right:**
+
+- **The chip counts are scoped too.** Otherwise a tag chip reads "7" while the
+  list under it shows two, because the other five are on the list you are not
+  looking at.
+- **The add row follows the scope.** Typing a task while scoped to General used
+  to file it under Today, where it vanished as you added it — the same instinct
+  as `effectiveAutoTags`, which makes a new task inherit the tag you are
+  filtering by.
+- **A segmented control, not more chips.** The tag row is a MULTI-select of
+  things that combine; this is a single choice between three that exclude each
+  other. Making them look alike would say they behave alike.
 
 ### Foldable settings sections
 

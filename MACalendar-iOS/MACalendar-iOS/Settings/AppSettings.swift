@@ -174,6 +174,14 @@ class AppSettings: ObservableObject {
     /// Switching it ON also CLEARS a dismissal — see
     /// `LiveActivityManager.setEnabled` — so the toggle is how you get the card
     /// back today rather than waiting for tomorrow morning.
+    /// Which list the Tasks tab is showing: "both" | "today" | "general".
+    /// The TAG filter then applies only within that scope (Gil, 2026-09-18), so
+    /// "Groceries" while General is selected means "general groceries" rather
+    /// than every grocery task on both lists.
+    @Published var taskListScope: String {
+        didSet { UserDefaults.standard.set(taskListScope, forKey: "taskListScope") }
+    }
+
     @Published var agendaCardEnabled: Bool {
         didSet {
             UserDefaults.standard.set(agendaCardEnabled, forKey: "agendaCardEnabled")
@@ -195,6 +203,7 @@ class AppSettings: ObservableObject {
         self.vocabOnboardingDone = UserDefaults.standard.bool(forKey: "vocabOnboardingDone")
         self.remindersEnabled = UserDefaults.standard.object(forKey: "remindersEnabled") == nil
             ? true : UserDefaults.standard.bool(forKey: "remindersEnabled")
+        self.taskListScope = UserDefaults.standard.string(forKey: "taskListScope") ?? "both"
         self.agendaCardEnabled = UserDefaults.standard.object(forKey: "agendaCardEnabled") == nil
             ? true : UserDefaults.standard.bool(forKey: "agendaCardEnabled")
         self.showThinking = UserDefaults.standard.object(forKey: "showThinking") == nil
