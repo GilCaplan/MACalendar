@@ -1,0 +1,119 @@
+### waiting for the sealed sweep to finish ###
+Fri Sep 11 18:09:11 EDT 2026
+Sat Sep 12 06:21:23 EDT 2026
+[2026-09-12T06:21:23] 5/5 done · decompose-validate-v1:300✓ · fast-lane-pre-integration:300✓ · fastrule-v1:300✓ · main:300✓ · pre-engine-v2:300✓
+[2026-09-12T06:21:23] 1/1 done · main:300✓
+
+### PERSONAS BOARD — 300 rows x 5 checkpoints ###
+Sat Sep 12 06:21:23 EDT 2026
+300 row(s) × 5 checkpoint(s), SEQUENTIALLY
+  data fingerprint: 537dcfbc4dbd:300
+  [1/5] pre-engine-v2 …
+  [2/5] fast-lane-pre-integration …
+  [3/5] fastrule-v1 …
+  [4/5] decompose-validate-v1 …
+  [5/5] main …
+
+==============================================================================
+CHECKPOINT SWEEP — same rows, same scorer, same machine, today
+==============================================================================
+same data across all checkpoints: 537dcfbc4dbd:300
+
+pre-engine-v2                300/300 ok · wall 4457.8s
+    assistant from: /Users/USER/Desktop/Personal_Projects/MACalendar-checkpoints/pre-engine-v2/assistant/__init__.py
+    complex    n=150  p50 17584ms  p95 24777ms
+    simple     n=150  p50 13961ms  p95 20841ms
+    parse paths: error=37, hybrid=46, llm=158, rule=59
+    ----------------------------------------------------------------------
+    OVERALL      n=300  raw  54.7 · adj     - · garbage   0.0 · collapse     - · p50 14475.0ms p95 24202ms
+    simple       n=150  raw  51.3 · adj     - · garbage   0.0 · collapse     - · p50 13954.0ms p95 20827ms
+    medium       n=0
+    complex      n=150  raw  58.0 · adj     - · garbage   0.0 · collapse     - · p50 17601.0ms p95 24764ms
+    esl_speaker  n=50   raw  54.0 · adj     - · garbage   0.0 · collapse     - · p50 14304.0ms p95 22041ms
+    freelance_consultant n=50   raw  56.0 · adj     - · garbage   0.0 · collapse     - · p50 16162.5ms p95 22578ms
+    household_parent n=50   raw  60.0 · adj     - · garbage   0.0 · collapse     - · p50 14095.0ms p95 23011ms
+    observant_student n=50   raw  34.0 · adj     - · garbage   0.0 · collapse     - · p50 13921.0ms p95 25148ms
+    retiree      n=50   raw  56.0 · adj     - · garbage   0.0 · collapse     - · p50 15794.5ms p95 25649ms
+    uni_student  n=50   raw  68.0 · adj     - · garbage   0.0 · collapse     - · p50 14041.5ms p95 23517ms
+    persona spread: 34.0 – 68.0 (34.0 pt)
+
+fast-lane-pre-integration    300/300 ok · wall 5035.6s
+    assistant from: /Users/USER/Desktop/Personal_Projects/MACalendar-checkpoints/fast-lane-pre-integration/assistant/__init__.py
+    complex    n=150  p50 17268ms  p95 59266ms
+    simple     n=150  p50 7889ms  p95 44436ms
+    parse paths: deep=249, fast=51
+    ----------------------------------------------------------------------
+    OVERALL      n=300  raw  78.7 · adj     - · garbage   0.0 · collapse     - · p50 15100.0ms p95 53744ms
+    simple       n=150  raw  72.7 · adj     - · garbage   0.0 · collapse     - · p50 7880.0ms p95 44410ms
+    medium       n=0
+    complex      n=150  raw  84.7 · adj     - · garbage   0.0 · collapse     - · p50 17264.5ms p95 59244ms
+    esl_speaker  n=50   raw  78.0 · adj     - · garbage   0.0 · collapse     - · p50 11843.0ms p95 30212ms
+    freelance_consultant n=50   raw  78.0 · adj     - · garbage   0.0 · collapse     - · p50 15868.5ms p95 51572ms
+    household_parent n=50   raw  74.0 · adj     - · garbage   0.0 · collapse     - · p50 16936.5ms p95 30001ms
+    observant_student n=50   raw  76.0 · adj     - · garbage   0.0 · collapse     - · p50 12920.5ms p95 41404ms
+    retiree      n=50   raw  86.0 · adj     - · garbage   0.0 · collapse     - · p50 18443.5ms p95 67270ms
+    uni_student  n=50   raw  80.0 · adj     - · garbage   0.0 · collapse     - · p50 13904.5ms p95 29048ms
+    persona spread: 74.0 – 86.0 (12.0 pt)
+
+fastrule-v1                  300/300 ok · wall 4011.6s
+    assistant from: /Users/USER/Desktop/Personal_Projects/MACalendar-checkpoints/fastrule-v1/assistant/__init__.py
+    complex    n=150  p50 15894ms  p95 31489ms
+    simple     n=150  p50 7335ms  p95 32535ms
+    parse paths: deep=248, fast=52
+    ----------------------------------------------------------------------
+    OVERALL      n=300  raw  83.7 · adj     - · garbage   0.0 · collapse     - · p50 10737.5ms p95 32514ms
+    simple       n=150  raw  87.3 · adj     - · garbage   0.0 · collapse     - · p50 7322.5ms p95 32514ms
+    medium       n=0
+    complex      n=150  raw  80.0 · adj     - · garbage   0.0 · collapse     - · p50 15960.5ms p95 31468ms
+    esl_speaker  n=50   raw  86.0 · adj     - · garbage   0.0 · collapse     - · p50 8074.0ms p95 17969ms
+    freelance_consultant n=50   raw  90.0 · adj     - · garbage   0.0 · collapse     - · p50 9797.0ms p95 20959ms
+    household_parent n=50   raw  78.0 · adj     - · garbage   0.0 · collapse     - · p50 9986.0ms p95 24465ms
+    observant_student n=50   raw  84.0 · adj     - · garbage   0.0 · collapse     - · p50 11115.5ms p95 30550ms
+    retiree      n=50   raw  82.0 · adj     - · garbage   0.0 · collapse     - · p50 17408.0ms p95 63460ms
+    uni_student  n=50   raw  82.0 · adj     - · garbage   0.0 · collapse     - · p50 11038.0ms p95 23659ms
+    persona spread: 78.0 – 90.0 (12.0 pt)
+
+decompose-validate-v1        300/300 ok · wall 2846.1s
+    assistant from: /Users/USER/Desktop/Personal_Projects/MACalendar-checkpoints/decompose-validate-v1/assistant/__init__.py
+    complex    n=150  p50 12710ms  p95 20548ms
+    simple     n=150  p50 6511ms  p95 17561ms
+    parse paths: deep=240, fast=60
+    ----------------------------------------------------------------------
+    OVERALL      n=300  raw  78.0 · adj     - · garbage   0.0 · collapse     - · p50 8469.0ms p95 19572ms
+    simple       n=150  raw  79.3 · adj     - · garbage   0.0 · collapse     - · p50 6538.5ms p95 17543ms
+    medium       n=0
+    complex      n=150  raw  76.7 · adj     - · garbage   0.0 · collapse     - · p50 12699.5ms p95 20531ms
+    esl_speaker  n=50   raw  84.0 · adj     - · garbage   0.0 · collapse     - · p50 8186.0ms p95 17211ms
+    freelance_consultant n=50   raw  88.0 · adj     - · garbage   0.0 · collapse     - · p50 8468.5ms p95 15407ms
+    household_parent n=50   raw  62.0 · adj     - · garbage   0.0 · collapse     - · p50 8448.0ms p95 20000ms
+    observant_student n=50   raw  76.0 · adj     - · garbage   0.0 · collapse     - · p50 7784.0ms p95 15669ms
+    retiree      n=50   raw  78.0 · adj     - · garbage   0.0 · collapse     - · p50 12328.5ms p95 25883ms
+    uni_student  n=50   raw  80.0 · adj     - · garbage   0.0 · collapse     - · p50 9828.5ms p95 15315ms
+    persona spread: 62.0 – 88.0 (26.0 pt)
+
+main                         300/300 ok · wall 2794.0s
+    assistant from: /Users/USER/Desktop/Personal_Projects/MACalendar/assistant/__init__.py
+    complex    n=150  p50 12592ms  p95 19585ms
+    simple     n=150  p50 6652ms  p95 16840ms
+    parse paths: deep=240, fast=60
+    ----------------------------------------------------------------------
+    OVERALL      n=300  raw  81.0 · adj     - · garbage   0.0 · collapse     - · p50 8210.0ms p95 18720ms
+    simple       n=150  raw  80.0 · adj     - · garbage   0.0 · collapse     - · p50 6699.0ms p95 16822ms
+    medium       n=0
+    complex      n=150  raw  82.0 · adj     - · garbage   0.0 · collapse     - · p50 12583.5ms p95 19568ms
+    esl_speaker  n=50   raw  86.0 · adj     - · garbage   0.0 · collapse     - · p50 7727.0ms p95 14968ms
+    freelance_consultant n=50   raw  92.0 · adj     - · garbage   0.0 · collapse     - · p50 7926.0ms p95 15409ms
+    household_parent n=50   raw  66.0 · adj     - · garbage   0.0 · collapse     - · p50 9081.0ms p95 19028ms
+    observant_student n=50   raw  82.0 · adj     - · garbage   0.0 · collapse     - · p50 8074.0ms p95 14891ms
+    retiree      n=50   raw  86.0 · adj     - · garbage   0.0 · collapse     - · p50 12601.5ms p95 25265ms
+    uni_student  n=50   raw  74.0 · adj     - · garbage   0.0 · collapse     - · p50 8166.5ms p95 15585ms
+    persona spread: 66.0 – 92.0 (26.0 pt)
+
+wrote /Users/USER/Desktop/Personal_Projects/MACalendar/DOCUMENTATION/experiments/checkpoints/sweep-20260912T1140.json
+sandboxes kept at /Users/USER/Desktop/Personal_Projects/MACalendar-checkpoints/_sweepwork/personas
+sandbox clean — 4 real store(s) unchanged
+### personas exit: 0 ###
+Sat Sep 12 11:40:29 EDT 2026
+[2026-09-12T11:40:29] 5/5 done · decompose-validate-v1:300✓ · fast-lane-pre-integration:300✓ · fastrule-v1:300✓ · main:300✓ · pre-engine-v2:300✓
+### EXPERIMENT COMPLETE ###
+Sat Sep 12 11:40:29 EDT 2026

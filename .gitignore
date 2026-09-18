@@ -84,3 +84,11 @@ Jude.app/
 # .env.example is committed and explains each one; .env is yours.
 .env
 MACalendar-iOS/Local.xcconfig
+
+# The launcher apps are BUILD ARTEFACTS, rebuilt by scripts/build_apps.sh from
+# the AppleScript in it, so the thing that runs can be diffed and reviewed like
+# anything else. The generated icons are ignored for the same reason — their
+# make_*_icon.py is the source.
+MACalendar APPs/
+assistant/calendar_ui/assets/server_icon.icns
+assistant/calendar_ui/assets/server_icon.png
