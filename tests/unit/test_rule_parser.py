@@ -647,3 +647,88 @@ class TestBareOrdinalDate:
         rp._ensure_nlp(); rp._ensure_dt()
         temporal = rp._extract_temporal("call Sage the 99th", datetime.date.today())
         assert temporal["date"] is None
+
+
+# ---------------------------------------------------------------------------
+# A SERIES THAT STOPS — "every monday until the end of the month"
+#
+# `db.create_event` has honoured `recur_until` since it was written, and NOTHING
+# in this parser ever set it, so every bounded series became an UNBOUNDED one:
+# 81 rows of the FastRule 7,200 train half created a series that fires forever
+# where the speaker named an end. A wrong answer that repeats.
+#
+# The bound also has to come OFF the text before the item's own date is read.
+# `_fill_slots` already anchors "every monday" on the soonest Monday, correctly —
+# and then the bound's date overwrote it, so "every monday until the end of the
+# month" started on a WEDNESDAY. That regression arrived with the 2026-09-17
+# daterange work and is what this class pins shut.
+#
+# Gil's standing ruling governs the arithmetic: "until" EXCLUDES the day it
+# names, "through" and "including" KEEP it, and "until the end of <period>" is
+# inclusive because it names the final day rather than a boundary past it.
+# ---------------------------------------------------------------------------
+
+class TestSeriesBound:
+
+    WED = datetime.date(2026, 9, 9)          # a Wednesday, the boards' clock
+
+    def _temporal(self, text):
+        from assistant.intent import rule_parser as rp
+        rp._ensure_nlp(); rp._ensure_dt()
+        return rp._extract_temporal(text, self.WED)
+
+    # --- the ruling, case by case ---
+
+    def test_until_excludes_the_day_it_names(self):
+        assert self._temporal("every week until today")["recur_until"] == "2026-09-08"
+
+    def test_through_keeps_the_day_it_names(self):
+        assert self._temporal("daily through next tuesday")["recur_until"] == "2026-09-15"
+
+    def test_including_keeps_the_day_it_names(self):
+        assert self._temporal("every weekend, including next friday")["recur_until"] == "2026-09-18"
+
+    def test_until_the_end_of_a_period_is_inclusive(self):
+        """The documented exception: "the end of the month" names the last day,
+        so it survives even under "until"."""
+        assert self._temporal("every monday until the end of the month")["recur_until"] == "2026-09-30"
+
+    def test_until_a_period_stops_before_it_begins(self):
+        """"until next month" is the other reading of the same range — the month
+        is the STOP, so the series ends the day before it starts."""
+        assert self._temporal("twice a week until next month")["recur_until"] == "2026-09-30"
+
+    # --- what the bound must NOT do ---
+
+    def test_the_bound_is_not_the_series_start_date(self):
+        """The regression this closes: the bound's date became the item's own."""
+        t = self._temporal("every monday at ten thirty until the end of the month")
+        assert t["date"] is None, \
+            f"the bound leaked into the item's own date: {t['date']}"
+
+    def test_a_time_after_the_bound_still_survives(self):
+        """The recogniser returns "next tuesday at 5 pm" as ONE datetime, so
+        masking the whole match lost the event's time."""
+        t = self._temporal("book project sync daily through next tuesday at 5 pm")
+        assert t["recur_until"] == "2026-09-15"
+        assert t["start_time"] == "17:00", "the event's own time was eaten"
+
+    def test_through_as_a_preposition_of_place_is_not_a_bound(self):
+        """"a tour through the museum" has no date after the keyword, which is
+        the guard — no date, no bound."""
+        assert self._temporal("book a tour through the museum")["recur_until"] is None
+
+    def test_no_bound_keyword_means_no_bound(self):
+        assert self._temporal("book gym every monday at 7am")["recur_until"] is None
+
+    # --- and it reaches the intent, which is the point ---
+
+    def test_the_bound_reaches_the_event_intent(self, parser):
+        res = parser.analyze("book open house every monday at 10am until the end of the month")
+        assert res.intents, "the row must still parse"
+        name, intent = res.intents[0]
+        assert name == "create_event"
+        assert intent.recurrence == "weekly"
+        assert intent.recur_until, "db.create_event bounds the series from this field"
+        # The series starts on a MONDAY, not on the bound's day.
+        assert datetime.date.fromisoformat(intent.date).weekday() == 0

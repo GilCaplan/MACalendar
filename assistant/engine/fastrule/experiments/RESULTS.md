@@ -893,3 +893,119 @@ Predicted: handle-rate +0.5 to +1.0 pt on the 3,200 atomic rows, with
 `recurrence`/`end_inclusive` correctness as the real target and
 DESTRUCTIVE errors flat. Smaller than the last two, and the honest reason to
 do it is that a series firing past its end date is a wrong answer that repeats.
+
+---
+
+## Cycle 22 — a series that STOPS (2026-09-18)
+
+**Registered prediction (cycle 21):** the recurrence-boundary rows, +0.5 to
++1.0 pt handle-rate, recurrence/`end_inclusive` correctness the real target,
+DESTRUCTIVE flat. **Two of those three were wrong, and the reasons are the
+finding.**
+
+### What the slice actually is
+
+Cycle 21 called this "the 50 boundary rows". Re-counted properly: `date_phrase_2`
+is carried by **490** train rows, but on most of them it is the SECOND ITEM'S
+DATE in a compound ("book moving day this morning and also put conference call
+on…"), not a bound. The only marker of an actual bound is **`end_inclusive`**,
+which 138 train rows carry. 50 was the intersection of "is a bound" and "had an
+unread daterange" — a subset, not the family.
+
+### The defect was bigger than a field in the wrong place
+
+`db.create_event` has honoured `recur_until` since it was written. **Nothing in
+`rule_parser.py` ever set it** — grep confirms `end_inclusive` has zero hits
+anywhere in `assistant/`. So every bounded series was created UNBOUNDED:
+
+    of the 114 bounded rows FastRule committed, recur_until was set on   0
+    committed as a series with NO END, firing forever                   81
+
+That is the "wrong answer that repeats" class, and it was invisible because **no
+board had a line for it.**
+
+**And cycle 21 had made this family worse.** Its `daterange` reader put the BOUND
+into the item's own date, overwriting the correct anchor `_fill_slots` already
+computes (`_rec.start_date()` — "every monday starts on the soonest Monday"):
+
+    "every monday ... until the end of the month"  ->  date 2026-09-16, a WEDNESDAY
+    "twice a week until next month"               ->  date 2026-10-01, the bound itself
+    "every week until today"                      ->  date 2026-09-09, the bound
+
+Cycle 21's board could not see that either: its date metric excludes range
+phrases, and these rows have no own-date in the gold to check against.
+
+### The fix
+
+The bound comes OFF the text before anything reads the item's own date (masked
+with spaces, so every later character offset stays valid for span-blocking and
+title extraction), and is resolved into `recur_until` under Gil's standing
+ruling. The two readings of a range genuinely differ, which is most of the work:
+
+    "until next month"           the month is the STOP  -> day before it starts
+    "until the end of the month" names the final day    -> the last day of it
+    "through next week"          runs to the END of it
+    "including next friday"      that day is kept
+
+So an exclusive bound counts back from the range's START and an inclusive one
+from its END, and the recogniser's range ends are exclusive — hence a further day
+off. A trailing clock time is kept out of the mask: the recogniser returns "next
+tuesday at 5 pm" as ONE datetime, and masking the whole match ate the event's own
+time.
+
+### Result — FastRule product-shape board, TRAIN half
+
+**A NEW SECTION was added to the board** (`BOUNDED SERIES`), because the old one
+could not see any of this. Both columns below are that board; the "before" run is
+the same scorer against the unmodified parser, not a reconstruction.
+
+| metric | before | after | |
+|---|---|---|---|
+| **bounded rows: carried an end** | **0.0%** | **75.8%** | of the committed |
+| **...and it was the right day** | — (n=0) | **88.1%** (n=42) | |
+| **FIRES FOREVER** | **81** | **5** | a series committed with no end |
+| bounded rows committed | 114 | 99 | |
+| handled (atomic, 3,200 rows) | 72.9% | **72.4%** | **−0.5 pt** |
+| correct-on-handled | 94.1% | 94.1% | flat |
+| resolvable date right | 93.5% (n=650) | 93.5% (n=650) | flat |
+| harm score | 170 / 138 wrong | **168 / 136** | −2 |
+| DESTRUCTIVE errors | 12·11·4·1 | 12·11·4·1 | flat |
+| half-executed | 72 | 72 | flat |
+
+**What it means.** 76 of the 81 series that would have fired forever now stop
+where the speaker said, and 88.1% of the ones that can be scored stop on exactly
+the right day. The cost is 15 rows that used to commit and now defer: they had
+been committing with the BOUND as their start date, so they were wrong before and
+are merely late now — and 2 of them were wrong commits the harm score has stopped
+paying for.
+
+**Actual vs expected:** handle-rate went the wrong way (−0.5 pt against a
+predicted +0.5 to +1.0). The prediction assumed the bound was an unused field to
+fill; it was a field that had been silently stealing the start date, so fixing it
+REMOVES a date some rows were leaning on. Predicting a gain there was the error,
+not the fix.
+
+### Why 15 rows now defer, and the next cycle
+
+All 15 lose their date because `recurrence.detect()` returns None for their
+cadence — "every other tuesday", "every weekend", "twice a week" — so
+`_rec.start_date()` never runs and nothing supplies an anchor. With the bound no
+longer available to stand in wrongly, the row has no date at all.
+
+**Next prediction, registered now: `assistant/intent/recurrence.py`'s cadence
+reader.** Target: the cadences it misses on the 138 bounded rows and wherever else
+they appear. Predicted **handle-rate +0.5 pt or better** (recovering the 15 and
+any row that defers for the same reason), `FIRES FOREVER` → 0 or near it, and
+`recurrence_rounded` correctness as the guard — CLAUDE.md is explicit that
+rounding a cadence is allowed only if it is ANNOUNCED, and "every other tuesday"
+rounded to weekly fires twice as often as asked. Same instrument, same slice.
+
+### One process note, because it cost an hour
+
+The diagnostic harness hung, repeatedly, and the cause was a scratch file named
+`attr.py`. `rich` (imported by `httpx`, imported by `weasel`, imported by spaCy)
+does `import attr` — Python found the scratch file first, executed it, and it
+re-entered the spaCy load it was itself waiting on. The board and pytest were
+unaffected because they run from the repo root. **Never name a scratch file after
+an importable module**; `faulthandler.dump_traceback_later` is what found it,
+after three wrong guesses (lock contention, memory pressure, BLAS threads).

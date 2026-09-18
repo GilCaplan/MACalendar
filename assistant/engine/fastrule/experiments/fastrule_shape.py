@@ -201,6 +201,12 @@ def main() -> int:
     T_OK = T_N = 0                        # explicit times: right / scored
     INVENT = INVENT_N = 0                 # a time produced where none was said
     D_OK = D_N = 0                        # resolvable dates: right / scored
+    # BOUNDED SERIES. The gold marks these with `end_inclusive`, and nothing here
+    # scored them until 2026-09-18 — so a series created with NO END, firing
+    # forever where the speaker named a stop, was invisible on every board this
+    # file has ever printed. It cost a cycle: the fix read as a pure handle-rate
+    # LOSS because the only thing it improved had no line.
+    B_N = B_HELD = B_WITH = B_RIGHT = B_RIGHT_N = B_FOREVER = 0
     HARM = 0
     TITLE_N = TITLE_BAD = NOW_N = NOW_MIDNIGHT = 0                              # severity-weighted cost of wrong commits
     HARM_BY: collections.Counter = collections.Counter()
@@ -214,6 +220,32 @@ def main() -> int:
             act = e.get("action", "")
             res = fr.run(r["text"])
             committed = bool(res and res.committed)
+
+            # --- BOUNDED SERIES: did the end survive into the intent?
+            _b_incl = e.get("slots", {}).get("end_inclusive")
+            if _b_incl is not None:
+                B_N += 1
+                if not committed:
+                    B_HELD += 1
+                else:
+                    _bi = next((i for n, i in res.intents if n.startswith("create")), None)
+                    _until = getattr(_bi, "recur_until", None) if _bi else None
+                    _rec = getattr(_bi, "recurrence", None) if _bi else None
+                    if _until:
+                        B_WITH += 1
+                        # Scored only where the gold phrase resolves to ONE day:
+                        # a range bound ("through next week") has the same "no
+                        # single right answer" problem dates do.
+                        _want = _phrase_to_date(e["slots"].get("date_phrase_2") or "",
+                                                _CLOCK.date())
+                        if _want:
+                            if not _b_incl:
+                                _want = (_dt.date.fromisoformat(_want)
+                                         - _dt.timedelta(days=1)).isoformat()
+                            B_RIGHT_N += 1
+                            B_RIGHT += 1 if str(_until) == _want else 0
+                    elif _rec:
+                        B_FOREVER += 1      # a series with no end. The defect.
             if act == "propose":
                 if committed:
                     P_COMMIT += 1
@@ -345,6 +377,14 @@ def main() -> int:
         print(f"\nDATE CORRECTNESS (on committed creates)")
         print(f"   resolvable date right    {pc(D_OK, D_N)}  (n={D_N}; "
               f"range phrases like 'next week' excluded, no single right answer)")
+    if B_N:
+        print(f"\nBOUNDED SERIES (the gold names an end: \"every monday until "
+              f"the end of the month\")")
+        print(f"   rows                     {B_N}   ({B_HELD} deferred, {B_N - B_HELD} committed)")
+        print(f"   carried an end           {pc(B_WITH, B_N - B_HELD)}  (of the committed)")
+        print(f"   ...and it was the right day {pc(B_RIGHT, B_RIGHT_N)}  (n={B_RIGHT_N}; "
+              f"range phrases excluded, same reason as dates)")
+        print(f"   FIRES FOREVER            {B_FOREVER}  <- a series committed with no end")
     if TITLE_N:
         print(f"\nTITLE QUALITY (on committed creates)")
         print(f"   titles that name nothing  {pc(TITLE_BAD, TITLE_N)}  "

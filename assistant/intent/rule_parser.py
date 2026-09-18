@@ -863,7 +863,112 @@ def _duration_ahead_to_date(n: int, unit: str, today: datetime.date) -> "str | N
     return datetime.date(year, month, 1).isoformat()
 
 
-def _extract_temporal(span_text: str, today: datetime.date) -> dict:
+#: The keyword that opens a SERIES BOUND — "every monday until the end of the
+#: month". Both spellings of thru are listed although `_preprocess` normalises
+#: one to the other: `_extract_temporal` is also called directly, on raw text.
+_SERIES_BOUND_KW = re.compile(
+    r"\b(up\s+until|up\s+to|until|till|til|through|thru|including)\b", re.IGNORECASE)
+
+#: Which side of the named day the series stops. Gil's standing ruling:
+#: *"until" excludes the day it names; "through" and "including" keep it* — with
+#: the documented exception that "until the END OF <period>" is INCLUSIVE, because
+#: that phrase names the final day rather than a boundary past it.
+_BOUND_INCLUSIVE_KW = re.compile(r"\b(through|thru|including)\b", re.IGNORECASE)
+_BOUND_END_OF = re.compile(r"\bend\s+of\b", re.IGNORECASE)
+
+
+#: A clock time sitting at the END of the bound's own match. The recogniser
+#: returns "next tuesday at 5 pm" as ONE datetime, but in "daily through next
+#: tuesday at 5 pm" the 5 pm is the EVENT's time — masking the whole match lost
+#: it and the row committed with no time at all.
+_BOUND_TRAILING_TIME = re.compile(
+    r"\s*(?:\bat\s+)?(?:\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?"
+    r"|noon|midday|midnight|quarter\s+(?:to|past)\s+\w+|half\s+past\s+\w+)\s*$",
+    re.IGNORECASE)
+
+
+def _bound_date(tail: str, today: datetime.date, inclusive: bool) -> "tuple[str, int] | None":
+    """Resolve a bound phrase. -> (ISO date, chars of `tail` it occupies).
+
+    Which END of a range is meant depends on the speaker's word, and the two
+    readings genuinely differ:
+
+        "until next month"          the month is the STOP -> the day before it starts
+        "until the end of the month"  names the final day  -> the last day of it
+        "through next week"         runs to the END of next week
+
+    So an exclusive bound counts back from the range's START and an inclusive one
+    from its END — and the recogniser's range ends are exclusive, hence the extra
+    day off. A plain date needs no arithmetic beyond the exclusive step.
+    """
+    if _DT_AVAILABLE:
+        _ensure_dt()
+    if _DT_AVAILABLE and _DT_MODEL is not None:
+        ref = datetime.datetime.combine(today, datetime.time())
+        try:
+            found = _DT_MODEL.parse(tail, ref)
+        except Exception:
+            found = []
+        for res in found:
+            for wren in (getattr(res, "resolution", None) or {}).get("values", []):
+                kind = wren.get("type", "")
+                iso = None
+                if kind in ("date", "datetime"):
+                    raw = (wren.get("value") or "").split(" ")[0]
+                    if raw and raw != "not":
+                        iso = raw
+                    if iso and not inclusive:
+                        iso = (datetime.date.fromisoformat(iso)
+                               - datetime.timedelta(days=1)).isoformat()
+                elif kind == "daterange":
+                    edge = wren.get("end") if inclusive else wren.get("start")
+                    if edge:
+                        try:
+                            iso = (datetime.date.fromisoformat(str(edge)[:10])
+                                   - datetime.timedelta(days=1)).isoformat()
+                        except ValueError:
+                            iso = None
+                if not iso:
+                    continue
+                # Keep a trailing clock time out of the masked span.
+                text = tail[res.start:res.end + 1]
+                trimmed = _BOUND_TRAILING_TIME.sub("", text)
+                return iso, res.start + max(len(trimmed), 1)
+
+    # No recogniser answer: this file's own readers still know "the 3rd".
+    m = _BARE_ORDINAL_DATE.search(tail)
+    if m:
+        iso = _ordinal_to_date(int(m.group(1)), today)
+        if iso:
+            if not inclusive:
+                iso = (datetime.date.fromisoformat(iso)
+                       - datetime.timedelta(days=1)).isoformat()
+            return iso, m.end()
+    return None
+
+
+def _series_bound(span_text: str, today: datetime.date) -> "tuple[str, int, int] | None":
+    """Find and resolve a series bound. -> (ISO date, start, end) over `span_text`.
+
+    None when there is no bound keyword, or when nothing after it resolves to a
+    date — which is the guard that stops "a tour through the museum" being read
+    as a boundary.
+    """
+    m = _SERIES_BOUND_KW.search(span_text)
+    if not m:
+        return None
+    phrase = span_text[m.start():]
+    inclusive = (bool(_BOUND_INCLUSIVE_KW.search(m.group(1)))
+                 or bool(_BOUND_END_OF.search(phrase)))
+    got = _bound_date(span_text[m.end():], today, inclusive)
+    if not got:
+        return None
+    iso, consumed = got
+    return iso, m.start(), m.end() + consumed
+
+
+def _extract_temporal(span_text: str, today: datetime.date,
+                      _bound_pass: bool = False) -> dict:
     """Extract date/time information from a span of text.
 
     Returns a dict with keys:
@@ -878,6 +983,10 @@ def _extract_temporal(span_text: str, today: datetime.date) -> dict:
         "_source": "recognizer",
         "_used_anaphora": False,
         "_domain_inferred": False,
+        #: Where a recurring series STOPS, as an ISO date, already adjusted for
+        #: whether the speaker's word includes the day it names. None unless the
+        #: text carries a bound.
+        "recur_until": None,
         #: The phrase a RANGE date came from ("next week"), when the date below
         #: is one day CHOSEN out of a span rather than one the speaker named.
         #: The caller asks the speaker to confirm it instead of committing —
@@ -885,6 +994,23 @@ def _extract_temporal(span_text: str, today: datetime.date) -> dict:
         "_date_from_range": None,
     }
     range_candidates: list = []
+
+    # THE SERIES BOUND COMES OFF FIRST, or it is read as the item's own date.
+    # `_rec.start_date()` in `_fill_slots` already anchors "every monday" on the
+    # soonest Monday, correctly — and then `temporal["date"]` overwrote it with
+    # whatever the bound resolved to, so "every monday until the end of the
+    # month" started on a WEDNESDAY and "twice a week until next month" started a
+    # month late. Masking with spaces keeps every later character offset valid,
+    # which `result["spans"]` and the title extraction both depend on.
+    if not _bound_pass:
+        bound = _series_bound(span_text, today)
+        if bound:
+            iso, b_start, b_end = bound
+            result["recur_until"] = iso
+            result["spans"].append((b_start, b_end))
+            span_text = (span_text[:b_start]
+                         + " " * (b_end - b_start)
+                         + span_text[b_end:])
 
     if _DT_AVAILABLE:
         _ensure_dt()
@@ -1586,6 +1712,14 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
                 slots["recurrence_rounded_from"] = _rec.rounded_from
             if not temporal.get("date"):
                 slots["date"] = _rec.start_date(datetime.date.today()).isoformat()
+            # Where the series STOPS. `db.create_event` has honoured
+            # `recur_until` since it was written and NOTHING in this parser ever
+            # set it, so "every monday until the end of the month" became an
+            # UNBOUNDED weekly series — 81 rows of the FastRule train half
+            # created a series that fires forever where the speaker named an end.
+            # Only on a recurrence: a bound with nothing to bound is meaningless.
+            if temporal.get("recur_until"):
+                slots["recur_until"] = temporal["recur_until"]
         if temporal.get("date"):
             slots["date"] = temporal["date"]
         if temporal.get("start_time"):
