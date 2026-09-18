@@ -336,8 +336,30 @@ def _scope_trailing_date(dicts: list, said: str, anchor) -> list:
     for d in dicts[:-1]:
         if d.get("date") != spoke or d.get("time") != owner.get("time"):
             continue                   # not a copy of the owner's reference
-        if marked and d.get("kind") == "task":
-            continue                   # the one case that DOES scope over
+        # Q16 AMENDED (Gil, 2026-09-18). The original ruling said "events never
+        # share at all: an event's date belongs to that event", and the word
+        # never was too strong — it was written against DEADLINES and it caught
+        # plain shared DAYS as well. Measured:
+        #
+        #   "book the dentist at 3pm and the gym at 5pm friday"
+        #       -> the dentist landed on TODAY
+        #
+        # Both events obviously happen on Friday. Asked directly, Gil: "should
+        # they both be on Friday? The answer is obviously yes."
+        #
+        # So the rule now turns on WHAT IS SHARED, not only on the kind:
+        #
+        #   marked   ("by friday")  a DEADLINE  -> scopes over TASKS, never
+        #                           onto an event, whose date is when it
+        #                           HAPPENS and not when it is due
+        #   unmarked ("friday")     a plain DAY -> scopes over EVENTS, which
+        #                           happen on it; withdrawn from a TASK, which
+        #                           is the bare-trailing case Q16 ruled on
+        if marked:
+            if d.get("kind") == "task":
+                continue               # a deadline scopes over tasks
+        elif d.get("kind") == "event":
+            continue                   # a bare day is when both events happen
         why = ("an event takes a date, not a deadline"
                if marked else f"{when!r} was said once, with no deadline marker")
         fixes.append(_checks.Fix("trailing_date_scope", "date", spoke, None, why))

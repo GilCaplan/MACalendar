@@ -1269,6 +1269,37 @@ duration; the deep track merely fails more quietly.
 Whoever picks this up: decide where it lives before writing it, since an
 optional intent field is a contract question and the action layer is not.
 
+## A TRAILING day is not distributed; a LEADING one is — NOT FIXED, filed 2026-09-18
+
+`fastseg.assign_times` fills each ask's `time` from a day slot and a clock
+slot. A day at the FRONT fills the day slot for every ask; a day at the END
+fills it only for the ask it sits in, and the earlier asks are floored to
+today. Measured through the real pipeline:
+
+    "book the dentist at 3pm and the gym at 5pm friday"
+        dentist  time='today at 3pm'    date=2026-09-09   <- WRONG
+        gym      time='friday at 5pm'   date=2026-09-11
+    "friday book the dentist at 3pm and the gym at 5pm"
+        dentist  time='friday at 3pm'   date=2026-09-11   correct
+        gym      time='friday at 5pm'   date=2026-09-11
+
+**Gil ruled on the answer (2026-09-18, DEVQA Q16 amendment): both are on
+Friday.** So this is now an implementation fix against a settled ruling, which
+is allowed under the 2026-09-12 narrowing — but it is in the most-measured
+component in the project, so it needs FastSeg's own board (exact-row 74.6%
+train / 73.6% sealed) before and after, not just a spot check.
+
+The shape of the fix: a trailing DAY should fill the day slot of an earlier
+ask that has a CLOCK but no day of its own. `_SLOT_ORDER = {"day": 0,
+"clock": 1}` already exists, so the slot concept is there — what is missing is
+distributing the day slot backwards. Do NOT distribute the clock: two asks
+with their own clocks keep them, which is what makes this different from the
+whole-reference sharing `_scope_trailing_date` governs.
+
+Beside it, and separate: a FRONTED marked deadline is not extracted into
+`time` at all — `"by friday file the taxes and call Jordan"` leaves a task
+titled `'call Jordan by friday'` and both dates floored to today.
+
 ## POSITION INVARIANCE — MEASURED 2026-09-18, not yet fixed
 
 Gil, 2026-09-18: *"a very important part of the project is to make sure that

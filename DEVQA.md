@@ -340,6 +340,32 @@ before you rule:
   *Re-confirmed by Gil 2026-09-14 and still wired:* `_parse_covers_the_compound`
   is at `assistant/engine/fastrule/fastrule.py:188`, consulted at `:268`.
 
+- **2026-09-18 — Q16 AMENDED: a bare shared DAY scopes over events; only a
+  DEADLINE never does**, Gil. Q16 below said *"events never share at all"*, and
+  `never` was too strong — it was written against deadlines and it caught plain
+  shared days too. Measured with `scripts/dv_invariance.py`:
+
+      "book the dentist at 3pm and the gym at 5pm friday"
+          -> the dentist landed on TODAY
+
+  Asked directly: *"should they both be on Friday? The answer is obviously
+  yes."* So the rule turns on WHAT IS SHARED, not only on the item's kind — a
+  marked deadline ("by friday") scopes over tasks and never onto an event,
+  whose date is when it HAPPENS; a bare day ("friday") scopes over events,
+  which happen on it, and is still withdrawn from a task.
+
+  **WHERE THE REPORTED BUG ACTUALLY LIVES, which is not where it looks.**
+  `_scope_trailing_date` never fires on that sentence: the two asks carry
+  DIFFERENT time strings (`'today at 3pm'` vs `'friday at 5pm'`), so the
+  "is this a copy of the owner's reference" guard skips it. The dentist gets
+  today because **segmentation's `assign_times` distributes a LEADING day to
+  every ask but a TRAILING day only to the ask it sits in** — the asymmetry
+  Q16's own entry says *"stays exactly as it is"*. Today's ruling supersedes
+  that. The `decompose_validate` amendment above is correct and implements the
+  ruling, but it has **no measured effect on any board**, because the natural
+  sentence never reaches the rule. The fix that changes the answer is in
+  `fastseg.assign_times` and is filed in TASKS.md, not done.
+
 - **2026-09-11 — Q16 (a trailing deadline is shared ONLY when it is EXPLICIT)**,
   Gil. "submit the grades and prepare the slides **by friday**" — the marker
   ("by", "before", "due") scopes friday over every TASK in the utterance. A bare
