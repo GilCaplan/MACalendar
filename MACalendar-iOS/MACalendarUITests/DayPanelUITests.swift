@@ -42,13 +42,30 @@ final class DayPanelUITests: XCTestCase {
     ///
     /// This is the regression test for the silent-rejection bug above: if the
     /// ask stops happening, a fresh install goes back to scheduling nothing.
-    func testItAsksToSendNotificationsOnceItHasAPanelToLodge() {
+    func testItAsksToSendNotificationsOnceItHasAPanelToLodge() throws {
         let app = launch()
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let allow = springboard.buttons["Allow"]
 
-        XCTAssertTrue(allow.waitForExistence(timeout: 30),
-                      "nothing asked to send notifications, so no panel can ever fire")
+        if !allow.waitForExistence(timeout: 30) {
+            // iOS asks ONCE per install, ever. There is no API to reset that
+            // (`XCUIProtectedResource` has no notifications case), so on a
+            // simulator where this app has already been granted or denied, no
+            // alert can appear and the assertion below would fail for a reason
+            // that is nothing to do with the app. Tell the difference by
+            // asking the app what it sees, and say plainly what to do about
+            // it — rather than failing, or passing on a check that never ran.
+            openSettings(app)
+            let settled = app.staticTexts["Notifications allowed"].waitForExistence(timeout: 10)
+                || app.buttons["Notifications are off — open iOS Settings"].exists
+            if settled {
+                throw XCTSkip("this simulator has already answered the notification prompt, "
+                              + "so the first-run ask cannot be exercised. Reinstall first: "
+                              + "xcrun simctl uninstall <device> com.macalendar.app")
+            }
+            XCTFail("nothing asked to send notifications, so no panel can ever fire")
+            return
+        }
         allow.tap()
 
         // Settle, then confirm the app agrees it is allowed — the Settings
