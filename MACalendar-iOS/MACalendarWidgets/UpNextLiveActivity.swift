@@ -18,7 +18,12 @@ struct UpNextLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: UpNextAttributes.self) { context in
             UpNextLockScreenView(state: context.state)
-                .activityBackgroundTint(Color.black.opacity(0.55))
+                // 0.34, down from 0.55. The card's own rows are glass now, and
+                // glass over a near-opaque black slab has nothing to refract —
+                // it read as a dark rectangle with lighter rectangles on it.
+                // Low enough to let the wallpaper through, dark enough to keep
+                // white text legible over a bright one.
+                .activityBackgroundTint(Color.black.opacity(0.34))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             let state = context.state
@@ -131,20 +136,29 @@ private struct AgendaRow: View {
 
     private var accent: Color { Color(activityHex: item.colorHex) ?? .orange }
 
-    private var glow: Double {
+    /// How much of the row's own colour the glass is tinted with. Low on
+    /// purpose: glass takes its colour from what is BEHIND it, and a heavy tint
+    /// turns the material back into the flat coloured rectangle this replaced.
+    private var tint: Double {
         switch emphasis {
-        case .current: return 0.85
-        case .next:    return 0.45
+        case .current: return 0.26
+        case .next:    return 0.13
         case .later:   return 0
         }
     }
-    private var wash: Double {
+
+    /// Depth, not glow. A coloured drop shadow under a tinted rectangle is the
+    /// look Gil called out; real glass sits ABOVE the card and casts a neutral
+    /// shadow, and the colour arrives as light through the material instead.
+    private var lift: Double {
         switch emphasis {
-        case .current: return 0.22
-        case .next:    return 0.11
+        case .current: return 0.30
+        case .next:    return 0.16
         case .later:   return 0
         }
     }
+
+    private var radius: CGFloat { 14 }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -152,12 +166,26 @@ private struct AgendaRow: View {
             // shorter than the two-line text block it sits beside (title +
             // time · location) left a visible gap under it and read as
             // misaligned — the bar now always spans exactly what it marks.
-            Capsule().fill(accent).frame(width: 3).frame(maxHeight: .infinity)
+            // The bar is the one place the colour is allowed to be solid. On the
+            // current row it carries a vertical highlight so it reads as a lit
+            // edge rather than a printed stripe — the "light over the current
+            // event" as a lens, not a glow.
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: emphasis == .current
+                            ? [accent.opacity(0.55), accent, accent.opacity(0.75)]
+                            : [accent, accent],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
+                .frame(width: 3)
+                .frame(maxHeight: .infinity)
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.title)
                     .font(.system(size: emphasis == .later ? 14 : 16,
                                   weight: emphasis == .later ? .medium : .semibold))
-                    .foregroundStyle(.white.opacity(emphasis == .later ? 0.75 : 1))
+                    .foregroundStyle(.white.opacity(emphasis == .later ? 0.82 : 1))
                     .lineLimit(1)
                 HStack(spacing: 4) {
                     Text(item.timeLabel)
@@ -167,17 +195,53 @@ private struct AgendaRow: View {
                     }
                 }
                 .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(emphasis == .later ? 0.45 : 0.7))
+                // 0.58, not 0.45: the old value put a later row's time under
+                // the contrast line on a bright wallpaper.
+                .foregroundStyle(.white.opacity(emphasis == .later ? 0.58 : 0.72))
             }
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 9)
-        .padding(.horizontal, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(accent.opacity(wash))
-        )
-        .shadow(color: accent.opacity(glow), radius: emphasis == .current ? 9 : 5)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 11)
+        .background(rowGlass)
+        .shadow(color: .black.opacity(lift), radius: emphasis == .current ? 10 : 5, y: 2)
+    }
+
+    /// The material under a row.
+    ///
+    /// iOS 26 has Liquid Glass as a real API, so on 26 the row IS glass —
+    /// `.glassEffect` refracts and specularly lights whatever is behind it, and
+    /// the category colour goes in as a tint on that material. Below 26 the
+    /// effect does not exist, so it is built by hand out of the three things
+    /// that make something read as glass: a translucent material, a specular
+    /// hairline brightest at the top edge, and a low colour tint. Both paths get
+    /// the same neutral lift shadow from the caller.
+    @ViewBuilder
+    private var rowGlass: some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        if emphasis == .later {
+            // A row that is neither current nor next stays out of the way
+            // entirely: no material, no stroke. Glass everywhere is glass
+            // nowhere.
+            Color.clear
+        } else if #available(iOS 26.0, *) {
+            shape.glassEffect(.regular.tint(accent.opacity(tint)), in: shape)
+        } else {
+            shape
+                .fill(.ultraThinMaterial)
+                .overlay(shape.fill(accent.opacity(tint)))
+                .overlay(
+                    shape.strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(emphasis == .current ? 0.42 : 0.24),
+                                     .white.opacity(0.06),
+                                     .clear],
+                            startPoint: .top, endPoint: .bottom
+                        ),
+                        lineWidth: 0.75
+                    )
+                )
+        }
     }
 }
 

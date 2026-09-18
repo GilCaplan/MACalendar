@@ -278,6 +278,22 @@ struct SettingsView: View {
 
                             Divider()
 
+                            Toggle(isOn: $settings.agendaCardEnabled) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Agenda on the lock screen")
+                                    Text(agendaCardBlurb)
+                                        .font(.caption).foregroundColor(.secondary)
+                                }
+                            }
+                            .onChange(of: settings.agendaCardEnabled) { on in
+                                // Switching ON also clears a dismissal, so this
+                                // is how you get the card back today instead of
+                                // waiting for the morning.
+                                LiveActivityManager.shared.setEnabled(on)
+                            }
+
+                            Divider()
+
                             Toggle("Quiet on Shabbat & chagim", isOn: Binding(
                                 get: { notifConfig?.respectObservance ?? true },
                                 set: { on in
@@ -481,6 +497,21 @@ struct SettingsView: View {
         return settings.remindersEnabled
             ? "One notification at \(at) with the day's events and tasks. It arrives even with your Mac asleep — this phone holds the next week's."
             : "Off — no notifications from the calendar, on this phone or the Mac."
+    }
+
+    /// Says what the switch does AND what happens if you clear the card, since
+    /// "it came back straight away" was the complaint that produced both.
+    private var agendaCardBlurb: String {
+        guard settings.agendaCardEnabled else {
+            return "Off — no card on the lock screen. Switch it on to bring today's back now."
+        }
+        if let until = LiveActivityManager.suppressedUntil, until > Date() {
+            let f = DateFormatter()
+            f.dateFormat = "HH:mm"
+            return "Cleared for today — back at \(f.string(from: until)). "
+                 + "Switch off and on to bring it back now."
+        }
+        return "Today's remaining events, with the current one lit. Clear it and it stays gone until 6am."
     }
 
     @ViewBuilder

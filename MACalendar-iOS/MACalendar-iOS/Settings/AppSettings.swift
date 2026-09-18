@@ -164,6 +164,22 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(remindersEnabled, forKey: "remindersEnabled") }
     }
 
+    /// Device-local switch for the lock-screen agenda card (the "Up Next" Live
+    /// Activity). Deliberately NOT the same switch as `remindersEnabled`: a
+    /// card you want sitting on the lock screen and reminders you want ringing
+    /// before each event are different wants, and the card used to disappear
+    /// when you silenced the rings (Gil, 2026-09-17, asking for "a toggle
+    /// button in the settings" of its own).
+    ///
+    /// Switching it ON also CLEARS a dismissal — see
+    /// `LiveActivityManager.setEnabled` — so the toggle is how you get the card
+    /// back today rather than waiting for tomorrow morning.
+    @Published var agendaCardEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(agendaCardEnabled, forKey: "agendaCardEnabled")
+        }
+    }
+
     init() {
         self.followMyLocation = UserDefaults.standard.bool(forKey: "followMyLocation")
         self.speakReplies = UserDefaults.standard.object(forKey: "speakReplies") == nil
@@ -179,6 +195,8 @@ class AppSettings: ObservableObject {
         self.vocabOnboardingDone = UserDefaults.standard.bool(forKey: "vocabOnboardingDone")
         self.remindersEnabled = UserDefaults.standard.object(forKey: "remindersEnabled") == nil
             ? true : UserDefaults.standard.bool(forKey: "remindersEnabled")
+        self.agendaCardEnabled = UserDefaults.standard.object(forKey: "agendaCardEnabled") == nil
+            ? true : UserDefaults.standard.bool(forKey: "agendaCardEnabled")
         self.showThinking = UserDefaults.standard.object(forKey: "showThinking") == nil
             ? true : UserDefaults.standard.bool(forKey: "showThinking")
         self.serverEnabled = UserDefaults.standard.object(forKey: "serverEnabled") == nil

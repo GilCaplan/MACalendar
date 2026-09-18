@@ -14,6 +14,11 @@ struct MACalendarApp: App {
         // cold-starts the app still reaches didReceive. The router presents
         // foreground banners and routes "evt-*" taps to the calendar.
         UNUserNotificationCenter.current().delegate = NotificationRouter.shared
+        // Also before launch finishes: BGTaskScheduler traps if a task is
+        // registered any later. This is what brings the lock-screen agenda card
+        // back at 06:00 after it has been cleared.
+        LiveActivityManager.registerBackgroundRefresh()
+        LiveActivityManager.scheduleBackgroundRefresh()
     }
 
     var body: some Scene {

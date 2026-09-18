@@ -681,7 +681,17 @@ lock-screen card (and Dynamic Island) showing today's remaining agenda, each
 row's title/time/category colour, with the running event (or failing that
 the soonest one) picked out by a coloured glow and the one after it by a
 lighter version of the same — no countdown number, current always outranking
-next. Also additive: a **"Show today's agenda now" button** in the phone's
+next. **Clearing it keeps it cleared** (Gil, 2026-09-17: *"if i clear it, it
+shouldn't reappear"*): dismissing a Live Activity records nothing, so the next
+sync used to start a fresh card within seconds of the swipe. A dismissal now
+writes `agendaCardSuppressedUntil` and the card returns at **06:00** the next
+morning — best-effort via a `BGAppRefreshTask` (iOS decides the actual minute;
+no APNs in a local-only app), and for certain on the first foreground after 6.
+It has **its own Settings toggle**, no longer riding on the reminders switch,
+and switching it back on clears a dismissal so you can have the card back
+today. Its rows are **Liquid Glass** on iOS 26 (`.glassEffect` tinted with the
+event's category colour) with a hand-built material + specular hairline below
+26. Also additive: a **"Show today's agenda now" button** in the phone's
 Reminders settings — pops one local notification, on demand, with the
 WHOLE day's events (not just what's left, and not gated on the reminders
 toggle or a horizon), phrased the same way the Mac's own "Brief Me" reads it

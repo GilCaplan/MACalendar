@@ -1,5 +1,6 @@
 import Foundation
 import ActivityKit
+import BackgroundTasks
 import os
 
 /// Drives the "Up Next" Live Activity — the persistent lock-screen card that
@@ -40,7 +41,149 @@ final class LiveActivityManager {
 
     private let log = Logger(subsystem: "com.macalendar.app", category: "LiveActivity")
 
+    /// Ids of activities WE ended, so the dismissal watcher can tell the user
+    /// swiping the card away from us retiring it. Both arrive as the same
+    /// `.dismissed` state update and they mean opposite things: one is "I don't
+    /// want this today", the other is "there is nothing left to show".
+    private var endedByUs: Set<String> = []
+
+    /// Ids already being watched, so adopting the same long-lived card on every
+    /// sync does not pile up one watcher per sync for the life of the app.
+    private var watching: Set<String> = []
+
     private init() {}
+
+    // MARK: - Switched off, or cleared for the day
+
+    private static let enabledKey = "agendaCardEnabled"
+    private static let suppressedKey = "agendaCardSuppressedUntil"
+
+    /// The Settings toggle, read straight from UserDefaults so the manager
+    /// needs no `AppSettings` instance — same trick as
+    /// `ReminderScheduler.isEnabled`. Defaults ON for an install that has
+    /// never seen the switch.
+    static var isEnabled: Bool {
+        UserDefaults.standard.object(forKey: enabledKey) == nil
+            ? true : UserDefaults.standard.bool(forKey: enabledKey)
+    }
+
+    /// While this is in the future, no card is started.
+    ///
+    /// **This is the whole fix for "if i clear it, it shouldn't reappear"**
+    /// (Gil, 2026-09-17). Dismissing a Live Activity only empties
+    /// `Activity.activities` — it records nothing — so the next `sync()` from a
+    /// foreground, a `/changes` poll or the 30 s tick saw no card and started a
+    /// fresh one. The card came back within seconds of being swiped away, over
+    /// and over. The intent to be rid of it has to be written down somewhere,
+    /// and it has to survive a relaunch, so it lives here.
+    static var suppressedUntil: Date? {
+        get {
+            let t = UserDefaults.standard.double(forKey: suppressedKey)
+            return t > 0 ? Date(timeIntervalSince1970: t) : nil
+        }
+        set {
+            if let d = newValue {
+                UserDefaults.standard.set(d.timeIntervalSince1970, forKey: suppressedKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: suppressedKey)
+            }
+        }
+    }
+
+    /// The hour a cleared card comes back: 06:00 the following morning (Gil:
+    /// "It should respawn everyday at 6am").
+    static let respawnHour = 6
+
+    /// The next 06:00 strictly after `now`, in the device's own calendar, so
+    /// the card returns with the morning wherever the phone is. Falls back to
+    /// "24 h from now" only if the calendar cannot produce that instant, which
+    /// it can't during some DST transitions.
+    static func nextRespawn(after now: Date, calendar: Calendar = .current) -> Date {
+        var comps = calendar.dateComponents([.year, .month, .day], from: now)
+        comps.hour = respawnHour
+        comps.minute = 0
+        comps.second = 0
+        if let today = calendar.date(from: comps), today > now { return today }
+        if let todayAt6 = calendar.date(from: comps),
+           let tomorrow = calendar.date(byAdding: .day, value: 1, to: todayAt6) {
+            return tomorrow
+        }
+        return now.addingTimeInterval(24 * 3600)
+    }
+
+    /// Called by the Settings toggle. Switching ON clears any dismissal, which
+    /// is what makes the toggle a way to get the card back NOW instead of
+    /// waiting for 06:00; switching OFF ends the card immediately.
+    func setEnabled(_ on: Bool) {
+        UserDefaults.standard.set(on, forKey: Self.enabledKey)
+        if on { Self.suppressedUntil = nil }
+        sync()
+    }
+
+    // MARK: - Coming back in the morning
+
+    /// The background-refresh identifier, also listed under
+    /// `BGTaskSchedulerPermittedIdentifiers` in Info.plist. iOS matches the two
+    /// as exact strings and silently ignores a task whose id is not permitted,
+    /// so these two spellings have to stay identical.
+    static let refreshTaskID = "com.macalendar.app.agenda-refresh"
+
+    /// Register the handler. Must run before launch finishes, so it is called
+    /// from `MACalendarApp.init()` and not from a view.
+    static func registerBackgroundRefresh() {
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: refreshTaskID, using: nil
+        ) { task in
+            Task { @MainActor in
+                // Re-arm FIRST. A run that throws or is cut short still has to
+                // leave tomorrow's wake-up scheduled, or the card stops coming
+                // back after a single bad morning.
+                scheduleBackgroundRefresh()
+                LiveActivityManager.shared.sync()
+                // The sync is debounced 300 ms and then talks to ActivityKit;
+                // give it room before telling iOS the task is done, or the work
+                // is cancelled the instant it starts.
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                task.setTaskCompleted(success: true)
+            }
+        }
+    }
+
+    /// Ask iOS to wake the app at the next 06:00.
+    ///
+    /// **This is a REQUEST, not a timer** — and the honest limit of the feature.
+    /// `BGAppRefreshTask` gives no time guarantee: iOS decides, weighing
+    /// battery, charge state and how much you use the app, and may run it late
+    /// or not at all. A Live Activity can only be started by the app with
+    /// execution time, and the only way to be exact would be an APNs push,
+    /// which this project will never have. So the card is ALSO started by the
+    /// first ordinary `sync()` after 06:00 — a foreground, a poll, a tick —
+    /// which is the path that actually carries it most mornings. Together:
+    /// usually there when you first look, always there once you open the app.
+    static func scheduleBackgroundRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: refreshTaskID)
+        request.earliestBeginDate = nextRespawn(after: Date())
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            // Simulators refuse this outright, and a device can refuse it too.
+            // Not worth surfacing: the foreground path still works.
+            Logger(subsystem: "com.macalendar.app", category: "LiveActivity")
+                .notice("agenda refresh not scheduled: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// True when the card is being deliberately held back right now. Clears an
+    /// expired suppression on the way past, so 06:00 needs no timer to arrive —
+    /// the next sync after it simply stops being suppressed.
+    private static func isSuppressed(now: Date) -> Bool {
+        guard let until = suppressedUntil else { return false }
+        if now >= until {
+            suppressedUntil = nil
+            return false
+        }
+        return true
+    }
 
     // MARK: - Entry point
 
@@ -82,8 +225,17 @@ final class LiveActivityManager {
             await endAll(reason: "Live Activities disabled for this app")
             return
         }
-        guard ReminderScheduler.isEnabled else {
-            await endAll(reason: "reminders toggle is off")
+        guard Self.isEnabled else {
+            await endAll(reason: "agenda card switched off in Settings")
+            return
+        }
+        // Cleared by hand: stay gone. NOT `endAll` — there is nothing to end,
+        // the user already did that, and the point is to start nothing new.
+        if Self.isSuppressed(now: Date()) {
+            log.notice("""
+                suppressed until \(Self.suppressedUntil ?? Date(), privacy: .public) \
+                — cleared by hand, back at 0\(Self.respawnHour, privacy: .public):00
+                """)
             return
         }
 
@@ -102,12 +254,19 @@ final class LiveActivityManager {
         // end the strays.
         if live.count > 1 {
             for extra in live.dropFirst() {
+                endedByUs.insert(extra.id)
                 await extra.end(nil, dismissalPolicy: .immediate)
             }
             log.notice("ended \(live.count - 1) stray Up Next activities")
         }
 
         if let activity = live.first {
+            // A card that outlived the app's last launch has no watcher on it,
+            // so a swipe would go unrecorded and the card would come straight
+            // back — the original bug, just one relaunch later. Adopting it
+            // here is idempotent: `watching` keeps a second watcher off the
+            // same id.
+            watchForDismissal(activity)
             guard !Self.sameCard(activity.content.state, state) else { return }
             await activity.update(content)
             log.notice("""
@@ -133,9 +292,43 @@ final class LiveActivityManager {
                     """)
                 print("[LiveActivity] STARTED id=\(activity.id) \(state.items.count) item(s), "
                       + "current=\(state.currentId?.description ?? "none")")
+                watchForDismissal(activity)
             } catch {
                 log.error("Up Next request failed: \(error.localizedDescription, privacy: .public)")
                 print("[LiveActivity] request FAILED: \(error)")
+            }
+        }
+    }
+
+    /// Notice the user swiping the card away, and hold it back until 06:00.
+    ///
+    /// `activityStateUpdates` reports `.dismissed` for BOTH a swipe and our own
+    /// `end(...)`, so an unfiltered watcher would suppress the card every time
+    /// the day simply ran out of events — and then not show it again tomorrow
+    /// either, which is worse than the bug it fixes. `endedByUs` is how the two
+    /// are told apart.
+    @available(iOS 16.2, *)
+    private func watchForDismissal(_ activity: Activity<UpNextAttributes>) {
+        let id = activity.id
+        guard !watching.contains(id) else { return }
+        watching.insert(id)
+        Task { [weak self] in
+            for await state in activity.activityStateUpdates {
+                guard state == .dismissed || state == .ended else { continue }
+                guard let self else { return }
+                self.watching.remove(id)
+                if self.endedByUs.remove(id) != nil {
+                    self.log.notice("card \(id, privacy: .public) ended by us — not suppressing")
+                } else {
+                    let until = Self.nextRespawn(after: Date())
+                    Self.suppressedUntil = until
+                    self.log.notice("""
+                        card \(id, privacy: .public) CLEARED BY HAND \
+                        — suppressed until \(until, privacy: .public)
+                        """)
+                    print("[LiveActivity] cleared by hand — back at \(until)")
+                }
+                return
             }
         }
     }
@@ -145,6 +338,7 @@ final class LiveActivityManager {
         let live = Activity<UpNextAttributes>.activities
         guard !live.isEmpty else { return }
         for activity in live {
+            endedByUs.insert(activity.id)
             await activity.end(nil, dismissalPolicy: .immediate)
         }
         log.notice("ended \(live.count) Up Next activities: \(reason, privacy: .public)")

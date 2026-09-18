@@ -270,9 +270,39 @@ exact moment the snapshot goes wrong (the running event ends, or — if
 nothing was running — the next one starts), same mechanism as before, just
 computed from the headline row instead of the lone event.
 
-**Still open in phase 5:** `BGAppRefreshTask` would let the card roll between
-events while the phone is locked, and is the natural next increment — it is
-also the one that makes the `staleDate` fallback rare rather than routine.
+**Chosen over the countdown, 2026-09-17.** Both designs were put in front of
+Gil side by side; he picked this one (*"option B where it shows day agenda and
+dynamically has a light over the current event is much better"*) and rejected
+the countdown outright. `app-features` merged into `main` on that ruling.
+
+**Lifecycle, same ruling.** Three things came with the choice:
+
+- **A cleared card stays cleared.** `Activity.activityStateUpdates` reporting
+  `.dismissed` is the only signal a swipe happened, and it is indistinguishable
+  from our own `end(...)` — hence `endedByUs`, without which the card would
+  suppress itself every time the day simply ran out of events. A real dismissal
+  writes `agendaCardSuppressedUntil`; `isSuppressed(now:)` clears it once past,
+  so 06:00 arrives with no timer.
+- **It comes back at 06:00.** `BGAppRefreshTask`
+  (`com.macalendar.app.agenda-refresh`, listed in
+  `BGTaskSchedulerPermittedIdentifiers`, `UIBackgroundModes: fetch`) requests a
+  wake at the next 06:00 and re-arms itself FIRST so one bad morning does not
+  end the series. **It is a request, not a timer** — iOS weighs battery and
+  usage and may run it late or not at all, and the exact-time alternative is an
+  APNs push this project will never have. The ordinary `sync()` after 06:00 is
+  the path that carries it most mornings.
+- **Its own switch.** `agendaCardEnabled` (device-local), no longer gated on
+  `remindersEnabled`: silencing pre-event rings should not remove the card.
+  Switching it on clears a dismissal, which is how you get the card back today.
+
+`nextRespawn(after:)` was checked against 9 cases including 05:59 (returns the
+same morning), exactly 06:00 (returns tomorrow), month end, year end and the
+Israel DST change.
+
+**Still open in phase 5:** `BGAppRefreshTask` is now registered, so the
+remaining increment is using it to roll the card BETWEEN events while the phone
+is locked — which is what would make the `staleDate` dimming rare rather than
+routine.
 
 ### Phase 5 — what is actually left (re-read 2026-09-14)
 
