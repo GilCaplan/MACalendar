@@ -25,6 +25,7 @@ purely backend (no client code beyond displaying the effects).
 | UI | [Search & jump-to-date](#search--jump-to-date) | toolbar search over events/tasks; type a date to jump | `window.py`, `SearchView.swift` |
 | UI | [Small conveniences](#small-conveniences) | duplicate event, week numbers, Timer CSV export | `event_dialog.py`, `month_view.py`, `timer_view.py` |
 | UI | ["How to Talk to Me" tips](#how-to-talk-to-me-tips) | 5 short, verified voice-phrasing tips (Settings → Assistant) | `tips.py`, `tips_dialog.py` |
+| UI | [Foldable settings sections](#foldable-settings-sections) | every Settings section collapses, and stays collapsed, on both apps | `settings_dialog.py`, `SettingsView.swift` |
 | hybrid | [Calendar views](#calendar-views-month--week--day) | month/week/day/agenda browsing + event CRUD, drag, undo | `calendar_ui/`, iOS views, `db.py` |
 | hybrid | [Tasks](#tasks--to-dos) | Today/General lists, priorities, quantities | `db.py`, `TasksView` |
 | hybrid | [Tag discovery](#tag-discovery--the-class-set-grows-with-consent) | consent-based new classes + history | `actions/todo/tag_discovery.py` |
@@ -603,6 +604,44 @@ past what the tips were verified against, the same "downstream of the
 pipeline" contract `test_panel_agreement.py` holds the thinking panel to —
 so a future engine change forces a re-verification rather than silently
 shipping stale claims.
+
+### Foldable settings sections
+
+**What:** every section on both Settings screens folds away, and stays folded
+until you open it again (Gil, 2026-09-17: *"perhaps add a minimize on each
+section starting to be a lot of things there"*). Six sections on the Mac and
+seven on the phone had grown past one screenful, so the ones nobody visits twice
+were pushing Server and Today's panel off the screen.
+**Where:** Mac `calendar_ui/settings_dialog.py` — the existing `section()`
+helper now returns a folding box, so all six got it in one change and a seventh
+would too. iOS `Views/SettingsView.swift` — `CollapsibleSection`, which WRAPS
+`GroupBox` rather than replacing it, so every section keeps exactly the look it
+had.
+**How:** the fold state is per-machine UI chrome and is stored as such — Mac
+`QSettings` (redirected by `MACALENDAR_UI_STATE`, which `conftest.py` scratches),
+iOS `@AppStorage` under `settingsSection.<key>`. Deliberately NOT in
+`config.yaml`: the phone reads that file, and which boxes you keep folded on the
+Mac is not something the phone should inherit.
+
+Three things this cost, each worth keeping written down:
+
+- **Not `QGroupBox.setCheckable`.** Qt's built-in way to make a group foldable
+  puts a CHECKBOX beside the title, which reads as "switch this whole section
+  off" — a different and alarming promise. An arrow that turns says only what it
+  does.
+- **A module-level `QSettings` is destroyed with the `QApplication` that
+  outlived it**, and every later use raises `RuntimeError: wrapped C/C++ object
+  has been deleted`. Invisible in a single test; it broke the three that build a
+  real dialog after another test tore an app down. `_ui_state()` builds one per
+  call for that reason.
+- **Its default writes the user's REAL macOS preferences**, so the suite was
+  folding boxes in the app Gil had open until the env override went in — the
+  same class of accident as the four `~/.assistant_tools` stores.
+
+`tests/unit/test_settings_collapse.py` drives it with `QTest.mouseClick` on the
+header, per the repo rule that a UI test which never sends a mouse event tests
+nothing: the body hides, the arrow turns, the neighbouring section does not
+move, and a second dialog opens with the fold remembered.
 
 ### The day panel
 

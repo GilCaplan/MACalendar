@@ -33,7 +33,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 24) {
 
                     // MARK: Server
-                    GroupBox(label: Label("Server", systemImage: "network")) {
+                    CollapsibleSection("Server", systemImage: "network", key: "server") {
                         VStack(spacing: 12) {
                             HStack {
                                 TextField("http://100.x.x.x:8080", text: $settings.serverURL)
@@ -134,7 +134,7 @@ struct SettingsView: View {
                     }
 
                     // MARK: Appearance
-                    GroupBox(label: Label("Appearance", systemImage: "paintbrush")) {
+                    CollapsibleSection("Appearance", systemImage: "paintbrush", key: "appearance") {
                         VStack(alignment: .leading, spacing: 12) {
                             Picker("Theme", selection: $settings.theme) {
                                 Text("Light").tag("light")
@@ -192,7 +192,7 @@ struct SettingsView: View {
                     }
 
                     // MARK: Hebrew Calendar
-                    GroupBox(label: Label("Hebrew Calendar", systemImage: "calendar.badge.clock")) {
+                    CollapsibleSection("Hebrew Calendar", systemImage: "calendar.badge.clock", key: "hebrew") {
                         VStack(alignment: .leading, spacing: 12) {
                             Picker("Show dates as", selection: $settings.hebrewDisplayMode) {
                                 Text("English").tag("english")
@@ -242,7 +242,7 @@ struct SettingsView: View {
                     // a master toggle — three controls deciding when each of
                     // fifty-five banners would interrupt you, for a feature
                     // whose answer turned out to be "once, in the morning".
-                    GroupBox(label: Label("Today's panel", systemImage: "bell.badge")) {
+                    CollapsibleSection("Today's panel", systemImage: "bell.badge", key: "panel") {
                         VStack(alignment: .leading, spacing: 12) {
                             Toggle(isOn: $settings.remindersEnabled) {
                                 VStack(alignment: .leading, spacing: 2) {
@@ -328,7 +328,7 @@ struct SettingsView: View {
                     // row. Pinned features (Calendar, Tasks) are not offered at
                     // all — they are what the app IS, and the Mac answers 409 to
                     // a request to hide one.
-                    GroupBox(label: Label("Tabs", systemImage: "square.grid.2x2")) {
+                    CollapsibleSection("Tabs", systemImage: "square.grid.2x2", key: "tabs") {
                         VStack(alignment: .leading, spacing: 8) {
                             ForEach(FeatureRegistry.togglable) { feature in
                                 Toggle(isOn: Binding(
@@ -359,7 +359,7 @@ struct SettingsView: View {
                     .padding(.top, 4)
 
                     // MARK: Voice
-                    GroupBox(label: Label("Voice", systemImage: "speaker.wave.2")) {
+                    CollapsibleSection("Voice", systemImage: "speaker.wave.2", key: "voice") {
                         VStack(alignment: .leading, spacing: 12) {
                             Toggle(isOn: $settings.speakReplies) {
                                 VStack(alignment: .leading, spacing: 2) {
@@ -454,7 +454,7 @@ struct SettingsView: View {
                     }
 
                     // MARK: About
-                    GroupBox(label: Label("About", systemImage: "info.circle")) {
+                    CollapsibleSection("About", systemImage: "info.circle", key: "about") {
                         HStack {
                             Text("Version")
                             Spacer()
@@ -570,6 +570,64 @@ struct SettingsView: View {
                 healthStatus = "✗ \(error.localizedDescription) — \(settings.serverURL.isEmpty ? "no server URL set" : settings.serverURL)"
             }
             checking = false
+        }
+    }
+}
+
+// MARK: - Collapsible section
+
+/// A settings section that folds away, remembering whether it was open.
+///
+/// Gil, 2026-09-17: *"perhaps add a minimize on each section starting to be a
+/// lot of things there"* — seven sections had grown past what one screen can
+/// hold, and the two anyone actually visits (Server, Today's panel) sit above
+/// and below things nobody touches twice.
+///
+/// It wraps `GroupBox` rather than replacing it, so every section keeps exactly
+/// the look it had; the only change is a header you can tap. State lives in
+/// `@AppStorage` under `settingsSection.<key>`, which is per-device UI chrome
+/// and deliberately NOT part of the shared config — which sections you keep
+/// folded on your phone is not a thing the Mac should have an opinion about.
+private struct CollapsibleSection<Content: View>: View {
+    private let title: String
+    private let systemImage: String
+    @AppStorage private var expanded: Bool
+    private let content: () -> Content
+
+    init(_ title: String, systemImage: String, key: String,
+         @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.systemImage = systemImage
+        self.content = content
+        // Open by default: a first run must not look like an empty screen.
+        _expanded = AppStorage(wrappedValue: true, "settingsSection.\(key)")
+    }
+
+    var body: some View {
+        GroupBox {
+            if expanded { content() }
+        } label: {
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) { expanded.toggle() }
+            } label: {
+                HStack(spacing: 8) {
+                    Label(title, systemImage: systemImage)
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(expanded ? 0 : -90))
+                }
+                // The whole row is the target, not just the words — and 44pt
+                // tall, which is the smallest thing a finger should be asked
+                // to hit.
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(title)
+            .accessibilityHint(expanded ? "Collapse this section" : "Expand this section")
+            .accessibilityAddTraits(expanded ? [.isSelected] : [])
         }
     }
 }

@@ -18,11 +18,12 @@ import os
 import re
 import subprocess
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QSettings, Qt
 from PyQt6.QtGui import QColor, QPainter, QPixmap
 from PyQt6.QtWidgets import (
-    QCheckBox, QColorDialog, QComboBox, QDialog, QFormLayout, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget,
+    QCheckBox, QColorDialog, QComboBox, QDialog, QFormLayout, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSpinBox, QToolButton, QVBoxLayout, QWidget,
 )
+
 
 from assistant.calendar_ui import icons
 from assistant.calendar_ui import styles as _styles
@@ -31,6 +32,31 @@ from assistant.calendar_ui.styles import GRAY_TEXT
 
 # The "Personal" grey, used when a category's own colour is missing or unparseable.
 _CAT_DOT_FALLBACK = "#64748b"
+
+
+def _ui_state() -> QSettings:
+    """Which settings sections are folded shut — per machine, not per calendar.
+
+    `QSettings` and not `config.yaml` on purpose: the phone reads that file, and
+    it would be odd for folding a box on the Mac to travel. Not
+    `~/.assistant_tools` either, which holds the DB, the vocabulary and the
+    command memory — window chrome does not belong beside personal data.
+
+    **Built per call, never cached in a module global.** A `QSettings` held at
+    module scope is destroyed with the `QApplication` that outlived it, and every
+    later use then raises `RuntimeError: wrapped C/C++ object ... has been
+    deleted`. That is invisible in a single test and breaks the three that build
+    a real dialog after another test has torn an app down — which is exactly how
+    it showed up.
+
+    **`MACALENDAR_UI_STATE` redirects it**, like every other store this project
+    owns, because the default writes to the user's real macOS preferences and a
+    test run has no business folding boxes in the app Gil is using.
+    """
+    path = os.environ.get("MACALENDAR_UI_STATE")
+    if path:
+        return QSettings(path, QSettings.Format.IniFormat)
+    return QSettings("MACalendar", "CalendarUI")
 
 
 def open_settings(self) -> None:
@@ -66,11 +92,63 @@ def open_settings(self) -> None:
     layout.setSpacing(14)
 
     def section(title: str) -> QVBoxLayout:
-        """One titled group; returns the layout to put controls in."""
-        box = QGroupBox(title)
-        inner = QVBoxLayout(box)
-        inner.setContentsMargins(14, 12, 14, 12)
+        """One titled group that FOLDS AWAY; returns the layout for its controls.
+
+        Gil, 2026-09-17: *"perhaps add a minimize on each section starting to be
+        a lot of things there"*. Six sections had grown past one screenful, and
+        the dialog scrolls, so the ones you never touch push the ones you do out
+        of sight.
+
+        Collapsing is on the header, not on `QGroupBox.setCheckable` — a
+        checkbox beside a section title reads as "switch this whole section
+        off", which is a different and alarming promise. An arrow that turns
+        says only what it does.
+
+        Which sections are folded is remembered in `QSettings`, per machine:
+        it is window chrome, not a preference about the calendar, so it has no
+        business in `config.yaml` (which the phone also reads) or in
+        `~/.assistant_tools` (which holds personal data).
+        """
+        box = QGroupBox()
+        box.setObjectName("collapsible_section")
+        outer = QVBoxLayout(box)
+        outer.setContentsMargins(14, 8, 14, 8)
+        outer.setSpacing(6)
+
+        key = f"settings/section_open/{title}"
+        open_ = _ui_state().value(key, True, type=bool)
+
+        header = QToolButton()
+        header.setObjectName(f"section_header_{title.lower().replace(' ', '_')}")
+        header.setText(title)
+        header.setCheckable(True)
+        header.setChecked(open_)
+        header.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        header.setArrowType(Qt.ArrowType.DownArrow if open_ else Qt.ArrowType.RightArrow)
+        header.setCursor(Qt.CursorShape.PointingHandCursor)
+        header.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        header.setStyleSheet(
+            "QToolButton { border: none; background: transparent; font-weight: 600;"
+            " padding: 4px 0; text-align: left; }")
+        header.setAccessibleName(f"{title} section")
+        outer.addWidget(header)
+
+        body = QWidget()
+        inner = QVBoxLayout(body)
+        inner.setContentsMargins(0, 4, 0, 4)
         inner.setSpacing(8)
+        body.setVisible(open_)
+        outer.addWidget(body)
+
+        def _toggled(on: bool, _b=body, _h=header, _k=key) -> None:
+            _b.setVisible(on)
+            _h.setArrowType(Qt.ArrowType.DownArrow if on else Qt.ArrowType.RightArrow)
+            _ui_state().setValue(_k, on)
+            # Without this the dialog keeps the height it had when everything
+            # was open, leaving a folded section sitting above empty space.
+            self.adjustSize()
+
+        header.toggled.connect(_toggled)
         layout.addWidget(box)
         return inner
 
