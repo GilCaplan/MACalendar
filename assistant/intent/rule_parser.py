@@ -2686,6 +2686,9 @@ class RuleBasedParser:
         all_raw_slots: dict = {}
         confidences: list[float] = []
         dropped_spans = 0
+        #: A date resolved on a span that carried no action. None = none seen,
+        #: "" = more than one, which is not carried (see the drop site below).
+        carried_date: "str | None" = None
 
         for span in spans:
             # Phase 2: Temporal extraction
@@ -2698,7 +2701,26 @@ class RuleBasedParser:
                     raise RuleParserSkip(f"No action matched for: {span.text!r}")
                 # Multi-span: skip unmatched span, continue — but remember it: part of
                 # the command was ignored, so the LLM should get a look (hybrid).
+                #
+                # ...and KEEP ITS DATE. The temporal was resolved two lines up,
+                # before routing, and dropping the span dropped the date with
+                # it: "the 30th, wash and fold the laundry" cuts into a
+                # date-only fragment and a real ask, and the ask committed with
+                # NO DUE DATE at all. 13 of the 20 rows this reaches are wrong
+                # at the END position too, so it is not a position bug — it is
+                # a fragment that was never an ask taking a date that was.
+                #
+                # ONE SURVIVOR ONLY, and that bound is what keeps this out of
+                # Q16's territory. Q16 (as amended 2026-09-18) governs which of
+                # SEVERAL asks a shared date scopes over — a marked deadline
+                # over tasks, a bare day over events. With exactly one ask
+                # left there is nobody to share with and no scope to decide,
+                # so this cannot contradict that ruling or become a fourth
+                # date-sharing convention. If more than one ask survives, the
+                # date stays dropped and the deep track decides.
                 dropped_spans += 1
+                if temporal.get("date"):
+                    carried_date = temporal["date"] if carried_date is None else ""
                 continue
 
             # Phase 4: Slot filling
@@ -2755,6 +2777,22 @@ class RuleBasedParser:
                         logger.debug("Rule parser validation failed for %s: %s", action_name, exc)
                         all_missing.append("validation_error")
                         confidences[-1] = round(confidence * 0.5, 3)
+
+        # A date carried off a DROPPED, action-less span now lands on the one
+        # ask that survived. Applied after the loop because the fragment falls
+        # on either side of it: "the 30th, wash the laundry" puts it first,
+        # "book the interview with Jamie and Rowan the 30th" cuts it last.
+        #
+        # Only when the ask named no date of its own — the speaker's own words
+        # always win over a recovered one.
+        if carried_date and len(all_intents) == 1 and not all_missing:
+            _name, _intent = all_intents[0]
+            _field = ("due_date" if hasattr(_intent, "due_date")
+                      else "date" if hasattr(_intent, "date") else None)
+            if _field and not getattr(_intent, _field, None):
+                all_intents[0] = (
+                    _name, _intent.model_copy(update={_field: carried_date}))
+                all_raw_slots.setdefault(_name, {})[_field] = carried_date
 
         if not confidences:
             raise RuleParserSkip("No spans produced confident results")

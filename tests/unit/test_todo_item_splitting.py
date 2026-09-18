@@ -467,3 +467,23 @@ def test_a_fronted_time_leaves_no_stranded_preposition(parser):
     assert parser.analyze(
         "remind me to buy milk tomorrow, eggs and bread").raw_slots[
         "create_todo"]["titles"] == ["buy milk", "buy eggs", "buy bread"]
+
+
+def test_a_dropped_fragment_leaves_its_date_behind(parser):
+    """"the 30th, wash and fold the laundry" cuts into a date-only fragment
+    and a real ask. The fragment routes to no action and is dropped — and the
+    date, already resolved, was dropped with it, so the task committed with no
+    due date at all.
+
+    ONE SURVIVOR ONLY. Q16 governs which of SEVERAL asks a shared date scopes
+    over; with one ask left there is nobody to share with, so this cannot
+    become a fourth date-sharing convention.
+    """
+    got = parser.analyze("the 30th, wash and fold the laundry")
+    assert got.raw_slots["create_todo"]["due_date"] == "2026-09-30"
+    assert got.dropped_spans, "the fragment should still be reported as dropped"
+
+    # Two surviving asks: the date stays dropped and the deep track decides.
+    two = parser.analyze("buy milk and call mom")
+    assert len(two.intents) == 2
+    assert all(getattr(i, "due_date", None) is None for _, i in two.intents)
