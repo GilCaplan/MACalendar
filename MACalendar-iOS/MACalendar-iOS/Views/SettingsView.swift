@@ -105,14 +105,16 @@ struct SettingsView: View {
                         Divider().padding(.vertical, 4)
 
                         Toggle(isOn: $settings.serverEnabled) {
+                            // Pulled out of the inline `Text(cond ? a : b)`: the
+                            // ternary plus string concatenation inside a deeply
+                            // nested builder tipped the whole `body` over
+                            // SwiftUI's type-checking budget the moment one more
+                            // row was added ("unable to type-check this
+                            // expression in reasonable time"). A stored String
+                            // costs the checker nothing.
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Connect to your Mac")
-                                Text(settings.serverEnabled
-                                     ? "Off means the app works entirely from its cache. "
-                                       + "Nothing is lost — changes queue up and sync when "
-                                       + "you switch it back on."
-                                     : "Working offline. Changes are saved here and will "
-                                       + "sync when you switch this back on.")
+                                Text(serverBlurb)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -450,6 +452,24 @@ struct SettingsView: View {
                                 }
                             }
 
+                            // The word lists the ENGINE matches on, as opposed
+                            // to the Vocabulary above, which is what WHISPER
+                            // should hear. Two different failures: "Conello
+                            // oil" is a mishearing, "squeeze" is a word the
+                            // parser has simply never been taught.
+                            NavigationLink {
+                                LexiconView()
+                            } label: {
+                                HStack {
+                                    Label("How I Say Things", systemImage: "text.book.closed")
+                                    Spacer()
+                                    Text("Words it acts on")
+                                        .font(.caption).foregroundColor(.secondary)
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption).foregroundColor(.secondary)
+                                }
+                            }
+
                             NavigationLink {
                                 CategoriesView()
                             } label: {
@@ -524,6 +544,16 @@ struct SettingsView: View {
         return settings.remindersEnabled
             ? "One notification at \(at) with the day's events and tasks. It arrives even with your Mac asleep — this phone holds the next week's."
             : "Off — no notifications from the calendar, on this phone or the Mac."
+    }
+
+    /// What the connection switch means, in its two states. A stored property
+    /// rather than an inline ternary — see the note at its use site.
+    private var serverBlurb: String {
+        settings.serverEnabled
+            ? "Off means the app works entirely from its cache. Nothing is lost "
+              + "— changes queue up and sync when you switch it back on."
+            : "Working offline. Changes are saved here and will sync when you "
+              + "switch this back on."
     }
 
     /// Says what the switch does AND what happens if you clear the card, since
@@ -612,8 +642,18 @@ private struct CollapsibleSection<Content: View>: View {
         self.title = title
         self.systemImage = systemImage
         self.content = content
-        // Open by default: a first run must not look like an empty screen.
-        _expanded = AppStorage(wrappedValue: true, "settingsSection.\(key)")
+        // FOLDED by default (Gil, 2026-09-18: "By default can everything be
+        // minimized in settings"). This used to open every section, with the
+        // note "a first run must not look like an empty screen" — but seven
+        // sections open is a screen you scroll through to find anything, and
+        // the thing that was actually hard to find was a section NAME. Folded,
+        // the whole list of names fits at once and is its own table of
+        // contents.
+        //
+        // Only sections you have never touched are affected: `AppStorage`
+        // writes on change, not on read, so anyone who deliberately opened or
+        // closed one keeps that choice.
+        _expanded = AppStorage(wrappedValue: false, "settingsSection.\(key)")
     }
 
     var body: some View {

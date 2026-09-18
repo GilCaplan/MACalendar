@@ -56,7 +56,9 @@ final class DayPanelUITests: XCTestCase {
             // asking the app what it sees, and say plainly what to do about
             // it — rather than failing, or passing on a check that never ran.
             openSettings(app)
-            let settled = app.staticTexts["Notifications allowed"].waitForExistence(timeout: 10)
+            let allowed = app.staticTexts["Notifications allowed"]
+            openSection("Notifications", revealing: allowed, in: app)
+            let settled = allowed.waitForExistence(timeout: 10)
                 || app.buttons["Notifications are off — open iOS Settings"].exists
             if settled {
                 throw XCTSkip("this simulator has already answered the notification prompt, "
@@ -72,7 +74,9 @@ final class DayPanelUITests: XCTestCase {
         // row reads the real authorization status, not our own flag.
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
         openSettings(app)
-        XCTAssertTrue(app.staticTexts["Notifications allowed"].waitForExistence(timeout: 10))
+        let allowed = app.staticTexts["Notifications allowed"]
+        openSection("Notifications", revealing: allowed, in: app)
+        XCTAssertTrue(allowed.waitForExistence(timeout: 10))
     }
 
     /// One switch, and it is shared with the Mac (Gil, 2026-09-11: "it's on or
@@ -85,6 +89,7 @@ final class DayPanelUITests: XCTestCase {
         openSettings(app)
 
         let toggle = app.switches.containing(.staticText, identifier: "Morning summary").firstMatch
+        openSection("Notifications", revealing: toggle, in: app)
         XCTAssertTrue(toggle.waitForExistence(timeout: 15), "no Morning summary switch in Settings")
         // Settings is a long scroll view and `waitForExistence` is true for a
         // row that is still below the fold — where a tap lands on whatever
@@ -119,6 +124,21 @@ final class DayPanelUITests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    /// Settings sections start FOLDED (2026-09-18), so a control inside one
+    /// does not exist in the accessibility tree until its section is opened.
+    /// Taps the header only when the thing we want is not already showing, so
+    /// this is safe to call whatever state the section was left in.
+    @discardableResult
+    func openSection(_ title: String, revealing target: XCUIElement,
+                     in app: XCUIApplication) -> Bool {
+        if target.exists { return true }
+        let header = app.buttons[title].firstMatch
+        guard header.waitForExistence(timeout: 10) else { return false }
+        for _ in 0..<10 where !header.isHittable { app.swipeUp() }
+        header.tap()
+        return target.waitForExistence(timeout: 5)
+    }
 
     /// Hit the control, not the label. A SwiftUI `Toggle` whose label is a
     /// VStack reports one element spanning the whole row, and its centre — where

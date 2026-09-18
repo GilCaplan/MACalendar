@@ -192,6 +192,15 @@ final class OfflineSyncUITests: XCTestCase {
     private func enableCourseworkTab(_ app: XCUIApplication) {
         app.buttons["tab-settings"].tap()
         let toggle = app.switches["feature-toggle-coursework"]
+        // Sections start FOLDED (2026-09-18), so Tabs has to be opened before
+        // anything inside it is in the tree at all.
+        if !toggle.exists {
+            let header = app.buttons["Tabs"].firstMatch
+            if header.waitForExistence(timeout: 10) {
+                for _ in 0..<10 where !header.isHittable { app.swipeUp() }
+                header.tap()
+            }
+        }
         XCTAssertTrue(toggle.waitForExistence(timeout: 10), "Settings has no Coursework switch")
         for attempt in 1...4 {
             if toggle.value as? String == "1" { return }

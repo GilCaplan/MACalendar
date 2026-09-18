@@ -26,7 +26,7 @@ purely backend (no client code beyond displaying the effects).
 | UI | [Small conveniences](#small-conveniences) | duplicate event, week numbers, Timer CSV export | `event_dialog.py`, `month_view.py`, `timer_view.py` |
 | UI | ["How to Talk to Me" tips](#how-to-talk-to-me-tips) | 5 short, verified voice-phrasing tips (Settings → Assistant) | `tips.py`, `tips_dialog.py` |
 | assistant | [Personal lexicon](#personal-lexicon) | the engine's word lists, extendable from Settings so it learns how you say things | `intent/lexicon.py`, `/lexicon` |
-| UI | [Foldable settings sections](#foldable-settings-sections) | every Settings section collapses, and stays collapsed, on both apps | `settings_dialog.py`, `SettingsView.swift` |
+| UI | [Foldable settings sections](#foldable-settings-sections) | every Settings section collapses and stays collapsed, on both apps; the phone starts them all folded | `settings_dialog.py`, `SettingsView.swift` |
 | hybrid | [Calendar views](#calendar-views-month--week--day) | month/week/day/agenda browsing + event CRUD, drag, undo | `calendar_ui/`, iOS views, `db.py` |
 | hybrid | [Tasks](#tasks--to-dos) | Today/General lists, priorities, quantities | `db.py`, `TasksView` |
 | hybrid | [Tag discovery](#tag-discovery--the-class-set-grows-with-consent) | consent-based new classes + history | `actions/todo/tag_discovery.py` |
@@ -658,6 +658,19 @@ helper now returns a folding box, so all six got it in one change and a seventh
 would too. iOS `Views/SettingsView.swift` — `CollapsibleSection`, which WRAPS
 `GroupBox` rather than replacing it, so every section keeps exactly the look it
 had.
+**They start FOLDED on the phone** (Gil, 2026-09-18: *"By default can
+everything be minimized in settings"*). The first version opened every section,
+reasoning that "a first run must not look like an empty screen" — but seven
+open sections are a screen you scroll through to find anything, and what was
+actually hard to find was a section's NAME (the same day, Gil could not find
+the notification settings at all). Folded, all seven names fit at once and the
+screen is its own table of contents. **Only sections you have never touched
+change**: `@AppStorage` writes on change and not on read, so a section you
+deliberately opened or closed keeps what you chose. **The Mac still opens its
+sections by default** — `settings_dialog.py` defaults its `QSettings` lookup to
+`True` — so the two screens disagree on this one point until that is flipped
+too.
+
 **How:** the fold state is per-machine UI chrome and is stored as such — Mac
 `QSettings` (redirected by `MACALENDAR_UI_STATE`, which `conftest.py` scratches),
 iOS `@AppStorage` under `settingsSection.<key>`. Deliberately NOT in

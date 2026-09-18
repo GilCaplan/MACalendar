@@ -289,7 +289,8 @@ MACalendar-iOS/                 (the app target)
                             else's program, see assistant/integrations/CONVENTION.md)
   Views/                    screens that are not a tab of their own
     ContentView.swift       the tab bar + offline banner; tabs come from FeatureRegistry
-    SettingsView.swift      foldable sections: Server, Appearance, Hebrew Calendar,
+    SettingsView.swift      foldable sections, ALL FOLDED on a first run:
+                            Server, Appearance, Hebrew Calendar,
                             Notifications, Tabs, Voice, About
     VoiceButton.swift       mic button — records WAV, POSTs, speaks the reply
     ThinkingView.swift      the command's chain of thought, from its trace
