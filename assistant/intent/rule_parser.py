@@ -1473,11 +1473,17 @@ _ROUTE_OVERRIDES = [
                 r"(?:\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\bat\s+\d{1,2}\b"
                 r"|\b(?:noon|midnight)\b|\bo'?clock\b)"), "create_event"),
     (re.compile(r"^\s*(?:please\s+)?(?:i\s+)?(?:need|have|want|got)\s+to\s+"), "create_todo"),
-    # The pinned reminder convention (project rule): "remind me to call Gil"
-    # is a task, but "remind me about the dentist tomorrow at 9am" is a
-    # CALENDAR entry. The clock time is the tell, and this must outrank the
-    # bare remind-me→todo row below.
-    (re.compile(r"^\s*(?:please\s+)?remind me\s+(?!to\b).*"
+    # The pinned reminder convention: the clock time is the tell, and this must
+    # outrank the bare remind-me→todo row below.
+    #
+    # `(?!to\b)` USED TO SIT HERE, excluding "remind me TO ..." on Q15's
+    # authority. Q26 (Gil, 2026-09-18) reversed that: "an event is something
+    # that you put on the calendar, so reminding me to do something at a
+    # specific time counts as an event." So "remind me to feed the cat at
+    # 14:00" is an event now, and the 32 corpus rows that said otherwise were
+    # relabelled in the same change. The task Gil also wants on the day is not
+    # a second parse — `db.sync_calendar_to_todos` already makes it.
+    (re.compile(r"^\s*(?:please\s+)?remind me\s+.*"
                 r"(?:\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\bat\s+\d{1,2}\b"
                 r"|\b(?:noon|midnight)\b)"), "create_event"),
     (re.compile(r"^\s*(?:please\s+)?remind me\b"), "create_todo"),
@@ -1648,10 +1654,9 @@ def _route_intent(span, current_view: str) -> tuple[str | None, str, bool, bool]
     # this returned create_todo, and the product-shape board charged the
     # difference as 8 wrong commits.
     #
-    # Narrowed identically, so the two cannot drift: an explicit "remind me TO
-    # <verb>" is the speaker ASKING for a task (Q15) and outranks the clock.
-    if action == "create_todo" and not _REMINDER_TASK_FRAME.match(span_text) \
-            and _STATED_CLOCK_RE.search(span_text):
+    # No reminder-frame exception (Q26) — see `fastseg.tag`, which carries the
+    # same rule and must carry the same exceptions, which is exactly none.
+    if action == "create_todo" and _STATED_CLOCK_RE.search(span_text):
         return "create_event", "calendar", True, domain_material
 
     return action, domain, domain_inferred, domain_material
@@ -2507,6 +2512,30 @@ def _compute_missing_slots(action_name: str, slots: dict) -> list[str]:
         slots["start_time"] = "00:00"
         slots["end_time"] = slots.get("end_time") or "23:59"
         return []
+    # THE MIRROR CASE (Q26, Gil, 2026-09-18): a stated CLOCK and no day.
+    # "remind me to feed the cat at 14:00" and "I need to walk Val at 3pm" —
+    # both Gil's own commands, both events under Q26 — named a time and no
+    # date, and then deferred on the date ALONE.
+    #
+    # SPEC floors an item with no date to TODAY, and the deep track already
+    # does it without hesitating (`resolve_date`: "ISO, floored to today"), so
+    # a fast track that defers here makes the two tracks disagree about a
+    # sentence one of them answers outright. The title and the clock are both
+    # present; the only thing missing is the day, and the project already has
+    # one answer for that.
+    #
+    # ONE ASK ONLY, and this was bought immediately: without the guard,
+    # "book the gym at 6 and remind me to buy milk" — a COMPOUND — started
+    # committing on the fast track. The missing date had been holding it back,
+    # so filling it silently removed a deferral that was doing real work.
+    # `test_fastrule_work_travels_forward_when_it_declines` caught it. A
+    # compound belongs to the deep track (Gil's ruling), and a convenience
+    # default must never be what decides that.
+    if (action_name == "create_event" and missing == ["date"]
+            and slots.get("_n_spans", 1) == 1
+            and slots.get("start_time") and slots.get("title")):
+        slots["date"] = datetime.date.today().isoformat()
+        return []
     return missing
 
 
@@ -2635,8 +2664,14 @@ class RuleBasedParser:
 
             # Phase 6: Confidence + validation
             slots["_raw_text"] = span.text
+            # How many asks this utterance carries, for the date floor below —
+            # see `_compute_missing_slots`. Stashed the same way `_raw_text` is,
+            # and popped straight back out, because the slot dict is the object
+            # that reaches the intent model.
+            slots["_n_spans"] = len(spans)
             missing = _compute_missing_slots(action_name, slots)
             slots.pop("_raw_text", None)
+            slots.pop("_n_spans", None)
             # Only penalize the guessed domain when it was actually load-bearing in
             # picking the action (domain_material) — a domain-agnostic verb like
             # "buy"/"call"/"email" maps to create_todo regardless of domain, so an

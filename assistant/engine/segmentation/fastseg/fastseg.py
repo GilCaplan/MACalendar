@@ -972,14 +972,14 @@ def tag(action: str, time_str: str) -> str:
     # say: "i need to go to the dentist on the 24th at 3 o'clock" stayed a
     # task. This is the missing direction, not a new rule.
     #
-    # NARROWED so Q25 and Q15 can both stand, which is the whole point of the
-    # guard. Q15 (2026-09-07) rules that "remind me TO <verb>" is a task, and
-    # the corpus carries 42 rows across two deliberate families saying so
-    # (`s_ct_task_with_time`, `c_recur_7`) — the first is literally named for
-    # the proposition. An explicit reminder frame is the speaker ASKING for a
-    # task, and that outranks the inference a clock supports.
+    # NO REMINDER-FRAME EXCEPTION (Q26, Gil, 2026-09-18). A narrowing shipped
+    # earlier the same day kept "remind me TO <verb>" a task on Q15's
+    # authority; Gil then ruled the other way and Q15's parenthetical with it:
+    # "an event is something that you put on the calendar, so reminding me to
+    # do something at a specific time counts as an event." The 32 corpus rows
+    # that said otherwise were relabelled in the same change, so no gold is
+    # left contradicting this.
     if kind == "task" and _STATED_CLOCK.search(time_str or "") \
-            and not _REMINDER_TASK_FRAME.match(action) \
             and not _VAGUE_TIME_HEDGE.search(action) \
             and not _TIME_BLOCKING.search(action) \
             and not _DUE_DATE_EDIT.match(action) \

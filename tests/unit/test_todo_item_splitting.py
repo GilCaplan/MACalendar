@@ -394,7 +394,8 @@ def test_mac_panel_tag_precedence(db):
     # 30/30 atomic gold rows with a stated clock say so — so this case moved to
     # `test_the_time_never_lands_in_an_event_title` below. What matters for
     # BOTH is the same: the time is not part of the name.
-    ("remind me to feed the cat at 14:00", ["feed the cat"]),
+    # ("remind me to feed the cat at 14:00") moved to the event test below —
+    # Q26 makes a stated clock an event whatever the phrasing.
     # the date mid-sentence, where it always worked, must keep working
     ("remind me tomorrow to send the syllabus to Guri",
      ["send the syllabus to guri"]),
@@ -418,8 +419,14 @@ def test_the_time_never_lands_in_an_event_title(parser):
     built intent because the row legitimately defers — no day was said — and
     the title is still what it should be while it does.
     """
-    result = parser.analyze("I need to walk Val at 3pm")
-    assert "create_event" in result.raw_slots, (
-        f"a stated clock should route the need-to family to an event, "
-        f"got {list(result.raw_slots)}")
-    assert result.raw_slots["create_event"].get("title") == "walk val"
+    for phrase, title in (("I need to walk Val at 3pm", "walk val"),
+                          ("remind me to feed the cat at 14:00", "feed the cat")):
+        result = parser.analyze(phrase)
+        assert "create_event" in result.raw_slots, (
+            f"{phrase!r}: a stated clock makes it an event (Q26), "
+            f"got {list(result.raw_slots)}")
+        assert result.raw_slots["create_event"].get("title") == title
+
+    # ...and with no clock the same frame is still a task.
+    plain = parser.analyze("remind me to call the plumber")
+    assert "create_todo" in plain.raw_slots
