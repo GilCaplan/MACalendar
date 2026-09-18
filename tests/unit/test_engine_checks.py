@@ -460,3 +460,54 @@ class _EmptyRegistry:
 
     def get(self, _name):
         return None
+
+
+# ---------------------------------------------------------------------------
+# "every" alone is not a cadence
+#
+# `resolve_recurrence` ended on a catch-all `return {"cadence": "weekly", …}`,
+# so anything that tripped its trigger and matched no specific cadence came
+# back WEEKLY — the word "every" booked a series whatever followed it.
+#
+# Gil hit it from his phone on 2026-09-18: Whisper wrote "Every event tomorrow
+# night at 9pm" (he never said "every"), and the engine answered "Created
+# recurring weekly event". A series nobody asked for fires forever; a missed
+# cadence is one event the speaker can repeat. The two failures are not equal,
+# so the weekly branch now needs weekly evidence.
+# ---------------------------------------------------------------------------
+
+def test_every_followed_by_a_non_period_is_not_a_recurrence():
+    from assistant.engine.decompose_validate.resolve import resolve_recurrence
+
+    for said in ("every event",
+                 "Every event tomorrow night at 9pm",
+                 "every event tomorrow night at 9pm, to search for kingdoms"):
+        assert resolve_recurrence(said) is None, f"{said!r} names no period"
+
+
+def test_the_real_cadences_all_survive():
+    from assistant.engine.decompose_validate.resolve import resolve_recurrence
+
+    for said, cadence in (("every tuesday", "weekly"), ("every week", "weekly"),
+                          ("every other week", "weekly"), ("every two weeks", "weekly"),
+                          ("twice a week", "weekly"), ("biweekly", "weekly"),
+                          ("every day", "daily"), ("every morning", "daily"),
+                          ("every weekday", "daily"), ("every month", "monthly"),
+                          ("every year", "yearly")):
+        got = resolve_recurrence(said)
+        assert got and got["cadence"] == cadence, f"{said!r} -> {got}"
+
+    # a weekly series may still name several weekdays
+    assert resolve_recurrence("every tuesday and thursday")["days"] == \
+        ["tuesday", "thursday"]
+
+
+def test_the_two_recurrence_readers_agree_that_it_is_not_one():
+    """`intent.recurrence.detect` always said None here. The disagreement is
+    what let the looser reader commit a series the stricter one refused."""
+    from assistant.engine.decompose_validate.resolve import resolve_recurrence
+    from assistant.intent import recurrence as _recur
+
+    for said in ("every event", "every event tomorrow"):
+        assert _recur.detect(said).cadence is None
+        assert resolve_recurrence(said) is None

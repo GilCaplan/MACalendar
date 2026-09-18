@@ -509,7 +509,23 @@ def resolve_recurrence(said: str) -> "dict | None":
     if re.search(r"\b(daily|nightly|everyday|every day|every morning|"
                  r"every evening|every night)\b", t):
         return {"cadence": "daily", "days": [], "rounded": rounded}
-    return {"cadence": "weekly", "days": days, "rounded": rounded}
+    # WEEKLY NEEDS WEEKLY EVIDENCE. This was a catch-all — anything that
+    # tripped the trigger above and matched no specific cadence came back
+    # WEEKLY — so the word "every" alone booked a series, whatever followed it.
+    #
+    # Gil hit it from his phone on 2026-09-18. Whisper wrote "Every event
+    # tomorrow night at 9pm" (he had not said "every"; it was a mishearing),
+    # and the engine answered "Created recurring weekly event". His words:
+    # "why reoccurring, i didnt say it".
+    #
+    # That is the expensive direction. A series nobody asked for fires forever
+    # and has to be hunted down; a missed cadence is one event the speaker can
+    # repeat. `assistant/intent/recurrence.detect` — the OTHER reader of the
+    # same words — already answered None here, so the two disagreed and the
+    # looser one was the one that committed.
+    if days or re.search(r"\bweeks?\b|\bweekly\b|\bbiweekly\b|\bfortnightly\b", t):
+        return {"cadence": "weekly", "days": days, "rounded": rounded}
+    return None
 
 
 # ---------------------------------------------------------------------------
