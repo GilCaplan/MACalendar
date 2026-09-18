@@ -253,6 +253,27 @@ not touched.**
   or starts within 8 h (the ActivityKit cap); ends when neither holds; an
   in-progress event wins over an upcoming one.
 
+**Redesigned 2026-09-15: agenda, not a countdown.** Gil didn't want a
+stopwatch on his lock screen — he wanted today's agenda, with the current (or
+next) event picked out visually and current always outranking next. The
+"local-only trick" above is now historical: `ContentState` carries an array
+of today's remaining events (`items`, capped at 5) plus `currentId`, not one
+event's `start`/`end`; the card is a static per-sync snapshot with **no
+system-ticking element at all** — `Text(timerInterval:)` and
+`ProgressView(timerInterval:)` are gone from `UpNextLiveActivity.swift`. The
+lock-screen and Dynamic-Island-expanded views render every row through the
+same `AgendaRow`, whose "current"/"next"/"later" emphasis is a coloured
+shadow + background wash that steps down in that order (current strongest,
+next lighter, everything else flat) — the "shadow/lighting" Gil asked for
+standing in for the removed countdown number. `staleDate` still marks the
+exact moment the snapshot goes wrong (the running event ends, or — if
+nothing was running — the next one starts), same mechanism as before, just
+computed from the headline row instead of the lone event.
+
+**Still open in phase 5:** `BGAppRefreshTask` would let the card roll between
+events while the phone is locked, and is the natural next increment — it is
+also the one that makes the `staleDate` fallback rare rather than routine.
+
 ### Phase 5 — what is actually left (re-read 2026-09-14)
 
 Three items, and they are not equal. One more was closed by ruling, and is not

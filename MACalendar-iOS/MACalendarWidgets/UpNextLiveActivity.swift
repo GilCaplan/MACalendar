@@ -3,16 +3,17 @@ import SwiftUI
 import WidgetKit
 
 /// The lock-screen card and Dynamic Island presentation for the "Up Next"
-/// Live Activity.
+/// Live Activity: today's remaining agenda, with the current (or next) event
+/// picked out by a coloured glow rather than by a live-ticking number.
 ///
-/// Every time-varying number on this card is drawn by the system:
-/// `Text(timerInterval:)` and `ProgressView(timerInterval:)` tick on their own,
-/// on the lock screen, with the app not running and no push behind them. That
-/// is what lets a strictly local-only app have a live card at all — see
-/// `LiveActivityManager` for the other half of the argument.
+/// Nothing here is system-animated. `context.state` is a snapshot the app
+/// pushed at some past sync point — see `LiveActivityManager` for when — and
+/// stays exactly as drawn until the next one, or until `staleDate` passes and
+/// iOS dims the whole card.
 ///
 /// This target links nothing of the app's. Everything drawn here arrives in
-/// `UpNextAttributes.ContentState`, including the colour, already resolved.
+/// `UpNextAttributes.ContentState`, including each row's colour, already
+/// resolved.
 struct UpNextLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: UpNextAttributes.self) { context in
@@ -21,44 +22,42 @@ struct UpNextLiveActivity: Widget {
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             let state = context.state
-            let accent = Color(activityHex: state.colorHex) ?? .orange
+            let headline = state.headline
+            let accent = Color(activityHex: headline?.colorHex ?? "") ?? .orange
 
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 6) {
                         Capsule().fill(accent).frame(width: 3, height: 26)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(state.phase == .now ? "NOW" : "UP NEXT")
+                            Text(state.currentId != nil ? "NOW" : "UP NEXT")
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundStyle(accent)
-                            Text(state.title)
+                            Text(headline?.title ?? "Today")
                                 .font(.system(size: 14, weight: .semibold))
                                 .lineLimit(1)
                         }
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    VStack(alignment: .trailing, spacing: 1) {
-                        Text(state.timeLabel)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                        CountdownText(state: state)
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
-                            .monospacedDigit()
-                            .foregroundStyle(accent)
-                    }
+                    Text(headline?.timeLabel ?? "")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    if state.phase == .upcoming {
-                        ProgressView(timerInterval: state.untilStart, countsDown: true) {
-                            EmptyView()
-                        } currentValueLabel: {
-                            EmptyView()
+                    // The rest of today's agenda, most-relevant first. The
+                    // headline already has the leading region; this is the
+                    // "what's after that" the old progress bar had no room for.
+                    let rest = state.items.filter { $0.id != headline?.id }
+                    if !rest.isEmpty {
+                        VStack(alignment: .leading, spacing: 5) {
+                            ForEach(rest.prefix(2)) { item in
+                                AgendaRow(item: item, emphasis: item.id == state.nextId ? .next : .later)
+                            }
                         }
-                        .tint(accent)
-                    } else if !state.location.isEmpty {
-                        Text(state.location)
+                    } else if let headline, !headline.location.isEmpty {
+                        Text(headline.location)
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -67,13 +66,11 @@ struct UpNextLiveActivity: Widget {
             } compactLeading: {
                 Circle().fill(accent).frame(width: 8, height: 8)
             } compactTrailing: {
-                CountdownText(state: state)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                Text(headline?.timeLabel.prefix(5) ?? "")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(accent)
-                    // The interval text is laid out by the system and is
-                    // truncated without a width hint once it reaches h:mm:ss.
-                    .frame(width: 58)
+                    .frame(width: 42)
             } minimal: {
                 Circle().fill(accent).frame(width: 8, height: 8)
             }
@@ -87,91 +84,124 @@ struct UpNextLiveActivity: Widget {
 private struct UpNextLockScreenView: View {
     let state: UpNextAttributes.ContentState
 
-    private var accent: Color { Color(activityHex: state.colorHex) ?? .orange }
+    private var accent: Color { Color(activityHex: state.headline?.colorHex ?? "") ?? .orange }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Category colour, as a bar rather than a fill: the card sits on
-            // the user's wallpaper and a full-bleed colour fights it.
-            Capsule()
-                .fill(accent)
-                .frame(width: 4)
-                .frame(maxHeight: .infinity)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(state.phase == .now ? "NOW" : "UP NEXT")
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Circle().fill(accent).frame(width: 6, height: 6)
+                Text(state.currentId != nil ? "NOW" : "UP NEXT")
                     .font(.system(size: 10, weight: .bold))
                     .tracking(0.8)
                     .foregroundStyle(accent)
-
-                Text(state.title)
-                    .font(.system(size: 17, weight: .semibold))
-                    .lineLimit(2)
-                    .foregroundStyle(.white)
-
-                HStack(spacing: 6) {
-                    Text(state.timeLabel)
-                    if !state.location.isEmpty {
-                        Text("·")
-                        Text(state.location).lineLimit(1)
-                    }
-                }
-                .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.7))
-
-                if state.phase == .upcoming {
-                    // Fills as the wait runs out. System-driven, like the text.
-                    ProgressView(timerInterval: state.untilStart, countsDown: true) {
-                        EmptyView()
-                    } currentValueLabel: {
-                        EmptyView()
-                    }
-                    .tint(accent)
-                    .padding(.top, 4)
+                Spacer()
+                if state.items.count > 1 {
+                    Text("\(state.items.count) today")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.5))
                 }
             }
 
-            Spacer(minLength: 4)
-
-            VStack(alignment: .trailing, spacing: 1) {
-                CountdownText(state: state)
-                    .font(.system(size: 26, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                Text("to go")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.55))
+            VStack(alignment: .leading, spacing: 9) {
+                ForEach(state.items) { item in
+                    AgendaRow(item: item, emphasis: state.emphasis(for: item))
+                }
             }
         }
-        .padding(14)
+        .padding(16)
     }
 }
 
-// MARK: - The one live element
+// MARK: - Agenda row
 
-/// Always counting DOWN: to the start while the event is upcoming, then to
-/// the end once it is running. Both forms are `Text(timerInterval:)`, which
-/// the system re-renders every second on its own — the app is not involved.
-///
-/// The running half used to count UP from the start, labelled "elapsed" (Gil,
-/// 2026-09-17: *"Remove the elapsed. I don't want to see that it says elapsed
-/// time"*). Time already spent is not something a lock-screen card can act on;
-/// how long is left is. So one label — "to go" — is true in both phases, and
-/// the number under it answers the same question throughout.
-private struct CountdownText: View {
-    let state: UpNextAttributes.ContentState
+/// How strongly a row is picked out of the list. Current always outranks
+/// next — "where current gets the precedence" — so the glow and the type
+/// weight both step down from `.current` to `.next` to `.later`.
+private enum RowEmphasis {
+    case current, next, later
+}
+
+/// One line of the agenda: a colour bar, the title and time, and — for the
+/// current and next rows only — a coloured glow standing in for the countdown
+/// number this card used to show. `.current` gets the strongest light,
+/// `.next` a softer one, everything else sits flat.
+private struct AgendaRow: View {
+    let item: UpNextAttributes.ContentState.AgendaItem
+    let emphasis: RowEmphasis
+
+    private var accent: Color { Color(activityHex: item.colorHex) ?? .orange }
+
+    private var glow: Double {
+        switch emphasis {
+        case .current: return 0.85
+        case .next:    return 0.45
+        case .later:   return 0
+        }
+    }
+    private var wash: Double {
+        switch emphasis {
+        case .current: return 0.22
+        case .next:    return 0.11
+        case .later:   return 0
+        }
+    }
 
     var body: some View {
-        switch state.phase {
-        case .upcoming:
-            Text(timerInterval: state.untilStart, countsDown: true)
-                .multilineTextAlignment(.trailing)
-        case .now:
-            Text(timerInterval: state.duringEvent, countsDown: true)
-                .multilineTextAlignment(.trailing)
+        HStack(spacing: 10) {
+            // `maxHeight: .infinity` rather than a fixed height: a fixed bar
+            // shorter than the two-line text block it sits beside (title +
+            // time · location) left a visible gap under it and read as
+            // misaligned — the bar now always spans exactly what it marks.
+            Capsule().fill(accent).frame(width: 3).frame(maxHeight: .infinity)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.title)
+                    .font(.system(size: emphasis == .later ? 14 : 16,
+                                  weight: emphasis == .later ? .medium : .semibold))
+                    .foregroundStyle(.white.opacity(emphasis == .later ? 0.75 : 1))
+                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    Text(item.timeLabel)
+                    if !item.location.isEmpty {
+                        Text("·")
+                        Text(item.location).lineLimit(1)
+                    }
+                }
+                .font(.system(size: 12))
+                .foregroundStyle(.white.opacity(emphasis == .later ? 0.45 : 0.7))
+            }
+            Spacer(minLength: 0)
         }
+        .padding(.vertical, 9)
+        .padding(.horizontal, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(accent.opacity(wash))
+        )
+        .shadow(color: accent.opacity(glow), radius: emphasis == .current ? 9 : 5)
+    }
+}
+
+// MARK: - ContentState helpers
+
+/// Kept next to the view rather than the shared attributes file, since these
+/// are display conveniences (which row is "headline", which is "next") and
+/// the attributes file stays dependency-free of even this much policy.
+private extension UpNextAttributes.ContentState {
+    /// The row the card leads with: the running event, or the soonest one.
+    var headline: AgendaItem? {
+        items.first { $0.id == currentId } ?? items.first
+    }
+
+    /// The row right after the headline — "coming next" gets its own, lesser,
+    /// glow whether or not something is currently running.
+    var nextId: Int? {
+        items.first { $0.id != currentId }?.id
+    }
+
+    func emphasis(for item: AgendaItem) -> RowEmphasis {
+        if item.id == currentId { return .current }
+        if item.id == nextId { return .next }
+        return .later
     }
 }
 

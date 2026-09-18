@@ -677,13 +677,15 @@ runs. Quiet windows: evaluated on the FIRE time — an event inside
 Shabbat/yom tov gets no reminder (reason in the payload), a motzei lead is
 clamped past havdala, fasts don't suppress, fail-open like the series skip.
 Additive on top of the banner: an **"Up Next" Live Activity** — a persistent
-lock-screen card (and Dynamic Island) showing the next event's title, clock
-time, category colour and a live countdown, flipping to "NOW" once it starts
-and then rolling on to the following event. It counts DOWN in both phases —
-to the start, then to the end — under one label, "to go". It used to count UP
-from the start under "elapsed" (Gil, 2026-09-17: *"Remove the elapsed. I don't
-want to see that it says elapsed time"*): time already spent is not something
-a lock-screen card can act on, and how long is left is.
+lock-screen card (and Dynamic Island) showing today's remaining agenda, each
+row's title/time/category colour, with the running event (or failing that
+the soonest one) picked out by a coloured glow and the one after it by a
+lighter version of the same — no countdown number, current always outranking
+next. Also additive: a **"Show today's agenda now" button** in the phone's
+Reminders settings — pops one local notification, on demand, with the
+WHOLE day's events (not just what's left, and not gated on the reminders
+toggle or a horizon), phrased the same way the Mac's own "Brief Me" reads it
+aloud ("You have 3 events today: X at 9, Y at noon, and Z at 5").
 **Where:** policy `assistant/notify.py`; store `events.reminder_minutes` +
 `reminder_log` (`db.py`); Mac thread `assistant/notifier.py` (osascript);
 settings `settings_dialog.py` + iOS `SettingsView`; phone
@@ -691,7 +693,11 @@ settings `settings_dialog.py` + iOS `SettingsView`; phone
 event); per-event picker **on the iPhone only** — `EventDetailView.swift:124`
 (Inherit / None / N-minutes, `-1` meaning "no stored override") plus the plain
 reading of `notify_suppressed_reason` at `:51-64`; config `notifications:`
-section (PATCH /config). Live Activity: app-side
+section (PATCH /config). "Show today's agenda now": `SettingsView`'s
+Reminders section, `LiveActivityManager.todaysAgendaSummary(now:events:)`
+(a pure function over `LocalStore`'s cache, no server round-trip) fired
+through the existing `APIClient.notify(title:body:)` immediate-local-
+notification helper. Live Activity: app-side
 `LiveActivityManager.swift`, shared contract
 `MACalendar-iOS/MACalendar-iOS/Shared/UpNextActivityAttributes.swift` (compiled into both
 targets), UI in the new `MACalendarWidgets` app-extension target
@@ -702,14 +708,14 @@ deployment target 16.2, embedded via "Embed Foundation Extensions");
 reconciles ≤55 `UNCalendarNotificationTrigger`s (headroom under the 64 cap
 for workout rest timers); `reminder_log` dedupes across `--reload`
 restarts; late fires obey `catch_up_minutes`. The Live Activity needs no
-push and never gets one: the countdown is `Text(timerInterval:)` /
-`ProgressView(timerInterval:)`, which iOS re-renders on the lock screen with
-the app not running — so the app only has to push content when the *event*
-changes, which it does from the paths where it already wakes
+push and never gets one: nothing in the card is system-animated any more —
+it is a static snapshot the app pushes when the *agenda* changes, which it
+does from the paths where it already wakes
 (`ReminderScheduler.reconcile()`, ContentView's foreground handler, its
 `/changes` branch and its 30 s tick), all funnelled through one debounced
 `LiveActivityManager.sync()`. Cards carry a `staleDate` at exactly the
-moment they stop being true, so a transition missed while the phone is
+moment they stop being true (the running event ends, or nothing was
+running and the next one starts), so a transition missed while the phone is
 locked is dimmed by iOS rather than shown as a lie. Starts only within the
 8 h ActivityKit cap, and respects the device-local reminders toggle.
 **The Mac has no per-event picker** (corrected 2026-09-14 — this entry claimed
