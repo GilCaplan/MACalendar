@@ -92,3 +92,51 @@ def test_env_var_overrides_stt_engine(tmp_path, monkeypatch):
     monkeypatch.setenv("ASSISTANT_STT_ENGINE", "google")
     config = load_config(path)
     assert config.stt_engine == "google"
+
+
+# ---------------------------------------------------------------------------
+# The lock-screen agenda card's switch is SHARED (Gil, 2026-09-17: "make sure
+# toggle value is synced with calendar app accordingly").
+#
+# It is iPhone-only behaviour, so the temptation is to leave it in the phone's
+# UserDefaults. Then the Mac's settings screen and the phone's disagree about a
+# value both claim to own, and a reinstall silently turns it back on. It lives
+# in `notifications:` instead, alongside `daily_digest`, which is shared for the
+# same reason.
+# ---------------------------------------------------------------------------
+
+def test_the_agenda_card_switch_is_part_of_the_shared_config():
+    from assistant.config import NotificationsConfig
+    assert NotificationsConfig().agenda_card is True, "must default ON"
+    assert NotificationsConfig(agenda_card=False).agenda_card is False
+
+
+def test_the_agenda_card_switch_survives_a_yaml_round_trip():
+    """The Mac writes it and the API reads it back — through YAML, not memory."""
+    import yaml
+    from assistant.config import NotificationsConfig
+
+    for value in (True, False):
+        text = yaml.safe_dump({"notifications": {"agenda_card": value}})
+        loaded = yaml.safe_load(text)["notifications"]
+        assert NotificationsConfig(**loaded).agenda_card is value
+
+
+def test_an_older_config_with_no_agenda_card_key_still_loads():
+    """`config.yaml` is gitignored and hand-edited, so most real files predate
+    this key. A missing key must mean "on", not a validation error."""
+    from assistant.config import NotificationsConfig
+    cfg = NotificationsConfig(**{"daily_digest": True, "digest_time": "07:00"})
+    assert cfg.agenda_card is True
+
+
+def test_the_example_config_documents_it():
+    """config.yaml is gitignored, so config.example.yaml is the only place a new
+    checkout can learn the setting exists."""
+    import pathlib
+    import yaml
+    root = pathlib.Path(__file__).resolve().parents[2]
+    example = yaml.safe_load((root / "config.example.yaml").read_text())
+    assert "agenda_card" in example["notifications"], \
+        "a new setting must be mirrored into config.example.yaml"
+    assert example["notifications"]["agenda_card"] is True

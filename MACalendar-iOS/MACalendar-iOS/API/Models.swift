@@ -555,6 +555,11 @@ struct NotificationsConfig: Codable, Equatable {
     /// Local "HH:MM" the panel fires at. Shown, not edited — a knob rather
     /// than another control to think about.
     var digestTime: String
+    /// The lock-screen agenda card. Shared with the Mac so the two cannot
+    /// disagree and the choice survives a reinstall; the phone mirrors it into
+    /// `agendaCardEnabled` in UserDefaults, which is what
+    /// `LiveActivityManager` reads (synchronously, offline, no server).
+    var agendaCard: Bool
     var defaultLeadMinutes: Int
     /// Category name → lead minutes; 0 mutes the whole category.
     var categoryLeads: [String: Int]
@@ -567,6 +572,7 @@ struct NotificationsConfig: Codable, Equatable {
         case enabled, sound, speak
         case dailyDigest        = "daily_digest"
         case digestTime         = "digest_time"
+        case agendaCard         = "agenda_card"
         case defaultLeadMinutes = "default_lead_minutes"
         case categoryLeads      = "category_leads"
         case respectObservance  = "respect_observance"
@@ -580,6 +586,7 @@ struct NotificationsConfig: Codable, Equatable {
         enabled            = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
         dailyDigest        = try c.decodeIfPresent(Bool.self, forKey: .dailyDigest) ?? true
         digestTime         = try c.decodeIfPresent(String.self, forKey: .digestTime) ?? "07:00"
+        agendaCard         = try c.decodeIfPresent(Bool.self, forKey: .agendaCard) ?? true
         defaultLeadMinutes = try c.decodeIfPresent(Int.self,  forKey: .defaultLeadMinutes) ?? 0
         categoryLeads      = try c.decodeIfPresent([String: Int].self, forKey: .categoryLeads) ?? [:]
         respectObservance  = try c.decodeIfPresent(Bool.self, forKey: .respectObservance) ?? true

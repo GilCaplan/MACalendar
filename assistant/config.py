@@ -224,6 +224,17 @@ class NotificationsConfig(BaseModel):
     daily_digest: bool = True
     digest_time: str = "07:00"          # local, HH:MM
 
+    # THE LOCK-SCREEN AGENDA CARD, iPhone only (Gil, 2026-09-17). Shared here
+    # rather than kept device-local so the two apps cannot disagree about it and
+    # the choice survives a reinstall — the same reason `daily_digest` is shared.
+    # The Mac draws no Live Activity, so nothing on the Mac READS this; the Mac's
+    # settings dialog only offers it, and the phone is what acts on it.
+    #
+    # The phone also keeps it in UserDefaults (`agendaCardEnabled`), because
+    # `LiveActivityManager` has to answer "is this on?" synchronously and with no
+    # server in reach. This field is the shared truth; that key is its cache.
+    agenda_card: bool = True
+
     # The PRE-EVENT reminders (a banner N minutes before something starts).
     # Off by default since the day panel replaced them — Gil asked for the
     # panel "and not when something is about to pop up". The machinery below

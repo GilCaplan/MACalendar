@@ -251,6 +251,21 @@ def open_settings(self) -> None:
     notif_form.addRow("Default lead time:", notif_lead_combo)
     notif.addLayout(notif_form)
 
+    # The iPhone's lock-screen agenda card. The Mac draws no Live Activity, so
+    # this control does not change anything here — it is offered so the two
+    # settings screens cannot disagree about a shared value (Gil, 2026-09-17:
+    # "make sure toggle value is synced with calendar app accordingly"). The
+    # label says whose screen it is, or it reads as a broken Mac setting.
+    notif_agenda_cb = QCheckBox("Agenda card on the iPhone lock screen")
+    notif_agenda_cb.setObjectName("notif_agenda_card_cb")
+    notif_agenda_cb.setToolTip(
+        "Today's remaining events on the phone's lock screen, with the one\n"
+        "running lit up. Clearing it on the phone hides it until 6am.\n"
+        "Nothing on the Mac shows this — the switch lives here so both\n"
+        "apps agree on it.")
+    notif_agenda_cb.setChecked(bool(getattr(notif_cfg, "agenda_card", True)))
+    notif.addWidget(notif_agenda_cb)
+
     notif_speak_cb = QCheckBox("Spoken heads-up (uses the assistant voice)")
     notif_speak_cb.setObjectName("notif_speak_cb")
     notif_speak_cb.setChecked(bool(getattr(notif_cfg, "speak", False)))
@@ -598,6 +613,7 @@ def open_settings(self) -> None:
                     "enabled": notif_enabled_cb.isChecked(),
                     "default_lead_minutes": int(notif_lead_combo.currentData() or 0),
                     "respect_observance": notif_observance_cb.isChecked(),
+                    "agenda_card": notif_agenda_cb.isChecked(),
                     "speak": notif_speak_cb.isChecked(),
                     # No widget for sound yet — round-trip the config value.
                     "sound": bool(getattr(notif_cfg, "sound", True)),
@@ -609,6 +625,7 @@ def open_settings(self) -> None:
                     notif_cfg.enabled = notif_enabled_cb.isChecked()
                     notif_cfg.default_lead_minutes = int(notif_lead_combo.currentData() or 0)
                     notif_cfg.respect_observance = notif_observance_cb.isChecked()
+                    notif_cfg.agenda_card = notif_agenda_cb.isChecked()
                     notif_cfg.speak = notif_speak_cb.isChecked()
                     notif_cfg.category_leads = cat_leads
 

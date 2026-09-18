@@ -290,6 +290,11 @@ struct SettingsView: View {
                                 // is how you get the card back today instead of
                                 // waiting for the morning.
                                 LiveActivityManager.shared.setEnabled(on)
+                                // Shared with the Mac so the two settings
+                                // screens cannot disagree. Offline this joins the
+                                // queue like any other write and replays.
+                                notifConfig?.agendaCard = on
+                                Task { await api.patchNotifications(["agenda_card": on]) }
                             }
 
                             Divider()
@@ -483,6 +488,15 @@ struct SettingsView: View {
                     if let cfg = notifConfig,
                        !LocalStore.shared.pending.contains(where: { $0.path == "/config" }) {
                         settings.remindersEnabled = cfg.dailyDigest
+                        // The card's switch is shared with the Mac too, so adopt
+                        // it the same way and on the same condition. Routed
+                        // through `setEnabled` rather than assigned, or the
+                        // manager would not act on a change made on the Mac
+                        // until something else happened to call `sync()`.
+                        if cfg.agendaCard != settings.agendaCardEnabled {
+                            settings.agendaCardEnabled = cfg.agendaCard
+                            LiveActivityManager.shared.setEnabled(cfg.agendaCard)
+                        }
                     }
                 }
             }

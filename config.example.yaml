@@ -140,6 +140,7 @@ notifications:
   enabled: true                # master switch for everything below
   daily_digest: true           # THE DAY PANEL: one summary of today's events + tasks
   digest_time: "07:00"         # local, HH:MM - when the day panel arrives
+  agenda_card: true            # iPhone lock-screen agenda card (Live Activity). Clearing it on the phone hides it until 6am
   pre_event: false             # banners N min before something starts (replaced by the panel)
   default_lead_minutes: 0      # pre_event only. 0 = opt-in; N = N min before everything
   category_leads: {}           # pre_event only. e.g. {Work: 15, Errands: 0} - 0 MUTES that category
