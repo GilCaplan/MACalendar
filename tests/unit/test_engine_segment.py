@@ -415,3 +415,39 @@ def test_a_bare_decimal_number_is_now_read_as_a_clock_by_design():
     for text in ("that movie was $11.15", "it's 9.99 for the ticket"):
         clocks = [r for r in _fs.find_time_refs(text) if r.kind == "clock"]
         assert clocks, f"{text!r}: expected the decimal to be read as a clock"
+
+
+# ---------------------------------------------------------------------------
+# A DAMAGED COMMAND FRAME still names a task
+#
+# Whisper mangles a word inside a fixed frame — "remind MITT to", "remind NEED
+# to" — or a UI tag precedes it. `_TASK_RE` then does not match, and `_kind_of`
+# fell through to its catch-all `event`, so a reminder landed on the calendar.
+# `_REMIND_TO_VERB_RE` already matched all of these; it was consulted only
+# inside the branch the damaged text never enters.
+#
+# The MISHEARD WORD itself is not repaired here — that is the personal
+# vocabulary's job (`assistant/stt/vocab.py`, which matches over a window the
+# size of the entry). This is the reader being fixed, not the words rewritten.
+# ---------------------------------------------------------------------------
+
+def test_a_damaged_remind_frame_is_still_a_task():
+    from assistant.engine.segmentation.old_seg.segment import _kind_of
+
+    for text in ("remind mitt to sign the permission slip",
+                 "remind need to book the car service",
+                 "[TASKS VIEW] can you remind me to book a flight"):
+        assert _kind_of(text) == "task", f"{text!r} is a reminder, not a meeting"
+
+    # ...and the intact frame is unaffected, in both directions.
+    assert _kind_of("remind me to feed the cat") == "task"
+    assert _kind_of("book the dentist on friday") == "event"
+
+
+def test_the_damaged_frame_still_yields_to_a_stated_clock():
+    """Q26 outranks it: `fastseg.tag` promotes on a stated clock AFTER
+    `_kind_of` has spoken, so a repaired frame with a time is still an event."""
+    from assistant.engine.segmentation.fastseg.fastseg import tag
+
+    assert tag("remind mitt to feed the cat", "at 14:00") == "event"
+    assert tag("remind mitt to feed the cat", "tomorrow") == "task"

@@ -308,6 +308,25 @@ def _kind_of(text: str) -> str:
                 and not _REMIND_TO_VERB_RE.search(t)):
             return "event"
         return "task"
+    # A DAMAGED OR PREFIXED FRAME still names a task. `_TASK_RE` is the only
+    # reader above, and it does not match when Whisper mangles a word INSIDE
+    # the frame ("remind mitt to sign the permission slip", "remind need to
+    # …") or when a UI tag precedes it ("[TASKS VIEW] can you remind me to
+    # book a flight"). Those fell through to this catch-all `event` — which is
+    # how a reminder ended up on the calendar.
+    #
+    # `_REMIND_TO_VERB_RE` already matches every one of them and is position-
+    # free, so nothing new is needed: it was simply consulted only INSIDE the
+    # branch the damaged text never enters. This is the reader being fixed
+    # rather than the speaker's words being rewritten, which is the whole
+    # point — `assistant/stt/vocab.py` is where a MISHEARD word is repaired,
+    # and it needs a vocabulary entry, not a hidden table in the segmenter.
+    #
+    # Returning `task` here does not fight Q26: `fastseg.tag` applies the
+    # stated-clock promotion AFTER this, so "remind mitt to feed the cat at
+    # 14:00" still becomes an event on the clock, as Gil ruled.
+    if _REMIND_TO_VERB_RE.search(t):
+        return "task"
     return "event"
 
 
