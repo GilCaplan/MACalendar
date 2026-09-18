@@ -340,6 +340,38 @@ before you rule:
   *Re-confirmed by Gil 2026-09-14 and still wired:* `_parse_covers_the_compound`
   is at `assistant/engine/fastrule/fastrule.py:188`, consulted at `:268`.
 
+- **2026-09-18 — Q27 (A DAYPART DOES NOT DECIDE THE KIND — THE VERB DOES)**,
+  Gil, after being shown the corpus evidence against reversing Q15 wholesale.
+  Q26 had implied dayparts become events; measuring first showed that would be
+  wrong, and Gil agreed.
+
+  **What the corpus actually says.** Bare-daypart atomic rows split 355 EVENT /
+  72 TASK — and the split is not about the daypart, which appears identically
+  on both sides. It is about the VERB:
+
+      gold EVENT   "schedule birthday dinner this evening"
+                   "pencil in doctor's appointment at late afternoon"
+                   "book standup this afternoon"   · "mark this evening as the moving day"
+      gold TASK    "buy onions and index cards this afternoon"
+                   "clean and organize the garage this morning"
+                   "add book a flight to my todo list tonight"
+
+  Scheduling verbs (`schedule`, `book`, `pencil in`, `mark…as`) make an event;
+  chores and purchases make a task. `fastseg.tag`'s `_CALENDAR_VERBS` /
+  `_TASK_VERBS` lexicon already encodes exactly this and already gets **60 of
+  72** of the task rows right, so nothing needed building.
+
+  **Three reasons the reversal was refused.** A daypart is a RANGE, not a
+  specific time — `PART_OF_DAY` maps `afternoon` to 12:00–17:00, so it fails
+  Q26's own "specific time" test. It would have put "buy onions and index
+  cards this afternoon" on the calendar as a five-hour block. And it would have
+  relabelled 60 rows against their own evidence.
+
+  **So Q15's OUTCOME stands and its REASONING is replaced.** Not "a daypart is
+  a task" — that phrasing is what made it look like the largest mis-kind driver
+  — but "a daypart does not decide; the verb does". Q26 is untouched: a stated
+  CLOCK still makes it an event whatever the phrasing.
+
 - **2026-09-18 — Q26 (WHAT PUTS SOMETHING ON THE CALENDAR)**, Gil, answering a
   restated set after Q25's first narrowing was wrong. **This SUPERSEDES the
   same-day narrowing below and REVERSES Q15's headline ruling.**
