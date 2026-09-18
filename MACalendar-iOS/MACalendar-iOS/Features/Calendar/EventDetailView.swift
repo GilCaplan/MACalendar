@@ -137,7 +137,7 @@ struct EventDetailView: View {
                     if let note = suppressionNote {
                         Label(note, systemImage: "moon.stars")
                     } else if reminderChoice == -1 {
-                        Text("Inherit uses the category's lead time, or the default from Settings › Reminders.")
+                        Text("Inherit uses the category's lead time, set on your Mac. Per-event reminders are off by default — Settings › Today's panel is the one summary this phone shows.")
                     }
                 }
                 // The event body. This is where a planned session keeps the
@@ -175,6 +175,21 @@ struct EventDetailView: View {
                         Button(role: .destructive) { confirmDelete = true } label: {
                             Label("Delete Event", systemImage: "trash")
                         }
+                        // Anchored to the BUTTON, not to the form (Gil,
+                        // 2026-09-18: "move it so its just above the initial
+                        // delete button so i dont need to move my fingers so
+                        // much"). A confirmationDialog attached to the whole
+                        // view anchors its popover at the top of the screen —
+                        // so confirming a delete meant reaching from the
+                        // bottom of a long scroll up to the navigation bar and
+                        // back. Attached here, the popover comes up beside the
+                        // control your thumb is already on.
+                        .confirmationDialog("Delete this event?",
+                                            isPresented: $confirmDelete,
+                                            titleVisibility: .visible) {
+                            Button("Delete", role: .destructive) { deleteEvent() }
+                            Button("Cancel", role: .cancel) {}
+                        }
                     }
                 }
             }
@@ -192,10 +207,6 @@ struct EventDetailView: View {
                             .keyboardShortcut(.defaultAction)
                     }
                 }
-            }
-            .confirmationDialog("Delete this event?", isPresented: $confirmDelete, titleVisibility: .visible) {
-                Button("Delete", role: .destructive) { deleteEvent() }
-                Button("Cancel", role: .cancel) {}
             }
             .sheet(item: $shareFile) { file in
                 ShareSheet(items: [file.url])
