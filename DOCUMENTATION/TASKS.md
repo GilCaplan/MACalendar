@@ -1248,6 +1248,27 @@ Phase 3 (latency: instrument, then cut) → Phase 4 gated on Gil. Rows for each
 phase go in this table as they start; the plan is the spec, this file is the
 tracker. Do not start a parallel list.
 
+## "by 30 minutes" — the RELATIVE duration — NOT FIXED, filed (2026-09-18)
+
+Found while fixing the absolute form Gil reported. `"shorten the meeting to be
+15 minutes"` now works: the new end is `start + 15 min`, and the rule parser
+knows the start because the speaker said it.
+
+`"shorten the meeting BY 30 minutes"` cannot be answered here. It needs the
+event's CURRENT end, which `rule_parser` never loads — it builds an intent, it
+does not read the calendar. So the arithmetic belongs either in
+`UpdateEventAction.execute` (which has the row) or in a new optional intent
+field carrying the delta.
+
+The same shape is already on record from the other direction: STATUS.md's
+malformed-value list has the model returning `{'new_end_time': 'by an hour'}`
+and `{'new_end_time': '20 minutes'}`, which `parser._normalize_time_fields`
+now drops rather than crashing on. So BOTH tracks currently discard a relative
+duration; the deep track merely fails more quietly.
+
+Whoever picks this up: decide where it lives before writing it, since an
+optional intent field is a contract question and the action layer is not.
+
 ## Working agreements
 - Everything on the phone is local: no third-party services; the only network peer is the Mac over Tailscale.
 - Prefer doing work directly over spawning sub-agents; keep context small (`/compact` between big tasks).

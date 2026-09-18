@@ -442,6 +442,45 @@ _SCOPE_PHRASES: list[tuple[str, str]] = [
     ("this evening", "today"),
 ]
 
+#: "to be 15 minutes", "to 45 mins", "for an hour and a half". The leading
+#: "to be"/"to" marks the ABSOLUTE form — the event's new whole length — which
+#: is the one this file can answer without reading the event.
+_DURATION_RE = re.compile(
+    r"\b(?:to\s+be|to\s+last|to|for)\s+"
+    r"(\d+|an?|one|two|three|four|five|six|seven|eight|nine|ten|half|quarter)"
+    r"(?:\s+and\s+(?:a\s+)?(half|quarter))?\s*"
+    # "half AN hour", "quarter OF AN hour" — the article sits between the
+    # amount and the unit in exactly the phrasings people actually say.
+    r"(?:(?:of\s+)?an?\s+)?"
+    r"(hours?|hrs?|h|minutes?|mins?|m)\b", re.IGNORECASE)
+
+_DURATION_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
+                   "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
+                   "ten": 10, "half": 0, "quarter": 0}
+
+
+def _duration_minutes(m) -> "int | None":
+    """A matched duration phrase as whole minutes, or None."""
+    raw = (m.group(1) or "").lower()
+    n = float(_DURATION_WORDS[raw]) if raw in _DURATION_WORDS else (
+        float(raw) if raw.isdigit() else None)
+    if n is None:
+        return None
+    if raw == "half":
+        n = 0.5
+    elif raw == "quarter":
+        n = 0.25
+    extra = (m.group(2) or "").lower()
+    if extra == "half":
+        n += 0.5
+    elif extra == "quarter":
+        n += 0.25
+    unit = (m.group(3) or "").lower()
+    minutes = n * 60 if unit.startswith(("hour", "hr", "h")) else n
+    minutes = int(round(minutes))
+    return minutes or None
+
+
 # Verbs that extend/shorten the duration of an event (not move it)
 # For these, "at X" = match_start_time (finder) and "to Y" = new_end_time (change)
 _EXTEND_VERBS = frozenset({"extend", "lengthen", "stretch", "prolong", "shorten", "trim"})
@@ -1972,6 +2011,31 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
                     elif not ampm and 1 <= h <= 7:
                         h += 12
                     slots["new_end_time"] = f"{h:02d}:{mins}"
+            # "...TO BE 15 MINUTES" — a DURATION, not a clock time. Gil, from
+            # his phone 2026-09-18: "Can you shorten the event at 2pm walk Jada
+            # to be 15 minutes" reached `update_event` and then answered "No
+            # changes specified", because every reader here was looking for a
+            # new END TIME and he had given a LENGTH.
+            #
+            # Only the ABSOLUTE form is computed here ("to be 15 minutes" = the
+            # event now lasts 15 minutes), and only when the start is known,
+            # because that is the whole answer: new_end = start + length. The
+            # RELATIVE form ("by 30 minutes") needs the event's current end,
+            # which this stage cannot read — filed in TASKS.md rather than
+            # guessed at.
+            if not slots.get("new_end_time") and slots.get("match_start_time"):
+                dur = _DURATION_RE.search(span.text)
+                if dur:
+                    minutes = _duration_minutes(dur)
+                    if minutes:
+                        try:
+                            sh, sm = (int(x) for x in
+                                      str(slots["match_start_time"]).split(":")[:2])
+                            total = sh * 60 + sm + minutes
+                            if 0 < total < 24 * 60:
+                                slots["new_end_time"] = f"{total // 60:02d}:{total % 60:02d}"
+                        except (ValueError, TypeError):
+                            pass
         else:
             # Standard move/reschedule/rename semantics:
             #   title    → match_title

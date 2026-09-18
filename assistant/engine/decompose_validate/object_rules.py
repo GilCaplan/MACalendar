@@ -254,10 +254,26 @@ def _rule_question_creates_nothing(state, cfg, pairs) -> None:
 #: Deliberately the same shape as `_CREATE_VERB` and read beside it, rather
 #: than a fifth opinion about what an imperative looks like — audit P2 is that
 #: this codebase already answers "is this a question?" in four places.
+#: The verbs that make a question-shaped sentence an INSTRUCTION. This is a
+#: SAFETY NET's escape hatch, so every verb the router treats as a mutation has
+#: to be here — a verb the router knows and this pattern does not is a real
+#: command silently vetoed.
+#:
+#: It drifted, and Gil caught it from his phone (2026-09-18): "Can you shorten
+#: the event at 2pm walk Jada to be 15 minutes" parsed as `update_event` at
+#: confidence 1.00 and then `question_mutates_nothing` emptied it, because the
+#: whole extend/shorten family was missing. Nothing happened and the card said
+#: the rules had answered.
+#:
+#: `test_engine_checks` now asserts this covers `rule_parser._EXTEND_VERBS` and
+#: every update/delete verb in `_VERB_ACTION`, so the two cannot drift again.
 _MUTATE_VERB = re.compile(
     r"\b(move|change|reschedule|shift|push|postpone|delay|rename|retitle|"
     r"update|edit|cancel|delete|remove|drop|clear|complete|finish|"
-    r"tick|check\s+off|mark)\b", re.I)
+    r"tick|check\s+off|mark|"
+    # the duration family — `rule_parser._EXTEND_VERBS`, and the reason this
+    # comment exists
+    r"extend|lengthen|shorten|stretch|prolong|trim)\b", re.I)
 
 
 def _rule_question_mutates_nothing(state, cfg, pairs) -> None:

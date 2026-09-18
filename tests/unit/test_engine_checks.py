@@ -377,3 +377,86 @@ def test_a_create_is_not_this_rule_s_business():
     double up on it, or a question-create gets two fixes for one problem."""
     item, st = _mutate("does my daughter have a recital?", action="create_event")
     assert item.intent is not None and st.fixes == []
+
+
+# ---------------------------------------------------------------------------
+# "Can you shorten the event at 2pm walk Jada to be 15 minutes"
+#
+# Reported by Gil from his phone, 2026-09-18, with the thinking card as
+# evidence: the rule parser was CONFIDENT (1.00) and produced `update_event`,
+# then `question_mutates_nothing` emptied it, and the card cheerfully said the
+# rules had answered in 0.3 s. Nothing happened.
+#
+# TWO defects stacked, and the first hid the second.
+# ---------------------------------------------------------------------------
+
+def test_the_mutate_verbs_cover_every_verb_the_router_treats_as_a_mutation():
+    """The safety net's escape hatch must know every mutation verb the router
+    knows, or a real command is silently vetoed.
+
+    `_MUTATE_VERB` is what tells "is my dentist appointment still on?" (a
+    question that must not move anything) from "can you move my dentist
+    appointment to 3?" (an instruction). It had drifted: the whole
+    extend/shorten family was missing, so every "can you shorten/extend ..."
+    was thrown away.
+    """
+    from assistant.engine.decompose_validate.object_rules import _MUTATE_VERB
+    from assistant.intent.rule_parser import _EXTEND_VERBS
+
+    missing = sorted(v for v in _EXTEND_VERBS if not _MUTATE_VERB.search(v))
+    assert not missing, f"the duration family drifted out of the safety net: {missing}"
+
+
+def test_the_remaining_drift_is_deliberate_and_listed():
+    """Nine router mutation verbs are still NOT exempted, and that is a choice.
+
+    The asymmetry decides it: a false veto silently does nothing (the bug above),
+    a false exemption lets a QUESTION mutate a real record. These nine are
+    ambiguous between the two readings — "can you CHECK my calendar" is a
+    question, "check off the gym" is an instruction — so they stay out until
+    something measures them. Listed here so the gap is recorded rather than
+    rediscovered.
+    """
+    from assistant.engine.decompose_validate.object_rules import _MUTATE_VERB
+    from assistant.intent.rule_parser import INTENT_MAP
+
+    mutating = {v for (v, _d), a in INTENT_MAP.items()
+                if a.startswith(("update_", "delete_", "complete_"))}
+    uncovered = sorted(v for v in mutating if not _MUTATE_VERB.search(v))
+    assert uncovered == ["advance", "annotate", "check", "done", "erase",
+                         "note", "rid", "scrap", "set"], uncovered
+
+
+def test_shorten_to_a_LENGTH_sets_the_new_end_time():
+    """The second defect, which the veto was hiding: "to be 15 minutes" is a
+    DURATION and every reader was looking for a new end TIME, so the command
+    reached execution and answered "No changes specified"."""
+    # On `raw_slots`, not on `intents`: this file has no action registry, so no
+    # intent object is built — and the slot filling is what changed anyway.
+    slots = _update_slots("shorten the event at 2pm walk Jada to be 15 minutes")
+    assert slots.get("match_start_time") == "14:00"
+    assert slots.get("new_end_time") == "14:15", \
+        f"15 minutes from 2pm is 14:15, got {slots.get('new_end_time')}"
+
+
+def test_a_duration_in_hours_and_halves_is_read():
+    for said, want in (("extend the gym at 9am to be two hours", "11:00"),
+                       ("shorten standup at 10am to be half an hour", "10:30")):
+        got = _update_slots(said).get("new_end_time")
+        assert got == want, f"{said!r} -> {got}, want {want}"
+
+
+def _update_slots(said: str) -> dict:
+    """The `update_event` slots the rule parser fills for `said`."""
+    from assistant.intent import rule_parser as rp
+    rp._ensure_nlp(); rp._ensure_dt()
+    parser = rp.RuleBasedParser(_EmptyRegistry())
+    return parser.analyze(said).raw_slots.get("update_event", {})
+
+
+class _EmptyRegistry:
+    """Enough registry for slot filling: `analyze` only calls `get` when every
+    required slot is present, and this returns None so no intent is built."""
+
+    def get(self, _name):
+        return None
