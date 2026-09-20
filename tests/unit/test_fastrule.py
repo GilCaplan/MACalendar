@@ -293,6 +293,9 @@ def test_an_update_that_changes_nothing_is_refused(fastrule):
     assert fastrule.run("move the dentist to friday").committed
     # "rename gym to workout" is a real change too, but a rename abstains on
     # the fast path unless the user's own data says which store holds "gym"
-    # (F7, `test_f7_rename_never_commits_a_create`): it defers as
-    # rename-misroute, which is the ruling, not a no-change refusal.
-    assert fastrule.run("rename gym to workout").reason == "rename-misroute"
+    # (F7, `test_f7_rename_never_commits_a_create`). In the full suite an
+    # earlier test may have stored a gym event, and then the gate's lookup
+    # confirms the parse and it commits; alone, it defers as rename-misroute.
+    # Either is the ruling; a no-change refusal never is.
+    r = fastrule.run("rename gym to workout")
+    assert r.reason in (None, "rename-misroute"), r.reason
