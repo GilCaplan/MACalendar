@@ -1087,6 +1087,22 @@ def _series_bound(span_text: str, today: datetime.date) -> "tuple[str, int, int]
     return iso, m.start(), m.end() + consumed
 
 
+#: A COARSE DAYPART, as the recogniser spells it: `TMO` / `TAF` / `TEV` / `TNI`.
+#: An explicit range is `(T15,T16,PT1H)` and a clock is `T07`, so this shape is
+#: exactly the readings that name a WINDOW rather than a time.
+_DAYPART_TIMEX = re.compile(r"^T[A-Z]{2,3}$")
+
+#: A daypart that QUALIFIES the clock before it — "at 6 IN THE evening", "9 IN
+#: THE morning". The recogniser returns the two as separate readings, and the
+#: second is the first's meridiem, not a window of its own. The preposition is
+#: the tell, and the recogniser sometimes keeps it inside the daypart's own
+#: match ("in the evening") and sometimes leaves it in the gap — so both are
+#: read. A bare daypart straight after a clock ("at 7am morning pages") is NOT
+#: a qualifier: with no preposition it is the next thing's name.
+_QUALIFIER_GAP = re.compile(r"^[\s,]*(?:in|of)\s+(?:the\s+)?$", re.IGNORECASE)
+_QUALIFIER_LEAD = re.compile(r"^(?:in|of)\s+(?:the\s+)?\w", re.IGNORECASE)
+
+
 def _extract_temporal(span_text: str, today: datetime.date,
                       _bound_pass: bool = False) -> dict:
     """Extract date/time information from a span of text.
@@ -1114,6 +1130,11 @@ def _extract_temporal(span_text: str, today: datetime.date,
         "_date_from_range": None,
     }
     range_candidates: list = []
+    #: Daypart WINDOWS seen on the way, applied only if nothing states a clock.
+    daypart_candidates: list = []
+    #: Where the last reading that carried a CLOCK ended, so a daypart that
+    #: follows it directly can be read as that clock's meridiem.
+    last_clock_end: "int | None" = None
 
     # THE SERIES BOUND COMES OFF FIRST, or it is read as the item's own date.
     # `_rec.start_date()` in `_fill_slots` already anchors "every monday" on the
@@ -1139,13 +1160,45 @@ def _extract_temporal(span_text: str, today: datetime.date,
         recognized = _DT_MODEL.parse(span_text, dt_ref)
         for res in recognized:
             span = (res.start, res.end + 1)
-            result["spans"].append(span)
             # The recogniser can return a match with no resolution at all —
             # "from 9 to 10" is one — and dereferencing it raised an
             # AttributeError that escaped the parser entirely, killing the
             # command instead of falling back to the LLM.
             resolution = getattr(res, "resolution", None) or {}
-            for wren in resolution.get("values", []):
+            values = resolution.get("values", [])
+            # A DAYPART IS A WINDOW, NOT A CLOCK. Read in order, "morning" in
+            # "book morning pages tomorrow at 7am" set 08:00-12:00 first and the
+            # stated 7am was then refused as a second start — the title's word
+            # decided the event's clock. The convention is the one
+            # decompose_validate already applies: a stated clock ALWAYS wins and
+            # a window is the last resort, so the window is held back until the
+            # span has been read. A window that loses claims no span, and its
+            # word stays in the title, where it belongs.
+            #
+            # EXCEPT directly after a clock, where it is that clock's MERIDIEM:
+            # "at 6 in the evening" comes back as "6" and "in the evening" in two
+            # readings, and the second says which 6 — it is not a window and not
+            # a title word. Measured on the 7,200 train half before this branch
+            # existed: nine rows of exactly that shape, and dropping the
+            # qualifier as a lost window put "in the evening" into every title.
+            if values and all(v.get("type") == "timerange"
+                              and _DAYPART_TIMEX.match(v.get("timex") or "")
+                              for v in values):
+                gap = (span_text[last_clock_end:res.start]
+                       if last_clock_end is not None else None)
+                if gap is not None and (
+                        _QUALIFIER_GAP.match(gap)
+                        or (not gap.strip(" ,") and _QUALIFIER_LEAD.match(res.text or ""))):
+                    result["spans"].append(span)
+                    result["_daypart_qualifier"] = values[0].get("timex")
+                else:
+                    daypart_candidates.append(
+                        (span, values[0].get("start", ""), values[0].get("end", "")))
+                continue
+            result["spans"].append(span)
+            if any(v.get("type") in ("time", "datetime", "timerange") for v in values):
+                last_clock_end = res.end + 1
+            for wren in values:
                 timex_type = wren.get("type", "")
 
                 # A RANGE ("next week", "this weekend", "by friday") carries no
@@ -1213,6 +1266,23 @@ def _extract_temporal(span_text: str, today: datetime.date,
                         result["start_time"] = _normalize_time(start_v)
                     if end_v and not result["end_time"]:
                         result["end_time"] = _normalize_time(end_v)
+
+        # THE QUALIFIER SETTLES AM/PM. A datetime with two readings ("today at
+        # 6" -> 06:00 and 18:00) took the first, so "today at 6 in the evening"
+        # was booked at 06:00 with the evening as its END; the word after the
+        # clock is what says which one was meant.
+        qualifier = result.pop("_daypart_qualifier", None)
+        if qualifier and result["start_time"]:
+            try:
+                _qh, _qm = result["start_time"].split(":")
+                _qh = int(_qh)
+                if qualifier == "TMO" and _qh >= 12:
+                    _qh -= 12
+                elif qualifier in ("TAF", "TEV", "TNI") and _qh < 12:
+                    _qh += 12
+                result["start_time"] = f"{_qh:02d}:{_qm}"
+            except (ValueError, AttributeError):
+                pass
 
         # Apply past-datetime fallback if no future date was resolved
         if not result["date"] and "_dt_past_fallback" in result:
@@ -1369,6 +1439,17 @@ def _extract_temporal(span_text: str, today: datetime.date,
             # For update_event "to X" → new_start_time (not end_time)
             result["start_time"] = f"{h:02d}:{mins}"
             result["_source"] = "regex_fallback"
+
+    # THE WINDOW IS THE LAST RESORT (see the loop above): only when nothing —
+    # the recogniser or any fallback — has stated a clock does a daypart name
+    # the time, and only then does it claim its words.
+    if not result["start_time"] and daypart_candidates:
+        span, start_v, end_v = daypart_candidates[0]
+        if start_v:
+            result["start_time"] = _normalize_time(start_v)
+            if end_v and not result["end_time"]:
+                result["end_time"] = _normalize_time(end_v)
+            result["spans"].append(span)
 
     # An end time before the start means the range crossed noon without saying so
     # ("lunch from 12 to 1" → 12:00–01:00, a negative hour). Push the end into
