@@ -36,7 +36,12 @@ from __future__ import annotations
 import re
 
 _GENERIC_TARGET_RE = re.compile(
-    r"^(?:my |the |a |an |this )?(?:reminder|alert|event|appointment|task|todo|list)s?$"
+    # "note" and "date" joined on 2026-09-20: "make a NOTE of it on the
+    # corresponding date" committed an event titled 'note' at confidence
+    # 0.86, and "set a DATE for this" one titled 'date' — the program's words
+    # for an entry, not names for one (dev-100 checkpoint).
+    r"^(?:my |the |a |an |this )?(?:reminder|alert|event|appointment|task|todo|list|note|date)s?"
+    r"(?:\s+(?:of|for|about)\s+(?:it|this|that|me))?$"
     # `i` and `we` joined the pronoun list on 2026-09-10. The list already held
     # you/it/me/this/that/them, and "i" fell through every check: it is 1
     # character, so the content-word filters drop it and `names_nothing_spoken`

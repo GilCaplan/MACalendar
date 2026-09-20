@@ -1626,6 +1626,13 @@ _ROUTE_OVERRIDES = [
     (re.compile(r"^\s*(?:please\s+)?remind me\s+.*"
                 r"(?:\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\bat\s+\d{1,2}\b"
                 r"|\b(?:noon|midnight)\b)"), "create_event"),
+    # The product convention the tagger already applies (`fastseg/kind.py`):
+    # "remind me ABOUT / OF / WHEN / THAT <something>" is a calendar entry,
+    # "remind me TO <verb>" is an errand unless clock-timed (the row above).
+    # The fast path had one unconditional remind→todo row, so "remind me when
+    # it is lunchtime" became a to-do and the two tracks disagreed (dev-100
+    # checkpoint, 2026-09-20).
+    (re.compile(r"^\s*(?:please\s+)?remind me\s+(?:about|of|when|that)\b"), "create_event"),
     (re.compile(r"^\s*(?:please\s+)?remind me\b"), "create_todo"),
     (re.compile(r"^\s*(?:please\s+)?add\s+(?:a\s+|\d+\s+|two\s+|three\s+)?(?:new\s+)?tasks?\b"), "create_todo"),
     (re.compile(r"^\s*(?:what|which|show|list|read)\b.*\b(?:tasks?|todos?|to-dos?)\b"), "query_todos"),
@@ -1766,6 +1773,15 @@ def _route_intent(span, current_view: str) -> tuple[str | None, str, bool, bool]
     # Pass 4: any token with known action lemma (noun-verb ambiguity, ADJ mis-tags, etc.)
     if action is None:
         for tok in span:
+            # A noun with its own determiner or adjective is an OBJECT, not a
+            # mis-tagged command: "begin NEW LIST of lottery numbers", "open up
+            # A LIST" routed query_todos through ("list", todo) — three of the
+            # dev-100 checkpoint's fast-path misses committed a QUERY for a
+            # create (2026-09-20). "schedule meeting" (no determiner) still
+            # reaches this pass as the verb it is.
+            if tok.pos_ in ("NOUN", "PROPN") and any(
+                    c.dep_ in ("det", "amod", "poss", "nummod") for c in tok.children):
+                continue
             mapped, material = _maps_to_action(tok.lemma_)
             if mapped:
                 root_verb = tok

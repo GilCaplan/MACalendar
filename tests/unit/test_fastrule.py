@@ -299,3 +299,56 @@ def test_an_update_that_changes_nothing_is_refused(fastrule):
     # Either is the ruling; a no-change refusal never is.
     r = fastrule.run("rename gym to workout")
     assert r.reason in (None, "rename-misroute"), r.reason
+
+
+# --- the dev-100 checkpoint's fast-path holes (2026-09-20) --------------------
+
+def test_a_new_list_is_never_answered_with_a_query(fastrule):
+    """"begin new list of lottery numbers", "open up a new list", "start a new
+    list" all committed query_todos through the noun "list" in the router's
+    any-token pass — a QUERY for a create. A noun with its own determiner or
+    adjective is an object, not a command, so those rows defer now (what a
+    new list creates is Gil's to rule); "schedule meeting" still routes."""
+    for t in ("Begin new list of lottery numbers", "Open up a new list and add a Tab to the shopping list",
+              "start a new list and add grocery shopping to today's to-do list."):
+        r = fastrule.run(t)
+        assert "query_todos" not in [n for n, _ in r.intents], (t, r.intents, r.reason)
+    r = fastrule.run("schedule meeting tomorrow at 3pm")
+    assert r.committed and r.intents[0][0] == "create_event"
+
+
+def test_remind_me_about_of_when_is_a_calendar_entry_on_the_fast_path(fastrule):
+    """The tagger's convention (`fastseg/kind.py`), now on the fast path too:
+    "remind me about/of/when X" is an event, "remind me to <verb>" an errand
+    unless clock-timed. "Remind me when it is lunchtime" was a to-do."""
+    r = fastrule.run("Remind me when it is lunchtime")
+    assert "create_todo" not in [n for n, _ in r.intents], r.intents   # defers (no date), never a to-do
+    r = fastrule.run("remind me about the party tomorrow")
+    assert r.committed and [n for n, _ in r.intents] == ["create_event"], r.intents
+    r = fastrule.run("remind me of my dentist appointment in two hours")
+    assert r.committed and [n for n, _ in r.intents] == ["create_event"], r.intents
+    r = fastrule.run("remind me to buy milk")
+    assert [n for n, _ in r.intents] == ["create_todo"], r.intents
+
+
+def test_a_title_that_holds_the_joiner_is_not_a_covered_compound(fastrule):
+    """The Q13 carve-out commits a compound the parse fully covers. A title
+    that still contains "and then" is the proof it did not: "remind me when it
+    is lunchtime, and then i need oranges added to my grocery list" committed
+    'remind when it is lunchtime and then i' at 0.95."""
+    from types import SimpleNamespace
+    from assistant.engine.fastrule.fastrule import _parse_covers_the_compound
+    text = "remind me when it is lunchtime, and then i need oranges added to my grocery list"
+    good = [("create_event", SimpleNamespace(title="lunchtime")),
+            ("create_todo", SimpleNamespace(titles=["oranges"]))]
+    bad = [("create_todo", SimpleNamespace(titles=["remind when it is lunchtime and then i"])),
+           ("create_todo", SimpleNamespace(titles=["oranges"]))]
+    assert _parse_covers_the_compound("model-compound", text, good)
+    assert not _parse_covers_the_compound("model-compound", text, bad)
+
+
+def test_note_and_date_are_the_programs_words_not_titles(fastrule):
+    """"make a NOTE of it on the corresponding date" committed an event titled
+    'note' at 0.86; the generic-title veto now names note and date."""
+    r = fastrule.run("make a note of it on my calendar for march 25th")
+    assert not r.committed and r.reason.startswith("generic-title"), r

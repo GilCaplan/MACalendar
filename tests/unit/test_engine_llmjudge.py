@@ -858,18 +858,21 @@ def test_an_under_split_is_repaired_end_to_end_by_the_model_round(registry_with_
     from assistant.intent import rule_parser as RP
     from freezegun import freeze_time
 
-    _recorder(monkeypatch, {"asks": ["remind me to take out the trash every monday",
-                                     "add milk to my shopping list"]})
+    # A bare "and then" with no verb on its right: FastSeg leaves it to the
+    # clause tier, which cannot cut it (". Also," is a hard seam now, so the
+    # trash-and-milk row never reaches the judge — this one still does).
+    T = "For the next three Sundays remind me I have yoga class at noon and then yashas bithday with vinay"
+    _recorder(monkeypatch, {"asks": ["remind me of yoga class at 12pm for the next three sundays",
+                                     "remind me of yashas birthday with vinay"]})
     RP._ensure_nlp(); RP._ensure_dt()
     with freeze_time("2026-09-09 10:00:00"):
         E = engine.Engine()
-        st = EngineState(raw_text=_TRASH, text=_TRASH)
+        st = EngineState(raw_text=T, text=T)
         E.parse(st, cfg)
-        assert len(st.items) == 1 or all("also" in i.text.lower() or "milk" in i.text.lower() for i in st.items)
+        assert len(st.items) == 1, [i.text for i in st.items]
         E.judge(st, cfg)
-        titles = [rewrite._title_of(i).lower() for i in st.items if i.intent is not None]
-        assert titles and not any("also" in t for t in titles), titles
-        assert any("milk" in t for t in titles) and any("trash" in t for t in titles), titles
+        assert not any("and then" in i.text.lower() for i in st.items), [i.text for i in st.items]
+        assert sum(1 for i in st.items if i.action == "create_event") == 2, [(i.text, i.action) for i in st.items]
         assert st.retries.get("segment", 0) >= 1
         assert any(fx.rule == "rewrite_model" for fx in st.fixes)
 

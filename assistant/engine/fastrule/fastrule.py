@@ -279,7 +279,22 @@ def _parse_covers_the_compound(reason: str, text: str, intents) -> bool:
     """
     if reason != "model-compound" or len(intents) < 2:
         return False
-    return len(intents) >= 1 + len(_ASK_JOINER_RE.findall(text))
+    if len(intents) < 1 + len(_ASK_JOINER_RE.findall(text)):
+        return False
+    # A title that still HOLDS the joiner is the parse not covering the
+    # compound, whatever the intent count says: "remind me when it is
+    # lunchtime, and then i need oranges…" parsed to two todos and committed
+    # the first as 'remind when it is lunchtime and then i' (dev-100
+    # checkpoint, 2026-09-20). The carve-out stays; this is its one blind spot.
+    return not any(_ASK_JOINER_RE.search(_title_text(i)) for _, i in intents)
+
+
+def _title_text(intent) -> str:
+    t = getattr(intent, "title", None)
+    if not t:
+        ts = getattr(intent, "titles", None)
+        t = " ".join(ts) if ts else ""
+    return t or ""
 
 
 
