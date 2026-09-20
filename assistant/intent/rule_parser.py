@@ -347,6 +347,28 @@ INTENT_MAP: dict[tuple[str, str | None], str] = {
     ("draft", None): "create_todo",
     ("finalize", None): "create_todo",
     ("prep", None): "create_todo",
+    # --- The tag lexicon's errand verbs the cut did not know, 2026-09-20.
+    #     `fastseg._TASK_VERBS` and this table are different inventories, and
+    #     `_is_command_verb` reads only this one — so "first RESTOCK the
+    #     pantry, then let's get piano lesson on the calendar" produced its
+    #     boundary on the subordinate-clause path and the walk never asked
+    #     for it. Family from FastRule's own 7,200 train gold, atomic rows
+    #     where the verb heads the command (create_todo / everything else):
+    #     back 8/2 · charge 6/1 · feed 8/2 · print 6/1 · refill 6/3 ·
+    #     restock 9/1 · return 16/1 · submit 3/0 · vacuum 4/2 · walk 6/1.
+    #     Left out on the same evidence: "take" (14 of 22 are "take X off my
+    #     calendar", a delete), and collect / fold / top / arrange / rebook,
+    #     which head no train row at all.
+    ("back", None): "create_todo",
+    ("charge", None): "create_todo",
+    ("feed", None): "create_todo",
+    ("print", None): "create_todo",
+    ("refill", None): "create_todo",
+    ("restock", None): "create_todo",
+    ("return", None): "create_todo",
+    ("submit", None): "create_todo",
+    ("vacuum", None): "create_todo",
+    ("walk", None): "create_todo",
     # --- Mined from REAL speech, 2026-09-17 (segmentation/experiments/
     #     missing_verbs.py): ask-verbs used in HWU-64 (2,699 human-written
     #     utterances, sealed 300 excluded), the author's own command memory
