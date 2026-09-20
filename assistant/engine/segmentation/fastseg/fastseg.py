@@ -639,7 +639,12 @@ _TASK_VERBS = frozenset("""
     return drop send finish write update fix charge vacuum feed refill
     restock organize review back draft finalize prep
     confirm mail sign tick
+    rinse stack scrub wipe mop sweep iron hoover proofread chase do
 """.split())
+# The last line above: household chores the train board still read as events
+# ("rinse and stack the dishes", "proofread the report, chase the signatures")
+# — verbs that only ever describe an errand, so the one-way veto is safe on
+# them. Measured 2026-09-20.
 # The last line of each list above was mined from REAL speech (HWU-64, the
 # author's command memory, FastRule's train half) and family-checked against
 # FastRule's own gold — `segmentation/experiments/missing_verbs.py`, and the
@@ -650,6 +655,10 @@ _TASK_VERBS = frozenset("""
 #: particle ("sign ME up", "pick IT up").
 _PARTICLES = frozenset("up off out in on down away back over".split())
 _OBJECT_PRONOUNS = frozenset("me it that this them us him her".split())
+#: What OPENS a verb's object — a determiner or a pronoun. Closed class.
+_OBJECT_OPENERS = frozenset(
+    "the a an my your our his her their some any this that these those it "
+    "them us him".split())
 
 #: Phrasal verbs whose kind differs from their bare verb's, or whose bare
 #: verb has no entry at all. Found the honest way — "sign me up for the
@@ -661,6 +670,7 @@ _OBJECT_PRONOUNS = frozenset("me it that this them us him her".split())
 _PHRASAL_KINDS = {
     "sign up": "event", "set up": "event", "catch up": "event", "meet up": "event",
     "wrap up": "task", "tick off": "task", "check off": "task", "drop off": "task",
+    "put out": "task", "put away": "task",       # "put out the bins" (2026-09-20)
 }
 
 
@@ -737,9 +747,11 @@ def _is_not_calendar(action: str, time_str: str = "") -> bool:
 #: "i'd like to" frame. Skipped before the head verb is read, never treated as one.
 _PREAMBLE = frozenset("""
     i i'd id we you your my me us please can could would should will shall
-    need needs want wants like to gonna going have has had let lets let's
+    need needs want wants like to gonna gotta got going have has had let lets let's
     so um uh er hmm ok okay and then also first next now just really
 """.split())
+# "gotta"/"got" (2026-09-20): "like i gotta restock the pantry" kept "gotta" as
+# its head, so the errand verb behind it was never read — five train rows.
 
 #: A time the speaker STATED, as opposed to the floor's bare "today". Needed
 #: the SPOKEN clock forms too ("ten thirty") — Whisper writes what was said,
@@ -938,7 +950,20 @@ def _lexicon_kind(action: str) -> "str | None":
                 if phrasal:
                     return phrasal
             break
-    for word in words[:2]:
+    # THE SECOND WORD IS READ ONLY WHEN IT HEADS A VERB PHRASE OF ITS OWN —
+    # an object opener follows it: "put CHARGE the scooter", "add CALL the
+    # plumber", "put PICK up the dry cleaning" (a placement verb the lexicons
+    # leave out, wrapping the errand's verb; 24 train rows). A bare NOUN
+    # phrase has no such opener — "oil change", "client call", "conference
+    # call is…" — and reading its second word vetoed those to `task` on
+    # "change"/"call", the error the head reading exists to end. Grammar,
+    # not a list: the openers are a closed class, like the particles.
+    depth = 1
+    if len(words) > 2:
+        k = 3 if words[2] in _PARTICLES and len(words) > 3 else 2
+        if words[k] in _OBJECT_OPENERS:
+            depth = 2
+    for word in words[:depth]:
         if word in _CALENDAR_VERBS:
             return "event"
         if word in _TASK_VERBS:
