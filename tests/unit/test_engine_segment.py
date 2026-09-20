@@ -357,3 +357,32 @@ def test_a_comma_after_a_fronted_date_does_not_cut_a_serial_verb():
     assert cut("the 30th wash and fold the laundry") == ["the 30th wash and fold the laundry"]
     # a real second ask after a fronted date still cuts
     assert len(cut("tomorrow book the gym and remind me to buy milk")) == 2
+
+
+# --- the kind tagger: lists, questions, wants (dev-100 checkpoint, 2026-09-20)
+
+def test_a_new_list_or_a_list_of_things_is_a_task():
+    """Five of the checkpoint's twelve kind misses were a LIST tagged event:
+    "make a new list of dog breeds", "begin new list of lottery numbers",
+    "i need a list of my clients". And "groceries list" was not "grocery list"
+    to the tagger, which undid a correct model rewrite (run 24)."""
+    from assistant.engine.segmentation.fastseg.kind import kind_of
+    for t in ("Make a new list of dog breeds", "Begin new list of lottery numbers",
+              "i need a list of my clients today", "I would like to start a new list",
+              "add milk to my groceries list", "add v8 to my groceries"):
+        assert kind_of(t) == "task", t
+    assert kind_of("list my events for tomorrow") == "review"
+
+
+def test_a_wake_word_or_a_yes_no_question_still_reads_as_a_review():
+    from assistant.engine.segmentation.fastseg.kind import kind_of
+    assert kind_of("PDA do i have any appointments set for tomorrow?") == "review"
+    assert kind_of("is today st. patricks day") == "review"
+    assert kind_of("Alexa, what's on my calendar") == "review"
+
+
+def test_i_want_a_thing_is_an_errand_and_i_want_to_meet_is_not():
+    from assistant.engine.segmentation.fastseg.kind import kind_of
+    assert kind_of("I want sweet potato pie from a local bakery") == "task"
+    assert kind_of("i want to meet sam on friday") == "event"
+    assert kind_of("i want a meeting with sam tomorrow") == "event"

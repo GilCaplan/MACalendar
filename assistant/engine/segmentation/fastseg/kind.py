@@ -35,10 +35,17 @@ import re
 _LOOK_VERB = (r"(?:what(?:'s| is| do| have| does)?|show|tell me|"
               r"check(?!\s*(?:off|out)\b)|see|"
               r"look at|pull up|read|bring up|"
-              r"do i have|when is|when's|how many|list)")
+              r"do i have|when is|when's|how many|list|"
+              # the yes/no question: "is today st. patricks day", "is it on
+              # my calendar" — a question about the day, not a booking of it
+              r"is\s+(?:today|tomorrow|tonight|it|there))")
+
+#: A wake word is not a word of the command. "PDA do i have any appointments
+#: set for tomorrow?" made a TO-DO because the looking verb was not first.
+_WAKE = r"(?:(?:hey|ok|okay)\s+)?(?:siri|alexa|pda|olly|google|computer)[,\s]+"
 
 _REVIEW_RE = re.compile(
-    rf"^(?:please\s+|hey\s+|um+\s+|so\s+)?(?:can|could|would|will)?\s*"
+    rf"^(?:{_WAKE})?(?:please\s+|hey\s+|um+\s+|so\s+)?(?:can|could|would|will)?\s*"
     rf"(?:you\s+)?{_LOOK_VERB}\b"
     rf"|\b{_LOOK_VERB}\b[^.?!]{{0,40}}\bmy\s+"
     rf"(?:schedule|day|week|agenda|calendar|diary)\b",
@@ -60,13 +67,20 @@ _REVIEW_RE = re.compile(
 #: name no create verb at all, and the destination is what makes them tasks.
 #: "calendar" and "schedule" are deliberately absent — those are events.
 _LIST_DEST = (
-    r"\b(?:to-?do|task|shopping|grocery|errand)s?\s+list\b"
+    r"\b(?:to-?do|task|shopping|grocer(?:y|ies)|errand)s?\s+list\b"
     # bare "list" belongs here: the commonest spoken form is "on my list" /
     # "from my list" with no qualifier at all, and requiring one missed every
     # such row ("just get rid of cancel the subscription ON MY LIST").
     r"|\b(?:on|to|off|from|in)\s+(?:my|the)\s+"
-    r"(?:to-?do|task|shopping|grocery|errand|list)s?(?:\s+list)?\b"
+    r"(?:to-?do|task|shopping|grocer(?:y|ies)|errand|list)s?(?:\s+list)?\b"
     r"|\bmy\s+(?:to-?do|task|errand|list)s?\b"
+    # A NEW list, or a list OF things, is a to-do ask however it is verbed:
+    # "make a new list of dog breeds", "begin new list of lottery numbers",
+    # "i need a list of my clients" all tagged EVENT (dev-100 run 22: five of
+    # the twelve kind misses). "list" as a looking verb ("list my events")
+    # is read by `_REVIEW_RE` first and is not this shape.
+    r"|\b(?:new|another|fresh)\s+list\b"
+    r"|\blist\s+(?:of|for|called|named|titled)\b"
 )
 
 #: Completing a to-do. These say nothing about a calendar and cannot be
@@ -110,6 +124,11 @@ _CHORE_VERB = (
 _TASK_RE = re.compile(
     r"^(?:add|put)\s+.*\b(?:to|on)\s+(?:my\s+)?(?:to-?do|task|shopping)|"
     r"^(?:remind me to|i need to|remember to|buy|get(?!\s+rid\b)|pick up)\b|"
+    # "i want sweet potato pie from a local bakery" is a thing wanted — an
+    # errand. Not "i want TO …" (the encounter rule owns "i want to meet"),
+    # and not a wanted OCCASION ("i want a meeting with sam tomorrow").
+    r"^i\s+want\b(?!\s+to\b)(?![^.?!]{0,24}\b(?:meeting|appointment|party|"
+    r"dinner|lunch|brunch|breakfast|call|session|class|lesson|date)\b)|"
     rf"{_LIST_DEST}|{_TODO_DONE}|{_TODO_NAMED}|{_CHORE_VERB}",
     re.I)
 
