@@ -754,7 +754,13 @@ _REMINDER_TASK_FRAME = re.compile(r"^\s*(?:please\s+)?remind me\s+to\b", re.I)
 _STATED_CLOCK = re.compile(
     rf"\d{{1,2}}:\d{{2}}|\d{{1,2}}\s*(?:am|pm)|\bat\s+\d{{1,2}}\b|\bnoon\b|\bmidnight\b"
     rf"|\bo'?clock\b|\b(?:half|quarter)\s+(?:past|to)\b"
-    rf"|\b(?:{_HOURWORD})\s+(?:{_MINWORD})\b", re.I)
+    rf"|\b(?:{_HOURWORD})\s+(?:{_MINWORD})\b"
+    # A spoken hour after "at" ("at six") and a RANGE ("from noon to 1",
+    # "between 5 and 6:30") state a time too — Q26 names a range outright,
+    # and this pattern only ever reads the assigned TIME string, so "from
+    # the store to the office" cannot reach it.
+    rf"|\bat\s+(?:{_HOURWORD})\b"
+    r"|\bfrom\s+\S+\s+to\s+\S+|\bbetween\s+\S+\s+and\s+\S+", re.I)
 
 #: A hedge that says nothing was actually committed to a slot — "schedule a
 #: haircut AT SOME POINT" names an intention, not an appointment, whatever
@@ -985,9 +991,14 @@ def tag(action: str, time_str: str) -> str:
     # do something at a specific time counts as an event." The 32 corpus rows
     # that said otherwise were relabelled in the same change, so no gold is
     # left contradicting this.
-    if kind == "task" and _STATED_CLOCK.search(time_str or "") \
+    # `_TIME_BLOCKING` ("block off time TO print the boarding pass") is NOT an
+    # exception here: with a stated clock or range it is an appointment the
+    # speaker gave a slot, and Q26 puts it on the calendar — FastRule's own
+    # gold relabelled `c_range_ct_1` that way the day it was ruled. Without a
+    # clock the idiom still reads as a task, below.
+    stated = bool(_STATED_CLOCK.search(time_str or ""))
+    if kind == "task" and stated \
             and not _VAGUE_TIME_HEDGE.search(action) \
-            and not _TIME_BLOCKING.search(action) \
             and not _DUE_DATE_EDIT.match(action) \
             and not _is_not_calendar(action, time_str):
         return "event"
@@ -1002,8 +1013,8 @@ def tag(action: str, time_str: str) -> str:
             return "other"
         if _RUNDOWN_IDIOM.search(action):
             return "review"
-        if _VAGUE_TIME_HEDGE.search(action) or _TIME_BLOCKING.search(action) \
-                or _DUE_DATE_EDIT.match(action):
+        if _VAGUE_TIME_HEDGE.search(action) or _DUE_DATE_EDIT.match(action) \
+                or (_TIME_BLOCKING.search(action) and not stated):
             return "task"
         if _NUDGE_IDIOM.match(action) and not _ANCHORED_TO_EVENT.search(action):
             # "ping me AHEAD OF conference call" is the anchored idiom (an
