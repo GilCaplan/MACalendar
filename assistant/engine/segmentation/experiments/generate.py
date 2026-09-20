@@ -240,6 +240,10 @@ def q26_tag(tag: str, time_str: str) -> str:
     return "event" if tag == "task" and states_a_clock(time_str) else tag
 
 
+_CALENDAR_DESTINATION = re.compile(
+    r"\b(?:on|to|in|from|off)\s+(?:my|the)\s+(?:calendar|schedule|diary|agenda)\b", re.I)
+
+
 def _tag_for(action_tpl: str, t: dict) -> "str | None":
     """Which surface this item targets: calendar, to-do list, or a question.
 
@@ -252,6 +256,13 @@ def _tag_for(action_tpl: str, t: dict) -> "str | None":
     slots = set(_ANY_SLOT.findall(action_tpl))
     if "query_range" in slots or "query_range2" in slots:
         return "review"
+    # THE CALENDAR NAMED AS THE DESTINATION outranks the slot's own surface:
+    # "remove '{quoted_item}' from my calendar" is about the calendar
+    # whatever was quoted — the same convention `fastseg`'s tagger applies
+    # (`_CALENDAR_DEST_RE`, cycle 4). The `quoted_item` slot alone made it
+    # a task, so one `c_texture_5` row per render contradicted its own words.
+    if _CALENDAR_DESTINATION.search(action_tpl):
+        return "event"
     if re.search(r"\bwhat(?:'s| is| do)\b|\bcheck what\b|\bdo i have\b", action_tpl):
         return "review"
     if slots & {"event_title", "event_title2", "event_title3", "occasion"}:
