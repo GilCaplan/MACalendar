@@ -62,7 +62,29 @@ _STRONG_COMPOUND_RE = re.compile(
     re.I)
 
 
+#: The fields that carry a CHANGE on an update intent. `match_*` say which
+#: record; these say what to do to it.
+_CHANGE_FIELDS = ("new_title", "new_date", "new_start_time", "new_end_time",
+                  "new_location", "new_description", "new_recurrence",
+                  "new_list_name", "new_priority", "new_due_date", "new_tags")
+
+
+def _no_op_mutation(intents) -> bool:
+    """True when an update intent carries a target and no change at all."""
+    saw_update = False
+    for name, intent in intents or ():
+        if not name.startswith("update_"):
+            continue
+        saw_update = True
+        for field in _CHANGE_FIELDS:
+            value = getattr(intent, field, None)
+            if value not in (None, "", [], ()):
+                return False
+    return saw_update
+
+
 @dataclass
+
 class FastRuleResult:
     """A FastRule verdict. `committed` True ⇒ take `intents` on the fast
     track; False ⇒ defer to the deep track, `reason` says why."""
@@ -103,6 +125,8 @@ _REASON_CLASS = {
     # A CREATE with a range date does not come here; it is offered to the
     # speaker for confirmation instead (Gil, 2026-09-17).
     "range-date-target": REFUSAL,
+    #: a parse that found WHAT to change and nothing TO change
+    "no-change": REFUSAL,
     "strong-compound": STRUCTURE,
     "clause-coordination": STRUCTURE,
     "mixed-mode-compound": STRUCTURE,
@@ -296,6 +320,25 @@ class FastRule:
                     for name, _ in rr.intents):
                 return FastRuleResult(False, rr.intents, float(rr.confidence),
                                       "range-date-target", rule_result=rr)
+            # AN UPDATE THAT CHANGES NOTHING IS NOT AN UPDATE. Every `new_*`
+            # slot empty means the parse found a target and no change, so
+            # committing it touches a real record to no purpose and reports
+            # success for work nobody asked for.
+            #
+            # Found by CI, which runs on a different DAY. "reschedule haircut
+            # to this weekend" is refused as `range-date-target` six days a
+            # week — but ON A SUNDAY the recogniser stops calling "this
+            # weekend" a range (today IS the weekend), so `range_dates` is
+            # empty, the refusal above cannot fire, and what committed was an
+            # update with no date and no other change at all. The date guard
+            # was doing this one's job by accident.
+            #
+            # It is the same shape as "shorten the meeting by 30 minutes",
+            # which parses a target and a duration this stage cannot resolve
+            # (TASKS.md) and likewise committed a no-op update.
+            if _no_op_mutation(rr.intents):
+                return FastRuleResult(False, rr.intents, float(rr.confidence),
+                                      "no-change", rule_result=rr)
             return FastRuleResult(True, rr.intents, float(rr.confidence), None,
                                   rule_result=rr)
         # v1's reason precedence: below-threshold outranks missing-slots

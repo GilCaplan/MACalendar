@@ -136,9 +136,17 @@ def test_mutation_on_a_bare_ask_noun_routes_deep(monkeypatch, cfg):
 
 
 def test_mutation_on_a_real_target_still_fast(monkeypatch, cfg):
+    """A named target is not vetoed — which is what this test is for.
+
+    The stub carries `new_date` because a real `UpdateEventIntent` always has
+    the `new_*` fields and an update with all of them empty is now refused as
+    `no-change` (it touches a record to no purpose). Without one the stub was
+    indistinguishable from that, and this test would be asserting the opposite
+    of what its name says."""
     from types import SimpleNamespace
-    ok, st = _fast(monkeypatch, cfg, "move the gym meeting",
-                   [("update_event", SimpleNamespace(match_title="gym meeting"))])
+    ok, st = _fast(monkeypatch, cfg, "move the gym meeting to friday",
+                   [("update_event", SimpleNamespace(match_title="gym meeting",
+                                                     new_date="2026-09-25"))])
     assert ok is True and st.parse_path == "fast"
 
 

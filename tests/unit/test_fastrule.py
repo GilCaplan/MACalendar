@@ -6,6 +6,7 @@ The three gate tests that belonged to `Gatekeeper` moved to
 conftest.py has already pointed every store at scratch before this import.
 """
 import pytest
+from freezegun import freeze_time
 
 from assistant.engine.fastrule.fastrule import FastRule
 
@@ -89,6 +90,7 @@ def test_f10_mutation_phrases_delimit_multiword_titles(fastrule):
     assert not fastrule.run("delete this event").committed
 
 
+@freeze_time("2026-09-16")
 def test_a_range_date_never_mutates_on_a_guess(fastrule):
     """Gil, 2026-09-17: ask instead of guessing — and where asking is not on
     offer because the act is destructive, decline.
@@ -260,3 +262,31 @@ def test_stale_weights_are_refused_rather_than_silently_truncated(fastrule):
     assert m.predict("anything at all") == (None, 0.0)
 
 
+
+
+@freeze_time("2026-09-20")   # a SUNDAY, which is what caught this
+def test_an_update_that_changes_nothing_is_refused(fastrule):
+    """CI runs on a different day, and that is how this surfaced.
+
+    "reschedule haircut to this weekend" is refused as `range-date-target` six
+    days a week. On a SUNDAY the recogniser stops calling "this weekend" a
+    range — today IS the weekend — so `range_dates` is empty, that refusal
+    cannot fire, and what committed was an `update_event` carrying a target and
+    NO CHANGE AT ALL: no new date, no new time, nothing. It touched a real
+    record to no purpose and reported success.
+
+    The date guard had been doing this guard's job by accident. An update with
+    every `new_*` slot empty is not an update, whatever the date did.
+    """
+    for text in ("reschedule haircut to this weekend",
+                 "shorten standup by 30 minutes"):
+        res = fastrule.run(text)
+        assert not res.committed, f"{text!r} committed with nothing to change"
+        assert res.reason == "no-change", f"{text!r} -> {res.reason}"
+
+    from assistant.engine.fastrule.fastrule import REFUSAL, reason_class
+    assert reason_class("no-change") == REFUSAL
+
+    # ...and a real change still commits, on the same day.
+    for text in ("move the dentist to friday", "rename gym to workout"):
+        assert fastrule.run(text).committed, f"{text!r} should still commit"
