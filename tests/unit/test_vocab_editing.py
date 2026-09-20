@@ -127,3 +127,75 @@ def test_the_word_list_comes_back_with_the_new_fields(client):
     entries = client.get("/vocab").get_json()["words"]
     entry = next(e for e in entries if e["word"] == "MCV")
     assert entry["label"] == "Coursework"
+
+
+# ---------------------------------------------------------------------------
+# A CORRECTION TEACHES A PHRASE, not two unrelated words
+#
+# Whisper does not keep a term's word boundaries when it mishears it, so a
+# correction rarely swaps one word for one word: "poker night" comes back as
+# "pokernight" (1 word for 2) or "poe konaight" (2 for 2, neither of them
+# right). `learn_from_edit` discarded the first shape outright — the word
+# counts differed — and learned the second as two SEPARATE aliases, which
+# hangs "konaight" on the common English word "night" where it can fire on
+# anything.
+#
+# Gil, 2026-09-19: "allow user to fix two word phrases that we aren't sure
+# about and can save those two words as one word." That is the right source,
+# and it is the only one that works: deriving phrases from past transcripts was
+# built and measured first, and it CANNOT reach a term that is always misheard,
+# because such a term never appears correctly in the history to derive from.
+# ---------------------------------------------------------------------------
+
+def test_a_multi_word_correction_is_learned_as_one_term(tmp_path, monkeypatch):
+    monkeypatch.setenv("MACALENDAR_VOCAB", str(tmp_path / "vocab.json"))
+    from assistant.engine.ingest.repair import learn_from_edit
+    from assistant.stt.vocab import get_vocab
+    import assistant.stt.vocab as V
+    V._vocab = None                      # a fresh store on the patched path
+
+    for heard, fixed in (
+        ("schedule pokernight for friday",   "schedule poker night for friday"),
+        ("schedule poe konaight for friday", "schedule poker night for friday"),
+    ):
+        learned = learn_from_edit(heard, fixed, source="test")
+        assert learned, f"{heard!r} taught nothing"
+        wrong, right = learned[0]
+        assert " " in wrong or " " in right, (
+            f"{heard!r} should teach a PHRASE, got {wrong!r} -> {right!r}")
+
+    store = get_vocab()
+    assert "poker night" in {e.word for e in store.entries}
+    # ...and the same mishearing now repairs itself.
+    assert store.correct("schedule poe konaight for friday")[0] == \
+        "schedule poker night for friday"
+
+
+def test_learning_a_phrase_does_not_touch_ordinary_sentences(tmp_path, monkeypatch):
+    monkeypatch.setenv("MACALENDAR_VOCAB", str(tmp_path / "vocab.json"))
+    from assistant.engine.ingest.repair import learn_from_edit
+    from assistant.stt.vocab import get_vocab
+    import assistant.stt.vocab as V
+    V._vocab = None
+
+    learn_from_edit("book bar rista course on friday",
+                    "book barista course on friday", source="test")
+    store = get_vocab()
+    for clean in ("buy milk and call mom", "book the dentist on friday",
+                  "set meeting for tomorrow", "do you know when the meeting is"):
+        assert store.correct(clean)[0] == clean
+
+
+def test_a_whole_clause_is_not_learned_as_a_term(tmp_path, monkeypatch):
+    """Four words either side is already generous for a name or a piece of
+    shorthand; a rewritten sentence is not a vocabulary entry."""
+    monkeypatch.setenv("MACALENDAR_VOCAB", str(tmp_path / "vocab.json"))
+    from assistant.engine.ingest.repair import learn_from_edit
+    import assistant.stt.vocab as V
+    V._vocab = None
+
+    learned = learn_from_edit(
+        "remind me to take out the bins before the neighbours complain",
+        "remind me to call the plumber about the leak in the kitchen",
+        source="test")
+    assert not any(len(r.split()) > 4 for _, r in learned), learned

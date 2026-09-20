@@ -340,6 +340,42 @@ before you rule:
   *Re-confirmed by Gil 2026-09-14 and still wired:* `_parse_covers_the_compound`
   is at `assistant/engine/fastrule/fastrule.py:188`, consulted at `:268`.
 
+- **2026-09-19 — Q28 (A PHRASE IS LEARNED FROM A CORRECTION, NOT DERIVED FROM
+  HISTORY)**, Gil. He asked first for a hidden two-word vocabulary built
+  automatically from the one-word entries — *"looking at the one word finetuned
+  vocab add the logical combinations of words"* — then asked the better
+  question himself: *"is it worth building it, or allow user to fix two word
+  phrases that we aren't sure about and can save those two words as one word?"*
+
+  **BUILT THE DERIVATION FIRST AND MEASURED IT, WHICH IS WHY THE ANSWER IS
+  CERTAIN.** Phrases were derived from his own event titles, to-do titles and
+  command transcripts (296 strings), keeping only bigrams anchored on a
+  vocabulary word — observed, never invented. It produced 33 phrases and
+  CANNOT REACH THE MOTIVATING CASE:
+
+      "poker night" appears correctly in the 296 sources:  False
+
+  That is not a gap in the implementation, it is the shape of the idea. The
+  derivation learns from transcripts that were ALREADY RIGHT, so a term the
+  speech model always mangles never appears correctly in the history to be
+  derived from — it is structurally blind to exactly the terms that need it.
+  The derivation was reverted rather than shipped alongside; 33 phrases of
+  unproven value plus a module is not worth carrying to solve a case it
+  provably cannot solve.
+
+  **THE CORRECTION IS THE RIGHT SOURCE** because it is the only one that knows.
+  `learn_from_edit` now learns a MULTI-WORD span as ONE term with ONE alias.
+  Before, it discarded a correction whose word counts differed — which is the
+  commonest shape of boundary damage, "pokernight" (1 word) for "poker night"
+  (2) — and learned an equal-count one as SEPARATE aliases, hanging "konaight"
+  on the common English word "night" where it could fire on anything. Capped
+  at four words a side: a name or a piece of shorthand, not a clause.
+
+  Measured, with the multi-word matching shipped the same day: all four of
+  "pokernight", "poe konaight", "bar rista course" and "sue dough coup club"
+  are learned from one correction and repaired on the next occurrence —
+  including "poe konaight", which nothing else reaches.
+
 - **2026-09-18 — Q27 (A DAYPART DOES NOT DECIDE THE KIND — THE VERB DOES)**,
   Gil, after being shown the corpus evidence against reversing Q15 wholesale.
   Q26 had implied dayparts become events; measuring first showed that would be

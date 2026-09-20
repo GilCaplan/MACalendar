@@ -226,7 +226,38 @@ def learn_from_edit(original: str, edited: str, source: str = "test") -> list:
     sm = difflib.SequenceMatcher(None, [w.lower() for w in o_words],
                                  [w.lower() for w in e_words])
     for tag, i1, i2, j1, j2 in sm.get_opcodes():
-        if tag != "replace" or (i2 - i1) != (j2 - j1):
+        if tag != "replace":
+            continue
+        # A PHRASE, when either side is more than one word. This is the shape
+        # boundary damage actually takes — Whisper does not keep a term's word
+        # boundaries when it mishears it, so "poker night" comes back as
+        # "pokernight" (1 word for 2) or "poe konaight" (2 for 2, but neither
+        # word is right). Both were being thrown away or, worse, learned as
+        # separate word aliases: "konaight" -> "night" hangs a nonsense alias
+        # on a common English word, where it can fire on anything.
+        #
+        # Learned as ONE term with ONE alias, so the next occurrence is an
+        # exact hit rather than another guess — and it is learned from the
+        # only source that can know it, the speaker correcting it. Deriving
+        # phrases from past transcripts was tried and measured first: it
+        # cannot reach a term that is ALWAYS misheard, because such a term
+        # never appears correctly in the history to be derived from
+        # (DEVQA.md, 2026-09-19).
+        span_o = (i2 - i1) > 1 or (j2 - j1) > 1
+        if span_o:
+            wrong = " ".join(o_words[i1:i2]).strip(".,!?;:")
+            right = " ".join(e_words[j1:j2]).strip(".,!?;:")
+            # A whole clause is not a term. Four words either side is already
+            # generous for a name, a place or a piece of shorthand.
+            if (wrong and right and wrong.lower() != right.lower()
+                    and (i2 - i1) <= 4 and (j2 - j1) <= 4):
+                try:
+                    get_vocab().add_alias(wrong, right)
+                    pairs.append((wrong, right))
+                except Exception:
+                    pass
+            continue
+        if (i2 - i1) != (j2 - j1):
             continue                      # only clean word-for-word swaps teach
         for wrong, right in zip(o_words[i1:i2], e_words[j1:j2]):
             wrong = wrong.strip(".,!?;:")
