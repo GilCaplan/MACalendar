@@ -189,8 +189,12 @@ class CalendarIntent(BaseIntent):
         #    stage, because BOTH tracks build these objects and a rule in one
         #    of them is a rule the other disagrees with.
         if not self.start_time:
-            self.start_time = (meal_hour(self.title)
-                               or f"{datetime.datetime.now().hour:02d}:00")
+            # A meal's own hour, else 09:00 — NOT the current hour (Gil,
+            # 2026-09-20, DEVQA Q32 and Q36). The clock-of-now put "book
+            # dinner reservations on the 26th" at whatever time the speaker
+            # happened to be talking, and the judge then flagged the object
+            # for a value it had invented itself.
+            self.start_time = meal_hour(self.title) or "09:00"
 
         # 3. End time defaults to start_time + 1 hour.
         #    An end EQUAL to the start counts as missing: a zero-length event

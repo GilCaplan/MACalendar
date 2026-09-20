@@ -339,7 +339,15 @@ def main() -> int:
                     # is still an invention.
                     from assistant.actions.calendar.intent import meal_hour
                     INVENT_N += 1
-                    honest = {"00:00", meal_hour(getattr(first, "title", "")) or "00:00"}
+                    # 09:00 joined 2026-09-20 (Gil, DEVQA Q36): an untimed
+                    # dated event is nine on both tracks, and all-day is what
+                    # the speaker ASKS for rather than the fallback. Same
+                    # discipline as the meal hour a fortnight of lines above —
+                    # the instrument learns a ruling in the commit that makes
+                    # it, or it measures the old convention and charges the
+                    # engine for obeying the new one.
+                    honest = {"00:00", "09:00",
+                              meal_hour(getattr(first, "title", "")) or "00:00"}
                     if _HHMM.match(got_t) and got_t not in honest:
                         INVENT += 1
             # --- TITLE QUALITY (added 2026-09-08). Until now this board

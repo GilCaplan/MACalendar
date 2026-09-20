@@ -1,32 +1,32 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 534, "total_lines": 147953} -->
+<!-- code-stats: {"total_files": 534, "total_lines": 147993} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**147,953 lines of source across 534 files.** Of that, **84,696 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**147,993 lines of source across 534 files.** Of that, **84,709 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
-| Test code | 146 | 30,726 |
+| Test code | 146 | 30,745 |
 | iOS application | 59 | 20,445 |
 | Mac application (calendar GUI) | 33 | 18,297 |
-| Actions, storage & domain (DB, config, observance, .ics) | 96 | 17,256 |
-| Engine (the brain, shipped path) | 48 | 16,381 |
+| Actions, storage & domain (DB, config, observance, .ics) | 96 | 17,260 |
+| Engine (the brain, shipped path) | 48 | 16,390 |
 | Dataset & measurement tooling | 48 | 12,594 |
-| Engine experiments & boards (not in the answer path) | 46 | 12,404 |
+| Engine experiments & boards (not in the answer path) | 46 | 12,412 |
 | Retired (old brain, kept on purpose) | 16 | 7,533 |
 | Review panel (Mac card + iOS timeline) | 6 | 4,110 |
 | Microphone / speech (record, STT, TTS) | 17 | 3,094 |
 | Model / Ollama code | 12 | 3,065 |
 | API server (the front door) | 4 | 1,732 |
 | Launch scripts | 3 | 316 |
-| **TOTAL** | **534** | **147,953** |
+| **TOTAL** | **534** | **147,993** |
 
 ### By language
 
 | | files | lines |
 |---|---:|---:|
-| Python | 461 | 124,823 |
+| Python | 461 | 124,863 |
 | Swift | 64 | 22,281 |
 | shell | 8 | 696 |
 | launch script | 1 | 153 |

@@ -2813,9 +2813,18 @@ def _compute_missing_slots(action_name: str, slots: dict) -> list[str]:
         if meal and not _ALL_DAY_RE.search(slots.get("_raw_text", "")):
             slots["start_time"] = meal
             slots["end_time"] = slots.get("end_time") or ""
-        else:
+        elif _ALL_DAY_RE.search(slots.get("_raw_text", "")):
             slots["start_time"] = "00:00"
             slots["end_time"] = slots.get("end_time") or "23:59"
+        else:
+            # 09:00 (Gil, 2026-09-20, DEVQA Q36). A dated event with no clock
+            # used to be an all-day BLOCK here and the clock-of-now on the
+            # deep track, so the same sentence got two answers and the deep
+            # one flagged itself — most of the judge's `unsupported_field`
+            # notices on dev-100 were this row. All-day is now what the
+            # SPEAKER asks for (the branch above), not what we fall back to.
+            slots["start_time"] = "09:00"
+            slots["end_time"] = slots.get("end_time") or ""
         return []
     # THE MIRROR CASE (Q26, Gil, 2026-09-18): a stated CLOCK and no day.
     # "remind me to feed the cat at 14:00" and "I need to walk Val at 3pm" —

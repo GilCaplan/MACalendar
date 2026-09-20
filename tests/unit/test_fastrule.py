@@ -369,9 +369,11 @@ def test_a_meal_with_no_clock_lands_at_its_own_hour(fastrule):
     # the speaker asking for the whole day keeps the block
     r = fastrule.run("book all day dinner party on the 26th")
     assert r.intents[0][1].start_time == "00:00" and r.intents[0][1].end_time == "23:59"
-    # a non-meal is untouched, and "lunchbox" is not lunch
-    assert fastrule.run("book the dentist on the 26th").intents[0][1].start_time == "00:00"
-    assert fastrule.run("book lunchbox shopping on the 26th").intents[0][1].start_time == "00:00"
+    # a non-meal takes the general untimed default, and "lunchbox" is not
+    # lunch (09:00 since DEVQA Q36, 2026-09-20 — it was the all-day block
+    # when this test was written the same morning)
+    assert fastrule.run("book the dentist on the 26th").intents[0][1].start_time == "09:00"
+    assert fastrule.run("book lunchbox shopping on the 26th").intents[0][1].start_time == "09:00"
 
 
 def test_the_deep_track_reads_the_same_meal_hours():
@@ -434,3 +436,20 @@ def test_a_bare_seven_is_asked_about_and_otherwise_read_as_pm(registry_with_real
         # 1 to 6 keeps the settled convention, with no question and no note
         five = E.run("book gym at 5", source="test", supports_confirm=True)
         assert five["parse"] == "fast" and "meant the morning" not in five["message"]
+
+
+def test_an_untimed_dated_event_is_nine_on_both_tracks(fastrule):
+    """Gil, 2026-09-20 (DEVQA Q36). "book the dentist on the 26th" was an
+    all-day block on the fast path and the clock-of-now on the deep one, so
+    the same sentence got two answers and the deep one flagged the value it
+    had invented itself. All-day is what the speaker ASKS for now."""
+    from assistant.actions.calendar.intent import CalendarIntent
+    r = fastrule.run("book the dentist on the 26th")
+    assert r.committed and r.intents[0][1].start_time == "09:00", r.intents
+    r = fastrule.run("book all day offsite on the 26th")
+    assert r.intents[0][1].start_time == "00:00" and r.intents[0][1].end_time == "23:59"
+    assert fastrule.run("book standup tomorrow at 8am").intents[0][1].start_time == "08:00"
+    assert fastrule.run("book dinner reservations on the 26th").intents[0][1].start_time == "19:00"
+    # the deep track builds the same object and must not differ
+    assert CalendarIntent(title="dentist", date="2026-09-26").start_time == "09:00"
+    assert CalendarIntent(title="dinner", date="2026-09-26").start_time == "19:00"
