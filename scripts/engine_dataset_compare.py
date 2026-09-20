@@ -560,10 +560,14 @@ def main() -> int:
         print(f"PRF (engine, item-level micro): precision {o['precision']:.1%} · "
               f"recall {o['recall']:.1%} · F1 {o['f1']:.1%}  "
               f"(matched {o['matched']} / expected {o['expected']} / created {o['created']})")
-    if fieldq["items"]:
+    if fieldq["items"] and fieldq.get("field_quality") is not None:
+        # A tiny run can have items and no gradeable field (the 3-row smoke
+        # of 2026-09-20 crashed here, AFTER the reports were written but
+        # BEFORE the archive and the log line — so the run went unrecorded).
         wq = fieldq["difficulty_weighted"]
+        when = fieldq.get("when_ok")
         print(f"FIELD QUALITY (contents, transcript-grounded): {fieldq['field_quality']:.1%} "
-              f"· when-correct {fieldq['when_ok']:.1%} (n={fieldq['when_coverage']})"
+              + (f"· when-correct {when:.1%} (n={fieldq['when_coverage']})" if when is not None else "")
               + (f" · difficulty-weighted {wq:.1%}" if wq is not None else "")
               + f" · by tier {fieldq['by_tier']}")
     r250, r600 = subslices["count_ok_ranks_1_250"], subslices["count_ok_ranks_251_600"]

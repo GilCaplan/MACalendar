@@ -2339,3 +2339,86 @@ board stays where it is, as the record of what was measured on 2026-09-08.
 REAL USAGE is still the instrument that outranks the others, and it is
 `scripts/weekly_review.py` — dropping this set removes a proxy for real speech,
 not the measurement of it.
+
+
+## CHECKPOINT READ — the whole chain on dev-100, after the stage-isolation work (2026-09-20)
+
+**Not a loop cycle.** Whole-engine cycles are paused (Gil, 2026-09-07) and
+this does not resume them: Gil asked whether the engine is finished, the
+honest answer was that every defect left is a SEAM defect no stage board can
+see, and he agreed to one whole-chain read as a checkpoint. Run 22 in
+`loop_log.csv`; archive `dataset/runs/x_auto-20260920T1034-100rows`.
+
+**Dataset:** dev-100 (`dataset/inputs/dev100.json`, 100 fixed rows,
+stratified on scenario × intent × complexity, TRAIN pool only — never run
+before, so there is no dev-100 baseline; the nearest prior read is run 20 on
+dev-fast-250, a DIFFERENT slice). **Commit:** 7c236cf, llama3.1:8b, Ollama
+local, observance off as every replay is.
+
+| metric (dev-100, n=100) | value | what it means |
+|---|---|---|
+| count-correct | **74%** (product-adjusted 75%) | one in four commands makes the wrong NUMBER of things |
+| by tier | simple 91% (n=34) · medium 88% (33) · **complex 42%** (33) | the compound rows are where it fails |
+| by compound kind | event+event 55% · task+task 45% · **event+task 27%** (n=11 each) | mixed kinds worst; when event+task fails the TASK half is missing 5 of 8 times |
+| by parse path | fast 88% (n=48) · **deep 62%** (n=52) | the model track is the weak one, and half the slice goes there |
+| item P/R/F1 | 75.8 / 74.2 / **75.0** (69 matched / 93 expected / 91 created) | |
+| field quality | 88.7% · when-correct 85.0% (n=20) | what IS built is mostly right in its fields |
+| garbage titles | 0% | **the metric is blind** — see below |
+| latency | p50 56 ms · p95 41.5 s | fast path instant; a deep row can take 40 s |
+| vs the old brain, same 100 rows | 70% → 74% · 11 better / 6 worse / 20 still fail | drift, not ground truth |
+
+Noise floor on this slice is ~2.5–3 pt overall (one row = 1 pt) and roughly
+8 pt per tier, so none of the per-tier numbers carries a delta claim. Run
+20's dev-fast-250 read (79% overall, complex 55%, deep 73%, fast 91%) is a
+different slice and is NOT a baseline for this one.
+
+### Where the 26 misses are, read from each row's X1→X4 boundaries
+
+Every failing row's trace was read (`x_auto-…/trace_bus.jsonl.gz`); the
+stage charged is the one whose boundary is the first wrong one.
+
+| stage | n | the rows |
+|---|---:|---|
+| **segmentation — KIND** | 12 | a list/reminder/question tagged `event`: "Make a new list of dog breeds. Also, Create a new list" → two EVENTS; "Make a list of camera photos and i need a list of my clients" → two events; "add v8 to my groceries" → event; "I would like to start a new list" → event → `query_schedule`; "is today st. patricks day" → an EVENT created; "PDA do i have any appointments set for tomorrow?" → a TODO created; "let's just skip appointment at time" → event 'Appointment'; "remind me to call mom in half an hour" → task (gold: a timed reminder is an event) with the time left in the title; "sweet potato pie" → event; "remind me at this time / create appointment to list" → two events; plus "hey siri make sure my calendar is completely clear tomorrow" (1 event built) and "I have an appointment tommorrow, remind me — and make a new list" (3 events, 0 tasks) |
+| **segmentation — CUT** | 4 | the "Also," / "and then" seam missed: "Remind me every Monday to take out the trash. Also, PUT MILK ON MY SHOPPING LIST" → ONE item, then dv multiplied it into 'take out the trash. also' + 'remind put milk on my shopping list'; "add date and time in calender… Also, Calendar event. send invite, Bill Malinda" → 'send invite' + 'send Bill Malinda'; "For the next three Sundays remind me I have yoga class at noon, and then yashas bithday…" → one 94-character event; "Open calendar. Set event, and then Can you please create a list" → one item, nothing built, rescue made 'Open calendar' |
+| **fast path — routing** | 5 | "Begin new list of lottery numbers", "Open up a new list and add a Tab…", "start a new list and add grocery shopping…" → `query_todos` (a new list is read as a query, ×3); "Remind me when it is lunchtime, and then…" → two todos, first titled 'remind when it is lunchtime and then i'; "'exhibition 2017 mass' on Mar 25 make a note of it…" → event 'note' 12 AM–4 AM in 2027 + a todo |
+| **FastRule build / rescue** | 3 | "Please remind me of and can you invite mr. Chen for a meeting next Monday 6:00pm?" → only 'remind me' built, the invite dropped; "Please give me notice when I need to leave for the conference" → nothing built, nothing said; "On Febuary 14th make dinner reservations… PLZ NOTE ON MY CALENDAR" → the note routed `query_schedule`, and the misspelt month lost the date to the replay day |
+| **judge — anaphora committed** | 1 | "Could you add this on my calender please…" → event 'this on my calender' (flagged, still written) |
+| scorer-ambiguous | 1 | "Tell me when my next meeting is." — tagged review, `query_schedule` ran, wanted ≥0/≥0, still a miss; the count rule for queries needs reading |
+
+### Three seam defects that every stage board is blind to
+
+1. **The clock-of-now start time.** Nearly every untimed deep-path event is
+   built at the replay hour, flagged `unsupported_field` and COMMITTED: 'dinner
+   reservations' at 7 AM, 'make new list of dog breeds' at 9 PM, 'St.
+   Patrick's Day' at 11 PM. The judge's note is honest; the row on the
+   calendar is still wrong. Decompose_validate's floor and the intent's
+   default disagree about what an untimed event is.
+2. **Junk titles the garbage metric does not see.** 0% garbage, yet 'note',
+   'date', 'remind me', 'this on my calender', 'take out the trash. also',
+   "grocery shopping 's to-do list", 'Send me a reminder to pick up my dog
+   from the groomer'. The metric checks for the program's own words; these
+   are the speaker's words cut in the wrong place. The instrument needs a
+   second test before the number can be believed.
+3. **dv multiplies a mis-cut item into junk.** When segmentation leaves two
+   asks in one item, decompose_validate's multiply hands back N junk todos
+   ('send Bill Malinda'). Multiply is correct on a real same-verb list and
+   destructive on an under-split; it cannot tell them apart from the item alone.
+
+### What this says about "finished"
+
+Deep 62% on a train slice, with the misses concentrated in segmentation's
+KIND decision (12 of 26) and the fast path reading "new list" as a query
+(3), is the answer: the stage work moved the stages, and the chain still
+loses a quarter of its commands on the count alone. The kind decision is
+the next thing to work on, on segmentation's own board (its gold has 33
+event+task rows in this slice alone to mine from), and the "new list"
+route is one table row on the fast path. Neither is a design change.
+
+`scripts/engine_dataset_compare.py` needed one fix to run at all: the
+end-of-run FIELD QUALITY print crashed on a 3-row smoke (no gradeable
+field) AFTER the reports and BEFORE the archive and log line, so the smoke
+went unrecorded; guarded. The default `--source` expects the gitignored
+`dataset/baseline/dummy_3000.db`, which this checkout never had — copied
+from `DOCUMENTATION/experiments/memory_scaling/output/`, as DATASET.md says.
+
