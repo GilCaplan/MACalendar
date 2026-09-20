@@ -233,6 +233,37 @@ this cycle. `--perturb`'s "WITHOUT validate" baseline for train and the
 prior table's exact re-run were not re-measured this pass; re-run with
 `--perturb` for a fresh baseline before citing that row again.
 
+### Invariance — position PROVEN, title PROBED (2026-09-19)
+
+Gil, 2026-09-18: *"decompose validate is given the whole text, all the
+information to create the item. We need to make sure that it's invariant when
+it creates the features."* Two axes, and the stage is clean on both:
+
+| axis | instrument | dataset | result |
+|---|---|---|---|
+| **position** (where the time sits) | `scripts/dv_invariance.py` — the item held byte-identical, only X1 moves | FastRule 7,200 train half, 1,548 groups | **100.0% identical** (1,548/1,548). The 6.3% the cross-stage board charges this boundary is inherited from segmentation |
+| **title content** (does the title change the values) | a probe, not yet a board: each train time phrase held fixed, the title swapped | 1,477 distinct time phrases × 115 titles (85 bank + 30 adversarial in 9 trigger classes) = 169,855 pairs | the five time fields moved in **0 undesigned pairs**. Only the three written couplings fired: evening words flip a bare 7/8 (726 pairs), a duration in the action sets the end (2,649), a count is read from the action (7,385) |
+
+Two things the probe showed that the nine boards above **cannot**, and why:
+the title banks carry no digit, no duration and two evening words; board B
+grounds any digit in the item's own words; and the gold's `resolve_time`
+applies the same evening-word rule to `time + text` that `resolve.py` does, so
+board A shares the coupling. So (1) `resolve_quantity` reads ANY digit followed
+by a word as a count — "chapter 5 review" → 5, "form 1040 prep" → 1040 — and
+no board can see it; in the 2,699 mineable real utterances that shape occurs 0
+times as an identifier and once as an address, so it is filed, not fixed. And
+(2) the resolver handed title words INSIDE the time string (the shape an item
+with no separated time produces) loses both clocks when a range is followed by
+anything ("between 2 and 4 dentist appointment" → None/None): 7.4% of bank
+pairs with the title after the time. On the live deep path segmentation
+separates the two, so it does not reach; on the fast path dv receives the
+intent's title alone, which names no time.
+
+The leak that DID reach a user was upstream of this stage: FastRule's temporal
+reader let a title word beat a stated clock or day in 4 of 9 probe commands.
+Fixed 2026-09-19 with this stage's own conventions (a stated clock always wins;
+a window is the last resort) — `fastrule/experiments/RESULTS.md` cycle 24.
+
 ### H · END TO END — the honest number, and the attribution (2026-09-09)
 
 Every board above is **gold-fed**: items arrive as gold `(text, time)` pairs, which

@@ -128,6 +128,18 @@ while `"the 30th wash and fold the laundry"` resolves it. Emitting only the
 comma form would score a PUNCTUATION bug as a POSITION bug and send the fix
 to the wrong stage.
 
+**The TITLE axis (2026-09-19).** Position is where the time sits; the second
+question is whether the title's CONTENT moves a value. Measured once as a
+probe on decompose_validate — every train time phrase held fixed, the title
+swapped through the 85 bank titles plus 30 adversarial ones in nine trigger
+classes (evening word, digit, duration, bound word, day word, cadence word,
+relative word, lead word, part of day), 169,855 pairs — reporting per field
+which moves are DESIGNED (the stage's written couplings) and which are not.
+The stage read 0 undesigned; the front door did not (`fastrule/experiments/
+RESULTS.md` cycle 24). Not yet a script: the probe's numbers are banked in
+`DOCUMENTATION/experiments/invariance/RESULTS.md` run 3, and a `--title` arm
+on `scripts/dv_invariance.py` is the shape it takes if it is ever needed again.
+
 ## Level 5 — REAL USAGE (`scripts/weekly_review.py`) — the outer gate
 
 Flag rate and accuracy on Gil's actual commands, test traffic excluded.

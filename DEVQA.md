@@ -36,6 +36,20 @@ realspeech dataset that was dropped; it is the data that already exists.
 rewritten?** Both inside `rule_parser.py`, contracts untouched, both rewrites
 of a function that every FastRule cycle has hit. Not started without a yes.
 
+**Q28 — the bare hour at 7: which reader is right?** Found 2026-09-19 while
+closing the front door's title leak. *"book team meeting tomorrow at 7"* is
+**19:00 on the fast path** (`rule_parser._pick_business_hour_time` prefers PM
+for 1–7, and `_extract_temporal`'s post-process bumps 1–7 to PM unless a
+morning word is present) and **07:00 in `decompose_validate`** (its conventions
+table, your ruling of 2026-09-08: *bare hour 1–6 is PM; 7–8 is PM only with
+evening words — "gym at 5" is not 5am*). The same sentence gets a different
+answer depending on which path routes it, and the deep path's validate never
+sees the fast path's value to correct it (on the fast path it receives the
+intent's title alone). One ruling — is 7 an evening hour by default, or only
+with evening words? — and the losing reader is aligned as an implementation
+fix and measured on the FastRule product-shape board's `explicit time right`
+line (79.5%, n=527, train). Not started without an answer.
+
 **Q17 — Snooze: keep or kill?** It is the ONE notifications phase-5 item with no
 ruling. The phase is the phase-5 row of `DOCUMENTATION/NOTIFICATIONS_PLAN.md`
 (*"snooze action"*), and everything else there has an answer — the Live

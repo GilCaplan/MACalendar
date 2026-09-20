@@ -152,8 +152,73 @@ resolve it. Found while smoke-testing the board; it is why `front` and
 
 ---
 
+## Run 3 — 2026-09-19, the TITLE axis, and a guard for the front-door fix
+
+**The question widened.** Position asks whether moving the time changes the
+answer; the title axis asks whether the title's CONTENT does. Gil's framing:
+*"invariant to where the time / title are located in the prompt."*
+
+### decompose_validate, isolated — a probe, not yet a board
+
+**Dataset**: the stage's own train split (2,004 rows), every distinct time
+phrase held fixed (1,477) and the title swapped through 115 titles — the 85
+bank titles (47 event + 38 task) plus 30 adversarial titles in nine trigger
+classes (evening word, digit, duration, bound word, day word, cadence word,
+relative word, lead word, part of day). **169,855 pairs**, each compared with
+the time phrase alone.
+
+| shape | result |
+|---|---|
+| time separate, title as context/action — the live deep-path shape | the five time fields moved in **0 undesigned pairs**. Designed couplings only: evening words flip a bare 7/8 (726), a duration in the action sets the end (2,649), a count read from the action (7,385 — 100% of digit titles, "chapter 5 review" → 5) |
+| title INSIDE the time string, title after time | **7.4%** of bank pairs move — a range followed by any words loses both clocks. Not a live shape: segmentation separates the two, and the fast path hands the stage a title alone |
+| title inside the string, title before time | 0.2% of bank pairs |
+
+**What it means.** The stage is title-invariant bar its three written
+conventions. The stage's nine boards could not have shown this either way:
+the title banks carry no digit, no duration and two evening words; board B
+grounds any digit in the item's words; the gold's `resolve_time` applies the
+same evening-word rule as the code. The greedy count is filed (0 identifier
+numbers, 1 address in 2,699 mineable real utterances).
+
+### The front door — where the title DID change the answer
+
+Nine live commands with a time-like word in the title, through
+`FastRule.run` + `run_objects` with every store in a temp dir:
+
+| before | after |
+|---|---|
+| "book morning pages tomorrow at 7am" → 08:00–12:00, title "pages" | 07:00, "morning pages" |
+| "book night shift handover tomorrow at 2pm" → 20:00–23:59, "shift handover" | 14:00, "night shift handover" |
+| "book walk through the slides tomorrow at 3pm" → TODAY, bound tomorrow, "walk" | tomorrow 15:00, no bound, "walk through the slides" |
+| "book monday standup tomorrow at 9am" → MONDAY | tomorrow |
+| 4 of 9 wrong | 0 of 9 (one convention split left: "at 7" → 19:00, DEVQA Q28) |
+
+Three precedence rules in `rule_parser._extract_temporal`, each boarded alone
+on the FastRule product-shape board (`fastrule/experiments/RESULTS.md` cycle
+24, commits `46506f3` `ec7849c` `0c16b83`): every headline flat, 9 rows
+gained a right clock, 0 worse.
+
+### The guard — this board, before and after, same HEAD otherwise
+
+| boundary | before | after |
+|---|---|---|
+| segmentation | 13.8% | 13.8% |
+| decompose_validate | 6.3% | 6.3% |
+| fastrule | 4.8% | 4.8% |
+| front door | 49.4% | 49.4% |
+| correctness end / front / front, | 56.7 / 55.4 / 55.0 | 56.7 / 55.4 / 55.0 |
+| multi-ask arm, end / front / front, right | 77.2 / 64.0 / 66.0 | same |
+
+Byte-identical, as predicted: these are CONTENT rules and the 7,200 set's
+titles carry no such words. (The front door reads 49.4% on this HEAD against
+run 2's 50.3% — commits between the two runs, not this change; the before
+column above is the honest baseline, taken the same day.)
+
+---
+
 ## Not yet measured
 
+- **Title CONTENT is probed, not boarded** (run 3). If it is needed again, a `--title` arm on `scripts/dv_invariance.py` is the shape.
 - **Title position.** The gold hands over the `(text, time)` split for free;
   isolating sub-parts of the title (`with Dana`, `at the office`) would need a
   detector, which reintroduces the circularity this board was built to avoid.

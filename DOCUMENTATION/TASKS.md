@@ -1446,6 +1446,55 @@ of rows are *consistently* wrong across every position — an accuracy problem
 this board deliberately counts in its own column rather than confusing with a
 position one.
 
+**TITLE AXIS — PROBED AND THE FRONT-DOOR LEAK FIXED, 2026-09-19.** The
+position board above could not see a title's CONTENT changing a value. Probed
+on decompose_validate (1,477 train time phrases × 115 titles = 169,855 pairs):
+the time fields moved in **0 undesigned pairs** — the stage is title-invariant
+bar its three written conventions (`decompose_validate/ARCHITECTURE.md`,
+"Invariance"). The leak was the FRONT DOOR: a title word beat the stated clock
+or day in 4 of 9 live probe commands. Three precedence rules landed in
+`rule_parser._extract_temporal`, each boarded alone (`46506f3`, `ec7849c`,
+`0c16b83`; `fastrule/experiments/RESULTS.md` cycle 24): a daypart window
+yields to a stated clock (and directly after a clock is its meridiem), a
+series bound needs its date adjacent to the keyword, and the date carrying the
+clock outranks a bare date. Product-shape board flat on every headline
+(3,200 atomic train rows), 9 rows gained a right clock, 0 worse; live probe
+4/9 wrong → 0/9.
+
+Two candidates filed, not fixed, both needing a word from Gil:
+
+- **The two tracks disagree on the bare hour** — "at 7" is 19:00 on the front
+  door and 07:00 in `decompose_validate` (its conventions table: 1–6 PM, 7–8
+  PM only with evening words). Same sentence, different answer by path.
+  **DEVQA Q28.** The losing reader is then an implementation fix.
+- **`resolve_quantity` counts any digit in a title** ("chapter 5 review" → a
+  task of 5). Board-blind (the title banks carry no digit; board B grounds any
+  digit in the words). Real pool: 0 identifier numbers, 1 address in 2,699
+  rows — low frequency, so it waits.
+
+## SEGMENTATION AUDIT — two findings verified against the code, 2026-09-19
+
+Read with the stage's own board (`segmentation/experiments/run_board.py`,
+train, 1,051 rows), not from the docs:
+
+- **The stage's gold was never relabelled for Q26, and its board now reads
+  4.8 pt below its own map.** `ARCHITECTURE.md` §0 records exact-row 88.9% /
+  tag 96.0% (2026-09-17); today the same board prints **84.1% / 94.5%**, with
+  112 gold-`task` items tagged `event`. 58 of those carry a stated clock by a
+  strict regex and more carry a spoken one ("quarter to nine", "half past
+  six") — exactly the rows Q26 (2026-09-18, *a stated clock makes it an event*)
+  turned into events, which `fastseg.tag` now does and the gold still denies.
+  64 train gold items are `task` with a clock, 35 of them "remind me to"
+  frames. Relabelling by RULE (never by reading the sealed half) puts tag back
+  above 96% with no code change. Until then every tag number this stage
+  prints is measuring the ruling, not the tagger.
+- **A comma after a leading time changes the cut.** `fastseg("the 30th, wash
+  and fold the laundry")` → two asks, "wash" and "fold the laundry"; the same
+  words without the comma → one. The comma makes spaCy parse "wash and fold"
+  as coordinated verbs and `clause_boundaries` cuts there. It is the
+  `front,`-vs-`front` gap the invariance board already separates on purpose,
+  and it is a cutter implementation defect, not a position rule.
+
 ## Working agreements
 - Everything on the phone is local: no third-party services; the only network peer is the Mac over Tailscale.
 - Prefer doing work directly over spawning sub-agents; keep context small (`/compact` between big tasks).

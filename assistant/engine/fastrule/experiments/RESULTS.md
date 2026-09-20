@@ -1161,3 +1161,69 @@ annual checkup monthly at 8:30pm"` titles itself `"checkup"` because
 kept the word by accident. Pinned by a test that asserts BOTH the over-claim and
 its consequence, so narrowing the recogniser's claim shows up as a change rather
 than a surprise.
+
+## Cycle 24 — a stated clock or day beats a title word (2026-09-19)
+
+### Why this one and not the registered next cycle
+
+Gil asked how invariant `decompose_validate` is to the TITLE and the TIME in a
+prompt. The stage itself is: position 100% on its isolated board (1,548/1,548,
+`scripts/dv_invariance.py`), and a probe holding 1,477 distinct time phrases
+fixed while swapping 115 titles (169,855 pairs, train split) moved the time
+fields in **0 undesigned pairs**. The leak was on the FRONT DOOR: a nine-command
+live probe put a time-like word in the title and FastRule's temporal reader let
+it beat the stated clock or day in **4 of 9**. Gil chose the fix over more
+measurement (*"Fix the front-door title leak"*), so this cycle went ahead of the
+registered start/end prediction below, which stays queued.
+
+### What changed — three precedence rules in `_extract_temporal`, each measured alone
+
+| | defect | rule now | corpus effect |
+|---|---|---|---|
+| **A** | "book morning pages tomorrow at 7am" booked 08:00–12:00: the daypart window came first in the string and the stated 7am was refused as a second start | a daypart is a WINDOW and is applied only when nothing states a clock — the convention `decompose_validate` already writes down; a window that loses claims no span, so its word stays in the title. **Except directly after a clock**, where it is that clock's MERIDIEM ("this morning at 6 in the evening" is how the recogniser splits nine train rows): claims its span, sets no end, settles am/pm | 9 rows changed, 6 gained the right clock (06:00→18:00, 21:00→09:00), 0 worse |
+| **B** | "book walk through the slides tomorrow at 3pm" booked TODAY with a bound of tomorrow: `_series_bound` accepted a date three words after "through" | a bound's date must sit right after its keyword, at most a function word between | 0 rows changed |
+| **C** | "book monday standup tomorrow at 9am" booked MONDAY: the first date in the string won | a datetime overrides a date that came from a BARE date reading, never another datetime; the loser keeps its claim on its words (releasing it put "tomorrow" into a pinned title) | 0 rows changed |
+
+Each rule ran the board and an old-vs-new row differential on its own before
+the next was applied (`46506f3`, `ec7849c`, `0c16b83`).
+
+### Result — FastRule product-shape board, TRAIN half, 3,200 atomic rows
+
+| metric | before | after | |
+|---|---|---|---|
+| handled (atomic) | 77.7% | 77.7% | flat |
+| correct-on-handled | 94.5% | 94.5% | flat |
+| title exactly right | 61.1% (n=1770) | 61.1% | flat |
+| explicit time right | 79.5% (n=527) | 79.5% | flat |
+| INVENTED a time | 3.5% (n=370) | 3.5% | flat |
+| resolvable date right | 91.8% (n=773) | 91.8% | flat |
+| harm / DESTRUCTIVE | 159 / 12·4·2 | 159 / 12·4·2 | flat |
+| half-executed (non-atomic) | 58 | **57** | −1 |
+
+**What it means.** The corpus has almost none of the shape this fixes — a
+title carrying a daypart, a bound word or a weekday next to a stated time —
+which is exactly why the invariance probe found it and the board never did.
+The evidence is the 14 unit tests (`TestStatedTimeBeatsTitleWords`) and the
+live probe: 4 of 9 wrong → 0 of 9. The one corpus effect is the nine
+"at 6 in the evening" rows, whose 06:00 was a pre-existing defect the meridiem
+rule closes.
+
+**Guard**: `scripts/invariance_board.py` before and after, same HEAD —
+byte-identical on every boundary (front door 49.4%, n=1,548) and every
+position; content rules, not position rules. Full unit suite 2,078 passed.
+
+### Filed, not fixed
+
+**The two tracks disagree on the bare hour.** "book team meeting tomorrow at
+7" is 19:00 on the front door (`_pick_business_hour_time` prefers PM for 1–7,
+and the post-process bumps 1–7 unless a morning word is present) and 07:00 in
+`decompose_validate` (conventions table: *1–6 is PM; 7–8 is PM only with
+evening words*, Gil 2026-09-08). Same sentence, different answer by path. Not
+a title leak and not this cycle's; needs a ruling on which convention holds
+(DEVQA Q28), then the losing reader is aligned as an implementation fix.
+
+### Next prediction (registered)
+
+Unchanged from cycle 23: `start_time`/`end_time` on the real-usage board,
+INVENTED-a-time as the guard. Q28 first if it lands before then, because a
+bare-hour change moves that same metric.
