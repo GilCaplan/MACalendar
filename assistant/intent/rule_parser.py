@@ -1223,13 +1223,23 @@ def _extract_temporal(span_text: str, today: datetime.date,
                         (res.start, res.end + 1, wren.get("start"), wren.get("end")))
                     continue
 
-                if timex_type == "datetime" and not result["date"]:
+                # A DATE THAT CARRIES THE CLOCK outranks a bare one read
+                # earlier. "book monday standup tomorrow at 9am" landed on
+                # MONDAY because the first date in the string won; the day the
+                # speaker attached the clock to is the event's day. The losing
+                # reading KEEPS its claim on its words: a date word that lost
+                # precedence is still a date word, and handing its span back
+                # to the title put "tomorrow" into "set a meeting tomorrow on
+                # tuesday at 6pm with etai" (a pinned title test).
+                if timex_type == "datetime" and (
+                        not result["date"] or result.get("_bare_date_span")):
                     raw = wren.get("value", "")
                     if raw and raw != "not resolved":
                         parts = raw.split(" ")
                         date_part = parts[0]
                         time_part = parts[1][:5] if len(parts) > 1 else None
                         if date_part >= today.isoformat():
+                            result.pop("_bare_date_span", None)
                             result["date"] = date_part
                             if time_part and not result["start_time"]:
                                 result["start_time"] = time_part
@@ -1245,6 +1255,7 @@ def _extract_temporal(span_text: str, today: datetime.date,
                         candidate = raw
                         if candidate >= today.isoformat():
                             result["date"] = candidate
+                            result["_bare_date_span"] = span
                         elif "_dt_past_fallback" not in result:
                             # A PAST-ONLY date is kept as a fallback, exactly as
                             # the datetime branch above already does. It used to
@@ -1277,6 +1288,8 @@ def _extract_temporal(span_text: str, today: datetime.date,
                         result["start_time"] = _normalize_time(start_v)
                     if end_v and not result["end_time"]:
                         result["end_time"] = _normalize_time(end_v)
+
+        result.pop("_bare_date_span", None)
 
         # THE QUALIFIER SETTLES AM/PM. A datetime with two readings ("today at
         # 6" -> 06:00 and 18:00) took the first, so "today at 6 in the evening"
