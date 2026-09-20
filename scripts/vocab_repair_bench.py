@@ -136,6 +136,81 @@ def pairs() -> "list[tuple[str, str]]":
     return out
 
 
+#: How far the re-split boundary may move from the true one. Beyond two the
+#: string stops sounding like the words — "icecream" split at 1 is "i cecream",
+#: which nobody would hear.
+_SHIFTS = (-2, -1, 1, 2)
+
+
+def mash(a: str, b: str) -> "list[str]":
+    """Two adjacent words, re-segmented so they SOUND the same and READ wrong.
+
+    Gil's construction, 2026-09-19: *"take clean sentences, then every so often
+    take two words and mash them up in a way that messes it up, but it sounds
+    exactly the same as the original two words."*
+
+    The letters are preserved exactly and only the boundary moves, so the
+    string still reads aloud as what was said — which is precisely the damage
+    Whisper produces, and why the real corpus contains "icecream" for "ice
+    cream" and "Book Lub" for "book club". Joining is the zero-shift case.
+    """
+    joined = a + b
+    out = [joined]
+    for shift in _SHIFTS:
+        k = len(a) + shift
+        if 2 <= k <= len(joined) - 2:
+            out.append(f"{joined[:k]} {joined[k:]}")
+    return out
+
+
+_WORD = re.compile(r"^[a-z]+$")
+
+
+def in_sentence(limit: int = 0) -> "list[dict]":
+    """[{damaged, clean, term, heard}] — a CLEAN corpus sentence with one
+    adjacent word pair mashed, and the pair itself as the vocabulary entry.
+
+    This is the bench that matters for a corrector, because it asks the two
+    questions the pair-only bench cannot: does the repair fire IN CONTEXT, and
+    does it leave the REST of the sentence alone. The gold is free — it is the
+    sentence we started from.
+    """
+    rows: "list[dict]" = []
+    seen = set()
+    for src, field in ((ROOT / "assistant" / "engine" / "fastrule" / "datasets"
+                        / "fastrule_7200.jsonl", "text"),
+                       (REALSPEECH, "clean")):
+        if not src.exists():
+            continue
+        for line in src.open():
+            obj = json.loads(line)
+            text = (obj.get(field) or "").strip()
+            if not text or "{" in text:          # realspeech `clean` has slots
+                continue
+            words = text.split()
+            for i in range(len(words) - 1):
+                a, b = words[i].lower(), words[i + 1].lower()
+                if not (_WORD.match(a) and _WORD.match(b)):
+                    continue
+                if len(a) < 3 or len(b) < 3:
+                    continue
+                term = f"{a} {b}"
+                for damaged in mash(a, b):
+                    key = (damaged, term)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    rows.append({
+                        "damaged": " ".join(words[:i] + [damaged] + words[i + 2:]),
+                        "clean": " ".join(words[:i] + [a, b] + words[i + 2:]),
+                        "term": term, "heard": damaged,
+                    })
+                break                              # ONE mash per sentence
+            if limit and len(rows) >= limit:
+                return rows
+    return rows
+
+
 def real_pairs() -> "list[tuple[str, str]]":
     """The 62 REAL ones from the realspeech corpus. The primary number."""
     seen, out = set(), []
@@ -155,20 +230,33 @@ def main() -> int:
     ap.add_argument("--stats", action="store_true")
     ap.add_argument("--real", action="store_true")
     ap.add_argument("--dump")
+    ap.add_argument("--context", action="store_true",
+                    help="dump the in-sentence bench instead")
+    ap.add_argument("--limit", type=int, default=0)
     a = ap.parse_args()
     synth, real = pairs(), real_pairs()
     if a.dump:
         with open(a.dump, "w") as fh:
-            for d, i in (real if a.real else synth):
-                fh.write(json.dumps({"damaged": d, "intended": i}) + "\n")
+            if a.context:
+                for row in in_sentence(a.limit):
+                    fh.write(json.dumps(row) + "\n")
+            else:
+                for d, i in (real if a.real else synth):
+                    fh.write(json.dumps({"damaged": d, "intended": i}) + "\n")
         print(f"wrote {a.dump}")
         return 0
+    ctx = in_sentence(a.limit)
     print(f"REAL (realspeech gold, the primary number): {len(real)} distinct pairs")
-    print(f"SYNTHETIC stress bench:                     {len(synth)} distinct pairs")
+    print(f"SYNTHETIC term bench:                       {len(synth)} distinct pairs")
+    print(f"IN-SENTENCE bench (clean corpus, one pair mashed): {len(ctx)} cases")
+    print(f"   distinct terms {len({r['term'] for r in ctx})}"
+          f" · distinct damaged forms {len({r['heard'] for r in ctx})}")
     print(f"   heads {len(HEADS)} · compounds {len(COMPOUNDS)} · tails {len(TAILS)}")
     if a.stats:
-        for d, i in synth[:10]:
-            print(f"   {d!r:34} -> {i!r}")
+        for d, i in synth[:6]:
+            print(f"   term  {d!r:30} -> {i!r}")
+        for r in ctx[:6]:
+            print(f"   ctx   {r['heard']!r:20} in {r['damaged'][:58]!r}")
     return 0
 
 
