@@ -387,14 +387,19 @@ def clause_boundaries(text: str, date_spans=None) -> "list[Boundary]":
                 for c in head_kids)
             if conj_obj and not head_owns_object:
                 head_has_own = False
-        if not head_has_own and tok.head.dep_ != "ROOT":
+        if (not head_has_own and tok.head.dep_ != "ROOT"
+                and not _hangs_off_a_fronted_date(tok.head, date_spans)):
             # The conjunct hangs off a token buried INSIDE the first clause —
             # typically its date ("…on friday and book a haircut" makes
             # `friday` the head, whose only children are the coordinator and
             # the conjunct). The first ask's content sits upstream of that
             # head rather than under it, so the argument test cannot see it.
             # The serial-verb case this guard defends against ("wash and fold
-            # the laundry") only arises when both verbs hang off the ROOT.
+            # the laundry") only arises when both verbs hang off the ROOT —
+            # or off a FRONTED DATE that spaCy rooted instead ("THE 30TH, wash
+            # and fold the laundry"), where nothing sits upstream but the
+            # date. Found by the position-invariance board: the same words
+            # without the comma were one ask, with it two.
             head_has_own = True
         if conj_has_own and head_has_own:
             b = _boundary_at(doc, tok, text)
@@ -537,6 +542,16 @@ def _carries_an_object(doc, tok, end: int) -> bool:
         # date ("…and MARK on friday"), the same test a `prep` child gets.
         return not _opens_a_date(doc, k + 1)
     return False
+
+
+def _hangs_off_a_fronted_date(head, date_spans) -> bool:
+    """Is `head` a conjunct of the utterance's own fronted time phrase?
+
+    "the 30th, wash and fold the laundry" parses with `30th` as ROOT and
+    `wash` as its conjunct. Upstream of `wash` there is no first clause, only
+    the date — so the serial-verb test must run as if `wash` were the root.
+    """
+    return head.dep_ == "conj" and _inside(head.head, date_spans)
 
 
 def _inside(tok, spans) -> bool:

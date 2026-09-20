@@ -493,3 +493,21 @@ def test_a_misheard_command_frame_is_repaired(heard, meant):
 def test_an_ordinary_sentence_is_left_alone(text):
     from assistant.engine.ingest.repair import repair_command_frames
     assert repair_command_frames(text) == text
+
+
+# ---------------------------------------------------------------------------
+# A comma after a fronted date must not change the cut (2026-09-20)
+# ---------------------------------------------------------------------------
+
+def test_a_comma_after_a_fronted_date_does_not_cut_a_serial_verb():
+    """Found by the position-invariance board: 'the 30th wash and fold the
+    laundry' was one ask and 'the 30th, wash and fold the laundry' was two,
+    because spaCy roots the fronted date and hangs `wash` off it, and the
+    walk's 'buried inside the first clause' rescue then fired with nothing
+    upstream but the date."""
+    from assistant.engine.segmentation.fastseg.fastseg import cut
+    assert cut("the 30th, wash and fold the laundry") == ["the 30th, wash and fold the laundry"]
+    assert cut("the 30th, clean and organize the garage") == ["the 30th, clean and organize the garage"]
+    assert cut("the 30th wash and fold the laundry") == ["the 30th wash and fold the laundry"]
+    # a real second ask after a fronted date still cuts
+    assert len(cut("tomorrow book the gym and remind me to buy milk")) == 2
