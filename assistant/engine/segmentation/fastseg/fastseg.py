@@ -655,10 +655,13 @@ _TASK_VERBS = frozenset("""
 #: particle ("sign ME up", "pick IT up").
 _PARTICLES = frozenset("up off out in on down away back over".split())
 _OBJECT_PRONOUNS = frozenset("me it that this them us him her".split())
-#: What OPENS a verb's object — a determiner or a pronoun. Closed class.
-_OBJECT_OPENERS = frozenset(
-    "the a an my your our his her their some any this that these those it "
-    "them us him".split())
+#: What can NEVER be a verb's object: auxiliaries, copulas, prepositions,
+#: conjunctions, quantifiers. Closed class. Anything else after a candidate
+#: head verb is read as its object ("buy MILK", "charge THE scooter").
+_NOT_AN_OBJECT = frozenset(
+    "is are was were am be been being and or but then also plus nor to for "
+    "from on at in by with of as until till through per all every no not "
+    "as well".split())
 
 #: Phrasal verbs whose kind differs from their bare verb's, or whose bare
 #: verb has no entry at all. Found the honest way — "sign me up for the
@@ -951,17 +954,20 @@ def _lexicon_kind(action: str) -> "str | None":
                     return phrasal
             break
     # THE SECOND WORD IS READ ONLY WHEN IT HEADS A VERB PHRASE OF ITS OWN —
-    # an object opener follows it: "put CHARGE the scooter", "add CALL the
-    # plumber", "put PICK up the dry cleaning" (a placement verb the lexicons
-    # leave out, wrapping the errand's verb; 24 train rows). A bare NOUN
-    # phrase has no such opener — "oil change", "client call", "conference
-    # call is…" — and reading its second word vetoed those to `task` on
-    # "change"/"call", the error the head reading exists to end. Grammar,
-    # not a list: the openers are a closed class, like the particles.
+    # something that can be its object follows it: "put CHARGE the scooter",
+    # "add CALL the plumber", "add BUY milk", "put PICK up the dry cleaning"
+    # (a placement verb the lexicons leave out, wrapping the errand's verb;
+    # 24 train rows). A bare NOUN phrase is followed by nothing, or by a
+    # function word — "oil change", "client call", "conference call IS an
+    # all-day thing", "oil change , ALL day" — and reading its second word
+    # vetoed those to `task` on "change"/"call", the error the head reading
+    # exists to end. Grammar, not a list: what cannot be an object is a
+    # closed class, like the particles. (Requiring a determiner instead lost
+    # "add buy milk", whose object is a bare noun — a live test caught it.)
     depth = 1
     if len(words) > 2:
         k = 3 if words[2] in _PARTICLES and len(words) > 3 else 2
-        if words[k] in _OBJECT_OPENERS:
+        if words[k] not in _NOT_AN_OBJECT:
             depth = 2
     for word in words[:depth]:
         if word in _CALENDAR_VERBS:
