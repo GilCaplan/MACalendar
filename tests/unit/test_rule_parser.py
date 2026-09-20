@@ -1148,3 +1148,26 @@ class TestStatedTimeBeatsTitleWords:
     def test_the_control_is_unchanged(self):
         t = self._temporal("book standup tomorrow at 9am")
         assert t["date"] == "2026-09-10" and t["start_time"] == "09:00", t
+
+
+# ---------------------------------------------------------------------------
+# A courtesy tail is not a second intent (2026-09-20)
+# ---------------------------------------------------------------------------
+
+class TestCourtesyTail:
+
+    def test_let_x_know_does_not_cost_the_parse_its_confidence(self, parser):
+        """The tail split into a second span, routed to nothing, and an
+        unroutable span multiplies the confidence by 0.7 — 15 atomic train
+        rows deferred at 0.66 on this shape."""
+        plain = parser.analyze("extend open house by an hour")
+        tailed = parser.analyze("extend open house by an hour and let Avery know")
+        assert tailed.dropped_spans == 0
+        assert tailed.confidence == plain.confidence
+        assert [n for n, _ in tailed.intents] == ["update_event"]
+        assert tailed.intents[0][1].match_title == "open house"
+
+    def test_a_tail_with_content_keeps_its_own_span(self, parser):
+        """"let Avery know THAT the room moved" carries content of its own."""
+        res = parser.analyze("extend open house by an hour and let Avery know that the room moved")
+        assert res.dropped_spans >= 1 or len(res.intents) >= 2

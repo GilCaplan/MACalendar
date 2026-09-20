@@ -747,12 +747,25 @@ def _split_intents(doc) -> list:
     if root is None:
         return [doc[:]]
 
+    # A COURTESY TAIL is not a second intent. "extend open house by an hour
+    # and LET AVERY KNOW" split into two spans, the second routed to nothing,
+    # and an unroutable span costs the whole parse 30% of its confidence —
+    # so 15 atomic rows of the train half deferred at 0.66 for a tail that
+    # asks for nothing. The pattern is `coordination`'s, the same one the
+    # deep track's cut uses, so the two splitters agree about what a tail
+    # is. ONLY the courtesy tail: a lead-time tail ("…, remind me a week
+    # before") is still split off here, because keeping it in the span put
+    # "remind me before" into three titles — reading it as a lead time is a
+    # separate gap in this parser, filed.
+    from assistant.intent.coordination import _COURTESY_TAIL_RE
+
     split_verbs = [root] + [
         tok for tok in doc
         if tok.dep_ == "conj" and tok.head == root and tok.pos_ == "VERB"
         # ...unless the two verbs share one object, in which case the "and"
         # joins them rather than separating two commands (`_serial_verbs`).
         and not _serial_verbs(root, tok)
+        and not _COURTESY_TAIL_RE.match(doc[tok.i:].text.strip())
     ]
 
     if len(split_verbs) < 2:

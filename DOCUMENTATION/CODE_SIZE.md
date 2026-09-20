@@ -1,17 +1,17 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 533, "total_lines": 145893} -->
+<!-- code-stats: {"total_files": 533, "total_lines": 145929} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**145,893 lines of source across 533 files.** Of that, **83,574 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**145,929 lines of source across 533 files.** Of that, **83,587 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
-| Test code | 145 | 29,860 |
+| Test code | 145 | 29,883 |
 | iOS application | 59 | 20,445 |
 | Mac application (calendar GUI) | 33 | 18,297 |
 | Actions, storage & domain (DB, config, observance, .ics) | 96 | 17,222 |
-| Engine (the brain, shipped path) | 48 | 15,795 |
+| Engine (the brain, shipped path) | 48 | 15,808 |
 | Dataset & measurement tooling | 48 | 12,534 |
 | Engine experiments & boards (not in the answer path) | 46 | 12,392 |
 | Retired (old brain, kept on purpose) | 16 | 7,533 |
@@ -20,13 +20,13 @@
 | Model / Ollama code | 12 | 2,563 |
 | API server (the front door) | 4 | 1,732 |
 | Launch scripts | 3 | 316 |
-| **TOTAL** | **533** | **145,893** |
+| **TOTAL** | **533** | **145,929** |
 
 ### By language
 
 | | files | lines |
 |---|---:|---:|
-| Python | 460 | 122,763 |
+| Python | 460 | 122,799 |
 | Swift | 64 | 22,281 |
 | shell | 8 | 696 |
 | launch script | 1 | 153 |
