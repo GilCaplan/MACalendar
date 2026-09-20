@@ -92,6 +92,7 @@ The route is a property of the FINDING, never an opinion about the object.
 | finding | means | route |
 |---|---|---|
 | `ungrounded_subject` | the object's title or target is not established by the words | **REWRITE** — X1', costs a round |
+| `coordinated_subject` | ONE calendar event whose words list three or more things (Gil, 2026-09-20) | **REWRITE** — X1' is one clause per thing, costs a round |
 | `unsupported_field` | a VALUE the words never gave | **COMMIT, and say so** |
 | `not_an_ask` | NOTHING about this object is supported | **PANEL** |
 

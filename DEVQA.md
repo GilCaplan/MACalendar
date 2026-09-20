@@ -737,3 +737,33 @@ before you rule:
   done (@ a425ca2).
 
 - **2026-09-04 — Date-only occasion reminders**: calendar events. → Cycle 2.
+
+- **2026-09-20 — Q29 (A CALENDAR CREATE OVER A LIST OF THINGS IS SEVERAL
+  EVENTS, AND THE DEEP ENGINE REWRITES IT ONE CLAUSE PER THING)**, Gil.
+  Asked how the engine handles *"on friday create an event for X, Y and Z"*,
+  he was shown the Q14 answer — one event titled with the list — and ruled:
+  *"if the decompose_validate fails to split into three items with same date,
+  the deep engine should rewrite for example given original — 'on friday
+  create an event for dentist, haircut and gym' — it should rewrite something
+  like 'on friday create an event for dentist and on friday create an event
+  for haircut and on friday create an event for gym', or similar situations
+  for other problematic."*
+
+  **What it settles.** Q14 stands for SEGMENTATION — a shared verb over a bare
+  noun list is still cut as ONE item, and the segmentation gold is not
+  relabelled. The count is corrected downstream: LLMJudge raises
+  `coordinated_subject` on one `create_event` whose words list three or more
+  things (`coordination.noun_list`), routed REWRITE like `ungrounded_subject`,
+  and `rewrite.expand_list` builds X1' by copying the shared time, head and
+  tail around each member — every word the speaker's, so the grounding guard
+  passes by construction — and the loop re-enters segmentation, which cuts on
+  the " and " seams it just wrote. FastRule's `Atomicity` declines the same
+  shape as `list-title` (STRUCTURE) so the one-event reading is never
+  committed fast. A pair is one thing ("wine and cheese"); attendees
+  ("with sam, alex and jordan"), a timed enumeration and a list of verbs are
+  not lists of things. To-do lists are untouched: `decompose_validate`
+  already multiplies those.
+
+  **Reached, no model call.** From a Wednesday clock, the exemplar yields three
+  `create_event` rows dated 2026-09-11 in one round; beside a second ask
+  ("… and remind me to call mom") the to-do is frozen and kept.

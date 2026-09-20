@@ -64,6 +64,14 @@ UNSUPPORTED_FIELD = "unsupported_field"
 #: Shares its route and its carrier with FastRule's `NotAnObject`, so the review
 #: panel draws one outcome rather than two spellings of it.
 NOT_AN_ASK = "not_an_ask"
+#: ONE OBJECT NAMED WITH SEVERAL THINGS — a calendar create whose words carry
+#: a bare noun list of three or more ("create an event for dentist, haircut
+#: and gym"). Segmentation keeps such a list as one item by ruling (Q14), so
+#: one event is built and titled with all three. Gil, 2026-09-20: the deep
+#: engine should REWRITE it one clause per thing and re-enter — which is what
+#: the loop-back is for, and the one under-split it can now name, because the
+#: object alone says so: its title is a list.
+COORDINATED_SUBJECT = "coordinated_subject"
 
 # -- the three routes -------------------------------------------------------
 #: Reword this ask into X1' and re-enter at segmentation. Costs a round.
@@ -80,6 +88,7 @@ PANEL = "panel"
 #: mode this table exists to make impossible.
 ROUTE = {
     UNGROUNDED_SUBJECT: REWRITE,
+    COORDINATED_SUBJECT: REWRITE,
     UNSUPPORTED_FIELD: COMMIT_FLAGGED,
     NOT_AN_ASK: PANEL,
 }
@@ -89,6 +98,7 @@ ROUTE = {
 #: what DECIDES anything. `ROUTE` decides; this only reports.
 BLAMED = {
     UNGROUNDED_SUBJECT: "fastrule",
+    COORDINATED_SUBJECT: "segment",
     UNSUPPORTED_FIELD: "decompose_validate",
     NOT_AN_ASK: "segment",
 }

@@ -33,6 +33,20 @@ def test_f4a_polite_imperative_is_not_a_question(fastrule):
     assert not r.committed and r.reason == "interrogative-create"
 
 
+def test_a_create_over_a_noun_list_defers_on_the_front_door(fastrule):
+    """"create an event for dentist, haircut and gym" is three events (Gil,
+    2026-09-20), and one event titled with the list is the wrong answer done
+    instantly. The front door declines it as STRUCTURE and the deep track's
+    judge rewrites it one clause per thing."""
+    from assistant.engine.fastrule.fastrule import STRUCTURE, reason_class
+    r = fastrule.run("on friday create an event for dentist, haircut and gym")
+    assert not r.committed and r.reason == "list-title", r
+    assert reason_class(r.reason) == STRUCTURE
+    # attendees and pairs are one thing and never trip it
+    assert fastrule.run("meeting with sam, alex and jordan on friday").committed
+    assert fastrule.run("book wine and cheese evening on friday").reason != "list-title"
+
+
 def test_f7_rename_never_commits_a_create(fastrule):
     """"rename flu shot to sales call" fast-committed create_todo at 0.95 —
     and FastRule can't know which store holds the old title anyway. Renames
@@ -630,3 +644,89 @@ def test_frozen_items_exclude_only_what_is_being_retried(registry_with_real_acti
     # `not_an_ask` does not route to REWRITE, so it does not un-freeze item_1 —
     # only a rewrite-routed finding does.
     assert [it.id for it in _frozen_items(st)] == ["item_1"]
+
+
+# --- the coordinated subject: one event over a list of things ---------------
+
+def test_a_create_over_a_noun_list_is_a_coordinated_subject(registry_with_real_actions):
+    """One create_event whose words list three things is three events, and
+    the judge says so with a finding that REWRITES (Gil, 2026-09-20)."""
+    it = _ev_item("item_1", "dentist, haircut and gym",
+                  text="create an event for dentist, haircut and gym")
+    st = _state([it], text="on friday create an event for dentist, haircut and gym")
+    found = verdict.judge(st, verdict.collect(st))
+    types = [f.type for f in found]
+    assert F.COORDINATED_SUBJECT in types, types
+    assert F.route(F.COORDINATED_SUBJECT) == F.REWRITE
+    # a task over a list is segmentation's multiply, not this
+    todo = Item(id="item_2", kind="task", text="buy milk, eggs and bread",
+                action="create_todo", slots={},
+                intent=CreateTodoIntent(titles=["buy milk, eggs and bread"]))
+    st = _state([todo], text="buy milk, eggs and bread")
+    assert F.COORDINATED_SUBJECT not in [f.type for f in verdict.judge(st, verdict.collect(st))]
+
+
+def test_the_list_rewrite_is_one_clause_per_thing(registry_with_real_actions, cfg):
+    """Gil's own example, 2026-09-20: given "on friday create an event for
+    dentist, haircut and gym", X1' should be "on friday create an event for
+    dentist and on friday create an event for haircut and on friday create an
+    event for gym". Every word is the speaker's, so the grounding guard passes
+    by construction, and " and " is the one seam segmentation cuts on."""
+    it = _ev_item("item_1", "dentist, haircut and gym",
+                  text="create an event for dentist, haircut and gym")
+    it.time = "on friday"
+    st = _state([it], text="on friday create an event for dentist, haircut and gym")
+    st.raw_text = st.text
+    st.findings = [CheckFinding(type=F.COORDINATED_SUBJECT, item_id="item_1",
+                                detail="d", blamed_stage="segment")]
+    assert rewrite.rewrite_for_retry(st, cfg) == (
+        "on friday create an event for dentist and "
+        "on friday create an event for haircut and "
+        "on friday create an event for gym")
+
+
+def test_an_injected_date_floor_stays_out_of_the_list_rewrite(registry_with_real_actions, cfg):
+    """An untimed item carries the "today" floor in `time`; the speaker never
+    said it, and a rewrite must not put it in their mouth — the tail goes
+    back where it was instead."""
+    it = _ev_item("item_1", "dentist, haircut and gym",
+                  text="add dentist, haircut and gym to my calendar")
+    it.time = "today"
+    st = _state([it], text="add dentist, haircut and gym to my calendar")
+    st.raw_text = st.text
+    st.findings = [CheckFinding(type=F.COORDINATED_SUBJECT, item_id="item_1",
+                                detail="d", blamed_stage="segment")]
+    assert rewrite.rewrite_for_retry(st, cfg) == (
+        "add dentist to my calendar and add haircut to my calendar and "
+        "add gym to my calendar")
+
+
+def test_a_list_becomes_three_events_end_to_end(registry_with_real_actions, cfg, monkeypatch):
+    """The whole loop, no model: segmentation keeps the list as ONE event
+    (Q14: a shared verb over a bare noun list is one item), the judge raises
+    the coordinated subject, the rewrite re-enters segmentation with one
+    clause per thing, and three events land on the Friday the speaker named.
+    A second ask beside the list is frozen and kept."""
+    import assistant.engine as engine
+    from assistant.intent import rule_parser as RP
+    from freezegun import freeze_time
+
+    monkeypatch.setenv("MACALENDAR_LLM_DISABLED", "1")
+    RP._ensure_nlp(); RP._ensure_dt()          # spaCy before the frozen clock
+    with freeze_time("2026-09-09 10:00:00"):   # a Wednesday
+        E = engine.Engine()
+        st = EngineState(raw_text="on friday create an event for dentist, haircut and gym",
+                         text="on friday create an event for dentist, haircut and gym")
+        E.parse(st, cfg)
+        assert len(st.items) == 1, [i.text for i in st.items]
+        E.judge(st, cfg)
+        events = [i for i in st.items if i.action == "create_event"]
+        assert [i.intent.title.split()[-1] for i in events] == ["dentist", "haircut", "gym"]
+        assert {i.intent.date for i in events} == {"2026-09-11"}
+        assert st.retries == {"segment": 1}
+
+        st = EngineState(raw_text="create an event for dentist, haircut and gym on friday and remind me to call mom",
+                         text="create an event for dentist, haircut and gym on friday and remind me to call mom")
+        E.parse(st, cfg)
+        E.judge(st, cfg)
+        assert sorted(i.action for i in st.items) == ["create_event"] * 3 + ["create_todo"]

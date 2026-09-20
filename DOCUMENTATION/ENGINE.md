@@ -266,9 +266,10 @@ deterministic rule parser + its abstention gates + a confidence threshold, as
 a self-contained SELECTIVE CLASSIFIER: `FastRule(threshold).run(prompt)`
 returns a commit-or-abstain verdict (`.committed`, `.intents`, `.confidence`,
 `.reason`). Its gates: strong-compound (two-request wording), mixed-mode
-(create+edit/query), interrogative-create (a question producing a create),
-generic-target (a mutation aimed at a bare noun) — and on a fragment the
-compound gates double as the atomicity check.
+(create+edit/query), list-title (one calendar create over three or more listed
+things — several events, Gil 2026-09-20), interrogative-create (a question
+producing a create), generic-target (a mutation aimed at a bare noun) — and on
+a fragment the compound gates double as the atomicity check.
 
 **Layer 0 — atomicity (F16–F18, 2026-09-07).** "One item or several" is the
 call the whole architecture rests on (FastRule executes atomic items; deep
@@ -347,14 +348,20 @@ DEFERs (`rescue.py`); job 1 is the check, and it runs in BOTH directions:
    the model: `CalendarIntent` stamps a date and a clock the moment an object
    exists, so `item.slots` — what decompose_validate really resolved — is the
    only honest record, and `render.unsupported_by_slots` reads it for free.
-   Findings: `missing` · `ungrounded_subject` · `unsupported_field` · `extra`.
-   (`wrong_fields` and `format` are GONE: the old `BLAME` map listed both and no
+   Findings: `ungrounded_subject` · `coordinated_subject` · `unsupported_field`
+   · `not_an_ask`. (`missing` and `extra` went with the ask diff on 2026-09-10;
+   `wrong_fields` and `format` are GONE: the old `BLAME` map listed both and no
    code path ever constructed either.)
 2. **ROUTE by finding TYPE, never by opinion** (`findings.py::ROUTE`, pinned by
-   `test_engine_contracts.py`): `missing` and `ungrounded_subject` → REWRITE;
-   `unsupported_field` → COMMIT with a notice; `extra` → the review panel. Only
-   the first two spend a round, because a rewrite cannot invent a date nobody
-   said and a re-run cannot un-produce an extra.
+   `test_engine_contracts.py`): `ungrounded_subject` and `coordinated_subject`
+   → REWRITE; `unsupported_field` → COMMIT with a notice; `not_an_ask` → the
+   review panel. Only the two SUBJECT findings spend a round, because a rewrite
+   cannot invent a date nobody said and a re-run cannot un-produce an extra.
+   `coordinated_subject` (Gil, 2026-09-20) is one calendar event whose words
+   list three or more things — "create an event for dentist, haircut and gym"
+   — and its X1' is one clause per thing, every word the speaker's: *"on
+   friday create an event for dentist and on friday create an event for
+   haircut and on friday create an event for gym"*.
 
 Loop-back: `rewrite.py` builds **X1' — the failed asks only, reworded** — and
 the orchestrator FREEZES the objects that passed (`engine.parse(frozen=…)`,

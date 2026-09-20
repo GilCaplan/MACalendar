@@ -1472,6 +1472,24 @@ Two candidates filed, not fixed, both needing a word from Gil:
   digit in the words). Real pool: 0 identifier numbers, 1 address in 2,699
   rows — low frequency, so it waits.
 
+## A CALENDAR CREATE OVER A LIST OF THINGS — rewritten one clause per thing, 2026-09-20
+
+Gil (DEVQA Q29): *"if the decompose_validate fails to split into three items
+with same date, the deep engine should rewrite … 'on friday create an event
+for dentist and on friday create an event for haircut and on friday create
+an event for gym'."* Q14 stands at segmentation (one item); the count is
+corrected by the judge. Landed: `coordination.noun_list` (three or more
+things under one head; pairs, attendees, timed enumerations, verb lists and
+headless lists excluded), `Atomicity` → `list-title` (STRUCTURE) so the
+one-event reading never commits fast, LLMJudge `coordinated_subject` → X1'
+one clause per thing (`rewrite.expand_list`), `test_engine_contracts`
+records the second REWRITE finding. Boards: FastRule product-shape TRAIN
+byte-identical; atomicity LAYER 0 rows change on B train 4,800 + A train
+2,027; stage board 76 split rows unchanged — the shape is in neither corpus,
+so the positive claim rests on eight probes and the tests (`fastrule/
+experiments/RESULTS.md` cycle 26). Filed there: the deep path's "event for
+dentist" title, a generator family for the shape, the start_time note noise.
+
 ## SEGMENTATION — second pass, the approved queue, 2026-09-20 (later)
 
 Gil: *"ok do those."* The five items from the day's plan, each boarded

@@ -1303,3 +1303,85 @@ harm 106 and DESTRUCTIVE unchanged. Filed with it: **the fast path
 lowercases every title** ("submit the Haxaga grades" → "…haxaga…"; the
 parser's transcript is lowercased and titles are cut from it), which the
 fallback builder used to hide for rows the parser did not route.
+
+
+## Cycle 26 — a list of things is several events (2026-09-20)
+
+### Why this one
+
+Gil asked how the engine handles *"on friday create an event for X, Y and
+Z"*. The honest answer was: one event titled with the list — Q14 makes a
+shared verb over a bare noun list ONE item at segmentation, and nothing
+downstream corrected the count. He ruled (DEVQA Q29): the deep engine should
+REWRITE it, *"on friday create an event for dentist and on friday create an
+event for haircut and on friday create an event for gym"*, and re-enter.
+
+### What changed
+
+One reader, two callers, both on the fast-vs-deep seam this stage owns:
+
+- **`coordination.noun_list(text)`** — head, members, tail of a bare list of
+  THREE OR MORE things under one head. A pair is one thing ("wine and
+  cheese"); attendees ("with sam, alex and jordan"), a timed enumeration,
+  a number, a date word, a command verb, or a list with no head are not a
+  list of things. A verb-tagged conjunct of a NOUN counts (lowercase STT
+  gets "haircut" tagged VERB); one conjoined to a verb does not.
+- **`Atomicity.judge` → `list-title`** (STRUCTURE) when the parse has a
+  `create_event` over such a list, after the rules and the model. The
+  rules-only predictor is untouched, so the atomicity board's three lines
+  still mean what they meant.
+- **LLMJudge `coordinated_subject`** (ROUTE REWRITE, blamed segment) on one
+  `create_event` whose item words list three or more things, and
+  `rewrite.expand_list`: the shared time, head and tail copied around each
+  member, joined with " and " — every word the speaker's, so the grounding
+  guard passes by construction; the injected "today" floor is left out.
+
+### Result — no board moved, and that is the finding
+
+| board | slice | before | after |
+|---|---|---|---|
+| FastRule product-shape | TRAIN half, 3,200 atomic + 400 non-atomic | — | **byte-identical** |
+| Atomicity binary (LAYER) | B train 4,800 · A train 2,027 real wordings | — | **0 rows change** (differential: the gate fires on no row the layer called atomic) |
+| FastRule stage board (chain input) | 1,200 atomic TRAIN rows | HEAD, run today: 76 split upstream · sound input 1058/1200 | **byte-identical** (the converter never consults Atomicity; the 88.3% banked at cycle 25's courtesy-tail fix drifted to 88.2% in the commits after it, not here) |
+| Segmentation | TRAIN, 1,051 rows | — | identical (the stage does not call the reader) |
+
+So the NEGATIVE surface is clean at n = 6,827 train rows across a generated
+and a real corpus — the gate never fires where it should not — and the
+POSITIVE surface is not in either corpus at all: neither dataset has a
+calendar create over three listed things. That is why the boards are
+silent, and why the positive claim rests on the probe set and the tests:
+
+| shape (a Wednesday clock, no model) | result |
+|---|---|
+| "on friday create an event for dentist, haircut and gym" | X1' = Gil's sentence verbatim; **three** `create_event`, all 2026-09-11, one round |
+| "add dentist, haircut and gym to my calendar" | "add dentist to my calendar and add haircut … and add gym …" → three, today |
+| "book dentist, haircut and gym tomorrow at 9" | three, 2026-09-10 09:00 |
+| "schedule the dentist, a haircut and the gym" · "put physical therapy, yoga class and the gym on my calendar" | three each |
+| "… on friday and remind me to call mom" | the to-do is frozen and kept; three events rebuilt beside it |
+| "meeting with sam, alex and jordan on friday" | one event, fast-committed (attendees) |
+| "remind me to buy milk, eggs and bread" | untouched — a to-do list is `decompose_validate`'s multiply |
+
+Eight shapes, 2,092 unit tests green. A probe, said plainly: the ruling's
+shape needs rows in the FastRule generator before a number can be banked
+for it, and that is filed below.
+
+### Filed, not fixed
+
+- **The deep path keeps "event for" in the title**: "create an event for
+  dentist" builds `event for dentist` on the deep track and `dentist` on
+  the fast track. Pre-existing (the single-item command does the same),
+  visible now because the list shape always runs deep.
+- **No corpus row has the shape.** A `list_create` family in
+  `datasets/generate.py` (three listed things under one calendar create,
+  gold = defer / three events) would let the product-shape board carry the
+  claim instead of eight probes.
+- `unsupported_field start_time` fires on every untimed event the deep path
+  builds (the clock-of-now default) — every list row shows three of them.
+  Pre-existing and noisy; the finding is COMMIT-with-a-note, so harmless.
+
+### Next prediction (registered)
+
+Unchanged: `start_time`/`end_time` on the real-usage board. The generator
+family above is the cheap one to do first, because the boards cannot see
+this ruling until it exists.
+

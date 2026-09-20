@@ -268,6 +268,99 @@ def _subordinate_later_boundary(doc, tok, text: str) -> "Boundary | None":
     return Boundary(ends, begins, text[ends:begins].strip())
 
 
+#: Tokens a list MEMBER may be made of — a bare noun phrase, nothing more.
+_MEMBER_POS = frozenset({"DET", "ADJ", "NOUN", "PROPN"})
+#: A head that makes the list ATTENDEES or a range, never several things.
+_NOT_A_LIST_HEAD = frozenset({"with", "between", "and", "or"})
+
+
+def noun_list(text: str) -> "tuple[str, list[str], str] | None":
+    """A bare, NOUN-coordinated list of THREE OR MORE things under one head.
+
+        "create an event for dentist, haircut and gym"
+            -> ("create an event for", ["dentist", "haircut", "gym"], "")
+        "add dentist, haircut and gym to my calendar"
+            -> ("add", ["dentist", "haircut", "gym"], "to my calendar")
+
+    Gil, 2026-09-20: one calendar create over such a list is several events,
+    and the deep engine should REWRITE the command one clause per thing and
+    re-enter segmentation — "on friday create an event for dentist and on
+    friday create an event for haircut and …". This reader is what both halves
+    share: FastRule's front door declines the one-event reading on it, and the
+    judge raises the finding that rewrites it.
+
+    Three or more, never a pair: "wine and cheese", "meet and greet" and "mac
+    and cheese" are one thing each, and a pair cannot be told from them. None
+    when a member is a command verb (a list of ASKS is the cut's job), carries
+    a number (a timed enumeration — "the dentist at 9, a haircut at 11" — is
+    segmentation's), or when the head ends in "with"/"between" (attendees, a
+    range). Read off the parse: a member is a run of determiner/adjective/noun
+    tokens, at most four long.
+    """
+    doc = parsed(text)
+    if doc is None:
+        return None
+    seps = [t.i for t in doc
+            if (t.is_punct and t.text == ",") or (t.dep_ == "cc" and t.lower_ in ("and", "or"))]
+    if len(seps) < 2:
+        return None
+
+    def member_token(t) -> bool:
+        # A number or a date word is a timed enumeration, segmentation's cut.
+        if t.like_num or t.ent_type_ in ("DATE", "TIME") or _is_command_verb(t):
+            return False
+        if t.pos_ in _MEMBER_POS:
+            return True
+        # Lowercase STT gets a bare noun tagged VERB now and then — "haircut"
+        # in "add dentist, HAIRCUT and gym" — and the parse still hangs it off
+        # the noun before it. A verb conjoined to a NOUN is a noun; one
+        # conjoined to a verb ("rinse, scrub and dry the dishes") is a verb.
+        return (t.pos_ == "VERB" and t.dep_ == "conj"
+                and t.head.pos_ in ("NOUN", "PROPN"))
+
+    def member(tokens) -> "list | None":
+        toks = [t for t in tokens if not t.is_punct]
+        if not toks or len(toks) > 4:
+            return None
+        if any(not member_token(t) for t in toks):
+            return None
+        return toks
+
+    # The first member is the trailing noun run before the first separator;
+    # the last is the leading noun run after the last one; between them every
+    # segment must be a member whole.
+    first_end = seps[0]
+    j = first_end - 1
+    while j >= 0 and member_token(doc[j]) and first_end - j <= 4:
+        j -= 1
+    first = doc[j + 1:first_end]
+    if not len(first) or member(first) is None:
+        return None
+    if j >= 0 and doc[j].lower_ in _NOT_A_LIST_HEAD:
+        return None
+    middle = [doc[a + 1:b] for a, b in zip(seps, seps[1:])]
+    if any(member(seg) is None for seg in middle):
+        return None
+    k = seps[-1] + 1
+    start = k
+    while k < len(doc) and member_token(doc[k]) and k - start < 4:
+        k += 1
+    last = doc[start:k]
+    if not len(last) or member(last) is None:
+        return None
+    members = [first.text] + [seg.text.strip(" ,") for seg in middle] + [last.text]
+    if len(members) < 3:
+        return None
+    head = doc[:first.start].text.strip()
+    # No head, no list: the rewrite copies the head around each member, and a
+    # bare "rinse, scrub and dry the dishes" is the parse mistaking a run of
+    # verbs for nouns, not three events.
+    if not head:
+        return None
+    tail = doc[k:].text.strip(" ,.")
+    return head, members, tail
+
+
 def has_clause_coordination(text: str) -> bool:
     """True when the parse shows two coordinated CLAUSES (two asks).
 

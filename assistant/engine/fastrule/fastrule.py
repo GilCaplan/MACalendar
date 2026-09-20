@@ -129,6 +129,11 @@ _REASON_CLASS = {
     "no-change": REFUSAL,
     "strong-compound": STRUCTURE,
     "clause-coordination": STRUCTURE,
+    # A calendar create over a bare noun list of three or more things — one
+    # event titled "dentist haircut and gym" is several events (Gil,
+    # 2026-09-20). Raised by Atomicity; the judge rewrites it one clause per
+    # thing and re-enters segmentation.
+    "list-title": STRUCTURE,
     "mixed-mode-compound": STRUCTURE,
     "model-compound": STRUCTURE,
     # The parser's route and segmentation's tag disagree about WHICH STORE a
@@ -213,7 +218,26 @@ class Atomicity:
         from assistant.intent.classifier import ROUTER
         if ROUTER.looks_compound(text):
             return "model-compound"
+        if _lists_things(text, intents):
+            return "list-title"
         return None
+
+
+def _lists_things(text: str, intents) -> bool:
+    """A calendar create over a bare noun list of THREE OR MORE things.
+
+    "on friday create an event for dentist, haircut and gym" parses as one
+    create_event titled with the list, and the parse is not wrong about the
+    words — it is wrong about the COUNT: that is three events (Gil,
+    2026-09-20). Neither joiner rule sees it (no second verb, no announced
+    second ask) and the model reads it as one shape, so it is its own gate,
+    on the reader the judge's rewrite shares (`coordination.noun_list`). A
+    list of two is left alone: "wine and cheese" is one thing.
+    """
+    if not any(n == "create_event" for n, _ in intents):
+        return False
+    from assistant.intent.coordination import noun_list
+    return noun_list(text) is not None
 
 
 def _parse_covers_the_compound(reason: str, text: str, intents) -> bool:

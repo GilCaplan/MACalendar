@@ -324,3 +324,43 @@ def test_a_trailing_remark_is_still_not_an_ask():
     assert split_clauses("move that one to next wednesday, i don't remember the name") \
         == ["move that one to next wednesday, i don't remember the name"]
     assert split_clauses("call the plumber to fix the sink") == ["call the plumber to fix the sink"]
+
+
+# --- noun_list: a bare list of THINGS under one head ---------------------------
+
+def test_a_noun_list_of_three_under_one_head_is_read():
+    """Gil, 2026-09-20: "on friday create an event for dentist, haircut and
+    gym" is three events, and the deep engine rewrites it one clause per
+    thing. `noun_list` is the shared reader: head, members, tail."""
+    from assistant.intent.coordination import noun_list
+    assert noun_list("on friday create an event for dentist, haircut and gym") \
+        == ("on friday create an event for", ["dentist", "haircut", "gym"], "")
+    assert noun_list("add dentist, haircut and gym to my calendar") \
+        == ("add", ["dentist", "haircut", "gym"], "to my calendar")
+    assert noun_list("schedule the dentist, a haircut and the gym") \
+        == ("schedule", ["the dentist", "a haircut", "the gym"], "")
+    assert noun_list("set up dentist, haircut, gym") \
+        == ("set up", ["dentist", "haircut", "gym"], "")
+
+
+@pytest.mark.parametrize("text", [
+    "meeting with sam, alex and jordan",                  # attendees
+    "lunch with reese, drew and casey on friday",         # attendees, dated
+    "book the dentist at 9, a haircut at 11 and the gym at 5",   # timed: the cut's
+    "buy milk, call mom and book the gym",                # a list of ASKS
+    "wash, fold and iron the laundry",                    # a list of verbs
+    "rinse, scrub and dry the dishes",                    # verbs the parse calls nouns
+    "wine and cheese evening",                            # a pair is one thing
+    "book gym and dentist",                               # a pair is one thing
+])
+def test_what_is_not_a_noun_list(text):
+    from assistant.intent.coordination import noun_list
+    assert noun_list(text) is None, text
+
+
+def test_a_mistagged_member_is_still_a_thing():
+    """Lowercase STT gets "haircut" tagged VERB in "add dentist, haircut and
+    gym"; conjoined to a NOUN it is a noun. Conjoined to a verb it is not."""
+    from assistant.intent.coordination import noun_list
+    assert noun_list("add dentist, haircut and gym to my calendar") is not None
+    assert noun_list("rinse, scrub and dry the dishes") is None

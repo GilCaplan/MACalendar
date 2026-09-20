@@ -130,7 +130,7 @@ This is the part most easily got wrong, and it has been got wrong:
 | class | reasons | what the deep track owes |
 |---|---|---|
 | **REFUSAL** | generic-target, rename-misroute, interrogative-create | A *correct* reading that must not execute as stated. The LLM may **resolve** it (anaphora → a real title); it must **never overturn** it by handing back the same empty target. |
-| **STRUCTURE** | the compound gates | More than one item — split further. |
+| **STRUCTURE** | the compound gates, list-title | More than one item — split further. (`list-title`, 2026-09-20: one calendar create over three or more listed things; the judge rewrites it one clause per thing.) |
 | **INCAPACITY** | below-threshold, missing-slots, skip | The LLM takes over, and receives FastRule's **partial parse** rather than starting cold. |
 
 **REFUSAL was a real bug.** The per-item path re-implemented the commit test

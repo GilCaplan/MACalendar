@@ -201,16 +201,20 @@ def test_llmjudge_router_is_deterministic():
     from assistant.engine.llmjudge import findings as F
     from assistant.engine.llmjudge.llmjudge import MAX_REENTRIES
 
-    types = {F.UNGROUNDED_SUBJECT, F.UNSUPPORTED_FIELD, F.NOT_AN_ASK}
+    types = {F.UNGROUNDED_SUBJECT, F.UNSUPPORTED_FIELD, F.NOT_AN_ASK,
+             F.COORDINATED_SUBJECT}
     assert set(F.ROUTE) == types, FROZEN
     assert set(F.BLAMED) == types, FROZEN
     assert set(F.ROUTE.values()) == {F.REWRITE, F.COMMIT_FLAGGED, F.PANEL}, FROZEN
     assert all(stage in STAGES for stage in F.BLAMED.values()), FROZEN
     # Only the SUBJECT earns a round. A rewrite cannot invent a value nobody
     # said, and an object nothing asks for is not made real by re-parsing —
-    # both are the 2026-09-08 loop storm in code form.
+    # both are the 2026-09-08 loop storm in code form. The COORDINATED subject
+    # joined on 2026-09-20 (Gil): one event titled "dentist, haircut and gym"
+    # is three, and the rewrite is one clause per thing in the speaker's own
+    # words — still nothing invented, still the subject.
     assert {t for t, r in F.ROUTE.items() if r == F.REWRITE} == {
-        F.UNGROUNDED_SUBJECT}, FROZEN
+        F.UNGROUNDED_SUBJECT, F.COORDINATED_SUBJECT}, FROZEN
     assert MAX_REENTRIES == 3, FROZEN
 
 

@@ -81,10 +81,13 @@ deterministically and with no model call. Two consequences:
 
 - It re-enters Segmentation with DIFFERENT text, which is the whole point: a
   deterministic segmenter given the same string returns the same items.
-- **It fires only on `ungrounded_subject`** — a wrong subject. The judge can no
-  longer detect an ask with nothing built for it, because that needed the ask
-  diff Gil removed. Under-splitting is segmentation's to fix, on segmentation's
-  board.
+- **It fires on two findings, both about the SUBJECT**: `ungrounded_subject`
+  (a wrong subject) and, since 2026-09-20 (Gil), `coordinated_subject` — one
+  calendar event whose words list three or more things, rewritten one clause
+  per thing (*"on friday create an event for dentist and on friday create an
+  event for haircut and …"*). The judge cannot detect an ask with nothing
+  built for it — that needed the ask diff Gil removed — so every OTHER
+  under-split is segmentation's to fix, on segmentation's board.
 
 **And LLMJudge makes no model call at all** (2026-09-10, Gil approved): it was
 57% of the system's Ollama traffic and changed no outcome. `retired/llmjudge-

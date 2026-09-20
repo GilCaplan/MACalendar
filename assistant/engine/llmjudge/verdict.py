@@ -580,6 +580,29 @@ def _not_an_ask(state, p, siblings: bool = False) -> bool:
     return True
 
 
+def _coordinated_findings(state, produced) -> list:
+    """A calendar create whose own words carry a bare noun list of three or
+    more things is several events wearing one title. Deterministic: the list
+    is read off the item's ACTION words (`coordination.noun_list`), never off
+    the built title, whose commas the extractor has already stripped."""
+    from assistant.intent.coordination import noun_list
+
+    out = []
+    for p in produced:
+        if p.action != "create_event":
+            continue
+        found = noun_list(getattr(p.item, "text", "") or "")
+        if not found:
+            continue
+        _head, members, _tail = found
+        out.append(CheckFinding(
+            type=F.COORDINATED_SUBJECT, item_id=p.oid,
+            detail=f"“{', '.join(members)}” — {len(members)} things, one event; "
+                   f"each is its own",
+            blamed_stage=F.BLAMED[F.COORDINATED_SUBJECT]))
+    return out
+
+
 def judge(state, produced) -> "list[CheckFinding]":
     """Everything wrong with what was produced, one object at a time.
 
@@ -604,4 +627,5 @@ def judge(state, produced) -> "list[CheckFinding]":
                 blamed_stage=F.BLAMED[F.NOT_AN_ASK]))
             continue
         out += _subject_findings(state, [p])
+    out += _coordinated_findings(state, produced)
     return out

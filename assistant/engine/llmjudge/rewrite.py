@@ -229,16 +229,48 @@ def failed_asks(state) -> str:
     while `spoken()` carries only what failed.
     """
     blamed = {f.item_id for f in F.rewritable(state.findings) if f.item_id}
+    listed = {f.item_id for f in F.rewritable(state.findings)
+              if f.type == F.COORDINATED_SUBJECT}
     parts, seen = [], set()
     for it in state.items:
         if it.id not in blamed:
             continue
-        said = (it.spoken() or "").strip()
-        key = said.lower()
-        if said and key not in seen:
-            seen.add(key)
-            parts.append(said)
+        pieces = (expand_list(it) if it.id in listed else None) or [it.spoken()]
+        for said in pieces:
+            said = (said or "").strip()
+            key = said.lower()
+            if said and key not in seen:
+                seen.add(key)
+                parts.append(said)
     return _tidy(" and ".join(parts))
+
+
+def expand_list(item) -> "list[str] | None":
+    """One clause per listed thing, in the speaker's own words.
+
+        "create an event for dentist, haircut and gym"  +  "on friday"
+        -> ["on friday create an event for dentist",
+            "on friday create an event for haircut",
+            "on friday create an event for gym"]
+
+    Gil's own example (2026-09-20), verbatim in shape: the shared time leads
+    each clause, the head and tail are copied around each member, and the
+    joiner is " and " — the one seam segmentation cuts on. Every word is the
+    speaker's, so the grounding guard below passes by construction; the
+    injected date floor is left out the way `Item.spoken()` leaves it out.
+    """
+    from assistant.intent.coordination import noun_list
+
+    found = noun_list(item.text or "")
+    if not found:
+        return None
+    head, members, tail = found
+    when = " ".join(w for w in (item.time or "").split()
+                    if w.lower() != "today" or "today" in (item.text or "").lower())
+    out = []
+    for m in members:
+        out.append(_tidy(" ".join(x for x in (when, head, m, tail) if x)))
+    return out
 
 
 def _tidy(text: str) -> str:
