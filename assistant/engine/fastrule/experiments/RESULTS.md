@@ -1227,3 +1227,79 @@ a title leak and not this cycle's; needs a ruling on which convention holds
 Unchanged from cycle 23: `start_time`/`end_time` on the real-usage board,
 INVENTED-a-time as the guard. Q28 first if it lands before then, because a
 bare-hour change moves that same metric.
+
+
+## Cycle 25 — the leading imperative is the command (2026-09-20)
+
+### Why this one
+
+Found from segmentation's side. Ten errand verbs the tag lexicon knew and
+the routing table did not (walk, return, feed, restock, …) were added so
+the cut could see "first RESTOCK the pantry, then let's get…" — and the
+product-shape board answered with 18 more wrong commits: "mark WALK the dog
+complete" → create_todo, "delete WASH the car from my todo list" →
+create_todo, "mark CANCEL the subscription complete" → delete_event. The
+router consults its phrase frames, then the ROOT verb, then any verb, then
+any token; spaCy routinely makes the to-do's own verb the ROOT while the
+real command sits first as a mis-tagged noun only the last pass reaches.
+The hole predates the widening — every verb the table learns widens it.
+
+### What changed
+
+- **Pass 0 in `_route_intent`**: the span's first word, past a politeness
+  opener, wins when it maps to an action. A leading time or subject does
+  not map and falls through unchanged.
+- **The courtesy tail** stays in the first span of `_split_intents`
+  (`coordination`'s pattern): "extend open house by an hour and LET AVERY
+  KNOW" no longer loses 30% of its confidence to a span routed to nothing.
+- **The ten verbs**, with their gold counts in the table's comment.
+
+### Result — FastRule product-shape board, TRAIN half, 3,200 atomic rows
+
+| metric | before | pass 0 alone | + the verbs |
+|---|---|---|---|
+| **correct-on-handled** | 94.5% | **96.2%** | **96.4%** |
+| **harm / wrong commits** | 159 / 137 | **107 / 94** | **106 / 89** |
+| DESTRUCTIVE (complete·update·delete) | 12 · 2 · 4 | 12 · 2 · **1** | 12 · 2 · 1 |
+| handled (atomic) | 77.7% | 77.9% | **78.3%** |
+| FIRES FOREVER | 5 | 3 | 3 |
+| title exact | 61.1% (n=1771) | 61.1% | 61.4% (n=1786) |
+| deferral: below-threshold / no-change | 202 / 69 | — | 180 / 73 |
+
+Old-vs-new row differential against HEAD, both together: **58 rows better
+on the action, 0 worse**, 29 neutral (deferrals that now commit with a
+field short, and the "updat …" typo rows). Position-invariance board: see
+`DOCUMENTATION/experiments/invariance/RESULTS.md` run 5.
+
+### Filed, not fixed
+
+- **An "extend X by N" cannot carry its duration.** The intent has no field
+  for a delta; `new_end_time` needs `match_start_time`, which the sentence
+  does not give, so the 15 courtesy-tail rows now defer as `no-change` —
+  the honest reason. And `build()` copies the FLOOR date onto `new_date`
+  for such an update, which would move the event to today if it ever
+  committed.
+- **A lead-time tail is a junk second intent.** "set up webinar this coming
+  saturday at 3:45pm, remind me a week before" splits into the event and a
+  todo titled "remind before"; keeping it in the span instead puts "remind
+  me before" into the title. The parser reads no lead time here; the deep
+  track's `lead_time.split` does.
+
+### Next prediction (registered)
+
+Unchanged: `start_time`/`end_time` on the real-usage board. The two filed
+items above are candidates for the cycle after, each its own.
+
+### Addendum — the rename gate, and what the router pass uncovered
+
+Pass 0 let "rename flu shot to sales call" parse as the update it is — and
+walk past `Gatekeeper.judge`, which refused a rename only when it parsed as
+a CREATE (every rename did, so the condition was invisible). The gate now
+fires on the word "rename" and its lookup decides: the user's own data
+confirms the parse and it commits, anything else defers. That resolvable
+branch is reachable for the first time. Handled 78.3% → **77.5%** (the
+renames abstain again, `rename-misroute` 43), correct-on-handled 96.4%,
+harm 106 and DESTRUCTIVE unchanged. Filed with it: **the fast path
+lowercases every title** ("submit the Haxaga grades" → "…haxaga…"; the
+parser's transcript is lowercased and titles are cut from it), which the
+fallback builder used to hide for rows the parser did not route.

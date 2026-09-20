@@ -355,3 +355,98 @@ relabelled by the same Q26 rule (24 items), never read.
   not call this stage); `front,` correctness 55.0% → 55.5%; the multi-ask
   arm's under-split fell at every position (end 50→47, front 81→79,
   `front,` 68→66) with over-split unchanged.
+
+
+---
+
+## 2026-09-20, second pass — the queue Gil approved ("ok do those")
+
+Five items, in the order proposed; each measured alone on this board, with
+FastRule's product-shape board as the guard for anything in the shared
+modules. Train half, 1,051 rows.
+
+| metric | start of pass | end of pass |
+|---|---|---|
+| exact-row | 89.2% (937) | **90.1% (947)** |
+| exact-set | 90.8% | **91.1%** |
+| right item count — the cut | 98.1% | **98.4%** |
+| over-split · under-split | 1 · 19 | **1 · 16** |
+| tag accuracy | 98.0% | **98.8%** |
+| NO-LOSS violations (a scorer line) | 34 items | **19 items** |
+| adversarial phrasing | 28/31 | 28/31 |
+
+1. **The tagger's chore vocabulary — and the veto's second word.** The
+   real-speech miner (`missing_verbs.py`) surfaced another assistant's
+   vocabulary, not chores, so the evidence stayed the train misses. Three
+   things: "do", the wet-work verbs (rinse, stack, scrub, wipe, mop, sweep,
+   iron, hoover, proofread, chase) and the phrasals "put out"/"put away"
+   joined the veto lexicon; "gotta"/"got" joined the preamble ("like i gotta
+   restock the pantry" kept "gotta" as its head, five rows); and the veto's
+   two-word head reading was gated — "oil change", "client call",
+   "conference call is…" were vetoed to task on their SECOND word. Two wrong
+   gates were measured on the way (one word: −24 rows; the parser's verb
+   inventory: −16, "put" is not in it; a determiner test: lost "add BUY
+   milk", a live test); the one that holds is grammar — the second word
+   heads a verb phrase unless a function word follows it. exact-row 89.2 →
+   89.8, tag 98.0 → 98.7, confusions 30 → 20.
+2. **One definition of content in the scorer.** Its joiner set had drifted
+   from `invariant.py`'s again and charged "can you" as lost content. The
+   invariant's stop set is now three named parts and the scorer shares the
+   disfluencies and openers; prepositions stay content there on purpose.
+   NO-LOSS 34 → 19 items, engine untouched.
+3. **`old_seg` retired.** `retired/segmentation-old-seg/` with a README, tag
+   `segmentation-old-seg`; the interrogative-create reader moved to its one
+   caller in `decompose_validate/object_rules.py`; the stage lost its switch;
+   the doctor, two experiments and seven tests repointed; the artifact check
+   that counts model-calling stages now reads LLMSeg's file and knows its
+   `urlopen` socket. Board byte-identical.
+4. **FastRule's front door and the courtesy tail.** With the tail intact the
+   parser built the right `update_event` target but at confidence 0.66: its
+   own splitter cut "let Avery know" into a span it could not route, and an
+   unroutable span costs 30%. A courtesy tail now stays in the first span
+   (`coordination`'s pattern, so both splitters agree). Deferral reasons
+   below-threshold 202 → 187, no-change 69 → 84: the rows now defer for the
+   true reason, that "extend by an hour" has no field to carry its
+   duration until the store supplies the start. Filed with it: the built
+   intent copies the floor date as `new_date`; a lead-time tail ("…, remind
+   me a week before") is split off as a junk todo titled "remind before".
+5. **The under-split residue, two halves.** (a) A command clause that TRAILS
+   its head as an `advcl` ("i need to submit the report, FILE the taxes,
+   and print…") passes the same structural tests the leading path applies:
+   under-split 19 → 18. (b) Ten errand verbs the tag lexicon knew and the
+   routing table did not (family from FastRule's own train gold: back 8/2,
+   charge 6/1, feed 8/2, print 6/1, refill 6/3, restock 9/1, return 16/1,
+   submit 3/0, vacuum 4/2, walk 6/1; "take" and five with no rows left out):
+   under-split 18 → 16, exact-row 90.1%. **Added alone they opened a hole
+   in FastRule's router 18 rows wide** — "mark WALK the dog complete" became
+   a create, because the to-do's own verb was the ROOT and the real command
+   sat first as a noun only the router's last pass reached — which is how a
+   defect older than the widening was found: the leading imperative is now
+   the router's first pass, and FastRule's harm fell 159 → 106 (its
+   ledger, cycle 25).
+
+### Still open, filed
+
+The shared-verb gold conflict (4 hand-written families vs the generated
+gold and Q14, 8 items); "schedule" inside a to-do title reading as a
+calendar signal to the fallback's family test (2 rows); "forget X, i'd
+rather Y" (5 rows — "forget" is in no inventory and "don't forget to"
+makes it a risky one); `c_threeask_ttt_2`'s regeneration drift; "put X and
+Y on my list" losing its destination on the first item (5 rows, needs the
+tag to see the sentence); and the two extend/lead-time findings above,
+which are FastRule's.
+
+### The sealed half, read once more at the end of the second pass (660 rows)
+
+| metric | morning read | end of day |
+|---|---|---|
+| exact-row | 79.7% (526/660) | **80.5%** (531/660) |
+| exact-set | 87.3% | 87.3% |
+| right item count — the cut | 93.5% | 93.5% |
+| over-split · under-split | 16 · 27 | 16 · 27 |
+| tag accuracy | 93.6% | **94.2%** (940/998) |
+| NO-INVENTION | 0 | 0 |
+
+The tag work generalised (+0.6 on the sealed half against +0.8 on train);
+the cut fixes of this pass touched shapes the sealed half does not hold.
+Two reads of the sealed half today, both aggregates only.

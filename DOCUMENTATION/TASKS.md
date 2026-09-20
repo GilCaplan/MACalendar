@@ -1472,6 +1472,29 @@ Two candidates filed, not fixed, both needing a word from Gil:
   digit in the words). Real pool: 0 identifier numbers, 1 address in 2,699
   rows — low frequency, so it waits.
 
+## SEGMENTATION — second pass, the approved queue, 2026-09-20 (later)
+
+Gil: *"ok do those."* The five items from the day's plan, each boarded
+alone (`segmentation/experiments/RESULTS.md`, second 2026-09-20 entry):
+the tagger's chore vocabulary and a grammar gate on the veto's second word
+(exact-row 89.2% → 89.8%, tag 98.0% → 98.7%); one definition of content in
+the scorer (NO-LOSS 34 → 19 items); **`old_seg` retired** — `retired/
+segmentation-old-seg/`, tag `segmentation-old-seg`, the confirm-create
+reader moved to `object_rules.py`, the stage switch gone; FastRule's own
+splitter keeping a courtesy tail (15 rows now defer for the true reason);
+and the under-split residue — a trailing subordinated command clause is an
+ask (19 → 18), ten evidenced errand verbs join the routing table (18 → 16,
+exact-row **90.1%**, the cut **98.4%**), which exposed and fixed the
+router's object-verb hijack (FastRule harm **159 → 106**, cycle 25; the
+rename gate then had to fire on the phrasing, handled 77.5% with renames
+abstaining again). Sealed segmentation half, read once at the end: exact-row
+79.7% → 80.5%, tag 93.6% → 94.2%, the cut unchanged. Still
+filed: the shared-verb gold conflict, "schedule" as a calendar signal
+inside a to-do title, "forget X, i'd rather Y", the "put X and Y on my
+list" destination, an extend's missing duration field and the floor date
+copied to `new_date`, lead-time tails as junk todos on the fast path, and
+the fast path lowercasing every title (a name loses its capital).
+
 ## SEGMENTATION — implementation fixes landed, 2026-09-20
 
 Gil: *"work on implementation fixes, can reiterate as long as improving…

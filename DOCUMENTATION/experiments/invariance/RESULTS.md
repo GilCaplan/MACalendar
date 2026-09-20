@@ -236,6 +236,28 @@ longer cuts "wash and fold" in two); the rest is the cut finding seams it
 used to miss at every position, which is why decompose_validate and fastrule
 inherit less again. Still degrading UP the chain: the per-item design holds.
 
+## Run 5 — 2026-09-20 (later), after the second segmentation pass and the router pass
+
+Same board, same 1,548 groups, HEAD after the approved queue: the tagger's
+vocabulary and veto gate, the scorer's shared stop set, `old_seg` retired,
+FastRule's courtesy tail, the trailing subordinate clause, ten errand verbs
+in the routing table, and the router's leading-imperative pass.
+
+| boundary | run 4 | run 5 |
+|---|---|---|
+| segmentation | 13.2% | 13.2% |
+| decompose_validate | 5.7% | 5.7% |
+| fastrule | 4.3% | 4.3% |
+| front door | 49.4% | 49.4% (solid 19.5% → 20.0%) |
+| correctness `end` / `front` / `front,` | 56.7 / 55.4 / 55.5 | 56.7 / **55.5** / **55.6** |
+| multi-ask arm, UNDER-split end / front / `front,` | 47 / 79 / 66 | 47 / 79 / 66 |
+
+Position-dependence did not move at any boundary: everything in this pass
+was content — vocabulary, gates, a router pass keyed on the first word —
+and the front door's 49.4% is still the `^`-anchored frames. Correctness
+ticked up at the front positions, which is the router pass reading the
+imperative wherever the time sits.
+
 ## Not yet measured
 
 - **Title CONTENT is probed, not boarded** (run 3). If it is needed again, a `--title` arm on `scripts/dv_invariance.py` is the shape.
