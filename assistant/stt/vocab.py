@@ -1029,6 +1029,30 @@ class VocabStore:
         return "Shorthand this user uses: " + ", ".join(
             f"{e.word} = {e.expands_to}" for e in found)
 
+    @staticmethod
+    def _looks_like_english(word: str, english: "set[str]") -> bool:
+        """Is this an ordinary word, allowing for a word list from 1934?
+
+        `/usr/share/dict/words` on macOS is web2 and has no inflections — no
+        "plants", no "groceries", no "says" — so a bare membership test calls
+        ordinary speech unrecognised. The damage gate learned this the
+        expensive way (127 wrong rewrites); the same allowance is needed here
+        or one flag in four is an ordinary word.
+        """
+        low = word.lower().strip("'")
+        if low in english:
+            return True
+        for suffix in ("s", "es", "'s", "ed", "d", "ing", "ly", "er", "ers",
+                       "'ll", "'re", "'ve", "n't", "est", "ies"):
+            if low.endswith(suffix) and low[:-len(suffix)] in english:
+                return True
+        if low.endswith("ies") and low[:-3] + "y" in english:
+            return True
+        if "'" in low:                       # o'clock, it's, don't
+            if low.replace("'", "") in english or low.split("'")[0] in english:
+                return True
+        return False
+
     def suggestions(self, transcript: str, floor: float = 0.6) -> list[dict[str, Any]]:
         """Words the user may want to check: near-misses of vocab words below
         the auto-correct threshold, plus capitalised mid-sentence tokens that
@@ -1057,6 +1081,25 @@ class VocabStore:
                 seen.add(key)
             elif i > 0 and core[:1].isupper() and not core.isupper() and core.isalpha():
                 out.append({"heard": core, "candidate": None, "score": 0.0, "reason": "unknown-name"})
+                seen.add(key)
+            elif (len(key) >= 4 and core.isalpha()
+                  and not self._looks_like_english(core, _english())):
+                # A WORD IN NO DICTIONARY AND NEAR NOTHING WE KNOW. Until now
+                # only a CAPITALISED unknown was surfaced, so "Pesach" got a
+                # prompt and "tellmond" did not — it went straight into an
+                # event title and the speaker never saw it happen.
+                #
+                # There is nothing to suggest here, and saying so is the
+                # point: the prompt is an admission, not a correction. Gil,
+                # 2026-09-20 — the edit box "is another visual way to add
+                # fixes, i.e. finetuned words to the vocab list", so a word
+                # flagged here and typed out is LEARNED, and the same
+                # mishearing repairs itself next time.
+                #
+                # Measured on 187 real commands: 15 carry one (8%), and they
+                # are the right ones — tellmond, manachem, WalkJaydo, Doven.
+                out.append({"heard": core, "candidate": None, "score": 0.0,
+                            "reason": "unrecognised"})
                 seen.add(key)
         return out[:6]
 

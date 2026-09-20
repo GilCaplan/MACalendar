@@ -1115,6 +1115,18 @@ class _ResultCard(QFrame):
             warn = QLabel("Not sure about these — click to type the right word")
             self._labels.append((warn, "orange"))
             lay.addWidget(warn)
+            # WHY IT IS WORTH CLICKING (Gil, 2026-09-20): this box "is another
+            # visual way to add fixes, i.e. finetuned words to the vocab
+            # list", and nobody would guess that from a row of orange chips.
+            # A word corrected here is stored WITH the mishearing as an alias,
+            # so the same mistake repairs itself from then on.
+            how = QLabel("Fixing one adds it to your vocabulary, so it is "
+                         "corrected automatically next time.")
+            how.setWordWrap(True)
+            how.setToolTip("Words the transcription was unsure of, or did not "
+                           "recognise at all. Correcting one teaches it.")
+            self._labels.append((how, "muted"))
+            lay.addWidget(how)
             host = QWidget()
             host.setStyleSheet("background: transparent; border: none;")
             flow = FlowLayout(host, spacing=4)
@@ -1122,6 +1134,10 @@ class _ResultCard(QFrame):
                 heard = w.get("heard", "") if isinstance(w, dict) else str(w)
                 cand = w.get("candidate") if isinstance(w, dict) else None
                 chip = _WordChip(f"{heard} → {cand}?" if cand else heard, theme)
+                chip.setToolTip(
+                    "Not a word I know. Click to type it — it joins your "
+                    "vocabulary." if not cand else
+                    "Click to confirm or correct — either way I learn it.")
                 chip.clicked.connect(lambda h=heard: self.fix_word.emit(h))
                 flow.addWidget(chip)
                 self._chips.append(chip)

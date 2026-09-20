@@ -556,11 +556,24 @@ struct ThinkingView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Not sure about these — tap to type the right word")
                         .font(.caption).foregroundColor(.orange)
+                    // WHY THIS IS WORTH TAPPING. Gil, 2026-09-20: the edit box
+                    // "is another visual way to add fixes, i.e. finetuned words
+                    // to the vocab list... add a tooltip explaining this
+                    // because the user won't just know this feature is
+                    // available." Correcting a word here teaches it — it is
+                    // stored with the mishearing as an alias, so the same
+                    // mistake repairs itself from then on. Without saying so
+                    // the box looks like a one-off patch.
+                    Text("Fixing one adds it to your vocabulary, so it's corrected automatically next time.")
+                        .font(.caption2).foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     FlowLayout(spacing: 6) {
                         ForEach(u) { w in
                             Button { onFixWord(w.heard) } label: {
                                 HStack(spacing: 4) {
-                                    Image(systemName: "questionmark.circle").font(.caption)
+                                    Image(systemName: w.candidate == nil
+                                          ? "character.cursor.ibeam"
+                                          : "questionmark.circle").font(.caption)
                                     Text(w.candidate.map { "\(w.heard) → \($0)?" } ?? w.heard)
                                         .font(.caption)
                                 }
@@ -569,6 +582,9 @@ struct ThinkingView: View {
                                 .cornerRadius(8)
                             }
                             .buttonStyle(.plain)
+                            .help(w.candidate == nil
+                                  ? "Not a word I know. Tap to type it — it joins your vocabulary."
+                                  : "Tap to confirm or correct — either way I learn it.")
                         }
                     }
                 }

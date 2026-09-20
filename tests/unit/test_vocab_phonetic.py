@@ -226,3 +226,49 @@ def test_an_empty_vocabulary_changes_nothing(tmp_path, monkeypatch):
     store = _store(tmp_path, monkeypatch)
     for text in ("book bar rista course", "add icecream to my list", "buy milk"):
         assert store.correct(text)[0] == text
+
+
+# ---------------------------------------------------------------------------
+# A WORD IN NO DICTIONARY IS SURFACED, not silently accepted
+#
+# `suggestions()` flagged a CAPITALISED unknown ("Pesach") and a near-miss of
+# a vocabulary word, and nothing else — so "tellmond" went straight into an
+# event title and the speaker never saw it happen. Measured on 187 real
+# commands: 8 carry one, and they are the right ones (tellmond, yarev,
+# manachem, bagru, squirmant).
+#
+# Gil, 2026-09-20: the edit box "is another visual way to add fixes, i.e.
+# finetuned words to the vocab list" — so a word flagged here and typed out
+# is LEARNED, and the same mishearing repairs itself afterwards.
+# ---------------------------------------------------------------------------
+
+def test_an_unrecognised_word_is_flagged(tmp_path, monkeypatch):
+    monkeypatch.setenv("MACALENDAR_VOCAB", str(tmp_path / "vocab.json"))
+    from assistant.stt.vocab import VocabStore
+    store = VocabStore(str(tmp_path / "vocab.json"))
+    store.add_word("Ora")
+
+    flagged = {s["heard"].lower(): s["reason"]
+               for s in store.suggestions("set a meeting with tellmond tomorrow")}
+    assert flagged.get("tellmond") == "unrecognised", flagged
+    # nothing to suggest, and saying so is the point
+    assert all(s["candidate"] is None
+               for s in store.suggestions("set a meeting with tellmond tomorrow")
+               if s["heard"].lower() == "tellmond")
+
+
+@pytest.mark.parametrize("sentence", [
+    # the 1934 word list has no inflections; without the allowance these are
+    # all "unrecognised" and one flag in four is an ordinary word
+    "buy groceries tomorrow",
+    "water the plants this afternoon",
+    "he says the meeting moved",
+    "set an event at 6 o'clock",
+    "remind me to call the plumber",
+])
+def test_ordinary_speech_is_not_flagged(tmp_path, monkeypatch, sentence):
+    from assistant.stt.vocab import VocabStore
+    store = VocabStore(str(tmp_path / "vocab.json"))
+    store.add_word("Ora")
+    assert [s for s in store.suggestions(sentence)
+            if s["reason"] == "unrecognised"] == []
