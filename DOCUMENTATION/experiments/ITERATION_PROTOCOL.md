@@ -572,3 +572,34 @@ disguised as the next hypothesis). I propose; Gil decides. Cycles 9 (relaxed
 sub-item bar) and 10 (rules-first per fragment, LLM as end-judge) are
 Gil-authorized design changes and are labeled so in HYPOTHESES.md/RESULTS.md
 — the run stands, only the framing was corrected.
+
+
+## How big does N have to be? (Gil, 2026-09-19)
+
+*"I think you need more than 60 examples, like a thousand examples would
+probably be more adequate... So add it to the workflow so that depending on the
+task, we can make sure we have adequate number of data samples and diversity
+for when we run experiments."*
+
+**50 or 100 is a smoke test.** It tells you the code runs. It does not tell you
+whether the change is good, and a percentage over 60 rows moves 1.7 points when
+a single row flips.
+
+| what the change can do | N | what to count |
+|---|---|---|
+| changes the speaker's WORDS, or commits something | thousands | **false positives first** — run every clean corpus you have; a wrong rewrite is invisible to the user, who never sees what they actually said |
+| changes one stage's decision | that stage's whole board | the stage's own metric, plus the boards downstream of it |
+| an exploratory probe | any n | say "probe", never bank it |
+
+**Count DISTINCT SHAPES, not rows.** 1,000 rows generated from 26 templates is
+26 examples with a flattering denominator. The vocabulary bench reports "62
+distinct pairs from 130 rows" because the 130 is the misleading number.
+
+**Say which half of a generated bench is real.** `scripts/vocab_repair_bench.py`
+takes its damage OPERATIONS from the observed corpus and invents only the
+TERMS, and says so at the top of the file. A bench that invents both is
+measuring the generator.
+
+**Keep the real bench as the primary number and report it separately.** Never
+sum a real bench and a synthetic one — the synthetic one answers "does this
+generalise", not "does this work".

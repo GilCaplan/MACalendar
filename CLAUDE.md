@@ -446,6 +446,26 @@ of the single-item commands instead of deferring them" is. Say which data
 300), which metric of the six, which slice, and one clause on the
 consequence. This applies in chat and in every md file.
 
+**AND N HAS TO BE BIG ENOUGH TO CARRY THE CLAIM** (Gil, 2026-09-19: *"you need
+more than 60 examples, like a thousand examples would probably be more
+adequate... depending on the task, make sure we have adequate number of data
+samples and diversity"*). 50 or 100 rows is a smoke test, not a measurement.
+**Aim for ~1,000+**, and scale it to what the change can break:
+
+- a rule that CHANGES THE SPEAKER'S WORDS (vocabulary repair, rewrites) or that
+  can commit something wrong — thousands, and the NEGATIVE surface matters more
+  than the positive one: run it over every clean corpus you have and count
+  false positives, because a wrong rewrite is invisible to the user.
+- a rule confined to one stage — the stage's own board, whole, not a slice.
+- an exploratory probe — any n, said plainly as a probe, and never banked.
+
+**Diversity, not just count.** 1,000 rows from 26 templates is 26 examples with
+a big denominator. Say how many DISTINCT shapes are behind a number — the
+vocabulary bench reads "62 distinct pairs from 130 rows" for exactly this
+reason. And when a bench is generated rather than observed, say which half is
+real: `scripts/vocab_repair_bench.py` carries the damage OPERATIONS from the
+observed corpus and invents only the terms, and says so at the top.
+
 **Always name the metric with the number.** "70→72" is meaningless in a vacuum;
 "count-correct 73.5%→75% on event+task" is a result. Metrics are organised BY COMPONENT, not as one flat list — `dataset/METRICS.md`
 is the map. Five levels: the ENGINE board (count-correctness, item P/R/F1,
