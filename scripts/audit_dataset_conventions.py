@@ -50,6 +50,21 @@ _LIST_BARE = re.compile(
     r"(?:open(?: up)?|start|create|make|begin)\s+(?:me\s+)?(?:a|an|another|the)?\s*"
     r"(?:new\s+)?(?:[a-z' -]+\s+)?list(?:\s+(?:called|named)\s+.+)?\s*[.?!]*$", re.I)
 _LIST_BARE_ADD = re.compile(r"^(?:please\s+)?add\s+(?:a\s+)?new\s+list\s*[.?!]*$", re.I)
+#: A bare list-create as ONE CLAUSE of a compound. `_LIST_BARE` is anchored to
+#: the whole text, so a compound whose other half is a real ask never matched
+#: it and the bare half was scored as an ask the engine owed an object.
+#:
+#: Gil, 2026-09-20 (DEVQA Q37): a list with no name is REFUSED — "I couldn't
+#: tell what to call it" — and the gold rows that expect a creation are the
+#: wrong half of the disagreement. Content still disqualifies it: "make a new
+#: list OF DOG BREEDS" names what goes in the list and owes an object, which
+#: is why the trailing group stops at a clause end rather than allowing "of".
+_LIST_BARE_HALF = re.compile(
+    r"(?:^|[.;!?]\s*|\b(?:and|also|then)[,\s]+)"
+    r"(?:(?:please|can you|could you|pda|alexa|olly|hey siri)\s+)*"
+    r"(?:open(?: up)?|start|create|make|begin)\s+(?:me\s+)?"
+    r"(?:a|an|another|the)?\s*(?:new\s+)?list"
+    r"(?:\s+for\s+(?:me|us))?\s*(?:please)?\s*(?:[.;!?,]|$)", re.I)
 _ALERT = re.compile(
     r"\b(notify|alert|tell)\s+me\s+(when|if|whenever|every time)\b"
     r"|\blet me know\s+(when|if)\b", re.I)
@@ -71,6 +86,8 @@ def classify(row: dict) -> "tuple[str, str] | None":
     if scen == "lists" and intent == "createoradd" and (
             _LIST_BARE.match(text.strip()) or _LIST_BARE_ADD.match(text.strip())):
         return "list_create_bare", "noop_ok"     # no list objects here
+    if scen == "compound" and _LIST_BARE_HALF.search(text):
+        return "list_create_bare", "half_flexible"
     if _ALERT.search(text):
         if scen == "compound":
             return "standing_alert", "half_flexible"
@@ -92,10 +109,15 @@ def build() -> dict:
             out[r["text"]] = {"class": hit[0], "treatment": hit[1]}
     return {
         "version": 1,
-        "generated": "2026-09-06",
+        "generated": "2026-09-20",
         "note": ("Mechanical rules mined from dev region (tier_rank<=600) "
                  "only, applied dataset-wide. Raw count_ok is never changed; "
-                 "the scorer reports these as count_ok_adj."),
+                 "the scorer reports these as count_ok_adj. 2026-09-20: the "
+                 "list_create_bare class gained its COMPOUND form (DEVQA "
+                 "Q37) — a list with no name is refused, so a compound whose "
+                 "other half is a real ask is half_flexible. 68 rows joined; "
+                 "4 moved from remind_half, being more specifically a "
+                 "declinable list half than a re-filed reminder."),
         "rows": out,
     }
 

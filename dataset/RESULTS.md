@@ -2834,3 +2834,39 @@ moves a gold title is reverted. **Prediction:** garbage-title 15% → 8–11%,
 field quality 87.2 → 89+, precision flat to +1, product-shape
 correct-on-handled (96.4%) unchanged or better.
 
+
+## Q37 — the gold, not the behaviour (2026-09-20)
+
+Gil: *"Refusing is right, fix the gold."* A list with no name — "Can you
+please create a list for me", "Create a new list, please" — is refused with
+*"I couldn't tell what to call it"*, and the dev-100 gold counted those as
+asks owing an object.
+
+The convention-overrides layer already had the class and the treatment:
+`list_create_bare` / `noop_ok` covers a BARE list create standing alone, and
+`half_flexible` ("one half is something the product legitimately declines")
+covers a compound. What was missing was the compound FORM of the list rule —
+`_LIST_BARE` is anchored to the whole text, so a compound whose other half is
+a real ask never matched it.
+
+Mined by rule, never by picking the failing rows (`scripts/audit_dataset_
+conventions.py`, rebuilt): **140 → 218 rows**. 78 joined, and 4 moved from
+`remind_half`, being more specifically a declinable list half than a re-filed
+reminder. Content still disqualifies: "make a new list OF DOG BREEDS" names
+what goes in the list and still owes an object.
+
+**What it does to the history**, rescored across the whole archive
+(`scripts/rescore_runs.py`; raw `count_ok` is never touched):
+
+| run | raw | adjusted before | adjusted after |
+|---|---|---|---|
+| 22 (the checkpoint) | 74% | 74% | 74% |
+| 26 (before cycle 28) | 85% | 85% | **84%** |
+| 36 (now) | 80% | 82% | **83%** |
+
+The correction cuts both ways, which is what a correction should do: the
+latest run gains a point and run 26 loses one, because run 26 was being
+credited for objects it invented into a nameless list. On the adjusted
+reading the day's last four cycles are **84 → 83**, flat, rather than the
+85 → 80 the raw number showed.
+
