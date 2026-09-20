@@ -17,7 +17,25 @@ import pytest
 import assistant.trace as trace
 
 from tests.unit._ios_sources import ios_source
-from tests.conftest import needs_model
+
+
+@pytest.fixture(autouse=True)
+def _model_reachable(monkeypatch):
+    """These tests STUB the parser, so they never reach Ollama — but the
+    engine's fail-fast precheck does, and it runs BEFORE the stub
+    (`engine/__init__.py`, "FAIL FAST"). That precheck is right in production:
+    a command FastRule declined is about to walk three stages to die at the
+    end on a Mac that is already offline. It is wrong here, where the walk is
+    faked.
+
+    So the reachability is stubbed with the parser, and these run everywhere.
+    They were being SKIPPED on CI, which is worse than it sounds: a skipped
+    test is a claim of coverage nobody is checking, and these cover the
+    confirm gate, the judge loop and escalation.
+    """
+    import assistant.engine.llm as _llm
+    monkeypatch.setattr(_llm, "is_reachable", lambda cfg=None: True)
+
 
 
 def _norm(s: str) -> str:
@@ -42,7 +60,6 @@ def test_ios_chain_info_matches_the_host():
 # What the phone's timeline decodes
 # ---------------------------------------------------------------------------
 
-@needs_model
 def test_the_response_carries_the_boundaries_the_phone_draws():
     """iOS renders the X0→X4 flow strip from `boundaries` in the voice
     response, and `ThinkingView` had no idea they existed until 2026-09-10 —

@@ -24,7 +24,25 @@ from assistant.exceptions import TargetNotFound
 import assistant.api.server as server
 import assistant.engine.fastrule.stage as generate
 import assistant.engine.llm as engine_llm
-from tests.conftest import needs_model
+
+
+@pytest.fixture(autouse=True)
+def _model_reachable(monkeypatch):
+    """These tests STUB the parser, so they never reach Ollama — but the
+    engine's fail-fast precheck does, and it runs BEFORE the stub
+    (`engine/__init__.py`, "FAIL FAST"). That precheck is right in production:
+    a command FastRule declined is about to walk three stages to die at the
+    end on a Mac that is already offline. It is wrong here, where the walk is
+    faked.
+
+    So the reachability is stubbed with the parser, and these run everywhere.
+    They were being SKIPPED on CI, which is worse than it sounds: a skipped
+    test is a claim of coverage nobody is checking, and these cover the
+    confirm gate, the judge loop and escalation.
+    """
+    import assistant.engine.llm as _llm
+    monkeypatch.setattr(_llm, "is_reachable", lambda cfg=None: True)
+
 
 SAID = "Walk Mark Stalk today at 230PM"
 
@@ -144,7 +162,6 @@ def test_a_not_found_is_an_answer_not_an_error(monkeypatch, client):
     assert "Error:" not in body["message"]
 
 
-@needs_model
 def test_a_deep_track_misread_gets_the_same_second_opinion(monkeypatch, client):
     """Run 9's "night shift" case: the LLM read a create as an update of a
     nonexistent event. The recheck now runs on ANY track's single-action

@@ -24,7 +24,25 @@ from assistant.engine.segmentation.old_seg.segment import is_interrogative_creat
 from assistant.engine.state import EngineState, Item
 from assistant.engine.decompose_validate import stage as _validate
 from assistant.engine.fastrule import fast_track
-from tests.conftest import needs_model
+
+
+@pytest.fixture(autouse=True)
+def _model_reachable(monkeypatch):
+    """These tests STUB the parser, so they never reach Ollama — but the
+    engine's fail-fast precheck does, and it runs BEFORE the stub
+    (`engine/__init__.py`, "FAIL FAST"). That precheck is right in production:
+    a command FastRule declined is about to walk three stages to die at the
+    end on a Mac that is already offline. It is wrong here, where the walk is
+    faked.
+
+    So the reachability is stubbed with the parser, and these run everywhere.
+    They were being SKIPPED on CI, which is worse than it sounds: a skipped
+    test is a claim of coverage nobody is checking, and these cover the
+    confirm gate, the judge loop and escalation.
+    """
+    import assistant.engine.llm as _llm
+    monkeypatch.setattr(_llm, "is_reachable", lambda cfg=None: True)
+
 
 
 # ---------------------------------------------------------------------------
@@ -224,7 +242,6 @@ def _ask(client, **extra):
     return client.post("/voice/text", json=body).get_json()
 
 
-@needs_model
 def test_the_question_comes_back_as_a_proposal(client, confirming_engine):
     data = _ask(client)
 
@@ -236,7 +253,6 @@ def test_the_question_comes_back_as_a_proposal(client, confirming_engine):
     assert "Yoga" in data["message"]
 
 
-@needs_model
 def test_without_supports_confirm_nothing_is_held(client, confirming_engine):
     data = _ask(client, supports_confirm=False)
 
@@ -253,7 +269,6 @@ def _yoga_rows(client, date: str):
             if e["title"] == "Yoga"]
 
 
-@needs_model
 def test_yes_creates_it_once_even_on_a_double_tap(client, confirming_engine):
     data = _ask(client)
     token = data["confirm_token"]
@@ -272,7 +287,6 @@ def test_yes_creates_it_once_even_on_a_double_tap(client, confirming_engine):
     assert len(_yoga_rows(client, day)) == before + 1
 
 
-@needs_model
 def test_no_creates_nothing_and_files_the_verdict(client, confirming_engine):
     from assistant.intent.memory import FEEDBACK_REJECTED, get_memory
 
@@ -291,7 +305,6 @@ def test_no_creates_nothing_and_files_the_verdict(client, confirming_engine):
         assert get_memory().get(data["memory_id"])["feedback"] == FEEDBACK_REJECTED
 
 
-@needs_model
 def test_an_expired_token_says_so(client, confirming_engine, monkeypatch):
     import assistant.api.server as server
 

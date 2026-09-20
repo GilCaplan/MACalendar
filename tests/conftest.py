@@ -470,38 +470,26 @@ def dummy_action_cls():
 
 
 # ---------------------------------------------------------------------------
-# NEEDS A MODEL — the guard for unit tests that reach the DEEP track
+# NO UNIT TEST NEEDS A MODEL — and the eleven that looked like they did
 #
-# `pytest tests/unit` is documented as "fast, no model needed", and that is
-# true of all but a handful: a command FastRule declines goes to the deep
-# track, which makes a model call, and the engine fails fast when Ollama is
-# unreachable rather than walking three stages to die at the end. Those tests
-# therefore pass on a Mac with Ollama running and fail on CI, which has none —
-# and a build that is red for a reason unrelated to the code tells you nothing
-# at all. CI had been red since 2026-09-18 for exactly this.
+# A `needs_model` skip mark lived here for a few hours on 2026-09-20, after CI
+# failed eleven unit tests with "Ollama offline". It was the wrong fix and Gil
+# asked the right question: *"should they not be run, if so, should remove
+# them completely."* Neither. They run — they just were not reaching a model.
 #
-# Skipping is the project's own rule for the case ("Integration tests must skip
-# when Ollama is not running"). The alternative — stubbing the model in each —
-# is real work and better coverage, and is filed rather than done here; what
-# matters first is that a red build means something again.
+# All eleven ALREADY stubbed the parser (`get_parser`, `get_rule_parser`, or
+# `_engine.parse`). What reached for Ollama was the engine's fail-fast
+# PRECHECK, which runs BEFORE the stub: a command FastRule declined is about
+# to walk three stages to die at the end on a Mac that is already offline, so
+# the engine asks first. Right in production, wrong in a test where the walk
+# is faked.
 #
-# The check runs ONCE at collection, not per test.
+# So each of those files stubs `is_reachable` alongside the parser it was
+# already stubbing, and they run everywhere. Verified with the model port
+# HARD-BLOCKED — 88 of them pass while any request to 11434 raises — so this
+# is not a skip wearing a different hat.
+#
+# A skipped test is a claim of coverage nobody is checking. These cover the
+# confirm gate, the judge loop and escalation; leaving them unrun on CI, or
+# deleting them, would both have been worse than finding out why they failed.
 # ---------------------------------------------------------------------------
-
-def _ollama_running() -> bool:
-    # `MACALENDAR_NO_OLLAMA=1` forces the answer, so a Mac WITH Ollama can
-    # reproduce what CI sees. Without it the guard is untestable on the only
-    # machine that would ever notice it was wrong.
-    if _os.environ.get("MACALENDAR_NO_OLLAMA"):
-        return False
-    try:
-        import requests
-        return requests.get("http://localhost:11434/api/tags",
-                            timeout=3).status_code == 200
-    except Exception:
-        return False
-
-
-needs_model = pytest.mark.skipif(
-    not _ollama_running(),
-    reason="reaches the deep track, which needs Ollama (see tests/conftest.py)")

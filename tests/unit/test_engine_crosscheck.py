@@ -15,7 +15,25 @@ import assistant.engine.llmjudge.llmjudge as crosscheck
 import assistant.engine.fastrule.stage as generate
 import assistant.engine.llm as engine_llm
 from assistant.engine.state import EngineState, ExecutedAction, Item
-from tests.conftest import needs_model
+
+
+@pytest.fixture(autouse=True)
+def _model_reachable(monkeypatch):
+    """These tests STUB the parser, so they never reach Ollama — but the
+    engine's fail-fast precheck does, and it runs BEFORE the stub
+    (`engine/__init__.py`, "FAIL FAST"). That precheck is right in production:
+    a command FastRule declined is about to walk three stages to die at the
+    end on a Mac that is already offline. It is wrong here, where the walk is
+    faked.
+
+    So the reachability is stubbed with the parser, and these run everywhere.
+    They were being SKIPPED on CI, which is worse than it sounds: a skipped
+    test is a claim of coverage nobody is checking, and these cover the
+    confirm gate, the judge loop and escalation.
+    """
+    import assistant.engine.llm as _llm
+    monkeypatch.setattr(_llm, "is_reachable", lambda cfg=None: True)
+
 
 
 @pytest.fixture
@@ -170,7 +188,6 @@ def test_loop_back_reruns_segment_with_the_mistake(cfg, monkeypatch):
     assert "Looping back" in titles
 
 
-@needs_model
 def test_loop_budget_is_finite_and_admitted(cfg, monkeypatch):
     """A check that keeps failing stops after MAX_REENTRIES and says so.
 
@@ -333,7 +350,6 @@ def test_revert_spec_shapes_a_post_ready_body():
     assert spec["body"]["quantity"] == 3
 
 
-@needs_model
 def test_the_loop_stops_when_a_rerun_cannot_change_anything(cfg, monkeypatch):
     """A re-run starts from the same transcript and runs the same stages, so
     if it would begin from the SAME items with the SAME complaint it produces

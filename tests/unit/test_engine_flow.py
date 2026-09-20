@@ -17,7 +17,25 @@ import assistant.engine.fastrule.fast_track as fast_track
 import assistant.stt.vocab as vocab_mod
 from assistant.engine.state import EngineState, Item
 from assistant.exceptions import OllamaUnavailableError
-from tests.conftest import needs_model
+
+
+@pytest.fixture(autouse=True)
+def _model_reachable(monkeypatch):
+    """These tests STUB the parser, so they never reach Ollama — but the
+    engine's fail-fast precheck does, and it runs BEFORE the stub
+    (`engine/__init__.py`, "FAIL FAST"). That precheck is right in production:
+    a command FastRule declined is about to walk three stages to die at the
+    end on a Mac that is already offline. It is wrong here, where the walk is
+    faked.
+
+    So the reachability is stubbed with the parser, and these run everywhere.
+    They were being SKIPPED on CI, which is worse than it sounds: a skipped
+    test is a claim of coverage nobody is checking, and these cover the
+    confirm gate, the judge loop and escalation.
+    """
+    import assistant.engine.llm as _llm
+    monkeypatch.setattr(_llm, "is_reachable", lambda cfg=None: True)
+
 
 
 @pytest.fixture
@@ -61,7 +79,6 @@ def test_confident_rules_take_the_fast_track(monkeypatch, cfg):
     assert out["parse"] == "fast"
 
 
-@needs_model
 def test_unconfident_rules_take_the_deep_track(monkeypatch):
     rr = SimpleNamespace(confidence=0.30, missing_slots=["start_time"], intents=[])
     rp = MagicMock()
@@ -292,7 +309,6 @@ def test_the_wrapper_round_trips_through_segment(cfg):
     assert [it.text for it in st.items] == ["gym tomorrow at 7am", "buy milk"]
 
 
-@needs_model
 def test_repeated_attempt_messages_fold_into_one(monkeypatch):
     """A loop-back that fails the same way each attempt must apologise once,
     not once per re-entry (found live: three identical "couldn't read"s)."""
