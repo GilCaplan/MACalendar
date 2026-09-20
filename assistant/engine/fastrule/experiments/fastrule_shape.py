@@ -325,10 +325,22 @@ def main() -> int:
                         T_N += 1
                         T_OK += 1 if got_t == want else 0
                 elif not phrase:
-                    # nothing was said about a time: 00:00 (all-day) is the
-                    # honest answer, anything else is an invention
+                    # Nothing was said about a time: 00:00 (all-day) is the
+                    # honest answer, anything else is an invention — EXCEPT a
+                    # meal, which names its own hour (Gil, 2026-09-20:
+                    # breakfast 09:00, lunch 13:00, dinner 19:00). The
+                    # instrument is changed in the same commit as the rule,
+                    # because otherwise this line measures the old convention
+                    # and charges the engine for obeying the new one: it read
+                    # 3.5% -> 5.1% on the 370 untimed events the moment the
+                    # rule landed, which is the board's premise moving, not
+                    # the engine inventing anything. Narrow on purpose — only
+                    # the meal's OWN hour is exempt, so a meal stamped 21:00
+                    # is still an invention.
+                    from assistant.actions.calendar.intent import meal_hour
                     INVENT_N += 1
-                    if _HHMM.match(got_t) and got_t != "00:00":
+                    honest = {"00:00", meal_hour(getattr(first, "title", "")) or "00:00"}
+                    if _HHMM.match(got_t) and got_t not in honest:
                         INVENT += 1
             # --- TITLE QUALITY (added 2026-09-08). Until now this board
             # mentioned the word "title" once and scored it nowhere, so an

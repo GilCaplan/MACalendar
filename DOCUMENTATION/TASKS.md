@@ -1470,7 +1470,11 @@ Two candidates filed, not fixed, both needing a word from Gil:
 - **The two tracks disagree on the bare hour** — "at 7" is 19:00 on the front
   door and 07:00 in `decompose_validate` (its conventions table: 1–6 PM, 7–8
   PM only with evening words). Same sentence, different answer by path.
-  **DEVQA Q28.** The losing reader is then an implementation fix.
+  **DEVQA Q28 — ANSWERED 2026-09-20 and BUILT**: a genuine bare 7 or 8 is
+  asked about when the client can render a prompt, and otherwise resolves PM
+  on BOTH tracks with the reply saying so. `resolve._bare_hour` is aligned to
+  the front door; `object_rules._rule_bare_hour_asks_first` and
+  `fast_track`'s `ask_first` do the asking.
 - **`resolve_quantity` counts any digit in a title** ("chapter 5 review" → a
   task of 5). Board-blind (the title banks carry no digit; board B grounds any
   digit in the words). Real pool: 0 identifier numbers, 1 address in 2,699
@@ -1495,7 +1499,7 @@ rows below).
 | 5 | the garbage-title metric is blind (0% while 'note', 'date', 'take out the trash. also' land); add the program-word, command-frame and dangling-joiner tests; rescore the archive | open | instrument |
 | 6 | decompose_validate multiplies an under-split into junk ('send Bill Malinda'); multiply only over a bare noun list under one verb | open | dv boards, stage board's split line |
 | 7 | ingest month/day misspellings ("Febuary"); "invite/schedule/book" as polite imperatives; always answer when the rescue builds nothing | open | vocab bench (thousands), stage board |
-| 8 | RULINGS for Gil: the untimed event's default (fast path all-day, deep path clock-of-now); what "start a new list" creates; whether an offset or a recurrence on "remind me to <verb>" makes an event; resume the loop or stay in checkpoint mode | **waiting on Gil** | 5 of the remaining 17 rows |
+| 8 | RULINGS for Gil | **ANSWERED 2026-09-20** (DEVQA Q28, Q31–Q34): a MEAL names its own hour (09/13/19) and the board's premise moved with it; a NEW LIST is a General to-do named for its contents; a genuine bare 7 or 8 is ASKED about and otherwise reads PM on both tracks; the loop resumes; cycles run on the branch and never merge. **Still unruled:** the general untimed event (non-meal), and whether an offset or a recurrence on "remind me to <verb>" makes it an event | 5 of the remaining rows |
 
 ## THE LOOP-BACK'S MODEL ROUND — landed, 2026-09-20 (DEVQA Q30)
 

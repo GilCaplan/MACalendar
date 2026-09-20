@@ -226,6 +226,7 @@ class Engine(Component):
         # changed, not about whether the rewrite exists.
         if reentries:
             self.llmjudge.run(state, cfg)
+        _block_unresolved_subjects(state)
         # `state.findings` post-restructure (llmjudge/findings.py): the old
         # "missing" type doesn't exist any more — ungrounded_subject /
         # unsupported_field / not_an_ask replaced it — so ANY finding is now
@@ -642,6 +643,16 @@ def _commit(state: EngineState, cfg) -> None:
             for flag in item.slots.get("flags") or []:
                 reason = flag.split(": ", 1)[-1] if ": " in flag else flag
                 state.messages.append(f"Note: {reason}.")
+            # A BARE 7 OR 8 the speaker was not asked about (no client that
+            # can render a prompt). Gil ruled on 2026-09-20 that the genuine
+            # ambiguity is worth asking about; when nobody can be asked, the
+            # assumption is at least SAID, so the speaker can correct it in
+            # one sentence instead of finding the event at the wrong hour.
+            hour = item.slots.get("assumed_pm")
+            if hour:
+                state.messages.append(
+                    f"I read \"{hour}\" as {hour} PM — say \"change it to "
+                    f"{hour} AM\" if you meant the morning.")
             state.executed.append(ExecutedAction(
                 item_id=item.id, action=item.action, message=result or "",
                 ok=True, record=record))
@@ -689,6 +700,61 @@ def _loop_target(state: EngineState) -> "str | None":
     """
     from assistant.engine.llmjudge import findings as _findings
     return "segment" if _findings.wants_rewrite(state.findings) else None
+
+
+def _block_unresolved_subjects(state: EngineState) -> None:
+    """The loop has stopped and a subject that NAMES NOTHING is still standing.
+    Hold that object back instead of writing it.
+
+    THE SAME CONTRACT THE FAST PATH HAS, applied to the deep path (Gil's
+    plan item 4, dev-100 2026-09-20). `Gatekeeper` REFUSES "create an event
+    now to go out for a run" because 'event' is the program's word for a
+    calendar entry, not a name for one — and CLAUDE.md records that the
+    per-item path once re-committed exactly what the front door had vetoed.
+    The judge had the same hole at the other end: it raised the finding every
+    round, could not rewrite its way out of it (no rewrite can invent a
+    subject nobody said), and then committed the object anyway. Four rows of
+    the checkpoint, and one of them written TWICE — an event called
+    'remind me', and 'this on my calender', and 'Appointment', and the
+    rescue's 'Grocery List Review'.
+
+    NARROW ON PURPOSE, and the narrowness is the measured part:
+
+    * only `ungrounded_subject` — a COORDINATED or UNSPLIT subject has a real
+      title and is two asks in one, so blocking it would lose a real event;
+    * only a subject `_GENERIC_TARGET_RE` calls a program word or a pronoun.
+      A subject that is SPECIFIC but unsupported ("Washington, D.C trip" from
+      a command that said Washington) still commits with its notice: a wrong
+      title is something the speaker can fix in one tap, a missing event is
+      not.
+
+    Deleting is destructive and so is silence; the item carries its reason to
+    `_commit`, which says "I didn't book 'X'" in the reply and draws a held-
+    back step in the panel.
+    """
+    from assistant.engine.llmjudge import findings as _findings
+    from assistant.engine.llmjudge.gatekeeper import _GENERIC_TARGET_RE
+
+    blamed = {f.item_id for f in state.findings
+              if f.type == _findings.UNGROUNDED_SUBJECT and f.item_id}
+    if not blamed:
+        return
+    for it in state.items:
+        if it.id not in blamed or it.blocked or it.intent is None:
+            continue
+        title = (getattr(it.intent, "title", None)
+                 or " ".join(getattr(it.intent, "titles", None) or [])
+                 or getattr(it.intent, "match_title", None) or "")
+        if title and _GENERIC_TARGET_RE.match(title.strip()):
+            it.blocked = ("I couldn't tell what to call it, and "
+                          f"“{title.strip()}” is my word for a calendar entry, "
+                          "not a name for one")
+            if state.trace:
+                from assistant.trace import VERIFY
+                state.trace.step(VERIFY, "Held back",
+                                 f"{it.id}: the subject is still unresolved "
+                                 f"after {state.retries.get('segment', 0)} "
+                                 f"rewrite(s)", ok=False)
 
 
 def _frozen_items(state: EngineState) -> list:
@@ -1151,8 +1217,16 @@ def _record_memory(state: EngineState, cfg, result_msg: str,
         return get_memory().record(
             transcript=state.text, raw_transcript=state.raw_text, source=state.source,
             parse_path=state.parse_path,
+            # NOT the blocked ones. A held-back object was refused and the
+            # speaker was told so ("I didn't book 'this on my calender'") —
+            # recording it here said the assistant DID it. The memory feeds
+            # the review flows and the weekly board, and the dataset scorer
+            # reads this same list, so a refusal counted as an action both
+            # misled the review and inflated every board that reads it
+            # (found 2026-09-20, the first run where anything was held back).
             actions=[(it.action, it.intent) for it in state.items
-                     if it.intent is not None and it.action and it.action != "unknown"],
+                     if it.intent is not None and it.action
+                     and it.action != "unknown" and not it.blocked],
             result=result_msg, success=success, llm_ms=state.llm_ms,
             total_ms=state.trace.total_ms if state.trace else 0,
             records=[ex.record for ex in state.executed if ex.record],

@@ -2633,3 +2633,66 @@ that folder appeared; and the rate is reported but not yet a column in
 `loop_log.csv` (`garbage_pct` is logged from the run's own scorer, so runs
 22–26 carry 0.0 there — the ledger above is the corrected history).
 
+
+### Cycle 28, the fix half — ACTUAL (2026-09-20): the count metric PAYS for junk
+
+Three changes, one confirming run each, then Gil's three rulings folded in
+(DEVQA Q28, Q32, Q33) and one final read. Runs 27–29 in `loop_log.csv`.
+
+| metric (dev-100, n=100) | run 26 | **run 29** |
+|---|---|---|
+| garbage-title rate | 19% | **16%** — 7 distinct junk titles gone |
+| count-correct | 85% | **82%** |
+| item P / R / F1 | 87.9 / 86.0 / 87.0 | 88.4 / 81.7 / 84.9 |
+| count-mismatch failures | 15 | 18 |
+| segmentation board · product-shape board · stage board | — | **all byte-identical** |
+
+**The prediction was wrong, and the way it was wrong is the finding.** It
+said *"count-correct 85% ± 1 (the blocked rows were already misses)"*. They
+were not. Three rows were PASSING the count while writing a title nobody
+would keep — 'list for me', 'list', 'it to repeat' — and holding those back
+turns a passing row into a failing one. The count metric asks "did you make
+N things", so **it pays for writing junk**: an object with a meaningless
+title scores exactly as well as a right one, and refusing to invent a name
+scores worse than inventing one.
+
+The trade is exactly three rows, and they are the same three on both
+metrics:
+
+| what the speaker said | before | now |
+|---|---|---|
+| "Can you please create a list for me" | a to-do called 'list for me' | *"I couldn't tell what to call it"* |
+| "Create a new list, please" | a to-do called 'list' | the same, said once |
+| "…add this on my calender…" | an event called 'this on my calender' | held back (this row was already a miss, so it costs nothing) |
+
+Gone with them, at no cost: 'appointment', 'new list', 'make new list', and
+'make new list of dog breeds' — the last because Q33's rule now titles it
+**'dog breeds'** and files it under General on both tracks.
+
+**Kept, and here is the reasoning.** Creating a to-do called "list for me"
+is a row the speaker has to find and delete; saying "I couldn't tell what
+to call it" is what a careful assistant does. The instrument built for
+exactly this question at the start of the same cycle — the garbage-title
+rate — moved the right way by the same three rows. A count metric cannot
+see title quality, which is why it was widened this morning and why it is
+not the only number read here.
+
+**Filed for Gil, not decided here:** the dev-100 gold counts a contentless
+"create a new list" as requiring a creation. If a list with no name should
+be created anyway (titled with the speaker's own words), say so and the
+hold-back narrows to events only.
+
+### Next prediction (registered) — cycle 29
+
+The `_commit` reply and the review flows now disagree with nothing, but
+**the rescue still invents**: 'Grocery List Review' at Home, 'Washington,
+D.C trip', a daily recurrence nobody said, and 'milk, eggs and bread' from
+a command that named no groceries. Those are 4 of the 18 remaining
+failures and they survive every loop round, because the judge can refuse
+them but the rewrite cannot change what the parser returns.
+`llm_fallback._grounded_title` already DROPS a fabricated title on that
+path; the same test applied to the other word fields (location, list
+contents, recurrence) is the change. **Prediction:** garbage-title 16% →
+12–14%, count-correct 82% → 84–86% (the invented rows currently produce
+objects that miss on count too), no board moves.
+

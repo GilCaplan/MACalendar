@@ -367,6 +367,15 @@ def rewrite_for_retry(state, cfg) -> "str | None":
     """
     if not F.rewritable(state.findings):
         return None
+    # NOT SHORT-CIRCUITED when the subject names nothing, though it is
+    # tempting: the rounds look wasted (no rewrite can invent a subject
+    # nobody said) and `engine._block_unresolved_subjects` holds the object
+    # back at the end anyway. Tried on 2026-09-20 and REVERTED — the re-cut
+    # is what saves some of those rows: "let's just skip appointment at time"
+    # is titled 'Appointment' on the first pass and re-parses as a DELETE
+    # that finds nothing, which is the correct answer to a garbled command,
+    # and refusing the round committed an event instead. The block is the
+    # safety net; the loop still gets its chance.
     tried = _tried(state)
     # An UNSPLIT subject is one object whose words hold two asks. A trim of
     # those words is one ask with the other half dropped — measured: "Remind

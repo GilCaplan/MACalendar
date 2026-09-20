@@ -36,7 +36,7 @@ realspeech dataset that was dropped; it is the data that already exists.
 rewritten?** Both inside `rule_parser.py`, contracts untouched, both rewrites
 of a function that every FastRule cycle has hit. Not started without a yes.
 
-**Q28 — the bare hour at 7: which reader is right?** Found 2026-09-19 while
+**Q28 — ANSWERED 2026-09-20, see the log below.** Found 2026-09-19 while
 closing the front door's title leak. *"book team meeting tomorrow at 7"* is
 **19:00 on the fast path** (`rule_parser._pick_business_hour_time` prefers PM
 for 1–7, and `_extract_temporal`'s post-process bumps 1–7 to PM unless a
@@ -48,7 +48,8 @@ sees the fast path's value to correct it (on the fast path it receives the
 intent's title alone). One ruling — is 7 an evening hour by default, or only
 with evening words? — and the losing reader is aligned as an implementation
 fix and measured on the FastRule product-shape board's `explicit time right`
-line (79.5%, n=527, train). Not started without an answer.
+line (79.5%, n=527, train). **Answered and built 2026-09-20** — the ask, and
+the deep reader aligned to the fast one.
 
 **Q17 — Snooze: keep or kill?** It is the ONE notifications phase-5 item with no
 ruling. The phase is the phase-5 row of `DOCUMENTATION/NOTIFICATIONS_PLAN.md`
@@ -819,4 +820,65 @@ before you rule:
   every board. The three open rulings (Q29's untimed event, the new list, the
   offset/recurrence on "remind me to") are not blocked by this: they gate
   specific rows, not the loop.
+
+- **2026-09-20 — Q32 (A MEAL NAMES ITS OWN HOUR)**, Gil, asked which reading
+  an untimed dated event should get: *"have default for breakfast/lunch/dinner
+  as 0900/1300/1900 if not given for an event."*
+
+  Breakfast 09:00, lunch and brunch 13:00, dinner and supper 19:00, matched on
+  the TITLE at a word boundary so "lunchbox" and "brunching" are not meals. A
+  stated clock always wins, and a speaker who asks for the whole day
+  ("all day dinner party" — 5 of the 7,200 corpus rows) keeps their block.
+  Decided in `rule_parser`'s all-day branch and in `CalendarIntent.
+  fill_defaults`, one per track, because once the block is stamped an all-day
+  the speaker ASKED for and a bare date we defaulted are the same two values.
+
+  **The board's premise moved with it.** `fastrule_shape`'s "INVENTED a time"
+  line read *"nothing was said about a time: 00:00 is the honest answer"* and
+  went 3.5% → 5.1% on the 370 untimed events the moment the rule landed. That
+  is the instrument measuring the old convention, so it learned the new one in
+  the same commit and the board is byte-identical again. **Still open: the
+  general untimed event** (a dated "book the dentist on the 26th" is an
+  all-day block on the fast path and the clock-of-now on the deep one). The
+  ruling covers meals; nothing was said about the rest.
+
+- **2026-09-20 — Q33 (A NEW LIST IS A TO-DO IN GENERAL, NAMED FOR ITS
+  CONTENTS)**, Gil. "start a new list of dog breeds" committed `query_todos` —
+  a query for a create — until the router stopped reading the bare noun
+  "list" as a command; this is what it does instead: a `create_todo` titled
+  "dog breeds" on the **general** list, not today, because a list of dog
+  breeds is not something to do today. The name ends where the next ask
+  begins and courtesy is not a name — "create a new list, please" has nothing
+  to call it and gets the generic-title veto rather than a list called
+  'please'. An item FOR a list ("add milk to the new list") is not the making
+  of one and stays on Today.
+
+- **2026-09-20 — Q28 ANSWERED (A GENUINE 7 OR 8 IS ASKED ABOUT)**, Gil:
+  *"Ask the speaker when it is genuinely 7 or 8."* Filed 2026-09-19 when the
+  same sentence — "book team meeting tomorrow at 7" — resolved 19:00 on the
+  fast path and 07:00 on the deep one.
+
+  **Genuinely ambiguous** means a bare "at 7" or "at 8" with no meridiem and
+  nothing around it to settle the half of the day: 86 of the 7,200 corpus
+  rows, 4 of the 3,000 real utterances. 1 to 6 is not — "gym at 5" is not 5am
+  and that convention has held all year — and "8 o'clock" reads AM on both
+  tracks with the gold agreeing, so neither is touched.
+
+  A client that says it can render a prompt is ASKED, on the same terms as a
+  range date (`confirm_create`, one item only, because a confirmation holds
+  everything): *"Want me to add “team meeting” on Thursday, Sep 10, 2026
+  7 PM–8 PM?"* A client that cannot is TOLD: the hour resolves PM — the fast
+  path's long-standing reading, so `resolve._bare_hour` was aligned to it and
+  the two tracks now agree on every shape — and the reply says *"I read "7" as
+  7 PM — say "change it to 7 AM" if you meant the morning."* The losing reader
+  being aligned is the half of Q28 that was always going to be an
+  implementation fix; the asking is the half that needed the ruling.
+
+- **2026-09-20 — Q34 (THE AUTONOMOUS RUN'S SCOPE)**, Gil: *"I want there to be
+  an autonomous run as much as you can until you feel like you can't make more
+  significant progress or relevant progress without needing my clarification."*
+  Cycles run on `fastrule-title-time-precedence`, one change per board run,
+  each committed with its numbers. **Main is never touched** — the merge stays
+  Gil's call. The run stops when three cycles move nothing past the noise
+  floor, or when a ruling is needed.
 

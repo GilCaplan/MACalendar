@@ -76,7 +76,8 @@ everywhere instead of being guessed per sentence.
 | convention | rule |
 |---|---|
 | **the date floor** | no day named ⇒ **today**. The clock is never invented. |
-| **bare hour** | 1–6 is PM; 7–8 is PM only with evening words. "gym at 5" is not 5am. |
+| **bare hour** | 1–8 is PM. "gym at 5" is not 5am. **7 and 8 are ASKED about** when the client can render a prompt (Gil, 2026-09-20, DEVQA Q28) — they used to be the boundary that needed an evening word, which is how this stage came to read "at 7" as 07:00 while the front door read 19:00 for the same sentence. With no one to ask, PM is the answer on BOTH tracks and the reply says so. A morning word still wins, and "8 o'clock" is left AM (both tracks agree and the gold does too). |
+| **a meal's own hour** | no clock stated ⇒ breakfast **09:00**, lunch and brunch **13:00**, dinner and supper **19:00** (Gil, 2026-09-20, DEVQA Q32). A stated clock wins; an explicit "all day" keeps its block. Matched on the TITLE at a word boundary, so "lunchbox" is not lunch. The general untimed event — a dated "book the dentist" — is **still unruled**: an all-day block on the fast path, the clock-of-now here. |
 | **until / through** | "until" EXCLUDES the day it names; "through" and "including" keep it (CLAUDE.md). |
 | **a series' first instance** | the **soonest** weekday the sentence names — not the first one said. An explicit "starting X" outranks the cadence but must still land on a day the cadence names. |
 | **recurrence** | `daily` / `weekly` / `monthly` / `yearly`; anything else is rounded and the rounding is **announced in the reply**, never done quietly. |

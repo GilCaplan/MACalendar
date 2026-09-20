@@ -903,3 +903,83 @@ def test_a_transcript_typo_does_not_refuse_the_repair():
                             "yashas bithday with vinay ,vally")
     assert not rewrite.grounded("book sunday", "book monday")
     assert not rewrite.grounded("book thursday", "book tuesday")
+
+
+# --- the exhaustion path holds back a subject that names nothing -------------
+
+def test_a_subject_that_names_nothing_is_held_back_not_written(registry_with_real_actions, cfg, monkeypatch):
+    """The fast path REFUSES "create an event now to go out for a run" because
+    'event' is the program's word for a calendar entry. The judge had the same
+    hole at the other end: it raised the finding every round, no rewrite could
+    invent a subject nobody said, and it committed the object anyway — four
+    dev-100 rows, one of them twice (2026-09-20)."""
+    import assistant.engine as engine
+    from assistant.intent import rule_parser as RP
+    from freezegun import freeze_time
+
+    monkeypatch.setenv("MACALENDAR_LLM_DISABLED", "1")
+    RP._ensure_nlp(); RP._ensure_dt()
+    with freeze_time("2026-09-09 10:00:00"):
+        E = engine.Engine()
+        T = "Could you add this on my calender please"
+        st = EngineState(raw_text=T, text=T)
+        E.parse(st, cfg)
+        E.judge(st, cfg)
+        ev = [i for i in st.items if i.action == "create_event"]
+        assert ev and ev[0].blocked, [(i.action, getattr(i.intent, "title", None), i.blocked) for i in st.items]
+        assert "calendar entry" in ev[0].blocked
+
+        # a real subject still commits — a wrong title is fixable in one tap,
+        # a missing event is not
+        T2 = "create an event now to go out for a run"
+        st2 = EngineState(raw_text=T2, text=T2)
+        E.parse(st2, cfg)
+        E.judge(st2, cfg)
+        ev2 = [i for i in st2.items if i.action == "create_event"]
+        assert ev2 and not ev2[0].blocked, [(getattr(i.intent, "title", None), i.blocked) for i in st2.items]
+
+
+def test_a_pronoun_with_a_destination_names_nothing():
+    """"add THIS ON MY CALENDER" titled an event 'this on my calender' and the
+    judge raised nothing — every word WAS spoken. The anaphor is the subject
+    and the rest is where to put it. 0 of the 7,200 gold titles and 0 of the
+    3,000 real utterances have this shape."""
+    from assistant.engine.llmjudge.gatekeeper import _GENERIC_TARGET_RE
+    for t in ("this on my calender", "it to my list", "that for tomorrow", "event", "this"):
+        assert _GENERIC_TARGET_RE.match(t), t
+    for t in ("dentist", "go out for a run", "this weekend trip", "meeting with sam"):
+        assert not _GENERIC_TARGET_RE.match(t), t
+
+
+def test_a_held_back_object_is_not_recorded_as_done(registry_with_real_actions, cfg, monkeypatch):
+    """The command memory feeds the review flows, the weekly board and the
+    dataset scorer. A refused object recorded there says the assistant did
+    something it told the speaker it had not — found 2026-09-20, the first
+    run where anything was held back: the reply read "I didn't book 'this on
+    my calender'" and the record carried a create_event for it."""
+    import assistant.engine as engine
+    from assistant.intent import rule_parser as RP
+    from freezegun import freeze_time
+
+    monkeypatch.setenv("MACALENDAR_LLM_DISABLED", "1")
+    RP._ensure_nlp(); RP._ensure_dt()
+    recorded = {}
+
+    class _Mem:
+        def record(self, **kw):
+            recorded.update(kw)
+            return 1
+    import assistant.intent.memory as _memory
+    monkeypatch.setattr(_memory, "get_memory", lambda: _Mem())
+
+    with freeze_time("2026-09-09 10:00:00"):
+        E = engine.Engine()
+        T = "Could you add this on my calender please"
+        st = EngineState(raw_text=T, text=T)
+        E.parse(st, cfg)
+        E.judge(st, cfg)
+        held = [i for i in st.items if i.blocked]
+        assert held, "nothing was held back, so this test proves nothing"
+        engine._record_memory(st, cfg, "msg", True)
+    titles = [getattr(i, "title", None) for _a, i in recorded["actions"]]
+    assert "this on my calender" not in titles, titles

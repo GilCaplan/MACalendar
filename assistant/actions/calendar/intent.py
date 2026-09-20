@@ -7,6 +7,30 @@ from pydantic import field_validator, model_validator
 from assistant.actions.base import BaseIntent
 
 
+#: A meal names its own hour (Gil, 2026-09-20). Word-boundary matched on the
+#: TITLE only, so "dinner reservations", "team lunch" and "breakfast with Sam"
+#: all land, while "lunchbox" and "brunching" do not. Brunch sits with lunch:
+#: it is the late-morning meal and 13:00 is the nearer of the two anchors —
+#: filed for Gil if it should be 11:00.
+_MEAL_HOURS = (
+    ("breakfast", "09:00"),
+    ("brunch", "13:00"),
+    ("lunch", "13:00"),
+    ("dinner", "19:00"),
+    ("supper", "19:00"),
+)
+
+
+def meal_hour(title: "str | None") -> "str | None":
+    """The hour a meal is eaten at, or None when the title names no meal."""
+    import re as _re
+    t = (title or "").lower()
+    for word, hour in _MEAL_HOURS:
+        if _re.search(rf"\b{word}\b", t):
+            return hour
+    return None
+
+
 class CalendarIntent(BaseIntent):
     title: str
     date: Optional[str] = None            # ISO 8601 date, e.g. "2026-04-01"
@@ -153,10 +177,20 @@ class CalendarIntent(BaseIntent):
         if not self.date:
             self.date = datetime.date.today().isoformat()
 
-        # 2. Start time defaults to current hour if missing
+        # 2. Start time: a MEAL has an hour of its own, everything else
+        #    falls back to the current hour.
+        #
+        #    Gil, 2026-09-20: *"have default for breakfast/lunch/dinner as
+        #    0900/1300/1900 if not given for an event."* A meal is the one
+        #    untimed event whose hour everybody already agrees on, and the
+        #    clock-of-now default put "book dinner reservations on the 26th"
+        #    at whatever time the speaker happened to be talking — the single
+        #    most common wrong row on the dev-100 board. Here rather than in a
+        #    stage, because BOTH tracks build these objects and a rule in one
+        #    of them is a rule the other disagrees with.
         if not self.start_time:
-            now = datetime.datetime.now()
-            self.start_time = f"{now.hour:02d}:00"
+            self.start_time = (meal_hour(self.title)
+                               or f"{datetime.datetime.now().hour:02d}:00")
 
         # 3. End time defaults to start_time + 1 hour.
         #    An end EQUAL to the start counts as missing: a zero-length event

@@ -222,6 +222,9 @@ def _rule_question_creates_nothing(state, cfg, pairs) -> None:
             continue
         if _rule_interrogative_create_asks_first(state, cfg, item, pairs):
             continue
+        _rule_a_new_list_goes_to_general(state, cfg, item, pairs)
+        if _rule_bare_hour_asks_first(state, cfg, item, pairs):
+            continue
         text = (item.text or "").strip()
         imperative_query = bool(_QUERY_OPENER.match(text)) and not _CREATE_VERB.search(text)
         if not text.endswith("?") and not _QUESTION_START.match(text) \
@@ -405,6 +408,60 @@ def is_interrogative_create(text: str) -> bool:
     if not (t.endswith("?") or _PROPOSAL_OPENER_RE.match(t)):
         return False
     return bool(_PROPOSAL_RE.search(t) and _CREATE_VERBISH_RE.search(t))
+
+
+def _rule_a_new_list_goes_to_general(state, cfg, item, pairs) -> bool:
+    """A NEW LIST is a to-do in GENERAL (Gil, 2026-09-20, DEVQA Q33).
+
+    The fast path reads this off its own frame; the deep path gets the list
+    name from the model, which answers "today" by default — so the ruling
+    held on one track and not the other, and "Make a new list of dog breeds"
+    landed on Today whenever the command was compound enough to go deep.
+    A list of dog breeds is not something to do today.
+    """
+    from assistant.intent.rule_parser import _NEW_LIST_RE
+
+    intent = item.intent
+    if intent is None or (item.action or "") != "create_todo":
+        return False
+    if not _NEW_LIST_RE.match((item.text or "").strip()):
+        return False
+    if getattr(intent, "list_name", None) == "general":
+        return False
+    intent.list_name = "general"
+    state.add_fix("validate", "new_list_goes_to_general", "today", "general",
+                  note="a new list is not something to do today")
+    return False          # a field fix, not a reason to stop reading the item
+
+
+def _rule_bare_hour_asks_first(state, cfg, item, pairs) -> bool:
+    """A bare 7 or 8 with nothing to say which half of the day: ASK (Gil,
+    2026-09-20, DEVQA Q28).
+
+    The same shape and the same guards as the interrogative rule below — the
+    client must say it can render a prompt, and only when the command is ONE
+    item, because a confirmation holds everything. When the client cannot ask,
+    `resolve._bare_hour` answers PM (the fast path's long-standing reading, so
+    the two tracks agree either way) and `_commit` says so in the reply.
+    """
+    from assistant.engine.decompose_validate.resolve import bare_hour_is_ambiguous
+
+    if item.intent is None or (item.action or "") != "create_event":
+        return False
+    if not getattr(getattr(cfg, "engine", None), "confirm_create", True):
+        return False
+    hour = bare_hour_is_ambiguous(item.spoken() or "")
+    if hour is None:
+        return False
+    if sum(1 for other, _a, _i in pairs if other.intent is not None) != 1:
+        return False
+    if not state.supports_confirm:
+        item.slots["assumed_pm"] = hour       # said in the reply instead
+        return False
+    item.slots["confirm_create"] = True
+    state.add_fix("validate", "bare_hour_asks_first", f"at {hour}", "",
+                  note=f"{hour} with no am or pm — asking which half of the day")
+    return True
 
 
 def _rule_interrogative_create_asks_first(state, cfg, item, pairs) -> bool:

@@ -1555,6 +1555,21 @@ def _extract_temporal(span_text: str, today: datetime.date,
 
 
 #: Q25 / Q15, shared with `fastseg.tag` — see `_route_intent`'s use below.
+#: The speaker asking for the WHOLE day, in their own words — the one
+#: thing that outranks a meal's own hour.
+_ALL_DAY_RE = re.compile(r"\ball[- ]?day\b|\bwhole day\b|\bentire day\b", re.I)
+
+#: "start a new list of dog breeds" — the frame, and what goes IN the list.
+#: Anchored at the head so "add milk to the new list" (an item FOR a list)
+#: is not read as making one.
+from assistant.intent.coordination import ASK_JOINER_RE as _ASK_JOINER_RE
+
+_NEW_LIST_RE = re.compile(
+    r"^(?:please\s+)?(?:can\s+you\s+|could\s+you\s+)?"
+    r"(?:start|begin|create|make|set\s+up|open(?:\s+up)?|add)\s+"
+    r"(?:a\s+|an\s+|the\s+)?(?:new\s+|another\s+|fresh\s+)(?:to-?do\s+|task\s+)?list\b"
+    r"(?P<body>.*)$", re.I)
+
 _REMINDER_TASK_FRAME = re.compile(r"^\s*(?:please\s+)?remind me\s+to\b", re.I)
 _STATED_CLOCK_RE = re.compile(
     r"\d{1,2}:\d{2}|\d{1,2}\s*(?:am|pm)\b|\bat\s+\d{1,2}\b|\bnoon\b|\bmidnight\b"
@@ -1635,6 +1650,12 @@ _ROUTE_OVERRIDES = [
     (re.compile(r"^\s*(?:please\s+)?remind me\s+(?:about|of|when|that)\b"), "create_event"),
     (re.compile(r"^\s*(?:please\s+)?remind me\b"), "create_todo"),
     (re.compile(r"^\s*(?:please\s+)?add\s+(?:a\s+|\d+\s+|two\s+|three\s+)?(?:new\s+)?tasks?\b"), "create_todo"),
+    # A NEW LIST is a create, never a query (Gil, 2026-09-20). The noun
+    # "list" deliberately no longer routes on its own — that is what used to
+    # commit `query_todos` for "begin new list of lottery numbers" — so the
+    # frame is what routes these now, and the slot filling below titles the
+    # to-do with what the list is OF.
+    (_NEW_LIST_RE, "create_todo"),
     (re.compile(r"^\s*(?:what|which|show|list|read)\b.*\b(?:tasks?|todos?|to-dos?)\b"), "query_todos"),
     # F19: two very common spoken query shapes the router had no rule for
     (re.compile(r"^\s*do\s+i\s+have\b"), "query_schedule"),
@@ -2542,6 +2563,30 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
             slots["date"] = temporal["date"]
         slots["start_time"] = temporal["start_time"]
         slots["end_time"] = temporal.get("end_time") or ""
+    elif action_name == "create_todo" and _NEW_LIST_RE.match(span.text.strip()):
+        # A NEW LIST IS A TO-DO IN GENERAL, titled with what follows (Gil,
+        # 2026-09-20). "start a new list of dog breeds" was committing
+        # `query_todos` — a QUERY for a create — until the router stopped
+        # reading the noun "list" as a command; this is what it does instead.
+        # `general` rather than `today`, because a list of dog breeds is not
+        # something to do today.
+        m = _NEW_LIST_RE.match(span.text.strip())
+        body = re.sub(r"^(?:for|of|called|named|titled)\s+", "",
+                      (m.group("body") or "").strip(), flags=re.I)
+        # The list's name ends where the next ask begins — "start a new list
+        # AND add grocery shopping to today's list" titled a to-do 'and' —
+        # and courtesy is not a name: "create a new list, PLEASE" titled one
+        # 'please'.
+        body = _ASK_JOINER_RE.split(body)[0]
+        body = re.sub(r"\b(?:please|for me|thanks|thank you)\b", " ", body, flags=re.I)
+        body = re.sub(r"\s+", " ", body).strip(" ,.;")
+        if body and body.lower() not in _PRONOUN_TITLES:
+            slots["titles"] = [body]
+            slots["list_name"] = "general"
+        else:
+            # "create a new list, please" names nothing to put in it. The
+            # generic-title veto is the right answer, not a list called 'list'.
+            slots["title"] = "list"
     elif action_name == "create_todo":
         # Phrase-level extraction first: dependency heuristics produce "me"
         # for "remind me to …" and "task" for "add a task to …".
@@ -2742,8 +2787,22 @@ def _compute_missing_slots(action_name: str, slots: dict) -> list[str]:
     if (action_name == "create_event" and missing == ["start_time"]
             and slots.get("date") and slots.get("title")
             and not _CLOCK_MENTION_RE.search(slots.get("_raw_text", ""))):
-        slots["start_time"] = "00:00"
-        slots["end_time"] = slots.get("end_time") or "23:59"
+        # A MEAL NAMES ITS OWN HOUR (Gil, 2026-09-20: *"have default for
+        # breakfast/lunch/dinner as 0900/1300/1900 if not given for an
+        # event"*), so it is not an all-day block. Decided HERE rather than in
+        # `CalendarIntent.fill_defaults` because this is the last place that
+        # can tell the two apart: once the block is stamped, an all-day the
+        # SPEAKER asked for and a bare date we defaulted are the same two
+        # values. 5 of the 7,200 rows say "all day" about a meal, and they
+        # keep their block.
+        from assistant.actions.calendar.intent import meal_hour
+        meal = meal_hour(slots.get("title"))
+        if meal and not _ALL_DAY_RE.search(slots.get("_raw_text", "")):
+            slots["start_time"] = meal
+            slots["end_time"] = slots.get("end_time") or ""
+        else:
+            slots["start_time"] = "00:00"
+            slots["end_time"] = slots.get("end_time") or "23:59"
         return []
     # THE MIRROR CASE (Q26, Gil, 2026-09-18): a stated CLOCK and no day.
     # "remind me to feed the cat at 14:00" and "I need to walk Val at 3pm" —

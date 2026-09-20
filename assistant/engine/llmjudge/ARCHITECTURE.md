@@ -184,6 +184,25 @@ retired the model repair (worst of five constructions: 41 recovered, 13 leaks,
 finished asks are cut out in code and listed as done, the seams are put in by
 code, and a line that invents a word refuses the whole answer.
 
+**When the budget runs out, a subject that names nothing is HELD BACK.** The
+judge raised `ungrounded_subject` on 'Appointment' and 'this on my calender'
+every round, no rewrite could invent a subject nobody said, and the object was
+committed anyway — four dev-100 rows on 2026-09-20, one of them written twice.
+`engine._block_unresolved_subjects` sets `item.blocked`, which `_commit`
+already reports ("I didn't book 'X': …") and the panel already draws. It reads
+`_GENERIC_TARGET_RE`, the fast path's own veto, so the two tracks agree about
+what "no subject" means — this is the REFUSAL contract that CLAUDE.md records
+as broken once before, at the other end of the chain. Narrow twice over: only
+`ungrounded_subject` (a COORDINATED or UNSPLIT subject has a real title and is
+two asks in one), and only a program word or bare pronoun (a specific but
+unsupported title still commits with its notice).
+
+The loop is NOT short-circuited for those objects, though the rounds look
+wasted. Tried and reverted the same day: "let's just skip appointment at time"
+is titled 'Appointment' on the first pass and re-parses as a DELETE that finds
+nothing, which is the right answer to a garbled command, and refusing the round
+committed an event instead.
+
 **The guard on X1'.** Every content word of the rewrite must already appear in
 the transcript — both tiers, every line. The recorded defect: the first attempt built X1' out of
 `finding.detail` — the human-readable EXPLANATION — and segmentation parsed the

@@ -530,3 +530,30 @@ def test_a_value_fix_names_the_field_not_the_whole_command():
     for n in notes:
         assert text not in n, f"the note repeats the whole command: {n!r}"
         assert len(n) < 24, f"a note this long is a wall, not a label: {n!r}"
+
+
+def test_a_new_list_goes_to_general_on_the_deep_path_too():
+    """Gil, 2026-09-20 (DEVQA Q33): a new list is a to-do in GENERAL. The
+    fast path reads it off its own frame; the deep path takes the list name
+    from the model, which answers "today" — so "Make a new list of dog
+    breeds" landed on Today whenever the command was compound enough to go
+    deep, and the ruling held on one track only."""
+    import assistant.engine as engine
+    from assistant.engine.state import EngineState
+    from assistant.intent import rule_parser as RP
+    from freezegun import freeze_time
+
+    RP._ensure_nlp(); RP._ensure_dt()
+    cfg = engine.load_config()
+    with freeze_time("2026-09-09 10:00:00"):
+        st = EngineState(raw_text="Make a new list of dog breeds. Also, Create a new list, please",
+                         text="Make a new list of dog breeds. Also, Create a new list, please")
+        engine.Engine().parse(st, cfg)
+        lists = [getattr(i.intent, "list_name", None) for i in st.items
+                 if i.intent is not None and i.action == "create_todo"]
+        assert lists and all(v == "general" for v in lists), lists
+        # an item FOR an existing list is not the making of one
+        st2 = EngineState(raw_text="add milk to my list", text="add milk to my list")
+        engine.Engine().parse(st2, cfg)
+        assert [getattr(i.intent, "list_name", None) for i in st2.items
+                if i.intent is not None] == ["today"]

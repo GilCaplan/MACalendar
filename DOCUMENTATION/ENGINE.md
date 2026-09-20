@@ -376,7 +376,13 @@ to — which code joins as the ingest envelope `("a")and("b")` so segmentation
 opens the cut before it reads any language. The orchestrator FREEZES the
 objects that passed (`engine.parse(frozen=…)`, ids re-prefixed per round)
 rather than re-parsing them, so nothing is built twice and `_commit` still runs
-exactly once. ≤ `MAX_REENTRIES` (3) per command; on exhaustion commit the best
+exactly once. ≤ `MAX_REENTRIES` (3) per command; **on exhaustion an object whose
+subject still NAMES NOTHING is held back, not written** (`engine._block_
+unresolved_subjects`, 2026-09-20): the same `_GENERIC_TARGET_RE` the fast
+path's REFUSAL uses, so 'event', 'Appointment' and 'this on my calender' are
+refused on both tracks instead of one. An object whose subject is SPECIFIC but
+unsupported ("Washington, D.C trip") still commits with its notice — a wrong
+title is one tap to fix, a missing event is not. Otherwise on exhaustion commit the best
 attempt, say so, mark the memory record uncertain. **Both tiers fail CLOSED**:
 every content word of X1' must already appear in the transcript (creation
 verbs exempt, destructive verbs never), a model line that invents a word

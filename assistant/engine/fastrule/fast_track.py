@@ -99,15 +99,32 @@ def fast_propose(state: EngineState, cfg) -> bool:
         #     behind a dialog about the yoga. Same guard the interrogative rule
         #     carries, for the same reason.
         ranged = getattr(res.rule_result, "range_dates", None)
-        ask_first = bool(ranged) and state.supports_confirm and len(res.intents) == 1
+        # A BARE 7 OR 8 is asked about too (Gil, 2026-09-20, DEVQA Q28), on
+        # the same terms as a range date: the client must be able to render a
+        # prompt, and only when the command is one item. Without a prompt the
+        # hour resolves PM and the reply says so, which is what both tracks
+        # have always done for 1 to 6.
+        from assistant.engine.decompose_validate.resolve import bare_hour_is_ambiguous
+        bare_hour = bare_hour_is_ambiguous(state.text or "")
+        ask_first = (bool(ranged) or bare_hour is not None) \
+            and state.supports_confirm and len(res.intents) == 1 \
+            and all(n == "create_event" for n, _ in res.intents)
+        base_slots: dict = {"confirm_create": True} if ask_first else {}
+        if bare_hour is not None and not ask_first:
+            base_slots["assumed_pm"] = bare_hour
         state.items = [
             Item(id=f"item_{i + 1}", kind=kind_for(name),
                  text=_fast_item_words(intent, state.text),
-                 action=name, intent=intent,
-                 slots={"confirm_create": True} if ask_first else {})
+                 action=name, intent=intent, slots=dict(base_slots))
             for i, (name, intent) in enumerate(res.intents)
         ]
         state.parse_path = "fast"
+        if bare_hour is not None and state.trace:
+            state.trace.step(RULE, "Rule parser",
+                             f"\"at {bare_hour}\" names no half of the day — "
+                             + ("asking which" if ask_first
+                                else f"taking {bare_hour + 12}:00"),
+                             confidence=round(res.confidence, 2))
         if ranged and state.trace:
             state.trace.step(RULE, "Rule parser",
                              f"\"{ranged[0]}\" is a span, not a day — "

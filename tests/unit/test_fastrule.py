@@ -352,3 +352,85 @@ def test_note_and_date_are_the_programs_words_not_titles(fastrule):
     'note' at 0.86; the generic-title veto now names note and date."""
     r = fastrule.run("make a note of it on my calendar for march 25th")
     assert not r.committed and r.reason.startswith("generic-title"), r
+
+
+def test_a_meal_with_no_clock_lands_at_its_own_hour(fastrule):
+    """Gil, 2026-09-20: "have default for breakfast/lunch/dinner as
+    0900/1300/1900 if not given for an event." A dated meal with no spoken
+    clock was an all-day block on the fast path and the clock-of-now on the
+    deep one — the most common wrong row on the dev-100 board."""
+    for text, hour in (("book dinner reservations on the 26th", "19:00"),
+                       ("book breakfast with sam tomorrow", "09:00"),
+                       ("book team lunch on friday", "13:00")):
+        r = fastrule.run(text)
+        assert r.committed and r.intents[0][1].start_time == hour, (text, r.intents)
+    # a stated clock always wins
+    assert fastrule.run("book dinner tomorrow at 8pm").intents[0][1].start_time == "20:00"
+    # the speaker asking for the whole day keeps the block
+    r = fastrule.run("book all day dinner party on the 26th")
+    assert r.intents[0][1].start_time == "00:00" and r.intents[0][1].end_time == "23:59"
+    # a non-meal is untouched, and "lunchbox" is not lunch
+    assert fastrule.run("book the dentist on the 26th").intents[0][1].start_time == "00:00"
+    assert fastrule.run("book lunchbox shopping on the 26th").intents[0][1].start_time == "00:00"
+
+
+def test_the_deep_track_reads_the_same_meal_hours():
+    """Both tracks build CalendarIntent, so the untimed default lives there
+    and cannot disagree between them."""
+    from assistant.actions.calendar.intent import CalendarIntent, meal_hour
+    assert meal_hour("dinner reservations") == "19:00"
+    assert meal_hour("brunch") == "13:00" and meal_hour("supper") == "19:00"
+    assert meal_hour("lunchbox shopping") is None and meal_hour("the dentist") is None
+    assert CalendarIntent(title="dinner reservations", date="2026-09-26").start_time == "19:00"
+
+
+def test_a_new_list_creates_a_general_todo_named_for_its_contents(fastrule):
+    """Gil, 2026-09-20: a new list is a to-do in General titled with what
+    follows. Until the router stopped reading the noun "list" as a command
+    these committed `query_todos` — a QUERY for a create."""
+    for text, title in (("start a new list of dog breeds", "dog breeds"),
+                        ("Begin new list of lottery numbers", "lottery numbers"),
+                        ("start a new list called groceries", "groceries")):
+        r = fastrule.run(text)
+        assert r.committed, (text, r.reason)
+        name, intent = r.intents[0]
+        assert name == "create_todo" and intent.titles == [title], (text, intent)
+        assert intent.list_name == "general", intent.list_name
+    # nothing to name it by: the generic-title veto, not a list called 'please'
+    assert not fastrule.run("Create a new list, please").committed
+    # an item FOR a list is not the making of one, and stays on Today
+    r = fastrule.run("add milk to the new list")
+    assert r.committed and r.intents[0][1].titles == ["milk"]
+    assert r.intents[0][1].list_name == "today"
+
+
+def test_a_bare_seven_is_asked_about_and_otherwise_read_as_pm(registry_with_real_actions):
+    """DEVQA Q28, ruled 2026-09-20: "Ask the speaker when it is genuinely 7 or
+    8." The same sentence used to be 19:00 on the fast path and 07:00 on the
+    deep one. Now a client that can render a prompt is asked; one that cannot
+    gets the fast path's long-standing PM reading on BOTH tracks, and the
+    reply says so."""
+    import assistant.engine as engine
+    from assistant.engine.decompose_validate.resolve import bare_hour_is_ambiguous
+    from freezegun import freeze_time
+    from assistant.intent import rule_parser as RP
+
+    assert bare_hour_is_ambiguous("book team meeting tomorrow at 7") == 7
+    assert bare_hour_is_ambiguous("book standup at 8") == 8
+    # settled by the words, so not genuinely ambiguous
+    for t in ("book gym at 5", "at 7 in the morning", "at 8 o'clock",
+              "at 7am", "at 7 pm", "dinner at 7", "at 7:30"):
+        assert bare_hour_is_ambiguous(t) is None, t
+
+    RP._ensure_nlp(); RP._ensure_dt()
+    with freeze_time("2026-09-09 10:00:00"):
+        E = engine.Engine()
+        asked = E.run("book team meeting tomorrow at 7", source="test", supports_confirm=True)
+        assert asked["parse"] == "confirm_create"
+        assert "7 PM" in asked["message"], asked["message"]
+        told = E.run("book team meeting tomorrow at 7", source="test", supports_confirm=False)
+        assert told["parse"] == "fast" and "7 PM" in told["message"]
+        assert "meant the morning" in told["message"], told["message"]
+        # 1 to 6 keeps the settled convention, with no question and no note
+        five = E.run("book gym at 5", source="test", supports_confirm=True)
+        assert five["parse"] == "fast" and "meant the morning" not in five["message"]

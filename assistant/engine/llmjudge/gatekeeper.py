@@ -48,7 +48,17 @@ _GENERIC_TARGET_RE = re.compile(
     # returns False on an empty word list. Measured: "i'm free christmas day so
     # book staff meeting at 5 pm" produced an event titled **"i"** with no
     # finding raised against it.
-    r"|^(?:you|i|we|us|it|me|this|that|them)$",
+    r"|^(?:you|i|we|us|it|me|this|that|them)$"
+    # A PRONOUN WITH A DESTINATION names nothing either: "add THIS ON MY
+    # CALENDER" titled an event 'this on my calender', the judge raised
+    # nothing (every word WAS spoken) and it was written (dev-100 run 22 and
+    # still in run 26). The anaphor is the subject and the rest is where to
+    # put it. Measured before writing: 0 of the 7,200 gold titles and 0 of
+    # the 3,000 real utterances have this shape, so nothing legitimate is
+    # caught — the deep track may still RESOLVE it, which is what the
+    # REFUSAL class means.
+    r"|^(?:you|i|we|us|it|me|this|that|them|these|those)\s+"
+    r"(?:on|to|in|for|at|from|off|with|about)\b",
     re.I)
 
 # "Can you create/add/make …" is a polite imperative, not a question —

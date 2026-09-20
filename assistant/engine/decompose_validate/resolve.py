@@ -53,6 +53,11 @@ _NUMBER = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
 #: Words that make a bare 7 or 8 o'clock mean the evening. Same list the
 #: convention is stated with; see `_bare_hour`.
 _EVENING = re.compile(r"\b(tonight|this evening|evening|dinner|supper|drinks|pm)\b", re.I)
+#: What says a bare 7 or 8 is the MORNING, now that PM is the default there.
+_MORNING = re.compile(r"\b(morning|breakfast|sunrise|dawn|am|a\.m\.)\b", re.I)
+#: "8 o'clock" reads AM on both tracks and the corpus gold agrees, so the
+#: PM default deliberately does not reach it.
+_OCLOCK = re.compile(r"\bo'?clock\b", re.I)
 
 
 # ---------------------------------------------------------------------------
@@ -276,15 +281,51 @@ _SPOKEN_CLOCK = re.compile(
     "|".join(re.escape(m) for m in _SPOKEN_MINUTE) + r")\b")
 
 
+def bare_hour_is_ambiguous(said: str) -> "int | None":
+    """The hour, when a command says a bare 7 or 8 and nothing settles which.
+
+    Gil, 2026-09-20 (DEVQA Q28): *"Ask the speaker when it is genuinely 7 or
+    8."* 1 to 6 is not genuinely ambiguous — "gym at 5" is not 5am and the
+    convention has held all year — and "8 o'clock" reads AM on both tracks
+    with the corpus agreeing. What is left is the bare "at 7" / "at 8" with no
+    meridiem and nothing around it to say which half of the day: 86 of the
+    7,200 corpus rows, 4 of the 3,000 real utterances.
+
+    The caller asks the speaker when the client can render a prompt; when it
+    cannot, `_bare_hour` answers PM and the reply says so.
+    """
+    t = said or ""
+    if _MORNING.search(t) or _EVENING.search(t) or _OCLOCK.search(t):
+        return None
+    m = re.search(r"\bat\s+(7|8|seven|eight)\b(?!\s*[:.]?\d)"
+                  r"(?!\s*(?:am|pm|a\.m\.|p\.m\.))", t, re.I)
+    if not m:
+        return None
+    word = m.group(1).lower()
+    return {"seven": 7, "eight": 8}.get(word, 0) or int(word)
+
+
 def _bare_hour(h: int, minute: int, said: str) -> str:
-    """THE BARE-HOUR CONVENTION: 1-6 is PM; 7-8 is PM only with evening words.
+    """THE BARE-HOUR CONVENTION: 1-8 is PM; a morning word is what says otherwise.
 
     A bare hour in calendar speech is far more often the afternoon — "gym at 5"
-    is not 5am. 7 and 8 are the boundary, so they need the sentence to say so.
+    is not 5am.
+
+    7 AND 8 USED TO BE THE BOUNDARY and needed an evening word to go PM, which
+    is how the two tracks came to disagree about the same sentence: "book team
+    meeting tomorrow at 7" is 19:00 on the fast path and was 07:00 here, and
+    the deep path's validate never sees the fast path's value to correct it
+    (DEVQA Q28, found 2026-09-19). Gil ruled on 2026-09-20 that a genuine 7 or
+    8 is ASKED about — `object_rules.confirm_bare_hour` does the asking when
+    the client can render it — and this is the answer when nobody can be
+    asked: the fast path's reading, so the two agree either way. A stated
+    "o'clock" is left alone (it reads AM on both tracks and the corpus agrees),
+    and a morning word still wins.
     """
     if h <= 6:
         return f"{h + 12:02d}:{minute:02d}"
-    if 7 <= h <= 8 and _EVENING.search(said or ""):
+    if 7 <= h <= 8 and not _MORNING.search(said or "") \
+            and not _OCLOCK.search(said or ""):
         return f"{h + 12:02d}:{minute:02d}"
     return f"{h:02d}:{minute:02d}"
 
