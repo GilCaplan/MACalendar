@@ -933,3 +933,98 @@ class TestStatedTimeBeatsTitleWords:
         t = self._temporal("schedule doctor's appointment this morning at 9 in the morning")
         assert t["start_time"] == "09:00" and t["end_time"] is None, t
         assert self._title("schedule doctor's appointment this morning at 9 in the morning") == "doctor's appointment"
+
+
+# ---------------------------------------------------------------------------
+# A STATED CLOCK OR DAY BEATS A TITLE WORD (2026-09-19)
+#
+# Found by the title-invariance probe on the front door: a title carrying a
+# time-like word changed the event's clock or day, although the sentence stated
+# both outright. Three precedence defects in `_extract_temporal`, none of them
+# about where the time sits:
+#
+#   "book morning pages tomorrow at 7am"           -> 08:00  (the daypart window
+#                                                     came first and the stated
+#                                                     7am was refused)
+#   "book walk through the slides tomorrow at 3pm" -> TODAY  ("through" opened a
+#                                                     series bound on a date three
+#                                                     words away, eating the day)
+#   "book monday standup tomorrow at 9am"          -> MONDAY (the first date in
+#                                                     the string won over the one
+#                                                     that carries the clock)
+#
+# The convention is decompose_validate's, already written down: a stated clock
+# always wins, and a window applies only when nothing states one. The same rule
+# here, so the two tracks cannot disagree about it. And a reading that loses
+# gives its words back to the title -- "morning pages" is the thing's name.
+# ---------------------------------------------------------------------------
+
+class TestStatedTimeBeatsTitleWords:
+
+    WED = datetime.date(2026, 9, 9)
+
+    def _temporal(self, text):
+        from assistant.intent import rule_parser as rp
+        rp._ensure_nlp(); rp._ensure_dt()
+        return rp._extract_temporal(text, self.WED)
+
+    def _title(self, text):
+        from assistant.intent import rule_parser as rp
+        return rp._subtractive_title(text, self._temporal(text).get("spans") or [])
+
+    # --- A · a daypart window defers to a stated clock ---
+
+    def test_a_stated_clock_beats_a_daypart_that_came_first(self):
+        t = self._temporal("book morning pages tomorrow at 7am")
+        assert t["start_time"] == "07:00", t
+        assert t["end_time"] is None, "the window's end must not survive the window"
+        assert t["date"] == "2026-09-10"
+
+    def test_the_losing_daypart_gives_its_word_back_to_the_title(self):
+        assert self._title("book morning pages tomorrow at 7am") == "morning pages"
+
+    def test_night_is_the_same_rule(self):
+        t = self._temporal("book night shift handover tomorrow at 2pm")
+        assert t["start_time"] == "14:00", t
+        assert self._title("book night shift handover tomorrow at 2pm") == "night shift handover"
+
+    def test_a_daypart_alone_still_names_its_window(self):
+        """Nothing states a clock, so the window is the answer -- unchanged."""
+        t = self._temporal("book a run in the afternoon")
+        assert t["start_time"] == "12:00", t
+        assert t["end_time"] is not None
+
+    def test_a_daypart_right_after_the_clock_is_its_meridiem(self):
+        """The recogniser merges "at 6 in the evening" into one reading in every
+        natural sentence; it SPLITS only when a daypart already opened the
+        reading ("this morning at 6" + "in the evening") — the 7,200 set's own
+        template shape, nine train rows. Then the second reading says WHICH six:
+        not a window (no end at 20:00) and not a title word."""
+        t = self._temporal("book tennis lesson this morning at 6 in the evening")
+        assert t["start_time"] == "18:00", t
+        assert t["end_time"] is None
+        assert self._title("book tennis lesson this morning at 6 in the evening") == "tennis lesson"
+
+    def test_in_the_morning_after_the_clock_keeps_it_am(self):
+        t = self._temporal("schedule doctor's appointment this morning at 9 in the morning")
+        assert t["start_time"] == "09:00" and t["end_time"] is None, t
+        assert self._title("schedule doctor's appointment this morning at 9 in the morning") == "doctor's appointment"
+
+    # --- B · a series bound needs its date right after the keyword ---
+
+    def test_through_far_from_its_date_is_not_a_bound(self):
+        t = self._temporal("book walk through the slides tomorrow at 3pm")
+        assert t["recur_until"] is None, t
+        assert t["date"] == "2026-09-10", "the day was eaten by a bound nobody named"
+        assert t["start_time"] == "15:00"
+
+    def test_the_words_a_false_bound_took_are_the_title(self):
+        assert self._title("book walk through the slides tomorrow at 3pm") == "walk through the slides"
+
+    def test_up_to_far_from_its_date_is_not_a_bound(self):
+        t = self._temporal("read up to chapter four tomorrow at 3pm")
+        assert t["recur_until"] is None and t["date"] == "2026-09-10", t
+
+    def test_a_bound_right_after_its_keyword_still_binds(self):
+        assert self._temporal("every monday until the end of the month")["recur_until"] == "2026-09-30"
+        assert self._temporal("daily through next tuesday")["recur_until"] == "2026-09-15"

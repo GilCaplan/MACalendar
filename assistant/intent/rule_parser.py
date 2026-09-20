@@ -996,6 +996,15 @@ _SERIES_BOUND_KW = re.compile(
 _BOUND_INCLUSIVE_KW = re.compile(r"\b(through|thru|including)\b", re.IGNORECASE)
 _BOUND_END_OF = re.compile(r"\bend\s+of\b", re.IGNORECASE)
 
+#: What may stand between the bound keyword and the date it names: nothing, or
+#: a function word ("until THE end of the month", "through TO friday"). Anything
+#: else means the keyword is not opening a bound at all — "walk THROUGH the
+#: slides tomorrow at 3pm" read "the slides tomorrow" as a series end, invented a
+#: bound, and ate the event's own day. The old guard ("no date, no bound") was
+#: satisfied by a date three words away.
+_BOUND_GAP = re.compile(r"^[\s,]*(?:(?:the|on|at|to|about|around|of|by)\s+)*$",
+                        re.IGNORECASE)
+
 
 #: A clock time sitting at the END of the bound's own match. The recogniser
 #: returns "next tuesday at 5 pm" as ONE datetime, but in "daily through next
@@ -1030,6 +1039,8 @@ def _bound_date(tail: str, today: datetime.date, inclusive: bool) -> "tuple[str,
         except Exception:
             found = []
         for res in found:
+            if not _BOUND_GAP.match(tail[:res.start]):
+                continue                     # a date, but not THIS keyword's
             for wren in (getattr(res, "resolution", None) or {}).get("values", []):
                 kind = wren.get("type", "")
                 iso = None
@@ -1057,7 +1068,7 @@ def _bound_date(tail: str, today: datetime.date, inclusive: bool) -> "tuple[str,
 
     # No recogniser answer: this file's own readers still know "the 3rd".
     m = _BARE_ORDINAL_DATE.search(tail)
-    if m:
+    if m and _BOUND_GAP.match(tail[:m.start()]):
         iso = _ordinal_to_date(int(m.group(1)), today)
         if iso:
             if not inclusive:
