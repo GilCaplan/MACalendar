@@ -58,7 +58,30 @@ from becoming convoluted. This file is how the stage WORKS.
 
 ---
 
-## 0 · Where this stage stands — 2026-09-16
+## 0 · Where this stage stands — 2026-09-20
+
+**Train half, 1,051 rows** (`experiments/RESULTS.md`, 2026-09-20 entry, has
+the per-fix ledger): exact-row **89.2%** (937), exact-set 90.8%, the cut
+**98.1%** right item count, over-split **1** / under-split **19**, tag
+**98.0%**, adversarial phrasing 28/31. **Sealed half, read once at this
+milestone, aggregates only (660 rows)**: exact-row 78.2% → **79.7%**, the cut
+92.1% → **93.5%**, over-split 22 → **16**, under-split 34 → **27**, tag 92.6% →
+**93.6%** — the cut fixes generalise, and the 4.4-pt tag gap between halves is
+the honest size of the tagger's vocabulary fit.
+
+What moved it, in two halves. **Gold debt first**: this stage's gold had
+never been relabelled for Q26 (a stated clock or range makes an event), so
+the tag line had been measuring the ruling, not the tagger — 75 items
+relabelled by rule, +3.7 pt exact-row with no code. **Then nine
+implementation fixes**, each boarded alone: the ask gate's tag-question
+pattern, three guards in the boundary walk (a governed verb is an object, a
+modified noun is a thing, a fronted date after a joiner opens a clause), the
+walk reusing the one object test, a stated clock that includes ranges and
+spoken hours and outranks the time-blocking veto, the courtesy tail and the
+"ahead" lead marker, and the tagger's first reading moved out of the retired
+`old_seg` into `fastseg/kind.py`. Structure untouched.
+
+### 0-prev · Where this stage stood — 2026-09-16
 
 **Wired and live**: `IMPLEMENTATION = "fastseg"`, LLMSeg off, 0 model calls.
 Verified end to end through `engine.run_transcript`, not inferred from the boards.

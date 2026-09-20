@@ -216,6 +216,26 @@ column above is the honest baseline, taken the same day.)
 
 ---
 
+## Run 4 — 2026-09-20, after the segmentation implementation fixes
+
+Same board, same 1,548 groups, HEAD after the nine segmentation commits of
+2026-09-20 (`segmentation/experiments/RESULTS.md`). The front door does not
+call segmentation, and it did not move.
+
+| boundary | run 3 | run 4 |
+|---|---|---|
+| segmentation | 13.8% | **13.2%** |
+| decompose_validate | 6.3% | **5.7%** |
+| fastrule | 4.8% | **4.3%** |
+| front door | 49.4% | 49.4% |
+| correctness `end` / `front` / `front,` | 56.7 / 55.4 / 55.0 | 56.7 / 55.4 / **55.5** |
+| multi-ask arm, UNDER-split end / front / `front,` | 50 / 81 / 68 | **47 / 79 / 66** (over unchanged 7 / 9 / 16) |
+
+The `front,` gain is the fronted-date guard (a comma after a leading date no
+longer cuts "wash and fold" in two); the rest is the cut finding seams it
+used to miss at every position, which is why decompose_validate and fastrule
+inherit less again. Still degrading UP the chain: the per-item design holds.
+
 ## Not yet measured
 
 - **Title CONTENT is probed, not boarded** (run 3). If it is needed again, a `--title` arm on `scripts/dv_invariance.py` is the shape.

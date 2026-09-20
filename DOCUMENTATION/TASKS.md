@@ -1472,6 +1472,23 @@ Two candidates filed, not fixed, both needing a word from Gil:
   digit in the words). Real pool: 0 identifier numbers, 1 address in 2,699
   rows — low frequency, so it waits.
 
+## SEGMENTATION — implementation fixes landed, 2026-09-20
+
+Gil: *"work on implementation fixes, can reiterate as long as improving…
+careful that code doesn't get overall convoluted."* Nine commits, each
+boarded alone; structure untouched. Train half, 1,051 rows: exact-row
+84.1% → **89.2%** (+3.7 from the Q26 gold relabel, +1.4 from code), the cut
+97.6% → **98.1%**, over-split 3 → **1**, under-split 22 → **19**, tag
+94.5% → **98.0%**; FastRule's product-shape board byte-identical throughout;
+its stage board (segmentation's items at FastRule's door) 80 → 76 atomic
+rows split in two. Full ledger: `segmentation/experiments/RESULTS.md`
+(2026-09-20). Filed there, needing a ruling or a separate owner: the
+shared-verb gold conflict (4 hand-written families vs the generated gold and
+Q14), "schedule" inside a to-do title reading as a calendar signal, "forget
+X, i'd rather Y", the chore verbs the tagger lacks, `c_threeask_ttt_2`'s
+regeneration drift, and `is_interrogative_create` still borrowed from
+`old_seg` (with `old_seg`'s move to `retired/` still to do).
+
 ## SEGMENTATION AUDIT — two findings verified against the code, 2026-09-19
 
 Read with the stage's own board (`segmentation/experiments/run_board.py`,

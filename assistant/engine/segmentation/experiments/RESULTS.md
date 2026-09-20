@@ -246,3 +246,112 @@ upstream decided it on more evidence. That makes these 72 rows unrecoverable
 downstream by design, where previously a re-derivation might accidentally have
 corrected some of them. The trade is right (re-deciding cost more than it saved),
 but it means the tag's accuracy is now load-bearing in a way it was not before.
+
+
+---
+
+## 2026-09-20 — implementation fixes after the audit: gold debt first, then the cut
+
+Gil, after the segmentation audit: *"work on implementation fixes, can
+reiterate as long as improving… careful that code doesn't get overall
+convoluted."* Structure untouched (the five phases, the one-way vetoes, the
+parse-based cut). Every change below was measured ALONE on this board (train
+half, 1,051 rows) before the next was applied, with FastRule's product-shape
+board as the guard for the shared `coordination.py` and `asks.py`.
+
+### The board, start to end of day
+
+| metric | start | after the gold relabel | after the code fixes |
+|---|---|---|---|
+| exact-row (action+time+tag) | 84.1% (884) | 87.8% (923) | **89.2% (937)** |
+| exact-set (actions) | 90.3% | 90.3% | **90.8%** |
+| right item count — the cut | 97.6% | 97.6% | **98.1%** |
+| over-split · under-split | 3 · 22 | 3 · 22 | **1 · 19** |
+| tag accuracy | 94.5% | 97.2% | **98.0%** |
+| events read as tasks · tasks read as events | 69 · 13 | 23 · 19 | 8 · ~24 |
+| adversarial phrasing (`adversarial_tag.py`) | 28/31 | 28/31 | 28/31 |
+| FastRule product-shape board | — | — | byte-identical throughout |
+
+### The gold relabels (data, no code)
+
+- **Q26 was never applied here.** 112 gold-`task` items carried a stated
+  clock or a range — "remind me to take out the trash" at 14:00, "file the
+  taxes every monday at midnight", "block off time to print the boarding
+  pass from noon to 1" — exactly the rows the 2026-09-18 ruling turned into
+  events, which `fastseg.tag` had followed since. FastRule's set was
+  relabelled the day it was ruled; this one was not, so every tag number
+  printed since measured the ruling. `generate.q26_tag` now applies it at
+  render time, and the committed files were relabelled by the same function:
+  75 items, 53 train / 24 test, the test half transformed without being
+  read. **In place, not regenerated**: regeneration reverts the hand-applied
+  Q14 correction on five `c_threeask_ttt_2` rows (the template bank is
+  FastRule's; filed). exact-row +3.7 pt, tag +2.7 pt, the cut unmoved.
+- **A calendar destination outranks the slot's surface.** "remove
+  '{quoted_item}' from my calendar" was task because the quoted slot said so.
+  Generator rule + 1 train item. exact-row +0.1.
+
+### The code fixes, in order, each with its own board run
+
+| # | where | what was wrong | board |
+|---|---|---|---|
+| 1 | `intent/asks.py` | the tag-question pattern read any leading "do" as a question, so "do the laundry" failed the ask gate and a three-ask comma list could never be cut | under 22→21, count 97.6→97.7 |
+| 2 | `coordination` fallback | a verb governed by a command verb ("add SCHEDULE a haircut") and a preposition's objectless object ("to my LIST") counted as clause points; the joiner could not be seen across the second ask's own date ("and ON FRIDAY book the valuation") | under 21→20 |
+| 3 | `coordination` walk | "sticky NOTES" read as the verb "note" by lemma alone: a modified noun is a thing | over 3→2 (one three-piece accident became a two-piece under-split; that row's gold is the Q14 conflict below) |
+| 2b | `coordination` fallback | a joiner, then a fronted date, then a verb is a hard boundary — the family test refused "book the car wash, on wednesday add the client lunch" because both verbs are calendar | under 21→20, count 97.9 |
+| 4 | `coordination` walk | the walk's own partial object test knew no preposition; it asks `_carries_an_object` now ("pack FOR the trip") and the second copy is gone | under 20→19, count 98.0 |
+| 5 | `coordination` walk | the "buried in the first clause" rescue fired when only a fronted date sat upstream ("the 30th, wash and fold the laundry") — the `front,`-vs-`front` gap the invariance board keeps apart on purpose | no train row; pinned test + invariance board |
+| 6 | `fastseg.tag` | `_STATED_CLOCK` knew no range and no spoken hour after "at"; `_TIME_BLOCKING` vetoed a stated clock | exact-row 88.2→89.1, tag 97.2→97.9, over 2→1 |
+| 8 | `coordination` tail gate | "and let Avery know" is a courtesy tail; a lead time marked "ahead"/"prior" with a number past ten ("ping me thirty minutes ahead") is still a lead time | FastRule stage board (chain input, 1,200 rows): atomic rows split in two 80→76, sound input 88.0→88.3%; all 15 courtesy rows leave FastSeg as one item |
+| 9 | `fastseg/kind.py` | the live tagger imported its first reading from the retired `old_seg`; moved verbatim, one copy, the retired module imports it back | byte-identical |
+
+### Filed, not fixed
+
+- **Gold conflict on a shared verb.** Four hand-written trap families
+  (`leading-edge-two`, `as-well-as-plain`, `three-ask-and-chain`,
+  `list-of-things-source`) expect "tomorrow book the physio at 8 and the
+  team sync at 11" split with the verb COPIED into item 2; the generated
+  gold ("set up physical therapy at 9:15 and birthday dinner at midnight" →
+  "birthday dinner") does not copy, and Q14-reversed says a shared verb over
+  a noun list is one item. 8 train items. Needs a ruling, not code.
+- **"schedule" inside a to-do title is a calendar signal** to the fallback's
+  family test, so "…, then add SCHEDULE a haircut to my list" is still
+  refused (2 rows, `c_joiner_commathen_et_1`).
+- **"forget X, i'd rather Y"** (5 rows): "forget" is in no verb inventory,
+  and "don't forget to X" makes it a risky one to add.
+- **Chore verbs the tagger does not know**: "do the laundry", "put out the
+  bins", "rinse and stack" read as events without a clock (~5 rows).
+- **`c_threeask_ttt_2` drifts on regeneration** — the Q14 correction lives
+  only in the jsonl; the template bank is FastRule's.
+- **`is_interrogative_create`** is still borrowed from `old_seg` by
+  `decompose_validate/object_rules.py`; and `old_seg` itself is retired in
+  word but not yet moved to `retired/` with its tag.
+
+### The sealed half, read once at this milestone — aggregates only (660 rows)
+
+| metric | 2026-09-16 (map) | 2026-09-20 |
+|---|---|---|
+| exact-set | 85.6% | **87.3%** (576/660) |
+| exact-row | 78.2% | **79.7%** (526/660) |
+| right item count — the cut | 92.1% | **93.5%** (617/660) |
+| over-split · under-split | 22 · 34 | **16 · 27** |
+| time on a spoken time | 96.0% | 95.9% (n=679) |
+| tag accuracy | 92.6% | **93.6%** (934/998) |
+| NO-INVENTION | 0 | 0 |
+
+Read as: the cut fixes generalise (over-split fell on both halves, under-split
+fell on both), and the tag gap between halves — 98.0% train against 93.6%
+sealed — is the honest size of the tagger's vocabulary fit, the same shape
+the adversarial check reports at 28/31. The sealed half's own gold was
+relabelled by the same Q26 rule (24 items), never read.
+
+### The guards
+
+- Full unit suite: 2,084 passed, 2 skipped, 1 xfailed.
+- FastRule product-shape board (train, 3,200 atomic rows): byte-identical
+  to the start of the day on every rate.
+- Position-invariance board (`scripts/invariance_board.py`, 1,548 groups):
+  segmentation 13.8% → **13.2%** position-dependent, decompose_validate
+  6.3% → 5.7%, fastrule 4.8% → 4.3%, front door 49.4% unchanged (it does
+  not call this stage); `front,` correctness 55.0% → 55.5%; the multi-ask
+  arm's under-split fell at every position (end 50→47, front 81→79,
+  `front,` 68→66) with over-split unchanged.
