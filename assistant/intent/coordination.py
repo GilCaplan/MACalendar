@@ -429,16 +429,34 @@ def clause_boundaries(text: str, date_spans=None) -> "list[Boundary]":
 #: an hour" has its own object, "call the vet") is a real second ask that
 #: happens to carry a lead-time-shaped tail, not this idiom.
 _REMINDER_LEAD_RE = re.compile(
-    r"^(?:(?:remind|notify|warn|alert)\s+me|give\s+me\s+a\s+(?:heads?\s+up|nudge))\s+"
-    r"(?:\d+|a|an|half\s+an?|one|two|three|four|five|six|seven|eight|nine|ten)\s+"
+    r"^(?:(?:remind|notify|warn|alert|ping|poke|buzz)\s+me"
+    r"|give\s+me\s+a\s+(?:heads?\s+up|nudge))\s+"
+    r"(?:\d+|a|an|half\s+an?|one|two|three|four|five|six|seven|eight|nine|ten"
+    r"|fifteen|twenty|thirty|forty|forty[\s-]five|sixty|ninety)\s+"
     r"(?:minutes?|mins?|hours?|days?|weeks?)?\s*"
     # A second, redundant lead-marker sometimes follows the first ("10
     # minutes before BEFOREHAND") — the generator's own idiom stacking,
     # same shape fastseg.py's `_LEAD_INTRANSITIVE` accepts for the identical
     # reason. Still anchored to the end: real content after either marker
     # is a genuine second ask, not this idiom.
-    r"before\b(?:\s+(?:that|beforehand|ahead|prior|in\s+advance))?\s*$",
+    # Every lead MARKER, not only "before": "ping me thirty minutes AHEAD" is
+    # the same idiom, and `fastseg.py`'s own `_LEAD_INTRANSITIVE` already
+    # lists these four as one class.
+    r"(?:before|ahead|beforehand|prior|in\s+advance)\b"
+    r"(?:\s+(?:that|beforehand|ahead|prior|in\s+advance))?\s*$",
     re.I)
+
+
+#: "extend open house by an hour and LET AVERY KNOW" — a courtesy tail that
+#: names whom to tell and nothing else. It reads as a verb clause and is never
+#: a second ask by itself: there is nothing to tell them BUT the ask just
+#: made. 15 atomic rows of FastRule's 7,200 train half arrive at its door
+#: split in two on this shape. Anchored to the end — "let Avery know THAT
+#: the room moved" carries content of its own and is a real second ask.
+_COURTESY_TAIL_RE = re.compile(
+    r"^(?:let\s+\w+\s+know|(?:tell|notify|inform|update|cc)\s+\w+"
+    r"|keep\s+\w+\s+(?:posted|updated|in\s+the\s+loop)"
+    r"|give\s+\w+\s+a\s+heads?\s+up)\s*$", re.I)
 
 
 #: "change the due date of X to Y and ADD A NOTE" — a bare, object-less "add
@@ -454,7 +472,8 @@ def _non_splitting_tail(text: str) -> bool:
     that read as a VERB clause but are never a second ask by themselves —
     the shared gate for both the main walk and the lexicon fallback below."""
     t = text.strip()
-    return bool(_REMINDER_LEAD_RE.match(t) or _TRIVIAL_TAIL_RE.match(t))
+    return bool(_REMINDER_LEAD_RE.match(t) or _TRIVIAL_TAIL_RE.match(t)
+                or _COURTESY_TAIL_RE.match(t))
 
 
 #: What an object can be before a verb's particle or the object proper —

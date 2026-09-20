@@ -286,3 +286,23 @@ def test_add_a_note_with_its_own_object_still_splits():
         "and add a note about the delivery"
     ) == ["change the due date of do the laundry to two weeks from now",
           "add a note about the delivery"]
+
+
+# ---------------------------------------------------------------------------
+# Tails that are never a second ask (2026-09-20)
+# ---------------------------------------------------------------------------
+
+def test_a_lead_time_marked_ahead_is_not_a_second_ask():
+    from assistant.intent.coordination import _non_splitting_tail
+    assert _non_splitting_tail("ping me thirty minutes ahead")
+    assert _non_splitting_tail("remind me an hour before")
+    assert not _non_splitting_tail("remind me to call the vet in an hour")
+
+
+def test_a_courtesy_tail_is_not_a_second_ask():
+    from assistant.intent.coordination import _non_splitting_tail, split_clauses
+    assert _non_splitting_tail("let Avery know")
+    assert _non_splitting_tail("keep Jordan posted")
+    assert not _non_splitting_tail("let Avery know that the room moved")
+    assert split_clauses("extend open house by an hour and let Avery know") \
+        == ["extend open house by an hour and let Avery know"]
