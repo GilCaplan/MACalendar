@@ -998,3 +998,27 @@ def test_the_explorer_describes_the_cleanup_passes_that_exist(all_prose):
     assert not missing, (
         "explorer.html's ingest panel does not mention these cleanup passes, "
         "which `strip_spoken_noise` applies: " + ", ".join(missing))
+
+
+def test_the_ingest_walkthrough_matches_what_the_engine_actually_does():
+    """The explorer's INGEST widget steps through a RECORDING of the real
+    passes, not a re-implementation — see `scripts/gen_ingest_demo.py` for why.
+    A recording goes stale silently, so regenerate it and compare.
+
+    This is the mechanism that lets the page be interactive without becoming a
+    second implementation of the engine. Porting the cleanup regexes to
+    JavaScript would have drifted exactly the way two readers of the same rule
+    drifted three times in one session (the kind board's dead component, the
+    tagger against the front door, two recurrence readers) — and a page has no
+    tests of its own to notice."""
+    import json
+    page = (ROOT / "DOCUMENTATION" / "artifacts" / "explorer.html").read_text()
+    m = re.search(r'<script id="ingest-demo" type="application/json">(.*?)</script>',
+                  page, re.S)
+    assert m, "the explorer lost its ingest walkthrough data island"
+    embedded = json.loads(m.group(1))
+
+    from scripts.gen_ingest_demo import build
+    assert embedded == build(), (
+        "explorer.html's ingest walkthrough no longer matches the engine — "
+        "run `python -m scripts.gen_ingest_demo --write`")
