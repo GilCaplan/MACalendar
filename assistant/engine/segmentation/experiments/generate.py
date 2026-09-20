@@ -207,6 +207,39 @@ def derive(t: dict) -> "list[dict] | None":
     return items
 
 
+#: Q26 (Gil, 2026-09-18): "an event is something that you put on the calendar,
+#: so reminding me to do something at a specific time counts as an event." A
+#: CLOCK or a RANGE in an item's time makes it an event whatever the verb —
+#: including "remind me to" (Q15's parenthetical reversed) and a recurring
+#: chore ("file the taxes every monday at midnight"). A DAYPART alone does not
+#: decide (Q27): "this afternoon" stays with the verb. Written from the ruling,
+#: not from `fastseg.tag`, so the gold and the code stay independent readings
+#: of the same convention. FastRule's 7,200 set was relabelled by the same
+#: rule the day it was ruled; this stage's gold was not, and its board read
+#: 4.8 pt under its own map for that reason alone (TASKS.md, 2026-09-19).
+_STATED_CLOCK_OR_RANGE = re.compile(
+    r"\d{1,2}[:.]\d{2}"                                   # 14:00, 6.45
+    r"|\d{1,2}\s*(?:am|pm|a\.m\.|p\.m\.)\b"               # 7am, 5 pm
+    r"|\bat\s+\d{1,2}\b"                                 # at 3
+    r"|\b(?:noon|midnight)\b|o'?clock"
+    r"|\b(?:quarter|half)\s+(?:to|past)\b"                # quarter to nine
+    r"|\bat\s+(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b"
+    r"|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+"
+    r"(?:thirty|fifteen|forty[\s-]five|o'?clock)\b"        # ten thirty
+    r"|\bfrom\s+\S+\s+to\s+\S+|\bbetween\s+\S+\s+and\s+\S+",   # a range
+    re.I)
+
+
+def states_a_clock(time_str: str) -> bool:
+    """Does this item's TIME name a clock or a range — the Q26 tell?"""
+    return bool(_STATED_CLOCK_OR_RANGE.search(time_str or ""))
+
+
+def q26_tag(tag: str, time_str: str) -> str:
+    """The rendered tag, with Q26 applied: a task on a stated clock is an event."""
+    return "event" if tag == "task" and states_a_clock(time_str) else tag
+
+
 def _tag_for(action_tpl: str, t: dict) -> "str | None":
     """Which surface this item targets: calendar, to-do list, or a question.
 
@@ -376,6 +409,8 @@ def build(per_template: int = 6, seed: int = 20260908) -> "tuple[list[dict], lis
             items = [{"action": _fill(s["action"], binding),
                       "time": _fill(s["time"], binding),
                       "tag": s["tag"]} for s in spec]
+            for it in items:                       # Q26, see `q26_tag`
+                it["tag"] = q26_tag(it["tag"], it["time"])
             # A TEMPLATE WITH NO SLOTS renders the same sentence every time, so
             # "wash and dry the dishes" was in the corpus SIX times and got six
             # votes in every board. Distinct texts per family only (audit
