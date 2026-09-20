@@ -148,3 +148,81 @@ def test_non_latin_script_has_no_code_and_is_never_matched(tmp_path):
     v.add_word("מנחה")
     _, corrections = v.correct("meeting with מנחה tomorrow", learn=False)
     assert not [c for c in corrections if c.reason == "phonetic"]
+
+
+# ---------------------------------------------------------------------------
+# MULTI-WORD REPAIR: the window may be WIDER or NARROWER than the entry
+#
+# Whisper does not keep a phrase's word boundaries when it mishears it, so the
+# token count moves: 'quinoa delivery' comes back as 'quin oh a delivery' (4
+# tokens for 2) and 'ice cream' as 'icecream' (1 for 2). The phonetic path was
+# hard-gated `n == 1` for a documented reason — a code computed over a phrase
+# whose boundaries have moved is not comparable — so none of these were
+# repairable at all.
+#
+# Lifting the gate needs three things the gate was standing in for, each of
+# which was measured into existence:
+#   * compare SPACE-STRIPPED, because the spaces are part of the damage
+#   * an UNTRUNCATED phonetic code for multi-word windows, because Soundex
+#     truncates to four characters and over a phrase becomes a prefix test
+#   * a DAMAGE GATE: a window of entirely real words is never merged
+#
+# Gil, 2026-09-19: "run n equals two before n equals one. But in cases where
+# two sequential words, one is good and one is bad, then you don't combine
+# because we want that n equals one to also work."
+# ---------------------------------------------------------------------------
+
+def _store(tmp_path, monkeypatch, *words):
+    monkeypatch.setenv("MACALENDAR_VOCAB", str(tmp_path / "vocab.json"))
+    from assistant.stt.vocab import VocabStore
+    store = VocabStore()
+    for w in words:
+        store.add_word(w)
+    return store
+
+
+def test_a_wider_window_repairs_a_multi_word_term(tmp_path, monkeypatch):
+    store = _store(tmp_path, monkeypatch, "barista course", "kombucha order")
+    assert store.correct("book bar rista course on friday")[0] == \
+        "book barista course on friday"
+    assert store.correct("book kom bootcha order tomorrow")[0] == \
+        "book kombucha order tomorrow"
+
+
+def test_a_narrower_window_repairs_a_joined_compound(tmp_path, monkeypatch):
+    store = _store(tmp_path, monkeypatch, "ice cream")
+    assert store.correct("add icecream to my list")[0] == "add ice cream to my list"
+
+
+def test_the_single_word_path_still_works_beside_it(tmp_path, monkeypatch):
+    """The REGRESSION this nearly shipped with. 'poker knight' against a
+    'poker night' entry is two REAL English words, so the damage gate refused
+    a repair the released code performs. The gate now applies only to a
+    WIDENED window — at the entry's own width the shipped path is untouched.
+    Found end-to-end through the ingest stage, not by the bench, because the
+    bench's damaged forms are all non-words."""
+    store = _store(tmp_path, monkeypatch, "poker night")
+    assert store.correct("book poker knight on friday")[0] == \
+        "book poker night on friday"
+
+
+@pytest.mark.parametrize("text", [
+    # the documented regression the n == 1 gate was written to prevent
+    "set meeting for tomorrow",
+    # ordinary English that merely sits near an entry
+    "do you know when the meeting is",
+    "buy milk and call mom",
+    "water the plants this afternoon",
+    "add buy groceries to my list",
+    "call mom and dad",
+])
+def test_a_window_of_real_words_is_never_merged(tmp_path, monkeypatch, text):
+    store = _store(tmp_path, monkeypatch, "set a meeting", "poker night",
+                   "barista course", "ice cream", "water the garden")
+    assert store.correct(text)[0] == text
+
+
+def test_an_empty_vocabulary_changes_nothing(tmp_path, monkeypatch):
+    store = _store(tmp_path, monkeypatch)
+    for text in ("book bar rista course", "add icecream to my list", "buy milk"):
+        assert store.correct(text)[0] == text

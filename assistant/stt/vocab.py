@@ -118,6 +118,102 @@ def _norm(s: str) -> str:
     return re.sub(r"[^a-z0-9֐-׿' ]+", "", s.lower()).strip()
 
 
+def _flat(s: str) -> str:
+    """Letters and digits only — no spaces, no apostrophes.
+
+    The comparison basis for every path below. Whisper does not keep a phrase's
+    word boundaries when it mishears it, so the spaces are part of the damage,
+    not part of the evidence: "quin oh a delivery" against "quinoa delivery" is
+    three spurious spaces and one letter, and comparing them spaced makes the
+    pair look nothing alike (and fails the length guard outright).
+    """
+    return re.sub(r"[^a-z0-9֐-׿]", "", s.lower())
+
+
+#: Crude de-inflection: enough to recognise that a plural is a real word.
+_SUFFIXES = ("s", "es", "'s", "ed", "d", "ing", "ly", "er", "ers", "es'")
+
+
+def _base_forms(flat: str) -> set:
+    out = set()
+    for suf in _SUFFIXES:
+        if flat.endswith(suf) and len(flat) - len(suf) >= 3:
+            stem = flat[: -len(suf)]
+            out.add(stem)
+            out.add(stem + "e")            # "plans"/"planes", "tasting"/"taste"
+            if len(stem) > 3 and stem[-1] == stem[-2]:
+                out.add(stem[:-1])         # "planning" -> "plan"
+            if stem.endswith("i"):
+                out.add(stem[:-1] + "y")   # "groceries" -> "grocery"
+    return out
+
+
+def _edge_needed(flats: "list[str]", flat_t: str, dmg: "tuple[bool, ...]",
+                 score: float) -> bool:
+    """Is every UNDAMAGED word at the window's edge actually needed?
+
+    The damage gate says a window has something broken in it; it does not say
+    the window STOPS at the break. "pilates session on" has "pilates" in no
+    dictionary, so the gate lets a three-token window through — and it matched
+    `pilates session` at 0.93, swallowing an "on" the speaker said and meant.
+
+    A wrong merge always grows by absorbing a NEIGHBOUR, and a neighbour is at
+    an edge, so that is where the test belongs: drop the edge word and score
+    again. If the match is no worse without it, the word was not part of the
+    misheard phrase and the narrower window — which is tried next — should have
+    it instead. This is the other half of Gil's ordering rule: run the wider
+    window first, but never let it keep a word the narrower one explains just
+    as well.
+
+    Interior words are deliberately exempt. A mishearing splits an unknown word
+    into pieces that are often ordinary words — "quin OH a delivery", "fell
+    AWFUL run", "bar RISTA course" — and repairing those is the whole point.
+    """
+    if len(flats) < 2:
+        return True
+    for idx in (0, len(flats) - 1):
+        if not flats[idx]:
+            continue
+        sub = "".join(flats[:idx] + flats[idx + 1:]) if idx else "".join(flats[1:])
+        if len(sub) < MIN_FUZZY_LEN:
+            continue
+        without = difflib.SequenceMatcher(None, sub, flat_t).ratio()
+        # An undamaged edge loses ties: if the narrower window is just as good,
+        # the word was context. A damaged edge is given the benefit of the
+        # doubt and only dropped when leaving it out is strictly BETTER —
+        # which is how "espresso tasting xq" stopped eating the "xq".
+        if without >= score if not dmg[idx] else without > score:
+            return False
+    return True
+
+
+@dataclass
+class _Pre:
+    """Everything about one entry that does not change as the window slides."""
+    entry: Any
+    n: int
+    target: str
+    flat_target: str
+    key: str
+    full_key: str
+    aliases: frozenset
+    flat_aliases: frozenset
+    alias_lens: frozenset
+    onset: str
+    tlen: int
+    thr: float
+
+
+@dataclass
+class _Ctx:
+    """What every window match needs to know about the whole word list."""
+    pre: list
+    english: set
+    vocab_keys: set
+    vocab_flat: set
+    alone: dict
+
+
 def phonetic_key(word: str) -> str:
     """A code for how a word sounds, so mishearings can be matched at all.
 
@@ -158,6 +254,40 @@ def phonetic_key(word: str) -> str:
         if ch not in ("H", "W"):
             previous = code
     return (out + "000")[:4]
+
+
+def phonetic_full(word: str) -> str:
+    """`phonetic_key` without the truncation — a code as long as the word.
+
+    Soundex stops after three consonant codes because it was built to bucket
+    SURNAMES on an index card. Over a phrase that is not a code, it is a prefix:
+    every string beginning "water…" that has a T and an R in it lands on W364,
+    so "water the plants to" and "water Dana's plants" are phonetically
+    identical to it. That is not a flaw the old `n == 1` gate hid, it is the
+    reason the gate was needed: with the window widened and this test still
+    truncated, it made 14 wrong phonetic rewrites over 1,200 fastrule rows
+    (before the damage gate learned about plurals, which now stops the same
+    ones earlier — so this guard is a belt behind that brace).
+
+    Keeping every code digit makes the test length-proportional, so a longer
+    phrase has to agree in more places rather than fewer.
+    """
+    letters = [c for c in word.upper() if "A" <= c <= "Z"]
+    if not letters:
+        return ""
+    codes = {"B": "1", "F": "1", "P": "1", "V": "1",
+             "C": "2", "G": "2", "J": "2", "K": "2",
+             "Q": "2", "S": "2", "X": "2", "Z": "2",
+             "D": "3", "T": "3", "L": "4", "M": "5", "N": "5", "R": "6"}
+    out = letters[0]
+    previous = codes.get(letters[0], "")
+    for ch in letters[1:]:
+        code = codes.get(ch, "")
+        if code and code != previous:
+            out += code
+        if ch not in ("H", "W"):
+            previous = code
+    return out
 
 
 def _vowel_groups(word: str) -> int:
@@ -250,8 +380,16 @@ class Correction:
 class VocabStore:
     """Thread-safe, file-backed vocabulary. Reloads if the file changes on disk."""
 
-    def __init__(self, path: str = VOCAB_PATH) -> None:
-        self._path = path
+    def __init__(self, path: "str | None" = None) -> None:
+        # RESOLVED AT CALL TIME, not bound as a default. `VOCAB_PATH` is read
+        # from the environment at IMPORT, so a default argument freezes
+        # whatever `MACALENDAR_VOCAB` said then — and a test that sets it
+        # afterwards gets the frozen one. Every store in the suite then shared
+        # ONE file, so a test asserting "an empty vocabulary changes nothing"
+        # was handed the previous test's words and passed or failed by
+        # accident. The identical mistake was fixed in `intent/lexicon.py` on
+        # 2026-09-18; this is its twin.
+        self._path = path or os.environ.get("MACALENDAR_VOCAB") or VOCAB_PATH
         self._lock = threading.RLock()
         self._entries: list[VocabEntry] = []
         #: word-sound index, rebuilt lazily; None means "stale"
@@ -523,11 +661,195 @@ class VocabStore:
 
     # ---------------------------------------------------------- correct
 
-    def correct(self, transcript: str, *, learn: bool | None = None) -> tuple[str, list[Correction]]:
-        """Apply alias + fuzzy corrections. Returns (fixed_text, corrections).
+    #: How far a window may stretch either side of the entry's own word count.
+    #:
+    #: A misheard phrase does not keep its word boundaries — "barista course"
+    #: comes back as THREE tokens, "ice cream" as ONE — so a window fixed at the
+    #: entry's length can only match a mishearing that happened to preserve the
+    #: spacing, which is the one kind that barely needs repairing. Two either
+    #: way covers every pair in the realspeech bench (worst case four tokens for
+    #: a two-word entry) without letting the window wander off the phrase.
+    WINDOW_SLACK = 2
 
-        Multi-word vocab entries ("Minchat Maariv") are matched against
-        same-length token windows of the transcript.
+    #: Ablation switches — every one of these is a guard, and the point of the
+    #: prototype is to know what each one is worth. All six ON is the proposal;
+    #: the ablation table is in the report that came with this change.
+    ARM_DAMAGE_GATE = True    # a merged window must contain something broken
+    ARM_DEFER_SINGLE = True   # Gil's rule: leave a lone repairable token to n == 1
+    ARM_EDGE_ANCHOR = True    # an undamaged EDGE token must survive the rewrite
+    ARM_FULL_CODE = True      # compare untruncated phonetic codes for phrases
+    ARM_MORPH = True          # inflections count as real words, not as damage
+    ARM_UNAMBIGUOUS = True    # a merge that fits two entries alike is refused
+    ARM_TIE_BAND = 0.10       # how close a rival has to be to count as a tie
+
+    def _is_damaged(self, token: str, english: set[str], vocab_flat: set[str]) -> bool:
+        """Is this ONE token something that needs repairing at all?
+
+        The damage gate. A window may only be MERGED into a vocabulary entry
+        when at least one of its tokens is neither a real English word nor a
+        word this user has taught the system — that is, when there is visible
+        damage to repair. "set meeting for" is three real words, so nothing in
+        it is broken and the widened window can never touch it, which is the
+        regression the old `n == 1` gate was there to prevent. "bar rista
+        course" carries "rista", which is in no list, so it is eligible.
+
+        One-letter tokens are never damage: "quin oh a delivery" has an "a" in
+        it, and a rule that called that broken would make every window with a
+        stray article eligible.
+        """
+        flat = _flat(token)
+        if len(flat) < 2:
+            return False
+        if token in english or flat in english:
+            return False
+        if self.ARM_MORPH and _base_forms(flat) & english:
+            # The word list is /usr/share/dict/words, which on macOS is web2 —
+            # a 1934 dictionary with no plurals in it. "plants" and "groceries"
+            # are not in it, so without this the damage gate reads "water the
+            # plants" as damaged and the widened window rewrites it (measured:
+            # 16 of 1,200 fastrule rows). A gate whose word list is thin is a
+            # gate that is quietly open, which is the failure `_english`'s own
+            # docstring warns about one level up.
+            return False
+        return flat not in vocab_flat
+
+    def _repairable_alone(self, token: str, ctx: "_Ctx") -> bool:
+        """Would the SINGLE-WORD pass fix this token by itself?
+
+        Gil, 2026-09-19: *"in cases where two sequential words, one is good and
+        one is bad, then you don't combine because we want that n equals one to
+        also work."* The wider window runs first, so without this the merge
+        would eat a bigram whose damage is one token that the single-word path
+        already handles — and the n == 1 repair would never be reached. So a
+        window whose damage is confined to ONE token stands aside when that
+        token is repairable on its own.
+        """
+        if token in ctx.alone:
+            return ctx.alone[token]
+        ok = False
+        for pre in ctx.pre:
+            if self._match_window(token, 1, pre, ctx, (True,), (token,))[0] is not None:
+                ok = True
+                break
+        ctx.alone[token] = ok
+        return ok
+
+    def _match_window(self, window: str, m: int, pre: "_Pre", ctx: "_Ctx",
+                      dmg: "tuple[bool, ...]", toks: "tuple[str, ...]") -> "tuple[str | None, float]":
+        """Does this window of *m* tokens spell `pre.entry`'s word, badly?
+
+        Everything is compared SPACE-STRIPPED, because the token count moves
+        when a phrase is misheard and the spaces are exactly what moved:
+        "quin oh a delivery" and "quinoa delivery" differ by three spaces and
+        one letter, and only one of those is a mistake.
+        """
+        flat_w = _flat(window)
+        # 1. ALIAS — a form this user has already corrected once. No gate: they
+        #    said themselves that this is wrong.
+        if window in pre.aliases or (flat_w and flat_w in pre.flat_aliases):
+            return "alias", 1.0
+
+        if m >= 2:
+            # 2. THE DAMAGE GATE — nothing broken here, nothing to repair.
+            #
+            # ONLY ON A WIDENED WINDOW (m != pre.n). The gate exists to make
+            # the NEW sizes safe; at the entry's own width this is the path
+            # that already shipped, already measured, and gating it is a
+            # REGRESSION — "poker knight" against a "poker night" entry is two
+            # real English words, so the gate refused a repair the released
+            # code performs. Caught end-to-end through the ingest stage, not by
+            # the bench, because the bench's damaged forms are all non-words.
+            if (self.ARM_DAMAGE_GATE and m != pre.n and not any(dmg)):
+                return None, 0.0
+            if (self.ARM_DEFER_SINGLE and sum(dmg) == 1
+                    and self._repairable_alone(toks[dmg.index(True)], ctx)):
+                return None, 0.0        # leave it to n == 1 (see above)
+        elif window in ctx.english or flat_w in ctx.english:
+            # A real English word is never rewritten by resemblance. This used
+            # to be conditioned on the ENTRY being one word, which left
+            # "airport" rewritable by an "air port" entry.
+            return None, 0.0
+
+        if (len(flat_w) < MIN_FUZZY_LEN or window in _PROTECTED
+                or window in ctx.vocab_keys
+                # ...another known word — but NOT this entry's own letters. The
+                # spaced form could never collide with its own target (that is
+                # skipped before we get here); the flattened one does, and while
+                # it did, every respacing pair in the bench ("icecream",
+                # "bookclub", "water Averysplants") was rejected as if it were
+                # some other vocabulary word.
+                or (flat_w != pre.flat_target and flat_w in ctx.vocab_flat)
+                or abs(len(flat_w) - len(pre.flat_target)) > 2):
+            return None, 0.0
+
+        # 3. RESPACE — the same letters, cut in different places
+        #    ("icecream", "bookclub", "water Averysplants").
+        if flat_w == pre.flat_target:
+            if m >= 2 and self.ARM_EDGE_ANCHOR and not _edge_needed(
+                    [_flat(t) for t in toks], pre.flat_target, dmg, 1.0):
+                return None, 0.0
+            return "respace", 1.0
+
+        score = difflib.SequenceMatcher(None, flat_w, pre.flat_target).ratio()
+        if m >= 2 and self.ARM_EDGE_ANCHOR and not _edge_needed(
+                [_flat(t) for t in toks], pre.flat_target, dmg, score):
+            return None, 0.0
+        if score >= pre.thr and flat_w[:1] == pre.flat_target[:1]:
+            return "fuzzy", score
+        # 4. PHONETIC — same sound code, same syllable count, unambiguous
+        #    bucket. The `n == 1` hard gate is gone; the damage gate above and
+        #    the flattened comparison replace it.
+        if (score >= self.threshold - PHONETIC_RELAXATION
+                and _vowel_groups(flat_w) == _vowel_groups(pre.flat_target)):
+            key = phonetic_key(flat_w)
+            # A phrase needs the untruncated code (see phonetic_full): four
+            # characters is a prefix test, and over sixteen letters a prefix
+            # test matches almost anything.
+            if max(m, pre.n) > 1 and self.ARM_FULL_CODE:
+                if phonetic_full(flat_w) != pre.full_key:
+                    return None, 0.0
+            if key and key == pre.key:
+                rivals = self._phonetic_bucket(key)
+                if len(rivals) == 1 or _best_by_letters(
+                        flat_w, [_flat(_norm(r)) for r in rivals]) == pre.flat_target:
+                    return "phonetic", score
+        return None, 0.0
+
+    def _unambiguous(self, window: str, m: int, pre: "_Pre", ctx: "_Ctx",
+                     dmg, toks, score: float) -> bool:
+        """Is this window one entry's word, or the shape of several of them?
+
+        The phonetic path has always demanded an unambiguous bucket — "nothing
+        else in the word list sounds the same, so there is nothing to confuse
+        it with". A widened window needs the same standard on the LETTER path,
+        because merging is where a vocabulary full of same-shaped phrases
+        ("return Taylor's book", "return Robin's book", "return Quinn's book")
+        turns one speaker's word into another's: the first entry in iteration
+        order won, not the best one. Measured on the realspeech clean rows,
+        that family was 20 wrong rewrites of 771 before this change.
+
+        A near-tie is the evidence. If a second entry matches this window
+        within `ARM_TIE_BAND`, what the window identifies is the TEMPLATE rather
+        than the word.
+        """
+        flat_w = _flat(window)
+        for other in ctx.pre:
+            if other.entry is pre.entry or not other.flat_target:
+                continue
+            # Raw letter similarity, not "would this one also match": a rival
+            # that fails a gate of its own is still a rival, and asking the
+            # gates here made the test vacuous (measured: it refused nothing).
+            if difflib.SequenceMatcher(None, flat_w, other.flat_target).ratio() \
+                    >= score - self.ARM_TIE_BAND:
+                return False
+        return True
+
+    def correct(self, transcript: str, *, learn: bool | None = None) -> tuple[str, list[Correction]]:
+        """Apply alias + fuzzy + phonetic corrections. Returns (fixed, corrections).
+
+        A vocab entry is matched against token windows AROUND its own word
+        count, widest first, and only a window with actual damage in it may be
+        merged. See `_is_damaged` and `_match_window`.
         """
         self._load()
         if not transcript or not self._entries:
@@ -550,92 +872,105 @@ class VocabStore:
 
         # Longest entries first so "Minchat Maariv" beats "Maariv".
         entries.sort(key=lambda e: -len(e.word.split()))
-        vocab_keys = {_norm(e.word) for e in entries}
         english = _english()
+        vocab_keys = {_norm(e.word) for e in entries}
+        vocab_flat = {_flat(k) for k in vocab_keys}
+        pre = []
+        for e in entries:
+            target = _norm(e.word)
+            flat_t = _flat(target)
+            pre.append(_Pre(
+                entry=e, n=len(e.word.split()), target=target, flat_target=flat_t,
+                key=phonetic_key(e.word), full_key=phonetic_full(e.word),
+                aliases=frozenset(_norm(a) for a in e.aliases),
+                flat_aliases=frozenset(_flat(_norm(a)) for a in e.aliases),
+                alias_lens=frozenset(len(_flat(_norm(a))) for a in e.aliases),
+                onset=flat_t[:1], tlen=len(flat_t),
+                thr=self.threshold + (0.08 if len(flat_t) <= 5
+                                      else 0.04 if len(flat_t) <= 7 else 0.0)))
+        ctx = _Ctx(pre=pre, english=english, vocab_keys=vocab_keys,
+                   vocab_flat=vocab_flat, alone={})
+
+        parts = [core(t[0]) for t in tokens]
+        norms = [_norm(p[1]) for p in parts]
+        damaged = [self._is_damaged(w, english, vocab_flat) for w in norms]
+        # Four window sizes per entry over a long utterance is a lot of windows
+        # (172,088 plausible ones over the two corpora, and an order of
+        # magnitude more implausible ones). Length and first letter decide most
+        # of them and both can be had without building the string: a prefix sum
+        # of flattened token lengths, and the first token's first letter.
+        flats = [_flat(w) for w in norms]
+        pref = [0]
+        for f in flats:
+            pref.append(pref[-1] + len(f))
+        onsets = []
+        for j in range(len(flats)):
+            onsets.append(next((f[:1] for f in flats[j:] if f), ""))
 
         replaced = [False] * len(tokens)
         out_tokens = [t[0] for t in tokens]
         corrections: list[Correction] = []
         dirty = False
 
-        for entry in entries:
-            n = len(entry.word.split())
-            target = _norm(entry.word)
-            alias_keys = {_norm(a) for a in entry.aliases}
-            i = 0
-            while i + n <= len(tokens):
-                if any(replaced[i:i + n]):
-                    i += 1
-                    continue
-                parts = [core(tokens[j][0]) for j in range(i, i + n)]
-                window = " ".join(_norm(p[1]) for p in parts)
-                if not window or window == target:
-                    i += 1
-                    continue
+        for p in pre:
+            entry = p.entry
+            # WIDER WINDOW FIRST (Gil, 2026-09-19: "you have to run n equals
+            # two before you run n equals one"), and never below one token.
+            sizes = [m for m in range(p.n + self.WINDOW_SLACK, 0, -1)
+                     if p.n - self.WINDOW_SLACK <= m <= len(tokens)]
+            for m in sizes:
+                i = 0
+                while i + m <= len(tokens):
+                    if any(replaced[i:i + m]):
+                        i += 1
+                        continue
+                    lw = pref[i + m] - pref[i]
+                    if not (abs(lw - p.tlen) <= 2 and onsets[i] == p.onset) \
+                            and lw not in p.alias_lens:
+                        i += 1
+                        continue
+                    window = " ".join(norms[i:i + m]).strip()
+                    if not window or window == p.target:
+                        i += 1
+                        continue
+                    dmg = tuple(damaged[i:i + m])
+                    toks = tuple(norms[i:i + m])
+                    reason, score = self._match_window(window, m, p, ctx, dmg, toks)
+                    if reason is None:
+                        i += 1
+                        continue
+                    if (m >= 2 and self.ARM_UNAMBIGUOUS and reason != "alias"
+                            and not self._unambiguous(window, m, p, ctx, dmg, toks, score)):
+                        i += 1
+                        continue
 
-                reason, score = None, 0.0
-                if window in alias_keys:
-                    reason, score = "alias", 1.0
-                elif (len(window) >= MIN_FUZZY_LEN and window not in _PROTECTED
-                      and window not in vocab_keys                      # another known word
-                      and not (n == 1 and window in english)            # a real English word
-                      and abs(len(window) - len(target)) <= 2):
-                    score = difflib.SequenceMatcher(None, window, target).ratio()
-                    # Short targets need near-identity: "Tal"/"Talk", "Rei"/"Idol"…
-                    thr = self.threshold + (0.08 if len(target) <= 5 else 0.04 if len(target) <= 7 else 0.0)
-                    # First letter must agree — mishearings keep the onset far more often than not
-                    if score >= thr and window[:1] == target[:1]:
-                        reason = "fuzzy"
-                    elif (n == 1 and score >= self.threshold - PHONETIC_RELAXATION
-                          and _vowel_groups(window) == _vowel_groups(target)):
-                        # Sounding identical is strong evidence, but only with
-                        # three guards, each of which stopped a real mistake:
-                        #
-                        #  n == 1        — a phrase's word boundaries move when
-                        #                  it is misheard, so a code computed
-                        #                  over one is not comparable. This is
-                        #                  what stopped "set meeting for" being
-                        #                  rewritten to "set a meeting".
-                        #  vowel groups  — see _vowel_groups; stopped "pasta"
-                        #                  becoming "pset".
-                        #  bucket of one — nothing else in the word list sounds
-                        #                  the same, so there is nothing to
-                        #                  confuse it with. Where several do
-                        #                  collide, the letters break the tie.
-                        key = phonetic_key(window)
-                        if key and key == phonetic_key(entry.word):
-                            rivals = self._phonetic_bucket(key)
-                            if len(rivals) == 1 or _best_by_letters(window, rivals) == entry.word:
-                                reason = "phonetic"
-
-                if reason is None:
-                    i += 1
-                    continue
-
-                # Preserve leading punct of first token and trailing punct of last.
-                lead, _, _ = parts[0]
-                _, _, trail = parts[-1]
-                original_text = " ".join(p[1] for p in parts)
-                out_tokens[i] = lead + entry.word + trail
-                for j in range(i + 1, i + n):
-                    out_tokens[j] = ""
-                for j in range(i, i + n):
-                    replaced[j] = True
-                corrections.append(Correction(original_text, entry.word, reason, score))
-                entry.hits += 1
-                # Remember the mishearing so the next one is an exact hit
-                # rather than another guess. A phonetic match is learned even
-                # though its letter score is low — the score is low BECAUSE the
-                # spelling differs, which is the whole reason it was missed
-                # before. It has already passed the vowel-group, single-word,
-                # bucket-of-one, not-English and not-another-known-word guards;
-                # a letter threshold on top of those would only re-impose the
-                # test it was designed to get past.
-                learnable = (reason == "phonetic") or (reason == "fuzzy" and score >= 0.9)
-                if learn and learnable and self._add_alias_to(entry, original_text):
-                    logger.info("Vocab learned alias %r → %r (%s)", original_text, entry.word, reason)
-                dirty = True
-                i += n
+                    # Preserve leading punct of first token and trailing punct of last.
+                    lead, _, _ = parts[i]
+                    _, _, trail = parts[i + m - 1]
+                    original_text = " ".join(x[1] for x in parts[i:i + m])
+                    out_tokens[i] = lead + entry.word + trail
+                    for j in range(i + 1, i + m):
+                        out_tokens[j] = ""
+                    for j in range(i, i + m):
+                        replaced[j] = True
+                    corrections.append(Correction(original_text, entry.word, reason, score))
+                    entry.hits += 1
+                    # Remember the mishearing so the next one is an exact hit
+                    # rather than another guess. A phonetic or respaced match is
+                    # learned even though its letter score is low — the score is
+                    # low BECAUSE the spelling differs, which is the whole reason
+                    # it was missed before. It has already passed the damage,
+                    # vowel-group, bucket-of-one, not-English and
+                    # not-another-known-word guards; a letter threshold on top of
+                    # those would only re-impose the test it was designed to get
+                    # past.
+                    learnable = (reason in ("phonetic", "respace")
+                                 or (reason == "fuzzy" and score >= 0.9))
+                    if learn and learnable and self._add_alias_to(entry, original_text):
+                        logger.info("Vocab learned alias %r → %r (%s)",
+                                    original_text, entry.word, reason)
+                    dirty = True
+                    i += m
 
         if dirty:
             try:
