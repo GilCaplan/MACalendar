@@ -185,7 +185,7 @@ def _subordinate_first_boundary(doc, tok, text: str) -> "Boundary | None":
     """
     head = tok.head
     if head.i <= tok.i:
-        return None                     # a trailing advcl is a tail, not a first ask
+        return _subordinate_later_boundary(doc, tok, text)
     if tok.tag_ != "VB":
         return None                     # not an imperative/base form ("book MOVING day…")
     kids = list(tok.children)
@@ -213,6 +213,53 @@ def _subordinate_first_boundary(doc, tok, text: str) -> "Boundary | None":
     ends_tok = doc[right]
     ends = ends_tok.idx + len(ends_tok.text)
     begins = doc[j].idx
+    if begins <= ends:
+        return None
+    if (len(text[:ends].split()) < _MIN_WORDS_PER_ASK
+            or len(text[begins:].split()) < _MIN_WORDS_PER_ASK):
+        return None
+    return Boundary(ends, begins, text[ends:begins].strip())
+
+
+def _subordinate_later_boundary(doc, tok, text: str) -> "Boundary | None":
+    """The seam BEFORE a command clause spaCy subordinated to an EARLIER verb.
+
+    "i need to submit the report, FILE the taxes, and print the boarding
+    pass" hangs `file` off `need` as a trailing `advcl`, so the walk above
+    reached "print" (a conj of `file`) and stopped one ask short. A trailing
+    advcl is usually a REMARK about the ask before it — "check off this
+    reminder, IT'S DONE", "move that one, I DON'T REMEMBER THE NAME" — which
+    is why the leading path refused it outright. It is an ask when it reads
+    as one by the same tests the leading path applies to its candidate:
+    base-form verb, an argument of its own that is not a date, no subject,
+    no subordinating mark, not an infinitival purpose ("call the plumber TO
+    fix the sink"), and something joining it to what came before.
+    """
+    if tok.tag_ != "VB":
+        return None
+    kids = list(tok.children)
+    if any(c.dep_ in ("nsubj", "nsubjpass", "csubj") for c in kids):
+        return None
+    if any(c.dep_ == "mark" for c in kids):
+        return None
+    if any(c.dep_ == "aux" and c.tag_ == "TO" for c in kids):
+        return None
+    if not any(c.dep_ in _OWN_ARG and not _is_date_argument(doc, c) for c in kids):
+        return None
+    if not _reads_as_an_ask(tok):
+        return None
+    left = max(min(t.i for t in tok.subtree), tok.head.i + 1)
+    first = left
+    j = left - 1
+    while j > tok.head.i and (doc[j].is_punct or doc[j].dep_ == "cc"
+                              or doc[j].lower_ in _COORD_WORDS):
+        first = j
+        j -= 1
+    if first == left:
+        return None                     # nothing joined them; not a seam
+    ends_tok = doc[first - 1]
+    ends = ends_tok.idx + len(ends_tok.text)
+    begins = doc[left].idx
     if begins <= ends:
         return None
     if (len(text[:ends].split()) < _MIN_WORDS_PER_ASK

@@ -306,3 +306,21 @@ def test_a_courtesy_tail_is_not_a_second_ask():
     assert not _non_splitting_tail("let Avery know that the room moved")
     assert split_clauses("extend open house by an hour and let Avery know") \
         == ["extend open house by an hour and let Avery know"]
+
+
+def test_a_trailing_subordinated_command_is_its_own_ask():
+    """"i need to submit the report, FILE the taxes, and print the boarding
+    pass": spaCy hangs `file` off `need` as a trailing advcl, and the walk
+    stopped one ask short — the leading-clause path refused any advcl that
+    follows its head, because a trailing one is usually a remark."""
+    from assistant.intent.coordination import split_clauses
+    assert split_clauses("i need to submit the report, file the taxes, and print the boarding pass") \
+        == ["i need to submit the report", "file the taxes", "print the boarding pass"]
+
+
+def test_a_trailing_remark_is_still_not_an_ask():
+    from assistant.intent.coordination import split_clauses
+    assert split_clauses("check off this reminder, it's done") == ["check off this reminder, it's done"]
+    assert split_clauses("move that one to next wednesday, i don't remember the name") \
+        == ["move that one to next wednesday, i don't remember the name"]
+    assert split_clauses("call the plumber to fix the sink") == ["call the plumber to fix the sink"]
