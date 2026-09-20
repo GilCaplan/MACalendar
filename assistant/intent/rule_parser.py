@@ -1980,8 +1980,21 @@ def _todo_tags_from_text(text: str) -> list[str]:
 _FRAME_LEAD = re.compile(
     r"^(?:\s*(?:please|kindly|can you|could you|would you|i want to|i need to|"
     r"i'd like to|let's|lets|go ahead and|um|uh|ok|okay|alright|right)\b[,\s]*)*"
-    r"(?:\s*(?:set|create|make|add|book|schedule|put|arrange|organise|organize|"
-    r"remind me to|remind me|start|get|have)\b\s*)?"
+    # THE REMINDER FRAMES, widened 2026-09-20. "remind me to" and "remind me"
+    # were the only two, so every other way of asking for one kept its frame
+    # as the NAME: 'remind early that i have a teleconference', 'remind about
+    # of all event in calenders', 'remind at this time', 'Send me a reminder
+    # to pick up my dog from the groomer' — six of the fourteen junk titles
+    # left on dev-100 (2026-09-20), each committed at confidence 0.95 or
+    # better. Measured before writing: of the 7,200's 6,880 gold titles,
+    # **none** begins with "remind" at all, so nothing legitimate is caught.
+    # Longest first — the alternation is ordered, not sorted.
+    r"(?:\s*(?:(?:send|give)\s+me\s+(?:an?\s+)?(?:reminder|alert)\s+"
+    r"(?:to|about|of|for|that)|"
+    r"set\s+(?:an?\s+)?(?:reminder|alert)\s+(?:to|about|of|for|that)|"
+    r"remind\s+me\s+(?:to|about|of|when|that)|remind\s+me|remind|"
+    r"set|create|make|add|book|schedule|put|arrange|organise|organize|"
+    r"start|get|have)\b\s*)?"
     r"(?:\s*(?:up|an|a|the|my|me|for me|for us)\b\s*)*",
     re.IGNORECASE)
 

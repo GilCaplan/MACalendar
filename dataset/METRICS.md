@@ -178,6 +178,15 @@ general ones are the ones actually reusable once real usage exists to score.
 
 ## The metrics
 
+**WHICH NUMBER LEADS** (Gil, 2026-09-20, DEVQA Q35): for a GROUNDING or
+TITLE cycle, **field quality and item precision lead and count-correctness
+follows**. Count-correctness asks *did you produce at least N things*, so a
+fabricated object counts as a success and an honest "I couldn't make out what
+to create" counts as a failure — it pays for inventing and charges for
+admitting. Two cycles running (28, 29) moved it down while every quality
+metric moved up, and the rows that moved were exactly that swap. For a
+CUT or COUNT cycle it still leads, because there it measures what it names.
+
 | Metric | Deterministic? | Needs provenance? | What it catches |
 |---|---|---|---|
 | **Count-correctness** (does a compound produce the right minimum event/task count) | Yes | **Yes** — dataset-only | The core one. Directly targets the multi-date and duplicate-task bugs found earlier this session. |

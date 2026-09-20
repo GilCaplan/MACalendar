@@ -122,6 +122,33 @@ _RECUR_MARKER_RE = re.compile(
     r"weekdays|weekends)\b", re.I)
 
 
+#: THE COMMAND FRAME, not the thing asked for. A model answering "send me a
+#: reminder to pick up my dog from the groomer" hands back the whole sentence
+#: as the title, and every grounding test passes it — the words ARE the
+#: speaker's, sliced in the wrong place. Six of the thirteen junk titles left
+#: on dev-100 after cycle 29 are this one shape (2026-09-20).
+#:
+#: DELIBERATELY ONLY THE REMINDER FRAMES. `build._title_from_words` strips a
+#: much wider set, and measured against the 7,200's gold it would rewrite
+#: **206** titles the parser already had right — "book club" -> "club",
+#: "schedule a haircut" -> "haircut". These frames rewrite **0**. A title that
+#: keeps a stray word beats one that loses a real one.
+_COMMAND_FRAME = re.compile(
+    r"^\s*(?:(?:please\s+)?(?:send|give)\s+me\s+(?:an?\s+)?"
+    r"(?:reminder|alert|notification)\s+(?:to|about|of|for|that)\s+"
+    r"|(?:set|create|add|make)\s+(?:an?\s+)?(?:reminder|alert)\s+"
+    r"(?:to|about|of|for|that)\s+"
+    r"|remind\s+(?:me\s+)?(?:to|about|of|when|that|early)\s+)", re.I)
+
+
+def _trim_command_frame(value: str) -> str:
+    """The title minus the frame that asked for it. Empty result means the
+    title was ALL frame ('remind me'), and the original is kept so the
+    names-nothing veto judges it rather than a blank."""
+    trimmed = _COMMAND_FRAME.sub("", value or "").strip(" ,.;:")
+    return trimmed or value
+
+
 def _guard_inventions(got, item: Item, state: EngineState):
     """Drop LLM-fabricated events, and STRIP fabricated fields off real ones.
 
@@ -153,6 +180,11 @@ def _guard_inventions(got, item: Item, state: EngineState):
     for name, intent in got:
         if name == "create_event" and item.kind != "task":
             title = str(getattr(intent, "title", "") or "")
+            framed = _trim_command_frame(title)
+            if framed != title:
+                state.add_fix("generate", "title_frame_trimmed", title[:40], framed[:40],
+                              note="the command frame is not the thing asked for")
+                intent.title = title = framed
             if not _grounded_title(title, item.text):
                 state.add_fix("generate", "invention_guard", title[:40], "",
                               note="LLM title not grounded in the item's words")
@@ -184,6 +216,12 @@ def _strip_ungrounded_fields(name: str, intent, item: Item, state: EngineState) 
 
     titles = list(getattr(intent, "titles", None) or [])
     if name == "create_todo" and titles:
+        framed = [_trim_command_frame(str(t)) for t in titles]
+        if framed != [str(t) for t in titles]:
+            state.add_fix("generate", "title_frame_trimmed",
+                          ", ".join(map(str, titles))[:40], ", ".join(framed)[:40],
+                          note="the command frame is not the thing asked for")
+            intent.titles = titles = framed
         good = [t for t in titles if _grounded_title(str(t), words)]
         if len(good) != len(titles):
             dropped = [t for t in titles if t not in good]

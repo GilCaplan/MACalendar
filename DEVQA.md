@@ -32,9 +32,9 @@ from "the training pool". This asks whether that pool is now the history —
 with the corpus boards as regression floors. It is NOT the synthetic
 realspeech dataset that was dropped; it is the data that already exists.
 
-**Q26 — Phase 4: may the title extractor and/or the temporal resolver be
-rewritten?** Both inside `rule_parser.py`, contracts untouched, both rewrites
-of a function that every FastRule cycle has hit. Not started without a yes.
+**Q26 — Phase 4: the TITLE EXTRACTOR is ANSWERED (2026-09-20, see the log):
+rewrite it properly.** The TEMPORAL RESOLVER half stays open — not started
+without a yes. Both inside `rule_parser.py`, contracts untouched.
 
 **Q28 — ANSWERED 2026-09-20, see the log below.** Found 2026-09-19 while
 closing the front door's title leak. *"book team meeting tomorrow at 7"* is
@@ -881,4 +881,58 @@ before you rule:
   each committed with its numbers. **Main is never touched** — the merge stays
   Gil's call. The run stops when three cycles move nothing past the noise
   floor, or when a ruling is needed.
+
+- **2026-09-20 — Q26 ANSWERED (THE TITLE EXTRACTOR MAY BE REWRITTEN)**, Gil,
+  asked while the remaining junk titles were traced to one place: *"Yes,
+  rewrite it properly."* Filed since 2026-09-18 as *"Phase 4: may the title
+  extractor and/or the temporal resolver be rewritten? Not started without a
+  yes."*
+
+  **The evidence that prompted it.** After cycles 28–30 the junk titles left
+  on dev-100 were 14, and every one came from the rule parser's own
+  extraction chain rather than the model: 'remind about of all event in
+  calenders', 'remind at this time', 'set reminder', 'things', "grocery
+  shopping 's to-do list", 'calendar event', 'open calendar' — committed at
+  0.95 confidence and better. Two cycles of narrowing frames around the edges
+  moved the rate by nothing, because the titles come from a FALLBACK further
+  down the chain than either named extractor: instrumenting
+  `_todo_titles_from_text` and `_dobj_conjunct_title` on those rows shows
+  both returning nothing and a title appearing anyway.
+
+  **Scope.** The extraction chain, not the contracts: what the fast path and
+  the deep converter both call to turn an item's words into a name. The
+  temporal resolver is NOT included — that half of Q26 stays filed. Rule as
+  ever: the 7,200's 6,880 gold titles are the negative surface and a change
+  that moves any of them is reverted, the product-shape board runs before
+  dev-100, and the sealed half is never read.
+
+- **2026-09-20 — Q35 (FIELD QUALITY AND PRECISION LEAD; COUNT-CORRECTNESS
+  FOLLOWS)**, Gil, shown that two cycles running had moved count-correctness
+  down while every quality metric moved up, and why: count-correctness asks
+  *did you produce at least N things*, so a fabricated object counts as a
+  success and an honest *"I couldn't make out what to create"* counts as a
+  failure. **It pays for inventing and charges for admitting.**
+
+  From here a grounding or title cycle is judged on **field quality** and
+  **item precision**, with count-correctness read as a companion rather than
+  the verdict. Cycles 28 and 29 stand as improvements on that reading
+  (field quality 87.0 → 87.4, precision 87.9 → 91.4, garbage titles 19% →
+  16%) rather than the regressions the old primary made them.
+  `dataset/METRICS.md` carries the order.
+
+- **2026-09-20 — Q36 (AN UNTIMED DATED EVENT IS 09:00 ON BOTH TRACKS)**,
+  Gil. The non-meal half of Q32: "book the dentist on the 26th" was an
+  all-day block on the fast path and the clock-of-now on the deep one, which
+  is where most of the judge's `unsupported_field` notices came from. It is
+  **09:00** on both tracks now. A stated clock still wins, an explicit "all
+  day" still keeps its block, and a meal still takes its own hour (Q32).
+
+- **2026-09-20 — Q37 (A LIST WITH NO NAME IS REFUSED, AND THE GOLD IS
+  WRONG)**, Gil: *"Refusing is right, fix the gold."* "Can you please create
+  a list for me" and "Create a new list, please" name nothing to call the
+  list, and the engine answers *"I couldn't tell what to call it."* The
+  dev-100 gold counts those as requiring a creation, which is what made them
+  three count-correctness failures; the gold rows are wrong and are marked so
+  rather than the behaviour being changed. Creating a to-do called 'list for
+  me' is a row the speaker has to find and delete.
 

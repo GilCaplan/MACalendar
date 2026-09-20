@@ -441,3 +441,46 @@ def test_every_model_parse_in_the_rescue_runs_through_the_invention_guard():
     assert not ungated, (
         "these model parses reach the engine without the invention guard:\n  "
         + "\n  ".join(ungated))
+
+
+def test_the_command_frame_is_trimmed_off_a_model_title():
+    """"Send me a reminder to pick up my dog from the groomer" came back as
+    the whole sentence for a title, and every grounding test passes it — the
+    words ARE the speaker's, sliced in the wrong place. Six of the thirteen
+    junk titles left on dev-100 after cycle 29 were this shape."""
+    from types import SimpleNamespace
+    st = EngineState(raw_text="x", text="x")
+    item = Item(id="item_1", kind="event",
+                text="Send me a reminder to pick up my dog from the groomer at 1pm")
+    intent = SimpleNamespace(title="Send me a reminder to pick up my dog from the groomer")
+    assert guards._guard_inventions([("create_event", intent)], item, st)
+    assert intent.title == "pick up my dog from the groomer"
+    assert any("title_frame_trimmed" in str(f) for f in st.fixes)
+
+
+def test_only_the_reminder_frames_are_trimmed():
+    """`build._title_from_words` strips a much wider set of lead verbs, and
+    measured against the 7,200's gold it would rewrite 206 titles the parser
+    already had right — "book club" -> "club", "schedule a haircut" ->
+    "haircut". These frames rewrite none of them."""
+    from types import SimpleNamespace
+    for text, title in (("book club on friday", "book club"),
+                        ("schedule a haircut tomorrow", "schedule a haircut"),
+                        ("set up the new laptop", "set up the new laptop")):
+        st = EngineState(raw_text="x", text="x")
+        item = Item(id="item_1", kind="event", text=text)
+        intent = SimpleNamespace(title=title)
+        guards._guard_inventions([("create_event", intent)], item, st)
+        assert intent.title == title, (text, intent.title)
+        assert not st.fixes
+
+
+def test_a_title_that_is_ALL_frame_is_left_for_the_veto():
+    """Trimming "remind me" to nothing would hand the veto a blank instead of
+    the thing it judges."""
+    from types import SimpleNamespace
+    st = EngineState(raw_text="x", text="x")
+    item = Item(id="item_1", kind="task", text="remind me")
+    intent = SimpleNamespace(titles=["remind me"])
+    guards._guard_inventions([("create_todo", intent)], item, st)
+    assert intent.titles == ["remind me"]

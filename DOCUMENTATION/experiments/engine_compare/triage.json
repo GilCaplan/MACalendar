@@ -1,20 +1,20 @@
 {
   "prf": {
     "overall": {
-      "precision": 0.902,
-      "recall": 0.796,
-      "f1": 0.846,
-      "matched": 74,
+      "precision": 0.912,
+      "recall": 0.785,
+      "f1": 0.844,
+      "matched": 73,
       "expected": 93,
-      "created": 82
+      "created": 80
     },
     "simple": {
-      "precision": 0.9,
+      "precision": 1.0,
       "recall": 1.0,
-      "f1": 0.947,
+      "f1": 1.0,
       "matched": 9,
       "expected": 9,
-      "created": 10
+      "created": 9
     },
     "medium": {
       "precision": 0.941,
@@ -25,25 +25,25 @@
       "created": 17
     },
     "complex": {
-      "precision": 0.891,
-      "recall": 0.742,
-      "f1": 0.81,
-      "matched": 49,
+      "precision": 0.889,
+      "recall": 0.727,
+      "f1": 0.8,
+      "matched": 48,
       "expected": 66,
-      "created": 55
+      "created": 54
     }
   },
   "field_quality": {
-    "field_quality": 0.875,
+    "field_quality": 0.872,
     "by_tier": {
-      "simple": 0.875,
-      "complex": 0.875,
+      "simple": 0.861,
+      "complex": 0.873,
       "medium": 0.875
     },
-    "difficulty_weighted": 0.875,
+    "difficulty_weighted": 0.871,
     "when_ok": 0.824,
     "when_coverage": 17,
-    "items": 82
+    "items": 80
   },
   "subslices": {
     "count_ok_ranks_1_250": [
@@ -67,14 +67,14 @@
     "simple": {
       "n": 34,
       "old": 0.941,
-      "new": 0.971,
-      "delta": 0.029
+      "new": 1.0,
+      "delta": 0.059
     },
     "complex": {
       "n": 33,
       "old": 0.273,
-      "new": 0.515,
-      "delta": 0.242
+      "new": 0.485,
+      "delta": 0.212
     },
     "medium": {
       "n": 33,
@@ -93,8 +93,8 @@
     "event+task": {
       "n": 11,
       "old": 0.091,
-      "new": 0.455,
-      "delta": 0.364
+      "new": 0.364,
+      "delta": 0.273
     },
     "task+task": {
       "n": 11,
@@ -128,27 +128,25 @@
   "count_ok_shared_old": 0.69,
   "count_ok_shared_new": 0.8,
   "flipped_better (old fail \u2192 engine pass)": [
-    "Olly remind me about the picnic at Regent park \u2014 and add paper towels to the grocery list.",
-    "Please alert me on Friday at 8:00 am to go to the gym and schedule meeting with Laura",
-    "add new event to calendar and name as anna, and then Please add event in calendar",
-    "Begin new list of lottery numbers",
-    "Send me a reminder to pick up my dog from the groomer at 1pm \u2014 and i need to add water to my Kroger list.",
-    "remind me in 50minutes and also please add calendar event",
-    "PDA please update list with new item",
-    "Set me a reminder for the get-together with the women's club on Sunday after church.",
-    "create repeating event 'john's birthday' on calendar. Also, Add reminder today evening to collect the parcel from Jakes bristo",
-    "Remind me of the following event:. Also, Create shopping list for Target",
     "'exhibition 2017 mass' on Mar 25 make a note of it on the corresponding date and also remind me after an hour to go for shopping.",
-    "add date and time in calender with these people. Also, Calendar event. send invite, Bill Malinda",
-    "include meeting in the list",
+    "PDA please update list with new item",
+    "add new event to calendar and name as anna, and then Please add event in calendar",
     "I need to add water to my Kroger list and add v8 to my groceries.",
-    "Remind me when it is lunchtime, and then I need oranges added to my grocery list."
+    "Remind me of the following event:. Also, Create shopping list for Target",
+    "remind me in 50minutes and also please add calendar event",
+    "create repeating event 'john's birthday' on calendar. Also, Add reminder today evening to collect the parcel from Jakes bristo",
+    "Begin new list of lottery numbers",
+    "Please alert me on Friday at 8:00 am to go to the gym and schedule meeting with Laura",
+    "include meeting in the list",
+    "Set me a reminder for the get-together with the women's club on Sunday after church.",
+    "Send me a reminder to pick up my dog from the groomer at 1pm \u2014 and i need to add water to my Kroger list.",
+    "add date and time in calender with these people. Also, Calendar event. send invite, Bill Malinda",
+    "Olly remind me about the picnic at Regent park \u2014 and add paper towels to the grocery list."
   ],
   "flipped_worse (old pass \u2192 engine fail)": [
-    "Make a list of camera photos and i need a list of my clients today, make one",
-    "let's just skip appointment at time",
     "On Febuary 14th make dinner reservations at the restaurant and tHIS IS IMPORTANT EVENT, PLZ NOTE ON MY CALENDAR.",
-    "reopen groceries and add milk. Also, put xxx on the list"
+    "reopen groceries and add milk. Also, put xxx on the list",
+    "Make a list of camera photos and i need a list of my clients today, make one"
   ],
   "note": "old-system rows are behavior, not ground truth; each flip needs triage (old right / new right / both wrong) by a human or a judge model that is not the system under test"
 }

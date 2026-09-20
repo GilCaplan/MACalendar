@@ -2790,3 +2790,47 @@ the command frame it should have consumed. **Prediction:** garbage-title 16%
 → 10–13%, count-correct 80% → 82–85% (a title cut right is usually an object
 counted right), field quality flat to +1.
 
+
+## CYCLES 30–31 — the frame trims, and why they moved nothing (2026-09-20)
+
+Registered: the 13 junk titles left are a CUT problem, so trim the command
+frame the title kept. **Prediction: garbage 16% → 10–13%. Actual: 15%.**
+Near zero, and banked as such.
+
+Two changes, both measured clean and both safe:
+
+| change | negative surface | board | live effect |
+|---|---|---|---|
+| `llm_fallback._trim_command_frame` — the reminder frames off a MODEL title | 0 of 6,880 gold titles changed (`build._title_from_words`, the wider stripper already in the tree, would have changed **206**: "book club" → "club") | — | 'Send me a reminder to pick up my dog…' → 'pick up my dog' |
+| `rule_parser._FRAME_LEAD` — the same frames in the EXTRACTOR ("remind me about/of/when/that", "send me a reminder to", bare "remind") | 0 of 6,880; **no gold title begins with "remind" at all** | product-shape TRAIN **byte-identical** | the same shape, on the fast path |
+
+**Why it moved nothing, found by instrumenting rather than guessing.** Every
+remaining junk title comes from the rule parser, not the model — six at
+"Confident — instant" on the fast path, the rest from the deep converter —
+and on those rows BOTH named extractors return nothing:
+
+    _todo_titles_from_text('remind about of all event in calenders') -> []
+    _dobj_conjunct_title(...)                                        -> None
+    FINAL                                          -> ['remind about of all event in calenders']
+
+The title is produced by a FALLBACK further down the chain than either. Two
+cycles of narrowing frames around its edges could not reach it, which is the
+evidence that took Q26 to Gil and came back **"rewrite it properly"**.
+
+| | garbage titles | field quality | precision | count-correct |
+|---|---|---|---|---|
+| run 26 (before cycle 28) | 19% | 87.0 | 87.9 | 85% |
+| run 36 (after cycle 31) | **15%** | 87.2 | **91.2** | 80% |
+
+### Next — cycle 32, the title extractor (Q26 answered, DEVQA 2026-09-20)
+
+Not another edge. The extraction chain the fast path and the deep converter
+both call, rewritten: one reader, the fallback included, with the frame and
+entry-noun stripping it already does kept and its fallback made explicit
+rather than emergent. **Judged on field quality and precision** (Q35), with
+count-correctness a companion. The 6,880 gold titles are the negative
+surface, the product-shape board runs before dev-100, and any change that
+moves a gold title is reverted. **Prediction:** garbage-title 15% → 8–11%,
+field quality 87.2 → 89+, precision flat to +1, product-shape
+correct-on-handled (96.4%) unchanged or better.
+
