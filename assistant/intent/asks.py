@@ -38,9 +38,17 @@ _CLOSER_RE = re.compile(
 
 #: A tag question checking the request just made — "does that seem right",
 #: "is that ok", "right?". It is conversation, not a second request.
+#:
+#: The auxiliary must be followed by the LISTENER or the THING ("does THAT",
+#: "do YOU", "is IT ok"). A bare auxiliary alone was the whole test, and it
+#: refused every imperative that happens to open with "do" — "do the
+#: laundry", "do the dishes" — so a three-ask command with one of those in
+#: the middle could never be cut at all (two train rows, `c_threeask_ttt_1`).
 _TAG_QUESTION_RE = re.compile(
-    r"^(?:and\s+)?(?:does|do|is|are|isn'?t|doesn'?t|don'?t|can|could|would|"
-    r"will|won'?t|right|ok(?:ay)?|correct|sound\s+good|make\s+sense)\b"
+    r"^(?:and\s+)?(?:"
+    r"(?:does|do|is|are|isn'?t|doesn'?t|don'?t|can|could|would|will|won'?t)"
+    r"\s+(?:that|this|it|you|we|i|they|those|these)\b"
+    r"|right|ok(?:ay)?|correct|sound\s+good|make\s+sense)\b"
     r"[^.?!]{0,40}[.?!]?$", re.I)
 
 #: A trailing clarifier pointing back at the thing already named — "the one
