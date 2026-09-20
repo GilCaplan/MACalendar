@@ -326,7 +326,7 @@ def cut(text: str, max_rounds: int = 3) -> "list[str]":
             return _split_verbless_conjuncts(piece)
         return parts
 
-    pieces = [text.strip()]
+    pieces = _hard_seams(text)
     for _ in range(max_rounds):
         nxt: list[str] = []
         for piece in pieces:
@@ -335,6 +335,43 @@ def cut(text: str, max_rounds: int = 3) -> "list[str]":
             break                                   # fixed point reached
         pieces = nxt
     return [p for p in pieces if p.strip()]
+
+
+#: An ask seam the SPEAKER put there: a sentence boundary followed by a
+#: joiner ("trash. Also, PUT MILK…"), a dash-and, or ", (and) then". FastRule's
+#: front door has treated every one of these as a compound since its first
+#: board (`_STRONG_COMPOUND_RE`) — and the cutter never cut there: the clause
+#: tier wants two verbs it can see, and the joiner regex below wants a comma
+#: before "also" and whitespace after. Four of the dev-100 checkpoint's 26
+#: misses were exactly this (2026-09-20): one item, then decompose_validate
+#: multiplied it into junk.
+_HARD_SEAM = re.compile(
+    r"[.;!?]\s+(?:and\s+)?(?:also|then|plus|and)\b[,\s]*"
+    r"|\s+[—–]\s*and\b[,\s]*"
+    r"|\s*,\s*(?:and\s+)?then\b[,\s]*", re.I)
+#: NOT here: a bare " and then " with no comma. The clause tier already cuts it
+#: when both sides have a verb, and as a hard seam it cut "meet sam and then
+#: we'll see" into an ask and a remark.
+
+
+def _hard_seams(text: str) -> "list[str]":
+    """Cut at the seams the speaker marked, before any parse. Each piece is a
+    substring of `text` with the seam itself removed, so the verbatim-span
+    lookup (`_source_piece`) still finds it. A seam inside a time reference is
+    never a boundary ("between 2 and then…" does not occur; a range's "and"
+    has no "then"/"also" after it, but the guard is kept for the dash form)."""
+    refs = find_time_refs(text)
+    out, start = [], 0
+    for m in _HARD_SEAM.finditer(text):
+        if any(r.start < m.end() and m.start() < r.end for r in refs):
+            continue
+        left, right = text[start:m.start()], text[m.end():]
+        if len(left.split()) < 2 or len(right.split()) < 2:
+            continue                                # a seam needs an ask on each side
+        out.append(left.strip())
+        start = m.end()
+    out.append(text[start:].strip())
+    return [p.strip(" ,;.") for p in out if p.strip(" ,;.")]
 
 
 _CUT_JOINER = re.compile(r"\s*,\s*(?:and then|and also|and|then|also|plus)\s+"
