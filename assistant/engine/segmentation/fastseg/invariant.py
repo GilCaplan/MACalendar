@@ -18,17 +18,23 @@ import re
 #: Function words carry no content, so losing one is not losing information.
 #: The joiners are here too: "buy milk and eggs" splits on "and", and no item
 #: should have to keep it to satisfy the check.
-_STOP = frozenset(
+_FUNCTION_WORDS = frozenset(
     "a an the and or then also plus as well to of for on at in by with my me "
-    "i please can you it that this including".split()
-    # Disfluencies. Dropping "um" is not losing information, and counting it as
-    # loss made 35 of the 66 content-loss rows noise — which would have sent
-    # the next cycle chasing a splitter bug that does not exist.
-    + "um uh er hmm yeah yep okay ok so like oh".split()
-    # Greetings and politeness openers. Same argument as the disfluencies: they
-    # are about the ASKING, not about what is asked. "could" joins "can", which
-    # was already here.
-    + "hey hi hello could".split())
+    "i it that this including".split())
+
+#: Disfluencies. Dropping "um" is not losing information, and counting it as
+#: loss made 35 of the 66 content-loss rows noise — which would have sent the
+#: next cycle chasing a splitter bug that does not exist.
+DISFLUENCIES = frozenset("um uh er hmm yeah yep okay ok so like oh".split())
+
+#: Greetings and politeness openers. Same argument as the disfluencies: they
+#: are about the ASKING, not about what is asked. Named apart from the function
+#: words so the scorer's no-loss check can share exactly this set — it kept a
+#: copy that had drifted, and charged FastSeg 15 lost items on the train half
+#: for stripping "can you" (2026-09-20).
+OPENERS = frozenset("please can you could hey hi hello".split())
+
+_STOP = _FUNCTION_WORDS | DISFLUENCIES | OPENERS
 
 #: A TRAILING CONFIRMATION is discourse ABOUT the command, not part of it (Gil,
 #: 2026-09-09): "cross off take out the trash does that seem right" asks for

@@ -43,6 +43,8 @@ disagree about what the invariant is.
 """
 from __future__ import annotations
 
+from assistant.engine.segmentation.fastseg import invariant as _invariant
+
 import argparse
 import collections
 import difflib
@@ -68,14 +70,14 @@ _TOKEN = re.compile(r"[a-z0-9]+(?::[0-9]{2})?")
 #: item that loses one has lost nothing; counting them would make every
 #: correct split of "wash and fold the laundry" look lossy. "as well" is here
 #: for the `as-well-as` trap, which is a two-word joiner.
-_JOINERS = frozenset({"and", "then", "also", "plus", "as", "well"}
-                     # Disfluencies are not content, so a predictor that
-                     # strips "um so" from a title has not LOST anything. This
-                     # set had drifted from `invariant.py`'s, and the gap was
-                     # charging FastSeg 48 lost tokens for doing the right
-                     # thing — the same three-copies problem the invariant had.
-                     | {"um", "uh", "er", "hmm", "yeah", "yep", "okay", "ok",
-                        "so", "like", "oh"})
+#: The disfluencies and politeness openers are the INVARIANT's own sets, not
+#: a copy: this file kept one, it drifted, and the gap charged FastSeg first
+#: 48 lost tokens for stripping "um so" and then 15 lost items for stripping
+#: "can you" — the three-copies problem the invariant module exists to end.
+#: Prepositions stay content here on purpose ("book a meeting WITH Skyler"
+#: losing "with" is a real loss the FastRule stage board attributes upstream).
+_JOINERS = (frozenset({"and", "then", "also", "plus", "as", "well"})
+            | _invariant.DISFLUENCIES | _invariant.OPENERS)
 
 #: The ONE token a correct answer may contain that the input does not: SPEC
 #: rules that an item with no time reference of its own gets "today", and the
