@@ -423,7 +423,7 @@ def clause_boundaries(text: str, date_spans=None) -> "list[Boundary]":
                 # nothing after it, so a genuine third ask still splits.
                 found.append(b)
     if not found:
-        found = _lexicon_fallback_boundaries(doc, text)
+        found = _lexicon_fallback_boundaries(doc, text, date_spans)
     return found
 
 
@@ -550,7 +550,12 @@ def _carries_an_object(doc, tok, end: int) -> bool:
     return False
 
 
-def _lexicon_fallback_boundaries(doc, text: str) -> "list[Boundary]":
+def _inside(tok, spans) -> bool:
+    """Does this token lie inside one of the caller's time spans?"""
+    return any(s <= tok.idx and tok.idx + len(tok.text) <= e for s, e in (spans or ()))
+
+
+def _lexicon_fallback_boundaries(doc, text: str, date_spans=None) -> "list[Boundary]":
     """When the walk above finds NOTHING — not one token, because spaCy
     swallowed the FIRST clause's verb into being a noun-phrase SUBJECT of
     the second clause rather than mis-tagging it as a stray compound.
@@ -584,6 +589,20 @@ def _lexicon_fallback_boundaries(doc, text: str) -> "list[Boundary]":
     for i, tok in enumerate(doc):
         if not _is_command_verb(tok):
             continue
+        # A verb GOVERNED BY ANOTHER COMMAND VERB is that verb's object, not a
+        # clause of its own: "add SCHEDULE a haircut to my list" names a to-do
+        # whose title starts with a verb, "remind me TO BUY milk" wraps one.
+        # And a preposition's object that asks for nothing ("to my LIST") is
+        # not an ask either. Both were counted as clause points, which scoped
+        # the real clause to a single word — `add`'s family was then read off
+        # nothing, matched `schedule`'s, and the seam was refused. Only those
+        # two shapes: a sentence-initial verb is trusted by POSITION, and
+        # testing it for an object refused "MARK 'haircut' as done…" over the
+        # quote mark that follows it (seven rows, measured).
+        if tok.dep_ in ("dobj", "obj", "xcomp", "ccomp") and _is_command_verb(tok.head):
+            continue
+        if tok.dep_ == "pobj" and not _carries_an_object(doc, tok, len(doc)):
+            continue
         # "remind me to X. also remind me to Y" is TWO spaCy sentences, not
         # one — the period is strong enough punctuation that its own
         # sentencizer splits there, and the second "remind" gets its OWN
@@ -607,8 +626,20 @@ def _lexicon_fallback_boundaries(doc, text: str) -> "list[Boundary]":
         # to have ended.
         if tok.dep_ == "ROOT" and sent_start > 0:
             sentence_initial = True
-        follows_coord = i > 0 and (doc[i - 1].dep_ == "cc"
-                                   or doc[i - 1].lower_ in _COORD_WORDS)
+        # The joiner may be separated from the verb by the second ask's OWN
+        # date — "call the surveyor and ON FRIDAY book the valuation". The
+        # caller already located every time phrase, so look back across it.
+        j = i - 1
+        while j >= 0 and _inside(doc[j], date_spans):
+            j -= 1
+        follows_coord = j >= 0 and (doc[j].dep_ == "cc"
+                                    or doc[j].lower_ in _COORD_WORDS
+                                    # A bare comma joins two asks only when a
+                                    # date phrase was skipped to reach it:
+                                    # "book the car wash, ON WEDNESDAY add the
+                                    # client lunch". Alone it is NP-coordination
+                                    # as often as a seam, and stays refused.
+                                    or (j < i - 1 and doc[j].is_punct))
         if sentence_initial or follows_coord:
             points.append(tok)
             if sentence_initial and i > 0:
@@ -648,17 +679,24 @@ def _lexicon_fallback_boundaries(doc, text: str) -> "list[Boundary]":
             # moment lead times became visible") — same rule, this module's
             # own copy, since the two splitters never share one code path.
             continue
-        first = nxt.i
+        # The second ask begins at its own date phrase when one sits between
+        # the joiner and the verb ("…and ON FRIDAY book the valuation"): the
+        # date belongs to the ask it introduces.
+        opens = nxt.i
         j = nxt.i - 1
+        while j > prev.i and _inside(doc[j], date_spans):
+            opens = j
+            j -= 1
+        first = opens
         while j > prev.i and (doc[j].dep_ == "cc" or doc[j].lower_ in _COORD_WORDS
                               or doc[j].is_punct):
             first = j
             j -= 1
-        if first == nxt.i:
+        if first == opens:
             continue                 # nothing joined them; not a real seam
         ends_tok = doc[first - 1]
         ends = ends_tok.idx + len(ends_tok.text)
-        begins = nxt.idx
+        begins = doc[opens].idx
         if begins <= ends:
             continue
         if (len(text[:ends].split()) < _MIN_WORDS_PER_ASK
