@@ -798,3 +798,25 @@ before you rule:
   stays 3. A new deterministic finding, `unsplit_subject` (one object whose
   own words hold an ask seam), is what carries an under-split to that round.
 
+- **2026-09-20 — Q31 (THE IMPROVEMENT LOOP RESUMES; STAGE ISOLATION IS
+  DONE)**, Gil: *"make sure we are working on the auto self improvement loop
+  to improve the system now and that md files are up to date."* This lifts
+  the 2026-09-07 pause (STAGE_ISOLATION_PLAN.md: *"Engine cycles stay
+  PAUSED"*). What the day showed: with every stage board green or moving, the
+  whole chain still lost a quarter of its commands (run 22, 74%), and every
+  fix that moved it — the kind tagger, the hard seams, the fast path's holes,
+  the model round — moved a stage board by nothing or by two rows while
+  dev-100 moved eleven points (runs 22 → 26: 74 → 85%). The misses were seam
+  and coverage defects the stage corpora do not contain.
+
+  **How the loop runs from here.** dev-100 is the working slice (direction;
+  ±3 pt), dev-fast-250 confirms, the sealed 300 is milestone-only. Each cycle
+  registers its component, metric and slice in `dataset/RESULTS.md` before
+  the change, reads the failing rows after, and starts the next. Stage boards
+  remain the GATE for any stage-internal change — a change is boarded alone
+  on its own stage before it is read on dev-100 — because a whole-chain read
+  cannot say which stage moved. Real usage (`weekly_review`) still outranks
+  every board. The three open rulings (Q29's untimed event, the new list, the
+  offset/recurrence on "remind me to") are not blocked by this: they gate
+  specific rows, not the loop.
+

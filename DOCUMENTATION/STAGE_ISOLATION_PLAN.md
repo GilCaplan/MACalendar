@@ -1,7 +1,14 @@
-# Stage isolation — the plan of record (Gil, 2026-09-07)
+# Stage isolation — the plan of record (Gil, 2026-09-07) — COMPLETED 2026-09-20
 
-_Supersedes the whole-engine cycle loop until it completes. Engine cycles
-stay PAUSED; nothing is measured end-to-end until the parts are proven._
+_Superseded the whole-engine cycle loop until it completed. Engine cycles
+stayed PAUSED; nothing was measured end-to-end until the parts were proven._
+
+**Status (2026-09-20, DEVQA Q31): done, and the loop is running again.** Each
+stage has its dataset, board and tests; the first whole-chain read after the
+isolation work (dev-100 run 22, 74%) found seam defects no stage board could
+see, and fixing them took the same rows to 85% in four runs
+(`dataset/RESULTS.md`). The per-stage boards stay as the gate for
+stage-internal changes; this plan is history from here.
 
 ## The strategy, in Gil's words
 

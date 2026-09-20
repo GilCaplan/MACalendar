@@ -8,11 +8,9 @@
 **One-screen reference. A fresh conversation reads this first, then CLAUDE.md.**
 Keep it current and short; details live in the files it points to.
 
-_Updated 2026-09-14 — rewritten against the code. The previous version was
-datelined 2026-09-08 with 50 commits since: it had a cycle "in flight" that had
-ended, three queued items that were already done, and a dataset it called "the
-fix" that Gil has since dropped. Every claim below cites a file, a commit or a
-run._
+_Updated 2026-09-20 — the "In flight" section is current; the sections below
+it were rewritten against the code on 2026-09-14 and still hold. Every claim
+cites a file, a commit or a run._
 
 **2026-09-15 — `engine-component-folders` merged (row 91, TASKS.md).** 34
 commits, unmerged since `46f7967` (Phase A), are in: FastRule restructured into
@@ -65,23 +63,28 @@ it. Fixed by also writing `outcome=kind`; `test_panel_agreement.py` and
 `test_thinking_hud.py` (both had to be repointed off the deleted
 `fastrule.objects` too) confirm it end to end.
 
-## Nothing is in flight
+## In flight: the improvement loop, resumed 2026-09-20
 
-No engine cycle, no lane batch, no experiment. The checkpoint retrospective —
-the last thing in motion — finished 2026-09-14 when the personas board landed
-(`c7f1b11`). What remains is a queue, not a run.
+**ENGINE CYCLES RUN AGAIN** (Gil, 2026-09-20, DEVQA Q31), ending the
+2026-09-07 stage-isolation pause. The day's sequence, all on dev-100 (the
+same 100 stratified train rows; `dataset/RESULTS.md` has every row read):
 
-**ENGINE CYCLES ARE PAUSED** (Gil, 2026-09-07) —
-`DOCUMENTATION/STAGE_ISOLATION_PLAN.md:3-4`: *"Supersedes the whole-engine cycle
-loop until it completes. Engine cycles stay PAUSED."* `dataset/loop_log.csv`
-ending at run 21 is correct, not a gap.
+    run 22  74%  the checkpoint — 26 misses read from X1→X4 boundaries, a plan of eight items
+    run 24  76%  the loop-back's model round (two tiers: code, then the model writes X1'; DEVQA Q30)
+    run 25  83%  plan items 1–3: the kind tagger, FastSeg's hard seams, four fast-path holes
+    run 26  85%  two tagger/converter residues — deep path 62 → 76%, item F1 75 → 87, failures 26 → 15
 
-**One process is still alive that should not be.** `scripts.sweep_monitor` (pid
-21022, started 2026-09-11, still running 2026-09-14) loops with no completion
-check (`scripts/sweep_monitor.py:96`, whose only exit is `--once`) and rewrites
-`dataset/runs/checkpoint-sweep-pass1/manifest.json` every 10 minutes — which is
-why that file is dirty in the working tree. Stop it BEFORE enriching that
-manifest, or the enrichment is overwritten.
+Every one of those was boarded alone on its stage first and moved the stage
+board by nothing or two rows: the misses were seams no stage corpus holds,
+which is why the pause ended. The queue is `DOCUMENTATION/TASKS.md` ("THE
+CHECKPOINT'S QUEUE"): item 4 (the judge's exhaustion path commits a
+subject-less object) is next; items 5–7 follow; item 8 is three rulings for
+Gil (the untimed event's default, what "start a new list" creates, whether an
+offset or a recurrence on "remind me to" makes an event) that gate 5 of the 15
+remaining rows. Real usage (`weekly_review`) still outranks every board.
+
+_(The stray `scripts.sweep_monitor` process this section used to warn about is
+gone — checked 2026-09-20, none running, the manifest clean.)_
 
 ## Read the retrospective — nothing else points at it
 

@@ -175,15 +175,19 @@ Merged into this branch 2026-09-17 (PR #3); the wording above and
 `DOCUMENTATION/TASKS.md`'s row numbers were reconciled against the
 reconciliation-audit rows (84–94) added the same week on this side.
 
-## How we are working right now (2026-09-14)
+## How we are working right now (2026-09-20)
 
-**STAGE ISOLATION, not the whole-engine loop.**
-`DOCUMENTATION/STAGE_ISOLATION_PLAN.md` is the plan of record and says so in its
-own second line: *"Supersedes the whole-engine cycle loop until it completes.
-Engine cycles stay PAUSED"* (Gil, 2026-09-07). Each stage is proven on its own
-dataset before the system is reconnected. `dataset/loop_log.csv` ends at run 21
-— the pre-loop sealed milestone, backfilled 2026-09-11 — and the last era-2
-*cycle* in it is run 20 / e2c4.
+**THE IMPROVEMENT LOOP, resumed** (Gil, 2026-09-20, DEVQA Q31). Stage
+isolation (`DOCUMENTATION/STAGE_ISOLATION_PLAN.md`, 2026-09-07) did its job —
+every stage has its own dataset, board and test file — and the day it ended
+showed why the loop had to come back: five changes that each moved a stage
+board by nothing or two rows moved the whole chain from 74% to 85%
+count-correct on dev-100 (runs 22–26, `dataset/RESULTS.md`), because the
+misses were seams no stage corpus holds. The working slice is dev-100
+(direction, ±3 pt), dev-fast-250 confirms, the sealed 300 is milestone-only;
+a stage-internal change is still boarded alone on its stage before it is read
+on dev-100. `dataset/loop_log.csv` runs to 26. The queue is "THE CHECKPOINT'S
+QUEUE" below: item 4 next, three rulings for Gil in item 8.
 
 *What used to stand here said "cycle 5 in flight 2026-09-06". There was no
 cycle 5; the epoch reset of 2026-09-05 was followed by four era-2 cycles and
@@ -1471,6 +1475,27 @@ Two candidates filed, not fixed, both needing a word from Gil:
   task of 5). Board-blind (the title banks carry no digit; board B grounds any
   digit in the words). Real pool: 0 identifier numbers, 1 address in 2,699
   rows — low frequency, so it waits.
+
+## THE CHECKPOINT'S QUEUE — items 1–3 landed, 4–8 open, 2026-09-20
+
+The plan written from the dev-100 checkpoint (run 22; `dataset/RESULTS.md`)
+had eight items. Gil: *"ok work on these and try improve system."* Each
+stage-internal item was boarded alone on its own stage, then the same 100
+rows were read again (run 25: count-correct 74 → **83%**, deep path 62 →
+72%, item F1 75.0 → 86.0, failures 26 → 17; run 26 adds the two tagger
+rows below).
+
+| # | item | status | measured |
+|---|---|---|---|
+| 1 | kind tagger: a new list / a list of things, a wake word, a yes/no question, "i want <thing>"; then "is …" without its time | **done** (`fastseg/kind.py`) | segmentation board byte-identical on 1,051; dev-100 rows |
+| 2 | FastSeg hard seams: ". Also,", "; then", dash-and, ", (and) then" | **done** (`fastseg.py::_hard_seams`) | exact-row 90.1 → 90.3, under-split 16 → 14 |
+| 3 | fast path: a noun is not a command; "remind me about/of/when" is an event; a title holding the joiner covers nothing; note/date name nothing | **done** (`rule_parser`, `fastrule`, `gatekeeper`) | product-shape board: 0 changed atomic objects; non-atomic half-executed 56 → 52, carve-out commits 337 → 307 |
+| 3b | the converter's kind table: a review the verb routed to a create is a query | **done** (`build._ACTION_FOR`) | stage board (gold, 1,200) byte-identical |
+| 4 | the judge's exhaustion path commits a subject-less object ("add this", the rescue's 'Grocery List Review'); block and ask instead; a REFUSAL is never re-committed | open — next | dev-100, 4 rows |
+| 5 | the garbage-title metric is blind (0% while 'note', 'date', 'take out the trash. also' land); add the program-word, command-frame and dangling-joiner tests; rescore the archive | open | instrument |
+| 6 | decompose_validate multiplies an under-split into junk ('send Bill Malinda'); multiply only over a bare noun list under one verb | open | dv boards, stage board's split line |
+| 7 | ingest month/day misspellings ("Febuary"); "invite/schedule/book" as polite imperatives; always answer when the rescue builds nothing | open | vocab bench (thousands), stage board |
+| 8 | RULINGS for Gil: the untimed event's default (fast path all-day, deep path clock-of-now); what "start a new list" creates; whether an offset or a recurrence on "remind me to <verb>" makes an event; resume the loop or stay in checkpoint mode | **waiting on Gil** | 5 of the remaining 17 rows |
 
 ## THE LOOP-BACK'S MODEL ROUND — landed, 2026-09-20 (DEVQA Q30)
 

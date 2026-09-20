@@ -21,7 +21,7 @@ about: **harm** (errors are not equal), the **knew-vs-accident split**
 | item-level precision / recall / F1 | of expected items, how many exist; of created items, how many were asked for |
 | missing-half | on a two-part command that failed, WHICH half vanished |
 | date-collapse | did two dated things land on one date |
-| garbage titles | a title the transcript never justified |
+| garbage titles | a title that is not a title: a leaked connective, a program word ("event", "new list", "note of it"), a command frame the verb left behind ("remind of my dentist appointment"), or a cut that ended mid-phrase ("take out the trash. also") — three readings added 2026-09-20 (cycle 28); before that the test was seven joiner words and read 0% while 29% of the checkpoint's rows carried one |
 | field quality / when-correct | are the matched items' contents grounded in what was said |
 | label-correctness | category accuracy + macro P/R/F1 (events), tag micro-P/R/F1 (tasks) |
 | parse path + latency (p50/p95) | which track answered, and how slowly |
@@ -183,7 +183,7 @@ general ones are the ones actually reusable once real usage exists to score.
 | **Count-correctness** (does a compound produce the right minimum event/task count) | Yes | **Yes** — dataset-only | The core one. Directly targets the multi-date and duplicate-task bugs found earlier this session. |
 | **event+task missing-half** (which side gets dropped: event, task, both, neither) | Yes | **Yes** — dataset-only | Finer than pass/fail — tells you *what* to fix. Found: 68% of failures drop the event specifically, not a random mix. |
 | **Cross-event date collapse** (2+ events in one command landing on the identical date+time) | Yes | No — general | Would catch the exact bug fixed earlier this session, on ANY input with 2+ events, synthetic or real. |
-| **Garbage titles** (a title that's just a leaked connective — "then", "also") | Yes (proxy, not true quality) | No — general | Real defect, found live on first real row inspected. |
+| **Garbage titles** (a title that is not a title: a leaked connective, a program word, a leftover command frame, a cut that ended mid-phrase) | Yes (proxy, not true quality) | No — general | Real defect, found live on first real row inspected. Widened 2026-09-20 (cycle 28): the seven-word test read 0% on runs that carried 29% — see `dataset/RESULTS.md`. |
 | **Parse-path distribution, latency percentiles** | Yes | No — general | Standard operational metrics, sliceable by any grouping available (complexity, parse path, whatever). |
 | **Correctness by parse path** | Yes | **Yes** — dataset-only | Needs count-correctness as an input. Found: hybrid underperforms both pure rule and pure LLM paths (57% vs 75%/77%) — worth its own investigation. |
 | **Determinism** (same prompt, replayed, same action sequence?) | Yes to compute, but confounded | No — general | Real result: 75% raw, ~85% once context-memory-dependent cases (2 of 5 diffs, isolated replay vs in-sequence) are set aside. Needs replaying at the *same sequence position* to measure cleanly, not in isolation. |

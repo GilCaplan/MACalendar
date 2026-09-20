@@ -381,17 +381,27 @@ segment uses it as both evidence and prompt grounding. **And FastRule is
 DETERMINISTIC** — a loop-back on unchanged text cannot get a new answer, so
 `state.asked_fastrule` sends it straight to the model instead.
 
-## Where we are working right now (2026-09-14)
+## Where we are working right now (2026-09-20)
 
-**STAGE ISOLATION mode — whole-engine cycles are PAUSED** (Gil, 2026-09-07).
-Each stage is proven on its OWN dataset before the system is reconnected:
-`DOCUMENTATION/STAGE_ISOLATION_PLAN.md` is the plan; per-stage data lives with
-its stage, never edited to suit another, each with its own train–test split
-under the usual leakage rules. FastRule's is
-`assistant/engine/fastrule/datasets/` (7,200 rows) scored by
-`assistant/engine/fastrule/experiments/fastrule_shape.py` against its product
-shape: **defer on non-atomic items, create the right event/task otherwise**.
-The whole-system loop below is intact and resumes once the parts are proven.
+**THE IMPROVEMENT LOOP IS RUNNING AGAIN** (Gil, 2026-09-20, DEVQA Q31; it was
+paused for stage isolation from 2026-09-07). The working slice is dev-100
+(`python -m scripts.engine_dataset_compare --limit 0 --dev100`, ~15 min with
+the model), confirmed on dev-fast-250, sealed 300 milestone-only. Runs 22–26
+on 2026-09-20 took the same 100 rows from 74% to 85% count-correct
+(`dataset/RESULTS.md`), and the reason the pause ended is in those runs:
+every fix moved a stage board by nothing or two rows while the whole chain
+moved eleven points, because the misses were SEAM defects — the kind tagger
+disagreeing with the converter, an under-split multiplied into junk, a
+query committed for a create — that no stage corpus contains.
+
+Two rules survive from stage isolation. **A stage-internal change is still
+boarded alone on its own stage first** (segmentation `run_board`, FastRule
+`fastrule_shape --split train`, the stage board, the atomicity board), because
+a whole-chain read cannot say which stage moved; per-stage data lives with its
+stage under `assistant/engine/<stage>/datasets/`, never edited to suit another.
+And **dev-100 is direction, not proof** (one row = 1 pt, noise ~3 pt): confirm
+on dev-fast-250 before banking a win. `DOCUMENTATION/TASKS.md` carries the
+queue (items 4–8 of the checkpoint plan; three of them wait on rulings).
 
 **Segmentation: IMPLEMENTATION fixes are allowed, design changes are not**
 (Gil, 2026-09-12) — *"as long as the structure remains the same, and just

@@ -42,6 +42,54 @@ FIXTURE = EXP_DIR / "hwu64_sample.json"
 #: a connective from how a compound prompt was joined, leaking through.
 _GARBAGE_TITLES = {"then", "and", "also", "and then", "so", "please", "now"}
 
+#: THE METRIC WAS BLIND (cycle 28, 2026-09-20). With the seven words above as
+#: the whole test, every run of the month read 0% garbage while 'note', 'date',
+#: 'remind me', 'take out the trash. also', 'grocery shopping 's to-do list',
+#: 'this on my calender' and 'pda do i have any appointments set ?' were being
+#: written to the calendar. Three more readings, each a shape the checkpoint's
+#: rows actually produced — the speaker's words cut in the wrong place, not
+#: the program's connectives:
+#:   1. the title IS a program word: what the entry is, not what it is for
+#:      ('event', 'new list', 'calendar event', 'note of it', 'date ?');
+#:   2. the title opens with the COMMAND FRAME the verb should have consumed
+#:      ('remind of my dentist appointment', 'send me a reminder to pick up
+#:      my dog…', 'create a list', 'open calendar');
+#:   3. the title ends in a dangling joiner, preposition or possessive, holds
+#:      an ask seam, or is a question ('take out the trash. also', 'remind
+#:      when it is lunchtime and then i', "grocery shopping 's to-do list",
+#:      'pda do i have any appointments set ?').
+#: A legitimate title can open with an errand verb ("add water", "buy milk"),
+#: so the frame test wants the article or pronoun the frames carry.
+_PROGRAM_WORD_RE = re.compile(
+    r"^(?:my |the |a |an |this |that |new |another )?"
+    r"(?:(?:calendar\s+)?event|reminder|alert|appointment|task|todo|to-do|list|note|"
+    r"date|entry|item|thing|calendar|meeting|remind me|remind)s?"
+    r"(?:\s+(?:of|for|about)\s+(?:it|this|that|me))?\s*[?.!]*$", re.I)
+_COMMAND_FRAME_RE = re.compile(
+    r"^(?:please\s+)?(?:"
+    r"remind(?:\s+me)?(?:\s+(?:to|about|of|when|that))?\s"
+    r"|send\s+me\s+an?\s+(?:reminder|alert)"
+    r"|(?:set|add|create|make|schedule|book|put)\s+(?:a|an|new|up|me)\s"
+    r"|set\s+(?:event|reminder|alarm)\b"
+    r"|open\s+(?:my\s+)?(?:calendar|the)\b"
+    r"|(?:this|that|it|these|those)\s+(?:on|to|in|for|at)\b"
+    r")", re.I)
+_DANGLING_RE = re.compile(
+    r"\b(?:and|then|also|plus|to|for|of|on|at|in|with|the|a|an|my|i)\s*$"
+    r"|\s['’]s\b"
+    r"|[.;!?]\s+(?:also|then|plus|and)\b|\band\s+(?:then|also)\b"
+    r"|[.,;]\s*$|\?\s*$", re.I)
+
+
+def is_garbage_title(title: str) -> bool:
+    """A title that is not a title: a connective, a program word, a command
+    frame the verb left behind, or a cut that ended mid-phrase."""
+    t = (title or "").strip().lower()
+    if not t:
+        return False
+    return (t in _GARBAGE_TITLES or bool(_PROGRAM_WORD_RE.match(t))
+            or bool(_COMMAND_FRAME_RE.match(t)) or bool(_DANGLING_RE.search(t)))
+
 
 def load_provenance(fixture_path: pathlib.Path = FIXTURE) -> dict[str, dict]:
     """transcript -> {scenario, intent, complexity} from the raw fetch record.
@@ -93,11 +141,11 @@ def _score_row(transcript: str, actions_json: str, prov: dict | None,
             task_titles.extend(t for t in titles if isinstance(t, str))
     n_tasks = len(task_titles)
 
-    garbage = [t for t in task_titles if t.strip().lower() in _GARBAGE_TITLES]
+    garbage = [t for t in task_titles if is_garbage_title(t)]
     # event titles are a single string per action, not a list
     event_titles = [a.get("parameters", {}).get("title", "") for a in actions
                     if a.get("action", "").startswith("create_event")]
-    garbage += [t for t in event_titles if t.strip().lower() in _GARBAGE_TITLES]
+    garbage += [t for t in event_titles if is_garbage_title(t)]
 
     event_dt = [(a.get("parameters", {}).get("date"), a.get("parameters", {}).get("start_time"))
                 for a in actions if a.get("action", "").startswith("create_event")]

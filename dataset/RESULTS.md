@@ -2492,3 +2492,144 @@ grounding, each measured on its own board before the next dev-100 read.
 landed, dev-100 count-correct 76 → low 80s, deep 65 → above 72; confirm on
 dev-fast-250 before banking.
 
+
+## THE CHECKPOINT'S QUEUE, ITEMS 1–3 — run 25 on dev-100 (2026-09-20)
+
+Gil: *"ok work on these and try improve system."* The three stage-internal
+items of the plan written from run 22, each boarded alone on its stage
+(`segmentation/experiments/RESULTS.md`, evening entry;
+`fastrule/experiments/RESULTS.md`, cycle 27), then one whole-chain read on
+the same 100 rows. **Still not a loop cycle**; the pause is Gil's to lift.
+
+| metric (dev-100, n=100) | run 22 | run 24 (model round) | **run 25 (items 1–3)** |
+|---|---|---|---|
+| count-correct | 74% | 76% | **83%** (adjusted 85%) |
+| by tier simple / medium / complex | 91 / 88 / 42 | 94 / 88 / 45 | **97 / 85 / 67** |
+| by kind event+event / task+task / event+task | 55 / 45 / 27 | 64 / 36 / 36 | **82 / 55 / 64** |
+| parse path deep / fast | 62% (n=52) / 88% (n=48) | 65 / 88 | **72% (n=58) / 98% (n=42)** |
+| item P / R / F1 | 75.8 / 74.2 / 75.0 | 76.1 / 75.3 / 75.7 | **86.0 / 86.0 / 86.0** |
+| field quality · when-correct | 88.7 · 85.0 | 87.1 · 81.0 | 85.4 · 81.0 (n=21) |
+| count-mismatch failures | 26 | 24 | **17** |
+| latency p50 / p95 | 56 ms / 41.5 s | 54 ms / 46.5 s | 60 ms / 44.7 s |
+| old brain, same rows | 70% | 69% | 69% |
+
+Nine points on a slice with a ~3-point floor, so this one is past the
+noise; the registered prediction from the run-24 entry (count-correct into
+the low 80s, deep above 72) is met on both. Six rows moved from the fast
+path to the deep track (the "new list" and carve-out defers) and the fast
+path is right on 41 of the 42 it still answers. Field quality slid three
+points because more objects are built and judged, not because any field
+got worse on a row that was already right; the when-correct line is on 21
+rows and did not move.
+
+### Fixed since run 24 (8 rows)
+
+"Make a new list of dog breeds. Also, Create a new list" (two to-dos),
+"Begin new list of lottery numbers" (defers; no query committed), "I need to
+add water to my Kroger list and add v8 to my groceries" (two to-dos), "Remind
+me when it is lunchtime, and then I need oranges…" (an event and a to-do),
+"'exhibition 2017 mass' on Mar 25 make a note of it…" (no event titled
+'note'), "Remind me of my dentist appointment in two hours, and then I want
+sweet potato pie" (an event and a to-do), "I have an appointment tommorrow,
+remind me — and make a new list" (an event and a to-do), "add date and time
+in calender… Also, Calendar event" (two events).
+
+### New since run 24 (1 row)
+
+"The list should not contain all food items with the prefix dry" — the
+RESCUE invented 'Grocery List Review' at Home, the judge refused "grocery"
+and "home" three rounds running, and the exhaustion path committed it
+anyway. Not caused by items 1–3 (the item's kind and words are unchanged
+between runs; the 8B's answer differs); it is plan item 4's row.
+
+### The 17 that remain, by owner
+
+| owner | n | rows |
+|---|---:|---|
+| a RULING (DEVQA, plan item 8) | 5 | "start a new list…", "Open up a new list…", "I would like to start a new list…" (what a new list creates); "remind me to call mom in half an hour" and "Remind me every Monday to take out the trash" (an offset / a recurrence on "remind me to <verb>" — task or event) |
+| plan item 4 — block a subject-less object on exhaustion; a REFUSAL never re-committed | 4 | "The list should not contain…" (the rescue's invention committed after three refused rounds), "hey siri make sure my calendar is completely clear tomorrow", "Please remind me of and can you invite mr. Chen" (the invite dropped), "Could you add this on my calender…" ('this' committed) |
+| the tagger, two rows the confirming run exposed (fixed after run 25, measured in run 26) | 2 | "is today st. patricks day" (reached the tagger without its time), "PDA do i have any appointments set for tomorrow?" (tagged review, built create_event by the converter's kind table) |
+| the rescue's own grounding (it invents titles, list contents, a daily recurrence) | 2 | "Please give me notice when I need to leave for the conference", "Make a list of camera photos and i need a list of my clients" |
+| ingest (a misspelt month) | 1 | "On Febuary 14th make dinner reservations…" |
+| the kind tagger, still (plan item 1 residue) | 2 | "Remind me at this time. Also, create appointment to list", "reopen groceries and add milk. Also, put xxx on the list" ("reopen groceries" is not an ask) |
+| the scorer's query rule | 1 | "Tell me when my next meeting is." |
+
+**Registered:** run 26 (the two tagger/converter rows) 83 → 85; then plan
+item 4 and the three rulings are what move the rest.
+
+### Run 26 — ACTUAL (2026-09-20): 85%, as registered
+
+The auxiliary-question review rule and the converter's ("create", "review")
+row: count-correct **85%** (adjusted 87%), simple 100 / medium 88 / complex
+67, deep **76%** (n=58) / fast 98% (n=42), item F1 **87.0**, field quality
+87.0, failures 17 → **15** ("is today st. patricks day" and "PDA do i have
+any appointments…" no longer book anything). Since the morning's
+checkpoint (run 22, same 100 rows): count-correct 74 → 85, deep 62 → 76,
+F1 75.0 → 87.0, failures 26 → 15; the old brain reads 69–70% on the same
+rows throughout. This is the last run of checkpoint mode — see the next
+entry.
+
+
+## THE LOOP RESUMES — registered prediction, cycle 28 (2026-09-20)
+
+Gil (DEVQA Q31): *"make sure we are working on the auto self improvement
+loop to improve the system now."* First cycle of the resumed loop, two
+halves, instrument first:
+
+**Instrument (plan item 5).** `scripts/score_dataset_run.py`'s garbage-title
+test is seven joiner words, so 'note', 'date', 'remind me', 'take out the
+trash. also' and 'grocery shopping 's to-do list' all scored clean and every
+run this month reads **0%** garbage. Add three tests — a title that is a
+program word (with an article or pronoun tail), a title that opens with a
+command frame, a title that ends in a dangling joiner or holds an ask seam —
+and rescore the archived runs (`scripts/rescore_runs.py`) so the history is
+comparable. **Prediction:** garbage-title rate on runs 22–26 goes from 0% to
+a number in the 5–12% band, falling across the runs (the seams and the list
+rewrite removed several); raw count-correct is unchanged by construction;
+product-adjusted count-correct drops by the newly-seen garbage rows.
+
+**Then the fix (plan item 4), `engine/__init__.py` + `llmjudge`.** When the
+loop stops with a REWRITE finding still standing on an object whose subject is
+a pronoun or a program word ('this on my calender', 'Appointment'), or the
+object was a front-door REFUSAL rebuilt with the same empty subject, BLOCK it
+with "I couldn't tell what to add" instead of committing it. Objects with a
+specific but invented title ('Washington, D.C trip', 'Grocery List Review')
+still commit with the note — a wrong title is fixable, a missing event is
+not. **Prediction (dev-100 vs run 26):** count-correct 85% ± 1 (the blocked
+rows were already misses), garbage-title rate (new instrument) down by the
+subject-less rows, the double 'remind me' commit gone; the seam defect
+CLAUDE.md records as fixed-then-reopened gets a test that stays.
+
+
+### Cycle 28, the instrument — ACTUAL (2026-09-20): the garbage rate was 29%, not 0%
+
+Rescoring the five archived dev-100 runs under the three new readings
+(`scripts/score_dataset_run.py::is_garbage_title`; 37 unit cases in
+`tests/unit/test_score_dataset_run.py`):
+
+| run | count-correct (raw, frozen) | garbage-title rate, old test | **new test** |
+|---|---|---|---|
+| 22 (checkpoint) | 74% | 0% | **29%** |
+| 23 (model round, first live) | 75% | 0% | 27% |
+| 24 (model round) | 76% | 0% | 25% |
+| 25 (items 1–3) | 83% | 0% | 20% |
+| 26 (tagger residue) | 85% | 0% | **19%** |
+
+**The prediction was wrong on the level and right on the direction.** A
+5–12% band was registered; the true rate on the checkpoint run was 29 rows
+in 100 with at least one title that is a program word, a leftover command
+frame, or a cut that ended mid-phrase — and it has fallen every run since,
+by ten points across the day, as the hard seams, the list rewrite and the
+fast-path holes removed the shapes that produced them. Raw count-correct is
+unchanged by construction. The number is now the honest ceiling on "the
+right count" — a fifth of the rows still write a title the speaker would
+correct — and it is the metric the fix half of this cycle (item 4) and the
+deep path's title cut ('event for dentist') are measured on.
+
+Two things the rescoring surfaced in the tooling, fixed in the same change:
+`scripts/rescore_runs.py` crashed on an archive with a manifest and no
+database (`checkpoint-sweep-pass1`), so the backfill had never run since
+that folder appeared; and the rate is reported but not yet a column in
+`loop_log.csv` (`garbage_pct` is logged from the run's own scorer, so runs
+22–26 carry 0.0 there — the ledger above is the corrected history).
+

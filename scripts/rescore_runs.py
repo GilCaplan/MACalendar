@@ -39,6 +39,12 @@ def rescore_all() -> list[dict]:
     for mf in sorted(RUNS.glob("*/manifest.json")):
         man = json.loads(mf.read_text())
         gz = mf.parent / "engine_run.db.gz"
+        if not gz.exists():
+            # A manifest with no database (checkpoint-sweep-pass1 is one) used
+            # to stop the whole rescore with a traceback — so the backfill had
+            # not run since that folder appeared (found 2026-09-20).
+            print(f"  (skipping {mf.parent.name}: no engine_run.db.gz)", file=sys.stderr)
+            continue
         with tempfile.NamedTemporaryFile(suffix=".db") as tmp:
             with gzip.open(gz, "rb") as fi:
                 shutil.copyfileobj(fi, tmp)
@@ -49,6 +55,7 @@ def rescore_all() -> list[dict]:
             "n": man["n_rows"],
             "raw": agg.get("count_ok_rate"), "adj": agg.get("count_ok_adj_rate"),
             "qmut": agg.get("query_mutation_violations"),
+            "garbage": agg.get("garbage_title_rate"),
         })
     return out
 
@@ -65,7 +72,7 @@ def main() -> int:
         logged = {int(r["run"]): r for r in rows if r.get("run")}
 
     results = rescore_all()
-    print(f"{'archive':<34}{'n':>6}{'raw':>7}{'adj':>7}{'qmut':>6}  drift-vs-logged")
+    print(f"{'archive':<34}{'n':>6}{'raw':>7}{'adj':>7}{'qmut':>6}{'garbage':>9}  drift-vs-logged")
     for r in results:
         drift = ""
         lr = logged.get(r["loop_run"]) if r["loop_run"] else None
@@ -74,7 +81,8 @@ def main() -> int:
             drift = f"{d:+.1f}pt" if abs(d) >= 0.05 else "none"
         raw = f"{r['raw']:.1%}" if r["raw"] is not None else "–"
         adj = f"{r['adj']:.1%}" if r["adj"] is not None else "–"
-        print(f"{r['name']:<34}{r['n']:>6}{raw:>7}{adj:>7}{r['qmut']:>6}  {drift}")
+        garbage = f"{r['garbage']:.0%}" if r.get("garbage") is not None else "–"
+        print(f"{r['name']:<34}{r['n']:>6}{raw:>7}{adj:>7}{r['qmut']:>6}{garbage:>9}  {drift}")
 
     if args.write and logged:
         for r in results:
