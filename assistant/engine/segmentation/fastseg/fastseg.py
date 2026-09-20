@@ -969,9 +969,9 @@ def tag(action: str, time_str: str) -> str:
     `pos_sizing.py`; calendar commands are VERB-rooted imperatives, so a
     root-POS signal is anti-correlated with the answer.
     """
-    from assistant.engine.segmentation.old_seg.segment import _enforce_pinned_kinds, _kind_of
+    from assistant.engine.segmentation.fastseg.kind import kind_of
 
-    kind = _enforce_pinned_kinds(_kind_of(action), action)
+    kind = kind_of(action)
     if kind not in ("event", "task", "review"):
         kind = "event"
     # Q25 (Gil, 2026-09-18): "anything that has an AM or PM time, like 1

@@ -39,6 +39,7 @@ no second code path to keep in step.
 from __future__ import annotations
 
 import os
+import re
 
 from assistant.engine.segmentation import old_seg          # noqa: F401
 from assistant.engine.state import Item
@@ -47,6 +48,13 @@ from assistant.engine.state import Item
 #: `old_seg` remains fully wired and one env var away — see ARCHITECTURE.md §3
 #: for the measured differences, including where FastSeg is WORSE.
 IMPLEMENTATION = os.environ.get("MACALENDAR_SEGMENTATION", "fastseg").strip().lower()
+
+#: The transport envelopes opened before any segmenter runs: the ingest
+#: queue's `("…")and("…")` coalescing wrapper (parentheses + quotes, because a
+#: bare "and" very much can occur inside one command) and the phone's
+#: `[…][…]` batches. The stage's own step, so the stage's own readers.
+_COALESCE_RE = re.compile(r"\(\s*[\"“]([^\"“”]+)[\"”]\s*\)")
+_BRACKET_RE = re.compile(r"\[([^\[\]]+)\]")
 
 
 def _envelope_split(text: str, cfg):
@@ -59,9 +67,6 @@ def _envelope_split(text: str, cfg):
     into a single item. So the envelope is opened first, with `old_seg`'s own
     reader, and FastSeg runs per envelope.
     """
-    from assistant.engine.segmentation.old_seg.segment import (
-        _BRACKET_RE, _COALESCE_RE)
-
     hits = _COALESCE_RE.findall(text)
     if len(hits) > 1:
         return [s.strip() for s in hits if s.strip()], "coalesced"
@@ -103,8 +108,7 @@ def run(state, cfg):
     if IMPLEMENTATION == "old_seg":
         return old_seg.segment.run(state, cfg)
 
-    from assistant.engine.segmentation.old_seg.segment import (
-        _enforce_pinned_kinds, _kind_of)
+    from assistant.engine.segmentation.fastseg.kind import kind_of
     from assistant.trace import RULE
 
     envelopes, how = _envelope_split(state.text, cfg)
@@ -120,14 +124,13 @@ def run(state, cfg):
             # to the else branch and be re-read as an event, which threw away the
             # one verdict that says "this is not a calendar ask at all" — so the
             # tag existed in the contract and nothing could ever produce it.
-            kind = tag if tag in ("event", "task", "review", "other") else \
-                _enforce_pinned_kinds(_kind_of(action), action)
+            kind = tag if tag in ("event", "task", "review", "other") else kind_of(action)
             items.append(Item(id=f"item_{len(items) + 1}", kind=kind,
                               text=action, time=when, source=source))
 
     if not items:                      # never hand on an empty decomposition
         items = [Item(id="item_1", text=state.text, source=state.text,
-                      kind=_enforce_pinned_kinds(_kind_of(state.text), state.text))]
+                      kind=kind_of(state.text))]
     state.items = items
 
     if state.trace:
