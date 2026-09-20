@@ -60,6 +60,34 @@ COMPOUNDS = [
 TAILS = ["session", "class", "order", "run", "club", "practice", "delivery",
          "workshop", "appointment", "lesson", "night", "meetup"]
 
+#: SOUND-PRESERVING LETTER SWAPS — the half of real damage that a boundary
+#: move cannot imitate. The real corpus's pairs change LETTERS while keeping
+#: the sound: 'quinoa' -> 'keen wah', 'karate' -> 'carrot day', 'falafel' ->
+#: 'fell awful'. A bench that only moves boundaries is far too easy, and
+#: calibration proved it — boundary-only damage repaired at 62% against 23%
+#: for the real pairs, so tuning on it would have over-estimated everything.
+#:
+#: Each pair is reversible and phonetically neutral in English orthography.
+_SOUND_SWAPS = [
+    ("qu", "kw"), ("ph", "f"), ("c", "k"), ("ck", "k"), ("x", "ks"),
+    ("oo", "ou"), ("ee", "ea"), ("ai", "ay"), ("oa", "oh"), ("ou", "oo"),
+    ("y", "i"), ("s", "z"), ("tion", "shun"), ("ght", "t"), ("wh", "w"),
+    ("ea", "ee"), ("au", "aw"), ("er", "ah"), ("ar", "ah"),
+]
+
+
+def _sound_swap(word: str, which: int) -> "str | None":
+    """Apply ONE sound-preserving letter swap, chosen deterministically."""
+    tried = 0
+    for a, b in _SOUND_SWAPS:
+        if a in word:
+            if tried == which % max(1, sum(1 for x, _ in _SOUND_SWAPS if x in word)):
+                out = word.replace(a, b, 1)
+                return out if out != word else None
+            tried += 1
+    return None
+
+
 _VOWEL_RUN = re.compile(r"[aeiouy]+", re.I)
 
 
@@ -121,8 +149,20 @@ def pairs() -> "list[tuple[str, str]]":
     for i, head in enumerate(HEADS):
         for tail in TAILS[(i % 3):(i % 3) + 4]:      # 4 tails each, rotated
             clean = f"{head} {tail}"
-            for damaged_head in (_boundary_shift(head), _syllable_split(head),
-                                 _corrupt(head)):
+            swapped = [_sound_swap(head, k) for k in range(3)]
+            hard = []
+            for sw in swapped:
+                if not sw:
+                    continue
+                hard.append(sw)                          # letters changed
+                bs = _boundary_shift(sw)                 # ...and the boundary
+                if bs:
+                    hard.append(bs)
+                ss = _syllable_split(sw)                 # ...and fully spaced
+                if ss:
+                    hard.append(ss)
+            for damaged_head in ([_boundary_shift(head), _syllable_split(head),
+                                  _corrupt(head)] + hard):
                 if damaged_head:
                     add(f"{damaged_head} {tail}", clean)
     # ...and Gil's own construction on top: mash the term's two words so the
@@ -223,8 +263,43 @@ def in_sentence(limit: int = 0) -> "list[dict]":
     return rows
 
 
+def local_aliases() -> "list[tuple[str, str]]":
+    """Mishearings the USER has confirmed, read from their vocabulary.
+
+    These are the realest pairs that exist — each one is a wrong form the
+    speaker personally corrected. Read at RUNTIME from outside the repo and
+    never written into it, which is the same constraint `gen_realspeech.py`
+    enforces with `--leak-check`: nothing personal is committed.
+    """
+    import os
+    # DELIBERATELY the real file, not `MACALENDAR_VOCAB`. That override points
+    # at the SCRATCH store under test — a sweep sets it before importing
+    # anything — so honouring it here would read an empty vocabulary and
+    # silently drop every real pair. Read-only, and never written back, which
+    # is exactly what `gen_realspeech.py --leak-check` already does.
+    path = os.path.expanduser("~/.assistant_tools/vocab.json")
+    if os.environ.get("MACALENDAR_NO_LOCAL_ALIASES"):
+        return []
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except Exception:
+        return []
+    out = []
+    for entry in (data.get("words") or data.get("entries") or []):
+        word = (entry.get("word") or "").strip()
+        for alias in (entry.get("aliases") or []):
+            alias = (alias or "").strip()
+            if word and alias and alias.lower() != word.lower():
+                out.append((alias, word))
+    return out
+
+
 def real_pairs() -> "list[tuple[str, str]]":
-    """The 62 REAL ones from the realspeech corpus. The primary number."""
+    """The REAL ones: the realspeech corpus gold, plus the user's confirmed
+    aliases when this machine has them. The primary number, and it is SMALL —
+    about a hundred. It can never be the tuning signal; it is the check that
+    the synthetic bench has not drifted away from reality."""
     seen, out = set(), []
     for line in REALSPEECH.open():
         slots = (json.loads(line)["expect"].get("slots") or {})
@@ -234,6 +309,10 @@ def real_pairs() -> "list[tuple[str, str]]":
             if (got.lower(), want.lower()) not in seen:
                 seen.add((got.lower(), want.lower()))
                 out.append((got, want))
+    for got, want in local_aliases():
+        if (got.lower(), want.lower()) not in seen:
+            seen.add((got.lower(), want.lower()))
+            out.append((got, want))
     return out
 
 
