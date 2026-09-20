@@ -259,11 +259,35 @@ def learn_from_edit(original: str, edited: str, source: str = "test") -> list:
             continue
         if (i2 - i1) != (j2 - j1):
             continue                      # only clean word-for-word swaps teach
-        for wrong, right in zip(o_words[i1:i2], e_words[j1:j2]):
+        for k, (wrong, right) in enumerate(zip(o_words[i1:i2], e_words[j1:j2])):
             wrong = wrong.strip(".,!?;:")
             right = right.strip(".,!?;:")
             if not wrong or not right or wrong.lower() == right.lower():
                 continue
+            # A REAL ENGLISH WORD NEVER BECOMES A BARE ALIAS. An alias is exact
+            # and unguarded — `if window in alias_keys: reason, score =
+            # "alias", 1.0` — so it fires wherever the word appears, forever.
+            # Correcting "REWIND me to pick up the parcel" to "REMIND me to..."
+            # taught `rewind -> remind`, and then:
+            #
+            #     "rewind the video to the start" -> "remind the video to ..."
+            #     "please rewind that podcast"    -> "please remind that ..."
+            #
+            # So when the misheard word is itself ordinary English, the alias
+            # is widened to include the next word — which the edit left
+            # unchanged, so it is context the speaker confirmed. "rewind me"
+            # -> "remind me" fires on the frame and leaves the video alone.
+            try:
+                from assistant.stt.vocab import _english
+                ordinary = wrong.lower() in _english()
+            except Exception:
+                ordinary = False
+            if ordinary:
+                nxt_o = o_words[i1 + k + 1].strip(".,!?;:") if i1 + k + 1 < len(o_words) else ""
+                nxt_e = e_words[j1 + k + 1].strip(".,!?;:") if j1 + k + 1 < len(e_words) else ""
+                if not nxt_o or nxt_o.lower() != nxt_e.lower():
+                    continue          # no confirmed context — teach nothing
+                wrong, right = f"{wrong} {nxt_o}", f"{right} {nxt_e}"
             try:
                 # add_alias creates `right` as a vocab word when it is new.
                 get_vocab().add_alias(wrong, right)

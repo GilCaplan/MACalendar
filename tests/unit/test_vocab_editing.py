@@ -199,3 +199,59 @@ def test_a_whole_clause_is_not_learned_as_a_term(tmp_path, monkeypatch):
         "remind me to call the plumber about the leak in the kitchen",
         source="test")
     assert not any(len(r.split()) > 4 for _, r in learned), learned
+
+
+def test_an_ordinary_english_word_never_becomes_a_bare_alias(tmp_path, monkeypatch):
+    """An alias is EXACT and UNGUARDED — `if window in alias_keys` — so it
+    fires wherever the word appears, forever. Correcting "REWIND me to pick up
+    the parcel" taught `rewind -> remind`, and then quietly rewrote every other
+    sentence containing the word:
+
+        "rewind the video to the start" -> "remind the video to the start"
+        "please rewind that podcast"    -> "please remind that podcast"
+
+    Found by checking a claim rather than asserting it. When the misheard word
+    is itself ordinary English the alias is widened to include the next word —
+    which the edit left unchanged, so it is context the speaker confirmed.
+    """
+    monkeypatch.setenv("MACALENDAR_VOCAB", str(tmp_path / "vocab.json"))
+    from assistant.engine.ingest.repair import learn_from_edit
+    from assistant.stt.vocab import get_vocab
+    import assistant.stt.vocab as V
+    V._vocab = None
+
+    learned = learn_from_edit("rewind me to pick up the parcel",
+                              "remind me to pick up the parcel", source="test")
+    assert learned == [("rewind me", "remind me")], learned
+
+    store = get_vocab()
+    assert store.correct("rewind me to call the plumber")[0] == \
+        "remind me to call the plumber"
+    for untouched in ("rewind the video to the start",
+                      "please rewind that podcast"):
+        assert store.correct(untouched)[0] == untouched
+
+
+def test_a_non_english_mishearing_still_learns_as_one_word(tmp_path, monkeypatch):
+    """The widening applies only to ordinary words. A name or a personal term
+    has no such risk — nothing else says it — so it stays a single alias."""
+    monkeypatch.setenv("MACALENDAR_VOCAB", str(tmp_path / "vocab.json"))
+    from assistant.engine.ingest.repair import learn_from_edit
+    import assistant.stt.vocab as V
+    V._vocab = None
+
+    learned = learn_from_edit("call ohra tomorrow", "call Ora tomorrow",
+                              source="test")
+    assert learned and all(" " not in w for w, _ in learned), learned
+
+
+def test_an_ordinary_word_with_no_confirmed_context_teaches_nothing(tmp_path, monkeypatch):
+    """Widening needs a neighbour the edit left alone. Without one there is no
+    context to anchor the alias to, and a bare one is what caused the bug — so
+    nothing is learned rather than something unsafe."""
+    monkeypatch.setenv("MACALENDAR_VOCAB", str(tmp_path / "vocab.json"))
+    from assistant.engine.ingest.repair import learn_from_edit
+    import assistant.stt.vocab as V
+    V._vocab = None
+
+    assert learn_from_edit("rewind", "remind", source="test") == []
