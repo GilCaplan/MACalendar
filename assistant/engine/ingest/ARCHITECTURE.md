@@ -3,6 +3,37 @@
 **The step between "what Whisper wrote" and "words worth parsing."** Everything
 Segmentation sees has been through here.
 
+## What it is FOR (Gil, 2026-09-20)
+
+> *"The idea of ingest is **a.** to fix deterministically bad transcribe
+> wording **b.** finetuned list of vocabulary from user to fix."*
+
+Two aims, and keeping them apart is what decides where a fix belongs:
+
+**(a) GENERIC, DETERMINISTIC repair.** Damage that happens to everybody, fixed
+the same way for everybody, with no reference to who is speaking: stop
+keywords, openers, stutters, filler phrases, trailing hedges,
+self-corrections — and the COMMAND FRAMES the routing depends on. "remind me
+to" is not personal; every speaker says it, and `_ROUTE_OVERRIDES` matches on
+it, so a mangled frame ("rewind me to", "remind mitt to") is misrouted for
+everyone. It belongs here.
+
+**(b) THE SPEAKER'S OWN WORDS.** Names, places, shorthand, loanwords — things
+English does not know and only this person says. `assistant/stt/vocab.py` and
+the aliases learned from their corrections.
+
+**Putting a fix on the wrong shelf is a real bug, not a tidiness question.**
+"remind me to" was briefly taught as a per-user alias on the word "rewind" —
+and because an alias is exact and unguarded, it then rewrote "rewind the video
+to the start" for that user and helped nobody else. Ask which aim a repair
+serves before writing it: if every speaker needs it, it is (a).
+
+**Only (a) may be deterministic in the strict sense.** (b) LEARNS — an alias
+added today changes tomorrow's answer — so the vocabulary path is
+path-dependent by design. Measured on 400 cases: identical across repeats and
+across entry order, and differing only with learning on, where all ten changes
+were repairs that became correct and none regressed.
+
 Two jobs, and they were in two different places before this folder existed:
 
 ```

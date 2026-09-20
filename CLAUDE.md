@@ -62,6 +62,15 @@ judge check behind it. **`assistant/engine/ARCHITECTURE.md` is the map** — the
 chain, each stage as a black box, and what is wired versus inert. Open it first;
 `DOCUMENTATION/ENGINE.md` is the per-stage contract reference underneath it.
 
+**Ingest has TWO AIMS and a fix belongs to exactly one** (Gil, 2026-09-20):
+*"a. to fix deterministically bad transcribe wording b. finetuned list of
+vocabulary from user to fix."* Generic damage — stop words, stutters, fillers,
+and the COMMAND FRAMES routing depends on — is (a) and is fixed the same way
+for everybody. Names, places and shorthand are (b). Putting one on the other's
+shelf is a bug: "remind me to" taught as a per-user alias on "rewind" rewrote
+"rewind the video to the start" for that user and helped nobody else.
+`assistant/engine/ingest/ARCHITECTURE.md` has the worked case.
+
 **LLMSeg is wired and deliberately INERT** (`MACALENDAR_LLMSEG`) — do not read
 its presence as working behaviour.
 

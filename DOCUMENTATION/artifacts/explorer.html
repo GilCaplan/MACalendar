@@ -2054,9 +2054,18 @@ series_id   NULL
       view: "engine", tag: "stage 1", name: "transcript", rl: "1 transcript", title: "transcript — repair the words",
       z: [310, 82, 2.2],
       sum: `<p>Raw words in, the working transcript out. <strong>This is the only person-specific stage</strong> — the personal vocabulary and the spoken-noise cleanup both live here, so everything downstream is generic and works for anybody.</p>
+    <p><strong>Two aims, and every repair belongs to exactly one.</strong>
+    <em>Generic</em>: damage that happens to everybody, fixed the same way for
+    everybody &mdash; stop words, openers, stutters, filler phrases, and the
+    command <em>frames</em> the routing depends on, since every speaker says
+    &ldquo;remind me to&rdquo;. <em>Personal</em>: the speaker&rsquo;s own
+    words, which only they say. Putting a fix on the wrong side is a real bug:
+    teaching &ldquo;remind me to&rdquo; as one person&rsquo;s alias on the word
+    &ldquo;rewind&rdquo; rewrote &ldquo;rewind the video to the start&rdquo; for
+    them, and helped nobody else.</p>
     <p class="figs">stop word → false start → cleanup → vocabulary → the doubt gate</p>`,
-      more: `<svg viewBox="0 0 380 252" role="img" aria-label="Five steps in order, each narrowing the transcript: the stop keyword, the false-start filter, spoken noise, the personal vocabulary, and the doubt gate. Two worked lines: the first loses its opener and trailing hedge; the second shows a personal term whose word boundaries the speech model moved, bar rista course, put back as barista course. A side note marks this as the only person-specific stage, and marks that an ignored false start is never remembered.">
-  <text x="0" y="8" font-size="7" letter-spacing="1" fill="var(--muted)">FIVE STEPS, IN ORDER &#183; THE ONLY PERSON-SPECIFIC STAGE</text>
+      more: `<svg viewBox="0 0 380 280" role="img" aria-label="Six steps in order, each narrowing the transcript: the stop keyword, the false-start filter, spoken noise, the command frame, the personal vocabulary, and the doubt gate. The first four are generic and the fifth is personal. Two worked lines: the first loses its opener and trailing hedge; the second shows a personal term whose word boundaries the speech model moved, bar rista course, put back as barista course. A side note marks this as the only person-specific stage, and marks that an ignored false start is never remembered.">
+  <text x="0" y="8" font-size="7" letter-spacing="1" fill="var(--muted)">SIX STEPS, IN ORDER &#183; GENERIC FIRST, PERSONAL LAST</text>
   <rect x="0" y="15" width="380" height="21" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="9" y="29" font-size="7" font-weight="600" fill="var(--amber)">1</text>
   <text x="20" y="29" font-size="7">stop keyword</text>
@@ -2071,25 +2080,29 @@ series_id   NULL
   <text x="372" y="79" text-anchor="end" font-size="6.5" fill="var(--muted)">openers, fillers, stutters, hedges</text>
   <rect x="0" y="90" width="380" height="21" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="9" y="104" font-size="7" font-weight="600" fill="var(--amber)">4</text>
-  <text x="20" y="104" font-size="7">vocabulary</text>
+  <text x="20" y="104" font-size="7">vocabulary &#183; personal</text>
   <text x="372" y="104" text-anchor="end" font-size="6.5" fill="var(--muted)">one word or several, even respaced</text>
   <rect x="0" y="115" width="380" height="21" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="9" y="129" font-size="7" font-weight="600" fill="var(--amber)">5</text>
-  <text x="20" y="129" font-size="7">the doubt gate</text>
-  <text x="372" y="129" text-anchor="end" font-size="6.5" fill="var(--muted)">doubtful? ask before executing</text>
-  <text x="0" y="158" font-size="7" letter-spacing="1" fill="var(--muted)">ONE LINE THROUGH IT</text>
-  <text x="80" y="174" text-anchor="end" font-size="6.5" fill="var(--muted)">heard</text>
-  <text x="88" y="174" font-size="7.5" fill="var(--muted)">um so add lunch tomorrow, or something</text>
-  <line x1="150" y1="180" x2="150" y2="188" stroke="var(--muted)" stroke-width="1" marker-end="url(#mi)"/>
-  <text x="80" y="200" text-anchor="end" font-size="6.5" fill="var(--muted)">out</text>
-  <text x="88" y="200" font-size="7.5" fill="var(--good)">add lunch tomorrow</text>
-  <text x="80" y="216" text-anchor="end" font-size="6.5" fill="var(--muted)">heard</text>
-  <text x="88" y="216" font-size="7.5" fill="var(--muted)">book bar rista course friday</text>
-  <line x1="150" y1="222" x2="150" y2="230" stroke="var(--muted)" stroke-width="1" marker-end="url(#mi)"/>
-  <text x="80" y="242" text-anchor="end" font-size="6.5" fill="var(--muted)">out</text>
-  <text x="88" y="242" font-size="7.5" fill="var(--good)">book barista course friday</text>
-  <text x="228" y="242" font-size="6.5" fill="var(--amber)">three words &#8594; two</text>
-  <text x="0" y="252" font-size="7" letter-spacing="1" fill="var(--amber)">EVERY STAGE AFTER THIS ONE IS GENERIC</text>
+  <text x="20" y="129" font-size="7">command frame</text>
+  <text x="372" y="129" text-anchor="end" font-size="6.5" fill="var(--muted)">&#8220;rewind me to&#8221; &#8594; &#8220;remind me to&#8221;</text>
+  <rect x="0" y="140" width="380" height="21" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
+  <text x="9" y="154" font-size="7" font-weight="600" fill="var(--amber)">6</text>
+  <text x="20" y="154" font-size="7">the doubt gate</text>
+  <text x="372" y="154" text-anchor="end" font-size="6.5" fill="var(--muted)">doubtful? ask before executing</text>
+  <text x="0" y="183" font-size="7" letter-spacing="1" fill="var(--muted)">ONE LINE THROUGH IT</text>
+  <text x="80" y="199" text-anchor="end" font-size="6.5" fill="var(--muted)">heard</text>
+  <text x="88" y="199" font-size="7.5" fill="var(--muted)">um so add lunch tomorrow, or something</text>
+  <line x1="150" y1="205" x2="150" y2="213" stroke="var(--muted)" stroke-width="1" marker-end="url(#mi)"/>
+  <text x="80" y="225" text-anchor="end" font-size="6.5" fill="var(--muted)">out</text>
+  <text x="88" y="225" font-size="7.5" fill="var(--good)">add lunch tomorrow</text>
+  <text x="80" y="241" text-anchor="end" font-size="6.5" fill="var(--muted)">heard</text>
+  <text x="88" y="241" font-size="7.5" fill="var(--muted)">book bar rista course friday</text>
+  <line x1="150" y1="247" x2="150" y2="255" stroke="var(--muted)" stroke-width="1" marker-end="url(#mi)"/>
+  <text x="80" y="267" text-anchor="end" font-size="6.5" fill="var(--muted)">out</text>
+  <text x="88" y="267" font-size="7.5" fill="var(--good)">book barista course friday</text>
+  <text x="228" y="267" font-size="6.5" fill="var(--amber)">three words &#8594; two</text>
+  <text x="0" y="277" font-size="7" letter-spacing="1" fill="var(--amber)">EVERY STAGE AFTER THIS ONE IS GENERIC</text>
 </svg>
     <figcaption>Five narrowings, in that order &mdash; and one thing deliberately NOT narrowed: the courtesy wrapper stays on, because FastRule's interrogative gate reads those words to tell a question from a polite imperative. An ignored false start is the one outcome with no trace at all: it is not remembered, because a run of them would teach the memory that false starts are normal.</figcaption>
     <h3>In order</h3>
@@ -2118,6 +2131,14 @@ series_id   NULL
       to one, widest first, and the two sides are compared with the spaces stripped out &mdash; the spaces
       are part of the damage, not evidence. A window of entirely ordinary words is never merged, which is
       what keeps a real phrase from being &ldquo;repaired&rdquo; into a term it merely resembles.</li>
+      <li><strong>The command frame.</strong> The fixed phrases the routing reads
+      &mdash; &ldquo;remind me to&rdquo; and its kin &mdash; put back when the
+      speech model mangles them (&ldquo;rewind me to&rdquo;, &ldquo;remind mitt
+      to&rdquo;). <em>Generic</em>, not personal: everyone says these, so a
+      damaged one is misrouted for everyone. The guard is the whole three-word
+      shape plus what follows it, because &ldquo;rewind&rdquo; is an ordinary
+      word &mdash; &ldquo;rewind me to <em>call the plumber</em>&rdquo; is
+      repaired, &ldquo;rewind me to <em>the start</em>&rdquo; is not.</li>
       <li><strong>The doubt gate.</strong> With the setting on and a client that says it can show an
       editor, doubtful words stop execution and ask you to check the transcription first.</li>
     </ol>
