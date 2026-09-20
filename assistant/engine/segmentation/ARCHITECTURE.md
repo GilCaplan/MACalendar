@@ -60,10 +60,12 @@ from becoming convoluted. This file is how the stage WORKS.
 
 ## 0 · Where this stage stands — 2026-09-20
 
-**Train half, 1,051 rows** (`experiments/RESULTS.md`, 2026-09-20 entry, has
-the per-fix ledger): exact-row **89.2%** (937), exact-set 90.8%, the cut
-**98.1%** right item count, over-split **1** / under-split **19**, tag
-**98.0%**, adversarial phrasing 28/31. **Sealed half, read once at this
+**Train half, 1,051 rows** (`experiments/RESULTS.md`, the two 2026-09-20
+entries, have the per-fix ledger): exact-row **90.1%** (947), exact-set
+91.1%, the cut **98.4%** right item count, over-split **1** / under-split
+**16**, tag **98.8%**, adversarial phrasing 28/31. `old_seg` is retired
+(`retired/segmentation-old-seg/`, tag `segmentation-old-seg`); FastSeg is
+the stage. **Sealed half, read once at this
 milestone, aggregates only (660 rows)**: exact-row 78.2% → **79.7%**, the cut
 92.1% → **93.5%**, over-split 22 → **16**, under-split 34 → **27**, tag 92.6% →
 **93.6%** — the cut fixes generalise, and the 4.4-pt tag gap between halves is
