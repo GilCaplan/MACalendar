@@ -395,3 +395,15 @@ def test_the_three_kinds_are_distinguishable_downstream():
         got = (st.items[0].slots or {}).get("fastrule_result")
         assert got == expected, f"{expected}: got {got!r}"
         assert st.items[0].blocked
+
+
+def test_a_review_the_verb_routed_to_a_create_is_a_query():
+    """"PDA do i have any appointments set for tomorrow?" parsed create_event
+    at 0.86 and the front door REFUSED it as interrogative-create; the
+    per-item path then fell through to the route and booked an event titled
+    'pda do i have any appointments set ?' (dev-100 run 25). A review is a
+    schedule question: the kind, not the verb, decides a create."""
+    got = _build("PDA do i have any appointments set for tomorrow?", kind="review",
+                 raw={"create_event": {"title": "pda do i have any appointments set"}})
+    assert isinstance(got, Built), got
+    assert got.action == "query_schedule", got.action

@@ -1385,3 +1385,43 @@ Unchanged: `start_time`/`end_time` on the real-usage board. The generator
 family above is the cheap one to do first, because the boards cannot see
 this ruling until it exists.
 
+
+## Cycle 27 — four fast-path holes from the checkpoint (2026-09-20)
+
+### Why this one
+
+The dev-100 checkpoint (`dataset/RESULTS.md`, run 22) charged the fast path
+with 5 of its 26 misses, each a commit of the wrong thing in 50 ms: a QUERY
+for "begin new list of lottery numbers", a to-do for "remind me when it is
+lunchtime" titled 'remind when it is lunchtime and then i', an event titled
+'note'. Gil: *"ok work on these and try improve system."*
+
+### What changed, one board run each
+
+| change | where | atomic rows (3,200) | non-atomic rows (400) |
+|---|---|---|---|
+| a noun with its own determiner/adjective is an object, not a command (the any-token pass) | `rule_parser._route_intent` pass 4 | byte-identical | half-executed 56 → 55 |
+| "remind me about / of / when / that" is a calendar entry (the tagger's convention, applied on the fast path) | `_ROUTE_OVERRIDES` | byte-identical | unchanged |
+| a title that still holds the joiner does not cover the compound | `_parse_covers_the_compound` | byte-identical | deferred 72.0 → **74.3%**, covered-and-committed 337 → **307**, half-executed 55 → **52** |
+| note, date (and "note of it") name nothing | `gatekeeper._GENERIC_TARGET_RE` | byte-identical | byte-identical |
+
+A row differential over all 3,401 train atomic rows, HEAD's router and
+overrides against the working tree's: **0 changed objects**. The corpus has
+none of these shapes, so the negative surface is clean and the positive
+surface is the checkpoint's rows and `test_fastrule.py`.
+
+The carve-out test is the one that moves a number, and the direction is the
+intended one: 30 compounds the parse "covered" with a joiner still inside a
+title now defer to the deep track instead of committing a title like
+'remind when it is lunchtime and then i'. Q13's carve-out itself stays.
+
+### Result on the whole chain
+
+Measured on dev-100 with the segmentation changes of the same day —
+`dataset/RESULTS.md`, run 25.
+
+### Next prediction (registered)
+
+Unchanged: `start_time`/`end_time` on the real-usage board. The untimed
+event default (DEVQA, awaiting Gil) is the change that would move it.
+

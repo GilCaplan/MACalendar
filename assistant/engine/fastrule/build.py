@@ -178,6 +178,14 @@ _ACTION_FOR = {
     ("query", "event"): "query_schedule",
     ("query", "review"): "query_schedule",
     ("query", "task"): "query_todos",
+    # A REVIEW is a schedule question. When the verb routed it to a create —
+    # "PDA do i have any appointments set for tomorrow?" parsed create_event
+    # at 0.86 and the front door REFUSED it as interrogative-create — the
+    # per-item path fell through to the route and booked an event titled
+    # 'pda do i have any appointments set ?' (dev-100 run 25). The kind is
+    # the better evidence for a create, as the comment above says; a review
+    # kind makes it a query.
+    ("create", "review"): "query_schedule",
 }
 
 #: Which operations may be re-kinded from `item.kind`. A create or a query is

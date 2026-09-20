@@ -402,3 +402,16 @@ def test_a_sentence_seam_the_speaker_marked_is_a_cut():
         == ["For the next three Sundays remind me I have yoga class at noon", "yashas bithday with vinay"]
     assert cut("meet sam and then we'll see") == ["meet sam and then we'll see"]
     assert cut("book gym between 2 and 4 and then dinner") == ["book gym between 2 and 4 and then dinner"]
+
+
+def test_a_question_that_opens_with_an_auxiliary_is_a_review_even_without_its_time():
+    """"is today st. patricks day" reaches the tagger as "is st. patricks day"
+    — the time already cut out — so the "is today" form never saw it and an
+    event 'St. Patrick's Day' was booked (dev-100 run 25). A command never
+    opens with a bare auxiliary; "are you able to add…" is a polite
+    imperative and stays out."""
+    from assistant.engine.segmentation.fastseg.kind import kind_of
+    assert kind_of("is st. patricks day") == "review"
+    assert kind_of("does the gym close at nine") == "review"
+    assert kind_of("am i free friday") == "review"
+    assert kind_of("are you able to add yoga tomorrow") == "event"

@@ -450,3 +450,39 @@ which are FastRule's.
 The tag work generalised (+0.6 on the sealed half against +0.8 on train);
 the cut fixes of this pass touched shapes the sealed half does not hold.
 Two reads of the sealed half today, both aggregates only.
+
+
+## 2026-09-20 (evening) — the checkpoint's queue: the kind tagger and the hard seams
+
+The whole-chain checkpoint on dev-100 (`dataset/RESULTS.md`, run 22) charged
+segmentation with 16 of its 26 misses: 12 the KIND decision, 4 the CUT. Both
+are implementation fixes inside the stage, each boarded alone on the train
+half (1,051 rows).
+
+| change | exact-row | the cut | under-split | tag misses | no-loss items |
+|---|---|---|---|---|---|
+| baseline (morning) | 90.1% | 98.4% | 16 | 11 | 19 |
+| **kind**: `_LIST_DEST` learns a NEW list / a list OF things and "groceries list"; a wake word or a yes/no question before a looking verb is still a review; "i want <thing>" is an errand | 90.1% | 98.4% | 16 | 11 | 19 — **byte-identical** |
+| **cut**: `_hard_seams` before the parse — ". Also,", "; then", a dash-and, ", (and) then"; a bare "and then" stays with the clause tier | **90.3%** | **98.6%** | **14** | 11 | **17** |
+
+The kind change is silent on this board because none of its shapes are in
+the stage's corpus: no "new list of", no wake word, no "i want <thing>".
+Its positive surface is the checkpoint's own rows, all of which now read
+right on a probe (`kind_of`: "Make a new list of dog breeds" → task, "PDA
+do i have any appointments set for tomorrow?" → review, "is today st.
+patricks day" → review, "I want sweet potato pie…" → task; "i want to meet
+sam on friday" and "i want a meeting with sam" stay events) and the tests in
+`test_engine_segment.py`. The negative surface is the 1,051 rows: nothing
+moved.
+
+The cut change is the class the invariance board already separated as
+"front," vs "front": the front door has treated these seams as a compound
+since its first board, so the rows defer to the deep track, where the cutter
+then left them whole and `decompose_validate` multiplied the one item into
+junk ('take out the trash. also', 'remind put milk on my shopping list').
+Two train rows recovered; over-split unchanged; precision unchanged. A bare
+" and then " was tried as a hard seam and dropped: it cut "meet sam and then
+we'll see" into an ask and a remark and the board gained nothing from it.
+
+Both measured next on dev-100 (`dataset/RESULTS.md`).
+

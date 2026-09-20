@@ -47,6 +47,12 @@ _WAKE = r"(?:(?:hey|ok|okay)\s+)?(?:siri|alexa|pda|olly|google|computer)[,\s]+"
 _REVIEW_RE = re.compile(
     rf"^(?:{_WAKE})?(?:please\s+|hey\s+|um+\s+|so\s+)?(?:can|could|would|will)?\s*"
     rf"(?:you\s+)?{_LOOK_VERB}\b"
+    # A command never opens with a bare auxiliary; a question does. "is today
+    # st. patricks day" reached the tagger as "is st. patricks day" — the
+    # time already cut out — so the "is today" form above never saw it and an
+    # event 'St. Patrick's Day' was booked (dev-100 run 25). "are you able to
+    # add…" is a polite imperative, hence the (?!you).
+    rf"|^(?:{_WAKE})?(?:please\s+)?(?:is|are|was|were|does|did|am)\s+(?!you\b)"
     rf"|\b{_LOOK_VERB}\b[^.?!]{{0,40}}\bmy\s+"
     rf"(?:schedule|day|week|agenda|calendar|diary)\b",
     re.I)
