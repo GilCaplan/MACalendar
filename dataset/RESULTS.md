@@ -2870,3 +2870,84 @@ credited for objects it invented into a nameless list. On the adjusted
 reading the day's last four cycles are **84 → 83**, flat, rather than the
 85 → 80 the raw number showed.
 
+
+## CYCLE 32 — the title extractor, rewritten where it mattered (2026-09-20)
+
+Gil answered Q26 *"rewrite it properly"* after two cycles of edge-narrowing
+moved nothing. **Every registered number was beaten.**
+
+| metric (dev-100, n=100) | before (run 36) | **after** | predicted |
+|---|---|---|---|
+| **field quality** (Q35 primary) | 87.2% | **92.2%** | 89+ ✓ |
+| **item precision** (Q35 primary) | 91.2% | **93.3%** | flat to +1 ✓✓ |
+| garbage-title rate | 15% | **7%** | 8–11% ✓✓ |
+| item recall | 78.5% | 75.3% | — |
+| count-correct (companion) | 80% | 79% | — |
+| stage board, gold items | handled 796 | **802**, same 522 correct | — |
+| product-shape board, train | — | half-executed 52 → **51**, every headline identical | unchanged ✓ |
+
+### What was wrong, and why three cycles missed it
+
+A create's title is assigned in FOUR places — the subtractive extractor, the
+phrase extractor, the new-list frame, and the noun-chunk fallback with the
+verb put back — and each junk title came through whichever one its sentence
+happened to take. Fixing them one at a time reached one path each. Two
+things changed:
+
+1. **The reminder verb is not put back.** The fallback re-attaches the lead
+   verb so 'dentist' becomes 'call the dentist' — right for an errand, wrong
+   for "remind", which says how the ask was PHRASED. `_subtractive_title` had
+   already stripped the frame correctly and this line re-attached it:
+   'remind about of all event in calenders', 'remind at this time', 'remind
+   early that i have a teleconference'.
+2. **A title must NAME SOMETHING**, stated once after every path has run
+   (`rule_parser.names_something`). A word is scaffolding when it is a
+   function word, a time word, one of the program's own nouns, or a command
+   verb — the judgement `Gatekeeper._GENERIC_TARGET_RE` makes about a whole
+   title, applied word by word. All scaffolding means no name, so the title
+   is removed and the caller's missing-slots refusal answers instead of a
+   to-do called 'at this time'.
+
+**Measured before either line was written:** of the 7,200's **3,944 CREATE
+gold titles the rule refuses 0**. The 179 it would refuse are mutation
+match-titles ("that appointment", "my list", "it") that a create never
+produces. "date" was deliberately left a NAME: adding it costs no gold title
+but refuses **date night**, and a wrong refusal on a real ask is worse than
+one junk title on a garbled one.
+
+### The bug the stage board caught
+
+First cut gated the CONVERTER's fallback for every action, not just creates.
+"check my calendar" derives 'my calendar', which is scaffolding by this test
+and was never meant to be a name — **9 good queries deferred**, handled 796 →
+784. Scoping the gate to creates turned that into 796 → **802**. The parser's
+gate was already create-only; the copy in the next stage was not, and a gate
+stated in one stage and not the next is not a gate.
+
+### What it costs
+
+Recall 78.5 → 75.3 and count-correct 80 → 79: fewer objects are created,
+because the ones that named nothing are refused. That is the trade Q35 was
+ruled on, and here it buys five points of field quality and half the junk
+titles.
+
+### The day, end to end (dev-100, the same 100 rows)
+
+| | run 22 (checkpoint) | **run 38 (now)** |
+|---|---|---|
+| field quality | 88.7% | **92.2%** |
+| item precision | 75.8% | **93.3%** |
+| garbage titles (true rate) | 29% | **7%** |
+| count-correct | 74% | 79% |
+| deep path | 62% | 76% → 63 rows now take it |
+
+### Next prediction (registered) — cycle 33
+
+The junk titles left are seven, and they are a different shape again:
+'Meeting', 'calendar event', 'open calendar', "grocery shopping 's to-do
+list", "make 's to-do list". The possessive ones are a TOKENISER artefact
+("today's" split into "today" + "'s" and the apostrophe kept), and 'Meeting'
+/ 'calendar event' are entry nouns the subtractive reader keeps when nothing
+else survives. **Prediction:** garbage-title 7% → 3–5%, field quality flat
+to +1, precision flat, stage board handled unchanged or better.
+

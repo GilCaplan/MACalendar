@@ -919,24 +919,27 @@ def test_a_subject_that_names_nothing_is_held_back_not_written(registry_with_rea
 
     monkeypatch.setenv("MACALENDAR_LLM_DISABLED", "1")
     RP._ensure_nlp(); RP._ensure_dt()
+    # THE CONTRACT, not the mechanism. Cycle 28 asserted `item.blocked` set by
+    # the judge's exhaustion path; since the names-something gate landed
+    # (DEVQA Q26) the title never forms, so there is no object to hold back
+    # and the refusal arrives earlier and cleaner. Either way: nothing is
+    # written and the speaker is told which part could not be read.
     with freeze_time("2026-09-09 10:00:00"):
         E = engine.Engine()
-        T = "Could you add this on my calender please"
-        st = EngineState(raw_text=T, text=T)
-        E.parse(st, cfg)
-        E.judge(st, cfg)
-        ev = [i for i in st.items if i.action == "create_event"]
-        assert ev and ev[0].blocked, [(i.action, getattr(i.intent, "title", None), i.blocked) for i in st.items]
-        assert "calendar entry" in ev[0].blocked
+        out = E.run("Could you add this on my calender please", source="test")
+        assert not out["actions"], out["actions"]
+        # Either honest refusal: the rescue naming the part it could not make
+        # out, or the unknown-intent branch. Which one fires depends on
+        # whether the model answered at all, so the CONTRACT is what is
+        # pinned — nothing written, and the speaker told.
+        assert ("couldn't" in out["message"]
+                or "didn't understand" in out["message"]), out["message"]
 
         # a real subject still commits — a wrong title is fixable in one tap,
         # a missing event is not
-        T2 = "create an event now to go out for a run"
-        st2 = EngineState(raw_text=T2, text=T2)
-        E.parse(st2, cfg)
-        E.judge(st2, cfg)
-        ev2 = [i for i in st2.items if i.action == "create_event"]
-        assert ev2 and not ev2[0].blocked, [(getattr(i.intent, "title", None), i.blocked) for i in st2.items]
+        good = E.run("create an event now to go out for a run", source="test")
+        assert good["actions"] == ["create_event"], good
+        assert "go out for a run" in good["message"]
 
 
 def test_a_pronoun_with_a_destination_names_nothing():
@@ -974,12 +977,15 @@ def test_a_held_back_object_is_not_recorded_as_done(registry_with_real_actions, 
 
     with freeze_time("2026-09-09 10:00:00"):
         E = engine.Engine()
-        T = "Could you add this on my calender please"
+        T = "let's just skip appointment at time"
         st = EngineState(raw_text=T, text=T)
         E.parse(st, cfg)
         E.judge(st, cfg)
-        held = [i for i in st.items if i.blocked]
-        assert held, "nothing was held back, so this test proves nothing"
+        for it in st.items:                  # force the case this test is about
+            if it.intent is not None and it.action:
+                it.blocked = "held back for the test"
+                break
+        else:
+            raise AssertionError("no object was built, so this proves nothing")
         engine._record_memory(st, cfg, "msg", True)
-    titles = [getattr(i, "title", None) for _a, i in recorded["actions"]]
-    assert "this on my calender" not in titles, titles
+    assert recorded["actions"] == [], recorded["actions"]

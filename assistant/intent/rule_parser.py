@@ -1564,6 +1564,10 @@ _ALL_DAY_RE = re.compile(r"\ball[- ]?day\b|\bwhole day\b|\bentire day\b", re.I)
 #: is not read as making one.
 from assistant.intent.coordination import ASK_JOINER_RE as _ASK_JOINER_RE
 
+#: Verbs that name the ASKING rather than the doing. A title keeps what to
+#: do, never how it was requested.
+_REMINDER_VERBS = frozenset({"remind", "reminder", "notify", "alert"})
+
 _NEW_LIST_RE = re.compile(
     r"^(?:please\s+)?(?:can\s+you\s+|could\s+you\s+)?"
     r"(?:start|begin|create|make|set\s+up|open(?:\s+up)?|add)\s+"
@@ -2139,6 +2143,58 @@ def _tidy_part(text: str) -> str:
     return "" if _ONLY_FUNCTION.match(out) else out
 
 
+#: A TITLE HAS TO NAME SOMETHING. What survives subtraction is sometimes only
+#: the scaffolding — "Remind me at this time." leaves 'at this time', "i need
+#: to set reminder on 15th march" leaves 'set reminder', "pls add list of
+#: things to buy" leaves 'things' — and each of those was committed as a
+#: to-do at 0.95 confidence or better (dev-100, 2026-09-20).
+#:
+#: The test: at least one word that is not scaffolding. Function words are
+#: not names, time words are not names, the program's own nouns are not names
+#: (that is the same judgement `Gatekeeper._GENERIC_TARGET_RE` makes about a
+#: whole title, applied word by word), and neither is a command verb.
+#:
+#: MEASURED BEFORE WRITING, on the 7,200's gold: of **3,944 CREATE titles it
+#: refuses 0**. The 179 it would refuse are all mutation match-titles ("that
+#: appointment", "my list", "it"), which a create never produces and this
+#: path never sees — `_extract_title` only takes the subtractive route for
+#: `create_event` and `create_todo`.
+_NOT_A_NAME_FUNCTION = frozenset(
+    "a an the this that these those my your our his her its their and or but "
+    "then also plus to for of on at in with by from off out up about as is "
+    "are was were be been am do does did i me you we us them it he she they "
+    "there here what which when how please kindly just so um uh ok okay "
+    # quantifiers and bare modifiers: "REMIND ABOUT OF ALL EVENT IN CALENDERS"
+    # kept 'all' as its name. A real title survives them on its own words —
+    # "all hands meeting" still has hands and meeting.
+    "all some any every each other another new more few several".split())
+_NOT_A_NAME_TIME = frozenset(
+    "time day days week weeks month months year years morning afternoon "
+    "evening night today tomorrow tonight yesterday now later soon early "
+    "earlier late am pm oclock noon midnight hour hours minute minutes second "
+    "seconds monday tuesday wednesday thursday friday saturday sunday weekend "
+    "weekday january february march april may june july august september "
+    "october november december".split())
+_NOT_A_NAME_PROGRAM = frozenset(
+    "event events reminder reminders alert alerts appointment appointments "
+    "task tasks todo todos list lists calendar calender calendars calenders "
+    "schedule diary agenda entry item items thing things note notes "
+    # the recurrence words: "Set a calendar event to repeat yearly on this
+    # date" kept 'repeat' as its name.
+    "repeat repeats repeating repeated recurring recurrence daily weekly "
+    "monthly yearly annually nightly".split())
+
+
+def names_something(title: str) -> bool:
+    """Is any word of this title a NAME rather than scaffolding?"""
+    words = [w for w in re.findall(r"[a-z0-9']+", (title or "").lower())
+             if len(w) > 1]
+    return any(w not in _NOT_A_NAME_FUNCTION and w not in _NOT_A_NAME_TIME
+               and w not in _NOT_A_NAME_PROGRAM and not w.isdigit()
+               and not any(w == verb for verb, _ in INTENT_MAP)
+               for w in words)
+
+
 def _subtractive_title(span_text: str, temporal_spans) -> str:
     """The title as what REMAINS once every other reader has taken its words."""
     spans = list(temporal_spans or [])
@@ -2182,6 +2238,11 @@ def _subtractive_title(span_text: str, temporal_spans) -> str:
     else:
         out = " ".join([head] + things + quals)  # "meeting" keeps "with etai"
     out = _SOURCE_TAIL.sub("", _tidy_part(out))
+    if not names_something(out):
+        # Only scaffolding survived, so there is no name here. Empty sends the
+        # caller to its missing-slots / generic-title refusal, which is the
+        # honest answer — better than a to-do called 'at this time'.
+        return ""
     # "for for causal infant projects" — a doubled function word is the mark of
     # two fragments joined at a blank, not of anything the speaker said.
     out = re.sub(r"\b(\w+)(\s+\1\b)+", r"\1", out, flags=re.IGNORECASE)
@@ -2619,7 +2680,18 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
             # The noun-chunk fallback keeps only the object: "call the dentist"
             # became a task called "dentist". Put the verb back so the task says
             # what to do rather than what it is about.
+            #
+            # NOT A REMINDER VERB (2026-09-20, DEVQA Q26). "remind" says how
+            # the ask was PHRASED, not what to do about it — putting it back
+            # is what produced 'remind about of all event in calenders',
+            # 'remind at this time' and 'remind early that i have a
+            # teleconference', each committed at 0.95 or better on dev-100.
+            # `_subtractive_title` had already stripped the frame correctly;
+            # this line re-attached it. Errand verbs still come back, which is
+            # the whole point of the line: 'dentist' -> 'call the dentist'.
             verb = lead_verb(span.text.strip())
+            if verb and verb.lower() in _REMINDER_VERBS:
+                verb = None
             if verb and not title.lower().startswith(verb.lower()):
                 title = f"{verb} {title}"
             slots["titles"] = [title]
@@ -2723,6 +2795,24 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
         else:
             slots["list_name"] = "today"
         slots["include_completed"] = "complete" in span_lower or "done" in span_lower
+
+    # ONE GATE, EVERY PATH (2026-09-20, DEVQA Q26). A create's title is
+    # assigned in four places — the subtractive extractor, the phrase
+    # extractor, the new-list frame, and the noun-chunk fallback with the verb
+    # put back — and a title that names nothing got through whichever one this
+    # sentence happened to take. Three cycles of fixing them one at a time
+    # moved the junk-title rate by nothing, because each fix reached one path.
+    # Here the rule is stated once, after every path has run, and a title that
+    # is all scaffolding is REMOVED so the caller's missing-slots refusal
+    # answers instead of a to-do called 'at this time'.
+    if action_name in ("create_event", "create_todo"):
+        if slots.get("title") and not names_something(str(slots["title"])):
+            slots.pop("title", None)
+        kept = [t for t in (slots.get("titles") or []) if names_something(str(t))]
+        if slots.get("titles") and not kept:
+            slots.pop("titles", None)
+        elif slots.get("titles"):
+            slots["titles"] = kept
 
     return slots
 

@@ -351,7 +351,11 @@ def test_note_and_date_are_the_programs_words_not_titles(fastrule):
     """"make a NOTE of it on the corresponding date" committed an event titled
     'note' at 0.86; the generic-title veto now names note and date."""
     r = fastrule.run("make a note of it on my calendar for march 25th")
-    assert not r.committed and r.reason.startswith("generic-title"), r
+    # The names-something gate (Q26) now removes 'note of it' in the PARSER,
+    # so the refusal arrives as a missing title rather than a generic one.
+    # Either way nothing is committed, which is what the veto is for.
+    assert not r.committed, r
+    assert r.reason.startswith("generic-title") or "title" in str(r.missing_slots), r
 
 
 def test_a_meal_with_no_clock_lands_at_its_own_hour(fastrule):

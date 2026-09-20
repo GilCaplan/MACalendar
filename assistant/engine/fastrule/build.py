@@ -582,6 +582,22 @@ def build(item: Item, *, today: "_dt.date | None" = None,
     # --- 2 · the object's own fields ---------------------------------------
     if not title:
         title = _title_from_words(item.text)
+        # THE SAME GATE THE PARSER APPLIES (`rule_parser.names_something`,
+        # 2026-09-20, DEVQA Q26). This fallback takes the item's own words
+        # when the parse read no title, so the moment the parser started
+        # REFUSING a title that names nothing, its refusals arrived here and
+        # were answered with the scaffolding instead: "please set event on
+        # Tuesday" became an event called 'event on Tuesday' where the
+        # deterministic ladder had been giving it 'Event'. A gate stated in
+        # one stage and not the next is not a gate.
+        # ONLY A CREATE. A query is not naming anything — "check my calendar"
+        # derives 'my calendar', which is scaffolding by this test and was
+        # never meant to be a name, and gating it here deferred 9 perfectly
+        # good queries on the stage board (2026-09-20). The parser's own gate
+        # is scoped the same way.
+        from assistant.intent.rule_parser import names_something
+        if action.startswith("create_") and title and not names_something(title):
+            title = ""
     if not title:
         return Defer("missing-slots", fields={"action": action, "missing": ["title"]})
     if _NAMES_NOTHING.match(title):

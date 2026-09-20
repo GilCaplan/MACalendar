@@ -1171,3 +1171,72 @@ class TestCourtesyTail:
         """"let Avery know THAT the room moved" carries content of its own."""
         res = parser.analyze("extend open house by an hour and let Avery know that the room moved")
         assert res.dropped_spans >= 1 or len(res.intents) >= 2
+
+
+class TestATitleMustNameSomething:
+    """DEVQA Q26, answered 2026-09-20: rewrite the title extractor properly.
+
+    A create's title is assigned in four places — the subtractive extractor,
+    the phrase extractor, the new-list frame, and the noun-chunk fallback with
+    the verb put back. A title that named nothing got through whichever one
+    the sentence happened to take, so three cycles of fixing them one at a
+    time moved the junk-title rate by nothing. The rule is stated once now,
+    after every path has run."""
+
+    def test_scaffolding_is_not_a_name(self):
+        from assistant.intent.rule_parser import names_something
+        for t in ("at this time", "set reminder", "remind me", "things",
+                  "about of all event in calenders", "this event", "the task",
+                  "my list", "it"):
+            assert not names_something(t), t
+
+    def test_date_is_deliberately_left_a_name(self):
+        """"Set a calendar event to repeat yearly on this date" keeps 'date'
+        and still commits. Adding "date" to the scaffolding costs no gold
+        title (measured: 0 of 3,944 — "the interview date" survives on
+        'interview') but it refuses **date night**, a real command nobody has
+        typed into this corpus yet. A wrong refusal on a real ask is worse
+        than one junk title on a garbled one, so the word stays a name."""
+        from assistant.intent.rule_parser import names_something
+        assert names_something("date night")
+
+    def test_a_real_title_survives(self):
+        from assistant.intent.rule_parser import names_something
+        for t in ("dentist", "call the dentist", "book club", "buy milk",
+                  "dog breeds", "dinner reservations", "all hands meeting",
+                  "team standup", "yashas birthday with vinay", "Meeting"):
+            assert names_something(t), t
+
+    def test_measured_against_the_gold_before_it_was_written(self):
+        """Of the 7,200's 3,944 CREATE gold titles this refuses NONE. The 179
+        it would refuse are mutation match-titles ("that appointment", "my
+        list"), which a create never produces and this gate never sees."""
+        import json
+        import pathlib
+        from assistant.intent.rule_parser import names_something
+
+        path = pathlib.Path("assistant/engine/fastrule/datasets/fastrule_7200.jsonl")
+        creates = []
+        for line in path.read_text().splitlines():
+            row = json.loads(line)
+            expect = row.get("expect") or {}
+            if not str(expect.get("action", "")).startswith("create"):
+                continue
+            slots = expect.get("slots") or {}
+            if slots.get("title"):
+                creates.append(slots["title"])
+            creates += [t for t in (slots.get("titles") or []) if isinstance(t, str)]
+        assert len(creates) > 3000, "the gold moved — re-measure before trusting this"
+        refused = sorted({t for t in creates if not names_something(t)})
+        assert not refused, refused
+
+    def test_the_gate_refuses_rather_than_naming_the_scaffolding(self, parser):
+        """The product end: a command whose title is all scaffolding defers to
+        the deep track instead of committing 'at this time' at 0.95."""
+        for text in ("Remind me at this time.", "i need to set reminder on 15th march",
+                     "pls add list of things to buy for pary"):
+            res = parser.analyze(text, current_view="month")
+            titles = [t for _n, i in res.intents
+                      for t in ((getattr(i, "titles", None) or [])
+                                + ([getattr(i, "title", None)] if getattr(i, "title", None) else []))]
+            assert not titles, (text, titles)
