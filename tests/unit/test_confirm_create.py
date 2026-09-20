@@ -24,6 +24,7 @@ from assistant.engine.segmentation.old_seg.segment import is_interrogative_creat
 from assistant.engine.state import EngineState, Item
 from assistant.engine.decompose_validate import stage as _validate
 from assistant.engine.fastrule import fast_track
+from tests.conftest import needs_model
 
 
 # ---------------------------------------------------------------------------
@@ -223,6 +224,7 @@ def _ask(client, **extra):
     return client.post("/voice/text", json=body).get_json()
 
 
+@needs_model
 def test_the_question_comes_back_as_a_proposal(client, confirming_engine):
     data = _ask(client)
 
@@ -234,6 +236,7 @@ def test_the_question_comes_back_as_a_proposal(client, confirming_engine):
     assert "Yoga" in data["message"]
 
 
+@needs_model
 def test_without_supports_confirm_nothing_is_held(client, confirming_engine):
     data = _ask(client, supports_confirm=False)
 
@@ -250,6 +253,7 @@ def _yoga_rows(client, date: str):
             if e["title"] == "Yoga"]
 
 
+@needs_model
 def test_yes_creates_it_once_even_on_a_double_tap(client, confirming_engine):
     data = _ask(client)
     token = data["confirm_token"]
@@ -268,6 +272,7 @@ def test_yes_creates_it_once_even_on_a_double_tap(client, confirming_engine):
     assert len(_yoga_rows(client, day)) == before + 1
 
 
+@needs_model
 def test_no_creates_nothing_and_files_the_verdict(client, confirming_engine):
     from assistant.intent.memory import FEEDBACK_REJECTED, get_memory
 
@@ -286,6 +291,7 @@ def test_no_creates_nothing_and_files_the_verdict(client, confirming_engine):
         assert get_memory().get(data["memory_id"])["feedback"] == FEEDBACK_REJECTED
 
 
+@needs_model
 def test_an_expired_token_says_so(client, confirming_engine, monkeypatch):
     import assistant.api.server as server
 

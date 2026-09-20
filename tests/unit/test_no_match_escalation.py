@@ -24,6 +24,7 @@ from assistant.exceptions import TargetNotFound
 import assistant.api.server as server
 import assistant.engine.fastrule.stage as generate
 import assistant.engine.llm as engine_llm
+from tests.conftest import needs_model
 
 SAID = "Walk Mark Stalk today at 230PM"
 
@@ -143,6 +144,7 @@ def test_a_not_found_is_an_answer_not_an_error(monkeypatch, client):
     assert "Error:" not in body["message"]
 
 
+@needs_model
 def test_a_deep_track_misread_gets_the_same_second_opinion(monkeypatch, client):
     """Run 9's "night shift" case: the LLM read a create as an update of a
     nonexistent event. The recheck now runs on ANY track's single-action

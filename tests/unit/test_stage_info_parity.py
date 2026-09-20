@@ -17,6 +17,7 @@ import pytest
 import assistant.trace as trace
 
 from tests.unit._ios_sources import ios_source
+from tests.conftest import needs_model
 
 
 def _norm(s: str) -> str:
@@ -41,6 +42,7 @@ def test_ios_chain_info_matches_the_host():
 # What the phone's timeline decodes
 # ---------------------------------------------------------------------------
 
+@needs_model
 def test_the_response_carries_the_boundaries_the_phone_draws():
     """iOS renders the X0→X4 flow strip from `boundaries` in the voice
     response, and `ThinkingView` had no idea they existed until 2026-09-10 —

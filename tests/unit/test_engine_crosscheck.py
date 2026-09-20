@@ -15,6 +15,7 @@ import assistant.engine.llmjudge.llmjudge as crosscheck
 import assistant.engine.fastrule.stage as generate
 import assistant.engine.llm as engine_llm
 from assistant.engine.state import EngineState, ExecutedAction, Item
+from tests.conftest import needs_model
 
 
 @pytest.fixture
@@ -169,6 +170,7 @@ def test_loop_back_reruns_segment_with_the_mistake(cfg, monkeypatch):
     assert "Looping back" in titles
 
 
+@needs_model
 def test_loop_budget_is_finite_and_admitted(cfg, monkeypatch):
     """A check that keeps failing stops after MAX_REENTRIES and says so.
 
@@ -331,6 +333,7 @@ def test_revert_spec_shapes_a_post_ready_body():
     assert spec["body"]["quantity"] == 3
 
 
+@needs_model
 def test_the_loop_stops_when_a_rerun_cannot_change_anything(cfg, monkeypatch):
     """A re-run starts from the same transcript and runs the same stages, so
     if it would begin from the SAME items with the SAME complaint it produces

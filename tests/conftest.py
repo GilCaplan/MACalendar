@@ -467,3 +467,41 @@ class DummyAction(BaseAction):
 @pytest.fixture
 def dummy_action_cls():
     return DummyAction
+
+
+# ---------------------------------------------------------------------------
+# NEEDS A MODEL — the guard for unit tests that reach the DEEP track
+#
+# `pytest tests/unit` is documented as "fast, no model needed", and that is
+# true of all but a handful: a command FastRule declines goes to the deep
+# track, which makes a model call, and the engine fails fast when Ollama is
+# unreachable rather than walking three stages to die at the end. Those tests
+# therefore pass on a Mac with Ollama running and fail on CI, which has none —
+# and a build that is red for a reason unrelated to the code tells you nothing
+# at all. CI had been red since 2026-09-18 for exactly this.
+#
+# Skipping is the project's own rule for the case ("Integration tests must skip
+# when Ollama is not running"). The alternative — stubbing the model in each —
+# is real work and better coverage, and is filed rather than done here; what
+# matters first is that a red build means something again.
+#
+# The check runs ONCE at collection, not per test.
+# ---------------------------------------------------------------------------
+
+def _ollama_running() -> bool:
+    # `MACALENDAR_NO_OLLAMA=1` forces the answer, so a Mac WITH Ollama can
+    # reproduce what CI sees. Without it the guard is untestable on the only
+    # machine that would ever notice it was wrong.
+    if _os.environ.get("MACALENDAR_NO_OLLAMA"):
+        return False
+    try:
+        import requests
+        return requests.get("http://localhost:11434/api/tags",
+                            timeout=3).status_code == 200
+    except Exception:
+        return False
+
+
+needs_model = pytest.mark.skipif(
+    not _ollama_running(),
+    reason="reaches the deep track, which needs Ollama (see tests/conftest.py)")

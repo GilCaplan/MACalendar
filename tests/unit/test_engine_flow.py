@@ -17,6 +17,7 @@ import assistant.engine.fastrule.fast_track as fast_track
 import assistant.stt.vocab as vocab_mod
 from assistant.engine.state import EngineState, Item
 from assistant.exceptions import OllamaUnavailableError
+from tests.conftest import needs_model
 
 
 @pytest.fixture
@@ -60,6 +61,7 @@ def test_confident_rules_take_the_fast_track(monkeypatch, cfg):
     assert out["parse"] == "fast"
 
 
+@needs_model
 def test_unconfident_rules_take_the_deep_track(monkeypatch):
     rr = SimpleNamespace(confidence=0.30, missing_slots=["start_time"], intents=[])
     rp = MagicMock()
@@ -290,6 +292,7 @@ def test_the_wrapper_round_trips_through_segment(cfg):
     assert [it.text for it in st.items] == ["gym tomorrow at 7am", "buy milk"]
 
 
+@needs_model
 def test_repeated_attempt_messages_fold_into_one(monkeypatch):
     """A loop-back that fails the same way each attempt must apologise once,
     not once per re-entry (found live: three identical "couldn't read"s)."""
