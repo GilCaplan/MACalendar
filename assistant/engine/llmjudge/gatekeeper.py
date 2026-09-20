@@ -118,8 +118,14 @@ class Gatekeeper:
                 and not _POLITE_IMPERATIVE_RE.search(text)
                 and any(n.startswith("create_") for n, _ in intents)):
             return "interrogative-create"
-        if (re.match(r"^\s*(?:please\s+)?rename\b", text, re.I)
-                and any(n.startswith("create_") for n, _ in intents)):
+        if re.match(r"^\s*(?:please\s+)?rename\b", text, re.I):
+            # ON THE PHRASING, not on the misroute. Until 2026-09-20 this fired
+            # only when the rename parsed as a CREATE — which every rename did,
+            # so the condition was invisible. The router now reads the leading
+            # imperative first and "rename flu shot to sales call" parses as
+            # the update it is; the gate's reason still holds (the rules cannot
+            # know WHICH store holds the old title), so it must fire on the
+            # word "rename" itself, and the lookup below decides.
             # The gate exists because the rules cannot know WHICH store holds
             # the old title. The user's own data can: if exactly one store
             # has it, the rename is resolvable and no longer a misroute.

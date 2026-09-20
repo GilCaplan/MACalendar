@@ -287,6 +287,12 @@ def test_an_update_that_changes_nothing_is_refused(fastrule):
     from assistant.engine.fastrule.fastrule import REFUSAL, reason_class
     assert reason_class("no-change") == REFUSAL
 
-    # ...and a real change still commits, on the same day.
+    # ...and a real change is never refused as "no-change", on the same day.
     for text in ("move the dentist to friday", "rename gym to workout"):
-        assert fastrule.run(text).committed, f"{text!r} should still commit"
+        assert fastrule.run(text).reason != "no-change", f"{text!r} is a real change"
+    assert fastrule.run("move the dentist to friday").committed
+    # "rename gym to workout" is a real change too, but a rename abstains on
+    # the fast path unless the user's own data says which store holds "gym"
+    # (F7, `test_f7_rename_never_commits_a_create`): it defers as
+    # rename-misroute, which is the ruling, not a no-change refusal.
+    assert fastrule.run("rename gym to workout").reason == "rename-misroute"

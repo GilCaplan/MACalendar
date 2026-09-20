@@ -56,9 +56,16 @@ def test_personalisation_is_lookup_not_training(fastrule):
 
     get_db().create_event(CalendarIntent(title="flu shot", date="2026-09-10",
                                          start_time="09:00", end_time="10:00"))
-    # now the store is known — but the parse reads it as a CREATE, which
-    # disagrees. The lookup must CONFIRM a parse, never merely permit one.
+    # (a) now the store is known AND the parse agrees — the router reads the
+    # leading imperative since 2026-09-20, so this is the update it is — and
+    # the user's own data resolves what generic English cannot: it commits.
     r = fastrule.run("rename flu shot to sales call")
+    assert r.committed and r.intents[0][0] == "update_event"
+
+    # (b) the lookup must CONFIRM a parse, never merely permit one: the old
+    # title lives in the OTHER store, so data and parse disagree — deferred.
+    get_db().create_todo("sales report")
+    r = fastrule.run("rename sales report to quarterly numbers")
     assert not r.committed, "a lookup must not launder a wrong parse"
 
 
