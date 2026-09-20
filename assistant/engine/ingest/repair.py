@@ -55,6 +55,43 @@ def build_stop_re(extra_phrases: "list[str] | None" = None) -> "re.Pattern[str]"
 _STOP_RE = build_stop_re()
 
 
+#: COMMAND FRAMES, and the mishearings of them that real speech produces.
+#:
+#: This is ingest's FIRST job — deterministic repair of bad transcription —
+#: and it is separate from the second, the speaker's own vocabulary. "remind
+#: me to" is not personal: every speaker says it, and the routing depends on
+#: it (`_ROUTE_OVERRIDES` matches `remind me\s+`), so a mangled frame is
+#: misrouted for everyone. A per-user alias was the wrong shelf for it.
+#:
+#: Measured in `dataset/realspeech/realspeech_1200.jsonl`: 174 clean
+#: occurrences of the frame, and 20 damaged ones in exactly two shapes —
+#: "remind MITT to" (10) and "REWIND me to" (10).
+#:
+#: THE GUARD IS THE WHOLE THREE-TOKEN SHAPE, plus a look-ahead. "rewind" is an
+#: ordinary word and the frame is the only thing that makes it a mishearing:
+#:
+#:     "rewind the video to the start"   untouched — no "me"
+#:     "rewind me to the start"          untouched — "to THE", not "to <verb>"
+#:     "rewind me to call the plumber"   repaired  — the frame, and a verb
+#:
+#: That second exclusion is why the look-ahead exists: without it the repair
+#: eats a real sentence, which is the failure this file is most careful about.
+_FRAME_REPAIRS = [
+    (re.compile(r"\b(?:rewind|remine|rewined|reminde)\s+(?:me|mee|mi|mitt|meet)\s+to\b"
+                r"(?!\s+(?:the|a|an|my|that|this|it|here|there)\b)", re.I),
+     "remind me to"),
+    (re.compile(r"\bremind\s+(?:mitt|meet|mee|mi)\s+to\b", re.I), "remind me to"),
+]
+
+
+def repair_command_frames(text: str) -> str:
+    """Put a misheard command frame back. Generic, deterministic, no vocabulary."""
+    out = text or ""
+    for pattern, replacement in _FRAME_REPAIRS:
+        out = pattern.sub(replacement, out)
+    return out
+
+
 def _peel_stop_keywords(transcript: str, extra_phrases: "list[str] | None" = None) -> str:
     """Every trailing stop keyword off, not just the last one.
 
@@ -148,6 +185,11 @@ def run(state: EngineState, cfg) -> EngineState:
     # words to tell a question from a polite imperative.
     from assistant.intent.cleanup import strip_spoken_noise
     text = strip_spoken_noise(text, drop_courtesy=False)
+    # ...and the command FRAME itself, which the noise passes cannot reach:
+    # the damage is INSIDE a fixed phrase the routing depends on, not around
+    # it. Runs after the stutter collapse so "remind me me to" is already one
+    # "me" by the time the frame is matched.
+    text = repair_command_frames(text)
 
     if not bare or is_trivial_transcript(text):
         state.ignored = True

@@ -451,3 +451,45 @@ def test_the_damaged_frame_still_yields_to_a_stated_clock():
 
     assert tag("remind mitt to feed the cat", "at 14:00") == "event"
     assert tag("remind mitt to feed the cat", "tomorrow") == "task"
+
+
+# ---------------------------------------------------------------------------
+# THE COMMAND FRAME ITSELF, repaired deterministically
+#
+# Gil, 2026-09-20, on what ingest is for: "a. to fix deterministically bad
+# transcribe wording  b. finetuned list of vocabulary from user to fix."
+#
+# "remind me to" belongs to (a), not (b). It is not personal — every speaker
+# says it, and the routing depends on it — so a mangled frame is misrouted for
+# everyone. Teaching it as a per-user alias was the wrong shelf, and worse: a
+# bare alias on "rewind" rewrote "rewind the video to the start".
+#
+# Measured in the realspeech corpus: 174 clean occurrences of the frame and 20
+# damaged ones, in two shapes — "remind MITT to" and "REWIND me to".
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("heard,meant", [
+    ("rewind me to pick up the parcel",      "remind me to pick up the parcel"),
+    ("remind mitt to sign the permission slip",
+     "remind me to sign the permission slip"),
+    ("hey rewind me to call the plumber",    "hey remind me to call the plumber"),
+    ("and remind mitt to buy milk",          "and remind me to buy milk"),
+])
+def test_a_misheard_command_frame_is_repaired(heard, meant):
+    from assistant.engine.ingest.repair import repair_command_frames
+    assert repair_command_frames(heard) == meant
+
+
+@pytest.mark.parametrize("text", [
+    # no "me" — not the frame at all
+    "rewind the video to the start",
+    # the frame's shape, but "to THE" rather than "to <verb>": a real sentence,
+    # and the look-ahead is what keeps it. Without it the repair eats this.
+    "rewind me to the start",
+    "please rewind that podcast",
+    # already correct
+    "remind me to feed the cat",
+])
+def test_an_ordinary_sentence_is_left_alone(text):
+    from assistant.engine.ingest.repair import repair_command_frames
+    assert repair_command_frames(text) == text
