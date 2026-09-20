@@ -343,36 +343,16 @@ def clause_boundaries(text: str, date_spans=None) -> "list[Boundary]":
         # determiner immediately after a command verb is that object opening,
         # and it is what separates "…and BOOK A haircut" from the name
         # collision "…with tal and MARK tomorrow", where no determiner follows.
-        if not conj_has_own and _is_command_verb(tok) and tok.i + 1 < len(doc):
-            nxt = doc[tok.i + 1]
-            # …but a determiner opening a DATE is not an object — "with Reese
-            # and Drew THIS coming saturday" is an attendee list whose second
-            # name happens to be a past-tense verb, and "this saturday" is
-            # when the one event happens, not what a second ask acts on.
-            conj_has_own = (nxt.pos_ in ("DET", "PRON")
-                            and not _opens_a_date(doc, nxt.i))
-            # A BARE noun object opens one too, with no article at all —
-            # "book eye exam", "book staff meeting", "add water the garden"
-            # are all real objects, and English never articles a compound
-            # like this ("book an eye exam" is the only spoken form, "book
-            # the eye exam" implies one already discussed). Still gated on
-            # `_opens_a_date` for the same reason as the DET branch, so
-            # "…and MARK tomorrow" stays a name collision, not an object.
-            if not conj_has_own and nxt.pos_ in ("NOUN", "PROPN"):
-                conj_has_own = not _opens_a_date(doc, nxt.i)
-            # The object may carry its own modifier first — "order NEW office
-            # supplies", "book QUICK haircut" — and the noun is one or two
-            # tokens further on. Looking only at the very next token missed
-            # every one of these (the "intervening ADJECTIVE" bucket in
-            # ARCHITECTURE.md §0). Skipped by POS, so this is not a list of
-            # adjectives; `_opens_a_date` still reads from the modifier, the
-            # same window it has always used.
-            if not conj_has_own:
-                k = tok.i + 1
-                while k < len(doc) and doc[k].pos_ in ("ADJ", "ADV"):
-                    k += 1
-                if k > tok.i + 1 and k < len(doc) and doc[k].pos_ in ("NOUN", "PROPN"):
-                    conj_has_own = not _opens_a_date(doc, tok.i + 1)
+        if not conj_has_own and _is_command_verb(tok):
+            # `_carries_an_object` is the ONE reading of "does this verb ask
+            # for anything": a determiner, pronoun, bare noun or number after
+            # it (past a modifier — "order NEW office supplies"), or a
+            # preposition introducing one ("pack FOR the trip", "talk TO
+            # taylor") — and never a date, so "…and MARK tomorrow" and "…and
+            # Drew THIS coming saturday" stay name collisions. This walk kept
+            # its own partial copy, which knew nothing of the preposition
+            # case and refused "…and pack for the trip" as verb-with-nothing.
+            conj_has_own = _carries_an_object(doc, tok, len(doc))
         # THE ASYMMETRY THIS CANCELS. The conjunct side above already discounts
         # a date argument (`_is_date_argument`, line ~327); the head side did
         # not. So "clean and organize the garage THIS AFTERNOON" is one ask —
