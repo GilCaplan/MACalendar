@@ -292,6 +292,15 @@ def clause_boundaries(text: str, date_spans=None) -> "list[Boundary]":
             continue
         if tok.dep_ == "dep" and verb is not tok and tok.pos_ not in ("NOUN", "PROPN"):
             continue
+        # A NOUN carrying its own modifier is a THING, whatever its lemma
+        # collides with: "buy envelopes and STICKY notes" reads `notes` as the
+        # verb "note" by lemma alone, and a verb takes no adjective, article or
+        # number in front of it. Only a modifier BEFORE the noun counts —
+        # "…and BOOK tennis lesson" hides its verb as a compound the other way.
+        if verb is tok and tok.pos_ in ("NOUN", "PROPN") and any(
+                c.dep_ in ("amod", "det", "nummod", "poss") and c.i < tok.i
+                for c in tok.children):
+            continue
         # The head's POS is UNRELIABLE on lowercase STT imperatives — spaCy
         # tags "book the gym…" ROOT as PROPN and "schedule lunch…" as a NOUN
         # compound — so the head's verb-ness must not be required. The
@@ -642,6 +651,14 @@ def _lexicon_fallback_boundaries(doc, text: str, date_spans=None) -> "list[Bound
                                     or (j < i - 1 and doc[j].is_punct))
         if sentence_initial or follows_coord:
             points.append(tok)
+            if follows_coord and j < i - 1:
+                # A joiner, then a FRONTED DATE, then a command verb — the
+                # date opens a clause the way a period does, evidence a bare
+                # coordinator never has. "book the car wash, on wednesday add
+                # the client lunch": both verbs resolve to the calendar, so
+                # the family test below would refuse a seam the speaker
+                # marked twice over.
+                hard_boundary.add(tok.i)
             if sentence_initial and i > 0:
                 # A MID-TEXT sentence boundary is punctuation-driven evidence
                 # a coordinator position never has — English does not put a
