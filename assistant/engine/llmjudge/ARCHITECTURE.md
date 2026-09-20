@@ -211,6 +211,19 @@ introduced, because a bare list has no verb and "add milk to my list" is the
 whole point; destructive ones (`delete`, `cancel`, `move`, `rename`…) never may.
 It fails CLOSED — no honest rewrite means no loop.
 
+**The rescue's invention guard covers every word field** (`llm_fallback.
+_guard_inventions`, widened 2026-09-20). A fabricated event TITLE drops the
+object — cycle 7's rule, unchanged. A fabricated VALUE on a real object drops
+the field: an ungrounded `location`, a `recurrence` with no marker in the
+words ("every", "each", "daily", "repeat" — a speaker never says "weekly"),
+and a to-do's ungrounded `titles`, the object going only when none survive.
+The asymmetry is the one this stage's router already uses: a subject nobody
+said means there is no object, a value nobody gave is one bad field. Measured
+on dev-100: 'Grocery List Review' AT HOME, a DAILY "reopen groceries", and
+'milk, eggs and bread' from a command naming no groceries — all three survived
+every loop round, because the judge can refuse a field but the rewrite cannot
+change what the parser returns.
+
 ## What must not be broken
 
 - **A REFUSAL may be RESOLVED, never overturned** (`llm_fallback._honour_refusal`).

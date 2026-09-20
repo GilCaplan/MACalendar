@@ -1,13 +1,13 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 534, "total_lines": 147678} -->
+<!-- code-stats: {"total_files": 534, "total_lines": 147859} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**147,678 lines of source across 534 files.** Of that, **84,559 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**147,859 lines of source across 534 files.** Of that, **84,645 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
-| Test code | 146 | 30,588 |
+| Test code | 146 | 30,683 |
 | iOS application | 59 | 20,445 |
 | Mac application (calendar GUI) | 33 | 18,297 |
 | Actions, storage & domain (DB, config, observance, .ics) | 96 | 17,256 |
@@ -17,24 +17,24 @@
 | Retired (old brain, kept on purpose) | 16 | 7,533 |
 | Review panel (Mac card + iOS timeline) | 6 | 4,110 |
 | Microphone / speech (record, STT, TTS) | 17 | 3,094 |
-| Model / Ollama code | 12 | 2,941 |
+| Model / Ollama code | 12 | 3,027 |
 | API server (the front door) | 4 | 1,732 |
 | Launch scripts | 3 | 316 |
-| **TOTAL** | **534** | **147,678** |
+| **TOTAL** | **534** | **147,859** |
 
 ### By language
 
 | | files | lines |
 |---|---:|---:|
-| Python | 461 | 124,548 |
+| Python | 461 | 124,729 |
 | Swift | 64 | 22,281 |
 | shell | 8 | 696 |
 | launch script | 1 | 153 |
 
 Not counted above, and deliberately so:
 
-- **Data** — the utterance corpus, fitted weights and fixtures: 187,577 lines across 125 files. Bigger than the code, and not written by hand.
-- **Prose** — markdown and the published HTML explainers: 41,290 lines across 113 files.
+- **Data** — the utterance corpus, fitted weights and fixtures: 187,668 lines across 128 files. Bigger than the code, and not written by hand.
+- **Prose** — markdown and the published HTML explainers: 41,405 lines across 113 files.
 
 ### How the categories are drawn
 

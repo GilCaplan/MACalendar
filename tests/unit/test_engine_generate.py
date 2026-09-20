@@ -191,12 +191,58 @@ def test_grounded_title_untouched():
     assert guards._guard_inventions(got, item, st) == got
 
 
-def test_non_event_actions_never_guarded():
+def test_a_todo_title_the_words_never_said_is_dropped_too():
+    """UNTIL 2026-09-20 this read `test_non_event_actions_never_guarded` and
+    asserted the opposite: only events were guarded, so a to-do could carry
+    any title the model liked. dev-100 showed what that buys — "make a list
+    of thing I have to shop tomorrow" came back as **milk, eggs and bread**,
+    a grocery list the speaker never dictated, and it survived every round of
+    the loop because the judge can refuse a title but the rewrite cannot
+    change what the parser returns. An object whose every title is invented
+    is not an object."""
     from types import SimpleNamespace
     st = EngineState(raw_text="x", text="x")
     item = Item(id="item_1", kind="task", text="whatever garble")
     got = [("create_todo", SimpleNamespace(titles=["Unrelated Words"]))]
-    assert guards._guard_inventions(got, item, st) == got
+    assert guards._guard_inventions(got, item, st) == []
+    assert any("invention_guard" in str(f) for f in st.fixes)
+
+
+def test_a_todo_keeps_the_titles_that_were_spoken():
+    from types import SimpleNamespace
+    st = EngineState(raw_text="x", text="x")
+    item = Item(id="item_1", kind="task", text="add milk and eggs to my list")
+    intent = SimpleNamespace(titles=["milk", "eggs", "bread"], quantities=[1, 1, 1])
+    assert guards._guard_inventions([("create_todo", intent)], item, st)
+    assert intent.titles == ["milk", "eggs"] and intent.quantities == [1, 1]
+
+
+def test_an_invented_field_is_stripped_and_the_event_kept():
+    """A fabricated SUBJECT means there is no object; a fabricated VALUE on a
+    real one is a bad field — the same asymmetry the judge routes on. The
+    rescue put 'Grocery List Review' AT HOME and made "reopen groceries and
+    add milk" a DAILY event (dev-100, 2026-09-20)."""
+    from types import SimpleNamespace
+    st = EngineState(raw_text="x", text="x")
+    item = Item(id="item_1", kind="event", text="reopen groceries and add milk")
+    intent = SimpleNamespace(title="reopen groceries", location="Home",
+                             recurrence="daily", recur_days=["monday"])
+    kept = guards._guard_inventions([("create_event", intent)], item, st)
+    assert kept, "the event itself was the speaker's"
+    assert intent.location is None and intent.recurrence is None
+    assert intent.recur_days == []
+
+
+def test_a_repeat_the_words_asked_for_survives():
+    from types import SimpleNamespace
+    st = EngineState(raw_text="x", text="x")
+    item = Item(id="item_1", kind="event",
+                text="book standup at the conference room every tuesday")
+    intent = SimpleNamespace(title="standup", location="conference room",
+                             recurrence="weekly", recur_days=["tuesday"])
+    assert guards._guard_inventions([("create_event", intent)], item, st)
+    assert intent.recurrence == "weekly" and intent.location == "conference room"
+    assert not st.fixes
 
 
 def test_the_deep_track_does_not_undo_a_refusal(monkeypatch, cfg):
@@ -365,3 +411,33 @@ def test_a_third_item_is_not_individually_retried_once_the_model_is_gone(monkeyp
 # redundant call left for a memo to guard against. `state.asked_fastrule`
 # is still a field on `EngineState` (frozen contract) but nothing reads or
 # writes it any more — confirmed by grep, not assumed.
+
+
+def test_every_model_parse_in_the_rescue_runs_through_the_invention_guard():
+    """A GUARD WITH A HOLE READS AS COVERED — the same lesson the ollama gate
+    learned, in the same shape.
+
+    `_guard_inventions` was widened on 2026-09-20 to strip invented locations,
+    repeats and to-do titles, and a whole dev-100 run went by with it firing
+    on NOTHING: the event-kind retry called `parser.parse(...)` and assigned
+    the result straight to `got`, so the fabrications everyone could see
+    ('Grocery List Review' AT HOME) came through the one door nobody had
+    gated. This reads the tree rather than remembering, so the third door
+    fails here instead of in a board six weeks later.
+    """
+    import pathlib
+    import re
+
+    src = pathlib.Path("assistant/engine/llmjudge/rescue.py").read_text()
+    lines = src.splitlines()
+    calls = [(i, ln) for i, ln in enumerate(lines)
+             if re.search(r"\bparser\.parse(_with_context)?\(", ln)]
+    assert calls, "no model parse found — did the rescue move?"
+    ungated = []
+    for i, ln in calls:
+        window = "\n".join(lines[i:i + 12])
+        if "_guard_inventions" not in window:
+            ungated.append(f"rescue.py:{i + 1}  {ln.strip()[:60]}")
+    assert not ungated, (
+        "these model parses reach the engine without the invention guard:\n  "
+        + "\n  ".join(ungated))

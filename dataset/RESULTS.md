@@ -2696,3 +2696,97 @@ contents, recurrence) is the change. **Prediction:** garbage-title 16% →
 12–14%, count-correct 82% → 84–86% (the invented rows currently produce
 objects that miss on count too), no board moves.
 
+
+## CYCLE 29 — the rescue stops inventing, and the count metric objects (2026-09-20)
+
+The registered prediction: apply the rescue's title-grounding test to the
+other word fields. **Both halves of the prediction missed, and the second
+miss is the finding.**
+
+| metric (dev-100, n=100) | run 29 (cycle 28 end) | **run 32** | predicted |
+|---|---|---|---|
+| field quality | 84.3% | **87.5%** | — |
+| item precision | 88.4% | **90.2%** | — |
+| item recall | 81.7% | 79.6% | — |
+| garbage-title rate | 16% | 16% | 12–14% ✗ |
+| count-correct | 82% | **80%** | 84–86% ✗ |
+| count-mismatch failures | 18 | 20 | — |
+
+### What was built
+
+`llm_fallback._guard_inventions` covered the event TITLE only. It now strips
+the other fields made of words, with the asymmetry the judge already routes
+on — an invented SUBJECT means there is no object, an invented VALUE is one
+bad field:
+
+* an ungrounded `location` is dropped, the event kept ('Grocery List Review'
+  **at Home**);
+* a `recurrence` with no marker in the words is dropped ("reopen groceries and
+  add milk" came back **daily**) — grounded on the marker, not the word,
+  because a speaker says "every monday" and never "weekly";
+* a to-do's ungrounded `titles` are dropped, the object going only when none
+  survive ("make a list of thing I have to shop" came back **milk, eggs and
+  bread**).
+
+### The guard had a hole, and the first run fired on NOTHING
+
+The widening was banked-ready after a run that showed field quality up and
+precision up — and then the check *"which rows did the guard actually fire
+on?"* returned **zero**. The event-kind retry (`rescue.py`, the branch that
+re-reads an item as an event when the parse contradicts its kind) assigned
+the parser's answer straight to `got`, so it was a second door into the very
+defect the guard exists to close — and the door most fabrications came
+through. The apparent improvement in that run was model variance.
+
+`test_every_model_parse_in_the_rescue_runs_through_the_invention_guard` reads
+the tree for the third door, the way the ollama gate's test does. **A guard
+with a hole reads as covered**, and this one read as covered for a whole run.
+
+Closing it exposed a second defect: when the guard removed everything, the
+item had no intent, `_commit` skips an item with no intent, and **the speaker
+got an empty reply** to a command they had just spoken. The rescue now blocks
+the item — *"I couldn't make out what to create from …"* — which `_commit`
+already reports and the panel already draws. Two crosscheck tests were
+updated: their scenario (a fabricated title the judge keeps failing on) is
+now unreachable, because the fabrication never becomes an object; the
+contract they name — a command never spins past `MAX_REENTRIES`, and the
+speaker is told — is asserted on the new, better wording.
+
+### THE INSTRUMENT: count-correctness REWARDS FABRICATION
+
+Three of the four rows that changed say the same thing, and it is the same
+thing cycle 28 found from the other side:
+
+| the command | before | now | the count says |
+|---|---|---|---|
+| "On the fifth of November, I need to go to Washington, D.C, and then…" | an invented **'Washington, D.C trip'** | one real event + *"I couldn't make out …"* | **worse** |
+| "For the next three Sundays … and then yashas bithday with vinay" | an invented second event | one real event + an honest refusal | **worse** |
+| "The list should not contain all food items with the prefix dry" | **'Grocery List Review' at Home** | nothing written | **better** |
+
+count-correctness asks *did you produce at least N things*. A fabricated
+object counts as one of them. So the metric pays for inventing and charges
+for admitting — which is exactly backwards for a stage whose whole job is
+grounding, and it is why two cycles running have moved it down while every
+quality metric moved up:
+
+| | garbage titles | field quality | precision | count-correct |
+|---|---|---|---|---|
+| run 26 (before cycle 28) | 19% | 87.0 | 87.9 | 85% |
+| run 32 (after cycle 29) | **16%** | **87.5** | **90.2** | **80%** |
+
+**This is the "change the instrument rather than grind" point**
+(`ITERATION_PROTOCOL.md`). For grounding cycles the honest primary is field
+quality and precision, with count-correctness read as a companion — and the
+gold's own premise needs a ruling: does a compound whose second half cannot
+be read honestly owe the speaker a guess?
+
+### Next prediction (registered) — cycle 30
+
+Not another grounding change. The 13 junk titles left are a CUT problem, not
+an invention: 'remind me', 'set reminder', 'things', "grocery shopping 's
+to-do list", 'remind at this time' — the speaker's own words sliced in the
+wrong place, so every grounding test passes them. The title extractor keeps
+the command frame it should have consumed. **Prediction:** garbage-title 16%
+→ 10–13%, count-correct 80% → 82–85% (a title cut right is usually an object
+counted right), field quality flat to +1.
+

@@ -2648,6 +2648,14 @@ series_id   NULL
     word of a generated event title has to appear in the item's own words, prefix-matched so
     &ldquo;Meeting&rdquo; is grounded by &ldquo;meet&rdquo;. Rule output never routes through that check —
     it is grounded by construction.</p>
+    <p>The same test now runs over the other fields made of words, with one difference that matters: an
+    invented <em>subject</em> means there was no entry to make, so the whole thing goes; an invented
+    <em>detail</em> on a real entry is one bad field, so the field goes and the entry stays. A location
+    nobody mentioned is removed. A repeat is removed unless the words carry a marker for one &mdash; people
+    say &ldquo;every Monday&rdquo;, never &ldquo;weekly&rdquo;, so that field is checked against the marker
+    rather than the word. A list item the speaker never dictated is removed, and a list whose every item was
+    invented is not a list. Each removal is written into the reasoning trail, because a field taken away in
+    silence is as dishonest as one added.</p>
     <p>One unreadable item must not kill its neighbours: a failure here is reported for that item alone and
     the rest of the command still runs.</p>`
     },

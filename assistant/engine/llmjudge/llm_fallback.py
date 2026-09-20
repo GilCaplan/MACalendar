@@ -111,10 +111,42 @@ def _grounded_title(title: str, text: str) -> bool:
     return all(ok(w) for w in words)
 
 
+#: A recurrence is the one word field the speaker never says verbatim — they
+#: say "every monday", the object says `weekly`. So it is grounded on the
+#: MARKER instead: no marker in the words, no repeat. Measured on dev-100
+#: (2026-09-20): "reopen groceries and add milk" came back as a DAILY event.
+_RECUR_MARKER_RE = re.compile(
+    r"\b(every|each|daily|weekly|monthly|yearly|annually|nightly|"
+    r"repeat(?:s|ing|ed)?|recurring|regularly|always|"
+    r"mondays|tuesdays|wednesdays|thursdays|fridays|saturdays|sundays|"
+    r"weekdays|weekends)\b", re.I)
+
+
 def _guard_inventions(got, item: Item, state: EngineState):
-    """Drop LLM-fabricated events (cycle 7); rule-parser output never routes
-    through here — rules are grounded by construction. An emptied list falls
-    through to the event-kind retry / event_fallback / honest unknown."""
+    """Drop LLM-fabricated events, and STRIP fabricated fields off real ones.
+
+    Cycle 7 built the first half: an event whose TITLE the words never said is
+    a fabrication and the whole object goes (rule-parser output never routes
+    through here — rules are grounded by construction). An emptied list falls
+    through to the event-kind retry / event_fallback / honest unknown.
+
+    Cycle 29 (2026-09-20) adds the second half, and the asymmetry is the same
+    one the judge routes on: a fabricated SUBJECT means there is no object,
+    while a fabricated VALUE on a real object is one bad field. The rescue was
+    inventing three of them and the loop could not fix any — the judge refuses
+    them every round and the rewrite cannot change what the parser returns:
+
+        "The list should not contain all food items with the prefix dry"
+            -> 'Grocery List Review' AT HOME
+        "reopen groceries and add milk"       -> a DAILY event
+        "make a list of thing I have to shop" -> todo titles milk, eggs, bread
+
+    So: an ungrounded location is dropped and the event kept; a recurrence
+    with no marker in the words is dropped; a to-do's ungrounded titles are
+    dropped and the object goes only when none survive. Every drop is a `Fix`
+    in the trace, because a field removed silently is as dishonest as one
+    invented.
+    """
     if not got:
         return got
     kept = []
@@ -125,5 +157,39 @@ def _guard_inventions(got, item: Item, state: EngineState):
                 state.add_fix("generate", "invention_guard", title[:40], "",
                               note="LLM title not grounded in the item's words")
                 continue
+        _strip_ungrounded_fields(name, intent, item, state)
+        if name == "create_todo" and not (getattr(intent, "titles", None) or []):
+            continue                      # nothing of it was the speaker's
         kept.append((name, intent))
     return kept
+
+
+def _strip_ungrounded_fields(name: str, intent, item: Item, state: EngineState) -> None:
+    """Remove the word fields the item's own words do not support."""
+    words = item.text or ""
+
+    location = str(getattr(intent, "location", "") or "")
+    if location and not _grounded_title(location, words):
+        state.add_fix("generate", "invention_guard", location[:40], "",
+                      note="LLM location not grounded in the item's words")
+        intent.location = None
+
+    recurrence = str(getattr(intent, "recurrence", "") or "")
+    if recurrence and not _RECUR_MARKER_RE.search(words):
+        state.add_fix("generate", "invention_guard", recurrence, "",
+                      note="a repeat the words never asked for")
+        intent.recurrence = None
+        if getattr(intent, "recur_days", None):
+            intent.recur_days = []
+
+    titles = list(getattr(intent, "titles", None) or [])
+    if name == "create_todo" and titles:
+        good = [t for t in titles if _grounded_title(str(t), words)]
+        if len(good) != len(titles):
+            dropped = [t for t in titles if t not in good]
+            state.add_fix("generate", "invention_guard", ", ".join(map(str, dropped))[:40], "",
+                          note="LLM to-do titles not grounded in the item's words")
+            intent.titles = good
+            q = list(getattr(intent, "quantities", None) or [])
+            if len(q) == len(titles):
+                intent.quantities = [n for n, t in zip(q, titles) if t in good]

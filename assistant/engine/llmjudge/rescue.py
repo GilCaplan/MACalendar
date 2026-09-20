@@ -292,6 +292,14 @@ def rescue(state: EngineState, cfg, pending: list) -> None:
                            f"Re-read {friendly(item.id)} as an event")
             except Exception:
                 retried = None
+            # THROUGH THE GUARD, like every other model answer. This retry
+            # assigned `got` straight from the parser, so it was a second door
+            # into the defect `_guard_inventions` exists to close — and the
+            # door most of the fabrications came through: 'Grocery List
+            # Review' at Home survived a whole dev-100 run with the guard
+            # widened, because it was never asked (found 2026-09-20 by looking
+            # for the guard's fixes in the trace and finding none).
+            retried = _guard_inventions(retried, item, state) if retried else retried
             if retried and any("event" in n for n, _ in retried if n != "unknown"):
                 state.add_fix("generate", "event_kind_retry", "", item.text[:40],
                               note="the parse contradicted the item's event kind")
@@ -323,6 +331,18 @@ def rescue(state: EngineState, cfg, pending: list) -> None:
                 pass
 
         if not got:
+            # NOTHING SURVIVED, and silence is not an answer. An item reaches
+            # here when the model produced only fabrications and the guard
+            # removed them all — before the guard covered the event-kind
+            # retry (2026-09-20) that was rare enough to go unnoticed, and
+            # `_commit` skips an item with no intent, so the speaker got an
+            # EMPTY reply to a command they had just spoken. The item is
+            # flagged the way FastRule flags one it cannot build, which
+            # `_commit` already reports and the panel already draws.
+            item.blocked = ("I couldn't make out what to create from "
+                            f"“{item.text[:40]}”")
+            state.add_fix("llmjudge", "nothing_survived", item.text[:40], "",
+                          note="every answer the model gave was ungrounded")
             continue
         if len(got) == 1:
             item.action, item.intent = got[0]

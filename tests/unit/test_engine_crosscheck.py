@@ -220,7 +220,18 @@ def test_loop_budget_is_finite_and_admitted(cfg, monkeypatch):
 
     out = engine.run_transcript("tomorrow gym at 7 am and a meeting with Tal at 11",
                                 source="test")
-    assert "not sure I got every part of that right" in out["message"]
+    # WHAT "ADMITS IT" MEANS CHANGED ON 2026-09-20, and for the better: the
+    # invention guard now covers the event-kind retry too, so a title no word
+    # of which was spoken never becomes an object at all. There is nothing
+    # left for the judge to keep failing on, so no round is spent — and the
+    # rescue says which part it could not make out instead of the vaguer "not
+    # sure I got every part of that right", which is what the loop used to
+    # reach after burning its budget. The contract under test is unchanged:
+    # a command never spins, and the speaker is told.
+    loops = [st for st in out["trace"] if st["title"] == "Looping back"]
+    assert len(loops) < crosscheck.MAX_REENTRIES, [st["detail"] for st in loops]
+    assert "couldn't make out" in out["message"], out["message"]
+    assert not out["actions"], "a fabricated title must not be committed"
 
 
 # --- background patch tiers -------------------------------------------------
@@ -382,10 +393,18 @@ def test_the_loop_stops_when_a_rerun_cannot_change_anything(cfg, monkeypatch):
 
     out = engine.run_transcript("tomorrow gym at 7 am and a meeting with Tal at 11",
                                 source="test")
-    loops = [s for s in out["trace"] if s["title"] == "Looping back"]
+    loops = [st for st in out["trace"] if st["title"] == "Looping back"]
     assert len(loops) < crosscheck.MAX_REENTRIES, (
-        f"burned every retry on an unchanging parse: {[s['detail'] for s in loops]}")
-    # and it still admits it could not finish the job
-    assert "not sure I got every part of that right" in out["message"]
+        f"burned every retry on an unchanging parse: {[st['detail'] for st in loops]}")
+    # WHAT "ADMITS IT" MEANS CHANGED ON 2026-09-20, and for the better: the
+    # invention guard now covers the event-kind retry too, so a title no word
+    # of which was spoken never becomes an object at all. There is nothing
+    # left for the judge to keep failing on, so no round is spent — and the
+    # rescue says which part it could not make out instead of the vaguer "not
+    # sure I got every part of that right", which is what the loop used to
+    # reach after burning its budget. The contract under test is unchanged:
+    # a command never spins, and the speaker is told.
+    assert "couldn't make out" in out["message"], out["message"]
+    assert not out["actions"], "a fabricated title must not be committed"
 
 
