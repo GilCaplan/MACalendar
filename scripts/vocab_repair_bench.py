@@ -125,6 +125,14 @@ def pairs() -> "list[tuple[str, str]]":
                                  _corrupt(head)):
                 if damaged_head:
                     add(f"{damaged_head} {tail}", clean)
+    # ...and Gil's own construction on top: mash the term's two words so the
+    # letters survive and only the boundary moves, which still reads aloud as
+    # what was said. Applied to the DISTINCTIVE terms, so the vocabulary entry
+    # being matched against is the kind a person actually keeps.
+    for i, head in enumerate(HEADS):
+        for tail in TAILS[(i % 3):(i % 3) + 4]:
+            for damaged in mash(head, tail):
+                add(damaged, f"{head} {tail}")
     for i, comp in enumerate(COMPOUNDS):
         for tail in ([""] + TAILS[(i % 4):(i % 4) + 3]):
             clean = f"{comp} {tail}".strip()
@@ -167,47 +175,51 @@ _WORD = re.compile(r"^[a-z]+$")
 
 
 def in_sentence(limit: int = 0) -> "list[dict]":
-    """[{damaged, clean, term, heard}] — a CLEAN corpus sentence with one
-    adjacent word pair mashed, and the pair itself as the vocabulary entry.
+    """[{damaged, clean, term, heard}] — a DISTINCTIVE term in a real sentence
+    template, mashed.
 
-    This is the bench that matters for a corrector, because it asks the two
-    questions the pair-only bench cannot: does the repair fire IN CONTEXT, and
-    does it leave the REST of the sentence alone. The gold is free — it is the
-    sentence we started from.
+    The first version of this drew its terms from adjacent word pairs in corpus
+    sentences, which produced "vocabulary entries" like 'feed the' and 'book
+    haircut'. Nobody's personal vocabulary contains those, so the corrector had
+    absurd things to match against and the false-rewrite rate came out inflated
+    — 15% at the shipped threshold, which said more about the bench than the
+    code. A real vocabulary holds DISTINCTIVE terms: loanwords, compounds,
+    names, personal shorthand.
+
+    So the terms are the distinctive ones (`pairs()`), and the sentences are
+    the realspeech corpus's own `clean` templates — the same templates the
+    corpus was generated from, with their title slot filled. Both halves are
+    then real: a real sentence shape carrying a real kind of term.
     """
+    templates = []
+    seen_t = set()
+    for line in REALSPEECH.open():
+        obj = json.loads(line)
+        clean = (obj.get("clean") or "").strip()
+        if "{event_title}" in clean or "{task_title}" in clean:
+            if clean not in seen_t:
+                seen_t.add(clean)
+                templates.append(clean)
+    if not templates:
+        return []
+
+    filled = {"{date}": "friday", "{time}": "9am", "{person}": "Dana",
+              "{list}": "today", "{duration}": "an hour", "{place}": "the office"}
+
+    def render(tpl: str, title: str) -> str:
+        out = tpl.replace("{event_title}", title).replace("{task_title}", title)
+        for slot, value in filled.items():
+            out = out.replace(slot, value)
+        return re.sub(r"\{[a-z_]+\}", "thing", out).strip()
+
     rows: "list[dict]" = []
-    seen = set()
-    for src, field in ((ROOT / "assistant" / "engine" / "fastrule" / "datasets"
-                        / "fastrule_7200.jsonl", "text"),
-                       (REALSPEECH, "clean")):
-        if not src.exists():
-            continue
-        for line in src.open():
-            obj = json.loads(line)
-            text = (obj.get(field) or "").strip()
-            if not text or "{" in text:          # realspeech `clean` has slots
-                continue
-            words = text.split()
-            for i in range(len(words) - 1):
-                a, b = words[i].lower(), words[i + 1].lower()
-                if not (_WORD.match(a) and _WORD.match(b)):
-                    continue
-                if len(a) < 3 or len(b) < 3:
-                    continue
-                term = f"{a} {b}"
-                for damaged in mash(a, b):
-                    key = (damaged, term)
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                    rows.append({
-                        "damaged": " ".join(words[:i] + [damaged] + words[i + 2:]),
-                        "clean": " ".join(words[:i] + [a, b] + words[i + 2:]),
-                        "term": term, "heard": damaged,
-                    })
-                break                              # ONE mash per sentence
-            if limit and len(rows) >= limit:
-                return rows
+    every = pairs()
+    for i, (damaged, intended) in enumerate(every):
+        tpl = templates[i % len(templates)]
+        rows.append({"damaged": render(tpl, damaged), "clean": render(tpl, intended),
+                     "term": intended, "heard": damaged})
+        if limit and len(rows) >= limit:
+            break
     return rows
 
 
