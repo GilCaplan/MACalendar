@@ -1691,8 +1691,30 @@ def _route_intent(span, current_view: str) -> tuple[str | None, str, bool, bool]
     action = None
     domain_material = False
 
+    # Pass 0: THE LEADING IMPERATIVE IS THE COMMAND. "mark WALK the dog
+    # complete", "tick RETURN the library books off my list", "update FEED
+    # the cat": the routing verb inside the object phrase is the thing's
+    # NAME, and spaCy often makes it the ROOT while the real command sits
+    # first as a mis-tagged noun that only pass 4 reaches. Measured the day
+    # the errand verbs (walk, return, feed, …) joined this table: 18 wrong
+    # commits, every one this shape. English puts the imperative first, so
+    # the first word of the span — past a politeness opener — wins when it
+    # maps. A leading time or subject ("tomorrow …", "i need to …") does
+    # not map and falls through to the passes below, unchanged.
+    for tok in span:
+        if tok.lower_ in ("please", "can", "could", "you", "just", "also", "and", "then"):
+            continue
+        mapped, material = _maps_to_action(tok.lemma_)
+        if mapped:
+            root_verb = tok
+            action = mapped
+            domain_material = material
+        break
+
     # Pass 1: ROOT verb that directly maps
     for tok in span:
+        if action is not None:
+            break
         if tok.dep_ == "ROOT" and tok.pos_ in ("VERB", "AUX"):
             mapped, material = _maps_to_action(tok.lemma_)
             if mapped:
