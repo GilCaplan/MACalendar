@@ -623,6 +623,24 @@ and they quote constants from the code. Those drift.
 value out of the code and asserting the page says the same thing. If you
 change a constant a page quotes, that test goes red and names the file to
 edit. If you add a claim to a page, add its check.
+**A STAGE'S PANEL IS PART OF THE STAGE** (Gil, 2026-09-19). The pages do not
+only quote constants — `explorer.html` draws each stage's INTERNALS, step by
+step, in prose and in an SVG. So a change to what a stage DOES leaves that
+panel wrong even when the chain's shape is untouched and every quoted number
+still agrees. The panel procedure above fires on the chain's SHAPE; this fires
+on a stage's BEHAVIOUR, and they are different triggers:
+
+> When you add, remove or reorder a step inside a stage, update that stage's
+> panel in `explorer.html` IN THE SAME CHANGE — the ordered list, the SVG, and
+> the SVG's `aria-label`, which is the only version a screen reader gets.
+
+Ingest is the worked example: two passes were added to the spoken-noise step
+and the vocabulary step stopped being single-word, while the page still read
+"openers, hedges, self-corrections" and "phonetically matched". Nothing was
+factually a wrong NUMBER, so `test_artifact_claims` stayed green and the page
+described a stage that no longer existed. `test_artifact_claims` now ties the
+cleanup passes to the page by name, so adding a third one goes red.
+
 `DOCUMENTATION/ARTIFACT_BUILDER.md` carries the full table and layering rules,
 including: **no personal detail on a published page** (the check treats any
 vocabulary word as a leak unless declared in `artifacts/public_words.txt`),

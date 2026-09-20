@@ -967,3 +967,34 @@ def test_the_persona_spread_claim_matches_the_board(all_prose):
         ratio = float(m.group(1)) / float(m.group(2))
         assert 2.0 <= ratio <= 4.0, (
             f"{name} says roughly three times; the board now says {ratio:.1f}x")
+
+
+def test_the_explorer_describes_the_cleanup_passes_that_exist(all_prose):
+    """`explorer.html` draws INGEST's internals step by step, so a pass added
+    to the spoken-noise step leaves the page describing a stage that no longer
+    exists — and no claims test noticed, because nothing quoted was a wrong
+    NUMBER. The page said "openers, hedges, self-corrections" for a month after
+    stutter-collapsing and filler-phrase stripping were added.
+
+    Read from the code: every `_PASS`-shaped pattern `strip_spoken_noise`
+    applies has to be mentioned somewhere on the page. Adding a third one goes
+    red and names this test (Gil, 2026-09-19)."""
+    src = (ROOT / "assistant" / "intent" / "cleanup.py").read_text()
+    applied = set(re.findall(r"_([A-Z_]+)\.sub\(", src))
+    applied |= set(re.findall(r"cut = _([A-Z_]+)\.sub\(", src))
+    # What each pass must be recognisable as, in words a reader would use.
+    words = {
+        "OPENERS": ("opener",), "NOW_OPENER": ("opener",),
+        "FILLER_PHRASE": ("filler",), "STUTTER": ("stutter",),
+        "COURTESY": ("courtesy",), "TRAILING_HEDGE": ("hedge",),
+        "SELF_CORRECTION": ("self-correction", "self correction"),
+    }
+    page = all_prose.get("explorer.html")
+    if page is None:                      # the page is optional in some checkouts
+        pytest.skip("explorer.html not present")
+    low = page.lower()
+    missing = [name for name in sorted(applied)
+               if name in words and not any(w in low for w in words[name])]
+    assert not missing, (
+        "explorer.html's ingest panel does not mention these cleanup passes, "
+        "which `strip_spoken_noise` applies: " + ", ".join(missing))

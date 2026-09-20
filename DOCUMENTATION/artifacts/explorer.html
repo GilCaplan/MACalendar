@@ -2023,7 +2023,7 @@ series_id   NULL
       z: [310, 82, 2.2],
       sum: `<p>Raw words in, the working transcript out. <strong>This is the only person-specific stage</strong> — the personal vocabulary and the spoken-noise cleanup both live here, so everything downstream is generic and works for anybody.</p>
     <p class="figs">stop word → false start → cleanup → vocabulary → the doubt gate</p>`,
-      more: `<svg viewBox="0 0 380 226" role="img" aria-label="Five steps in order, each narrowing the transcript: the stop keyword, the false-start filter, spoken noise, the personal vocabulary, and the doubt gate. A worked line shows raw dictation losing its opener and courtesy wrapper with its trailing hedge removed. A side note marks this as the only person-specific stage, and marks that an ignored false start is never remembered.">
+      more: `<svg viewBox="0 0 380 252" role="img" aria-label="Five steps in order, each narrowing the transcript: the stop keyword, the false-start filter, spoken noise, the personal vocabulary, and the doubt gate. Two worked lines: the first loses its opener and trailing hedge; the second shows a personal term whose word boundaries the speech model moved, bar rista course, put back as barista course. A side note marks this as the only person-specific stage, and marks that an ignored false start is never remembered.">
   <text x="0" y="8" font-size="7" letter-spacing="1" fill="var(--muted)">FIVE STEPS, IN ORDER &#183; THE ONLY PERSON-SPECIFIC STAGE</text>
   <rect x="0" y="15" width="380" height="21" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="9" y="29" font-size="7" font-weight="600" fill="var(--amber)">1</text>
@@ -2036,11 +2036,11 @@ series_id   NULL
   <rect x="0" y="65" width="380" height="21" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="9" y="79" font-size="7" font-weight="600" fill="var(--amber)">3</text>
   <text x="20" y="79" font-size="7">spoken noise</text>
-  <text x="372" y="79" text-anchor="end" font-size="6.5" fill="var(--muted)">openers, hedges, self-corrections</text>
+  <text x="372" y="79" text-anchor="end" font-size="6.5" fill="var(--muted)">openers, fillers, stutters, hedges</text>
   <rect x="0" y="90" width="380" height="21" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="9" y="104" font-size="7" font-weight="600" fill="var(--amber)">4</text>
   <text x="20" y="104" font-size="7">vocabulary</text>
-  <text x="372" y="104" text-anchor="end" font-size="6.5" fill="var(--muted)">confident fixes, phonetically matched</text>
+  <text x="372" y="104" text-anchor="end" font-size="6.5" fill="var(--muted)">one word or several, even respaced</text>
   <rect x="0" y="115" width="380" height="21" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="9" y="129" font-size="7" font-weight="600" fill="var(--amber)">5</text>
   <text x="20" y="129" font-size="7">the doubt gate</text>
@@ -2051,7 +2051,13 @@ series_id   NULL
   <line x1="150" y1="180" x2="150" y2="188" stroke="var(--muted)" stroke-width="1" marker-end="url(#mi)"/>
   <text x="80" y="200" text-anchor="end" font-size="6.5" fill="var(--muted)">out</text>
   <text x="88" y="200" font-size="7.5" fill="var(--good)">add lunch tomorrow</text>
-  <text x="0" y="220" font-size="7" letter-spacing="1" fill="var(--amber)">EVERY STAGE AFTER THIS ONE IS GENERIC</text>
+  <text x="80" y="216" text-anchor="end" font-size="6.5" fill="var(--muted)">heard</text>
+  <text x="88" y="216" font-size="7.5" fill="var(--muted)">book bar rista course friday</text>
+  <line x1="150" y1="222" x2="150" y2="230" stroke="var(--muted)" stroke-width="1" marker-end="url(#mi)"/>
+  <text x="80" y="242" text-anchor="end" font-size="6.5" fill="var(--muted)">out</text>
+  <text x="88" y="242" font-size="7.5" fill="var(--good)">book barista course friday</text>
+  <text x="228" y="242" font-size="6.5" fill="var(--amber)">three words &#8594; two</text>
+  <text x="0" y="252" font-size="7" letter-spacing="1" fill="var(--amber)">EVERY STAGE AFTER THIS ONE IS GENERIC</text>
 </svg>
     <figcaption>Five narrowings, in that order &mdash; and one thing deliberately NOT narrowed: the courtesy wrapper stays on, because FastRule's interrogative gate reads those words to tell a question from a polite imperative. An ignored false start is the one outcome with no trace at all: it is not remembered, because a run of them would teach the memory that false starts are normal.</figcaption>
     <h3>In order</h3>
@@ -2062,13 +2068,24 @@ series_id   NULL
       executed, and above all <strong>not remembered</strong>. That last one is the point: the memory feeds
       examples of how you speak, and a run of false starts teaches it that false starts are normal.</li>
       <li><strong>Spoken noise.</strong> The openers that announce speech rather than a request, a trailing
-      &ldquo;or something&rdquo;, a mid-sentence self-correction. The <em>courtesy</em> wrapper is the one
+      &ldquo;or something&rdquo;, a mid-sentence self-correction &mdash; and two more a real speaker
+      produces constantly: an interrupting <em>filler phrase</em> (&ldquo;can you, you know, remind
+      me&hellip;&rdquo;) and a <em>stutter</em>, the same word said twice, which the speech model writes
+      down faithfully. Order matters between those two: &ldquo;you you know&rdquo; is <em>you</em> followed
+      by the filler, not a stutter, so collapsing first leaves a stray &ldquo;know&rdquo; in front of the
+      command. The <em>courtesy</em> wrapper is the one
       thing deliberately left alone &mdash; <code>drop_courtesy=False</code> &mdash; because FastRule's
       interrogative gate has to read those words to tell &ldquo;should I add yoga?&rdquo; from
       &ldquo;can you add yoga?&rdquo;. It comes off inside the parse instead.</li>
       <li><strong>The personal vocabulary.</strong> Confident fixes applied, with phonetic matching; a word
       can also expand shorthand or carry a label the rest of the system uses. Fuzzy matching never touches
-      a list of protected everyday words, so a name can never swallow the word <em>data</em>.</li>
+      a list of protected everyday words, so a name can never swallow the word <em>data</em>.
+      <br><strong>And the window is not fixed to the term&rsquo;s length</strong>, because the speech model
+      does not keep a phrase&rsquo;s word boundaries when it mishears it: <em>quinoa delivery</em> comes
+      back as four tokens, <em>ice cream</em> as one. Windows run from two words wider than the term down
+      to one, widest first, and the two sides are compared with the spaces stripped out &mdash; the spaces
+      are part of the damage, not evidence. A window of entirely ordinary words is never merged, which is
+      what keeps a real phrase from being &ldquo;repaired&rdquo; into a term it merely resembles.</li>
       <li><strong>The doubt gate.</strong> With the setting on and a client that says it can show an
       editor, doubtful words stop execution and ask you to check the transcription first.</li>
     </ol>

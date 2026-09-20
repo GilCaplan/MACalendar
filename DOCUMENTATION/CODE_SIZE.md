@@ -1,13 +1,13 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 529, "total_lines": 143989} -->
+<!-- code-stats: {"total_files": 529, "total_lines": 144020} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**143,989 lines of source across 529 files.** Of that, **83,567 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**144,020 lines of source across 529 files.** Of that, **83,567 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
-| Test code | 144 | 29,219 |
+| Test code | 144 | 29,250 |
 | iOS application | 59 | 20,445 |
 | Mac application (calendar GUI) | 33 | 18,297 |
 | Actions, storage & domain (DB, config, observance, .ics) | 96 | 17,222 |
@@ -20,13 +20,13 @@
 | Model / Ollama code | 12 | 2,563 |
 | API server (the front door) | 4 | 1,732 |
 | Launch scripts | 3 | 316 |
-| **TOTAL** | **529** | **143,989** |
+| **TOTAL** | **529** | **144,020** |
 
 ### By language
 
 | | files | lines |
 |---|---:|---:|
-| Python | 456 | 120,875 |
+| Python | 456 | 120,906 |
 | Swift | 64 | 22,265 |
 | shell | 8 | 696 |
 | launch script | 1 | 153 |
@@ -34,7 +34,7 @@
 Not counted above, and deliberately so:
 
 - **Data** — the utterance corpus, fitted weights and fixtures: 187,371 lines across 117 files. Bigger than the code, and not written by hand.
-- **Prose** — markdown and the published HTML explainers: 38,994 lines across 112 files.
+- **Prose** — markdown and the published HTML explainers: 39,029 lines across 112 files.
 
 ### How the categories are drawn
 
