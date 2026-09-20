@@ -616,7 +616,9 @@ _ENGINE_MARK = "atomic-item executor"
 #: is the single place that knows the difference.
 _STAGE_FILES = {
     "transcript": "ingest/repair.py",
-    "segment":    "segmentation/old_seg/segment.py",
+    # The stage's model half is LLMSeg (off by default, its own `urlopen`
+    # socket); `old_seg`, which this pointed at, was retired 2026-09-20.
+    "segment":    "segmentation/llmseg/llmseg.py",
     "decompose":  "decompose_validate/decompose.py",
     # The stage's model call moved with the retirement of validate.py: `checks.py`
     # is deterministic by design, and the LLM call this stage still makes lives in
@@ -780,7 +782,7 @@ def test_the_count_of_model_calling_stages_is_current(all_prose):
     """
     engine = ROOT / "assistant" / "engine"
     callers = [name for name, rel in _STAGE_FILES.items()
-               if re.search(r"call_json\(|parser\.parse",
+               if re.search(r"call_json\(|parser\.parse|urlopen\(",
                             (engine / rel).read_text())]
     for name, text in all_prose.items():
         if "stages may call the language model" not in text:

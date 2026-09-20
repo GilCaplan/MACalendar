@@ -61,7 +61,7 @@ from assistant.intent import coordination as CO                                #
 from assistant.intent.coordination import _REMINDER_LEAD_RE                    # noqa: E402
 from assistant.intent.classifier import Featurizer, LogisticModel              # noqa: E402
 from assistant.intent.rule_parser import _CALENDAR_SIGNALS, _TODO_SIGNALS      # noqa: E402
-from assistant.engine.segmentation.old_seg.segment import (                    # noqa: E402
+from assistant.engine.segmentation.fastseg.kind import (                      # noqa: E402
     _enforce_pinned_kinds, _kind_of)
 
 

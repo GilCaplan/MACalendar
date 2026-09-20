@@ -50,7 +50,7 @@ work stopped**, not at random.
    directions. Board D has never run at all.
 3. **§8.3** — the date floor written into `time` as a literal word, costing two
    workarounds. Needs the dataset regenerated, so it is a cycle of its own.
-4. **`old_seg` retirement** — 716 lines inactive with three things still borrowed
+4. **`old_seg` retirement** — DONE 2026-09-20 (`retired/segmentation-old-seg/`, tag `segmentation-old-seg`). Was: 716 lines inactive with three things still borrowed
    (`_envelope_split`'s reader, `_enforce_pinned_kinds`/`_kind_of`, and
    `object_rules.is_interrogative_create` in the next stage). Same shape
    `validate.py` had; retire it the same way.

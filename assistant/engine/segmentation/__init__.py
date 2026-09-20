@@ -1,27 +1,22 @@
-"""Segmentation — the engine's step 2, and the switch between its two engines.
+"""Segmentation — the engine's step 2.
 
     text  ->  [Item(kind=tag, text=action, time=time, source=span), ...]
 
-Two implementations live here and either can be the one that runs:
-
-    IMPLEMENTATION = "fastseg"   FastSeg, deterministic, no model    <- DEFAULT
-    IMPLEMENTATION = "old_seg"   the previous stage, LLM-assisted
-
-Switch with `MACALENDAR_SEGMENTATION=old_seg`, or `engine.segmentation` in
-config.yaml. ARCHITECTURE.md section 3 carries the flag table and the measured
-trade between them; read it before changing the default.
+One implementation: FastSeg, deterministic, no model, with LLMSeg wired
+behind it and OFF by default. The LLM-assisted `old_seg` that preceded it was
+retired on 2026-09-20 — `retired/segmentation-old-seg/` holds it with a README,
+and the tag `segmentation-old-seg` is the last commit that could run it.
 
 THE SHAPE IT RETURNS
 --------------------
-`Item` now carries `time` separately (added 2026-09-08 — a deliberate contract
+`Item` carries `time` separately (added 2026-09-08 — a deliberate contract
 change), so an item is `(kind=tag, text=action, time=time)` and the time is no
 longer buried in the text.
 
 Anything that PARSES an item for a date calls `Item.spoken()`, which is the
 action with its time reattached. That matters: `FastRule` and the LLM parser both
 extract the time from the string they are handed, so passing `text` alone
-produced events with no time. `generate` and `decompose` were migrated to
-`spoken()` in the same change.
+produced events with no time.
 
 HOW A COMMAND GETS THROUGH
 --------------------------
@@ -38,16 +33,9 @@ no second code path to keep in step.
 """
 from __future__ import annotations
 
-import os
 import re
 
-from assistant.engine.segmentation import old_seg          # noqa: F401
 from assistant.engine.state import Item
-
-#: Which implementation runs. FastSeg by default (Gil, 2026-09-08).
-#: `old_seg` remains fully wired and one env var away — see ARCHITECTURE.md §3
-#: for the measured differences, including where FastSeg is WORSE.
-IMPLEMENTATION = os.environ.get("MACALENDAR_SEGMENTATION", "fastseg").strip().lower()
 
 #: The transport envelopes opened before any segmenter runs: the ingest
 #: queue's `("…")and("…")` coalescing wrapper (parentheses + quotes, because a
@@ -64,7 +52,7 @@ def _envelope_split(text: str, cfg):
     sends bracket batches, and a user can configure a spoken separator. None of
     those are English, and FastSeg's cutter has never seen them — it returns the
     whole wrapper as ONE piece, which would collapse a batch of queued commands
-    into a single item. So the envelope is opened first, with `old_seg`'s own
+    into a single item. So the envelope is opened first, with the stage's own
     reader, and FastSeg runs per envelope.
     """
     hits = _COALESCE_RE.findall(text)
@@ -105,9 +93,6 @@ def _segment_items(text: str):
 
 def run(state, cfg):
     """Step 2. Envelope split, then the component, then Items."""
-    if IMPLEMENTATION == "old_seg":
-        return old_seg.segment.run(state, cfg)
-
     from assistant.engine.segmentation.fastseg.kind import kind_of
     from assistant.trace import RULE
 

@@ -131,11 +131,11 @@ def test_every_stage_module_exposes_run():
     import assistant.engine.decompose_validate.decompose
     import assistant.engine.fastrule.stage
     import assistant.engine.label.label
-    import assistant.engine.segmentation.old_seg.segment
+    import assistant.engine.segmentation
     import assistant.engine.ingest.repair
     import assistant.engine.decompose_validate.stage
 
-    for mod in (assistant.engine.ingest.repair, assistant.engine.segmentation.old_seg.segment,
+    for mod in (assistant.engine.ingest.repair, assistant.engine.segmentation,
                 assistant.engine.decompose_validate.decompose, assistant.engine.decompose_validate.stage,
                 assistant.engine.fastrule.stage, assistant.engine.llmjudge.llmjudge,
                 assistant.engine.label.label):

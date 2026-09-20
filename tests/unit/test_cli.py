@@ -91,7 +91,7 @@ def test_the_engine_layer_names_no_stage_that_does_not_exist():
 
 def test_every_module_the_engine_layer_claims_actually_imports():
     """A path in the list that has rotted should fail here, not in production.
-    `segmentation.old_seg.segment` was the ONLY segmenter the doctor imported
+    `segmentation.old_seg.segment` (retired 2026-09-20) was the ONLY segmenter the doctor imported
     long after FastSeg became the default — it verified the one that does not
     run."""
     import importlib

@@ -218,11 +218,11 @@ def check_storage() -> Check:
 ENGINE_STAGES = [
     ("ingest",             "assistant.engine.ingest.coalesce"),
     ("transcript",         "assistant.engine.ingest.repair"),
-    # The LIVE segmenter first; old_seg is still wired and one env var away
-    # (MACALENDAR_SEGMENTATION=old_seg), so both are verified.
+    # FastSeg is the segmenter; `old_seg` was retired 2026-09-20
+    # (`retired/segmentation-old-seg/`), so the doctor no longer imports it.
     ("segment",            "assistant.engine.segmentation"),
     ("segment",            "assistant.engine.segmentation.fastseg.fastseg"),
-    ("segment",            "assistant.engine.segmentation.old_seg.segment"),
+    ("segment",            "assistant.engine.segmentation.fastseg.kind"),
     ("decompose_validate", "assistant.engine.decompose_validate.stage"),
     ("decompose_validate", "assistant.engine.decompose_validate.decompose"),
     ("decompose_validate", "assistant.engine.decompose_validate.checks"),

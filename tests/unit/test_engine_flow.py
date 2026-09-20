@@ -302,11 +302,11 @@ def test_coalesce_single_input_is_unwrapped():
 
 
 def test_the_wrapper_round_trips_through_segment(cfg):
-    from assistant.engine.segmentation.old_seg import segment
+    import assistant.engine.segmentation as segmentation
     batch = engine.coalesce(["gym tomorrow at 7am", "buy milk"], max_tokens=300)[0]
     st = EngineState(raw_text=batch, text=batch)
-    segment.run(st, cfg)
-    assert [it.text for it in st.items] == ["gym tomorrow at 7am", "buy milk"]
+    segmentation.run(st, cfg)
+    assert [it.spoken() for it in st.items] == ["gym tomorrow at 7am", "buy milk"]
 
 
 def test_repeated_attempt_messages_fold_into_one(monkeypatch):

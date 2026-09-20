@@ -123,7 +123,7 @@ for events, tags for tasks; adjacent events never share a colour.
 
 | Component, not a Stage | in |
 |---|---|
-| `FastSeg` · `LLMSeg` · `old_seg` | `segmentation/` |
+| `FastSeg` · `LLMSeg` | `segmentation/` |
 | `Atomicity` · `Scorer` | `fastrule/fastrule.py` — behind the FRONT DOOR (`fast_track.py`), not in the converter |
 | `Gatekeeper` · the LLM fallback + its three guards · the DEFER consumer | `llmjudge/` — **moved 2026-09-09**; FastRule stopped calling them 2026-09-10 (B5), so the edge is gone as well as the code |
 | `Engine` | the whole pipeline as one runnable thing |

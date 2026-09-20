@@ -96,7 +96,7 @@ file (no execution — it loads Ollama):
 
 A third, quieter one: the `segment` cases import
 `assistant.engine.segmentation.old_seg.segment` (`:84`), the segmenter that
-runs only under `MACALENDAR_SEGMENTATION=old_seg`. FastSeg — the default since
+ran only under `MACALENDAR_SEGMENTATION=old_seg` (retired 2026-09-20). FastSeg — the default since
 the same rewire — is never exercised by the gate that exists to prove it.
 
 **Why it survived.** The identical drift inside `assistant.cli` was found and

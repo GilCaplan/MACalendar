@@ -689,7 +689,7 @@ so the cut caps the row metric no matter how good the rest gets.
 3. **§8.3** — the date floor injected as a literal word, costing two workarounds.
 4. **Two contract questions from Gil** — where an enumeration header's count goes,
    and whether `other` should carry it. `PLAN.md` §3c.
-5. **`old_seg` retirement** — 716 lines inactive with three things still borrowed.
+5. ~~**`old_seg` retirement**~~ — DONE 2026-09-20: `retired/segmentation-old-seg/`, tag `segmentation-old-seg`; the kind readers live in `fastseg/kind.py`, the interrogative-create reader in `decompose_validate/object_rules.py`.
 6. **No board for unusable input.** The `other` work was verified on 11 hand
    probes; the audit's 25 cases are all well-formed commands, so nothing in the
    repo measures this.
@@ -1420,7 +1420,7 @@ segmentation/
     ARCHITECTURE.md     this file
     fastseg/            the deterministic half + invariant.py
     llmseg/             the model half + prompts/
-    old_seg/            the SHIPPED stage, kept until Gil promotes the new one
+    (old_seg/           retired 2026-09-20 -> retired/segmentation-old-seg/)
     datasets/           1,694 rows, train/test split by family
     experiments/        scorer, boards, generator, and every study above
 ```

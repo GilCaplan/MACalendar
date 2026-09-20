@@ -87,7 +87,7 @@ def _fitting_texts() -> set:
 
 def _review_precheck(action: str) -> "str | None":
     """The deterministic review test the shipped tagger uses, unchanged."""
-    from assistant.engine.segmentation.old_seg.segment import (
+    from assistant.engine.segmentation.fastseg.kind import (
         _enforce_pinned_kinds, _kind_of)
     kind = _enforce_pinned_kinds(_kind_of(action), action)
     return "review" if kind == "review" else None

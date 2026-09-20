@@ -317,7 +317,7 @@ class Runner:
     def run_row(self, text: str) -> dict:
         """One row through segment, then decompose.  Returns both snapshots
         plus the model-call attempt counts per stage."""
-        from assistant.engine.segmentation.old_seg import segment
+        import assistant.engine.segmentation as segment
         from assistant.engine.decompose_validate import decompose
         st, committed = self.state(text)
         if st.ignored:

@@ -194,11 +194,10 @@ def main() -> None:
     ap.add_argument("--verbose", action="store_true")
     a = ap.parse_args()
 
-    from assistant.engine.segmentation import IMPLEMENTATION
     from assistant.engine.segmentation.llmseg.llmseg import ENABLED
 
     print(f"scratch: {_SCRATCH}")
-    print(f"segmentation={IMPLEMENTATION}   llmseg.ENABLED={ENABLED}")
+    print(f"segmentation=fastseg   llmseg.ENABLED={ENABLED}")
 
     print("\n" + "=" * 70 + "\nSTAGE SHAPES — what each stage hands the next\n" + "=" * 70)
     for text in ["tomorrow gym at 7 and buy milk",
