@@ -72,6 +72,12 @@ NOT_AN_ASK = "not_an_ask"
 #: the loop-back is for, and the one under-split it can now name, because the
 #: object alone says so: its title is a list.
 COORDINATED_SUBJECT = "coordinated_subject"
+#: ONE object whose own words still hold an ask SEAM — "and then", ". Also,",
+#: "; then" — so it is two asks the cut left together (Gil, 2026-09-20: the
+#: loop's point is that a rewrite comes back as X1'). Deterministic to
+#: detect; the deterministic rewrite cannot split it, so this is the finding
+#: that reaches the model round.
+UNSPLIT_SUBJECT = "unsplit_subject"
 
 # -- the three routes -------------------------------------------------------
 #: Reword this ask into X1' and re-enter at segmentation. Costs a round.
@@ -89,6 +95,7 @@ PANEL = "panel"
 ROUTE = {
     UNGROUNDED_SUBJECT: REWRITE,
     COORDINATED_SUBJECT: REWRITE,
+    UNSPLIT_SUBJECT: REWRITE,
     UNSUPPORTED_FIELD: COMMIT_FLAGGED,
     NOT_AN_ASK: PANEL,
 }
@@ -99,6 +106,7 @@ ROUTE = {
 BLAMED = {
     UNGROUNDED_SUBJECT: "fastrule",
     COORDINATED_SUBJECT: "segment",
+    UNSPLIT_SUBJECT: "segment",
     UNSUPPORTED_FIELD: "decompose_validate",
     NOT_AN_ASK: "segment",
 }

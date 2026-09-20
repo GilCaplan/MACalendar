@@ -60,6 +60,9 @@ _STRONG_COMPOUND_RE = re.compile(
     r"|\s[—–]\s*and\b"
     r"|,\s*then\b",
     re.I)
+#: The same seam, read by LLMJudge on ONE built object: an ask seam still
+#: inside an object's own words means the cut left two asks together.
+ASK_SEAM_RE = _STRONG_COMPOUND_RE
 
 
 #: The fields that carry a CHANGE on an update intent. `match_*` say which

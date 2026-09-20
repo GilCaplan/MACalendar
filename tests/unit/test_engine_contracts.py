@@ -202,7 +202,7 @@ def test_llmjudge_router_is_deterministic():
     from assistant.engine.llmjudge.llmjudge import MAX_REENTRIES
 
     types = {F.UNGROUNDED_SUBJECT, F.UNSUPPORTED_FIELD, F.NOT_AN_ASK,
-             F.COORDINATED_SUBJECT}
+             F.COORDINATED_SUBJECT, F.UNSPLIT_SUBJECT}
     assert set(F.ROUTE) == types, FROZEN
     assert set(F.BLAMED) == types, FROZEN
     assert set(F.ROUTE.values()) == {F.REWRITE, F.COMMIT_FLAGGED, F.PANEL}, FROZEN
@@ -212,9 +212,12 @@ def test_llmjudge_router_is_deterministic():
     # both are the 2026-09-08 loop storm in code form. The COORDINATED subject
     # joined on 2026-09-20 (Gil): one event titled "dentist, haircut and gym"
     # is three, and the rewrite is one clause per thing in the speaker's own
-    # words — still nothing invented, still the subject.
+    # words — still nothing invented, still the subject. The UNSPLIT subject
+    # (same day): one object whose words still hold an ask seam; the
+    # deterministic rewrite cannot split it, so it is what reaches the model
+    # round of the rewrite.
     assert {t for t, r in F.ROUTE.items() if r == F.REWRITE} == {
-        F.UNGROUNDED_SUBJECT, F.COORDINATED_SUBJECT}, FROZEN
+        F.UNGROUNDED_SUBJECT, F.COORDINATED_SUBJECT, F.UNSPLIT_SUBJECT}, FROZEN
     assert MAX_REENTRIES == 3, FROZEN
 
 
@@ -235,7 +238,11 @@ def test_the_judge_makes_no_model_call_at_all():
       has the module and the ledger.
 
     `rescue.py` still calls a model and that is correct: parsing what FastRule
-    DEFERRED is the model doing a parse, not judging one.
+    DEFERRED is the model doing a parse, not judging one. So does `rewrite.py`
+    since 2026-09-20 (Gil: *"the whole point of the loop is that the llm sends
+    a fix if relevant as X1'"*) — and that is the LOOP-BACK writing X1' once
+    the deterministic rewrite has nothing new, not the judge judging. The
+    verdict stays model-free.
     """
     from assistant.engine.llmjudge import llmjudge, verdict
     assert not pathlib.Path("assistant/engine/llmjudge/evidence.py").exists(), FROZEN

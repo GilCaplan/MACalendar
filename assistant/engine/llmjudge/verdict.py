@@ -580,6 +580,49 @@ def _not_an_ask(state, p, siblings: bool = False) -> bool:
     return True
 
 
+def _unsplit_findings(state, produced) -> list:
+    """ONE object whose own words still hold an ask seam — two asks the cut
+    left together.
+
+        "Remind me to take out the trash. Also, PUT MILK ON MY SHOPPING LIST"
+        -> one to-do titled "take out the trash. also"
+
+    Deterministic, on the seams FastRule's front door already treats as a
+    compound (`ASK_SEAM_RE`): "and then", ". Also,", "; then", ", then". The
+    deterministic rewrite cannot split such an object — its words ARE the
+    command — so this is the finding that hands X1' to the model round
+    (Gil, 2026-09-20). Not an ask diff: nothing here re-derives how many asks
+    the command held; it reads one object's words for a seam the speaker put
+    there.
+    """
+    from assistant.engine.fastrule.fastrule import ASK_SEAM_RE
+    out, named = [], set()
+    for p in produced:
+        words = (p.item.spoken() or "").strip()
+        m = ASK_SEAM_RE.search(words)
+        if not m:
+            continue
+        named.add(p.oid)
+        out.append(CheckFinding(
+            type=F.UNSPLIT_SUBJECT, item_id=p.oid,
+            detail=f"“{words[:70]}” still holds two asks around “{m.group(0).strip()}”",
+            blamed_stage=F.BLAMED[F.UNSPLIT_SUBJECT]))
+    # decompose_validate MULTIPLIES an under-split item into siblings that share
+    # its id base ("item_1-1", "item_1-2"): every one of them was cut from the
+    # seam's words, so the ones without the seam are its other half, mangled —
+    # "remind put milk on my shopping list". They go back with it, or the
+    # rewrite would list them as done and never write them again.
+    bases = {oid.split("-")[0] for oid in named}
+    for p in produced:
+        if p.oid in named or p.oid.split("-")[0] not in bases:
+            continue
+        out.append(CheckFinding(
+            type=F.UNSPLIT_SUBJECT, item_id=p.oid,
+            detail=f"“{(p.item.spoken() or '')[:70]}” was cut from the same words",
+            blamed_stage=F.BLAMED[F.UNSPLIT_SUBJECT]))
+    return out
+
+
 def _coordinated_findings(state, produced) -> list:
     """A calendar create whose own words carry a bare noun list of three or
     more things is several events wearing one title. Deterministic: the list
@@ -628,4 +671,5 @@ def judge(state, produced) -> "list[CheckFinding]":
             continue
         out += _subject_findings(state, [p])
     out += _coordinated_findings(state, produced)
+    out += _unsplit_findings(state, produced)
     return out

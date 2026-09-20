@@ -2727,10 +2727,15 @@ series_id   NULL
     <p>The date and the time never reach the model at all. A calendar object is stamped with today&rsquo;s date
     the moment it exists, so asking whether the words support it would flag every correct event that happens
     to be today &mdash; the honest record is what the stage before resolved, and that is read directly.</p>
-    <p>Only faults in the <em>subject</em> earn a retry: a title the words do not establish, or one calendar
-    event whose words list three or more things &mdash; that one is rewritten one clause per thing, in the
-    speaker&rsquo;s own words, and three events come back. A rewrite cannot invent a time nobody said, so that
-    fault commits with a note instead of looping; an object nothing asked for is not made real by parsing it
+    <p>Only faults in the <em>subject</em> earn a retry: a title the words do not establish, one calendar
+    event whose words list three or more things, or one object whose own words still hold an ask seam
+    (&ldquo;and then&rdquo;, &ldquo;. Also,&rdquo;). The rewrite has two tiers. First, code: the failed asks in
+    the speaker&rsquo;s own words, or one clause per listed thing. Then, only when code has nothing new to say,
+    the model &mdash; shown every earlier attempt and what the judge found wrong with it &mdash; writes the
+    remaining asks as a list, one thing per line with its time at the end, and code joins them so the split
+    is decided before segmentation reads a word. Both tiers are held to the transcript: a line that uses a
+    word the speaker never said is refused whole. A rewrite cannot invent a time nobody said, so that fault
+    commits with a note instead of looping; an object nothing asked for is not made real by parsing it
     again. This is what stops a command spending thirty seconds re-reading itself to the same answer.</p>
     <p>Behind a fast answer the same check runs as a verifier, and its patches are <em>tiered</em>: renaming
     a placeholder title is applied silently, while removing something you can see is proposed rather than

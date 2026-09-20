@@ -1472,6 +1472,28 @@ Two candidates filed, not fixed, both needing a word from Gil:
   digit in the words). Real pool: 0 identifier numbers, 1 address in 2,699
   rows — low frequency, so it waits.
 
+## THE LOOP-BACK'S MODEL ROUND — landed, 2026-09-20 (DEVQA Q30)
+
+Gil: *"the whole point of the loop is that the llm sends a fix if relevant
+as X1' to iterate on, otherwise commit … on the second iteration it will do
+the same thing and there we would need a llm."* `rewrite_for_retry` is two
+tiers: code (`failed_asks` / `expand_list`), then `rewrite_with_model` when
+code has nothing new or the finding is `unsplit_subject` (one object whose
+words still hold an ask seam; siblings from the same multiply go back with
+it). The brief carries the transcript, the failed items' words, the finished
+asks and every earlier attempt with the judge's complaint (the state's fix
+ledger, rules `rewrite` / `rewrite_model`); the answer is a list of asks
+joined by code as the ingest envelope; the shape rules in the prompt are the
+parser's (verb first, one thing per line, to-do vs calendar framing, time
+and the speaker's recurrence phrase at the end of their line). Guard on both
+tiers, one-edit tolerance for transcript typos on words ≥ 6 letters, a
+repeat guard against re-building a finished ask. dev-100 runs 23 and 24 vs
+run 22: count-correct 74 → 76, deep 62 → 65, F1 75.0 → 75.7, failures 26 →
+24 (`dataset/RESULTS.md`, the run-23/24 entry, nine model-round rows read).
+Filed there: `_LIST_DEST` misses "groceries list" (plan item 1); the rescue
+invents titles and list contents the loop cannot fix; a subject-less rewrite
+still commits on exhaustion, and twice (plan item 4).
+
 ## A CALENDAR CREATE OVER A LIST OF THINGS — rewritten one clause per thing, 2026-09-20
 
 Gil (DEVQA Q29): *"if the decompose_validate fails to split into three items

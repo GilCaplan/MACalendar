@@ -730,3 +730,173 @@ def test_a_list_becomes_three_events_end_to_end(registry_with_real_actions, cfg,
         E.parse(st, cfg)
         E.judge(st, cfg)
         assert sorted(i.action for i in st.items) == ["create_event"] * 3 + ["create_todo"]
+
+
+# --- the unsplit subject and the model round of the rewrite -------------------
+
+_TRASH = "Remind me every Monday to take out the trash. Also, PUT MILK ON MY SHOPPING LIST"
+
+
+def test_a_seam_left_inside_one_object_is_an_unsplit_subject(registry_with_real_actions):
+    """One built object whose own words still hold "and then" / ". Also," is
+    two asks the cut left together. Deterministic; it is what reaches the
+    model round, because no trim of those words can split them."""
+    it = _ev_item("item_1", "open calendar",
+                  text="open calendar set event and then create a list")
+    st = _state([it], text="open calendar set event and then create a list")
+    types = [f.type for f in verdict.judge(st, verdict.collect(st))]
+    assert F.UNSPLIT_SUBJECT in types, types
+    clean = _ev_item("item_1", "gym", text="book gym tomorrow at 7am")
+    st = _state([clean], text="book gym tomorrow at 7am")
+    assert F.UNSPLIT_SUBJECT not in [f.type for f in verdict.judge(st, verdict.collect(st))]
+
+
+def _recorder(monkeypatch, answer):
+    """A fake model: records the prompt it was given, answers with `answer`."""
+    import assistant.engine.llm as _llm
+    calls = []
+
+    def fake(cfg, system, user, schema=None):
+        calls.append((system, user, schema))
+        if isinstance(answer, Exception):
+            raise answer
+        return answer, 7
+    monkeypatch.setattr(_llm, "call_json", fake)
+    return calls
+
+
+def _unsplit_state(text=_TRASH):
+    it = Item(id="item_1", kind="task", text=text, action="create_todo", slots={},
+              intent=CreateTodoIntent(titles=["take out the trash. also"]))
+    st = _state([it], text=text)
+    st.raw_text = text
+    st.findings = [CheckFinding(type=F.UNSPLIT_SUBJECT, item_id="item_1",
+                                detail="“Remind me…” still holds two asks around “. Also”",
+                                blamed_stage="segment")]
+    return st
+
+
+def test_the_model_writes_x1_as_a_list_and_code_joins_it(registry_with_real_actions, cfg, monkeypatch):
+    """When the failed item's words ARE the command, the deterministic rewrite
+    has nothing new, so the model is asked. It answers a LIST; the seams are
+    put in by code as the ingest envelope, which segmentation opens before it
+    reads any language — so the cut the model chose is the cut that happens."""
+    calls = _recorder(monkeypatch, {"asks": ["remind me to take out the trash every monday",
+                                             "add milk to my shopping list"]})
+    st = _unsplit_state()
+    got = rewrite.rewrite_for_retry(st, cfg)
+    assert got == ('("remind me to take out the trash every monday")'
+                   'and("add milk to my shopping list")'), got
+    assert len(calls) == 1
+    system, user, schema = calls[0]
+    assert schema["properties"]["asks"]["type"] == "array"
+    # the brief carries the words, the leftover, and what was tried with the
+    # judge's complaint — the context Gil asked for
+    assert f'THE SPEAKER SAID: "{_TRASH}"' in user
+    assert "still holds two asks" in user
+    assert 'take out the trash. also' in user           # what the last attempt produced
+    assert "every monday" in system and "for the next three sundays" in system
+    assert [fx.rule for fx in st.fixes] == ["rewrite_model"]
+    assert st.fixes[0].before == _TRASH and st.fixes[0].after == got
+
+
+def test_the_model_round_sees_every_earlier_attempt_and_never_repeats_one(registry_with_real_actions, cfg, monkeypatch):
+    st = _unsplit_state()
+    st.add_fix("llmjudge", "rewrite", before=_TRASH,
+               after="remind me to take out the trash. also every monday and remind put milk on my shopping list",
+               note="produced: task “take out the trash. also”; task “remind put milk on my shopping list” · judge: still holds two asks")
+    st.text = "remind me to take out the trash. also every monday and remind put milk on my shopping list"
+    # a model that hands back the attempt already made is refused
+    calls = _recorder(monkeypatch, {"asks": [st.text]})
+    assert rewrite.rewrite_for_retry(st, cfg) is None
+    _, user, _ = calls[0]
+    assert '1. "' + _TRASH + '"' in user and "2. \"remind me to take out the trash. also" in user
+    assert "remind put milk on my shopping list" in user
+
+
+def test_the_model_round_fails_closed(registry_with_real_actions, cfg, monkeypatch):
+    """An invented word, an empty answer, or a model that is down: no rewrite,
+    no loop — and each says why in the fix ledger."""
+    st = _unsplit_state()
+    _recorder(monkeypatch, {"asks": ["book dentist on friday", "add milk to my shopping list"]})
+    assert rewrite.rewrite_for_retry(st, cfg) is None
+    assert st.fixes[-1].rule == "rewrite_rejected"
+    st = _unsplit_state()
+    _recorder(monkeypatch, {"asks": []})
+    assert rewrite.rewrite_for_retry(st, cfg) is None
+    assert st.fixes[-1].rule == "rewrite_empty"
+    from assistant.exceptions import OllamaUnavailableError
+    st = _unsplit_state()
+    _recorder(monkeypatch, OllamaUnavailableError("down"))   # what call_json raises when disabled
+    assert rewrite.rewrite_for_retry(st, cfg) is None
+    assert not st.fixes
+
+
+def test_the_deterministic_rewrite_still_goes_first(registry_with_real_actions, cfg, monkeypatch):
+    """Round one is the trim, no model: the coordinated list of 2026-09-20 is
+    written by code exactly as before, and the model is not consulted."""
+    _recorder(monkeypatch, AssertionError("the model must not be asked here"))
+    it = _ev_item("item_1", "dentist, haircut and gym",
+                  text="create an event for dentist, haircut and gym")
+    it.time = "on friday"
+    st = _state([it], text="on friday create an event for dentist, haircut and gym")
+    st.raw_text = st.text
+    st.findings = [CheckFinding(type=F.COORDINATED_SUBJECT, item_id="item_1",
+                                detail="d", blamed_stage="segment")]
+    got = rewrite.rewrite_for_retry(st, cfg)
+    assert got.startswith("on friday create an event for dentist and ")
+    assert [fx.rule for fx in st.fixes] == ["rewrite"]
+
+
+def test_an_under_split_is_repaired_end_to_end_by_the_model_round(registry_with_real_actions, cfg, monkeypatch):
+    """The whole loop on the checkpoint's own row: segmentation leaves ". Also,"
+    inside one item, decompose_validate multiplies it into junk, the judge
+    raises the unsplit subject, the deterministic round has nothing new, the
+    model writes two lines, the envelope re-enters segmentation, and two clean
+    objects come out."""
+    import assistant.engine as engine
+    from assistant.intent import rule_parser as RP
+    from freezegun import freeze_time
+
+    _recorder(monkeypatch, {"asks": ["remind me to take out the trash every monday",
+                                     "add milk to my shopping list"]})
+    RP._ensure_nlp(); RP._ensure_dt()
+    with freeze_time("2026-09-09 10:00:00"):
+        E = engine.Engine()
+        st = EngineState(raw_text=_TRASH, text=_TRASH)
+        E.parse(st, cfg)
+        assert len(st.items) == 1 or all("also" in i.text.lower() or "milk" in i.text.lower() for i in st.items)
+        E.judge(st, cfg)
+        titles = [rewrite._title_of(i).lower() for i in st.items if i.intent is not None]
+        assert titles and not any("also" in t for t in titles), titles
+        assert any("milk" in t for t in titles) and any("trash" in t for t in titles), titles
+        assert st.retries.get("segment", 0) >= 1
+        assert any(fx.rule == "rewrite_model" for fx in st.fixes)
+
+
+def test_the_model_round_never_repeats_a_finished_ask(registry_with_real_actions, cfg, monkeypatch):
+    """The 8B writes a done ask again despite the prompt; re-entering it beside
+    the frozen original built it twice on dev-100. Dropped in code."""
+    done = Item(id="r1_item_2", kind="task", text="make next week's to-do list",
+                action="create_todo", slots={}, intent=CreateTodoIntent(titles=["make 's to-do list"]))
+    bad = Item(id="item_1", kind="event", text="make a list of thing I have to shop tomorrow",
+               action="create_todo", slots={}, intent=CreateTodoIntent(titles=["milk", "eggs"]))
+    raw = "make a list of thing I have to shop tomorrow and also i want to make next week's to-do list"
+    st = _state([done, bad], text="make a list of thing I have to shop tomorrow")
+    st.raw_text = raw
+    st.findings = [CheckFinding(type=F.UNGROUNDED_SUBJECT, item_id="item_1", detail="milk", blamed_stage="fastrule")]
+    st.add_fix("llmjudge", "rewrite", before=raw, after=st.text, note="produced: …")   # round 1 spent
+    calls = _recorder(monkeypatch, {"asks": ["make a list of thing I have to shop tomorrow",
+                                             "make next week's to-do list"]})
+    assert rewrite.rewrite_for_retry(st, cfg) is None      # the only new line repeats the done ask; the other was tried
+    assert "STILL TO DO: \"make a list of thing I have to shop tomorrow\"" in calls[0][1]
+
+
+def test_a_transcript_typo_does_not_refuse_the_repair():
+    """"bithday" in the transcript refused a correct "birthday" and with it the
+    whole repair. One edit on a word of six letters or more is the speaker's
+    word; short words and two edits are not."""
+    assert rewrite.grounded("remind me of yashas birthday with vinay",
+                            "yashas bithday with vinay ,vally")
+    assert not rewrite.grounded("book sunday", "book monday")
+    assert not rewrite.grounded("book thursday", "book tuesday")

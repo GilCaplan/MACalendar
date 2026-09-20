@@ -93,6 +93,7 @@ The route is a property of the FINDING, never an opinion about the object.
 |---|---|---|
 | `ungrounded_subject` | the object's title or target is not established by the words | **REWRITE** — X1', costs a round |
 | `coordinated_subject` | ONE calendar event whose words list three or more things (Gil, 2026-09-20) | **REWRITE** — X1' is one clause per thing, costs a round |
+| `unsplit_subject` | ONE object whose own words still hold an ask seam — "and then", ". Also,", "; then" (Gil, 2026-09-20) | **REWRITE** — the deterministic tier cannot split it, so the MODEL writes X1' as a list of asks; costs a round |
 | `unsupported_field` | a VALUE the words never gave | **COMMIT, and say so** |
 | `not_an_ask` | NOTHING about this object is supported | **PANEL** |
 
@@ -161,8 +162,30 @@ mid-loop — buys partial commits, a retract-and-re-commit path and memory
 bookkeeping spanning rounds, for no user-visible gain, since the reply is spoken
 once either way.
 
+**X1' has TWO TIERS** (Gil, 2026-09-20: *"the whole point of the loop is that
+the llm sends a fix if relevant as X1' to iterate on, otherwise commit"*).
+Tier 1 is code: `failed_asks`, the failed asks in the speaker's own words, or
+`expand_list`, one clause per listed thing. It is a trim or an expansion, so
+given the same failure twice it writes the same string twice — the second
+round of it is dead by construction. Tier 2 is the model, `rewrite_with_model`,
+asked only when tier 1 has nothing new (the string was already tried) or
+cannot help (an `unsplit_subject`: trimming one object's words drops the other
+ask). It is shown the transcript, the leftover (`residue`), the finished asks,
+and every earlier attempt with what it produced and what the judge said about
+it — the attempt ledger lives in the state's own fix list, rules `rewrite` and
+`rewrite_model`. It answers a LIST of asks, and the prompt fixes the shape the
+parser reads: verb first, one thing per line, to-do vs calendar framing, the
+time at the end of its line as digits, the speaker's recurrence phrase kept
+exactly and attached to one line. Code joins the list as the ingest envelope
+`("a")and("b")`, which segmentation opens before it reads any language, so the
+cut the model chose is the cut that happens. The 2026-09-10 measurement that
+retired the model repair (worst of five constructions: 41 recovered, 13 leaks,
+10 empties on 60 rows) is answered by construction rather than by prompt: the
+finished asks are cut out in code and listed as done, the seams are put in by
+code, and a line that invents a word refuses the whole answer.
+
 **The guard on X1'.** Every content word of the rewrite must already appear in
-the transcript. The recorded defect: the first attempt built X1' out of
+the transcript — both tiers, every line. The recorded defect: the first attempt built X1' out of
 `finding.detail` — the human-readable EXPLANATION — and segmentation parsed the
 explanation. One asymmetry: creation verbs (`add`, `set`, `book`…) may be
 introduced, because a bare list has no verb and "add milk to my list" is the

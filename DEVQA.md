@@ -767,3 +767,34 @@ before you rule:
   **Reached, no model call.** From a Wednesday clock, the exemplar yields three
   `create_event` rows dated 2026-09-11 in one round; beside a second ask
   ("… and remind me to call mom") the to-do is frozen and kept.
+
+- **2026-09-20 — Q30 (THE LOOP-BACK HAS TWO TIERS: CODE FIRST, THEN THE MODEL
+  WRITES X1')**, Gil. Told that X1' had been built without a model since
+  2026-09-10 and that the loop therefore stops after one round on the same
+  failure: *"the whole point of the loop is that the llm sends a fix if
+  relevant as X1' to iterate on, otherwise commit"* and *"for the first
+  iteration fix that's fine, but on the second iteration it will do the same
+  thing and there we would need a llm no?"* — with the brief: *"make sure the
+  prompt is well thought out and built, the task is well defined, and what we
+  already tried is given dynamically as context so the model knows what it's
+  trying to fix, also take into what prompt structures the system can deal
+  with well (like individual events/tasks separated by 'and' in a clear
+  manner, take recurrence also how that is taken into account)."*
+
+  **What it settles.** The 2026-09-10 removal stands for the JUDGE (no model
+  call in `verdict`) and for the FIRST rewrite (deterministic). It is reversed
+  for the rounds after: when `failed_asks` has nothing new — the string was
+  already tried — or cannot help — an `unsplit_subject`, where a trim of the
+  object's words drops the other ask — `rewrite.rewrite_with_model` asks the
+  model for X1' as a LIST of asks, with the
+  transcript, the leftover, the finished asks and every earlier attempt with
+  the judge's complaint (kept in the state's own fix ledger, rules `rewrite`
+  and `rewrite_model`). The prompt fixes the shape the parser reads: verb
+  first, one thing per line, to-do vs calendar framing, time at the end of
+  its line as digits, the speaker's recurrence phrase kept exactly and
+  attached to one line. Code joins the list as the ingest envelope
+  `("a")and("b")`, so segmentation opens the cut before it reads language.
+  Both tiers pass the same grounding guard and fail closed; `MAX_REENTRIES`
+  stays 3. A new deterministic finding, `unsplit_subject` (one object whose
+  own words hold an ask seam), is what carries an under-split to that round.
+

@@ -2422,3 +2422,73 @@ went unrecorded; guarded. The default `--source` expects the gitignored
 `dataset/baseline/dummy_3000.db`, which this checkout never had — copied
 from `DOCUMENTATION/experiments/memory_scaling/output/`, as DATASET.md says.
 
+
+## THE LOOP-BACK GETS ITS MODEL ROUND — runs 23 and 24 on dev-100 (2026-09-20)
+
+Gil, on reading the checkpoint (DEVQA Q30): *"the whole point of the loop is
+that the llm sends a fix if relevant as X1' to iterate on, otherwise commit"*
+— and, on the deterministic rewrite converging after one round: *"on the
+second iteration it will do the same thing and there we would need a llm"*.
+Built as two tiers in `llmjudge/rewrite.py`: code first (`failed_asks`,
+`expand_list`), then `rewrite_with_model` when code has nothing new or the
+finding is the new `unsplit_subject` (one object whose own words still hold
+an ask seam). The model is briefed with the transcript, the failed items'
+words, the finished asks and every earlier attempt with the judge's
+complaint; it answers a LIST of asks; code joins them as the ingest envelope
+`("a")and("b")` so segmentation opens the cut before it reads language. Both
+tiers pass the grounding guard and fail closed.
+
+**Dataset:** dev-100, the same 100 rows as run 22. **Not a loop cycle** —
+this is the checkpoint's queue being worked; the pause on whole-engine
+cycles is Gil's to lift. Ollama llama3.1:8b, observance off.
+
+| metric (dev-100, n=100) | run 22 (before) | run 23 (first live) | **run 24 (banked)** |
+|---|---|---|---|
+| count-correct | 74% | 75% | **76%** (adjusted 78%) |
+| by tier simple / medium / complex | 91 / 88 / 42 | 91 / 88 / 45 | **94 / 88 / 45** |
+| deep path (n=52) / fast (n=48) | 62 / 88 | 63 / 88 | **65 / 88** |
+| item P / R / F1 | 75.8 / 74.2 / 75.0 | 73.7 / 75.3 / 74.5 | **76.1 / 75.3 / 75.7** |
+| field quality · when-correct | 88.7 · 85.0 (n=20) | 88.4 · 85.0 | **87.1 · 81.0 (n=21)** |
+| count-mismatch failures | 26 | 25 | **24** |
+| latency p50 / p95 | 56 ms / 41.5 s | 50 ms / 38.5 s | 54 ms / **46.5 s** |
+| old brain, same rows | 70% | 69% | 69% |
+
+Two points on a slice whose noise floor is ~2.5–3, so the headline is
+direction, not a banked gain; the rows are the result. Run 23 was the first
+live pass and is kept in the log because its misreads shaped the prompt.
+
+### The nine rows that reached the model round (run 24), read one by one
+
+| row | what the model wrote | outcome |
+|---|---|---|
+| "Remind me every Monday to take out the trash. Also, PUT MILK ON MY SHOPPING LIST" | "remind me to take out the trash every monday" · "add milk to my shopping list" | **fixed** — two clean to-dos where there were 'take out the trash. also' and 'remind put milk on my shopping list' |
+| "Open calendar. Set event, and then Can you please create a list for me" | "Open calendar" · "create a list" | count passes (event+task); 'Open calendar' is still not an ask — the prompt says to leave those out and the 8B did not |
+| "For the next three Sundays remind me I have yoga class at noon, and then yashas bithday…" | "remind me of yoga class at 12pm for the next three sundays" · "remind me of yashas birthday with vinay" | count passes (two events); run 23 had REFUSED this repair because "bithday" ≠ "birthday" — one-edit tolerance on words ≥ 6 letters, added; titles still poor ("remind of yoga class for the next three") — the deep path's title cut, filed |
+| "let's just skip appointment at time" | "skip appointment at time" | **fixed** — re-entered, nothing built, nothing written; run 22 wrote an event 'Appointment' |
+| "add date and time in calender… Also, Calendar event. send invite, Bill Malinda" | "add date and time in calender with these people" · "Calendar event" | count passes; the junk to-dos 'send invite' / 'send bill malinda' from the OTHER item's multiply are still written — they were not blamed |
+| "reopen groceries and add milk. Also, put xxx on the list" | "add milk to my groceries list" · "put xxx on the list" | **regressed** (passed in 22 by accident of dv's multiply): the line is right and `kind_of` still tags it EVENT — `_LIST_DEST` knows "grocery list" and not "groceries list". One word in `fastseg/kind.py`, plan item 1, measured on segmentation's board, not here |
+| "On the fifth of November, I need to go to Washington, D.C, and then I'd like to set a date for this" | "go to Washington, D.C on the fifth of November", twice | no change: the RESCUE keeps titling it 'Washington, D.C trip' and the judge keeps refusing "trip"; the rewrite cannot fix what the parser invents. ~19 s of model time for nothing |
+| "make a list of thing I have to shop tomorrow and also i want to make next week's to-do list" | "make a list of thing I have to shop tomorrow" | no change: the rescue invents 'milk', 'eggs' and 'bread' every round. The repeat guard stopped the second 'make next week's to-do list' that run 23 wrote twice |
+| "I have an appointment tommorrow, remind me — and make a new list for me" | "remind me tomorrow" | no change, and 'remind me' is written TWICE — the frozen object plus the re-parse of a rewrite with no subject. Pre-existing (3 events in run 22); the exhaustion path should block a subject-less rewrite, plan item 4 |
+
+Two things measured that the prompt cannot fix and code now does: a line
+that repeats a finished ask is dropped (`_repeats_done`, the double commit
+of run 23), and the failed items' own words are the STILL TO DO rather than
+the residue, because a frozen item from a later round has a span of X1' and
+the residue could not cut it out.
+
+### What it means
+
+The model round does what Gil asked where the deterministic tier cannot: an
+under-split with a seam is now split by the model and re-cut by the envelope,
+and the loop no longer stops after one identical round. Its ceiling on this
+slice is the rows around it: the kind tagger (one word), the rescue's
+invented titles and list contents (the judge refuses them every round, the
+loop cannot change the parser), and the exhaustion path that commits a
+subject-less object. Those are plan items 1, 4 and the rescue's own
+grounding, each measured on its own board before the next dev-100 read.
+
+**Registered:** with plan item 1 (kind) and item 4 (block on exhaustion)
+landed, dev-100 count-correct 76 → low 80s, deep 65 → above 72; confirm on
+dev-fast-250 before banking.
+

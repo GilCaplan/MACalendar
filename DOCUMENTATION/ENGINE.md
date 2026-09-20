@@ -363,14 +363,24 @@ DEFERs (`rescue.py`); job 1 is the check, and it runs in BOTH directions:
    friday create an event for dentist and on friday create an event for
    haircut and on friday create an event for gym"*.
 
-Loop-back: `rewrite.py` builds **X1' — the failed asks only, reworded** — and
-the orchestrator FREEZES the objects that passed (`engine.parse(frozen=…)`,
-ids re-prefixed per round) rather than re-parsing them, so nothing is built
-twice and `_commit` still runs exactly once. ≤ `MAX_REENTRIES` (3) per command;
-on exhaustion commit the best attempt, say so, mark the memory record
-uncertain. **The rewrite fails CLOSED**: every content word of X1' must already
-appear in the transcript (creation verbs exempt, destructive verbs never), and
-no honest rewrite means no loop. On the fast track this
+Loop-back: `rewrite.py` builds **X1' — the failed asks only, reworded** — in
+two tiers (Gil, 2026-09-20). Tier 1 is deterministic: the failed asks in the
+speaker's own words, joined by " and ", or one clause per listed thing. Tier 2
+is the MODEL, asked only when tier 1 has nothing new (the string was already
+tried) or cannot help (an `unsplit_subject`: a trim of one object's words
+drops the other ask — measured, the recurrence and the milk gone): it is shown the
+transcript, the leftover, the finished asks, and every earlier attempt with the
+judge's complaint about it, and it answers a LIST of asks — verb first, one
+thing per line, time and recurrence phrase at the end of the line they belong
+to — which code joins as the ingest envelope `("a")and("b")` so segmentation
+opens the cut before it reads any language. The orchestrator FREEZES the
+objects that passed (`engine.parse(frozen=…)`, ids re-prefixed per round)
+rather than re-parsing them, so nothing is built twice and `_commit` still runs
+exactly once. ≤ `MAX_REENTRIES` (3) per command; on exhaustion commit the best
+attempt, say so, mark the memory record uncertain. **Both tiers fail CLOSED**:
+every content word of X1' must already appear in the transcript (creation
+verbs exempt, destructive verbs never), a model line that invents a word
+refuses the whole answer, and no honest rewrite means no loop. On the fast track this
 stage patches the committed answer — **tiered**: additive fixes silent,
 destructive corrections visible with one-tap revert. It owns what used to be
 four bolt-ons: the background verify, both placeholder-title fixers, the

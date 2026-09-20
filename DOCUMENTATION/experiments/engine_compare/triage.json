@@ -1,20 +1,20 @@
 {
   "prf": {
     "overall": {
-      "precision": 0.758,
-      "recall": 0.742,
-      "f1": 0.75,
-      "matched": 69,
+      "precision": 0.761,
+      "recall": 0.753,
+      "f1": 0.757,
+      "matched": 70,
       "expected": 93,
-      "created": 91
+      "created": 92
     },
     "simple": {
-      "precision": 0.8,
+      "precision": 0.889,
       "recall": 0.889,
-      "f1": 0.842,
+      "f1": 0.889,
       "matched": 8,
       "expected": 9,
-      "created": 10
+      "created": 9
     },
     "medium": {
       "precision": 0.842,
@@ -25,25 +25,25 @@
       "created": 19
     },
     "complex": {
-      "precision": 0.726,
-      "recall": 0.682,
-      "f1": 0.703,
-      "matched": 45,
+      "precision": 0.719,
+      "recall": 0.697,
+      "f1": 0.708,
+      "matched": 46,
       "expected": 66,
-      "created": 62
+      "created": 64
     }
   },
   "field_quality": {
-    "field_quality": 0.887,
+    "field_quality": 0.871,
     "by_tier": {
-      "simple": 0.832,
-      "complex": 0.895,
+      "simple": 0.814,
+      "complex": 0.874,
       "medium": 0.888
     },
-    "difficulty_weighted": 0.879,
-    "when_ok": 0.85,
-    "when_coverage": 20,
-    "items": 91
+    "difficulty_weighted": 0.865,
+    "when_ok": 0.81,
+    "when_coverage": 21,
+    "items": 92
   },
   "subslices": {
     "count_ok_ranks_1_250": [
@@ -51,14 +51,14 @@
       5
     ],
     "count_ok_ranks_251_600": [
-      0.933,
+      0.867,
       15
     ],
     "prf_ranks_251_600": {
-      "precision": 0.9,
-      "recall": 0.9,
-      "f1": 0.9,
-      "matched": 9,
+      "precision": 0.8,
+      "recall": 0.8,
+      "f1": 0.8,
+      "matched": 8,
       "expected": 10,
       "created": 10
     }
@@ -67,14 +67,14 @@
     "simple": {
       "n": 34,
       "old": 0.941,
-      "new": 0.912,
-      "delta": -0.029
+      "new": 0.941,
+      "delta": 0.0
     },
     "complex": {
       "n": 33,
       "old": 0.273,
-      "new": 0.424,
-      "delta": 0.152
+      "new": 0.455,
+      "delta": 0.182
     },
     "medium": {
       "n": 33,
@@ -87,20 +87,20 @@
     "event+event": {
       "n": 11,
       "old": 0.182,
-      "new": 0.545,
-      "delta": 0.364
+      "new": 0.636,
+      "delta": 0.455
     },
     "event+task": {
       "n": 11,
       "old": 0.091,
-      "new": 0.273,
-      "delta": 0.182
+      "new": 0.364,
+      "delta": 0.273
     },
     "task+task": {
       "n": 11,
       "old": 0.545,
-      "new": 0.455,
-      "delta": -0.091
+      "new": 0.364,
+      "delta": -0.182
     }
   },
   "split_policy": "DEV=ranks 1-600 (tunable); HELD-OUT=601-3000 (measure only, never mine)",
@@ -110,7 +110,7 @@
       20
     ],
     [
-      0.95,
+      0.9,
       20
     ]
   ],
@@ -120,33 +120,35 @@
       80
     ],
     [
-      0.688,
+      0.725,
       80
     ]
   ],
   "shared_prompts": 100,
   "count_ok_shared_old": 0.69,
-  "count_ok_shared_new": 0.74,
+  "count_ok_shared_new": 0.76,
   "flipped_better (old fail \u2192 engine pass)": [
-    "Set me a reminder for the get-together with the women's club on Sunday after church.",
-    "remind me in 50minutes and also please add calendar event",
     "Remind me of the following event:. Also, Create shopping list for Target",
-    "Olly remind me about the picnic at Regent park \u2014 and add paper towels to the grocery list.",
     "include meeting in the list",
-    "create repeating event 'john's birthday' on calendar. Also, Add reminder today evening to collect the parcel from Jakes bristo",
+    "For the next three Sundays remind me I have yoga class at noon, and then yashas bithday with vinay ,vally",
+    "Set me a reminder for the get-together with the women's club on Sunday after church.",
+    "Open calendar.  Set event, and then Can you please create a list for me",
     "add new event to calendar and name as anna, and then Please add event in calendar",
+    "remind me in 50minutes and also please add calendar event",
     "On the fifth of November, I need to go to Washington, D.C, and then I'd like to set a date for this week?",
-    "Send me a reminder to pick up my dog from the groomer at 1pm \u2014 and i need to add water to my Kroger list.",
+    "create repeating event 'john's birthday' on calendar. Also, Add reminder today evening to collect the parcel from Jakes bristo",
     "Please alert me on Friday at 8:00 am to go to the gym and schedule meeting with Laura",
-    "PDA please update list with new item"
+    "PDA please update list with new item",
+    "Send me a reminder to pick up my dog from the groomer at 1pm \u2014 and i need to add water to my Kroger list.",
+    "Olly remind me about the picnic at Regent park \u2014 and add paper towels to the grocery list."
   ],
   "flipped_worse (old pass \u2192 engine fail)": [
-    "is today st. patricks day",
     "Make a list of camera photos and i need a list of my clients today, make one",
-    "PDA do i have any appointments set for tomorrow?",
-    "let's just skip appointment at time",
+    "is today st. patricks day",
     "Remind me of my dentist appointment in two hours, and then I want sweet potato pie from a local bakery",
-    "On Febuary 14th make dinner reservations at the restaurant and tHIS IS IMPORTANT EVENT, PLZ NOTE ON MY CALENDAR."
+    "PDA do i have any appointments set for tomorrow?",
+    "On Febuary 14th make dinner reservations at the restaurant and tHIS IS IMPORTANT EVENT, PLZ NOTE ON MY CALENDAR.",
+    "reopen groceries and add milk. Also, put xxx on the list"
   ],
   "note": "old-system rows are behavior, not ground truth; each flip needs triage (old right / new right / both wrong) by a human or a judge model that is not the system under test"
 }

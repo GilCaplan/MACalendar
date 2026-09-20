@@ -76,18 +76,28 @@ its presence as working behaviour.
 
 **The judge's loop-back is LIVE** (since 2026-09-10; this said "still a stub"
 until then and the stale line would have you dismiss a loop bug as impossible).
-`rewrite_for_retry` builds X1' from the failed asks in the speaker's own words,
-deterministically and with no model call. Two consequences:
+`rewrite_for_retry` builds X1' in TWO TIERS (Gil, 2026-09-20: *"the whole
+point of the loop is that the llm sends a fix if relevant as X1'"*): first
+the failed asks in the speaker's own words, deterministically; then, when that
+has nothing NEW to say — the string was already tried, or the finding is an
+`unsplit_subject`, which no trim can split — the MODEL writes X1' as a list of asks,
+shown every earlier attempt and the judge's complaint about each, and code
+joins the list as the ingest envelope `("a")and("b")`. Both tiers pass the
+same grounding guard and fail closed. Three consequences:
 
 - It re-enters Segmentation with DIFFERENT text, which is the whole point: a
-  deterministic segmenter given the same string returns the same items.
-- **It fires on two findings, both about the SUBJECT**: `ungrounded_subject`
-  (a wrong subject) and, since 2026-09-20 (Gil), `coordinated_subject` — one
-  calendar event whose words list three or more things, rewritten one clause
-  per thing (*"on friday create an event for dentist and on friday create an
-  event for haircut and …"*). The judge cannot detect an ask with nothing
-  built for it — that needed the ask diff Gil removed — so every OTHER
-  under-split is segmentation's to fix, on segmentation's board.
+  deterministic segmenter given the same string returns the same items — and
+  the deterministic tier given the same failure writes the same X1', which is
+  why the model tier exists.
+- **It fires on three findings, all about the SUBJECT**: `ungrounded_subject`
+  (a wrong subject), `coordinated_subject` (one event whose words list three
+  or more things, rewritten one clause per thing) and `unsplit_subject` (one
+  object whose own words still hold an ask seam — "and then", ". Also,"). The
+  judge still makes NO model call and does not re-derive how many asks the
+  command held; the seam reading is one object's own words.
+- The judge cannot detect an ask with nothing built for it — that needed the
+  ask diff Gil removed — so an under-split with no seam is segmentation's to
+  fix, on segmentation's board.
 
 **And LLMJudge makes no model call at all** (2026-09-10, Gil approved): it was
 57% of the system's Ollama traffic and changed no outcome. `retired/llmjudge-
