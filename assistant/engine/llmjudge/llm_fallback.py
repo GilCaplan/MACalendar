@@ -189,6 +189,19 @@ def _guard_inventions(got, item: Item, state: EngineState):
                 state.add_fix("generate", "invention_guard", title[:40], "",
                               note="LLM title not grounded in the item's words")
                 continue
+            # AND IT HAS TO NAME SOMETHING (2026-09-20, the same rule the
+            # parser applies since Q26). Grounding asks whether the words were
+            # SAID; naming asks whether they are a name. 'calendar event',
+            # 'new list' and 'open calendar' pass the first and fail the
+            # second — every word is the speaker's, and none of them is what
+            # the entry is called. Six of the eight junk titles left after
+            # cycle 32 came through this path, which had the grounding test
+            # and not the naming one.
+            from assistant.intent.rule_parser import names_something
+            if not names_something(title):
+                state.add_fix("generate", "invention_guard", title[:40], "",
+                              note="the LLM title names nothing — it is the program's own words")
+                continue
         _strip_ungrounded_fields(name, intent, item, state)
         if name == "create_todo" and not (getattr(intent, "titles", None) or []):
             continue                      # nothing of it was the speaker's
@@ -222,7 +235,9 @@ def _strip_ungrounded_fields(name: str, intent, item: Item, state: EngineState) 
                           ", ".join(map(str, titles))[:40], ", ".join(framed)[:40],
                           note="the command frame is not the thing asked for")
             intent.titles = titles = framed
-        good = [t for t in titles if _grounded_title(str(t), words)]
+        from assistant.intent.rule_parser import names_something
+        good = [t for t in titles
+                if _grounded_title(str(t), words) and names_something(str(t))]
         if len(good) != len(titles):
             dropped = [t for t in titles if t not in good]
             state.add_fix("generate", "invention_guard", ", ".join(map(str, dropped))[:40], "",

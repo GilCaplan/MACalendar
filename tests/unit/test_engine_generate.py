@@ -475,12 +475,15 @@ def test_only_the_reminder_frames_are_trimmed():
         assert not st.fixes
 
 
-def test_a_title_that_is_ALL_frame_is_left_for_the_veto():
-    """Trimming "remind me" to nothing would hand the veto a blank instead of
-    the thing it judges."""
+def test_a_title_that_is_ALL_FRAME_is_dropped():
+    """UNTIL 2026-09-20 this asserted that "remind me" was LEFT for the
+    names-nothing veto to judge, because trimming it would hand the veto a
+    blank. The naming gate then reached this path too (cycle 33) and the
+    answer is better: a title that is all frame names nothing, so the object
+    goes here and the veto never has to see it."""
     from types import SimpleNamespace
     st = EngineState(raw_text="x", text="x")
     item = Item(id="item_1", kind="task", text="remind me")
     intent = SimpleNamespace(titles=["remind me"])
-    guards._guard_inventions([("create_todo", intent)], item, st)
-    assert intent.titles == ["remind me"]
+    assert guards._guard_inventions([("create_todo", intent)], item, st) == []
+    assert any("invention_guard" in str(f) for f in st.fixes)

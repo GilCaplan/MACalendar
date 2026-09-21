@@ -2167,7 +2167,11 @@ _NOT_A_NAME_FUNCTION = frozenset(
     # quantifiers and bare modifiers: "REMIND ABOUT OF ALL EVENT IN CALENDERS"
     # kept 'all' as its name. A real title survives them on its own words —
     # "all hands meeting" still has hands and meeting.
-    "all some any every each other another new more few several".split())
+    "all some any every each other another new more few several "
+    # "open" and "close" act on a surface, not on a thing to be named: 'open
+    # calendar' is not an entry's name. "open house" keeps its own name on
+    # 'house', and 0 of the 3,944 create gold titles are refused by either.
+    "open close".split())
 _NOT_A_NAME_TIME = frozenset(
     "time day days week weeks month months year years morning afternoon "
     "evening night today tomorrow tonight yesterday now later soon early "
@@ -2187,6 +2191,14 @@ _NOT_A_NAME_PROGRAM = frozenset(
 
 def names_something(title: str) -> bool:
     """Is any word of this title a NAME rather than scaffolding?"""
+    # A QUESTION IS NOT A NAME — but only when the question mark is the
+    # TITLE'S, not the transcript's. "Can you create a new list in my
+    # podcast?" carries the sentence's mark into the title, and refusing it
+    # cost a polite imperative that had always committed (caught by
+    # `test_f4a_polite_imperative_is_not_a_question`, 2026-09-20). A mark
+    # with a space before it is the parse's own leftover: 'date ?'.
+    if re.search(r"\s[?]\s*$", title or ""):
+        return False
     words = [w for w in re.findall(r"[a-z0-9']+", (title or "").lower())
              if len(w) > 1]
     return any(w not in _NOT_A_NAME_FUNCTION and w not in _NOT_A_NAME_TIME
@@ -2210,6 +2222,12 @@ def _subtractive_title(span_text: str, temporal_spans) -> str:
     # depend on. Local growth is an implementation fix; a wider span in the
     # shared dict would be a contract change.
     text = _blank_spans(span_text, _grow_stranded(span_text, spans))
+    # A POSSESSIVE BELONGS TO ITS TIME WORD. Blanking "today" out of "add
+    # grocery shopping to TODAY'S to-do list" leaves the "'s" behind, and the
+    # title came out "grocery shopping 's to-do list" — two of the eight junk
+    # titles left after cycle 32 were exactly this. Only a possessive stranded
+    # against a blank gap or the start; "john's list" keeps its own.
+    text = re.sub(r"(^|\s{2,})\s*'s\b", r"\1", text)
     text = _DESTINATION.sub(" ", text)
     text = _FRAME_TAIL.sub("", text)
     # MID-STRING ONLY. At position 0 this is `_FRAME_LEAD`'s job, and it

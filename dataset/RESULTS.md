@@ -2951,3 +2951,64 @@ list", "make 's to-do list". The possessive ones are a TOKENISER artefact
 else survives. **Prediction:** garbage-title 7% → 3–5%, field quality flat
 to +1, precision flat, stage board handled unchanged or better.
 
+
+## CYCLE 33 — the last two title paths, and what the run-to-run noise really is
+
+Registered: garbage 7% → 3–5%, primary flat. **Garbage 7% → 4% ✓, primary
+flat ✓** — and the cycle's real finding is about the instrument.
+
+Two changes, and I bundled them, against this project's own rule:
+
+1. **A possessive belongs to its time word.** Blanking "today" out of "add
+   grocery shopping to TODAY'S to-do list" left the "'s" behind:
+   'grocery shopping 's to-do list'. Only a possessive stranded against a
+   blank gap or the start — "john's birthday" keeps its own.
+2. **The naming gate reached MODEL titles** (`llm_fallback._guard_inventions`,
+   which had the GROUNDING test and not the naming one). Grounding asks
+   whether the words were said; naming asks whether they are a name.
+   'calendar event', 'new list' and 'open calendar' pass the first and fail
+   the second. "open" and "close" joined the scaffolding (0 of 3,944 create
+   gold titles refused; "open house" keeps its name on 'house'), and a title
+   ending in a SPACED question mark — the parse's own leftover, 'date ?', not
+   the transcript's in "…in my podcast?" — is not a name.
+
+### The separation probe, and why it could not separate anything
+
+| dev-100 run | precision | recall | field quality | garbage | count |
+|---|---|---|---|---|---|
+| cycle 32 (neither change) | 93.3 | 75.3 | 92.2 | 7% | 79% |
+| cycle 33 (both) | 93.0 | 71.0 | 91.9 | 4% | 76% |
+| probe: possessive only, gate OFF | **90.5** | 72.0 | 92.1 | 5% | 75% |
+
+The possessive fix ALONE reads 2.8 points of precision BELOW the run with
+neither change — which it cannot have caused: it only removes a stray "'s"
+from a title. **The spread between these runs is the 8B's own variance, not
+the changes.** Corroborating evidence from earlier today: runs 30 and 31
+differed by 2 points of count-correctness with a guard between them that
+fired on ZERO rows, and "let's just skip appointment at time" flipped
+pass/fail three times on unchanged code paths.
+
+**So: dev-100 with a live model has a run-to-run spread of roughly ±2–3
+points on precision, recall and count-correctness.** The documented noise
+floor (~3 pt, one row = 1 pt) was derived from the SLICE size and is right
+for a deterministic replay; with a live 8B in the loop it applies to the
+model's answers too, and a single run cannot resolve a change smaller than
+that. The garbage-title rate is the exception here — it moved 7 → 4 → 5
+consistently with the changes, because it measures a deterministic property
+of the titles rather than which objects the model happened to produce.
+
+Both changes were KEPT: each is principled, each is clean on the
+deterministic boards (product-shape byte-identical bar non-atomic violations
+102 → 100; stage board unchanged), and the one metric that can see them
+moved the right way.
+
+### Next prediction (registered) — cycle 34, the instrument again
+
+**Run dev-100 TWICE on identical code and report the spread.** Everything
+banked today rests on single runs, and the probe above says that is not
+enough for a change worth 2 points. **Prediction:** the two runs differ by
+1–4 points on count-correctness and precision, and by 0–1 on the
+garbage-title rate. If that holds, every cycle from here reports the
+deterministic boards plus the garbage rate as its verdict, and treats a
+dev-100 move under ~4 points as unresolved rather than as a result.
+
