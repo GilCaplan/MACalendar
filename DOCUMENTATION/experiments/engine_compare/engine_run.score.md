@@ -1,23 +1,23 @@
-# Dataset run score — `/var/folders/0f/nk3dnvrd54jbjz_qn40_ynwh0000gn/T/engine_compare_ypqdtp27/engine_run.db`
+# Dataset run score — `/var/folders/0f/nk3dnvrd54jbjz_qn40_ynwh0000gn/T/engine_compare_wjvjh7t9/engine_run.db`
 
 - product-adjusted count-correct **79%** (6 overridden rows; raw below is the comparable number)
-- **100 prompts** scored · count-correct **75%** · garbage-title rate **5%**
-- total_ms p50 68 · p95 47249
+- **100 prompts** scored · count-correct **75%** · garbage-title rate **4%**
+- total_ms p50 68 · p95 50505
 - parse paths: {'deep': 63, 'fast': 37}
 
 ## By complexity
 
 | Tier | n | count-correct | garbage titles | total_ms p50 |
 |---|---:|---:|---:|---:|
-| simple | 34 | 88% | 0% | 37 |
-| medium | 33 | 88% | 3% | 57 |
-| complex | 33 | 48% | 12% | 141 |
+| simple | 34 | 91% | 0% | 36 |
+| medium | 33 | 88% | 3% | 55 |
+| complex | 33 | 45% | 9% | 135 |
 
 ## By compound kind
 
 | Kind | n | count-correct | garbage titles | dates collapsed |
 |---|---:|---:|---:|---:|
-| event+event | 11 | 55% | 9% | 27% |
+| event+event | 11 | 45% | 0% | 18% |
 | task+task | 11 | 55% | 18% | 0% |
 | event+task | 11 | 36% | 9% | 0% |
 
@@ -42,6 +42,7 @@
 - **On Febuary 14th make dinner reservations at the restaurant and tHIS IS IMPORTANT EVENT, PL** — event+event: got 1 events, 0 tasks (wanted ≥2/≥0)
 - **Please give me notice when I need to leave for the conference** — medium: got 0 events, 0 tasks (wanted ≥0/≥0)
 - **hey siri make sure my calendar is completely clear tomorrow** — medium: got 1 events, 0 tasks (wanted ≥0/≥0)
+- **remind me in 50minutes and also please add calendar event** — event+event: got 1 events, 0 tasks (wanted ≥2/≥0)
 - **add new event to calendar and name as anna, and then Please add event in calendar** — event+event: got 1 events, 0 tasks (wanted ≥2/≥0)
 - **Make a new list of dog breeds. Also, Create a new list, please** — task+task: got 0 events, 1 tasks (wanted ≥0/≥2)
 - **Remind me at this time. Also, create appointment to list** — event+task: got 0 events, 0 tasks (wanted ≥1/≥1)
@@ -54,7 +55,6 @@
 - **I have an appointment tommorrow, remind me — and make a new list for me** — event+task: got 0 events, 1 tasks (wanted ≥1/≥1)
 - **I would like to start a new list, and then Put pencil on a new grocery list** — task+task: got 0 events, 1 tasks (wanted ≥0/≥2)
 - **Remind me every Monday to take out the trash. Also, PUT MILK ON MY SHOPPING LIST** — event+task: got 0 events, 2 tasks (wanted ≥1/≥1)
-- **Take the list off.** — simple: got 0 events, 1 tasks (wanted ≥0/≥0)
 - **Remind me at this time.** — simple: got 0 events, 0 tasks (wanted ≥0/≥0)
 - **add 'new year's eve' to calendar** — simple: got 0 events, 0 tasks (wanted ≥0/≥0)
 - **Could you add this on my calender please and also alexa update my list with shoes** — event+task: got 0 events, 0 tasks (wanted ≥1/≥1)
@@ -64,32 +64,30 @@
 
 - 100 shared prompts (2899 only in A, 0 only in B)
 - count-correct rate: 70% → 75%
-- **8 got worse**, **14 got better**, 61 still pass, 17 still fail
+- **7 got worse**, **13 got better**, 62 still pass, 18 still fail
 
 ### Got worse
 
-- On Febuary 14th make dinner reservations at the restaurant and tHIS IS IMPORTANT EVENT, PLZ NOTE ON 
 - Make a list of camera photos and i need a list of my clients today, make one
-- Take the list off.
 - REMIND ABOUT OF ALL EVENT IN CALENDERS
-- reopen groceries and add milk. Also, put xxx on the list
+- add 'new year's eve' to calendar
 - Remind me at this time.
 - let's just skip appointment at time
-- add 'new year's eve' to calendar
+- reopen groceries and add milk. Also, put xxx on the list
+- On Febuary 14th make dinner reservations at the restaurant and tHIS IS IMPORTANT EVENT, PLZ NOTE ON 
 
 ### Got better
 
-- Olly remind me about the picnic at Regent park — and add paper towels to the grocery list.
-- remind me in 50minutes and also please add calendar event
-- add date and time in calender with these people. Also, Calendar event. send invite, Bill Malinda
-- create repeating event 'john's birthday' on calendar. Also, Add reminder today evening to collect th
-- I need to add water to my Kroger list and add v8 to my groceries.
+- include meeting in the list
 - start a new list and add grocery shopping to today's to-do list.
-- Please alert me on Friday at 8:00 am to go to the gym and schedule meeting with Laura
+- create repeating event 'john's birthday' on calendar. Also, Add reminder today evening to collect th
 - Remind me of the following event:. Also, Create shopping list for Target
 - Begin new list of lottery numbers
-- PDA please update list with new item
 - 'exhibition 2017 mass' on Mar 25 make a note of it on the corresponding date and also remind me afte
-- include meeting in the list
 - Send me a reminder to pick up my dog from the groomer at 1pm — and i need to add water to my Kroger 
+- add date and time in calender with these people. Also, Calendar event. send invite, Bill Malinda
+- PDA please update list with new item
+- Olly remind me about the picnic at Regent park — and add paper towels to the grocery list.
+- I need to add water to my Kroger list and add v8 to my groceries.
+- Please alert me on Friday at 8:00 am to go to the gym and schedule meeting with Laura
 - Set me a reminder for the get-together with the women's club on Sunday after church.

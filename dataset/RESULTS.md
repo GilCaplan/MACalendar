@@ -3012,3 +3012,66 @@ garbage-title rate. If that holds, every cycle from here reports the
 deterministic boards plus the garbage rate as its verdict, and treats a
 dev-100 move under ~4 points as unresolved rather than as a result.
 
+
+## CYCLE 34 — the noise claim was WRONG, and the correction matters
+
+Registered: *"the two runs differ by 1–4 points on count-correctness and
+precision"*. **Refuted.** Two dev-100 runs, back to back, identical code
+(`f505240`):
+
+| run | count-correct | precision | recall | F1 | field quality |
+|---|---|---|---|---|---|
+| 1 | 75% | 91.7% | 71.0% | 80.0 | 91.9% |
+| 2 | 75% | 91.7% | 71.0% | 80.0 | **92.0%** |
+
+The same to a tenth of a point everywhere but field quality. **dev-100 is
+repeatable.**
+
+### What I got wrong, and what it changes
+
+Cycle 33 banked *"a run-to-run spread of roughly ±2–3 points on precision,
+recall and count-correctness"*, from a probe whose numbers I could not
+otherwise explain. That reading was wrong, and the honest measurement is:
+
+* **Back to back, the runs are identical.** Ollama at temperature 0 with a
+  warm model returns the same answers to the same prompts.
+* **Across a longer gap, ONE ROW can flip.** Cycle 33's own run reads 76% /
+  93.0 precision / 71 objects created; these two read 75% / 91.7 / 72 —
+  one extra object, on identical code, with boards and test suites having
+  run in between. One row is 1 point of count and ~1.3 of precision on a
+  100-row slice with ~72 objects.
+* So the floor is **one row**, not three points, and it is the SLICE's
+  arithmetic — exactly what `dev100.json` always said — rather than a
+  model-variance effect on top of it.
+
+**The consequence is that cycle 33's costs were real.** From cycle 32 to
+33, recall fell 75.3 → 71.0 and created fell 75 → 71: four objects the
+naming gates refuse. That is not noise and should not have been written off
+as such. Read plainly, cycles 32–33 together are:
+
+| | before (run 36) | after (now) |
+|---|---|---|
+| garbage titles | 15% | **4%** |
+| field quality | 87.2% | **91.9%** |
+| item precision | 91.2% | 91.7% |
+| item recall | 78.5% | 71.0% |
+| objects created | 80 | 72 |
+
+**Eight fewer objects for eleven points of junk titles.** Whether that is
+the right trade is Gil's call, not the loop's — it is the same question Q37
+answered for one shape ("refusing is right") generalised to every title
+that names nothing. The alternative, if he wants the objects back, is to
+keep a scaffolding title rather than refuse, and let the judge flag it.
+
+### The rule this leaves for the loop
+
+A dev-100 move of **one row** is the floor; a move of two or more rows is
+real and must be explained by the change or investigated. The separation
+probe in cycle 33 was therefore telling the truth and I misread it: the
+possessive fix alone DID drop precision to 90.5, which is worth a look if
+that fix is ever suspected.
+
+**Registered next:** nothing new is built until Gil rules on the trade
+above, because every remaining title defect is the same shape and would
+spend more objects to buy more cleanliness.
+
