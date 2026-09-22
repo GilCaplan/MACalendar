@@ -993,7 +993,10 @@ before you rule:
   word — appointment, event, date, and by the same reasoning reminder, task,
   alert — commits with the details and the hint, on both tracks; the
   program's furniture (list, note, calendar, schedule, agenda, entry, item,
-  thing) still refuses. (2) A clock with NO day word means today unless that
+  thing) still refuses — and a bare kind over words that DID name the
+  thing ("create an event now to go for a run") is still the judge's
+  dropped-subject finding, rewritten by the loop, not a commit of 'event'.
+  (2) A clock with NO day word means today unless that
   clock has already passed at the moment of speaking, then tomorrow. (3) A
   compact clock beside a morning word is a morning clock ("morning … 910" →
   09:10), in every spacing the recogniser produces. The bare 11 stays AM (the

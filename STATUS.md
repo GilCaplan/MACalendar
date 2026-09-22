@@ -157,17 +157,17 @@ hypothesis source; the next training-pool work reads dev-fast-250.
 **REAL USAGE · the replay board · `scripts/real_usage_board.py`, 2026-09-22
 run 4** (`DOCUMENTATION/experiments/real_usage/RESULTS.md`): Gil's 75
 reviewed commands replayed through the current engine on their own clocks.
-Corrected tier, every reachable field right **21.4% (n=14)**, item count
-right 64.3%; `date` 82.4%, `start_time` 62.5%; approved rows reproduced 64.7%
-(11/17); generic-title rows right or acceptable under Q41 **76.2% (16/21)**
-after cycles 35–37 (was 52.4% at the start of the day; dev-100 75%, precision
-91.7%, unmoved across the three). **Every earlier run of this
+Corrected tier, every reachable field right **20.0% (n=15)**, item count
+right **73.3%**; `date` 82.4%, `start_time` 62.5%; approved rows reproduced
+64.7% (11/17); generic-title rows right or acceptable under Q41 **90.5%
+(19/21)** after cycles 35–39 (was 52.4% at the start of the day). dev-100
+78% count-correct, precision 93.4, recall 76.3, F1 84.0, field quality 88.8%
+(cycle 39's bare-kind commits: recall +5.3, field quality −3.1). **Every earlier run of this
 board since 2026-09-18 served a checkpoint cache**, so the "moved nothing" of
 09-21 was never measured — the board replays fresh now, and CLAUDE.md carries
 the rule. Cycles 35 (the spoken clock forms), 36 (a stated day beats a
-weekday) and 37 (disfluent speech) moved this board and no stage board. Three
-rows now wait on one ruling — a bare 'date' / 'appointment' / 'event' under
-Q38 vs Q41 — and one on another (a comma list with no conjunction).
+weekday), 37 (disfluent speech), 38 (a comma run needs a conjunction, Q43)
+and 39 (a bare kind commits, Q42) moved this board and no stage board.
 
 ## Open decisions — Gil's, not mine
 

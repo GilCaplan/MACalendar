@@ -1186,8 +1186,18 @@ class TestATitleMustNameSomething:
     def test_scaffolding_is_not_a_name(self):
         from assistant.intent.rule_parser import names_something
         for t in ("at this time", "set reminder", "remind me", "things",
-                  "about of all event in calenders", "this event", "the task",
+                  "about of all event in calenders", "this event",
                   "my list", "it"):
+            assert not names_something(t), t
+
+    def test_a_bare_kind_is_a_name(self):
+        """Q42 (Gil, 2026-09-22): "appointment", "an event", "the date" commit
+        with their details and the phone hints once. An anaphor ("this
+        event") and a frame ("set reminder") still name nothing."""
+        from assistant.intent.rule_parser import names_something
+        for t in ("appointment", "an event", "the date", "the task", "reminder", "Meeting"):
+            assert names_something(t), t
+        for t in ("this event", "that appointment", "set reminder", "new list", "note of it"):
             assert not names_something(t), t
 
     def test_date_is_deliberately_left_a_name(self):

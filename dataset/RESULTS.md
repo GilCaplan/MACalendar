@@ -3242,3 +3242,23 @@ corrected tier gains id=118 ('event' at 17:00 — Gil's own gold), dev-100's
 garbage-title rate as re-defined stays ≤ 4% and count-correct unmoved or up
 (bare 'event'/'reminder' rows that used to refuse now commit — the pool's
 gold for those is a count of 1).
+
+## CYCLE 39 — a bare kind word commits (2026-09-22, DEVQA Q42)
+
+**Registered:** real-usage generic-title 17 → 19 of 21, the corrected tier
+gains id=118, dev-100's garbage rate (as re-defined) ≤ 4% and count-correct
+unmoved or up. **dev-100: 78% · precision 93.4 · recall 76.3 · F1 84.0 ·
+garbage 3% · field quality 88.8%** (was 76 / 93.0 / 71.0 / 80.5 / 4% /
+91.9%). **Real usage: generic-title 81.0 → 90.5% (19 of 21), corrected item
+count 64.3 → 73.3%.** Both predictions held; the novelty is the FIELD
+QUALITY cost — 3.1 pt, all in the simple tier — because a committed bare
+'event' scores against a gold that named something. Recall +5.3 bought with
+field quality −3.1: Q42's trade, chosen by Gil, recorded here so the next
+Q35 reading is not surprised by it.
+
+**Registered next — cycle 40 (Q42 rules 2 and 3):** a clock with no day
+word is today unless it has passed, then tomorrow (both tracks); the spaced
+compact clock ("9 10 am"). Prediction: real usage unmoved (none of the 75
+rows states a clock that had passed at its own timestamp); dev-100
+unmoved, since the pool's gold anchors dates elsewhere; every stage board
+identical.

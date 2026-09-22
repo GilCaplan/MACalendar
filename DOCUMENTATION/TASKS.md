@@ -1513,11 +1513,10 @@ the way: the real-usage board had resumed a 2026-09-18 checkpoint on every
 run since (CLAUDE.md has the rule); `real_usage/RESULTS.md` run 4 has the
 corrected before/after. Open, for Gil:
 
-- **Q38 vs Q41 on 'appointment', 'event' — and 'date'.** With the clock
-  (cycle 35) and the chatter (cycle 37) now stripped, id=18 *"set an
-  appointment for tomorrow morning on tuesday at 910am"*, id=118 *"Add an
-  event for 5 p.m."* and id=56 *"set a date for tomorrow at 11 o'clock, …"*
-  commit NOTHING: the bare kind is refused by Q38. Q41 says bare 'meeting' with the right details is fine. Does that
+- ~~Q38 vs Q41 on 'appointment', 'event' — and 'date'~~ — **RULED (Q42)
+  and DONE, cycle 39:** a bare kind commits with its details and the hint;
+  all three rows are events now; generic-title 90.5%, corrected count
+  73.3%; dev-100 recall +5.3, field quality −3.1 (the trade, recorded). Q41 says bare 'meeting' with the right details is fine. Does that
   reach 'appointment'? And 'event', which is the program's own word but which
   Gil's own correction on id=118 accepted as the title? One ruling settles
   both rows; until then they are refusals, which is the conservative side.

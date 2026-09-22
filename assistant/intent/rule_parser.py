@@ -2291,8 +2291,26 @@ _NOT_A_NAME_PROGRAM = frozenset(
     "monthly yearly annually nightly".split())
 
 
-def names_something(title: str) -> bool:
-    """Is any word of this title a NAME rather than scaffolding?"""
+#: Q42 (Gil, 2026-09-22): a bare KIND word — the whole title once its article
+#: is off — IS a name: "appointment", "an event", "the date" commit with their
+#: day and clock, and the phone shows the hint once ("say what it's about").
+#: Gil's own review on "Add an event for 5 p.m." had kept 'event' as the
+#: title. "this event" (an anaphor) and "set reminder" (a frame) still name
+#: nothing, and the program's furniture — list, note, calendar, agenda, item,
+#: thing — never does: those are what Q38 was ruled on.
+_BARE_KIND = frozenset(
+    "event events appointment appointments reminder reminders alert alerts "
+    "task tasks todo todos date dates meeting meetings call calls".split())
+_BARE_ARTICLE = frozenset("a an the my our your".split())
+
+
+def names_something(title: str, bare_kind_is_a_name: bool = True) -> bool:
+    """Is any word of this title a NAME rather than scaffolding?
+
+    `bare_kind_is_a_name=False` asks the pre-Q42 question — does the text name
+    anything BEYOND a kind of thing — which is what the judge asks of the
+    transcript when a title is only the kind: "create an event to go for a
+    run" names a run, and 'event' is then a dropped subject, not a bare one."""
     # A QUESTION IS NOT A NAME — but only when the question mark is the
     # TITLE'S, not the transcript's. "Can you create a new list in my
     # podcast?" carries the sentence's mark into the title, and refusing it
@@ -2303,6 +2321,9 @@ def names_something(title: str) -> bool:
         return False
     words = [w for w in re.findall(r"[a-z0-9']+", (title or "").lower())
              if len(w) > 1]
+    if (bare_kind_is_a_name and words and words[-1] in _BARE_KIND
+            and all(w in _BARE_ARTICLE for w in words[:-1])):
+        return True                                   # Q42: a bare kind commits
     return any(w not in _NOT_A_NAME_FUNCTION and w not in _NOT_A_NAME_TIME
                and w not in _NOT_A_NAME_PROGRAM and not w.isdigit()
                and not any(w == verb for verb, _ in INTENT_MAP)

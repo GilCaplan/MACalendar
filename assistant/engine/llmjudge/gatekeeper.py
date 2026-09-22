@@ -40,8 +40,16 @@ _GENERIC_TARGET_RE = re.compile(
     # corresponding date" committed an event titled 'note' at confidence
     # 0.86, and "set a DATE for this" one titled 'date' — the program's words
     # for an entry, not names for one (dev-100 checkpoint).
-    r"^(?:my |the |a |an |this )?(?:reminder|alert|event|appointment|task|todo|list|note|date)s?"
-    r"(?:\s+(?:of|for|about)\s+(?:it|this|that|me))?$"
+    # Q42 (Gil, 2026-09-22) split this arm in three. A bare KIND — "event",
+    # "an appointment", "the date" — is no longer generic: it commits with its
+    # day and clock and the phone hints once. What still names nothing: the
+    # kind behind a DEMONSTRATIVE ("this event" — an anaphor), the program's
+    # FURNITURE with any article (list, note, calendar, agenda, entry, item,
+    # thing), and a kind with a pronoun tail ("note of it", "event for this").
+    r"^(?:this |that |these |those )(?:reminder|alert|event|appointment|task|todo|list|note|date|meeting)s?$"
+    r"|^(?:my |the |a |an |this |that |new |another )?(?:list|note|calendar|calender|schedule|agenda|entry|item|thing)s?$"
+    r"|^(?:my |the |a |an |this |that )?(?:reminder|alert|event|appointment|task|todo|list|note|date|meeting)s?"
+    r"\s+(?:of|for|about)\s+(?:it|this|that|me)$"
     # `i` and `we` joined the pronoun list on 2026-09-10. The list already held
     # you/it/me/this/that/them, and "i" fell through every check: it is 1
     # character, so the content-word filters drop it and `names_nothing_spoken`

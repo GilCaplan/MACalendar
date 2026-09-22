@@ -1,20 +1,20 @@
 {
   "prf": {
     "overall": {
-      "precision": 0.93,
-      "recall": 0.71,
-      "f1": 0.805,
-      "matched": 66,
+      "precision": 0.934,
+      "recall": 0.763,
+      "f1": 0.84,
+      "matched": 71,
       "expected": 93,
-      "created": 71
+      "created": 76
     },
     "simple": {
       "precision": 1.0,
-      "recall": 0.778,
-      "f1": 0.875,
-      "matched": 7,
+      "recall": 0.889,
+      "f1": 0.941,
+      "matched": 8,
       "expected": 9,
-      "created": 7
+      "created": 8
     },
     "medium": {
       "precision": 0.938,
@@ -25,25 +25,25 @@
       "created": 16
     },
     "complex": {
-      "precision": 0.917,
-      "recall": 0.667,
-      "f1": 0.772,
-      "matched": 44,
+      "precision": 0.923,
+      "recall": 0.727,
+      "f1": 0.814,
+      "matched": 48,
       "expected": 66,
-      "created": 48
+      "created": 52
     }
   },
   "field_quality": {
-    "field_quality": 0.919,
+    "field_quality": 0.888,
     "by_tier": {
-      "simple": 0.907,
-      "complex": 0.925,
+      "simple": 0.781,
+      "complex": 0.899,
       "medium": 0.907
     },
-    "difficulty_weighted": 0.915,
-    "when_ok": 0.844,
-    "when_coverage": 16,
-    "items": 71
+    "difficulty_weighted": 0.875,
+    "when_ok": 0.824,
+    "when_coverage": 17,
+    "items": 76
   },
   "subslices": {
     "count_ok_ranks_1_250": [
@@ -67,14 +67,14 @@
     "simple": {
       "n": 34,
       "old": 0.941,
-      "new": 0.941,
-      "delta": 0.0
+      "new": 0.971,
+      "delta": 0.029
     },
     "complex": {
       "n": 33,
       "old": 0.273,
-      "new": 0.455,
-      "delta": 0.182
+      "new": 0.485,
+      "delta": 0.212
     },
     "medium": {
       "n": 33,
@@ -93,8 +93,8 @@
     "event+task": {
       "n": 11,
       "old": 0.091,
-      "new": 0.364,
-      "delta": 0.273
+      "new": 0.455,
+      "delta": 0.364
     },
     "task+task": {
       "n": 11,
@@ -120,35 +120,35 @@
       80
     ],
     [
-      0.738,
+      0.762,
       80
     ]
   ],
   "shared_prompts": 100,
   "count_ok_shared_old": 0.69,
-  "count_ok_shared_new": 0.76,
+  "count_ok_shared_new": 0.78,
   "flipped_better (old fail \u2192 engine pass)": [
-    "'exhibition 2017 mass' on Mar 25 make a note of it on the corresponding date and also remind me after an hour to go for shopping.",
-    "Set me a reminder for the get-together with the women's club on Sunday after church.",
-    "add date and time in calender with these people. Also, Calendar event. send invite, Bill Malinda",
-    "include meeting in the list",
-    "create repeating event 'john's birthday' on calendar. Also, Add reminder today evening to collect the parcel from Jakes bristo",
-    "Please alert me on Friday at 8:00 am to go to the gym and schedule meeting with Laura",
     "Olly remind me about the picnic at Regent park \u2014 and add paper towels to the grocery list.",
+    "Remind me of the following event:. Also, Create shopping list for Target",
+    "add date and time in calender with these people. Also, Calendar event. send invite, Bill Malinda",
+    "'exhibition 2017 mass' on Mar 25 make a note of it on the corresponding date and also remind me after an hour to go for shopping.",
+    "Send me a reminder to pick up my dog from the groomer at 1pm \u2014 and i need to add water to my Kroger list.",
+    "create repeating event 'john's birthday' on calendar. Also, Add reminder today evening to collect the parcel from Jakes bristo",
+    "I have an appointment tommorrow, remind me \u2014 and make a new list for me",
+    "I need to add water to my Kroger list and add v8 to my groceries.",
+    "Please alert me on Friday at 8:00 am to go to the gym and schedule meeting with Laura",
+    "Begin new list of lottery numbers",
     "PDA please update list with new item",
     "start a new list and add grocery shopping to today's to-do list.",
-    "Send me a reminder to pick up my dog from the groomer at 1pm \u2014 and i need to add water to my Kroger list.",
-    "Begin new list of lottery numbers",
-    "Remind me of the following event:. Also, Create shopping list for Target",
-    "I need to add water to my Kroger list and add v8 to my groceries."
+    "include meeting in the list",
+    "Set me a reminder for the get-together with the women's club on Sunday after church."
   ],
   "flipped_worse (old pass \u2192 engine fail)": [
-    "Remind me at this time.",
-    "Make a list of camera photos and i need a list of my clients today, make one",
-    "On Febuary 14th make dinner reservations at the restaurant and tHIS IS IMPORTANT EVENT, PLZ NOTE ON MY CALENDAR.",
-    "reopen groceries and add milk. Also, put xxx on the list",
     "REMIND ABOUT OF ALL EVENT IN CALENDERS",
-    "add 'new year's eve' to calendar"
+    "reopen groceries and add milk. Also, put xxx on the list",
+    "add 'new year's eve' to calendar",
+    "Make a list of camera photos and i need a list of my clients today, make one",
+    "On Febuary 14th make dinner reservations at the restaurant and tHIS IS IMPORTANT EVENT, PLZ NOTE ON MY CALENDAR."
   ],
   "note": "old-system rows are behavior, not ground truth; each flip needs triage (old right / new right / both wrong) by a human or a judge model that is not the system under test"
 }

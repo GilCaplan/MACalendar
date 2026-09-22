@@ -60,11 +60,17 @@ _GARBAGE_TITLES = {"then", "and", "also", "and then", "so", "please", "now"}
 #:      'pda do i have any appointments set ?').
 #: A legitimate title can open with an errand verb ("add water", "buy milk"),
 #: so the frame test wants the article or pronoun the frames carry.
+# Q42 (Gil, 2026-09-22): a BARE kind — 'event', 'an appointment', 'the date',
+# 'meeting' — is an accepted title now, so it is not garbage here either; the
+# program's furniture, a kind behind a demonstrative, and a kind with a
+# pronoun tail still are.
 _PROGRAM_WORD_RE = re.compile(
     r"^(?:my |the |a |an |this |that |new |another )?"
-    r"(?:(?:calendar\s+)?event|reminder|alert|appointment|task|todo|to-do|list|note|"
-    r"date|entry|item|thing|calendar|meeting|remind me|remind)s?"
-    r"(?:\s+(?:of|for|about)\s+(?:it|this|that|me))?\s*[?.!]*$", re.I)
+    r"(?:(?:list|note|entry|item|thing|calendar|remind me|remind)s?"
+    r"|(?:calendar\s+)?(?:event|reminder|alert|appointment|task|todo|to-do|date|meeting|"
+    r"note|list|entry|item|thing)s?\s+(?:of|for|about)\s+(?:it|this|that|me))\s*[?.!]*$"
+    r"|^(?:this |that |these |those )(?:calendar\s+)?"
+    r"(?:event|reminder|alert|appointment|task|todo|to-do|date|meeting)s?\s*[?.!]*$", re.I)
 _COMMAND_FRAME_RE = re.compile(
     r"^(?:please\s+)?(?:"
     r"remind(?:\s+me)?(?:\s+(?:to|about|of|when|that))?\s"

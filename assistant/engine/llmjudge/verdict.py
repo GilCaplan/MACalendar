@@ -294,6 +294,18 @@ def _subject_findings(state, produced) -> list:
                                f"calendar entry, not a name for one",
                         blamed_stage=F.BLAMED[F.UNGROUNDED_SUBJECT]))
                     continue
+                # Q42 (Gil, 2026-09-22): a BARE kind — 'event', 'appointment',
+                # 'date' — commits when the words held nothing else. When they
+                # did ("create an event now to go for a run"), the kind is a
+                # subject the reader DROPPED, and the loop's rewrite is what
+                # recovers it — so that case is still the finding it always was.
+                if _bare_kind_over_a_named_subject(c.raw, raw):
+                    out.append(CheckFinding(
+                        type=F.UNGROUNDED_SUBJECT, item_id=p.oid,
+                        detail=f"“{c.raw}” is the program's own word for a "
+                               f"calendar entry, and the words name what it is",
+                        blamed_stage=F.BLAMED[F.UNGROUNDED_SUBJECT]))
+                    continue
                 unspoken = unspoken_word(c.raw, raw)
                 if unspoken:
                     out.append(CheckFinding(
@@ -578,6 +590,24 @@ def _not_an_ask(state, p, siblings: bool = False) -> bool:
         if not names_nothing_spoken(c.raw, state.raw_text or ""):
             return False              # a word of it WAS spoken
     return True
+
+
+_SAID_TIME_RE = re.compile(
+    r"\b(?:mon|tues|wednes|thurs|fri|satur|sun)day\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b"
+    r"|\b\d{1,2}(?:st|nd|rd|th)\b|\b\d{1,4}(?:[:.]\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?(?!\w)|\bo'?clock\b", re.I)
+
+
+def _bare_kind_over_a_named_subject(title: str, transcript: str) -> bool:
+    """A title that is only a kind of thing, in words that named the thing."""
+    from assistant import tips as _tips
+    from assistant.intent.rule_parser import names_something
+    if not _tips.is_bare_title(title):
+        return False
+    words = (transcript or "").lower()
+    kind = title.strip().lower().split()[-1].rstrip("s")
+    words = re.sub(rf"\b{re.escape(kind)}s?\b", " ", words)
+    words = _SAID_TIME_RE.sub(" ", words)
+    return names_something(words, bare_kind_is_a_name=False)
 
 
 def _unsplit_findings(state, produced) -> list:

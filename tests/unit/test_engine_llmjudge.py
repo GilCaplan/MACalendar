@@ -948,9 +948,12 @@ def test_a_pronoun_with_a_destination_names_nothing():
     and the rest is where to put it. 0 of the 7,200 gold titles and 0 of the
     3,000 real utterances have this shape."""
     from assistant.engine.llmjudge.gatekeeper import _GENERIC_TARGET_RE
-    for t in ("this on my calender", "it to my list", "that for tomorrow", "event", "this"):
+    for t in ("this on my calender", "it to my list", "that for tomorrow", "this event",
+              "note", "new list", "event of it", "this"):
         assert _GENERIC_TARGET_RE.match(t), t
-    for t in ("dentist", "go out for a run", "this weekend trip", "meeting with sam"):
+    # Q42 (Gil, 2026-09-22): a bare kind commits — it is a name here too.
+    for t in ("dentist", "go out for a run", "this weekend trip", "meeting with sam",
+              "event", "an appointment", "the date", "reminder"):
         assert not _GENERIC_TARGET_RE.match(t), t
 
 
@@ -989,3 +992,13 @@ def test_a_held_back_object_is_not_recorded_as_done(registry_with_real_actions, 
             raise AssertionError("no object was built, so this proves nothing")
         engine._record_memory(st, cfg, "msg", True)
     assert recorded["actions"] == [], recorded["actions"]
+
+
+def test_a_bare_kind_with_nothing_else_said_is_not_a_finding(registry_with_real_actions):
+    """Q42 (Gil, 2026-09-22): "Add an event for 5 p.m." commits an event
+    called 'event' at 17:00 — the words held nothing else to call it. The
+    sibling test above keeps the other half: when the words DO name the
+    thing, the bare kind is a dropped subject and the loop rewrites it."""
+    st = _state([_ev_item("item_1", "event")], text="add an event for 5 p.m.")
+    found = verdict.judge(st, verdict.collect(st))
+    assert not [f for f in found if f.type == F.UNGROUNDED_SUBJECT], found
