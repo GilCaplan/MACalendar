@@ -3121,3 +3121,28 @@ day. CLAUDE.md carries the rule; the board replays fresh by default.
 **Registered next — cycle 36:** a stated day beats a weekday (ids 11, 14, 21,
 all fast path). Prediction: generic-title 14 → 17 of 21; corrected tier
 unmoved; dev-100 unmoved or up.
+
+## CYCLE 36 — a stated day beats a weekday (2026-09-22)
+
+**Registered:** fast-path date reading; when the words name both a weekday
+and a stated day and they disagree, the stated day wins. Prediction:
+real-usage generic-title 14 → 17 of 21; corrected tier unmoved; dev-100
+unmoved or up.
+
+**dev-100, whole chain: 76% count-correct · precision 93.0% · recall 71.0% ·
+F1 80.5 · field quality 91.9%** (was 75 / 91.7 / 71.0 / 80.0 / 91.9). One
+fewer wrong create (72 → 71 created, 66 matched either way): a row that
+stated a day and a weekday now lands on the day. **Real usage:
+generic-title right/acceptable 66.7 → 81.0% (14 → 17 of 21), exactly the
+registered number; every item where the subject was said is now right on
+title, day and clock (15/15).** Corrected, approved and rejected tiers
+unmoved. FastRule board 4,800 train rows byte-identical.
+
+**Novel:** nothing — a clean prediction. The "day the clock is attached to
+wins" rule (cycle 33) and this one coexist because the deliberate-day test
+decides which reading is the gloss: "book monday standup tomorrow at 9am"
+still lands on tomorrow.
+
+**Registered next — cycle 37:** disfluent speech in ingest's noise passes
+(`real_usage/RESULTS.md` run 5 has the rows and the prediction: corrected item
+count 60 → 73%+, dev-100 unmoved).

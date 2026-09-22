@@ -1520,15 +1520,14 @@ corrected before/after. Open, for Gil:
   reach 'appointment'? And 'event', which is the program's own word but which
   Gil's own correction on id=118 accepted as the title? One ruling settles
   both rows; until then they are refusals, which is the conservative side.
-- **A stated day loses to a weekday** (regression between 09-18 and 09-21,
-  invisible while the board served its cache): *"tomorrow on tuesday"*,
-  *"next week on the 14th on tuesday"*, *"monday the 13th"* now land on the
-  weekday. Registered as cycle 36 in `real_usage/RESULTS.md`.
+- ~~A stated day loses to a weekday~~ — **DONE, cycle 36 (same day):** the
+  stated day wins; real-usage generic-title 66.7 → 81.0% (17 of 21), dev-100
+  75 → 76%. `real_usage/RESULTS.md` run 5.
 - **Disfluent speech over-splits** (same interval): id=56 "…, in one second,
   one moment, one moment, bear with me, …" makes 3 items for 1; id=136 3 for
   2; id=219 "Movie at Lincoln Square tomorrow, AMC, 11.15 AM tomorrow" 1 for
-  2. Corrected item count 80 → 60%. Cycle 37 candidate, on segmentation's
-  board first.
+  2. Corrected item count 80 → 60%. **Registered as cycle 37** (ingest's
+  noise passes first — the chatter is generic — then segmentation's board).
 
 ## THE CORRECTION FLOW RECORDS WHAT CHANGED — landed, 2026-09-22
 

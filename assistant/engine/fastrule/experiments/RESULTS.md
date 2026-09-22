@@ -1442,3 +1442,14 @@ corpus has 101 rows with "coming <weekday>" and the board did not move on
 them, so its date metric does not see the week-late reading; the movement is
 on real usage (run 4: `date` 76.5 → 82.4% on the corrected tier, ids 4 and 52
 right). Zero fires of the compact patterns over 9,091 clean corpus rows.
+
+## Cycle 36 — a stated day beats a weekday (2026-09-22)
+
+`_extract_temporal`: "tomorrow", "today", "the 13th" and a month-day are
+DELIBERATE days (`_DELIBERATE_DAY_RE`); a weekday is a gloss speakers mis-say.
+When both are present and disagree, the stated day wins — in the recogniser
+loop (a weekday carrying the clock no longer overrides a "tomorrow" read
+first) and after it (a date from a weekday alone yields to an ordinal
+elsewhere). Product-shape board, train half (4,800 rows): byte-identical.
+Real usage: generic-title right/acceptable 66.7 → 81.0% (14 → 17 of 21);
+dev-100 75 → 76%, precision 91.7 → 93.0%.

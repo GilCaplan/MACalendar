@@ -150,11 +150,13 @@ run 4** (`DOCUMENTATION/experiments/real_usage/RESULTS.md`): Gil's 75
 reviewed commands replayed through the current engine on their own clocks.
 Corrected tier, every reachable field right **20.0% (n=15)**; `date` 82.4%,
 `start_time` 62.5%; approved rows reproduced 64.7% (11/17); generic-title rows
-right or acceptable under Q41 **66.7% (14/21)**. **Every earlier run of this
+right or acceptable under Q41 **81.0% (17/21)** after cycles 35 and 36 (was
+52.4% at the start of the day; dev-100 75 → 76%, precision 91.7 → 93.0%). **Every earlier run of this
 board since 2026-09-18 served a checkpoint cache**, so the "moved nothing" of
 09-21 was never measured — the board replays fresh now, and CLAUDE.md carries
-the rule. Cycle 35 (the spoken clock forms) moved this board and no stage
-board; cycle 36 (a stated day beats a weekday) is registered there.
+the rule. Cycles 35 (the spoken clock forms) and 36 (a stated day beats a
+weekday) moved this board and no stage board; cycle 37 (disfluent speech) is
+registered there.
 
 ## Open decisions — Gil's, not mine
 

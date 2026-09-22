@@ -1274,10 +1274,25 @@ def _extract_temporal(span_text: str, today: datetime.date,
                         date_part = parts[0]
                         time_part = parts[1][:5] if len(parts) > 1 else None
                         if date_part >= today.isoformat():
-                            result.pop("_bare_date_span", None)
-                            result["date"] = date_part
-                            if time_part and not result["start_time"]:
-                                result["start_time"] = time_part
+                            # A STATED DAY already read beats a WEEKDAY the clock
+                            # was attached to (`_DELIBERATE_DAY_RE`): "tomorrow on
+                            # tuesday at 6pm" is tomorrow, and the clock is still
+                            # taken. Everything else keeps the clock rule above.
+                            prior = result.get("_bare_date_span")
+                            prior_text = span_text[prior[0]:prior[1]] if prior else ""
+                            this_text = span_text[span[0]:span[1]]
+                            weekday_only = bool(_WEEKDAY_WORD_RE.search(this_text)
+                                                and not _DELIBERATE_DAY_RE.search(this_text))
+                            if (prior and result["date"] and weekday_only
+                                    and _DELIBERATE_DAY_RE.search(prior_text)):
+                                if time_part and not result["start_time"]:
+                                    result["start_time"] = time_part
+                            else:
+                                result.pop("_bare_date_span", None)
+                                result["date"] = date_part
+                                result["_weekday_date"] = weekday_only
+                                if time_part and not result["start_time"]:
+                                    result["start_time"] = time_part
                         elif "_dt_past_fallback" not in result:
                             # Past date — keep as fallback in case no future value follows
                             result["_dt_past_fallback"] = (date_part, time_part)
@@ -1291,6 +1306,10 @@ def _extract_temporal(span_text: str, today: datetime.date,
                         if candidate >= today.isoformat():
                             result["date"] = candidate
                             result["_bare_date_span"] = span
+                            this_text = span_text[span[0]:span[1]]
+                            result["_weekday_date"] = bool(
+                                _WEEKDAY_WORD_RE.search(this_text)
+                                and not _DELIBERATE_DAY_RE.search(this_text))
                         elif "_dt_past_fallback" not in result:
                             # A PAST-ONLY date is kept as a fallback, exactly as
                             # the datetime branch above already does. It used to
@@ -1324,6 +1343,18 @@ def _extract_temporal(span_text: str, today: datetime.date,
                     if end_v and not result["end_time"]:
                         result["end_time"] = _normalize_time(end_v)
 
+        # The other way round: the date came from a WEEKDAY alone and the words
+        # also carry an ordinal that lands elsewhere — "monday the 13th", "on
+        # the 14th on tuesday". The ordinal is the deliberate one; it wins, and
+        # its words leave the title (`_DELIBERATE_DAY_RE`, cycle 36).
+        if result.get("date") and result.pop("_weekday_date", False):
+            m_ord = _BARE_ORDINAL_DATE.search(span_text)
+            if m_ord:
+                resolved = _ordinal_to_date(int(m_ord.group(1)), today)
+                if resolved and resolved != result["date"]:
+                    result["date"] = resolved
+                    result["spans"].append((m_ord.start(), m_ord.end()))
+        result.pop("_weekday_date", None)
         result.pop("_bare_date_span", None)
 
         # "this coming thursday" → the soonest Thursday (see `_COMING_WEEKDAY_RE`).
@@ -1632,6 +1663,18 @@ _COMING_WEEKDAY_RE = re.compile(
     r"\b(?:this\s+)?coming\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", re.I)
 _WEEKDAY_INDEX = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
                   "friday": 4, "saturday": 5, "sunday": 6}
+_WEEKDAY_WORD_RE = re.compile(
+    r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", re.I)
+#: A DAY NAMED ON PURPOSE — "today", "tomorrow", "the 13th", "Sept 14" — as
+#: opposed to a weekday, which speakers mis-say: three of Gil's real commands
+#: carried both and the weekday was wrong every time ("tomorrow on tuesday"
+#: said on a Wednesday, "monday the 13th" when the 13th was a Sunday, "the
+#: 14th on tuesday" when the 14th was a Monday). When the two disagree the
+#: stated day wins (cycle 36, 2026-09-22). This also keeps "book monday standup
+#: tomorrow at 9am" on tomorrow, which the clock rule below used to carry alone.
+_DELIBERATE_DAY_RE = re.compile(
+    r"\b(?:today|tomorrow|tonight|the\s+\d{1,2}(?:st|nd|rd|th)|\d{1,2}(?:st|nd|rd|th)\s+of\s+\w+"
+    r"|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d{1,2})\b", re.I)
 
 _STATED_CLOCK_RE = re.compile(
     r"\d{1,2}:\d{2}|\d{1,2}\s*(?:am|pm)\b|\bat\s+\d{1,2}\b|\bnoon\b|\bmidnight\b"

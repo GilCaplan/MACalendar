@@ -1,6 +1,6 @@
 # Real-usage board
 
-_Run 2026-09-22 10:50. `python -m scripts.real_usage_board`._
+_Run 2026-09-22 11:28. `python -m scripts.real_usage_board`._
 
 > Guard passed: no real store changed during the run.
 
@@ -32,27 +32,21 @@ _`start_time`/`end_time` read LOW for a reason beyond the parse: on a row whose 
 
 Gil, 2026-09-22 (DEVQA Q41): *"just make a meeting according to other details with bare title is fine."* So the largest class is re-scored against REACHABLE gold — `reachable` in `taxonomy.jsonl`, hand-authored on each row's own clock: the subject the words actually held, or a bare title where nothing beyond the kind was said, plus the stated day and clock. The tiers above are untouched; this is the same rows read under the ruling.
 
-**Right, or acceptable under Q41: 66.7% of 21 rows** (item count right on 90.5%).
+**Right, or acceptable under Q41: 81.0% of 21 rows** (item count right on 90.5%).
 
 | items | n | title right | …and no junk in it | day+clock right | title and when |
 |---|---|---|---|---|---|
-| subject was SAID — the title must carry it | 15 | 100.0% | 100.0% | 80.0% | 80.0% |
+| subject was SAID — the title must carry it | 15 | 100.0% | 100.0% | 100.0% | 100.0% |
 | nothing but the kind was said — bare is right | 5 | 60.0% | 0.0% | 100.0% | 60.0% |
 
 _Per ITEM in the table, per ROW in the bold line. A said subject is right when the title CONTAINS the phrase (any spelling the vocabulary produces); junk is `score_dataset_run.is_garbage_title`; `end_time` is scored only where the words stated one._
 
 Rows still wrong under Q41:
 
-- id=11 (rejected, said) wrong: date — made [('meeting with manachem', '2026-09-01', '14:00')]
-  - can you set a meeting for next week on the 14th on tuesday at 2pm to d
 - id=12 (rejected, bare) wrong: title — made [('i have an event a meeting', '2026-08-26', '18:00')]
   - today i have an event at 6 o'clock a meeting
-- id=14 (rejected, said) wrong: date — made [('13th for maccabi visiting the doctor', '2026-08-31', '10:40')]
-  - please make a meeting for me at 1040 on monday the 13th for makabi vis
 - id=18 (rejected, ) wrong: count 0/1 — made []
   - set an appointment for tomorrow morning on tuesday at 910am
-- id=21 (rejected, said) wrong: date — made [('meeting with etai', '2026-09-01', '18:00')]
-  - set a meeting tomorrow on tuesday at 6pm with etai
 - id=26 (rejected, bare) wrong: title-junk, title — made [('Meeting', '2026-08-27', '11:00'), ('meeting as well', '2026-08-27', '17:30')]
   - set a meeting for me tomorrow at 11 a.m. and also set meeting for 5.30
 - id=118 (corrected, ) wrong: count 0/1 — made []
@@ -96,7 +90,7 @@ Two full replays of the same 73 rows on unchanged code, 2026-09-18:
 
 | parse path | n | p50 | p95 |
 |---|---|---|---|
-| deep | 30 | 6.5s | 25.0s |
+| deep | 30 | 10.0s | 44.9s |
 | fast | 43 | 0.1s | 0.1s |
 | ignored | 2 | 0.0s | 0.0s |
 
@@ -405,3 +399,55 @@ wins and the weekday is a (possibly wrong) gloss; today the weekday wins.
 unmoved (those three rows are rejected-tier); dev-100 unmoved or up — the
 synthetic pool rarely states a day twice. Boarded on FastRule's own board
 first.
+
+---
+
+# Run 5 — 2026-09-22, cycle 36: a stated day beats a weekday
+
+Fresh replay, guard passed. One change, on the fast path only
+(`rule_parser._extract_temporal`): when the words name both a weekday and a
+STATED day — "tomorrow", "today", "the 13th", a month-day — and the two
+disagree, the stated day wins. It ran both ways: a weekday carrying the clock
+no longer overrides a "tomorrow" read before it (*"tomorrow on tuesday at
+6pm"*), and a date read from a weekday alone yields to an ordinal elsewhere in
+the words (*"monday the 13th"*, *"on the 14th on tuesday"*). "book monday
+standup tomorrow at 9am" still lands on tomorrow.
+
+| | cycle 35 | **cycle 36** |
+|---|---|---|
+| generic-title right/acceptable under Q41 (21 rows) | 66.7% (14) | **81.0% (17)** |
+| …items where the subject was said, title AND when right | 12/15 | **15/15** |
+| corrected, every reachable field (n=15) · date · start_time | 20.0% · 82.4% · 62.5% | 20.0% · 82.4% · 62.5% |
+| approved reproduced (17) · rejected changed (42) | 64.7% · 90.5% | 64.7% · 90.5% |
+
+**Prediction was 14 → 17; it is 17.** Corrected tier unmoved, as predicted
+(the three rows are rejected-tier). FastRule's board (4,800 train rows):
+byte-identical — the corpus never states a day twice. dev-100: **75 → 76%
+count-correct, precision 91.7 → 93.0%**, F1 80.0 → 80.5, field quality 91.9%
+(one row: one fewer wrong create). Not zero, so the change reached past real
+speech, and in the right direction.
+
+**What is left of the generic-title class (4 of 21):** two are refusals
+waiting on the Q38/Q41 ruling (id=18 'appointment', id=118 'event'); id=12
+*"today i have an event at 6 o'clock a meeting"* is a statement whose title
+is the whole clause; id=26's second item keeps a trailing "as well". Every
+row where the speaker named the thing is now right on title, day and clock.
+
+## Registered next — cycle 37: disfluent speech
+
+The corrected tier's item COUNT fell 80 → 60% between 09-18 and 09-21
+(measured for the first time in run 4) and did not recover: id=56 *"set a
+date for tomorrow at 11 o'clock, in one second, one moment, one moment, bear
+with me, i want to be at …"* makes 3 items for 1; id=136 *"…, and I need to
+also buy, Conello oil, can, execute"* 3 for 2; id=23 keeps *"excuse me.
+excuse me."* in its title; id=39 keeps *"sorry, i mean edo"* because the
+self-correction rule needs a comma BEFORE "sorry". **Component:** ingest's
+spoken-noise passes (`intent/cleanup.py`, aim (a): generic, no vocabulary):
+a trailing interjection sentence ("excuse me." repeated), hold-on chatter
+("in one second", "one moment", "bear with me"), and a self-correction
+whose comma comes after the marker. **Prediction:** corrected item count 60
+→ 73%+ (n=15; ids 56 and 136), corrected title +1 (id=23 is rejected-tier
+— so the title column moves on the Q41 list, not here); dev-100 unmoved
+(the pool has no such chatter); every rewrite counted over the 9,091 clean
+rows first, because a noise pass that eats a real word is invisible to the
+speaker.
