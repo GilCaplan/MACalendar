@@ -21,6 +21,18 @@ from typing import Any
 # in the new — the version is the key the panel matches its output format to.
 BRAIN_VERSION = "engine-v3"
 
+#: THE NON-OBJECT OUTCOMES an item can leave the chain with, and the words the
+#: panels draw for each. One registry (2026-09-22): the object stage emits the
+#: first two from `fastrule/stage._FLAG_TITLES`, the orchestrator's commit emits
+#: `held_back` for a refusal at the loop's end, and `test_panel_agreement.py`
+#: holds the Mac card's `_OUTCOMES` to exactly this set. The iOS timeline's
+#: switch mirrors it by hand (Swift cannot read this file).
+NON_OBJECT_OUTCOMES = {
+    "bad_item":   "reached me damaged",
+    "not_an_ask": "not calendar work",
+    "held_back":  "held back — names nothing",
+}
+
 # Per-version display spec: the ordered chain of thought the panel should show
 # for that brain, as (stage, short label) pairs matching the explorer diagram.
 # A brain version the panel does not know falls back to raw stage titles.

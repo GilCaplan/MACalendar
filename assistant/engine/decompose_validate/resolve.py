@@ -311,7 +311,7 @@ def bare_hour_is_ambiguous(said: str) -> "int | None":
     return {"seven": 7, "eight": 8}.get(word, 0) or int(word)
 
 
-def _bare_hour(h: int, minute: int, said: str) -> str:
+def _bare_hour(h: int, minute: int, said: str) -> "str | None":
     """THE BARE-HOUR CONVENTION: 1-8 is PM; a morning word is what says otherwise.
 
     A bare hour in calendar speech is far more often the afternoon — "gym at 5"
@@ -328,6 +328,8 @@ def _bare_hour(h: int, minute: int, said: str) -> str:
     "o'clock" is left alone (it reads AM on both tracks and the corpus agrees),
     and a morning word still wins.
     """
+    if h > 23 or minute > 59:
+        return None                              # not a time on the clock (see resolve_clock)
     if h <= 6:
         return f"{h + 12:02d}:{minute:02d}"
     if 7 <= h <= 8 and not _MORNING.search(said or "") \
@@ -457,7 +459,14 @@ def resolve_clock(said: str, context: str = "") -> "str | None":
             h += 12
         if ap == "a" and h == 12:
             h = 0
-        return f"{h:02d}:{minute:02d}"
+        # NOT A TIME ON THE CLOCK (Gil, 2026-09-22: "invalid clock should be
+        # handled by validate_decompose"). "9am and 2.30pm" was once torn into
+        # "9am" and "30pm", and "30pm" came through here as 30:00 — hour 30 —
+        # and reached the database on two live rows. An impossible reading is
+        # no reading: fall through, and the object-level rule below this stage
+        # refuses anything that still slips past.
+        if h <= 23 and minute <= 59:
+            return f"{h:02d}:{minute:02d}"
 
     m = re.search(r"\b(\d{1,2})[:.](\d{2})\b", t)
     if m:
@@ -468,7 +477,8 @@ def resolve_clock(said: str, context: str = "") -> "str | None":
         # ("$11.15") in the same shape is read as a clock too and pulled out
         # of whatever text it was part of.
         h, minute = int(m.group(1)), int(m.group(2))
-        return f"{h:02d}:{minute:02d}" if h >= 9 else _bare_hour(h, minute, ctx)
+        if h <= 23 and minute <= 59:                 # "25:00" is not a time on the clock
+            return f"{h:02d}:{minute:02d}" if h >= 9 else _bare_hour(h, minute, ctx)
 
     m = re.search(r"\bat\s+(\d{1,2})\b(?!\s*:)", t) or re.search(r"\b(\d{1,2})\s*o'?clock\b", t)
     if m:

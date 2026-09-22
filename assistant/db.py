@@ -823,6 +823,15 @@ class CalendarDB:
                     conn.execute(stmt)
                 except sqlite3.OperationalError:
                     pass  # already exists
+        # DATA, not schema: `Running` and `Gym` fold into the one `Fitness`
+        # category (Gil, 2026-09-10). The planner stopped writing them that
+        # day; 38 rows written before it still carried the old names on
+        # 2026-09-22. Idempotent, so it costs one no-op UPDATE per open.
+        try:
+            conn.execute("UPDATE events SET category='Fitness' "
+                         "WHERE category IN ('Running', 'Gym')")
+        except sqlite3.OperationalError:
+            pass
 
     def _migrate_todos(self, conn: sqlite3.Connection) -> None:
         """Apply any missing todos schema migrations safely."""

@@ -1460,3 +1460,35 @@ in cycles 1–4 and 12 above: train 98.9% / 0.0% and test 92.4% / 18.2% on the
 141-row sample of the earlier dataset (77 scored test cases, 11 clean), and
 the cycle-12 ablation on identical rows — with the model call 75.9% / 19.4%
 in 510 s, without it 75.9% / 19.4% in 3 s.
+
+## Board D v2 — 1,200 TRAIN rows, 2026-09-22: net +2, and the loop fires on 1.7% of rows
+
+`board_d -n 1200`, fresh (the board resumes only by flag now), FastRule
+7,200 train half, both arms interleaved per row under a ticking frozen clock.
+Record: `experiments/runs/board_d_train_1200_20260922T1740.json`.
+
+| | loop OFF | loop ON |
+|---|---|---|
+| correct (action AND title) | 1073/1200 = 89.4% | 1075/1200 = 89.6% |
+| fixed · broke · changed-no-better · NET | | 3 · 1 · 16 · **+2** |
+| arms disagreed at all | | 20 rows (1.7%) |
+| latency p50 / p95 | 0.0 s / 6.4 s | 0.0 s / 6.9 s |
+
+By shape: atomic n=1,008, 89.6 → 89.8% (net +2); compound n=192, 88.5% both
+(net 0). By re-entries the loop spent: 0 on 1,180 rows (90.3% both), 1 on 19
+rows (42.1 → 47.4%, net +1), 2 on 1 row. The rewrite's MODEL round (H6) fired
+on 8 rows: 50.0% both arms, net 0. The three fixed rows are two "set a
+remindar to …" read as an event OFF and a to-do ON, and "um can you just
+delete that one for me" that produced nothing OFF; the one broken row is
+"drop take out the trash from my tasks", a DELETE that the loop turned into
+a CREATE — the harm class the FastRule board weights at 4.
+
+**What it says.** On the constructed corpus the loop is nearly inert: it
+changes 20 rows in 1,200 and nets +2, inside the noise of a fixed-minus-broken
+count at this n, and its cost is half a second at p95. The one broken row is
+the kind that matters most (a delete made into a create), which is exactly
+what H4's operation check exists to test. The 19 rows where the loop spent
+one round score 42% either way: the loop is reaching the hard rows and not
+moving them, which is the case H2's round selector is registered for. And
+the model round fired eight times for nothing, which is H6's baseline. The
+sealed half is not run until a change is proposed against it.

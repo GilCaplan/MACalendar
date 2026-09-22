@@ -75,6 +75,28 @@ _DAY_WORD_RE = re.compile(
     r"|\bin\s+(?:a|an|one|two|three|\d+)\s+(?:day|week|month)", re.I)
 
 
+_CLOCK_OK = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$")
+
+
+def _rule_impossible_clock(state, intent) -> None:
+    """A start or end that is not a time on the clock is dropped (Gil,
+    2026-09-22: "invalid clock should be handled by validate_decompose").
+
+    `start_time = '30:00'` reached the database on two live rows on
+    2026-09-09: the resolver wrote its value straight onto the intent, past the
+    validator that would have refused it on construction. This stage owns the
+    values it writes, so it is the stage that refuses them. The clock is
+    dropped, not repaired — the wrong half of "30:00" is unknowable — and the
+    item then takes the untimed floor, which the reply already says out loud.
+    """
+    for field in ("start_time", "end_time"):
+        value = getattr(intent, field, None)
+        if value and not _CLOCK_OK.match(str(value)):
+            state.add_fix("validate", "impossible_clock", str(value), "",
+                          note=f"{field} is not a time on the clock")
+            setattr(intent, field, None)
+
+
 def _rule_passed_clock_means_tomorrow(state, item, intent, now) -> None:
     """Q42 (Gil, 2026-09-22): *"at 5pm today if no date or day given, default
     is today/tomorrow whichever is closer to 5pm like if 5pm passed then we

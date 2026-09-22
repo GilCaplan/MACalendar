@@ -1,0 +1,223 @@
+{
+ "split": "train",
+ "n": 30,
+ "off_pct": 96.7,
+ "on_pct": 96.7,
+ "fixed": 0,
+ "broke": 0,
+ "changed_same": 1,
+ "disagreed": 1,
+ "net": 0,
+ "latency_s": {
+  "off_p50": 0.0,
+  "off_p95": 0.0,
+  "on_p50": 0.0,
+  "on_p95": 0.0
+ },
+ "by": {
+  "family": {
+   "s_ut_rename_task": {
+    "n": 1,
+    "off": 0,
+    "on": 0,
+    "net": 0
+   },
+   "c_joiner_commathen_ee_1": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ct_note_to_self": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ct_email_someone": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_de_take_off_calendar": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_datemark_1": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_attendee_5": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ce_please_book": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_dt_drop_task": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_joiner_also_ee_2": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_and_ee_2": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ce_all_day_basic": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_npdecoy_serial_clean_organize": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_remindthen_12": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_recur_5": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_de_cancel_event_date": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_attendee_6": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_attendee_1": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_and_ee_3": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_datemark_4": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_leadtime_11": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ce_time_before_date": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ct_hey_remind": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_dt_delete_misspelled_todo": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ce_uh_i_guess": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ct_add_with_deadline": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_datemark_10": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_until_2": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_range_ce_4": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_remindthen_11": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   }
+  },
+  "shape": {
+   "atomic": {
+    "n": 24,
+    "off": 23,
+    "on": 23,
+    "net": 0
+   },
+   "compound": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   }
+  },
+  "reentries": {
+   "0": {
+    "n": 30,
+    "off": 29,
+    "on": 29,
+    "net": 0
+   }
+  }
+ }
+}

@@ -584,7 +584,10 @@ def _commit(state: EngineState, cfg) -> None:
             else:
                 state.messages.append(f"I didn't book '{title}': {item.blocked}.")
             if state.trace:
-                state.trace.step(EXECUTE, "Held back", f"{item.id}: {item.blocked}", ok=False)
+                # `outcome` is the key both panels draw a chip from — the Mac
+                # card's `_OUTCOMES`, the phone timeline's switch (2026-09-22).
+                state.trace.step(EXECUTE, "Held back", f"{item.id}: {item.blocked}",
+                                 ok=False, outcome="held_back", item_id=item.id)
             continue
         if item.intent is None:
             continue                      # dropped by a validate rule (traced there)

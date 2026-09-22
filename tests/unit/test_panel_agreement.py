@@ -111,12 +111,16 @@ def test_the_panel_knows_every_non_object_outcome_the_engine_emits():
     """
     from assistant.calendar_ui.thinking_panel import _StepRow
     from assistant.engine.fastrule import stage
+    from assistant import trace
 
-    # `stage._FLAG_TITLES` is the dispatch table `_flag()` actually emits
-    # `outcome=` from (build.py's `objects.py` replacement, TASKS.md row 91) —
-    # reading it directly, the same discipline CLAUDE.md asks of every board
-    # here, beats hand-copying the two kind names a second time.
-    engine = set(stage._FLAG_TITLES)
+    # `trace.NON_OBJECT_OUTCOMES` is the one registry (2026-09-22): the object
+    # stage's `_FLAG_TITLES` emits two of them and the orchestrator's commit
+    # emits `held_back`. The stage's table must be a subset of the registry,
+    # and the panel must render exactly the registry.
+    engine = set(trace.NON_OBJECT_OUTCOMES)
+    assert set(stage._FLAG_TITLES) <= engine, (
+        f"fastrule.stage._FLAG_TITLES emits {sorted(set(stage._FLAG_TITLES) - engine)} "
+        "that trace.NON_OBJECT_OUTCOMES does not list")
     missing = sorted(engine - set(_StepRow._OUTCOMES))
     assert not missing, (
         f"the object stage can emit outcomes {missing} that "

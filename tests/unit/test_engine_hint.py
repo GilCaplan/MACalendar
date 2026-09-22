@@ -98,3 +98,19 @@ def test_a_trivial_reply_carries_no_hint_key_surprise(registry_with_real_actions
     # future edit that starts hinting on an empty command is a deliberate one.
     out = engine.run_transcript("execute", source="test")
     assert out.get("hint") is None
+
+
+def test_a_held_back_item_carries_its_outcome_for_the_panels(registry_with_real_actions, monkeypatch):
+    """The Mac card and the phone timeline draw a chip from `outcome`
+    (2026-09-22): a refusal at the loop's end says "held back — names nothing"
+    instead of being an absence in the drawing."""
+    from assistant.trace import Trace
+    import assistant.engine as engine
+    st = EngineState(raw_text="add this on my calendar", source="test")
+    st.trace = Trace()
+    st.items = [Item(id="item_1", kind="event", text="add this on my calendar", action="create_event",
+                     intent=SimpleNamespace(title="this on my calendar"),
+                     blocked="I couldn't tell what to call it")]
+    engine._commit(st, engine.load_config())
+    steps = [s for s in st.trace.to_list() if s.get("title") == "Held back"]
+    assert steps and (steps[0].get("data") or {}).get("outcome") == "held_back", steps
