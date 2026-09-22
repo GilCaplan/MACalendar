@@ -1,23 +1,21 @@
 # Real-usage board
 
-_Run 2026-09-18 12:23. `python -m scripts.real_usage_board`._
+_Run 2026-09-22 10:18. `python -m scripts.real_usage_board`._
 
-> **A real store changed during the run:** calendar.db. Either an override was missed (a leak — distrust everything below) or the assistant was simply used while the board ran.
-
-> No rows appeared in the real calendar, so nothing the board created reached it — the change was elsewhere (a log, a setting, the command memory the live app writes on every command).
+> Guard passed: no real store changed during the run.
 
 ## The headline
 
-**Corrected tier, all fields right: 11.1% (n=9)** — of 16 corrected rows, 7 are excluded because the gold is a title Gil TYPED rather than said, which no parser can reach (see the note below). Item count right on 77.8%.
+**Corrected tier, every REACHABLE field right: 6.7% (n=15 of 16)** — a field is scored only where the gold value is one a parse of the words could produce (`intent/correction.py`: unchanged, or a title whose words were said, or a clock on the five-minute grid); 1 rows have no reachable field at all. Item count right on 80.0%. Read by hand mark alone, as the 2026-09-18 headline was: 11.1% (n=9).
 
 ### Per field, corrected tier
 
 | field | right | scored |
 |---|---|---|
-| title | 38.9% | 18 |
-| date | 78.6% | 14 |
-| start_time | 50.0% | 14 |
-| end_time | 50.0% | 14 |
+| title | 36.8% | 19 |
+| date | 73.7% | 19 |
+| start_time | 44.4% | 18 |
+| end_time | 44.4% | 18 |
 | recurrence | — | 0 |
 | recur_until | — | 0 |
 
@@ -27,8 +25,40 @@ _`start_time`/`end_time` read LOW for a reason beyond the parse: on a row whose 
 
 ## Regression and movement
 
-- **Approved tier (n=16):** the replay still produces what he accepted on **43.8%**. Anything less than 100% is a regression against a command he blessed.
-- **Rejected tier (n=41):** the output CHANGED on **75.6%**. Changed is not fixed — there is no gold here — but unchanged is certainly not fixed.
+- **Approved tier (n=17):** the replay still produces what he accepted on **47.1%**. Anything less than 100% is a regression against a command he blessed.
+- **Rejected tier (n=42):** the output CHANGED on **73.8%**. Changed is not fixed — there is no gold here — but unchanged is certainly not fixed.
+
+## Under Q41 — the generic-title class against what the words hold
+
+Gil, 2026-09-22 (DEVQA Q41): *"just make a meeting according to other details with bare title is fine."* So the largest class is re-scored against REACHABLE gold — `reachable` in `taxonomy.jsonl`, hand-authored on each row's own clock: the subject the words actually held, or a bare title where nothing beyond the kind was said, plus the stated day and clock. The tiers above are untouched; this is the same rows read under the ruling.
+
+**Right, or acceptable under Q41: 61.9% of 21 rows** (item count right on 100.0%).
+
+| items | n | title right | …and no junk in it | day+clock right | title and when |
+|---|---|---|---|---|---|
+| subject was SAID — the title must carry it | 15 | 100.0% | 100.0% | 73.3% | 73.3% |
+| nothing but the kind was said — bare is right | 7 | 42.9% | 0.0% | 71.4% | 28.6% |
+
+_Per ITEM in the table, per ROW in the bold line. A said subject is right when the title CONTAINS the phrase (any spelling the vocabulary produces); junk is `score_dataset_run.is_garbage_title`; `end_time` is scored only where the words stated one._
+
+Rows still wrong under Q41:
+
+- id=4 (rejected, said) wrong: date — made [('go visit my friend tal got', '2026-09-03', '13:00')]
+  - create event this coming thursday to go visit my friend tal at 1 p.m. 
+- id=12 (rejected, bare) wrong: title — made [('i have an event a meeting', '2026-08-26', '18:00')]
+  - today i have an event at 6 o'clock a meeting
+- id=14 (rejected, said) wrong: start_time — made [('the 13th for maccabi visiting the doctor', '2026-09-13', '00:00')]
+  - please make a meeting for me at 1040 on monday the 13th for makabi vis
+- id=18 (rejected, bare) wrong: start_time, title-junk — made [('Appointment', '2026-08-27', '09:00')]
+  - set an appointment for tomorrow morning on tuesday at 910am
+- id=26 (rejected, bare) wrong: title, title — made [('meeting a.m', '2026-08-27', '11:00'), ('meeting p.m. p.m. as well', '2026-08-27', '17:30')]
+  - set a meeting for me tomorrow at 11 a.m. and also set meeting for 5.30
+- id=54 (rejected, said) wrong: start_time — made [('ta office hour meeting', '2026-08-30', '09:00')]
+  - Set a meeting on this coming Sunday for 1 p.m. TA, Office Hour, meetin
+- id=68 (corrected, said) wrong: start_time — made [('for 830 go to daven pre', '2026-08-30', '20:00'), ('Training practice', '2026-08-30', '20:00')]
+  - Sunday, set for 830, to go to Doven, pre-Shacharit, and then after tha
+- id=118 (corrected, bare) wrong: start_time, title — made [('5 p.m', '2026-08-28', '13:00')]
+  - Add an event for 5 p.m. execute.
 
 ## Failure taxonomy
 
@@ -69,17 +99,17 @@ Two full replays of the same 73 rows on unchanged code, 2026-09-18:
 | parse path | n | p50 | p95 |
 |---|---|---|---|
 | deep | 33 | 4.3s | 20.9s |
-| fast | 38 | 0.1s | 0.1s |
+| fast | 40 | 0.1s | 0.1s |
 | ignored | 2 | 0.0s | 0.0s |
 
-## Why half the corrected gold cannot be scored
+## Why part of the corrected gold cannot be scored
 
-`memory.set_feedback` (`assistant/intent/memory.py:229`) stores whatever the client sends, and the review flow sends the record as it stands AFTER Gil edits it in the UI. So a correction is the FINAL STATE of the row, not a corrected reading of the sentence:
+`memory.set_feedback` stores whatever the client sends, and the review flow sends the record as it stands AFTER Gil edits it in the UI. So a correction is the FINAL STATE of the row, not a corrected reading of the sentence:
 
     said:  "Set a meeting for 10 a.m. tomorrow morning"
     gold:  title "Date <heart>", 11:00-15:00
 
-No parse produces that, and scoring it would cap this metric forever and blame the engine for not reading his mind. Each corrected row is therefore hand-marked `gold_usable` and both counts are printed. **The durable fix is to record the corrected PARSE alongside the record state** — until then this tier stays small.
+No parse produces that, and scoring it would cap this metric forever and blame the engine for not reading his mind. Since 2026-09-22 the memory ANNOTATES every correction as it is stored — per action, which fields changed against the engine's parse and which new values the words could reach (`assistant/intent/correction.py`, rules in its docstring) — and this board applies the same rules to rows stored before then. A field is scored when reachable; a hand mark `gold_usable` in `taxonomy.jsonl` still scores a whole row and is what the strict number above reads.
 
 ## Rows to read
 
@@ -87,6 +117,16 @@ No parse produces that, and scoring it would cap this metric forever and blame t
 
 - id=46 [compound] count 2/4, wrong: title, date, start_time, end_time
   - Right, set an event for today at 3.45 pm, which are already past, Walk
+- id=47 [other] count 1/1, wrong: start_time, end_time; unreachable: title
+  - Set a meeting for 10 a.m. tomorrow morning, execute.
+- id=49 [other] count 1/1, wrong: date; unreachable: title
+  - I had an event on the 17th of September, from 7 p.m. to 10 p.m. going 
+- id=52 [other] count 1/1, wrong: date; unreachable: end_time, start_time, title
+  - Set a meeting for me this coming Sunday at... Let's see, it is...
+- id=56 [disfluency] count 1/1, wrong: title; unreachable: date, end_time, start_time
+  - set a date for tomorrow at 11 o'clock, in one second, one moment, one 
+- id=68 [generic-title] count 2/1, wrong: start_time, end_time; unreachable: title
+  - Sunday, set for 830, to go to Doven, pre-Shacharit, and then after tha
 - id=118 [generic-title] count 1/1, wrong: title, start_time, end_time
   - Add an event for 5 p.m. execute.
 - id=136 [stt-garbage] count 2/2, wrong: title
@@ -95,6 +135,8 @@ No parse produces that, and scoring it would cap this metric forever and blame t
   - Alright, we have a few events set for Tuesday to walk Moxdog at 9 a.m.
 - id=207 [stt-garbage] count 3/3, wrong: title
   - WalkMoxDog today at 2pm, and also WalkMoxDog tomorrow at 8.30am, and I
+- id=211 [other] count 1/1, wrong: start_time, end_time; unreachable: title
+  - Create an event now to go out for a run, execute.
 - id=219 [stutter-split] count 2/2, wrong: start_time, end_time
   - Movie at Lincoln Square tomorrow, AMC, 11.15 AM tomorrow, execute.
 - id=220 [stt-garbage] count 1/1, wrong: title
@@ -124,6 +166,8 @@ No parse produces that, and scoring it would cap this metric forever and blame t
   - Have a movie today from 3pm to 6pm, execute.
 - id=218 [?] ['create_event']
   - We'll start an event for later, walking Jada at 2.30pm, execute.
+- id=243 [?] ['create_event']
+  - Every event tomorrow night at 9pm, to search for kingdoms, execute.
 
 ---
 
@@ -210,3 +254,79 @@ the right answer for a command that is otherwise complete and confident.
 behaviour); the corrected tier is unmoved, because only id=118 is in this
 class. If dev-100 moves at all, the change has reached past real speech.
 
+
+---
+
+# Run 3 — 2026-09-22, the same rows read under Q41
+
+Fresh replay (`python -m scripts.real_usage_board`), guard passed, byte-for-byte
+the same three tiers as run 2: corrected 11.1% (n=9), approved 47.1% (8/17),
+rejected changed 73.8% (42). What changed is the READING. Gil ruled today
+(DEVQA Q41) that *"a meeting according to the other details with a bare title
+is fine"*, so the largest class was re-scored against what the words hold —
+`reachable` in `taxonomy.jsonl`, hand-authored per row on its own clock, 21
+rows, 22 items — and the generated section "Under Q41" above carries the table.
+
+**Generic-title, right or acceptable under Q41: 61.9% (13 of 21 rows).**
+
+| items | n | title carries the subject / is bare | day+clock right | both |
+|---|---|---|---|---|
+| the subject WAS said | 15 | 100% | 73.3% | 73.3% |
+| nothing but the kind was said | 7 | 42.9% | 71.4% | 28.6% |
+
+Two things this says that the taxonomy's label hid:
+
+- **The class was mis-named.** In 15 of 21 rows the speaker DID name the thing
+  ("with etai", "with omri for the project", "office hour") and the old engine
+  dropped it. Today's engine keeps the subject in 15/15. The ruling that a
+  bare title is fine applies to 7 items, and it is not the engine's problem
+  on those either: it is the TIME that is wrong on them.
+- **The residue is the CLOCK, not the title.** Of the 8 rows still wrong, 6
+  lose a stated time and all six share a shape the readers do not know:
+  *"for 830"* → 20:00, *"for 1 p.m."* → 09:00, *"for 5 p.m."* → 13:00,
+  *"at 1040"* → 00:00, *"at 910am"* → 09:00, *"this coming thursday"* → a
+  week late. The other 2 keep the time phrase's dots in the title ('meeting
+  a.m', 'meeting p.m. p.m. as well') — the same reader failing to consume
+  "11 a.m." — plus 'i have an event a meeting'. Across the whole board, 36
+  rows carry a spoken clock; "for <clock>", colon-less "830"/"1040"/"230PM",
+  dotted "a.m."/"p.m.", and "9am and 2.30pm" (→ '30:00', id=142) are the
+  forms that fail.
+
+## The corrected tier, read per field (same day)
+
+The durable fix this file asked for on 2026-09-18 is in: `memory.set_feedback`
+and `feedback_for_record` now ANNOTATE every correction as it is stored — per
+action, `changed` (which fields differ from the engine's parse) and
+`reachable` (which new values a parse of the words could produce; rules in
+`assistant/intent/correction.py`) — and the board applies the same rules to
+the 16 rows stored before. A field is scored when reachable; the hand mark
+still scores a whole row and gives the strict number.
+
+| corrected tier | 2026-09-18 reading | per reachable field |
+|---|---|---|
+| rows scored | 9 of 16 | **15 of 16** |
+| every scored field right | 11.1% | **6.7%** |
+| title | 38.9% (18) | 36.8% (19) |
+| date | 78.6% (14) | 73.7% (19) |
+| start_time · end_time | 50.0% (14) | 44.4% (18) |
+
+The number went DOWN because the instrument got wider, not because the engine
+moved: six rows that used to be thrown out for a typed title now score their
+date and clock, and most of them have one of those wrong too. Two of the new
+failures are the same defect: id=52 *"this coming Sunday"* and id=4 *"this
+coming thursday"* both land a week late on the fast path (the recogniser
+reads "coming" as "next"), which cycle 35 below takes with the clock forms.
+
+## Registered next — cycle 35: spoken clock forms
+
+**Component:** the temporal readers on both tracks — `intent/rule_parser.py`
+(`_extract_temporal`, fast path) and `decompose_validate/resolve.py` (deep).
+**Change:** read "for <clock>" as a start time; compact clocks "830", "1040",
+"910am", "230PM" as HH:MM; dotted "a.m."/"p.m." consumed with the hour so
+neither the hour nor the dots survive into the title; "9am and 2.30pm" as two
+clocks. **Prediction:** generic-title right/acceptable 13 → 17+ of 21 (ids 14,
+18, 54, 68, 118 on time; 26 on title); corrected tier `start_time` 50% → 60%+
+(n=14); dev-100 unchanged within a row (the synthetic pool has few compact
+clocks) — if it moves down, the reader over-fires and the change is wrong.
+Boarded first on FastRule's own board (`fastrule_shape --split train`) and the
+dv stage board, one change, before either whole-chain run.

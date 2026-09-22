@@ -187,7 +187,14 @@ def _actions_of(blob) -> list:
         params = item.get("parameters") or item.get("params") or {}
         if not isinstance(params, dict):
             params = {}
-        out.append({"action": name, "parameters": params})
+        entry = {"action": name, "parameters": params}
+        # The annotation `memory` stores since 2026-09-22 (`intent/correction.py`);
+        # a row from before is annotated on the fly in `score`.
+        if isinstance(item.get("reachable"), dict):
+            entry["reachable"] = item["reachable"]
+        if isinstance(item.get("changed"), list):
+            entry["changed"] = item["changed"]
+        out.append(entry)
     return out
 
 
@@ -416,7 +423,9 @@ def score(replayed: list, rows: list, taxonomy: dict) -> dict:
     by_id = {r["id"]: r for r in rows}
     res = {
         "corrected": {"n": 0, "usable": 0, "count_ok": 0, "all_ok": 0,
-                      "fields": {f: [0, 0] for f in FIELDS}, "rows": []},
+                      "fields": {f: [0, 0] for f in FIELDS}, "rows": [],
+                      # the same rows read by hand mark only (the 2026-09-18 headline)
+                      "strict_n": 0, "strict_ok": 0},
         "approved": {"n": 0, "same": 0, "rows": []},
         "rejected": {"n": 0, "changed": 0, "rows": []},
         "latency": {},
@@ -449,27 +458,50 @@ def score(replayed: list, rows: list, taxonomy: dict) -> dict:
         mark = taxonomy.get(row["said"], {})
 
         if tier == "corrected":
+            from assistant.intent import correction as _corr
             t = res["corrected"]
             t["n"] += 1
-            if not mark.get("gold_usable", False):
-                t["rows"].append({"id": rep["id"], "said": row["said"][:70],
-                                  "skipped": "gold is hand-authored"})
-                continue
-            t["usable"] += 1
+            # A field is scored when the gold VALUE is reachable from the words
+            # (`intent/correction.py`: unchanged, or a title whose words were
+            # said, or a clock on the spoken grid), or when the row is
+            # hand-marked `gold_usable`, which scores every field. Until
+            # 2026-09-22 the mark was the only gate and it was per ROW, so a
+            # typed title threw away the row's derivable date and clock.
+            hand = bool(mark.get("gold_usable", False))
+            reach = []
+            for i, g in enumerate(gold):
+                if isinstance(g.get("reachable"), dict):
+                    reach.append(g["reachable"])
+                else:
+                    base = then[i] if i < len(then) else {}
+                    reach.append(_corr.reachable_fields(row["said"], base, g))
             count_ok = len(produced) == len(gold)
-            t["count_ok"] += 1 if count_ok else 0
-            per_field, all_ok = {}, count_ok and bool(gold)
-            for p, g in _pair(produced, gold):
+            per_field, unreachable, scored_any = {}, [], False
+            all_ok = count_ok and bool(gold)
+            for i, (p, g) in enumerate(_pair(produced, gold)):
                 for f in FIELDS:
                     want = _norm(f, (g["parameters"] or {}).get(f))
                     if not want:
                         continue            # gold silent on this field: not scored
+                    if not hand and not reach[i].get(f, False):
+                        unreachable.append(f)
+                        continue            # a value no parse of the words reaches
                     got = _norm(f, (p["parameters"] or {}).get(f))
+                    scored_any = True
                     t["fields"][f][1] += 1
                     ok = got == want
                     t["fields"][f][0] += 1 if ok else 0
                     per_field.setdefault(f, []).append(ok)
                     all_ok = all_ok and ok
+            if hand:
+                t["strict_n"] += 1
+                t["strict_ok"] += 1 if all_ok else 0
+            if not scored_any and not hand:
+                t["rows"].append({"id": rep["id"], "said": row["said"][:70],
+                                  "skipped": "no field of the gold is reachable"})
+                continue
+            t["usable"] += 1
+            t["count_ok"] += 1 if count_ok else 0
             t["all_ok"] += 1 if all_ok else 0
             t["rows"].append({
                 "id": rep["id"], "said": row["said"][:70], "all_ok": all_ok,
@@ -477,6 +509,7 @@ def score(replayed: list, rows: list, taxonomy: dict) -> dict:
                 "count": f"{len(produced)}/{len(gold)}",
                 "class": mark.get("class", "?"),
                 "wrong": [f for f, v in per_field.items() if not all(v)],
+                "unreachable": sorted(set(unreachable)),
             })
 
         elif tier == "approved":
@@ -507,6 +540,85 @@ def score(replayed: list, rows: list, taxonomy: dict) -> dict:
             "p95": msl[min(len(msl) - 1, int(len(msl) * 0.95))],
         }
     return res
+
+
+def _title_ok(title: str, want) -> "tuple[bool, str]":
+    """Right when the title carries one of the subject phrases the words held,
+    or — when the words held none (`title_has: null`) — when it is a BARE kind
+    word, which Q41 (Gil, 2026-09-22) makes the right answer."""
+    from assistant.tips import is_bare_title
+    t = " ".join((title or "").lower().split())
+    if want is None:
+        return is_bare_title(t), "bare"
+    return any(w in t for w in want), "said"
+
+
+def score_reachable(replayed: list, rows: list, taxonomy: dict) -> dict:
+    """The generic-title class against REACHABLE gold.
+
+    `reachable` in `taxonomy.jsonl`, hand-authored 2026-09-22 on each row's own
+    clock: the subject the WORDS actually held (`title_has`, any of several
+    spellings — the vocabulary repairs names), the day and clock they stated, and
+    `null` where nothing beyond the kind was said. Two kinds of item, reported
+    apart, because they answer different questions: a SAID subject the title must
+    carry is the engine's failure when missing; a BARE title where nothing was
+    said is right under Q41 and only the hint can improve it. A row with no items
+    (`"I need a b-"`) is right when nothing was made.
+    """
+    from scripts.score_dataset_run import is_garbage_title
+    by_id = {r["id"]: r for r in rows}
+    blank = lambda: {"n": 0, "title": 0, "clean": 0, "when": 0, "all": 0}
+    out = {"n": 0, "count_ok": 0, "all_ok": 0, "said": blank(), "bare": blank(),
+           "rows": []}
+    for rep in replayed:
+        row = by_id.get(rep["id"])
+        if row is None:
+            continue
+        reach = taxonomy.get(row["said"], {}).get("reachable")
+        if reach is None:
+            continue
+        gold = reach["items"]
+        produced = rep.get("created") or []
+        out["n"] += 1
+        count_ok = len(produced) == len(gold)
+        out["count_ok"] += 1 if count_ok else 0
+        wrong = [] if count_ok else [f"count {len(produced)}/{len(gold)}"]
+        row_ok, kinds = count_ok, set()
+        for p, g in _pair(produced, gold):
+            pp = p["parameters"] or {}
+            ok_t, kind = _title_ok(pp.get("title"), g.get("title_has"))
+            clean = not is_garbage_title(pp.get("title") or "")
+            when = True
+            for f in ("date", "start_time", "end_time"):
+                want = g.get(f)
+                if not want:
+                    continue
+                wants = want if isinstance(want, list) else [want]
+                if _norm(f, pp.get(f)) not in [_norm(f, w) for w in wants]:
+                    when = False
+                    wrong.append(f)
+            if not ok_t:
+                wrong.append("title")
+            elif not clean:
+                wrong.append("title-junk")
+            kinds.add(kind)
+            b = out[kind]
+            b["n"] += 1
+            b["title"] += 1 if ok_t else 0
+            b["clean"] += 1 if (ok_t and clean) else 0
+            b["when"] += 1 if when else 0
+            b["all"] += 1 if (ok_t and when) else 0
+            row_ok = row_ok and ok_t and when
+        if not gold:
+            kinds.add("nothing")
+        out["all_ok"] += 1 if row_ok else 0
+        out["rows"].append({
+            "id": rep["id"], "tier": row["tier"], "said": row["said"][:70],
+            "all_ok": row_ok, "kind": "/".join(sorted(kinds)), "wrong": wrong,
+            "made": [((p["parameters"] or {}).get("title"),
+                      (p["parameters"] or {}).get("date"),
+                      (p["parameters"] or {}).get("start_time")) for p in produced]})
+    return out
 
 
 def _same_shape(a: list, b: list) -> bool:
@@ -567,11 +679,15 @@ def report(res: dict, rows: list, taxonomy: dict, guard: tuple,
         L.append("> Guard passed: no real store changed during the run.\n")
 
     L.append("## The headline\n")
-    L.append(f"**Corrected tier, all fields right: {pct(c['all_ok'], c['usable'])} "
-             f"(n={c['usable']})** — of {c['n']} corrected rows, "
-             f"{c['n'] - c['usable']} are excluded because the gold is a title Gil "
-             f"TYPED rather than said, which no parser can reach (see the note "
-             f"below). Item count right on {pct(c['count_ok'], c['usable'])}.\n")
+    L.append(f"**Corrected tier, every REACHABLE field right: "
+             f"{pct(c['all_ok'], c['usable'])} (n={c['usable']} of {c['n']})** — "
+             f"a field is scored only where the gold value is one a parse of the "
+             f"words could produce (`intent/correction.py`: unchanged, or a title "
+             f"whose words were said, or a clock on the five-minute grid); "
+             f"{c['n'] - c['usable']} rows have no reachable field at all. Item "
+             f"count right on {pct(c['count_ok'], c['usable'])}. Read by hand mark "
+             f"alone, as the 2026-09-18 headline was: "
+             f"{pct(c['strict_ok'], c['strict_n'])} (n={c['strict_n']}).\n")
 
     L.append("### Per field, corrected tier\n")
     L.append("| field | right | scored |")
@@ -596,6 +712,40 @@ def report(res: dict, rows: list, taxonomy: dict, guard: tuple,
     L.append(f"- **Rejected tier (n={r['n']}):** the output CHANGED on "
              f"**{pct(r['changed'], r['n'])}**. Changed is not fixed — there is no "
              f"gold here — but unchanged is certainly not fixed.\n")
+
+    q = res.get("reachable")
+    if q and q["n"]:
+        L.append("## Under Q41 — the generic-title class against what the words hold\n")
+        L.append("Gil, 2026-09-22 (DEVQA Q41): *\"just make a meeting according to "
+                 "other details with bare title is fine.\"* So the largest class is "
+                 "re-scored against REACHABLE gold — `reachable` in `taxonomy.jsonl`, "
+                 "hand-authored on each row's own clock: the subject the words "
+                 "actually held, or a bare title where nothing beyond the kind was "
+                 "said, plus the stated day and clock. The tiers above are "
+                 "untouched; this is the same rows read under the ruling.\n")
+        L.append(f"**Right, or acceptable under Q41: {pct(q['all_ok'], q['n'])} of "
+                 f"{q['n']} rows** (item count right on {pct(q['count_ok'], q['n'])}).\n")
+        L.append("| items | n | title right | …and no junk in it | day+clock right | title and when |")
+        L.append("|---|---|---|---|---|---|")
+        for key, label in (("said", "subject was SAID — the title must carry it"),
+                           ("bare", "nothing but the kind was said — bare is right")):
+            b = q[key]
+            if b["n"]:
+                L.append(f"| {label} | {b['n']} | {pct(b['title'], b['n'])} | "
+                         f"{pct(b['clean'], b['n'])} | {pct(b['when'], b['n'])} | "
+                         f"{pct(b['all'], b['n'])} |")
+        L.append("")
+        L.append("_Per ITEM in the table, per ROW in the bold line. A said subject "
+                 "is right when the title CONTAINS the phrase (any spelling the "
+                 "vocabulary produces); junk is `score_dataset_run.is_garbage_title`; "
+                 "`end_time` is scored only where the words stated one._\n")
+        L.append("Rows still wrong under Q41:\n")
+        for row in q["rows"]:
+            if not row["all_ok"]:
+                L.append(f"- id={row['id']} ({row['tier']}, {row['kind']}) wrong: "
+                         f"{', '.join(row['wrong']) or '?'} — made {row['made']}")
+                L.append(f"  - {row['said']}")
+        L.append("")
 
     L.append("## Failure taxonomy\n")
     counts = {}
@@ -665,18 +815,22 @@ def report(res: dict, rows: list, taxonomy: dict, guard: tuple,
             L.append(f"- id={e['id']}: {e['error']}")
         L.append("")
 
-    L.append("## Why half the corrected gold cannot be scored\n")
-    L.append("`memory.set_feedback` (`assistant/intent/memory.py:229`) stores "
-             "whatever the client sends, and the review flow sends the record as it "
-             "stands AFTER Gil edits it in the UI. So a correction is the FINAL "
-             "STATE of the row, not a corrected reading of the sentence:\n")
+    L.append("## Why part of the corrected gold cannot be scored\n")
+    L.append("`memory.set_feedback` stores whatever the client sends, and the review "
+             "flow sends the record as it stands AFTER Gil edits it in the UI. So a "
+             "correction is the FINAL STATE of the row, not a corrected reading of "
+             "the sentence:\n")
     L.append("    said:  \"Set a meeting for 10 a.m. tomorrow morning\"")
     L.append("    gold:  title \"Date <heart>\", 11:00-15:00\n")
     L.append("No parse produces that, and scoring it would cap this metric forever "
-             "and blame the engine for not reading his mind. Each corrected row is "
-             "therefore hand-marked `gold_usable` and both counts are printed. "
-             "**The durable fix is to record the corrected PARSE alongside the "
-             "record state** — until then this tier stays small.\n")
+             "and blame the engine for not reading his mind. Since 2026-09-22 the "
+             "memory ANNOTATES every correction as it is stored — per action, "
+             "which fields changed against the engine's parse and which new "
+             "values the words could reach (`assistant/intent/correction.py`, "
+             "rules in its docstring) — and this board applies the same rules to "
+             "rows stored before then. A field is scored when reachable; a "
+             "hand mark `gold_usable` in `taxonomy.jsonl` still scores a whole "
+             "row and is what the strict number above reads.\n")
 
     L.append("## Rows to read\n")
     L.append("### Corrected, still wrong\n")
@@ -684,8 +838,9 @@ def report(res: dict, rows: list, taxonomy: dict, guard: tuple,
         if row.get("skipped"):
             continue
         if not row.get("all_ok"):
+            unreach = f"; unreachable: {', '.join(row['unreachable'])}" if row.get("unreachable") else ""
             L.append(f"- id={row['id']} [{row['class']}] count {row['count']}, "
-                     f"wrong: {', '.join(row['wrong']) or 'count only'}")
+                     f"wrong: {', '.join(row['wrong']) or 'count only'}{unreach}")
             L.append(f"  - {row['said']}")
     L.append("")
     L.append("### Rejected, output unchanged (still wrong the same way)\n")
@@ -739,19 +894,36 @@ def main() -> int:
     after_rows = _real_contents()
 
     res = score(replayed, rows, taxonomy)
+    res["reachable"] = score_reachable(replayed, rows, taxonomy)
     appeared = {k: [x for x in after_rows[k] if x not in before_rows[k]]
                 for k in after_rows}
     text = report(res, rows, taxonomy, (before, after), appeared)
-    pathlib.Path(a.out).write_text(text)
+    # Everything after the first `---` line of the existing file is hand-written
+    # run HISTORY (run 2 onward) and survives a re-run; the generated report
+    # above it is replaced. A 2026-09-21 rebuild lost that history once.
+    out_path = pathlib.Path(a.out)
+    history = ""
+    if out_path.is_file():
+        old = out_path.read_text()
+        mark = old.find("\n---\n")
+        if mark >= 0:
+            history = old[mark:]
+    out_path.write_text(text + history)
 
     c = res["corrected"]
     print()
-    print(f"CORRECTED  all-fields {pct(c['all_ok'], c['usable'])} (n={c['usable']} "
-          f"usable of {c['n']})   count {pct(c['count_ok'], c['usable'])}")
+    print(f"CORRECTED  reachable-fields {pct(c['all_ok'], c['usable'])} (n={c['usable']} "
+          f"of {c['n']})   count {pct(c['count_ok'], c['usable'])}   "
+          f"hand-marked only {pct(c['strict_ok'], c['strict_n'])} (n={c['strict_n']})")
     print(f"APPROVED   unchanged  {pct(res['approved']['same'], res['approved']['n'])} "
           f"(n={res['approved']['n']})")
     print(f"REJECTED   changed    {pct(res['rejected']['changed'], res['rejected']['n'])} "
           f"(n={res['rejected']['n']})")
+    q = res["reachable"]
+    if q["n"]:
+        print(f"Q41        generic-title right/acceptable {pct(q['all_ok'], q['n'])} "
+              f"(n={q['n']} rows; said-subject items {q['said']['all']}/{q['said']['n']}, "
+              f"bare items {q['bare']['all']}/{q['bare']['n']})")
     moved = [k for k in before if before.get(k) != after.get(k)]
     if moved:
         print(f"GUARD      CHANGED: {', '.join(moved)}")

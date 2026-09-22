@@ -225,6 +225,21 @@ class CommandMemory:
         if feedback not in (FEEDBACK_NONE, FEEDBACK_APPROVED, FEEDBACK_CORRECTED, FEEDBACK_REJECTED):
             raise ValueError(f"bad feedback value {feedback!r}")
         with self._lock, self._conn() as c:
+            if correction is not None:
+                # ANNOTATE what the correction tells us — which fields changed
+                # against the engine's own parse, and which new values the
+                # words could have produced — beside what it stores. The
+                # client sends the record as it stands after the edit, and a
+                # scorer needs the difference, not the state (2026-09-22;
+                # `intent/correction.py` has the rules and why).
+                row = c.execute(
+                    "SELECT raw_transcript, transcript, actions_json FROM examples WHERE id=?",
+                    (example_id,)).fetchone()
+                if row is not None:
+                    from assistant.intent import correction as _corr
+                    said = row["raw_transcript"] or row["transcript"]
+                    correction = _corr.annotate(said, json.loads(row["actions_json"] or "[]"),
+                                                correction)
             cur = c.execute(
                 "UPDATE examples SET feedback=?, correction_json=COALESCE(?, correction_json), "
                 "notes=CASE WHEN ?='' THEN notes ELSE ? END WHERE id=?",
@@ -244,7 +259,8 @@ class CommandMemory:
         """
         with self._lock, self._conn() as c:
             row = c.execute(
-                "SELECT e.id, e.ts, e.actions_json, e.correction_json, r.action, r.action_index "
+                "SELECT e.id, e.ts, e.actions_json, e.correction_json, e.raw_transcript, "
+                "e.transcript, r.action, r.action_index "
                 "FROM example_records r JOIN examples e ON e.id = r.example_id "
                 "WHERE r.record_type=? AND r.record_id=? ORDER BY e.ts DESC LIMIT 1",
                 (record_type, int(record_id)),
@@ -267,7 +283,13 @@ class CommandMemory:
                 if idx is None or not (0 <= idx < len(base)) or base[idx].get("action") != row["action"]:
                     return None
                 base[idx].setdefault("parameters", {}).update(clean)
-                correction = base
+                # Same annotation as the explicit path (`set_feedback`): the
+                # changed fields and their reachability, against the ENGINE's
+                # parse — never against an earlier correction, which would
+                # hide a second edit to the same field.
+                from assistant.intent import correction as _corr
+                said = row["raw_transcript"] or row["transcript"]
+                correction = _corr.annotate(said, json.loads(row["actions_json"] or "[]"), base)
             c.execute(
                 "UPDATE examples SET feedback=?, correction_json=COALESCE(?, correction_json) WHERE id=?",
                 (feedback, json.dumps(correction, ensure_ascii=False) if correction else None, row["id"]),

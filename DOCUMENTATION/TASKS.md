@@ -1501,6 +1501,21 @@ rows below).
 | 7 | ingest month/day misspellings ("Febuary"); "invite/schedule/book" as polite imperatives; always answer when the rescue builds nothing | open | vocab bench (thousands), stage board |
 | 8 | RULINGS for Gil | **ANSWERED 2026-09-20** (DEVQA Q28, Q31–Q34): a MEAL names its own hour (09/13/19) and the board's premise moved with it; a NEW LIST is a General to-do named for its contents; a genuine bare 7 or 8 is ASKED about and otherwise reads PM on both tracks; the loop resumes; cycles run on the branch and never merge. **Still unruled:** the general untimed event (non-meal), and whether an offset or a recurrence on "remind me to <verb>" makes it an event | 5 of the remaining rows |
 
+## THE CORRECTION FLOW RECORDS WHAT CHANGED — landed, 2026-09-22
+
+`memory.set_feedback` and `feedback_for_record` annotate every stored
+correction with `changed` and `reachable` per action
+(`assistant/intent/correction.py`), and the real-usage board scores the
+corrected tier per reachable field instead of per hand-marked row (15 of 16
+rows scored, was 9). Open from the same work:
+
+- **The review view could ask which fields were WRONG, not only what they
+  should be.** Today reachability is inferred by rule (title words said,
+  clock on the five-minute grid, a moved date is a change of plan). One tap
+  per changed field — "misheard" vs "changed my mind" — would make the
+  inference unnecessary and is the only way to score a typed title honestly.
+  iOS `AssistantReviewView`, the same `/memory/<id>/feedback` body.
+
 ## TIPS ON THE PHONE — landed, 2026-09-22 (DEVQA Q41)
 
 The Mac's five "How to Talk to Me" tips now reach iOS (`GET /tips`,

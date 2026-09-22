@@ -432,7 +432,12 @@ corrected/rejected; a reformulated retry is mined as a correction pair).
 review UIs: iOS `AssistantReviewView`, Mac panel feedback row.
 **How:** Recorded per item (per-item attribution). Few-shot injection exists
 but ships k=0 — measured to hurt the engine; the record feeds calibration
-(TASKS row 57) and future fast-rule mining instead.
+(TASKS row 57) and future fast-rule mining instead. Since 2026-09-22 a stored
+correction is ANNOTATED with what it tells us, not only what it stores: per
+action, `changed` (fields that differ from the engine's parse) and
+`reachable` (which new values a parse of the words could produce —
+`assistant/intent/correction.py`, rules in its docstring). The real-usage
+board scores the corrected tier per reachable field on that.
 
 ### Tag suggestion history
 covered under **Tag discovery** above — the review/reverse/hide record.
