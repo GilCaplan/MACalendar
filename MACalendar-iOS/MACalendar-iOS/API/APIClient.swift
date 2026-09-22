@@ -1508,6 +1508,11 @@ class APIClient: ObservableObject {
         try decode(VocabOnboarding.self, from: try await request("/vocab/onboarding"))
     }
 
+    /// The phrasing tips (Settings → Assistant → How to Talk to Me).
+    func tips() async throws -> TipsPayload {
+        try decode(TipsPayload.self, from: try await request("/tips"))
+    }
+
     func vocabOnboardingSubmit(answers: [String: [String]], presets: [String]) async throws {
         try await mutate("/vocab/onboarding", method: "POST",
                          body: ["answers": answers, "presets": presets, "done": true])

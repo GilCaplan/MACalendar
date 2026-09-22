@@ -191,9 +191,14 @@ struct VoiceResponse: Codable {
     let confirmToken: String?
     let proposal: [ProposedCreate]?
     let brain: String?               // assistant.trace.BRAIN_VERSION that answered
+    /// One coaching line the host attached to this reply — "say what it's
+    /// about" after a bare 'meeting' committed, "lead with the thing" after a
+    /// title was refused. Drawn once per code above the mic, dismissable.
+    /// Optional: an older host sends none. (Gil, 2026-09-22, DEVQA Q41.)
+    let hint: ReplyHint?
 
     enum CodingKeys: String, CodingKey {
-        case message, actions, refresh, parse, transcript, corrections, trace, brain
+        case message, actions, refresh, parse, transcript, corrections, trace, brain, hint
         case boundaries
         case verifyToken = "verify_token"
         case originalTranscript = "original_transcript"
@@ -204,6 +209,28 @@ struct VoiceResponse: Codable {
         case confirmToken = "confirm_token"
         case proposal
     }
+}
+
+/// The host's contextual hint on a voice reply (`hint` key). `code` is what
+/// the phone remembers, so the same hint is never shown twice.
+struct ReplyHint: Codable, Equatable {
+    let code: String
+    let headline: String
+    let body: String
+}
+
+/// GET /tips — the "How to Talk to Me" tips the Mac shows from Settings, plus
+/// the hint texts, from the one copy in `assistant/tips.py`.
+struct TipsPayload: Codable {
+    let brain: String
+    let tips: [TipItem]
+    let hints: [String: TipItem]
+}
+
+struct TipItem: Codable, Identifiable {
+    var id: String { headline }
+    let headline: String
+    let body: String
 }
 
 /// One thing a confirm_create proposal would create. The host also sends a

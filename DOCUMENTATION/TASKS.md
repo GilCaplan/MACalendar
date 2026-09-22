@@ -1501,6 +1501,28 @@ rows below).
 | 7 | ingest month/day misspellings ("Febuary"); "invite/schedule/book" as polite imperatives; always answer when the rescue builds nothing | open | vocab bench (thousands), stage board |
 | 8 | RULINGS for Gil | **ANSWERED 2026-09-20** (DEVQA Q28, Q31–Q34): a MEAL names its own hour (09/13/19) and the board's premise moved with it; a NEW LIST is a General to-do named for its contents; a genuine bare 7 or 8 is ASKED about and otherwise reads PM on both tracks; the loop resumes; cycles run on the branch and never merge. **Still unruled:** the general untimed event (non-meal), and whether an offset or a recurrence on "remind me to <verb>" makes it an event | 5 of the remaining rows |
 
+## TIPS ON THE PHONE — landed, 2026-09-22 (DEVQA Q41)
+
+The Mac's five "How to Talk to Me" tips now reach iOS (`GET /tips`,
+`TipsView.swift`), and the reply carries a `hint` key the phone draws once
+per code above the mic (`bare_title`, `title_refused`) — `FEATURES.md` has
+the entry. Two rows left open by the same work:
+
+- **The Mac GUI does not draw the hint.** The engine sends it to every
+  client; only `VoiceButton.swift` renders it. The Mac's reply rendering
+  lives in `pipeline.py`'s answer path — a small card by the mic the same
+  way, when the Mac is worth it.
+- **A clock suffix gets a bare title past the gate.** Found by the
+  five-sentence probe that answered cycle 35 (a probe, not a board): *"set an
+  appointment for tomorrow morning on tuesday at 910am"* committed the title
+  **'appointment at 910am'** on the deep path — `names_something` passes it
+  because "at 910am" is a word it has never seen, while *"set an appointment
+  for tomorrow at 4pm"* is refused and *"set a meeting … at 4pm"* commits
+  'meeting' (Q41). The leak is the unparsed clock ("910am" with no colon)
+  staying in the title, the same class dev-100's cycles 30–33 closed for
+  parsed clocks. Real-usage row id=18. Not fixed here — a title-gate change
+  is boarded on FastRule's own board first.
+
 ## THE LOOP-BACK'S MODEL ROUND — landed, 2026-09-20 (DEVQA Q30)
 
 Gil: *"the whole point of the loop is that the llm sends a fix if relevant

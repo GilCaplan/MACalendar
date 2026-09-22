@@ -258,8 +258,9 @@ class Engine(Component):
 
         The response contract is frozen (clients depend on every key):
         message / actions / refresh / parse / transcript / original_transcript /
-        corrections / trace / uncertain_words [+ memory_id, verify_token,
-        pending_id, needs_edit].
+        corrections / trace / uncertain_words / hint [+ memory_id,
+        verify_token, pending_id, needs_edit]. Additive: a client that does
+        not know a key ignores it (`hint`, 2026-09-22, is the latest).
         """
         from assistant.trace import Trace
 
@@ -512,6 +513,10 @@ class Engine(Component):
             "boundaries": trace.boundaries_to_list(),
             "uncertain_words": _transcript.uncertain_words(state.text),
             "brain": _brain_version(),
+            # One coaching line for the client to draw once, or None. Its own
+            # key because `message` is SPOKEN — appended there, a tip would be
+            # read aloud on every command.
+            "hint": _hint(state),
         }
         if state.memory_id is not None:
             resp["memory_id"] = state.memory_id
@@ -680,6 +685,36 @@ def _commit(state: EngineState, cfg) -> None:
     # tags for tasks. Never left for a later stage, so a committed row is never
     # an uncategorised one.
     _label.run(state, cfg)
+
+def _hint(state: EngineState) -> "dict | None":
+    """One coaching hint for the client to show after this reply, or None.
+
+    Two codes, both title classes from the real-usage board (Gil,
+    2026-09-22 — tips on the phone, keyed on the reply), in priority order:
+
+    - `title_refused` — an item held back because nothing in the words named
+      the thing (`_block_unresolved_subjects`, the rescue's nothing-survived
+      block). NOT the FastRule flags: 'thanks' left alone is not a title
+      problem, and a hint there would coach the speaker for nothing.
+    - `bare_title` — a create that COMMITTED with a title that is only the
+      kind of thing: 'meeting', 'an appointment'. Q41 keeps committing these
+      (the day and time are right, and a refusal would cost the event), so
+      the hint is the one thing that can make the next title better.
+
+    The words are `assistant.tips.HINTS`; this only picks the code.
+    """
+    from assistant import tips as _tips
+    for it in state.items:
+        if it.blocked and (it.slots or {}).get("fastrule_result") not in (
+                "bad_item", "not_an_ask"):
+            return _tips.hint("title_refused")
+    done = {ex.item_id for ex in state.executed if ex.ok}
+    for it in state.items:
+        if (it.id in done and it.action in ("create_event", "create_todo")
+                and _tips.is_bare_title(getattr(it.intent, "title", "") or "")):
+            return _tips.hint("bare_title")
+    return None
+
 
 def _loop_target(state: EngineState) -> "str | None":
     """"segment", or None when nothing here earns a loop.

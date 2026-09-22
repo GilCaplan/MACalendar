@@ -965,3 +965,19 @@ before you rule:
   engine cycles, four rulings built, and the iOS project repair — with the
   full suite green and every change boarded.
 
+- **2026-09-22 — Q41 (TIPS ON THE PHONE; A BARE TITLE COMMITS)**, Gil:
+  *"Add for iOS as well, just make a meeting according to other details
+  with bare title is fine."* Asked whether a phrasing tutorial with an
+  unobtrusive tooltip was the right answer to the real-usage board's
+  `generic-title` class (42% of his own failures), told the tutorial
+  already existed as the Mac's five "How to Talk to Me" tips (2026-09-16,
+  still true today, verified live) and that the phone had none. Two
+  rulings. (1) The same five tips come to iOS, served by `GET /tips` from
+  the one copy in `assistant/tips.py`, plus a one-line HINT above the
+  phone's mic keyed on the reply's new `hint` key — shown once per code,
+  dismissable, never modal. (2) *"set a meeting for me tomorrow at 4pm"*
+  COMMITS 'meeting' with the day and time: not refused (Q38 covers program
+  words like 'event' that name nothing; 'meeting' names a kind of thing),
+  not asked about. The hint is what improves the next title. Built the same
+  day on `tips-on-ios`; the Mac GUI does not draw the hint yet.
+

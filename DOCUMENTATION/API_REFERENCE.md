@@ -64,6 +64,12 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 |---|---|---|
 | `GET` | `/changes` | A cheap "has anything changed?" token for the phone to poll. |
 
+## /tips
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/tips` | The "How to Talk to Me" tips and the reply hints — one copy for every client. |
+
 ## /pending
 
 | Method | Path | What it does |

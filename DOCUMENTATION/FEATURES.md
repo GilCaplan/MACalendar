@@ -54,7 +54,7 @@ still queues exactly as before.
 | UI | [Tasks power features](#tasks-power-features) | rich notes, sorts, reorder, cal→tasks sync, Both/Today/General scope | `todo_view.py`, `TasksView.swift` |
 | UI | [Search & jump-to-date](#search--jump-to-date) | toolbar search over events/tasks; type a date to jump | `window.py`, `SearchView.swift` |
 | UI | [Small conveniences](#small-conveniences) | duplicate event, week numbers, Timer CSV export | `event_dialog.py`, `month_view.py`, `timer_view.py` |
-| UI | ["How to Talk to Me" tips](#how-to-talk-to-me-tips) | 5 short, verified voice-phrasing tips (Settings → Assistant) | `tips.py`, `tips_dialog.py` |
+| UI | ["How to Talk to Me" tips](#how-to-talk-to-me-tips) | 5 short, verified voice-phrasing tips (Settings → Assistant, Mac and iOS) + a one-line hint above the phone's mic keyed on the reply | `tips.py`, `tips_dialog.py`, `TipsView.swift`, `GET /tips` |
 | assistant | [Personal lexicon](#personal-lexicon) | the engine's word lists, extendable from Settings so it learns how you say things | `intent/lexicon.py`, `/lexicon` |
 | UI | [Foldable settings sections](#foldable-settings-sections) | every Settings section collapses and stays collapsed, on both apps; the phone starts them all folded | `settings_dialog.py`, `SettingsView.swift` |
 | hybrid | [Calendar views](#calendar-views-month--week--day) | month/week/day/agenda browsing + event CRUD, drag, undo | `calendar_ui/`, iOS views, `db.py` |
@@ -622,10 +622,23 @@ aggregation helper so file and tiles can't disagree.
 
 **What:** five short tips on effective voice phrasing (Settings → Assistant
 → "How to Talk to Me…"), deliberately kept to five (Gil, 2026-09-16: don't
-overload the user with content). Mac only — not built for iOS this pass.
-**Where:** `assistant/tips.py` (content), `calendar_ui/tips_dialog.py`
-(the dialog), wired in from `settings_dialog.py`'s Assistant section
-alongside Vocabulary/Review/Categories.
+overload the user with content). On the Mac and, since 2026-09-22 (DEVQA
+Q41), on the phone — the same five, fetched from `GET /tips` so there is one
+copy. The phone also draws a **contextual hint**: one line above the mic,
+right after a reply, keyed on what the engine just did — "say what it's
+about" when a bare 'meeting' committed, "lead with the thing" when a title
+was refused. Shown once per hint code, dismissed by a tap or after twelve
+seconds, never a modal. The two codes are the real-usage board's title
+classes (`generic-title` was 42% of Gil's own failures); the engine keeps
+COMMITTING a bare 'meeting' with its day and time (Q41), so the hint is what
+improves the next title. The Mac GUI does not draw the hint yet.
+**Where:** `assistant/tips.py` (`TIPS`, `HINTS`, `is_bare_title`,
+`payload`), `calendar_ui/tips_dialog.py` (the Mac dialog, from
+`settings_dialog.py`'s Assistant section), `assistant/engine/__init__.py::
+_hint` (picks the code; the reply carries it as `hint`), `GET /tips`
+(`server.py`), iOS `Views/TipsView.swift` (Settings → Assistant → How to
+Talk to Me) and the card in `Views/VoiceButton.swift` (`hintCard`,
+`AppSettings.shownHints` remembers which codes have been shown).
 **How:** each tip is a factual claim about pipeline behavior, verified LIVE
 against `assistant.engine.run_transcript` when written — one candidate tip
 turned out false when checked and was dropped before shipping. Tied to

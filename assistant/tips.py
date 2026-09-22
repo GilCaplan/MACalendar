@@ -68,3 +68,66 @@ TIPS: list[tuple[str, str]] = [
      "Settings → Assistant to see a quick confirmation whenever the "
      "assistant doubts a name it heard, before anything is created."),
 ]
+
+
+#: CONTEXTUAL hints — one line the client shows right after a reply, keyed on
+#: what the engine just did, once per code, dismissable (Gil, 2026-09-22: a
+#: tooltip that "pops up easily and intuitively without getting in the way").
+#: These are NOT the five tips above and do not count against their cap: a tip
+#: is read in Settings, a hint arrives at the moment it applies. Each code is a
+#: real-usage failure class from `DOCUMENTATION/experiments/real_usage/
+#: RESULTS.md` — `generic-title` was 42% of Gil's own failures, and the engine
+#: COMMITS those (Q41: "a meeting according to the other details with a bare
+#: title is fine"), so the hint is the only thing that can improve the title.
+#: The engine picks the code in `assistant.engine._hint`; the words live here
+#: so `test_tips_current.py` holds them to the same length and version rules.
+HINTS: dict[str, tuple[str, str]] = {
+    "bare_title": (
+        "Say what it’s about",
+        "“Meeting with Sam about the budget” becomes the title. "
+        "“Set a meeting” alone is saved as ‘meeting’ — "
+        "right day and time, nothing more."),
+    "title_refused": (
+        "Lead with the thing",
+        "Put what it is first — “dentist tomorrow at 4”, "
+        "“buy milk”. This one wasn’t saved because there was "
+        "nothing to call it."),
+}
+
+#: A committed title that is only the KIND of thing, not the thing — the
+#: `generic-title` class as it looks after the parser: the program word with
+#: the frame and the time stripped off. Kept to words that name nothing on
+#: their own; "lunch" or "gym" are real titles and stay out.
+_BARE_TITLES = frozenset(
+    "meeting meetings appointment appointments appt event events call "
+    "session reminder task todo to-do note item thing something stuff "
+    "plan plans errand".split())
+_BARE_LEAD = frozenset("a an the my our your this that".split())
+
+
+def is_bare_title(title: str) -> bool:
+    """True when `title` names only a kind of thing ('meeting', 'an event')."""
+    words = (title or "").strip().lower().replace("’", "'").split()
+    while words and words[0] in _BARE_LEAD:
+        words = words[1:]
+    return len(words) == 1 and words[0].strip(".,!") in _BARE_TITLES
+
+
+def hint(code: str) -> "dict | None":
+    """The reply-shaped hint for `code`: {code, headline, body}, or None."""
+    got = HINTS.get(code)
+    if not got:
+        return None
+    headline, body = got
+    return {"code": code, "headline": headline, "body": body}
+
+
+def payload() -> dict:
+    """What `GET /tips` serves: the tips, the hints, and the engine version
+    they were verified against — one copy for every client."""
+    return {
+        "brain": TIPS_BRAIN_VERSION,
+        "tips": [{"headline": h, "body": b} for h, b in TIPS],
+        "hints": {code: {"headline": h, "body": b}
+                  for code, (h, b) in HINTS.items()},
+    }

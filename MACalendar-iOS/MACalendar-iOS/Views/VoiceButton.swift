@@ -42,6 +42,11 @@ struct VoiceButton: View {
         status == .thinking || status == .speaking || (finished && lastResponse != nil && Date().timeIntervalSince(finishedAt) < 120)
     }
     @State private var finishedAt = Date.distantPast
+    /// The host's one-line coaching for the reply just given ("say what it's
+    /// about"), drawn above the mic once per code, dismissed by a tap or on
+    /// its own. Never a modal: it must not get in the way (Gil, 2026-09-22).
+    @State private var hint: ReplyHint?
+    @State private var hintTask: Task<Void, Never>?
 
     var body: some View {
         // The chip floats above the mic as an overlay so the mic never moves and
@@ -105,6 +110,10 @@ struct VoiceButton: View {
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
+        .overlay(alignment: .top) {
+            if let h = hint { hintCard(h) }
+        }
+        .animation(.easeInOut(duration: 0.2), value: hint)
         .animation(.easeInOut(duration: 0.2), value: canReopen)
         .animation(.easeInOut(duration: 0.2), value: status)
         .sheet(item: $editRequest) { req in
@@ -132,6 +141,46 @@ struct VoiceButton: View {
     /// Throw the recording away without sending it. The Mac's review bar has
     /// had this since it existed; the phone's only exits were Send and Redo,
     /// so a recording started by accident had to be sent and then undone.
+    /// The tip card: a lightbulb, the headline, one line of body, an ✕. It
+    /// sits above the "Show what it did" chip so neither hides the other.
+    private func hintCard(_ h: ReplyHint) -> some View {
+        Button { dismissHint() } label: {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "lightbulb.fill").foregroundColor(.yellow)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(h.headline).font(.caption.weight(.semibold))
+                    Text(h.body).font(.caption2).foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Image(systemName: "xmark").font(.caption2).foregroundColor(.secondary)
+            }
+            .multilineTextAlignment(.leading)
+            .padding(10)
+            .frame(width: 280, alignment: .leading)
+            .background(.regularMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .shadow(radius: 2)
+        }
+        .buttonStyle(.plain)
+        .offset(y: -104)
+        .transition(.opacity.combined(with: .move(edge: .bottom)))
+        .accessibilityLabel("Tip: \(h.headline). \(h.body)")
+    }
+
+    private func showHint(_ h: ReplyHint) {
+        hintTask?.cancel()
+        hint = h
+        hintTask = Task {
+            try? await Task.sleep(nanoseconds: 12_000_000_000)
+            if !Task.isCancelled { await MainActor.run { hint = nil } }
+        }
+    }
+
+    private func dismissHint() {
+        hintTask?.cancel()
+        hint = nil
+    }
+
     private var discardButton: some View {
         Button(role: .destructive) { discard() } label: {
             Image(systemName: "trash")
@@ -489,6 +538,14 @@ struct VoiceButton: View {
         api.burstRefresh()   // poll every second for a while so both devices settle together
         onRefresh?(response.refresh)
         onResponse?(response)
+
+        // One coaching line, once per code: "set a meeting" committed as
+        // 'meeting', so next time say what it is about. The words come from
+        // the host; the phone only remembers which codes it has shown.
+        if let h = response.hint, !settings.shownHints.contains(h.code) {
+            settings.shownHints.append(h.code)
+            showHint(h)
+        }
 
         // Background self-check: the Mac re-reasons over what it did and may
         // patch/undo it. Poll for the outcome and tell the user if it changed.

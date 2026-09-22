@@ -1035,6 +1035,12 @@ def create_app() -> Flask:
         """
         return jsonify({"token": change_token()})
 
+    @app.get("/tips")
+    def tips_get():
+        """The "How to Talk to Me" tips and the reply hints — one copy for every client."""
+        from assistant import tips
+        return jsonify(tips.payload())
+
     @app.get("/vocab/onboarding")
     def vocab_onboarding_get():
         from assistant.stt.vocab import get_vocab

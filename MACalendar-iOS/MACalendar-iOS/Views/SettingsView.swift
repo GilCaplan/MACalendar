@@ -483,6 +483,22 @@ struct SettingsView: View {
                                 }
                             }
 
+                            // The Mac's "How to Talk to Me" (Settings →
+                            // Assistant), on the phone too — the same five
+                            // tips, fetched from the host so there is one copy.
+                            NavigationLink {
+                                TipsView()
+                            } label: {
+                                HStack {
+                                    Label("How to Talk to Me", systemImage: "lightbulb")
+                                    Spacer()
+                                    Text("Five ways to phrase it")
+                                        .font(.caption).foregroundColor(.secondary)
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption).foregroundColor(.secondary)
+                                }
+                            }
+
                             // The word lists the ENGINE matches on, as opposed
                             // to the Vocabulary above, which is what WHISPER
                             // should hear. Two different failures: "Conello

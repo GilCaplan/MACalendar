@@ -37,3 +37,33 @@ def test_tips_are_short_and_non_empty():
         assert headline.strip() and body.strip()
         assert len(headline) <= 60
         assert len(body) <= 220
+
+
+def test_hints_are_short_and_carry_a_reply_shape():
+    # The contextual hints are held to the same ceiling as the tips: one
+    # line the phone can draw in a card above the mic, not a paragraph.
+    from assistant.tips import HINTS, hint, payload
+    assert set(HINTS) == {"bare_title", "title_refused"}
+    for code, (headline, body) in HINTS.items():
+        assert headline.strip() and body.strip()
+        assert len(headline) <= 60
+        assert len(body) <= 220
+        assert hint(code) == {"code": code, "headline": headline, "body": body}
+    assert hint("no_such_code") is None
+    got = payload()
+    assert got["brain"] == TIPS_BRAIN_VERSION
+    assert [t["headline"] for t in got["tips"]] == [h for h, _ in TIPS]
+    assert set(got["hints"]) == set(HINTS)
+
+
+def test_a_bare_title_is_only_the_kind_of_thing():
+    # 'meeting' commits (DEVQA Q41) and earns the hint; a title that names
+    # anything at all does not — the hint must never nag a good command.
+    from assistant.tips import is_bare_title
+    for bare in ["meeting", "Meeting", "a meeting", "an appointment",
+                 "the event", "my appointment", "Appointment", "call",
+                 "reminder", "meeting."]:
+        assert is_bare_title(bare), bare
+    for named in ["meeting with sam", "dentist", "lunch", "gym",
+                  "walk the dog", "budget meeting", "", "  ", None]:
+        assert not is_bare_title(named), named

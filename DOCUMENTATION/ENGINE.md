@@ -408,7 +408,7 @@ panel's `_RevertBar` and the iOS banner re-POST them to undo. Gate:
 ## The response contract (unchanged from the old brain)
 
 `message, actions, refresh ("events"|"todos"|"both"|""), parse, transcript,
-original_transcript, corrections, trace, uncertain_words` + optional
+original_transcript, corrections, trace, uncertain_words, hint` + optional
 `memory_id, verify_token, pending_id, needs_edit`, and for a confirm gate
 `proposal` (`[{kind, body, summary}]`, bodies shaped for POST /events and POST
 /todos) plus the server-minted `confirm_token`, answered at
@@ -416,6 +416,13 @@ original_transcript, corrections, trace, uncertain_words` + optional
 `stt/vocab/rule/memory/llm/validate/execute/verify/done/error` — the iOS
 timeline and the HUD key off them. LLM offline ⇒ pending queue + honest
 message; trivial ⇒ `parse: "ignored"` with nothing recorded.
+
+`hint` (2026-09-22, additive) is `null` or `{code, headline, body}`: one
+coaching line the phone draws once per code above the mic — `bare_title`
+when a create committed with a title that is only the kind of thing
+('meeting'), `title_refused` when an item was held back for naming nothing.
+Its own key because `message` is spoken. Words in `assistant/tips.py::HINTS`,
+the pick in `engine._hint`, the ruling in DEVQA Q41.
 
 ## Config knobs (mirror into config.example.yaml)
 

@@ -155,6 +155,12 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(vocabOnboardingDone, forKey: "vocabOnboardingDone") }
     }
 
+    /// Hint codes the mic's tip card has already shown on this phone — each
+    /// hint appears once, after that only Settings → How to Talk to Me.
+    @Published var shownHints: [String] {
+        didSet { UserDefaults.standard.set(shownHints, forKey: "shownHints") }
+    }
+
     /// Device-local master switch for pre-event reminder rings on THIS phone.
     /// The lead-time policy (what fires when) lives on the Mac and is edited
     /// via PATCH /config; this only decides whether this device schedules the
@@ -201,6 +207,7 @@ class AppSettings: ObservableObject {
         let sil = UserDefaults.standard.double(forKey: "silenceStopSeconds")
         self.silenceStopSeconds = sil == 0 ? 6 : sil
         self.vocabOnboardingDone = UserDefaults.standard.bool(forKey: "vocabOnboardingDone")
+        self.shownHints = UserDefaults.standard.stringArray(forKey: "shownHints") ?? []
         self.remindersEnabled = UserDefaults.standard.object(forKey: "remindersEnabled") == nil
             ? true : UserDefaults.standard.bool(forKey: "remindersEnabled")
         self.taskListScope = UserDefaults.standard.string(forKey: "taskListScope") ?? "both"
