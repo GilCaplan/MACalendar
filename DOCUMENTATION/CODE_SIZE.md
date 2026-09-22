@@ -1,33 +1,33 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 544, "total_lines": 150050} -->
+<!-- code-stats: {"total_files": 545, "total_lines": 150123} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**150,050 lines of source across 544 files.** Of that, **85,638 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**150,123 lines of source across 545 files.** Of that, **85,629 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
-| Test code | 154 | 31,529 |
+| Test code | 155 | 31,611 |
 | iOS application | 60 | 20,562 |
-| Mac application (calendar GUI) | 33 | 18,297 |
-| Actions, storage & domain (DB, config, observance, .ics) | 96 | 17,357 |
-| Engine (the brain, shipped path) | 49 | 16,989 |
+| Mac application (calendar GUI) | 33 | 18,245 |
+| Actions, storage & domain (DB, config, observance, .ics) | 96 | 17,385 |
+| Engine (the brain, shipped path) | 49 | 16,998 |
 | Dataset & measurement tooling | 48 | 12,847 |
 | Engine experiments & boards (not in the answer path) | 46 | 12,503 |
 | Retired (old brain, kept on purpose) | 16 | 7,533 |
-| Review panel (Mac card + iOS timeline) | 6 | 4,110 |
+| Review panel (Mac card + iOS timeline) | 6 | 4,116 |
 | Microphone / speech (record, STT, TTS) | 17 | 3,151 |
 | Model / Ollama code | 12 | 3,118 |
 | API server (the front door) | 4 | 1,738 |
 | Launch scripts | 3 | 316 |
-| **TOTAL** | **544** | **150,050** |
+| **TOTAL** | **545** | **150,123** |
 
 ### By language
 
 | | files | lines |
 |---|---:|---:|
-| Python | 470 | 126,746 |
-| Swift | 65 | 22,455 |
+| Python | 471 | 126,818 |
+| Swift | 65 | 22,456 |
 | shell | 8 | 696 |
 | launch script | 1 | 153 |
 

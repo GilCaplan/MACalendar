@@ -724,10 +724,9 @@ def open_settings(self) -> None:
                 # Read by observance.is_enabled() in the API process, which
                 # loads config.yaml itself — nothing to apply in-memory here.
                 "observance": {"enabled": observance_cb.isChecked()},
-                # Scalars only — category_leads is a mapping, which
-                # config_store._literal cannot render (it would come out as a
-                # quoted Python repr); _persist_category_leads below rewrites
-                # that one key in the same comment-preserving spirit.
+                # Scalars here; `category_leads`, a mapping, goes through the
+                # same writer in `_persist_category_leads` below (one call
+                # since 2026-09-22, when config_store learned the dict case).
                 "notifications": {
                     "enabled": notif_enabled_cb.isChecked(),
                     "default_lead_minutes": int(notif_lead_combo.currentData() or 0),
@@ -805,70 +804,19 @@ def open_settings(self) -> None:
 # category_leads persistence
 # ------------------------------------------------------------------
 
-def _yaml_flow_key(name: str) -> str:
-    """A category name as a YAML flow-mapping key: plain where safe, quoted
-    where the name would otherwise change the document's structure."""
-    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 _.'’-]*", name):
-        return name
-    return '"' + name.replace("\\", "\\\\").replace('"', '\\"') + '"'
-
-
 def _persist_category_leads(leads: "dict[str, int]", path: "str | None" = None) -> bool:
-    """Rewrite just the `category_leads:` entry inside config.yaml's
-    `notifications:` section — section-scoped and comment-preserving, in the
-    same spirit as assistant/config_store (whose set_values handles the
-    section's scalar keys and runs first, so the section always exists).
+    """`notifications.category_leads`, written by the ordinary config writer.
 
-    TODO(config_store-dict-values): set_values cannot carry this mapping —
-    config_store._literal renders bool / number / list / str, and a dict
-    falls through to the string case as a quoted Python repr (verified:
-    {"Work": 15} → `"{'Work': 15}"`, which YAML reads back as a *string*).
-    Teach _literal a dict case (flow mapping) in a config_store change with
-    its own tests, then fold category_leads into the ordinary set_values
-    call above and delete this helper.
-
-    The value is written as a one-line flow mapping — `{Work: 15, Meal: 0}` —
-    and an existing block-style mapping's child lines are collapsed into it.
-    0 mutes the category outright; an absent name follows the default lead.
-    """
+    Until 2026-09-22 this file carried its own YAML writer for the mapping
+    because `config_store._literal` had no dict case (a dict came out as a
+    quoted Python repr, which YAML read back as a string). The writer learned
+    the flow mapping and how to consume a block mapping's child lines, so this
+    is one call now. 0 mutes the category outright; an absent name follows the
+    default lead."""
     from assistant import config_store
-    if path is None:
-        path = config_store.CONFIG_PATH
-    if not os.path.exists(path):
-        return False
-    with open(path, "r") as f:
-        lines = f.read().splitlines()
-    span = config_store._section_span(lines, "notifications")
-    if span is None:
-        return False
-    start, end = span
-    flow = "{" + ", ".join(f"{_yaml_flow_key(n)}: {int(v)}"
-                           for n, v in sorted(leads.items())) + "}"
-    pat = re.compile(r"^(\s+category_leads\s*:\s*)([^#]*?)(\s*#.*)?$")
-    for i in range(start, end):
-        m = pat.match(lines[i])
-        if m is None:
-            continue
-        indent = len(lines[i]) - len(lines[i].lstrip())
-        j = i + 1                # a block-style mapping's children, if any
-        while (j < end and lines[j].strip()
-               and len(lines[j]) - len(lines[j].lstrip()) > indent):
-            j += 1
-        # A block-style header is bare `category_leads:` — group(1) then ends
-        # on the colon, and gluing the flow mapping straight on would emit the
-        # invalid `category_leads:{…}`. A scalar line's group(1) already
-        # carries the separating space.
-        prefix = m.group(1) if m.group(1).endswith(" ") else m.group(1) + " "
-        lines[i:j] = [prefix + flow + (m.group(3) or "")]
-        break
-    else:
-        at = end                 # insert before the section's trailing blanks
-        while at > start and not lines[at - 1].strip():
-            at -= 1
-        lines.insert(at, f"  category_leads: {flow}")
-    with open(path, "w") as f:
-        f.write("\n".join(lines) + "\n")
-    return True
+    kwargs = {"path": path} if path else {}
+    return config_store.set_values(
+        {"notifications": {"category_leads": {str(k): int(v) for k, v in leads.items()}}}, **kwargs)
 
 
 # ------------------------------------------------------------------

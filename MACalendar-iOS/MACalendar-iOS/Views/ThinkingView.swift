@@ -444,6 +444,7 @@ struct ThinkingView: View {
         switch kind {
         case "bad_item":   return ("reached me damaged", .orange)
         case "not_an_ask": return ("not calendar work", .secondary)
+        case "held_back":  return ("held back — names nothing", .orange)   // a refusal at the loop's end (2026-09-22)
         default:           return nil
         }
     }

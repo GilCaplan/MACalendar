@@ -123,3 +123,30 @@ def test_top_level_keys_and_lists(tmp_path):
     assert 'theme: "dark"  # startup theme' in out          # comment kept
     assert "confirmation_level: 0" in out
     assert '  stop_phrases: ["execute", "done"]' in out     # inserted as flow list
+
+
+def test_a_mapping_is_written_as_a_flow_mapping_and_reads_back_as_a_dict(tmp_path):
+    """The dict case (2026-09-22). Until then a dict fell through to the string
+    branch and came back from YAML as a STRING — the settings dialog carried its
+    own writer for `notifications.category_leads` because of it."""
+    import yaml
+    from assistant import config_store
+    p = tmp_path / "config.yaml"
+    p.write_text("notifications:\n  enabled: true   # keep\n  category_leads:\n    Work: 15\n    Meal: 0\n\nother:\n  x: 1\n")
+    assert config_store.set_values({"notifications": {"category_leads": {"Work": 30, "Family": 5}}}, path=str(p))
+    text = p.read_text()
+    assert "category_leads: {Family: 5, Work: 30}" in text, text
+    assert "    Work: 15" not in text and "    Meal: 0" not in text     # the old block children are gone
+    assert "# keep" in text
+    data = yaml.safe_load(text)
+    assert data["notifications"]["category_leads"] == {"Family": 5, "Work": 30}
+    assert data["other"]["x"] == 1
+
+
+def test_a_mapping_key_that_needs_quoting_is_quoted(tmp_path):
+    import yaml
+    from assistant import config_store
+    p = tmp_path / "config.yaml"
+    p.write_text("notifications:\n  enabled: true\n")
+    assert config_store.set_values({"notifications": {"category_leads": {"Kids: school": 10}}}, path=str(p))
+    assert yaml.safe_load(p.read_text())["notifications"]["category_leads"] == {"Kids: school": 10}

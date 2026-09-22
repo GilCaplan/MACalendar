@@ -237,14 +237,15 @@ def category_for(title: str, rule_answer: str, cfg) -> "tuple[str, str]":
     """
     if not enabled(cfg, "event"):
         return rule_answer, "rule"
-    if rule_answer and rule_answer != "Personal":
+    first = _model_first(cfg)
+    if not first and rule_answer and rule_answer != "Personal":
         return rule_answer, "rule"
     model = _cached("event")
     if model is None:
         return rule_answer, "rule"
     got = model.predict(title)
     if got is None:
-        return rule_answer, "rule"
+        return rule_answer, "rule"                  # the model abstained: the rules stand
     return got[0], "model"
 
 
@@ -253,12 +254,20 @@ def tags_for(title: str, rule_answer: list, cfg) -> "tuple[list, str]":
     tags stand when they fired at all, and the model only fills a blank."""
     if not enabled(cfg, "task"):
         return list(rule_answer), "rule"
-    if rule_answer:
+    first = _model_first(cfg)
+    if not first and rule_answer:
         return list(rule_answer), "rule"
     model = _cached("task")
     if model is None:
-        return [], "rule"
+        return list(rule_answer), "rule"
     got = model.predict_tags(title)
     if got is None:
-        return [], "rule"
+        return list(rule_answer), "rule"           # the model abstained: the rules stand
     return got[0], "model"
+
+
+def _model_first(cfg) -> bool:
+    """`labels.model_first` — the model's confident answer wins over the rules
+    (Gil, 2026-09-22). The rules keep every row the model abstains on."""
+    section = getattr(cfg, "labels", None)
+    return bool(getattr(section, "model_first", False)) if section else False

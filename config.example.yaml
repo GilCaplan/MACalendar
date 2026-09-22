@@ -217,6 +217,8 @@ engine:
 labels:
   model_event: false     # learned event-category classifier
   model_task: false      # learned task-tag classifier
+  model_first: false     # true: a confident model answer wins over the keyword rules; the
+                         # rules answer only where the model abstains (Gil, 2026-09-22)
 
 # Jude — the Judaic study assistant (assistant/jude/ARCHITECTURE.md)
 #

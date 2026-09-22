@@ -313,6 +313,12 @@ class LabelsConfig(BaseModel):
 
     model_event: bool = False
     model_task: bool = False
+    #: MODEL FIRST (Gil, 2026-09-22: "I want the ML models on that instead of
+    #: rule based"). Off: the model only fills a row the rules had no opinion
+    #: about. On: a confident model answer wins over the rules' guess, and the
+    #: rules answer only where the model abstains. Needs `model_event` /
+    #: `model_task` on too; a missing or unconfident model still falls back.
+    model_first: bool = False
     #: Retrain in the background once this many NEW user CORRECTIONS have
     #: accumulated. Corrections, not items: fifty tasks nobody corrected teach
     #: nothing.

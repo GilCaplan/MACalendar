@@ -345,6 +345,11 @@ class _StepRow(QWidget):
     _OUTCOMES = {
         "not_an_ask": ("not calendar work", "text2"),
         "bad_item":   ("reached me damaged", "orange"),
+        # A REFUSAL at the end of the loop (2026-09-22): the words never named
+        # the thing, so nothing was written and the reply said so. Amber, like
+        # the damaged case — the speaker has something to fix, and the panel
+        # is where they see WHICH part.
+        "held_back":  ("held back — names nothing", "orange"),
     }
 
     def __init__(self, step: dict, theme: _Theme, parent=None) -> None:

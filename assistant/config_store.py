@@ -52,6 +52,15 @@ _VALUE = r'(?:"[^"]*"|\[[^\]]*\]|[^#]*?)'
 _LIST_ITEM_RE = re.compile(r"^\s*-\s")
 
 
+def _flow_key(name) -> str:
+    """A mapping key as YAML flow style needs it: bare when plain, quoted
+    otherwise ("Meal": 0 is fine; a name with a colon or a hash is not)."""
+    name = str(name)
+    if re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_ .\-]*", name) and not name.strip() != name:
+        return name
+    return '"' + name.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def _literal(value) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
@@ -59,6 +68,13 @@ def _literal(value) -> str:
         return str(value)
     if isinstance(value, (list, tuple)):
         return "[" + ", ".join(_literal(v) for v in value) + "]"
+    if isinstance(value, dict):
+        # A MAPPING as a one-line flow mapping — `{Work: 15, Meal: 0}`. Until
+        # 2026-09-22 a dict fell through to the string case and was written as
+        # a quoted Python repr, which YAML read back as a STRING; the settings
+        # dialog carried its own writer for `notifications.category_leads`
+        # because of it. Keys are sorted so the file is stable across saves.
+        return "{" + ", ".join(f"{_flow_key(k)}: {_literal(v)}" for k, v in sorted(value.items(), key=lambda kv: str(kv[0]))) + "}"
     return f'"{value}"'
 
 
@@ -73,7 +89,13 @@ def _replace_key(lines: "list[str]", i: int, end: int, header: str, value) -> in
     ambiguous shape that read back as one giant scalar rather than a mapping
     (the `nlu.event_keywords` corruption this fixes)."""
     j = i + 1
-    while j < end and _LIST_ITEM_RE.match(lines[j]):
+    indent = len(lines[i]) - len(lines[i].lstrip())
+    while j < end and (_LIST_ITEM_RE.match(lines[j])
+                       # ...or a block MAPPING's children: any non-blank line
+                       # indented deeper than the key it hangs off (2026-09-22,
+                       # with the dict case above)
+                       or (lines[j].strip() and not lines[j].lstrip().startswith("#")
+                           and len(lines[j]) - len(lines[j].lstrip()) > indent)):
         j += 1
     lines[i:j] = [header.rstrip() + " " + _literal(value)]
     return (j - i) - 1
