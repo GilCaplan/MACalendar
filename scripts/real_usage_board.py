@@ -221,7 +221,7 @@ def load_taxonomy() -> dict:
 # The replay
 # ---------------------------------------------------------------------------
 
-def replay(rows: list, scratch: pathlib.Path) -> list:
+def replay(rows: list, scratch: pathlib.Path, resume: bool = False) -> list:
     """Run every row through the real engine in a sandbox. Resumable."""
     stores = scratch / "stores"
     stores.mkdir(parents=True, exist_ok=True)
@@ -323,7 +323,18 @@ def replay(rows: list, scratch: pathlib.Path) -> list:
     import datetime as _dt
     from freezegun import freeze_time
 
-    ck = Checkpoint("real_usage_board", len(rows))
+    # FRESH BY DEFAULT (2026-09-22). `Checkpoint` resumes by default, and this
+    # board resumed EVERY row from a cache recorded at commit 4b47af8 (the
+    # first run, 2026-09-18 12:04) on every run since — the 09-21 "IT MOVED
+    # NOTHING", the 09-22 "byte-identical fresh replay", and the measured
+    # error bar were all the same 75 cached rows read back. The helper prints
+    # a warning on a commit mismatch and carries on, which is right for a
+    # three-hour board and wrong for a five-minute instrument whose only job
+    # is to say whether the code changed anything. `--resume` is for a crash
+    # mid-run at the SAME commit, nothing else.
+    ck = Checkpoint("real_usage_board", len(rows), resume=resume)
+    print(f"  replay: {'resuming the checkpoint' if resume else 'fresh — every row through the current code'}",
+          flush=True)
 
     out, t0 = [], time.time()
     for i, row in enumerate(rows, 1):
@@ -621,13 +632,38 @@ def score_reachable(replayed: list, rows: list, taxonomy: dict) -> dict:
     return out
 
 
+def _flatten(acts: list) -> list:
+    """One entry per OBJECT. A stored `create_todo` may carry `titles` — several
+    to-dos in one action, the fast path's shape — while the replay reports one
+    create per to-do. Same outcome, two spellings; compared as one (2026-09-22:
+    "buy Dr. Brown and Pepsi" read as a regression against itself)."""
+    out = []
+    for a in acts:
+        p = a.get("parameters") or {}
+        if a.get("action") == "create_todo" and isinstance(p.get("titles"), list) and p["titles"]:
+            for t in p["titles"]:
+                q = {k: v for k, v in p.items() if k != "titles"}
+                q["title"] = t
+                out.append({"action": a["action"], "parameters": q})
+        else:
+            out.append(a)
+    return out
+
+
 def _same_shape(a: list, b: list) -> bool:
     """Same actions, same order, same titles+dates. Deliberately not full
     equality: a reply carries fields the stored history never did, and this
     question is only "did the outcome move"."""
+    a, b = _flatten(a), _flatten(b)
     if [x["action"] for x in a] != [x["action"] for x in b]:
         return False
     for p, g in zip(a, b):
+        if not (p.get("parameters") or {}):
+            # The reply's bare action list carries no fields at all (a query,
+            # an update — nothing was CREATED to read back), so the action
+            # name is all there is to compare. Reading its missing date as a
+            # changed date scored every approved query as a regression.
+            continue
         for f in ("title", "date"):
             want = _norm(f, (g["parameters"] or {}).get(f))
             if not want:
@@ -843,6 +879,11 @@ def report(res: dict, rows: list, taxonomy: dict, guard: tuple,
                      f"wrong: {', '.join(row['wrong']) or 'count only'}{unreach}")
             L.append(f"  - {row['said']}")
     L.append("")
+    L.append("### Approved, no longer reproduced (a regression against a blessed command)\n")
+    for row in a["rows"]:
+        L.append(f"- id={row['id']} was {row['was']} → now {row['now']}")
+        L.append(f"  - {row['said']}")
+    L.append("")
     L.append("### Rejected, output unchanged (still wrong the same way)\n")
     for row in r["rows"]:
         if not row["changed"]:
@@ -860,6 +901,9 @@ def main() -> int:
     ap.add_argument("--tier", choices=("corrected", "approved", "rejected"))
     ap.add_argument("--score-only", action="store_true",
                     help="re-score the stored replay without re-running the engine")
+    ap.add_argument("--resume", action="store_true",
+                    help="resume the checkpoint of a run that died mid-way AT THIS COMMIT; "
+                         "never to skip the replay")
     ap.add_argument("--out", default=str(OUT_DIR / "RESULTS.md"))
     a = ap.parse_args()
 
@@ -888,7 +932,7 @@ def main() -> int:
                                or ("/tmp/real_usage_board"))
         scratch.mkdir(parents=True, exist_ok=True)
         print(f"sandbox: {scratch}", flush=True)
-        replayed = replay(rows, scratch)
+        replayed = replay(rows, scratch, resume=a.resume)
         REPLAY_OUT.write_text(json.dumps(replayed, indent=1))
     after = _store_fingerprint()
     after_rows = _real_contents()

@@ -145,6 +145,17 @@ quote. It is a DIFFERENT INSTRUMENT from the boards above (share of real command
 Gil marked wrong, vs count-correctness on constructed prompts), so the gap is
 real and large but is not a subtraction and must not be quoted as one.
 
+**REAL USAGE · the replay board · `scripts/real_usage_board.py`, 2026-09-22
+run 4** (`DOCUMENTATION/experiments/real_usage/RESULTS.md`): Gil's 75
+reviewed commands replayed through the current engine on their own clocks.
+Corrected tier, every reachable field right **20.0% (n=15)**; `date` 82.4%,
+`start_time` 62.5%; approved rows reproduced 64.7% (11/17); generic-title rows
+right or acceptable under Q41 **66.7% (14/21)**. **Every earlier run of this
+board since 2026-09-18 served a checkpoint cache**, so the "moved nothing" of
+09-21 was never measured — the board replays fresh now, and CLAUDE.md carries
+the rule. Cycle 35 (the spoken clock forms) moved this board and no stage
+board; cycle 36 (a stated day beats a weekday) is registered there.
+
 ## Open decisions — Gil's, not mine
 
 **RESOLVED 2026-09-15** — `engine-component-folders` was merged (row 91,

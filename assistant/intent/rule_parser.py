@@ -1326,6 +1326,21 @@ def _extract_temporal(span_text: str, today: datetime.date,
 
         result.pop("_bare_date_span", None)
 
+        # "this coming thursday" → the soonest Thursday (see `_COMING_WEEKDAY_RE`).
+        # Only when the date the recogniser produced IS that weekday and a week
+        # too far; nothing else about the reading is touched.
+        m_coming = _COMING_WEEKDAY_RE.search(span_text)
+        if m_coming and result.get("date"):
+            try:
+                got_d = datetime.date.fromisoformat(result["date"])
+                want = _WEEKDAY_INDEX[m_coming.group(1).lower()]
+                ahead = (want - today.weekday()) % 7 or 7
+                soonest = today + datetime.timedelta(days=ahead)
+                if got_d.weekday() == want and got_d > soonest:
+                    result["date"] = soonest.isoformat()
+            except ValueError:
+                pass
+
         # THE QUALIFIER SETTLES AM/PM. A datetime with two readings ("today at
         # 6" -> 06:00 and 18:00) took the first, so "today at 6 in the evening"
         # was booked at 06:00 with the evening as its END; the word after the
@@ -1443,6 +1458,27 @@ def _extract_temporal(span_text: str, today: datetime.date,
         elif re.search(r"\b(?:right now|now|immediately|asap)\b", lower):
             result["start_time"] = datetime.datetime.now().strftime("%H:%M")
             result["_source"] = "regex_fallback"
+
+    # Compact clocks (see `_COMPACT_AP_RE`): the recogniser reads none of them.
+    if not result["start_time"]:
+        for pat in (_COMPACT_AP_RE, _COMPACT_BARE_RE):
+            for m in pat.finditer(span_text):
+                h, mins = int(m.group(1)), int(m.group(2))
+                ampm = (m.group(3) or "").lower()[:1] if pat is _COMPACT_AP_RE else ""
+                if mins >= 60 or (ampm and not 1 <= h <= 12) or (not ampm and h > 23):
+                    continue
+                if ampm == "p" and h < 12:
+                    h += 12
+                elif ampm == "a" and h == 12:
+                    h = 0
+                elif not ampm and 1 <= h <= 7:
+                    h += 12  # the same business-hours reading as "at 3" below
+                result["start_time"] = f"{h:02d}:{mins:02d}"
+                result["spans"].append((m.start(), m.end()))
+                result["_source"] = "regex_fallback"
+                break
+            if result["start_time"]:
+                break
 
     # Regex fallback for bare time like "at 3" or "at 3pm" if recognizer missed
     if not result["start_time"]:
@@ -1575,8 +1611,31 @@ _NEW_LIST_RE = re.compile(
     r"(?P<body>.*)$", re.I)
 
 _REMINDER_TASK_FRAME = re.compile(r"^\s*(?:please\s+)?remind me\s+to\b", re.I)
+#: COMPACT CLOCKS — how the recogniser writes a spoken "nine ten" or "eight
+#: thirty": "910am", "230PM", and after a clock preposition a bare "830" /
+#: "1040". The same two patterns as `decompose_validate/resolve.py` so the two
+#: tracks read the same digits the same way (real usage, 2026-09-22: "at 1040"
+#: committed at 09:00 on the fast path, "for 830" at 20:00 on the deep one). A
+#: meridiem makes it a clock anywhere; a bare one needs a clock preposition in
+#: front and nothing noun-like after it — "for 200 people" is a count.
+_COMPACT_AP_RE = re.compile(r"\b(\d{1,2})(\d{2})\s*(am|pm|a\.m\.|p\.m\.)(?!\w)", re.I)
+_COMPACT_BARE_RE = re.compile(
+    r"\b(?:at|for|from|until|till|by|around|about)\s+(\d{1,2})(\d{2})\b(?![:.]\d)"
+    r"(?=\s*(?:$|[,.;!?]|(?:on|tomorrow|today|tonight|this|next|and|then|to|for|"
+    r"with|in|at|the|execute|sharp|o'?clock|morning|afternoon|evening|night|"
+    r"shacharit|shachris|mincha|maariv|arvit)\b))", re.I)
+#: "THIS COMING thursday" is the soonest Thursday, like "this thursday". The
+#: recogniser reads "coming" as "next" and lands a week late (real usage,
+#: 2026-09-22: "this coming Sunday" said on a Wednesday became the Sunday
+#: after next, ids 4 and 52).
+_COMING_WEEKDAY_RE = re.compile(
+    r"\b(?:this\s+)?coming\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", re.I)
+_WEEKDAY_INDEX = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+                  "friday": 4, "saturday": 5, "sunday": 6}
+
 _STATED_CLOCK_RE = re.compile(
     r"\d{1,2}:\d{2}|\d{1,2}\s*(?:am|pm)\b|\bat\s+\d{1,2}\b|\bnoon\b|\bmidnight\b"
+    r"|\d{3,4}\s*(?:am|pm)\b|\bat\s+\d{3,4}\b"
     r"|\bo'?clock\b|\b(?:half|quarter)\s+(?:past|to)\b", re.I)
 
 _ROUTE_OVERRIDES = [
@@ -2887,7 +2946,7 @@ def _resolve_anaphora(slots: dict, action_name: str, memory) -> tuple[dict, bool
 #: right place to resolve "now" is where the time is READ, not where its
 #: absence is judged.
 _CLOCK_MENTION_RE = re.compile(
-    r"\b\d{1,2}\s*(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)\b|\b\d{1,2}:\d{2}\b"
+    r"\b\d{1,4}\s*(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)(?!\w)|\b\d{1,2}:\d{2}\b"
     r"|\bat\s+\d{1,2}\b|\b(?:noon|midnight|o'?clock)\b", re.I)
 
 

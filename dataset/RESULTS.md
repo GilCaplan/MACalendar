@@ -3075,3 +3075,49 @@ that fix is ever suspected.
 above, because every remaining title defect is the same shape and would
 spend more objects to buy more cleanliness.
 
+
+## CYCLE 35 — the spoken clock forms, and the board that had never replayed (2026-09-22)
+
+**Registered** (`DOCUMENTATION/experiments/real_usage/RESULTS.md`, run 3):
+the three clock readers learn "for 1 p.m.", "for 830", "at 1040", "at 910am",
+the sentence-final dotted meridiem, and "this coming thursday" as the soonest
+Thursday. Prediction: real-usage generic-title 13 → 17+ of 21, corrected
+`start_time` 50 → 60%+, **dev-100 unchanged within a row**.
+
+**dev-100, whole chain, after** (`434867b`.. this commit): **75% count-correct
+· precision 91.7% · recall 71.0% · F1 80.0 · field quality 91.9%** — identical
+to cycle 34's two runs at `f505240`, to the tenth. The synthetic pool holds
+none of these forms (0 fires of the new patterns over its 2,699 mineable
+rows), so "unchanged" was the prediction and is the result: the change
+reached nothing here and broke nothing here.
+
+**Real usage** is where it landed, and the baseline it landed on was not the
+one registered. The board had been resuming a checkpoint recorded at its
+first run (commit `4b47af8`, 2026-09-18) on every run since — the 09-21
+"moved nothing", the 09-22 "byte-identical fresh replay" and the error bar
+were all the same 75 cached rows. Replayed fresh at the pre-cycle commit
+(`6c1e5c0`, worktree, fresh sandbox) and at this one, same scorer:
+
+| real usage | pre-35, fresh | cycle 35, fresh |
+|---|---|---|
+| generic-title right/acceptable under Q41 (21 rows) | 52.4% (11) | **66.7% (14)** |
+| corrected, every reachable field right (n=15) | 13.3% | **20.0%** |
+| corrected `start_time` (n=16) | 56.2% | **62.5%** |
+| corrected `date` (n=17) | 76.5% | **82.4%** |
+| approved reproduced (17) · rejected changed (42) | 64.7% · 90.5% | 64.7% · 90.5% |
+
+Against the TRUE baseline the prediction reads 11 → 14 (registered as 13 →
+17 against the cache) and 56.2 → 62.5 (registered 50 → 60). Every stage board
+byte-identical before and after — segmentation 1,051 train rows, dv 2,004,
+FastRule 4,800 train — one change per board, in that order, and zero fires of
+the new patterns over 9,091 clean corpus rows.
+
+**Novel:** the cache. Four days of "the engine did not move on real speech"
+were an instrument reading its own memory; the true movement over those days
+was UP on fields (reachable-fields 6.7 → 13.3%, clock 44.4 → 56.2%) and DOWN
+on counts (80 → 60%) and on three dates where a weekday now beats a stated
+day. CLAUDE.md carries the rule; the board replays fresh by default.
+
+**Registered next — cycle 36:** a stated day beats a weekday (ids 11, 14, 21,
+all fast path). Prediction: generic-title 14 → 17 of 21; corrected tier
+unmoved; dev-100 unmoved or up.

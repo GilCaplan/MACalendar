@@ -547,6 +547,16 @@ So: **one unit per line, flushed and fsynced before the next begins** (a
 inferred. `MACALENDAR_CHECKPOINTS` is the store, scratched by `conftest.py` —
 a suite that resumed a real run would mix two configurations into one board.
 
+**And a board that RESUMES by default is not measuring the code you changed.**
+`Checkpoint` resumes unless told `resume=False`, and it only WARNS on a commit
+mismatch. The real-usage board resumed every one of its 75 rows from a cache
+recorded at the first run (2026-09-18) on every run for four days — the
+2026-09-21 "two days of engine work moved nothing" verdict, the "byte-identical
+fresh replay" and the measured error bar were the same cached rows read back,
+and the true numbers had moved in both directions. A short board replays
+fresh every time; resuming is for a crash mid-run at the SAME commit, opted
+into by flag. When a board prints identical numbers twice, check that it ran.
+
 ## Things that have bitten before
 
 - **Don't run the audit and the test suite at once.** Both load spaCy and

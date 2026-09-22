@@ -1425,3 +1425,20 @@ Measured on dev-100 with the segmentation changes of the same day —
 Unchanged: `start_time`/`end_time` on the real-usage board. The untimed
 event default (DEVQA, awaiting Gil) is the change that would move it.
 
+
+## Cycle 35 — the front door reads compact clocks, and "this coming" (2026-09-22)
+
+`rule_parser._extract_temporal` gained the two compact-clock patterns the deep
+resolver reads ("910am", "230PM"; "at 1040", "for 830" after a clock
+preposition and before nothing noun-like), the same `(?!\w)` meridiem
+boundary, and a post-read that pulls "this coming thursday" back to the
+soonest Thursday — the recogniser reads "coming" as "next", a week late
+(real-usage ids 4 and 52). `_CLOCK_MENTION_RE`, which decides whether a to-do
+with a clock is an event, knows the same forms.
+
+Product-shape board, train half (4,800 rows): **byte-identical** — handled
+77.5%, correct-on-handled 96.4%, harm 106, invented-a-time 3.5% (n=370). The
+corpus has 101 rows with "coming <weekday>" and the board did not move on
+them, so its date metric does not see the week-late reading; the movement is
+on real usage (run 4: `date` 76.5 → 82.4% on the corrected tier, ids 4 and 52
+right). Zero fires of the compact patterns over 9,091 clean corpus rows.

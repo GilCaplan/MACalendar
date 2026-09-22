@@ -1501,6 +1501,35 @@ rows below).
 | 7 | ingest month/day misspellings ("Febuary"); "invite/schedule/book" as polite imperatives; always answer when the rescue builds nothing | open | vocab bench (thousands), stage board |
 | 8 | RULINGS for Gil | **ANSWERED 2026-09-20** (DEVQA Q28, Q31–Q34): a MEAL names its own hour (09/13/19) and the board's premise moved with it; a NEW LIST is a General to-do named for its contents; a genuine bare 7 or 8 is ASKED about and otherwise reads PM on both tracks; the loop resumes; cycles run on the branch and never merge. **Still unruled:** the general untimed event (non-meal), and whether an offset or a recurrence on "remind me to <verb>" makes it an event | 5 of the remaining rows |
 
+## CYCLE 35 — spoken clock forms, landed 2026-09-22; and the board that never replayed
+
+Three readers (segmentation's phrase table, `resolve.py`, `rule_parser.py`)
+learned "for 1 p.m.", "for 830", "at 1040", "at 910am", the sentence-final
+dotted meridiem, and "this coming thursday" = the soonest Thursday. Real
+usage, both replays fresh: generic-title right/acceptable 52.4 → 66.7% (11 →
+14 of 21), corrected `start_time` 56.2 → 62.5% (n=16), `date` 76.5 → 82.4%.
+Every stage board identical (the forms exist only in real speech). Found on
+the way: the real-usage board had resumed a 2026-09-18 checkpoint on every
+run since (CLAUDE.md has the rule); `real_usage/RESULTS.md` run 4 has the
+corrected before/after. Open, for Gil:
+
+- **Q38 vs Q41 on 'appointment' and 'event'.** With the clock now stripped,
+  id=18 *"set an appointment for tomorrow morning on tuesday at 910am"* and
+  id=118 *"Add an event for 5 p.m."* commit NOTHING: the bare kind is refused
+  by Q38. Q41 says bare 'meeting' with the right details is fine. Does that
+  reach 'appointment'? And 'event', which is the program's own word but which
+  Gil's own correction on id=118 accepted as the title? One ruling settles
+  both rows; until then they are refusals, which is the conservative side.
+- **A stated day loses to a weekday** (regression between 09-18 and 09-21,
+  invisible while the board served its cache): *"tomorrow on tuesday"*,
+  *"next week on the 14th on tuesday"*, *"monday the 13th"* now land on the
+  weekday. Registered as cycle 36 in `real_usage/RESULTS.md`.
+- **Disfluent speech over-splits** (same interval): id=56 "…, in one second,
+  one moment, one moment, bear with me, …" makes 3 items for 1; id=136 3 for
+  2; id=219 "Movie at Lincoln Square tomorrow, AMC, 11.15 AM tomorrow" 1 for
+  2. Corrected item count 80 → 60%. Cycle 37 candidate, on segmentation's
+  board first.
+
 ## THE CORRECTION FLOW RECORDS WHAT CHANGED — landed, 2026-09-22
 
 `memory.set_feedback` and `feedback_for_record` annotate every stored

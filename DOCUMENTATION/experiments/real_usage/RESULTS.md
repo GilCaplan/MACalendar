@@ -1,21 +1,21 @@
 # Real-usage board
 
-_Run 2026-09-22 10:18. `python -m scripts.real_usage_board`._
+_Run 2026-09-22 10:50. `python -m scripts.real_usage_board`._
 
 > Guard passed: no real store changed during the run.
 
 ## The headline
 
-**Corrected tier, every REACHABLE field right: 6.7% (n=15 of 16)** — a field is scored only where the gold value is one a parse of the words could produce (`intent/correction.py`: unchanged, or a title whose words were said, or a clock on the five-minute grid); 1 rows have no reachable field at all. Item count right on 80.0%. Read by hand mark alone, as the 2026-09-18 headline was: 11.1% (n=9).
+**Corrected tier, every REACHABLE field right: 20.0% (n=15 of 16)** — a field is scored only where the gold value is one a parse of the words could produce (`intent/correction.py`: unchanged, or a title whose words were said, or a clock on the five-minute grid); 1 rows have no reachable field at all. Item count right on 60.0%. Read by hand mark alone, as the 2026-09-18 headline was: 22.2% (n=9).
 
 ### Per field, corrected tier
 
 | field | right | scored |
 |---|---|---|
-| title | 36.8% | 19 |
-| date | 73.7% | 19 |
-| start_time | 44.4% | 18 |
-| end_time | 44.4% | 18 |
+| title | 35.3% | 17 |
+| date | 82.4% | 17 |
+| start_time | 62.5% | 16 |
+| end_time | 62.5% | 16 |
 | recurrence | — | 0 |
 | recur_until | — | 0 |
 
@@ -25,39 +25,37 @@ _`start_time`/`end_time` read LOW for a reason beyond the parse: on a row whose 
 
 ## Regression and movement
 
-- **Approved tier (n=17):** the replay still produces what he accepted on **47.1%**. Anything less than 100% is a regression against a command he blessed.
-- **Rejected tier (n=42):** the output CHANGED on **73.8%**. Changed is not fixed — there is no gold here — but unchanged is certainly not fixed.
+- **Approved tier (n=17):** the replay still produces what he accepted on **64.7%**. Anything less than 100% is a regression against a command he blessed.
+- **Rejected tier (n=42):** the output CHANGED on **90.5%**. Changed is not fixed — there is no gold here — but unchanged is certainly not fixed.
 
 ## Under Q41 — the generic-title class against what the words hold
 
 Gil, 2026-09-22 (DEVQA Q41): *"just make a meeting according to other details with bare title is fine."* So the largest class is re-scored against REACHABLE gold — `reachable` in `taxonomy.jsonl`, hand-authored on each row's own clock: the subject the words actually held, or a bare title where nothing beyond the kind was said, plus the stated day and clock. The tiers above are untouched; this is the same rows read under the ruling.
 
-**Right, or acceptable under Q41: 61.9% of 21 rows** (item count right on 100.0%).
+**Right, or acceptable under Q41: 66.7% of 21 rows** (item count right on 90.5%).
 
 | items | n | title right | …and no junk in it | day+clock right | title and when |
 |---|---|---|---|---|---|
-| subject was SAID — the title must carry it | 15 | 100.0% | 100.0% | 73.3% | 73.3% |
-| nothing but the kind was said — bare is right | 7 | 42.9% | 0.0% | 71.4% | 28.6% |
+| subject was SAID — the title must carry it | 15 | 100.0% | 100.0% | 80.0% | 80.0% |
+| nothing but the kind was said — bare is right | 5 | 60.0% | 0.0% | 100.0% | 60.0% |
 
 _Per ITEM in the table, per ROW in the bold line. A said subject is right when the title CONTAINS the phrase (any spelling the vocabulary produces); junk is `score_dataset_run.is_garbage_title`; `end_time` is scored only where the words stated one._
 
 Rows still wrong under Q41:
 
-- id=4 (rejected, said) wrong: date — made [('go visit my friend tal got', '2026-09-03', '13:00')]
-  - create event this coming thursday to go visit my friend tal at 1 p.m. 
+- id=11 (rejected, said) wrong: date — made [('meeting with manachem', '2026-09-01', '14:00')]
+  - can you set a meeting for next week on the 14th on tuesday at 2pm to d
 - id=12 (rejected, bare) wrong: title — made [('i have an event a meeting', '2026-08-26', '18:00')]
   - today i have an event at 6 o'clock a meeting
-- id=14 (rejected, said) wrong: start_time — made [('the 13th for maccabi visiting the doctor', '2026-09-13', '00:00')]
+- id=14 (rejected, said) wrong: date — made [('13th for maccabi visiting the doctor', '2026-08-31', '10:40')]
   - please make a meeting for me at 1040 on monday the 13th for makabi vis
-- id=18 (rejected, bare) wrong: start_time, title-junk — made [('Appointment', '2026-08-27', '09:00')]
+- id=18 (rejected, ) wrong: count 0/1 — made []
   - set an appointment for tomorrow morning on tuesday at 910am
-- id=26 (rejected, bare) wrong: title, title — made [('meeting a.m', '2026-08-27', '11:00'), ('meeting p.m. p.m. as well', '2026-08-27', '17:30')]
+- id=21 (rejected, said) wrong: date — made [('meeting with etai', '2026-09-01', '18:00')]
+  - set a meeting tomorrow on tuesday at 6pm with etai
+- id=26 (rejected, bare) wrong: title-junk, title — made [('Meeting', '2026-08-27', '11:00'), ('meeting as well', '2026-08-27', '17:30')]
   - set a meeting for me tomorrow at 11 a.m. and also set meeting for 5.30
-- id=54 (rejected, said) wrong: start_time — made [('ta office hour meeting', '2026-08-30', '09:00')]
-  - Set a meeting on this coming Sunday for 1 p.m. TA, Office Hour, meetin
-- id=68 (corrected, said) wrong: start_time — made [('for 830 go to daven pre', '2026-08-30', '20:00'), ('Training practice', '2026-08-30', '20:00')]
-  - Sunday, set for 830, to go to Doven, pre-Shacharit, and then after tha
-- id=118 (corrected, bare) wrong: start_time, title — made [('5 p.m', '2026-08-28', '13:00')]
+- id=118 (corrected, ) wrong: count 0/1 — made []
   - Add an event for 5 p.m. execute.
 
 ## Failure taxonomy
@@ -98,8 +96,8 @@ Two full replays of the same 73 rows on unchanged code, 2026-09-18:
 
 | parse path | n | p50 | p95 |
 |---|---|---|---|
-| deep | 33 | 4.3s | 20.9s |
-| fast | 40 | 0.1s | 0.1s |
+| deep | 30 | 6.5s | 25.0s |
+| fast | 43 | 0.1s | 0.1s |
 | ignored | 2 | 0.0s | 0.0s |
 
 ## Why part of the corrected gold cannot be scored
@@ -121,57 +119,63 @@ No parse produces that, and scoring it would cap this metric forever and blame t
   - Set a meeting for 10 a.m. tomorrow morning, execute.
 - id=49 [other] count 1/1, wrong: date; unreachable: title
   - I had an event on the 17th of September, from 7 p.m. to 10 p.m. going 
-- id=52 [other] count 1/1, wrong: date; unreachable: end_time, start_time, title
-  - Set a meeting for me this coming Sunday at... Let's see, it is...
-- id=56 [disfluency] count 1/1, wrong: title; unreachable: date, end_time, start_time
+- id=56 [disfluency] count 3/1, wrong: title; unreachable: date, end_time, start_time
   - set a date for tomorrow at 11 o'clock, in one second, one moment, one 
-- id=68 [generic-title] count 2/1, wrong: start_time, end_time; unreachable: title
+- id=68 [generic-title] count 2/1, wrong: count only; unreachable: title
   - Sunday, set for 830, to go to Doven, pre-Shacharit, and then after tha
-- id=118 [generic-title] count 1/1, wrong: title, start_time, end_time
+- id=118 [generic-title] count 0/1, wrong: count only
   - Add an event for 5 p.m. execute.
-- id=136 [stt-garbage] count 2/2, wrong: title
+- id=136 [stt-garbage] count 3/2, wrong: title
   - I need to buy cold brew, and I need to also buy, Conello oil, can, exe
-- id=143 [compound] count 5/4, wrong: title, date, start_time, end_time
+- id=143 [compound] count 4/4, wrong: title, start_time, end_time
   - Alright, we have a few events set for Tuesday to walk Moxdog at 9 a.m.
 - id=207 [stt-garbage] count 3/3, wrong: title
   - WalkMoxDog today at 2pm, and also WalkMoxDog tomorrow at 8.30am, and I
 - id=211 [other] count 1/1, wrong: start_time, end_time; unreachable: title
   - Create an event now to go out for a run, execute.
-- id=219 [stutter-split] count 2/2, wrong: start_time, end_time
+- id=219 [stutter-split] count 1/2, wrong: title, start_time, end_time
   - Movie at Lincoln Square tomorrow, AMC, 11.15 AM tomorrow, execute.
-- id=220 [stt-garbage] count 1/1, wrong: title
-  - Walk, Mark, Stog, at 5.30pm today, execute.
 - id=223 [disfluency] count 4/4, wrong: title
   - I need to buy some ice, I need to buy green onion, and I also need to 
 
+### Approved, no longer reproduced (a regression against a blessed command)
+
+- id=7 was ['update_event'] → now []
+  - no, edit event next week on the 13th. that says 9am, change it to the 
+- id=8 was ['create_event'] → now ['create_event']
+  - this week on friday set for 12 o'clock defend my eurovision homox exec
+- id=119 was ['create_event'] → now ['create_event']
+  - Movie today at 4.30pm at the Lincoln AMC Theatre. Execute.
+- id=122 was ['create_event'] → now ['create_event']
+  - Set for today to walk Mark's dog at 2.30pm, execute.
+- id=142 was ['complete_todo'] → now ['create_event', 'create_event']
+  - Walk Mark's Dog on this coming Tuesday next week at 9am and 2.30pm, ex
+- id=208 was ['create_todo'] → now ['create_event']
+  - Go for a run now, execute.
+
 ### Rejected, output unchanged (still wrong the same way)
 
-- id=6 [anaphoric-edit] ['update_event']
-  - the last event that you just created on next monday on the 13th fixer 
-- id=18 [generic-title] ['create_event']
-  - set an appointment for tomorrow morning on tuesday at 910am
 - id=34 [generic-title] ['create_event']
   - set a meeting for me tomorrow at 4pm
-- id=40 [disfluency] ['create_event']
-  - set meeting on thursday for three o'clock. thank you. is this why you 
 - id=41 [generic-title] ['create_event']
   - set a meeting on thursday for 11 a.m. to
-- id=135 [?] ['create_todo']
-  - Groceries, I need to buy zucchini, cold brew, execute.
-- id=137 [?] ['create_todo']
-  - 10,000, you'd buy Gatorade and Dr. Brown, execute.
-- id=140 [?] ['create_todo']
-  - I need to buy some groceries, which includes pasta times 5, execute.
 - id=141 [?] ['create_event']
   - Have a movie today from 3pm to 6pm, execute.
-- id=218 [?] ['create_event']
-  - We'll start an event for later, walking Jada at 2.30pm, execute.
 - id=243 [?] ['create_event']
   - Every event tomorrow night at 9pm, to search for kingdoms, execute.
 
 ---
 
 # Run 2 — 2026-09-21, after two days of engine work. IT MOVED NOTHING.
+
+> **CORRECTION, 2026-09-22 — this run never replayed anything.** The board's
+> `Checkpoint` resumes by default and only warns on a commit mismatch; every
+> one of the 75 rows below was read back from the cache written by the FIRST
+> run (commit `4b47af8`, 2026-09-18 12:04). "Identical numbers" was the cache,
+> not the engine, and the conclusion that two days of work reached no real
+> row is WRONG — run 4 below has the true before/after. The converter bug
+> this run found was real (it surfaced in the cached approved rows against
+> the live converter). Kept as written; the lesson is in `CLAUDE.md`.
 
 Same instrument, same rows, `python -m scripts.real_usage_board`. Guard
 passed: no real store changed during the run.
@@ -259,6 +263,11 @@ class. If dev-100 moves at all, the change has reached past real speech.
 
 # Run 3 — 2026-09-22, the same rows read under Q41
 
+> **CORRECTION, same day:** "fresh replay … byte-for-byte the same" below was
+> the same cache as run 2. The Q41 re-read and the per-field corrected tier
+> are valid as READINGS of those cached rows (the 2026-09-18 engine); the
+> true numbers for today's engine are in run 4.
+
 Fresh replay (`python -m scripts.real_usage_board`), guard passed, byte-for-byte
 the same three tiers as run 2: corrected 11.1% (n=9), approved 47.1% (8/17),
 rejected changed 73.8% (42). What changed is the READING. Gil ruled today
@@ -330,3 +339,69 @@ clocks. **Prediction:** generic-title right/acceptable 13 → 17+ of 21 (ids 14,
 clocks) — if it moves down, the reader over-fires and the change is wrong.
 Boarded first on FastRule's own board (`fastrule_shape --split train`) and the
 dv stage board, one change, before either whole-chain run.
+
+---
+
+# Run 4 — 2026-09-22, the first real replay since 09-18, and cycle 35
+
+The board now replays fresh by default (`--resume` is opt-in, for a crash at
+the same commit). To attribute cycle 35 honestly, the pre-cycle commit
+(`6c1e5c0`) was replayed in a worktree with a fresh sandbox, and both replays
+are scored with the same scorer — which also had two faults fixed today: a
+query's parameter-less reply read as a changed date, and one `create_todo`
+carrying `titles` read as a different shape from two creates.
+
+| | 09-18 engine (the cache) | pre-35, fresh | **cycle 35, fresh** |
+|---|---|---|---|
+| corrected, every reachable field (n=15) | 6.7% | 13.3% | **20.0%** |
+| corrected, hand-marked rows (n=9) | 11.1% | 22.2% | **22.2%** |
+| corrected, item count right | 80.0% | 60.0% | 60.0% |
+| title (n≈17) | 36.8% | 35.3% | 35.3% |
+| date | 73.7% | 76.5% | **82.4%** |
+| start_time | 44.4% | 56.2% | **62.5%** |
+| approved, unchanged (17) | 64.7% | 64.7% | 64.7% |
+| rejected, changed (42) | 81.0% | 90.5% | 90.5% |
+| generic-title right/acceptable under Q41 (21 rows) | 61.9% | 52.4% | **66.7%** |
+
+**What the four days between 09-18 and pre-35 really did** (middle column
+against the left): the corrected tier's fields improved — every reachable
+field right 6.7 → 13.3%, hand-marked 11.1 → 22.2%, clock 44.4 → 56.2% — while
+item COUNT fell 80 → 60% (over-splits on disfluent speech: id=56 now 3 items
+for 1, id=136 3 for 2, id=219 1 for 2) and three generic-title rows lost their
+DAY: *"tomorrow on tuesday"* (21), *"next week on the 14th on tuesday"* (11)
+and *"monday the 13th"* (14) now land on the weekday and drop the stated day,
+which the 09-18 engine had right. Neither movement was visible while the board
+was serving the cache.
+
+**Cycle 35** (right column against the middle; the change was the three
+clock readers — segmentation's phrase table, the deep resolver, the fast
+parser — learning "for 1 p.m.", "for 830", "at 1040", "at 910am", the dotted
+meridiem at the end of a sentence, and "this coming thursday" as the soonest
+Thursday). Prediction was generic-title 13 → 17+ of 21 against the cached
+baseline; the TRUE baseline was 11, and it is **14 of 21** now (ids 4, 54, 68
+fixed; 26's first item is a clean bare 'Meeting'). Corrected `start_time` was
+predicted 50 → 60%+ and is **56.2 → 62.5%** (n=16); `date` 76.5 → 82.4%.
+Every stage board was identical before and after (segmentation 1,051 train
+rows, dv 2,004 rows, FastRule 4,800 train rows: none of them contains these
+forms), and the new patterns fire zero times over 9,091 clean corpus rows —
+so this is a real-usage-only class, which is what the board exists to find.
+
+Two rows the cycle turned into refusals instead of fixes, and they are the
+same question: **id=18** *"set an appointment for tomorrow morning on tuesday
+at 910am"* and **id=118** *"Add an event for 5 p.m."* now commit NOTHING —
+with the clock stripped, the title is the bare kind ('appointment', 'event')
+and the Q38 gate refuses it. Q41 says a bare 'meeting' with the right details
+is fine; whether that extends to 'appointment' (and to the program word
+'event', which Gil's own gold on id=118 accepted) is his call — filed in
+TASKS.md, not decided here.
+
+## Registered next — cycle 36: a stated day beats a weekday
+
+**Component:** the fast path's date reading (`rule_parser._extract_temporal`;
+ids 11, 14, 21 are all `parse=fast`). **Change:** when the words name BOTH a
+weekday and a stated day — "tomorrow", an ordinal "the 13th" — the stated day
+wins and the weekday is a (possibly wrong) gloss; today the weekday wins.
+**Prediction:** generic-title right/acceptable 14 → 17 of 21; corrected tier
+unmoved (those three rows are rejected-tier); dev-100 unmoved or up — the
+synthetic pool rarely states a day twice. Boarded on FastRule's own board
+first.

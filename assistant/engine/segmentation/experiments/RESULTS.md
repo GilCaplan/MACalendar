@@ -486,3 +486,24 @@ we'll see" into an ask and a remark and the board gained nothing from it.
 
 Both measured next on dev-100 (`dataset/RESULTS.md`).
 
+
+## Cycle 35 — the phrase table learns the spoken clock forms (2026-09-22)
+
+Real usage found four clock shapes the table did not know, so the clock stayed
+in the ACTION and the resolvers never saw it: "for 1 p.m." (no `for` entry),
+"for 830" / "at 1040" / "at 910am" (compact, no separator), and every dotted
+meridiem at the end of a sentence — the `\b` after "p.m." needs a word
+character next, so "at 11 a.m." matched only "at 11" and stranded "a.m." in
+the action, which is where the live titles 'meeting a.m' and 'meeting p.m.
+p.m. as well' came from. Five entries changed or added; every meridiem in the
+table now ends in `(?!\w)`, and the `at` entry takes the period separator so
+"at 14.30" is one candidate rather than a tie it used to win by swallowing a
+space.
+
+Train board (1,051 rows): **byte-identical** before and after — exact-set
+91.2%, exact-row 90.3%, time assignment 98.3% — because the corpus holds none
+of these forms (0 fires over 1,592 segmentation rows, 4,800 FastRule train
+rows and the 2,699 mineable real utterances). The movement is on the
+real-usage board only: generic-title right/acceptable 52.4 → 66.7% (11 → 14
+of 21 rows), corrected `start_time` 56.2 → 62.5% (n=16)
+(`DOCUMENTATION/experiments/real_usage/RESULTS.md`, run 4).

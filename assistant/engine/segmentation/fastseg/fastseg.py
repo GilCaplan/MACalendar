@@ -83,9 +83,33 @@ _TIME_PATTERNS: "list[tuple[str, str]]" = [
      "deadline"),
 
     # --- clock times
-    (r"\bat\s+(?:around\s+|about\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?"
-     r"(?:\s*o'?clock)?\b", "clock"),
-    (r"\b\d{1,2}:\d{2}\s*(?:am|pm|a\.m\.|p\.m\.)?\b", "clock"),
+    # `(?!\w)` and not `\b` after a meridiem: a word boundary needs a word
+    # character on one side, and after the final "." of "p.m." at the end of
+    # the sentence there is none — so "at 11 a.m." matched only "at 11" and
+    # left "a.m." stranded in the ACTION, which is where the real-usage
+    # titles 'meeting a.m' and 'meeting p.m. p.m. as well' came from
+    # (2026-09-22, cycle 35). Every meridiem in this table ends the same way.
+    # `[:.]` — the period separator too, so "at 14.30" is ONE candidate of
+    # eight characters and beats "at 14" outright. It used to win by accident:
+    # the period entry below swallowed its trailing space into the match and
+    # was longer by one, which `(?!\w)` no longer allows.
+    (r"\bat\s+(?:around\s+|about\s+)?\d{1,2}(?:[:.]\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?"
+     r"(?:\s*o'?clock)?(?!\w)", "clock"),
+    # "for 1 p.m.", "for 12 o'clock": a clock after FOR. Only with a meridiem
+    # or o'clock, because "for 2 hours" and "for 3 people" are not clocks.
+    (r"\bfor\s+\d{1,2}(?:[:.]\d{2})?\s*(?:(?:am|pm|a\.m\.|p\.m\.)(?!\w)|o'?clock\b)",
+     "clock"),
+    # COMPACT clocks — how the recogniser writes a spoken "nine ten": "910am",
+    # "230PM", and after a clock preposition a bare "830" / "1040". The same
+    # two shapes the resolvers read (`decompose_validate/resolve.py`,
+    # `rule_parser.py`); a bare one needs the preposition and nothing
+    # noun-like after it, so "for 200 people" stays a count.
+    (r"\b\d{3,4}\s*(?:am|pm|a\.m\.|p\.m\.)(?!\w)", "clock"),
+    (r"\b(?:at|for|from|until|till|by|around|about)\s+\d{3,4}\b(?![:.]\d)"
+     r"(?=\s*(?:$|[,.;!?]|(?:on|tomorrow|today|tonight|this|next|and|then|to|for|"
+     r"with|in|at|the|execute|sharp|o'?clock|morning|afternoon|evening|night|"
+     r"shacharit|shachris|mincha|maariv|arvit)\b))", "clock"),
+    (r"\b\d{1,2}:\d{2}\s*(?:am|pm|a\.m\.|p\.m\.)?(?!\w)", "clock"),
     # PERIOD as the hour/minute separator ("11.15am", "11.15 AM", bare
     # "14.30") -- the international way of writing a clock time, and a real
     # live-usage defect: without this, the bare "N (am|pm)" entry below can
@@ -96,8 +120,8 @@ _TIME_PATTERNS: "list[tuple[str, str]]" = [
     # colon form above -- Gil's call (2026-09-15), knowingly traded against a
     # bare decimal number or a price ("$11.15") now being read as a clock
     # and pulled out of whatever title it was part of.
-    (r"\b\d{1,2}\.\d{2}\s*(?:am|pm|a\.m\.|p\.m\.)?\b", "clock"),
-    (r"\b\d{1,2}\s*(?:am|pm|a\.m\.|p\.m\.)\b", "clock"),
+    (r"\b\d{1,2}\.\d{2}\s*(?:am|pm|a\.m\.|p\.m\.)?(?!\w)", "clock"),
+    (r"\b\d{1,2}\s*(?:am|pm|a\.m\.|p\.m\.)(?!\w)", "clock"),
     (r"\b(?:half\s+past|quarter\s+past|quarter\s+to)\s+\w+\b", "clock"),
     (r"\b(?:noon|midday|midnight)\b", "clock"),
     (r"\bat\s+(?:first\s+thing|lunchtime|dinnertime)\b", "clock"),
@@ -805,6 +829,7 @@ _REMINDER_TASK_FRAME = re.compile(r"^\s*(?:please\s+)?remind me\s+to\b", re.I)
 
 _STATED_CLOCK = re.compile(
     rf"\d{{1,2}}:\d{{2}}|\d{{1,2}}\s*(?:am|pm)|\bat\s+\d{{1,2}}\b|\bnoon\b|\bmidnight\b"
+    rf"|\d{{3,4}}\s*(?:am|pm)|\b(?:at|for)\s+\d{{3,4}}\b"                 # compact: 910am, for 830
     rf"|\bo'?clock\b|\b(?:half|quarter)\s+(?:past|to)\b"
     rf"|\b(?:{_HOURWORD})\s+(?:{_MINWORD})\b"
     # A spoken hour after "at" ("at six") and a RANGE ("from noon to 1",

@@ -52,9 +52,15 @@ _NUMBER = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
 
 #: Words that make a bare 7 or 8 o'clock mean the evening. Same list the
 #: convention is stated with; see `_bare_hour`.
-_EVENING = re.compile(r"\b(tonight|this evening|evening|dinner|supper|drinks|pm)\b", re.I)
+_EVENING = re.compile(r"\b(tonight|this evening|evening|dinner|supper|drinks|maariv|arvit|mincha|pm)(?!\w)", re.I)
 #: What says a bare 7 or 8 is the MORNING, now that PM is the default there.
-_MORNING = re.compile(r"\b(morning|breakfast|sunrise|dawn|am|a\.m\.)\b", re.I)
+#: `(?!\w)` and not `\b` after the dotted forms: a word boundary needs a word
+#: character on one side, and after the final "." of "a.m." at the end of the
+#: sentence there is none — so "\ba\.m\.\b" matched "a.m. tomorrow" and missed
+#: "at 8 a.m." full stop. Found on the real-usage board, 2026-09-22 ("for 5
+#: p.m." lost its clock); the same `\b` sat on every meridiem pattern here.
+#: Shacharit is the morning prayer; mincha and maariv are afternoon and evening.
+_MORNING = re.compile(r"\b(morning|breakfast|sunrise|dawn|shacharit|shachris|am|a\.m\.)(?!\w)", re.I)
 #: "8 o'clock" reads AM on both tracks and the corpus gold agrees, so the
 #: PM default deliberately does not reach it.
 _OCLOCK = re.compile(r"\bo'?clock\b", re.I)
@@ -330,11 +336,23 @@ def _bare_hour(h: int, minute: int, said: str) -> str:
     return f"{h:02d}:{minute:02d}"
 
 
+#: The compact clock forms (see `resolve_clock`). What may FOLLOW a bare one is
+#: a whitelist — the end, punctuation, or a word that continues the time or the
+#: command — because the same digits before a noun are a count.
+_COMPACT_AP = re.compile(r"\b(\d{1,2})(\d{2})\s*(am|pm|a\.m\.|p\.m\.)(?!\w)")
+_COMPACT_BARE = re.compile(
+    r"\b(?:at|for|from|until|till|by|around|about)\s+(\d{1,2})(\d{2})\b(?![:.]\d)"
+    r"(?=\s*(?:$|[,.;!?]|(?:on|tomorrow|today|tonight|this|next|and|then|to|for|"
+    r"with|in|at|the|execute|sharp|o'?clock|morning|afternoon|evening|night|"
+    r"shacharit|shachris|mincha|maariv|arvit)\b))")
+
 #: Anything that states a clock time explicitly. Used to decide whether a coarse
 #: part of day still applies -- "unless stated otherwise" (Gil, 2026-09-08).
 _EXPLICIT_CLOCK = re.compile(
     r"\d{1,2}\s*:\s*\d{2}"                       # 14:00, 6:45
     r"|\d{1,2}\s*(?:am|pm|a\.m\.|p\.m\.)"          # 7am, 5 pm
+    r"|\d{3,4}\s*(?:am|pm|a\.m\.|p\.m\.)"          # 910am, 230pm (compact)
+    r"|\b(?:at|for|from|until|till|by|around|about)\s+\d{3,4}\b(?![:.]\d)"  # at 830
     r"|\bat\s+\d{1,2}\b"                          # at 7
     r"|\b\d{1,2}\s*o'?clock\b"                    # 8 o'clock
     r"|\b(?:noon|midday|midnight)\b"
@@ -406,10 +424,32 @@ def resolve_clock(said: str, context: str = "") -> "str | None":
                 minute = delta
             return _bare_hour(h, minute, ctx)
 
+    # COMPACT CLOCKS — how the recogniser writes a spoken "nine ten" or "eight
+    # thirty": "910am", "230PM", and after a clock preposition a bare "830" /
+    # "1040". Real usage, 2026-09-22: six of the real-usage board's eight
+    # remaining generic-title failures lost their time to one of these. Three
+    # or four digits that split into a valid hour and minute. A meridiem makes
+    # it a clock anywhere; a bare one needs a clock preposition in front AND
+    # nothing noun-like after it, so "for 200 people" is never read as 14:00.
+    for m in _COMPACT_AP.finditer(t):
+        h, minute = int(m.group(1)), int(m.group(2))
+        if 1 <= h <= 12 and minute < 60:
+            ap = m.group(3)[0]
+            if ap == "p" and h < 12:
+                h += 12
+            if ap == "a" and h == 12:
+                h = 0
+            return f"{h:02d}:{minute:02d}"
+    for m in _COMPACT_BARE.finditer(t):
+        h, minute = int(m.group(1)), int(m.group(2))
+        if h <= 23 and minute < 60:
+            return _bare_hour(h, minute, ctx)
+
     # `[:.]` — a period is the international way of writing the hour/minute
     # separator ("11.15am"), 2026-09-15: segmentation used to tear "11.15 AM"
     # into "11" + "15 AM", reading the clock as 15:00 on a real live-usage row.
-    m = re.search(r"\b(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)\b", t)
+    # `(?!\w)` and not `\b` after the meridiem — see `_MORNING`.
+    m = re.search(r"\b(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)(?!\w)", t)
     if m:
         h, minute = int(m.group(1)), int(m.group(2) or 0)
         ap = m.group(3)[0]
@@ -468,7 +508,9 @@ def resolve_range(said: str, context: str = "") -> "tuple[str, str] | None":
         got = resolve_clock(part, ctx)
         if got:
             return got
-        bare = re.fullmatch(r"\s*(\d{1,2})(?::(\d{2}))?\s*", part)
+        # `:?` — inside a range the compact form counts too: "from 1030 to
+        # 1130" is a clock pair by the same rule that makes "from 3 to 4" one.
+        bare = re.fullmatch(r"\s*(\d{1,2})(?::?(\d{2}))?\s*", part)
         if bare:
             return _bare_hour(int(bare.group(1)), int(bare.group(2) or 0), ctx)
         # ...and a bare SPOKEN hour is one too. "from three to five" returned

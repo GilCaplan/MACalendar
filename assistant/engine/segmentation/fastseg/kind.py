@@ -143,7 +143,8 @@ _TASK_RE = re.compile(
 # product rule (pinned in the corpus) is "remind me to call Ravid" = task,
 # "remind me about the dentist tomorrow at 9 am" = event.
 _CLOCKISH_RE = re.compile(
-    r"\b\d{1,2}(:\d{2})?\s*(am|pm|a\.m\.|p\.m\.)\b|\b\d{1,2}:\d{2}\b|\bat\s+\d{1,2}\b|"
+    r"\b\d{1,4}(:\d{2})?\s*(am|pm|a\.m\.|p\.m\.)(?!\w)|\b\d{1,2}:\d{2}\b|\bat\s+\d{1,2}\b|"
+    r"\b(?:at|for)\s+\d{3,4}\b|"
     r"\b(noon|midnight|tonight|morning|evening|afternoon)\b", re.I)
 
 # Any remind-flavoured wording — the verb or the noun ("a birthday wish
