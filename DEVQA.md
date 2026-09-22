@@ -936,3 +936,32 @@ before you rule:
   rather than the behaviour being changed. Creating a to-do called 'list for
   me' is a row the speaker has to find and delete.
 
+- **2026-09-21 — Q38 (A TITLE THAT NAMES NOTHING IS REFUSED, EVERYWHERE)**,
+  Gil, shown the trade cycles 32–33 made on dev-100: junk titles 15% → 4%,
+  and 8 fewer objects created (80 → 72), each one a command like "create a
+  list for me" or "remind me at this time" where the engine now says *"I
+  couldn't tell what to call it"*. **Keep refusing.** This generalises Q37
+  from nameless lists to every title that names nothing: a row the speaker
+  has to find and delete is worse than a sentence saying it could not be
+  read. Title work stops here; the loop moves to other failures.
+
+- **2026-09-21 — Q39 (THE REAL-USAGE BOARD COMES BEFORE MORE dev-100 WORK)**,
+  Gil. Every one of 2026-09-20's eleven cycles was judged on dev-100 — 100
+  HWU-64 utterances — while CLAUDE.md has said all along that real usage
+  outranks every board and is the only instrument measuring Gil's own
+  speech, and it has never driven a cycle. **Build the real-usage board
+  first** (phase 1 of `REAL_SPEECH_PLAN.md`). The risk it addresses is
+  concrete: a day of hard optimisation against a public corpus that may not
+  sound like the person using it.
+
+- **2026-09-21 — Q28 RE-CONFIRMED WITH THE PHONE DETAIL.** Told that the
+  bare-hour prompt fires ONLY on iOS — the one client that sets
+  `supports_confirm` — so "remind me about the meeting tomorrow at 7" now
+  costs a tap on the phone while the Mac creates it silently: **keep
+  asking.** The ambiguity is real and a wrong hour is worse than a tap.
+
+- **2026-09-21 — Q40 (MERGE THE BRANCH)**, Gil: merge
+  `fastrule-title-time-precedence` into `main` now. 44 commits — eleven
+  engine cycles, four rulings built, and the iOS project repair — with the
+  full suite green and every change boarded.
+
