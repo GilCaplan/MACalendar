@@ -60,6 +60,15 @@ def call(integration, path: str, method: str = "GET", payload: "dict | None" = N
         return jsonify({"error": str(e), "code": 502}), 502
 
 
+#: How long the upstream may be silent before the stream says "still here".
+#: The phone's stream timeout is an INACTIVITY timeout, and Jude behind a busy
+#: Ollama — a board running on the Mac — can take minutes to its first line;
+#: that silence read as "the Mac was unreachable" on the phone while
+#: /jude/status answered all along (Gil, 2026-09-22). A keepalive line costs
+#: nothing and a client that does not know the type ignores it.
+KEEPALIVE_S = 15.0
+
+
 def stream(integration, path: str, payload: dict, timeout: int = 900):
     """POST to a streaming SSE endpoint; stream NDJSON back to the client.
 
@@ -79,20 +88,45 @@ def stream(integration, path: str, payload: dict, timeout: int = 900):
         return jsonify({"error": str(e), "code": 503}), 503
 
     def generate():
+        import queue
+        import threading
+
         req = urllib.request.Request(
             base + path, method="POST",
             data=json.dumps(payload).encode("utf-8"),
             headers={"Content-Type": "application/json"})
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                for raw in r:
-                    line = raw.decode("utf-8", "replace").rstrip("\r\n")
-                    if not line.startswith("data:"):
-                        continue          # SSE blank separators and comments
-                    yield line[5:].strip() + "\n"
-        except Exception as e:            # noqa: BLE001 - the stream must say why
-            logger.warning("%s stream failed: %s", integration.name, e)
-            yield json.dumps({"type": "error", "message": str(e)}) + "\n"
+        # The upstream is read on its own thread so that THIS generator can
+        # notice silence: a blocking read cannot say "nothing yet" after
+        # fifteen seconds, and "nothing yet" is exactly what the phone needs
+        # to hear (see KEEPALIVE_S).
+        q: "queue.Queue" = queue.Queue()
+
+        def pump():
+            try:
+                with urllib.request.urlopen(req, timeout=timeout) as r:
+                    for raw in r:
+                        q.put(("line", raw))
+                q.put(("end", None))
+            except Exception as e:        # noqa: BLE001 - the stream must say why
+                q.put(("error", e))
+
+        threading.Thread(target=pump, daemon=True, name="jude-stream").start()
+        while True:
+            try:
+                kind, val = q.get(timeout=KEEPALIVE_S)
+            except queue.Empty:
+                yield json.dumps({"type": "keepalive"}) + "\n"
+                continue
+            if kind == "end":
+                return
+            if kind == "error":
+                logger.warning("%s stream failed: %s", integration.name, val)
+                yield json.dumps({"type": "error", "message": str(val)}) + "\n"
+                return
+            line = val.decode("utf-8", "replace").rstrip("\r\n")
+            if not line.startswith("data:"):
+                continue                  # SSE blank separators and comments
+            yield line[5:].strip() + "\n"
 
     return Response(
         stream_with_context(generate()),

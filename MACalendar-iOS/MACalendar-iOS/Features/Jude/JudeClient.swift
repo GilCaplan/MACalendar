@@ -97,8 +97,13 @@ extension APIClient {
         // Generous: five model calls per question, and synthesis alone is
         // 30–90 s on a local model. The first token is not the first thing
         // that arrives either — the stage lines are, which is why a timeout
-        // tuned to "time to first byte" would be wrong here.
-        var req = URLRequest(url: url, timeoutInterval: 300)
+        // tuned to "time to first byte" would be wrong here. 900 s matches
+        // the Mac's own proxy timeout (`integrations/proxy.stream`): behind a
+        // busy Ollama — a board running on the Mac — Jude's first line can
+        // take minutes, and at 300 s this timed out while the Mac was fine
+        // (2026-09-22). The proxy now sends a keepalive line while it waits,
+        // so silence no longer means anything is wrong.
+        var req = URLRequest(url: url, timeoutInterval: 900)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if !settings.apiKey.isEmpty {
@@ -109,11 +114,19 @@ extension APIClient {
         let assertion = BackgroundAssertion()
         assertion.begin("jude-question")
         defer { assertion.end() }
+        // Once the Mac has ANSWERED, a failure is the stream's, not the Mac's.
+        // A stream that died mid-answer used to arm the shared "the Mac was
+        // unreachable" backoff, so the next send was refused with that
+        // sentence while the Mac was answering /jude/status all along
+        // (2026-09-22). Only a connection that never opened marks the Mac
+        // unreachable; everything after that is reported as what it is.
+        var answered = false
         do {
             let (bytes, resp) = try await URLSession.shared.bytes(for: req)
             guard let http = resp as? HTTPURLResponse else {
                 throw APIError.serverError("No response")
             }
+            answered = true
             guard (200...299).contains(http.statusCode) else {
                 // The 503 for "Jude is off / not installed" carries a sentence
                 // written for a person; surface that, not the status code.
@@ -135,6 +148,10 @@ extension APIClient {
         } catch let err as APIError {
             throw err
         } catch {
+            if answered {
+                throw APIError.serverError("Jude's answer stopped arriving — "
+                                           + error.localizedDescription)
+            }
             isOnline = false
             noteUnreachable()
             throw APIError.offline(error.localizedDescription)
