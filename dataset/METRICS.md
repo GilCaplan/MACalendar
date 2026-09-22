@@ -13,6 +13,40 @@ pattern, each because precision/recall cannot express something we care
 about: **harm** (errors are not equal), the **knew-vs-accident split**
 (measures the mechanism, not the outcome), and **latency**.
 
+## How a number is presented (Gil, 2026-09-22)
+
+Every reported number carries five things, in this order: **dataset · split
+· n · metric · the previous version on the same split.**
+
+- **split** is TRAIN or TEST. The sealed 300 (`dataset/inputs/test_split.json`)
+  is the TEST set and is called that; each stage's own corpus has its own
+  train/test halves (FastRule 7,200, segmentation 1,549, resolver 2,884,
+  judge 1,800). Test rows are never read and never pick the next fix.
+- **n** is written as scored/total with the skipped count and why ("785
+  cases, 115 skipped: the converter declined"). A rate over fewer than ~50
+  rows is a probe, and a false-flag rate quotes its clean denominator.
+- **comparison** is one table, both splits side by side, same scorer for
+  both versions; a re-scored archive says so.
+
+## Definitions, one line each
+
+| metric | one line | where |
+|---|---|---|
+| count-correct | the command produced the right NUMBER of events and tasks (raw; product-adjusted applies the conventions layer) | engine |
+| item precision / recall / F1 | of created items, how many were asked for / of asked-for items, how many exist / their harmonic mean | engine |
+| field quality · when-correct | of matched items, are the fields grounded in the words / is the date and clock right where one was said | engine |
+| garbage-title rate | a title that is not a title: furniture word, command frame, cut mid-phrase (a bare kind is not garbage since Q42) | engine |
+| handle rate · correct-on-handled | of single-item commands, how many FastRule acted on / of those, how many were right | FastRule |
+| harm | wrong commits weighted by cost: delete 4 · update or complete 2 · create 1 · query 0 | FastRule |
+| invented a time | events given a clock when the speaker named none | FastRule |
+| exact-set · exact-row · time assignment | the right set of asks / the right asks with time and tag / each time phrase on the item it belongs to | segmentation |
+| all fields exact · invention · lost phrase | every resolved value right / a value the words do not support / a time phrase that reached no value | decompose_validate |
+| catch rate · false-flag rate | of planted defects, how many the judge flagged / of clean objects, how many it complained about — always the pair | LLMJudge |
+| corrected, every reachable field | of Gil's corrected commands, rows where every field a parse of the words could reach is right | real usage |
+| approved reproduced · rejected changed | commands he accepted that still come out the same / commands he rejected whose answer moved at all | real usage |
+| generic-title right or acceptable | the title carries the subject the words held, or is a bare kind where nothing else was said, with the day and clock right | real usage |
+| error bar | the move between two runs of the same rows on unchanged code: 0.6 pt on the test 300, 0 on dev-100 back to back, ~2.4 pt on the rejected tier | all |
+
 ## Level 1 — the ENGINE (`engine_dataset_compare` → `score_dataset_run`)
 
 | metric | question |

@@ -498,6 +498,16 @@ reason. And when a bench is generated rather than observed, say which half is
 real: `scripts/vocab_repair_bench.py` carries the damage OPERATIONS from the
 observed corpus and invents only the terms, and says so at the top.
 
+**And a REPORT names the SPLIT, the n, and the version it is compared to**
+(Gil, 2026-09-22). When presenting a stage's or the system's results, every
+number comes with: the dataset; **the split — TRAIN or TEST, and the sealed
+300 is called the TEST set**; n as scored/total with the skipped count; the
+metric, defined once in `dataset/METRICS.md` §"Definitions"; and the previous
+version's reading on the SAME split. A comparison of two versions is one table
+with both splits side by side, never train for one and test for the other.
+A number that cannot be placed on that grid is a probe, said so, and never
+banked.
+
 **Always name the metric with the number.** "70→72" is meaningless in a vacuum;
 "count-correct 73.5%→75% on event+task" is a result. Metrics are organised BY COMPONENT, not as one flat list — `dataset/METRICS.md`
 is the map. Five levels: the ENGINE board (count-correctness, item P/R/F1,

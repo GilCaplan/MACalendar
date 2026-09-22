@@ -1436,3 +1436,27 @@ has caught mid-session by refusing to accept a suspiciously clean pattern
 at face value (cycle 17's stale-checkpoint retraction was the first). Read
 the actual rows before banking a number, every time — a board's own output
 is not automatically ground truth about what it measured.
+
+## Reading at size, 2026-09-22 — the production judge on both halves
+
+`judge_board`, dataset `datasets/judge_cases.jsonl` (1,800 cases: 900 train,
+900 test; one defect planted per case over a gold object the real converter
+builds, plus clean cases). Scored only where the converter builds the object.
+No model call anywhere in the judge.
+
+| split | n scored / total (skipped: converter declined) | catch rate on planted | false-flag on clean | wall |
+|---|---|---|---|---|
+| TRAIN | 785 / 900 (115) | **100.0%** (411/411) | 2.7% (10/374) | 8 s |
+| TEST | 663 / 900 (237) | **98.8%** (334/338) | 2.2% (7/325) | 10 s |
+
+Per mutation on TEST: dropped_date 100% (49), dropped_time 100% (19),
+generic_title 98.5% (66), invented_title 98.1% (52), near_miss_title 98.2%
+(57), unrelated_object 98.9% (95). The same board on the last banked reading
+(cycle 16) was train 99.5% / 2.0% (753 cases) and test 97.5% / 2.3% (623);
+n grew because the converter builds more of the gold now.
+
+For the version comparison Gil asked for, the LLM-era judge's readings stand
+in cycles 1–4 and 12 above: train 98.9% / 0.0% and test 92.4% / 18.2% on the
+141-row sample of the earlier dataset (77 scored test cases, 11 clean), and
+the cycle-12 ablation on identical rows — with the model call 75.9% / 19.4%
+in 510 s, without it 75.9% / 19.4% in 3 s.
