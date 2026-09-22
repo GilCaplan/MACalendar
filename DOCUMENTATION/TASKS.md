@@ -1510,7 +1510,11 @@ Proposed: a delegated GENERATOR (gold by grammar, six voices, observed damage
 operations, split by family, diversity counted) to ~5,000 commands / ~10,000
 object cases; Board D to thousands; then four shape decisions boarded alone
 (keep the judge deterministic; rescue self-consistency; a pairwise selector
-at loop exhaustion; rescue drawn as its own trace step). Waiting on Gil.
+at loop exhaustion; rescue drawn as its own trace step) and, §7.5, six
+registered tests of where Llama 3.1 8B might be worth its latency — each a
+coarse two-way question under a condition, with the fire rate and a latency
+budget beside the pair, and the four refuted uses re-run as negative
+controls. Waiting on Gil.
 
 ## CYCLES 38–40 — Q42 and Q43 built, 2026-09-22
 
