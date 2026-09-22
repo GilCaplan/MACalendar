@@ -36,7 +36,8 @@ def test_a_completed_unit_is_on_disk_before_the_next_one_starts(scratch):
     # The first line is the git-head stamp (test_checkpoint_versioning.py owns
     # that behaviour); units are whatever comes after it.
     rows = [json.loads(l) for l in (scratch / "t.jsonl").read_text().splitlines() if l.strip()]
-    assert [r for r in rows if "k" in r] == [{"k": "a", "v": {"ok": True}}]
+    # (`t` is the wall-clock stamp every row carries since 2026-09-22.)
+    assert [{k: v for k, v in r.items() if k != "t"} for r in rows if "k" in r] == [{"k": "a", "v": {"ok": True}}]
 
 
 def test_re_running_resumes_instead_of_redoing_hours_of_model_calls(scratch):
@@ -187,3 +188,34 @@ def test_resumed_units_do_not_inflate_the_rate_or_the_eta(scratch, capsys,
     # would report 101/min and an ETA 100x too short.
     assert "· 1/min ·" in out, out
     assert "eta 99m" in out, out
+
+
+def test_every_row_and_the_progress_line_carry_a_real_wall_clock_time(scratch, capsys):
+    """Gil, 2026-09-22: *"add for future perhaps timestamps so when reading
+    can help."* A checkpoint read back later could say WHAT landed but not
+    WHEN — which run a row belongs to, where a stall was, how long the tail
+    took. Every row now carries `t`, the stamp line carries `started`, and
+    the progress line opens with the clock. All three are the REAL clock even
+    inside the frozen one every board runs under (the meter's own lesson)."""
+    import datetime as dt
+    import re
+    from freezegun import freeze_time
+
+    ck = Checkpoint("stamped", total=2, every=1)
+    with freeze_time(dt.datetime(2026, 9, 9, 10, 0)):
+        ck.record("row-0", {"ok": True})
+    out = capsys.readouterr().out
+    assert re.match(r"\s+\d\d:\d\d:\d\d \[stamped\] 1/2", out), out
+    assert "10:00:00" not in out, f"the progress line read the frozen clock: {out!r}"
+
+    lines = [json.loads(l) for l in (scratch / "stamped.jsonl").read_text().splitlines() if l.strip()]
+    rows = [l for l in lines if "k" in l]
+    assert rows and re.fullmatch(r"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d", rows[0]["t"]), rows
+    assert not rows[0]["t"].startswith("2026-09-09"), "the row stamp read the frozen clock"
+    meta = [l for l in lines if "git_head" in l]
+    if meta:                                   # stamped only inside a git checkout
+        assert re.fullmatch(r"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d", meta[0]["started"]), meta
+
+    # And a resume still reads the rows back — the extra key changes nothing.
+    again = Checkpoint("stamped", total=2)
+    assert again.has("row-0") and again.get("row-0") == {"ok": True}

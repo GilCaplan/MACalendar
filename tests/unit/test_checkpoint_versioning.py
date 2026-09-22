@@ -32,7 +32,7 @@ def test_a_fresh_checkpoint_is_stamped_with_the_current_commit(scratch, monkeypa
     _stamp(monkeypatch, "abc123")
     Checkpoint("t").record("a", 1)
     rows = [json.loads(l) for l in (scratch / "t.jsonl").read_text().splitlines() if l.strip()]
-    assert rows[0] == {"git_head": "abc123", "git_dirty": False}
+    assert {k: v for k, v in rows[0].items() if k != "started"} == {"git_head": "abc123", "git_dirty": False}
 
 
 def test_resuming_at_the_same_commit_is_silent(scratch, monkeypatch, capsys):
@@ -92,4 +92,4 @@ def test_no_git_available_degrades_to_no_stamp_and_no_crash(scratch, monkeypatch
     ck = Checkpoint("t")
     ck.record("a", 1)                       # must not raise
     rows = [json.loads(l) for l in (scratch / "t.jsonl").read_text().splitlines() if l.strip()]
-    assert rows == [{"k": "a", "v": 1}]     # no stamp line when head is unknown
+    assert [{k: v for k, v in r.items() if k != "t"} for r in rows] == [{"k": "a", "v": 1}]     # no stamp line when head is unknown

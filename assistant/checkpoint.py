@@ -69,6 +69,22 @@ def _now() -> float:
     except (AttributeError, OSError):       # not POSIX
         return time.monotonic()
 
+
+def _wall() -> str:
+    """The real wall-clock instant, as text, unpatched by any frozen clock
+    (Gil, 2026-09-22: *"add for future perhaps timestamps so when reading
+    can help"*). Every row on disk and every progress line carries one, so a
+    checkpoint read back a week later says WHEN each row landed — which run
+    it belongs to, where a stall was, how long the tail took — instead of
+    only that it did. `CLOCK_REALTIME` goes to the OS like `_now()` does, and
+    `localtime`/`strftime` given an explicit instant pass it through
+    unchanged (measured under `freeze_time`, like the meter above)."""
+    try:
+        ts = time.clock_gettime(time.CLOCK_REALTIME)
+    except (AttributeError, OSError):       # not POSIX
+        ts = time.time()
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
+
 #: Run artefacts, not personal data and not repo content — they are the
 #: by-product of a measurement and belong beside the other things this project
 #: keeps outside the tree. Overridable like every other store; `conftest.py`
@@ -156,7 +172,8 @@ class Checkpoint:
             # A genuinely new checkpoint (nothing loaded — no prior run, no
             # pre-stamp era file to leave alone) gets the stamp so the NEXT
             # resume, whenever that is, can make this check.
-            self._write_meta({"git_head": head, "git_dirty": _git_dirty()})
+            self._write_meta({"git_head": head, "git_dirty": _git_dirty(),
+                              "started": _wall()})
 
         #: Units reclaimed from disk. They cost no time THIS run, so counting
         #: them in the rate makes a resumed job look enormously fast and hands
@@ -216,7 +233,7 @@ class Checkpoint:
         self._done[k] = value
         if self._fh is not None:
             try:
-                self._fh.write(json.dumps({"k": k, "v": value}) + "\n")
+                self._fh.write(json.dumps({"k": k, "v": value, "t": _wall()}) + "\n")
                 self._fh.flush()
                 os.fsync(self._fh.fileno())
             except OSError:
@@ -231,7 +248,7 @@ class Checkpoint:
         did = n - self._resumed            # work actually done THIS run
         el = max(_now() - self._t0, 1e-6)
         rate = did / el
-        line = f"  [{self.name}] {n}"
+        line = f"  {_wall()[11:]} [{self.name}] {n}"
         if self.total:
             line += f"/{self.total} ({100.0 * n / self.total:.0f}%)"
             if rate > 0:
