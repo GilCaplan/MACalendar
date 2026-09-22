@@ -701,6 +701,32 @@ A `judge_board_v2` that scores the pair on this set, wrong type counted as a
 miss and the blind plants reported apart, is the instrument for §7.3 and
 §7.5, and comes before any change.
 
+### 7.2b · LANDED 2026-09-22, evening — the board, two cycles, and the floor
+
+`experiments/judge_board_v2.py` scores the pair on the v2 set (a wrong
+finding TYPE is a miss; the four blind plants reported apart; per voice and
+per damage). Everything below is in `experiments/RESULTS.md` with its n.
+
+- **Cycle 41 (the judge):** an object cut from the words is never
+  `not_an_ask`. Typed catch 92.2 → 97.5% train / 92.9 → 97.4% test, false
+  flags unchanged (0.1 / 0.2%); the v1 board byte-identical on both halves.
+- **Cycle 42 (the instrument):** the list-merge plant listed the converter's
+  titles and expected a noun list of them; it lists the grammar's event
+  subjects now. Typed catch 99.5% train / 98.6% test on the same judge; the
+  set differs on 73 `merged_asks` lines only.
+- **Board D v2's run-to-run floor is 22 rows in 1,200** — the rescue's model
+  call is unseeded (`parser.py` sends temperature 0.1 and no `seed`), and two
+  runs of the board differ on 22 rows that spent no re-entry. The floor
+  exceeds the 19 rows the arms disagree on, so no Board D net under it is a
+  reading. **Before any §7.5 cycle:** a seeded, temperature-0 board mode at
+  the one transport, switched from the environment so live traffic is
+  untouched, proven by a same-code double run that differs on 0 rows; then
+  one seeded 1,200-row baseline, which is what H1–H6 are read against.
+- **What the set cannot yet measure:** the test half has no plain-"and"
+  three-event family, so `coordinated_subject` is measured on 18 train rows
+  only. A list-of-three-events family on both halves is a generator change —
+  a new set revision with its own baseline, not a plant to loosen.
+
 ### 7.3 · The stage's shape — four decisions, each boarded alone
 
 Measured on Board D v2 (loop on vs off, both halves, fixed minus broken, with

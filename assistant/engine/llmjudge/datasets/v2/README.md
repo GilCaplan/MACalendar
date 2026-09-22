@@ -141,7 +141,7 @@ written. An ineffective plant is dropped and the next mutation is tried.
 | `dropped_date` | `unsupported_field` | a date the words never gave |
 | `dropped_time` | `unsupported_field` | a clock the words never gave |
 | `unrelated_object` | `not_an_ask` | an object nobody asked for |
-| `merged_asks` | `unsplit_subject` (seam) · `coordinated_subject` (a list of 3) · **—** (a plain "and") | two asks the cut left together — the WORDS are merged, not only the titles |
+| `merged_asks` | `unsplit_subject` (seam) · `coordinated_subject` (a list of 3 EVENT subjects) · **—** (a plain "and") | two asks the cut left together — the WORDS are merged, not only the titles. The list is the asks' gold `said.subject`, events only, three or more (18 train / 0 test — a thin n, said so on the board); a row that cannot supply that is a plain merge, never a wrong expectation (cycle 42, 2026-09-22: the plant used to list the converter's titles, so a task's verb phrase, a member still wearing its frame, or a pair of three was expected to read as a noun list — 55 of 73 list rows) |
 | `dropped_ask` | **—** | an ask with nothing built for it |
 | `wrong_kind` | **—** | an event built for a to-do, or the reverse |
 | `wrong_operation` | **—** | a create for a change, within one store |
@@ -276,8 +276,8 @@ V2 JUDGE SET — 5292 commands · 11187 cases
     wrong_kind                     254     265   —
     wrong_operation                254     265   —
 
-    planted, with a finding type     4055
-    planted, BLIND to the taxonomy   2157
+    planted, with a finding type     4000
+    planted, BLIND to the taxonomy   2212
     clean (the false-flag pool)      4975
 
   recogniser damage that still leaves the intended title reachable: 33/1750

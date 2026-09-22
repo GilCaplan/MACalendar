@@ -1,0 +1,185 @@
+{
+ "split": "test",
+ "cases": 5802,
+ "unbuildable": 0,
+ "typed": {
+  "dropped_date": {
+   "planted": 266,
+   "caught": 266,
+   "wrong_type": {}
+  },
+  "dropped_time": {
+   "planted": 264,
+   "caught": 264,
+   "wrong_type": {}
+  },
+  "generic_title": {
+   "planted": 266,
+   "caught": 266,
+   "wrong_type": {}
+  },
+  "invented_title": {
+   "planted": 266,
+   "caught": 262,
+   "wrong_type": {
+    "not_an_ask": 4
+   }
+  },
+  "near_miss_title": {
+   "planted": 266,
+   "caught": 265,
+   "wrong_type": {}
+  },
+  "subject_dropped_for_kind": {
+   "planted": 266,
+   "caught": 261,
+   "wrong_type": {
+    "not_an_ask": 5
+   }
+  },
+  "unrelated_object": {
+   "planted": 265,
+   "caught": 247,
+   "wrong_type": {
+    "unsupported_field": 35,
+    "ungrounded_subject": 18
+   }
+  },
+  "merged_asks": {
+   "planted": 194,
+   "caught": 194,
+   "wrong_type": {}
+  }
+ },
+ "typed_total": {
+  "planted": 2053,
+  "caught": 2025
+ },
+ "false_flag": {
+  "flagged": 4,
+  "clean": 2628
+ },
+ "blind": {
+  "wrong_kind": {
+   "planted": 265,
+   "flagged": 78
+  },
+  "wrong_operation": {
+   "planted": 265,
+   "flagged": 20
+  },
+  "clock_residue_title": {
+   "planted": 264,
+   "flagged": 0
+  },
+  "dropped_ask": {
+   "planted": 261,
+   "flagged": 0
+  },
+  "merged_asks": {
+   "planted": 66,
+   "flagged": 0
+  }
+ },
+ "by_voice": {
+  "plain": {
+   "planted": 310,
+   "caught": 306
+  },
+  "observant_student": {
+   "planted": 313,
+   "caught": 312
+  },
+  "household_parent": {
+   "planted": 280,
+   "caught": 273
+  },
+  "freelance_consultant": {
+   "planted": 316,
+   "caught": 312
+  },
+  "retiree": {
+   "planted": 279,
+   "caught": 274
+  },
+  "esl_speaker": {
+   "planted": 305,
+   "caught": 302
+  },
+  "uni_student": {
+   "planted": 250,
+   "caught": 246
+  }
+ },
+ "by_damage": {
+  "clean speech": {
+   "planted": 611,
+   "caught": 601
+  },
+  "stt_letter_corrupt": {
+   "planted": 95,
+   "caught": 95
+  },
+  "stt_sound_swap": {
+   "planted": 133,
+   "caught": 132
+  },
+  "trailing_interjection": {
+   "planted": 88,
+   "caught": 88
+  },
+  "one_word_swap": {
+   "planted": 184,
+   "caught": 180
+  },
+  "retraction": {
+   "planted": 146,
+   "caught": 143
+  },
+  "hold_on_chatter": {
+   "planted": 165,
+   "caught": 161
+  },
+  "leading_filler": {
+   "planted": 81,
+   "caught": 81
+  },
+  "clock_residue_title": {
+   "planted": 146,
+   "caught": 146
+  },
+  "stt_compound_join": {
+   "planted": 160,
+   "caught": 159
+  },
+  "stutter_repeat": {
+   "planted": 144,
+   "caught": 137
+  },
+  "wake_word_tail": {
+   "planted": 120,
+   "caught": 118
+  },
+  "stt_word_mash": {
+   "planted": 106,
+   "caught": 105
+  },
+  "stt_syllable_split": {
+   "planted": 141,
+   "caught": 141
+  },
+  "bare_kind_title": {
+   "planted": 69,
+   "caught": 66
+  },
+  "stt_boundary_shift": {
+   "planted": 103,
+   "caught": 103
+  },
+  "stated_day_wrong_weekday": {
+   "planted": 36,
+   "caught": 36
+  }
+ },
+ "elapsed_s": 168.2
+}

@@ -352,12 +352,42 @@ def make_case(row: dict, items: list, results: list, built: list,
         titles = [_current_title(r.intent) for _it, r in [keep] + others]
         if mode == "list":
             subject = (_ask_of(row, keep[0].id).get("said") or {}).get("subject")
-            listed = ", ".join(titles[:-1]) + " and " + titles[-1]
             if not subject or subject not in keep[0].text:
                 return None
-            merged_text = keep[0].text.replace(subject, listed, 1)
-            merged_title = listed
-        else:
+            # A NOUN LIST IS MADE OF THE GOLD SUBJECTS, AND ONLY OF EVENTS'
+            # (cycle 42, 2026-09-22). This plant listed the CONVERTER'S titles
+            # of whatever it had built, and the judge board read 42 misses on
+            # the train half where nearly every list-mode plant was one of:
+            # a task's verb phrase inside the list ("the car service, charge
+            # the batteries and …"), a member still wearing its frame ("block
+            # off the car service", "i would like to schedule the dentist
+            # appointment"), or a pair — three asks of which only two had a
+            # title. None of those is "a bare noun list of three or more
+            # things" (`findings.py`), and `coordination.noun_list` refuses
+            # each on purpose: a member that is a command verb is a list of
+            # ASKS, which is the cut's defect, and a pair cannot be told from
+            # "wine and cheese". The gold is the grammar's, not the
+            # converter's, so the members are the asks' `said.subject` — and
+            # an ask that is not an event with a subject in its words makes
+            # the row a PLAIN merge (the blind population), never a wrong
+            # expectation. The None conditions above are unchanged so every
+            # other case of the set is byte-identical after the change.
+            def _subject(it):
+                return (_ask_of(row, it.id).get("said") or {}).get("subject")
+            events = [(it, r) for it, r in pool
+                      if r.action == "create_event" and _subject(it)
+                      and _subject(it) in it.text]
+            if len(events) >= 3:
+                keep, others = events[0], events[1:n_merge]
+                subjects = [_subject(it) for it, _r in [keep] + others]
+                listed = ", ".join(subjects[:-1]) + " and " + subjects[-1]
+                merged_text = keep[0].text.replace(subjects[0], listed, 1)
+                merged_title = listed
+            else:
+                mode, seam, expect, n_merge = "plain", " and ", None, 2
+                keep, others = pool[0], pool[1:n_merge]
+                titles = [_current_title(r.intent) for _it, r in [keep] + others]
+        if mode != "list":
             merged_text = seam.join([it.text for it, _r in [keep] + others])
             merged_title = seam.join(titles).strip()
         plant.update({"item": keep[0].id, "title": merged_title,

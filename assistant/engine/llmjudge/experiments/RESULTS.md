@@ -1625,3 +1625,55 @@ untouched — and prove it by running the same code twice and counting
 differing rows, which must be 0 before the fixed/broke pair means anything.
 Until then every Board D net under the floor is reported as "inside the
 floor", never as a gain or a loss.
+
+## Cycle 42 — the list-merge plant listed the converter's titles, not the grammar's subjects (2026-09-22, 19:07)
+
+**An instrument fix; the judge did not change.** Cycle 41 left `merged_asks`
+as the largest typed deficit (78.7% train, 42 rows). Reading the train
+misses: every one was a LIST-mode plant, and the list was built from the
+CONVERTER'S titles of whatever had been built — a task's verb phrase inside
+an event's list ("the car service, charge the batteries and …"), a member
+still wearing its frame ("block off the car service", "i would like to
+schedule the dentist appointment"), or a pair (three asks, two titled).
+`findings.py` defines `coordinated_subject` as "a bare noun list of three or
+more things" and `coordination.noun_list` refuses a command verb and a pair
+on purpose (Gil, 2026-09-20; DEVQA Q43), so the plant was expecting the
+reader to break its own rule. The gold is the grammar's, not the
+converter's: the members are now the asks' gold `said.subject`, events
+only, three or more; a row that cannot supply that is a PLAIN merge (the
+blind population, expect None). The None conditions of the plant are
+unchanged, so the regenerated set differs from the previous one on exactly
+73 lines, all `merged_asks` (55 list rows → plain, 18 rebuilt from gold
+subjects); commands byte-identical; 11,187 cases, same ids.
+`test_a_list_merge_is_three_or_more_gold_event_subjects` pins it.
+
+**Judge boards, no model, fresh, same judge code as cycle 41.** Metric as
+above. Records `runs/judge_v2_{train,test}_*_20260922T19{07,10}.json`;
+before = the cycle-41 records (T1801 / T1804).
+
+| dataset · split | typed plants n | typed caught | `merged_asks` typed | blind `merged_asks` | false flags |
+|---|---|---|---|---|---|
+| v2 · TRAIN | 1,975 → 1,947 | 97.5% → **99.5%** (1938/1947) | 78.7% (155/197) → **98.8%** (167/169) | 55 → 83 rows, 0% flagged | 0.1% (3/2347), unchanged |
+| v2 · TEST | 2,080 → 2,053 | 97.4% → **98.6%** (2025/2053) | 87.8% (194/221) → **100%** (194/194) | 39 → 66 rows, 0% flagged | 0.2% (4/2628), unchanged |
+
+Every other plant line is identical to cycle 41's on both halves (the set
+did not change there). The two list rows still missed on train are reader
+limits, read and left: a head that is itself a kind phrase ("make an
+appointment for the dentist appointment, the …") and a retraction inside
+the list ("empanada night no sorry, i mean the kombucha order, …").
+
+**What it means.** The judge is at 99.5 / 98.6% of what today's taxonomy
+can name, false flags at 0.1 / 0.2%, and the remaining room is the blind
+population — 2,212 cases (dropped ask, wrong kind, wrong operation, clock
+residue, plain merges) that no finding type covers. That is §7.3's and
+§7.5's ground, not another rule.
+
+**Two things the set cannot yet measure, registered.** (1) The TEST half
+has ZERO list-mode rows: its 56 commands with three event asks sit in two
+families whose joiners are seams ("also", "and then"), so `coordinated_
+subject` is measured on 18 train rows only — a thin n, and a list-of-three-
+events family on a plain "and" in both halves is the way to more (a
+generator change, so a new set revision with its own baseline). (2) The
+list-mode n went from 46+27 to 18+0 because the grammar mixes kinds inside
+a three-ask command; that is the corpus telling the truth about how often a
+speaker lists three events under one verb, not a plant to loosen.

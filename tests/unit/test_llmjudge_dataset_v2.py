@@ -330,3 +330,41 @@ def test_no_case_crosses_the_split_of_its_command():
     commands = {r["id"]: r for r in _jsonl(gen.COMMANDS)}
     for c in _jsonl(gen.CASES):
         assert c["split"] == commands[c["command_id"]]["split"], c["id"]
+
+
+def test_a_list_merge_is_three_or_more_gold_event_subjects():
+    """Cycle 42 (2026-09-22). The list-mode merge used to list the CONVERTER'S
+    titles of whatever it had built — a task's verb phrase, a member still
+    wearing its frame ("block off the car service"), or only two of three —
+    and expected `coordinated_subject` of it. `findings.py` defines that
+    finding as "a bare noun list of three or more things", and the reader
+    refuses a command verb and a pair on purpose, so the plant was measuring
+    its own construction. The members are the asks' gold `said.subject`, all
+    events, three or more; a row that cannot supply that is a PLAIN merge
+    (expect None), never a wrong expectation."""
+    import re
+    from assistant.engine.llmjudge import findings
+    commands = {r["id"]: r for r in _jsonl(gen.COMMANDS)}
+    # A frame LEADS a member ("block off the car service"); anchored at the
+    # start so a noun that is also a verb ("the book club") is not a frame.
+    frame = re.compile(r"^(i would like|i'd like|could you|would you|can you|"
+                       r"please|remind me|schedule|block off|pencil in|book|"
+                       r"tell me)\b", re.I)
+    listed = [c for c in _jsonl(gen.CASES)
+              if c["mutation"] == "merged_asks"
+              and c["expect"] == findings.COORDINATED_SUBJECT]
+    # 18 across both halves on 2026-09-22: a list needs THREE event asks with
+    # subjects in one command, and the grammar mixes kinds. A thin n, said so
+    # on the board; a list-of-events family is the way to more, not a looser plant.
+    assert len(listed) >= 10, len(listed)
+    for c in listed:
+        row = commands[c["command_id"]]
+        subjects = {a["said"]["subject"] for a in row["asks"]
+                    if a["kind"] == "event" and a["said"].get("subject")}
+        members = [m.strip() for m in re.split(r",\s*|\s+and\s+", c["plant"]["title"])]
+        assert len(members) >= 3, (c["id"], members)
+        for m in members:
+            assert m in subjects, (c["id"], m, subjects)
+            assert not frame.search(m), (c["id"], m)
+        assert c["plant"]["title"] in c["plant"]["text"], c["id"]
+        assert len(c["plant"]["drop"]) == len(members) - 1, c["id"]
