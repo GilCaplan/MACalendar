@@ -407,3 +407,26 @@ def test_a_review_the_verb_routed_to_a_create_is_a_query():
                  raw={"create_event": {"title": "pda do i have any appointments set"}})
     assert isinstance(got, Built), got
     assert got.action == "query_schedule", got.action
+
+
+def test_every_todo_title_survives_the_converter():
+    """The converter read `titles[0]`, built a one-item to-do from it and
+    dropped the rest: "I need to buy Dr. Brown and Pepsi" parses to two
+    titles and committed one, and the speaker was told "Added 'buy dr.
+    brown'" and never learned Pepsi went missing.
+
+    Invisible to every board this project had. The FAST path commits the
+    parser's own intents with the list intact, and a count-correctness score
+    reads one to-do out of a to-do ask as the right COUNT. Gil's own command
+    history found it on the real-usage board's first run (2026-09-21) — he
+    had approved the two-item answer back when it worked."""
+    got = _build("I need to buy Dr. Brown and Pepsi", kind="task",
+                 raw={"create_todo": {"titles": ["buy dr. brown", "buy pepsi"]}})
+    assert isinstance(got, Built), got
+    assert got.intent.titles == ["buy dr. brown", "buy pepsi"], got.intent.titles
+
+
+def test_a_single_title_todo_is_unchanged():
+    got = _build("call the dentist", kind="task",
+                 raw={"create_todo": {"titles": ["call the dentist"]}})
+    assert got.intent.titles == ["call the dentist"]

@@ -2364,5 +2364,65 @@
   "clock": "2026-09-16T16:00:51.578924",
   "message": "Added 'buy some ice' to Today. Added 'buy green onion' to Today. Added 'i also need to buy ice. no' to Today. Added 'i said that. i need to buy' to Today.",
   "error": null
+ },
+ {
+  "id": 242,
+  "tier": "approved",
+  "said": "Set tomorrow night at 9pm to search for a kingdom, IGG game. Execute.",
+  "status": 200,
+  "parse": "fast",
+  "ms": 148,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "search for a kingdom igg game",
+     "date": "2026-09-19",
+     "start_time": "21:00",
+     "end_time": "22:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-09-18T18:08:45.554066",
+  "message": "Created event 'search for a kingdom igg game' on Saturday, Sep 19, 2026 from 9 PM to 10 PM.",
+  "error": null
+ },
+ {
+  "id": 243,
+  "tier": "rejected",
+  "said": "Every event tomorrow night at 9pm, to search for kingdoms, execute.",
+  "status": 200,
+  "parse": "fast",
+  "ms": 67,
+  "actions": [
+   {
+    "action": "create_event",
+    "parameters": {}
+   }
+  ],
+  "created": [
+   {
+    "action": "create_event",
+    "parameters": {
+     "title": "every event search for kingdoms",
+     "date": "2026-09-19",
+     "start_time": "21:00",
+     "end_time": "22:00",
+     "recurrence": "",
+     "recur_until": ""
+    }
+   }
+  ],
+  "clock": "2026-09-18T18:11:53.894067",
+  "message": "Created event 'every event search for kingdoms' on Saturday, Sep 19, 2026 from 9 PM to 10 PM.",
+  "error": null
  }
 ]

@@ -310,7 +310,7 @@ def _why_unusable(item: Item) -> "str | None":
 
 
 def _read_action_words(item: Item, parser) -> tuple:
-    """(route, title, attendees, rr) — everything taken from the ACTION WORDS.
+    """(route, title, titles, attendees, rr) — everything taken from the ACTION WORDS.
 
     Returns the route the parser SELECTED, not the intent it was willing to
     emit. B1's finding is the reason: the parser withholds an intent when the
@@ -325,14 +325,14 @@ def _read_action_words(item: Item, parser) -> tuple:
     re-reading the same words cold.
     """
     if parser is None:
-        return None, "", [], None
+        return None, "", [], [], None
     try:
         rr = parser.analyze(item.text or "", current_view="month")
     except Exception:
-        return None, "", [], None
+        return None, "", [], [], None
     raw = getattr(rr, "raw_slots", None) or {}
     if not raw:
-        return None, "", [], None
+        return None, "", [], [], None
     route = next(iter(raw))
     slots = raw.get(route) or {}
     # THREE NAMES FOR THE SAME THING, and missing one of them is a real defect:
@@ -342,8 +342,19 @@ def _read_action_words(item: Item, parser) -> tuple:
     # made the whole utterance the target -- an update aimed at a record called
     # "a reminder note for three o'clock".
     title = slots.get("title") or slots.get("match_title") or ""
+    # EVERY title, not just the first. A to-do carries a LIST — "I need to buy
+    # Dr. Brown and Pepsi" parses to ['buy dr. brown', 'buy pepsi'] — and this
+    # read `titles[0]`, built a one-item to-do from it and dropped the rest on
+    # the floor. Silent data loss: the speaker is told "Added 'buy dr. brown'"
+    # and never learns Pepsi went missing.
+    #
+    # The FAST path never showed it (it commits the parser's own intents, list
+    # intact) and neither did any board scored on count-correctness, because
+    # one to-do out of a to-do ask is the right COUNT. Gil's own command
+    # history found it on the real-usage board's first run (2026-09-21) — he
+    # had approved the two-item answer when it worked.
+    titles = [str(t).strip() for t in (slots.get("titles") or []) if str(t).strip()]
     if not title:
-        titles = slots.get("titles") or []
         title = titles[0] if titles else ""
     attendees = list(slots.get("attendees") or [])
     title = str(title or "").strip()
@@ -387,7 +398,7 @@ def _read_action_words(item: Item, parser) -> tuple:
             title = (f"{head} with {' and '.join(people)}"
                      if head.lower() in _INTERACTION_HEAD else head)
             attendees = attendees or people
-    return route, title, attendees, rr
+    return route, title, titles, attendees, rr
 
 
 # ---------------------------------------------------------------------------
@@ -490,7 +501,8 @@ _NEEDS_A_TARGET = ("update_event", "delete_event", "update_todo",
                    "delete_todo", "complete_todo")
 
 
-def _new_intent(action: str, title: str, attendees: list, values: dict):
+def _new_intent(action: str, title: str, attendees: list, values: dict,
+                titles: "list | None" = None):
     """Construct the object for an action, values and all. Import-local so
     this module stays cheap and so a missing action module cannot break the
     import."""
@@ -502,7 +514,7 @@ def _new_intent(action: str, title: str, attendees: list, values: dict):
     if action == "create_event":
         return CalendarIntent(title=title, attendees=list(attendees or []), **values)
     if action == "create_todo":
-        return CreateTodoIntent(titles=[title], **values)
+        return CreateTodoIntent(titles=list(titles) or [title], **values)
     if action == "update_event":
         return UpdateEventIntent(match_title=title, **values)
     if action == "delete_event":
@@ -544,7 +556,7 @@ def build(item: Item, *, today: "_dt.date | None" = None,
         return BadItem(unusable, item_id=getattr(item, "id", ""))
 
     slots = dict(item.slots or {})
-    route, title, attendees, rr = _read_action_words(item, parser)
+    route, title, titles, attendees, rr = _read_action_words(item, parser)
 
     if route is None:
         return Defer("no-parser" if parser is None else "skip",
@@ -611,7 +623,7 @@ def build(item: Item, *, today: "_dt.date | None" = None,
     # --- 3 · COPY the values, INTO the constructor --------------------------
     values, copied = _value_kwargs(action, slots)
     try:
-        intent = _new_intent(action, title, attendees, values)
+        intent = _new_intent(action, title, attendees, values, titles)
     except Exception as exc:
         # a validation refusal is the object telling us this is not buildable
         # as read — which is a DEFER, this stage's other product, not a crash

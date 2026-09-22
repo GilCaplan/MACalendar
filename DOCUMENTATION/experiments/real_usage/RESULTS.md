@@ -124,3 +124,89 @@ No parse produces that, and scoring it would cap this metric forever and blame t
   - Have a movie today from 3pm to 6pm, execute.
 - id=218 [?] ['create_event']
   - We'll start an event for later, walking Jada at 2.30pm, execute.
+
+---
+
+# Run 2 — 2026-09-21, after two days of engine work. IT MOVED NOTHING.
+
+Same instrument, same rows, `python -m scripts.real_usage_board`. Guard
+passed: no real store changed during the run.
+
+| | 2026-09-18 | **2026-09-21** |
+|---|---|---|
+| corrected, all fields (n=9) | 11.1% | **11.1%** |
+| corrected, item count | 77.8% | **77.8%** |
+| title | 38.9% (18) | **38.9%** (18) |
+| date | 78.6% (14) | **78.6%** (14) |
+| start_time · end_time | 50.0% (14) | **50.0%** (14) |
+| approved, unchanged | 43.8% (7/16) | 47.1% (8/17) |
+| rejected, changed | 75.6% (41) | 73.8% (42) |
+
+**Every corrected-tier number is identical, and the "corrected, still wrong"
+list is the same eight ids in the same fields** (46, 118, 136, 143, 207, 219,
+220, 223). The approved tier gained one row and one pass; the rejected tier
+moved 1.8 pt, inside the 2.4 pt error bar this file measured on 2026-09-18.
+
+## What happened in between, and why it did not land here
+
+2026-09-20 ran eleven cycles against dev-100 and moved it a long way: field
+quality 88.7 → 91.9%, item precision 75.8 → 93.0%, junk-title rate 29 → 4%,
+count-correct 74 → 79%. Four of those cycles (30–33) were explicitly about
+TITLES, which is the class this board has named as the largest since its
+first run.
+
+**None of it reached a single failing row here.** The two corpora fail
+differently:
+
+| dev-100's titles | this board's titles |
+|---|---|
+| the program's own words leaking in — 'event', 'new list', 'note of it' | the speaker never named the thing: *"set a meeting for me tomorrow at 4pm"* |
+| a command frame the verb left behind — 'remind about of all event in calenders' | speech that restarts mid-sentence — *"set a date for tomorrow at 11 o'clock, in one second, one moment…"* |
+| a cut that ended mid-phrase — "grocery shopping 's to-do list" | words the recogniser mangled — 'WalkMoxDog', 'Walk, Mark, Stog', 'Conello oil' |
+
+Yesterday's work fixed the left column. The right column is `generic-title`
+(42%), `disfluency` (16%) and `stt-garbage` (12%) — and the left column
+barely exists in Gil's speech.
+
+**This is the answer to the question Q39 was asked about.** Gil ruled on
+2026-09-21 that real usage comes before more dev-100 work, on the suspicion
+that a day of tuning had been spent on a corpus that is not his speech. The
+suspicion was correct, and this run is the measurement of it.
+
+## One thing DID change, and this board is why it was found
+
+`fastrule/build.py` read `titles[0]` from the parser and rebuilt a ONE-ITEM
+to-do from it, so every multi-item to-do on the deep track lost everything
+after the first:
+
+    "I need to buy Dr. Brown and Pepsi"
+       parser:    ['buy dr. brown', 'buy pepsi']
+       committed: ['buy dr. brown']     — and the reply named only that
+
+No board here could see it. The fast path commits the parser's intents with
+the list intact, and count-correctness reads one to-do out of a to-do ask as
+the right COUNT. It surfaced in the APPROVED tier, whose only question is
+"does it still do what he accepted" — Gil had approved the two-item answer
+back when it worked. Fixed; both FastRule boards byte-identical, suite 2,170.
+
+## A process failure worth recording
+
+This board was rebuilt from scratch on 2026-09-21 by a session that had read
+`REAL_SPEECH_PLAN.md` and not checked whether the deliverable already
+existed — the 770-line version from 2026-09-18 was overwritten by a cruder
+404-line one, and three findings already written here (the unreachable gold,
+titles as the weak field, the measured error bar) were "discovered" again.
+Restored from git. **The plan is not the record of what has been built; the
+RESULTS.md beside the script is.** Check for the artefact before building it.
+
+## Registered next — cycle 35
+
+Work the classes this board names, not dev-100's. **`generic-title` first**
+(21 of 50 non-approved rows): *"set a meeting for me tomorrow at 4pm"* names
+no subject, and Q38 now says refuse rather than create 'meeting' — so the
+question is whether these rows already refuse, and if so whether refusing is
+the right answer for a command that is otherwise complete and confident.
+**Prediction:** the rejected tier's unchanged count falls (those rows change
+behaviour); the corrected tier is unmoved, because only id=118 is in this
+class. If dev-100 moves at all, the change has reached past real speech.
+
