@@ -3174,3 +3174,54 @@ and the list rule's reading of "A, B, C" with no conjunction is now a
 question for Gil rather than a defect of either pass.
 
 **Registered next:** the sealed-300 milestone (`--test`, aggregates only).
+
+## MILESTONE — the SEALED 300 after the September loop (2026-09-22)
+
+**Dataset: the sealed test set (301 rows, never mined, never trained on,
+never used to pick a fix). Aggregates only, tooling-enforced. No hypothesis
+is registered from this section — direction comes from the training pool
+and from real usage; this is the retrospective read the plan behind "can we
+consider it done" asked for.** `python -m scripts.engine_dataset_compare
+--limit 0 --test`, run `dataset/runs/x_auto-20260922T1340-301rows`.
+
+| metric | run 21 (2026-09-07) | checkpoint `main` (09-12/13) | **2026-09-22** |
+|---|---|---|---|
+| count-correct raw / adjusted | **83%** / 82% | 77.3% · 76.7% / 78.3% | **73% / 75%** |
+| item-level P / R / F1 | 87.2 / 83.3 / **85.2** | — | 84.7 / 69.7 / **76.5** |
+| simple / medium / complex | 90% / 92% / 67% | — / — / 48.5% | 86% / 92% / **42%** |
+| fast path (rows) · deep path (rows) | 90% (135) · 77% (166) | 93.1% (130) · 65.3% (170) | **95% (124) · 57% (177)** |
+| event+event / task+task / event+task | 63% / 78% / 59% | — | 51% / 33% / 41% |
+| field quality / when-correct | 88.9% / 81.9% | — | **92.0% / 84.3%** |
+| garbage titles | 0% (narrow metric) | 0% (narrow) | 7% (widened metric, 2026-09-20) |
+| latency p50 / p95 | 12.0 s / 70.4 s | 40.2 s / 52.6 s | **77 ms** / 46.2 s |
+
+**Read honestly.** Count-correctness on the sealed set has FALLEN across the
+month — 83 → 77 (the 09-12 sweep) → 73 today — with the error bar measured at
+0.6 pt on this slice, so both steps are real. The fall is on the DEEP path
+(77 → 65 → 57%) and the complex tier (67 → 42%); the fast path is the best it
+has been (95% on 124 rows) and answers in 77 ms at p50. Recall fell 83.3 →
+69.7 while precision fell less (87.2 → 84.7): the September gates traded
+recall for precision as ruled (Q35), but the sealed set says the deep path
+lost more than the trade. Field quality rose 88.9 → 92.0 and when-correct
+81.9 → 84.3 — what IS created is more often right in its fields.
+
+**What this says about the instruments, not the engine** (an aggregate
+observation, not a hypothesis): dev-100 read 74 → 85 → 75–79% over the same
+period and predicted none of this; it is 100 rows of the training pool and
+"direction, not proof" (CLAUDE.md). The sealed set is the only constructed
+board that can say whether the month moved the engine, and it says: fields
+up, counts down, deep path down. Real usage — the instrument that outranks
+this one — moved UP today on every measure it has (`real_usage/RESULTS.md`
+run 6). The two are not in conflict: the sealed set is built from compounds
+(three families × ~35 rows) that Gil's speech rarely produces, and the
+training-pool cycles of 09-20 were gates that defer or refuse where the
+sealed compounds want three objects.
+
+**The garbage-title column is not comparable across the table**: run 21 and
+the sweep used the narrow metric (junk connectives only); today's 7% is the
+widened `is_garbage_title` (program words, frames, cut phrases), which read
+29% on dev-100 before cycles 30–33 and 4% after.
+
+**Registered next:** nothing from here. The next cycles come from real usage
+(Q42, Q43 waiting on Gil) and, on the training pool, from the deep path's
+compound families — read on dev-fast-250, never on this set.

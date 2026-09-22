@@ -145,6 +145,15 @@ quote. It is a DIFFERENT INSTRUMENT from the boards above (share of real command
 Gil marked wrong, vs count-correctness on constructed prompts), so the gap is
 real and large but is not a subtraction and must not be quoted as one.
 
+**SEALED 300 · milestone · 2026-09-22** (`dataset/RESULTS.md`, aggregates
+only): count-correct **73% raw / 75% adjusted** (was 83% on 2026-09-07,
+77.3% at the 09-12 sweep; error bar 0.6 pt), item P/R/F1 84.7 / 69.7 /
+76.5 (was 85.2), field quality **92.0%** (was 88.9%), fast path **95%** on
+124 rows at 77 ms p50, deep path **57%** on 177 rows, complex tier 42%. The
+month's constructed-board work raised fields and precision and LOWERED
+count-correctness on the deep path; dev-100 did not predict it. Not a
+hypothesis source; the next training-pool work reads dev-fast-250.
+
 **REAL USAGE · the replay board · `scripts/real_usage_board.py`, 2026-09-22
 run 4** (`DOCUMENTATION/experiments/real_usage/RESULTS.md`): Gil's 75
 reviewed commands replayed through the current engine on their own clocks.
