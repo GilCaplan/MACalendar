@@ -1002,3 +1002,35 @@ def test_a_bare_kind_with_nothing_else_said_is_not_a_finding(registry_with_real_
     st = _state([_ev_item("item_1", "event")], text="add an event for 5 p.m.")
     found = verdict.judge(st, verdict.collect(st))
     assert not [f for f in found if f.type == F.UNGROUNDED_SUBJECT], found
+
+
+def test_a_wrong_title_on_an_ask_that_was_said_is_a_rewrite_not_a_panel_item(registry_with_real_actions):
+    """Cycle 41 (2026-09-22). Two asks; the first's title is a fabrication and
+    the ask named no time, so not one FIELD of the object can be pointed at in
+    the words — but the item it was built from was cut from them. The v2 set
+    measured this answered `not_an_ask` (panel) a quarter of the time; the
+    right finding is `ungrounded_subject` (rewrite)."""
+    text = "remind me to confirm the eye exam and add call the plumber to my list"
+    first = Item(id="item_1", kind="task", text="remind me to confirm the eye exam",
+                 source="remind me to confirm the eye exam", action="create_todo",
+                 intent=SimpleNamespace(title="polish the telescope lens", titles=["polish the telescope lens"]))
+    second = Item(id="item_2", kind="task", text="add call the plumber to my list",
+                  source="add call the plumber to my list", action="create_todo",
+                  intent=SimpleNamespace(title="call the plumber", titles=["call the plumber"]))
+    st = _state([first, second], text=text)
+    found = verdict.judge(st, verdict.collect(st))
+    on_first = [f for f in found if f.item_id == "item_1"]
+    assert on_first and on_first[0].type == F.UNGROUNDED_SUBJECT, found
+
+
+def test_an_object_whose_item_was_never_said_is_still_not_an_ask(registry_with_real_actions):
+    text = "remind me to confirm the eye exam and add call the plumber to my list"
+    real = Item(id="item_1", kind="task", text="remind me to confirm the eye exam",
+                source="remind me to confirm the eye exam", action="create_todo",
+                intent=SimpleNamespace(title="confirm the eye exam", titles=["confirm the eye exam"]))
+    extra = Item(id="item_x", kind="event", text="polish the telescope lens", action="create_event",
+                 intent=SimpleNamespace(title="polish the telescope lens"))
+    st = _state([real, extra], text=text)
+    found = verdict.judge(st, verdict.collect(st))
+    on_extra = [f for f in found if f.item_id == "item_x"]
+    assert on_extra and on_extra[0].type == F.NOT_AN_ASK, found

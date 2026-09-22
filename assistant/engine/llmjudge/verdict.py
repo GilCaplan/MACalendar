@@ -527,6 +527,23 @@ def slot_came_from_words(item, raw_text: str) -> bool:
                for w in ws)
 
 
+def _item_is_in_the_words(item, raw_text: str) -> bool:
+    """Was this item cut from the transcript? True when the item's own
+    words (its verbatim source piece, else its action text) appear in the
+    words, whole. A synthetic extra — the rescue inventing an object, a plant
+    with a fabricated item — carries text that does not, and stays spurious."""
+    def _norm(t: str) -> str:
+        return " ".join(re.findall(r"[a-z0-9']+", (t or "").lower()))
+    words = _norm(raw_text)
+    if not words:
+        return False
+    for cand in (getattr(item, "source", "") or "", getattr(item, "text", "") or ""):
+        c = _norm(cand)
+        if c and len(c.split()) >= 2 and c in words:
+            return True
+    return False
+
+
 def _not_an_ask(state, p, siblings: bool = False) -> bool:
     """Is NOTHING about this object supported by the words?
 
@@ -576,6 +593,19 @@ def _not_an_ask(state, p, siblings: bool = False) -> bool:
         # answer the command. That needs no view of how many asks there were —
         # only whether anything else was built — so it does not re-open the ask
         # diff this stage deleted.
+        return False
+    # AN OBJECT BUILT FROM A REAL ASK IS NEVER SPURIOUS (cycle 41, 2026-09-22).
+    # The claims below ask whether any FIELD can be pointed at in the words;
+    # when the ask named no time and the title was replaced — a fabrication,
+    # or a kind word in place of the subject — no field can, and the object
+    # was called "nothing asked for this" and routed to the PANEL, where the
+    # reply says you never asked for it. But the item it was built from was
+    # CUT from the words: its own text is in the transcript. That is the
+    # evidence that it answers an ask; what is wrong is its title, which is a
+    # REWRITE. The v2 set measured it — 69 of 254 fabricated titles and 38 of
+    # 254 kind-for-subject titles answered `not_an_ask` on the train half —
+    # and the v1 set could not, because its rows never lacked a time.
+    if _item_is_in_the_words(p.item, state.raw_text or ""):
         return False
     cs = render.claims(p.action, p.intent, p.slots)
     if not cs:

@@ -1532,3 +1532,96 @@ finding type exists they stay outside every catch rate.
 **The voice and damage spread is small** (89.7–94.0% by voice, 88.6–96.8% by
 operation): the judge is not the reader that speech damages; the stages
 before it are, which is what the whole-chain boards measure.
+
+## Cycle 41 — an object cut from the words is never `not_an_ask` (2026-09-22)
+
+**Hypothesis.** `verdict._not_an_ask` asked whether any FIELD of the object
+could be pointed at in the words and never consulted the one thing that
+settles it: whether the ITEM the object was built from is in the transcript.
+Prediction: the two title plants that leave a real ask behind a wrong
+title (`invented_title`, `subject_dropped_for_kind`) stop being answered
+`not_an_ask` on the v2 set, both halves; the v1 set does not move (every
+v1 row names a time, so the field test never failed there); false flags
+unchanged (the condition only ever returns False sooner). Change: one
+condition before the claims loop — the item's own words (its source piece,
+else its text, two words or more) appear whole in the normalised transcript.
+A synthetic extra carries text that does not, and stays spurious; two tests
+pin both sides.
+
+**Judge boards, no model, fresh.** Metric: typed plants caught (the expected
+finding TYPE on the expected item) and the false-flag rate on clean objects,
+defined in `dataset/METRICS.md`.
+
+| dataset · split | n (cases) | before → after | false flags |
+|---|---|---|---|
+| v2 · TRAIN | 5,385 (1,975 typed plants / 2,347 clean) | **92.2% → 97.5%** (1821 → 1926 / 1975) | 0.1% → 0.1% (3/2347) |
+| v2 · TEST | 5,802 (2,080 typed / 2,628 clean) | **92.9% → 97.4%** (1933 → 2025 / 2080) | 0.2% → 0.2% (4/2628) |
+| v1 · TRAIN | 785 (411 planted / 374 clean) | 100.0% → 100.0% (411/411) | 2.7% → 2.7% (10/374) |
+| v1 · TEST | 663 (338 planted / 325 clean) | 98.8% → 98.8% (334/338) | 2.2% → 2.2% (7/325) |
+
+By plant, train / test: `invented_title` 72.4 → **98.4%** / 76.7 → **98.5%**
+(3 and 4 still `not_an_ask`); `subject_dropped_for_kind` 85.0 → **99.6%** /
+86.8 → **98.1%** (1 and 5); `generic_title` 99.2 → 100 / 98.5 → 100 (the same
+condition — a generic title on a real ask was sometimes called spurious);
+`unrelated_object` 99.2 / 93.2% unchanged; `merged_asks` 78.7 / 87.8%
+unchanged; the three always-caught plants unchanged. Spread by voice
+96.2–99.3% (was 89.7–94.0), by damage 95.2–100% (was 88.6–96.8): the
+title-plant deficit was what spread the voices apart, not the voices.
+
+**Actual vs expected.** As predicted on every line, including the two
+negative controls (v1 both halves byte-identical; false flags unchanged on
+both v2 halves). Novel: `generic_title` moved too, for the same reason.
+
+**What it means.** A speaker whose ask FastRule or the model titled wrongly
+was told, a quarter of the time, that they never asked for it. Now the object
+goes to the rewrite, which is the loop's job. The whole-chain read (Board D
+v2, 1,200 train rows) follows below; the judge board says the routing is
+right, the chain board says whether the rewrite then fixes the title.
+
+**What is left on the typed rows.** `merged_asks` at 78.7% train is the
+largest deficit (42 rows): every miss is a LIST-mode merge that pulled a
+TASK's verb phrase into an event's list — "the car service, charge the
+batteries and the sun screen order" — which is not a noun list, so the
+coordinated-subject reader (a noun list joined by a conjunction) sees no
+list. Cycle 42 reads those rows before deciding whether it is the reader's
+defect or the plant's.
+
+**Board D v2 after cycle 41 — 1,200 train rows, fresh, with the model.**
+Record `runs/board_d_train_1200_20260922T1857.json`; previous
+`…T1740.json` (before the cycle). Metric: count-correct with the loop OFF
+and ON, the fixed/broke pair, and latency (`dataset/METRICS.md`).
+
+| | before (T1740) | after cycle 41 (T1857) |
+|---|---|---|
+| correct, loop OFF | 89.4% (1073/1200) | 89.3% (1072/1200) |
+| correct, loop ON | 89.6% (1075/1200) | 89.4% (1073/1200) |
+| fixed / broke / net | 3 / 1 / +2 | 2 / 1 / +1 |
+| arms disagreed | 20 rows (1.7%) | 19 rows (1.6%) |
+| latency p95 OFF / ON | 6.4 / 6.9 s | 5.6 / 6.9 s |
+| re-entries spent: 1 | 19 rows, 42.1 → 47.4% | 18 rows, 33.3 → 38.9% |
+| model round fired (H6) | 8 rows, net 0 | 9 rows, net 0 |
+
+**What it means — and what it cannot say.** The whole-chain number moved
+by one to two rows, which is inside this board's noise, and the noise is
+now measured: the two runs' per-row checkpoints differ on **22 of 1,200
+rows**, and 21 of those spent NO re-entry and fired no model round — the
+judge's loop never touched them. They are the RESCUE (job 0, the model
+parsing what FastRule deferred) answering differently run to run:
+"delete book club" one time and "delete club" the next, "file the taxes"
+then "taxes", an object present in one run and absent in the other (13
+wording-only, 9 structural, spread over both arms). The model call is not
+seeded — `parser.py` sets a temperature and sends no `seed` — so **Board
+D's run-to-run floor is ~22 rows, larger than the 19 rows the arms disagree
+on**. A net of +1 or +2 on this board is not a reading of the loop; it is
+the model's dice. Cycle 41's effect on the chain is therefore UNMEASURED
+here, not null: the judge board says the routing moved (105 more objects
+to the rewrite on train), and the chain board cannot see a change that
+size through its own variance.
+
+**Registered next, as an instrument fix before any H1–H6 cycle:** make
+the board's model calls deterministic — a fixed `seed` and temperature 0
+on the ollama options, switchable from the environment so live traffic is
+untouched — and prove it by running the same code twice and counting
+differing rows, which must be 0 before the fixed/broke pair means anything.
+Until then every Board D net under the floor is reported as "inside the
+floor", never as a gain or a loss.
