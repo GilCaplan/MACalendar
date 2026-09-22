@@ -323,6 +323,31 @@ so plainly and change the instrument, the slice or the dataset rather than
 grinding); or a measurement that says the last change made the product worse
 in a way that is not obviously repairable.
 
+## A model-call hypothesis — the extra things it must carry (Gil, 2026-09-22)
+
+A cycle that ADDS a model call anywhere is a hypothesis like any other, plus
+four things, because latency is a cost the count metrics never see:
+
+1. **The question is coarse and two-way, or comparative** — copy the words,
+   or choose between candidates. Never "is this correct": an 8B says yes.
+   The record (`llmjudge/experiments/RESULTS.md` cycles 1–12) is that every
+   span-level, high-cardinality question lost.
+2. **A CONDITION, and its fire rate.** The call runs only when the condition
+   holds (the tagger is unsure; two rounds disagree; a retraction marker is
+   present) and the board reports how many rows it fired on. A call that
+   fires on 2% of rows can neither move a number nor cost much — say so.
+3. **A latency budget, agreed before the run**, p50 and p95 on the path the
+   call sits on (proposal: no more than +5 s at p95 per call), banked beside
+   the catch/false-flag pair or the fixed-minus-broken net.
+4. **Negative controls.** The refuted uses — per-field grounding, validating
+   a shown title, naming a thing, a second ask extraction — are re-run once on
+   any NEW dataset at full size and stay refuted unless the pair moves.
+
+Keep on: the pair improves on the TEST half, the budget holds, the condition
+fires often enough to matter. Revert on a flat pair, however the train half
+reads. Every call is schema-constrained, grounded on the raw words, and runs
+at background priority on a board.
+
 ## One cycle — a hypothesis, tested
 
 Every cycle is an experiment with a **written prediction**, so the result can be

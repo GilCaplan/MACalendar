@@ -381,6 +381,21 @@ segment uses it as both evidence and prompt grounding. **And FastRule is
 DETERMINISTIC** — a loop-back on unchanged text cannot get a new answer, so
 `state.asked_fastrule` sends it straight to the model instead.
 
+## Where we are working right now (2026-09-22)
+
+**THE LLMJUDGE PROGRAM** (Gil, 2026-09-22: *"automate this process"*) —
+`assistant/engine/llmjudge/PLAN.md` §7 is the plan and §7.5 the six model-use
+tests; `DOCUMENTATION/TASKS.md` points at it. Order: Board D v2 (fresh by
+default, both halves, the net broken down, latency beside it) → the v2
+dataset (`llmjudge/datasets/v2/`, gold by grammar, built by a delegated
+agent in a worktree, never by a model's opinion) → the rescue drawn as its
+own trace step → the shape decisions and the six hypotheses as cycles, one
+change per board run, keep or revert on the catch/false-flag pair AND a
+latency budget → the real-usage board as the outer gate. **A model call in
+this stage is tested only as a coarse two-way question under a condition
+whose fire rate is reported** (§7.5); the four refuted uses are negative
+controls, not options.
+
 ## Where we are working right now (2026-09-20)
 
 **THE IMPROVEMENT LOOP IS RUNNING AGAIN** (Gil, 2026-09-20, DEVQA Q31; it was

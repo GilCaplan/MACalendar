@@ -700,8 +700,12 @@ pair); the real-usage board as the outer gate.
 4. **Rescue as its own trace step.** It is a parse, not a judgement (CLAUDE.md
    says so). Drawing it as its own step inside this stage changes no
    behaviour, makes Board D's "which half moved" readable, and needs the panel
-   procedure (BRAIN_VERSION, CHAINS, the explorer). Do this first; it is
-   bookkeeping the other three need.
+   procedure (BRAIN_VERSION, CHAINS, the explorer). _Deferred on 2026-09-22
+   when the program started: a chain-spec split is a BRAIN_VERSION bump, which
+   also re-verifies the tips and re-renders the panel on both platforms, and
+   Board D v2 already breaks the net down by re-entries, so the rescue's share
+   is readable without it. Do it if the cycles say the rescue is where the
+   change lands._
 
 What is NOT proposed: a second extraction of asks, per-field grounding, a
 model naming things, a yes/no model verdict on the rescue's output — each
