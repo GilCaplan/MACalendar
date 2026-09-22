@@ -54,6 +54,11 @@ for _var, _name in (("MACALENDAR_DB", "calendar.db"),
                     # suites raced through the shared file)
                     ("MACALENDAR_LOCATION", "location.json"),
                     ("MACALENDAR_TRACE_BUS", "trace_bus.jsonl"),
+                    # The LLM console's call log (2026-09-22, found by the
+                    # first test to reach the ollama transport): a test that
+                    # drives `_call_ollama` was appending to the REAL
+                    # ~/.assistant_tools/llm_calls.jsonl.
+                    ("MACALENDAR_LLM_BUS", "llm_calls.jsonl"),
                     # The label learner's two stores (2026-09-10). The feedback
                     # file is the one that matters: it holds the user's own
                     # CORRECTIONS, which are the only non-circular label source

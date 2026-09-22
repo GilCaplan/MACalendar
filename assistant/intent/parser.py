@@ -73,6 +73,13 @@ class UnknownIntent(BaseIntent):
     pass
 
 
+def _seed_options() -> dict:
+    """A board's calls are seeded, the assistant's are not — `model_protocol.
+    seed_options()`, merged last into every ollama door's options here."""
+    from assistant import model_protocol
+    return model_protocol.seed_options()
+
+
 class IntentParser:
     """
     Sends the user's transcript to the configured LLM backend (Ollama, OpenAI, Gemini, or Claude).
@@ -566,7 +573,8 @@ class IntentParser:
             "messages": [{"role": "system", "content": sys}, {"role": "user", "content": user}],
             "stream": False,
             "keep_alive": conf.keep_alive,
-            "options": {"temperature": 0.0, "num_ctx": conf.num_ctx},  # deterministic judgment
+            "options": {"temperature": 0.0, "num_ctx": conf.num_ctx,
+                        **_seed_options()},  # deterministic judgment; seeded when a board says so
         }
         # The UNSCHEMA'd transport. Its callers — call_llm_json's four, and
         # fix_title_async — record no llm_ms at all, which is how a 40-second
@@ -626,7 +634,8 @@ class IntentParser:
             "stream": False,
             "format": schema,
             "keep_alive": conf.keep_alive,
-            "options": {"temperature": conf.temperature, "num_ctx": conf.num_ctx},
+            "options": {"temperature": conf.temperature, "num_ctx": conf.num_ctx,
+                        **_seed_options()},
         }
         # Every call is logged to the LLM console's stream — recorded at the
         # TRANSPORT, not at the call sites, because there are a dozen callers

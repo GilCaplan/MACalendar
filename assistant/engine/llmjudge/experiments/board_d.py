@@ -52,7 +52,10 @@ _S.mkdir(parents=True, exist_ok=True)
 for _v, _n in (("DB", "calendar.db"), ("MEMORY_DB", "mem.db"),
                ("VOCAB", "vocab.json"), ("CATEGORIES", "cats.json"),
                ("TRACE_BUS", "trace_bus.jsonl"), ("MODELS", "models"),
-               ("LABEL_FEEDBACK", "fb.jsonl")):
+               ("LABEL_FEEDBACK", "fb.jsonl"),
+               # the LLM console's call log — 2,400 board calls a run were
+               # landing in the live console's stream (2026-09-22)
+               ("LLM_BUS", "llm_calls.jsonl")):
     os.environ[f"MACALENDAR_{_v}"] = str(_S / _n)
 os.environ["MACALENDAR_NO_WARMUP"] = "1"
 # BACKGROUND traffic: this yields the model to the live assistant between
@@ -60,6 +63,11 @@ os.environ["MACALENDAR_NO_WARMUP"] = "1"
 # command are indistinguishable to ollama, and a trivial live call measured
 # 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
 os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
+# SEEDED: a measurement is reproducible or it is not a measurement. Two runs
+# of this board at one commit differed on 22 of 1,200 rows before this line
+# (2026-09-22), all of them the rescue's unseeded parse — more rows than the
+# two arms disagree on. `model_protocol.seed_options()`; live traffic unset.
+os.environ.setdefault("MACALENDAR_LLM_SEED", "17")
 os.environ["MACALENDAR_OBSERVANCE"] = "0"
 for _t in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
            "BLIS_NUM_THREADS", "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):

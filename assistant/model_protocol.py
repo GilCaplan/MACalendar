@@ -327,6 +327,31 @@ def priority() -> str:
             == BACKGROUND else LIVE)
 
 
+def seed_options() -> dict:
+    """The extra ollama `options` of a SEEDED process — `{"seed": N,
+    "temperature": 0.0}` when `MACALENDAR_LLM_SEED` holds an integer, `{}`
+    otherwise. Read at call time like the priority, and merged LAST into every
+    generating door's options so it overrides a configured temperature.
+
+    Unset for live traffic: the assistant answers the way it always has. Set by
+    a MEASUREMENT, so two runs of one board on one commit produce the same
+    rows. Board D v2 measured what its absence costs (2026-09-22): two runs of
+    the 1,200-row board at the same code differed on 22 rows, none of them
+    touched by the thing being measured — the rescue's unseeded parse
+    answering "book club" one time and "club" the next — which is more rows
+    than the board's two arms disagree on (19). A fixed/broke pair read
+    through that is dice. A value that is not an integer is ignored rather
+    than crashing a run at its first model call.
+    """
+    raw = os.environ.get("MACALENDAR_LLM_SEED", "").strip()
+    if not raw:
+        return {}
+    try:
+        return {"seed": int(raw), "temperature": 0.0}
+    except ValueError:
+        return {}
+
+
 def stream_key(source: "str | None", device: "str | None" = None,
                trusted: bool = False, anon: "str | None" = None) -> str:
     """The identity whose requests may be spoken in one breath.

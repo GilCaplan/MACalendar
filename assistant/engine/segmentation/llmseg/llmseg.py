@@ -242,6 +242,13 @@ def call_model(prompt: str, timeout: int = 180) -> str:
     return out
 
 
+def _seed_options() -> dict:
+    """Seeded when a board says so (`model_protocol.seed_options()`): this door
+    is inert, but a seeded process must not have an unseeded socket."""
+    from assistant import model_protocol
+    return model_protocol.seed_options()
+
+
 def _call_model_impl(prompt: str, timeout: int = 180) -> str:
     # keep_alive matters more than it looks: without it Ollama evicts the model
     # between calls and every request pays the reload, which is most of the
@@ -249,7 +256,7 @@ def _call_model_impl(prompt: str, timeout: int = 180) -> str:
     # sampled answer at temperature 0 is identical either way.
     body = json.dumps({"model": MODEL, "stream": False,
                        "keep_alive": "30m",
-                       "options": {"temperature": 0},
+                       "options": {"temperature": 0, **_seed_options()},
                        "messages": [{"role": "user", "content": prompt}]}).encode()
     req = urllib.request.Request(ENDPOINT, body, {"Content-Type": "application/json"})
     # GATED like the parser's two doors, even though this one is INERT.
