@@ -1,18 +1,18 @@
 # Real-usage board
 
-_Run 2026-09-22 11:28. `python -m scripts.real_usage_board`._
+_Run 2026-09-22 12:07. `python -m scripts.real_usage_board`._
 
 > Guard passed: no real store changed during the run.
 
 ## The headline
 
-**Corrected tier, every REACHABLE field right: 20.0% (n=15 of 16)** — a field is scored only where the gold value is one a parse of the words could produce (`intent/correction.py`: unchanged, or a title whose words were said, or a clock on the five-minute grid); 1 rows have no reachable field at all. Item count right on 60.0%. Read by hand mark alone, as the 2026-09-18 headline was: 22.2% (n=9).
+**Corrected tier, every REACHABLE field right: 21.4% (n=14 of 16)** — a field is scored only where the gold value is one a parse of the words could produce (`intent/correction.py`: unchanged, or a title whose words were said, or a clock on the five-minute grid); 2 rows have no reachable field at all. Item count right on 64.3%. Read by hand mark alone, as the 2026-09-18 headline was: 22.2% (n=9).
 
 ### Per field, corrected tier
 
 | field | right | scored |
 |---|---|---|
-| title | 35.3% | 17 |
+| title | 37.5% | 16 |
 | date | 82.4% | 17 |
 | start_time | 62.5% | 16 |
 | end_time | 62.5% | 16 |
@@ -32,11 +32,11 @@ _`start_time`/`end_time` read LOW for a reason beyond the parse: on a row whose 
 
 Gil, 2026-09-22 (DEVQA Q41): *"just make a meeting according to other details with bare title is fine."* So the largest class is re-scored against REACHABLE gold — `reachable` in `taxonomy.jsonl`, hand-authored on each row's own clock: the subject the words actually held, or a bare title where nothing beyond the kind was said, plus the stated day and clock. The tiers above are untouched; this is the same rows read under the ruling.
 
-**Right, or acceptable under Q41: 81.0% of 21 rows** (item count right on 90.5%).
+**Right, or acceptable under Q41: 76.2% of 21 rows** (item count right on 85.7%).
 
 | items | n | title right | …and no junk in it | day+clock right | title and when |
 |---|---|---|---|---|---|
-| subject was SAID — the title must carry it | 15 | 100.0% | 100.0% | 100.0% | 100.0% |
+| subject was SAID — the title must carry it | 15 | 93.3% | 93.3% | 100.0% | 93.3% |
 | nothing but the kind was said — bare is right | 5 | 60.0% | 0.0% | 100.0% | 60.0% |
 
 _Per ITEM in the table, per ROW in the bold line. A said subject is right when the title CONTAINS the phrase (any spelling the vocabulary produces); junk is `score_dataset_run.is_garbage_title`; `end_time` is scored only where the words stated one._
@@ -49,6 +49,8 @@ Rows still wrong under Q41:
   - set an appointment for tomorrow morning on tuesday at 910am
 - id=26 (rejected, bare) wrong: title-junk, title — made [('Meeting', '2026-08-27', '11:00'), ('meeting as well', '2026-08-27', '17:30')]
   - set a meeting for me tomorrow at 11 a.m. and also set meeting for 5.30
+- id=54 (rejected, said) wrong: count 3/1, title — made [('meeting ta', '2026-08-30', '13:00'), ('office hour', '2026-08-30', '13:00'), ('Meeting', '2026-08-30', '13:00')]
+  - Set a meeting on this coming Sunday for 1 p.m. TA, Office Hour, meetin
 - id=118 (corrected, ) wrong: count 0/1 — made []
   - Add an event for 5 p.m. execute.
 
@@ -90,8 +92,8 @@ Two full replays of the same 73 rows on unchanged code, 2026-09-18:
 
 | parse path | n | p50 | p95 |
 |---|---|---|---|
-| deep | 30 | 10.0s | 44.9s |
-| fast | 43 | 0.1s | 0.1s |
+| deep | 29 | 8.1s | 46.7s |
+| fast | 44 | 0.1s | 0.1s |
 | ignored | 2 | 0.0s | 0.0s |
 
 ## Why part of the corrected gold cannot be scored
@@ -113,8 +115,6 @@ No parse produces that, and scoring it would cap this metric forever and blame t
   - Set a meeting for 10 a.m. tomorrow morning, execute.
 - id=49 [other] count 1/1, wrong: date; unreachable: title
   - I had an event on the 17th of September, from 7 p.m. to 10 p.m. going 
-- id=56 [disfluency] count 3/1, wrong: title; unreachable: date, end_time, start_time
-  - set a date for tomorrow at 11 o'clock, in one second, one moment, one 
 - id=68 [generic-title] count 2/1, wrong: count only; unreachable: title
   - Sunday, set for 830, to go to Doven, pre-Shacharit, and then after tha
 - id=118 [generic-title] count 0/1, wrong: count only
@@ -451,3 +451,74 @@ whose comma comes after the marker. **Prediction:** corrected item count 60
 (the pool has no such chatter); every rewrite counted over the 9,091 clean
 rows first, because a noise pass that eats a real word is invisible to the
 speaker.
+
+---
+
+# Run 6 — 2026-09-22, cycle 37: disfluent speech
+
+Fresh replay, guard passed. Ingest's spoken-noise passes (`intent/cleanup.py`)
+learned a trailing interjection ("…. excuse me. excuse me."), the hold-on
+chatter ("in one second, one moment, bear with me,"), and a one-word
+self-correction ("with pelic sorry, i mean edo"); the filler pass stopped
+eating ", i mean," before the self-correction rule could see it. Zero of
+9,091 clean corpus outputs changed.
+
+| | cycle 36 | **cycle 37** |
+|---|---|---|
+| corrected, every reachable field (scored rows) | 20.0% (15) | 21.4% (14) |
+| corrected, item count right | 60.0% | **64.3%** |
+| corrected `title` · `date` · `start_time` | 35.3% · 82.4% · 62.5% | 37.5% · 82.4% · 62.5% |
+| generic-title right/acceptable under Q41 (21 rows) | 81.0% (17) | **76.2% (16)** |
+| approved reproduced · rejected changed | 64.7% · 90.5% | 64.7% · 90.5% |
+
+**A mixed cycle, read row by row.** Prediction was corrected item count 60 →
+73%+; it is 64.3%. What moved:
+
+- **Fixed:** id=23 *"…at 6.30. excuse me. excuse me."* no longer carries the
+  interjection in its title; id=39 *"…with pelic sorry, i mean edo"* is now
+  'meeting with edo'; id=56's hold-on chatter no longer cuts the command into
+  three asks.
+- **Exposed, not fixed:** with the chatter gone, id=56 *"set a date for
+  tomorrow at 11 o'clock, …"* is a bare 'date' and the Q38 gate REFUSES it —
+  nothing created. That is the same open ruling as 'appointment' (id=18) and
+  'event' (id=118): **three rows now wait on whether Q41's "a bare title is
+  fine" reaches the words Q38 refuses.** The row also leaves the scored set
+  (its gold title, day and clock were all hand-set), which is why n is 14.
+- **Regressed:** id=54 *"Set a meeting on this coming Sunday for 1 p.m. TA,
+  Office Hour, meeting, excuse me."* With ", excuse me." gone the tail reads
+  "TA, Office Hour, meeting" — three comma-separated things — and the
+  coordinated-subject rule (Gil, 2026-09-20: one event whose words list three
+  or more things is rewritten one per thing) splits it into three events.
+  Before, the interjection kept the list from being seen. The rule is doing
+  what it was told; whether a comma list with NO conjunction ("A, B, C" as
+  opposed to "A, B and C") should count as a list is a ruling, filed.
+- **dev-100 75% (was 76%)**: the one row that moved is *"let's just skip
+  appointment at time"*, a deep-path row the model answers differently across
+  a gap (cycle 34's "one row can flip"); its words carry none of the shapes
+  this cycle touches. Precision, recall, F1 and field quality are cycle 35's
+  numbers to the tenth.
+
+## What the day did, start to finish
+
+| real usage, fresh replays | start of day (pre-35) | **end of day (cycle 37)** |
+|---|---|---|
+| generic-title right/acceptable under Q41 (21 rows) | 52.4% | **76.2%** |
+| …items where the subject was said, title AND when right | 9/15 | **14/15** |
+| corrected, every reachable field right | 13.3% (n=15) | 21.4% (n=14) |
+| corrected `date` · `start_time` | 76.5% · 56.2% | **82.4% · 62.5%** |
+| corrected item count right | 60.0% | 64.3% |
+| approved reproduced | 64.7% | 64.7% |
+| dev-100 count-correct · precision | 75% · 91.7% | 75% · 91.7% |
+
+Three cycles, each moving only this board, each with every stage board
+identical and zero rewrites on 9,091 clean rows: the classes Gil's speech
+fails on do not exist in any constructed corpus, which is why this
+instrument outranks the others and why it must never serve a cache again.
+
+## Registered next
+
+The milestone run on the sealed 300 (`--test`, aggregates only), as the
+plan behind "can we consider it done" set out — after that, the next real-
+usage cycle waits on one ruling with three rows behind it (bare 'date',
+'appointment', 'event' under Q38 vs Q41) and one with one row (a comma list
+without a conjunction).

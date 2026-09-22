@@ -50,8 +50,40 @@ _NOW_OPENER = re.compile(r"^\s*now\s*,\s*", re.I)
 #: collapsing first produced "can you know, remind me" and the courtesy
 #: stripper then left a junk "know," in front of the command. Measured while
 #: adding the stutter rule, which is how the ordering was found.
+#: "i mean" needs NO comma before it here (cycle 37, 2026-09-22): with one,
+#: ", i mean, buy bread" is a SELF-CORRECTION and belongs to the rule below —
+#: this pass used to eat the marker first and the docstring's own example,
+#: "buy milk, I mean, buy bread", came out as "buy milk buy bread", two items
+#: where one was meant. The other fillers may follow a comma, or open the
+#: sentence. The hold-on chatter joined the list
+#: from real usage: "…at 11 o'clock, in one second, one moment, one moment,
+#: bear with me, i want…" was cut into three asks by the commas it left.
+#: LOOKBEHIND, not a consumed separator: "one moment, one moment, bear with
+#: me," is three fillers in a row, and a pattern that ate the comma before
+#: each match took the comma the PREVIOUS filler needed, leaving one behind.
 _FILLER_PHRASE = re.compile(
-    r"[,\s]+(?:you know|i mean|hang on|hold on)\s*,\s*", re.I)
+    r"(?:^|(?<=[,\s]))(?:you know|hang on|hold on|(?:in\s+)?one\s+(?:second|sec|moment)|"
+    r"just\s+a\s+(?:second|sec|moment|minute)|bear\s+with\s+me|"
+    r"give\s+me\s+a\s+(?:second|sec|moment|minute))\s*,\s*"
+    r"|(?<!,\s)(?<!,)\bi mean\s*,\s*", re.I)
+#: TRAILING INTERJECTIONS — the sentence a speaker adds after the command,
+#: to nobody: "…at 6.30. excuse me. excuse me.", "…, meeting, excuse me."
+#: (real usage, 2026-09-22: both became part of the title). Each one must
+#: follow punctuation, so "I'm sorry" inside a command and a title that
+#: merely ends in one of these words are left alone; repeated ones peel off
+#: together. "thank you"/"thanks" are deliberately NOT here — they are stop
+#: keywords the speaker configures, and "remind me to say thank you" is a
+#: command.
+_TRAILING_INTERJECTION = re.compile(
+    r"(?:\s*[,.!?;]\s*(?:excuse me|pardon(?:\s+me)?|sorry|never\s?mind|hold on|hang on|"
+    r"one\s+(?:second|sec|moment)|bear\s+with\s+me|just\s+a\s+(?:second|sec|moment))"
+    r"\s*[.!?]*)+\s*$", re.I)
+#: "…with pelic sorry, i mean edo": the speaker swapped ONE word for another.
+#: The clause rule below wants a clause to survive after the marker and
+#: rightly refuses a single word, so this narrower shape is read first: the
+#: word before "sorry, i mean" is replaced by the word after it.
+_WORD_SWAP_CORRECTION = re.compile(
+    r"\b(\w+)\s+(?:sorry|no wait|scratch that),?\s*(?:i mean|i meant|rather)\s+(\w+)\b", re.I)
 
 #: A STUTTER: the same word twice in a row, which Whisper writes down
 #: faithfully. "remind me ME to prepare the presentation", "i need to go GO to
@@ -94,9 +126,10 @@ def strip_spoken_noise(text: str, drop_courtesy: bool = True) -> str:
     out = _OPENERS.sub("", text.strip())
     out = _NOW_OPENER.sub("", out)
     # Repeated until stable: the pattern eats the comma that would have
-    # started the next match, so "hang on, hang on," needs a second pass.
-    for _ in range(4):
-        cut = _FILLER_PHRASE.sub(" ", out)
+    # started the next match, so "hang on, hang on," needs a second pass —
+    # and a run of hold-on chatter can be four or five long.
+    for _ in range(8):
+        cut = _FILLER_PHRASE.sub("", out)
         if cut == out:
             break
         out = cut
@@ -104,6 +137,8 @@ def strip_spoken_noise(text: str, drop_courtesy: bool = True) -> str:
     if drop_courtesy:
         out = _COURTESY.sub("", out)
     out = _TRAILING_HEDGE.sub("", out)
+    out = _TRAILING_INTERJECTION.sub("", out)
+    out = _WORD_SWAP_CORRECTION.sub(r"\2", out)
     # a self-correction replaces the clause before it
     m = _SELF_CORRECTION.search(out)
     if m:

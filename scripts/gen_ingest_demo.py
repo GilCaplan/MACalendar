@@ -105,13 +105,14 @@ def trace(text: str, store) -> "list[dict]":
                   "note": 'only with the comma — "do it now" is a real time word',
                   "text": cur3})
     cur4 = cur3
-    for _ in range(4):
-        nxt = C._FILLER_PHRASE.sub(" ", cur4)
+    for _ in range(8):
+        nxt = C._FILLER_PHRASE.sub("", cur4)
         if nxt == cur4:
             break
         cur4 = nxt
     steps.append({"pass": "filler", "title": "filler phrases",
-                  "note": '"you know,", "i mean," — a trailing comma is required',
+                  "note": '"you know,", "one moment," — a trailing comma is required; '
+                          '"i mean," only without a comma before it',
                   "text": cur4})
     cur5 = C._STUTTER.sub(r"\1", cur4)
     steps.append({"pass": "stutter", "title": "stutter",
@@ -121,7 +122,15 @@ def trace(text: str, store) -> "list[dict]":
     cur6 = C._TRAILING_HEDGE.sub("", cur5)
     steps.append({"pass": "hedge", "title": "trailing hedge",
                   "note": '"…or something", "…i guess"', "text": cur6})
-    cur7 = cur6
+    cur6b = C._TRAILING_INTERJECTION.sub("", cur6)
+    steps.append({"pass": "interjection", "title": "trailing interjection",
+                  "note": '"…. excuse me. excuse me." — said to nobody, after punctuation',
+                  "text": cur6b})
+    cur6c = C._WORD_SWAP_CORRECTION.sub(r"\2", cur6b)
+    steps.append({"pass": "swap", "title": "one-word swap",
+                  "note": '"with pelic sorry, i mean edo" — the word before is replaced',
+                  "text": cur6c})
+    cur7 = cur6c
     m = C._SELF_CORRECTION.search(cur7)
     if m:
         tail = cur7[m.end():]

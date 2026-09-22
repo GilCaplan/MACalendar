@@ -990,6 +990,8 @@ def test_the_explorer_describes_the_cleanup_passes_that_exist(all_prose):
         "FILLER_PHRASE": ("filler",), "STUTTER": ("stutter",),
         "COURTESY": ("courtesy",), "TRAILING_HEDGE": ("hedge",),
         "SELF_CORRECTION": ("self-correction", "self correction"),
+        "TRAILING_INTERJECTION": ("interjection",),
+        "WORD_SWAP_CORRECTION": ("self-correction", "self correction"),
     }
     page = all_prose.get("explorer.html")
     if page is None:                      # the page is optional in some checkouts

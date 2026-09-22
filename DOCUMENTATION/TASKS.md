@@ -1513,10 +1513,11 @@ the way: the real-usage board had resumed a 2026-09-18 checkpoint on every
 run since (CLAUDE.md has the rule); `real_usage/RESULTS.md` run 4 has the
 corrected before/after. Open, for Gil:
 
-- **Q38 vs Q41 on 'appointment' and 'event'.** With the clock now stripped,
-  id=18 *"set an appointment for tomorrow morning on tuesday at 910am"* and
-  id=118 *"Add an event for 5 p.m."* commit NOTHING: the bare kind is refused
-  by Q38. Q41 says bare 'meeting' with the right details is fine. Does that
+- **Q38 vs Q41 on 'appointment', 'event' — and 'date'.** With the clock
+  (cycle 35) and the chatter (cycle 37) now stripped, id=18 *"set an
+  appointment for tomorrow morning on tuesday at 910am"*, id=118 *"Add an
+  event for 5 p.m."* and id=56 *"set a date for tomorrow at 11 o'clock, …"*
+  commit NOTHING: the bare kind is refused by Q38. Q41 says bare 'meeting' with the right details is fine. Does that
   reach 'appointment'? And 'event', which is the program's own word but which
   Gil's own correction on id=118 accepted as the title? One ruling settles
   both rows; until then they are refusals, which is the conservative side.
@@ -1526,8 +1527,16 @@ corrected before/after. Open, for Gil:
 - **Disfluent speech over-splits** (same interval): id=56 "…, in one second,
   one moment, one moment, bear with me, …" makes 3 items for 1; id=136 3 for
   2; id=219 "Movie at Lincoln Square tomorrow, AMC, 11.15 AM tomorrow" 1 for
-  2. Corrected item count 80 → 60%. **Registered as cycle 37** (ingest's
-  noise passes first — the chatter is generic — then segmentation's board).
+  2. Corrected item count 80 → 60%. **Cycle 37 landed** (ingest's noise
+  passes: interjections, hold-on chatter, a one-word swap; count 60 → 64.3%).
+  Left behind: id=136's stray "can," and id=223's *"No, I said that."*
+  retraction.
+- **A comma list with no conjunction** (found by cycle 37): *"…for 1 p.m.
+  TA, Office Hour, meeting"* is one disfluent title, but once the trailing
+  interjection is gone the coordinated-subject rule (Gil, 2026-09-20) reads
+  "TA, Office Hour, meeting" as three things and makes three events. Should
+  "A, B, C" without "and" count as a list? One row (id=54); a ruling, not a
+  fix.
 
 ## THE CORRECTION FLOW RECORDS WHAT CHANGED — landed, 2026-09-22
 

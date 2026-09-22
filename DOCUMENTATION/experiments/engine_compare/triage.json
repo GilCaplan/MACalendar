@@ -1,20 +1,20 @@
 {
   "prf": {
     "overall": {
-      "precision": 0.93,
+      "precision": 0.917,
       "recall": 0.71,
-      "f1": 0.805,
+      "f1": 0.8,
       "matched": 66,
       "expected": 93,
-      "created": 71
+      "created": 72
     },
     "simple": {
-      "precision": 1.0,
+      "precision": 0.875,
       "recall": 0.778,
-      "f1": 0.875,
+      "f1": 0.824,
       "matched": 7,
       "expected": 9,
-      "created": 7
+      "created": 8
     },
     "medium": {
       "precision": 0.938,
@@ -36,14 +36,14 @@
   "field_quality": {
     "field_quality": 0.919,
     "by_tier": {
-      "simple": 0.907,
+      "simple": 0.906,
       "complex": 0.925,
       "medium": 0.907
     },
     "difficulty_weighted": 0.915,
     "when_ok": 0.844,
     "when_coverage": 16,
-    "items": 71
+    "items": 72
   },
   "subslices": {
     "count_ok_ranks_1_250": [
@@ -67,8 +67,8 @@
     "simple": {
       "n": 34,
       "old": 0.941,
-      "new": 0.941,
-      "delta": 0.0
+      "new": 0.912,
+      "delta": -0.029
     },
     "complex": {
       "n": 33,
@@ -120,35 +120,36 @@
       80
     ],
     [
-      0.738,
+      0.725,
       80
     ]
   ],
   "shared_prompts": 100,
   "count_ok_shared_old": 0.69,
-  "count_ok_shared_new": 0.76,
+  "count_ok_shared_new": 0.75,
   "flipped_better (old fail \u2192 engine pass)": [
-    "Send me a reminder to pick up my dog from the groomer at 1pm \u2014 and i need to add water to my Kroger list.",
     "'exhibition 2017 mass' on Mar 25 make a note of it on the corresponding date and also remind me after an hour to go for shopping.",
-    "start a new list and add grocery shopping to today's to-do list.",
+    "create repeating event 'john's birthday' on calendar. Also, Add reminder today evening to collect the parcel from Jakes bristo",
     "Remind me of the following event:. Also, Create shopping list for Target",
-    "include meeting in the list",
     "PDA please update list with new item",
     "I need to add water to my Kroger list and add v8 to my groceries.",
     "Begin new list of lottery numbers",
-    "Please alert me on Friday at 8:00 am to go to the gym and schedule meeting with Laura",
     "Set me a reminder for the get-together with the women's club on Sunday after church.",
-    "Olly remind me about the picnic at Regent park \u2014 and add paper towels to the grocery list.",
     "add date and time in calender with these people. Also, Calendar event. send invite, Bill Malinda",
-    "create repeating event 'john's birthday' on calendar. Also, Add reminder today evening to collect the parcel from Jakes bristo"
+    "Send me a reminder to pick up my dog from the groomer at 1pm \u2014 and i need to add water to my Kroger list.",
+    "Olly remind me about the picnic at Regent park \u2014 and add paper towels to the grocery list.",
+    "Please alert me on Friday at 8:00 am to go to the gym and schedule meeting with Laura",
+    "start a new list and add grocery shopping to today's to-do list.",
+    "include meeting in the list"
   ],
   "flipped_worse (old pass \u2192 engine fail)": [
-    "Remind me at this time.",
+    "let's just skip appointment at time",
     "Make a list of camera photos and i need a list of my clients today, make one",
-    "On Febuary 14th make dinner reservations at the restaurant and tHIS IS IMPORTANT EVENT, PLZ NOTE ON MY CALENDAR.",
-    "add 'new year's eve' to calendar",
+    "reopen groceries and add milk. Also, put xxx on the list",
     "REMIND ABOUT OF ALL EVENT IN CALENDERS",
-    "reopen groceries and add milk. Also, put xxx on the list"
+    "add 'new year's eve' to calendar",
+    "On Febuary 14th make dinner reservations at the restaurant and tHIS IS IMPORTANT EVENT, PLZ NOTE ON MY CALENDAR.",
+    "Remind me at this time."
   ],
   "note": "old-system rows are behavior, not ground truth; each flip needs triage (old right / new right / both wrong) by a human or a judge model that is not the system under test"
 }

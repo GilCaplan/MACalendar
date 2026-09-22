@@ -1,17 +1,17 @@
-# Dataset run score — `/var/folders/0f/nk3dnvrd54jbjz_qn40_ynwh0000gn/T/engine_compare_bn59byjr/engine_run.db`
+# Dataset run score — `/var/folders/0f/nk3dnvrd54jbjz_qn40_ynwh0000gn/T/engine_compare_t3f2lsmn/engine_run.db`
 
-- product-adjusted count-correct **80%** (6 overridden rows; raw below is the comparable number)
-- **100 prompts** scored · count-correct **76%** · garbage-title rate **4%**
-- total_ms p50 68 · p95 47499
+- product-adjusted count-correct **79%** (6 overridden rows; raw below is the comparable number)
+- **100 prompts** scored · count-correct **75%** · garbage-title rate **4%**
+- total_ms p50 70 · p95 46407
 - parse paths: {'deep': 63, 'fast': 37}
 
 ## By complexity
 
 | Tier | n | count-correct | garbage titles | total_ms p50 |
 |---|---:|---:|---:|---:|
-| simple | 34 | 94% | 0% | 36 |
-| medium | 33 | 88% | 3% | 51 |
-| complex | 33 | 45% | 9% | 138 |
+| simple | 34 | 91% | 0% | 36 |
+| medium | 33 | 88% | 3% | 52 |
+| complex | 33 | 45% | 9% | 152 |
 
 ## By compound kind
 
@@ -29,15 +29,16 @@
 
 | Path | count-correct |
 |---|---:|
-| deep | 63% |
+| deep | 62% |
 | fast | 97% |
 
-## Count-mismatch failures (24)
+## Count-mismatch failures (25)
 
 - **On the fifth of November, I need to go to Washington, D.C, and then I'd like to set a date** — event+event: got 0 events, 0 tasks (wanted ≥2/≥0)
 - **reopen groceries and add milk. Also, put xxx on the list** — task+task: got 1 events, 1 tasks (wanted ≥0/≥2)
 - **REMIND ABOUT OF ALL EVENT IN CALENDERS** — medium: got 0 events, 0 tasks (wanted ≥0/≥0)
 - **Please remind me of and can you invite mr. Chen for a meeting next Monday 6:00pm?** — event+event: got 0 events, 0 tasks (wanted ≥2/≥0)
+- **let's just skip appointment at time** — simple: got 1 events, 0 tasks (wanted ≥0/≥0)
 - **On Febuary 14th make dinner reservations at the restaurant and tHIS IS IMPORTANT EVENT, PL** — event+event: got 1 events, 0 tasks (wanted ≥2/≥0)
 - **Please give me notice when I need to leave for the conference** — medium: got 0 events, 0 tasks (wanted ≥0/≥0)
 - **hey siri make sure my calendar is completely clear tomorrow** — medium: got 1 events, 0 tasks (wanted ≥0/≥0)
@@ -62,30 +63,31 @@
 ## Comparison
 
 - 100 shared prompts (2899 only in A, 0 only in B)
-- count-correct rate: 70% → 76%
-- **6 got worse**, **13 got better**, 63 still pass, 18 still fail
+- count-correct rate: 70% → 75%
+- **7 got worse**, **13 got better**, 62 still pass, 18 still fail
 
 ### Got worse
 
-- Remind me at this time.
+- let's just skip appointment at time
 - Make a list of camera photos and i need a list of my clients today, make one
-- On Febuary 14th make dinner reservations at the restaurant and tHIS IS IMPORTANT EVENT, PLZ NOTE ON 
-- add 'new year's eve' to calendar
-- REMIND ABOUT OF ALL EVENT IN CALENDERS
 - reopen groceries and add milk. Also, put xxx on the list
+- REMIND ABOUT OF ALL EVENT IN CALENDERS
+- add 'new year's eve' to calendar
+- On Febuary 14th make dinner reservations at the restaurant and tHIS IS IMPORTANT EVENT, PLZ NOTE ON 
+- Remind me at this time.
 
 ### Got better
 
-- Send me a reminder to pick up my dog from the groomer at 1pm — and i need to add water to my Kroger 
 - 'exhibition 2017 mass' on Mar 25 make a note of it on the corresponding date and also remind me afte
-- start a new list and add grocery shopping to today's to-do list.
+- create repeating event 'john's birthday' on calendar. Also, Add reminder today evening to collect th
 - Remind me of the following event:. Also, Create shopping list for Target
-- include meeting in the list
 - PDA please update list with new item
 - I need to add water to my Kroger list and add v8 to my groceries.
 - Begin new list of lottery numbers
-- Please alert me on Friday at 8:00 am to go to the gym and schedule meeting with Laura
 - Set me a reminder for the get-together with the women's club on Sunday after church.
-- Olly remind me about the picnic at Regent park — and add paper towels to the grocery list.
 - add date and time in calender with these people. Also, Calendar event. send invite, Bill Malinda
-- create repeating event 'john's birthday' on calendar. Also, Add reminder today evening to collect th
+- Send me a reminder to pick up my dog from the groomer at 1pm — and i need to add water to my Kroger 
+- Olly remind me about the picnic at Regent park — and add paper towels to the grocery list.
+- Please alert me on Friday at 8:00 am to go to the gym and schedule meeting with Laura
+- start a new list and add grocery shopping to today's to-do list.
+- include meeting in the list

@@ -2077,7 +2077,7 @@ series_id   NULL
   <rect x="0" y="65" width="380" height="21" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="9" y="79" font-size="7" font-weight="600" fill="var(--amber)">3</text>
   <text x="20" y="79" font-size="7">spoken noise</text>
-  <text x="372" y="79" text-anchor="end" font-size="6.5" fill="var(--muted)">openers, fillers, stutters, hedges</text>
+  <text x="372" y="79" text-anchor="end" font-size="6.5" fill="var(--muted)">openers, fillers, stutters, hedges, interjections</text>
   <rect x="0" y="90" width="380" height="21" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="9" y="104" font-size="7" font-weight="600" fill="var(--amber)">4</text>
   <text x="20" y="104" font-size="7">vocabulary &#183; personal</text>
@@ -2118,7 +2118,11 @@ series_id   NULL
       me&hellip;&rdquo;) and a <em>stutter</em>, the same word said twice, which the speech model writes
       down faithfully. Order matters between those two: &ldquo;you you know&rdquo; is <em>you</em> followed
       by the filler, not a stutter, so collapsing first leaves a stray &ldquo;know&rdquo; in front of the
-      command. The <em>courtesy</em> wrapper is the one
+      command. Two more came from real speech: a trailing <em>interjection</em> said to nobody after the
+      command (&ldquo;&hellip;at 6.30. excuse me. excuse me.&rdquo;), and a one-word swap
+      (&ldquo;with Pelic sorry, I mean Edo&rdquo;), a self-correction too short for the clause rule.
+      The filler list also knows hold-on chatter (&ldquo;one moment, bear with me,&rdquo;), which used
+      to cut a command into three asks by the commas it left behind. The <em>courtesy</em> wrapper is the one
       thing deliberately left alone &mdash; <code>drop_courtesy=False</code> &mdash; because FastRule's
       interrogative gate has to read those words to tell &ldquo;should I add yoga?&rdquo; from
       &ldquo;can you add yoga?&rdquo;. It comes off inside the parse instead.</li>
@@ -3993,7 +3997,7 @@ series_id   NULL
     {
      "pass": "filler",
      "title": "filler phrases",
-     "note": "\"you know,\", \"i mean,\" — a trailing comma is required",
+     "note": "\"you know,\", \"one moment,\" — a trailing comma is required; \"i mean,\" only without a comma before it",
      "text": "add lunch tomorrow, or something"
     },
     {
@@ -4006,6 +4010,18 @@ series_id   NULL
      "pass": "hedge",
      "title": "trailing hedge",
      "note": "\"…or something\", \"…i guess\"",
+     "text": "add lunch tomorrow,"
+    },
+    {
+     "pass": "interjection",
+     "title": "trailing interjection",
+     "note": "\"…. excuse me. excuse me.\" — said to nobody, after punctuation",
+     "text": "add lunch tomorrow,"
+    },
+    {
+     "pass": "swap",
+     "title": "one-word swap",
+     "note": "\"with pelic sorry, i mean edo\" — the word before is replaced",
      "text": "add lunch tomorrow,"
     },
     {
@@ -4060,7 +4076,7 @@ series_id   NULL
     {
      "pass": "filler",
      "title": "filler phrases",
-     "note": "\"you know,\", \"i mean,\" — a trailing comma is required",
+     "note": "\"you know,\", \"one moment,\" — a trailing comma is required; \"i mean,\" only without a comma before it",
      "text": "remind me me to prepare the presentation"
     },
     {
@@ -4073,6 +4089,18 @@ series_id   NULL
      "pass": "hedge",
      "title": "trailing hedge",
      "note": "\"…or something\", \"…i guess\"",
+     "text": "remind me to prepare the presentation"
+    },
+    {
+     "pass": "interjection",
+     "title": "trailing interjection",
+     "note": "\"…. excuse me. excuse me.\" — said to nobody, after punctuation",
+     "text": "remind me to prepare the presentation"
+    },
+    {
+     "pass": "swap",
+     "title": "one-word swap",
+     "note": "\"with pelic sorry, i mean edo\" — the word before is replaced",
      "text": "remind me to prepare the presentation"
     },
     {
@@ -4127,7 +4155,7 @@ series_id   NULL
     {
      "pass": "filler",
      "title": "filler phrases",
-     "note": "\"you know,\", \"i mean,\" — a trailing comma is required",
+     "note": "\"you know,\", \"one moment,\" — a trailing comma is required; \"i mean,\" only without a comma before it",
      "text": "can you remind me to clean the kitchen"
     },
     {
@@ -4140,6 +4168,18 @@ series_id   NULL
      "pass": "hedge",
      "title": "trailing hedge",
      "note": "\"…or something\", \"…i guess\"",
+     "text": "can you remind me to clean the kitchen"
+    },
+    {
+     "pass": "interjection",
+     "title": "trailing interjection",
+     "note": "\"…. excuse me. excuse me.\" — said to nobody, after punctuation",
+     "text": "can you remind me to clean the kitchen"
+    },
+    {
+     "pass": "swap",
+     "title": "one-word swap",
+     "note": "\"with pelic sorry, i mean edo\" — the word before is replaced",
      "text": "can you remind me to clean the kitchen"
     },
     {
@@ -4194,7 +4234,7 @@ series_id   NULL
     {
      "pass": "filler",
      "title": "filler phrases",
-     "note": "\"you know,\", \"i mean,\" — a trailing comma is required",
+     "note": "\"you know,\", \"one moment,\" — a trailing comma is required; \"i mean,\" only without a comma before it",
      "text": "book bar rista course on friday"
     },
     {
@@ -4207,6 +4247,18 @@ series_id   NULL
      "pass": "hedge",
      "title": "trailing hedge",
      "note": "\"…or something\", \"…i guess\"",
+     "text": "book bar rista course on friday"
+    },
+    {
+     "pass": "interjection",
+     "title": "trailing interjection",
+     "note": "\"…. excuse me. excuse me.\" — said to nobody, after punctuation",
+     "text": "book bar rista course on friday"
+    },
+    {
+     "pass": "swap",
+     "title": "one-word swap",
+     "note": "\"with pelic sorry, i mean edo\" — the word before is replaced",
      "text": "book bar rista course on friday"
     },
     {
@@ -4261,7 +4313,7 @@ series_id   NULL
     {
      "pass": "filler",
      "title": "filler phrases",
-     "note": "\"you know,\", \"i mean,\" — a trailing comma is required",
+     "note": "\"you know,\", \"one moment,\" — a trailing comma is required; \"i mean,\" only without a comma before it",
      "text": "add sue dough coup club to my calendar"
     },
     {
@@ -4274,6 +4326,18 @@ series_id   NULL
      "pass": "hedge",
      "title": "trailing hedge",
      "note": "\"…or something\", \"…i guess\"",
+     "text": "add sue dough coup club to my calendar"
+    },
+    {
+     "pass": "interjection",
+     "title": "trailing interjection",
+     "note": "\"…. excuse me. excuse me.\" — said to nobody, after punctuation",
+     "text": "add sue dough coup club to my calendar"
+    },
+    {
+     "pass": "swap",
+     "title": "one-word swap",
+     "note": "\"with pelic sorry, i mean edo\" — the word before is replaced",
      "text": "add sue dough coup club to my calendar"
     },
     {
@@ -4328,7 +4392,7 @@ series_id   NULL
     {
      "pass": "filler",
      "title": "filler phrases",
-     "note": "\"you know,\", \"i mean,\" — a trailing comma is required",
+     "note": "\"you know,\", \"one moment,\" — a trailing comma is required; \"i mean,\" only without a comma before it",
      "text": "add milk to my list"
     },
     {
@@ -4341,6 +4405,18 @@ series_id   NULL
      "pass": "hedge",
      "title": "trailing hedge",
      "note": "\"…or something\", \"…i guess\"",
+     "text": "add milk to my list"
+    },
+    {
+     "pass": "interjection",
+     "title": "trailing interjection",
+     "note": "\"…. excuse me. excuse me.\" — said to nobody, after punctuation",
+     "text": "add milk to my list"
+    },
+    {
+     "pass": "swap",
+     "title": "one-word swap",
+     "note": "\"with pelic sorry, i mean edo\" — the word before is replaced",
      "text": "add milk to my list"
     },
     {
@@ -4395,7 +4471,7 @@ series_id   NULL
     {
      "pass": "filler",
      "title": "filler phrases",
-     "note": "\"you know,\", \"i mean,\" — a trailing comma is required",
+     "note": "\"you know,\", \"one moment,\" — a trailing comma is required; \"i mean,\" only without a comma before it",
      "text": "no wait"
     },
     {
@@ -4408,6 +4484,18 @@ series_id   NULL
      "pass": "hedge",
      "title": "trailing hedge",
      "note": "\"…or something\", \"…i guess\"",
+     "text": "no wait"
+    },
+    {
+     "pass": "interjection",
+     "title": "trailing interjection",
+     "note": "\"…. excuse me. excuse me.\" — said to nobody, after punctuation",
+     "text": "no wait"
+    },
+    {
+     "pass": "swap",
+     "title": "one-word swap",
+     "note": "\"with pelic sorry, i mean edo\" — the word before is replaced",
      "text": "no wait"
     },
     {

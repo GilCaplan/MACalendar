@@ -148,15 +148,17 @@ real and large but is not a subtraction and must not be quoted as one.
 **REAL USAGE · the replay board · `scripts/real_usage_board.py`, 2026-09-22
 run 4** (`DOCUMENTATION/experiments/real_usage/RESULTS.md`): Gil's 75
 reviewed commands replayed through the current engine on their own clocks.
-Corrected tier, every reachable field right **20.0% (n=15)**; `date` 82.4%,
-`start_time` 62.5%; approved rows reproduced 64.7% (11/17); generic-title rows
-right or acceptable under Q41 **81.0% (17/21)** after cycles 35 and 36 (was
-52.4% at the start of the day; dev-100 75 → 76%, precision 91.7 → 93.0%). **Every earlier run of this
+Corrected tier, every reachable field right **21.4% (n=14)**, item count
+right 64.3%; `date` 82.4%, `start_time` 62.5%; approved rows reproduced 64.7%
+(11/17); generic-title rows right or acceptable under Q41 **76.2% (16/21)**
+after cycles 35–37 (was 52.4% at the start of the day; dev-100 75%, precision
+91.7%, unmoved across the three). **Every earlier run of this
 board since 2026-09-18 served a checkpoint cache**, so the "moved nothing" of
 09-21 was never measured — the board replays fresh now, and CLAUDE.md carries
-the rule. Cycles 35 (the spoken clock forms) and 36 (a stated day beats a
-weekday) moved this board and no stage board; cycle 37 (disfluent speech) is
-registered there.
+the rule. Cycles 35 (the spoken clock forms), 36 (a stated day beats a
+weekday) and 37 (disfluent speech) moved this board and no stage board. Three
+rows now wait on one ruling — a bare 'date' / 'appointment' / 'event' under
+Q38 vs Q41 — and one on another (a comma list with no conjunction).
 
 ## Open decisions — Gil's, not mine
 

@@ -3146,3 +3146,31 @@ still lands on tomorrow.
 **Registered next — cycle 37:** disfluent speech in ingest's noise passes
 (`real_usage/RESULTS.md` run 5 has the rows and the prediction: corrected item
 count 60 → 73%+, dev-100 unmoved).
+
+## CYCLE 37 — disfluent speech in ingest's noise passes (2026-09-22)
+
+**Registered:** trailing interjections, hold-on chatter, a one-word
+self-correction; corrected item count 60 → 73%+ predicted, dev-100 unmoved.
+
+**dev-100, whole chain: 75% count-correct · precision 91.7% · recall 71.0% ·
+F1 80.0 · field quality 91.9%** — cycle 36 read 76% / 93.0%; the one row
+that moved is *"let's just skip appointment at time"*, the deep-path row the
+model answers differently across a gap (cycle 34), whose words carry none of
+the shapes this cycle touches. Zero of 9,091 clean corpus outputs changed
+under the new passes, so the −1 is the known flip, not the change.
+
+**Real usage:** corrected item count 60.0 → 64.3% (short of the prediction);
+two rows fixed outright ('meeting with edo'; the interjection out of a
+title), one row's chatter fixed only to expose the Q38 refusal of a bare
+'date' (nothing created — the third row now waiting on the Q38/Q41 ruling),
+and one row REGRESSED: with ", excuse me." gone, "TA, Office Hour, meeting"
+reads as a three-thing list and the coordinated-subject rule splits it.
+Generic-title right/acceptable 81.0 → 76.2% (17 → 16 of 21). Full table in
+`real_usage/RESULTS.md` run 6.
+
+**Novel:** a noise pass can unmask a downstream rule. The interjection had
+been hiding a comma list from the coordination rule; removing noise is right,
+and the list rule's reading of "A, B, C" with no conjunction is now a
+question for Gil rather than a defect of either pass.
+
+**Registered next:** the sealed-300 milestone (`--test`, aggregates only).

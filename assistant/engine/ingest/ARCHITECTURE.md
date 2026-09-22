@@ -80,3 +80,36 @@ any script exercising this stage must set `MACALENDAR_VOCAB` to a scratch path.
 ## Status
 
 Not yet dug into. Moved here for structure; no dataset, no board of its own.
+
+## Cycle 37 — disfluent speech (2026-09-22)
+
+Three shapes from Gil's own commands that the spoken-noise passes
+(`intent/cleanup.py`, aim (a): generic, no vocabulary) did not know, and one
+bug they exposed:
+
+- **A trailing interjection**, said to nobody after the command: *"…at 6.30.
+  excuse me. excuse me."*, *"…, meeting, excuse me."* Both became part of the
+  title. `_TRAILING_INTERJECTION` peels them off the end, each one after
+  punctuation, so "I'm sorry" inside a command and a title that merely ends in
+  one of the words are left alone. "thank you"/"thanks" are deliberately not
+  in the list: they are stop keywords the speaker configures, and *"remind me
+  to say thank you"* is a command.
+- **Hold-on chatter**: *"…at 11 o'clock, in one second, one moment, one
+  moment, bear with me, i want…"* was cut into three asks by the commas it
+  left. The filler list knows the phrases now, and the pass matches with a
+  LOOKBEHIND instead of consuming the separator — a pattern that ate the comma
+  before each match took the comma the previous filler needed and left one
+  behind.
+- **A one-word swap**: *"with pelic sorry, i mean edo"*. The clause rule
+  wants a clause to survive after the marker and rightly refuses a single
+  word; `_WORD_SWAP_CORRECTION` reads the narrower shape first.
+- **The bug**: the filler pass ate ", i mean," before `_SELF_CORRECTION` could
+  see it, so the rule's own docstring example — *"buy milk, I mean, buy
+  bread"* — produced *"buy milk buy bread"*, two items where one was meant.
+  "i mean" is a filler only without a comma before it now.
+
+Every rewrite counted first over the clean corpora (2,699 real utterances
+minus the sealed 300, 4,800 FastRule train rows, 1,592 segmentation rows):
+**0 of 9,091 outputs changed** — these shapes exist only in real speech. The
+explorer's ingest walkthrough is regenerated (`scripts.gen_ingest_demo
+--write`) and its claims test names the two new passes.

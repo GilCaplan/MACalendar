@@ -981,3 +981,28 @@ before you rule:
   not asked about. The hint is what improves the next title. Built the same
   day on `tips-on-ios`; the Mac GUI does not draw the hint yet.
 
+- **2026-09-22 — Q42 (OPEN): does "a bare title is fine" reach the words Q38
+  refuses?** Three of Gil's real commands now commit NOTHING because, once
+  cycles 35 and 37 stripped the clock and the chatter around them, the title
+  left is a bare kind Q38 refuses: *"set an appointment for tomorrow morning
+  on tuesday at 910am"* (id=18, 'appointment'), *"Add an event for 5 p.m."*
+  (id=118, 'event' — which Gil's own correction on that row ACCEPTED as the
+  title), *"set a date for tomorrow at 11 o'clock, …"* (id=56, 'date').
+  Q41 says a bare 'meeting' with the right day and time is fine. The
+  question is whether 'appointment', 'date' and the program word 'event'
+  are 'meeting' (commit bare, hint once) or 'new list' / 'note of it'
+  (refuse). Until ruled, they refuse — the conservative side — and the
+  real-usage board carries them as three wrong rows.
+
+- **2026-09-22 — Q43 (OPEN): is "A, B, C" with no conjunction a list?**
+  *"Set a meeting on this coming Sunday for 1 p.m. TA, Office Hour,
+  meeting, excuse me."* (id=54) is one disfluent title said three ways. With
+  the trailing interjection gone (cycle 37) the coordinated-subject rule
+  (2026-09-20: one event whose words list three or more things → one per
+  thing) reads "TA, Office Hour, meeting" as three things and makes three
+  events; before, the interjection hid the list. A spoken list of events
+  nearly always closes with "and X"; a comma run with no conjunction is more
+  often dictation. Narrowing the rule to lists that carry a conjunction (or
+  an "also"/"then") would leave "dentist and haircut and gym" split and this
+  row whole. One row so far; a ruling, since it narrows a rule Gil set.
+
