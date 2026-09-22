@@ -1501,6 +1501,17 @@ rows below).
 | 7 | ingest month/day misspellings ("Febuary"); "invite/schedule/book" as polite imperatives; always answer when the rescue builds nothing | open | vocab bench (thousands), stage board |
 | 8 | RULINGS for Gil | **ANSWERED 2026-09-20** (DEVQA Q28, Q31–Q34): a MEAL names its own hour (09/13/19) and the board's premise moved with it; a NEW LIST is a General to-do named for its contents; a genuine bare 7 or 8 is ASKED about and otherwise reads PM on both tracks; the loop resumes; cycles run on the branch and never merge. **Still unruled:** the general untimed event (non-meal), and whether an offset or a recurrence on "remind me to <verb>" makes it an event | 5 of the remaining rows |
 
+## LLMJUDGE — the next dataset and the stage's shape, PROPOSED 2026-09-22
+
+`assistant/engine/llmjudge/PLAN.md` §7: the stage is at ceiling on its own
+six planted defects (100.0% / 98.8% catch, both halves) and blind by
+construction to the classes real speech fails on; Board D holds 400 rows.
+Proposed: a delegated GENERATOR (gold by grammar, six voices, observed damage
+operations, split by family, diversity counted) to ~5,000 commands / ~10,000
+object cases; Board D to thousands; then four shape decisions boarded alone
+(keep the judge deterministic; rescue self-consistency; a pairwise selector
+at loop exhaustion; rescue drawn as its own trace step). Waiting on Gil.
+
 ## CYCLES 38–40 — Q42 and Q43 built, 2026-09-22
 
 Q43 (a comma run needs a conjunction) and Q42 (a bare kind commits; a passed

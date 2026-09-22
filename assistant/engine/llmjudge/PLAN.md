@@ -613,3 +613,105 @@ metric is the project's own framing: *rows the judge FIXED minus rows the judge
 BROKE*, net. A stage with a beautiful isolated board and a negative net is a
 liability. Expect most findings to point at segmentation, which is FROZEN — those
 go to TASKS.md, not into this stage's work.
+
+## 7 · PROPOSED 2026-09-22 — the data this stage needs, and the shape it should take
+
+_Proposed for Gil, not agreed. Written after the judge board read 100.0% /
+98.8% catch on its two halves and Board D read net 0 at 400 rows: the stage
+is at ceiling on the defects we know how to plant, and the instrument that
+could show anything else does not exist._
+
+### 7.1 · Why the stage cannot be improved on its own data
+
+The judge's set is 1,800 cases built from FastRule's template corpus with six
+synthetic defects. Two things follow. First, a deterministic judge already
+catches those six at ceiling, so any change — a model call, a new rule — reads
+as noise there. Second, this stage LOOPS: a finding rewrites the command and
+re-enters segmentation, so its real output is the whole chain's second and
+third pass, which only a connected board (Board D) measures — and Board D
+holds 400 rows against a rule that says thousands. Real speech fails on
+classes the six defects do not contain: disfluent titles, recogniser garbage,
+a subject the words held and the reader dropped, merged asks, a wrong kind or
+operation. The stage is blind to them by construction, not by implementation.
+
+### 7.2 · The dataset — the part that can be delegated
+
+**One generator, gold by construction, never a model's opinion.** A model
+labelling what a model will be judged on is circular, and free-form LLM gold
+is what the dropped real-speech set was. The delegated agent writes the
+GENERATOR and the VERIFIER; it never writes an answer by hand and never reads
+a test half. Its brief:
+
+1. **Command-level gold by grammar.** A catalog of asks defined by grammar
+   (one to four asks; event / to-do / query / update / delete; a time in every
+   spoken form the readers know, including the compact and dotted ones from
+   cycle 35; recurrence; an anaphoric edit "the one you just made"), composed
+   into commands with the joiners real speech uses ("and", ". Also,", ", then",
+   comma runs with and without a conjunction). The gold is the ask list with
+   its fields, derived from the grammar, so it is exact.
+2. **Realised in voices.** Each command rendered in the six persona voices
+   (`dataset/personas/`) plus a plain one, so phrasing varies while the gold
+   does not.
+3. **Then damaged, by observed operations.** The damage comes from what has
+   been SEEN, never invented: the STT operations `scripts/vocab_repair_bench.py`
+   already carries; the disfluency shapes from the real-usage taxonomy
+   (trailing interjections, hold-on chatter, one-word swaps, stutters, a
+   retraction "no, I said that"); a generic or junk title; a clock residue in
+   a title. Each operation is a named function with a count, so the set can
+   say "N distinct shapes" as the vocabulary bench does.
+4. **Object-level cases planted from those commands**, the way `generate.py`
+   does now, with the six defects plus the real classes: dropped ask, merged
+   asks, wrong kind, wrong operation, subject dropped for a kind word, clock
+   residue in the title.
+5. **Split by template FAMILY** so no phrasing of a family sits in both
+   halves; a `verify.py` that checks every gold value is reachable from the
+   command's words (the `intent/correction.py` rule) and that the halves share
+   no command text; a `README` that prints the diversity counts — grammars,
+   voices, damage operations, families per split.
+
+**Size:** ~5,000 command-level rows and ~10,000 object cases, split in half.
+**Diversity is the deliverable, not the count:** the agent reports distinct
+shapes, and a set of 5,000 rows from 30 templates is rejected.
+
+**Guardrails for the agent:** no edits under `assistant/engine/*/` except the
+new `llmjudge/datasets/` files; stores redirected; `MACALENDAR_LLM_DISABLED=1`
+(the generator needs no model); never opens `test_split.json` or any test
+half; a 100-row sample of the TRAIN half is read by a person before the set
+is used to decide anything.
+
+### 7.3 · The stage's shape — four decisions, each boarded alone
+
+Measured on Board D v2 (loop on vs off, both halves, fixed minus broken, with
+a per-class breakdown and p50/p95 beside it) and on the judge board v2 (the
+pair); the real-usage board as the outer gate.
+
+1. **Keep the judge deterministic.** No change; the pair is at ceiling and the
+   ablation showed the model call inert. This is the null hypothesis the other
+   three are tested against.
+2. **Rescue self-consistency.** Where FastRule declined, sample the rescue
+   twice; commit when the two agree on count and kind; when they disagree,
+   one pairwise call — "which reading is what was asked?" — decides. Costs a
+   second call on compounds only. Prediction: the deep path's count-correct
+   rises, the false-flag pair is untouched, p95 rises on compounds.
+3. **A pairwise selector at loop exhaustion.** When rounds produced different
+   objects for one ask, one comparative call chooses; today the last round
+   wins unjudged against the earlier ones. Prediction: fixed-minus-broken on
+   rows with two or more rounds goes positive; zero calls on rows with one.
+4. **Rescue as its own trace step.** It is a parse, not a judgement (CLAUDE.md
+   says so). Drawing it as its own step inside this stage changes no
+   behaviour, makes Board D's "which half moved" readable, and needs the panel
+   procedure (BRAIN_VERSION, CHAINS, the explorer). Do this first; it is
+   bookkeeping the other three need.
+
+What is NOT proposed: a second extraction of asks, per-field grounding, a
+model naming things, a yes/no model verdict on the rescue's output — each
+measured and lost between cycles 1 and 12.
+
+### 7.4 · Order, and what decides
+
+Board D v2 first (an afternoon: n to thousands, the class breakdown, the
+disagreement counter) → the dataset (delegated; a day or two) → decision 4
+(bookkeeping) → decisions 2 and 3 as cycles, one change per board run, keep
+or revert on the pair plus latency → the real-usage board says whether any of
+it reached real speech. If the outer gate does not move, the classes in the
+set are wrong, and that is the finding.
