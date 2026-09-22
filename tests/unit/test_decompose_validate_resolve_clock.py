@@ -44,7 +44,11 @@ def test_a_bare_decimal_number_is_now_read_as_a_clock_by_design():
     18/19 rely on for a model's bad guess). The cost is a silently dropped
     price, not a crash."""
     assert resolve_clock("that movie was $11.15") == "11:15"
-    assert resolve_clock("it's 9.99 for the ticket") == "09:99"
+    # 2026-09-22 (Gil: "invalid clock should be handled by validate_decompose"):
+    # the reader itself refuses a minute over 59 or an hour over 23 now, so a
+    # price that is not even clock-shaped is dropped HERE, not left for the
+    # validator downstream. "9.99" is no reading at all.
+    assert resolve_clock("it's 9.99 for the ticket") is None
 
     from assistant.actions.calendar.intent import CalendarIntent
     import pytest
