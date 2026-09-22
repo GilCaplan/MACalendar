@@ -1012,6 +1012,46 @@
                           background: transparent; color: inherit; }
   .demo-count { font-size: 12px; color: var(--muted); min-width: 8ch; }
   @media (prefers-reduced-motion: reduce) { .demo-play { display: none; } }
+  /* ---- the stage demos (scripts/gen_explorer_demos.py) ---- */
+  .sdemo { margin: 14px 0 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  .sdemo h4 { margin: 0 0 8px; font-size: 13px; letter-spacing: .2px; }
+  .sdemo .pick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .sdemo .pick button { font: inherit; font-size: 12px; padding: 4px 9px; cursor: pointer; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--ink); }
+  .sdemo .pick button[aria-selected="true"] { border-color: var(--amber); font-weight: 600; }
+  .sdemo .cmd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; padding: 8px 10px; border-radius: 6px; background: var(--screen); line-height: 1.55; }
+  .sdemo .cmd mark { background: rgba(240,180,60,.35); color: inherit; padding: 0 2px; border-radius: 3px; }
+  .sdemo .pieces { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .sdemo .piece { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 140px; background: var(--screen); font-size: 12px; }
+  .sdemo .piece b { display: block; font-size: 13px; margin-bottom: 4px; }
+  .sdemo .piece .t { color: var(--muted); }
+  .sdemo .piece .k { display: inline-block; margin-top: 4px; font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); }
+  .sdemo .piece .k.event { border-color: #4a90d9; }
+  .sdemo .piece .k.task { border-color: #4caf7d; }
+  .sdemo table.vals { border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+  .sdemo table.vals td { padding: 3px 10px 3px 0; vertical-align: top; }
+  .sdemo table.vals td:first-child { color: var(--muted); }
+  .sdemo .verdict { display: inline-block; margin: 8px 0; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--line); }
+  .sdemo .verdict.handled { border-color: #4caf7d; } .sdemo .verdict.deferred { border-color: var(--amber); } .sdemo .verdict.refused { border-color: #d9534f; }
+  .sdemo .steps { list-style: none; padding: 0; margin: 8px 0 0; }
+  .sdemo .steps li { display: grid; grid-template-columns: 92px 1fr; gap: 8px; padding: 5px 0; border-top: 1px dashed var(--line); font-size: 12px; }
+  .sdemo .steps li .st { color: var(--muted); font-size: 11px; letter-spacing: .4px; text-transform: uppercase; }
+  .sdemo .steps li.bad .st { color: var(--amber); }
+  .sdemo .steps li.cur { background: rgba(240,180,60,.12); }
+  .sdemo .bounds { display: grid; gap: 6px; margin-top: 8px; }
+  .sdemo .bound { display: grid; grid-template-columns: 34px 1fr; gap: 8px; font-size: 12px; }
+  .sdemo .bound .x { font-weight: 700; color: var(--muted); }
+  .sdemo .bound .v { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
+  .sdemo .bound.cur .x { color: var(--amber); }
+  .sdemo .ctl { display: flex; gap: 6px; align-items: center; margin-top: 10px; font-size: 12px; }
+  .sdemo .ctl button { font: inherit; font-size: 12px; padding: 3px 10px; cursor: pointer; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--ink); }
+  .sdemo .reply { margin-top: 8px; font-size: 12px; color: var(--muted); }
+  .sdemo svg.chart { width: 100%; height: auto; display: block; margin-top: 8px; }
+  .sdemo svg.chart text { font-size: 9px; fill: var(--muted); }
+  .sdemo svg.chart .bar { fill: var(--amber); opacity: .85; }
+  .sdemo svg.chart .bar.b { fill: #4a90d9; }
+  .sdemo svg.chart .axis { stroke: var(--line); }
+  .sdemo .lead { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
+
 </style>
 
 <header>
@@ -3414,6 +3454,7 @@ series_id   NULL
                <div class="pmore" id="pmore" hidden>${d.more}</div>` : "");
     const mb = document.getElementById("pmorebtn");
     if (mb) mb.addEventListener("click", showMore);
+    if (window.__mountDemo) window.__mountDemo(id, pbody);   // the stage demos, recorded from the real code
     const i = ORDER.indexOf(id);
     const prev = ORDER[(i - 1 + ORDER.length) % ORDER.length];
     const next = ORDER[(i + 1) % ORDER.length];
@@ -3438,6 +3479,7 @@ series_id   NULL
   }
   function close() {
     cur = null;
+    if (window.__unlightDemo) window.__unlightDemo();
     hideTip();
     resetWorld(view);
     panel.hidden = true;
@@ -4527,6 +4569,1457 @@ series_id   NULL
 }
 </script>
 <!-- INGEST-DEMO:END -->
+<script>
+/* THE STAGE DEMOS. Every widget below replays a RECORDING made by
+   scripts/gen_explorer_demos.py from the real code — segmentation's cut, the
+   resolver's values, the front door's verdict, the whole chain's X0..X4 and
+   trace — for invented commands. The page runs no engine of its own, for the
+   reason gen_ingest_demo.py gives: a second implementation drifts and nobody
+   notices. test_artifact_claims regenerates the model-free islands and fails
+   if the page's copy differs. */
+(function () {
+  const island = document.getElementById("explorer-demos");
+  if (!island) return;
+  let D;
+  try { D = JSON.parse(island.textContent); } catch (e) { return; }
+  const esc = t => String(t == null ? "" : t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
+  function picker(host, items, labelOf, onPick) {
+    const row = el("div", "pick"); row.setAttribute("role", "tablist");
+    items.forEach((it, k) => {
+      const b = el("button", null, esc(labelOf(it))); b.type = "button"; b.setAttribute("role", "tab");
+      b.setAttribute("aria-selected", k === 0 ? "true" : "false");
+      b.addEventListener("click", () => { row.querySelectorAll("button").forEach(x => x.setAttribute("aria-selected", "false")); b.setAttribute("aria-selected", "true"); onPick(it, k); });
+      row.appendChild(b);
+    });
+    host.appendChild(row);
+    return row;
+  }
+  function markSpans(text, spans) {
+    // highlight [start,end) spans in the command; spans sorted, non-overlapping
+    const ss = (spans || []).slice().sort((a, b) => a.start - b.start);
+    let out = "", i = 0;
+    ss.forEach(sp => { if (sp.start < i) return; out += esc(text.slice(i, sp.start)) + "<mark title='" + esc(sp.kind) + "'>" + esc(text.slice(sp.start, sp.end)) + "</mark>"; i = sp.end; });
+    return out + esc(text.slice(i));
+  }
+
+  /* --- segmentation: the cut, the time each piece owns, its kind --- */
+  function segDemo(host) {
+    if (!D.seg || !D.seg.length) return;
+    const box = el("div", "sdemo"); box.appendChild(el("h4", null, "Cut it yourself — pick a command"));
+    box.appendChild(el("p", "lead", "The time phrases the reader found are marked in the command; below it, the pieces the cut produced, each with the time it OWNS and the kind it was tagged. Recorded from <code>fastseg</code>."));
+    const cmd = el("div", "cmd"), pieces = el("div", "pieces");
+    function show(ex) {
+      cmd.innerHTML = markSpans(ex.text, ex.refs);
+      pieces.innerHTML = "";
+      ex.items.forEach(it => {
+        const p = el("div", "piece", "<b>" + esc(it.action) + "</b><span class='t'>" + esc(it.time || "(no time — today)") + "</span><br><span class='k " + esc(it.tag) + "'>" + esc(it.tag) + "</span>");
+        pieces.appendChild(p);
+      });
+    }
+    picker(box, D.seg, e => e.label, show); box.appendChild(cmd); box.appendChild(pieces); show(D.seg[0]); host.appendChild(box);
+  }
+
+  /* --- decompose_validate: a phrase in, values out --- */
+  function resolveDemo(host) {
+    if (!D.resolve || !D.resolve.length) return;
+    const box = el("div", "sdemo"); box.appendChild(el("h4", null, "A time phrase in, every value out"));
+    box.appendChild(el("p", "lead", "Recorded from <code>resolve.resolve</code> on " + esc((D.clock || "").slice(0, 10)) + ", a Wednesday. The conventions are the ones the stage's table states — a bare 7 is the evening, a bare 11 the morning, a compact 910am is 09:10."));
+    const tbl = el("table", "vals");
+    function show(r) {
+      const v = r.values || {};
+      const rows = [["date", v.date], ["start", v.start_time], ["end", v.end_time], ["recurrence", v.recurrence], ["on days", (v.recur_days || []).join(", ")], ["until", v.recur_until]];
+      tbl.innerHTML = rows.filter(x => x[1]).map(x => "<tr><td>" + esc(x[0]) + "</td><td><b>" + esc(x[1]) + "</b></td></tr>").join("") || "<tr><td colspan=2>no value — the phrase names no day and no clock</td></tr>";
+    }
+    picker(box, D.resolve, r => r.phrase, show); box.appendChild(tbl); show(D.resolve[0]); host.appendChild(box);
+  }
+
+  /* --- FastRule: handled, deferred or refused --- */
+  function fastruleDemo(host) {
+    if (!D.fastrule || !D.fastrule.length) return;
+    const box = el("div", "sdemo"); box.appendChild(el("h4", null, "The front door's verdict"));
+    box.appendChild(el("p", "lead", "Handled means committed on the fast track; deferred means handed up to the deep track with a reason; refused means a correct reading that must not execute as stated. Recorded from <code>FastRule.run</code>."));
+    const cmd = el("div", "cmd"), verdict = el("div"), objs = el("div", "pieces");
+    function show(f) {
+      cmd.textContent = f.text;
+      verdict.innerHTML = "<span class='verdict " + esc(f.class) + "'>" + esc(f.class) + (f.reason ? " · " + esc(f.reason) : "") + "</span> <span class='lead'>confidence " + esc(f.confidence) + "</span>";
+      objs.innerHTML = "";
+      (f.objects || []).forEach(o => objs.appendChild(el("div", "piece", "<b>" + esc(o.action) + "</b><span class='t'>" + esc(o.title || "(no title)") + "</span><br><span class='t'>" + esc([o.date, o.start_time, o.end_time].filter(Boolean).join(" · ")) + "</span>")));
+      if (!(f.objects || []).length) objs.appendChild(el("div", "piece", "<span class='t'>nothing built here</span>"));
+    }
+    picker(box, D.fastrule, f => f.label, show); box.appendChild(cmd); box.appendChild(verdict); box.appendChild(objs); show(D.fastrule[0]); host.appendChild(box);
+  }
+
+  /* --- the whole chain: X0..X4, the trace, and the diagram lit up --- */
+  const STAGE_FOR_BOUND = { X0: "ingest", X1: "ingest", X2: "segmentation", X3: "decompose_validate", X4: "fastrule" };
+  const STAGE_FOR_STEP = { vocab: "ingest", rule: "fastrule", validate: "decompose_validate", llm: "llmjudge", verify: "llmjudge", execute: "commit_label", done: "commit_label" };
+  function light(stageName) {
+    const svg = document.getElementById("view-engine"); if (!svg) return;
+    svg.querySelectorAll("[data-stage].demo-lit").forEach(e => e.classList.remove("demo-lit", "sel"));
+    if (!stageName) return;
+    svg.querySelectorAll('[data-stage="' + stageName + '"]').forEach(e => e.classList.add("demo-lit", "sel"));
+  }
+  function chainDemo(host, judgeOnly) {
+    if (!D.chain || !D.chain.length) return;
+    const box = el("div", "sdemo");
+    box.appendChild(el("h4", null, judgeOnly ? "Watch the judge work — pick a command" : "Run a command through the chain"));
+    box.appendChild(el("p", "lead", judgeOnly ? "The trace from the judge onward: findings, the loop-back with its rewritten command, what was held back and why. Recorded with the model on." : "Step through what each stage handed the next (X0 to X4) and the trace the panel would draw; the diagram lights the stage you are on. Recorded with the model on, so the deep rows show the rescue at work."));
+    const cmd = el("div", "cmd"), bounds = el("div", "bounds"), steps = el("ul", "steps"), reply = el("div", "reply"), ctl = el("div", "ctl");
+    let cur = null, k = 0, rows = [];
+    function rowsOf(c) {
+      const out = [];
+      if (!judgeOnly) (c.boundaries || []).forEach(b => out.push({ kind: "bound", name: b.name, value: b.value, stage: STAGE_FOR_BOUND[b.name] }));
+      (c.steps || []).forEach(s => { if (judgeOnly && !(s.stage === "verify" || s.stage === "llm" || s.outcome || s.stage === "execute")) return; out.push({ kind: "step", stage: s.stage, title: s.title, detail: s.detail, ok: s.ok, outcome: s.outcome, light: STAGE_FOR_STEP[s.stage] }); });
+      return out;
+    }
+    function draw() {
+      bounds.innerHTML = ""; steps.innerHTML = "";
+      rows.forEach((r, i) => {
+        if (r.kind === "bound") bounds.appendChild(el("div", "bound" + (i === k ? " cur" : ""), "<span class='x'>" + esc(r.name) + "</span><span class='v'>" + esc(r.value) + "</span>"));
+        else steps.appendChild(el("li", (r.ok ? "" : "bad") + (i === k ? " cur" : ""), "<span class='st'>" + esc(r.stage) + "</span><span><b>" + esc(r.title) + "</b>" + (r.outcome ? " <em>(" + esc(r.outcome.replace("_", " ")) + ")</em>" : "") + " — " + esc(r.detail) + "</span>"));
+      });
+      const r = rows[k]; light(r ? (r.kind === "bound" ? r.stage : r.light) : null);
+      ctl.querySelector(".n").textContent = (k + 1) + " / " + rows.length;
+    }
+    function show(c) { cur = c; rows = rowsOf(c); k = 0; cmd.textContent = c.text; reply.innerHTML = "<b>reply:</b> " + esc(c.message) + (c.hint ? " · <em>hint: " + esc(c.hint.replace("_", " ")) + "</em>" : "") + " · <em>" + esc(c.parse) + " path</em>"; draw(); }
+    picker(box, D.chain, c => c.label, show);
+    box.appendChild(cmd); box.appendChild(bounds); box.appendChild(steps); box.appendChild(reply);
+    ctl.innerHTML = "<button type='button' class='prev'>◀ back</button><button type='button' class='next'>step ▶</button><span class='n'></span>";
+    ctl.querySelector(".prev").addEventListener("click", () => { k = Math.max(0, k - 1); draw(); });
+    ctl.querySelector(".next").addEventListener("click", () => { k = Math.min(rows.length - 1, k + 1); draw(); });
+    box.appendChild(ctl); show(D.chain[0]); host.appendChild(box);
+  }
+
+  /* --- the boards, as bars --- */
+  function bars(host, title, series, unit) {
+    const W = 360, H = 24 * series.length + 24, max = Math.max(100, ...series.map(s => s.v));
+    let svg = "<svg class='chart' viewBox='0 0 " + W + " " + H + "' role='img' aria-label='" + esc(title) + "'>";
+    series.forEach((s, i) => {
+      const y = 6 + i * 24, w = Math.max(1, (W - 150) * s.v / max);
+      svg += "<text x='0' y='" + (y + 11) + "'>" + esc(s.label) + "</text><rect class='bar " + (s.cls || "") + "' x='128' y='" + y + "' width='" + w + "' height='14' rx='2'/><text x='" + (132 + w) + "' y='" + (y + 11) + "'>" + esc(s.v) + esc(unit || "%") + "</text>";
+    });
+    svg += "</svg>";
+    const box = el("div", "sdemo"); box.appendChild(el("h4", null, esc(title))); box.insertAdjacentHTML("beforeend", svg); host.appendChild(box);
+  }
+  function evalDemo(host, which) {
+    const E = D.eval || {};
+    if (which === "engine" && E.dev100 && E.dev100.length) {
+      bars(host, "dev-100 count-correct, the last runs (train slice, 100 rows)", E.dev100.map(r => ({ label: "run " + r.run + " · " + r.date.slice(5), v: r.pct })));
+      if (E.sealed) bars(host, "The TEST set (sealed 300), count-correct by system state", E.sealed.map(s => ({ label: s.state, v: s.pct, cls: /control/.test(s.state) ? "b" : "" })));
+    }
+    if (which === "real" && E.real_usage) {
+      const R = E.real_usage, lab = { generic_title: "generic-title right (21 rows)", corrected_count: "corrected: count right", corrected_fields: "corrected: every reachable field", approved: "approved reproduced (17)" };
+      bars(host, "Real usage on 2026-09-22 — start of the day vs end", Object.keys(R).flatMap(kk => [{ label: lab[kk] + " · before", v: R[kk][0], cls: "b" }, { label: lab[kk] + " · after", v: R[kk][1] }]));
+    }
+    if (which === "loop" && E.board_d) {
+      const B = E.board_d;
+      bars(host, "Board D v2 — the loop connected, " + B.n + " train rows", [{ label: "loop OFF", v: B.off, cls: "b" }, { label: "loop ON", v: B.on }]);
+      const by = B.by_reentries || {};
+      bars(host, "…by rounds the loop spent (correct, loop ON)", Object.keys(by).sort().map(r => ({ label: r + " round" + (r === "1" ? "" : "s") + " · n=" + by[r].n, v: by[r].n ? Math.round(1000 * by[r].on / by[r].n) / 10 : 0 })));
+    }
+  }
+
+  /* --- mount by panel id when a panel opens --- */
+  const MOUNTS = {
+    segment: h => segDemo(h),
+    decompose: h => resolveDemo(h), validate: h => resolveDemo(h),
+    fastrule: h => fastruleDemo(h),
+    crosscheck: h => chainDemo(h, true), generate: h => chainDemo(h, true),
+    Engine: h => chainDemo(h, false),
+    lvl1: h => evalDemo(h, "engine"), lvl5: h => evalDemo(h, "real"), measure: h => evalDemo(h, "loop"),
+  };
+  window.__mountDemo = function (id, host) {
+    try { const f = MOUNTS[id]; if (f) f(host); } catch (e) { /* a widget must never break the panel */ }
+  };
+  window.__unlightDemo = function () { light(null); };
+})();
+</script>
+
+<!-- EXPLORER-DEMOS:BEGIN (generated by scripts/gen_explorer_demos.py) -->
+<script id="explorer-demos" type="application/json">
+{
+ "seg": [
+  {
+   "label": "two asks, one breath",
+   "text": "book the dentist tomorrow at 4pm and remind me to buy milk",
+   "refs": [
+    {
+     "text": "tomorrow",
+     "kind": "date",
+     "start": 17,
+     "end": 25
+    },
+    {
+     "text": "at 4pm",
+     "kind": "clock",
+     "start": 26,
+     "end": 32
+    }
+   ],
+   "items": [
+    {
+     "action": "book the dentist",
+     "time": "tomorrow at 4pm",
+     "tag": "event",
+     "source": "book the dentist tomorrow at 4pm"
+    },
+    {
+     "action": "remind me to buy milk",
+     "time": "today",
+     "tag": "task",
+     "source": "remind me to buy milk"
+    }
+   ]
+  },
+  {
+   "label": "a leading day covers both",
+   "text": "tomorrow gym at 7 and a haircut at 11",
+   "refs": [
+    {
+     "text": "tomorrow",
+     "kind": "date",
+     "start": 0,
+     "end": 8
+    },
+    {
+     "text": "at 7",
+     "kind": "clock",
+     "start": 13,
+     "end": 17
+    },
+    {
+     "text": "at 11",
+     "kind": "clock",
+     "start": 32,
+     "end": 37
+    }
+   ],
+   "items": [
+    {
+     "action": "gym",
+     "time": "tomorrow at 7",
+     "tag": "event",
+     "source": "tomorrow gym at 7"
+    },
+    {
+     "action": "a haircut",
+     "time": "tomorrow at 11",
+     "tag": "event",
+     "source": "a haircut at 11"
+    }
+   ]
+  },
+  {
+   "label": "a trailing deadline covers both",
+   "text": "submit the grades and prepare the slides by friday",
+   "refs": [
+    {
+     "text": "by friday",
+     "kind": "deadline",
+     "start": 41,
+     "end": 50
+    }
+   ],
+   "items": [
+    {
+     "action": "submit the grades",
+     "time": "by friday",
+     "tag": "task",
+     "source": "submit the grades"
+    },
+    {
+     "action": "prepare the slides",
+     "time": "by friday",
+     "tag": "task",
+     "source": "prepare the slides by friday"
+    }
+   ]
+  },
+  {
+   "label": "a list is one to-do",
+   "text": "buy milk, eggs and bread",
+   "refs": [],
+   "items": [
+    {
+     "action": "buy milk, eggs and bread",
+     "time": "today",
+     "tag": "task",
+     "source": "buy milk, eggs and bread"
+    }
+   ]
+  },
+  {
+   "label": "three things is three events",
+   "text": "on friday create an event for the dentist, a haircut and the gym",
+   "refs": [
+    {
+     "text": "on friday",
+     "kind": "date",
+     "start": 0,
+     "end": 9
+    }
+   ],
+   "items": [
+    {
+     "action": "create an event for the dentist, a haircut and the gym",
+     "time": "on friday",
+     "tag": "event",
+     "source": "on friday create an event for the dentist, a haircut and the gym"
+    }
+   ]
+  },
+  {
+   "label": "a comma run is one thing",
+   "text": "set a meeting on sunday for 1 p.m. office hour, meeting",
+   "refs": [
+    {
+     "text": "on sunday",
+     "kind": "date",
+     "start": 14,
+     "end": 23
+    },
+    {
+     "text": "for 1 p.m.",
+     "kind": "clock",
+     "start": 24,
+     "end": 34
+    }
+   ],
+   "items": [
+    {
+     "action": "set a meeting office hour, meeting",
+     "time": "on sunday for 1 p.m.",
+     "tag": "event",
+     "source": "set a meeting on sunday for 1 p.m. office hour, meeting"
+    }
+   ]
+  },
+  {
+   "label": "a question and an ask",
+   "text": "what do I have this weekend and book the haircut at 3:45",
+   "refs": [
+    {
+     "text": "this weekend",
+     "kind": "date",
+     "start": 15,
+     "end": 27
+    },
+    {
+     "text": "at 3:45",
+     "kind": "clock",
+     "start": 49,
+     "end": 56
+    }
+   ],
+   "items": [
+    {
+     "action": "what do I have",
+     "time": "this weekend",
+     "tag": "review",
+     "source": "what do I have this weekend"
+    },
+    {
+     "action": "book the haircut",
+     "time": "today at 3:45",
+     "tag": "event",
+     "source": "book the haircut at 3:45"
+    }
+   ]
+  },
+  {
+   "label": "said with a stutter",
+   "text": "remind me me to prepare the presentation on monday",
+   "refs": [
+    {
+     "text": "on monday",
+     "kind": "date",
+     "start": 41,
+     "end": 50
+    }
+   ],
+   "items": [
+    {
+     "action": "remind me to prepare the presentation",
+     "time": "on monday",
+     "tag": "task",
+     "source": "remind me to prepare the presentation on monday"
+    }
+   ]
+  }
+ ],
+ "resolve": [
+  {
+   "phrase": "tomorrow at 4pm",
+   "values": {
+    "date": "2026-09-10",
+    "start_time": "16:00",
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "at 7",
+   "values": {
+    "date": "2026-09-09",
+    "start_time": "19:00",
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "at 8 in the morning",
+   "values": {
+    "date": "2026-09-09",
+    "start_time": "08:00",
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "at 910am",
+   "values": {
+    "date": "2026-09-09",
+    "start_time": "09:10",
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "for 830",
+   "values": {
+    "date": "2026-09-09",
+    "start_time": "20:30",
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "at 1 p.m.",
+   "values": {
+    "date": "2026-09-09",
+    "start_time": "13:00",
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "next tuesday at 11",
+   "values": {
+    "date": "2026-09-15",
+    "start_time": "11:00",
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "this coming thursday",
+   "values": {
+    "date": "2026-09-10",
+    "start_time": null,
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "on the 15th",
+   "values": {
+    "date": "2026-09-15",
+    "start_time": null,
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "from 2 to 4",
+   "values": {
+    "date": "2026-09-09",
+    "start_time": "14:00",
+    "end_time": "16:00",
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "for two hours",
+   "values": {
+    "date": "2026-09-09",
+    "start_time": null,
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "every tuesday and thursday at 9",
+   "values": {
+    "date": "2026-09-10",
+    "start_time": "09:00",
+    "end_time": null,
+    "recurrence": "weekly",
+    "recur_days": [
+     "tuesday",
+     "thursday"
+    ],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "every other week",
+   "values": {
+    "date": "2026-09-09",
+    "start_time": null,
+    "end_time": null,
+    "recurrence": "weekly",
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": true
+   }
+  },
+  {
+   "phrase": "until the end of september",
+   "values": {
+    "date": "2026-09-09",
+    "start_time": null,
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": "2026-09-29",
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "lunch",
+   "values": {
+    "date": "2026-09-09",
+    "start_time": null,
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "dinner tomorrow",
+   "values": {
+    "date": "2026-09-10",
+    "start_time": null,
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "tonight",
+   "values": {
+    "date": "2026-09-09",
+    "start_time": "19:00",
+    "end_time": "22:00",
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "in three days",
+   "values": {
+    "date": "2026-09-12",
+    "start_time": null,
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "at noon",
+   "values": {
+    "date": "2026-09-09",
+    "start_time": "12:00",
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "at half past six",
+   "values": {
+    "date": "2026-09-09",
+    "start_time": "18:30",
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "tomorrow morning",
+   "values": {
+    "date": "2026-09-10",
+    "start_time": "09:00",
+    "end_time": "12:00",
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "at 5 p.m. on sunday",
+   "values": {
+    "date": "2026-09-13",
+    "start_time": "17:00",
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "monday the 13th",
+   "values": {
+    "date": "2026-09-13",
+    "start_time": null,
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  },
+  {
+   "phrase": "at 25pm",
+   "values": {
+    "date": "2026-09-09",
+    "start_time": null,
+    "end_time": null,
+    "recurrence": null,
+    "recur_days": [],
+    "recur_until": null,
+    "recurrence_rounded": false
+   }
+  }
+ ],
+ "fastrule": [
+  {
+   "label": "one clean ask",
+   "text": "book the dentist tomorrow at 4pm",
+   "committed": true,
+   "confidence": 1.0,
+   "reason": null,
+   "class": "handled",
+   "objects": [
+    {
+     "action": "create_event",
+     "title": "dentist",
+     "date": "2026-09-10",
+     "start_time": "16:00",
+     "end_time": "17:00"
+    }
+   ]
+  },
+  {
+   "label": "a to-do",
+   "text": "remind me to buy milk",
+   "committed": true,
+   "confidence": 0.95,
+   "reason": null,
+   "class": "handled",
+   "objects": [
+    {
+     "action": "create_todo",
+     "title": "buy milk",
+     "date": null,
+     "start_time": null,
+     "end_time": null
+    }
+   ]
+  },
+  {
+   "label": "a compound, handed up",
+   "text": "book the gym at 6 and remind me to buy milk",
+   "committed": false,
+   "confidence": 0.63,
+   "reason": "clause-coordination",
+   "class": "deferred",
+   "objects": [
+    {
+     "action": "create_todo",
+     "title": "buy milk",
+     "date": null,
+     "start_time": null,
+     "end_time": null
+    }
+   ]
+  },
+  {
+   "label": "a bare kind, committed (Q42)",
+   "text": "add an event for 5 p.m.",
+   "committed": true,
+   "confidence": 0.95,
+   "reason": null,
+   "class": "handled",
+   "objects": [
+    {
+     "action": "create_event",
+     "title": "event",
+     "date": "2026-09-09",
+     "start_time": "17:00",
+     "end_time": "18:00"
+    }
+   ]
+  },
+  {
+   "label": "a generic target, refused",
+   "text": "add this on my calendar",
+   "committed": false,
+   "confidence": 0.0,
+   "reason": "below-threshold",
+   "class": "deferred",
+   "objects": []
+  },
+  {
+   "label": "a question, not a create",
+   "text": "should I add yoga tomorrow?",
+   "committed": false,
+   "confidence": 0.81,
+   "reason": "interrogative-create",
+   "class": "refused",
+   "objects": [
+    {
+     "action": "create_event",
+     "title": "yoga",
+     "date": "2026-09-10",
+     "start_time": "09:00",
+     "end_time": "10:00"
+    }
+   ]
+  },
+  {
+   "label": "a delete with no target",
+   "text": "just delete it",
+   "committed": false,
+   "confidence": 0.81,
+   "reason": "generic-target:it",
+   "class": "refused",
+   "objects": [
+    {
+     "action": "delete_event",
+     "title": "it",
+     "date": null,
+     "start_time": null,
+     "end_time": null
+    }
+   ]
+  },
+  {
+   "label": "an all-day day",
+   "text": "conference all day friday",
+   "committed": false,
+   "confidence": 0.0,
+   "reason": "skip:No action matched for: 'conference all day friday'",
+   "class": "deferred",
+   "objects": []
+  }
+ ],
+ "eval": {
+  "dev100": [
+   {
+    "run": 35,
+    "pct": 79.0,
+    "date": "2026-09-20"
+   },
+   {
+    "run": 36,
+    "pct": 79.0,
+    "date": "2026-09-20"
+   },
+   {
+    "run": 37,
+    "pct": 76.0,
+    "date": "2026-09-20"
+   },
+   {
+    "run": 38,
+    "pct": 75.0,
+    "date": "2026-09-20"
+   },
+   {
+    "run": 39,
+    "pct": 75.0,
+    "date": "2026-09-20"
+   },
+   {
+    "run": 40,
+    "pct": 75.0,
+    "date": "2026-09-20"
+   },
+   {
+    "run": 41,
+    "pct": 75.0,
+    "date": "2026-09-22"
+   },
+   {
+    "run": 42,
+    "pct": 76.0,
+    "date": "2026-09-22"
+   },
+   {
+    "run": 43,
+    "pct": 75.0,
+    "date": "2026-09-22"
+   },
+   {
+    "run": 45,
+    "pct": 76.0,
+    "date": "2026-09-22"
+   },
+   {
+    "run": 46,
+    "pct": 78.0,
+    "date": "2026-09-22"
+   },
+   {
+    "run": 47,
+    "pct": 77.0,
+    "date": "2026-09-22"
+   }
+  ],
+  "sealed": [
+   {
+    "state": "old brain",
+    "pct": 79.0
+   },
+   {
+    "state": "FastRule v1",
+    "pct": 79.7
+   },
+   {
+    "state": "decompose-validate v1",
+    "pct": 75.3
+   },
+   {
+    "state": "main 09-12",
+    "pct": 77.3
+   },
+   {
+    "state": "one-shot (control)",
+    "pct": 66.0
+   },
+   {
+    "state": "2026-09-22",
+    "pct": 73.0
+   }
+  ],
+  "real_usage": {
+   "generic_title": [
+    52.4,
+    90.5
+   ],
+   "corrected_count": [
+    60.0,
+    73.3
+   ],
+   "corrected_fields": [
+    13.3,
+    20.0
+   ],
+   "approved": [
+    64.7,
+    64.7
+   ]
+  },
+  "board_d": {
+   "n": 30,
+   "off": 96.7,
+   "on": 96.7,
+   "fixed": 0,
+   "broke": 0,
+   "disagreed": 1,
+   "by_reentries": {
+    "0": {
+     "n": 30,
+     "off": 29,
+     "on": 29,
+     "net": 0
+    }
+   }
+  }
+ },
+ "chain": [
+  {
+   "label": "the fast path",
+   "text": "book the dentist tomorrow at 4pm",
+   "parse": "fast",
+   "message": "Created event 'dentist' on Thursday, Sep 10, 2026 from 4 PM to 5 PM.",
+   "boundaries": [
+    {
+     "name": null,
+     "value": "book the dentist tomorrow at 4pm"
+    },
+    {
+     "name": null,
+     "value": "create event · title=dentist · date=2026-09-10 (Thursday 10 September) · start_time=16:00 (4pm)"
+    }
+   ],
+   "steps": [
+    {
+     "stage": "vocab",
+     "title": "Vocabulary",
+     "detail": "No corrections needed",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "rule",
+     "title": "Rule parser",
+     "detail": "Confident (1.00) — instant: create_event",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "execute",
+     "title": "Create Event",
+     "detail": "Created event 'dentist' on Thursday, Sep 10, 2026 from 4 PM to 5 PM.",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "validate",
+     "title": "Labels",
+     "detail": "item_1: Health",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "done",
+     "title": "Fast answer",
+     "detail": "rules answered in 0.1 s · reviewing in the background",
+     "ok": true,
+     "outcome": ""
+    }
+   ],
+   "hint": ""
+  },
+  {
+   "label": "a compound on the deep path",
+   "text": "book the gym at 6 and remind me to buy milk",
+   "parse": "deep",
+   "message": "Created event 'gym' on Wednesday, Sep 9, 2026 from 6 PM to 7 PM. Added 'buy milk' to Today tagged Groceries.",
+   "boundaries": [
+    {
+     "name": null,
+     "value": "book the gym at 6 and remind me to buy milk"
+    },
+    {
+     "name": null,
+     "value": "(event) book the gym · today at 6 | (task) remind me to buy milk · today"
+    },
+    {
+     "name": null,
+     "value": "book the gym → date=2026-09-09 start_time=18:00 | remind me to buy milk → date=2026-09-09"
+    },
+    {
+     "name": null,
+     "value": "create event · title=gym · date=2026-09-09 (Wednesday 9 September) · start_time=18:00 (6pm) | create todo · title=buy milk · due_date=2026-09-09 (Wednesday 9 S…"
+    },
+    {
+     "name": null,
+     "value": "every field traced back to the words"
+    }
+   ],
+   "steps": [
+    {
+     "stage": "vocab",
+     "title": "Vocabulary",
+     "detail": "No corrections needed",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "rule",
+     "title": "Rule parser",
+     "detail": "(0.63) clause-coordination — deep track",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "rule",
+     "title": "Split into commands",
+     "detail": "2 item(s): book the gym at 6 · remind me to buy milk",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "rule",
+     "title": "Built the objects",
+     "detail": "2 of 2 converted",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "verify",
+     "title": "Cross-check",
+     "detail": "2 object(s) — every field traced back to the words",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "execute",
+     "title": "Create Event",
+     "detail": "Created event 'gym' on Wednesday, Sep 9, 2026 from 6 PM to 7 PM.",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "execute",
+     "title": "Create Todo",
+     "detail": "Added 'buy milk' to Today tagged Groceries.",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "validate",
+     "title": "Labels",
+     "detail": "item_1: Fitness; item_2: Groceries",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "done",
+     "title": "Done",
+     "detail": "deep path · 0.1 s total",
+     "ok": true,
+     "outcome": ""
+    }
+   ],
+   "hint": ""
+  },
+  {
+   "label": "three things, rewritten one per thing",
+   "text": "on friday create an event for the dentist, a haircut and the gym",
+   "parse": "deep",
+   "message": "I went ahead, but start_time = 09:00 (9am) — nothing in the words said it. Created event 'event for the dentist' on Friday, Sep 11, 2026 from 9 AM to 10 AM. Created event 'event for a haircut' on Friday, Sep 11, 2026 from 9 AM to 10 AM. Created event 'event for the gym' on Friday, Sep 11, 2026 from ",
+   "boundaries": [
+    {
+     "name": null,
+     "value": "on friday create an event for the dentist, a haircut and the gym"
+    },
+    {
+     "name": null,
+     "value": "(event) create an event for the dentist, a haircut and the gym · on friday"
+    },
+    {
+     "name": null,
+     "value": "create an event for th → date=2026-09-11"
+    },
+    {
+     "name": null,
+     "value": "create event · title=the dentist, a haircut and the gym · date=2026-09-11 (Friday 11 September) · start_time=09:00 (9am)"
+    },
+    {
+     "name": null,
+     "value": "1 to commit_flagged · 1 to rewrite"
+    },
+    {
+     "name": null,
+     "value": "(event) create an event for the dentist · on friday | (event) create an event for a haircut · on friday | (event) creat…"
+    },
+    {
+     "name": null,
+     "value": "create an event for th → date=2026-09-11 | create an event for a → date=2026-09-11 | create an event for th → date=2026…"
+    },
+    {
+     "name": null,
+     "value": "create event · title=event for the dentist · date=2026-09-11 (Friday 11 September) · start_time=09:00 (9am) | create event · title=event for a haircut · date=2…"
+    },
+    {
+     "name": null,
+     "value": "3 to commit_flagged"
+    }
+   ],
+   "steps": [
+    {
+     "stage": "vocab",
+     "title": "Vocabulary",
+     "detail": "No corrections needed",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "rule",
+     "title": "Rule parser",
+     "detail": "(0.95) model-compound — deep track",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "rule",
+     "title": "Split into commands",
+     "detail": "1 item(s): create an event for the dentist, a hairc",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "rule",
+     "title": "Built the objects",
+     "detail": "1 of 1 converted",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "verify",
+     "title": "Cross-check",
+     "detail": "start_time = 09:00 (9am) — nothing in the words said it; “the dentist, a haircut, the gym” — 3 things, one event; each is its own",
+     "ok": false,
+     "outcome": ""
+    },
+    {
+     "stage": "verify",
+     "title": "Looping back",
+     "detail": "rewrote the command and re-entered at segmentation (1/3)",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "rule",
+     "title": "Split into commands",
+     "detail": "3 item(s): create an event for the dentist on frida · create an event for a haircut on friday · create an event for the gym on friday",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "rule",
+     "title": "Built the objects",
+     "detail": "3 of 3 converted",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "verify",
+     "title": "Cross-check",
+     "detail": "start_time = 09:00 (9am) — nothing in the words said it; start_time = 09:00 (9am) — nothing in the words said it; start_time = 09:00 (9am) — nothing in the words said it",
+     "ok": false,
+     "outcome": ""
+    },
+    {
+     "stage": "execute",
+     "title": "Create Event",
+     "detail": "Created event 'event for the dentist' on Friday, Sep 11, 2026 from 9 AM to 10 AM.",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "execute",
+     "title": "Create Event",
+     "detail": "Created event 'event for a haircut' on Friday, Sep 11, 2026 from 9 AM to 10 AM.",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "execute",
+     "title": "Create Event",
+     "detail": "Created event 'event for the gym' on Friday, Sep 11, 2026 from 9 AM to 10 AM.",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "validate",
+     "title": "Labels",
+     "detail": "item_1: Health; item_2: Errand; item_3: Fitness",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "done",
+     "title": "Done",
+     "detail": "deep path · 0.1 s total",
+     "ok": true,
+     "outcome": ""
+    }
+   ],
+   "hint": ""
+  },
+  {
+   "label": "a seam inside one ask",
+   "text": "take out the trash. also, put milk on my shopping list",
+   "parse": "deep",
+   "message": "Added 'take out the trash' to Today. Added 'milk' to Today tagged Groceries.",
+   "boundaries": [
+    {
+     "name": null,
+     "value": "take out the trash. also, put milk on my shopping list"
+    },
+    {
+     "name": null,
+     "value": "(task) take out the trash · today | (task) put milk on my shopping list · today"
+    },
+    {
+     "name": null,
+     "value": "take out the trash → date=2026-09-09 | put milk on my shoppin → date=2026-09-09"
+    },
+    {
+     "name": null,
+     "value": "create todo · title=milk · due_date=2026-09-09 (Wednesday 9 September)"
+    },
+    {
+     "name": null,
+     "value": "every field traced back to the words"
+    }
+   ],
+   "steps": [
+    {
+     "stage": "vocab",
+     "title": "Vocabulary",
+     "detail": "No corrections needed",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "rule",
+     "title": "Rule parser",
+     "detail": "(0.00) skip:No action matched for: 'take out the trash. also, put milk on my shopping list' — deep track",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "rule",
+     "title": "Split into commands",
+     "detail": "2 item(s): take out the trash · put milk on my shopping list",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "rule",
+     "title": "Built the objects",
+     "detail": "1 of 2 converted; 1 to the model",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "llm",
+     "title": "Read part 1",
+     "detail": "ollama:llama3.1:8b · 0 history example(s) used",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "validate",
+     "title": "Sanity fixes",
+     "detail": "None→2026-09-09 (due_date)",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "verify",
+     "title": "Cross-check",
+     "detail": "2 object(s) — every field traced back to the words",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "execute",
+     "title": "Create Todo",
+     "detail": "Added 'take out the trash' to Today.",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "execute",
+     "title": "Create Todo",
+     "detail": "Added 'milk' to Today tagged Groceries.",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "validate",
+     "title": "Labels",
+     "detail": "item_2: Groceries",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "done",
+     "title": "Done",
+     "detail": "deep path · 5.8 s total",
+     "ok": true,
+     "outcome": ""
+    }
+   ],
+   "hint": ""
+  },
+  {
+   "label": "a subject that names nothing",
+   "text": "add this on my calendar",
+   "parse": "deep",
+   "message": "Sorry, I couldn't read this part: “add this on my calendar”.",
+   "boundaries": [
+    {
+     "name": null,
+     "value": "add this on my calendar"
+    },
+    {
+     "name": null,
+     "value": "(event) add this on my calendar · today"
+    },
+    {
+     "name": null,
+     "value": "add this on my calenda → date=2026-09-09"
+    },
+    {
+     "name": null,
+     "value": "nothing built"
+    },
+    {
+     "name": null,
+     "value": "every field traced back to the words"
+    }
+   ],
+   "steps": [
+    {
+     "stage": "vocab",
+     "title": "Vocabulary",
+     "detail": "No corrections needed",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "rule",
+     "title": "Rule parser",
+     "detail": "(0.00) below-threshold — deep track",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "rule",
+     "title": "Split into commands",
+     "detail": "1 item(s): add this on my calendar",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "rule",
+     "title": "Built the objects",
+     "detail": "0 of 1 converted; 1 to the model",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "verify",
+     "title": "Cross-check",
+     "detail": "0 object(s) — every field traced back to the words",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "done",
+     "title": "Done",
+     "detail": "deep path · 3.2 s total",
+     "ok": true,
+     "outcome": ""
+    }
+   ],
+   "hint": ""
+  },
+  {
+   "label": "disfluent, then clean",
+   "text": "set a date for tomorrow at 11 o'clock, one moment, bear with me, the dentist",
+   "parse": "fast",
+   "message": "Created event 'date the dentist' on Thursday, Sep 10, 2026 from 11 AM to 12 PM.",
+   "boundaries": [
+    {
+     "name": null,
+     "value": "set a date for tomorrow at 11 o'clock, the dentist"
+    },
+    {
+     "name": null,
+     "value": "create event · title=date the dentist · date=2026-09-10 (Thursday 10 September) · start_time=11:00 (11am)"
+    }
+   ],
+   "steps": [
+    {
+     "stage": "vocab",
+     "title": "Vocabulary",
+     "detail": "No corrections needed",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "rule",
+     "title": "Rule parser",
+     "detail": "Confident (0.85) — instant: create_event",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "execute",
+     "title": "Create Event",
+     "detail": "Created event 'date the dentist' on Thursday, Sep 10, 2026 from 11 AM to 12 PM.",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "validate",
+     "title": "Labels",
+     "detail": "item_1: Social",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "done",
+     "title": "Fast answer",
+     "detail": "rules answered in 0.0 s · reviewing in the background",
+     "ok": true,
+     "outcome": ""
+    }
+   ],
+   "hint": ""
+  }
+ ],
+ "clock": "2026-09-09T11:00:00"
+}
+</script>
+<!-- EXPLORER-DEMOS:END -->
 </body>
 
 </html>

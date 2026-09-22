@@ -1492,3 +1492,43 @@ one round score 42% either way: the loop is reaching the hard rows and not
 moving them, which is the case H2's round selector is registered for. And
 the model round fired eight times for nothing, which is H6's baseline. The
 sealed half is not run until a change is proposed against it.
+
+## The v2 set's baseline — both halves, 2026-09-22, before any change
+
+`judge_board_v2` (new: a wrong finding TYPE is a miss; the blind plants are
+reported apart; per voice and per damage operation). Dataset
+`datasets/v2/judge_cases_v2.jsonl`, 5,385 train / 5,802 test cases, none
+skipped. No model call. ~170 s a half.
+
+| | TRAIN | TEST |
+|---|---|---|
+| typed plants caught (expected finding on the expected item) | **92.2%** (1821/1975) | **92.9%** (1933/2080) |
+| false-flag rate on clean objects | 0.1% (3/2347) | 0.2% (4/2628) |
+| dropped_date · dropped_time · near_miss_title | 100 · 100 · 100% | 100 · 100 · 99.6% |
+| generic_title · unrelated_object | 99.2 · 99.2% | 98.5 · 93.2% |
+| merged_asks | 78.7% (197) | 87.8% (221) |
+| **subject_dropped_for_kind** | **85.0%** — 38 answered `not_an_ask` | **86.8%** — 35 `not_an_ask` |
+| **invented_title** | **72.4%** — 69 answered `not_an_ask` | **76.7%** — 62 `not_an_ask` |
+| blind: wrong_kind · wrong_operation · dropped_ask · clock_residue (flagged at all) | 31.9 · 5.5 · 0 · 0% | 29.4 · 7.5 · 0 · 0% |
+| typed catch by voice (lowest → highest) | esl 89.7 … observant 94.0% | — |
+| typed catch by damage (lowest → highest) | trailing_interjection 88.6 … hold-on 96.8% | — |
+
+**The defect the v1 set could not show.** On both halves the two title
+plants that leave a REAL ask behind a wrong title — a fabricated title, a
+kind word in place of the subject — are answered `not_an_ask` roughly a
+quarter of the time. `_not_an_ask` asks whether any FIELD of the object can
+be pointed at in the words; when the ask named no time and the title was
+replaced, no field can, and the object is called spurious — which routes it
+to the panel ("you never asked for this") instead of to the rewrite. But the
+object was BUILT FROM A REAL ASK: its item's own words are in the transcript.
+That evidence is never consulted. Cycle 41 is that one condition.
+
+**What the blind rows say.** A dropped ask and a clock residue in a title
+are invisible to every rule (0%); a wrong kind is flagged by accident about
+30% of the time (usually as an unsupported field the wrong kind implies); a
+wrong operation almost never. Those are H3's and H4's ground, and until a
+finding type exists they stay outside every catch rate.
+
+**The voice and damage spread is small** (89.7–94.0% by voice, 88.6–96.8% by
+operation): the judge is not the reader that speech damages; the stages
+before it are, which is what the whole-chain boards measure.

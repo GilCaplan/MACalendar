@@ -1026,3 +1026,40 @@ def test_the_ingest_walkthrough_matches_what_the_engine_actually_does():
     assert embedded == build(), (
         "explorer.html's ingest walkthrough no longer matches the engine — "
         "run `python -m scripts.gen_ingest_demo --write`")
+
+
+def test_the_explorer_demos_match_the_engine():
+    """The explorer's stage widgets replay a RECORDING made by
+    `scripts/gen_explorer_demos.py` from the real code (2026-09-22, Gil: the
+    page "can't be fully textual"). The model-free islands — segmentation's
+    cut, the resolver's values, the front door's verdict — are regenerated
+    here and must equal the page's copy; the chain island is recorded with the
+    model and is checked for shape only. Same contract as the ingest
+    walkthrough: a change to a stage that moves a demo turns the build red
+    rather than leaving the page describing an engine that no longer exists."""
+    import json
+    import re
+    import subprocess
+    import sys
+    page = (ROOT / "DOCUMENTATION" / "artifacts" / "explorer.html").read_text()
+    m = re.search(r'<script id="explorer-demos" type="application/json">(.*?)</script>', page, re.S)
+    assert m, "the explorer lost its stage-demo data island"
+    embedded = json.loads(m.group(1))
+    for key in ("seg", "resolve", "fastrule", "chain", "eval"):
+        assert key in embedded, key
+    # Regenerated in a subprocess: the generator redirects every store at
+    # import time, which must not happen inside this process.
+    out = subprocess.run([sys.executable, "-m", "scripts.gen_explorer_demos", "--no-model"],
+                         cwd=str(ROOT), capture_output=True, text=True,
+                         env={**os.environ, "MACALENDAR_LLM_DISABLED": "1",
+                              "MACALENDAR_NO_WARMUP": "1", "MACALENDAR_LLM_PRIORITY": "background"})
+    assert out.returncode == 0, out.stderr[-1500:]
+    fresh = json.loads(out.stdout)
+    for key in ("seg", "resolve", "fastrule"):
+        assert fresh[key] == embedded[key], (
+            f"explorer.html's {key} demo no longer matches the engine — "
+            "run `python -m scripts.gen_explorer_demos --write`")
+    # the chain island: every command has boundaries and a trace
+    assert embedded["chain"], "the chain island is empty — regenerate with the model up"
+    for c in embedded["chain"]:
+        assert c["boundaries"] and c["steps"] and c["text"], c.get("label")

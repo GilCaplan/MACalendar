@@ -679,6 +679,28 @@ new `llmjudge/datasets/` files; stores redirected; `MACALENDAR_LLM_DISABLED=1`
 half; a 100-row sample of the TRAIN half is read by a person before the set
 is used to decide anything.
 
+### 7.2a · LANDED 2026-09-22 — the v2 set, and what its first probe said
+
+`datasets/v2/` (README there): 5,292 commands, 11,187 cases, 189 families
+split 90/99, 61 grammars, 7 voices, 16 observed damage operations, 13 plants.
+Verified by rule (reachable, no text or family leak, every voice and operation
+on both halves). Two things the agent's train-half PROBE (900 sampled cases,
+never banked) surfaced, and both are now the first work of §7.3:
+
+- **`invented_title` catches 65.2%** on this set against ~100% on v1: the
+  judge answers `not_an_ask` where `ungrounded_subject` is due, which routes
+  the object to the panel instead of the rewrite. A wrong finding TYPE is a
+  miss. This is the judge's first real defect in two weeks, and it is found
+  only because the set carries voices the template corpus never had.
+- **Four plants are BLIND to today's taxonomy** — dropped ask, wrong kind,
+  wrong operation, a clock residue in a title (2,157 cases): no finding type
+  exists, so no rule can fire. That is §7.1's prediction measured, and it is
+  the ground H3 (kind) and H4 (operation) stand on.
+
+A `judge_board_v2` that scores the pair on this set, wrong type counted as a
+miss and the blind plants reported apart, is the instrument for §7.3 and
+§7.5, and comes before any change.
+
 ### 7.3 · The stage's shape — four decisions, each boarded alone
 
 Measured on Board D v2 (loop on vs off, both halves, fixed minus broken, with
