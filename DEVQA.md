@@ -981,8 +981,24 @@ before you rule:
   not asked about. The hint is what improves the next title. Built the same
   day on `tips-on-ios`; the Mac GUI does not draw the hint yet.
 
-- **2026-09-22 — Q42 (OPEN): does "a bare title is fine" reach the words Q38
-  refuses?** Three of Gil's real commands now commit NOTHING because, once
+- **2026-09-22 — Q42 (RULED, same day): COMMIT BARE.** Gil, verbatim:
+  *"commit bare first case create title- appointment on tuesday at 910 am
+  (also if says in message morning and 910 should be understood and 0910 am
+  and other variations when segmentation or decompose_validate extract
+  timing words for item), second command should be title event (at 5pm today
+  if no date or day given, default is today/tomorrow whichever is closer to
+  5pm like if 5pm passed then we are referring to tomorrow), the third item
+  title is "date" and tomorrow at 11 (default am cause 11pm is late...)"*.
+  Three rules fall out of that, each built as its own cycle: (1) a bare KIND
+  word — appointment, event, date, and by the same reasoning reminder, task,
+  alert — commits with the details and the hint, on both tracks; the
+  program's furniture (list, note, calendar, schedule, agenda, entry, item,
+  thing) still refuses. (2) A clock with NO day word means today unless that
+  clock has already passed at the moment of speaking, then tomorrow. (3) A
+  compact clock beside a morning word is a morning clock ("morning … 910" →
+  09:10), in every spacing the recogniser produces. The bare 11 stays AM (the
+  bare-hour convention already reads 9–12 as morning). The question as it was
+  asked:** Three of Gil's real commands now commit NOTHING because, once
   cycles 35 and 37 stripped the clock and the chatter around them, the title
   left is a bare kind Q38 refuses: *"set an appointment for tomorrow morning
   on tuesday at 910am"* (id=18, 'appointment'), *"Add an event for 5 p.m."*
@@ -994,7 +1010,11 @@ before you rule:
   (refuse). Until ruled, they refuse — the conservative side — and the
   real-usage board carries them as three wrong rows.
 
-- **2026-09-22 — Q43 (OPEN): is "A, B, C" with no conjunction a list?**
+- **2026-09-22 — Q43 (RULED, same day: "ok"): a comma run with no
+  conjunction is NOT a list.** `coordination.noun_list` now needs an "and"
+  or "or" among its separators; "dentist, haircut and gym" still splits,
+  "TA, Office Hour, meeting" stays one event. Cycle 38. The question as it
+  was asked:**
   *"Set a meeting on this coming Sunday for 1 p.m. TA, Office Hour,
   meeting, excuse me."* (id=54) is one disfluent title said three ways. With
   the trailing interjection gone (cycle 37) the coordinated-subject rule

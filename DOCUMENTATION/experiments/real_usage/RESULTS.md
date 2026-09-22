@@ -1,6 +1,6 @@
 # Real-usage board
 
-_Run 2026-09-22 12:07. `python -m scripts.real_usage_board`._
+_Run 2026-09-22 14:00. `python -m scripts.real_usage_board`._
 
 > Guard passed: no real store changed during the run.
 
@@ -32,11 +32,11 @@ _`start_time`/`end_time` read LOW for a reason beyond the parse: on a row whose 
 
 Gil, 2026-09-22 (DEVQA Q41): *"just make a meeting according to other details with bare title is fine."* So the largest class is re-scored against REACHABLE gold — `reachable` in `taxonomy.jsonl`, hand-authored on each row's own clock: the subject the words actually held, or a bare title where nothing beyond the kind was said, plus the stated day and clock. The tiers above are untouched; this is the same rows read under the ruling.
 
-**Right, or acceptable under Q41: 76.2% of 21 rows** (item count right on 85.7%).
+**Right, or acceptable under Q41: 81.0% of 21 rows** (item count right on 90.5%).
 
 | items | n | title right | …and no junk in it | day+clock right | title and when |
 |---|---|---|---|---|---|
-| subject was SAID — the title must carry it | 15 | 93.3% | 93.3% | 100.0% | 93.3% |
+| subject was SAID — the title must carry it | 15 | 100.0% | 100.0% | 100.0% | 100.0% |
 | nothing but the kind was said — bare is right | 5 | 60.0% | 0.0% | 100.0% | 60.0% |
 
 _Per ITEM in the table, per ROW in the bold line. A said subject is right when the title CONTAINS the phrase (any spelling the vocabulary produces); junk is `score_dataset_run.is_garbage_title`; `end_time` is scored only where the words stated one._
@@ -49,8 +49,6 @@ Rows still wrong under Q41:
   - set an appointment for tomorrow morning on tuesday at 910am
 - id=26 (rejected, bare) wrong: title-junk, title — made [('Meeting', '2026-08-27', '11:00'), ('meeting as well', '2026-08-27', '17:30')]
   - set a meeting for me tomorrow at 11 a.m. and also set meeting for 5.30
-- id=54 (rejected, said) wrong: count 3/1, title — made [('meeting ta', '2026-08-30', '13:00'), ('office hour', '2026-08-30', '13:00'), ('Meeting', '2026-08-30', '13:00')]
-  - Set a meeting on this coming Sunday for 1 p.m. TA, Office Hour, meetin
 - id=118 (corrected, ) wrong: count 0/1 — made []
   - Add an event for 5 p.m. execute.
 
@@ -92,7 +90,7 @@ Two full replays of the same 73 rows on unchanged code, 2026-09-18:
 
 | parse path | n | p50 | p95 |
 |---|---|---|---|
-| deep | 29 | 8.1s | 46.7s |
+| deep | 29 | 5.4s | 52.7s |
 | fast | 44 | 0.1s | 0.1s |
 | ignored | 2 | 0.0s | 0.0s |
 
@@ -522,3 +520,26 @@ plan behind "can we consider it done" set out — after that, the next real-
 usage cycle waits on one ruling with three rows behind it (bare 'date',
 'appointment', 'event' under Q38 vs Q41) and one with one row (a comma list
 without a conjunction).
+
+---
+
+# Run 7 — 2026-09-22, cycle 38: a comma run with no conjunction is not a list (Q43)
+
+Fresh replay, guard passed. One change: `coordination.noun_list` needs an
+"and" or "or" among its separators. id=54 *"…for 1 p.m. TA, Office Hour,
+meeting"* is one event again.
+
+| | cycle 37 | **cycle 38** |
+|---|---|---|
+| generic-title right/acceptable under Q41 (21 rows) | 76.2% (16) | **81.0% (17)** |
+| …items where the subject was said, title AND when right | 14/15 | **15/15** |
+| corrected, every reachable field (n=14) · item count | 21.4% · 64.3% | 21.4% · 64.3% |
+| approved reproduced · rejected changed | 64.7% · 90.5% | 64.7% · 90.5% |
+| dev-100 count-correct · precision | 75% · 91.7% | **76% · 93.0%** |
+
+FastRule's board (4,800 train rows) byte-identical: its generated lists all
+carry an "and". dev-100's +1 is the same deep-path row that flipped down in
+cycle 37 flipping back (cycle 34's "one row across a gap"), not the change.
+What is left of the class: two refusals (id=18 'appointment', id=118 'event')
+that Q42 — ruled the same afternoon — turns into commits in cycle 39, one
+statement (id=12), one trailing "as well" (id=26).

@@ -339,7 +339,7 @@ def test_a_noun_list_of_three_under_one_head_is_read():
         == ("add", ["dentist", "haircut", "gym"], "to my calendar")
     assert noun_list("schedule the dentist, a haircut and the gym") \
         == ("schedule", ["the dentist", "a haircut", "the gym"], "")
-    assert noun_list("set up dentist, haircut, gym") \
+    assert noun_list("set up dentist, haircut and gym") \
         == ("set up", ["dentist", "haircut", "gym"], "")
 
 
@@ -352,6 +352,10 @@ def test_a_noun_list_of_three_under_one_head_is_read():
     "rinse, scrub and dry the dishes",                    # verbs the parse calls nouns
     "wine and cheese evening",                            # a pair is one thing
     "book gym and dentist",                               # a pair is one thing
+    # Q43 (Gil, 2026-09-22): a comma run with no conjunction is dictation
+    # punctuation, not a list — one thing said in pieces.
+    "set up dentist, haircut, gym",
+    "Set a meeting on this coming Sunday for 1 p.m. TA, Office Hour, meeting",
 ])
 def test_what_is_not_a_noun_list(text):
     from assistant.intent.coordination import noun_list

@@ -3225,3 +3225,20 @@ widened `is_garbage_title` (program words, frames, cut phrases), which read
 **Registered next:** nothing from here. The next cycles come from real usage
 (Q42, Q43 waiting on Gil) and, on the training pool, from the deep path's
 compound families — read on dev-fast-250, never on this set.
+
+## CYCLE 38 — a comma run with no conjunction is not a list (2026-09-22, DEVQA Q43)
+
+**Registered:** `noun_list` requires a conjunction; real-usage generic-title
+16 → 17 of 21 (id=54 whole again); dev-100 unmoved. **dev-100: 76% ·
+precision 93.0% · recall 71.0% · F1 80.5 · field quality 91.9%** — the flaky
+deep-path row back up (cycle 34's flip), everything else identical. Real
+usage: **generic-title 76.2 → 81.0% (17 of 21)**, every said-subject item
+right (15/15); other tiers unmoved. FastRule board byte-identical (its lists
+all carry "and"). Zero novelty; a one-row ruling landing on its one row.
+
+**Registered next — cycle 39 (Q42):** a bare kind word commits. Prediction:
+real-usage generic-title 17 → 19 of 21 (ids 18 and 118 become events), the
+corrected tier gains id=118 ('event' at 17:00 — Gil's own gold), dev-100's
+garbage-title rate as re-defined stays ≤ 4% and count-correct unmoved or up
+(bare 'event'/'reminder' rows that used to refuse now commit — the pool's
+gold for those is a count of 1).

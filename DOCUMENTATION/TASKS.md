@@ -1531,12 +1531,9 @@ corrected before/after. Open, for Gil:
   passes: interjections, hold-on chatter, a one-word swap; count 60 → 64.3%).
   Left behind: id=136's stray "can," and id=223's *"No, I said that."*
   retraction.
-- **A comma list with no conjunction** (found by cycle 37): *"…for 1 p.m.
-  TA, Office Hour, meeting"* is one disfluent title, but once the trailing
-  interjection is gone the coordinated-subject rule (Gil, 2026-09-20) reads
-  "TA, Office Hour, meeting" as three things and makes three events. Should
-  "A, B, C" without "and" count as a list? One row (id=54); a ruling, not a
-  fix.
+- ~~A comma list with no conjunction~~ — **RULED (Q43) and DONE, cycle 38:**
+  a list needs an "and" or "or"; id=54 is one event again, generic-title
+  back to 81.0%.
 
 ## THE CORRECTION FLOW RECORDS WHAT CHANGED — landed, 2026-09-22
 

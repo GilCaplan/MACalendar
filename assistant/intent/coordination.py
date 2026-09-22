@@ -304,6 +304,15 @@ def noun_list(text: str) -> "tuple[str, list[str], str] | None":
             if (t.is_punct and t.text == ",") or (t.dep_ == "cc" and t.lower_ in ("and", "or"))]
     if len(seps) < 2:
         return None
+    # A COMMA RUN WITH NO CONJUNCTION IS NOT A LIST (Gil, 2026-09-22, DEVQA
+    # Q43). "for 1 p.m. TA, Office Hour, meeting" is one thing said in pieces,
+    # and once the trailing "excuse me" came off (cycle 37) this reader made
+    # three events of it. In Gil's 75 real commands 11 of 16 comma runs carry
+    # no "and" anywhere and every one is a single thing; in the constructed
+    # pool 5 of 36. A spoken list closes with "and" (or "or") before its last
+    # member, so that is what a list needs here.
+    if not any(doc[i].dep_ == "cc" for i in seps):
+        return None
 
     def member_token(t) -> bool:
         # A number or a date word is a timed enumeration, segmentation's cut.
