@@ -312,6 +312,20 @@ def _crosses(seg, box) -> bool:
     return False
 
 
+_SCRIPT = re.compile(r"<script\b[^>]*>.*?</script>", re.S)
+
+
+def _figures(text: str) -> list:
+    """The page's RENDERED figures — the `<svg>` blocks in its markup, with
+    every `<script>` block removed first. The explorer's stage widgets
+    (2026-09-22) build small charts at run time from string templates like
+    `"<text …>" + esc(s.label) + "</text>"`; read as markup, that is a
+    figure whose labels all sit at y=0 and "overlap by 110px". A template is
+    not a drawing — its layout depends on the data it is given when a panel
+    opens — so the layout checks read the static markup only."""
+    return re.findall(r"<svg\b.*?</svg>", _SCRIPT.sub("", text), re.S)
+
+
 @pytest.mark.parametrize("page", PAGES, ids=lambda p: p.name)
 def test_no_label_has_a_stroke_running_through_it(page):
     """A line drawn across a label makes both unreadable.
@@ -323,7 +337,7 @@ def test_no_label_has_a_stroke_running_through_it(page):
     """
     text = page.read_text()
     problems = []
-    for n, svg in enumerate(re.findall(r"<svg\b.*?</svg>", text, re.S)):
+    for n, svg in enumerate(_figures(text)):
         segs = list(_segments(svg))
         for y, left, right, label, size in _boxes(svg):
             # The real font size, not a fixed guess: these drawings run from
@@ -341,7 +355,7 @@ def test_no_label_has_a_stroke_running_through_it(page):
 def test_no_two_labels_on_a_baseline_overlap(page):
     text = page.read_text()
     problems = []
-    for n, svg in enumerate(re.findall(r"<svg\b.*?</svg>", text, re.S)):
+    for n, svg in enumerate(_figures(text)):
         rows: dict[float, list] = {}
         for y, left, right, label, _size in _boxes(svg):
             rows.setdefault(round(y, 1), []).append((left, right, label))
