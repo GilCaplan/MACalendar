@@ -339,7 +339,7 @@ def _bare_hour(h: int, minute: int, said: str) -> str:
 #: The compact clock forms (see `resolve_clock`). What may FOLLOW a bare one is
 #: a whitelist — the end, punctuation, or a word that continues the time or the
 #: command — because the same digits before a noun are a count.
-_COMPACT_AP = re.compile(r"\b(\d{1,2})(\d{2})\s*(am|pm|a\.m\.|p\.m\.)(?!\w)")
+_COMPACT_AP = re.compile(r"\b(\d{1,2}) ?(\d{2})\s*(am|pm|a\.m\.|p\.m\.)(?!\w)")   # 910am, "9 10 am" (Q42)
 _COMPACT_BARE = re.compile(
     r"\b(?:at|for|from|until|till|by|around|about)\s+(\d{1,2})(\d{2})\b(?![:.]\d)"
     r"(?=\s*(?:$|[,.;!?]|(?:on|tomorrow|today|tonight|this|next|and|then|to|for|"

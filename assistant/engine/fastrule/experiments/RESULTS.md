@@ -1453,3 +1453,13 @@ first) and after it (a date from a weekday alone yields to an ordinal
 elsewhere). Product-shape board, train half (4,800 rows): byte-identical.
 Real usage: generic-title right/acceptable 66.7 → 81.0% (14 → 17 of 21);
 dev-100 75 → 76%, precision 91.7 → 93.0%.
+
+## Cycle 40 — a passed clock means tomorrow; the spaced compact clock (2026-09-22, Q42)
+
+The SPEC floor (`rule_parser`, "no date, one ask, a clock and a title") now
+floors to tomorrow when the stated clock has already gone by; the compact
+fallback reads "9 10 am" and, with a meridiem, overrides the recogniser's
+"at 9" + "10 am". Product-shape board, train half: **resolvable-date right
+91.9 → 91.6% (n=777)** — two rows whose gold says today for a clock past the
+corpus's anchor; the gold predates the ruling. Handled, correct-on-handled,
+harm, invented-time unchanged.

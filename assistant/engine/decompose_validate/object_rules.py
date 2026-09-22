@@ -68,6 +68,34 @@ def _rule_past_date_bump(state, intent, today) -> None:
     intent.date = bump.isoformat()
 
 
+_DAY_WORD_RE = re.compile(
+    r"\b(?:today|tomorrow|tonight|yesterday|mon|tue|wed|thu|fri|sat|sun)\w*\b"
+    r"|\b(?:next|this|coming|every|each|daily|weekly|monthly|weekend|week|month|year)\b"
+    r"|\b\d{1,2}(?:st|nd|rd|th)\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d"
+    r"|\bin\s+(?:a|an|one|two|three|\d+)\s+(?:day|week|month)", re.I)
+
+
+def _rule_passed_clock_means_tomorrow(state, item, intent, now) -> None:
+    """Q42 (Gil, 2026-09-22): *"at 5pm today if no date or day given, default
+    is today/tomorrow whichever is closer to 5pm like if 5pm passed then we
+    are referring to tomorrow"*. The date floor stays today; when the words
+    named a clock and no day at all, and that clock has already gone by at the
+    moment of speaking, the floor rolls to tomorrow. The fast path applies the
+    same rule at its own floor (`rule_parser`, the SPEC floor), so the two
+    tracks agree. A named day is never touched — that is `_rule_past_date_bump`."""
+    d, st = getattr(intent, "date", None), getattr(intent, "start_time", None)
+    if not d or not st or d != now.date().isoformat():
+        return
+    words = f"{item.time or ''} {item.text or ''}"
+    if _DAY_WORD_RE.search(words):
+        return
+    if st[:5] < now.strftime("%H:%M"):
+        bump = (now.date() + _dt.timedelta(days=1)).isoformat()
+        state.add_fix("validate", "passed_clock_tomorrow", d, bump,
+                      note=f"{st[:5]} had already passed at {now:%H:%M}")
+        intent.date = bump
+
+
 def _rule_now_means_now(state, intent, transcript) -> None:
     """"now" is a time the speaker gave — book it at the clock, not midnight.
 

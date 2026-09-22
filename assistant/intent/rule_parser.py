@@ -1490,26 +1490,33 @@ def _extract_temporal(span_text: str, today: datetime.date,
             result["start_time"] = datetime.datetime.now().strftime("%H:%M")
             result["_source"] = "regex_fallback"
 
-    # Compact clocks (see `_COMPACT_AP_RE`): the recogniser reads none of them.
-    if not result["start_time"]:
-        for pat in (_COMPACT_AP_RE, _COMPACT_BARE_RE):
-            for m in pat.finditer(span_text):
-                h, mins = int(m.group(1)), int(m.group(2))
-                ampm = (m.group(3) or "").lower()[:1] if pat is _COMPACT_AP_RE else ""
-                if mins >= 60 or (ampm and not 1 <= h <= 12) or (not ampm and h > 23):
-                    continue
-                if ampm == "p" and h < 12:
-                    h += 12
-                elif ampm == "a" and h == 12:
-                    h = 0
-                elif not ampm and 1 <= h <= 7:
-                    h += 12  # the same business-hours reading as "at 3" below
-                result["start_time"] = f"{h:02d}:{mins:02d}"
-                result["spans"].append((m.start(), m.end()))
-                result["_source"] = "regex_fallback"
-                break
-            if result["start_time"]:
-                break
+    # Compact clocks (see `_COMPACT_AP_RE`): the recogniser reads none of them
+    # whole. With a meridiem the form is unambiguous and OVERRIDES what the
+    # recogniser made of its pieces — "at 9 10 am" came back as 09:00 from
+    # "at 9" plus a stray "10 am" (Q42, 2026-09-22); the bare form still only
+    # fills a clock nothing else read.
+    for pat in (_COMPACT_AP_RE, _COMPACT_BARE_RE):
+        if result["start_time"] and pat is _COMPACT_BARE_RE:
+            break
+        found = False
+        for m in pat.finditer(span_text):
+            h, mins = int(m.group(1)), int(m.group(2))
+            ampm = (m.group(3) or "").lower()[:1] if pat is _COMPACT_AP_RE else ""
+            if mins >= 60 or (ampm and not 1 <= h <= 12) or (not ampm and h > 23):
+                continue
+            if ampm == "p" and h < 12:
+                h += 12
+            elif ampm == "a" and h == 12:
+                h = 0
+            elif not ampm and 1 <= h <= 7:
+                h += 12  # the same business-hours reading as "at 3" below
+            result["start_time"] = f"{h:02d}:{mins:02d}"
+            result["spans"].append((m.start(), m.end()))
+            result["_source"] = "regex_fallback"
+            found = True
+            break
+        if found:
+            break
 
     # Regex fallback for bare time like "at 3" or "at 3pm" if recognizer missed
     if not result["start_time"]:
@@ -1649,7 +1656,7 @@ _REMINDER_TASK_FRAME = re.compile(r"^\s*(?:please\s+)?remind me\s+to\b", re.I)
 #: committed at 09:00 on the fast path, "for 830" at 20:00 on the deep one). A
 #: meridiem makes it a clock anywhere; a bare one needs a clock preposition in
 #: front and nothing noun-like after it — "for 200 people" is a count.
-_COMPACT_AP_RE = re.compile(r"\b(\d{1,2})(\d{2})\s*(am|pm|a\.m\.|p\.m\.)(?!\w)", re.I)
+_COMPACT_AP_RE = re.compile(r"\b(\d{1,2}) ?(\d{2})\s*(am|pm|a\.m\.|p\.m\.)(?!\w)", re.I)   # "9 10 am" too (Q42)
 _COMPACT_BARE_RE = re.compile(
     r"\b(?:at|for|from|until|till|by|around|about)\s+(\d{1,2})(\d{2})\b(?![:.]\d)"
     r"(?=\s*(?:$|[,.;!?]|(?:on|tomorrow|today|tonight|this|next|and|then|to|for|"
@@ -3079,7 +3086,15 @@ def _compute_missing_slots(action_name: str, slots: dict) -> list[str]:
     if (action_name == "create_event" and missing == ["date"]
             and slots.get("_n_spans", 1) == 1
             and slots.get("start_time") and slots.get("title")):
-        slots["date"] = datetime.date.today().isoformat()
+        # Q42 (Gil, 2026-09-22): the floor is today — unless the stated clock
+        # has already gone by, then tomorrow ("Add an event for 5 p.m." said
+        # at 6pm is tomorrow's 5pm). The deep track applies the same rule
+        # (`object_rules._rule_passed_clock_means_tomorrow`).
+        now = datetime.datetime.now()
+        floor = now.date()
+        if str(slots["start_time"])[:5] < now.strftime("%H:%M"):
+            floor = floor + datetime.timedelta(days=1)
+        slots["date"] = floor.isoformat()
         return []
     return missing
 

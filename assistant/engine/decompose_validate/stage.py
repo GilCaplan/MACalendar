@@ -211,6 +211,7 @@ def run_objects(state: EngineState, cfg) -> EngineState:
             carried_day = _resolve_onto_intent(state, item, intent, today,
                                                carried_day)
             _obj._rule_past_date_bump(state, intent, today)
+            _obj._rule_passed_clock_means_tomorrow(state, item, intent, _dt.datetime.now())
             _obj._rule_now_means_now(state, intent, transcript)
             _obj._rule_morning_title_guard(state, intent, transcript)
             _obj._rule_junk_event_drop(state, item, intent, n_events, pairs)

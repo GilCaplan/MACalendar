@@ -161,13 +161,15 @@ Corrected tier, every reachable field right **20.0% (n=15)**, item count
 right **73.3%**; `date` 82.4%, `start_time` 62.5%; approved rows reproduced
 64.7% (11/17); generic-title rows right or acceptable under Q41 **90.5%
 (19/21)** after cycles 35–39 (was 52.4% at the start of the day). dev-100
-78% count-correct, precision 93.4, recall 76.3, F1 84.0, field quality 88.8%
-(cycle 39's bare-kind commits: recall +5.3, field quality −3.1). **Every earlier run of this
+77% count-correct, precision 92.2, recall 76.3, F1 83.5, field quality 88.4%
+(cycle 39's bare-kind commits: recall +5.3, field quality −3.1; cycle 40's
+passed-clock rule: −1 where the pool's gold predates the ruling). **Every earlier run of this
 board since 2026-09-18 served a checkpoint cache**, so the "moved nothing" of
 09-21 was never measured — the board replays fresh now, and CLAUDE.md carries
 the rule. Cycles 35 (the spoken clock forms), 36 (a stated day beats a
 weekday), 37 (disfluent speech), 38 (a comma run needs a conjunction, Q43)
-and 39 (a bare kind commits, Q42) moved this board and no stage board.
+39 (a bare kind commits, Q42) and 40 (a passed clock means tomorrow) moved
+this board and no stage board beyond two gold rows that predate the ruling.
 
 ## Open decisions — Gil's, not mine
 

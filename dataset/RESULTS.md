@@ -3262,3 +3262,26 @@ compact clock ("9 10 am"). Prediction: real usage unmoved (none of the 75
 rows states a clock that had passed at its own timestamp); dev-100
 unmoved, since the pool's gold anchors dates elsewhere; every stage board
 identical.
+
+## CYCLE 40 — a passed clock means tomorrow, and "9 10 am" (2026-09-22, DEVQA Q42 rules 2–3)
+
+**Registered:** real usage unmoved, dev-100 unmoved, stage boards identical.
+**dev-100: 77% · precision 92.2 · recall 76.3 · F1 83.5 · field quality
+88.4% · when-correct 76.5% (n=17)** (was 78 / 93.4 / 76.3 / 84.0 / 88.8 /
+82.4). Two rows moved and neither refutes the change: *"Take the list off."*
+is the deep-path flip (cycle 34), and the when-correct row is a date-less
+clock whose gold says today while Q42 says tomorrow. Real usage: every tier
+identical to cycle 39. dv and segmentation boards identical; FastRule
+resolvable-date 91.9 → 91.6% (2 of 777 rows, the same gold convention).
+
+**Novel:** the ruling and three corpora disagree on one convention — a
+clock with no day, said after that clock — and the corpora were written
+before the ruling. Filed in TASKS.md as a relabel BY RULE (never by reading
+the sealed half): FastRule 7,200 (2 train rows found), the verification
+pool's when-correct gold (1 dev-100 row), and whatever the segmentation
+generator emits. Until then those three numbers carry a known −1.
+
+**Registered next:** nothing from the training pool today. The next
+real-usage cycle waits on new real commands — every row the board holds is
+now either right, acceptable under a ruling, or hand-set gold no parse can
+reach.

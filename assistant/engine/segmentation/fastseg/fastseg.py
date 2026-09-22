@@ -104,7 +104,7 @@ _TIME_PATTERNS: "list[tuple[str, str]]" = [
     # two shapes the resolvers read (`decompose_validate/resolve.py`,
     # `rule_parser.py`); a bare one needs the preposition and nothing
     # noun-like after it, so "for 200 people" stays a count.
-    (r"\b\d{3,4}\s*(?:am|pm|a\.m\.|p\.m\.)(?!\w)", "clock"),
+    (r"\b\d{1,2} ?\d{2}\s*(?:am|pm|a\.m\.|p\.m\.)(?!\w)", "clock"),   # 910am, "9 10 am" (Q42)
     (r"\b(?:at|for|from|until|till|by|around|about)\s+\d{3,4}\b(?![:.]\d)"
      r"(?=\s*(?:$|[,.;!?]|(?:on|tomorrow|today|tonight|this|next|and|then|to|for|"
      r"with|in|at|the|execute|sharp|o'?clock|morning|afternoon|evening|night|"

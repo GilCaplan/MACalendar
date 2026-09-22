@@ -1,6 +1,6 @@
 # Real-usage board
 
-_Run 2026-09-22 15:05. `python -m scripts.real_usage_board`._
+_Run 2026-09-22 15:17. `python -m scripts.real_usage_board`._
 
 > Guard passed: no real store changed during the run.
 
@@ -13,7 +13,7 @@ _Run 2026-09-22 15:05. `python -m scripts.real_usage_board`._
 | field | right | scored |
 |---|---|---|
 | title | 38.9% | 18 |
-| date | 83.3% | 18 |
+| date | 77.8% | 18 |
 | start_time | 64.7% | 17 |
 | end_time | 58.8% | 17 |
 | recurrence | — | 0 |
@@ -86,7 +86,7 @@ Two full replays of the same 73 rows on unchanged code, 2026-09-18:
 
 | parse path | n | p50 | p95 |
 |---|---|---|---|
-| deep | 26 | 7.8s | 46.6s |
+| deep | 26 | 4.7s | 46.9s |
 | fast | 47 | 0.1s | 0.1s |
 | ignored | 2 | 0.0s | 0.0s |
 
@@ -121,7 +121,7 @@ No parse produces that, and scoring it would cap this metric forever and blame t
   - Alright, we have a few events set for Tuesday to walk Moxdog at 9 a.m.
 - id=207 [stt-garbage] count 3/3, wrong: title
   - WalkMoxDog today at 2pm, and also WalkMoxDog tomorrow at 8.30am, and I
-- id=211 [other] count 1/1, wrong: start_time, end_time; unreachable: title
+- id=211 [other] count 1/1, wrong: date, start_time, end_time; unreachable: title
   - Create an event now to go out for a run, execute.
 - id=219 [stutter-split] count 1/2, wrong: title, start_time, end_time
   - Movie at Lincoln Square tomorrow, AMC, 11.15 AM tomorrow, execute.
@@ -592,3 +592,30 @@ tomorrow (cycle 36, a stated day beats a weekday) while "tomorrow MORNING on
 tuesday" lands on Tuesday — "tomorrow morning" is read as a datetime, not a
 bare day, so the rule does not see it. Gil's own reading of the second is
 Tuesday, so both stand until a row says otherwise.
+
+---
+
+# Run 9 — 2026-09-22, cycle 40: a passed clock means tomorrow; "9 10 am" (Q42, rules 2 and 3)
+
+Fresh replay, guard passed. Two changes to the three clock readers and the
+date floor on both tracks: a clock with no day word is today unless it has
+already gone by at the moment of speaking, then tomorrow (`_rule_passed_
+clock_means_tomorrow` on the deep track, the SPEC floor on the fast one);
+and a compact clock keeps its meaning with a space in it ("9 10 am"), the
+suffixed form overriding what the recogniser made of its pieces.
+
+**Real usage: unmoved on every tier, as predicted** — generic-title 90.5%
+(19/21), corrected count 73.3%, every-reachable-field 20.0%, approved 64.7%.
+None of the 75 rows states a clock that had already passed at its own
+timestamp. Stage boards: decompose_validate identical (2,004 rows),
+segmentation identical (1,051), FastRule **resolvable-date 91.9 → 91.6%
+(n=777)**: two generated rows state a clock with no day, the clock is past
+the corpus's fixed anchor, the gold says today and the engine now says
+tomorrow. The gold follows the pre-Q42 convention; relabelling those rows
+by rule is filed, not done here.
+
+dev-100: 78 → 77% count-correct, F1 84.0 → 83.5, field quality 88.8 → 88.4,
+**when-correct 82.4 → 76.5% (n=17)**. The when-correct row is the same
+convention: a date-less clock whose gold says today. The count row is *"Take
+the list off."* — a deep-path row the model answers differently across a gap
+(cycle 34), untouched by anything in this cycle.

@@ -1501,6 +1501,28 @@ rows below).
 | 7 | ingest month/day misspellings ("Febuary"); "invite/schedule/book" as polite imperatives; always answer when the rescue builds nothing | open | vocab bench (thousands), stage board |
 | 8 | RULINGS for Gil | **ANSWERED 2026-09-20** (DEVQA Q28, Q31–Q34): a MEAL names its own hour (09/13/19) and the board's premise moved with it; a NEW LIST is a General to-do named for its contents; a genuine bare 7 or 8 is ASKED about and otherwise reads PM on both tracks; the loop resumes; cycles run on the branch and never merge. **Still unruled:** the general untimed event (non-meal), and whether an offset or a recurrence on "remind me to <verb>" makes it an event | 5 of the remaining rows |
 
+## CYCLES 38–40 — Q42 and Q43 built, 2026-09-22
+
+Q43 (a comma run needs a conjunction) and Q42 (a bare kind commits; a passed
+clock means tomorrow; "9 10 am") are in, boarded one at a time —
+`real_usage/RESULTS.md` runs 7–9, `dataset/RESULTS.md` cycles 38–40. Real
+usage: generic-title 81.0 → 90.5% (19 of 21), corrected item count 64.3 →
+73.3%. Left open by the same work:
+
+- **Three corpora predate the passed-clock ruling.** A clock with no day,
+  said after that clock, is gold "today" in the FastRule 7,200 (2 train
+  rows seen), the verification pool's when-correct gold (1 dev-100 row) and
+  whatever the segmentation generator emits. Relabel BY RULE — resolve
+  each such row's clock against its own anchor, never by reading the sealed
+  halves — and the three boards lose a known −1 each.
+- **"tomorrow morning on tuesday" lands on Tuesday; "tomorrow on tuesday"
+  on tomorrow.** The stated-day rule (cycle 36) does not see "tomorrow
+  morning", which the recogniser reads as a datetime. Gil's own reading of
+  the first is Tuesday (Q42), so both stand until a row says otherwise.
+- **Field quality carries Q42's cost** (dev-100 91.9 → 88.4%, all in the
+  simple tier): a committed bare 'event' scores against a gold that named
+  something. The metric is honest; the ruling accepted the trade.
+
 ## CYCLE 35 — spoken clock forms, landed 2026-09-22; and the board that never replayed
 
 Three readers (segmentation's phrase table, `resolve.py`, `rule_parser.py`)

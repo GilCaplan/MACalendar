@@ -1,20 +1,20 @@
 {
   "prf": {
     "overall": {
-      "precision": 0.934,
+      "precision": 0.922,
       "recall": 0.763,
-      "f1": 0.84,
+      "f1": 0.835,
       "matched": 71,
       "expected": 93,
-      "created": 76
+      "created": 77
     },
     "simple": {
-      "precision": 1.0,
+      "precision": 0.889,
       "recall": 0.889,
-      "f1": 0.941,
+      "f1": 0.889,
       "matched": 8,
       "expected": 9,
-      "created": 8
+      "created": 9
     },
     "medium": {
       "precision": 0.938,
@@ -34,16 +34,16 @@
     }
   },
   "field_quality": {
-    "field_quality": 0.888,
+    "field_quality": 0.884,
     "by_tier": {
-      "simple": 0.781,
-      "complex": 0.899,
+      "simple": 0.817,
+      "complex": 0.889,
       "medium": 0.907
     },
-    "difficulty_weighted": 0.875,
-    "when_ok": 0.824,
+    "difficulty_weighted": 0.879,
+    "when_ok": 0.765,
     "when_coverage": 17,
-    "items": 76
+    "items": 77
   },
   "subslices": {
     "count_ok_ranks_1_250": [
@@ -67,8 +67,8 @@
     "simple": {
       "n": 34,
       "old": 0.941,
-      "new": 0.971,
-      "delta": 0.029
+      "new": 0.941,
+      "delta": 0.0
     },
     "complex": {
       "n": 33,
@@ -120,35 +120,36 @@
       80
     ],
     [
-      0.762,
+      0.75,
       80
     ]
   ],
   "shared_prompts": 100,
   "count_ok_shared_old": 0.69,
-  "count_ok_shared_new": 0.78,
+  "count_ok_shared_new": 0.77,
   "flipped_better (old fail \u2192 engine pass)": [
+    "Send me a reminder to pick up my dog from the groomer at 1pm \u2014 and i need to add water to my Kroger list.",
     "Olly remind me about the picnic at Regent park \u2014 and add paper towels to the grocery list.",
     "Remind me of the following event:. Also, Create shopping list for Target",
-    "add date and time in calender with these people. Also, Calendar event. send invite, Bill Malinda",
-    "'exhibition 2017 mass' on Mar 25 make a note of it on the corresponding date and also remind me after an hour to go for shopping.",
-    "Send me a reminder to pick up my dog from the groomer at 1pm \u2014 and i need to add water to my Kroger list.",
-    "create repeating event 'john's birthday' on calendar. Also, Add reminder today evening to collect the parcel from Jakes bristo",
-    "I have an appointment tommorrow, remind me \u2014 and make a new list for me",
-    "I need to add water to my Kroger list and add v8 to my groceries.",
-    "Please alert me on Friday at 8:00 am to go to the gym and schedule meeting with Laura",
-    "Begin new list of lottery numbers",
-    "PDA please update list with new item",
-    "start a new list and add grocery shopping to today's to-do list.",
     "include meeting in the list",
-    "Set me a reminder for the get-together with the women's club on Sunday after church."
+    "Please alert me on Friday at 8:00 am to go to the gym and schedule meeting with Laura",
+    "I have an appointment tommorrow, remind me \u2014 and make a new list for me",
+    "create repeating event 'john's birthday' on calendar. Also, Add reminder today evening to collect the parcel from Jakes bristo",
+    "add date and time in calender with these people. Also, Calendar event. send invite, Bill Malinda",
+    "PDA please update list with new item",
+    "Set me a reminder for the get-together with the women's club on Sunday after church.",
+    "'exhibition 2017 mass' on Mar 25 make a note of it on the corresponding date and also remind me after an hour to go for shopping.",
+    "Begin new list of lottery numbers",
+    "I need to add water to my Kroger list and add v8 to my groceries.",
+    "start a new list and add grocery shopping to today's to-do list."
   ],
   "flipped_worse (old pass \u2192 engine fail)": [
     "REMIND ABOUT OF ALL EVENT IN CALENDERS",
-    "reopen groceries and add milk. Also, put xxx on the list",
-    "add 'new year's eve' to calendar",
     "Make a list of camera photos and i need a list of my clients today, make one",
-    "On Febuary 14th make dinner reservations at the restaurant and tHIS IS IMPORTANT EVENT, PLZ NOTE ON MY CALENDAR."
+    "On Febuary 14th make dinner reservations at the restaurant and tHIS IS IMPORTANT EVENT, PLZ NOTE ON MY CALENDAR.",
+    "add 'new year's eve' to calendar",
+    "Take the list off.",
+    "reopen groceries and add milk. Also, put xxx on the list"
   ],
   "note": "old-system rows are behavior, not ground truth; each flip needs triage (old right / new right / both wrong) by a human or a judge model that is not the system under test"
 }
