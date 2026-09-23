@@ -118,7 +118,26 @@ def _correct(outcome, row) -> bool:
     look irrelevant by construction.
     """
     want_action = row["expect"].get("action", "")
-    want_title = _content((row["expect"].get("slots") or {}).get("title"))
+    slots = row["expect"].get("slots") or {}
+    want_title = _content(slots.get("title"))
+    if slots.get("generic_target"):
+        # A GENERIC TARGET IS RIGHT WHEN REFUSED (DEVQA Q38, 2026-09-21: "a
+        # title that names nothing is refused, everywhere"; and CLAUDE.md:
+        # deleting is destructive — when the engine cannot identify what to
+        # delete, empty slots are the right answer). The corpus records the
+        # literal phrase as the title ("that appointment") because that is
+        # what was SAID, and until 2026-09-22 this scorer demanded an object
+        # carrying it — 23 of the seeded baseline's 127 wrong rows were the
+        # engine doing what Gil ruled, and the loop's one "fixed" row was the
+        # model round handing back `delete_event "that one"`, the very thing
+        # the front door had vetoed. So: nothing built is right; an object
+        # with the right action whose title is NOT the generic phrase is right
+        # too (the LLM may RESOLVE an anaphor — FastRule's contract); an
+        # object carrying the phrase is wrong, and a wrong action is wrong.
+        if not outcome:
+            return True
+        return any(a == want_action and not (want_title & _content(t))
+                   for a, t in outcome)
     if not outcome:
         return False
     actions = {a for a, _ in outcome}

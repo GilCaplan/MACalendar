@@ -1720,3 +1720,56 @@ other 108 carry no finding at all, which is the blind population the v2 set
 measured from the other side (dropped ask, wrong kind, wrong operation,
 plain merges). That is where the whole-chain loss is, and it is §7.3's and
 §7.5's ground, not the rewrite's.
+
+**The 127 rows wrong with the loop OFF, read by class** (seeded baseline,
+train, Board D's own scorer on its checkpoint: gold action present AND a
+content word of the gold title; no model run for the read):
+
+| class | rows | share | example |
+|---|---|---|---|
+| WRONG KIND — right verb, task↔event | 40 | 31% | "set a remindar to water the garden this evening" → event; "i should see Parker the 21st" → to-do; "rename pack for the trip …" → update_event |
+| WRONG OPERATION — right store, wrong verb | 26 | 20% | "add cancel the subscription to my list" → DELETE; "scrap sales call" → CREATE "scrap sales call"; "updat organize the garage" → create |
+| nothing built — a generic target refused | 23 | 18% | "get rid of that appointment on my calendar next month" → (); gold `delete_event "that appointment"` |
+| count — two clocks, one object, or the reverse | 19 | 15% | "water the plants at half past six and at late afternoon" → one; "schedule a haircut at 7am and 9:15" → two |
+| same operation, title wrong | 10 | 8% | "clear water the garden off my to-do list" → `delete_todo "to-do list"` |
+| kind AND operation | 9 | 7% | "add a note to call the plumber" → `create_event "note to call the plumber"` |
+
+Half the loss is the KIND or the OPERATION — the two classes the judge is
+blind to by construction (0% on the v2 set's `wrong_kind` / `wrong_
+operation` plants) and the ground H3 and H4 were registered on. The
+generic-target rows are a board convention to settle, not an engine
+defect: the front door REFUSES a demonstrative target on purpose (DEVQA;
+"deleting is destructive"), the corpus's gold expects the operation with
+the generic title, and `_correct` cannot be satisfied by a refusal, so
+those 23 rows are a ceiling on this board until the gold or the scorer
+says which is right. Two "count" rows in three are a to-do with two clocks
+built as one object, which is segmentation's line, not this stage's.
+
+## Cycle 43 — Board D scores a generic target the way Q38 rules it (2026-09-22, 20:31)
+
+**An instrument fix.** The corpus records the literal referring phrase as
+the title ("that appointment", `generic_target: true`) because that is
+what was said, and `_correct` demanded an object carrying it. The engine
+refuses such a target on purpose (DEVQA Q38: *"a title that names nothing
+is refused, everywhere"*; CLAUDE.md: *"deleting is destructive"*). So a
+refusal is right; an object with the right action and a RESOLVED title is
+right (the LLM may resolve an anaphor — FastRule's contract); an object
+carrying the phrase, or a wrong action, is wrong. Four tests pin it
+(`test_board_d_scorer.py`). No corpus row changed.
+
+**Rescored from the seeded checkpoint, no rerun** (`--resume` on
+`board_d_seed_a` at HEAD; record `runs/board_d_train_1200_20260922T2031.json`):
+
+| Board D v2 · 1,200 TRAIN · seeded | before (T2012) | rescored (T2031) |
+|---|---|---|
+| correct, loop OFF / ON | 89.4 / 89.5% | **91.1% (1093) / 91.0% (1092)** |
+| fixed / broke / net | 1 / 0 / +1 | **0 / 1 / −1** |
+| arms disagreed | 3 | 3 |
+
+**What it means.** Twenty-three rows moved from wrong to right on both
+arms: the engine was obeying the ruling and the board was marking it down.
+And the loop's one "fix" flipped to its one BREAK: on "um can you just
+delete that one for me" the front door refused the target and the loop's
+model round handed back `delete_event "that one"` — the very thing
+FastRule's contract says the LLM may resolve but must never overturn.
+That is a real defect, in the loop, and it is cycle 44.
