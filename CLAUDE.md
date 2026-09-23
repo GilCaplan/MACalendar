@@ -582,6 +582,15 @@ and the true numbers had moved in both directions. A short board replays
 fresh every time; resuming is for a crash mid-run at the SAME commit, opted
 into by flag. When a board prints identical numbers twice, check that it ran.
 
+**And a board whose model calls are unseeded is not measuring the change
+either.** Two runs of Board D v2 at one commit differed on 22 of 1,200 rows —
+the rescue's parse answering "book club" then "club" — more than the 19 rows
+its arms disagreed on; seeded, the arms disagree on 3. `MACALENDAR_LLM_SEED`
+(`model_protocol.seed_options()`) pins every ollama door for a process; a
+board declares it in its env block beside the priority, live traffic never
+sets it. Prove a new board deterministic with a same-code double run before
+reading its fixed/broke pair.
+
 ## Things that have bitten before
 
 - **Don't run the audit and the test suite at once.** Both load spaCy and

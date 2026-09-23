@@ -718,10 +718,13 @@ per damage). Everything below is in `experiments/RESULTS.md` with its n.
   call is unseeded (`parser.py` sends temperature 0.1 and no `seed`), and two
   runs of the board differ on 22 rows that spent no re-entry. The floor
   exceeds the 19 rows the arms disagree on, so no Board D net under it is a
-  reading. **Before any §7.5 cycle:** a seeded, temperature-0 board mode at
-  the one transport, switched from the environment so live traffic is
-  untouched, proven by a same-code double run that differs on 0 rows; then
-  one seeded 1,200-row baseline, which is what H1–H6 are read against.
+  reading. **DONE 20:25:** `model_protocol.seed_options()` (commit
+  `68f39ab`), proven by a same-code double run — 0 of 300 shared rows
+  differ. The seeded 1,200-row baseline (`runs/board_d_train_1200_
+  20260922T2012.json`) is what H1–H6 are read against, and it changed the
+  picture: the arms disagree on **3 rows**, not 19 — the rest was dice. The
+  loop re-enters on 19 rows and 16 come back unchanged; 108 of the 127
+  OFF-wrong rows carry no finding at all (the blind population).
 - **What the set cannot yet measure:** the test half has no plain-"and"
   three-event family, so `coordinated_subject` is measured on 18 train rows
   only. A list-of-three-events family on both halves is a generator change —

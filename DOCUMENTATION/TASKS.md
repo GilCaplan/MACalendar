@@ -1519,10 +1519,12 @@ process"*): the v2 set landed (`llmjudge/datasets/v2/`, 5,292 commands /
 11,187 cases), `judge_board_v2` scores it, cycle 41 fixed the judge's
 `not_an_ask` misroute (typed catch 92.2 → 97.5% train / 92.9 → 97.4% test)
 and cycle 42 fixed the list-merge plant (99.5 / 98.6% on the same judge).
-Next, in order (PLAN.md §7.2b): the seeded board mode and a same-code double
-run of Board D v2 (its unseeded floor is 22 rows in 1,200, above the 19 the
-arms disagree on); one seeded 1,200-row baseline; then §7.3's decisions and
-§7.5's H1–H6, one change per board run. Registered, not started: a
+The seeded board mode landed the same evening (`68f39ab`; a same-code
+double run differs on 0 rows) and the seeded 1,200-row baseline showed the
+loop's real footprint: 3 rows in 1,200, with 108 of the 127 OFF-wrong rows
+carrying no finding. Next (PLAN.md §7.2b): §7.3's decisions and §7.5's
+H1–H6 read against that baseline, one change per board run, starting where
+the loss is — the blind classes. Registered, not started: a
 list-of-three-events family so `coordinated_subject` has test-half rows.
 
 ## THE SOFTWARE LIST — 2026-09-22, evening

@@ -1677,3 +1677,46 @@ generator change, so a new set revision with its own baseline). (2) The
 list-mode n went from 46+27 to 18+0 because the grammar mixes kinds inside
 a three-ask command; that is the corpus telling the truth about how often a
 speaker lists three events under one verb, not a plant to loosen.
+
+## The seeded board — proven, and the loop's real footprint (2026-09-22, 20:12 / 20:25)
+
+**The instrument fix.** `model_protocol.seed_options()`: a board sets
+`MACALENDAR_LLM_SEED` and every ollama door sends `seed` and temperature 0;
+live traffic is untouched (commit `68f39ab`). Proof by a same-code double
+run at that commit: Board D v2, 1,200 train rows (record
+`runs/board_d_train_1200_20260922T2012.json`), then the first 300 of the
+same shuffled order again (`…_300_20260922T2025.json`). **0 of 300 shared
+rows differ**, against 22 of 1,200 between the two unseeded runs. The seed
+itself moved 18 of 1,200 rows against the unseeded T1857 run (temperature
+0.1 → 0: 12 wording-only, 6 structural), which is the size of the dice it
+removed, not a change to the engine.
+
+**The seeded baseline — what H1–H6 are read against.**
+
+| Board D v2 · 1,200 TRAIN · seeded | reading |
+|---|---|
+| correct, loop OFF / ON | 89.4% (1073) / 89.5% (1074) |
+| fixed / broke / net | 1 / 0 / +1 |
+| **arms disagreed** | **3 rows (0.2%)** — was 19–20 unseeded |
+| re-entries spent: 1 / 2 | 18 rows (33.3 → 38.9%) / 1 row |
+| rewrite's model round fired (H6) | 9 rows, 44.4% either arm, net 0 |
+| latency p95 OFF / ON | 5.8 / 6.8 s |
+
+**What it means.** The 19–20 "rows the arms disagree on" that every
+unseeded reading carried were the model's dice between two arms, not the
+loop: seeded, the ON arm's final objects differ from OFF's on THREE rows in
+1,200. The loop still re-enters on 19 rows (a rewrite finding was raised),
+and on 16 of them the re-entry comes back with the SAME objects — the
+deterministic trim re-enters segmentation and the chain answers the same
+way, which is the case the model tier exists for, and it fired on 9 rows
+for a net of 0. The three rows it did move: a misspelled "apointment for
+workout session" retitled "workout session" by the model round; "call"
+retitled "call with drew and jesse"; and a generic delete ("that one")
+that OFF produced nothing for (the one FIXED). So on the constructed
+corpus the loop is not noisy and not harmful; it is nearly inert, and the
+rows it reaches (33% correct) it mostly cannot change. Of the 127 rows
+wrong with the loop OFF, the judge raises a rewrite finding on 19; the
+other 108 carry no finding at all, which is the blind population the v2 set
+measured from the other side (dropped ask, wrong kind, wrong operation,
+plain merges). That is where the whole-chain loss is, and it is §7.3's and
+§7.5's ground, not the rewrite's.
