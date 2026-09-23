@@ -1034,3 +1034,23 @@ def test_an_object_whose_item_was_never_said_is_still_not_an_ask(registry_with_r
     found = verdict.judge(st, verdict.collect(st))
     on_extra = [f for f in found if f.item_id == "item_x"]
     assert on_extra and on_extra[0].type == F.NOT_AN_ASK, found
+
+
+def test_a_determiner_and_one_names_nothing_on_both_gates():
+    """Cycle 44 (2026-09-22). "that one" passed the front door and the judge —
+    "one" is in no list — so on the seeded Board D the loop's model round
+    handed back `delete_event "that one"` after the first pass had refused it
+    only by accident (validate's anaphor guard on "you just"). Q38: a title
+    that names nothing is refused EVERYWHERE, so both gates carry the shape.
+    Measured before writing: 16 of 4,629 FastRule train gold titles match,
+    all of them rows the corpus marks `generic_target`."""
+    from assistant.intent.rule_parser import names_something
+    from assistant.engine.llmjudge.gatekeeper import _GENERIC_TARGET_RE
+    for t in ("that one", "this one", "the one", "the last one", "the first one",
+              "those ones", "the other one", "my last one", "one"):
+        assert not names_something(t), t
+        assert _GENERIC_TARGET_RE.match(t), t
+    for t in ("one on one", "capital one", "the one with dan", "phone one",
+              "one more thing", "the one ring"):
+        assert names_something(t), t
+        assert not _GENERIC_TARGET_RE.match(t), t

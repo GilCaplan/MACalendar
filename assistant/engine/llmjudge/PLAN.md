@@ -725,6 +725,24 @@ per damage). Everything below is in `experiments/RESULTS.md` with its n.
   picture: the arms disagree on **3 rows**, not 19 — the rest was dice. The
   loop re-enters on 19 rows and 16 come back unchanged; 108 of the 127
   OFF-wrong rows carry no finding at all (the blind population).
+- **Cycles 43–44 (21:34):** the scorer follows Q38 — a generic target
+  refused is right, the phrase handed back is wrong — and 23 rows moved
+  from wrong to right; the loop's one "fix" was its one BREAK (`delete_event
+  "that one"` handed back by the model round after the front door's
+  accidental refusal fell away), and cycle 44 put the determiner-plus-"one"
+  arm on all three gates. Seeded Board D now reads **91.2% either arm, 0
+  fixed / 0 broke, 2 disagreements in 1,200** — the loop neither helps nor
+  harms on the constructed corpus. The 106 rows still wrong are wrong
+  BEFORE the judge: wrong kind 31%, wrong operation 20%, two-clock counts
+  15%, titles 8%. That is what §7.3 and §7.5 are for.
+- **H3's condition, measured** (read-only, from the seeded checkpoint): the
+  kind tagger disagrees with the built object on 83 of 961 one-object rows
+  (8.6%); when they disagree the object is right on 60 and the tag on 23.
+  A rule "follow the tag" would break 60 to fix 23. The probe asks the
+  model a seeded one-word question on those 83 only; it must beat 72% to
+  net positive, and a positive result needs a REBUILD route (rebuild the
+  object with the kind pinned) that today's router lacks — a §7.3
+  decision for Gil, brought with the number.
 - **What the set cannot yet measure:** the test half has no plain-"and"
   three-event family, so `coordinated_subject` is measured on 18 train rows
   only. A list-of-three-events family on both halves is a generator change —
@@ -797,6 +815,7 @@ NEGATIVE CONTROLS at full size, and stay refuted unless the pair moves.
 | H1 | **Rescue self-consistency.** Two samples of the rescue's parse for an item FastRule declined; commit on agreement; on disagreement one comparative call: "which of these two readings is what was asked?" Fires on compounds only. | deep-path count-correct (57% on the test 300); the compound families | Board D v2, both halves, thousands; the test 300 as the milestone |
 | H2 | **The round selector.** At loop exhaustion, when two rounds produced different objects for one ask: "which reading is what was asked?" Fires only on rows with two or more disagreeing rounds — Board D v2 counts that rate first. | fixed-minus-broken on multi-round rows, today taken unjudged from the last round | Board D v2; the new set's merged-ask and dropped-subject cases |
 | H3 | **The kind, when the tagger is unsure.** Event or to-do? Segmentation's tag error is one-directional (event read as task, 116 of 175), and the personas board showed kind accuracy spreads 17.3 pt with phrasing alone. Fires when the tagger's margin is low or the tagger and the converter disagree — the seam the 09-20 cycles found. | kind accuracy on the kind board; count-correct on event+task compounds | `scripts/kind_board.py` (Level 3b) and the new set's wrong-kind plants, thousands, both halves |
+| — | **H3 REFUTED 2026-09-22** (`experiments/RESULTS.md`, "H3 probe"): condition fires on 8.6% of one-object rows; on those the object is right 72.3%, the model 65.1%; following the model nets −6 in 1,200 at 0.7 s a call. The converter is the better reader where they disagree; no route is brought to Gil. | | |
 | H4 | **The operation, when the words carry both.** Create something, or change something that exists? Measured once at net +2 on 266 rows (10 fixed, 8 broken) — refuted at THAT n. Fires only when a create verb and a change verb, or an anaphor, are both present. Retest at thousands with the operation defect planted. | harm (a wrong delete costs 4), the mutation rows | FastRule board + the new set's wrong-operation plants, both halves |
 | H5 | **A retraction.** "…and I also need to buy ice. No, I said that." — does this clause CANCEL the item before it? Two-way, fires only when ingest finds a retraction marker (no / wait / scratch that / I said that). Today the marker is a filler at best. | corrected item count on real usage (id=223), the disfluency operation rows | the new set's retraction operations; real usage as the gate (n=75) |
 | H6 | **The model round we already have.** Tier 2 of the rewrite, measured on its own: rows that reach it, fixed, broken, and what tier 1 would have done. This is the one live model use in the stage and it has never been scored at size. | its own fixed-minus-broken; whether it should fire earlier or later | Board D v2 with the ledger read per row |

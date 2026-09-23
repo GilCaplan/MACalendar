@@ -430,3 +430,15 @@ def test_a_single_title_todo_is_unchanged():
     got = _build("call the dentist", kind="task",
                  raw={"create_todo": {"titles": ["call the dentist"]}})
     assert got.intent.titles == ["call the dentist"]
+
+
+def test_a_determiner_and_one_is_a_generic_target_too():
+    """Cycle 44 (2026-09-22): "that one" passed `names_something` — "one" is in
+    no list — so the front door built the delete and, downstream, the judge's
+    loop committed it. Q38 refuses a title that names nothing everywhere."""
+    for title in ("that one", "this one", "the last one"):
+        res = _build(f"delete {title}", kind="event",
+                     raw={"delete_event": {"title": title}})
+        assert isinstance(res, Defer), title
+        assert res.reason == "generic-target", title
+        assert res.reason_class == "refusal", title

@@ -1773,3 +1773,78 @@ delete that one for me" the front door refused the target and the loop's
 model round handed back `delete_event "that one"` — the very thing
 FastRule's contract says the LLM may resolve but must never overturn.
 That is a real defect, in the loop, and it is cycle 44.
+
+## Cycle 44 — a determiner and "one" names nothing, on every gate (2026-09-22, 21:34)
+
+**Hypothesis.** Cycle 43's one broken row: on "um can you just delete that
+one for me" the front door refused only by accident — decompose_validate's
+anaphor guard matched "you just", rewrote the target to "it", and the judge
+refused "it". The loop's trim took "can you" off, the guard fell silent,
+the model round handed back `delete_event "that one"`, and neither gate
+knew the shape: "one" is in no list. Q38 refuses a title that names nothing
+EVERYWHERE, so the arm — a determiner, an optional ordinal, "one(s)" —
+goes on the front door (`rule_parser.names_something`), the judge's
+`_GENERIC_TARGET_RE`, and the deep path's per-item builder. Measured
+before writing: 16 of 4,629 FastRule train gold titles match, every one a
+row the corpus marks `generic_target`; "one on one", "capital one", "the
+one with dan" do not. Prediction: the broken row becomes a refusal on
+both arms (net 0, disagreements 3 → 2); the judge boards unchanged (no
+v2 plant carries the shape); the FastRule shape board's handle rate drops
+by the refused rows and nothing else moves.
+
+| board | before | after |
+|---|---|---|
+| Board D v2 · 1,200 TRAIN · seeded, fresh (`runs/…T2134.json`) | OFF 91.1 / ON 91.0%, 0 fixed / 1 broke, disagreed 3 | **OFF 91.2% (1094) / ON 91.2% (1094), 0 / 0 / net 0, disagreed 2**; p95 5.9 / 6.9 s |
+| judge v2 · TRAIN / TEST (`…T2039` / `…T2041`) | 99.5% / 98.6%, ff 0.1 / 0.2% | 99.5% / 98.6%, ff 0.1 / 0.2% — identical |
+| FastRule shape · TRAIN 4,800 (front door) | handled 77.5%, correct-on-handled 96.4%, harm 106, date right 91.6% (n=777) | handled **76.8%**, correct-on-handled 96.4%, harm 106, date right 91.6% — only the refusals moved |
+
+**Actual vs expected.** As predicted on every line. The row that broke
+is refused on both arms now, and OFF gained it too (1093 → 1094): the
+front door refuses "that one" before the anaphor guard's accident. The
+loop's footprint on this corpus is now 2 rows in 1,200, net 0.
+
+**What it means.** With the scorer honest (cycle 43) and the loop no longer
+able to overturn a refusal (cycle 44), Board D reads 91.2% either arm: the
+loop neither helps nor harms on the constructed corpus, and the 106 rows
+still wrong are wrong BEFORE the judge — half of them the kind or the
+operation, which no finding type names. The next cycle is the H3 probe's
+answer: whether a seeded one-word model question, asked only when the kind
+tagger and the built object disagree (83 of 961 one-object rows), sides
+with the gold more often than the object does (72%).
+
+## H3 probe — the model, asked the kind only where the tagger and the object disagree (2026-09-22, 21:50) — REFUTED
+
+**A probe, never banked as an engine number; no engine code touched.**
+§7.5 H3: a coarse two-way model question under a condition whose fire rate
+is reported. Condition: segmentation's kind tagger disagrees with the kind
+of the one object the chain built. Fire rate **83 of 961 one-object rows
+(8.6%)** on the seeded baseline's checkpoint (`board_d_c44`, train). On
+those 83 the object is right on 60 and the tag on 23, so "follow the tag"
+would break 60 to fix 23 (net −37). Then one seeded call per row to Llama
+3.1 8B — *event or to-do?* — schema-constrained, 0.70 s p50 / 0.71 s p95.
+
+| on the 83 rows the condition fires | right |
+|---|---|
+| the object the chain built | **60 / 83 = 72.3%** |
+| the kind tagger | 23 / 83 = 27.7% |
+| the model, one-word question | 54 / 83 = 65.1% |
+
+Crossed: the model agrees with a RIGHT object on 43, contradicts a right
+object on 17, agrees with a wrong one on 12, and corrects a wrong one on
+11. Following the model on the condition: **fixes 11, breaks 17, net −6**.
+Requiring the tag AND the model against the object: the same 11 fixes, the
+same 17 breaks (the tag is wrong on every object-right row by construction).
+Where the model goes wrong is telling: "hey remind me to pick up the dry
+cleaning tonight" → event; "confirm the reservation by this morning" →
+event; "water the plants at half past six and at late afternoon" → event —
+a clock in the sentence pulls the 8B model to "event" the way it pulls the
+converter, so it adds no independent evidence exactly where the converter
+is uncertain.
+
+**Verdict.** H3 is refuted at this model size and this question: on the
+only rows a kind check could act, the converter is the better reader by 7
+points, and a model round would cost 0.7 s on 8.6% of one-object commands
+to lose 6 rows in 1,200. The 40 wrong-kind rows stay where they are — the
+converter's — and the next kind work is deterministic, on the converter's
+own board, or waits for a model that reads "remind me to" as a to-do. No
+REBUILD route is brought to Gil, because nothing measured wants one.

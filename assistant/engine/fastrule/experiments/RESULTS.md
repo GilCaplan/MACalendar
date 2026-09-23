@@ -1463,3 +1463,19 @@ fallback reads "9 10 am" and, with a meridiem, overrides the recogniser's
 91.9 → 91.6% (n=777)** — two rows whose gold says today for a clock past the
 corpus's anchor; the gold predates the ruling. Handled, correct-on-handled,
 harm, invented-time unchanged.
+
+## Cycle 44 — "that one" is a generic target at the front door (2026-09-22)
+
+`names_something` refuses a determiner + optional ordinal + "one(s)" ("that
+one", "the last one"); the same arm on the judge's gate and the per-item
+builder (Q38: refused everywhere). Found on the LLMJudge program's seeded
+Board D, where the loop's model round committed `delete_event "that one"`
+after the front door's accidental refusal fell away. Measured before writing:
+16 of 4,629 train gold titles match, all `generic_target` rows.
+
+Product-shape board, train half (4,800 rows; 3,200 atomic): handled **77.5 →
+76.8%** (the refused rows leave the handled pool), correct-on-handled 96.4%,
+harm 106, resolvable-date right 91.6% (n=777), explicit time right 79.5%
+(n=527) — all unchanged. The scorer counts a `generic_target` row's literal
+phrase as its title, so a refusal reads as a deferral here; Board D's scorer
+follows Q38 since cycle 43 and this one should too (registered).

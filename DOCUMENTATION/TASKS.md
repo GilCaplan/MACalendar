@@ -1522,9 +1522,13 @@ and cycle 42 fixed the list-merge plant (99.5 / 98.6% on the same judge).
 The seeded board mode landed the same evening (`68f39ab`; a same-code
 double run differs on 0 rows) and the seeded 1,200-row baseline showed the
 loop's real footprint: 3 rows in 1,200, with 108 of the 127 OFF-wrong rows
-carrying no finding. Next (PLAN.md §7.2b): §7.3's decisions and §7.5's
-H1–H6 read against that baseline, one change per board run, starting where
-the loss is — the blind classes. Registered, not started: a
+carrying no finding. Cycle 43 made the scorer follow Q38 (a refused generic
+target is right) and cycle 44 closed the hole it exposed — the loop's model
+round had handed back `delete_event "that one"` — on all three gates. Seeded
+Board D: 91.2% either arm, 0 fixed / 0 broke, 2 disagreements. Next (PLAN.md
+§7.2b): the H3 probe's answer on the 83 kind-disagreement rows, then §7.3's
+decisions and §7.5's H1–H6, one change per board run, where the loss is —
+the blind classes (kind 31%, operation 20% of the wrong rows). Registered, not started: a
 list-of-three-events family so `coordinated_subject` has test-half rows.
 
 ## THE SOFTWARE LIST — 2026-09-22, evening

@@ -240,6 +240,16 @@ _ENTRY_NOUN = re.compile(
     r"\s+(?:for|about|called|named)\s+", re.I)
 
 
+def _pronoun_one(title: str) -> bool:
+    """"that one", "this one", "the last one" — a determiner and "one" is a
+    pronoun, not a name (cycle 44, 2026-09-22). The same arm the front door
+    (`rule_parser.names_something`) and the judge's gate carry; stated here
+    too because this builder runs on the DEEP path, where the seeded Board D
+    watched the loop's model round hand back `delete_event "that one"`."""
+    from assistant.intent.rule_parser import _PRONOUN_ONE_RE
+    return bool(_PRONOUN_ONE_RE.match((title or "").strip()))
+
+
 def _title_from_words(text: str) -> str:
     """The ask minus its verb — the fallback when the parse read no title."""
     # ORDER MATTERS: the entry noun is `^`-anchored, so "create an event for
@@ -612,7 +622,7 @@ def build(item: Item, *, today: "_dt.date | None" = None,
             title = ""
     if not title:
         return Defer("missing-slots", fields={"action": action, "missing": ["title"]})
-    if _NAMES_NOTHING.match(title):
+    if _NAMES_NOTHING.match(title) or _pronoun_one(title):
         # a correct reading that must not execute as stated
         return Defer("generic-title" if action.startswith("create")
                      else "generic-target",

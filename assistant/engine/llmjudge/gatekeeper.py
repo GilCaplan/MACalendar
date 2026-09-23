@@ -66,7 +66,20 @@ _GENERIC_TARGET_RE = re.compile(
     # caught — the deep track may still RESOLVE it, which is what the
     # REFUSAL class means.
     r"|^(?:you|i|we|us|it|me|this|that|them|these|those)\s+"
-    r"(?:on|to|in|for|at|from|off|with|about)\b",
+    r"(?:on|to|in|for|at|from|off|with|about)\b"
+    # A DETERMINER AND "ONE" IS A PRONOUN, NOT A NAME (cycle 44, 2026-09-22):
+    # "that one", "this one", "the last one", "the other ones". The first
+    # pass refused "um can you just delete that one for me" only by accident
+    # — validate's anaphor guard matched "you just" and rewrote the target to
+    # "it" — and the loop's trim took "can you" off, the guard fell silent,
+    # and the model round handed back `delete_event "that one"`: the front
+    # door's REFUSAL overturned by the loop, on the seeded Board D the one
+    # row it broke. Measured before writing: 16 of 4,629 FastRule train gold
+    # titles match, every one a `generic_target` row the corpus itself marks
+    # unresolvable; "one on one", "capital one", "the one with dan" do not.
+    # The front door (`rule_parser.names_something`) refuses the same shape.
+    r"|^(?:the |this |that |these |those |my |your )?"
+    r"(?:last |first |next |previous |other |same |new |second )?ones?$",
     re.I)
 
 # "Can you create/add/make …" is a polite imperative, not a question —

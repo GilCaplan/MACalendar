@@ -2310,6 +2310,16 @@ _BARE_KIND = frozenset(
     "task tasks todo todos date dates meeting meetings call calls".split())
 _BARE_ARTICLE = frozenset("a an the my our your".split())
 
+#: A determiner and "one" is a PRONOUN, not a name (cycle 44, 2026-09-22):
+#: "that one", "this one", "the last one". Q38 refuses a title that names
+#: nothing EVERYWHERE, and this shape passed both gates — "one" is in no
+#: list — so the judge's loop could commit `delete_event "that one"` after the
+#: front door's accidental refusal fell away. The judge's `_GENERIC_TARGET_RE`
+#: carries the same arm; "one on one" and "capital one" are untouched.
+_PRONOUN_ONE_RE = re.compile(
+    r"^(?:the |this |that |these |those |my |your )?"
+    r"(?:last |first |next |previous |other |same |new |second )?ones?$", re.I)
+
 
 def names_something(title: str, bare_kind_is_a_name: bool = True) -> bool:
     """Is any word of this title a NAME rather than scaffolding?
@@ -2326,6 +2336,8 @@ def names_something(title: str, bare_kind_is_a_name: bool = True) -> bool:
     # with a space before it is the parse's own leftover: 'date ?'.
     if re.search(r"\s[?]\s*$", title or ""):
         return False
+    if _PRONOUN_ONE_RE.match((title or "").strip()):
+        return False                                  # "that one" — a pronoun
     words = [w for w in re.findall(r"[a-z0-9']+", (title or "").lower())
              if len(w) > 1]
     if (bare_kind_is_a_name and words and words[-1] in _BARE_KIND
