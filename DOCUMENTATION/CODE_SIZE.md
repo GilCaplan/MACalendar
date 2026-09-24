@@ -33,8 +33,8 @@
 
 Not counted above, and deliberately so:
 
-- **Data** — the utterance corpus, fitted weights and fixtures: 225,718 lines across 166 files. Bigger than the code, and not written by hand.
-- **Prose** — markdown and the published HTML explainers: 46,902 lines across 115 files.
+- **Data** — the utterance corpus, fitted weights and fixtures: 227,275 lines across 167 files. Bigger than the code, and not written by hand.
+- **Prose** — markdown and the published HTML explainers: 46,908 lines across 115 files.
 
 ### How the categories are drawn
 

@@ -1952,3 +1952,9 @@ the 9 encounters stay events — **expected 1108/1200 (92.3%)**, confirmed on th
 next full run. None of the day's other front-door changes (weekday list,
 passed clock, bare noun) moved a Board D row. "Call Mom tomorrow" under Q47
 is put back to Gil.
+
+**Q47 confirmed (seeded Board D v2, 1,200 train, at f5da878; record
+`runs/board_d_train_1200_20260924T1748.json`): 1108/1200 (92.3%) both arms,
+0 fixed / 0 broke — exactly the 1108 the targeted check predicted after the
+reminder-calls fix.** (Scored against the gold of the day; the gold then
+followed Q26 and Q47 by rule — see decompose_validate/experiments/RESULTS.md.)
