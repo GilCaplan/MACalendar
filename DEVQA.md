@@ -1054,5 +1054,27 @@ before you rule:
   category (`db.py`), and the six unused categories cost the rules nothing.
   His existing items were moved (12 walk events, 7 to-dos) with the
   correction hook OFF — they are a palette change, not his corrections, and
-  the personal model trains only on those. Open: whether dog walking is paid
-  work (then Work might be the better home) — asked, not assumed.
+  the personal model trains only on those. **Answered the same day:** *"dog
+  walking depends sometimes its my own dog, othertimes paid for someone
+  elses's dog"* — so ONE Dog walking category for both; paid time belongs
+  in the Timer tab, not in a second category.
+
+- **2026-09-24 — Q45 (NO PUSH: the card updates locally)**, Gil, asked whether
+  the lock-screen card could be pushed exact updates: *"i dont have a key to
+  give you unless i can do that for free?"* It cannot. The app is signed with
+  a FREE personal team (the provisioning profile runs seven days, 21→28 Sep,
+  no `aps-environment`), and APNs needs the paid Apple Developer Program. So
+  the card stays local: two rows and a step button, one self-roll at its
+  stale date, a background wake requested at each boundary, current whenever
+  the app opens. Q23's "no APNs" stands, now for a concrete reason. Side
+  effect worth knowing: a free profile expires every seven days, so the app
+  must be reinstalled from the Mac at least weekly or it stops launching.
+
+- **2026-09-24 — Q46 (EMBEDDINGS: Gil delegated — "decide what you want")**.
+  Decided: switch them on BEHIND the rules for both events and to-dos, with
+  today's n-gram model as the fallback whenever the local embedding call
+  fails. Evidence (label Board 6): +10 pt on unseen vocabulary for both, and
+  on the real titles 3 event titles gained / 0 lost and 1–2 to-dos gained —
+  inside the noise, so it is shipped as a measured bet, and the corrections he
+  makes are what confirm or reverse it (~300 event and ~200 to-do real
+  titles decide it). Not xgboost: it lost to logistic regression.
