@@ -1622,6 +1622,41 @@ rows scored, was 9). Open from the same work:
   inference unnecessary and is the only way to score a typed title honestly.
   iOS `AssistantReviewView`, the same `/memory/<id>/feedback` body.
 
+## DEFERRED UNTIL THE ENGINE WORK IS DONE — an offline engine on the phone (Gil, 2026-09-24)
+
+Gil: *"mark when we finish working on the engine, to make an offline copy of
+the engine that the phone can use, and a protocol so it works together
+properly with the servers engine."* **Do not start this while the engine is
+still changing** — the phone only gets new code on a reinstall, so a copy made
+now goes stale within days and every divergence shows up as a visible
+correction. Start it when the engine is declared finished.
+
+What was established when he asked (2026-09-24), so the work starts informed:
+- The engine is NOT model-free: on the 75 real commands 47 took the fast path
+  (no model, 0.1 s) and 26 the deep path (Llama 3.1 8B on the Mac, p50 4.7 s,
+  p95 46.9 s). A phone copy can only be the FAST path; the deep path stays the
+  Mac's.
+- The fast path is `rule_parser` (3,000+ lines on spaCy's parse), the date
+  recogniser, ingest's cleanup and the gates. spaCy has no supported iOS build,
+  so the first step is a spike: embed CPython (official on iOS since 3.13)
+  and find out whether spaCy and its compiled deps build — or decide on a
+  Swift port, knowing it is a second brain.
+- **A parity board before anything ships:** the FastRule 7,200 set run on the
+  phone copy and on the Mac, output required identical, rerun on every engine
+  change that reaches the phone.
+- **The protocol** (to design then): the phone commits a fast-path reading
+  locally with a temporary id (the offline-edit machinery in `LocalStore`
+  already remaps temporary ids), sends the command to the Mac when reachable,
+  and the Mac's reading wins — identical → keep, different → replace and say
+  so, deep-path-only → the phone shows it pending. Open questions: what a
+  local reading may do before the Mac confirms (a reminder firing, a delete —
+  deletes should probably never run locally), and versioning (the phone
+  stamps its engine version; the Mac refuses to "confirm" across versions).
+- Until then the phone already keeps every voice command made offline and
+  replays it on reconnect (`PendingVoiceCommand`); the cheaper interim steps
+  are measuring how often that queue is used and showing the queued command
+  at once as "pending".
+
 ## TIPS ON THE PHONE — landed, 2026-09-22 (DEVQA Q41)
 
 The Mac's five "How to Talk to Me" tips now reach iOS (`GET /tips`,
