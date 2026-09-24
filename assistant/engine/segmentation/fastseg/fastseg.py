@@ -1039,8 +1039,13 @@ def _lexicon_kind(action: str) -> "str | None":
     return None
 
 
-def tag(action: str, time_str: str) -> str:
-    """event | task | review.
+def tag_path(action: str, time_str: str) -> "tuple[str, str]":
+    """`(kind, path)` — the kind (event | task | review | other) and the READER
+    that decided it. `path == "default"` means no reader fired at all: `_kind_of`
+    fell through to its catch-all `event` and nothing below moved it. That is
+    the one case `decompose_validate/kind_router.py` hands to its model (Gil,
+    2026-09-24: *"basic rules, otherwise model"*). `tag()` is this without the
+    path, and the answer is identical — the path is only reported.
 
     The engine's own reader decides first, so the tuning module and the engine
     cannot disagree about what a review looks like. Then ONE correction is
@@ -1062,11 +1067,11 @@ def tag(action: str, time_str: str) -> str:
     `pos_sizing.py`; calendar commands are VERB-rooted imperatives, so a
     root-POS signal is anti-correlated with the answer.
     """
-    from assistant.engine.segmentation.fastseg.kind import kind_of
+    from assistant.engine.segmentation.fastseg.kind import kind_of_path
 
-    kind = kind_of(action)
+    kind, path = kind_of_path(action)
     if kind not in ("event", "task", "review"):
-        kind = "event"
+        kind, path = "event", "default"
     # Q25 (Gil, 2026-09-18): "anything that has an AM or PM time, like 1
     # o'clock, 2.30, that is for sure an event... if we're just given a day,
     # maybe it's an event, maybe it's a task, it depends on the context."
@@ -1094,7 +1099,7 @@ def tag(action: str, time_str: str) -> str:
             and not _VAGUE_TIME_HEDGE.search(action) \
             and not _DUE_DATE_EDIT.match(action) \
             and not _is_not_calendar(action, time_str):
-        return "event"
+        return "event", "stated_clock"
     if kind == "event":
         # A ONE-WAY VETO, over `event` only — the third time that asymmetry is the
         # thing that works here. The task lexicon below wins the same way (87.5%
@@ -1103,19 +1108,19 @@ def tag(action: str, time_str: str) -> str:
         # swallow a task or a review, and `_kind_of` calls everything it cannot
         # place an event, so `event` is exactly where an unusable ask lands.
         if _is_not_calendar(action, time_str):
-            return "other"
+            return "other", "not_calendar"
         if _RUNDOWN_IDIOM.search(action):
-            return "review"
+            return "review", "rundown"
         if _VAGUE_TIME_HEDGE.search(action) or _DUE_DATE_EDIT.match(action) \
                 or (_TIME_BLOCKING.search(action) and not stated):
-            return "task"
+            return "task", "hedge_or_due_date"
         if _NUDGE_IDIOM.match(action) and not _ANCHORED_TO_EVENT.search(action):
             # "ping me AHEAD OF conference call" is the anchored idiom (an
             # actual named event), not the bare "give me a nudge TO submit
             # the report" idiom "ping" was added to `_NUDGE_IDIOM` to cover —
             # the anchor must win, or widening the verb list regressed a row
             # this exact idiom already handled correctly (§0b, fix #10).
-            return "task"
+            return "task", "nudge"
         verdict = _lexicon_kind(action)
         anchored = _ANCHORED_TO_EVENT.search(action) and not _head_is_outreach_verb(action)
         if verdict == "task" and (
@@ -1137,8 +1142,8 @@ def tag(action: str, time_str: str) -> str:
             # differently. Found stress-testing §0b's fixes against phrasing
             # the dataset never generated (Gil, 2026-09-16: "continuing more
             # as is is definitely overfitting").
-            return kind
-        return verdict or kind
+            return kind, "scheduled_guard"
+        return (verdict, f"lexicon_{verdict}") if verdict else (kind, path)
     if kind == "task":
         # The MIRROR promotion, still one-way and still narrow — not the
         # blanket bidirectional override that measured worse above. Both
@@ -1152,13 +1157,20 @@ def tag(action: str, time_str: str) -> str:
         # calendar), or the head verb being "meet" — meeting a person is the
         # one verb in this shape where the whole point IS the encounter.
         if _meets_a_person(action):
-            return "event"                    # Q47: a person, day or no day
+            return "event", "encounter"       # Q47: a person, day or no day
         real_time = (time_str or "").strip().lower() not in ("", "today")
         if real_time and (_ANCHORED_TO_EVENT.search(action)
                           or _MEETING_HEAD.search(action)
                           or _ON_THE_BOOKS.search(action)):
-            return "event"
-    return kind
+            return "event", "dated_anchor"
+    return kind, path
+
+
+def tag(action: str, time_str: str) -> str:
+    """event | task | review | other — `tag_path` without the path."""
+    return tag_path(action, time_str)[0]
+
+
 
 
 def _meets_a_person(action: str) -> bool:

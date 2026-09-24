@@ -53,6 +53,34 @@ would either book a series nobody asked for or drop one they did.
 **Flags, never blocks** (Gil, 2026-09-08). A blocked item is a command that
 silently did nothing. A flagged one is committed with a note the speaker can see.
 
+## Before either half: event or to-do (`kind_router.py`, 2026-09-24)
+
+The kind is settled FIRST, because both halves and FastRule read it. `decompose`
+branches on it: an event is time-split, a to-do is list-split and gets its
+quantity read. The converter then narrows the create action by it. Gil
+(DEVQA Q47): *"basic rules, otherwise model"*.
+
+    rule fired?   fastseg.tag_path names the reader that decided the kind
+                  (stated_clock, encounter, task_frame, lexicon_event, …),
+                  plus the rulings' own regexes on the catch-all path
+                  -> its answer stands
+    otherwise     path == "default": `_kind_of` fell through to its catch-all
+                  `event` and nothing moved it
+                  -> models/kind_router.joblib decides (logistic regression
+                     over the words' shape + the tagger's verdict; sklearn,
+                     lazily loaded, no model server)
+
+"No rule fired" is a CODE PATH, not a confidence, so the model can never
+overturn a reading any rule gave, and therefore never a ruling. A missing
+artefact, or `engine.kind_router: false`, leaves the tagger's answer standing.
+The front door (`fastrule/fast_track.py`) does not pass through here. It
+commits only when the rule parser is confident, which is a rule firing.
+
+Fitted and measured by `experiments/kind_router_board.py --fit`, on TRAIN
+halves only. The numbers are in `experiments/RESULTS.md`. Label category is
+not a feature: it added −0.2 to +0.4 pt beyond shape on 6,844 TEST items,
+from the same results file.
+
 ## Why every resolver takes ONE item's own time
 
 The stage this replaces read the **whole transcript**, produced a flat list of

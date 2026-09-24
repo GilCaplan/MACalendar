@@ -416,7 +416,24 @@ def resolve_values(state, anchor: "dt.date | None" = None):
 
 
 def run(state, cfg):
-    """X2 -> X3. Split, tidy the words, then resolve values and check them."""
+    """X2 -> X3. Settle the kind, split, tidy the words, then resolve values
+    and check them.
+
+    The kind is settled FIRST because everything after reads it: `decompose`
+    branches on it and FastRule narrows the create action by it. Rules decide
+    whenever one fired; only an item no rule decided goes to the router's
+    model (`kind_router.py`, Gil 2026-09-24: "basic rules, otherwise model")."""
+    from assistant.engine.decompose_validate import kind_router as _kind_router
+    try:
+        _kind_router.run(state, cfg)
+    except Exception as exc:
+        # The tagger's kind stands — exactly the behaviour before the router.
+        # LOGGED, not flagged: `item.slots["flags"]` is read to the speaker as
+        # "Note: …" by `_commit`, and an internal failure is not theirs to read.
+        import logging
+        logging.getLogger(__name__).warning(
+            "kind_router failed, the tagger's kind stands: %s: %s",
+            type(exc).__name__, exc)
     _decompose.run(state, cfg)
     _tidy.tidy(state, cfg)
     try:

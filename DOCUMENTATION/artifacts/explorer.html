@@ -1322,7 +1322,7 @@
 
       <!-- ====== STAGE 3: DECOMPOSE_VALIDATE ====== -->
       <g data-stage="decompose_validate" role="button" tabindex="0"
-        aria-label="decompose_validate: resolve values from words, then check them.">
+        aria-label="decompose_validate: settle event or to-do, resolve values from words, then check them.">
         <rect class="frame" x="680" y="52" width="280" height="60" rx="8" fill="var(--screen)" stroke="var(--line)"
           stroke-width="1.5" />
         <text x="820" y="76" text-anchor="middle" font-size="11" font-weight="600">decompose_validate</text>
@@ -2628,12 +2628,12 @@ series_id   NULL
     decompose: {
       view: "engine", tag: "stage 3", name: "decompose", rl: "3 decompose", title: "decompose — into atomic pieces",
       z: [820, 82, 2.0],
-      sum: `<p>One item in, N items out — in <strong>one bounded pass</strong>. An item may split once, never again from what it became.</p>
-    <p class="figs">two times · a list · a count — and the one that must not split</p>`,
-      more: `<svg viewBox="0 0 380 200" role="img" aria-label="One item enters and several leave, by three named splitters: two spoken times become two events, a list becomes one task per thing, and a count becomes one task carrying a number. Beside them, the case that must never split.">
+      sum: `<p>First the item's kind is settled — event or to-do — because everything after branches on it: <strong>basic rules, otherwise a model</strong>. Then one item in, N items out — in <strong>one bounded pass</strong>. An item may split once, never again from what it became.</p>
+    <p class="figs">the kind first · two times · a list · a count — and the one that must not split</p>`,
+      more: `<svg viewBox="0 0 380 200" role="img" aria-label="One item enters with its kind settled first: event or to-do is decided by the rules whenever one fired, and by a small model only when none did. Then it leaves as several, by three named splitters: two spoken times become two events, a list becomes one task per thing, and a count becomes one task carrying a number. Beside them, the case that must never split.">
       <rect x="0" y="60" width="92" height="34" rx="4" fill="var(--screen)" stroke="var(--line)"/>
       <text x="46" y="76" text-anchor="middle" font-size="8" font-weight="600">one item</text>
-      <text x="46" y="88" text-anchor="middle" font-size="7" fill="var(--muted)">from segment</text>
+      <text x="46" y="88" text-anchor="middle" font-size="7" fill="var(--muted)">kind settled first</text>
       <path d="M 94 77 L 130 77 L 130 28 L 164 28" fill="none" stroke="var(--muted)" marker-end="url(#mi)"/>
       <path d="M 94 78 L 164 78" fill="none" stroke="var(--muted)" marker-end="url(#mi)"/>
       <path d="M 94 77 L 130 77 L 130 132 L 164 132" fill="none" stroke="var(--muted)" marker-end="url(#mi)"/>
@@ -2650,7 +2650,9 @@ series_id   NULL
       <text x="190" y="182" text-anchor="middle" font-size="7.5" fill="var(--amber)">and the counter-example: “with Tal and Sam” is ONE event</text>
     </svg>
     <figcaption>Five identical rows would make it impossible to tell which one you ticked — so a count is a number in a column, not a repetition.</figcaption>
-    <p>A recurrence is deliberately not a decomposition: a repeating command is one atomic item that happens to repeat, and the cadence rides along as a slot for the database to expand.</p>`
+    <p>A recurrence is deliberately not a decomposition: a repeating command is one atomic item that happens to repeat, and the cadence rides along as a slot for the database to expand.</p>
+    <h3>Before any of that: event or to-do</h3>
+    <p>The splitters branch on the item's kind, so it is settled first. <strong>Basic rules, otherwise a model.</strong> Whenever a rule fired, its answer stands: a stated clock, meeting or calling a person, a named to-do list, &ldquo;remind me to&rdquo;, a scheduling or a chore verb. Only an item no rule read at all &mdash; one the tagger called an event because nothing said otherwise &mdash; is decided by a small classifier over the shape of its words. That classifier can never overturn a rule, so it can never overturn a ruling.</p>`
     },
     validate: {
       view: "engine", tag: "stage 4 · first pass", name: "validate", rl: "4 validate", title: "validate — tidy the words",

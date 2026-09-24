@@ -236,17 +236,20 @@ _GATHERING_RE = re.compile(
     r"|\bsit\s+down\s+with\b", re.I)
 
 
-def _kind_of(text: str) -> str:
+def _kind_of_path(text: str) -> "tuple[str, str]":
+    """`_kind_of` with the READER that decided it named — `(kind, path)`.
+    `path == "default"` is the catch-all: no reader below matched and the
+    answer is `event` because nothing said otherwise (see `fastseg.tag_path`)."""
     t = text.strip()
     # SEEING A PERSON is not looking something up (Q47): "see mom on sunday"
     # opened with the look-verb and was tagged a schedule question.
     from assistant.intent.encounter import is_encounter
     if is_encounter(t):
-        return "event"
+        return "event", "encounter"
     if _REVIEW_RE.search(t):
-        return "review"
+        return "review", "review"
     if _CALENDAR_DEST_RE.search(t) or _GATHERING_RE.search(t):
-        return "event"
+        return "event", "calendar_destination"
     if _TASK_RE.search(t):
         # The pinned convention distinguishes "remind me TO <verb> …" (an
         # errand — stays a task) from "remind me ABOUT <occasion> …" (a
@@ -256,8 +259,8 @@ def _kind_of(text: str) -> str:
         # a to-do with a time on it, not a meeting with the cat.
         if (re.search(r"\bremind", t, re.I) and _CLOCKISH_RE.search(t)
                 and not _REMIND_TO_VERB_RE.search(t)):
-            return "event"
-        return "task"
+            return "event", "remind_about_clock"
+        return "task", "task_frame"
     # A DAMAGED OR PREFIXED FRAME still names a task. `_TASK_RE` is the only
     # reader above, and it does not match when Whisper mangles a word INSIDE
     # the frame ("remind mitt to sign the permission slip", "remind need to
@@ -276,11 +279,24 @@ def _kind_of(text: str) -> str:
     # stated-clock promotion AFTER this, so "remind mitt to feed the cat at
     # 14:00" still becomes an event on the clock, as Gil ruled.
     if _REMIND_TO_VERB_RE.search(t):
-        return "task"
-    return "event"
+        return "task", "remind_to_verb"
+    return "event", "default"
+
+
+def _kind_of(text: str) -> str:
+    return _kind_of_path(text)[0]
 
 
 def kind_of(text: str) -> str:
     """The first reading with the pinned reminder conventions applied — the
     pair every caller wants together."""
     return _enforce_pinned_kinds(_kind_of(text), text)
+
+
+def kind_of_path(text: str) -> "tuple[str, str]":
+    """`kind_of` plus the reader that decided it. A pinned convention that
+    MOVED the first reading names itself ("pinned"); otherwise the first
+    reading's path stands. Same answer as `kind_of`, always."""
+    first, path = _kind_of_path(text)
+    kind = _enforce_pinned_kinds(first, text)
+    return kind, (path if kind == first else "pinned")

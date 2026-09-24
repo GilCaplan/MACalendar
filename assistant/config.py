@@ -284,6 +284,10 @@ class EngineConfig(BaseModel):
     reconcile: Literal["always", "uncertain"] = "always"
     # Escape hatch: route everything through the foreground deep track.
     fast_track: bool = True
+    # The event-or-to-do router (decompose_validate/kind_router.py, Gil
+    # 2026-09-24: "basic rules, otherwise model"): off = the tagger's catch-all
+    # `event` stands on the items no rule decided.
+    kind_router: bool = True
     # Step 0: queued commands are coalesced into one ("…")and("…") input up
     # to this budget; overflow runs sequentially.
     coalesce_max_tokens: int = 300

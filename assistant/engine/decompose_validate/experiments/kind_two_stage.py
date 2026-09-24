@@ -310,7 +310,8 @@ class Featuriser:
                       r"remember\s+to)\s+", "", text.strip(), flags=re.I)
         if FS._head_is_outreach_verb(core) or self._frames["list_dest"].search(text):
             return False
-        return FS._has_person_argument(core) or bool(FS._KIN_RE.search(text))
+        from assistant.intent.encounter import is_encounter
+        return FS._has_person_argument(core) or is_encounter(text)
 
     def engine_person_promoted(self, text, time_) -> bool:
         """Did the engine's own Q47 promotion fire where the faithful gate does not?"""
@@ -336,7 +337,9 @@ class Featuriser:
             "recur": float(bool(self._recur.search(t))),
             "range": float(bool(self._range.search(t))),
             "person_arg": float(FS._has_person_argument(text)),
-            "kin": float(bool(FS._KIN_RE.search(text))) if hasattr(FS, "_KIN_RE") else 0.0,
+            # `_KIN_RE` moved into `assistant/intent/encounter.py` (6621452); the
+            # encounter reader is the feature now
+            "kin": float(__import__("assistant.intent.encounter", fromlist=["x"]).is_encounter(text)),
             "outreach_head": float(FS._head_is_outreach_verb(text)),
             "vague_hedge": float(bool(FS._VAGUE_TIME_HEDGE.search(text))),
             "anchored": float(bool(FS._ANCHORED_TO_EVENT.search(text))),

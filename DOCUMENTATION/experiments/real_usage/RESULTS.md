@@ -1,6 +1,6 @@
 # Real-usage board
 
-_Run 2026-09-24 11:43. `python -m scripts.real_usage_board`._
+_Run 2026-09-24 19:50. `python -m scripts.real_usage_board`._
 
 > Guard passed: no real store changed during the run.
 
@@ -86,7 +86,7 @@ Two full replays of the same 73 rows on unchanged code, 2026-09-18:
 
 | parse path | n | p50 | p95 |
 |---|---|---|---|
-| deep | 27 | 4.1s | 26.4s |
+| deep | 27 | 4.0s | 22.4s |
 | fast | 47 | 0.1s | 0.2s |
 | ignored | 2 | 0.0s | 0.0s |
 

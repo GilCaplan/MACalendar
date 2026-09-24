@@ -260,3 +260,179 @@ output**, started at 16:28:15 and 16:39:55. The records are
 run. Three earlier runs from this session are superseded and not banked: two
 before the transcript cleanup was applied, and one on the pre-`f845aec`
 working tree.
+
+---
+
+## 2026-09-24 (evening): the ruler moved, then the router shipped
+
+Gil answered two questions on the same evening, both recorded in DEVQA Q47:
+
+- *"Call mum is an event at a default time like 9, same for similar
+  events"*. An encounter with a person is an event, day or no day. This is
+  `assistant/intent/encounter.py`, commit 6621452.
+- *"basic rules, otherwise model"* for the event-or-to-do router.
+
+The two changes below were made in that order, each with its own before and
+after.
+
+### 1 · Gold relabelled BY RULE in the generators (an instrument change, not an engine change)
+
+| dataset | ruling | rows moved | split | how |
+|---|---|---|---|---|
+| FastRule 7,200 | Q26 (a clock or a range) | 42 hand-relabelled earlier, now reproduced by the generator; plus 7 train and 5 test that the hand rule missed ("at 9 in the morning", bare ranges) | train / test | `generate.py` `RULED_FAMILIES` |
+| FastRule 7,200 | Q26, the compounds ("walk the dog at 9 and 2:30", "remind me to X at 5 and then …") | 72 train | train | same |
+| FastRule 7,200 | Q47 (calling a named person) | 92 train | train | same |
+| LLMJudge v2 commands | Q26 (`ct_dt`) | 364 commands, 224 train / 140 test | both | `generate_v2.py` `RULED_SHAPES` |
+| LLMJudge v2 cases | follows its commands | 805 of 11,187 cases | both | `generate_v2.rule_cases` |
+
+**Verification.** Each regenerated file was row-diffed against the committed
+one:
+
+- **FastRule:** 218 rows differ, all in the 15 declared families. No id or
+  split moved. The 42 older relabels gain only `ruled` and `category`.
+- **v2 commands:** exactly the 364 `ct_dt` commands differ. The text is
+  byte-identical.
+- **v2 cases:** 805 cases differ, all on ruled commands. Ids are unchanged.
+- **Gates:** `verify_v2` passes; `test_llmjudge_dataset_v2`,
+  `test_rule_parser` and `test_artifact_claims` are green.
+- **Rules check:** after the relabel, no atomic `create_todo` in either
+  FastRule split names a clock or an encounter by the engine's own readers.
+
+**The ruler moving, read on unchanged engine outputs:**
+
+| board | split · n | metric | old gold | new gold |
+|---|---|---|---|---|
+| FastRule product-shape (`fastrule_shape`), HEAD 9aaf038 | TRAIN · 3,200 atomic (2,467 committed) | correct-on-handled | 94.0% | **96.5%** |
+| | | harm (weighted wrong commits) | 166 (149) | **103 (86)** |
+| | TEST · 1,472 atomic (1,011 committed) | correct-on-handled | 80.7% | 80.8% |
+| | | harm | 201 (195) | 200 (194) |
+| Board D, seeded checkpoint `board_d_q47b` (f5da878, before the encounter rule) | TRAIN · 1,200 | correct (action and title), both loop arms | 92.3% | 91.8% |
+
+The Board D dip is 13 rows that are now right and 19 that are now wrong. The
+wrong ones are the call families: `f5da878` still made calls into to-dos, so
+the new gold charges it for the old behaviour. The engine at HEAD carries the
+encounter rule, and the whole-chain run below reads it.
+
+**Not relabelled, reported instead:**
+
+- **Segmentation's corpus has 24 Q47 contradictions**: `c_attendee_8`,
+  `c_joiner_commathen_tt_1` and `c_npdecoy_call_two_task` rows tagged task.
+  Its generator no longer reproduces the committed file (35 rows of
+  `c_mixedmode_1` differ on a clean regeneration). A relabel there would ship
+  that drift too, so it is left to segmentation's owner. The router board
+  drops these 24 from fitting and scoring and says so.
+- **LLMJudge v1 `judge_cases.jsonl`** is built from FastRule rows using
+  `hash()`, which varies with `PYTHONHASHSEED`, so it cannot be regenerated
+  byte-stably. It still carries the pre-relabel gold.
+
+### 2 · "Basic rules, otherwise model": `decompose_validate/kind_router.py`
+
+**Where.** The router is the first step of `decompose_validate.run`. The kind
+is final there: `decompose` branches on it and FastRule narrows the create
+action by it. The front door is not touched, because it commits only on a
+confident rule parse, which is a rule firing.
+
+**"No rule fired"** is the tagger's own code path:
+
+- `fastseg.tag_path` now names the reader that decided. This is a pure
+  refactor: `tag()` is identical to HEAD on all 18,820 distinct
+  (words, time) pairs in the three corpora.
+- `path == "default"` means `_kind_of` fell through to its catch-all `event`
+  and nothing moved it.
+- On that path the rulings' regexes are checked as well: stated clock,
+  encounter, to-do destination, remind-to.
+
+**The model** is logistic regression over the words' shape plus the tagger's
+verdict. No category features are used; they added nothing in the first
+entry. Model selection used TRAIN only, out-of-fold, on the 633 reached TRAIN
+items:
+
+| candidate | reached-item accuracy |
+|---|---|
+| **lr, fit on reached items** | **98.6%** |
+| lr, fit on all | 98.4% |
+| hgb, fit on all | 97.3% |
+| hgb, fit on reached items | 95.9% |
+| the tagger | 87.8% |
+
+The artefact is `models/kind_router.joblib`: 7 KB, sklearn, lazily loaded, no
+model server.
+
+**Board** (`kind_router_board.py`, 2026-09-24 17:55, record
+`runs/kind_router_20260924T1755.json`). Kind accuracy, router against the
+tagger on the same item words. TRAIN is out-of-fold. Gold that a ruling
+contradicts is dropped (seg: 6 train, 18 test).
+
+| source | split | n | reach the model | tagger | router | fixed / broke | on reached items |
+|---|---|---|---|---|---|---|---|
+| FastRule | TRAIN | 2,138 | 218 (10.2%) | 98.3% | **98.9%** | 13 / 0 | 94.0% → 100% |
+| FastRule | TEST | 905 | 182 (20.1%) | 88.5% | **95.6%** | 74 / 10 | 49.5% → 84.6% |
+| v2 | TRAIN | 3,496 | 330 (9.4%) | 97.4% | **99.0%** | 57 / 2 | 82.7% → 99.4% |
+| v2 | TEST | 4,704 | 394 (8.4%) | 95.5% | **99.2%** | 172 / 0 | 56.3% → 100% |
+| seg | TRAIN | 950 | 85 (8.9%) | 98.6% | 98.6% | 1 / 1 | 91.8% → 91.8% |
+| seg | TEST | 1,379 | 164 (11.9%) | 96.9% | **97.2%** | 12 / 8 | 88.4% → 90.9% |
+| real usage | TEST (a probe) | 41 | 13 (31.7%) | 95.1% | 95.1% | 0 / 0 | — |
+
+- **Rulings battery:** 53 sentences, the first entry's 43 with "call Mom"
+  now an event, plus 10 call and written-message sentences. Both the tagger
+  and the router get 53/53; 2 of them reached the model.
+- **Unit suite:** 2,420 passed, 2 skipped, 1 xfailed. That includes 17 new
+  tests in `tests/unit/test_engine_kind_router.py`.
+
+**Caveats:**
+
+- v2's TEST gain is mostly the frames its voices share across halves ("make a
+  note to …", "need to …" with no "i").
+- FastRule TEST, with families unseen in training, is the honest
+  generalisation read: +64 of 905.
+- One firm path is weak and stays rule-decided by design: `dated_anchor` is
+  37.5% right on 24 TRAIN items.
+
+**Whole-chain gates.** Router off against on at one working tree (HEAD
+9aaf038 plus this change), switched per process by `MACALENDAR_KIND_ROUTER=0|1`,
+one model job at a time. Checkpoints were scratched.
+
+| board | split · n | metric | router OFF | router ON | net |
+|---|---|---|---|---|---|
+| Board D v2, seeded (`-n 1200 --split train`) | TRAIN · 1,200 | correct (action and title), loop off | 93.2% (1,118) | **93.8% (1,126)** | 8 fixed, 0 broken (22 rows changed) |
+| | | correct, loop on | 93.2% | **93.8%** | 8 fixed, 0 broken |
+| | | latency, loop-off arm, p50 / p95 | 0.03 s / 5.48 s | 0.03 s / 5.49 s | — |
+| real usage (`scripts.real_usage_board`, seed 17) | all 76 reviewed commands | corrected reachable-fields | 25.0% (n=16) | 25.0% | 0 created objects differ on 76 commands |
+| | | approved unchanged | 64.7% (n=17) | 64.7% | |
+| | | rejected changed | 88.1% (n=42) | 88.1% | |
+
+**The Board D fixes:**
+
+- 2 are `s_ct_note_to_self` ("note to self, book a flight").
+- 6 are `s_dt_scrap_task` ("scrap the X task"). The item went from a
+  catch-all event to a to-do, so the converter reached the delete. Some of
+  those titles are only partly right ("scrap the book"). `_correct`'s
+  content-word overlap accepts them, and that is a scorer property, not a
+  win to over-read.
+
+**Real usage** is identical to the committed 11:43 reading, with 47 fast and
+27 deep rows. None of Gil's reviewed commands reaches the router with an
+answer different from the tagger's.
+
+Records:
+
+- Board D: `llmjudge/experiments/runs/board_d_train_1200_20260924T1848.json`
+  (router off) and `…T1940.json` (router on).
+- Real usage: `DOCUMENTATION/experiments/real_usage/RESULTS.md`, the router-on
+  arm; the off arm is identical.
+
+**What each arm ran, and the attribution.**
+
+- **Board D:** both arms started from the 9aaf038 working tree (17:59 and
+  18:49). Two engine commits landed during the router-on arm:
+  - 28cc8bc, at 19:06: model_protocol yields to live traffic;
+  - 1b1d6cb, at 19:13: Q48, commit the ready objects first.
+
+  A running process had already imported that code, and Board D calls
+  `parse` and `judge` directly, not `run`, which is where Q48 lives.
+
+  **All 22 changed rows are explained by a router move.** Re-segmenting each
+  row, every one has an item that reached the model and changed kind. So the
+  +8 belongs to the router.
+- **Real usage:** both arms ran after 1b1d6cb, at 19:40 and 19:47, so the two
+  arms are at one commit.

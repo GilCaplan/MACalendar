@@ -201,6 +201,9 @@ engine:
                              # (clients that support it only)
   reconcile: always          # step 6 on the fast track: always | uncertain (decided by telemetry)
   fast_track: true           # false = every command takes the foreground deep track
+  kind_router: true          # event or to-do when NO rule decided: a small sklearn model
+                             # (decompose_validate/kind_router.py); false = the tagger's
+                             # catch-all "event" stands. Rules always win where one fired.
   coalesce_max_tokens: 300   # step 0: queued commands coalesced into one input up to this budget
   max_event_hours: 4.0       # a create_event the engine itself builds longer than this gets its
                              # end_time clipped back; never applied to a manual GUI edit
