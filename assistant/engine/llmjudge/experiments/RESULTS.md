@@ -1848,3 +1848,54 @@ to lose 6 rows in 1,200. The 40 wrong-kind rows stay where they are — the
 converter's — and the next kind work is deterministic, on the converter's
 own board, or waits for a model that reads "remind me to" as a to-do. No
 REBUILD route is brought to Gil, because nothing measured wants one.
+
+## H2, H6 and H4's condition, read off the seeded checkpoint (2026-09-22, 22:05) — no model run
+
+All from `board_d_c44` (1,200 train, seeded), Board D's own scorer.
+
+**H2 — the round selector: refuted by its fire rate.** It fires only where
+two or more rounds produced different objects for one ask. Rows with two
+or more re-entries: **1 of 1,200** ("move this to a week from today, i
+don't remember the name" — both arms right, a refusal). Rows where the
+arms differ at all: 2, both right either way. A selector's ceiling on this
+corpus is 0 rows; there is nothing for it to select between. It stays
+registered for the v2 set's merged-ask cases, which is the only place two
+rounds disagree by construction.
+
+**H6 — the model round we already have: fires on 10 rows (0.8%), net 0.**
+On all 10 both arms are right; on 9 the ON objects equal the OFF objects
+(seven are generic-target refusals scored right since cycle 43, three are
+"book an apointment for X" rows where the round returned the same title);
+on 1 it trimmed "appointment for workout session" to "workout session",
+which the scorer counts the same. So tier 2 costs the p95 gap (OFF 5.9 →
+ON 6.9 s on the rows that loop) and moves nothing the scorer can see. Its
+verdict is a latency question, not a correctness one, and the fair test is
+the real-usage board, where the rows that reach it are Gil's.
+
+**H4 — the operation, when the words carry both: the condition is badly
+aimed.** "A create verb and a change verb, or an anaphor, both present"
+fires on **177 of 1,200 (14.8%)**, and the built object is right on 163 of
+them (92.1%). Of the 40 wrong-OPERATION rows on the board the condition
+catches **8**; the other 32 carry one verb. A perfect model under this
+condition nets +14 at most; a Llama 8B reading of H3's quality (65%) would
+break ~60 to fix ~9. The probe (§7.5's rule: every hypothesis gets its
+number) runs after the confirmation board; it is not expected to pay. What
+the fired-and-wrong rows do show is DETERMINISTIC: five of the fourteen are
+one shape — a create FRAME wrapping a change verb, "add cancel the
+subscription to my list", "remind me to cancel the subscription in two
+days" — built as `delete_todo "the subscription"`. The frame says create;
+the verb inside the title is the title's. That is the front door's
+precedence, harm class 4 (a wrong delete), and it is cycle 45, on FastRule's
+own board first.
+
+**Cycle 44b — the per-item builder's copy of the gate, boarded alone and
+REVERTED** (2026-09-22, 22:35; record `runs/board_d_train_1200_20260922T2235.json`).
+The builder gate was committed with cycle 44 and boarded after it, on its own:
+OFF 91.2 → 91.1%, ON 91.2 → 91.1% (1094 → 1093), 0 fixed / 0 broke; the one
+row that moved is the cycle's own target, "um can you just delete that one
+for me", which the builder's refusal turned into an `unknown` object instead
+of the judge's reasoned refusal ("I couldn't tell what to call it"). Nothing
+reached the builder that the judge's gate did not already refuse, so the copy
+bought nothing and cost the better reply. Reverted, with its test; the front
+door's and the judge's arms stay. One change per board run is how this was
+visible at all.
