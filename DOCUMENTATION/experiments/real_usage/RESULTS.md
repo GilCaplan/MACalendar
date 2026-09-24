@@ -1,21 +1,21 @@
 # Real-usage board
 
-_Run 2026-09-22 15:17. `python -m scripts.real_usage_board`._
+_Run 2026-09-24 11:08. `python -m scripts.real_usage_board`._
 
 > Guard passed: no real store changed during the run.
 
 ## The headline
 
-**Corrected tier, every REACHABLE field right: 20.0% (n=15 of 16)** — a field is scored only where the gold value is one a parse of the words could produce (`intent/correction.py`: unchanged, or a title whose words were said, or a clock on the five-minute grid); 1 rows have no reachable field at all. Item count right on 73.3%. Read by hand mark alone, as the 2026-09-18 headline was: 22.2% (n=9).
+**Corrected tier, every REACHABLE field right: 18.8% (n=16 of 17)** — a field is scored only where the gold value is one a parse of the words could produce (`intent/correction.py`: unchanged, or a title whose words were said, or a clock on the five-minute grid); 1 rows have no reachable field at all. Item count right on 75.0%. Read by hand mark alone, as the 2026-09-18 headline was: 22.2% (n=9).
 
 ### Per field, corrected tier
 
 | field | right | scored |
 |---|---|---|
-| title | 38.9% | 18 |
-| date | 77.8% | 18 |
-| start_time | 64.7% | 17 |
-| end_time | 58.8% | 17 |
+| title | 45.0% | 20 |
+| date | 80.0% | 20 |
+| start_time | 68.4% | 19 |
+| end_time | 57.9% | 19 |
 | recurrence | — | 0 |
 | recur_until | — | 0 |
 
@@ -86,7 +86,7 @@ Two full replays of the same 73 rows on unchanged code, 2026-09-18:
 
 | parse path | n | p50 | p95 |
 |---|---|---|---|
-| deep | 26 | 4.7s | 46.9s |
+| deep | 27 | 4.9s | 45.8s |
 | fast | 47 | 0.1s | 0.1s |
 | ignored | 2 | 0.0s | 0.0s |
 
@@ -127,6 +127,8 @@ No parse produces that, and scoring it would cap this metric forever and blame t
   - Movie at Lincoln Square tomorrow, AMC, 11.15 AM tomorrow, execute.
 - id=223 [disfluency] count 4/4, wrong: title
   - I need to buy some ice, I need to buy green onion, and I also need to 
+- id=248 [?] count 2/2, wrong: end_time
+  - I need to walk Jada at 2pm and 5pm today, execute.
 
 ### Approved, no longer reproduced (a regression against a blessed command)
 
@@ -619,3 +621,29 @@ dev-100: 78 → 77% count-correct, F1 84.0 → 83.5, field quality 88.8 → 88.4
 convention: a date-less clock whose gold says today. The count row is *"Take
 the list off."* — a deep-path row the model answers differently across a gap
 (cycle 34), untouched by anything in this cycle.
+
+# Run 10 — 2026-09-24, after LLMJudge cycles 41–45
+
+Fresh replay, guard passed, 11:08. **The corpus grew by one command** (76
+reviewed: 17 corrected, 17 approved, 42 rejected — the new row is id=248, "I
+need to walk Jada at 2pm and 5pm today", his own review), so this is not the
+same set as run 9 and a tier-level delta mixes the new row with the code change.
+
+| corrected tier | run 9 (16 rows) | run 10 (17 rows) |
+|---|---|---|
+| every reachable field right | 20.0% (15 scored) | 18.8% (16 scored) |
+| item count right | 73.3% | 75.0% |
+| title, reachable | 38.9% (18) | **45.0% (20)** |
+| date | 77.8% (18) | 80.0% (20) |
+| start_time | 64.7% (17) | 68.4% (19) |
+| end_time | 58.8% (17) | 57.9% (19) |
+
+Approved unchanged 64.7% (n=17); rejected-changed 88.1% (n=42); Q41 generic
+title 90.5% (19/21) unchanged. Deep path 27 rows, p50 4.9 s, p95 45.8 s.
+
+**What it means.** Cycles 41–45 were aimed at the judge and at wrong deletes
+on the constructed corpus; on Gil's own speech they moved nothing that the
+one new row does not explain — no regression, and the field readings edged
+up. The new row is a to-do-shaped walk with two clocks read as one event
+with a wrong end: the "two clocks on one item" class that is 15% of Board D's
+remaining misses, now seen in his own words.
