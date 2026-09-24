@@ -1927,3 +1927,28 @@ now the to-do asked for (three of them inside compound commands, where the
 other asks were already right). The ninth is cycle 44b's revert: "um can you
 just delete that one for me" is back to the reasoned refusal. **Actual vs
 expected: as predicted; 8 wrong deletes removed from 1,200 rows.**
+
+## Q47 — a person on a stated day is an event (2026-09-24, 16:03)
+
+Gil's ruling (DEVQA Q47): no clock -> a to-do due that day ("remind me to water
+the garden this evening"); seeing a PERSON on a stated day -> an event, 09:00
+when no clock was said. The first half already held on the whole chain. The
+second did not: segmentation cuts the day into the item's time before the kind
+tag runs, so "i should see Parker the 21st" was tagged a to-do, and "see mom"
+opened with the look-verb and read as a schedule question. Fix in segmentation
+(`fastseg._meets_a_person`, `kind._SEE_A_PERSON_RE`): a capitalised name as
+someone's argument or a kinship word you are WITH, on a stated day, promotes a
+to-do to an event; outreach verbs (call, email, text) do not.
+
+Segmentation's board (1,051 train rows, fastseg): identical on every line,
+kind tags included — its corpus has no such row. **Seeded Board D v2, 1,200
+train** (`runs/…T1603.json`): 1099 -> **1103** both arms; 14 rows changed, all
+to events: 9 encounters now right ("i should see Parker the 21st", "i need to
+talk to Drew on next wednesday"), 5 "remind me to call Morgan tomorrow" now
+WRONG — the outreach check read the head verb ("remind"), not the verb behind
+the frame. Fixed in the same change (`_OUTREACH_AFTER_FRAME`) and verified on
+all 14 sentences through the chain, model-free: the 5 calls are to-dos again,
+the 9 encounters stay events — **expected 1108/1200 (92.3%)**, confirmed on the
+next full run. None of the day's other front-door changes (weekday list,
+passed clock, bare noun) moved a Board D row. "Call Mom tomorrow" under Q47
+is put back to Gil.

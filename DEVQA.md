@@ -1,3 +1,20 @@
+- **2026-09-24 — Q47 (NO CLOCK -> A TO-DO; A PERSON ON A DAY -> AN EVENT)**, Gil,
+  asked about the two sentences the engine and the Board D key disagreed on:
+  *"If there's no time involved, then it can just be a to-do due today. But if
+  there's a time on it, like 6 p.m., then make an event for it... if there's a
+  given time and we know what day it is, then it should definitely be an
+  event. Because that way, also, the person can see it on the notifications."*
+  And: *"for question B, I think given a person, it should be an event no
+  matter what. So if the time isn't given, you just say like default time 9
+  a.m. Then the person can edit it or fix it however they want."*
+  So: (A) a part of the day ("this evening", "tonight", "in the morning") is
+  NOT a time — "remind me to water the garden this evening" is a to-do due
+  today; a clock ("at 6pm") is, and makes an event (Q25 stands). (B) seeing a
+  PERSON on a stated day is an event, 09:00 when no clock was said. Read as
+  needing a day: "call Mom" with no day stays a to-do (the tutorial's own
+  example); whether "call Mom tomorrow" is an event under B was put back to
+  him. He also raised showing to-dos on the phone's notifications — noted as
+  an idea to design, not built.
 # DEVQA — async questions for Gil
 
 Instead of interrupting with prompts, questions live here; answer inline

@@ -1153,9 +1153,48 @@ def tag(action: str, time_str: str) -> str:
         real_time = (time_str or "").strip().lower() not in ("", "today")
         if real_time and (_ANCHORED_TO_EVENT.search(action)
                           or _MEETING_HEAD.search(action)
-                          or _ON_THE_BOOKS.search(action)):
+                          or _ON_THE_BOOKS.search(action)
+                          or _meets_a_person(action)):
             return "event"
     return kind
+
+
+#: The people a speaker names without a capital letter.
+_KIN = (r"mom|mum|mommy|mother|dad|daddy|father|parents|grandma|grandpa|"
+        r"grandmother|grandfather|bubbie|saba|savta|sister|brother|wife|husband|"
+        r"son|daughter|aunt|uncle|cousin|boss|doctor|dr|rabbi|teacher|friend|friends")
+#: A kinship word as the one you are WITH — not merely mentioned: "buy a gift
+#: FOR mom tomorrow" is an errand, "see mom", "pick up my sister", "lunch
+#: with dad" are encounters.
+_KIN_RE = re.compile(
+    rf"\b(?:see|visit|meet|with|pick\s+up|drop\s+off|drive|take|hang\s+out\s+with|"
+    rf"talk\s+to|speak\s+(?:to|with))\s+(?:my\s+|the\s+)?(?:{_KIN})\b", re.I)
+
+
+def _meets_a_person(action: str) -> bool:
+    """Q47 (Gil, 2026-09-24): *"given a person, it should be an event no
+    matter what. So if the time isn't given, you just say like default time 9
+    a.m."* — read as a person ON A STATED DAY (the caller checks the day).
+
+    "i should see Parker the 21st" stayed a to-do: segmentation cuts "the
+    21st" into the time before this tag runs, so the dated-encounter rule in
+    `kind._enforce_pinned_kinds` never saw a date, and this promotion fired
+    only on "meet". A person is a capitalised name as someone's argument
+    (`_has_person_argument`, which already refuses the outreach verbs) or a
+    kinship word ("see mom"). Outreach verbs — call, email, text — are not an
+    encounter and stay to-dos; whether "call Mom tomorrow" is one was put back
+    to Gil."""
+    if _head_is_outreach_verb(action) or _OUTREACH_AFTER_FRAME.search(action):
+        return False
+    return _has_person_argument(action) or bool(_KIN_RE.search(action))
+
+
+#: The outreach verb behind a reminder frame — "remind me to CALL Morgan
+#: tomorrow". `_head_is_outreach_verb` reads the head ("remind") and let five
+#: of these through as events on the first seeded run.
+_OUTREACH_AFTER_FRAME = re.compile(
+    r"\b(?:remind\s+\w+\s+to|need\s+to|have\s+to|should|gotta|must|want\s+to)\s+"
+    r"(?:call|email|text|message|ping|write|send|phone|ring)\b", re.I)
 
 
 # ---------------------------------------------------------------------------
