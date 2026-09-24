@@ -2349,6 +2349,70 @@ def names_something(title: str, bare_kind_is_a_name: bool = True) -> bool:
                for w in words)
 
 
+_NAMES_ANOTHER_DAY_RE = re.compile(
+    r"\b(?:mon|tues|wednes|thurs|fri|satur|sun)day\b|\btomorrow\b|\bnext\b"
+    r"|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b"
+    r"|\b\d{1,2}(?:st|nd|rd|th)\b|\bin (?:a|an|one|two|three|four|five|six|\d+) "
+    r"(?:days?|weeks?|months?)\b", re.I)
+
+#: Imperatives spaCy sometimes tags as nouns at the head of a short sentence.
+_BARE_LEAD_VERBS = frozenset(
+    "take do go get call pick walk clean pay buy cook wash finish send email "
+    "text check make fix bring drop order return renew print water feed".split())
+
+
+def _bare_noun_event(span, temporal: dict) -> bool:
+    """Does this span OPEN with a noun and name a day or a clock? — the shape
+    `analyze` routes to create_event when no verb mapped. A question, a
+    pronoun or a leading verb never qualifies; the words left once the time is
+    taken must name something (Q38's gate)."""
+    if not (temporal.get("date") or temporal.get("start_time")):
+        return False
+    text = span.text.strip()
+    if not text or "?" in text:
+        return False
+    toks = [t for t in span if not t.is_punct and t.lower_ not in
+            ("um", "uh", "so", "ok", "okay", "hey", "please", "just", "the", "a", "an", "my", "our")]
+    if not toks or toks[0].pos_ not in ("NOUN", "PROPN", "ADJ"):
+        return False
+    # NO VERB ANYWHERE. A verb the router could not map ("vet appointment
+    # TAKES all day", "take the medicine at 9" when spaCy tags the imperative
+    # as a noun) is a sentence this rule cannot title honestly — it kept
+    # "takes" in the title — so the model keeps it.
+    if any(t.pos_ in ("VERB", "AUX") or t.tag_ in ("VB", "VBP", "VBZ", "VBD")
+           for t in span if not t.is_punct):
+        return False
+    if toks[0].lemma_.lower() in _BARE_LEAD_VERBS:
+        return False
+    # A MISHEARD COMMAND VERB is not a noun: "shedule physical therapy for next
+    # tuesday" titled itself 'shedule physical therapy'. A lead word one slip
+    # from a verb the router knows goes to the model, which reads the verb.
+    import difflib
+    if difflib.get_close_matches(toks[0].lower_, _IMPERATIVE_VERB_LEMMAS, n=1, cutoff=0.8):
+        return False
+    # THE WORDS NAME A DAY BUT THE READING LANDED ON TODAY — the recogniser
+    # lost the day, as it does after a clock range: "birthday dinner from 6 to
+    # 8 next monday", "blood test from 3 to 4pm march 5th" both came back as
+    # today. The model reads those right; this rule does not guess.
+    from assistant.intent import recurrence as _recur
+    if (not _recur.detect(text)          # a series takes its start from the cadence
+            and temporal.get("date") in (None, "", datetime.date.today().isoformat())
+            and _NAMES_ANOTHER_DAY_RE.search(text)
+            and not re.search(r"\b(?:today|tonight|this (?:morning|afternoon|evening))\b", text, re.I)):
+        return False
+    if toks[0].lower_ in ("what", "when", "which", "who", "where", "how", "it", "this", "that"):
+        return False
+    title = _subtractive_title(text, temporal.get("spans"))
+    # TIME RESIDUE IN THE TITLE means the time words were not all read —
+    # "open house between 5 and 6:30 at the end of the month" left "open house
+    # between 5" and a wrong clock. Then the reading is not trusted and the
+    # model keeps the sentence.
+    if re.search(r"\d|\b(?:between|from|until|till|at|on|in|by|before|after|around|to)\b",
+                 title or "", re.I):
+        return False
+    return bool(title) and names_something(title)
+
+
 def _subtractive_title(span_text: str, temporal_spans) -> str:
     """The title as what REMAINS once every other reader has taken its words."""
     spans = list(temporal_spans or [])
@@ -3231,6 +3295,19 @@ class RuleBasedParser:
 
             # Phase 3: Intent/domain routing
             action_name, _, domain_inferred, domain_material = _route_intent(span, current_view)
+            if action_name is None and len(spans) == 1 and _bare_noun_event(span, temporal):
+                # A BARE NOUN WITH A DAY OR A CLOCK IS AN EVENT (2026-09-24).
+                # "Dentist tomorrow at 4", "vet appointment takes all day march
+                # 5th", "team meeting in three weeks, all day" carry no verb for
+                # the router to map, so every one DEFERRED to the model — which
+                # reads them right, several seconds later (found verifying the
+                # tutorial; 55 such event rows in the FastRule train half). Only
+                # when the sentence OPENS with a noun: a verb it cannot map
+                # ("take the medicine at 9", "do the laundry") is still the
+                # model's, because those are mostly to-dos. Routed as INFERRED,
+                # so the ×0.85 channel and the front-door threshold still
+                # guard the commit.
+                action_name, domain_inferred, domain_material = "create_event", True, True
             if action_name is None:
                 if len(spans) == 1:
                     raise RuleParserSkip(f"No action matched for: {span.text!r}")

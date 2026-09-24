@@ -1479,3 +1479,38 @@ harm 106, resolvable-date right 91.6% (n=777), explicit time right 79.5%
 (n=527) — all unchanged. The scorer counts a `generic_target` row's literal
 phrase as its title, so a refusal reads as a deferral here; Board D's scorer
 follows Q38 since cycle 43 and this one should too (registered).
+
+## A bare noun with a day or a clock is an event (2026-09-24)
+
+Filed by the tutorial work: "Dentist on the 15th at 4", "Dentist tomorrow",
+"Yoga every Tuesday and Thursday at 6pm" carried no verb for the router and
+DEFERRED — the model reads them right, seconds later, and with the model down
+the reply was "Sorry, I couldn't read this part: “Dentist”". 69 train rows
+failed the router this way (55 gold events, 14 gold to-dos led by a verb it
+cannot map). Change (`rule_parser._bare_noun_event`): a single span with no
+routed action, that OPENS with a noun, holds no verb anywhere, names a day or
+a clock, leaves no time words in its title, and whose lead word is not one
+slip from a known command verb, routes to create_event as INFERRED (×0.85,
+so the threshold still guards). A sentence whose words name another day but
+whose reading landed on today is refused — the recogniser loses the day
+after a clock range ("birthday dinner from 6 to 8 next monday"). Each guard
+was added for a train row the first cut got wrong.
+
+Product-shape board, both halves (TRAIN 4,800 rows / 3,200 atomic; TEST 2,400
+/ 1,472 atomic, aggregates only), before → after:
+
+| | TRAIN | TEST |
+|---|---|---|
+| handled (atomic) | 76.8 → **77.1%** | 67.6 → **68.7%** |
+| correct-on-handled | 96.4 → 96.4% | 76.9 → 76.8% |
+| resolvable date right | 91.6% (777) → 91.7% (783) | 91.4% (292) → 91.4% (301) |
+| title exactly right | 61.4% (1,786) → 61.6% (1,795) | 33.4% (637) → 32.9% (648) |
+| harm | 106 → 106 | 236 → **241** (5 more wrong creates) |
+
+**What it means.** The two primary measures hold on both halves: 10 more
+atomic rows handled on train with no new wrong commit, 16 more on test at
+about the half's own accuracy. The cost is on the test half — 5 more wrong
+creates (harm weight 1 each), mostly titles; those rows went to the model
+before, which reads them better and slower. Kept on the primary pair, with
+the harm said plainly; the real-usage board is the gate that decides whether
+it stays.

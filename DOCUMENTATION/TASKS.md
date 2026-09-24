@@ -1705,7 +1705,7 @@ each is a stage's own work, boarded on that stage first:
   calls under the flag. `tests/conftest.py` says unit tests "must never reach
   a live model"; this one door makes that untrue whenever ollama is running,
   and a board that relied on the flag measured model-assisted rows.
-- **A bare leading noun defers to the model where a verb does not.** "Dentist
+- **NARROWED 2026-09-24** (`_bare_noun_event`: a bare noun with a day or clock commits on the fast path; FastRule RESULTS has both halves). **A bare leading noun defers to the model where a verb does not.** "Dentist
   on the 15th at 4", "Dentist in two weeks at 4", "Dentist tomorrow" and
   "Yoga every Tuesday at 6pm" all DEFER (and with the model shut out, "Sorry,
   I couldn't read this part: “Dentist”"), while the same sentences opening
