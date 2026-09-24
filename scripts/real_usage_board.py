@@ -480,12 +480,14 @@ def score(replayed: list, rows: list, taxonomy: dict) -> dict:
             # typed title threw away the row's derivable date and clock.
             hand = bool(mark.get("gold_usable", False))
             reach = []
+            # RECOMPUTED, never read back from the stored review (2026-09-24):
+            # the annotation was written by the rule of its day, and a rule
+            # fixed since — an end time now needs words that give an end —
+            # must apply to every row alike, or old reviews score by the old
+            # rule and new ones by the new.
             for i, g in enumerate(gold):
-                if isinstance(g.get("reachable"), dict):
-                    reach.append(g["reachable"])
-                else:
-                    base = then[i] if i < len(then) else {}
-                    reach.append(_corr.reachable_fields(row["said"], base, g))
+                base = then[i] if i < len(then) else {}
+                reach.append(_corr.reachable_fields(row["said"], base, g))
             count_ok = len(produced) == len(gold)
             per_field, unreachable, scored_any = {}, [], False
             all_ok = count_ok and bool(gold)

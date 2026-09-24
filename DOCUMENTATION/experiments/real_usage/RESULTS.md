@@ -1,12 +1,12 @@
 # Real-usage board
 
-_Run 2026-09-24 11:41. `python -m scripts.real_usage_board`._
+_Run 2026-09-24 11:43. `python -m scripts.real_usage_board`._
 
 > Guard passed: no real store changed during the run.
 
 ## The headline
 
-**Corrected tier, every REACHABLE field right: 18.8% (n=16 of 17)** — a field is scored only where the gold value is one a parse of the words could produce (`intent/correction.py`: unchanged, or a title whose words were said, or a clock on the five-minute grid); 1 rows have no reachable field at all. Item count right on 75.0%. Read by hand mark alone, as the 2026-09-18 headline was: 22.2% (n=9).
+**Corrected tier, every REACHABLE field right: 25.0% (n=16 of 17)** — a field is scored only where the gold value is one a parse of the words could produce (`intent/correction.py`: unchanged, or a title whose words were said, or a clock on the five-minute grid); 1 rows have no reachable field at all. Item count right on 75.0%. Read by hand mark alone, as the 2026-09-18 headline was: 22.2% (n=9).
 
 ### Per field, corrected tier
 
@@ -15,7 +15,7 @@ _Run 2026-09-24 11:41. `python -m scripts.real_usage_board`._
 | title | 45.0% | 20 |
 | date | 85.0% | 20 |
 | start_time | 68.4% | 19 |
-| end_time | 57.9% | 19 |
+| end_time | 64.7% | 17 |
 | recurrence | — | 0 |
 | recur_until | — | 0 |
 
@@ -105,7 +105,7 @@ No parse produces that, and scoring it would cap this metric forever and blame t
 
 - id=46 [compound] count 2/4, wrong: title, date, start_time, end_time
   - Right, set an event for today at 3.45 pm, which are already past, Walk
-- id=47 [other] count 1/1, wrong: start_time, end_time; unreachable: title
+- id=47 [other] count 1/1, wrong: start_time; unreachable: end_time, title
   - Set a meeting for 10 a.m. tomorrow morning, execute.
 - id=49 [other] count 1/1, wrong: date; unreachable: title
   - I had an event on the 17th of September, from 7 p.m. to 10 p.m. going 
@@ -127,8 +127,6 @@ No parse produces that, and scoring it would cap this metric forever and blame t
   - Movie at Lincoln Square tomorrow, AMC, 11.15 AM tomorrow, execute.
 - id=223 [disfluency] count 4/4, wrong: title
   - I need to buy some ice, I need to buy green onion, and I also need to 
-- id=248 [?] count 2/2, wrong: end_time
-  - I need to walk Jada at 2pm and 5pm today, execute.
 
 ### Approved, no longer reproduced (a regression against a blessed command)
 
@@ -659,3 +657,22 @@ The path split is unchanged (27 deep / 47 fast), so the bare-noun rule took
 none of his 76 — his commands open with a verb. Deep-path p95 45.8 → 26.4 s
 is the model's variance (unseeded), not a change. **No regression; the three
 front-door fixes are kept.**
+
+# Instrument change — 2026-09-24: an end time is reachable only when the words give an end
+
+Reading Gil's newest review (id=248, "I need to walk Jada at 2pm and 5pm
+today") for the two-clocks class: the engine made both walks right; his only
+change was the first walk's END, 15:00 → 14:30. `correction.reachable_fields`
+called that reachable because 14:30 sits on the five-minute grid — charging
+the engine for a length no word stated. An end time now counts as reachable
+only when the words give an end (a clock range, "until", or a duration), and
+the board RECOMPUTES reachability for every row instead of reading the
+annotation stored at review time, so old and new reviews score by one rule.
+
+Re-scored from run 11's replay (no model run): **corrected tier,
+every-reachable-field 18.8 → 25.0% (n=16)**, end_time 57.9% (19 scored) →
+64.7% (17) — two end times dropped out as unreachable. Every other line
+identical. **This is the ruler moving, not the engine**: the two-clocks
+reading on Gil's own speech was already right, and the class stays open only
+on Board D's constructed gold, whose convention (two clocks on a to-do = one
+to-do) is its own and not a ruling.

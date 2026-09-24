@@ -96,3 +96,16 @@ def test_a_reader_that_only_wants_action_and_parameters_is_unaffected(tmp_path):
     m.set_feedback(ex, FEEDBACK_CORRECTED, _gold(title="y"))
     stored = m.get(ex)["correction"][0]
     assert set(stored) >= {"action", "parameters"}
+
+
+def test_an_end_time_is_reachable_only_when_the_words_give_an_end():
+    """2026-09-24: Gil's "walk Jada at 2pm", corrected to end at 14:30, was
+    scored reachable because 14:30 sits on the five-minute grid. Nothing in
+    the words states a length; the default hour is the honest answer."""
+    from assistant.intent.correction import reachable_fields
+    then = {"action": "create_event", "parameters": {"start_time": "14:00", "end_time": "15:00"}}
+    gold = {"action": "create_event", "parameters": {"start_time": "14:00", "end_time": "14:30"}}
+    assert reachable_fields("I need to walk Jada at 2pm today", then, gold)["end_time"] is False
+    assert reachable_fields("walk Jada from 2 to 2:30pm", then, gold)["end_time"] is True
+    assert reachable_fields("walk Jada at 2pm for 30 minutes", then, gold)["end_time"] is True
+    assert reachable_fields("walk Jada at 2pm for half an hour", then, gold)["end_time"] is True

@@ -87,6 +87,16 @@ def changed_fields(then_action: dict, gold_action: dict) -> list:
     return out
 
 
+#: Words that state where something ends or how long it lasts: a clock range
+#: ("2 to 3", "2-3pm", "until 5") or a duration ("for 30 minutes", "half an
+#: hour", "an hour").
+_GIVES_END = re.compile(
+    r"\d\s*(?::\d\d)?\s*(?:am|pm|a\.m\.|p\.m\.)?\s*(?:-|–|to|until|till|through)\s*\d"
+    r"|\b(?:until|till)\b"
+    r"|\bfor\s+(?:\d+|an?|one|two|three|four|five|half|a half)\s*(?:an?\s+)?(?:min|mins|minutes?|hours?|hrs?)\b"
+    r"|\bhalf an hour\b|\b\d+\s*(?:min|mins|minutes|hours?|hrs?)\b", re.I)
+
+
 def reachable_fields(said: str, then_action: dict, gold_action: dict) -> dict:
     """Per field: can a parser of the words have produced the correction's value?"""
     changed = set(changed_fields(then_action, gold_action))
@@ -98,8 +108,15 @@ def reachable_fields(said: str, then_action: dict, gold_action: dict) -> dict:
         elif f == "title":
             words = _content(str(gp.get("title") or ""))
             out[f] = bool(words) and all(w in _words(said) for w in words)
-        elif f in ("start_time", "end_time"):
+        elif f == "start_time":
             out[f] = _on_spoken_grid(norm(f, gp.get(f)))
+        elif f == "end_time":
+            # AN END TIME NEEDS WORDS THAT GIVE AN END (2026-09-24). On the
+            # grid alone is not enough: "walk Jada at 2pm", corrected to end at
+            # 14:30, was scored reachable, charging the engine for a length
+            # nothing in the words stated — the default hour is the only
+            # honest answer to a sentence that names only a start.
+            out[f] = _on_spoken_grid(norm(f, gp.get(f))) and bool(_GIVES_END.search(said or ""))
         elif f == "date":
             out[f] = False
         else:
