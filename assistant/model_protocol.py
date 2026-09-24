@@ -109,7 +109,7 @@ BACKGROUND = "background"
 #: command stamps a file as it starts and around each of its model calls, and a
 #: background caller waits for the stamp to go quiet before starting its next
 #: call. A call already in flight cannot be interrupted; nothing new starts.
-LIVE_QUIET_S = 20.0
+LIVE_QUIET_S = float(os.environ.get("MACALENDAR_LIVE_QUIET_S") or 20.0)
 
 
 def _live_stamp() -> pathlib.Path:

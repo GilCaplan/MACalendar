@@ -39,6 +39,11 @@ _os.environ.setdefault("MACALENDAR_NO_WARMUP", "1")
 # reading", so refusing here keeps the suite fast and deterministic. Tests of
 # the LLM paths monkeypatch assistant.engine.llm.call_json instead.
 _os.environ.setdefault("MACALENDAR_LLM_DISABLED", "1")
+# The live-quiet window (model_protocol.LIVE_QUIET_S, 20 s in real use): a test
+# that runs a command as a real device stamps it, and every BACKGROUND call in
+# a later test — the integration gate's, a board's — then waited the full 20 s
+# (test_gate_forwards_to_upstream timed out on exactly that, 2026-09-24).
+_os.environ.setdefault("MACALENDAR_LIVE_QUIET_S", "0.2")
 # A test run is BACKGROUND traffic: if it ever does reach a model it
 # stands aside for the live assistant rather than racing it.
 _os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
