@@ -1,6 +1,6 @@
 # Real-usage board
 
-_Run 2026-09-24 11:08. `python -m scripts.real_usage_board`._
+_Run 2026-09-24 11:41. `python -m scripts.real_usage_board`._
 
 > Guard passed: no real store changed during the run.
 
@@ -13,7 +13,7 @@ _Run 2026-09-24 11:08. `python -m scripts.real_usage_board`._
 | field | right | scored |
 |---|---|---|
 | title | 45.0% | 20 |
-| date | 80.0% | 20 |
+| date | 85.0% | 20 |
 | start_time | 68.4% | 19 |
 | end_time | 57.9% | 19 |
 | recurrence | — | 0 |
@@ -86,8 +86,8 @@ Two full replays of the same 73 rows on unchanged code, 2026-09-18:
 
 | parse path | n | p50 | p95 |
 |---|---|---|---|
-| deep | 27 | 4.9s | 45.8s |
-| fast | 47 | 0.1s | 0.1s |
+| deep | 27 | 4.1s | 26.4s |
+| fast | 47 | 0.1s | 0.2s |
 | ignored | 2 | 0.0s | 0.0s |
 
 ## Why part of the corrected gold cannot be scored
@@ -647,3 +647,15 @@ one new row does not explain — no regression, and the field readings edged
 up. The new row is a to-do-shaped walk with two clocks read as one event
 with a wrong end: the "two clocks on one item" class that is 15% of Board D's
 remaining misses, now seen in his own words.
+
+# Run 11 — 2026-09-24 11:41, after the weekday list, the passed-clock fix and the bare-noun rule
+
+Fresh replay, guard passed, same 76 reviewed commands as run 10. **One field
+moved: date on the corrected tier, 80.0 → 85.0% (n=20)** — one more of Gil's
+corrected commands lands on the day he meant. Every other line is identical
+to run 10: every-reachable-field 18.8% (16 scored), count 75.0%, approved
+64.7% (n=17), rejected-changed 88.1% (n=42), generic title 90.5% (19/21).
+The path split is unchanged (27 deep / 47 fast), so the bare-noun rule took
+none of his 76 — his commands open with a verb. Deep-path p95 45.8 → 26.4 s
+is the model's variance (unseeded), not a change. **No regression; the three
+front-door fixes are kept.**
