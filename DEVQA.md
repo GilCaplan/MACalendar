@@ -181,6 +181,17 @@ before you rule:
   should be read against. Only Gil asking reopens it. Fixing a bug in the
   agenda card is not a redesign and needs no permission.
 
+  **2026-09-23, inside the locked shape (Gil asked).** His screenshot: the
+  card "when filled longer than whats in it, looks wonky and akward — should
+  be scrollable within". It was clipped: iOS cuts a lock-screen Live Activity
+  at 160 pt and the card drew up to five ~56 pt rows. A Live Activity cannot
+  scroll (no gestures, buttons only), so the agenda now shows TWO rows and a
+  "1–2 of 5 ⌄" button that steps down the day — still the agenda, still the
+  glow on current and next, no ticking number. He also asked how the card
+  updates: it rolls itself one step at its stale date, and the background
+  refresh is asked for at each boundary; exact updates with the phone locked
+  would need an APNs push, which is put to him rather than assumed.
+
 - **2026-09-17 — Q22: a RANGE date is asked about, never guessed** (Gil). What
   should `"book yoga class next week"` mean, when the recogniser hands back a
   span (21–28 Sep) and not a day? Options put to him were: take the soonest day,

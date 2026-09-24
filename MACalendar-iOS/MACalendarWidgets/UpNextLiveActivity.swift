@@ -6,10 +6,12 @@ import WidgetKit
 /// Live Activity: today's remaining agenda, with the current (or next) event
 /// picked out by a coloured glow rather than by a live-ticking number.
 ///
-/// Nothing here is system-animated. `context.state` is a snapshot the app
-/// pushed at some past sync point — see `LiveActivityManager` for when — and
-/// stays exactly as drawn until the next one, or until `staleDate` passes and
-/// iOS dims the whole card.
+/// Nothing here ticks. `context.state` is a snapshot the app pushed at some
+/// past sync point — see `LiveActivityManager` for when — and stays as drawn
+/// until the next one, with ONE exception: when `staleDate` passes, iOS redraws
+/// the card with `context.isStale` set, and the card rolls itself one step
+/// forward from the start and end times it already holds (`rolled(at:)`), so
+/// the event that just began reads "NOW" without the app waking.
 ///
 /// This target links nothing of the app's. Everything drawn here arrives in
 /// `UpNextAttributes.ContentState`, including each row's colour, already
@@ -17,7 +19,7 @@ import WidgetKit
 struct UpNextLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: UpNextAttributes.self) { context in
-            UpNextLockScreenView(state: context.state)
+            UpNextLockScreenView(state: Self.shown(context.state, stale: context.isStale))
                 // 0.34, down from 0.55. The card's own rows are glass now, and
                 // glass over a near-opaque black slab has nothing to refract —
                 // it read as a dark rectangle with lighter rectangles on it.
@@ -26,7 +28,7 @@ struct UpNextLiveActivity: Widget {
                 .activityBackgroundTint(Color.black.opacity(0.34))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
-            let state = context.state
+            let state = Self.shown(context.state, stale: context.isStale)
             let headline = state.headline
             let accent = Color(activityHex: headline?.colorHex ?? "") ?? .orange
 
@@ -82,6 +84,14 @@ struct UpNextLiveActivity: Widget {
             .keylineTint(accent)
         }
     }
+
+    /// What to draw: the pushed state, or — once its `staleDate` has passed
+    /// and nobody pushed a new one — that state rolled forward to the moment
+    /// it went stale. See `UpNextAttributes.ContentState.rolled(at:)`.
+    static func shown(_ state: UpNextAttributes.ContentState,
+                      stale: Bool) -> UpNextAttributes.ContentState {
+        stale ? state.rolled(at: state.staleDate) : state
+    }
 }
 
 // MARK: - Lock screen / banner
@@ -91,29 +101,78 @@ private struct UpNextLockScreenView: View {
 
     private var accent: Color { Color(activityHex: state.headline?.colorHex ?? "") ?? .orange }
 
+    // THE HEIGHT BUDGET. iOS cuts a lock-screen Live Activity at 160 pt, top
+    // and bottom alike. 11 + 11 padding, a 20 pt header and 7 of spacing take
+    // 49; a row is 7 + 7 padding around a 15 pt title (~17.9 pt line) and a
+    // 12 pt time line (~14.3), ~48 pt, so two rows and their 6 pt gap take
+    // ~102 — ~151 in all, 9 pt inside the limit. A third row does not fit at
+    // any size worth reading, which is why the card shows a window of
+    // `UpNextAttributes.visibleRows` and a button to step it.
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
-                Circle().fill(accent).frame(width: 6, height: 6)
-                Text(state.currentId != nil ? "NOW" : "UP NEXT")
-                    .font(.system(size: 10, weight: .bold))
-                    .tracking(0.8)
-                    .foregroundStyle(accent)
-                Spacer()
-                if state.items.count > 1 {
-                    Text("\(state.items.count) today")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.5))
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 9) {
-                ForEach(state.items) { item in
-                    AgendaRow(item: item, emphasis: state.emphasis(for: item))
+        VStack(alignment: .leading, spacing: 7) {
+            header
+            if state.window.isEmpty {
+                Text("Nothing else today")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.72))
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(state.window) { item in
+                        AgendaRow(item: item, emphasis: state.emphasis(for: item))
+                            // Stepping the window slides the rows up, like a
+                            // list scrolling, instead of swapping them in place.
+                            .transition(.push(from: .bottom))
+                    }
                 }
             }
         }
-        .padding(16)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+    }
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            Circle().fill(accent).frame(width: 6, height: 6)
+            Text(state.currentId != nil ? "NOW" : "UP NEXT")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(0.8)
+                .foregroundStyle(accent)
+            Spacer(minLength: 4)
+            if state.items.count > UpNextAttributes.visibleRows {
+                stepper
+            } else if state.items.count > 1 {
+                Text("\(state.items.count) today")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
+        }
+        .frame(height: 20)
+    }
+
+    /// "1–2 of 5 ⌄" — where the window is, and the button that moves it. The
+    /// whole label is the tap target, not just the chevron: a lock-screen
+    /// button this small needs every point of width it can get. Below iOS 17
+    /// there are no Live Activity buttons, so the position shows on its own.
+    @ViewBuilder
+    private var stepper: some View {
+        let label = HStack(spacing: 4) {
+            Text(state.positionLabel)
+                .font(.system(size: 10, weight: .semibold))
+                .monospacedDigit()
+            Image(systemName: "chevron.down")
+                .font(.system(size: 9, weight: .bold))
+        }
+        .foregroundStyle(.white.opacity(0.82))
+        .padding(.horizontal, 9)
+        .frame(height: 20)
+        .background(Capsule().fill(.white.opacity(0.14)))
+
+        if #available(iOS 17.0, *) {
+            Button(intent: UpNextScrollIntent()) { label }
+                .buttonStyle(.plain)
+        } else {
+            label
+        }
     }
 }
 
@@ -181,9 +240,9 @@ private struct AgendaRow: View {
                 )
                 .frame(width: 3)
                 .frame(maxHeight: .infinity)
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
-                    .font(.system(size: emphasis == .later ? 14 : 16,
+                    .font(.system(size: emphasis == .later ? 14 : 15,
                                   weight: emphasis == .later ? .medium : .semibold))
                     .foregroundStyle(.white.opacity(emphasis == .later ? 0.82 : 1))
                     .lineLimit(1)
@@ -201,8 +260,8 @@ private struct AgendaRow: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 11)
+        .padding(.vertical, 7)
+        .padding(.horizontal, 10)
         .background(rowGlass)
         .shadow(color: .black.opacity(lift), radius: emphasis == .current ? 10 : 5, y: 2)
     }

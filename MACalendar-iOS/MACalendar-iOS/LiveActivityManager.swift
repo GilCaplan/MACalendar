@@ -15,12 +15,19 @@ import os
 /// rest of the time. There is no live-ticking element left to justify on its
 /// own; the card is simply cheap to keep current.
 ///
-/// **The cost of no push.** Those handful of updates can only happen when iOS
-/// gives the app execution time: foregrounding, and the poll paths that already
-/// run while it is open. A card whose headline event started while the phone
-/// was locked therefore keeps saying "UP NEXT" until the app next wakes — so
-/// every card carries a `staleDate` (`ContentState.staleDate`) at exactly the
-/// moment it stops being true, and iOS dims it rather than letting it lie.
+/// **The cost of no push, and the three things that soften it** (2026-09-23).
+/// Updates can only happen when iOS gives the app execution time: foregrounding,
+/// and the poll paths that already run while it is open. So:
+///   1. Every card carries a `staleDate` at exactly the moment it stops being
+///      true, and when it passes iOS redraws the card with `isStale` set — at
+///      which point the card ROLLS ITSELF one step (`ContentState.rolled(at:)`):
+///      the event that just started reads "NOW", the one that ended drops off.
+///   2. The background refresh is asked for at that same boundary, not only at
+///      06:00 (`scheduleBackgroundRefresh(boundary:)`), so iOS has the chance
+///      to wake the app and push the real next picture. A request, not a timer.
+///   3. Opening the app always brings it current.
+/// The only exact mechanism is an APNs push from the Mac, which this project
+/// does not use (Q23); that stays Gil's call.
 ///
 /// Same inputs as `ReminderScheduler`: the `LocalStore` event cache and the
 /// device-local `remindersEnabled` toggle. It re-derives nothing about
@@ -160,9 +167,19 @@ final class LiveActivityManager {
     /// first ordinary `sync()` after 06:00 — a foreground, a poll, a tick —
     /// which is the path that actually carries it most mornings. Together:
     /// usually there when you first look, always there once you open the app.
-    static func scheduleBackgroundRefresh() {
+    static func scheduleBackgroundRefresh(boundary: Date? = nil) {
         let request = BGAppRefreshTaskRequest(identifier: refreshTaskID)
-        request.earliestBeginDate = nextRespawn(after: Date())
+        // The sooner of tomorrow's 06:00 and the card's next boundary (the
+        // moment its current picture stops being true). One pending request
+        // per identifier: submitting replaces the last, so this is called
+        // after every sync with the card's latest boundary.
+        let now = Date()
+        let respawn = nextRespawn(after: now)
+        if let b = boundary, b > now, b < respawn {
+            request.earliestBeginDate = b
+        } else {
+            request.earliestBeginDate = respawn
+        }
         do {
             try BGTaskScheduler.shared.submit(request)
         } catch {
@@ -248,6 +265,8 @@ final class LiveActivityManager {
 
         let content = ActivityContent(state: state, staleDate: state.staleDate)
         let live = Activity<UpNextAttributes>.activities
+        // Ask to be woken when this picture stops being true.
+        Self.scheduleBackgroundRefresh(boundary: state.staleDate)
 
         // Belt and braces: only one "Up Next" card is ever meaningful. If a
         // crash or a reinstall left more than one behind, keep the first and
@@ -413,6 +432,10 @@ final class LiveActivityManager {
     }
 
     /// Does this card show the same thing as that one?
+    ///
+    /// `offset` is deliberately NOT compared: it is where the user stepped the
+    /// card's window to with its button, and a sync that found the agenda
+    /// unchanged must leave it there rather than snap the card back to the top.
     @available(iOS 16.1, *)
     static func sameCard(_ a: UpNextAttributes.ContentState,
                          _ b: UpNextAttributes.ContentState) -> Bool {

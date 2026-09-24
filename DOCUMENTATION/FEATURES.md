@@ -884,7 +884,23 @@ It has **its own Settings toggle**, no longer riding on the reminders switch,
 and switching it back on clears a dismissal so you can have the card back
 today. Its rows are **Liquid Glass** on iOS 26 (`.glassEffect` tinted with the
 event's category colour) with a hand-built material + specular hairline below
-26. Also additive: a **"Show today's agenda now" button** in the phone's
+26. **Two rows at a time, stepped by a button** (2026-09-23, Gil's
+screenshot: *"when filled longer than whats in it, looks wonky and akward —
+should be scrollable within"*). iOS cuts a lock-screen Live Activity at 160
+pt, top and bottom, and the card drew every item (up to five) at ~56 pt a
+row, so with three events the header vanished and the third row was cut in
+half. A Live Activity cannot scroll — it is an archived snapshot whose only
+input is a button — so the card shows a window of two rows (~151 pt) and,
+when the day holds more, a "1–2 of 5 ⌄" button (iOS 17+, `UpNextScrollIntent`)
+that steps the window down one row with a push transition and wraps to the
+top. A sync that finds the agenda unchanged leaves the step where it is.
+**It rolls itself once without the app:** when the card's stale date passes,
+iOS redraws it with `isStale`, and the card works the next picture out from
+the start and end times it already holds — the event that just began reads
+NOW, the one that ended drops off (`ContentState.rolled(at:)`). And the
+background refresh is now asked for at that boundary, not only at 06:00. The
+only exact way to keep it current with the phone locked is an APNs push from
+the Mac, which the project does not use (Q23). Also additive: a **"Show today's agenda now" button** in the phone's
 Reminders settings — pops one local notification, on demand, with the
 WHOLE day's events (not just what's left, and not gated on the reminders
 toggle or a horizon), phrased the same way the Mac's own "Brief Me" reads it
