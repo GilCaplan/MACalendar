@@ -223,8 +223,18 @@ struct ReplyHint: Codable, Equatable {
 /// the hint texts, from the one copy in `assistant/tips.py`.
 struct TipsPayload: Codable {
     let brain: String
+    /// "How it works" — what the assistant does with a sentence, one line per
+    /// step with a spoken example (2026-09-24). OPTIONAL: a host from before
+    /// then sends no `steps`, and its tips must still load.
+    let steps: [TipStep]?
     let tips: [TipItem]
     let hints: [String: TipItem]
+}
+
+struct TipStep: Codable, Identifiable {
+    var id: String { text }
+    let text: String
+    let example: String
 }
 
 struct TipItem: Codable, Identifiable {

@@ -54,7 +54,7 @@ still queues exactly as before.
 | UI | [Tasks power features](#tasks-power-features) | rich notes, sorts, reorder, cal→tasks sync, Both/Today/General scope | `todo_view.py`, `TasksView.swift` |
 | UI | [Search & jump-to-date](#search--jump-to-date) | toolbar search over events/tasks; type a date to jump | `window.py`, `SearchView.swift` |
 | UI | [Small conveniences](#small-conveniences) | duplicate event, week numbers, Timer CSV export | `event_dialog.py`, `month_view.py`, `timer_view.py` |
-| UI | ["How to Talk to Me" tips](#how-to-talk-to-me-tips) | 5 short, verified voice-phrasing tips (Settings → Assistant, Mac and iOS) + a one-line hint above the phone's mic keyed on the reply | `tips.py`, `tips_dialog.py`, `TipsView.swift`, `GET /tips` |
+| UI | ["How to Talk to Me" tips](#how-to-talk-to-me-tips) | a 4-step "how it works" + 5 short voice-phrasing tips, every example verified on the engine (Settings → Assistant, Mac and iOS) + a one-line hint above the phone's mic keyed on the reply | `tips.py`, `tips_dialog.py`, `TipsView.swift`, `GET /tips` |
 | assistant | [Personal lexicon](#personal-lexicon) | the engine's word lists, extendable from Settings so it learns how you say things | `intent/lexicon.py`, `/lexicon` |
 | UI | [Foldable settings sections](#foldable-settings-sections) | every Settings section collapses and stays collapsed, on both apps; the phone starts them all folded | `settings_dialog.py`, `SettingsView.swift` |
 | hybrid | [Calendar views](#calendar-views-month--week--day) | month/week/day/agenda browsing + event CRUD, drag, undo | `calendar_ui/`, iOS views, `db.py` |
@@ -625,11 +625,18 @@ aggregation helper so file and tiles can't disagree.
 
 ### "How to Talk to Me" tips
 
-**What:** five short tips on effective voice phrasing (Settings → Assistant
-→ "How to Talk to Me…"), deliberately kept to five (Gil, 2026-09-16: don't
-overload the user with content). On the Mac and, since 2026-09-22 (DEVQA
-Q41), on the phone — the same five, fetched from `GET /tips` so there is one
-copy. The phone also draws a **contextual hint**: one line above the mic,
+**What:** a four-step **"How it works"** — what the assistant does with a
+sentence: splits it into requests, a time makes an event and an errand
+without one a to-do, "every Tuesday" makes a series, and it checks and asks
+or tells you when it guessed — each one line with a spoken example (Gil,
+2026-09-24), then five short tips on effective voice phrasing (say the day
+AND the time for an event; say what it's about; one verb is one to-do; name a
+day, not a week; one weekday per repeating series). Settings → Assistant →
+"How to Talk to Me…"; deliberately about one phone screen (Gil, 2026-09-16:
+don't overload the user with content). On the Mac and, since 2026-09-22
+(DEVQA Q41), on the phone — the same words, fetched from `GET /tips` (`steps`,
+decoded as optional by the phone so an older host still loads, and `tips`) so
+there is one copy. The phone also draws a **contextual hint**: one line above the mic,
 right after a reply, keyed on what the engine just did — "say what it's
 about" when a bare 'meeting' committed, "lead with the thing" when a title
 was refused. Shown once per hint code, dismissed by a tap or after twelve
@@ -644,9 +651,13 @@ _hint` (picks the code; the reply carries it as `hint`), `GET /tips`
 (`server.py`), iOS `Views/TipsView.swift` (Settings → Assistant → How to
 Talk to Me) and the card in `Views/VoiceButton.swift` (`hintCard`,
 `AppSettings.shownHints` remembers which codes have been shown).
-**How:** each tip is a factual claim about pipeline behavior, verified LIVE
-against `assistant.engine.run_transcript` when written — one candidate tip
-turned out false when checked and was dropped before shipping. Tied to
+**How:** each step and tip is a factual claim about pipeline behavior,
+verified LIVE against `assistant.engine.run_transcript` when written — with
+the model shut out and with it on — and several candidates turned out false
+when checked and were dropped (`tips.py`'s comments list them). Every quoted
+sentence lands on the fast path, and `tests/unit/test_tips_examples.py`
+re-runs each one with the model shut out on every build, so an engine change
+that breaks an example goes red even without a version bump. Tied to
 `assistant.trace.BRAIN_VERSION` via `TIPS_BRAIN_VERSION`: `tests/unit/
 test_tips_current.py` fails the build the moment the engine version moves
 past what the tips were verified against, the same "downstream of the

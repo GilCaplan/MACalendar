@@ -1644,6 +1644,46 @@ the entry. Two rows left open by the same work:
   parsed clocks. Real-usage row id=18. Not fixed here — a title-gate change
   is boarded on FastRule's own board first.
 
+## "HOW IT WORKS" ABOVE THE TIPS — landed, 2026-09-24
+
+Four one-line steps (split → event or to-do → series → check and ask) above a
+revised five tips, both surfaces, from `assistant/tips.py` (`STEPS`, served as
+`steps` by `GET /tips`). Every example was run through the engine with the
+model shut out and with it on; `tests/unit/test_tips_examples.py` re-runs them
+on every build. Four defects the verification turned up, none fixed here —
+each is a stage's own work, boarded on that stage first:
+
+- **A multi-weekday series is wrong every way it was tried.** "Book yoga every
+  Tuesday and Thursday at 6pm" (fast path) makes ONE Thursday-only weekly
+  series — "“two days a week” became weekly" — and loses the Tuesdays, although
+  `recur_days` exists for exactly this (CLAUDE.md, "Recurring events"). "Yoga
+  every Tuesday and Thursday at 6pm" (deep) makes two one-offs, the first on a
+  MONDAY, with the model shut out, and a weekly series that ends a week later
+  (2 instances) with it. "on tuesdays and thursdays" also makes one-offs. Tip 5
+  tells the speaker to say one weekday per series until this is fixed, and
+  `test_tip5_the_caveat_is_still_true` goes red the day it is.
+- **`MACALENDAR_LLM_DISABLED` does not shut the rescue's door.** It stops
+  `engine.llm.call_json`, but `llmjudge/rescue.py` parses through
+  `IntentParser._call_ollama` directly, so a unit test or "model-free" board
+  on a Mac with ollama up reaches the LIVE model (unseeded) on every FastRule
+  deferral — measured: "Dentist on the 15th at 4" spent 14s in two ollama
+  calls under the flag. `tests/conftest.py` says unit tests "must never reach
+  a live model"; this one door makes that untrue whenever ollama is running,
+  and a board that relied on the flag measured model-assisted rows.
+- **A bare leading noun defers to the model where a verb does not.** "Dentist
+  on the 15th at 4", "Dentist in two weeks at 4", "Dentist tomorrow" and
+  "Yoga every Tuesday at 6pm" all DEFER (and with the model shut out, "Sorry,
+  I couldn't read this part: “Dentist”"), while the same sentences opening
+  with "Book the …" commit on the fast path. The model gets them right, so
+  the live answer is the same, several seconds later. FastRule's board.
+- **Q42's passed-clock rule missed a case.** "dentist at 8am", said at 08:49,
+  was booked for 08:00 TODAY — already past — on the deep path. Q42 rule 2
+  says a clock with no day that has passed means tomorrow.
+
+Also noticed, smaller: with an empty scratch label model, "call mom" and "pay
+rent" were tagged Groceries (the real fitted models were not in play, so this
+may not reproduce live).
+
 ## THE LOOP-BACK'S MODEL ROUND — landed, 2026-09-20 (DEVQA Q30)
 
 Gil: *"the whole point of the loop is that the llm sends a fix if relevant

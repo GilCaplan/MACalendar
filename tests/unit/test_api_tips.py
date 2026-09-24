@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import assistant.trace as trace
 from assistant.api import server
-from assistant.tips import HINTS, TIPS
+from assistant.tips import HINTS, STEPS, TIPS
 
 
 def test_tips_endpoint_serves_the_tips_and_the_hints():
@@ -18,6 +18,9 @@ def test_tips_endpoint_serves_the_tips_and_the_hints():
     assert got.status_code == 200
     body = got.get_json()
     assert body["brain"] == trace.BRAIN_VERSION
+    # the "how it works" steps travel with the tips; the phone decodes the
+    # key as optional, so an older host without it still loads
+    assert body["steps"] == [{"text": t, "example": e} for t, e in STEPS]
     assert [t["headline"] for t in body["tips"]] == [h for h, _ in TIPS]
     assert all(t["body"] for t in body["tips"])
     assert set(body["hints"]) == set(HINTS)
