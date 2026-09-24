@@ -1715,6 +1715,8 @@ each is a stage's own work, boarded on that stage first:
   was booked for 08:00 TODAY — already past — on the deep path. Q42 rule 2
   says a clock with no day that has passed means tomorrow.
 
+- **FIXED 2026-09-24 as a side effect of the bare-noun rule:** "yoga next week", "dentist next week" and "yoga next week at 6pm" are now read on the fast path and ASKED on the phone (Q22), where the model used to commit Monday 09:00.
+
 Also noticed, smaller: with an empty scratch label model, "call mom" and "pay
 rent" were tagged Groceries (the real fitted models were not in play, so this
 may not reproduce live).

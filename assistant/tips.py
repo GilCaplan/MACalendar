@@ -100,8 +100,10 @@ STEPS: list[tuple[str, str]] = [
 #:      right due date (both fell back to today on 2026-09-17, which is why
 #:      the old tip warned about them; that warning is gone). "Next week"
 #:      (DEVQA Q22): "Book yoga class next week" and "yoga next week at 6pm"
-#:      are ASKED on the phone; "yoga next week" is NOT — it commits Monday
-#:      09:00 with a note, even on the phone. Hence "ask or guess"
+#:      are ASKED on the phone; "yoga next week" was NOT (the model committed
+#:      Monday 09:00) until the bare-noun rule landed the same day — it is
+#:      asked now too. "Ask or guess" stays: the phone asks, the Mac, which
+#:      cannot show a confirmation, books the soonest day and says so
 #:   5. several weekdays, one series (rewritten 2026-09-24, the same day the
 #:      engine learned it) -- "Book yoga every Tuesday and Thursday at 6pm"
 #:      -> ONE weekly series on both days (fast path, no model): 105
