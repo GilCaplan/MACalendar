@@ -1899,3 +1899,31 @@ reached the builder that the judge's gate did not already refuse, so the copy
 bought nothing and cost the better reply. Reverted, with its test; the front
 door's and the judge's arms stay. One change per board run is how this was
 visible at all.
+
+## Cycle 45 — a create frame keeps a remove verb in the title (2026-09-24, 09:57)
+
+**Hypothesis.** Five of the fourteen rows H4's condition fired on and got
+wrong were one shape: a CREATE frame wrapping a change verb — "remind me to
+cancel the subscription", "add cancel the subscription to my list" — built as
+`delete_todo "the subscription"`. The front door reads every one as the
+to-do it is (checked); the delete came from decompose_validate's
+`_rule_create_from_remove_guard`, which turns a create whose TITLE starts
+with a remove verb into a delete, reading the title and never the frame in
+front of it. Change: the guard stands down when the item's own words open
+with a create frame (`remind me to/about`, `set a reminder to`, `note to
+self`, `add`, `put`, `write down`). Its original case — "remove 'table' from
+furniture", no frame — still converts (test kept). Prediction: the
+frame-wrapped deletes become creates, nothing else moves; harm falls, since a
+wrong delete is the class weighted 4.
+
+| Board D v2 · 1,200 TRAIN · seeded, fresh | before (cycle 44b, T2235) | after (T0957) |
+|---|---|---|
+| correct, loop OFF / ON | 91.1 / 91.1% (1093) | **91.6 / 91.6% (1099)** |
+| fixed / broke / net | 0 / 0 / 0 | 0 / 0 / 0 |
+| rows that changed | — | 9 of 1,200, all wrong → right |
+
+Eight of the nine are the shape predicted, every one a wrong DELETE that is
+now the to-do asked for (three of them inside compound commands, where the
+other asks were already right). The ninth is cycle 44b's revert: "um can you
+just delete that one for me" is back to the reasoned refusal. **Actual vs
+expected: as predicted; 8 wrong deletes removed from 1,200 rows.**

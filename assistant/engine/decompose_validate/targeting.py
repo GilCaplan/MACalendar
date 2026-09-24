@@ -43,6 +43,16 @@ _REMOVE_LOOSE = re.compile(
 
 _CREATE_VERB = re.compile(r"\b(add|create|make|set|book|schedule|new|start|open)\b", re.I)
 
+#: The speaker's own CREATE FRAME at the head of an item's words: "remind me
+#: to …", "set a reminder to …", "note to self …", "add … to my list". When
+#: it is there, a remove verb after it is the TITLE'S — "remind me to cancel
+#: the subscription" is a to-do called "cancel the subscription" — never an
+#: instruction to delete (cycle 45, 2026-09-22).
+_CREATE_FRAME = re.compile(
+    r"^\s*(?:(?:hey|um|uh|so|ok|okay|please|yeah)\b[,\s]*)*"
+    r"(?:remind\s+me\s+(?:to|about)|set\s+(?:a|an|me\s+a)\s+(?:reminder|remindar|alert)\s+to|"
+    r"note\s+to\s+self|add|put|write\s+down|jot\s+down)\b", re.I)
+
 
 def relative_dates(transcript: str) -> list:
     """Deterministic reading of relative-date phrases, in order of appearance.
@@ -188,6 +198,15 @@ def _rule_create_from_remove_guard(state, item, intent) -> None:
              or (getattr(intent, "titles", None) or [""])[0] or "")
     m = _REMOVE_SHAPE.match(title.strip()) or _REMOVE_LOOSE.match(title.strip())
     if not m:
+        return
+    # NOT when the speaker framed it as a create (cycle 45, 2026-09-22). The
+    # seeded Board D found "remind me to cancel the subscription", "hey remind
+    # me to cancel the subscription in two days" and "add cancel the
+    # subscription to my list" all committed as `delete_todo "the
+    # subscription"` — a wrong DELETE, the harm class weighted 4 — while the
+    # front door had read every one as the to-do it is. The echo this guard
+    # exists for ("remove 'table' from furniture") has no frame in front.
+    if _CREATE_FRAME.match(getattr(item, "text", "") or ""):
         return
     from assistant.actions.todo.intent import DeleteTodoIntent
     target = m.group(2).strip()

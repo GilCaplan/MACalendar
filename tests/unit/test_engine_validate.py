@@ -439,6 +439,24 @@ def test_a_remove_instruction_becomes_the_delete_it_says(cfg):
     assert "create_from_remove_guard" in [f.rule for f in st.fixes]
 
 
+def test_a_create_frame_keeps_a_remove_verb_in_the_title(cfg):
+    """Cycle 45 (2026-09-22): "remind me to cancel the subscription" is a to-do
+    called 'cancel the subscription'. The guard above turned it into a DELETE
+    of 'the subscription' because it read the title and never the frame."""
+    for words in ("remind me to cancel the subscription",
+                  "hey remind me to cancel the subscription",
+                  "add cancel the subscription to my list",
+                  "set a reminder to delete old photos"):
+        title = words.split(" to ", 1)[-1].replace(" to my list", "") if not words.startswith("add") \
+            else "cancel the subscription"
+        it = _item("create_todo", SimpleNamespace(title=title, titles=[title], due_date=None),
+                   kind="task", text=words)
+        st = _state(words, [it])
+        validate.run_objects(st, cfg)
+        assert it.action == "create_todo", (words, it.action)
+        assert "create_from_remove_guard" not in _rules_applied(st), words
+
+
 def test_a_question_item_never_creates(cfg):
     q = _item("query_schedule", SimpleNamespace(), id="item_1-1", kind="review",
               text="On the day project one is due, does my daughter have a recital?")
