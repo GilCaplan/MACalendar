@@ -3295,6 +3295,35 @@ class RuleBasedParser:
 
             # Phase 3: Intent/domain routing
             action_name, _, domain_inferred, domain_material = _route_intent(span, current_view)
+            if action_name == "create_todo":
+                # Q47 (Gil, 2026-09-24): an encounter with a person — met,
+                # seen, called — is an event, day or no day ("call mum is an
+                # event at a default time like 9"). Checked HERE, on the words
+                # as said: `_route_intent` lowercases them (so "call Morgan"
+                # lost the capital that marks a name) and its phrase overrides
+                # return before any rule at its end. The same rule the
+                # segmentation tagger applies (`intent/encounter.py`).
+                from assistant.intent.encounter import is_encounter
+                # `_preprocess` lowercases the whole sentence, so the span's
+                # own text has no capital left to mark a name: read the same
+                # stretch of the transcript AS SAID where it can be found.
+                said = span.text
+                at = transcript.lower().find(span.text)
+                if at >= 0:
+                    said = transcript[at:at + len(span.text)]
+                if is_encounter(said):
+                    action_name, domain_inferred = "create_event", True
+                    # "if the time isn't given, you just say like default
+                    # time 9 a.m." — and with no day either, the soonest 9 AM
+                    # (today, or tomorrow once 9 has passed: Q42's "whichever
+                    # is closer"). Filled here so a plain "call mum" commits on
+                    # the fast path instead of deferring for missing slots.
+                    if not temporal.get("start_time"):
+                        temporal["start_time"] = "09:00"
+                    if not temporal.get("date"):
+                        now = datetime.datetime.now()
+                        day = now.date() if now.hour < 9 else now.date() + datetime.timedelta(days=1)
+                        temporal["date"] = day.isoformat()
             if action_name is None and len(spans) == 1 and _bare_noun_event(span, temporal):
                 # A BARE NOUN WITH A DAY OR A CLOCK IS AN EVENT (2026-09-24).
                 # "Dentist tomorrow at 4", "vet appointment takes all day march

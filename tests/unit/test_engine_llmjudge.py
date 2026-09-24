@@ -725,8 +725,9 @@ def test_a_list_becomes_three_events_end_to_end(registry_with_real_actions, cfg,
         assert {i.intent.date for i in events} == {"2026-09-11"}
         assert st.retries == {"segment": 1}
 
-        st = EngineState(raw_text="create an event for dentist, haircut and gym on friday and remind me to call mom",
-                         text="create an event for dentist, haircut and gym on friday and remind me to call mom")
+        # "pay rent", not "call mom": a call to a person is an event since Q47.
+        st = EngineState(raw_text="create an event for dentist, haircut and gym on friday and remind me to pay rent",
+                         text="create an event for dentist, haircut and gym on friday and remind me to pay rent")
         E.parse(st, cfg)
         E.judge(st, cfg)
         assert sorted(i.action for i in st.items) == ["create_event"] * 3 + ["create_todo"]

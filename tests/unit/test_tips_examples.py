@@ -1,6 +1,6 @@
 """Every spoken example on the "How to Talk to Me" screen does what it says.
 
-`assistant/tips.py` quotes sentences — "Dentist Tuesday at 4 and call Mom" is
+`assistant/tips.py` quotes sentences — "Dentist Tuesday at 4 and buy milk" is
 an appointment and a to-do, "Yoga every Tuesday at 6pm" is one weekly
 series — and the reader copies them. `test_tips_current.py` makes a new
 engine VERSION re-open the tips; this runs the examples themselves, through
@@ -99,8 +99,8 @@ def _run(said: str, confirm: bool = False):
 
 # (where the fragment is quoted, the fragment, the sentence run)
 CASES = [
-    ("step:0", "book the dentist tuesday at 4 and call mom",
-     "Book the dentist Tuesday at 4 and call Mom"),
+    ("step:0", "book the dentist tuesday at 4 and buy milk",
+     "Book the dentist Tuesday at 4 and buy milk"),
     ("step:1", "walk the dog at 9", "Walk the dog at 9"),
     ("step:1", "walk the dog", "Walk the dog"),
     ("step:2", "book yoga every tuesday at 6pm", "Book yoga every Tuesday at 6pm"),
@@ -110,7 +110,7 @@ CASES = [
     ("tip:1", "meeting with sam tomorrow at 4", "Meeting with Sam tomorrow at 4"),
     ("tip:1", "set a meeting tomorrow at 4", "Set a meeting tomorrow at 4"),
     ("tip:2", "buy milk, eggs, and bread", "Buy milk, eggs, and bread"),
-    ("tip:2", "buy milk and call mom", "Buy milk and call Mom"),
+    ("tip:2", "buy milk and pay rent", "Buy milk and pay rent"),
     ("tip:3", "next tuesday", "Book the dentist next Tuesday at 4"),
     ("tip:3", "on the 15th", "Book the dentist on the 15th at 4"),
     ("tip:3", "in two weeks", "Book the dentist in two weeks at 4"),
@@ -136,10 +136,17 @@ def test_every_step_and_tip_has_a_case():
 # --- How it works -----------------------------------------------------------
 
 def test_step1_one_sentence_splits_into_an_event_and_a_todo():
-    _, events, todos = _run("Book the dentist Tuesday at 4 and call Mom")
+    _, events, todos = _run("Book the dentist Tuesday at 4 and buy milk")
     assert [(e["title"].lower(), e["date"], e["start_time"]) for e in events] == \
         [("dentist", TUE, "16:00")]
-    assert [t["title"].lower() for t in todos] == ["call mom"]
+    assert [t["title"].lower() for t in todos] == ["buy milk"]
+
+
+def test_a_call_to_a_person_is_an_event_at_nine():
+    # Q47 (Gil, 2026-09-24): "Call mum is an event at a default time like 9."
+    _, events, todos = _run("Call Mom tomorrow")
+    assert [(e["title"].lower(), e["start_time"]) for e in events] == [("call mom", "09:00")]
+    assert todos == []
 
 
 def test_step2_a_time_makes_an_event_and_an_errand_without_one_a_todo():
@@ -191,8 +198,8 @@ def test_tip2_the_title_is_what_you_say_it_is_about():
 def test_tip3_one_verb_over_a_list_is_one_todo_and_two_verbs_are_two():
     _, _, todos = _run("Buy milk, eggs, and bread")
     assert [t["title"].lower() for t in todos] == ["buy milk, eggs, and bread"]
-    _, _, todos = _run("Buy milk and call Mom")
-    assert [t["title"].lower() for t in todos] == ["buy milk", "call mom"]
+    _, _, todos = _run("Buy milk and pay rent")
+    assert [t["title"].lower() for t in todos] == ["buy milk", "pay rent"]
 
 
 @pytest.mark.parametrize("said,day", [

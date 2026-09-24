@@ -15,6 +15,16 @@
   example); whether "call Mom tomorrow" is an event under B was put back to
   him. He also raised showing to-dos on the phone's notifications — noted as
   an idea to design, not built.
+  **Answered the same evening:** *"Call mum is an event at a default time
+  like 9, same for similar events"*. So an ENCOUNTER with a person — met,
+  seen, talked to, or CALLED — is an event, day or no day; with no clock it is
+  09:00, the soonest one (today, or tomorrow once 9 has passed). A WRITTEN
+  message ("email Dana the report", "text Sam") is not an encounter and stays
+  a to-do; so does a mention ("buy a gift for mom") and anything said onto a
+  named to-do list. One rule for both readers: `assistant/intent/encounter.py`.
+  And on the to-dos: *"To-do sure but build a structure so it looks nice and
+  not ai generated too much"*; on the event-or-to-do router: *"basic rules,
+  otherwise model"*.
 # DEVQA — async questions for Gil
 
 Instead of interrupting with prompts, questions live here; answer inline

@@ -1121,7 +1121,8 @@ def tag(action: str, time_str: str) -> str:
         if verdict == "task" and (
                 _STATED_CLOCK.search(time_str or "")
                 or anchored
-                or _has_person_argument(action)):
+                or _has_person_argument(action)
+                or _meets_a_person(action)):          # Q47: "call mum", "pick up my sister"
             # A STATED CLOCK MEANS SCHEDULED. "walk the dog" is a to-do and "walk
             # the dog at 9" is an appointment — same verb, and the only thing that
             # changed is that the speaker named a time. The floor's bare "today"
@@ -1150,62 +1151,26 @@ def tag(action: str, time_str: str) -> str:
         # GARAGE…", before the anchor clause that actually places this on a
         # calendar), or the head verb being "meet" — meeting a person is the
         # one verb in this shape where the whole point IS the encounter.
+        if _meets_a_person(action):
+            return "event"                    # Q47: a person, day or no day
         real_time = (time_str or "").strip().lower() not in ("", "today")
         if real_time and (_ANCHORED_TO_EVENT.search(action)
                           or _MEETING_HEAD.search(action)
-                          or _ON_THE_BOOKS.search(action)
-                          or _meets_a_person(action)):
+                          or _ON_THE_BOOKS.search(action)):
             return "event"
     return kind
 
 
-#: The people a speaker names without a capital letter.
-_KIN = (r"mom|mum|mommy|mother|dad|daddy|father|parents|grandma|grandpa|"
-        r"grandmother|grandfather|bubbie|saba|savta|sister|brother|wife|husband|"
-        r"son|daughter|aunt|uncle|cousin|boss|doctor|dr|rabbi|teacher|friend|friends")
-#: A kinship word as the one you are WITH — not merely mentioned: "buy a gift
-#: FOR mom tomorrow" is an errand, "see mom", "pick up my sister", "lunch
-#: with dad" are encounters.
-_KIN_RE = re.compile(
-    rf"\b(?:see|visit|meet|with|pick\s+up|drop\s+off|drive|take|hang\s+out\s+with|"
-    rf"talk\s+to|speak\s+(?:to|with))\s+(?:my\s+|the\s+)?(?:{_KIN})\b", re.I)
-
-
 def _meets_a_person(action: str) -> bool:
-    """Q47 (Gil, 2026-09-24): *"given a person, it should be an event no
-    matter what. So if the time isn't given, you just say like default time 9
-    a.m."* — read as a person ON A STATED DAY (the caller checks the day).
+    """Q47 (Gil, 2026-09-24): meeting, seeing or talking to a person — a live
+    call included ("call mum is an event at a default time like 9, same for
+    similar events") — is an EVENT, with or without a stated day. The rule
+    lives in `assistant/intent/encounter.py` so the front door reads the same
+    words the same way; it refuses written messages, mentions and a named
+    to-do list."""
+    from assistant.intent.encounter import is_encounter
+    return is_encounter(action)
 
-    "i should see Parker the 21st" stayed a to-do: segmentation cuts "the
-    21st" into the time before this tag runs, so the dated-encounter rule in
-    `kind._enforce_pinned_kinds` never saw a date, and this promotion fired
-    only on "meet". A person is a capitalised name as someone's argument
-    (`_has_person_argument`, which already refuses the outreach verbs) or a
-    kinship word ("see mom"). Outreach verbs — call, email, text — are not an
-    encounter and stay to-dos; whether "call Mom tomorrow" is one was put back
-    to Gil."""
-    if _head_is_outreach_verb(action) or _OUTREACH_AFTER_FRAME.search(action):
-        return False
-    # THE SPEAKER NAMED THE TO-DO LIST. "add swe epthe balcony to my tasks on
-    # monday": spaCy reads a garbled lowercase word as a proper name, and the
-    # person promotion made an event of an explicit to-do (the kind board, 18
-    # v2 items). Naming the list is the speaker saying which list they mean.
-    if _TODO_DESTINATION.search(action):
-        return False
-    return _has_person_argument(action) or bool(_KIN_RE.search(action))
-
-
-_TODO_DESTINATION = re.compile(
-    r"\b(?:to|on|onto|in|into)\s+(?:my|the|our)\s+"
-    r"(?:to-?do\s+|task\s+|shopping\s+|grocery\s+)?(?:list|lists|tasks|to-?dos?)\b", re.I)
-
-
-#: The outreach verb behind a reminder frame — "remind me to CALL Morgan
-#: tomorrow". `_head_is_outreach_verb` reads the head ("remind") and let five
-#: of these through as events on the first seeded run.
-_OUTREACH_AFTER_FRAME = re.compile(
-    r"\b(?:remind\s+\w+\s+to|need\s+to|have\s+to|should|gotta|must|want\s+to)\s+"
-    r"(?:call|email|text|message|ping|write|send|phone|ring)\b", re.I)
 
 
 # ---------------------------------------------------------------------------

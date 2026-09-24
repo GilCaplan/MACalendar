@@ -57,7 +57,7 @@ def test_single_item_ids_and_kinds(cfg):
 
 
 def test_task_phrasing_is_read_as_task(cfg):
-    st = _seg("remind me to call Noa about the trip", cfg)
+    st = _seg("remind me to email Noa about the trip", cfg)      # a call is an event since Q47
     assert st.items[0].kind == "task"
 
 
@@ -123,7 +123,7 @@ def test_a_timed_reminder_is_an_event(cfg):
 
 
 def test_an_untimed_reminder_stays_a_task(cfg):
-    st = _seg("remind me to call Ravid", cfg)
+    st = _seg("remind me to email Ravid", cfg)      # a call is an event since Q47
     assert st.items[0].kind == "task"
 
 

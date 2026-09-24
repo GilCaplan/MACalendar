@@ -126,15 +126,16 @@ def test_what_do_i_have_today(parser):
 # ---------------------------------------------------------------------------
 
 def test_call_mom(parser):
-    """'Call mom' → create_todo, fast path."""
+    """'Call mom' → an EVENT at 09:00, fast path (DEVQA Q47, Gil 2026-09-24:
+    "call mum is an event at a default time like 9"). It was a to-do until then."""
     result = parser.analyze("Call mom", current_view="month")
 
     assert result.confidence >= RULE_THRESHOLD
     assert not result.missing_slots
 
     action_name, intent = result.intents[0]
-    assert action_name == "create_todo"
-    assert "mom" in intent.titles[0].lower()
+    assert action_name == "create_event"
+    assert "mom" in intent.title.lower() and intent.start_time == "09:00"
 
 
 # ---------------------------------------------------------------------------
@@ -221,11 +222,12 @@ def test_query_schedule_tomorrow(parser):
 # ---------------------------------------------------------------------------
 
 def test_multi_intent_buy_and_call(parser):
-    """'Buy milk and call mom' → two create_todo intents."""
+    """'Buy milk and call mom' → a to-do and an event (Q47: a call to a person
+    is an event)."""
     result = parser.analyze("Buy milk and call mom", current_view="month")
 
     action_names = [name for name, _ in result.intents]
-    assert action_names.count("create_todo") == 2
+    assert sorted(action_names) == ["create_event", "create_todo"]
 
 
 # ---------------------------------------------------------------------------
@@ -593,8 +595,9 @@ class TestBareOrdinalDate:
         assert intent.due_date == self._expected(15)
 
     def test_the_bare_form_agrees_with_the_on_form(self, parser):
-        bare = parser.analyze("remind me to call Jordan the 21st")
-        with_on = parser.analyze("remind me to call Jordan on the 21st")
+        # (A call to a person is an event since Q47; an errand keeps this a to-do.)
+        bare = parser.analyze("remind me to renew the passport the 21st")
+        with_on = parser.analyze("remind me to renew the passport on the 21st")
         assert bare.intents and with_on.intents
         assert bare.intents[0][1].due_date == with_on.intents[0][1].due_date
 

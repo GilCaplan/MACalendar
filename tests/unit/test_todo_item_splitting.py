@@ -245,7 +245,8 @@ def test_comma_list_shares_the_verb(parser):
 
 
 def test_other_verbs_split_the_same_way(parser):
-    assert _titles(parser, "remind me to call mom and dad") == ["call mom", "call dad"]
+    # (Calling a person is an event since Q47; a written message stays a to-do.)
+    assert _titles(parser, "remind me to email mom and dad") == ["email mom", "email dad"]
 
 
 def test_a_named_list_becomes_a_tag(parser):

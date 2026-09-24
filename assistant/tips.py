@@ -46,8 +46,9 @@ TIPS_BRAIN_VERSION = "engine-v3"
 #: "Book the dentist on the 15th at 4" commits at once.
 #: `tests/unit/test_tips_examples.py` re-runs each one on every build with
 #: the model blocked, so CI checks exactly what is claimed here.
-#:   1. "Book the dentist Tuesday at 4 and call Mom" -> event 'dentist' Tue
-#:      16:00 + to-do 'call mom': two items from one sentence
+#:   1. "Book the dentist Tuesday at 4 and buy milk" -> event 'dentist' Tue
+#:      16:00 + to-do 'buy milk': two items from one sentence. (Was "... and
+#:      call Mom" until 2026-09-24, when Q47 made a call to a person an event.)
 #:   2. "Walk the dog at 9" -> event 09:00 today; "Walk the dog" -> to-do
 #:      (fastseg.py's TAG lexicon veto: the stated time is the difference).
 #:      Deliberately NOT "one without a time becomes a to-do": "Book the
@@ -61,7 +62,7 @@ TIPS_BRAIN_VERSION = "engine-v3"
 #:      it to 7 AM" if you meant the morning." Hence "asks or tells you"
 STEPS: list[tuple[str, str]] = [
     ("It splits what you say into separate requests.",
-     "“Book the dentist Tuesday at 4 and call Mom” → an appointment and "
+     "“Book the dentist Tuesday at 4 and buy milk” → an appointment and "
      "a to-do."),
     ("A time puts it on the calendar as an event; an errand with no time "
      "becomes a to-do.",
@@ -91,7 +92,7 @@ STEPS: list[tuple[str, str]] = [
 #:   3. a shared verb over a list is ONE task (DEVQA Q14 reversed
 #:      2026-09-16); a verb each splits it
 #:      -- "Buy milk, eggs, and bread" -> one to-do with the whole list;
-#:      "Buy milk and call Mom" -> two to-dos
+#:      "Buy milk and pay rent" -> two to-dos ("call Mom" is an event since Q47)
 #:   4. a named or counted day resolves; a range does not name one
 #:      -- "Book the dentist next Tuesday at 4" -> a Tuesday (said on a
 #:      Thursday, the coming one; on a Monday, the one after); "... on the
@@ -127,7 +128,7 @@ TIPS: list[tuple[str, str]] = [
      "“Set a meeting tomorrow at 4” is saved as just ‘meeting’."),
     ("One verb, one to-do",
      "“Buy milk, eggs, and bread” is one task with the whole list. Give "
-     "each its own verb — “buy milk and call Mom” — to get two."),
+     "each its own verb — “buy milk and pay rent” — to get two."),
     ("Name a day, not a week",
      "“Next Tuesday”, “on the 15th” and “in two weeks” each land on one "
      "day. “Next week” names no single day, so it has to ask or guess."),

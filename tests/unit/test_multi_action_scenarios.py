@@ -86,13 +86,13 @@ def test_split_intents_no_duplicate_span():
 # ---------------------------------------------------------------------------
 
 def test_two_todos_correct_titles(parser):
-    """'Buy milk and call mom' — two distinct create_todo intents, correct titles."""
-    result = parser.analyze("buy milk and call mom", current_view="month")
+    """'Buy milk and pay rent' — two distinct create_todo intents, correct titles."""
+    result = parser.analyze("buy milk and pay rent", current_view="month")   # "call mom" is an event since Q47
     action_names = [name for name, _ in result.intents]
     assert action_names == ["create_todo", "create_todo"]
     # The verb stays on the title: a task called "milk" doesn't say what to do.
     titles = [intent.titles[0].lower() for _, intent in result.intents]
-    assert titles == ["buy milk", "call mom"]
+    assert titles == ["buy milk", "pay rent"]
 
 
 # ---------------------------------------------------------------------------

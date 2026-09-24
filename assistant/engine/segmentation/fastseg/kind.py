@@ -236,19 +236,12 @@ _GATHERING_RE = re.compile(
     r"|\bsit\s+down\s+with\b", re.I)
 
 
-#: SEEING A PERSON is not looking something up (Q47, 2026-09-24): "see mom
-#: on sunday", "visit Parker" opened with the look-verb "see" and were tagged
-#: a review — a question about the schedule — so nothing was booked.
-_SEE_A_PERSON_RE = re.compile(
-    r"^(?:please\s+|hey\s+|um+\s+|so\s+|i\s+(?:need to|should|want to|have to|will|'ll)\s+)?"
-    r"(?:see|visit)\s+(?:my\s+)?(?:(?:mom|mum|mother|dad|father|parents|grandma|grandpa|"
-    r"grandmother|grandfather|bubbie|saba|savta|sister|brother|wife|husband|son|"
-    r"daughter|aunt|uncle|cousin|boss|doctor|dr|rabbi|teacher|friends?)\b|[A-Z][a-z]+\b)")
-
-
 def _kind_of(text: str) -> str:
     t = text.strip()
-    if _SEE_A_PERSON_RE.search(t):
+    # SEEING A PERSON is not looking something up (Q47): "see mom on sunday"
+    # opened with the look-verb and was tagged a schedule question.
+    from assistant.intent.encounter import is_encounter
+    if is_encounter(t):
         return "event"
     if _REVIEW_RE.search(t):
         return "review"
