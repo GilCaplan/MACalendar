@@ -1,0 +1,2622 @@
+{
+ "started": "2026-09-24 16:39:55",
+ "finished": "2026-09-24 16:51:16",
+ "git_head": "f845aec",
+ "engine_dirty": false,
+ "embed": true,
+ "results": {
+  "lr:shape": {
+   "fastrule|train|False": {
+    "n": 2129,
+    "acc": 0.9525598872710193,
+    "inc": 0.9802724283701268,
+    "fixed": 7,
+    "broke": 66,
+    "net": -59
+   },
+   "fastrule|train|True": {
+    "n": 2129,
+    "acc": 0.9605448567402537,
+    "inc": 0.9802724283701268,
+    "fixed": 7,
+    "broke": 49,
+    "net": -42
+   },
+   "v2|train|False": {
+    "n": 3300,
+    "acc": 0.9972727272727273,
+    "inc": 0.9712121212121212,
+    "fixed": 89,
+    "broke": 3,
+    "net": 86
+   },
+   "v2|train|True": {
+    "n": 3300,
+    "acc": 0.9972727272727273,
+    "inc": 0.9712121212121212,
+    "fixed": 89,
+    "broke": 3,
+    "net": 86
+   },
+   "seg|train|False": {
+    "n": 956,
+    "acc": 0.9560669456066946,
+    "inc": 0.9864016736401674,
+    "fixed": 3,
+    "broke": 32,
+    "net": -29
+   },
+   "seg|train|True": {
+    "n": 956,
+    "acc": 0.9612970711297071,
+    "inc": 0.9864016736401674,
+    "fixed": 3,
+    "broke": 27,
+    "net": -24
+   },
+   "fastrule|test|False": {
+    "n": 900,
+    "acc": 0.8955555555555555,
+    "inc": 0.8844444444444445,
+    "fixed": 91,
+    "broke": 81,
+    "net": 10
+   },
+   "fastrule|test|True": {
+    "n": 900,
+    "acc": 0.9422222222222222,
+    "inc": 0.8844444444444445,
+    "fixed": 91,
+    "broke": 39,
+    "net": 52
+   },
+   "v2|test|False": {
+    "n": 4547,
+    "acc": 0.993842093688146,
+    "inc": 0.9518363756322851,
+    "fixed": 197,
+    "broke": 6,
+    "net": 191
+   },
+   "v2|test|True": {
+    "n": 4547,
+    "acc": 0.993842093688146,
+    "inc": 0.9518363756322851,
+    "fixed": 197,
+    "broke": 6,
+    "net": 191
+   },
+   "seg|test|False": {
+    "n": 1397,
+    "acc": 0.9305654974946314,
+    "inc": 0.9677881173944166,
+    "fixed": 19,
+    "broke": 71,
+    "net": -52
+   },
+   "seg|test|True": {
+    "n": 1397,
+    "acc": 0.9484609878310666,
+    "inc": 0.9677881173944166,
+    "fixed": 19,
+    "broke": 46,
+    "net": -27
+   },
+   "real|test|False": {
+    "n": 41,
+    "acc": 0.9024390243902439,
+    "inc": 0.9512195121951219,
+    "fixed": 1,
+    "broke": 3,
+    "net": -2
+   },
+   "real|test|True": {
+    "n": 41,
+    "acc": 0.975609756097561,
+    "inc": 0.9512195121951219,
+    "fixed": 1,
+    "broke": 0,
+    "net": 1
+   },
+   "boardD|train|False": {
+    "n": 707,
+    "acc": 0.9504950495049505,
+    "inc": 0.9533239038189534,
+    "fixed": 6,
+    "broke": 8,
+    "net": -2,
+    "changed": 14
+   },
+   "boardD|train|True": {
+    "n": 707,
+    "acc": 0.9533239038189534,
+    "inc": 0.9533239038189534,
+    "fixed": 8,
+    "broke": 8,
+    "net": 0,
+    "changed": 16
+   },
+   "rulings": {
+    "n": 43,
+    "engine_ok": 43,
+    "raw_ok": 40,
+    "gated_ok": 43,
+    "raw_viol": [
+     [
+      "clean the garage saturday at 11am",
+      "Q25",
+      "task"
+     ],
+     [
+      "pick up my sister tomorrow",
+      "Q47B",
+      "task"
+     ],
+     [
+      "on monday the 20th i need to have a conversation with Greg",
+      "Q1",
+      "task"
+     ]
+    ],
+    "gated_viol": [],
+    "engine_viol": []
+   }
+  },
+  "lr:stage1": {
+   "fastrule|train|False": {
+    "n": 2129,
+    "acc": 0.8257397839361202,
+    "inc": 0.9802724283701268,
+    "fixed": 19,
+    "broke": 348,
+    "net": -329
+   },
+   "fastrule|train|True": {
+    "n": 2129,
+    "acc": 0.8496946923438234,
+    "inc": 0.9802724283701268,
+    "fixed": 19,
+    "broke": 297,
+    "net": -278
+   },
+   "v2|train|False": {
+    "n": 3300,
+    "acc": 0.9042424242424243,
+    "inc": 0.9712121212121212,
+    "fixed": 70,
+    "broke": 291,
+    "net": -221
+   },
+   "v2|train|True": {
+    "n": 3300,
+    "acc": 0.9496969696969697,
+    "inc": 0.9712121212121212,
+    "fixed": 70,
+    "broke": 141,
+    "net": -71
+   },
+   "seg|train|False": {
+    "n": 956,
+    "acc": 0.7782426778242678,
+    "inc": 0.9864016736401674,
+    "fixed": 3,
+    "broke": 202,
+    "net": -199
+   },
+   "seg|train|True": {
+    "n": 956,
+    "acc": 0.8148535564853556,
+    "inc": 0.9864016736401674,
+    "fixed": 3,
+    "broke": 167,
+    "net": -164
+   },
+   "fastrule|test|False": {
+    "n": 900,
+    "acc": 0.7966666666666666,
+    "inc": 0.8844444444444445,
+    "fixed": 52,
+    "broke": 131,
+    "net": -79
+   },
+   "fastrule|test|True": {
+    "n": 900,
+    "acc": 0.8211111111111111,
+    "inc": 0.8844444444444445,
+    "fixed": 52,
+    "broke": 109,
+    "net": -57
+   },
+   "v2|test|False": {
+    "n": 4547,
+    "acc": 0.8643061359137894,
+    "inc": 0.9518363756322851,
+    "fixed": 157,
+    "broke": 555,
+    "net": -398
+   },
+   "v2|test|True": {
+    "n": 4547,
+    "acc": 0.8981746206289861,
+    "inc": 0.9518363756322851,
+    "fixed": 157,
+    "broke": 401,
+    "net": -244
+   },
+   "seg|test|False": {
+    "n": 1397,
+    "acc": 0.7523264137437365,
+    "inc": 0.9677881173944166,
+    "fixed": 20,
+    "broke": 321,
+    "net": -301
+   },
+   "seg|test|True": {
+    "n": 1397,
+    "acc": 0.7795275590551181,
+    "inc": 0.9677881173944166,
+    "fixed": 20,
+    "broke": 283,
+    "net": -263
+   },
+   "real|test|False": {
+    "n": 41,
+    "acc": 0.8292682926829268,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 5,
+    "net": -5
+   },
+   "real|test|True": {
+    "n": 41,
+    "acc": 0.926829268292683,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 1,
+    "net": -1
+   },
+   "boardD|train|False": {
+    "n": 707,
+    "acc": 0.8147100424328148,
+    "inc": 0.9533239038189534,
+    "fixed": 16,
+    "broke": 114,
+    "net": -98,
+    "changed": 130
+   },
+   "boardD|train|True": {
+    "n": 707,
+    "acc": 0.8330975954738331,
+    "inc": 0.9533239038189534,
+    "fixed": 13,
+    "broke": 98,
+    "net": -85,
+    "changed": 111
+   },
+   "rulings": {
+    "n": 43,
+    "engine_ok": 43,
+    "raw_ok": 26,
+    "gated_ok": 33,
+    "raw_viol": [
+     [
+      "remind me to feed the cat at 14:00",
+      "Q26",
+      "task"
+     ],
+     [
+      "remind me to call the bank at 5pm",
+      "Q26",
+      "task"
+     ],
+     [
+      "remind me to take out the trash tonight at 8",
+      "Q26",
+      "task"
+     ],
+     [
+      "file the taxes every weekday at 3:45pm",
+      "Q25",
+      "task"
+     ],
+     [
+      "block off time to print the boarding pass from 2 to 3",
+      "Q26 range",
+      "task"
+     ],
+     [
+      "pay rent on friday at noon",
+      "Q25",
+      "task"
+     ],
+     [
+      "water the plants at half past six",
+      "Q25",
+      "task"
+     ],
+     [
+      "clean and organize the garage this morning",
+      "Q27",
+      "event"
+     ],
+     [
+      "add book a flight to my todo list tonight",
+      "Q27",
+      "event"
+     ],
+     [
+      "fold the laundry this evening",
+      "Q47A",
+      "event"
+     ],
+     [
+      "remind me to pack for the trip tomorrow morning",
+      "Q47A",
+      "event"
+     ],
+     [
+      "call Mom",
+      "Q47/Q26",
+      "event"
+     ],
+     [
+      "buy milk",
+      "Q26",
+      "event"
+     ],
+     [
+      "remind me to sign the permission slip",
+      "Q26",
+      "event"
+     ],
+     [
+      "buy a gift for mom tomorrow",
+      "Q26",
+      "event"
+     ],
+     [
+      "pay the electricity bill on friday",
+      "Q26",
+      "event"
+     ],
+     [
+      "submit the report tomorrow",
+      "Q26",
+      "event"
+     ]
+    ],
+    "gated_viol": [
+     [
+      "clean and organize the garage this morning",
+      "Q27",
+      "event"
+     ],
+     [
+      "add book a flight to my todo list tonight",
+      "Q27",
+      "event"
+     ],
+     [
+      "fold the laundry this evening",
+      "Q47A",
+      "event"
+     ],
+     [
+      "remind me to pack for the trip tomorrow morning",
+      "Q47A",
+      "event"
+     ],
+     [
+      "call Mom",
+      "Q47/Q26",
+      "event"
+     ],
+     [
+      "buy milk",
+      "Q26",
+      "event"
+     ],
+     [
+      "remind me to sign the permission slip",
+      "Q26",
+      "event"
+     ],
+     [
+      "buy a gift for mom tomorrow",
+      "Q26",
+      "event"
+     ],
+     [
+      "pay the electricity bill on friday",
+      "Q26",
+      "event"
+     ],
+     [
+      "submit the report tomorrow",
+      "Q26",
+      "event"
+     ]
+    ],
+    "engine_viol": []
+   }
+  },
+  "lr:shape+stage1": {
+   "fastrule|train|False": {
+    "n": 2129,
+    "acc": 0.9581963363081258,
+    "inc": 0.9802724283701268,
+    "fixed": 12,
+    "broke": 59,
+    "net": -47
+   },
+   "fastrule|train|True": {
+    "n": 2129,
+    "acc": 0.9647721935180836,
+    "inc": 0.9802724283701268,
+    "fixed": 12,
+    "broke": 45,
+    "net": -33
+   },
+   "v2|train|False": {
+    "n": 3300,
+    "acc": 0.9948484848484849,
+    "inc": 0.9712121212121212,
+    "fixed": 86,
+    "broke": 8,
+    "net": 78
+   },
+   "v2|train|True": {
+    "n": 3300,
+    "acc": 0.9948484848484849,
+    "inc": 0.9712121212121212,
+    "fixed": 86,
+    "broke": 8,
+    "net": 78
+   },
+   "seg|train|False": {
+    "n": 956,
+    "acc": 0.9675732217573222,
+    "inc": 0.9864016736401674,
+    "fixed": 4,
+    "broke": 22,
+    "net": -18
+   },
+   "seg|train|True": {
+    "n": 956,
+    "acc": 0.9738493723849372,
+    "inc": 0.9864016736401674,
+    "fixed": 4,
+    "broke": 16,
+    "net": -12
+   },
+   "fastrule|test|False": {
+    "n": 900,
+    "acc": 0.9022222222222223,
+    "inc": 0.8844444444444445,
+    "fixed": 94,
+    "broke": 78,
+    "net": 16
+   },
+   "fastrule|test|True": {
+    "n": 900,
+    "acc": 0.9511111111111111,
+    "inc": 0.8844444444444445,
+    "fixed": 94,
+    "broke": 34,
+    "net": 60
+   },
+   "v2|test|False": {
+    "n": 4547,
+    "acc": 0.9936221684627227,
+    "inc": 0.9518363756322851,
+    "fixed": 198,
+    "broke": 8,
+    "net": 190
+   },
+   "v2|test|True": {
+    "n": 4547,
+    "acc": 0.9936221684627227,
+    "inc": 0.9518363756322851,
+    "fixed": 198,
+    "broke": 8,
+    "net": 190
+   },
+   "seg|test|False": {
+    "n": 1397,
+    "acc": 0.9427344309234073,
+    "inc": 0.9677881173944166,
+    "fixed": 19,
+    "broke": 54,
+    "net": -35
+   },
+   "seg|test|True": {
+    "n": 1397,
+    "acc": 0.9613457408732999,
+    "inc": 0.9677881173944166,
+    "fixed": 19,
+    "broke": 28,
+    "net": -9
+   },
+   "real|test|False": {
+    "n": 41,
+    "acc": 0.8780487804878049,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 3,
+    "net": -3
+   },
+   "real|test|True": {
+    "n": 41,
+    "acc": 0.926829268292683,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 1,
+    "net": -1
+   },
+   "boardD|train|False": {
+    "n": 707,
+    "acc": 0.9561527581329562,
+    "inc": 0.9533239038189534,
+    "fixed": 8,
+    "broke": 6,
+    "net": 2,
+    "changed": 14
+   },
+   "boardD|train|True": {
+    "n": 707,
+    "acc": 0.958981612446959,
+    "inc": 0.9533239038189534,
+    "fixed": 9,
+    "broke": 5,
+    "net": 4,
+    "changed": 14
+   },
+   "rulings": {
+    "n": 43,
+    "engine_ok": 43,
+    "raw_ok": 40,
+    "gated_ok": 43,
+    "raw_viol": [
+     [
+      "clean the garage saturday at 11am",
+      "Q25",
+      "task"
+     ],
+     [
+      "pick up my sister tomorrow",
+      "Q47B",
+      "task"
+     ],
+     [
+      "on monday the 20th i need to have a conversation with Greg",
+      "Q1",
+      "task"
+     ]
+    ],
+    "gated_viol": [],
+    "engine_viol": []
+   }
+  },
+  "lr:engine+shape": {
+   "fastrule|train|False": {
+    "n": 2129,
+    "acc": 0.9826209488022546,
+    "inc": 0.9802724283701268,
+    "fixed": 7,
+    "broke": 2,
+    "net": 5
+   },
+   "fastrule|train|True": {
+    "n": 2129,
+    "acc": 0.9826209488022546,
+    "inc": 0.9802724283701268,
+    "fixed": 7,
+    "broke": 2,
+    "net": 5
+   },
+   "v2|train|False": {
+    "n": 3300,
+    "acc": 0.996969696969697,
+    "inc": 0.9712121212121212,
+    "fixed": 87,
+    "broke": 2,
+    "net": 85
+   },
+   "v2|train|True": {
+    "n": 3300,
+    "acc": 0.996969696969697,
+    "inc": 0.9712121212121212,
+    "fixed": 87,
+    "broke": 2,
+    "net": 85
+   },
+   "seg|train|False": {
+    "n": 956,
+    "acc": 0.9707112970711297,
+    "inc": 0.9864016736401674,
+    "fixed": 2,
+    "broke": 17,
+    "net": -15
+   },
+   "seg|train|True": {
+    "n": 956,
+    "acc": 0.9717573221757322,
+    "inc": 0.9864016736401674,
+    "fixed": 2,
+    "broke": 16,
+    "net": -14
+   },
+   "fastrule|test|False": {
+    "n": 900,
+    "acc": 0.9388888888888889,
+    "inc": 0.8844444444444445,
+    "fixed": 88,
+    "broke": 39,
+    "net": 49
+   },
+   "fastrule|test|True": {
+    "n": 900,
+    "acc": 0.9622222222222222,
+    "inc": 0.8844444444444445,
+    "fixed": 88,
+    "broke": 18,
+    "net": 70
+   },
+   "v2|test|False": {
+    "n": 4547,
+    "acc": 0.9947217945898394,
+    "inc": 0.9518363756322851,
+    "fixed": 196,
+    "broke": 1,
+    "net": 195
+   },
+   "v2|test|True": {
+    "n": 4547,
+    "acc": 0.9947217945898394,
+    "inc": 0.9518363756322851,
+    "fixed": 196,
+    "broke": 1,
+    "net": 195
+   },
+   "seg|test|False": {
+    "n": 1397,
+    "acc": 0.9463135289906943,
+    "inc": 0.9677881173944166,
+    "fixed": 14,
+    "broke": 44,
+    "net": -30
+   },
+   "seg|test|True": {
+    "n": 1397,
+    "acc": 0.9498926270579814,
+    "inc": 0.9677881173944166,
+    "fixed": 14,
+    "broke": 39,
+    "net": -25
+   },
+   "real|test|False": {
+    "n": 41,
+    "acc": 0.9512195121951219,
+    "inc": 0.9512195121951219,
+    "fixed": 1,
+    "broke": 1,
+    "net": 0
+   },
+   "real|test|True": {
+    "n": 41,
+    "acc": 0.975609756097561,
+    "inc": 0.9512195121951219,
+    "fixed": 1,
+    "broke": 0,
+    "net": 1
+   },
+   "boardD|train|False": {
+    "n": 707,
+    "acc": 0.9717114568599717,
+    "inc": 0.9533239038189534,
+    "fixed": 14,
+    "broke": 1,
+    "net": 13,
+    "changed": 15
+   },
+   "boardD|train|True": {
+    "n": 707,
+    "acc": 0.9717114568599717,
+    "inc": 0.9533239038189534,
+    "fixed": 14,
+    "broke": 1,
+    "net": 13,
+    "changed": 15
+   },
+   "rulings": {
+    "n": 43,
+    "engine_ok": 43,
+    "raw_ok": 42,
+    "gated_ok": 43,
+    "raw_viol": [
+     [
+      "on monday the 20th i need to have a conversation with Greg",
+      "Q1",
+      "task"
+     ]
+    ],
+    "gated_viol": [],
+    "engine_viol": []
+   }
+  },
+  "lr:engine+shape+stage1": {
+   "fastrule|train|False": {
+    "n": 2129,
+    "acc": 0.9816815406294035,
+    "inc": 0.9802724283701268,
+    "fixed": 9,
+    "broke": 6,
+    "net": 3
+   },
+   "fastrule|train|True": {
+    "n": 2129,
+    "acc": 0.982151244715829,
+    "inc": 0.9802724283701268,
+    "fixed": 9,
+    "broke": 5,
+    "net": 4
+   },
+   "v2|train|False": {
+    "n": 3300,
+    "acc": 0.9966666666666667,
+    "inc": 0.9712121212121212,
+    "fixed": 87,
+    "broke": 3,
+    "net": 84
+   },
+   "v2|train|True": {
+    "n": 3300,
+    "acc": 0.9966666666666667,
+    "inc": 0.9712121212121212,
+    "fixed": 87,
+    "broke": 3,
+    "net": 84
+   },
+   "seg|train|False": {
+    "n": 956,
+    "acc": 0.9738493723849372,
+    "inc": 0.9864016736401674,
+    "fixed": 4,
+    "broke": 16,
+    "net": -12
+   },
+   "seg|train|True": {
+    "n": 956,
+    "acc": 0.9769874476987448,
+    "inc": 0.9864016736401674,
+    "fixed": 4,
+    "broke": 13,
+    "net": -9
+   },
+   "fastrule|test|False": {
+    "n": 900,
+    "acc": 0.9511111111111111,
+    "inc": 0.8844444444444445,
+    "fixed": 86,
+    "broke": 26,
+    "net": 60
+   },
+   "fastrule|test|True": {
+    "n": 900,
+    "acc": 0.96,
+    "inc": 0.8844444444444445,
+    "fixed": 86,
+    "broke": 18,
+    "net": 68
+   },
+   "v2|test|False": {
+    "n": 4547,
+    "acc": 0.9942819441389927,
+    "inc": 0.9518363756322851,
+    "fixed": 196,
+    "broke": 3,
+    "net": 193
+   },
+   "v2|test|True": {
+    "n": 4547,
+    "acc": 0.9942819441389927,
+    "inc": 0.9518363756322851,
+    "fixed": 196,
+    "broke": 3,
+    "net": 193
+   },
+   "seg|test|False": {
+    "n": 1397,
+    "acc": 0.968503937007874,
+    "inc": 0.9677881173944166,
+    "fixed": 18,
+    "broke": 17,
+    "net": 1
+   },
+   "seg|test|True": {
+    "n": 1397,
+    "acc": 0.9699355762347889,
+    "inc": 0.9677881173944166,
+    "fixed": 18,
+    "broke": 15,
+    "net": 3
+   },
+   "real|test|False": {
+    "n": 41,
+    "acc": 0.926829268292683,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 1,
+    "net": -1
+   },
+   "real|test|True": {
+    "n": 41,
+    "acc": 0.9512195121951219,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 0,
+    "net": 0
+   },
+   "boardD|train|False": {
+    "n": 707,
+    "acc": 0.9674681753889675,
+    "inc": 0.9533239038189534,
+    "fixed": 14,
+    "broke": 4,
+    "net": 10,
+    "changed": 18
+   },
+   "boardD|train|True": {
+    "n": 707,
+    "acc": 0.9688826025459689,
+    "inc": 0.9533239038189534,
+    "fixed": 14,
+    "broke": 3,
+    "net": 11,
+    "changed": 17
+   },
+   "rulings": {
+    "n": 43,
+    "engine_ok": 43,
+    "raw_ok": 43,
+    "gated_ok": 43,
+    "raw_viol": [],
+    "gated_viol": [],
+    "engine_viol": []
+   }
+  },
+  "lr:shape+embed": {
+   "fastrule|train|False": {
+    "n": 2129,
+    "acc": 0.9671207139502114,
+    "inc": 0.9802724283701268,
+    "fixed": 15,
+    "broke": 43,
+    "net": -28
+   },
+   "fastrule|train|True": {
+    "n": 2129,
+    "acc": 0.973696571160169,
+    "inc": 0.9802724283701268,
+    "fixed": 15,
+    "broke": 29,
+    "net": -14
+   },
+   "v2|train|False": {
+    "n": 3300,
+    "acc": 0.9948484848484849,
+    "inc": 0.9712121212121212,
+    "fixed": 86,
+    "broke": 8,
+    "net": 78
+   },
+   "v2|train|True": {
+    "n": 3300,
+    "acc": 0.9948484848484849,
+    "inc": 0.9712121212121212,
+    "fixed": 86,
+    "broke": 8,
+    "net": 78
+   },
+   "seg|train|False": {
+    "n": 956,
+    "acc": 0.9623430962343096,
+    "inc": 0.9864016736401674,
+    "fixed": 3,
+    "broke": 26,
+    "net": -23
+   },
+   "seg|train|True": {
+    "n": 956,
+    "acc": 0.9675732217573222,
+    "inc": 0.9864016736401674,
+    "fixed": 3,
+    "broke": 21,
+    "net": -18
+   },
+   "fastrule|test|False": {
+    "n": 900,
+    "acc": 0.9033333333333333,
+    "inc": 0.8844444444444445,
+    "fixed": 94,
+    "broke": 77,
+    "net": 17
+   },
+   "fastrule|test|True": {
+    "n": 900,
+    "acc": 0.95,
+    "inc": 0.8844444444444445,
+    "fixed": 94,
+    "broke": 35,
+    "net": 59
+   },
+   "v2|test|False": {
+    "n": 4547,
+    "acc": 0.9934022432372993,
+    "inc": 0.9518363756322851,
+    "fixed": 196,
+    "broke": 7,
+    "net": 189
+   },
+   "v2|test|True": {
+    "n": 4547,
+    "acc": 0.9934022432372993,
+    "inc": 0.9518363756322851,
+    "fixed": 196,
+    "broke": 7,
+    "net": 189
+   },
+   "seg|test|False": {
+    "n": 1397,
+    "acc": 0.9463135289906943,
+    "inc": 0.9677881173944166,
+    "fixed": 20,
+    "broke": 50,
+    "net": -30
+   },
+   "seg|test|True": {
+    "n": 1397,
+    "acc": 0.9634931997136722,
+    "inc": 0.9677881173944166,
+    "fixed": 20,
+    "broke": 26,
+    "net": -6
+   },
+   "real|test|False": {
+    "n": 41,
+    "acc": 0.926829268292683,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 1,
+    "net": -1
+   },
+   "real|test|True": {
+    "n": 41,
+    "acc": 0.9512195121951219,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 0,
+    "net": 0
+   },
+   "boardD|train|False": {
+    "n": 707,
+    "acc": 0.9575671852899575,
+    "inc": 0.9533239038189534,
+    "fixed": 8,
+    "broke": 5,
+    "net": 3,
+    "changed": 13
+   },
+   "boardD|train|True": {
+    "n": 707,
+    "acc": 0.9603960396039604,
+    "inc": 0.9533239038189534,
+    "fixed": 9,
+    "broke": 4,
+    "net": 5,
+    "changed": 13
+   },
+   "rulings": {
+    "n": 43,
+    "engine_ok": 43,
+    "raw_ok": 40,
+    "gated_ok": 43,
+    "raw_viol": [
+     [
+      "clean the garage saturday at 11am",
+      "Q25",
+      "task"
+     ],
+     [
+      "pick up my sister tomorrow",
+      "Q47B",
+      "task"
+     ],
+     [
+      "on monday the 20th i need to have a conversation with Greg",
+      "Q1",
+      "task"
+     ]
+    ],
+    "gated_viol": [],
+    "engine_viol": []
+   }
+  },
+  "lr:engine+shape+embed": {
+   "fastrule|train|False": {
+    "n": 2129,
+    "acc": 0.982151244715829,
+    "inc": 0.9802724283701268,
+    "fixed": 10,
+    "broke": 6,
+    "net": 4
+   },
+   "fastrule|train|True": {
+    "n": 2129,
+    "acc": 0.9830906528886801,
+    "inc": 0.9802724283701268,
+    "fixed": 10,
+    "broke": 4,
+    "net": 6
+   },
+   "v2|train|False": {
+    "n": 3300,
+    "acc": 0.9960606060606061,
+    "inc": 0.9712121212121212,
+    "fixed": 84,
+    "broke": 2,
+    "net": 82
+   },
+   "v2|train|True": {
+    "n": 3300,
+    "acc": 0.9960606060606061,
+    "inc": 0.9712121212121212,
+    "fixed": 84,
+    "broke": 2,
+    "net": 82
+   },
+   "seg|train|False": {
+    "n": 956,
+    "acc": 0.9728033472803347,
+    "inc": 0.9864016736401674,
+    "fixed": 1,
+    "broke": 14,
+    "net": -13
+   },
+   "seg|train|True": {
+    "n": 956,
+    "acc": 0.9759414225941423,
+    "inc": 0.9864016736401674,
+    "fixed": 1,
+    "broke": 11,
+    "net": -10
+   },
+   "fastrule|test|False": {
+    "n": 900,
+    "acc": 0.9411111111111111,
+    "inc": 0.8844444444444445,
+    "fixed": 89,
+    "broke": 38,
+    "net": 51
+   },
+   "fastrule|test|True": {
+    "n": 900,
+    "acc": 0.96,
+    "inc": 0.8844444444444445,
+    "fixed": 89,
+    "broke": 21,
+    "net": 68
+   },
+   "v2|test|False": {
+    "n": 4547,
+    "acc": 0.993842093688146,
+    "inc": 0.9518363756322851,
+    "fixed": 195,
+    "broke": 4,
+    "net": 191
+   },
+   "v2|test|True": {
+    "n": 4547,
+    "acc": 0.993842093688146,
+    "inc": 0.9518363756322851,
+    "fixed": 195,
+    "broke": 4,
+    "net": 191
+   },
+   "seg|test|False": {
+    "n": 1397,
+    "acc": 0.964924838940587,
+    "inc": 0.9677881173944166,
+    "fixed": 19,
+    "broke": 23,
+    "net": -4
+   },
+   "seg|test|True": {
+    "n": 1397,
+    "acc": 0.968503937007874,
+    "inc": 0.9677881173944166,
+    "fixed": 19,
+    "broke": 18,
+    "net": 1
+   },
+   "real|test|False": {
+    "n": 41,
+    "acc": 0.926829268292683,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 1,
+    "net": -1
+   },
+   "real|test|True": {
+    "n": 41,
+    "acc": 0.9512195121951219,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 0,
+    "net": 0
+   },
+   "boardD|train|False": {
+    "n": 707,
+    "acc": 0.9688826025459689,
+    "inc": 0.9533239038189534,
+    "fixed": 14,
+    "broke": 3,
+    "net": 11,
+    "changed": 17
+   },
+   "boardD|train|True": {
+    "n": 707,
+    "acc": 0.9702970297029703,
+    "inc": 0.9533239038189534,
+    "fixed": 14,
+    "broke": 2,
+    "net": 12,
+    "changed": 16
+   },
+   "rulings": {
+    "n": 43,
+    "engine_ok": 43,
+    "raw_ok": 42,
+    "gated_ok": 43,
+    "raw_viol": [
+     [
+      "on monday the 20th i need to have a conversation with Greg",
+      "Q1",
+      "task"
+     ]
+    ],
+    "gated_viol": [],
+    "engine_viol": []
+   }
+  },
+  "lr:engine+shape+stage1+embed": {
+   "fastrule|train|False": {
+    "n": 2129,
+    "acc": 0.982151244715829,
+    "inc": 0.9802724283701268,
+    "fixed": 11,
+    "broke": 7,
+    "net": 4
+   },
+   "fastrule|train|True": {
+    "n": 2129,
+    "acc": 0.9826209488022546,
+    "inc": 0.9802724283701268,
+    "fixed": 11,
+    "broke": 6,
+    "net": 5
+   },
+   "v2|train|False": {
+    "n": 3300,
+    "acc": 0.9957575757575757,
+    "inc": 0.9712121212121212,
+    "fixed": 86,
+    "broke": 5,
+    "net": 81
+   },
+   "v2|train|True": {
+    "n": 3300,
+    "acc": 0.9957575757575757,
+    "inc": 0.9712121212121212,
+    "fixed": 86,
+    "broke": 5,
+    "net": 81
+   },
+   "seg|train|False": {
+    "n": 956,
+    "acc": 0.9728033472803347,
+    "inc": 0.9864016736401674,
+    "fixed": 4,
+    "broke": 17,
+    "net": -13
+   },
+   "seg|train|True": {
+    "n": 956,
+    "acc": 0.9759414225941423,
+    "inc": 0.9864016736401674,
+    "fixed": 4,
+    "broke": 14,
+    "net": -10
+   },
+   "fastrule|test|False": {
+    "n": 900,
+    "acc": 0.9511111111111111,
+    "inc": 0.8844444444444445,
+    "fixed": 85,
+    "broke": 25,
+    "net": 60
+   },
+   "fastrule|test|True": {
+    "n": 900,
+    "acc": 0.9577777777777777,
+    "inc": 0.8844444444444445,
+    "fixed": 85,
+    "broke": 19,
+    "net": 66
+   },
+   "v2|test|False": {
+    "n": 4547,
+    "acc": 0.9942819441389927,
+    "inc": 0.9518363756322851,
+    "fixed": 198,
+    "broke": 5,
+    "net": 193
+   },
+   "v2|test|True": {
+    "n": 4547,
+    "acc": 0.9942819441389927,
+    "inc": 0.9518363756322851,
+    "fixed": 198,
+    "broke": 5,
+    "net": 193
+   },
+   "seg|test|False": {
+    "n": 1397,
+    "acc": 0.9699355762347889,
+    "inc": 0.9677881173944166,
+    "fixed": 18,
+    "broke": 15,
+    "net": 3
+   },
+   "seg|test|True": {
+    "n": 1397,
+    "acc": 0.9713672154617037,
+    "inc": 0.9677881173944166,
+    "fixed": 18,
+    "broke": 13,
+    "net": 5
+   },
+   "real|test|False": {
+    "n": 41,
+    "acc": 0.926829268292683,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 1,
+    "net": -1
+   },
+   "real|test|True": {
+    "n": 41,
+    "acc": 0.9512195121951219,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 0,
+    "net": 0
+   },
+   "boardD|train|False": {
+    "n": 707,
+    "acc": 0.9688826025459689,
+    "inc": 0.9533239038189534,
+    "fixed": 15,
+    "broke": 4,
+    "net": 11,
+    "changed": 19
+   },
+   "boardD|train|True": {
+    "n": 707,
+    "acc": 0.9702970297029703,
+    "inc": 0.9533239038189534,
+    "fixed": 15,
+    "broke": 3,
+    "net": 12,
+    "changed": 18
+   },
+   "rulings": {
+    "n": 43,
+    "engine_ok": 43,
+    "raw_ok": 42,
+    "gated_ok": 43,
+    "raw_viol": [
+     [
+      "on monday the 20th i need to have a conversation with Greg",
+      "Q1",
+      "task"
+     ]
+    ],
+    "gated_viol": [],
+    "engine_viol": []
+   }
+  },
+  "hgb:shape": {
+   "fastrule|train|False": {
+    "n": 2129,
+    "acc": 0.960075152653828,
+    "inc": 0.9802724283701268,
+    "fixed": 12,
+    "broke": 55,
+    "net": -43
+   },
+   "fastrule|train|True": {
+    "n": 2129,
+    "acc": 0.960075152653828,
+    "inc": 0.9802724283701268,
+    "fixed": 12,
+    "broke": 55,
+    "net": -43
+   },
+   "v2|train|False": {
+    "n": 3300,
+    "acc": 0.9933333333333333,
+    "inc": 0.9712121212121212,
+    "fixed": 89,
+    "broke": 16,
+    "net": 73
+   },
+   "v2|train|True": {
+    "n": 3300,
+    "acc": 0.9933333333333333,
+    "inc": 0.9712121212121212,
+    "fixed": 89,
+    "broke": 16,
+    "net": 73
+   },
+   "seg|train|False": {
+    "n": 956,
+    "acc": 0.9602510460251046,
+    "inc": 0.9864016736401674,
+    "fixed": 4,
+    "broke": 29,
+    "net": -25
+   },
+   "seg|train|True": {
+    "n": 956,
+    "acc": 0.9602510460251046,
+    "inc": 0.9864016736401674,
+    "fixed": 4,
+    "broke": 29,
+    "net": -25
+   },
+   "fastrule|test|False": {
+    "n": 900,
+    "acc": 0.9322222222222222,
+    "inc": 0.8844444444444445,
+    "fixed": 93,
+    "broke": 50,
+    "net": 43
+   },
+   "fastrule|test|True": {
+    "n": 900,
+    "acc": 0.9477777777777778,
+    "inc": 0.8844444444444445,
+    "fixed": 93,
+    "broke": 36,
+    "net": 57
+   },
+   "v2|test|False": {
+    "n": 4547,
+    "acc": 0.9916428414339125,
+    "inc": 0.9518363756322851,
+    "fixed": 198,
+    "broke": 17,
+    "net": 181
+   },
+   "v2|test|True": {
+    "n": 4547,
+    "acc": 0.9916428414339125,
+    "inc": 0.9518363756322851,
+    "fixed": 198,
+    "broke": 17,
+    "net": 181
+   },
+   "seg|test|False": {
+    "n": 1397,
+    "acc": 0.9498926270579814,
+    "inc": 0.9677881173944166,
+    "fixed": 16,
+    "broke": 41,
+    "net": -25
+   },
+   "seg|test|True": {
+    "n": 1397,
+    "acc": 0.9541875447387258,
+    "inc": 0.9677881173944166,
+    "fixed": 16,
+    "broke": 35,
+    "net": -19
+   },
+   "real|test|False": {
+    "n": 41,
+    "acc": 0.975609756097561,
+    "inc": 0.9512195121951219,
+    "fixed": 1,
+    "broke": 0,
+    "net": 1
+   },
+   "real|test|True": {
+    "n": 41,
+    "acc": 0.975609756097561,
+    "inc": 0.9512195121951219,
+    "fixed": 1,
+    "broke": 0,
+    "net": 1
+   },
+   "boardD|train|False": {
+    "n": 707,
+    "acc": 0.9533239038189534,
+    "inc": 0.9533239038189534,
+    "fixed": 9,
+    "broke": 9,
+    "net": 0,
+    "changed": 18
+   },
+   "boardD|train|True": {
+    "n": 707,
+    "acc": 0.9533239038189534,
+    "inc": 0.9533239038189534,
+    "fixed": 9,
+    "broke": 9,
+    "net": 0,
+    "changed": 18
+   },
+   "rulings": {
+    "n": 43,
+    "engine_ok": 43,
+    "raw_ok": 42,
+    "gated_ok": 43,
+    "raw_viol": [
+     [
+      "pick up my sister tomorrow",
+      "Q47B",
+      "task"
+     ]
+    ],
+    "gated_viol": [],
+    "engine_viol": []
+   }
+  },
+  "hgb:stage1": {
+   "fastrule|train|False": {
+    "n": 2129,
+    "acc": 0.9135744480976985,
+    "inc": 0.9802724283701268,
+    "fixed": 21,
+    "broke": 163,
+    "net": -142
+   },
+   "fastrule|train|True": {
+    "n": 2129,
+    "acc": 0.9375293565054016,
+    "inc": 0.9802724283701268,
+    "fixed": 21,
+    "broke": 112,
+    "net": -91
+   },
+   "v2|train|False": {
+    "n": 3300,
+    "acc": 0.9842424242424243,
+    "inc": 0.9712121212121212,
+    "fixed": 87,
+    "broke": 44,
+    "net": 43
+   },
+   "v2|train|True": {
+    "n": 3300,
+    "acc": 0.9903030303030304,
+    "inc": 0.9712121212121212,
+    "fixed": 87,
+    "broke": 24,
+    "net": 63
+   },
+   "seg|train|False": {
+    "n": 956,
+    "acc": 0.8692468619246861,
+    "inc": 0.9864016736401674,
+    "fixed": 5,
+    "broke": 117,
+    "net": -112
+   },
+   "seg|train|True": {
+    "n": 956,
+    "acc": 0.9152719665271967,
+    "inc": 0.9864016736401674,
+    "fixed": 5,
+    "broke": 73,
+    "net": -68
+   },
+   "fastrule|test|False": {
+    "n": 900,
+    "acc": 0.8988888888888888,
+    "inc": 0.8844444444444445,
+    "fixed": 66,
+    "broke": 53,
+    "net": 13
+   },
+   "fastrule|test|True": {
+    "n": 900,
+    "acc": 0.9222222222222223,
+    "inc": 0.8844444444444445,
+    "fixed": 66,
+    "broke": 32,
+    "net": 34
+   },
+   "v2|test|False": {
+    "n": 4547,
+    "acc": 0.9615130855509126,
+    "inc": 0.9518363756322851,
+    "fixed": 199,
+    "broke": 155,
+    "net": 44
+   },
+   "v2|test|True": {
+    "n": 4547,
+    "acc": 0.9705300197932702,
+    "inc": 0.9518363756322851,
+    "fixed": 199,
+    "broke": 114,
+    "net": 85
+   },
+   "seg|test|False": {
+    "n": 1397,
+    "acc": 0.8611309949892627,
+    "inc": 0.9677881173944166,
+    "fixed": 29,
+    "broke": 178,
+    "net": -149
+   },
+   "seg|test|True": {
+    "n": 1397,
+    "acc": 0.8876163206871869,
+    "inc": 0.9677881173944166,
+    "fixed": 29,
+    "broke": 141,
+    "net": -112
+   },
+   "real|test|False": {
+    "n": 41,
+    "acc": 0.7073170731707317,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 10,
+    "net": -10
+   },
+   "real|test|True": {
+    "n": 41,
+    "acc": 0.926829268292683,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 1,
+    "net": -1
+   },
+   "boardD|train|False": {
+    "n": 707,
+    "acc": 0.9292786421499293,
+    "inc": 0.9533239038189534,
+    "fixed": 19,
+    "broke": 36,
+    "net": -17,
+    "changed": 55
+   },
+   "boardD|train|True": {
+    "n": 707,
+    "acc": 0.9377652050919377,
+    "inc": 0.9533239038189534,
+    "fixed": 14,
+    "broke": 25,
+    "net": -11,
+    "changed": 39
+   },
+   "rulings": {
+    "n": 43,
+    "engine_ok": 43,
+    "raw_ok": 29,
+    "gated_ok": 40,
+    "raw_viol": [
+     [
+      "remind me to feed the cat at 14:00",
+      "Q26",
+      "task"
+     ],
+     [
+      "remind me to call the bank at 5pm",
+      "Q26",
+      "task"
+     ],
+     [
+      "remind me to email Robin at 10am",
+      "Q26",
+      "task"
+     ],
+     [
+      "walk the dog at 9",
+      "Q25",
+      "task"
+     ],
+     [
+      "buy milk tomorrow at 6pm",
+      "Q25",
+      "task"
+     ],
+     [
+      "remind me to take out the trash tonight at 8",
+      "Q26",
+      "task"
+     ],
+     [
+      "file the taxes every weekday at 3:45pm",
+      "Q25",
+      "task"
+     ],
+     [
+      "review the contract daily at 8:30pm",
+      "Q25",
+      "task"
+     ],
+     [
+      "block off time to print the boarding pass from 2 to 3",
+      "Q26 range",
+      "task"
+     ],
+     [
+      "pick up the dry cleaning at 5:30",
+      "Q25",
+      "task"
+     ],
+     [
+      "clean the garage saturday at 11am",
+      "Q25",
+      "task"
+     ],
+     [
+      "fold the laundry this evening",
+      "Q47A",
+      "event"
+     ],
+     [
+      "call Mom",
+      "Q47/Q26",
+      "event"
+     ],
+     [
+      "buy a gift for mom tomorrow",
+      "Q26",
+      "event"
+     ]
+    ],
+    "gated_viol": [
+     [
+      "fold the laundry this evening",
+      "Q47A",
+      "event"
+     ],
+     [
+      "call Mom",
+      "Q47/Q26",
+      "event"
+     ],
+     [
+      "buy a gift for mom tomorrow",
+      "Q26",
+      "event"
+     ]
+    ],
+    "engine_viol": []
+   }
+  },
+  "hgb:shape+stage1": {
+   "fastrule|train|False": {
+    "n": 2129,
+    "acc": 0.9887271019257867,
+    "inc": 0.9802724283701268,
+    "fixed": 33,
+    "broke": 15,
+    "net": 18
+   },
+   "fastrule|train|True": {
+    "n": 2129,
+    "acc": 0.9887271019257867,
+    "inc": 0.9802724283701268,
+    "fixed": 33,
+    "broke": 15,
+    "net": 18
+   },
+   "v2|train|False": {
+    "n": 3300,
+    "acc": 0.9951515151515151,
+    "inc": 0.9712121212121212,
+    "fixed": 89,
+    "broke": 10,
+    "net": 79
+   },
+   "v2|train|True": {
+    "n": 3300,
+    "acc": 0.9951515151515151,
+    "inc": 0.9712121212121212,
+    "fixed": 89,
+    "broke": 10,
+    "net": 79
+   },
+   "seg|train|False": {
+    "n": 956,
+    "acc": 0.9769874476987448,
+    "inc": 0.9864016736401674,
+    "fixed": 5,
+    "broke": 14,
+    "net": -9
+   },
+   "seg|train|True": {
+    "n": 956,
+    "acc": 0.9769874476987448,
+    "inc": 0.9864016736401674,
+    "fixed": 5,
+    "broke": 14,
+    "net": -9
+   },
+   "fastrule|test|False": {
+    "n": 900,
+    "acc": 0.9388888888888889,
+    "inc": 0.8844444444444445,
+    "fixed": 76,
+    "broke": 27,
+    "net": 49
+   },
+   "fastrule|test|True": {
+    "n": 900,
+    "acc": 0.9544444444444444,
+    "inc": 0.8844444444444445,
+    "fixed": 76,
+    "broke": 13,
+    "net": 63
+   },
+   "v2|test|False": {
+    "n": 4547,
+    "acc": 0.9881240378271388,
+    "inc": 0.9518363756322851,
+    "fixed": 198,
+    "broke": 33,
+    "net": 165
+   },
+   "v2|test|True": {
+    "n": 4547,
+    "acc": 0.9881240378271388,
+    "inc": 0.9518363756322851,
+    "fixed": 198,
+    "broke": 33,
+    "net": 165
+   },
+   "seg|test|False": {
+    "n": 1397,
+    "acc": 0.968503937007874,
+    "inc": 0.9677881173944166,
+    "fixed": 28,
+    "broke": 27,
+    "net": 1
+   },
+   "seg|test|True": {
+    "n": 1397,
+    "acc": 0.9727988546886185,
+    "inc": 0.9677881173944166,
+    "fixed": 28,
+    "broke": 21,
+    "net": 7
+   },
+   "real|test|False": {
+    "n": 41,
+    "acc": 0.9512195121951219,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 0,
+    "net": 0
+   },
+   "real|test|True": {
+    "n": 41,
+    "acc": 0.9512195121951219,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 0,
+    "net": 0
+   },
+   "boardD|train|False": {
+    "n": 707,
+    "acc": 0.9717114568599717,
+    "inc": 0.9533239038189534,
+    "fixed": 13,
+    "broke": 0,
+    "net": 13,
+    "changed": 13
+   },
+   "boardD|train|True": {
+    "n": 707,
+    "acc": 0.9717114568599717,
+    "inc": 0.9533239038189534,
+    "fixed": 13,
+    "broke": 0,
+    "net": 13,
+    "changed": 13
+   },
+   "rulings": {
+    "n": 43,
+    "engine_ok": 43,
+    "raw_ok": 42,
+    "gated_ok": 43,
+    "raw_viol": [
+     [
+      "pick up my sister tomorrow",
+      "Q47B",
+      "task"
+     ]
+    ],
+    "gated_viol": [],
+    "engine_viol": []
+   }
+  },
+  "hgb:engine+shape": {
+   "fastrule|train|False": {
+    "n": 2129,
+    "acc": 0.9722874589008924,
+    "inc": 0.9802724283701268,
+    "fixed": 2,
+    "broke": 19,
+    "net": -17
+   },
+   "fastrule|train|True": {
+    "n": 2129,
+    "acc": 0.9722874589008924,
+    "inc": 0.9802724283701268,
+    "fixed": 2,
+    "broke": 19,
+    "net": -17
+   },
+   "v2|train|False": {
+    "n": 3300,
+    "acc": 0.9939393939393939,
+    "inc": 0.9712121212121212,
+    "fixed": 85,
+    "broke": 10,
+    "net": 75
+   },
+   "v2|train|True": {
+    "n": 3300,
+    "acc": 0.9939393939393939,
+    "inc": 0.9712121212121212,
+    "fixed": 85,
+    "broke": 10,
+    "net": 75
+   },
+   "seg|train|False": {
+    "n": 956,
+    "acc": 0.9728033472803347,
+    "inc": 0.9864016736401674,
+    "fixed": 5,
+    "broke": 18,
+    "net": -13
+   },
+   "seg|train|True": {
+    "n": 956,
+    "acc": 0.9738493723849372,
+    "inc": 0.9864016736401674,
+    "fixed": 5,
+    "broke": 17,
+    "net": -12
+   },
+   "fastrule|test|False": {
+    "n": 900,
+    "acc": 0.9777777777777777,
+    "inc": 0.8844444444444445,
+    "fixed": 92,
+    "broke": 8,
+    "net": 84
+   },
+   "fastrule|test|True": {
+    "n": 900,
+    "acc": 0.9777777777777777,
+    "inc": 0.8844444444444445,
+    "fixed": 92,
+    "broke": 8,
+    "net": 84
+   },
+   "v2|test|False": {
+    "n": 4547,
+    "acc": 0.9920826918847592,
+    "inc": 0.9518363756322851,
+    "fixed": 201,
+    "broke": 18,
+    "net": 183
+   },
+   "v2|test|True": {
+    "n": 4547,
+    "acc": 0.9920826918847592,
+    "inc": 0.9518363756322851,
+    "fixed": 201,
+    "broke": 18,
+    "net": 183
+   },
+   "seg|test|False": {
+    "n": 1397,
+    "acc": 0.9656406585540444,
+    "inc": 0.9677881173944166,
+    "fixed": 16,
+    "broke": 19,
+    "net": -3
+   },
+   "seg|test|True": {
+    "n": 1397,
+    "acc": 0.9656406585540444,
+    "inc": 0.9677881173944166,
+    "fixed": 16,
+    "broke": 19,
+    "net": -3
+   },
+   "real|test|False": {
+    "n": 41,
+    "acc": 0.9512195121951219,
+    "inc": 0.9512195121951219,
+    "fixed": 1,
+    "broke": 1,
+    "net": 0
+   },
+   "real|test|True": {
+    "n": 41,
+    "acc": 0.975609756097561,
+    "inc": 0.9512195121951219,
+    "fixed": 1,
+    "broke": 0,
+    "net": 1
+   },
+   "boardD|train|False": {
+    "n": 707,
+    "acc": 0.9702970297029703,
+    "inc": 0.9533239038189534,
+    "fixed": 15,
+    "broke": 3,
+    "net": 12,
+    "changed": 18
+   },
+   "boardD|train|True": {
+    "n": 707,
+    "acc": 0.9717114568599717,
+    "inc": 0.9533239038189534,
+    "fixed": 15,
+    "broke": 2,
+    "net": 13,
+    "changed": 17
+   },
+   "rulings": {
+    "n": 43,
+    "engine_ok": 43,
+    "raw_ok": 43,
+    "gated_ok": 43,
+    "raw_viol": [],
+    "gated_viol": [],
+    "engine_viol": []
+   }
+  },
+  "hgb:engine+shape+stage1": {
+   "fastrule|train|False": {
+    "n": 2129,
+    "acc": 0.9844997651479568,
+    "inc": 0.9802724283701268,
+    "fixed": 9,
+    "broke": 0,
+    "net": 9
+   },
+   "fastrule|train|True": {
+    "n": 2129,
+    "acc": 0.9844997651479568,
+    "inc": 0.9802724283701268,
+    "fixed": 9,
+    "broke": 0,
+    "net": 9
+   },
+   "v2|train|False": {
+    "n": 3300,
+    "acc": 0.9963636363636363,
+    "inc": 0.9712121212121212,
+    "fixed": 84,
+    "broke": 1,
+    "net": 83
+   },
+   "v2|train|True": {
+    "n": 3300,
+    "acc": 0.9963636363636363,
+    "inc": 0.9712121212121212,
+    "fixed": 84,
+    "broke": 1,
+    "net": 83
+   },
+   "seg|train|False": {
+    "n": 956,
+    "acc": 0.9843096234309623,
+    "inc": 0.9864016736401674,
+    "fixed": 3,
+    "broke": 5,
+    "net": -2
+   },
+   "seg|train|True": {
+    "n": 956,
+    "acc": 0.9843096234309623,
+    "inc": 0.9864016736401674,
+    "fixed": 3,
+    "broke": 5,
+    "net": -2
+   },
+   "fastrule|test|False": {
+    "n": 900,
+    "acc": 0.9466666666666667,
+    "inc": 0.8844444444444445,
+    "fixed": 57,
+    "broke": 1,
+    "net": 56
+   },
+   "fastrule|test|True": {
+    "n": 900,
+    "acc": 0.9466666666666667,
+    "inc": 0.8844444444444445,
+    "fixed": 57,
+    "broke": 1,
+    "net": 56
+   },
+   "v2|test|False": {
+    "n": 4547,
+    "acc": 0.9929623927864526,
+    "inc": 0.9518363756322851,
+    "fixed": 193,
+    "broke": 6,
+    "net": 187
+   },
+   "v2|test|True": {
+    "n": 4547,
+    "acc": 0.9929623927864526,
+    "inc": 0.9518363756322851,
+    "fixed": 193,
+    "broke": 6,
+    "net": 187
+   },
+   "seg|test|False": {
+    "n": 1397,
+    "acc": 0.9713672154617037,
+    "inc": 0.9677881173944166,
+    "fixed": 9,
+    "broke": 4,
+    "net": 5
+   },
+   "seg|test|True": {
+    "n": 1397,
+    "acc": 0.9713672154617037,
+    "inc": 0.9677881173944166,
+    "fixed": 9,
+    "broke": 4,
+    "net": 5
+   },
+   "real|test|False": {
+    "n": 41,
+    "acc": 0.9512195121951219,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 0,
+    "net": 0
+   },
+   "real|test|True": {
+    "n": 41,
+    "acc": 0.9512195121951219,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 0,
+    "net": 0
+   },
+   "boardD|train|False": {
+    "n": 707,
+    "acc": 0.9745403111739745,
+    "inc": 0.9533239038189534,
+    "fixed": 15,
+    "broke": 0,
+    "net": 15,
+    "changed": 15
+   },
+   "boardD|train|True": {
+    "n": 707,
+    "acc": 0.9745403111739745,
+    "inc": 0.9533239038189534,
+    "fixed": 15,
+    "broke": 0,
+    "net": 15,
+    "changed": 15
+   },
+   "rulings": {
+    "n": 43,
+    "engine_ok": 43,
+    "raw_ok": 43,
+    "gated_ok": 43,
+    "raw_viol": [],
+    "gated_viol": [],
+    "engine_viol": []
+   }
+  },
+  "hgb:shape+embed": {
+   "fastrule|train|False": {
+    "n": 2129,
+    "acc": 0.9896665100986378,
+    "inc": 0.9802724283701268,
+    "fixed": 31,
+    "broke": 11,
+    "net": 20
+   },
+   "fastrule|train|True": {
+    "n": 2129,
+    "acc": 0.9896665100986378,
+    "inc": 0.9802724283701268,
+    "fixed": 31,
+    "broke": 11,
+    "net": 20
+   },
+   "v2|train|False": {
+    "n": 3300,
+    "acc": 0.9945454545454545,
+    "inc": 0.9712121212121212,
+    "fixed": 90,
+    "broke": 13,
+    "net": 77
+   },
+   "v2|train|True": {
+    "n": 3300,
+    "acc": 0.9945454545454545,
+    "inc": 0.9712121212121212,
+    "fixed": 90,
+    "broke": 13,
+    "net": 77
+   },
+   "seg|train|False": {
+    "n": 956,
+    "acc": 0.9696652719665272,
+    "inc": 0.9864016736401674,
+    "fixed": 5,
+    "broke": 21,
+    "net": -16
+   },
+   "seg|train|True": {
+    "n": 956,
+    "acc": 0.9696652719665272,
+    "inc": 0.9864016736401674,
+    "fixed": 5,
+    "broke": 21,
+    "net": -16
+   },
+   "fastrule|test|False": {
+    "n": 900,
+    "acc": 0.96,
+    "inc": 0.8844444444444445,
+    "fixed": 94,
+    "broke": 26,
+    "net": 68
+   },
+   "fastrule|test|True": {
+    "n": 900,
+    "acc": 0.9766666666666667,
+    "inc": 0.8844444444444445,
+    "fixed": 94,
+    "broke": 11,
+    "net": 83
+   },
+   "v2|test|False": {
+    "n": 4547,
+    "acc": 0.990103364855949,
+    "inc": 0.9518363756322851,
+    "fixed": 199,
+    "broke": 25,
+    "net": 174
+   },
+   "v2|test|True": {
+    "n": 4547,
+    "acc": 0.990103364855949,
+    "inc": 0.9518363756322851,
+    "fixed": 199,
+    "broke": 25,
+    "net": 174
+   },
+   "seg|test|False": {
+    "n": 1397,
+    "acc": 0.972083035075161,
+    "inc": 0.9677881173944166,
+    "fixed": 28,
+    "broke": 22,
+    "net": 6
+   },
+   "seg|test|True": {
+    "n": 1397,
+    "acc": 0.9763779527559056,
+    "inc": 0.9677881173944166,
+    "fixed": 28,
+    "broke": 16,
+    "net": 12
+   },
+   "real|test|False": {
+    "n": 41,
+    "acc": 0.9512195121951219,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 0,
+    "net": 0
+   },
+   "real|test|True": {
+    "n": 41,
+    "acc": 0.9512195121951219,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 0,
+    "net": 0
+   },
+   "boardD|train|False": {
+    "n": 707,
+    "acc": 0.9688826025459689,
+    "inc": 0.9533239038189534,
+    "fixed": 14,
+    "broke": 3,
+    "net": 11,
+    "changed": 17
+   },
+   "boardD|train|True": {
+    "n": 707,
+    "acc": 0.9688826025459689,
+    "inc": 0.9533239038189534,
+    "fixed": 14,
+    "broke": 3,
+    "net": 11,
+    "changed": 17
+   },
+   "rulings": {
+    "n": 43,
+    "engine_ok": 43,
+    "raw_ok": 42,
+    "gated_ok": 43,
+    "raw_viol": [
+     [
+      "pick up my sister tomorrow",
+      "Q47B",
+      "task"
+     ]
+    ],
+    "gated_viol": [],
+    "engine_viol": []
+   }
+  },
+  "hgb:engine+shape+embed": {
+   "fastrule|train|False": {
+    "n": 2129,
+    "acc": 0.9835603569751057,
+    "inc": 0.9802724283701268,
+    "fixed": 12,
+    "broke": 5,
+    "net": 7
+   },
+   "fastrule|train|True": {
+    "n": 2129,
+    "acc": 0.9835603569751057,
+    "inc": 0.9802724283701268,
+    "fixed": 12,
+    "broke": 5,
+    "net": 7
+   },
+   "v2|train|False": {
+    "n": 3300,
+    "acc": 0.9966666666666667,
+    "inc": 0.9712121212121212,
+    "fixed": 87,
+    "broke": 3,
+    "net": 84
+   },
+   "v2|train|True": {
+    "n": 3300,
+    "acc": 0.9966666666666667,
+    "inc": 0.9712121212121212,
+    "fixed": 87,
+    "broke": 3,
+    "net": 84
+   },
+   "seg|train|False": {
+    "n": 956,
+    "acc": 0.9832635983263598,
+    "inc": 0.9864016736401674,
+    "fixed": 3,
+    "broke": 6,
+    "net": -3
+   },
+   "seg|train|True": {
+    "n": 956,
+    "acc": 0.9832635983263598,
+    "inc": 0.9864016736401674,
+    "fixed": 3,
+    "broke": 6,
+    "net": -3
+   },
+   "fastrule|test|False": {
+    "n": 900,
+    "acc": 0.9722222222222222,
+    "inc": 0.8844444444444445,
+    "fixed": 80,
+    "broke": 1,
+    "net": 79
+   },
+   "fastrule|test|True": {
+    "n": 900,
+    "acc": 0.9733333333333334,
+    "inc": 0.8844444444444445,
+    "fixed": 80,
+    "broke": 0,
+    "net": 80
+   },
+   "v2|test|False": {
+    "n": 4547,
+    "acc": 0.9894435891796789,
+    "inc": 0.9518363756322851,
+    "fixed": 189,
+    "broke": 18,
+    "net": 171
+   },
+   "v2|test|True": {
+    "n": 4547,
+    "acc": 0.9894435891796789,
+    "inc": 0.9518363756322851,
+    "fixed": 189,
+    "broke": 18,
+    "net": 171
+   },
+   "seg|test|False": {
+    "n": 1397,
+    "acc": 0.9835361488904796,
+    "inc": 0.9677881173944166,
+    "fixed": 23,
+    "broke": 1,
+    "net": 22
+   },
+   "seg|test|True": {
+    "n": 1397,
+    "acc": 0.9835361488904796,
+    "inc": 0.9677881173944166,
+    "fixed": 23,
+    "broke": 1,
+    "net": 22
+   },
+   "real|test|False": {
+    "n": 41,
+    "acc": 0.9512195121951219,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 0,
+    "net": 0
+   },
+   "real|test|True": {
+    "n": 41,
+    "acc": 0.9512195121951219,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 0,
+    "net": 0
+   },
+   "boardD|train|False": {
+    "n": 707,
+    "acc": 0.9731258840169731,
+    "inc": 0.9533239038189534,
+    "fixed": 14,
+    "broke": 0,
+    "net": 14,
+    "changed": 14
+   },
+   "boardD|train|True": {
+    "n": 707,
+    "acc": 0.9731258840169731,
+    "inc": 0.9533239038189534,
+    "fixed": 14,
+    "broke": 0,
+    "net": 14,
+    "changed": 14
+   },
+   "rulings": {
+    "n": 43,
+    "engine_ok": 43,
+    "raw_ok": 43,
+    "gated_ok": 43,
+    "raw_viol": [],
+    "gated_viol": [],
+    "engine_viol": []
+   }
+  },
+  "hgb:engine+shape+stage1+embed": {
+   "fastrule|train|False": {
+    "n": 2129,
+    "acc": 0.9854391733208079,
+    "inc": 0.9802724283701268,
+    "fixed": 11,
+    "broke": 0,
+    "net": 11
+   },
+   "fastrule|train|True": {
+    "n": 2129,
+    "acc": 0.9854391733208079,
+    "inc": 0.9802724283701268,
+    "fixed": 11,
+    "broke": 0,
+    "net": 11
+   },
+   "v2|train|False": {
+    "n": 3300,
+    "acc": 0.9981818181818182,
+    "inc": 0.9712121212121212,
+    "fixed": 90,
+    "broke": 1,
+    "net": 89
+   },
+   "v2|train|True": {
+    "n": 3300,
+    "acc": 0.9981818181818182,
+    "inc": 0.9712121212121212,
+    "fixed": 90,
+    "broke": 1,
+    "net": 89
+   },
+   "seg|train|False": {
+    "n": 956,
+    "acc": 0.9822175732217573,
+    "inc": 0.9864016736401674,
+    "fixed": 2,
+    "broke": 6,
+    "net": -4
+   },
+   "seg|train|True": {
+    "n": 956,
+    "acc": 0.9822175732217573,
+    "inc": 0.9864016736401674,
+    "fixed": 2,
+    "broke": 6,
+    "net": -4
+   },
+   "fastrule|test|False": {
+    "n": 900,
+    "acc": 0.9666666666666667,
+    "inc": 0.8844444444444445,
+    "fixed": 74,
+    "broke": 0,
+    "net": 74
+   },
+   "fastrule|test|True": {
+    "n": 900,
+    "acc": 0.9666666666666667,
+    "inc": 0.8844444444444445,
+    "fixed": 74,
+    "broke": 0,
+    "net": 74
+   },
+   "v2|test|False": {
+    "n": 4547,
+    "acc": 0.9940620189135694,
+    "inc": 0.9518363756322851,
+    "fixed": 194,
+    "broke": 2,
+    "net": 192
+   },
+   "v2|test|True": {
+    "n": 4547,
+    "acc": 0.9940620189135694,
+    "inc": 0.9518363756322851,
+    "fixed": 194,
+    "broke": 2,
+    "net": 192
+   },
+   "seg|test|False": {
+    "n": 1397,
+    "acc": 0.9770937723693629,
+    "inc": 0.9677881173944166,
+    "fixed": 14,
+    "broke": 1,
+    "net": 13
+   },
+   "seg|test|True": {
+    "n": 1397,
+    "acc": 0.9770937723693629,
+    "inc": 0.9677881173944166,
+    "fixed": 14,
+    "broke": 1,
+    "net": 13
+   },
+   "real|test|False": {
+    "n": 41,
+    "acc": 0.9512195121951219,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 0,
+    "net": 0
+   },
+   "real|test|True": {
+    "n": 41,
+    "acc": 0.9512195121951219,
+    "inc": 0.9512195121951219,
+    "fixed": 0,
+    "broke": 0,
+    "net": 0
+   },
+   "boardD|train|False": {
+    "n": 707,
+    "acc": 0.9745403111739745,
+    "inc": 0.9533239038189534,
+    "fixed": 15,
+    "broke": 0,
+    "net": 15,
+    "changed": 15
+   },
+   "boardD|train|True": {
+    "n": 707,
+    "acc": 0.9745403111739745,
+    "inc": 0.9533239038189534,
+    "fixed": 15,
+    "broke": 0,
+    "net": 15,
+    "changed": 15
+   },
+   "rulings": {
+    "n": 43,
+    "engine_ok": 43,
+    "raw_ok": 43,
+    "gated_ok": 43,
+    "raw_viol": [],
+    "gated_viol": [],
+    "engine_viol": []
+   }
+  }
+ },
+ "category_hint": {
+  "opinion": 363,
+  "fixed": 6,
+  "broke": 60
+ },
+ "paired": {
+  "ENGINE -> hgb:engine+shape": {
+   "a_only": 45,
+   "b_only": 309,
+   "net": 264,
+   "p": 1.4542592635266163e-49
+  },
+  "ENGINE -> hgb:shape+stage1": {
+   "a_only": 67,
+   "b_only": 302,
+   "net": 235,
+   "p": 9.622926144338549e-37
+  },
+  "ENGINE -> hgb:engine+shape+stage1": {
+   "a_only": 11,
+   "b_only": 259,
+   "net": 248,
+   "p": 1.2469085314705566e-62
+  },
+  "hgb:shape -> hgb:shape+stage1": {
+   "a_only": 75,
+   "b_only": 91,
+   "net": 16,
+   "p": 0.24424992712067173
+  },
+  "hgb:engine+shape -> hgb:engine+shape+stage1": {
+   "a_only": 68,
+   "b_only": 52,
+   "net": -16,
+   "p": 0.17064521313035166
+  },
+  "lr:shape -> lr:shape+stage1": {
+   "a_only": 22,
+   "b_only": 47,
+   "net": 25,
+   "p": 0.0035448128470210523
+  },
+  "lr:engine+shape -> lr:engine+shape+stage1": {
+   "a_only": 15,
+   "b_only": 39,
+   "net": 24,
+   "p": 0.0014962588853935088
+  }
+ }
+}
