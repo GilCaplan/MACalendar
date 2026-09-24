@@ -437,7 +437,7 @@ def resolve_slots(fam: dict, values: dict, tokens: list[str]) -> dict:
 
 
 def gen_family_rows(fam: dict, quota: int, fillers: dict,
-                    global_seen: set) -> list[tuple[str, dict, dict]]:
+                    global_seen: set) -> list[tuple[str, dict, dict, dict]]:
     tokens = family_tokens(fam["template"])
     value_lists = {}
     for tok in tokens:
@@ -469,7 +469,7 @@ def gen_family_rows(fam: dict, quota: int, fillers: dict,
         # C1: it makes FastRule testable ALONE, without the real segmenter in
         # the path. See `gold_item` for why the template is the only
         # non-circular source for it.
-        rows.append((text, slots, gold_item(fam, fam["template"], values)))
+        rows.append((text, slots, gold_item(fam, fam["template"], values), values))
     return rows
 
 
@@ -556,6 +556,87 @@ def _init_family(fam: dict, tier: str, fillers: dict) -> None:
     fam["_label_sources"] = resolve_label_sources(fam)
 
 
+# ---------------------------------------------------------------------------
+# GOLD FOLLOWS THE RULINGS — applied here, by construction, never by hand
+# ---------------------------------------------------------------------------
+#
+# Two of Gil's rulings moved gold after these templates were written:
+#
+#   Q25/Q26 (2026-09-18)  a stated CLOCK or RANGE makes it an event, whatever
+#                         the phrasing — "remind me to feed the cat at 14:00"
+#                         is an event.
+#   Q47     (2026-09-24)  an ENCOUNTER with a person — met, seen, talked to or
+#                         CALLED — is an event, day or no day ("call mum is an
+#                         event at a default time like 9"). A written message
+#                         ("email Dana") and a mention stay to-dos.
+#
+# Q26's relabel was first applied to the JSONL by hand (8dcf047, 12c78dd: 42
+# rows), so this generator stopped reproducing the file — and the hand rule
+# missed rows it should have taken ("at 9 in the morning", bare ranges like
+# "between 2 and 4": 7 train rows, 5 sealed-test rows left contradicting Q26).
+# The relabel lives HERE now (2026-09-24), declared per family by the part of
+# the template that decides it, so a regeneration reproduces it and cannot
+# drift. Words are untouched — only the gold follows the ruling — and ids and
+# splits do not move. Each relabelled row carries `expect.ruled` naming the
+# ruling. DATASET.md §"Gold that follows a ruling" has the counts.
+
+#: The `times` fillers that are NOT a clock: a part of the day or a hedge, which
+#: Q27/Q47(A) leave to the verb. Every other `times` filler states a clock.
+NOT_A_CLOCK = frozenset({"first thing in the morning", "around lunchtime", "late afternoon"})
+
+#: family -> (ruling, [(title slot that becomes an event, the token whose value
+#: decides, or None when the family's words always qualify)]).
+RULED_FAMILIES = {
+    # Q26 — a to-do said with its own clock or range
+    "s_ct_task_with_time":  ("Q26", [("title", "time")]),
+    "c_recur_7":            ("Q26", [("title", "time")]),
+    "c_recur_12":           ("Q26", [("title", "time")]),
+    "c_range_ct_1":         ("Q26", [("title", "time_range")]),
+    "c_remindthen_2":       ("Q26", [("title", "time")]),
+    "c_timelist_ct_1":      ("Q26", [("title", "time"), ("title_2", "time2")]),
+    "c_timelist_ct_2":      ("Q26", [("title", "time"), ("title_2", "time2")]),
+    "c_timelist_ct_3":      ("Q26", [("title", "time"), ("title_2", "time2")]),
+    "c_timelist_ct_4":      ("Q26", [("title", "time"), ("title_2", "time2")]),
+    # Q47 — calling a named person is an encounter ("email {name}" is not)
+    "s_ct_call_someone":        ("Q47", [("title", None)]),
+    "s_ct_call_someone_date":   ("Q47", [("title", None)]),
+    "c_attendee_8":             ("Q47", [("title", None)]),
+    "c_npdecoy_call_two_task":  ("Q47", [("title", None)]),
+    "c_joiner_commathen_tt_1":  ("Q47", [("title", None), ("title_2", None)]),
+    "c_remindthen_5":           ("Q47", [("title", None)]),
+}
+
+
+def _states_a_clock(token: str, value: str) -> bool:
+    bank_key, _semantic, _base = placeholder_info(token)
+    if bank_key == "time_ranges":
+        return True
+    return bank_key == "times" and value not in NOT_A_CLOCK
+
+
+def ruled_family(fam: dict, values: dict) -> "dict | None":
+    """The family as the RULINGS read this row, or None when no ruling
+    touches it. A copy: action, counts and label sources follow the parts
+    that became events; the template, the words and the split do not move."""
+    spec = RULED_FAMILIES.get(fam["family"])
+    if not spec:
+        return None
+    ruling, parts = spec
+    ev, ta = (list(x) for x in fam["_label_sources"])
+    moved = [key for key, tok in parts
+             if key in ta and (tok is None or _states_a_clock(tok, values[tok]))]
+    if not moved:
+        return None
+    ta = [k for k in ta if k not in moved]
+    ev = sorted(ev + moved, key=lambda k: int(TITLE_KEY_RE.match(k).group(2) or 1))
+    out = dict(fam)
+    out["events"], out["tasks"] = len(ev), len(ta)
+    out["action"] = ("mixed" if ev and ta else "create_event" if ev else fam["action"])
+    out["_label_sources"] = (ev, ta)
+    out["_ruled"] = ruling
+    return out
+
+
 def _emit_family_rows(fam: dict, split_name: str, quota: int, tier: str, fillers: dict,
                        global_seen: set, categories_mod, tagging_mod, task_tag_keywords: dict) -> list[dict]:
     """Generate `quota` rows for one family already assigned to `split_name`,
@@ -567,9 +648,12 @@ def _emit_family_rows(fam: dict, split_name: str, quota: int, tier: str, fillers
             f"unique rows — widen its filler banks")
     out = []
     counter = 0
-    for text, slots, item in fam_rows:
+    for text, slots, item, values in fam_rows:
         counter += 1
-        add_labels(fam, slots, categories_mod, tagging_mod, task_tag_keywords)
+        row_fam = ruled_family(fam, values) or fam
+        if row_fam is not fam:
+            item = dict(item, kind="event")
+        add_labels(row_fam, slots, categories_mod, tagging_mod, task_tag_keywords)
         out.append({
             "id": f"{fam['family']}-{counter:03d}",
             "text": text,
@@ -577,15 +661,16 @@ def _emit_family_rows(fam: dict, split_name: str, quota: int, tier: str, fillers
             "tier": tier,
             "family": fam["family"],
             "expect": {
-                "events": fam["events"],
-                "tasks": fam["tasks"],
-                "action": fam["action"],
+                "events": row_fam["events"],
+                "tasks": row_fam["tasks"],
+                "action": row_fam["action"],
                 "atomic": fam["atomic"],
                 "slots": slots,
                 # The Item the two upstream stages SHOULD produce (C1,
                 # 2026-09-10). ADDITIVE — every field above is untouched, which
                 # C2 asserts by regenerating and diffing with this key removed.
                 "item": item,
+                **({"ruled": row_fam["_ruled"]} if row_fam is not fam else {}),
             },
         })
     return out
@@ -648,6 +733,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--no-write", action="store_true",
                      help="build and verify in memory but don't write the jsonl")
+    ap.add_argument("--out", default=str(OUT),
+                    help="where to write (default: the committed fastrule_7200.jsonl); "
+                         "a scratch path is how a regeneration is diffed before it lands")
     args = ap.parse_args()
 
     fillers = load_json("fillers.json")
@@ -834,12 +922,13 @@ def main():
         print("\n--no-write: skipping file output")
         return
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUT, "w", encoding="utf-8") as f:
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with open(out, "w", encoding="utf-8") as f:
         for r in rows:
             f.write(json.dumps(r, ensure_ascii=False, sort_keys=True))
             f.write("\n")
-    print(f"\nWrote {total} rows to {OUT}")
+    print(f"\nWrote {total} rows to {out}")
 
 
 if __name__ == "__main__":

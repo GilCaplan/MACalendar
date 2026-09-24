@@ -114,6 +114,37 @@ Everything else adds noise around a gold that does not move.
   and N things, and the gold is N asks — which is what
   `findings.COORDINATED_SUBJECT` exists to rewrite.
 
+### Gold that follows a ruling (2026-09-24)
+
+`ct_dt` ("remind me to X <day> at <clock>") was written as a to-do. **Q25/Q26
+make it an event**: *"reminding me to do something at a specific time counts
+as an event."* The kind board (`decompose_validate/experiments/RESULTS.md`)
+found this set charging the engine for obeying that ruling.
+
+`generate_v2.RULED_SHAPES` now writes the ruled gold. The words, frame,
+subject bank, damage, ids and split are all still read off the shape as
+declared, so no text moves. Each ruled ask carries `ruled: "Q26"`. The change
+covers 364 asks in 364 commands (224 train, 140 test): `action`, `kind`,
+`item.kind`, and the command's `events`/`tasks` and, for 140 of them, its
+`action`.
+
+No v2 to-do subject names a person, so Q47 (an encounter is an event) moves
+nothing here. "call the chiropractor" is not an encounter under
+`intent/encounter.py`.
+
+**The cases were moved by `rule_cases`, not rebuilt.** A rebuild at HEAD also
+moves plants on about 4,700 cases, because the converter changed after cycle 42
+and `build_cases` spends one rng stream and one plant quota across the whole
+set. That is a separate instrument change. `--rule-cases` moves only the 805
+cases on ruled commands:
+
+- each ruled item's kind is updated;
+- a `wrong_kind` / `wrong_operation` plant is re-flipped from the ruled
+  action. The old flip of create_todo gave create_event, which is now simply
+  right.
+
+On a fresh build `rule_cases` is a no-op, which was checked.
+
 ---
 
 ## The object-level cases
@@ -292,6 +323,9 @@ V2 JUDGE SET — 5292 commands · 11187 cases
 
     # the commands alone, in under three seconds — no engine import at all
     python -m assistant.engine.llmjudge.datasets.v2.generate_v2 --commands-only
+
+    # the commands, then the COMMITTED cases moved with the rulings, not rebuilt
+    python -m assistant.engine.llmjudge.datasets.v2.generate_v2 --rule-cases
 
     # the gate. It REFUSES the set (exit 1) and names what is wrong
     python -m assistant.engine.llmjudge.datasets.v2.verify_v2

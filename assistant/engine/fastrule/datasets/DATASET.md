@@ -533,3 +533,54 @@ now labeled per the ruling), and the 5 confirm-subprompt families
 Scoring semantics unchanged: an abstain on a propose row is correct
 routing; any fast commit is a violation. Train TEXTS are the agent's
 byte-identical 4,800; only the ruled labels differ.
+
+## Gold that follows a ruling (2026-09-24)
+
+Two of Gil's rulings moved gold after the templates were written, and the
+generator now applies both **by construction** (`generate.py`,
+`RULED_FAMILIES` + `ruled_family`), so a regeneration reproduces them:
+
+| ruling | what moves | families |
+|---|---|---|
+| **Q25/Q26** (2026-09-18): a stated CLOCK or RANGE makes it an event, whatever the phrasing | a to-do part whose own `{time}` filler is a clock (every `times` filler except `NOT_A_CLOCK`: "first thing in the morning", "around lunchtime", "late afternoon") or any `{time_range}` | `s_ct_task_with_time`, `c_recur_7`, `c_recur_12`, `c_range_ct_1`, `c_remindthen_2`, `c_timelist_ct_1..4` |
+| **Q47** (2026-09-24): an ENCOUNTER with a person — met, seen, talked to, or CALLED — is an event, day or no day; a written message stays a to-do | the "call {name}" part | `s_ct_call_someone`, `s_ct_call_someone_date`, `c_attendee_8`, `c_npdecoy_call_two_task`, `c_joiner_commathen_tt_1`, `c_remindthen_5` |
+
+The WORDS, ids and splits do not move; the gold does. That means `action`,
+`events`/`tasks`, `item.kind`, and the label slots (`category` for a part that
+became an event, in place of `tags`). Each ruled row carries
+`expect.ruled: "Q26" | "Q47"`. "email {name}" (`s_ct_email_someone`,
+`c_attendee_9`) and "call the plumber" stay to-dos, because a written message
+and a named trade are not encounters (`assistant/intent/encounter.py`).
+
+**Why it moved into the generator.** Q26's first relabel (8dcf047, 12c78dd)
+was applied to the JSONL by hand. That had two effects:
+
+- The generator stopped reproducing the file: 42 rows differed on a fresh run.
+- The hand rule's clock test missed "at 9 in the morning" and the bare ranges
+  ("between 2 and 4", "from 6 to 8"). That left 7 train rows and 5
+  sealed-test rows contradicting Q26.
+
+The kind board found the leftovers
+(`decompose_validate/experiments/RESULTS.md`).
+
+**What the regeneration changed, row-diffed against the previous file.** 218
+rows differ, all of them in the 15 families above, with no id or split moved:
+
+- 42 are Q26's hand-relabelled rows. They only gain `ruled` and a `category`
+  they had been left without.
+- 176 are newly relabelled: 171 train, and 5 in the sealed test half
+  (`c_range_ct_1`). The test rows were moved BY RULE, without being read.
+
+After it, no atomic `create_todo` row in either split names a clock or an
+encounter by the engine's own readers (`_STATED_CLOCK`, `is_encounter`). That
+is a sanity check, not a gold source.
+
+**The ruler moved, not the engine.** Seeded Board D's `board_d_q47b` outcomes
+were rescored under both golds. The run was at `f5da878`, before the Q47
+encounter rule shipped. On 1,200 TRAIN rows, correct fell from 92.3% to 91.8%
+in both arms:
+
+- 13 rows became right (`c_recur_7`, `c_timelist_ct_*`: the engine already
+  obeyed Q26).
+- 19 rows became wrong (the call families: that engine still made calls into
+  to-dos).

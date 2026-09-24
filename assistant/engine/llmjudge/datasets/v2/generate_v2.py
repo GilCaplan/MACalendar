@@ -125,6 +125,24 @@ SHAPES = {
     "anaph_d":    dict(action="delete_event", kind="event", subject="anaphor"),
 }
 
+#: GOLD FOLLOWS THE RULINGS (2026-09-24). A shape whose WORDS were written as
+#: one kind of ask but whose GOLD a later ruling moved: the words are composed
+#: exactly as before — frame, subject bank, damage and split all read the
+#: shape as declared above, so no text, id or split moves — and only the gold
+#: written in `_row` follows the ruling.
+#:
+#:   ct_dt  "remind me to X <day> at <clock>" — a to-do said with its own
+#:          clock. Q25/Q26 (Gil, 2026-09-18): *"reminding me to do something
+#:          at a specific time counts as an event."* 364 asks in 364 commands
+#:          (224 train, 140 test);
+#:          the kind board (decompose_validate/experiments/RESULTS.md,
+#:          2026-09-24) found v2 charging the engine for obeying the ruling.
+#:
+#: No v2 to-do subject names a person (`banks.TASK_SUBJECTS`: "call the
+#: chiropractor" is not an encounter under Q47 — `intent/encounter.py` needs a
+#: name or a kinship word), so Q47 moves nothing here; checked, not assumed.
+RULED_SHAPES = {"ct_dt": ("create_event", "event", "Q26")}
+
 _FRAME_KEY = {"create_event": "create_event", "create_todo": "create_todo",
               "query_schedule": "query_schedule", "query_todos": "query_todos",
               "update_event": "update_event", "delete_event": "delete_event",
@@ -528,13 +546,23 @@ def _item_words(cmd: Command, ask: dict) -> dict:
             "kind": ask["kind"]}
 
 
+def _ruled(ask: dict) -> tuple:
+    """(action, kind, ruling or None) — the gold for this ask after the rulings."""
+    got = RULED_SHAPES.get(ask["shape"])
+    return got if got else (ask["action"], ask["kind"], None)
+
+
 def _row(cmd: Command, voice, split: str, joiner: str, list_n, variant: int,
          n: int, text: str, clean_text: str) -> dict:
     asks = []
     for a in cmd.asks:
+        action, kind, ruling = _ruled(a)
+        item = _item_words(cmd, a)
+        if ruling:
+            item["kind"] = kind
         asks.append({
-            "ask_id": a["ask_id"], "shape": a["shape"], "action": a["action"],
-            "kind": a["kind"], "title": a["title"],
+            "ask_id": a["ask_id"], "shape": a["shape"], "action": action,
+            "kind": kind, "title": a["title"],
             "intended_title": a["intended_title"],
             "title_alternatives": a.get("title_alternatives"),
             "anaphor": a["anaphor"], "date_phrase": a["date_phrase"],
@@ -545,9 +573,10 @@ def _row(cmd: Command, voice, split: str, joiner: str, list_n, variant: int,
             "said": {"subject": a["subject_said"], "date": a["date_said"],
                      "clock_form": a["clock_form"],
                      "clock_phrase": a["clock_phrase"]},
-            "item": _item_words(cmd, a),
+            "item": item,
+            **({"ruled": ruling} if ruling else {}),
         })
-    actions = {a["action"] for a in cmd.asks}
+    actions = {a["action"] for a in asks}
     return {
         "id": f"v2c-{n:06d}",
         "utterance": f"{cmd.family}#v{variant}",
@@ -564,9 +593,9 @@ def _row(cmd: Command, voice, split: str, joiner: str, list_n, variant: int,
         "n_asks": len(cmd.asks),
         "asks": asks,
         "expect": {
-            "events": sum(1 for a in cmd.asks if a["kind"] == "event"
+            "events": sum(1 for a in asks if a["kind"] == "event"
                           and a["action"].startswith("create")),
-            "tasks": sum(1 for a in cmd.asks if a["kind"] == "task"
+            "tasks": sum(1 for a in asks if a["kind"] == "task"
                          and a["action"].startswith("create")),
             "action": list(actions)[0] if len(actions) == 1 else "mixed",
             "atomic": len(cmd.asks) == 1,
@@ -705,6 +734,47 @@ def build_cases(rows: list, seed: int = SEED, progress: bool = False) -> tuple:
     return cases, seen, right, deferred
 
 
+def rule_cases(cases: list, rows: list) -> tuple:
+    """Bring EXISTING cases' gold into line with `RULED_SHAPES`, in place of a
+    rebuild. Returns `(cases, n_changed)`.
+
+    A full `build_cases` rebuild already produces ruled cases — its items are
+    read off the ruled rows — so on a fresh build this is a no-op, and a test
+    says so. It exists for the COMMITTED file: that was built at cycle 42
+    against a converter that has changed since, and `build_cases` spends one
+    rng stream and a least-used-plant-first quota across the whole set, so a
+    rebuild moves plants on ~4,700 cases for reasons that have nothing to do
+    with the ruling. The ruling moves the gold of the cases whose command it
+    touched and nothing else:
+
+      * each ruled ask's item carries the ruled kind, so the board's converter
+        builds the object the gold now names;
+      * a `wrong_kind` / `wrong_operation` plant on a ruled ask is re-flipped
+        from the RULED action — flipping "create_todo" gave "create_event",
+        which is now the right answer and would have planted no defect.
+    """
+    from assistant.engine.llmjudge.datasets.v2 import mutations
+    by_id = {r["id"]: r for r in rows}
+    changed = 0
+    for c in cases:
+        row = by_id.get(c["command_id"])
+        if row is None:
+            continue
+        ruled = {f"item_{a['ask_id']}": a for a in row["asks"] if a.get("ruled")}
+        if not ruled:
+            continue
+        before = json.dumps(c, sort_keys=True)
+        for it in c["items"]:
+            if it["id"] in ruled:
+                it["kind"] = ruled[it["id"]]["item"]["kind"]
+        plant = c.get("plant") or {}
+        if c["mutation"] in ("wrong_kind", "wrong_operation") and plant.get("item") in ruled:
+            table = mutations._KIND_FLIP if c["mutation"] == "wrong_kind" else mutations._OP_FLIP
+            plant["action"] = table[ruled[plant["item"]]["action"]]
+        changed += json.dumps(c, sort_keys=True) != before
+    return cases, changed
+
+
 # ---------------------------------------------------------------------------
 # 5 · main
 # ---------------------------------------------------------------------------
@@ -726,6 +796,9 @@ def main() -> int:
     ap.add_argument("--limit-families", type=int, default=0)
     ap.add_argument("--commands-only", action="store_true")
     ap.add_argument("--seed", type=int, default=SEED)
+    ap.add_argument("--rule-cases", action="store_true",
+                    help="rewrite the commands, then apply `rule_cases` to the COMMITTED "
+                         "judge_cases_v2.jsonl instead of rebuilding it (see rule_cases)")
     a = ap.parse_args()
 
     scratch_env()
@@ -739,6 +812,13 @@ def main() -> int:
     write_jsonl(COMMANDS, rows)
     print(f"  -> {COMMANDS}", flush=True)
     if a.commands_only:
+        return 0
+    if a.rule_cases:
+        cases = [json.loads(l) for l in CASES.open()]
+        cases, n_changed = rule_cases(cases, rows)
+        write_jsonl(CASES, cases)
+        print(f"  rule_cases: {n_changed} of {len(cases)} cases moved with the rulings "
+              f"-> {CASES}", flush=True)
         return 0
 
     print("· planting cases (the real converter runs on every command) …",
