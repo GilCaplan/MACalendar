@@ -108,8 +108,17 @@ def _rule_passed_clock_means_tomorrow(state, item, intent, now) -> None:
     d, st = getattr(intent, "date", None), getattr(intent, "start_time", None)
     if not d or not st or d != now.date().isoformat():
         return
-    words = f"{item.time or ''} {item.text or ''}"
-    if _DAY_WORD_RE.search(words):
+    # THE SPOKEN WORDS, not the item's time field (2026-09-24). Segmentation's
+    # contract writes a DATE FLOOR into every item with a clock and no day —
+    # "at 8am" arrives here as "today at 8am" — so reading `item.time` found
+    # "today" on every such item and this rule never fired on the deep path:
+    # "dentist at 8am", said at 08:49, was booked for 08:00 that morning
+    # (found verifying the tutorial). The item's verbatim source piece is what
+    # was said. An item with no source piece (built by hand, or by a path that
+    # never set one) falls back to its own time and text, as before.
+    spoken = ((getattr(item, "source", "") or "").strip()
+              or f"{item.time or ''} {item.text or ''}")
+    if _DAY_WORD_RE.search(spoken):
         return
     if st[:5] < now.strftime("%H:%M"):
         bump = (now.date() + _dt.timedelta(days=1)).isoformat()

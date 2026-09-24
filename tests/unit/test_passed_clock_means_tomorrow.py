@@ -98,3 +98,30 @@ def test_the_spaced_compact_clock_reads_the_same_everywhere(said, start):
     assert RP._extract_temporal(f"dentist {said} tomorrow", ANCHOR.date())["start_time"] == start
     clocks = [r.text for r in FS.find_time_refs(f"dentist {said} tomorrow") if r.kind == "clock"]
     assert said in clocks, clocks
+
+
+def test_the_date_floor_segmentation_writes_is_not_a_spoken_day():
+    """2026-09-24: segmentation's contract writes "today at 8am" into an item
+    whose words said only "at 8am" (the date floor), and the rule read that
+    field — so on the deep path it saw "today" on every such item and never
+    fired: "dentist at 8am", said at 08:49, stayed booked for 08:00 that
+    morning. It reads the item's spoken source now."""
+    import datetime as _dtm
+    from types import SimpleNamespace
+    from assistant.engine.decompose_validate import object_rules as O
+
+    class _St:
+        raw_text = "dentist at 8am"
+        def __init__(self): self.fixes = []
+        def add_fix(self, *a, **k): self.fixes.append(a)
+
+    now = _dtm.datetime(2026, 9, 23, 8, 49)
+    floor = SimpleNamespace(text="dentist", time="today at 8am", source="dentist at 8am")
+    intent = SimpleNamespace(date="2026-09-23", start_time="08:00")
+    O._rule_passed_clock_means_tomorrow(_St(), floor, intent, now)
+    assert intent.date == "2026-09-24"
+
+    said = SimpleNamespace(text="dentist", time="today at 8am", source="dentist today at 8am")
+    intent = SimpleNamespace(date="2026-09-23", start_time="08:00")
+    O._rule_passed_clock_means_tomorrow(_St(), said, intent, now)
+    assert intent.date == "2026-09-23"            # a spoken "today" is kept

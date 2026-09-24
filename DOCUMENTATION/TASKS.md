@@ -1711,7 +1711,7 @@ each is a stage's own work, boarded on that stage first:
   I couldn't read this part: “Dentist”"), while the same sentences opening
   with "Book the …" commit on the fast path. The model gets them right, so
   the live answer is the same, several seconds later. FastRule's board.
-- **Q42's passed-clock rule missed a case.** "dentist at 8am", said at 08:49,
+- **FIXED 2026-09-24** (the rule read segmentation's date floor "today at 8am" as a spoken day; it reads the item's spoken source now). **Q42's passed-clock rule missed a case.** "dentist at 8am", said at 08:49,
   was booked for 08:00 TODAY — already past — on the deep path. Q42 rule 2
   says a clock with no day that has passed means tomorrow.
 
