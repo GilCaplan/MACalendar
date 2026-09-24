@@ -133,6 +133,9 @@ def _spawn_holder(lock, seconds):
 def lock(tmp_path, monkeypatch):
     path = tmp_path / "model.lock"
     monkeypatch.setattr(mp, "LOCK_PATH", path)
+    # A live call in one test must not hold a background call in the next for
+    # the full 20 s quiet window (the tests of that window set their own).
+    monkeypatch.setattr(mp, "LIVE_QUIET_S", 0.2)
     return path
 
 
@@ -629,3 +632,41 @@ def test_every_freshly_generated_secret_survives_a_round_trip(enrolment):
         first = mp._secret()
         assert len(first) >= 32
         assert mp._secret() == first, f"secret changed on re-read (iteration {i})"
+
+
+def test_background_stands_aside_while_live_traffic_is_recent(lock, monkeypatch):
+    """Gil's six-ask command (2026-09-24) spent 39 s of 48.9 s in one model
+    call behind a running board: the lock let live go after 50 ms, but the
+    board re-took the MODEL the instant each call ended. Background now waits
+    for the live-quiet window before starting a call."""
+    import time as _t
+    from assistant import model_protocol as mp
+    monkeypatch.setattr(mp, "LIVE_QUIET_S", 0.4)
+    mp.note_live()
+    t0 = _t.monotonic()
+    with mp.hold(mp.BACKGROUND):
+        waited = _t.monotonic() - t0
+    assert 0.3 <= waited < 2.0, waited
+
+
+def test_live_never_waits_for_the_quiet_window(lock, monkeypatch):
+    import time as _t
+    from assistant import model_protocol as mp
+    monkeypatch.setattr(mp, "LIVE_QUIET_S", 5.0)
+    mp.note_live()
+    t0 = _t.monotonic()
+    with mp.hold(mp.LIVE):
+        pass
+    assert _t.monotonic() - t0 < 0.5
+
+
+def test_the_quiet_window_is_bounded_for_a_board(lock, monkeypatch):
+    import time as _t
+    from assistant import model_protocol as mp
+    monkeypatch.setattr(mp, "LIVE_QUIET_S", 60.0)
+    monkeypatch.setattr(mp, "BACKGROUND_WAIT_S", 0.3)
+    mp.note_live()
+    t0 = _t.monotonic()
+    with mp.hold(mp.BACKGROUND):
+        pass
+    assert _t.monotonic() - t0 < 1.5          # never hangs past its own bound

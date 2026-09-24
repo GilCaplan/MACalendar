@@ -97,6 +97,44 @@ BACKGROUND_WAIT_S = 120.0
 LIVE = "live"
 BACKGROUND = "background"
 
+#: THE LIVE-QUIET WINDOW (2026-09-24). Background work does not START a model
+#: call while live traffic has been active within this many seconds.
+#:
+#: Gil, from his phone: a six-ask command took 48.9 s, 39 s of it one model call
+#: — the engine's own work was 1.9 s. A 1,200-row board was running beside it.
+#: `hold()` let the live call wait only 50 ms and go, which is right, but the
+#: board re-took the model the instant each of its calls ended, so the live
+#: command's calls kept landing behind board calls ("live traffic never waits
+#: for a board" was true of the LOCK and false of the MODEL). Now every live
+#: command stamps a file as it starts and around each of its model calls, and a
+#: background caller waits for the stamp to go quiet before starting its next
+#: call. A call already in flight cannot be interrupted; nothing new starts.
+LIVE_QUIET_S = 20.0
+
+
+def _live_stamp() -> pathlib.Path:
+    """Beside the lock, read at call time so a redirected lock moves it too."""
+    return LOCK_PATH.with_name(LOCK_PATH.name + ".live")
+
+
+def note_live() -> None:
+    """Live traffic is happening now. Never raises."""
+    try:
+        stamp = _live_stamp()
+        stamp.parent.mkdir(parents=True, exist_ok=True)
+        stamp.touch()
+    except OSError:
+        pass
+
+
+def live_recently(window: float = None) -> bool:
+    """Was live traffic active within the quiet window?"""
+    try:
+        age = time.time() - _live_stamp().stat().st_mtime
+    except OSError:
+        return False
+    return 0 <= age < (LIVE_QUIET_S if window is None else window)
+
 #: The server's HMAC key. 32 random bytes, written 0600 on first use.
 SECRET_PATH = pathlib.Path(
     os.environ.get("MACALENDAR_DEVICE_SECRET")
@@ -431,8 +469,15 @@ def hold(kind: "str | None" = None):
     """
     kind = kind or priority()
     limit = BACKGROUND_WAIT_S if kind == BACKGROUND else LIVE_WAIT_S
-    fd = _open_lock()
     t0 = time.monotonic()
+    if kind == BACKGROUND:
+        # Stand aside while someone is using the assistant (bounded by the
+        # same limit as the lock wait, so a board never hangs for ever).
+        while live_recently() and time.monotonic() - t0 < limit:
+            time.sleep(0.25)
+    else:
+        note_live()
+    fd = _open_lock()
     held = False
     if fd is not None:
         deadline = t0 + limit
@@ -471,3 +516,5 @@ def hold(kind: "str | None" = None):
         # nothing, which is the trade this whole module is making.
         if kind == BACKGROUND and held:
             time.sleep(0.03)
+        if kind != BACKGROUND:
+            note_live()          # the quiet window runs from the END of a live call

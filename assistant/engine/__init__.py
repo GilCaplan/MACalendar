@@ -273,6 +273,13 @@ class Engine(Component):
         # regex, so it happens here, before either.
         ignorable = _transcript.is_ignorable(text)
 
+        # A LIVE command stamps the gate BEFORE its first model call, so a
+        # running board stops starting new calls while this one parses
+        # (`model_protocol.LIVE_QUIET_S`). A test or board source does not.
+        from assistant import model_protocol as _mp
+        if _mp.priority_for(source) == _mp.LIVE:
+            _mp.note_live()
+
         trace = trace or Trace(source=source)
 
         if ignorable:
