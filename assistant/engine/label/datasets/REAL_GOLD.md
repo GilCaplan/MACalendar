@@ -21,8 +21,12 @@ a set that is mostly Personal.
 
 ## Where the titles come from
 
-Real ones. `dataset/inputs/history_3000.json` is 3,000 utterances of actual
-usage and is already committed, so nothing new is exposed here. The product's own
+Real SPEECH, but not Gil's. `dataset/inputs/history_3000.json` is 3,000
+utterances from HWU-64, a public crowd-written dataset (its own source field
+says so) — corrected 2026-09-24 from "actual usage", which read as the
+owner's own commands and overstated what an 81-title reading can say about
+him. The labels below were written by an earlier session, not by Gil. The
+file is already committed, so nothing new is exposed here. The product's own
 deterministic `RuleBasedParser` extracted the event titles; the noisy output was
 then filtered by hand.
 

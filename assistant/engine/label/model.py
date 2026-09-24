@@ -246,6 +246,8 @@ def category_for(title: str, rule_answer: str, cfg) -> "tuple[str, str]":
     got = model.predict(title)
     if got is None:
         return rule_answer, "rule"                  # the model abstained: the rules stand
+    if not _live_category(got[0]):
+        return rule_answer, "rule"                  # a class the user deleted or renamed
     return got[0], "model"
 
 
@@ -263,7 +265,36 @@ def tags_for(title: str, rule_answer: list, cfg) -> "tuple[list, str]":
     got = model.predict_tags(title)
     if got is None:
         return list(rule_answer), "rule"           # the model abstained: the rules stand
-    return got[0], "model"
+    live = _live_tags(got[0])
+    if not live:
+        return list(rule_answer), "rule"           # every tag it named is gone
+    return live, "model"
+
+
+# A SAVED MODEL NEVER SEES THE PALETTE (found 2026-09-24 by the label rebuild
+# board). Its classes are frozen at training time, so with Travel deleted
+# "flight to rome" was still labelled Travel (and coloured as Personal), with
+# Errand renamed to Chores it still answered Errand, and with the Errands tag
+# deleted it still wrote ['Errands'] — breaking tagging.py's promise that "a
+# tag the user renamed or deleted never comes back". The model's answer now
+# counts only if that class is still in the user's palette; otherwise the
+# rules, which read the live palette, stand. If the palette cannot be read,
+# the answer is kept (a store error must never block a commit).
+def _live_category(name: str) -> bool:
+    try:
+        from assistant.actions.calendar import categories as _cats
+        return _cats.get(name) is not None
+    except Exception:
+        return True
+
+
+def _live_tags(names: list) -> list:
+    try:
+        from assistant.db import get_db
+        palette = {row["name"].lower(): row["name"] for row in get_db().get_tags()}
+    except Exception:
+        return list(names)
+    return [palette[n.lower()] for n in names if n and n.lower() in palette]
 
 
 def _model_first(cfg) -> bool:

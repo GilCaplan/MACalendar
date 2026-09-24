@@ -430,3 +430,245 @@ model, which is why it wins on both counts against the incumbent.
 the incumbent on both metrics on the only non-circular evidence available. It
 should still ship behind its flag, and the first thing worth doing after
 enabling it is reading what gets corrected.
+
+
+---
+
+## Board 6 — the rebuild: boosting, embeddings, Gil's cascade, new tags, 2026-09-24
+
+Gil: *"remake a ML model maybe xgboost is better? think of what data- train-test
+and features would be good given the prompt, can have a simple rule that if has
+simple words like buy or other things choose category otherwise go through ML
+model, pay attentnion to new tags or existing"*.
+
+Run: `python -m assistant.engine.label.experiments.rebuild_board` — record of
+2026-09-24 10:17:27, HEAD `3873dd5` plus the (then uncommitted) board file. A
+second run of the same code at 10:02 printed identical numbers: every method is
+deterministic (seeded trees, cached embeddings).
+
+### The grid every number sits on
+
+    TRAIN   generated TRAIN half only — events 10,359 rows / 744 subjects,
+            to-dos 2,687 rows / 168 subjects. Same rows the shipped base was
+            fitted on (the committed model and its refit agree on 100.0% of
+            TEST predictions, checked every run).
+    TEST    generated TEST half, split by SUBJECT (overlap 0, asserted):
+              events 4,333 rows / 311 unseen subjects
+              to-dos 1,113 rows /  70 unseen subjects
+            REAL, evaluation only, deduplicated by normalised title:
+              events  gold81 — 81 titles, HWU-64 crowd text, labelled by Claude
+              to-dos  44 distinct tagged titles from the live list: 30 the
+                      rules would write today, 7 the stacked model would,
+                      7 NEITHER (the only clean gold)
+    metrics acc (to-dos: exact tag set) · mF1 macro F1 · cov share of rows the
+            method ANSWERED rather than defaulting · cw answered-and-wrong,
+            share of ALL rows
+    incumbent  STACKED (shipped): rules -> LR word+char @0.35 / 0.40
+
+**One correction to the record.** `REAL_GOLD.md` calls the 81 event titles
+"actual usage". `history_3000.json` names its own source: HWU-64 (Liu et al.,
+2019), a public crowd-written corpus. They are real human phrasing, not Gil's
+calendar, and not his labels. The only labels of Gil's own are 5 corrections in
+`label_feedback.jsonl` and ~7 hand-set rows each on the calendar and the list.
+
+### EVENTS
+
+    method                                gen TEST (4,333)          gold81 (81)
+                                          acc   mF1   cov   cw      acc   mF1   cov   cw
+    RULES                                33.2  35.7  60.0  31.9     67.9  37.3  86.4  21.0
+    LR word+char (the shipped model)     49.1  49.7   100  50.9     58.0  57.4   100  42.0
+    HGB on SVD(200) of word+char         39.9  40.0   100  60.1     54.3  40.4   100  45.7
+    XGB on word+char (sparse, no SVD)    42.8  43.8   100  57.2     48.1  37.0   100  51.9
+    LR embedding (nomic-embed-text)      64.8  65.0   100  35.2     51.9  57.6   100  48.1
+    kNN embedding (k=15)                 59.8  59.6   100  40.2     59.3  59.7   100  40.7
+    XGB embedding                        61.9  61.8   100  38.1     58.0  57.6   100  42.0
+    LR word+char+embedding               64.1  64.1   100  35.9     64.2  67.5   100  35.8
+    STACKED (shipped)                    41.4  43.0  83.0  44.2     71.6  51.7  90.1  21.0
+    STACKED rules -> LR embedding        53.4  54.2  95.0  43.0     74.1  55.0  97.5  24.7
+    STACKED rules -> LR w+c+embedding    51.1  52.2  91.3  41.8     75.3  56.3  96.3  22.2
+    CASCADE mined kw -> LR w+c+emb       64.4  64.2   100  35.6     65.4  68.2   100  34.6
+
+### TO-DO TAGS
+
+    method                                gen TEST (1,113)          real (44)             hand-set (7)
+                                          acc   mF1   cov   cw      acc   mF1   cov   cw  acc
+    RULES                                38.3  49.6  42.0   3.8     68.2  65.4  68.2   0.0  0/7
+    LR word+char (the shipped model)     66.6  54.0   100  33.4     75.0  44.2   100  25.0  0/7
+    HGB on SVD(200) of word+char         63.2  53.1   100  36.8     63.6  29.4   100  36.4  0/7
+    XGB on word+char (sparse)            56.2  48.2   100  43.8     65.9  32.4   100  34.1  0/7
+    LR embedding                         78.8  65.4   100  21.2     84.1  67.6   100  15.9  2/7
+    XGB embedding                        80.8  71.2   100  19.2     81.8  63.7   100  18.2  2/7
+    STACKED (shipped)                    61.6  64.3  76.7  15.1     84.1  74.4   100  15.9  0/7
+    STACKED rules -> LR embedding        73.9  72.1  86.2  12.3     86.4  78.4  97.7  11.4
+    STACKED rules -> XGB embedding       72.0  71.6  83.0  11.1     88.6  78.8  97.7   9.1
+    STACKED rules -> kNN embedding       77.6  73.6  96.4  18.8     84.1  70.0   100  15.9
+
+The real to-do column is 30/44 rows the rules themselves would write, so the
+rules' 0.0% confident-wrong there is circular. The 7 clean rows are what a
+learned model is FOR (Magshimim -> Work, Microcenter -> Errands, Cook for
+shabbat -> Errands …): the rules answer none, the shipped model says Groceries
+on all 7, the embedding models get 2.
+
+### 1. XGBoost is not better. The features are what move.
+
+xgboost 3.2.0 was installed into a scratch `--target` dir, NOT into `.venv`
+(the board imports it when present). It runs on the sparse TF-IDF directly —
+the one thing sklearn's HGB cannot do — and it still loses to logistic
+regression on the same features on all four instruments: events 42.8 vs 49.1
+(gen) and 48.1 vs 58.0 (gold81); to-dos 56.2 vs 66.6 and 65.9 vs 75.0. On
+embeddings XGB and LR are within 3 pt of each other. **The boosting question
+is answered: no.**
+
+The feature ablation, LR throughout, accuracy (events gen / gold81 · to-dos gen / real):
+
+    word 1-2 grams only          48.3 / 56.8  ·  65.0 / 65.9
+    char 3-5 grams only          47.4 / 58.0  ·  61.7 / 68.2
+    word + char  (shipped)       49.1 / 58.0  ·  66.6 / 75.0
+    word + char, frame stripped  50.2 / 59.3  ·  63.1 / 75.0     <- +-1-3 pt, noise
+    embedding only               64.8 / 51.9  ·  78.8 / 84.1
+    word + char + embedding      64.1 / 64.2  ·  78.1 / 75.0
+
+**The embedding is the only feature worth +12 to +16 pt on novel vocabulary,
+for both classifiers.** It is exactly the gap Board 2 named — TF-IDF cannot
+know "kefir" is food — and nomic-embed-text is local, so the network rule holds.
+
+**The frame verb cannot be measured on this data, and that is a finding.**
+`generate.py` shares every frame across every class on purpose, so on generated
+TRAIN "buy" is right for Groceries 30.3% of the time (165 rows, 122 subjects)
+— because the generator writes "buy the lab report". On Gil's real list "buy"
+is Groceries on 17 of 18 distinct titles (a probe: real rows chose nothing).
+The generator's frame independence is false for "buy", and a feature can only
+learn what the data lets it.
+
+**Metadata features were not run, and could not be honestly.** What reaches the
+labeller at commit time: `auto_category_and_color` gets title, date, start
+time, attendees, location, description (end time and recurrence are on the
+intent at the one call site but not passed); the model receives the TITLE ONLY.
+To-dos: title plus the palette; list, quantity and due date are on the intent,
+not passed. But no set carries them with honest labels: generated rows have no
+metadata (times inside the text are drawn independently of the class), the
+gold81 rows are text only, and the live calendar's times are circular (every
+Fitness row sits at 06:30 because the training planner wrote it and the rules
+labelled it). Inventing class-conditional times in the generator would measure
+the generator's assumptions. It needs real labelled rows with their metadata —
+exactly what a correction carries.
+
+### 2. Gil's cascade — it is what ships, with the HAND list, not a mined one
+
+Rules chosen on TRAIN only: keep a keyword that is right >= 95% of the time over
+>= 20 rows from >= 3 distinct subjects (mined 1-2 grams), or over >= 10 rows
+(the incumbent's hand-written keywords, checked rather than discovered).
+
+    events  mined 33 keywords     answer 469 gen-TEST rows at 82.5% · 6 gold81 rows at 100%
+            incumbent 109 of 324  answer 774 gen-TEST rows at 79.7% · 10 gold81 rows at 90%
+            (171 hand keywords have too little train evidence to be judged)
+    to-dos  mined 1 keyword       ('ticket' -> Errands) answers 0 TEST rows
+            incumbent 62 of 270   answer 82 gen-TEST rows at 100% · 14 real rows at 100%
+
+- A keyword that is 95% right on training subjects is ~80% right on NEW
+  subjects. The bar does not transfer; nothing chosen on this data will be 95%.
+- The mined list inherits the generator: `'book the'`, `'add the'`,
+  `'put the'` -> Work at 100%, because only Work subjects begin with "the …".
+  "book the flight" would go to Work. **Mining rules from generated text is
+  unsafe**; the hand list is the only list with real-world priors in it
+  (Gil's Hebrew terms, his places).
+- The cascade with the model answering everything else (no abstention) is within
+  1 pt of that model alone on gen TEST, and 6 pt BELOW the shipped stacking on
+  gold81 (65.4 vs 71.6), because the shipped stacking uses the WHOLE hand list,
+  not the 95% subset. **Gil's idea is already the shipped shape**: rules first,
+  model on the blanks. The question that matters is which model sits behind them.
+
+### 3. Abstention — reachable for to-dos, not for events
+
+Each threshold was chosen on a subject-grouped 20% carve of TRAIN as the lowest
+at which the answered rows are >= 90% right. **For events no model reaches 90%
+on unseen subjects at any threshold**, so every event threshold landed at
+0.88-0.95 and coverage collapsed (LR word+char @0.95: 4.3% of gen-TEST rows
+answered). For to-dos it works: LR embedding @0.62 answers 68.6% of gen-TEST
+rows with 4.8% confident-wrong, against the shipped stacking's 15.1%.
+
+### 4. NEW TAGS — only the embedding finds a class it was never trained on
+
+One class held out of TRAIN entirely; the system gets its NAME plus three
+keywords (the first three of its incumbent list). Recall / precision on the
+held-out class's gen-TEST rows. A trained LR/HGB/XGB scores 0 recall by
+construction, and so does the cascade beyond its keyword rule.
+
+    held out       n    keyword rule   name only   embedding prototype
+    EVENTS
+    Errand        336    8.3 / 63.6    0.0 /  0.0     40.5 / 24.6
+    Family        320   10.0 / 100     10.0 / 100     15.9 / 55.4
+    Fitness       341    6.5 / 46.8    0.0 /  0.0     71.3 / 57.9
+    Health        325    8.0 / 100      4.0 / 100     34.8 / 79.0
+    Meal          330    6.7 / 18.0    0.0 /  0.0     34.8 / 33.3
+    Meeting       315   38.1 / 62.8   23.8 / 58.6     61.0 / 27.4
+    Prayer        315   14.3 / 100     0.0 /  0.0     59.4 / 50.7
+    Shabbat Meal  330   20.0 / 100     0.0 /  0.0     73.0 / 92.0
+    Social        360   10.0 / 17.5    3.3 / 100      20.6 / 27.7
+    Study         336    4.2 / 25.5    4.2 / 48.3     45.2 / 38.7
+    Travel        320   15.0 / 100     5.0 / 100      35.6 / 70.4
+    Work          369    1.1 /  4.3    0.0 /  0.0     10.0 / 11.7
+    mean                11.8 / 61.5    4.2 / 42.2     41.8 / 47.4
+    TO-DOS
+    Coursework    320    6.2 / 100     0.0 /  0.0     51.9 / 99.4
+    Errands       315    6.7 / 31.8    0.0 /  0.0     91.4 / 45.2
+    Groceries     371    0.0 /  0.0    0.0 /  0.0     65.2 / 86.7
+    Work          128    0.0 /  0.0    0.0 /  0.0     20.3 / 86.7
+    mean                 3.2 / 33.0    0.0 /  0.0     57.2 / 79.5
+
+The prototype answers when the class's "name: kw, kw, kw" is the nearest of all
+the classes' prototypes by a margin, the margin chosen on the OTHER classes'
+TRAIN rows. With NO training rows at all, the whole palette as prototypes scores
+39.2% on event gen TEST (the rules: 33.2%) and 63.0% on to-dos (38.3%).
+
+**Name only is what `tagging.py` gives a user-created tag today**, and it finds
+0-24% of a class. The real case agrees: Gil's own `Wishlist` (4 distinct titles:
+Weights, Padel, Cycling clothes, Bike light) — rules 0/4, name-only prototype
+0/4 (all nearer Groceries/Errands). A wish list is not a topic, so no title
+similarity will find it; the list or an explicit pick is the signal there.
+
+### 5. Deleted or renamed classes: the saved models ignore the palette (a bug)
+
+Run in scratch stores against the shipped path (`model.category_for` /
+`tags_for`):
+
+    'Travel' deleted       "flight to rome"   rules Personal -> model 'Travel',
+                           coloured as Personal (#64748b): the label outlives its category
+    'Errand' -> 'Chores'   "drop off the dry cleaning"  -> model 'Errand'
+    'Errands' tag deleted  "collect the passport photos" -> ['Errands'], not in the palette
+    'Wishlist' created     the model can only ever answer its 4 fitted tags
+
+`tagging.py` promises "a tag the user renamed or deleted never comes back"; the
+model path breaks that promise, because `predict`/`predict_tags` never see the
+palette and `action.py` stores what they return. The fix is an implementation
+one (restrict the argmax to live classes, abstain otherwise) and needs no
+ruling; it is not made here because this board is a measurement.
+
+### Verdict — and what would change it
+
+1. **Keep the shape.** Rules first, a model on the blanks, is Gil's cascade
+   already, and it is the best real-data row on both classifiers.
+2. **No XGBoost.** It loses to logistic regression on the same features on
+   every instrument; on embeddings it ties.
+3. **The one change with evidence is the FEATURE: nomic-embed-text embeddings
+   behind the rules.** Generated TEST, same rows: events stacked 41.4% ->
+   53.4% (LR embedding), to-dos 61.6% -> 73.9-77.6%, confident-wrong 15.1% ->
+   11-12% (to-dos). Real: gold81 71.6% -> 75.3% (rules -> LR w+c+emb; 0 rows
+   lost, 3 gained, exact p = 0.25), to-dos 84.1% -> 86.4-88.6% (1-2 rows).
+   **Both real deltas are inside the noise** and must not be called a win.
+   The cost is a design question for Gil: an ollama embedding call when a title
+   falls through the rules (throughput measured 4,100 titles/min batched;
+   single-call latency NOT measured), and a fallback to today's TF-IDF model
+   when ollama is down.
+4. **New tags need the embedding too** — mean recall 42% (events) / 57% (to-dos)
+   against 12% / 3% for a name plus three keywords — but event precision (47%)
+   is too low to auto-apply. Suggest, do not assign.
+
+**What would separate the top two on real data.** At the discordance seen on
+gold81, stacked+embedding vs stacked needs ~210-320 distinct event titles to
+reach p < 0.05 with 80% power; on the to-do list ~170-1,000. Those should be
+Gil's OWN titles with Gil's OWN labels: the 81 we have are crowd text labelled
+by Claude, and the 44 to-dos are 37 parts circular. Roughly 300 hand-labelled
+event titles and 200 to-dos, drawn from his calendar and list, is the
+instrument that would decide this — and the corrections `feedback.py` already
+collects are exactly that data, arriving at ~5 so far.
