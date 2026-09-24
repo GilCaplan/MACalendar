@@ -225,13 +225,13 @@
     </table>
 
     <p>
-      Two absences are as informative as the three presences. There is
-      <strong>no embedding model</strong>: finding your similar past commands is done
-      with word-overlap arithmetic, not vectors, because a fourth model would have to
-      stay resident to search a few hundred short strings. And there is
-      <strong>no classifier model</strong>: the labels that colour an event or tag a task
-      come from keyword scoring and a personal word list. Both are choices that section 07
-      lists as unmeasured.
+      Two things are narrower than they sound. Finding your similar past commands is done
+      with word-overlap arithmetic, not vectors, because a vector index would have to stay
+      resident to search a few hundred short strings. And the labels that colour an event or
+      tag a task come from keyword scoring and a personal word list FIRST; a small classifier
+      answers only what the keywords left blank, reading the title&rsquo;s vector from a local
+      embedding model (<code>nomic-embed-text</code>) and falling back to word features when
+      that model cannot be reached.
     </p>
 
     <figure>

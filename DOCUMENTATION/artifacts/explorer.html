@@ -1734,9 +1734,10 @@
     operation</em>, <em>which kind</em>. They are fitted offline with scikit-learn and shipped as a file of
     JSON weights; inference is a hand-written dot product over a list of floats, so the running assistant
     imports no machine-learning library at all.</p>
-    <p>What is still deliberately missing: <strong>no embedding model</strong>. Retrieval over past
-    commands is lexical arithmetic &mdash; word overlap and sequence similarity &mdash; not a vector
-    search.</p>`
+    <p>Retrieval over past commands is lexical arithmetic &mdash; word overlap and sequence similarity
+    &mdash; not a vector search. The one embedding model, <code>nomic-embed-text</code> on the local
+    Ollama, has a different job: it helps label an event or a task the keyword rules left blank, and
+    when it cannot be reached the older word-feature classifier answers instead.</p>`
     },
     window: {
       view: "system", tag: "on the laptop", name: "window", rl: "the window", title: "The calendar window",
@@ -1863,7 +1864,7 @@ series_id   NULL
     wrong shape of answer. So retrieval ships off: an evidence-backed zero rather than a missing feature,
     and if it returns it must be shaped per item first.</p>
     <p>Retrieval, when it is on, is lexical: word overlap and sequence similarity over the most recent
-    commands. No embedding model, no index to rebuild.</p>`
+    commands. No vectors, no index to rebuild.</p>`
     },
     batch: {
       view: "system", tag: "more than one at a time", name: "several", rl: "several at once",
@@ -5355,11 +5356,19 @@ series_id   NULL
   {
    "label": "an all-day day",
    "text": "conference all day friday",
-   "committed": false,
-   "confidence": 0.0,
-   "reason": "skip:No action matched for: 'conference all day friday'",
-   "class": "deferred",
-   "objects": []
+   "committed": true,
+   "confidence": 0.86,
+   "reason": null,
+   "class": "handled",
+   "objects": [
+    {
+     "action": "create_event",
+     "title": "conference",
+     "date": "2026-09-11",
+     "start_time": "00:00",
+     "end_time": "23:59"
+    }
+   ]
   }
  ],
  "eval": {
@@ -5784,7 +5793,7 @@ series_id   NULL
    "label": "a seam inside one ask",
    "text": "take out the trash. also, put milk on my shopping list",
    "parse": "deep",
-   "message": "Added 'take out the trash' to Today. Added 'milk' to Today tagged Groceries.",
+   "message": "Added 'take out the trash' to Today tagged Errands. Added 'milk' to Today tagged Groceries.",
    "boundaries": [
     {
      "name": null,
@@ -5860,7 +5869,7 @@ series_id   NULL
     {
      "stage": "execute",
      "title": "Create Todo",
-     "detail": "Added 'take out the trash' to Today.",
+     "detail": "Added 'take out the trash' to Today tagged Errands.",
      "ok": true,
      "outcome": ""
     },
@@ -5874,14 +5883,14 @@ series_id   NULL
     {
      "stage": "validate",
      "title": "Labels",
-     "detail": "item_2: Groceries",
+     "detail": "item_1: Errands; item_2: Groceries",
      "ok": true,
      "outcome": ""
     },
     {
      "stage": "done",
      "title": "Done",
-     "detail": "deep path · 5.8 s total",
+     "detail": "deep path · 6.0 s total",
      "ok": true,
      "outcome": ""
     }
@@ -5892,7 +5901,7 @@ series_id   NULL
    "label": "a subject that names nothing",
    "text": "add this on my calendar",
    "parse": "deep",
-   "message": "Sorry, I couldn't read this part: “add this on my calendar”.",
+   "message": "I left 'add this on my calendar' alone — I couldn't make out what to create from “add this on my calendar”.",
    "boundaries": [
     {
      "name": null,
@@ -5945,6 +5954,20 @@ series_id   NULL
      "outcome": ""
     },
     {
+     "stage": "llm",
+     "title": "Read part 1",
+     "detail": "ollama:llama3.1:8b · 0 history example(s) used",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "llm",
+     "title": "Re-read part 1 as an event",
+     "detail": "ollama:llama3.1:8b · 0 history example(s) used",
+     "ok": true,
+     "outcome": ""
+    },
+    {
      "stage": "verify",
      "title": "Cross-check",
      "detail": "0 object(s) — every field traced back to the words",
@@ -5952,14 +5975,21 @@ series_id   NULL
      "outcome": ""
     },
     {
+     "stage": "execute",
+     "title": "Held back",
+     "detail": "item_1: I couldn't make out what to create from “add this on my calendar”",
+     "ok": false,
+     "outcome": "held_back"
+    },
+    {
      "stage": "done",
      "title": "Done",
-     "detail": "deep path · 3.2 s total",
+     "detail": "deep path · 8.3 s total",
      "ok": true,
      "outcome": ""
     }
    ],
-   "hint": ""
+   "hint": "title_refused"
   },
   {
    "label": "disfluent, then clean",
@@ -6008,7 +6038,7 @@ series_id   NULL
     {
      "stage": "done",
      "title": "Fast answer",
-     "detail": "rules answered in 0.0 s · reviewing in the background",
+     "detail": "rules answered in 0.1 s · reviewing in the background",
      "ok": true,
      "outcome": ""
     }

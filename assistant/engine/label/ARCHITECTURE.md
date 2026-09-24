@@ -8,6 +8,7 @@ row that can exist uncategorised, and that window is where per-category settings
 
     label.py       reads the labels back onto the item, for the reply and trace
     model.py       the learned labellers, and how they ship
+    embed.py       the title's vector (nomic-embed-text, local ollama), or None
     train.py       fit them, gate them, promote them
     feedback.py    the user's own corrections — the only labels worth learning
     datasets/      generated FROM the label, so nothing is circular
@@ -37,6 +38,47 @@ right when it fires and rarely fires. So:
 Replacing the rules with the model would trade 91.7% precision for 63.9% on rows
 that were already right. No accuracy number justifies that, and this is a
 selective classifier — the same shape FastRule's front door uses.
+
+## Inside the model: an embedding head, and the n-gram fallback
+
+Since 2026-09-24 (DEVQA Q46, on label Board 6) each artefact carries TWO
+classifiers, and exactly one answers a given title:
+
+    EMBEDDING HEAD   events: LR on word 1-2 + char 3-5 grams + the title's
+                     nomic-embed-text vector · tasks: one-vs-rest LR on the
+                     vector alone · threshold chosen on TRAIN, in the meta
+    N-GRAM PIPELINE  what shipped before: LR on word + char n-grams at
+                     MIN_CONFIDENCE — the FALLBACK, used whenever the vector
+                     cannot be had (ollama down, over the 3 s cap, in the 30 s
+                     cooldown after a failure, or MACALENDAR_LLM_DISABLED)
+
+    rules answered?  -> the rules (unless labels.model_first)
+    vector?          -> the head; under its threshold it ABSTAINS and the rules'
+                        default stands — the pipeline is not asked for a second
+                        opinion
+    no vector        -> the pipeline, exactly as before
+    either way       -> dropped if the class is no longer in the user's palette
+
+Why the embedding and nothing else: Board 6 compared rules, the shipped model,
+sklearn boosting, XGBoost, kNN and LR on embeddings, ablated the features, and
+only the embedding moved the number on unseen vocabulary (+12 to +16 pt); XGBoost
+lost to logistic regression on the same features on every instrument.
+
+**How the head's threshold is chosen.** A subject-grouped 20% carve of the
+generated TRAIN half; the threshold that maximises (right − wrong) over the rows
+the head ANSWERS — it speaks only where it is more often right than wrong. Not
+plain accuracy (the generated sets have no row whose answer is the default, so
+accuracy rewards answering everything), and not a 90% precision bar (unseen
+subjects cannot reach it: events answered 4% of rows). Events chose 0.30, tasks
+0.625.
+
+**Three places the embedding is deliberately NOT called**: a first-use base
+build (`_build_base` fits n-grams only — twelve thousand embeddings do not
+belong inside a commit), the suite (`MACALENDAR_LLM_DISABLED`, so CI exercises
+the fallback on every run), and a model that has no head (an artefact from
+before Q46 still loads and predicts). The teach queue batch-embeds its titles
+in one call (`LabelModel.warm`). A refit's embedding calls are background
+traffic; a label for a live command inherits the command's priority.
 
 **Abstention is an answer.** `predict` returns None below `MIN_CONFIDENCE`
 rather than guessing. An event labelled `Travel` at 0.21 because that was the
@@ -106,7 +148,9 @@ never reads `feedback.gold()` — pinned by a test.
 
 ## The numbers
 
-`experiments/RESULTS.md` is the record. Headlines as of 2026-09-10:
+`experiments/RESULTS.md` is the record. **Board 6 (2026-09-24)** — the rebuild
+that shipped the embedding head — supersedes the model comparisons below; the
+headlines from 2026-09-10 are kept for the scaling history:
 
 - **novel vocabulary** (subjects never seen in training): event category
   **49.1%** vs the rules' 33.0%; task tags **46.8%** exact-set vs 38.3%.

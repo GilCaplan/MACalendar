@@ -3,6 +3,11 @@
     LabelModel.load("event") -> predict(title) -> (label, confidence) | None
     LabelModel.load("task")  -> predict_tags(title) -> ([tags], confidence) | None
 
+Each artefact holds TWO classifiers (DEVQA Q46, 2026-09-24): an EMBEDDING HEAD
+(`EmbedHead`, reading the title's nomic-embed-text vector through `embed.py`)
+that answers whenever the vector can be had, and the n-gram PIPELINE that
+shipped before it, which answers whenever it cannot. See ARCHITECTURE.md.
+
 Trained by `train.py`, and stored in TWO places on purpose — this line used to
 say "never in the repo", which contradicted `BASE_DIR` below and would have had
 someone delete the shipped model:
@@ -48,6 +53,8 @@ from __future__ import annotations
 import os
 import pathlib
 
+import numpy as np
+
 #: TWO TIERS, and the distinction is the whole shape of this (Gil, 2026-09-10:
 #: *"this should also be true for other users — i am just one example of a user
 #: that automatic retraining happens for"*).
@@ -77,16 +84,56 @@ MODELS_DIR = pathlib.Path(
 MIN_CONFIDENCE = {"event": 0.35, "task": 0.40}
 
 
+class EmbedHead:
+    """The EMBEDDING classifier that sits beside the n-gram pipeline (DEVQA Q46).
+
+    events  logistic regression on word 1-2 grams + char 3-5 grams + the
+            nomic-embed-text vector of the title (label Board 6's best stacked
+            event row)
+    tasks   one-vs-rest logistic regression on the vector alone
+
+    `threshold` was chosen on the TRAIN half (`train._fit_embed`), never on a
+    test row, and is recorded in the artefact's meta beside how it was chosen.
+    The n-gram pipeline is kept whole: it answers whenever the vector cannot be
+    had, exactly as it did before this head existed.
+    """
+
+    def __init__(self, kind: str, clf, classes, threshold: float, vec=None) -> None:
+        self.kind = kind
+        self.clf = clf
+        self.classes = list(classes)
+        self.threshold = float(threshold)
+        self.vec = vec              # the n-gram vectoriser for events; None for tasks
+
+    def features(self, texts, E):
+        if self.vec is None:
+            return np.asarray(E)
+        import scipy.sparse as sp
+        return sp.hstack([self.vec.transform(list(texts)), sp.csr_matrix(np.asarray(E))]).tocsr()
+
+    def proba(self, texts, E) -> "np.ndarray":
+        """Probabilities over `self.classes`, one row per text."""
+        P = np.asarray(self.clf.predict_proba(self.features(texts, E)))
+        if self.kind == "event":
+            out = np.zeros((P.shape[0], len(self.classes)))
+            out[:, [int(c) for c in self.clf.classes_]] = P
+            return out
+        return P
+
+
 class LabelModel:
     """A fitted classifier plus the metadata needed to trust it."""
 
-    __slots__ = ("kind", "pipeline", "classes", "meta")
+    __slots__ = ("kind", "pipeline", "classes", "meta", "embed_head", "last_source")
 
-    def __init__(self, kind: str, pipeline, classes, meta: dict) -> None:
+    def __init__(self, kind: str, pipeline, classes, meta: dict,
+                 embed_head: "EmbedHead | None" = None) -> None:
         self.kind = kind            # "event" | "task"
         self.pipeline = pipeline
         self.classes = list(classes)
         self.meta = dict(meta)      # trained_at, n_rows, board numbers, version
+        self.embed_head = embed_head   # None: an artefact from before Q46, n-grams only
+        self.last_source = None        # "embed" | "ngram" — which head answered last
 
     # -- loading ------------------------------------------------------------
 
@@ -102,7 +149,8 @@ class LabelModel:
         try:
             import joblib
             blob = joblib.load(path)
-            m = cls(kind, blob["pipeline"], blob["classes"], blob.get("meta", {}))
+            m = cls(kind, blob["pipeline"], blob["classes"], blob.get("meta", {}),
+                    blob.get("embed"))
             m.meta.setdefault("tier", "personal")
             return m
         except Exception:
@@ -133,15 +181,53 @@ class LabelModel:
         p.parent.mkdir(parents=True, exist_ok=True)
         self.meta["tier"] = tier
         joblib.dump({"pipeline": self.pipeline, "classes": self.classes,
+                     "embed": self.embed_head,
                      "meta": self.meta}, p)
         return p
 
     # -- prediction ---------------------------------------------------------
 
-    def predict(self, text: str) -> "tuple[str, float] | None":
-        """Single-label. `(label, confidence)`, or None when not confident."""
+    def _embedded(self, text: str, base_url: "str | None"):
+        """The embedding head's probabilities for one title, or None when the
+        vector cannot be had (disabled, ollama down or slow) or the head fails.
+        None sends the caller to the n-gram pipeline, exactly as before Q46."""
+        if self.embed_head is None:
+            return None
+        from assistant.engine.label import embed as _embed
+        v = _embed.vector(text, base_url=base_url)
+        if v is None:
+            return None
+        try:
+            return self.embed_head.proba([text], v[None, :])[0]
+        except Exception:
+            return None
+
+    def warm(self, texts, base_url: "str | None" = None) -> None:
+        """Embed many titles in ONE batched call, filling the in-process cache,
+        so a caller about to `predict` each of them (the teach queue) does not
+        pay one round trip per title."""
+        if self.embed_head is None:
+            return
+        from assistant.engine.label import embed as _embed
+        _embed.vectors([t for t in texts if (t or "").strip()], base_url=base_url)
+
+    def predict(self, text: str, base_url: "str | None" = None) -> "tuple[str, float] | None":
+        """Single-label. `(label, confidence)`, or None when not confident.
+
+        The embedding head answers when its vector can be had — and when it
+        ABSTAINS, that is the answer (the rules stand); the n-gram pipeline is
+        the fallback for a missing vector, not a second opinion."""
         if not (text or "").strip():
             return None
+        P = self._embedded(text, base_url)
+        if P is not None:
+            self.last_source = "embed"
+            best = int(np.argmax(P))
+            conf = float(P[best])
+            if conf < self.embed_head.threshold:
+                return None
+            return str(self.embed_head.classes[best]), conf
+        self.last_source = "ngram"
         try:
             proba = self.pipeline.predict_proba([text])[0]
         except Exception:
@@ -152,7 +238,7 @@ class LabelModel:
             return None
         return str(self.pipeline.classes_[best]), conf
 
-    def predict_tags(self, text: str) -> "tuple[list, float] | None":
+    def predict_tags(self, text: str, base_url: "str | None" = None) -> "tuple[list, float] | None":
         """Multi-label. Every tag over the bar, plus the weakest one's score.
 
         A task can be Groceries AND Errands, so this is one-vs-rest and the
@@ -161,6 +247,15 @@ class LabelModel:
         """
         if not (text or "").strip():
             return None
+        P = self._embedded(text, base_url)
+        if P is not None:
+            self.last_source = "embed"
+            bar = self.embed_head.threshold
+            picked = [(self.embed_head.classes[i], float(sc)) for i, sc in enumerate(P) if sc >= bar]
+            if not picked:
+                return None
+            return [name for name, _ in picked], min(sc for _, sc in picked)
+        self.last_source = "ngram"
         bar = MIN_CONFIDENCE.get(self.kind, 0.4)
         try:
             scores = []
@@ -209,7 +304,9 @@ def _build_base(kind: str) -> "LabelModel | None":
     `feedback.gold()` is not consulted, so this is identical for every user."""
     try:
         from assistant.engine.label import train as _train
-        out = _train.train_base(kind, verbose=False)
+        # n-grams only: a first-use build must not embed ~12,000 rows inside a
+        # commit. The committed base artefact carries the embedding head.
+        out = _train.train_base(kind, verbose=False, embed=False)
         return LabelModel.load(kind) if out else None
     except Exception:
         return None
@@ -243,6 +340,7 @@ def category_for(title: str, rule_answer: str, cfg) -> "tuple[str, str]":
     model = _cached("event")
     if model is None:
         return rule_answer, "rule"
+    _use_configured_ollama(cfg)
     got = model.predict(title)
     if got is None:
         return rule_answer, "rule"                  # the model abstained: the rules stand
@@ -262,6 +360,7 @@ def tags_for(title: str, rule_answer: list, cfg) -> "tuple[list, str]":
     model = _cached("task")
     if model is None:
         return list(rule_answer), "rule"
+    _use_configured_ollama(cfg)
     got = model.predict_tags(title)
     if got is None:
         return list(rule_answer), "rule"           # the model abstained: the rules stand
@@ -295,6 +394,18 @@ def _live_tags(names: list) -> list:
     except Exception:
         return list(names)
     return [palette[n.lower()] for n in names if n and n.lower() in palette]
+
+
+def _use_configured_ollama(cfg) -> None:
+    """Point the embedding client at the configured ollama (`ollama.base_url`),
+    so the embedding head reaches the same server as every other model call."""
+    try:
+        url = getattr(getattr(cfg, "ollama", None), "base_url", None)
+        if url:
+            from assistant.engine.label import embed as _embed
+            _embed.BASE_URL = str(url)
+    except Exception:
+        pass
 
 
 def _model_first(cfg) -> bool:

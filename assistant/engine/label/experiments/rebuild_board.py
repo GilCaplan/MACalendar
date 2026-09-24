@@ -624,8 +624,7 @@ def run_kind(kind, emb, use_emb, results):
         real = real_event_sets()
         palette = None
     else:
-        from assistant.actions.todo import tagging as _tag
-        classes = sorted(_tag.KEYWORDS)
+        classes = sorted({c for labs in tr_y for c in labs})
         rt, palette = real_task_rows()
         real = {"todos": [(t, [x for x in tags if x in classes], p) for t, tags, p in rt
                           if [x for x in tags if x in classes]]}
@@ -892,8 +891,7 @@ def run_newtag(kind, emb, use_emb, results):
         classes = sorted(set(tr_y) - {DEFAULT_EVENT})
         allc = sorted(set(tr_y))
     else:
-        from assistant.actions.todo import tagging as _tag
-        classes = sorted(_tag.KEYWORDS)
+        classes = sorted({c for labs in tr_y for c in labs})
         allc = classes
     has = (lambda y, c: y == c) if kind == "event" else (lambda y, c: c in y)
     if use_emb and emb is not None:
@@ -1011,6 +1009,98 @@ def run_newtag(kind, emb, use_emb, results):
 
 
 # ---------------------------------------------------------------------------
+# THE SHIPPED PATH — the committed artefacts, through model.category_for / tags_for
+# ---------------------------------------------------------------------------
+
+def run_shipped(kind, results):
+    """The committed base artefact, through the REAL entry points (rules first,
+    the embedding head, the n-gram fallback, the live-palette filter), on the
+    same rows as the comparison above. Three rows:
+
+      shipped           the artefact as committed, at its TRAIN-chosen threshold
+      reproduction      the same artefact at Board 6's stacked thresholds
+                        (0.35 / 0.40) — must equal the board's own refit row
+      fallback          MACALENDAR_LLM_DISABLED=1, so no vector can be had —
+                        must equal the pre-Q46 STACKED (shipped) row
+    """
+    from types import SimpleNamespace
+    from assistant.engine.label import embed as _embed
+    from assistant.engine.label import model as _lm
+    from assistant.engine.label.model import LabelModel
+    _embed.LRU_SIZE = 50000                  # the board warms thousands of titles at once
+    art = LabelModel._read(kind, LabelModel.path_for(kind, "base"))
+    if art is None or art.embed_head is None:
+        print(f"\n  SHIPPED ({kind}): the committed artefact has no embedding head — skipped")
+        return
+    _lm._CACHE[kind] = art
+    cfg = SimpleNamespace(labels=SimpleNamespace(model_event=True, model_task=True, model_first=False),
+                          ollama=SimpleNamespace(base_url=None))
+    classes = results[f"{kind}_classes"]
+    evals = results[f"{kind}_evals"]
+    board = results[f"{kind}_board"]
+    chosen = art.embed_head.threshold
+    ship_t = 0.35 if kind == "event" else 0.40
+    ref = ("STACKED rules -> LR  word+char+embedding" if kind == "event"
+           else "STACKED rules -> LR  embedding")
+    print("\n" + "=" * 86)
+    print(f"SHIPPED {kind.upper()} — committed artefact · embedding head threshold {chosen} "
+          f"({art.meta.get('embed', {}).get('threshold_rule', '')})")
+    print("=" * 86)
+    out = {}
+
+    def run(x, y):
+        if kind == "event":
+            rp, _ = rule_event(x)
+            got = [_lm.category_for(t, r, cfg) for t, r in zip(x, rp)]
+            preds = [g for g, _ in got]
+            ans = np.array([p != DEFAULT_EVENT for p in preds])
+        else:
+            rp, _ = rule_task(x, classes)
+            got = [_lm.tags_for(t, r, cfg) for t, r in zip(x, rp)]
+            preds = [sorted(g) for g, _ in got]
+            ans = np.array([bool(p) for p in preds])
+        src = collections.Counter(w for _, w in got)
+        return score(kind, y, preds, ans, classes), src
+
+    for ev, (x, y) in evals.items():
+        art.warm(x)
+        rows = []
+        art.embed_head.threshold = chosen
+        s1, src = run(x, y)
+        rows.append((f"SHIPPED (rules -> embed head @{chosen})", s1))
+        art.embed_head.threshold = ship_t
+        s2, _ = run(x, y)
+        rows.append((f"reproduction (@{ship_t})", s2))
+        art.embed_head.threshold = chosen
+        prev = os.environ.get("MACALENDAR_LLM_DISABLED")
+        os.environ["MACALENDAR_LLM_DISABLED"] = "1"
+        s3, _ = run(x, y)
+        if prev is None:
+            os.environ.pop("MACALENDAR_LLM_DISABLED", None)
+        else:
+            os.environ["MACALENDAR_LLM_DISABLED"] = prev
+        rows.append(("fallback (embedding disabled)", s3))
+        board_ref = dict(board[ev]).get(ref)
+        board_inc = next((r for n, r in board[ev] if n.startswith("STACKED (shipped")), None)
+        table(f"{kind.upper()} · {ev} · who answered: {dict(src)}", rows)
+        if board_ref:
+            ok = board_ref["right"] == s2["right"]
+            print(f"    reproduction == board row '{ref.strip()}': {ok} "
+                  f"({board_ref['acc']*100:.1f}% vs {s2['acc']*100:.1f}%)")
+        if board_inc:
+            ok = board_inc["right"] == s3["right"]
+            print(f"    fallback == pre-Q46 STACKED (shipped): {ok} "
+                  f"({board_inc['acc']*100:.1f}% vs {s3['acc']*100:.1f}%)")
+            if len(x) >= 20:
+                b, c, pv, need = paired(board_inc["right"], s1["right"])
+                print(f"    shipped vs pre-Q46 incumbent, paired: {b} lost, {c} gained, "
+                      f"exact p {pv:.3f}, n to separate {need}")
+        out[ev] = {n: {k: v for k, v in r.items() if k != "right"} for n, r in rows}
+    results[f"{kind}_shipped"] = out
+    _lm.reset()
+
+
+# ---------------------------------------------------------------------------
 # PALETTE DRIFT — what happens today when a tag or category is renamed/deleted
 # ---------------------------------------------------------------------------
 
@@ -1066,7 +1156,7 @@ def run_palette():
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-embed", action="store_true", help="make no ollama call")
-    ap.add_argument("--only", choices=("events", "tasks", "newtag", "palette"))
+    ap.add_argument("--only", choices=("events", "tasks", "newtag", "palette", "shipped"))
     ap.add_argument("--embed-cache", default=str(EMBED_CACHE))
     ap.add_argument("--out", default=None, help="write the numbers as JSON here")
     a = ap.parse_args()
@@ -1083,17 +1173,22 @@ def main() -> int:
     except Exception:
         sha = ""
     results: dict = {"started": time.strftime("%Y-%m-%d %H:%M:%S"), "commit": sha}
-    if a.only in (None, "events"):
+    if a.only in (None, "events", "shipped"):
         run_kind("event", emb, use_emb, results)
-    if a.only in (None, "tasks"):
+        if use_emb:
+            run_shipped("event", results)
+    if a.only in (None, "tasks", "shipped"):
         run_kind("task", emb, use_emb, results)
-    if a.only in (None, "newtag"):
+        if use_emb:
+            run_shipped("task", results)
+    if a.only in (None, "newtag") and a.only != "shipped":
         run_newtag("event", emb, use_emb, results)
         if "task_real_offpalette" not in results:
             rt, _ = real_task_rows()
             from assistant.actions.todo import tagging as _tag
+            trained = {"Coursework", "Errands", "Groceries", "Work"}
             results["task_real_offpalette"] = [(t, tags, p) for t, tags, p in rt
-                                               if not [x for x in tags if x in _tag.KEYWORDS]]
+                                               if not [x for x in tags if x in trained]]
         run_newtag("task", emb, use_emb, results)
     if a.only in (None, "palette"):
         run_palette()

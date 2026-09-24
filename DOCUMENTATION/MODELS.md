@@ -1,6 +1,7 @@
 # Models in the stack
 
-**Five models** since 2026-09-10 — three that read, two that label. All of them
+**Six models** since 2026-09-24 — three that read, two that label, and one
+embedding model the labellers read titles through. All of them
 run on this machine; none of them is reached over the internet. This file is the canonical answer to "how many models, which ones,
 what does each one do" — `DOCUMENTATION/ARTIFACT_BUILDER.md` and the artifacts
 cite it rather than restating it.
@@ -14,8 +15,9 @@ cite it rather than restating it.
 Set in `config.example.yaml` under `mlx_whisper.model`, hardcoded as
 `spacy.load("en_core_web_sm")` in the rule parser, and `ollama.model`.
 
-| 4 | **Event-category classifier** | logistic regression over word 1-2 grams ∪ char 3-5 grams | CPU, in-process | a title → 1 of 13 categories |
-| 5 | **Task-tag classifier** | the same features, one-vs-rest | CPU, in-process | a title → a SET of tags |
+| 4 | **Event-category classifier** | logistic regression over word 1-2 grams ∪ char 3-5 grams ∪ the title's embedding (fallback: the same without the embedding) | CPU, in-process | a title → 1 of the trained categories |
+| 5 | **Task-tag classifier** | one-vs-rest logistic regression on the title's embedding (fallback: word 1-2 ∪ char 3-5 grams) | CPU, in-process | a title → a SET of tags |
+| 6 | **`nomic-embed-text`** | ~137 M params, ~275 MB | Ollama on `localhost:11434`, `/api/embed` | a title → a 768-number vector, for 4 and 5 only |
 
 Models 4 and 5 are new (2026-09-10) and are the reason this file no longer says
 "three". They live in `assistant/engine/label/`, ship **off by default**
@@ -29,15 +31,23 @@ PERSONAL model on top of it, fitted from the labels *that* user has corrected,
 never leaving their machine. `experiments/RESULTS.md` carries the numbers;
 `ARCHITECTURE.md` in the same folder carries the design.
 
-There is **no embedding model**, and that is now a measured limitation rather
-than only a choice. TF-IDF has no semantic knowledge — character n-grams cannot
-know "kefir" is food — which caps generalisation to vocabulary the training
-never saw. Ollama's embedding endpoints were tried on 2026-09-10 and rejected:
-`llama3.1:8b` is not an embedding model, and pulling one (`nomic-embed-text`,
-~275 MB) needs the network. Retrieval of past commands is lexical —
-0.6 × Jaccard over word sets + 0.4 × `SequenceMatcher` ratio. That was a
-deliberate choice (a fourth model to load, for a corpus of a few hundred short
-strings) and it is one of the things the harness should re-examine.
+**Model 6 exists for labelling only** (DEVQA Q46, 2026-09-24). TF-IDF has no
+semantic knowledge — character n-grams cannot know "kefir" is food — and label
+Board 6 measured what that cost: the title's embedding was the one feature
+that moved both classifiers on vocabulary the training never saw (+12 to +16
+pt accuracy on held-out subjects; xgboost, char-only, word-only and frame
+stripping all moved it 3 pt or less). It is called ONLY when the keyword rules
+had no answer, through `assistant/engine/label/embed.py` and the same
+`model_protocol.hold()` gate as model 3, and **any failure falls back to the
+n-gram classifier** that shipped before it — ollama down, slow (3 s cap, then a
+30 s cooldown), or `MACALENDAR_LLM_DISABLED`. It is kept resident for 30
+minutes after use (`keep_alive`). The 2026-09-10 note that pulling it "needs
+the network" was true once; it is now pulled, and nothing reaches the network
+at run time.
+
+Retrieval of past commands is still lexical — 0.6 × Jaccard over word sets +
+0.4 × `SequenceMatcher` ratio — and does not use model 6. That remains a
+deliberate choice for a corpus of a few hundred short strings.
 
 Labelling **is** done by models now (4 and 5 above), with the keyword scoring in
 `assistant/actions/calendar/categories.py` and `assistant/actions/todo/tagging.py`

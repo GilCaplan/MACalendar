@@ -1162,6 +1162,15 @@ all. The phone's answer is a **preview** — the queued create body still says
 what the user said, so the Mac classifies it itself on replay and its answer
 is the one that lands. `test_sync_bootstrap.py` transcribes the Swift
 algorithm back into Python and asserts it agrees with `infer_tag`.
+**Behind the keywords, a learned tagger with an embedding** (2026-09-24,
+DEVQA Q46): when `suggest_tags` finds nothing and `labels.model_task` is on,
+`engine/label/model.tags_for` asks the task model — one-vs-rest logistic
+regression on the title's `nomic-embed-text` vector (local ollama), answering
+only at or above its TRAIN-chosen threshold (0.625). No vector (ollama down,
+slow, or `MACALENDAR_LLM_DISABLED`) → the word-feature model that shipped
+before it answers exactly as it did. A tag the user deleted or renamed is
+dropped from the model's answer (`_live_tags`). Numbers: label Board 6 in
+`engine/label/experiments/RESULTS.md`.
 
 ### Events: categories, colours & binder stacking
 **What:** Every event auto-categorised and coloured — adjacent events never
@@ -1180,6 +1189,15 @@ calls every categorised event hand-picked.
 **How:** Deterministic classifier over title/attendees/location with a
 per-category palette; `auto_category_and_color` runs inside event INSERTs so
 every write path (voice, GUI, API) gets it.
+**Behind the keywords, a learned classifier with an embedding** (2026-09-24,
+DEVQA Q46): where the keywords fall through to `Personal` and
+`labels.model_event` is on, `engine/label/model.category_for` asks the event
+model — logistic regression on word + character n-grams plus the title's
+`nomic-embed-text` vector, answering at or above its TRAIN-chosen threshold
+(0.30); below it the rules' `Personal` stands. No vector → the n-gram model
+that shipped before it. A category the user deleted or renamed never comes
+back from the model (`_live_category`). `labels.model_first` still lets a
+confident model answer win over the keywords.
 
 ### Hebrew calendar & observance
 **What:** Jewish/Israeli holidays in the views; Shabbat/yom tov/fast windows

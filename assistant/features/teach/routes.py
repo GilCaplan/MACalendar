@@ -71,7 +71,11 @@ def labels_next():
     if kind == "event":
         model = LabelModel.load("event")
         seen = set()
-        for ev in db.search_events("", limit=400) or []:
+        events = db.search_events("", limit=400) or []
+        if hasattr(model, "warm"):
+            # one batched embedding call for the whole queue, not one per title
+            model.warm([(ev.get("title") or "").strip() for ev in events])
+        for ev in events:
             title = (ev.get("title") or "").strip()
             key = title.lower()
             if not title or key in seen or key in done:

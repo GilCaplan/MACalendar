@@ -48,6 +48,15 @@ DATASETS = STAGE / "datasets"
 #: for the failure at each end.
 PERSONAL_WEIGHT = 25
 
+#: THE EMBEDDING HEAD (DEVQA Q46, 2026-09-24). Fitted beside the n-gram
+#: pipeline, never instead of it: the pipeline is what answers whenever the
+#: title's vector cannot be had. See `_fit_embed`.
+EMBED_CACHE_NAME = "label_embed_cache.jsonl"
+#: The validation carve the head's threshold is chosen on: this share of the
+#: generated TRAIN subjects, held out BY SUBJECT like the test half is.
+EMBED_VAL_FRAC = 0.2
+EMBED_THRESHOLD_GRID = [round(0.20 + 0.025 * i, 3) for i in range(31)]     # 0.20 … 0.95
+
 
 def _vectoriser():
     from sklearn.feature_extraction.text import TfidfVectorizer
@@ -66,6 +75,164 @@ def _load(kind: str):
     tr = [(r["text"], r[key]) for r in rows if r["split"] == "train"]
     te = [(r["text"], r[key]) for r in rows if r["split"] == "test"]
     return tr, te
+
+
+def _subjects(kind: str) -> dict:
+    """text -> subject for the generated TRAIN rows (the carve groups by it)."""
+    name = "event_categories.jsonl" if kind == "event" else "task_tags.jsonl"
+    try:
+        return {r["text"]: r["subject"] for r in
+                (json.loads(l) for l in (DATASETS / name).open() if l.strip())
+                if r.get("split") == "train"}
+    except Exception:
+        return {}
+
+
+def _embed_rows(texts):
+    """Vectors for every text, through the disk cache beside the personal models,
+    as BACKGROUND traffic — a refit is never a person waiting — or None."""
+    from assistant import model_protocol
+    from assistant.engine.label import embed as _embed
+    from assistant.engine.label import model as _m
+    with model_protocol.serving(None):          # no person waiting: background
+        return _embed.vectors_cached_on_disk(list(texts), _m.MODELS_DIR / EMBED_CACHE_NAME)
+
+
+def _head_fit(kind, texts, labels, weights, E, classes):
+    """One embedding head, fitted. Events: LR on n-grams + vector. Tasks: OvR LR
+    on the vector (personal rows repeated rather than weighted, because the
+    one-vs-rest wrapper does not route sample weights)."""
+    import numpy as np
+    from sklearn.linear_model import LogisticRegression
+    from assistant.engine.label.model import EmbedHead
+    if kind == "event":
+        idx = {c: i for i, c in enumerate(classes)}
+        vec = _vectoriser().fit(list(texts))
+        head = EmbedHead(kind, LogisticRegression(max_iter=2000, C=4.0), classes, 0.5, vec)
+        head.clf.fit(head.features(texts, E), np.array([idx[l] for l in labels]),
+                     sample_weight=np.asarray(weights, float))
+        return head
+    from sklearn.multiclass import OneVsRestClassifier
+    from sklearn.preprocessing import MultiLabelBinarizer
+    reps = [max(1, int(round(w))) for w in weights]
+    order = [i for i, r in enumerate(reps) for _ in range(r)]
+    Y = MultiLabelBinarizer(classes=classes).fit_transform([labels[i] for i in order])
+    head = EmbedHead(kind, OneVsRestClassifier(LogisticRegression(max_iter=2000, C=4.0), n_jobs=1),
+                     classes, 0.5)
+    head.clf.fit(np.asarray(E)[order], Y)
+    return head
+
+
+def _head_answers(head, texts, E, t):
+    """(answer or None) per row at threshold t."""
+    import numpy as np
+    P = head.proba(texts, E)
+    out = []
+    for row in P:
+        if head.kind == "event":
+            k = int(np.argmax(row))
+            out.append(head.classes[k] if row[k] >= t else None)
+        else:
+            got = sorted(head.classes[k] for k in np.where(row >= t)[0])
+            out.append(got or None)
+    return out
+
+
+def _fit_embed(kind: str, rows, weights, classes, verbose: bool = False):
+    """(EmbedHead, info) — or (None, reason) when the vectors cannot be had.
+
+    THE THRESHOLD IS CHOSEN ON TRAIN. A subject-grouped carve of the generated
+    TRAIN rows (EMBED_VAL_FRAC of the subjects; personal rows stay on the fit
+    side) is held out, a head is fitted on the rest, and the threshold is the
+    one that maximises (right - wrong) over the rows it ANSWERS: the head
+    speaks only where it is more often right than wrong, and a row it declines
+    goes to the rules' default. That criterion does not reward answering
+    everything (the generated sets have no row whose right answer is the
+    default, so plain accuracy would), and does not demand a precision unseen
+    subjects cannot reach (a 90% bar left events answering 4% of rows,
+    label Board 6). Then the head is refitted on all the rows.
+    """
+    import numpy as np
+    texts = [t for t, _ in rows]
+    labels = [l for _, l in rows]
+    E = _embed_rows(texts)
+    if E is None:
+        return None, "embeddings unavailable (ollama down or MACALENDAR_LLM_DISABLED)"
+    subj = _subjects(kind)
+    groups = [subj.get(t) for t in texts]
+    pool = sorted({g for g in groups if g})
+    rng = np.random.default_rng(0)
+    rng.shuffle(pool)
+    val_s = set(pool[:int(len(pool) * EMBED_VAL_FRAC)])
+    fit_i = [i for i, g in enumerate(groups) if g not in val_s]
+    val_i = [i for i, g in enumerate(groups) if g in val_s]
+    t_best, curve = 0.5, {}
+    if val_i:
+        vh = _head_fit(kind, [texts[i] for i in fit_i], [labels[i] for i in fit_i],
+                       [weights[i] for i in fit_i], E[fit_i], classes)
+        vt = [texts[i] for i in val_i]
+        gold = [labels[i] for i in val_i]
+        best = None
+        for t in EMBED_THRESHOLD_GRID:
+            ans = _head_answers(vh, vt, E[val_i], t)
+            right = sum(1 for a, g in zip(ans, gold) if a is not None and
+                        (a == g if kind == "event" else a == sorted(g)))
+            wrong = sum(1 for a in ans if a is not None) - right
+            curve[t] = {"answered": (right + wrong) / len(vt), "precision":
+                        right / (right + wrong) if right + wrong else 0.0}
+            if best is None or right - wrong > best:
+                best, t_best = right - wrong, t
+    head = _head_fit(kind, texts, labels, weights, E, classes)
+    head.threshold = t_best
+    info = {"features": "word 1-2 + char 3-5 grams + nomic-embed-text"
+                        if kind == "event" else "nomic-embed-text",
+            "embed_model": "nomic-embed-text", "threshold": t_best,
+            "threshold_rule": "max (right - wrong) over answered rows, "
+                              f"subject-grouped {EMBED_VAL_FRAC:.0%} carve of TRAIN",
+            "val_rows": len(val_i), "val_at_threshold": curve.get(t_best)}
+    if verbose:
+        v = curve.get(t_best) or {}
+        print(f"        embedding head: threshold {t_best} (TRAIN carve, {len(val_i)} rows: "
+              f"answers {v.get('answered', 0)*100:.1f}% at {v.get('precision', 0)*100:.1f}% precision)")
+    return head, info
+
+
+def _score_head(head, kind, test_rows) -> "dict | None":
+    """The head alone on the generic TEST half, never abstaining — the number
+    that sits beside the n-gram pipeline's in the meta."""
+    import numpy as np
+    from sklearn.metrics import f1_score
+    E = _embed_rows([t for t, _ in test_rows])
+    if E is None:
+        return None
+    texts = [t for t, _ in test_rows]
+    P = head.proba(texts, E)
+    if kind == "event":
+        y = [l for _, l in test_rows]
+        pred = [head.classes[int(k)] for k in P.argmax(1)]
+        return {"acc": float(np.mean([a == b for a, b in zip(y, pred)])),
+                "macro_f1": float(f1_score(y, pred, average="macro", zero_division=0))}
+    from sklearn.preprocessing import MultiLabelBinarizer
+    mlb = MultiLabelBinarizer(classes=head.classes)
+    Y = mlb.fit_transform([l for _, l in test_rows])
+    pred = (P >= 0.5).astype(int)
+    return {"acc": float((pred == Y).all(axis=1).mean()),
+            "macro_f1": float(f1_score(Y, pred, average="macro", zero_division=0))}
+
+
+def _attach_head(kind, rows, weights, classes, generic_te, ngram_generic, verbose):
+    """Fit the embedding head and return (head or None, meta). A head that
+    scores BELOW the n-gram pipeline on the generic TEST half is not attached:
+    it would be worse than the fallback it sits in front of."""
+    head, info = _fit_embed(kind, rows, weights, classes, verbose=verbose)
+    if head is None:
+        return None, {"embed": None, "embed_why": info}
+    got = _score_head(head, kind, generic_te)
+    info["generic"] = got
+    if got is not None and ngram_generic and got["macro_f1"] < ngram_generic["macro_f1"]:
+        return None, {"embed": None, "embed_why": "scored below the n-gram model on "
+                      f"generic TEST ({got['macro_f1']:.3f} < {ngram_generic['macro_f1']:.3f})"}
+    return head, {"embed": info}
 
 
 def _fit_event(train_rows, weights):
@@ -222,13 +389,15 @@ def train(kind: str, force: bool = False, verbose: bool = True) -> "dict | None"
         feedback.mark_trained(kind, len(feedback.gold(kind)))
         return {"promoted": False, "score": got, "previous": prev, "why": reason}
 
+    head, head_meta = _attach_head(kind, rows, weights, classes, generic_te,
+                                   got.get("generic"), verbose)
     model = LabelModel(kind, pipe, classes, {
         "tier": "base" if not p_train else "personal",
         "trained_at": time.time(),
         "n_generated": len(base_tr), "n_personal": len(p_train),
         "personal_weight": PERSONAL_WEIGHT, "personal_eval": how,
-        "score": got, "previous": prev,
-    })
+        "score": got, "previous": prev, **head_meta,
+    }, head)
     path = model.save(tier="base" if not p_train else "personal")
     feedback.mark_trained(kind, len(feedback.gold(kind)))
     from assistant.engine.label import model as _m
@@ -244,7 +413,7 @@ def train(kind: str, force: bool = False, verbose: bool = True) -> "dict | None"
     return {"promoted": True, "score": got, "previous": prev, "path": str(path)}
 
 
-def train_base(kind: str, verbose: bool = True) -> "dict | None":
+def train_base(kind: str, verbose: bool = True, embed: bool = True) -> "dict | None":
     """Fit the USER-AGNOSTIC model from the committed datasets alone.
 
     Identical on every machine: no personal gold is read, the datasets are in
@@ -269,10 +438,13 @@ def train_base(kind: str, verbose: bool = True) -> "dict | None":
         pipe, classes = _fit_task(base_tr, weights, classes)
         got = {"generic": _score_task(pipe, generic_te, classes)}
 
+    head, head_meta = (_attach_head(kind, base_tr, weights, classes, generic_te,
+                                    got.get("generic"), verbose)
+                       if embed else (None, {"embed": None, "embed_why": "not requested"}))
     model = LabelModel(kind, pipe, classes, {
         "tier": "base", "trained_at": time.time(),
-        "n_generated": len(base_tr), "n_personal": 0, "score": got,
-    })
+        "n_generated": len(base_tr), "n_personal": 0, "score": got, **head_meta,
+    }, head)
     path = model.save(tier="base")
     _m.reset()
     if verbose:
@@ -289,6 +461,9 @@ def main() -> int:
     ap.add_argument("--base", action="store_true",
                     help="build the shipped user-agnostic model and stop")
     a = ap.parse_args()
+    # a refit is never a person waiting: its embedding calls yield to live traffic
+    import os
+    os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
     print("\nLABEL MODELS — fit, gate, promote\n")
     for kind in ([a.kind] if a.kind else ["event", "task"]):
         if a.base:

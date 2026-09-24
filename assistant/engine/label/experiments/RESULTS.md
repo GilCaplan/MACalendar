@@ -672,3 +672,58 @@ by Claude, and the 44 to-dos are 37 parts circular. Roughly 300 hand-labelled
 event titles and 200 to-dos, drawn from his calendar and list, is the
 instrument that would decide this — and the corrections `feedback.py` already
 collects are exactly that data, arriving at ~5 so far.
+
+### Shipped (2026-09-24, DEVQA Q46) — the committed artefacts, re-measured
+
+Q46 shipped the embedding head behind the rules, with the n-gram model as its
+fallback (`embed.py`, `model.EmbedHead`, `train._fit_embed`). The base
+artefacts in `label/models/` were refit from the generated TRAIN halves; their
+n-gram pipelines make identical predictions to the old ones on every TEST row.
+Board: `rebuild_board --only shipped`, record of 2026-09-24 11:13, HEAD `ead6a96`
+plus the uncommitted change. It runs the REAL entry points (`category_for` /
+`tags_for`: rules, head, fallback, live-palette filter).
+
+**Thresholds, chosen on TRAIN** (subject-grouped 20% carve; the threshold
+maximising right − wrong over the rows the head answers): events **0.30**
+(on the carve: answers 88.6% of 2,004 rows at 64.9% precision), tasks **0.625**
+(answers 68.9% of 560 at 91.7%). Recorded in each artefact's `meta["embed"]`.
+
+**Reproduction.** At Board 6's stacked thresholds (0.35 / 0.40) the committed
+artefact's per-row answers equal the board's refit row for row on every set,
+and with embeddings disabled the path equals the pre-Q46 incumbent row for row.
+A vector fetched one title at a time matches the batched vectors the artefact
+was fitted on (max |diff| 5.4e-7, n=100).
+
+    EVENTS  (acc / mF1 / cov / cw)          shipped @0.30            pre-Q46 incumbent
+    generated TEST  4,333 / 311 subjects    51.8 / 52.7 / 89.7 / 41.2    41.4 / 43.0 / 80.8 / 42.9
+                    paired: 32 rows lost, 481 gained, exact p < 0.001
+    gold81 (HWU text, Claude-labelled)      75.3 / 56.3 / 95.1 / 22.2    71.6 / 51.7 / 90.1 / 21.0
+                    paired: 0 lost, 3 gained, p = 0.25 — inside the noise
+    TO-DOS                                  shipped @0.625           pre-Q46 incumbent
+    generated TEST  1,113 / 70 subjects     68.2 / 68.6 / 76.4 /  8.2    61.6 / 64.3 / 76.7 / 15.1
+                    paired: 35 lost, 108 gained, exact p < 0.001
+    live list, 42 distinct tagged titles    85.7 / 72.2 / 92.9 /  7.1    85.7 / 73.6 /  100 / 14.3
+                    paired: 1 lost, 1 gained — a tie
+
+(The live list is 42 titles, not Board 6's 44: Q44 retagged seven of Gil's
+to-dos between the two runs. The same Q44 moved 12 dog-walk events, so the
+calendar-DB reading has changed too, and it is mostly circular anyway: 69.0%
+shipped vs 73.8% incumbent on 42 titles, 3 lost / 1 gained, p = 0.63.)
+
+**The to-do threshold is the conservative one.** At 0.625 the head answers
+fewer rows than Board 6's 0.40 row: on generated TEST 68.2% vs 73.9% accuracy,
+but confident-wrong 8.2% vs 12.3%, and on the live list it halves the
+confident-wrong rate (7.1% vs 14.3%) for the same accuracy. That is the TRAIN
+rule's choice and it stands; 0.40 was never chosen on anything.
+
+**Latency at commit time** (`experiments/embed_latency.py`, one title per call
+through `embed.vector`, gate included, cache cleared per call, n=200 each,
+2026-09-24 11:26, live priority):
+
+    WARM (model resident)          p50  12.8 ms   p95  21.2 ms
+    COLD (unloaded before each)    p50 274.4 ms   p95 288.8 ms
+
+Measured with llama3.1 NOT resident; a cold load that has to share memory with
+it was not measured. Background priority reads ~30 ms slower (the gate's
+yield gap). The 3 s cap and the 30 s cooldown bound the worst case at one slow
+commit per outage.
