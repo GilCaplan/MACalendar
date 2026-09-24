@@ -92,6 +92,12 @@ DEFAULT_TODO_TAGS = [
     ("Errands",    "#e0a020"),
     ("Work",       "#4a9edd"),
     ("Personal",   "#e0608a"),
+    # 2026-09-24 (Gil: "the ideal amount of categories"): the two clusters his
+    # untagged and mis-tagged to-dos fell into — paperwork and bills, and the
+    # weekly Shabbat preparation. Seeded only on a NEW database; an existing
+    # one gets them through POST /tags, so a user who deletes one keeps it gone.
+    ("Admin",      "#8a94a6"),
+    ("Shabbat",    "#c084fc"),
 ]
 
 _CREATE_SUBTASKS_TABLE = """

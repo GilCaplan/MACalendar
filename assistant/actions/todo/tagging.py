@@ -20,6 +20,22 @@ from typing import Iterable, Optional
 # tag name → keywords (lower-case; multi-word entries are matched as phrases and
 # score higher, the way categories.classify weights them).
 KEYWORDS: dict[str, list[str]] = {
+    # 2026-09-24 — paperwork, bills and forms: "pay rent", "renew passport",
+    # the army paperwork. Errands is for going somewhere to get something.
+    "Admin": [
+        "pay rent", "rent", "bill", "bills", "invoice", "tax", "taxes", "arnona",
+        "passport", "visa", "renew", "renewal", "insurance", "bank", "paperwork",
+        "appeal", "army", "miluim", "tofes", "bituach leumi", "license", "licence",
+        "registration", "subscription", "fill out", "fill in the form", "sign the form"],
+    # 2026-09-24 — the weekly preparation ("cook for shabbat"). A title that
+    # says "shabbat" gets this tag by NAME anyway (the rule in `infer_tag`:
+    # naming a tag outright beats any keyword), so "buy bread for shabbat" is
+    # Shabbat, while plain "buy challah" stays Groceries.
+    "Shabbat": [
+        "cook for shabbat", "cook food for shabbat", "cooking for shabbat",
+        "prepare for shabbat", "prep for shabbat", "shabbat prep", "erev shabbat",
+        "cholent", "kiddush", "havdala", "havdalah", "candle lighting", "shabbat candles",
+        "set the table for shabbat", "clean for shabbat"],
     "Groceries": [
         # the words that name the errand itself
         "groceries", "grocery", "supermarket", "makolet", "shuk",

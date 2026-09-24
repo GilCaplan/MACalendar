@@ -94,6 +94,14 @@ DEFAULTS: list[dict[str, Any]] = [
     {"name": "Travel", "color": "#06b6d4", "alt": "#0e7490", "keywords": [
         "flight", "fly", "flying", "airport", "train", "bus", "drive to", "trip", "travel", "hotel", "vacation",
         "holiday", "abroad", "check-in", "checkin", "taxi", "gett", "uber", "ben gurion"]},
+    # Dog walking (Gil, 2026-09-24): his most frequent recurring event, spread
+    # over Social, Personal and Family because no category fit. Generic
+    # phrases only here — the dogs' and owners' names are his, and live in his
+    # own categories.json as added keywords, never in the repo. No bare "dog":
+    # "hot dogs" is a meal.
+    {"name": "Dog walking", "color": "#84cc16", "alt": "#4d7c0f", "keywords": [
+        "walk the dog", "walk the dogs", "walk dog", "walk dogs", "dog walk", "dog walking",
+        "dog sitting", "dogsitting", "dog-sitting", "pet sitting", "petsitting", "dog park"]},
     {"name": "Personal", "color": "#64748b", "alt": "#475569", "keywords": []},   # default
 ]
 

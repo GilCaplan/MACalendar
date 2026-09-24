@@ -1040,3 +1040,19 @@ before you rule:
   an "also"/"then") would leave "dentist and haircut and gym" split and this
   row whole. One row so far; a ruling, since it narrows a rule Gil set.
 
+
+- **2026-09-24 — Q44 (THE CATEGORY PALETTE: add three, merge none)**, Gil:
+  *"any tags we would want to perhaps add, although perhaps we don't want too
+  many"*, then *"ok so fix so we have the ideal amount of categories"*. Read
+  off his real items: 21 of 69 to-do titles untagged and the dog walks spread
+  over three event categories. Done: **to-do tags Admin** (paperwork, bills,
+  forms — "pay rent", "renew passport", the army paperwork) and **Shabbat**
+  (the weekly preparation), and **event category Dog walking** (his most
+  frequent recurring event; generic phrases in the repo, the dogs' and
+  owners' names in his own categories.json). **Nothing merged:** Meal must
+  stay because the Shabbat and fast-day rules decide what a meal is by that
+  category (`db.py`), and the six unused categories cost the rules nothing.
+  His existing items were moved (12 walk events, 7 to-dos) with the
+  correction hook OFF — they are a palette change, not his corrections, and
+  the personal model trains only on those. Open: whether dog walking is paid
+  work (then Work might be the better home) — asked, not assumed.

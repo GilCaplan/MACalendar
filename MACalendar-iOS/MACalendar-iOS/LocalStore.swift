@@ -644,7 +644,7 @@ class LocalStore: ObservableObject {
     func allTags() -> [TodoTag] {
         if tags.isEmpty {
             // Never-synced device: show the server's built-in set so tag mode is usable offline.
-            return ["Coursework", "Groceries", "Errands", "Work", "Personal"].map { TodoTag(name: $0, builtin: 1) }
+            return ["Coursework", "Groceries", "Errands", "Work", "Personal", "Admin", "Shabbat"].map { TodoTag(name: $0, builtin: 1) }
         }
         return tags
     }
