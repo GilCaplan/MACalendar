@@ -95,7 +95,15 @@ def _post(texts: "list[str]", base_url: str, timeout: float) -> "list | None":
                     f"{base_url}/api/embed", data=body,
                     headers={"Content-Type": "application/json"}), timeout=timeout) as r:
                 got = json.loads(r.read()).get("embeddings")
-    except Exception:
+    except Exception as e:
+        # SAID, not swallowed (2026-09-24): the kind board saw 14 of ~25
+        # batches come back empty and nothing anywhere said why — one failure
+        # starts the cool-down below, and every call inside it returns None
+        # silently. The cause is logged once per failure.
+        import logging
+        logging.getLogger(__name__).warning(
+            "label embedding call failed (%d title(s)): %s: %s",
+            len(texts), type(e).__name__, e)
         return None
     if not isinstance(got, list) or len(got) != len(texts):
         return None
@@ -118,6 +126,13 @@ def vectors(texts, base_url: "str | None" = None,
     for i in range(0, len(missing), batch):
         chunk = missing[i:i + batch]
         got = _post(chunk, url, timeout)
+        if got is None and timeout > TIMEOUT_S:
+            # A BULK caller (a refit, a board, the teach queue) retries once
+            # before giving up: the cool-down exists so a dead server costs a
+            # LIVE commit one timeout, not so one hiccup empties a whole
+            # training pass.
+            time.sleep(1.0)
+            got = _post(chunk, url, timeout)
         if got is None:
             _down_until = time.monotonic() + COOLDOWN_S
             return None

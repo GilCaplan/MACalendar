@@ -1186,7 +1186,18 @@ def _meets_a_person(action: str) -> bool:
     to Gil."""
     if _head_is_outreach_verb(action) or _OUTREACH_AFTER_FRAME.search(action):
         return False
+    # THE SPEAKER NAMED THE TO-DO LIST. "add swe epthe balcony to my tasks on
+    # monday": spaCy reads a garbled lowercase word as a proper name, and the
+    # person promotion made an event of an explicit to-do (the kind board, 18
+    # v2 items). Naming the list is the speaker saying which list they mean.
+    if _TODO_DESTINATION.search(action):
+        return False
     return _has_person_argument(action) or bool(_KIN_RE.search(action))
+
+
+_TODO_DESTINATION = re.compile(
+    r"\b(?:to|on|onto|in|into)\s+(?:my|the|our)\s+"
+    r"(?:to-?do\s+|task\s+|shopping\s+|grocery\s+)?(?:list|lists|tasks|to-?dos?)\b", re.I)
 
 
 #: The outreach verb behind a reminder frame — "remind me to CALL Morgan

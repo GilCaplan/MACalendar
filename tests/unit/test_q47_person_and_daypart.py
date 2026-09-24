@@ -45,3 +45,11 @@ def test_seeing_a_person_is_not_a_schedule_question():
     assert kind_of("see mom") == "event"
     assert kind_of("see Parker") == "event"
     assert kind_of("see my schedule") == "review"
+
+
+def test_a_named_todo_list_vetoes_the_person_promotion():
+    """The kind board (2026-09-24): spaCy read a garbled lowercase word as a
+    name, and "add ... to my tasks on monday" became an event."""
+    assert not FS._meets_a_person("add swe epthe balcony to my tasks")
+    assert not FS._meets_a_person("put pick up Dana on my to-do list")
+    assert FS._meets_a_person("i should see Parker")
