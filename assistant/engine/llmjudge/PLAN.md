@@ -553,6 +553,12 @@ with one commit point and no retract machinery. And coverage stays correct for
 free: the ask diff still runs against the **original** text every round, with the
 frozen objects counting as covering their asks.
 
+**Amended 2026-09-24 (DEVQA Q48, Gil: "1 בבקשה").** On the live path the
+objects the rules built and the judge passes are written BEFORE the model is
+called for the deferred ones (`engine._commit_ready`); the freeze still holds
+for everything the loop decides after that. The boards, which drive parse and
+judge directly, keep the end-of-loop commit.
+
 ## 6.6 · X1' is grounded, or it is not sent
 
 The recorded failure: the first attempt built X1' out of `finding.detail`, the

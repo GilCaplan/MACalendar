@@ -472,6 +472,10 @@ class Engine(Component):
                 proposal = _confirm_proposal(state)
                 if proposal:
                     return _confirm_response(state, cfg, proposal, trace_run)
+                # SAVE WHAT IS READY (Gil, 2026-09-24, option 1): the objects
+                # the rules built and the judge passes are written NOW, before
+                # the model reads the rest — see `_commit_ready`.
+                _commit_ready(state, cfg)
                 self.judge(state, cfg)
                 _commit(state, cfg)      # labels inside
         except AssistantError as e:
@@ -561,6 +565,54 @@ def run_transcript(text: str, trace: Any = None, source: str = "ios",
 # Commit — the only place the engine touches the database, via the actions
 # ---------------------------------------------------------------------------
 
+def _commit_ready(state: EngineState, cfg) -> None:
+    """Write, before the model is called, every object already built and clean.
+
+    Gil, 2026-09-24, from his phone: a six-ask command took 48.9 s and showed
+    nothing until it finished, although 4 of the 6 objects were built by the
+    rules in 1.9 s — they waited for the model to read the other 2, because
+    the loop froze good objects and wrote everything at the end (PLAN §6.5).
+    Asked to choose, he picked *"save what's ready right away"*, accepting that
+    an object written early is not re-litigated by a later round.
+
+    Only when the model is about to be called (some item was deferred and has
+    no object yet): with nothing to wait for, the judge is quick and the end
+    commit is as fast as this would be. An object is ready when it has an
+    intent, is not blocked, and the judge's own `verdict.judge` finds nothing
+    against it. It is written through `_commit` itself — same labels, same
+    trace steps (the phone refreshes on the first `execute`), same messages —
+    and marked `slots["committed_early"]`, which `_commit` then skips.
+
+    Called from the live path only (`_locked`), never from `Engine.judge`:
+    Board D and the other boards drive parse and judge themselves on a scratch
+    store, and writing mid-judge there would change what later rows find.
+    """
+    waiting = [it for it in state.items
+               if it.intent is None and not it.blocked]
+    built = [it for it in state.items
+             if it.intent is not None and not it.blocked and it.action
+             and it.action != "unknown"]
+    if not waiting or not built:
+        return
+    try:
+        from assistant.engine.llmjudge import verdict as _verdict
+        found = _verdict.judge(state, _verdict.collect(state))
+    except Exception:
+        return                      # when in doubt, keep the old order
+    flagged = {f.item_id for f in found}
+    ready = [it for it in built if it.id not in flagged]
+    if not ready:
+        return
+    everything = state.items
+    try:
+        state.items = ready
+        _commit(state, cfg)
+    finally:
+        state.items = everything
+    for it in ready:
+        it.slots["committed_early"] = True
+
+
 def _commit(state: EngineState, cfg) -> None:
     """Write the objects, then LABEL them — one step (Gil, 2026-09-08).
 
@@ -575,8 +627,10 @@ def _commit(state: EngineState, cfg) -> None:
     ctx = ContextMemory()
     refresh_set: set = set()
 
-    idx = 0
+    idx = len([e for e in state.executed if e.ok])   # continue after anything saved early
     for item in state.items:
+        if item.slots.get("committed_early"):
+            continue                      # written by `_commit_ready`, before the model
         if item.blocked:
             # Refused, and the refusal explained — never silently dropped.
             title = getattr(item.intent, "title", None) or item.text[:40]
@@ -686,6 +740,11 @@ def _commit(state: EngineState, cfg) -> None:
             if state.trace:
                 state.trace.step(EXECUTE, pretty, f"Failed: {e}", ok=False)
 
+    # Merged with what an early commit already refreshed (`_commit_ready`).
+    if state.refresh == "both":
+        refresh_set |= {"events", "todos"}
+    elif state.refresh:
+        refresh_set.add(state.refresh)
     if "events" in refresh_set and "todos" in refresh_set:
         state.refresh = "both"
     elif refresh_set:

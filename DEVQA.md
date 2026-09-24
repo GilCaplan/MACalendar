@@ -1,3 +1,15 @@
+- **2026-09-24 — Q48 (SAVE WHAT IS READY; boards stand aside for live use)**,
+  Gil, from his phone: a six-ask command showed nothing for 48.9 s. Its trace:
+  4 of 6 objects built by the rules in 1.9 s, then 39.0 s + 7.6 s of model
+  calls for the other 2 — the first stuck behind a board a delegated agent was
+  running. Two changes. (1) Background work no longer starts a model call
+  while live traffic is recent (`model_protocol.LIVE_QUIET_S`, 20 s). (2) Put
+  to him: save what is ready now, or keep §6.5's freeze-and-commit-at-the-end?
+  He answered *"1 בבקשה"* — save what's ready right away, accepting that an
+  object written early is not re-litigated by a later round. Rule-built
+  objects the judge passes are written before the model is called
+  (`engine._commit_ready`, live path only); the model-read ones follow.
+
 - **2026-09-24 — Q47 (NO CLOCK -> A TO-DO; A PERSON ON A DAY -> AN EVENT)**, Gil,
   asked about the two sentences the engine and the Board D key disagreed on:
   *"If there's no time involved, then it can just be a to-do due today. But if
