@@ -917,7 +917,14 @@ not ai generated too much"*): after the day's event windows the step button
 shows a TO-DO page — up to four open to-dos (overdue first, then due today,
 then undated ones on the Today list) as plain lines with an outline circle,
 a quiet "overdue", and "+N more" — deliberately not the event rows' glass.
-With no event left today but a to-do open, the card shows just that page. Also additive: a **"Show today's agenda now" button** in the phone's
+With no event left today but a to-do open, the card shows just that page. **Two to-do pages, and a tick
+that works from the lock screen** (same evening: *"that would be cool, add
+perhaps subsection of general vs today"*): TODAY (overdue, due today, the
+Today list) and then GENERAL (the General list's other open to-dos, dated
+first) — the General list alone never brings the card up. Each line's outline
+circle is a button (iOS 17+, `UpNextCompleteTodoIntent`): the line leaves the
+card at once and the app marks the to-do done the Tasks tab's way — locally
+first, queued if the Mac is away — then re-syncs the card. Also additive: a **"Show today's agenda now" button** in the phone's
 Reminders settings — pops one local notification, on demand, with the
 WHOLE day's events (not just what's left, and not gated on the reminders
 toggle or a horizon), phrased the same way the Mac's own "Brief Me" reads it

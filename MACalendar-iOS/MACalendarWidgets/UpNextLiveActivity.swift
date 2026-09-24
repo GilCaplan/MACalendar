@@ -153,9 +153,9 @@ private struct UpNextLockScreenView: View {
     }
 
     private var headline: String {
-        if state.onTodoPage {
-            let n = state.todoCount ?? (state.todos ?? []).count
-            return n == 1 ? "TO-DO" : "TO-DO · \(n)"
+        if let kind = state.todoPageKind {
+            let n = state.pageTodoCount
+            return (kind == "general" ? "GENERAL" : "TODAY") + " · \(n)"
         }
         return state.currentId != nil ? "NOW" : "UP NEXT"
     }
@@ -202,14 +202,12 @@ private struct TodoPage: View {
     let accent: Color
 
     var body: some View {
-        let lines = Array((state.todos ?? []).prefix(UpNextAttributes.visibleTodos))
-        let more = (state.todoCount ?? (state.todos ?? []).count) - lines.count
+        let lines = Array(state.pageTodos.prefix(UpNextAttributes.visibleTodos))
+        let more = state.pageTodoCount - lines.count
         VStack(alignment: .leading, spacing: 6) {
             ForEach(lines) { line in
                 HStack(spacing: 8) {
-                    Circle()
-                        .strokeBorder(accent.opacity(0.85), lineWidth: 1.3)
-                        .frame(width: 10, height: 10)
+                    tick(line)
                     Text(line.title)
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(.white.opacity(0.92))
@@ -221,6 +219,7 @@ private struct TodoPage: View {
                             .foregroundStyle(Color(red: 1.0, green: 0.55, blue: 0.5).opacity(0.9))
                     }
                 }
+                .transition(.opacity)
             }
             if more > 0 {
                 Text("+\(more) more")
@@ -230,6 +229,25 @@ private struct TodoPage: View {
             }
         }
         .padding(.horizontal, 4)
+    }
+
+    /// The outline circle — a BUTTON on iOS 17+, ticking the to-do off
+    /// (`UpNextCompleteTodoIntent`). The tap area is wider than the circle so a
+    /// thumb on a lock screen finds it; the title itself does nothing, so
+    /// reading the list never completes anything by accident.
+    @ViewBuilder
+    private func tick(_ line: UpNextAttributes.ContentState.TodoLine) -> some View {
+        let circle = Circle()
+            .strokeBorder(accent.opacity(0.85), lineWidth: 1.3)
+            .frame(width: 11, height: 11)
+            .frame(width: 22, height: 17)
+            .contentShape(Rectangle())
+        if #available(iOS 17.0, *) {
+            Button(intent: UpNextCompleteTodoIntent(todoId: line.id)) { circle }
+                .buttonStyle(.plain)
+        } else {
+            circle
+        }
     }
 }
 

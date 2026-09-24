@@ -86,6 +86,11 @@ struct UpNextAttributes: ActivityAttributes {
         /// How many open to-dos today in all — the page shows the first few.
         var todoCount: Int? = nil
 
+        /// The General list's open to-dos, for its own page after Today's
+        /// (Gil, 2026-09-24: "add perhaps subsection of general vs today").
+        var general: [TodoLine]? = nil
+        var generalCount: Int? = nil
+
         struct TodoLine: Codable, Hashable, Identifiable {
             var id: Int
             var title: String
@@ -132,14 +137,32 @@ extension UpNextAttributes.ContentState {
     }
 
     var hasTodoPage: Bool { !(todos ?? []).isEmpty }
+    var hasGeneralPage: Bool { !(general ?? []).isEmpty }
 
-    var pageCount: Int { eventPages + (hasTodoPage ? 1 : 0) }
+    var pageCount: Int { eventPages + (hasTodoPage ? 1 : 0) + (hasGeneralPage ? 1 : 0) }
 
     /// The page showing now, clamped.
     var page: Int { min(max(offset ?? 0, 0), max(pageCount - 1, 0)) }
 
-    /// True when the to-do page is the one showing.
-    var onTodoPage: Bool { hasTodoPage && page >= eventPages }
+    /// Which to-do page is showing — "today", "general" — or nil on an event page.
+    var todoPageKind: String? {
+        guard page >= eventPages, pageCount > eventPages else { return nil }
+        if page == eventPages { return hasTodoPage ? "today" : "general" }
+        return "general"
+    }
+
+    /// True when a to-do page is the one showing.
+    var onTodoPage: Bool { todoPageKind != nil }
+
+    /// The lines and the full count for the to-do page showing.
+    var pageTodos: [TodoLine] {
+        todoPageKind == "general" ? (general ?? []) : (todos ?? [])
+    }
+    var pageTodoCount: Int {
+        todoPageKind == "general"
+            ? (generalCount ?? (general ?? []).count)
+            : (todoCount ?? (todos ?? []).count)
+    }
 
     /// Where the event window starts, clamped so it never runs off the end.
     var windowStart: Int {
@@ -152,7 +175,7 @@ extension UpNextAttributes.ContentState {
         Array(items.dropFirst(windowStart).prefix(UpNextAttributes.visibleRows))
     }
 
-    /// "1–2 of 5" on an event page, "To-do" on the to-do page.
+    /// "1–2 of 5" on an event page, "To-do" on a to-do page.
     var positionLabel: String {
         if onTodoPage { return "To-do" }
         let first = windowStart + 1
@@ -211,6 +234,52 @@ struct UpNextScrollIntent: LiveActivityIntent {
             await activity.update(ActivityContent(state: state,
                                                   staleDate: activity.content.staleDate))
         }
+        return .result()
+    }
+}
+
+
+/// What the APP does when a to-do is ticked on the card. Set at launch by the
+/// app (`MACalendarApp.init`); nil in the widget process, which never runs a
+/// `LiveActivityIntent`'s `perform` (iOS runs it in the app's process).
+@available(iOS 16.1, *)
+enum UpNextHooks {
+    @MainActor static var completeTodo: ((Int) async -> Void)?
+}
+
+/// Tick a to-do off from the lock screen (Gil, 2026-09-24: "that would be
+/// cool"). The line leaves the card at once — the card is updated here, before
+/// the network — and the app marks the to-do done the same way the Tasks tab
+/// does (optimistic locally, queued when the Mac is away).
+@available(iOS 17.0, *)
+struct UpNextCompleteTodoIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Mark to-do done"
+    static var isDiscoverable: Bool = false
+
+    @Parameter(title: "To-do")
+    var todoId: Int
+
+    init() {}
+    init(todoId: Int) { self.todoId = todoId }
+
+    func perform() async throws -> some IntentResult {
+        for activity in Activity<UpNextAttributes>.activities {
+            var state = activity.content.state
+            if let lines = state.todos, lines.contains(where: { $0.id == todoId }) {
+                state.todos = lines.filter { $0.id != todoId }
+                state.todoCount = max((state.todoCount ?? lines.count) - 1, 0)
+                if state.todos?.isEmpty == true { state.todos = nil }
+            }
+            if let lines = state.general, lines.contains(where: { $0.id == todoId }) {
+                state.general = lines.filter { $0.id != todoId }
+                state.generalCount = max((state.generalCount ?? lines.count) - 1, 0)
+                if state.general?.isEmpty == true { state.general = nil }
+            }
+            await activity.update(ActivityContent(state: state,
+                                                  staleDate: activity.content.staleDate))
+        }
+        let hook = await MainActor.run { UpNextHooks.completeTodo }
+        if let hook { await hook(todoId) }
         return .result()
     }
 }

@@ -19,6 +19,22 @@ struct MACalendarApp: App {
         // back at 06:00 after it has been cleared.
         LiveActivityManager.registerBackgroundRefresh()
         LiveActivityManager.scheduleBackgroundRefresh()
+        // A to-do ticked on the lock-screen card (`UpNextCompleteTodoIntent`,
+        // run in THIS process). Marked done the Tasks tab's way — optimistic
+        // locally, queued if the Mac is away — then the card re-syncs. Only a
+        // still-open to-do is toggled, so a double tap cannot reopen it.
+        if #available(iOS 16.1, *) {
+            // Set synchronously: when iOS launches the app only to run the
+            // tick, `perform` follows this init, and a hook set from a Task
+            // could still be nil when it looks.
+            let client = APIClient(settings: s)
+            UpNextHooks.completeTodo = { id in
+                let open = LocalStore.shared.allTodos(list: nil, includeCompleted: false)
+                    .contains { $0.id == id }
+                if open { _ = try? await client.toggleTodo(id: id) }
+                await MainActor.run { LiveActivityManager.shared.sync() }
+            }
+        }
     }
 
     var body: some Scene {

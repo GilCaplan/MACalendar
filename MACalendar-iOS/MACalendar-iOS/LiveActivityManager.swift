@@ -413,6 +413,7 @@ final class LiveActivityManager {
         let running = slots.last { $0.start <= now && now < $0.end }
         let next    = slots.first { $0.start > now && $0.start <= now.addingTimeInterval(horizon) }
         let todoLines = Self.todaysTodos(now: now, todos: todos)
+        let generalLines = Self.generalTodos(now: now, todos: todos, excluding: todoLines)
         // With no event running or coming up, the card still has a job when a
         // to-do is open today (Gil, 2026-09-24): it shows just the to-do page.
         guard running != nil || next != nil || !todoLines.isEmpty else { return nil }
@@ -434,8 +435,32 @@ final class LiveActivityManager {
             currentId: running?.event.id,
             staleDate: running?.end ?? next?.start ?? (todoLines.isEmpty ? now : midnight),
             todos: todoLines.isEmpty ? nil : Array(todoLines.prefix(UpNextAttributes.visibleTodos)),
-            todoCount: todoLines.isEmpty ? nil : todoLines.count
+            todoCount: todoLines.isEmpty ? nil : todoLines.count,
+            general: generalLines.isEmpty ? nil : Array(generalLines.prefix(UpNextAttributes.visibleTodos)),
+            generalCount: generalLines.isEmpty ? nil : generalLines.count
         )
+    }
+
+    /// The General list's open to-dos that are not already on Today's page:
+    /// dated ones first (soonest first), then undated, oldest first. Its page
+    /// rides along on a card that exists for another reason — the General list
+    /// alone never brings the card up, or it would be there every day.
+    @available(iOS 16.1, *)
+    static func generalTodos(now: Date, todos: [Todo],
+                             excluding today: [UpNextAttributes.ContentState.TodoLine])
+        -> [UpNextAttributes.ContentState.TodoLine] {
+        let shown = Set(today.map(\.id))
+        return todos.filter { $0.completed == 0 && $0.list.lowercased() == "general" && !shown.contains($0.id) }
+            .sorted { a, b in
+                switch (a.dueDate.isEmpty, b.dueDate.isEmpty) {
+                case (false, true): return true
+                case (true, false): return false
+                case (false, false) where a.dueDate != b.dueDate: return a.dueDate < b.dueDate
+                default: return a.id < b.id
+                }
+            }
+            .map { UpNextAttributes.ContentState.TodoLine(
+                id: $0.id, title: $0.title.isEmpty ? "Untitled to-do" : $0.title, overdue: false) }
     }
 
     /// Today's OPEN to-dos for the card: overdue first, then due today, then
@@ -469,6 +494,7 @@ final class LiveActivityManager {
                          _ b: UpNextAttributes.ContentState) -> Bool {
         a.currentId == b.currentId && a.items == b.items && a.staleDate == b.staleDate
             && a.todos == b.todos && a.todoCount == b.todoCount
+            && a.general == b.general && a.generalCount == b.generalCount
     }
 
     /// A one-shot text summary of the WHOLE day's agenda — every event today,
