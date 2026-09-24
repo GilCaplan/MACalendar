@@ -77,7 +77,25 @@ struct UpNextAttributes: ActivityAttributes {
         /// archived by an older build still decodes, and nil — the top — on
         /// every push from the app: a new agenda starts at the top again.
         var offset: Int? = nil
+
+        /// Today's open to-dos, for the card's to-do page (Gil, 2026-09-24:
+        /// "to-do sure but build a structure so it looks nice"). Optional so a
+        /// card archived before this decodes; nil or empty means no page.
+        var todos: [TodoLine]? = nil
+
+        /// How many open to-dos today in all — the page shows the first few.
+        var todoCount: Int? = nil
+
+        struct TodoLine: Codable, Hashable, Identifiable {
+            var id: Int
+            var title: String
+            /// Due before today and still open.
+            var overdue: Bool
+        }
     }
+
+    /// How many to-do lines the to-do page draws before "+N more".
+    static let visibleTodos = 4
 
     /// How many agenda rows the lock-screen card draws at once.
     ///
@@ -104,10 +122,29 @@ struct UpNextAttributes: ActivityAttributes {
 @available(iOS 16.1, *)
 extension UpNextAttributes.ContentState {
 
-    /// Where the window starts, clamped so it never runs off the end.
+    // THE PAGES. The step button walks the day's events a row at a time,
+    // then — when any to-do is open today — one TO-DO page, then back to the
+    // top. `offset` is the page number.
+
+    /// How many event windows there are: one per starting row.
+    var eventPages: Int {
+        items.isEmpty ? 0 : max(items.count - UpNextAttributes.visibleRows, 0) + 1
+    }
+
+    var hasTodoPage: Bool { !(todos ?? []).isEmpty }
+
+    var pageCount: Int { eventPages + (hasTodoPage ? 1 : 0) }
+
+    /// The page showing now, clamped.
+    var page: Int { min(max(offset ?? 0, 0), max(pageCount - 1, 0)) }
+
+    /// True when the to-do page is the one showing.
+    var onTodoPage: Bool { hasTodoPage && page >= eventPages }
+
+    /// Where the event window starts, clamped so it never runs off the end.
     var windowStart: Int {
         let last = max(items.count - UpNextAttributes.visibleRows, 0)
-        return min(max(offset ?? 0, 0), last)
+        return min(max(onTodoPage ? 0 : page, 0), last)
     }
 
     /// The rows the lock-screen card draws right now.
@@ -115,17 +152,17 @@ extension UpNextAttributes.ContentState {
         Array(items.dropFirst(windowStart).prefix(UpNextAttributes.visibleRows))
     }
 
-    /// "1–2 of 5" — which rows of the day are showing.
+    /// "1–2 of 5" on an event page, "To-do" on the to-do page.
     var positionLabel: String {
+        if onTodoPage { return "To-do" }
         let first = windowStart + 1
         let last = min(windowStart + UpNextAttributes.visibleRows, items.count)
         return "\(first)–\(last) of \(items.count)"
     }
 
-    /// The offset one step down the day, back to the top after the last row.
+    /// The next page, back to the top after the last one.
     var steppedOffset: Int {
-        let next = windowStart + 1
-        return next + UpNextAttributes.visibleRows > items.count ? 0 : next
+        pageCount > 0 ? (page + 1) % pageCount : 0
     }
 
     /// The agenda as it stands at `date`, from what this card already knows.

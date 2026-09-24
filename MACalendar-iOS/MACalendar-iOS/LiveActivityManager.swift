@@ -258,7 +258,8 @@ final class LiveActivityManager {
 
         guard let state = Self.currentCard(now: Date(),
                                            events: LocalStore.shared.allEvents(),
-                                           accentHex: Self.accentHex) else {
+                                           accentHex: Self.accentHex,
+                                           todos: LocalStore.shared.allTodos(list: nil, includeCompleted: false)) else {
             await endAll(reason: "nothing running and nothing starting within 8 h")
             return
         }
@@ -385,7 +386,8 @@ final class LiveActivityManager {
     @available(iOS 16.1, *)
     static func currentCard(now: Date,
                             events: [CalendarEvent],
-                            accentHex: String) -> UpNextAttributes.ContentState? {
+                            accentHex: String,
+                            todos: [Todo] = []) -> UpNextAttributes.ContentState? {
         struct Slot { let event: CalendarEvent; let start: Date; let end: Date }
 
         let midnight = Calendar.current.startOfDay(for: now).addingTimeInterval(86_400)
@@ -410,7 +412,10 @@ final class LiveActivityManager {
 
         let running = slots.last { $0.start <= now && now < $0.end }
         let next    = slots.first { $0.start > now && $0.start <= now.addingTimeInterval(horizon) }
-        guard running != nil || next != nil else { return nil }
+        let todoLines = Self.todaysTodos(now: now, todos: todos)
+        // With no event running or coming up, the card still has a job when a
+        // to-do is open today (Gil, 2026-09-24): it shows just the to-do page.
+        guard running != nil || next != nil || !todoLines.isEmpty else { return nil }
 
         let items = slots.prefix(maxAgendaItems).map { slot -> UpNextAttributes.ContentState.AgendaItem in
             let e = slot.event
@@ -427,8 +432,31 @@ final class LiveActivityManager {
         return UpNextAttributes.ContentState(
             items: Array(items),
             currentId: running?.event.id,
-            staleDate: running?.end ?? next?.start ?? now
+            staleDate: running?.end ?? next?.start ?? (todoLines.isEmpty ? now : midnight),
+            todos: todoLines.isEmpty ? nil : Array(todoLines.prefix(UpNextAttributes.visibleTodos)),
+            todoCount: todoLines.isEmpty ? nil : todoLines.count
         )
+    }
+
+    /// Today's OPEN to-dos for the card: overdue first, then due today, then
+    /// the undated ones on the Today list. Pure, so it can be reasoned about
+    /// without a device.
+    @available(iOS 16.1, *)
+    static func todaysTodos(now: Date, todos: [Todo]) -> [UpNextAttributes.ContentState.TodoLine] {
+        let today = DateFormatter.isoDay.string(from: now)
+        func rank(_ t: Todo) -> Int? {
+            guard t.completed == 0 else { return nil }
+            if !t.dueDate.isEmpty && t.dueDate < today { return 0 }
+            if t.dueDate == today { return 1 }
+            if t.dueDate.isEmpty && t.list.lowercased() == "today" { return 2 }
+            return nil
+        }
+        return todos.compactMap { t in rank(t).map { (t, $0) } }
+            .sorted { ($0.1, $0.0.id) < ($1.1, $1.0.id) }
+            .map { UpNextAttributes.ContentState.TodoLine(
+                id: $0.0.id,
+                title: $0.0.title.isEmpty ? "Untitled to-do" : $0.0.title,
+                overdue: $0.1 == 0) }
     }
 
     /// Does this card show the same thing as that one?
@@ -440,6 +468,7 @@ final class LiveActivityManager {
     static func sameCard(_ a: UpNextAttributes.ContentState,
                          _ b: UpNextAttributes.ContentState) -> Bool {
         a.currentId == b.currentId && a.items == b.items && a.staleDate == b.staleDate
+            && a.todos == b.todos && a.todoCount == b.todoCount
     }
 
     /// A one-shot text summary of the WHOLE day's agenda — every event today,

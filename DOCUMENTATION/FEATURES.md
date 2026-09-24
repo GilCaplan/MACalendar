@@ -911,7 +911,13 @@ the start and end times it already holds — the event that just began reads
 NOW, the one that ended drops off (`ContentState.rolled(at:)`). And the
 background refresh is now asked for at that boundary, not only at 06:00. The
 only exact way to keep it current with the phone locked is an APNs push from
-the Mac, which the project does not use (Q23). Also additive: a **"Show today's agenda now" button** in the phone's
+the Mac, which the project does not use (Q23). **Today's to-dos have a page on it**
+(2026-09-24, Gil: *"to-do sure but build a structure so it looks nice and
+not ai generated too much"*): after the day's event windows the step button
+shows a TO-DO page — up to four open to-dos (overdue first, then due today,
+then undated ones on the Today list) as plain lines with an outline circle,
+a quiet "overdue", and "+N more" — deliberately not the event rows' glass.
+With no event left today but a to-do open, the card shows just that page. Also additive: a **"Show today's agenda now" button** in the phone's
 Reminders settings — pops one local notification, on demand, with the
 WHOLE day's events (not just what's left, and not gated on the reminders
 toggle or a horizon), phrased the same way the Mac's own "Brief Me" reads it

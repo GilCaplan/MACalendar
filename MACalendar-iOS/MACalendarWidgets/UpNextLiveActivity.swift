@@ -111,7 +111,10 @@ private struct UpNextLockScreenView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             header
-            if state.window.isEmpty {
+            if state.onTodoPage {
+                TodoPage(state: state, accent: accent)
+                    .transition(.push(from: .bottom))
+            } else if state.window.isEmpty {
                 Text("Nothing else today")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(.white.opacity(0.72))
@@ -133,12 +136,12 @@ private struct UpNextLockScreenView: View {
     private var header: some View {
         HStack(spacing: 6) {
             Circle().fill(accent).frame(width: 6, height: 6)
-            Text(state.currentId != nil ? "NOW" : "UP NEXT")
+            Text(headline)
                 .font(.system(size: 10, weight: .bold))
                 .tracking(0.8)
                 .foregroundStyle(accent)
             Spacer(minLength: 4)
-            if state.items.count > UpNextAttributes.visibleRows {
+            if state.pageCount > 1 {
                 stepper
             } else if state.items.count > 1 {
                 Text("\(state.items.count) today")
@@ -149,6 +152,14 @@ private struct UpNextLockScreenView: View {
         .frame(height: 20)
     }
 
+    private var headline: String {
+        if state.onTodoPage {
+            let n = state.todoCount ?? (state.todos ?? []).count
+            return n == 1 ? "TO-DO" : "TO-DO · \(n)"
+        }
+        return state.currentId != nil ? "NOW" : "UP NEXT"
+    }
+
     /// "1–2 of 5 ⌄" — where the window is, and the button that moves it. The
     /// whole label is the tap target, not just the chevron: a lock-screen
     /// button this small needs every point of width it can get. Below iOS 17
@@ -156,7 +167,9 @@ private struct UpNextLockScreenView: View {
     @ViewBuilder
     private var stepper: some View {
         let label = HStack(spacing: 4) {
-            Text(state.positionLabel)
+            Text(state.onTodoPage || state.items.count > UpNextAttributes.visibleRows
+                 ? state.positionLabel
+                 : "\(state.items.count) today")
                 .font(.system(size: 10, weight: .semibold))
                 .monospacedDigit()
             Image(systemName: "chevron.down")
@@ -173,6 +186,50 @@ private struct UpNextLockScreenView: View {
         } else {
             label
         }
+    }
+}
+
+// MARK: - The to-do page
+
+/// Today's open to-dos, as a plain list: an outline circle, the title, and a
+/// quiet "overdue" where it applies. Deliberately NOT the event rows' glass —
+/// a to-do is not an appointment, and dressing it as one is the look Gil
+/// asked to avoid (2026-09-24: "looks nice and not ai generated too much").
+/// Four lines at most (~17 pt each), then "+N more"; the whole page fits the
+/// same 160 pt budget as two event rows.
+private struct TodoPage: View {
+    let state: UpNextAttributes.ContentState
+    let accent: Color
+
+    var body: some View {
+        let lines = Array((state.todos ?? []).prefix(UpNextAttributes.visibleTodos))
+        let more = (state.todoCount ?? (state.todos ?? []).count) - lines.count
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(lines) { line in
+                HStack(spacing: 8) {
+                    Circle()
+                        .strokeBorder(accent.opacity(0.85), lineWidth: 1.3)
+                        .frame(width: 10, height: 10)
+                    Text(line.title)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.92))
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    if line.overdue {
+                        Text("overdue")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(Color(red: 1.0, green: 0.55, blue: 0.5).opacity(0.9))
+                    }
+                }
+            }
+            if more > 0 {
+                Text("+\(more) more")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .padding(.leading, 18)
+            }
+        }
+        .padding(.horizontal, 4)
     }
 }
 
