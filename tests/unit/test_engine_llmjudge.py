@@ -980,7 +980,14 @@ def test_a_held_back_object_is_not_recorded_as_done(registry_with_real_actions, 
 
     with freeze_time("2026-09-09 10:00:00"):
         E = engine.Engine()
-        T = "let's just skip appointment at time"
+        # A sentence the RULES build (2026-09-24). The old one, "let's just skip
+        # appointment at time", built its object only through the rescue's
+        # model call — which the disabled flag above did not stop until the
+        # transport learned to honour it — so this unit test was quietly
+        # calling the live ollama whenever it ran on the Mac. The test is
+        # about what gets RECORDED once an object is held back; any object
+        # the chain builds on its own serves.
+        T = "book the dentist tomorrow at 4pm"
         st = EngineState(raw_text=T, text=T)
         E.parse(st, cfg)
         E.judge(st, cfg)

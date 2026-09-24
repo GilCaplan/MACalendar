@@ -70,6 +70,7 @@ def _bus_in_scratch(tmp_path, monkeypatch):
 
 
 def test_both_ollama_doors_carry_the_seed_when_the_process_is_seeded(monkeypatch):
+    monkeypatch.delenv("MACALENDAR_LLM_DISABLED", raising=False)   # the suite disables it; this drives a FAKE session
     monkeypatch.setenv("MACALENDAR_LLM_SEED", "17")
     sent: list = []
     p = _parser(sent)
@@ -83,6 +84,7 @@ def test_both_ollama_doors_carry_the_seed_when_the_process_is_seeded(monkeypatch
 
 
 def test_the_live_assistant_is_untouched_without_a_seed(monkeypatch):
+    monkeypatch.delenv("MACALENDAR_LLM_DISABLED", raising=False)   # the suite disables it; this drives a FAKE session
     monkeypatch.delenv("MACALENDAR_LLM_SEED", raising=False)
     sent: list = []
     p = _parser(sent)
@@ -100,3 +102,18 @@ def test_board_d_declares_its_seed_in_its_env_block():
     text = (ROOT / "assistant/engine/llmjudge/experiments/board_d.py").read_text()
     head = text.split("def main", 1)[0]
     assert 'os.environ.setdefault("MACALENDAR_LLM_SEED"' in head
+
+
+def test_the_disabled_flag_stops_both_ollama_doors(monkeypatch):
+    """`MACALENDAR_LLM_DISABLED=1` used to stop only `engine.llm.call_json`;
+    the rescue reached the model through this transport regardless
+    (2026-09-24: 14 s of ollama calls on a "model-free" run)."""
+    from assistant.exceptions import OllamaUnavailableError
+    monkeypatch.setenv("MACALENDAR_LLM_DISABLED", "1")
+    sent: list = []
+    p = _parser(sent)
+    with pytest.raises(OllamaUnavailableError):
+        p._call_ollama("sys", "book gym tomorrow at 7", {"type": "object"})
+    with pytest.raises(OllamaUnavailableError):
+        p._call_ollama_verify("sys", "user")
+    assert sent == []

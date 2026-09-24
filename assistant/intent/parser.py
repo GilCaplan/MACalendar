@@ -73,6 +73,20 @@ class UnknownIntent(BaseIntent):
     pass
 
 
+def _refuse_if_disabled() -> None:
+    """`MACALENDAR_LLM_DISABLED=1` means NO model call, at every door.
+
+    It was honoured only by `engine.llm.call_json`, while the rescue (job 0,
+    the model parsing what FastRule deferred) reaches the model through this
+    transport directly — so a "model-free" run with ollama up still called
+    it. Found 2026-09-24 by the tutorial work, profiling "Dentist on the 15th
+    at 4": 14 s in two ollama calls under the flag. Raised as the same error an
+    offline ollama raises, so every caller already handles it."""
+    if os.environ.get("MACALENDAR_LLM_DISABLED") == "1":
+        raise OllamaUnavailableError(
+            "LLM calls are disabled (MACALENDAR_LLM_DISABLED)")
+
+
 def _seed_options() -> dict:
     """A board's calls are seeded, the assistant's are not — `model_protocol.
     seed_options()`, merged last into every ollama door's options here."""
@@ -567,6 +581,7 @@ class IntentParser:
 
     def _call_ollama_verify(self, sys: str, user: str) -> str:
         """Verification call — uses the (optionally stronger) `verify_model`."""
+        _refuse_if_disabled()
         conf = self.config.ollama
         payload = {
             "model": conf.verify_model or conf.model,
@@ -624,6 +639,7 @@ class IntentParser:
         return base + (estimated_actions - 1) * 15
 
     def _call_ollama(self, sys: str, user: str, schema: dict) -> str:
+        _refuse_if_disabled()
         conf = self.config.ollama
         timeout = self._estimate_timeout(user, conf.timeout_seconds)
         logger.debug("Ollama timeout: %ds (estimated %d action(s))", timeout,

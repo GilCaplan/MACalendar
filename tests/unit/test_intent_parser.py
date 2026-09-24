@@ -16,6 +16,9 @@ def _make_parser(isolated_registry, sample_config):
 
 
 def _mock_post(monkeypatch, content: str):
+    # The suite disables the model (conftest) and the transport now honours
+    # that (2026-09-24); these tests drive a MOCKED network, so lift it.
+    monkeypatch.delenv("MACALENDAR_LLM_DISABLED", raising=False)
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.ok = True
