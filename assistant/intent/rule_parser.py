@@ -2579,6 +2579,10 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
         _rec = _recur.detect(span.text)
         if _rec:
             slots["recurrence"] = _rec.cadence
+            if _rec.days:
+                # "every tuesday and thursday": one weekly series on BOTH days
+                # (`db._next_date` steps between the named days).
+                slots["recur_days"] = list(_rec.days)
             if _rec.rounded_from:
                 slots["recurrence_rounded_from"] = _rec.rounded_from
             if not temporal.get("date"):
@@ -2593,6 +2597,20 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
                 slots["recur_until"] = temporal["recur_until"]
         if temporal.get("date"):
             slots["date"] = temporal["date"]
+        if action_name == "create_event" and _rec and _rec.days and slots.get("date"):
+            # "every tuesday and thursday": the recogniser reads ONE of the
+            # listed weekdays (the last) as the date, which started the series
+            # on Thursday and skipped the Tuesday before it. When the date it
+            # read is just one of the series' own days, the series starts on
+            # the SOONEST named day (the project's rule) instead.
+            try:
+                read = datetime.date.fromisoformat(slots["date"])
+                names = ("monday", "tuesday", "wednesday", "thursday",
+                         "friday", "saturday", "sunday")
+                if names[read.weekday()] in _rec.days:
+                    slots["date"] = _rec.start_date(datetime.date.today()).isoformat()
+            except ValueError:
+                pass
         if temporal.get("start_time"):
             slots["start_time"] = temporal["start_time"]
         # end_time defaults to "" so the CalendarIntent model_validator can auto-fill it

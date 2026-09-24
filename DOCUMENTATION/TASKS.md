@@ -1688,7 +1688,7 @@ model shut out and with it on; `tests/unit/test_tips_examples.py` re-runs them
 on every build. Four defects the verification turned up, none fixed here —
 each is a stage's own work, boarded on that stage first:
 
-- **A multi-weekday series is wrong every way it was tried.** "Book yoga every
+- **FIXED ON THE FAST PATH 2026-09-24** ("Book yoga every Tuesday and Thursday at 6pm" → one weekly series on both days; tip 5 rewritten; the bare-noun deep form still needs the model). **A multi-weekday series is wrong every way it was tried.** "Book yoga every
   Tuesday and Thursday at 6pm" (fast path) makes ONE Thursday-only weekly
   series — "“two days a week” became weekly" — and loses the Tuesdays, although
   `recur_days` exists for exactly this (CLAUDE.md, "Recurring events"). "Yoga
@@ -1697,7 +1697,7 @@ each is a stage's own work, boarded on that stage first:
   (2 instances) with it. "on tuesdays and thursdays" also makes one-offs. Tip 5
   tells the speaker to say one weekday per series until this is fixed, and
   `test_tip5_the_caveat_is_still_true` goes red the day it is.
-- **`MACALENDAR_LLM_DISABLED` does not shut the rescue's door.** It stops
+- **FIXED 2026-09-24 (`3873dd5`, both parser doors refuse under the flag).** **`MACALENDAR_LLM_DISABLED` does not shut the rescue's door.** It stops
   `engine.llm.call_json`, but `llmjudge/rescue.py` parses through
   `IntentParser._call_ollama` directly, so a unit test or "model-free" board
   on a Mac with ollama up reaches the LIVE model (unseeded) on every FastRule

@@ -1017,6 +1017,19 @@ class CalendarDB:
                 self._create_series_instances(
                     conn, first_id, intent, recurrence, recur_until, color, category
                 )
+                # The series' weekdays, on every row of it (2026-09-24). The
+                # column has existed since recur_days did, is served to the
+                # clients, and was never written: "every tuesday and thursday"
+                # expanded onto both days and then recorded '' — so anything
+                # that later reads the series back saw a one-day weekly series.
+                days = [d for d in (getattr(intent, "recur_days", None) or [])
+                        if d in _WEEKDAY_NUM]
+                if recurrence == "weekly" and len(days) > 1:
+                    row = conn.execute("SELECT series_id FROM events WHERE id = ?",
+                                       (first_id,)).fetchone()
+                    sid = row[0] if row and row[0] is not None else first_id
+                    conn.execute("UPDATE events SET recur_days = ? WHERE id = ? OR series_id = ?",
+                                 (",".join(days), first_id, sid))
 
         return first_id
 

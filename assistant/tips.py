@@ -102,14 +102,15 @@ STEPS: list[tuple[str, str]] = [
 #:      (DEVQA Q22): "Book yoga class next week" and "yoga next week at 6pm"
 #:      are ASKED on the phone; "yoga next week" is NOT — it commits Monday
 #:      09:00 with a note, even on the phone. Hence "ask or guess"
-#:   5. one weekday per series
-#:      -- "Book yoga every Tuesday at 6pm and book yoga every Thursday at
-#:      6pm" -> two weekly series. The single-phrase form is WRONG every way
-#:      it was tried: "Book yoga every Tuesday and Thursday at 6pm" -> one
-#:      THURSDAY-only series ("“two days a week” became weekly"), Tuesdays
-#:      lost; "Yoga every Tuesday and Thursday at 6pm" (deep) -> two one-offs,
-#:      the first on a MONDAY with the model blocked, or a weekly series that
-#:      ends a week later with it; "on tuesdays and thursdays" -> one-offs.
+#:   5. several weekdays, one series (rewritten 2026-09-24, the same day the
+#:      engine learned it) -- "Book yoga every Tuesday and Thursday at 6pm"
+#:      -> ONE weekly series on both days (fast path, no model): 105
+#:      instances over a year, 52 Tuesdays + 53 Thursdays, every row carrying
+#:      recur_days 'tuesday,thursday'. Until that day the tip said "one
+#:      weekday per series": the fast reader stopped at the first weekday and
+#:      made a Thursday-only series, and the database never recorded the days.
+#:      Still true and not claimed: a sentence opening with a bare noun
+#:      ("Yoga every Tuesday and Thursday") needs the model.
 #: Dropped 2026-09-24: "A word it isn't sure of, it'll check" — it pointed
 #: at a Mac-only setting ("Check doubted words with me before acting"), so
 #: the phone's copy sent the reader to a toggle its Settings does not have,
@@ -128,10 +129,9 @@ TIPS: list[tuple[str, str]] = [
     ("Name a day, not a week",
      "“Next Tuesday”, “on the 15th” and “in two weeks” each land on one "
      "day. “Next week” names no single day, so it has to ask or guess."),
-    ("One weekday per repeating series",
-     "“Book yoga every Tuesday at 6pm and book yoga every Thursday at 6pm” "
-     "makes two weekly series. “Every Tuesday and Thursday” in one go "
-     "isn’t reliable yet."),
+    ("Several days, one series",
+     "“Book yoga every Tuesday and Thursday at 6pm” makes one weekly series "
+     "on both days — no need to say each day separately."),
 ]
 
 

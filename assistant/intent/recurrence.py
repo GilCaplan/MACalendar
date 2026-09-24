@@ -29,6 +29,22 @@ _WEEKDAYS = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
              "mon": 0, "tue": 1, "tues": 1, "wed": 2, "thu": 3, "thur": 3,
              "thurs": 3, "fri": 4, "sat": 5, "sun": 6}
 
+_FULL = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+_DAY_ALT = "|".join(sorted(_WEEKDAYS, key=len, reverse=True))
+#: One weekday, singular or plural ("tuesday", "tuesdays", "tue").
+_DAY = rf"(?:{_DAY_ALT})s?"
+#: A LIST of weekdays behind "every"/"each"/"on" — "every tuesday and thursday",
+#: "on tuesdays and thursdays", "every mon, wed and fri" — or a bare run of
+#: PLURAL weekdays, which is recurring English on its own ("tuesdays and
+#: thursdays"). The whole list is one cadence phrase (2026-09-24): the reader
+#: used to stop at the first day, so "book yoga every tuesday and thursday at
+#: 6pm" became a Thursday-only series and the Tuesdays were lost, although
+#: the database has expanded a multi-weekday series (`recur_days`) since
+#: 2026-09-08. The deep path's resolver already read the list.
+_DAY_LIST_RE = re.compile(
+    rf"\b(?:(?:every|each|on)\s+{_DAY}|(?:{'|'.join(_FULL)})s)"
+    rf"(?:\s*(?:,|&|\band\b|\bor\b)\s*(?:and\s+)?{_DAY}\b)*", re.I)
+
 #: (pattern, cadence, needs_announcing) — order matters, first match wins.
 _PATTERNS = [
     (r"\bevery\s+other\s+(\w+)\b", "weekly", True),      # rounded: fortnightly
@@ -40,6 +56,8 @@ _PATTERNS = [
      "weekly", True),                                    # rounded: no N-per-period
     (r"\bevery\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
      r"mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)\b", "weekly", False),
+    # A plural weekday is a series on its own: "yoga on tuesdays".
+    (r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)s\b", "weekly", False),
     (r"\bevery\s+year\b|\byearly\b|\bannually\b", "yearly", False),
 ]
 
@@ -50,10 +68,10 @@ _UNTIL_RE = re.compile(r"\b(?:until|till|through|thru|up to)\b", re.I)
 class Recurrence:
     """What one command said about repeating. `cadence` None ⇒ not recurring."""
 
-    __slots__ = ("cadence", "anchor_weekday", "rounded_from", "has_until", "span")
+    __slots__ = ("cadence", "anchor_weekday", "rounded_from", "has_until", "span", "days")
 
     def __init__(self, cadence=None, anchor_weekday=None,
-                 rounded_from=None, has_until=False, span=None):
+                 rounded_from=None, has_until=False, span=None, days=None):
         self.cadence = cadence
         self.anchor_weekday = anchor_weekday     # 0=Monday … 6=Sunday, or None
         self.rounded_from = rounded_from         # the words we rounded, or None
@@ -64,6 +82,9 @@ class Recurrence:
         #: the adverb sitting right after the title is 13 of the 19 bounded-row
         #: deferrals the last cycle left behind.
         self.span = span
+        #: Full weekday names a WEEKLY series lands on when the sentence named
+        #: more than one ("tuesday", "thursday"); empty for one day or none.
+        self.days = list(days or [])
 
     def __bool__(self) -> bool:
         return self.cadence is not None
@@ -71,6 +92,10 @@ class Recurrence:
     def start_date(self, today: datetime.date) -> datetime.date:
         """The series anchor: the SOONEST day the sentence names (today
         counts), else today."""
+        if self.days:
+            nums = [_FULL.index(d) for d in self.days]
+            return today + datetime.timedelta(
+                days=min((n - today.weekday()) % 7 for n in nums))
         if self.anchor_weekday is None:
             return today
         delta = (self.anchor_weekday - today.weekday()) % 7
@@ -87,11 +112,26 @@ def detect(text: str) -> Recurrence:
         anchor = None
         # a named weekday anywhere in the phrase anchors a weekly series
         for word, idx in _WEEKDAYS.items():
-            if re.search(rf"\b{word}\b", low):
+            if re.search(rf"\b{word}s?\b", low):   # "tuesdays" names Tuesday too
                 anchor = idx
                 break
+        span = (m.start(), m.end())
+        days: list = []
+        if cadence == "weekly" and not rounds:
+            lm = _DAY_LIST_RE.search(low)
+            if lm:
+                named = []
+                for w in re.findall(rf"\b({_DAY_ALT})s?\b", lm.group(0)):
+                    full = _FULL[_WEEKDAYS[w]]
+                    if full not in named:
+                        named.append(full)
+                if len(named) > 1:
+                    days = named
+                # The whole list is the cadence phrase, so the title never
+                # keeps "and thursday".
+                span = (min(span[0], lm.start()), max(span[1], lm.end()))
         return Recurrence(cadence, anchor,
                           m.group(0) if rounds else None,
                           bool(_UNTIL_RE.search(low)),
-                          (m.start(), m.end()))
+                          span, days)
     return Recurrence()

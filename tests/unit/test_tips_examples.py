@@ -115,9 +115,8 @@ CASES = [
     ("tip:3", "on the 15th", "Book the dentist on the 15th at 4"),
     ("tip:3", "in two weeks", "Book the dentist in two weeks at 4"),
     ("tip:3", "next week", "Book yoga class next week"),
-    ("tip:4", "book yoga every tuesday at 6pm and book yoga every thursday at 6pm",
-     "Book yoga every Tuesday at 6pm and book yoga every Thursday at 6pm"),
-    ("tip:4", "every tuesday and thursday", "Book yoga every Tuesday and Thursday at 6pm"),
+    ("tip:4", "book yoga every tuesday and thursday at 6pm",
+     "Book yoga every Tuesday and Thursday at 6pm"),
 ]
 
 
@@ -213,20 +212,14 @@ def test_tip4_next_week_is_asked_about_on_the_phone():
     assert out["parse"] == "confirm_create" and events == []
 
 
-def test_tip5_one_weekday_per_series_makes_two_weekly_series():
-    _, events, _ = _run("Book yoga every Tuesday at 6pm and book yoga every Thursday at 6pm")
-    assert {e["recurrence"] for e in events} == {"weekly"}
-    assert len({e["series_id"] for e in events}) == 2
-    first = {e["date"] for e in events}
-    assert TUE in first and "2026-11-12" in first      # the coming Thu
-
-
-def test_tip5_the_caveat_is_still_true():
-    # The tip warns that "every Tuesday and Thursday" in one go is not
-    # reliable. If this goes red the engine now gets it RIGHT — good news:
-    # re-run it live (with and without the model) and retire the caveat.
+def test_tip5_several_weekdays_make_one_series_on_both_days():
+    # Rewritten 2026-09-24: the caveat this replaced ("every Tuesday and
+    # Thursday in one go isn't reliable") went red the day the fast reader
+    # learned weekday lists and the series started recording its days.
     _, events, _ = _run("Book yoga every Tuesday and Thursday at 6pm")
-    weekly = [e for e in events if e["recurrence"] == "weekly"]
-    days = {e["date"] for e in weekly}
-    right = len(weekly) > 8 and TUE in days and "2026-11-12" in days
-    assert not right, "multi-weekday series now works: update tip 5"
+    assert events and {e["recurrence"] for e in events} == {"weekly"}
+    assert len({e["series_id"] or e["id"] for e in events}) == 1       # ONE series
+    days = {e["date"] for e in events}
+    assert TUE in days and "2026-11-12" in days                       # both weekdays
+    assert len(events) > 8
+    assert {e["recur_days"] for e in events} == {"tuesday,thursday"}
