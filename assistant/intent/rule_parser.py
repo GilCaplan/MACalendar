@@ -2698,10 +2698,12 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
         # veto still judges whatever is captured.
         m10 = re.search(r"\b(?:reschedule|move|push|shift|postpone)\s+(.+?)\s+"
                         r"(?:to|until|for)\b", span.text, re.IGNORECASE)
+        phrase_target = None
         if m10:
             cand = _clean_title(m10.group(1))
             if cand and cand.lower() not in _CALENDAR_SIGNALS:
                 slots.setdefault("match_title", cand)
+                phrase_target = cand
         # Detect whether this is an extend/shorten action (vs. a move/reschedule)
         _ext = _extend_verbs()
         is_extend = any(tok.lemma_.lower() in _ext for tok in span) or any(
@@ -2807,7 +2809,11 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
                     elif title and title != new_title_from_rename:
                         slots["match_title"] = _extend_title_with_whom(span.text, title)
             else:
-                if title:
+                # THE PHRASE'S NAME WINS (2026-09-24): F10 above read "move TEAM
+                # MEETING to next friday" whole, and this line overwrote it with
+                # the noun reader's "team" — which then moved 'team standup'.
+                # Only fill the target when the phrase read none.
+                if title and not phrase_target:
                     slots["match_title"] = _extend_title_with_whom(span.text, title)
 
             if temporal.get("start_time"):
@@ -2982,7 +2988,13 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
             slots.pop("new_title", None)
         # For complete/update/delete, also try extracting the subject noun
         # (e.g. "mark groceries as done" → subject "groceries", not "mark groceries")
-        subject_chunks = [
+        #
+        # ONLY WHEN THE PHRASES ABOVE READ NOTHING (2026-09-24). "delete WATER
+        # THE GARDEN from my list" was read whole by F10 and then overwritten
+        # by the noun reader's "water" — which tied 'water the plants' with
+        # 'water the garden', and the plants were deleted.
+        phrase_target = slots.get("match_title")
+        subject_chunks = [] if phrase_target else [
             chunk for chunk in span.noun_chunks
             if chunk.root.dep_ in ("nsubj", "nsubjpass")
             and not any(_in_temporal(t, temporal_spans) for t in chunk)
@@ -2991,7 +3003,7 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
             candidate = _clean_title(subject_chunks[0].text)
             if candidate:
                 slots["match_title"] = _extend_title_with_whom(span.text, candidate)
-        elif title:
+        elif title and not phrase_target:
             slots["match_title"] = _extend_title_with_whom(span.text, title)
 
         if action_name == "update_todo":

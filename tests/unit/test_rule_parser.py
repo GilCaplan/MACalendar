@@ -1253,3 +1253,16 @@ class TestATitleMustNameSomething:
                       for t in ((getattr(i, "titles", None) or [])
                                 + ([getattr(i, "title", None)] if getattr(i, "title", None) else []))]
             assert not titles, (text, titles)
+
+
+@pytest.mark.parametrize("said,target", [
+    ("delete water the garden from my list", "water the garden"),
+    ("move team meeting to next friday at 3:45pm", "team meeting"),
+    ("mark walk the dog as done", "walk the dog"),
+])
+def test_a_phrase_read_target_is_not_overwritten_by_the_noun_reader(parser, said, target):
+    """2026-09-24, the cross-store board: the phrase rules read the whole name
+    and a later noun reader overwrote it ("water", "team") — which tied with
+    another item and changed the wrong one."""
+    result = parser.analyze(said, current_view="month")
+    assert result.intents[0][1].match_title == target

@@ -63,3 +63,21 @@ TEST (n=380): 142 right both; no wrong-target edit before or after (its 120
 "decoy" rows were all creates). The six "water the garden" rows are now "not
 found" rather than a wrong delete; they need the front door to hand over the
 whole name — the FastRule stage, next.
+
+## The front door hands over the whole name (2026-09-24)
+
+**Stage: FastRule front door (`rule_parser._fill_slots`, the change branches).**
+The phrase rules (F10 "move X to …", "delete X from my list", F6c "mark X as
+done") read the whole target, and a later noun reader overwrote it with one
+noun: "water the garden" → "water", "team meeting" → "team". Now the noun
+reader fills the target only when no phrase rule read one.
+
+| board · split · n | before | after |
+|---|---|---|
+| FastRule shape · TRAIN · 3,200 atomic | handled 77.1%, correct 96.5%, harm 103 | **handled 77.8%**, correct 96.5%, harm 103 |
+| FastRule shape · TEST · 1,472 atomic | handled 68.7%, correct 80.8%, harm 200 | identical |
+| cross_store · TRAIN · 746 | 446 right | **470 right** (+24) |
+| cross_store · TEST · 380 | 142 right | **144 right** (+2) |
+
+The six "water the garden" rows the matcher fix turned from a wrong delete
+into "not found" now land on the right task.
