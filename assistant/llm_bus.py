@@ -138,29 +138,8 @@ def size() -> int:
 def read_since(offset: int) -> "tuple[list, int]":
     """New entries past `offset`. Mirrors trace_bus.read_since, including its
     trim handling: a file shorter than the offset was rewritten, so restart."""
-    try:
-        current = os.path.getsize(BUS_PATH)
-    except OSError:
-        return [], 0
-    if current < offset:
-        return [], current
-    if current == offset:
-        return [], offset
-    out = []
-    try:
-        with open(BUS_PATH, encoding="utf-8") as f:
-            f.seek(offset)
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    out.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
-            return out, f.tell()
-    except OSError:
-        return [], offset
+    from assistant.common.jsonl import tail
+    return tail(BUS_PATH, offset)
 
 
 def read_history(limit: int = 200) -> list:
@@ -170,13 +149,8 @@ def read_history(limit: int = 200) -> list:
             lines = f.readlines()[-limit:]
     except OSError:
         return []
-    out = []
-    for line in lines:
-        try:
-            out.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
-    return out
+    from assistant.common.jsonl import rows
+    return list(rows(lines))
 
 
 def clear() -> None:

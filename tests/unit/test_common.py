@@ -27,3 +27,17 @@ def test_clock_arithmetic_and_the_two_edge_policies():
     assert to_hhmm(870) == "14:30" and to_hhmm(0) == "00:00"
     assert to_hhmm(wrap_day(23 * 60 + 30 + 60)) == "00:30"      # the next day's clock
     assert to_hhmm(clamp_day(23 * 60 + 30 + 60)) == "23:59"     # the day's last minute
+
+
+def test_jsonl_tail_reads_what_was_added_and_survives_a_torn_line(tmp_path):
+    from assistant.common.jsonl import tail
+    p = tmp_path / "bus.jsonl"
+    p.write_text('{"a": 1}\n\n{"b": 2}\n{"torn": ')
+    got, off = tail(str(p), 0)
+    assert got == [{"a": 1}, {"b": 2}]
+    with open(p, "a") as f:
+        f.write('\n{"c": 3}\n')
+    more, off2 = tail(str(p), off)
+    assert more == [{"c": 3}] and off2 > off
+    p.write_text("")                                  # trimmed: restart from its end
+    assert tail(str(p), off2) == ([], 0)

@@ -137,31 +137,11 @@ def read_since(offset: int) -> tuple[list[dict[str, Any]], int]:
     A trim rewrites the file and shrinks it; when that is detected the reader
     is moved to the end rather than replaying old traces as if they were new.
     """
-    try:
-        current = os.path.getsize(BUS_PATH)
-    except OSError:
-        return [], 0
-    if current < offset:                 # file was trimmed or replaced
-        return [], current
-    if current == offset:
-        return [], offset
-    out: list[dict[str, Any]] = []
-    try:
-        with open(BUS_PATH, encoding="utf-8") as f:
-            f.seek(offset)
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    entry = json.loads(line)
-                except json.JSONDecodeError:
-                    continue            # a half-written line; it'll be re-read next time
-                entry.setdefault("kind", "trace")    # entries written before streaming
-                out.append(entry)
-            return out, f.tell()
-    except OSError:
-        return [], offset
+    from assistant.common.jsonl import tail
+    out, offset = tail(BUS_PATH, offset)
+    for entry in out:
+        entry.setdefault("kind", "trace")    # entries written before streaming
+    return out, offset
 
 
 def read_history(limit: int = 200) -> list[dict[str, Any]]:
