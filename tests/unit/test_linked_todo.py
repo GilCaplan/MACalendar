@@ -52,7 +52,22 @@ def _create(title, date=None, recurrence=None):
     date = date or (dt.date.today() + dt.timedelta(days=1)).isoformat()
     intent = CalendarIntent(title=title, date=date, start_time="09:00",
                             end_time="10:00", recurrence=recurrence)
+    # The ENGINE decides (decompose_validate's object pass); the executor files.
+    from assistant.engine.decompose_validate.stage import _files_linked_todo
+    from assistant.engine.state import Item
+    intent.linked_todo = _files_linked_todo(Item(id="i", kind="event", text=title), intent)
     return CreateEventAction().execute(intent, None)
+
+
+def test_the_executor_does_not_decide_a_second_time(db):
+    """A role-call title with no decision from the engine files ONE event:
+    the linked to-do is decompose_validate's call, made once."""
+    from assistant.actions.calendar.action import CreateEventAction
+    from assistant.actions.calendar.intent import CalendarIntent
+    CreateEventAction().execute(CalendarIntent(
+        title="call the plumber", date=(dt.date.today() + dt.timedelta(days=1)).isoformat(),
+        start_time="09:00", end_time="10:00"), None)
+    assert db.linked_todo(_only_event(db, "call the plumber")["id"]) is None
 
 
 def _only_event(db, title):

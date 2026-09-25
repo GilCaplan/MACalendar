@@ -764,7 +764,10 @@ def build_family_row(fam, pools, rng):
     opener = {"filler": FILLER_OPENERS, "hedge": HEDGES, "polite": POLITE,
               "first": ["first "]}.get(style)
     if opener:
-        segs.append((rng.choice(opener), "act", 0))
+        # "first" orders the sequence, like every other sequence word, so it
+        # is a JOINER and not part of the first item's action (2026-09-25:
+        # segmentation strips all sequence words; nothing downstream does).
+        segs.append((rng.choice(opener), "join" if style == "first" else "act", 0))
     joiner_words = []
     for k, s in enumerate(spec):
         if k > 0:

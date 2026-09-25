@@ -147,6 +147,14 @@ def relate(text: str, items: list, envelope_of: "dict | None" = None) -> None:
                 kind, words = "sequence", tail.group(0).strip()
             if tail and tail.group("m"):
                 it.text = (it.text or "")[:tail.start()].rstrip(" ,") or it.text
+            if kind == "sequence":
+                # "…then FINALLY gym": the word orders the sequence, not the title.
+                it.text = re.sub(r"^\s*(?:finally|lastly)\b,?\s*", "", it.text or "",
+                                 flags=re.I) or it.text
+                if prev is items[0]:
+                    # "FIRST walk the dog, then lunch": the same, on the first item.
+                    prev.text = re.sub(r"^\s*first(?:\s+of\s+all)?,?\s+", "", prev.text or "",
+                                       flags=re.I) or prev.text
             it.relation = {"to": prev.id, "kind": kind, "words": words}
         if at >= 0:
             cursor = at

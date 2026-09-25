@@ -101,16 +101,9 @@ def chain(items: list, dicts: list) -> list:
     from assistant.engine.decompose_validate import checks as _checks
 
     fixes = []
-    # "FIRST walk the dog, then lunch": the ordinal belongs to the sequence,
-    # not to the title.
-    if len(items) > 1 and (getattr(items[1], "relation", None) or {}).get("kind") == "sequence":
-        items[0].text = re.sub(r"^\s*first(?:\s+of\s+all)?,?\s+", "", items[0].text, flags=re.I) or items[0].text
     for i in range(1, len(items)):
         item, d = items[i], dicts[i]
         rel = getattr(item, "relation", None) or {}
-        if rel.get("kind") == "sequence":
-            # "…then FINALLY gym": the word orders the sequence, it is not the title.
-            item.text = re.sub(r"^\s*(?:finally|lastly)\b,?\s*", "", item.text, flags=re.I) or item.text
         anchored = _anchor_by_name(i, items)
         if rel.get("kind") != "sequence" and not anchored:
             continue

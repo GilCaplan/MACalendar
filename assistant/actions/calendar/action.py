@@ -80,15 +80,11 @@ class CreateEventAction(BaseAction):
 
 
 def _files_linked_todo(intent: CalendarIntent) -> bool:
-    """A call to a ROLE ("call the plumber") is an event AND a linked to-do
-    (DEVQA Q50, Gil 2026-09-25: *"make it a to-do in addition, in parallel,
-    and it should be linked"*). Not for a series: one to-do cannot stand for
-    every instance. Read from the title, which keeps the call words on both
-    tracks, so the fast and deep paths file the pair the same way."""
-    from assistant.intent.encounter import is_role_call
-    if intent.recurrence:
-        return False
-    return bool(getattr(intent, "linked_todo", False)) or is_role_call(intent.title or "")
+    """File the linked to-do the ENGINE decided on (`linked_todo`). The
+    decision — a call to a role (Q50), a to-do chained into a sequence (Q51) —
+    is decompose_validate's (`stage._files_linked_todo`); the executor does
+    not re-read the title to make it a second time."""
+    return bool(getattr(intent, "linked_todo", False)) and not intent.recurrence
 
 
 # ---------------------------------------------------------------------------

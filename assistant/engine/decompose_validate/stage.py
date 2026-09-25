@@ -178,6 +178,23 @@ def _resolve_onto_intent(state: EngineState, item, intent, today,
     return got.get("date") if spoke_a_day else carried_day
 
 
+def _files_linked_todo(item, intent) -> bool:
+    """Does this event also get a to-do linked to it? Decided HERE and only
+    here; the executor files what this says (Gil, 2026-09-25: "each stage does
+    what it's supposed to do, to prevent redundancies").
+
+      * a to-do caught in a sequence and chained into an event (Q51)
+      * a live call to a ROLE — "call the plumber tomorrow" (Q50)
+
+    Never a series: one to-do cannot stand for every instance."""
+    if getattr(intent, "recurrence", None):
+        return False
+    if (item.slots or {}).get("linked_todo"):
+        return True
+    from assistant.intent.encounter import is_role_call
+    return is_role_call(getattr(intent, "title", "") or item.text or "")
+
+
 def run_objects(state: EngineState, cfg) -> EngineState:
     """The object pass: this stage's values onto the intents, then the rules that
     need an intent to exist."""
@@ -223,9 +240,7 @@ def run_objects(state: EngineState, cfg) -> EngineState:
                             continue
                         state.add_fix("validate", "sequence_chain", str(was), str(now),
                                       note=f"{field}, after {chained.get('after')}")
-            if (item.slots or {}).get("linked_todo"):
-                # A to-do chained into a sequence (Q51): the event, and the
-                # to-do linked to it, which the executor files.
+            if _files_linked_todo(item, intent):
                 intent.linked_todo = True
             _obj._rule_impossible_clock(state, intent)
             _obj._rule_past_date_bump(state, intent, today)
