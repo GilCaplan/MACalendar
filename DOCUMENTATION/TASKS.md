@@ -1965,3 +1965,41 @@ no-split trap, gold task) still reads as a call.
    **Next:** give the resolver the item-shaped input the deep path gives it
    (segmentation's `time` string, not joined refs). Then move those four
    behaviours into `resolve` one at a time, each boarded, and swap last.
+
+### Filed 2026-09-25 (evening), from the title-similarity and range cycles
+
+Numbers are in `fastrule/experiments/RESULTS.md` § "titles as a similarity,
+then ranges and the end of the month".
+
+7. **FastSeg spans only "next month" inside "end of next month"**
+   (`find_time_refs`). The front door no longer depends on it (dc884b55
+   matches the words). The deep track does: its item carries "next month",
+   and the resolver resolves that. Segmentation-internal. Board it alone on
+   `run_board` and the relation board.
+8. **The resolver's evening words lack "night".** "from 9 to 11 at night"
+   and "9 at night" read 09:00 on the deep track. It is ambiguous for small
+   hours ("2 at night" means 02:00), so the rule wants the hour: PM for 6-11,
+   AM for 12-4. decompose_validate's `_bare_hour`; the gold's `_ruled_hhmm`
+   already calls night evening.
+9. **Title leaks left on the FastRule train half**, each a general
+   calendar-entry frame:
+   - "circle … on the calendar for X";
+   - "put in X" after a fronted time;
+   - "add X in calendar" (the destination has no "my/the");
+   - "block off the whole day … for X";
+   - "to-do: X";
+   - "gotta remember to X";
+   - "…starting" and "…including" left when a stranded "at" follows them.
+
+   The test half's "other" leak class is 32% against 6% on train. More varied
+   TRAIN phrasings are the way at it, never the test rows.
+10. **Two cases for Gil to decide on title conventions.** The gold disagrees
+    with itself, so these are not fixed:
+    - **Attendee:** "meeting with Jamie about X" keeps "with Jamie";
+      "sales call daily with Skyler" drops it.
+    - **Errand verb:** "buy groceries" keeps "buy"; "grab a few light bulbs"
+      drops "grab" and the quantity.
+
+    4-6% of titled rows on both halves.
+11. **Item 4 above ("from 5:30 to 7:45" ends 07:45)**: may be fixed by
+    180fe909 (a range now goes to the resolver). Re-probe and close or keep.

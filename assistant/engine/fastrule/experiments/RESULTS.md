@@ -1595,3 +1595,61 @@ An explicit half of the day loses to a day word beside it ("this evening at
 - "half past six in the morning" → 18:30;
 - "7am starting two weeks from now" → 10:00;
 - "i'm free this evening so … at 9:15" → 09:15.
+
+## 2026-09-25 (evening) — titles as a similarity, then ranges and the end of the month
+
+Gil: *"title should be a similarity rather than binary score"* and *"check all
+metrics to get a fair understanding."* Every number below is the FastRule
+shape board on the FastRule 7,200 set. The table gives each split; "n" is the
+scored rows of that line. Each cycle was boarded alone, with the relation,
+segmentation, chain and decompose_validate boards checked for side effects.
+
+**Instrument: title word precision / recall / F1** (`common/similarity.
+token_prf`), next to exact and contained. It pointed the work at once. At
+d0de4f31, title precision was 87.4% on train and 68.4% on test, with recall
+at 96.3% and 93.9%. Words **leaking in** was the defect, not words cut.
+
+**Instrument: leaked words by class.** This is aggregate only, so it is
+readable on test. The test gap is time residue (13.0% of titled rows, against
+5.7% on train) plus unclassified leftovers (32.2% against 5.7%). It is not
+the attendee or errand-verb gold convention: those classes are 4-6% on both
+halves.
+
+| cycle (commit) | metric | train | test |
+|---|---|---|---|
+| "annual" kept in the title (5f92b73a) | title F1 · recall | 89.1 → 89.4% · 96.3 → 96.9% (n=2,142) | 74.9 → 75.1% · 93.9 → 94.3% (n=653) |
+| the speaker's frame, one definition for both title readers (aa0800df) | title precision · exact | 87.5 → 90.0% · 68.7 → 74.7% (n=2,141) | 68.5 → 69.5% · 32.3 → 33.2% (n=653) |
+| lead times: the fronted form, any ask verb, "beforehand", UK asks (e5900cb7) | reminder carried | 73.0% (n=122) → 89.0% (n=136) | 71.1% (n=38) → 100.0% (n=27) |
+| ranges through the one time reader, with their day (180fe909) | range right, start+end | 83.3% (n=72) → 100.0% (n=87) | 71.2% (n=52) → 100.0% (n=55) |
+| ...same commit | date right | 92.6% (n=963) → 94.1% (n=975) | 90.2% → 91.5% (n=318) |
+| "the end of the month" is its last day (dc884b55) | date right | 89.3% → 94.4% (n=1,027) | 85.8% → 92.0% (n=339) |
+
+Costs, stated:
+
+- **Lead times.** Test handled fell 69.2 → 68.4%. That is 11 rows which used
+  to commit WITHOUT the reminder they asked for, and now defer to the deep
+  track. A half-executed command was traded for a model call. My own 95
+  probes (8 shapes) did not reproduce it, and the test rows stay unread.
+- **Ranges.** 180fe909 was committed with two red unit tests, because the
+  commit was not gated on the suite run in the same command. dc884b55
+  repairs it.
+
+**The instruments were blind twice.** The metric saw a change of data, not
+of code:
+
+- Bare-hour ranges were never scored (28 of 43 train ranges).
+- "The end of the month" was never date-scored (108 train rows). With those
+  rows scored (37568bd1), date right re-read 94.1 → 89.3% on train before
+  any code changed.
+
+**Found and not yet fixed:**
+
+- FastSeg's `find_time_refs` spans only "next month" inside "end of next
+  month". This is segmentation; the deep track is exposed.
+- The resolver's evening words lack "night", so "9 at night" reads 09:00.
+  The word is ambiguous for small hours: "2 at night" means 02:00.
+- Train "other" leaks: "circle … for X", "put in X", "add X in calendar",
+  "block off the whole day … for X", "to-do: X", "gotta remember to".
+- The attendee in the title ("with Alex", "for Jordan") and the errand verb
+  ("buy", "grab"): the gold disagrees with itself. This is Gil's convention
+  call, and it is left unchanged.
