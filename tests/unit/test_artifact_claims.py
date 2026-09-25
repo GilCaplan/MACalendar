@@ -899,8 +899,10 @@ def test_the_metric_formulas_on_the_evaluation_view_match_the_scorers():
     verified to go red before being trusted.
     """
     import re as _re
+    # The harm weights live in the FastRule board's side-effect-free gold
+    # module since 2026-09-25 (the board imports them from there).
     shape = (ROOT / "assistant" / "engine" / "fastrule" / "experiments"
-             / "fastrule_shape.py").read_text()
+             / "gold.py").read_text()
     fieldq = (ROOT / "scripts" / "field_quality.py").read_text()
 
     sev = dict(_re.findall(
