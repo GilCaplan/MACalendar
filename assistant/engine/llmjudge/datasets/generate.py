@@ -105,6 +105,15 @@ MUTATIONS = (
 )
 
 
+def _stable_seed(key: str) -> int:
+    """A per-row seed that is the same in every process. The builtin `hash()`
+    of a string is randomised per interpreter (PYTHONHASHSEED), which made two
+    builds of this set on one commit differ (found 2026-09-25 by the board
+    scratch-env refactor, which rebuilt it twice)."""
+    import zlib
+    return zlib.crc32(str(key).encode()) & 0xffff
+
+
 def _words(text: str) -> set:
     return set(re.findall(r"[a-z']+", (text or "").casefold()))
 
@@ -270,12 +279,12 @@ def build(limit_per_split: int = 900, seed: int = 17) -> list:
                 "mutation": name,
                 "expect": expect,
                 "plant_title": (
-                    _fabrication_for(r["text"], random.Random(hash(r["id"]) & 0xffff))
+                    _fabrication_for(r["text"], random.Random(_stable_seed(r["id"])))
                     if name in ("invented_title", "unrelated_object")
                     else _near_miss_for(
                         (r["expect"].get("slots") or {}).get("title")
                         or ((r["expect"].get("slots") or {}).get("titles") or [""])[0],
-                        r["text"], random.Random(hash(r["id"]) & 0xffff))
+                        r["text"], random.Random(_stable_seed(r["id"])))
                     if name == "near_miss_title" else None),
                 "generic_title": (_GENERIC.get(r["expect"]["item"].get("kind", "event"),
                                                "Event")

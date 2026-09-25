@@ -283,7 +283,12 @@ def main() -> int:
     by = {"family": collections.defaultdict(lambda: [0, 0, 0, 0]),
           "shape": collections.defaultdict(lambda: [0, 0, 0, 0]),
           "reentries": collections.defaultdict(lambda: [0, 0, 0, 0]),
-          "model_round": collections.defaultdict(lambda: [0, 0, 0, 0])}
+          "model_round": collections.defaultdict(lambda: [0, 0, 0, 0]),
+          # The FastRule set grew a train-only pool on 2026-09-25 (families
+          # s_tr_* / c_tr_*), and the shuffled 1,200 then included 238 of them:
+          # the board read 95.6 -> 92.2% with the old families flat (95.4%).
+          # Split so a change of DATA can never read as a change of CODE.
+          "pool": collections.defaultdict(lambda: [0, 0, 0, 0])}
     disagreed = 0
     lat = {"off": [], "on": []}
     for r in rows:
@@ -297,7 +302,9 @@ def main() -> int:
         keys = {"family": r.get("family", "?"),
                 "shape": "atomic" if (r["expect"].get("atomic") is True) else "compound",
                 "reentries": str(min(re_n, 3)),
-                "model_round": "model round fired" if model_round else "no model round"}
+                "model_round": "model round fired" if model_round else "no model round",
+                "pool": ("train-growth phrasings" if str(r.get("family", "")).startswith(("s_tr_", "c_tr_"))
+                         else "original families")}
         for k, v in keys.items():
             c = by[k][v]
             c[0] += 1; c[1] += ok_off; c[2] += ok_on
@@ -319,7 +326,8 @@ def main() -> int:
     print(f"  arms DISAGREED on           {disagreed} rows ({_pct(disagreed, n)}) — the only rows the loop can move")
     print(f"  latency p50 / p95  loop OFF {_p(lat['off'], .5):.1f}s / {_p(lat['off'], .95):.1f}s"
           f"   loop ON {_p(lat['on'], .5):.1f}s / {_p(lat['on'], .95):.1f}s\n")
-    for k, label in (("shape", "by shape"), ("reentries", "by re-entries the loop spent (ON arm)"),
+    for k, label in (("pool", "by pool (compare runs on the SAME pool)"),
+                     ("shape", "by shape"), ("reentries", "by re-entries the loop spent (ON arm)"),
                      ("model_round", "by whether the rewrite's MODEL round fired (H6)"),
                      ("family", "by family (top 12 by n)")):
         print(f"  {label}:")
@@ -338,6 +346,8 @@ def main() -> int:
                       "on_p50": _p(lat["on"], .5), "on_p95": _p(lat["on"], .95)},
         "by": {k: {v: {"n": c[0], "off": c[1], "on": c[2], "net": c[3]} for v, c in d.items()}
                for k, d in by.items()},
+        # THE ROWS, so any two runs can be compared on exactly the same ones.
+        "row_ids": [str(r["id"]) for r in rows],
     }
     out_dir = pathlib.Path(__file__).resolve().parent / "runs"
     out_dir.mkdir(exist_ok=True)

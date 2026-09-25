@@ -2008,3 +2008,25 @@ The whole chain reads 95.6% on this train sample, against 94.8% (loop on) on
 the 09-25 03:35 record. That is today's cycles (the Q50 kind rule and the
 front door's time fixes), not H1.
 
+
+## Whole chain after the 2026-09-25 afternoon (seeded Board D v2, 1,200 TRAIN rows, 16:43)
+
+The whole-chain check after the afternoon's changes: segmentation cuts
+sequences and records relations, decompose_validate chains, list management
+is junked, and the half of the day has one reader.
+
+| sample | loop off | loop on |
+|---|---|---|
+| all 1,200 | 1106 (92.2%) | 1106 (92.2%) |
+| original families (n=962) | 918 (95.4%) | 918 (95.4%) |
+| train-growth phrasings (n=238) | 188 (79.0%) | 188 (79.0%) |
+
+Fixed 0, broke 0. p95 is 6.8 s with the loop off and 7.5 s with it on.
+
+**Not a regression.** The FastRule set gained 1,200 train-only rows that
+afternoon, so the shuffled sample now includes 238 of them. On the original
+families the chain reads 95.4%, level with the morning's 95.6% (a different
+sample of the same pool). The new phrasings read 79.0%, close to FastRule's
+held-out 81%: unfamiliar wording is the weak spot, and it is now in train to
+mine. The board now splits its score by pool and records the row ids of every
+run, so a change of data cannot read as a change of code again.
