@@ -1189,9 +1189,17 @@ def tag_path(action: str, time_str: str) -> "tuple[str, str]":
         if _meets_a_person(action):
             return "event", "encounter"       # Q47: a person, day or no day
         real_time = (time_str or "").strip().lower() not in ("", "today")
-        if real_time and (_ANCHORED_TO_EVENT.search(action)
-                          or _MEETING_HEAD.search(action)
-                          or _ON_THE_BOOKS.search(action)):
+        # A WRITTEN MESSAGE stays a to-do (DEVQA Q47, 2026-09-24: "a written
+        # message, a mention and a named to-do list stay to-dos"). "remind me
+        # to email Drew ABOUT the conference tomorrow" was promoted by the
+        # anchor clause — the conference is what the email is about, not
+        # something being booked. This path was right on 9 of its 24 TRAIN
+        # items (the kind router's own board) before the guard.
+        from assistant.intent.encounter import _WRITTEN
+        if real_time and not _WRITTEN.search(action) and (
+                _ANCHORED_TO_EVENT.search(action)
+                or _MEETING_HEAD.search(action)
+                or _ON_THE_BOOKS.search(action)):
             return "event", "dated_anchor"
     return kind, path
 

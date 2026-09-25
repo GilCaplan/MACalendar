@@ -47,3 +47,19 @@ def test_a_meridiem_ending_the_command_leaves_the_title(said, action):
     stripped from the title ('dinner at 8 p.m')."""
     (item,) = _FS.fastseg(said)
     assert item["action"] == action
+
+
+@pytest.mark.parametrize("said", [
+    "remind me to email Drew about the conference tomorrow",
+    "remind me to text Sam about the meeting tomorrow",
+])
+def test_a_written_message_about_an_event_stays_a_todo(said):
+    """DEVQA Q47: a written message stays a to-do — the conference is what the
+    email is ABOUT, not something being booked."""
+    (item,) = _FS.fastseg(said)
+    assert item["tag"] == "task"
+
+
+def test_a_call_about_an_event_is_still_an_encounter():
+    (item,) = _FS.fastseg("remind me to call Drew about the conference tomorrow")
+    assert item["tag"] == "event"
