@@ -125,6 +125,19 @@ everywhere instead of being guessed per sentence.
     datasets/generated.jsonl       2,764 rows / 3,637 items / 317 families / 16 anchors
     eval_metrics/score.py          the boards + a 12-check self-test
     eval_metrics/run_board.py      --split train (default, full detail) | test (aggregates)
+    datasets/chain/chain.jsonl     Q51's chain: 3,580 rows, resolved per item (README there)
+    experiments/chain_board.py     segmentation + this stage's text pass on it, frozen clock
+
+**The chain set (2026-09-25, DEVQA Q51)** is generated with segmentation's
+sequence set (`segmentation/datasets/sequence/generate.py`, one generator, same
+rows and split) and gives every item its kind, date, start, end and
+`linked_todo` by construction against a fixed anchor, Wed 2026-09-09 06:00.
+`chain_board.py` scores the STAGE's own values per item (unmatched = wrong),
+with a chained-only slice, a per-role table, an "as built" line (the object
+layer's meal-hour/09:00 and one-hour completion applied, so "left for the
+object" and "wrong" separate), and damaged / decoy / rollover slices beside the
+headline. Baseline at the worktree that built it (no chaining yet): chained
+items with all five fields right 0.0% (0/3,153 TRAIN items); start 0.1%.
 
 ### The split — train 1,924 / test 840
 
