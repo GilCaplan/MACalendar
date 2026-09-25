@@ -801,8 +801,10 @@ struct UnreviewedResponse: Codable { let examples: [MemoryExample]; let count: I
 /// GET /memory — same rows, no `count` field.
 struct MemoryListResponse: Codable { let examples: [MemoryExample] }
 
-/// What a voice command actually put in the calendar (server joins example → record).
-struct ResolvedRecord: Codable, Equatable {
+/// What a voice command actually touched (server joins example → record;
+/// `assistant/intent/review.py` is the shape). Every field past `startTime`
+/// is optional so an older Mac's reply still decodes.
+struct ResolvedRecord: Codable {
     let type: String
     var id: Int? = nil
     let action: String
@@ -810,7 +812,33 @@ struct ResolvedRecord: Codable, Equatable {
     let date: String
     let startTime: String
     var endTime: String? = nil
-    enum CodingKeys: String, CodingKey { case type, id, action, title, date; case startTime = "start_time", endTime = "end_time" }
+    /// The action's position in the command's `actions`; -1 when unknown.
+    var index: Int? = nil
+    /// "live" — the row exists; "gone" — deleted, by this command or since.
+    var state: String? = nil
+    var list: String? = nil
+    var completed: Bool? = nil
+    /// The row as it stood before this command changed it (updates, deletes, completes).
+    var before: Before? = nil
+    /// For a row this command deleted: the body that re-creates it.
+    var restore: RevertItem? = nil
+
+    struct Before: Codable, Equatable {
+        let title: String
+        let date: String
+        let startTime: String
+        var endTime: String? = nil
+        var list: String? = nil
+        var completed: Bool? = nil
+        enum CodingKeys: String, CodingKey { case title, date, list, completed; case startTime = "start_time", endTime = "end_time" }
+    }
+
+    var isGone: Bool { state == "gone" }
+
+    enum CodingKeys: String, CodingKey {
+        case type, id, action, title, date, index, state, list, completed, before, restore
+        case startTime = "start_time", endTime = "end_time"
+    }
 }
 
 // MARK: - Sync bootstrap (GET /sync/bootstrap)

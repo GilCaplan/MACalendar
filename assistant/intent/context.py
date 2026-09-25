@@ -44,6 +44,19 @@ class ContextMemory:
             self.last_todo_id = todo_id
             self.last_todo_title = title
 
+    # --- The row an update / delete / complete is about to change ---
+    # (kind, id, row-as-it-was). The commit step reads it after each action
+    # so a command's review can show what an edit replaced and put back what
+    # a delete removed (2026-09-24). `touched_seq` moves on every note, so the
+    # commit step can tell THIS action touched something without comparing rows.
+    touched: Optional[tuple] = None
+    touched_seq: int = 0
+
+    def note_touched(self, kind: str, row: dict) -> None:
+        with self._lock:
+            self.touched = (kind, int(row["id"]), dict(row))
+            self.touched_seq += 1
+
     def clear_event(self) -> None:
         with self._lock:
             self.last_event_id = None

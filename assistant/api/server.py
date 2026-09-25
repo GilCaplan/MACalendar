@@ -1141,36 +1141,10 @@ def create_app() -> Flask:
 
     @app.get("/memory/unreviewed")
     def memory_unreviewed():
-        """Commands with no feedback yet (for the phone's review screen)."""
-        from assistant.intent.memory import get_memory
-        limit = int(request.args.get("limit", 30))
-        mem = get_memory(); db = get_db()
-        # Health probes and harness traffic record with source "test"; they
-        # are machine noise, not the user's asks - 43 of them once flooded
-        # the phone's review queue with identical "what do I have today"s.
-        rows = [r for r in mem.recent(200)
-                if r["feedback"] == "none" and r["success"] and r["actions"]
-                and r.get("source") != "test"][:limit]
-        # Attach what actually landed in the calendar (date/time/title) so the
-        # review screen can show the real date even when the stored example
-        # parameters carry none.
-        for r in rows:
-            resolved = []
-            for rec in mem.records_for(r["id"]):
-                try:
-                    if rec["record_type"] == "event":
-                        ev = db.get_event(int(rec["record_id"]))
-                        if ev:
-                            resolved.append({"type": "event", "id": ev["id"], "action": rec["action"], "title": ev["title"],
-                                             "date": ev["date"], "start_time": ev["start_time"], "end_time": ev.get("end_time", "")})
-                    else:
-                        td = db.get_todo(int(rec["record_id"]))
-                        if td:
-                            resolved.append({"type": "todo", "id": td["id"], "action": rec["action"], "title": td["title"],
-                                             "date": td.get("due_date", ""), "start_time": "", "end_time": ""})
-                except Exception:
-                    pass
-            r["resolved"] = resolved
+        """Commands with no feedback yet, each with every row it touched
+        (`assistant/intent/review.py` has the shape and the why)."""
+        from assistant.intent import review
+        rows = review.unreviewed(int(request.args.get("limit", 30)))
         return jsonify({"examples": rows, "count": len(rows)})
 
     @app.post("/memory/unreviewed/skip")

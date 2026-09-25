@@ -99,8 +99,10 @@ struct UpNextAttributes: ActivityAttributes {
         }
     }
 
-    /// How many to-do lines the to-do page draws before "+N more".
-    static let visibleTodos = 4
+    /// How many to-do lines the to-do page draws before "+N more". Three
+    /// since the type grew to 16 pt (2026-09-24, "text seems small"): four
+    /// lines of it and the "+N more" line no longer fit the 160 pt card.
+    static let visibleTodos = 3
 
     /// How many agenda rows the lock-screen card draws at once.
     ///

@@ -668,6 +668,7 @@ def _commit(state: EngineState, cfg) -> None:
         pretty = item.action.replace("_", " ").title()
         try:
             ev_before, td_before = ctx.last_event_id, ctx.last_todo_id
+            touched_before = ctx.touched_seq
             try:
                 result = action_cls().execute(item.intent, cfg)
             except TargetNotFound as nf:
@@ -718,6 +719,17 @@ def _commit(state: EngineState, cfg) -> None:
                 record = ("event", ctx.last_event_id, item.action, idx)
             elif ctx.last_todo_id != td_before and ctx.last_todo_id is not None:
                 record = ("todo", ctx.last_todo_id, item.action, idx)
+            # WHAT A CHANGE REPLACED (2026-09-24). An update, delete or
+            # complete notes the row as it was just before writing, so the
+            # review sheet can show it and "nothing should have been done"
+            # can put it back. A delete used to link no record at all — the
+            # context forgets a deleted row — so a wrong delete could not
+            # even be seen in review, let alone undone.
+            if ctx.touched_seq != touched_before and ctx.touched:
+                t_kind, t_id, t_row = ctx.touched
+                item.slots["before_row"] = {"kind": t_kind, "id": t_id, "row": t_row}
+                if record is None or (record[0], record[1]) != (t_kind, t_id):
+                    record = (t_kind, t_id, item.action, idx)
             state.messages.append(result or "")
             # A FLAG, NOT A BLOCK (Gil, 2026-09-08; observance and quiet-hours
             # share this mechanism) is only honest if it reaches the speaker —
@@ -1440,11 +1452,22 @@ def _record_memory(state: EngineState, cfg, result_msg: str,
             result=result_msg, success=success, llm_ms=state.llm_ms,
             total_ms=state.trace.total_ms if state.trace else 0,
             records=[ex.record for ex in state.executed if ex.record],
+            before=_before_rows(state),
             confidence=state.rule_confidence,
         )
     except Exception as e:
         logger.warning("Memory record failed: %s", e)
         return None
+
+
+def _before_rows(state: EngineState) -> dict:
+    """{(kind, row id): the row as it was} for every row a change touched."""
+    out = {}
+    for it in state.items:
+        b = (it.slots or {}).get("before_row")
+        if b:
+            out[(b["kind"], int(b["id"]))] = b["row"]
+    return out
 
 
 def _log_nlu(state: EngineState, action_names: list, failure: str = "") -> None:

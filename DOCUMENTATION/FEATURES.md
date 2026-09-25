@@ -429,7 +429,23 @@ or implicit (editing/deleting a voice-created row within 24h files as
 corrected/rejected; a reformulated retry is mined as a correction pair).
 **Where:** `assistant/intent/memory.py`; store
 `~/.assistant_tools/nlu_memory.db`; hooks inside `db.update_/delete_*`;
-review UIs: iOS `AssistantReviewView`, Mac panel feedback row.
+review UIs: iOS `AssistantReviewView`, Mac `review_dialog.py`, Mac panel
+feedback row. **The Fix… sheet shows EVERY object a command touched**
+(2026-09-24, Gil: *"when reviewing it creates multiple objects yet only shows
+one"*, and *"also option, that nothing should of been done"*): one row per
+object in the order the command ran, each with Right / Change / take-it-back
+(Remove a create, Restore a delete, Put back an edit, Reopen a tick);
+Change opens pickers and, on a created object, an Event / To-do switch (the
+commonest mistake, per Q47); a one-tap **"Nothing should have been done"**
+takes everything back and stores the gold as `[]`; **"Missed something?"**
+adds the object it left out; reason chips + a note say why. To make a delete
+reviewable at all, the actions now note the row as it was before an update,
+delete or complete (`context_memory.note_touched`), the commit step links it
+(a delete used to link no record) and memory stores it beside the record
+(`example_records.before_json`). One join serves both surfaces:
+`assistant/intent/review.py` (`unreviewed`, `resolve`, and the sheet's rules
+— `rows_for`, `ops_for`, `gold`, `plan`, `apply` — which the phone mirrors in
+`FixObject`/`CorrectionSheet`).
 **How:** Recorded per item (per-item attribution). Few-shot injection exists
 but ships k=0 — measured to hurt the engine; the record feeds calibration
 (TASKS row 57) and future fast-rule mining instead. Since 2026-09-22 a stored
@@ -914,7 +930,7 @@ only exact way to keep it current with the phone locked is an APNs push from
 the Mac, which the project does not use (Q23). **Today's to-dos have a page on it**
 (2026-09-24, Gil: *"to-do sure but build a structure so it looks nice and
 not ai generated too much"*): after the day's event windows the step button
-shows a TO-DO page — up to four open to-dos (overdue first, then due today,
+shows a TO-DO page — up to three open to-dos (overdue first, then due today,
 then undated ones on the Today list) as plain lines with an outline circle,
 a quiet "overdue", and "+N more" — deliberately not the event rows' glass.
 With no event left today but a to-do open, the card shows just that page. **Two to-do pages, and a tick
@@ -924,7 +940,12 @@ Today list) and then GENERAL (the General list's other open to-dos, dated
 first) — the General list alone never brings the card up. Each line's outline
 circle is a button (iOS 17+, `UpNextCompleteTodoIntent`): the line leaves the
 card at once and the app marks the to-do done the Tasks tab's way — locally
-first, queued if the Mac is away — then re-syncs the card. Also additive: a **"Show today's agenda now" button** in the phone's
+first, queued if the Mac is away — then re-syncs the card. **The type is the lock screen's own size** (2026-09-24,
+Gil: *"notifications text on lockscreen seem small"*): titles 17 pt (16 for a
+later row), times 14, the header and stepper 12, to-dos 16 — a size up from
+15/12/10/14, which read as the fine print under the notifications beside it.
+The height budget was re-cut to keep two rows inside 160 pt (~154), and the
+to-do page shows three lines instead of four. Also additive: a **"Show today's agenda now" button** in the phone's
 Reminders settings — pops one local notification, on demand, with the
 WHOLE day's events (not just what's left, and not gated on the reminders
 toggle or a horizon), phrased the same way the Mac's own "Brief Me" reads it

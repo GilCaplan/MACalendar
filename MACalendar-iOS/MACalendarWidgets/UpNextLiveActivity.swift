@@ -102,12 +102,17 @@ private struct UpNextLockScreenView: View {
     private var accent: Color { Color(activityHex: state.headline?.colorHex ?? "") ?? .orange }
 
     // THE HEIGHT BUDGET. iOS cuts a lock-screen Live Activity at 160 pt, top
-    // and bottom alike. 11 + 11 padding, a 20 pt header and 7 of spacing take
-    // 49; a row is 7 + 7 padding around a 15 pt title (~17.9 pt line) and a
-    // 12 pt time line (~14.3), ~48 pt, so two rows and their 6 pt gap take
-    // ~102 — ~151 in all, 9 pt inside the limit. A third row does not fit at
-    // any size worth reading, which is why the card shows a window of
-    // `UpNextAttributes.visibleRows` and a button to step it.
+    // and bottom alike. 10 + 10 padding, a 20 pt header and 7 of spacing take
+    // 47; a row is 6 + 6 padding around a 17 pt title (~20.3 pt line), 2 of
+    // spacing and a 14 pt time line (~16.7), ~51 pt, so two rows and their
+    // 5 pt gap take ~107 — ~154 in all, 6 pt inside the limit. A third row
+    // does not fit at any size worth reading, which is why the card shows a
+    // window of `UpNextAttributes.visibleRows` and a button to step it.
+    //
+    // THE TYPE SIZES are the lock screen's own, not smaller (Gil, 2026-09-24:
+    // "notifications text on lockscreen seem small"). They were 15/12 with a
+    // 10 pt header, a size down from the notifications stacked beneath the
+    // card, so the card read as the fine print of the screen.
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             header
@@ -116,10 +121,10 @@ private struct UpNextLockScreenView: View {
                     .transition(.push(from: .bottom))
             } else if state.window.isEmpty {
                 Text("Nothing else today")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(.white.opacity(0.72))
             } else {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 5) {
                     ForEach(state.window) { item in
                         AgendaRow(item: item, emphasis: state.emphasis(for: item))
                             // Stepping the window slides the rows up, like a
@@ -130,14 +135,14 @@ private struct UpNextLockScreenView: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.vertical, 10)
     }
 
     private var header: some View {
         HStack(spacing: 6) {
-            Circle().fill(accent).frame(width: 6, height: 6)
+            Circle().fill(accent).frame(width: 7, height: 7)
             Text(headline)
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
                 .tracking(0.8)
                 .foregroundStyle(accent)
             Spacer(minLength: 4)
@@ -145,7 +150,7 @@ private struct UpNextLockScreenView: View {
                 stepper
             } else if state.items.count > 1 {
                 Text("\(state.items.count) today")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.white.opacity(0.5))
             }
         }
@@ -170,10 +175,10 @@ private struct UpNextLockScreenView: View {
             Text(state.onTodoPage || state.items.count > UpNextAttributes.visibleRows
                  ? state.positionLabel
                  : "\(state.items.count) today")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
                 .monospacedDigit()
             Image(systemName: "chevron.down")
-                .font(.system(size: 9, weight: .bold))
+                .font(.system(size: 10, weight: .bold))
         }
         .foregroundStyle(.white.opacity(0.82))
         .padding(.horizontal, 9)
@@ -195,8 +200,8 @@ private struct UpNextLockScreenView: View {
 /// quiet "overdue" where it applies. Deliberately NOT the event rows' glass —
 /// a to-do is not an appointment, and dressing it as one is the look Gil
 /// asked to avoid (2026-09-24: "looks nice and not ai generated too much").
-/// Four lines at most (~17 pt each), then "+N more"; the whole page fits the
-/// same 160 pt budget as two event rows.
+/// Three lines at most (~19 pt each at 16 pt type), then "+N more"; the whole
+/// page fits the same 160 pt budget as two event rows.
 private struct TodoPage: View {
     let state: UpNextAttributes.ContentState
     let accent: Color
@@ -209,13 +214,13 @@ private struct TodoPage: View {
                 HStack(spacing: 8) {
                     tick(line)
                     Text(line.title)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(.white.opacity(0.92))
                         .lineLimit(1)
                     Spacer(minLength: 4)
                     if line.overdue {
                         Text("overdue")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(Color(red: 1.0, green: 0.55, blue: 0.5).opacity(0.9))
                     }
                 }
@@ -223,9 +228,9 @@ private struct TodoPage: View {
             }
             if more > 0 {
                 Text("+\(more) more")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.5))
-                    .padding(.leading, 18)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .padding(.leading, 30)
             }
         }
         .padding(.horizontal, 4)
@@ -238,9 +243,9 @@ private struct TodoPage: View {
     @ViewBuilder
     private func tick(_ line: UpNextAttributes.ContentState.TodoLine) -> some View {
         let circle = Circle()
-            .strokeBorder(accent.opacity(0.85), lineWidth: 1.3)
-            .frame(width: 11, height: 11)
-            .frame(width: 22, height: 17)
+            .strokeBorder(accent.opacity(0.85), lineWidth: 1.5)
+            .frame(width: 14, height: 14)
+            .frame(width: 24, height: 19)
             .contentShape(Rectangle())
         if #available(iOS 17.0, *) {
             Button(intent: UpNextCompleteTodoIntent(todoId: line.id)) { circle }
@@ -317,7 +322,7 @@ private struct AgendaRow: View {
                 .frame(maxHeight: .infinity)
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
-                    .font(.system(size: emphasis == .later ? 14 : 15,
+                    .font(.system(size: emphasis == .later ? 16 : 17,
                                   weight: emphasis == .later ? .medium : .semibold))
                     .foregroundStyle(.white.opacity(emphasis == .later ? 0.82 : 1))
                     .lineLimit(1)
@@ -328,14 +333,14 @@ private struct AgendaRow: View {
                         Text(item.location).lineLimit(1)
                     }
                 }
-                .font(.system(size: 12))
+                .font(.system(size: 14))
                 // 0.58, not 0.45: the old value put a later row's time under
                 // the contrast line on a bright wallpaper.
                 .foregroundStyle(.white.opacity(emphasis == .later ? 0.58 : 0.72))
             }
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 7)
+        .padding(.vertical, 6)
         .padding(.horizontal, 10)
         .background(rowGlass)
         .shadow(color: .black.opacity(lift), radius: emphasis == .current ? 10 : 5, y: 2)

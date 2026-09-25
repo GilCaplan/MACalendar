@@ -95,6 +95,10 @@ CREATE TABLE IF NOT EXISTS example_records (
     -- before this column existed, which are deliberately left unmatchable
     -- rather than guessed at.
     action_index INTEGER NOT NULL DEFAULT -1,
+    -- The row as it stood just before an update / delete / complete changed
+    -- it (JSON), so a review can show what an edit replaced and restore what
+    -- a delete removed. '' for creates and for rows written before 2026-09-24.
+    before_json  TEXT    NOT NULL DEFAULT '',
     PRIMARY KEY (example_id, record_type, record_id)
 );
 CREATE TABLE IF NOT EXISTS pending (
@@ -161,6 +165,8 @@ class CommandMemory:
         existing_records = {r[1] for r in c.execute("PRAGMA table_info(example_records)")}
         if "action_index" not in existing_records:
             c.execute("ALTER TABLE example_records ADD COLUMN action_index INTEGER NOT NULL DEFAULT -1")
+        if "before_json" not in existing_records:
+            c.execute("ALTER TABLE example_records ADD COLUMN before_json TEXT NOT NULL DEFAULT ''")
         # WHICH DEVICE, not which KIND of device (2026-09-10). `source` is
         # "mac"|"ios"|"test" — a category — and the flush grouped on it, so two
         # different iPhones were one stream and their queued commands were
@@ -187,7 +193,7 @@ class CommandMemory:
                parse_path: str = "", actions: Iterable[tuple[str, Any]] = (),
                result: str = "", success: bool = True, llm_ms: int = 0,
                total_ms: int = 0, records: Iterable[tuple[str, int, str, int]] = (),
-               confidence: float = -1.0) -> int:
+               confidence: float = -1.0, before: dict | None = None) -> int:
         """Store one command. ``actions`` = (action_name, intent|dict) pairs.
 
         ``records`` = (record_type, record_id, action, action_index) for rows
@@ -195,6 +201,8 @@ class CommandMemory:
         feedback. ``action_index`` is that action's position in ``actions``,
         so a later edit to one record in a multi-action batch can be matched
         back to the one action it came from, not every action of that type.
+        ``before`` = {(record_type, record_id): row} — the row as it stood
+        before a change touched it, stored beside that record.
         """
         acts = []
         for name, intent in actions:
@@ -216,8 +224,12 @@ class CommandMemory:
             )
             ex_id = int(cur.lastrowid)
             for rtype, rid, action, action_index in records:
-                c.execute("INSERT OR IGNORE INTO example_records VALUES (?,?,?,?,?)",
-                          (ex_id, rtype, int(rid), action, int(action_index)))
+                row = (before or {}).get((rtype, int(rid)))
+                c.execute("INSERT OR IGNORE INTO example_records "
+                          "(example_id, record_type, record_id, action, action_index, before_json) "
+                          "VALUES (?,?,?,?,?,?)",
+                          (ex_id, rtype, int(rid), action, int(action_index),
+                           json.dumps(row, ensure_ascii=False, default=str) if row else ""))
         return ex_id
 
     def set_feedback(self, example_id: int, feedback: str,
@@ -394,10 +406,21 @@ class CommandMemory:
         return applied
 
     def records_for(self, example_id: int) -> list[dict[str, Any]]:
-        """(record_type, record_id, action) rows this command created/changed."""
+        """The rows this command created or changed, in the order its actions
+        ran: record_type, record_id, action, action_index, and ``before`` (the
+        row as it stood before a change touched it, or None)."""
         with self._conn() as c:
-            return [dict(r) for r in c.execute(
-                "SELECT record_type, record_id, action FROM example_records WHERE example_id = ?", (example_id,))]
+            rows = [dict(r) for r in c.execute(
+                "SELECT record_type, record_id, action, action_index, before_json "
+                "FROM example_records WHERE example_id = ? ORDER BY action_index, rowid",
+                (example_id,))]
+        for r in rows:
+            raw = r.pop("before_json", "") or ""
+            try:
+                r["before"] = json.loads(raw) if raw else None
+            except ValueError:
+                r["before"] = None
+        return rows
 
     def skip_unreviewed(self) -> int:
         """Dismiss every command that still has no feedback (stale backlog)."""

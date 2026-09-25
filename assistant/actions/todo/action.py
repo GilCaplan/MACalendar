@@ -307,6 +307,7 @@ class CompleteTodoAction(BaseAction):
                 return "I don't remember the last task."
             raise TargetNotFound(f"I couldn't find a task matching '{intent.match_title}'.")
 
+        context_memory.note_touched("todo", todo)
         context_memory.update_todo(todo["id"], todo["title"])
         if intent.complete:
             db.update_todo(todo["id"], completed=1,
@@ -350,6 +351,7 @@ class DeleteTodoAction(BaseAction):
                 return "I don't remember the last task."
             raise TargetNotFound(f"I couldn't find a task matching '{intent.match_title}'.")
 
+        context_memory.note_touched("todo", todo)
         db.delete_subtasks_for_todo(todo["id"])
         db.delete_todo(todo["id"])
         context_memory.clear_todo()
@@ -429,6 +431,7 @@ class UpdateTodoAction(BaseAction):
         if not updates:
             return f"No changes specified for '{todo['title']}'."
 
+        context_memory.note_touched("todo", todo)
         db.update_todo(todo["id"], **updates)
         context_memory.update_todo(todo["id"], updates.get("title", todo["title"]))
 

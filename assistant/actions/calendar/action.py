@@ -164,6 +164,7 @@ class UpdateEventAction(BaseAction):
         if not updates:
             return f"No changes specified for '{event['title']}'."
 
+        context_memory.note_touched("event", event)
         db.update_event(event["id"], **updates)
         context_memory.update_event(event["id"], updates.get("title", event["title"]), updates.get("date", event["date"]))
 
@@ -211,6 +212,7 @@ class DeleteEventAction(BaseAction):
             info = " " + " ".join(parts) if parts else ""
             raise TargetNotFound(f"I couldn't find an event{info}.")
 
+        context_memory.note_touched("event", event)
         db.delete_event(event["id"])
         context_memory.clear_event()
         return f"Deleted '{event['title']}' from your calendar."
