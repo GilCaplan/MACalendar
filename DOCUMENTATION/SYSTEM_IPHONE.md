@@ -1,6 +1,18 @@
-# MACalendar — iPhone App
+# MACalendar — iPhone & iPad App
 
-SwiftUI native iOS app backed by a Flask REST API running on the same Mac. The Mac is the single source of truth for the SQLite DB. The iPhone has a local JSON cache and offline write queue so it works without a Mac connection.
+SwiftUI native app for iPhone and iPad (one universal target; every screen uses
+the stack navigation style so the iPad draws full width), backed by the Flask
+API — the brain — on the Mac. The Mac is the single source of truth for the
+SQLite DB. The device has a local JSON cache and an offline write queue, so it
+works without the Mac and syncs when it is back.
+
+What the app adds beyond calendar and tasks: voice (Apple's on-device speech
+recogniser turns speech into text; the Mac's engine does the understanding),
+the live "thinking" timeline, the **Up Next** lock-screen Live Activity (two
+events at a time, Today / General to-do pages with a tick, a tap opens the
+right tab via `macalendar://`), Review commands with the per-object Fix sheet,
+Connected Calendars, the yellow Shabbat / yom tov lines, End repeat on the event
+editor, and the in-app tips. Signing with a free Apple ID lasts 7 days.
 
 ---
 
@@ -9,11 +21,12 @@ SwiftUI native iOS app backed by a Flask REST API running on the same Mac. The M
 ## Architecture
 
 ```
-iPhone (SwiftUI)
+iPhone / iPad (SwiftUI)  — speech → text on the device
   ↕ HTTP  (Tailscale VPN — Wi-Fi or cellular)
-Mac Flask API  (assistant/api/server.py)
+Mac API, the brain  (assistant/api/server.py → assistant/engine/)
   ↕ Python imports
-Existing Mac logic: IntentParser, WhisperSTT, CalendarDB, Actions
+the engine (ingest → segmentation → decompose_validate → FastRule → LLMJudge → commit),
+CalendarDB, the action classes, calendar sync, observance
 ```
 
 ```

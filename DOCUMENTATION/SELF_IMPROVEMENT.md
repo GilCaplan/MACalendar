@@ -23,6 +23,15 @@ This page is the map. The working files it describes:
 
 ## The workflow today (two lanes + the guards)
 
+> **Since 2026-09-20** (DEVQA Q31) whole-chain cycles run again after the
+> stage-isolation pause of 2026-09-07, with one rule kept from it: a change
+> inside one stage is boarded ALONE on that stage's own board first (the
+> FastRule product-shape board, the segmentation board, the kind-router board,
+> the cross-store board), and only then read on the whole chain — Board D, 1,200
+> seeded TRAIN rows (`assistant/engine/llmjudge/experiments/board_d.py`) — with
+> the real-usage board as the outer gate. `DOCUMENTATION/TASKS.md` carries the
+> current queue; the lanes below are the history of how it got here.
+
 Two independent improvement lanes run in parallel, plus the machinery that
 keeps them honest:
 

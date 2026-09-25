@@ -1,9 +1,13 @@
-# Calendar Assistant (Mac)
+# MACalendar — a voice calendar that runs on your Mac
 
-A privacy-focused, voice-driven calendar assistant for macOS. This tool uses local AI models (Ollama for reasoning and Whisper for speech-to-text) to manage your calendar events without sending audio to the cloud.
+A privacy-focused, voice-driven calendar and to-do assistant. You speak to the Mac,
+your iPhone or your iPad; one "brain" on the Mac understands the command and
+updates the calendar. Speech recognition, language understanding and storage all
+run locally — no account, no cloud service.
 
 > [!IMPORTANT]
-> This application is specifically designed for **macOS** and leverages native features like the `say` command, system accessibility hooks, and macOS native dialogs.
+> The brain runs on **macOS** (Apple Silicon recommended). The iPhone and iPad
+> apps are clients of it, reaching the Mac over a private Tailscale link.
 
 
 ## How the AI assistant works
@@ -19,7 +23,29 @@ A privacy-focused, voice-driven calendar assistant for macOS. This tool uses loc
 **Full feature catalog** — every feature, where it lives, and how it's built:
 [DOCUMENTATION/FEATURES.md](DOCUMENTATION/FEATURES.md).
 
-A spoken command goes: **Whisper (MLX, on the Apple GPU)** → **personal vocabulary auto-correct** → **rule parser** (spaCy + date recognizer; answers ~34% of commands in ~100 ms with no LLM — the fast-path share on dev-fast-250, 86 of 250 rows at 91% correct-on-committed, run 20 in `dataset/loop_log.csv`) → **local LLM** (Ollama, llama3.1:8b) when the rule parser is unsure (past commands are remembered, not injected as examples — measured, that made the engine worse) → validation → actions → SQLite. Every command is remembered; your edits, deletes and approve/reject become feedback that improves the next parse. Details: [DOCUMENTATION/SYSTEM.md](DOCUMENTATION/SYSTEM.md), audit: [DOCUMENTATION/ASSISTANT_AUDIT_SUMMARY.md](DOCUMENTATION/ASSISTANT_AUDIT_SUMMARY.md).
+A spoken command becomes text on the device it was said to (Whisper on the Mac's
+GPU; Apple's on-device recogniser on the phone) and goes to the brain, which runs
+it through six stages — the **engine**:
+
+1. **Ingest** repairs the words: the stop word, fillers and stutters, misheard
+   command words, and your own vocabulary of names and places.
+2. A **front door** (FastRule, rules only, about 50 ms) answers a single clear
+   ask at once — "book the dentist tomorrow at 4pm" never waits for a model.
+3. Anything else takes the **deep track**: **segmentation** cuts the command into
+   separate asks and gives each its time; **decompose_validate** settles event or
+   to-do (rules first, a small model only when no rule fired) and resolves dates,
+   times and repeats; **FastRule** turns each item into one object, with no model.
+4. **LLMJudge** checks every field against the words you said — in code; the
+   local language model (Llama 3.1 8B on Ollama) is asked only to read what the
+   rules could not build.
+5. **Commit** is the only write. It labels the row (category, to-do tags), looks
+   on the other list when a change finds nothing, and on a long command saves
+   what is ready before the model reads the rest.
+
+Every command is remembered with what it did; your reviews and corrections are
+what the engine is measured against. The map of the engine:
+[assistant/engine/ARCHITECTURE.md](assistant/engine/ARCHITECTURE.md); the system:
+[DOCUMENTATION/SYSTEM.md](DOCUMENTATION/SYSTEM.md).
 
 **Every command is checked, whichever path answered it.** A rule-path answer
 is returned immediately and then reviewed in the background: deterministic code
@@ -28,10 +54,11 @@ not asked for a verdict — that call was retired on 2026-09-10 after it changed
 no outcome). It reports rather than rewrites — measured over the corpus,
 applying its corrections fixed nothing and broke one thing, so it advises and
 the trace shows what it found.
-What *does* correct itself is narrower and evidence-based: an action that
-matches nothing re-parses with the LLM instead of answering "I couldn't find
-that", and an event the rules could only call "meeting" is named properly
-before you are told about it.
+What *does* correct itself is narrower and evidence-based: a change that finds
+nothing on one list looks on the other, and a single command that still matches
+nothing gets one second reading from the model before you hear "I couldn't find
+that". A title that names nothing ("add this to my calendar") is refused out loud
+rather than guessed.
 
 ### One brain, two surfaces
 
@@ -44,11 +71,13 @@ heard it.
 
 ### Nothing leaves the machine
 
-Whisper runs on the GPU from a cached model, the LLM is Ollama on `localhost`,
-spaCy and the date recogniser are local, the Hebrew calendar is pure Python, and
-the database is a file in `~/.assistant_tools/`. There is no account, no API key
-and no telemetry. `tests/unit/test_offline.py` blocks every non-loopback socket
-and fails the build if that ever stops being true.
+Whisper runs on the GPU from a cached model, the language and embedding models
+are Ollama on `localhost`, spaCy and the date recogniser are local, the Hebrew
+calendar is pure Python, and the database is a file in `~/.assistant_tools/`.
+There is no account, no API key and no telemetry. `tests/unit/test_offline.py`
+blocks every non-loopback socket and fails the build if that ever stops being
+true. Two links are yours to open: the phone reaching the Mac over Tailscale,
+and — only if you connect one — a Google or Outlook calendar (below).
 
 ### Seeing what it did — the thinking HUD
 
@@ -80,15 +109,48 @@ Turn it off in **Settings › Assistant** (`ui.show_thinking`), or move it with
 
 ### Repeating events
 
-"go pray mincha-maariv every day at 1900 until Oct 6th" works, as do weekly and
-monthly variants and phrasings like "every friday at noon" or "daily standup at
-9am until December 1".
+"go pray mincha-maariv every day at 1900 until Oct 6th" works, as do "every
+tuesday and thursday at 9", "every friday at noon" and "daily standup at 9am
+until December 1". In either app's event editor,
+**Repeat** takes an **End repeat: Never / On date**, and every occurrence stays
+linked as one series — change the end date and the whole series follows.
 
-Two things worth knowing. **"until" stops before the day it names** — say
-"through Oct 6th" or "including Oct 6th" to keep it. And the model only repeats
-daily, weekly or monthly: anything else ("every other tuesday", "twice a week",
-"every weekday") is approximated to the nearest of those, and the reply tells
-you which so you can correct it.
+Worth knowing: **"until" stops before the day it names** — say "through Oct 6th"
+or "including Oct 6th" to keep it (the editor's end date is inclusive). A series
+repeats daily, weekly (on one or several weekdays), monthly or yearly; anything
+else ("every other tuesday", "twice a week") is rounded to the nearest of those
+and the reply says so. **Series skip Shabbat and yom tov**, bounded by candle
+lighting and nightfall at your location — except meals, and a series you
+deliberately put on Shabbat.
+
+### Shabbat and yom tov on the calendar
+
+The Day and Week views draw a **yellow line at the exact minute** Shabbat or yom
+tov begins and ends, computed from sundown at the configured place — or at the
+phone's location, if you turn on "Sundown follows this device" in the phone's
+settings. Toggle the lines in Settings › Hebrew Calendar
+(`hebrew_calendar.show_shabbat_times`).
+
+### Connected calendars (Google, Outlook)
+
+Settings › **Connected Calendars** on either app connects Google Calendar or
+Outlook both ways, or subscribes to any calendar's read-only link (a Gmail
+calendar's "secret iCal address", iCloud, Outlook.com). "How to connect, step by
+step" walks each one inside the app; the one-time app registration with Google or
+Microsoft is described in [DOCUMENTATION/CALENDAR_SYNC.md](DOCUMENTATION/CALENDAR_SYNC.md).
+The Mac keeps them in step every 15 minutes (`calendar_sync.interval_minutes`),
+whether or not the calendar window is open. Nothing is contacted until you
+connect something.
+
+### Was it right? — reviewing commands
+
+Every voice command waits in **Review commands** (a banner once five are waiting;
+always in Settings › Assistant) until you say whether it was right. **Fix…**
+lists every object the command touched, each with Right / Change / take it back
+(remove what it created, restore what it deleted, put back what it edited), a
+one-tap **"Nothing should have been done"**, a way to add what it missed, and a
+reason. Your answers are the gold the engine is scored against; nothing leaves
+the Mac.
 
 ## Prerequisites
 
@@ -105,7 +167,7 @@ Before installation, ensure you have the following:
 1. **Clone the project:**
    ```bash
    git clone <repository-url>
-   cd assistant_tools
+   cd MACalendar
    ```
 
 2. **Set up a Virtual Environment:**
@@ -147,10 +209,15 @@ cp config.example.yaml config.yaml
   ("buy chicken" → Groceries), and only tags that already exist are ever used.
 - **`api.port`**: where the API listens (default `8080`). Both the phone **and the
   Mac GUI** post commands there, and the HUD uses it too.
-- **`verify_fast_path`** / **`self_check_apply`**: the background LLM review. The
-  first is on — every command is re-read by the model and its verdict shown in the
-  trace. The second is off, and the comment beside it in `config.yaml` carries the
-  measurement: applying those corrections fixed 0 commands and broke 1.
+- **`verify_fast_path`** / **`self_check_apply`**: the background review of a
+  fast answer. The first is on — every fast-track command is checked against your
+  words behind the answer and the finding shown in the trace. The second is off,
+  and the comment beside it in `config.yaml` carries the measurement: applying
+  those corrections fixed 0 commands and broke 1.
+- **`calendar_sync`** / **`google_calendar`** / **`microsoft`**: connected calendars
+  (see above); nothing runs until a source is connected.
+- **`hebrew_calendar`** / **`observance`**: the Hebrew-date display, holidays, the
+  yellow Shabbat lines, and the place sundown is computed for.
 - **`confirmation_level`**: **no longer has any effect.** The dialog belonged
   between parse and execute, and both now happen in the API process, which has no
   screen. The GUI warns at startup if you have it set above 0.
@@ -176,7 +243,8 @@ cp config.example.yaml config.yaml
   between them through `~/.assistant_tools/trace_bus.jsonl`.
 
 ### Views
-- **Month / Week / Day** — Switch between views using the toolbar buttons.
+- **Month / Week / Day / Agenda** — switch with the toolbar buttons. The calendar
+  opens on **Week** unless you change "Open calendar on" in Settings › Appearance.
 - The **Day view** shows a full hourly timeline for any single date with a live red current-time indicator.
 - **Tasks** — Apple Reminders-style task panel with Today and General lists (see below).
 
@@ -226,59 +294,69 @@ When the Tasks tab is active, the mic button enters *Tasks mode* — voice comma
 1. **Trigger:** Press the hotkey (`Cmd+Shift+Space`) to start listening.
 2. **Speak:** State your request clearly (e.g., *"Schedule a dentist appointment for tomorrow at 2 PM"* or *"Cancel my meeting with Alex"*).
 3. **Finish:** Say **"execute"**, **"done"**, or simply press the hotkey again to trigger the actions immediately.
-4. **Autonomous Mode:** You can toggle "Auto-Approve" in the **Settings** icon in the UI to skip confirmation dialogs.
+   ("done" that belongs to the command — "mark the rent as done" — is kept.)
+4. **Say a day and a time for events.** A stated clock makes an event; no clock
+   makes a to-do due that day; meeting or calling a person is an event (9:00 when
+   no time is said). The in-app **How to talk to me** tips show the rest.
 
 > [!TIP]
 > **Context Memory:** You can refer to the last event you created by saying "delete **it**" or "move **that event**". Same works for tasks.
 
 ## Security & Privacy
 - **LLM Choices:** By default, everything is local and private using Ollama. If you switch to `openai`, `gemini`, or `claude`, your transcripts will be sent to the respective provider's API.
-- **Full Local Logic:** Audio is transcribed locally using `faster-whisper`.
+- **Full Local Logic:** Audio is transcribed locally — Whisper (MLX on the Apple GPU, or `faster-whisper`) on the Mac, Apple's on-device recogniser on the phone.
+- **Connected calendars are opt-in:** only a Google or Outlook account you connect is contacted, and its sign-in tokens stay on the Mac.
 - **Prompt Injection Defense:** Basic sanitization prevents malicious commands from being executed via voice.
 - **Persistence:** closing the application will save all your changes to the `.db` file normally.
 
 ## Testing
-A comprehensive test suite is provided to verify model reasoning and database logic:
+Use the project's virtual environment — a bare `python` may lack the models'
+dependencies and report phantom failures:
 ```bash
-# Calendar voice command tests (requires Ollama running)
-python tests/test_ollama_parser.py
-
-# Todo feature tests — direct execution (no LLM required)
-python tests/test_todo_parser.py --direct
-
-# Todo feature tests — full LLM routing (requires Ollama running)
-python tests/test_todo_parser.py
-
-# Full unit test suite
-pytest tests/
+./.venv/bin/python -m pytest tests/unit          # fast, no model needed (what CI runs)
+./.venv/bin/python -m pytest tests/integration   # needs Ollama; skips without it
 ```
 
-Don't judge a change to the assistant by trying a couple of phrasings — run the
-audit harness, which puts a corpus of ~90 real commands through the whole path
-and reports accuracy by area and by parse path:
+Don't judge a change to the assistant by trying a couple of phrasings. Each
+stage of the engine has its own board, and the whole chain has one — every
+change is measured alone, on a split it was not tuned on, before it is kept:
 
 ```bash
-python -m scripts.audit_assistant              # full, ~10 min
-python -m scripts.audit_assistant --area tasks # one area
+python -m assistant.engine.fastrule.experiments.fastrule_shape --split train   # the front door, seconds
+python -m assistant.engine.segmentation.experiments.run_board                 # segmentation
+python -m assistant.engine.llmjudge.experiments.board_d -n 1200               # the whole chain, seeded (~50 min, uses the model)
+python -m scripts.real_usage_board                                            # your own commands — the final check
 ```
 
-It writes [DOCUMENTATION/ASSISTANT_AUDIT.md](DOCUMENTATION/ASSISTANT_AUDIT.md); the
-standing conclusions live in [ASSISTANT_AUDIT_SUMMARY.md](DOCUMENTATION/ASSISTANT_AUDIT_SUMMARY.md).
+How the loop works, and the rules it keeps (one change at a time, the sealed
+test split, every number with its dataset and n): [CLAUDE.md](CLAUDE.md),
+[dataset/DATASET.md](dataset/DATASET.md), [dataset/METRICS.md](dataset/METRICS.md).
+The older hand-written audit (`scripts/audit_assistant.py`) is kept as a
+regression floor.
 
-## iPhone App
+## iPhone & iPad App
 
-MACalendar includes a native SwiftUI companion app and a Flask REST API. The Mac acts as the source of truth, and the iPhone connects via Tailscale to manage events and tasks from anywhere.
+A native SwiftUI app (iPhone and iPad) talks to the Mac's API, which stays the
+source of truth. It keeps a full local copy and a queue, so it works with the Mac
+away and syncs when it is back. Beyond the calendar and tasks it has: voice with
+a live "thinking" timeline, the **Up Next** lock-screen card (two events at a
+time, a Today and a General to-do page with a tick button; tap it to open the
+right tab), Review commands, Connected Calendars, the Shabbat lines, and the
+in-app tips.
 
 ### 1. Deploy the App (via Xcode)
 1. Open `MACalendar-iOS/MACalendar-iOS.xcodeproj` in **Xcode**.
 2. Set your **Signing Team** in *Signing & Capabilities*.
-3. Connect your iPhone and click **Run**.
-4. (First time) Go to iPhone **Settings → General → VPN & Device Management** and **Trust** your developer profile.
+3. Connect your iPhone or iPad and click **Run**.
+4. (First time) Go to **Settings → General → VPN & Device Management** and **Trust** your developer profile.
+
+With a free Apple ID the app must be reinstalled every 7 days; a paid developer
+account lasts a year.
 
 ### 2. Connect via Tailscale (Recommended)
 Tailscale provides a secure, private tunnel between your Mac and iPhone without port forwarding.
 1. **Mac:** `brew install tailscale` → Sign in.
-2. **iPhone:** Install [Tailscale](https://apps.apple.com/app/tailscale/id1470499037) → Sign in.
+2. **iPhone / iPad:** Install [Tailscale](https://apps.apple.com/app/tailscale/id1470499037) → sign in with the **same account** as the Mac.
 3. **Start API:** `python -m assistant.api --tailscale` (Prints your 100.x.x.x IP).
 4. **App Settings:** Set Server URL to `http://<your-tailscale-ip>:8080`.
 
@@ -301,9 +379,15 @@ Full API reference: [DOCUMENTATION/API_REFERENCE.md](DOCUMENTATION/API_REFERENCE
 
 ## For Developers & AI Assistants
 
-Start with **[CLAUDE.md](CLAUDE.md)** for the workflow — how to keep tests out of
-your real vocabulary and command memory, how to measure a change to the
-assistant, and the things that have bitten before. Then **[SYSTEM.md](DOCUMENTATION/SYSTEM.md)**. It contains the full project architecture, recent core enhancements (Streaming STT, Universal LLM Parser), and current state details to help you resume work without loss of context.
+Start with **[STATUS.md](STATUS.md)** (where things stand) and
+**[CLAUDE.md](CLAUDE.md)** for the workflow — how to keep tests out of your real
+vocabulary and command memory, how to measure a change to the assistant, and the
+things that have bitten before. Then the engine map,
+**[assistant/engine/ARCHITECTURE.md](assistant/engine/ARCHITECTURE.md)**, and the
+system, **[SYSTEM.md](DOCUMENTATION/SYSTEM.md)**. Every feature, where it lives and
+how it is built: **[FEATURES.md](DOCUMENTATION/FEATURES.md)**; the plan:
+**[TASKS.md](DOCUMENTATION/TASKS.md)**; decisions already made:
+**[DEVQA.md](DEVQA.md)**.
 
 ### How big is it?
 
