@@ -97,6 +97,7 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `DELETE` | `/observance/location` | Forget the reported position and go back to the configured place. |
 | `GET` | `/observance/location` | Where sundown is currently computed for, and where that came from. |
 | `POST` | `/observance/location` | A device reporting where it is. |
+| `GET` | `/observance/windows` | When Shabbat and yom tov begin and end, to the second, over a range. |
 
 ## /digest
 

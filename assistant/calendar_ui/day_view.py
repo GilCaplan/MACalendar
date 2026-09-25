@@ -30,6 +30,7 @@ from assistant.calendar_ui.styles import (
     GRAY_TEXT,
     WHITE,
 )
+from assistant.calendar_ui import holy_times
 from assistant.calendar_ui.month_view import HolidayBanner
 from assistant.hebrew_calendar import enumerate_holidays
 
@@ -299,8 +300,26 @@ class DayTimeline(QWidget):
         self._pending_click_dt: datetime.datetime | None = None
         self.setAcceptDrops(True)
         self._apply_bg()
+        # Shabbat / yom tov lines (holy_times.py): wash under the events,
+        # lines and labels on a mouse-transparent overlay above them.
+        self._holy_windows: list = []
+        self._holy_overlay = holy_times.HolyTimesOverlay(
+            self.date, self, hour_height=self.hour_height, font_px=11)
+        self._holy_overlay.setVisible(False)
         self._overlay = TimeIndicatorOverlay(self.date, self, hour_height=self.hour_height)
+        self._raise_overlays()
+
+    def _raise_overlays(self) -> None:
+        """Keep the Shabbat lines above the events and the now-line above both."""
+        self._holy_overlay.raise_()
         self._overlay.raise_()
+
+    def set_holy_windows(self, windows) -> None:
+        """The Shabbat / yom tov windows touching this day (local time); [] hides them."""
+        self._holy_windows = holy_times.for_day(windows, self.date)
+        self._holy_overlay.set_windows(self._holy_windows)
+        self._raise_overlays()
+        self.update()
 
     def _apply_bg(self) -> None:
         dark = _styles._dark
@@ -370,7 +389,7 @@ class DayTimeline(QWidget):
             block.setGraphicsEffect(shadow)
             block.show()
             self._event_widgets.append(block)
-        self._overlay.raise_()
+        self._raise_overlays()
 
     # -- binder pop-out ------------------------------------------------
     def _on_block_clicked(self, ev: dict) -> None:
@@ -390,7 +409,7 @@ class DayTimeline(QWidget):
         if eff is not None:
             eff.setBlurRadius(22); eff.setOffset(0, 6); eff.setColor(QColor(0, 0, 0, 140))
         self._popped = block
-        self._overlay.raise_()
+        self._raise_overlays()
 
     def _unpop(self) -> None:
         block = getattr(self, "_popped", None)
@@ -405,7 +424,7 @@ class DayTimeline(QWidget):
             for w in self._event_widgets:
                 if w is not block and getattr(w, "_stack", (0,))[0] > block._stack[0]:
                     w.raise_()
-            self._overlay.raise_()
+            self._raise_overlays()
         except RuntimeError:
             pass
         self._popped = None
@@ -416,6 +435,7 @@ class DayTimeline(QWidget):
             return
         self.hour_height = hour_height
         self.setFixedHeight(hour_height * 24)
+        self._holy_overlay.set_hour_height(hour_height)
         self._overlay.set_hour_height(hour_height)
         if self._events:
             self.load_events(self._events)
@@ -431,8 +451,9 @@ class DayTimeline(QWidget):
                 block._col_x = x
                 block._col_w = w
                 block.setGeometry(x, block.y(), w, block.height())
+        self._holy_overlay.resize(self.size())
         self._overlay.resize(self.size())
-        self._overlay.raise_()
+        self._raise_overlays()
 
     def mousePressEvent(self, event):
         self._unpop()
@@ -502,6 +523,11 @@ class DayTimeline(QWidget):
         border_color = _styles.D_GRAY_BORDER if dark else GRAY_BORDER
         painter = QPainter(self)
 
+        # The faint Shabbat wash, under the events (child widgets paint after).
+        if self._holy_windows:
+            holy_times.paint_tint(painter, self.date, self._holy_windows,
+                                  self.hour_height, self.width(), dark)
+
         # Hour grid lines
         painter.setPen(QPen(QColor(border_color)))
         for h in range(25):
@@ -537,6 +563,7 @@ class DayView(QWidget):
         self._ui_config = None
         self._hebrew_config = None
         self._hour_height = HOUR_HEIGHT
+        self._holy_sig = ""
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -683,6 +710,19 @@ class DayView(QWidget):
             self._timeline.load_events(events)
         self._update_count(len(events))
         self._refresh_allday()
+        self._refresh_holy()
+
+    def _refresh_holy(self) -> None:
+        """Hand the timeline the Shabbat / yom tov windows touching this day."""
+        self._holy_sig = holy_times.signature()
+        if not self._timeline:
+            return
+        windows = []
+        if holy_times.enabled(self._hebrew_config):
+            israel = getattr(self._hebrew_config, "israel_holidays", True) \
+                if self._hebrew_config else True
+            windows = holy_times.windows_for(self._date, self._date, israel)
+        self._timeline.set_holy_windows(windows)
 
     def _refresh_allday(self) -> None:
         layout = self._allday_strip_layout
@@ -793,6 +833,9 @@ class DayView(QWidget):
         _time.tzset()
         if self._timeline and self._date == datetime.date.today():
             self._timeline._overlay.update()
+        # A phone that reported a new position moves the Shabbat lines.
+        if self._holy_sig != holy_times.signature():
+            self._refresh_holy()
 
     def _scroll_to_now(self) -> None:
         if self._date == datetime.date.today():

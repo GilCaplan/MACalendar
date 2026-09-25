@@ -14,7 +14,7 @@ routes, request shapes, CRUD — and the feature's CRUD belongs with the feature
 | `GET/POST /categories` | the colour classes; `DELETE /categories/<name>` |
 | `POST /categories/classify` `POST /categories/recolor` | classify one title; re-colour everything |
 | `GET /holidays` | the Hebrew calendar over a range |
-| `GET /sync/bootstrap` | a cold client's whole first screen in one round trip |
+| `GET /sync/bootstrap` | a cold client's whole first screen in one round trip (incl. Shabbat/yom tov windows) |
 
 No `url_prefix`: every path above is already absolute, and a prefix would move
 all of them.
@@ -395,9 +395,26 @@ def sync_bootstrap():
             }
             for h in enumerate_holidays(start, end, israel=israel)
         ],
+        # When Shabbat / yom tov begins and ends over the same span, to the
+        # second, so the calendars' yellow lines survive the Mac being away
+        # (the same payload as GET /observance/windows).
+        "holy_windows": _holy_windows(start, end, israel),
         "timers": [_timer_out(db, t) for t in db.get_timers()],
         "counters": [_counter_out(db, c) for c in db.get_counters()],
     })
+
+
+def _holy_windows(start: datetime.date, end: datetime.date, israel: bool) -> "dict | None":
+    """The windows for the bootstrap, or None if observance cannot be computed.
+
+    None rather than a 500: a bootstrap is the phone's whole first screen, and
+    losing it over the one part that is optional would be the wrong trade.
+    """
+    try:
+        from assistant.observance import holy_windows_payload
+        return holy_windows_payload(start, end, israel=israel)
+    except Exception:                       # pragma: no cover - defensive
+        return None
 
 
 # ------------------------------------------------------------------

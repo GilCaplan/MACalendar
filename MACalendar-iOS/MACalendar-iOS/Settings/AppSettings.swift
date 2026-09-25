@@ -95,6 +95,12 @@ class AppSettings: ObservableObject {
     @Published var israelHolidays: Bool {
         didSet { UserDefaults.standard.set(israelHolidays, forKey: "israelHolidays") }
     }
+    /// Yellow lines on the Day and Week grids at the exact minute Shabbat /
+    /// yom tov begins and ends (Gil, 2026-09-24). On by default; shared with
+    /// the Mac as `hebrew_calendar.show_shabbat_times`.
+    @Published var showShabbatTimes: Bool {
+        didSet { UserDefaults.standard.set(showShabbatTimes, forKey: "showShabbatTimes") }
+    }
 
     // Local-only, mirrors the Mac's config.yaml `todo.show_completed` (default
     // off) but isn't synced from it — same precedent as the Hebrew settings
@@ -249,6 +255,8 @@ class AppSettings: ObservableObject {
             ? true : UserDefaults.standard.bool(forKey: "showHolidays")
         self.israelHolidays = UserDefaults.standard.object(forKey: "israelHolidays") == nil
             ? true : UserDefaults.standard.bool(forKey: "israelHolidays")
+        self.showShabbatTimes = UserDefaults.standard.object(forKey: "showShabbatTimes") == nil
+            ? true : UserDefaults.standard.bool(forKey: "showShabbatTimes")
 
         self.hideCompletedTasks = UserDefaults.standard.object(forKey: "hideCompletedTasks") == nil
             ? true : UserDefaults.standard.bool(forKey: "hideCompletedTasks")

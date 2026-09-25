@@ -566,3 +566,179 @@ def blocked_days(
             out.append(av)
         cur += datetime.timedelta(days=1)
     return out
+
+
+# ---------------------------------------------------------------------------
+# Holy windows — when Shabbat / yom tov begins and ends, to the second
+# ---------------------------------------------------------------------------
+
+@dataclasses.dataclass(frozen=True)
+class HolyWindow:
+    """One unbroken stretch of Shabbat and/or yom tov, from candle lighting to tzeit.
+
+    Consecutive holy days are ONE window: Rosh Hashanah running into Shabbat
+    is lit once, on the first evening, and ends once, at nightfall after the
+    last day — there is no boundary in between to mark.
+
+    `start` and `end` are timezone-aware, in the observance location's zone,
+    and keep their seconds. They are the SAME instants the recurring-series
+    skip in `db.py` compares against (`candle_lighting(eve)` and `tzeit(last)`,
+    microseconds dropped), so a line drawn here is exactly where the calendar
+    starts and stops refusing to book.
+    """
+
+    start: datetime.datetime      # candle lighting on the eve of the first day
+    end: datetime.datetime        # tzeit on the last day
+    start_name: str               # what begins: "Shabbat", "Rosh Hashana", ...
+    end_name: str                 # what ends
+    days: Tuple[datetime.date, ...]
+    israel: bool = True
+
+    @property
+    def name(self) -> str:
+        """Every distinct day name in order — "Rosh Hashana & Shabbat"."""
+        names: List[str] = []
+        for d in self.days:
+            n = _holy_day_name(d, self.israel)
+            if n not in names:
+                names.append(n)
+        return " & ".join(names)
+
+    @property
+    def start_label(self) -> str:
+        """Candle lighting as a minute, TRUNCATED — never later than the real time."""
+        return self.start.strftime("%H:%M")
+
+    @property
+    def end_label(self) -> str:
+        """Nightfall as a minute, rounded UP — never earlier than the real time.
+
+        The one direction that matters for a boundary: a minute shown for the
+        end of Shabbat must not fall before Shabbat has ended.
+        """
+        end = self.end
+        if end.second or end.microsecond:
+            end = end.replace(second=0, microsecond=0) + datetime.timedelta(minutes=1)
+        return end.strftime("%H:%M")
+
+    def as_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "start_name": self.start_name,
+            "end_name": self.end_name,
+            "start": self.start.isoformat(timespec="seconds"),
+            "end": self.end.isoformat(timespec="seconds"),
+            "start_label": self.start_label,
+            "end_label": self.end_label,
+            "days": [d.isoformat() for d in self.days],
+        }
+
+
+def _holy_day_name(date: datetime.date, israel: bool) -> str:
+    """The yom tov's name, else 'Shabbat', else '' on an ordinary day.
+
+    A yom tov that falls on Shabbat is called by the yom tov's name: the
+    label has a few centimetres of a phone's week column to live in, and the
+    festival is the thing worth reading there.
+    """
+    yt = yom_tov_name(date, israel)
+    if yt:
+        return yt
+    return "Shabbat" if is_shabbat(date) else ""
+
+
+def holy_windows(
+    start: datetime.date,
+    end: datetime.date,
+    settings: Optional[ObservanceSettings] = None,
+    israel: bool = True,
+) -> List[HolyWindow]:
+    """Every Shabbat / yom tov window that touches a civil date in [start, end].
+
+    A window touches its eve (candle lighting falls on it) through its last
+    day. When either boundary cannot be computed — polar latitudes, astral
+    without data — the window is LEFT OUT rather than guessed: a line drawn
+    at a made-up minute is worse than no line, because the minute is the
+    whole point.
+    """
+    settings = settings or current_settings()
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(settings.timezone)
+    except Exception:
+        return []
+
+    # A window can reach back a few days before `start` (Rosh Hashanah into
+    # Shabbat is three), so scan a margin either side and filter at the end.
+    margin = datetime.timedelta(days=4)
+    try:
+        cur, stop = start - margin, end + margin
+    except OverflowError:
+        return []
+
+    groups: List[List[datetime.date]] = []
+    while cur <= stop:
+        if _holy_day_name(cur, israel):
+            if groups and groups[-1][-1] == cur - datetime.timedelta(days=1):
+                groups[-1].append(cur)
+            else:
+                groups.append([cur])
+        cur += datetime.timedelta(days=1)
+
+    out: List[HolyWindow] = []
+    for days in groups:
+        eve, last = days[0] - datetime.timedelta(days=1), days[-1]
+        if last < start or eve > end:
+            continue
+        # A group cut off by the scan margin has an edge we did not see;
+        # the margin is wider than any real run, so this never fires on one.
+        if days[0] == start - margin or days[-1] == stop:
+            continue
+        lit = candle_lighting(eve, settings)
+        night = tzeit(last, settings)
+        if lit is None or night is None:
+            continue
+        out.append(HolyWindow(
+            start=datetime.datetime.combine(eve, lit.replace(microsecond=0), tzinfo=tz),
+            end=datetime.datetime.combine(last, night.replace(microsecond=0), tzinfo=tz),
+            start_name=_holy_day_name(days[0], israel),
+            end_name=_holy_day_name(days[-1], israel),
+            days=tuple(days),
+            israel=israel,
+        ))
+    return out
+
+
+def place_key(settings: Optional[ObservanceSettings] = None) -> str:
+    """A fingerprint of everything that moves a window's minutes.
+
+    A client caching windows keeps this beside them: when a fresh answer
+    carries a different key the phone has moved (or the offsets were edited),
+    and every cached window — not just the refetched month — is stale.
+    """
+    s = settings or current_settings()
+    return (f"{s.latitude:.4f},{s.longitude:.4f},{s.timezone},"
+            f"{s.candle_lighting_minutes},{s.tzeit_depression}")
+
+
+def holy_windows_payload(
+    start: datetime.date,
+    end: datetime.date,
+    settings: Optional[ObservanceSettings] = None,
+    israel: bool = True,
+) -> dict:
+    """`holy_windows` as JSON, with the place they were computed for.
+
+    One shape for `GET /observance/windows` and `/sync/bootstrap`, so the
+    phone caches both the same way.
+    """
+    s = settings or current_settings()
+    return {
+        "place": {"latitude": s.latitude, "longitude": s.longitude,
+                  "timezone": s.timezone, "city": s.city,
+                  "source": "device" if get_location() else "config"},
+        "place_key": place_key(s),
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "windows": [w.as_dict() for w in holy_windows(start, end, s, israel)],
+    }

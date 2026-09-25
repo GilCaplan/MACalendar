@@ -53,6 +53,9 @@ struct CalendarTabView: View {
         CalendarMode(rawValue: UserDefaults.standard.string(forKey: "defaultCalendarView") ?? "week") ?? .week
     @State private var monthEvents: [CalendarEvent] = []
     @State private var monthHolidays: [Holiday] = []
+    /// Shabbat / yom tov windows for the month and a week either side (the
+    /// week view reaches across a month edge). Empty when the setting is off.
+    @State private var monthHolyWindows: [HolyWindow] = []
     @State private var loadingMonth = false
     @State private var showCreateSheet = false
     @State private var showSearch = false
@@ -98,6 +101,7 @@ struct CalendarTabView: View {
                                     selectedDate: $nav.selectedDate,
                                     events: monthEvents,
                                     holidays: monthHolidays,
+                                    holyWindows: monthHolyWindows,
                                     onDateSelected: { date in nav.viewedDate = date }
                                 )
                                 Spacer()
@@ -140,6 +144,7 @@ struct CalendarTabView: View {
                                     selectedDate: $nav.selectedDate,
                                     events: monthEvents,
                                     holidays: monthHolidays,
+                                    holyWindows: monthHolyWindows,
                                     onDateSelected: { date in
                                         nav.selectedDate = date
                                         nav.viewedDate = date
@@ -333,12 +338,27 @@ struct CalendarTabView: View {
         } else {
             monthHolidays = []
         }
+        // Shabbat lines: a week either side, because the week view shows the
+        // week around the selected day, which can straddle a month edge.
+        let showHoly = settings.showShabbatTimes
+        let holyFrom = cal.date(byAdding: .day, value: -7, to: start) ?? start
+        let holyTo = cal.date(byAdding: .day, value: 7, to: end) ?? end
+        if showHoly {
+            let cached = LocalStore.shared.holyWindowsBetween(
+                ISO8601DateFormatter.yyyyMMdd.string(from: holyFrom),
+                ISO8601DateFormatter.yyyyMMdd.string(from: holyTo))
+            if !cached.isEmpty { monthHolyWindows = cached }
+        } else {
+            monthHolyWindows = []
+        }
 
         loadingMonth = true
         // Independent requests — run concurrently instead of paying the sum
         // of both latencies on every month navigation.
         async let eventsResult: [CalendarEvent] = (try? await api.eventsForMonth(year: year, month: month)) ?? []
         async let holidaysResult: [Holiday] = fetchHolidays(showHolidays: showHolidays, start: start, end: end, israel: israel)
+        async let holyResult: [HolyWindow] = showHoly
+            ? api.holyWindows(start: holyFrom, end: holyTo, israel: israel) : []
 
         monthEvents = await eventsResult
         loadingMonth = false
@@ -348,6 +368,10 @@ struct CalendarTabView: View {
         if showHolidays == false || !fresh.isEmpty || monthHolidays.isEmpty {
             monthHolidays = fresh
         }
+        // `holyWindows` already falls back to the cache itself, so its answer
+        // is always the best there is — including [] when nothing is known,
+        // which draws no line rather than a guessed one.
+        monthHolyWindows = showHoly ? await holyResult : []
     }
 
     private func fetchHolidays(showHolidays: Bool, start: Date, end: Date, israel: Bool) async -> [Holiday] {

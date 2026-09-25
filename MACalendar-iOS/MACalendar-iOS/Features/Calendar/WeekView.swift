@@ -4,6 +4,9 @@ struct WeekView: View {
     @Binding var selectedDate: Date
     var events: [CalendarEvent]
     var holidays: [Holiday] = []
+    /// Shabbat / yom tov windows touching this week (empty when the setting
+    /// is off) — the yellow lines.
+    var holyWindows: [HolyWindow] = []
     var onDateSelected: ((Date) -> Void)? = nil
     @EnvironmentObject var settings: AppSettings
 
@@ -70,6 +73,7 @@ struct WeekView: View {
                             WeekDayColumn(
                                     day: day, popped: $popped, onOpen: { selected = $0 },
                                 events: eventsForDay(day),
+                                holyWindows: holyWindows.filter { $0.overlaps(day: day) },
                                 now: now,
                                 hourHeight: hourHeight,
                                 showLeftBorder: i > 0
@@ -162,6 +166,7 @@ private struct WeekDayColumn: View {
     @Binding var popped: Int?
     var onOpen: (CalendarEvent) -> Void
     var events: [CalendarEvent]
+    var holyWindows: [HolyWindow] = []
     var now: Date
     var hourHeight: CGFloat
     var showLeftBorder: Bool
@@ -185,6 +190,11 @@ private struct WeekDayColumn: View {
                 }
             }
 
+            // Shabbat / yom tov wash, under the events.
+            if !holyWindows.isEmpty {
+                HolyTint(day: day, windows: holyWindows, hourHeight: hourHeight)
+            }
+
             // Events + redline drawn relative to column width
             Color.clear
                 .overlay(
@@ -205,6 +215,14 @@ private struct WeekDayColumn: View {
                                 .onTapGesture {
                                     if it.stackSize > 1 && !isPopped { popped = it.id } else { onOpen(it.event) }
                                 }
+                        }
+
+                        // Shabbat / yom tov lines: above the events, below
+                        // the now-line, and transparent to taps.
+                        if !holyWindows.isEmpty {
+                            HolyLines(day: day, windows: holyWindows, hourHeight: hourHeight,
+                                      fontSize: max(settings.fontWeek - 5, 7))
+                                .frame(width: geo.size.width, height: geo.size.height)
                         }
 
                         // Current time line (today only) — follows the accent
@@ -273,5 +291,135 @@ private struct WeekEventBlock: View {
                     .padding(2)
                     .lineLimit(height > 36 ? 2 : 1)
             }
+    }
+}
+
+// MARK: - Shabbat / yom tov lines
+
+/// The yellow lines at the exact minute Shabbat or yom tov begins (candle
+/// lighting) and ends (nightfall), and a faint wash between them — on the
+/// Week and Day grids (Gil, 2026-09-24: "important because the exact minute is
+/// important. mark in yellow").
+///
+/// The minutes come from the Mac (`HolyWindow`, `GET /observance/windows`),
+/// the same candle lighting and tzeit the calendar skips series by; nothing
+/// here computes a sun time. A window whose boundary the Mac could not compute
+/// never arrives, so no line is ever drawn at a guessed minute.
+///
+/// Placed to the SECOND: `y` is seconds since this day's local midnight, so a
+/// candle lighting at 18:12:37 sits 37/60 of a minute below 18:12.
+enum HolyTimes {
+    /// A true yellow — distinct from the amber default accent the now-line
+    /// uses — and a deeper one in light mode, where bright yellow on white all
+    /// but disappears (the Mac draws the same pair, `holy_times.py`).
+    static let yellow = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 1.0, green: 0.839, blue: 0.039, alpha: 1)    // #FFD60A
+            : UIColor(red: 0.878, green: 0.690, blue: 0.0, alpha: 1)    // #E0B000
+    })
+
+    struct Mark: Identifiable {
+        let id: String
+        let y: CGFloat
+        let text: String
+        let short: String
+        let isStart: Bool
+    }
+
+    /// Seconds since *day*'s local midnight, as a y offset, clamped to the day.
+    static func y(_ when: Date, on day: Date, hourHeight: CGFloat) -> CGFloat {
+        let d0 = Calendar.current.startOfDay(for: day)
+        let secs = min(max(when.timeIntervalSince(d0), 0), 24 * 3600)
+        return CGFloat(secs / 3600) * hourHeight
+    }
+
+    /// The lines that fall on *day*.
+    static func marks(day: Date, windows: [HolyWindow], hourHeight: CGFloat) -> [Mark] {
+        let cal = Calendar.current
+        var out: [Mark] = []
+        for w in windows {
+            if let s = w.startDate, cal.isDate(s, inSameDayAs: day), let text = w.startText {
+                out.append(Mark(id: "s" + w.start, y: y(s, on: day, hourHeight: hourHeight),
+                                text: text, short: String(text.suffix(5)), isStart: true))
+            }
+            if let e = w.endDate, cal.isDate(e, inSameDayAs: day), let text = w.endText {
+                out.append(Mark(id: "e" + w.end, y: y(e, on: day, hourHeight: hourHeight),
+                                text: text, short: String(text.suffix(5)), isStart: false))
+            }
+        }
+        return out
+    }
+
+    /// The (top, height) of the holy part of *day*, for the wash.
+    static func spans(day: Date, windows: [HolyWindow], hourHeight: CGFloat) -> [(top: CGFloat, height: CGFloat)] {
+        windows.compactMap { w in
+            guard let s = w.startDate, let e = w.endDate, w.overlaps(day: day) else { return nil }
+            let top = y(s, on: day, hourHeight: hourHeight)
+            let bottom = y(e, on: day, hourHeight: hourHeight)
+            return bottom > top ? (top, bottom - top) : nil
+        }
+    }
+}
+
+/// The wash — drawn UNDER the events, and never hit-testable.
+struct HolyTint: View {
+    var day: Date
+    var windows: [HolyWindow]
+    var hourHeight: CGFloat
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(Array(HolyTimes.spans(day: day, windows: windows, hourHeight: hourHeight).enumerated()),
+                    id: \.offset) { _, span in
+                HolyTimes.yellow.opacity(0.09)
+                    .frame(height: span.height)
+                    .offset(y: span.top)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .allowsHitTesting(false)
+    }
+}
+
+/// The lines and their labels — drawn ABOVE the events, but taps go through
+/// to the event underneath (`allowsHitTesting(false)`).
+struct HolyLines: View {
+    var day: Date
+    var windows: [HolyWindow]
+    var hourHeight: CGFloat
+    var fontSize: CGFloat = 9
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            ForEach(HolyTimes.marks(day: day, windows: windows, hourHeight: hourHeight)) { m in
+                HolyTimes.yellow
+                    .frame(height: 1.5)
+                    .shadow(color: .black.opacity(0.35), radius: 0.5)
+                    .offset(y: m.y - 0.75)
+                // The label sits on the holy side of its line: below a start,
+                // above an end. Falls back to just the time in a narrow
+                // week column rather than squeezing the name illegible.
+                ViewThatFits(in: .horizontal) {
+                    label(m.text)
+                    label(m.short)
+                }
+                .offset(y: m.isStart ? m.y + 1 : m.y - (fontSize + 5))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func label(_ s: String) -> some View {
+        Text(s)
+            .font(.system(size: fontSize, weight: .bold))
+            .foregroundColor(Color(white: 0.1))
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 3)
+            .frame(height: fontSize + 4)
+            .background(HolyTimes.yellow)
+            .clipShape(RoundedRectangle(cornerRadius: 3))
     }
 }

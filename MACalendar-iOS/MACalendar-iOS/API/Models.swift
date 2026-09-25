@@ -574,6 +574,91 @@ struct Holiday: Codable, Equatable, Identifiable {
     func spans(_ date: String) -> Bool { date >= gregorianErevStart && date <= gregorianEnd }
 }
 
+// MARK: - Shabbat / yom tov windows (GET /observance/windows)
+
+/// One unbroken stretch of Shabbat and/or yom tov, from candle lighting on the
+/// eve to nightfall after the last day — what the Day and Week grids draw
+/// their yellow lines from.
+///
+/// Computed by the Mac (`observance.holy_windows`), never here: it is the same
+/// `candle_lighting` / `tzeit` the calendar uses to skip Shabbat in a series,
+/// so the line and the refusal are one instant. `start`/`end` are ISO 8601
+/// with their UTC offset and their SECONDS — the minute matters, and the grid
+/// places the line to the second.
+///
+/// Drawn in the observance place's WALL CLOCK (the ISO string's own digits),
+/// not converted to this phone's zone: events are naive local times, and the
+/// Mac refuses a booking by comparing its naive start with candle lighting's
+/// wall-clock time there. Converting moved Shabbat to noon on a simulator
+/// whose clock was New York while the place was Jerusalem. With "Sundown
+/// follows this device" on, the place and the phone share a zone anyway.
+struct HolyWindow: Codable, Equatable, Identifiable {
+    var name: String
+    var startName: String
+    var endName: String
+    var start: String
+    var end: String
+    var startLabel: String
+    var endLabel: String
+    var days: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case name, start, end, days
+        case startName = "start_name", endName = "end_name"
+        case startLabel = "start_label", endLabel = "end_label"
+    }
+
+    var id: String { start }
+
+    /// The wall-clock digits, read in this phone's zone — so `Calendar.current`
+    /// puts the line at the same hour, minute and second the Mac wrote.
+    private static let wall: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    var startDate: Date? { Self.wall.date(from: String(start.prefix(19))) }
+    var endDate: Date? { Self.wall.date(from: String(end.prefix(19))) }
+
+    /// The civil day candle lighting falls on (in the place it was computed
+    /// for) and the last holy day — the span a cache lookup matches against.
+    var firstDay: String { String(start.prefix(10)) }
+    var lastDay: String { days.last ?? String(end.prefix(10)) }
+
+    /// "Shabbat · 18:12" — the Mac's label: truncated, never later than
+    /// candle lighting.
+    var startText: String? { startDate == nil ? nil : "\(startName) · \(startLabel)" }
+
+    /// "Shabbat ends · 19:21" — the Mac's label: rounded UP, never earlier
+    /// than nightfall.
+    var endText: String? { endDate == nil ? nil : "\(endName) ends · \(endLabel)" }
+
+    /// True when this window covers any part of *day* (local midnight to midnight).
+    func overlaps(day: Date, calendar: Calendar = .current) -> Bool {
+        guard let s = startDate, let e = endDate else { return false }
+        let d0 = calendar.startOfDay(for: day)
+        guard let d1 = calendar.date(byAdding: .day, value: 1, to: d0) else { return false }
+        return s < d1 && e > d0
+    }
+}
+
+/// The answer of GET /observance/windows, and the `holy_windows` block of the
+/// bootstrap. `placeKey` fingerprints where (and with which offsets) the
+/// windows were computed: when it changes, every cached window is stale.
+struct HolyWindowsPayload: Codable, Equatable {
+    var placeKey: String
+    var start: String
+    var end: String
+    var windows: [HolyWindow]
+
+    enum CodingKeys: String, CodingKey {
+        case start, end, windows
+        case placeKey = "place_key"
+    }
+}
+
 struct HealthResponse: Codable {
     let status: String
     let llm: String
@@ -857,10 +942,14 @@ struct BootstrapSnapshot: Codable {
     let tags: [TodoTag]
     let holidays: [Holiday]
     var tagRules: TagRules? = nil
+    /// Optional: a Mac from before the Shabbat lines existed does not send it,
+    /// and a non-optional key missing from the JSON would fail the whole decode.
+    var holyWindows: HolyWindowsPayload? = nil
 
     enum CodingKeys: String, CodingKey {
         case token, window, events, todos, tags, holidays
         case tagRules = "tag_rules"
+        case holyWindows = "holy_windows"
     }
 }
 

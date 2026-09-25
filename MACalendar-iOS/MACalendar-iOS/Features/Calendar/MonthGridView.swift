@@ -7,6 +7,9 @@ struct MonthGridView: View {
     @Binding var selectedDate: Date
     var events: [CalendarEvent]
     var holidays: [Holiday] = []
+    /// Shabbat / yom tov windows — a day where one begins or ends shows the
+    /// minute in small yellow type.
+    var holyWindows: [HolyWindow] = []
     var onDateSelected: ((Date) -> Void)? = nil
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
@@ -33,7 +36,8 @@ struct MonthGridView: View {
                     DayCell(date: date, isCurrentMonth: isCurrentMonth(date),
                             isSelected: Calendar.current.isDate(date, inSameDayAs: selectedDate),
                             events: events(for: date),
-                            holidays: holidaysForDay(date))
+                            holidays: holidaysForDay(date),
+                            holyMarks: holyMarks(for: date))
                         .onTapGesture {
                             selectedDate = date
                             onDateSelected?(date)
@@ -67,6 +71,11 @@ struct MonthGridView: View {
         let d = ISO8601DateFormatter.yyyyMMdd.string(from: date)
         return holidays.filter { $0.spans(d) }
     }
+
+    /// The candle-lighting / nightfall minutes falling on *date*.
+    private func holyMarks(for date: Date) -> [HolyTimes.Mark] {
+        HolyTimes.marks(day: date, windows: holyWindows, hourHeight: 1)
+    }
 }
 
 private struct DayCell: View {
@@ -76,6 +85,7 @@ private struct DayCell: View {
     var isSelected: Bool
     var events: [CalendarEvent]
     var holidays: [Holiday] = []
+    var holyMarks: [HolyTimes.Mark] = []
 
     private var dayNum: String { "\(Calendar.current.component(.day, from: date))" }
     private var isToday: Bool  { Calendar.current.isDateInToday(date) }
@@ -107,6 +117,19 @@ private struct DayCell: View {
                     .fill(h.color.opacity(h.isErev(on: dateStr) ? 0.4 : 1.0))
                     .frame(height: 4)
                     .padding(.horizontal, 3)
+            }
+
+            // Shabbat / yom tov begins or ends today: the minute, in yellow.
+            ForEach(holyMarks) { m in
+                HStack(spacing: 1) {
+                    Image(systemName: m.isStart ? "flame.fill" : "moon.stars.fill")
+                    Text(m.short)
+                }
+                .font(.system(size: max(7, settings.fontMonth - 5), weight: .semibold))
+                .foregroundColor(HolyTimes.yellow)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .accessibilityLabel(m.text)
             }
 
             ForEach(events.prefix(2)) { ev in

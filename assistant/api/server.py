@@ -1251,6 +1251,32 @@ def create_app() -> Flask:
                         "timezone": settings.timezone, "city": settings.city,
                         "source": "config"})
 
+    @app.get("/observance/windows")
+    def observance_windows():
+        """When Shabbat and yom tov begin and end, to the second, over a range.
+
+        What the calendars draw their yellow lines from. Computed here, once,
+        with the settings the recurring-series skip uses — `current_settings()`,
+        which follows a device's reported position — so the line on the phone,
+        the line on the Mac and the minute the calendar starts refusing to book
+        are the same instant. `?start=&end=` are ISO days (at most 400 apart);
+        `?israel=0` for the Diaspora yom tov schedule. A window whose boundary
+        cannot be computed is left out, never guessed.
+        """
+        from assistant import observance as ob
+        try:
+            start = datetime.date.fromisoformat(request.args["start"])
+            end = datetime.date.fromisoformat(request.args["end"])
+        except (KeyError, ValueError):
+            return jsonify({"error": "start and end are required (YYYY-MM-DD)",
+                            "code": 400}), 400
+        if end < start:
+            return jsonify({"error": "end precedes start", "code": 400}), 400
+        if (end - start).days > 400:
+            return jsonify({"error": "range must be 400 days or fewer", "code": 400}), 400
+        israel = request.args.get("israel", "1") not in ("0", "false", "False")
+        return jsonify(ob.holy_windows_payload(start, end, israel=israel))
+
     @app.get("/observance")
     def observance_range():
         """Training availability per day: what is blocked, and which windows remain.

@@ -175,6 +175,9 @@ class HebrewCalendarConfig(BaseModel):
     show_holidays: bool = True
     # True = Israel holiday schedule (1-day Yom Tov); False = Diaspora (2-day)
     israel_holidays: bool = True
+    # Yellow lines on the Day and Week grids at the exact minute Shabbat / yom
+    # tov begins (candle lighting) and ends (tzeit), from observance.py.
+    show_shabbat_times: bool = True
 
 
 class ObservanceConfig(BaseModel):

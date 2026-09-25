@@ -153,6 +153,7 @@ hebrew_calendar:
   display_mode: "both"      # "english" | "hebrew" | "both" — Hebrew dates use gematria letters, never numerals
   show_holidays: true        # overlay Jewish/Israeli holidays on Month/Week/Day views
   israel_holidays: true      # true = Israel schedule (1-day Yom Tov), false = Diaspora (2-day)
+  show_shabbat_times: true   # yellow lines on Day/Week at candle lighting and nightfall
 
 theme: "dark"  # "light" | "dark" - default theme on startup
 

@@ -106,6 +106,12 @@ struct PendingVoiceCommand: Codable, Identifiable {
     }
 }
 
+/// The Shabbat / yom tov windows on disk, with the place they belong to.
+struct HolyWindowsCache: Codable {
+    var placeKey: String = ""
+    var windows: [HolyWindow] = []
+}
+
 /// Persists events, todos, and queued writes to disk.
 /// Temp IDs are negative integers; they're replaced by real server IDs after sync.
 @MainActor
@@ -120,6 +126,10 @@ class LocalStore: ObservableObject {
     private var todos:    [Todo]          = []
     private var tags:     [TodoTag]       = []
     private var holidays: [Holiday]       = []
+    /// When Shabbat / yom tov begins and ends — the Mac's answers, kept so the
+    /// yellow lines stay on the grid with the Mac away. `placeKey` is where
+    /// they were computed for (see `cacheHolyWindows`).
+    private var holy = HolyWindowsCache()
     /// The Mac's finished day panels, one per day, kept so the phone can
     /// SCHEDULE tomorrow's notification tonight — and still fire it after a
     /// week off the tailnet. See `ReminderScheduler`.
@@ -145,6 +155,7 @@ class LocalStore: ObservableObject {
         todos    = (try? d.decode([Todo].self,          from: Data(contentsOf: url("mc_todos.json"))))    ?? []
         tags     = (try? d.decode([TodoTag].self,       from: Data(contentsOf: url("mc_tags.json"))))     ?? []
         holidays = (try? d.decode([Holiday].self,       from: Data(contentsOf: url("mc_holidays.json")))) ?? []
+        holy     = (try? d.decode(HolyWindowsCache.self, from: Data(contentsOf: url("mc_holy_windows.json")))) ?? HolyWindowsCache()
         digests  = (try? d.decode([DayDigest].self,     from: Data(contentsOf: url("mc_digests.json"))))  ?? []
         timers   = (try? d.decode([WorkTimer].self,     from: Data(contentsOf: url("mc_timers.json"))))   ?? []
         counters = (try? d.decode([TallyCounter].self,  from: Data(contentsOf: url("mc_counters.json")))) ?? []
@@ -191,7 +202,7 @@ class LocalStore: ObservableObject {
     /// taking it costs a retain rather than a copy.
     private func scheduleCacheWrite() {
         let snapshot = CacheSnapshot(events: events, todos: todos, tags: tags,
-                                     holidays: holidays, digests: digests,
+                                     holidays: holidays, holy: holy, digests: digests,
                                      timers: timers, counters: counters, dir: dir)
         cacheFlush?.cancel()
         cacheFlush = Task.detached(priority: .utility) {
@@ -213,6 +224,7 @@ class LocalStore: ObservableObject {
         let todos: [Todo]
         let tags: [TodoTag]
         let holidays: [Holiday]
+        let holy: HolyWindowsCache
         let digests: [DayDigest]
         let timers: [WorkTimer]
         let counters: [TallyCounter]
@@ -224,6 +236,7 @@ class LocalStore: ObservableObject {
             try? e.encode(todos).write(to:    dir.appendingPathComponent("mc_todos.json"))
             try? e.encode(tags).write(to:     dir.appendingPathComponent("mc_tags.json"))
             try? e.encode(holidays).write(to: dir.appendingPathComponent("mc_holidays.json"))
+            try? e.encode(holy).write(to:     dir.appendingPathComponent("mc_holy_windows.json"))
             try? e.encode(digests).write(to:  dir.appendingPathComponent("mc_digests.json"))
             try? e.encode(timers).write(to:   dir.appendingPathComponent("mc_timers.json"))
             try? e.encode(counters).write(to: dir.appendingPathComponent("mc_counters.json"))
@@ -235,7 +248,7 @@ class LocalStore: ObservableObject {
     func flushCachesNow() {
         cacheFlush?.cancel()
         CacheSnapshot(events: events, todos: todos, tags: tags, holidays: holidays,
-                      digests: digests, timers: timers, counters: counters,
+                      holy: holy, digests: digests, timers: timers, counters: counters,
                       dir: dir).write()
     }
 
@@ -362,6 +375,32 @@ class LocalStore: ObservableObject {
     /// server would have answered for.
     func holidaysBetween(_ start: String, _ end: String) -> [Holiday] {
         holidays.filter { $0.gregorianEnd >= start && $0.gregorianErevStart <= end }
+    }
+
+    // MARK: - Shabbat / yom tov windows (the yellow lines, offline)
+
+    /// Keep what the Mac computed, the way holidays are kept — but with one
+    /// difference that matters: these minutes depend on WHERE they were
+    /// computed. A fresh answer for a different place (the phone travelled,
+    /// or the offsets were edited) makes every cached window stale, not just
+    /// the refetched span, so the whole cache is replaced rather than merged.
+    func cacheHolyWindows(_ fresh: HolyWindowsPayload) {
+        if fresh.placeKey != holy.placeKey {
+            holy = HolyWindowsCache(placeKey: fresh.placeKey, windows: fresh.windows)
+        } else {
+            // Same place: replace the refetched span, keep the rest.
+            let outside = holy.windows.filter { $0.lastDay < fresh.start || $0.firstDay > fresh.end }
+            var seen = Set<String>()
+            holy.windows = (outside + fresh.windows)
+                .filter { seen.insert($0.id).inserted }
+                .sorted { $0.start < $1.start }
+        }
+        persist()
+    }
+
+    /// Cached windows touching [start, end] (ISO days).
+    func holyWindowsBetween(_ start: String, _ end: String) -> [HolyWindow] {
+        holy.windows.filter { $0.lastDay >= start && $0.firstDay <= end }
     }
 
     // MARK: - Day panels

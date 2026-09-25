@@ -238,17 +238,36 @@ struct SettingsView: View {
 
                             Divider().padding(.vertical, 2)
 
+                            Toggle("Mark when Shabbat & yom tov begin and end", isOn: $settings.showShabbatTimes)
+                                .onChange(of: settings.showShabbatTimes) { v in
+                                    Task { await api.patchShared(
+                                        ["hebrew_calendar": ["show_shabbat_times": v]]) }
+                                    CalendarNavigator.shared.reload()
+                                    api.requestRefresh()
+                                }
+                            Text(settings.followMyLocation
+                                 ? "Yellow lines on Day and Week at the exact minute of candle lighting and of nightfall, for where this phone is."
+                                 : "Yellow lines on Day and Week at the exact minute of candle lighting and of nightfall — computed for the place set on your host. Turn on \"Sundown follows this device\" below so the minutes follow you when you travel.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
                             Toggle("Sundown follows this device", isOn: $settings.followMyLocation)
                                 .onChange(of: settings.followMyLocation) { on in
                                     if on {
-                                        DeviceLocation.shared.refresh(using: api)
+                                        DeviceLocation.shared.refresh(using: api, force: true)
                                     } else {
-                                        Task { try? await api.clearObservanceLocation() }
+                                        Task {
+                                            try? await api.clearObservanceLocation()
+                                            // The lines were drawn for here;
+                                            // redraw them for the host's place.
+                                            CalendarNavigator.shared.reload()
+                                            api.requestRefresh()
+                                        }
                                     }
                                 }
 
                             Text(settings.followMyLocation
-                                 ? "Candle lighting and nightfall are computed for wherever you are. Your position is sent to your own host and nowhere else, once, when it has moved far enough to matter."
+                                 ? "Candle lighting and nightfall are computed for wherever you are. Your position is sent to your own host and nowhere else — checked when the app opens or comes back to the front, and sent only when it has moved a few kilometres or changed time zone."
                                  : "Sundown uses the place configured on your host. Turn this on when you travel — the same clock time falls on different sides of Shabbat in different places.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -653,6 +672,9 @@ struct SettingsView: View {
         }
         if shared.israelHolidays != settings.israelHolidays {
             settings.israelHolidays = shared.israelHolidays
+        }
+        if shared.showShabbatTimes != settings.showShabbatTimes {
+            settings.showShabbatTimes = shared.showShabbatTimes
         }
         if shared.hideCompletedTasks != settings.hideCompletedTasks {
             settings.hideCompletedTasks = shared.hideCompletedTasks

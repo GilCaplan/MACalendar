@@ -269,6 +269,12 @@ struct ContentView: View {
                 // so an unreachable Mac can't delay the local refresh below.
                 // heartbeat() swallows its own failures — offline is normal.
                 Task { await api.heartbeat() }
+                // Back in front, perhaps somewhere else: check where we are,
+                // so the Shabbat lines follow the phone. Throttled and
+                // distance-gated inside; sends nothing if we have not moved.
+                if settings.followMyLocation {
+                    DeviceLocation.shared.refresh(using: api)
+                }
                 Task {
                     _ = await api.syncPending()
                     await api.syncPendingVoice()

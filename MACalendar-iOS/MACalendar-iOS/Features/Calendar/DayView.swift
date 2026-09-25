@@ -6,6 +6,7 @@ struct DayView: View {
     @EnvironmentObject var settings: AppSettings
     @State private var events: [CalendarEvent] = []
     @State private var holidays: [Holiday] = []
+    @State private var holyWindows: [HolyWindow] = []
     @State private var selected: CalendarEvent?
     @State private var popped: Int?
     @State private var now: Date = Date()
@@ -43,6 +44,14 @@ struct DayView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 ZStack(alignment: .topLeading) {
+                    // Shabbat / yom tov wash, under everything else. Offset
+                    // past the hour labels so only the event area is tinted.
+                    if !holyWindows.isEmpty {
+                        HolyTint(day: date, windows: holyWindows, hourHeight: hourHeight)
+                            .padding(.leading, 44)
+                            .frame(height: hourHeight * 24)
+                    }
+
                     // Hour grid lines
                     VStack(spacing: 0) {
                         ForEach(0..<24, id: \.self) { hour in
@@ -83,6 +92,16 @@ struct DayView: View {
                     }
                     .frame(height: hourHeight * 24)
 
+                    // Shabbat / yom tov lines, at the exact minute, above the
+                    // events and transparent to taps on them.
+                    if !holyWindows.isEmpty {
+                        HolyLines(day: date, windows: holyWindows, hourHeight: hourHeight,
+                                  fontSize: max(settings.fontDay - 4, 9))
+                            .padding(.leading, 44)
+                            .padding(.trailing, 8)
+                            .frame(height: hourHeight * 24)
+                    }
+
                     // Current time line (today only) — follows the accent
                     // color, same convention as the Mac app.
                     if Calendar.current.isDate(date, inSameDayAs: now) {
@@ -110,6 +129,12 @@ struct DayView: View {
                 // for the network (or offline fallback) to respond.
                 let d = DateFormatter.isoDay.string(from: date)
                 events = LocalStore.shared.eventsForDate(d)
+                holyWindows = settings.showShabbatTimes
+                    ? LocalStore.shared.holyWindowsBetween(
+                        ISO8601DateFormatter.yyyyMMdd.string(from: date.addingTimeInterval(-86400)),
+                        ISO8601DateFormatter.yyyyMMdd.string(from: date.addingTimeInterval(86400)))
+                        .filter { $0.overlaps(day: date) }
+                    : []
                 popped = nil
                 proxy.scrollTo(startHour, anchor: .top)
                 load()
@@ -139,11 +164,28 @@ struct DayView: View {
                 events = fresh
             }
         }
+        loadHolyWindows(for: targetDate)
         guard settings.showHolidays else { holidays = []; return }
         Task {
             let fresh = (try? await api.holidays(start: targetDate, end: targetDate, israel: settings.israelHolidays)) ?? []
             if date == targetDate {
                 holidays = fresh
+            }
+        }
+    }
+
+    /// The Shabbat lines for this day. A day either side is asked for because
+    /// the Mac files a window by ITS clock's days, and a phone in another time
+    /// zone can see a window's edge on a neighbouring civil date.
+    private func loadHolyWindows(for targetDate: Date) {
+        guard settings.showShabbatTimes else { holyWindows = []; return }
+        Task {
+            let cal = Calendar.current
+            let from = cal.date(byAdding: .day, value: -1, to: targetDate) ?? targetDate
+            let to = cal.date(byAdding: .day, value: 1, to: targetDate) ?? targetDate
+            let fresh = await api.holyWindows(start: from, end: to, israel: settings.israelHolidays)
+            if date == targetDate {
+                holyWindows = fresh.filter { $0.overlaps(day: targetDate) }
             }
         }
     }

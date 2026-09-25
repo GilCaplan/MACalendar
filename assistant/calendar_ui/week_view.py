@@ -35,6 +35,7 @@ from assistant.calendar_ui.styles import (
     WEEKEND_BG,
     WHITE,
 )
+from assistant.calendar_ui import holy_times
 from assistant.calendar_ui.month_view import HolidayBanner
 from assistant.hebrew_calendar import enumerate_holidays, hebrew_day_label
 
@@ -351,10 +352,30 @@ class DayColumn(QWidget):
         self._pending_click_dt: datetime.datetime | None = None
         self.setAcceptDrops(True)
         self._apply_bg()
+        # Shabbat / yom tov lines (holy_times.py): the wash is painted by this
+        # column under its events, the lines by a mouse-transparent overlay
+        # above them. Created hidden; `set_holy_windows` shows it.
+        self._holy_windows: list = []
+        self._holy_overlay = holy_times.HolyTimesOverlay(
+            self.date, self, hour_height=self.hour_height, font_px=9)
+        self._holy_overlay.setVisible(False)
         self._overlay: TimeIndicatorOverlay | None = None
         if self.is_today:
             self._overlay = TimeIndicatorOverlay(self.date, self, hour_height=self.hour_height)
+        self._raise_overlays()
+
+    def _raise_overlays(self) -> None:
+        """Keep the Shabbat lines above the events and the now-line above both."""
+        self._holy_overlay.raise_()
+        if self._overlay:
             self._overlay.raise_()
+
+    def set_holy_windows(self, windows) -> None:
+        """The Shabbat / yom tov windows touching this day (local time); [] hides them."""
+        self._holy_windows = holy_times.for_day(windows, self.date)
+        self._holy_overlay.set_windows(self._holy_windows)
+        self._raise_overlays()
+        self.update()
 
     def _apply_bg(self) -> None:
         dark = _styles._dark
@@ -423,8 +444,7 @@ class DayColumn(QWidget):
             block.setGraphicsEffect(shadow)
             block.show()
             self._event_widgets.append(block)
-        if self._overlay:
-            self._overlay.raise_()
+        self._raise_overlays()
 
     # -- binder pop-out ------------------------------------------------
     def _on_block_clicked(self, ev: dict) -> None:
@@ -445,8 +465,7 @@ class DayColumn(QWidget):
         if eff is not None:
             eff.setBlurRadius(18); eff.setOffset(0, 5); eff.setColor(QColor(0, 0, 0, 140))
         self._popped = block
-        if self._overlay:
-            self._overlay.raise_()
+        self._raise_overlays()
 
     def _unpop(self) -> None:
         block = getattr(self, "_popped", None)
@@ -461,8 +480,7 @@ class DayColumn(QWidget):
             for w in self._event_widgets:
                 if w is not block and getattr(w, "_stack", (0,))[0] > block._stack[0]:
                     w.raise_()
-            if self._overlay:
-                self._overlay.raise_()
+            self._raise_overlays()
         except RuntimeError:
             pass
         self._popped = None
@@ -473,6 +491,7 @@ class DayColumn(QWidget):
             return
         self.hour_height = hour_height
         self.setFixedHeight(hour_height * 24)
+        self._holy_overlay.set_hour_height(hour_height)
         if self._overlay:
             self._overlay.set_hour_height(hour_height)
         if self._events:
@@ -486,9 +505,10 @@ class DayColumn(QWidget):
             for block, item in zip(self._event_widgets, layout):
                 block.setGeometry(item[1], block.y(), item[2], block.height())
                 block._update_display()
+        self._holy_overlay.resize(self.size())
         if self._overlay:
             self._overlay.resize(self.size())
-            self._overlay.raise_()
+        self._raise_overlays()
 
     def mousePressEvent(self, event):
         self._unpop()
@@ -557,6 +577,11 @@ class DayColumn(QWidget):
         dark = _styles._dark
         border_color = _styles.D_GRAY_BORDER if dark else GRAY_BORDER
         painter = QPainter(self)
+        # The faint Shabbat wash, under the events (they are child widgets
+        # and paint after this).
+        if self._holy_windows:
+            holy_times.paint_tint(painter, self.date, self._holy_windows,
+                                  self.hour_height, self.width(), dark)
         painter.setPen(QPen(QColor(border_color)))
         # Hour lines
         for h in range(25):
@@ -591,6 +616,7 @@ class WeekView(QWidget):
         self._ui_config = None
         self._hebrew_config = None
         self._hour_height = HOUR_HEIGHT
+        self._holy_sig = ""
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -700,6 +726,22 @@ class WeekView(QWidget):
         for col in self._day_columns:
             if col._overlay:
                 col._overlay.update()
+        # The phone may have reported a new position to the API (it writes
+        # location.json); when that moves the minutes, redraw the lines.
+        if self._holy_sig != holy_times.signature():
+            self._refresh_holy()
+
+    def _refresh_holy(self) -> None:
+        """Recompute and hand each column the Shabbat / yom tov windows it overlaps."""
+        self._holy_sig = holy_times.signature()
+        windows = []
+        if holy_times.enabled(self._hebrew_config):
+            israel = getattr(self._hebrew_config, "israel_holidays", True) \
+                if self._hebrew_config else True
+            windows = holy_times.windows_for(
+                self._week_start, self._week_start + datetime.timedelta(days=6), israel)
+        for col in self._day_columns:
+            col.set_holy_windows(windows)
 
     def apply_theme(self, dark: bool) -> None:
         """Switch between light and dark theme and rebuild."""
@@ -799,6 +841,8 @@ class WeekView(QWidget):
             self._allday_row.setVisible(True)
         else:
             self._allday_row.setVisible(False)
+
+        self._refresh_holy()
 
     def _rebuild_columns(self) -> None:
         # Clear header

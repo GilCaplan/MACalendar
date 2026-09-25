@@ -321,6 +321,16 @@ def open_settings(self) -> None:
     hebrew_israel_cb = QCheckBox("Israel holiday schedule (uncheck for Diaspora)")
     hebrew_israel_cb.setChecked(self._config.hebrew_calendar.israel_holidays)
     hebrew.addWidget(hebrew_israel_cb)
+    shabbat_lines_cb = QCheckBox("Mark when Shabbat && yom tov begin and end")
+    shabbat_lines_cb.setObjectName("shabbat_lines_cb")
+    shabbat_lines_cb.setToolTip(
+        "Yellow lines on the Day and Week views at the exact minute of candle\n"
+        "lighting and of nightfall, computed for the phone's location when it\n"
+        "reports one (iPhone → Settings → Sundown follows this device), else\n"
+        "for the place in config.yaml's observance section.")
+    shabbat_lines_cb.setChecked(bool(getattr(self._config.hebrew_calendar,
+                                             "show_shabbat_times", True)))
+    hebrew.addWidget(shabbat_lines_cb)
     observance_cb = QCheckBox("Skip Shabbat && yom tov in series (observance)")
     observance_cb.setObjectName("observance_enabled_cb")
     observance_cb.setToolTip(
@@ -707,6 +717,7 @@ def open_settings(self) -> None:
         self._config.hebrew_calendar.display_mode = hebrew_mode_combo.currentData()
         self._config.hebrew_calendar.show_holidays = hebrew_holidays_cb.isChecked()
         self._config.hebrew_calendar.israel_holidays = hebrew_israel_cb.isChecked()
+        self._config.hebrew_calendar.show_shabbat_times = shabbat_lines_cb.isChecked()
         # Persist — one section-scoped, comment-preserving write
         # (assistant/config_store). Each setting names its section, so a
         # `rate:` under tts can never clobber a rate elsewhere, and keys
@@ -744,7 +755,8 @@ def open_settings(self) -> None:
                 "engine": {"confirm_transcript": confirm_cb.isChecked()},
                 "hebrew_calendar": {"display_mode": hebrew_mode_combo.currentData(),
                                     "show_holidays": hebrew_holidays_cb.isChecked(),
-                                    "israel_holidays": hebrew_israel_cb.isChecked()},
+                                    "israel_holidays": hebrew_israel_cb.isChecked(),
+                                    "show_shabbat_times": shabbat_lines_cb.isChecked()},
                 # Read by observance.is_enabled() in the API process, which
                 # loads config.yaml itself — nothing to apply in-memory here.
                 "observance": {"enabled": observance_cb.isChecked()},

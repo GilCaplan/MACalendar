@@ -613,6 +613,28 @@ class APIClient: ObservableObject {
         }
     }
 
+    // MARK: - Shabbat / yom tov windows
+
+    /// When Shabbat and yom tov begin and end over [start, end], to the second
+    /// — computed on the Mac (`GET /observance/windows`) with the same
+    /// candle-lighting and nightfall the calendar skips series by, for the
+    /// phone's reported position when "Sundown follows this device" is on.
+    ///
+    /// Cached like the holidays, so the lines survive the Mac being away. Any
+    /// failure falls back to the cache — and an empty cache draws NO line,
+    /// which is the rule: never a guessed minute.
+    func holyWindows(start: Date, end: Date, israel: Bool = true) async -> [HolyWindow] {
+        let s = ISO8601DateFormatter.yyyyMMdd.string(from: start)
+        let e = ISO8601DateFormatter.yyyyMMdd.string(from: end)
+        if let data = try? await request(
+                "/observance/windows?start=\(s)&end=\(e)&israel=\(israel ? 1 : 0)"),
+           let payload = try? decode(HolyWindowsPayload.self, from: data) {
+            LocalStore.shared.cacheHolyWindows(payload)
+            return payload.windows
+        }
+        return LocalStore.shared.holyWindowsBetween(s, e)
+    }
+
     // MARK: - Bootstrap (one round trip for a cold start)
 
     /// Everything a cold start needs, in one request — see
@@ -640,6 +662,7 @@ class APIClient: ObservableObject {
         store.cacheTodos(snap.todos)
         store.cacheTags(snap.tags)
         store.cacheHolidays(snap.holidays, from: snap.window.start, to: snap.window.end)
+        if let holy = snap.holyWindows { store.cacheHolyWindows(holy) }
         if let rules = snap.tagRules { TagClassifier.shared.update(rules) }
         requestRefresh()
         return snap.token
@@ -2140,6 +2163,7 @@ struct SharedSettings: Decodable, Equatable {
     var hebrewDisplayMode: String
     var showHolidays: Bool
     var israelHolidays: Bool
+    var showShabbatTimes: Bool
     var hideCompletedTasks: Bool
     var speakReplies: Bool
 
@@ -2154,6 +2178,7 @@ struct SharedSettings: Decodable, Equatable {
         hebrewDisplayMode = (try? heb?.decodeIfPresent(String.self, forKey: .displayMode)) as? String ?? "both"
         showHolidays = ((try? heb?.decodeIfPresent(Bool.self, forKey: .showHolidays)) as? Bool) ?? true
         israelHolidays = ((try? heb?.decodeIfPresent(Bool.self, forKey: .israelHolidays)) as? Bool) ?? true
+        showShabbatTimes = ((try? heb?.decodeIfPresent(Bool.self, forKey: .showShabbatTimes)) as? Bool) ?? true
 
         let todo = try? c.nestedContainer(keyedBy: TodoKeys.self, forKey: .todo)
         // The Mac stores SHOW-completed; the phone has always asked HIDE.
@@ -2175,6 +2200,7 @@ struct SharedSettings: Decodable, Equatable {
         case displayMode = "display_mode"
         case showHolidays = "show_holidays"
         case israelHolidays = "israel_holidays"
+        case showShabbatTimes = "show_shabbat_times"
     }
     enum TodoKeys: String, CodingKey { case showCompleted = "show_completed" }
     enum TTSKeys: String, CodingKey { case mute }
