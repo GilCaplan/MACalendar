@@ -121,6 +121,12 @@ def score(rows: list, built: dict, correct: dict) -> dict:
                     c["date_ok"] += (o.get("date") or o.get("due_date")) == want_d
                 if act == "create_event":
                     tp = slots.get("time_phrase") or ""
+                    # a spoken RANGE, start AND end ('from 6 to 8'); the
+                    # explicit line below never scored a bare one
+                    rg = G.ruled_range(tp, r["text"]) if tp else None
+                    if rg and rg[0] != G.CONTRADICTORY:
+                        c["range_n"] += 1
+                        c["range_ok"] += (o.get("start_time"), o.get("end_time")) == rg
                     if tp and G._EXPLICIT_TIME_RE.search(tp):
                         want_t = G._ruled_hhmm(tp, r["text"])
                         if want_t and want_t != G.CONTRADICTORY:
@@ -188,6 +194,7 @@ def report(m: dict) -> None:
     print(f"              title contained        {_pc(c['title_contained'], c['title_n'])}")
     print(f"              date right             {_pc(c['date_ok'], c['date_n'])}")
     print(f"              start time right       {_pc(c['time_ok'], c['time_n'])}")
+    print(f"              range right, start+end {_pc(c['range_ok'], c['range_n'])}")
     print(f"              series cadence right   {_pc(c['rec_ok'], c['rec_n'])}")
     print(f"              reminder right         {_pc(c['lead_ok'], c['lead_n'])}")
     print(f"              invented a time        {_pc(c['invent'], c['invent_n'])}")

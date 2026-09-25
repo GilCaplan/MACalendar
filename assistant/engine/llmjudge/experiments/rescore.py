@@ -35,7 +35,7 @@ from assistant.engine.llmjudge.experiments import board_metrics as BM
 
 #: the counters a legacy checkpoint cannot fill — zeroed so they print "—".
 #: The title lines stay: the (action, title) pairs are exactly what they need.
-_FIELDS = ("date_n", "date_ok", "time_n", "time_ok", "rec_n", "rec_ok", "lead_n", "lead_ok",
+_FIELDS = ("date_n", "date_ok", "time_n", "time_ok", "range_n", "range_ok", "rec_n", "rec_ok", "lead_n", "lead_ok",
            "invent_n", "invent", "model_rows")
 
 
