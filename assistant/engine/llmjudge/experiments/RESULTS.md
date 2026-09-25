@@ -1974,3 +1974,37 @@ lead-time form matching decompose's joined "words + time" string). The loop
 still fixes nothing on this board and breaks one row ("move this to a week from
 today, i don't remember the name" becomes an edit of a junk title) — filed in
 TASKS.md.
+
+## H1 — rescue self-consistency (2026-09-25, 11:18) — REFUTED BY FIRE RATE
+
+**Registered:** where FastRule deferred an item as more than one thing (a
+STRUCTURE deferral, or a first model parse with two or more intents), read it
+a second time at its own temperature (0.7) and seed. If the two readings agree
+on how many objects of which kind, the first stands; if not, one A/B call
+chooses. The prediction: deep-path count-correct rises on compounds and p95
+rises there only.
+
+**Instrument:** Board D v2 `--arm rescue_sc`, 1,200 TRAIN rows, seeded (17),
+fresh, with the judge loop ON in both arms, so the net is H1's alone. Record:
+`runs/board_d_rescue_sc_train_1200_20260925T1118.json`.
+
+| | OFF (rescue as shipped) | ON (H1) |
+|---|---|---|
+| correct | 1147/1200 (95.6%) | 1147/1200 (95.6%) |
+| fired | — | **0 rows** |
+| fixed / broke | | 0 / 0 |
+| p50 / p95 | 0.0 s / 6.9 s | 0.0 s / 6.9 s |
+
+**What it means.** Segmentation cuts a compound before the rescue sees it, so
+the rescue reads one item at a time, and nothing it reads is still a compound.
+The hypothesis was written against a chain where the rescue parsed whole
+commands; that chain is gone.
+
+The code is kept at `2600059c` and reverted in the commit after, so no switch
+nobody sets lives in the engine. The test half was not run: a hypothesis that
+never fires on train has nothing to confirm.
+
+The whole chain reads 95.6% on this train sample, against 94.8% (loop on) on
+the 09-25 03:35 record. That is today's cycles (the Q50 kind rule and the
+front door's time fixes), not H1.
+

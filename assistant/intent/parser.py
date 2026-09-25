@@ -87,26 +87,6 @@ def _refuse_if_disabled() -> None:
             "LLM calls are disabled (MACALENDAR_LLM_DISABLED)")
 
 
-#: A per-call SAMPLING override, merged after the seed so it wins. Empty for
-#: every call but the rescue's second sample (H1, llmjudge PLAN §7.5): a seeded
-#: board runs at temperature 0, where a second sample would only repeat the
-#: first, so self-consistency needs its own temperature and seed.
-import contextlib as _contextlib
-import contextvars as _contextvars
-
-_SAMPLING: "_contextvars.ContextVar[dict]" = _contextvars.ContextVar("parser_sampling", default={})
-
-
-@_contextlib.contextmanager
-def sampling(**options):
-    """`with sampling(temperature=0.7, seed=18): parser.parse(...)`."""
-    token = _SAMPLING.set(dict(options))
-    try:
-        yield
-    finally:
-        _SAMPLING.reset(token)
-
-
 def _seed_options() -> dict:
     """A board's calls are seeded, the assistant's are not — `model_protocol.
     seed_options()`, merged last into every ollama door's options here."""
@@ -671,7 +651,7 @@ class IntentParser:
             "format": schema,
             "keep_alive": conf.keep_alive,
             "options": {"temperature": conf.temperature, "num_ctx": conf.num_ctx,
-                        **_seed_options(), **_SAMPLING.get()},
+                        **_seed_options()},
         }
         # Every call is logged to the LLM console's stream — recorded at the
         # TRANSPORT, not at the call sites, because there are a dozen callers
