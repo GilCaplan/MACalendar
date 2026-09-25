@@ -132,7 +132,10 @@ def relate(text: str, items: list, envelope_of: "dict | None" = None) -> None:
             else:
                 words = (text or "")[prev_end:at].strip() if at >= prev_end else ""
                 from assistant.intent.sequence import is_sequence_words
-                kind = ("sequence" if is_sequence_words(words)
+                # a verb-led seam ends in its seam word: "…and after", "…when finished"
+                verb_led = re.search(r"\b(?:after|when\s+(?:finished|done)|once\s+finished)\s*$",
+                                     words, re.I)
+                kind = ("sequence" if (verb_led or is_sequence_words(words))
                         else "sentence" if _SENTENCE_MARK.search(words)
                         else "list" if _LIST_WORDS.search(words)
                         else "adjacent" if not words else "unknown")

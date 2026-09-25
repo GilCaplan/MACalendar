@@ -380,7 +380,23 @@ def cut(text: str, max_rounds: int = 3) -> "list[str]":
         if len(nxt) == len(pieces):
             break                                   # fixed point reached
         pieces = nxt
-    return [p for p in pieces if p.strip()]
+    # LAST, a list seam before an action verb (", and buy groceries", "plus
+    # catch up with Casey"), on what the clause tier left whole. Taken first,
+    # it cut "schedule X, add Y to my list, and book Z" at ", and book" and
+    # the clause tier then no longer split "schedule X, add Y" (5 train rows
+    # of the segmentation corpus, 2026-09-25).
+    out: "list[str]" = []
+    for piece in pieces:
+        start = 0
+        for m, kind in _verb_led_seams(piece):
+            if kind != "list" or m.start() < start:
+                continue
+            left = piece[start:m.start()].strip(" ,")
+            if left:
+                out.append(left)
+                start = m.end()
+        out.append(piece[start:].strip(" ,"))
+    return [p for p in out if p.strip()]
 
 
 #: An ask seam the SPEAKER put there: a sentence boundary followed by a
@@ -409,6 +425,7 @@ _HARD_SEAM = re.compile(
 from assistant.intent.sequence import SEQUENCE_SEAM as _SEQUENCE_SEAM  # noqa: E402
 from assistant.intent.sequence import starts_a_remark as _starts_a_remark  # noqa: E402
 from assistant.intent.sequence import trailing_marker as _trailing_marker  # noqa: E402
+from assistant.intent.sequence import verb_led_seams as _verb_led_seams  # noqa: E402
 
 #: A comma that a POSTPOSED sequence marker makes into a seam: the part after
 #: it ends "…after that" / "…afterwards" / "…right after the play".
@@ -431,7 +448,8 @@ def _hard_seams(text: str) -> "list[str]":
             postposed.append(m)
     seams = sorted([(m, False) for m in _HARD_SEAM.finditer(text)]
                    + [(m, True) for m in _SEQUENCE_SEAM.finditer(text)]
-                   + [(m, True) for m in postposed],
+                   + [(m, True) for m in postposed]
+                   + [(m, True) for m, kind in _verb_led_seams(text) if kind == "sequence"],
                    key=lambda x: (x[0].start(), -x[0].end()))
     for m, sequence in seams:
         if m.start() < start:

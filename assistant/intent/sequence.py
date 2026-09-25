@@ -108,3 +108,41 @@ def trailing_marker(piece: str) -> "re.Match | None":
     if m and _has_content(piece[:m.start()]):
         return m
     return None
+
+
+#: THE VERB TEST for seam words that are also time words: "and after WATER the
+#: plants" is a sequence, "and after lunch" a time; "when finished PACK for the
+#: trip" a sequence, "when finished work" a time. So the word after the seam has
+#: to be an action verb. `list_split.ACTION_VERBS` is the base; the common
+#: imperatives it lacks are added here rather than there, because that list
+#: also drives list splitting. Never a word that is also a meal or a time.
+_EXTRA_VERBS = frozenset("""
+catch do walk meet change study file clean grab get go take check finish start prepare
+write read send fix cook make visit see phone ring text message drop head run swim train
+practice practise shop collect wash tidy vacuum mow feed bake plan pack print sign renew
+return order pay buy water book schedule call email submit update review pick back
+""".split())
+_NOT_VERBS = frozenset("lunch dinner breakfast brunch supper work school class the a an my".split())
+
+
+def _verbs() -> frozenset:
+    from assistant.intent.list_split import ACTION_VERBS
+    return (frozenset(ACTION_VERBS) | _EXTRA_VERBS) - _NOT_VERBS
+
+
+#: Seam words that order the next part ONLY when an action verb follows them.
+_VERB_LED = re.compile(
+    r"(?P<seq>(?:\s*,\s*|\s+)(?:and\s+)?(?:after|when\s+(?:finished|done)|once\s+finished)\s+)"
+    r"|(?P<list>(?:\s*,\s*(?:and|plus)|\s+plus)\s+)(?=[a-z])", re.I)
+
+
+def verb_led_seams(text: str) -> "list[tuple[re.Match, str]]":
+    """(match, "sequence" | "list") for every seam word that an action verb
+    follows. The verb stays in the right-hand part."""
+    verbs = _verbs()
+    out = []
+    for m in _VERB_LED.finditer(text or ""):
+        nxt = re.match(r"\s*([a-z']+)", text[m.end():], re.I)
+        if nxt and nxt.group(1).lower() in verbs and _has_content(text[:m.start()]):
+            out.append((m, "sequence" if m.group("seq") else "list"))
+    return out
