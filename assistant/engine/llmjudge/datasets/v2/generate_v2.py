@@ -54,10 +54,10 @@ import os
 import pathlib
 import random
 import sys
-import tempfile
 import time
 from dataclasses import dataclass, field
 
+from assistant.common.scratch_env import scratch_env as _scratch_env
 from assistant.engine.llmjudge.datasets.v2 import banks, damage, voices
 
 #: THE CLOCK the set was generated at, and the one any board MUST replay it
@@ -622,25 +622,11 @@ def scratch_env() -> None:
     tools/` holds the real calendar, the hand-curated vocabulary and the
     command memory; a generator has no business in any of it, and the paths
     are read at import time so a fixture would be too late."""
-    s = pathlib.Path(tempfile.mkdtemp(prefix="judge_v2_"))
-    for var, name in (("DB", "calendar.db"), ("MEMORY_DB", "mem.db"),
-                      ("VOCAB", "vocab.json"), ("CATEGORIES", "cats.json"),
-                      ("TRACE_BUS", "trace_bus.jsonl"), ("MODELS", "models"),
-                      ("LABEL_FEEDBACK", "feedback.jsonl"), ("DEVICE_SECRET", "secret"),
-                      ("DEVICES", "devices.json"), ("LEXICON", "lexicon.json"),
-                      ("CHECKPOINTS", "checkpoints"), ("UI_STATE", "ui.ini"),
-                      ("LOCATION", "location.json")):
-        os.environ[f"MACALENDAR_{var}"] = str(s / name)
-    os.environ["MACALENDAR_NO_WARMUP"] = "1"
-    os.environ["MACALENDAR_LLM_DISABLED"] = "1"
-    os.environ["MACALENDAR_OBSERVANCE"] = "0"
-    # Background traffic: it yields ollama to the live assistant even though
-    # this generator makes no model call at all (`priority()` defaults to LIVE,
-    # and a job that forgets is invisible to every other check).
-    os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
-    for t in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
-              "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
-        os.environ.setdefault(t, "1")
+    s = _scratch_env("judge_v2_", observance=False,
+                     keep=("HEARTBEATS", "HUD_STATE"),
+                     extra={"MACALENDAR_LLM_DISABLED": "1"})
+    for var in ("LEXICON", "CHECKPOINTS", "UI_STATE"):
+        os.environ[f"MACALENDAR_{var}"] = os.path.join(s, var.lower())
 
 
 def build_cases(rows: list, seed: int = SEED, progress: bool = False) -> tuple:

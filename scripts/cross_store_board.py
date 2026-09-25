@@ -18,17 +18,14 @@ import collections
 import json
 import os
 import pathlib
-import tempfile
 
-_S = pathlib.Path(tempfile.mkdtemp(prefix="cross_store_"))
-for _v in ("DB", "MEMORY_DB", "VOCAB", "CATEGORIES", "MODELS", "LABEL_FEEDBACK",
-           "TRACE_BUS", "LLM_BUS", "CHECKPOINTS", "LEXICON", "UI_STATE", "LOCATION",
-           "DEVICE_SECRET", "DEVICES"):
+from assistant.common.scratch_env import scratch_env
+
+_S = pathlib.Path(scratch_env(
+    "cross_store_", observance=False, keep=("HEARTBEATS", "HUD_STATE"),
+    extra={"MACALENDAR_LLM_DISABLED": "1"}))
+for _v in ("LLM_BUS", "CHECKPOINTS", "LEXICON", "UI_STATE"):
     os.environ[f"MACALENDAR_{_v}"] = str(_S / _v.lower())
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
-os.environ["MACALENDAR_LLM_DISABLED"] = "1"
-os.environ["MACALENDAR_OBSERVANCE"] = "0"
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]   # scripts/ -> repo root
 DATA = ROOT / "assistant/engine/fastrule/datasets/fastrule_7200.jsonl"

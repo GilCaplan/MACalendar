@@ -42,26 +42,17 @@ import pathlib
 import re
 import sqlite3
 import sys
-import tempfile
 import time
 
+from assistant.common.scratch_env import scratch_env
+
 # --- the scratch block: every store redirected BEFORE `assistant` is imported
-_S = pathlib.Path(os.environ.get("KIND2_SCRATCH", tempfile.mkdtemp(prefix="kind2_")))
-_S.mkdir(parents=True, exist_ok=True)
-for _v, _n in (("DB", "calendar.db"), ("MEMORY_DB", "mem.db"),
-               ("VOCAB", "vocab.json"), ("CATEGORIES", "cats.json"),
-               ("TRACE_BUS", "trace_bus.jsonl"), ("MODELS", "models"),
-               ("LABEL_FEEDBACK", "fb.jsonl"), ("LLM_BUS", "llm_calls.jsonl"),
-               ("CHECKPOINTS", "checkpoints"),
-               ("DEVICE_SECRET", "device_secret"), ("DEVICES", "devices.json")):
-    os.environ[f"MACALENDAR_{_v}"] = str(_S / _n)
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
-os.environ.setdefault("MACALENDAR_LLM_SEED", "17")
-os.environ["MACALENDAR_OBSERVANCE"] = "0"
-for _t in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
-           "BLIS_NUM_THREADS", "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
-    os.environ.setdefault(_t, "1")
+_S = pathlib.Path(scratch_env(
+    "kind2_", seed=17, observance=False,
+    dir=os.environ.get("KIND2_SCRATCH"),
+    keep=("LOCATION", "HEARTBEATS", "HUD_STATE")))
+for _v in ("LLM_BUS", "CHECKPOINTS"):
+    os.environ[f"MACALENDAR_{_v}"] = str(_S / _v.lower())
 
 import numpy as np  # noqa: E402
 

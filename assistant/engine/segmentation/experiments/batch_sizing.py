@@ -36,14 +36,11 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(_HERE)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-_S = "/tmp/seg_batch_sizing"
-os.makedirs(_S, exist_ok=True)
-for k, v in dict(MACALENDAR_DB=f"{_S}/c.db", MACALENDAR_MEMORY_DB=f"{_S}/m.db",
-                 MACALENDAR_VOCAB=f"{_S}/v.json", MACALENDAR_CATEGORIES=f"{_S}/g.json",
-                 MACALENDAR_TRACE_BUS=f"{_S}/t.jsonl",
-                 MACALENDAR_NO_WARMUP="1",
-                 MACALENDAR_LLM_PRIORITY="background").items():
-    os.environ.setdefault(k, v)
+from assistant.common.scratch_env import scratch_env  # noqa: E402
+
+scratch_env("seg_batch_sizing_", keep=("LOCATION", "MODELS", "LABEL_FEEDBACK",
+                                       "HEARTBEATS", "HUD_STATE",
+                                       "DEVICE_SECRET", "DEVICES"))
 
 from assistant.engine.segmentation.llmseg import llmseg                       # noqa: E402
 from assistant.engine.segmentation.fastseg.fastseg import fastseg              # noqa: E402

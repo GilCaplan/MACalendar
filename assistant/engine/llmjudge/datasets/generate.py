@@ -39,11 +39,11 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
-import os
 import pathlib
 import random
 import re
-import tempfile
+
+from assistant.common.scratch_env import scratch_env
 
 #: THE CLOCK the cases were generated at, and the one any board MUST replay
 #: them at. It lives here because it is a property of the DATA, not of a run: a
@@ -194,12 +194,9 @@ def _resolve(rows: list) -> dict:
     recogniser — but it must run at `CLOCK`, because that is when the cases
     claim to have been resolved.
     """
-    for _v, _n in (("DB", "c.db"), ("MEMORY_DB", "m.db"), ("VOCAB", "v.json"),
-                   ("CATEGORIES", "k.json"), ("TRACE_BUS", "t.jsonl")):
-        os.environ.setdefault(f"MACALENDAR_{_v}",
-                              str(pathlib.Path(tempfile.gettempdir()) / f"judgegen_{_n}"))
-    os.environ["MACALENDAR_NO_WARMUP"] = "1"
-    os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
+    scratch_env("judgegen_", keep=("LOCATION", "MODELS", "LABEL_FEEDBACK",
+                                   "HEARTBEATS", "HUD_STATE", "DEVICE_SECRET",
+                                   "DEVICES"))
 
     from freezegun import freeze_time
     from assistant.engine import llm as _llm

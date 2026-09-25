@@ -23,18 +23,13 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-import tempfile
 
-_SCRATCH = tempfile.mkdtemp(prefix="engine_pipeline_check_")
-for _k, _v in dict(
-        MACALENDAR_DB=f"{_SCRATCH}/calendar.db",
-        MACALENDAR_MEMORY_DB=f"{_SCRATCH}/memory.db",
-        MACALENDAR_VOCAB=f"{_SCRATCH}/vocab.json",
-        MACALENDAR_CATEGORIES=f"{_SCRATCH}/categories.json",
-        MACALENDAR_TRACE_BUS=f"{_SCRATCH}/trace_bus.jsonl",
-        MACALENDAR_NO_WARMUP="1",
-                 MACALENDAR_LLM_PRIORITY="background").items():
-    os.environ[_k] = _v
+from assistant.common.scratch_env import scratch_env
+
+_SCRATCH = scratch_env("engine_pipeline_check_",
+                       keep=("LOCATION", "MODELS", "LABEL_FEEDBACK",
+                            "HEARTBEATS", "HUD_STATE", "DEVICE_SECRET",
+                            "DEVICES"))
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT not in sys.path:

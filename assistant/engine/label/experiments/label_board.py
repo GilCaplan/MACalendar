@@ -49,26 +49,15 @@ import json
 import os
 import pathlib
 import random
-import tempfile
 from datetime import date as _date
 
-_S = pathlib.Path(os.environ.get("LABEL_BOARD_SCRATCH",
-                                 tempfile.mkdtemp(prefix="label_board_")))
-_S.mkdir(parents=True, exist_ok=True)
-for _v, _n in (("DB", "calendar.db"), ("MEMORY_DB", "mem.db"),
-               ("VOCAB", "vocab.json"), ("CATEGORIES", "cats.json"),
-               ("TRACE_BUS", "trace_bus.jsonl")):
-    os.environ[f"MACALENDAR_{_v}"] = str(_S / _n)
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-# BACKGROUND traffic: this yields the model to the live assistant between
-# every call (assistant/model_protocol.py). Without it a board and a voice
-# command are indistinguishable to ollama, and a trivial live call measured
-# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
-os.environ["MACALENDAR_OBSERVANCE"] = "0"
-for _t in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
-           "BLIS_NUM_THREADS", "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
-    os.environ.setdefault(_t, "1")
+from assistant.common.scratch_env import scratch_env
+
+_S = pathlib.Path(scratch_env(
+    "label_board_", observance=False,
+    dir=os.environ.get("LABEL_BOARD_SCRATCH"),
+    keep=("LOCATION", "MODELS", "LABEL_FEEDBACK", "HEARTBEATS", "HUD_STATE",
+         "DEVICE_SECRET", "DEVICES")))
 
 # In experiments/, parents[1] is the STAGE folder (the CLAUDE.md ROOT trap).
 STAGE = pathlib.Path(__file__).resolve().parents[1]

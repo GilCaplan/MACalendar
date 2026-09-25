@@ -35,8 +35,9 @@ import pathlib
 import shutil
 import sqlite3
 import sys
-import tempfile
 import time
+
+from assistant.common.scratch_env import scratch_env
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -50,18 +51,10 @@ LOG = EXP_DIR / "build.log"
 TIERS = [60, 300, 1000, 3000]
 
 # --- isolate BEFORE importing the app, same pattern as scripts/audit_assistant.py
-_TMP = tempfile.mkdtemp(prefix="macal_scaling_")
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-# BACKGROUND traffic: this yields the model to the live assistant between
-# every call (assistant/model_protocol.py). Without it a board and a voice
-# command are indistinguishable to ollama, and a trivial live call measured
-# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
-os.environ["MACALENDAR_DB"] = os.path.join(_TMP, "calendar.db")
+_TMP = scratch_env("macal_scaling_",
+                   keep=("MEMORY_DB", "LOCATION", "MODELS", "LABEL_FEEDBACK",
+                        "HEARTBEATS", "HUD_STATE", "DEVICE_SECRET", "DEVICES"))
 os.environ["MACALENDAR_MEMORY_DB"] = str(POOL_DB)   # the pool itself IS the memory db
-os.environ["MACALENDAR_VOCAB"] = os.path.join(_TMP, "vocab.json")          # intentionally empty —
-os.environ["MACALENDAR_CATEGORIES"] = os.path.join(_TMP, "categories.json")  # not this user's vocabulary
-os.environ["MACALENDAR_TRACE_BUS"] = os.path.join(_TMP, "trace_bus.jsonl")
 
 
 def _log(msg: str) -> None:

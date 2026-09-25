@@ -42,19 +42,15 @@ TEST prints aggregates only — no row, no family name.
 from __future__ import annotations
 
 import os
-import tempfile
 
-_S = tempfile.mkdtemp(prefix="chain_board_")
-for _v in ("DB", "MEMORY_DB", "VOCAB", "CATEGORIES", "MODELS", "LABEL_FEEDBACK",
-           "TRACE_BUS", "LLM_BUS", "CHECKPOINTS", "LEXICON", "UI_STATE", "LOCATION",
-           "DEVICE_SECRET", "DEVICES", "HEARTBEATS", "HUD_STATE"):
+from assistant.common.scratch_env import scratch_env
+
+_S = scratch_env("chain_board_", extra={"MACALENDAR_LLM_DISABLED": "1"})
+for _v in ("LLM_BUS", "CHECKPOINTS", "LEXICON", "UI_STATE"):
     os.environ[f"MACALENDAR_{_v}"] = os.path.join(_S, _v.lower())
 # A config file that does not exist: `event_defaults` then reads the built-in
 # 60-minute length and 0-minute gap, which is what the gold is built on.
 os.environ["MACALENDAR_CONFIG"] = os.path.join(_S, "no_config.yaml")
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-os.environ["MACALENDAR_LLM_PRIORITY"] = "background"
-os.environ["MACALENDAR_LLM_DISABLED"] = "1"
 
 import argparse  # noqa: E402
 import collections  # noqa: E402

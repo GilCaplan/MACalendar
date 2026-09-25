@@ -26,13 +26,11 @@ import os
 import pathlib
 import tempfile
 
-_S = pathlib.Path(tempfile.mkdtemp(prefix="embed_latency_"))
-for _v, _n in (("DB", "calendar.db"), ("MEMORY_DB", "mem.db"), ("VOCAB", "vocab.json"),
-               ("CATEGORIES", "cats.json"), ("TRACE_BUS", "trace_bus.jsonl"),
-               ("MODELS", "models"), ("LABEL_FEEDBACK", "fb.jsonl")):
-    os.environ[f"MACALENDAR_{_v}"] = str(_S / _n)
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
+from assistant.common.scratch_env import scratch_env
+
+_S = pathlib.Path(scratch_env(
+    "embed_latency_", keep=("LOCATION", "HEARTBEATS", "HUD_STATE",
+                            "DEVICE_SECRET", "DEVICES")))
 
 import argparse      # noqa: E402
 import json          # noqa: E402

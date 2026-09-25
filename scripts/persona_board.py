@@ -47,16 +47,15 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-# Importing this ALSO pins every MACALENDAR_* store at a scratch dir, sets
-# MACALENDAR_NO_WARMUP and pins BLAS to one thread — see its module header.
-# It must happen before anything under assistant/ is imported.
-#
-# Background priority is set HERE too, not left to that import. It would in fact
-# be inherited, but a reader cannot see that from this file, and a rule you have
-# to trace an import chain to verify is one that gets dropped the day someone
-# swaps the import.
-import os as _os
-_os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
+# Declared explicitly HERE rather than left to the `fastrule_shape` import
+# below (which pins its own scratch stores as a side effect of its own module
+# header): a rule you have to trace an import chain to verify is one that gets
+# dropped the day someone swaps the import. Must happen before anything under
+# assistant/ is imported.
+from assistant.common.scratch_env import scratch_env  # noqa: E402
+
+scratch_env("persona_board_", keep=("MODELS", "LABEL_FEEDBACK", "HEARTBEATS",
+                                    "HUD_STATE", "DEVICE_SECRET", "DEVICES"))
 from assistant.engine.fastrule.experiments import fastrule_shape as FS  # noqa: E402
 
 DATA = ROOT / "dataset" / "personas" / "personas.jsonl"

@@ -34,11 +34,15 @@ def test_the_flag_is_read_before_the_app_is_imported(source):
 
     A flag handled by argparse would be parsed long after `assistant` had been
     imported and the store locations fixed, so it would silently do nothing.
+
+    `assistant.common.scratch_env` (2026-09-25) is exempt: it is the scratch-
+    store helper itself, imports nothing from `assistant`, and reads no store
+    path, so importing it early is not "the app" this test is about.
     """
     peek = source.index('"--memory" in sys.argv')
-    first_app_import = min(
-        (source.index(m) for m in ("from assistant", "import assistant")
-         if m in source), default=len(source))
+    positions = [m.start() for m in re.finditer(r"^(?:from|import)\s+assistant\b.*$", source, re.M)
+                 if "scratch_env" not in m.group()]
+    first_app_import = min(positions, default=len(source))
     assert peek < first_app_import, (
         "the memory flag is read after the app is imported, which is too late "
         "for it to change where the history is read from")

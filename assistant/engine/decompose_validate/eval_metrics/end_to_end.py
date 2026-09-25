@@ -27,13 +27,16 @@ the file: an action ending in a dangling joiner, and two clock times inside one
 item (segmentation ARCHITECTURE.md §8.1).
 """
 import os, sys, json, datetime as dt, collections
+from assistant.common.scratch_env import scratch_env
 D = os.environ.get("MACALENDAR_SCRATCH", "/tmp")
-os.environ.update(
-    MACALENDAR_DB=os.path.join(D,"e.db"), MACALENDAR_MEMORY_DB=os.path.join(D,"e_m.db"),
-    MACALENDAR_VOCAB=os.path.join(D,"e_v.json"), MACALENDAR_CATEGORIES=os.path.join(D,"e_c.json"),
-    MACALENDAR_TRACE_BUS=os.path.join(D,"e_bus.jsonl"),
-    MACALENDAR_NO_WARMUP="1",
-                 MACALENDAR_LLM_PRIORITY="background", OMP_NUM_THREADS="1")
+scratch_env("end_to_end_", dir=D,
+           keep=("LOCATION", "MODELS", "LABEL_FEEDBACK", "HEARTBEATS",
+                "HUD_STATE", "DEVICE_SECRET", "DEVICES"),
+           extra={"MACALENDAR_DB": os.path.join(D, "e.db"),
+                  "MACALENDAR_MEMORY_DB": os.path.join(D, "e_m.db"),
+                  "MACALENDAR_VOCAB": os.path.join(D, "e_v.json"),
+                  "MACALENDAR_CATEGORIES": os.path.join(D, "e_c.json"),
+                  "MACALENDAR_TRACE_BUS": os.path.join(D, "e_bus.jsonl")})
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))))))
 sys.path.insert(0, ROOT)

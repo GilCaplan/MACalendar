@@ -79,23 +79,13 @@ import os
 import pathlib
 import re
 import sys
-import tempfile
+
+from assistant.common.scratch_env import scratch_env
 
 # --- scratch stores BEFORE importing anything from assistant ---------------
-_T = tempfile.mkdtemp(prefix="atomizer_board_")
-for _v, _n in (("DB", "c"), ("MEMORY_DB", "m"), ("VOCAB", "v"),
-               ("CATEGORIES", "cat"), ("TRACE_BUS", "t"), ("LOCATION", "l")):
-    os.environ[f"MACALENDAR_{_v}"] = os.path.join(_T, _n)
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-# BACKGROUND traffic: this yields the model to the live assistant between
-# every call (assistant/model_protocol.py). Without it a board and a voice
-# command are indistinguishable to ollama, and a trivial live call measured
-# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
-# one BLAS thread — this board is expected to run beside a measurement job
-for _b in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
-           "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS"):
-    os.environ.setdefault(_b, "1")
+_T = scratch_env("atomizer_board_", keep=("MODELS", "LABEL_FEEDBACK",
+                                          "HEARTBEATS", "HUD_STATE",
+                                          "DEVICE_SECRET", "DEVICES"))
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))

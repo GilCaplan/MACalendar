@@ -35,23 +35,16 @@ import json
 import os
 import pathlib
 import sys
-import tempfile
+
+from assistant.common.scratch_env import scratch_env
 
 # Stores redirected before anything from `assistant` is imported: the paths are
 # read at import time, and `~/.assistant_tools/` is the real calendar and the
 # hand-curated vocabulary.
-_S = pathlib.Path(tempfile.mkdtemp(prefix="judge_v2_verify_"))
-for _v, _n in (("DB", "calendar.db"), ("MEMORY_DB", "mem.db"),
-               ("VOCAB", "vocab.json"), ("CATEGORIES", "cats.json"),
-               ("TRACE_BUS", "trace_bus.jsonl"), ("MODELS", "models"),
-               ("LABEL_FEEDBACK", "feedback.jsonl"),
-               ("DEVICE_SECRET", "secret"), ("DEVICES", "devices.json"),
-               ("LEXICON", "lexicon.json"), ("CHECKPOINTS", "checkpoints"),
-               ("UI_STATE", "ui.ini"), ("LOCATION", "location.json")):
-    os.environ[f"MACALENDAR_{_v}"] = str(_S / _n)
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-os.environ["MACALENDAR_LLM_DISABLED"] = "1"
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
+_T = scratch_env("judge_v2_verify_", keep=("HEARTBEATS", "HUD_STATE"),
+                 extra={"MACALENDAR_LLM_DISABLED": "1"})
+for _v in ("LEXICON", "CHECKPOINTS", "UI_STATE"):
+    os.environ[f"MACALENDAR_{_v}"] = os.path.join(_T, _v.lower())
 
 HERE = pathlib.Path(__file__).resolve().parent
 COMMANDS = HERE / "commands_v2.jsonl"
