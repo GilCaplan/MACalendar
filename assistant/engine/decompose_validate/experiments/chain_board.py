@@ -146,7 +146,14 @@ def score_row(row, pred):
                     for f in FIELDS}
             if g["linked_todo"] is None:
                 hits["linked_todo"] = None     # Q50's companion: the executor's, not scored here
-            built = {f: b[f] == g[f] for f in ("start_time", "end_time")}
+            # SCORED AS BUILT (2026-09-25): the text pass leaves a clocked item's
+            # end empty and the object layer fills it, so scoring the text pass
+            # charged every clocked item a wrong end — the headline read 44.8%
+            # "all five" on train while the chained slice read 82.4%. What is
+            # committed is what is scored; the text pass stays a diagnostic.
+            built = {f: p[f] == g[f] for f in ("start_time", "end_time")}
+            for f in ("start_time", "end_time"):
+                hits[f] = b[f] == g[f]
             items.append({"gi": gi, "matched": True, "hits": hits, "built": built, "pred": p})
         else:
             items.append({"gi": gi, "matched": False,
@@ -193,7 +200,7 @@ def board(rows, show, test):
             sc = [it["hits"][f] for _, it in its if it["hits"][f] is not None]
             print(f"  {f:18s}  {_pc(sum(sc), len(sc))}")
         print(f"  ALL FIVE right      {_pc(sum(_all(it['hits']) for _, it in its), n)}")
-        print(f"  as built: start     {_pc(sum(it['built']['start_time'] for _, it in its), n)}"
+        print(f"  text pass: start    {_pc(sum(it['built']['start_time'] for _, it in its), n)}"
               f" · end {_pc(sum(it['built']['end_time'] for _, it in its), n)}")
         if role_filter is None:
             R = [res[r["id"]][0] for r in rs]

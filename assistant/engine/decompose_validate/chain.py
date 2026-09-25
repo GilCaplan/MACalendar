@@ -13,7 +13,9 @@ reads that relation and fills what the speaker left out:
   * the previous item's end is its stated end, else its start plus its stated
     duration ("for 2 hours"), else plus the default length
   * the item lasts its own stated duration, else the default length
-  * a part that names no DAY of its own takes the previous part's day
+  * a part that names no DAY of its own takes the previous part's day; a part
+    that names a DIFFERENT day starts fresh ("…, then on friday lunch" is not
+    after the gym in time), and what follows chains from it
   * a TO-DO in a sequence is chained too, as an event AND a linked to-do
     ("walk the dog at 5, then do the laundry" — Gil: *"laundry would be like
     a linked one, a to-do and a[n event] at 6 p.m."*)
@@ -116,6 +118,9 @@ def chain(items: list, dicts: list) -> list:
             continue                                  # its own clock wins
         j = anchored[0] if anchored else i - 1
         prev, p = items[j], dicts[j]
+        own_day = _names_a_day(item.source or item.text)
+        if own_day and d.get("date") and p.get("date") and d["date"] != p["date"]:
+            continue                                  # a new day starts fresh
         begin = _start_of(p, prev)
         if begin is None:
             continue

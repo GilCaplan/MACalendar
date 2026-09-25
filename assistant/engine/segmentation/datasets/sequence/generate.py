@@ -63,11 +63,11 @@ against the FIXED ANCHOR below:
   Q50's and filed by the executor, so its `linked_todo` gold is `null` — not
   scored by this stage's board. A person encounter ("coffee with Dana",
   "call Dana") is an event, not linked (Q47).
-* A NEW DAY partway through with no clock ("…, then on friday lunch") is read
-  LITERALLY: no clock of its own, so it starts when the part before it ends —
-  on its own day. The parts after it inherit that day. (The literal rule, not
-  a ruling on this shape; a meal's own hour would be the other reading. Its
-  family is `s3_newday_untimed`, so it can be re-read in one place.)
+* A NEW DAY partway through with no clock ("…, then on friday lunch") BREAKS
+  the chain: a part on another day does not follow the one before it in time,
+  so it resolves the usual way (a meal's own hour, else 09:00) on its own day,
+  and the parts after it chain from it and inherit its day (decided
+  2026-09-25 by the implementing session; family `s3_newday_untimed`).
 * Chains stay inside one day and end before midnight (an event ending at
   24:00 is rejected, since the object layer caps it at 23:59), except the one
   family marked `rollover`, where the chained item rolls to the next date.
@@ -659,10 +659,12 @@ def build_family_row(fam, pools, rng):
         c = s["c"]
         has_clock = s.get("clock") is not None
         own_day = s.get("day_iso")
-        # Q51 read literally: a sequence part with no CLOCK of its own is chained,
-        # whether or not it names a day ("…, then on friday lunch" starts when
-        # the part before it ends, on friday)
-        chained = rel_kind == "sequence" and not has_clock
+        # Q51: a sequence part with no CLOCK of its own is chained — unless it
+        # names a DIFFERENT DAY ("…, then on friday lunch"): a part on another
+        # day does not follow the one before it in time, so it starts fresh
+        # (a meal's hour, else 09:00) and the parts after it chain from there.
+        new_day = bool(own_day) and to is not None and own_day != res[to]["date"]
+        chained = rel_kind == "sequence" and not has_clock and not new_day
         if chained and res[to]["kind"] != "event":
             if not ambiguous:
                 return None                      # nothing timed to chain from
