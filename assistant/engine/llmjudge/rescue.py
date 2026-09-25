@@ -131,13 +131,105 @@ def _ask_the_model(item: Item, state: EngineState, cfg, verdict) -> "list | None
 
     parser = _llm.get_parser(cfg)
     partial = getattr(verdict, "partial", None)
-    got = (parser.parse_with_context(item.spoken(), partial)
-           if partial is not None else parser.parse(item.spoken()))
+
+    def read():
+        return (parser.parse_with_context(item.spoken(), partial)
+                if partial is not None else parser.parse(item.spoken()))
+
+    got = read()
     _llm_trace(state, parser, cfg, f"Read {friendly(item.id)}")
+    if _self_consistency_on() and _is_compound(verdict, got):
+        got = _second_opinion(got, read, item, state, cfg, parser)
     got = _guard_inventions(got, item, state)
     if verdict is not None and verdict.reason_class == REFUSAL:
         got = _honour_refusal(got, verdict, item, state)
     return got
+
+
+# ---------------------------------------------------------------------------
+# H1 — rescue self-consistency (llmjudge PLAN §7.5), OFF unless switched on
+# ---------------------------------------------------------------------------
+#
+# Where FastRule declined an item as MORE THAN ONE THING, sample the rescue a
+# second time at a different temperature and seed. When the two readings agree
+# on how many objects of which kind, the first stands; when they disagree, one
+# comparative call asks which of the two is what was said. A coarse two-way
+# CHOICE between readings the model itself produced — the one shape the record
+# says this model can win (§7.5) — never "is this correct".
+#
+# A registered test, not a decision: `MACALENDAR_RESCUE_SC=1` switches it on
+# for Board D's `--arm rescue_sc`; nothing sets it for live traffic.
+
+_SC_TEMPERATURE = 0.7
+
+
+def _self_consistency_on() -> bool:
+    import os
+    return os.environ.get("MACALENDAR_RESCUE_SC", "").strip() == "1"
+
+
+def _is_compound(verdict, got) -> bool:
+    from assistant.engine.fastrule.fastrule import STRUCTURE
+    named = [n for n, _ in (got or []) if n != "unknown"]
+    return getattr(verdict, "reason_class", None) == STRUCTURE or len(named) >= 2
+
+
+def _shape(got) -> tuple:
+    """What two readings must agree on: how many objects, of which kind."""
+    return tuple(sorted(n for n, _ in (got or []) if n != "unknown"))
+
+
+def _render(got) -> str:
+    lines = []
+    for name, intent in got or []:
+        if name == "unknown":
+            continue
+        try:
+            fields = {k: v for k, v in intent.model_dump().items()
+                      if v not in (None, "", [], {}) and k in (
+                          "title", "titles", "date", "start_time", "end_time",
+                          "due_date", "match_title", "recurrence")}
+        except Exception:
+            fields = {}
+        lines.append(f"- {name} " + ", ".join(f"{k}={v}" for k, v in fields.items()))
+    return "\n".join(lines) or "- nothing"
+
+
+_CHOOSE_SYSTEM = (
+    "You compare two readings of one spoken calendar command. Each reading is a "
+    "list of calendar or to-do actions. Choose the reading whose actions are what "
+    "the speaker asked for — the right NUMBER of things, each the right kind. "
+    "Answer A or B only.")
+_CHOOSE_SCHEMA = {"type": "object", "properties": {"choice": {"type": "string", "enum": ["A", "B"]}},
+                  "required": ["choice"]}
+
+
+def _second_opinion(first, read, item: Item, state: EngineState, cfg, parser):
+    from assistant import model_protocol
+    from assistant.engine import llm as _llm
+    from assistant.intent.parser import sampling
+    seed = int((model_protocol.seed_options() or {}).get("seed", 0)) + 1
+    try:
+        with sampling(temperature=_SC_TEMPERATURE, seed=seed):
+            second = read()
+        _llm_trace(state, parser, cfg, f"Read {friendly(item.id)} again (H1)")
+    except Exception:
+        return first
+    state.add_fix("llmjudge", "rescue_sc", _render(first), _render(second),
+                  note="agree" if _shape(first) == _shape(second) else "disagree")
+    if _shape(first) == _shape(second):
+        return first
+    user = (f"The command: {item.spoken()}\n\nReading A:\n{_render(first)}"
+            f"\n\nReading B:\n{_render(second)}")
+    try:
+        out, ms = _llm.call_json(cfg, _CHOOSE_SYSTEM, user, _CHOOSE_SCHEMA)
+        state.llm_ms += ms
+    except Exception:
+        return first
+    pick = second if (out or {}).get("choice") == "B" else first
+    state.add_fix("llmjudge", "rescue_sc_choice", "A", (out or {}).get("choice") or "A",
+                  note="chose the second reading" if pick is second else "kept the first")
+    return pick
 
 
 def take_deferrals(state: EngineState, cfg) -> None:

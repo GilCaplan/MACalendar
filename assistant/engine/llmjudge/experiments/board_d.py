@@ -163,11 +163,18 @@ def main() -> int:
     ap.add_argument("--fresh", action="store_true", help="(the default now; kept for old notes)")
     ap.add_argument("--split", choices=("train", "test"), default="train",
                     help="test prints AGGREGATES ONLY and never a row (the sealed rule)")
+    # WHICH switch the two arms differ by. `loop` is the board's original
+    # question (the judge's re-entry, off vs on). `rescue_sc` is H1 of the
+    # PLAN §7.5 program — rescue self-consistency — with the loop ON in both
+    # arms, as it is in production, so the net is H1's alone.
+    ap.add_argument("--arm", choices=("loop", "rescue_sc"), default="loop")
     a = ap.parse_args()
+    if a.arm != "loop" and a.checkpoint == "board_d":
+        a.checkpoint = f"board_d_{a.arm}"
     if a.split == "test":
         a.show = 0
-        if a.checkpoint == "board_d":
-            a.checkpoint = "board_d_test"
+        if a.checkpoint.startswith("board_d") and not a.checkpoint.endswith("_test"):
+            a.checkpoint = f"{a.checkpoint}_test"
 
     from freezegun import freeze_time
     import assistant.engine as engine
@@ -198,12 +205,20 @@ def main() -> int:
     import assistant.engine.llmjudge.llmjudge as _lj
 
     def _set_arm(on: bool) -> None:
+        if a.arm == "rescue_sc":
+            os.environ["MACALENDAR_RESCUE_SC"] = "1" if on else "0"
+            on = True                       # the loop stays on in both arms
         fn = real_rewrite if on else (lambda state, cfg: None)
         _rw.rewrite_for_retry = fn
         _lj.rewrite_for_retry = fn
         engine._crosscheck.rewrite_for_retry = fn
 
     import time as _time
+
+    last: dict = {}
+    #: H1's footprint on the ON arm: rows it fired on, rows whose two samples
+    #: disagreed, rows where the comparative call took the second reading.
+    h1 = collections.Counter()
 
     def _run_one(row) -> "tuple":
         """(outcome, re-entries, milliseconds) — the extra two are what v2
@@ -215,6 +230,7 @@ def main() -> int:
             eng.judge(st, cfg)
         except Exception:
             return None, 0, int((_time.time() - t0) * 1000)
+        last["st"] = st
         reentries = sum((getattr(st, "retries", None) or {}).values())
         # H6 (PLAN §7.5): did the MODEL round of the rewrite fire on this row?
         # The attempt ledger lives in the state's fixes, rule `rewrite_model`.
@@ -251,11 +267,17 @@ def main() -> int:
                 results["on"][rid] = _as_outcome(cached.get("on"))
                 extra[rid] = (cached.get("reentries", 0), cached.get("ms_off", 0),
                               cached.get("ms_on", 0), bool(cached.get("model_round")))
+                h1.update(k for k, v in (cached.get("h1") or {}).items() if v)
                 continue
             _set_arm(False)
             off, _, ms_off = _run_one(r)
             _set_arm(True)
             on, packed, ms_on = _run_one(r)
+            fx = [f for f in (getattr(last.get("st"), "fixes", None) or [])]
+            h1_row = {"fired": any(f.rule == "rescue_sc" for f in fx),
+                      "disagreed": any(f.rule == "rescue_sc" and f.note == "disagree" for f in fx),
+                      "took_second": any(f.rule == "rescue_sc_choice" and f.after == "B" for f in fx)}
+            h1.update(k for k, v in h1_row.items() if v)
             reentries, model_round = packed % 1000, packed >= 1000
             results["off"][rid] = off
             results["on"][rid] = on
@@ -263,7 +285,8 @@ def main() -> int:
             # On disk BEFORE the next row starts: a kill costs this row only.
             ck.record(rid, {"off": _as_json(off), "on": _as_json(on),
                             "reentries": reentries, "model_round": model_round,
-                            "ms_off": ms_off, "ms_on": ms_on, "text": r["text"][:120]})
+                            "ms_off": ms_off, "ms_on": ms_on, "text": r["text"][:120],
+                            "h1": h1_row})
     ck.finish()
 
     _rw.rewrite_for_retry = real_rewrite
@@ -320,7 +343,14 @@ def main() -> int:
     def _p(xs, q):
         xs = sorted(xs)
         return (xs[min(len(xs) - 1, int(len(xs) * q))] / 1000.0) if xs else 0.0
-    print(f"\nBOARD D v2 — the judge's loop, connected. {n} rows, {a.split.upper()} half.\n")
+    what = {"loop": "the judge's loop, connected",
+            "rescue_sc": "H1, rescue self-consistency (OFF = the rescue as shipped, ON = "
+                         "two samples + a choice); the loop on in both"}[a.arm]
+    print(f"\nBOARD D v2 — {what}. {n} rows, {a.split.upper()} half.\n")
+    if a.arm == "rescue_sc":
+        print(f"  H1 fired on {h1['fired']} rows ({_pct(h1['fired'], n)}); the two samples "
+              f"disagreed on {h1['disagreed']}; the choice took the second reading on "
+              f"{h1['took_second']}\n")
     print(f"  correct with the loop OFF   {n_off}/{n} = {100.0*n_off/n:.1f}%")
     print(f"  correct with the loop ON    {n_on}/{n} = {100.0*n_on/n:.1f}%")
     print()
@@ -348,7 +378,8 @@ def main() -> int:
         "split": a.split, "n": n, "off_pct": round(100.0 * n_off / n, 1) if n else None,
         "on_pct": round(100.0 * n_on / n, 1) if n else None,
         "fixed": len(fixed), "broke": len(broken), "changed_same": changed_same,
-        "disagreed": disagreed, "net": len(fixed) - len(broken),
+        "disagreed": disagreed, "net": len(fixed) - len(broken), "arm": a.arm,
+        "h1": dict(h1),
         "latency_s": {"off_p50": _p(lat["off"], .5), "off_p95": _p(lat["off"], .95),
                       "on_p50": _p(lat["on"], .5), "on_p95": _p(lat["on"], .95)},
         "by": {k: {v: {"n": c[0], "off": c[1], "on": c[2], "net": c[3]} for v, c in d.items()}
@@ -356,7 +387,10 @@ def main() -> int:
     }
     out_dir = pathlib.Path(__file__).resolve().parent / "runs"
     out_dir.mkdir(exist_ok=True)
-    out_path = out_dir / f"board_d_{a.split}_{n}_{_time.strftime('%Y%m%dT%H%M')}.json"
+    # An H1 record is NOT named board_d_<split>_…: the explorer's Board D panel
+    # reads the newest of those, and this one answers a different question.
+    prefix = "board_d" if a.arm == "loop" else f"board_d_{a.arm}"
+    out_path = out_dir / f"{prefix}_{a.split}_{n}_{_time.strftime('%Y%m%dT%H%M')}.json"
     out_path.write_text(json.dumps(record, indent=1))
     print(f"  record: {out_path}\n")
 
