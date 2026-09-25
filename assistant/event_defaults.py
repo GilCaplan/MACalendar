@@ -52,22 +52,58 @@ def _read(cat_key: str, cfg_key: str, default: int, category: "str | None") -> i
 _cfg_cache: dict = {}
 
 
-def _config_value(key: str) -> "int | None":
-    """`events.<key>` from config.yaml, re-read only when the file changes."""
+def config_path() -> str:
+    """The config.yaml the rest of the app reads and writes.
+
+    `MACALENDAR_CONFIG` first, else the REPO's config.yaml — resolved against
+    this file, not the working directory. This used to open a bare
+    "config.yaml", which is the right file only when the process happens to
+    run from the repo root: the launcher `cd`s there, but a script, a
+    LaunchAgent or a test run from anywhere else read no config at all and
+    silently fell back to 60 / 0 whatever Settings said. `PATCH /config` and
+    `features/settings.py` both resolve it this way.
+    """
     import os
-    path = os.environ.get("MACALENDAR_CONFIG", "config.yaml")
+    override = os.environ.get("MACALENDAR_CONFIG")
+    if override:
+        return os.path.abspath(os.path.expanduser(override))
+    here = os.path.dirname(os.path.abspath(__file__))           # assistant/
+    return os.path.normpath(os.path.join(here, "..", "config.yaml"))
+
+
+def _config_value(key: str) -> "int | None":
+    """`events.<key>` from config.yaml, re-read only when the file changes.
+
+    Only the `events:` section is parsed (through `EventsConfig`, so the
+    clamping is the same one the app applies), not the whole `AppConfig`: a
+    config that fails validation somewhere unrelated must not take the event
+    length down with it. Cached per (path, mtime), so a test or a caller that
+    points `MACALENDAR_CONFIG` somewhere else is never served another file's
+    answer.
+    """
+    import os
+    path = config_path()
     try:
         mtime = os.path.getmtime(path)
     except OSError:
         return None
-    if _cfg_cache.get("mtime") != mtime:
+    if _cfg_cache.get("key") != (path, mtime):
+        events = None
         try:
-            from assistant.config import load_config
-            _cfg_cache.update(mtime=mtime, cfg=load_config(path))
+            import yaml
+            from assistant.config import EventsConfig
+            with open(path) as f:
+                data = yaml.safe_load(f) or {}
+            section = data.get("events") if isinstance(data, dict) else None
+            if isinstance(section, dict):
+                events = EventsConfig(**section).model_dump()
+                # Only keys the file actually SETS count as a setting; an
+                # absent key falls through to the built-in default.
+                events = {k: v for k, v in events.items() if k in section}
         except Exception:
-            _cfg_cache.update(mtime=mtime, cfg=None)
-    events = getattr(_cfg_cache.get("cfg"), "events", None)
-    value = getattr(events, key, None) if events is not None else None
+            events = None
+        _cfg_cache.update(key=(path, mtime), events=events)
+    value = (_cfg_cache.get("events") or {}).get(key)
     try:
         return None if value is None else max(0, int(value))
     except (TypeError, ValueError):

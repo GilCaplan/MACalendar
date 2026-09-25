@@ -35,6 +35,10 @@ struct EventDetailView: View {
     @State private var errorMessage: String?
     @State private var sharing = false
     @State private var shareFile: ShareFile?
+    /// How long an event lasts when only its start is set — Settings › Events,
+    /// or this event's category's own length (DEVQA Q51). Starts from the
+    /// cached value; a new event's is refined from the Mac once it has a title.
+    @State private var lengthMinutes: Int
     @Environment(\.dismiss) var dismiss
 
     /// ICS-subscribed events are always read-only (no write endpoint behind
@@ -58,6 +62,7 @@ struct EventDetailView: View {
         _attendees = State(initialValue: event.attendees)
         _notes     = State(initialValue: event.description)
         _reminderChoice = State(initialValue: event.reminderMinutes ?? -1)
+        _lengthMinutes = State(initialValue: EventDefaults.length(for: event.category))
     }
 
     // MARK: - Computed helpers
@@ -103,6 +108,9 @@ struct EventDetailView: View {
                 Section(header: Text("Event")) {
                     TextField("Title", text: $title)
                         .onSubmit { if !saving && !title.isEmpty { save() } }
+                        // Restarted on every keystroke, so only the pause
+                        // after typing reaches the Mac.
+                        .task(id: title) { await refineLength(for: title) }
                     if let badge = RepeatHint.badge(for: event) {
                         Label(badge, systemImage: "repeat")
                             .font(.caption)
@@ -277,14 +285,29 @@ struct EventDetailView: View {
 
     // MARK: - Auto end-time
 
-    /// When the user changes the start time, push the end time to exactly 1 hour later.
+    /// When the user changes the start time, push the end to start + the
+    /// default length (DEVQA Q51) — capped at 23:59, as the Mac's engine caps
+    /// it, rather than wrapping to an end before the start.
     private func autoUpdateEndTime(from start: String) {
-        let parts = start.split(separator: ":").compactMap { Int($0) }
-        guard parts.count == 2 else { return }
-        let totalMins = parts[0] * 60 + parts[1] + 60
-        let h = (totalMins / 60) % 24
-        let m = totalMins % 60
-        endTime = String(format: "%02d:%02d", h, m)
+        if let end = EventDefaults.end(from: start, minutes: lengthMinutes) {
+            endTime = end
+        }
+    }
+
+    /// A NEW event's length follows its title's category, which only the Mac
+    /// can classify: ask once typing pauses, and move the end with it only if
+    /// the end is still the default one (a hand-set end is left alone).
+    private func refineLength(for title: String) async {
+        guard isNew else { return }
+        let t = title.trimmingCharacters(in: .whitespaces)
+        guard !t.isEmpty else { return }
+        try? await Task.sleep(nanoseconds: 400_000_000)      // debounce keystrokes
+        guard !Task.isCancelled,
+              let d = try? await api.eventDefaults(title: t),
+              d.lengthMinutes != lengthMinutes else { return }
+        let stillDefault = endTime == EventDefaults.end(from: startTime, minutes: lengthMinutes)
+        lengthMinutes = d.lengthMinutes
+        if stillDefault { autoUpdateEndTime(from: startTime) }
     }
 
     // MARK: - Actions

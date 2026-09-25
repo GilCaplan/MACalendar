@@ -1935,19 +1935,42 @@ class APIClient: ObservableObject {
     // MARK: - Event categories
 
     func categories() async throws -> [EventCategory] {
-        try decode(CategoriesResponse.self, from: try await request("/categories")).categories
+        let cats = try decode(CategoriesResponse.self, from: try await request("/categories")).categories
+        // Each category's own default length rides along; cache it for the
+        // event editor (DEVQA Q51).
+        EventDefaults.remember(categories: cats)
+        return cats
     }
 
     /// A category and its colours are the user's own scheme, so an edit made
     /// with the Mac away is queued rather than dropped. True means it stuck —
     /// queued counts, because the sheet closing is how that is said.
+    ///
+    /// `defaultMinutes` / `chainGapMinutes` are the category's own event
+    /// length and chain gap (DEVQA Q51): nil sends null, which clears it back
+    /// to the global setting. No defaults on purpose — a caller that forgot
+    /// them would silently clear both.
     @discardableResult
-    func upsertCategory(name: String, color: String, alt: String, keywords: [String]) async -> Bool {
+    func upsertCategory(name: String, color: String, alt: String, keywords: [String],
+                        defaultMinutes: Int?, chainGapMinutes: Int?) async -> Bool {
         do {
             _ = try await mutate("/categories", method: "POST",
-                                 body: ["name": name, "color": color, "alt": alt, "keywords": keywords])
+                                 body: ["name": name, "color": color, "alt": alt, "keywords": keywords,
+                                        "default_minutes": defaultMinutes.map { $0 as Any } ?? NSNull(),
+                                        "chain_gap_minutes": chainGapMinutes.map { $0 as Any } ?? NSNull()])
             return true
         } catch { announceRefusal(error, doing: "save that category"); return false }
+    }
+
+    /// The default length and gap the Mac would use for this title — its
+    /// category's own, else the global (GET /event_defaults). Cached on the
+    /// way through, so the answer is still there offline.
+    func eventDefaults(title: String) async throws -> ResolvedEventDefaults {
+        let q = title.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+        let d = try decode(ResolvedEventDefaults.self,
+                           from: try await request("/event_defaults?title=\(q)"))
+        EventDefaults.remember(d)
+        return d
     }
 
     func deleteCategory(_ name: String) async {
@@ -2207,10 +2230,18 @@ struct SharedSettings: Decodable, Equatable {
     var showShabbatTimes: Bool
     var hideCompletedTasks: Bool
     var speakReplies: Bool
+    /// `events:` (DEVQA Q51) — nil when the Mac predates the setting, so an
+    /// older Mac never resets the phone's copy to a made-up default.
+    var eventLengthMinutes: Int?
+    var chainGapMinutes: Int?
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         theme = try c.decodeIfPresent(String.self, forKey: .theme) ?? "dark"
+
+        let events = try? c.nestedContainer(keyedBy: EventsKeys.self, forKey: .events)
+        eventLengthMinutes = (try? events?.decodeIfPresent(Int.self, forKey: .eventLengthMinutes)) as? Int
+        chainGapMinutes = (try? events?.decodeIfPresent(Int.self, forKey: .chainGapMinutes)) as? Int
 
         let ui = try? c.nestedContainer(keyedBy: UIKeys.self, forKey: .ui)
         accentColor = (try? ui?.decodeIfPresent(String.self, forKey: .accentColor)) as? String ?? ""
@@ -2233,8 +2264,12 @@ struct SharedSettings: Decodable, Equatable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case theme, ui, todo, tts
+        case theme, ui, todo, tts, events
         case hebrewCalendar = "hebrew_calendar"
+    }
+    enum EventsKeys: String, CodingKey {
+        case eventLengthMinutes = "event_length_minutes"
+        case chainGapMinutes = "chain_gap_minutes"
     }
     enum UIKeys: String, CodingKey { case accentColor = "accent_color" }
     enum HebrewKeys: String, CodingKey {

@@ -341,6 +341,49 @@ def open_settings(self) -> None:
                                           "enabled", True)))
     hebrew.addWidget(observance_cb)
 
+    # ── Events ────────────────────────────────────────────────────
+    # DEVQA Q51 (Gil, 2026-09-25): how long an event lasts when nobody said,
+    # and the gap between chained events ("gym at 9, then lunch"). Both are
+    # read through `assistant/event_defaults.py`, by the engine and by the New
+    # Event dialog; a category can override either in Event Colours &
+    # Categories, which is where "each category its own" lives.
+    from assistant.config import MAX_EVENT_MINUTES, MIN_EVENT_LENGTH
+    events_box = section("Events")
+    events_cfg = getattr(self._config, "events", None)
+    events_form = QFormLayout()
+    events_form.setSpacing(8)
+    events_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
+    def _minutes_spin(name: str, low: int, value) -> QSpinBox:
+        spin = QSpinBox()
+        spin.setObjectName(name)
+        spin.setRange(low, MAX_EVENT_MINUTES)
+        spin.setSingleStep(5)
+        spin.setSuffix(" min")
+        spin.setMaximumWidth(120)
+        try:
+            spin.setValue(int(value))
+        except (TypeError, ValueError):
+            pass                     # hand-edited to something unreadable
+        return spin
+
+    # Shown from the FILE (through event_defaults), not from `self._config`:
+    # the phone can change these while the calendar is open, and the GUI's
+    # config object is only read at startup — Save would otherwise write the
+    # stale startup value back over the phone's.
+    from assistant import event_defaults as _event_defaults
+    event_length_spin = _minutes_spin(
+        "events_length_spin", MIN_EVENT_LENGTH, _event_defaults.length_minutes(None))
+    events_form.addRow("Default length (minutes):", event_length_spin)
+    chain_gap_spin = _minutes_spin(
+        "events_gap_spin", 0, _event_defaults.gap_minutes(None))
+    events_form.addRow("Gap between chained events (minutes):", chain_gap_spin)
+    events_box.addLayout(events_form)
+    events_box.addWidget(hint(
+        "An event with no end said lasts the default length. In “gym at 9, then "
+        "lunch”, lunch starts this gap after the gym ends. A category can set its "
+        "own of either — Assistant › Event Colours & Categories."))
+
     # ── Notifications ─────────────────────────────────────────────
     notif = section("Notifications")
     notif_cfg = getattr(self._config, "notifications", None)
@@ -753,6 +796,10 @@ def open_settings(self) -> None:
                           "event_separator": sep_edit.text().strip()},
                 "nlu": {"event_keywords": raw_keywords},
                 "engine": {"confirm_transcript": confirm_cb.isChecked()},
+                # Read by event_defaults in whichever process asks (the API
+                # re-reads on the file's mtime), and by the New Event dialog.
+                "events": {"event_length_minutes": event_length_spin.value(),
+                           "chain_gap_minutes": chain_gap_spin.value()},
                 "hebrew_calendar": {"display_mode": hebrew_mode_combo.currentData(),
                                     "show_holidays": hebrew_holidays_cb.isChecked(),
                                     "israel_holidays": hebrew_israel_cb.isChecked(),
@@ -784,6 +831,9 @@ def open_settings(self) -> None:
                     _apply(notif_cfg, "agenda_card", notif_agenda_cb.isChecked())
                     _apply(notif_cfg, "speak", notif_speak_cb.isChecked())
                     _apply(notif_cfg, "category_leads", cat_leads)
+                if events_cfg is not None:
+                    _apply(events_cfg, "event_length_minutes", event_length_spin.value())
+                    _apply(events_cfg, "chain_gap_minutes", chain_gap_spin.value())
 
                 # Apply changes immediately
                 self._config.confirmation_level = 0 if auto_cb.isChecked() else 1

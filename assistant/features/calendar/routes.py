@@ -12,7 +12,8 @@ routes, request shapes, CRUD — and the feature's CRUD belongs with the feature
 | `GET/PATCH/DELETE /events/<id>` | one event; `GET /events/<id>.ics` exports it |
 | `GET/POST /events/<id>/todo` | the to-do linked to it; POST files one (linked) |
 | `GET /search` | substring search over events and tasks |
-| `GET/POST /categories` | the colour classes; `DELETE /categories/<name>` |
+| `GET/POST /categories` | the colour classes, each with an optional default length and chain gap; `DELETE /categories/<name>` |
+| `GET /event_defaults` | the default event length and chain gap, resolved for a category or a title (DEVQA Q51) |
 | `POST /categories/classify` `POST /categories/recolor` | classify one title; re-colour everything |
 | `GET /holidays` | the Hebrew calendar over a range |
 | `GET /sync/bootstrap` | a cold client's whole first screen in one round trip (incl. Shabbat/yom tov windows) |
@@ -56,20 +57,62 @@ def get_db():
 
 @blueprint.get("/categories")
 def categories_list():
+    """Every category. A category's `default_minutes` / `chain_gap_minutes` is
+    present only when it overrides the global; `defaults` carries the global
+    pair so an editor can say what an empty field means."""
+    from assistant import event_defaults
     from assistant.actions.calendar import categories as _cat
-    return jsonify({"categories": _cat.all_categories()})
+    return jsonify({"categories": _cat.all_categories(),
+                    "defaults": _global_event_defaults(event_defaults)})
 
 
 @blueprint.post("/categories")
 def categories_upsert():
-    """{"name": "Volunteering", "color": "#…", "alt": "#…", "keywords": [...], "add_keywords": [...]}"""
+    """{"name": "Volunteering", "color": "#…", "alt": "#…", "keywords": [...], "add_keywords": [...],
+        "default_minutes": 90 | null, "chain_gap_minutes": 15 | null}
+
+    The two minute fields (DEVQA Q51) are touched only when the body NAMES
+    them: a number sets the category's own value, null clears it back to the
+    global setting, and leaving the key out keeps what is stored — so a client
+    that only edits colours never wipes them."""
     from assistant.actions.calendar import categories as _cat
     body = request.get_json(silent=True) or {}
+    durations = {k: body[k] for k in _cat.DURATION_FIELDS if k in body}
     try:
         return jsonify(_cat.upsert(str(body.get("name", "")), body.get("color"), body.get("alt"),
-                                   body.get("keywords"), body.get("add_keywords")))
+                                   body.get("keywords"), body.get("add_keywords"), **durations))
     except ValueError as e:
         return jsonify({"error": str(e), "code": 400}), 400
+
+
+def _global_event_defaults(event_defaults) -> dict:
+    """The global pair as the app resolves it (config.yaml, else built-in)."""
+    return {"event_length_minutes": event_defaults.length_minutes(None),
+            "chain_gap_minutes": event_defaults.gap_minutes(None)}
+
+
+@blueprint.get("/event_defaults")
+def event_defaults_resolved():
+    """The default length and chain gap, RESOLVED, for `?category=` or for
+    `?title=` (classified the way the engine classifies it). Neither: the
+    global pair.
+
+    A read only. The global values are written with `PATCH /config`
+    (`{"events": {...}}`) like every other shared setting, and a category's
+    with `POST /categories`. This answers what a client cannot work out on its
+    own: the number the ENGINE would use for a title it cannot classify
+    itself (the phone's new-event sheet)."""
+    from assistant import event_defaults
+    category = (request.args.get("category") or "").strip() or None
+    title = request.args.get("title")
+    if category is None and title:
+        category = event_defaults.category_of(title)
+    return jsonify({
+        "category": category,
+        "length_minutes": event_defaults.length_minutes(category),
+        "gap_minutes": event_defaults.gap_minutes(category),
+        **_global_event_defaults(event_defaults),
+    })
 
 
 @blueprint.delete("/categories/<path:name>")

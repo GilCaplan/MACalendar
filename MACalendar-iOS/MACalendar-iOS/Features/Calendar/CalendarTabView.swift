@@ -235,7 +235,11 @@ struct CalendarTabView: View {
             EventDetailView(
                 event: CalendarEvent(
                     id: 0, title: "", date: dateStr,
-                    startTime: "10:00", endTime: "11:00",
+                    // The default length (Settings › Events, DEVQA Q51), not
+                    // a fixed hour; the sheet refines it by category once a
+                    // title is typed.
+                    startTime: "10:00",
+                    endTime: EventDefaults.end(from: "10:00", minutes: EventDefaults.globalLength) ?? "11:00",
                     attendees: "", location: "",
                     description: "", color: settings.accentColorHex,
                     recurrence: "", recurrenceEnd: ""

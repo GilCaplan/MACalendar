@@ -9,7 +9,17 @@ struct EventCategory: Codable, Identifiable, Equatable {
     var alt: String
     var keywords: [String]
     var custom: Bool?
+    /// This category's own event length / chain gap (DEVQA Q51). nil = the
+    /// global setting applies (Settings › Events).
+    var defaultMinutes: Int? = nil
+    var chainGapMinutes: Int? = nil
     var id: String { name }
+
+    enum CodingKeys: String, CodingKey {
+        case name, color, alt, keywords, custom
+        case defaultMinutes = "default_minutes"
+        case chainGapMinutes = "chain_gap_minutes"
+    }
 }
 
 struct CategoriesResponse: Codable { let categories: [EventCategory] }
@@ -42,6 +52,9 @@ struct CategoriesView: View {
                                 Text(c.name)
                                 Text(c.keywords.isEmpty ? "default when unsure" : c.keywords.prefix(6).joined(separator: ", ") + (c.keywords.count > 6 ? "…" : ""))
                                     .font(.caption).foregroundColor(.secondary).lineLimit(1)
+                                if let timing = timing(c) {
+                                    Text(timing).font(.caption2).foregroundColor(.secondary)
+                                }
                             }
                         }
                     }
@@ -79,6 +92,13 @@ struct CategoriesView: View {
         catch { self.error = "Couldn't reach the Mac: \(error.localizedDescription)" }
     }
 
+    /// "90 min · 15 min gap" for a category with its own event defaults.
+    private func timing(_ c: EventCategory) -> String? {
+        let parts = [c.defaultMinutes.map { "\($0) min" },
+                     c.chainGapMinutes.map { "\($0) min gap" }].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
     private func recolor(force: Bool) async {
         let n = await api.recolorEvents(force: force)
         recolorResult = n.map { "\($0) event\($0 == 1 ? "" : "s") updated" } ?? "Failed — is the Mac reachable?"
@@ -98,6 +118,10 @@ struct CategoryEditView: View {
     @State private var keywordText = ""
     @State private var newKeyword = ""
     @State private var saving = false
+    /// The category's own length / gap as typed; empty = the global setting.
+    @State private var lengthText = ""
+    @State private var gapText = ""
+    @State private var timingError: String?
 
     var body: some View {
         Form {
@@ -122,6 +146,31 @@ struct CategoryEditView: View {
             } header: { Text("Keywords") } footer: {
                 Text("A title containing any of these gets this category. Hebrew/transliterated words are fine (shul, mincha, bagrut…).")
             }
+            Section {
+                HStack {
+                    Text("Default length")
+                    Spacer()
+                    TextField("Global (\(EventDefaults.globalLength))", text: $lengthText)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 120)
+                    Text("min").foregroundColor(.secondary)
+                }
+                HStack {
+                    Text("Gap when chained")
+                    Spacer()
+                    TextField("Global (\(EventDefaults.globalGap))", text: $gapText)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 120)
+                    Text("min").foregroundColor(.secondary)
+                }
+                if let timingError {
+                    Text(timingError).font(.caption).foregroundColor(.red)
+                }
+            } header: { Text("Timing") } footer: {
+                Text("How long an event of this category lasts when you don't say, and the gap before it when it follows another (\"gym at 9, then lunch\"). Empty uses Settings › Events.")
+            }
         }
         .navigationTitle(isNew ? "New category" : category.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -132,7 +181,20 @@ struct CategoryEditView: View {
                     .disabled(saving || category.name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
-        .onAppear { color = (Color(hex: category.color) ?? .gray); alt = (Color(hex: category.alt) ?? .gray) }
+        .onAppear {
+            color = (Color(hex: category.color) ?? .gray); alt = (Color(hex: category.alt) ?? .gray)
+            lengthText = category.defaultMinutes.map(String.init) ?? ""
+            gapText = category.chainGapMinutes.map(String.init) ?? ""
+        }
+    }
+
+    /// nil for an empty box (the global applies). Out of range is an error the
+    /// sheet shows rather than a request the Mac would refuse.
+    private func minutes(_ text: String, min lo: Int) -> (ok: Bool, value: Int?) {
+        let t = text.trimmingCharacters(in: .whitespaces)
+        if t.isEmpty { return (true, nil) }
+        guard let n = Int(t), n >= lo, n <= EventDefaults.maxMinutes else { return (false, nil) }
+        return (true, n)
     }
 
     private func addKeyword() {
@@ -142,9 +204,17 @@ struct CategoryEditView: View {
     }
 
     private func save() async {
+        let length = minutes(lengthText, min: EventDefaults.minLength)
+        let gap = minutes(gapText, min: 0)
+        guard length.ok, gap.ok else {
+            timingError = "Length must be \(EventDefaults.minLength)–\(EventDefaults.maxMinutes) minutes and the gap 0–\(EventDefaults.maxMinutes), or empty for the global."
+            return
+        }
+        timingError = nil
         saving = true; defer { saving = false }
         let ok = await api.upsertCategory(name: category.name.trimmingCharacters(in: .whitespaces),
-                                          color: color.hexString ?? category.color, alt: alt.hexString ?? category.alt, keywords: category.keywords)
+                                          color: color.hexString ?? category.color, alt: alt.hexString ?? category.alt, keywords: category.keywords,
+                                          defaultMinutes: length.value, chainGapMinutes: gap.value)
         if ok { await onSave(); dismiss() }
     }
 }

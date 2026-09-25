@@ -153,11 +153,17 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 
 | Method | Path | What it does |
 |---|---|---|
-| `GET` | `/categories` |  |
-| `POST` | `/categories` | {"name": "Volunteering", "color": "#…", "alt": "#…", "keywords": [...], "add_keywords": [...]} |
+| `GET` | `/categories` | Every category. A category's `default_minutes` / `chain_gap_minutes` is |
+| `POST` | `/categories` | {"name": "Volunteering", "color": "#…", "alt": "#…", "keywords": [...], "add_keywords": [...], |
 | `DELETE` | `/categories/<path:name>` |  |
 | `POST` | `/categories/classify` |  |
 | `POST` | `/categories/recolor` | Apply categories/colours to existing events. ?force=1 re-does everything. |
+
+## /event_defaults
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/event_defaults` | The default length and chain gap, RESOLVED, for `?category=` or for |
 
 ## /events
 

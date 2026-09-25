@@ -127,6 +127,7 @@ built when it reaches the Mac.
 | backend | [The action set](#the-action-set) | the 15 things a command can do | `assistant/actions/` |
 | backend | [Task tags](#task-tags--a-finite-classification) | closed-set classification w/ healing | `actions/todo/tagging.py` |
 | backend | [Categories & stacking](#events-categories-colours--binder-stacking) | auto-colour/categorise; overlaps stack | `actions/calendar/categories.py` |
+| hybrid | [Event defaults](#event-defaults-default-length-and-chain-gap) | default event length and chained-event gap, global and per category, on both apps | `event_defaults.py`, `GET/PATCH /config`, `/categories`, `GET /event_defaults` |
 | hybrid | [Shabbat & yom tov lines](#shabbat--yom-tov-lines) | yellow lines on Day/Week at the exact minute of candle lighting and nightfall, following the phone's location; minute in yellow on Month (iOS) | `observance.holy_windows`, `GET /observance/windows`, `holy_times.py`, `WeekView.swift` |
 | backend | [Hebrew calendar & observance](#hebrew-calendar--observance) | sundown-bounded halachic windows; series skip, one-offs flagged | `observance.py`, `hebrew_calendar.py` |
 | backend | [Recurring events](#recurring-events) | daily/weekly/monthly/yearly, several weekdays, announced rounding | `db.py`, `decompose_validate/resolve.py` |
@@ -1352,6 +1353,34 @@ model — logistic regression on word + character n-grams plus the title's
 that shipped before it. A category the user deleted or renamed never comes
 back from the model (`_live_category`). `labels.model_first` still lets a
 confident model answer win over the keywords.
+
+### Event defaults: default length and chain gap
+**What:** How long an event lasts when nobody said its end, and how far apart
+chained events sit ("gym at 9, then lunch" — lunch starts the gap after the
+gym ends). Both are SETTINGS, globally and per category (DEVQA Q51, Gil
+2026-09-25): 60 minutes and 0 to start.
+**Where:** the one read is `assistant/event_defaults.py`
+(`length_minutes(category)`, `gap_minutes(category)`, `category_of(title)`).
+Global values: `events.event_length_minutes` / `events.chain_gap_minutes` in
+config.yaml (`EventsConfig`), served and written by `GET/PATCH /config`
+(`events` is a patchable section, checked as whole minutes: length 5–1440, gap
+0–1440). Per category: optional `default_minutes` / `chain_gap_minutes` on the
+entry in categories.json, read and written through `GET/POST /categories`
+(a key the body leaves out is kept, `null` clears it back to the global).
+`GET /event_defaults?title=` / `?category=` answers the resolved pair for a
+client that cannot classify a title itself. Mac: Settings › Events (two spin
+boxes) and the category editor's two optional fields (empty = global). iOS:
+Settings › Events (two steppers) and the category editor's Timing section.
+**How:** each value resolves CATEGORY → GLOBAL → BUILT-IN. The engine's
+choke point is `CalendarIntent.fill_defaults` (end = start + the title's
+category's length, still capped at 23:59, end == start still read as
+missing); the judge's `_is_derived_end` reads the same length so a defaulted
+end is never reported as invented. The chain itself is built in
+`decompose_validate` by the engine side, which reads `gap_minutes`. The Mac's
+New Event dialog and the phone's event editor default the end to start + the
+length and follow the start (and, on a new event, the title's category) until
+the end is set by hand; the phone caches the values in UserDefaults
+(`EventDefaults`) so it works offline.
 
 ### Hebrew calendar & observance
 **What:** Jewish/Israeli holidays in the views; Shabbat/yom tov/fast windows

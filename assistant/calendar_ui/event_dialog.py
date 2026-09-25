@@ -190,6 +190,30 @@ class EventDialog(QDialog):
 
         self._build_ui(default_date or datetime.date.today())
 
+    def default_length_minutes(self) -> int:
+        """The length a new event gets from its title: the category's own
+        default, else the global setting, else an hour."""
+        from assistant import event_defaults
+        title = self._title.text().strip()
+        category = event_defaults.category_of(title) if title else None
+        return event_defaults.length_minutes(category)
+
+    def _apply_default_end(self) -> None:
+        if not getattr(self, "_end_is_default", False):
+            return
+        start = self._start.time()
+        end_min = min(start.hour() * 60 + start.minute() + self.default_length_minutes(),
+                      23 * 60 + 59)             # the same end-of-day cap as the engine
+        self._setting_end = True
+        try:
+            self._end.setTime(QTime(end_min // 60, end_min % 60))
+        finally:
+            self._setting_end = False
+
+    def _end_edited(self) -> None:
+        if not getattr(self, "_setting_end", False):
+            self._end_is_default = False
+
     def _build_ui(self, default_date: datetime.date) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 16)
@@ -263,9 +287,16 @@ class EventDialog(QDialog):
                 now = datetime.datetime.now()
                 sh, sm = now.hour, 0
             self._start.setTime(QTime(sh, sm))
-            end_dt = (datetime.datetime.combine(datetime.date.today(), datetime.time(sh, sm))
-                      + datetime.timedelta(hours=1))
-            self._end.setTime(QTime(end_dt.hour, end_dt.minute))
+            # The end is start + the DEFAULT LENGTH (Settings › Events, or the
+            # title's category's own — DEVQA Q51), not a fixed hour, and it
+            # FOLLOWS the start and the title until the user sets an end
+            # themselves: typing "gym" re-reads Fitness's length, moving the
+            # start keeps the length. A hand-set end is never overwritten.
+            self._end_is_default = True
+            self._apply_default_end()
+            self._start.timeChanged.connect(lambda _t: self._apply_default_end())
+            self._title.textChanged.connect(lambda _t: self._apply_default_end())
+            self._end.timeChanged.connect(lambda _t: self._end_edited())
         time_row.addWidget(self._start)
         time_row.addWidget(QLabel("–"))
         time_row.addWidget(self._end)

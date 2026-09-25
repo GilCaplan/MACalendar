@@ -212,6 +212,13 @@ engine:
   quiet_hours_start: "23:00" # a start/end time the engine builds inside this window (spoken or
   quiet_hours_end: "06:00"   # defaulted) is FLAGGED in the reply, never silently changed
 
+# How long an event lasts when nobody said, and how far apart chained events
+# sit (DEVQA Q51, assistant/event_defaults.py). A category can override either
+# one in Settings > Event Colours & Categories; empty there = these.
+events:
+  event_length_minutes: 60   # an event with no end said lasts this long
+  chain_gap_minutes: 0       # "gym at 9, then lunch": lunch starts this long after the gym ends
+
 # Learned labellers (engine/label/). OFF by default: a model deciding an event's
 # category changes what lands on your calendar, so it ships behind a flag with
 # the keyword rules as the default — the same caution `self_check_apply` has.
