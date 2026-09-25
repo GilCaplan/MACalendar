@@ -681,8 +681,13 @@ def _commit(state: EngineState, cfg) -> None:
                 # earns one second opinion before the not-found stands,
                 # whichever track produced it. Ownership of this recheck moves
                 # into step 6 when it absorbs the last of the old bolt-ons.
-                replacement = None
-                if len(state.items) == 1 and not state.messages:
+                # THE OTHER LIST FIRST (2026-09-24): "rename pack for the trip
+                # to …" routed to the calendar finds nothing there, while the
+                # to-do sits on the to-do list — the biggest group of wrong-
+                # kind misses on changes. Deterministic and cheap, so it runs
+                # before the model's second opinion, and for every item.
+                replacement = _other_store(state, item)
+                if replacement is None and len(state.items) == 1 and not state.messages:
                     replacement = _recheck_not_found(state, cfg, item)
                 if replacement is None:
                     state.messages.append(nf.message)
@@ -697,7 +702,17 @@ def _commit(state: EngineState, cfg) -> None:
                     state.messages.append(nf.message)
                     continue
                 pretty = item.action.replace("_", " ").title()
-                result = action_cls().execute(item.intent, cfg)
+                try:
+                    result = action_cls().execute(item.intent, cfg)
+                except TargetNotFound:
+                    # The second reading found nothing either: the FIRST
+                    # not-found is the honest answer, not an "Error: …".
+                    state.messages.append(nf.message)
+                    state.executed.append(ExecutedAction(
+                        item_id=item.id, action=item.action, message=nf.message, ok=False))
+                    if state.trace:
+                        state.trace.step(EXECUTE, pretty, nf.message, ok=False)
+                    continue
             record = None
             if ctx.last_event_id != ev_before and ctx.last_event_id is not None:
                 record = ("event", ctx.last_event_id, item.action, idx)
@@ -1221,6 +1236,97 @@ def _has_candidates(item) -> bool:
     table = "events" if "event" in (item.action or "") else "todos"
     with get_db()._conn() as conn:
         return conn.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone() is not None
+
+
+_ANAPHOR_TARGETS = frozenset(
+    "it that this them those these the one that one this one the last one "
+    "the event the task that event this event that task this task".split(" "))
+
+
+def _other_store(state: EngineState, item) -> "tuple | None":
+    """The same change, on the OTHER list, when that list holds exactly one
+    clear match — else None (the not-found stands, or the model rechecks).
+
+    A change or delete aimed at the calendar whose target is a to-do (or the
+    reverse) used to answer "I couldn't find …". Now: if the other store has
+    exactly ONE item whose title contains the named words or is contained in
+    them — the matchers' own strong match, not their any-word-overlap — the
+    change runs there. Deliberately narrower than the matchers: a wrong
+    DELETE is the costliest mistake this engine can make (harm weight 4), so
+    two candidates, an anaphor, or a field only one side has (a clock on a
+    to-do; a list or priority on an event) all refuse. Completing is to-dos
+    only and never crosses.
+    """
+    import re as _re
+    from assistant.trace import RULE
+    action, intent = item.action or "", item.intent
+    target = (getattr(intent, "match_title", None) or "").strip()
+    if not target or target.lower() in _ANAPHOR_TARGETS:
+        return None
+
+    def norm(t: str) -> str:
+        return " ".join(_re.findall(r"[a-z0-9']+", (t or "").lower()))
+
+    needle = norm(target)
+    if not needle:
+        return None
+
+    def strong(title: str) -> bool:
+        t = norm(title)
+        return bool(t) and (needle in t or t in needle)
+
+    try:
+        from assistant.db import get_db
+        db = get_db()
+        if action in ("update_event", "delete_event"):
+            if action == "update_event" and any(getattr(intent, f, None) for f in
+                                                ("new_start_time", "new_end_time", "new_location")):
+                return None                 # a clock or a place is the calendar's alone
+            hits = {t["title"] for t in db.get_todos(include_completed=False) if strong(t["title"])}
+            if len(hits) != 1:
+                return None
+            title = hits.pop()
+            from assistant.actions.todo.intent import DeleteTodoIntent, UpdateTodoIntent
+            if action == "delete_event":
+                new = ("delete_todo", DeleteTodoIntent(match_title=title))
+            else:
+                if not (getattr(intent, "new_title", None) or getattr(intent, "new_date", None)):
+                    return None
+                new = ("update_todo", UpdateTodoIntent(
+                    match_title=title, new_title=getattr(intent, "new_title", None),
+                    new_due_date=getattr(intent, "new_date", None)))
+            where = "your to-do list"
+        elif action in ("update_todo", "delete_todo"):
+            if action == "update_todo" and any(getattr(intent, f, None) for f in
+                                               ("new_list", "new_priority", "new_notes")):
+                return None                 # a list or a priority is the to-do list's alone
+            import datetime as _dt
+            today = _dt.date.today().isoformat()
+            with db._conn() as conn:
+                rows = conn.execute("SELECT DISTINCT title FROM events WHERE date >= ?",
+                                    (today,)).fetchall()
+            hits = {r[0] for r in rows if strong(r[0])}
+            if len(hits) != 1:
+                return None
+            title = hits.pop()
+            from assistant.actions.calendar.intent import DeleteEventIntent, UpdateEventIntent
+            if action == "delete_todo":
+                new = ("delete_event", DeleteEventIntent(match_title=title))
+            else:
+                if not (getattr(intent, "new_title", None) or getattr(intent, "new_due_date", None)):
+                    return None
+                new = ("update_event", UpdateEventIntent(
+                    match_title=title, new_title=getattr(intent, "new_title", None),
+                    new_date=getattr(intent, "new_due_date", None)))
+            where = "your calendar"
+        else:
+            return None
+    except Exception:
+        return None
+    if state.trace:
+        state.trace.step(RULE, "Found it on the other list",
+                         f"'{title}' is on {where} — {new[0].replace('_', ' ')}")
+    return new
 
 
 def _recheck_not_found(state: EngineState, cfg, item) -> "tuple | None":
