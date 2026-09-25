@@ -202,6 +202,8 @@ the rest:
     MACALENDAR_GOOGLE_TOKEN / _GOOGLE_CLIENT_SECRET / MACALENDAR_MSAL_CACHE
                                calendar-sync sign-ins (2026-09-24) — a
                                suite holding the real ones syncs Gil's accounts
+    MACALENDAR_HEARTBEATS / MACALENDAR_HUD_STATE
+                               the processes' pulse and the HUD's window state
 
 The feedback file is the one to be careful with: it holds the user's own
 CORRECTIONS, which are the only non-circular label source this project has, so

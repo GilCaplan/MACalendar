@@ -84,6 +84,13 @@ for _var, _name in (("MACALENDAR_DB", "calendar.db"),
                     # mint tokens valid against the running assistant.
                     ("MACALENDAR_DEVICE_SECRET", "device_secret"),
                     ("MACALENDAR_DEVICES", "devices.json"),
+                    # Liveness beats and the HUD's own window state (2026-09-25):
+                    # neither was redirected, so a suite that built the app or
+                    # the HUD could write a heartbeat — a 'client-unknown' one
+                    # sits in the real folder — into what `cli health` reads as
+                    # the running assistant's pulse.
+                    ("MACALENDAR_HEARTBEATS", "heartbeats"),
+                    ("MACALENDAR_HUD_STATE", "hud_state.json"),
                     # Experiment checkpoints. Scratched so a suite can never
                     # RESUME a real measurement run — it would read half a
                     # board's results as its own and report a number that came
