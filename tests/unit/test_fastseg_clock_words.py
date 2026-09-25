@@ -35,3 +35,15 @@ def test_a_number_word_clock_is_a_time(said, time_has):
 def test_a_number_word_that_is_not_a_clock_stays_a_word(said):
     refs = [r.kind for r in _FS.find_time_refs(said)]
     assert "clock" not in refs
+
+
+@pytest.mark.parametrize("said,action", [
+    ("dinner at 8 p.m.", "dinner"), ("dinner at eight p.m.", "dinner"),
+    ("call mom at 11 a.m.", "call mom"),
+])
+def test_a_meridiem_ending_the_command_leaves_the_title(said, action):
+    """The cut trims the final "." off the last piece, so the clock ran one
+    character past it and was read as an EDGE reference — right time, never
+    stripped from the title ('dinner at 8 p.m')."""
+    (item,) = _FS.fastseg(said)
+    assert item["action"] == action

@@ -530,3 +530,20 @@ word form now behaves like the digit form, and the two defects are filed as
 their own cycles (lowercase-name coordination after "with"; a leading day not
 distributed to the second timed ask). Also found and filed: a meridiem ENDING
 the command ("dinner at 8 p.m.") leaves the clock in the action, digits too.
+
+## A meridiem ENDING the command stays in the title (2026-09-25)
+
+"dinner at 8 p.m." → action 'dinner at 8 p.m', time 'today at 8 p.m.': the cut
+trims the command's final "." off the last piece, so the clock (ending at
+"p.m.") ran one character past the piece and was filed as an EDGE reference —
+the right time, never stripped from the title. Digits and words alike; the
+real-usage titles 'meeting a.m' (cycle 35) were the same family. `assign_times`
+now lets a reference own its piece when only punctuation runs past the end.
+
+Segmentation corpus (1,711 rows, both halves): 0 rows changed — it has no
+command ending in a meridiem, which is why no board saw this. Across the 45,620
+distinct corpus transcripts: 461 carry a dotted meridiem, 136 change, and all
+136 are the clock leaving the title. Found beside it and filed: a TRAILING clock
+reaches a time-less first piece ("buy milk and book the dentist at 3pm" gives
+the milk 3pm, which then reads as an event under Q25) — the existing
+distribution rule, the same for "3pm" without dots.

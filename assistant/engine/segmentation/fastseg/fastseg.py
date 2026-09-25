@@ -564,7 +564,15 @@ def assign_times(text: str, pieces: "list[str]") -> "list[tuple[str, str]]":
     last = len(pieces) - 1
     for ref in refs:
         for i, (s, e) in enumerate(spans):
-            if s <= ref.start and ref.end <= e:
+            # A reference may run past its piece by PUNCTUATION alone: the cut
+            # trims the command's final "." off the last piece, so "dinner at
+            # 8 p.m." has a piece ending at "p.m" and a clock ending at "p.m.".
+            # Counted as outside every piece, the clock became an EDGE reference
+            # — right time, but never stripped from the action, so the title
+            # read 'dinner at 8 p.m' (2026-09-25; digits and words alike).
+            inside = ref.end <= e or (
+                ref.start < e and not text[e:ref.end].strip(" .,;:!?"))
+            if s <= ref.start and inside:
                 owned[i].append(ref)
                 # EDGE means at the boundary of the whole COMMAND, not outside
                 # every piece — a trailing reference is textually inside the
