@@ -95,6 +95,24 @@ def _outcome(state) -> tuple:
     return tuple(sorted(out))
 
 
+def _objects(state) -> list:
+    """Every committed object with its FIELDS, for the full scoring
+    (`board_metrics.py`) — `_outcome` keeps only action and title."""
+    out = []
+    for it in state.items:
+        if it.intent is None or not it.action or it.blocked:
+            continue
+        i = it.intent
+        titles = getattr(i, "titles", None) or []
+        out.append({"action": it.action,
+                    "title": (getattr(i, "title", None) or (titles[0] if titles else "")
+                              or getattr(i, "match_title", "") or ""),
+                    **{f: getattr(i, f, None) for f in
+                       ("date", "due_date", "start_time", "end_time", "recurrence",
+                        "reminder_minutes")}})
+    return out
+
+
 def _correct(outcome, row) -> bool:
     """Does the outcome match the row's gold action AND name the gold title?
 
@@ -190,6 +208,8 @@ def main() -> int:
 
     import time as _time
 
+    last: dict = {}
+
     def _run_one(row) -> "tuple":
         """(outcome, re-entries, milliseconds) — the extra two are what v2
         breaks the net down by: how often the loop RAN, and what it cost."""
@@ -200,6 +220,7 @@ def main() -> int:
             eng.judge(st, cfg)
         except Exception:
             return None, 0, int((_time.time() - t0) * 1000)
+        last["objs"], last["llm_ms"] = _objects(st), int(getattr(st, "llm_ms", 0) or 0)
         reentries = sum((getattr(st, "retries", None) or {}).values())
         # H6 (PLAN §7.5): did the MODEL round of the rewrite fire on this row?
         # The attempt ledger lives in the state's fixes, rule `rewrite_model`.
@@ -222,6 +243,7 @@ def main() -> int:
     print(f"  replay: {'resuming the checkpoint' if a.resume else 'fresh — every row through the current code'}",
           flush=True)
     results = {"off": {}, "on": {}}
+    built: dict = {}                             # rid -> the ON arm's objects, for full scoring
     extra = {}                                   # rid -> (reentries_on, ms_off, ms_on)
     # `tick=True` (2026-09-22): a frozen clock froze `time.time()` too, and v2's
     # per-arm latency read 0.0 s on every row. The real-usage board makes the
@@ -236,6 +258,9 @@ def main() -> int:
                 results["on"][rid] = _as_outcome(cached.get("on"))
                 extra[rid] = (cached.get("reentries", 0), cached.get("ms_off", 0),
                               cached.get("ms_on", 0), bool(cached.get("model_round")))
+                if cached.get("objs_on") is not None:
+                    built[rid] = {"objs": cached["objs_on"], "ms": cached.get("ms_on", 0),
+                                  "llm_ms": cached.get("llm_ms_on", 0)}
                 continue
             _set_arm(False)
             off, _, ms_off = _run_one(r)
@@ -245,10 +270,13 @@ def main() -> int:
             results["off"][rid] = off
             results["on"][rid] = on
             extra[rid] = (reentries, ms_off, ms_on, model_round)
+            built[rid] = {"objs": last.get("objs") or [], "ms": ms_on,
+                          "llm_ms": last.get("llm_ms", 0)}
             # On disk BEFORE the next row starts: a kill costs this row only.
             ck.record(rid, {"off": _as_json(off), "on": _as_json(on),
                             "reentries": reentries, "model_round": model_round,
-                            "ms_off": ms_off, "ms_on": ms_on, "text": r["text"][:120]})
+                            "ms_off": ms_off, "ms_on": ms_on, "text": r["text"][:120],
+                            "objs_on": built[rid]["objs"], "llm_ms_on": built[rid]["llm_ms"]})
     ck.finish()
 
     _rw.rewrite_for_retry = real_rewrite
@@ -337,6 +365,11 @@ def main() -> int:
         for v, (m, ok_off, ok_on, net) in items:
             print(f"     {v:28s} n={m:5d}  off {_pct(ok_off, m):>6}  on {_pct(ok_on, m):>6}  net {net:+d}")
         print()
+    from assistant.engine.llmjudge.experiments import board_metrics as _BM
+    full = _BM.score(rows, built, {str(r["id"]): _correct(results["on"].get(str(r["id"])), r)
+                                    for r in rows})
+    _BM.report(full)
+    print()
     record = {
         "split": a.split, "n": n, "off_pct": round(100.0 * n_off / n, 1) if n else None,
         "on_pct": round(100.0 * n_on / n, 1) if n else None,
@@ -348,6 +381,7 @@ def main() -> int:
                for k, d in by.items()},
         # THE ROWS, so any two runs can be compared on exactly the same ones.
         "row_ids": [str(r["id"]) for r in rows],
+        "metrics": _BM.as_record(full),
     }
     out_dir = pathlib.Path(__file__).resolve().parent / "runs"
     out_dir.mkdir(exist_ok=True)
