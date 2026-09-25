@@ -1150,6 +1150,12 @@ def tag_path(action: str, time_str: str) -> "tuple[str, str]":
     root-POS signal is anti-correlated with the answer.
     """
     from assistant.engine.segmentation.fastseg.kind import kind_of_path
+    from assistant.intent.junk import junk_reason
+
+    # JUNK first (DEVQA Q52): list management is thrown out, whatever else the
+    # words look like, and `other` carries it past every later stage.
+    if junk_reason(action):
+        return "other", "junk"
 
     kind, path = kind_of_path(action)
     if kind not in ("event", "task", "review"):

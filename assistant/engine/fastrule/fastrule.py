@@ -130,6 +130,8 @@ _REASON_CLASS = {
     "range-date-target": REFUSAL,
     #: a parse that found WHAT to change and nothing TO change
     "no-change": REFUSAL,
+    #: thrown out as junk, with the reason on the item (DEVQA Q52)
+    "junk": REFUSAL,
     "strong-compound": STRUCTURE,
     "clause-coordination": STRUCTURE,
     # A calendar create over a bare noun list of three or more things — one
@@ -336,6 +338,11 @@ class FastRule:
         from assistant.engine import llm as _llm
         from assistant.intent.rule_parser import RuleParserSkip
 
+        # JUNK (DEVQA Q52): list management is thrown out before any parse, so
+        # the command never reaches the model. Segmentation marks the item.
+        from assistant.intent.junk import junk_reason
+        if junk_reason(text):
+            return FastRuleResult(False, [], 0.0, "junk")
         rp = _llm.get_rule_parser()
         if rp is None:
             return FastRuleResult(False, [], 0.0, "no-parser")

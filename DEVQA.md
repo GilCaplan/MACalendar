@@ -1,3 +1,15 @@
+- **2026-09-25 — Q52 (LIST MANAGEMENT IS JUNK, AND SAYS WHY)**, Gil, asked
+  what a request to manage LISTS themselves should do ("open grocery list",
+  "delete this list", "save the new list", "what lists do I have") instead of
+  going to the model: *"just ignore and throw out as junk... just mark so we
+  can see why we threw it out."* One rule (`assistant/intent/junk.py`) read by
+  the front door (it defers at once, no model) and by segmentation's tagger
+  (the item is `other`, carrying `slots["junk"]` = the reason, which the reply,
+  the trace and the review show). NOT junk, by earlier rulings: something put
+  ON a list (a to-do), a list named for its contents (Q33 — a to-do), reading a
+  list's contents (a to-do query). Measured on the 2,699 non-sealed real
+  commands: 61 are junk whole (2.3%), 163 more carry a junk part (6.0%).
+
 - **2026-09-25 — Q51 (A SEQUENCE IS SPLIT, KEEPS ITS RELATIONSHIPS, AND CHAINS
   ITS TIMES)**, Gil, asked whether "X followed by Y followed by Z" is tracked
   as a sequence when Y and Z have no time of their own:

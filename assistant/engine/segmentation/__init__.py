@@ -177,6 +177,13 @@ def run(state, cfg):
             items.append(Item(id=f"item_{len(items) + 1}", kind=kind,
                               text=action, time=when, source=source))
             envelope_of[items[-1].id] = e_i
+            if kind == "other":
+                # WHY it was thrown out, so the trace and the review can say
+                # (Gil, 2026-09-25: "just mark so we can see why").
+                from assistant.intent.junk import junk_reason
+                why = junk_reason(action)
+                if why:
+                    items[-1].slots["junk"] = why
 
     if not items:                      # never hand on an empty decomposition
         items = [Item(id="item_1", text=state.text, source=state.text,

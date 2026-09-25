@@ -665,7 +665,8 @@ def build_all(items: "list[Item]", *, today: "_dt.date | None" = None,
             # event/task/review ("thanks", "play some music", "turn on the
             # lights"), so there is nothing here to turn into an object — and
             # re-deciding it is exactly what this stage stopped doing.
-            out.append(NotAnObject("not something I can put on the calendar "
+            out.append(NotAnObject((getattr(item, "slots", None) or {}).get("junk")
+                                   or "not something I can put on the calendar "
                                    "or a list", item_id=item.id))
             continue
         try:
