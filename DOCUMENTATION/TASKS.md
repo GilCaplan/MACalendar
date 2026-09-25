@@ -1904,3 +1904,26 @@ carries v2.
 One known miss: "call the bank about the overdraft done that already" (a
 no-split trap, gold task) still reads as a call.
 
+
+### Filed 2026-09-25 (afternoon), from the Q51 and time-correctness work
+
+1. **decompose_validate's generator takes FastRule's TEST families as train.**
+   `decompose_validate/datasets/generate.py` `build()` loads FastRule's
+   `complex_patterns.json` whole and emits every family as `train`. That
+   includes the `force_split: "test"` families and the stratified-test ones.
+   The FastRule board is unaffected, because it never runs decompose_validate.
+   Any whole-chain board scored on FastRule's test families is affected.
+   *Fix:* exclude the families FastRule assigns to test, regenerate, and
+   re-baseline the decompose_validate board. This is a design-level data
+   change, so it is filed, not slipped in.
+2. **A bare-noun sequence part still takes a model call.** In "walk the dog at 5
+   followed by lunch followed by gym", "lunch" and "gym" have no verb, so
+   FastRule defers them ("skip") and the rescue reads each one: 7–11 s end to
+   end. The chained times survive the model (`run_objects` applies them last),
+   so the answer is right, only slow.
+   *Candidate:* a bare noun in a sequence or a list takes the create verb of
+   the item it follows. That is FastRule-internal. Board it alone, on the
+   sequence corpus plus FastRule's shape board.
+3. **The front door loses the minutes in "tomorrow morning at 6.30am"** (it
+   gives 06:00; the deep reader gives 06:30). Found on Gil's real command
+   id 213.
