@@ -1,3 +1,23 @@
+- **2026-09-25 — Q51 (A SEQUENCE IS SPLIT, KEEPS ITS RELATIONSHIPS, AND CHAINS
+  ITS TIMES)**, Gil, asked whether "X followed by Y followed by Z" is tracked
+  as a sequence when Y and Z have no time of their own:
+  1. **Segmentation splits on sequence words** ("followed by", "then", "after
+     that", "afterwards", "right after") and passes the RELATIONSHIP between
+     the parts to decompose_validate as a feature of each item: *"so if we
+     decide to segment, at least we know the reason why. Then if we need to
+     fix it … we know what the relationship is,"* and decompose_validate does
+     the rest of the fixing from there.
+  2. **An untimed part that follows another starts when the one before it
+     ends**, and the chain beats a default hour: "gym at 9, then lunch" puts
+     lunch after the gym, not at 13:00. *"We want to be consistent."*
+  3. **A to-do in a chain is chained too**, as an event AND a linked to-do
+     ("walk the dog at 5, then do the laundry" → laundry at 18:00 plus its
+     to-do), *"also in general for similar things"* — general rules, never
+     fitted to one case.
+  4. **The gap and the length are SETTINGS**, not rules: a default gap between
+     chained events (0 to start), a default event length (60 min to start),
+     and both per CATEGORY, edited where the categories already are.
+
 - **2026-09-25 — Q50 (CALLING A ROLE IS AN EVENT, like calling a person)**, Gil,
   asked whether "call the plumber / call the bank" should be an event the way
   Q47 made "call mum" one: *"Two also same thing."* So a LIVE call (call,
