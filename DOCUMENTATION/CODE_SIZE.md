@@ -1,17 +1,17 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 600, "total_lines": 167664} -->
+<!-- code-stats: {"total_files": 600, "total_lines": 167686} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**167,664 lines of source across 600 files.** Of that, **93,310 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**167,686 lines of source across 600 files.** Of that, **93,322 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
-| Test code | 180 | 35,603 |
+| Test code | 180 | 35,613 |
 | iOS application | 61 | 22,904 |
 | Actions, storage & domain (DB, config, observance, .ics) | 104 | 19,573 |
 | Mac application (calendar GUI) | 35 | 19,336 |
-| Engine (the brain, shipped path) | 53 | 18,991 |
+| Engine (the brain, shipped path) | 53 | 19,003 |
 | Engine experiments & boards (not in the answer path) | 59 | 17,921 |
 | Dataset & measurement tooling | 50 | 13,297 |
 | Retired (old brain, kept on purpose) | 16 | 7,533 |
@@ -20,13 +20,13 @@
 | Microphone / speech (record, STT, TTS) | 17 | 3,151 |
 | API server (the front door) | 4 | 1,741 |
 | Launch scripts | 3 | 316 |
-| **TOTAL** | **600** | **167,664** |
+| **TOTAL** | **600** | **167,686** |
 
 ### By language
 
 | | files | lines |
 |---|---:|---:|
-| Python | 525 | 142,017 |
+| Python | 525 | 142,039 |
 | Swift | 66 | 24,798 |
 | shell | 8 | 696 |
 | launch script | 1 | 153 |

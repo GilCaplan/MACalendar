@@ -396,3 +396,13 @@ def test_taking_something_off_is_a_removal(parser, said, action, needle):
     result = parser.analyze(said, current_view="month")
     (name, intent), = result.intents
     assert name == action and intent.match_title.lower() == needle
+
+
+def test_changing_a_todos_due_date(parser):
+    """It had no phrasing at all: 'change the due date of X to Y' edited a
+    calendar event called 'due date' (14 of 14 TRAIN rows)."""
+    result = parser.analyze("change the due date of charge the scooter to tomorrow", current_view="month")
+    (name, intent), = result.intents
+    assert name == "update_todo"
+    assert intent.match_title.lower() == "charge the scooter"
+    assert intent.new_due_date == _tomorrow()

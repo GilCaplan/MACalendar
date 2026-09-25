@@ -1700,7 +1700,15 @@ _STATED_CLOCK_RE = re.compile(
     r"|\d{3,4}\s*(?:am|pm)\b|\bat\s+\d{3,4}\b"
     r"|\bo'?clock\b|\b(?:half|quarter)\s+(?:past|to)\b", re.I)
 
+#: "change / move / push / set the due date of X to Y" — a to-do's due date
+#: (2026-09-25). It had no phrasing at all: the router read an edit of a
+#: calendar event called 'due date' (14 of 14 such TRAIN rows).
+_DUE_DATE_OF = re.compile(
+    r"^\s*(?:please\s+)?(?:change|move|push|update|set|shift|bump)\s+(?:the\s+)?"
+    r"due\s+date\s+(?:of|for|on)\s+(?P<what>.+?)\s+to\s+", re.I)
+
 _ROUTE_OVERRIDES = [
+    (_DUE_DATE_OF, "update_todo"),
     (re.compile(r"^\s*(?:please\s+)?(?:add|put)\s+.+\s+(?:on|to)\s+(?:my|the)\s+(?:\w+\s+)?list\b"), "create_todo"),
     # F6a: an encounter being ARRANGED is an event — must outrank the
     # need-to→todo row below ("i need to talk to Quinn friday" was a todo).
@@ -3097,6 +3105,10 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
             # "set due date to Friday" / "change due date to next Monday"
             if temporal.get("date") and re.search(r"\bdue\b", span_lower):
                 slots["new_due_date"] = temporal["date"]
+            m_due = _DUE_DATE_OF.match(span.text)
+            if m_due:
+                slots["match_title"] = _clean_title(m_due.group("what"))
+                slots.pop("new_title", None)
             # "move to general / today list"
             if re.search(r"\b(general|someday|later|backlog)\b", span_lower):
                 slots["new_list"] = "general"
