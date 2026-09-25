@@ -41,3 +41,14 @@ def test_jsonl_tail_reads_what_was_added_and_survives_a_torn_line(tmp_path):
     assert more == [{"c": 3}] and off2 > off
     p.write_text("")                                  # trimmed: restart from its end
     assert tail(str(p), off2) == ([], 0)
+
+
+def test_title_similarity_separates_a_cut_word_from_a_wrong_name():
+    from assistant.common.similarity import token_prf
+    assert token_prf("annual checkup", "annual checkup") == (1.0, 1.0, 1.0)
+    p, r, f = token_prf("annual checkup", "checkup")         # truncated: all built words belong
+    assert p == 1.0 and r == 0.5 and round(f, 3) == 0.667
+    p, r, _ = token_prf("dentist", "i have the dentist")     # leaked in: all gold words kept
+    assert r == 1.0 and p == 0.25
+    assert token_prf("annual checkup", "gym") == (0.0, 0.0, 0.0)
+    assert token_prf("", "") == (1.0, 1.0, 1.0) and token_prf("x", "")[2] == 0.0

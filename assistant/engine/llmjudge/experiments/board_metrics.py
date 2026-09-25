@@ -11,7 +11,8 @@ field reads the same on both boards. The families, each defined once in
 dataset/METRICS.md:
 
   STRUCTURE    count-correct · object precision / recall / F1
-  FIELDS       on single-create rows: title exact / contained, date, start,
+  FIELDS       on single-create rows: title word F1 (precision = words
+               leaked in, recall = words cut) and exact / contained, date, start,
                series cadence, reminder, invented a time
   COST         harm (delete 4 · update/complete 2 · create 1 · query 0) and
                the destructive errors by action
@@ -29,6 +30,7 @@ import collections
 import datetime as _dt
 import re
 
+from assistant.common.similarity import token_prf
 from assistant.engine.fastrule.experiments import gold as G
 
 CLOCK = _dt.date(2026, 9, 9)            # the date the generated set is anchored on
@@ -102,6 +104,13 @@ def score(rows: list, built: dict, correct: dict) -> dict:
                 if want_title:
                     c["title_n"] += 1
                     c["title_exact"] += _words(o.get("title")) == _words(want_title)
+                    # SIMILARITY, not only a yes/no (Gil, 2026-09-25): summed
+                    # here, averaged in `report`; per-mille ints keep the
+                    # Counter JSON-clean.
+                    tp, tr, tf = token_prf(want_title, o.get("title"))
+                    c["title_p_milli"] += round(1000 * tp)
+                    c["title_r_milli"] += round(1000 * tr)
+                    c["title_f_milli"] += round(1000 * tf)
                     c["title_contained"] += bool(_words(want_title)) and (
                         _words(want_title) <= _words(o.get("title"))
                         or _words(o.get("title")) <= _words(want_title))
@@ -170,6 +179,11 @@ def report(m: dict) -> None:
           f"   (created {c['obj_created']}, asked {c['obj_expected']}; "
           f"missing {c['missing']}, extra {c['extra']})")
     print(f"  FIELDS      single-create rows     n={c['field_rows']}")
+    if c["title_n"]:
+        tn = c["title_n"] * 10.0
+        print(f"              title word F1          {c['title_f_milli'] / tn:5.1f}%  "
+              f"(precision {c['title_p_milli'] / tn:.1f}% — words leaked in · "
+              f"recall {c['title_r_milli'] / tn:.1f}% — words cut; n={c['title_n']})")
     print(f"              title exact            {_pc(c['title_exact'], c['title_n'])}")
     print(f"              title contained        {_pc(c['title_contained'], c['title_n'])}")
     print(f"              date right             {_pc(c['date_ok'], c['date_n'])}")

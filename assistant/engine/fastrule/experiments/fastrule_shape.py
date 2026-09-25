@@ -48,6 +48,7 @@ _CLOCK = _dt.datetime(2026, 9, 9, 10, 0)
 #: RECOGNISED the compound, rather than tripping over it by luck
 _ATOMICITY_REASONS = {"strong-compound", "clause-coordination", "mixed-mode-compound", "model-compound"}
 
+from assistant.common.similarity import token_prf  # noqa: E402
 from assistant.engine.fastrule.experiments.gold import (  # noqa: E402  pure gold converters
     CONTRADICTORY,
     _AFTERNOON,
@@ -117,6 +118,10 @@ def main() -> int:
     # DOCUMENTATION/experiments/real_usage/RESULTS.md). Exact after casefold and
     # whitespace, plus a CONTAINS count that separates "wrong" from "truncated".
     T_OK_EXACT = T_CONTAINED = T_SCORED = 0
+    # ...and a SIMILARITY beside the two binary lines (Gil, 2026-09-25: "title
+    # should be a similarity rather than binary score"): mean word precision,
+    # recall and F1, so "checkup" for "annual checkup" scores 0.67, not 0.
+    T_P = T_R = T_F = 0.0
     HARM_BY: collections.Counter = collections.Counter()
     viol: collections.Counter = collections.Counter()
     miss_reason: collections.Counter = collections.Counter()
@@ -316,6 +321,10 @@ def main() -> int:
                     # "[<built-in method split ...>]" instead of "[train]".
                     want_n = " ".join(want.lower().split())
                     got_n = " ".join(got.lower().split())
+                    _p, _r, _f = token_prf(want_n, got_n)
+                    T_P += _p
+                    T_R += _r
+                    T_F += _f
                     if want_n == got_n:
                         T_OK_EXACT += 1
                         T_CONTAINED += 1
@@ -372,6 +381,9 @@ def main() -> int:
         print(f"   FIRES FOREVER            {B_FOREVER}  <- a series committed with no end")
     if T_SCORED:
         print(f"\nTITLE CORRECTNESS (committed creates whose gold names a title)")
+        print(f"   word F1 (similarity)     {100.0 * T_F / T_SCORED:.1f}%  "
+              f"precision {100.0 * T_P / T_SCORED:.1f}% (words leaked in) · "
+              f"recall {100.0 * T_R / T_SCORED:.1f}% (words cut)  (n={T_SCORED})")
         print(f"   exactly right            {pc(T_OK_EXACT, T_SCORED)}  (n={T_SCORED})")
         print(f"   right or a substring of it {pc(T_CONTAINED, T_SCORED)}  "
               f"— the gap to exact is TRUNCATION, not a wrong name")
