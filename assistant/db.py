@@ -493,6 +493,37 @@ _WEEKDAY_NUM = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
                 "friday": 4, "saturday": 5, "sunday": 6}
 
 
+class _SeriesSeed:
+    """The fields `_create_series_instances` reads, taken from a ROW or a
+    dialog/API dict instead of a parsed `CalendarIntent`.
+
+    The three manual paths into a series — `create_event_from_dict` (the Mac
+    dialog, `POST /events`), `promote_to_series` and `update_series` — each
+    used to declare their own ad-hoc `_FakeIntent`, and each was missing
+    something the voice path carried: the dialog's copy had `attendees = []`
+    (so only the FIRST instance of a manually created series had its guests),
+    none had `recur_days` (so regenerating a "tuesday and thursday" series
+    after an end-date change collapsed it to one weekday), and none had
+    `reminder_minutes`. One seed, built the same way everywhere.
+    """
+
+    def __init__(self, row: dict, date: "str | None" = None):
+        self.title = row.get("title", "")
+        self.date = date or row["date"]
+        self.start_time = row.get("start_time", "")
+        self.end_time = row.get("end_time", "")
+        att = row.get("attendees") or ""
+        self.attendees = (list(att) if isinstance(att, (list, tuple))
+                          else [a.strip() for a in str(att).split(",") if a.strip()])
+        self.location = row.get("location", "") or ""
+        self.description = row.get("description", "") or ""
+        days = row.get("recur_days") or ""
+        if isinstance(days, str):
+            days = [d.strip() for d in days.split(",")]
+        self.recur_days = [d for d in days if d in _WEEKDAY_NUM]
+        self.reminder_minutes = row.get("reminder_minutes")
+
+
 def _next_date(d: datetime.date, recurrence: str, anchor_day: int | None = None,
                recur_days: "list[str] | None" = None) -> datetime.date:
     """Advance d by one recurrence period.
@@ -1195,19 +1226,13 @@ class CalendarDB:
             first_id = cur.lastrowid
 
             if recurrence:
-                # Build a minimal intent-like object for _create_series_instances
-                class _FakeIntent:
-                    title = data["title"]
-                    date = data["date"]
-                    start_time = data["start_time"]
-                    end_time = data["end_time"]
-                    attendees: list = []
-                    location = data.get("location", "")
-                    description = data.get("description", "")
-
+                # `category` travels with the colour: the instances used to be
+                # generated uncategorised here (the 2026-09-10 fix reached only
+                # the voice path's `create_event`), so a series typed into the
+                # dialog had one coloured-by-category event and the rest grey.
                 self._create_series_instances(
-                    conn, first_id, _FakeIntent(), recurrence, recur_until,
-                    data.get("color", "#0078d4")
+                    conn, first_id, _SeriesSeed(data), recurrence, recur_until,
+                    data.get("color", "#0078d4"), category,
                 )
 
         return first_id
@@ -1448,21 +1473,11 @@ class CalendarDB:
 
         recurrence = event["recurrence"]
         recur_until = event.get("recurrence_end", "")
-        attendees_str = event.get("attendees", "")
-
-        class _FakeIntent:
-            title = event["title"]
-            date = event["date"]
-            start_time = event["start_time"]
-            end_time = event["end_time"]
-            attendees = [a for a in attendees_str.split(", ") if a]
-            location = event.get("location", "")
-            description = event.get("description", "")
 
         with self._conn() as conn:
             self._create_series_instances(
-                conn, event_id, _FakeIntent(), recurrence, recur_until,
-                event.get("color", "#0078d4"),
+                conn, event_id, _SeriesSeed(event), recurrence, recur_until,
+                event.get("color", "#0078d4"), event.get("category") or "",
             )
 
     def update_series(self, series_id: int, start_from_instance_id: int, **fields) -> None:
@@ -1478,7 +1493,22 @@ class CalendarDB:
             return
 
         recurrence = fields.get("recurrence", instance.get("recurrence", ""))
-        recur_until = fields.get("recurrence_end", instance.get("recurrence_end", ""))
+        recur_until = fields.get("recurrence_end", instance.get("recurrence_end", "")) or ""
+        # The end date is INCLUSIVE ("ends on 30 Oct" books the 30th — the same
+        # reading `_create_series_instances` has always applied) and may not
+        # fall before the instance the edit is made through: the regeneration
+        # below starts there, so an earlier end would trim nothing between the
+        # two dates and leave instances standing past the series' own end.
+        # Both editors floor their date picker at the event's own date; this
+        # is the same rule for any other caller.
+        if recurrence and recur_until:
+            try:
+                until_d = datetime.date.fromisoformat(recur_until)
+            except ValueError:
+                raise ValueError(f"recurrence_end must be an ISO date, not {recur_until!r}")
+            if until_d.isoformat() < instance["date"]:
+                raise ValueError(
+                    f"recurrence_end {recur_until} is before this event ({instance['date']})")
 
         # Fields that are series-wide and should be propagated to ALL instances
         # (including past ones) so every instance always reflects the current series state.
@@ -1510,23 +1540,18 @@ class CalendarDB:
                     (series_id, series_id, instance["date"]),
                 )
 
-                # Re-generate from the edited instance's date forward
+                # Re-generate from the edited instance's date forward. The seed
+                # is the instance as it now reads (fields over the stored row),
+                # so the rebuilt instances keep its guests, its category, its
+                # reminder and — for a "tuesday and thursday" series — both
+                # weekdays; each of those used to be dropped here.
                 if recurrence:
-                    attendees_str = fields.get("attendees", instance.get("attendees", ""))
-                    attendees_list = [a for a in attendees_str.split(", ") if a]
-
-                    class _FakeIntent:
-                        title = fields.get("title", instance["title"])
-                        date = instance["date"]
-                        start_time = fields.get("start_time", instance["start_time"])
-                        end_time = fields.get("end_time", instance["end_time"])
-                        attendees = attendees_list
-                        location = fields.get("location", instance["location"])
-                        description = fields.get("description", instance["description"])
-
+                    seed_row = {**instance, **fields}
                     self._create_series_instances(
-                        conn, series_id, _FakeIntent(), recurrence, recur_until,
-                        fields.get("color", instance["color"])
+                        conn, series_id, _SeriesSeed(seed_row, date=instance["date"]),
+                        recurrence, recur_until,
+                        seed_row.get("color") or instance["color"],
+                        seed_row.get("category") or instance.get("category") or "",
                     )
 
     # ------------------------------------------------------------------

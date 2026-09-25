@@ -15,6 +15,10 @@ struct CalendarEvent: Identifiable, Codable, Equatable {
     var color: String
     var recurrence: String
     var recurrenceEnd: String
+    /// A weekly series' named weekdays, "tuesday,thursday" ('' or nil = the
+    /// event's own weekday). Read-only here — it only lets the Repeat hint say
+    /// "every Tuesday and Thursday" instead of naming one of them.
+    var recurDays: String? = nil
     // Sync bookkeeping — 'local' | 'ics' | 'outlook'. ICS-sourced events are
     // read-only (no write endpoint behind a subscription link); Outlook
     // events stay editable when two-way sync is on.
@@ -43,6 +47,7 @@ struct CalendarEvent: Identifiable, Codable, Equatable {
         case startTime      = "start_time"
         case endTime        = "end_time"
         case recurrenceEnd  = "recurrence_end"
+        case recurDays      = "recur_days"
         case externalSource = "external_source"
         case externalId     = "external_id"
         case updatedAt      = "updated_at"

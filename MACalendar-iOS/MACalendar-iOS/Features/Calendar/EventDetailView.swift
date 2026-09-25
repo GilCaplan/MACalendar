@@ -20,10 +20,14 @@ struct EventDetailView: View {
     @State private var reminderChoice: Int
     @State private var saving = false
     /// The SERIES rule. Separate from the instance fields above because
-    /// changing it edits every instance, not this row — the Save button writes
-    /// one event, "Apply to all" writes the series.
+    /// changing it edits every instance, not this row: Save writes the other
+    /// fields to this event and, when the rule moved, the rule to the whole
+    /// series (PATCH /events/<id>/series) — the same split the Mac makes.
     @State private var recurrence: String
     @State private var recurrenceEnd: String
+    /// Set once the end has been defaulted for something newly made to
+    /// repeat, so switching cadence afterwards never overrides a chosen Never.
+    @State private var endDefaulted = false
     @State private var seriesCount = 0
     @State private var seriesBusy = false
     @State private var confirmSeriesDelete = false
@@ -99,6 +103,11 @@ struct EventDetailView: View {
                 Section(header: Text("Event")) {
                     TextField("Title", text: $title)
                         .onSubmit { if !saving && !title.isEmpty { save() } }
+                    if let badge = RepeatHint.badge(for: event) {
+                        Label(badge, systemImage: "repeat")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
 
                     VStack(alignment: .leading, spacing: 2) {
                         TextField("Date (YYYY-MM-DD)", text: $date)
@@ -150,24 +159,38 @@ struct EventDetailView: View {
                         Text("Inherit uses the category's lead time, set on your Mac. Per-event reminders are off by default — Settings › Notifications is the one summary this phone shows.")
                     }
                 }
-                if !isNew {
-                    RepeatsSection(recurrence: $recurrence,
-                                   recurrenceEnd: $recurrenceEnd,
-                                   seriesCount: seriesCount,
-                                   busy: seriesBusy,
-                                   apply: applySeries,
-                                   deleteSeries: { confirmSeriesDelete = true })
-                    .confirmationDialog("Delete the whole series?",
-                                        isPresented: $confirmSeriesDelete,
-                                        titleVisibility: .visible) {
-                        Button("Delete this and future", role: .destructive) {
-                            removeSeries(futureOnly: true)
-                        }
-                        Button("Delete every instance", role: .destructive) {
-                            removeSeries(futureOnly: false)
-                        }
-                        Button("Cancel", role: .cancel) {}
+                // On a NEW event too (2026-09-25): until then a repeat could
+                // only be added after saving, by reopening the event.
+                RepeatsSection(recurrence: $recurrence,
+                               recurrenceEnd: $recurrenceEnd,
+                               startDate: date,
+                               recurDays: event.recurDays ?? "",
+                               isSeries: !isNew && !event.recurrence.isEmpty,
+                               seriesCount: seriesCount,
+                               busy: seriesBusy,
+                               deleteSeries: isNew ? nil : { confirmSeriesDelete = true })
+                .onChange(of: recurrence) { newValue in
+                    // Something being made to repeat is offered an end a
+                    // month after it — most repeating things stop. An
+                    // existing open-ended series keeps its Never.
+                    if !newValue.isEmpty && event.recurrence.isEmpty
+                        && recurrenceEnd.isEmpty && !endDefaulted {
+                        recurrenceEnd = RepeatHint.monthAfter(date)
+                        endDefaulted = true
                     }
+                }
+                // Never presented on a new event: there is no Delete series
+                // button there to set it.
+                .confirmationDialog("Delete the whole series?",
+                                    isPresented: $confirmSeriesDelete,
+                                    titleVisibility: .visible) {
+                    Button("Delete this and future", role: .destructive) {
+                        removeSeries(futureOnly: true)
+                    }
+                    Button("Delete every instance", role: .destructive) {
+                        removeSeries(futureOnly: false)
+                    }
+                    Button("Cancel", role: .cancel) {}
                 }
                 // The event body. This is where a planned session keeps the
                 // part that matters — "2 × 10 min @ 4:40 — 2 min jog between" —
@@ -263,8 +286,20 @@ struct EventDetailView: View {
 
     // MARK: - Actions
 
+    /// Did the RULE move — cadence or end — rather than only this row's fields?
+    private var ruleChanged: Bool {
+        recurrence != event.recurrence || recurrenceEnd != event.recurrenceEnd
+    }
+
     private func save() {
         guard !saving else { return }
+        // The end is inclusive and may not precede the event: if the date was
+        // moved past it, the end moves with it rather than describing a
+        // series with no room in it.
+        if !recurrence.isEmpty && !recurrenceEnd.isEmpty && recurrenceEnd < date {
+            recurrenceEnd = date
+        }
+        if recurrence.isEmpty { recurrenceEnd = "" }
         saving = true
         Task {
             do {
@@ -278,6 +313,15 @@ struct EventDetailView: View {
                     // Only send an override that exists — a fresh event with
                     // "Inherit" simply has no reminder_minutes.
                     if reminderChoice != -1 { fields["reminder_minutes"] = reminderChoice }
+                    // A repeating create is ONE POST: the Mac builds the linked
+                    // series from it (db.create_event_from_dict), skipping
+                    // Shabbat and yom tov the same way a spoken series does.
+                    // Offline it queues like any create and the series is
+                    // built when it reaches the Mac.
+                    if !recurrence.isEmpty {
+                        fields["recurrence"] = recurrence
+                        fields["recurrence_end"] = recurrenceEnd
+                    }
                     _ = try await api.createEvent(fields)
                 } else {
                     // NSNull → JSON null → the Mac clears the override back
@@ -285,6 +329,18 @@ struct EventDetailView: View {
                     // convention.
                     fields["reminder_minutes"] = reminderChoice == -1 ? NSNull() : reminderChoice
                     try await api.updateEvent(id: event.id, fields: fields)
+                    if ruleChanged {
+                        // The rule goes to the whole series — the hint under
+                        // End repeat says so before Save. A separate "Apply to
+                        // the whole series" button used to do this while Save
+                        // quietly did not, so a new end date set and saved
+                        // was simply lost.
+                        guard await applySeriesRule() else {
+                            saving = false
+                            onDismiss?()   // refresh: this event's own edit did land
+                            return
+                        }
+                    }
                 }
                 saving = false
                 dismiss()
@@ -326,27 +382,34 @@ struct EventDetailView: View {
         }
     }
 
-    /// Write the RULE to every instance. `Save` writes this event; this writes
-    /// the series, and the Mac regenerates the later instances — so extending
-    /// the end date adds them and shortening it trims them.
-    private func applySeries() {
+    /// Write the RULE to every instance; the Mac regenerates the later
+    /// instances, so extending the end date adds them and shortening it trims
+    /// them, all under the one series_id. Returns false (with the reason
+    /// shown) when it could not be applied.
+    private func applySeriesRule() async -> Bool {
+        guard event.id > 0 else {
+            // An offline temp row doesn't exist on the Mac yet, so there is no
+            // series to rebuild; its own fields are already queued.
+            errorMessage = "This event hasn't synced to your Mac yet — change its repeat once it has."
+            return false
+        }
         seriesBusy = true
-        Task {
-            defer { seriesBusy = false }
-            do {
-                let out = try await api.updateSeries(
-                    id: event.id,
-                    fields: ["recurrence": recurrence,
-                             "recurrence_end": recurrenceEnd])
-                seriesCount = out.count
-                onDismiss?()
-            } catch {
-                // Deliberately NOT queued offline: growing or trimming a series
-                // deletes and regenerates rows on the Mac, and replaying that
-                // against a database that moved on would be guesswork about
-                // which instances were meant.
-                errorMessage = "The series couldn't be updated — your Mac needs to be reachable for this one."
-            }
+        defer { seriesBusy = false }
+        do {
+            let out = try await api.updateSeries(
+                id: event.id,
+                fields: ["recurrence": recurrence,
+                         "recurrence_end": recurrenceEnd])
+            seriesCount = out.count
+            return true
+        } catch {
+            // Deliberately NOT queued offline: growing or trimming a series
+            // deletes and regenerates rows on the Mac, and replaying that
+            // against a database that moved on would be guesswork about
+            // which instances were meant. This event's own fields were saved
+            // (or queued) above; only the repeat change is refused.
+            errorMessage = "Your other changes were saved, but the repeat couldn't be — your Mac needs to be reachable to change a series."
+            return false
         }
     }
 
@@ -400,8 +463,6 @@ struct EventDetailView: View {
     }
 }
 
-/// Identifiable wrapper so `.sheet(item:)` can present the share sheet the
-/// moment the .ics file lands on disk. ShareLink wants its item up front,
 /// The SERIES rule, as its own view.
 ///
 /// Its own struct and not a computed property in `body` for the reason this
@@ -414,13 +475,23 @@ struct EventDetailView: View {
 /// The cadences are the four the product supports (CLAUDE.md) — anything else
 /// a speaker says is rounded to one of them and the rounding is announced, so
 /// offering a fifth here would promise something the engine cannot keep.
+///
+/// End repeat is Never | On date, the same two choices as the Mac dialog. It
+/// was a "Has an end date" toggle defaulting to three months from TODAY —
+/// which for an event next spring was an end before its own start.
 private struct RepeatsSection: View {
     @Binding var recurrence: String
     @Binding var recurrenceEnd: String
+    /// The event's own date (yyyy-MM-dd): the floor for the end, and the
+    /// weekday the hint names.
+    let startDate: String
+    let recurDays: String
+    /// Editing an event that is already part of a series.
+    let isSeries: Bool
     let seriesCount: Int
     let busy: Bool
-    let apply: () -> Void
-    let deleteSeries: () -> Void
+    /// nil on a new event — there is no series to delete yet.
+    let deleteSeries: (() -> Void)?
 
     private static let cadences = [("Never", ""), ("Every day", "daily"),
                                    ("Every week", "weekly"),
@@ -428,15 +499,13 @@ private struct RepeatsSection: View {
                                    ("Every year", "yearly")]
 
     /// "" means the series never ends. A DatePicker cannot express that, so
-    /// the toggle carries it and the picker only appears once there IS an end.
+    /// the End repeat picker carries it and the date only appears for On date.
     private var hasEnd: Binding<Bool> {
         Binding(get: { !recurrenceEnd.isEmpty },
                 set: { on in
                     if on {
                         if recurrenceEnd.isEmpty {
-                            let soon = Calendar.current.date(byAdding: .month, value: 3,
-                                                             to: Date()) ?? Date()
-                            recurrenceEnd = Self.day.string(from: soon)
+                            recurrenceEnd = RepeatHint.monthAfter(startDate)
                         }
                     } else {
                         recurrenceEnd = ""
@@ -444,16 +513,12 @@ private struct RepeatsSection: View {
                 })
     }
 
-    private var endDate: Binding<Date> {
-        Binding(get: { Self.day.date(from: recurrenceEnd) ?? Date() },
-                set: { recurrenceEnd = Self.day.string(from: $0) })
-    }
+    private var start: Date { RepeatHint.day.date(from: startDate) ?? Date() }
 
-    static let day: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
+    private var endDate: Binding<Date> {
+        Binding(get: { max(RepeatHint.day.date(from: recurrenceEnd) ?? start, start) },
+                set: { recurrenceEnd = RepeatHint.day.string(from: $0) })
+    }
 
     var body: some View {
         Section {
@@ -463,41 +528,134 @@ private struct RepeatsSection: View {
                 }
             }
             if !recurrence.isEmpty {
-                Toggle("Has an end date", isOn: hasEnd)
-                if !recurrenceEnd.isEmpty {
-                    DatePicker("Ends", selection: endDate, displayedComponents: .date)
+                Picker("End repeat", selection: hasEnd) {
+                    Text("Never").tag(false)
+                    Text("On date").tag(true)
                 }
-                Button {
-                    apply()
-                } label: {
+                if !recurrenceEnd.isEmpty {
+                    // Never before the event's own date: the end is inclusive,
+                    // and an earlier one would describe a series with no room.
+                    DatePicker("Ends on", selection: endDate, in: start...,
+                               displayedComponents: .date)
+                }
+            }
+            if isSeries, let deleteSeries {
+                Button(role: .destructive) { deleteSeries() } label: {
                     HStack {
-                        Label("Apply to the whole series", systemImage: "repeat")
+                        Label("Delete series…", systemImage: "trash")
                         if busy { Spacer(); ProgressView() }
                     }
-                }
-                .disabled(busy)
-                Button(role: .destructive) { deleteSeries() } label: {
-                    Label("Delete series…", systemImage: "trash")
                 }
                 .disabled(busy)
             }
         } header: {
             Text("Repeats")
         } footer: {
-            if recurrence.isEmpty {
-                Text("Pick a cadence to turn this one event into a series.")
-            } else if seriesCount > 0 {
-                Text("\(seriesCount) events are linked. Changing the cadence or the "
-                     + "end date rebuilds the later ones — extending adds, shortening trims. "
-                     + "Save changes only this event.")
-            } else {
-                Text("Changing the cadence or the end date rebuilds the later events.")
-            }
+            Text(footer)
         }
+    }
+
+    private var footer: String {
+        if recurrence.isEmpty {
+            return isSeries
+                ? "Saving stops the series here — the events after this one are removed."
+                : "Pick a cadence to turn this into a series of linked events."
+        }
+        var text = RepeatHint.caption(recurrence: recurrence, start: startDate,
+                                      end: recurrenceEnd, recurDays: recurDays)
+        if isSeries {
+            let linked = seriesCount > 0 ? "\(seriesCount) events are linked. " : ""
+            text += "\n\n" + linked + "Changing Repeat or End repeat updates the whole "
+                + "series when you save — extending adds events, shortening removes them. "
+                + "Your other edits change only this event."
+        }
+        return text
     }
 }
 
+/// The words for a repeat, in one place — the phone's copy of the Mac
+/// dialog's `repeat_hint` / `series_badge` (assistant/calendar_ui/event_dialog.py),
+/// so both apps describe a series the same way.
+///
+/// The end date is INCLUSIVE — "ends on 30 Oct" books the 30th, which is how
+/// the Mac has always generated a series — hence "through", the word the
+/// project reads as keeping its day ("until" excludes it; CLAUDE.md).
+enum RepeatHint {
+    static let day: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
 
+    private static func format(_ pattern: String, _ d: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_GB")
+        f.dateFormat = pattern
+        return f.string(from: d)
+    }
+
+    /// "Fri 30 Oct", with the year only when it isn't this one.
+    static func label(_ iso: String) -> String {
+        guard let d = day.date(from: iso) else { return iso }
+        let sameYear = Calendar.current.component(.year, from: d)
+            == Calendar.current.component(.year, from: Date())
+        return format(sameYear ? "EEE d MMM" : "EEE d MMM yyyy", d)
+    }
+
+    /// One month after `iso` — the default end for something made to repeat.
+    static func monthAfter(_ iso: String) -> String {
+        let base = day.date(from: iso) ?? Date()
+        return day.string(from: Calendar.current.date(byAdding: .month, value: 1, to: base) ?? base)
+    }
+
+    private static func ordinal(_ n: Int) -> String {
+        if (11...13).contains(n % 100) { return "\(n)th" }
+        switch n % 10 {
+        case 1: return "\(n)st"
+        case 2: return "\(n)nd"
+        case 3: return "\(n)rd"
+        default: return "\(n)th"
+        }
+    }
+
+    static func cadence(_ recurrence: String, start iso: String, recurDays: String) -> String {
+        let d = day.date(from: iso) ?? Date()
+        let days = recurDays.split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces).capitalized }
+            .filter { !$0.isEmpty }
+        switch recurrence {
+        case "daily": return "every day"
+        case "weekly":
+            if days.count > 1, let last = days.last {
+                return "every " + days.dropLast().joined(separator: ", ") + " and " + last
+            }
+            return "every " + format("EEEE", d)
+        case "monthly":
+            return "every month on the " + ordinal(Calendar.current.component(.day, from: d))
+        case "yearly": return "every year on " + format("d MMMM", d)
+        default: return ""
+        }
+    }
+
+    static func caption(recurrence: String, start: String, end: String, recurDays: String) -> String {
+        let what = cadence(recurrence, start: start, recurDays: recurDays)
+        let when = end.isEmpty
+            ? "Repeats \(what) with no end date — the next 12 months are booked."
+            : "Repeats \(what) through \(label(end)), then stops — the end date is included."
+        return when + " Skips Shabbat and yom tov."
+    }
+
+    /// "Part of a weekly series · ends Fri 30 Oct" — nil for a one-off.
+    static func badge(for event: CalendarEvent) -> String? {
+        guard !event.recurrence.isEmpty else { return nil }
+        let tail = event.recurrenceEnd.isEmpty ? "no end date" : "ends " + label(event.recurrenceEnd)
+        return "Part of a \(event.recurrence) series · \(tail)"
+    }
+}
+
+/// Identifiable wrapper so `.sheet(item:)` can present the share sheet the
+/// moment the .ics file lands on disk. ShareLink wants its item up front,
 /// which an async fetch can't provide — GuestsSection gets away with
 /// ShareLink because it composes its .ics synchronously on-device.
 private struct ShareFile: Identifiable {
