@@ -1958,3 +1958,19 @@ is put back to Gil.
 0 fixed / 0 broke — exactly the 1108 the targeted check predicted after the
 reminder-calls fix.** (Scored against the gold of the day; the gold then
 followed Q26 and Q47 by rule — see decompose_validate/experiments/RESULTS.md.)
+
+## Whole chain after the 2026-09-25 cycles (seeded Board D v2, 1,200 TRAIN rows)
+
+| run (record) | commit | correct, loop OFF | loop fixed / broke |
+|---|---|---|---|
+| `…20260924T1940` | 2026-09-24 evening | 1125 (93.8%) | 0 / 0 |
+| `…20260925T0058` | 79b5fe7 (segmentation clock words, meridiem, model gate) | 1134 (94.5%) | 0 / 1 |
+| `…20260925T0234` | 4bc4b8a (+ front-door titles, reminders, written message, targets) | 1127 (93.9%) | 0 / 1 |
+| `…20260925T0335` | db2020a (+ the trailing lead-time form confined to the front door) | **1139 (94.9%)** | 0 / 1 |
+
+The 0234 dip was one defect of that day's reminder fix, found by re-running
+the 73 wrong rows on the 0058 code (13 had been right; 12 were the trailing
+lead-time form matching decompose's joined "words + time" string). The loop
+still fixes nothing on this board and breaks one row ("move this to a week from
+today, i don't remember the name" becomes an edit of a junk title) — filed in
+TASKS.md.
