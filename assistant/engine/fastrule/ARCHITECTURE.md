@@ -160,11 +160,11 @@ land as later measured batches, not as part of the port.
 
 ## 4 · The dataset — `datasets/`
 
-**7,200 rows**, generated from the banks in `datasets/banks/`:
+**8,400 rows** (6,000 train / 2,400 test; the file keeps its historical name `fastrule_7200.jsonl`), generated from the banks in `datasets/banks/`:
 
 | bank | what it holds |
 |---|---|
-| `complex_patterns.json` | 321 templates with `atomic`, item counts, and **named slots** |
+| `complex_patterns.json` | 374 templates (53 of them train-only growth) with `atomic`, item counts, and **named slots** |
 | `simple_patterns.json` | single-item shapes |
 | `fillers.json` | slot values — invented names only, no personal vocabulary |
 | `categories_fixture.json` | category assignment fixture |
@@ -217,12 +217,12 @@ fastrule/
                       commit. Atomicity belongs here, where no Item exists yet
     fastrule.py       the rule engine behind the front door: Atomicity, Scorer,
                       FastRule, and the DEFER contract
-    datasets/         7,200 rows + the banks that generate them
+    datasets/         8,400 rows + the banks that generate them
     experiments/      RESULTS.md (the run log) · stage_board.py (THE STAGE's
                       board, attributed) · fastrule_shape.py (the FRONT DOOR's
                       board) · fastrule6k.py · fast_sandbox.py · b1_ceiling.py
                       · b3_live_chain.py
-    datasets/         7,200 rows, the banks, and generate.py
+    datasets/         8,400 rows, the banks, and generate.py
 ```
 
 **Two boards, and they measure DIFFERENT BOXES** — do not compare them:

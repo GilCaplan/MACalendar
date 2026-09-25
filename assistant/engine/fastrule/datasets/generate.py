@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Generate the FastRule eval/train dataset from pattern + filler banks
-under assistant/engine/fastrule/datasets/banks/. Currently 7,200 rows: the original 6,000-row
-stratified 80/20 pool (train 4,800 / test 1,200) plus a 1,200-row
-forced-test-only pool grown on top of it (Gil, 2026-09-07) — see
-`build_forced_test()` and assistant/engine/TRAIN_TEST_SPLIT_CONVENTION.md.
+under assistant/engine/fastrule/datasets/banks/. Currently 8,400 rows: the original 6,000-row
+stratified 80/20 pool (train 4,800 / test 1,200), a 1,200-row forced-test-only
+pool grown on top of it (Gil, 2026-09-07), and a 1,200-row forced-TRAIN-only
+pool grown on top of both (2026-09-25) — see `build_forced_test()`,
+`build_forced_train()` and assistant/engine/TRAIN_TEST_SPLIT_CONVENTION.md.
+The file keeps its historical name, `fastrule_7200.jsonl`, for the same reason
+`SEED` keeps its: forty-odd boards and tests read it by that path.
 
 WHY a generator instead of thousands of hand-written rows: the banks are the
 authored artifact (pattern SKELETONS + generic slot fillers); this script
@@ -22,10 +25,12 @@ inputs (no network, no wall-clock, no dict-iteration-order dependence —
 every RNG stream is reseeded from a stable string key, independently per
 family, so one family's row content can never depend on any OTHER family
 existing at all — see `_init_family`/`gen_family_rows`). Regenerating
-reproduces the previous fastrule_7200.jsonl byte-for-byte, and growing the
-forced-test pool further leaves every existing row (train AND the original
+reproduces the previous fastrule_7200.jsonl byte-for-byte, and growing either
+forced pool further leaves every existing row (train AND the original
 stratified test) untouched — that's the whole point of pulling force_split
-families out before the stratified path ever runs (`main()`). Stable ids
+families out before the stratified path ever runs (`main()`). The forced-train
+rows are also shuffled on their own RNG stream and APPENDED after the rest, so
+the original 7,200 keep their line order too. Stable ids
 are "<family>-<counter>", counter local to that family's rows in the order
 generated. `SEED` still reads `"fastrule-6000-v1"` — a fixed historical
 identifier now, not a live row-count description; renaming the STRING would
@@ -86,6 +91,17 @@ TRAIN_FRAC = 0.8
 SIMPLE_FORCE_TEST_TOTAL = 400
 COMPLEX_FORCE_TEST_TOTAL = 800
 
+# Train-only growth (2026-09-25), the mirror of the pool above: families with
+# `force_split: "train"` are assigned directly to TRAIN, again on top of every
+# total above — see build_forced_train(). The FastRule board read 96.8% vs
+# 81.0% correct-on-handled (atomic rows, train vs test) while real speech
+# showed no gap, because the test half holds whole phrasing STYLES (the
+# forced-test pool) that train never sees. These families widen train's
+# phrasing instead. They were written without reading any test family or test
+# row (TRAIN_TEST_SPLIT_CONVENTION.md, "Growing train-only").
+SIMPLE_FORCE_TRAIN_TOTAL = 400
+COMPLEX_FORCE_TRAIN_TOTAL = 800
+
 # action -> (atomic, events, tasks) for SIMPLE-tier families, which are
 # single-intent by construction so this is fully determined by the action.
 # COMPLEX-tier families state atomic/events/tasks explicitly in their bank
@@ -123,6 +139,18 @@ BASE_INFO = {
     "generic_target": ("generic_targets", "title"),
     "query_range": ("query_ranges", "date_phrase"),
     "filler": ("filler_words", None),
+    # 2026-09-25, for the train-only growth. NEW bank keys only — an existing
+    # bank list is never edited, because a longer list changes which filler
+    # every existing family's rng.choice() lands on, and so every existing row.
+    "weekday": ("weekdays", "date_phrase"),
+    "clock": ("clock_times", "time_phrase"),          # every value states a clock (Q26)
+    "uk_time": ("uk_times", "time_phrase"),
+    "uk_date": ("uk_dates", "date_phrase"),
+    "recurrence_more": ("recurrences_more", "recurrence"),
+    "list_name": ("list_names", None),
+    "wake": ("wake_words", None),
+    "opener": ("polite_openers", None),
+    "hedge": ("hedges", None),
 }
 
 # Recurrence must round to daily/weekly/monthly (CLAUDE.md convention).
@@ -136,6 +164,12 @@ RECURRENCE_ROUND = {
     "every weekend": "weekly", "once a week": "weekly",
     "twice a week": "weekly", "every sunday": "weekly",
     "monthly": "monthly", "every month": "monthly",
+    # `recurrences_more` (2026-09-25). New keys only: no existing row's raw
+    # recurrence is one of these, so no existing row can gain a rounding.
+    "every fortnight": "weekly", "fortnightly": "weekly", "once a fortnight": "weekly",
+    "every morning": "daily", "every evening": "daily", "every single day": "daily",
+    "every other day": "daily", "each week": "weekly", "every thursday": "weekly",
+    "every saturday": "weekly", "every friday": "weekly", "once a month": "monthly",
 }
 
 TOKEN_RE = re.compile(r"\{(\w+)\}")
@@ -304,7 +338,8 @@ def placeholder_info(token: str):
 #: from, so a new time placeholder cannot be forgotten here — it has to name one
 #: of these banks to be a time at all.
 TIME_BANKS = {"dates", "times", "time_ranges", "recurrences", "durations",
-              "lead_times", "query_ranges"}
+              "lead_times", "query_ranges",
+              "weekdays", "clock_times", "uk_times", "uk_dates", "recurrences_more"}
 
 #: Prepositions and connectives that exist ONLY to attach the time that follows
 #: them. Removed with it, or the action words keep a dangling "at".
@@ -750,19 +785,39 @@ def build_forced_test(tier: str, patterns: list[dict], total: int, fillers: dict
     `build_tier`). `total` is this pool's own row target (engine/TRAIN_TEST_SPLIT_CONVENTION.md), added
     ON TOP of the tier's original SIMPLE_TOTAL/COMPLEX_TOTAL, not carved out
     of it — that's what keeps train exactly as it was."""
+    return _build_forced("test", tier, patterns, total, fillers, global_seen,
+                         categories_mod, tagging_mod, task_tag_keywords)
+
+
+def build_forced_train(tier: str, patterns: list[dict], total: int, fillers: dict, global_seen: set,
+                        categories_mod, tagging_mod, task_tag_keywords: dict):
+    """Families with `force_split: "train"` (2026-09-25) — the exact mirror of
+    `build_forced_test`: assigned directly to TRAIN, bypassing
+    `stratified_split()`, with `total` (SIMPLE/COMPLEX_FORCE_TRAIN_TOTAL) added
+    on top of every other pool. `main()` runs it LAST, so every existing row —
+    train, stratified test and forced test — has already claimed its text in
+    `global_seen` and can never be displaced by a new family's render."""
+    return _build_forced("train", tier, patterns, total, fillers, global_seen,
+                         categories_mod, tagging_mod, task_tag_keywords)
+
+
+def _build_forced(split_name: str, tier: str, patterns: list[dict], total: int, fillers: dict,
+                  global_seen: set, categories_mod, tagging_mod, task_tag_keywords: dict):
+    """The one body both forced pools share. Byte-identical to the original
+    `build_forced_test` loop for `split_name == "test"`."""
     for fam in patterns:
-        assert fam.get("force_split") == "test", (
-            f"{fam['family']}: build_forced_test only supports force_split='test' "
-            f"(got {fam.get('force_split')!r})")
+        assert fam.get("force_split") == split_name, (
+            f"{fam['family']}: the forced-{split_name} pool only takes "
+            f"force_split={split_name!r} (got {fam.get('force_split')!r})")
         _init_family(fam, tier, fillers)
-        fam["split"] = "test"
+        fam["split"] = split_name
 
     capacities = {fam["family"]: family_capacity(fam, fillers) for fam in patterns}
     quotas = distribute_quota(total, [f["family"] for f in patterns], capacities)
 
     rows = []
     for fam in patterns:
-        rows += _emit_family_rows(fam, "test", quotas[fam["family"]], tier, fillers,
+        rows += _emit_family_rows(fam, split_name, quotas[fam["family"]], tier, fillers,
                                    global_seen, categories_mod, tagging_mod, task_tag_keywords)
     return rows
 
@@ -789,10 +844,15 @@ def main():
     # it was before any force_split family existed — that's what makes the
     # train set — and the original 6,000 stratified rows generally —
     # byte-identical across this growth.
+    for fam in simple_patterns + complex_patterns:
+        if fam.get("force_split") not in (None, "test", "train"):
+            raise ValueError(f"{fam['family']}: unknown force_split {fam['force_split']!r}")
     simple_free = [f for f in simple_patterns if not f.get("force_split")]
-    simple_forced = [f for f in simple_patterns if f.get("force_split")]
+    simple_forced = [f for f in simple_patterns if f.get("force_split") == "test"]
+    simple_forced_train = [f for f in simple_patterns if f.get("force_split") == "train"]
     complex_free = [f for f in complex_patterns if not f.get("force_split")]
-    complex_forced = [f for f in complex_patterns if f.get("force_split")]
+    complex_forced = [f for f in complex_patterns if f.get("force_split") == "test"]
+    complex_forced_train = [f for f in complex_patterns if f.get("force_split") == "train"]
 
     global_seen: set[str] = set()
     rows = []
@@ -817,9 +877,22 @@ def main():
     order_rng = random.Random(f"{SEED}:final-order")
     order_rng.shuffle(rows)
 
+    # Forced-TRAIN families run LAST (2026-09-25), after every existing row has
+    # claimed its text, and are shuffled on their OWN stream and appended — so
+    # the 7,200 rows above keep their content, their ids AND their line order,
+    # and the committed file's diff for this pool is a pure append.
+    train_growth = []
+    train_growth += build_forced_train("simple", simple_forced_train, SIMPLE_FORCE_TRAIN_TOTAL, fillers,
+                                       global_seen, categories_mod, tagging_mod, task_tag_keywords)
+    train_growth += build_forced_train("complex", complex_forced_train, COMPLEX_FORCE_TRAIN_TOTAL, fillers,
+                                       global_seen, categories_mod, tagging_mod, task_tag_keywords)
+    random.Random(f"{SEED}:final-order:forced-train").shuffle(train_growth)
+    rows += train_growth
+
     # ---- verification -----------------------------------------------
     texts = [r["text"] for r in rows]
-    expected_total = SIMPLE_TOTAL + COMPLEX_TOTAL + SIMPLE_FORCE_TEST_TOTAL + COMPLEX_FORCE_TEST_TOTAL
+    expected_total = (SIMPLE_TOTAL + COMPLEX_TOTAL + SIMPLE_FORCE_TEST_TOTAL + COMPLEX_FORCE_TEST_TOTAL
+                      + SIMPLE_FORCE_TRAIN_TOTAL + COMPLEX_FORCE_TRAIN_TOTAL)
     assert len(rows) == expected_total, (len(rows), expected_total)
     assert len(set(texts)) == len(texts), "duplicate text rows"
 
@@ -828,6 +901,13 @@ def main():
     total = len(rows)
 
     forced_families = {f["family"] for f in (simple_forced + complex_forced)}
+    forced_train_families = {f["family"] for f in (simple_forced_train + complex_forced_train)}
+    forced_test_rows_in_train = [r for r in rows if r["family"] in forced_train_families and r["split"] != "train"]
+    if forced_test_rows_in_train:
+        raise ValueError(f"force_split='train' family produced non-train rows: {forced_test_rows_in_train[:3]}")
+    growth_n = sum(1 for r in rows if r["family"] in forced_train_families)
+    if growth_n != SIMPLE_FORCE_TRAIN_TOTAL + COMPLEX_FORCE_TRAIN_TOTAL:
+        raise ValueError(f"forced-train pool produced {growth_n} rows")
 
     # The ORIGINAL stratified pool must still land at ~80/20 — the same
     # invariant as before force_split existed, checked over exactly the same
@@ -847,8 +927,13 @@ def main():
     if forced_train_rows:
         raise ValueError(f"force_split family produced train rows: {forced_train_rows[:3]}")
     expected_train = round(SIMPLE_TOTAL * TRAIN_FRAC) + round(COMPLEX_TOTAL * TRAIN_FRAC)
-    if train_n != expected_train:
-        raise ValueError(f"train count drifted from the original {expected_train}: {train_n}")
+    stratified_train_n = sum(1 for r in rows if r["split"] == "train"
+                             and r["family"] not in forced_train_families)
+    if stratified_train_n != expected_train:
+        raise ValueError(f"stratified train count drifted from the original {expected_train}: "
+                         f"{stratified_train_n}")
+    if train_n != expected_train + growth_n:
+        raise ValueError(f"train count {train_n} != {expected_train} + forced-train {growth_n}")
 
     fam_counts = Counter(r["family"] for r in rows)
     max_family_frac = max(fam_counts.values()) / total
@@ -869,12 +954,16 @@ def main():
     print(f"TOTAL rows: {total}  (stratified pool {stratified_row_count}: "
           f"simple {SIMPLE_TOTAL} / complex {COMPLEX_TOTAL}  +  "
           f"forced-test pool {SIMPLE_FORCE_TEST_TOTAL + COMPLEX_FORCE_TEST_TOTAL}: "
-          f"simple {SIMPLE_FORCE_TEST_TOTAL} / complex {COMPLEX_FORCE_TEST_TOTAL})")
+          f"simple {SIMPLE_FORCE_TEST_TOTAL} / complex {COMPLEX_FORCE_TEST_TOTAL}  +  "
+          f"forced-train pool {SIMPLE_FORCE_TRAIN_TOTAL + COMPLEX_FORCE_TRAIN_TOTAL}: "
+          f"simple {SIMPLE_FORCE_TRAIN_TOTAL} / complex {COMPLEX_FORCE_TRAIN_TOTAL})")
     print(f"Split: train={train_n} ({train_n/total:.1%})  test={test_n} ({test_n/total:.1%})  "
-          f"[train is EXACTLY the original {expected_train}]")
+          f"[train is EXACTLY the original {expected_train} + the forced-train {growth_n}]")
     print(f"  of which forced-test: {len(forced_families)} families, "
           f"{sum(1 for r in rows if r['family'] in forced_families)} rows "
           f"(all test, by construction)")
+    print(f"  of which forced-train: {len(forced_train_families)} families, "
+          f"{growth_n} rows (all train, by construction)")
     print(f"  stratified-pool-only split: test={stratified_test_frac:.1%} "
           f"(the original ~80/20, unperturbed by the forced pool)")
     print(f"Unique texts: {len(set(texts))}/{total}")
