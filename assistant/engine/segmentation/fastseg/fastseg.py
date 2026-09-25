@@ -178,6 +178,28 @@ _TIME_PATTERNS: "list[tuple[str, str]]" = [
     (rf"\b(?:half|quarter|twenty[\s-]five|twenty|fifteen|ten|five)\s+"
      rf"(?:past|to)\s+(?:{_HOURWORD}|\d{{1,2}})\b", "clock"),
 
+    # --- SPOKEN CLOCKS WITH A NUMBER WORD for the hour (2026-09-24). Three
+    #     shapes the table above could not see, each losing a clock the speaker
+    #     SAID (found on a real 23:10 command, "tomorrow at one …", saved with
+    #     "start_time — nothing in the words said it"). Across 45,620 distinct
+    #     corpus transcripts, 177 of 1,267 "at <number word>" phrases were read
+    #     as no clock, or the wrong one:
+    #   1. "ten past nine IN THE MORNING" as one span. Longest-first took
+    #      "nine in the morning" (19 chars) over "ten past nine" (13) and the
+    #      ten minutes vanished: 09:00 for 09:10, 96 rows.
+    (rf"\b(?:half|quarter|twenty[\s-]five|twenty|fifteen|ten|five)\s+(?:past|to)\s+"
+     rf"(?:{_HOURWORD}|\d{{1,2}})\s+in\s+the\s+(?:morning|afternoon|evening)\b", "clock"),
+    #   2. a number word with a meridiem: "at seven pm", "at eight p.m." —
+    #      the digit form has always matched; the word form never did.
+    (rf"\b(?:at\s+(?:around\s+|about\s+)?)?(?:{_HOURWORD})\s*(?:am|pm|a\.m\.|p\.m\.)(?!\w)",
+     "clock"),
+    #   3. a BARE "at seven" — only where nothing noun-like follows, so "a scan
+    #      at twelve weeks", "at one point" and "at one with" stay words: the
+    #      end, punctuation, or a word that can only follow a time.
+    (rf"\bat\s+(?:around\s+|about\s+)?(?:{_HOURWORD})\b"
+     r"(?=\s*(?:$|[,.;!?\u2014-]|(?:on|tomorrow|today|tonight|this|next|and|then|to|for|"
+     r"in|at|is|sharp|every|until|till|execute|please)\b))", "clock"),
+
     # --- "12 noon": `noon` won and the 12 stranded — the `at late` bug again.
     (r"\b12\s*(?:noon|midday)\b", "clock"),
 

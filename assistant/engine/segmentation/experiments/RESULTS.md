@@ -507,3 +507,26 @@ rows and the 2,699 mineable real utterances). The movement is on the
 real-usage board only: generic-title right/acceptable 52.4 → 66.7% (11 → 14
 of 21 rows), corrected `start_time` 56.2 → 62.5% (n=16)
 (`DOCUMENTATION/experiments/real_usage/RESULTS.md`, run 4).
+
+## A clock said with a NUMBER WORD (2026-09-25 00:0x, engine-next)
+
+Found on a real command (2026-09-24 23:10, "Tomorrow at one such for …"): the
+time finder had no entry for a bare "at <number word>", for a number word with
+a meridiem ("at seven pm"), and lost the minutes of "ten past nine in the
+morning" to the longer "nine in the morning". Corpus sweep (45,620 distinct
+transcripts): 177 of 1,267 "at <number word>" phrases read as no clock or the
+wrong one; the negatives that must stay words ("a scan at twelve weeks", "at one
+point", "at one with") are guarded by a closed follow-list.
+
+**Board (FastSeg alone, TRAIN, 1,051 rows):** exact-row 949 → 950, exact-set
+959 → 960, spoken-time assignment 97.9% → 98.0% (n=1,147); item count 1036 →
+1035 and over-split 1 → 2 rows. Read row by row (all 1,711 rows, both halves:
+9 changed): 7 better — the clock left the title for the time; 1 now splits two
+appointments correctly but gives the second "today" instead of "on monday";
+1 regresses ("lunch tomorrow with morgan and casey at one" cuts after morgan).
+**Both of the last two are the digit form's existing behaviour** — "…casey at
+1" and "physio at 9 and the optician at 4" do exactly the same today — so the
+word form now behaves like the digit form, and the two defects are filed as
+their own cycles (lowercase-name coordination after "with"; a leading day not
+distributed to the second timed ask). Also found and filed: a meridiem ENDING
+the command ("dinner at 8 p.m.") leaves the clock in the action, digits too.
