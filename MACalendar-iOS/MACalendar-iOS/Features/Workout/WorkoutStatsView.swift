@@ -10,7 +10,7 @@ struct WorkoutStatsView: View {
     @State private var rangeMode: RangeMode = .week
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Picker("Range", selection: $rangeMode) {

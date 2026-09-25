@@ -47,7 +47,7 @@ struct VocabImportView: View {
     }
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             List {
                 privacySection
 
@@ -309,7 +309,7 @@ struct WhatsAppHowToView: View {
     ]
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             List {
                 Section {
                     ForEach(Array(steps.enumerated()), id: \.offset) { i, step in

@@ -42,7 +42,7 @@ struct LabelGameView: View {
     }
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             Group {
                 if loading {
                     ProgressView("Finding the hard ones…")

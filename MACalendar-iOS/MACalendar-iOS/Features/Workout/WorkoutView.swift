@@ -25,7 +25,7 @@ struct WorkoutView: View {
     }
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             List {
                 if store.liveState != nil {
                     Section {
@@ -169,7 +169,7 @@ struct WorkoutView: View {
     }
 
     private var generateSheet: some View {
-        NavigationView {
+        StackNavigation {
             Form {
                 Section("Describe the routine you want") {
                     TextField("e.g. 3-day push pull legs hypertrophy split", text: $generatePrompt, axis: .vertical)

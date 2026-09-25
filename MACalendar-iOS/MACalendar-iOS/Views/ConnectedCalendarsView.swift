@@ -472,7 +472,7 @@ private struct OutlookCodeSheet: View {
     @Environment(\.openURL) private var openURL
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             VStack(spacing: 20) {
                 Text("Sign in to Microsoft and enter this code:")
                     .multilineTextAlignment(.center)

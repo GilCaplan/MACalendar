@@ -677,7 +677,7 @@ private struct EditTranscriptionSheet: View {
     }
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             VStack(alignment: .leading, spacing: 14) {
                 Text("A couple of words looked uncertain. Fix anything that's wrong, or send it as-is.")
                     .font(.subheadline).foregroundColor(.secondary)

@@ -16,7 +16,7 @@ struct AssistantReviewView: View {
     @State private var fixing: MemoryExample?
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             Group {
                 if let error {
                     VStack(spacing: 10) { Text(error).foregroundColor(.red).multilineTextAlignment(.center); Button("Try again") { Task { await load() } } }.padding()
@@ -348,7 +348,7 @@ private struct CorrectionSheet: View {
     }
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             Form {
                 Section("You said") { Text("“\(example.transcript)”").font(.callout) }
 

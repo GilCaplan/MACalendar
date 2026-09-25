@@ -192,7 +192,7 @@ struct TimerView: View {
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             List {
                 if let error { Section { Text(error).font(.footnote).foregroundColor(.red) } }
                 Section(timers.isEmpty ? "Timers — none yet" : "Timers") {
@@ -526,7 +526,7 @@ private struct NewTimerSheet: View {
     private var isEditing: Bool { editingTimer != nil || editingCounter != nil }
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             Form {
                 if !isEditing {
                     Picker("Type", selection: $kind) { Text("Timer").tag(0); Text("Counter").tag(1) }.pickerStyle(.segmented)
@@ -643,7 +643,7 @@ private struct LogPastTimeSheet: View {
     private var seconds: Double { max(0, combine(end).timeIntervalSince(combine(start))) }
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             Form {
                 Section {
                     DatePicker("Day", selection: $day, displayedComponents: .date)

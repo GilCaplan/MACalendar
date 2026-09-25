@@ -30,7 +30,7 @@ struct SearchView: View {
     }
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             VStack(spacing: 0) {
                 searchField
 

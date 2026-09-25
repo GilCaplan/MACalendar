@@ -15,7 +15,7 @@ struct SessionDetailView: View {
     }
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             List {
                 Section {
                     HStack {

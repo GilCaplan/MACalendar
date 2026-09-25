@@ -21,7 +21,7 @@ struct PendingQueueView: View {
     @State private var cascaded: String?
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             Group {
                 if store.pending.isEmpty {
                     empty

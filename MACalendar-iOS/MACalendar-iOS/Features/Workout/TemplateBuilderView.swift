@@ -102,7 +102,7 @@ struct TemplateBuilderView: View {
     }
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             List {
                 if isDraftReview {
                     Section {

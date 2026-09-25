@@ -61,7 +61,7 @@ struct LiveSessionView: View {
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             Group {
                 if let state = store.liveState {
                     if forceFinish || state.isFinished {

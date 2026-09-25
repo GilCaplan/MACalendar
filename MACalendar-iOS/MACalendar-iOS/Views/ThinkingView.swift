@@ -109,7 +109,7 @@ struct ThinkingView: View {
     @State private var chainLiveTick = Date()
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {

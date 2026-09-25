@@ -23,7 +23,7 @@ struct JudeChatList: View {
     @State private var loading = true
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             Group {
                 if loading {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)

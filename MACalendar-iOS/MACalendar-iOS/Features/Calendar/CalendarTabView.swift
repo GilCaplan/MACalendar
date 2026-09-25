@@ -63,7 +63,7 @@ struct CalendarTabView: View {
     enum CalendarMode: String { case month, week, day }
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
                     VStack(spacing: 0) {
 
                         Picker("View", selection: $calendarView) {

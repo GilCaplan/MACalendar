@@ -66,7 +66,7 @@ struct CategoriesView: View {
         .task { await load() }
         .refreshable { await load() }
         .sheet(isPresented: $showAdd) {
-            NavigationView {
+            StackNavigation {
                 CategoryEditView(category: EventCategory(name: "", color: "#64748b", alt: "#475569", keywords: [], custom: true),
                                  isNew: true, onSave: { await load() })
             }

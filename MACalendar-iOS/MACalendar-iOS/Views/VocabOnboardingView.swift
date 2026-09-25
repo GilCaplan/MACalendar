@@ -21,7 +21,7 @@ struct VocabOnboardingView: View {
     private var lastPage: Int { questions.count + 1 }
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             VStack(spacing: 0) {
                 if let p = payload {
                     ProgressView(value: Double(page), total: Double(lastPage))

@@ -15,7 +15,7 @@ struct CourseworkView: View {
     }
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             Group {
                 if store.courses.isEmpty {
                     VStack(spacing: 16) {
@@ -435,7 +435,7 @@ private struct DueDatePickerSheet: View {
     }
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             VStack {
                 DatePicker("Due Date", selection: $selectedDate, displayedComponents: .date)
                     .datePickerStyle(.graphical)
@@ -492,7 +492,7 @@ struct CourseEditSheet: View {
     }
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             Form {
                 Section("Course Info") {
                     TextField("Course Number (e.g. 00960336)", text: $number)

@@ -609,7 +609,7 @@ struct VoiceQueueView: View {
     @State private var editing: PendingVoiceCommand?
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             List {
                 Section {
                     Text(api.isOnline
@@ -729,7 +729,7 @@ struct QueuedCommandEditor: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             Form {
                 Section {
                     TextEditor(text: $draft)
@@ -757,5 +757,22 @@ struct QueuedCommandEditor: View {
             }
             .onAppear { draft = text; focused = true }
         }
+    }
+}
+
+/// Every screen's navigation container, pinned to the STACK style.
+///
+/// On an iPad a bare `NavigationView` becomes a two-column split view: the
+/// screen's content is drawn as a narrow, iPhone-width sidebar beside an empty
+/// detail pane, which read as the whole app "minimized to iPhone size" (Gil,
+/// 2026-09-24). The stack style is what every screen here was written for — one
+/// column, pushed and popped — and on an iPhone it changes nothing. One type
+/// rather than a modifier on 32 call sites, so a new screen cannot forget it.
+struct StackNavigation<Content: View>: View {
+    private let content: Content
+    init(@ViewBuilder content: () -> Content) { self.content = content() }
+    var body: some View {
+        NavigationView { content }
+            .navigationViewStyle(.stack)
     }
 }

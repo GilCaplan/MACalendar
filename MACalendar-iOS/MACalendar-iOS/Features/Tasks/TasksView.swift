@@ -86,7 +86,7 @@ struct TasksView: View {
     // MARK: - Body
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             VStack(spacing: 0) {
                 filterBar
                 scopeBar
@@ -602,7 +602,7 @@ struct ManageTagsSheet: View {
     @FocusState private var nameFocused: Bool
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             List {
                 Section("New tag") {
                     HStack {

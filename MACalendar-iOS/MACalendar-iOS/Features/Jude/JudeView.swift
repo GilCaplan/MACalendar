@@ -296,7 +296,7 @@ struct JudeView: View {
     @State private var dictateError: String?
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             VStack(spacing: 0) {
                 if let status, !status.ready {
                     unavailable(status)

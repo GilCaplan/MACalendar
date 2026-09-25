@@ -28,7 +28,7 @@ struct SettingsView: View {
     @State private var showQueue = false
 
     var body: some View {
-        NavigationView {
+        StackNavigation {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
 
