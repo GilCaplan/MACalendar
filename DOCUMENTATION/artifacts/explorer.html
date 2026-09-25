@@ -100,7 +100,7 @@
 
   .stagewrap {
     /* 1120 scaled the 1000-unit viewBox to 1.10, so the drawings' own 8px
-       labels landed at 8.8px on screen -- Gil: "some of the text seems a bit
+       labels landed at 8.8px on screen -- the author: "some of the text seems a bit
        too small". Widening scales the whole drawing up together, which costs
        no layout risk at all; the prose below keeps its own 60ch measure. */
     max-width: 1400px;
@@ -1051,6 +1051,25 @@
   .sdemo svg.chart .bar.b { fill: #4a90d9; }
   .sdemo svg.chart .axis { stroke: var(--line); }
   .sdemo .lead { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
+  /* event-or-to-do: the rule ladder, stepped */
+  .sdemo ol.ladder { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; }
+  .sdemo ol.ladder li { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: baseline;
+    font-size: 12px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); }
+  .sdemo ol.ladder li .n { font-weight: 700; }
+  .sdemo ol.ladder li .r { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+  .sdemo ol.ladder li.pass { opacity: .55; }
+  .sdemo ol.ladder li.pass .r::before { content: "no — next"; }
+  .sdemo ol.ladder li.hit { color: var(--ink); border-color: var(--amber); background: var(--amber-soft); }
+  .sdemo ol.ladder li.todo-rung { opacity: .35; }
+  .sdemo .pgauge { position: relative; height: 10px; border-radius: 5px; background: var(--line); margin: 8px 0 2px; }
+  .sdemo .pgauge span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: var(--amber); }
+  .sdemo .pgauge i { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--ink); }
+  .sdemo .glabels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+  .sdemo .outcome { margin-top: 10px; font-size: 12px; }
+  #views .readmode { margin-left: auto; display: inline-flex; gap: 0; }
+  #views .readmode button { border-radius: 0; }
+  #views .readmode button:first-child { border-radius: 999px 0 0 999px; }
+  #views .readmode button:last-child { border-radius: 0 999px 999px 0; margin-left: -1px; }
 
 </style>
 
@@ -1355,7 +1374,7 @@
 
       <!-- ====== STAGE 5: LLMJUDGE ====== -->
       <g data-stage="llmjudge" role="button" tabindex="0"
-        aria-label="LLMJudge: answers what FastRule could not build, then checks every object field against the words. One model call, and it is asked to quote the supporting words, never for a verdict.">
+        aria-label="LLMJudge: answers what FastRule could not build, then checks every object field against the words in code. The model is only asked to read what FastRule could not build, never for a verdict.">
         <rect class="frame" x="680" y="298" width="280" height="60" rx="8" fill="var(--screen)" stroke="var(--line)"
           stroke-width="1.5" />
         <text x="820" y="322" text-anchor="middle" font-size="11" font-weight="600">LLMJudge</text>
@@ -1370,18 +1389,18 @@
 
       <!-- ====== STAGE 6: COMMIT + LABEL ====== -->
       <g data-stage="commit_label" role="button" tabindex="0"
-        aria-label="COMMIT and label: the only write to the database. An event gets one of thirteen categories and its colour, a task gets its tags — written in the same step as the row, so nothing is ever saved uncategorised.">
+        aria-label="COMMIT and label: the only write to the database. An event gets one of fourteen categories and its colour, a task gets its tags — written in the same step as the row, so nothing is ever saved uncategorised.">
         <rect class="frame" x="680" y="416" width="280" height="72" rx="8" fill="var(--screen)" stroke="var(--good)"
           stroke-width="1.8" />
         <text x="820" y="438" text-anchor="middle" font-size="11" font-weight="600" fill="var(--good)">COMMIT +
           label</text>
-        <!-- The LABELS were the half this box never showed (Gil, 2026-09-10:
+        <!-- The LABELS were the half this box never showed (the author, 2026-09-10:
              "i think its missing labels"). Naming both classifiers matters
-             because they are different problems: an event gets ONE of thirteen
+             because they are different problems: an event gets ONE of fourteen
              categories, a task gets a SET of tags. -->
         <text x="820" y="453" text-anchor="middle" font-size="8" fill="var(--muted)">the only write — row and label
           together</text>
-        <text x="820" y="466" text-anchor="middle" font-size="8" fill="var(--muted)">event → 1 of 13 categories +
+        <text x="820" y="466" text-anchor="middle" font-size="8" fill="var(--muted)">event → 1 of 14 categories +
           colour</text>
         <text x="820" y="477" text-anchor="middle" font-size="8" fill="var(--muted)">task → a set of tags</text>
       </g>
@@ -1623,6 +1642,12 @@
     <button id="btn-back-system"
       style="position:absolute; top:14px; left:14px; z-index:10; display:none; border:1px solid var(--line); border-radius:6px; background:var(--screen); color:var(--ink); font:500 13px/1 'IBM Plex Mono',monospace; padding:6px 12px; cursor:pointer;">←
       System</button>
+    <button id="btn-how" type="button"
+      style="position:absolute; top:14px; right:14px; z-index:10; border:1px solid var(--amber); border-radius:6px; background:var(--amber-soft); color:var(--amber); font:600 13px/1 'IBM Plex Mono',monospace; padding:6px 12px; cursor:pointer;">?
+      How one command becomes an answer</button>
+    <button id="btn-run-chain" type="button"
+      style="position:absolute; top:14px; right:14px; z-index:10; display:none; border:1px solid var(--amber); border-radius:6px; background:var(--amber-soft); color:var(--amber); font:600 13px/1 'IBM Plex Mono',monospace; padding:6px 12px; cursor:pointer;">▶
+      Run a command through the chain</button>
 
   </div><!-- .canvas -->
 
@@ -1664,8 +1689,9 @@
       the Mac or the phone. A field called <code>source</code> is the whole difference between them.</li>
       <li><strong>Intake.</strong> The orchestrator takes a lock, so one command runs at a time; queued
       inputs can be merged into one batch first.</li>
-      <li><strong>Repair the words.</strong> Stop words, false starts, spoken noise, then the personal
-      vocabulary. A transcript with nothing in it is dropped and <em>not remembered</em>.</li>
+      <li><strong>Repair the words.</strong> Stop words, spoken noise, misheard or misspelled command words,
+      a check for a false start, then the personal vocabulary. A transcript with nothing in it is dropped
+      and <em>not remembered</em>.</li>
       <li><strong>Choose a track.</strong> FastRule reads the whole command. If it commits, the answer is
       executed and returned immediately &mdash; no language-model call anywhere on that path &mdash; and the judge
       re-checks it in the background. If it defers, the deep track takes over, and FastRule's verdict and
@@ -1676,9 +1702,12 @@
       asked only about the pieces the rules could not read, grounded on that piece's own words.</li>
       <li><strong>Check the fields.</strong> Seventeen named rules run on the finished objects &mdash; and
       the observance gate, on what the assistant itself books.</li>
-      <li><strong>Judge.</strong> Every field of every object is traced back to your words &mdash; the when
-      in code, the subject by asking the model to quote it. What checks out commits; what names something
-      you never said is reworded and re-parsed, at most three times.</li>
+      <li><strong>Save what is ready.</strong> On a live command, whatever the rules built and the judge
+      has no complaint about is saved before the model reads the rest, so the first events appear in
+      about two seconds rather than after the whole command.</li>
+      <li><strong>Judge.</strong> Every field of every object is traced back to your words, in code &mdash;
+      no model is asked for a verdict. What checks out commits; what names something you never said is
+      reworded and re-parsed, at most three times.</li>
       <li><strong>Commit, label, answer</strong> &mdash; and remember the command with what it produced.</li>
     </ol>
 
@@ -1689,7 +1718,7 @@
       <thead><tr><th>Domain</th><th>n</th><th>Verbs</th></tr></thead>
       <tbody>
         <tr><td>events</td><td class="num">4</td><td>create &#183; update &#183; delete &#183; ask what is on</td></tr>
-        <tr><td>tasks</td><td class="num">8</td><td>the same four, plus the same four again for sub-tasks</td></tr>
+        <tr><td>tasks</td><td class="num">8</td><td>create &#183; update &#183; delete &#183; complete &#183; ask what is on, and add &#183; complete &#183; delete a sub-task</td></tr>
         <tr><td>training</td><td class="num">2</td><td>write a routine &#183; place it on real dates</td></tr>
         <tr><td>clarify</td><td class="num">1</td><td>say it did not follow, instead of guessing</td></tr>
       </tbody>
@@ -1710,30 +1739,36 @@
     names into syllables, and turns unfamiliar words into familiar-sounding ones. Everything downstream is
     built for that rather than against it &mdash; which is why the first stage of the engine exists at
     all.</p>
-    <p>Every word of the personal vocabulary is also handed to the speech model as a bias, nudging it to
+    <p>The sixty vocabulary words most often corrected are also handed to the speech model as a bias, nudging it to
     spell the word right in the first place. Correction is the fallback, not the plan.</p>`
     },
     models: {
-      view: "system", tag: "on the laptop", name: "models", rl: "the models", title: "Three big, three small",
+      view: "system", tag: "on the laptop", name: "models", rl: "the models", title: "Three that read, and the small ones that sort",
       z: [156, 238, 2.4],
-      sum: `<p>Three models on this machine: one hears, one reads grammar, one understands. Two of the three load <em>inside</em> THE ASSISTANT; only the language model gets its own process.</p>
-    <p class="figs">Whisper 74M · spaCy · Llama 3.1 8B, 5.8 GB resident</p>`,
+      sum: `<p>Three models do the reading: one hears, one reads grammar, one understands. Smaller ones sort what was read &mdash; an embedding model and two classifiers label events and to-dos, and a small classifier decides event or to-do when no rule did. All of it runs on this machine; only the two Ollama models (Llama and the embedding model) get a process of their own.</p>
+    <p class="figs">Whisper 74M · spaCy · Llama 3.1 8B, 5.8 GB resident · nomic-embed-text</p>`,
       more: `<p>The drawing separates them because a reader once concluded the separate box held all three.
     It holds one. Whisper loads in the API process and spaCy in the rule parser &mdash; both inside the
     process that does the deciding &mdash; and the language model sits beside them in <strong>its own
     process</strong>, answering when asked.</p>
-    <p>Four of the seven engine stages may call the language model, each with its own schema-constrained
-    question: split this command, split this item's times, repair these garbled words, and list what the
-    raw words asked for. The other three &mdash; the transcript stage, the FastRule stage and the label
-    stage &mdash; never call it at all. FastRule stopped asking in the 2026-09-10 restructure: it converts
-    an already-atomic item into an object with no model and no opinion about committing, and what it
-    cannot build it hands to LLMJudge rather than asking a second time itself. Same weights, four
-    different questions.</p>
-    <h3>And three small ones you would not call models</h3>
+    <p>Three of the six engine stages may call the language model, each with its own schema-constrained
+    question. Segmentation may ask it to split a whole command &mdash; wired, and switched off, because
+    measured four ways it made things worse. decompose_validate asks it to split two times inside one item
+    and to repair garbled words. The judge asks it to read an item the rules could not build (the
+    <em>rescue</em>) and, when rewording a failed ask in code has nothing new to say, to reword it. The
+    other three &mdash; ingest, FastRule and label &mdash; never call it: FastRule converts an
+    already-atomic item into an object with no model and no opinion about committing, and label only
+    reaches the small embedding model. Same weights, different questions, and never &ldquo;was this
+    right?&rdquo;.</p>
+    <p>Everything that calls a model on this machine goes through one gate. A live command is served
+    first; a measurement run waits until no one has spoken for twenty seconds, so testing the assistant
+    never slows it down.</p>
+    <h3>And the small ones you would not call models</h3>
     <p>Three logistic classifiers ride inside the fast path: <em>is this one item or several</em>, <em>which
-    operation</em>, <em>which kind</em>. They are fitted offline with scikit-learn and shipped as a file of
-    JSON weights; inference is a hand-written dot product over a list of floats, so the running assistant
-    imports no machine-learning library at all.</p>
+    operation</em>, <em>which kind</em>. They are fitted offline and shipped as a file of JSON weights;
+    inference is a hand-written dot product over a list of floats. A fourth decides <em>event or to-do</em>
+    inside decompose_validate, and only when no rule did: a scikit-learn model loaded from a file, never
+    allowed to overturn a rule. The event and to-do labellers are scikit-learn models too.</p>
     <p>Retrieval over past commands is lexical arithmetic &mdash; word overlap and sequence similarity
     &mdash; not a vector search. The one embedding model, <code>nomic-embed-text</code> on the local
     Ollama, has a different job: it helps label an event or a task the keyword rules left blank, and
@@ -1742,7 +1777,7 @@
     window: {
       view: "system", tag: "on the laptop", name: "window", rl: "the window", title: "The calendar window",
       z: [539, 169, 2.4],
-      sum: `<p>The application you actually look at — calendar, tasks, timer, coursework. Everything the assistant can do, you can also do by hand here. <strong>It parses nothing.</strong></p>
+      sum: `<p>The application you actually look at — calendar, tasks, coursework, workout, timer. It opens on the week by default. Everything the assistant can do, you can also do by hand here. <strong>It parses nothing.</strong></p>
     <p class="figs">both routes write through one path</p>`,
       more: `<p>Speaking is one way in. Everything the assistant creates can be created, edited and deleted
     here directly &mdash; type a title, drag an event to another hour, tick a task, set a repeat.</p>
@@ -1833,7 +1868,7 @@ date        "2026-09-10"
 start_time  "13:00"
 end_time    "14:00"    &lt;- assumed
 category    "Social"   &lt;- inferred
-color       "#c2708a"  &lt;- follows
+color       "#ec4899"  &lt;- follows
 attendees   ""
 location    ""
 recurrence  ""
@@ -1864,7 +1899,15 @@ series_id   NULL
     wrong shape of answer. So retrieval ships off: an evidence-backed zero rather than a missing feature,
     and if it returns it must be shaped per item first.</p>
     <p>Retrieval, when it is on, is lexical: word overlap and sequence similarity over the most recent
-    commands. No vectors, no index to rebuild.</p>`
+    commands. No vectors, no index to rebuild.</p>
+    <h3>Reviewing, and taking it back</h3>
+    <p>Every command waits in a review list until you say whether it was right. Fixing one shows
+    <em>every</em> object it touched, each with its own verdict &mdash; right, change it, or take it back
+    &mdash; and a single &ldquo;nothing should have been done&rdquo;. Taking back works because the
+    assistant keeps what a row looked like before a command changed it: a created row is removed, a
+    deleted one restored, an edit reversed, a ticked to-do reopened. What you answer becomes the gold that
+    the real-usage measurement scores the engine against; &ldquo;nothing&rdquo; is stored as an empty
+    answer, which is itself a result.</p>`
     },
     batch: {
       view: "system", tag: "more than one at a time", name: "several", rl: "several at once",
@@ -1929,7 +1972,11 @@ series_id   NULL
     command behaves identically on every surface, and why a fix lands in one place.</p>
     <p>The <code>source</code> field labels the trace, the vocabulary corrections and the command history.
     It defaults to <code>"test"</code> rather than to a real device — so a script that forgets to identify
-    itself is harmless, and a real client that forgets is obvious.</p>`
+    itself is harmless, and a real client that forgets is obvious.</p>
+    <p>Beside the label, each client is <em>issued</em> an identity when it first connects &mdash; an id and
+    a signed token &mdash; so two phones&rsquo; queued commands are never merged into one sentence. A client
+    whose token does not check out is not refused; it gets a queue of its own, so pretending to be another
+    device buys nothing.</p>`
     },
     phone: {
       view: "system", tag: "the thin surfaces", name: "surfaces", rl: "the surfaces", title: "Any number of screens",
@@ -1962,8 +2009,8 @@ series_id   NULL
   <text x="60" y="191" text-anchor="middle" font-size="7.5" fill="var(--muted)">itself</text>
   <rect x="270" y="154" width="110" height="44" rx="4" fill="none" stroke="var(--line)"/>
   <text x="325" y="168" text-anchor="middle" font-size="8.5" font-weight="600">phone</text>
-  <text x="325" y="180" text-anchor="middle" font-size="7.5" fill="var(--muted)">polls a small token</text>
-  <text x="325" y="191" text-anchor="middle" font-size="7.5" fill="var(--muted)">every couple of seconds</text>
+  <text x="325" y="180" text-anchor="middle" font-size="7.5" fill="var(--muted)">polls every 30 s,</text>
+  <text x="325" y="191" text-anchor="middle" font-size="7.5" fill="var(--muted)">every 1 s just after a change</text>
   <text x="190" y="222" text-anchor="middle" font-size="8" fill="var(--muted)">neither is notified — both are watching the same thing</text>
   <text x="190" y="238" text-anchor="middle" font-size="8" fill="var(--muted)">so a change made anywhere appears everywhere</text>
 </svg>
@@ -2037,9 +2084,11 @@ series_id   NULL
     <code>claude</code>, each needing an API key that is not present in the shipped configuration. Choosing
     one sends every command's transcript to that company instead of processing it here &mdash; the same
     pipeline, a different place for the model to run.</p>
-    <p>The second half is a two-way sync with a hosted calendar, off the same way: nothing is entered in
-    <code>calendar_sources</code>. Turning it on requires connecting an account explicitly; nothing reaches
-    a company through either door unless you open it yourself.</p>`
+    <p>The second half is connected calendars: Google both ways, Outlook both ways, or a read-only
+    subscription link, connected from Settings on the laptop or the phone. Once one is connected the host
+    refreshes it every fifteen minutes, whether or not the calendar window is open. It is the one
+    documented exception to &ldquo;never touches the internet&rdquo;, and nothing is contacted until you
+    connect something: with nothing in <code>calendar_sources</code>, the sync loop does nothing.</p>`
     },
 
     /* ================= THE ENGINE ================= */
@@ -2056,7 +2105,12 @@ series_id   NULL
       <li><strong>Coalescing.</strong> Queued inputs can be merged into one batch under a token budget,
       which the segment stage then splits apart again deterministically. Overflow runs one at a time.</li>
       <li><strong>Track selection.</strong> It asks FastRule about the whole command. Commit &rarr;
-      execute, label, and verify in the background. Defer &rarr; the deep system.</li>
+      execute, label, and verify in the background. Defer &rarr; the deep track.</li>
+      <li><strong>Save what is ready.</strong> On the deep track, just before the first model call, every
+      item that already has an object, is not blocked and draws no complaint from the judge is written and
+      marked as saved; a later loop round leaves it alone. A six-part command shows its first events on the
+      phone in about two seconds instead of after the model has read the rest. Live commands only &mdash;
+      the measurement runs drive the stages themselves on a scratch store.</li>
       <li><strong>Two gates before commit, both the same shape.</strong> Doubted words from the transcript
       stage, and an interrogative create from the field rules: in both cases the parse is finished and
       <em>nothing is written</em> — the client is asked first.</li>
@@ -2079,7 +2133,7 @@ series_id   NULL
       <tr><td>items</td><td>segment, decompose_validate, fastrule</td><td>the item tree, ids <code>item_1</code>, <code>item_1-2</code></td></tr>
       <tr><td>item.blocked</td><td>validate</td><td>a refusal reason — reported, never silently dropped</td></tr>
       <tr><td>executed · messages</td><td>commit</td><td>what actually ran, per item</td></tr>
-      <tr><td>findings · retries · mistakes</td><td>crosscheck</td><td>mismatches, the loop budget, context for a retried stage</td></tr>
+      <tr><td>findings · retries · mistakes</td><td>llmjudge</td><td>mismatches, the loop budget, context for a retried stage</td></tr>
       <tr><td>fixes</td><td>any stage</td><td>every named correction, under its own name</td></tr>
     </table></div>
     <h3>Component and Stage</h3>
@@ -2104,29 +2158,29 @@ series_id   NULL
     teaching &ldquo;remind me to&rdquo; as one person&rsquo;s alias on the word
     &ldquo;rewind&rdquo; rewrote &ldquo;rewind the video to the start&rdquo; for
     them, and helped nobody else.</p>
-    <p class="figs">stop word → false start → cleanup → vocabulary → the doubt gate</p>`,
-      more: `<svg viewBox="0 0 380 280" role="img" aria-label="Six steps in order, each narrowing the transcript: the stop keyword, the false-start filter, spoken noise, the command frame, the personal vocabulary, and the doubt gate. The first four are generic and the fifth is personal. Two worked lines: the first loses its opener and trailing hedge; the second shows a personal term whose word boundaries the speech model moved, bar rista course, put back as barista course. A side note marks this as the only person-specific stage, and marks that an ignored false start is never remembered.">
+    <p class="figs">stop word → cleanup → command words → false start → vocabulary → the doubt gate</p>`,
+      more: `<svg viewBox="0 0 380 280" role="img" aria-label="Six steps in order, each narrowing the transcript: the stop keyword, spoken noise, the command frame and misspelled command words, the false-start filter, the personal vocabulary, and the doubt gate. The first four are generic; the vocabulary is personal. Two worked lines: the first loses its opener and trailing hedge; the second shows a personal term whose word boundaries the speech model moved, bar rista course, put back as barista course. A side note marks this as the only person-specific stage, and marks that an ignored false start is never remembered.">
   <text x="0" y="8" font-size="7" letter-spacing="1" fill="var(--muted)">SIX STEPS, IN ORDER &#183; GENERIC FIRST, PERSONAL LAST</text>
   <rect x="0" y="15" width="380" height="21" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="9" y="29" font-size="7" font-weight="600" fill="var(--amber)">1</text>
   <text x="20" y="29" font-size="7">stop keyword</text>
-  <text x="372" y="29" text-anchor="end" font-size="6.5" fill="var(--muted)">cuts the phrase that ends dictation</text>
+  <text x="372" y="29" text-anchor="end" font-size="6.5" fill="var(--muted)">cuts the phrase that ends dictation &#8212; keeps &#8220;&#8230;is done&#8221;</text>
   <rect x="0" y="40" width="380" height="21" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="9" y="54" font-size="7" font-weight="600" fill="var(--amber)">2</text>
-  <text x="20" y="54" font-size="7">false start</text>
-  <text x="372" y="54" text-anchor="end" font-size="6.5" fill="var(--muted)">under two meaningful words &#8594; ignored</text>
+  <text x="20" y="54" font-size="7">spoken noise</text>
+  <text x="372" y="54" text-anchor="end" font-size="6.5" fill="var(--muted)">openers, fillers, stutters, hedges, interjections</text>
   <rect x="0" y="65" width="380" height="21" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="9" y="79" font-size="7" font-weight="600" fill="var(--amber)">3</text>
-  <text x="20" y="79" font-size="7">spoken noise</text>
-  <text x="372" y="79" text-anchor="end" font-size="6.5" fill="var(--muted)">openers, fillers, stutters, hedges, interjections</text>
+  <text x="20" y="79" font-size="7">command frame &#183; command words</text>
+  <text x="372" y="79" text-anchor="end" font-size="6.5" fill="var(--muted)">&#8220;rewind me to&#8221;, &#8220;note to self&#8221;, &#8220;shedule&#8221;</text>
   <rect x="0" y="90" width="380" height="21" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="9" y="104" font-size="7" font-weight="600" fill="var(--amber)">4</text>
-  <text x="20" y="104" font-size="7">vocabulary &#183; personal</text>
-  <text x="372" y="104" text-anchor="end" font-size="6.5" fill="var(--muted)">one word or several, even respaced</text>
+  <text x="20" y="104" font-size="7">false start</text>
+  <text x="372" y="104" text-anchor="end" font-size="6.5" fill="var(--muted)">under two meaningful words &#8594; ignored</text>
   <rect x="0" y="115" width="380" height="21" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="9" y="129" font-size="7" font-weight="600" fill="var(--amber)">5</text>
-  <text x="20" y="129" font-size="7">command frame</text>
-  <text x="372" y="129" text-anchor="end" font-size="6.5" fill="var(--muted)">&#8220;rewind me to&#8221; &#8594; &#8220;remind me to&#8221;</text>
+  <text x="20" y="129" font-size="7">vocabulary &#183; personal</text>
+  <text x="372" y="129" text-anchor="end" font-size="6.5" fill="var(--muted)">one word or several, even respaced</text>
   <rect x="0" y="140" width="380" height="21" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="9" y="154" font-size="7" font-weight="600" fill="var(--amber)">6</text>
   <text x="20" y="154" font-size="7">the doubt gate</text>
@@ -2145,14 +2199,12 @@ series_id   NULL
   <text x="228" y="267" font-size="6.5" fill="var(--amber)">three words &#8594; two</text>
   <text x="0" y="277" font-size="7" letter-spacing="1" fill="var(--amber)">EVERY STAGE AFTER THIS ONE IS GENERIC</text>
 </svg>
-    <figcaption>Five narrowings, in that order &mdash; and one thing deliberately NOT narrowed: the courtesy wrapper stays on, because FastRule's interrogative gate reads those words to tell a question from a polite imperative. An ignored false start is the one outcome with no trace at all: it is not remembered, because a run of them would teach the memory that false starts are normal.</figcaption>
+    <figcaption>Six steps, in that order &mdash; and one thing deliberately NOT narrowed: the courtesy wrapper stays on, because FastRule's interrogative gate reads those words to tell a question from a polite imperative. An ignored false start is the one outcome with no trace at all: it is not remembered, because a run of them would teach the memory that false starts are normal.</figcaption>
     <h3>In order</h3>
     <ol>
-      <li><strong>Stop keyword.</strong> The configured phrase that ends dictation is cut off the end.</li>
-      <li><strong>The false-start filter.</strong> An acknowledgement, a stop word said alone, a syllable
-      abandoned: anything with fewer than two meaningful words is <em>ignored</em> — not parsed, not
-      executed, and above all <strong>not remembered</strong>. That last one is the point: the memory feeds
-      examples of how you speak, and a run of false starts teaches it that false starts are normal.</li>
+      <li><strong>Stop keyword.</strong> The configured phrase that ends dictation is cut off the end
+      &mdash; unless it is the point of the command: &ldquo;done&rdquo; stays in &ldquo;mark the rent as
+      done&rdquo; and &ldquo;the report is done&rdquo;.</li>
       <li><strong>Spoken noise.</strong> The openers that announce speech rather than a request, a trailing
       &ldquo;or something&rdquo;, a mid-sentence self-correction &mdash; and two more a real speaker
       produces constantly: an interrupting <em>filler phrase</em> (&ldquo;can you, you know, remind
@@ -2161,12 +2213,28 @@ series_id   NULL
       by the filler, not a stutter, so collapsing first leaves a stray &ldquo;know&rdquo; in front of the
       command. Two more came from real speech: a trailing <em>interjection</em> said to nobody after the
       command (&ldquo;&hellip;at 6.30. excuse me. excuse me.&rdquo;), and a one-word swap
-      (&ldquo;with Pelic sorry, I mean Edo&rdquo;), a self-correction too short for the clause rule.
+      (&ldquo;with Nina sorry, I mean Leo&rdquo;), a self-correction too short for the clause rule.
       The filler list also knows hold-on chatter (&ldquo;one moment, bear with me,&rdquo;), which used
       to cut a command into three asks by the commas it left behind. The <em>courtesy</em> wrapper is the one
       thing deliberately left alone &mdash; <code>drop_courtesy=False</code> &mdash; because FastRule's
       interrogative gate has to read those words to tell &ldquo;should I add yoga?&rdquo; from
       &ldquo;can you add yoga?&rdquo;. It comes off inside the parse instead.</li>
+      <li><strong>The command frame.</strong> The fixed phrases the routing reads
+      &mdash; &ldquo;remind me to&rdquo; and its kin &mdash; put back when the
+      speech model mangles them (&ldquo;rewind me to&rdquo;, &ldquo;remind mitt
+      to&rdquo;). <em>Generic</em>, not personal: everyone says these, so a
+      damaged one is misrouted for everyone. The guard is the whole three-word
+      shape plus what follows it, because &ldquo;rewind&rdquo; is an ordinary
+      word &mdash; &ldquo;rewind me to <em>call the plumber</em>&rdquo; is
+      repaired, &ldquo;rewind me to <em>the start</em>&rdquo; is not.
+      A leading &ldquo;note to self,&rdquo; becomes &ldquo;remind me to&rdquo;, and misspelled
+      command words that are not English words at all (&ldquo;updat&rdquo;, &ldquo;shedule&rdquo;,
+      &ldquo;cancle&rdquo;) are put back &mdash; so &ldquo;updat milk on my list&rdquo; changes an existing
+      task rather than creating one called &lsquo;updat milk&rsquo;.</li>
+      <li><strong>The false-start filter.</strong> An acknowledgement, a stop word said alone, a syllable
+      abandoned: anything with fewer than two meaningful words is <em>ignored</em> — not parsed, not
+      executed, and above all <strong>not remembered</strong>. That last one is the point: the memory feeds
+      examples of how you speak, and a run of false starts teaches it that false starts are normal.</li>
       <li><strong>The personal vocabulary.</strong> Confident fixes applied, with phonetic matching; a word
       can also expand shorthand or carry a label the rest of the system uses. Fuzzy matching never touches
       a list of protected everyday words, so a name can never swallow the word <em>data</em>.
@@ -2176,14 +2244,6 @@ series_id   NULL
       to one, widest first, and the two sides are compared with the spaces stripped out &mdash; the spaces
       are part of the damage, not evidence. A window of entirely ordinary words is never merged, which is
       what keeps a real phrase from being &ldquo;repaired&rdquo; into a term it merely resembles.</li>
-      <li><strong>The command frame.</strong> The fixed phrases the routing reads
-      &mdash; &ldquo;remind me to&rdquo; and its kin &mdash; put back when the
-      speech model mangles them (&ldquo;rewind me to&rdquo;, &ldquo;remind mitt
-      to&rdquo;). <em>Generic</em>, not personal: everyone says these, so a
-      damaged one is misrouted for everyone. The guard is the whole three-word
-      shape plus what follows it, because &ldquo;rewind&rdquo; is an ordinary
-      word &mdash; &ldquo;rewind me to <em>call the plumber</em>&rdquo; is
-      repaired, &ldquo;rewind me to <em>the start</em>&rdquo; is not.</li>
       <li><strong>The doubt gate.</strong> With the setting on and a client that says it can show an
       editor, doubtful words stop execution and ask you to check the transcription first.</li>
     </ol>
@@ -2264,8 +2324,8 @@ series_id   NULL
     <p><strong>Why it copies rather than re-reads.</strong> The stage before it resolves the date, the
     clock times, the recurrence and the lead time, and it is measured doing that correctly. FastRule used
     to work all of it out a second time from the same words, which is how an event once ended up titled
-    &ldquo;3rd&rdquo; — the date words were being read as the name. Six of the ten fields an object needs are
-    now copied straight across; the four that are genuinely left are about the ACTION words, not about time.</p>
+    &ldquo;3rd&rdquo; — the date words were being read as the name. All eight resolved values are
+    now copied straight across; what is genuinely left to read is about the ACTION words, not about time.</p>
     <p><strong>What it will not decide.</strong> Whether an edit or a delete points at a record that really
     exists needs a look in the database, and this box deliberately cannot do that — it has no I/O at all,
     which is what lets it be tested from a table of items. Those hand off to the judge instead of guessing,
@@ -2333,7 +2393,7 @@ series_id   NULL
     <code>tmrw</code>, a bare weekday abbreviation), then spoken times, then a lead-time clause is lifted
     out into a number of minutes, then the spoken-noise reader runs. All of it before the grammar tagger
     ever sees the sentence, so a fix here is a fix for every phase after it.</p>
-    <p><strong>Route.</strong> An 84-entry table keyed on <code>(verb, domain)</code> pairs picks the
+    <p><strong>Route.</strong> A 122-entry table keyed on <code>(verb, domain)</code> pairs picks the
     action — a domain-specific entry wins when one exists, otherwise the verb falls back to what it means
     everywhere:</p>
     <pre><code>("remove", "calendar")  &#8594; delete_event
@@ -2526,7 +2586,7 @@ series_id   NULL
       z: [820, 200, 2.2],
       sum: `<p>Deferring is not one thing. The reason's <strong>class</strong> decides which stage picks the command up, and what that stage is allowed to do with it.</p>
     <p class="figs">REFUSAL · STRUCTURE · INCAPACITY — three exits, three destinations</p>`,
-      more: `<svg viewBox="0 0 380 168" role="img" aria-label="Three arrows leave FastRule for three different destinations: a refusal the judge must honour, a structure verdict that sends it back to segment, and an incapacity that hands it to the model.">
+      more: `<svg viewBox="0 0 380 168" role="img" aria-label="Three kinds of deferral leave FastRule, and all three send the command down the deep track. What differs is what the judge may do at the end: resolve a refusal but never overturn it, split a structure further, or have the model read an incapacity from the partial parse.">
       <rect x="110" y="6" width="160" height="30" rx="4" fill="var(--amber-soft)" stroke="var(--amber)"/>
       <text x="190" y="25" text-anchor="middle" font-size="8.5" font-weight="600" fill="var(--amber)">FastRule defers</text>
       <path d="M 190 38 L 190 54 L 59 54 L 59 66" fill="none" stroke="var(--muted)" marker-end="url(#mi)"/>
@@ -2538,23 +2598,23 @@ series_id   NULL
       <text x="59" y="110" text-anchor="middle" font-size="6.8" fill="var(--muted)">never overturn it</text>
       <rect x="131" y="68" width="118" height="56" rx="4" fill="var(--screen)" stroke="var(--line)"/>
       <text x="190" y="86" text-anchor="middle" font-size="8" font-weight="600">STRUCTURE</text>
-      <text x="190" y="99" text-anchor="middle" font-size="6.8" fill="var(--muted)">atomize further,</text>
-      <text x="190" y="110" text-anchor="middle" font-size="6.8" fill="var(--muted)">then re-ask FastRule</text>
+      <text x="190" y="99" text-anchor="middle" font-size="6.8" fill="var(--muted)">more than one ask:</text>
+      <text x="190" y="110" text-anchor="middle" font-size="6.8" fill="var(--muted)">the deep track splits it</text>
       <rect x="262" y="68" width="118" height="56" rx="4" fill="var(--screen)" stroke="var(--line)"/>
       <text x="321" y="86" text-anchor="middle" font-size="8" font-weight="600">INCAPACITY</text>
       <text x="321" y="99" text-anchor="middle" font-size="6.8" fill="var(--muted)">the model takes over,</text>
       <text x="321" y="110" text-anchor="middle" font-size="6.8" fill="var(--muted)">from the partial parse</text>
       <text x="59" y="142" text-anchor="middle" font-size="7" fill="var(--amber)">→ the judge</text>
-      <text x="190" y="142" text-anchor="middle" font-size="7" fill="var(--amber)">→ segment</text>
+      <text x="190" y="142" text-anchor="middle" font-size="7" fill="var(--amber)">→ the deep track</text>
       <text x="321" y="142" text-anchor="middle" font-size="7" fill="var(--amber)">→ the judge</text>
     </svg>
     <figcaption>Before this contract, every reason read the same downstream — so the deep track re-read the raw text with the gates off and re-committed what the front door had refused.</figcaption>
-    <p>The classes also feed forward as evidence: a STRUCTURE deferral tells the segment stage <em>that</em> and <em>why</em>, rather than asking the model to rediscover from the raw words what a deterministic reader already worked out.</p>`
+    <p>On the fast track every deferral sends the command to the deep track; the class matters at the other end, inside the judge. A REFUSAL may be <em>resolved</em> there (&ldquo;it&rdquo; turned into a real title) but never overturned by handing back the same empty target, and an INCAPACITY hands its partial parse to the model instead of letting it start cold. The verdict travels on the state with its reason, class and confidence, so the work is never wasted.</p>`
     },
     router: {
       view: "engine", tag: "the small models", name: "ModelRouter", rl: "◆ the classifiers", title: "ModelRouter — three small models",
       z: [820, 200, 2.2],
-      sum: `<p>Three logistic classifiers, fitted offline and shipped as a file of JSON weights. Inference is a hand-written dot product, so the running engine imports no machine-learning library.</p>
+      sum: `<p>Three logistic classifiers, fitted offline and shipped as a file of JSON weights. Inference is a hand-written dot product over a list of floats, fast enough for the front door's fifty-millisecond budget.</p>
     <p class="figs">and they may only speak when SURE</p>`,
       more: `<svg viewBox="0 0 380 190" role="img" aria-label="Operation and kind are two separate classifiers whose answers are composed into one action, and only when both margins clear their floors.">
       <rect x="0" y="20" width="150" height="44" rx="4" fill="var(--screen)" stroke="var(--line)"/>
@@ -2581,14 +2641,15 @@ series_id   NULL
     <p>Loading refuses a weights file whose vectors do not match the featurizer, because a dot product over mismatched lists truncates silently — a wrong answer with no error anywhere.</p>`
     },
     deepsystem: {
-      view: "engine", tag: "the deep track", name: "DeepSystem", rl: "◆ DeepSystem", title: "DeepSystem — the atomizer",
+      view: "engine", tag: "the deep track", name: "the deep track", rl: "◆ the deep track", title: "The deep track — the atomizer",
       z: [620, 264, 1.3],
-      sum: `<p>Its main idea is <strong>breaking a command down to atomic items</strong>, so FastRule can then create the right event or task for each one. <code>DeepSystem</code> is an ordered, re-runnable list of <code>Stage</code> objects, plus the judge and its loop-back.</p>
+      sum: `<p>Its main idea is <strong>breaking a command down to atomic items</strong>, so FastRule can then create the right event or task for each one. It is not an object of its own: it is the Engine's re-runnable list of three <code>Stage</code> objects &mdash; segment, decompose_validate, FastRule &mdash; then the judge and its loop-back.</p>
     <p class="figs">segment · decompose_validate · fastrule · the field rules · the judge</p>`,
       more: `<p>The parse half is re-runnable, and that is a design decision with teeth: when the judge sends
-    the command back, the items are rebuilt <em>from scratch</em> rather than patched. Fresh items mean
-    fresh intents, so no field rule can apply twice to the same object — and the mistake that caused the
-    loop-back is already on the state, waiting to be quoted into the retried stage's prompt.</p>
+    the command back, only the <em>failed</em> asks are parsed again, from a rewritten command. The objects
+    the judge was happy with are frozen &mdash; on a live command they are already saved &mdash; and the
+    new round's objects are appended beside them, so nothing is built twice and no field rule applies
+    twice to the same object.</p>
     <p>The judge is deliberately split out from the parse half, so the confirm gate can sit between the
     two: judging a parse that will only ever be <em>offered</em> to you is wasted work, and it can loop
     back for no reason.</p>
@@ -2599,31 +2660,31 @@ series_id   NULL
     segment: {
       view: "engine", tag: "stage 2", name: "segment", rl: "2 segment", title: "segment — into independent asks",
       z: [540, 82, 2.2],
-      sum: `<p>One transcript in, typed items out. Three tiers, and it falls through to the next only when the one above found nothing.</p>
+      sum: `<p>One transcript in, typed items out, and <strong>no model</strong>: transport brackets are opened first, then a deterministic cutter splits on delimiters and clauses, gives each piece the time it owns and tags it event, to-do or review. A model tier is wired behind it and switched off &mdash; measured four ways, it made things worse.</p>
     <p class="figs">biased to under-split — a wrong merge is recoverable, a wrong split is not</p>`,
-      more: `<svg viewBox="0 0 380 196" role="img" aria-label="A cascade: free delimiters split it first; only if they found nothing and the words hint at a compound is one model call made; otherwise the command stays one item.">
+      more: `<svg viewBox="0 0 380 196" role="img" aria-label="Three tiers: transport envelopes are opened first, then FastSeg cuts the command, assigns each piece its time and tags its kind, deterministically. A model splitter, LLMSeg, is wired behind them and switched off.">
       <rect x="0" y="8" width="250" height="38" rx="4" fill="var(--screen)" stroke="var(--line)"/>
-      <text x="125" y="25" text-anchor="middle" font-size="8" font-weight="600">1 · free delimiters</text>
-      <text x="125" y="37" text-anchor="middle" font-size="7" fill="var(--muted)">brackets · the spoken separator</text>
+      <text x="125" y="25" text-anchor="middle" font-size="8" font-weight="600">1 · envelopes</text>
+      <text x="125" y="37" text-anchor="middle" font-size="7" fill="var(--muted)">brackets · queued recordings in one batch</text>
       <path d="M 252 27 L 292 27" fill="none" stroke="var(--good)" marker-end="url(#mi)"/>
       <text x="298" y="25" font-size="7.5" fill="var(--good)">→ items</text>
       <path d="M 125 48 L 125 62" fill="none" stroke="var(--muted)" marker-end="url(#mi)"/>
-      <text x="131" y="58" font-size="6.5" fill="var(--muted)">nothing split</text>
+      <text x="131" y="58" font-size="6.5" fill="var(--muted)">each envelope</text>
       <rect x="0" y="64" width="250" height="38" rx="4" fill="var(--screen)" stroke="var(--line)"/>
-      <text x="125" y="81" text-anchor="middle" font-size="8" font-weight="600">2 · one model call</text>
-      <text x="125" y="93" text-anchor="middle" font-size="7" fill="var(--muted)">only if the words hint at a compound</text>
+      <text x="125" y="81" text-anchor="middle" font-size="8" font-weight="600">2 · FastSeg, no model</text>
+      <text x="125" y="93" text-anchor="middle" font-size="7" fill="var(--muted)">cut → give each piece its time → tag its kind</text>
       <path d="M 252 83 L 292 83" fill="none" stroke="var(--good)" marker-end="url(#mi)"/>
       <text x="298" y="81" font-size="7.5" fill="var(--good)">→ items</text>
       <path d="M 125 104 L 125 118" fill="none" stroke="var(--muted)" marker-end="url(#mi)"/>
-      <text x="131" y="114" font-size="6.5" fill="var(--muted)">no hint, or refused</text>
+      <text x="131" y="114" font-size="6.5" fill="var(--muted)">behind it, switched off</text>
       <rect x="0" y="120" width="250" height="38" rx="4" fill="var(--screen)" stroke="var(--line)"/>
-      <text x="125" y="137" text-anchor="middle" font-size="8" font-weight="600">3 · one item</text>
-      <text x="125" y="149" text-anchor="middle" font-size="7" fill="var(--muted)">always a legitimate reading</text>
-      <text x="190" y="180" text-anchor="middle" font-size="7.5" fill="var(--amber)">a split that leaves a fragment is REFUSED — that is the model imagining structure</text>
+      <text x="125" y="137" text-anchor="middle" font-size="8" font-weight="600">3 · LLMSeg — wired, OFF</text>
+      <text x="125" y="149" text-anchor="middle" font-size="7" fill="var(--muted)">measured four ways; it made things worse</text>
+      <text x="190" y="180" text-anchor="middle" font-size="7.5" fill="var(--amber)">when unsure it keeps one item — a wrong merge is recoverable, a wrong split is not</text>
     </svg>
-    <figcaption>A wrong merge gets two more chances downstream. A wrong split of &ldquo;meeting with Tal and Sam&rdquo; is garbage nothing can undo.</figcaption>
+    <figcaption>A wrong merge gets two more chances downstream. A wrong split of &ldquo;meeting with Sam and Priya&rdquo; is garbage nothing can undo.</figcaption>
     <p>Two more refusals, each from a real failure: an enumeration header (&ldquo;add tasks:&rdquo;) announces the list rather than being an item of it, and a part made only of scheduling words (&ldquo;due tomorrow&rdquo;) is residue of the phrasing — kept, one became a phantom row.</p>
-    <p>When FastRule has already deferred with a STRUCTURE reason, the prompt is grounded in that: trust that this holds at least two requests, and find the split.</p>`
+    <p>Speed: the cut is rules over one sentence and takes milliseconds, so it is never what makes a command slow &mdash; the model reading a piece the rules could not is. A single command the front door is sure of never reaches this stage at all.</p>`
     },
     decompose: {
       view: "engine", tag: "stage 3", name: "decompose", rl: "3 decompose", title: "decompose — into atomic pieces",
@@ -2647,7 +2708,7 @@ series_id   NULL
       <text x="274" y="130" text-anchor="middle" font-size="7.5" font-weight="600">a count → ONE task, times N</text>
       <text x="274" y="142" text-anchor="middle" font-size="6.5" fill="var(--muted)">buy 5 apples — never five rows</text>
       <rect x="0" y="164" width="380" height="30" rx="4" fill="none" stroke="var(--amber)" stroke-dasharray="4 3"/>
-      <text x="190" y="182" text-anchor="middle" font-size="7.5" fill="var(--amber)">and the counter-example: “with Tal and Sam” is ONE event</text>
+      <text x="190" y="182" text-anchor="middle" font-size="7.5" fill="var(--amber)">and the counter-example: “with Sam and Priya” is ONE event</text>
     </svg>
     <figcaption>Five identical rows would make it impossible to tell which one you ticked — so a count is a number in a column, not a repetition.</figcaption>
     <p>A recurrence is deliberately not a decomposition: a repeating command is one atomic item that happens to repeat, and the cadence rides along as a slot for the database to expand.</p>
@@ -2655,7 +2716,7 @@ series_id   NULL
     <p>The splitters branch on the item's kind, so it is settled first. <strong>Basic rules, otherwise a model.</strong> Whenever a rule fired, its answer stands: a stated clock, meeting or calling a person, a named to-do list, &ldquo;remind me to&rdquo;, a scheduling or a chore verb. Only an item no rule read at all &mdash; one the tagger called an event because nothing said otherwise &mdash; is decided by a small classifier over the shape of its words. That classifier can never overturn a rule, so it can never overturn a ruling.</p>`
     },
     validate: {
-      view: "engine", tag: "stage 4 · first pass", name: "validate", rl: "4 validate", title: "validate — tidy the words",
+      view: "engine", tag: "stage 3 · after the split", name: "validate", rl: "3′ validate", title: "validate — tidy the words",
       z: [820, 82, 2.0],
       sum: `<p>Before anything is turned into an action, each item's plain text gets a pass: stray brackets and quotes stripped, doubled whitespace collapsed — and, only when the words look clearly garbled, one guarded rewrite.</p>
     <p class="figs">deterministic first; the model only through a narrow gate</p>`,
@@ -2664,7 +2725,7 @@ series_id   NULL
     died on the quote marks alone.</p>
     <p>Only when the text still matches a pattern for clearly garbled speech is a rewrite asked for at all,
     and even then it is checked before it is trusted: a rewrite that grew the text invented content, one
-    that shrank it ate the command, so either is rejected and the original stands.</p>
+    that came back empty ate the command, so either is rejected and the original stands.</p>
     <p>Every applied fix is recorded under its own name, so the trace and the audit can say <em>which</em>
     rule changed <em>what</em> — not just that something was tidied.</p>`
     },
@@ -2707,7 +2768,7 @@ series_id   NULL
     the rest of the command still runs.</p>`
     },
     validateobj: {
-      view: "engine", tag: "stage 4 · second pass", name: "the field rules", rl: "4′ field rules", title: "The seventeen named rules",
+      view: "engine", tag: "stage 3 · the object pass", name: "the field rules", rl: "3″ field rules", title: "The seventeen named rules",
       z: [820, 82, 2.0],
       sum: `<p>Seventeen named rules run in a fixed order on the finished objects — each with a name, its own test, and its own line in the trace when it fires.</p>
     <p class="figs">no model involved · every applied fix is shown under its name</p>`,
@@ -2718,7 +2779,7 @@ series_id   NULL
       <tr><td>a bare afternoon hour</td><td>&ldquo;at 4&rdquo; is 16:00, not 04:00</td></tr>
       <tr><td>&ldquo;until&rdquo; vs &ldquo;through&rdquo;</td><td>&ldquo;until&rdquo; excludes the day it names; &ldquo;through&rdquo; and &ldquo;including&rdquo; keep it</td></tr>
       <tr><td>a weekly series anchored on the wrong day</td><td>it starts on the soonest day the sentence names</td></tr>
-      <tr><td>an unsupported cadence</td><td>rounded to daily, weekly or monthly &mdash; and <em>announced</em> in the reply</td></tr>
+      <tr><td>an unsupported cadence</td><td>rounded to daily, weekly, monthly or yearly &mdash; and <em>announced</em> in the reply</td></tr>
       <tr><td>&ldquo;remove X from my list&rdquo; parsed as a new task</td><td>a remove instruction is the delete it says, never a row</td></tr>
       <tr><td>&ldquo;does my daughter have a recital?&rdquo;</td><td>a question asks; it does not create</td></tr>
       <tr><td>&ldquo;should I add yoga tomorrow?&rdquo;</td><td>neither created nor dropped &mdash; offered, and it waits</td></tr>
@@ -2729,7 +2790,7 @@ series_id   NULL
       <tr><td>a clock that is not on the clock &mdash; &ldquo;30:00&rdquo;, hour thirty</td><td>dropped, never written; the item takes the untimed floor and the reply says so. Two live rows once carried it</td></tr>
     </table></div>
     <p>English supports both readings of &ldquo;until&rdquo;, so the project picks one and applies it
-    everywhere rather than guessing per sentence. A cadence is only ever daily, weekly or monthly; anything
+    everywhere rather than guessing per sentence. A cadence is only ever daily, weekly, monthly or yearly &mdash; rounding a yearly series to monthly would book it twelve times too often; anything
     else is rounded to one of those, and the rounding is said out loud rather than done quietly —
     &ldquo;every other tuesday&rdquo; became one event before anyone noticed, and &ldquo;every
     weekday&rdquo; books Shabbat.</p>
@@ -2743,19 +2804,19 @@ series_id   NULL
     at all, nothing is blocked.</p>`
     },
     crosscheck: {
-      view: "engine", tag: "stage 6", name: "crosscheck", rl: "6 crosscheck", title: "crosscheck — the judge",
+      view: "engine", tag: "stage 5", name: "the judge", rl: "5 the judge", title: "LLMJudge — the judge",
       z: [820, 328, 2.0],
-      sum: `<p>Every object is checked against your <em>words</em>, field by field. The model is asked to quote the words behind a field &mdash; never &ldquo;were you right?&rdquo; &mdash; and code turns the answers into a verdict.</p>
-    <p class="figs">quoting, not self-grading · the model never decides what commits</p>`,
-      more: `<svg viewBox="0 0 380 220" role="img" aria-label="Each object's fields are checked: the date and time deterministically against what decompose_validate resolved, the title by asking the model to quote the words behind it. Three outcomes follow: commit, rewrite the failed ask and try again, or send it to the review panel.">
+      sum: `<p>Every object is checked against your <em>words</em>, field by field, and all of it is ordinary code: did the words give this date, does any word you said name this title. The model is never asked whether an object is right &mdash; it is only used to read what the rules could not build, and to reword a failed ask.</p>
+    <p class="figs">no model in the verdict · the rescue reads what the rules could not</p>`,
+      more: `<svg viewBox="0 0 380 220" role="img" aria-label="Each object's fields are checked: the date and time deterministically against what decompose_validate resolved, the title by checking, in code, that a word you said names it. Three outcomes follow: commit, rewrite the failed ask and try again, or send it to the review panel.">
       <rect x="20" y="8" width="150" height="42" rx="4" fill="var(--screen)" stroke="var(--line)"/>
       <text x="95" y="24" text-anchor="middle" font-size="8" font-weight="600">1 &middot; THE WHEN</text>
       <text x="95" y="35" text-anchor="middle" font-size="6.6" fill="var(--muted)">checked in code, no model:</text>
       <text x="95" y="45" text-anchor="middle" font-size="6.6" fill="var(--muted)">did the words give a date?</text>
-      <rect x="210" y="8" width="150" height="42" rx="4" fill="var(--screen)" stroke="var(--model)"/>
-      <text x="285" y="24" text-anchor="middle" font-size="8" font-weight="600" fill="var(--model)">2 &middot; THE SUBJECT</text>
-      <text x="285" y="35" text-anchor="middle" font-size="6.6" fill="var(--muted)">the model quotes the words</text>
-      <text x="285" y="45" text-anchor="middle" font-size="6.6" fill="var(--muted)">behind the title, or says none</text>
+      <rect x="210" y="8" width="150" height="42" rx="4" fill="var(--screen)" stroke="var(--line)"/>
+      <text x="285" y="24" text-anchor="middle" font-size="8" font-weight="600">2 &middot; THE SUBJECT</text>
+      <text x="285" y="35" text-anchor="middle" font-size="6.6" fill="var(--muted)">checked in code, no model:</text>
+      <text x="285" y="45" text-anchor="middle" font-size="6.6" fill="var(--muted)">is the title in your words?</text>
       <path d="M 172 29 L 206 29" fill="none" stroke="var(--muted)" marker-end="url(#mi)"/>
       <path d="M 95 52 L 95 74" fill="none" stroke="var(--muted)" marker-end="url(#mi)"/>
       <path d="M 285 52 L 285 74" fill="none" stroke="var(--muted)" marker-end="url(#mi)"/>
@@ -2778,9 +2839,9 @@ series_id   NULL
       <path d="M 260 106 L 292 122" fill="none" stroke="var(--muted)" marker-end="url(#mi)"/>
       <text x="190" y="188" text-anchor="middle" font-size="7.5" font-weight="600" fill="var(--amber)">a rewrite is tried at most three times</text>
       <text x="190" y="202" text-anchor="middle" font-size="7" fill="var(--muted)">a value the words never gave commits anyway &mdash; and the reply says what was assumed</text>
-      <text x="190" y="214" text-anchor="middle" font-size="7" fill="var(--muted)">only the good objects are re-parsed &mdash; the rest are kept, so nothing is built twice</text>
+      <text x="190" y="214" text-anchor="middle" font-size="7" fill="var(--muted)">only the failed asks are re-parsed &mdash; the good objects are kept (on a live command, already saved)</text>
     </svg>
-    <figcaption>Small local models quote far more reliably than they judge, so the check is built from the job they are good at. Asked whether an object is <em>correct</em>, an 8B says yes; asked which of your words produced its title, it either points at them or admits it cannot.</figcaption>
+    <figcaption>The judge used to ask the 8B model to quote the words behind each title. It was more than half of all the model traffic the system made and changed no outcome, so the check is now done by code: a title with no word from what you said in it is caught without asking anyone.</figcaption>
     <p>The date and the time never reach the model at all. A calendar object is stamped with today&rsquo;s date
     the moment it exists, so asking whether the words support it would flag every correct event that happens
     to be today &mdash; the honest record is what the stage before resolved, and that is read directly.</p>
@@ -2810,7 +2871,7 @@ series_id   NULL
       z: [820, 446, 2.0],
       sum: `<p>The single place the engine touches the database, and it goes through the same action classes the calendar window uses. Everything upstream produces intents; only this executes them.</p>
     <p class="figs">a blocked item is refused out loud · guessing is never the answer</p>`,
-      more: `<svg viewBox="0 0 380 204" role="img" aria-label="The write and the label happen in one step. An approved intent goes through the same action classes the calendar window uses, into the database. An event takes one category out of thirteen plus its colour; a task takes a set of tags, because a task can be two things at once. A blocked item is refused out loud rather than dropped.">
+      more: `<svg viewBox="0 0 380 204" role="img" aria-label="The write and the label happen in one step. An approved intent goes through the same action classes the calendar window uses, into the database. An event takes one category out of fourteen plus its colour; a task takes a set of tags, because a task can be two things at once. A blocked item is refused out loud rather than dropped.">
   <text x="0" y="8" font-size="7" letter-spacing="1" fill="var(--muted)">ONE STEP &#183; THE LABEL IS WRITTEN WITH THE ROW, NOT AFTER IT</text>
   <rect x="0" y="16" width="92" height="28" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="46" y="34" text-anchor="middle" font-size="7">approved intent</text>
@@ -2824,7 +2885,7 @@ series_id   NULL
   <text x="0" y="62" font-size="7" letter-spacing="1" fill="var(--muted)">TWO DIFFERENT PROBLEMS, SO TWO KINDS OF ANSWER</text>
   <rect x="0" y="70" width="184" height="62" rx="5" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="10" y="84" font-size="7.5" font-weight="600" fill="var(--amber)">an event</text>
-  <text x="10" y="96" font-size="6.5" fill="var(--muted)">ONE choice out of thirteen</text>
+  <text x="10" y="96" font-size="6.5" fill="var(--muted)">ONE choice out of fourteen</text>
   <rect x="10" y="103" width="66" height="15" rx="7.5" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1"/>
   <text x="43" y="113.5" text-anchor="middle" font-size="6.5" fill="var(--amber)">category</text>
   <rect x="82" y="103" width="48" height="15" rx="7.5" fill="none" stroke="var(--line)"/>
@@ -2847,18 +2908,21 @@ series_id   NULL
 </svg>
     <figcaption>The write and the label are one step, which is what makes the middle column matter: a category is a choice, a tag set is a set, and the difference is not cosmetic. Nothing here guesses &mdash; an item it cannot place is refused where you can see it.</figcaption>
     <h3>The label is written with the row, not after it</h3>
-    <p>An <strong>event</strong> gets one of thirteen categories and the colour that goes with it; a
+    <p>An <strong>event</strong> gets one of fourteen categories and the colour that goes with it; a
     <strong>task</strong> gets a set of tags. Both are decided in the same step as the write, so a row is
     never saved uncategorised &mdash; there is no window in which one exists without its label.</p>
     <p>The two are different problems, which is why they have different machinery. A category is a single
-    choice out of thirteen. Tags are a <em>set</em>: a task can be groceries and an errand at once, and
+    choice out of fourteen. Tags are a <em>set</em>: a task can be groceries and an errand at once, and
     answering with only the strongest one would quietly drop the other.</p>
-    <p>Both are keyword scoring today, and both are getting a learned classifier &mdash; measured, and
-    shipped behind a switch that is off by default. The models do not replace the rules: a keyword match is
-    nearly always right when it fires and rarely fires, so the rules answer first and keep that precision,
-    and the model only fills a row they had no opinion about. On vocabulary the training never saw, the
-    learned event classifier reads 49% against the rules&rsquo; 33%; across six synthetic speakers it is
-    roughly three times more even-handed than the keyword lists, which serve whoever wrote them best.</p>
+    <p>The keyword rules answer first; where they have no opinion, a learned classifier reads the title
+    &mdash; through a local embedding model when it is up, and a word-feature model when it is not. Both
+    ship behind a switch that is off by default. The models do not replace the rules: a keyword match is
+    nearly always right when it fires and rarely fires, so the rules keep that precision and the model only
+    fills a row they left blank. On vocabulary the training never saw (4,333 generated test rows, 311
+    subjects it had never met), the word-feature event classifier reads 49%, the rules 33%, and reading
+    the title through the embedding model lifts it to 64% &mdash; the one change that moved it on unseen
+    words. Across six synthetic speakers the learned model is roughly three times more even-handed than
+    the keyword lists, which serve whoever wrote them best.</p>
     <p>Nothing about a person&rsquo;s corrections leaves their machine. The shipped model is fitted on
     generated vocabulary belonging to nobody; a second, personal one is fitted on top of it from the labels
     that person has actually changed &mdash; and only the ones they changed, because a label nobody
@@ -2868,15 +2932,17 @@ series_id   NULL
       <li>A <strong>blocked</strong> item — one the observance gate refused — is reported with its reason,
       never silently dropped.</li>
       <li>An <strong>unknown</strong> parse produces &ldquo;I didn't understand&rdquo;, not a guess.</li>
-      <li>A <strong>target that cannot be found</strong> produces &ldquo;I couldn't find…&rdquo;. Deleting
-      is destructive: when the engine cannot identify what to delete, empty hands are the right answer and
-      guessing is not.</li>
+      <li>A <strong>target that cannot be found</strong> produces &ldquo;I couldn't find…&rdquo; &mdash; but
+      first it looks on the other list: a change aimed at the calendar whose target is a to-do (or the other
+      way round) runs there, when exactly one title matches. A title is matched whole first, and a tie
+      between two different titles matches nothing. Deleting is destructive: when the engine cannot
+      identify what to delete, empty hands are the right answer and guessing is not.</li>
     </ul>
     <p>It also records what actually ran, per item — which kind, which row, which action, in which position
     — because that record is what the command memory and the later corrected-or-rejected hooks read.</p>`
     },
     label: {
-      view: "engine", tag: "stage 7", name: "label", rl: "7 label", title: "label — read the labels back",
+      view: "engine", tag: "stage 6 · inside commit", name: "label", rl: "6 label", title: "label — read the labels back",
       z: [820, 446, 2.0],
       sum: `<p>Categories, colours and tags are applied by the actions themselves. This stage <em>reads them back</em> onto the items, so the reply, the trace and the audit can all see what was chosen.</p>
     <p class="figs">reporting, never worth failing a command over</p>`,
@@ -2899,14 +2965,14 @@ series_id   NULL
       self-correction. Idempotent, and it never touches titles, dates, times or targets.</td></tr>
       <tr><td>lead_time</td><td>&ldquo;remind me 30 minutes before&rdquo; &rarr; a number of minutes. It
       returns the text unchanged when the clause IS the whole command.</td></tr>
-      <tr><td>recurrence</td><td>the cadence, rounded to daily/weekly/monthly, carrying the original words
+      <tr><td>recurrence</td><td>the cadence, rounded to daily/weekly/monthly/yearly, carrying the original words
       so the reply can announce the rounding, and the soonest weekday the sentence names.</td></tr>
       <tr><td>coordination</td><td>does this &ldquo;and&rdquo; join two THINGS or two ASKS?</td></tr>
       <tr><td>list_split · quantity</td><td>one title into several items, capped at ten items; and a spoken
       count kept as a number.</td></tr>
     </table></div>
     <h3>The one that is hardest, and why it is a parse</h3>
-    <p>Splitting on where the conjunctions fall cannot tell &ldquo;meeting with Tal and Sam&rdquo; from
+    <p>Splitting on where the conjunctions fall cannot tell &ldquo;meeting with Sam and Priya&rdquo; from
     &ldquo;book the gym and remind me to buy milk&rdquo;. The dependency parse can: the second half is
     marked as a conjunct, and what got coordinated says which kind of join it is. A verb conjunct that
     carries its own object, joined to a head that carries its own, is a second ask; a shared object
@@ -3391,6 +3457,22 @@ series_id   NULL
   const devctl = document.getElementById("devctl");
   let cur = null;
   let view = "system";
+  let readMode = "plain";
+  try { if (localStorage.getItem("explorer.read") === "tech") readMode = "tech"; } catch (e) { /* private window */ }
+  function setReadMode(k) {
+    readMode = k;
+    try { localStorage.setItem("explorer.read", k); } catch (e) { /* not stored; still applies */ }
+    viewsEl.querySelectorAll("[data-read]").forEach(b => {
+      b.classList.toggle("on", b.dataset.read === k);
+      b.setAttribute("aria-pressed", String(b.dataset.read === k));
+    });
+    if (cur !== null) open(cur);
+  }
+  function expandInline() {
+    const m = document.getElementById("pmore"), b = document.getElementById("pmorebtn");
+    if (m) m.hidden = false;
+    if (b) b.remove();
+  }
 
   function stageOf(v) { return document.getElementById("view-" + v); }
   function worldOf(v) { return stageOf(v).querySelector(".world"); }
@@ -3412,9 +3494,24 @@ series_id   NULL
       b.addEventListener("click", () => { setView(v); close(); });
       viewsEl.appendChild(b);
     }
+    // READING LEVEL (2026-09-24, the author: "enough technical vs easy to read
+    // material"). Every panel has a plain summary and a full technical
+    // section; "technical" opens the second inline on every panel, "plain"
+    // leaves it one click away. Remembered per reader, if the browser lets us.
+    const rm = document.createElement("span");
+    rm.className = "readmode"; rm.setAttribute("role", "group"); rm.setAttribute("aria-label", "Reading level");
+    [["plain", "plain words"], ["tech", "technical"]].forEach(([k, label]) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.dataset.read = k; b.textContent = label;
+      b.setAttribute("aria-pressed", String(readMode === k));
+      b.classList.toggle("on", readMode === k);
+      b.addEventListener("click", () => setReadMode(k));
+      rm.appendChild(b);
+    });
+    viewsEl.appendChild(rm);
   }
   function markRail() {
-    viewsEl.querySelectorAll("button").forEach(b =>
+    viewsEl.querySelectorAll("button[data-view]").forEach(b =>
       b.classList.toggle("on", b.dataset.view === view));
   }
   const canvasEl = document.querySelector(".canvas");
@@ -3457,6 +3554,7 @@ series_id   NULL
                <div class="pmore" id="pmore" hidden>${d.more}</div>` : "");
     const mb = document.getElementById("pmorebtn");
     if (mb) mb.addEventListener("click", showMore);
+    if (readMode === "tech") expandInline();
     if (window.__mountDemo) window.__mountDemo(id, pbody);   // the stage demos, recorded from the real code
     const i = ORDER.indexOf(id);
     const prev = ORDER[(i - 1 + ORDER.length) % ORDER.length];
@@ -3884,6 +3982,10 @@ series_id   NULL
 
   const btnBackSystem = document.getElementById("btn-back-system");
   if (btnBackSystem) btnBackSystem.addEventListener("click", () => setView("system"));
+  // The whole-chain walkthrough lives on the Engine panel, which no box on the
+  // drawing opens (the boxes are the stages); this is its door.
+  const btnRunChain = document.getElementById("btn-run-chain");
+  if (btnRunChain) btnRunChain.addEventListener("click", () => open("engine"));
 
   // Intercept setView to toggle the back button
   const _originalSetView = setView;
@@ -3892,13 +3994,18 @@ series_id   NULL
     if (btnBackSystem) {
       btnBackSystem.style.display = (v === "system") ? "none" : "block";
     }
+    if (btnRunChain) btnRunChain.style.display = (v === "engine") ? "block" : "none";
+    const bh = document.getElementById("btn-how");
+    if (bh) bh.style.display = (v === "system") ? "block" : "none";
   };
 
-  const _oldOpen = open;
-  open = function (id) {
-    if (id === "brain") return; // Prevent detail panel for brain
-    _oldOpen(id);
-  };
+  // The brain box on the system drawing is a DOOR (it switches to the engine
+  // view), so it never opens its own panel; the panel — one command, start to
+  // finish, in nine steps — is reached from the button below and from
+  // prev/next. It used to be refused outright here, which left its text
+  // unreachable and made "← the brain" a dead button.
+  const btnHow = document.getElementById("btn-how");
+  if (btnHow) btnHow.addEventListener("click", () => open("brain"));
 
 /* ---- INGEST walkthrough -------------------------------------------------
    The browser RUNS NOTHING. `scripts/gen_ingest_demo.py` records what the real
@@ -3906,7 +4013,10 @@ series_id   NULL
    the regexes to JS would be a second implementation of a rule the engine
    already owns, and a page has no tests of its own to catch the drift.
    `test_artifact_claims` regenerates the data and fails if this copy differs. */
-(function () {
+/* Mounted each time the transcript panel opens (the demo's markup lives in
+   that panel's detail, so it does not exist when this script is parsed — the
+   walkthrough used to look for it at load, find nothing, and never run). */
+window.__mountIngest = function () {
   const mount = document.getElementById("ingestDemo");
   const island = document.getElementById("ingest-demo");
   if (!mount || !island) return;
@@ -4004,7 +4114,7 @@ series_id   NULL
   });
 
   buildRail(); draw();
-})();
+};
 </script>
 <!-- INGEST-DEMO:BEGIN (generated by scripts/gen_ingest_demo.py) -->
 <script id="ingest-demo" type="application/json">
@@ -4070,7 +4180,7 @@ series_id   NULL
     {
      "pass": "swap",
      "title": "one-word swap",
-     "note": "\"with pelic sorry, i mean edo\" — the word before is replaced",
+     "note": "\"with nina sorry, i mean leo\" — the word before is replaced",
      "text": "add lunch tomorrow,"
     },
     {
@@ -4149,7 +4259,7 @@ series_id   NULL
     {
      "pass": "swap",
      "title": "one-word swap",
-     "note": "\"with pelic sorry, i mean edo\" — the word before is replaced",
+     "note": "\"with nina sorry, i mean leo\" — the word before is replaced",
      "text": "remind me to prepare the presentation"
     },
     {
@@ -4228,7 +4338,7 @@ series_id   NULL
     {
      "pass": "swap",
      "title": "one-word swap",
-     "note": "\"with pelic sorry, i mean edo\" — the word before is replaced",
+     "note": "\"with nina sorry, i mean leo\" — the word before is replaced",
      "text": "can you remind me to clean the kitchen"
     },
     {
@@ -4307,7 +4417,7 @@ series_id   NULL
     {
      "pass": "swap",
      "title": "one-word swap",
-     "note": "\"with pelic sorry, i mean edo\" — the word before is replaced",
+     "note": "\"with nina sorry, i mean leo\" — the word before is replaced",
      "text": "book bar rista course on friday"
     },
     {
@@ -4386,7 +4496,7 @@ series_id   NULL
     {
      "pass": "swap",
      "title": "one-word swap",
-     "note": "\"with pelic sorry, i mean edo\" — the word before is replaced",
+     "note": "\"with nina sorry, i mean leo\" — the word before is replaced",
      "text": "add sue dough coup club to my calendar"
     },
     {
@@ -4465,7 +4575,7 @@ series_id   NULL
     {
      "pass": "swap",
      "title": "one-word swap",
-     "note": "\"with pelic sorry, i mean edo\" — the word before is replaced",
+     "note": "\"with nina sorry, i mean leo\" — the word before is replaced",
      "text": "add milk to my list"
     },
     {
@@ -4544,7 +4654,7 @@ series_id   NULL
     {
      "pass": "swap",
      "title": "one-word swap",
-     "note": "\"with pelic sorry, i mean edo\" — the word before is replaced",
+     "note": "\"with nina sorry, i mean leo\" — the word before is replaced",
      "text": "no wait"
     },
     {
@@ -4581,6 +4691,10 @@ series_id   NULL
    notices. test_artifact_claims regenerates the model-free islands and fails
    if the page's copy differs. */
 (function () {
+/* Runs once the page has loaded: the recorded data island sits BELOW this
+   script, so reading it at parse time found nothing and every stage demo
+   silently stayed off the page. */
+const __runDemos = function () {
   const island = document.getElementById("explorer-demos");
   if (!island) return;
   let D;
@@ -4635,6 +4749,75 @@ series_id   NULL
       tbl.innerHTML = rows.filter(x => x[1]).map(x => "<tr><td>" + esc(x[0]) + "</td><td><b>" + esc(x[1]) + "</b></td></tr>").join("") || "<tr><td colspan=2>no value — the phrase names no day and no clock</td></tr>";
     }
     picker(box, D.resolve, r => r.phrase, show); box.appendChild(tbl); show(D.resolve[0]); host.appendChild(box);
+  }
+
+  /* --- event or to-do: which rule decided, or the model --- */
+  // The rungs are the kind router's own order (decompose_validate/
+  // kind_router.rule_fired): the tagger's readers, then the rulings, then —
+  // only when nothing fired — the small model. Each recorded path names the
+  // rung it belongs to; an unknown path still shows, under its own name.
+  const KIND_RUNGS = [
+    { id: "clock", label: "A clock time was said", sub: "“at 4pm”, “half past six” — always an event (rulings Q25/Q26)" },
+    { id: "person", label: "You meet, see, call or eat with someone", sub: "a name or a family word — an event, at 9:00 if no time was said (Q47)" },
+    { id: "todo", label: "To-do wording", sub: "“remind me to…”, “a note to…”, a named list, a written message, a deadline" },
+    { id: "calendar", label: "Calendar wording", sub: "“book”, “schedule”, “on my calendar”" },
+    { id: "model", label: "No rule fired: a small model decides", sub: "from the shape of the words — never against a rule" },
+  ];
+  const RUNG_OF_PATH = {
+    stated_clock: "clock", remind_about_clock: "clock", dated_anchor: "clock",
+    encounter: "person",
+    task_frame: "todo", lexicon_task: "todo", remind_to_verb: "todo", todo_destination: "todo",
+    nudge: "todo", hedge_or_due_date: "todo", not_calendar: "todo",
+    lexicon_event: "calendar", calendar_destination: "calendar",
+  };
+  const PLAIN_PATH = {
+    stated_clock: "a clock time", encounter: "an encounter with a person", task_frame: "a to-do phrasing",
+    lexicon_task: "a to-do verb", lexicon_event: "a calendar verb", remind_to_verb: "“remind me to” + a verb",
+    todo_destination: "a named to-do list", calendar_destination: "“on my calendar”",
+  };
+  function kindDemo(host) {
+    if (!D.kind || !D.kind.length) return;
+    const box = el("div", "sdemo"); box.appendChild(el("h4", null, "Event or to-do? Step down the ladder"));
+    box.appendChild(el("p", "lead", "The first rung that matches decides, and the model is only asked when none does. Recorded from the real router (<code>kind_router.route</code>) and front door on " + esc((D.clock || "").slice(0, 10)) + "."));
+    const cmd = el("div", "cmd"), ladder = el("ol", "ladder"), gauge = el("div"), outcome = el("div", "outcome"), ctl = el("div", "ctl");
+    let ex = null, step = 0, hit = 0;
+    function rungOf(p) { return p.by === "model" || p.by === "tagger" ? "model" : (RUNG_OF_PATH[p.detail] || null); }
+    function draw() {
+      const p = ex.pieces[0] || {};
+      const r = rungOf(p);
+      hit = r ? KIND_RUNGS.findIndex(x => x.id === r) : KIND_RUNGS.length - 1;
+      ladder.innerHTML = "";
+      KIND_RUNGS.forEach((g, i) => {
+        const cls = i < step && i < hit ? "pass" : (i === hit && step > hit ? "hit" : (i >= step ? "todo-rung" : ""));
+        const right = cls === "hit" ? (p.by === "model" ? "model: " + Math.round(100 * Number(p.detail)) + "% event" : "yes — " + esc(PLAIN_PATH[p.detail] || p.detail)) : "";
+        ladder.appendChild(el("li", cls, "<span class='n'>" + (i + 1) + "</span><span><b>" + esc(g.label) + "</b><br>" + esc(g.sub) + "</span><span class='r'>" + right + "</span>"));
+      });
+      gauge.innerHTML = "";
+      if (step > hit && p.by === "model") {
+        const pe = Number(p.detail);
+        gauge.innerHTML = "<div class='pgauge' role='img' aria-label='probability of an event " + Math.round(100 * pe) + "%'><span style='width:" + (100 * pe) + "%'></span><i></i></div><div class='glabels'><span>to-do</span><span>50%</span><span>event</span></div>";
+      }
+      if (step > hit) {
+        const kind = p.kind === "task" ? "a to-do" : "an event";
+        let saved = "";
+        if (ex.saved && ex.saved.length) {
+          const o = ex.saved[0];
+          saved = " The front door saves it at once: <b>" + esc(o.action.replace("_", " ")) + "</b> “" + esc(o.title) + "”" + (o.date ? " · " + esc(o.date) : " · no day") + (o.start_time ? " · " + esc(o.start_time) : "") + ".";
+        } else {
+          saved = " The front door hands it to the deep track (" + esc(ex.front_door) + "), which builds it from these pieces.";
+        }
+        outcome.innerHTML = "<b>“" + esc(p.action) + "”" + (p.time ? " · " + esc(p.time) : "") + " → " + kind + ".</b>" + saved;
+      } else outcome.innerHTML = "<span class='lead'>Press step to test the next rung.</span>";
+      ctl.querySelector(".n").textContent = step > hit ? "decided at rung " + (hit + 1) : "rung " + (step + 1) + " of " + KIND_RUNGS.length;
+    }
+    function show(e) { ex = e; step = 0; cmd.textContent = e.text; draw(); }
+    picker(box, D.kind, e => e.label, show);
+    box.appendChild(cmd); box.appendChild(ladder); box.appendChild(gauge); box.appendChild(outcome);
+    ctl.innerHTML = "<button type='button' class='next'>step ▶</button><button type='button' class='all'>jump to the answer</button><button type='button' class='reset'>reset</button><span class='n'></span>";
+    ctl.querySelector(".next").addEventListener("click", () => { if (step <= hit) { step++; draw(); } });
+    ctl.querySelector(".all").addEventListener("click", () => { step = hit + 1; draw(); });
+    ctl.querySelector(".reset").addEventListener("click", () => { step = 0; draw(); });
+    box.appendChild(ctl); show(D.kind[0]); host.appendChild(box);
   }
 
   /* --- FastRule: handled, deferred or refused --- */
@@ -4725,16 +4908,20 @@ series_id   NULL
   /* --- mount by panel id when a panel opens --- */
   const MOUNTS = {
     segment: h => segDemo(h),
-    decompose: h => resolveDemo(h), validate: h => resolveDemo(h),
+    transcript: () => { if (window.__mountIngest) window.__mountIngest(); },
+    decompose: h => { kindDemo(h); resolveDemo(h); }, validate: h => resolveDemo(h),
     fastrule: h => fastruleDemo(h),
     crosscheck: h => chainDemo(h, true), generate: h => chainDemo(h, true),
-    Engine: h => chainDemo(h, false),
+    engine: h => chainDemo(h, false),
     lvl1: h => evalDemo(h, "engine"), lvl5: h => evalDemo(h, "real"), measure: h => evalDemo(h, "loop"),
   };
   window.__mountDemo = function (id, host) {
     try { const f = MOUNTS[id]; if (f) f(host); } catch (e) { /* a widget must never break the panel */ }
   };
   window.__unlightDemo = function () { light(null); };
+};
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", __runDemos);
+else __runDemos();
 })();
 </script>
 
@@ -5373,6 +5560,210 @@ series_id   NULL
    ]
   }
  ],
+ "kind": [
+  {
+   "label": "a clock makes it an event",
+   "text": "dentist tomorrow at 4pm",
+   "pieces": [
+    {
+     "action": "dentist",
+     "time": "tomorrow at 4pm",
+     "tagger": "event",
+     "kind": "event",
+     "by": "rule",
+     "detail": "stated_clock"
+    }
+   ],
+   "saved": [
+    {
+     "action": "create_event",
+     "title": "dentist",
+     "date": "2026-09-10",
+     "start_time": "16:00"
+    }
+   ],
+   "front_door": "handled"
+  },
+  {
+   "label": "a part of the day is not a clock",
+   "text": "remind me to water the plants this evening",
+   "pieces": [
+    {
+     "action": "remind me to water the plants",
+     "time": "this evening",
+     "tagger": "task",
+     "kind": "task",
+     "by": "rule",
+     "detail": "task_frame"
+    }
+   ],
+   "saved": [
+    {
+     "action": "create_todo",
+     "title": "water the plants",
+     "date": "2026-09-09",
+     "start_time": null
+    }
+   ],
+   "front_door": "handled"
+  },
+  {
+   "label": "meeting a person is an event",
+   "text": "see Jordan on friday",
+   "pieces": [
+    {
+     "action": "see Jordan",
+     "time": "on friday",
+     "tagger": "event",
+     "kind": "event",
+     "by": "rule",
+     "detail": "encounter"
+    }
+   ],
+   "saved": [],
+   "front_door": "deferred"
+  },
+  {
+   "label": "so is a meal with someone",
+   "text": "coffee with Jordan tomorrow",
+   "pieces": [
+    {
+     "action": "coffee with Jordan",
+     "time": "tomorrow",
+     "tagger": "event",
+     "kind": "event",
+     "by": "rule",
+     "detail": "encounter"
+    }
+   ],
+   "saved": [
+    {
+     "action": "create_event",
+     "title": "coffee with jordan",
+     "date": "2026-09-10",
+     "start_time": "09:00"
+    }
+   ],
+   "front_door": "handled"
+  },
+  {
+   "label": "a written message stays a to-do",
+   "text": "email the landlord about the lease tomorrow",
+   "pieces": [
+    {
+     "action": "email the landlord about the lease",
+     "time": "tomorrow",
+     "tagger": "task",
+     "kind": "task",
+     "by": "rule",
+     "detail": "lexicon_task"
+    }
+   ],
+   "saved": [
+    {
+     "action": "create_todo",
+     "title": "email the landlord about the lease",
+     "date": "2026-09-10",
+     "start_time": null
+    }
+   ],
+   "front_door": "handled"
+  },
+  {
+   "label": "a named list is a to-do",
+   "text": "add milk to my shopping list",
+   "pieces": [
+    {
+     "action": "add milk to my shopping list",
+     "time": "today",
+     "tagger": "task",
+     "kind": "task",
+     "by": "rule",
+     "detail": "task_frame"
+    }
+   ],
+   "saved": [
+    {
+     "action": "create_todo",
+     "title": "milk",
+     "date": null,
+     "start_time": null
+    }
+   ],
+   "front_door": "handled"
+  },
+  {
+   "label": "\"a note to\" is a to-do",
+   "text": "add a note to renew the passport",
+   "pieces": [
+    {
+     "action": "add a note to renew the passport",
+     "time": "today",
+     "tagger": "task",
+     "kind": "task",
+     "by": "rule",
+     "detail": "task_frame"
+    }
+   ],
+   "saved": [],
+   "front_door": "deferred"
+  },
+  {
+   "label": "a deadline is a to-do",
+   "text": "renew the car insurance by friday",
+   "pieces": [
+    {
+     "action": "renew the car insurance",
+     "time": "by friday",
+     "tagger": "task",
+     "kind": "task",
+     "by": "rule",
+     "detail": "task_frame"
+    }
+   ],
+   "saved": [
+    {
+     "action": "create_todo",
+     "title": "renew the car insurance",
+     "date": "2026-09-11",
+     "start_time": null
+    }
+   ],
+   "front_door": "handled"
+  },
+  {
+   "label": "no rule fired: the model",
+   "text": "haircut next week",
+   "pieces": [
+    {
+     "action": "haircut",
+     "time": "next week",
+     "tagger": "event",
+     "kind": "event",
+     "by": "model",
+     "detail": "0.99"
+    }
+   ],
+   "saved": [],
+   "front_door": "deferred"
+  },
+  {
+   "label": "no rule fired: the model, again",
+   "text": "yoga class every tuesday",
+   "pieces": [
+    {
+     "action": "yoga class",
+     "time": "every tuesday",
+     "tagger": "event",
+     "kind": "event",
+     "by": "model",
+     "detail": "0.99"
+    }
+   ],
+   "saved": [],
+   "front_door": "deferred"
+  }
+ ],
  "eval": {
   "dev100": [
    {
@@ -5481,17 +5872,29 @@ series_id   NULL
    ]
   },
   "board_d": {
-   "n": 30,
-   "off": 96.7,
-   "on": 96.7,
+   "n": 1200,
+   "off": 93.8,
+   "on": 93.8,
    "fixed": 0,
    "broke": 0,
-   "disagreed": 1,
+   "disagreed": 7,
    "by_reentries": {
     "0": {
-     "n": 30,
-     "off": 29,
-     "on": 29,
+     "n": 1176,
+     "off": 1107,
+     "on": 1107,
+     "net": 0
+    },
+    "1": {
+     "n": 23,
+     "off": 18,
+     "on": 18,
+     "net": 0
+    },
+    "2": {
+     "n": 1,
+     "off": 1,
+     "on": 1,
      "net": 0
     }
    }
@@ -5795,7 +6198,7 @@ series_id   NULL
    "label": "a seam inside one ask",
    "text": "take out the trash. also, put milk on my shopping list",
    "parse": "deep",
-   "message": "Added 'take out the trash' to Today tagged Errands. Added 'milk' to Today tagged Groceries.",
+   "message": "Added 'milk' to Today tagged Groceries. Added 'take out the trash' to Today tagged Errands.",
    "boundaries": [
     {
      "name": null,
@@ -5848,6 +6251,20 @@ series_id   NULL
      "outcome": ""
     },
     {
+     "stage": "execute",
+     "title": "Create Todo",
+     "detail": "Added 'milk' to Today tagged Groceries.",
+     "ok": true,
+     "outcome": ""
+    },
+    {
+     "stage": "validate",
+     "title": "Labels",
+     "detail": "item_2: Groceries",
+     "ok": true,
+     "outcome": ""
+    },
+    {
      "stage": "llm",
      "title": "Read part 1",
      "detail": "ollama:llama3.1:8b · 0 history example(s) used",
@@ -5876,23 +6293,16 @@ series_id   NULL
      "outcome": ""
     },
     {
-     "stage": "execute",
-     "title": "Create Todo",
-     "detail": "Added 'milk' to Today tagged Groceries.",
-     "ok": true,
-     "outcome": ""
-    },
-    {
      "stage": "validate",
      "title": "Labels",
-     "detail": "item_1: Errands; item_2: Groceries",
+     "detail": "item_2: Groceries; item_1: Errands",
      "ok": true,
      "outcome": ""
     },
     {
      "stage": "done",
      "title": "Done",
-     "detail": "deep path · 6.0 s total",
+     "detail": "deep path · 13.9 s total",
      "ok": true,
      "outcome": ""
     }
@@ -5986,7 +6396,7 @@ series_id   NULL
     {
      "stage": "done",
      "title": "Done",
-     "detail": "deep path · 8.3 s total",
+     "detail": "deep path · 9.1 s total",
      "ok": true,
      "outcome": ""
     }

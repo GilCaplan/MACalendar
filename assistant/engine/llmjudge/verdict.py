@@ -3,9 +3,10 @@
     collect(state)                -> [Produced, …]   the objects to check
     judge(state, produced, ground) -> [CheckFinding, …]
 
-`evidence.py` asks the model ONE copying question. **This module does all the
-deciding**, which is the division the stage was built on and the one thing the
-2026-09-10 re-cut did not change.
+No model is asked anything here any more: the one copying question
+(`evidence.py`) was retired on 2026-09-10 (`retired/llmjudge-grounding-call/`).
+**This module does all the deciding**, which is the division the stage was
+built on and the one thing the 2026-09-10 re-cut did not change.
 
 ## What went away, and why (Gil, 2026-09-10)
 
@@ -30,10 +31,11 @@ board was the extraction inventing an ask out of *"i already handled it"*.
                         `decompose_validate` never resolved      free, no model
     the SUBJECT tests   a generic title, or a title with no word
                         in the transcript                        free, no model
-    the model's `none`  a field it could not point at            one call
+    the model's `none`  a field it could not point at            RETIRED
 
-The first two run FIRST and `continue` past the third, so a fabrication with no
-word in the words is caught without consulting anything. That ordering is what
+The first two are the whole check now; the third was asked until 2026-09-10,
+and running the first two FIRST is what showed it redundant: a fabrication with
+no word in the words is caught without consulting anything. That ordering is what
 took `invented_title` from 25% to 94% on the isolation board: the model was
 answering that question badly, and the fix was to stop asking it.
 

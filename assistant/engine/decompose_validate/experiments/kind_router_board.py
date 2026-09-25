@@ -160,12 +160,32 @@ def main() -> int:
         KR.reset()
         print(f"  wrote {KR.MODEL_PATH}", flush=True)
 
+    # THE RULES OFF (Gil, 2026-09-24: "isolate the rule based on/off just to
+    # see the effect"). The same model family, fitted on EVERY item and asked
+    # about every item — no rule decides anything. Beside "tagger" (rules
+    # alone) and "router" (rules, otherwise model) it separates what the rules
+    # are worth from what the model is worth. TRAIN is out-of-fold, TEST is
+    # read by the model fitted on the whole pool, exactly like the router.
+    _acc_all, oof_all = cands[(mname, "all")]
+    model_all = K2.make_model(mname).fit(X, y)
+    oof_all_by_id = {id(it): oof_all[i] for i, it in enumerate(pool)}
+    # …and STRICTER: the model above still reads the tagger's verdict (the
+    # last three features, eng_event/eng_task/eng_other). "Words only" drops
+    # them, so no rule reaches the decision even as an input.
+    NW = X.shape[1] - 3
+    oof_w = np.full(len(pool), np.nan)
+    for tr, te in folds:
+        oof_w[te] = K2.make_model(mname).fit(X[tr, :NW], y[tr]).predict_proba(X[te, :NW])[:, 1]
+    model_w = K2.make_model(mname).fit(X[:, :NW], y)
+    oof_w_by_id = {id(it): oof_w[i] for i, it in enumerate(pool)}
+
     # --- the board: router vs tagger, per source and split
     oof_by_id = {id(it): oof[i] for i, it in enumerate(pool)}
     record = {"started": stamp, "git_head": head, "chosen": f"{mname}:{scope}",
               "candidates": {f"{k[0]}:{k[1]}": v[0] for k, v in cands.items()}, "rows": {}}
-    print("\n  KIND — router (rules, otherwise model) vs the tagger, same item words")
-    print(f"    {'source':9s} {'split':5s} {'n':>6s} {'reach':>12s} {'tagger':>8s} {'router':>8s} "
+    print("\n  KIND — rules alone (tagger) · words only (no rule even as input) · model alone (rules OFF, "
+          "reads the tagger's verdict as a feature) · rules, otherwise model (router)")
+    print(f"    {'source':9s} {'split':5s} {'n':>6s} {'reach':>12s} {'tagger':>8s} {'words':>8s} {'model':>8s} {'router':>8s} "
           f"{'fixed':>6s} {'broke':>6s} {'net':>5s}   on reached: tagger→router")
     for s, its in sources.items():
         for sp in ("train", "test"):
@@ -182,6 +202,18 @@ def main() -> int:
                                                      heads))[:, 1] if reached else []
                 p = {id(it): v for it, v in zip(reached, P)}
             pred = [("event" if p[id(it)] >= 0.5 else "task") if it["reach"] else it["tagk"] for it in sub]
+            if sp == "train":
+                p_all = [oof_all_by_id[id(it)] for it in sub]
+            else:
+                p_all = model_all.predict_proba(KR.vectorise(
+                    [(it["text"], it["time"], it["tagk"]) for it in sub], heads))[:, 1]
+            m_ok = sum(("event" if v >= 0.5 else "task") == it["gold"] for v, it in zip(p_all, sub))
+            if sp == "train":
+                p_w = [oof_w_by_id[id(it)] for it in sub]
+            else:
+                p_w = model_w.predict_proba(KR.vectorise(
+                    [(it["text"], it["time"], it["tagk"]) for it in sub], heads)[:, :NW])[:, 1]
+            w_ok = sum(("event" if v >= 0.5 else "task") == it["gold"] for v, it in zip(p_w, sub))
             n = len(sub)
             eng_ok = sum(it["tagk"] == it["gold"] for it in sub)
             ok = sum(x == it["gold"] for x, it in zip(pred, sub))
@@ -192,10 +224,11 @@ def main() -> int:
             r_ok = sum(x == it["gold"] for x, it in zip(pred, sub) if it["reach"])
             conf = sum(1 for it in its if it["split"] == sp and it["conflict"])
             print(f"    {s:9s} {sp:5s} {n:6d} {rn:5d} {100 * rn / n:5.1f}% {100 * eng_ok / n:7.1f}% "
-                  f"{100 * ok / n:7.1f}% {fixed:6d} {broke:6d} {fixed - broke:+5d}   "
+                  f"{100 * w_ok / n:7.1f}% {100 * m_ok / n:7.1f}% {100 * ok / n:7.1f}% {fixed:6d} {broke:6d} {fixed - broke:+5d}   "
                   + (f"{100 * r_eng / rn:.1f}% → {100 * r_ok / rn:.1f}%" if rn else "—")
                   + (f"   ({conf} ruling-conflict gold dropped)" if conf else ""))
-            record["rows"][f"{s}|{sp}"] = {"n": n, "reach": rn, "tagger": eng_ok, "router": ok,
+            record["rows"][f"{s}|{sp}"] = {"n": n, "reach": rn, "tagger": eng_ok, "words_only": w_ok, "model_only": m_ok,
+                                           "router": ok,
                                            "fixed": fixed, "broke": broke, "conflicts_dropped": conf,
                                            "families": len({it["family"] for it in sub})}
 
@@ -209,7 +242,7 @@ def main() -> int:
     # rulings battery
     from assistant.engine.segmentation.fastseg.fastseg import fastseg
     print(f"\n  RULINGS battery ({len(battery())} sentences: Q25/Q26/Q27/Q47/Q1 + the 2026-09-04 convention + calls)")
-    viol_t, viol_r, reached_n = [], [], 0
+    viol_t, viol_r, viol_m, viol_w, reached_n = [], [], [], [], 0
     for sent, want, cite in battery():
         segs = fastseg(sent)
         sg = segs[0] if segs else {"action": sent, "time": ""}
@@ -220,11 +253,21 @@ def main() -> int:
             viol_t.append((sent, cite, tk))
         if kind != want:
             viol_r.append((sent, cite, kind, why))
+        pm = float(model_all.predict_proba(KR.vectorise([(sg["action"], sg["time"] or "", tk)], heads))[0, 1])
+        if ("event" if pm >= 0.5 else "task") != want:
+            viol_m.append((sent, cite, round(pm, 2)))
+        pw = float(model_w.predict_proba(KR.vectorise([(sg["action"], sg["time"] or "", tk)], heads)[:, :NW])[0, 1])
+        if ("event" if pw >= 0.5 else "task") != want:
+            viol_w.append((sent, cite, round(pw, 2)))
     n = len(battery())
     print(f"    tagger {n - len(viol_t)}/{n}  violations {viol_t}")
+    print(f"    words only (no rule, not even as input) {n - len(viol_w)}/{n}  violations {viol_w}")
+    print(f"    model alone (rules OFF) {n - len(viol_m)}/{n}  violations {viol_m}")
     print(f"    router {n - len(viol_r)}/{n}  violations {viol_r}  · {reached_n} reached the model")
     record["battery"] = {"n": n, "tagger_ok": n - len(viol_t), "router_ok": n - len(viol_r),
-                         "reached_model": reached_n, "router_violations": viol_r}
+                         "reached_model": reached_n, "router_violations": viol_r,
+                         "model_only_ok": n - len(viol_m), "model_only_violations": viol_m,
+                         "words_only_ok": n - len(viol_w), "words_only_violations": viol_w}
 
     out = HERE / "runs"
     out.mkdir(exist_ok=True)

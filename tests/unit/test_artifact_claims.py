@@ -535,11 +535,25 @@ def test_no_personal_word_list_entry_reaches_a_published_page(path):
     # other way round would mean every new name added to the word list
     # silently became publishable.
     allowed = _public_words()
-    text = path.read_text().lower()
+    raw_text = path.read_text()
+    text = raw_text.lower()
     # Short entries collide with ordinary English ('go', 'set'); the risk this
     # guards against is distinctive words, which are long ones.
     leaked = sorted(w for w in words - allowed
                     if len(w) >= 5 and re.search(rf"\b{re.escape(w)}\b", text))
+    # …EXCEPT short NAMES. Three- and four-letter first names are the commonest
+    # personal detail there is, and the length cut let two through (a friend's
+    # name in an example, the author's in source comments; found 2026-09-24).
+    # A short entry stored CAPITALISED is a name or an acronym; it is matched
+    # case-sensitively, so the English word it may collide with ("mark it
+    # done") is not flagged, while the name ("with Mark") is.
+    for entry in (found or []):
+        word = (entry.get("word") if isinstance(entry, dict) else entry) or ""
+        word = word.strip()
+        if 3 <= len(word) < 5 and word[:1].isupper() and word.lower() not in allowed \
+                and re.search(rf"\b{re.escape(word)}\b", raw_text):
+            leaked.append(word)
+    leaked = sorted(set(leaked))
     assert not leaked, (
         f"{path.name} contains personal vocabulary: {leaked}. Replace each with "
         "an invented example, or — only if it is genuinely general — add it to "
@@ -611,33 +625,6 @@ def test_the_loop_budget_matches_crosscheck(all_prose):
 #: Only a page that draws FastRule's internals uses this phrase.
 _ENGINE_MARK = "atomic-item executor"
 
-#: Where each engine stage module lives. Components moved into per-component
-#: folders (2026-09-08), so the stage NAME is no longer the file name — this map
-#: is the single place that knows the difference.
-_STAGE_FILES = {
-    "transcript": "ingest/repair.py",
-    # The stage's model half is LLMSeg (off by default, its own `urlopen`
-    # socket); `old_seg`, which this pointed at, was retired 2026-09-20.
-    "segment":    "segmentation/llmseg/llmseg.py",
-    "decompose":  "decompose_validate/decompose.py",
-    # The stage's model call moved with the retirement of validate.py: `checks.py`
-    # is deterministic by design, and the LLM call this stage still makes lives in
-    # `text_repair.py` (rewriting a mangled item's words). Pointing this at
-    # checks.py would say the stage never calls the model, which is not true.
-    "validate":   "decompose_validate/text_repair.py",
-    "fastrule":   "fastrule/build.py",
-    # Third time this entry has moved WITHIN its folder, and the last move is
-    # the meaningful one (2026-09-10, Gil approved). `evidence.py` — the judge's
-    # grounding call — is RETIRED, so the stage no longer calls a model to JUDGE
-    # anything. It still calls one in `rescue.py`, for job 0: parsing what
-    # FastRule DEFERRED. That is the model doing a parse, not judging one, and
-    # it is why LLMJudge still counts among the stages that may call the model.
-    #
-    # Point this at `llmjudge.py` and the count silently drops by one, telling
-    # readers a stage is deterministic when it is not.
-    "crosscheck": "llmjudge/rescue.py",
-    "label":      "label/label.py",
-}
 _FASTRULE_PY = "assistant/engine/fastrule/fastrule.py"
 #: `Gatekeeper` MOVED here 2026-09-09 (the port, `llmjudge/PLAN.md` §1.0). It is
 #: a Component, not a Stage, so the chain's shape — and `BRAIN_VERSION` — did
@@ -774,21 +761,37 @@ def test_the_classifier_feature_counts_are_current(all_prose):
                 f"{cls} holds {n} named signals; {name} quotes a different count")
 
 
+#: The SIX stages of the chain (`state.STAGES` minus the commit step, which
+#: executes and calls nothing), each with every file where it could reach the
+#: LANGUAGE model. Counted per stage, not per file: decompose_validate was once
+#: counted as two stages ("decompose" and "validate"), and the page then said
+#: "of the seven" beside a diagram of six. Label reaches only the embedding
+#: model (`label/embed.py`), which is not the language model this claim is about.
+_STAGE_MODEL_FILES = {
+    "ingest":             ("ingest/repair.py",),
+    "segmentation":       ("segmentation/llmseg/llmseg.py",),     # wired, off by default
+    "decompose_validate": ("decompose_validate/decompose.py", "decompose_validate/text_repair.py"),
+    "fastrule":           ("fastrule/build.py", "fastrule/fast_track.py"),
+    "llmjudge":           ("llmjudge/rescue.py", "llmjudge/rewrite.py", "llmjudge/verdict.py"),
+    "label":              ("label/label.py", "label/model.py"),
+}
+
+
 def test_the_count_of_model_calling_stages_is_current(all_prose):
-    """"Five of the seven engine stages may call the language model."
+    """"Three of the six engine stages may call the language model."
 
     The claim a reader is most likely to act on — how much of the pipeline is
     deterministic — so it is read from the stage modules themselves.
     """
     engine = ROOT / "assistant" / "engine"
-    callers = [name for name, rel in _STAGE_FILES.items()
-               if re.search(r"call_json\(|parser\.parse|urlopen\(",
-                            (engine / rel).read_text())]
+    callers = [name for name, rels in _STAGE_MODEL_FILES.items()
+               if any(re.search(r"call_json\(|parser\.parse|urlopen\(", (engine / rel).read_text())
+                      for rel in rels)]
     for name, text in all_prose.items():
         if "stages may call the language model" not in text:
             continue
-        assert re.search(rf"\b{_word(len(callers))} of the seven engine stages", text, re.I), (
-            f"{len(callers)} of the seven stages can call the model; {name} says otherwise")
+        assert re.search(rf"\b{_word(len(callers))} of the six engine stages", text, re.I), (
+            f"{len(callers)} of the six stages can call the model ({callers}); {name} says otherwise")
 # ---------------------------------------------------------------------------
 # The datasets the evaluation section describes
 # ---------------------------------------------------------------------------
@@ -1045,7 +1048,7 @@ def test_the_explorer_demos_match_the_engine():
     m = re.search(r'<script id="explorer-demos" type="application/json">(.*?)</script>', page, re.S)
     assert m, "the explorer lost its stage-demo data island"
     embedded = json.loads(m.group(1))
-    for key in ("seg", "resolve", "fastrule", "chain", "eval"):
+    for key in ("seg", "resolve", "fastrule", "kind", "chain", "eval"):
         assert key in embedded, key
     # Regenerated in a subprocess: the generator redirects every store at
     # import time, which must not happen inside this process.
@@ -1055,7 +1058,7 @@ def test_the_explorer_demos_match_the_engine():
                               "MACALENDAR_NO_WARMUP": "1", "MACALENDAR_LLM_PRIORITY": "background"})
     assert out.returncode == 0, out.stderr[-1500:]
     fresh = json.loads(out.stdout)
-    for key in ("seg", "resolve", "fastrule"):
+    for key in ("seg", "resolve", "fastrule", "kind"):
         assert fresh[key] == embedded[key], (
             f"explorer.html's {key} demo no longer matches the engine — "
             "run `python -m scripts.gen_explorer_demos --write`")
@@ -1063,3 +1066,24 @@ def test_the_explorer_demos_match_the_engine():
     assert embedded["chain"], "the chain island is empty — regenerate with the model up"
     for c in embedded["chain"]:
         assert c["boundaries"] and c["steps"] and c["text"], c.get("label")
+
+
+def test_the_explorer_demos_can_find_their_data():
+    """Every recorded widget on the explorer was silently OFF until 2026-09-24:
+    the demo script read its data island at parse time, and the island sits
+    BELOW it; the ingest walkthrough looked for markup that only exists once
+    its panel opens. Both returned early without an error, so the page shipped
+    with no demos and nothing noticed. The demos must wait for the page, and
+    the ingest walkthrough must mount when its panel does."""
+    page = (ROOT / "DOCUMENTATION" / "artifacts" / "explorer.html").read_text()
+    script_at = page.index('const island = document.getElementById("explorer-demos");')
+    island_at = page.index('<script id="explorer-demos" type="application/json">')
+    if island_at > script_at:
+        assert 'document.addEventListener("DOMContentLoaded", __runDemos)' in page, (
+            "the stage demos read their data island before the browser has parsed it")
+    assert "window.__mountIngest = function" in page and "transcript: () =>" in page, (
+        "the ingest walkthrough must mount when the transcript panel opens")
+    mounts = re.search(r"const MOUNTS = \{(.*?)\n  \};", page, re.S).group(1)
+    panel_ids = set(re.findall(r"^    ([A-Za-z0-9_]+): \{", page, re.M))
+    for key in re.findall(r"^\s+([A-Za-z0-9_]+):", mounts, re.M):
+        assert key in panel_ids, f"MOUNTS names a panel that does not exist: {key!r}"

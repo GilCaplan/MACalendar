@@ -50,3 +50,18 @@ israel
 # own category names on the engine explainer, not personal details
 davening
 leyning
+
+# General English terms that also happen to be in the word list. Declared one
+# by one, with the reason, because the case-sensitive short-word check
+# (test_artifact_claims, 2026-09-24) now reads 3-4 letter entries too.
+api
+gpu
+llm
+# "mark" — an English verb ("mark it done"), and the internals page's point is
+# precisely a word that is both a common name and a completion verb in the
+# rule table; the brief (ARTIFACT_BUILDER.md) prescribes it as the invented
+# example. Never used on a page for anything the author did.
+mark
+# "google" — the company; the pages name the calendar providers a user can
+# connect (Google, Outlook), which is a capability, not anything personal.
+google

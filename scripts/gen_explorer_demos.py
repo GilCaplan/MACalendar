@@ -10,6 +10,9 @@ REAL code produced for a fixed set of INVENTED commands. Five islands:
               phrase each piece owns and its kind, plus the time spans found
     resolve   decompose_validate — a time phrase in, every value out
     fastrule  the front door — handled, deferred or refused, and why
+    kind      event or to-do — for each piece, the RULE that decided it, or the
+              small model's probability when no rule fired, and what the front
+              door would save (decompose_validate's kind router, DEVQA Q47)
     chain     the whole chain — X0..X4 and the trace, one command at a time
               (recorded WITH the model, so this island is checked for shape,
               not equality)
@@ -77,6 +80,19 @@ FASTRULE_COMMANDS = [
     ("a question, not a create", "should I add yoga tomorrow?"),
     ("a delete with no target", "just delete it"),
     ("an all-day day", "conference all day friday"),
+]
+
+KIND_COMMANDS = [
+    ("a clock makes it an event", "dentist tomorrow at 4pm"),
+    ("a part of the day is not a clock", "remind me to water the plants this evening"),
+    ("meeting a person is an event", "see Jordan on friday"),
+    ("so is a meal with someone", "coffee with Jordan tomorrow"),
+    ("a written message stays a to-do", "email the landlord about the lease tomorrow"),
+    ("a named list is a to-do", "add milk to my shopping list"),
+    ("\"a note to\" is a to-do", "add a note to renew the passport"),
+    ("a deadline is a to-do", "renew the car insurance by friday"),
+    ("no rule fired: the model", "haircut next week"),
+    ("no rule fired: the model, again", "yoga class every tuesday"),
 ]
 
 CHAIN_COMMANDS = [
@@ -148,6 +164,42 @@ def build_fastrule() -> list:
     return out
 
 
+def build_kind() -> list:
+    """Event or to-do, and WHY: the kind router's own answer per piece
+    (`decompose_validate/kind_router.route`), plus what the front door would
+    save for the same sentence — the object, its day and clock (a person met
+    with no clock said lands at 09:00, DEVQA Q47). Model-free: the router's
+    model is sklearn on disk, not ollama."""
+    import importlib
+    from freezegun import freeze_time
+    from assistant.engine.decompose_validate import kind_router as KR
+    from assistant.engine.fastrule import fastrule as fr
+    from assistant.intent.rule_parser import RULE_THRESHOLD
+    FS = importlib.import_module("assistant.engine.segmentation.fastseg.fastseg")
+    out = []
+    with freeze_time(CLOCK):
+        front = fr.FastRule(RULE_THRESHOLD)
+        for label, text in KIND_COMMANDS:
+            pieces = []
+            for it in FS.fastseg(text):
+                kind, why = KR.route(it["action"], it["time"] or "")
+                src, _, detail = why.partition(":")
+                pieces.append({"action": it["action"], "time": it["time"], "tagger": it["tag"],
+                               "kind": kind, "by": src, "detail": detail})
+            res = front.run(text)
+            saved = []
+            if res.committed:
+                for name, intent in (res.intents or []):
+                    saved.append({"action": name,
+                                  "title": getattr(intent, "title", None)
+                                           or (getattr(intent, "titles", None) or [None])[0],
+                                  "date": getattr(intent, "date", None) or getattr(intent, "due_date", None),
+                                  "start_time": getattr(intent, "start_time", None)})
+            out.append({"label": label, "text": text, "pieces": pieces, "saved": saved,
+                        "front_door": "handled" if res.committed else _kind_class(res.reason)})
+    return out
+
+
 def build_chain() -> list:
     """WITH the model: the deep rows need the rescue. Shape-checked only."""
     import re
@@ -189,9 +241,17 @@ def build_eval() -> dict:
     real = {"generic_title": [52.4, 90.5], "corrected_count": [60.0, 73.3],
             "corrected_fields": [13.3, 20.0], "approved": [64.7, 64.7]}
     board_d = None
-    runs = sorted((ROOT / "assistant" / "engine" / "llmjudge" / "experiments" / "runs").glob("board_d_train_*.json"))
+    # The LATEST run of the FULL board: file names sort "1200" before "30",
+    # so the plain last name was a 30-row smoke run standing in for the board.
+    import re as _re
+    runs = []
+    for f in (ROOT / "assistant" / "engine" / "llmjudge" / "experiments" / "runs").glob("board_d_train_*.json"):
+        m = _re.match(r"board_d_train_(\d+)_(\d{8}T\d{4})\.json$", f.name)
+        if m:
+            runs.append((int(m.group(1)), m.group(2), f))
     if runs:
-        board_d = json.loads(runs[-1].read_text())
+        n_max = max(r[0] for r in runs)
+        board_d = json.loads(max(r for r in runs if r[0] == n_max)[2].read_text())
         board_d = {"n": board_d["n"], "off": board_d["off_pct"], "on": board_d["on_pct"],
                    "fixed": board_d["fixed"], "broke": board_d["broke"],
                    "disagreed": board_d["disagreed"],
@@ -200,7 +260,8 @@ def build_eval() -> dict:
 
 
 def build_deterministic() -> dict:
-    return {"seg": build_seg(), "resolve": build_resolve(), "fastrule": build_fastrule()}
+    return {"seg": build_seg(), "resolve": build_resolve(), "fastrule": build_fastrule(),
+            "kind": build_kind()}
 
 
 def build(with_model: bool = True) -> dict:
@@ -231,7 +292,8 @@ def main() -> int:
         page = page.replace("</body>", payload + MARK_CLOSE + "\n</body>", 1)
     PAGE.write_text(page)
     print(f"spliced {len(data['seg'])} seg · {len(data['resolve'])} resolve · "
-          f"{len(data['fastrule'])} fastrule · {len(data['chain'])} chain examples into {PAGE.name}")
+          f"{len(data['fastrule'])} fastrule · {len(data['kind'])} kind · "
+          f"{len(data['chain'])} chain examples into {PAGE.name}")
     return 0
 
 

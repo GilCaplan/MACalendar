@@ -436,3 +436,33 @@ Records:
   +8 belongs to the router.
 - **Real usage:** both arms ran after 1b1d6cb, at 19:40 and 19:47, so the two
   arms are at one commit.
+
+## The rule layer ISOLATED — rules alone, words only, model alone, and both (2026-09-24 23:19)
+
+Gil: *"when testing perhaps should isolate the rule based on/off just to see the
+effect"*. `kind_router_board.py` now scores four arms on the same item words
+(TRAIN out-of-fold, TEST read once), with the rulings battery beside them.
+Record: `runs/kind_router_20260924T2319.json` (working tree at 6633372).
+
+| source · split (n) | rules alone | words only | model alone | rules, otherwise model (shipped) |
+|---|---|---|---|---|
+| FastRule · TRAIN (2,152) | 98.9% | 96.8% | 98.5% | 98.9% |
+| FastRule · TEST (905) | 88.5% | 94.7% | 97.0% | 96.8% |
+| v2 · TRAIN (3,496) | 98.3% | 99.8% | 99.8% | 99.0% |
+| v2 · TEST (4,704) | 98.0% | 99.5% | 99.9% | 99.1% |
+| segmentation · TRAIN (956) | 98.6% | 94.9% | 96.8% | 98.6% |
+| segmentation · TEST (1,397) | 96.9% | 94.6% | 95.8% | 97.2% |
+| real usage · TEST (54) | 96.3% | 96.3% | 96.3% | 96.3% |
+| rulings battery (53) | 53/53 | 52/53 | 53/53 | 53/53 |
+
+"Words only" drops every rule, even as an input (no tagger verdict features);
+"model alone" is the same family fitted on every item but still reads the
+tagger's verdict as three features. What it MEANS: the rules are worth the most
+on the hand-built segmentation corpus (+2 to +4 pt over words only) and on
+the rulings (the one words-only miss is Q27, "add book a flight to my todo list
+tonight"); the model is worth the most on the generated FastRule TEST half,
+whose templates the rules never saw (88.5% → 96.8%). The shipped combination is
+the only arm within 0.8 pt of the best on every set that also breaks no ruling.
+The model alone edging it on the two GENERATED sets is not a reason to drop
+the rules: it loses 1.4 pt on the hand-built set and the rules are what make
+the rulings a guarantee rather than a statistic. No change shipped.

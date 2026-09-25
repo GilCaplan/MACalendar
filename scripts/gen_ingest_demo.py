@@ -128,7 +128,7 @@ def trace(text: str, store) -> "list[dict]":
                   "text": cur6b})
     cur6c = C._WORD_SWAP_CORRECTION.sub(r"\2", cur6b)
     steps.append({"pass": "swap", "title": "one-word swap",
-                  "note": '"with pelic sorry, i mean edo" — the word before is replaced',
+                  "note": '"with nina sorry, i mean leo" — the word before is replaced',
                   "text": cur6c})
     cur7 = cur6c
     m = C._SELF_CORRECTION.search(cur7)

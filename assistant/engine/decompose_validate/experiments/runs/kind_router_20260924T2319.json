@@ -1,0 +1,114 @@
+{
+ "started": "2026-09-24 23:18:19",
+ "git_head": "6633372",
+ "chosen": "lr:all",
+ "candidates": {
+  "lr:all": 0.988013698630137,
+  "lr:reach": 0.988013698630137,
+  "hgb:all": 0.9777397260273972,
+  "hgb:reach": 0.9708904109589042
+ },
+ "rows": {
+  "fastrule|train": {
+   "n": 2152,
+   "reach": 205,
+   "tagger": 2128,
+   "words_only": 2083,
+   "model_only": 2119,
+   "router": 2128,
+   "fixed": 0,
+   "broke": 0,
+   "conflicts_dropped": 0,
+   "families": 147
+  },
+  "fastrule|test": {
+   "n": 905,
+   "reach": 182,
+   "tagger": 801,
+   "words_only": 857,
+   "model_only": 878,
+   "router": 876,
+   "fixed": 77,
+   "broke": 2,
+   "conflicts_dropped": 0,
+   "families": 74
+  },
+  "v2|train": {
+   "n": 3496,
+   "reach": 294,
+   "tagger": 3438,
+   "words_only": 3489,
+   "model_only": 3490,
+   "router": 3461,
+   "fixed": 23,
+   "broke": 0,
+   "conflicts_dropped": 0,
+   "families": 85
+  },
+  "v2|test": {
+   "n": 4704,
+   "reach": 278,
+   "tagger": 4610,
+   "words_only": 4682,
+   "model_only": 4697,
+   "router": 4664,
+   "fixed": 54,
+   "broke": 0,
+   "conflicts_dropped": 0,
+   "families": 94
+  },
+  "seg|train": {
+   "n": 956,
+   "reach": 85,
+   "tagger": 943,
+   "words_only": 907,
+   "model_only": 925,
+   "router": 943,
+   "fixed": 0,
+   "broke": 0,
+   "conflicts_dropped": 0,
+   "families": 142
+  },
+  "seg|test": {
+   "n": 1397,
+   "reach": 164,
+   "tagger": 1354,
+   "words_only": 1321,
+   "model_only": 1339,
+   "router": 1358,
+   "fixed": 9,
+   "broke": 5,
+   "conflicts_dropped": 0,
+   "families": 175
+  },
+  "real|test": {
+   "n": 54,
+   "reach": 14,
+   "tagger": 52,
+   "words_only": 52,
+   "model_only": 52,
+   "router": 52,
+   "fixed": 0,
+   "broke": 0,
+   "conflicts_dropped": 2,
+   "families": 32
+  }
+ },
+ "battery": {
+  "n": 53,
+  "tagger_ok": 53,
+  "router_ok": 53,
+  "reached_model": 2,
+  "router_violations": [],
+  "model_only_ok": 53,
+  "model_only_violations": [],
+  "words_only_ok": 52,
+  "words_only_violations": [
+   [
+    "add book a flight to my todo list tonight",
+    "Q27",
+    0.62
+   ]
+  ]
+ }
+}

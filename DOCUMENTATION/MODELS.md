@@ -103,6 +103,28 @@ Measured lesson: the atomicity model was wired as a last resort and the
 layer containing it scored WORSE than the model alone (compound recall 68.8%
 vs 83.4%) — good pieces wired timidly perform like bad pieces.
 
+## The kind router — event or to-do, "basic rules, otherwise model" (shipped 2026-09-24)
+
+`assistant/engine/decompose_validate/kind_router.py`, run first inside
+decompose_validate. The segmentation tagger's own readers and the rulings'
+regexes (a stated clock, an encounter with a person, a named to-do list,
+"remind me to <verb>"…) decide whenever one fires; only on the tagger's
+catch-all path does a scikit-learn logistic regression over the words' shape
+(`models/kind_router.joblib`, loaded with joblib, no model server) decide. It
+can never overturn a rule. Measured with the rule layer ISOLATED on and off
+(`experiments/kind_router_board.py`, 2026-09-24 23:19, per source and split):
+
+| arm | FastRule test (905) | v2 test (4,704) | segmentation test (1,397) | real usage (54) | rulings (53) |
+|---|---|---|---|---|---|
+| rules alone (the tagger) | 88.5% | 98.0% | 96.9% | 96.3% | 53/53 |
+| words only (no rule, not even as an input) | 94.7% | 99.5% | 94.6% | 96.3% | 52/53 |
+| model alone (rules off; reads the tagger's verdict as a feature) | 97.0% | 99.9% | 95.8% | 96.3% | 53/53 |
+| **rules, otherwise model (shipped)** | **96.8%** | **99.1%** | **97.2%** | 96.3% | 53/53 |
+
+The shipped router is the only arm that is best or within 0.8 pt of best on
+every set and breaks no ruling; the model alone edges it on the two generated
+sets and loses 1.4 pt on the segmentation corpus, the one built by hand.
+
 ## The kind scorer — the stack's first TRAINED component (K1, status: experiment)
 
 A 16-weight logistic regression for the event-vs-task kind decision
