@@ -111,15 +111,22 @@
 
   .canvas {
     position: relative;
+  }
+
+  .canvas-stage {
+    position: relative;
     /* BOTH stages are position:absolute, so this box had NO height at all --
        measured 0px. The diagram overflowed an empty container, which put the
        hint line underneath the drawing and dropped the "back to System"
        button straight onto it. The ratio matches the system stage's viewBox
-       (1000x560); setView swaps it for the engine's taller one. */
+       (1000x560); setView swaps it for the engine's taller one. This used to
+       live on .canvas itself; it moved here when #toolbar-right needed a
+       plain sibling to push down at narrow widths instead of a box whose own
+       height these SVGs were entirely responsible for. */
     aspect-ratio: 1000 / 560;
   }
 
-  .canvas.is-engine {
+  .canvas.is-engine .canvas-stage {
     aspect-ratio: 1000 / 620;
   }
 
@@ -263,11 +270,30 @@
   }
 
 
-  #devctl {
+  /* One right-aligned toolbar row for the SURFACES stepper and the
+     how-it-works / run-it buttons -- see the HTML comment above #toolbar-right
+     for why they used to overlap. `left` is set as well as `right` so the
+     row's own width is bounded (not just its content), which is what makes
+     flex-wrap kick in instead of overflowing the canvas. Wrapping onto a
+     second line here is still an OVERLAY on top of .canvas-stage though, so
+     it only avoids the diagram by how much headroom happens to be above the
+     diagram's own text at a given width -- fine down to the width where the
+     row still fits on one line, not a guarantee below it. The media query
+     below is what makes it a guarantee. */
+  #toolbar-right {
     position: absolute;
     top: 8px;
-    right: 24px;
+    right: 14px;
+    left: 14px;
     z-index: 30;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px 10px;
+  }
+
+  #devctl {
     display: flex;
     align-items: center;
     gap: 7px;
@@ -278,6 +304,23 @@
 
   #devctl[hidden] {
     display: none;
+  }
+
+  /* Below the page's existing #drill-header breakpoint, stop overlaying
+     .canvas-stage altogether: #toolbar-right leaves absolute positioning and
+     joins .canvas's normal flow, where it is .canvas-stage's PRECEDING
+     sibling (see the HTML), so .canvas-stage -- and every piece of text
+     inside its SVG -- starts below it. This can never overlap the diagram,
+     no matter how many lines the row wraps onto or how narrow the canvas
+     gets, because the two no longer share the same stacking area at all;
+     the previous fix (shrinking the row so it stayed one line at exactly
+     one width) only narrowed the overlap, it didn't rule it out at every
+     width. */
+  @media (max-width:760px) {
+    #toolbar-right {
+      position: static;
+      margin: 0 0 12px;
+    }
   }
 
   #devctl button {
@@ -1083,6 +1126,45 @@
 <div class="stagewrap">
   <div class="canvas" style="position:relative;" data-canvas>
 
+    <button id="btn-back-system"
+      style="position:absolute; top:14px; left:14px; z-index:10; display:none; border:1px solid var(--line); border-radius:6px; background:var(--screen); color:var(--ink); font:500 13px/1 'IBM Plex Mono',monospace; padding:6px 12px; cursor:pointer;">←
+      System</button>
+
+    <!-- SURFACES stepper and the "how it works" / "run it" buttons used to be
+         four independent position:absolute elements all anchored to the same
+         top-right corner (devctl at top:8/right:24, the buttons at
+         top:14/right:14) -- close enough that devctl's stepper was drawn on
+         top of btn-how's text whenever both showed (both are system-view-only,
+         so that was every time, not an edge case). One flex row fixes that;
+         see #toolbar-right's CSS for why it also has to live OUTSIDE
+         .canvas-stage below ~480px, where it stops overlaying the diagram
+         and instead sits in normal flow above it, pushing the diagram down
+         so it can never overlap any of the diagram's own text. -->
+    <div id="toolbar-right">
+      <div id="devctl" role="group" aria-label="Thin surfaces attached to the host">
+        <span>SURFACES</span>
+        <button id="dminus" aria-label="Remove a surface">−</button>
+        <output id="dcount" aria-live="polite">1</output>
+        <button id="dplus" aria-label="Add a surface">+</button>
+      </div>
+      <button id="btn-how" type="button"
+        style="border:1px solid var(--amber); border-radius:6px; background:var(--amber-soft); color:var(--amber); font:600 13px/1 'IBM Plex Mono',monospace; padding:6px 12px; cursor:pointer;">?
+        How one command becomes an answer</button>
+      <button id="btn-run-chain" type="button"
+        style="display:none; border:1px solid var(--amber); border-radius:6px; background:var(--amber-soft); color:var(--amber); font:600 13px/1 'IBM Plex Mono',monospace; padding:6px 12px; cursor:pointer;">▶
+        Run a command through the chain</button>
+    </div>
+
+    <!-- .canvas-stage is the aspect-ratio box the four SVG views and the
+         drilldown fill (it carries the aspect-ratio that used to live on
+         .canvas itself -- see the comment on .canvas-stage's CSS). Splitting
+         it out of .canvas gives #toolbar-right a plain block-level home that
+         is a NORMAL SIBLING of it rather than a child, so switching the
+         toolbar between absolute-overlay (wide) and in-flow (narrow) moves
+         .canvas-stage down with it instead of leaving the diagram's own
+         top:0 positioning untouched underneath an in-flow toolbar. -->
+    <div class="canvas-stage">
+
     <!-- shared arrowheads -->
     <svg width="0" height="0" aria-hidden="true" style="position:absolute; width:0; height:0; overflow:hidden;">
       <defs>
@@ -1631,23 +1713,7 @@
     <!-- tooltip for arrows -->
     <div class="arrow-tooltip" id="atip"></div>
 
-
-    <div id="devctl" role="group" aria-label="Thin surfaces attached to the host">
-      <span>SURFACES</span>
-      <button id="dminus" aria-label="Remove a surface">−</button>
-      <output id="dcount" aria-live="polite">1</output>
-      <button id="dplus" aria-label="Add a surface">+</button>
-    </div>
-
-    <button id="btn-back-system"
-      style="position:absolute; top:14px; left:14px; z-index:10; display:none; border:1px solid var(--line); border-radius:6px; background:var(--screen); color:var(--ink); font:500 13px/1 'IBM Plex Mono',monospace; padding:6px 12px; cursor:pointer;">←
-      System</button>
-    <button id="btn-how" type="button"
-      style="position:absolute; top:14px; right:14px; z-index:10; border:1px solid var(--amber); border-radius:6px; background:var(--amber-soft); color:var(--amber); font:600 13px/1 'IBM Plex Mono',monospace; padding:6px 12px; cursor:pointer;">?
-      How one command becomes an answer</button>
-    <button id="btn-run-chain" type="button"
-      style="position:absolute; top:14px; right:14px; z-index:10; display:none; border:1px solid var(--amber); border-radius:6px; background:var(--amber-soft); color:var(--amber); font:600 13px/1 'IBM Plex Mono',monospace; padding:6px 12px; cursor:pointer;">▶
-      Run a command through the chain</button>
+    </div><!-- .canvas-stage -->
 
   </div><!-- .canvas -->
 
