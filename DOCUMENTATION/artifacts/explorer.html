@@ -263,11 +263,25 @@
   }
 
 
-  #devctl {
+  /* One right-aligned toolbar row for the SURFACES stepper and the
+     how-it-works / run-it buttons -- see the HTML comment above #toolbar-right
+     for why they used to overlap. `left` is set as well as `right` so the
+     row's own width is bounded (not just its content), which is what makes
+     flex-wrap kick in on a narrow canvas instead of overflowing it. */
+  #toolbar-right {
     position: absolute;
     top: 8px;
-    right: 24px;
+    right: 14px;
+    left: 14px;
     z-index: 30;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px 10px;
+  }
+
+  #devctl {
     display: flex;
     align-items: center;
     gap: 7px;
@@ -278,6 +292,46 @@
 
   #devctl[hidden] {
     display: none;
+  }
+
+  /* Below ~480px the canvas itself is too narrow for the SURFACES stepper and
+     the full button label to share a row even after the flex-wrap above, and
+     a WRAPPED second row would grow #toolbar-right tall enough to push
+     btn-how down into the diagram it sits on top of (the diagram's own top
+     margin shrinks with it, since the SVG scales with canvas width). Shrink
+     both controls instead of stacking them, so the row stays single-line and
+     the toolbar's height -- and how far it reaches into the diagram below --
+     does not grow past what it already was at this width. The "SURFACES"
+     word is dropped visually only; the group's aria-label still names it for
+     a screen reader. */
+  @media (max-width:480px) {
+    #toolbar-right {
+      gap: 6px 8px;
+    }
+
+    #devctl span {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+
+    #devctl {
+      gap: 5px;
+    }
+
+    #devctl button {
+      width: 22px;
+      height: 22px;
+    }
+
+    #btn-how,
+    #btn-run-chain {
+      font-size: 11px !important;
+      padding: 5px 8px !important;
+    }
   }
 
   #devctl button {
@@ -1632,22 +1686,33 @@
     <div class="arrow-tooltip" id="atip"></div>
 
 
-    <div id="devctl" role="group" aria-label="Thin surfaces attached to the host">
-      <span>SURFACES</span>
-      <button id="dminus" aria-label="Remove a surface">−</button>
-      <output id="dcount" aria-live="polite">1</output>
-      <button id="dplus" aria-label="Add a surface">+</button>
-    </div>
-
     <button id="btn-back-system"
       style="position:absolute; top:14px; left:14px; z-index:10; display:none; border:1px solid var(--line); border-radius:6px; background:var(--screen); color:var(--ink); font:500 13px/1 'IBM Plex Mono',monospace; padding:6px 12px; cursor:pointer;">←
       System</button>
-    <button id="btn-how" type="button"
-      style="position:absolute; top:14px; right:14px; z-index:10; border:1px solid var(--amber); border-radius:6px; background:var(--amber-soft); color:var(--amber); font:600 13px/1 'IBM Plex Mono',monospace; padding:6px 12px; cursor:pointer;">?
-      How one command becomes an answer</button>
-    <button id="btn-run-chain" type="button"
-      style="position:absolute; top:14px; right:14px; z-index:10; display:none; border:1px solid var(--amber); border-radius:6px; background:var(--amber-soft); color:var(--amber); font:600 13px/1 'IBM Plex Mono',monospace; padding:6px 12px; cursor:pointer;">▶
-      Run a command through the chain</button>
+
+    <!-- SURFACES stepper and the "how it works" / "run it" buttons used to be
+         four independent position:absolute elements all anchored to the same
+         top-right corner (devctl at top:8/right:24, the buttons at
+         top:14/right:14) -- close enough that devctl's stepper was drawn on
+         top of btn-how's text whenever both showed (both are system-view-only,
+         so that was every time, not an edge case). One flex row fixes it:
+         it right-aligns its children and wraps them onto their own line
+         when the row is too narrow to hold both, instead of stacking them
+         on top of each other. -->
+    <div id="toolbar-right">
+      <div id="devctl" role="group" aria-label="Thin surfaces attached to the host">
+        <span>SURFACES</span>
+        <button id="dminus" aria-label="Remove a surface">−</button>
+        <output id="dcount" aria-live="polite">1</output>
+        <button id="dplus" aria-label="Add a surface">+</button>
+      </div>
+      <button id="btn-how" type="button"
+        style="border:1px solid var(--amber); border-radius:6px; background:var(--amber-soft); color:var(--amber); font:600 13px/1 'IBM Plex Mono',monospace; padding:6px 12px; cursor:pointer;">?
+        How one command becomes an answer</button>
+      <button id="btn-run-chain" type="button"
+        style="display:none; border:1px solid var(--amber); border-radius:6px; background:var(--amber-soft); color:var(--amber); font:600 13px/1 'IBM Plex Mono',monospace; padding:6px 12px; cursor:pointer;">▶
+        Run a command through the chain</button>
+    </div>
 
   </div><!-- .canvas -->
 
