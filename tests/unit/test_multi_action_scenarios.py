@@ -307,3 +307,23 @@ def test_multi_action_never_raises_unexpectedly(parser, transcript):
         parser.analyze(transcript, current_view="month")
     except RuleParserSkip:
         pass  # explicit, expected hand-off to the LLM
+
+
+# ---------------------------------------------------------------------------
+# A part of today is a due day (2026-09-24, DEVQA Q47: no clock -> a to-do
+# due THAT day). "this evening" / "tonight" used to leave the to-do dateless
+# while "today" dated it, so the same ask went overdue tomorrow or not.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("phrase", ["tonight", "this evening", "this morning", "this afternoon", "today"])
+def test_a_part_of_today_makes_a_todo_due_today(parser, phrase):
+    result = parser.analyze(f"remind me to water the plants {phrase}", current_view="month")
+    (name, intent), = result.intents
+    assert name == "create_todo"
+    assert intent.due_date == datetime.date.today().isoformat()
+
+
+def test_tomorrow_evening_stays_tomorrow(parser):
+    result = parser.analyze("remind me to water the plants tomorrow evening", current_view="month")
+    (_, intent), = result.intents
+    assert intent.due_date == _tomorrow()

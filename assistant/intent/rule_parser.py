@@ -450,6 +450,9 @@ _TODO_SIGNALS = frozenset({
 })
 
 # Scope keywords for query_schedule
+#: "tonight", "this morning/afternoon/evening" — a part of TODAY.
+_PART_OF_TODAY_RE = re.compile(r"\b(?:tonight|this\s+(?:morning|afternoon|evening))\b", re.I)
+
 _SCOPE_PHRASES: list[tuple[str, str]] = [
     ("this week", "week"),
     ("next week", "week"),
@@ -2949,6 +2952,16 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
             slots["titles"] = [title]
         if temporal.get("date"):
             slots["due_date"] = temporal["date"]
+        elif _PART_OF_TODAY_RE.search(span.text) and not re.search(r"\btomorrow\b", span.text, re.I):
+            # A PART OF TODAY is due today (2026-09-24, DEVQA Q47: a to-do with
+            # no clock is due THAT day). "…water the plants this evening" had
+            # no due day while "…today" had one, so the same ask went overdue
+            # tomorrow or not depending on the word. To-dos only: the temporal
+            # reader deliberately leaves these dateless, and giving EVERY
+            # parse a date moved 23 of 462 train rows onto the fast path
+            # wrongly (an afternoon chore booked as a 09:00 event, a Monday
+            # series "starting tonight" begun on a Wednesday).
+            slots["due_date"] = datetime.date.today().isoformat()
         # Detect list_name from explicit "general" / "someday" keywords in span
         span_lower = span.text.lower()
         if re.search(r"\b(general|someday|later|backlog)\b", span_lower):
