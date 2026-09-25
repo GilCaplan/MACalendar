@@ -438,6 +438,17 @@ def main() -> int:
                     # engine for obeying the new one.
                     honest = {"00:00", "09:00",
                               meal_hour(getattr(first, "title", "")) or "00:00"}
+                    # A PART OF THE DAY's documented start ("this evening" 19:00,
+                    # "this afternoon" 12:00) is a convention both tracks apply,
+                    # not an invention — this board's own header already says
+                    # "vague dayparts … the engine maps them by a documented
+                    # convention", and the line did not exempt them. It
+                    # surfaced when the front door took its values from the
+                    # deep reader (DEVQA Q53, 2026-09-25).
+                    from assistant.engine.decompose_validate.resolve import PART_OF_DAY
+                    tl = r["text"].lower()
+                    honest |= {w[0] for k, w in PART_OF_DAY.items()
+                               if re.search(rf"\b{re.escape(k)}\b", tl)}
                     if _HHMM.match(got_t) and got_t not in honest:
                         INVENT += 1
             # --- TITLE QUALITY (added 2026-09-08). Until now this board

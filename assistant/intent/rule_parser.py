@@ -1660,47 +1660,66 @@ def _extract_temporal(span_text: str, today: datetime.date,
             except (ValueError, AttributeError):
                 pass
 
-    if result["start_time"]:
-        result["start_time"] = _said_half_wins(result["start_time"], span_text)
-
+    if not _bound_pass:
+        _values_from_the_resolver(result, span_text, today)
     return result
 
 
-#: A clock said WITH its half of the day: "11am", "8:30 pm", "7 a.m.".
-_CLOCK_WITH_HALF = re.compile(
-    r"(?<![\d:])(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s?m\.?(?![a-z])", re.I)
+_ONLY_PART_OF_DAY = re.compile(
+    r"(?:(?:on|for|in|to|by|until|till|at|around)\s+)?(?:this\s+|the\s+)?(?:tonight|morning|afternoon|evening|night|lunchtime)", re.I)
+
+_PART_OF_DAY_WORD = re.compile(
+    r"\b(?:tonight|morning|afternoon|evening|night|lunchtime|noon)\b", re.I)
+
+#: How often the front door's OWN reading was the answer because the resolver
+#: read nothing — the fallback Q53 leaves in place until that count says it can
+#: go. Read by the readers board; never used to decide anything.
+FALLBACK_READS = {"n": 0}
 
 
-def _said_half_wins(start: str, said: str) -> str:
-    """The speaker's own am/pm, noon or midnight beats a day word beside it.
+def _values_from_the_resolver(result: dict, span_text: str, today) -> None:
+    """ONE READER FOR THE HALF OF THE DAY (DEVQA Q53, Gil 2026-09-25).
 
-    The recogniser merges "this evening" with "11am" into 23:00, "this morning"
-    with "noon" into 00:00, and "tonight at midnight" into 12:00; the morning
-    word turns "8:30pm in the morning" into 08:30. Whatever the day word says,
-    the half the speaker attached to the CLOCK is the more specific word
-    (FastRule board, 2026-09-25: 14 of the 17 train time misses). Narrow on
-    purpose: only the same clock in the wrong half is corrected, so a range's
-    end ("from 9 to 11am") never moves its start.
-    """
+    Where this function and decompose_validate's resolver read the SAME clock
+    and differ only by twelve hours, the resolver's half stands — the
+    convention (Q28, a day word beside the clock, a meal word) now lives in
+    one place, `resolve._bare_hour`, instead of two that drifted: two fixes
+    had to be made here on 2026-09-25 that the deep reader already had.
+
+    Narrowed on measurement. Handing the resolver all the values wholesale
+    lost what this function handles and the resolver, given only the joined
+    time words, does not: a range's clocks ("lunch from 12 to 1"), an ordinal
+    POSITION ("the 2nd row"), an ordinal recurrence ("the 15th of every
+    month") and a series bound ("until …") — 7 unit tests. Dates therefore
+    stay this function's; unifying them is filed with that evidence."""
+    st = result.get("start_time")
+    if not st or result.get("end_time") and result["end_time"] < st:
+        return
+    from assistant.engine.decompose_validate import resolve as _R
+    from assistant.engine.segmentation.fastseg.fastseg import find_time_refs
+    refs = [r for r in find_time_refs(span_text) if r.kind == "clock"]
+    if len(refs) != 1:
+        FALLBACK_READS["n"] += 1
+        return
     try:
-        h, m = (int(x) for x in start.split(":"))
-    except ValueError:
-        return start
-    low = said.lower()
-    clocks = list(_CLOCK_WITH_HALF.finditer(said))
-    if not clocks:
-        if re.search(r"\b(?:noon|midday)\b", low) and (h, m) == (0, 0):
-            return "12:00"
-        if re.search(r"\bmidnight\b", low) and (h, m) == (12, 0):
-            return "00:00"
-        return start
-    for c in clocks:
-        ch, cm = int(c.group(1)), int(c.group(2) or 0)
-        if not 1 <= ch <= 12 or cm != m or ch % 12 != h % 12:
-            continue
-        want = ch % 12 + (12 if c.group(3).lower() == "p" else 0)
-        return f"{want:02d}:{m:02d}"
-    return start
+        v = _R.resolve(refs[0].text + " " + span_text, today, span_text, action=span_text)
+    except Exception:
+        FALLBACK_READS["n"] += 1
+        return
+    got = v.get("start_time")
+    if not got or got == st:
+        return
+    h1, m1 = (int(x) for x in st.split(":"))
+    h2, m2 = (int(x) for x in got.split(":"))
+    if m1 == m2 and h1 % 12 == h2 % 12:          # the same clock, the other half
+        result["start_time"] = got
+        if result.get("end_time"):
+            eh, em = (int(x) for x in result["end_time"].split(":"))
+            result["end_time"] = f"{(eh + (h2 - h1)) % 24:02d}:{em:02d}"
+
+
+
+
 
 
 # ---------------------------------------------------------------------------

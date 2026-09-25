@@ -2,10 +2,19 @@
   door's time reader (`rule_parser._extract_temporal`) and decompose_validate's
   (`resolve`) should become one, after the same day's two time fixes had to be
   made in the front door although the deep reader already got them right:
-  *"ok."* decompose_validate's resolver becomes the only reader of what a time
-  MEANS; the front door keeps finding WHERE the time words are (it needs the
-  spans to cut them out of a title) and asks the resolver for the values.
-  Boarded on both splits and on real usage before it lands.
+  *"ok."* Built as far as the measurements allowed (2026-09-25):
+  - **the HALF OF THE DAY has one reader.** Where both read the same clock
+    and differ by twelve hours, the resolver's convention stands, and the
+    front door's own copy (`_said_half_wins`) is deleted. The resolver was
+    first fixed where it was the worse reader: a day word beside any bare
+    hour, a 9-11 colon clock, a day word outranking a meal word, and a
+    truncated "before march 5th".
+  - **DATES stay the front door's, for now.** Handing the resolver all the
+    values lost what only the front door handles when given just the joined
+    time words: a range's clocks, an ordinal POSITION ("the 2nd row"), an
+    ordinal recurrence, a series bound. That broke 7 unit tests. It also
+    committed wrong-kind parses whose dateless reading had kept them under
+    the threshold. Filed in TASKS with that evidence.
 
 - **2026-09-25 — Q52 (LIST MANAGEMENT IS JUNK, AND SAYS WHY)**, Gil, asked
   what a request to manage LISTS themselves should do ("open grocery list",
