@@ -3725,5 +3725,638 @@
    "title"
   ],
   "task_label_sources": []
+ },
+ {
+  "family": "c_tr_dash_ee",
+  "nuance": "joiner",
+  "action": "create_event",
+  "atomic": false,
+  "events": 2,
+  "tasks": 0,
+  "template": "book {event_title} {date} — and add {event_title2} {date2} at {time2}",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_after_that_ee",
+  "nuance": "joiner",
+  "action": "create_event",
+  "atomic": false,
+  "events": 2,
+  "tasks": 0,
+  "template": "{date} i have {event_title} at {time} and after that {event_title2} at {time2}",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_one_more_thing_ee",
+  "nuance": "joiner",
+  "action": "create_event",
+  "atomic": false,
+  "events": 2,
+  "tasks": 0,
+  "template": "book {event_title} {date} at {time}. one more thing, {event_title2} {date2} at {time2}",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_fronted_date_list_ee",
+  "nuance": "and_compound",
+  "action": "create_event",
+  "atomic": false,
+  "events": 2,
+  "tasks": 0,
+  "template": "{date}: {event_title} at {time}, {event_title2} at {time2}",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_oh_and_et",
+  "nuance": "joiner",
+  "action": "mixed",
+  "atomic": false,
+  "events": 1,
+  "tasks": 1,
+  "template": "book {event_title} {date} at {time}, oh and remind me to {task_title2} {date2}",
+  "event_label_sources": [
+   "title"
+  ],
+  "task_label_sources": [
+   "title_2"
+  ],
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_separately_et",
+  "nuance": "joiner",
+  "action": "mixed",
+  "atomic": false,
+  "events": 1,
+  "tasks": 1,
+  "template": "book {event_title} {date} at {time}. separately, remind me to {task_title2}",
+  "event_label_sources": [
+   "title"
+  ],
+  "task_label_sources": [
+   "title_2"
+  ],
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_dont_forget_et",
+  "nuance": "and_compound",
+  "action": "mixed",
+  "atomic": false,
+  "events": 1,
+  "tasks": 1,
+  "template": "set up {event_title} for {date} and don't forget to {task_title2}",
+  "event_label_sources": [
+   "title"
+  ],
+  "task_label_sources": [
+   "title_2"
+  ],
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_while_youre_at_it_et",
+  "nuance": "joiner",
+  "action": "mixed",
+  "atomic": false,
+  "events": 1,
+  "tasks": 1,
+  "template": "schedule {event_title} {date} at {time} and while you're at it add {item2} to the {list_name}",
+  "event_label_sources": [
+   "title"
+  ],
+  "task_label_sources": [
+   "title_2"
+  ],
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_on_top_of_that_te",
+  "nuance": "joiner",
+  "action": "mixed",
+  "atomic": false,
+  "events": 1,
+  "tasks": 1,
+  "template": "add {task_title} to my to-do list, and on top of that book {event_title2} {date}",
+  "event_label_sources": [
+   "title_2"
+  ],
+  "task_label_sources": [
+   "title"
+  ],
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_three_things_ett",
+  "nuance": "three_ask",
+  "action": "mixed",
+  "atomic": false,
+  "events": 1,
+  "tasks": 2,
+  "template": "three things: {event_title} {date} at {time}, {task_title2}, and {task_title3}",
+  "event_label_sources": [
+   "title"
+  ],
+  "task_label_sources": [
+   "title_2",
+   "title_3"
+  ],
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_todo_colon_tt",
+  "nuance": "and_compound",
+  "action": "create_todo",
+  "atomic": false,
+  "events": 0,
+  "tasks": 2,
+  "template": "to-do: {task_title}, {task_title2}",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_as_well_tt",
+  "nuance": "joiner",
+  "action": "create_todo",
+  "atomic": false,
+  "events": 0,
+  "tasks": 2,
+  "template": "need to {task_title} {date}, and {task_title2} as well",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_two_things_tt",
+  "nuance": "and_compound",
+  "action": "create_todo",
+  "atomic": false,
+  "events": 0,
+  "tasks": 2,
+  "template": "two things: {task_title} and {task_title2}",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_first_then_finally_ttt",
+  "nuance": "three_ask",
+  "action": "create_todo",
+  "atomic": false,
+  "events": 0,
+  "tasks": 3,
+  "template": "first {task_title}, then {task_title2}, and finally {task_title3} {date3}",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_mm_cancel_then_query",
+  "nuance": "mixed_mode",
+  "action": "mixed",
+  "atomic": false,
+  "events": 0,
+  "tasks": 0,
+  "template": "cancel {event_title2} {date2} and tell me what else i have {query_range}",
+  "event_label_sources": [],
+  "task_label_sources": [],
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_mm_done_then_add",
+  "nuance": "mixed_mode",
+  "action": "mixed",
+  "atomic": false,
+  "events": 0,
+  "tasks": 1,
+  "template": "{task_title2} is done, now add {task_title} to my list",
+  "event_label_sources": [],
+  "task_label_sources": [
+   "title"
+  ],
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_mm_free_then_book",
+  "nuance": "mixed_mode",
+  "action": "mixed",
+  "atomic": false,
+  "events": 1,
+  "tasks": 0,
+  "template": "am i free {query_range2}? if so, book {event_title} {date} at {time}",
+  "event_label_sources": [
+   "title"
+  ],
+  "task_label_sources": [],
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_mm_sorted_then_book",
+  "nuance": "mixed_mode",
+  "action": "mixed",
+  "atomic": false,
+  "events": 1,
+  "tasks": 0,
+  "template": "{task_title2} is sorted, so book {event_title} {date} at {time}",
+  "event_label_sources": [
+   "title"
+  ],
+  "task_label_sources": [],
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_mm_take_off_put_in",
+  "nuance": "mixed_mode",
+  "action": "mixed",
+  "atomic": false,
+  "events": 1,
+  "tasks": 0,
+  "template": "take {task_title2} off my list and put {event_title} in for {date} at {time}",
+  "event_label_sources": [
+   "title"
+  ],
+  "task_label_sources": [],
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_np_lunch_with_two",
+  "nuance": "np_decoy",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "lunch with {name} and {name2} {date} at {time}",
+  "fixed_slots": {
+   "title": "lunch with {name} and {name2}"
+  },
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_np_two_items_on_list",
+  "nuance": "np_decoy",
+  "action": "create_todo",
+  "atomic": true,
+  "events": 0,
+  "tasks": 1,
+  "template": "put {item} and {item2} on the {list_name}",
+  "fixed_slots": {
+   "title": "{item} and {item2}"
+  },
+  "task_label_sources": [
+   "title"
+  ],
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_np_serial_sand_paint",
+  "nuance": "np_decoy",
+  "action": "create_todo",
+  "atomic": true,
+  "events": 0,
+  "tasks": 1,
+  "template": "sand and paint the fence {date}",
+  "fixed_slots": {
+   "title": "sand and paint the fence"
+  },
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_np_with_two_uk_time",
+  "nuance": "np_decoy",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "{event_title} with {name} and {name2} at {uk_time} {date}",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_rec_fronted",
+  "nuance": "recurrence",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "{recurrence_more} at {time} i have {event_title}",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_rec_terse",
+  "nuance": "recurrence",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "{event_title} {recurrence} {clock}",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_rec_nonnative",
+  "nuance": "recurrence",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "i go to {event_title} {recurrence_more} at {clock}, please to add it",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_rec_clock_chore_q26",
+  "nuance": "recurrence",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "{recurrence} at {clock} i have to {task_title}",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_rec_needs_doing",
+  "nuance": "recurrence",
+  "action": "create_todo",
+  "atomic": true,
+  "events": 0,
+  "tasks": 1,
+  "template": "{task_title} needs doing {recurrence}",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_till",
+  "nuance": "until_through",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "{event_title} {recurrence} at {time} till {date2}",
+  "fixed_slots": {
+   "end_inclusive": false
+  },
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_from_through",
+  "nuance": "until_through",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "{event_title} {recurrence} at {time} from {date} through {date2}",
+  "fixed_slots": {
+   "end_inclusive": true
+  },
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_att_name_and_i",
+  "nuance": "attendee",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "{name} and i have {event_title} {date} at {time}",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_att_coming_too",
+  "nuance": "attendee",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "{event_title} {date} at {time}, {name} is coming too",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_lead_uk_give_a_shout",
+  "nuance": "lead_time",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "{event_title} {uk_date} at {uk_time}, give me a shout {lead_time}",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_lead_fronted_ping",
+  "nuance": "lead_time",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "{lead_time} {event_title} {date} at {time}, ping me",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_mark_circle",
+  "nuance": "date_marking",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "circle {date} on the calendar for {occasion}",
+  "flags": {
+   "all_day": true
+  },
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_mark_fronted_statement",
+  "nuance": "date_marking",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "{date} is {occasion}, put it on the calendar",
+  "flags": {
+   "all_day": true
+  },
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_enc_coffee_with",
+  "nuance": "dated_encounter",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "coffee with {name} {date} at {time}",
+  "fixed_slots": {
+   "title": "coffee with {name}"
+  },
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_enc_uk_ring",
+  "nuance": "dated_encounter",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "ring {name} {uk_date}",
+  "fixed_slots": {
+   "title": "ring {name}"
+  },
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_enc_facetime",
+  "nuance": "dated_encounter",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "i have to facetime {name} {date}",
+  "fixed_slots": {
+   "title": "facetime {name}"
+  },
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_enc_text_is_todo",
+  "nuance": "dated_encounter",
+  "action": "create_todo",
+  "atomic": true,
+  "events": 0,
+  "tasks": 1,
+  "template": "text {name} {date} about {event_title}",
+  "fixed_slots": {
+   "title": "text {name} about {event_title}"
+  },
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_allday_keep_clear",
+  "nuance": "all_day",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "keep {date} clear for {event_title}, the whole day",
+  "flags": {
+   "all_day": true
+  },
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_tex_stutter",
+  "nuance": "texture",
+  "action": "create_todo",
+  "atomic": true,
+  "events": 0,
+  "tasks": 1,
+  "template": "can you can you add {task_title} to my list",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_tex_filler_mid",
+  "nuance": "texture",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "schedule {event_title} for, {filler}, {date} at {time}",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_tex_run_on_decoy",
+  "nuance": "texture",
+  "action": "create_event",
+  "atomic": true,
+  "events": 1,
+  "tasks": 0,
+  "template": "so yeah {event_title} is {date} at {time} and i need it in the calendar",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_x_de_question_cancel",
+  "nuance": "extra",
+  "action": "delete_event",
+  "atomic": true,
+  "events": 0,
+  "tasks": 0,
+  "template": "that {event_title} {date}? cancel it, it's not happening",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_x_dt_no_longer",
+  "nuance": "extra",
+  "action": "delete_todo",
+  "atomic": true,
+  "events": 0,
+  "tasks": 0,
+  "template": "i no longer need to {task_title}, so delete it from the list",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_x_co_managed_to",
+  "nuance": "extra",
+  "action": "complete_todo",
+  "atomic": true,
+  "events": 0,
+  "tasks": 0,
+  "template": "managed to {task_title} earlier, tick it off",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_x_ue_running_late",
+  "nuance": "extra",
+  "action": "update_event",
+  "atomic": true,
+  "events": 0,
+  "tasks": 0,
+  "template": "{event_title} is running late, move it to {time}",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_x_ut_rename_it",
+  "nuance": "extra",
+  "action": "update_todo",
+  "atomic": true,
+  "events": 0,
+  "tasks": 0,
+  "template": "the {task_title} one on my list, rename it to {task_title2}",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_x_q_book_decoy",
+  "nuance": "extra",
+  "action": "query",
+  "atomic": true,
+  "events": 0,
+  "tasks": 0,
+  "template": "before i book anything, what does {query_range} look like",
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_prop_good_idea",
+  "nuance": "interrogative_polite",
+  "action": "propose",
+  "atomic": true,
+  "events": 0,
+  "tasks": 0,
+  "template": "is it a good idea to add {task_title} to my list?",
+  "proposal_kind": "task",
+  "event_label_sources": [],
+  "task_label_sources": [],
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_prop_worth_booking",
+  "nuance": "interrogative_polite",
+  "action": "propose",
+  "atomic": true,
+  "events": 0,
+  "tasks": 0,
+  "template": "is it worth booking {event_title} for {date} at {time}?",
+  "proposal_kind": "event",
+  "event_label_sources": [],
+  "task_label_sources": [],
+  "force_split": "train"
+ },
+ {
+  "family": "c_tr_prop_any_reason_not",
+  "nuance": "interrogative_polite",
+  "action": "propose",
+  "atomic": true,
+  "events": 0,
+  "tasks": 0,
+  "template": "any reason i shouldn't put {event_title} on the calendar {date}?",
+  "proposal_kind": "event",
+  "event_label_sources": [],
+  "task_label_sources": [],
+  "force_split": "train"
  }
 ]

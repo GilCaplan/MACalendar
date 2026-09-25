@@ -112,5 +112,52 @@
 
   "filler_words": [
     "um", "so", "like", "uh", "you know", "i mean", "okay so", "hold on"
+  ],
+
+  "_comment_train_growth": "2026-09-25: the banks below serve only the force_split='train' families. They are NEW keys on purpose: lengthening an existing list would change which filler every existing family draws, and so every existing row.",
+
+  "weekdays": [
+    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
+  ],
+
+  "clock_times": [
+    "7am", "8:30am", "9am", "10:15am", "11am", "noon", "1pm", "2:30pm", "3pm",
+    "4:45pm", "6pm", "7:30pm", "14:00", "16:30", "9:45", "5 pm"
+  ],
+
+  "uk_times": [
+    "half six", "half seven", "half eight", "half nine", "quarter past ten",
+    "quarter to four", "twenty past two", "ten to five", "half past eleven",
+    "five past nine"
+  ],
+
+  "uk_dates": [
+    "monday week", "a week on friday", "in a fortnight", "a fortnight today",
+    "tomorrow week", "the 3rd of march", "the 21st of june", "saturday week",
+    "the 14th of next month", "boxing day"
+  ],
+
+  "recurrences_more": [
+    "every fortnight", "fortnightly", "once a fortnight", "every morning",
+    "every evening", "each week", "every thursday", "every saturday",
+    "every friday", "once a month", "every single day", "every other day"
+  ],
+
+  "list_names": [
+    "shopping list", "grocery list", "to-do list", "todo list", "list"
+  ],
+
+  "wake_words": [
+    "alexa", "hey google", "ok google", "olly", "pda", "assistant"
+  ],
+
+  "polite_openers": [
+    "could you please", "would you be so kind as to", "if you could",
+    "i'd really appreciate it if you could", "please could you",
+    "do me a favour and"
+  ],
+
+  "hedges": [
+    "i think", "i guess", "probably", "maybe", "i suppose"
   ]
 }

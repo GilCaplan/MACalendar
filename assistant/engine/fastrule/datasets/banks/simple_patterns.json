@@ -1074,5 +1074,263 @@
     "action": "create_todo",
     "template": "i was thinking of setting a reminder to {task_title}, good idea",
     "force_split": "test"
+  },
+  {
+    "family": "s_tr_ce_terse_weekday_clock",
+    "action": "create_event",
+    "template": "{event_title} {weekday} {clock}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ce_fronted_time",
+    "action": "create_event",
+    "template": "{date} at {time}, {event_title}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ce_ive_got",
+    "action": "create_event",
+    "template": "i've got {event_title} {date} at {time}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ce_polite_verbose",
+    "action": "create_event",
+    "template": "{opener} put {event_title} in my calendar for {date} at {time}, thank you",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ce_uk_pop_in_diary",
+    "action": "create_event",
+    "template": "pop {event_title} in the diary {uk_date} at {uk_time}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ce_nonnative_please_to",
+    "action": "create_event",
+    "template": "please to add {event_title} in calendar {date} {time}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ce_wake_set",
+    "action": "create_event",
+    "template": "{wake} set {event_title} for {date} at {time}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ce_hedged_need_to_book",
+    "action": "create_event",
+    "template": "{hedge} i need to book {event_title} {date} at {time}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ce_time_first_put_in",
+    "action": "create_event",
+    "template": "{date} at {time} put in {event_title}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ce_need_to_be_at",
+    "action": "create_event",
+    "template": "i need to be at {event_title} {date} at {time}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ce_can_you_put_on",
+    "action": "create_event",
+    "template": "can you put {event_title} on for {date} at {time}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ct_keep_forgetting",
+    "action": "create_todo",
+    "template": "i keep forgetting to {task_title}, put it down for {date}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ct_put_item_on_list",
+    "action": "create_todo",
+    "template": "put {item} on the {list_name}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ct_uk_chuck_on_todo",
+    "action": "create_todo",
+    "template": "chuck {task_title} on my to-do list for {date}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ct_hedged_some_point",
+    "action": "create_todo",
+    "template": "{hedge} i should {task_title} at some point",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ct_terse_todo_colon",
+    "action": "create_todo",
+    "template": "todo: {task_title} {date}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ct_nonnative_remember_me",
+    "action": "create_todo",
+    "template": "remember me to {task_title} {date}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ct_ive_got_to_by",
+    "action": "create_todo",
+    "template": "i've got to {task_title} by {date}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ct_filler_gotta_remember",
+    "action": "create_todo",
+    "template": "{filler} {filler2} i gotta remember to {task_title}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ct_wake_add_item",
+    "action": "create_todo",
+    "template": "{wake} add {item} to my {list_name}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ct_any_chance_remind",
+    "action": "create_todo",
+    "template": "any chance you could remind me to {task_title} {date}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ct_uk_need_from_shop",
+    "action": "create_todo",
+    "template": "need {qty} {item} from the shop",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_q_uk_in_the_diary",
+    "action": "query",
+    "template": "what's in the diary for {query_range}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_q_walk_me_through",
+    "action": "query",
+    "template": "walk me through {query_range}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_q_terse_anything_on",
+    "action": "query",
+    "template": "anything on {query_range}?",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_q_wake_whats_left",
+    "action": "query",
+    "template": "{wake} what's left on my to-do list",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_q_nonnative_my_plans",
+    "action": "query",
+    "template": "tell me what is my plans for {query_range}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_q_hedged_double_check",
+    "action": "query",
+    "template": "i don't think i have anything {query_range} but can you double check",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_de_cant_make_it",
+    "action": "delete_event",
+    "template": "i can't make {event_title} {date} anymore, take it off the calendar",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_de_fronted_cancel_it",
+    "action": "delete_event",
+    "template": "{event_title} {date}, cancel it",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_de_wake_get_rid",
+    "action": "delete_event",
+    "template": "{wake} get rid of {event_title} from my calendar",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_de_nonnative_please_to",
+    "action": "delete_event",
+    "template": "please to remove the {event_title} from calendar",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_dt_never_mind",
+    "action": "delete_todo",
+    "template": "never mind about {task_title}, take it off my list",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_dt_wipe_wont_do",
+    "action": "delete_todo",
+    "template": "wipe {task_title} from the to-do list, i won't be doing it",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_dt_not_needed",
+    "action": "delete_todo",
+    "template": "{task_title} not needed anymore, remove from list",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_co_terse_done",
+    "action": "complete_todo",
+    "template": "{task_title}, done",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_co_finished_cross_that",
+    "action": "complete_todo",
+    "template": "{task_title}, finished it, cross that one off",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_co_uk_sorted",
+    "action": "complete_todo",
+    "template": "{task_title} is sorted, you can tick it off",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ue_push_back",
+    "action": "update_event",
+    "template": "can we push {event_title} back to {time}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ue_uk_shift",
+    "action": "update_event",
+    "template": "shift {event_title} to {uk_date} at {uk_time}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ue_is_now_at",
+    "action": "update_event",
+    "template": "{event_title} {date} is now at {time}",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ut_due_now",
+    "action": "update_todo",
+    "template": "{task_title} is due {date} now, update it",
+    "force_split": "train"
+  },
+  {
+    "family": "s_tr_ut_change_to_say",
+    "action": "update_todo",
+    "template": "on my list, change {task_title} to say {task_title2}",
+    "force_split": "train"
   }
 ]

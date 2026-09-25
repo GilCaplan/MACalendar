@@ -9,7 +9,11 @@ serve as an unmined FastRule measurement — every rank had, at some point,
 had a human look at how FastRule did on it. Grown from 6,000 to 7,200 rows
 later the same day (Gil) with a test-only pool that widens unseen-wording
 coverage without touching a single train row — see "Growing test-only"
-below and `engine/TRAIN_TEST_SPLIT_CONVENTION.md`.
+below and `engine/TRAIN_TEST_SPLIT_CONVENTION.md`. Grown again to **8,400**
+on 2026-09-25 with the mirror pool, **train-only**, which widens the phrasing
+train sees without touching a single existing row — see "Growing train-only"
+below. The file keeps its historical name, `fastrule_7200.jsonl`, because
+forty-odd boards and tests open it by that path.
 
 **TEST ROWS ARE NEVER MINED — see `engine/TRAIN_TEST_SPLIT_CONVENTION.md` first.** That rule is the whole
 point of the 80/20 split existing at all, and it applies identically to
@@ -21,9 +25,9 @@ is schema and composition, not the leakage discipline.
 
     banks/fillers.json              generic slot-filler word lists (names, dates, times, ...)
     banks/categories_fixture.json   canonical event-category + task-tag scheme (label ground truth)
-    banks/simple_patterns.json      202 single-intent pattern families (157 original + 45 test-only)
-    banks/complex_patterns.json     316 nuance-targeting pattern families (260 original + 56 test-only)
-    fastrule_7200.jsonl             the generated dataset — 7,200 rows, one JSON object per line
+    banks/simple_patterns.json      245 single-intent pattern families (157 stratified + 45 test-only + 43 train-only)
+    banks/complex_patterns.json     374 nuance-targeting pattern families (265 stratified + 56 test-only + 53 train-only)
+    fastrule_7200.jsonl             the generated dataset — 8,400 rows (historical file name), one JSON object per line
     ../../TRAIN_TEST_SPLIT_CONVENTION.md   how the split is built (80/20 + force_split), and the
                                     no-mining rule — ENGINE-WIDE, every stage's dataset obeys it
     DATASET.md                      this file
@@ -288,104 +292,123 @@ prints this table and writes `fastrule_7200.jsonl`; `--no-write` runs the
 same generation + verification without touching the file (useful for
 checking a bank edit before committing to a regenerate).
 
-**Totals.** 7,200 rows, 7,200 unique texts, 518 pattern families (202
-simple + 316 complex). Train 4,800 (66.7%) / test 2,400 (33.3%). Largest
-family is 0.24% of the total, well under the 3% cap. Full mechanism and the
+**Totals.** 8,400 rows, 8,400 unique texts, 619 pattern families (245
+simple + 374 complex). Train 6,000 (71.4%) / test 2,400 (28.6%). Largest
+family is 0.20% of the total, well under the 3% cap. Full mechanism and the
 train-invariance proof: `engine/TRAIN_TEST_SPLIT_CONVENTION.md`.
 
-**Before → after the 2026-09-07 test-only growth:**
+**Three pools, each added on top of the one before:**
+
+| pool | rows | families | split | added |
+|---|---:|---:|---|---|
+| stratified 80/20 | 6,000 | 422 | 4,800 train / 1,200 test | 2026-09-07 |
+| forced-test (`force_split: "test"`) | 1,200 | 101 | all test | 2026-09-07 |
+| forced-train (`force_split: "train"`) | 1,200 | 96 | all train | 2026-09-25 |
+
+**Before → after the 2026-09-25 train-only growth** (row-diffed by id against
+the previous file: **0 changed, 0 removed, 1,200 added**, and the old 7,200
+lines are a byte-identical prefix of the new file):
 
 | | before | after | change |
 |---|---:|---:|---:|
-| total rows | 6,000 | 7,200 | +1,200 |
-| train rows | 4,800 | 4,800 | **+0 (byte-identical)** |
-| test rows | 1,200 | 2,400 | +1,200 |
-| total families | 417 | 518 | +101 (45 simple + 56 complex) |
-| train families | 331 | 331 | +0 |
-| test families | 86 | 187 | +101 |
+| total rows | 7,200 | 8,400 | +1,200 |
+| train rows | 4,800 | 6,000 | +1,200 |
+| test rows | 2,400 | 2,400 | **+0 (byte-identical)** |
+| total families | 523 | 619 | +96 (43 simple + 53 complex) |
+| train families | 335 | 431 | +96 |
+| test families | 188 | 188 | +0 |
 
 **By tier x split:**
 
 | tier | train | test | total |
 |---|---:|---:|---:|
-| simple | 1,600 | 800 | 2,400 |
-| complex | 3,200 | 1,600 | 4,800 |
+| simple | 2,000 | 800 | 2,800 |
+| complex | 4,000 | 1,600 | 5,600 |
 
-**By action x tier (row counts):**
+**By action x tier (row counts, after the rulings below moved gold):**
 
 | action | simple | complex | total |
 |---|---:|---:|---:|
-| create_event | 627 | 2,122 | 2,749 |
-| create_todo | 567 | 1,074 | 1,641 |
-| query | 240 | 50 | 290 |
-| delete_event | 229 | 112 | 341 |
-| delete_todo | 187 | 51 | 238 |
-| complete_todo | 209 | 71 | 280 |
-| update_event | 187 | 108 | 295 |
-| update_todo | 154 | 79 | 233 |
-| mixed | 0 | 1,133 | 1,133 |
+| create_event | 782 | 2,425 | 3,207 |
+| create_todo | 631 | 841 | 1,472 |
+| query | 292 | 50 | 342 |
+| delete_event | 267 | 111 | 378 |
+| delete_todo | 216 | 66 | 282 |
+| complete_todo | 238 | 72 | 310 |
+| update_event | 214 | 108 | 322 |
+| update_todo | 160 | 80 | 240 |
+| mixed | 0 | 1,237 | 1,237 |
+| propose | 0 | 610 | 610 |
 
-(Simple tier has no `mixed` by construction — single-intent only.)
+(Simple tier has no `mixed` or `propose` by construction — single-intent only.)
 
 **By atomic flag x tier:**
 
 | tier | atomic | compound |
 |---|---:|---:|
-| simple | 2,400 | 0 |
-| complex | 2,820 | 1,980 |
+| simple | 2,800 | 0 |
+| complex | 3,288 | 2,312 |
 
 **Complex-tier nuance coverage** (each is the brief's "measured failures"
 list, one bank category per line — family count is distinct skeletons,
-rows is generated volume; `*` marks a nuance the 2026-09-07 growth added
-rows to, `propose_confirm` is new that round):
+rows is generated volume, ALL THREE POOLS together; `*` marks a nuance the
+2026-09-07 test-only growth added rows to, `propose_confirm` is new that
+round; the last column is the 2026-09-25 TRAIN-only growth's share,
+families / rows):
 
-| nuance | families | rows | what it targets |
-|---|---:|---:|---|
-| and_compound* | 27 | 407 | plain "and" joining two asks, all 4 type-orders (ee/tt/et/te) |
-| np_decoy* | 22 | 328 | NP-coordination that must NOT split ("meeting with X and Y", "buy A and B", serial verbs) |
-| joiner* | 26 | 398 | explicit cue-word compounds: "and then", ", then", "also", "plus", "as well as", "along with" |
-| remind_then* | 13 | 199 | "remind me to X, then Y" — task leading into a differently-typed second ask |
-| mixed_mode* | 22 | 339 | create + query/delete in one utterance |
-| interrogative_polite* | 18 | 281 | "should I add...?" vs "can you add...?" — both are creates, not questions |
-| propose_confirm (new) | 20 | 291 | propose-then-seek-confirmation shapes: "I was thinking about booking X — does that work?", "how about I add Y?", including compound and mixed-action variants |
-| generic_target_complex* | 12 | 155 | "delete this event" / "clear my list" embedded in longer sentences |
-| time_list_vs_range* | 18 | 280 | "walk the dog at 9 and 2:30" (2 items) vs "from 9 to 2:30" (1 item, range) |
-| recurrence* | 18 | 282 | recurrence incl. roundable phrasings ("every other tuesday", "every weekday") |
-| until_through* | 11 | 172 | "until" (exclusive) vs "through"/"including" (inclusive), + the end-of-month exception |
-| attendee* | 14 | 221 | named attendees on an event/task |
-| lead_time* | 14 | 217 | reminder lead-times as an event *attribute*, not a second item |
-| date_marking* | 11 | 174 | "mark {date} as {occasion}" — a day-marker, never `complete_todo` |
-| dated_encounter* | 11 | 171 | "I need to talk to X on {date}" — an encounter, i.e. `create_event` |
-| all_day* | 9 | 137 | all-day phrasings |
-| three_ask* | 17 | 267 | 3-ask compounds across type combinations |
-| texture* | 16 | 245 | misspellings, STT filler words, quoted targets, rambling — in compound/complex context |
-| extra* | 17 | 236 | topping up thin action buckets (update_event/update_todo/query/delete_*/complete_todo) with complex-register phrasing |
+| nuance | families | rows | what it targets | train-only growth |
+|---|---:|---:|---|---:|
+| and_compound* | 31 | 464 | plain "and" joining two asks, all 4 type-orders (ee/tt/et/te) | 4 / 60 |
+| np_decoy* | 26 | 382 | NP-coordination that must NOT split ("meeting with X and Y", "buy A and B", serial verbs) | 4 / 60 |
+| joiner* | 34 | 514 | explicit cue-word compounds: "and then", ", then", "also", "plus", "as well as", "along with" | 8 / 122 |
+| remind_then* | 13 | 195 | "remind me to X, then Y" — task leading into a differently-typed second ask | — |
+| mixed_mode* | 27 | 405 | create + query/delete in one utterance | 5 / 75 |
+| interrogative_polite* | 21 | 319 | "should I add...?" vs "can you add...?" — both are creates, not questions | 3 / 45 |
+| propose_confirm (new) | 20 | 291 | propose-then-seek-confirmation shapes: "I was thinking about booking X — does that work?", "how about I add Y?", including compound and mixed-action variants | — |
+| confirm_subprompt | 5 | 74 | an imperative ask plus a create QUESTION about a second item: the first executes, the question proposes (Q9) | — |
+| generic_target_complex* | 12 | 153 | "delete this event" / "clear my list" embedded in longer sentences | — |
+| time_list_vs_range* | 18 | 276 | "walk the dog at 9 and 2:30" (2 items) vs "from 9 to 2:30" (1 item, range) | — |
+| recurrence* | 23 | 358 | recurrence incl. roundable phrasings ("every other tuesday", "every weekday") | 5 / 79 |
+| until_through* | 13 | 199 | "until" (exclusive) vs "through"/"including" (inclusive), + the end-of-month exception | 2 / 30 |
+| attendee* | 16 | 248 | named attendees on an event/task | 2 / 30 |
+| lead_time* | 16 | 245 | reminder lead-times as an event *attribute*, not a second item | 2 / 32 |
+| date_marking* | 13 | 200 | "mark {date} as {occasion}" — a day-marker, never `complete_todo` | 2 / 30 |
+| dated_encounter* | 15 | 226 | "I need to talk to X on {date}" — an encounter, i.e. `create_event` | 4 / 60 |
+| all_day* | 10 | 149 | all-day phrasings | 1 / 15 |
+| three_ask* | 19 | 293 | 3-ask compounds across type combinations | 2 / 30 |
+| texture* | 19 | 288 | misspellings, STT filler words, quoted targets, rambling — in compound/complex context | 3 / 45 |
+| extra* | 23 | 321 | topping up thin action buckets (update_event/update_todo/query/delete_*/complete_todo) with complex-register phrasing | 6 / 87 |
 
 **Label coverage** (`python -m assistant.engine.fastrule.datasets.generate --no-write` prints this):
 
 | event category | count | share of expected events |
 |---|---:|---:|
-| Personal | 1,253 | 29.9% |
-| Health | 822 | 19.6% |
-| Meeting | 764 | 18.3% |
-| Social | 471 | 11.3% |
-| Work | 272 | 6.5% |
-| Fitness | 250 | 6.0% |
-| Errand | 154 | 3.7% |
-| Travel | 120 | 2.9% |
-| Study | 80 | 1.9% |
+| Personal | 1,512 | 31.0% |
+| Meeting | 981 | 20.1% |
+| Health | 863 | 17.7% |
+| Social | 517 | 10.6% |
+| Work | 307 | 6.3% |
+| Fitness | 250 | 5.1% |
+| Errand | 191 | 3.9% |
+| Travel | 135 | 2.8% |
+| Study | 88 | 1.8% |
+| Dog walking | 26 | 0.5% |
+
+(`Dog walking` is a category the shipped `categories.py` DEFAULTS gained on
+2026-09-24; the fixture merges into DEFAULTS, so it fires here too — on
+"walk the dog" titles the Q26 clock ruling moved to events.)
 
 `Family` and `Meal` never fire — this dataset's generic filler banks
 (deliberately: no personal/family-specific words) never contain their
 trigger keywords. Not a bug: a category that's genuinely unused by the
 dataset's vocabulary should show 0, not be forced to appear.
 
-Task tags: 2,047 of ~3,150 expected tasks (65.0%) are legitimately untagged
-(`tags: []`) — most of `task_titles`' generic chores ("call the plumber",
-"pay the electricity bill", "walk the dog") don't hit any of the 4 built-in
+Task tags: 1,844 of 3,003 expected tasks (61.4%) are legitimately untagged
+(`tags: []`) — most of `task_titles`' generic chores ("pay the electricity
+bill", "walk the dog") don't hit any of the 4 built-in
 tag keyword lists, which is the real classifier's own honest behavior, not
-a generation defect. Of the tagged remainder: Errands 545, Groceries 427,
-Work 131. **Multi-tag rows: 0** in this generation — the mechanism supports
+a generation defect. Of the tagged remainder: Errands 562, Groceries 465,
+Work 132. **Multi-tag rows: 0** in this generation — the mechanism supports
 it (verified directly: `"buy milk and homework"` scores `["Coursework",
 "Groceries"]` through the real `_score()`), but every `item`/`item2` pair in
 this bank's NP-decoy families draws from the same single `items` bank
@@ -408,6 +431,94 @@ results are never mined) makes no distinction between the two test pools.
 Growing this pool is therefore always safe to do between measurement runs:
 it changes what generalization is measured against, never what the model is
 allowed to see.
+
+## Growing train-only: `force_split: "train"` (2026-09-25)
+
+**What.** The mirror of the pool above: 96 families (43 simple + 53
+complex) declaring `"force_split": "train"`, 1,200 rows
+(`SIMPLE_FORCE_TRAIN_TOTAL = 400`, `COMPLEX_FORCE_TRAIN_TOTAL = 800`), all
+`split == "train"`, added on top of every other pool. `build_forced_train()`
+generates them LAST and they are shuffled on their own stream and appended,
+so the regenerated file is the old 7,200 lines byte for byte followed by 1,200
+new ones (row-diffed by id: 0 changed, 0 removed, 1,200 added).
+
+**Why.** The FastRule board read correct-on-handled 96.8% on train vs 81.0%
+on test (atomic rows), while real speech showed no gap at all (fast_sandbox
+over the 2,699 non-sealed real utterances: dev 95.4% vs held-out 95.6%
+adjusted correct-on-committed). The forced-test pool put whole phrasing
+STYLES in the test half that train never saw, so the gap measured "a style
+train lacks", not "FastRule overfits". The owner's ask: *"Close the train/test
+gap by adding more varied training phrasings, without looking at test rows."*
+
+**What the families cover** — 96 distinct skeletons, none a synonym of
+another, spread over the same actions in roughly the stratified pool's
+proportions (simple: 11 create_event, 11 create_todo, 6 query, 4
+delete_event, 3 delete_todo, 3 complete_todo, 3 update_event, 2
+update_todo; complex: 24 create_event, 11 mixed, 9 create_todo, 3
+propose, 6 thin-bucket `extra`):
+
+- terse/clipped ("yoga class friday 7am", "todo: …", "…, done", "anything on tomorrow?")
+- polite/verbose ("would you be so kind as to put … in my calendar …, thank you")
+- hedged ("i suppose i need to book …", "probably i should … at some point")
+- fronted time / title last ("this friday at 9:15, workshop", "tonight at 9:15 put in …",
+  "every fortnight at half past six i have …")
+- first-person statements ("i've got …", "i need to be at …", "Blake and i have …")
+- questions-as-commands without a question mark ("can you put … on for …", "any chance you could remind me to …")
+- non-native grammar ("please to add …", "remember me to …", "tell me what is my plans …")
+- fillers and stutters ("okay so you know i gotta remember to …", "can you can you add …")
+- British English ("pop … in the diary monday week at half six", "shift … to …",
+  "ring Avery tomorrow week", "every fortnight", "what's in the diary for …", "… is sorted")
+- wake words ("alexa", "hey google", "olly", "pda" — from the real pool's own openers)
+- new verbs for every action (chuck, pop, wipe, cross that one off, shift, push back, circle, facetime, ring)
+- list destinations (shopping / grocery / to-do list)
+- compounds joined in new ways (" — and", ", oh and", ". separately,", "and while you're at it",
+  "and on top of that", ". one more thing,", "two things:", "three things:", "first … then … and finally")
+
+**Gold follows the rulings directly.** A to-do said with its own CLOCK is
+written as an event (Q25/Q26 — the new `clock_times` bank holds only clocks,
+so no `NOT_A_CLOCK` hedge can slip in); meeting, seeing, calling, ringing or
+facetiming a named person is an event (Q47), a text to them stays a to-do; a
+first-person create QUESTION is `propose` (Q9); a named to-do list keeps a
+to-do. In every mixed compound the clocked event comes FIRST, so no to-do
+sits before a trailing clock it would inherit by Q49. `ruled_family` still
+runs on every row and only ever moves a to-do part: it moved 6 of the new rows
+(Q50, "call the plumber" drawn from `task_titles` into a to-do slot with no
+named list), and none of the families is in `RULED_FAMILIES`, so nothing is
+applied twice.
+
+**New filler banks, new KEYS only** (`weekdays`, `clock_times`, `uk_times`,
+`uk_dates`, `recurrences_more`, `list_names`, `wake_words`,
+`polite_openers`, `hedges`). No existing list was edited — a longer list
+changes which filler every existing family's `rng.choice()` draws, and so
+every existing row. `recurrences_more` rounds by `RECURRENCE_ROUND` like the
+rest (fortnightly → weekly, "every morning" → daily).
+
+**The leakage rules this was built under.**
+
+1. No `force_split: "test"` family was opened, printed or read; the banks
+   were loaded in code with those filtered out (they were only counted).
+2. No `split == "test"` row of `fastrule_7200.jsonl` was read.
+3. `dataset/personas/` was not read; the real utterances in
+   `dataset/inputs/history_3000.json` were read only after dropping the
+   sealed 300 in code, and only for how people phrase things — every slot
+   value comes from `fillers.json`.
+4. Gold is by construction from the template; no engine run and no model
+   produced any of it.
+5. A COUNT-ONLY guard compared the new skeletons with every test-side
+   skeleton (forced-test + stratified-test, 188) without printing either:
+   the first draft had 2 exact and 6 ≥ 0.9-similar matches, the 6 own
+   families were named (never the test ones) and rewritten, and the final
+   set has 0 at ≥ 0.9 — against 29 of the 335 ORIGINAL train skeletons
+   (9%), 2 of them exact, which predate this growth.
+6. One slip, disclosed: while checking the bank files' JSON formatting, a
+   `head` of `simple_patterns.json` showed its first family (a stratified
+   TEST family's template) and a `tail` (templates masked) showed the NAMES of
+   three forced-test families. Nothing was written to resemble them; two
+   planned proposal shapes that echoed those names were dropped instead.
+
+Adding a `force_split: "train"` family carries the same guarantees as a
+test-only one, mirrored: it can only ever add train rows, cannot move any
+other family's split, and cannot perturb an existing row.
 
 ## Slot-filler banks (`banks/fillers.json`)
 
@@ -441,11 +552,16 @@ or not), the current bank files (including `categories_fixture.json`), and
 wall-clock). Two consecutive runs produce byte-identical
 `fastrule_7200.jsonl` (verified via `md5` during construction of this
 dataset, and again — full-JSON and text-only hashes both — for the 4,800
-train rows specifically across the 2026-09-07 growth; see `engine/TRAIN_TEST_SPLIT_CONVENTION.md`). The
+train rows specifically across the 2026-09-07 growth, and — row-diffed by id,
+plus the old file as a byte-identical line prefix of the new one — for all
+7,200 rows across the 2026-09-25 train-only growth (md5 of two consecutive
+8,400-row runs: `308494db962b2baaa58b06884a028540`); see `engine/TRAIN_TEST_SPLIT_CONVENTION.md`). The
 script also **self-verifies on every run** before writing: exact row
 count, all-unique texts, the stratified pool's own split fraction in [19%,
-21%], train count exactly the original 4,800, no `force_split` family
-producing a train row, no family over 3% of the total, zero families
+21%], the stratified pool's train count exactly the original 4,800 and total
+train exactly that plus the forced-train pool, no `force_split: "test"` family
+producing a train row and no `force_split: "train"` family producing a test
+row, an unknown `force_split` value refused, no family over 3% of the total, zero families
 leaked across train/test, all ids unique, every family's declared
 `events`/`tasks` count matches its `event_label_sources`/`task_label_sources`
 — any violation raises instead of silently writing a bad file. The script
@@ -472,7 +588,9 @@ delta." A family with `"force_split": "test"` carries none of that risk —
 it's assigned directly, can only ever add test rows, and cannot perturb any
 other family's split or any train row (asserted by the generator, not just
 documented) — that's the mechanism to reach for when the goal is adding
-eval coverage without an audit of what else moved.
+eval coverage without an audit of what else moved. `"force_split": "train"`
+is its mirror (2026-09-25) for widening what train sees, with the same
+guarantees and the leakage rules in "Growing train-only" above.
 
 ## What was deliberately left out
 

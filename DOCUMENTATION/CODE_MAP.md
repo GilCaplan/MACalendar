@@ -48,7 +48,7 @@ versus planned in `ENGINE_REWIRE.md`.
 | **Per-stage docs** — what it is, its datasets, its metrics, its results | `engine/<stage>/ARCHITECTURE.md` |
 | Segmentation's two halves | `engine/segmentation/fastseg/`, `engine/segmentation/llmseg/` (LLMSeg **off** by default) |
 | Segmentation's datasets and boards | `engine/segmentation/datasets/`, `engine/segmentation/experiments/` |
-| FastRule's dataset (7,200 rows) and boards | `engine/fastrule/datasets/`, `engine/fastrule/experiments/` |
+| FastRule's dataset (8,400 rows) and boards | `engine/fastrule/datasets/`, `engine/fastrule/experiments/` |
 | Shared LLM transport (`call_json`, `MACALENDAR_LLM_DISABLED` guard) | `engine/llm.py` |
 | The three routing classifiers + one shared `LogisticModel` | `intent/classifier.py` |
 | Spoken-noise cleanup — filler, courtesy, hedges, self-corrections | `intent/cleanup.py` |

@@ -12,7 +12,7 @@ stage copies the mechanism and records its own numbers.
 
 | stage | dataset | split unit | test rows | mechanism |
 |---|---|---|---|---|
-| **FastRule** | `fastrule_7200.jsonl` | pattern family | 2,400 | stratified 80/20 + `force_split: "test"` |
+| **FastRule** | `fastrule_7200.jsonl` (8,400 rows; historical name) | pattern family | 2,400 | stratified 80/20 + `force_split: "test"` + `force_split: "train"` (6,000 train) |
 | **decompose_validate** | `datasets/generated.jsonl` | pattern family | 840 (21 families) | growth: the 268 original families are train **by construction**; 49 grown families split 40/60, stratified by nuance |
 | **Segmentation** | `datasets/generated.jsonl` | pattern family | sealed half (289 rows) | — |
 
@@ -207,6 +207,53 @@ above) — the overall dataset's ratio moved to roughly 2:1 only because an
 entirely new, additive, test-only pool was grown alongside it; no row that
 used to be train became test, or vice versa.
 
+(Those were the 2026-09-07 figures. The bank has since gained 5
+`confirm_subprompt` families in the stratified pool — 335 train / 188 test
+families — and the train-only pool below. Current totals: **train 6,000
+(71.4%) / test 2,400 (28.6%) / 8,400 rows, 431 / 188 / 619 families.**)
+
+## Growing train-only: `force_split: "train"` (2026-09-25)
+
+The mirror of the test-only growth, and for the mirror reason. The FastRule
+board read correct-on-handled 96.8% on train vs 81.0% on test (atomic rows)
+while real speech showed no gap (fast_sandbox, 2,699 non-sealed real
+utterances: dev 95.4% vs held-out 95.6%). The forced-test pool had put whole
+phrasing STYLES in test that no train family had; the fix is to widen train's
+phrasing, not to look at test. Mechanism (`generate.py`):
+
+1. A family may declare `"force_split": "train"`. It works like any other
+   family; only the split differs. Any other `force_split` value is refused.
+2. `main()` pulls these families out alongside the forced-test ones, before
+   `build_tier()` runs — the stratified path's input is unchanged.
+3. `build_forced_train()` (one body, `_build_forced()`, shared with
+   `build_forced_test()`) assigns `split = "train"` directly and quotas rows
+   with `distribute_quota()`; totals `SIMPLE_FORCE_TRAIN_TOTAL = 400`,
+   `COMPLEX_FORCE_TRAIN_TOTAL = 800`, on top of everything else.
+4. It runs LAST, after the final shuffle of every existing row, so every
+   existing text is already in `global_seen` and wins any collision; its rows
+   are shuffled on their own stream (`"{SEED}:final-order:forced-train"`) and
+   APPENDED. The existing 7,200 rows keep content, ids, split AND line order.
+5. `main()` asserts: the stratified pool's train count is still exactly
+   4,800, total train is exactly 4,800 + the forced-train rows, no
+   forced-train family produced a test row, no forced-test family produced a
+   train row, zero families on both sides.
+
+**Proven on the committed file**, regenerated to a scratch path and diffed by
+id against the previous one: **0 changed, 0 removed, 1,200 added** (all
+`train`), and the old file is a byte-identical line prefix of the new one.
+
+**The no-mining rule in reverse.** Train growth is only honest if it is
+written blind to test: a train family copied from a test skeleton would turn
+that test family into a memorisation check. So the 96 families were written
+without opening any `force_split: "test"` family or any `split == "test"`
+row, without reading `dataset/personas/`, and with the real pool
+(`history_3000.json`) read only after the sealed 300 were dropped in code. A
+count-only guard compared the new skeletons with all 188 test-side skeletons
+and printed only counts; the first draft's 6 near-duplicates (≥ 0.9, 2 exact)
+were rewritten, naming only our own families, and the final set has 0 — the
+335 original train skeletons have 29 (9%). DATASET.md §"Growing train-only"
+has the family list and the one disclosed slip.
+
 ## Regenerating
 
 `python -m assistant.engine.fastrule.datasets.generate` rebuilds the whole dataset from
@@ -220,6 +267,8 @@ membership), so treat a stratified-pool bank edit as "regenerate and re-read
 "test"` family carries none of that risk — by construction it can only ever
 add test rows and can only ever change which OTHER forced families' quotas
 absorb the largest-remainder rounding, never anything about `free` families
-or train. `SEED` in `assistant/engine/fastrule/datasets/generate.py` is the only knob that
+or train. A new `force_split: "train"` family is the same in mirror: it can
+only add train rows and shift other forced-TRAIN families' quotas, never an
+existing row. `SEED` in `assistant/engine/fastrule/datasets/generate.py` is the only knob that
 changes the *stratified* split deterministically; changing it is a
 deliberate act, noted here and in `DATASET.md`, not a routine operation.
