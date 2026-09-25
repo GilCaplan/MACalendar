@@ -30,7 +30,7 @@ import re
 from assistant.actions.calendar.auth import MSALAuth
 from assistant.actions.calendar.graph_client import GraphClient
 from assistant.actions.calendar.handler import get_local_timezone
-from assistant.calendar_sync.ics_subscription import sync_all_ics_sources
+from assistant.calendar_sync.common import parse_iso
 from assistant.config import AppConfig
 from assistant.db import CalendarDB, _utcnow_iso
 from assistant.exceptions import AuthExpiredError, GraphAPIError
@@ -105,35 +105,8 @@ def _local_event_to_payload(event: dict, timezone: str) -> dict:
     return payload
 
 
-_ISO_TS_RE = re.compile(
-    r"^(?P<base>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})"
-    r"(?:\.(?P<frac>\d+))?"
-    r"(?P<offset>Z|[+-]\d{2}:\d{2})?$"
-)
-
-
-def _parse_iso(ts: str) -> datetime.datetime | None:
-    """Parse an ISO-8601 timestamp from either side of the sync (local
-    `_utcnow_iso()` uses a "+00:00" offset with 6-digit microseconds; Graph's
-    `lastModifiedDateTime` uses a "Z" suffix with up to 7 fractional digits).
-    Comparing these as raw strings is not reliable — the differing suffix
-    format can make a chronologically newer timestamp sort as "smaller" once
-    the two happen to share the same whole-second prefix. Normalize both to
-    real `datetime` objects (UTC if no offset given) before comparing.
-    """
-    if not ts:
-        return None
-    m = _ISO_TS_RE.match(ts)
-    if not m:
-        return None
-    frac = (m.group("frac") or "").ljust(6, "0")[:6]  # pad/truncate to microseconds
-    offset = m.group("offset") or "+00:00"
-    if offset == "Z":
-        offset = "+00:00"
-    try:
-        return datetime.datetime.fromisoformat(f"{m.group('base')}.{frac}{offset}")
-    except ValueError:
-        return None
+# Shared with the Google sync; kept under the old name for existing callers.
+_parse_iso = parse_iso
 
 
 def pull(db: CalendarDB, client: GraphClient) -> int:
@@ -198,9 +171,7 @@ def push_dirty(db: CalendarDB, client: GraphClient) -> int:
 def push_deletes(db: CalendarDB, client: GraphClient) -> int:
     """Drain the tombstone queue, deleting on Graph what was deleted locally."""
     pushed = 0
-    for tombstone in db.pop_sync_deletes():
-        if tombstone["external_source"] != EXTERNAL_SOURCE:
-            continue
+    for tombstone in db.pop_sync_deletes(EXTERNAL_SOURCE):
         try:
             client.delete_event(tombstone["external_id"])
             pushed += 1
@@ -209,35 +180,38 @@ def push_deletes(db: CalendarDB, client: GraphClient) -> int:
     return pushed
 
 
-def run_full_sync(db: CalendarDB, config: AppConfig) -> dict:
-    """Refresh every connected calendar source. Used by the periodic timer
-    and the manual 'Sync Now' button alike."""
-    results: dict = {
-        "ics_synced": 0, "ics_removed": 0,
-        "outlook_pulled": 0, "outlook_pushed": 0,
-        "errors": [],
-    }
+def sync_outlook(db: CalendarDB, config: AppConfig) -> dict:
+    """Pull (and, when two-way, push) the connected Outlook account.
 
-    kept, removed, ics_errors = sync_all_ics_sources(db)
-    results["ics_synced"] = kept
-    results["ics_removed"] = removed
-    results["errors"].extend(ics_errors)
-
+    Returns {"pulled", "pushed", "error", "ran"}; never raises. `ran` is False
+    when Outlook is not connected or has no client id configured."""
+    out: dict = {"pulled": 0, "pushed": 0, "error": "", "ran": False}
     outlook_source = db.get_calendar_source_by_kind("outlook")
     if outlook_source is None or not outlook_source["enabled"] or config.microsoft is None:
-        return results
-
+        return out
+    out["ran"] = True
     try:
         auth = MSALAuth(config.microsoft)
         client = GraphClient(auth)
-        results["outlook_pulled"] = pull(db, client)
+        out["pulled"] = pull(db, client)
         if outlook_source.get("two_way"):
-            results["outlook_pushed"] = push_dirty(db, client) + push_deletes(db, client)
-        db.update_calendar_source(outlook_source["id"], last_synced=_utcnow_iso())
+            out["pushed"] = push_dirty(db, client) + push_deletes(db, client)
+        db.update_calendar_source(outlook_source["id"], last_synced=_utcnow_iso(), last_error="")
     except AuthExpiredError as e:
-        results["errors"].append(f"Outlook: {e}")
+        out["error"] = f"Outlook: sign-in expired — reconnect ({e})"
     except Exception as e:
         logger.exception("Outlook sync failed")
-        results["errors"].append(f"Outlook sync: {e}")
+        out["error"] = f"Outlook sync: {e}"
+    if out["error"]:
+        db.update_calendar_source(outlook_source["id"], last_error=out["error"])
+    return out
 
-    return results
+
+def run_full_sync(db: CalendarDB, config: AppConfig) -> dict:
+    """Refresh every connected calendar source (ICS, Outlook, Google).
+
+    Kept for existing callers; the one implementation is
+    `calendar_sync.scheduler.run_all`, which the brain's periodic loop and
+    every "Sync now" button share."""
+    from assistant.calendar_sync.scheduler import run_all
+    return run_all(db, config)

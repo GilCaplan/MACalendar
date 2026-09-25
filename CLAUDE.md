@@ -199,6 +199,9 @@ the rest:
     MACALENDAR_MODEL_LOCK      the cross-process gate on ollama
     MACALENDAR_DEVICE_SECRET   the HMAC key device tokens are signed with
     MACALENDAR_DEVICES         the enrolment registry
+    MACALENDAR_GOOGLE_TOKEN / _GOOGLE_CLIENT_SECRET / MACALENDAR_MSAL_CACHE
+                               calendar-sync sign-ins (2026-09-24) — a
+                               suite holding the real ones syncs Gil's accounts
 
 The feedback file is the one to be careful with: it holds the user's own
 CORRECTIONS, which are the only non-circular label source this project has, so

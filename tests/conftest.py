@@ -99,7 +99,14 @@ for _var, _name in (("MACALENDAR_DB", "calendar.db"),
                     # Settings. Same family as the vocabulary: hand-curated, and
                     # a suite writing junk into it would quietly change how the
                     # running assistant reads his speech.
-                    ("MACALENDAR_LEXICON", "lexicon.json")):
+                    ("MACALENDAR_LEXICON", "lexicon.json"),
+                    # Connected-calendar credentials (2026-09-24). The token
+                    # files are real sign-ins: a suite exercising connect or
+                    # disconnect must never read, refresh, overwrite or DELETE
+                    # them — disconnect removes the token file by design.
+                    ("MACALENDAR_GOOGLE_TOKEN", "google_token.json"),
+                    ("MACALENDAR_GOOGLE_CLIENT_SECRET", "google_client_secret.json"),
+                    ("MACALENDAR_MSAL_CACHE", "msal_token_cache.json")):
     _os.environ.setdefault(_var, _os.path.join(_SCRATCH, _name))
 
 # config.yaml is WRITTEN, not just read: `PATCH /features/<name>` persists tab

@@ -65,6 +65,16 @@ NOT_QUEUEABLE = {
     # Editing ONE instance still queues, exactly as it always did, so the
     # offline path loses nothing it used to have (Gil, 2026-09-18).
     "updateSeries", "deleteSeries",
+    # Connected calendars (2026-09-24). A sign-in is a conversation with a
+    # browser that is open NOW — its PKCE verifier and device code expire in
+    # minutes — so replaying a start or a code exchange later can only fail.
+    # "Sync now" replayed tomorrow asks for work nobody is waiting for. A
+    # disconnect signs an account out: replayed after the user reconnected, it
+    # would silently undo that. Set-up and adding a feed need the Mac's answer
+    # (a bad client id, a URL it cannot read), and a replayed add would land a
+    # second subscription. Two-way and removing a feed DO queue.
+    "startCalendarConnect", "completeGoogleConnect", "disconnectCalendar",
+    "syncCalendarsNow", "saveCalendarClientID", "addCalendarSubscription",
 }
 
 MUTATING = re.compile(r'request\(\s*"[^"]*"[^)]*?method:\s*"(POST|PATCH|PUT|DELETE)"', re.S)

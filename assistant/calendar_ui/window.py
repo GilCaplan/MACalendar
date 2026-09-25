@@ -453,22 +453,17 @@ class CalendarWindow(QMainWindow):
         self._sync_timer.timeout.connect(self._auto_refresh_if_db_changed)
         self._sync_timer.start()
 
-        # Periodic background sync for connected calendars (ICS subscriptions +
-        # two-way Outlook). Independent of the pipeline status timer above.
+        # Connected calendars sync in the BRAIN (assistant.api), on its own
+        # timer, whether or not this window is open — it used to be a 15-minute
+        # QTimer here, so closing the calendar stopped every sync. What is left
+        # is "Sync now": it asks the API and the answer is drained here. The
+        # rows a sync writes arrive through the DB-change poll above.
         self._sync_results_queue: queue.Queue = queue.Queue()
         self._sync_running = False
         self._sync_result_timer = QTimer(self)
         self._sync_result_timer.setInterval(500)
         self._sync_result_timer.timeout.connect(self._drain_sync_results)
         self._sync_result_timer.start()
-
-        self._sync_timer = QTimer(self)
-        self._sync_timer.setInterval(15 * 60 * 1000)  # 15 minutes
-        self._sync_timer.timeout.connect(self._start_background_sync)
-        self._sync_timer.start()
-        # Kick off one sync shortly after launch so connected calendars show
-        # up without waiting a full 15 minutes.
-        QTimer.singleShot(5000, self._start_background_sync)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Standard window close event — keeps persistence."""
@@ -653,7 +648,7 @@ class CalendarWindow(QMainWindow):
         connected_btn = QPushButton("🔗")
         connected_btn.setObjectName("icon_btn")
         connected_btn.setFixedSize(30, 30)
-        connected_btn.setToolTip("Connected Calendars — Gmail/Outlook/iCloud subscribe by link or connect Outlook")
+        connected_btn.setToolTip("Connected Calendars — connect Google or Outlook two-way, or subscribe to any calendar link")
         connected_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         connected_btn.clicked.connect(self._on_connected_calendars)
         layout.addWidget(connected_btn, alignment=v_center)
@@ -1584,19 +1579,24 @@ class CalendarWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _start_background_sync(self) -> None:
-        """Refresh all connected calendars on a worker thread. Safe to call
-        from the periodic QTimer, the manual 'Sync Now' button, or right
-        after adding/connecting a new source."""
+        """Ask the brain to sync every connected calendar now (after adding a
+        link, or from a button). The brain runs it — the same function its
+        periodic loop and the phone's "Sync now" use — so the two apps can
+        never sync differently."""
         if self._sync_running or self._config is None:
             return
         self._sync_running = True
 
         def worker() -> None:
-            from assistant.calendar_sync.outlook_sync import run_full_sync
-            try:
-                results = run_full_sync(self._db, self._config)
-            except Exception as e:  # noqa: BLE001 — surface any failure as a toast, don't crash the thread
-                results = {"errors": [str(e)]}
+            from assistant.calendar_ui.connected_calendars import BrainClient
+            code, body = BrainClient(self._config).call(
+                "POST", "/calendar_sync/sync", {"wait": True}, timeout=180)
+            if code == 200:
+                results = body.get("results") or {}
+            elif body.get("busy"):
+                results = {}
+            else:
+                results = {"errors": [str(body.get("error", code))]}
             self._sync_results_queue.put(results)
 
         threading.Thread(target=worker, daemon=True).start()
@@ -1611,8 +1611,8 @@ class CalendarWindow(QMainWindow):
                 refresh_dialog = getattr(self, "_connected_dialog_refresh", None)
                 if refresh_dialog:
                     refresh_dialog()
-                pulled = results.get("ics_synced", 0) + results.get("outlook_pulled", 0)
-                pushed = results.get("outlook_pushed", 0)
+                pulled = sum(results.get(k, 0) for k in ("ics_synced", "outlook_pulled", "google_pulled"))
+                pushed = results.get("outlook_pushed", 0) + results.get("google_pushed", 0)
                 if results.get("errors"):
                     self.show_toast("Calendar sync had errors — see Connected Calendars")
                 elif pulled or pushed:
@@ -1632,8 +1632,8 @@ class CalendarWindow(QMainWindow):
 
         intro = QLabel(
             "Subscribe to any calendar's private ICS/webcal link (Gmail, Outlook.com, "
-            "iCloud, Yahoo…) for a read-only feed that auto-refreshes. Connect Outlook "
-            "directly below for two-way sync instead."
+            "iCloud, Yahoo…) for a read-only feed that auto-refreshes. Connect Google "
+            "or Outlook below for two-way sync instead."
         )
         intro.setWordWrap(True)
         layout.addWidget(intro)
@@ -1645,11 +1645,10 @@ class CalendarWindow(QMainWindow):
         def refresh_list() -> None:
             list_widget.clear()
             for source in self._db.get_calendar_sources():
-                if source["kind"] == "outlook":
-                    kind_label = "Outlook (two-way)" if source["two_way"] else "Outlook (read-only pull)"
-                else:
-                    kind_label = "ICS link"
-                label = source["label"] or source["url"] or "Outlook"
+                if source["kind"] in ("outlook", "google"):
+                    continue            # shown by the accounts section below
+                kind_label = "ICS link"
+                label = source["label"] or source["url"]
                 status = f"last synced {source['last_synced'][:16].replace('T', ' ')}" if source["last_synced"] else "not yet synced"
                 state = "" if source["enabled"] else "  (disabled)"
                 item = QListWidgetItem(f"{label}  —  {kind_label}  —  {status}{state}")
@@ -1703,41 +1702,12 @@ class CalendarWindow(QMainWindow):
 
         layout.addSpacing(6)
 
-        outlook_row = QHBoxLayout()
-        connect_outlook_btn = QPushButton("Connect Outlook…")
-
-        def connect_outlook() -> None:
-            if self._config.microsoft is None:
-                QMessageBox.warning(
-                    dialog, "Outlook Not Configured",
-                    "Add a \"microsoft:\" section (client_id) to config.yaml first — "
-                    "see README for registering a free Azure AD app.",
-                )
-                return
-            self._start_outlook_connect(dialog, refresh_list)
-
-        connect_outlook_btn.clicked.connect(connect_outlook)
-        outlook_row.addWidget(connect_outlook_btn)
-
-        two_way_cb = QCheckBox("Two-way sync (push my edits/deletes back to Outlook)")
-        existing_outlook = self._db.get_calendar_source_by_kind("outlook")
-        two_way_cb.setChecked(bool(existing_outlook and existing_outlook["two_way"]))
-
-        def toggle_two_way(checked: bool) -> None:
-            src = self._db.get_calendar_source_by_kind("outlook")
-            if src:
-                self._db.update_calendar_source(src["id"], two_way=int(checked))
-            else:
-                QMessageBox.information(dialog, "Not Connected", "Connect Outlook first.")
-                two_way_cb.setChecked(False)
-
-        two_way_cb.toggled.connect(toggle_two_way)
-        outlook_row.addWidget(two_way_cb)
-        layout.addLayout(outlook_row)
-
-        sync_now_btn = QPushButton("Sync Now")
-        sync_now_btn.clicked.connect(self._start_background_sync)
-        layout.addWidget(sync_now_btn)
+        # Two-way accounts: the same widget Settings shows, talking to the
+        # brain (which holds the sign-ins and runs the sync).
+        from assistant.calendar_ui.connected_calendars import ConnectedCalendarsSection
+        layout.addWidget(QLabel("<b>Two-way accounts</b>"))
+        layout.addWidget(ConnectedCalendarsSection(
+            dialog, self._config, toast=self.show_toast, on_synced=refresh_list))
 
         close_btn = QPushButton("Close")
         close_btn.setDefault(True)
@@ -1746,81 +1716,3 @@ class CalendarWindow(QMainWindow):
 
         dialog.exec()
         self._connected_dialog_refresh = None
-
-    def _start_outlook_connect(self, parent_dialog: QDialog, on_done) -> None:
-        """Runs MSAL's device-code flow with a small modal instead of the
-        console-only UX the menu-bar 'Re-authenticate' item uses."""
-        from assistant.actions.calendar.auth import MSALAuth
-
-        try:
-            auth = MSALAuth(self._config.microsoft)
-            flow = auth.start_device_flow()
-        except Exception as e:
-            QMessageBox.critical(parent_dialog, "Outlook Connect Failed", str(e))
-            return
-
-        code_dialog = QDialog(parent_dialog)
-        code_dialog.setWindowTitle("Connect Outlook")
-        code_dialog.setMinimumWidth(380)
-        v = QVBoxLayout(code_dialog)
-
-        msg = QLabel(flow.get("message", ""))
-        msg.setWordWrap(True)
-        v.addWidget(msg)
-        status_lbl = QLabel("Waiting for you to complete sign-in in your browser…")
-        status_lbl.setWordWrap(True)
-        v.addWidget(status_lbl)
-
-        open_btn = QPushButton("Open Browser")
-
-        def open_browser() -> None:
-            from PyQt6.QtCore import QUrl
-            from PyQt6.QtGui import QDesktopServices
-            url = flow.get("verification_uri") or flow.get("verification_uri_complete", "")
-            if url:
-                QDesktopServices.openUrl(QUrl(url))
-
-        open_btn.clicked.connect(open_browser)
-        open_btn.setDefault(True)
-        v.addWidget(open_btn)
-
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.clicked.connect(code_dialog.reject)
-        v.addWidget(cancel_btn)
-
-        result_queue: queue.Queue = queue.Queue()
-
-        def worker() -> None:
-            try:
-                auth.complete_device_flow(flow)
-                result_queue.put(("ok", None))
-            except Exception as e:  # noqa: BLE001
-                result_queue.put(("error", str(e)))
-
-        threading.Thread(target=worker, daemon=True).start()
-
-        poll_timer = QTimer(code_dialog)
-        poll_timer.setInterval(500)
-
-        def poll() -> None:
-            try:
-                status, err = result_queue.get_nowait()
-            except queue.Empty:
-                return
-            poll_timer.stop()
-            if status == "ok":
-                existing = self._db.get_calendar_source_by_kind("outlook")
-                if not existing:
-                    self._db.create_calendar_source(kind="outlook", label="Outlook")
-                code_dialog.accept()
-                self.show_toast("Outlook connected")
-                on_done()
-                self._start_background_sync()
-            else:
-                status_lbl.setText(f"Failed: {err}")
-
-        poll_timer.timeout.connect(poll)
-        poll_timer.start()
-        code_dialog.finished.connect(poll_timer.stop)
-
-        code_dialog.exec()

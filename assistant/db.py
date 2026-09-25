@@ -153,16 +153,35 @@ _MIGRATIONS = [
 _CREATE_CALENDAR_SOURCES_TABLE = """
 CREATE TABLE IF NOT EXISTS calendar_sources (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    kind        TEXT    NOT NULL,             -- 'ics_url' | 'outlook'
+    kind        TEXT    NOT NULL,             -- 'ics_url' | 'outlook' | 'google'
     label       TEXT    NOT NULL DEFAULT '',
     url         TEXT    NOT NULL DEFAULT '',  -- ics_url only
     color       TEXT    NOT NULL DEFAULT '#0078d4',
-    two_way     INTEGER NOT NULL DEFAULT 0,   -- outlook only — push local changes back
+    two_way     INTEGER NOT NULL DEFAULT 0,   -- outlook/google — push local changes back
     last_synced TEXT    NOT NULL DEFAULT '',
     enabled     INTEGER NOT NULL DEFAULT 1,
     created_at  TEXT    NOT NULL
 )
 """
+
+# Added with the brain-side sync (2026-09-24): what the connect/status routes
+# show on both apps, and Google's incremental-sync cursor.
+_CALENDAR_SOURCE_MIGRATIONS = [
+    "ALTER TABLE calendar_sources ADD COLUMN last_error TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE calendar_sources ADD COLUMN account TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE calendar_sources ADD COLUMN sync_token TEXT NOT NULL DEFAULT ''",
+]
+
+#: The two-way providers. A row whose `source` is one of these is a mirror of
+#: an event on that service: edits mark it dirty and deletes leave a tombstone.
+TWO_WAY_SOURCES = ("outlook", "google")
+
+
+def _source_for(external_source: str) -> str:
+    """events.source for a row synced from *external_source* (an ICS feed's
+    external_source is 'ics:<id>')."""
+    return external_source if external_source in TWO_WAY_SOURCES else "ics"
+
 
 _CREATE_SYNC_DELETES_TABLE = """
 CREATE TABLE IF NOT EXISTS calendar_sync_deletes (
@@ -746,6 +765,13 @@ class CalendarDB:
             conn.execute(_CREATE_ASSIGNMENTS_TABLE)
             conn.execute(_CREATE_REMINDER_LOG_TABLE)
             conn.execute(_CREATE_CALENDAR_SOURCES_TABLE)
+            existing_cs = {r[1] for r in conn.execute("PRAGMA table_info(calendar_sources)")}
+            for stmt in _CALENDAR_SOURCE_MIGRATIONS:
+                if stmt.split("ADD COLUMN")[1].strip().split()[0] not in existing_cs:
+                    try:
+                        conn.execute(stmt)
+                    except sqlite3.OperationalError:
+                        pass
             conn.execute(_CREATE_SYNC_DELETES_TABLE)
             conn.execute(_CREATE_WORKOUT_EXERCISES_TABLE)
             conn.execute(_CREATE_WORKOUT_TEMPLATES_TABLE)
@@ -1293,9 +1319,9 @@ class CalendarDB:
         source = row["source"]
         if source == "ics":
             return True
-        if source == "outlook":
+        if source in TWO_WAY_SOURCES:
             two_way = conn.execute(
-                "SELECT two_way FROM calendar_sources WHERE kind = 'outlook' LIMIT 1"
+                "SELECT two_way FROM calendar_sources WHERE kind = ? LIMIT 1", (source,)
             ).fetchone()
             return not (two_way and two_way["two_way"])
         return False
@@ -1306,10 +1332,10 @@ class CalendarDB:
         source = event.get("source")
         if source == "ics":
             return True
-        if source == "outlook":
+        if source in TWO_WAY_SOURCES:
             with self._conn() as conn:
                 row = conn.execute(
-                    "SELECT two_way FROM calendar_sources WHERE kind = 'outlook' LIMIT 1"
+                    "SELECT two_way FROM calendar_sources WHERE kind = ? LIMIT 1", (source,)
                 ).fetchone()
             return not (row and row["two_way"])
         return False
@@ -1398,13 +1424,13 @@ class CalendarDB:
             values = list(updates.values()) + [_utcnow_iso(), event_id]
             # updated_at is stamped in UTC (comparable against Graph's
             # lastModifiedDateTime for last-write-wins conflict resolution).
-            # sync_dirty is only ever set here for outlook-sourced rows — the
+            # sync_dirty is only ever set here for outlook/google rows — the
             # periodic sync worker clears it once the push succeeds. Reaching
             # here at all already implies two-way is on (see the lock check
             # above), so this is never dirtied for a row nothing will push.
             conn.execute(
                 f"UPDATE events SET {set_clause}, updated_at = ?, "
-                f"sync_dirty = CASE WHEN source = 'outlook' THEN 1 ELSE sync_dirty END "
+                f"sync_dirty = CASE WHEN source IN ('outlook', 'google') THEN 1 ELSE sync_dirty END "
                 f"WHERE id = ?",
                 values,
             )
@@ -1526,7 +1552,7 @@ class CalendarDB:
             # DELETE below runs.
             synced = conn.execute(
                 "SELECT external_source, external_id FROM events "
-                "WHERE id = ? AND external_source = 'outlook' AND external_id != ''",
+                "WHERE id = ? AND external_source IN ('outlook', 'google') AND external_id != ''",
                 (event_id,),
             ).fetchone()
             if synced:
@@ -2981,7 +3007,8 @@ class CalendarDB:
             return cur.lastrowid
 
     def update_calendar_source(self, source_id: int, **fields) -> None:
-        allowed = {"label", "url", "color", "two_way", "last_synced", "enabled"}
+        allowed = {"label", "url", "color", "two_way", "last_synced", "enabled",
+                   "last_error", "account", "sync_token"}
         updates = {k: v for k, v in fields.items() if k in allowed}
         if not updates:
             return
@@ -3060,7 +3087,7 @@ class CalendarDB:
                 (
                     *fields.values(),
                     _utcnow_iso(), _utcnow_iso(),
-                    "outlook" if external_source == "outlook" else "ics",
+                    _source_for(external_source),
                     external_id, external_source,
                 ),
             )
@@ -3088,31 +3115,118 @@ class CalendarDB:
 
     def get_dirty_outlook_events(self) -> List[dict]:
         """Non-recurring local events pending push to Outlook (created or edited)."""
+        return self.get_dirty_synced_events("outlook")
+
+    def get_dirty_synced_events(self, source: str) -> List[dict]:
+        """Non-recurring events pending push to *source* ('outlook' | 'google').
+        A row with an empty external_id has never reached the service — the
+        push CREATES it there."""
         with self._conn() as conn:
             rows = conn.execute(
-                "SELECT * FROM events WHERE source = 'outlook' "
-                "AND sync_dirty = 1 AND series_id IS NULL"
+                "SELECT * FROM events WHERE source = ? "
+                "AND sync_dirty = 1 AND series_id IS NULL", (source,)
             ).fetchall()
         return [dict(r) for r in rows]
 
-    def clear_sync_dirty(self, event_id: int) -> None:
+    def clear_sync_dirty(self, event_id: int, if_updated_at: Optional[str] = None) -> None:
+        """Mark a row pushed. With *if_updated_at*, only when nobody edited it
+        while the push was in flight — otherwise that edit would never go out."""
         with self._conn() as conn:
-            conn.execute("UPDATE events SET sync_dirty = 0 WHERE id = ?", (event_id,))
+            if if_updated_at is None:
+                conn.execute("UPDATE events SET sync_dirty = 0 WHERE id = ?", (event_id,))
+            else:
+                conn.execute("UPDATE events SET sync_dirty = 0 WHERE id = ? AND updated_at = ?",
+                             (event_id, if_updated_at))
+
+    def mark_for_push(self, event_id: int, source: str) -> bool:
+        """Mirror a plain local event to *source*: the next sync creates it
+        there and it becomes a two-way row. Only for a local, non-series event
+        that is not already synced anywhere. Returns whether it was marked."""
+        if source not in TWO_WAY_SOURCES:
+            return False
+        with self._conn() as conn:
+            cur = conn.execute(
+                "UPDATE events SET source = ?, external_source = ?, external_id = '', "
+                "sync_dirty = 1, updated_at = ? WHERE id = ? AND source = 'local' "
+                "AND external_source = '' AND series_id IS NULL",
+                (source, source, _utcnow_iso(), event_id))
+            return cur.rowcount > 0
+
+    def mark_new_local_events_for_push(self, source: str, since: str) -> int:
+        """`mark_for_push` for every eligible local event created at or after
+        *since* (UTC ISO) — the `mirror_new_events` switch. Events that existed
+        before the connection are never swept up."""
+        if source not in TWO_WAY_SOURCES or not since:
+            return 0
+        # events.created_at is LOCAL naive time (add_event), `since` is UTC.
+        try:
+            since = (datetime.datetime.fromisoformat(since)
+                     .astimezone().replace(tzinfo=None).isoformat())
+        except ValueError:
+            return 0
+        with self._conn() as conn:
+            cur = conn.execute(
+                "UPDATE events SET source = ?, external_source = ?, external_id = '', "
+                "sync_dirty = 1 WHERE source = 'local' AND external_source = '' "
+                "AND series_id IS NULL AND created_at >= ?",
+                (source, source, since))
+            return cur.rowcount
+
+    def detach_from_remote(self, event_id: int) -> None:
+        """The remote copy is gone but the local edit is newer: forget the
+        remote id and keep the row dirty, so the next push re-creates it."""
+        with self._conn() as conn:
+            conn.execute("UPDATE events SET external_id = '', sync_dirty = 1 WHERE id = ?",
+                         (event_id,))
+
+    def delete_external_event(self, external_source: str, external_id: str) -> int:
+        """Remove a synced row because the SERVICE deleted it — no tombstone,
+        unlike `delete_event`, which would echo the delete back."""
+        with self._conn() as conn:
+            cur = conn.execute(
+                "DELETE FROM events WHERE external_source = ? AND external_id = ?",
+                (external_source, external_id))
+            return cur.rowcount
+
+    def release_synced_events(self, external_source: str, keep: bool) -> int:
+        """On disconnect: keep the synced rows as plain local events, or remove
+        them. Queued tombstones for that service are dropped either way."""
+        with self._conn() as conn:
+            conn.execute("DELETE FROM calendar_sync_deletes WHERE external_source = ?",
+                         (external_source,))
+            if keep:
+                cur = conn.execute(
+                    "UPDATE events SET source = 'local', external_source = '', "
+                    "external_id = '', sync_dirty = 0 WHERE external_source = ?",
+                    (external_source,))
+            else:
+                cur = conn.execute("DELETE FROM events WHERE external_source = ?",
+                                   (external_source,))
+            return cur.rowcount
 
     def set_event_external_id(self, event_id: int, external_source: str, external_id: str) -> None:
         with self._conn() as conn:
             conn.execute(
                 "UPDATE events SET source = ?, external_source = ?, external_id = ?, "
                 "sync_dirty = 0 WHERE id = ?",
-                ("outlook" if external_source == "outlook" else "ics",
+                (_source_for(external_source),
                  external_source, external_id, event_id),
             )
 
-    def pop_sync_deletes(self) -> List[dict]:
-        """Return and clear all queued tombstones for the sync worker to push."""
+    def pop_sync_deletes(self, external_source: Optional[str] = None) -> List[dict]:
+        """Return and clear queued tombstones for the sync worker to push —
+        only *external_source*'s when given. Each provider pops its OWN: popping
+        all of them meant the first provider to drain the queue silently
+        dropped every other provider's deletes."""
         with self._conn() as conn:
-            rows = conn.execute("SELECT * FROM calendar_sync_deletes").fetchall()
-            conn.execute("DELETE FROM calendar_sync_deletes")
+            if external_source is None:
+                rows = conn.execute("SELECT * FROM calendar_sync_deletes").fetchall()
+                conn.execute("DELETE FROM calendar_sync_deletes")
+            else:
+                rows = conn.execute("SELECT * FROM calendar_sync_deletes WHERE external_source = ?",
+                                    (external_source,)).fetchall()
+                conn.execute("DELETE FROM calendar_sync_deletes WHERE external_source = ?",
+                             (external_source,))
         return [dict(r) for r in rows]
 
     def requeue_sync_delete(self, external_source: str, external_id: str) -> None:

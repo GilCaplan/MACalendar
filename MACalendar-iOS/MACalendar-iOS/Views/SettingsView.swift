@@ -346,6 +346,28 @@ struct SettingsView: View {
                         .padding(.top, 4)
                     }
 
+                    // MARK: Connected Calendars
+                    //
+                    // Google / Outlook two-way and read-only iCal links (Gil,
+                    // 2026-09-24). The Mac holds the sign-ins and runs the
+                    // sync; this screen, like the Mac's, only starts a
+                    // connection and shows how it is going.
+                    CollapsibleSection("Connected Calendars", systemImage: "calendar.badge.plus", key: "calendars") {
+                        NavigationLink {
+                            ConnectedCalendarsView()
+                        } label: {
+                            HStack {
+                                Label("Google, Outlook & links", systemImage: "link")
+                                Spacer()
+                                Text("Sync automatically")
+                                    .font(.caption).foregroundColor(.secondary)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+
                     // MARK: Tabs
                     //
                     // ONE loop over the registry, not five hand-written toggles:

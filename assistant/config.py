@@ -372,6 +372,35 @@ class JudeConfig(BaseModel):
     priority: str = "background"
 
 
+class CalendarSyncConfig(BaseModel):
+    """The brain's periodic sync of connected calendars (ICS links, Outlook,
+    Google). Runs in `assistant.api`, so it keeps going with the calendar window
+    closed. Nothing is contacted unless a source is actually connected — hosted
+    calendar sync is the one documented OPT-IN exception to "never touches the
+    internet" (DOCUMENTATION/CALENDAR_SYNC.md)."""
+    enabled: bool = True
+    interval_minutes: int = 15
+
+
+class GoogleCalendarConfig(BaseModel):
+    """Google Calendar two-way sync. OFF until credentials exist: with no
+    Desktop client JSON at `client_secret_path` and no `ios_client_id`, every
+    surface reports "set-up needed" and the sync never calls Google.
+    See DOCUMENTATION/CALENDAR_SYNC.md for creating both clients."""
+    enabled: bool = True
+    # The "Desktop app" OAuth client JSON downloaded from Google Cloud. Signing
+    # in FROM THE MAC uses it (loopback redirect to 127.0.0.1).
+    client_secret_path: str = "~/.assistant_tools/google_client_secret.json"
+    # An "iOS" OAuth client (bundle id com.macalendar.app). Signing in FROM THE
+    # PHONE uses it; iOS clients have no secret.
+    ios_client_id: str = ""
+    calendar_id: str = "primary"
+    # Push plain local events created after connecting up to Google as well.
+    # Off: only events that came FROM Google (or that you mirror one by one)
+    # are pushed back.
+    mirror_new_events: bool = False
+
+
 class AppConfig(BaseModel):
     hotkey: HotkeyConfig
     stt_engine: Literal["whisper", "mlx", "google"] = "whisper"
@@ -384,6 +413,8 @@ class AppConfig(BaseModel):
     gemini: GeminiConfig = GeminiConfig()
     claude: ClaudeConfig = ClaudeConfig()
     microsoft: Optional[MicrosoftConfig] = None
+    calendar_sync: CalendarSyncConfig = CalendarSyncConfig()
+    google_calendar: GoogleCalendarConfig = GoogleCalendarConfig()
     confirmation_level: int = 1
     # Background LLM re-check of rule-parser results. OFF by default: across four
     # audit runs it proposed a correction on ~96% of commands and fixed none

@@ -21,7 +21,11 @@ class MSALAuth:
 
     def __init__(self, config: MicrosoftConfig) -> None:
         self.config = config
-        self.cache_path = os.path.expanduser(config.token_cache_path)
+        # MACALENDAR_MSAL_CACHE redirects the token cache like every other
+        # personal store (tests/conftest.py scratches it): a suite exercising
+        # the connect flow must never read or wipe the real sign-in.
+        self.cache_path = os.path.expanduser(
+            os.environ.get("MACALENDAR_MSAL_CACHE") or config.token_cache_path)
         self._cache = msal.SerializableTokenCache()
 
         if os.path.exists(self.cache_path):
@@ -50,6 +54,18 @@ class MSALAuth:
             "Microsoft token expired or missing. "
             "Run `python scripts/setup_auth.py` or use the Re-authenticate menu item."
         )
+
+    def account_name(self) -> str:
+        """The signed-in account's username (e-mail), or "" when none."""
+        accounts = self._app.get_accounts()
+        return (accounts[0].get("username") or "") if accounts else ""
+
+    def sign_out(self) -> None:
+        """Forget the cached sign-in (Disconnect)."""
+        if os.path.exists(self.cache_path):
+            os.remove(self.cache_path)
+        self._cache = msal.SerializableTokenCache()
+        self._app.token_cache = self._cache
 
     def start_device_flow(self) -> dict:
         """

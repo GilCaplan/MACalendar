@@ -123,12 +123,13 @@ class EventDialog(QDialog):
             banner_text = _styles.D_GRAY_TEXT if _styles._dark else GRAY_TEXT
             banner.setStyleSheet(f"color: {banner_text}; font-size: 12px; padding-bottom: 4px;")
             layout.addWidget(banner)
-        elif source == "outlook":
+        elif source in ("outlook", "google"):
+            name = "Outlook" if source == "outlook" else "Google Calendar"
             if self._read_only:
-                text = ("🔗 Synced from Outlook — read-only. Turn on two-way sync in "
+                text = (f"🔗 Synced from {name} — read-only. Turn on two-way sync in "
                         "Connected Calendars to edit this event.")
             else:
-                text = "🔗 Synced with Outlook — edits are pushed back automatically."
+                text = f"🔗 Synced with {name} — edits are pushed back automatically."
             banner = QLabel(text)
             banner.setWordWrap(True)
             banner_text = _styles.D_GRAY_TEXT if _styles._dark else GRAY_TEXT

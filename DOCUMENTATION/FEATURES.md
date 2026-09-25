@@ -89,7 +89,7 @@ still queues exactly as before.
 | backend | [Hebrew calendar & observance](#hebrew-calendar--observance) | sundown-bounded halachic windows; series skip, one-offs flagged | `observance.py`, `hebrew_calendar.py` |
 | backend | [Recurring events](#recurring-events) | daily/weekly/monthly/yearly, several weekdays, announced rounding | `db.py`, `decompose_validate/resolve.py` |
 | backend | [API server](#the-api-server) | the single front door, 126 endpoints | `api/server.py` |
-| backend | [Hosted calendar sync](#hosted-calendar-sync) | optional Outlook two-way / ICS read | `calendar_sync/` |
+| backend | [Hosted calendar sync](#hosted-calendar-sync) | optional Google & Outlook two-way / ICS read, synced by the brain | `calendar_sync/` |
 | backend | [Self-improvement loop](#the-self-improvement-loop) | the AI measures & improves itself | `dataset/`, `scripts/` |
 | backend | [Diagnostics & logs](#diagnostics--self-observation-logs) | NLU tracking, LLM-judge bug log, audit, calibration | `scripts/` |
 | backend | [Explainer pages](#published-explainer-pages) | public pages, build-enforced claims | `artifacts/*.html` |
@@ -461,14 +461,21 @@ covered under **Tag discovery** above — the review/reverse/hide record.
 ### Calendar import & connected calendars
 **What:** Import events from an `.ics` file or scan macOS Calendar.app;
 subscribe read-only to any ICS/webcal link (Gmail, iCloud, Outlook.com…);
-optional Outlook **two-way** sync via device-code OAuth, with Sync Now and a
-15-minute background sync.
-**Where:** Mac toolbar Import + Connected Calendars dialogs
-(`calendar_ui/window.py`); `assistant/calendar_sync/outlook_sync.py`,
-`actions/calendar/graph_client.py`; `calendar_sources` table.
-**How:** Synced rows are marked by source; ICS rows render read-only with a
-banner; Outlook dirty-row preservation protects local edits while two-way is
-off.
+connect **Google Calendar** or **Outlook** two-way from **Settings → Connected
+Calendars on the Mac AND the iPhone** — connect, account + last sync + error,
+two-way switch, disconnect (keep or remove the synced events), Sync now. A
+"set-up needed — see steps" state until the one-time client registration
+exists (`DOCUMENTATION/CALENDAR_SYNC.md`, click by click).
+**Where:** Mac `calendar_ui/connected_calendars.py` (in Settings and the
+toolbar's Connected Calendars dialog, which also lists ICS links); iOS
+`Views/ConnectedCalendarsView.swift` (Settings → Connected Calendars);
+brain `assistant/calendar_sync/` (see Hosted calendar sync).
+**How:** Both apps are clients of `/calendar_sync/*`; the brain holds the
+tokens. Sign-in: Outlook by device code (same on both); Google by
+authorization code + PKCE — a loopback listener on 127.0.0.1 for the Mac's
+Desktop client, `ASWebAuthenticationSession` + the iOS client on the phone,
+which posts the code back for the brain to exchange. Synced rows are marked
+by source; ICS rows render read-only with a banner.
 
 ### Workout & training scheduling
 **What:** Workout templates, live sessions with set logging, stats, and an
@@ -1307,12 +1314,27 @@ binds Tailscale with `--tailscale`. Colour-coded logs
 (`api/log_color.py`, see `DOCUMENTATION/LOGGING.md`).
 
 ### Hosted calendar sync
-**What:** Optional two-way Outlook sync and read-only ICS subscriptions —
-supported, not required; the default posture is fully local.
-**Where:** `assistant/calendar_sync/outlook_sync.py`,
-`actions/calendar/graph_client.py`; `calendar_sources` table.
-**How:** Dirty-row preservation when two-way is off; ICS rows are locked
-read-only.
+**What:** Optional two-way Google and Outlook sync and read-only ICS
+subscriptions — supported, not required; the default posture is fully local
+(nothing is contacted until a source is connected). Runs **in the brain** every
+`calendar_sync.interval_minutes` (15), so it keeps syncing with the calendar
+window closed — until 2026-09-24 it was a QTimer in the Mac window.
+**Where:** `assistant/calendar_sync/` — `scheduler.py` (the loop, started by one
+line in `create_app`, never under `MACALENDAR_NO_WARMUP`; `sync_now` shared by
+the loop and every Sync-now button), `google_sync.py` + `google_client.py` +
+`google_oauth.py`, `outlook_sync.py` + `actions/calendar/graph_client.py`,
+`ics_subscription.py`, `connect.py` (flows/status/disconnect), `routes.py`;
+`calendar_sources` (+ `last_error`, `account`, `sync_token`),
+`calendar_sync_deletes`, `events.source/sync_dirty/updated_at`.
+**How:** Google pulls incrementally with a `syncToken` (410 → full re-list,
+which reconciles upstream deletes) and pushes dirty rows (PATCH, or INSERT for
+a mirrored local event) plus its own tombstones; last-write-wins on UTC
+`updated_at` vs Google's `updated`, and a remote delete of an event edited
+since re-creates it. Each provider pops only ITS tombstones — popping all of
+them let Outlook's push silently drop any other provider's deletes. Tokens
+(`MACALENDAR_GOOGLE_TOKEN`, `MACALENDAR_MSAL_CACHE`) and the Google client JSON
+(`MACALENDAR_GOOGLE_CLIENT_SECRET`) are redirected by `tests/conftest.py`;
+`tests/unit/test_calendar_sync.py` mocks every Google call.
 
 ### The self-improvement loop
 **What:** The AI system improves itself: measure against a 3,000-utterance

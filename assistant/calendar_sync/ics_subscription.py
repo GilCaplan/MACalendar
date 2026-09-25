@@ -68,8 +68,10 @@ def sync_all_ics_sources(db: CalendarDB) -> tuple[int, int, list[str]]:
             kept, removed = sync_ics_source(db, source)
             total_kept += kept
             total_removed += removed
-            db.update_calendar_source(source["id"], last_synced=_utcnow_iso())
+            db.update_calendar_source(source["id"], last_synced=_utcnow_iso(), last_error="")
         except Exception as e:
             logger.exception("ICS subscription refresh failed for source %s", source["id"])
-            errors.append(f"{source.get('label') or source['url']}: {e}")
+            message = f"{source.get('label') or source['url']}: {e}"
+            errors.append(message)
+            db.update_calendar_source(source["id"], last_error=message)
     return total_kept, total_removed, errors

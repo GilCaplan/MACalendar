@@ -1472,11 +1472,14 @@ def create_app() -> Flask:
     _features.register(app)
 
     # ------------------------------------------------------------------
-    # Connected calendars (ICS subscriptions + Outlook two-way sync)
+    # Connected calendars (ICS subscriptions, Outlook and Google two-way)
     # ------------------------------------------------------------------
-    # Note: this is a view/manage surface for sources — the Outlook OAuth
-    # device-code flow itself is a Mac-only UI (Connected Calendars dialog),
-    # since it requires an interactive browser sign-in.
+    # The CRUD for source rows is below. Signing in, status, disconnect and
+    # "sync now" are `/calendar_sync/*`, and the periodic sync is a thread the
+    # brain owns (so it runs with the calendar window closed) — both live in
+    # assistant/calendar_sync/, mounted by this one line.
+    from assistant.calendar_sync import routes as _calendar_sync
+    _calendar_sync.register(app, background=not _no_bg and not _is_reload_watcher)
 
     @app.get("/calendar_sources")
     def calendar_sources_list():

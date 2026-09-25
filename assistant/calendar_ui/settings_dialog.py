@@ -649,6 +649,21 @@ def open_settings(self) -> None:
     for btn in (vocab_btn, lexicon_btn, review_btn, colors_btn, tips_btn):
         assistant.addWidget(btn)
 
+    # ── Connected Calendars ───────────────────────────────────────
+    # Google / Outlook two-way and the read-only ICS links. The phone has the
+    # same section; both only start a sign-in and show status — the brain
+    # holds the tokens and runs the sync (assistant/calendar_sync/).
+    calendars = section("Connected Calendars")
+    calendars.addWidget(hint(
+        "Keep Google or Outlook in step with this calendar automatically. "
+        "Each needs a one-time free client registration — “Set-up steps…” "
+        "walks through it."))
+    from assistant.calendar_ui.connected_calendars import ConnectedCalendarsSection
+    calendars.addWidget(ConnectedCalendarsSection(
+        dialog, self._config, toast=self.show_toast,
+        on_links=getattr(self, "_on_connected_calendars", None),
+        on_synced=self.refresh_calendar))
+
     layout.addStretch(1)
     # Test & Save
     btn_layout = QHBoxLayout()

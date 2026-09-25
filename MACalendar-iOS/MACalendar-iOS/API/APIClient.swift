@@ -1793,6 +1793,75 @@ class APIClient: ObservableObject {
         return try decode(FeatureManifest.self, from: data)
     }
 
+    // MARK: - Connected calendars
+    //
+    // The Mac holds every sign-in and runs the sync (assistant/calendar_sync/);
+    // the phone only STARTS a connection and SHOWS its state. So none of these
+    // queue: a sign-in, a disconnect or a "sync now" replayed an hour later is
+    // a different request from the one asked for (see NOT_QUEUEABLE in
+    // tests/unit/test_ios_offline.py). Toggling two-way and removing a link are
+    // ordinary writes, and those do queue.
+
+    private func decodeSnake<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(type, from: data)
+    }
+
+    func calendarSyncStatus() async throws -> CalendarSyncStatus {
+        try decodeSnake(CalendarSyncStatus.self, from: try await request("/calendar_sync/status"))
+    }
+
+    /// Google answers with an auth URL for ASWebAuthenticationSession; Outlook
+    /// with a device code for microsoft.com/devicelogin.
+    func startCalendarConnect(provider: String) async throws -> CalendarFlow {
+        let body: [String: Any] = provider == "google" ? ["platform": "ios"] : [:]
+        return try decodeSnake(CalendarFlow.self, from: try await request(
+            "/calendar_sync/\(provider)/start", method: "POST", body: body))
+    }
+
+    /// Hand the Mac the redirect Google sent back; it exchanges the code with
+    /// the PKCE verifier it kept, and stores the tokens.
+    func completeGoogleConnect(flowID: String, callbackURL: String) async throws -> CalendarFlow {
+        try decodeSnake(CalendarFlow.self, from: try await request(
+            "/calendar_sync/google/complete", method: "POST",
+            body: ["flow_id": flowID, "callback_url": callbackURL]))
+    }
+
+    func calendarFlow(id: String) async throws -> CalendarFlow {
+        try decodeSnake(CalendarFlow.self, from: try await request("/calendar_sync/flows/\(id)"))
+    }
+
+    func disconnectCalendar(provider: String, keepEvents: Bool) async throws {
+        _ = try await request("/calendar_sync/\(provider)/disconnect", method: "POST",
+                              body: ["keep_events": keepEvents])
+    }
+
+    func syncCalendarsNow() async throws {
+        _ = try await request("/calendar_sync/sync", method: "POST", body: [:])
+    }
+
+    /// One-time set-up from the phone: paste a client id.
+    func saveCalendarClientID(outlook: String? = nil, googleIOS: String? = nil) async throws {
+        var body: [String: Any] = [:]
+        if let outlook { body["outlook_client_id"] = outlook }
+        if let googleIOS { body["google_ios_client_id"] = googleIOS }
+        _ = try await request("/calendar_sync/setup", method: "PUT", body: body)
+    }
+
+    func addCalendarSubscription(label: String, url: String) async throws {
+        _ = try await request("/calendar_sources", method: "POST",
+                              body: ["kind": "ics_url", "label": label, "url": url])
+    }
+
+    func removeCalendarSubscription(id: Int) async throws {
+        try await mutate("/calendar_sources/\(id)", method: "DELETE")
+    }
+
+    func setCalendarTwoWay(sourceID: Int, on: Bool) async throws {
+        try await mutate("/calendar_sources/\(sourceID)", method: "PATCH", body: ["two_way": on ? 1 : 0])
+    }
+
     // MARK: - Event categories
 
     func categories() async throws -> [EventCategory] {

@@ -251,3 +251,26 @@ jude:
                                    # calls queue with everything else. NOT ollama's own port.
   priority: background             # background = Jude YIELDS the model to your voice commands.
                                    # "live" makes it race them instead — see ollama_gate.py.
+
+# Connected calendars (OPT-IN - the one documented exception to "never touches
+# the internet"). The brain (assistant.api) refreshes every connected source on
+# this interval, calendar window open or not. Nothing is contacted until you
+# connect something: Settings -> Connected Calendars, on the Mac or the phone.
+# Step-by-step set-up: DOCUMENTATION/CALENDAR_SYNC.md
+calendar_sync:
+  enabled: true
+  interval_minutes: 15
+
+# Google Calendar two-way. Off until a client exists - see CALENDAR_SYNC.md.
+google_calendar:
+  client_secret_path: "~/.assistant_tools/google_client_secret.json"  # Desktop client JSON (Mac sign-in)
+  ios_client_id: ""              # iOS client id (phone sign-in), e.g. 1234-abc.apps.googleusercontent.com
+  calendar_id: "primary"
+  mirror_new_events: false       # true = also push new local events up to Google
+
+# Outlook two-way (Microsoft Graph). Uncomment once you have registered a free
+# app in Entra - see CALENDAR_SYNC.md. The client id can also be pasted in
+# Settings -> Connected Calendars -> Set up.
+# microsoft:
+#   client_id: "00000000-0000-0000-0000-000000000000"
+#   tenant_id: "common"
