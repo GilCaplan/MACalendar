@@ -209,13 +209,14 @@ class CalendarIntent(BaseIntent):
             try:
                 from assistant import event_defaults
                 length = event_defaults.length_minutes(event_defaults.category_of(self.title))
-                h, m = map(int, self.start_time.split(":"))
-                end_min = h * 60 + m + length
+                from assistant.common.timeutil import to_minutes
+                end_min = to_minutes(self.start_time) + length
                 # Cap at end of day
                 if end_min >= 24 * 60:
                     self.end_time = "23:59"
                 else:
-                    self.end_time = f"{end_min // 60:02d}:{end_min % 60:02d}"
+                    from assistant.common.timeutil import to_hhmm
+                    self.end_time = to_hhmm(end_min)
             except Exception:
                 # If start_time was mangled, just mirror it
                 self.end_time = self.start_time

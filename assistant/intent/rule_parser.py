@@ -2909,7 +2909,8 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
                                       str(slots["match_start_time"]).split(":")[:2])
                             total = sh * 60 + sm + minutes
                             if 0 < total < 24 * 60:
-                                slots["new_end_time"] = f"{total // 60:02d}:{total % 60:02d}"
+                                from assistant.common.timeutil import to_hhmm
+                                slots["new_end_time"] = to_hhmm(total)
                         except (ValueError, TypeError):
                             pass
         else:

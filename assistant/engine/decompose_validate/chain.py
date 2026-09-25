@@ -40,13 +40,8 @@ _AFTER_NAMED = re.compile(
 _DAY_KINDS = {"date", "range"}
 
 
-def _minutes(hhmm: str) -> int:
-    h, m = (int(x) for x in hhmm.split(":")[:2])
-    return h * 60 + m
-
-
-def _hhmm(total: int) -> str:
-    return f"{total // 60:02d}:{total % 60:02d}"
+from assistant.common.timeutil import to_hhmm as _hhmm      # noqa: E402
+from assistant.common.timeutil import to_minutes as _minutes  # noqa: E402
 
 
 def _names_a_day(source: str) -> bool:

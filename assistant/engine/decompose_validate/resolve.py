@@ -855,9 +855,8 @@ def resolve(said: str, anchor: dt.date, context: str = "",
     if action and out["start_time"] and not out["end_time"]:
         mins = resolve_duration(action)
         if mins:
-            h, mi = (int(x) for x in out["start_time"].split(":"))
-            total = h * 60 + mi + mins
-            out["end_time"] = f"{total // 60 % 24:02d}:{total % 60:02d}"
+            from assistant.common.timeutil import to_hhmm, to_minutes, wrap_day
+            out["end_time"] = to_hhmm(wrap_day(to_minutes(out["start_time"]) + mins))
 
     # THE DATE FLOOR — segmentation's rule, applied identically here so the two
     # stages cannot disagree about it: the day defaults to today, the clock is

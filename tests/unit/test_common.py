@@ -19,3 +19,11 @@ def test_months_one_based_with_abbreviations_and_sept():
     assert W.MONTH_INDEX["january"] == 1 and W.MONTH_INDEX["december"] == 12 and len(W.MONTH_INDEX) == 12
     assert W.MONTH_ABBR_INDEX["oct"] == 10 and W.MONTH_ABBR_INDEX["sept"] == 9 and W.MONTH_ABBR_INDEX["may"] == 5
     assert len(W.MONTH_ABBR_INDEX) == 12 + 11 + 1        # "may" is its own abbreviation
+
+
+def test_clock_arithmetic_and_the_two_edge_policies():
+    from assistant.common.timeutil import clamp_day, to_hhmm, to_minutes, wrap_day
+    assert to_minutes("14:30") == 870 and to_minutes("09:05:59") == 545
+    assert to_hhmm(870) == "14:30" and to_hhmm(0) == "00:00"
+    assert to_hhmm(wrap_day(23 * 60 + 30 + 60)) == "00:30"      # the next day's clock
+    assert to_hhmm(clamp_day(23 * 60 + 30 + 60)) == "23:59"     # the day's last minute

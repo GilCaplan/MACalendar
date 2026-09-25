@@ -168,8 +168,8 @@ class UpdateEventAction(BaseAction):
                 duration_min = (orig_eh * 60 + orig_em) - (orig_sh * 60 + orig_sm)
                 if duration_min > 0:
                     new_sh, new_sm = map(int, updates["start_time"].split(":"))
-                    end_min = min(new_sh * 60 + new_sm + duration_min, 23 * 60 + 59)
-                    updates["end_time"] = f"{end_min // 60:02d}:{end_min % 60:02d}"
+                    from assistant.common.timeutil import clamp_day, to_hhmm
+                    updates["end_time"] = to_hhmm(clamp_day(new_sh * 60 + new_sm + duration_min))
             except Exception:
                 pass
 

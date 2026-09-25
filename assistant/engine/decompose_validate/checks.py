@@ -209,9 +209,8 @@ def end_after_start(item, said, transcript, anchor, fixes, flags):
     # a two-hour dinner. Carried from `_rule_at_time_is_start`, which this
     # replaced: an "at" time sets the start and the end gets the default length.
     if any(f.field == "start_time" for f in fixes):
-        h0, mi0 = (int(x) for x in start.split(":"))
-        total = h0 * 60 + mi0 + DEFAULT_MINUTES
-        fresh = f"{total // 60 % 24:02d}:{total % 60:02d}"
+        from assistant.common.timeutil import to_hhmm, to_minutes, wrap_day
+        fresh = to_hhmm(wrap_day(to_minutes(start) + DEFAULT_MINUTES))
         fixes.append(Fix("end_after_start", "end_time", end, fresh,
                          "the start moved, so the old end no longer describes it"))
         item["end_time"] = fresh
