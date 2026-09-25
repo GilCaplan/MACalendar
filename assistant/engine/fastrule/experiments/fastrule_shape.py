@@ -48,7 +48,31 @@ _CLOCK = _dt.datetime(2026, 9, 9, 10, 0)
 #: RECOGNISED the compound, rather than tripping over it by luck
 _ATOMICITY_REASONS = {"strong-compound", "clause-coordination", "mixed-mode-compound", "model-compound"}
 
-from assistant.common.similarity import token_prf  # noqa: E402
+from assistant.common.similarity import token_prf, words  # noqa: E402
+
+#: Classes of words a built title carries that the gold does not, first match
+#: wins. "attendee" and "errand verb" are where the gold's own convention is
+#: split (some families keep them); the rest are defects.
+_LEAK_CLASSES = (
+    ("time residue", re.compile(r"^(?:\d+\w*|from|to|at|am|pm|before|after|every|other|"
+                                r"twice|daily|weekly|monthly|until|till|by|on|in|o'clock)$")),
+    ("attendee", re.compile(r"^with$")),
+    ("errand verb", re.compile(r"^(?:buy|grab|get|pick|up|purchase|order)$")),
+    ("speaker frame", re.compile(r"^(?:i|i've|we|have|need|needs|got|gotta|must|should|"
+                                 r"guess|remind|remember|me|please|ok|okay|add|book|"
+                                 r"schedule|put|set|make|create|note|mark|plan)$")),
+)
+
+
+def _leak_class(extra: set) -> str:
+    for name, pat in _LEAK_CLASSES:
+        if name == "attendee":
+            if "with" in extra:
+                return name
+        elif any(pat.match(w) for w in extra) and (
+                name != "errand verb" or all(pat.match(w) for w in extra)):
+            return name
+    return "other"
 from assistant.engine.fastrule.experiments.gold import (  # noqa: E402  pure gold converters
     CONTRADICTORY,
     _AFTERNOON,
@@ -122,6 +146,11 @@ def main() -> int:
     # should be a similarity rather than binary score"): mean word precision,
     # recall and F1, so "checkup" for "annual checkup" scores 0.67, not 0.
     T_P = T_R = T_F = 0.0
+    # WHAT LEAKED IN, by class — aggregate only, so it can be read on the TEST
+    # half too, where rows may never be looked at. A train/test precision gap
+    # is either a defect that did not generalise or a gold CONVENTION the test
+    # families keep differently (an errand verb, an attendee); this says which.
+    T_LEAK: collections.Counter = collections.Counter()
     HARM_BY: collections.Counter = collections.Counter()
     viol: collections.Counter = collections.Counter()
     miss_reason: collections.Counter = collections.Counter()
@@ -322,6 +351,9 @@ def main() -> int:
                     want_n = " ".join(want.lower().split())
                     got_n = " ".join(got.lower().split())
                     _p, _r, _f = token_prf(want_n, got_n)
+                    _extra = words(got_n) - words(want_n)
+                    if _extra:
+                        T_LEAK[_leak_class(_extra)] += 1
                     T_P += _p
                     T_R += _r
                     T_F += _f
@@ -385,6 +417,10 @@ def main() -> int:
               f"precision {100.0 * T_P / T_SCORED:.1f}% (words leaked in) · "
               f"recall {100.0 * T_R / T_SCORED:.1f}% (words cut)  (n={T_SCORED})")
         print(f"   exactly right            {pc(T_OK_EXACT, T_SCORED)}  (n={T_SCORED})")
+        if T_LEAK:
+            print("   leaked words, by class   "
+                  + " · ".join(f"{k} {pc(v, T_SCORED)}" for k, v in T_LEAK.most_common())
+                  + f"  (rows of n={T_SCORED})")
         print(f"   right or a substring of it {pc(T_CONTAINED, T_SCORED)}  "
               f"— the gap to exact is TRUNCATION, not a wrong name")
     if TITLE_N:
