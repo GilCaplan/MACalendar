@@ -1246,6 +1246,15 @@ def _extract_temporal(span_text: str, today: datetime.date,
             # command instead of falling back to the LLM.
             resolution = getattr(res, "resolution", None) or {}
             values = resolution.get("values", [])
+            # "ANNUAL" BEFORE A NOUN IS PART OF THE TITLE. The recogniser reads
+            # it as a yearly set and the span was cut out of the title:
+            # "annual checkup" was booked as 'checkup' (27 train rows of the
+            # FastRule set, 2026-09-25). A yearly SERIES is read from
+            # "annually" / "every year" / "yearly" by `recurrence.py`, never
+            # from this span, so leaving it unclaimed costs nothing.
+            if (res.text or "").strip().lower() == "annual" and \
+                    re.match(r"\s+[a-z]", span_text[res.end + 1:], re.I):
+                continue
             # A DAYPART IS A WINDOW, NOT A CLOCK. Read in order, "morning" in
             # "book morning pages tomorrow at 7am" set 08:00-12:00 first and the
             # stated 7am was then refused as a second start — the title's word

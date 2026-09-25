@@ -796,24 +796,21 @@ class TestSubtractiveTitle:
     def test_the_cadence_word_is_not_part_of_the_title(self):
         assert self._title("book open house every monday at ten thirty") == "open house"
 
-    def test_a_temporal_over_claim_upstream_takes_the_word_with_it(self):
-        """Not a defect in subtraction — a defect it makes VISIBLE, filed in
-        TASKS.md.
-
-        "book annual checkup monthly at 8:30pm" titles itself "checkup", because
-        `_extract_temporal` claims the span of "annual" as a date. Subtraction
-        removes what the temporal reader took, faithfully, so an over-claim
-        upstream now costs a word in the title where the old chunk reader would
-        have kept it by accident. Pinned so that narrowing the recogniser's claim
-        shows up here as a change rather than a surprise.
+    def test_annual_before_a_noun_stays_in_the_title(self):
+        """Subtraction removes what the temporal reader took, faithfully — so
+        when the recogniser claimed "annual" as a yearly SET, "book annual
+        checkup monthly at 8:30pm" titled itself "checkup" (27 rows of the
+        FastRule train half). The reader now leaves "annual" before a noun
+        unclaimed (2026-09-25); a yearly series is read from "annually" /
+        "every year" / "yearly", never from this span, so the cadence is
+        untouched.
         """
         from assistant.intent import rule_parser as rp
         rp._ensure_nlp(); rp._ensure_dt()
         text = "book annual checkup monthly at 8:30pm"
         spans = rp._extract_temporal(text, self.WED)["spans"]
-        assert any(text[a:b] == "annual" for a, b in spans), \
-            "the premise changed: the temporal reader no longer claims 'annual'"
-        assert self._title(text) == "checkup"
+        assert not any(text[a:b] == "annual" for a, b in spans)
+        assert self._title(text) == "annual checkup"
 
     def test_the_stop_keyword_and_destination_go(self):
         assert self._title("put sales call on my calendar tomorrow, execute") \
