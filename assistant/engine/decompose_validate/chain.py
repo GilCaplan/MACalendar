@@ -106,6 +106,9 @@ def chain(items: list, dicts: list) -> list:
     for i in range(1, len(items)):
         item, d = items[i], dicts[i]
         rel = getattr(item, "relation", None) or {}
+        if rel.get("kind") == "sequence":
+            # "…then FINALLY gym": the word orders the sequence, it is not the title.
+            item.text = re.sub(r"^\s*(?:finally|lastly)\b,?\s*", "", item.text, flags=re.I) or item.text
         anchored = _anchor_by_name(i, items)
         if rel.get("kind") != "sequence" and not anchored:
             continue

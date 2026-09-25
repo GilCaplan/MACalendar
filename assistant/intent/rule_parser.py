@@ -919,6 +919,24 @@ _RENAME_RE = re.compile(
 _SAID_MERIDIEM = re.compile(r"\b(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s?m\.?\b", re.I)
 
 
+#: A DOT CLOCK — "6.30am", "at 7.15" — the way a transcript often writes the
+#: minutes. The recogniser reads the colon form and drops the dot form's
+#: minutes: "tomorrow at 6.30" came out 18:00, "tomorrow morning at 6.30am"
+#: 06:00 (Gil's real command id 213; FastRule board, 2026-09-25). Only a clock
+#: in a time context is rewritten — followed by am/pm, or after a time
+#: preposition — so "2.5 hours" and "$5.99" are never read as clocks. The
+#: rewrite is one character for one, so every span offset stays valid.
+_DOT_CLOCK = re.compile(
+    r"(?:(?<=\bat\s)|(?<=\bfrom\s)|(?<=\bto\s)|(?<=\buntil\s)|(?<=\btill\s)|(?<=\bby\s)"
+    r"|(?<=\baround\s)|(?<=\babout\s))(\d{1,2})\.([0-5]\d)\b"
+    r"|\b(\d{1,2})\.([0-5]\d)(?=\s*[ap]\.?\s?m\b)", re.I)
+
+
+def _dot_clocks_to_colons(text: str) -> str:
+    return _DOT_CLOCK.sub(lambda m: f"{m.group(1) or m.group(3)}:{m.group(2) or m.group(4)}",
+                          text or "")
+
+
 _EIGHT_OCLOCK = re.compile(r"\b(?:8|eight)\s*o'?\s?clock\b", re.I)
 
 
@@ -1172,6 +1190,7 @@ def _extract_temporal(span_text: str, today: datetime.date,
       date, start_time, end_time, spans (list of (start_char, end_char) blocked)
       _source: "recognizer" | "regex_fallback"
     """
+    span_text = _dot_clocks_to_colons(span_text)
     result: dict = {
         "date": None,
         "start_time": None,

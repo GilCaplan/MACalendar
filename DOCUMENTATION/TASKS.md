@@ -1924,6 +1924,13 @@ no-split trap, gold task) still reads as a call.
    *Candidate:* a bare noun in a sequence or a list takes the create verb of
    the item it follows. That is FastRule-internal. Board it alone, on the
    sequence corpus plus FastRule's shape board.
-3. **The front door loses the minutes in "tomorrow morning at 6.30am"** (it
-   gives 06:00; the deep reader gives 06:30). Found on Gil's real command
-   id 213.
+3. ~~**The front door loses the minutes in "tomorrow morning at 6.30am"**~~
+   Fixed the same day (`rule_parser._dot_clocks_to_colons`). A dot clock in a
+   time context is rewritten to a colon, one character for one, so no span
+   offset moves; "2.5 hours" and "$5.99" are untouched. The FastRule board is
+   identical on both splits (that set holds no dot clocks). The evidence is
+   Gil's real command id 213 and the pinned shapes in
+   `test_front_door_time_half.py`.
+4. **"from 5:30 to 7:45" ends at 07:45** on the front door (colon or dot
+   alike), a range whose end is not moved into the afternoon with its start.
+   It predates today.

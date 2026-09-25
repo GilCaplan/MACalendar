@@ -21,7 +21,8 @@ import re
 #:   after that    — also after this / after tht / after dat; right / straight /
 #:                   just after that; and then after that
 #:   afterwards    — afterward / afterwords / after wards
-#:   after which · subsequently · finally (in "first … then … finally")
+#:   after which · subsequently · "and / then finally" (never a bare
+#:                   "finally": "mark it done, finally got to it" is an aside)
 #:   next up
 #:   once / when / as soon as (that's | it's | I'm) done / finished / over
 #:                   (with that) — the subject is required: "dinner when
@@ -33,7 +34,7 @@ SEQUENCE_WORDS = (
     r"(?:f[ao]l+o?w?e?d\s+by"
     r"|(?:and\s*|,\s*)th[ae]n|then"
     r"|after\s+(?:that|this|tht|dat)"
-    r"|after\s*w[ao]rds?|after\s+which|subsequently|(?:and\s+|then\s+)?finally|next\s+up"
+    r"|after\s*w[ao]rds?|after\s+which|subsequently|(?:and|then)\s+finally|next\s+up"
     r"|(?:once|when|as\s+soon\s+as)\s+(?:that|it|i)(?:'s|'m|\s+is|\s+am)?\s+"
     r"(?:done|finished|over)(?:\s+with\s+(?:that|it))?"
     r"|once\s+(?:done|finished)(?=\s*,))"

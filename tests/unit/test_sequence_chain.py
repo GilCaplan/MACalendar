@@ -116,3 +116,26 @@ def test_a_chained_todo_is_filed_as_both(tmp_path, monkeypatch):
     with db._conn() as conn:
         ev = conn.execute("SELECT id FROM events WHERE title = 'do the laundry'").fetchone()[0]
     assert db.linked_todo(ev)["title"] == "do the laundry"
+
+
+@pytest.mark.parametrize("text,parts", [
+    ("tomorrow walk the dog at 5 folowed by lunch", 2),        # misspelled, not fixed upstream
+    ("gym at 9 and afterwords coffee", 2),
+    ("gym at 9, than lunch", 2),
+    ("gym at 9, once that's done lunch", 2),
+    ("gym at 9 and when i'm done with that do the laundry", 2),
+    ("gym at 9 then then lunch", 2),
+    ("it costs more than 5 dollars", 1),                         # "than" alone is not a seam
+    ("dinner at 7 when finished work", 1),                       # a time, not a seam
+    ("mark wash the car as done, finally got to it", 1),         # an aside
+])
+def test_the_wording_and_its_misspellings(text, parts):
+    assert len(_run(text)) == parts
+
+
+def test_the_ordinal_words_leave_the_titles():
+    st = EngineState(raw_text="x", text="first walk the dog at 5, then finally gym", source="test")
+    st.text = st.raw_text = "first walk the dog at 5, then finally gym"
+    S.run(st, _CFG)
+    DV.resolve_values(st, DAY)
+    assert [i.text for i in st.items] == ["walk the dog", "gym"]
