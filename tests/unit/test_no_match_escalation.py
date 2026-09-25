@@ -42,6 +42,13 @@ def _model_reachable(monkeypatch):
     """
     import assistant.engine.llm as _llm
     monkeypatch.setattr(_llm, "is_reachable", lambda cfg=None: True)
+    # The recheck is skipped when the store holds nothing of the target's kind
+    # (`engine._has_candidates`, a real DB read). These tests fake the store
+    # through the registry, so they said "there are candidates" only when an
+    # EARLIER test had left a row behind — they failed run on their own
+    # (found 2026-09-24). Say it here.
+    import assistant.engine as _engine
+    monkeypatch.setattr(_engine, "_has_candidates", lambda item: True)
 
 
 SAID = "Walk Mark Stalk today at 230PM"

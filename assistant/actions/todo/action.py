@@ -71,8 +71,19 @@ def _find_todo(db, match_title: str) -> Optional[dict]:
 
     todos = db.get_todos(include_completed=True)
 
+    # THE WHOLE NAME FIRST, open tasks before done ones (2026-09-24): a task
+    # whose title IS the named words wins outright.
+    def _norm(t: str) -> str:
+        return " ".join(re.findall(r"\w+", (t or "").lower()))
+    whole = _norm(match_title)
+    exact = [t for t in todos if _norm(t["title"]) == whole]
+    if exact:
+        exact.sort(key=lambda t: (t.get("completed") or 0))
+        return exact[0]
+
     best_match = None
     best_score = 0
+    tied_titles: set = set()
 
     for todo in todos:
         title_words = _content_words(todo["title"]) - _STOP_WORDS
@@ -86,7 +97,16 @@ def _find_todo(db, match_title: str) -> Optional[dict]:
         if overlap > best_score:
             best_score = overlap
             best_match = todo
+            tied_titles = {_norm(todo["title"])}
+        elif overlap == best_score and overlap > 0:
+            tied_titles.add(_norm(todo["title"]))
 
+    # A TIE BETWEEN DIFFERENT TASKS IS NOT AN ANSWER (2026-09-24): "delete
+    # water the garden" reached here as "water", which 'water the plants' and
+    # 'water the garden' match equally — and the plants were deleted. Refusing
+    # ("I couldn't find") is the rule for anything that deletes or edits.
+    if best_score > 0 and len(tied_titles) > 1:
+        return None
     return best_match if best_score > 0 else None
 
 

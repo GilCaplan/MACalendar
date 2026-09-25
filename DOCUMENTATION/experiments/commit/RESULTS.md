@@ -30,3 +30,36 @@ plants from my tasks", "take book club off my calendar".
 (`_find_todo`, `_find_event`) take the best any-word overlap, so a target
 that is absent can match an unrelated item and delete or edit it. That is the
 harm class weighted 4, and it is independent of this lookup.
+
+## The matchers stop guessing (2026-09-24)
+
+**Stage: commit · the executors' title matchers** (`actions/calendar/action.
+_find_event`, `actions/todo/action._find_todo`). The board above counted a
+"decoy changed" on 35 train rows; split by what happened, **27 were a CREATE
+instead of a change** (a wrong operation — "add a note to …", "updat X on my
+list"), and **8 were an existing item edited or deleted in place of the one
+named** — the harm class weighted 4:
+
+- "delete water the garden from my list" deleted 'water the plants': the front
+  door handed over "water" (it cut the name), and two tasks tied on it.
+- "move team meeting to next friday" moved 'team standup': the generic-word
+  filter dropped "meeting", leaving "team", tied with the standup.
+- "cancel conference call in five days" DELETED 'team standup': "conference"
+  and "call" are both generic, so the matcher fell back to the first event on
+  that date.
+
+Two rules for both matchers: an item whose title IS the named words wins
+outright (on the named day when one was given), and a tie at the top between
+DIFFERENT titles is not an answer — "I couldn't find" is (series instances
+share a title and are not a tie).
+
+| cross_store_board · TRAIN · n=746 | before | after |
+|---|---|---|
+| right | 444 (59.5%) | **446 (59.8%)** |
+| an existing item wrongly edited/deleted | **8** | **0** |
+| created instead of changing | 27 | 27 |
+
+TEST (n=380): 142 right both; no wrong-target edit before or after (its 120
+"decoy" rows were all creates). The six "water the garden" rows are now "not
+found" rather than a wrong delete; they need the front door to hand over the
+whole name — the FastRule stage, next.

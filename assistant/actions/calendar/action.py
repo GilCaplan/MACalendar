@@ -429,6 +429,32 @@ def _find_event(db, match_title: str, match_date: Optional[str], match_start_tim
 
     today = dt.date.today().isoformat()
 
+    # THE WHOLE NAME FIRST (2026-09-24, the cross-store board). "move team
+    # meeting to next friday" moved 'team standup' and "cancel conference call
+    # in five days" DELETED 'team standup' while 'team meeting' / 'conference
+    # call' sat in the calendar: the generic-word filter below dropped
+    # "meeting", "conference", "call", and what was left tied with — or fell
+    # back to — another event. An event whose title IS the named words wins
+    # outright (on the named day when one was given, else the nearest).
+    def _norm(t: str) -> str:
+        return " ".join(re.findall(r"\w+", (t or "").lower()))
+    whole = _norm(match_title)
+    if whole:
+        with db._conn() as conn:
+            exact = [dict(r) for r in conn.execute(
+                "SELECT * FROM events ORDER BY ABS(julianday(date) - julianday(?)), start_time",
+                (match_date or today,)).fetchall() if _norm(r["title"]) == whole]
+        if match_date:
+            # A named day is part of the name: the gym on SUNDAY is not the
+            # gym on Monday ("naming something that is not on that day finds
+            # nothing", test_edit_targeting_by_name).
+            exact = [r for r in exact if r["date"] == match_date]
+        if match_start_time:
+            at = [r for r in exact if r.get("start_time") == match_start_time]
+            exact = at or exact
+        if exact:
+            return exact[0]
+
     # Strip stop words from the needle so common calendar words don't pollute scores.
     # Keep at least the full needle if stripping leaves nothing.
     raw_needle_words = set(re.findall(r'\w+', match_title.lower()))
@@ -506,11 +532,23 @@ def _find_event(db, match_title: str, match_date: Optional[str], match_start_tim
 
     best_match = None
     best_score = 0
+    tied_titles: set = set()
     for row_dict in rows:
         s = _score(row_dict)
         if s > best_score:
             best_score = s
             best_match = row_dict
+            tied_titles = {_norm(row_dict["title"])}
+        elif s == best_score and s > 0:
+            tied_titles.add(_norm(row_dict["title"]))
+
+    # A TIE BETWEEN DIFFERENT EVENTS IS NOT AN ANSWER. Instances of one series
+    # share a title and are not a tie; two different events scoring the same
+    # are, and picking the first is how a change landed on the wrong one.
+    # "I couldn't find" is the honest reply — the project's rule for anything
+    # that edits or deletes (CLAUDE.md: guessing is not an answer).
+    if best_match is not None and len(tied_titles) > 1 and not match_start_time:
+        return None
 
     # When the title search finds nothing but a date was given, fall back to the
     # first event on that date — but ONLY if nothing distinctive was named.

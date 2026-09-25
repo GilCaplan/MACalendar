@@ -40,6 +40,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", default="train", choices=("train", "test"))
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--show-wrong", type=int, default=0, help="TRAIN only: print this many decoy-changed rows")
     a = ap.parse_args()
 
     import datetime as dt
@@ -92,8 +93,14 @@ def main() -> int:
         tgt_ev = {i for i in ch_ev if is_target(ev0, i) or is_target(ev1, i)}
         tgt_td = {i for i in ch_td if is_target(td0, i) or is_target(td1, i)}
         decoys = (ch_ev - tgt_ev) | (ch_td - tgt_td)
+        # A row that did not exist before was CREATED — a wrong operation, not
+        # a wrong target. Only a decoy that existed and was edited or removed
+        # is the wrong-target harm.
+        edited = {i for i in (ch_ev - tgt_ev) if i in ev0} | {i for i in (ch_td - tgt_td) if i in td0}
+        if edited:
+            return "WRONG: an existing decoy was edited or deleted"
         if decoys:
-            return "WRONG: a decoy changed"
+            return "WRONG: created instead of changing"
         right_store = tgt_td if store == "todo" else tgt_ev
         if right_store:
             return "right"
@@ -102,7 +109,7 @@ def main() -> int:
         return "nothing changed"
 
     results = {"off": collections.Counter(), "on": collections.Counter()}
-    flips = collections.Counter(); shown = []
+    flips = collections.Counter(); shown = []; wrong_rows = []
     real_other = engine._other_store
     for row in rows:
         per = {}
@@ -116,6 +123,8 @@ def main() -> int:
                 pass
             per[arm] = score(row, before, snapshot())
             results[arm][per[arm]] += 1
+        if a.show_wrong and a.split == "train" and per["on"].startswith("WRONG") and len(wrong_rows) < a.show_wrong:
+            wrong_rows.append((row["text"][:80], row["expect"]["action"], row["expect"]["slots"]["title"], per["on"]))
         if per["off"] != per["on"]:
             flips[(per["off"], per["on"])] += 1
             if a.split == "train" and len(shown) < 12:
@@ -130,6 +139,8 @@ def main() -> int:
     print("  rows that changed (off -> on):", dict(flips))
     for s in shown:
         print("    ", s)
+    for w in wrong_rows:
+        print("  WRONG:", w)
     return 0
 
 
