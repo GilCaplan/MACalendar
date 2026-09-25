@@ -2109,13 +2109,31 @@ _FRAME_LEAD = re.compile(
     # what follows it (2026-09-24: 'note to pay the electricity bill' kept the
     # frame as its title).
     r"(?:\s*(?:(?:add|make|leave|write|take|jot)\s+(?:a\s+|me\s+a\s+)?(?:quick\s+)?note\s+to|note\s+to\s+self,?)\s+)?"
+    # THE CALENDAR-ENTRY SHELL (2026-09-25). "plan book club", "pencil in open
+    # house", "squeeze in piano lesson", "block out back up the laptop",
+    # "i'm free so book …", "label as moving day" — the verb that SAYS "put it
+    # on the calendar" stayed on the front of the name. 142 of the 1,795
+    # committed-create titles on the FastRule 7,200 TRAIN half began with one.
+    r"(?:\s*(?:i'?m\s+free\s+(?:\w+\s+)?so\s+|"
+    # "plan" only when no other frame verb follows it: stripping both made
+    # "plan book club" 'club'.
+    r"(?:plan(?!\s+(?:book|schedule|set|make|create|add|put|arrange)\b)|"
+    r"pencil\s+(?:me\s+)?in|squeeze\s+in|"
+    r"block\s+(?:out|off)(?:\s+(?:for|to))?|"
+    r"block\s+(?:out\s+)?(?:my\s+)?(?:whole\s+)?(?:calendar|day)\s+(?:for|to)|"
+    r"(?:mark(?!['\u2019]s)|label|note)(?!\s+(?:book|schedule|set|make|create|add|put|arrange)\b)"
+    r"(?:\s+(?:it\s+)?(?:down\s+)?as)?)\s+))?"
     r"(?:\s*(?:(?:send|give)\s+me\s+(?:an?\s+)?(?:reminder|alert)\s+"
     r"(?:to|about|of|for|that)|"
     r"set\s+(?:an?\s+)?(?:reminder|alert)\s+(?:to|about|of|for|that)|"
     r"remind\s+me\s+(?:to|about|of|when|that)|remind\s+me|remind|"
     r"set|create|make|add|book|schedule|put|arrange|organise|organize|"
     r"start|get|have)\b\s*)?"
-    r"(?:\s*(?:up|an|a|the|my|me|for me|for us)\b\s*)*",
+    r"(?:\s*(?:up|an|a|the|my|me|for me|for us)\b\s*)*"
+    # "create an EVENT FOR staff meeting", "book an APPOINTMENT FOR flu shot":
+    # the entry word is only scaffolding when "for" names the thing after it —
+    # "schedule a meeting with Harper" keeps its "meeting".
+    r"(?:(?:event|appointment|apointment|entry)\s+for\s+(?:the\s+|my\s+|a\s+)?)?",
     re.IGNORECASE)
 
 #: The framing verb is not always at the FRONT. "next week on monday on the 13th

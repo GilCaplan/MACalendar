@@ -327,3 +327,24 @@ def test_tomorrow_evening_stays_tomorrow(parser):
     result = parser.analyze("remind me to water the plants tomorrow evening", current_view="month")
     (_, intent), = result.intents
     assert intent.due_date == _tomorrow()
+
+
+# ---------------------------------------------------------------------------
+# The calendar-entry shell comes off the title (2026-09-25): "pencil in open
+# house" was saved as 'pencil in open house'. FastRule 7,200 TRAIN: exact
+# titles 61.6% -> 68.4% (n=1,795).
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("said,title", [
+    ("pencil in open house for friday at 6:45pm", "open house"),
+    ("squeeze in piano lesson tomorrow at 7am", "piano lesson"),
+    ("create an event for staff meeting tomorrow at 2pm", "staff meeting"),
+    ("mark coffee with a friend on my calendar for sunday at 5 pm", "coffee with a friend"),
+    ("block my whole calendar next monday for wedding rehearsal", "wedding rehearsal"),
+    ("plan book club for saturday at 8:30pm", "plan book club"),   # both verbs NOT stripped
+    ("schedule a meeting with Harper tomorrow at 3pm", "meeting with harper"),
+])
+def test_the_calendar_entry_shell_leaves_the_title(parser, said, title):
+    result = parser.analyze(said, current_view="month")
+    (_, intent), = result.intents
+    assert intent.title.lower() == title
