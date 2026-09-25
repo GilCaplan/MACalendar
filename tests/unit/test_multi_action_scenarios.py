@@ -374,3 +374,13 @@ def test_the_spoken_reminder_reaches_the_event(parser, said, minutes):
     ev = [i for n, i in result.intents if n == "create_event"]
     assert ev and ev[0].reminder_minutes == minutes
     assert not any(getattr(i, "titles", None) == ["before"] for _, i in result.intents)
+
+
+@pytest.mark.parametrize("said,needle", [
+    ("scrap oil change", "oil change"), ("scrap the oil change", "oil change"),
+    ("delete dentist", "dentist"),
+])
+def test_a_change_target_never_starts_with_its_own_verb(parser, said, needle):
+    result = parser.analyze(said, current_view="month")
+    (_, intent), = result.intents
+    assert intent.match_title.lower() == needle

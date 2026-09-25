@@ -2664,6 +2664,10 @@ def _clean_title(text: str) -> str:
     return text
 
 
+#: Every verb the router keys on, as a bare word.
+_ROUTING_VERBS = frozenset(v for v, _d in INTENT_MAP)
+
+
 def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> dict:
     """Fill action-specific slots from the span and temporal extraction."""
     temporal_spans = temporal.get("spans", [])
@@ -3119,6 +3123,20 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
             slots.pop("titles", None)
         elif slots.get("titles"):
             slots["titles"] = kept
+
+    # A CHANGE'S TARGET NEVER STARTS WITH THE VERB THAT ROUTED IT (2026-09-25).
+    # "scrap oil change" -> delete_todo 'scrap oil change': spaCy reads the
+    # bare "scrap oil change" as one noun compound, so the verb rode into the
+    # needle and nothing on either list could match it ("scrap THE oil change"
+    # was fine). Only the span's own leading word, and only when it is a word
+    # the router keys on — "Mark's birthday" is not the verb "mark".
+    if action_name.split("_", 1)[0] in ("delete", "update", "complete") and slots.get("match_title"):
+        mt = str(slots["match_title"]).strip()
+        first = (span.text.strip().split() or [""])[0].lower()
+        if first and first in _ROUTING_VERBS and mt.lower().startswith(first + " "):
+            rest = mt[len(first):].strip()
+            if names_something(rest):
+                slots["match_title"] = rest
 
     return slots
 
