@@ -408,6 +408,11 @@ _HARD_SEAM = re.compile(
 #: never commits what this cuts.
 from assistant.intent.sequence import SEQUENCE_SEAM as _SEQUENCE_SEAM  # noqa: E402
 from assistant.intent.sequence import starts_a_remark as _starts_a_remark  # noqa: E402
+from assistant.intent.sequence import trailing_marker as _trailing_marker  # noqa: E402
+
+#: A comma that a POSTPOSED sequence marker makes into a seam: the part after
+#: it ends "…after that" / "…afterwards" / "…right after the play".
+_COMMA = re.compile(r"\s*,\s*")
 
 
 def _hard_seams(text: str) -> "list[str]":
@@ -418,8 +423,15 @@ def _hard_seams(text: str) -> "list[str]":
     has no "then"/"also" after it, but the guard is kept for the dash form)."""
     refs = find_time_refs(text)
     out, start = [], 0
+    commas = list(_COMMA.finditer(text))
+    postposed = []
+    for k, m in enumerate(commas):
+        stop = commas[k + 1].start() if k + 1 < len(commas) else len(text)
+        if _trailing_marker(text[m.end():stop]):
+            postposed.append(m)
     seams = sorted([(m, False) for m in _HARD_SEAM.finditer(text)]
-                   + [(m, True) for m in _SEQUENCE_SEAM.finditer(text)],
+                   + [(m, True) for m in _SEQUENCE_SEAM.finditer(text)]
+                   + [(m, True) for m in postposed],
                    key=lambda x: (x[0].start(), -x[0].end()))
     for m, sequence in seams:
         if m.start() < start:

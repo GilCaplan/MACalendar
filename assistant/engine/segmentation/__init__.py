@@ -136,6 +136,14 @@ def relate(text: str, items: list, envelope_of: "dict | None" = None) -> None:
                         else "sentence" if _SENTENCE_MARK.search(words)
                         else "list" if _LIST_WORDS.search(words)
                         else "adjacent" if not words else "unknown")
+            # A POSTPOSED marker ("…, product demo after that") orders the item
+            # from its own end; the comma before it is only the seam.
+            from assistant.intent.sequence import trailing_marker
+            tail = trailing_marker(it.text or "")
+            if tail and kind in ("list", "adjacent", "unknown", "sentence"):
+                kind, words = "sequence", tail.group(0).strip()
+            if tail and tail.group("m"):
+                it.text = (it.text or "")[:tail.start()].rstrip(" ,") or it.text
             it.relation = {"to": prev.id, "kind": kind, "words": words}
         if at >= 0:
             cursor = at

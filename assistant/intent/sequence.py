@@ -80,3 +80,22 @@ def has_sequence_seam(text: str) -> bool:
         if left.strip() and _has_content(right) and not starts_a_remark(right):
             return True
     return False
+
+
+#: A POSTPOSED marker — the sequence said AFTER the thing it orders: "physio at
+#: 2, product demo after that", "…, a working lunch afterwards", "…, training
+#: with Mark right after the play". The comma before such a part is a sequence
+#: seam; the marker is not part of the title, except a NAMED anchor ("right
+#: after the play"), which the chain needs to find what it follows.
+TRAILING_MARKER = re.compile(
+    r"\s+(?P<m>(?:(?:right|straight|just)\s+)?(?:after\s*w[ao]rds?|after\s+(?:that|this|tht|dat)))\s*[.!]?\s*$"
+    r"|\s+(?P<named>(?:right|straight|just)\s+after\s+(?:the\s+|my\s+|our\s+)?[a-z][\w' -]{1,40})\s*[.!]?\s*$",
+    re.I)
+
+
+def trailing_marker(piece: str) -> "re.Match | None":
+    """The postposed sequence marker ending `piece`, when something precedes it."""
+    m = TRAILING_MARKER.search(piece or "")
+    if m and _has_content(piece[:m.start()]):
+        return m
+    return None
