@@ -1350,9 +1350,13 @@ def create_app() -> Flask:
     #: different numbers, and `AppSettings` has said so since they were added);
     #: and the tab filters, list scope and fold state are UI chrome, not
     #: preferences about the calendar.
+    #:
+    #: `events` joined 2026-09-25 (DEVQA Q51): the default event length and the
+    #: gap between chained events, which the engine reads through
+    #: `assistant/event_defaults.py` and both apps edit.
     _ALLOWED_PATCH_KEYS = {"llm_engine", "tts", "confirmation_level",
                            "notifications", "theme", "ui", "todo",
-                           "hebrew_calendar"}
+                           "hebrew_calendar", "events"}
 
     @app.get("/digest")
     def digest():
@@ -1424,6 +1428,7 @@ def create_app() -> Flask:
             "theme": cfg.theme,
             "ui": cfg.ui.model_dump(),
             "hebrew_calendar": cfg.hebrew_calendar.model_dump(),
+            "events": cfg.events.model_dump(),
         })
 
     @app.patch("/config")
@@ -1442,6 +1447,26 @@ def create_app() -> Flask:
         from assistant.features import yaml_text
         with open(path) as f:
             text = f.read()
+
+        # The two event defaults are NUMBERS the engine computes with, so this
+        # request shape is checked before a byte is written: "90" or 0 stored
+        # here would be clamped on read and the setting would silently not be
+        # what the client showed.
+        events = data.get("events")
+        if events is not None:
+            from assistant.config import MAX_EVENT_MINUTES, MIN_EVENT_LENGTH
+            if not isinstance(events, dict):
+                return jsonify({"error": "events must be an object", "code": 400}), 400
+            lows = {"event_length_minutes": MIN_EVENT_LENGTH, "chain_gap_minutes": 0}
+            for sub, value in events.items():
+                if sub not in lows:
+                    return jsonify({"error": f"events.{sub} is not a setting",
+                                    "code": 400}), 400
+                if (isinstance(value, bool) or not isinstance(value, int)
+                        or not lows[sub] <= value <= MAX_EVENT_MINUTES):
+                    return jsonify({"error": f"events.{sub} must be a whole number of "
+                                    f"minutes from {lows[sub]} to {MAX_EVENT_MINUTES}",
+                                    "code": 400}), 400
 
         for key, wren in data.items():
             if key not in _ALLOWED_PATCH_KEYS:

@@ -10,7 +10,7 @@ event already uses the primary), so both apps edit the same
 from __future__ import annotations
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QIcon, QPainter, QPixmap
+from PyQt6.QtGui import QColor, QIcon, QIntValidator, QPainter, QPixmap
 from PyQt6.QtWidgets import (
     QColorDialog, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QLabel,
     QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPlainTextEdit,
@@ -84,6 +84,20 @@ class CategoryEditDialog(QDialog):
         holder = QWidget()
         holder.setLayout(swatches)
         form.addRow("Colours", holder)
+
+        # DEVQA Q51: this category's own default length and chain gap. EMPTY
+        # means "follow the global setting" (Settings › Events), and the
+        # placeholder says what that currently is, so an empty box never reads
+        # as zero.
+        from assistant import event_defaults
+        self._length = self._minutes_edit(
+            "cat_length_edit", category.get("default_minutes"),
+            _cat._BOUNDS["default_minutes"], event_defaults.length_minutes(None))
+        form.addRow("Default length (min)", self._length)
+        self._gap = self._minutes_edit(
+            "cat_gap_edit", category.get("chain_gap_minutes"),
+            _cat._BOUNDS["chain_gap_minutes"], event_defaults.gap_minutes(None))
+        form.addRow("Gap when chained (min)", self._gap)
         lay.addLayout(form)
 
         lay.addWidget(QLabel("Keywords (comma-separated — matched in the event's title, guests and location):"))
@@ -103,6 +117,24 @@ class CategoryEditDialog(QDialog):
         box.rejected.connect(self.reject)
         lay.addWidget(box)
 
+    @staticmethod
+    def _minutes_edit(name: str, value, bounds: "tuple[int, int]", global_value: int) -> QLineEdit:
+        edit = QLineEdit("" if value is None else str(value))
+        edit.setObjectName(name)
+        edit.setValidator(QIntValidator(bounds[0], bounds[1]))
+        edit.setPlaceholderText(f"global ({global_value})")
+        edit.setMaximumWidth(120)
+        edit.setToolTip("Empty = use the global setting in Settings › Events.")
+        return edit
+
+    @staticmethod
+    def _minutes_value(edit: QLineEdit) -> "int | None":
+        """None for an empty box (the global applies); the number otherwise.
+        An out-of-range number reaches `upsert`, which refuses it with the
+        message shown to the user."""
+        text = edit.text().strip()
+        return int(text) if text else None
+
     def _save(self) -> None:
         name = self._name.text().strip()
         if not name:
@@ -110,7 +142,9 @@ class CategoryEditDialog(QDialog):
             return
         keywords = [k.strip() for k in self._keywords.toPlainText().replace("\n", ",").split(",") if k.strip()]
         try:
-            _cat.upsert(name, color=self._color.hex_color, alt=self._alt.hex_color, keywords=keywords)
+            _cat.upsert(name, color=self._color.hex_color, alt=self._alt.hex_color, keywords=keywords,
+                        default_minutes=self._minutes_value(self._length),
+                        chain_gap_minutes=self._minutes_value(self._gap))
         except ValueError as exc:
             QMessageBox.warning(self, "Category", str(exc))
             return
@@ -185,7 +219,12 @@ class CategoriesDialog(QDialog):
         for c in _cat.all_categories():
             keywords = c.get("keywords") or []
             preview = ", ".join(keywords[:6]) + ("…" if len(keywords) > 6 else "")
-            item = QListWidgetItem(f"{c['name']}   {preview or 'default when unsure'}")
+            timing = ", ".join(t for t in (
+                f"{c['default_minutes']} min" if c.get("default_minutes") is not None else "",
+                f"{c['chain_gap_minutes']} min gap" if c.get("chain_gap_minutes") is not None else "",
+            ) if t)
+            label = f"{c['name']}   {preview or 'default when unsure'}"
+            item = QListWidgetItem(f"{label}   · {timing}" if timing else label)
             item.setData(Qt.ItemDataRole.UserRole, c)
             # two-tone swatch: primary, then the neighbour shade
             pm = QPixmap(26, 14)

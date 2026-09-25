@@ -206,7 +206,21 @@ class AppSettings: ObservableObject {
         }
     }
 
+    /// How long an event lasts when no end was given, and the gap between
+    /// chained events (DEVQA Q51). SHARED with the Mac through `events:` in
+    /// config.yaml (GET/PATCH /config); these are the phone's cached copies,
+    /// under the same keys `EventDefaults` reads when a sheet has no settings
+    /// object in reach.
+    @Published var eventLengthMinutes: Int {
+        didSet { UserDefaults.standard.set(eventLengthMinutes, forKey: EventDefaults.lengthKey) }
+    }
+    @Published var chainGapMinutes: Int {
+        didSet { UserDefaults.standard.set(chainGapMinutes, forKey: EventDefaults.gapKey) }
+    }
+
     init() {
+        self.eventLengthMinutes = EventDefaults.globalLength
+        self.chainGapMinutes = EventDefaults.globalGap
         self.followMyLocation = UserDefaults.standard.bool(forKey: "followMyLocation")
         self.speakReplies = UserDefaults.standard.object(forKey: "speakReplies") == nil
             ? true : UserDefaults.standard.bool(forKey: "speakReplies")
@@ -272,5 +286,88 @@ class AppSettings: ObservableObject {
 
         self.hideCompletedAssignments = UserDefaults.standard.object(forKey: "hideCompletedAssignments") == nil
             ? true : UserDefaults.standard.bool(forKey: "hideCompletedAssignments")
+    }
+}
+
+/// The default event length and chain gap as this phone last heard them from
+/// the Mac (DEVQA Q51): the global pair, plus each category's own length.
+///
+/// Read through UserDefaults rather than `AppSettings` so a sheet that was not
+/// handed the settings object (the event editor) still gets the number, and so
+/// it works on a train: the Mac is the source of truth, this is its cache, and
+/// an empty cache means the built-in hour.
+enum EventDefaults {
+    static let lengthKey = "eventLengthMinutes"
+    static let gapKey = "chainGapMinutes"
+    static let categoryLengthsKey = "categoryDefaultMinutes"
+
+    /// The bounds the Mac enforces (`assistant/config.py`); a zero length
+    /// would read there as "no end said".
+    static let minLength = 5
+    static let maxMinutes = 24 * 60
+
+    static var globalLength: Int {
+        let v = UserDefaults.standard.integer(forKey: lengthKey)
+        return v >= minLength ? v : 60
+    }
+
+    static var globalGap: Int {
+        guard UserDefaults.standard.object(forKey: gapKey) != nil else { return 0 }
+        return max(0, UserDefaults.standard.integer(forKey: gapKey))
+    }
+
+    /// The length for an event of this category: its own if it has one, else
+    /// the global.
+    static func length(for category: String?) -> Int {
+        if let category, !category.isEmpty,
+           let map = UserDefaults.standard.dictionary(forKey: categoryLengthsKey) as? [String: Int],
+           let own = map[category.lowercased()], own >= minLength {
+            return own
+        }
+        return globalLength
+    }
+
+    /// Remember every category's own length from a /categories answer.
+    static func remember(categories: [EventCategory]) {
+        var map: [String: Int] = [:]
+        for c in categories { if let m = c.defaultMinutes { map[c.name.lowercased()] = m } }
+        UserDefaults.standard.set(map, forKey: categoryLengthsKey)
+    }
+
+    /// Remember one answer from GET /event_defaults: the global, and the
+    /// category's own length when it differs from it.
+    static func remember(_ d: ResolvedEventDefaults) {
+        UserDefaults.standard.set(d.eventLengthMinutes, forKey: lengthKey)
+        UserDefaults.standard.set(d.chainGapMinutes, forKey: gapKey)
+        guard let category = d.category, !category.isEmpty else { return }
+        var map = (UserDefaults.standard.dictionary(forKey: categoryLengthsKey) as? [String: Int]) ?? [:]
+        map[category.lowercased()] = d.lengthMinutes == d.eventLengthMinutes ? nil : d.lengthMinutes
+        UserDefaults.standard.set(map, forKey: categoryLengthsKey)
+    }
+
+    /// "HH:MM" plus minutes, capped at 23:59 the way the Mac's engine caps it.
+    static func end(from start: String, minutes: Int) -> String? {
+        let parts = start.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2 else { return nil }
+        let total = min(parts[0] * 60 + parts[1] + minutes, 23 * 60 + 59)
+        return String(format: "%02d:%02d", total / 60, total % 60)
+    }
+}
+
+/// GET /event_defaults — the length and gap resolved for one title or
+/// category, with the global pair alongside.
+struct ResolvedEventDefaults: Decodable {
+    let category: String?
+    let lengthMinutes: Int
+    let gapMinutes: Int
+    let eventLengthMinutes: Int
+    let chainGapMinutes: Int
+
+    enum CodingKeys: String, CodingKey {
+        case category
+        case lengthMinutes = "length_minutes"
+        case gapMinutes = "gap_minutes"
+        case eventLengthMinutes = "event_length_minutes"
+        case chainGapMinutes = "chain_gap_minutes"
     }
 }

@@ -105,6 +105,49 @@ DEFAULTS: list[dict[str, Any]] = [
     {"name": "Personal", "color": "#64748b", "alt": "#475569", "keywords": []},   # default
 ]
 
+#: Per-category event defaults (DEVQA Q51, read by `assistant/event_defaults.py`):
+#: minutes an event of this category lasts when no end was said, and minutes
+#: between a chained event of this category and the one before it. Absent
+#: means "use the global setting" — no built-in category carries either.
+DURATION_FIELDS = ("default_minutes", "chain_gap_minutes")
+#: (lowest, highest) each field accepts — the same bounds as `EventsConfig`.
+#: A length of 0 is refused because `fill_defaults` reads end == start as "no
+#: end said", so it would silently mean an hour.
+_BOUNDS = {"default_minutes": (5, 24 * 60), "chain_gap_minutes": (0, 24 * 60)}
+
+#: "leave this field alone" for `upsert`, distinct from None ("clear it").
+_UNSET: Any = object()
+
+
+def _minutes_or_none(field: str, value: Any) -> "int | None":
+    """A stored value read back leniently: out of range or not a number is
+    treated as absent (the global applies), never as an error."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return None
+    lo, hi = _BOUNDS[field]
+    return n if lo <= n <= hi else None
+
+
+def _check_minutes(field: str, value: Any) -> int:
+    """A value being WRITTEN, checked strictly: a bad one is a ValueError."""
+    lo, hi = _BOUNDS[field]
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        raise ValueError(f"{field} must be a whole number of minutes")
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{field} must be a whole number of minutes") from None
+    if isinstance(value, float) and value != n:
+        raise ValueError(f"{field} must be a whole number of minutes")
+    if not lo <= n <= hi:
+        raise ValueError(f"{field} must be between {lo} and {hi} minutes")
+    return n
+
+
 _lock = threading.RLock()
 _cache: dict[str, Any] | None = None
 _mtime = -1.0
@@ -131,11 +174,23 @@ def _load() -> dict[str, Any]:
                     if not name:
                         continue
                     if name in by:
-                        by[name].update({k: v for k, v in c.items() if k in ("color", "alt", "keywords", "name")})
+                        target = by[name]
+                        target.update({k: v for k, v in c.items() if k in ("color", "alt", "keywords", "name")})
                     else:
-                        data["categories"].append({"name": name, "color": c.get("color", "#64748b"),
-                                                   "alt": c.get("alt", c.get("color", "#475569")),
-                                                   "keywords": list(c.get("keywords", [])), "custom": True})
+                        # Appended, not registered in `by`: a custom name that
+                        # appears twice in a hand-edited file stays two rows,
+                        # as it always has (test_settings_real_shapes).
+                        target = {"name": name, "color": c.get("color", "#64748b"),
+                                  "alt": c.get("alt", c.get("color", "#475569")),
+                                  "keywords": list(c.get("keywords", [])), "custom": True}
+                        data["categories"].append(target)
+                    # The two per-category event defaults (DEVQA Q51). Absent
+                    # or null = follow the global setting; only a number that
+                    # survives the same bounds `upsert` enforces is carried.
+                    for k in DURATION_FIELDS:
+                        v = _minutes_or_none(k, c.get(k))
+                        if v is not None:
+                            target[k] = v
                 removed = set(user.get("removed", []))
                 data["categories"] = [c for c in data["categories"] if c["name"] not in removed or c["name"] == "Personal"]
                 data["removed"] = sorted(removed)
@@ -170,12 +225,24 @@ def get(name: str) -> dict[str, Any] | None:
 
 
 def upsert(name: str, color: str | None = None, alt: str | None = None,
-           keywords: list[str] | None = None, add_keywords: list[str] | None = None) -> dict[str, Any]:
+           keywords: list[str] | None = None, add_keywords: list[str] | None = None,
+           default_minutes: Any = _UNSET, chain_gap_minutes: Any = _UNSET) -> dict[str, Any]:
+    """Add or edit a category. Colours and keywords: None = leave alone.
+
+    `default_minutes` / `chain_gap_minutes` (DEVQA Q51) are three-way, because
+    "back to the global" has to be sayable: leave the argument out to keep
+    what is stored, pass None to clear it (the global setting applies again),
+    pass a number to set it. Validated before anything is written."""
     name = name.strip()
     if not name:
         raise ValueError("category name required")
     if color and not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
         raise ValueError("color must be #rrggbb")
+    durations = {}
+    for field, value in (("default_minutes", default_minutes),
+                         ("chain_gap_minutes", chain_gap_minutes)):
+        if value is not _UNSET:
+            durations[field] = None if value is None else _check_minutes(field, value)
     data = _load()
     user = {"categories": [], "removed": list(data.get("removed", []))}
     if os.path.exists(CATEGORIES_PATH):
@@ -194,6 +261,11 @@ def upsert(name: str, color: str | None = None, alt: str | None = None,
     if add_keywords:
         base = get(name) or {}
         entry["keywords"] = sorted(set(entry.get("keywords", base.get("keywords", []))) | {k.strip().lower() for k in add_keywords if k.strip()})
+    for field, value in durations.items():
+        if value is None:
+            entry.pop(field, None)
+        else:
+            entry[field] = value
     if name in user["removed"]:
         user["removed"].remove(name)
     _save(user)

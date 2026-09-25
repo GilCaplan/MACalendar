@@ -41,9 +41,13 @@ struct CalendarEvent: Identifiable, Codable, Equatable {
     /// Why there is no reminder despite a lead being set:
     /// "shabbat" | "yom_tov:<name>" | "clamped_past_start".
     var notifySuppressedReason: String? = nil
+    /// The category the Mac tagged it with ("Fitness", …) — read so the editor
+    /// can use that category's own default length (DEVQA Q51). Optional:
+    /// older caches and a row created offline have none.
+    var category: String? = nil
 
     enum CodingKeys: String, CodingKey {
-        case id, title, date, color, recurrence, attendees, location, description, source
+        case id, title, date, color, recurrence, attendees, location, description, source, category
         case startTime      = "start_time"
         case endTime        = "end_time"
         case recurrenceEnd  = "recurrence_end"

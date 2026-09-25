@@ -308,6 +308,46 @@ class EngineConfig(BaseModel):
     quiet_hours_end: str = "06:00"
 
 
+class EventsConfig(BaseModel):
+    """How long an event lasts when its end was not said, and how far apart
+    chained events sit (DEVQA Q51, Gil 2026-09-25). `assistant/event_defaults.py`
+    is the one read: a category's own `default_minutes` / `chain_gap_minutes`
+    wins, then these, then the built-in 60 / 0.
+
+    Out-of-range or unreadable values are CLAMPED rather than refused: a bad
+    number here would otherwise fail `AppConfig` as a whole, and the assistant
+    would not boot over an event length."""
+    event_length_minutes: int = 60
+    chain_gap_minutes: int = 0
+
+    @field_validator("event_length_minutes", mode="before")
+    @classmethod
+    def _clamp_length(cls, v):
+        return _clamp_minutes(v, 60, low=MIN_EVENT_LENGTH)
+
+    @field_validator("chain_gap_minutes", mode="before")
+    @classmethod
+    def _clamp_gap(cls, v):
+        return _clamp_minutes(v, 0, low=0)
+
+
+#: The bounds every surface uses for the two event defaults (the Mac spin
+#: boxes, the phone's steppers, `PATCH /config`). A zero length is refused
+#: because `fill_defaults` treats end == start as "no end said".
+MIN_EVENT_LENGTH = 5
+MAX_EVENT_MINUTES = 24 * 60
+
+
+def _clamp_minutes(v, default: int, low: int) -> int:
+    if isinstance(v, bool):
+        return default
+    try:
+        n = int(v)
+    except (TypeError, ValueError):
+        return default
+    return max(low, min(MAX_EVENT_MINUTES, n))
+
+
 class LabelsConfig(BaseModel):
     """The learned labellers (`assistant/engine/label/`).
 
@@ -439,6 +479,7 @@ class AppConfig(BaseModel):
     api: ApiConfig = ApiConfig()
     nlu: NLUConfig = NLUConfig()
     engine: EngineConfig = EngineConfig()
+    events: EventsConfig = EventsConfig()
     theme: Literal["light", "dark"] = "dark"
     ui: UIConfig = UIConfig()
     hebrew_calendar: HebrewCalendarConfig = HebrewCalendarConfig()

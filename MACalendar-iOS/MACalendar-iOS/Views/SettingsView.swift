@@ -281,6 +281,47 @@ struct SettingsView: View {
                         .padding(.top, 4)
                     }
 
+                    // MARK: Events
+                    //
+                    // DEVQA Q51 (Gil, 2026-09-25): how long an event lasts when
+                    // no end is said, and the gap between chained events.
+                    // Shared with the Mac (`events:` in config.yaml); a
+                    // category can set its own in Assistant › Event colours.
+                    CollapsibleSection("Events", systemImage: "clock", key: "events") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Stepper(value: $settings.eventLengthMinutes,
+                                    in: EventDefaults.minLength...EventDefaults.maxMinutes, step: 5) {
+                                HStack {
+                                    Label("Default length", systemImage: "hourglass")
+                                    Spacer()
+                                    Text("\(settings.eventLengthMinutes) min")
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .onChange(of: settings.eventLengthMinutes) { v in
+                                Task { await api.patchShared(
+                                    ["events": ["event_length_minutes": v]]) }
+                            }
+                            Stepper(value: $settings.chainGapMinutes,
+                                    in: 0...EventDefaults.maxMinutes, step: 5) {
+                                HStack {
+                                    Label("Gap between chained events", systemImage: "arrow.right.to.line")
+                                    Spacer()
+                                    Text("\(settings.chainGapMinutes) min")
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .onChange(of: settings.chainGapMinutes) { v in
+                                Task { await api.patchShared(
+                                    ["events": ["chain_gap_minutes": v]]) }
+                            }
+                            Text("An event with no end said lasts the default length. In “gym at 9, then lunch”, lunch starts this gap after the gym ends. A category can set its own of either in Assistant › Event colours.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+
                     // MARK: Notifications
                     //
                     // ONE switch (Gil, 2026-09-11: "it's on or off"). This
@@ -681,6 +722,12 @@ struct SettingsView: View {
         }
         if shared.speakReplies != settings.speakReplies {
             settings.speakReplies = shared.speakReplies
+        }
+        if let v = shared.eventLengthMinutes, v != settings.eventLengthMinutes {
+            settings.eventLengthMinutes = v
+        }
+        if let v = shared.chainGapMinutes, v != settings.chainGapMinutes {
+            settings.chainGapMinutes = v
         }
     }
 

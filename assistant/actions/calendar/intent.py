@@ -199,14 +199,18 @@ class CalendarIntent(BaseIntent):
             # for a value it had invented itself.
             self.start_time = meal_hour(self.title) or "09:00"
 
-        # 3. End time defaults to start_time + 1 hour.
+        # 3. End time defaults to start_time + the default LENGTH — the
+        #    title's category's own length if it has one, else the global
+        #    setting, else an hour (DEVQA Q51; `assistant/event_defaults.py`).
         #    An end EQUAL to the start counts as missing: a zero-length event
         #    is not something a speaker asks for, and it is what "go for a run
         #    NOW" produces once both ends resolve to the same clock reading.
         if not self.end_time or self.end_time == self.start_time:
             try:
+                from assistant import event_defaults
+                length = event_defaults.length_minutes(event_defaults.category_of(self.title))
                 h, m = map(int, self.start_time.split(":"))
-                end_min = h * 60 + m + 60
+                end_min = h * 60 + m + length
                 # Cap at end of day
                 if end_min >= 24 * 60:
                     self.end_time = "23:59"

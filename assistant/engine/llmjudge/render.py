@@ -195,7 +195,8 @@ def _is_set(attr: str, value) -> bool:
 
 
 def _is_derived_end(attr: str, intent) -> bool:
-    """An `end_time` that is exactly start + 1h is `fill_defaults` doing its
+    """An `end_time` that is exactly start + the default length (an hour
+    unless Settings says otherwise) is `fill_defaults` doing its
     job, not an assertion about the words.
 
     It is dropped from the claims entirely rather than reported unsupported: it
@@ -215,7 +216,16 @@ def _is_derived_end(attr: str, intent) -> bool:
     except (ValueError, AttributeError, TypeError):
         return False
     start_min, end_min = sh * 60 + sm, eh * 60 + em
-    if start_min + 60 >= 24 * 60:
+    # The length `fill_defaults` adds is a SETTING since DEVQA Q51 (global,
+    # or the title's category's own) — read from the same place, or a user
+    # who set 90 minutes would see every defaulted end reported as invented.
+    try:
+        from assistant import event_defaults
+        length = event_defaults.length_minutes(
+            event_defaults.category_of(getattr(intent, "title", "") or ""))
+    except Exception:
+        length = 60
+    if start_min + length >= 24 * 60:
         # `CalendarIntent.fill_defaults` caps an end that would cross
         # midnight at "23:59" instead of rolling into the next day — a
         # start hour of 23 with no time said produces a 59-minute gap, not
@@ -223,7 +233,7 @@ def _is_derived_end(attr: str, intent) -> bool:
         # an EXTRA invented value on top of the start time it already is,
         # on every event fill_defaults dates near midnight.
         return end_min == 23 * 60 + 59
-    return end_min - start_min == 60
+    return end_min - start_min == length
 
 
 def claims(action: str, intent, slots: "dict | None" = None) -> "list[Claim]":

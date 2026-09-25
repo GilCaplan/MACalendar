@@ -39,7 +39,14 @@ from __future__ import annotations
 import os
 import re
 
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.yaml")
+#: `MACALENDAR_CONFIG` first, like `config.load_config`, `PATCH /config`,
+#: `features/settings.py` and `event_defaults`. This was the one writer that
+#: ignored it, so a UI test that clicked the settings dialog's Save without
+#: monkeypatching this module wrote the REAL config.yaml — the file the suite's
+#: scratch copy exists to protect, and a gitignored one with no history.
+CONFIG_PATH = (os.path.abspath(os.path.expanduser(os.environ["MACALENDAR_CONFIG"]))
+               if os.environ.get("MACALENDAR_CONFIG")
+               else os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.yaml"))
 
 #: A value as ONE unit before a comment is ever considered: a whole quoted
 #: string or flow-list first (either may legitimately contain "#"), a bare
