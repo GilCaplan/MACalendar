@@ -78,7 +78,11 @@ _TIME_PATTERNS: "list[tuple[str, str]]" = [
     # --- deadline markers. These are what distribute across a whole command
     #     ("submit the grades and prepare the slides BY FRIDAY").
     (rf"\b(?:by|before|due|until|till)\s+(?:the\s+)?"
-     rf"(?:{_WEEKDAY}|{_MONTH}\s+\d{{1,2}}(?:st|nd|rd|th)?|today|tomorrow|tonight"
+     # `(?:{_MONTH})` GROUPED (2026-09-25): spliced bare, the day number bound
+     # to the LAST month alternative only ("dec"), so "before march 5th" was
+     # read as "before march" and the day was lost — on both tracks, since the
+     # front door's reader and the deep one both start from these refs.
+     rf"(?:(?:{_MONTH})\s+\d{{1,2}}(?:st|nd|rd|th)?\b|{_WEEKDAY}|(?:{_MONTH})|today|tomorrow|tonight"
      rf"|next\s+\w+|this\s+\w+|the\s+\d{{1,2}}(?:st|nd|rd|th)|end\s+of\s+\w+)\b",
      "deadline"),
 
