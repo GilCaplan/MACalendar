@@ -457,3 +457,16 @@ def test_an_untimed_dated_event_is_nine_on_both_tracks(fastrule):
     # the deep track builds the same object and must not differ
     assert CalendarIntent(title="dentist", date="2026-09-26").start_time == "09:00"
     assert CalendarIntent(title="dinner", date="2026-09-26").start_time == "19:00"
+
+
+def test_a_fronted_lead_time_needs_its_ask_at_the_end():
+    """"two hours before X, ping me" — the lead time in front and the ask it
+    belongs to at the end (FastRule 7,200 train, 2026-09-25). Without the ask,
+    "30 minutes before the talk" is when something happens, not a reminder."""
+    from assistant.intent.lead_time import split
+    assert split("two hours before conference call this morning at 8:30pm, ping me",
+                 restore_verb=True, trailing=True) == ("book conference call this morning at 8:30pm", 120)
+    assert split("retrospective monday at 11, give me a shout 30 minutes before",
+                 trailing=True) == ("retrospective monday at 11", 30)
+    said = "30 minutes before the talk i need to set up the room"
+    assert split(said, trailing=True) == (said, None)

@@ -20,7 +20,8 @@ import re
 #: before about X" (the `about` form is what FastRule sees most).
 CLAUSE = re.compile(
     r"[,;]?\s*(?:and\s+)?(?:(?:please\s+)?(?:give me|send me|i want|i'd like)\s+"
-    r"(?:a\s+)?(?:heads[- ]?up|reminder|alert)\s+|"
+    # "give me a shout / a nudge / a bell" — the UK asks (2026-09-25)
+    r"(?:a\s+)?(?:heads[- ]?up|reminder|alert|shout|nudge|buzz|bell)\s+|"
     # "notify me / ping me 5 minutes before" and "set a reminder 15 minutes
     # before for X" (2026-09-25): 34 of the 49 lead times the TRAIN half's
     # reader missed were these two wordings.
@@ -31,8 +32,8 @@ CLAUSE = re.compile(
     r"(?P<n>\d+|a|an|one|two|three|four|five|ten|fifteen|twenty|thirty|half an?|quarter of an?)?\s*"
     r"(?P<u>minutes?|mins?|hours?|hrs?|days?|weeks?)\s*"
     r"(?:(?:reminder|heads[- ]?up|alert)"
-    r"(?:\s+(?:before|ahead(?:\s+of\s+(?:time|it))?|earlier|in advance))?"
-    r"|(?:before|ahead(?:\s+of\s+(?:time|it))?|earlier|in advance))\b\.?",
+    r"(?:\s+(?:before(?:hand)?|ahead(?:\s+of\s+(?:time|it))?|earlier|in advance))?"
+    r"|(?:before(?:hand)?|ahead(?:\s+of\s+(?:time|it))?|earlier|in advance))\b\.?",
     re.I)
 
 #: "remind me to refill the prescription 30 minutes before": the lead time at
@@ -43,7 +44,25 @@ TRAIL = re.compile(
     r"[,;]?\s+(?P<n>\d+|a|an|one|two|three|four|five|ten|fifteen|twenty|thirty|half an?|quarter of an?)\s*"
     r"(?P<u>minutes?|mins?|hours?|hrs?|days?|weeks?)\s+"
     r"(?:before(?:hand)?|ahead(?:\s+of\s+(?:time|it))?|earlier|in advance)\s*\.?\s*$", re.I)
-_REMINDER_FRAME = re.compile(r"\bremind\s+me\b|\breminder\b", re.I)
+#: "two hours before conference call at 8:30pm, ping me": the lead time FRONTED
+#: and the ask it belongs to at the END. Neither half alone is a lead time —
+#: "30 minutes before the talk" can be when a thing happens — so both must be
+#: there. The FastRule 7,200 TRAIN half left 'before conference call ping me'
+#: as the title and set no reminder (2026-09-25).
+FRONTED = re.compile(
+    r"^\s*(?P<n>\d+|a|an|one|two|three|four|five|ten|fifteen|twenty|thirty|half an?|quarter of an?)\s*"
+    r"(?P<u>minutes?|mins?|hours?|hrs?|days?|weeks?)\s+"
+    r"(?:before(?:hand)?|ahead(?:\s+of)?|in\s+advance(?:\s+of)?)\s+", re.I)
+_FRONTED_ASK = re.compile(
+    r"[,;]?\s*(?:and\s+)?(?:(?:ping|remind|notify|alert|buzz|nudge|warn)\s+me|"
+    r"(?:give|send)\s+me\s+an?\s+(?:shout|nudge|buzz|bell|heads[- ]?up|reminder|alert))"
+    r"\s*[.!]?\s*$", re.I)
+#: Any ASK for a nudge, not only "remind me": "alert me about the dentist …
+#: 30 minutes before", "give me a shout about standup … 15 mins before" kept
+#: their lead time in the title and set no reminder (2026-09-25).
+_REMINDER_FRAME = re.compile(
+    r"\b(?:remind|alert|notify|ping|buzz|nudge|warn)\s+me\b|\breminder\b|"
+    r"\b(?:give|send)\s+me\s+an?\s+(?:shout|nudge|buzz|bell|heads[- ]?up|alert)\b", re.I)
 
 _NUM_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "ten": 10,
               "fifteen": 15, "twenty": 20, "thirty": 30,
@@ -81,6 +100,12 @@ def split(text: str, restore_verb: bool = False,
     # the title became '30th' (12 rows on Board D, 2026-09-25).
     if not m and trailing and _REMINDER_FRAME.search(text or ""):
         m = TRAIL.search(text)
+    cut = (m.start(), m.end()) if m else None
+    if not m:
+        m, ask = FRONTED.match(text or ""), _FRONTED_ASK.search(text or "")
+        if not (m and ask and ask.start() > m.end()):
+            return text, None
+        cut = None
     if not m:
         return text, None
     raw = (m.group("n") or "one").lower().strip()
@@ -102,7 +127,8 @@ def split(text: str, restore_verb: bool = False,
         except ValueError:
             return text, None
         n *= per_unit
-    rest = (text[:m.start()] + " " + text[m.end():]).strip(" ,;")
+    rest = ((text[:cut[0]] + " " + text[cut[1]:]) if cut
+            else text[m.end():ask.start()]).strip(" ,;")
     rest = _LEADING_ABOUT.sub("", rest).strip()
     rest = _COURTESY.sub("", rest).strip()
     if len(rest.split()) < 2:
