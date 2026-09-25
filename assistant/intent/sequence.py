@@ -32,9 +32,10 @@ import re
 SEQUENCE_WORDS = (
     r"(?:(?:and\s+)?then\s+)?(?:right\s+|straight\s+|just\s+)?"
     r"(?:f[ao]l+o?w?e?d\s+by"
+    r"|(?:and|then)\s+finally"
     r"|(?:and\s*|,\s*)th[ae]n|then"
     r"|after\s+(?:that|this|tht|dat)"
-    r"|after\s*w[ao]rds?|after\s+which|subsequently|(?:and|then)\s+finally|next\s+up"
+    r"|after\s*w[ao]rds?|after\s+which|subsequently|next\s+up"
     r"|(?:once|when|as\s+soon\s+as)\s+(?:that|it|i)(?:'s|'m|\s+is|\s+am)?\s+"
     r"(?:done|finished|over)(?:\s+with\s+(?:that|it))?"
     r"|once\s+(?:done|finished)(?=\s*,))"
@@ -143,6 +144,23 @@ def verb_led_seams(text: str) -> "list[tuple[re.Match, str]]":
     out = []
     for m in _VERB_LED.finditer(text or ""):
         nxt = re.match(r"\s*([a-z']+)", text[m.end():], re.I)
-        if nxt and nxt.group(1).lower() in verbs and _has_content(text[:m.start()]):
-            out.append((m, "sequence" if m.group("seq") else "list"))
+        if not (nxt and nxt.group(1).lower() in verbs and _has_content(text[:m.start()])):
+            continue
+        out.append((m, "sequence" if m.group("seq") else "list"))
+    return out
+
+
+#: ", finally X" closes a sequence the speaker already started ("first A, then
+#: B, finally C"); alone it is an aside ("mark it done, finally got to it").
+_COMMA_FINALLY = re.compile(r"\s*,\s*(?:and\s+)?(?:finally|lastly)\b[,\s]*", re.I)
+
+
+def closing_seams(text: str) -> "list[re.Match]":
+    """", finally" / ", lastly" seams — only where a sequence came before."""
+    out = []
+    for m in _COMMA_FINALLY.finditer(text or ""):
+        head = text[:m.start()]
+        if (SEQUENCE_SEAM.search(head) or re.match(r"\s*first\b", head, re.I)) \
+                and _has_content(text[m.end():]):
+            out.append(m)
     return out

@@ -139,3 +139,30 @@ def test_the_ordinal_words_leave_the_titles():
     S.run(st, _CFG)
     DV.resolve_values(st, DAY)
     assert [i.text for i in st.items] == ["walk the dog", "gym"]
+
+
+# --- the cycles on the sequence corpus (2026-09-25), one shape each ---------
+
+@pytest.mark.parametrize("text,actions", [
+    # A1 · a postposed marker makes the comma before it a seam
+    ("physio at 2, product demo after that", ["physio", "product demo"]),
+    ("product demo at 11:15, a working lunch afterwards", ["product demo", "a working lunch"]),
+    # A2 · "next", set off, is a joiner; before a date it is not
+    ("first a run at ten, next flight to Chicago, then lunch", ["first a run", "flight to Chicago", "lunch"]),
+    ("book gym next friday at 5", ["book gym"]),
+    ("cancel the next meeting", ["cancel the next meeting"]),
+    # A3 · a seam word before an action VERB cuts; before a noun it is a time
+    ("therapy session at 2 and after water the plants", ["therapy session", "water the plants"]),
+    ("conference call at 4 and when finished pack for the trip", ["conference call", "pack for the trip"]),
+    ("gym at 9 and after lunch", ["gym and after lunch"]),
+    ("schedule workshop for this friday, add water the plants to my list, and book moving day for next month",
+     ["schedule workshop", "add water the plants to my list", "book moving day"]),
+    # A4 · ", finally" closes a sequence; alone it is an aside
+    ("first gym at 16:30 then yoga class, finally dinner", ["first gym", "yoga class", "dinner"]),
+    ("first conference call at 7pm then team meeting, then finally dinner", ["first conference call", "team meeting", "dinner"]),
+])
+def test_the_cut(text, actions):
+    """Through the STAGE: a postposed marker leaves the title in `relate`."""
+    st = EngineState(raw_text=text, text=text, source="test")
+    S.run(st, _CFG)
+    assert [i.text for i in st.items] == actions

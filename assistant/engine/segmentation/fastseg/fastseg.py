@@ -426,6 +426,7 @@ from assistant.intent.sequence import SEQUENCE_SEAM as _SEQUENCE_SEAM  # noqa: E
 from assistant.intent.sequence import starts_a_remark as _starts_a_remark  # noqa: E402
 from assistant.intent.sequence import trailing_marker as _trailing_marker  # noqa: E402
 from assistant.intent.sequence import verb_led_seams as _verb_led_seams  # noqa: E402
+from assistant.intent.sequence import closing_seams as _closing_seams  # noqa: E402
 
 #: A comma that a POSTPOSED sequence marker makes into a seam: the part after
 #: it ends "…after that" / "…afterwards" / "…right after the play".
@@ -449,7 +450,8 @@ def _hard_seams(text: str) -> "list[str]":
     seams = sorted([(m, False) for m in _HARD_SEAM.finditer(text)]
                    + [(m, True) for m in _SEQUENCE_SEAM.finditer(text)]
                    + [(m, True) for m in postposed]
-                   + [(m, True) for m, kind in _verb_led_seams(text) if kind == "sequence"],
+                   + [(m, True) for m, kind in _verb_led_seams(text) if kind == "sequence"]
+                   + [(m, True) for m in _closing_seams(text)],
                    key=lambda x: (x[0].start(), -x[0].end()))
     for m, sequence in seams:
         if m.start() < start:

@@ -1934,3 +1934,20 @@ no-split trap, gold task) still reads as a call.
 4. **"from 5:30 to 7:45" ends at 07:45** on the front door (colon or dot
    alike), a range whose end is not moved into the afternoon with its start.
    It predates today.
+5. **A leading day set off by a comma becomes an empty item**
+   ("tomorrow, team meeting at ten thirty, then lunch" gives `''` holding
+   "tomorrow"). This is the verbless-conjunct tier cutting at a comma because
+   both sides carry a time. Found on the sequence corpus.
+   - **Tried on 2026-09-25 and REVERTED:** merge any time-only piece into the
+     next one. On train it fixed 74 rows and broke 4, and those 4 had been
+     right only by coincidence: the empty item padded the count past a real
+     under-split. On test the right item count fell from 97.4% to 93.3% (n=642),
+     most likely the same coincidence exposed. The dual gate says no, and the
+     test rows were not read.
+   - **The under-split it exposes:** a bare "and" before a verb after a verbless
+     part ("…then a run and change the air filter"). A seam for it failed twice
+     in the same session: the verb test counted "run" in "a run" as a verb, and
+     the final pass sees only the piece, not the sequence around it.
+   - **Next:** carry "inside a sequence" into the final pass, and read the
+     left part's HEAD word rather than any word. Then merge the time-only
+     piece, boarded on both splits.
