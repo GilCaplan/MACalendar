@@ -40,10 +40,19 @@ SEQUENCE_WORDS = (
     r"|once\s+(?:done|finished)(?=\s*,))"
     r"(?:\s+then)?")
 
+#: "NEXT" orders a list only when it is set off — ", next X", ". Next, X",
+#: "and next X" — and never before a date word ("next friday", "next week's
+#: report") or after an article ("the next meeting", which the set-off
+#: requirement already excludes).
+_NEXT = (r"next\b(?!\s*'s)(?!\s+(?:week|weekend|month|year|time|days?|morning|afternoon|evening|night"
+         r"|(?:mon|tues|wednes|thurs|fri|satur|sun)day|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*)")
+
 #: The seam: the words, set off from what precedes them by a space or a comma.
 SEQUENCE_SEAM = re.compile(r"(?:\s*,\s*(?:and\s+)?(?:than\b|" + SEQUENCE_WORDS + r")"
-                           r"|\s+(?:and\s+)?" + SEQUENCE_WORDS + r")\b[,\s]*", re.I)
-_WORDS_ONLY = re.compile(r"\b" + SEQUENCE_WORDS + r"\b", re.I)
+                           r"|\s+(?:and\s+)?" + SEQUENCE_WORDS + r")\b[,\s]*"
+                           r"|\s*[,.;]\s*(?:and\s+)?" + _NEXT + r"[,\s]*"
+                           r"|\s+and\s+" + _NEXT + r"[,\s]*", re.I)
+_WORDS_ONLY = re.compile(r"\b(?:" + SEQUENCE_WORDS + r"|" + _NEXT + r")\b", re.I)
 
 
 def is_sequence_words(between: str) -> bool:
