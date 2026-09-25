@@ -39,6 +39,19 @@ def _phrase_to_date(phrase: str, today: "_dt.date") -> "str | None":
         return today.isoformat()
     if s in ("tomorrow", "tomorrow morning", "tomorrow afternoon", "tomorrow evening"):
         return (today + _dt.timedelta(days=1)).isoformat()
+    # THE END OF THE MONTH is its last day — the project's convention for
+    # "until the end of the month" (CLAUDE.md, `rule_parser` "names the final
+    # day"), read the same way where it is the day itself. Unscored until
+    # 2026-09-25: 108 rows of the FastRule 7,200 train half say it, and the
+    # front door booked them mid-month.
+    m = re.match(r"(?:(?:at|by|for|on|before|towards?)\s+)?(?:the\s+)?end\s+of\s+"
+                 r"(the|this|next)\s+month$", s)
+    if m:
+        first = today.replace(day=1)
+        if m.group(1) == "next":
+            first = (first + _dt.timedelta(days=32)).replace(day=1)
+        return ((first + _dt.timedelta(days=32)).replace(day=1)
+                - _dt.timedelta(days=1)).isoformat()
     if s in ("the day after tomorrow",):
         return (today + _dt.timedelta(days=2)).isoformat()
     m = re.match(r"in (\d+|a|two|three|four|five|six|seven) days?$", s)
