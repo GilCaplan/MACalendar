@@ -65,7 +65,14 @@ Reads `state.raw_text`, `state.source`, `state.supports_edit`; writes
 `state.text`, `state.corrections`, `state.needs_edit`, `state.ignored`, and
 `VOCAB` trace steps.
 
-- trailing stop keywords go
+- trailing stop keywords go — except a "done" that is the completion the
+  command is about ("mark pay rent as done", "it's done"; 2026-09-24). Aim
+  (a), generic. Measured: across 45,620 distinct corpus transcripts the
+  exemption changes 322, every one a completion after as / is / it's /
+  that's; real speech (4,199 distinct) ends in "done" 0 times. Cross-store
+  board (model-free, change rows), TRAIN: right 470/732 → 485/732 (64.2% →
+  66.3%), 0 broken; TEST: 144/380 → 144/380 (the test half carries no
+  "as done" shape).
 - false starts are declared trivial — **and never remembered**, because
   recording one teaches the model that junk is normal
 - the personal vocabulary repairs what it is confident about

@@ -47,3 +47,20 @@ def test_a_leading_note_to_self_is_a_reminder_frame(said, fixed):
 @pytest.mark.parametrize("said", ["a note to self is useful", "send a note to self"])
 def test_note_to_self_mid_sentence_is_left_alone(said):
     assert repair_command_frames(said) == said
+
+
+# --- the stop keyword "done" versus the completion "done" (2026-09-24) ------
+
+@pytest.mark.parametrize("said,kept", [
+    ("mark pay rent as done", "mark pay rent as done"),
+    ("the report is done", "the report is done"),
+    ("check off that one, it's done", "check off that one, it's done"),
+    ("take the bins out that's done", "take the bins out that's done"),
+    ("mark pay rent as done, execute", "mark pay rent as done"),
+    ("buy milk, done", "buy milk"),                 # still a sign-off
+    ("buy milk done", "buy milk"),
+    ("add bread done execute", "add bread"),
+])
+def test_done_is_peeled_only_when_it_is_not_the_completion(said, kept):
+    from assistant.engine.ingest.repair import strip_stop_keyword
+    assert strip_stop_keyword(said) == kept

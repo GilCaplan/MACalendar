@@ -30,7 +30,14 @@ _BUILTIN_STOP_PATTERNS = [
     r"\bset\s+events?\b",
     r"\bexecute\b",
     r"\bxq\b",        # STT mishearing of "execute"
-    r"\bdone\b",
+    # "done" ends a recording — unless it is the COMPLETION the command is
+    # about: "mark pay rent as done", "the report is done", "it's done".
+    # Peeled, those lost the one word that made them a completion and were
+    # misread or refused (found 2026-09-24). Across every corpus in the repo
+    # 53 transcripts end in "done", all after one of these four words and
+    # every one of them a completion; real speech ends in "done" 0 times in
+    # 4,199, because it is peeled at recording time as well.
+    r"(?<!\bas\s)(?<!\bis\s)(?<!\bit's\s)(?<!\bthat's\s)\bdone\b",
     r"\bstop\b",
     r"\bsubmit\b",
     r"\bconfirm\b",
