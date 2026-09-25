@@ -919,6 +919,12 @@ def test_a_subject_that_names_nothing_is_held_back_not_written(registry_with_rea
     from freezegun import freeze_time
 
     monkeypatch.setenv("MACALENDAR_LLM_DISABLED", "1")
+    # The SAME path on CI and on a Mac (2026-09-24): with no ollama the deep
+    # track stops at its fail-fast reachability check ("the model is offline")
+    # and never reaches the refusal this test is about; with ollama up it runs
+    # on. Report the model reachable — its door still refuses under the flag.
+    import assistant.engine.llm as _llm
+    monkeypatch.setattr(_llm, "is_reachable", lambda cfg=None: True)
     RP._ensure_nlp(); RP._ensure_dt()
     # THE CONTRACT, not the mechanism. Cycle 28 asserted `item.blocked` set by
     # the judge's exhaustion path; since the names-something gate landed
