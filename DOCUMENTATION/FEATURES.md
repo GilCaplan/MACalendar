@@ -37,11 +37,50 @@ first instance goes. Only `daily|weekly|monthly|yearly` are accepted — the
 product's four cadences — and anything else is a 400 rather than a silent
 rounding.
 
+**End repeat, on both editors, create AND edit** (Gil, 2026-09-25: *"On
+repeat there should be an option to set a end date for reoccurring events and
+have it all linked as a series"*). Pick a cadence and an **End repeat** row
+appears: **Never** or **On date** (default: a month after the event; the date
+picker is floored at the event's own date). A caption says what Save will
+book — *"Repeats every Monday through Fri 30 Oct, then stops — the end date is
+included. Skips Shabbat and yom tov."* — and a series event carries a badge
+under its title: *"Part of a weekly series · ends Fri 30 Oct"*.
+- **The end date is INCLUSIVE**, which is how `_create_series_instances` has
+  always counted it; the caption says "through", the word the project reads as
+  keeping its day. Never books the next 12 months.
+- **Save applies a changed rule to the whole series** on both apps. The Mac
+  still asks "only this instance / entire series" for other edits, but a
+  change to Repeat or End repeat skips the question and goes to
+  `db.update_series` (`event_dialog.repeat_rule_changed`); the phone's Save
+  sends `PATCH /events/<id>/series` after the instance PATCH. Setting Repeat to
+  None on a series stops it after this event, and the caption says so.
+- **Creating** a repeating event is one `POST /events` (or the Mac's
+  `create_event_from_dict`) — the phone could only add a repeat by saving
+  and reopening before this.
+- **What was wrong, found reading the paths side by side:** the Mac had a bare
+  "Until" date with no Never, so opening an open-ended series showed today + 1
+  year and saving ANY edit wrote it back as a real end; the phone's end toggle
+  defaulted to three months from *today* (before the start of anything booked
+  further out), and its Save silently dropped an end-date change unless the
+  separate "Apply to the whole series" button was pressed (that button is
+  gone — Save does it). In `db`, the three manual paths into a series each
+  built their own seed and each dropped something: instances made from the
+  dialog had no guests and no category, and regenerating after an end-date
+  change lost a multi-weekday series' second day. One `_SeriesSeed` now feeds
+  all three. `update_series` refuses (and `PATCH …/series` 400s) an end before
+  the instance the edit is made through, since trimming from there could not
+  reach the rows in between.
+- Tests: `tests/unit/test_series_end_date.py` (db + routes, scratch DB),
+  `tests/unit/test_event_dialog_repeat.py` (the Mac dialog, typed/clicked).
+
 **One deliberate limitation.** Series edits are NOT queued offline, unlike
 every other write on the phone. Growing or trimming a series deletes and
 regenerates rows, and replaying that against a database that moved on in the
 meantime would resurrect instances nobody asked for. Editing a SINGLE instance
-still queues exactly as before.
+still queues exactly as before — so an offline Save of a series event keeps
+its own edits (queued) and says the repeat change needs the Mac. A NEW
+repeating event created offline queues like any create, and the series is
+built when it reaches the Mac.
 
 ## The table
 

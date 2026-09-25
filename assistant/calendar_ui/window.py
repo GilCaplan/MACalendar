@@ -37,7 +37,7 @@ from PyQt6.QtWidgets import (
 from assistant.calendar_ui import icons
 from assistant.calendar_ui.agenda_view import AgendaView, DAYS_AHEAD as _AGENDA_DAYS
 from assistant.calendar_ui.day_view import DayView
-from assistant.calendar_ui.event_dialog import EventDialog
+from assistant.calendar_ui.event_dialog import EventDialog, repeat_rule_changed
 from assistant.calendar_ui.month_view import MonthView
 from assistant.calendar_ui.sidebar import Sidebar
 from assistant.calendar_ui.undo import UndoManager
@@ -1101,7 +1101,22 @@ class CalendarWindow(QMainWindow):
                 series_id = dialog.event_data.pop("series_id", None)
 
                 if ev_id:
-                    if series_id:
+                    if series_id and repeat_rule_changed(event, dialog.event_data):
+                        # The cadence or the end date moved. That rule belongs
+                        # to every instance, so it goes to the whole series —
+                        # the dialog's hint says so before Save. Offering "only
+                        # this instance" here used to write a new end date onto
+                        # ONE row while the rest of the series carried on.
+                        try:
+                            self._db.update_series(series_id, ev_id, **dialog.event_data)
+                        except ValueError as e:
+                            self.show_toast(f"Series not changed: {e}")
+                            return
+                        self.refresh_calendar()
+                        n = len(self._db.get_series_events(series_id))
+                        self.show_toast(f"Updated series \"{dialog.event_data['title']}\" "
+                                        f"— {n} events")
+                    elif series_id:
                         msg = QMessageBox(self)
                         msg.setWindowTitle("Update Recurring Event")
                         msg.setText("This is a repeating event.")

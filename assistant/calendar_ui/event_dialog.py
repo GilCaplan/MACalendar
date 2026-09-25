@@ -28,6 +28,85 @@ from assistant.calendar_ui.styles import BLUE, EVENT_COLORS, GRAY_BORDER, GRAY_T
 from assistant.calendar_ui.dialog_utils import install_enter_confirms
 
 
+# The Repeat combo's rows, in order. The product's four cadences (CLAUDE.md,
+# "Recurring events") — offering a fifth would promise what the db can't keep.
+_CADENCES = ["", "daily", "weekly", "monthly", "yearly"]
+
+
+def _day_label(d: datetime.date, today: Optional[datetime.date] = None) -> str:
+    """'Fri 30 Oct', with the year only when it isn't this one."""
+    today = today or datetime.date.today()
+    text = f"{d:%a} {d.day} {d:%b}"
+    return text if d.year == today.year else f"{text} {d.year}"
+
+
+def _cadence_phrase(recurrence: str, start: datetime.date, recur_days: str = "") -> str:
+    days = [x.strip().capitalize() for x in (recur_days or "").split(",") if x.strip()]
+    if recurrence == "weekly" and len(days) > 1:
+        return "every " + ", ".join(days[:-1]) + " and " + days[-1]
+    return {"daily": "every day",
+            "weekly": f"every {start:%A}",
+            "monthly": f"every month on the {start.day}{_ordinal(start.day)}",
+            "yearly": f"every year on {start.day} {start:%B}"}.get(recurrence, "")
+
+
+def _ordinal(n: int) -> str:
+    if 11 <= n % 100 <= 13:
+        return "th"
+    return {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+
+
+def repeat_hint(recurrence: str, start: datetime.date,
+                end: Optional[datetime.date], editing_series: bool = False,
+                today: Optional[datetime.date] = None, recur_days: str = "") -> str:
+    """The caption under End repeat: what saving will book, in words.
+
+    The end date is INCLUSIVE — "ends on 30 Oct" books the 30th — which is
+    how `db._create_series_instances` has always counted it, and the reason
+    the hint says "through", the word the project reads as keeping its day
+    (CLAUDE.md: "until" excludes the day it names, "through" keeps it).
+    """
+    if not recurrence:
+        return ("Saving stops the series here — the events after this one are removed."
+                if editing_series else "")
+    what = _cadence_phrase(recurrence, start, recur_days)
+    if end is None:
+        text = f"Repeats {what} with no end date — the next 12 months are booked."
+    else:
+        text = (f"Repeats {what} through {_day_label(end, today)}, then stops — "
+                "the end date is included.")
+    text += " Skips Shabbat and yom tov."
+    if editing_series:
+        text += " Changing Repeat or End repeat updates the whole series."
+    return text
+
+
+def series_badge(event: Optional[dict], today: Optional[datetime.date] = None) -> str:
+    """'Part of a weekly series · ends Fri 30 Oct' — '' for a one-off."""
+    if not event or not event.get("series_id") or not event.get("recurrence"):
+        return ""
+    end = event.get("recurrence_end") or ""
+    try:
+        tail = f"ends {_day_label(datetime.date.fromisoformat(end), today)}" if end \
+            else "no end date"
+    except ValueError:
+        tail = f"ends {end}"
+    return f"Part of a {event['recurrence']} series · {tail}"
+
+
+def repeat_rule_changed(event: Optional[dict], data: dict) -> bool:
+    """Did this save change the series' RULE (cadence or end), not just this row?
+
+    The rule belongs to every instance, so a change to it goes to the whole
+    series whatever else was edited — "only this instance" with a new end
+    date would leave one row claiming an end the others don't have.
+    """
+    if not event:
+        return False
+    return ((event.get("recurrence") or "") != (data.get("recurrence") or "")
+            or (event.get("recurrence_end") or "") != (data.get("recurrence_end") or ""))
+
+
 class ColorDot(QWidget):
     """Small colored circle for color selection."""
 
@@ -144,6 +223,16 @@ class EventDialog(QDialog):
             self._title.setText(self._event["title"])
         layout.addWidget(self._title)
 
+        # Which series this row belongs to, before anything is edited — the
+        # only other sign of it was the question Save asks afterwards.
+        badge = series_badge(self._event)
+        if badge:
+            self._series_badge = QLabel(f"🔁 {badge}")
+            self._series_badge.setObjectName("series_badge")
+            badge_color = _styles.D_GRAY_TEXT if _styles._dark else GRAY_TEXT
+            self._series_badge.setStyleSheet(f"color: {badge_color}; font-size: 12px;")
+            layout.addWidget(self._series_badge)
+
         # Form fields
         form = QFormLayout()
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
@@ -218,28 +307,55 @@ class EventDialog(QDialog):
             self._repeat.setCurrentIndex(idx)
         form.addRow("Repeat", self._repeat)
 
-        # Until (Date)
+        # End repeat: Never | On date. This row used to be a bare "Until" date
+        # with no way to say "never" — so opening an open-ended series ("gym
+        # every day", no end) showed today + 1 year, and saving ANY other
+        # change wrote that year back as a real end date.
+        self._ends = QComboBox()
+        self._ends.setObjectName("ends_mode")
+        self._ends.addItems(["Never", "On date"])
         self._until = QDateEdit()
+        self._until.setObjectName("ends_date")
         self._until.setCalendarPopup(True)
         self._until.setMinimumWidth(220)
         self._until.setDisplayFormat("dddd, MMMM d, yyyy")
-        if self._event and self._event.get("recurrence_end"):
-            self._until.setDate(QDate.fromString(self._event["recurrence_end"], "yyyy-MM-dd"))
+        # Never before the event's own date: the end is INCLUSIVE, and an end
+        # earlier than the event would describe a series with no room in it.
+        self._until.setMinimumDate(self._date.date())
+        existing_end = (self._event or {}).get("recurrence_end") or ""
+        if existing_end:
+            self._until.setDate(QDate.fromString(existing_end, "yyyy-MM-dd"))
+            self._ends.setCurrentIndex(1)
         else:
-            self._until.setDate(QDate.fromString(d, "yyyy-MM-dd").addYears(1))
-        
-        # Ensure focus/selection works properly by refreshing on visibility change
-        def on_repeat_changed(idx: int) -> None:
-            visible = idx > 0
-            self._until.setVisible(visible)
-            if visible:
-                # Force a resize/layout update so the date is visible immediately
-                self._until.updateGeometry()
-                self._until.repaint()
+            self._until.setDate(QDate.fromString(d, "yyyy-MM-dd").addMonths(1))
+            # Something being made to repeat is offered an end by default —
+            # most things that repeat stop — while an existing open-ended
+            # series keeps saying Never.
+            already_repeats = bool((self._event or {}).get("recurrence"))
+            self._ends.setCurrentIndex(0 if already_repeats else 1)
+        ends_row = QHBoxLayout()
+        ends_row.addWidget(self._ends)
+        ends_row.addWidget(self._until)
+        ends_row.addStretch()
+        self._ends_label = QLabel("End repeat")
+        form.addRow(self._ends_label, ends_row)
 
-        self._until.setVisible(self._repeat.currentIndex() > 0)
-        self._repeat.currentIndexChanged.connect(on_repeat_changed)
-        form.addRow("Until", self._until)
+        # The hint says in words what the two controls will do, including the
+        # two things nobody could guess: that the end date itself is booked,
+        # and that the series skips Shabbat and yom tov.
+        self._repeat_hint = QLabel()
+        self._repeat_hint.setObjectName("repeat_hint")
+        self._repeat_hint.setWordWrap(True)
+        hint_color = _styles.D_GRAY_TEXT if _styles._dark else GRAY_TEXT
+        self._repeat_hint.setStyleSheet(f"color: {hint_color}; font-size: 11px;")
+        form.addRow("", self._repeat_hint)
+        self._form = form
+
+        self._repeat.currentIndexChanged.connect(lambda _i: self._sync_repeat_rows())
+        self._ends.currentIndexChanged.connect(lambda _i: self._sync_repeat_rows())
+        self._until.dateChanged.connect(lambda _d: self._sync_repeat_rows())
+        self._date.dateChanged.connect(lambda _d: self._on_start_date_changed())
+        self._sync_repeat_rows()
 
         # Color
         color_row = QHBoxLayout()
@@ -334,10 +450,38 @@ class EventDialog(QDialog):
         except OSError as e:
             QMessageBox.warning(self, "Share failed", str(e))
 
+    # -- End repeat ---------------------------------------------------------
+
+    def _recurrence(self) -> str:
+        return _CADENCES[self._repeat.currentIndex()]
+
+    def _end_date(self) -> Optional[datetime.date]:
+        """The series' last day, or None for Never (or no repeat at all)."""
+        if not self._recurrence() or self._ends.currentIndex() == 0:
+            return None
+        return self._until.date().toPyDate()
+
+    def _sync_repeat_rows(self) -> None:
+        repeating = bool(self._recurrence())
+        hint = repeat_hint(
+            self._recurrence(), self._date.date().toPyDate(), self._end_date(),
+            editing_series=bool(self._event and self._event.get("series_id")),
+            recur_days=(self._event or {}).get("recur_days") or "")
+        self._form.setRowVisible(self._ends_label, repeating)
+        self._form.setRowVisible(self._repeat_hint, bool(hint))
+        self._until.setVisible(repeating and self._ends.currentIndex() == 1)
+        self._repeat_hint.setText(hint)
+
+    def _on_start_date_changed(self) -> None:
+        # The floor follows the event: moving it later drags an end that would
+        # now fall before it along (QDateEdit clamps to its minimum).
+        self._until.setMinimumDate(self._date.date())
+        self._sync_repeat_rows()
+
     def _set_read_only_widgets(self) -> None:
         for w in (
             self._title, self._date, self._start, self._end, self._attendees,
-            self._location, self._description, self._repeat, self._until,
+            self._location, self._description, self._repeat, self._ends, self._until,
         ):
             w.setEnabled(False)
         for dot in self._color_dots:
@@ -393,9 +537,9 @@ class EventDialog(QDialog):
         start_str = self._start.time().toString("HH:mm")
         end_str = self._end.time().toString("HH:mm")
 
-        recur_idx = self._repeat.currentIndex()
-        recurrence = ["", "daily", "weekly", "monthly", "yearly"][recur_idx]
-        recur_until = self._until.date().toString("yyyy-MM-dd") if recur_idx > 0 else ""
+        recurrence = self._recurrence()
+        end = self._end_date()
+        recur_until = end.isoformat() if end else ""
 
         self.event_data = {
             "title": title,

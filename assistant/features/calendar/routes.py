@@ -263,7 +263,9 @@ def series_update(event_id: int):
     ("daily" | "weekly" | "monthly" | "yearly") and `recurrence_end` (ISO date,
     "" for no end) are the two that change the SHAPE — `db.update_series`
     deletes the instances after this one and regenerates them, so extending an
-    end date grows the series and shortening it trims.
+    end date grows the series and shortening it trims. The end date is
+    INCLUSIVE — the series' last possible day — and one before this event is a
+    400, since trimming from here could not reach the instances between.
 
     A one-off is PROMOTED when the body names a recurrence, so "make this
     repeat weekly" is the same request as "change the cadence".
@@ -297,7 +299,10 @@ def series_update(event_id: int):
         db.promote_to_series(event_id)
         series_id = _series_id_of(db.get_event(event_id) or event) or event_id
     else:
-        db.update_series(series_id, event_id, **data)
+        try:
+            db.update_series(series_id, event_id, **data)
+        except ValueError as e:       # an end date before this event, or not a date
+            return jsonify({"error": str(e), "code": 400}), 400
 
     instances = db.get_series_events(series_id)
     return jsonify({"series_id": series_id, "count": len(instances),
