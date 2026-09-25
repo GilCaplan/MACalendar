@@ -1514,3 +1514,59 @@ creates (harm weight 1 each), mostly titles; those rows went to the model
 before, which reads them better and slower. Kept on the primary pair, with
 the harm said plainly; the real-usage board is the gate that decides whether
 it stays.
+
+---
+
+## 2026-09-25 — time correctness: the instrument, then a bare 8
+
+**The instrument was charging the engine for obeying the rulings.**
+`explicit time right` read 79.4% (train, n=524), and it looked like the
+weakest thing on the fast path. Mining the train misses (155 of 708 scored
+before the committed-only filter) found them nearly all in `_phrase_to_hhmm`.
+It read every bare hour as AM and never looked at the sentence, so:
+- "this evening at 6:45" was wanted at 06:45;
+- "half past six" was wanted at 06:30, although DEVQA Q28 (2026-09-20) says a
+  bare 1–8 is PM.
+
+`_ruled_hhmm` now scores against the rulings:
+- a time said with its half of the day (am/pm, 24h, noon, midnight) is scored
+  as said, and a day word never overrides it;
+- a bare hour beside a day word takes that word's half;
+- a bare hour alone follows Q28.
+
+Words that contradict themselves ("this afternoon at 9:15") are counted and
+not scored. The line is split in two, as `scripts/persona_board.py` already
+did (`time_is_unambiguous` moved here): a miss in the said-with-its-half line
+is a DEFECT, and a miss in the bare line is a convention disagreement.
+
+| metric (FastRule 7,200, committed events) | train | test |
+|---|---|---|
+| explicit time right, old instrument | 79.4% (n=524) | — |
+| explicit time right, by the rulings | 92.9% (n=524) | 91.7% (n=204) |
+| said with its half | 96.0% (n=374) | 96.5% (n=144) |
+| bare, by convention | 85.3% (n=150) | 80.0% (n=60) |
+
+**Cycle 1: a bare 8 is PM on the front door too.**
+- *Prediction:* the bare line rises on both splits, and nothing else moves.
+- *The cause:* `_extract_temporal`'s post-process bumped a bare 1–7 to PM and
+  left 8 in the morning. "book dentist tomorrow at 8" was therefore booked at
+  08:00, while Q28's reply said *"I read "8" as 8 PM"*. "quarter to nine"
+  (8:45) came out AM beside a day word and PM without one, because the
+  recogniser returned one value in the first case and two in the second.
+- *The fix:* 8 joins the bump, except "8 o'clock", which reads AM on both
+  tracks, and a morning word, which still wins.
+
+| metric | train before → after | test before → after |
+|---|---|---|
+| bare, by convention | 85.3% → **98.7%** (n=150) | 80.0% → **98.3%** (n=60) |
+| explicit time right | 92.9% → **96.8%** (n=524) | 91.7% → **97.1%** (n=204) |
+
+No other line on either split moved. As predicted.
+
+**Still open.** These are 17 train misses, all in the said-with-its-half line.
+An explicit half of the day loses to a day word beside it ("this evening at
+11am" → 23:00, "this morning at noon" → 00:00, "8:30pm in the morning" →
+08:30). That is the next cycle. There are also three one-offs:
+- "half past six in the morning" → 18:30;
+- "7am starting two weeks from now" → 10:00;
+- "i'm free this evening so … at 9:15" → 09:15.

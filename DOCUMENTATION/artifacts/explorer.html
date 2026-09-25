@@ -5873,29 +5873,23 @@ else __runDemos();
   },
   "board_d": {
    "n": 1200,
-   "off": 93.8,
-   "on": 93.8,
+   "off": 94.9,
+   "on": 94.8,
    "fixed": 0,
-   "broke": 0,
-   "disagreed": 7,
+   "broke": 1,
+   "disagreed": 6,
    "by_reentries": {
     "0": {
-     "n": 1176,
-     "off": 1107,
-     "on": 1107,
+     "n": 1179,
+     "off": 1123,
+     "on": 1123,
      "net": 0
     },
     "1": {
-     "n": 23,
-     "off": 18,
-     "on": 18,
-     "net": 0
-    },
-    "2": {
-     "n": 1,
-     "off": 1,
-     "on": 1,
-     "net": 0
+     "n": 21,
+     "off": 16,
+     "on": 15,
+     "net": -1
     }
    }
   }
@@ -6053,7 +6047,7 @@ else __runDemos();
    "label": "three things, rewritten one per thing",
    "text": "on friday create an event for the dentist, a haircut and the gym",
    "parse": "deep",
-   "message": "I went ahead, but start_time = 09:00 (9am) — nothing in the words said it. Created event 'event for the dentist' on Friday, Sep 11, 2026 from 9 AM to 10 AM. Created event 'event for a haircut' on Friday, Sep 11, 2026 from 9 AM to 10 AM. Created event 'event for the gym' on Friday, Sep 11, 2026 from ",
+   "message": "I went ahead, but start_time = 09:00 (9am) — nothing in the words said it. Created event 'dentist' on Friday, Sep 11, 2026 from 9 AM to 10 AM. Created event 'haircut' on Friday, Sep 11, 2026 from 9 AM to 10 AM. Created event 'gym' on Friday, Sep 11, 2026 from 9 AM to 10 AM.",
    "boundaries": [
     {
      "name": null,
@@ -6069,7 +6063,7 @@ else __runDemos();
     },
     {
      "name": null,
-     "value": "create event · title=the dentist, a haircut and the gym · date=2026-09-11 (Friday 11 September) · start_time=09:00 (9am)"
+     "value": "create event · title=dentist a haircut and the gym · date=2026-09-11 (Friday 11 September) · start_time=09:00 (9am)"
     },
     {
      "name": null,
@@ -6085,7 +6079,7 @@ else __runDemos();
     },
     {
      "name": null,
-     "value": "create event · title=event for the dentist · date=2026-09-11 (Friday 11 September) · start_time=09:00 (9am) | create event · title=event for a haircut · date=2…"
+     "value": "create event · title=dentist · date=2026-09-11 (Friday 11 September) · start_time=09:00 (9am) | create event · title=haircut · date=2026-09-11 (Friday 11 Septe…"
     },
     {
      "name": null,
@@ -6159,21 +6153,21 @@ else __runDemos();
     {
      "stage": "execute",
      "title": "Create Event",
-     "detail": "Created event 'event for the dentist' on Friday, Sep 11, 2026 from 9 AM to 10 AM.",
+     "detail": "Created event 'dentist' on Friday, Sep 11, 2026 from 9 AM to 10 AM.",
      "ok": true,
      "outcome": ""
     },
     {
      "stage": "execute",
      "title": "Create Event",
-     "detail": "Created event 'event for a haircut' on Friday, Sep 11, 2026 from 9 AM to 10 AM.",
+     "detail": "Created event 'haircut' on Friday, Sep 11, 2026 from 9 AM to 10 AM.",
      "ok": true,
      "outcome": ""
     },
     {
      "stage": "execute",
      "title": "Create Event",
-     "detail": "Created event 'event for the gym' on Friday, Sep 11, 2026 from 9 AM to 10 AM.",
+     "detail": "Created event 'gym' on Friday, Sep 11, 2026 from 9 AM to 10 AM.",
      "ok": true,
      "outcome": ""
     },
@@ -6302,7 +6296,7 @@ else __runDemos();
     {
      "stage": "done",
      "title": "Done",
-     "detail": "deep path · 13.9 s total",
+     "detail": "deep path · 33.5 s total",
      "ok": true,
      "outcome": ""
     }
@@ -6396,7 +6390,7 @@ else __runDemos();
     {
      "stage": "done",
      "title": "Done",
-     "detail": "deep path · 9.1 s total",
+     "detail": "deep path · 9.8 s total",
      "ok": true,
      "outcome": ""
     }

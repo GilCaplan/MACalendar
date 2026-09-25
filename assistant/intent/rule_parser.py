@@ -919,6 +919,9 @@ _RENAME_RE = re.compile(
 _SAID_MERIDIEM = re.compile(r"\b(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s?m\.?\b", re.I)
 
 
+_EIGHT_OCLOCK = re.compile(r"\b(?:8|eight)\s*o'?\s?clock\b", re.I)
+
+
 def _pick_business_hour_time(values: list[dict], said: str = "") -> str | None:
     """Given multiple time values (AM/PM ambiguity), prefer PM for hours 1–7.
 
@@ -1627,7 +1630,13 @@ def _extract_temporal(span_text: str, today: datetime.date,
             try:
                 _h, _m = result["start_time"].split(":")
                 _h = int(_h)
-                if 1 <= _h <= 7:
+                # 8 JOINS 1-7 (DEVQA Q28, 2026-09-20: a bare 7 or 8 is PM when
+                # nobody can be asked). It stayed out, so "tomorrow at 8" was
+                # booked 08:00 while the reply said "I read "8" as 8 PM", and
+                # "quarter to nine" (8:45) came out AM beside a day word and PM
+                # without one. "8 o'clock" keeps its morning — it reads AM on
+                # both tracks, the ruling leaves it alone.
+                if 1 <= _h <= 7 or (_h == 8 and not _EIGHT_OCLOCK.search(span_text)):
                     result["start_time"] = f"{_h + 12:02d}:{_m}"
             except (ValueError, AttributeError):
                 pass

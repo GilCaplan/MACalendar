@@ -147,6 +147,67 @@ _SEVERITY = {
 }
 
 
+#: `\bam\b` does NOT match "8:45am" — digit and letter are both word
+#: characters, so there is no boundary between them. The lookbehind is what
+#: makes "8:45am" match while "program" does not.
+_AMPM = re.compile(r"(?<![a-z])(?:am|pm)\b|\bnoon\b|\bmidnight\b|\bmidday\b", re.I)
+_CLOCK24 = re.compile(r"^(?:at\s+)?(\d{1,2}):(\d{2})$")
+_EVENING = re.compile(r"\b(?:evening|tonight|night)\b", re.I)
+_AFTERNOON = re.compile(r"\bafternoon\b", re.I)
+_MORNING = re.compile(r"\bmorning\b", re.I)
+
+
+def time_is_unambiguous(phrase: str) -> bool:
+    """Does the speaker's own phrase FIX the half of the day? ('7pm', '07:00',
+    '19:00', 'noon'). Moved here from `scripts/persona_board.py`, which had
+    already learned the split; both boards now read this one."""
+    s = (phrase or "").strip().lower()
+    if _AMPM.search(s):
+        return True
+    m = _CLOCK24.match(s)
+    if m:
+        return int(m.group(1)) >= 13 or m.group(1).startswith("0")
+    return False
+
+
+#: Sentinel: the words contradict themselves ("this afternoon at 9:15"), so
+#: there is no right answer to score against.
+CONTRADICTORY = "contradictory"
+
+
+def _ruled_hhmm(phrase: str, text: str) -> "str | None":
+    """The start time the RULINGS say a spoken time means, in its sentence.
+
+    `_phrase_to_hhmm` reads the phrase alone and puts every bare hour in the
+    morning — "6:45" is 06:45 even in "this evening at 6:45", and "half past
+    six" is 06:30 though DEVQA Q28 (2026-09-20) says a bare 1-8 is PM. So the
+    `explicit time right` line charged the engine for obeying the rulings: 155
+    of 708 scored train rows "wrong", nearly all of them right (2026-09-25).
+
+      * said with its half of the day (am/pm, noon, midnight, a 24-hour
+        clock): as said — the speaker's own word beats any day word
+      * bare, beside a day word: evening/tonight/night -> PM; afternoon ->
+        PM for 12-8 (9-11 contradicts it); morning -> AM
+      * bare, alone: Q28 — 1-8 PM (7 and 8 are ASKED on the phone, PM when
+        told), 9-12 as said; on the clock hour ("quarter to nine" is 8:45)
+    """
+    base = _phrase_to_hhmm(phrase)
+    if base is None or time_is_unambiguous(phrase):
+        return base
+    h, mins = int(base[:2]), base[3:]
+    t = (text or "").lower()
+    pm = lambda: f"{h + 12 if h < 12 else 12:02d}:{mins}"
+    if _EVENING.search(t):
+        return CONTRADICTORY if h == 12 else pm()
+    if _AFTERNOON.search(t):
+        return pm() if (h == 12 or h <= 8) else CONTRADICTORY
+    if _MORNING.search(t):
+        return CONTRADICTORY if h == 12 else base
+    # On the CLOCK hour, as the front door reads it: "quarter to nine" is
+    # rewritten to 8:45 before anything resolves it, and Q28's bare 8 is PM.
+    return pm() if 1 <= h <= 8 else base
+
+
 def _phrase_to_hhmm(phrase: str) -> "str | None":
     """Resolve an explicit spoken time to HH:MM, or None if it isn't one."""
     s = (phrase or "").strip().lower()
@@ -198,7 +259,11 @@ def main() -> int:
     N_DEFER = N_COMMIT = N_COMMIT_OK = 0  # non-atomic: deferred / committed (violation)
     N_DEFER_KNEW = 0                      # ...deferred BECAUSE it saw the compound
     P_DEFER = P_COMMIT = 0                # propose rows
-    T_OK = T_N = 0                        # explicit times: right / scored
+    T_OK = T_N = 0                        # explicit times: right / scored (either kind)
+    TU_OK = TU_N = 0                      # ...said with am/pm/24h/noon: a miss is a DEFECT
+    TB_OK = TB_N = 0                      # ...bare, scored against the ruled convention
+    T_CONTRA = 0                          # words that contradict themselves: not scored
+    t_miss: list = []                     # (train only) the misses, to read
     INVENT = INVENT_N = 0                 # a time produced where none was said
     # LEAD TIME (2026-09-25). The gold has carried `lead_time` on 241 rows all
     # along and nothing here scored it — so FastRule reading "remind me 30
@@ -334,10 +399,21 @@ def main() -> int:
                 got_t = str(getattr(first, "start_time", "") or "")
                 phrase = (e.get("slots", {}) or {}).get("time_phrase") or ""
                 if phrase and _EXPLICIT_TIME_RE.search(phrase):
-                    want = _phrase_to_hhmm(phrase)
-                    if want and _HHMM.match(got_t):
+                    want = _ruled_hhmm(phrase, r["text"])
+                    if want == CONTRADICTORY:
+                        T_CONTRA += 1
+                    elif want and _HHMM.match(got_t):
+                        right = got_t == want
                         T_N += 1
-                        T_OK += 1 if got_t == want else 0
+                        T_OK += right
+                        if time_is_unambiguous(phrase):
+                            TU_N += 1
+                            TU_OK += right
+                        else:
+                            TB_N += 1
+                            TB_OK += right
+                        if mining and not right:
+                            t_miss.append((phrase, want, got_t, r["text"]))
                 elif not phrase:
                     # Nothing was said about a time: 00:00 (all-day) is the
                     # honest answer, anything else is an invention — EXCEPT a
@@ -480,7 +556,14 @@ def main() -> int:
         print(f"   reminder carried         {pc(L_OK, L_N)}  (n={L_N})")
     if T_N or INVENT_N:
         print(f"\nTIME CORRECTNESS (on committed events)")
-        print(f"   explicit time right      {pc(T_OK, T_N)}  (n={T_N})")
+        print(f"   explicit time right      {pc(T_OK, T_N)}  (n={T_N}; by the rulings, "
+              f"Q28 + day words — before 2026-09-25 this read every bare hour as AM)")
+        print(f"     said with its half     {pc(TU_OK, TU_N)}  (n={TU_N}; am/pm, 24h, noon — "
+              f"a miss here is a DEFECT)")
+        print(f"     bare, by convention    {pc(TB_OK, TB_N)}  (n={TB_N})")
+        if T_CONTRA:
+            print(f"     not scored             {T_CONTRA} rows whose words contradict "
+                  f"themselves ('this afternoon at 9:15')")
         print(f"   INVENTED a time          {pc(INVENT, INVENT_N)}  "
               f"(n={INVENT_N} events where the speaker named no time)")
     print(f"\nNON-ATOMIC rows ({N_N}) — diagnostic; the engine decides")
@@ -496,6 +579,15 @@ def main() -> int:
         print("\n(test split: aggregates only — leakage guard)")
         return 0
     print("\n--- mining (train only) ---")
+    if t_miss:
+        print(f"time misses ({len(t_miss)}), by phrase:")
+        seen = collections.Counter(m[0] for m in t_miss)
+        shown = set()
+        for phrase, want, got, text in t_miss:
+            if phrase in shown or len(shown) >= 12:
+                continue
+            shown.add(phrase)
+            print(f"   {seen[phrase]:>4}  {phrase!r:22} want {want} got {got} | {text[:80]}")
     print("atomic rows deferred, by reason:")
     for k, v in miss_reason.most_common(8):
         print(f"   {v:>4}  {k}")

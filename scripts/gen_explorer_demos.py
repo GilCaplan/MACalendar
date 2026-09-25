@@ -46,6 +46,9 @@ for _v in ("DB", "MEMORY_DB", "VOCAB", "CATEGORIES", "TRACE_BUS", "MODELS",
     os.environ[f"MACALENDAR_{_v}"] = os.path.join(_T, _v.lower())
 os.environ["MACALENDAR_NO_WARMUP"] = "1"
 os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
+# Seeded like every board (CLAUDE.md): the chain island is a recording, and
+# an unseeded one answers "book club" on one regeneration and "club" the next.
+os.environ.setdefault("MACALENDAR_LLM_SEED", "17")
 
 #: A Wednesday, so "tomorrow", "this thursday" and "next week" all mean
 #: something definite on the page and stay the same on every regeneration.
