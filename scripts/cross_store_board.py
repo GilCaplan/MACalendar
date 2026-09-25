@@ -111,6 +111,13 @@ def main() -> int:
     results = {"off": collections.Counter(), "on": collections.Counter()}
     flips = collections.Counter(); shown = []; wrong_rows = []
     real_other = engine._other_store
+    # A FIXED CLOCK (2026-09-25). The seeded decoys sit five days from "today"
+    # and the rows name weekdays and "tomorrow", so the same code read 485/732
+    # on 2026-09-24 and 482/732 the next day. Frozen on the date the other
+    # boards use, so two runs differ only by the code.
+    from freezegun import freeze_time
+    _frozen = freeze_time(dt.datetime(2026, 9, 9, 10, 0), tick=True)
+    _frozen.start()
     for row in rows:
         per = {}
         for arm in ("off", "on"):
