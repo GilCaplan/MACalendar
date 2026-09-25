@@ -434,9 +434,9 @@ final class LiveActivityManager {
             items: Array(items),
             currentId: running?.event.id,
             staleDate: running?.end ?? next?.start ?? (todoLines.isEmpty ? now : midnight),
-            todos: todoLines.isEmpty ? nil : Array(todoLines.prefix(UpNextAttributes.visibleTodos)),
+            todos: todoLines.isEmpty ? nil : Array(todoLines.prefix(UpNextAttributes.sentTodos)),
             todoCount: todoLines.isEmpty ? nil : todoLines.count,
-            general: generalLines.isEmpty ? nil : Array(generalLines.prefix(UpNextAttributes.visibleTodos)),
+            general: generalLines.isEmpty ? nil : Array(generalLines.prefix(UpNextAttributes.sentTodos)),
             generalCount: generalLines.isEmpty ? nil : generalLines.count
         )
     }

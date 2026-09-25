@@ -213,15 +213,16 @@ private struct UpNextLockScreenView: View {
 /// quiet "overdue" where it applies. Deliberately NOT the event rows' glass —
 /// a to-do is not an appointment, and dressing it as one is the look Gil
 /// asked to avoid (2026-09-24: "looks nice and not ai generated too much").
-/// Three lines at most (~19 pt each at 16 pt type), then "+N more"; the whole
-/// page fits the same 160 pt budget as two event rows.
+/// Three lines a page (~19 pt each at 16 pt type); the step button pages on
+/// through the rest, and the last page says "+N more" only for what the card
+/// was never sent. The whole page fits the same 160 pt budget as two event rows.
 private struct TodoPage: View {
     let state: UpNextAttributes.ContentState
     let accent: Color
 
     var body: some View {
-        let lines = Array(state.pageTodos.prefix(UpNextAttributes.visibleTodos))
-        let more = state.pageTodoCount - lines.count
+        let lines = state.pageTodos
+        let more = state.pageTodosBeyond
         VStack(alignment: .leading, spacing: 6) {
             ForEach(lines) { line in
                 HStack(spacing: 8) {

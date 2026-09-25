@@ -104,6 +104,14 @@ struct UpNextAttributes: ActivityAttributes {
     /// lines of it and the "+N more" line no longer fit the 160 pt card.
     static let visibleTodos = 3
 
+    /// How many to-dos of each list the card is SENT, so the step button can
+    /// page through them three at a time (Gil, 2026-09-25: "the notifications
+    /// don't show everything, should have a scroll option"). A Live Activity
+    /// cannot scroll, and its state must stay under ActivityKit's 4 KB, so the
+    /// pages are bounded: nine lines a list is three pages, ~1 KB. Past that,
+    /// the last page says "+N more".
+    static let sentTodos = 9
+
     /// How many agenda rows the lock-screen card draws at once.
     ///
     /// **Two, because of a hard limit, not a taste.** iOS truncates a Live
@@ -141,7 +149,15 @@ extension UpNextAttributes.ContentState {
     var hasTodoPage: Bool { !(todos ?? []).isEmpty }
     var hasGeneralPage: Bool { !(general ?? []).isEmpty }
 
-    var pageCount: Int { eventPages + (hasTodoPage ? 1 : 0) + (hasGeneralPage ? 1 : 0) }
+    /// Pages of three for each to-do list — every line the card was sent.
+    private static func pages(_ lines: [TodoLine]?) -> Int {
+        let n = (lines ?? []).count
+        return n == 0 ? 0 : (n + UpNextAttributes.visibleTodos - 1) / UpNextAttributes.visibleTodos
+    }
+    var todayPages: Int { Self.pages(todos) }
+    var generalPages: Int { Self.pages(general) }
+
+    var pageCount: Int { eventPages + todayPages + generalPages }
 
     /// The page showing now, clamped.
     var page: Int { min(max(offset ?? 0, 0), max(pageCount - 1, 0)) }
@@ -149,16 +165,33 @@ extension UpNextAttributes.ContentState {
     /// Which to-do page is showing — "today", "general" — or nil on an event page.
     var todoPageKind: String? {
         guard page >= eventPages, pageCount > eventPages else { return nil }
-        if page == eventPages { return hasTodoPage ? "today" : "general" }
-        return "general"
+        return page < eventPages + todayPages ? "today" : "general"
     }
+
+    /// Which page of three within the to-do list showing (0-based), and how
+    /// many that list has.
+    var todoSubpage: Int {
+        guard let kind = todoPageKind else { return 0 }
+        return kind == "today" ? page - eventPages : page - eventPages - todayPages
+    }
+    var todoSubpages: Int { todoPageKind == "general" ? generalPages : todayPages }
 
     /// True when a to-do page is the one showing.
     var onTodoPage: Bool { todoPageKind != nil }
 
     /// The lines and the full count for the to-do page showing.
     var pageTodos: [TodoLine] {
-        todoPageKind == "general" ? (general ?? []) : (todos ?? [])
+        let all = todoPageKind == "general" ? (general ?? []) : (todos ?? [])
+        return Array(all.dropFirst(todoSubpage * UpNextAttributes.visibleTodos)
+                        .prefix(UpNextAttributes.visibleTodos))
+    }
+
+    /// Open to-dos past the last line the card holds — "+N more" on the last
+    /// page only; the pages before it are reached with the step button.
+    var pageTodosBeyond: Int {
+        guard todoSubpage == todoSubpages - 1 else { return 0 }
+        let sent = (todoPageKind == "general" ? (general ?? []) : (todos ?? [])).count
+        return max(pageTodoCount - sent, 0)
     }
     var pageTodoCount: Int {
         todoPageKind == "general"
@@ -179,7 +212,9 @@ extension UpNextAttributes.ContentState {
 
     /// "1–2 of 5" on an event page, "To-do" on a to-do page.
     var positionLabel: String {
-        if onTodoPage { return "To-do" }
+        if onTodoPage {
+            return todoSubpages > 1 ? "To-do \(todoSubpage + 1)/\(todoSubpages)" : "To-do"
+        }
         let first = windowStart + 1
         let last = min(windowStart + UpNextAttributes.visibleRows, items.count)
         return "\(first)–\(last) of \(items.count)"
