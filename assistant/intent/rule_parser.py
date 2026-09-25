@@ -2100,11 +2100,30 @@ def _in_temporal(tok, temporal_spans: list[tuple[int, int]]) -> bool:
 
 _PRONOUN_TITLES = frozenset({"me", "i", "it", "you", "us", "them", "that", "this", "task", "tasks", "todo", "reminder", "list"})
 
+#: THE SPEAKER'S OWN FRAME — what they say about THEMSELVES before the thing:
+#: obligation ("i have to", "i've got to", "need to", "gotta", "must"),
+#: possession ("i have", "i've got"), a hedge in front ("i guess"), and "be at"
+#: after an obligation ("i need to be at workout session"). None of it names
+#: the thing. Mined from the FastRule 7,200 TRAIN half (2026-09-25), ~110
+#: committed titles kept it — 'i have to facetime casey', 'i've got
+#: parent-teacher conference', 'be at workout session' — and the two lead
+#: patterns below had drifted: the to-do one knew "have to" but not "i've",
+#: the event one knew "i need to" but not "have to". ONE definition, used by
+#: both. Measured before writing: no train gold title begins with any of it.
+_SPEAKER_FRAME = (
+    r"(?:(?:i\s+guess|i\s+think)\s+)?"
+    r"(?:(?:i|we)(?:['\u2019]ve|\s+have)?\s+)?"
+    r"(?:(?:have|has|need|needs)\s+to|(?:have\s+)?got\s+to|gotta|must|should)"
+    r"(?:\s+be\s+at)?\s+"
+    r"|(?:i|we)(?:['\u2019]ve|\s+have)?\s+got\s+(?!to\b)"
+    r"|(?:i|we)\s+have\s+(?!to\b)")
+
 _TODO_LEAD = re.compile(
     r"^\s*(?:(?:please|hey|ok|okay)[,\s]+)?"
-    r"(?:remind me(?:\s+(?:tomorrow|today|tonight|later|on\s+\w+|next\s+\w+|this\s+\w+))?\s+(?:to|about|that)\s+"
+    r"(?:(?:remind|remember) me(?:\s+(?:tomorrow|today|tonight|later|on\s+\w+|next\s+\w+|this\s+\w+))?\s+(?:to|about|that)\s+"
     r"|add\s+(?:a\s+|the\s+|\d+\s+|two\s+|three\s+)?(?:new\s+)?tasks?\s*(?:to|:|-|—)?\s*(?:my\s+list\s*)?(?:to\s+)?"
-    r"|(?:i\s+)?(?:need|have|want|got)\s+to\s+"
+    r"|(?:i\s+)?want\s+to\s+"
+    rf"|(?:{_SPEAKER_FRAME})"
     r"|(?:add|put)\s+(?:to\s+(?:my|the)\s+(?:\w+\s+)?list\s*:?\s*)"
     r"|(?:make|create)\s+(?:a\s+)?(?:todo|task|reminder)\s+(?:to\s+|for\s+|:\s*)?"
     r"|(?:todo|task|reminder)\s*:\s*)",
@@ -2148,6 +2167,8 @@ def _todo_titles_from_text(text: str, temporal_spans, span) -> list[str]:
     else:
         body = t[m.end():]
         body = _TODO_TRAIL.sub("", body)
+        # the same tails the event title sheds ("… ok", "… needs doing")
+        body = _FRAME_TAIL.sub("", body)
     body = re.sub(r"\s+(?:due|by)\s+.*$", "", body, flags=re.IGNORECASE).strip(" ,;:")
     if not body:
         return []
@@ -2206,8 +2227,9 @@ def _todo_tags_from_text(text: str) -> list[str]:
 #: the dentist" and is the object in "return the book", and position is the only
 #: thing that tells them apart.
 _FRAME_LEAD = re.compile(
-    r"^(?:\s*(?:please|kindly|can you|could you|would you|i want to|i need to|"
+    r"^(?:\s*(?:please|kindly|can you|could you|would you|i want to|"
     r"i'd like to|let's|lets|go ahead and|um|uh|ok|okay|alright|right)\b[,\s]*)*"
+    rf"(?:\s*(?:{_SPEAKER_FRAME}))?"
     # THE REMINDER FRAMES, widened 2026-09-20. "remind me to" and "remind me"
     # were the only two, so every other way of asking for one kept its frame
     # as the NAME: 'remind early that i have a teleconference', 'remind about
@@ -2238,7 +2260,7 @@ _FRAME_LEAD = re.compile(
     r"(?:\s*(?:(?:send|give)\s+me\s+(?:an?\s+)?(?:reminder|alert)\s+"
     r"(?:to|about|of|for|that)|"
     r"set\s+(?:an?\s+)?(?:reminder|alert)\s+(?:to|about|of|for|that)|"
-    r"remind\s+me\s+(?:to|about|of|when|that)|remind\s+me|remind|"
+    r"remind\s+me\s+(?:to|about|of|when|that)|remember\s+me\s+to|remind\s+me|remind|"
     r"set|create|make|add|book|schedule|put|arrange|organise|organize|"
     r"start|get|have)\b\s*)?"
     r"(?:\s*(?:up|an|a|the|my|me|for me|for us)\b\s*)*"
@@ -2280,7 +2302,9 @@ _FRAME_TAIL = re.compile(
     # into deferrals — that junk item is its own defect, filed.
     r"ok|okay|or so|until further notice|no exceptions|except when i'?m busy|"
     r"(?:notify|ping|alert|buzz)\s+me\s+before(?:hand)?|"
-    r"starting|twice|plus)\b\s*[.!]?\s*)+$",
+    r"starting|twice|plus|"
+    # "water the plants needs doing" — the obligation said AFTER the thing
+    r"needs?\s+(?:doing|done|to\s+be\s+done))\b\s*[.!]?\s*)+$",
     re.IGNORECASE)
 _DESTINATION = re.compile(
     r"\s*\b(?:on|to|in|onto|into)\s+(?:my|the)\s+"
