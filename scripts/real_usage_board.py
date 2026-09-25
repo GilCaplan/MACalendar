@@ -232,7 +232,6 @@ def replay(rows: list, scratch: pathlib.Path, resume: bool = False) -> list:
     os.environ["MACALENDAR_MEMORY_DB"] = str(stores / "engine_run.db")
     os.environ["MACALENDAR_TRACE_BUS"] = str(stores / "trace_bus.jsonl")
     os.environ["MACALENDAR_LOCATION"] = str(stores / "location.json")
-    os.environ["MACALENDAR_MODEL_LOCK"] = str(stores / "model.lock")
     os.environ["MACALENDAR_DEVICE_SECRET"] = str(stores / "device_secret")
     os.environ["MACALENDAR_DEVICES"] = str(stores / "devices.json")
     os.environ["MACALENDAR_MODELS"] = str(stores / "models")

@@ -617,8 +617,7 @@ def scratch_env() -> None:
     for var, name in (("DB", "calendar.db"), ("MEMORY_DB", "mem.db"),
                       ("VOCAB", "vocab.json"), ("CATEGORIES", "cats.json"),
                       ("TRACE_BUS", "trace_bus.jsonl"), ("MODELS", "models"),
-                      ("LABEL_FEEDBACK", "feedback.jsonl"),
-                      ("MODEL_LOCK", "model.lock"), ("DEVICE_SECRET", "secret"),
+                      ("LABEL_FEEDBACK", "feedback.jsonl"), ("DEVICE_SECRET", "secret"),
                       ("DEVICES", "devices.json"), ("LEXICON", "lexicon.json"),
                       ("CHECKPOINTS", "checkpoints"), ("UI_STATE", "ui.ini"),
                       ("LOCATION", "location.json")):

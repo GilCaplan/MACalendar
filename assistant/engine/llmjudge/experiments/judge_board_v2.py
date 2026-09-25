@@ -36,7 +36,7 @@ import time
 
 _T = tempfile.mkdtemp(prefix="judge_v2_")
 for _v in ("DB", "MEMORY_DB", "VOCAB", "CATEGORIES", "TRACE_BUS", "MODELS",
-           "LABEL_FEEDBACK", "MODEL_LOCK", "DEVICE_SECRET", "DEVICES",
+           "LABEL_FEEDBACK", "DEVICE_SECRET", "DEVICES",
            "CHECKPOINTS", "LEXICON", "UI_STATE", "LOCATION"):
     os.environ.setdefault(f"MACALENDAR_{_v}", os.path.join(_T, _v.lower()))
 os.environ["MACALENDAR_NO_WARMUP"] = "1"

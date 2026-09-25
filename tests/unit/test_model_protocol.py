@@ -670,3 +670,29 @@ def test_the_quiet_window_is_bounded_for_a_board(lock, monkeypatch):
     with mp.hold(mp.BACKGROUND):
         pass
     assert _t.monotonic() - t0 < 1.5          # never hangs past its own bound
+
+
+def test_no_script_gives_itself_a_private_model_lock():
+    """A script that points MACALENDAR_MODEL_LOCK at scratch arbitrates against
+    NOBODY: the live assistant holds the real lock and stamps the real
+    live-quiet file beside it, and the script never sees either. Four scripts
+    that call the real model did this, so a board or a recording ran straight
+    over live commands — a real 2026-09-24 command took 65 s, two 31-33 s model
+    reads, while the explorer's recorder ran beside it with a private lock.
+    A model-free script never takes the lock, so sharing the real one costs it
+    nothing. Only `tests/conftest.py` may scratch it (a suite must not make the
+    running assistant wait on a test)."""
+    import pathlib
+    import re
+    root = pathlib.Path(__file__).resolve().parents[2]
+    pat = re.compile(r"""["']MODEL_LOCK["']|environ\[\s*["']MACALENDAR_MODEL_LOCK["']\s*\]\s*=""")
+    offenders = []
+    for base in ("assistant", "scripts"):
+        for path in (root / base).rglob("*.py"):
+            rel = str(path.relative_to(root))
+            if rel == "assistant/model_protocol.py":
+                continue
+            if pat.search(path.read_text()):
+                offenders.append(rel)
+    assert not offenders, (
+        "these redirect the model lock, so they ignore live traffic:\n  " + "\n  ".join(offenders))

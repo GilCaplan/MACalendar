@@ -41,7 +41,7 @@ MARK_CLOSE = "<!-- EXPLORER-DEMOS:END -->"
 
 _T = tempfile.mkdtemp(prefix="explorer_demos_")
 for _v in ("DB", "MEMORY_DB", "VOCAB", "CATEGORIES", "TRACE_BUS", "MODELS",
-           "LABEL_FEEDBACK", "MODEL_LOCK", "DEVICE_SECRET", "DEVICES",
+           "LABEL_FEEDBACK", "DEVICE_SECRET", "DEVICES",
            "CHECKPOINTS", "LEXICON", "UI_STATE", "LOCATION"):
     os.environ[f"MACALENDAR_{_v}"] = os.path.join(_T, _v.lower())
 os.environ["MACALENDAR_NO_WARMUP"] = "1"

@@ -21,7 +21,7 @@ import pathlib
 import tempfile
 
 _S = pathlib.Path(tempfile.mkdtemp(prefix="cross_store_"))
-for _v in ("DB", "MEMORY_DB", "VOCAB", "CATEGORIES", "MODELS", "LABEL_FEEDBACK", "MODEL_LOCK",
+for _v in ("DB", "MEMORY_DB", "VOCAB", "CATEGORIES", "MODELS", "LABEL_FEEDBACK",
            "TRACE_BUS", "LLM_BUS", "CHECKPOINTS", "LEXICON", "UI_STATE", "LOCATION",
            "DEVICE_SECRET", "DEVICES"):
     os.environ[f"MACALENDAR_{_v}"] = str(_S / _v.lower())

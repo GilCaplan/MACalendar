@@ -46,7 +46,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 _T = tempfile.mkdtemp(prefix="dv_inv_")
 for _v in ("DB", "MEMORY_DB", "VOCAB", "CATEGORIES", "MODELS", "LABEL_FEEDBACK",
-           "MODEL_LOCK", "DEVICE_SECRET", "DEVICES", "TRACE_BUS", "LEXICON",
+           "DEVICE_SECRET", "DEVICES", "TRACE_BUS", "LEXICON",
            "CHECKPOINTS", "UI_STATE", "LOCATION"):
     os.environ[f"MACALENDAR_{_v}"] = os.path.join(_T, _v.lower())
 os.environ["MACALENDAR_CONFIG"] = os.path.join(_T, "config.yaml")
