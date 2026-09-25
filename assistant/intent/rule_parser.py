@@ -1701,12 +1701,44 @@ def _values_from_the_resolver(result: dict, span_text: str, today) -> None:
     POSITION ("the 2nd row"), an ordinal recurrence ("the 15th of every
     month") and a series bound ("until …") — 7 unit tests. Dates therefore
     stay this function's; unifying them is filed with that evidence."""
+    from assistant.engine.decompose_validate import resolve as _R
+    from assistant.engine.segmentation.fastseg.fastseg import find_time_refs
+    every = find_time_refs(span_text)
+    # A RANGE is the resolver's too (2026-09-25). This reader got "between 5
+    # and 6:30" as 18:30-19:30, "between 2 and 4 this afternoon" as 16:00-17:00
+    # and "this morning from 6 to 8" as 18:00-20:00 — 83.3% of the FastRule
+    # 7,200 train ranges right (n=72) against 99.8% of single clocks — and left
+    # "from 6 to 8" in the title because the recogniser never spanned it. One
+    # range and no other clock: the resolver's start AND end stand, and the
+    # range's words are claimed so the title gives them up.
+    ranges = [r for r in every if r.kind == "range"]
+    if len(ranges) == 1 and not any(r.kind == "clock" for r in every):
+        try:
+            rng = _R.resolve_range(ranges[0].text, span_text)
+        except Exception:
+            rng = None
+        if rng:
+            result["start_time"], result["end_time"] = rng
+            result["spans"].append((ranges[0].start, ranges[0].end))
+            # The recogniser reads "next monday between 2 and 4" as ONE span
+            # and this reader then carries no DATE, which the floor turned into
+            # today: 4 train rows committed on the wrong day the moment the
+            # range read (2026-09-25). A date the words name comes from the
+            # same resolver as the range.
+            days = [r for r in every if r.kind == "date"]
+            if not result.get("date") and len(days) == 1:
+                try:
+                    d = _R.resolve_date(days[0].text, today)
+                except Exception:
+                    d = None
+                if d:
+                    result["date"] = d
+                    result["spans"].append((days[0].start, days[0].end))
+            return
     st = result.get("start_time")
     if not st or result.get("end_time") and result["end_time"] < st:
         return
-    from assistant.engine.decompose_validate import resolve as _R
-    from assistant.engine.segmentation.fastseg.fastseg import find_time_refs
-    refs = [r for r in find_time_refs(span_text) if r.kind == "clock"]
+    refs = [r for r in every if r.kind == "clock"]
     if len(refs) != 1:
         FALLBACK_READS["n"] += 1
         return
@@ -3407,7 +3439,14 @@ def _compute_missing_slots(action_name: str, slots: dict) -> list[str]:
         # (`object_rules._rule_passed_clock_means_tomorrow`).
         now = datetime.datetime.now()
         floor = now.date()
-        if str(slots["start_time"])[:5] < now.strftime("%H:%M"):
+        # ...and only when NO DAY was named, the deep rule's own guard (one
+        # definition, `object_rules._DAY_WORD_RE`). "this morning from 6 to 8"
+        # said at 10:00 names today — the recogniser does not read "this
+        # morning" as a date, so it reached this floor and rolled to tomorrow
+        # once the range read its clock right (2026-09-25).
+        from assistant.engine.decompose_validate.object_rules import _DAY_WORD_RE
+        if (str(slots["start_time"])[:5] < now.strftime("%H:%M")
+                and not _DAY_WORD_RE.search(slots.get("_raw_text") or "")):
             floor = floor + datetime.timedelta(days=1)
         slots["date"] = floor.isoformat()
         return []
