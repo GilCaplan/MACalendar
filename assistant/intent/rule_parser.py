@@ -609,7 +609,7 @@ def _preprocess(transcript: str) -> "tuple[str, bool, int | None]":
     # the title — FastRule failed 100% of those rows because the strip only
     # existed in the deep track's decompose stage.
     from assistant.intent import lead_time as _lead_time
-    text, _minutes = _lead_time.split(text, restore_verb=True)
+    text, _minutes = _lead_time.split(text, restore_verb=True, trailing=True)
     # The same spoken-noise reader the transcript stage uses (one copy, two
     # callers): FastRule is also handed RAW text directly by the sandbox and
     # by any caller that skips the pipeline, and these patterns are

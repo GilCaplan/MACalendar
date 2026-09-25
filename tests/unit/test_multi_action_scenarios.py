@@ -406,3 +406,14 @@ def test_changing_a_todos_due_date(parser):
     assert name == "update_todo"
     assert intent.match_title.lower() == "charge the scooter"
     assert intent.new_due_date == _tomorrow()
+
+
+def test_the_trailing_reminder_form_is_front_door_only():
+    """Decompose reads an item's words JOINED to its time; the trailing form
+    matched there and left the time words in the item ('30th' as a title,
+    12 rows on Board D). It is opt-in, for the whole command only."""
+    from assistant.intent import lead_time as L
+    joined = "book physical therapy and remind me the 30th at 9:15 10 minutes before"
+    assert L.split(joined) == (joined, None)
+    assert L.split("remind me to refill the prescription 30 minutes before",
+                   trailing=True)[1] == 30

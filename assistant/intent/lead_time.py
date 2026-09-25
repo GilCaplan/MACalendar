@@ -59,7 +59,8 @@ _HAS_LEADING_VERB = re.compile(
     r"rename|change|mark|complete|finish|check|what|when|show|list)\b", re.I)
 
 
-def split(text: str, restore_verb: bool = False) -> "tuple[str, int | None]":
+def split(text: str, restore_verb: bool = False,
+          trailing: bool = False) -> "tuple[str, int | None]":
     """(text without the lead-time clause, minutes) — or (text, None).
 
     Returns the ORIGINAL text unchanged when the clause IS the whole command
@@ -73,7 +74,12 @@ def split(text: str, restore_verb: bool = False) -> "tuple[str, int | None]":
     so it leaves this off.
     """
     m = CLAUSE.search(text)
-    if not m and _REMINDER_FRAME.search(text or ""):
+    # TRAIL only where the caller holds the WHOLE command (the front door).
+    # Decompose calls this on an item's words JOINED to its time — "book
+    # physical therapy and remind me THE 30TH AT 9:15 10 minutes before" — and
+    # there the trailing form matched, the time words stayed in the item, and
+    # the title became '30th' (12 rows on Board D, 2026-09-25).
+    if not m and trailing and _REMINDER_FRAME.search(text or ""):
         m = TRAIL.search(text)
     if not m:
         return text, None
