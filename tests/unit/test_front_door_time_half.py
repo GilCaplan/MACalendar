@@ -95,3 +95,20 @@ def test_a_range_is_read_by_the_one_time_reader(registry_with_real_actions):
                 ("book yoga class tomorrow from 6 to 8", ("yoga class", "18:00", "20:00"))]:
             i = fr.run(said).intents[0][1]
             assert (i.title, i.start_time, i.end_time) == want, said
+
+
+def test_the_end_of_the_month_is_its_last_day(registry_with_real_actions):
+    """The project's convention ("until the end of the month" names the final
+    day) on the fast path too: the recogniser's second-half-of-the-month
+    range was taken at its first day, the 16th, on 108 train rows."""
+    import datetime as dt
+    from freezegun import freeze_time
+    from assistant.engine.fastrule.fastrule import FastRule
+    from assistant.intent.rule_parser import RULE_THRESHOLD
+    fr = FastRule(RULE_THRESHOLD)
+    fr.run("book gym tomorrow at 7am")
+    with freeze_time(dt.datetime(2026, 9, 9, 10, 0)):
+        got = [fr.run(t).intents[0][1].date for t in
+               ("book yoga class at the end of the month at 6pm",
+                "dentist end of next month at 3pm")]
+    assert got == ["2026-09-30", "2026-10-31"]

@@ -1685,6 +1685,8 @@ _PART_OF_DAY_WORD = re.compile(
 #: go. Read by the readers board; never used to decide anything.
 FALLBACK_READS = {"n": 0}
 
+_END_OF_MONTH = re.compile(r"\bend\s+of\s+(?:the|this|next)\s+month\b", re.I)
+
 
 def _values_from_the_resolver(result: dict, span_text: str, today) -> None:
     """ONE READER FOR THE HALF OF THE DAY (DEVQA Q53, Gil 2026-09-25).
@@ -1704,6 +1706,23 @@ def _values_from_the_resolver(result: dict, span_text: str, today) -> None:
     from assistant.engine.decompose_validate import resolve as _R
     from assistant.engine.segmentation.fastseg.fastseg import find_time_refs
     every = find_time_refs(span_text)
+    # "THE END OF THE MONTH" is its last day (the project's convention — see
+    # "names the final day" above). The recogniser returns it as the month's
+    # second HALF and this reader took that range's first day: 108 rows of the
+    # FastRule 7,200 train half were booked on the 16th (2026-09-25). The
+    # resolver reads it as the convention says; one date phrase, its day.
+    # Matched in the words, not in `find_time_refs`, which spans only "next
+    # month" inside "end of next month". After until/through it is a series'
+    # END, which the bound pass owns.
+    eom = list(_END_OF_MONTH.finditer(span_text))
+    if len(eom) == 1 and not re.search(r"\b(?:until|till|through|thru)\s+(?:the\s+)?$",
+                                        span_text[:eom[0].start()], re.I):
+        try:
+            d = _R.resolve_date(eom[0].group(0), today)
+        except Exception:
+            d = None
+        if d:
+            result["date"] = d
     # A RANGE is the resolver's too (2026-09-25). This reader got "between 5
     # and 6:30" as 18:30-19:30, "between 2 and 4 this afternoon" as 16:00-17:00
     # and "this morning from 6 to 8" as 18:00-20:00 — 83.3% of the FastRule

@@ -29,6 +29,11 @@ def _one(rp, text):
     ("Dentist on the 15th at 4", "dentist", "16:00"),
     ("Dentist tomorrow at 4", "dentist", "16:00"),
     ("team meeting in three weeks, all day", "team meeting", None),
+    # Left to the model until 2026-09-25 — "the day was lost after a range",
+    # "time left in the title". The range is now read by the one time reader
+    # and names its day, and the end of the month is its last day.
+    ("birthday dinner from 6 to 8 next monday", "birthday dinner", "18:00"),
+    ("open house between 5 and 6:30 at the end of the month", "open house", "17:00"),
 ])
 def test_a_bare_noun_with_a_day_or_clock_is_an_event(rp, text, title, clock):
     action, intent = _one(rp, text)
@@ -38,10 +43,8 @@ def test_a_bare_noun_with_a_day_or_clock_is_an_event(rp, text, title, clock):
 
 
 @pytest.mark.parametrize("text", [
-    "birthday dinner from 6 to 8 next monday",       # the day was lost after a range
     "shedule physical therapy for next tuesday at ten thirty",   # a misheard verb
     "vet appointment takes all day march 5th",       # a verb it cannot title around
-    "open house between 5 and 6:30 at the end of the month",    # time left in the title
     "milk",                                          # no day, no clock
 ])
 def test_what_the_rule_leaves_to_the_model(rp, text):
