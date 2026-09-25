@@ -1,3 +1,12 @@
+- **2026-09-25 — Q53 (ONE TIME READER)**, Gil, asked whether the front
+  door's time reader (`rule_parser._extract_temporal`) and decompose_validate's
+  (`resolve`) should become one, after the same day's two time fixes had to be
+  made in the front door although the deep reader already got them right:
+  *"ok."* decompose_validate's resolver becomes the only reader of what a time
+  MEANS; the front door keeps finding WHERE the time words are (it needs the
+  spans to cut them out of a title) and asks the resolver for the values.
+  Boarded on both splits and on real usage before it lands.
+
 - **2026-09-25 — Q52 (LIST MANAGEMENT IS JUNK, AND SAYS WHY)**, Gil, asked
   what a request to manage LISTS themselves should do ("open grocery list",
   "delete this list", "save the new list", "what lists do I have") instead of

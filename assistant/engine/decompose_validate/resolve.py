@@ -330,6 +330,23 @@ def _bare_hour(h: int, minute: int, said: str) -> "str | None":
     """
     if h > 23 or minute > 59:
         return None                              # not a time on the clock (see resolve_clock)
+    # A DAY WORD SAID WITH THE CLOCK DECIDES ITS HALF, at any bare hour (Q28's
+    # day-word half, 2026-09-25). This read the morning word only for 7 and 8
+    # and the evening word never, so "this morning at half past six" was
+    # 18:30 and "this evening at 9:15" 09:15, while the front door read both
+    # right. Found measuring the two readers before making this the only one
+    # (DEVQA Q53). A 12 keeps its own reading.
+    # Bounded to the hours each word can mean: a morning is 5-11 ("this
+    # morning between 2 and 4" is not 2am); "tonight" / "this evening" / pm take
+    # any bare hour; a MEAL word is weaker evidence and takes 5-9 ("dinner at
+    # 9" is 21:00; "drinks at ten" and "birthday dinner at 11:45" stay as said).
+    morning, evening = _MORNING.search(said or ""), _EVENING.search(said or "")
+    if morning and not evening and 5 <= h <= 11:
+        return f"{h:02d}:{minute:02d}"
+    if evening and not morning and h < 12:
+        meal_only = evening.group(1).lower() in ("dinner", "supper", "drinks")
+        if not meal_only or 5 <= h <= 9:
+            return f"{h + 12:02d}:{minute:02d}"
     if h <= 6:
         return f"{h + 12:02d}:{minute:02d}"
     if 7 <= h <= 8 and not _MORNING.search(said or "") \

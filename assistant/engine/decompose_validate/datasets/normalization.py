@@ -318,12 +318,9 @@ BARE_HOURS = {
 }
 
 #: THE BARE-HOUR CONVENTION, written out from its stated form rather than by
-#: calling `validate.bare_hour_pm`. That distinction is the point: copying the
-#: implementation would make the board unable to catch the implementation
-#: drifting, because gold and code would move together. Stated:
-#:
-#:     a bare hour 1-6 is PM;  7-8 is PM only when evening words are present;
-#:     9-12 are left as spoken.
+#: calling the resolver — see `bare_hour_gold` for the statement as ruled.
+#: Copying the implementation would make the board unable to catch it
+#: drifting, because gold and code would move together.
 #:
 #: If the CONVENTION itself is wrong, no board will say so — that is a human
 #: judgement, the same status as the date floor.
@@ -352,10 +349,37 @@ def resolve_time(filler: str, own_words: str = ""):
     if key not in BARE_HOURS:
         return None
     h, m = BARE_HOURS[key]
+    return bare_hour_gold(h, m, own_words)
+
+
+#: Words that put a bare hour in the MORNING.
+_MORNING = re.compile(r"\b(morning|breakfast|sunrise|dawn|shacharit|shachris|am)\b")
+_STRONG_EVENING = {"tonight", "this evening", "evening", "pm"}
+
+
+def bare_hour_gold(h: int, m: int, own_words: str = "") -> str:
+    """THE BARE-HOUR CONVENTION AS RULED, stated here on its own (2026-09-25).
+
+    Written from the rulings, not by calling the resolver, so this gold can
+    still catch the resolver drifting:
+      * a day word said with the clock decides its half — a morning word takes
+        5-11 to the morning; "tonight" / "this evening" / pm take any bare hour
+        to the evening; a meal word (dinner, supper, drinks) takes 5-9
+      * otherwise Q28: 1-6 PM, 7-8 PM unless "o'clock", 9-12 as said
+    The previous statement ("7-8 is PM only when evening words are present",
+    no morning words at all) predated Q28 and charged the resolver for
+    following it.
+    """
     tl = (own_words or "").lower()
+    morning, evening = _MORNING.search(tl), _EVENING.search(tl)
+    if morning and not evening and 5 <= h <= 11:
+        return f"{h:02d}:{m:02d}"
+    if evening and not morning and h < 12:
+        if evening.group(1) in _STRONG_EVENING or 5 <= h <= 9:
+            return f"{h + 12:02d}:{m:02d}"
     if h <= 6:
         return f"{h + 12:02d}:{m:02d}"
-    if 7 <= h <= 8 and _EVENING.search(tl):
+    if 7 <= h <= 8 and "o'clock" not in tl and "oclock" not in tl:
         return f"{h + 12:02d}:{m:02d}"
     return f"{h:02d}:{m:02d}"
 
