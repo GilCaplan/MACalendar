@@ -348,3 +348,15 @@ def test_the_calendar_entry_shell_leaves_the_title(parser, said, title):
     result = parser.analyze(said, current_view="month")
     (_, intent), = result.intents
     assert intent.title.lower() == title
+
+
+@pytest.mark.parametrize("said,title", [
+    ("book webinar every day except when i'm busy", "webinar"),
+    ("add training session to my calender tomorrow at 8 o'clock", "training session"),
+    ("set up piano lesson every monday at noon starting tonight", "piano lesson"),
+    ("book the dentist tomorrow at 4pm ok", "dentist"),
+])
+def test_a_tail_that_is_not_the_name_leaves_the_title(parser, said, title):
+    result = parser.analyze(said, current_view="month")
+    (_, intent), = result.intents
+    assert intent.title.lower() == title

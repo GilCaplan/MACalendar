@@ -2156,11 +2156,26 @@ _FRAME_ANYWHERE = re.compile(
 _TITLE_MAX_WORDS = 8
 
 _FRAME_TAIL = re.compile(
-    r"(?:\s*[,.]?\s*\b(?:execute|thanks|thank you|please)\b\s*[.!]?\s*)+$",
+    r"(?:\s*[,.]?\s*\b(?:execute|thanks|thank you|please|"
+    # TAILS THAT ARE NOT THE NAME (2026-09-25), each a residue the FastRule
+    # 7,200 TRAIN half left on committed titles: a sign-off ("ok"), a hedge
+    # ("or so"), a standing qualifier ("until further notice", "no
+    # exceptions", "except when i'm busy"), the lead-time ask with its time
+    # already taken ("notify me before"), and the leftovers of a recurrence or
+    # a recurrence whose phrase was read ("starting", "twice") or of a joiner
+    # ("plus"). Not a bare "before": "…, remind me a week before" leaves a
+    # second to-do titled 'before', and blanking it turned 6 committed rows
+    # into deferrals — that junk item is its own defect, filed.
+    r"ok|okay|or so|until further notice|no exceptions|except when i'?m busy|"
+    r"(?:notify|ping|alert|buzz)\s+me\s+before(?:hand)?|"
+    r"starting|twice|plus)\b\s*[.!]?\s*)+$",
     re.IGNORECASE)
 _DESTINATION = re.compile(
     r"\s*\b(?:on|to|in|onto|into)\s+(?:my|the)\s+"
-    r"(?:calendar|schedule|list|todos?|tasks?|agenda|diary)\b", re.IGNORECASE)
+    # "calender" and "to-do list" too: 'training session to my calender' and
+    # 'feed the cat to my to-do' (2026-09-25).
+    r"(?:calendar|calender|schedule|(?:to-?\s?do\s+)?list|to-?\s?dos?|todos?|tasks?|agenda|diary)\b",
+    re.IGNORECASE)
 
 #: The generic word for an entry. Kept when it is all that was said ("Add an
 #: event for 5 p.m."), and it takes a qualifier rather than losing to one.
