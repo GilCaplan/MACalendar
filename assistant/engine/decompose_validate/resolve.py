@@ -140,10 +140,15 @@ def resolve_date(said: str, anchor: dt.date) -> "str | None":
     # September" is the final date rather than a boundary past it. Placed before
     # the offset branch so "the end of the month" is not read as an "N months"
     # offset.
-    m = re.search(r"\bend of (?:the )?(\w+)\b", t)
+    # "this" and "next" too (2026-09-25): "the end of next month" read "next"
+    # as the word, matched nothing, and returned no date at all.
+    m = re.search(r"\bend of (?:the )?(?:(this|next) )?(\w+)\b", t)
     if m:
-        word = m.group(1)
+        word = m.group(2)
         if word == "month":
+            if m.group(1) == "next":
+                y, mo = (anchor.year + 1, 1) if anchor.month == 12 else (anchor.year, anchor.month + 1)
+                return _end_of(y, mo).isoformat()
             return _end_of(anchor.year, anchor.month).isoformat()
         if word == "year":
             return dt.date(anchor.year, 12, 31).isoformat()
