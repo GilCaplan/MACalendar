@@ -59,3 +59,20 @@ def test_a_bare_decimal_number_is_now_read_as_a_clock_by_design():
 def test_the_colon_form_is_unaffected():
     assert resolve_clock("11:15 AM") == "11:15"
     assert resolve_clock("9:05pm") == "21:05"
+
+
+def test_a_range_is_read_to_its_end_clock_not_to_the_end_of_the_sentence():
+    """"between 2 and 4 this afternoon" read its end as "4 this afternoon",
+    the range failed, and the afternoon WINDOW replaced it (12:00-17:00);
+    "from 6 to 8 tonight" became 18:00-19:00 (2026-09-25). The words after
+    the end clock still set the half of the day."""
+    import datetime as dt
+    from assistant.engine.decompose_validate import resolve as R
+    day = dt.date(2026, 9, 9)
+    for said, want in [("between 2 and 4 this afternoon", ("14:00", "16:00")),
+                       ("from 6 to 8 tonight", ("18:00", "20:00")),
+                       ("from 9 to 11 tomorrow morning", ("09:00", "11:00")),
+                       ("from 10 to noon on friday", ("10:00", "12:00")),
+                       ("from 3 to 4pm", ("15:00", "16:00"))]:
+        v = R.resolve(said, day, said, action=said)
+        assert (v["start_time"], v["end_time"]) == want, said

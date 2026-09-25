@@ -520,6 +520,14 @@ def resolve_clock(said: str, context: str = "") -> "str | None":
     return win[0] if win else None
 
 
+#: Where a range's END clock stops and the rest of the sentence begins.
+_RANGE_TAIL = re.compile(
+    r"\s+(?:this|tomorrow|today|tonight|next|on|in|every|each|the|at\s+(?:night|the)|"
+    r"morning|afternoon|evening|night|"
+    r"monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
+    r"jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\b.*$", re.I)
+
+
 def resolve_range(said: str, context: str = "") -> "tuple[str, str] | None":
     """"from 3 to 4pm" / "between 2 and 4" -> (start, end)."""
     t = (said or "").lower()
@@ -557,13 +565,19 @@ def resolve_range(said: str, context: str = "") -> "tuple[str, str] | None":
         if word and word.group(1) in _SPOKEN_HOUR:
             return _bare_hour(_SPOKEN_HOUR[word.group(1)], 0, ctx)
         return None
-    # The END carries the am/pm for both when only it has one — "from 3 to 4pm"
-    # is 15:00-16:00, not 03:00-16:00.
-    end = _side(m.group(2), context)
+    # THE END IS ITS CLOCK, not the rest of the sentence. The pattern runs to
+    # the end of the string, so "between 2 and 4 this afternoon" read its end
+    # as "4 this afternoon", which is no clock: the range failed and the
+    # afternoon WINDOW (12:00-17:00) replaced the stated 14:00-16:00; "from 6
+    # to 8 tonight" became 18:00-19:00 (2026-09-25). Cut where a day or
+    # part-of-day phrase begins; those words stay in `context`, where they
+    # still set the half of the day.
+    end_part = _RANGE_TAIL.sub("", m.group(2)).strip() or m.group(2)
+    end = _side(end_part, context)
     # The END carries the am/pm for both when only it has one -- "from 3 to 4pm"
     # is 15:00-16:00, not 03:00-16:00 -- so the end's words join the start's
     # context.
-    start = _side(m.group(1), f"{context} {m.group(2)}")
+    start = _side(m.group(1), f"{context} {end_part}")
     if not (start and end):
         return None
     if end <= start:                      # "from 9 to 2:30" crosses midday
