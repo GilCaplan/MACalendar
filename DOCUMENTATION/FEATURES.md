@@ -77,6 +77,7 @@ still queues exactly as before.
 | hybrid | [Workout & training](#workout--training-scheduling) | templates, live sessions, observance-aware planning | `actions/workout*`, `Features/Workout/` |
 | hybrid | [Timer](#timer-work-tracking) | per-project work + earnings | db `timers*`, `TimerView` |
 | hybrid | [Counters](#counters) | tap counters + payouts | db `counters*` |
+| hybrid | [Teach](#teach--the-labelling-game) | the labelling game — label models' only non-circular data (iOS only) | `features/teach/`, `LabelGameView.swift` |
 | hybrid | [Coursework](#coursework) | courses + assignments tab | db `courses*`, `CourseworkView` |
 | hybrid | [Jude](#jude--the-judaic-study-assistant) | Torah/Talmud/halacha study assistant — a separate repo, hosted as an integration | `assistant/jude/`, `assistant/integrations/`, `MACalendar-iOS/.../Jude/` |
 | hybrid | [iOS app & offline](#ios-app--offline-queues) | full client, 3 offline queues, Tailscale | `MACalendar-iOS/` |
@@ -86,9 +87,10 @@ still queues exactly as before.
 | backend | [The action set](#the-action-set) | the 15 things a command can do | `assistant/actions/` |
 | backend | [Task tags](#task-tags--a-finite-classification) | closed-set classification w/ healing | `actions/todo/tagging.py` |
 | backend | [Categories & stacking](#events-categories-colours--binder-stacking) | auto-colour/categorise; overlaps stack | `actions/calendar/categories.py` |
+| hybrid | [Shabbat & yom tov lines](#shabbat--yom-tov-lines) | yellow lines on Day/Week at the exact minute of candle lighting and nightfall, following the phone's location; minute in yellow on Month (iOS) | `observance.holy_windows`, `GET /observance/windows`, `holy_times.py`, `WeekView.swift` |
 | backend | [Hebrew calendar & observance](#hebrew-calendar--observance) | sundown-bounded halachic windows; series skip, one-offs flagged | `observance.py`, `hebrew_calendar.py` |
 | backend | [Recurring events](#recurring-events) | daily/weekly/monthly/yearly, several weekdays, announced rounding | `db.py`, `decompose_validate/resolve.py` |
-| backend | [API server](#the-api-server) | the single front door, 126 endpoints | `api/server.py` |
+| backend | [API server](#the-api-server) | the single front door, 148 endpoints on 2026-09-24 (the generated `API_REFERENCE.md` is the live list) | `api/server.py` |
 | backend | [Hosted calendar sync](#hosted-calendar-sync) | optional Google & Outlook two-way / ICS read, synced by the brain | `calendar_sync/` |
 | backend | [Self-improvement loop](#the-self-improvement-loop) | the AI measures & improves itself | `dataset/`, `scripts/` |
 | backend | [Diagnostics & logs](#diagnostics--self-observation-logs) | NLU tracking, LLM-judge bug log, audit, calibration | `scripts/` |
@@ -516,6 +518,18 @@ one), so old servers still work.
 **Where:** db `counters`, `counter_presses`, `counter_payouts`; API
 `/counters*`.
 **How:** Same local-first pattern as timers.
+
+### Teach — the labelling game
+**What:** A phone tab that shows one title and the categories (or tags) as
+buttons, hardest items first, so labelling is a few taps. It is where the label
+classifiers' only non-circular training data comes from: an EXPLICIT pick, not
+a label nobody objected to.
+**Where:** `assistant/features/teach/` (`GET /labels/next`, `POST /labels`,
+`POST /labels/retrain`); iOS `Features/Teach/LabelGameView.swift`. iOS only by
+design — `has_mac_panel = False`, reported in the manifest.
+**How:** Declared once to the feature registry like every tab; answers land in
+the label-feedback store the personal model is fitted on, and a refit still
+passes the promotion gate.
 
 ### Jude — the Judaic study assistant
 **What:** Ask about Torah, Talmud, halacha, midrash and machshava; a cited
@@ -1280,6 +1294,53 @@ SERIES rule (`db._skip_for_observance`) is unchanged and still skips.
 gating sits behind `observance.enabled` (config, default on;
 `MACALENDAR_OBSERVANCE` env override — the test harness turns it off).
 
+### Shabbat & yom tov lines
+**What:** A yellow line on the Day and Week grids, on both apps, at the exact
+minute Shabbat or yom tov begins (candle lighting on the eve) and another where
+it ends (tzeit on the last day), each with a small label — "Shabbat · 18:41",
+"Shabbat ends · 19:36"; a yom tov is called by its name, and consecutive holy
+days (Rosh Hashanah into Shabbat) are one window with no line in between. A
+very faint yellow wash fills the time between, under the events. iOS's Month
+view shows the minute in small yellow type (flame = begins, moon = ends).
+Gil, 2026-09-24: *"important because the exact minute is important. mark in
+yellow."*
+**Where:** `observance.holy_windows` / `holy_windows_payload` /
+`place_key`; `GET /observance/windows?start=&end=&israel=` (`server.py`,
+beside the other `/observance` routes) and the `holy_windows` block of
+`GET /sync/bootstrap`; Mac `calendar_ui/holy_times.py` (used by
+`week_view.DayColumn` and `day_view.DayTimeline`); iOS `HolyWindow` in
+`Models.swift`, `HolyTimes`/`HolyTint`/`HolyLines` at the bottom of
+`WeekView.swift`, cached by `LocalStore.cacheHolyWindows`
+(`mc_holy_windows.json`). Switch: `hebrew_calendar.show_shabbat_times`
+(default on), shared by Mac Settings → Hebrew Calendar and iOS Settings →
+Hebrew Calendar.
+**How:** One source of truth — the same `candle_lighting` / `tzeit` the
+recurring-series skip (`db._skip_for_observance`) compares against, with the
+same settings (`current_settings()`, which follows a reported device
+position), so the line and the calendar's refusal are one instant; a test pins
+that the minute the line is drawn in still books and the next is refused.
+Times travel as ISO 8601 with seconds and an offset, and are drawn to the
+SECOND in the observance place's WALL CLOCK — not converted to the viewer's
+zone, because events are naive local times and the skip compares an event's
+naive start with that wall clock (converting drew Shabbat at noon on a
+simulator whose clock was New York while the place was Jerusalem). Labels never make Shabbat look shorter: candle
+lighting truncated to the minute, nightfall rounded up. A window whose
+boundary cannot be computed (polar latitudes) is left out — no line at a
+guessed minute. The Mac GUI reads `observance` directly (as it already reads
+`enumerate_holidays`) but through `settings_from_config()`, not the
+in-process cache, and re-checks `place_key` on its minute tick, so a phone's
+new position moves the Mac's lines too. The phone caches windows with the
+`place_key` they were computed for; an answer for a different place replaces
+the whole cache, not just the refetched month. **Following the phone:**
+`DeviceLocation` now checks on launch AND every return to the foreground
+(throttled to one fix per 5 min, kilometre accuracy), and sends when it has
+moved 5 km (was 25 km — about a minute of sunset east–west) or changed time
+zone; after a send the calendar re-reads the windows. "Sundown follows this
+device" stays OFF by default; without it the lines are for the host's
+configured place. Tests: `tests/unit/test_holy_windows.py`,
+`tests/unit/test_shabbat_lines_view.py` (offscreen render, pixel at the minute,
+`childAt` + `QTest.mouseClick` through the line).
+
 ### Recurring events
 **What:** daily / weekly / monthly / **yearly** series — anything else is
 rounded and the rounding is announced; "until" excludes its day,
@@ -1319,7 +1380,7 @@ re-verified 2026-09-14, both live, neither fixed here):
   monthly"*, omitting the fourth.
 
 ### The API server
-**What:** The single front door — 113 endpoints; every surface is its client.
+**What:** The single front door — 148 endpoints on 2026-09-24 (`python scripts/gen_api_reference.py` regenerates the list and its count); every surface is its client.
 **Where:** `assistant/api/server.py` (HTTP only — no parsing/execution);
 generated reference `DOCUMENTATION/API_REFERENCE.md`
 (`scripts/gen_api_reference.py`).
@@ -1371,11 +1432,10 @@ instrument measuring real speech.
   other 2,699 rows are free for mining and training. A `--test` run reports
   aggregates only and never spawns a hypothesis — direction comes from
   training-pool failures alone.
-- **Whole-engine cycles are PAUSED.** `DOCUMENTATION/STAGE_ISOLATION_PLAN.md:3-4`
-  (Gil, 2026-09-07) supersedes the whole-engine loop until each stage is proven
-  on its own dataset; `dataset/loop_log.csv` ends at run 21, the sealed
-  pre-loop baseline. The loop itself is intact and resumes once the parts are
-  proven — what is paused is the scheduling, not the machinery.
+- **Whole-engine cycles RESUMED on 2026-09-20** (Gil, DEVQA Q31) after the
+  stage-isolation pause of 2026-09-07; `dataset/loop_log.csv` runs on in era 2
+  (run 47 on 2026-09-22). A stage-internal change is still boarded alone on its
+  own stage first, then read on the whole chain (CLAUDE.md, "Measuring a change").
 
 ### Diagnostics & self-observation logs
 **What:** The system writes evidence about itself: `NLU_TRACKING.md` (every

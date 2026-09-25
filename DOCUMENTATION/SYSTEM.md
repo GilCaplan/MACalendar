@@ -19,8 +19,8 @@ Before fixing a bug or adding a feature, **read `CODE_MAP.md`** — it has preci
 `assistant.api` is the front door and `assistant.engine` is the brain. **The
 Mac GUI is a client of the API exactly as the phone is**: `assistant/pipeline.py`
 records audio, transcribes it, and POSTs the transcript to
-`http://127.0.0.1:<port>/voice/text` (`pipeline.py:469`) — it holds no parser of
-its own (`pipeline.py:74`: *"Kept only for health_check(); this process does not
+`http://127.0.0.1:<port>/voice/text` (`pipeline.py`, the POST in the voice path) — it holds no parser of
+its own (`pipeline.py`, `__init__`: *"Kept only for health_check(); this process does not
 parse any more"*). `source` — `"mac"` or `"ios"` — is the only difference
 between the two, and it only labels the trace, the vocabulary corrections and
 the command memory.
@@ -37,9 +37,9 @@ float over a full-screen app with the calendar closed.
 
 **`confirmation_level` no longer has any effect.** The dialog belonged between
 parse and execute, and both now happen in a process with no screen; the GUI
-warns at startup if it is above 0 (`pipeline.py:81-88`). The Mac settings dialog
+warns at startup if it is above 0 (`pipeline.py`, the `confirmation_level` warning in `__init__`). The Mac settings dialog
 still renders an "Auto-approve actions (no confirmations)" checkbox bound to it
-(`assistant/calendar_ui/settings_dialog.py:418-427`, persisted at `:555/:607`),
+(the "Auto-approve" checkbox in `assistant/calendar_ui/settings_dialog.py`),
 so today the setting is a control that changes nothing — worth knowing before
 someone trusts it.
 
@@ -97,21 +97,24 @@ Voice command  (Mac GUI and iPhone both POST /voice/text — same brain, same pa
                                  will only ever be proposed
             llmjudge             raw text vs. produced objects
   → commit              write AND label in one step, so a row cannot land
-                        unlabelled (`assistant/engine/__init__.py:122-124`)
+                        unlabelled (`assistant/engine/__init__.py`, `_commit`)
 ```
 
 `parse` on the response is `"fast" | "deep" | "error" | "ignored"`
-(`state.py:195`), plus `"needs_edit"` and `"confirm_create"` from the two gates
+(`state.py`, `EngineState.parse`), plus `"needs_edit"` and `"confirm_create"` from the two gates
 and `"oneshot"` from the parallel engine below. The old `"rule" / "hybrid" /
 "llm"` vocabulary is pre-engine and no longer emitted anywhere.
 
-**The judge's loop-back is wired but INERT.** `llmjudge.rewrite_for_retry`
-(`assistant/engine/llmjudge/llmjudge.py:254`) returns `None` on purpose: FastSeg
-is deterministic and LLMSeg is off, so re-entering segmentation with unchanged
-text can only produce the same answer — real usage on 2026-09-08 looped three
-times to an identical result and apologised after 30 seconds. No rewrite, no
-loop. The contract and its single call site exist so implementing it later is
-filling in one function.
+**The judge's loop-back is LIVE (since 2026-09-10).**
+`assistant/engine/llmjudge/rewrite.py::rewrite_for_retry` builds X1' in two
+tiers — first the failed asks in the speaker's own words, deterministically;
+then, when that has nothing new to say, the model writes them as a list that
+code joins — and both pass the same grounding guard and fail closed. The good
+objects are frozen (on a live command, already saved — DEVQA Q48,
+`Engine._commit_ready`) and only the failed asks re-enter segmentation, at most
+`MAX_REENTRIES` times. It was a deliberate `None` until 2026-09-10, because a
+deterministic segmenter given the same text returns the same items; a rewrite
+that says something NEW is what makes the loop worth running.
 
 **A parallel one-shot engine** lives at `assistant/engine/LLM_one_shot/` and is
 off unless `MACALENDAR_ONESHOT=1` (`assistant/engine/__init__.py:322`). It
@@ -148,7 +151,7 @@ only the Mac GUI ever did: across the bus's entire eight-day recorded history
 there was not one `begin` line, for any surface. A phone command published
 nothing for its whole 4–40 seconds and then appeared, already finished, in a
 single line. The engine now mints its own run id when the caller has none
-(`assistant/engine/__init__.py:244-257`), so the card's live chain rail finally
+(`assistant/engine/__init__.py`, `Engine.run`), so the card's live chain rail finally
 fills in as the command runs.
 
 The whole-run `trace` line is still written at the end, sharing **one** run id,
@@ -179,7 +182,7 @@ override, and `source: "test"` traffic is dropped (`llm_bus.py:58, 90`).
 | Onboarding | `assistant/stt/vocab_onboarding.py` | First-run interview (6 questions) + opt-in starter packs (prayer/Shabbat, holidays, Israeli life, family, life events). iOS `VocabOnboardingView`, Mac `VocabDialog › Set up…`. |
 | Command memory (RAG) | `assistant/intent/memory.py` | Every command → executed intents → result → timings in `~/.assistant_tools/nlu_memory.db`. Edits/deletes of a voice-created record within 24 h become `corrected`/`rejected` feedback (hooked in `db.update_event/delete_event/update_todo/delete_todo`). `few_shot_block()` can inject the k most similar examples (dates masked) into the LLM system prompt — but **`nlu.memory_examples` is `0` in both the default (`assistant/config.py:237`) and `config.example.yaml:188`, so no few-shot block is injected today**. The config's own comment says why: *"run 7 measured no effect at k=4, so the engine ships with it off"* (`config.example.yaml:188-189`). Also holds the **pending queue** of commands that failed because the LLM was offline; the API server retries them every 30 s. |
 | Trace | `assistant/trace.py` | Stage-by-stage "thinking" log with ms timings, plus the two things the review panel is pinned to: `BRAIN_VERSION` (stamped on every response) and `CHAINS`, the ordered `(stage, label)` spec per version. Returned in `/voice` responses, streamed live as NDJSON from `POST /voice/stream` (iOS `ThinkingView`, toggle in Settings › Voice), and published to the trace bus — see above. |
-| Self-check | `assistant/engine/llmjudge/llmjudge.py` | The engine's cross-check: the LLM lists what the raw text mentions, code diffs that against what was produced, and a deterministic router blames the stage to re-run. Behind a fast commit it runs as a background review (`assistant/engine/__init__.py:565 _start_background_verify`) with three tiers: a placeholder title is **renamed in place**; a missing ask and an extra row are **advisory only** — they say *"Worth a look: …"* and change nothing — unless `self_check_apply` is on, and it is `false` in both `assistant/config.py:286` and `config.example.yaml:95`. That default is deliberate: the always-on verifier proposed far more than it fixed, and four commands were broken by confident duplicate adds ("add eggs" against an existing "buy eggs"). A `verify_token` is issued on every fast commit (`__init__.py:594`) and both clients poll `GET /voice/verify/<token>` for the outcome. |
+| Self-check | `assistant/engine/llmjudge/llmjudge.py` | The engine's cross-check, **with no model call** since 2026-09-10 (`retired/llmjudge-grounding-call/`): `verdict.py` checks every field of every produced object against the words, deterministically, and routes each finding (commit with a note, rewrite the ask, or the review panel). The judge's only model calls are `rescue.py` (reading what FastRule deferred) and the model tier of `rewrite.py`. Behind a fast commit it runs as a background review (`assistant/engine/__init__.py`, `_start_background_verify`) with three tiers: a placeholder title is **renamed in place**; a missing ask and an extra row are **advisory only** — they say *"Worth a look: …"* and change nothing — unless `self_check_apply` is on, and it is `false` in both `assistant/config.py` and `config.example.yaml`. That default is deliberate: the always-on verifier proposed far more than it fixed, and four commands were broken by confident duplicate adds ("add eggs" against an existing "buy eggs"). A `verify_token` is issued on every fast commit (`_start_background_verify`) and both clients poll `GET /voice/verify/<token>` for the outcome. |
 | Benchmark | `scripts/benchmark_models.py` → `DOCUMENTATION/MODEL_BENCHMARK.md` | Accuracy + latency of Ollama models on real commands. |
 
 New endpoints: `GET/POST /vocab`, `POST /vocab/alias`, `DELETE /vocab/<word>[?alias=]`, `PATCH /vocab/settings`, `POST /vocab/preview`, `GET/POST /vocab/onboarding`, `GET /memory`, `GET /memory/similar?q=`, `POST /memory/<id>/feedback`, `DELETE /memory/<id>`, `GET /pending`, `POST /pending/<id>/retry`, `DELETE /pending/<id>`, `POST /voice/stream`. `/health` now reports `llm_status` (`ok` / `offline` / model not pulled).
@@ -193,6 +196,17 @@ Speed: Ollama `keep_alive` (`-1` = keep loaded forever, or e.g. `"30m"`; `config
 ## Sync between Mac and phone
 
 Both apps read and write the same SQLite file (`~/.assistant_tools/calendar.db`) — the phone through the Mac's API. The Mac app polls the DB's modification time every 5 s and reloads calendar, tasks and the Timer tab when it changes. The phone polls every 30 s while idle, and drops to **1 s for 45 s after a voice command** (10 s after a manual edit) via `APIClient.burstRefresh`, so both sides settle together; the Timer tab polls every 3 s while any timer is running.
+
+## Connected calendars (Google, Outlook, subscription links)
+
+Google (two-way), Outlook (two-way) and read-only ICS links are connected from
+Settings → Connected Calendars on either app; both apps are clients of
+`/calendar_sync/*`, and the tokens live only on the Mac. The periodic sync is a
+thread the API process owns (`assistant/calendar_sync/scheduler.py`: first run
+45 s after start, then every `calendar_sync.interval_minutes`), so it runs with
+the calendar window closed, and does nothing while no source is connected — the
+one documented opt-in exception to "never touches the internet". Set-up and the
+why: `DOCUMENTATION/CALENDAR_SYNC.md`.
 
 ## Guests and invitations
 

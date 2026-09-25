@@ -1,9 +1,10 @@
 # STATUS — where we are
 
-> Naming note (2026-09-08): `crosscheck.py` is now
-> `assistant/engine/llmjudge/llmjudge.py` and `generate.py` is
-> `assistant/engine/fastrule/objects.py`. Older entries in other docs use the
-> old names; the chain is in `assistant/engine/ARCHITECTURE.md`.
+> Naming note: `crosscheck.py` became `assistant/engine/llmjudge/llmjudge.py`
+> (2026-09-08), and `generate.py` became `fastrule/objects.py`, which was itself
+> split into `fastrule/build.py` + `fastrule/fast_track.py` (2026-09-10) and is
+> gone. Older entries in other docs use the old names; the chain is in
+> `assistant/engine/ARCHITECTURE.md`.
 
 **One-screen reference. A fresh conversation reads this first, then CLAUDE.md.**
 Keep it current and short; details live in the files it points to.

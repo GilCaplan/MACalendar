@@ -944,6 +944,17 @@ carve-out per decoy.
 
 `event | task | review | other`. The engine's own reader decides first, so this
 module and the tuning experiments cannot disagree about what a review looks like.
+
+**Two rulings the tag reads since 2026-09-24.** DEVQA Q47: an ENCOUNTER with a
+person — meeting, seeing, visiting, calling, eating with a named person or a
+family word — is an event (09:00 when no clock was said), on any day; the
+reader is shared with the front door (`assistant/intent/encounter.py`), and a
+written message ("email", "text"), a mention or a named to-do list stays a
+to-do. And "add / make / leave / write a note to …" and "note to self" are
+to-do frames (`fastseg/kind.py`), though a stated clock still makes an event
+(Q25) and an encounter still wins (Q47). The tag is a PROPOSAL:
+decompose_validate's kind router lets any rule that fired stand and asks its
+small model only on this phase's catch-all path.
 Then **every correction is a ONE-WAY VETO over `event`, never into it** — and that
 asymmetry, rather than the quality of any single signal, is what makes the phase
 work. It has now been measured three times:

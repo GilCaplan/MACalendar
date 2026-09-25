@@ -89,9 +89,14 @@ Error COUNTS not just rates: a wrong "compound" costs a slow path, a wrong
 
 ## Level 3b — the KIND decision (`scripts/kind_board.py`)
 
-Added 2026-09-08, because the failure was invisible without it. Segment labels
-every item event / task / review and `decompose.run()` branches ENTIRELY on
-that label, so one wrong kind costs the decomposition as well. The atomizer
+Added 2026-09-08, because the failure was invisible without it. Segment
+PROPOSES a kind for every item (event / task / review); since 2026-09-24
+decompose_validate's kind router settles it first — a rule that fired stands,
+and only on the tagger's catch-all path does a small trained model decide
+(`kind_router.py`, DEVQA Q47) — and `decompose.run()` branches ENTIRELY on
+that final value, so one wrong kind costs the decomposition as well. The
+router's own board, with the rule layer isolated on and off:
+`decompose_validate/experiments/kind_router_board.py`. The atomizer
 board reported "mis-typed" as a single undirected number — which cannot tell
 tasks-read-as-events from the reverse, and the failure turned out to be almost
 entirely one direction (task recall 0.341 against event recall 0.978).

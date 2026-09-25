@@ -194,7 +194,10 @@ serves segment's clause tier, so the two cannot drift.
 double-times (two clock-time mentions required; ranges excluded). Gate:
 `engine_stage_check --stage decompose`.*
 
-### 4 · validate (`decompose_validate/validate.py` · trace `validate` · tests `test_engine_validate.py`)
+### 4 · validate (inside `decompose_validate/` — `stage.py` wires it; the rules are `object_rules.py` + `targeting.py`, the agreement/arithmetic pass `checks.py` · trace `validate` · tests `test_engine_validate.py`)
+
+*`validate.py`, the ported v1 module, was retired on 2026-09-08; the names below
+are the modules that own the same passes now.*
 Two passes, both contract:
 - `run` (pre-generation, item level): format hygiene, text repair of garbled
   fragments.
@@ -318,7 +321,19 @@ invented, no match stays unknown.
 
 ### commit (orchestrator)
 The only place the engine touches the database, via the existing action
-classes. Two gates stop execution before it, both the same shape: step 1's
+classes. Two behaviours added 2026-09-24:
+- **Save what is ready** (DEVQA Q48, `Engine._commit_ready`): on the live path,
+  just before the first model call, every item that has an intent, is not
+  blocked and draws no finding from `verdict.judge` is written through `_commit`
+  and marked `slots["committed_early"]`; the end-of-run `_commit` skips those.
+  Boards drive parse and judge themselves on a scratch store and never take it.
+- **The other list** (`_other_store`): a change or delete whose target is not
+  on the list the parse named is retried on the other one (event ↔ to-do) when
+  exactly one title matches there, before any not-found message; the title
+  matchers try the whole name first, and a tie between two different titles
+  matches nothing.
+
+ Two gates stop execution before it, both the same shape: step 1's
 `needs_edit` (doubted words) and step 4's `confirm_create` (an interrogative
 create, offered as a ready-to-POST `proposal` — the orchestrator only
 short-circuits; the reading is the stage's). Blocked items → explained refusal; `unknown` → honest "didn't
@@ -337,24 +352,24 @@ Categories/colours and task tags are applied by the actions themselves
 **Rebuilt 2026-09-10** (`llmjudge/PLAN.md` §6, Gil). Job 0 answers FastRule's
 DEFERs (`rescue.py`); job 1 is the check, and it runs in BOTH directions:
 
-0. **EXTRACT, don't judge.** Two schema-constrained COPYING questions, never an
-   evaluation — small models extract far better than they self-evaluate, and
-   asked "is this right?" an 8B says yes.
-   - `extract_asks` — the separate things the RAW text asks for (**recall**).
-   - `ground_claims` — the words behind each field of each object
-     (**precision**). This direction is new; the stage previously had only the
-     first, and an invented field had nothing looking for it.
+0. **No model in the check.** The two copying questions this section used to
+   describe (`extract_asks`, `ground_claims`, in `evidence.py`) are RETIRED:
+   the ask diff went on 2026-09-10 and the grounding call the same day
+   (`retired/llmjudge-grounding-call/` — 57% of all model traffic, no outcome
+   changed). The stage's only model calls now are job 0, `rescue.py` (reading
+   what FastRule deferred), and the model tier of `rewrite.py` (writing X1'
+   when the deterministic rewrite has nothing new to say).
 1. **DECIDE deterministically** (`verdict.py`). The temporal fields never reach
    the model: `CalendarIntent` stamps a date and a clock the moment an object
    exists, so `item.slots` — what decompose_validate really resolved — is the
    only honest record, and `render.unsupported_by_slots` reads it for free.
-   Findings: `ungrounded_subject` · `coordinated_subject` · `unsupported_field`
-   · `not_an_ask`. (`missing` and `extra` went with the ask diff on 2026-09-10;
+   Findings: `ungrounded_subject` · `coordinated_subject` · `unsplit_subject`
+   · `unsupported_field` · `not_an_ask`. (`missing` and `extra` went with the ask diff on 2026-09-10;
    `wrong_fields` and `format` are GONE: the old `BLAME` map listed both and no
    code path ever constructed either.)
 2. **ROUTE by finding TYPE, never by opinion** (`findings.py::ROUTE`, pinned by
-   `test_engine_contracts.py`): `ungrounded_subject` and `coordinated_subject`
-   → REWRITE; `unsupported_field` → COMMIT with a notice; `not_an_ask` → the
+   `test_engine_contracts.py`): `ungrounded_subject`, `coordinated_subject` and
+   `unsplit_subject` → REWRITE; `unsupported_field` → COMMIT with a notice; `not_an_ask` → the
    review panel. Only the two SUBJECT findings spend a round, because a rewrite
    cannot invent a date nobody said and a re-run cannot un-produce an extra.
    `coordinated_subject` (Gil, 2026-09-20) is one calendar event whose words

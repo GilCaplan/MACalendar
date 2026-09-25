@@ -4,17 +4,22 @@ What the explainer artifacts are for, who reads them, and the rules they have
 to obey. Written down because the brief changed three times mid-build and each
 change invalidated work that was already done.
 
-## The two artifacts
+## The pages
 
-| | Big picture | Internals |
-|---|---|---|
-| file | `architecture.html` | `internals.html` |
-| answers | *what is this thing* | *how does it actually decide* |
-| length | one screen of diagram + captions | long-form, sectioned |
-| reader leaves knowing | the shape of the system | why a given command went the way it did |
+Four pages live in `DOCUMENTATION/artifacts/`, and `test_artifact_claims.py`
+checks every one of them (`ARTIFACTS.glob("*.html")`).
 
-They are companions. Neither should require the other, but the internals page
-may assume the reader has seen a system diagram somewhere.
+| | Big picture | Internals | Explorer | Engine flow |
+|---|---|---|---|---|
+| file | `architecture.html` | `internals.html` | `explorer.html` | `engine_flow.html` |
+| answers | *what is this thing* | *how does it actually decide* | *click into any part* — the system, the engine stage by stage, the improvement loop, the evaluation | *the chain as one drawing* |
+| length | one screen of diagram + captions | long-form, sectioned | four drawings, a panel per box (a plain summary and a technical section, with a reading-level switch), and replayed recordings of the real engine | one diagram with tooltips |
+| reader leaves knowing | the shape of the system | why a given command went the way it did | what each stage does, with worked examples they can step through | the order of the stages and what crosses each seam |
+
+They are companions; none should require another. The explorer's per-stage
+panels are also governed by CLAUDE.md's "a stage's panel is part of the stage"
+rule, and its widgets replay recordings made by `scripts/gen_explorer_demos.py`
+and `scripts/gen_ingest_demo.py` — regenerate them, never edit the data by hand.
 
 ## Who is reading
 
@@ -195,7 +200,7 @@ a draft that was otherwise finished, and each omission was reported as a gap.
 - [x] ✗ the personalisation layer: four stores, what each one may do
       (rewrite / annotate / classify / recall)
 - [x] the Jewish calendar: sundown, boundaries, what a repeat skips
-- [ ] label hierarchy (two levels) — *not built yet; describe as designed, not shipped*
+- [x] labels — two learned classifiers (event category, task tags) shipped 2026-09-08 behind the keyword rules, embeddings added 2026-09-24 (DEVQA Q46); described on the explorer's commit and label panels, off by default
 - [ ] the harness and what is still unmeasured
 
 ## Publishing

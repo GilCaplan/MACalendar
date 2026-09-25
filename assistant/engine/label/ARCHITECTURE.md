@@ -48,7 +48,10 @@ classifiers, and exactly one answers a given title:
                      nomic-embed-text vector · tasks: one-vs-rest LR on the
                      vector alone · threshold chosen on TRAIN, in the meta
     N-GRAM PIPELINE  what shipped before: LR on word + char n-grams at
-                     MIN_CONFIDENCE — the FALLBACK, used whenever the vector
+                     MIN_CONFIDENCE — or, AS the fallback, the higher
+                     FALLBACK_MIN_CONFIDENCE (tasks 0.90, 2026-09-24: with
+                     ollama down it tagged "call mom" Groceries at the old
+                     0.40) — the FALLBACK, used whenever the vector
                      cannot be had (ollama down, over the 3 s cap, in the 30 s
                      cooldown after a failure, or MACALENDAR_LLM_DISABLED)
 

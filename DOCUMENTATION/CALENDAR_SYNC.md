@@ -161,6 +161,8 @@ never created in your Outlook account.
   redirect all three (`MACALENDAR_GOOGLE_TOKEN`,
   `MACALENDAR_GOOGLE_CLIENT_SECRET`, `MACALENDAR_MSAL_CACHE`).
 - **Code**: `assistant/calendar_sync/` — `scheduler.py` (the loop and "Sync
-  now"), `google_sync.py` / `outlook_sync.py` / `ics_subscription.py` (the
-  providers), `connect.py` (sign-in flows, status, disconnect), `routes.py`
+  now"), `google_sync.py` / `google_client.py` / `google_oauth.py`,
+  `outlook_sync.py` and `ics_subscription.py` (the providers), `common.py`
+  (shared helpers), `connect.py` (sign-in flows, status, disconnect),
+  `guide.py` (the in-app "How to connect" walkthroughs) and `routes.py`
   (`/calendar_sync/*`).

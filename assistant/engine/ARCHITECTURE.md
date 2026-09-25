@@ -108,7 +108,13 @@ an opinion: two types earn a rewrite round, one commits with a notice, one goes
 to the review panel.
 
 **COMMIT + label** — the only place that writes to the DB. Category and colour
-for events, tags for tasks; adjacent events never share a colour.
+for events, tags for tasks; adjacent events never share a colour. On a live
+command it also writes EARLY: whatever the rules built and the judge passed is
+saved just before the first model call (DEVQA Q48, `Engine._commit_ready`), so a
+long command's first events appear in about two seconds. And a change whose
+target is not on the list it named looks on the other one before saying "I
+couldn't find it" (`_other_store`), matching the whole title first and refusing
+a tie between two different titles.
 
 ---
 

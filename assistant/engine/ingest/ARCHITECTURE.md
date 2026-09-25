@@ -121,6 +121,14 @@ minus the sealed 300, 4,800 FastRule train rows, 1,592 segmentation rows):
 explorer's ingest walkthrough is regenerated (`scripts.gen_ingest_demo
 --write`) and its claims test names the two new passes.
 
+## "Note to self" (2026-09-24)
+
+Aim (a), generic: a leading "note to self, X" is "remind me to X"
+(`repair._FRAME_REPAIRS`). Said as a lead-in with a comma, segmentation used to
+cut it into an item of its own that nothing could read. Only at the START of the
+command and only before an ask, so "send a note to self" and "a note to self is
+useful" are untouched (`tests/unit/test_ingest_frames.py`).
+
 ## Misspelled command words (2026-09-24)
 
 Aim (a), generic damage: `repair._WORD_REPAIRS` puts back fourteen misspelled

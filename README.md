@@ -19,13 +19,15 @@ A privacy-focused, voice-driven calendar assistant for macOS. This tool uses loc
 **Full feature catalog** — every feature, where it lives, and how it's built:
 [DOCUMENTATION/FEATURES.md](DOCUMENTATION/FEATURES.md).
 
-A spoken command goes: **Whisper (MLX, on the Apple GPU)** → **personal vocabulary auto-correct** → **rule parser** (spaCy + date recognizer; answers ~34% of commands in ~100 ms with no LLM — the fast-path share on dev-fast-250, 86 of 250 rows at 91% correct-on-committed, run 20 in `dataset/loop_log.csv`) → **local LLM** (Ollama, llama3.1:8b) when the rule parser is unsure, with your most similar past commands injected as examples → validation → actions → SQLite. Every command is remembered; your edits, deletes and approve/reject become feedback that improves the next parse. Details: [DOCUMENTATION/SYSTEM.md](DOCUMENTATION/SYSTEM.md), audit: [DOCUMENTATION/ASSISTANT_AUDIT_SUMMARY.md](DOCUMENTATION/ASSISTANT_AUDIT_SUMMARY.md).
+A spoken command goes: **Whisper (MLX, on the Apple GPU)** → **personal vocabulary auto-correct** → **rule parser** (spaCy + date recognizer; answers ~34% of commands in ~100 ms with no LLM — the fast-path share on dev-fast-250, 86 of 250 rows at 91% correct-on-committed, run 20 in `dataset/loop_log.csv`) → **local LLM** (Ollama, llama3.1:8b) when the rule parser is unsure (past commands are remembered, not injected as examples — measured, that made the engine worse) → validation → actions → SQLite. Every command is remembered; your edits, deletes and approve/reject become feedback that improves the next parse. Details: [DOCUMENTATION/SYSTEM.md](DOCUMENTATION/SYSTEM.md), audit: [DOCUMENTATION/ASSISTANT_AUDIT_SUMMARY.md](DOCUMENTATION/ASSISTANT_AUDIT_SUMMARY.md).
 
-**The LLM sees every command, whichever path answered it.** A rule-path answer
-is returned immediately and then reviewed in the background: the model re-reads
-the transcript against what actually ran and says whether it agrees. It reports
-rather than rewrites — measured over the corpus, applying its corrections fixed
-nothing and broke one thing, so it advises and the trace shows what it thought.
+**Every command is checked, whichever path answered it.** A rule-path answer
+is returned immediately and then reviewed in the background: deterministic code
+checks each saved object's fields against the words actually said (the model is
+not asked for a verdict — that call was retired on 2026-09-10 after it changed
+no outcome). It reports rather than rewrites — measured over the corpus,
+applying its corrections fixed nothing and broke one thing, so it advises and
+the trace shows what it found.
 What *does* correct itself is narrower and evidence-based: an action that
 matches nothing re-parses with the LLM instead of answering "I couldn't find
 that", and an event the rules could only call "meeting" is named properly
@@ -136,6 +138,8 @@ cp config.example.yaml config.yaml
   - `voice`: Preferred system voice (e.g., `"Ava"`, `"Zari"`, `"Samantha"`). Run `say -v \?` in your terminal to see all options.
   - `rate`: Talking speed.
   - `mute`: Set to `true` for a silent assistant.
+- **`ui.start_view`**: which view the calendar opens on — `month | week | day | agenda`,
+  `week` by default. The phone has its own choice in Settings › Appearance.
 - **`ui.show_thinking`** / **`ui.thinking_corner`**: whether the thinking HUD appears,
   and which screen corner it parks in until you drag it somewhere else.
 - **`todo.auto_tag`** / **`todo.auto_tag_infer`**: `auto_tag` is "tag mode" — every new

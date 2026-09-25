@@ -16,9 +16,8 @@ file is how it works today.
         │
         ├─ 0 · rescue.py    answer FastRule's DEFERs — the model lives here now
         │
-        └─ 1 · judge        compare what came out against what was said
+        └─ 1 · judge        compare what came out against what was said — NO model
                  │
-                 ├── evidence.py   the model, asked two COPYING questions
                  ├── verdict.py    deterministic code, which does all the deciding
                  ├── findings.py   the taxonomy and the router
                  └── rewrite.py    X1', when an honest one exists
@@ -46,11 +45,19 @@ stage's board was the extraction inventing an ask out of *"i already handled
 it"*; run 8 counted 39 loop storms, most of them the matcher's artefact; and
 segmentation is FROZEN, so a `missing` finding blamed a stage nobody may change.
 
-**So the stage is now ONE model call and strictly per-object.** What was given
+**So the check became ONE model call and strictly per-object — and then none.**
+The one call left, `ground_claims` (`evidence.py`), was retired the same day
+(`retired/llmjudge-grounding-call/`): it was 57% of every model call the system
+made and changed no outcome on the stage's own board. What was given
 up — noticing that segmentation MERGED two asks — is recorded in `TASKS.md` as
 a segmentation question, which is where it belongs.
 
-## The founding rule: the model EXTRACTS, deterministic code JUDGES
+## The founding rule: the model never JUDGES — and now does not extract either
+
+*History, kept because the reasoning still holds: the table below is the
+design as it stood until 2026-09-10. Both questions are retired. What survives
+is the rule — no model is ever asked whether an object is right — and
+`verdict.py`, which now decides from `item.slots` and the raw words alone.*
 
 Asked *"is this object correct?"* an 8B says yes. That is the accept bias, and
 it is the same family as the verbosity, position and rubric-order effects the
@@ -65,8 +72,10 @@ So the model is given two jobs it is genuinely good at, both of them copying:
 | `extract_asks` | list the separate things the raw text asks for | an ask nothing covers — **recall** |
 | `ground_claims` | quote the words behind each field of each object | a field nothing said — **precision** |
 
-Neither subsumes the other, which is why both run. `verdict.py` turns the two
-lists into findings. The model never sees a score, never names a stage, and
+Neither subsumed the other, which is why both ran — until the measurements
+showed the deterministic subject tests, run FIRST, already caught what the
+quoting caught. `verdict.py` turned the two lists into findings; it now turns
+the object and the words into findings directly. The model never sees a score, never names a stage, and
 never decides what commits.
 
 ## The temporal fields never reach the model at all
@@ -155,12 +164,16 @@ objects cannot be built twice; each round is a smaller problem than the last;
 and the retry is genuinely a different input, which is the only thing that makes
 spending a round rational against a DETERMINISTIC segmenter.
 
-**Freeze, not commit.** The good objects stay in `state.items` and are excluded
-from the re-parse (`engine.parse(frozen=…)`, ids re-prefixed per round);
-`_commit` still runs exactly once, at the end. The alternative — committing them
-mid-loop — buys partial commits, a retract-and-re-commit path and memory
-bookkeeping spanning rounds, for no user-visible gain, since the reply is spoken
-once either way.
+**Freeze — and, on a live command, commit what is ready.** The good objects
+stay in `state.items` and are excluded from the re-parse (`engine.parse(frozen=…)`,
+ids re-prefixed per round). This file used to argue that committing them
+mid-loop bought "no user-visible gain, since the reply is spoken once". Real
+usage refuted it on 2026-09-24: a six-ask command held four finished objects
+for 48.9 s while the model read the other two, and the phone showed nothing.
+DEVQA Q48 (*"save what's ready"*): `Engine._commit_ready` writes every item that
+has an intent, is not blocked and draws no finding, just before the first model
+call, marked `slots["committed_early"]`; the end-of-run `_commit` skips those.
+Live path only — the boards drive parse and judge themselves.
 
 **X1' has TWO TIERS** (Gil, 2026-09-20: *"the whole point of the loop is that
 the llm sends a fix if relevant as X1' to iterate on, otherwise commit"*).
