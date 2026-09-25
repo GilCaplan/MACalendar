@@ -26,6 +26,8 @@ struct TagChip: View {
 
 struct TaskRowView: View {
     @EnvironmentObject var settings: AppSettings
+    @EnvironmentObject var api: APIClient
+    @State private var pickingEvent = false
     var todo: Todo
     var allTags: [TodoTag]
     var onToggle: () -> Void
@@ -251,6 +253,33 @@ struct TaskRowView: View {
             Button(role: .destructive, action: onDelete) {
                 Label("Delete", systemImage: "trash")
             }
+        }
+        // The event this task IS (Gil, 2026-09-25) — see LinkedTodo.swift.
+        .contextMenu {
+            if todo.linkedEventId != nil {
+                Button { link { try await api.unlinkTodo(todoId: todo.id) } } label: {
+                    Label("Unlink from Event", systemImage: "minus.circle")
+                }
+            } else if todo.id > 0 {
+                Button { link { try await api.putTodoOnCalendar(todoId: todo.id) } } label: {
+                    Label("Add to Calendar", systemImage: "calendar.badge.plus")
+                }
+                Button { pickingEvent = true } label: {
+                    Label("Link to Event…", systemImage: "link")
+                }
+            }
+        }
+        .sheet(isPresented: $pickingEvent) {
+            EventPickerSheet { ev in
+                link { try await api.linkTodo(todoId: todo.id, eventId: ev.id) }
+            }
+            .environmentObject(api)
+        }
+    }
+
+    private func link(_ work: @escaping () async throws -> Void) {
+        Task {
+            do { try await work() } catch { api.announceRefusal(error, doing: "link the task") }
         }
     }
 

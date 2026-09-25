@@ -924,6 +924,47 @@ class APIClient: ObservableObject {
         }
     }
 
+    // MARK: - A to-do and an event as ONE THING
+    //
+    // Gil, 2026-09-25: "add a linking feature between todo and events, they can
+    // be linked and the same thing". The Mac keeps the link
+    // (`todos.linked_event_id`) and every rule about it: renaming either renames
+    // both, moving the event re-dates the to-do and back, deleting the event
+    // removes the to-do. Offline, each write queues like any other — and both
+    // creates are replay-safe, because the Mac answers a second "make its
+    // twin" with the twin it already made.
+
+    /// The to-do that is this event, or nil.
+    func linkedTodo(eventId: Int) async throws -> Todo? {
+        guard eventId > 0 else { return nil }
+        struct Wrap: Decodable { let todo: Todo? }
+        let data = try await request("/events/\(eventId)/todo")
+        return try decode(Wrap.self, from: data).todo
+    }
+
+    /// Also put this event on the to-do list, linked.
+    func addLinkedTodo(eventId: Int) async throws {
+        _ = try await mutate("/events/\(eventId)/todo", method: "POST")
+        requestRefresh()
+    }
+
+    /// Put this to-do on the calendar as its linked event (its due date, else
+    /// today; 9:00).
+    func putTodoOnCalendar(todoId: Int) async throws {
+        _ = try await mutate("/todos/\(todoId)/event", method: "POST")
+        requestRefresh()
+    }
+
+    func linkTodo(todoId: Int, eventId: Int) async throws {
+        _ = try await mutate("/todos/\(todoId)/link", method: "PUT", body: ["event_id": eventId])
+        requestRefresh()
+    }
+
+    func unlinkTodo(todoId: Int) async throws {
+        _ = try await mutate("/todos/\(todoId)/link", method: "DELETE")
+        requestRefresh()
+    }
+
     func clearCompletedTodos(list: String? = nil) async throws {
         let path = list != nil ? "/todos/completed?list=\(list!)" : "/todos/completed"
         try await mutate(path, method: "DELETE")

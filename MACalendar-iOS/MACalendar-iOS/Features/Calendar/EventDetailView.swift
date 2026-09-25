@@ -199,6 +199,9 @@ struct EventDetailView: View {
                     TextField("Notes", text: $notes, axis: .vertical)
                         .lineLimit(3...12)
                 }
+                if !isNew && !isReadOnly {
+                    LinkedTodoSection(eventId: event.id)
+                }
                 GuestsSection(attendees: $attendees, title: title, date: date, startTime: startTime, endTime: endTime, location: location)
                 if !isNew {
                     Section {

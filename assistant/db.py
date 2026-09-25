@@ -21,9 +21,10 @@ RECURRENCE_SKIPS_OBSERVANCE = True
 
 DB_PATH = os.path.expanduser("~/.assistant_tools/calendar.db")
 
-#: `todos.source` of the to-do filed beside an event (DEVQA Q50; see
-#: `create_linked_todo`).
-LINKED_EVENT_SOURCE = "linked_event"
+#: The `todos.source` the first linked to-dos (DEVQA Q50, 2026-09-25 morning)
+#: were stored under, before the link got its own column; `_migrate_links`
+#: moves them onto `linked_event_id`.
+_LEGACY_LINK_SOURCE = "linked_event"
 
 _CREATE_TODOS_TABLE = """
 CREATE TABLE IF NOT EXISTS todos (
@@ -65,6 +66,11 @@ _TODO_MIGRATIONS = [
     # rows created in-process (voice, calendar sync, the Mac GUI), which never
     # go over the wire and so can never be retried.
     "ALTER TABLE todos ADD COLUMN client_token TEXT NOT NULL DEFAULT ''",
+    # The event this to-do IS (see "A to-do and an event linked as one thing").
+    # Its own column, not `source`/`source_event_id`: those say where a row
+    # CAME FROM (the calendar->tasks sync mirrors events through them), and a
+    # link is not an origin — any to-do can be linked, and unlinked, later.
+    "ALTER TABLE todos ADD COLUMN linked_event_id INTEGER",
 ]
 
 #: Tables whose rows a CLIENT can create, and which therefore need a creation
@@ -787,6 +793,7 @@ class CalendarDB:
             self._migrate(conn)
             conn.execute(_CREATE_TODOS_TABLE)
             self._migrate_todos(conn)
+            self._migrate_links(conn)
             conn.execute(_CREATE_TAGS_TABLE)
             self._seed_default_tags(conn)
             conn.execute(_CREATE_SUBTASKS_TABLE)
@@ -910,6 +917,29 @@ class CalendarDB:
                     conn.execute(stmt)
                 except sqlite3.OperationalError:
                     pass  # already exists
+
+    def _migrate_links(self, conn: sqlite3.Connection) -> None:
+        """The link's invariants, enforced by the database rather than by every
+        caller: one to-do per event (a partial UNIQUE index), and no to-do left
+        pointing at an event that is gone. Events are deleted from a dozen places
+        — series regeneration, both calendar syncs, a reset — so a trigger
+        UNLINKS on every one of them; only a delete the user asked for
+        (`delete_event`, `delete_series*`) removes the to-do as well."""
+        try:
+            conn.execute(
+                "UPDATE todos SET linked_event_id = source_event_id, "
+                "source_event_id = NULL, source = 'manual' WHERE source = ?",
+                (_LEGACY_LINK_SOURCE,))
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_todos_linked_event "
+                "ON todos(linked_event_id) WHERE linked_event_id IS NOT NULL")
+            conn.execute(
+                "CREATE TRIGGER IF NOT EXISTS trg_events_unlink_todo "
+                "AFTER DELETE ON events BEGIN "
+                "UPDATE todos SET linked_event_id = NULL WHERE linked_event_id = OLD.id; "
+                "END")
+        except sqlite3.OperationalError:
+            pass    # events table not created yet on a brand-new file
 
     def _migrate_client_tokens(self, conn: sqlite3.Connection) -> None:
         """Give every client-creatable table a creation idempotency key.
@@ -1273,6 +1303,15 @@ class CalendarDB:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def get_events_between(self, start: datetime.date, end: datetime.date) -> List[dict]:
+        """Every event from `start` to `end` inclusive, in time order."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM events WHERE date BETWEEN ? AND ? ORDER BY date, start_time",
+                (start.isoformat(), end.isoformat()),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
     def get_event(self, event_id: int) -> Optional[dict]:
         with self._conn() as conn:
             row = conn.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
@@ -1616,39 +1655,99 @@ class CalendarDB:
                         (new_root, new_root),
                     )
 
+            conn.execute("DELETE FROM todos WHERE linked_event_id = ?", (event_id,))
             conn.execute("DELETE FROM events WHERE id = ?", (event_id,))
-            conn.execute("DELETE FROM todos WHERE source = ? AND source_event_id = ?",
-                         (LINKED_EVENT_SOURCE, event_id))
 
     # ------------------------------------------------------------------
-    # An event's LINKED to-do (DEVQA Q50)
+    # A to-do and an event linked as ONE THING
     # ------------------------------------------------------------------
     #
-    # "call the plumber tomorrow" files an event AND a to-do beside it (Gil,
-    # 2026-09-25: "make it a to-do in addition, in parallel, and it should be
-    # linked"). The link is the to-do's `source_event_id`, the column the
-    # calendar→tasks sync already used, under its own source so neither feature
-    # touches the other's rows. What LINKED means, one rule per edit:
-    #   rename either  -> both renamed        move the event -> the due date moves
-    #   delete event   -> the to-do goes      tick or delete the to-do -> event stays
-    # (the call happened, or you no longer need reminding — neither un-books it).
+    # Gil, 2026-09-25: "add a linking feature between todo and events, they can
+    # be linked and the same thing". It began that morning as DEVQA Q50 — "call
+    # the plumber tomorrow" files an event AND a to-do, linked — and any pair can
+    # now be linked from either side, on either app. The link is
+    # `todos.linked_event_id`, one to-do per event. What it means, per edit:
+    #
+    #   rename either           -> both renamed
+    #   move the event          -> the to-do's due date follows
+    #   re-date the to-do       -> the event moves to that day, same clock
+    #   delete the event        -> the to-do goes too (they are one thing)
+    #   tick or delete the to-do-> the event stays (the call happened, or you no
+    #                              longer need reminding; neither un-books it)
+    #   unlink                  -> two independent items again
+    #
+    # An event that disappears any OTHER way (a sync, a series regeneration)
+    # only unlinks — `_migrate_links`' trigger.
+
+    def linked_todo(self, event_id: int) -> Optional[dict]:
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM todos WHERE linked_event_id = ?",
+                               (event_id,)).fetchone()
+        return self._decode_tags(dict(row)) if row else None
+
+    def linked_todos(self, event_id: int) -> List[dict]:
+        todo = self.linked_todo(event_id)
+        return [todo] if todo else []
+
+    def link_todo(self, todo_id: int, event_id: int) -> bool:
+        """Make `todo_id` and `event_id` one thing. An event has one to-do, so
+        whatever was linked to it before is released (kept, unlinked). The
+        to-do takes the event's day as its due date. False if either is gone."""
+        ev = self.get_event(event_id)
+        if ev is None or self.get_todo(todo_id) is None:
+            return False
+        with self._conn() as conn:
+            conn.execute("UPDATE todos SET linked_event_id = NULL, updated_at = ? "
+                         "WHERE linked_event_id = ? AND id != ?",
+                         (_utcnow_iso(), event_id, todo_id))
+            conn.execute("UPDATE todos SET linked_event_id = ?, due_date = ?, updated_at = ? "
+                         "WHERE id = ?",
+                         (event_id, ev.get("date") or "", _utcnow_iso(), todo_id))
+        return True
+
+    def unlink_todo(self, todo_id: int) -> None:
+        with self._conn() as conn:
+            conn.execute("UPDATE todos SET linked_event_id = NULL, updated_at = ? "
+                         "WHERE id = ?", (_utcnow_iso(), todo_id))
 
     def create_linked_todo(self, event_id: int) -> Optional[int]:
-        """File the to-do that goes with `event_id`. None if the event is gone."""
+        """The to-do that IS `event_id`. Its existing one if it has one; None
+        if the event is gone."""
         ev = self.get_event(event_id)
         if ev is None:
             return None
+        have = self.linked_todo(event_id)
+        if have:
+            return int(have["id"])
         today = datetime.date.today().isoformat()
-        return self.create_todo(
+        todo_id = self.create_todo(
             title=ev["title"],
             list_name="today" if (ev.get("date") or today) <= today else "general",
             due_date=ev.get("date") or "",
-            source=LINKED_EVENT_SOURCE,
-            source_event_id=event_id,
         )
+        self.link_todo(todo_id, event_id)
+        return todo_id
 
-    def linked_todos(self, event_id: int) -> List[dict]:
-        return self.get_todos_by_source(LINKED_EVENT_SOURCE, event_id)
+    def create_linked_event(self, todo_id: int, date: str = "", start_time: str = "09:00",
+                            end_time: str = "") -> Optional[int]:
+        """The event that IS `todo_id` — on `date`, else its due date, else
+        today; 09:00 unless told otherwise (the Q47 default for an unclocked
+        event), an hour long. Its existing one if it has one; None if the
+        to-do is gone."""
+        todo = self.get_todo(todo_id)
+        if todo is None:
+            return None
+        if todo.get("linked_event_id") and self.get_event(todo["linked_event_id"]):
+            return int(todo["linked_event_id"])
+        from assistant.actions.calendar.intent import CalendarIntent
+        day = date or todo.get("due_date") or datetime.date.today().isoformat()
+        if not end_time:
+            h, m = (int(x) for x in start_time.split(":")[:2])
+            end_time = f"{min(h + 1, 23):02d}:{m:02d}"
+        event_id = self.create_event(CalendarIntent(
+            title=todo["title"], date=day, start_time=start_time, end_time=end_time))
+        self.link_todo(todo_id, event_id)
+        return event_id
 
     def _follow_event(self, conn, event_id: int, updates: dict) -> None:
         """Carry an event's new title or date onto its linked to-do."""
@@ -1658,13 +1757,15 @@ class CalendarDB:
         cols = {"title": "title", "date": "due_date"}
         set_clause = ", ".join(f"{cols[k]} = ?" for k in carry)
         conn.execute(
-            f"UPDATE todos SET {set_clause}, updated_at = ? "
-            f"WHERE source = ? AND source_event_id = ?",
-            list(carry.values()) + [_utcnow_iso(), LINKED_EVENT_SOURCE, event_id])
+            f"UPDATE todos SET {set_clause}, updated_at = ? WHERE linked_event_id = ?",
+            list(carry.values()) + [_utcnow_iso(), event_id])
 
     def delete_series(self, series_id: int) -> int:
         """Delete all events in a series. Returns the count deleted."""
         with self._conn() as conn:
+            conn.execute("DELETE FROM todos WHERE linked_event_id IN "
+                         "(SELECT id FROM events WHERE series_id = ? OR id = ?)",
+                         (series_id, series_id))
             cur = conn.execute(
                 "DELETE FROM events WHERE series_id = ? OR id = ?",
                 (series_id, series_id),
@@ -1701,6 +1802,9 @@ class CalendarDB:
                         (new_root, new_root),
                     )
 
+            conn.execute("DELETE FROM todos WHERE linked_event_id IN "
+                         "(SELECT id FROM events WHERE (series_id = ? OR id = ?) AND date >= ?)",
+                         (series_id, series_id, from_date))
             cur = conn.execute(
                 "DELETE FROM events WHERE (series_id = ? OR id = ?) AND date >= ?",
                 (series_id, series_id, from_date),
@@ -1949,13 +2053,15 @@ class CalendarDB:
             set_clause = ", ".join(f"{k} = ?" for k in updates)
             values = list(updates.values()) + [_utcnow_iso(), todo_id]
             conn.execute(f"UPDATE todos SET {set_clause}, updated_at = ? WHERE id = ?", values)
-            linked = None
-            if "title" in updates:
-                linked = conn.execute(
-                    "SELECT source_event_id FROM todos WHERE id = ? AND source = ?",
-                    (todo_id, LINKED_EVENT_SOURCE)).fetchone()
-        if linked and linked[0] is not None:
-            self.update_event(linked[0], title=updates["title"])
+            linked = conn.execute("SELECT linked_event_id FROM todos WHERE id = ?",
+                                  (todo_id,)).fetchone()
+        carry = {}
+        if "title" in updates:
+            carry["title"] = updates["title"]
+        if updates.get("due_date"):          # cleared means "no deadline", not "move"
+            carry["date"] = updates["due_date"]
+        if carry and linked and linked[0] is not None:
+            self.update_event(linked[0], **carry)
 
     def toggle_todo_complete(self, todo_id: int) -> bool:
         """Flip completed flag; update completed_at. Returns new completed state."""

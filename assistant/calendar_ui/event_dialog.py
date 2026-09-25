@@ -182,6 +182,7 @@ class EventDialog(QDialog):
             self._read_only = db.is_event_locked(event)
         else:
             self._read_only = False
+        self._db = db
 
         self.setWindowTitle("New Event" if event is None else "Edit Event")
         self.setMinimumWidth(520)
@@ -369,6 +370,15 @@ class EventDialog(QDialog):
         self._update_color_dots()
         form.addRow("Color", color_row)
 
+        # The to-do this event IS (Gil, 2026-09-25: "they can be linked and
+        # the same thing"). Acts at once, like the delete and share buttons —
+        # the link is not a field of the event, so Cancel does not undo it.
+        if self._event and self._event.get("id") and not self._read_only \
+                and self._db is not None:
+            self._todo_row = QHBoxLayout()
+            form.addRow("To-do", self._todo_row)
+            self._render_todo_link()
+
         layout.addLayout(form)
 
         # Button row
@@ -477,6 +487,57 @@ class EventDialog(QDialog):
         # now fall before it along (QDateEdit clamps to its minimum).
         self._until.setMinimumDate(self._date.date())
         self._sync_repeat_rows()
+
+    # ------------------------------------------------------------------
+    # The linked to-do
+    # ------------------------------------------------------------------
+
+    def _render_todo_link(self) -> None:
+        while self._todo_row.count():
+            w = self._todo_row.takeAt(0).widget()
+            if w is not None:
+                w.deleteLater()
+        todo = self._db.linked_todo(self._event["id"])
+        if todo:
+            label = QLabel(("☑ " if todo.get("completed") else "☐ ") + f"🔗 {todo['title']}")
+            label.setObjectName("linked_todo_label")
+            label.setToolTip("Linked: renaming or moving one changes the other; "
+                             "deleting the event removes the to-do")
+            unlink = QPushButton("Unlink")
+            unlink.setObjectName("unlink_todo")
+            unlink.setAutoDefault(False)
+            unlink.clicked.connect(lambda: self._unlink_todo(todo["id"]))
+            self._todo_row.addWidget(label)
+            self._todo_row.addStretch()
+            self._todo_row.addWidget(unlink)
+            return
+        add = QPushButton("Also add as a to-do")
+        add.setObjectName("add_linked_todo")
+        add.setAutoDefault(False)
+        add.clicked.connect(lambda: self._add_linked_todo())
+        pick = QPushButton("Link a to-do…")
+        pick.setObjectName("link_existing_todo")
+        pick.setAutoDefault(False)
+        pick.clicked.connect(lambda: self._pick_todo())
+        self._todo_row.addWidget(add)
+        self._todo_row.addWidget(pick)
+        self._todo_row.addStretch()
+
+    def _add_linked_todo(self) -> None:
+        self._db.create_linked_todo(self._event["id"])
+        self._render_todo_link()
+
+    def _pick_todo(self) -> None:
+        from assistant.calendar_ui.link_picker import LinkPickerDialog, todo_rows
+        dlg = LinkPickerDialog("Link a to-do", todo_rows(self._db), self,
+                               empty="No open to-dos without an event")
+        if dlg.exec() and dlg.chosen_id is not None:
+            self._db.link_todo(dlg.chosen_id, self._event["id"])
+            self._render_todo_link()
+
+    def _unlink_todo(self, todo_id: int) -> None:
+        self._db.unlink_todo(todo_id)
+        self._render_todo_link()
 
     def _set_read_only_widgets(self) -> None:
         for w in (

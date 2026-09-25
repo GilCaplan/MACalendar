@@ -9,6 +9,7 @@ its name.
 |---|---|
 | `GET/POST /todos` | the list, and create (idempotent on `client_token`) |
 | `PATCH/DELETE /todos/<id>` | edit one; `PATCH /todos/<id>/toggle` ticks it off |
+| `PUT/DELETE /todos/<id>/link` `POST /todos/<id>/event` | link it to an event (one thing), unlink it, or put it on the calendar linked |
 | `POST /todos/sync` `POST /todos/reorder` `DELETE /todos/completed` | the bulk operations |
 | `GET/POST /tags` `DELETE /tags/<name>` | the tag palette |
 | `GET /tags/rules` | the classifier AS DATA, so the phone can tag offline |
@@ -115,6 +116,46 @@ def todo_delete(todo_id: int):
         return jsonify({"error": "Todo not found", "code": 404}), 404
     db.delete_todo(todo_id)
     return jsonify({"deleted": todo_id})
+
+
+@blueprint.put("/todos/<int:todo_id>/link")
+def todo_link(todo_id: int):
+    """Link this to-do to `event_id`: from now on they are one thing (see
+    db "A to-do and an event linked as ONE THING")."""
+    data = request.get_json(silent=True) or {}
+    try:
+        event_id = int(data.get("event_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "event_id is required", "code": 400}), 400
+    db = get_db()
+    if not db.link_todo(todo_id, event_id):
+        return jsonify({"error": "Todo or event not found", "code": 404}), 404
+    return jsonify(db.get_todo(todo_id))
+
+
+@blueprint.delete("/todos/<int:todo_id>/link")
+def todo_unlink(todo_id: int):
+    db = get_db()
+    if db.get_todo(todo_id) is None:
+        return jsonify({"error": "Todo not found", "code": 404}), 404
+    db.unlink_todo(todo_id)
+    return jsonify(db.get_todo(todo_id))
+
+
+@blueprint.post("/todos/<int:todo_id>/event")
+def todo_to_event(todo_id: int):
+    """Put this to-do on the calendar as its linked event — on `date` (else its
+    due date, else today) at `start_time` (else 09:00). Returns the existing
+    linked event if it already has one."""
+    data = request.get_json(silent=True) or {}
+    db = get_db()
+    event_id = db.create_linked_event(
+        todo_id, date=str(data.get("date") or ""),
+        start_time=str(data.get("start_time") or "09:00"),
+        end_time=str(data.get("end_time") or ""))
+    if event_id is None:
+        return jsonify({"error": "Todo not found", "code": 404}), 404
+    return jsonify({"event": db.get_event(event_id), "todo": db.get_todo(todo_id)}), 201
 
 
 @blueprint.post("/todos/sync")

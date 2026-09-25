@@ -82,20 +82,15 @@ struct Todo: Identifiable, Codable, Equatable {
     /// stale copy is refused rather than silently overwriting a newer one.
     var updatedAt: String? = nil
 
-    /// The event this to-do was filed beside (DEVQA Q50: "call the plumber"
-    /// is an event AND a linked to-do). Renamed with it, removed with it.
+    /// The event this to-do IS — linked from either side, or filed together
+    /// by voice ("call the plumber", DEVQA Q50). Renamed and re-dated with it.
     var linkedEventId: Int? = nil
 
     enum CodingKeys: String, CodingKey {
         case id, title, list, completed, priority, tags, quantity
         case dueDate = "due_date"
         case updatedAt = "updated_at"
-    }
-
-    /// Read, never written back: the link is the Mac's to keep.
-    private enum LinkKeys: String, CodingKey {
-        case source
-        case sourceEventId = "source_event_id"
+        case linkedEventId = "linked_event_id"
     }
 
     init(id: Int, title: String, list: String, completed: Int,
@@ -120,11 +115,7 @@ struct Todo: Identifiable, Codable, Equatable {
         // Absent from older servers and from every row cached before the
         // column existed, so a missing value means one, not zero.
         quantity  = max(1, try c.decodeIfPresent(Int.self, forKey: .quantity) ?? 1)
-        // Only the LINKED source: a calendar-sync row also carries an event id.
-        let link = try decoder.container(keyedBy: LinkKeys.self)
-        if (try? link.decodeIfPresent(String.self, forKey: .source)) == "linked_event" {
-            linkedEventId = try? link.decodeIfPresent(Int.self, forKey: .sourceEventId)
-        }
+        linkedEventId = try? c.decodeIfPresent(Int.self, forKey: .linkedEventId)
     }
 
     var isDone: Bool { completed != 0 }

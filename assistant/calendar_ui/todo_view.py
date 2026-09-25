@@ -952,10 +952,8 @@ class TodoItemWidget(QWidget):
         # says so — it is renamed with the event and goes when the event does.
         self._link_chip = QLabel("🔗")
         self._link_chip.setObjectName("link_chip")
-        self._link_chip.setToolTip("Linked to a calendar event")
-        self._link_chip.setVisible(self._todo.get("source") == "linked_event"
-                                   and self._todo.get("source_event_id") is not None)
         title_row.addWidget(self._link_chip)
+        self._refresh_link_chip()
 
         self._editor = QLineEdit(self._todo["title"])
         self._editor.setObjectName("todo_editor")
@@ -1246,9 +1244,24 @@ class TodoItemWidget(QWidget):
             tag_actions[act] = tag["name"]
         if not tag_actions:
             tags_menu.addAction("No tags").setEnabled(False)
+        # The event this task IS (Gil, 2026-09-25: "they can be linked and the
+        # same thing") — see db "A to-do and an event linked as ONE THING".
+        menu.addSeparator()
+        link_actions = {}
+        linked = self._linked_event()
+        if linked:
+            from assistant.calendar_ui.link_picker import event_label
+            menu.addAction(f"🔗 {event_label(linked)}").setEnabled(False)
+            link_actions[menu.addAction("Unlink from event")] = "unlink"
+        else:
+            link_actions[menu.addAction("Add to calendar (linked)")] = "to_calendar"
+            link_actions[menu.addAction("Link to an event…")] = "pick_event"
         menu.addSeparator()
         delete_action = menu.addAction("Delete task")
         action = menu.exec(event.globalPos())
+        if action in link_actions:
+            self._on_link_action(link_actions[action])
+            return
         if action in tag_actions:
             name = tag_actions[action]
             tags = [t for t in (self._todo.get("tags") or []) if t.lower() != name.lower()]
@@ -1264,6 +1277,41 @@ class TodoItemWidget(QWidget):
             return
         if action == delete_action:
             self.deleted.emit(self._todo["id"])
+
+    def _linked_event(self) -> Optional[dict]:
+        event_id = self._todo.get("linked_event_id")
+        return self._db.get_event(event_id) if event_id else None
+
+    def _on_link_action(self, what: str) -> None:
+        todo_id = self._todo["id"]
+        if what == "unlink":
+            self._db.unlink_todo(todo_id)
+        elif what == "to_calendar":
+            self._db.create_linked_event(todo_id)
+        elif what == "pick_event":
+            from assistant.calendar_ui.link_picker import LinkPickerDialog, event_rows
+            try:
+                around = datetime.date.fromisoformat(self._todo.get("due_date") or "")
+            except ValueError:
+                around = None
+            dlg = LinkPickerDialog("Link to an event", event_rows(self._db, around), self,
+                                   empty="No events in the next two months")
+            if not (dlg.exec() and dlg.chosen_id is not None):
+                return
+            self._db.link_todo(todo_id, dlg.chosen_id)
+        fresh = self._db.get_todo(todo_id) or {}
+        for key in ("linked_event_id", "due_date"):
+            self._todo[key] = fresh.get(key)
+        self._refresh_link_chip()
+        self._refresh_meta()
+        self.detail_saved.emit()
+
+    def _refresh_link_chip(self) -> None:
+        ev = self._linked_event()
+        self._link_chip.setVisible(ev is not None)
+        if ev is not None:
+            from assistant.calendar_ui.link_picker import event_label
+            self._link_chip.setToolTip(f"Linked to {event_label(ev)}")
 
     def _on_toggled(self, checked: bool) -> None:
         self._todo["completed"] = int(checked)

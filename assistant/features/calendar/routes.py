@@ -10,6 +10,7 @@ routes, request shapes, CRUD — and the feature's CRUD belongs with the feature
 |---|---|
 | `GET/POST /events` | the month/week/day reads, and create |
 | `GET/PATCH/DELETE /events/<id>` | one event; `GET /events/<id>.ics` exports it |
+| `GET/POST /events/<id>/todo` | the to-do linked to it; POST files one (linked) |
 | `GET /search` | substring search over events and tasks |
 | `GET/POST /categories` | the colour classes; `DELETE /categories/<name>` |
 | `POST /categories/classify` `POST /categories/recolor` | classify one title; re-colour everything |
@@ -146,6 +147,26 @@ def event_ics(event_id: int):
     resp.headers["Content-Disposition"] = \
         f'attachment; filename="{filename_for(row)}"'
     return resp
+
+
+@blueprint.get("/events/<int:event_id>/todo")
+def event_linked_todo(event_id: int):
+    """The to-do that is this event, or `{"todo": null}`."""
+    db = get_db()
+    if db.get_event(event_id) is None:
+        return jsonify({"error": "Event not found", "code": 404}), 404
+    return jsonify({"todo": db.linked_todo(event_id)})
+
+
+@blueprint.post("/events/<int:event_id>/todo")
+def event_add_todo(event_id: int):
+    """Also put this event on the to-do list, linked. Returns the existing
+    linked to-do if it already has one."""
+    db = get_db()
+    todo_id = db.create_linked_todo(event_id)
+    if todo_id is None:
+        return jsonify({"error": "Event not found", "code": 404}), 404
+    return jsonify({"todo": db.get_todo(todo_id)}), 201
 
 
 @blueprint.get("/search")

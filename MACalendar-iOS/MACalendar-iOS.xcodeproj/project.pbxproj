@@ -30,6 +30,7 @@
 		AA0000A000000000000000A1 /* EventStacking.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000A000000000000000B1 /* EventStacking.swift */; };
 		AA0000A100000000000000A1 /* TimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000A100000000000000B1 /* TimerView.swift */; };
 		AA0000A200000000000000A1 /* GuestsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000A200000000000000B1 /* GuestsSection.swift */; };
+		AA0000C100000000000000A1 /* LinkedTodo.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000C100000000000000B1 /* LinkedTodo.swift */; };
 		AA0000A300000000000000A1 /* ThinkingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000A300000000000000B1 /* ThinkingView.swift */; };
 		AA0000A400000000000000A1 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000A400000000000000B1 /* SearchView.swift */; };
 		AA0000A400000000000000A9 /* LabelGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000A400000000000000B9 /* LabelGameView.swift */; };
@@ -104,6 +105,7 @@
 		AA0000A000000000000000B1 /* EventStacking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventStacking.swift; sourceTree = "<group>"; };
 		AA0000A100000000000000B1 /* TimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerView.swift; sourceTree = "<group>"; };
 		AA0000A200000000000000B1 /* GuestsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuestsSection.swift; sourceTree = "<group>"; };
+		AA0000C100000000000000B1 /* LinkedTodo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkedTodo.swift; sourceTree = "<group>"; };
 		AA0000A300000000000000B1 /* ThinkingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThinkingView.swift; sourceTree = "<group>"; };
 		AA0000A400000000000000B1 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		AA0000A400000000000000B9 /* LabelGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabelGameView.swift; sourceTree = "<group>"; };
@@ -370,6 +372,7 @@
 				AA000007000000000000001B /* EventDetailView.swift */,
 				AA0000A000000000000000B1 /* EventStacking.swift */,
 				AA0000A200000000000000B1 /* GuestsSection.swift */,
+				AA0000C100000000000000B1 /* LinkedTodo.swift */,
 			);
 			path = Calendar;
 			sourceTree = "<group>";
@@ -602,6 +605,7 @@
 				AA0000A000000000000000A1 /* EventStacking.swift in Sources */,
 				AA0000A100000000000000A1 /* TimerView.swift in Sources */,
 				AA0000A200000000000000A1 /* GuestsSection.swift in Sources */,
+				AA0000C100000000000000A1 /* LinkedTodo.swift in Sources */,
 				AA00009C00000000000000A1 /* AssistantIcons.swift in Sources */,
 				AA00000D000000000000001A /* WeekView.swift in Sources */,
 				AA00000E000000000000001A /* SpeechPlayer.swift in Sources */,

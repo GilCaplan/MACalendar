@@ -172,6 +172,8 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `DELETE` | `/events/<int:event_id>/series` | Delete the whole series, or `?scope=future` for this one and later. |
 | `GET` | `/events/<int:event_id>/series` | Every instance of the series this event belongs to, plus its rule. |
 | `PATCH` | `/events/<int:event_id>/series` | Edit the SERIES through one of its instances. |
+| `GET` | `/events/<int:event_id>/todo` | The to-do that is this event, or `{"todo": null}`. |
+| `POST` | `/events/<int:event_id>/todo` | Also put this event on the to-do list, linked. Returns the existing |
 
 ## /search
 
@@ -220,6 +222,9 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `POST` | `/todos` | Create a task. Idempotent on `client_token` — a repeat returns 200 + the existing id. |
 | `DELETE` | `/todos/<int:todo_id>` |  |
 | `PATCH` | `/todos/<int:todo_id>` |  |
+| `POST` | `/todos/<int:todo_id>/event` | Put this to-do on the calendar as its linked event — on `date` (else its |
+| `DELETE` | `/todos/<int:todo_id>/link` |  |
+| `PUT` | `/todos/<int:todo_id>/link` | Link this to-do to `event_id`: from now on they are one thing (see |
 | `PATCH` | `/todos/<int:todo_id>/toggle` |  |
 | `DELETE` | `/todos/completed` |  |
 | `POST` | `/todos/reorder` |  |
