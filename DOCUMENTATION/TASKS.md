@@ -1827,3 +1827,22 @@ train, 1,051 rows), not from the docs:
 ## Working agreements
 - Everything on the phone is local: no third-party services; the only network peer is the Mac over Tailscale.
 - Prefer doing work directly over spawning sub-agents; keep context small (`/compact` between big tasks).
+
+## ENGINE CYCLES — 2026-09-25 (each boarded alone; numbers in the commits and stage RESULTS)
+
+Done, by stage:
+- **segmentation · FastSeg time finder** — a clock said with a number word ("at seven pm", "at eleven.", "ten past nine in the morning"); a meridiem ending the command left in the title. A written message ABOUT an event stays a to-do (Q47; 7 pre-Q47 gold items relabelled, marked `ruled: Q47`).
+- **FastRule front door (rule_parser)** — the calendar-entry shell and non-name tails off titles (exact title TRAIN 61.6% → 74.7%, TEST 30.4% → 32.5%); a spoken reminder reaches the event (reminder carried 0% → 85.6% TRAIN, 71.1% TEST — it was read and dropped); a to-do said "tonight / this evening" is due today; a change's target loses its own verb; "take/clear X off my calendar" is a removal; "change the due date of X to Y" edits the to-do (cross-store TRAIN 483 → 494/732).
+- **model_protocol** — no script gives itself a private model lock (boards and recordings now yield to live commands; a real command waited 65 s behind the explorer's recorder).
+- **instruments** — FastRule shape board gained a LEAD TIME line; the kind-router board isolates the rule layer (rules alone / words only / model alone / both).
+
+Found, not fixed (next, in order):
+1. **FastRule board blind spots** — it scores an update's OPERATION and a delete's ACTION, not the target or the list it went to; the cross-store board sees those but is date-dependent (the same code read 485 on 09-24 and 482 on 09-25). Pin its clock.
+2. **"book club" loses "book"** in change targets ("cancel book club" → 'club') — "book" read as the verb.
+3. **generic completions** — "check off that one, it's done" completes "that one, it's" instead of refusing.
+4. **the judge's loop** — fixed 0 / broke 1 on the seeded board: "move this to a week from today, i don't remember the name" became an edit of a junk title.
+5. **segmentation** — lowercase names after "with" ("lunch with morgan and casey at one" cuts after morgan); a leading day not reaching a second timed ask (3 gold rows).
+
+Needs Gil (the rulings do not decide these):
+- **A trailing clock spreading to an earlier ask** — "remind me to take out the trash and book the flight … at 14:00" gives the trash 14:00 (and so an event, Q25). The segmentation gold encodes the spread (57 of 60 rows), so changing it is a design + gold decision.
+- **Calling a role, not a person** — Q47 makes calling a named person or family an event at 09:00; "call the plumber / the bank" is a to-do today. Same rule, or an errand?
