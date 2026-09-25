@@ -113,3 +113,15 @@ minus the sealed 300, 4,800 FastRule train rows, 1,592 segmentation rows):
 **0 of 9,091 outputs changed** — these shapes exist only in real speech. The
 explorer's ingest walkthrough is regenerated (`scripts.gen_ingest_demo
 --write`) and its claims test names the two new passes.
+
+## Misspelled command words (2026-09-24)
+
+Aim (a), generic damage: `repair._WORD_REPAIRS` puts back fourteen misspelled
+COMMAND words ("updat", "remindar", "shedule", "delet", "cancle",
+"apointment" …), every one a non-word, so no real word can be rewritten
+(a test holds that against /usr/share/dict/words). Negative surface before
+adding: 2 of 3,003 real HWU-64 commands touched ("shedule"), 0 of Gil's 76.
+Found by the save step's cross-store board: "updat walk the dog on my list"
+CREATED a task called 'updat walk the dog'. On that board (whole engine,
+FastRule TRAIN change rows, n=746) wrong creates fell 27 -> 14; the 13 rows
+now change nothing, which is honest — "update X on my list" names no change.

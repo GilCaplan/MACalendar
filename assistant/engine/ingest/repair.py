@@ -84,11 +84,29 @@ _FRAME_REPAIRS = [
 ]
 
 
+#: MISSPELLED COMMAND WORDS (2026-09-24). Every entry is a NON-WORD — none is
+#: in /usr/share/dict/words — so repairing it can never rewrite a real word,
+#: which is the failure this file guards hardest. Measured before adding: 2 of
+#: 3,003 real HWU-64 commands ("shedule"), 0 of Gil's 76, 56 of the FastRule
+#: train half (its misspelled families: "updat X on my list" was CREATING a
+#: task called 'updat X' instead of changing X — found by the cross-store
+#: board). Command words only; a misspelled NAME is the vocabulary's job.
+_WORD_REPAIRS = {
+    "updat": "update", "upadte": "update", "udpate": "update",
+    "remindar": "reminder", "remindor": "reminder",
+    "shedule": "schedule", "schedual": "schedule", "scedule": "schedule",
+    "reschedual": "reschedule", "delet": "delete", "deleet": "delete",
+    "cancle": "cancel", "apointment": "appointment", "appointmnet": "appointment",
+}
+_WORD_REPAIR_RE = re.compile(r"\b(" + "|".join(_WORD_REPAIRS) + r")\b", re.I)
+
+
 def repair_command_frames(text: str) -> str:
     """Put a misheard command frame back. Generic, deterministic, no vocabulary."""
     out = text or ""
     for pattern, replacement in _FRAME_REPAIRS:
         out = pattern.sub(replacement, out)
+    out = _WORD_REPAIR_RE.sub(lambda m: _WORD_REPAIRS[m.group(1).lower()], out)
     return out
 
 

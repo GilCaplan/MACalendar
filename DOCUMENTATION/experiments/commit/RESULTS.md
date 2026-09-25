@@ -81,3 +81,9 @@ reader fills the target only when no phrase rule read one.
 
 The six "water the garden" rows the matcher fix turned from a wrong delete
 into "not found" now land on the right task.
+
+**Ingest's command-word repair** (stage: ingest · `repair._WORD_REPAIRS`;
+see its ARCHITECTURE.md): cross_store TRAIN wrong creates 27 -> 14, right
+470 both; TEST unchanged. What remains of the 14 is "add a note to X",
+which the corpus scores as a note added to task X and the engine reads as a
+new to-do — a reading for Gil to rule on, not a defect to fix.
