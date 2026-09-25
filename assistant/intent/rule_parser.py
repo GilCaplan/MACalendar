@@ -1641,7 +1641,47 @@ def _extract_temporal(span_text: str, today: datetime.date,
             except (ValueError, AttributeError):
                 pass
 
+    if result["start_time"]:
+        result["start_time"] = _said_half_wins(result["start_time"], span_text)
+
     return result
+
+
+#: A clock said WITH its half of the day: "11am", "8:30 pm", "7 a.m.".
+_CLOCK_WITH_HALF = re.compile(
+    r"(?<![\d:])(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s?m\.?(?![a-z])", re.I)
+
+
+def _said_half_wins(start: str, said: str) -> str:
+    """The speaker's own am/pm, noon or midnight beats a day word beside it.
+
+    The recogniser merges "this evening" with "11am" into 23:00, "this morning"
+    with "noon" into 00:00, and "tonight at midnight" into 12:00; the morning
+    word turns "8:30pm in the morning" into 08:30. Whatever the day word says,
+    the half the speaker attached to the CLOCK is the more specific word
+    (FastRule board, 2026-09-25: 14 of the 17 train time misses). Narrow on
+    purpose: only the same clock in the wrong half is corrected, so a range's
+    end ("from 9 to 11am") never moves its start.
+    """
+    try:
+        h, m = (int(x) for x in start.split(":"))
+    except ValueError:
+        return start
+    low = said.lower()
+    clocks = list(_CLOCK_WITH_HALF.finditer(said))
+    if not clocks:
+        if re.search(r"\b(?:noon|midday)\b", low) and (h, m) == (0, 0):
+            return "12:00"
+        if re.search(r"\bmidnight\b", low) and (h, m) == (12, 0):
+            return "00:00"
+        return start
+    for c in clocks:
+        ch, cm = int(c.group(1)), int(c.group(2) or 0)
+        if not 1 <= ch <= 12 or cm != m or ch % 12 != h % 12:
+            continue
+        want = ch % 12 + (12 if c.group(3).lower() == "p" else 0)
+        return f"{want:02d}:{m:02d}"
+    return start
 
 
 # ---------------------------------------------------------------------------

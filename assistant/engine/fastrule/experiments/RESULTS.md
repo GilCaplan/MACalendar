@@ -1563,7 +1563,32 @@ is a DEFECT, and a miss in the bare line is a convention disagreement.
 
 No other line on either split moved. As predicted.
 
-**Still open.** These are 17 train misses, all in the said-with-its-half line.
+**Cycle 2: the speaker's own half of the day beats a day word**
+(`rule_parser._said_half_wins`).
+- *Prediction:* said-with-its-half rises on both splits (14 of the 17 train
+  misses are this shape), and nothing else moves.
+- *The fix:* narrow. Only the SAME clock in the wrong half is corrected, so a
+  range's end ("from 9 to 11am") never moves its start. Noon and midnight get
+  the same treatment.
+
+| metric | train before → after | test before → after |
+|---|---|---|
+| said with its half | 96.0% → **99.7%** (n=374) | 96.5% → **100.0%** (n=144) |
+| explicit time right | 96.8% → **99.4%** (n=524) | 97.1% → **99.5%** (n=204) |
+
+No other line moved. As predicted.
+
+The deep reader (`decompose_validate.resolve`) already answered every one of
+these shapes the ruled way. `tests/unit/test_front_door_time_half.py` now pins
+the two tracks to each other as well as to the answer (15 shapes).
+
+**Left, train:** three one-offs, too rare to chase on this board:
+- "half past six in the morning" → 18:30;
+- "7am starting two weeks from now" → 10:00;
+- "i'm free this evening so … at 9:15".
+
+**Earlier note, kept for the record.** There were 17 train misses, all in the
+said-with-its-half line.
 An explicit half of the day loses to a day word beside it ("this evening at
 11am" → 23:00, "this morning at noon" → 00:00, "8:30pm in the morning" →
 08:30). That is the next cycle. There are also three one-offs:
