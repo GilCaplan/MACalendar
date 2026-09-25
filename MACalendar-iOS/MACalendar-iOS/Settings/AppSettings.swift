@@ -65,6 +65,12 @@ class AppSettings: ObservableObject {
     }
     var accentColor: Color { Color(hex: accentColorHex) ?? Theme.defaultAccent }
 
+    /// Which calendar view the app opens on: "month" | "week" | "day".
+    /// Week by default (Gil, 2026-09-24). Per device — the Mac keeps its own.
+    @Published var defaultCalendarView: String {
+        didSet { UserDefaults.standard.set(defaultCalendarView, forKey: "defaultCalendarView") }
+    }
+
     @Published var fontMonth: Double {
         didSet { UserDefaults.standard.set(fontMonth, forKey: "fontMonth") }
     }
@@ -223,6 +229,8 @@ class AppSettings: ObservableObject {
         self.ttsVoice  = UserDefaults.standard.string(forKey: "ttsVoice") ?? "en-US"
         self.theme     = UserDefaults.standard.string(forKey: "userTheme") ?? "dark"
         self.accentColorHex = UserDefaults.standard.string(forKey: "accentColorHex") ?? Theme.defaultAccentHex
+
+        self.defaultCalendarView = UserDefaults.standard.string(forKey: "defaultCalendarView") ?? "week"
 
         let fm = UserDefaults.standard.double(forKey: "fontMonth")
         self.fontMonth = fm == 0 ? 13 : fm

@@ -157,6 +157,7 @@ hebrew_calendar:
 theme: "dark"  # "light" | "dark" - default theme on startup
 
 ui:
+  start_view: week          # the view the calendar opens on: month | week | day | agenda
   font_month: 11
   font_week: 11
   font_day: 13

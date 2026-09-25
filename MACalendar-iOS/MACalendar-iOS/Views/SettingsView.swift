@@ -172,6 +172,20 @@ struct SettingsView: View {
 
                             Divider().padding(.vertical, 4)
 
+                            VStack(alignment: .leading, spacing: 6) {
+                                Label("Open calendar on", systemImage: "calendar.badge.clock")
+                                Picker("Open calendar on", selection: $settings.defaultCalendarView) {
+                                    Text("Month").tag("month")
+                                    Text("Week").tag("week")
+                                    Text("Day").tag("day")
+                                }
+                                .pickerStyle(.segmented)
+                                Text("The view the calendar shows when the app opens.")
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
+
+                            Divider().padding(.vertical, 4)
+
                             HStack {
                                 Label("Month Font", systemImage: "calendar")
                                 Spacer()

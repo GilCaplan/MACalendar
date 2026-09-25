@@ -20,6 +20,7 @@ struct UpNextLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: UpNextAttributes.self) { context in
             UpNextLockScreenView(state: Self.shown(context.state, stale: context.isStale))
+                .widgetURL(Self.openURL(Self.shown(context.state, stale: context.isStale)))
                 // 0.34, down from 0.55. The card's own rows are glass now, and
                 // glass over a near-opaque black slab has nothing to refract —
                 // it read as a dark rectangle with lighter rectangles on it.
@@ -82,7 +83,19 @@ struct UpNextLiveActivity: Widget {
                 Circle().fill(accent).frame(width: 8, height: 8)
             }
             .keylineTint(accent)
+            .widgetURL(Self.openURL(state))
         }
+    }
+
+    /// Where a tap on the card opens the app (Gil, 2026-09-24: "when i press
+    /// on todo notification it should open to task tab, if on events ... then
+    /// to calendar"). The to-do page opens Tasks; an event page opens the
+    /// calendar on the event the card leads with. The app reads these in
+    /// `MACalendarApp.onOpenURL`.
+    static func openURL(_ state: UpNextAttributes.ContentState) -> URL? {
+        if state.onTodoPage { return URL(string: "macalendar://open/tasks") }
+        if let id = state.headline?.id { return URL(string: "macalendar://open/calendar?event=\(id)") }
+        return URL(string: "macalendar://open/calendar")
     }
 
     /// What to draw: the pushed state, or — once its `staleDate` has passed

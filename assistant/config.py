@@ -139,6 +139,9 @@ class TodoConfig(BaseModel):
 
 
 class UIConfig(BaseModel):
+    # The view the calendar window opens on (Settings → Appearance). Week by
+    # default (Gil, 2026-09-24); the phone keeps its own choice.
+    start_view: Literal["month", "week", "day", "agenda"] = "week"
     font_month: int = 11
     font_week: int = 11
     font_day: int = 13

@@ -46,14 +46,18 @@ struct CalendarTabView: View {
     @EnvironmentObject var settings: AppSettings
     @ObservedObject private var nav = CalendarNavigator.shared
 
-    @State private var calendarView: CalendarMode = .month
+    /// Opens on the view chosen in Settings → Appearance ("Open calendar on"),
+    /// Week unless changed. Read from the same UserDefaults key AppSettings
+    /// writes, because @State is initialised before the environment exists.
+    @State private var calendarView: CalendarMode =
+        CalendarMode(rawValue: UserDefaults.standard.string(forKey: "defaultCalendarView") ?? "week") ?? .week
     @State private var monthEvents: [CalendarEvent] = []
     @State private var monthHolidays: [Holiday] = []
     @State private var loadingMonth = false
     @State private var showCreateSheet = false
     @State private var showSearch = false
 
-    enum CalendarMode { case month, week, day }
+    enum CalendarMode: String { case month, week, day }
 
     var body: some View {
         NavigationView {

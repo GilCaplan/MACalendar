@@ -45,6 +45,12 @@ struct MACalendarApp: App {
                 .preferredColorScheme(settings.theme == "dark" ? .dark : .light)
                 .tint(settings.accentColor)
                 .onOpenURL { url in
+                    // A tap on the lock-screen card: macalendar://open/tasks
+                    // or macalendar://open/calendar?event=<id>.
+                    if url.scheme == "macalendar" {
+                        Self.route(url)
+                        return
+                    }
                     // A .txt shared from WhatsApp ("Export Chat" → MACalendar) lands here.
                     let accessed = url.startAccessingSecurityScopedResource()
                     defer { if accessed { url.stopAccessingSecurityScopedResource() } }
@@ -55,6 +61,24 @@ struct MACalendarApp: App {
                     ImportInbox.shared.pendingText = text
                     try? FileManager.default.removeItem(at: url)   // don't keep the chat around
                 }
+        }
+    }
+
+    /// Open the tab a card tap asked for. An event goes through the same
+    /// seam a tapped reminder uses (`NotificationRouter.pendingEventId`), so
+    /// the calendar lands on that event's day.
+    static func route(_ url: URL) {
+        let parts = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        switch url.path {
+        case "/tasks":
+            FeatureRouter.shared.show("tasks")
+        default:
+            if let raw = parts?.queryItems?.first(where: { $0.name == "event" })?.value,
+               let id = Int(raw) {
+                NotificationRouter.shared.pendingEventId = id
+            } else {
+                FeatureRouter.shared.show(FeatureRegistry.home)
+            }
         }
     }
 }

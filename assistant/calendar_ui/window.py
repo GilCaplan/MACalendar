@@ -413,6 +413,8 @@ class CalendarWindow(QMainWindow):
         self._build_ui()
         self._apply_theme(self._dark, show_toast=False)
         self._apply_ui_config()
+        # Open on the view chosen in Settings → Appearance (Week by default).
+        self._set_view(getattr(getattr(config, "ui", None), "start_view", "week") or "week")
 
         # Cmd+Z on macOS (Ctrl+Z elsewhere) — undoes the last direct UI edit
         # (create/update/delete/drag-reschedule/resize of an event). Separate

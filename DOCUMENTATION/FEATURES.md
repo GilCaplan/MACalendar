@@ -152,6 +152,9 @@ modes.
 ## Hybrid — coordinated frontend + backend
 
 ### Calendar views (month / week / day)
+**Opens on Week by default**, and Settings → Appearance → "Open calendar on"
+changes it, per device (2026-09-24, Gil). iOS `AppSettings.defaultCalendarView`;
+Mac `ui.start_view` (month | week | day | agenda).
 **What:** The Outlook-style calendar — browse, create, edit, drag-reschedule
 events; undo/redo. A fourth Agenda mode (Mac only) lists the next 30 days'
 events chronologically, grouped by day, with day headers skipping empty days.
@@ -953,7 +956,12 @@ Today list) and then GENERAL (the General list's other open to-dos, dated
 first) — the General list alone never brings the card up. Each line's outline
 circle is a button (iOS 17+, `UpNextCompleteTodoIntent`): the line leaves the
 card at once and the app marks the to-do done the Tasks tab's way — locally
-first, queued if the Mac is away — then re-syncs the card. **The type is the lock screen's own size** (2026-09-24,
+first, queued if the Mac is away — then re-syncs the card. **A tap opens the right tab** (2026-09-24, Gil: *"when i
+press on todo notification it should open to task tab, if on events ... then
+to calendar"*): the card carries a `macalendar://` link — the to-do page opens
+Tasks, an event page opens the calendar on the event it leads with (the same
+seam a tapped reminder uses); registered as the app's URL scheme.
+**The type is the lock screen's own size** (2026-09-24,
 Gil: *"notifications text on lockscreen seem small"*): titles 17 pt (16 for a
 later row), times 14, the header and stepper 12, to-dos 16 — a size up from
 15/12/10/14, which read as the fine print under the notifications beside it.

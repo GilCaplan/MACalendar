@@ -251,6 +251,14 @@ def open_settings(self) -> None:
     swatch_holder = QWidget()
     swatch_holder.setLayout(swatch_row)
     appearance_form.addRow("Accent colour:", swatch_holder)
+    start_view_combo = QComboBox()
+    start_view_combo.setObjectName("start_view")
+    for _label, _mode in (("Month", "month"), ("Week", "week"), ("Day", "day"), ("Agenda", "agenda")):
+        start_view_combo.addItem(_label, _mode)
+    start_view_combo.setCurrentIndex(max(0, start_view_combo.findData(
+        getattr(self._config.ui, "start_view", "week"))))
+    start_view_combo.setToolTip("The view the calendar shows when the app opens")
+    appearance_form.addRow("Open calendar on:", start_view_combo)
     appearance.addLayout(appearance_form)
 
     compact_cb = QCheckBox("Compact layout density")
@@ -715,7 +723,8 @@ def open_settings(self) -> None:
                 "tts": {"mute": mute_cb.isChecked(),
                         "voice": voice_combo.currentText(),
                         "rate": speed_spin.value()},
-                "ui": {"font_month": month_spin.value(),
+                "ui": {"start_view": start_view_combo.currentData(),
+                       "font_month": month_spin.value(),
                        "font_week": week_spin.value(),
                        "font_day": day_spin.value(),
                        "font_tasks": tasks_spin.value(),
@@ -766,6 +775,7 @@ def open_settings(self) -> None:
 
                 # Apply changes immediately
                 self._config.confirmation_level = 0 if auto_cb.isChecked() else 1
+                self._config.ui.start_view = start_view_combo.currentData()
                 self._config.ui.font_month = month_spin.value()
                 self._config.ui.font_week = week_spin.value()
                 self._config.ui.font_day = day_spin.value()
