@@ -200,6 +200,11 @@ def main() -> int:
     P_DEFER = P_COMMIT = 0                # propose rows
     T_OK = T_N = 0                        # explicit times: right / scored
     INVENT = INVENT_N = 0                 # a time produced where none was said
+    # LEAD TIME (2026-09-25). The gold has carried `lead_time` on 241 rows all
+    # along and nothing here scored it — so FastRule reading "remind me 30
+    # minutes before", computing the minutes and THROWING THEM AWAY committed
+    # every such event with no reminder, and no board could see it.
+    L_OK = L_N = 0
     D_OK = D_N = 0                        # resolvable dates: right / scored
     # BOUNDED SERIES. The gold marks these with `end_inclusive`, and nothing here
     # scored them until 2026-09-18 — so a series created with NO END, firing
@@ -314,6 +319,15 @@ def main() -> int:
                     if want_d:              # ranges resolve to None: not scored
                         D_N += 1
                         D_OK += 1 if got_d == want_d else 0
+            _lt = (e.get("slots", {}) or {}).get("lead_time")
+            if _lt and act.startswith("create_"):
+                from assistant.intent import lead_time as _lead
+                _, want_min = _lead.split(f"book the thing and remind me {_lt}")
+                if want_min:
+                    got_min = next((getattr(i, "reminder_minutes", None) for n, i in res.intents
+                                    if n.startswith("create_")), None)
+                    L_N += 1
+                    L_OK += 1 if got_min == want_min else 0
             if act == "create_event":
                 first = next((i for n, i in res.intents
                               if n == "create_event"), None)
@@ -461,6 +475,9 @@ def main() -> int:
         else:
             print(f"   DESTRUCTIVE errors       none — every wrong commit was "
                   f"a spurious row, not a loss")
+    if L_N:
+        print(f"\nLEAD TIME (committed creates whose gold names one)")
+        print(f"   reminder carried         {pc(L_OK, L_N)}  (n={L_N})")
     if T_N or INVENT_N:
         print(f"\nTIME CORRECTNESS (on committed events)")
         print(f"   explicit time right      {pc(T_OK, T_N)}  (n={T_N})")

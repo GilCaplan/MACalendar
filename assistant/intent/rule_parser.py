@@ -573,18 +573,20 @@ _PRIORITY_NAMES = {"high": "high", "medium": "medium", "low": "low",
 # ---------------------------------------------------------------------------
 
 
-def _preprocess(transcript: str) -> tuple[str, bool]:
+def _preprocess(transcript: str) -> "tuple[str, bool, int | None]":
     """Normalise text and check complexity gate.
 
-    Returns (normalised_text, should_skip).
+    Returns (normalised_text, should_skip, lead_minutes) — the last is the
+    spoken reminder lead time the lead-time reader took out of the text
+    ("remind me 30 minutes before"), or None.
     should_skip=True means the complexity gate fired → caller should raise RuleParserSkip.
     """
     if not _RULE_PARSER_AVAILABLE:
-        return transcript, True
+        return transcript, True, None
 
     _ensure_nlp()
     if not _RULE_PARSER_AVAILABLE:  # may have been cleared by load failure
-        return transcript, True
+        return transcript, True, None
 
     text = transcript.strip().lower()
 
@@ -641,7 +643,7 @@ def _preprocess(transcript: str) -> tuple[str, bool]:
         and any(child.dep_ in ("nsubj", "nsubjpass", "expl") for child in tok.subtree)
     ]
     if len(clause_verbs) > 3:
-        return text, True
+        return text, True, _minutes
 
     # Relative clause with an explicit subject (e.g. "delete the event you created")
     # → too ambiguous for the rule parser, let the LLM handle it.
@@ -651,9 +653,9 @@ def _preprocess(transcript: str) -> tuple[str, bool]:
         for tok in doc
     )
     if has_relcl_with_subj:
-        return text, True
+        return text, True, _minutes
 
-    return text, False
+    return text, False, _minutes
 
 
 # ---------------------------------------------------------------------------
@@ -3330,7 +3332,7 @@ class RuleBasedParser:
             raise RuleParserSkip("spaCy not available")
 
         # Phase 0: Preprocess + complexity gate
-        normalized, should_skip = _preprocess(transcript)
+        normalized, should_skip, lead_minutes = _preprocess(transcript)
         if should_skip:
             raise RuleParserSkip(f"Complexity gate fired for: {transcript!r}")
 
@@ -3480,6 +3482,21 @@ class RuleBasedParser:
                         logger.debug("Rule parser validation failed for %s: %s", action_name, exc)
                         all_missing.append("validation_error")
                         confidences[-1] = round(confidence * 0.5, 3)
+
+        # THE LEAD TIME REACHES THE EVENT (2026-09-25). `_preprocess` has read
+        # "remind me 30 minutes before" out of the command since F16 — and then
+        # dropped the minutes, so every fast-path event committed with no
+        # reminder at all (0 of 72 on the FastRule 7,200 TRAIN half, a loss no
+        # board scored). It goes on every created item that can carry one and
+        # has none of its own.
+        if lead_minutes:
+            for _name, _intent in all_intents:
+                if (_name.startswith("create_") and hasattr(_intent, "reminder_minutes")
+                        and getattr(_intent, "reminder_minutes", None) is None):
+                    try:
+                        _intent.reminder_minutes = int(lead_minutes)
+                    except (TypeError, ValueError):
+                        pass
 
         # A date carried off a DROPPED, action-less span now lands on the one
         # ask that survived. Applied after the loop because the fragment falls

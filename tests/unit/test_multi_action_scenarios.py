@@ -360,3 +360,17 @@ def test_a_tail_that_is_not_the_name_leaves_the_title(parser, said, title):
     result = parser.analyze(said, current_view="month")
     (_, intent), = result.intents
     assert intent.title.lower() == title
+
+
+@pytest.mark.parametrize("said,minutes", [
+    ("book the dentist tomorrow at 3pm, remind me 30 minutes before", 30),
+    ("set up workshop tomorrow at 8:30pm, remind me a week before", 10080),
+    ("book haircut tomorrow at 8pm, notify me 15 minutes before", 15),
+])
+def test_the_spoken_reminder_reaches_the_event(parser, said, minutes):
+    """The lead time was read out of the command and then DROPPED — every
+    fast-path event committed with no reminder (0 of 72, FastRule 7,200 TRAIN)."""
+    result = parser.analyze(said, current_view="month")
+    ev = [i for n, i in result.intents if n == "create_event"]
+    assert ev and ev[0].reminder_minutes == minutes
+    assert not any(getattr(i, "titles", None) == ["before"] for _, i in result.intents)

@@ -20,17 +20,32 @@ import re
 #: before about X" (the `about` form is what FastRule sees most).
 CLAUSE = re.compile(
     r"[,;]?\s*(?:and\s+)?(?:(?:please\s+)?(?:give me|send me|i want|i'd like)\s+"
-    r"(?:a\s+)?(?:heads[- ]?up|reminder|alert)\s+|remind me\s+|alert me\s+|"
+    r"(?:a\s+)?(?:heads[- ]?up|reminder|alert)\s+|"
+    # "notify me / ping me 5 minutes before" and "set a reminder 15 minutes
+    # before for X" (2026-09-25): 34 of the 49 lead times the TRAIN half's
+    # reader missed were these two wordings.
+    r"(?:set|add|create|put)\s+(?:up\s+)?(?:a\s+|an\s+)?(?:reminder|alert|notification)\s+|"
+    r"(?:remind|alert|notify|ping|buzz|nudge|warn)\s+me\s+|"
     r"with\s+(?:a\s+)?)"
     r"(?:of it\s+|about it\s+)?"
-    r"(?P<n>\d+|a|an|one|two|five|ten|fifteen|twenty|thirty|half an?|quarter of an?)?\s*"
-    r"(?P<u>minutes?|mins?|hours?|hrs?)\s*"
+    r"(?P<n>\d+|a|an|one|two|three|four|five|ten|fifteen|twenty|thirty|half an?|quarter of an?)?\s*"
+    r"(?P<u>minutes?|mins?|hours?|hrs?|days?|weeks?)\s*"
     r"(?:(?:reminder|heads[- ]?up|alert)"
     r"(?:\s+(?:before|ahead(?:\s+of\s+(?:time|it))?|earlier|in advance))?"
     r"|(?:before|ahead(?:\s+of\s+(?:time|it))?|earlier|in advance))\b\.?",
     re.I)
 
-_NUM_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "five": 5, "ten": 10,
+#: "remind me to refill the prescription 30 minutes before": the lead time at
+#: the END, with the task between it and the frame (15 of the 49 TRAIN misses).
+#: Only when the command is framed as a reminder, so "leave 30 minutes before"
+#: in an ordinary sentence is left alone.
+TRAIL = re.compile(
+    r"[,;]?\s+(?P<n>\d+|a|an|one|two|three|four|five|ten|fifteen|twenty|thirty|half an?|quarter of an?)\s*"
+    r"(?P<u>minutes?|mins?|hours?|hrs?|days?|weeks?)\s+"
+    r"(?:before(?:hand)?|ahead(?:\s+of\s+(?:time|it))?|earlier|in advance)\s*\.?\s*$", re.I)
+_REMINDER_FRAME = re.compile(r"\bremind\s+me\b|\breminder\b", re.I)
+
+_NUM_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "ten": 10,
               "fifteen": 15, "twenty": 20, "thirty": 30,
               "half a": 30, "half an": 30, "quarter of a": 15, "quarter of an": 15}
 
@@ -58,23 +73,29 @@ def split(text: str, restore_verb: bool = False) -> "tuple[str, int | None]":
     so it leaves this off.
     """
     m = CLAUSE.search(text)
+    if not m and _REMINDER_FRAME.search(text or ""):
+        m = TRAIL.search(text)
     if not m:
         return text, None
     raw = (m.group("n") or "one").lower().strip()
     unit = (m.group("u") or "").lower()
+    # DAYS and WEEKS too (2026-09-25): "remind me a week before" was not a
+    # lead time at all, so the clause stayed in the command and FastRule
+    # built a second to-do titled 'before'.
+    per_unit = (1440 if unit.startswith("day") else 10080 if unit.startswith("week")
+                else 60 if unit.startswith(("hour", "hr")) else 1)
     if raw in _NUM_WORDS:
         n = _NUM_WORDS[raw]
         if raw.startswith(("half", "quarter")) and unit.startswith(("hour", "hr")):
             pass                                  # already minutes
-        elif unit.startswith(("hour", "hr")):
-            n *= 60
+        else:
+            n *= per_unit
     else:
         try:
             n = int(raw)
         except ValueError:
             return text, None
-        if unit.startswith(("hour", "hr")):
-            n *= 60
+        n *= per_unit
     rest = (text[:m.start()] + " " + text[m.end():]).strip(" ,;")
     rest = _LEADING_ABOUT.sub("", rest).strip()
     rest = _COURTESY.sub("", rest).strip()
@@ -86,4 +107,7 @@ def split(text: str, restore_verb: bool = False) -> "tuple[str, int | None]":
     # leaving the router nothing to work with.
     if restore_verb and not _HAS_LEADING_VERB.match(rest):
         rest = "book " + rest
-    return rest, max(1, min(1440, n))
+    # Capped at four weeks, not one day: the deep path's resolver has read
+    # "a week before" as 10080 all along, and a day cap made the two tracks
+    # disagree about the same sentence.
+    return rest, max(1, min(40320, n))
