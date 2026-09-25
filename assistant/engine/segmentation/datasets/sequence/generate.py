@@ -176,8 +176,6 @@ LEADS = ["and remind me 10 minutes before", "and remind me an hour before",
 ENUMS = [("at 9", "11", 540, 660), ("at 10", "2", 600, 840),
          ("at 9:30", "1", 570, 780), ("at 11", "3", 660, 900),
          ("at 10", "4", 600, 960)]
-MEAL_HOURS = (("breakfast", 540), ("brunch", 780), ("lunch", 780),
-              ("dinner", 1140), ("supper", 1140))
 
 #: joiner classes: (lexemes, relation kind). Every SEQUENCE bank Gil listed
 #: (2026-09-25: "capture the variety of wording that can be used for this
@@ -278,16 +276,18 @@ def _pools(fillers: dict) -> dict:
 
 
 def meal_hour(title: str) -> "int | None":
-    t = title.lower()
-    for word, minutes in MEAL_HOURS:
-        if re.search(rf"\b{word}\b", t):
-            return minutes
-    return None
+    """A meal's own hour, in minutes — from the ONE statement of that ruling
+    (`CalendarIntent`'s meal table, Gil 2026-09-20), so the gold follows it if
+    it ever changes instead of keeping a second copy (dup audit, 2026-09-25)."""
+    from assistant.actions.calendar.intent import meal_hour as _meal_hour
+    from assistant.common.timeutil import to_minutes
+    hour = _meal_hour(title)
+    return to_minutes(hour) if hour else None
 
 
 def hhmm(m: int) -> str:
-    m %= 24 * 60
-    return f"{m // 60:02d}:{m % 60:02d}"
+    from assistant.common.timeutil import to_hhmm, wrap_day
+    return to_hhmm(wrap_day(m))
 
 
 def add_days(iso: str, n: int) -> str:
