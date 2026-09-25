@@ -340,12 +340,22 @@ def _bare_hour(h: int, minute: int, said: str) -> "str | None":
     # morning between 2 and 4" is not 2am); "tonight" / "this evening" / pm take
     # any bare hour; a MEAL word is weaker evidence and takes 5-9 ("dinner at
     # 9" is 21:00; "drinks at ten" and "birthday dinner at 11:45" stay as said).
-    morning, evening = _MORNING.search(said or ""), _EVENING.search(said or "")
-    if morning and not evening and 5 <= h <= 11:
+    # Two strengths: a DAY word ("this morning", "tonight", am/pm) outranks a
+    # MEAL word ("dinner reservation … at 6:45 in the morning" is 06:45).
+    words = {w.group(1).lower() for w in re.finditer(
+        r"\b(this evening|tonight|evening|pm|maariv|arvit|morning|sunrise|dawn|shacharit|shachris|am|a\.m\."
+        r"|breakfast|dinner|supper|drinks)(?!\w)", said or "", re.I)}
+    strong_m = bool(words & {"morning", "sunrise", "dawn", "shacharit", "shachris", "am", "a.m."})
+    strong_e = bool(words & {"this evening", "tonight", "evening", "pm", "maariv", "arvit"})
+    weak_m, weak_e = "breakfast" in words, bool(words & {"dinner", "supper", "drinks"})
+    if strong_m and not strong_e and 5 <= h <= 11:
         return f"{h:02d}:{minute:02d}"
-    if evening and not morning and h < 12:
-        meal_only = evening.group(1).lower() in ("dinner", "supper", "drinks")
-        if not meal_only or 5 <= h <= 9:
+    if strong_e and not strong_m and h < 12:
+        return f"{h + 12:02d}:{minute:02d}"
+    if not (strong_m or strong_e):
+        if weak_m and not weak_e and 5 <= h <= 11:
+            return f"{h:02d}:{minute:02d}"
+        if weak_e and not weak_m and 5 <= h <= 9:
             return f"{h + 12:02d}:{minute:02d}"
     if h <= 6:
         return f"{h + 12:02d}:{minute:02d}"
@@ -495,7 +505,13 @@ def resolve_clock(said: str, context: str = "") -> "str | None":
         # of whatever text it was part of.
         h, minute = int(m.group(1)), int(m.group(2))
         if h <= 23 and minute <= 59:                 # "25:00" is not a time on the clock
-            return f"{h:02d}:{minute:02d}" if h >= 9 else _bare_hour(h, minute, ctx)
+            # A 24-hour reading (13:00, or a leading zero) is said as it is; any
+            # other colon clock is a bare hour, and a day word beside it decides
+            # its half — "this evening at 9:15" is 21:15 (it was 09:15, since a
+            # 9-11 colon clock skipped the convention entirely).
+            if h >= 12 or m.group(1).startswith("0"):
+                return f"{h:02d}:{minute:02d}"
+            return _bare_hour(h, minute, ctx)
 
     m = re.search(r"\bat\s+(\d{1,2})\b(?!\s*:)", t) or re.search(r"\b(\d{1,2})\s*o'?clock\b", t)
     if m:

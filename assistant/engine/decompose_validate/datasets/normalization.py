@@ -364,18 +364,27 @@ def bare_hour_gold(h: int, m: int, own_words: str = "") -> str:
     still catch the resolver drifting:
       * a day word said with the clock decides its half — a morning word takes
         5-11 to the morning; "tonight" / "this evening" / pm take any bare hour
-        to the evening; a meal word (dinner, supper, drinks) takes 5-9
+        to the evening; a MEAL word (breakfast; dinner, supper, drinks) is weaker,
+        applies only when no day word was said, and takes 5-11 / 5-9
       * otherwise Q28: 1-6 PM, 7-8 PM unless "o'clock", 9-12 as said
     The previous statement ("7-8 is PM only when evening words are present",
     no morning words at all) predated Q28 and charged the resolver for
     following it.
     """
     tl = (own_words or "").lower()
-    morning, evening = _MORNING.search(tl), _EVENING.search(tl)
-    if morning and not evening and 5 <= h <= 11:
+    # a DAY word outranks a MEAL word ("dinner … at 6:45 in the morning")
+    strong_m = bool(re.search(r"\b(morning|sunrise|dawn|shacharit|shachris|am)\b", tl))
+    strong_e = bool(re.search(r"\b(tonight|this evening|evening|pm)\b", tl))
+    weak_m = "breakfast" in tl
+    weak_e = bool(re.search(r"\b(dinner|supper|drinks)\b", tl))
+    if strong_m and not strong_e and 5 <= h <= 11:
         return f"{h:02d}:{m:02d}"
-    if evening and not morning and h < 12:
-        if evening.group(1) in _STRONG_EVENING or 5 <= h <= 9:
+    if strong_e and not strong_m and h < 12:
+        return f"{h + 12:02d}:{m:02d}"
+    if not (strong_m or strong_e):
+        if weak_m and not weak_e and 5 <= h <= 11:
+            return f"{h:02d}:{m:02d}"
+        if weak_e and not weak_m and 5 <= h <= 9:
             return f"{h + 12:02d}:{m:02d}"
     if h <= 6:
         return f"{h + 12:02d}:{m:02d}"
