@@ -1951,3 +1951,17 @@ no-split trap, gold task) still reads as a call.
    - **Next:** carry "inside a sequence" into the final pass, and read the
      left part's HEAD word rather than any word. Then merge the time-only
      piece, boarded on both splits.
+6. **One DATE reader (the rest of Q53).** The half of the day now has one
+   reader; dates still have two (the front door's `_extract_temporal` and
+   decompose_validate's `resolve`). The wholesale swap, measured on
+   2026-09-25 on the FastRule 8,400 set:
+   - dates right: train 92.5 -> 95.0%, test 90.2 -> 93.9%;
+   - invented times: gone;
+   - but it broke 7 unit tests, because the resolver, given only the joined
+     time words, does not handle a range's clocks ("lunch from 12 to 1"), an
+     ordinal POSITION ("the 2nd row"), an ordinal recurrence ("the 15th of
+     every month") or a series bound ("until …");
+   - and dateless part-of-day parses crossed the commit threshold.
+   **Next:** give the resolver the item-shaped input the deep path gives it
+   (segmentation's `time` string, not joined refs). Then move those four
+   behaviours into `resolve` one at a time, each boarded, and swap last.
