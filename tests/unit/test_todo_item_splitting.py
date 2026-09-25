@@ -287,7 +287,8 @@ def test_one_errand_for_two_people_stays_one_task(parser):
     # `_clean_title` strips ONE leading article ("the"/"a"/...) off the
     # combined string, not one per noun phrase — pre-existing, unrelated to
     # this fix.
-    ("call the dentist and the vet", ["call dentist and the vet"]),
+    # (was "call the dentist and the vet" — an event since DEVQA Q50)
+    ("email the dentist and the vet", ["email dentist and the vet"]),
 ])
 def test_bare_imperative_keeps_every_coordinated_object(parser, text, expected):
     assert _titles(parser, text) == expected
@@ -300,7 +301,8 @@ def test_bare_imperative_single_object_is_unaffected(parser):
     # ("feed the cat", "pay the electricity bill"), and the subtractive title
     # stopping the old cosmetic strip is part of why corpus title exactness rose
     # 41.8% -> 48.5% (n=1677). A title is what a person would write down.
-    assert _titles(parser, "call the dentist") == ["call the dentist"]
+    # ("call the dentist" until DEVQA Q50 made a call to a role an event)
+    assert _titles(parser, "email the dentist") == ["email the dentist"]
 
 
 def test_a_coordinated_prepositional_object_is_not_swept_into_the_title(parser):
@@ -429,7 +431,7 @@ def test_the_time_never_lands_in_an_event_title(parser):
         assert result.raw_slots["create_event"].get("title") == title
 
     # ...and with no clock the same frame is still a task.
-    plain = parser.analyze("remind me to call the plumber")
+    plain = parser.analyze("remind me to feed the cat")
     assert "create_todo" in plain.raw_slots
 
 

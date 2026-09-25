@@ -625,7 +625,20 @@ def _states_a_clock(token: str, value: str) -> bool:
     return bank_key == "times" and value not in NOT_A_CLOCK
 
 
-def ruled_family(fam: dict, values: dict) -> "dict | None":
+#: Q50 (2026-09-25) — a live call to a ROLE ("call the plumber", from the
+#: `task_titles` bank) is an event like a call to a person. Decided by the
+#: title's own words through the engine's shared rule, not per family, because
+#: the phrase arrives through a bank that 40-odd families draw on. A command
+#: that names the to-do list keeps it a to-do (Q47).
+def _q50_moves(fam: dict, slots: dict, text: str, ta: list) -> list:
+    from assistant.intent.encounter import is_role_call, names_the_list
+    if fam["action"] not in ("create_todo", "mixed") or names_the_list(text):
+        return []
+    return [k for k in ta if is_role_call(str(slots.get(k) or ""))]
+
+
+def ruled_family(fam: dict, values: dict, slots: "dict | None" = None,
+                 text: str = "") -> "dict | None":
     """The family as the RULINGS read this row, or None when no ruling
     touches it. A copy: action, counts and label sources follow the parts
     that became events; the template, the words and the split do not move."""
@@ -639,12 +652,17 @@ def ruled_family(fam: dict, values: dict) -> "dict | None":
         out["_ruled"] = ruling
         return out
     spec = RULED_FAMILIES.get(fam["family"])
-    if not spec:
-        return None
-    ruling, parts = spec
     ev, ta = (list(x) for x in fam["_label_sources"])
-    moved = [key for key, tok in parts
-             if key in ta and (tok is None or _states_a_clock(tok, values[tok]))]
+    moved = []
+    ruling = None
+    if spec:
+        ruling, parts = spec
+        moved = [key for key, tok in parts
+                 if key in ta and (tok is None or _states_a_clock(tok, values[tok]))]
+    role = [k for k in _q50_moves(fam, slots or {}, text, ta) if k not in moved]
+    if role:
+        ruling = f"{ruling}+Q50" if moved else "Q50"
+        moved += role
     if not moved:
         return None
     ta = [k for k in ta if k not in moved]
@@ -670,7 +688,7 @@ def _emit_family_rows(fam: dict, split_name: str, quota: int, tier: str, fillers
     counter = 0
     for text, slots, item, values in fam_rows:
         counter += 1
-        row_fam = ruled_family(fam, values) or fam
+        row_fam = ruled_family(fam, values, slots, text) or fam
         if row_fam is not fam:
             item = dict(item, kind="task" if row_fam["action"].endswith("todo") else "event")
         add_labels(row_fam, slots, categories_mod, tagging_mod, task_tag_keywords)

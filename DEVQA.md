@@ -1,3 +1,26 @@
+- **2026-09-25 — Q50 (CALLING A ROLE IS AN EVENT, like calling a person)**, Gil,
+  asked whether "call the plumber / call the bank" should be an event the way
+  Q47 made "call mum" one: *"Two also same thing."* So a LIVE call (call,
+  phone, ring, facetime) to a role or an organisation — the plumber, the bank,
+  the dentist, the insurance company — is an event, 09:00 when no clock was
+  said, on the soonest day. A WRITTEN message to them still stays a to-do (Q47),
+  and a named to-do list still wins. Then, the same morning: *"But for two, can
+  you also make it a to-do in addition, in parallel, and it should be linked."*
+  So a call to a ROLE (not to a person — that stays one event) files BOTH: the
+  event and a to-do linked to it (`todos.source_event_id`, source
+  `linked_event`). Renaming either renames both, and moving the event moves the
+  to-do's due date. Deleting the event takes the to-do with it; ticking or
+  deleting the to-do leaves the event. A series gets no companion.
+  An operation on the list ("check off / delete call the plumber") is not a call.
+
+- **2026-09-25 — Q49 (A TRAILING TIME REACHES THE EARLIER ASK — kept)**, Gil,
+  asked whether in "remind me to take out the trash and book the flight … at
+  14:00" the 14:00 should also apply to the trash (which then, by Q25, makes it
+  an event): *"You know what? Yes … do you remind that too. Yes."* The existing
+  distribution stands: a trailing time with no time of its own on the earlier
+  ask covers it too. No code change; the segmentation gold (57 of 60 such rows)
+  already says so.
+
 - **2026-09-24 — Q48 (SAVE WHAT IS READY; boards stand aside for live use)**,
   Gil, from his phone: a six-ask command showed nothing for 48.9 s. Its trace:
   4 of 6 objects built by the rules in 1.9 s, then 39.0 s + 7.6 s of model

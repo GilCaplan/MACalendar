@@ -72,7 +72,21 @@ class CreateEventAction(BaseAction):
 
         if intent.recurrence:
             return f"Created recurring {intent.recurrence} event '{intent.title}' starting on {_fmt_date(intent.date)}."
-        return f"Created event '{intent.title}' on {_fmt_date(intent.date)} from {_fmt_time(intent.start_time)} to {_fmt_time(intent.end_time)}."
+        reply = f"Created event '{intent.title}' on {_fmt_date(intent.date)} from {_fmt_time(intent.start_time)} to {_fmt_time(intent.end_time)}."
+        if _files_linked_todo(intent):
+            db.create_linked_todo(event_id)
+            reply += " Also on your to-do list, linked to it."
+        return reply
+
+
+def _files_linked_todo(intent: CalendarIntent) -> bool:
+    """A call to a ROLE ("call the plumber") is an event AND a linked to-do
+    (DEVQA Q50, Gil 2026-09-25: *"make it a to-do in addition, in parallel,
+    and it should be linked"*). Not for a series: one to-do cannot stand for
+    every instance. Read from the title, which keeps the call words on both
+    tracks, so the fast and deep paths file the pair the same way."""
+    from assistant.intent.encounter import is_role_call
+    return not intent.recurrence and is_role_call(intent.title or "")
 
 
 # ---------------------------------------------------------------------------

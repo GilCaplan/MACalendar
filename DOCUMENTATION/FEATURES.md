@@ -98,6 +98,7 @@ built when it reaches the Mac.
 | UI | [Foldable settings sections](#foldable-settings-sections) | every Settings section collapses and stays collapsed, on both apps; the phone starts them all folded | `settings_dialog.py`, `SettingsView.swift` |
 | hybrid | [Calendar views](#calendar-views-month--week--day) | month/week/day/agenda browsing + event CRUD, drag, undo | `calendar_ui/`, iOS views, `db.py` |
 | hybrid | [Tasks](#tasks--to-dos) | Today/General lists, priorities, quantities | `db.py`, `TasksView` |
+| hybrid | [Linked to-do for a call](#linked-to-do-for-a-call) | "call the plumber" books a 09:00 event AND a to-do linked to it, kept in step | `actions/calendar/action.py`, `db.py`, `intent/encounter.py` |
 | hybrid | [Tag discovery](#tag-discovery--the-class-set-grows-with-consent) | consent-based new classes + history | `actions/todo/tag_discovery.py` |
 | hybrid | [Share event as .ics](#share-event-as-ics) | one event → RFC 5545 file, both platforms | `ics_export.py`, `event_dialog.py` |
 | hybrid | [The day panel](#the-day-panel) | one on/off summary of today's events + tasks; server owns the wording; the phone lodges a week ahead so it arrives with the Mac asleep | `notify.py`, `notifier.py`, `GET /digest[/upcoming]`, `ReminderScheduler.swift` |
@@ -210,6 +211,24 @@ Agenda anchors on a `set_start_date` date (Today resets it, nav arrows step a
 week), clicking a row opens the same edit dialog as the other views, and day
 headers append the Hebrew date when `hebrew_calendar.display_mode` isn't
 `english` — same rule as the Week header cells.
+
+### Linked to-do for a call
+**What:** A call to a role — "call the plumber tomorrow", "remind me to ring
+the bank" — is an event, 09:00 when no clock was said, AND a to-do beside it,
+linked (DEVQA Q50, Gil 2026-09-25: *"make it a to-do in addition, in
+parallel, and it should be linked"*). A call to a person stays one event
+(Q47); a written message stays one to-do; a series gets no companion.
+**Where:** rule `assistant/intent/encounter.py` (`is_role_call`); filed by
+`CreateEventAction` (`actions/calendar/action.py`), so both tracks do it; link
+`db.create_linked_todo` / `linked_todos` (`todos.source = 'linked_event'`,
+`source_event_id`); link mark on the row: Mac `todo_view.py` (🔗),
+iOS `TaskRowView.swift` (`Todo.linkedEventId`).
+**How:** Renaming either one renames both, and moving the event moves the
+to-do's due date (`_follow_event`). Deleting the event removes the to-do.
+Ticking or deleting the to-do leaves the event, because the call happened or
+the reminder is no longer wanted, and neither un-books it. The calendar→tasks
+sync shares the column but not the source, so neither feature touches the
+other's rows. Tests: `tests/unit/test_linked_todo.py`.
 
 ### Tasks / to-dos
 **What:** Two lists (Today, General) with priorities, due dates, notes,

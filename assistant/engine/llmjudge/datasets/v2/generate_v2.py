@@ -138,9 +138,12 @@ SHAPES = {
 #:          the kind board (decompose_validate/experiments/RESULTS.md,
 #:          2026-09-24) found v2 charging the engine for obeying the ruling.
 #:
-#: No v2 to-do subject names a person (`banks.TASK_SUBJECTS`: "call the
-#: chiropractor" is not an encounter under Q47 — `intent/encounter.py` needs a
-#: name or a kinship word), so Q47 moves nothing here; checked, not assumed.
+#: No v2 to-do subject names a person, so Q47 moved nothing here. Q50 does:
+#:   Q50    (2026-09-25) a live call to a ROLE is an event like a call to a
+#:          person ("Two also same thing") — `banks.TASK_SUBJECTS` has "call
+#:          the chiropractor". Read by the engine's own rule
+#:          (`encounter.is_role_call`) on the ask's title, so 63 asks move
+#:          (42 train, 21 test) and a new call subject would follow by itself.
 RULED_SHAPES = {"ct_dt": ("create_event", "event", "Q26")}
 
 _FRAME_KEY = {"create_event": "create_event", "create_todo": "create_todo",
@@ -549,7 +552,13 @@ def _item_words(cmd: Command, ask: dict) -> dict:
 def _ruled(ask: dict) -> tuple:
     """(action, kind, ruling or None) — the gold for this ask after the rulings."""
     got = RULED_SHAPES.get(ask["shape"])
-    return got if got else (ask["action"], ask["kind"], None)
+    if got:
+        return got
+    if ask["action"] == "create_todo":
+        from assistant.intent.encounter import is_role_call
+        if is_role_call(ask["title"]):
+            return ("create_event", "event", "Q50")
+    return (ask["action"], ask["kind"], None)
 
 
 def _row(cmd: Command, voice, split: str, joiner: str, list_n, variant: int,

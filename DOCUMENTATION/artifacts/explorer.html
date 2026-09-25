@@ -2713,7 +2713,7 @@ series_id   NULL
     <figcaption>Five identical rows would make it impossible to tell which one you ticked — so a count is a number in a column, not a repetition.</figcaption>
     <p>A recurrence is deliberately not a decomposition: a repeating command is one atomic item that happens to repeat, and the cadence rides along as a slot for the database to expand.</p>
     <h3>Before any of that: event or to-do</h3>
-    <p>The splitters branch on the item's kind, so it is settled first. <strong>Basic rules, otherwise a model.</strong> Whenever a rule fired, its answer stands: a stated clock, meeting or calling a person, a named to-do list, &ldquo;remind me to&rdquo;, a scheduling or a chore verb. Only an item no rule read at all &mdash; one the tagger called an event because nothing said otherwise &mdash; is decided by a small classifier over the shape of its words. That classifier can never overturn a rule, so it can never overturn a ruling.</p>`
+    <p>The splitters branch on the item's kind, so it is settled first. <strong>Basic rules, otherwise a model.</strong> Whenever a rule fired, its answer stands: a stated clock, meeting or calling a person &mdash; or calling a role, the plumber or the bank, which also files a linked to-do beside the event &mdash; a named to-do list, &ldquo;remind me to&rdquo;, a scheduling or a chore verb. Only an item no rule read at all &mdash; one the tagger called an event because nothing said otherwise &mdash; is decided by a small classifier over the shape of its words. That classifier can never overturn a rule, so it can never overturn a ruling.</p>`
     },
     validate: {
       view: "engine", tag: "stage 3 · after the split", name: "validate", rl: "3′ validate", title: "validate — tidy the words",
@@ -4758,7 +4758,7 @@ const __runDemos = function () {
   // rung it belongs to; an unknown path still shows, under its own name.
   const KIND_RUNGS = [
     { id: "clock", label: "A clock time was said", sub: "“at 4pm”, “half past six” — always an event (rulings Q25/Q26)" },
-    { id: "person", label: "You meet, see, call or eat with someone", sub: "a name or a family word — an event, at 9:00 if no time was said (Q47)" },
+    { id: "person", label: "You meet, see, call or eat with someone", sub: "a name, a family word, or a call to the plumber or the bank — an event, at 9:00 if no time was said (Q47, Q50); a call to a role also gets a linked to-do" },
     { id: "todo", label: "To-do wording", sub: "“remind me to…”, “a note to…”, a named list, a written message, a deadline" },
     { id: "calendar", label: "Calendar wording", sub: "“book”, “schedule”, “on my calendar”" },
     { id: "model", label: "No rule fired: a small model decides", sub: "from the shape of the words — never against a rule" },
@@ -4771,7 +4771,7 @@ const __runDemos = function () {
     lexicon_event: "calendar", calendar_destination: "calendar",
   };
   const PLAIN_PATH = {
-    stated_clock: "a clock time", encounter: "an encounter with a person", task_frame: "a to-do phrasing",
+    stated_clock: "a clock time", encounter: "an encounter with a person, or a call", task_frame: "a to-do phrasing",
     lexicon_task: "a to-do verb", lexicon_event: "a calendar verb", remind_to_verb: "“remind me to” + a verb",
     todo_destination: "a named to-do list", calendar_destination: "“on my calendar”",
   };

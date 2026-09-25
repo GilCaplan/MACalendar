@@ -25,6 +25,9 @@ def _cfg(on=True):
     ("call Mom", "", "event"),                                # Q47: an encounter
     ("remind me to call Morgan", "tomorrow", "event"),        # Q47
     ("email Dana the report", "", "task"),                    # written, not an encounter
+    ("call the plumber", "", "event"),                        # Q50: a call to a role
+    ("remind me to call the bank", "tomorrow", "event"),      # Q50
+    ("check off call the plumber", "", "task"),               # acts on the to-do (Q50)
     ("buy milk", "", "task"),
     ("add eggs to my shopping list", "", "task"),             # a named to-do list
     ("remind me to water the garden", "this evening", "task"),  # Q47(A): a part of the day

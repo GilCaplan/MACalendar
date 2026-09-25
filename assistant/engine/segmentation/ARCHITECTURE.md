@@ -950,7 +950,10 @@ person — meeting, seeing, visiting, calling, eating with a named person or a
 family word — is an event (09:00 when no clock was said), on any day; the
 reader is shared with the front door (`assistant/intent/encounter.py`), and a
 written message ("email", "text"), a mention or a named to-do list stays a
-to-do. And "add / make / leave / write a note to …" and "note to self" are
+to-do. DEVQA Q50 (2026-09-25) extends it to a live call to a ROLE ("call the
+plumber", "ring the bank"; `is_role_call`), except an operation on the list
+("check off call the plumber"); the linked to-do such a call also gets is the
+executor's, not this tag's. And "add / make / leave / write a note to …" and "note to self" are
 to-do frames (`fastseg/kind.py`), though a stated clock still makes an event
 (Q25) and an encounter still wins (Q47). The tag is a PROPOSAL:
 decompose_validate's kind router lets any rule that fired stand and asks its

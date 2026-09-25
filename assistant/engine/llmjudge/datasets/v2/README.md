@@ -128,9 +128,12 @@ covers 364 asks in 364 commands (224 train, 140 test): `action`, `kind`,
 `item.kind`, and the command's `events`/`tasks` and, for 140 of them, its
 `action`.
 
-No v2 to-do subject names a person, so Q47 (an encounter is an event) moves
-nothing here. "call the chiropractor" is not an encounter under
-`intent/encounter.py`.
+No v2 to-do subject names a person, so Q47 (an encounter is an event) moved
+nothing here. **Q50** (2026-09-25: a live call to a ROLE is an event too) does:
+"call the chiropractor" is one, read by the engine's own
+`encounter.is_role_call` in `generate_v2._ruled`. 63 commands moved (42 train,
+21 test), each ask carrying `ruled: "Q50"`, and `rule_cases` moved the gold of
+158 judge cases, every one of them on those commands.
 
 **The cases were moved by `rule_cases`, not rebuilt.** A rebuild at HEAD also
 moves plants on about 4,700 cases, because the converter changed after cycle 42

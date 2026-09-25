@@ -1,0 +1,114 @@
+{
+ "started": "2026-09-25 09:09:18",
+ "git_head": "58dc82ad",
+ "chosen": "lr:all",
+ "candidates": {
+  "lr:all": 0.9897084048027445,
+  "lr:reach": 0.9897084048027445,
+  "hgb:all": 0.9725557461406518,
+  "hgb:reach": 0.9777015437392796
+ },
+ "rows": {
+  "fastrule|train": {
+   "n": 2151,
+   "reach": 205,
+   "tagger": 2139,
+   "words_only": 2099,
+   "model_only": 2139,
+   "router": 2139,
+   "fixed": 0,
+   "broke": 0,
+   "conflicts_dropped": 1,
+   "families": 147
+  },
+  "fastrule|test": {
+   "n": 905,
+   "reach": 177,
+   "tagger": 805,
+   "words_only": 855,
+   "model_only": 869,
+   "router": 866,
+   "fixed": 61,
+   "broke": 0,
+   "conflicts_dropped": 0,
+   "families": 74
+  },
+  "v2|train": {
+   "n": 3496,
+   "reach": 294,
+   "tagger": 3433,
+   "words_only": 3481,
+   "model_only": 3484,
+   "router": 3456,
+   "fixed": 23,
+   "broke": 0,
+   "conflicts_dropped": 0,
+   "families": 85
+  },
+  "v2|test": {
+   "n": 4704,
+   "reach": 278,
+   "tagger": 4604,
+   "words_only": 4678,
+   "model_only": 4678,
+   "router": 4656,
+   "fixed": 52,
+   "broke": 0,
+   "conflicts_dropped": 0,
+   "families": 94
+  },
+  "seg|train": {
+   "n": 955,
+   "reach": 84,
+   "tagger": 943,
+   "words_only": 914,
+   "model_only": 937,
+   "router": 943,
+   "fixed": 0,
+   "broke": 0,
+   "conflicts_dropped": 1,
+   "families": 142
+  },
+  "seg|test": {
+   "n": 1397,
+   "reach": 162,
+   "tagger": 1356,
+   "words_only": 1327,
+   "model_only": 1348,
+   "router": 1364,
+   "fixed": 11,
+   "broke": 3,
+   "conflicts_dropped": 0,
+   "families": 175
+  },
+  "real|test": {
+   "n": 54,
+   "reach": 14,
+   "tagger": 52,
+   "words_only": 52,
+   "model_only": 52,
+   "router": 52,
+   "fixed": 0,
+   "broke": 0,
+   "conflicts_dropped": 2,
+   "families": 32
+  }
+ },
+ "battery": {
+  "n": 57,
+  "tagger_ok": 57,
+  "router_ok": 57,
+  "reached_model": 2,
+  "router_violations": [],
+  "model_only_ok": 57,
+  "model_only_violations": [],
+  "words_only_ok": 56,
+  "words_only_violations": [
+   [
+    "add book a flight to my todo list tonight",
+    "Q27",
+    0.74
+   ]
+  ]
+ }
+}

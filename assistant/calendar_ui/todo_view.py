@@ -948,6 +948,15 @@ class TodoItemWidget(QWidget):
         title_row.addWidget(self._qty_chip)
         self._refresh_quantity()
 
+        # A to-do filed beside an event (DEVQA Q50: "call the plumber" is both)
+        # says so — it is renamed with the event and goes when the event does.
+        self._link_chip = QLabel("🔗")
+        self._link_chip.setObjectName("link_chip")
+        self._link_chip.setToolTip("Linked to a calendar event")
+        self._link_chip.setVisible(self._todo.get("source") == "linked_event"
+                                   and self._todo.get("source_event_id") is not None)
+        title_row.addWidget(self._link_chip)
+
         self._editor = QLineEdit(self._todo["title"])
         self._editor.setObjectName("todo_editor")
         self._editor.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -1561,8 +1570,9 @@ class TodoListWidget(QWidget):
     def _on_edited(self, todo_id: int, new_title: str) -> None:
         self._db.update_todo(todo_id, title=new_title)
         # If this task was synced from a calendar event, keep the event title in sync too
+        # (a LINKED to-do's event follows inside `update_todo`, DEVQA Q50)
         todo = self._db.get_todo(todo_id)
-        if todo and todo.get("source_event_id"):
+        if todo and todo.get("source_event_id") and todo.get("source") == "calendar_sync":
             self._db.update_event(todo["source_event_id"], title=new_title)
         QTimer.singleShot(0, self.todo_changed.emit)
 

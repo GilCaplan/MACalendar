@@ -1844,5 +1844,63 @@ Found, not fixed (next, in order):
 5. **segmentation** — lowercase names after "with" ("lunch with morgan and casey at one" cuts after morgan); a leading day not reaching a second timed ask (3 gold rows).
 
 Needs Gil (the rulings do not decide these):
-- **A trailing clock spreading to an earlier ask** — "remind me to take out the trash and book the flight … at 14:00" gives the trash 14:00 (and so an event, Q25). The segmentation gold encodes the spread (57 of 60 rows), so changing it is a design + gold decision.
-- **Calling a role, not a person** — Q47 makes calling a named person or family an event at 09:00; "call the plumber / the bank" is a to-do today. Same rule, or an errand?
+- ~~**A trailing clock spreading to an earlier ask**~~ — ANSWERED 2026-09-25 (DEVQA Q49): keep the spread. No change.
+- ~~**Calling a role, not a person**~~ — ANSWERED 2026-09-25 (DEVQA Q50): an event like calling a person, AND a linked to-do beside it. Done the same day; see "Q49/Q50" below.
+
+### Q49/Q50 applied (2026-09-25)
+
+**Q50 — a call to a role is an event AND a linked to-do.** One shared rule,
+`intent/encounter.py` (`is_role_call`), read by segmentation's tagger, the front
+door's router and the kind router alike. On top of it, `CreateEventAction` files a
+to-do linked through `todos.source_event_id` (source `linked_event`). Renaming
+either one renames both, and moving the event moves the to-do's due date.
+Deleting the event removes the to-do; ticking or deleting the to-do leaves the
+event. A series gets no companion. Both apps mark the linked row with a link icon.
+The rule declines an operation on the list ("check off / delete call the
+plumber", "… from my to do list").
+
+Gold relabelled by the ruling, never by the model:
+
+| dataset | train | test |
+|---|---|---|
+| FastRule 7,200 | 37 rows | 19 rows |
+| v2 | 42 commands | 21 commands |
+| v2 judge cases | 158 cases (all on those commands) | |
+| segmentation corpus | 20 items (generated set 9, split traps 10, no-split traps 1), across both splits | |
+
+**Boards: old code against new code, both scored on the new gold.**
+
+Segmentation, FastSeg tag accuracy, n = matched items:
+
+| split | old code | new code |
+|---|---|---|
+| train | 98.1% (1459/1487) | 98.8% (1469/1487) |
+| test | 95.1% (956/1005) | 95.7% (962/1005) |
+
+The cut is unchanged on both splits.
+
+FastRule shape board:
+
+| metric | train, old | train, new | test, old | test, new |
+|---|---|---|---|---|
+| correct-on-handled | 96.5% (atomic rows, n=3,200) | 96.8% | 80.5% | 81.0% |
+| harm | 105 | 98 | 204 | 199 |
+| half-executed compounds | 55 | 54 | 26 | 22 |
+
+Kind router board, rules-alone tagger (record `kind_router_20260925T0910`):
+
+| source | train, old → new | test, old → new |
+|---|---|---|
+| FastRule | 99.0% → 99.4% (n=2,151) | 88.7% → 89.0% (n=905) |
+| v2 | 98.0% → 98.2% (n=3,496) | 97.6% → 97.9% (n=4,704) |
+| segmentation | 97.9% → 98.7% (n=955) | 96.6% → 97.1% (n=1,397) |
+| real usage | 96.3% → 96.3% (n=54) | |
+
+The rulings battery went from 55/57 to 57/57.
+
+Board D was not re-run, because the change is one rule and the kind board
+carries v2.
+
+One known miss: "call the bank about the overdraft done that already" (a
+no-split trap, gold task) still reads as a call.
+

@@ -104,6 +104,14 @@ struct TaskRowView: View {
                                 .opacity(todo.isDone ? 0.5 : 1)
                                 .accessibilityLabel("quantity \(todo.quantity)")
                         }
+
+                        if todo.linkedEventId != nil {
+                            Image(systemName: "link")
+                                .font(.system(size: settings.fontTasks - 4, weight: .semibold))
+                                .foregroundColor(.secondary)
+                                .opacity(todo.isDone ? 0.5 : 1)
+                                .accessibilityLabel("linked to a calendar event")
+                        }
                     }
 
                     if !todo.tags.isEmpty && !isExpanded {

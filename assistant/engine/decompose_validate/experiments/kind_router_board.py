@@ -37,7 +37,8 @@ from assistant.engine.decompose_validate import kind_router as KR  # noqa: E402
 HERE = K2.HERE
 
 #: Q47 answered (2026-09-24): calling a person is an event, day or no day; a
-#: written message, a mention and a named to-do list stay to-dos.
+#: written message, a mention and a named to-do list stay to-dos. Q50
+#: (2026-09-25) extended it to a call to a role.
 CALL_RULINGS = [
     ("call Mom", "event", "Q47"),
     ("call Mom tomorrow", "event", "Q47"),
@@ -48,8 +49,15 @@ CALL_RULINGS = [
     ("catch up with Riley", "event", "Q47"),
     ("email Dana the report", "task", "Q47"),
     ("text Sam tomorrow", "task", "Q47"),
-    ("call the plumber", "task", "Q47"),
     ("add call mom to my to-do list", "task", "Q47"),
+    # Q50 (2026-09-25): a call to a ROLE is an event too — "Two also same
+    # thing". Filed with a linked to-do beside it, which is the executor's
+    # job; the KIND is event. Was ("call the plumber", "task", "Q47").
+    ("call the plumber", "event", "Q50"),
+    ("remind me to call the bank tomorrow", "event", "Q50"),
+    ("phone my accountant", "event", "Q50"),
+    ("email the plumber", "task", "Q50"),
+    ("check off call the plumber", "task", "Q50"),
 ]
 
 

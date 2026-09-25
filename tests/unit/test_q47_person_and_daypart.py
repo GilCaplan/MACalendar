@@ -34,7 +34,7 @@ def test_an_encounter_is_an_event_day_or_no_day(action, time):
 
 @pytest.mark.parametrize("action", [
     "email Dana the report", "text Sam about the party", "buy a gift for mom",
-    "call the plumber", "add call Dana to my to-do list", "add swe epthe balcony to my tasks",
+    "add call Dana to my to-do list", "add swe epthe balcony to my tasks",
 ])
 def test_written_messages_mentions_and_a_named_list_are_not_encounters(action):
     assert not is_encounter(action), action
@@ -48,7 +48,7 @@ def test_seeing_a_person_is_not_a_schedule_question():
 
 @pytest.mark.parametrize("action,time,want", [
     ("add a note to pay the electricity bill", "", "task"),     # no time: a to-do
-    ("make a note to call the plumber", "", "task"),
+    ("make a note to call the plumber", "", "event"),            # a call to a role (Q50)
     ("add a note to walk the dog", "at 6pm", "event"),           # a clock makes it an event (Q25)
     ("make a note to call Mom", "", "event"),                    # an encounter (Q47)
 ])
