@@ -727,3 +727,20 @@ Measured with llama3.1 NOT resident; a cold load that has to share memory with
 it was not measured. Background priority reads ~30 ms slower (the gate's
 yield gap). The 3 s cap and the 30 s cooldown bound the worst case at one slow
 commit per outage.
+
+## The to-do fallback bar (2026-09-24)
+
+**Stage: label · `model.predict_tags`, the n-gram fallback** (used only when the
+embedding vector cannot be had — ollama down). Measured on the titles the
+keyword rules leave untagged, the only ones the model ever answers:
+
+| data · n | 0.40 (was) | 0.75 | 0.90 (now) | no fallback |
+|---|---|---|---|---|
+| Gil's real to-dos, rule-blank · 29 titles | 9 right / 19 confidently wrong | 11 / 10 | 11 / 2 | 11 / 0 |
+| generated TEST, rule-blank · 626 titles | 242 / 126 | 142 / 14 | 20 / 5 | 0 / 0 |
+
+(The real gold is partly the old system's own labels — an untagged title is
+scored "no tag" — so it leans toward abstaining; the generated gold always has
+a tag, so it leans the other way.) Both agree the 0.40 bar was the wrong place:
+it tagged "call mom" and "pay rent" Groceries. The fallback now needs 0.90 for
+a to-do (`FALLBACK_MIN_CONFIDENCE`); events were not measured and keep theirs.

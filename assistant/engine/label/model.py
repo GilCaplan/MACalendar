@@ -83,6 +83,18 @@ MODELS_DIR = pathlib.Path(
 #: `experiments/threshold_sweep.py`; a value nobody swept is an assumption.
 MIN_CONFIDENCE = {"event": 0.35, "task": 0.40}
 
+#: The n-gram model's bar when it is only a FALLBACK — the artefact has an
+#: embedding head and the vector could not be had (ollama down). Measured
+#: 2026-09-24 on the titles the keyword rules leave untagged: on Gil's 29 such
+#: real to-do titles the n-gram fallback at 0.40 got 9 right and was
+#: confidently wrong on 19 ("call mom" -> Groceries 0.63, "pay rent" ->
+#: Groceries 0.41); leaving them untagged got 11 right and 0 wrong; at 0.90 it
+#: tags almost nothing (11 right, 2 wrong). On 626 generated TEST titles the
+#: 0.40 bar was confidently wrong on 126. So a to-do falls back to "no tag"
+#: unless the n-gram model is near-certain. Events were not measured and keep
+#: their bar.
+FALLBACK_MIN_CONFIDENCE = {"task": 0.90}
+
 
 class EmbedHead:
     """The EMBEDDING classifier that sits beside the n-gram pipeline (DEVQA Q46).
@@ -257,6 +269,9 @@ class LabelModel:
             return [name for name, _ in picked], min(sc for _, sc in picked)
         self.last_source = "ngram"
         bar = MIN_CONFIDENCE.get(self.kind, 0.4)
+        if getattr(self, "embed_head", None) is not None:
+            # A fallback, not the model: hold it to the fallback bar.
+            bar = max(bar, FALLBACK_MIN_CONFIDENCE.get(self.kind, bar))
         try:
             scores = []
             for i, est in enumerate(self.pipeline.named_steps["clf"].estimators_):

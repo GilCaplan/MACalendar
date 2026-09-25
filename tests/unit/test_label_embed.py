@@ -226,3 +226,19 @@ def test_a_first_use_build_does_not_embed(monkeypatch):
                         seen.setdefault("embed", embed) and None)
     M._build_base("event")
     assert seen == {"embed": False}
+
+
+def test_the_ngram_fallback_holds_to_its_own_bar_for_todos(monkeypatch):
+    """2026-09-24: with ollama down the n-gram fallback tagged "call mom" and
+    "pay rent" Groceries (0.63, 0.41). On Gil's real rule-blank titles it was
+    confidently wrong 19 times in 29; a to-do now falls back to no tag unless
+    the n-gram model is near-certain."""
+    monkeypatch.setenv("MACALENDAR_LLM_DISABLED", "1")
+    from assistant.engine.label.model import LabelModel, FALLBACK_MIN_CONFIDENCE
+    m = LabelModel.load("task")
+    if getattr(m, "embed_head", None) is None:
+        import pytest
+        pytest.skip("artefact without an embedding head: the n-gram IS the model")
+    assert m.predict_tags("call mom") is None
+    got = m.predict_tags("buy milk")
+    assert got and "Groceries" in got[0] and got[1] >= FALLBACK_MIN_CONFIDENCE["task"]
