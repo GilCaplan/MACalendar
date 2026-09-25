@@ -81,6 +81,12 @@ _FRAME_REPAIRS = [
                 r"(?!\s+(?:the|a|an|my|that|this|it|here|there)\b)", re.I),
      "remind me to"),
     (re.compile(r"\bremind\s+(?:mitt|meet|mee|mi)\s+to\b", re.I), "remind me to"),
+    # "note to self, book a flight" IS "remind me to book a flight". Said as a
+    # lead-in with a comma, segmentation cut it into its own unreadable item
+    # ("I couldn't read 'note to self'") and the ask lost its frame (2026-09-24).
+    # Only at the start, and only before an ask.
+    (re.compile(r"^\s*(?:(?:ok|okay|so|um|uh)[,\s]+)?note\s+to\s+self\s*[,:;-]?\s+(?:to\s+)?", re.I),
+     "remind me to "),
 ]
 
 

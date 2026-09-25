@@ -36,10 +36,14 @@ def test_a_rule_that_fired_decides(text, time, want):
     assert kind == want
 
 
+# The catch-all example was "make a note to replace the notebook" until
+# 2026-09-24, when "make a note to" became a to-do FRAME (a rule — Gil's "todo
+# is fine if not given a time"). "need to …" with no "i" is still one no rule
+# claims, which is exactly the shape the router was measured on.
 def test_only_the_catch_all_path_reaches_the_model():
-    kind, path = KR._fs().tag_path("make a note to replace the notebook", "")
+    kind, path = KR._fs().tag_path("need to replace the notebook", "")
     assert (kind, path) == ("event", "default")
-    got, why = KR.route("make a note to replace the notebook", "")
+    got, why = KR.route("need to replace the notebook", "")
     assert why.startswith("model:")
     assert got == "task"
 
@@ -88,7 +92,7 @@ def _state(text, time, kind):
 
 
 def test_run_moves_a_catch_all_event_and_records_the_fix():
-    st = _state("make a note to replace the notebook", "", "event")
+    st = _state("need to replace the notebook", "", "event")
     KR.run(st, _cfg())
     assert st.items[0].kind == "task"
     assert [f.rule for f in st.fixes] == ["kind_router"]
@@ -97,19 +101,19 @@ def test_run_moves_a_catch_all_event_and_records_the_fix():
 def test_run_leaves_a_kind_the_tagger_did_not_give():
     # an item whose kind came from elsewhere (a model segmenter, a rewrite) is
     # not the tagger's reading of these words, so the router does not revisit it
-    st = _state("make a note to replace the notebook", "", "task")
+    st = _state("need to replace the notebook", "", "task")
     KR.run(st, _cfg())
     assert st.items[0].kind == "task" and not st.fixes
 
 
 def test_run_can_be_switched_off():
-    st = _state("make a note to replace the notebook", "", "event")
+    st = _state("need to replace the notebook", "", "event")
     KR.run(st, _cfg(on=False))
     assert st.items[0].kind == "event" and not st.fixes
 
 
 def test_the_stage_settles_the_kind_before_decompose_reads_it():
     from assistant.engine.decompose_validate import stage
-    st = _state("make a note to replace the notebook", "", "event")
+    st = _state("need to replace the notebook", "", "event")
     stage.run(st, _cfg())
     assert all(it.kind == "task" for it in st.items)

@@ -584,3 +584,10 @@ in both arms:
   obeyed Q26).
 - 19 rows became wrong (the call families: that engine still made calls into
   to-dos).
+
+**2026-09-24, an OPERATION relabel** (`RULED_OPERATIONS` in `generate.py`):
+`s_ut_add_note` ("add a note to {task_title}", 14 train rows) was gold
+UPDATE_TODO — a note added to an existing task. Gil: *"todo is fine if not
+given a time, if time given make an event, i have been clear on previous
+similar things"* — so it is a new TO-DO (the template carries no time),
+marked `expect.ruled: "Q47"`. Regenerated: exactly those 14 rows differ.

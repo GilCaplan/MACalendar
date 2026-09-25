@@ -44,3 +44,15 @@ def test_seeing_a_person_is_not_a_schedule_question():
     assert kind_of("see mom") == "event"
     assert kind_of("see Parker") == "event"
     assert kind_of("see my schedule") == "review"
+
+
+@pytest.mark.parametrize("action,time,want", [
+    ("add a note to pay the electricity bill", "", "task"),     # no time: a to-do
+    ("make a note to call the plumber", "", "task"),
+    ("add a note to walk the dog", "at 6pm", "event"),           # a clock makes it an event (Q25)
+    ("make a note to call Mom", "", "event"),                    # an encounter (Q47)
+])
+def test_a_note_to_frame_is_a_todo_unless_a_clock_or_a_person_says_otherwise(action, time, want):
+    """Gil, 2026-09-24: "todo is fine if not given a time, if time given make
+    an event, i have been clear on previous similar things"."""
+    assert FS.tag(action, time) == want

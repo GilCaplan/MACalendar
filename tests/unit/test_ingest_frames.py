@@ -34,3 +34,16 @@ def test_every_repaired_spelling_is_a_non_word():
         pytest.skip("no system word list")
     real = {w.strip().lower() for w in words.read_text().splitlines()}
     assert not [t for t in _WORD_REPAIRS if t in real]
+
+
+@pytest.mark.parametrize("said,fixed", [
+    ("note to self, book a flight", "remind me to book a flight"),
+    ("Note to self: call the bank", "remind me to call the bank"),
+])
+def test_a_leading_note_to_self_is_a_reminder_frame(said, fixed):
+    assert repair_command_frames(said) == fixed
+
+
+@pytest.mark.parametrize("said", ["a note to self is useful", "send a note to self"])
+def test_note_to_self_mid_sentence_is_left_alone(said):
+    assert repair_command_frames(said) == said

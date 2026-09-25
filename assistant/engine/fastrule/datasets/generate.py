@@ -607,6 +607,17 @@ RULED_FAMILIES = {
 }
 
 
+#: OPERATION relabels by ruling (2026-09-24, Gil: "todo is fine if not given a
+#: time, if time given make an event, i have been clear on previous similar
+#: things"). "add a note to {task_title}" was gold UPDATE_TODO (a note on an
+#: existing task); read by the rulings it is a new TO-DO — "make a note to"
+#: is a create frame, and its template carries no time. family -> (ruling,
+#: new action).
+RULED_OPERATIONS = {
+    "s_ut_add_note": ("Q47", "create_todo"),
+}
+
+
 def _states_a_clock(token: str, value: str) -> bool:
     bank_key, _semantic, _base = placeholder_info(token)
     if bank_key == "time_ranges":
@@ -618,6 +629,15 @@ def ruled_family(fam: dict, values: dict) -> "dict | None":
     """The family as the RULINGS read this row, or None when no ruling
     touches it. A copy: action, counts and label sources follow the parts
     that became events; the template, the words and the split do not move."""
+    op = RULED_OPERATIONS.get(fam["family"])
+    if op:
+        ruling, action = op
+        out = dict(fam)
+        out["action"] = action
+        out["events"], out["tasks"] = 0, 1
+        out["_label_sources"] = ([], ["title"])
+        out["_ruled"] = ruling
+        return out
     spec = RULED_FAMILIES.get(fam["family"])
     if not spec:
         return None
@@ -652,7 +672,7 @@ def _emit_family_rows(fam: dict, split_name: str, quota: int, tier: str, fillers
         counter += 1
         row_fam = ruled_family(fam, values) or fam
         if row_fam is not fam:
-            item = dict(item, kind="event")
+            item = dict(item, kind="task" if row_fam["action"].endswith("todo") else "event")
         add_labels(row_fam, slots, categories_mod, tagging_mod, task_tag_keywords)
         out.append({
             "id": f"{fam['family']}-{counter:03d}",

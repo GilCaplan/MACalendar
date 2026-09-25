@@ -130,6 +130,13 @@ _CHORE_VERB = (
 _TASK_RE = re.compile(
     r"^(?:add|put)\s+.*\b(?:to|on)\s+(?:my\s+)?(?:to-?do|task|shopping)|"
     r"^(?:remind me to|i need to|remember to|buy|get(?!\s+rid\b)|pick up)\b|"
+    # "add / make / leave / write a note to …", "note to self": a to-do frame
+    # (Gil, 2026-09-24: "todo is fine if not given a time, if time given make
+    # an event"). The stated-clock promotion in `fastseg.tag` still makes "…
+    # at 6pm" an event, and an encounter ("make a note to call Mom") is an
+    # event before this line is reached.
+    r"^(?:please\s+)?(?:add|make|leave|write|take|jot)\s+(?:a\s+|me\s+a\s+)?(?:quick\s+)?note\s+to\b|"
+    r"^note\s+to\s+self\b|"
     # "i want sweet potato pie from a local bakery" is a thing wanted — an
     # errand. Not "i want TO …" (the encounter rule owns "i want to meet"),
     # and not a wanted OCCASION ("i want a meeting with sam tomorrow").

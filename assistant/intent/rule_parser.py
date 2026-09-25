@@ -2102,6 +2102,10 @@ _FRAME_LEAD = re.compile(
     # better. Measured before writing: of the 7,200's 6,880 gold titles,
     # **none** begins with "remind" at all, so nothing legitimate is caught.
     # Longest first — the alternation is ordered, not sorted.
+    # "add / make a note to …", "note to self," — a to-do frame; the title is
+    # what follows it (2026-09-24: 'note to pay the electricity bill' kept the
+    # frame as its title).
+    r"(?:\s*(?:(?:add|make|leave|write|take|jot)\s+(?:a\s+|me\s+a\s+)?(?:quick\s+)?note\s+to|note\s+to\s+self,?)\s+)?"
     r"(?:\s*(?:(?:send|give)\s+me\s+(?:an?\s+)?(?:reminder|alert)\s+"
     r"(?:to|about|of|for|that)|"
     r"set\s+(?:an?\s+)?(?:reminder|alert)\s+(?:to|about|of|for|that)|"
