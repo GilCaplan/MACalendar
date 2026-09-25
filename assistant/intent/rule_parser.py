@@ -157,6 +157,13 @@ _STT_EXPANSIONS: list[tuple[str, str]] = [
     # normalize so ("remove", …) routing applies and a generic target like
     # "this list" hits the fast gate's veto (sandbox batch F2).
     (r"\bget rid of\b", "remove"),
+    # "take / clear / knock X OFF my calendar|list" is a removal (2026-09-25):
+    # "take sales call off my calendar" built an EMPTY to-do, and "clear
+    # doctor's appointment off my calendar" deleted 'doctor'. Rewritten to the
+    # form the router keys on, keeping the destination word it reads for the
+    # domain. "tick / cross X off" is a COMPLETION and is left alone.
+    (r"\b(?:take|clear|knock)\s+(.+?)\s+off\s+((?:my|the)\s+(?:calendar|calender|schedule|agenda|(?:to-?\s?do\s+)?list|to-?\s?dos?|tasks?))\b",
+     r"remove \1 from \2"),
     # --- F9 (simple-first abstain mining): 209 of 540 simple abstains were
     # outright skips caused by leading filler/courtesy hiding the command
     # from ^-anchored routing. Strip them FIRST (list order applies).

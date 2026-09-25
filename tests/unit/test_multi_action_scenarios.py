@@ -384,3 +384,15 @@ def test_a_change_target_never_starts_with_its_own_verb(parser, said, needle):
     result = parser.analyze(said, current_view="month")
     (_, intent), = result.intents
     assert intent.match_title.lower() == needle
+
+
+@pytest.mark.parametrize("said,action,needle", [
+    ("take sales call off my calendar", "delete_event", "sales call"),
+    ("clear doctor's appointment off my calendar", "delete_event", "doctor's appointment"),
+    ("take milk off my list", "delete_todo", "milk"),
+    ("tick milk off my list", "complete_todo", "milk"),     # a completion, untouched
+])
+def test_taking_something_off_is_a_removal(parser, said, action, needle):
+    result = parser.analyze(said, current_view="month")
+    (name, intent), = result.intents
+    assert name == action and intent.match_title.lower() == needle
