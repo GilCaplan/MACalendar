@@ -31,16 +31,11 @@ from __future__ import annotations
 import datetime as dt
 import re
 
-WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday",
-            "saturday", "sunday")
-_WD = {name: i for i, name in enumerate(WEEKDAYS)}
-_MONTH_NAMES = ("January", "February", "March", "April", "May", "June", "July",
-                "August", "September", "October", "November", "December")
-_MONTHS = {m.lower(): i for i, m in enumerate(_MONTH_NAMES, start=1)}
-#: ABBREVIATIONS too. "Oct 6" is an ordinary way to write a date and resolved to
-#: nothing, which silently left an `until` bound unapplied.
-_MONTHS.update({m[:3].lower(): i for i, m in enumerate(_MONTH_NAMES, start=1)})
-_MONTHS["sept"] = 9
+from assistant.common.wordlists import MONTH_ABBR_INDEX as _MONTHS
+from assistant.common.wordlists import WEEKDAY_INDEX as _WD
+from assistant.common.wordlists import WEEKDAYS
+#: ABBREVIATIONS are in _MONTHS too ("Oct 6", "sept 14"): without them an
+#: ordinary written date resolved to nothing and left an `until` bound unapplied.
 _NUMBER = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
            "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
            "a couple of": 2, "a dozen": 12, "half a dozen": 6, "twelve": 12,

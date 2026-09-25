@@ -32,8 +32,7 @@ import re
 #: Rows using it are EXCLUDED and reported, never guessed at.
 AMBIGUOUS = object()
 
-_WEEKDAY = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
-            "friday": 4, "saturday": 5, "sunday": 6}
+from assistant.common.wordlists import WEEKDAY_INDEX as _WEEKDAY  # noqa: E402
 
 
 def _coming(anchor: dt.date, name: str) -> dt.date:
@@ -47,9 +46,7 @@ def _next_week(anchor: dt.date, name: str) -> dt.date:
     return anchor + dt.timedelta(days=(7 - anchor.weekday()) + _WEEKDAY[name])
 
 
-_MONTH = {m: i for i, m in enumerate(
-    ("january", "february", "march", "april", "may", "june", "july", "august",
-     "september", "october", "november", "december"), start=1)}
+from assistant.common.wordlists import MONTH_INDEX as _MONTH  # noqa: E402
 
 
 def _days_in(year: int, month: int) -> int:

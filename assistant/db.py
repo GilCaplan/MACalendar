@@ -499,8 +499,7 @@ def _utcnow_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
-_WEEKDAY_NUM = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
-                "friday": 4, "saturday": 5, "sunday": 6}
+from assistant.common.wordlists import WEEKDAY_INDEX as _WEEKDAY_NUM  # noqa: E402
 
 
 class _SeriesSeed:

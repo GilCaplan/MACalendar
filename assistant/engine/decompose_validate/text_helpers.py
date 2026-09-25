@@ -74,12 +74,7 @@ _CONTENTLESS_TITLES = {
 _EMPTY_NOUNS = {"event", "events", "activity", "thing", "item"}
 
 
-_WEEKDAY_WORDS = {
-    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3, "friday": 4,
-    "saturday": 5, "sunday": 6,
-    "mon": 0, "tue": 1, "tues": 1, "wed": 2, "thu": 3, "thur": 3, "thurs": 3,
-    "fri": 4, "sat": 5, "sun": 6,
-}
+from assistant.common.wordlists import WEEKDAY_ABBR_INDEX as _WEEKDAY_WORDS  # noqa: E402
 
 
 def end_is_exclusive(text: str) -> bool:

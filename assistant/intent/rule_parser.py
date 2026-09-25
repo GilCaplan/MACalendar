@@ -1767,8 +1767,7 @@ _COMPACT_BARE_RE = re.compile(
 #: after next, ids 4 and 52).
 _COMING_WEEKDAY_RE = re.compile(
     r"\b(?:this\s+)?coming\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", re.I)
-_WEEKDAY_INDEX = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
-                  "friday": 4, "saturday": 5, "sunday": 6}
+from assistant.common.wordlists import WEEKDAY_INDEX as _WEEKDAY_INDEX  # noqa: E402
 _WEEKDAY_WORD_RE = re.compile(
     r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", re.I)
 #: A DAY NAMED ON PURPOSE — "today", "tomorrow", "the 13th", "Sept 14" — as

@@ -52,8 +52,7 @@ VALUE_FIELDS = ("date", "start_time", "end_time", "recurrence",
 HARM_WEIGHT = {"recurrence": 4, "date": 3, "start_time": 3,
                "end_time": 1, "quantity": 1, "reminder_minutes": 1}
 
-_WEEKDAY_NAME = ("monday", "tuesday", "wednesday", "thursday",
-                 "friday", "saturday", "sunday")
+from assistant.common.wordlists import WEEKDAYS as _WEEKDAY_NAME  # noqa: E402
 
 #: The recurrence check's vocabulary (TASKS.md row 87). Hand-maintained here
 #: on purpose — this file stays stdlib-only so it is safe to import from a

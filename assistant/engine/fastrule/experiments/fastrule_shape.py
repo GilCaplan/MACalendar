@@ -70,11 +70,8 @@ _EXPLICIT_TIME_RE = re.compile(
 _HHMM = re.compile(r"^\d{2}:\d{2}$")
 _ISO = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
-_WEEKDAY = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
-            "friday": 4, "saturday": 5, "sunday": 6}
-_MONTH = {m: i for i, m in enumerate(
-    ["january", "february", "march", "april", "may", "june", "july", "august",
-     "september", "october", "november", "december"], start=1)}
+from assistant.common.wordlists import MONTH_INDEX as _MONTH  # noqa: E402
+from assistant.common.wordlists import WEEKDAY_INDEX as _WEEKDAY  # noqa: E402
 
 
 def _phrase_to_date(phrase: str, today: "_dt.date") -> "str | None":

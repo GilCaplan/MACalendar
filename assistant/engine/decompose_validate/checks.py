@@ -45,8 +45,7 @@ from assistant.engine.decompose_validate import resolve as R
 #: Fields validate may repair from the words, and the resolver key each reads.
 _FROM_TIME = ("date", "start_time", "end_time", "recurrence", "recur_until")
 
-_WEEKDAY = ("monday", "tuesday", "wednesday", "thursday", "friday",
-            "saturday", "sunday")
+from assistant.common.wordlists import WEEKDAYS as _WEEKDAY  # noqa: E402
 
 #: An event's default length, used ONLY to replace an end that a corrected start
 #: has made meaningless. Never to invent an end where none was implied.

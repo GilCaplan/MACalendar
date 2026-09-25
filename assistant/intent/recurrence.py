@@ -24,12 +24,8 @@ from __future__ import annotations
 import datetime
 import re
 
-_WEEKDAYS = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
-             "friday": 4, "saturday": 5, "sunday": 6,
-             "mon": 0, "tue": 1, "tues": 1, "wed": 2, "thu": 3, "thur": 3,
-             "thurs": 3, "fri": 4, "sat": 5, "sun": 6}
-
-_FULL = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+from assistant.common.wordlists import WEEKDAY_ABBR_INDEX as _WEEKDAYS
+from assistant.common.wordlists import WEEKDAYS as _FULL
 _DAY_ALT = "|".join(sorted(_WEEKDAYS, key=len, reverse=True))
 #: One weekday, singular or plural ("tuesday", "tuesdays", "tue").
 _DAY = rf"(?:{_DAY_ALT})s?"
