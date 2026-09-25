@@ -36,6 +36,9 @@ class CalendarIntent(BaseIntent):
     date: Optional[str] = None            # ISO 8601 date, e.g. "2026-04-01"
     start_time: Optional[str] = None      # 24-hour "HH:MM"
     end_time: Optional[str] = None        # 24-hour "HH:MM"
+    #: File a to-do linked to this event as well (DEVQA Q51: a to-do chained
+    #: into a sequence is both). Set by decompose_validate, never by a model.
+    linked_todo: bool = False
     attendees: List[str] = []             # names or email addresses
     location: Optional[str] = None
     description: Optional[str] = None

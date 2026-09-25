@@ -110,6 +110,18 @@ class Item:
     blocked: str | None = None                  # step 4: refusal reason (never
                                                 # executed; reported honestly)
     labels: dict = field(default_factory=dict)  # step 7: category / tag
+    #: HOW THIS ITEM RELATES TO THE ONE BEFORE IT — the reason segmentation
+    #: cut there (DEVQA Q51, Gil 2026-09-25: *"if we decide to segment, at
+    #: least we know the reason why. Then if we need to fix it … we know what
+    #: the relationship is"*; and, asked whether the item structure should
+    #: change for it: *"update … the item structure … while maintaining the
+    #: same structure of the engine"*). A DELIBERATE contract addition, like
+    #: `time` and `source` before it. None on the first item; otherwise
+    #: `{"to": <item id>, "kind": sequence|list|sentence|envelope|same_span|
+    #: adjacent|unknown, "words": <what the speaker said between them>}`.
+    #: Written by segmentation (`segmentation.relate`); decompose_validate
+    #: reads it to chain an untimed part after the one before it.
+    relation: dict | None = None
 
     def spoken(self) -> str:
         """This item as the speaker said it — the action WITH its time.

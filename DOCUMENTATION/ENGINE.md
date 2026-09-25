@@ -79,6 +79,7 @@ channel to mutate state through.
 | `item.slots["confirm_create"]` | validate | orchestrator | an interrogative create; the intent SURVIVES to be offered, nothing executes |
 | `ignored` | transcript | orchestrator | false start: not parsed, not executed, **not remembered** |
 | `items` | segment (create), decompose (split), generate (fill/expand) | validate, commit, label, crosscheck | the item tree; ids `item_1`, `item_1-2` |
+| `item.relation` | segment | decompose_validate (the chain) | **CONTRACT EXTENSION, 2026-09-25 (Gil, DEVQA Q51).** How the item relates to the one before it — the reason segmentation cut there: `{"to", "kind", "words"}`, kind one of `sequence` (followed by / then / after that), `list` (and / comma), `sentence`, `envelope`, `same_span` (an enumeration), `adjacent`, `unknown`. None on the first item. Read off the words between the two items' verbatim spans, so it describes whatever cut them. decompose_validate chains an untimed `sequence` part after the one before it. |
 | `item.blocked` | validate | commit | refusal reason; a blocked item is reported, never silently dropped |
 | `item.intent = None` after generation | validate (drop rules) | commit | dropped as parser noise; traced, not messaged |
 | `executed`, `messages`, `refresh` | commit | label, crosscheck, response | what actually ran, per item |
@@ -141,7 +142,8 @@ sends `supports_edit`, shows the dialog (`ask_transcript_edit`, real-click
 tested) and has the Settings toggle; the iOS sheet is queued. *Status: live.*
 
 ### 2 · segment (`segmentation/` — FastSeg → LLMSeg(off) → accept · trace `rule` · tests `test_engine_segment.py`)
-Reads `text`; writes fresh `items` (id, kind, text only). Three tiers, in
+Reads `text`; writes fresh `items` (id, kind, text, time, source, and — since
+2026-09-25 — `relation`, how each relates to the one before it). Three tiers, in
 order, **biased to under-split** — a wrong merge gets two more chances (steps
 3 and 6); a wrong split of "meeting with Tal and Ravid" is immediate garbage.
 This is the pipeline's single point of failure and carries the densest tests.

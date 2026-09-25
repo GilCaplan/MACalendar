@@ -1324,7 +1324,7 @@
 
       <!-- ====== STAGE 2: SEGMENTATION ====== -->
       <g data-stage="segmentation" role="button" tabindex="0"
-        aria-label="Segmentation: split command into typed items — action, time, tag.">
+        aria-label="Segmentation: split command into typed items — action, time, tag — each saying how it relates to the one before.">
         <rect class="frame" x="450" y="52" width="180" height="60" rx="8" fill="var(--screen)" stroke="var(--line)"
           stroke-width="1.5" />
         <text x="540" y="76" text-anchor="middle" font-size="11" font-weight="600">Segmentation</text>
@@ -2662,7 +2662,7 @@ series_id   NULL
       z: [540, 82, 2.2],
       sum: `<p>One transcript in, typed items out, and <strong>no model</strong>: transport brackets are opened first, then a deterministic cutter splits on delimiters and clauses, gives each piece the time it owns and tags it event, to-do or review. A model tier is wired behind it and switched off &mdash; measured four ways, it made things worse.</p>
     <p class="figs">biased to under-split — a wrong merge is recoverable, a wrong split is not</p>`,
-      more: `<svg viewBox="0 0 380 196" role="img" aria-label="Three tiers: transport envelopes are opened first, then FastSeg cuts the command, assigns each piece its time and tags its kind, deterministically. A model splitter, LLMSeg, is wired behind them and switched off.">
+      more: `<svg viewBox="0 0 380 196" role="img" aria-label="Three tiers: transport envelopes are opened first, then FastSeg cuts the command, assigns each piece its time, tags its kind and records how each piece relates to the one before it (a sequence, a list, a new sentence), deterministically. A model splitter, LLMSeg, is wired behind them and switched off.">
       <rect x="0" y="8" width="250" height="38" rx="4" fill="var(--screen)" stroke="var(--line)"/>
       <text x="125" y="25" text-anchor="middle" font-size="8" font-weight="600">1 · envelopes</text>
       <text x="125" y="37" text-anchor="middle" font-size="7" fill="var(--muted)">brackets · queued recordings in one batch</text>
@@ -2672,7 +2672,7 @@ series_id   NULL
       <text x="131" y="58" font-size="6.5" fill="var(--muted)">each envelope</text>
       <rect x="0" y="64" width="250" height="38" rx="4" fill="var(--screen)" stroke="var(--line)"/>
       <text x="125" y="81" text-anchor="middle" font-size="8" font-weight="600">2 · FastSeg, no model</text>
-      <text x="125" y="93" text-anchor="middle" font-size="7" fill="var(--muted)">cut → give each piece its time → tag its kind</text>
+      <text x="125" y="93" text-anchor="middle" font-size="7" fill="var(--muted)">cut → its time → its kind → how it relates to the last</text>
       <path d="M 252 83 L 292 83" fill="none" stroke="var(--good)" marker-end="url(#mi)"/>
       <text x="298" y="81" font-size="7.5" fill="var(--good)">→ items</text>
       <path d="M 125 104 L 125 118" fill="none" stroke="var(--muted)" marker-end="url(#mi)"/>
@@ -2684,6 +2684,8 @@ series_id   NULL
     </svg>
     <figcaption>A wrong merge gets two more chances downstream. A wrong split of &ldquo;meeting with Sam and Priya&rdquo; is garbage nothing can undo.</figcaption>
     <p>Two more refusals, each from a real failure: an enumeration header (&ldquo;add tasks:&rdquo;) announces the list rather than being an item of it, and a part made only of scheduling words (&ldquo;due tomorrow&rdquo;) is residue of the phrasing — kept, one became a phantom row.</p>
+    <h3>A sequence is cut, and says so</h3>
+    <p>&ldquo;Walk the dog at 5 <em>followed by</em> lunch <em>followed by</em> gym&rdquo; used to stay one item, because &ldquo;lunch&rdquo; has no verb for the clause rules to see. The sequence words are now a seam in their own right &mdash; followed by, then, after that, afterwards, once that&rsquo;s done, and the ways a transcript misspells them (&ldquo;folowed&rdquo;, &ldquo;afterwords&rdquo;, &ldquo;and than&rdquo;) &mdash; unless what follows is a remark (&ldquo;and then we&rsquo;ll see&rdquo;). Every item after the first carries its <strong>relation</strong> to the one before: a sequence, a list, a new sentence, or a piece of the same span. The next stage reads it to chain the times, and a wrong cut can be fixed knowing why it was made. The front door reads the same rule, so it never books a sequence as one event.</p>
     <p>Speed: the cut is rules over one sentence and takes milliseconds, so it is never what makes a command slow &mdash; the model reading a piece the rules could not is. A single command the front door is sure of never reaches this stage at all.</p>`
     },
     decompose: {
@@ -2727,7 +2729,9 @@ series_id   NULL
     and even then it is checked before it is trusted: a rewrite that grew the text invented content, one
     that came back empty ate the command, so either is rejected and the original stands.</p>
     <p>Every applied fix is recorded under its own name, so the trace and the audit can say <em>which</em>
-    rule changed <em>what</em> — not just that something was tidied.</p>`
+    rule changed <em>what</em> — not just that something was tidied.</p>
+    <h3>Then the values — and a sequence is chained</h3>
+    <p>Each item's own words become its date and times. Then one rule looks across items: a part of a <strong>sequence</strong> with no clock of its own starts when the part before it ends &mdash; its stated end, or its start plus its stated length, or plus the default length &mdash; with the default gap between. The chain beats a meal&rsquo;s usual hour (&ldquo;gym at 9, then lunch&rdquo; is lunch at 10), a stated clock always wins and the chain runs on from it, a part with no day takes the day before it, and a to-do caught in a chain becomes an event with a linked to-do. &ldquo;Right after davening&rdquo; chains from the davening, wherever it was said. The default length and gap are settings, per category.</p>`
     },
     generate: {
       view: "engine", tag: "stage 5 · inside the judge", name: "the rescue", rl: "5 the rescue", title: "The rescue — what the converter could not build",

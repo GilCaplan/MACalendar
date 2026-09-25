@@ -865,6 +865,14 @@ def test_an_under_split_is_repaired_end_to_end_by_the_model_round(registry_with_
     T = "For the next three Sundays remind me I have yoga class at noon and then yashas bithday with vinay"
     _recorder(monkeypatch, {"asks": ["remind me of yoga class at 12pm for the next three sundays",
                                      "remind me of yashas birthday with vinay"]})
+    # Since 2026-09-25 segmentation cuts this row itself (a SEQUENCE seam,
+    # DEVQA Q51 — `test_segmentation_now_cuts_the_row_the_loop_used_to_repair`).
+    # The loop is what this test is about, so the seam is switched off to
+    # recreate the under-split it exists to repair.
+    import re as _re
+    import importlib
+    _fs = importlib.import_module("assistant.engine.segmentation.fastseg.fastseg")
+    monkeypatch.setattr(_fs, "_SEQUENCE_SEAM", _re.compile(r"(?!x)x"))
     RP._ensure_nlp(); RP._ensure_dt()
     with freeze_time("2026-09-09 10:00:00"):
         E = engine.Engine()
@@ -876,6 +884,20 @@ def test_an_under_split_is_repaired_end_to_end_by_the_model_round(registry_with_
         assert sum(1 for i in st.items if i.action == "create_event") == 2, [(i.text, i.action) for i in st.items]
         assert st.retries.get("segment", 0) >= 1
         assert any(fx.rule == "rewrite_model" for fx in st.fixes)
+
+
+def test_segmentation_now_cuts_the_row_the_loop_used_to_repair(registry_with_real_actions, cfg):
+    """The same real row, with the sequence seam live: two items straight out of
+    segmentation, the second marked as following the first (DEVQA Q51)."""
+    import assistant.engine as engine
+    from freezegun import freeze_time
+    T = "For the next three Sundays remind me I have yoga class at noon and then yashas bithday with vinay"
+    with freeze_time("2026-09-09 10:00:00"):
+        from assistant.engine import segmentation as S
+        st = EngineState(raw_text=T, text=T)
+        S.run(st, cfg)
+    assert len(st.items) == 2, [i.text for i in st.items]
+    assert st.items[1].relation["kind"] == "sequence"
 
 
 def test_the_model_round_never_repeats_a_finished_ask(registry_with_real_actions, cfg, monkeypatch):

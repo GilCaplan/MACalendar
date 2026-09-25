@@ -91,6 +91,58 @@ def _segment_items(text: str):
             for i in out["items"]]
 
 
+#: HOW TWO NEIGHBOURING ITEMS RELATE — the reason segmentation cut there
+#: (DEVQA Q51, Gil 2026-09-25: *"if we decide to segment, at least we know the
+#: reason why. Then if we need to fix it … we know what the relationship is"*).
+#: Read off the words BETWEEN the two items' verbatim spans, so it describes
+#: whatever cut them — FastSeg, LLMSeg, or the ingest envelope.
+#:
+#:   sequence     one after the other: "followed by", "then", "after that"
+#:   list         side by side: "and", a comma, "also", "plus"
+#:   sentence     a new sentence: ". ", "; ", "? "
+#:   envelope     separate utterances the ingest queue joined ("a")and("b")
+#:   same_span    cut from one span: an enumeration ("the dog at 9 and 2:30")
+#:   adjacent     nothing between them at all
+_SEQUENCE_WORDS = re.compile(
+    r"\b(?:followed\s+by|then|after\s+that|afterwards|after\s+which|next)\b", re.I)
+_SENTENCE_MARK = re.compile(r"[.;!?]")
+_LIST_WORDS = re.compile(r"\band\b|,|\balso\b|\bplus\b|\bas\s+well\s+as\b", re.I)
+
+
+def relate(text: str, items: list, envelope_of: "dict | None" = None) -> None:
+    """Write `item.relation` on every item after the first:
+    `{"to": <the item before>, "kind": <above>, "words": <what was between>}`.
+    The first item has none. Never raises: a span it cannot find is `unknown`."""
+    low = (text or "").lower()
+    cursor = 0
+    prev = None
+    prev_end = 0
+    for it in items:
+        src = (it.source or it.text or "").lower().strip()
+        at = low.find(src, cursor) if src else -1
+        if at < 0 and src:
+            at = low.find(src)
+        if prev is not None:
+            if envelope_of and envelope_of.get(it.id) != envelope_of.get(prev.id):
+                kind, words = "envelope", ""
+            elif src and (prev.source or prev.text or "").lower().strip() == src:
+                kind, words = "same_span", ""
+            elif at < 0:
+                kind, words = "unknown", ""
+            else:
+                words = (text or "")[prev_end:at].strip() if at >= prev_end else ""
+                from assistant.intent.sequence import is_sequence_words
+                kind = ("sequence" if is_sequence_words(words)
+                        else "sentence" if _SENTENCE_MARK.search(words)
+                        else "list" if _LIST_WORDS.search(words)
+                        else "adjacent" if not words else "unknown")
+            it.relation = {"to": prev.id, "kind": kind, "words": words}
+        if at >= 0:
+            cursor = at
+            prev_end = at + len(src)
+        prev = it
+
+
 def run(state, cfg):
     """Step 2. Envelope split, then the component, then Items."""
     from assistant.engine.segmentation.fastseg.kind import kind_of
@@ -103,7 +155,8 @@ def run(state, cfg):
         state.text = " ".join(envelopes)
 
     items: "list[Item]" = []
-    for envelope in envelopes:
+    envelope_of: "dict[str, int]" = {}
+    for e_i, envelope in enumerate(envelopes):
         for action, when, tag, source in _segment_items(envelope):
             # `other` is one of ITEM_KINDS and is passed THROUGH. It used to fall
             # to the else branch and be re-read as an event, which threw away the
@@ -112,10 +165,12 @@ def run(state, cfg):
             kind = tag if tag in ("event", "task", "review", "other") else kind_of(action)
             items.append(Item(id=f"item_{len(items) + 1}", kind=kind,
                               text=action, time=when, source=source))
+            envelope_of[items[-1].id] = e_i
 
     if not items:                      # never hand on an empty decomposition
         items = [Item(id="item_1", text=state.text, source=state.text,
                       kind=kind_of(state.text))]
+    relate(state.text, items, envelope_of)
     state.items = items
 
     if state.trace:

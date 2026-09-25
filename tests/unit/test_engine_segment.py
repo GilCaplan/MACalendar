@@ -392,16 +392,19 @@ def test_a_sentence_seam_the_speaker_marked_is_a_cut():
     """". Also," and ", and then" are ask seams FastRule's front door has
     treated as a compound since its first board — and the cutter never cut
     there (four of the checkpoint's 26 misses; decompose_validate then
-    multiplied the one item into junk). A bare "and then" is left to the
-    clause tier, which wants a verb on each side: "meet sam and then we'll
-    see" is an ask and a remark."""
+    multiplied the one item into junk). A bare "and then" is a SEQUENCE seam
+    since DEVQA Q51 — unless what follows is a remark: "meet sam and then
+    we'll see" is an ask and a remark."""
     from assistant.engine.segmentation.fastseg.fastseg import cut
     assert cut("Remind me every Monday to take out the trash. Also, PUT MILK ON MY SHOPPING LIST") \
         == ["Remind me every Monday to take out the trash", "PUT MILK ON MY SHOPPING LIST"]
     assert cut("For the next three Sundays remind me I have yoga class at noon, and then yashas bithday with vinay") \
         == ["For the next three Sundays remind me I have yoga class at noon", "yashas bithday with vinay"]
     assert cut("meet sam and then we'll see") == ["meet sam and then we'll see"]
-    assert cut("book gym between 2 and 4 and then dinner") == ["book gym between 2 and 4 and then dinner"]
+    # A bare "and then" before a THING is a sequence seam since DEVQA Q51
+    # (2026-09-25) — this row used to stay whole; the range's own "and" is
+    # still never a cut.
+    assert cut("book gym between 2 and 4 and then dinner") == ["book gym between 2 and 4", "dinner"]
 
 
 def test_a_question_that_opens_with_an_auxiliary_is_a_review_even_without_its_time():

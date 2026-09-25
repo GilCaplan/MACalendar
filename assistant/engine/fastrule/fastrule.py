@@ -183,6 +183,12 @@ class Atomicity:
         """
         if len(intents) <= 1 and _STRONG_COMPOUND_RE.search(text):
             return "strong-compound"
+        # A SEQUENCE ("…followed by lunch", "…and afterwards coffee"): the same
+        # seam segmentation cuts at, from one shared rule (DEVQA Q51), so the
+        # front door hands it on instead of committing it as one event.
+        from assistant.intent.sequence import has_sequence_seam
+        if len(intents) <= 1 and has_sequence_seam(text):
+            return "strong-compound"
         if len(intents) <= 1 and " and " in text.lower():
             from assistant.intent.coordination import has_clause_coordination
             if has_clause_coordination(text):

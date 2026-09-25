@@ -91,6 +91,11 @@ def test_item_fields():
         # substring of anything. Without a span the trim in X1' is something
         # the model is INSTRUCTED to do rather than something already done.
         "source",
+        # `relation` added 2026-09-25 (Gil, DEVQA Q51): how the item relates
+        # to the one before it — the reason segmentation cut there — so
+        # decompose_validate can chain a sequence and a wrong cut can be
+        # fixed knowing what it was. The reasoning is on the field in state.py.
+        "relation",
     }, FROZEN
 
 

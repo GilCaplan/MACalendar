@@ -86,7 +86,9 @@ def _files_linked_todo(intent: CalendarIntent) -> bool:
     every instance. Read from the title, which keeps the call words on both
     tracks, so the fast and deep paths file the pair the same way."""
     from assistant.intent.encounter import is_role_call
-    return not intent.recurrence and is_role_call(intent.title or "")
+    if intent.recurrence:
+        return False
+    return bool(getattr(intent, "linked_todo", False)) or is_role_call(intent.title or "")
 
 
 # ---------------------------------------------------------------------------

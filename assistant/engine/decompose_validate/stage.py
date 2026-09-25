@@ -210,6 +210,23 @@ def run_objects(state: EngineState, cfg) -> EngineState:
                 continue
             carried_day = _resolve_onto_intent(state, item, intent, today,
                                                carried_day)
+            chained = (item.slots or {}).get("chained")
+            if chained:
+                # A sequence's part (Q51): the chain's values are the answer,
+                # whichever reader built the object.
+                for field in ("date", "start_time", "end_time"):
+                    was, now = getattr(intent, field, None), chained.get(field)
+                    if now and str(was) != str(now):
+                        try:
+                            setattr(intent, field, now)
+                        except Exception:
+                            continue
+                        state.add_fix("validate", "sequence_chain", str(was), str(now),
+                                      note=f"{field}, after {chained.get('after')}")
+            if (item.slots or {}).get("linked_todo"):
+                # A to-do chained into a sequence (Q51): the event, and the
+                # to-do linked to it, which the executor files.
+                intent.linked_todo = True
             _obj._rule_impossible_clock(state, intent)
             _obj._rule_past_date_bump(state, intent, today)
             _obj._rule_passed_clock_means_tomorrow(state, item, intent, _dt.datetime.now())
@@ -402,7 +419,10 @@ def resolve_values(state, anchor: "dt.date | None" = None):
 
     shared = _scope_trailing_date(dicts, said, anchor)
     checked, fixes, flags = _checks.run(dicts, said, anchor)
-    fixes = shared + fixes
+    # A SEQUENCE's untimed parts, after every item has its own values (DEVQA
+    # Q51): each starts when the one before it ends. `chain.py` has the rules.
+    from assistant.engine.decompose_validate import chain as _chain
+    fixes = shared + fixes + _chain.chain(items, checked)
     for item, d in zip(items, checked):
         if item.slots is None:
             item.slots = {}

@@ -397,7 +397,17 @@ _HARD_SEAM = re.compile(
     r"|\s*,\s*(?:and\s+)?then\b[,\s]*", re.I)
 #: NOT here: a bare " and then " with no comma. The clause tier already cuts it
 #: when both sides have a verb, and as a hard seam it cut "meet sam and then
-#: we'll see" into an ask and a remark.
+#: we'll see" into an ask and a remark. It is a SEQUENCE seam below instead,
+#: guarded against exactly that remark.
+
+#: A SEQUENCE the speaker spelled out (DEVQA Q51, 2026-09-25): "walk the dog at
+#: 5 followed by lunch followed by gym". These words say the parts are separate
+#: things one after another, so they cut even when the part after them is a bare
+#: noun ("lunch") the clause tier cannot see as an ask. The rule is shared with
+#: FastRule's compound gate (`assistant/intent/sequence.py`), so the front door
+#: never commits what this cuts.
+from assistant.intent.sequence import SEQUENCE_SEAM as _SEQUENCE_SEAM  # noqa: E402
+from assistant.intent.sequence import starts_a_remark as _starts_a_remark  # noqa: E402
 
 
 def _hard_seams(text: str) -> "list[str]":
@@ -408,11 +418,21 @@ def _hard_seams(text: str) -> "list[str]":
     has no "then"/"also" after it, but the guard is kept for the dash form)."""
     refs = find_time_refs(text)
     out, start = [], 0
-    for m in _HARD_SEAM.finditer(text):
+    seams = sorted([(m, False) for m in _HARD_SEAM.finditer(text)]
+                   + [(m, True) for m in _SEQUENCE_SEAM.finditer(text)],
+                   key=lambda x: (x[0].start(), -x[0].end()))
+    for m, sequence in seams:
+        if m.start() < start:
+            continue                                # overlaps a seam already cut
         if any(r.start < m.end() and m.start() < r.end for r in refs):
             continue
         left, right = text[start:m.start()], text[m.end():]
-        if len(left.split()) < 2 or len(right.split()) < 2:
+        if sequence:
+            # A sequence word states the boundary, so one word each side is
+            # enough ("…followed by lunch") — unless the right side is a remark.
+            if not left.strip() or not _invariant.content(right) or _starts_a_remark(right):
+                continue
+        elif len(left.split()) < 2 or len(right.split()) < 2:
             continue                                # a seam needs an ask on each side
         out.append(left.strip())
         start = m.end()
