@@ -15,6 +15,7 @@ stage copies the mechanism and records its own numbers.
 | **FastRule** | `fastrule_7200.jsonl` (8,400 rows; historical name) | pattern family | 2,400 | stratified 80/20 + `force_split: "test"` + `force_split: "train"` (6,000 train) |
 | **decompose_validate** | `datasets/generated.jsonl` | pattern family | 840 (21 families) | growth: the 268 original families are train **by construction**; 49 grown families split 40/60, stratified by nuance |
 | **Segmentation** | `datasets/generated.jsonl` | pattern family | sealed half (289 rows) | — |
+| **Segmentation + decompose_validate (Q51 sequences)** | `segmentation/datasets/sequence/sequence.jsonl` = `decompose_validate/datasets/chain/chain.jsonl` | pattern family | 694 (30 families) | generated fresh: stratified 80/20 by bucket over a stable hash; the joiner sweep forced so every joiner keeps a train family; damaged rows share their clean twin's family |
 
 **Why an existing dataset cannot simply be cut in half.** decompose_validate's
 795 rows were all fitted against — the resolver was tuned until it scored 100%

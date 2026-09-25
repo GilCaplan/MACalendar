@@ -1225,6 +1225,18 @@ three-tag contract.
 `review` is thin (61 items). The next expansion should target thin traps, not
 more volume from the same templates.
 
+**The sequence set (2026-09-25, DEVQA Q51) is separate** —
+`datasets/sequence/` (its own README): 3,580 generated rows, 154 families, 483
+distinct skeletons, split 80/20 by family (train 2,886 / test 694), every
+sequence joiner Gil listed plus list controls, decoys and misspelt twins, each
+item carrying its gold `relation`. It lives in a subfolder on purpose:
+`run_board` globs `datasets/*.jsonl`, and this set is scored by
+`experiments/relation_board.py` (the STAGE, cut + fields + relation kind per
+kind and per joiner + decoy no-false-split, clean vs damaged), not folded into
+the six boards above. Baseline at the worktree that built it (no `relate()`
+yet): relation kind 0.0% (0/2,502 matched TRAIN items), right item count 29.9%
+(809/2,710 TRAIN rows), decoys 100% (140/140).
+
 ---
 
 ## 5 · The evaluation — `experiments/score.py`
@@ -1438,6 +1450,7 @@ segmentation/
     llmseg/             the model half + prompts/
     (old_seg/           retired 2026-09-20 -> retired/segmentation-old-seg/)
     datasets/           1,694 rows, train/test split by family
+      sequence/         3,580 rows for Q51's relations (generate.py, README)
     experiments/        scorer, boards, generator, and every study above
 ```
 
