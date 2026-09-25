@@ -291,6 +291,14 @@ def test_every_board_declares_itself_background():
     imports anything from `assistant` (the value is read at call time, but the
     env block is where every other override already lives and splitting them is
     how one of them gets missed).
+
+    Since 2026-09-25 most of these get their whole preamble from
+    `assistant.common.scratch_env.scratch_env`, which declares background
+    itself (it sets `MACALENDAR_LLM_PRIORITY` via `setdefault` internally) — so
+    a file that calls `scratch_env(` has already said so, even though the
+    literal string "MACALENDAR_LLM_PRIORITY" no longer appears in ITS text.
+    A file that still hand-rolls `MACALENDAR_NO_WARMUP` is held to the old
+    rule: the declaration must be in the same file.
     """
     live_by_design = {
         # These ARE the assistant. They set MACALENDAR_NO_WARMUP for the
@@ -314,6 +322,8 @@ def test_every_board_declares_itself_background():
             if rel in live_by_design:
                 continue
             text = path.read_text()
+            if "scratch_env(" in text:
+                continue          # the helper declares background itself
             if "MACALENDAR_NO_WARMUP" not in text:
                 continue
             if "MACALENDAR_LLM_PRIORITY" not in text:

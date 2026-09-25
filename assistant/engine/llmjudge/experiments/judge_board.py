@@ -36,31 +36,17 @@ import collections
 import json
 import os
 import pathlib
-import tempfile
 import time
 
-_S = pathlib.Path(os.environ.get("JUDGE_BOARD_SCRATCH",
-                                 tempfile.mkdtemp(prefix="judge_board_")))
-_S.mkdir(parents=True, exist_ok=True)
-for _v, _n in (("DB", "calendar.db"), ("MEMORY_DB", "mem.db"),
-               ("VOCAB", "vocab.json"), ("CATEGORIES", "cats.json"),
-               ("TRACE_BUS", "trace_bus.jsonl")):
-    os.environ[f"MACALENDAR_{_v}"] = str(_S / _n)
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-# BACKGROUND traffic: this yields the model to the live assistant between
-# every call (assistant/model_protocol.py). Without it a board and a voice
-# command are indistinguishable to ollama, and a trivial live call measured
-# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
-os.environ["MACALENDAR_OBSERVANCE"] = "0"
-# Pin BLAS to one thread, the same way `tests/conftest.py` does. torch, numpy
-# and spaCy each bring their own threading runtime and the combination
-# segfaults the interpreter — which is why CLAUDE.md says not to run two
-# model-loading jobs side by side. Pinning it here is what makes this board
-# safe to run WHILE the test suite runs, and the suite already pins itself.
-for _t in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
-           "BLIS_NUM_THREADS", "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
-    os.environ.setdefault(_t, "1")
+from assistant.common.scratch_env import scratch_env
+
+# Scratch stores, background priority and the BLAS thread pin (safe to run
+# WHILE the test suite runs, which already pins itself) all come from the one
+# helper now; see its module header for why each matters.
+_S = pathlib.Path(scratch_env(
+    "judge_board_", observance=False, dir=os.environ.get("JUDGE_BOARD_SCRATCH"),
+    keep=("MODELS", "LABEL_FEEDBACK", "HEARTBEATS", "HUD_STATE",
+         "DEVICE_SECRET", "DEVICES", "LOCATION")))
 
 # In experiments/, parents[1] is the STAGE folder (the CLAUDE.md ROOT trap).
 STAGE = pathlib.Path(__file__).resolve().parents[1]

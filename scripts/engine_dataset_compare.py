@@ -61,6 +61,8 @@ import sys
 import tempfile
 import time
 
+from assistant.common.scratch_env import scratch_env
+
 WORKTREE = pathlib.Path(__file__).resolve().parents[1]
 # The dataset is first-class: `dataset/` in this tree (inputs committed,
 # baseline dbs gitignored and local). The fallback that used to sit here —
@@ -75,22 +77,15 @@ DATASET_FIXTURE = _LOCAL / "inputs" / "hwu64_sample.json"
 DATASET_BASELINE = _LOCAL / "baseline"
 
 # --- isolate BEFORE importing anything from assistant ----------------------
-_TMP = tempfile.mkdtemp(prefix="engine_compare_")
-ENGINE_DB = os.path.join(_TMP, "engine_run.db")
-os.environ["MACALENDAR_DB"] = os.path.join(_TMP, "calendar.db")
-os.environ["MACALENDAR_MEMORY_DB"] = ENGINE_DB
-os.environ["MACALENDAR_TRACE_BUS"] = os.path.join(_TMP, "trace_bus.jsonl")
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-# BACKGROUND traffic: this yields the model to the live assistant between
-# every call (assistant/model_protocol.py). Without it a board and a voice
-# command are indistinguishable to ollama, and a trivial live call measured
-# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 # The dataset's ground truth has no concept of Shabbat — a Friday replay was
 # penalising the engine for correctly refusing "tomorrow" (cycle 2). Gil's
 # call (2026-09-05): gating off for replays, via the observance.enabled flag's
 # env override.
-os.environ["MACALENDAR_OBSERVANCE"] = "0"
+_TMP = scratch_env("engine_compare_", observance=False,
+                   keep=("LOCATION", "MODELS", "LABEL_FEEDBACK",
+                        "HEARTBEATS", "HUD_STATE", "DEVICE_SECRET",
+                        "DEVICES"))
+ENGINE_DB = os.environ["MACALENDAR_MEMORY_DB"]
 import shutil as _sh
 for _var, _real, _name in (
         ("MACALENDAR_VOCAB", os.path.expanduser("~/.assistant_tools/vocab.json"), "vocab.json"),

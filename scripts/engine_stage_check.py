@@ -19,21 +19,14 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-import tempfile
+
+from assistant.common.scratch_env import scratch_env
 
 # --- isolate BEFORE importing anything from assistant ----------------------
-_scratch = tempfile.mkdtemp(prefix="engine_stage_check_")
-os.environ.setdefault("MACALENDAR_DB", os.path.join(_scratch, "calendar.db"))
-os.environ.setdefault("MACALENDAR_MEMORY_DB", os.path.join(_scratch, "memory.db"))
-os.environ.setdefault("MACALENDAR_VOCAB", os.path.join(_scratch, "vocab.json"))
-os.environ.setdefault("MACALENDAR_CATEGORIES", os.path.join(_scratch, "categories.json"))
-os.environ.setdefault("MACALENDAR_TRACE_BUS", os.path.join(_scratch, "trace_bus.jsonl"))
-os.environ.setdefault("MACALENDAR_NO_WARMUP", "1")
-# BACKGROUND traffic: this yields the model to the live assistant between
-# every call (assistant/model_protocol.py). Without it a board and a voice
-# command are indistinguishable to ollama, and a trivial live call measured
-# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
+_scratch = scratch_env("engine_stage_check_",
+                       keep=("LOCATION", "MODELS", "LABEL_FEEDBACK",
+                            "HEARTBEATS", "HUD_STATE", "DEVICE_SECRET",
+                            "DEVICES"))
 
 GREEN, RED, YELLOW, DIM, END = "\033[32m", "\033[31m", "\033[33m", "\033[2m", "\033[0m"
 

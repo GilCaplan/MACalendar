@@ -54,21 +54,15 @@ import pathlib
 import shutil
 import tempfile
 
-_S = pathlib.Path(tempfile.mkdtemp(prefix="label_rebuild_"))
-for _v, _n in (("DB", "calendar.db"), ("MEMORY_DB", "mem.db"),
-               ("VOCAB", "vocab.json"), ("CATEGORIES", "cats.json"),
-               ("TRACE_BUS", "trace_bus.jsonl"), ("MODELS", "models"),
-               ("LABEL_FEEDBACK", "label_feedback.jsonl"),
-               ("CHECKPOINTS", "checkpoints"), ("DEVICE_SECRET", "device.key"),
-               ("DEVICES", "devices.json")):
-    os.environ[f"MACALENDAR_{_v}"] = str(_S / _n)
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
-# OpenMP drives the boosted trees (HGB, XGBoost); BLAS stays pinned as elsewhere.
+from assistant.common.scratch_env import scratch_env
+
+# OpenMP drives the boosted trees (HGB, XGBoost); BLAS stays pinned as
+# elsewhere. Set BEFORE scratch_env so its own thread pin (setdefault) leaves
+# this one alone.
 os.environ.setdefault("OMP_NUM_THREADS", "4")
-for _t in ("MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
-           "BLIS_NUM_THREADS", "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
-    os.environ.setdefault(_t, "1")
+_S = pathlib.Path(scratch_env(
+    "label_rebuild_", keep=("LOCATION", "HEARTBEATS", "HUD_STATE")))
+os.environ["MACALENDAR_CHECKPOINTS"] = str(_S / "checkpoints")
 _REAL_VOCAB = pathlib.Path(os.path.expanduser("~/.assistant_tools/vocab.json"))
 if _REAL_VOCAB.exists():
     shutil.copyfile(_REAL_VOCAB, _S / "vocab.json")      # a copy; the original is only read

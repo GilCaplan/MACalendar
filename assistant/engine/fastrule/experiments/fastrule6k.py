@@ -34,30 +34,20 @@ import json
 import os
 import pathlib
 import sys
-import tempfile
 
-# Lane scripts run BESIDE live engine measurements by design (Gil: FastRule
-# iteration never waits on the deep track). The BLAS single-thread pin is the
-# guard that makes two model-loading processes safe together — structural
-# here, not left to the caller.
-for _blas in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
-    os.environ.setdefault(_blas, "1")
+from assistant.common.scratch_env import scratch_env
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 _FIXTURE = ROOT / "datasets" / "banks" / "categories_fixture.json"
 
-# isolate BEFORE importing assistant; categories -> the dataset's fixture
-_T = tempfile.mkdtemp(prefix="fr6k_")
-for _v, _n in (("DB", "c.db"), ("MEMORY_DB", "m.db"), ("VOCAB", "v.json"),
-               ("TRACE_BUS", "t.jsonl"), ("LOCATION", "l.json")):
-    os.environ[f"MACALENDAR_{_v}"] = os.path.join(_T, _n)
+# isolate BEFORE importing assistant; categories -> the dataset's fixture.
+# scratch_env's BLAS thread pin is the guard that makes two model-loading
+# processes safe together — lane scripts run BESIDE live engine measurements
+# by design (Gil: FastRule iteration never waits on the deep track).
+_T = scratch_env("fr6k_", keep=("CATEGORIES", "MODELS", "LABEL_FEEDBACK",
+                                "HEARTBEATS", "HUD_STATE", "DEVICE_SECRET",
+                                "DEVICES"))
 os.environ["MACALENDAR_CATEGORIES"] = str(_FIXTURE)
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-# BACKGROUND traffic: this yields the model to the live assistant between
-# every call (assistant/model_protocol.py). Without it a board and a voice
-# command are indistinguishable to ollama, and a trivial live call measured
-# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 
 # deterministic clock: date phrases resolve against a fixed Wednesday morning
 _CLOCK = _dt.datetime(2026, 9, 9, 10, 0, 0)

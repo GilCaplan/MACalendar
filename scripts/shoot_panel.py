@@ -20,24 +20,15 @@ from __future__ import annotations
 
 import os
 import sys
-import tempfile
+
+from assistant.common.scratch_env import scratch_env
 
 # BEFORE importing anything from `assistant`: the personal stores' paths are
 # read at import time, so this is the only moment they can be redirected.
 # CLAUDE.md, "Personal data lives outside the repo".
-_SCRATCH = tempfile.mkdtemp(prefix="macalendar-shoot-")
-for _var, _name in (("MACALENDAR_DB", "calendar.db"),
-                    ("MACALENDAR_MEMORY_DB", "nlu_memory.db"),
-                    ("MACALENDAR_VOCAB", "vocab.json"),
-                    ("MACALENDAR_CATEGORIES", "categories.json"),
-                    ("MACALENDAR_LOCATION", "location.json"),
-                    ("MACALENDAR_TRACE_BUS", "trace_bus.jsonl")):
-    os.environ.setdefault(_var, os.path.join(_SCRATCH, _name))
-os.environ.setdefault("MACALENDAR_NO_WARMUP", "1")
-# BACKGROUND traffic: yields the model to the live assistant between calls
-# (assistant/model_protocol.py) — this drives the engine outside a test, so
-# without it a live voice command would queue behind this tool's model calls.
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
+scratch_env("macalendar-shoot-", keep=("MODELS", "LABEL_FEEDBACK",
+                                       "HEARTBEATS", "HUD_STATE",
+                                       "DEVICE_SECRET", "DEVICES"))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt6.QtCore import QTimer                     # noqa: E402

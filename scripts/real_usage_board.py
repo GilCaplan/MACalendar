@@ -59,6 +59,8 @@ import statistics
 import sys
 import time
 
+from assistant.common.scratch_env import scratch_env
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 REAL_STORES = pathlib.Path.home() / ".assistant_tools"
 OUT_DIR = ROOT / "DOCUMENTATION" / "experiments" / "real_usage"
@@ -228,22 +230,13 @@ def replay(rows: list, scratch: pathlib.Path, resume: bool = False) -> list:
 
     # BEFORE importing assistant. The paths are read at import time, so an
     # assignment afterwards is too late — tests/conftest.py's rule.
-    os.environ["MACALENDAR_DB"] = str(stores / "calendar.db")
-    os.environ["MACALENDAR_MEMORY_DB"] = str(stores / "engine_run.db")
-    os.environ["MACALENDAR_TRACE_BUS"] = str(stores / "trace_bus.jsonl")
-    os.environ["MACALENDAR_LOCATION"] = str(stores / "location.json")
-    os.environ["MACALENDAR_DEVICE_SECRET"] = str(stores / "device_secret")
-    os.environ["MACALENDAR_DEVICES"] = str(stores / "devices.json")
-    os.environ["MACALENDAR_MODELS"] = str(stores / "models")
-    os.environ["MACALENDAR_LABEL_FEEDBACK"] = str(stores / "label_feedback.jsonl")
-    os.environ["MACALENDAR_CHECKPOINTS"] = str(stores / "checkpoints")
-    os.environ["MACALENDAR_UI_STATE"] = str(stores / "ui_state.ini")
-    os.environ["MACALENDAR_NO_WARMUP"] = "1"
-    os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
     # Observance OFF, as every other replay does (Gil, 2026-09-05): a Friday
     # replay would otherwise penalise the engine for CORRECTLY refusing to book
     # inside Shabbat, which is not what any of these rows are about.
-    os.environ["MACALENDAR_OBSERVANCE"] = "0"
+    scratch_env("real_usage_", dir=str(stores), observance=False,
+               keep=("HEARTBEATS", "HUD_STATE"),
+               extra={"MACALENDAR_CHECKPOINTS": str(stores / "checkpoints"),
+                      "MACALENDAR_UI_STATE": str(stores / "ui_state.ini")})
 
     # The real vocabulary and categories, copied in. Not incidental: the vocab
     # repairs the transcript before anything parses it, and "Conello oil" ->

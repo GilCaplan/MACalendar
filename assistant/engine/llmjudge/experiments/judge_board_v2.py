@@ -31,17 +31,14 @@ import json
 import os
 import pathlib
 import sys
-import tempfile
 import time
 
-_T = tempfile.mkdtemp(prefix="judge_v2_")
-for _v in ("DB", "MEMORY_DB", "VOCAB", "CATEGORIES", "TRACE_BUS", "MODELS",
-           "LABEL_FEEDBACK", "DEVICE_SECRET", "DEVICES",
-           "CHECKPOINTS", "LEXICON", "UI_STATE", "LOCATION"):
+from assistant.common.scratch_env import scratch_env
+
+_T = scratch_env("judge_v2_", keep=("HEARTBEATS", "HUD_STATE"),
+                 extra={"MACALENDAR_LLM_DISABLED": "1"})
+for _v in ("CHECKPOINTS", "LEXICON", "UI_STATE"):
     os.environ.setdefault(f"MACALENDAR_{_v}", os.path.join(_T, _v.lower()))
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
-os.environ.setdefault("MACALENDAR_LLM_DISABLED", "1")
 
 STAGE = pathlib.Path(__file__).resolve().parents[1]
 DATA = STAGE / "datasets" / "v2" / "judge_cases_v2.jsonl"

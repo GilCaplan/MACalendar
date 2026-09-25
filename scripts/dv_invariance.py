@@ -40,21 +40,16 @@ import os
 import pathlib
 import shutil
 import sys
-import tempfile
+
+from assistant.common.scratch_env import scratch_env
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
-_T = tempfile.mkdtemp(prefix="dv_inv_")
-for _v in ("DB", "MEMORY_DB", "VOCAB", "CATEGORIES", "MODELS", "LABEL_FEEDBACK",
-           "DEVICE_SECRET", "DEVICES", "TRACE_BUS", "LEXICON",
-           "CHECKPOINTS", "UI_STATE", "LOCATION"):
+_T = scratch_env("dv_inv_", keep=("HEARTBEATS", "HUD_STATE"))
+for _v in ("LEXICON", "CHECKPOINTS", "UI_STATE"):
     os.environ[f"MACALENDAR_{_v}"] = os.path.join(_T, _v.lower())
 os.environ["MACALENDAR_CONFIG"] = os.path.join(_T, "config.yaml")
 shutil.copy(ROOT / "config.example.yaml", os.environ["MACALENDAR_CONFIG"])
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
-for _b in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
-    os.environ.setdefault(_b, "1")
 
 _CLOCK = _dt.datetime(2026, 9, 9, 10, 0)
 _NOT_A_FEATURE = {"built_by"}

@@ -22,33 +22,22 @@ from __future__ import annotations
 import argparse
 import contextlib
 import datetime as _dt
-import os
 import pathlib
 import sqlite3
 import sys
-import tempfile
 
-# Lane scripts run BESIDE live engine measurements by design (Gil: FastRule
-# iteration never waits on the deep track). The BLAS single-thread pin is the
-# guard that makes two model-loading processes safe together — structural
-# here, not left to the caller.
-for _blas in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
-    os.environ.setdefault(_blas, "1")
 from collections import Counter
 
-# --- isolate BEFORE importing assistant (paths read at import time) --------
-_TMP = tempfile.mkdtemp(prefix="fast_sandbox_")
-for _v, _n in (("DB", "calendar.db"), ("MEMORY_DB", "mem.db"),
-               ("VOCAB", "vocab.json"), ("CATEGORIES", "categories.json"),
-               ("TRACE_BUS", "trace_bus.jsonl"), ("LOCATION", "location.json")):
-    os.environ[f"MACALENDAR_{_v}"] = os.path.join(_TMP, _n)
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-# BACKGROUND traffic: this yields the model to the live assistant between
-# every call (assistant/model_protocol.py). Without it a board and a voice
-# command are indistinguishable to ollama, and a trivial live call measured
-# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
-os.environ["MACALENDAR_OBSERVANCE"] = "0"
+from assistant.common.scratch_env import scratch_env
+
+# Lane scripts run BESIDE live engine measurements by design (Gil: FastRule
+# iteration never waits on the deep track); scratch_env's BLAS thread pin is
+# the guard that makes two model-loading processes safe together — structural
+# here, not left to the caller. Isolated BEFORE importing assistant (paths
+# read at import time).
+_TMP = scratch_env("fast_sandbox_", observance=False,
+                   keep=("MODELS", "LABEL_FEEDBACK", "HEARTBEATS",
+                        "HUD_STATE", "DEVICE_SECRET", "DEVICES"))
 
 # `parents[1]` is the STAGE folder (experiments/ -> fastrule/), not the repo
 # root — the trap the per-stage restructure left in several of these files. The

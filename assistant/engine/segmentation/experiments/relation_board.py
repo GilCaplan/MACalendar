@@ -32,16 +32,13 @@ refused on it (engine/TRAIN_TEST_SPLIT_CONVENTION.md).
 from __future__ import annotations
 
 import os
-import tempfile
 
-_S = tempfile.mkdtemp(prefix="relation_board_")
-for _v in ("DB", "MEMORY_DB", "VOCAB", "CATEGORIES", "MODELS", "LABEL_FEEDBACK",
-           "TRACE_BUS", "LLM_BUS", "CHECKPOINTS", "LEXICON", "UI_STATE", "LOCATION",
-           "DEVICE_SECRET", "DEVICES", "HEARTBEATS", "HUD_STATE"):
+from assistant.common.scratch_env import scratch_env
+
+_S = scratch_env("relation_board_",
+                 extra={"MACALENDAR_LLM_DISABLED": "1"})  # deterministic: no model door opens
+for _v in ("LLM_BUS", "CHECKPOINTS", "LEXICON", "UI_STATE"):
     os.environ[f"MACALENDAR_{_v}"] = os.path.join(_S, _v.lower())
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-os.environ["MACALENDAR_LLM_PRIORITY"] = "background"
-os.environ["MACALENDAR_LLM_DISABLED"] = "1"          # deterministic: no model door opens
 
 import argparse  # noqa: E402
 import collections  # noqa: E402

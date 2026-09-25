@@ -73,12 +73,10 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(_HERE)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-for _k, _v in (("MACALENDAR_DB", "/tmp/adv.db"), ("MACALENDAR_MEMORY_DB", "/tmp/adv_m.db"),
-               ("MACALENDAR_VOCAB", "/tmp/adv_v.json"),
-               ("MACALENDAR_CATEGORIES", "/tmp/adv_c.json"),
-               ("MACALENDAR_TRACE_BUS", "/tmp/adv_bus.jsonl"),
-               ("MACALENDAR_NO_WARMUP", "1"), ("MACALENDAR_LLM_PRIORITY", "background")):
-    os.environ.setdefault(_k, _v)
+from assistant.common.scratch_env import scratch_env  # noqa: E402
+
+scratch_env("adv_", keep=("LOCATION", "MODELS", "LABEL_FEEDBACK", "HEARTBEATS",
+                          "HUD_STATE", "DEVICE_SECRET", "DEVICES"))
 
 from assistant.engine.segmentation.fastseg.fastseg import fastseg              # noqa: E402
 

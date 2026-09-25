@@ -42,20 +42,14 @@ from __future__ import annotations
 
 import collections
 import json
-import os
 import pathlib
-import tempfile
 
-_S = pathlib.Path(tempfile.mkdtemp(prefix="persona_label_"))
-for _v, _n in (("DB", "c.db"), ("MEMORY_DB", "m.db"), ("VOCAB", "v.json"),
-               ("CATEGORIES", "k.json"), ("TRACE_BUS", "t.jsonl")):
-    os.environ[f"MACALENDAR_{_v}"] = str(_S / _n)
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-# BACKGROUND traffic: this yields the model to the live assistant between
-# every call (assistant/model_protocol.py). Without it a board and a voice
-# command are indistinguishable to ollama, and a trivial live call measured
-# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
+from assistant.common.scratch_env import scratch_env
+
+_S = pathlib.Path(scratch_env(
+    "persona_label_", keep=("LOCATION", "MODELS", "LABEL_FEEDBACK",
+                            "HEARTBEATS", "HUD_STATE", "DEVICE_SECRET",
+                            "DEVICES")))
 
 REPO = pathlib.Path(__file__).resolve().parents[4]
 PERSONAS = REPO / "dataset" / "personas" / "personas.jsonl"

@@ -26,16 +26,22 @@ import os
 import random
 import statistics
 import sys
-import tempfile
 import time
+
+from assistant.common.scratch_env import scratch_env
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 # --- isolate BEFORE importing the app ------------------------------------
-_TMP = tempfile.mkdtemp(prefix="macal_audit_")
-os.environ["MACALENDAR_DB"] = os.path.join(_TMP, "calendar.db")
-os.environ["MACALENDAR_MEMORY_DB"] = os.path.join(_TMP, "memory.db")
+# VOCAB and CATEGORIES are left out here — the audit runs against the REAL
+# vocabulary (copied below, never the original) and LOCATION/MODELS/
+# LABEL_FEEDBACK/HEARTBEATS/HUD_STATE/DEVICE_SECRET/DEVICES were never part
+# of this script's environment either.
+_TMP = scratch_env("macal_audit_",
+                   keep=("VOCAB", "CATEGORIES", "LOCATION", "MODELS",
+                        "LABEL_FEEDBACK", "HEARTBEATS", "HUD_STATE",
+                        "DEVICE_SECRET", "DEVICES"))
 
 # --- the memory-aware mode -----------------------------------------------
 # The audit has always run against an EMPTY command history, which means every
@@ -76,12 +82,6 @@ for _i, _arg in enumerate(sys.argv):
         os.environ["MACALENDAR_MEMORY_K"] = sys.argv[_i + 1]
     elif _arg.startswith("--memory-k="):
         os.environ["MACALENDAR_MEMORY_K"] = _arg.split("=", 1)[1]
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-# BACKGROUND traffic: this yields the model to the live assistant between
-# every call (assistant/model_protocol.py). Without it a board and a voice
-# command are indistinguishable to ollama, and a trivial live call measured
-# 2.0s -> 42.5s -> 43.9s behind a running board (2026-09-10).
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 # The trace bus is the durable record the thinking card's History reads back.
 # Without this the audit publishes 89 synthetic commands into it on every run,
 # and the log of what you actually asked the assistant becomes mostly corpus.

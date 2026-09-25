@@ -28,17 +28,14 @@ import argparse
 import os
 import pathlib
 import sys
-import tempfile
+
+from assistant.common.scratch_env import scratch_env
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
-_T = tempfile.mkdtemp(prefix="vocab_sweep_")
-for _v in ("DB", "MEMORY_DB", "VOCAB", "CATEGORIES", "TRACE_BUS", "MODELS",
-           "LABEL_FEEDBACK", "DEVICE_SECRET", "DEVICES",
-           "CHECKPOINTS", "LEXICON", "UI_STATE", "LOCATION"):
+_T = scratch_env("vocab_sweep_", keep=("HEARTBEATS", "HUD_STATE"))
+for _v in ("CHECKPOINTS", "LEXICON", "UI_STATE"):
     os.environ[f"MACALENDAR_{_v}"] = os.path.join(_T, _v.lower())
-os.environ["MACALENDAR_NO_WARMUP"] = "1"
-os.environ.setdefault("MACALENDAR_LLM_PRIORITY", "background")
 
 
 def main() -> int:

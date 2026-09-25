@@ -98,10 +98,14 @@ def test_the_live_assistant_is_untouched_without_a_seed(monkeypatch):
 
 def test_board_d_declares_its_seed_in_its_env_block():
     """Read from the tree, like the background-priority rule: a board that
-    forgets is invisible to every other check and its net is dice."""
+    forgets is invisible to every other check and its net is dice.
+
+    Since 2026-09-25 the seed is usually declared through `scratch_env`'s own
+    `seed=` kwarg rather than a hand-rolled `setdefault` — both count."""
     text = (ROOT / "assistant/engine/llmjudge/experiments/board_d.py").read_text()
     head = text.split("def main", 1)[0]
-    assert 'os.environ.setdefault("MACALENDAR_LLM_SEED"' in head
+    assert ('os.environ.setdefault("MACALENDAR_LLM_SEED"' in head
+            or "seed=17" in head)
 
 
 def test_the_disabled_flag_stops_both_ollama_doors(monkeypatch):
