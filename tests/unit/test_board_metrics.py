@@ -44,3 +44,15 @@ def test_a_destructive_mistake_costs_more():
     built = {"x": {"objs": [{"action": "delete_event", "title": "lunch"}], "ms": 1, "llm_ms": 0}}
     m = BM.score(rows, built, {"x": False})
     assert m["c"]["harm"] == 4 and m["destructive"]["delete_event"] == 1
+
+
+def test_the_range_gold_follows_the_rulings_not_the_engine():
+    from assistant.engine.fastrule.experiments.gold import ruled_range
+    assert ruled_range("from 6 to 8", "book yoga from 6 to 8") == ("18:00", "20:00")   # Q28
+    assert ruled_range("between 2 and 4", "open house between 2 and 4 this afternoon") \
+        == ("14:00", "16:00")
+    assert ruled_range("from 6 to 8", "this morning from 6 to 8") == ("06:00", "08:00")
+    assert ruled_range("from 9 to 11pm", "x") == ("21:00", "23:00")   # the end lends its half
+    assert ruled_range("from 11 to 1", "x") == ("11:00", "13:00")     # a bare end follows the start
+    assert ruled_range("between 5 and 6:30", "x") == ("17:00", "18:30")
+    assert ruled_range("at 6", "x") is None

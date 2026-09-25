@@ -89,6 +89,7 @@ from assistant.engine.fastrule.experiments.gold import (  # noqa: E402  pure gol
     _phrase_to_date,
     _phrase_to_hhmm,
     _ruled_hhmm,
+    ruled_range,
     time_is_unambiguous,
 )
 
@@ -146,6 +147,7 @@ def main() -> int:
     # should be a similarity rather than binary score"): mean word precision,
     # recall and F1, so "checkup" for "annual checkup" scores 0.67, not 0.
     T_P = T_R = T_F = 0.0
+    RG_N = RG_OK = 0                  # spoken RANGES, start AND end (gold.ruled_range)
     # WHAT LEAKED IN, by class — aggregate only, so it can be read on the TEST
     # half too, where rows may never be looked at. A train/test precision gap
     # is either a defect that did not generalise or a gold CONVENTION the test
@@ -263,6 +265,13 @@ def main() -> int:
                               if n == "create_event"), None)
                 got_t = str(getattr(first, "start_time", "") or "")
                 phrase = (e.get("slots", {}) or {}).get("time_phrase") or ""
+                rg = ruled_range(phrase, r["text"]) if phrase else None
+                if rg and rg[0] != CONTRADICTORY and _HHMM.match(got_t):
+                    got_rg = (got_t, str(getattr(first, "end_time", "") or ""))
+                    RG_N += 1
+                    RG_OK += got_rg == rg
+                    if mining and got_rg != rg:
+                        t_miss.append((phrase, "-".join(rg), "-".join(got_rg), r["text"]))
                 if phrase and _EXPLICIT_TIME_RE.search(phrase):
                     want = _ruled_hhmm(phrase, r["text"])
                     if want == CONTRADICTORY:
@@ -454,6 +463,9 @@ def main() -> int:
         if T_CONTRA:
             print(f"     not scored             {T_CONTRA} rows whose words contradict "
                   f"themselves ('this afternoon at 9:15')")
+        if RG_N:
+            print(f"   range right, start+end   {pc(RG_OK, RG_N)}  (n={RG_N}; 'from 6 to 8', "
+                  f"'between 2 and 4' — bare ranges were unscored before 2026-09-25)")
         print(f"   INVENTED a time          {pc(INVENT, INVENT_N)}  "
               f"(n={INVENT_N} events where the speaker named no time)")
     print(f"\nNON-ATOMIC rows ({N_N}) — diagnostic; the engine decides")

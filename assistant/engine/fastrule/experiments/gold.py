@@ -158,6 +158,58 @@ def _ruled_hhmm(phrase: str, text: str) -> "str | None":
     return pm() if 1 <= h <= 8 else base
 
 
+#: A spoken RANGE: "from 6 to 8", "between 2 and 4", "from noon to 1",
+#: "from 3 to 4pm". Every range was invisible to `explicit time right`, which
+#: only scores a phrase carrying am/pm, a colon or o'clock, so 28 of the 43
+#: train ranges were never scored at all — and "between 2 and 4 this
+#: afternoon" was booked 16:00-17:00 (2026-09-25).
+_RANGE = re.compile(
+    r"^(?:from\s+|between\s+)?(?P<a>\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?|noon|midday)\s+"
+    r"(?:to|and|till|until|-)\s+"
+    r"(?P<b>\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?|noon|midday|midnight)$", re.I)
+
+
+def ruled_range(phrase: str, text: str) -> "tuple[str, str] | None":
+    """(start, end) the rulings give a spoken range, or None if it is not one.
+
+    When only the END carries its half ("from 9 to 11pm", "from 3 to 4pm"),
+    the start takes the same half if that keeps it before the end, else the
+    other one. Otherwise the start is `_ruled_hhmm`'s — Q28 and the day words
+    — and a bare end is the first reading of its hour AFTER the start ("from
+    11 to 1" ends 13:00). Written without reference to the engine's reader,
+    so the two cannot share a mistake.
+    """
+    m = _RANGE.match((phrase or "").strip().lower())
+    if not m:
+        return None
+    a, b = m.group("a").strip(), m.group("b").strip()
+    a_base, b_base = _phrase_to_hhmm(a), _phrase_to_hhmm(b)
+    if a_base is None or b_base is None:
+        return None
+    mins = lambda hhmm: int(hhmm[:2]) * 60 + int(hhmm[3:])
+    a_said = time_is_unambiguous(a) or a in ("noon", "midday")
+    b_said = time_is_unambiguous(b) or b in ("noon", "midday", "midnight")
+    if b_said and not a_said:
+        end = b_base
+        h = int(a_base[:2]) % 12
+        pm_end = mins(end) >= 12 * 60
+        first = [h + 12, h] if pm_end else [h, h + 12]
+        hh = next((x for x in first if x * 60 + int(a_base[3:]) < mins(end)), None)
+        if hh is None:
+            return None
+        return f"{hh:02d}:{a_base[3:]}", end
+    start = _ruled_hhmm(a, text)
+    if start in (None, CONTRADICTORY):
+        return None if start is None else (CONTRADICTORY, CONTRADICTORY)
+    if b_said:
+        return start, b_base
+    h, bm = int(b_base[:2]) % 12, int(b_base[3:])
+    end = next((f"{x:02d}:{bm:02d}" for x in (h, h + 12) if x * 60 + bm > mins(start)), None)
+    if end is None:
+        return None
+    return start, end
+
+
 def _phrase_to_hhmm(phrase: str) -> "str | None":
     """Resolve an explicit spoken time to HH:MM, or None if it isn't one."""
     s = (phrase or "").strip().lower()
