@@ -13,13 +13,14 @@ command, so the brain is never reachable through these routes.
     POST /calendar_sync/google/client          the Desktop client JSON (Mac set-up)
     PUT  /calendar_sync/setup                  {"outlook_client_id", "google_ios_client_id"}
     POST /calendar_sync/google/mirror          {"event_id"} — push one local event to Google
+    GET  /calendar_sync/guide                  the step-by-step walkthroughs both apps draw
 """
 
 from __future__ import annotations
 
 from flask import Blueprint, Flask, jsonify, request
 
-from assistant.calendar_sync import connect, scheduler
+from assistant.calendar_sync import connect, guide as _guide, scheduler
 
 bp = Blueprint("calendar_sync", __name__, url_prefix="/calendar_sync")
 
@@ -41,6 +42,12 @@ def _body() -> dict:
 def _setup_needed(e: Exception):
     return jsonify({"error": str(e), "setup_needed": True, "guide": connect.GUIDE,
                     "code": 409}), 409
+
+
+@bp.get("/guide")
+def guide():
+    """The in-app "how to connect" walkthroughs (`calendar_sync/guide.py`)."""
+    return jsonify({"guides": _guide.guides()})
 
 
 @bp.get("/status")

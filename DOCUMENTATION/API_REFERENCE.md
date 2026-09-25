@@ -131,6 +131,7 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `POST` | `/calendar_sync/google/complete` | Finish a phone Google sign-in: {"flow_id", "callback_url"} or {"code", "state"}. |
 | `POST` | `/calendar_sync/google/mirror` | Push one plain local event to Google from now on: {"event_id"}. |
 | `POST` | `/calendar_sync/google/start` | Start a Google sign-in. {"platform": "mac"\|"ios"} → auth_url (+ callback_scheme on iOS). |
+| `GET` | `/calendar_sync/guide` | The in-app "how to connect" walkthroughs (`calendar_sync/guide.py`). |
 | `POST` | `/calendar_sync/outlook/start` | Start an Outlook device-code sign-in → user_code + verification_uri. |
 | `PUT` | `/calendar_sync/setup` | Save client ids to config.yaml: {"outlook_client_id", "google_ios_client_id"}. |
 | `GET` | `/calendar_sync/status` | Everything Settings shows: providers, accounts, last sync, errors, ICS links. |

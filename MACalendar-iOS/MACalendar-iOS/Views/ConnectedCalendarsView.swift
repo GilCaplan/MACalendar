@@ -63,6 +63,85 @@ struct CalendarSubscription: Decodable, Identifiable {
 /// Gil, 2026-09-24: *"perhaps through settings — outsource calendar and have
 /// both a connect to google calendar and outlook calendar with login options
 /// … add on both device applications"*.
+/// One "how to connect" walkthrough, served by the Mac so both apps say the same.
+struct CalendarGuide: Decodable, Identifiable {
+    struct Step: Decodable { let text: String; let link: String; let linkLabel: String }
+    let key: String
+    let title: String
+    let time: String
+    let summary: String
+    let steps: [Step]
+    let done: String
+    var id: String { key }
+}
+
+/// A walkthrough, one action per step, with the button to press named as the
+/// page shows it and a link where there is somewhere to go. Steps tick off as
+/// you go, so coming back from Safari you can see where you were.
+struct CalendarGuideView: View {
+    let guide: CalendarGuide
+    @EnvironmentObject var settings: AppSettings
+    @Environment(\.openURL) private var openURL
+    @State private var ticked: Set<Int> = []
+
+    var body: some View {
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(guide.summary).font(.subheadline)
+                    Label(guide.time, systemImage: "clock").font(.caption).foregroundColor(.secondary)
+                }
+                .padding(.vertical, 2)
+            }
+            Section {
+                ForEach(Array(guide.steps.enumerated()), id: \.offset) { i, step in
+                    HStack(alignment: .top, spacing: 12) {
+                        Button {
+                            if ticked.contains(i) { ticked.remove(i) } else { ticked.insert(i) }
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(ticked.contains(i) ? settings.accentColor : Color.clear)
+                                    .overlay(Circle().stroke(settings.accentColor, lineWidth: 1.5))
+                                    .frame(width: 26, height: 26)
+                                if ticked.contains(i) {
+                                    Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundColor(.white)
+                                } else {
+                                    Text("\(i + 1)").font(.footnote.weight(.semibold)).foregroundColor(settings.accentColor)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(step.text)
+                                .foregroundColor(ticked.contains(i) ? .secondary : .primary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if let url = URL(string: step.link), !step.link.isEmpty {
+                                Button {
+                                    openURL(url)
+                                    ticked.insert(i)
+                                } label: {
+                                    Label(step.linkLabel, systemImage: "arrow.up.right.square")
+                                        .font(.footnote.weight(.medium))
+                                }
+                                .buttonStyle(.borderless)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            } header: { Text("Steps") } footer: {
+                Text("Tap a number to tick it off.")
+            }
+            Section("When it's done") {
+                Text(guide.done).font(.subheadline)
+            }
+        }
+        .navigationTitle(guide.title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
 struct ConnectedCalendarsView: View {
     @EnvironmentObject var api: APIClient
     @EnvironmentObject var settings: AppSettings
@@ -79,6 +158,24 @@ struct ConnectedCalendarsView: View {
     @State private var newLabel = ""
     @State private var newURL = ""
     @State private var webAuth = WebAuthRunner()
+    @State private var guides: [CalendarGuide] = []
+
+    private func guide(_ key: String) -> CalendarGuide? { guides.first { $0.key == key } }
+
+    /// "How to connect …" — a row that opens the walkthrough.
+    @ViewBuilder private func guideLink(_ key: String, _ label: String) -> some View {
+        if let g = guide(key) {
+            NavigationLink {
+                CalendarGuideView(guide: g)
+            } label: {
+                HStack {
+                    Label(label, systemImage: "list.number")
+                    Spacer()
+                    Text(g.time).font(.caption).foregroundColor(.secondary)
+                }
+            }
+        }
+    }
 
     private static let providers: [(key: String, title: String, icon: String)] = [
         ("google", "Google Calendar", "g.circle"),
@@ -128,6 +225,7 @@ struct ConnectedCalendarsView: View {
                     .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
                 Button("Add link") { Task { await addLink() } }
                     .disabled(newURL.trimmingCharacters(in: .whitespaces).isEmpty)
+                guideLink("ics", "How to find your Gmail link")
             } header: {
                 Text("Read-only calendar links")
             } footer: {
@@ -168,8 +266,8 @@ struct ConnectedCalendarsView: View {
             Button("Cancel", role: .cancel) { setupFor = nil }
         } message: {
             Text(setupFor == "google"
-                 ? "From Google Cloud → Credentials → your iOS OAuth client (bundle id com.macalendar.app). The Mac's Desktop client is added from the Mac. Steps: DOCUMENTATION/CALENDAR_SYNC.md."
-                 : "Application (client) ID of your Entra app registration. Steps: DOCUMENTATION/CALENDAR_SYNC.md.")
+                 ? "From Google Cloud → Clients → your iOS client (bundle id com.macalendar.app). The Mac's Desktop client is added from the Mac. See “How to connect”."
+                 : "The Application (client) ID of your app registration. See “How to connect”.")
         }
     }
 
@@ -210,6 +308,7 @@ struct ConnectedCalendarsView: View {
                 .disabled(working != nil)
             }
             if p?.connected != true {
+                guideLink(key, "How to connect, step by step")
                 Button("Set up (paste client id)…") {
                     clientID = ""
                     setupFor = key
@@ -219,8 +318,8 @@ struct ConnectedCalendarsView: View {
         } footer: {
             if let p, !canConnect(key, p), !p.connected {
                 Text(key == "google" && p.setup["mac"] == true
-                     ? "Set up for signing in from the Mac only — connect from the Mac's Settings, or add an iOS client id. See the steps in DOCUMENTATION/CALENDAR_SYNC.md."
-                     : "Set-up needed — a free one-time client registration. See the steps in DOCUMENTATION/CALENDAR_SYNC.md.")
+                     ? "Set up for signing in from the Mac only — connect from the Mac's Settings, or add an iOS client id (the last step of the guide)."
+                     : "Set-up needed — a free one-time registration. “How to connect” walks you through it.")
             }
         }
     }
@@ -248,6 +347,7 @@ struct ConnectedCalendarsView: View {
         do {
             status = try await api.calendarSyncStatus()
             loadError = nil
+            if guides.isEmpty { guides = (try? await api.calendarGuides()) ?? [] }
         } catch {
             loadError = (error as? APIError)?.serverSentence ?? error.localizedDescription
         }

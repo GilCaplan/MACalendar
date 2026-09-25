@@ -464,8 +464,14 @@ subscribe read-only to any ICS/webcal link (Gmail, iCloud, Outlook.com…);
 connect **Google Calendar** or **Outlook** two-way from **Settings → Connected
 Calendars on the Mac AND the iPhone** — connect, account + last sync + error,
 two-way switch, disconnect (keep or remove the synced events), Sync now. A
-"set-up needed — see steps" state until the one-time client registration
-exists (`DOCUMENTATION/CALENDAR_SYNC.md`, click by click).
+"set-up needed" state until the one-time client registration exists, and a
+**"How to connect" walkthrough inside the section on both apps** (2026-09-24,
+Gil: *"add in connected calendars simple tutorial of how to do, step by
+step"*) — Gmail read-only, Google two-way, Outlook two-way, one action per
+step with the button named as the page shows it, a link where there is
+somewhere to go, and steps you tick off as you go. Written once in
+`calendar_sync/guide.py` (`GET /calendar_sync/guide`); the long version with
+the why is `DOCUMENTATION/CALENDAR_SYNC.md`.
 **Where:** Mac `calendar_ui/connected_calendars.py` (in Settings and the
 toolbar's Connected Calendars dialog, which also lists ICS links); iOS
 `Views/ConnectedCalendarsView.swift` (Settings → Connected Calendars);

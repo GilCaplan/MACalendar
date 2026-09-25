@@ -1812,6 +1812,12 @@ class APIClient: ObservableObject {
         try decodeSnake(CalendarSyncStatus.self, from: try await request("/calendar_sync/status"))
     }
 
+    /// The step-by-step "how to connect" walkthroughs (`calendar_sync/guide.py`).
+    func calendarGuides() async throws -> [CalendarGuide] {
+        struct Wrap: Decodable { let guides: [CalendarGuide] }
+        return try decodeSnake(Wrap.self, from: try await request("/calendar_sync/guide")).guides
+    }
+
     /// Google answers with an auth URL for ASWebAuthenticationSession; Outlook
     /// with a device code for microsoft.com/devicelogin.
     func startCalendarConnect(provider: String) async throws -> CalendarFlow {

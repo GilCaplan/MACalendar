@@ -6,6 +6,13 @@ own — every 15 minutes, calendar window open or not — and both apps have a
 disconnect and "Sync now". The sign-ins and tokens live only on the Mac
 (`~/.assistant_tools/`); the phone only starts a connection and shows it.
 
+**The short version is in the apps**: Connected Calendars → "How to connect"
+walks each of the three set-ups below one action per step, with links, and
+lets you tick steps off (`assistant/calendar_sync/guide.py`, served at
+`GET /calendar_sync/guide`). This file is the long version, with the why
+behind each choice; `tests/unit/test_calendar_guide.py` keeps the two naming
+the same buttons and settings.
+
 This is the one documented OPT-IN exception to "never touches the internet":
 nothing below contacts anyone until you connect something, and then only the
 calendar service you connected.

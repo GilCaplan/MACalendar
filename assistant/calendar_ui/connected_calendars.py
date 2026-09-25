@@ -21,12 +21,10 @@ from PyQt6.QtCore import Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices, QGuiApplication
 from PyQt6.QtWidgets import (
     QCheckBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
-    QPushButton, QVBoxLayout, QWidget,
+    QPushButton, QScrollArea, QTabWidget, QVBoxLayout, QWidget,
 )
 
 PROVIDERS = (("google", "Google Calendar"), ("outlook", "Outlook Calendar"))
-GUIDE_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..",
-                                           "DOCUMENTATION", "CALENDAR_SYNC.md"))
 _POLL_MS = 1500
 _POLL_LIMIT = 15 * 60 * 1000 // _POLL_MS         # a sign-in expires in 15 minutes
 
@@ -141,9 +139,10 @@ class ConnectedCalendarsSection(QWidget):
             links.setToolTip("Subscribe to a secret iCal address — Gmail, iCloud, Outlook.com")
             links.clicked.connect(lambda: on_links())
             actions.addWidget(links)
-        guide = QPushButton("Set-up steps…")
+        guide = QPushButton("How to connect…")
         guide.setObjectName("calsync_guide")
-        guide.clicked.connect(lambda: self._open_url(QUrl.fromLocalFile(GUIDE_PATH).toString()))
+        guide.setToolTip("Step-by-step: Gmail read-only, Google two-way, Outlook two-way")
+        guide.clicked.connect(lambda: self.open_guide())
         actions.addWidget(guide)
         actions.addStretch(1)
         v.addLayout(actions)
@@ -335,6 +334,68 @@ class ConnectedCalendarsSection(QWidget):
     def open_setup(self, key: str) -> None:
         SetupDialog(self, key, self._client, self._open_url, on_saved=self.refresh).exec()
 
+    def open_guide(self, key: str = "") -> None:
+        GuideDialog(self, self._open_url, start=key or self._first_unconnected()).exec()
+
+    def _first_unconnected(self) -> str:
+        providers = (self._status or {}).get("providers") or {}
+        return next((k for k, _t in PROVIDERS if not (providers.get(k) or {}).get("connected")), "ics")
+
+
+class GuideDialog(QDialog):
+    """How to connect, step by step — one tab per way in, the same steps the
+    phone draws (`assistant/calendar_sync/guide.py`). A step can be ticked
+    off, so coming back from the browser you can see where you were."""
+
+    def __init__(self, parent, open_url, start: str = "ics") -> None:
+        super().__init__(parent)
+        from assistant.calendar_sync.guide import guides
+        self.setWindowTitle("How to connect a calendar")
+        self.setMinimumSize(560, 560)
+        v = QVBoxLayout(self)
+        self.tabs = QTabWidget()
+        self.checks: dict[str, list[QCheckBox]] = {}
+        for g in guides():
+            page = QWidget()
+            pv = QVBoxLayout(page)
+            pv.setSpacing(10)
+            head = QLabel(f"{g['summary']}<br><span style='color: gray;'>⏱ {g['time']}</span>")
+            head.setWordWrap(True)
+            pv.addWidget(head)
+            boxes = []
+            for i, step in enumerate(g["steps"], 1):
+                row = QHBoxLayout()
+                tick = QCheckBox(f"{i}.")
+                tick.setObjectName(f"{g['key']}_step_{i}")
+                tick.setToolTip("Tick it off when done")
+                row.addWidget(tick, 0, Qt.AlignmentFlag.AlignTop)
+                text = step["text"]
+                if step.get("link"):
+                    text += f"<br><a href='{step['link']}'>{step['link_label']} ↗</a>"
+                lbl = QLabel(text)
+                lbl.setWordWrap(True)
+                lbl.setTextFormat(Qt.TextFormat.RichText)
+                lbl.setOpenExternalLinks(False)
+                lbl.linkActivated.connect(lambda url, t=tick: (open_url(url), t.setChecked(True)))
+                row.addWidget(lbl, 1)
+                pv.addLayout(row)
+                boxes.append(tick)
+            done = QLabel(f"<b>When it's done:</b> {g['done']}")
+            done.setWordWrap(True)
+            pv.addWidget(done)
+            pv.addStretch(1)
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setWidget(page)
+            self.tabs.addTab(scroll, g["title"])
+            self.checks[g["key"]] = boxes
+        keys = [g["key"] for g in guides()]
+        self.tabs.setCurrentIndex(keys.index(start) if start in keys else 0)
+        v.addWidget(self.tabs)
+        close = QPushButton("Done")
+        close.clicked.connect(self.accept)
+        v.addWidget(close, 0, Qt.AlignmentFlag.AlignRight)
+
 
 class SetupDialog(QDialog):
     """Paste the one-time client registration: Google's Desktop JSON / iOS
@@ -347,8 +408,8 @@ class SetupDialog(QDialog):
         self.setWindowTitle("Set up " + dict(PROVIDERS)[key])
         self.setMinimumWidth(460)
         v = QVBoxLayout(self)
-        steps = QPushButton("Open the step-by-step guide")
-        steps.clicked.connect(lambda: open_url(QUrl.fromLocalFile(GUIDE_PATH).toString()))
+        steps = QPushButton("How to connect, step by step…")
+        steps.clicked.connect(lambda: GuideDialog(self, open_url, start=key).exec())
         v.addWidget(steps)
         self.result = QLabel("")
         self.result.setObjectName("setup_result")
