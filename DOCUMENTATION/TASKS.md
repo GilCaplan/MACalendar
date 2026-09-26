@@ -2003,3 +2003,17 @@ then ranges and the end of the month".
     4-6% of titled rows on both halves.
 11. **Item 4 above ("from 5:30 to 7:45" ends 07:45)**: may be fixed by
     180fe909 (a range now goes to the resolver). Re-probe and close or keep.
+12. **Board D: a fronted lead time loses its ask to segmentation.** "5
+    minutes before wedding rehearsal this sunday at 9 …, ping me" is cut at
+    the comma, so the item never carries "ping me" and the reminder is not
+    set. Segmentation's `relate` could attach a bare trailing ask to the
+    item before it, the way it strips postposed markers. Board it on
+    `run_board` and the relation board.
+13. **For Gil: should a STATED end beat the 4-hour cap?**
+    `object_rules._rule_max_duration_cap` clips "from 9 to 2:30" to 13:00,
+    because `engine.max_event_hours` applies to every engine-built event,
+    spoken ends included (FEATURES.md). These are the 2 remaining range
+    misses on Board D.
+
+Item 4 is closed: "from 5:30 to 7:45" is 17:30-19:45 on the front door since
+180fe909 (probed 2026-09-25).

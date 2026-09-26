@@ -2030,3 +2030,46 @@ sample of the same pool). The new phrasings read 79.0%, close to FastRule's
 held-out 81%: unfamiliar wording is the weak spot, and it is now in train to
 mine. The board now splits its score by pool and records the row ids of every
 run, so a change of data cannot read as a change of code again.
+
+## 2026-09-25 (night) — Board D, full metrics, after the evening's FastRule cycles
+
+These are the same 1,200 train rows of the FastRule 7,200 set, fresh and
+seeded. Both runs are scored by `rescore` with today's gold (the run records
+are `runs/board_d_train_1200_20260925T1814.json` and `…T2123.json`).
+
+| metric | d0de4f31 | dc884b55 |
+|---|---|---|
+| headline correct (action + title) | 92.2% (1106/1200) | 92.2% (1107/1200) |
+| count-correct | 90.9% (835/919) | 91.0% (836/919) |
+| objects P / R / F1 | 95.0 / 95.2 / 95.1% | 95.0 / 95.3 / 95.2% |
+| title word F1 (precision · recall) | 87.9% (86.4 · 95.4), n=701 | 88.9% (87.5 · 96.0), n=702 |
+| title exact | 69.3% | 72.5% |
+| date right | 92.3% (300/325) | 92.3% (301/326) |
+| start time right | 100% (223/223) | 100% (223/223) |
+| range right, start+end | 90.9% (20/22) | 90.9% (20/22) |
+| reminder right | 82.1% (32/39) | 80.0% (32/40) |
+| harm | 129 over 94 wrong rows | 129 over 93 |
+| rows needing a model call | 40.9% | 40.8% |
+| model-call latency p50 / p95 | 3.4 s / 10.1 s | 4.6 s / 17.8 s |
+
+**What it means.** The whole chain moved in its titles and by a row on
+structure. The FastRule-board gains in ranges, dates and reminders barely
+show here, for three reasons:
+
+- **The 1,200-row sample holds few of those shapes.** There are 22 ranges.
+- **The two remaining range misses are `max_duration_cap`.** The shipped
+  4-hour ceiling (`engine.max_event_hours`) clips a STATED "from 9 to 2:30"
+  to 13:00, by design. Whether a stated end should beat the cap is Gil's
+  call.
+- **Segmentation separates the fronted lead time's ask.** In "5 minutes
+  before X …, ping me", the ", ping me" is cut into its own piece, so
+  FastRule's FRONTED form never sees it. This is filed.
+
+Most reminder misses are to-dos with no time at all ("add X to my list and
+remind me 5 minutes before"). The gold expects minutes before nothing, which
+is a gold question more than an engine one.
+
+**Latency is not the code.** The same 490 rows called the model in both
+runs, and the prompts are untouched. Within the later run, the median call
+went 3.6 s → 5.0 s → 6.7 s → 5.7 s by quarter: the model server was shared
+while it ran.
