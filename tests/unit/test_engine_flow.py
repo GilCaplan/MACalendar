@@ -779,3 +779,22 @@ def test_a_single_queued_command_is_not_wrapped():
     retry_pending_once(lambda text, **kw: (seen.append(text), {"parse": "fast"})[1],
                        _Mem(), 300)
     assert seen == ["book gym at 7"]
+
+
+def test_a_fast_item_that_named_today_stays_today(registry_with_real_actions):
+    """The passed-clock rule reads the spoken words for a named day; a fast
+    item's text is only its title, so "book haircut with Dana for this
+    morning" said after 9 moved to tomorrow (Board D run as production,
+    2026-09-26). A single fast item carries the sentence as its source."""
+    import datetime as dt
+    from freezegun import freeze_time
+    from assistant.engine.decompose_validate import stage as dv
+    from assistant.engine.llm import get_rule_parser
+    c = engine.load_config()
+    get_rule_parser().analyze("book gym tomorrow at 7am", current_view="month")
+    with freeze_time(dt.datetime(2026, 9, 9, 11, 0)):
+        st = EngineState(raw_text="book haircut with Dana for this morning",
+                         text="book haircut with Dana for this morning", source="test")
+        assert fast_track.fast_propose(st, c)
+        dv.run_objects(st, c)
+        assert st.items[0].intent.date == "2026-09-09"

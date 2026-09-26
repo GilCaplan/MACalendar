@@ -112,9 +112,18 @@ def fast_propose(state: EngineState, cfg) -> bool:
         base_slots: dict = {"confirm_create": True} if ask_first else {}
         if bare_hour is not None and not ask_first:
             base_slots["assumed_pm"] = bare_hour
+        # A single item's SOURCE is the whole sentence. decompose_validate's
+        # passed-clock rule reads the spoken words for a named day, and a fast
+        # item's text is only its title — so "book haircut with Dana for this
+        # morning" said after the default hour moved to TOMORROW: 20 of the
+        # 1,200 train rows of Board D run as production (2026-09-26). With
+        # several items the sentence would lend one item another's day, so
+        # they keep none, as before.
+        one = len(res.intents) == 1
         state.items = [
             Item(id=f"item_{i + 1}", kind=kind_for(name),
                  text=_fast_item_words(intent, state.text),
+                 source=state.text if one else "",
                  action=name, intent=intent, slots=dict(base_slots))
             for i, (name, intent) in enumerate(res.intents)
         ]
