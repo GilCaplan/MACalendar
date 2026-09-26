@@ -1680,6 +1680,10 @@ def _extract_temporal(span_text: str, today: datetime.date,
     return result
 
 
+#: Words a chunk reader can take as a target that never name a record.
+_NOT_A_NAME = frozenset({"something", "someone", "somebody", "anything", "everything",
+                         "nothing", "stuff", "things"})
+
 _ONLY_PART_OF_DAY = re.compile(
     r"(?:(?:on|for|in|to|by|until|till|at|around)\s+)?(?:this\s+|the\s+)?(?:tonight|morning|afternoon|evening|night|lunchtime)", re.I)
 
@@ -3404,6 +3408,30 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
             rest = mt[len(first):].strip()
             if names_something(rest):
                 slots["match_title"] = rest
+
+    # A NEEDLE THAT IS NOT A NAME (2026-09-25): the chunk reader took the
+    # verb itself when spaCy read it as a noun ("TICK feed the cat off my
+    # list" -> 'tick', 8 train rows) or a pronoun from the explanation after
+    # a comma ("cancel open house march 5th, SOMETHING came up last minute"
+    # -> 'something', 7). Then the name is re-read from the command's head:
+    # the words after the verb, dates blanked, up to "off/from my list" or
+    # the comma.
+    if action_name.split("_", 1)[0] in ("delete", "update", "complete") and slots.get("match_title"):
+        mt = str(slots["match_title"]).strip().lower()
+        first = (span.text.strip().split() or [""])[0].lower()
+        verb_led = first in _ROUTING_VERBS or first == "tick"
+        if mt in _NOT_A_NAME or mt == first or (verb_led and mt.startswith(first + " ")):
+            head = _blank_spans(span.text, temporal.get("spans") or []).split(",")[0]
+            m = re.match(r"^\s*(?:(?:please|just|yeah|ok|okay)\s+)*\w+\s+(?:off\s+)?(?P<t>.+?)"
+                         r"(?:\s+(?:off|from|on)\s+(?:my|the)\s+[\w-]+.*)?\s*$", head, re.I)
+            cand = _clean_title(" ".join(m.group("t").split())) if m else ""
+            if cand and cand.lower() != mt and names_something(cand) \
+                    and not _GENERIC_ENTRY.match(cand):
+                slots["match_title"] = cand
+            elif mt in _NOT_A_NAME:
+                # Nothing better, and "something" is no target: deleting is
+                # destructive, so empty slots ("I couldn't find …") beat a guess.
+                slots.pop("match_title", None)
 
     # NEEDLE HYGIENE (2026-09-25) — words that are never part of the record's
     # name, measured on the FastRule 7,200 train half with the target line

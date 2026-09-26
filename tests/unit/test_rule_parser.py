@@ -1339,3 +1339,16 @@ def test_the_needle_keeps_only_the_name(registry_with_real_actions):
     assert needle("can we push training session back to 14:00") == "training session"
     got = rp.analyze("delete that task from my calendar", current_view="month")
     assert not got.intents or (got.intents[0][1].match_title or "").lower() != "task"
+
+
+def test_a_needle_that_is_not_a_name_is_read_again(registry_with_real_actions):
+    """'tick' (the verb, read as a noun) and 'something' (from the
+    explanation after a comma) were committed as targets (2026-09-25)."""
+    from assistant.intent.rule_parser import RuleBasedParser
+    rp = RuleBasedParser(registry_with_real_actions)
+    def needle(t):
+        r = rp.analyze(t, current_view="month")
+        return r.intents[0][1].match_title if r.intents else None
+    assert needle("tick feed the cat off my list") == "feed the cat"
+    assert needle("cancel open house march 5th, something came up last minute") == "open house"
+    assert needle("cancel my list, something came up") is None     # nothing to find: no guess
