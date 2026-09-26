@@ -92,7 +92,9 @@ def _phrase_to_date(phrase: str, today: "_dt.date") -> "str | None":
 # midnight section below was silently absent from every board this file has
 # ever printed. A metric that cannot report is worse than no metric: it reads
 # as "nothing to see".
-_NOW_RE = re.compile(r"\b(?:right\s+now|now|immediately|asap)\b", re.I)
+#: "from now" is an offset ("two weeks from now"), not the word NOW as a time:
+#: counting it charged six all-day bookings as "booked at midnight" (2026-09-25).
+_NOW_RE = re.compile(r"\b(?:right\s+now|(?<!from\s)now|immediately|asap)\b", re.I)
 
 #: A title that names nothing — the word for a calendar entry rather than a
 #: name for one. Same shape as fastrule's `_GENERIC_TARGET_RE`.
