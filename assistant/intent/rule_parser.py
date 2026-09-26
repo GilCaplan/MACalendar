@@ -1861,6 +1861,11 @@ _ROUTE_OVERRIDES = [
     # the FastRule 7,200 train half became DELETES (2026-09-25). "need to …"
     # keeps its own rows below.
     (re.compile(r"^\s*(?:please\s+)?(?:i\s+|we\s+)?(?:still\s+)?need\s+(?!to\b)"), "create_todo"),
+    # "KEEP <day> CLEAR FOR x" blocks the time — a create. "clear" routed it
+    # to delete_event: 10 creates on the FastRule 7,200 train half became
+    # DELETES of the thing being booked (2026-09-25).
+    (re.compile(r"^\s*(?:please\s+)?(?:can\s+you\s+)?keep\s+.+?\s+(?:clear|free|open)\s+(?:for|to)\b"),
+     "create_event"),
     (re.compile(r"^\s*(?:please\s+)?(?:add|put)\s+.+\s+(?:on|to)\s+(?:my|the)\s+(?:\w+\s+)?list\b"), "create_todo"),
     # F6a: an encounter being ARRANGED is an event — must outrank the
     # need-to→todo row below ("i need to talk to Quinn friday" was a todo).
@@ -2315,6 +2320,7 @@ _FRAME_LEAD = re.compile(
     # "plan" only when no other frame verb follows it: stripping both made
     # "plan book club" 'club'.
     r"(?:plan(?!\s+(?:book|schedule|set|make|create|add|put|arrange)\b)|"
+    r"keep\s+(?:my\s+|the\s+)?(?:\w+\s+)?(?:clear|free|open)\s+(?:for|to)|"
     # "put in", "circle" (2026-09-25, FastRule train: 'in retrospective',
     # 'circle for the tax deadline')
     r"pencil\s+(?:me\s+)?in|squeeze\s+in|put\s+in(?!\s+(?:my|the|a|an)\b)|"

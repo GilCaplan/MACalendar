@@ -1292,3 +1292,13 @@ def test_needing_things_is_an_errand_never_a_removal(registry_with_real_actions)
                        ("i need milk", "milk")]:
         name, intent = rp.analyze(text, current_view="month").intents[0]
         assert name == "create_todo" and intent.titles == [want], text
+
+
+def test_keeping_a_day_clear_for_something_books_it(registry_with_real_actions):
+    """"clear" routed "keep today clear for X" to delete_event — 10 creates
+    on the FastRule 7,200 train half became deletes (2026-09-25)."""
+    from assistant.intent.rule_parser import RuleBasedParser
+    rp = RuleBasedParser(registry_with_real_actions)
+    name, intent = rp.analyze("keep today clear for performance review, the whole day",
+                              current_view="month").intents[0]
+    assert (name, intent.title) == ("create_event", "performance review")
