@@ -1685,6 +1685,9 @@ _PART_OF_DAY_WORD = re.compile(
 #: go. Read by the readers board; never used to decide anything.
 FALLBACK_READS = {"n": 0}
 
+_DAYS_FROM_NOW = re.compile(
+    r"\b(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+"
+    r"(?:days?|weeks?|months?|years?)\s+from\s+(?:now|today)\b", re.I)
 _END_OF_MONTH = re.compile(r"\bend\s+of\s+(?:the|this|next)\s+month\b", re.I)
 
 
@@ -1730,6 +1733,15 @@ def _values_from_the_resolver(result: dict, span_text: str, today) -> None:
     # "from 6 to 8" in the title because the recogniser never spanned it. One
     # range and no other clock: the resolver's start AND end stand, and the
     # range's words are claimed so the title gives them up.
+    # "TWO WEEKS FROM NOW" NAMES A DAY, NOT A CLOCK. The recogniser resolves it
+    # to now + 14 days as a DATETIME, and its clock of the moment became the
+    # event's start: 10:00 on the board, whatever o'clock it was said at in
+    # life — while "in three weeks" took the ordinary default (2026-09-25).
+    # With no clock or range said anywhere, the start is dropped and the
+    # default applies, as for every other day-only phrase.
+    if (result.get("start_time") and not any(r.kind in ("clock", "range") for r in every)
+            and _DAYS_FROM_NOW.search(span_text) and not _PART_OF_DAY_WORD.search(span_text)):
+        result["start_time"] = result["end_time"] = None
     ranges = [r for r in every if r.kind == "range"]
     if len(ranges) == 1 and not any(r.kind == "clock" for r in every):
         try:

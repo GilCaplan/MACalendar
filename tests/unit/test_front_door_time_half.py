@@ -112,3 +112,22 @@ def test_the_end_of_the_month_is_its_last_day(registry_with_real_actions):
                ("book yoga class at the end of the month at 6pm",
                 "dentist end of next month at 3pm")]
     assert got == ["2026-09-30", "2026-10-31"]
+
+
+def test_n_weeks_from_now_names_a_day_not_the_clock_of_the_moment(registry_with_real_actions):
+    """The recogniser resolves "two weeks from now" as a DATETIME and its
+    clock of the moment became the start; "in three weeks" took the ordinary
+    default (2026-09-25). A clock said with it still stands."""
+    import datetime as dt
+    from freezegun import freeze_time
+    from assistant.engine.fastrule.fastrule import FastRule
+    from assistant.intent.rule_parser import RULE_THRESHOLD
+    fr = FastRule(RULE_THRESHOLD)
+    fr.run("book gym tomorrow at 7am")
+    with freeze_time(dt.datetime(2026, 9, 9, 10, 37)):
+        got = {t: fr.run(t).intents[0][1].start_time for t in (
+            "book dentist two weeks from now", "book dentist two weeks from now at 3pm",
+            "book dentist in three weeks")}
+    assert got == {"book dentist two weeks from now": "09:00",
+                   "book dentist two weeks from now at 3pm": "15:00",
+                   "book dentist in three weeks": "09:00"}
