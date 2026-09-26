@@ -43,6 +43,20 @@ _DAY_LIST_RE = re.compile(
 
 #: (pattern, cadence, needs_announcing) — order matters, first match wins.
 _PATTERNS = [
+    # THE FORMS THE DEEP READER KNEW AND THIS ONE DID NOT (2026-09-25). Board D
+    # run as production runs (front door first) read series cadence 78.7% of
+    # 136 against 93.4% on the deep chain: "every weekend", "once a week" and
+    # "every other day" (read as WEEKLY) booked a one-off or the wrong series
+    # on the fast path. Same cadence and the same rounding as
+    # `decompose_validate.resolve.resolve_recurrence`, so the tracks agree.
+    (r"\bevery\s+other\s+day\b", "daily", True),         # rounded: every 2 days
+    (r"\bevery\s+weekend\b|\bweekends\b", "weekly", True),  # rounded: Sat+Sun
+    (r"\bonce\s+a\s+week\b|\bonce\s+weekly\b", "weekly", False),
+    (r"\bonce\s+a\s+month\b", "monthly", False),
+    (r"\bonce\s+a\s+day\b", "daily", False),
+    (r"\bonce\s+a\s+year\b", "yearly", False),
+    (r"\bevery\s+fortnight\b|\bfortnightly\b|\bbi-?weekly\b", "weekly", True),
+    (r"\bevery\s+(?:morning|afternoon|evening|night)\b|\bnightly\b", "daily", False),
     (r"\bevery\s+other\s+(\w+)\b", "weekly", True),      # rounded: fortnightly
     (r"\bevery\s+(?:week)?day\b", "daily", True),        # "every weekday" rounds
     (r"\bevery\s+day\b|\bdaily\b|\beach\s+day\b", "daily", False),
@@ -105,7 +119,7 @@ def detect(text: str) -> Recurrence:
         m = re.search(pattern, low)
         if not m:
             continue
-        anchor = None
+        anchor = 5 if "weekend" in m.group(0) else None     # Saturday, as the resolver
         # a named weekday anywhere in the phrase anchors a weekly series
         for word, idx in _WEEKDAYS.items():
             if re.search(rf"\b{word}s?\b", low):   # "tuesdays" names Tuesday too

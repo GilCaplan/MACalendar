@@ -470,3 +470,17 @@ def test_a_fronted_lead_time_needs_its_ask_at_the_end():
                  trailing=True) == ("retrospective monday at 11", 30)
     said = "30 minutes before the talk i need to set up the room"
     assert split(said, trailing=True) == (said, None)
+
+
+def test_the_fast_cadence_reader_knows_what_the_deep_one_knows():
+    """Board D run as production (front door first) read series cadence
+    78.7% against 93.4% on the deep chain (2026-09-25): these booked a one-off
+    or the wrong series on the fast path."""
+    from assistant.intent.recurrence import detect
+    got = {t: (detect(t).cadence, bool(detect(t).rounded_from)) for t in (
+        "every weekend", "once a week", "once a month", "every fortnight",
+        "every other day", "every evening", "every other tuesday")}
+    assert got == {"every weekend": ("weekly", True), "once a week": ("weekly", False),
+                   "once a month": ("monthly", False), "every fortnight": ("weekly", True),
+                   "every other day": ("daily", True), "every evening": ("daily", False),
+                   "every other tuesday": ("weekly", True)}
