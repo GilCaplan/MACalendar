@@ -1855,6 +1855,12 @@ _DUE_DATE_OF = re.compile(
 
 _ROUTE_OVERRIDES = [
     (_DUE_DATE_OF, "update_todo"),
+    # "NEED <things>" with no "to" is an errand, never a removal: "need 10
+    # trash bags from the shop" went to the classifier, which read "from" as
+    # the remove-from-my-list shape and committed delete_todo — 8 creates on
+    # the FastRule 7,200 train half became DELETES (2026-09-25). "need to …"
+    # keeps its own rows below.
+    (re.compile(r"^\s*(?:please\s+)?(?:i\s+|we\s+)?(?:still\s+)?need\s+(?!to\b)"), "create_todo"),
     (re.compile(r"^\s*(?:please\s+)?(?:add|put)\s+.+\s+(?:on|to)\s+(?:my|the)\s+(?:\w+\s+)?list\b"), "create_todo"),
     # F6a: an encounter being ARRANGED is an event — must outrank the
     # need-to→todo row below ("i need to talk to Quinn friday" was a todo).
@@ -2167,7 +2173,9 @@ _SPEAKER_FRAME = (
     r"(?:(?:have|has|need|needs)\s+to|(?:have\s+)?got\s+to|gotta|must|should)"
     r"(?:\s+be\s+at|\s+remember\s+to)?\s+"
     r"|(?:i|we)(?:['\u2019]ve|\s+have)?\s+got\s+(?!to\b)"
-    r"|(?:i|we)\s+have\s+(?!to\b)")
+    r"|(?:i|we)\s+have\s+(?!to\b)"
+    # "(i) need <things>" — the errand said as a want ("need 10 trash bags")
+    r"|(?:(?:i|we)\s+)?(?:still\s+)?need\s+(?!to\b)")
 
 _TODO_LEAD = re.compile(
     r"^\s*(?:(?:please|hey|ok|okay)[,\s]+)?"
@@ -2218,8 +2226,12 @@ def _todo_titles_from_text(text: str, temporal_spans, span) -> list[str]:
     else:
         body = t[m.end():]
         body = _TODO_TRAIL.sub("", body)
-        # the same tails the event title sheds ("… ok", "… needs doing")
+        # the same tails the event title sheds ("… ok", "… needs doing"), and
+        # the same SOURCE: where a thing is bought is not its name ("need 10
+        # trash bags FROM THE SHOP"); an article left in front goes too
         body = _FRAME_TAIL.sub("", body)
+        body = _SOURCE_TAIL.sub("", body)
+        body = re.sub(r"^(?:a|an|some)\s+(?=\w)", "", body, flags=re.I)
     body = re.sub(r"\s+(?:due|by)\s+.*$", "", body, flags=re.IGNORECASE).strip(" ,;:")
     if not body:
         return []

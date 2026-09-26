@@ -1280,3 +1280,15 @@ def test_calendar_entry_frames_leave_the_title(registry_with_real_actions):
     assert title("please to add open house in calendar in five days noon") == "open house"
     assert title("to-do: file the taxes") == "file the taxes"
     assert title("i gotta remember to pay the electricity bill") == "pay the electricity bill"
+
+
+def test_needing_things_is_an_errand_never_a_removal(registry_with_real_actions):
+    """"need 10 trash bags from the shop" went to the classifier, which read
+    "from" as remove-from-my-list and committed delete_todo — 8 creates on
+    the FastRule 7,200 train half became deletes (2026-09-25)."""
+    from assistant.intent.rule_parser import RuleBasedParser
+    rp = RuleBasedParser(registry_with_real_actions)
+    for text, want in [("need 10 trash bags from the shop", "10 trash bags"),
+                       ("i need milk", "milk")]:
+        name, intent = rp.analyze(text, current_view="month").intents[0]
+        assert name == "create_todo" and intent.titles == [want], text
