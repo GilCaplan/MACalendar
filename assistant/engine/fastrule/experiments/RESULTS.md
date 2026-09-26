@@ -1653,3 +1653,47 @@ of code:
 - The attendee in the title ("with Alex", "for Jordan") and the errand verb
   ("buy", "grab"): the gold disagrees with itself. This is Gil's convention
   call, and it is left unchanged.
+
+## 2026-09-26 (night) — the fast path as production runs it
+
+Board D had only ever run the DEEP chain (`Engine.parse` + `judge`); the
+front door that production tries first was bypassed. `board_d --product`
+(bea9761a) ran it as shipped, on the same 1,200 train rows: headline 89.9%
+against the deep chain's 92.2%, harm 221 against 129, series cadence 78.7%
+against 93.4%. The fast path was costing accuracy for its speed. Every cycle
+below was mined from those train rows, boarded alone on the FastRule shape
+board, both splits, and committed only on a passing unit suite.
+
+| cycle (commit) | line | train | test |
+|---|---|---|---|
+| cadence the deep reader knew (755f0d93) | cadence right | 79.4% (n=407) -> 93.0% | 72.7% (n=33) -> 88.2% |
+| "need <things>" is an errand (8fac55a6) | harm | 248 -> 216 | unchanged |
+| "keep <day> clear for X" (dea991a6) | harm | 216 -> 180 | unchanged |
+| "two weeks from now" names a day (d4f37dd4) | invented a time | 3.6% -> 0.0% (n=505) | 0.8% -> 0.0% (n=130) |
+| "mark <date> as X", by the time finder (ff40cf32) | harm | 180 -> 154 | 202 -> 194 |
+| plural domain words (c83eb3f7) | test handled | — | 69.3 -> 70.2% |
+| needle hygiene (26f47e10) | target word F1 | 84.4 -> 89.3% (n=584) | 76.4 -> 84.0% (n=140) |
+| needle not a name (6476503e) | target word F1 | 89.3 -> 91.8% | 84.0 -> 85.2% |
+| the kind from the one tagger (299aeb0f) | correct-on-handled · harm | 95.3 -> 96.7% · 154 -> 113 | 81.4 -> 83.2% · 194 -> 176 |
+| fast item carries the sentence (ff0846b5) | fast-path date right | 87.3 -> 94.6% (n=1,060) | 86.9 -> 93.2% (n=337) |
+| vague completion refused (04810fae) | vague "check off …" committed | 7 -> 0 | unchanged |
+
+Board D --product at 299aeb0f: headline 92.7% — above the deep chain's 92.2% —
+with count-correct 92.6% (vs 91.0%), objects F1 95.8% (vs 95.2%), and 19.6% of
+rows needing a model call against the deep chain's 40.8%.
+
+**Instruments added on the way, each because a real defect was invisible:**
+series cadence right; update/delete/complete scored by KIND and TARGET (the
+atomic check accepted any action of the right verb family); "from now" is
+not the word NOW; spoken ranges (the day before).
+
+**Wrong turns caught before commit** — each would have shipped on a
+headline-only reading: stripping "that" let "that task" past the
+generic-target veto (29 train rows of deletes); the tagger given lowercased
+words flipped 108 encounters to to-dos; the encounter default dated 21 rows
+today; pronouns in the not-a-name set re-read "cancel it" as a delete of
+'test'; dropping a pronoun needle turned a REFUSAL into a deferral.
+
+**Found, not changed:** an update/delete aimed at a to-do's name with a verb
+in it ("rename submit the report to …") goes to update_event on BOTH tracks;
+the 4-hour cap clips a stated "from 9 to 2:30" (Gil's call, TASKS 13).
