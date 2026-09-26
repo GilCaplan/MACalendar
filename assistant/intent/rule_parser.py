@@ -3405,6 +3405,31 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
             if names_something(rest):
                 slots["match_title"] = rest
 
+    # NEEDLE HYGIENE (2026-09-25) — words that are never part of the record's
+    # name, measured on the FastRule 7,200 train half with the target line
+    # the board gained that day (84.4% word F1, n=584):
+    #   * quotes: "mark 'staff meeting' as done" looked for "'staff meeting'";
+    #   * after a comma: "check off my reminder, it's done" -> "reminder, it's";
+    #   * a leading that/this before a real name: "that oil change march 5th?
+    #     cancel it" looked for "that oil change";
+    #   * a verb's particle left at the end: "push training session back to 2"
+    #     looked for "training session back".
+    # Each keeps the needle only if what is left still names something, so a
+    # generic target ("that one") still reaches the generic-target veto whole.
+    if action_name.split("_", 1)[0] in ("delete", "update", "complete") and slots.get("match_title"):
+        mt = str(slots["match_title"])
+        cleaned = mt.strip().strip("'\"\u2018\u2019\u201c\u201d").strip()
+        cleaned = cleaned.split(",")[0].strip()
+        trimmed = re.sub(r"^(?:that|this)\s+", "", cleaned, flags=re.I)
+        # never onto a GENERIC word: "that task" is the vague target the
+        # generic-target veto refuses, and "task" slipped past it — five
+        # "delete that task from my calendar" rows began committing.
+        if trimmed != cleaned and names_something(trimmed) and not _GENERIC_ENTRY.match(trimmed):
+            cleaned = trimmed
+        cleaned = re.sub(r"\s+(?:back|forward|up|off|out)$", "", cleaned, flags=re.I)
+        if cleaned and cleaned != mt and names_something(cleaned):
+            slots["match_title"] = cleaned
+
     return slots
 
 

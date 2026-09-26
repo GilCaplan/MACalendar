@@ -1323,3 +1323,19 @@ def test_a_plural_domain_word_is_a_domain_signal(registry_with_real_actions):
     rp = RuleBasedParser(registry_with_real_actions)
     assert rp.analyze("drop water the plants from my tasks",
                       current_view="month").intents[0][0] == "delete_todo"
+
+
+def test_the_needle_keeps_only_the_name(registry_with_real_actions):
+    """Quotes, a clause after a comma, a leading that/this and a verb's
+    particle are never part of a record's name (2026-09-25) — but "that task"
+    must stay whole, or the generic-target veto no longer sees it (29 rows
+    began committing deletes of anything named "task" the first time)."""
+    from assistant.intent.rule_parser import RuleBasedParser
+    rp = RuleBasedParser(registry_with_real_actions)
+    def needle(t):
+        r = rp.analyze(t, current_view="month")
+        return r.intents[0][1].match_title if r.intents else None
+    assert needle("mark 'staff meeting' as done") == "staff meeting"
+    assert needle("can we push training session back to 14:00") == "training session"
+    got = rp.analyze("delete that task from my calendar", current_view="month")
+    assert not got.intents or (got.intents[0][1].match_title or "").lower() != "task"
