@@ -2165,7 +2165,7 @@ _SPEAKER_FRAME = (
     r"(?:(?:i\s+guess|i\s+think)\s+)?"
     r"(?:(?:i|we)(?:['\u2019]ve|\s+have)?\s+)?"
     r"(?:(?:have|has|need|needs)\s+to|(?:have\s+)?got\s+to|gotta|must|should)"
-    r"(?:\s+be\s+at)?\s+"
+    r"(?:\s+be\s+at|\s+remember\s+to)?\s+"
     r"|(?:i|we)(?:['\u2019]ve|\s+have)?\s+got\s+(?!to\b)"
     r"|(?:i|we)\s+have\s+(?!to\b)")
 
@@ -2177,7 +2177,7 @@ _TODO_LEAD = re.compile(
     rf"|(?:{_SPEAKER_FRAME})"
     r"|(?:add|put)\s+(?:to\s+(?:my|the)\s+(?:\w+\s+)?list\s*:?\s*)"
     r"|(?:make|create)\s+(?:a\s+)?(?:todo|task|reminder)\s+(?:to\s+|for\s+|:\s*)?"
-    r"|(?:todo|task|reminder)\s*:\s*)",
+    r"|(?:to-?\s?do|task|reminder)\s*:\s*)",
     re.IGNORECASE,
 )
 _TODO_TRAIL = re.compile(
@@ -2303,11 +2303,15 @@ _FRAME_LEAD = re.compile(
     # "plan" only when no other frame verb follows it: stripping both made
     # "plan book club" 'club'.
     r"(?:plan(?!\s+(?:book|schedule|set|make|create|add|put|arrange)\b)|"
-    r"pencil\s+(?:me\s+)?in|squeeze\s+in|"
+    # "put in", "circle" (2026-09-25, FastRule train: 'in retrospective',
+    # 'circle for the tax deadline')
+    r"pencil\s+(?:me\s+)?in|squeeze\s+in|put\s+in(?!\s+(?:my|the|a|an)\b)|"
+    r"block\s+(?:out|off)?\s*(?:my\s+|the\s+)?(?:whole\s+|entire\s+)?(?:calendar|day)\s+(?:for|to)|"
     r"block\s+(?:out|off)(?:\s+(?:for|to))?|"
-    r"block\s+(?:out\s+)?(?:my\s+)?(?:whole\s+)?(?:calendar|day)\s+(?:for|to)|"
-    r"(?:mark(?!['\u2019]s)|label|note)(?!\s+(?:book|schedule|set|make|create|add|put|arrange)\b)"
+    r"(?:mark(?!['\u2019]s)|label|note|circle)(?!\s+(?:book|schedule|set|make|create|add|put|arrange)\b)"
     r"(?:\s+(?:it\s+)?(?:down\s+)?as)?)\s+))?"
+    # "please TO add …" — the non-native infinitive before the verb
+    r"(?:\s*to(?=\s+(?:add|book|schedule|put|set|create|make)\b))?"
     r"(?:\s*(?:(?:send|give)\s+me\s+(?:an?\s+)?(?:reminder|alert)\s+"
     r"(?:to|about|of|for|that)|"
     r"set\s+(?:an?\s+)?(?:reminder|alert)\s+(?:to|about|of|for|that)|"
@@ -2358,7 +2362,9 @@ _FRAME_TAIL = re.compile(
     r"needs?\s+(?:doing|done|to\s+be\s+done))\b\s*[.!]?\s*)+$",
     re.IGNORECASE)
 _DESTINATION = re.compile(
-    r"\s*\b(?:on|to|in|onto|into)\s+(?:my|the)\s+"
+    # the determiner may be dropped for the calendar itself ("add open house
+    # in calendar") — never for "schedule", which is a verb after "to"
+    r"\s*\b(?:on|to|in|onto|into)\s+(?:(?:my|the)\s+|(?=(?:calendar|calender|agenda|diary)\b))"
     # "calender" and "to-do list" too: 'training session to my calender' and
     # 'feed the cat to my to-do' (2026-09-25).
     r"(?:calendar|calender|schedule|(?:to-?\s?do\s+)?list|to-?\s?dos?|todos?|tasks?|agenda|diary)\b",
@@ -2682,6 +2688,11 @@ def _subtractive_title(span_text: str, temporal_spans) -> str:
         return ""
 
     head, rest = parts[0], parts[1:]
+    # A HEAD THAT OPENS WITH "for" / "about" lost what it qualified to a blank:
+    # "circle [in five days] [on the calendar] for the tax deadline", "block
+    # off the whole day [march 5th] for wedding rehearsal" (FastRule train,
+    # 2026-09-25). Nothing is left for it to qualify, so the word goes.
+    head = re.sub(r"^(?:for|about|regarding)\s+(?=\w)", "", head, flags=re.I)
     quals = [p for p in rest if _TITLE_QUALIFIER.match(p)]
     things = [p for p in rest if not _TITLE_QUALIFIER.match(p)]
     if _GENERIC_ENTRY.match(head) and things:

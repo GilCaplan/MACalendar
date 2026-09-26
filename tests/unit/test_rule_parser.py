@@ -1263,3 +1263,20 @@ def test_a_phrase_read_target_is_not_overwritten_by_the_noun_reader(parser, said
     another item and changed the wrong one."""
     result = parser.analyze(said, current_view="month")
     assert result.intents[0][1].match_title == target
+
+
+def test_calendar_entry_frames_leave_the_title(registry_with_real_actions):
+    """The entry shell, not the name (FastRule 7,200 train, 2026-09-25):
+    "put in", "circle … for", "block off the whole day … for", "add X in
+    calendar", "to-do:", "gotta remember to"."""
+    from assistant.intent.rule_parser import RuleBasedParser
+    rp = RuleBasedParser(registry_with_real_actions)
+    def title(t):
+        i = rp.analyze(t, current_view="month").intents[0][1]
+        return getattr(i, "title", None) or (getattr(i, "titles", None) or [""])[0]
+    assert title("tonight at 9:15 put in retrospective") == "retrospective"
+    assert title("circle in five days on the calendar for the tax deadline") == "the tax deadline"
+    assert title("block off the whole day march 5th for wedding rehearsal") == "wedding rehearsal"
+    assert title("please to add open house in calendar in five days noon") == "open house"
+    assert title("to-do: file the taxes") == "file the taxes"
+    assert title("i gotta remember to pay the electricity bill") == "pay the electricity bill"
