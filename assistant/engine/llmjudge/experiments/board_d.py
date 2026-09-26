@@ -164,6 +164,15 @@ def main() -> int:
     ap.add_argument("--resume", action="store_true",
                     help="resume the checkpoint of a run that died mid-way at this commit")
     ap.add_argument("--fresh", action="store_true", help="(the default now; kept for old notes)")
+    # THE FRONT DOOR IS BYPASSED BY DEFAULT: this board calls `parse` and
+    # `judge`, the deep chain, because the loop it A/Bs lives there. So its
+    # full scoring described the deep track alone — "40.8% needed a model
+    # call" was not what a user gets, since production commits ~41% of real
+    # commands on the front door first (2026-09-25). `--product` runs a row
+    # the way `Engine.run` does: the fast track, and the deep chain only when
+    # it declines. A product run wants its own --checkpoint name.
+    ap.add_argument("--product", action="store_true",
+                    help="front door first, as production does (default: the deep chain only)")
     ap.add_argument("--split", choices=("train", "test"), default="train",
                     help="test prints AGGREGATES ONLY and never a row (the sealed rule)")
     a = ap.parse_args()
@@ -178,6 +187,8 @@ def main() -> int:
     from assistant.engine.llmjudge import rewrite as _rw
     from assistant.engine.state import EngineState
     from assistant.engine.llmjudge.datasets.generate import CLOCK
+    from assistant.engine.fastrule import fast_track as _fast_track
+    from assistant.engine.decompose_validate import stage as _dv_stage
 
     cfg = engine.load_config()
     try:
@@ -216,11 +227,15 @@ def main() -> int:
         st = EngineState(raw_text=row["text"], text=row["text"], source="test")
         t0 = _time.time()
         try:
-            eng.parse(st, cfg)
-            eng.judge(st, cfg)
+            if a.product and cfg.engine.fast_track and _fast_track.fast_propose(st, cfg):
+                _dv_stage.run_objects(st, cfg)
+            else:
+                eng.parse(st, cfg)
+                eng.judge(st, cfg)
         except Exception:
             return None, 0, int((_time.time() - t0) * 1000)
         last["objs"], last["llm_ms"] = _objects(st), int(getattr(st, "llm_ms", 0) or 0)
+        last["path"] = getattr(st, "parse_path", None) or "deep"
         reentries = sum((getattr(st, "retries", None) or {}).values())
         # H6 (PLAN §7.5): did the MODEL round of the rewrite fire on this row?
         # The attempt ledger lives in the state's fixes, rule `rewrite_model`.
@@ -260,7 +275,8 @@ def main() -> int:
                               cached.get("ms_on", 0), bool(cached.get("model_round")))
                 if cached.get("objs_on") is not None:
                     built[rid] = {"objs": cached["objs_on"], "ms": cached.get("ms_on", 0),
-                                  "llm_ms": cached.get("llm_ms_on", 0)}
+                                  "llm_ms": cached.get("llm_ms_on", 0),
+                                  "path": cached.get("path_on")}
                 continue
             _set_arm(False)
             off, _, ms_off = _run_one(r)
@@ -271,12 +287,13 @@ def main() -> int:
             results["on"][rid] = on
             extra[rid] = (reentries, ms_off, ms_on, model_round)
             built[rid] = {"objs": last.get("objs") or [], "ms": ms_on,
-                          "llm_ms": last.get("llm_ms", 0)}
+                          "llm_ms": last.get("llm_ms", 0), "path": last.get("path")}
             # On disk BEFORE the next row starts: a kill costs this row only.
             ck.record(rid, {"off": _as_json(off), "on": _as_json(on),
                             "reentries": reentries, "model_round": model_round,
                             "ms_off": ms_off, "ms_on": ms_on, "text": r["text"][:120],
-                            "objs_on": built[rid]["objs"], "llm_ms_on": built[rid]["llm_ms"]})
+                            "objs_on": built[rid]["objs"], "llm_ms_on": built[rid]["llm_ms"],
+                            "path_on": built[rid]["path"]})
     ck.finish()
 
     _rw.rewrite_for_retry = real_rewrite
@@ -381,6 +398,7 @@ def main() -> int:
                for k, d in by.items()},
         # THE ROWS, so any two runs can be compared on exactly the same ones.
         "row_ids": [str(r["id"]) for r in rows],
+        "mode": "product" if a.product else "deep chain",
         "metrics": _BM.as_record(full),
     }
     out_dir = pathlib.Path(__file__).resolve().parent / "runs"

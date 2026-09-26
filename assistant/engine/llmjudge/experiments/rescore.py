@@ -75,7 +75,7 @@ def rescore(name: str, only: "set | None" = None) -> dict:
         if objs is None:                        # legacy: rebuild what the pairs hold
             objs = [{"action": a, "title": t} for a, t in (on[str(r["id"])] or ())]
         built[str(r["id"])] = {"objs": objs, "ms": v.get("ms_on", 0),
-                               "llm_ms": v.get("llm_ms_on", 0)}
+                               "llm_ms": v.get("llm_ms_on", 0), "path": v.get("path_on")}
     correct = {rid: D._correct(on[rid], data[rid]) for rid in on}
     n_off = sum(D._correct(off[rid], data[rid]) for rid in off)
     fixed = sum(1 for rid in on if correct[rid] and not D._correct(off[rid], data[rid]))

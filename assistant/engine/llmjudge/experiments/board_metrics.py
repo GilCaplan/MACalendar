@@ -80,6 +80,8 @@ def score(rows: list, built: dict, correct: dict) -> dict:
         # --- SPEED
         (lat["model"] if b.get("llm_ms") else lat["none"]).append(b.get("ms", 0))
         c["model_rows"] += bool(b.get("llm_ms"))
+        c["path_known"] += b.get("path") is not None
+        c["fast_rows"] += b.get("path") == "fast"
         # --- STRUCTURE (creates only: the counts are what gold states)
         if act in _CREATES + ("mixed",):
             want_e, want_t = int(e.get("events") or 0), int(e.get("tasks") or 0)
@@ -202,7 +204,14 @@ def report(m: dict) -> None:
           + (" · ".join(f"{a} {n}" for a, n in m['destructive'].most_common()) or "none"))
     print(f"  RESTRAINT   question held back     {_pc(c['propose_held'], c['propose_n'])}")
     print(f"              vague target refused   {_pc(c['generic_refused'], c['generic_n'])}")
-    print(f"  SPEED       needed a model call    {_pc(c['model_rows'], c['rows'])}")
+    if c["path_known"]:
+        print(f"  SPEED       front door committed   {_pc(c['fast_rows'], c['path_known'])}"
+              + ("   <- the deep chain only: this run bypassed the front door"
+                 if not c["fast_rows"] else ""))
+        print(f"              needed a model call    {_pc(c['model_rows'], c['rows'])}")
+    else:
+        print(f"  SPEED       needed a model call    {_pc(c['model_rows'], c['rows'])}"
+              "   (path not recorded — before 2026-09-25 every run was the deep chain only)")
     lat = m["lat"]
     print(f"              latency p50/p95  with model {_pctile(lat['model'], .5):.1f}s / "
           f"{_pctile(lat['model'], .95):.1f}s   without {_pctile(lat['none'], .5):.2f}s / "
