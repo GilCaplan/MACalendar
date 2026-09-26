@@ -1684,6 +1684,20 @@ def _extract_temporal(span_text: str, today: datetime.date,
 _NOT_A_NAME = frozenset({"something", "someone", "somebody", "anything", "everything",
                          "nothing", "stuff", "things"})
 
+def _tagger_kind(text: str) -> "tuple[str, str]":
+    """(kind, path) from segmentation's tagger, on the words with their time
+    phrases taken out — the same split the deep chain hands it."""
+    from assistant.engine.segmentation.fastseg.fastseg import find_time_refs, tag_path
+    refs = find_time_refs(text or "")
+    words = text or ""
+    for r in sorted(refs, key=lambda r: -r.start):
+        words = words[:r.start] + " " + words[r.end:]
+    try:
+        return tag_path(" ".join(words.split()), " ".join(r.text for r in refs))
+    except Exception:
+        return "", "default"
+
+
 _ONLY_PART_OF_DAY = re.compile(
     r"(?:(?:on|for|in|to|by|until|till|at|around)\s+)?(?:this\s+|the\s+)?(?:tonight|morning|afternoon|evening|night|lunchtime)", re.I)
 
@@ -3704,7 +3718,32 @@ class RuleBasedParser:
 
             # Phase 3: Intent/domain routing
             action_name, _, domain_inferred, domain_material = _route_intent(span, current_view)
-            if action_name == "create_todo":
+            if action_name in ("create_event", "create_todo"):
+                # ONE READER FOR THE KIND (2026-09-26). The deep chain decides
+                # event-or-to-do with segmentation's tagger, which carries the
+                # rulings (Q25/Q26 a stated clock, Q47 no clock -> a to-do, a
+                # person -> an event, "remind me to" stays a to-do, a calendar
+                # destination is an event …). This router did not, and Board D
+                # run as production lost 16 train rows to it: "clean and
+                # organize the garage next monday", "block out tomorrow to
+                # return the library books, all day", "add walk the dog before
+                # march 5th" booked as events. When one of the tagger's RULES
+                # fired (its path is not the catch-all default) and it disagrees,
+                # its kind stands — BEFORE the encounter rule below, which is
+                # a ruling (Q47/Q50) and has the last word: the tagger reads
+                # "remind me to call Jordan" as a to-do.
+                # the words AS SAID: the tagger knows a name by its capital
+                # — so only where those words can be found: preprocessing may
+                # have rewritten the span ("i should see Robin" did), and the
+                # lowercased fallback loses every name.
+                _at = transcript.lower().find(span.text)
+                tk, tpath = (_tagger_kind(transcript[_at:_at + len(span.text)])
+                             if _at >= 0 else ("", "default"))
+                if tpath != "default" and tk in ("event", "task"):
+                    want = "create_event" if tk == "event" else "create_todo"
+                    if want != action_name:
+                        action_name, domain_inferred = want, False
+            if action_name in ("create_todo", "create_event"):
                 # Q47 (Gil, 2026-09-24): an encounter with a person — met,
                 # seen, called — is an event, day or no day ("call mum is an
                 # event at a default time like 9"). Checked HERE, on the words
@@ -3729,7 +3768,13 @@ class RuleBasedParser:
                     # the fast path instead of deferring for missing slots.
                     if not temporal.get("start_time"):
                         temporal["start_time"] = "09:00"
-                    if not temporal.get("date"):
+                    # ...only when NO day was said. A day the reader missed
+                    # ("talk to Casey a week on friday") is left missing, so
+                    # the command defers to the deep track rather than land on
+                    # today (2026-09-26: 21 train rows did, once the encounter
+                    # rule ran on events as well).
+                    from assistant.engine.decompose_validate.object_rules import _DAY_WORD_RE
+                    if not temporal.get("date") and not _DAY_WORD_RE.search(said):
                         now = datetime.datetime.now()
                         day = now.date() if now.hour < 9 else now.date() + datetime.timedelta(days=1)
                         temporal["date"] = day.isoformat()

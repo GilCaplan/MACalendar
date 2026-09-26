@@ -1352,3 +1352,15 @@ def test_a_needle_that_is_not_a_name_is_read_again(registry_with_real_actions):
     assert needle("tick feed the cat off my list") == "feed the cat"
     assert needle("cancel open house march 5th, something came up last minute") == "open house"
     assert needle("cancel my list, something came up") is None     # nothing to find: no guess
+
+
+def test_the_front_door_takes_the_kind_from_the_one_tagger(registry_with_real_actions):
+    """Q47 (no clock -> a to-do) through segmentation's tagger, and the
+    encounter ruling still has the last word (2026-09-26)."""
+    from assistant.intent.rule_parser import RuleBasedParser
+    rp = RuleBasedParser(registry_with_real_actions)
+    route = lambda t: rp.analyze(t, current_view="month").intents[0][0]
+    assert route("clean and organize the garage next monday") == "create_todo"
+    assert route("add walk the dog before march 5th") == "create_todo"
+    assert route("remind me to call Jordan the 30th") == "create_event"     # Q47/Q50
+    assert route("put client call on my calendar tomorrow between 2 and 4") == "create_event"
