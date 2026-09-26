@@ -1364,3 +1364,17 @@ def test_the_front_door_takes_the_kind_from_the_one_tagger(registry_with_real_ac
     assert route("add walk the dog before march 5th") == "create_todo"
     assert route("remind me to call Jordan the 30th") == "create_event"     # Q47/Q50
     assert route("put client call on my calendar tomorrow between 2 and 4") == "create_event"
+
+
+def test_a_vague_completion_is_refused_not_completed(registry_with_real_actions):
+    """"check off that appointment, it's done" kept the needle "that
+    appointment, it's", which the demonstrative arm of the generic-target veto
+    cannot match, and completed whatever it found; a pronoun needle ('this')
+    is dropped, never re-read (2026-09-26)."""
+    from assistant.engine.fastrule.fastrule import FastRule
+    from assistant.intent.rule_parser import RULE_THRESHOLD
+    fr = FastRule(RULE_THRESHOLD)
+    for t in ("check off that appointment, it's done", "check off this, it's done",
+              "blood test the day after tomorrow, cancel it"):
+        r = fr.run(t)
+        assert r.reason, (t, r.intents)            # deferred or refused, never committed

@@ -1684,6 +1684,7 @@ def _extract_temporal(span_text: str, today: datetime.date,
 _NOT_A_NAME = frozenset({"something", "someone", "somebody", "anything", "everything",
                          "nothing", "stuff", "things"})
 
+
 def _tagger_kind(text: str) -> "tuple[str, str]":
     """(kind, path) from segmentation's tagger, on the words with their time
     phrases taken out — the same split the deep chain hands it."""
@@ -3469,8 +3470,18 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
         if trimmed != cleaned and names_something(trimmed) and not _GENERIC_ENTRY.match(trimmed):
             cleaned = trimmed
         cleaned = re.sub(r"\s+(?:back|forward|up|off|out)$", "", cleaned, flags=re.I)
-        if cleaned and cleaned != mt and names_something(cleaned):
+        # The quote and the comma always go, even when what is left names
+        # nothing: then it is the generic-target veto's to refuse. Keeping the
+        # dirty needle hid it — "check off that appointment, it's done" kept
+        # "that appointment, it's", which the demonstrative arm cannot match,
+        # and completed whatever it found (Board D run as production,
+        # 2026-09-26: 5 of the 14 vague targets it committed).
+        if cleaned and cleaned != mt:
             slots["match_title"] = cleaned
+        # A PRONOUN is left as it is: the generic-target veto REFUSES it (a
+        # verdict the deep track may resolve but never overturn), and
+        # anaphora ("move it to friday") resolves it. Dropping one turned both
+        # into a plain deferral (2026-09-26, caught by their tests).
 
     return slots
 
