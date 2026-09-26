@@ -1965,6 +1965,34 @@ _ROUTE_OVERRIDES = [
 ]
 
 
+#: "mark <something> (down) as <occasion>" — not "as done".
+_MARK_AS = re.compile(
+    r"^\s*(?:please\s+)?(?:can\s+you\s+)?(?:mark|label|note|circle)\s+(?P<what>.+?)\s+"
+    r"(?:down\s+)?as\s+(?!(?:done|complete|completed|finished|high|low|medium)\b)", re.I)
+
+
+def _marks_a_day(span_text: str) -> bool:
+    """"mark in two days as the school holiday", "mark a week from today down
+    as my birthday": what is MARKED is a day, so this makes a calendar entry.
+    The date-word override below knew "the 3rd", "friday", "tomorrow" and so
+    on by name, and every other date phrase fell to the verb "mark" and was
+    committed complete_todo — 12 rows of the FastRule 7,200 train half
+    (2026-09-25). The words between "mark" and "as" are read by the time
+    finder instead of a list: when a date is ALL they say, it is a day."""
+    m = _MARK_AS.match(span_text or "")
+    if not m:
+        return False
+    what = m.group("what")
+    from assistant.engine.segmentation.fastseg.fastseg import find_time_refs
+    refs = [r for r in find_time_refs(what) if r.kind == "date"]
+    if not refs:
+        return False
+    left = what
+    for r in sorted(refs, key=lambda r: -r.start):
+        left = left[:r.start] + " " + left[r.end:]
+    return not re.sub(r"\b(?:on|for|the|my|down|off)\b|[\s,]", "", left, flags=re.I)
+
+
 def _route_intent(span, current_view: str) -> tuple[str | None, str, bool, bool]:
     """Route a span to an (action_name, domain, domain_inferred, domain_material) tuple.
 
@@ -1980,6 +2008,8 @@ def _route_intent(span, current_view: str) -> tuple[str | None, str, bool, bool]
     span_words = set(re.findall(r"\w+", span_text))
 
     # --- Phrase-level overrides (checked before verb heuristics) ---
+    if _marks_a_day(span_text):
+        return "create_event", "calendar", False, False
     for pat, action in _ROUTE_OVERRIDES:
         if pat.search(span_text):
             return action, ("todo" if "todo" in action else "calendar"), False, False

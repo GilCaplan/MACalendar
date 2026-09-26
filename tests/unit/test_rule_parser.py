@@ -1302,3 +1302,15 @@ def test_keeping_a_day_clear_for_something_books_it(registry_with_real_actions):
     name, intent = rp.analyze("keep today clear for performance review, the whole day",
                               current_view="month").intents[0]
     assert (name, intent.title) == ("create_event", "performance review")
+
+
+def test_marking_a_day_as_an_occasion_makes_an_entry(registry_with_real_actions):
+    """What is marked is a DAY, read by the time finder rather than a word
+    list: 12 of these were committed complete_todo on the FastRule 7,200
+    train half (2026-09-25). Completions keep their route."""
+    from assistant.intent.rule_parser import RuleBasedParser
+    rp = RuleBasedParser(registry_with_real_actions)
+    route = lambda t: rp.analyze(t, current_view="month").intents[0][0]
+    assert route("mark in two days down as the school holiday") == "create_event"
+    assert route("mark a week from today down as my birthday") == "create_event"
+    assert route("mark buy groceries as done") == "complete_todo"
