@@ -151,6 +151,15 @@ def main() -> int:
     # SERIES CADENCE (2026-09-25): no line read it, so "every weekend" booked
     # as a one-off was invisible here — Board D run as production found it.
     CD_N = CD_OK = 0
+    # UPDATE / DELETE / COMPLETE, beyond the verb family (2026-09-25). The
+    # atomic check accepts any action of the right FAMILY, so delete_event
+    # for a to-do and a target named 'tick' or 'something' both read as
+    # right. Two lines: the KIND (event vs to-do) and the TARGET's word F1
+    # against the gold title.
+    OP_N = OP_KIND = 0
+    OP_TN = 0
+    OP_TF = 0.0
+    op_miss: list = []
     cd_miss: list = []
     # WHAT LEAKED IN, by class — aggregate only, so it can be read on the TEST
     # half too, where rows may never be looked at. A train/test precision gap
@@ -234,6 +243,19 @@ def main() -> int:
             ev = sum(1 for n, _ in res.intents if n == "create_event")
             td = sum(1 for n, _ in res.intents if n == "create_todo")
             names = [n for n, _ in res.intents]
+            if act.startswith(("update", "delete", "complete")):
+                fam = [(n, i) for n, i in res.intents if n.split("_")[0] == act.split("_")[0]]
+                if len(fam) == 1:
+                    n0, i0 = fam[0]
+                    OP_N += 1
+                    OP_KIND += n0 == act
+                    want_t = (e.get("slots") or {}).get("title") or ""
+                    if want_t and not (e.get("slots") or {}).get("generic_target"):
+                        got_t0 = str(getattr(i0, "match_title", None) or getattr(i0, "title", None) or "")
+                        OP_TN += 1
+                        OP_TF += token_prf(want_t, got_t0)[2]
+                        if mining and token_prf(want_t, got_t0)[2] < 1.0:
+                            op_miss.append((n0, want_t, got_t0, r["text"]))
             if act in ("create_event", "create_todo"):
                 ok = ev >= e.get("events", 0) and td >= e.get("tasks", 0)
             elif act == "query":
@@ -433,6 +455,12 @@ def main() -> int:
         print(f"   ...and it was the right day {pc(B_RIGHT, B_RIGHT_N)}  (n={B_RIGHT_N}; "
               f"range phrases excluded, same reason as dates)")
         print(f"   FIRES FOREVER            {B_FOREVER}  <- a series committed with no end")
+    if OP_N:
+        print(f"\nUPDATE / DELETE / COMPLETE (committed atomic, right verb family)")
+        print(f"   right kind, event/to-do  {pc(OP_KIND, OP_N)}  (n={OP_N})")
+        if OP_TN:
+            print(f"   target word F1           {100.0 * OP_TF / OP_TN:.1f}%  (n={OP_TN}; "
+                  f"the words that FIND the record — 'tick', 'something' score 0)")
     if CD_N:
         print(f"\nSERIES CADENCE (committed events whose gold repeats)")
         print(f"   cadence right            {pc(CD_OK, CD_N)}  (n={CD_N})")
@@ -497,6 +525,10 @@ def main() -> int:
         print("\n(test split: aggregates only — leakage guard)")
         return 0
     print("\n--- mining (train only) ---")
+    if op_miss:
+        print(f"target misses ({len(op_miss)}):")
+        for n0, want_t, got_t0, text in op_miss[:15]:
+            print(f"   {n0:14s} want {want_t[:24]!r:26s} got {got_t0[:24]!r:26s} | {text[:60]}")
     if cd_miss:
         print(f"cadence misses ({len(cd_miss)}):")
         for want, got, text in cd_miss[:12]:
