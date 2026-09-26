@@ -174,6 +174,13 @@ def _rule_max_duration_cap(state, intent, cfg) -> None:
     end = getattr(intent, "end_time", None)
     if not start or not end:
         return
+    # AN ALL-DAY EVENT IS NOT A LONG ONE. The whole-day block is written
+    # 00:00-23:59 (`CalendarIntent`), and this rule read it as a 24-hour span
+    # and clipped it to 00:00-04:00 — every "block out friday, all day" and
+    # "keep today clear for X, the whole day" booked on the fast path
+    # (Board D run as production, 2026-09-26).
+    if start[:5] == "00:00" and end[:5] == "23:59":
+        return
     try:
         sh, sm = map(int, start.split(":"))
         eh, em = map(int, end.split(":"))

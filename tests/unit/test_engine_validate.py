@@ -209,6 +209,17 @@ def test_an_unresolved_end_before_start_is_not_this_rules_to_fix(cfg):
     assert "max_duration_cap" not in _rules_applied(st)
 
 
+def test_an_all_day_event_is_not_clipped(cfg):
+    """00:00-23:59 is the whole-day block, not a 24-hour construction: it was
+    clipped to 00:00-04:00 on every fast-path "all day" (2026-09-26)."""
+    it = _item("create_event", _event_intent(
+        title="moving day", date="2026-09-10", start_time="00:00", end_time="23:59"))
+    st = _state("block out tomorrow for moving day, all day", [it])
+    validate.run_objects(st, cfg)
+    assert (it.intent.start_time, it.intent.end_time) == ("00:00", "23:59")
+    assert "max_duration_cap" not in _rules_applied(st)
+
+
 # --- quiet_hours_flag (engine-built events only, config: engine.quiet_hours_start/_end) --
 
 def test_a_start_time_inside_quiet_hours_is_flagged_not_changed(cfg):
