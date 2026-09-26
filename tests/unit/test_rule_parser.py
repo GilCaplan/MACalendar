@@ -1314,3 +1314,12 @@ def test_marking_a_day_as_an_occasion_makes_an_entry(registry_with_real_actions)
     assert route("mark in two days down as the school holiday") == "create_event"
     assert route("mark a week from today down as my birthday") == "create_event"
     assert route("mark buy groceries as done") == "complete_todo"
+
+
+def test_a_plural_domain_word_is_a_domain_signal(registry_with_real_actions):
+    """"from my tasks" carried no signal (the set held only "task"), so 14
+    "drop X from my tasks" rows deleted an event (2026-09-25)."""
+    from assistant.intent.rule_parser import RuleBasedParser
+    rp = RuleBasedParser(registry_with_real_actions)
+    assert rp.analyze("drop water the plants from my tasks",
+                      current_view="month").intents[0][0] == "delete_todo"

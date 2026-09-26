@@ -448,12 +448,18 @@ _CALENDAR_SIGNALS = frozenset({
     "meeting", "event", "appointment", "sync", "standup", "stand-up",
     "interview", "session", "class", "lecture", "conference", "call",
     "seminar", "webinar", "calendar", "agenda", "schedule",
+    "meetings", "events", "appointments", "sessions", "classes", "lectures",
+    "conferences", "seminars", "webinars",
 })
 
 # Words that strongly signal the todo/task domain
 _TODO_SIGNALS = frozenset({
     "task", "todo", "to-do", "reminder", "list", "grocery", "groceries",
     "errand", "chore", "shopping", "item", "priority", "subtask",
+    # THE PLURALS (2026-09-25): the span is split on \w+, so "from my tasks"
+    # carried no signal at all and fell to the view's domain — 14 "drop X
+    # from my tasks" rows of the FastRule 7,200 train half deleted an EVENT.
+    "tasks", "todos", "reminders", "lists", "errands", "chores", "items",
 })
 
 # Scope keywords for query_schedule
