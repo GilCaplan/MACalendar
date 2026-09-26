@@ -148,6 +148,10 @@ def main() -> int:
     # recall and F1, so "checkup" for "annual checkup" scores 0.67, not 0.
     T_P = T_R = T_F = 0.0
     RG_N = RG_OK = 0                  # spoken RANGES, start AND end (gold.ruled_range)
+    # SERIES CADENCE (2026-09-25): no line read it, so "every weekend" booked
+    # as a one-off was invisible here — Board D run as production found it.
+    CD_N = CD_OK = 0
+    cd_miss: list = []
     # WHAT LEAKED IN, by class — aggregate only, so it can be read on the TEST
     # half too, where rows may never be looked at. A train/test precision gap
     # is either a defect that did not generalise or a gold CONVENTION the test
@@ -190,6 +194,8 @@ def main() -> int:
                             B_RIGHT += 1 if str(_until) == _want else 0
                     elif _rec:
                         B_FOREVER += 1      # a series with no end. The defect.
+                        if mining:
+                            cd_miss.append(("ENDLESS", _rec, r["text"]))
             if act == "propose":
                 if committed:
                     P_COMMIT += 1
@@ -265,6 +271,13 @@ def main() -> int:
                               if n == "create_event"), None)
                 got_t = str(getattr(first, "start_time", "") or "")
                 phrase = (e.get("slots", {}) or {}).get("time_phrase") or ""
+                want_cd = (e.get("slots", {}) or {}).get("recurrence_rounded")
+                if want_cd and first is not None:
+                    got_cd = getattr(first, "recurrence", None)
+                    CD_N += 1
+                    CD_OK += got_cd == want_cd
+                    if mining and got_cd != want_cd:
+                        cd_miss.append((want_cd, got_cd, r["text"]))
                 rg = ruled_range(phrase, r["text"]) if phrase else None
                 if rg and rg[0] != CONTRADICTORY and _HHMM.match(got_t):
                     got_rg = (got_t, str(getattr(first, "end_time", "") or ""))
@@ -420,6 +433,9 @@ def main() -> int:
         print(f"   ...and it was the right day {pc(B_RIGHT, B_RIGHT_N)}  (n={B_RIGHT_N}; "
               f"range phrases excluded, same reason as dates)")
         print(f"   FIRES FOREVER            {B_FOREVER}  <- a series committed with no end")
+    if CD_N:
+        print(f"\nSERIES CADENCE (committed events whose gold repeats)")
+        print(f"   cadence right            {pc(CD_OK, CD_N)}  (n={CD_N})")
     if T_SCORED:
         print(f"\nTITLE CORRECTNESS (committed creates whose gold names a title)")
         print(f"   word F1 (similarity)     {100.0 * T_F / T_SCORED:.1f}%  "
@@ -481,6 +497,10 @@ def main() -> int:
         print("\n(test split: aggregates only — leakage guard)")
         return 0
     print("\n--- mining (train only) ---")
+    if cd_miss:
+        print(f"cadence misses ({len(cd_miss)}):")
+        for want, got, text in cd_miss[:12]:
+            print(f"   want {want:8s} got {str(got):8s} | {text[:80]}")
     if t_miss:
         print(f"time misses ({len(t_miss)}), by phrase:")
         seen = collections.Counter(m[0] for m in t_miss)
