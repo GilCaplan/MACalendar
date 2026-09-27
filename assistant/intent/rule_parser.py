@@ -2051,15 +2051,19 @@ _CHANGE_VERBS = frozenset({"update", "edit", "change", "rename", "move"})
 #: families committed a create that way. A create read over one of these
 #: frames is not committed (see its use in `analyze`).
 _MUTATION_FRAME = re.compile(
-    r"\b(?:delete|remove|wipe|scrap|drop|erase|strike|axe|yank|clear|take|cross)\s+(?:it|that|this|them)\b"
-    r"|\b(?:from|off)\s+(?:my|the)\s+(?:to-?do\s+)?(?:list|tasks?|to-?dos?)\b"
-    r"|\bno\s+longer\s+need|\bnot\s+needed\b|\bwon'?t\s+be\s+doing\b|\bnever\s+mind\b"
-    r"|\bforget\s+(?:it|about\s+it)\b"
-    r"|,\s*(?:done|finished|sorted|all\s+done)\s*[.!]?$"
-    r"|\b(?:is|are)\s+(?:done|finished|sorted|complete|completed)\b"
-    r"|\btick\s+(?:it|that)\s+off\b|\bmark\s+(?:it|that)\s+(?:as\s+)?(?:done|complete)\b"
-    r"|\bwrapped\s+up\b|\bknocked\s+out\b|\bdone\s+and\s+dusted\b"
-    r"|\b(?:update|rename|retitle|change|edit)\s+(?:it|that)\b|\bto\s+say\b|\bis\s+due\b.*\bnow\b",
+    # Every alternative is traced to a TRAIN family, and only to one: the
+    # first version (3b001720) also carried words read off TEST rows, which
+    # the sealed rule forbids, and they were taken out the same day.
+    r"\b(?:delete|remove|wipe)\s+(?:it|that)\b"            # c_tr_x_dt_no_longer
+    r"|\bfrom\s+(?:my|the)\s+(?:to-?do\s+)?list\b"        # c_tr_x_dt_no_longer, s_tr_dt_wipe_wont_do
+    r"|\bremove\s+from\s+(?:the\s+)?list\b"             # s_tr_dt_not_needed
+    r"|\bno\s+longer\s+need\b|\bnot\s+needed\b"         # c_tr_x_dt_no_longer, s_tr_dt_not_needed
+    r"|\bwon'?t\s+be\s+doing\b"                          # s_tr_dt_wipe_wont_do
+    r"|,\s*done\s*[.!]?$"                                  # s_tr_co_terse_done
+    r"|\bis\s+sorted\b|\btick\s+it\s+off\b"             # s_tr_co_uk_sorted
+    r"|\b(?:update|rename)\s+it\b"                         # s_tr_ut_due_now, c_tr_x_ut_rename_it
+    r"|\bto\s+say\b"                                      # s_tr_ut_change_to_say
+    r"|\bis\s+due\b.*\bnow\b",                            # s_tr_ut_due_now
     re.I)
 
 
