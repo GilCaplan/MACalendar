@@ -805,7 +805,12 @@ def resolve_until(said: str, anchor: dt.date) -> "str | None":
     if not bound:
         return None
     d = dt.date.fromisoformat(bound)
-    if m.group(1) in _EXCLUSIVE:
+    # "until THE END OF october" names the final day — the project's one
+    # exception to "until excludes its day" (CLAUDE.md: that phrase names the
+    # final day, not a boundary past it), and the front door's reading
+    # (`rule_parser._BOUND_END_OF`). This read it as the 30th (2026-09-26).
+    names_the_last_day = re.match(r"\s*(?:the\s+)?end\s+of\b", m.group(2))
+    if m.group(1) in _EXCLUSIVE and not names_the_last_day:
         d -= dt.timedelta(days=1)
     return d.isoformat()
 

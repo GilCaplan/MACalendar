@@ -76,3 +76,13 @@ def test_a_range_is_read_to_its_end_clock_not_to_the_end_of_the_sentence():
                        ("from 3 to 4pm", ("15:00", "16:00"))]:
         v = R.resolve(said, day, said, action=said)
         assert (v["start_time"], v["end_time"]) == want, said
+
+
+def test_until_the_end_of_a_month_names_its_last_day():
+    """CLAUDE.md: "until" excludes the day it names — except "until the end of
+    <month>", which names the final day. The resolver read it as the 30th."""
+    import datetime as dt
+    from assistant.engine.decompose_validate.resolve import resolve_until
+    day = dt.date(2026, 9, 26)
+    assert resolve_until("every monday until the end of october", day) == "2026-10-31"
+    assert resolve_until("weekly until october 31", day) == "2026-10-30"
