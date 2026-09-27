@@ -278,10 +278,18 @@ def main() -> int:
                                   "llm_ms": cached.get("llm_ms_on", 0),
                                   "path": cached.get("path_on")}
                 continue
+            # EACH ARM OF EACH ROW STARTS AT CLOCK (2026-09-26). One ticking
+            # freeze around the whole run let its clock run on with the wall:
+            # a run that paused 15 hours while the Mac slept booked every row
+            # after the pause a day late — date right 95.8% before the pause,
+            # 52.5% after (n=192 / 141, board_d_product_04810fae). Ticking is
+            # kept inside a row so latency still reads.
             _set_arm(False)
-            off, _, ms_off = _run_one(r)
+            with freeze_time(CLOCK, tick=True):
+                off, _, ms_off = _run_one(r)
             _set_arm(True)
-            on, packed, ms_on = _run_one(r)
+            with freeze_time(CLOCK, tick=True):
+                on, packed, ms_on = _run_one(r)
             reentries, model_round = packed % 1000, packed >= 1000
             results["off"][rid] = off
             results["on"][rid] = on
