@@ -631,6 +631,10 @@ SEVERAL weekdays** — `recur_days` carries them ("every tuesday and thursday");
 that is WHICH days a weekly series lands on, not a fourth cadence — "every other tuesday" became
 one event before anyone noticed, and "every weekday" books Shabbat.
 
+**A series the engine builds with no end said gets a DEFAULT end** (DEVQA Q57):
+daily 2 weeks, weekly 8, monthly 12 months, yearly 10 years — settings, and the
+reply says so. A stated end always wins.
+
 **"until" excludes the day it names; "through" and "including" keep it.**
 English supports both readings, so the project picks one and applies it
 everywhere rather than guessing per sentence. "until the end of September" is

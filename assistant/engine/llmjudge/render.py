@@ -206,6 +206,12 @@ def _is_derived_end(attr: str, intent) -> bool:
     through the ordinary path; when they said "three to five" the value is not
     start+1h and it survives too.
     """
+    # A SERIES' DEFAULT END (DEVQA Q57) is the same kind of thing: a setting
+    # applied because nothing was said, marked on the intent by the rule that
+    # set it — "standup daily at 9am" was reported "recur_until … nothing in the
+    # words said it" (2026-09-26).
+    if attr == "recur_until":
+        return bool(getattr(intent, "series_end_defaulted", False))
     if attr not in ("end_time", "new_end_time"):
         return False
     start = getattr(intent, "start_time", None) or getattr(intent, "new_start_time", None)

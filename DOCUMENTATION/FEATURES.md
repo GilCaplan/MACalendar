@@ -1512,6 +1512,15 @@ announcement is `_rule_cadence_round_and_announce`
 is `decompose_validate/text_helpers.py:35-43` (`unsupported_cadence`, `:98`).
 **How:** Series instances materialise as rows sharing `series_id`; observance
 skipping applies per instance at creation.
+**A default end** (DEVQA Q57, 2026-09-26): a series the ENGINE builds with no
+end said stops after daily 14 days, weekly 8 weeks, monthly 12 months, yearly
+10 years — `events.series_end_*` in config.yaml, served and written by
+`GET/PATCH /config` — and the reply names the end and says it is the default.
+A stated "until/through" always wins; a series made by hand in the app is
+untouched (the DB's own horizon still applies there). Read by
+`event_defaults.series_default_until`, applied by
+`object_rules._rule_series_default_end`; the judge treats a defaulted end as
+derived, not invented (`llmjudge/render._is_derived_end`).
 **The fourth cadence** (Gil, 2026-09-08; `61f2fe6`): rounding a yearly ask to
 monthly is 12× wrong and fires eleven times nobody asked for, so `yearly` is a
 real cadence rather than a rounding. `db.py:495-504` steps it from the ANCHOR

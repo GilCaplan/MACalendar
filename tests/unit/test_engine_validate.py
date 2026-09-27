@@ -609,3 +609,39 @@ def test_a_new_list_goes_to_general_on_the_deep_path_too():
         engine.Engine().parse(st2, cfg)
         assert [getattr(i.intent, "list_name", None) for i in st2.items
                 if i.intent is not None] == ["today"]
+
+
+# --- series default end (DEVQA Q57) -------------------------------------------
+
+def test_a_series_with_no_end_gets_the_cadence_default(cfg):
+    """Gil, 2026-09-26: daily 2 weeks, weekly 8 weeks, monthly 12 months,
+    yearly 10 years — the number is how many times it happens."""
+    for cadence, start, until in [("daily", "2026-09-28", "2026-10-11"),
+                                  ("weekly", "2026-09-28", "2026-11-22"),
+                                  ("monthly", "2026-09-28", "2027-09-27"),
+                                  ("yearly", "2026-09-28", "2036-09-27")]:
+        it = _item("create_event", _event_intent(
+            title="gym", date=start, start_time="07:00", end_time="08:00", recurrence=cadence),
+            text="gym")
+        st = _state("gym", [it])
+        validate.run_objects(st, cfg)
+        assert it.intent.recur_until == until, cadence
+        assert it.intent.series_end_defaulted is True
+        assert "series_default_end" in _rules_applied(st)
+
+
+def test_a_stated_series_end_wins(cfg):
+    it = _item("create_event", _event_intent(
+        title="gym", date="2026-09-28", start_time="07:00", end_time="08:00",
+        recurrence="weekly", recur_until="2026-10-31"), text="gym every monday through october 31")
+    st = _state("gym every monday through october 31", [it])
+    validate.run_objects(st, cfg)
+    assert it.intent.recur_until == "2026-10-31"
+    assert "series_default_end" not in _rules_applied(st)
+
+
+def test_the_judge_does_not_call_a_default_end_invented():
+    from types import SimpleNamespace
+    from assistant.engine.llmjudge.render import _is_derived_end
+    assert _is_derived_end("recur_until", SimpleNamespace(series_end_defaulted=True))
+    assert not _is_derived_end("recur_until", SimpleNamespace(series_end_defaulted=False))

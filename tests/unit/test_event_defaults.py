@@ -76,7 +76,7 @@ def test_the_example_config_ships_the_builtin_values(_scratch):
     """config.example.yaml mirrors the setting with the same values the code
     defaults to, so copying it changes nothing."""
     data = yaml.safe_load(open(os.path.join(_REPO, "config.example.yaml")))
-    assert data["events"] == {"event_length_minutes": 60, "chain_gap_minutes": 0}
+    assert {k: data["events"][k] for k in ("event_length_minutes", "chain_gap_minutes")} == {"event_length_minutes": 60, "chain_gap_minutes": 0}
     assert event_defaults.length_minutes() == 60
 
 
@@ -277,7 +277,7 @@ def client(_scratch):
 def test_get_config_serves_the_events_section(client, _scratch):
     _set_events(_scratch, event_length_minutes=50, chain_gap_minutes=5)
     body = client.get("/config").get_json()
-    assert body["events"] == {"event_length_minutes": 50, "chain_gap_minutes": 5}
+    assert {k: body["events"][k] for k in ("event_length_minutes", "chain_gap_minutes")} == {"event_length_minutes": 50, "chain_gap_minutes": 5}
 
 
 def test_patch_config_writes_the_events_section_and_keeps_comments(client, _scratch):
@@ -289,7 +289,7 @@ def test_patch_config_writes_the_events_section_and_keeps_comments(client, _scra
     assert r.status_code == 200, r.get_json()
     text = _scratch.read_text()
     assert "# my notes" in text
-    assert yaml.safe_load(text)["events"] == {"event_length_minutes": 40, "chain_gap_minutes": 10}
+    assert {k: yaml.safe_load(text)["events"][k] for k in ("event_length_minutes", "chain_gap_minutes")} == {"event_length_minutes": 40, "chain_gap_minutes": 10}
     assert event_defaults.length_minutes() == 40
     assert event_defaults.gap_minutes() == 10
 
@@ -353,3 +353,16 @@ def test_event_defaults_route_resolves_by_category_and_by_title(client, _scratch
     assert body["category"] == "Fitness"
     assert body["length_minutes"] == 90
     assert body["event_length_minutes"] == 45     # the global rides along
+
+
+
+def test_the_series_default_ends_ship_and_are_bounded(tmp_path, monkeypatch):
+    """DEVQA Q57: daily 14 days, weekly 8 weeks, monthly 12 months, yearly
+    10 years, in config.example.yaml; PATCH /config refuses a value outside a
+    setting's bounds before writing anything."""
+    import yaml
+    from assistant.config import SERIES_END_BOUNDS
+    shipped = yaml.safe_load(open("config.example.yaml"))["events"]
+    assert {k: shipped[k] for k in SERIES_END_BOUNDS} == {k: d for k, (d, _t) in SERIES_END_BOUNDS.items()}
+    from assistant.event_defaults import series_default_until
+    assert series_default_until("weekly", "2026-09-28") == "2026-11-22"

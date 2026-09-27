@@ -108,3 +108,52 @@ def _config_value(key: str) -> "int | None":
         return None if value is None else max(0, int(value))
     except (TypeError, ValueError):
         return None
+
+
+# ---------------------------------------------------------------------------
+# A SERIES WITH NO END GETS A DEFAULT ONE (DEVQA Q57, Gil 2026-09-26)
+# ---------------------------------------------------------------------------
+
+#: cadence -> (config key, built-in count). The count is in the cadence's own
+#: unit, so it is also how many times the series happens.
+SERIES_END = {
+    "daily": ("series_end_daily_days", 14),
+    "weekly": ("series_end_weekly_weeks", 8),
+    "monthly": ("series_end_monthly_months", 12),
+    "yearly": ("series_end_yearly_years", 10),
+}
+
+
+def series_count(cadence: str) -> "int | None":
+    """How many times a series of this cadence runs when no end was said."""
+    spec = SERIES_END.get((cadence or "").lower())
+    if not spec:
+        return None
+    value = _config_value(spec[0])
+    return max(1, value) if value else spec[1]
+
+
+def series_default_until(cadence: str, start: str) -> "str | None":
+    """The LAST date a series starting on `start` (ISO) may land on when the
+    speaker named no end — the day before the span runs out, so "weekly, 8"
+    is eight Mondays, not nine. None for a cadence without a default."""
+    import calendar
+    import datetime as dt
+    n = series_count(cadence)
+    if not n or not start:
+        return None
+    try:
+        d0 = dt.date.fromisoformat(str(start)[:10])
+    except ValueError:
+        return None
+    c = cadence.lower()
+    if c == "daily":
+        end = d0 + dt.timedelta(days=n)
+    elif c == "weekly":
+        end = d0 + dt.timedelta(weeks=n)
+    else:
+        months = n if c == "monthly" else 12 * n
+        y, m = divmod(d0.month - 1 + months, 12)
+        y, m = d0.year + y, m + 1
+        end = dt.date(y, m, min(d0.day, calendar.monthrange(y, m)[1]))
+    return (end - dt.timedelta(days=1)).isoformat()

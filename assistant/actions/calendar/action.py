@@ -71,7 +71,14 @@ class CreateEventAction(BaseAction):
         context_memory.update_event(event_id, intent.title, intent.date)
 
         if intent.recurrence:
-            return f"Created recurring {intent.recurrence} event '{intent.title}' starting on {_fmt_date(intent.date)}."
+            reply = (f"Created recurring {intent.recurrence} event '{intent.title}' "
+                     f"starting on {_fmt_date(intent.date)}")
+            if intent.recur_until:
+                reply += f", until {_fmt_date(intent.recur_until)}"
+                if getattr(intent, "series_end_defaulted", False):
+                    # DEVQA Q57: a default end is announced, never silent
+                    reply += " — the default end; say \"until …\" to change it"
+            return reply + "."
         reply = f"Created event '{intent.title}' on {_fmt_date(intent.date)} from {_fmt_time(intent.start_time)} to {_fmt_time(intent.end_time)}."
         if _files_linked_todo(intent):
             db.create_linked_todo(event_id)

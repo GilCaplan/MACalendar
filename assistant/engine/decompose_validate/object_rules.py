@@ -176,6 +176,25 @@ def _states_its_end(spoken: str) -> bool:
             or bool(_STATED_END.search(spoken)) or bool(resolve_duration(spoken)))
 
 
+def _rule_series_default_end(state, intent) -> None:
+    """A SERIES WITH NO END GETS A DEFAULT ONE (DEVQA Q57, Gil 2026-09-26:
+    *"there should be an end limit, a default"* — daily 2 weeks, weekly 8
+    weeks, monthly 12 months, yearly 10 years, each a setting). A stated end
+    ("until …", "through …") always wins; this fills only an empty one, on
+    what the ENGINE builds — a series made by hand in the app is untouched."""
+    cadence = getattr(intent, "recurrence", None)
+    if not cadence or getattr(intent, "recur_until", None) or not getattr(intent, "date", None):
+        return
+    from assistant.event_defaults import series_count, series_default_until
+    until = series_default_until(cadence, intent.date)
+    if not until:
+        return
+    intent.recur_until = until
+    intent.series_end_defaulted = True
+    state.add_fix("validate", "series_default_end", "", until,
+                  note=f"no end said — a {cadence} series runs {series_count(cadence)} times by default")
+
+
 def _rule_max_duration_cap(state, intent, cfg, spoken: str = "") -> None:
     """A ceiling on what the ENGINE ITSELF builds. `engine.max_event_hours`
     (default 4) — a `create_event` this stage produced longer than that is

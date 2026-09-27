@@ -218,6 +218,11 @@ engine:
 events:
   event_length_minutes: 60   # an event with no end said lasts this long
   chain_gap_minutes: 0       # "gym at 9, then lunch": lunch starts this long after the gym ends
+  # A repeating event with no end said stops after this many (DEVQA Q57):
+  series_end_daily_days: 14      # daily: 2 weeks
+  series_end_weekly_weeks: 8     # weekly: 8 weeks
+  series_end_monthly_months: 12  # monthly: a year
+  series_end_yearly_years: 10    # yearly: 10 years
 
 # Learned labellers (engine/label/). OFF by default: a model deciding an event's
 # category changes what lands on your calendar, so it ships behind a flag with

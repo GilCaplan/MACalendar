@@ -330,6 +330,36 @@ class EventsConfig(BaseModel):
     def _clamp_gap(cls, v):
         return _clamp_minutes(v, 0, low=0)
 
+    # A SERIES WITH NO END GETS A DEFAULT ONE (DEVQA Q57, Gil 2026-09-26: *"for
+    # daily up to 2 weeks default, for weekly up to 8 weeks, monthly up to 12
+    # months, yearly up to 10 years. can be changed in settings."*) — each in
+    # its own cadence's unit, so the number is also how many times it happens.
+    series_end_daily_days: int = 14
+    series_end_weekly_weeks: int = 8
+    series_end_monthly_months: int = 12
+    series_end_yearly_years: int = 10
+
+    @field_validator("series_end_daily_days", "series_end_weekly_weeks",
+                     "series_end_monthly_months", "series_end_yearly_years", mode="before")
+    @classmethod
+    def _clamp_series(cls, v, info):
+        default, top = SERIES_END_BOUNDS[info.field_name]
+        if isinstance(v, bool):
+            return default
+        try:
+            return max(1, min(top, int(v)))
+        except (TypeError, ValueError):
+            return default
+
+
+#: field -> (default, the most a setting may ask for). Bounded so a slip in
+#: Settings cannot write a series out for centuries.
+SERIES_END_BOUNDS = {
+    "series_end_daily_days": (14, 366),
+    "series_end_weekly_weeks": (8, 104),
+    "series_end_monthly_months": (12, 120),
+    "series_end_yearly_years": (10, 50),
+}
 
 #: The bounds every surface uses for the two event defaults (the Mac spin
 #: boxes, the phone's steppers, `PATCH /config`). A zero length is refused

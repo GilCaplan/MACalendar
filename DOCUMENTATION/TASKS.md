@@ -2045,7 +2045,7 @@ then ranges and the end of the month".
 Item 4 is closed: "from 5:30 to 7:45" is 17:30-19:45 on the front door since
 180fe909 (probed 2026-09-25).
 
-## Queued from DEVQA Q54–Q57 (2026-09-26)
+## Queued from DEVQA Q54–Q57 (2026-09-26) — Q54 done (c2142331), Q55/Q56 done (ae0d3467), Q57 engine + config + API done; its Mac and iPhone settings screens next
 
 Recorded in `DEVQA.md` but not built — none of the four has a matching code
 or dataset change as of this check:

@@ -1454,18 +1454,25 @@ def create_app() -> Flask:
         # what the client showed.
         events = data.get("events")
         if events is not None:
-            from assistant.config import MAX_EVENT_MINUTES, MIN_EVENT_LENGTH
+            from assistant.config import (MAX_EVENT_MINUTES, MIN_EVENT_LENGTH,
+                                          SERIES_END_BOUNDS)
             if not isinstance(events, dict):
                 return jsonify({"error": "events must be an object", "code": 400}), 400
-            lows = {"event_length_minutes": MIN_EVENT_LENGTH, "chain_gap_minutes": 0}
+            # (low, high, unit) per setting: the two event defaults in minutes,
+            # and the series' default ends (DEVQA Q57) in their cadence's unit.
+            bounds = {"event_length_minutes": (MIN_EVENT_LENGTH, MAX_EVENT_MINUTES, "minutes"),
+                      "chain_gap_minutes": (0, MAX_EVENT_MINUTES, "minutes"),
+                      **{k: (1, top, k.rsplit("_", 1)[-1])
+                         for k, (_d, top) in SERIES_END_BOUNDS.items()}}
             for sub, value in events.items():
-                if sub not in lows:
+                if sub not in bounds:
                     return jsonify({"error": f"events.{sub} is not a setting",
                                     "code": 400}), 400
+                low, high, unit = bounds[sub]
                 if (isinstance(value, bool) or not isinstance(value, int)
-                        or not lows[sub] <= value <= MAX_EVENT_MINUTES):
+                        or not low <= value <= high):
                     return jsonify({"error": f"events.{sub} must be a whole number of "
-                                    f"minutes from {lows[sub]} to {MAX_EVENT_MINUTES}",
+                                    f"{unit} from {low} to {high}",
                                     "code": 400}), 400
 
         for key, wren in data.items():

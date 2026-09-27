@@ -250,6 +250,7 @@ def run_objects(state: EngineState, cfg) -> EngineState:
             _obj._rule_junk_event_drop(state, item, intent, n_events, pairs)
             if item.intent is None:
                 continue
+            _obj._rule_series_default_end(state, intent)
             _obj._rule_max_duration_cap(
                 state, intent, cfg,
                 (getattr(item, "source", "") or "").strip()

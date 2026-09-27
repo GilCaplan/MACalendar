@@ -39,6 +39,9 @@ class CalendarIntent(BaseIntent):
     #: File a to-do linked to this event as well (DEVQA Q51: a to-do chained
     #: into a sequence is both). Set by decompose_validate, never by a model.
     linked_todo: bool = False
+    #: The series' end is the DEFAULT for its cadence, not something the
+    #: speaker said (DEVQA Q57) — the reply says so. Set by decompose_validate.
+    series_end_defaulted: bool = False
     attendees: List[str] = []             # names or email addresses
     location: Optional[str] = None
     description: Optional[str] = None

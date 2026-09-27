@@ -216,7 +216,7 @@ def test_typing_and_saving_writes_the_events_section(app, scratch):
 
     assert seen["typed"] == (45, 15), "the keys did not reach the spin boxes"
     data = yaml.safe_load(scratch.read_text())
-    assert data["events"] == {"event_length_minutes": 45, "chain_gap_minutes": 15}
+    assert {k: data["events"][k] for k in ("event_length_minutes", "chain_gap_minutes")} == {"event_length_minutes": 45, "chain_gap_minutes": 15}
     # The comments in the example survived the save.
     assert "# How long an event lasts when nobody said" in scratch.read_text()
     # ...and the engine's read sees it.
