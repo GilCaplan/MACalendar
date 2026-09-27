@@ -226,7 +226,19 @@ def main() -> int:
         breaks the net down by: how often the loop RAN, and what it cost."""
         st = EngineState(raw_text=row["text"], text=row["text"], source="test")
         t0 = _time.time()
+        last.clear()          # a row that raises must not inherit the last row's objects
         try:
+            if a.product:
+                # AS PRODUCTION: `Engine.run` repairs the transcript (ingest)
+                # BEFORE the fast track. Until 2026-09-27 this arm skipped it,
+                # so ingest's generic repairs ("updat" -> "update") never
+                # reached the board and those rows read as front-door errors.
+                # A transcript the gate holds for an edit, or ignores, makes
+                # nothing — which is what the user gets.
+                eng.transcript.run(st, cfg)
+                if st.ignored or st.needs_edit:
+                    last["objs"], last["llm_ms"], last["path"] = [], 0, "held"
+                    return (), 0, int((_time.time() - t0) * 1000)
             if a.product and cfg.engine.fast_track and _fast_track.fast_propose(st, cfg):
                 _dv_stage.run_objects(st, cfg)
             else:
