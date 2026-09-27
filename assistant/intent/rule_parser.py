@@ -2034,6 +2034,12 @@ def _marks_a_day(span_text: str) -> bool:
 
 
 _DELETE_VERBS = frozenset({"delete", "remove", "clear", "drop", "scrap", "erase"})
+#: ...and the CHANGE verbs, whose target ends at " to <the new value>"
+#: ("rename do the laundry to back up the laptop"). Same fault, same fix
+#: (2026-09-27): "update take out the trash" went to update_event from the
+#: calendar view, and the deep track's model kept the partial parse it was
+#: handed — 10 of Board D's 11 update_todo -> update_event rows.
+_CHANGE_VERBS = frozenset({"update", "edit", "change", "rename", "move"})
 
 #: A MUTATION FRAME (2026-09-27): the words that say "this thing already
 #: exists — delete / finish / change it", wherever they sit in the span. A
@@ -2058,12 +2064,17 @@ _MUTATION_FRAME = re.compile(
 
 
 def _delete_target_kind(span) -> "tuple[str, bool] | None":
-    """(domain, inferred) for a span that OPENS with a delete verb, read off
-    the words after it by segmentation's tagger; None for any other span."""
+    """(domain, inferred) for a span that OPENS with a delete or change verb,
+    read off the thing it names by segmentation's tagger; None otherwise."""
     toks = [t for t in span if t.lower_ not in ("please", "can", "could", "you", "just")]
-    if not toks or toks[0].lemma_.lower() not in _DELETE_VERBS:
+    if not toks:
+        return None
+    verb = toks[0].lemma_.lower()
+    if verb not in _DELETE_VERBS and verb not in _CHANGE_VERBS:
         return None
     target = span.text[toks[0].idx - span.start_char + len(toks[0].text):].strip()
+    if verb in _CHANGE_VERBS:
+        target = re.split(r"\s+to\s+", target, maxsplit=1)[0].strip()
     if not target:
         return None
     kind, path = _tagger_kind(target)
@@ -2113,7 +2124,7 @@ def _route_intent(span, current_view: str) -> tuple[str | None, str, bool, bool]
         # No explicit signal: fall back to current_view
         domain = "todo" if current_view in ("todo", "tasks") else "calendar"
         domain_inferred = True
-        # ...unless it is a DELETE, where the view is a guess that costs the
+        # ...unless it is a DELETE or a CHANGE, where the view is a guess that costs the
         # most (2026-09-27): "scrap vet appointment" / "scrap walk the dog"
         # carry no list word, and "scrap" meant delete_todo whatever followed
         # — 18 events on the FastRule train half deleted as to-dos, harm 72 of
