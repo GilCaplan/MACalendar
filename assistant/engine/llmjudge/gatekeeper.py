@@ -35,6 +35,18 @@ from __future__ import annotations
 
 import re
 
+#: A BARE KIND as the thing to CHANGE names nothing (2026-09-27). Q42 made
+#: "an appointment" a fine TITLE for a create — it has a day and a clock to
+#: stand on — but "delete my reminder" / "delete the task" says which KIND of
+#: record, not which one, and the front door deleted the first to-do it could
+#: match on the word: found when Board D began running ingest first and "um
+#: can you just delete my reminder for me" lost the "um" that had been
+#: refusing it by accident. Mutations only; the user's own data still wins
+#: (`_names_something_real`).
+_BARE_KIND_TARGET_RE = re.compile(
+    r"^(?:my |the |a |an |our )?(?:reminder|alert|event|appointment|task|todo|to-do|meeting)s?$",
+    re.I)
+
 _GENERIC_TARGET_RE = re.compile(
     # "note" and "date" joined on 2026-09-20: "make a NOTE of it on the
     # corresponding date" committed an event titled 'note' at confidence
@@ -210,7 +222,7 @@ class Gatekeeper:
         for name, intent in intents:
             if name.startswith(("update_", "delete_", "complete_")):
                 target = str(getattr(intent, "match_title", "") or "").strip()
-                if _GENERIC_TARGET_RE.match(target):
+                if _GENERIC_TARGET_RE.match(target) or _BARE_KIND_TARGET_RE.match(target):
                     # …unless the user's own data says it names something.
                     # "the dentist" is generic English and a real event.
                     if _names_something_real(target):
