@@ -145,7 +145,15 @@ def _score_row(transcript: str, actions_json: str, prov: dict | None,
         if a.get("action", "").startswith("create_todo"):
             titles = a.get("parameters", {}).get("titles") or []
             task_titles.extend(t for t in titles if isinstance(t, str))
-    n_tasks = len(task_titles)
+    # An event filed WITH its linked to-do (Q50 a role call, Q51 a to-do caught
+    # in a chain, Q61 a repeating to-do) makes a real to-do too — the executor
+    # files it (`CreateEventAction._files_linked_todo`). Counting only
+    # create_todo scored "…, and then I want sweet potato pie" as a missing
+    # to-do while the product made one (2026-09-27).
+    linked_titles = [a.get("parameters", {}).get("title", "") for a in actions
+                     if a.get("action", "").startswith("create_event")
+                     and a.get("parameters", {}).get("linked_todo")]
+    n_tasks = len(task_titles) + len(linked_titles)
 
     garbage = [t for t in task_titles if is_garbage_title(t)]
     # event titles are a single string per action, not a list
