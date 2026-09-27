@@ -54,6 +54,14 @@ build() {
 
   if [[ -f "$icon" ]]; then
     cp "$icon" "$out/Contents/Resources/applet.icns"
+    # osacompile also ships the STOCK applet asset catalog (Assets.car) and
+    # points CFBundleIconName at it. On current macOS the named catalog icon
+    # WINS over CFBundleIconFile, so the icns above was never drawn and every
+    # app wore the grey script-scroll face (found 2026-09-27 on Tahoe: all four
+    # bundles held their own applet.icns and one identical 383,672-byte
+    # Assets.car). Drop both so the icns is the only icon the bundle has.
+    /usr/libexec/PlistBuddy -c "Delete :CFBundleIconName" "$plist" 2>/dev/null || true
+    rm -f "$out/Contents/Resources/Assets.car"
   else
     echo "  ! no icon at $icon — $name will wear the generic applet face"
   fi
@@ -65,6 +73,16 @@ build() {
   local sig
   sig="$(codesign -dv "$out" 2>&1 | sed -n 's/^Identifier=//p')"
   [[ "$sig" == "$bundle" ]] || { echo "signature '$sig' != '$bundle'"; exit 1; }
+  # The icon guard, for the same reason as the seal's: a stock face costs
+  # nothing at build time and is only noticed on the Desktop.
+  if [[ -f "$icon" ]]; then
+    if /usr/libexec/PlistBuddy -c "Print :CFBundleIconName" "$plist" >/dev/null 2>&1; then
+      echo "$name still names the stock icon catalog"; exit 1
+    fi
+    if [[ -e "$out/Contents/Resources/Assets.car" ]]; then
+      echo "$name still carries the stock Assets.car"; exit 1
+    fi
+  fi
   touch "$out"
   echo "  built  $name  ($bundle)"
 }
