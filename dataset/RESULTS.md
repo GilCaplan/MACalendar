@@ -3300,3 +3300,17 @@ the real weak spot. dev-100 holds only 20 DEV rows (90%) and 80 HELD-OUT
 (63.7%), so it is the fixed measure, not a mining pool; the next cycles mine
 the DEV range (ranks 1–600, run started the same day) and are measured back
 here.
+
+## CYCLE R1 — a list add is never chained into an event (2026-09-27, `1cedaff8`)
+
+First cycle mined from real speech (dev range, ranks 1–600, whole chain,
+seeded 7: count-correct 78%, n=600 — the mining read). **Predicted:** the 5
+dev rows where a list add after "and then"/"also" became an event come right;
+dev-100 moves by what its held-out rows hold of the shape. **Actual:** 3 of the
+4 matched dev rows now make an event and a to-do (the fourth, "Add Bob to my
+list of contacts and also i need more milk", fails for another reason);
+**dev-100 byte-identical** (77% · P 89.7 · R 75.3 — replay verified fresh,
+1,322 s): only 3 of its rows have the shape and none flipped. So no
+held-out real-speech gain is shown — the shape is rarer in real speech than in
+the dev failures suggested. Chain and dv boards identical; unit suite green;
+CI green (36347734658).
