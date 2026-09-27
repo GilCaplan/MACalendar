@@ -1137,7 +1137,7 @@ def _lexicon_kind(action: str) -> "str | None":
     return None
 
 
-def tag_path(action: str, time_str: str) -> "tuple[str, str]":
+def tag_path(action: str, time_str: str, nothing_said: bool = False) -> "tuple[str, str]":
     """`_tag_path`, then DEVQA Q61: a to-do that REPEATS is an event series.
 
     Gil, 2026-09-27: *"repeating task always becomes an event, we have on the
@@ -1154,7 +1154,34 @@ def tag_path(action: str, time_str: str) -> "tuple[str, str]":
     kind, path = _tag_path(action, time_str)
     if kind == "task" and repeats(time_str):
         return "event", "repeating_task"
+    if nothing_said and kind == "event" and path not in _PLACED \
+            and not _MUTATION_HEAD.match(action or "") \
+            and not _has_person_argument(action) and not _meets_a_person(action):
+        # DEVQA Q63 (Gil, 2026-09-27): *"if the date isn't given, then we can
+        # just make it a to-do... if we don't have a time to put in at all,
+        # and nothing to infer where we would go, then it would just become a
+        # to-do."* No day and no clock said, and no ruling that places it
+        # (a person, the calendar named, an anchor) — "book a flight",
+        # "schedule a haircut" on their own. The EMPTY time is what "nothing
+        # said" looks like here; `fastseg()` passes it for the floor's bare
+        # "today" when no "today" was spoken.
+        return "task", "no_day_no_clock"
     return kind, path
+
+
+#: Q63 is about what to CREATE. A change to something that exists ("cancel
+#: team meeting", "move the standup") names the surface it acts on, time or
+#: no time — the first cut of the rule flipped every one to the to-do list.
+_MUTATION_HEAD = re.compile(
+    r"^(?:(?:um|uh|so|ok|okay|hey|please|just|can you|could you|would you|will you)[\s,]+)*"
+    r"(?:delete|remove|cancel|clear|drop|scrap|erase|call off|move|reschedule|push|shift|"
+    r"postpone|bump|bring|rename|retitle|change|update|edit|extend|shorten|put|mark|"
+    r"check|tick|complete|finish|cross|undo)\b", re.I)
+
+#: The paths that already say where an event goes, so Q63 leaves them alone.
+_PLACED = frozenset({"encounter", "calendar_destination", "stated_clock",
+                     "remind_about_clock", "dated_anchor", "scheduled_guard",
+                     "repeating_task", "junk"})
 
 
 def repeats(time_str: str) -> bool:
@@ -1306,9 +1333,9 @@ def _tag_path(action: str, time_str: str) -> "tuple[str, str]":
     return kind, path
 
 
-def tag(action: str, time_str: str) -> str:
+def tag(action: str, time_str: str, nothing_said: bool = False) -> str:
     """event | task | review | other — `tag_path` without the path."""
-    return tag_path(action, time_str)[0]
+    return tag_path(action, time_str, nothing_said)[0]
 
 
 
@@ -1389,7 +1416,17 @@ def fastseg(text: str) -> "list[dict]":
     clean = _invariant.strip_discourse_tail(strip_spoken_noise(text or ""))
     pieces = cut(clean)
     pairs = _expand_enumerations(assign_times(clean, pieces))
-    return [{"action": a, "time": t, "tag": tag(a, t),
+    # Q63 needs to know when NOTHING was said: the tagger reads an empty time
+    # only when the whole command names no day, no clock and no person at all
+    # ("schedule birthday dinner and invite Harper" is an event, Q47 B) and
+    # is not a sequence, whose parts are chained (Q51). A part with no
+    # time of its own in a command that has one may still get it — a sequence
+    # chains from the part before (Q51), a date is shared (Q16) — which is the
+    # "something to infer" the ruling keeps as an event.
+    from assistant.intent.placed import nothing_to_infer
+    timeless = nothing_to_infer(clean)
+    return [{"action": a, "time": t,
+             "tag": tag(a, t, nothing_said=timeless and t.strip().lower() == "today"),
              "source": _source_piece(a, pieces)} for a, t in pairs]
 
 

@@ -199,6 +199,21 @@ def run(state, cfg):
                 if why:
                     items[-1].slots["junk"] = why
 
+    if state.raw_text and state.raw_text != state.text:
+        # DEVQA Q63 is judged on what was SAID. FastSeg sees only the text it
+        # is handed, and the loop-back hands it pieces: an envelope, or one ask
+        # re-segmented on its own ("remind me of yashas birthday with vinay")
+        # out of a command that named a time and a sequence ("…yoga class at
+        # noon and then yashas bithday with vinay"). That piece's plain reading
+        # stands.
+        from assistant.engine.segmentation.fastseg.fastseg import tag_path
+        from assistant.intent.placed import nothing_to_infer
+        if not nothing_to_infer(state.raw_text):
+            for it in items:
+                if it.kind == "task" and \
+                        tag_path(it.text or "", it.time or "", True)[1] == "no_day_no_clock":
+                    it.kind = tag_path(it.text or "", it.time or "today")[0]
+
     if not items:                      # never hand on an empty decomposition
         items = [Item(id="item_1", text=state.text, source=state.text,
                       kind=kind_of(state.text))]

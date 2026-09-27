@@ -1700,16 +1700,30 @@ _NOT_A_NAME = frozenset({"something", "someone", "somebody", "anything", "everyt
                          "nothing", "stuff", "things"})
 
 
-def _tagger_kind(text: str) -> "tuple[str, str]":
+def _tagger_kind(text: str, whole: str = "", *, a_create: bool = True) -> "tuple[str, str]":
     """(kind, path) from segmentation's tagger, on the words with their time
-    phrases taken out — the same split the deep chain hands it."""
-    from assistant.engine.segmentation.fastseg.fastseg import find_time_refs, tag_path
+    phrases taken out — the same split the deep chain hands it. `whole` is the
+    command the words came from: a part with no time of its own reads the
+    floor's "today", not nothing, when the command names one elsewhere (Q63,
+    the same condition `fastseg` applies)."""
+    from assistant.engine.segmentation.fastseg.fastseg import find_time_refs, tag_path, _tag_path
+    if not a_create:
+        # the NAME of something that exists: Q63 (what to create when no time
+        # was said) does not apply — "scrap blood test" names an event.
+        tag_path = _tag_path
     refs = find_time_refs(text or "")
     words = text or ""
     for r in sorted(refs, key=lambda r: -r.start):
         words = words[:r.start] + " " + words[r.end:]
+    when = " ".join(r.text for r in refs)
+    nothing_said = False
+    if a_create and not when and whole:
+        from assistant.intent.placed import nothing_to_infer
+        nothing_said = nothing_to_infer(whole)
     try:
-        return tag_path(" ".join(words.split()), " ".join(r.text for r in refs))
+        if not a_create:
+            return tag_path(" ".join(words.split()), when)
+        return tag_path(" ".join(words.split()), when, nothing_said)
     except Exception:
         return "", "default"
 
@@ -2081,7 +2095,7 @@ def _delete_target_kind(span) -> "tuple[str, bool] | None":
         target = re.split(r"\s+to\s+", target, maxsplit=1)[0].strip()
     if not target:
         return None
-    kind, path = _tagger_kind(target)
+    kind, path = _tagger_kind(target, a_create=False)
     if kind == "task":
         return "todo", False
     if kind == "event":
@@ -3782,8 +3796,14 @@ class RuleBasedParser:
         from assistant.intent.context import context_memory
         self._memory = context_memory
 
-    def analyze(self, transcript: str, current_view: str = "month") -> RuleParseResult:
+    def analyze(self, transcript: str, current_view: str = "month",
+                whole: bool = True) -> RuleParseResult:
         """Full 7-phase analysis.
+
+        `whole=False` when the words are ONE ITEM segmentation cut out of a
+        command (FastRule's per-item `build`): its time has been split off and
+        its kind decided, so DEVQA Q63's "nothing said anywhere" reading — a
+        property of the whole command — is not taken from them.
 
         Raises RuleParserSkip if the complexity gate fires or no intent matches.
         Otherwise returns a RuleParseResult (which may have low confidence or
@@ -3840,7 +3860,8 @@ class RuleBasedParser:
                 # have rewritten the span ("i should see Robin" did), and the
                 # lowercased fallback loses every name.
                 _at = transcript.lower().find(span.text)
-                tk, tpath = (_tagger_kind(transcript[_at:_at + len(span.text)])
+                tk, tpath = (_tagger_kind(transcript[_at:_at + len(span.text)],
+                                          transcript if whole else "")
                              if _at >= 0 else ("", "default"))
                 if tpath != "default" and tk in ("event", "task"):
                     want = "create_event" if tk == "event" else "create_todo"

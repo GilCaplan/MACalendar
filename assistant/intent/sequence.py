@@ -164,3 +164,24 @@ def closing_seams(text: str) -> "list[re.Match]":
                 and _has_content(text[m.end():]):
             out.append(m)
     return out
+
+
+#: A name as said: a capitalised word after the first ("…and invite Harper").
+_A_NAME = re.compile(r"(?<!^)(?<![.!?]\s)\b[A-Z][a-z]+")
+
+
+def names_someone(text: str) -> bool:
+    """Is a person named anywhere in the words AS SAID (Q47 B places those on
+    the calendar)? Read by DEVQA Q63's "nothing to infer" test."""
+    from assistant.intent.encounter import is_encounter
+    from assistant.engine.segmentation.fastseg.fastseg import _has_person_argument
+    t = (text or "").strip()
+    return bool(_A_NAME.search(t) or _has_person_argument(t) or is_encounter(t))
+
+
+def is_a_sequence(text: str) -> bool:
+    """Does this command order its parts one after the other (Q51)? A part
+    with no time of its own in one is chained from the part before — its time
+    is inferred, which DEVQA Q63 keeps as an event."""
+    return bool(has_sequence_seam(text) or verb_led_seams(text) or closing_seams(text)
+                or any(trailing_marker(p) for p in re.split(r",", text or "")[1:]))

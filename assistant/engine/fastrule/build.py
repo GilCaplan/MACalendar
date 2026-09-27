@@ -327,7 +327,10 @@ def _read_action_words(item: Item, parser) -> tuple:
     if parser is None:
         return None, "", [], [], None
     try:
-        rr = parser.analyze(item.text or "", current_view="month")
+        try:
+            rr = parser.analyze(item.text or "", current_view="month", whole=False)
+        except TypeError:           # a parser that predates the `whole` flag
+            rr = parser.analyze(item.text or "", current_view="month")
     except Exception:
         return None, "", [], [], None
     raw = getattr(rr, "raw_slots", None) or {}

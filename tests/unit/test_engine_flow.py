@@ -96,7 +96,7 @@ def test_unconfident_rules_take_the_deep_track(monkeypatch):
     # Words segmentation reads as an EVENT: the rescue enforces a task-kind
     # item against a model's create_event (2026-09-27), and this test is about
     # the track, not the kind.
-    out = engine.run_transcript("team sync about the stuff", source="test")
+    out = engine.run_transcript("team sync about the stuff on friday", source="test")
     assert out["parse"] == "deep"
     assert out["actions"] == ["create_event"]
 
