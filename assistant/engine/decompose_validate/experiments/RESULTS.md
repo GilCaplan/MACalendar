@@ -466,3 +466,20 @@ the only arm within 0.8 pt of the best on every set that also breaks no ruling.
 The model alone edging it on the two GENERATED sets is not a reason to drop
 the rules: it loses 1.4 pt on the hand-built set and the rules are what make
 the rulings a guarantee rather than a statistic. No change shipped.
+
+## 2026-09-26 — the chain board, read at HEAD (`ae0d3467`)
+
+Its only logged number was the 0.0% baseline from before chaining shipped (DEVQA
+Q51, 2026-09-25); the cycles that built it quoted it in commit messages only.
+`experiments/chain_board.py`, the sequence corpus
+(`segmentation/datasets/sequence/`), anchor 2026-09-09 06:00:
+
+| line | TRAIN | TEST |
+|---|---|---|
+| headline, all five fields right (items) | 92.5% (5857/6332) | 96.0% (1420/1479) |
+| chained items only, all five right | 93.1% (2911/3127) | 97.9% (756/772) |
+| damaged (misspelled / unrepaired) rows, all five right | 76.6% (259/338) | 69.2% (63/91) |
+
+The weak roles on train are an item with its own clock inside a sequence
+(`clocked` 84.2%, n=442) and the rare untimed part the chain cannot anchor
+(`untimed` 39.7%, n=78). Test is aggregate only.

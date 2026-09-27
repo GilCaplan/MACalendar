@@ -77,7 +77,9 @@ def _cases_transcript(cfg):
 
 
 def _cases_segment(cfg):
-    from assistant.engine.segmentation.old_seg import segment
+    # The LIVE stage (FastSeg). `old_seg`, which this imported, was retired on
+    # 2026-09-20, so `--stage segment` failed on import (2026-09-26 doc sweep).
+    from assistant.engine import segmentation as segment
 
     def case(text, want_n, want_kinds=None, needs_llm=True):
         def run():
@@ -270,9 +272,8 @@ def _cases_crosscheck(cfg):
 # entirely, which is how `--stage all` came to mean "four of seven".
 STAGES = {
     "transcript":         _cases_transcript,   # ingest/repair.py
-    "segment":            _cases_segment,      # NOTE: exercises old_seg, the
-                                               # rollback path, NOT the live
-                                               # FastSeg. Its own board is
+    "segment":            _cases_segment,      # the live stage (FastSeg); its
+                                               # own board is
                                                # segmentation/experiments/.
     "decompose_validate": _cases_decompose,
     "fastrule":           _cases_generate,     # fastrule/stage.py (objects.py deleted 2026-09-10)

@@ -61,8 +61,8 @@ Running list of user-reported issues and feature requests, with status. Update w
 | 54 | Personal vocabulary gained two more powers beyond spelling fixes: expand an acronym, and carry a label used for task tags and event colours | done 2026-09-01 | `assistant/stt/vocab.py`, `assistant/actions/todo/tagging.py` |
 | 55 | **Settings UI for the vocabulary** — view, edit and clear labels and acronyms on both iOS and macOS, with the user's permission required before anything is added | done 2026-09-03 | `VocabularyView.swift`, Mac Settings |
 | 56 | **The harness** — `--memory` replays against a copy of the real history and `--memory-k N` changes the retrieval count, so k=0 vs k=4 is one flag. Originally: a memory-aware audit mode so the personalisation layer can be measured at all — does history help, is `k=4` right, are verified examples better | done 2026-09-03 | `scripts/audit_assistant.py --memory` |
-| 57 | **Confidence calibration IS fast-path coverage — one job that was being tracked from two ends, merged here 2026-09-14 so it is not built twice.** The knobs are hand-picked and have never been checked against outcomes: `rule_parser.py:102 RULE_THRESHOLD = 0.80`, `objects.py:46 SUBITEM_RULE_THRESHOLD = 0.60`, and the four multipliers in `_compute_confidence` (`*= 0.95`, `*= 0.85`, `*= 0.80`, `*= 0.7`). The checkpoint retrospective arrived at the same work from the other side and calls it the highest-leverage lever available (`DOCUMENTATION/experiments/checkpoints/RECOMMENDATIONS.md` §2), and `fastrule.py:83 CONFIDENCE_SIGNALS` names itself its target. Three things bind it. **(a) The hypothesis may not come from the boards that motivated it** — every row of the sealed 300 and the personas 300 is `split:"test"`, so re-derive on `fastrule-v1` vs `main` over dev-fast-250, which is freely mineable; expect that re-derivation to be most of the cost. **(b) The instrument is stale:** `scripts/calibration.py` hardcodes 0.85 as the routing line in five places (`:93,:99,:100,:102,:112`) while the live threshold is 0.80 — and its original "waiting on a week of real use" blocker is satisfied, the read has simply never been done. **(c) The multipliers are pinned to a published page** at `tests/unit/test_artifact_claims.py:128-142`, so changing them goes red by design — that is the guard working, not a problem. **Blocked on a ruling, not on work:** `STATUS.md:302-306` fences fast-rule mining behind *"only after the deep track is improved"*, and this points straight at it | todo — needs Gil's decision first | `assistant/intent/rule_parser.py`, `assistant/engine/fastrule/fastrule.py`, `scripts/calibration.py` |
-| 58 | Two-level label hierarchy (Exercise → Running / Gym) and promoting the planner's ad-hoc categories into the registry | todo | `categories.py`, `tagging.py` |
+| 57 | **Confidence calibration IS fast-path coverage — one job that was being tracked from two ends, merged here 2026-09-14 so it is not built twice.** The knobs are hand-picked and have never been checked against outcomes: `rule_parser.py:102 RULE_THRESHOLD = 0.80`, `objects.py:46 SUBITEM_RULE_THRESHOLD = 0.60`, and the four multipliers in `_compute_confidence` (`*= 0.95`, `*= 0.85`, `*= 0.80`, `*= 0.7`). The checkpoint retrospective arrived at the same work from the other side and calls it the highest-leverage lever available (`DOCUMENTATION/experiments/checkpoints/RECOMMENDATIONS.md` §2), and `fastrule.py:83 CONFIDENCE_SIGNALS` names itself its target. Three things bind it. **(a) The hypothesis may not come from the boards that motivated it** — every row of the sealed 300 and the personas 300 is `split:"test"`, so re-derive on `fastrule-v1` vs `main` over dev-fast-250, which is freely mineable; expect that re-derivation to be most of the cost. **(b) The instrument is stale:** `scripts/calibration.py` hardcodes 0.85 as the routing line in five places (`:93,:99,:100,:102,:112`) while the live threshold is 0.80 — and its original "waiting on a week of real use" blocker is satisfied, the read has simply never been done. **(c) The multipliers are pinned to a published page** at `tests/unit/test_artifact_claims.py:128-142`, so changing them goes red by design — that is the guard working, not a problem. **Blocked on a ruling, not on work:** `STATUS.md:302-306` fences fast-rule mining behind *"only after the deep track is improved"*, and this points straight at it. **Unblocked 2026-09-26 (DEVQA Q58):** Gil retired that fence — FastRule mining is now ordinary cycle work under four standing conditions (train-only, boarded alone, no harm/DESTRUCTIVE regression, Board D `--product` confirms) — so the ruling this row was waiting on has been made; the calibration re-derivation itself (a)–(c) above is still not done. Note also `objects.py:46 SUBITEM_RULE_THRESHOLD` no longer exists — `objects.py` was deleted in the row-91 merge (2026-09-15); the sub-item bar (0.60) is now a comment beside `RULE_THRESHOLD` at `rule_parser.py:102` | todo — the calibration read itself, not the ruling | `assistant/intent/rule_parser.py`, `assistant/engine/fastrule/fastrule.py`, `scripts/calibration.py` |
+| 58 | Two-level label hierarchy (Exercise → Running / Gym) and promoting the planner's ad-hoc categories into the registry | **superseded 2026-09-10, executed 2026-09-22 (`9733efa7`)** — Gil folded `Running`/`Gym` into ONE flat `Fitness` category instead of a two-level hierarchy (see "categories — Running and Gym are not in the palette" below); `categories.py` now carries `Fitness` as a single entry with its own keywords, and a data migration renamed the 38 live rows still carrying the old labels. The hierarchy half of this row was not what shipped and is moot | `assistant/actions/calendar/categories.py` |
 | 59 | Ask for 👍/👎 only when the self-check is unsure, instead of on every command. **This is TWO jobs and the first was never started.** The row names `scratchpad/flag_precision.py` — the measurement of whether the self-check's opinion agrees with the user's — as its own prerequisite, and that file **does not exist and never did**: `git log --all -- "*flag_precision*"` is empty and there is no `scratchpad/` directory in the checkout. Write the measurement first; gating the prompt before it is building on an unmeasured assumption | todo (the measurement) · blocked (the gate) | review flow |
 | 60 | Few-shot pool: prefer verified examples, and stop recency from evicting corrections. **Genuinely unwritten** — `memory.py:461-475` only *labels* corrected rows after retrieval — **but the path it would improve is dormant**: `config.example.yaml:188` ships `memory_examples: 0`, `config.yaml` sets no value at all, and `FEATURES.md:325-328` records few-shot injection as *"measured to hurt the engine"*. Ranking a pool that nothing reads buys nothing | closed 2026-09-14 as superseded — reopen only paired with a decision to turn k>0 back on | `assistant/intent/parser.py` `_few_shot_for` |
 | 61 | Three iOS fixes committed but not installed on the device — poll storm, counter history sheet, speech continuing after it was turned off | done 2026-09-02 | `xcrun devicectl device install app` |
@@ -93,7 +93,7 @@ Running list of user-reported issues and feature requests, with status. Update w
 
 | 82 | **The panel could not tell "this wasn't calendar work" from "this reached me damaged".** Both are items that leave the object stage without an object, and they are opposite kinds of event — one is the engine reading correctly, one is an upstream defect. Neither was visible AT ALL: both were recorded only in `state.fixes`, which nothing outside decompose_validate traces (ENGINE_AUDIT P6), so `"play some music"` drew a card that looked like the assistant had done nothing — verified with `shoot_panel` before changing anything. Fix: `objects._trace_outcome` emits a per-item trace step tagged `data["outcome"]` (`NOT_AN_ASK` / `BAD_ITEM`, `ok=False` only for the defect), titled `Read part N` like the per-item steps beside it; the panel's `_StepRow._OUTCOMES` draws a chip — muted for the correct reading, amber for the defect, red still reserved for the error stage. `test_panel_agreement` now fails the build if the engine gains an outcome the panel has no wording for. No chain change, so no BRAIN_VERSION bump. **The first cut pushed the row wider than the 400px card and clipped the end of every line** — invisible in the text assertions, caught in the picture; `shoot_panel` now reports any row wider than the card, and a test measures it. **Not done: iOS**, which has no equivalent badge — this container has no Swift toolchain and the rule here is that unbuilt Swift does not ship (row 83). Also noted: `"thanks so much"` is NOT currently tagged `other` by fastseg (bare `"thanks"` is), so it reaches this path as an event — a segmentation gap, not a panel one. | done 2026-09-11 | `assistant/engine/fastrule/objects.py`, `assistant/calendar_ui/thinking_panel.py`, `tests/unit/test_panel_agreement.py` |
 
-| 83 | **iOS ThinkingView lags the Mac panel** — no outcome badge (row 82) and no folded chain rail (row 81). **Re-verified 2026-09-14, and it has not moved:** `ThinkingView.swift:341-345 stateMark()` still returns the literal string `"skipped"` into the 14×14 box it shares with the ✓ and the spinner, so it draws as "pp" — precisely the defect the Mac fixed at `thinking_panel.py:456 SKIP_MARK = "·"` and pinned in `test_thinking_hud.py`; and a grep for `outcome|NOT_AN_ASK|BAD_ITEM` across `MACalendar-iOS/` returns nothing engine-related, so there is no outcome chip and no "N steps not needed" fold either. Three commits touched the file after the Mac fixes landed and none added them. CLAUDE.md's rule is that the panel is downstream of the pipeline, so this is a real divergence rather than cosmetics. Needs a machine with Xcode: `swiftc -parse` is not enough, it missed three real errors last session | todo | `MACalendar-iOS/MACalendar-iOS/Views/ThinkingView.swift` |
+| 83 | **iOS ThinkingView lags the Mac panel** — no outcome badge (row 82) and no folded chain rail (row 81). **Re-verified 2026-09-14, and it has not moved:** `ThinkingView.swift:341-345 stateMark()` still returns the literal string `"skipped"` into the 14×14 box it shares with the ✓ and the spinner, so it draws as "pp" — precisely the defect the Mac fixed at `thinking_panel.py:456 SKIP_MARK = "·"` and pinned in `test_thinking_hud.py`; and a grep for `outcome|NOT_AN_ASK|BAD_ITEM` across `MACalendar-iOS/` returns nothing engine-related, so there is no outcome chip and no "N steps not needed" fold either. Three commits touched the file after the Mac fixes landed and none added them. CLAUDE.md's rule is that the panel is downstream of the pipeline, so this is a real divergence rather than cosmetics. Needs a machine with Xcode: `swiftc -parse` is not enough, it missed three real errors last session. **Outcome-badge half done 2026-09-22 (`9733efa7`, "the held-back chip has its outcome"):** `trace.NON_OBJECT_OUTCOMES` is now the one registry the Mac card and the phone timeline are both held to by `test_panel_agreement`, and the commit message says explicitly "the phone timeline mirrors it" — confirmed in code, `ThinkingView.swift::flagBadge` now renders `bad_item`/`not_an_ask`/`held_back` ("reached me damaged" / "not calendar work" / "held back — names nothing"), so the outcome-chip gap from row 82 is closed on both platforms. **Re-checked 2026-09-26, and the SKIP_MARK half has NOT moved**: `stateMark()` (now at `ThinkingView.swift:412-416`, same defect, moved lines) still returns the literal string `"skipped"` into the same 14×14 box (`.frame(width: 14, height: 14)` at line 284) it shares with the ✓ and the spinner — the exact bug this row named, unfixed. No "N steps not needed" fold either (grep for "fold"/"steps not needed" in the file returns nothing). So the row narrows to: fix `stateMark`'s skip glyph, and build the chain-rail fold | todo — narrowed to the SKIP_MARK glyph and the chain-rail fold | `MACalendar-iOS/MACalendar-iOS/Views/ThinkingView.swift` |
 
 The rows below were opened 2026-09-14 out of the reconciliation audit. Each one
 was already true in the code and recorded nowhere a person would look — most of
@@ -618,10 +618,17 @@ rule in its most expensive direction: blaming this stage for another's loss.
 `Atomicity` are Components, not Stages; the chain's shape is unchanged. This is the
 `old_seg -> FastSeg` case, not the rename case.
 
-## OPEN — the review panel must SHOW the flagged items (Gil, 2026-09-10)
+## DONE 2026-09-22 — the review panel must SHOW the flagged items (Gil, 2026-09-10)
 
-**Not started. Recorded here so it is not lost, because the engine half landed
-first and the two are easy to leave out of step.**
+**Built as part of "THE SOFTWARE LIST" below, `9733efa7`** ("the held-back chip
+has its outcome"): `trace.NON_OBJECT_OUTCOMES` is the one registry the object
+stage's flags, the commit's refusal and the Mac card's `_OUTCOMES` are held to
+by `test_panel_agreement`, and the commit message records that "the phone
+timeline mirrors it" — confirmed directly in `ThinkingView.swift::flagBadge`,
+which renders `bad_item` / `not_an_ask` / `held_back` on iOS too. This section
+was never updated to point at that fix, so it sat reading "OPEN" and "Not
+started" for four days after it landed. Kept below for the original spec
+(what each flag means and why the two are distinct), which the fix followed.
 
 FastRule now returns THREE kinds of result, and the panel has to tell them
 apart. Gil, 2026-09-10: *"for a valid item make a relevant object; for a bad
@@ -1993,6 +2000,19 @@ then ranges and the end of the month".
 
    The test half's "other" leak class is 32% against 6% on train. More varied
    TRAIN phrasings are the way at it, never the test rows.
+
+   **Mostly done, 2026-09-25 (`d4fe03e5`, commit message names this row
+   explicitly: "TASKS item 9").** "circle … for", "put in" after a fronted
+   time, "add X in calendar" (no "my/the"), "block off the whole day … for",
+   "to-do:"/"todo:" and "remember to" after an obligation are all in
+   `rule_parser`'s title readers now (FastRule shape board: train exact
+   75.9% → 77.8%, n=2,170; test 33.6% → 35.2%, n=645). Not verified against
+   the code as closed: whether "gotta remember to X" specifically collapses
+   through this plus the pre-existing `gotta`→`need to` ingest rewrite, and
+   the "…starting"/"…including" stranded-`at` sub-case — `_grow_stranded`'s
+   trailing-preposition regex (`rule_parser.py:2507`) still lists `starting`
+   and `beginning` but not `including`. Re-probe those two shapes before
+   closing the row outright.
 10. **Two cases for Gil to decide on title conventions.** The gold disagrees
     with itself, so these are not fixed:
     - **Attendee:** "meeting with Jamie about X" keeps "with Jamie";
@@ -2001,6 +2021,13 @@ then ranges and the end of the month".
       drops "grab" and the quantity.
 
     4-6% of titled rows on both halves.
+
+    **ANSWERED 2026-09-26, not yet built (DEVQA Q55, Q56).** Q56: the title
+    keeps the person — "meeting with Jamie", "sales call with Skyler" — so
+    gold that drops "with <person>" is relabelled. Q55: an errand verb
+    ("buy"/"grab") stays in the title; Gil noted the engine's titles already
+    do this, so only the gold that drops the verb needs relabelling. Neither
+    ruling has a corresponding code or dataset change yet as of this check.
 11. **Item 4 above ("from 5:30 to 7:45" ends 07:45)**: may be fixed by
     180fe909 (a range now goes to the resolver). Re-probe and close or keep.
 12. **Board D: a fronted lead time loses its ask to segmentation.** "5
@@ -2009,7 +2036,7 @@ then ranges and the end of the month".
     set. Segmentation's `relate` could attach a bare trailing ask to the
     item before it, the way it strips postposed markers. Board it on
     `run_board` and the relation board.
-13. **For Gil: should a STATED end beat the 4-hour cap?**
+13. ~~**For Gil: should a STATED end beat the 4-hour cap?**~~ **Answered (DEVQA Q54, 2026-09-26): yes — the cap is for ends the engine made.**
     `object_rules._rule_max_duration_cap` clips "from 9 to 2:30" to 13:00,
     because `engine.max_event_hours` applies to every engine-built event,
     spoken ends included (FEATURES.md). These are the 2 remaining range
@@ -2017,3 +2044,29 @@ then ranges and the end of the month".
 
 Item 4 is closed: "from 5:30 to 7:45" is 17:30-19:45 on the front door since
 180fe909 (probed 2026-09-25).
+
+## Queued from DEVQA Q54–Q57 (2026-09-26)
+
+Recorded in `DEVQA.md` but not built — none of the four has a matching code
+or dataset change as of this check:
+
+- **Q54** — `object_rules._rule_max_duration_cap` should clip an end the
+  ENGINE made and never one the speaker stated (a range, an end clock, a
+  length); it currently clips both alike (item 13 above is the live miss).
+- **Q55** — the gold rows that drop an errand verb ("grab a few light
+  bulbs" → 'light bulbs') should be relabelled to keep it, matching what the
+  engine's titles already do.
+- **Q56** — the gold rows that drop "with <person>" ("sales call daily with
+  Skyler" → drops "with Skyler") should be relabelled to keep it.
+- **Q57** — a series with no stated end should default to daily 2 weeks /
+  weekly 8 weeks / monthly 12 months / yearly 10 years (each a setting); no
+  such default exists in `assistant/config.py` or the recurrence resolvers
+  today.
+
+### Filed 2026-09-26, from the doc sweep (docs now describe the code; these are the code/design gaps it found)
+
+14. **decompose still splits.** `decompose_validate/PLAN.md` §4d (settled with Gil, 2026-09-08): *"decompose RESOLVES. validate CHECKS. Neither splits"* — `_split_times` / `_llm_split_times` "are deleted". The code still runs them and `_split_tasks` from `stage.run`, including a model call for wordier double-time phrasings. Either finish the ruling (segmentation owns splitting) or record why it stands. Measure on the dv + chain boards and Board D `--product` either way.
+15. **The front door's verdict has no reader.** `state.fastrule_verdict` (written by `fast_track.fast_propose`) was read only by `old_seg`, retired 2026-09-20; `state.asked_fastrule` is never written or read. The per-item hand-off (FastRule `Defer.partial` -> `rescue.parse_with_context`) does honour Gil's "a deferral never wastes the work". Wire the front-door verdict into the rescue prompt, or drop the two fields (a frozen-contract change — take it to Gil).
+16. **LLMSeg's promised config switch never landed** — only `MACALENDAR_LLMSEG` exists; the docs promised `engine.segmentation.llmseg` once FastSeg was promoted. LLMSeg is inert; drop the promise unless it is revived.
+17. **FastSeg v2 rebuild** — `segmentation/ARCHITECTURE.md` (2026-09-16) calls it "an OPEN question again". Unowned; decide or close.
+18. `scripts/engine_stage_check.py --stage segment` imported the retired `old_seg` and failed on import — **fixed 2026-09-26** (it exercises the live stage; 6/6 cases pass).

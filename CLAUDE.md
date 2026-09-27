@@ -380,11 +380,13 @@ what the deep track owes it:
 - **INCAPACITY** (below-threshold, missing-slots, skip) — the LLM takes over,
   and receives FastRule's partial parse rather than starting cold.
 
-**A deferral never wastes the work** (Gil, 2026-09-07): `state.fastrule_
-verdict` carries the reason, its class and the confidence forward, and
-segment uses it as both evidence and prompt grounding. **And FastRule is
-DETERMINISTIC** — a loop-back on unchanged text cannot get a new answer, so
-`state.asked_fastrule` sends it straight to the model instead.
+**A deferral never wastes the work** (Gil, 2026-09-07): per item, FastRule's
+`Defer` carries its partial parse and `llmjudge/rescue.py` starts the model
+from it (`parse_with_context`). The front door's own `state.fastrule_verdict`
+is written but has had NO reader since `old_seg` retired (2026-09-20), and
+`state.asked_fastrule` is a dead field — both filed in TASKS.md; don't cite
+them as working. **And FastRule is DETERMINISTIC** — a loop-back on unchanged
+text cannot get a new answer.
 
 ## How the work runs now (2026-09-26)
 
