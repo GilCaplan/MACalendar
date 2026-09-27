@@ -661,8 +661,16 @@ def auto_category_and_color(conn: sqlite3.Connection, title: str, date: str, sta
 
 
 def _skip_for_observance(date: datetime.date, start_time: str = "",
-                         title: str = "", description: str = "") -> bool:
+                         title: str = "", description: str = "",
+                         user_days: bool = True) -> bool:
     """Should a repeating event skip this slot?
+
+    Every day's "keep engine events off this day" switch decides (DEVQA Q60):
+    Shabbat and yom tov are on by default, chol hamoed and ordinary days off,
+    and the user can flip any date either way. `user_days=False` asks the
+    Shabbat / yom tov question alone — the series loop's anchor check, so a
+    series that merely STARTS on a day the user switched on still skips
+    Shabbat after it.
 
     Shabbat and yom tov are bounded by candle lighting and tzeit hakochavim at
     the configured location, not by midnight. That matters: at Israeli
@@ -687,18 +695,22 @@ def _skip_for_observance(date: datetime.date, start_time: str = "",
         return False
     try:
         from assistant.observance import (
-            candle_lighting, is_enabled, is_exception, is_fast_day, is_shabbat,
-            is_yom_tov, tzeit,
+            candle_lighting, holy_kept_off, is_enabled, is_fast_day, tzeit,
+            whole_day_kept_off,
         )
 
         if not is_enabled():
             return False                    # gating switched off in settings
-        if is_exception(date):
-            return False                    # the rule is off for this date (exception day)
+        if user_days and whole_day_kept_off(date):
+            # A day the user switched on by hand (DEVQA Q60) — chol hamoed, a
+            # weekday: the whole calendar day, meals included. They chose it.
+            return True
 
-        holy = is_shabbat(date) or is_yom_tov(date)
+        # Shabbat / yom tov with the per-day switch on (its default). A day
+        # the user ALLOWED is not holy here, and its eve is not an eve.
+        holy = holy_kept_off(date)
         tomorrow = date + datetime.timedelta(days=1)
-        eve_of_holy = (is_shabbat(tomorrow) or is_yom_tov(tomorrow)) and not is_exception(tomorrow)
+        eve_of_holy = holy_kept_off(tomorrow)
         if not (holy or eve_of_holy):
             return False
 
@@ -723,6 +735,17 @@ def _skip_for_observance(date: datetime.date, start_time: str = "",
         # Erev: blocked only once candles are lit.
         starts = candle_lighting(date)
         return starts is not None and when >= starts.replace(microsecond=0)
+    except Exception:                       # pragma: no cover - defensive
+        return False
+
+
+def _skip_user_day(date: datetime.date) -> bool:
+    """A non-holy day the user switched "keep engine events off" on (Q60)."""
+    if not RECURRENCE_SKIPS_OBSERVANCE:
+        return False
+    try:
+        from assistant.observance import is_enabled, whole_day_kept_off
+        return is_enabled() and whole_day_kept_off(date)
     except Exception:                       # pragma: no cover - defensive
         return False
 
@@ -1161,7 +1184,8 @@ class CalendarDB:
         # for series that cross Shabbat incidentally, like "every day at 1900",
         # not for ones anchored to it.
         anchored_on_holy = _skip_for_observance(
-            current, intent.start_time, intent.title, intent.description or "")
+            current, intent.start_time, intent.title, intent.description or "",
+            user_days=False)
         count = 0
         max_instances = 500  # hard safety cap
 
@@ -1170,8 +1194,11 @@ class CalendarDB:
                                  recur_days=getattr(intent, "recur_days", None))
             if current > end_date:
                 break
-            if not anchored_on_holy and _skip_for_observance(
-                    current, intent.start_time, intent.title, intent.description or ""):
+            # Anchored on Shabbat keeps Shabbat — but not a day the user
+            # switched on by hand (DEVQA Q60), which is a date, not a rhythm.
+            if (_skip_for_observance(
+                    current, intent.start_time, intent.title, intent.description or "")
+                    if not anchored_on_holy else _skip_user_day(current)):
                 # Shabbat and yom tov are skipped, not shifted: "every day at
                 # 1900" through a week that contains Shabbat means the six days
                 # it can mean, and moving one to a Sunday would invent a second

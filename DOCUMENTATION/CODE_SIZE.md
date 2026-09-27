@@ -1,40 +1,40 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 633, "total_lines": 175956} -->
+<!-- code-stats: {"total_files": 634, "total_lines": 176878} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**175,956 lines of source across 633 files.** Of that, **96,767 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**176,878 lines of source across 634 files.** Of that, **97,346 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
-| Test code | 195 | 38,245 |
-| iOS application | 62 | 23,790 |
-| Actions, storage & domain (DB, config, observance, .ics) | 111 | 20,487 |
+| Test code | 196 | 38,588 |
+| iOS application | 62 | 23,930 |
+| Actions, storage & domain (DB, config, observance, .ics) | 111 | 20,773 |
 | Engine experiments & boards (not in the answer path) | 65 | 20,199 |
-| Engine (the brain, shipped path) | 56 | 20,117 |
-| Mac application (calendar GUI) | 36 | 19,810 |
+| Engine (the brain, shipped path) | 56 | 20,124 |
+| Mac application (calendar GUI) | 36 | 19,890 |
 | Dataset & measurement tooling | 50 | 13,212 |
 | Retired (old brain, kept on purpose) | 16 | 7,533 |
 | Review panel (Mac card + iOS timeline) | 6 | 4,099 |
 | Model / Ollama code | 12 | 3,186 |
 | Microphone / speech (record, STT, TTS) | 17 | 3,151 |
-| API server (the front door) | 4 | 1,811 |
+| API server (the front door) | 4 | 1,877 |
 | Launch scripts | 3 | 316 |
-| **TOTAL** | **633** | **175,956** |
+| **TOTAL** | **634** | **176,878** |
 
 ### By language
 
 | | files | lines |
 |---|---:|---:|
-| Python | 557 | 149,420 |
-| Swift | 67 | 25,684 |
+| Python | 558 | 150,202 |
+| Swift | 67 | 25,824 |
 | shell | 8 | 699 |
 | launch script | 1 | 153 |
 
 Not counted above, and deliberately so:
 
 - **Data** — the utterance corpus, fitted weights and fixtures: 268,223 lines across 187 files. Bigger than the code, and not written by hand.
-- **Prose** — markdown and the published HTML explainers: 49,395 lines across 119 files.
+- **Prose** — markdown and the published HTML explainers: 49,453 lines across 119 files.
 
 ### How the categories are drawn
 

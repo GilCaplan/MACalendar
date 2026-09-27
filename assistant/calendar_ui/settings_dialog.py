@@ -331,110 +331,191 @@ def open_settings(self) -> None:
     shabbat_lines_cb.setChecked(bool(getattr(self._config.hebrew_calendar,
                                              "show_shabbat_times", True)))
     hebrew.addWidget(shabbat_lines_cb)
-    # DEVQA Q59 (Gil, 2026-09-26): the rule is a switch, and it has exception
-    # days. The label says what it does NOW — a one-off is added with a note,
-    # not refused — rather than the old "skip … in series".
+    # DEVQA Q59 (Gil, 2026-09-26): the rule is a master switch. The label says
+    # what it does NOW — a one-off is added with a note, not refused.
     observance_cb = QCheckBox("Keep engine-made events off Shabbat && yom tov")
     observance_cb.setObjectName("observance_enabled_cb")
     observance_cb.setToolTip(
         "For what the assistant books by voice (never your own edits):\n"
-        "a repeating series skips Shabbat, yom tov and fast days (meals\n"
-        "excepted); a one-off on those days is still added, with a note.\n"
-        "Chol hamoed is an ordinary day. Uncheck to switch all of it off.")
+        "on a day kept off, a repeating series skips it and a one-off is\n"
+        "still added, with a note. Shabbat and yom tov are kept off by\n"
+        "default, chol hamoed and ordinary days are not; flip any date\n"
+        "below. Uncheck to switch all of it off, whatever the days say.")
     observance_cb.setChecked(bool(getattr(getattr(self._config, "observance", None),
                                           "enabled", True)))
     hebrew.addWidget(observance_cb)
 
-    # EXCEPTION DAYS: dates the rule is OFF for, whole holy window included
-    # (the evening before a Saturday too). A personal store, not config.yaml —
-    # read and written through `assistant.observance` like the event defaults
-    # go through `event_defaults`, and shown from the FILE so a change the
-    # phone made while this dialog was closed is what you see.
-    from assistant import observance as _ob
-    exc_title = QLabel("Exception days — the rule is off on these dates")
-    exc_title.setObjectName("observance_exceptions_title")
-    hebrew.addWidget(exc_title)
-    exc_list = QListWidget()
-    exc_list.setObjectName("observance_exceptions_list")
-    exc_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-    exc_list.setMaximumHeight(110)
-    exc_list.setAccessibleName("Exception days")
-    hebrew.addWidget(exc_list)
-
-    def _exc_label(d) -> str:
-        """'Sat 10 Oct 2026 — Shabbat': the weekday, and what the day IS, so
-        a date that is none of Shabbat / yom tov / a fast says the exception
-        has nothing to switch off."""
-        israel = hebrew_israel_cb.isChecked()
-        kinds = []
-        if _ob.is_shabbat(d):
-            kinds.append("Shabbat")
-        name = _ob.yom_tov_name(d, israel=israel)
-        if name:
-            kinds.append(name)
-        fast = _ob.fast_day_name(d)
-        if fast:
-            kinds.append(fast)
-        return f"{d.strftime('%a %-d %b %Y')} — {' · '.join(kinds) or 'an ordinary day'}"
-
-    exc_state = {"dates": set(_ob.exception_dates())}
-    exc_loaded = set(exc_state["dates"])
-
-    def _exc_render() -> None:
-        exc_list.clear()
-        for d in sorted(exc_state["dates"]):
-            item = QListWidgetItem(_exc_label(d))
-            item.setData(Qt.ItemDataRole.UserRole, d.isoformat())
-            exc_list.addItem(item)
-        exc_remove.setEnabled(bool(exc_state["dates"]) and exc_list.currentRow() >= 0)
-
-    exc_row = QHBoxLayout()
-    exc_row.setSpacing(8)
-    exc_date = QDateEdit()
-    exc_date.setObjectName("observance_exception_date")
-    exc_date.setCalendarPopup(True)
-    exc_date.setDisplayFormat("ddd d MMM yyyy")
-    # The next Shabbat is the usual ask; start the picker there.
+    # THE PER-DAY SWITCH (DEVQA Q60, Gil 2026-09-26): every day has one —
+    # "keep engine events off this day" — on by default for Shabbat and yom
+    # tov, off for chol hamoed and ordinary days, and any date can be flipped
+    # either way. The label and the defaults live in `assistant.observance`
+    # (SWITCH_LABEL / DEFAULT_KEPT_OFF); this section only draws them. The
+    # overrides are a personal store, not config.yaml, read from the FILE so
+    # a change the phone made while this dialog was closed is what you see.
     import datetime as _dt
+
+    from assistant import observance as _ob
+    ov_state: dict = dict(_ob.day_overrides())
+    ov_loaded = dict(ov_state)
+
+    def _kept_off(d) -> bool:
+        v = ov_state.get(d)
+        return _ob.default_kept_off(d) if v is None else v == _ob.KEEP_OFF
+
+    def _set_day(d, kept: bool) -> None:
+        """One place both lists write through; an override equal to the
+        day's default is not an override."""
+        if kept == _ob.default_kept_off(d):
+            ov_state.pop(d, None)
+        else:
+            ov_state[d] = _ob.KEEP_OFF if kept else _ob.ALLOW
+
+    def _day_text(d, year: bool = False) -> str:
+        fmt = "%a %-d %b %Y" if year else "%a %-d %b"
+        name = _ob.day_name(d)
+        return f"{d.strftime(fmt)} — {name}" if name else d.strftime(fmt)
+
+    # ── "This week", folded by default; widened over Sukkot / Pesach ──
+    wk_start, wk_end, wk_festival = _ob.week_span()
+    week_header = QToolButton()
+    week_header.setObjectName("observance_week_header")
+    week_title = "This week" + (f" — all of {wk_festival}" if wk_festival else "")
+    week_header.setText(week_title)
+    week_header.setCheckable(True)
+    week_header.setChecked(False)
+    week_header.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+    week_header.setArrowType(Qt.ArrowType.RightArrow)
+    week_header.setCursor(Qt.CursorShape.PointingHandCursor)
+    week_header.setStyleSheet(
+        "QToolButton { border: none; background: transparent; padding: 2px 0; }")
+    week_header.setAccessibleName("This week's days")
+    hebrew.addWidget(week_header)
+
+    week_body = QWidget()
+    week_body.setObjectName("observance_week_body")
+    week_grid = QGridLayout(week_body)
+    week_grid.setContentsMargins(16, 0, 0, 0)
+    week_grid.setHorizontalSpacing(10)
+    week_grid.setVerticalSpacing(4)
+    week_grid.setColumnStretch(0, 1)
+    week_caption = QLabel(f"Checked: {_ob.SWITCH_LABEL.lower()}")
+    week_caption.setObjectName("muted")
+    week_grid.addWidget(week_caption, 0, 0, 1, 2)
+    week_rows: dict = {}                    # date -> (label, checkbox)
+    _d = wk_start
+    while _d <= wk_end:
+        lbl = QLabel()
+        lbl.setWordWrap(True)
+        cb = QCheckBox("Keep off")          # the caption above says the rest
+        cb.setObjectName(f"observance_day_{_d.isoformat()}")
+        cb.setAccessibleName(f"{_ob.SWITCH_LABEL}: {_d.strftime('%A %-d %B')}")
+        cb.toggled.connect(lambda on, _day=_d: (_set_day(_day, on), _ov_render()))
+        r = len(week_rows) + 1
+        week_grid.addWidget(lbl, r, 0)
+        week_grid.addWidget(cb, r, 1)
+        week_rows[_d] = (lbl, cb)
+        _d += _dt.timedelta(days=1)
+    week_body.setVisible(False)
+    hebrew.addWidget(week_body)
+
+    def _week_toggled(on: bool) -> None:
+        week_body.setVisible(on)
+        week_header.setArrowType(Qt.ArrowType.DownArrow if on else Qt.ArrowType.RightArrow)
+        self.adjustSize()
+
+    week_header.toggled.connect(_week_toggled)
+
+    # ── the days you changed, either way ──
+    ov_title = QLabel("Days you changed")
+    ov_title.setObjectName("observance_overrides_title")
+    hebrew.addWidget(ov_title)
+    ov_list = QListWidget()
+    ov_list.setObjectName("observance_overrides_list")
+    ov_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+    ov_list.setMaximumHeight(110)
+    ov_list.setAccessibleName("Days you changed")
+    hebrew.addWidget(ov_list)
+
+    ov_row = QHBoxLayout()
+    ov_row.setSpacing(8)
+    ov_date = QDateEdit()
+    ov_date.setObjectName("observance_override_date")
+    ov_date.setCalendarPopup(True)
+    ov_date.setDisplayFormat("ddd d MMM yyyy")
     _today = _dt.date.today()
-    _sat = _today + _dt.timedelta(days=(5 - _today.weekday()) % 7)
-    exc_date.setDate(QDate(_sat.year, _sat.month, _sat.day))
-    exc_date.setMaximumWidth(170)
-    exc_row.addWidget(exc_date)
-    exc_add = QPushButton("Add…")
-    exc_add.setObjectName("observance_exception_add")
-    exc_add.setToolTip("Add the picked date as an exception day")
-    exc_row.addWidget(exc_add)
-    exc_remove = QPushButton("Remove")
-    exc_remove.setObjectName("observance_exception_remove")
-    exc_remove.setToolTip("Remove the selected exception day")
-    exc_row.addWidget(exc_remove)
-    exc_row.addStretch(1)
-    hebrew.addLayout(exc_row)
+    ov_date.setDate(QDate(_today.year, _today.month, _today.day))
+    ov_date.setMaximumWidth(160)
+    ov_row.addWidget(ov_date)
+    ov_mode = QComboBox()
+    ov_mode.setObjectName("observance_override_mode")
+    ov_mode.addItem("Keep off", _ob.KEEP_OFF)
+    ov_mode.addItem("Allow", _ob.ALLOW)
+    ov_mode.setToolTip("Keep off: keep engine events off the picked day.\n"
+                       "Allow: let the engine book it as any day.")
+    ov_row.addWidget(ov_mode)
+    ov_add = QPushButton("Add")
+    ov_add.setObjectName("observance_override_add")
+    ov_add.setToolTip("Set the picked day as chosen")
+    ov_row.addWidget(ov_add)
+    ov_remove = QPushButton("Remove")
+    ov_remove.setObjectName("observance_override_remove")
+    ov_remove.setToolTip("Put the selected day back to its default")
+    ov_row.addWidget(ov_remove)
+    ov_row.addStretch(1)
+    hebrew.addLayout(ov_row)
+    ov_status = hint("")
+    ov_status.setObjectName("observance_override_status")
+    ov_status.setVisible(False)
+    hebrew.addWidget(ov_status)
 
-    def _exc_add() -> None:
-        q = exc_date.date()
-        exc_state["dates"].add(_dt.date(q.year(), q.month(), q.day()))
-        _exc_render()
+    def _ov_render() -> None:
+        ov_list.clear()
+        for d in sorted(ov_state):
+            what = "kept off" if ov_state[d] == _ob.KEEP_OFF else "engine may book"
+            item = QListWidgetItem(f"{_day_text(d, year=True)}: {what}")
+            item.setData(Qt.ItemDataRole.UserRole, d.isoformat())
+            ov_list.addItem(item)
+        ov_remove.setEnabled(ov_list.currentRow() >= 0)
+        # the week rows follow the same state; a changed day reads bold
+        for d, (lbl, cb) in week_rows.items():
+            changed = d in ov_state
+            lbl.setText(_day_text(d) + ("  (changed)" if changed else ""))
+            f = lbl.font()
+            f.setBold(changed)
+            lbl.setFont(f)
+            cb.blockSignals(True)
+            cb.setChecked(_kept_off(d))
+            cb.blockSignals(False)
 
-    def _exc_remove() -> None:
-        item = exc_list.currentItem()
+    def _ov_add() -> None:
+        q = ov_date.date()
+        d = _dt.date(q.year(), q.month(), q.day())
+        kept = ov_mode.currentData() == _ob.KEEP_OFF
+        _set_day(d, kept)
+        if d not in ov_state:
+            ov_status.setText(f"{d:%a %-d %b} is already "
+                              f"{'kept off' if kept else 'open to the engine'} by default.")
+        else:
+            ov_status.setText("")
+        ov_status.setVisible(bool(ov_status.text()))
+        _ov_render()
+
+    def _ov_remove() -> None:
+        item = ov_list.currentItem()
         if item is None:
             return
-        exc_state["dates"].discard(
-            _dt.date.fromisoformat(item.data(Qt.ItemDataRole.UserRole)))
-        _exc_render()
+        ov_state.pop(_dt.date.fromisoformat(item.data(Qt.ItemDataRole.UserRole)), None)
+        _ov_render()
 
-    exc_add.clicked.connect(lambda _=False: _exc_add())
-    exc_remove.clicked.connect(lambda _=False: _exc_remove())
-    exc_list.currentRowChanged.connect(
-        lambda row: exc_remove.setEnabled(row >= 0))
-    # The labels name yom tov by the schedule picked just above.
-    hebrew_israel_cb.toggled.connect(lambda _on: _exc_render())
-    _exc_render()
+    ov_add.clicked.connect(lambda _=False: _ov_add())
+    ov_remove.clicked.connect(lambda _=False: _ov_remove())
+    ov_list.currentRowChanged.connect(lambda row: ov_remove.setEnabled(row >= 0))
+    _ov_render()
     hebrew.addWidget(hint(
-        "On an exception day the assistant books as on any day and a series "
-        "does not skip it — the evening before is included. Saved with Save."))
+        "On a day kept off, a series skips it and a one-off is added with a note; "
+        "Shabbat and yom tov run candle lighting to nightfall (meals, leyning and "
+        "davening excepted), any other day you keep off is the whole day. "
+        "Saved with Save."))
 
     # ── Events ────────────────────────────────────────────────────
     # DEVQA Q51 (Gil, 2026-09-25): how long an event lasts when nobody said,
@@ -948,15 +1029,14 @@ def open_settings(self) -> None:
                 },
             })
             if ok:
-                # Only when the list was edited here, so opening and saving
-                # never writes back over a list the phone changed meanwhile.
-                if exc_state["dates"] != exc_loaded:
+                # Only when the days were edited here, so opening and saving
+                # never writes back over days the phone changed meanwhile.
+                if ov_state != ov_loaded:
                     try:
-                        _ob.set_exception_dates(
-                            [d.isoformat() for d in exc_state["dates"]])
+                        _ob.set_day_overrides(ov_state)
                     except (OSError, ValueError) as e:
-                        QMessageBox.warning(self, "Exception days not saved",
-                                            f"Could not save the exception days: {e}")
+                        QMessageBox.warning(self, "Days not saved",
+                                            f"Could not save the days you changed: {e}")
                 _persist_category_leads(cat_leads)
                 if notif_cfg is not None:
                     _apply(notif_cfg, "enabled", notif_enabled_cb.isChecked())

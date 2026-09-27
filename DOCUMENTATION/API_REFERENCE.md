@@ -94,11 +94,15 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | Method | Path | What it does |
 |---|---|---|
 | `GET` | `/observance` | Training availability per day: what is blocked, and which windows remain. |
-| `GET` | `/observance/exceptions` | The dates the Shabbat / yom tov rule is OFF for (Gil, 2026-09-26). |
-| `PUT` | `/observance/exceptions` | Replace the exception days: {"dates": ["YYYY-MM-DD", ...]}. On such a |
+| `GET` | `/observance/days` | Each day's "keep engine events off this day" switch (DEVQA Q60): |
+| `PUT` | `/observance/days` | Flip one day: {"date": "YYYY-MM-DD", "kept_off": true \| false \| null}. |
+| `GET` | `/observance/exceptions` | Q59's view, kept for old clients: the dates the user ALLOWED the |
+| `PUT` | `/observance/exceptions` | Q59's writer, kept for old clients: {"dates": ["YYYY-MM-DD", ...]} |
 | `DELETE` | `/observance/location` | Forget the reported position and go back to the configured place. |
 | `GET` | `/observance/location` | Where sundown is currently computed for, and where that came from. |
 | `POST` | `/observance/location` | A device reporting where it is. |
+| `GET` | `/observance/overrides` | Every day the user flipped, either way, in date order — the rows of |
+| `GET` | `/observance/week` | The days Settings' "This week" box shows: Sunday to Saturday of the |
 | `GET` | `/observance/windows` | When Shabbat and yom tov begin and end, to the second, over a range. |
 
 ## /digest

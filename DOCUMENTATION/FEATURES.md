@@ -131,7 +131,7 @@ built when it reaches the Mac.
 | backend | [Sequences — chained asks](#sequences--chained-asks) | "X, then Y" splits with the relationship kept; untimed parts chain off the one before | `intent/sequence.py`, `decompose_validate/chain.py` |
 | backend | [List management is junk](#list-management-is-thrown-out-as-junk-and-says-why) | "open grocery list" etc. thrown out before any parse, with the reason kept | `intent/junk.py` |
 | hybrid | [Shabbat & yom tov lines](#shabbat--yom-tov-lines) | yellow lines on Day/Week at the exact minute of candle lighting and nightfall, following the phone's location; minute in yellow on Month (iOS) | `observance.holy_windows`, `GET /observance/windows`, `holy_times.py`, `WeekView.swift` |
-| backend | [Hebrew calendar & observance](#hebrew-calendar--observance) | sundown-bounded halachic windows; series skip, one-offs flagged | `observance.py`, `hebrew_calendar.py` |
+| backend | [Hebrew calendar & observance](#hebrew-calendar--observance) | sundown-bounded halachic windows; series skip, one-offs flagged; a per-day "keep engine events off" switch (Q60) | `observance.py`, `hebrew_calendar.py` |
 | backend | [Recurring events](#recurring-events) | daily/weekly/monthly/yearly, several weekdays, announced rounding | `db.py`, `decompose_validate/resolve.py` |
 | backend | [API server](#the-api-server) | the single front door, 154 endpoints as of 2026-09-25 (the generated `API_REFERENCE.md` is the live list) | `api/server.py` |
 | backend | [Hosted calendar sync](#hosted-calendar-sync) | optional Google & Outlook two-way / ICS read, synced by the brain | `calendar_sync/` |
@@ -1456,22 +1456,47 @@ SERIES rule (`db._skip_for_observance`) is unchanged and still skips.
 **How:** `pyluach` + `astral`, sundown-bounded not midnight-bounded. All
 gating sits behind `observance.enabled` (config, default on;
 `MACALENDAR_OBSERVANCE` env override — the test harness turns it off).
-**Exception days** (DEVQA Q59, Gil 2026-09-26): a date the user lists turns
-the whole rule OFF for that date — the one-off check, the fast check and the
-series skip — and a date covers its whole holy window, the evening before
-included. Stored in `~/.assistant_tools/observance_exceptions.json`
-(`MACALENDAR_OBSERVANCE_EXCEPTIONS`), read by `observance.exception_dates()`,
-served by `GET/PUT /observance/exceptions`. **Chol hamoed is an ordinary day**
-and always was: `yom_tov_name` excludes it, so neither the check nor the series
-skip touches it.
-**Where to set them:** Mac — Settings › Hebrew Calendar: the "Keep engine-made
-events off Shabbat & yom tov" checkbox (`observance.enabled`) and, under it, an
-Exception days list (weekday + Shabbat / yom tov / fast name per date; a date
-picker, Add…, Remove), written through `observance.set_exception_dates()` on
-Save. iPhone — Settings › Hebrew Calendar: the same toggle (`PATCH /config`
-`{"observance": {"enabled": …}}` — the only observance key that route accepts)
-and an Exception days list (swipe to delete, DatePicker + Add), each change a
-`PUT /observance/exceptions` of the whole list, queued offline.
+**The per-day switch — "keep engine events off this day"** (DEVQA Q60, Gil
+2026-09-26; it generalises Q59's exception days). Every day has one. **On:** an
+engine-made one-off on that day is still added, with a note, and a repeating
+series skips the day. **Off:** the engine books as on any day. It defaults
+**on for Shabbat and yom tov** (Yom Kippur included) and **off for chol hamoed,
+fasts and ordinary days**, and any single date can be flipped either way —
+allow one yom tov, keep one chol hamoed Tuesday off. On Shabbat / yom tov "on"
+is the halachic rule: candle lighting to tzeit, the eve's evening included,
+meals / leyning / davening exempt; an allowed Shabbat / yom tov frees its whole
+window and turns the fast-meal check off with it. Any other day kept off is
+kept off for its whole CALENDAR day, 00:00–24:00, with no meal exemption (the
+user chose the date), and the note names it ("you set Tue 29 Sep to keep
+engine events off"). A series anchored on Shabbat still skips a weekday the
+user kept off; one that starts on such a weekday still skips Shabbat. A meal
+on a minor fast before it ends is still flagged by its own check.
+`observance.enabled` sits above it all: off = no gating anywhere, whatever the
+days say. The polarity lives in one place — `observance.SWITCH_LABEL` and
+`observance.DEFAULT_KEPT_OFF`; `day_kind()` / `day_name()` / `kept_off()` /
+`holy_kept_off()` / `whole_day_kept_off()` are what the two rules read.
+**Store:** `~/.assistant_tools/observance_exceptions.json`
+(`MACALENDAR_OBSERVANCE_EXCEPTIONS`), `{"allow": [...], "keep_off": [...]}`;
+Q59's `{"dates": [...]}` still reads as `allow`. An override equal to its
+day's default is dropped on write.
+**Routes:** `GET /observance/days?start=&end=` (≤ 62 days; rows of
+`{date, weekday, kind, name, default_kept_off, kept_off, override}`),
+`PUT /observance/days` `{"date", "kept_off": true|false|null}` (null = back to
+the default; junk is a 400 before any write), `GET /observance/week` (Sunday to
+Saturday, widened to the whole of Sukkot — through Shmini Atzeret — or Pesach
+when the week touches one), `GET /observance/overrides`. Q59's
+`GET/PUT /observance/exceptions` still works, mapped onto `allow`.
+**Where to set them:** Mac — Settings › Hebrew Calendar: the "Keep
+engine-made events off Shabbat & yom tov" master checkbox
+(`observance.enabled`); a folded **This week** box, one row per day ("Tue 29
+Sep — Chol hamoed Succos") with a "Keep off" checkbox, a changed day in bold
+with "(changed)"; and **Days you changed** (date picker, Keep off / Allow,
+Add, Remove), written through `observance.set_day_overrides()` on Save and
+only if edited. iPhone — Settings › Hebrew Calendar: the same master toggle
+(`PATCH /config`), a **This week** DisclosureGroup of Toggles and a **Days
+you changed** list (swipe to put a day back; DatePicker + Keep off / Allow +
+Set), each change one `PUT /observance/days`, queued offline, every day named
+by the server.
 
 ### Shabbat & yom tov lines
 **What:** A yellow line on the Day and Week grids, on both apps, at the exact

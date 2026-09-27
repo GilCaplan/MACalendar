@@ -2314,41 +2314,78 @@ extension APIClient {
         catch { announceRefusal(error, doing: "save that setting"); return false }
     }
 
-    // MARK: Shabbat / yom tov exception days (DEVQA Q59)
+    // MARK: The per-day switch: "keep engine events off this day" (DEVQA Q59, Q60)
 
-    /// The dates the Shabbat / yom tov rule is OFF for, as ISO days, sorted.
-    /// The last list heard is kept, so the screen still shows it with the Mac
-    /// away.
-    func observanceExceptions() async -> [String] {
-        if let data = try? await request("/observance/exceptions"),
-           let got = try? decode(ObservanceExceptions.self, from: data) {
-            UserDefaults.standard.set(got.dates, forKey: ObservanceExceptions.cacheKey)
-            return got.dates
-        }
-        return UserDefaults.standard.stringArray(forKey: ObservanceExceptions.cacheKey) ?? []
+    /// The days Settings' "This week" box shows — Sunday to Saturday, widened
+    /// to the whole of Sukkot or Pesach when the week touches one. The Mac
+    /// decides the week, the kinds and the names; the last answer heard is
+    /// kept, so the box still draws with the Mac away.
+    func observanceWeek() async -> ObservanceDays? {
+        await cachedObservanceDays("/observance/week", key: ObservanceDays.weekCacheKey)
     }
 
-    /// Replace the whole list (`PUT` — so a queued copy replayed later is
-    /// still exactly what was shown). Returns what the Mac saved, or nil when
-    /// the write was queued or refused (a refusal is announced).
+    /// Every day the user has flipped, either way, with its kind and name.
+    func observanceOverrides() async -> ObservanceDays? {
+        await cachedObservanceDays("/observance/overrides", key: ObservanceDays.overridesCacheKey)
+    }
+
+    private func cachedObservanceDays(_ path: String, key: String) async -> ObservanceDays? {
+        if let data = try? await request(path),
+           let got = try? decode(ObservanceDays.self, from: data) {
+            UserDefaults.standard.set(data, forKey: key)
+            return got
+        }
+        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        return try? decode(ObservanceDays.self, from: data)
+    }
+
+    /// Flip one date: true keeps engine events off it, false lets the engine
+    /// book it, nil puts it back to its default. A `PUT` of the day's whole
+    /// state, so a copy queued with the Mac away replays as exactly what was
+    /// chosen. Returns the Mac's row for the day, or nil when the write was
+    /// queued or refused (a refusal is announced).
     @discardableResult
-    func setObservanceExceptions(_ dates: [String]) async -> [String]? {
-        UserDefaults.standard.set(dates, forKey: ObservanceExceptions.cacheKey)
+    func setObservanceDay(_ iso: String, keptOff: Bool?) async -> ObservanceDay? {
+        let body: [String: Any] = ["date": iso, "kept_off": keptOff.map { $0 as Any } ?? NSNull()]
         do {
-            guard let data = try await mutate("/observance/exceptions", method: "PUT",
-                                              body: ["dates": dates]) else { return nil }
-            let saved = try? decode(ObservanceExceptions.self, from: data).dates
-            if let saved { UserDefaults.standard.set(saved, forKey: ObservanceExceptions.cacheKey) }
-            return saved
+            guard let data = try await mutate("/observance/days", method: "PUT",
+                                              body: body) else { return nil }
+            return try? decode(ObservanceDay.self, from: data)
         } catch {
-            announceRefusal(error, doing: "save the exception days")
+            announceRefusal(error, doing: "save that day")
             return nil
         }
     }
 }
 
-/// GET / PUT /observance/exceptions — `{"dates": ["YYYY-MM-DD", ...]}`.
-struct ObservanceExceptions: Decodable {
-    let dates: [String]
-    static let cacheKey = "observanceExceptions"
+/// One day's switch, as `GET /observance/days`, `/week` and `/overrides`
+/// serve it. `kind` is shabbat | yom_tov | chol_hamoed | fast | ordinary and
+/// `name` is the Mac's ("Shabbat · Shmini Atzeres", "Chol hamoed Succos") —
+/// never guessed here, so yom tov is named on the phone exactly as on the Mac.
+struct ObservanceDay: Codable, Identifiable, Equatable {
+    let date: String
+    let weekday: String
+    let kind: String
+    let name: String
+    let defaultKeptOff: Bool
+    var keptOff: Bool
+    var override: String?        // "keep_off" | "allow" | nil
+
+    var id: String { date }
+    var changed: Bool { override != nil }
+
+    enum CodingKeys: String, CodingKey {
+        case date, weekday, kind, name, override
+        case defaultKeptOff = "default_kept_off"
+        case keptOff = "kept_off"
+    }
+}
+
+struct ObservanceDays: Codable {
+    let label: String
+    let festival: String?
+    let days: [ObservanceDay]
+
+    static let weekCacheKey = "observanceWeek"
+    static let overridesCacheKey = "observanceOverrides"
 }

@@ -654,7 +654,10 @@ the configured location (`hebrew_calendar` / `observance` settings in
 config.yaml — latitude, longitude, timezone), not by midnight. At Israeli
 latitudes candle lighting swings well over two hours between September and
 December, so a 19:00 Friday event is outside Shabbat in one and inside it in
-the other; a date-only rule gets a whole season wrong.
+the other; a date-only rule gets a whole season wrong. **Every day has a
+"keep engine events off" switch the user can flip either way** (DEVQA Q60):
+on by default for Shabbat / yom tov only — read `observance.kept_off()`, never
+`is_shabbat()` alone, in anything that gates what the engine books.
 
 Three exceptions, each with a reason:
 

@@ -278,9 +278,10 @@ struct SettingsView: View {
                                     .foregroundColor(settings.accentColor)
                             }
 
-                            // DEVQA Q59 (Gil, 2026-09-26): the rule for what
-                            // the ENGINE books is a switch, with exception
-                            // days. Shared with the Mac (`observance.enabled`).
+                            // DEVQA Q59 / Q60 (Gil, 2026-09-26): the rule for
+                            // what the ENGINE books is a master switch, shared
+                            // with the Mac (`observance.enabled`), over a
+                            // per-day "keep engine events off" switch.
                             Divider().padding(.vertical, 2)
 
                             Toggle("Keep engine-made events off Shabbat & yom tov",
@@ -290,12 +291,12 @@ struct SettingsView: View {
                                         ["observance": ["enabled": v]]) }
                                 }
                             Text(settings.observanceEnabled
-                                 ? "For what the assistant books by voice: a repeating series skips Shabbat, yom tov and fast days (meals excepted), and a one-off on those days is still added, with a note. Chol hamoed is an ordinary day."
-                                 : "Off — the assistant books on Shabbat and yom tov as on any day, and a series does not skip them.")
+                                 ? "For what the assistant books by voice: on a day kept off, a repeating series skips it and a one-off is still added, with a note. Shabbat and yom tov are kept off by default, chol hamoed and ordinary days are not — flip any day below."
+                                 : "Off — the assistant books on every day as on any other, whatever the days below say.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
 
-                            ObservanceExceptionsEditor()
+                            ObservanceDaysEditor()
                         }
                         .padding(.top, 4)
                     }
@@ -862,91 +863,193 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Shabbat / yom tov exception days
+// MARK: - The per-day switch: "keep engine events off this day"
 
-/// The dates the Shabbat / yom tov rule is OFF for (DEVQA Q59, Gil
-/// 2026-09-26: *"a way to give specific days as an exception"*). A date covers
-/// its whole holy window, the evening before included, so a Shabbat is listed
-/// by its Saturday. Stored on the Mac (`GET/PUT /observance/exceptions`); every
-/// change PUTs the whole list, so a copy queued with the Mac away replays as
-/// exactly what was shown.
+/// Every day has one switch (DEVQA Q60, Gil 2026-09-26): on by default for
+/// Shabbat and yom tov, off for chol hamoed and ordinary days, and any date
+/// can be flipped either way. ON: an engine-made one-off is still added, with
+/// a note, and a series skips the day. OFF: the engine books as on any day.
 ///
-/// A small `List` inside the settings `ScrollView` — swipe-to-delete exists
-/// only on a List's rows — sized to its rows and not scrolling on its own.
-private struct ObservanceExceptionsEditor: View {
+/// Two views of the same store on the Mac: a folded "This week" box (widened
+/// to the whole of Sukkot or Pesach, because chol hamoed is long) and the list
+/// of days you changed. The Mac names every day — `name` from the server, so
+/// yom tov is called here exactly what the Mac calls it. Each flip is a `PUT`
+/// of that day's state (`kept_off: null` = back to its default), so a copy
+/// queued with the Mac away replays as exactly what was chosen.
+///
+/// The changed-days list is a small `List` inside the settings `ScrollView` —
+/// swipe-to-delete exists only on a List's rows — sized to its rows and not
+/// scrolling on its own.
+private struct ObservanceDaysEditor: View {
     @EnvironmentObject var api: APIClient
-    @State private var dates: [String] = []
-    @State private var picked = ObservanceExceptionsEditor.nextSaturday()
+    @State private var week: ObservanceDays?
+    @State private var overrides: [ObservanceDay] = []
+    @State private var weekOpen = false
+    @State private var picked = Calendar.current.startOfDay(for: Date())
+    @State private var pickedKeepOff = true
+    @State private var note = ""
 
-    private static let rowHeight: CGFloat = 44
+    private static let rowHeight: CGFloat = 52
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Exception days", systemImage: "calendar.badge.minus")
+            DisclosureGroup(isExpanded: $weekOpen) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("On: \((week?.label ?? "Keep engine events off this day").lowercased())")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    if let days = week?.days, !days.isEmpty {
+                        ForEach(days) { day in
+                            Toggle(isOn: Binding(
+                                get: { current(day).keptOff },
+                                set: { flip(day, to: $0) })) {
+                                dayLabel(current(day), withYear: false)
+                            }
+                            .accessibilityLabel("\(week?.label ?? "Keep engine events off"): \(Self.long(day.date))")
+                        }
+                    } else {
+                        Text("The week appears once the Mac has answered.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.top, 4)
+            } label: {
+                Label(week?.festival.map { "This week — all of \($0)" } ?? "This week",
+                      systemImage: "calendar")
+            }
 
-            if dates.isEmpty {
-                Text("None. Add a date to switch the rule off for that day.")
+            Label("Days you changed", systemImage: "calendar.badge.exclamationmark")
+                .padding(.top, 4)
+            if overrides.isEmpty {
+                Text("None — every day follows its default.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             } else {
                 List {
-                    ForEach(dates, id: \.self) { iso in
-                        Text(Self.label(iso))
-                            .accessibilityHint("Swipe left to delete")
+                    ForEach(overrides) { day in
+                        HStack {
+                            dayLabel(day, withYear: true)
+                            Spacer()
+                            Text(day.keptOff ? "Kept off" : "Engine may book")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .accessibilityHint("Swipe left to put it back to its default")
                     }
                     .onDelete { offsets in
-                        var next = dates
-                        next.remove(atOffsets: offsets)
-                        save(next)
+                        for i in offsets { set(overrides[i].date, keptOff: nil) }
                     }
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
                 .scrollDisabled(true)
-                .frame(height: CGFloat(dates.count) * Self.rowHeight)
+                .frame(height: CGFloat(overrides.count) * Self.rowHeight)
             }
 
+            DatePicker("Day", selection: $picked, displayedComponents: .date)
             HStack {
-                DatePicker("Add a day", selection: $picked, displayedComponents: .date)
-                Button("Add") { save(dates + [Self.iso(picked)]) }
-                    .disabled(dates.contains(Self.iso(picked)))
+                Picker("Set it to", selection: $pickedKeepOff) {
+                    Text("Keep off").tag(true)
+                    Text("Allow").tag(false)
+                }
+                .pickerStyle(.segmented)
+                Button("Set") { set(Self.iso(picked), keptOff: pickedKeepOff) }
+            }
+            if !note.isEmpty {
+                Text(note).font(.caption).foregroundColor(.secondary)
             }
 
-            Text("On an exception day the assistant books as on any day and a series does not skip it — the evening before is included. Swipe a date to remove it.")
+            Text("On a day kept off, a series skips it and a one-off is added with a note. Shabbat and yom tov run candle lighting to nightfall (meals, leyning and davening excepted); any other day you keep off is the whole day. Swipe a changed day to put it back.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
-        .task { dates = await api.observanceExceptions() }
+        .task { await reload() }
     }
 
-    /// Show the change at once, then take what the Mac saved (sorted, deduped).
-    private func save(_ next: [String]) {
-        dates = Array(Set(next)).sorted()
-        let sent = dates
-        Task {
-            if let saved = await api.setObservanceExceptions(sent) { dates = saved }
+    /// A row's words: "Tue 29 Sep — Chol hamoed Succos", bold with "changed"
+    /// when it is not its default.
+    @ViewBuilder
+    private func dayLabel(_ day: ObservanceDay, withYear: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(Self.short(day.date, withYear: withYear))
+                .fontWeight(day.changed ? .semibold : .regular)
+            let sub = [day.name, day.changed ? "changed" : ""].filter { !$0.isEmpty }
+            if !sub.isEmpty {
+                Text(sub.joined(separator: " · "))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
+    }
+
+    /// The week row as the changed-days list last heard it — one source for
+    /// both lists, so flipping a day in either shows in the other at once.
+    private func current(_ day: ObservanceDay) -> ObservanceDay {
+        overrides.first { $0.date == day.date } ?? day
+    }
+
+    private func flip(_ day: ObservanceDay, to keptOff: Bool) {
+        set(day.date, keptOff: keptOff == day.defaultKeptOff ? nil : keptOff)
+    }
+
+    /// Show the change at once, then take the Mac's row for the day.
+    private func set(_ iso: String, keptOff: Bool?) {
+        note = ""
+        let base = week?.days.first { $0.date == iso } ?? overrides.first { $0.date == iso }
+        if var row = base {
+            row.keptOff = keptOff ?? row.defaultKeptOff
+            row.override = keptOff == nil || keptOff == row.defaultKeptOff ? nil
+                : (keptOff! ? "keep_off" : "allow")
+            apply(row)
+        }
+        Task {
+            if let saved = await api.setObservanceDay(iso, keptOff: keptOff) {
+                apply(saved)
+                if keptOff != nil && saved.override == nil {
+                    note = "\(Self.short(iso, withYear: false)) is already \(saved.keptOff ? "kept off" : "open to the engine") by default."
+                }
+            }
+        }
+    }
+
+    private func apply(_ row: ObservanceDay) {
+        if var w = week, let i = w.days.firstIndex(where: { $0.date == row.date }) {
+            var days = w.days
+            days[i] = row
+            w = ObservanceDays(label: w.label, festival: w.festival, days: days)
+            week = w
+        }
+        overrides.removeAll { $0.date == row.date }
+        if row.changed {
+            overrides.append(row)
+            overrides.sort { $0.date < $1.date }
+        }
+    }
+
+    private func reload() async {
+        async let w = api.observanceWeek()
+        async let o = api.observanceOverrides()
+        week = await w
+        overrides = await o?.days ?? []
     }
 
     private static func iso(_ d: Date) -> String {
         ISO8601DateFormatter.yyyyMMdd.string(from: d)
     }
 
-    /// "Sat 10 Oct 2026 — Shabbat": the weekday says which day it is; the
-    /// Saturday is named because it is the usual one.
-    private static func label(_ iso: String) -> String {
+    private static func short(_ iso: String, withYear: Bool) -> String {
         guard let d = ISO8601DateFormatter.yyyyMMdd.date(from: iso) else { return iso }
         let f = DateFormatter()
-        f.dateFormat = "EEE d MMM yyyy"
-        let text = f.string(from: d)
-        return Calendar.current.component(.weekday, from: d) == 7 ? "\(text) — Shabbat" : text
+        f.dateFormat = withYear ? "EEE d MMM yyyy" : "EEE d MMM"
+        return f.string(from: d)
     }
 
-    private static func nextSaturday() -> Date {
-        let cal = Calendar.current
-        let today = cal.startOfDay(for: Date())
-        let ahead = (7 - cal.component(.weekday, from: today)) % 7
-        return cal.date(byAdding: .day, value: ahead, to: today) ?? today
+    private static func long(_ iso: String) -> String {
+        guard let d = ISO8601DateFormatter.yyyyMMdd.date(from: iso) else { return iso }
+        let f = DateFormatter()
+        f.dateFormat = "EEEE d MMMM"
+        return f.string(from: d)
     }
 }
 

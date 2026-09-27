@@ -1277,17 +1277,83 @@ def create_app() -> Flask:
         israel = request.args.get("israel", "1") not in ("0", "false", "False")
         return jsonify(ob.holy_windows_payload(start, end, israel=israel))
 
+    @app.get("/observance/days")
+    def observance_days_get():
+        """Each day's "keep engine events off this day" switch (DEVQA Q60):
+        `?start=YYYY-MM-DD&end=YYYY-MM-DD`, at most 62 days. Each row is
+        {date, weekday, kind, name, default_kept_off, kept_off, override};
+        `kind` is shabbat | yom_tov | chol_hamoed | fast | ordinary, `override`
+        is "keep_off" | "allow" | null. Top level carries the switch's `label`."""
+        from assistant import observance as ob
+        try:
+            start = datetime.date.fromisoformat(request.args["start"])
+            end = datetime.date.fromisoformat(request.args["end"])
+        except (KeyError, ValueError):
+            return jsonify({"error": "start and end must be YYYY-MM-DD", "code": 400}), 400
+        if end < start or (end - start).days > 61:
+            return jsonify({"error": "end must be on or after start, at most 62 days", "code": 400}), 400
+        return jsonify({"label": ob.SWITCH_LABEL, "start": start.isoformat(),
+                        "end": end.isoformat(), "days": ob.days_info(start, end)})
+
+    @app.put("/observance/days")
+    def observance_days_put():
+        """Flip one day: {"date": "YYYY-MM-DD", "kept_off": true | false | null}.
+        true keeps engine events off it (a one-off gets a note, a series skips
+        it), false lets the engine book it as any day, null returns it to its
+        default. Junk is refused before anything is written. Returns the row."""
+        from assistant import observance as ob
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or "date" not in data or "kept_off" not in data:
+            return jsonify({"error": 'send {"date": "YYYY-MM-DD", "kept_off": true|false|null}',
+                            "code": 400}), 400
+        kept = data["kept_off"]
+        if kept is not None and not isinstance(kept, bool):
+            return jsonify({"error": "kept_off must be true, false or null", "code": 400}), 400
+        try:
+            date = datetime.date.fromisoformat(str(data["date"]))
+        except ValueError:
+            return jsonify({"error": "date must be YYYY-MM-DD", "code": 400}), 400
+        return jsonify(ob.set_day_override(date, kept))
+
+    @app.get("/observance/week")
+    def observance_week():
+        """The days Settings' "This week" box shows: Sunday to Saturday of the
+        current week, widened to the whole of Sukkot or Pesach (first yom tov
+        through the last) when the week touches one. `?today=YYYY-MM-DD` pins
+        the week for a test; `festival` names what widened it, or null."""
+        from assistant import observance as ob
+        try:
+            today = datetime.date.fromisoformat(request.args["today"]) \
+                if request.args.get("today") else None
+        except ValueError:
+            return jsonify({"error": "today must be YYYY-MM-DD", "code": 400}), 400
+        start, end, festival = ob.week_span(today)
+        return jsonify({"label": ob.SWITCH_LABEL, "start": start.isoformat(),
+                        "end": end.isoformat(), "festival": festival or None,
+                        "days": ob.days_info(start, end)})
+
+    @app.get("/observance/overrides")
+    def observance_overrides():
+        """Every day the user flipped, either way, in date order — the rows of
+        the settings' "Days you changed" list, named by the server."""
+        from assistant import observance as ob
+        return jsonify({"label": ob.SWITCH_LABEL, "festival": None,
+                        "days": [ob.day_info(d) for d in sorted(ob.day_overrides())]})
+
     @app.get("/observance/exceptions")
     def observance_exceptions_get():
-        """The dates the Shabbat / yom tov rule is OFF for (Gil, 2026-09-26)."""
+        """Q59's view, kept for old clients: the dates the user ALLOWED the
+        engine to book (`override: "allow"` in /observance/days)."""
         from assistant import observance as ob
         return jsonify({"dates": sorted(d.isoformat() for d in ob.exception_dates())})
 
     @app.put("/observance/exceptions")
     def observance_exceptions_put():
-        """Replace the exception days: {"dates": ["YYYY-MM-DD", ...]}. On such a
-        date the engine books as on any day and a repeating series does not
-        skip it; a date covers its whole holy window, the evening before too."""
+        """Q59's writer, kept for old clients: {"dates": ["YYYY-MM-DD", ...]}
+        replaces the ALLOWED dates; kept-off dates are left alone, and an allow
+        on a day that is not kept off by default is dropped as a no-op. On an
+        allowed Shabbat / yom tov the engine books as on any day, the evening
+        before included."""
         from assistant import observance as ob
         data = request.get_json(silent=True) or {}
         dates = data.get("dates")

@@ -13,11 +13,12 @@ CHOL = dt.date(2026, 9, 29)              # chol hamoed Sukkot
 
 
 @pytest.fixture
-def ob():
+def ob(tmp_path, monkeypatch):
     from assistant import observance
-    observance.set_exception_dates([])
+    monkeypatch.setattr(observance, "EXCEPTIONS_PATH", str(tmp_path / "exceptions.json"))
+    observance._exc_cache.clear()
     yield observance
-    observance.set_exception_dates([])
+    observance._exc_cache.clear()
 
 
 def _verdict(date, start="10:00", title="gym session"):

@@ -147,55 +147,166 @@ LOCATION_PATH = os.environ.get("MACALENDAR_LOCATION") or os.path.expanduser(
     "~/.assistant_tools/location.json")
 
 
-#: EXCEPTION DAYS (Gil, 2026-09-26: *"a way to give specific days as an
-#: exception"* — the rule is OFF for that date). A personal store beside the
-#: location, with the same kind of override so tests and boards never read or
-#: write the real one.
+#: THE PER-DAY OVERRIDES (DEVQA Q59, generalised by Q60). A personal store
+#: beside the location, with the same kind of override so tests and boards
+#: never read or write the real one. The file keeps its Q59 name; its shape is
+#: now ``{"allow": [ISO...], "keep_off": [ISO...]}``. The Q59 shape,
+#: ``{"dates": [...]}``, still reads — as ``allow``, which is what it meant.
 EXCEPTIONS_PATH = os.environ.get("MACALENDAR_OBSERVANCE_EXCEPTIONS") or os.path.expanduser(
     "~/.assistant_tools/observance_exceptions.json")
 
 _exc_cache: dict = {}
 
+# ---------------------------------------------------------------------------
+# The per-day switch: "keep engine events off this day" (DEVQA Q60)
+# ---------------------------------------------------------------------------
+#
+# Every day has one switch. ON: an event the ENGINE makes on it is still
+# added, with a note (the 2026-09-08 flag ruling), and a repeating series
+# skips the day. OFF: the engine books as on any day. What the switch
+# defaults to depends on what kind of day it is; any single date can be
+# flipped either way. The global `observance.enabled` sits above all of it —
+# off means no gating anywhere, whatever the days say.
+#
+# The polarity lives HERE and nowhere else — the label and the per-kind
+# default. The routes serve both; the Mac reads them directly.
 
-def exception_dates() -> "frozenset[datetime.date]":
-    """The dates the Shabbat / yom tov / fast rule is switched OFF for. A date
-    covers its whole holy window, including the evening before it."""
+#: The switch's words, for every surface that draws it.
+SWITCH_LABEL = "Keep engine events off this day"
+
+#: What the switch is on each kind of day when nobody has flipped it (Gil,
+#: 2026-09-26: "yom tov or shabbat by default on, for chol hamoed off"). A
+#: fast is off: the day is ordinary for events, and a MEAL before the fast
+#: ends is flagged by its own check, which this switch does not replace.
+DEFAULT_KEPT_OFF = {
+    "shabbat": True,
+    "yom_tov": True,
+    "chol_hamoed": False,
+    "fast": False,
+    "ordinary": False,
+}
+
+#: The kinds whose "kept off" is the halachic rule: bounded by candle
+#: lighting and tzeit, with meals / leyning / davening exempt. Any other day
+#: the user keeps off is kept off for its whole CALENDAR day, no exemption.
+HOLY_KINDS = ("shabbat", "yom_tov")
+
+KEEP_OFF, ALLOW = "keep_off", "allow"
+
+
+def _read_overrides() -> "dict[datetime.date, str]":
     try:
         mtime = os.path.getmtime(EXCEPTIONS_PATH)
     except OSError:
-        return frozenset()
+        return {}
     if _exc_cache.get("mtime") == mtime:
-        return _exc_cache["dates"]
-    out = set()
+        return _exc_cache["overrides"]
     try:
         with open(EXCEPTIONS_PATH, encoding="utf-8") as f:
-            for d in (json.load(f) or {}).get("dates", []):
-                try:
-                    out.add(datetime.date.fromisoformat(str(d)[:10]))
-                except ValueError:
-                    continue
+            data = json.load(f) or {}
     except (OSError, ValueError):
-        return frozenset()
-    _exc_cache.update(mtime=mtime, dates=frozenset(out))
-    return _exc_cache["dates"]
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    out: "dict[datetime.date, str]" = {}
+    # "dates" is Q59's shape (allow); "block" is read as keep_off. A date
+    # listed both ways is KEPT OFF — the side that cannot book something the
+    # user did not want.
+    for key, verdict in (("dates", ALLOW), ("allow", ALLOW),
+                         ("block", KEEP_OFF), ("keep_off", KEEP_OFF)):
+        for d in data.get(key) or []:
+            try:
+                day = datetime.date.fromisoformat(str(d)[:10])
+            except ValueError:
+                continue
+            if out.get(day) != KEEP_OFF:
+                out[day] = verdict
+    _exc_cache.update(mtime=mtime, overrides=out)
+    return out
 
 
-def is_exception(date: datetime.date) -> bool:
-    return date in exception_dates()
+def day_overrides() -> "dict[datetime.date, str]":
+    """Every date the user has flipped: date -> "keep_off" | "allow"."""
+    return dict(_read_overrides())
 
 
-def set_exception_dates(dates) -> "list[str]":
-    """Replace the exception list; returns it sorted as ISO dates. Raises
-    ValueError on anything that is not a date, before writing."""
-    clean = sorted({datetime.date.fromisoformat(str(d).strip()[:10]).isoformat()
-                    for d in dates})
+def day_override(date: datetime.date) -> "str | None":
+    """"keep_off", "allow", or None when the date follows its default."""
+    return _read_overrides().get(date)
+
+
+def _as_date(value) -> datetime.date:
+    if isinstance(value, datetime.datetime):
+        return value.date()
+    if isinstance(value, datetime.date):
+        return value
+    return datetime.date.fromisoformat(str(value).strip()[:10])
+
+
+def _write_overrides(overrides: "dict[datetime.date, str]", israel: bool = True) -> None:
+    """Write the store. An override equal to its day's default is dropped —
+    it changes nothing, and would silently pin the day if the default moved."""
+    keep, allow = [], []
+    for day, verdict in overrides.items():
+        if (verdict == KEEP_OFF) == default_kept_off(day, israel):
+            continue
+        (keep if verdict == KEEP_OFF else allow).append(day.isoformat())
     os.makedirs(os.path.dirname(EXCEPTIONS_PATH), exist_ok=True)
     tmp = EXCEPTIONS_PATH + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
-        json.dump({"dates": clean}, f, indent=1)
+        json.dump({"allow": sorted(allow), "keep_off": sorted(keep)}, f, indent=1)
     os.replace(tmp, EXCEPTIONS_PATH)
     _exc_cache.clear()
-    return clean
+
+
+def set_day_override(date, kept_off: "bool | None", israel: bool = True) -> dict:
+    """Flip one date: True keeps engine events off it, False lets the engine
+    book it, None puts it back to its default. Raises ValueError on a
+    non-date or a non-bool BEFORE writing. Returns the day's `day_info`."""
+    day = _as_date(date)
+    if kept_off is not None and not isinstance(kept_off, bool):
+        raise ValueError("kept_off must be true, false or null")
+    overrides = dict(_read_overrides())
+    overrides.pop(day, None)
+    if kept_off is not None:
+        overrides[day] = KEEP_OFF if kept_off else ALLOW
+    _write_overrides(overrides, israel)
+    return day_info(day, israel)
+
+
+def set_day_overrides(overrides: "dict", israel: bool = True) -> "dict[datetime.date, str]":
+    """Replace every override at once — {date: "keep_off" | "allow"} — for
+    the Mac dialog's Save. Validated whole before anything is written."""
+    clean: "dict[datetime.date, str]" = {}
+    for d, verdict in (overrides or {}).items():
+        if verdict not in (KEEP_OFF, ALLOW):
+            raise ValueError(f"an override is {KEEP_OFF!r} or {ALLOW!r}, not {verdict!r}")
+        clean[_as_date(d)] = verdict
+    _write_overrides(clean, israel)
+    return day_overrides()
+
+
+def exception_dates() -> "frozenset[datetime.date]":
+    """Q59's view of the store: the dates the user ALLOWED."""
+    return frozenset(d for d, v in _read_overrides().items() if v == ALLOW)
+
+
+def is_exception(date: datetime.date) -> bool:
+    """Q59's question — has the user let the engine book this date?"""
+    return day_override(date) == ALLOW
+
+
+def set_exception_dates(dates) -> "list[str]":
+    """Q59's writer, kept for old clients: replace the ALLOWED dates and leave
+    every kept-off date alone. An allow on a day that is not kept off by
+    default changes nothing and is dropped. Raises ValueError on anything
+    that is not a date, before writing."""
+    wanted = {_as_date(d) for d in dates}
+    overrides = {d: v for d, v in _read_overrides().items() if v == KEEP_OFF}
+    for d in wanted:
+        overrides[d] = ALLOW
+    _write_overrides(overrides)
+    return sorted(d.isoformat() for d in exception_dates())
 
 
 def set_location(latitude: float, longitude: float, timezone: str,
@@ -475,6 +586,154 @@ def is_minor_fast(date: datetime.date) -> bool:
     """
     name = fast_day_name(date)
     return bool(name) and name not in _MAJOR_FASTS
+
+
+# ---------------------------------------------------------------------------
+# What kind of day, and is the engine kept off it (DEVQA Q60)
+# ---------------------------------------------------------------------------
+
+DayKind = Literal["shabbat", "yom_tov", "chol_hamoed", "fast", "ordinary"]
+
+
+def day_kind(date: datetime.date, israel: bool = True) -> DayKind:
+    """The one word the per-day switch's default is keyed on.
+
+    Yom tov outranks Shabbat (Shemini Atzeret on a Saturday is yom tov —
+    both are kept off by default, so only the name cares), Shabbat outranks
+    chol hamoed (Shabbat chol hamoed is Shabbat), and Yom Kippur is yom tov
+    here even though it is also a fast.
+    """
+    if yom_tov_name(date, israel):
+        return "yom_tov"
+    if is_shabbat(date):
+        return "shabbat"
+    if is_chol_hamoed(date, israel):
+        return "chol_hamoed"
+    if fast_day_name(date):
+        return "fast"
+    return "ordinary"
+
+
+def day_name(date: datetime.date, israel: bool = True) -> str:
+    """What to call the day on a settings row: 'Shabbat · Shmini Atzeres',
+    'Chol hamoed Succos', 'Tzom Gedalia', 'Chanukah', or '' on a plain day."""
+    parts: List[str] = []
+    if is_shabbat(date):
+        parts.append("Shabbat")
+    yt = yom_tov_name(date, israel)
+    try:
+        hol = HebrewDate.from_pydate(date).holiday(israel=israel) or ""
+    except Exception:
+        hol = ""
+    if yt:
+        parts.append(yt)
+    elif is_chol_hamoed(date, israel):
+        parts.append(f"Chol hamoed {hol}")
+    else:
+        fast = fast_day_name(date)
+        if fast:
+            parts.append(fast)
+        elif hol and hol not in parts:
+            parts.append(hol)
+    return " · ".join(parts)
+
+
+def default_kept_off(date: datetime.date, israel: bool = True) -> bool:
+    """The switch's position on *date* when the user has not flipped it."""
+    return DEFAULT_KEPT_OFF[day_kind(date, israel)]
+
+
+def kept_off(date: datetime.date, israel: bool = True) -> bool:
+    """Is the switch ON for *date* — the default for its kind, then the user's
+    override? This is the switch alone; `is_enabled()` is checked by the
+    rules that consult it, and switches all of it off."""
+    override = day_override(date)
+    if override is not None:
+        return override == KEEP_OFF
+    return default_kept_off(date, israel)
+
+
+def engine_allowed(date: datetime.date, israel: bool = True) -> bool:
+    """May the engine book on *date* as on any day? The switch, inverted."""
+    return not kept_off(date, israel)
+
+
+def holy_kept_off(date: datetime.date, israel: bool = True) -> bool:
+    """Shabbat / yom tov with the switch on: the halachic rule applies —
+    candle lighting to tzeit, the eve's evening included, meals / leyning /
+    davening exempt."""
+    return day_kind(date, israel) in HOLY_KINDS and kept_off(date, israel)
+
+
+def whole_day_kept_off(date: datetime.date, israel: bool = True) -> bool:
+    """Any OTHER day the user switched on by hand. Kept off for the whole
+    CALENDAR day, 00:00 to 24:00 — not sundown-bounded, because nothing
+    halachic begins at candle lighting the evening before a chol hamoed
+    Tuesday; the user named a date, and a date is a civil day. No meal
+    exemption either: the user chose it."""
+    return day_kind(date, israel) not in HOLY_KINDS and kept_off(date, israel)
+
+
+def day_info(date: datetime.date, israel: bool = True) -> dict:
+    """One row of `GET /observance/days` and the settings lists."""
+    override = day_override(date)
+    return {
+        "date": date.isoformat(),
+        "weekday": date.strftime("%a"),
+        "kind": day_kind(date, israel),
+        "name": day_name(date, israel),
+        "default_kept_off": default_kept_off(date, israel),
+        "kept_off": kept_off(date, israel),
+        "override": override,
+    }
+
+
+def days_info(start: datetime.date, end: datetime.date, israel: bool = True) -> List[dict]:
+    out, cur = [], start
+    while cur <= end:
+        out.append(day_info(cur, israel))
+        cur += datetime.timedelta(days=1)
+    return out
+
+
+#: Sukkot and Pesach: the festivals whose chol hamoed is long enough that
+#: "this week" is the wrong unit (Gil, 2026-09-26). Shmini Atzeret and, in
+#: the Diaspora, Simchat Torah close Sukkot.
+_LONG_FESTIVALS = {"Succos": "Sukkot", "Shmini Atzeres": "Sukkot",
+                   "Shemini Atzeres": "Sukkot", "Simchas Torah": "Sukkot",
+                   "Pesach": "Pesach"}
+
+
+def _long_festival(date: datetime.date, israel: bool) -> str:
+    try:
+        return _LONG_FESTIVALS.get(HebrewDate.from_pydate(date).holiday(israel=israel) or "", "")
+    except Exception:
+        return ""
+
+
+def week_span(today: Optional[datetime.date] = None,
+              israel: bool = True) -> Tuple[datetime.date, datetime.date, str]:
+    """(start, end, festival) of the settings' "This week" box: the Sunday to
+    Saturday week holding *today*, widened to the whole of Sukkot or Pesach —
+    first yom tov through the last — when any day of that week is part of
+    one. `festival` is '' when nothing widened it."""
+    today = today or datetime.date.today()
+    start = today - datetime.timedelta(days=(today.weekday() + 1) % 7)
+    end = start + datetime.timedelta(days=6)
+    lo, hi, festival = start, end, ""
+    one = datetime.timedelta(days=1)
+    cur = start
+    while cur <= end:
+        name = _long_festival(cur, israel)
+        if name:
+            a, b = cur, cur
+            while _long_festival(a - one, israel) == name:
+                a -= one
+            while _long_festival(b + one, israel) == name:
+                b += one
+            lo, hi, festival = min(lo, a), max(hi, b), festival or name
+        cur += one
+    return lo, hi, festival
 
 
 def _starts_at_sundown(date: datetime.date, israel: bool) -> bool:
