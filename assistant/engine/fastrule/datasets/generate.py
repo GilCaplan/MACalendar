@@ -682,6 +682,29 @@ def _q61_moves(fam: dict, slots: dict, ta: list) -> list:
     return list(ta)
 
 
+#: Q63 (2026-09-27) — no day and no clock is a to-do. Gil: *"if the date
+#: isn't given, then we can just make it a to-do... if we don't have a time to
+#: put in at all, and nothing to infer where we would go."* A single event row
+#: whose slots name no date, clock, span, repeat or lead, no attendee, whose
+#: words neither name the calendar nor meet a person (Q47 B / Q50 place those).
+_TIME_SLOTS = ("date_phrase", "date_phrase_2", "time_phrase", "recurrence",
+               "all_day", "lead_time")
+_CAL_DEST = re.compile(r"\b(?:on|to|in|onto)\s+(?:my|the)\s+(?:calendar|schedule|diary|agenda)\b", re.I)
+
+
+def _q63_moves(fam: dict, slots: dict, text: str, ev: list) -> list:
+    """Every event part of a row that names no time and no person anywhere."""
+    from assistant.intent.encounter import is_encounter
+    if fam["action"] not in ("create_event", "mixed") or not ev:
+        return []
+    if any(v for k, v in slots.items() if k.startswith(_TIME_SLOTS)) \
+            or any(v for k, v in slots.items() if k.startswith("attendee")):
+        return []
+    if _CAL_DEST.search(text) or is_encounter(text):
+        return []
+    return list(ev)
+
+
 def ruled_family(fam: dict, values: dict, slots: "dict | None" = None,
                  text: str = "") -> "dict | None":
     """The family as the RULINGS read this row, or None when no ruling
@@ -712,6 +735,18 @@ def ruled_family(fam: dict, values: dict, slots: "dict | None" = None,
     if repeating:
         ruling = f"{ruling}+Q61" if moved else "Q61"
         moved += repeating
+    if not moved and not spec:
+        unplaced = _q63_moves(fam, slots or {}, text, ev)
+        if unplaced:
+            # the opposite direction from the rulings below: events -> to-dos
+            ev_left = [k for k in ev if k not in unplaced]
+            ta_new = sorted(ta + unplaced, key=lambda k: int(TITLE_KEY_RE.match(k).group(2) or 1))
+            out = dict(fam)
+            out["events"], out["tasks"] = len(ev_left), len(ta_new)
+            out["action"] = "mixed" if ev_left and ta_new else "create_todo"
+            out["_label_sources"] = (ev_left, ta_new)
+            out["_ruled"] = "Q63"
+            return out
     if not moved:
         return None
     ta = [k for k in ta if k not in moved]

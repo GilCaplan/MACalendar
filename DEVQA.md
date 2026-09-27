@@ -1,3 +1,21 @@
+- **2026-09-27 — Q63 (NO DAY AND NO CLOCK -> A TO-DO)**, Gil, asked how to
+  label "book a flight" / "schedule a haircut" said with no time (the gold
+  had them as events in some families and to-dos in others): *"if the date
+  isn't given, then we can just make it a to-do, to be honest. Right? That's
+  the other default option. Because if we don't have a time to put in at
+  all, and nothing to infer where we would go, then it would just become a
+  to-do."* So a create with NO DAY and NO CLOCK is a to-do — unless a ruling
+  already supplies where it goes: a person or a role call (Q47 B / Q50, an
+  event at 09:00), the calendar named as the destination, a repeat (Q61).
+  Not extended to a day without a clock ("book a meeting friday"), which he
+  did not rule on here. Built the same day: one reader,
+  `assistant/intent/placed.py` `nothing_to_infer` — "where to infer from"
+  read as a day, a clock, "now", a person, a SEQUENCE (Q51 chains its parts)
+  or the calendar / "an event" named, anywhere in the WHOLE command. A change
+  to something that exists (cancel, move, delete …) is never touched. The
+  FastRule gold already labelled these to-dos; segmentation's 15 items were
+  relabelled by rule.
+
 - **2026-09-27 — Q61 (A REPEATING TO-DO IS AN EVENT SERIES WITH ONE ROLLING
   LINKED TO-DO)**, Gil: *"repeating task always becomes an event, we have on
   the calendar that it shows up on due date no? that is essentially part of the

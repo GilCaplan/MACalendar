@@ -259,6 +259,37 @@ def q61_tag(tag: str, time_str: str) -> str:
     return "event" if tag == "task" and _CADENCE.search(time_str or "") else tag
 
 
+#: Q63 (Gil, 2026-09-27): *"if the date isn't given, then we can just make it
+#: a to-do... if we don't have a time to put in at all, and nothing to infer
+#: where we would go."* An EVENT item whose time is only the floor (no day or
+#: clock said anywhere in the command) and that neither names the calendar nor
+#: meets a person (Q47 B / Q50 — `intent/encounter.py`, the one rule both
+#: readers share, or a capitalised name in its words) is a to-do.
+def q63_tag(tag: str, time_str: str, action: str, text: str,
+            row_times: "list[str] | None" = None) -> str:
+    """`row_times`: every item's time in the row. A row where any item states
+    a time has something to infer from (a sequence chains, a date is shared),
+    which the ruling keeps as an event."""
+    from assistant.intent.encounter import is_encounter
+    if tag != "event" or (time_str or "").strip().lower() not in ("", "today"):
+        return tag
+    if any((t or "").strip().lower() not in ("", "today") for t in (row_times or [])):
+        return tag
+    # a CHANGE to something that exists is not a create; Q63 is about creates
+    if re.match(r"^(?:(?:um|uh|so|ok|okay|hey|please|just|can you|could you)[\s,]+)*"
+                r"(?:delete|remove|cancel|clear|drop|scrap|erase|move|reschedule|push|"
+                r"postpone|bump|rename|change|update|edit|extend|shorten|put|mark|check|"
+                r"tick|complete|finish|cross)\b", action or "", re.I):
+        return tag
+    if re.search(r"\btoday\b", text or "", re.I):
+        return tag
+    if _CALENDAR_DESTINATION.search(action) or is_encounter(action):
+        return tag
+    if re.search(r"(?<!^)\b[A-Z][a-z]+", action or ""):     # a person's name
+        return tag
+    return "task"
+
+
 _CALENDAR_DESTINATION = re.compile(
     r"\b(?:on|to|in|from|off)\s+(?:my|the)\s+(?:calendar|schedule|diary|agenda)\b", re.I)
 
