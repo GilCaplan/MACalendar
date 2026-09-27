@@ -85,7 +85,7 @@ def test_unconfident_rules_take_the_deep_track(monkeypatch):
     rp.analyze.return_value = rr
     monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: rp)
     parser = MagicMock()
-    parser.parse.return_value = [("create_event", SimpleNamespace(title="x"))]
+    parser.parse.return_value = [("create_event", SimpleNamespace(title="team sync"))]
     parser.parse_with_context.side_effect = Exception("no context parse")
     parser.last_llm_ms = 3
     parser.last_examples_used = 0
@@ -93,10 +93,35 @@ def test_unconfident_rules_take_the_deep_track(monkeypatch):
     monkeypatch.setattr(engine_llm, "get_parser", lambda cfg: parser)
     _fake_registry(monkeypatch, {"create_event": ["made it"]})
 
-    out = engine.run_transcript("do the thing with the stuff sometime", source="test")
+    # Words segmentation reads as an EVENT: the rescue enforces a task-kind
+    # item against a model's create_event (2026-09-27), and this test is about
+    # the track, not the kind.
+    out = engine.run_transcript("team sync about the stuff", source="test")
     assert out["parse"] == "deep"
     assert out["actions"] == ["create_event"]
 
+
+
+def test_a_task_item_the_model_calls_an_event_stays_a_todo(monkeypatch):
+    """Segmentation read these words as a to-do by rule; the rescue's model
+    answering create_event contradicts it, the mirror of the event-kind retry
+    (2026-09-27: "set a reminder to fix the leaky faucet next week")."""
+    rr = SimpleNamespace(confidence=0.30, missing_slots=["start_time"], intents=[])
+    rp = MagicMock()
+    rp.analyze.return_value = rr
+    monkeypatch.setattr(engine_llm, "get_rule_parser", lambda: rp)
+    parser = MagicMock()
+    parser.parse.return_value = [("create_event", SimpleNamespace(title="do the thing"))]
+    parser.parse_with_context.side_effect = Exception("no context parse")
+    parser.last_llm_ms = 3
+    parser.last_examples_used = 0
+    parser.last_raw_response = ""
+    monkeypatch.setattr(engine_llm, "get_parser", lambda cfg: parser)
+    _fake_registry(monkeypatch, {"create_event": ["made it"], "create_todo": ["filed it"]})
+
+    out = engine.run_transcript("do the thing with the stuff sometime", source="test")
+    assert out["parse"] == "deep"
+    assert out["actions"] == ["create_todo"]
 
 # --- the needs_edit gate ---------------------------------------------------
 

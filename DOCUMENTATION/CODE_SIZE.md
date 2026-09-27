@@ -1,13 +1,13 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 636, "total_lines": 177586} -->
+<!-- code-stats: {"total_files": 636, "total_lines": 177637} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**177,586 lines of source across 636 files.** Of that, **97,632 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**177,637 lines of source across 636 files.** Of that, **97,658 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
-| Test code | 198 | 38,896 |
+| Test code | 198 | 38,921 |
 | iOS application | 62 | 23,941 |
 | Actions, storage & domain (DB, config, observance, .ics) | 111 | 20,877 |
 | Engine (the brain, shipped path) | 56 | 20,283 |
@@ -16,17 +16,17 @@
 | Dataset & measurement tooling | 50 | 13,242 |
 | Retired (old brain, kept on purpose) | 16 | 7,533 |
 | Review panel (Mac card + iOS timeline) | 6 | 4,099 |
-| Model / Ollama code | 12 | 3,198 |
+| Model / Ollama code | 12 | 3,224 |
 | Microphone / speech (record, STT, TTS) | 17 | 3,151 |
 | API server (the front door) | 4 | 1,877 |
 | Launch scripts | 3 | 316 |
-| **TOTAL** | **636** | **177,586** |
+| **TOTAL** | **636** | **177,637** |
 
 ### By language
 
 | | files | lines |
 |---|---:|---:|
-| Python | 560 | 150,857 |
+| Python | 560 | 150,908 |
 | Swift | 67 | 25,835 |
 | shell | 8 | 741 |
 | launch script | 1 | 153 |

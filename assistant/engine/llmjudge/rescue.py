@@ -305,6 +305,32 @@ def rescue(state: EngineState, cfg, pending: list) -> None:
                               note="the parse contradicted the item's event kind")
                 got = retried
 
+        # THE MIRROR FOR A TASK (2026-09-27). Segmentation read these words as
+        # a TO-DO by rule — and a stated clock would have made them an event
+        # before this (Q26) — so a model answer of create_event contradicts
+        # the upstream judgement exactly as a todo answer does for an event
+        # item above. It was accepted, and `_expand` then rewrote the kind
+        # from the model's action: "set a reminder to fix the leaky faucet
+        # next week" was booked as an event (found when Board D began running
+        # ingest, which repairs "remindar" into the words this path reads).
+        # Narrowed to the to-do it was judged to be, the model's title kept;
+        # `run_objects` writes the resolved due date as for every item.
+        if item.kind == "task" and got and any(n == "create_event" for n, _ in got):
+            narrowed = []
+            for n, iv in got:
+                if n == "create_event":
+                    title = str(getattr(iv, "title", "") or "").strip() or item.text.strip()
+                    try:
+                        narrowed.append(("create_todo", CreateTodoIntent(
+                            titles=[title], due_date=getattr(iv, "date", None) or None)))
+                        continue
+                    except Exception:
+                        pass
+                narrowed.append((n, iv))
+            state.add_fix("llmjudge", "task_kind_narrowed", "create_event", "create_todo",
+                          note="the parse contradicted the item's task kind")
+            got = narrowed
+
         empty = not got or all(n == "unknown" for n, _ in got)
 
         # THE TWO KIND-GROUNDED FALLBACKS. Both exist because segmentation
