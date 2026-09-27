@@ -788,6 +788,19 @@ def _split_intents(doc) -> list:
     if root is None:
         return [doc[:]]
 
+    # A SEMICOLON separates two asks (2026-09-27). spaCy reads it as the end of
+    # a sentence, and this splitter only looks at the FIRST root's conjuncts,
+    # so "vacuum the living room; pick up the dry cleaning" came back as one
+    # span and committed one to-do called 'living room' — the half-executed
+    # shape of the second train-only pool (`c_tr2_semicolon_tt`). Each clause
+    # between semicolons is its own span; with no semicolon nothing changes.
+    semis = [tok.i for tok in doc if tok.text == ";"]
+    if semis:
+        bounds = [-1] + semis + [len(doc)]
+        chunks = [doc[a + 1:b] for a, b in zip(bounds, bounds[1:]) if b - a > 1]
+        if len(chunks) >= 2:
+            return chunks
+
     # A COURTESY TAIL is not a second intent. "extend open house by an hour
     # and LET AVERY KNOW" split into two spans, the second routed to nothing,
     # and an unroutable span costs the whole parse 30% of its confidence —
