@@ -1,3 +1,18 @@
+- **2026-09-27 — Q64 (WHEN THE ENGINE IS DONE)**, Gil agreed ("ok") to the
+  finish line proposed after the day's generalisation check showed generated-
+  set gains leaving real speech flat. The engine is DONE when all three hold:
+  1. **Real usage** (his own reviewed commands, ≥100 reviewed): ≈90% of
+     commands fully right, and **no destructive error** (a wrong delete or
+     move) in the last 100.
+  2. **Real speech, whole chain, held-out rows** (the verification pool's
+     ranks 601–3000, the answer key brought in line with the rulings BY RULE):
+     single-ask ≥95%, multi-ask ≥80%.
+  3. **The sealed 300**, read once as the sign-off: ≥85% adjusted.
+  The deferred offline-engine-on-phone work starts then. Standing at the
+  time (2026-09-27): single-ask real speech ~90% (dev range, n=418),
+  multi-ask ~50% (n=182), sealed 75% adjusted (09-22), real usage too thin to
+  read (75 reviewed, 09-22).
+
 - **2026-09-27 — Q63 (NO DAY AND NO CLOCK -> A TO-DO)**, Gil, asked how to
   label "book a flight" / "schedule a haircut" said with no time (the gold
   had them as events in some families and to-dos in others): *"if the date

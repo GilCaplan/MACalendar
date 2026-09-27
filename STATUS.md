@@ -15,6 +15,15 @@ ingest → segmentation → decompose_validate → fastrule → llmjudge → com
 LLMSeg is wired and INERT; the judge makes no model call; the model is called by
 `llmjudge/rescue.py` (parsing what FastRule deferred) and the judge's loop-back.
 
+## The finish line (DEVQA Q64, agreed 2026-09-27)
+
+Done when: **real usage** ≈90% fully right with no destructive error in the
+last 100 (≥100 reviewed); **real speech held-out** single-ask ≥95% and
+multi-ask ≥80% (answer key aligned to the rulings by rule); **sealed 300**
+≥85% adjusted, read once to sign off. Today: single-ask ~90%, multi-ask
+~50%, sealed 75% (09-22), real usage too thin. Generated boards (FastRule,
+Board D) are the fast inner loop, not the finish line.
+
 ## Where it stands (2026-09-27)
 
 **As production runs it** — Board D `--product` (ingest, then the front door,
@@ -133,9 +142,11 @@ linked to-do (Q61, `cf74dec3`), and "buy A and B" is two to-dos (Q62,
 
 ## Next
 
-1. **Harm on the fast path**: an UPDATE aimed at a to-do whose name holds a
-   verb goes to update_event (11 rows on Board D); "oil change …" read as a
-   move (5). The delete and create-for-a-mutation classes are done.
+1. **Align the real-speech answer key to the rulings, by rule** (Q52 list
+   management, Q42 bare kinds, …) so its number means the engine.
+2. **Multi-ask commands on real speech** (event + to-do 29%, two to-dos 60%,
+   two events 71%; dev range n=182), fixes mined from the dev range with ≥3
+   distinct phrasings each, verdict on the held-out range.
 2. **Real usage**: re-read the board once there is new reviewed usage (needs
    Gil's reviews in the HUD / phone).
 3. **Sealed 300 (TEST)** milestone read, aggregates only.
