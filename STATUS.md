@@ -18,24 +18,23 @@ LLMSeg is wired and INERT; the judge makes no model call; the model is called by
 ## Where it stands (2026-09-26)
 
 **As production runs it** — Board D `--product` (front door first), FastRule
-7,200 set, **TRAIN**, 1,200 rows, seeded, fresh, `299aeb0f`
-(`llmjudge/experiments/runs/board_d_train_1200_20260926T0342.json`):
+7,200 set, **TRAIN**, 1,200 rows, seeded, fresh, `ca2c40dd`
+(`llmjudge/experiments/runs/board_d_train_1200_20260926T2320.json`; titles
+scored with the Q55/Q56 gold):
 
 | metric (`dataset/METRICS.md`) | as shipped | deep chain only (`dc884b55`) |
 |---|---|---|
-| headline correct (action + title) | **92.7%** (1112/1200) | 92.2% |
-| count-correct | **92.6%** (851/919) | 91.0% |
-| objects F1 | **95.8%** | 95.2% |
-| rows needing a model call | **19.6%** | 40.8% |
-| harm | 152 | 129 |
-| vague target refused | 67.4% (29/43) | 81.4% |
+| headline correct (action + title) | **93.1%** (1117/1200) | 92.2% |
+| count-correct | **93.0%** (855/919) | 91.0% |
+| objects F1 | **96.1%** | 95.2% |
+| date right · range right | **96.0%** (315/328) · **100%** (22/22) | 92.3% · 90.9% |
+| harm | 140 | 129 |
+| vague target refused | 81.4% (35/43) | 81.4% |
+| rows needing a model call | **19.5%** | 40.8% |
 
-Reading: the fast path now helps the product instead of costing it, at half the
-model calls. At `04810fae` the same board read vague target refused **79.1%**
-(34/43) and harm **142**, headline unchanged — but its date and latency lines
-are void: the run paused ~15 h while the Mac slept and Board D's clock ran on
-(fixed, `6a08b0df`). Before the pause, date right read 95.8% (n=192) against
-90.0% at `299aeb0f`.
+Reading: the product beats the deep chain on every line but harm, at half the
+model calls; harm is the remaining gap — update/delete kind on to-dos whose
+names hold a verb, on both tracks.
 
 **The fast path alone** — FastRule shape board, FastRule 7,200 set, `04810fae`:
 
