@@ -89,9 +89,10 @@ STEPS: list[tuple[str, str]] = [
 #:      class, 42% of Gil's real-usage failures; DEVQA Q41)
 #:      -- "Meeting with Sam tomorrow at 4" -> 'meeting with sam';
 #:      "Set a meeting tomorrow at 4" -> 'meeting' (+ the bare_title hint)
-#:   3. a shared verb over a list is ONE task (DEVQA Q14 reversed
-#:      2026-09-16); a verb each splits it
-#:      -- "Buy milk, eggs, and bread" -> one to-do with the whole list;
+#:   3. a shared verb over a list is a to-do PER THING (DEVQA Q62,
+#:      2026-09-27: "buy a,b thats two actions"; segmentation still reads it
+#:      as one item, Q14 reversed — the records are decompose's / FastRule's)
+#:      -- "Buy milk, eggs, and bread" -> buy milk, buy eggs, buy bread;
 #:      "Buy milk and pay rent" -> two to-dos ("call Mom" is an event since Q47)
 #:   4. a named or counted day resolves; a range does not name one
 #:      -- "Book the dentist next Tuesday at 4" -> a Tuesday (said on a
@@ -126,9 +127,9 @@ TIPS: list[tuple[str, str]] = [
     ("Say what it’s about",
      "“Meeting with Sam tomorrow at 4” is saved as ‘meeting with sam’. "
      "“Set a meeting tomorrow at 4” is saved as just ‘meeting’."),
-    ("One verb, one to-do",
-     "“Buy milk, eggs, and bread” is one task with the whole list. Give "
-     "each its own verb — “buy milk and pay rent” — to get two."),
+    ("A to-do for each thing",
+     "“Buy milk, eggs, and bread” makes three to-dos — buy milk, buy eggs, "
+     "buy bread. “Buy milk and pay rent” makes two."),
     ("Name a day, not a week",
      "“Next Tuesday”, “on the 15th” and “in two weeks” each land on one "
      "day. “Next week” names no single day, so it has to ask or guess."),

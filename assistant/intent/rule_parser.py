@@ -2307,7 +2307,15 @@ def _todo_titles_from_text(text: str, temporal_spans, span) -> list[str]:
         # "put milk and bananas on the groceries list" / "add X to my list"
         m2 = re.match(r"^\s*(?:add|put)\s+(.+?)\s+(?:on|to)\s+(?:my|the)\s+(?:\w+\s+)?list\s*$", t, re.IGNORECASE)
         if not m2:
-            return []
+            # ONE ERRAND, SEVERAL THINGS with no frame (DEVQA Q62, 2026-09-27):
+            # "buy index cards and coffee filters" is two to-dos, as it already
+            # was after "remind me to" — the shared rule decompose uses too.
+            from assistant.intent.list_split import is_errand_list
+            body = _SOURCE_TAIL.sub("", _FRAME_TAIL.sub("", t)).strip(" ,;:")
+            parts = [_tidy_part(p) for p in split_items(
+                body, drop=_PRONOUN_TITLES, keep_together=_serial_verb_pairs(span))[:10]]
+            parts = [p for p in parts if p]
+            return parts if is_errand_list(parts) else []
         body = m2.group(1)
     else:
         body = t[m.end():]

@@ -275,20 +275,17 @@ def test_one_errand_for_two_people_stays_one_task(parser):
 # question than this fix, noted in TASKS.md, not resolved here).
 # ---------------------------------------------------------------------------
 
+# DEVQA Q62 (2026-09-27, Gil: "buy a,b thats two actions of a buy apples, b
+# buy bottles") — every object survives AND is its own to-do; segmentation
+# still reads the shape as one item (Q14 reversed), the records are N.
 @pytest.mark.parametrize("text,expected", [
-    ("buy shampoo and apples", ["buy shampoo and apples"]),
-    # `_titles` reads the raw parse, before quantity-folding runs (a later
-    # stage — `run_transcript` end to end renders this one "…paper ×8"); at
-    # this level the point being tested is that apples/paper survive at all.
+    ("buy shampoo and apples", ["buy shampoo", "buy apples"]),
     ("buy eight sticky notes, apples, and printer paper",
-     ["buy sticky notes, apples, and printer paper"]),
+     ["buy sticky notes", "buy apples", "buy printer paper"]),
     ("pick up envelopes and sellotape from the stationers",
-     ["pick up envelopes and sellotape"]),
-    # `_clean_title` strips ONE leading article ("the"/"a"/...) off the
-    # combined string, not one per noun phrase — pre-existing, unrelated to
-    # this fix.
+     ["pick up envelopes", "pick up sellotape"]),
     # (was "call the dentist and the vet" — an event since DEVQA Q50)
-    ("email the dentist and the vet", ["email dentist and the vet"]),
+    ("email the dentist and the vet", ["email the dentist", "email the vet"]),
 ])
 def test_bare_imperative_keeps_every_coordinated_object(parser, text, expected):
     assert _titles(parser, text) == expected

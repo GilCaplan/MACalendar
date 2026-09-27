@@ -129,3 +129,34 @@ def split_items(body: str, drop: Container[str] = frozenset(),
     parts = [_DANGLING_CONJ.sub("", p.strip(" .,")).strip(" .,") for p in parts]
     parts = [p for p in parts if p and p.lower() not in drop]
     return distribute_lead_verb(parts)
+
+
+# ---------------------------------------------------------------------------
+# ONE ERRAND, SEVERAL THINGS (Gil, 2026-09-26/27, DEVQA Q62: "buy a,b thats two
+# actions of a buy apples, b buy bottles"). The one definition of when a list
+# split is a list: decompose_validate's `_split_tasks` and the front door's
+# to-do reader both ask it, so the two tracks cannot disagree.
+# ---------------------------------------------------------------------------
+
+#: Words that make a list part a CLAUSE or a TIME, never a thing to get.
+_NOT_A_THING = re.compile(
+    r"\b(?:i|i'm|i've|it|it's|you|we|they|that|this|is|was|are|be|been|done|got|"
+    r"won't|already|finally|anymore|now|including|something|before|after|every|each|all\s+day|today|tonight|tomorrow|"
+    r"monday|tuesday|wednesday|thursday|friday|saturday|sunday|weekend|week|month|"
+    r"morning|afternoon|evening|lunchtime|o'?clock|\d{1,2}(?::\d{2})?\s*(?:am|pm))\b", re.I)
+
+
+def is_errand(part: str) -> bool:
+    """"buy stamps", "pick up the dry cleaning" — an errand verb and a short
+    thing, with no clause or time word in the thing."""
+    verb = lead_verb(part)
+    if not verb:
+        return False
+    thing = part[len(verb):].strip()
+    return (0 < len(thing.split()) <= 5 and not _NOT_A_THING.search(thing)
+            and not re.match(r"(?:on|to|from|off|of|for|at|in|with)\b", thing, re.I))
+
+
+def is_errand_list(parts: "list[str]") -> bool:
+    """Every part (verb already handed down) is "<errand verb> <a short thing>"."""
+    return len(parts) > 1 and all(is_errand(p) for p in parts)

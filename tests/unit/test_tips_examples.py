@@ -195,9 +195,10 @@ def test_tip2_the_title_is_what_you_say_it_is_about():
     assert [e["title"].lower() for e in events] == ["meeting"]
 
 
-def test_tip3_one_verb_over_a_list_is_one_todo_and_two_verbs_are_two():
+def test_tip3_one_verb_over_a_list_is_a_todo_per_thing():
+    # DEVQA Q62 (2026-09-27): "buy a,b thats two actions"
     _, _, todos = _run("Buy milk, eggs, and bread")
-    assert [t["title"].lower() for t in todos] == ["buy milk, eggs, and bread"]
+    assert [t["title"].lower() for t in todos] == ["buy milk", "buy eggs", "buy bread"]
     _, _, todos = _run("Buy milk and pay rent")
     assert [t["title"].lower() for t in todos] == ["buy milk", "pay rent"]
 
