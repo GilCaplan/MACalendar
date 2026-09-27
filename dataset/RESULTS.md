@@ -3314,3 +3314,16 @@ list of contacts and also i need more milk", fails for another reason);
 held-out real-speech gain is shown — the shape is rarer in real speech than in
 the dev failures suggested. Chain and dv boards identical; unit suite green;
 CI green (36347734658).
+
+## CYCLE R2 — answer key aligned to Q52; a list named without my/the (2026-09-27, `ee853635`)
+
+Answer key: the Q52 list-management class (102 rows by rule, 19 dev) —
+adjusted count-correct on the dev range 78.2% raw -> 83.0% adjusted at
+2439b748 (no engine change; the metric now reads the rulings). Engine: R1
+(list adds never chained) + the named-list reader accepting "to hardware store
+list" / "in cosmetic list". **Dev range, seeded 7, n=600, adjusted: 83.0 ->
+83.3%; single 91.9% (n=418) unchanged; multi-ask 62.6 -> 63.7% (n=182); 2
+fixed / 0 broken** (the two "…and then add X to my grocery list" rows). The
+other rows the reader fix aimed at still fail for a second reason. Small, and
+honest: two real-speech fixes, +1.1 pt on multi-ask. Against the finish line
+(DEVQA Q64): single 91.9% vs ≥95%, multi 63.7% vs ≥80%.
