@@ -296,26 +296,27 @@
 
     <p>
       That last box is the part most descriptions of this pattern get wrong, so it is
-      worth stating plainly: <strong>the model reviews every command</strong>, including
-      the ones the rules were completely confident about. A confident wrong answer is
-      precisely the case nothing else would catch.
+      worth stating plainly: <strong>every command is checked after it is built</strong>,
+      including the ones the rules were completely confident about. A confident wrong
+      answer is precisely the case nothing else would catch. The check compares what was
+      saved against the words that were said, and it is made of rules: since September
+      it asks the model nothing, because asking changed no outcome and was most of the
+      model's traffic.
     </p>
 
-    <h3>Six jobs, one model</h3>
+    <h3>Four jobs, one model</h3>
     <p>
-      The 8B model is loaded once and stays loaded. It is asked six different questions,
-      with six different prompts, and only three of them happen while you are waiting:
+      The 8B model is loaded once and stays loaded. It is asked four different questions,
+      with four different prompts, and three of them happen while you are waiting:
     </p>
 
     <table>
       <thead><tr><th>Job</th><th>When</th><th>You wait?</th></tr></thead>
       <tbody>
-        <tr><td class="m">cold parse</td><td>the rules scored low, or found nothing at all</td><td class="n">yes</td></tr>
-        <tr><td class="m">hybrid fill</td><td>the rules got some of it; the model is handed those and fills the gaps</td><td class="n">yes</td></tr>
-        <tr><td class="m">title naming</td><td>the parse produced a stub title rather than a real one</td><td class="n">briefly</td></tr>
+        <tr><td class="m">rescue</td><td>the rules declined a part of the command; the model parses it, starting from what the rules had already got</td><td class="n">yes</td></tr>
+        <tr><td class="m">rewrite</td><td>the check found a part whose subject is wrong or still holds two asks, and the rules have nothing new to try; the model rewrites that part so it can be split again</td><td class="n">yes</td></tr>
         <tr><td class="m">escalation</td><td>the action referred to something that does not exist — the whole sentence is re-read</td><td class="n">yes</td></tr>
-        <tr><td class="m">self-check (rules)</td><td>after a rule-path record is already saved</td><td class="n">no</td></tr>
-        <tr><td class="m">self-check (all)</td><td>after every command, with your past commands in the prompt</td><td class="n">no</td></tr>
+        <tr><td class="m">title naming</td><td>a confident fast answer produced a stub title ("meeting") rather than a real one</td><td class="n">no</td></tr>
       </tbody>
     </table>
 

@@ -56,15 +56,19 @@ versus planned in `ENGINE_REWIRE.md`.
 | Recurrence as a SLOT (cadence, rounding, series anchor) | `intent/recurrence.py` |
 | NP- vs clause-coordination — a feature, a gate, AND the split boundary | `intent/coordination.py` |
 | Is this fragment an ASK? (segment's clause tier and decompose's list tier) | `intent/asks.py` |
+| Is this ask an ENCOUNTER with a person? (call/see/meet → event, Q47/Q50) | `intent/encounter.py` |
+| List-management asks thrown out as junk, with the reason (Q52) | `intent/junk.py` |
+| A sequence's untimed parts chain off the part before them (Q51) | `decompose_validate/chain.py` |
+| Shared helpers (wordlists, time parsing, jsonl, scratch env, similarity) | `assistant/common/` |
 | Product-shape board / atomicity board / persona board / kind board | `engine/fastrule/experiments/fastrule_shape.py`, `scripts/atomicity_board.py`, `scripts/persona_board.py`, `scripts/kind_board.py` |
 | Fit the routing models (train halves only, deterministic) | `scripts/fit_route_models.py` |
 | Per-stage live gates | `scripts/engine_stage_check.py` |
 | Mac gate dialog (`ask_transcript_edit`, `STATUS_EDIT`) | `calendar_ui/window.py`, `pipeline.py` |
 
-**Two things are wired but deliberately INERT** — do not read their presence as
-behaviour: LLMSeg (`MACALENDAR_LLMSEG`), and the judge's loop-back, which is
-gated on `llmjudge.rewrite_for_retry` — a stub returning `None`, so no loop
-fires.
+**LLMSeg is wired but deliberately INERT** (`MACALENDAR_LLMSEG`) — do not read
+its presence as behaviour. **The judge's loop-back is LIVE** (since
+2026-09-10): `llmjudge/rewrite.py::rewrite_for_retry` builds X1' in two tiers
+and re-enters segmentation; see CLAUDE.md.
 
 ---
 
@@ -87,7 +91,10 @@ One class, `CalendarDB`, plus a `get_db()` singleton. Find a method by name.
 | | `update_timer_session`, `stop_timer_session`, `delete_timer_session`, `split_timer_session` |
 
 **Schema — `todos`:** `id, title, list, completed, priority, due_date, notes,
-source, source_event_id, created_at, completed_at, position, attachments`
+source, source_event_id, created_at, completed_at, position, attachments,
+tags, quantity, updated_at, client_token, linked_event_id` — the last is the
+Q50 to-do↔event link (`todos.linked_event_id`), distinct from `source_event_id`
+(where a row came from) and added after this row was first written.
 **Schema — `subtasks`:** `id, todo_id, title, completed, position, created_at`
 **Schema — `timers`:** `id, title, hourly_rate, color, created_at, archived`
 **Schema — `timer_sessions`:** `id, timer_id, title, start_time, end_time

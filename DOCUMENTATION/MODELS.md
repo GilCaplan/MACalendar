@@ -56,24 +56,28 @@ model 3 — the LLM — was the open idea this replaced, and it is not the shape
 that shipped: a classifier that runs in microseconds on CPU beats an 8B call for
 a decision this small.
 
-## The six jobs model 3 does
+## The jobs model 3 does, in the engine
 
-One model, one loaded copy (`keep_alive: -1`, warmed at startup), six different
-prompts. They are genuinely different tasks and it is worth keeping them
-straight:
+One model, one loaded copy (`keep_alive: -1`, warmed at startup), several
+different prompts, all issued from `assistant/engine/`, never from the old
+`assistant/intent/parser.py` call sites that pre-date it:
 
 | Job | Entry point | When | Blocking? |
 |-----|-------------|------|-----------|
-| **Cold parse** | `IntentParser.parse` | rules scored below 0.85, or produced nothing | yes |
-| **Hybrid fill** | `parse_with_context` | rules got some slots; the LLM is given them and fills the rest | yes |
-| **Self-check (rule path)** | `verify_fast_path_async` | after a rule-path record is already written | no — daemon thread |
-| **Self-check (any path)** | `verify_actions_async` | after execution, on **every** command, with memory in the prompt | no — daemon thread |
-| **Title naming** | `fix_title_async` | the parse produced a placeholder title like the bare keyword | yes, briefly |
-| **Escalation re-parse** | `parse`, again | an action matched nothing (`TargetNotFound`) — e.g. "complete X" where X isn't a task | yes |
+| **Item rescue — cold parse / hybrid fill** | `IntentParser.parse` / `parse_with_context`, called from `llmjudge/rescue.py::_ask_the_model` | once per item FastRule DEFERRED (job 0 of the judge — parsing what the rules could not build), given FastRule's partial parse when there is one | yes — foreground deep track |
+| **Judge's model-tier rewrite** | `rewrite.rewrite_with_model`, called from `rewrite_for_retry` | the deterministic tier of the loop-back has nothing NEW to say (string already tried, or an `unsplit_subject` finding) | yes — foreground deep track |
+| **Title naming** | `fix_title_async` | behind a fast-track commit, only when the created event's title is a bare placeholder ("meeting") | no — background thread (`_start_background_verify`) |
+| **Escalation re-parse** | `IntentParser.parse`, again | an action matched nothing (`TargetNotFound`) — e.g. "complete X" where X isn't a task (`engine/__init__.py::_recheck_not_found`) | yes |
 
-Only three of those are on the path between speaking and seeing the event.
-The self-checks run after the record exists, which is why their latency is not
-a user-facing cost — the correction, when there is one, arrives as an edit.
+Two jobs this table used to list, `verify_fast_path_async` and
+`verify_actions_async`, are **dead** — `grep -rn` for either name outside
+`assistant/intent/parser.py` (where they are still defined) returns nothing.
+The engine's judge (`llmjudge/`) replaced both with a deterministic,
+no-model-call check; see CLAUDE.md, "And LLMJudge makes no model call at all".
+
+Only the item-rescue and judge-rewrite jobs are on the path between speaking
+and seeing the result on the deep track; title naming runs after the record
+exists, which is why its latency is not a user-facing cost.
 
 Structured output is enforced with Ollama's `format` JSON schema on the parse
 calls (`_call_ollama(sys, user, schema)`); the verify calls use a looser
@@ -146,14 +150,19 @@ the shipped engine).
 
 ## Approach — why it is shaped this way
 
-**Rules first, model second, model again as an auditor.** The rule parser is
-not a fallback for when the LLM is down; it is the fast path, and it handles
-the majority of commands with no model call at all. The 8B model exists for the
-sentences the rules cannot score confidently — and, separately, as a reviewer
-of everything the rules *did* score confidently, because a confident rule parse
-is exactly where a silent error hides. See the `verify_fast_path` comment in
-`config.example.yaml` for the measurement that put it there, and
-`self_check_apply` for the measurement that stopped it from writing.
+**Rules first, model second, a deterministic reviewer behind a confident
+answer.** The rule parser is not a fallback for when the LLM is down; it is
+the fast path (FastRule), and it handles the majority of commands with no
+model call at all. The 8B model exists for the sentences the rules cannot
+build (item rescue) or split (the judge's loop-back) — and, separately, a
+confident fast-track answer is checked behind the reply by `llmjudge`, which
+makes **no model call** of its own (retired 2026-09-10, CLAUDE.md); the one
+model step folded into that review is narrow — renaming a placeholder title
+(`fix_title_async`). `self_check_apply` (`config.example.yaml`) still carries
+the measurement that keeps a destructive finding from that review advisory
+rather than auto-applied: 0 fixed, 1 broken. (`verify_fast_path` is a dead
+config key from the old, model-based self-check this replaced — see
+SYSTEM_MAC.md.)
 
 **Small models, chosen for the machine.** Whisper `base` and an 8B parser are
 both several steps down from what is available. The constraint is that the whole

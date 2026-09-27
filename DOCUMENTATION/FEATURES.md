@@ -128,10 +128,12 @@ built when it reaches the Mac.
 | backend | [Task tags](#task-tags--a-finite-classification) | closed-set classification w/ healing | `actions/todo/tagging.py` |
 | backend | [Categories & stacking](#events-categories-colours--binder-stacking) | auto-colour/categorise; overlaps stack | `actions/calendar/categories.py` |
 | hybrid | [Event defaults](#event-defaults-default-length-and-chain-gap) | default event length and chained-event gap, global and per category, on both apps | `event_defaults.py`, `GET/PATCH /config`, `/categories`, `GET /event_defaults` |
+| backend | [Sequences — chained asks](#sequences--chained-asks) | "X, then Y" splits with the relationship kept; untimed parts chain off the one before | `intent/sequence.py`, `decompose_validate/chain.py` |
+| backend | [List management is junk](#list-management-is-thrown-out-as-junk-and-says-why) | "open grocery list" etc. thrown out before any parse, with the reason kept | `intent/junk.py` |
 | hybrid | [Shabbat & yom tov lines](#shabbat--yom-tov-lines) | yellow lines on Day/Week at the exact minute of candle lighting and nightfall, following the phone's location; minute in yellow on Month (iOS) | `observance.holy_windows`, `GET /observance/windows`, `holy_times.py`, `WeekView.swift` |
 | backend | [Hebrew calendar & observance](#hebrew-calendar--observance) | sundown-bounded halachic windows; series skip, one-offs flagged | `observance.py`, `hebrew_calendar.py` |
 | backend | [Recurring events](#recurring-events) | daily/weekly/monthly/yearly, several weekdays, announced rounding | `db.py`, `decompose_validate/resolve.py` |
-| backend | [API server](#the-api-server) | the single front door, 148 endpoints on 2026-09-24 (the generated `API_REFERENCE.md` is the live list) | `api/server.py` |
+| backend | [API server](#the-api-server) | the single front door, 154 endpoints as of 2026-09-25 (the generated `API_REFERENCE.md` is the live list) | `api/server.py` |
 | backend | [Hosted calendar sync](#hosted-calendar-sync) | optional Google & Outlook two-way / ICS read, synced by the brain | `calendar_sync/` |
 | backend | [Self-improvement loop](#the-self-improvement-loop) | the AI measures & improves itself | `dataset/`, `scripts/` |
 | backend | [Diagnostics & logs](#diagnostics--self-observation-logs) | NLU tracking, LLM-judge bug log, audit, calibration | `scripts/` |
@@ -1204,11 +1206,13 @@ found nothing; every LLM call schema-constrained and grounded on the raw
 transcript. Per-stage tests (`test_engine_<stage>.py`), per-stage boards under
 each folder, and `scripts/engine_stage_check.py --stage <name>` for one stage
 against the real local LLM.
-**Two things are wired and deliberately INERT**, so their presence is not
-working behaviour: LLMSeg is off (`MACALENDAR_LLMSEG`), and the judge's
-loop-back is gated on a rewrite that is still a stub — re-entering a
-DETERMINISTIC segmenter with unchanged text cannot produce a new answer, which
-is why the gate exists rather than a plain re-run.
+**LLMSeg is wired but deliberately INERT** (`MACALENDAR_LLMSEG`) — its presence
+is not working behaviour. **The judge's loop-back is LIVE** (since 2026-09-10):
+`rewrite_for_retry` builds a rewritten X1 in two tiers — the failed asks in the
+speaker's own words, deterministically; then, when that has nothing new to
+say, the model writes them — and both pass the same grounding guard, because
+re-entering a DETERMINISTIC segmenter with unchanged text cannot produce a new
+answer, which is why a rewrite is what re-enters rather than a plain re-run.
 **Step 0 — is this a command at all?** `repair.is_ignorable()` runs at the
 engine's front door, before the run lock and before the config is read, so
 silence that transcribed to nothing and a recording that is only the word
@@ -1240,10 +1244,10 @@ way. Gil, 2026-09-13: *"build a parallel engine which is just an LLM trying to
 one shot"*. Shipped `9481853`.
 **Where:** `assistant/engine/LLM_one_shot/__init__.py` (245 lines — `SCHEMA`,
 `build_objects`, `_to_intents`, and a stage-shaped `run(state, cfg)`); the
-branch point is `assistant/engine/__init__.py:317-333`; it is listed as a
-component but explicitly NOT a stage in `assistant/cli.py:236-237`, and
-`tests/unit/test_cli.py:77` pins that exception; the sweep harness selects it
-with `CHECKPOINT_ENV` at `scripts/checkpoint_sweep.py:78`.
+branch point is `assistant/engine/__init__.py:403-413`; it is listed as a
+component but explicitly NOT a stage in `assistant/cli.py` (`ENGINE_STAGES`'s
+`LLM_one_shot` row), and `tests/unit/test_cli.py:86` pins that exception; the
+sweep harness selects it with `CHECKPOINT_ENV` at `scripts/checkpoint_sweep.py:78`.
 **Why it exists:** to answer a question the chain cannot answer from inside
 itself — **does the six-box deep track earn its complexity?** It is deliberately
 the dumbest honest baseline: the raw transcript, today's date, and a schema. No
@@ -1382,6 +1386,46 @@ length and follow the start (and, on a new event, the title's category) until
 the end is set by hand; the phone caches the values in UserDefaults
 (`EventDefaults`) so it works offline.
 
+### Sequences — chained asks
+**What:** "X followed by Y followed by Z" is tracked as a sequence, not three
+unrelated asks (DEVQA Q51, Gil 2026-09-25: *"so if we decide to segment, at
+least we know the reason why. Then if we need to fix it … we know what the
+relationship is"*). An untimed part starts when the part before it ends and
+beats a default hour ("gym at 9, then lunch" is lunch at 10:00, not noon); a
+to-do in the chain is chained too, as an event AND a linked to-do ("walk the
+dog at 5, then do the laundry" books the walk at 17:00 and files the laundry
+as a to-do linked to it).
+**Where:** segmentation splits on the sequence words ("followed by", "then",
+"after that", "afterwards", "right after") and marks the relationship on each
+item (`Item.relation`, kind `sequence`) — `assistant/intent/sequence.py`
+(`SEQUENCE_SEAM`, `verb_led_seams`, `closing_seams`), read from
+`engine/segmentation/fastseg/fastseg.py`. `assistant/engine/decompose_validate/
+chain.py` reads that relation and fills what the speaker left out: a part with
+its own clock keeps it and the chain runs on from there; a part naming no day
+takes the previous part's day; "right after <named earlier thing>" chains from
+THAT item regardless of position.
+**How:** the default gap between chained events and the default event length
+are the SAME settings the event-defaults feature uses
+(`assistant/event_defaults.py`, per category then global then 60 min / 0 gap
+to start), so a chained event and a lone one agree.
+
+### List management is thrown out as junk, and says why
+**What:** a request to manage LISTS themselves — "open grocery list", "delete
+this list", "save the new list", "what lists do I have" — is not sent to the
+model at all; it is thrown out at once, with the reason kept so it is visible
+rather than silently dropped (DEVQA Q52, Gil 2026-09-25: *"just ignore and
+throw out as junk... just mark so we can see why we threw it out"*). NOT
+junk: something put ON a list (a to-do), a list named for its contents, or
+reading a list's contents (a to-do query) — those still execute normally.
+**Where:** one rule, `assistant/intent/junk.py` (`junk_reason`), read by
+FastRule's front door (`fastrule/fastrule.py::FastRule.run` — defers with
+reason `"junk"` before any parse) and by segmentation's tagger, which tags the
+item `other` and carries the reason on `Item.slots["junk"]` for the reply, the
+trace and the review to show.
+**How:** measured on the 2,699 non-sealed real commands (train pool, count-
+correctness not applicable — a junk classification, not a parse): 61 rows are
+junk whole (2.3%), 163 more carry a junk part (6.0%).
+
 ### Hebrew calendar & observance
 **What:** Jewish/Israeli holidays in the views; Shabbat/yom tov/fast windows
 computed from the sky (candle lighting → tzeit) at the user's actual location;
@@ -1479,22 +1523,25 @@ tuesday and thursday" steps to the next NAMED day instead of always +7. It is
 which days a weekly series lands on, not a fifth cadence. It is filled on the
 deep track only — `resolve.py:689` → `stage.py:117,147` → `CalendarIntent.recur_days`
 → `db.py:923`.
-**Two things the docs used to claim that the code still contradicts** (both
-re-verified 2026-09-14, both live, neither fixed here):
-- **The fast path still rounds yearly to monthly.** `intent/recurrence.py:40`
-  is `(r"\bevery\s+year\b|\byearly\b|\bannually\b", "monthly", True)`, and
-  `rule_parser.py:1324-1331` writes that cadence straight into the slots. So a
-  confident rule parse of "book the check-up every year" still books a monthly
-  series — the exact case the fourth cadence was added to stop.
-  `resolve.py:481-483` was fixed; this second reader never was.
-- **The rounding announcement is stale in two places.** `text_helpers.py:41`
-  still lists `every <x>day and <y>day` as an unsupported cadence and announces
-  a rounding that `recur_days` no longer performs, and the reply string at
-  `object_rules.py:266` still reads *"I can only repeat daily, weekly or
-  monthly"*, omitting the fourth.
+**The fast-path yearly bug is fixed** (re-verified 2026-09-26; this section
+used to say it was still live as of 2026-09-14). `intent/recurrence.py`'s
+pattern list now maps "every year" / "yearly" / "annually" straight to
+`"yearly"` with `needs_announcing=False`, so a confident rule parse of "book
+the check-up every year" books a yearly series, matching the deep track's
+resolver. The reply string is fixed too — `object_rules.py`'s
+`_rule_cadence_round_and_announce` now says *"I can only repeat daily,
+weekly, monthly or yearly"*, naming the fourth cadence.
+
+**One rounding announcement is still stale.** `text_helpers.py`'s
+`_UNSUPPORTED_CADENCE` still lists `every <x>day and <y>day` ("two days a
+week") and announces a rounding — but `object_rules.py` already skips that
+specific announcement when the committed object's own `recur_days` has more
+than one entry (the deep track's `resolve.py` reads every named weekday, so
+nothing was actually lost), so the false alarm only fires when a caller
+without that check reads the label directly.
 
 ### The API server
-**What:** The single front door — 148 endpoints on 2026-09-24 (`python scripts/gen_api_reference.py` regenerates the list and its count); every surface is its client.
+**What:** The single front door — 154 endpoints as of 2026-09-25 (`python scripts/gen_api_reference.py` regenerates the list and its count); every surface is its client.
 **Where:** `assistant/api/server.py` (HTTP only — no parsing/execution);
 generated reference `DOCUMENTATION/API_REFERENCE.md`
 (`scripts/gen_api_reference.py`).

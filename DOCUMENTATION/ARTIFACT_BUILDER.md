@@ -110,11 +110,16 @@ which is what stops a stale number outliving the run that produced it.
 
 ### The two accuracy rules that keep being got wrong
 
-- **The LLM validates every command.** There is no confidence score high enough
-  to skip it. Any phrasing resembling "above the threshold the rules answer
-  alone" is wrong: above the threshold the rules answer *first*, the record is
-  written immediately, and the model reviews it afterwards.
-- **Advisory, not applied.** `self_check_apply: false`. The self-check reasons
+- **A confident rule parse is reviewed, but not by the model any more.**
+  There is no confidence score high enough to skip the review: above the
+  threshold the rules answer *first*, the record is written immediately, and
+  a background check reviews it afterwards. That check (`llmjudge`) makes
+  **no model call** as of 2026-09-10 — it is a deterministic, in-code
+  comparison against the words spoken. Any phrasing resembling "the LLM
+  validates every command" or "the LLM double-checks the rules" is wrong now,
+  even though it was accurate before that date; the pages must not claim the
+  model reviews a confident answer.
+- **Advisory, not applied.** `self_check_apply: false`. The check reasons
   and reports; it does not silently rewrite. Say so.
 
 Where something is unmeasured, say it is unmeasured. The confidence multipliers

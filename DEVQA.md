@@ -99,8 +99,9 @@
   and a named to-do list still wins. Then, the same morning: *"But for two, can
   you also make it a to-do in addition, in parallel, and it should be linked."*
   So a call to a ROLE (not to a person — that stays one event) files BOTH: the
-  event and a to-do linked to it (`todos.source_event_id`, source
-  `linked_event`). Renaming either renames both, and moving the event moves the
+  event and a to-do linked to it (built as `todos.linked_event_id` — the
+  general to-do/event link Gil asked for the same day — not the
+  `source_event_id` this entry first named, which stays calendar-sync's). Renaming either renames both, and moving the event moves the
   to-do's due date. Deleting the event takes the to-do with it; ticking or
   deleting the to-do leaves the event. A series gets no companion.
   An operation on the list ("check off / delete call the plumber") is not a call.

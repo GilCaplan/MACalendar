@@ -18,7 +18,7 @@ Each line is `✔` healthy · `✘` broken/not-running · `•` degraded/unverif
 `ℹ` informational. `doctor` exits non-zero if any layer is `✘`.
 
 `say` is a **client**, not a second brain: it POSTs to `/voice/text` on the
-running API (`assistant/cli.py:401`) and renders the `trace` that comes back,
+running API (`assistant/cli.py:408 cmd_say`) and renders the `trace` that comes back,
 so it needs the stack up and it exercises exactly the path the GUI and the
 phone do. It defaults to `--source test`, which is what keeps a diagnostic out
 of the command memory and out of the HUD's History.
@@ -52,7 +52,7 @@ fire-and-forget, because being away from the Mac is a phone's normal state
 rather than an error. Layer 6 still reports "no client checked in yet" on a Mac
 the phone has never reached — that is an empty `~/.assistant_tools/heartbeats/`,
 not an unwritten client. The string the check prints in that case
-(`assistant/cli.py:354`) still reads *"iOS app posts it once updated"*: stale
+(`assistant/cli.py:363`) still reads *"iOS app posts it once updated"*: stale
 prose inside a working check, not a missing feature.
 
 ## The engine layer is version-tied — update it when the engine changes
@@ -68,45 +68,42 @@ Layer 3 reads `assistant/trace.BRAIN_VERSION` and the stage list, so it is
 engine's real stages, so a redesign that forgets to update the doctor fails the
 build — the same discipline as `test_panel_agreement`.
 
-## `--deep` points at a gate that is currently BROKEN
+## `--deep` points at a gate — fixed as of 2026-09-26
 
 `check engine --deep` does not run the per-stage gate itself. It prints
 *"deep per-stage firing: run `python -m scripts.engine_stage_check --stage
-all`"* (`assistant/cli.py:295`), and the live probe two lines above says the
+all`"* (`assistant/cli.py:304`), and the live probe above says the
 same (`:289`). CLAUDE.md presents that script as the working way to re-verify
 one stage in isolation.
 
-**It does not run, as of 2026-09-14.** Two faults, both verified by reading the
-file (no execution — it loads Ollama):
+**The 2026-09-14 stage-name and `ImportError` drift is fixed.**
+`scripts/engine_stage_check.py`'s `STAGES` dict now keys on the engine's real
+seven-stage names (`transcript`, `segment`, `decompose_validate`, `fastrule`,
+`llmjudge`, plus pre-rewire names kept as aliases so old invocations still
+resolve), and its `llmjudge` case imports `assistant.engine.llmjudge.llmjudge`
+correctly — no more `from assistant.engine.llmjudge import crosscheck`.
+`ingest` and `commit` are explicitly listed as `UNCOVERED_STAGES` (checked by
+`assistant-cli check engine`'s wiring layer instead) rather than silently
+missing.
 
-- `scripts/engine_stage_check.py:251-258` declares
-  `STAGES = {transcript, segment, decompose, validate, generate, crosscheck}`.
-  Four of those names no longer exist: `decompose` and `validate` became the
-  single stage `decompose_validate`, `generate` became `fastrule`, and
-  `crosscheck` became `llmjudge`, all in the 2026-09-08 rewire. Two real
-  stages — `ingest` and `commit` — have no entry under any name, so the first
-  box in the chain and the box that actually writes the rows are both
-  unverified.
-- `scripts/engine_stage_check.py:214` does
-  `from assistant.engine.llmjudge import crosscheck`. **No such module
-  exists** — `assistant/engine/llmjudge/` holds `llmjudge.py`, `gatekeeper.py`
-  and `llm_fallback.py`, and the package `__init__` re-exports only
-  `llmjudge`. So `--stage crosscheck` raises `ImportError` as soon as its
-  cases are built, and `--stage all` does the same once it reaches that stage.
+**A second, newer break in the same file is fixed too (2026-09-26).**
+`_cases_segment` imported `assistant.engine.segmentation.old_seg` — but
+`old_seg` was retired 2026-09-20 and moved to `retired/segmentation-old-seg/`,
+so that import raised `ModuleNotFoundError` as soon as `--stage segment` or
+`--stage all` reached it, and FastSeg (the live segmenter since 2026-09-08)
+had no case in this file at all. It now imports `assistant.engine.segmentation`
+(FastSeg's own entry point, `run(state, cfg)`) instead, so `--stage segment`
+exercises the live stage. This was the same "survivor is the copy in
+`scripts/`" trap CLAUDE.md records — `assistant/cli.py`'s own `ENGINE_STAGES`
+had already been updated for the old_seg retirement (a comment there says so
+explicitly) while this script's copy lagged.
 
-A third, quieter one: the `segment` cases import
-`assistant.engine.segmentation.old_seg.segment` (`:84`), the segmenter that
-ran only under `MACALENDAR_SEGMENTATION=old_seg` (retired 2026-09-20). FastSeg — the default since
-the same rewire — is never exercised by the gate that exists to prove it.
-
-**Why it survived.** The identical drift inside `assistant.cli` was found and
-fixed on 2026-09-13 (`c82d5f8`, *"The doctor was checking a chain the engine
-stopped running"*). This second copy was missed because it lives in `scripts/`
-rather than in the stage folder that owns it — the exact trap CLAUDE.md records
-under *"a path in an experiment or generator rots silently"*, where the
-survivor was again the one still in `scripts/`. Nothing goes red either:
-`tests/unit/test_cli.py` guards `cli.ENGINE_STAGES` against the engine's real
-stages, and knows nothing about this file.
+**Why the earlier defect survived as long as it did.** The identical drift
+inside `assistant.cli` was found and fixed on 2026-09-13 (`c82d5f8`, *"The
+doctor was checking a chain the engine stopped running"*). The `scripts/`
+copy lagged because `tests/unit/test_cli.py` guards `cli.ENGINE_STAGES` against
+the engine's real stages and knows nothing about this file — the same reason
+the old_seg import is not caught today.
 
 **The real stage list.** `assistant/engine/state.py:26-34` is authoritative —
 seven stages, in order:
@@ -114,11 +111,12 @@ seven stages, in order:
     ingest · transcript · segment · decompose_validate · fastrule · llmjudge · commit
 
 `transcript` is the repair half of ingest and stays its own Stage;
-`commit` writes and labels in one step (`assistant/engine/__init__.py:122-124`)
+`commit` writes and labels in one step (`assistant/engine/__init__.py`, `Engine.judge`/`_commit`)
 and owns no folder, so `label/` is covered under it.
 
-`cli.ENGINE_STAGES` (`assistant/cli.py:213-238`) is the worked example to copy
+`cli.ENGINE_STAGES` (`assistant/cli.py:218-247`) is the worked example to copy
 from, and its shape is the lesson: it keeps `(stage name, module)` **pairs**,
 because a folder name is not an import path — `decompose_validate/` contributes
-six modules to the list and `segmentation/` contributes three, FastSeg and
-old_seg both, so the live segmenter and the rollback path are each verified.
+six modules to the list and `segmentation/` contributes three. It no longer
+imports `old_seg` at all (retired 2026-09-20); only the live FastSeg segmenter
+is verified today.

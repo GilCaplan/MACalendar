@@ -209,11 +209,13 @@ cp config.example.yaml config.yaml
   ("buy chicken" → Groceries), and only tags that already exist are ever used.
 - **`api.port`**: where the API listens (default `8080`). Both the phone **and the
   Mac GUI** post commands there, and the HUD uses it too.
-- **`verify_fast_path`** / **`self_check_apply`**: the background review of a
-  fast answer. The first is on — every fast-track command is checked against your
-  words behind the answer and the finding shown in the trace. The second is off,
-  and the comment beside it in `config.yaml` carries the measurement: applying
-  those corrections fixed 0 commands and broke 1.
+- **`engine.reconcile`** / **`self_check_apply`**: the background review of a
+  fast answer. `reconcile: always` (the default) checks every fast-track command
+  against your words behind the answer and shows the finding in the trace;
+  `uncertain` skips the check when the rules were already confident.
+  `self_check_apply` is off, and the comment beside it in `config.yaml` carries
+  the measurement: applying those corrections fixed 0 commands and broke 1.
+  (`verify_fast_path` is a dead key left from the old brain — nothing reads it.)
 - **`calendar_sync`** / **`google_calendar`** / **`microsoft`**: connected calendars
   (see above); nothing runs until a source is connected.
 - **`hebrew_calendar`** / **`observance`**: the Hebrew-date display, holidays, the

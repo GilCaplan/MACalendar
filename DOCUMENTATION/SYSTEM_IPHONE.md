@@ -189,9 +189,17 @@ Launched automatically alongside the Mac app via `Launch Calendar.command`.
 | POST | `/voice/text` | `{transcript: str}` | `{message, actions, refresh, parse, verify_token?}` |
 | GET | `/voice/verify/<token>` | — | `{pending?}` or `{ok}` or correction object |
 
-`parse` is `"rule"` / `"hybrid"` / `"llm"` / `"error"` — how the command was processed.
+`parse` is `"fast"` / `"deep"` / `"error"` / `"ignored"`, plus `"needs_edit"` and
+`"confirm_create"` from the two confirm gates (`assistant/engine/state.py:246`,
+`EngineState.parse_path`). The old `"rule"` / `"hybrid"` / `"llm"` vocabulary is
+pre-engine and no longer emitted anywhere — the Swift `VoiceResponse.parse`
+doc-comment still names them and should be read against this list instead.
 
-`verify_token` is only present when `parse == "rule"` **and** `verify_fast_path` is on — it is off by default since 2026-08-28 (it proposed a correction on ~96% of commands and fixed none), so in the shipped configuration no token is issued and there is nothing to poll. iOS should poll `/voice/verify/<token>` every 4 s (up to ~40 s) to check if the background LLM verifier found a correction. Response:
+`verify_token` is issued whenever the fast track commits and `engine.reconcile`
+is `always` (the default) — it is not gated by `verify_fast_path`, which is a
+dead config key nothing reads (see SYSTEM_MAC.md). iOS should poll
+`/voice/verify/<token>` every 4 s (up to ~40 s) to check if the background
+check found a correction. Response:
 - `{"pending": true}` — LLM still running, retry
 - `{"ok": true}` — rule parser was correct, no action needed
 - `{"ok": false, "severity": "minor", "patch": {...}, "speech": "...", "refresh": "..."}` — iOS patches the existing record via REST + plays `speech`
@@ -357,21 +365,27 @@ Uses `AVSpeechSynthesisVoice(language:)` — always resolves on device, no decod
 ### Models
 ```swift
 struct CalendarEvent: Identifiable, Codable, Equatable {
-    let id: Int          // negative = local temp, positive = server ID
+    var id: Int           // negative = local temp, positive = server ID; var because a synced create rewrites it
     var title, date, startTime, endTime: String   // CodingKeys map snake_case
     var attendees, location, description, color: String
     var recurrence, recurrenceEnd: String
 }
 struct Todo: Identifiable, Codable, Equatable {
-    let id: Int          // negative = local temp
+    var id: Int           // negative = local temp
     var title, list: String
-    var completed: Int   // 0 or 1
+    var completed: Int    // 0 or 1
     var priority, dueDate: String
+    var tags: [String]
+    var quantity: Int = 1              // "buy pasta times 5" — one task, quantity 5
+    var linkedEventId: Int? = nil       // the event this to-do IS (DEVQA Q50); db column `linked_event_id`
 }
 struct VoiceResponse: Codable {
     let message: String; let actions: [String]; let refresh: String
-    let parse: String           // "rule" | "hybrid" | "llm" | "error"
-    let verifyToken: String?    // present only when parse == "rule"
+    let parse: String           // "fast" | "deep" | "error" | "ignored" | "needs_edit" | "confirm_create"
+                                 // (Models.swift's own doc-comment still says "rule"|"hybrid"|"llm" — pre-engine, stale)
+    let verifyToken: String?    // present when the fast track commits and engine.reconcile == "always" (default)
+    // Simplified here — the real struct (`API/Models.swift:180`) also carries
+    // needsEdit, confirmToken and proposal for the two confirm gates.
 }
 struct VerifyResult: Codable {
     let pending: Bool?          // true = LLM still running
@@ -388,7 +402,7 @@ struct HealthResponse: Codable { let status, llm, db: String }
 
 ### Background Verification (APIClient)
 ```swift
-// After receiving a VoiceResponse with parse == "rule":
+// After receiving a VoiceResponse with a verifyToken (fast-track commit):
 apiClient.pollVerify(token: response.verifyToken!) { result in
     // play result.speech via AVSpeechSynthesizer
     // if minor: PATCH existing record

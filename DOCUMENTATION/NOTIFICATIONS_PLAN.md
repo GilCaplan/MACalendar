@@ -352,13 +352,22 @@ as a proposal to keep or kill. **Do not build it on the strength of it being
 in this table.** Keep or kill is a one-line answer; see the open question at
 the foot of this file.
 
-**Closed, not deferred: the pre-Shabbat digest.** DEVQA Q6 (2026-09-06,
-`DEVQA.md:186-187`) confirmed the shipped suppress-entirely default, and Gil
-re-confirmed it on 2026-09-11 (`DEVQA.md:90-92`): *"NO reminders for events
-inside Shabbat / yom tov… The alternative is closed, not deferred."* Nobody
-owes a digest banner before candle lighting. (The 07:00 **day panel** that
-shipped 2026-09-11 is a different thing and is itself held through Shabbat
-and yom tov on the same ruling.)
+**Q6 was RE-RULED on 2026-09-17 (see DEVQA.md) — reversing the two rulings
+below.** Gil: *"This filter/block is controlled in settings by toggling
+on/off."* Suppression through Shabbat/yom tov is now a user SETTING, not a
+closed rule — it defaults to suppress (so nobody's phone changes under them),
+but the alternative that Q6 called "closed, not deferred" is exactly what a
+person can now turn on. This is scoped to NOTIFICATIONS only: the engine's own
+observance rules for what gets CREATED (a series still skips Shabbat and yom
+tov, a one-off inside them must still be leyning/a meal/davening) are
+untouched. The day panel is held through Shabbat/yom tov the same way and is
+subject to the same new setting. The paragraph below is the superseded
+2026-09-06/09-11 history, kept for the record:
+
+Q6 (2026-09-06, `DEVQA.md:186-187`) confirmed the shipped suppress-entirely
+default, and Gil re-confirmed it on 2026-09-11 (`DEVQA.md:90-92`): *"NO
+reminders for events inside Shabbat / yom tov… The alternative is closed, not
+deferred."*
 
 ### The device-provisioning question — settled, and not the way the doc said
 
@@ -457,14 +466,21 @@ Three files carry the net: `tests/unit/test_notify.py`,
 ## Open questions for the product owner — all three ANSWERED 2026-09-06
 
 These were the three the plan reserved. None of them is open; a doc still
-calling this feature "blocked on Q4–Q6" is eight days behind the log.
+calling this feature "blocked on Q4–Q6" is behind the log. **Q4 and Q6 were
+then RE-RULED on 2026-09-17** (DEVQA.md) — both defaults below are reversed;
+see the notes inline. The reversal is notifications-only — the engine's
+observance rules for what gets CREATED (CLAUDE.md, "Recurring events") are
+untouched.
 
 1. **Do you want Mac reminders with the calendar closed?** That requires detaching `assistant.api` into a launchd LaunchAgent — a launch-model change affecting `--reload`, the HUD, and shutdown ownership. If no, Phase 5's biggest item disappears and the phone is officially the only always-on surface.
-   → **RULED IN as a settings OPTION, default off** (DEVQA Q4, 2026-09-06,
-   `DEVQA.md:178-180`): *"settings toggle first, the LaunchAgent detach ships
-   behind it."* So phase 5's biggest item did NOT disappear — it is unblocked
-   and unbuilt. See phase-5 item 2 for what exists (nothing) and why it is
-   large (the launch model, not the checkbox).
+   → **RULED IN** (DEVQA Q4, 2026-09-06, `DEVQA.md:178-180`): *"settings toggle
+   first, the LaunchAgent detach ships behind it."* **RE-RULED 2026-09-17**
+   (DEVQA.md): default flips from off to **ALWAYS SHOW**, *"unless user has it
+   turned off in settings or cleared it on lock screen"* — dismissing on the
+   lock screen counts as clearing. So phase 5's biggest item did NOT disappear
+   — it is unblocked, unbuilt, and (per the 2026-09-17 default) on the critical
+   path rather than behind an opt-in switch. See phase-5 item 2 for what exists
+   (nothing) and why it is large (the launch model, not the checkbox).
 2. **Global default lead: opt-in (`0`, reminders only where asked) or blanket (e.g. 30 min before everything)?** Ships as `0`; a blanket default changes the feature's character and its noise level on a dense calendar.
    → **RULED: PER CATEGORY** (DEVQA Q5, 2026-09-06, `DEVQA.md:182-184`). That
    matches the mechanism already built — `resolve_lead`'s event override →
