@@ -1,3 +1,45 @@
+- **2026-09-26 — Q58 (THE FAST-PATH FENCE IS RETIRED, WITH CONDITIONS)**, Gil,
+  asked whether the fence in STATUS.md ("add fast-rule-parser rules mined from
+  the user's real data + the dataset — only on Gil's explicit say-so, and only
+  after the deep track is improved") still stands, after the session's
+  fast-path work and Board D run as production reading 92.7% against the deep
+  chain's 92.2% (1,200 train rows): *"you can decide whats best to do with
+  that."* **Decided (delegated): retired.** FastRule work is ordinary cycle
+  work, under four conditions that replace the fence: mined from TRAIN rows
+  only; each change boarded alone on the FastRule shape board, both splits;
+  no change ships that raises harm or the DESTRUCTIVE line; and Board D
+  `--product` confirms on the whole chain.
+
+- **2026-09-26 — Q55 (AN ERRAND VERB STAYS IN THE TITLE)**, Gil, asked whether
+  "buy" / "grab" belong in a to-do's title, after the FastRule set's gold was
+  found to disagree with itself ("buy groceries" kept its verb; "grab a few
+  light bulbs" was labelled 'light bulbs'): *"buy/grab should stay in
+  title."* The gold that drops the verb is relabelled to keep it; the
+  engine's titles already do.
+
+- **2026-09-26 — Q56 (THE PERSON STAYS IN THE TITLE)**, Gil, on "book a
+  meeting with Jamie" and "schedule sales call daily with Skyler": the title
+  keeps the person — 'meeting with Jamie', 'sales call with Skyler' (and the
+  second repeats daily). Gold that drops "with <person>" is relabelled.
+
+- **2026-09-26 — Q57 (A SERIES WITH NO END GETS A DEFAULT ONE)**, Gil: *"there
+  should be an end limit, a default."* When the speaker names no end, a
+  series stops after: **daily 2 weeks, weekly 8 weeks, monthly 12 months,
+  yearly 10 years** — each changeable in Settings. A stated end ("until …",
+  "through …") always wins.
+
+- **2026-09-26 — Q54 (THE 4-HOUR CAP IS FOR ENDS THE ENGINE MADE, NOT ONES
+  THE SPEAKER SAID)**, Gil, asked whether a stated end should beat
+  `engine.max_event_hours` after Board D showed "put physical therapy on my
+  calendar tomorrow from 9 to 2:30" clipped to 13:00: *"I already stated
+  that the engine does up to four hours unless the user purposefully states
+  more than that."* It was: the cap's own request (7fea6a78, 2026-09-16) reads
+  *"if the ai makes it longer it just gets clipped down … this is only on what
+  the ai engine produces."* So the cap clips an end the ENGINE supplied (a
+  default, a model's guess) and never one the speaker's words state — a
+  range ("from 9 to 2:30"), an end clock ("until 5pm") or a length ("for six
+  hours"). An implementation fix to `_rule_max_duration_cap`, not a new rule.
+
 - **2026-09-25 — Q53 (ONE TIME READER)**, Gil, asked whether the front
   door's time reader (`rule_parser._extract_temporal`) and decompose_validate's
   (`resolve`) should become one, after the same day's two time fixes had to be

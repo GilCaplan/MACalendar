@@ -386,63 +386,28 @@ segment uses it as both evidence and prompt grounding. **And FastRule is
 DETERMINISTIC** — a loop-back on unchanged text cannot get a new answer, so
 `state.asked_fastrule` sends it straight to the model instead.
 
-## Where we are working right now (2026-09-22)
+## How the work runs now (2026-09-26)
 
-**THE LLMJUDGE PROGRAM** (Gil, 2026-09-22: *"automate this process"*) —
-`assistant/engine/llmjudge/PLAN.md` §7 is the plan and §7.5 the six model-use
-tests; `DOCUMENTATION/TASKS.md` points at it. Order: Board D v2 (fresh by
-default, both halves, the net broken down, latency beside it) → the v2
-dataset (`llmjudge/datasets/v2/`, gold by grammar, built by a delegated
-agent in a worktree, never by a model's opinion) → the rescue drawn as its
-own trace step → the shape decisions and the six hypotheses as cycles, one
-change per board run, keep or revert on the catch/false-flag pair AND a
-latency budget → the real-usage board as the outer gate. **A model call in
-this stage is tested only as a coarse two-way question under a condition
-whose fire rate is reported** (§7.5); the four refuted uses are negative
-controls, not options.
+`STATUS.md` has the current numbers and what is next; this is how a cycle is
+run. **Mine TRAIN rows, change one thing, board it alone on its own stage
+first** (FastRule `fastrule_shape --split train|test`, segmentation
+`run_board`, the relation / chain / dv boards), because a whole-chain read
+cannot say which stage moved — then **confirm on the whole chain with
+`board_d --product`**. Board D WITHOUT `--product` runs the deep chain only
+(`Engine.parse` + `judge`, the front door skipped): its speed and accuracy are
+not the product's, and a fast-path change barely shows on it.
 
-## Where we are working right now (2026-09-20)
+**Segmentation and FastRule: implementation fixes yes, design changes no**
+(Gil, 2026-09-12; standing preference *"I don't really want to make structural
+changes if I don't have to"*). **The fast-path fence is retired with
+conditions** (DEVQA Q58): TRAIN rows only, each change boarded alone on both
+splits, nothing ships that raises harm or the DESTRUCTIVE line, Board D
+`--product` confirms.
 
-**THE IMPROVEMENT LOOP IS RUNNING AGAIN** (Gil, 2026-09-20, DEVQA Q31; it was
-paused for stage isolation from 2026-09-07). The working slice is dev-100
-(`python -m scripts.engine_dataset_compare --limit 0 --dev100`, ~15 min with
-the model), confirmed on dev-fast-250, sealed 300 milestone-only. Runs 22–26
-on 2026-09-20 took the same 100 rows from 74% to 85% count-correct
-(`dataset/RESULTS.md`), and the reason the pause ended is in those runs:
-every fix moved a stage board by nothing or two rows while the whole chain
-moved eleven points, because the misses were SEAM defects — the kind tagger
-disagreeing with the converter, an under-split multiplied into junk, a
-query committed for a create — that no stage corpus contains.
-
-Two rules survive from stage isolation. **A stage-internal change is still
-boarded alone on its own stage first** (segmentation `run_board`, FastRule
-`fastrule_shape --split train`, the stage board, the atomicity board), because
-a whole-chain read cannot say which stage moved; per-stage data lives with its
-stage under `assistant/engine/<stage>/datasets/`, never edited to suit another.
-And **dev-100 is direction, not proof** (one row = 1 pt, noise ~3 pt): confirm
-on dev-fast-250 before banking a win. `DOCUMENTATION/TASKS.md` carries the
-queue (items 4–8 of the checkpoint plan; three of them wait on rulings).
-
-**Segmentation: IMPLEMENTATION fixes are allowed, design changes are not**
-(Gil, 2026-09-12) — *"as long as the structure remains the same, and just
-fixing implementations then it's fine. Same for fastrules."* This narrows the
-2026-09-09 freeze, which several docs still quote as "no edits at all"; the
-standing preference behind it is *"I don't really want to make structural
-changes if I don't have to."*
-
-**The live queue is the checkpoint retrospective, not `TASKS.md` alone** —
-`DOCUMENTATION/experiments/checkpoints/` (RECOMMENDATIONS.md, RUN_STATUS.md).
-Six system states were measured on two sealed 300-row boards in September;
-nothing pointed at that folder, so three of its findings went unnoticed for
-weeks. Both boards are `split:"test"`: **retrospective only, and they may
-never pick the next thing to work on.**
-
-**The `engine-component-folders` merge is DONE** (verified 2026-09-17: it is
-0 commits ahead of HEAD, which is 117 ahead of it). This paragraph
-said it was "one decision blocking" — 34 unmerged commits of finished engine
-work — for long enough that the note outlived the problem. A blocker that has
-quietly cleared is worse than one that never existed: it sends the next person
-looking for work that is already in the tree.
+**Read every line, not the headline** (Gil, 2026-09-25): a change that lifts
+one line and costs another is reported with both. A metric added later is read
+off an existing run's checkpoint with `llmjudge/experiments/rescore.py` — a
+rerun is for changed CODE, never for a new way of scoring.
 
 ## Measuring a change to the assistant
 
