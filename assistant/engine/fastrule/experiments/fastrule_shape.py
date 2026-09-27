@@ -94,6 +94,15 @@ from assistant.engine.fastrule.experiments.gold import (  # noqa: E402  pure gol
 )
 
 
+def _todos(intents) -> int:
+    """To-dos CREATED, not create actions: one create_todo carrying titles
+    [a, b] makes two rows. Counted as one, "remind me to buy apples and pears"
+    read as a half-executed two-to-do command (2026-09-27, found relabelling
+    Q62's "buy A and B" rows to two to-dos)."""
+    return sum(max(1, len(getattr(i, "titles", None) or []))
+               for n, i in intents if n == "create_todo")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", choices=("train", "test"), default="test")
@@ -217,7 +226,7 @@ def main() -> int:
                 if committed:
                     N_COMMIT += 1
                     ev = sum(1 for n, _ in res.intents if n == "create_event")
-                    td = sum(1 for n, _ in res.intents if n == "create_todo")
+                    td = _todos(res.intents)
                     ok = ev >= e.get("events", 0) and td >= e.get("tasks", 0)
                     N_COMMIT_OK += 1 if ok else 0
                     viol[r["family"].rsplit("_", 1)[0]] += 1
@@ -241,7 +250,7 @@ def main() -> int:
                         f"[{(res.reason or '?').split(':')[0]}] {r['text'][:52]}")
                 continue
             ev = sum(1 for n, _ in res.intents if n == "create_event")
-            td = sum(1 for n, _ in res.intents if n == "create_todo")
+            td = _todos(res.intents)
             names = [n for n, _ in res.intents]
             if act.startswith(("update", "delete", "complete")):
                 fam = [(n, i) for n, i in res.intents if n.split("_")[0] == act.split("_")[0]]
