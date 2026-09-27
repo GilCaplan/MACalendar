@@ -152,7 +152,8 @@ def test_a_list_split_is_one_errand_with_several_things(cfg):
     short thing>" (2026-09-26): 253 splits on the FastRule 7,200 train half
     were mostly remarks, times and weekdays cut at a comma."""
     st = _run([_task("buy 2 eggs, stamps, and protein bars")], cfg)
-    assert [i.text for i in st.items] == ["buy 2 eggs", "buy stamps", "buy protein bars"]
+    assert [i.text for i in st.items] == ["buy eggs", "buy stamps", "buy protein bars"]
+    assert st.items[0].slots.get("quantity") == 2          # the count is a slot, as for "buy 5 apples"
     for text in ("mark submit the report as done, finally got to it",
                  "remove change the air filter from my list, i already handled it",
                  "print the boarding pass every tuesday and thursday at around lunchtime",
