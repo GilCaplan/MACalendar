@@ -1937,6 +1937,12 @@ _IS_NOW_AT = re.compile(r"\s+is\s+now\s+(?=(?:at|on|from)\b)", re.I)
 
 _ROUTE_OVERRIDES = [
     (_DUE_DATE_OF, "update_todo"),
+    # "PUT / POP / ADD X IN MY CALENDAR" is a create with the calendar named
+    # as where (2026-09-27, s_tr_ce_polite_verbose): "put" routed nothing, so
+    # "do me a favour and put car service appointment in my calendar for …"
+    # deferred and the deep track read a schedule QUESTION.
+    (re.compile(r"\b(?:put|pop|stick|add)\s+(?!it\b|that\b|this\b).+?\s+(?:in|on|into|onto|to)\s+"
+                r"(?:my|the)\s+(?:calendar|calender|diary|schedule|agenda)\b"), "create_event"),
     # "X … IS NOW AT <when>" states a move (TRAIN family s_tr_ue_is_now_at);
     # its values are read apart in `_fill_slots` (TASKS 26).
     (re.compile(r"\bis\s+now\s+(?:at|on|from)\s+(?=.*(?:\d|noon|midnight|morning|afternoon|evening|night|"

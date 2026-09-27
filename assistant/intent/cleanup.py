@@ -98,8 +98,20 @@ _STUTTER = re.compile(r"\b(\w+)(?:[\s,—–-]+\1\b)+", re.I)
 #: Courtesy wrappers that hide the command from anything anchored at ^.
 _COURTESY = re.compile(
     r"^(?:can|could|would|will)\s+you\s+(?:please\s+)?"
-    r"|^(?:please|kindly)\s+",
+    r"(?:be\s+so\s+kind\s+as\s+to\s+)?"
+    r"|^(?:please|kindly)\s+"
+    # The ornate forms (2026-09-27, TRAIN family s_tr_ce_polite_verbose): "do
+    # me a favour and put X in my calendar", "would you be so kind as to put
+    # …" left the front door no verb to route, and the deep track read a
+    # schedule QUESTION. Found in 0 of the 3,000 real utterances and only in
+    # that family's own rows, so nothing else is touched.
+    r"|^(?:please\s+)?(?:do\s+me\s+a\s+favou?r\s+and|be\s+so\s+kind\s+as\s+to|"
+    r"if\s+you\s+could|i\s+was\s+wondering\s+if\s+you\s+could)\s+",
     re.I)
+
+#: A closing "thank you" is manners, never content: "…at 11am, thank you".
+_THANKS_TAIL = re.compile(
+    r"[,.\s]+(?:thank\s+you|thanks)(?:\s+(?:so|very)\s+much)?\s*[.!]?\s*$", re.I)
 
 #: Mid-sentence self-corrections: "buy milk, I mean, buy bread". The speaker
 #: replaced what came before, so the marker and what precedes it in that
@@ -136,6 +148,7 @@ def strip_spoken_noise(text: str, drop_courtesy: bool = True) -> str:
     out = _STUTTER.sub(r"\1", out)
     if drop_courtesy:
         out = _COURTESY.sub("", out)
+    out = _THANKS_TAIL.sub("", out) or out
     out = _TRAILING_HEDGE.sub("", out)
     out = _TRAILING_INTERJECTION.sub("", out)
     out = _WORD_SWAP_CORRECTION.sub(r"\2", out)
