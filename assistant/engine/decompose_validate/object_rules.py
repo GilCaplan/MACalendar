@@ -108,6 +108,13 @@ def _rule_passed_clock_means_tomorrow(state, item, intent, now) -> None:
     d, st = getattr(intent, "date", None), getattr(intent, "start_time", None)
     if not d or not st or d != now.date().isoformat():
         return
+    if getattr(intent, "recurrence", None):
+        # A SERIES starts on its own anchor (the weekday it names), which the
+        # series rules set; a day's bump would move "standup every sunday at
+        # 9am", said on a Sunday after 9, onto a Monday. Found when an item
+        # built without its spoken words reached here (a test, 2026-09-27 at
+        # 10:39 on a Sunday) — the words would have stopped it in production.
+        return
     # THE SPOKEN WORDS, not the item's time field (2026-09-24). Segmentation's
     # contract writes a DATE FLOOR into every item with a clock and no day —
     # "at 8am" arrives here as "today at 8am" — so reading `item.time` found
