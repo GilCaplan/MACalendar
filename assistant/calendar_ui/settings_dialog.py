@@ -18,10 +18,10 @@ import os
 import re
 import subprocess
 
-from PyQt6.QtCore import QSettings, Qt
+from PyQt6.QtCore import QDate, QSettings, Qt
 from PyQt6.QtGui import QColor, QPainter, QPixmap
 from PyQt6.QtWidgets import (
-    QCheckBox, QColorDialog, QComboBox, QDialog, QFormLayout, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSpinBox, QToolButton, QVBoxLayout, QWidget,
+    QAbstractItemView, QCheckBox, QColorDialog, QComboBox, QDateEdit, QDialog, QFormLayout, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSpinBox, QToolButton, QVBoxLayout, QWidget,
 )
 
 
@@ -331,15 +331,110 @@ def open_settings(self) -> None:
     shabbat_lines_cb.setChecked(bool(getattr(self._config.hebrew_calendar,
                                              "show_shabbat_times", True)))
     hebrew.addWidget(shabbat_lines_cb)
-    observance_cb = QCheckBox("Skip Shabbat && yom tov in series (observance)")
+    # DEVQA Q59 (Gil, 2026-09-26): the rule is a switch, and it has exception
+    # days. The label says what it does NOW — a one-off is added with a note,
+    # not refused — rather than the old "skip … in series".
+    observance_cb = QCheckBox("Keep engine-made events off Shabbat && yom tov")
     observance_cb.setObjectName("observance_enabled_cb")
     observance_cb.setToolTip(
-        "Recurring series skip Shabbat, yom tov and fast days (meals excepted),\n"
-        "and the assistant declines to book into them. Uncheck to turn the\n"
-        "whole observance gate off.")
+        "For what the assistant books by voice (never your own edits):\n"
+        "a repeating series skips Shabbat, yom tov and fast days (meals\n"
+        "excepted); a one-off on those days is still added, with a note.\n"
+        "Chol hamoed is an ordinary day. Uncheck to switch all of it off.")
     observance_cb.setChecked(bool(getattr(getattr(self._config, "observance", None),
                                           "enabled", True)))
     hebrew.addWidget(observance_cb)
+
+    # EXCEPTION DAYS: dates the rule is OFF for, whole holy window included
+    # (the evening before a Saturday too). A personal store, not config.yaml —
+    # read and written through `assistant.observance` like the event defaults
+    # go through `event_defaults`, and shown from the FILE so a change the
+    # phone made while this dialog was closed is what you see.
+    from assistant import observance as _ob
+    exc_title = QLabel("Exception days — the rule is off on these dates")
+    exc_title.setObjectName("observance_exceptions_title")
+    hebrew.addWidget(exc_title)
+    exc_list = QListWidget()
+    exc_list.setObjectName("observance_exceptions_list")
+    exc_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+    exc_list.setMaximumHeight(110)
+    exc_list.setAccessibleName("Exception days")
+    hebrew.addWidget(exc_list)
+
+    def _exc_label(d) -> str:
+        """'Sat 10 Oct 2026 — Shabbat': the weekday, and what the day IS, so
+        a date that is none of Shabbat / yom tov / a fast says the exception
+        has nothing to switch off."""
+        israel = hebrew_israel_cb.isChecked()
+        kinds = []
+        if _ob.is_shabbat(d):
+            kinds.append("Shabbat")
+        name = _ob.yom_tov_name(d, israel=israel)
+        if name:
+            kinds.append(name)
+        fast = _ob.fast_day_name(d)
+        if fast:
+            kinds.append(fast)
+        return f"{d.strftime('%a %-d %b %Y')} — {' · '.join(kinds) or 'an ordinary day'}"
+
+    exc_state = {"dates": set(_ob.exception_dates())}
+    exc_loaded = set(exc_state["dates"])
+
+    def _exc_render() -> None:
+        exc_list.clear()
+        for d in sorted(exc_state["dates"]):
+            item = QListWidgetItem(_exc_label(d))
+            item.setData(Qt.ItemDataRole.UserRole, d.isoformat())
+            exc_list.addItem(item)
+        exc_remove.setEnabled(bool(exc_state["dates"]) and exc_list.currentRow() >= 0)
+
+    exc_row = QHBoxLayout()
+    exc_row.setSpacing(8)
+    exc_date = QDateEdit()
+    exc_date.setObjectName("observance_exception_date")
+    exc_date.setCalendarPopup(True)
+    exc_date.setDisplayFormat("ddd d MMM yyyy")
+    # The next Shabbat is the usual ask; start the picker there.
+    import datetime as _dt
+    _today = _dt.date.today()
+    _sat = _today + _dt.timedelta(days=(5 - _today.weekday()) % 7)
+    exc_date.setDate(QDate(_sat.year, _sat.month, _sat.day))
+    exc_date.setMaximumWidth(170)
+    exc_row.addWidget(exc_date)
+    exc_add = QPushButton("Add…")
+    exc_add.setObjectName("observance_exception_add")
+    exc_add.setToolTip("Add the picked date as an exception day")
+    exc_row.addWidget(exc_add)
+    exc_remove = QPushButton("Remove")
+    exc_remove.setObjectName("observance_exception_remove")
+    exc_remove.setToolTip("Remove the selected exception day")
+    exc_row.addWidget(exc_remove)
+    exc_row.addStretch(1)
+    hebrew.addLayout(exc_row)
+
+    def _exc_add() -> None:
+        q = exc_date.date()
+        exc_state["dates"].add(_dt.date(q.year(), q.month(), q.day()))
+        _exc_render()
+
+    def _exc_remove() -> None:
+        item = exc_list.currentItem()
+        if item is None:
+            return
+        exc_state["dates"].discard(
+            _dt.date.fromisoformat(item.data(Qt.ItemDataRole.UserRole)))
+        _exc_render()
+
+    exc_add.clicked.connect(lambda _=False: _exc_add())
+    exc_remove.clicked.connect(lambda _=False: _exc_remove())
+    exc_list.currentRowChanged.connect(
+        lambda row: exc_remove.setEnabled(row >= 0))
+    # The labels name yom tov by the schedule picked just above.
+    hebrew_israel_cb.toggled.connect(lambda _on: _exc_render())
+    _exc_render()
+    hebrew.addWidget(hint(
+        "On an exception day the assistant books as on any day and a series "
+        "does not skip it — the evening before is included. Saved with Save."))
 
     # ── Events ────────────────────────────────────────────────────
     # DEVQA Q51 (Gil, 2026-09-25): how long an event lasts when nobody said,
@@ -853,6 +948,15 @@ def open_settings(self) -> None:
                 },
             })
             if ok:
+                # Only when the list was edited here, so opening and saving
+                # never writes back over a list the phone changed meanwhile.
+                if exc_state["dates"] != exc_loaded:
+                    try:
+                        _ob.set_exception_dates(
+                            [d.isoformat() for d in exc_state["dates"]])
+                    except (OSError, ValueError) as e:
+                        QMessageBox.warning(self, "Exception days not saved",
+                                            f"Could not save the exception days: {e}")
                 _persist_category_leads(cat_leads)
                 if notif_cfg is not None:
                     _apply(notif_cfg, "enabled", notif_enabled_cb.isChecked())

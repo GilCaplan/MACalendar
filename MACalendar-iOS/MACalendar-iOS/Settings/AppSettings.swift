@@ -101,6 +101,13 @@ class AppSettings: ObservableObject {
     @Published var showShabbatTimes: Bool {
         didSet { UserDefaults.standard.set(showShabbatTimes, forKey: "showShabbatTimes") }
     }
+    /// The Shabbat / yom tov rule for what the ENGINE books (DEVQA Q59, Gil
+    /// 2026-09-26): a series skips those days and a one-off is added with a
+    /// note. On by default; shared with the Mac as `observance.enabled`, which
+    /// the Mac's "Keep engine-made events off Shabbat & yom tov" box also sets.
+    @Published var observanceEnabled: Bool {
+        didSet { UserDefaults.standard.set(observanceEnabled, forKey: "observanceEnabled") }
+    }
 
     // Local-only, mirrors the Mac's config.yaml `todo.show_completed` (default
     // off) but isn't synced from it — same precedent as the Hebrew settings
@@ -283,6 +290,8 @@ class AppSettings: ObservableObject {
             ? true : UserDefaults.standard.bool(forKey: "israelHolidays")
         self.showShabbatTimes = UserDefaults.standard.object(forKey: "showShabbatTimes") == nil
             ? true : UserDefaults.standard.bool(forKey: "showShabbatTimes")
+        self.observanceEnabled = UserDefaults.standard.object(forKey: "observanceEnabled") == nil
+            ? true : UserDefaults.standard.bool(forKey: "observanceEnabled")
 
         self.hideCompletedTasks = UserDefaults.standard.object(forKey: "hideCompletedTasks") == nil
             ? true : UserDefaults.standard.bool(forKey: "hideCompletedTasks")

@@ -277,6 +277,25 @@ struct SettingsView: View {
                                     .font(.caption2)
                                     .foregroundColor(settings.accentColor)
                             }
+
+                            // DEVQA Q59 (Gil, 2026-09-26): the rule for what
+                            // the ENGINE books is a switch, with exception
+                            // days. Shared with the Mac (`observance.enabled`).
+                            Divider().padding(.vertical, 2)
+
+                            Toggle("Keep engine-made events off Shabbat & yom tov",
+                                   isOn: $settings.observanceEnabled)
+                                .onChange(of: settings.observanceEnabled) { v in
+                                    Task { await api.patchShared(
+                                        ["observance": ["enabled": v]]) }
+                                }
+                            Text(settings.observanceEnabled
+                                 ? "For what the assistant books by voice: a repeating series skips Shabbat, yom tov and fast days (meals excepted), and a one-off on those days is still added, with a note. Chol hamoed is an ordinary day."
+                                 : "Off — the assistant books on Shabbat and yom tov as on any day, and a series does not skip them.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            ObservanceExceptionsEditor()
                         }
                         .padding(.top, 4)
                     }
@@ -730,6 +749,9 @@ struct SettingsView: View {
         if shared.showShabbatTimes != settings.showShabbatTimes {
             settings.showShabbatTimes = shared.showShabbatTimes
         }
+        if let v = shared.observanceEnabled, v != settings.observanceEnabled {
+            settings.observanceEnabled = v
+        }
         if shared.hideCompletedTasks != settings.hideCompletedTasks {
             settings.hideCompletedTasks = shared.hideCompletedTasks
         }
@@ -837,6 +859,94 @@ struct SettingsView: View {
             }
             checking = false
         }
+    }
+}
+
+// MARK: - Shabbat / yom tov exception days
+
+/// The dates the Shabbat / yom tov rule is OFF for (DEVQA Q59, Gil
+/// 2026-09-26: *"a way to give specific days as an exception"*). A date covers
+/// its whole holy window, the evening before included, so a Shabbat is listed
+/// by its Saturday. Stored on the Mac (`GET/PUT /observance/exceptions`); every
+/// change PUTs the whole list, so a copy queued with the Mac away replays as
+/// exactly what was shown.
+///
+/// A small `List` inside the settings `ScrollView` — swipe-to-delete exists
+/// only on a List's rows — sized to its rows and not scrolling on its own.
+private struct ObservanceExceptionsEditor: View {
+    @EnvironmentObject var api: APIClient
+    @State private var dates: [String] = []
+    @State private var picked = ObservanceExceptionsEditor.nextSaturday()
+
+    private static let rowHeight: CGFloat = 44
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Exception days", systemImage: "calendar.badge.minus")
+
+            if dates.isEmpty {
+                Text("None. Add a date to switch the rule off for that day.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } else {
+                List {
+                    ForEach(dates, id: \.self) { iso in
+                        Text(Self.label(iso))
+                            .accessibilityHint("Swipe left to delete")
+                    }
+                    .onDelete { offsets in
+                        var next = dates
+                        next.remove(atOffsets: offsets)
+                        save(next)
+                    }
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .scrollDisabled(true)
+                .frame(height: CGFloat(dates.count) * Self.rowHeight)
+            }
+
+            HStack {
+                DatePicker("Add a day", selection: $picked, displayedComponents: .date)
+                Button("Add") { save(dates + [Self.iso(picked)]) }
+                    .disabled(dates.contains(Self.iso(picked)))
+            }
+
+            Text("On an exception day the assistant books as on any day and a series does not skip it — the evening before is included. Swipe a date to remove it.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .task { dates = await api.observanceExceptions() }
+    }
+
+    /// Show the change at once, then take what the Mac saved (sorted, deduped).
+    private func save(_ next: [String]) {
+        dates = Array(Set(next)).sorted()
+        let sent = dates
+        Task {
+            if let saved = await api.setObservanceExceptions(sent) { dates = saved }
+        }
+    }
+
+    private static func iso(_ d: Date) -> String {
+        ISO8601DateFormatter.yyyyMMdd.string(from: d)
+    }
+
+    /// "Sat 10 Oct 2026 — Shabbat": the weekday says which day it is; the
+    /// Saturday is named because it is the usual one.
+    private static func label(_ iso: String) -> String {
+        guard let d = ISO8601DateFormatter.yyyyMMdd.date(from: iso) else { return iso }
+        let f = DateFormatter()
+        f.dateFormat = "EEE d MMM yyyy"
+        let text = f.string(from: d)
+        return Calendar.current.component(.weekday, from: d) == 7 ? "\(text) — Shabbat" : text
+    }
+
+    private static func nextSaturday() -> Date {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let ahead = (7 - cal.component(.weekday, from: today)) % 7
+        return cal.date(byAdding: .day, value: ahead, to: today) ?? today
     }
 }
 
