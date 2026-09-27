@@ -730,6 +730,35 @@ def _locate(text: str, pieces: "list[str]") -> "list[tuple[int, int]]":
     return spans
 
 
+#: A piece that only points BACK at the one before: "…, so delete it from the
+#: list", "…, take it off my list", "…, update it". Its "it" is the thing the
+#: previous piece named, so the two are ONE ask (2026-09-27: "i no longer need
+#: to refill the prescription, so delete it from the list" was cut in two, and
+#: the deep track made a to-do of each half — Board D TRAIN, 7 rows).
+_BACK_REFERENCE = re.compile(
+    r"^(?:(?:so|and|then|just|please)\s+)*"
+    r"(?:delete|remove|wipe|clear|drop|scrap|erase|take|cross|tick|mark|update|rename|change)"
+    r"\s+(?:it|that|this|them)\b", re.I)
+
+
+def _rejoin_back_references(text: str, pieces: "list[str]") -> "list[str]":
+    """Join each back-reference piece onto the piece before it, as the
+    verbatim stretch of `text` covering both."""
+    if len(pieces) < 2:
+        return pieces
+    spans = _locate(text, pieces)
+    out: "list[str]" = []
+    at: "list[tuple[int, int]]" = []
+    for piece, (s, e) in zip(pieces, spans):
+        if out and _BACK_REFERENCE.match(piece.strip()) and e > s and at[-1][1] > at[-1][0]:
+            ps = at[-1][0]
+            out[-1], at[-1] = text[ps:e], (ps, e)
+        else:
+            out.append(piece)
+            at.append((s, e))
+    return out
+
+
 def _strip_spans(piece: str, spans: "list[tuple[int, int]]") -> str:
     """The piece with its own time expressions removed — this is `action`.
 
@@ -1414,7 +1443,7 @@ def fastseg(text: str) -> "list[dict]":
     # words are content. Safe before `cut` because the tail is at the end, so no
     # earlier offset moves.
     clean = _invariant.strip_discourse_tail(strip_spoken_noise(text or ""))
-    pieces = cut(clean)
+    pieces = _rejoin_back_references(clean, cut(clean))
     pairs = _expand_enumerations(assign_times(clean, pieces))
     # Q63 needs to know when NOTHING was said: the tagger reads an empty time
     # only when the whole command names no day, no clock and no person at all

@@ -2077,6 +2077,35 @@ _CHANGE_VERBS = frozenset({"update", "edit", "change", "rename", "move"})
 #: done", "updat restock the pantry on my list". 92 TRAIN rows across nine
 #: families committed a create that way. A create read over one of these
 #: frames is not committed (see its use in `analyze`).
+#: Which KIND of change a mutation frame asks for — read by the rescue, which
+#: retries a model that answered "create" with the frame's own operation. Each
+#: alternative traced to a TRAIN family, as `_MUTATION_FRAME`'s are; update
+#: frames are not here (they also need the new value).
+_DELETE_FRAME = re.compile(
+    r"\b(?:delete|remove|wipe)\s+(?:it|that)\b"            # c_tr_x_dt_no_longer
+    r"|\bfrom\s+(?:my|the)\s+(?:to-?do\s+)?list\b"        # s_tr_dt_wipe_wont_do
+    r"|\bremove\s+from\s+(?:the\s+)?list\b"             # s_tr_dt_not_needed
+    r"|\bno\s+longer\s+need\b|\bnot\s+needed\b"         # c_tr_x_dt_no_longer, s_tr_dt_not_needed
+    r"|\bwon'?t\s+be\s+doing\b"                          # s_tr_dt_wipe_wont_do
+    r"|\bnever\s+mind\s+about\b"                         # s_tr_dt_never_mind
+    r"|\btake\s+it\s+off\s+(?:my|the)\s+list\b",          # s_tr_dt_never_mind
+    re.I)
+_COMPLETE_FRAME = re.compile(
+    r",\s*done\s*[.!]?$"                                  # s_tr_co_terse_done
+    r"|\bis\s+sorted\b|\btick\s+it\s+off\b",            # s_tr_co_uk_sorted
+    re.I)
+
+
+def mutation_frame_kind(text: str) -> "str | None":
+    """"delete" / "complete" when the words say to remove or finish a thing
+    that already exists, else None."""
+    if _DELETE_FRAME.search(text or ""):
+        return "delete"
+    if _COMPLETE_FRAME.search(text or ""):
+        return "complete"
+    return None
+
+
 _MUTATION_FRAME = re.compile(
     # Every alternative is traced to a TRAIN family, and only to one: the
     # first version (3b001720) also carried words read off TEST rows, which

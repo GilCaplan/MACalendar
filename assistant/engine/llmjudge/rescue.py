@@ -305,6 +305,33 @@ def rescue(state: EngineState, cfg, pending: list) -> None:
                               note="the parse contradicted the item's event kind")
                 got = retried
 
+        # A MUTATION FRAME ANSWERED WITH A CREATE (2026-09-27). The front door
+        # deferred "i no longer need to X, so delete it from the list" /
+        # "never mind about X, take it off my list" / "X, done" because the
+        # words say the thing already EXISTS, and the model then read them as
+        # a new to-do — 11 wrong rows on Board D TRAIN (33e5bd9c). One retry,
+        # the frame's own operation stated in the words, the same shape as the
+        # event-kind retry above, and through the same guard.
+        if got and all(n.startswith("create") for n, _ in got if n != "unknown"):
+            from assistant.intent.rule_parser import mutation_frame_kind
+            frame = mutation_frame_kind(item.spoken())
+            if frame:
+                ask = {"delete": "remove this from my to-do list",
+                       "complete": "mark this to-do as done"}[frame]
+                try:
+                    from assistant.engine import llm as _llm
+                    parser = _llm.get_parser(cfg)
+                    retried = parser.parse(f"{ask}: {item.spoken()}")
+                    _llm_trace(state, parser, cfg, f"Re-read {friendly(item.id)} as a {frame}")
+                except Exception:
+                    retried = None
+                retried = _guard_inventions(retried, item, state) if retried else retried
+                want = "delete_" if frame == "delete" else "complete_"
+                if retried and any(n.startswith(want) for n, _ in retried):
+                    state.add_fix("generate", "mutation_frame_retry", "create", frame,
+                                  note="the words say the thing exists; the parse created it")
+                    got = [(n, iv) for n, iv in retried if n.startswith(want)]
+
         # THE MIRROR FOR A TASK (2026-09-27). Segmentation read these words as
         # a TO-DO by rule — and a stated clock would have made them an event
         # before this (Q26) — so a model answer of create_event contradicts
