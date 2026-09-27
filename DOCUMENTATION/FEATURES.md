@@ -1385,6 +1385,11 @@ New Event dialog and the phone's event editor default the end to start + the
 length and follow the start (and, on a new event, the title's category) until
 the end is set by hand; the phone caches the values in UserDefaults
 (`EventDefaults`) so it works offline.
+**Series default end** (DEVQA Q57): the same Events section carries "A
+repeating event with no end stops after" — daily/weekly/monthly/yearly counts
+(`events.series_end_*`, 14/8/12/10) as four spin boxes on the Mac (ranged from
+`SERIES_END_BOUNDS`) and four steppers on iOS (`SeriesEnd`, a commented copy of
+those bounds), shared through `GET/PATCH /config`; see Recurring events.
 
 ### Sequences — chained asks
 **What:** "X followed by Y followed by Z" is tracked as a sequence, not three
@@ -1515,7 +1520,8 @@ skipping applies per instance at creation.
 **A default end** (DEVQA Q57, 2026-09-26): a series the ENGINE builds with no
 end said stops after daily 14 days, weekly 8 weeks, monthly 12 months, yearly
 10 years — `events.series_end_*` in config.yaml, served and written by
-`GET/PATCH /config` — and the reply names the end and says it is the default.
+`GET/PATCH /config`, set in Settings › Events on both apps — and the reply
+names the end and says it is the default.
 A stated "until/through" always wins; a series made by hand in the app is
 untouched (the DB's own horizon still applies there). Read by
 `event_defaults.series_default_until`, applied by

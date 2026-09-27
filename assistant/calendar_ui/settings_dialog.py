@@ -384,6 +384,37 @@ def open_settings(self) -> None:
         "lunch”, lunch starts this gap after the gym ends. A category can set its "
         "own of either — Assistant › Event Colours & Categories."))
 
+    # A SERIES WITH NO END GETS A DEFAULT ONE (DEVQA Q57, Gil 2026-09-26: *"for
+    # daily up to 2 weeks default, for weekly up to 8 weeks, monthly up to 12
+    # months, yearly up to 10 years. can be changed in settings."*). Each is a
+    # count in its cadence's own unit, so it is also how many times the series
+    # happens. Bounds come from SERIES_END_BOUNDS — the table PATCH /config
+    # validates against — and the values from the FILE, as above.
+    from assistant.config import SERIES_END_BOUNDS
+    series_title = QLabel("A repeating event with no end stops after")
+    series_title.setObjectName("events_series_title")
+    events_box.addWidget(series_title)
+    series_form = QFormLayout()
+    series_form.setSpacing(8)
+    series_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+    series_spins: dict = {}              # config key -> QSpinBox
+    for cadence, unit in (("daily", "days"), ("weekly", "weeks"),
+                          ("monthly", "months"), ("yearly", "years")):
+        key = _event_defaults.SERIES_END[cadence][0]
+        default, top = SERIES_END_BOUNDS[key]
+        spin = QSpinBox()
+        spin.setObjectName(f"events_series_{cadence}_spin")
+        spin.setRange(1, top)
+        spin.setSuffix(f" {unit}")
+        spin.setMaximumWidth(120)
+        spin.setValue(_event_defaults.series_count(cadence) or default)
+        series_form.addRow(f"{cadence} —", spin)
+        series_spins[key] = spin
+    events_box.addLayout(series_form)
+    events_box.addWidget(hint(
+        "Only when the words say no end — “until …” always wins — and the reply "
+        "names the end it chose."))
+
     # ── Notifications ─────────────────────────────────────────────
     notif = section("Notifications")
     notif_cfg = getattr(self._config, "notifications", None)
@@ -799,7 +830,8 @@ def open_settings(self) -> None:
                 # Read by event_defaults in whichever process asks (the API
                 # re-reads on the file's mtime), and by the New Event dialog.
                 "events": {"event_length_minutes": event_length_spin.value(),
-                           "chain_gap_minutes": chain_gap_spin.value()},
+                           "chain_gap_minutes": chain_gap_spin.value(),
+                           **{k: sp.value() for k, sp in series_spins.items()}},
                 "hebrew_calendar": {"display_mode": hebrew_mode_combo.currentData(),
                                     "show_holidays": hebrew_holidays_cb.isChecked(),
                                     "israel_holidays": hebrew_israel_cb.isChecked(),
@@ -834,6 +866,8 @@ def open_settings(self) -> None:
                 if events_cfg is not None:
                     _apply(events_cfg, "event_length_minutes", event_length_spin.value())
                     _apply(events_cfg, "chain_gap_minutes", chain_gap_spin.value())
+                    for _key, _spin in series_spins.items():
+                        _apply(events_cfg, _key, _spin.value())
 
                 # Apply changes immediately
                 self._config.confirmation_level = 0 if auto_cb.isChecked() else 1

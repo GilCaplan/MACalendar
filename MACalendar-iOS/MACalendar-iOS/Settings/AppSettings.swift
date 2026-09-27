@@ -218,9 +218,21 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(chainGapMinutes, forKey: EventDefaults.gapKey) }
     }
 
+    /// Where a repeating event with no end said stops, per cadence (DEVQA Q57),
+    /// each a count in its cadence's own unit. SHARED with the Mac through
+    /// `events.series_end_*` in config.yaml; these are the phone's cached copies.
+    @Published var seriesEndDailyDays: Int { didSet { SeriesEnd.daily.store(seriesEndDailyDays) } }
+    @Published var seriesEndWeeklyWeeks: Int { didSet { SeriesEnd.weekly.store(seriesEndWeeklyWeeks) } }
+    @Published var seriesEndMonthlyMonths: Int { didSet { SeriesEnd.monthly.store(seriesEndMonthlyMonths) } }
+    @Published var seriesEndYearlyYears: Int { didSet { SeriesEnd.yearly.store(seriesEndYearlyYears) } }
+
     init() {
         self.eventLengthMinutes = EventDefaults.globalLength
         self.chainGapMinutes = EventDefaults.globalGap
+        self.seriesEndDailyDays = SeriesEnd.daily.cached
+        self.seriesEndWeeklyWeeks = SeriesEnd.weekly.cached
+        self.seriesEndMonthlyMonths = SeriesEnd.monthly.cached
+        self.seriesEndYearlyYears = SeriesEnd.yearly.cached
         self.followMyLocation = UserDefaults.standard.bool(forKey: "followMyLocation")
         self.speakReplies = UserDefaults.standard.object(forKey: "speakReplies") == nil
             ? true : UserDefaults.standard.bool(forKey: "speakReplies")
@@ -352,6 +364,63 @@ enum EventDefaults {
         let total = min(parts[0] * 60 + parts[1] + minutes, 23 * 60 + 59)
         return String(format: "%02d:%02d", total / 60, total % 60)
     }
+}
+
+/// The four "a repeating event with no end stops after" settings (DEVQA Q57,
+/// Gil 2026-09-26: daily 2 weeks, weekly 8 weeks, monthly 12 months, yearly
+/// 10 years, "can be changed in settings"). The Mac owns the value and does
+/// the stopping; the phone only shows and edits it.
+enum SeriesEnd: String, CaseIterable, Identifiable {
+    case daily, weekly, monthly, yearly
+
+    var id: String { rawValue }
+
+    /// The cadence's own unit — the count is also how many times it happens.
+    var unit: String {
+        switch self {
+        case .daily: return "days"
+        case .weekly: return "weeks"
+        case .monthly: return "months"
+        case .yearly: return "years"
+        }
+    }
+
+    var singularUnit: String { String(unit.dropLast()) }
+
+    /// `events.<configKey>` in config.yaml: series_end_daily_days, …
+    var configKey: String { "series_end_\(rawValue)_\(unit)" }
+
+    /// (built-in default, most a setting may ask for); the least is 1.
+    /// A COPY of `SERIES_END_BOUNDS` in assistant/config.py — the table
+    /// PATCH /config refuses against. Keep the two in step: a stepper that
+    /// went past the Mac's bound would have its PATCH refused.
+    var bounds: (builtIn: Int, max: Int) {
+        switch self {
+        case .daily: return (14, 366)
+        case .weekly: return (8, 104)
+        case .monthly: return (12, 120)
+        case .yearly: return (10, 50)
+        }
+    }
+
+    var keyPath: ReferenceWritableKeyPath<AppSettings, Int> {
+        switch self {
+        case .daily: return \.seriesEndDailyDays
+        case .weekly: return \.seriesEndWeeklyWeeks
+        case .monthly: return \.seriesEndMonthlyMonths
+        case .yearly: return \.seriesEndYearlyYears
+        }
+    }
+
+    private var defaultsKey: String { "seriesEnd.\(rawValue)" }
+
+    /// The last value heard from the Mac, else the built-in default.
+    var cached: Int {
+        let v = UserDefaults.standard.integer(forKey: defaultsKey)
+        return (1...bounds.max).contains(v) ? v : bounds.builtIn
+    }
+
+    func store(_ v: Int) { UserDefaults.standard.set(v, forKey: defaultsKey) }
 }
 
 /// GET /event_defaults — the length and gap resolved for one title or
