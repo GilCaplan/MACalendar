@@ -147,6 +147,57 @@ LOCATION_PATH = os.environ.get("MACALENDAR_LOCATION") or os.path.expanduser(
     "~/.assistant_tools/location.json")
 
 
+#: EXCEPTION DAYS (Gil, 2026-09-26: *"a way to give specific days as an
+#: exception"* — the rule is OFF for that date). A personal store beside the
+#: location, with the same kind of override so tests and boards never read or
+#: write the real one.
+EXCEPTIONS_PATH = os.environ.get("MACALENDAR_OBSERVANCE_EXCEPTIONS") or os.path.expanduser(
+    "~/.assistant_tools/observance_exceptions.json")
+
+_exc_cache: dict = {}
+
+
+def exception_dates() -> "frozenset[datetime.date]":
+    """The dates the Shabbat / yom tov / fast rule is switched OFF for. A date
+    covers its whole holy window, including the evening before it."""
+    try:
+        mtime = os.path.getmtime(EXCEPTIONS_PATH)
+    except OSError:
+        return frozenset()
+    if _exc_cache.get("mtime") == mtime:
+        return _exc_cache["dates"]
+    out = set()
+    try:
+        with open(EXCEPTIONS_PATH, encoding="utf-8") as f:
+            for d in (json.load(f) or {}).get("dates", []):
+                try:
+                    out.add(datetime.date.fromisoformat(str(d)[:10]))
+                except ValueError:
+                    continue
+    except (OSError, ValueError):
+        return frozenset()
+    _exc_cache.update(mtime=mtime, dates=frozenset(out))
+    return _exc_cache["dates"]
+
+
+def is_exception(date: datetime.date) -> bool:
+    return date in exception_dates()
+
+
+def set_exception_dates(dates) -> "list[str]":
+    """Replace the exception list; returns it sorted as ISO dates. Raises
+    ValueError on anything that is not a date, before writing."""
+    clean = sorted({datetime.date.fromisoformat(str(d).strip()[:10]).isoformat()
+                    for d in dates})
+    os.makedirs(os.path.dirname(EXCEPTIONS_PATH), exist_ok=True)
+    tmp = EXCEPTIONS_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump({"dates": clean}, f, indent=1)
+    os.replace(tmp, EXCEPTIONS_PATH)
+    _exc_cache.clear()
+    return clean
+
+
 def set_location(latitude: float, longitude: float, timezone: str,
                  city: str = "", source: str = "device") -> "ObservanceSettings":
     """Record where sundown should be computed for, and use it from now on.

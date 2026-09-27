@@ -687,16 +687,18 @@ def _skip_for_observance(date: datetime.date, start_time: str = "",
         return False
     try:
         from assistant.observance import (
-            candle_lighting, is_enabled, is_fast_day, is_shabbat, is_yom_tov,
-            tzeit,
+            candle_lighting, is_enabled, is_exception, is_fast_day, is_shabbat,
+            is_yom_tov, tzeit,
         )
 
         if not is_enabled():
             return False                    # gating switched off in settings
+        if is_exception(date):
+            return False                    # the rule is off for this date (exception day)
 
         holy = is_shabbat(date) or is_yom_tov(date)
         tomorrow = date + datetime.timedelta(days=1)
-        eve_of_holy = is_shabbat(tomorrow) or is_yom_tov(tomorrow)
+        eve_of_holy = (is_shabbat(tomorrow) or is_yom_tov(tomorrow)) and not is_exception(tomorrow)
         if not (holy or eve_of_holy):
             return False
 

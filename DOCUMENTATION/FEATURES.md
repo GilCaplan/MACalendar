@@ -1456,6 +1456,14 @@ SERIES rule (`db._skip_for_observance`) is unchanged and still skips.
 **How:** `pyluach` + `astral`, sundown-bounded not midnight-bounded. All
 gating sits behind `observance.enabled` (config, default on;
 `MACALENDAR_OBSERVANCE` env override — the test harness turns it off).
+**Exception days** (DEVQA Q59, Gil 2026-09-26): a date the user lists turns
+the whole rule OFF for that date — the one-off check, the fast check and the
+series skip — and a date covers its whole holy window, the evening before
+included. Stored in `~/.assistant_tools/observance_exceptions.json`
+(`MACALENDAR_OBSERVANCE_EXCEPTIONS`), read by `observance.exception_dates()`,
+served by `GET/PUT /observance/exceptions`. **Chol hamoed is an ordinary day**
+and always was: `yom_tov_name` excludes it, so neither the check nor the series
+skip touches it.
 
 ### Shabbat & yom tov lines
 **What:** A yellow line on the Day and Week grids, on both apps, at the exact

@@ -35,6 +35,7 @@ STORES: "dict[str, tuple[str, str]]" = {
     "CATEGORIES": ("MACALENDAR_CATEGORIES", "categories.json"),
     "TRACE_BUS": ("MACALENDAR_TRACE_BUS", "trace_bus.jsonl"),
     "LOCATION": ("MACALENDAR_LOCATION", "location.json"),
+    "OBSERVANCE_EXCEPTIONS": ("MACALENDAR_OBSERVANCE_EXCEPTIONS", "observance_exceptions.json"),
     "MODELS": ("MACALENDAR_MODELS", "models"),
     "LABEL_FEEDBACK": ("MACALENDAR_LABEL_FEEDBACK", "label_feedback.jsonl"),
     "HEARTBEATS": ("MACALENDAR_HEARTBEATS", "heartbeats"),

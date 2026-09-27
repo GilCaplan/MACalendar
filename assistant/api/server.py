@@ -1277,6 +1277,28 @@ def create_app() -> Flask:
         israel = request.args.get("israel", "1") not in ("0", "false", "False")
         return jsonify(ob.holy_windows_payload(start, end, israel=israel))
 
+    @app.get("/observance/exceptions")
+    def observance_exceptions_get():
+        """The dates the Shabbat / yom tov rule is OFF for (Gil, 2026-09-26)."""
+        from assistant import observance as ob
+        return jsonify({"dates": sorted(d.isoformat() for d in ob.exception_dates())})
+
+    @app.put("/observance/exceptions")
+    def observance_exceptions_put():
+        """Replace the exception days: {"dates": ["YYYY-MM-DD", ...]}. On such a
+        date the engine books as on any day and a repeating series does not
+        skip it; a date covers its whole holy window, the evening before too."""
+        from assistant import observance as ob
+        data = request.get_json(silent=True) or {}
+        dates = data.get("dates")
+        if not isinstance(dates, list):
+            return jsonify({"error": "dates must be a list of YYYY-MM-DD", "code": 400}), 400
+        try:
+            saved = ob.set_exception_dates(dates)
+        except (ValueError, TypeError):
+            return jsonify({"error": "every date must be YYYY-MM-DD", "code": 400}), 400
+        return jsonify({"dates": saved})
+
     @app.get("/observance")
     def observance_range():
         """Training availability per day: what is blocked, and which windows remain.

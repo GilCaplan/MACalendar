@@ -94,6 +94,8 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | Method | Path | What it does |
 |---|---|---|
 | `GET` | `/observance` | Training availability per day: what is blocked, and which windows remain. |
+| `GET` | `/observance/exceptions` | The dates the Shabbat / yom tov rule is OFF for (Gil, 2026-09-26). |
+| `PUT` | `/observance/exceptions` | Replace the exception days: {"dates": ["YYYY-MM-DD", ...]}. On such a |
 | `DELETE` | `/observance/location` | Forget the reported position and go back to the configured place. |
 | `GET` | `/observance/location` | Where sundown is currently computed for, and where that came from. |
 | `POST` | `/observance/location` | A device reporting where it is. |

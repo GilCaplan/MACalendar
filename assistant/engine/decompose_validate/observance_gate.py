@@ -46,8 +46,8 @@ def _observance_verdict(intent, cfg) -> "str | None":
     try:
         from assistant.db import _is_meal
         from assistant.observance import (
-            candle_lighting, is_enabled, is_fast_day, is_shabbat, is_yom_tov,
-            tzeit,
+            candle_lighting, is_enabled, is_exception, is_fast_day, is_shabbat,
+            is_yom_tov, tzeit,
         )
 
         if not is_enabled():
@@ -68,7 +68,8 @@ def _observance_verdict(intent, cfg) -> "str | None":
         meal = _is_meal(title, desc)
         davening = bool(_DAVENING_RE.search(title) or _DAVENING_RE.search(desc))
         leyning = bool(_LEYNING_RE.search(title) or _LEYNING_RE.search(desc))
-        fast = is_fast_day(date)
+        # an exception day switches the whole rule off, the fast check included
+        fast = is_fast_day(date) and not is_exception(date)
 
         # A meal on a fast day, before the fast is out, must not be booked —
         # whatever kind of day it otherwise is.
@@ -79,9 +80,10 @@ def _observance_verdict(intent, cfg) -> "str | None":
                 out = f" — it ends at {ends:%H:%M}" if ends else ""
                 return (f"that's a meal on {name} ({date:%A, %b %-d}){out}")
 
-        holy = is_shabbat(date) or is_yom_tov(date)
-        eve_of_holy = is_shabbat(date + _dt.timedelta(days=1)) or \
-            is_yom_tov(date + _dt.timedelta(days=1))
+        holy = (is_shabbat(date) or is_yom_tov(date)) and not is_exception(date)
+        eve_of_holy = (is_shabbat(date + _dt.timedelta(days=1)) or
+                       is_yom_tov(date + _dt.timedelta(days=1))) and \
+            not is_exception(date + _dt.timedelta(days=1))
         inside = False
         if holy:
             ends = tzeit(date)

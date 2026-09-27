@@ -58,6 +58,9 @@ for _var, _name in (("MACALENDAR_DB", "calendar.db"),
                     # location.json (caught 2026-09-06 when two checkouts'
                     # suites raced through the shared file)
                     ("MACALENDAR_LOCATION", "location.json"),
+                    # the observance exception days (2026-09-26) — a personal
+                    # store the settings screens write
+                    ("MACALENDAR_OBSERVANCE_EXCEPTIONS", "observance_exceptions.json"),
                     ("MACALENDAR_TRACE_BUS", "trace_bus.jsonl"),
                     # The LLM console's call log (2026-09-22, found by the
                     # first test to reach the ollama transport): a test that
