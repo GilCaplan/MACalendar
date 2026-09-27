@@ -240,6 +240,25 @@ def q26_tag(tag: str, time_str: str) -> str:
     return "event" if tag == "task" and states_a_clock(time_str) else tag
 
 
+#: Q61 (Gil, 2026-09-27): *"repeating task always becomes an event."* A to-do
+#: whose TIME names a cadence is an event series (its one rolling to-do is
+#: filed downstream, not a second item). Written from the ruling, like Q26's
+#: tell, not from `intent/recurrence.py`.
+_CADENCE = re.compile(
+    r"\b(?:every|each)\s+(?:other\s+)?(?:day|night|morning|evening|afternoon|week|"
+    r"weekday|weekend|month|year|monday|tuesday|wednesday|thursday|friday|"
+    r"saturday|sunday)s?\b"
+    r"|\b(?:daily|nightly|weekly|monthly|yearly|annually|fortnightly|biweekly)\b"
+    r"|\b(?:once|twice)\s+a\s+(?:day|week|month|year)\b"
+    r"|\bon\s+(?:mondays|tuesdays|wednesdays|thursdays|fridays|saturdays|sundays)\b",
+    re.I)
+
+
+def q61_tag(tag: str, time_str: str) -> str:
+    """The rendered tag, with Q61 applied: a task that repeats is an event."""
+    return "event" if tag == "task" and _CADENCE.search(time_str or "") else tag
+
+
 _CALENDAR_DESTINATION = re.compile(
     r"\b(?:on|to|in|from|off)\s+(?:my|the)\s+(?:calendar|schedule|diary|agenda)\b", re.I)
 
@@ -420,8 +439,8 @@ def build(per_template: int = 6, seed: int = 20260908) -> "tuple[list[dict], lis
             items = [{"action": _fill(s["action"], binding),
                       "time": _fill(s["time"], binding),
                       "tag": s["tag"]} for s in spec]
-            for it in items:                       # Q26, see `q26_tag`
-                it["tag"] = q26_tag(it["tag"], it["time"])
+            for it in items:                       # Q26 / Q61, see `q26_tag`, `q61_tag`
+                it["tag"] = q61_tag(q26_tag(it["tag"], it["time"]), it["time"])
             # A TEMPLATE WITH NO SLOTS renders the same sentence every time, so
             # "wash and dry the dishes" was in the corpus SIX times and got six
             # votes in every board. Distinct texts per family only (audit

@@ -672,6 +672,16 @@ def _q50_moves(fam: dict, slots: dict, text: str, ta: list) -> list:
     return [k for k in ta if is_role_call(str(slots.get(k) or ""))]
 
 
+#: Q61 (2026-09-27) — a to-do that REPEATS is an event series; its one
+#: rolling to-do is the executor's (`linked_todo`), not a second gold item,
+#: the same as Q50's companion. Gil: *"repeating task always becomes an
+#: event."* Read off the row's own recurrence slot, for a single to-do.
+def _q61_moves(fam: dict, slots: dict, ta: list) -> list:
+    if fam["action"] != "create_todo" or not slots.get("recurrence"):
+        return []
+    return list(ta)
+
+
 def ruled_family(fam: dict, values: dict, slots: "dict | None" = None,
                  text: str = "") -> "dict | None":
     """The family as the RULINGS read this row, or None when no ruling
@@ -698,6 +708,10 @@ def ruled_family(fam: dict, values: dict, slots: "dict | None" = None,
     if role:
         ruling = f"{ruling}+Q50" if moved else "Q50"
         moved += role
+    repeating = [k for k in _q61_moves(fam, slots or {}, ta) if k not in moved]
+    if repeating:
+        ruling = f"{ruling}+Q61" if moved else "Q61"
+        moved += repeating
     if not moved:
         return None
     ta = [k for k in ta if k not in moved]
