@@ -86,3 +86,14 @@ def test_until_the_end_of_a_month_names_its_last_day():
     day = dt.date(2026, 9, 26)
     assert resolve_until("every monday until the end of october", day) == "2026-10-31"
     assert resolve_until("weekly until october 31", day) == "2026-10-30"
+
+
+def test_a_range_bound_agrees_with_the_front_door():
+    """"until next month" is the day before it starts, "through next month" its
+    last day — the resolver returned no end at all (2026-09-26)."""
+    import datetime as dt
+    from assistant.engine.decompose_validate.resolve import resolve_until
+    day = dt.date(2026, 9, 26)
+    assert resolve_until("weekly until next month", day) == "2026-09-30"
+    assert resolve_until("weekly through next month", day) == "2026-10-31"
+    assert resolve_until("daily until next week", day) == "2026-09-27"

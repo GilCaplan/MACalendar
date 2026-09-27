@@ -802,6 +802,23 @@ def resolve_until(said: str, anchor: dt.date) -> "str | None":
     if not m:
         return None
     bound = resolve_date(m.group(2), anchor)
+    # A RANGE as the bound: "until next month / week / year" is the day before
+    # that range STARTS, "through next month" its last day — the front door's
+    # reading (`rule_parser._bound_date`). This returned no end at all, so the
+    # deep track left the series open where the fast one closed it.
+    rm = re.match(r"\s*next\s+(week|month|year)\b", m.group(2))
+    if not bound and rm:
+        unit = rm.group(1)
+        if unit == "week":
+            start = anchor + dt.timedelta(days=7 - anchor.weekday())       # next Monday
+            end = start + dt.timedelta(days=6)
+        elif unit == "month":
+            start = (anchor.replace(day=1) + dt.timedelta(days=32)).replace(day=1)
+            end = (start + dt.timedelta(days=32)).replace(day=1) - dt.timedelta(days=1)
+        else:
+            start, end = dt.date(anchor.year + 1, 1, 1), dt.date(anchor.year + 1, 12, 31)
+        d = start - dt.timedelta(days=1) if m.group(1) in _EXCLUSIVE else end
+        return d.isoformat()
     if not bound:
         return None
     d = dt.date.fromisoformat(bound)
