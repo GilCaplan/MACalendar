@@ -1,0 +1,419 @@
+{
+ "split": "train",
+ "n": 40,
+ "off_pct": 95.0,
+ "on_pct": 95.0,
+ "fixed": 0,
+ "broke": 0,
+ "changed_same": 0,
+ "disagreed": 0,
+ "net": 0,
+ "latency_s": {
+  "off_p50": 0.023,
+  "off_p95": 4.647,
+  "on_p50": 0.016,
+  "on_p95": 7.324
+ },
+ "by": {
+  "family": {
+   "c_range_ce_5": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_texture_4": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_co_mark_done": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_through_2": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_tr_tex_filler_mid": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_tr_ce_polite_verbose": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_co_check_off": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ct_casual_lowercase_ok": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_tr_enc_coffee_with": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_until_endofmonth": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_recur_5": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ue_extend_event": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ct_hey_remind": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_extra_dt_1": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_tr_two_things_tt": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_and_tt_4": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_de_casual_cancel": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_de_clear_event": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_tr_ce_wake_set": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_datemark_8": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ct_create_task_basic": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ut_set_priority": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ce_can_you_book": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_attendee_4": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_tr_ct_any_chance_remind": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_generic_co_2": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_including_2": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_confsub_tt_1": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_leadtime_12": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_tr_enc_uk_ring": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ut_misspelled_updat": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_tr_np_serial_sand_paint": {
+    "n": 1,
+    "off": 0,
+    "on": 0,
+    "net": 0
+   },
+   "c_allday_6": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_encounter_2": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_attendee_9": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_timelist_ct_2": {
+    "n": 1,
+    "off": 0,
+    "on": 0,
+    "net": 0
+   },
+   "c_and_ee_1": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_and_ee_4": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_tr_de_fronted_cancel_it": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_joiner_plus_ee_2": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   }
+  },
+  "shape": {
+   "atomic": {
+    "n": 32,
+    "off": 31,
+    "on": 31,
+    "net": 0
+   },
+   "compound": {
+    "n": 8,
+    "off": 7,
+    "on": 7,
+    "net": 0
+   }
+  },
+  "reentries": {
+   "0": {
+    "n": 39,
+    "off": 37,
+    "on": 37,
+    "net": 0
+   },
+   "1": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   }
+  },
+  "model_round": {
+   "no model round": {
+    "n": 39,
+    "off": 37,
+    "on": 37,
+    "net": 0
+   },
+   "model round fired": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   }
+  },
+  "pool": {
+   "original families": {
+    "n": 31,
+    "off": 30,
+    "on": 30,
+    "net": 0
+   },
+   "train-growth phrasings": {
+    "n": 9,
+    "off": 8,
+    "on": 8,
+    "net": 0
+   }
+  }
+ },
+ "row_ids": [
+  "c_range_ce_5-001",
+  "c_texture_4-011",
+  "s_co_mark_done-005",
+  "c_through_2-003",
+  "c_tr_tex_filler_mid-010",
+  "s_tr_ce_polite_verbose-006",
+  "s_co_check_off-012",
+  "s_ct_casual_lowercase_ok-003",
+  "c_tr_enc_coffee_with-007",
+  "c_until_endofmonth-007",
+  "c_recur_5-011",
+  "s_ue_extend_event-011",
+  "s_ct_hey_remind-003",
+  "c_extra_dt_1-008",
+  "c_tr_two_things_tt-011",
+  "c_and_tt_4-009",
+  "s_de_casual_cancel-001",
+  "s_de_clear_event-009",
+  "s_tr_ce_wake_set-003",
+  "c_datemark_8-004",
+  "s_ct_create_task_basic-014",
+  "s_ut_set_priority-002",
+  "s_ce_can_you_book-008",
+  "c_attendee_4-001",
+  "s_tr_ct_any_chance_remind-005",
+  "c_generic_co_2-004",
+  "c_including_2-010",
+  "c_confsub_tt_1-009",
+  "c_leadtime_12-011",
+  "c_tr_enc_uk_ring-012",
+  "s_ut_misspelled_updat-002",
+  "c_tr_np_serial_sand_paint-006",
+  "c_allday_6-008",
+  "c_encounter_2-015",
+  "c_attendee_9-008",
+  "c_timelist_ct_2-014",
+  "c_and_ee_1-002",
+  "c_and_ee_4-005",
+  "s_tr_de_fronted_cancel_it-001",
+  "c_joiner_plus_ee_2-008"
+ ],
+ "mode": "product",
+ "metrics": {
+  "counts": {
+   "rows": 40,
+   "model_rows": 8,
+   "path_known": 40,
+   "fast_rows": 26,
+   "count_n": 30,
+   "count_ok": 25,
+   "obj_expected": 37,
+   "obj_created": 34,
+   "obj_matched": 31,
+   "missing": 6,
+   "extra": 3,
+   "field_rows": 22,
+   "title_n": 22,
+   "title_exact": 15,
+   "title_p_milli": 18491,
+   "title_r_milli": 21667,
+   "title_f_milli": 19269,
+   "title_contained": 22,
+   "date_n": 10,
+   "date_ok": 10,
+   "range_n": 1,
+   "range_ok": 1,
+   "invent_n": 7,
+   "invent": 0,
+   "rec_n": 4,
+   "rec_ok": 3,
+   "time_n": 5,
+   "time_ok": 5,
+   "generic_n": 1,
+   "generic_refused": 1,
+   "lead_n": 1,
+   "lead_ok": 1,
+   "harm": 5,
+   "wrong": 2
+  },
+  "by_pool": {
+   "original": {
+    "rows": 31,
+    "correct": 30,
+    "count_n": 22,
+    "count_ok": 19
+   },
+   "new phrasings": {
+    "rows": 9,
+    "correct": 8,
+    "count_n": 8,
+    "count_ok": 6
+   }
+  },
+  "destructive": {
+   "delete_event": 1
+  },
+  "confusion": {
+   "create_todo -> create_event": 1,
+   "create_event -> delete_event": 1
+  }
+ }
+}

@@ -17,41 +17,36 @@ LLMSeg is wired and INERT; the judge makes no model call; the model is called by
 
 ## Where it stands (2026-09-27)
 
-**As production runs it** — Board D `--product` (front door first), FastRule
-7,200 set, 1,200 rows per split, seeded, fresh, current gold
-(Q55/Q56/Q61/Q62). Before today's three harm cycles (`fcd02957`) against
-after them (`bafc30e3`); records in `llmjudge/experiments/runs/`
-(`board_d_{train,test}_1200_20260927T*`):
+**As production runs it** — Board D `--product` (ingest, then the front door,
+then the deep chain: `dbd5c94b` made the board run ingest first, as
+`Engine.run` does), FastRule 7,200 set, 1,200 rows per split, seeded, fresh,
+current gold (Q55/Q56/Q61/Q62). Before today's harm cycles (`fcd02957`,
+old instrument) against `4d070b41`; records in `llmjudge/experiments/runs/`
+(`board_d_{train,test}_1200_20260927T*`). TEST is a milestone read (every few
+cycles), never a steering signal:
 
-| metric (`dataset/METRICS.md`) | TRAIN before | TRAIN after | TEST before | TEST after |
+| metric (`dataset/METRICS.md`) | TRAIN before | TRAIN now | TEST before | TEST now |
 |---|---|---|---|---|
-| headline correct (action + title) | 93.2% (1118) | **95.2%** (1142) | 79.6% (955) | **82.7%** (992) |
-| rows fixed / broken | | 24 / **0** | | 37 / **0** |
-| count-correct | 92.7% (852/919) | same | 86.2% (755/876) | same |
-| objects F1 (P · R) | 96.0% (97.0 · 95.0) | same | 92.2% (95.9 · 88.8) | same |
-| title word F1 · exact | 92.5% · 80.1% | same | 80.0% · 44.5% | same |
+| headline correct (action + title) | 93.2% (1118) | **95.1%** (1141) | 79.6% (955) | **80.6%** (967) |
+| rows fixed / broken | | 26 / 3 | | 12 / **0** |
+| count-correct | 92.7% (852/919) | 93.1% (856/919) | 86.2% (755/876) | same |
+| objects F1 (P · R) | 96.0% (97.0 · 95.0) | 96.1% (97.4 · 94.9) | 92.2% (95.9 · 88.8) | same |
+| title word F1 · exact | 92.5% · 80.1% | 92.9% · 81.6% | 80.0% · 44.5% | same |
 | date · start · range right | 96.0 · 100 · 100% | same | 93.6 · 100 · 100% | same |
 | cadence · reminder · invented time | 94.2 · 82.5 · 3.3% | same | 97.8 · 97.0 · 3.2% | same |
-| harm (wrong rows) | 139 (82) | **97** (58) | 260 (245) | **208** (208) |
+| harm (wrong rows) | 139 (82) | **101** (59) | 260 (245) | **241** (233) |
 | destructive update_event | 21 | 13 | 25 | 18 |
-| vague target refused | 81.4% (35/43) | same | 77.1% (27/35) | same |
-| front door committed | 67.6% | 66.7% | 62.0% | 57.8% |
-| rows needing a model call | 19.5% | 20.8% | 21.2% | **25.0%** |
-| latency p50 / p95 with a model | 4.4s / 10.3s | 4.2s / 10.4s | 4.2s / 11.7s | 3.3s / 10.1s |
+| vague target refused | 81.4% (35/43) | 79.1% (34/43) | 77.1% (27/35) | same |
+| rows needing a model call | 19.5% | 20.3% | 21.2% | 21.7% |
+| latency p50 / p95 with a model | 4.4s / 10.3s | 4.3s / 10.3s | 4.2s / 11.7s | 4.0s / 11.5s |
 
-**CORRECTION (same day): the TEST "after" column is contaminated.** The
-mutation frame in `3b001720` carried words read off TEST rows; they were
-removed in `4d070b41` (FastRule TEST harm with the clean frame: 174 -> 168,
-not -> 106). The TEST column is being re-read at `4d070b41`, together with
-Board D now running ingest first as production does (`dbd5c94b`).
-
-Reading: the cycles touched only mutations, and every create line is
-identical on both splits. The costs are model calls (TEST +3.8 pt: the front
-door now defers what it used to get wrong) and front-door coverage. The
-TRAIN/TEST headline gap is update phrasings the front door does not know
-("flip the due date on …", "bump … to top priority", "retitle …"):
-`update_todo -> create_todo` is 41 TEST rows, and it can only be closed from
-TRAIN-grown phrasings, never from those rows.
+Reading: TEST gained about half of what TRAIN did and broke nothing — the
+delete-kind and change-kind fixes transfer; the mutation frame (TRAIN-derived
+words only since `4d070b41`; its first version leaked TEST words) mostly does
+not. The 3 TRAIN breaks are ingest defects the board never saw before it ran
+ingest: a trailing ", done" stripped, "my reminder" passing the generic-target
+veto once the hedges are gone, and the repaired "set a reminder to X next week"
+read as an event.
 
 **The fast path alone** — FastRule shape board, FastRule 7,200 set, `04810fae`:
 
