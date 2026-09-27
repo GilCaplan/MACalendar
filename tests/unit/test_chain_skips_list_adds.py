@@ -26,3 +26,13 @@ def test_a_list_add_after_then_stays_a_todo():
 
 def test_a_real_chain_still_chains():
     assert _kinds("gym at 9 then walk the dog") == ["event", "event"]
+
+
+def test_a_list_named_without_my_or_the_is_still_a_list():
+    """Real speech drops the determiner: "add mop to hardware store list"."""
+    from assistant.intent.encounter import names_the_list
+    assert names_the_list("add mop to hardware store list")
+    assert names_the_list("Add Diapers in cosmetic list")
+    assert names_the_list("add wine to list")
+    assert not names_the_list("make a list of books")
+    assert not names_the_list("meet Dana in the lobby")

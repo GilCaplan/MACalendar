@@ -62,7 +62,14 @@ _WRITTEN = re.compile(r"\b(?:email|e-mail|text|message|msg|write\s+to|send|ping|
 
 _TODO_DESTINATION = re.compile(
     r"\b(?:to|on|onto|in|into|from|off)\s+(?:my|the|our)\s+"
-    r"(?:to[- ]?do\s+|task\s+|shopping\s+|grocery\s+)?(?:list|lists|tasks|to[- ]?dos?)\b", re.I)
+    r"(?:to[- ]?do\s+|task\s+|shopping\s+|grocery\s+)?(?:list|lists|tasks|to[- ]?dos?)\b"
+    # Real speech drops the determiner and names the list by what it holds
+    # (2026-09-27, verification pool dev range): "add mop to hardware store
+    # list", "Add Diapers in cosmetic list", "add wine to list" — each became
+    # an EVENT. Up to three describing words, no determiner needed; never
+    # "list of <content>" (that is a list being made, not a destination).
+    r"|\b(?:to|on|onto|in|into)\s+(?:(?:my|the|our)\s+)?(?:[a-z'-]+\s+){0,3}list\b(?!\s+of\b)",
+    re.I)
 
 
 def names_the_list(text: str) -> bool:
