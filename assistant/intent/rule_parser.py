@@ -2035,6 +2035,27 @@ def _marks_a_day(span_text: str) -> bool:
 
 _DELETE_VERBS = frozenset({"delete", "remove", "clear", "drop", "scrap", "erase"})
 
+#: A MUTATION FRAME (2026-09-27): the words that say "this thing already
+#: exists — delete / finish / change it", wherever they sit in the span. A
+#: to-do's NAME usually opens with a verb ("renew the passport", "buy
+#: groceries"), so the router's first-word pass took that verb as the
+#: command and CREATED the thing the speaker asked to remove: "i no longer
+#: need to renew the passport, so delete it from the list", "buy groceries,
+#: done", "updat restock the pantry on my list". 92 TRAIN rows across nine
+#: families committed a create that way. A create read over one of these
+#: frames is not committed (see its use in `analyze`).
+_MUTATION_FRAME = re.compile(
+    r"\b(?:delete|remove|wipe|scrap|drop|erase|strike|axe|yank|clear|take|cross)\s+(?:it|that|this|them)\b"
+    r"|\b(?:from|off)\s+(?:my|the)\s+(?:to-?do\s+)?(?:list|tasks?|to-?dos?)\b"
+    r"|\bno\s+longer\s+need|\bnot\s+needed\b|\bwon'?t\s+be\s+doing\b|\bnever\s+mind\b"
+    r"|\bforget\s+(?:it|about\s+it)\b"
+    r"|,\s*(?:done|finished|sorted|all\s+done)\s*[.!]?$"
+    r"|\b(?:is|are)\s+(?:done|finished|sorted|complete|completed)\b"
+    r"|\btick\s+(?:it|that)\s+off\b|\bmark\s+(?:it|that)\s+(?:as\s+)?(?:done|complete)\b"
+    r"|\bwrapped\s+up\b|\bknocked\s+out\b|\bdone\s+and\s+dusted\b"
+    r"|\b(?:update|rename|retitle|change|edit)\s+(?:it|that)\b|\bto\s+say\b|\bis\s+due\b.*\bnow\b",
+    re.I)
+
 
 def _delete_target_kind(span) -> "tuple[str, bool] | None":
     """(domain, inferred) for a span that OPENS with a delete verb, read off
@@ -3820,6 +3841,10 @@ class RuleBasedParser:
                     from assistant.intent import recurrence as _recur
                     if _recur.detect(span.text):
                         action_name, repeating_todo = "create_event", True
+            if action_name in ("create_todo", "create_event") and _MUTATION_FRAME.search(span.text):
+                # A create read over a mutation frame names a thing that
+                # already exists; the deep track reads what to do with it.
+                raise RuleParserSkip(f"a create read over a mutation frame: {span.text!r}")
             if action_name in ("create_todo", "create_event"):
                 # Q47 (Gil, 2026-09-24): an encounter with a person — met,
                 # seen, called — is an event, day or no day ("call mum is an
