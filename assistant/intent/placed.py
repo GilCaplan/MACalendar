@@ -25,7 +25,7 @@ import re
 _NOW = re.compile(r"\b(?:right\s+now|now|immediately|asap)\b", re.I)
 _SAYS_EVENT = re.compile(
     r"\b(?:an?|the|new)\s+(?:calendar\s+)?(?:event|appointment)\b"
-    r"|\b(?:on|to|in|onto)\s+(?:my|the)\s+(?:calendar|calender|schedule|diary|agenda)\b",
+    r"|\b(?:on|to|in|onto)\s+(?:my|the)\s+(?:calendar|calender|calander|schedule|diary|agenda)\b",
     re.I)
 
 

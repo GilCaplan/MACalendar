@@ -110,6 +110,13 @@ _WORD_REPAIRS = {
     "shedule": "schedule", "schedual": "schedule", "scedule": "schedule",
     "reschedual": "reschedule", "delet": "delete", "deleet": "delete",
     "cancle": "cancel", "apointment": "appointment", "appointmnet": "appointment",
+    # 90 of the 528 mentions of the calendar in the verification pool's real
+    # speech are misspelled: calender (72), calander (13), calandar (5), and
+    # the "my calendar" readers missed them (2026-09-27: "please add party at
+    # chucky cheese to calander" filed a to-do). Only "calandar" is repaired
+    # here: the other two are dictionary words, and this list never rewrites
+    # one (test_ingest_frames) — the calendar readers accept them instead.
+    "calandar": "calendar",
 }
 _WORD_REPAIR_RE = re.compile(r"\b(" + "|".join(_WORD_REPAIRS) + r")\b", re.I)
 

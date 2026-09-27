@@ -229,11 +229,11 @@ def _enforce_pinned_kinds(kind: str, text: str) -> str:
 #: the two lists they mean.
 _PUT_ON_CALENDAR_RE = re.compile(
     r"\b(?:put|pop|stick|add|book|schedule)\b.*?\b(?:on|in|to|into|onto)\s+(?:my|the)\s+"
-    r"(?:calendar|calender|diary|schedule|agenda)\b", re.I)
+    r"(?:calendar|calender|calander|diary|schedule|agenda)\b", re.I)
 
 _CALENDAR_DEST_RE = re.compile(
     r"\b(?:on|to|in|from|off)\s+(?:my|the)\s+"
-    r"(?:calendar|calender|schedule|diary|agenda)\b", re.I)
+    r"(?:calendar|calender|calander|schedule|diary|agenda)\b", re.I)
 
 
 #: Arranging to be in the same place as someone — "get Blake and me TOGETHER

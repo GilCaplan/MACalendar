@@ -448,7 +448,7 @@ INTENT_MAP: dict[tuple[str, str | None], str] = {
 _CALENDAR_SIGNALS = frozenset({
     "meeting", "event", "appointment", "sync", "standup", "stand-up",
     "interview", "session", "class", "lecture", "conference", "call",
-    "seminar", "webinar", "calendar", "agenda", "schedule",
+    "seminar", "webinar", "calendar", "calender", "calander", "agenda", "schedule",
     "meetings", "events", "appointments", "sessions", "classes", "lectures",
     "conferences", "seminars", "webinars",
 })
@@ -1942,7 +1942,7 @@ _ROUTE_OVERRIDES = [
     # "do me a favour and put car service appointment in my calendar for …"
     # deferred and the deep track read a schedule QUESTION.
     (re.compile(r"\b(?:put|pop|stick|add)\s+(?!it\b|that\b|this\b).+?\s+(?:in|on|into|onto|to)\s+"
-                r"(?:my|the)\s+(?:calendar|calender|diary|schedule|agenda)\b"), "create_event"),
+                r"(?:my|the)\s+(?:calendar|calender|calander|diary|schedule|agenda)\b"), "create_event"),
     # "X … IS NOW AT <when>" states a move (TRAIN family s_tr_ue_is_now_at);
     # its values are read apart in `_fill_slots` (TASKS 26).
     (re.compile(r"\bis\s+now\s+(?:at|on|from)\s+(?=.*(?:\d|noon|midnight|morning|afternoon|evening|night|"
