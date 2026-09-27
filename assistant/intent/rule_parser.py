@@ -1932,8 +1932,16 @@ _DUE_DATE_OF = re.compile(
     r"^\s*(?:please\s+)?(?:change|move|push|update|set|shift|bump)\s+(?:the\s+)?"
     r"due\s+date\s+(?:of|for|on)\s+(?P<what>.+?)\s+to\s+", re.I)
 
+#: "X … is now at / on <when>": a move, the new when after it (TASKS 26).
+_IS_NOW_AT = re.compile(r"\s+is\s+now\s+(?=(?:at|on|from)\b)", re.I)
+
 _ROUTE_OVERRIDES = [
     (_DUE_DATE_OF, "update_todo"),
+    # "X … IS NOW AT <when>" states a move (TRAIN family s_tr_ue_is_now_at);
+    # its values are read apart in `_fill_slots` (TASKS 26).
+    (re.compile(r"\bis\s+now\s+(?:at|on|from)\s+(?=.*(?:\d|noon|midnight|morning|afternoon|evening|night|"
+                r"monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today))"),
+     "update_event"),
     # "NEED <things>" with no "to" is an errand, never a removal: "need 10
     # trash bags from the shop" went to the classifier, which read "from" as
     # the remove-from-my-list shape and committed delete_todo — 8 creates on
@@ -3187,6 +3195,31 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
             # "set a meeting with Ravid" → title "meeting with Ravid" instead of a bare placeholder
             if slots.get("title", "").lower() in {"meeting", "set meeting", "event", "appointment", "call", "lunch", "dinner", "coffee", "zoom"}:
                 slots["title"] = f"{slots['title'].replace('set ', '')} with {' and '.join(attendees)}"
+
+    elif action_name == "update_event" and _IS_NOW_AT.search(span.text):
+        # "X … IS NOW AT <when>" (TASKS 26, TRAIN family s_tr_ue_is_now_at): the
+        # words before "is now" name the thing and the day it is on; the words
+        # after are its new when. Read apart, because the span's own reading
+        # took "now" as the time and moved the event to today at 00:00.
+        m = _IS_NOW_AT.search(span.text)
+        before, after = span.text[:m.start()].strip(), span.text[m.end():].strip()
+        from assistant.engine.segmentation.fastseg.fastseg import find_time_refs
+        name = before
+        for r in sorted(find_time_refs(before), key=lambda r: -r.start):
+            name = name[:r.start] + name[r.end:]
+        name = _clean_title(" ".join(name.split()))
+        if name and names_something(name):
+            slots["match_title"] = name
+        old_when = _extract_temporal(before, datetime.date.today()) if before else {}
+        if old_when.get("date"):
+            slots["match_date"] = old_when["date"]
+        new_when = _extract_temporal(after, datetime.date.today())
+        if new_when.get("start_time"):
+            slots["new_start_time"] = new_when["start_time"]
+        if new_when.get("end_time"):
+            slots["new_end_time"] = new_when["end_time"]
+        if new_when.get("date") and re.search(r"\bon\b", m.group(0) + " " + after, re.I):
+            slots["new_date"] = new_when["date"]
 
     elif action_name == "update_event":
         # F10: the mutation phrase delimits multi-word titles noun-chunking
