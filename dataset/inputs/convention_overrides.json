@@ -1,7 +1,7 @@
 {
  "version": 1,
- "generated": "2026-09-20",
- "note": "Mechanical rules mined from dev region (tier_rank<=600) only, applied dataset-wide. Raw count_ok is never changed; the scorer reports these as count_ok_adj. 2026-09-20: the list_create_bare class gained its COMPOUND form (DEVQA Q37) — a list with no name is refused, so a compound whose other half is a real ask is half_flexible. 68 rows joined; 4 moved from remind_half, being more specifically a declinable list half than a re-filed reminder.",
+ "generated": "2026-09-27",
+ "note": "Mechanical rules mined from dev region (tier_rank<=600) only, applied dataset-wide. Raw count_ok is never changed; the scorer reports these as count_ok_adj. 2026-09-20: the list_create_bare class gained its COMPOUND form (DEVQA Q37) — a list with no name is refused, so a compound whose other half is a real ask is half_flexible. 68 rows joined; 4 moved from remind_half, being more specifically a declinable list half than a re-filed reminder. 2026-09-27: list_management (DEVQA Q52) — any clause the engine's junk reader calls list management is owed nothing.",
  "rows": {
   "Remember to pick me up by 12 noon from the Airport, I have a 3 pm meeting — and pDA please make a list.": {
    "class": "list_create_bare",
@@ -19,9 +19,17 @@
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
+  "add a note to attend. Also, save the new list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "please set event on Tuesday — and alexa remind me to go to my doctors at 4pm on tuesday": {
    "class": "remind_half",
    "treatment": "split_flexible"
+  },
+  "notify me about any festival occurring next month. Also, open grocery list and add milk": {
+   "class": "list_management",
+   "treatment": "half_flexible"
   },
   "Please remind to get donuts for the meeting, and then new scenario, time or calendar to new list": {
    "class": "remind_half",
@@ -35,6 +43,10 @@
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
+  "Before this event set notification and bring up a new shopping list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "create a new list of . Also, get xxx on the list": {
    "class": "placeholder",
    "treatment": "half_flexible"
@@ -47,20 +59,40 @@
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "Open me a new list — and please add milk to the grocery list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Every Wednesday night at 5pm remind me to meet Phil and also make a new list for me, please.": {
    "class": "list_create_bare",
+   "treatment": "half_flexible"
+  },
+  "Set a meeting with Phil every Wednesday for 5pm and pDA, I want to make a list and this should be automatically saved as a text file with the title, list.": {
+   "class": "list_management",
    "treatment": "half_flexible"
   },
   "I need to make a list.": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
+  "Add red wine to my shopping list and i need to create a new to do list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "add an event to my calendar — and can you create new list for me?": {
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "Make a reminder at 1PM every Monday until I I remove it, and then Start a new grocery list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Add paper towels to the grocery list and also pDA can you create a list for me.": {
    "class": "list_create_bare",
+   "treatment": "half_flexible"
+  },
+  "Start a new (grocery, task, shopping) list and also i want to start a new list.": {
+   "class": "list_management",
    "treatment": "half_flexible"
   },
   "create a list that is available. Also, Create a new list for me": {
@@ -75,9 +107,21 @@
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "Start a new (grocery, task, shopping) list and also i need to set up a new list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Remind me to meet Sarah at Safeway in Mckinleyville California at noon. Also, Please remind to get donuts for the meeting": {
    "class": "remind_half",
    "treatment": "split_flexible"
+  },
+  "PDA, I want to make a list and this should be automatically saved as a text file with the title, list and i need to put together a todo list for work.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "save the new list — and create a blank list.": {
+   "class": "list_management",
+   "treatment": "noop_ok"
   },
   "Remind me to send the presentation today at 1:00pm. Also, Go to Stripes at 5pm on 3 April.": {
    "class": "remind_half",
@@ -103,12 +147,24 @@
    "class": "placeholder",
    "treatment": "half_flexible"
   },
+  "Put working out on my calendar for 8 a.m. every day this week. Also, I want to start a new list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Add the item to a list and please Find all name start with alphabetic of 'A' and create a list.": {
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
   "Let me know when the meeting is gonna happen. Also, Remind me to buy jeans on my shopping list": {
    "class": "standing_alert",
+   "treatment": "half_flexible"
+  },
+  "Add an event to my google calendar for the date march 22nd please — and bring up a new shopping list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Alexa, give me my to do list for today and start a new grocery list.": {
+   "class": "list_management",
    "treatment": "half_flexible"
   },
   "Cortana, let me know when a next event if occurring from my calendar and send me a notification.": {
@@ -155,6 +211,10 @@
    "class": "placeholder",
    "treatment": "half_flexible"
   },
+  "new scenario, time or calendar to new list — and open my grocery list and add bananas to it.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Make a things to do list": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
@@ -167,9 +227,21 @@
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "Hey Olly, make a list of names starting with vowels and ending with vowels, and then Start a new grocery list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Save this afternoon for my date, and then I would like to start a new list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Remind me to go to the store every friday and also mUJHE 8 PM YAAD DILANA MUJHE KAHIN BAHAR JANA HAI.": {
    "class": "remind_half",
    "treatment": "split_flexible"
+  },
+  "Create a list for the following. Also, I want to make this week's shopping list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
   },
   "get xxx on the list": {
    "class": "placeholder",
@@ -183,6 +255,10 @@
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "Please Find all name start with alphabetic of 'G' and create a list and add pastries to the Christmas list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Save event for 5pm to 6pm on March 18th — and remind me to take my medicine at 9am": {
    "class": "remind_half",
    "treatment": "split_flexible"
@@ -190,6 +266,10 @@
   "remind me to check the oven in 15 minutes and also i need to add bananas to my grocery list.": {
    "class": "remind_half",
    "treatment": "split_flexible"
+  },
+  "Create a blank list. Also, generate a new inventory": {
+   "class": "list_management",
+   "treatment": "half_flexible"
   },
   "Start a grocery list, and then Please start a new list": {
    "class": "list_create_bare",
@@ -219,9 +299,17 @@
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "make a new list for me": {
+   "class": "list_management",
+   "treatment": "noop_ok"
+  },
   "Please open grocery list and add bananas to list.": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
+  },
+  "Please start new list — and i need to start a list called...": {
+   "class": "list_management",
+   "treatment": "half_flexible"
   },
   "PDA can you create a list for me and also please start new list": {
    "class": "list_create_bare",
@@ -283,6 +371,10 @@
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "save the new list. Also, remember to put carrots in there.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Remind me that I have a meeting at 3pm tomorrow — and please remind me to call mom in half an hour": {
    "class": "remind_half",
    "treatment": "split_flexible"
@@ -331,12 +423,20 @@
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "save the new list, and then add this to a list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Notify me when this meeting is close, and then Put hamburger on my grocery list.": {
    "class": "standing_alert",
    "treatment": "half_flexible"
   },
   "I need to add bananas to my grocery list — and get xxx on the list": {
    "class": "placeholder",
+   "treatment": "half_flexible"
+  },
+  "Give me an update on the election tomorrow at noon — and i would like to start a new list": {
+   "class": "list_management",
    "treatment": "half_flexible"
   },
   "Remind me to go grocery shopping today and please add oranges to my grocery list.": {
@@ -346,6 +446,14 @@
   "manage a meeting for today morning. Also, Please remind me to go to the post office.": {
    "class": "remind_half",
    "treatment": "split_flexible"
+  },
+  "Is there room on my grocery list for an extra item and make me a new checklist.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "create a new list of  and also create a blank list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
   },
   "Make a new list for me, please. Also, Put milk on the shopping list.": {
    "class": "list_create_bare",
@@ -363,9 +471,21 @@
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "PDA start a new list for me and create a new list of ....": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Remind me to tweet at this company, and then create a list that is available": {
    "class": "remind_half",
    "treatment": "split_flexible"
+  },
+  "Bring up the grocery list and add v8.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "add grocery to list. Also, I need to make a grocery list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
   },
   "hey, put carrots on that and start me a new list.": {
    "class": "list_create_bare",
@@ -375,21 +495,69 @@
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "Start me a new list — and i want to have a new playlist of 80s songs": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Is there room on my grocery list for an extra item, and then start a new list": {
    "class": "list_create_bare",
+   "treatment": "half_flexible"
+  },
+  "Create a list for today's tasks. Also, Bring up a new shopping list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Please add sugar to my grocery list — and i need to make a grocery list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Please add meeting to my calendar and i need to set up a new list": {
+   "class": "list_management",
    "treatment": "half_flexible"
   },
   "Set this before event. Also, Tell me when I have an event": {
    "class": "standing_alert",
    "treatment": "half_flexible"
   },
+  "Open me a new list and add Diapers in cosmetic list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Set my calendar to remind me to buy groceries every Friday — and refresh the list with new one.": {
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "open a new list for me": {
+   "class": "list_management",
+   "treatment": "noop_ok"
+  },
+  "Make a new list for me, please.": {
+   "class": "list_management",
+   "treatment": "noop_ok"
+  },
+  "Create a new list for me": {
+   "class": "list_management",
+   "treatment": "noop_ok"
+  },
   "tell me when the event is happening": {
    "class": "standing_alert",
    "treatment": "noop_ok"
+  },
+  "Please Find all name start with alphabetic of 'A' and create a list and show a new list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Put laundry on my to-do list. Also, I need to set up a new list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Make a new list and add grocery shopping to today's to-do list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "I want you to remind me about the evening program. Also, Please open grocery list and add bananas to list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
   },
   "Make a new list": {
    "class": "list_create_bare",
@@ -402,6 +570,14 @@
   "make appointment for next friday — and remind me to fill college's application form every two days from now": {
    "class": "remind_half",
    "treatment": "split_flexible"
+  },
+  "Remind me if anything else happens, and then Make a grocery list, please.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Can you please create a list for me — and please add milk to the grocery list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
   },
   "Remind me every year/week/month on this date of": {
    "class": "truncated",
@@ -427,12 +603,28 @@
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "Make me a new checklist — and begin new list of lottery numbers": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Remind me to meet Dad for coffee at 10 am and also remind me in the morning to call my mother.": {
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "Please create a new list for me": {
+   "class": "list_management",
+   "treatment": "noop_ok"
+  },
   "Create an event for a John's birthday and also please Find all name start with alphabetic of 'A' and create a list.": {
    "class": "list_create_bare",
+   "treatment": "half_flexible"
+  },
+  "get me with new list. Also, I would like to start a new list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "I would like to start a new list — and put pencil on a new grocery list": {
+   "class": "list_management",
    "treatment": "half_flexible"
   },
   "tell me when my moms birthday is": {
@@ -463,6 +655,14 @@
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "I would like to start a new list and also add broccoli to my grocery list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Please Find all name start with alphabetic of 'A' and create a list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Remind me to ask an important question to my boss and generate a new inventory": {
    "class": "remind_half",
    "treatment": "split_flexible"
@@ -483,9 +683,21 @@
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "Open my grocery list and add bananas to it. Also, Add this one also.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Make a new shopping list. Also, Add red wine to my shopping list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Please remind me to call mom in half an hour and add coffee to the grocery list": {
    "class": "remind_half",
    "treatment": "split_flexible"
+  },
+  "I need to create a new to do list — and open grocery list and add milk": {
+   "class": "list_management",
+   "treatment": "half_flexible"
   },
   "Remind me to have the presentation ready by 10 on Wednesday and meeting at 8am to 12pm": {
    "class": "remind_half",
@@ -493,6 +705,10 @@
   },
   "Open calendar.  Set event, and then Can you please create a list for me": {
    "class": "list_create_bare",
+   "treatment": "half_flexible"
+  },
+  "make a list for work and also i need to make a list.": {
+   "class": "list_management",
    "treatment": "half_flexible"
   },
   "Remind me to take my medicine at 9am. Also, Please make a list of thing I have to shop tomorrow": {
@@ -504,8 +720,8 @@
    "treatment": "split_flexible"
   },
   "Remind me to pick up the laundry next Monday — and i would like to start a new list": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "list_management",
+   "treatment": "half_flexible"
   },
   "Remind me to check the stew at 6 o'clock, and then Add butter to the list": {
    "class": "remind_half",
@@ -515,9 +731,41 @@
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "Open me a new list — and add new songs to playlist": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Bring up a new shopping list and also new scenario, time or calendar to new list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Open my grocery list and add bananas to it, and then Make new playlist from recent songs": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Begin new list of lottery numbers, and then open grocery list and add milk": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "prepare a new list and also alexa create a new shopping list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Add grocery shopping to today's to-do list, and then I need to create a new to do list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Remind me to start the crock pot at 2:00 PM and add apples to shopping list": {
    "class": "remind_half",
    "treatment": "split_flexible"
+  },
+  "I WANT YOU TO REMEBER ME TO TAKE MY RAIN COAT BECAUSE IT MAY RAIN. Also, I need to make a grocery list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Add pastries to the Christmas list and save the new list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
   },
   "Let me know when my meetings are on Monday and also remind me about the meeting tomorrow at 6": {
    "class": "standing_alert",
@@ -526,6 +774,10 @@
   "Calendar event with these people and also start a new list": {
    "class": "list_create_bare",
    "treatment": "half_flexible"
+  },
+  "Make me a new checklist.": {
+   "class": "list_management",
+   "treatment": "noop_ok"
   },
   "Add spent five dollars in my expenses list, and then Create a new list for me please": {
    "class": "list_create_bare",
@@ -555,6 +807,10 @@
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "write down these items and also i need to make a grocery list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Set a timer for 5 minutes for cookies and set and event for the 15th of every month to remind me to pay my internet bill.": {
    "class": "remind_half",
    "treatment": "split_flexible"
@@ -567,9 +823,17 @@
    "class": "placeholder",
    "treatment": "half_flexible"
   },
+  "open grocery list and add milk. Also, Add every girl life by Evelyn Mayer to the must read list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Every Wednesday night at 5pm remind me to meet Phil and put meeting with Pawel for tomorrow 10am": {
    "class": "remind_half",
    "treatment": "split_flexible"
+  },
+  "Create a blank list and put hamburger on my grocery list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
   },
   "Remind me to do something then, and then Add milk to my grocery list.": {
    "class": "remind_half",
@@ -577,6 +841,18 @@
   },
   "Notify me about the evening meeting five minute in advance — and make a new list for me, please.": {
    "class": "list_create_bare",
+   "treatment": "half_flexible"
+  },
+  "Alexa create a new shopping list and pDA, I want to make a list and this should be automatically saved as a text file with the title, list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Please create a new list — and the list should contain this item.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Begin new list of lottery numbers and create a new grocery list": {
+   "class": "list_management",
    "treatment": "half_flexible"
   },
   "Create a new list for me please. Also, Add new item to list.": {
@@ -599,9 +875,21 @@
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "Add a reminder to my calendar every year/month/week on this date and also i need to make a list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "put xxx on the list, and then PDA, I want to make a list and this should be automatically saved as a text file with the title, list.": {
    "class": "placeholder",
    "treatment": "half_flexible"
+  },
+  "save the new list and also add chives to my shopping list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Create a new list, please": {
+   "class": "list_management",
+   "treatment": "noop_ok"
   },
   "Create a new reminder at 3pm — and remind me to make a pizza tomorrow morning": {
    "class": "remind_half",
@@ -615,6 +903,10 @@
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "Can you create a new list and also new scenario, time or calendar to new list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Remind me to look at the pasta in 30 mins and please update my grocery list with1 gallon of 2% milk.": {
    "class": "remind_half",
    "treatment": "split_flexible"
@@ -627,8 +919,16 @@
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "Can you create a new list — and create a blank list.": {
+   "class": "list_management",
+   "treatment": "noop_ok"
+  },
   "Set a reminder for gymnastics every Wednesday at 3 — and create a new list for me please": {
    "class": "list_create_bare",
+   "treatment": "half_flexible"
+  },
+  "olly I need you to put walk the dog on my list to do. Also, I want you to create a list for me": {
+   "class": "list_management",
    "treatment": "half_flexible"
   },
   "add appointment to list — and create a new list, please": {
@@ -651,17 +951,41 @@
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "Please add sugar to my grocery list. Also, Bring up the grocery list and add v8.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Add to calendar an everyday reminder for laundry and also make a new list for me": {
    "class": "list_create_bare",
+   "treatment": "half_flexible"
+  },
+  "set the event name to ____. Also, I would like to start a new list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Create a new grocery list and also my new work schedule list": {
+   "class": "list_management",
    "treatment": "half_flexible"
   },
   "set the event name to ____ and rEMIND TO AT 8 P.M. TO TAKE MY MEDICINE.": {
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "I would like to start a new list and also save the new list": {
+   "class": "list_management",
+   "treatment": "noop_ok"
+  },
   "Add a party in NY city for this saturday, and then Remind me to meet James at work tomorrow at 9am": {
    "class": "remind_half",
    "treatment": "split_flexible"
+  },
+  "I would like to start a new list, and then Put pencil on a new grocery list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Please start new list and also pDA please update list with new item": {
+   "class": "list_management",
+   "treatment": "half_flexible"
   },
   "Set calendar reminder for noon titled lunch meeting, and then Notify me when the event is going to take place": {
    "class": "standing_alert",
@@ -671,6 +995,18 @@
    "class": "placeholder",
    "treatment": "half_flexible"
   },
+  "make a new list for me and add new item to list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Add a movie name to the wish list and also please open grocery list and add bananas to list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Create a new list for me please and also the list should contain this item.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Make sure to remind me to pay my bills tomorrow morning, and then PDA can you create a list for me.": {
    "class": "list_create_bare",
    "treatment": "half_flexible"
@@ -678,6 +1014,14 @@
   "Start me a new list.": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
+  },
+  "PDA can you create a list for me and add paper towels to the grocery list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "open grocery list and add milk": {
+   "class": "list_management",
+   "treatment": "half_flexible"
   },
   "create a new list of . Also, Can you create a new list?": {
    "class": "list_create_bare",
@@ -695,6 +1039,10 @@
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "Set a calendar event, and then Alexa create a new shopping list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "notification of meeting on Wednesday — and alert me when my anniversary is": {
    "class": "standing_alert",
    "treatment": "half_flexible"
@@ -702,6 +1050,10 @@
   "Notify me when I have a meeting.": {
    "class": "standing_alert",
    "treatment": "noop_ok"
+  },
+  "Remind me of my sister's birthday party tomorrow an hour before it starts and i need to create a new to do list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
   },
   "Olly, I need to create a list of grocery items which are generally required for an outing for two days when you travel out of the city and get xxx on the list": {
    "class": "placeholder",
@@ -713,6 +1065,10 @@
   },
   "PDA please add new item to list and open a new list for me": {
    "class": "list_create_bare",
+   "treatment": "half_flexible"
+  },
+  "Add this one also, and then Create a new grocery list": {
+   "class": "list_management",
    "treatment": "half_flexible"
   },
   "alert me when my anniversary is and pDA please mark my calendar for a holiday in Cuba on April 2.": {
@@ -735,6 +1091,10 @@
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "Remind me tomorrow at 2 pm and save the new list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Can you create a new list?": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
@@ -747,17 +1107,45 @@
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "Please modify my calendar with this event and open my grocery list and add bananas to it.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Remind me to meet Joe for lunch tomorrow, and then set repeating event 'gym day' on calendar": {
    "class": "remind_half",
    "treatment": "split_flexible"
+  },
+  "start a new list and add grocery shopping to today's to-do list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
   },
   "Add wedding to my claendar, and then PDA can you create a list for me.": {
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "add an item to the list, and then Open my grocery list and add bananas to it.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "start a new list and please update my grocery list with1 gallon of 2% milk.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "Please create a new list for me and create a new grocery list": {
+   "class": "list_management",
+   "treatment": "noop_ok"
+  },
   "Write down that I am going to meet with Jenny on the third, okay. Also, Please start a new list": {
    "class": "list_create_bare",
    "treatment": "half_flexible"
+  },
+  "Create a new list and also add business contacts to contact list": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
+  "I want you to create a list for me": {
+   "class": "list_management",
+   "treatment": "noop_ok"
   },
   "Add coffee to the grocery list and also please create a new list": {
    "class": "list_create_bare",
@@ -807,6 +1195,10 @@
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "enter this to a list — and open grocery list and add milk": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "start a new list": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
@@ -827,6 +1219,10 @@
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
+  "I need a list of my clients today, make one. Also, I need to make a list.": {
+   "class": "list_management",
+   "treatment": "half_flexible"
+  },
   "Let me know when the meeting is gonna happen.": {
    "class": "standing_alert",
    "treatment": "noop_ok"
@@ -845,6 +1241,10 @@
   },
   "Tell me when this meeting is coming up.": {
    "class": "standing_alert",
+   "treatment": "noop_ok"
+  },
+  "save the new list": {
+   "class": "list_management",
    "treatment": "noop_ok"
   },
   "Conduct meeting on Thursday, and then Please Find all name start with alphabetic of 'A' and create a list.": {
@@ -869,6 +1269,10 @@
   },
   "Set reminder for tomorrow for this item. Also, Notify me when this happens": {
    "class": "standing_alert",
+   "treatment": "half_flexible"
+  },
+  "Add to calendar may 2 is Mary's birthday. Repeat every year. Also, Create a new grocery list": {
+   "class": "list_management",
    "treatment": "half_flexible"
   },
   "12th July is Bola's birthday and my calender to be updated with this date and please create a new list": {

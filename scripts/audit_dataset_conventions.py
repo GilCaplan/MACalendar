@@ -71,6 +71,21 @@ _ALERT = re.compile(
 _REMIND_TO = re.compile(r"\bremind (me )?to\b", re.I)
 
 
+_CLAUSE = re.compile(r"\s*(?:,|\.|—|;)?\s*\b(?:and then|and also|also|and|then)\b\s*"
+                     r"|\s*[.;—]\s+", re.I)
+
+
+def _list_management(text: str) -> "tuple[int, int] | None":
+    """(clauses, list-management clauses) when any clause is Q52 list
+    management, else None."""
+    import sys
+    sys.path.insert(0, str(ROOT))
+    from assistant.intent.junk import junk_reason
+    parts = [p for p in _CLAUSE.split(text) if p and p.strip()]
+    junk = sum(1 for p in parts if junk_reason(p))
+    return (len(parts), junk) if junk else None
+
+
 def classify(row: dict) -> "tuple[str, str] | None":
     """(class, treatment) for a row our conventions re-read, else None."""
     text, scen, intent = row["text"], row["scenario"], row["intent"]
@@ -88,6 +103,14 @@ def classify(row: dict) -> "tuple[str, str] | None":
         return "list_create_bare", "noop_ok"     # no list objects here
     if scen == "compound" and _LIST_BARE_HALF.search(text):
         return "list_create_bare", "half_flexible"
+    if (creator or scen == "compound") and _list_management(text):
+        # DEVQA Q52 (2026-09-25): managing lists (open / bring up / save / start
+        # / delete a list) is not something this product does — the engine
+        # refuses it by `intent/junk.py`. Read clause by clause with that same
+        # reader (Q47's shared-reader precedent): all of it list management ->
+        # an honest nothing; a real ask beside it -> only the real ask is owed.
+        parts, junk = _list_management(text)
+        return "list_management", ("noop_ok" if junk == parts else "half_flexible")
     if _ALERT.search(text):
         if scen == "compound":
             return "standing_alert", "half_flexible"
@@ -109,7 +132,7 @@ def build() -> dict:
             out[r["text"]] = {"class": hit[0], "treatment": hit[1]}
     return {
         "version": 1,
-        "generated": "2026-09-20",
+        "generated": "2026-09-27",
         "note": ("Mechanical rules mined from dev region (tier_rank<=600) "
                  "only, applied dataset-wide. Raw count_ok is never changed; "
                  "the scorer reports these as count_ok_adj. 2026-09-20: the "
@@ -117,7 +140,9 @@ def build() -> dict:
                  "Q37) — a list with no name is refused, so a compound whose "
                  "other half is a real ask is half_flexible. 68 rows joined; "
                  "4 moved from remind_half, being more specifically a "
-                 "declinable list half than a re-filed reminder."),
+                 "declinable list half than a re-filed reminder. "
+                 "2026-09-27: list_management (DEVQA Q52) — any clause the "
+                 "engine's junk reader calls list management is owed nothing."),
         "rows": out,
     }
 
