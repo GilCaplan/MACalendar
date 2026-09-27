@@ -79,6 +79,16 @@ covered (all asks present, acceptable) · **half-executed** (an ask missing —
 the real defect) · deferred, split into "knew it was compound" vs "by
 accident", because only the first survives as FastRule improves.
 
+**Added 2026-09-25**, same board: title correctness as a word-level
+similarity (mean F1/precision/recall, not just exact-match), leaked words
+broken down by class; a range's start+end scored together (`range right,
+start+end`, bare ranges were previously unscored); series cadence
+correctness on committed events whose gold repeats; and, for committed
+UPDATE/DELETE/COMPLETE rows, the right KIND (event vs to-do) plus the
+TARGET's own word F1 against the gold title — the atomic check alone accepts
+any action of the right verb family, so a delete aimed at "tick" or
+"something" used to read as right.
+
 ## Level 3 — the CLASSIFIERS (`scripts/fit_route_models.py`, `atomicity_board.py`)
 
 Accuracy + per-class precision/recall/F1 + macro-F1 for atomicity,

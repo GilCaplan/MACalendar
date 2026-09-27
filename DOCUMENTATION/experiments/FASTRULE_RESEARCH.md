@@ -1,3 +1,10 @@
+> **Superseded (2026-09-26):** Part 2 reads `assistant/engine/segmentation/
+> old_seg/segment.py`, which is now retired to `retired/segmentation-old-seg/`
+> — segmentation runs `fastseg/` (deterministic) + `llmseg/` (wired but inert)
+> today. Part 1 idea 1's coordination check shipped, as
+> `assistant/intent/coordination.py`. Treat the code citations here as
+> historical research, not a description of current code.
+
 # FastRule & Segment research — techniques for a deterministic selective classifier
 
 Research pass, 2026-09-06. Scope: concrete, implementation-level techniques for

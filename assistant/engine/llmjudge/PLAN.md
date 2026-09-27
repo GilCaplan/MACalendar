@@ -1,9 +1,18 @@
 # LLMJudge — the plan (2026-09-09)
 
 `ARCHITECTURE.md` is how it works today. This is what is coming to it and what to
-do about it. **Nothing here is built yet** — it is written now because two pieces
-of FastRule are moving here, and the receiving end should be designed before they
-arrive rather than after.
+do about it. It was written, before anything was built, because two pieces of
+FastRule were moving here and the receiving end should be designed before they
+arrived rather than after.
+
+> **Status (2026-09-26):** §1.0 (the port) and §1.2 (the DEFER consumer,
+> `rescue.py`) are built; §1.3's loop was built to §6's structure and is live
+> (`rewrite.py`, two tiers). §6.2 and §6.3's model calls (`ground_claims`,
+> `extract_asks`) were built and retired on 2026-09-10
+> (`retired/llmjudge-grounding-call/`) — the check makes no model call. §1.1
+> (Gatekeeper as prompt CONTEXT) is not built: it still vetoes at the front
+> door, and the rescue honours the REFUSAL. §7 is the live program
+> (CLAUDE.md, 2026-09-22). §1–§6 below keep their 2026-09-09/10 tense.
 
 ---
 
@@ -407,6 +416,8 @@ reading an item the rules could not.
 
 ## 3 · The thing to fix that is already here
 
+*(Fixed 2026-09-10: `rewrite_for_retry` is live — see `ARCHITECTURE.md`.)*
+
 **The loop never fires.** `rewrite_for_retry` is a stub returning `None`, so the
 re-entry budget is never spent and the one mechanism for recovering from a bad
 segmentation is inert. It is gated deliberately — segmentation is deterministic, so
@@ -450,7 +461,9 @@ deterministically and handed over; the model answers them.
 **A REFUSAL may be resolved, never overturned.** The one rule that has already
 been broken once in this codebase.
 
-**Board D has never run.** It needs both a FastSeg answer and a final prediction, so
+*(Stale since 2026-09-22: Board D has run many times since — v2, seeded,
+`--product`; §7.2b and `ARCHITECTURE.md` "Measurement".)* **Board D has never
+run.** It needs both a FastSeg answer and a final prediction, so
 it only reports with LLMSeg on — see segmentation's `ARCHITECTURE.md` §3. The one
 board built to ask *"does the correction pay for itself"* has no data, and that is
 worth fixing before trusting any verdict this stage produces.
@@ -614,7 +627,8 @@ dominated by valid objects, so an always-accept judge scores ~90% on it —
 
 Train half mines; the test half stays sealed, same rule as everywhere else.
 
-**Stage 2, CONNECTED.** This is Board D, which §5 admits **has never run**. The
+**Stage 2, CONNECTED.** This is Board D, which §5 admitted **had never run** (it
+has since — §7.2b). The
 metric is the project's own framing: *rows the judge FIXED minus rows the judge
 BROKE*, net. A stage with a beautiful isolated board and a negative net is a
 liability. Expect most findings to point at segmentation, which is FROZEN — those
@@ -622,7 +636,9 @@ go to TASKS.md, not into this stage's work.
 
 ## 7 · PROPOSED 2026-09-22 — the data this stage needs, and the shape it should take
 
-_Proposed for Gil, not agreed. Written after the judge board read 100.0% /
+_Proposed to Gil on 2026-09-22 and adopted the same day as the LLMJudge
+program (CLAUDE.md, "Where we are working right now (2026-09-22)"). Written
+after the judge board read 100.0% /
 98.8% catch on its two halves and Board D read net 0 at 400 rows: the stage
 is at ceiling on the defects we know how to plant, and the instrument that
 could show anything else does not exist._

@@ -1,3 +1,9 @@
+> **Superseded (2026-09-26):** this queue was last updated 2026-09-11 (the
+> era-2 sprint). The live registered-next queue since then is the per-cycle
+> log in `dataset/RESULTS.md` and the order of play in
+> `DOCUMENTATION/TASKS.md`; check `DEVQA.md` for rulings (Q42 onward) before
+> treating any entry below as still open.
+
 # Hypothesis queue — ranked, so cycles roll out fast
 
 The planned experiments, best first. Each entry: the hypothesis, the ONE stage

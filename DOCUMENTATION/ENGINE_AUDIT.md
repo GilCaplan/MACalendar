@@ -1,5 +1,13 @@
 # Engine architecture audit — 2026-09-07
 
+> **Note (2026-09-26):** the 2026-09-11 re-check below still cites
+> `assistant/engine/generate/generate.py` (P1, P3, P4, P6, Q1, Q6) — that file
+> no longer exists; the per-item path it described was folded into
+> `assistant/engine/fastrule/` at some point after 2026-09-11. Whether each
+> finding's underlying defect survived the fold-in is unverified here — treat
+> those six items as needing a fresh look against current `fastrule/` code
+> rather than as current findings.
+
 _Read-only audit. No code was changed. Every "unused" claim below was verified
 by grep across `assistant/`, `scripts/`, `tests/` (excluding `retired/`);
 claims that depend on a measurement we do not have are marked

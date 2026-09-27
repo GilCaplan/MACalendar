@@ -1,9 +1,13 @@
 # The common eval-metrics format for an engine stage
 
 Two stages already have scoring harnesses. They agree on the *discipline* and
-diverge on nearly every *mechanic*. `decompose_validate` is about to become the
-third (`assistant/engine/decompose_validate/PLAN.md` §5d: "it needs a dataset
-and metrics of its own"), and it should not invent a fourth dialect.
+diverge on nearly every *mechanic*. `decompose_validate` has since become the
+third (`assistant/engine/decompose_validate/eval_metrics/score.py` — lettered
+boards A–F, stdlib-only, closer to segmentation's shape than fastrule's; not
+re-audited here against every §3/§4/§9 dimension below). The rest of this
+file is the contract as written *before* that scorer shipped — read it as the
+brief decompose_validate's scorer was building toward, not as a description
+of a fourth stage still to come.
 
 This file is the contract a new stage's `eval_metrics` implements. It is
 descriptive where the two existing harnesses agree, prescriptive where one of

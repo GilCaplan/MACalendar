@@ -35,6 +35,10 @@ So the gate is a CANDIDATE COUNT, never a switch. **Read "The condition these
 were measured under" below before acting on this one: the board that produced
 the finding ran every row against an emptied calendar.**
 
+**Status: done, 2026-09-15** (`DOCUMENTATION/TASKS.md` row 85). `_has_candidates`
+in `assistant/engine/__init__.py` runs a cheap store-existence check before
+`_recheck_not_found` calls the model.
+
 ## 2 · Raise fast-path coverage — the highest-leverage lever available
 
 43% of rows (130/300) at 93% correct, against a deep path at 65%. Every row
@@ -48,6 +52,11 @@ change.
 slow fast rows record `llm_ms` 0 against `total_ms` 40,000. Every board that
 splits latency by `llm_ms` is wrong on the fast path, which is how a 40-second
 call stayed invisible.
+
+**Status: done, 2026-09-15** (`DOCUMENTATION/TASKS.md` row 84). `_recheck_not_
+found` now adds `parser.last_llm_ms` to `state.llm_ms`, and `call_llm_json`/
+`fix_title_async` (`assistant/intent/parser.py`) time their own dispatch the
+same way, so `last_llm_ms` means the same thing on every path that sets it.
 
 ## The condition these were measured under
 
@@ -87,7 +96,10 @@ split is a REPORT. Re-derive it on the training pool first: `fastrule-v1` vs
 `main` on dev-fast-250, which is freely mineable. Expect that to be the first
 real cost of §2. §2 also runs straight into Gil's own standing fence on
 fast-rule work (STATUS.md, "user-gated, do not start unprompted"), which is a
-decision for him and not something this file settles.
+decision for him and not something this file settles. **Update, 2026-09-26:**
+that fence is retired, with conditions (DEVQA Q58; STATUS.md "What changed
+this week") — §2 is no longer blocked on it, though it may still need its own
+prediction re-derived on the training pool per the paragraph above.
 
 ## What NOT to do
 

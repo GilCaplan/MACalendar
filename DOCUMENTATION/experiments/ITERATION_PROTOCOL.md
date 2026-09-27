@@ -196,7 +196,10 @@ engine milestones every 10 cycles only.)
 ## The FastRule lane cadence — pinned in cycles, integrated every 2–3 (Gil, 2026-09-06)
 
 The FastRule sandbox lane runs **continuously in parallel** with deep cycles,
-in its own worktree (`../MACalendar-fastlane`), on the **full 3000** (it is
+in its own worktree (`../MACalendar-fastlane`) — that worktree is gone; the
+lane's iteration now happens directly in `assistant/engine/fastrule/`, which
+owns its own datasets and experiments folder per the component-folders
+restructure — on the **full 3000** (it is
 deterministic and LLM-free, so full-dataset replays are allowed and take ~3
 min). Meanwhile the loop tree's cycles run against a **pinned FastRule** —
 whatever version its checkout has committed — so a mid-cycle FastRule edit
@@ -212,9 +215,9 @@ together). Only INTEGRATION synchronizes with the engine.
 **Integration cadence: when ready, or every 2–3 cycles**, at a cycle boundary, the sandbox's
 graduated batches merge into the loop tree and the next full-engine run
 doubles as the joint confirmation (a smarter FastRule shifts which rows reach
-deep; only a joint run prices that). After each integration the fastlane
-worktree fast-forwards onto the integrated state, so the two trees never
-drift apart for long.
+deep; only a joint run prices that). (This paragraph describes the era of a
+separate fastlane worktree, since folded into `assistant/engine/fastrule/` —
+see the note above; there is no longer a second tree to fast-forward.)
 
 ## The subset ladder — reused fixed slices, so deltas compare across cycles
 

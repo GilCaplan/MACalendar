@@ -13,9 +13,10 @@ stage copies the mechanism and records its own numbers.
 | stage | dataset | split unit | test rows | mechanism |
 |---|---|---|---|---|
 | **FastRule** | `fastrule_7200.jsonl` (8,400 rows; historical name) | pattern family | 2,400 | stratified 80/20 + `force_split: "test"` + `force_split: "train"` (6,000 train) |
-| **decompose_validate** | `datasets/generated.jsonl` | pattern family | 840 (21 families) | growth: the 268 original families are train **by construction**; 49 grown families split 40/60, stratified by nuance |
-| **Segmentation** | `datasets/generated.jsonl` | pattern family | sealed half (289 rows) | — |
-| **Segmentation + decompose_validate (Q51 sequences)** | `segmentation/datasets/sequence/sequence.jsonl` = `decompose_validate/datasets/chain/chain.jsonl` | pattern family | 694 (30 families) | generated fresh: stratified 80/20 by bucket over a stable hash; the joiner sweep forced so every joiner keeps a train family; damaged rows share their clean twin's family |
+| **decompose_validate** | `datasets/generated.jsonl` (2,884 rows) | pattern family | 880 (22 families) | growth: the 268 original families are train **by construction**; 52 grown families, 30 train / 22 test, stratified by nuance |
+| **Segmentation** | `datasets/generated.jsonl` + `split_traps.jsonl` + `nosplit_traps.jsonl` (1,711 rows) | pattern family | 660 | generated rows: 40% of families to test by a stable SHA-1 of the family name, stamped at load time (`experiments/run_board.py::assign_splits`); the hand-written trap rows keep the split their author gave them |
+| **Segmentation + decompose_validate (Q51 sequences)** | `segmentation/datasets/sequence/sequence.jsonl` and the same rows resolved, `decompose_validate/datasets/chain/chain.jsonl` | pattern family | 694 (30 families) | generated fresh: stratified 80/20 by bucket over a stable hash; the joiner sweep forced so every joiner keeps a train family; damaged rows share their clean twin's family |
+| **LLMJudge v2** | `llmjudge/datasets/v2/commands_v2.jsonl` (5,292 commands) + `judge_cases_v2.jsonl` | pattern family (ask skeleton + joiner) | 2,772 commands (99 families) | stable MD5 of the family name, stratified by asks · first action · joiner; voices and damage operations on both sides (`v2/README.md`) |
 
 **Why an existing dataset cannot simply be cut in half.** decompose_validate's
 795 rows were all fitted against — the resolver was tuned until it scored 100%

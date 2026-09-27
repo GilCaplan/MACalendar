@@ -10,9 +10,11 @@ it produces the object, in about 50 ms, with no model. The deep system is the
 here. Gil's framing: *"the deep system's main idea is breaking down to atomic
 items so the FastRule can then create the right event/task per item."*
 
-FastRule is not a pipeline stage of its own. It is the thing `generate` reaches
-for first, and it is the whole of the fast track: when it is confident on a
-complete input, its answer commits instantly.
+The folder holds two things. `Stage("fastrule")` (`stage.py` → `build.py`) is
+the chain's X3 → X4 box, the converter below. And the FRONT DOOR
+(`fast_track.py::fast_propose`, over `fastrule.py`'s `FastRule`) is the whole of
+the fast track: `Engine.run` tries it on the whole command first, and when it is
+confident its answer commits instantly.
 
 ---
 
@@ -30,10 +32,11 @@ says it is.
                      1. COPY item.slots onto the object — all eight values
                      2. read the ACTION WORDS for operation · title ·
                         attendees · target
-                     3. one of three results, always:
+                     3. one of four results, always:
 
                           Built        an object, committable
                           Defer        LLMJudge answers it, from the partial
+                          BadItem      it arrived damaged — reported, not repaired
                           NotAnObject  nothing to build — FLAGGED to the user
 ```
 
@@ -54,7 +57,7 @@ What that removed:
 |---|---|
 | the whole fast track, re-run per item | the item is atomic BY CONTRACT — segmentation already split it |
 | the date/time, re-read from `item.spoken()` | `decompose_validate` resolved them; B1 measured it right on **573/573** of the rows this stage was deferring |
-| event-vs-task, re-decided | segmentation's `tag` decided it |
+| event-vs-task, re-decided | segmentation's `tag` decided it (and, where no tagger rule fired, `decompose_validate/kind_router.py`) |
 | the model, called from here | it lives in `llmjudge/rescue.py` now — and since **B5 (2026-09-10)** this stage does not even CALL it: the DEFER is written onto the item and LLMJudge, already the next stage, picks it up at its own entry. *"If there's an issue it tells LLMVerify"* — a hand-off, not a call |
 
 **This stage no longer calls the model at all — not directly and not
@@ -129,19 +132,24 @@ This is the part most easily got wrong, and it has been got wrong:
 
 | class | reasons | what the deep track owes |
 |---|---|---|
-| **REFUSAL** | generic-target, rename-misroute, interrogative-create | A *correct* reading that must not execute as stated. The LLM may **resolve** it (anaphora → a real title); it must **never overturn** it by handing back the same empty target. |
-| **STRUCTURE** | the compound gates, list-title | More than one item — split further. (`list-title`, 2026-09-20: one calendar create over three or more listed things; the judge rewrites it one clause per thing.) |
-| **INCAPACITY** | below-threshold, missing-slots, skip | The LLM takes over, and receives FastRule's **partial parse** rather than starting cold. |
+| **REFUSAL** | generic-target, generic-title, rename-misroute, interrogative-create, range-date-target, no-change, junk (DEVQA Q52) | A *correct* reading that must not execute as stated. The LLM may **resolve** it (anaphora → a real title); it must **never overturn** it by handing back the same empty target. |
+| **STRUCTURE** | the compound gates (strong-compound — which since DEVQA Q51 includes a sequence seam — clause-coordination, mixed-mode-compound, model-compound), list-title | More than one item — split further. (`list-title`, 2026-09-20: one calendar create over three or more listed things; the judge rewrites it one clause per thing.) |
+| **INCAPACITY** | below-threshold, missing-slots, kind-conflict, needs-target-check, skip, error, no-parser | The LLM takes over, and receives FastRule's **partial parse** rather than starting cold. |
 
 **REFUSAL was a real bug.** The per-item path re-implemented the commit test
 with the gates omitted, and re-committed what the front door had vetoed.
 
-**A deferral never wastes the work.** `state.fastrule_verdict` carries the
-reason, its class and the confidence forward, and `segment` uses it as both
-evidence and prompt grounding.
+**A deferral never wastes the work** — that is the ruling (Gil, 2026-09-07).
+In the code today: the front door writes `state.fastrule_verdict` (reason, its
+class, confidence, actions) on every decline, but no stage reads it (checked
+2026-09-26; its reader was `old_seg`, retired 2026-09-20). Per item, the DEFER
+itself carries the partial parse to LLMJudge's rescue, which honours a REFUSAL
+(`_honour_refusal`).
 
 **And FastRule is DETERMINISTIC** — a loop-back on unchanged text cannot get a
-new answer, so `state.asked_fastrule` sends it straight to the model instead.
+new answer. `state.asked_fastrule` was declared for exactly that and nothing
+writes or reads it; the loop's own gate (no rewrite, no loop; an unchanged
+signature ends it) is what stops a repeat.
 
 ---
 
@@ -174,7 +182,7 @@ hypothesis**, the same rule as the verification corpus.
 
 > These templates turned out to be worth far more than the board they were
 > built for. Because they carry `atomic` and *named* slots, they generate
-> **exact segment gold by construction** — 1,554 of Segmentation's 1,694 rows
+> **exact segment gold by construction** — 1,549 of Segmentation's 1,711 rows
 > come from them. See `../segmentation/ARCHITECTURE.md` §4.
 
 ---
@@ -193,6 +201,9 @@ Scored against its **product shape**, not against a generic accuracy:
 | invention rate | |
 | harm | |
 | non-atomic diagnostic split | did it defer for the *right* reason |
+| title word F1 · precision · recall, leaked words by class | how close the title is, and what leaked into it (2026-09-25) |
+| range right · cadence right | a stated range's start+end; a series' cadence (2026-09-25) |
+| update / delete / complete: kind right · target word F1 | the store searched, and the words that name the record (2026-09-26) |
 
 `experiments/fastrule_shape.py` is the board. `experiments/fast_sandbox.py` is
 the deterministic fast lane — seconds, full-set allowed, selective-classifier
@@ -211,18 +222,17 @@ fastrule/
     ARCHITECTURE.md   this file
     PLAN.md           the four-phase restructure (A port · B build+wire · C measure · D stop)
     stage.py          THE STAGE. X3 -> X4: List[Item] -> objects, flags the rest
-    build.py          THE CONVERTER. build(item) -> Built | Defer | NotAnObject
+    build.py          THE CONVERTER. build(item) -> Built | Defer | BadItem | NotAnObject
                       pure: no model, no database, no clock of its own
     fast_track.py     THE FRONT DOOR. fast_propose — the whole-command instant
                       commit. Atomicity belongs here, where no Item exists yet
     fastrule.py       the rule engine behind the front door: Atomicity, Scorer,
                       FastRule, and the DEFER contract
-    datasets/         8,400 rows + the banks that generate them
+    datasets/         8,400 rows, the banks, generate.py and DATASET.md
     experiments/      RESULTS.md (the run log) · stage_board.py (THE STAGE's
                       board, attributed) · fastrule_shape.py (the FRONT DOOR's
-                      board) · fastrule6k.py · fast_sandbox.py · b1_ceiling.py
-                      · b3_live_chain.py
-    datasets/         8,400 rows, the banks, and generate.py
+                      board) · gold.py · fastrule6k.py · fast_sandbox.py ·
+                      b1_ceiling.py · b3_live_chain.py
 ```
 
 **Two boards, and they measure DIFFERENT BOXES** — do not compare them:

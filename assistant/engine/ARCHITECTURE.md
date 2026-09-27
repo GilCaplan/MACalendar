@@ -31,15 +31,23 @@ The brain. Every device — the Mac GUI and the iPhone — POSTs text to
                        └──────────────────────── FastRule
 ```
 
-- **FastRule confident → COMMIT immediately.** LLMJudge still runs afterwards.
-- **If LLMJudge is not satisfied**, it rewrites the utterance into `X1'` — a
-  string in X1's format — and re-enters at Segmentation, bounded at 3 rounds.
-  A commit already made is **retracted and re-committed**.
+- **FastRule confident → COMMIT immediately.** This is the FAST TRACK, the
+  front door (`fastrule/fast_track.py::fast_propose`): FastRule reads the WHOLE
+  command before any Item exists, and `Engine.run` tries it first. LLMJudge
+  still runs afterwards, in the background (`_start_background_verify`): it
+  can rename a placeholder title and, only under `self_check_apply`, remove a
+  row it finds `not_an_ask`; otherwise its notes are advisory. It does not
+  re-parse or re-commit.
+- **If LLMJudge is not satisfied** on the deep track, it rewrites the utterance
+  into `X1'` — a string in X1's format — and re-enters at Segmentation, bounded
+  at 3 rounds (`llmjudge.MAX_REENTRIES`). The loop runs BEFORE the final
+  commit: the objects the judge passed are frozen and re-appended, not
+  re-parsed (`Engine.parse(frozen=…)`), and on a live command the ones the
+  rules built and the judge passes are already written by `_commit_ready`.
 
-> **Not all of this is wired yet.** The table under *Status* says exactly which
-> parts are live today and which are planned in
-> `DOCUMENTATION/ENGINE_REWIRE.md`. A diagram of a system that does not exist is
-> how documentation starts lying.
+> The table under *Status* says exactly which parts are live today and which
+> one is wired but inert. A diagram of a system that does not exist is how
+> documentation starts lying.
 
 ---
 
@@ -61,12 +69,21 @@ never remembered.
 
 **Segmentation** — the separate things the speaker asked for. `action` is the
 words minus the time, `time` is the time reference **as spoken** (never
-resolved), `tag` is `event | task | review`.
+resolved), `tag` is `event | task | review | other` (`other` = not calendar
+work; a list-management request carries its reason in `slots["junk"]`, DEVQA
+Q52). Each item after the first also carries `relation` — WHY the cut was made
+there (`sequence`, `list`, `sentence`, `envelope`, …; DEVQA Q51).
 
 **decompose_validate** — takes the items **and the transcript** (`X2`).
+First the kind router settles event-or-to-do for any item no tagger rule
+decided (`kind_router.py`, a learned sklearn model, no ollama; DEVQA Q47).
 `decompose` RESOLVES — the date and clock times from the item's own `time`,
-recurrence and its bound, quantity, lead time. It never splits; segmentation
-already decided the boundaries. `validate` then compares the completed items
+recurrence and its bound, quantity, lead time — and chains a sequence's
+untimed parts after the one before (`chain.py`, DEVQA Q51). Splitting is
+segmentation's job, but `decompose.py` still carries two narrow backstops: two
+clock times joined by "and" become two events (with a self-skipping model call
+for wordier phrasings), and a to-do list splits via `intent/list_split.py`
+when every part is an ask. `validate` then compares the completed items
 back against the transcript, fixes what it can deterministically, and **FLAGS**
 what it cannot.
 
@@ -93,19 +110,27 @@ contract: `REFUSAL` must not be overturned, `STRUCTURE` means split further,
 `INCAPACITY` hands over its partial parse rather than starting cold.
 
 **LLMJudge** — two jobs since 2026-09-10. First it **answers FastRule's
-DEFERs**: this is where the model lives now, and it picks them off the items at
-its own entry rather than being called forward. Then the last check before
-anything is trusted, in BOTH directions: the model **extracts** what the raw
-text asked for (catching an ask nothing covers) and **quotes the words behind
-each field** of each object (catching a field nothing said). Deterministic code
-diffs both. The model never judges, never scores and never picks the blame.
+DEFERs** (`llmjudge/rescue.py`): this is where the model lives now, parsing
+what FastRule could not, and it picks the DEFERs off the items at its own entry
+rather than being called forward. Then the last check before anything is
+trusted — and **the check makes no model call** (the extraction and the
+per-field quoting were retired 2026-09-10, `retired/llmjudge-grounding-call/`).
+`llmjudge/verdict.py` judges each object on its own, deterministically: a
+temporal field `decompose_validate` never resolved, a generic subject, a
+title with no word in the transcript, a title that is a list of things, an
+object whose words still hold an ask seam. When a finding earns a loop,
+`llmjudge/rewrite.py` writes `X1'` in two tiers: the failed asks in the
+speaker's own words first, and only when that has nothing new to say, the
+model writes it as a list of asks. Both tiers fail closed on the same
+grounding guard.
 
 The temporal fields are decided WITHOUT it: `CalendarIntent` stamps a date and a
 clock the moment an object exists, so `item.slots` — what `decompose_validate`
 actually resolved — is the only honest record of whether the words gave one.
 A finding's ROUTE is then a property of its TYPE (`llmjudge/findings.py`), not
-an opinion: two types earn a rewrite round, one commits with a notice, one goes
-to the review panel.
+an opinion: three types earn a rewrite round (`ungrounded_subject`,
+`coordinated_subject`, `unsplit_subject`), one commits with a notice
+(`unsupported_field`), one goes to the review panel (`not_an_ask`).
 
 **COMMIT + label** — the only place that writes to the DB. Category and colour
 for events, tags for tasks; adjacent events never share a colour. On a live
@@ -150,9 +175,11 @@ Two consequences worth knowing:
 
 | field | meaning |
 |---|---|
-| `kind` | `event` \| `task` \| `review` — the SURFACE it concerns, not the operation. "cancel the dentist" is `event`. |
+| `kind` | `event` \| `task` \| `review` \| `other` — the SURFACE it concerns, not the operation. "cancel the dentist" is `event`; `other` is not calendar work. |
 | `text` | the ACTION words. The time is **not** in here. |
+| `source` | the VERBATIM span of X1 the item was cut from — what the loop's trim subtracts |
 | `time` | the time reference as spoken — never a resolved date |
+| `relation` | how the item relates to the one before it (`{"to", "kind", "words"}`, DEVQA Q51); `decompose_validate/chain.py` reads it to chain an untimed part after the one before |
 | `spoken()` | action + time reattached — **what anything parsing for a date must use** |
 
 `spoken()` is not a convenience. `FastRule` and the LLM parser both extract the
@@ -192,7 +219,8 @@ which asserts the shape at every boundary and runs commands end to end.
 | Segmentation | `Stage("segment")` | `segmentation/` — FastSeg, LLMSeg **off** |
 | decompose_validate | `Stage("decompose_validate")` | `decompose_validate/stage.py` → `resolve.py` + `checks.py` |
 | FastRule | `Stage("fastrule")` | `fastrule/stage.py` → `fastrule/build.py` (`objects.py` deleted 2026-09-10) |
-| LLMJudge | `Stage("llmjudge")` | `llmjudge/llmjudge.py` |
+| LLMJudge | `Stage("llmjudge")` | `llmjudge/llmjudge.py` → `rescue.py` (job 0, the model) + `verdict.py` (the check, no model) + `rewrite.py` (X1') |
+| the FAST TRACK (front door) | not a Stage — tried first by `Engine.run` | `fastrule/fast_track.py::fast_propose` |
 | COMMIT + label | inside `_commit` | orchestrator + `label/label.py` |
 
 **One thing is wired but deliberately inert**, and it is named rather than
@@ -200,16 +228,19 @@ hidden:
 
 | | state |
 |---|---|
-| **LLMSeg** | off by default (`MACALENDAR_LLMSEG`). Measured net-negative four ways — §6. |
+| **LLMSeg** | off by default (`MACALENDAR_LLMSEG`). Measured net-negative on six measurements — `segmentation/ARCHITECTURE.md` §6. |
 
 > **The loop is LIVE, since 2026-09-10** (merged into `main` 2026-09-15 with
 > `engine-component-folders`, TASKS.md row 91) — this used to be the second
 > inert item, gated on a stub. `llmjudge/rewrite.py` produces X1' — the failed
-> asks only, reworded — and the orchestrator FREEZES the good objects rather
-> than re-parsing them. It still fails CLOSED: a rewrite whose content words
-> are not all in the transcript is refused, and no rewrite means no loop. The
-> post-loop re-run is still guarded on `reentries` — without that guard every
-> command with an unmatched ask paid two LLM extractions for one answer.
+> asks only, in the speaker's words, or (tier 2, since 2026-09-20) a list of
+> asks the model writes when the deterministic tier has nothing new to say —
+> and the orchestrator FREEZES the good objects rather than re-parsing them.
+> It still fails CLOSED: a rewrite whose content words are not all in the
+> transcript is refused, and no rewrite means no loop. The post-loop re-judge
+> is still guarded on `reentries` — it was bought when the judge paid an LLM
+> extraction per run; the judge is model-free now, but re-judging an unchanged
+> state is still wasted work.
 >
 > **`resolve.py` was already wired before this merge**, unrelated to the branch
 > above (corrected 2026-09-11): `validate.py` was **deleted** with its
@@ -243,9 +274,10 @@ words never gave cannot be recovered by rewording, so it does not try), and the
 rewrite's content words must all already be in the transcript (the first attempt
 rewrote from `finding.detail` and segmentation parsed the EXPLANATION).
 
-Also still open, recorded in `segmentation/ARCHITECTURE.md` §6b: the month can
-be severed from its ordinal (`the 20th of November`), which is the one NEW test
-failure this rewire introduced.
+The one NEW test failure this rewire introduced — the month severed from its
+ordinal (`the 20th of November`, `segmentation/ARCHITECTURE.md` §8.2) — has
+since been fixed in FastSeg's `_TIME_PATTERNS` (the "MONTH + ORDINAL in the
+'of' order" entry).
 
 ## Where to read next
 
@@ -253,6 +285,6 @@ failure this rewire introduced.
 |---|---|
 | a stage's internals | `assistant/engine/<stage>/ARCHITECTURE.md` |
 | the frozen contracts | `DOCUMENTATION/ENGINE.md` |
-| the rewire plan | `DOCUMENTATION/ENGINE_REWIRE.md` |
+| the rewire plan (done; the record of it) | `DOCUMENTATION/ENGINE_REWIRE.md` |
 | how components got their folders | `DOCUMENTATION/ENGINE_RESTRUCTURE.md` |
 | the workflow rules | `CLAUDE.md` |

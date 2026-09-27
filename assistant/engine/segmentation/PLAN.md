@@ -7,6 +7,14 @@ works, phase by phase, with the flow chart. This file is what to DO next.
 
 ## 0 · STATUS — what this plan delivered, and what it did not
 
+> **Since this status (checked 2026-09-26):** the tables below are the
+> 2026-09-09 state. `ARCHITECTURE.md` §0 has the stage at 2026-09-20 — train
+> under-split 108 → 16 and the cut at 98.4% right item count, so item 1 below
+> has been worked; LLMSeg was re-tested on 2026-09-16 against the stronger
+> FastSeg and stays off (item 2); `old_seg` is retired (item 4). Still open:
+> §8.3 (the floor is still written as a word), and the §3c contract question
+> (DEVQA Q18).
+
 **Paused here (Gil, 2026-09-09).** The stage is wired, measured on both halves, and
 the remaining work is named below rather than discovered later.
 
@@ -330,7 +338,7 @@ item" count, 54 → 0; then re-run TASKS item 1's audit A/B and delete
 
 ### Phase 4 — §8.3, the date floor injected as a WORD
 
-`fastseg.py:352` writes the literal `"today"` into `time`, which is **resolving**,
+`fastseg.py` (`assign_times`) writes the literal `"today"` into `time`, which is **resolving**,
 and this stage's contract is capture-do-not-resolve. It already costs two
 workarounds (`Item.spoken()`'s filter and decompose_validate's boundary strip) and
 caused one live audit failure.
@@ -538,10 +546,13 @@ is how a table becomes a system.
 file. The end-to-end board deliberately lives in the *consuming* stage, because it
 measures the seam and would be marking its own homework here.
 
-**Measure on the TRAIN half. The sealed 654 rows stay sealed** — never scored
+**Measure on the TRAIN half. The sealed 660 rows stay sealed** — never scored
 except at a milestone, aggregates only, per `engine/TRAIN_TEST_SPLIT_CONVENTION.md`.
 
-**Retire rather than accumulate.** `old_seg` (716 lines) is inactive but three
+**Retire rather than accumulate.** *(Done for `old_seg` on 2026-09-20 —
+`retired/segmentation-old-seg/`, tag `segmentation-old-seg`; the kind readers
+live in `fastseg/kind.py`, the interrogative-create reader in
+`decompose_validate/object_rules.py`.)* `old_seg` (716 lines) is inactive but three
 things are still borrowed from it: `_envelope_split`'s reader, FastSeg's
 `_enforce_pinned_kinds`/`_kind_of`, and `object_rules.is_interrogative_create` in
 the next stage. That is the exact shape `validate.py` had — not dead enough to
@@ -568,7 +579,9 @@ the cutting (item count 83.9% → 57.3%), any similarity threshold for the actio
 Each cost a measurement; none gets re-spent.
 
 **Not touching the `Item` contract.** `(action, time, tag)` is frozen and the next
-stage is built on it.
+stage is built on it. (Two deliberate additions were ruled since, both recorded
+in `state.py`: `source`, the verbatim span, 2026-09-10; `relation`, DEVQA Q51,
+2026-09-25.)
 
 **Not chasing exact-row past the ablation's ceiling.** Perfect everything on
 correctly-cut rows is 84.5%, so the cut bounds the row metric; work the cut

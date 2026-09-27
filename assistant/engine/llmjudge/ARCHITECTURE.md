@@ -43,7 +43,8 @@ weaker answer, and every disagreement was scored as segmentation's fault. The
 project had already measured the cost three ways: the only false flag on this
 stage's board was the extraction inventing an ask out of *"i already handled
 it"*; run 8 counted 39 loop storms, most of them the matcher's artefact; and
-segmentation is FROZEN, so a `missing` finding blamed a stage nobody may change.
+segmentation was FROZEN then, so a `missing` finding blamed a stage nobody could
+change.
 
 **So the check became ONE model call and strictly per-object — and then none.**
 The one call left, `ground_claims` (`evidence.py`), was retired the same day
@@ -89,8 +90,9 @@ would flag every correct event that happens to be today.
 the words and `build` COPIES them, so **a temporal field on the intent and
 absent from slots is a pydantic default the words never gave.**
 `render.unsupported_by_slots` reads exactly that, deterministically, for free.
-Which leaves the model only the fields made of WORDS — title, target, attendees,
-location — and those are where invention actually happens.
+Which leaves only the fields made of WORDS — title, target, attendees,
+location — and those are where invention actually happens; the subject tests in
+`verdict.py` read them, with no model.
 
 Deterministic-first, the same rule as the rest of the engine.
 
@@ -132,7 +134,7 @@ with no word in the transcript. FastRule builds titles out of the item's own
 words, so it cannot fabricate one. The panel is the guard for a producer that
 CAN — LLMSeg, which is wired and INERT.
 
-Only the first spends budget, and that is the fix for the 2026-09-08 storm —
+Only the three REWRITE rows spend budget, and that is the fix for the 2026-09-08 storm —
 *"Let an event to go out for a run now"*, three dead rounds, 30 seconds, the
 trace saying "unchanged since the last attempt" every time. A rewrite cannot
 invent a value nobody said, and an object nothing asks for is not made real by
@@ -249,9 +251,10 @@ change what the parser returns.
   grounded by construction.
 - **`_grounded_title`** — every content word of an LLM title must have been
   spoken.
-- **A command must never fail because its checker could not run.** Model offline
-  means no model-derived findings; the slot check still runs, because it never
-  needed one.
+- **A command must never fail because its checker could not run.** The check
+  itself needs no model; with the model offline only job 0 (the rescue) and
+  X1' tier 2 are lost, and the engine queues the command before the deep track
+  starts (`llm.is_reachable`).
 
 ## Measurement
 
@@ -263,9 +266,19 @@ always-accept wins one and always-reject wins the other, and only the pair tells
 them apart. Reported per mutation; scored as a DELTA against the unmutated
 object, since "clean" means "nothing planted", not "flawless".
 
-**Stage 2 — connected.** Board D, which has never run. The metric is *rows
-fixed minus rows broken*, net. A stage with a good isolated board and a negative
-net is a liability.
+The v2 set (`datasets/v2/`, 5,292 commands / 11,187 cases, its own README) is
+the stress instrument beside it: `experiments/judge_board_v2.py`.
+
+**Stage 2 — connected.** Board D (`experiments/board_d.py`), run on the
+FastRule set's TRAIN rows. The metric is *rows fixed minus rows broken*, net. A
+stage with a good isolated board and a negative net is a liability. By default
+it runs the deep chain only (`Engine.parse` + `judge`); `--product` runs it as
+production does, front door first. `experiments/rescore.py` rescores any
+checkpoint without re-running it; `experiments/board_metrics.py` is the full
+scoring (structure, fields incl. title word F1, cost/harm, restraint, speed).
+Latest reading: `fastrule/experiments/RESULTS.md`, 2026-09-26 (night) — at
+299aeb0f, on 1,200 TRAIN rows, `--product` headline 92.7% against the deep
+chain's 92.2%, with 19.6% of rows needing a model call against 40.8%.
 
 ## The naming gap, corrected
 

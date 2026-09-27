@@ -1,3 +1,10 @@
+> **Superseded (2026-09-26):** this sprint ran and closed — Cycle A's
+> clause-boundary splitter shipped (`DOCUMENTATION/TASKS.md` row 4b), the
+> engine went through the component-folders restructure and stage-isolation
+> phase, and segmentation was rebuilt into `fastseg/`/`llmseg/`. Kept as the
+> historical record of the plan, not a description of current work — see
+> `dataset/RESULTS.md` and `STATUS.md` for where things stand now.
+
 # Three broad cycles — the research proposal
 
 _2026-09-07. Gil: "spend 3 cycles where we can make unlimited changes in

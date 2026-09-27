@@ -43,7 +43,8 @@ Two jobs, and they were in two different places before this folder existed:
    +-------------------+
    |      INGEST       |
    |  coalesce.py      |  several queued recordings -> ONE input
-   |  repair.py        |  vocabulary fixes, false starts, uncertain words
+   |  repair.py        |  spoken noise, command frames, vocabulary fixes,
+   |                   |  false starts, uncertain words
    +-------------------+
           |
           v      state.text, state.corrections, state.needs_edit
@@ -73,9 +74,16 @@ Reads `state.raw_text`, `state.source`, `state.supports_edit`; writes
   board (model-free, change rows), TRAIN: right 470/732 → 485/732 (64.2% →
   66.3%), 0 broken; TEST: 144/380 → 144/380 (the test half carries no
   "as done" shape).
+- spoken noise comes off, once, for both tracks (`intent/cleanup.py::
+  strip_spoken_noise`, aim (a)): openers, stutters, fillers, trailing hedges
+  and interjections, self-corrections
+- the COMMAND FRAMES and misspelled command words are put back
+  (`repair_command_frames`: `_FRAME_REPAIRS`, `_WORD_REPAIRS`, aim (a))
 - false starts are declared trivial — **and never remembered**, because
-  recording one teaches the model that junk is normal
-- the personal vocabulary repairs what it is confident about
+  recording one teaches the model that junk is normal. A stop word or false
+  start alone is caught even earlier, by `is_ignorable`, which `Engine.run`
+  calls before taking the run lock
+- the personal vocabulary repairs what it is confident about (aim (b))
 - what it is **not** confident about is surfaced: as `needs_edit` when the
   client can show an editor and the setting asks for one, as advisory
   `uncertain_words` otherwise
@@ -86,7 +94,11 @@ any script exercising this stage must set `MACALENDAR_VOCAB` to a scratch path.
 
 ## Status
 
-Not yet dug into. Moved here for structure; no dataset, no board of its own.
+No dataset folder and no board of its own inside this folder. The fixes below
+were each counted over the clean corpora and boards that live elsewhere
+(`scripts/vocab_repair_bench.py` for the vocabulary, `scripts/cross_store_board.py`
+for the misspelled command words, the FastRule and segmentation sets for the
+negative surface).
 
 ## Cycle 37 — disfluent speech (2026-09-22)
 

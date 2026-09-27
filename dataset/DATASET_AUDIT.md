@@ -70,5 +70,6 @@ which.
   the whole Friday epoch's scratch dbs were salvaged from tmp into
   `dataset/runs/` during the archive build (`scripts/rescore_runs.py --write`
   redoes the backfill whenever a metric changes).
-- The dentist bug (queries emitting mutations) — deterministic guard in the
-  engine, next cycle.
+- The dentist bug (queries emitting mutations) — **fixed 2026-09-11**:
+  `object_rules._rule_question_mutates_nothing`, pinned by
+  `tests/unit/test_engine_checks.py`.

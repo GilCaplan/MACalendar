@@ -1,13 +1,21 @@
 # Engine rewire — one flat chain, and a loop that rewrites the input
 
-**Status: DONE, 2026-09-08** — on `engine-component-folders`, not merged.
-The chain is wired and `assistant/engine/ARCHITECTURE.md` is the live map; this
-file is the record of what was decided and what is still open.
+**Status: DONE, 2026-09-08** — on `engine-component-folders`, merged to `main`
+(verified 2026-09-17). The chain is wired and `assistant/engine/ARCHITECTURE.md`
+is the live map; this file is the record of what was decided and what is still
+open. **Step 7 (retraction) below did not ship as designed** — the judge's
+loop-back, live since 2026-09-10, uses a different mechanism instead (freeze
+good objects, append the retry's, commit once at the end —
+`assistant/engine/__init__.py::Engine.parse` docstring), so nothing is ever
+committed-then-deleted mid-loop. Read step 7 as the rejected alternative, not
+the built one.
 
-Two things shipped deliberately INERT, both named in the architecture doc:
-LLMSeg is off, and `rewrite_for_retry` is a stub returning None so no loop
-fires. The contract and its call site exist; the rewrite itself is the work
-left.
+One thing shipped deliberately INERT and stayed that way: LLMSeg is off
+(`MACALENDAR_LLMSEG`). **`rewrite_for_retry` is no longer a stub** — it went
+live 2026-09-10, in two tiers (deterministic-first, then a model-written X1'
+grounded on the transcript); see `assistant/engine/llmjudge/ARCHITECTURE.md`
+and `CLAUDE.md`. The paragraph below describing it as "returns None" is
+history, not current behaviour.
 
 ## The chain
 
@@ -95,9 +103,11 @@ What does change is the chain's SHAPE, so:
 - [x] 6. `crosscheck` -> `llmjudge`: replace the blame router with
       `rewrite(X4) -> X1'`, re-enter at Segmentation, bounded at 3.
 - [ ] 7. Retraction path on the loop (`state.records` -> delete -> re-commit).
-      NOT DONE — nothing loops yet, so nothing needs retracting. It becomes
-      necessary the moment `rewrite_for_retry` stops returning None. Design
-      decided, see below.
+      NOT BUILT, and not needed after all: once `rewrite_for_retry` went live
+      (2026-09-10) the loop shipped with `Engine.parse`'s freeze-and-append
+      design instead (see the status note above) — nothing is committed until
+      the loop is done, so there is nothing to retract. The design below is
+      the path that was NOT taken.
 - [x] 8. `BRAIN_VERSION` + `CHAINS` + panel/iOS/explorer.
 - [x] 9. `pytest tests/unit` green. Baseline to beat: **1319 passed**.
 - [x] 10. Update `CLAUDE.md`, `ENGINE.md`, `CODE_MAP.md`, and each
@@ -152,7 +162,8 @@ didn't get to the details of this component yet."* Recorded so it is not lost:
 
 ## Deliberately NOT in this change
 
-- Promoting or retiring `old_seg` — it stays behind `MACALENDAR_SEGMENTATION`.
+- Promoting or retiring `old_seg` — out of scope for this change (it was later
+  retired outright, 2026-09-20: `retired/segmentation-old-seg/`).
 - Turning LLMSeg on — it stays off behind `MACALENDAR_LLMSEG`.
 - Redesigning `decompose_validate` — only the fold-in, per above.
 - The one known-failing test (`test_loop_back_reruns_segment_with_the_mistake`),

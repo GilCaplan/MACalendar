@@ -303,4 +303,6 @@ move nothing past the error bar — then change the instrument and say so.
   this asks whether ITERATION_PROTOCOL's "direction from the training pool"
   now means this pool.
 - **Q26 — Phase 4a / 4b: allowed?** Both are inside one module; both are
-  rewrites.
+  rewrites. **4a (the title extractor) ANSWERED 2026-09-20 — "yes, rewrite it
+  properly" (see DEVQA.md log).** 4b (the temporal resolver) stays filed,
+  not started without a yes.

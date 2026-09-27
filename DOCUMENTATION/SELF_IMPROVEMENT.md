@@ -35,18 +35,20 @@ This page is the map. The working files it describes:
 Two independent improvement lanes run in parallel, plus the machinery that
 keeps them honest:
 
-**Lane 1 — the deep track (the LLM pipeline).** Full measurement cycles
-(~55 min each): run the engine on a dev slice, score the full metric board,
-read *which stage* failed and *why*, improve that one stage's implementation,
-rerun. Each cycle is a registered hypothesis (prediction written first). A
-cycle may pair one deep hypothesis with one fast one; a *routing* change
-(what commits vs. defers) rides alone.
+**Lane 1 — the deep track (the LLM pipeline).** Measurement cycles on
+dev-100 (~15–25 min, confirmed on dev-fast-250, ~80 min): run the engine on a
+dev slice, score the full metric board, read *which stage* failed and *why*,
+improve that one stage's implementation, rerun. Each cycle is a registered
+hypothesis (prediction written first). A cycle may pair one deep hypothesis
+with one fast one; a *routing* change (what commits vs. defers) rides alone.
 
 **Lane 2 — FastRule in its sandbox.** The deterministic rule parser
 (`FastRule`) is a *selective classifier* — it commits when confident and
 abstains otherwise. Because it needs no LLM, `assistant/engine/fastrule/experiments/fast_sandbox.py`
-replays the whole 3,000-row dataset in **~3 minutes** (vs. 55), so FastRule
-iterates in its own worktree at ~180× the rate. It's scored on its own terms:
+replays the whole 3,000-row dataset in **~3 minutes** (vs. ~55 min for a deep-track
+cycle), so FastRule iterates at ~18× the rate — directly in
+`assistant/engine/fastrule/` (its own datasets/experiments folder, not a
+separate worktree). It's scored on its own terms:
 commit rate × correct-on-committed (an abstain is the deep track's job, not a
 failure) + **recoverable-abstain** (rows it could have gotten right). Batches
 (F1, F2, …) graduate in the sandbox, then **integrate** into the deep track —
@@ -83,9 +85,11 @@ it safe (the old auto-applier fixed 0 and broke 1). Then the flag flips.
 - **Ground truth** — utterances whose correct outcome is known *by
   construction*: an `event+task` compound ("book gym and remind me to buy
   milk") must produce ≥1 event and ≥1 task. No hand labelling.
-- **The model** — the engine: an 8-stage pipeline with **frozen contracts**.
-  We never reshape the design; we re-implement the internals of one stage at a
-  time — tuning "parameters" that happen to be code.
+- **The model** — the engine: ingest → segmentation → decompose_validate →
+  fastrule → llmjudge → commit(+label), with **frozen contracts**
+  (`assistant/engine/state.py`'s `STAGES`). We never reshape the design; we
+  re-implement the internals of one stage at a time — tuning "parameters"
+  that happen to be code.
 - **The score** — not one number but a decomposition of error:
   - **count-correctness** — did the right *number* of things appear (by
     complexity tier and compound kind, plus which half went missing);
@@ -102,8 +106,9 @@ it safe (the old auto-applier fixed 0 and broke 1). Then the flag flips.
 
 ## One cycle
 
-    measure   a small, complexity-rich slice (~250 rows), each row replayed
-              at its RECORDED timestamp — the dataset is a history
+    measure   the smallest rich-enough slice — dev-100 to iterate, confirmed
+              on dev-fast-250 before banking a win — each row replayed at its
+              RECORDED timestamp, since the dataset is a history
        ↓
     understand read the actual failing rows, not the score; cluster them by
               the guilty stage

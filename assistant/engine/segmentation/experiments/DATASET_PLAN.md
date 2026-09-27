@@ -1,5 +1,7 @@
 # The segment dataset — what gets built, in what order
 
+> **Superseded (2026-09-26):** built — the corpus is `../datasets/` (1,711 rows; `../ARCHITECTURE.md` §4), labelled by `SPEC.md`, and the sequence set is `../datasets/sequence/`.
+
 Everything lives in `assistant/engine/segmentation/experiments/`. Nothing under `dataset/` is edited.
 
 ## The row

@@ -1,7 +1,7 @@
 # Engine restructure — component folders
 
 **Status: DONE, 2026-09-08, on branch `engine-component-folders`.**
-Not merged to `main` — Gil reviews first.
+Merged to `main` (`b442d261`, verified 2026-09-17 — 0 commits ahead of `main`).
 Agreed with Gil 2026-09-08. This is a **cleanup**: files move, the pipeline's
 shape does not. Work the checklist in order and tick as you go — it exists so a
 half-finished restructure can be resumed by someone who was not here.

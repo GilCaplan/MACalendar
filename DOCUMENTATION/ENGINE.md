@@ -9,14 +9,15 @@
 > commit(+label)`; `decompose` and `validate` share a folder, the object-making
 > box is FastRule, and `label` runs inside commit.
 
-> **Stage isolation (2026-09-07):** each stage is being proven on its own
-> dataset before the system is measured end-to-end — see
-> `DOCUMENTATION/STAGE_ISOLATION_PLAN.md`. The contracts below are unchanged;
-> what changed is that a stage is now judged by its OWN metric first.
-> FastRule v1 retired the same day (`retired/fastrule-v1/`, tag
-> `fastrule-v1`); `engine/fastrule/fastrule.py` is now the Q11 structure — Atomicity
-> (layer 0), Gatekeeper, Scorer as objects — behaviour proven identical
-> across 7,200 rows before the switch.
+> **Stage isolation (2026-09-07 → 2026-09-20):** each stage was proven on its
+> own dataset before the system was measured end-to-end — see
+> `DOCUMENTATION/STAGE_ISOLATION_PLAN.md`. The whole-chain loop resumed on
+> 2026-09-20 (CLAUDE.md); a stage-internal change is still boarded on its own
+> stage first. The contracts below are unchanged.
+> FastRule v1 retired 2026-09-07 (`retired/fastrule-v1/`, tag
+> `fastrule-v1`); `engine/fastrule/fastrule.py` is the Q11 structure — Atomicity
+> (layer 0) and Scorer as objects, with `Gatekeeper` imported from
+> `llmjudge/gatekeeper.py`, where it moved on 2026-09-09.
 
 > **Object layer (Q7, merged 2026-09-07, behavior-identical confirmed):**
 > the orchestrator is now classes — `Engine` (entry; transcript gate, track
@@ -39,33 +40,38 @@ page; if it goes red you are changing a contract, not fixing a stage.
 ## The shape
 
 ```
-text ─▶ 0 ingest      orchestrator   queue + coalescing
-     ─▶ 1 transcript  transcript.py  vocabulary repair + confidence gate
-     ─▶ 2 segment     segment.py     split into typed items
-     ─▶ 3 decompose   decompose.py   items that are several things, or one × N
-     ─▶ 4 validate    validate.py    named format rules, text repair, observance
-     ─▶ 5 fastrule    fastrule/      items → objects (rules ONLY; DEFERs go to 6)
-     ─▶ 4′ validate.run_objects      field-level named rules on the intents
-     ─▶   commit      orchestrator   execute via the action registry
-     ─▶ 7 label       label.py       category / tag read-back
-     ─▶ 6 llmjudge    llmjudge/      raw text vs. produced objects, loop-back
+text ─▶ 0 ingest              ingest/coalesce.py (server's pending loop) + the run lock
+     ─▶ 1 transcript          ingest/repair.py   spoken noise, frames, vocabulary, the gate
+     ─▶   FRONT DOOR          fastrule/fast_track.py::fast_propose — confident? commit now
+     ─▶ 2 segment             segmentation/      split into typed items (+ relation)
+     ─▶ 3 decompose_validate  decompose_validate/stage.py::run — kind router, decompose,
+                                                 tidy, resolve + check values
+     ─▶ 5 fastrule            fastrule/stage.py → build.py — items → objects (no model;
+                                                 DEFERs go to 6), then
+                              decompose_validate run_objects — field-level named rules
+     ─▶ 6 llmjudge            llmjudge/          rescue DEFERs (model), check (no model),
+                                                 loop-back with X1'
+     ─▶   commit + 7 label    orchestrator + label/label.py
 ```
 
-Every command runs the deep track. The **fast track** is the same machinery
-short-circuited: when `generate.fast_propose` finds the rule parser confident
-about the whole input (≥ `RULE_THRESHOLD`, no missing slots), items are built
-straight from its intents, committed instantly, and the deep track's
-cross-check runs behind the answer. `parse_path` says which happened:
+A command the FRONT DOOR is confident about never runs the deep track: when
+`fastrule/fast_track.py::fast_propose` finds FastRule confident about the whole
+input (≥ `RULE_THRESHOLD`, no gate fired), items are built straight from its
+intents, `run_objects` applies the field rules, the answer is committed
+instantly, and LLMJudge's check runs behind it (`_start_background_verify`).
+Everything else runs the deep track. `parse_path` says which happened:
 `"fast"` or `"deep"` (plus `"error"`, `"ignored"`, `"needs_edit"`,
 `"confirm_create"`).
 
 Stages exchange **only** the `EngineState` (`assistant/engine/state.py`) and
 each exposes exactly one public entry point, `run(state, cfg) -> state`
-(step 4 additionally `run_objects`, step 5 additionally `fast_propose`). No
-stage imports another stage's internals. `validate` also exports named
-*readers* (`relative_dates`, `at_times`, `spoken_times`, `end_is_exclusive`,
-`is_placeholder_title`…) — shared vocabulary other stages may call, never a
-channel to mutate state through.
+(decompose_validate additionally `run_objects`; the fastrule folder additionally
+holds the front door, `fast_track.fast_propose`). No stage imports another
+stage's internals. `decompose_validate` also exports named *readers*
+(`text_helpers.at_times` / `spoken_times` / `end_is_exclusive` /
+`is_placeholder_title`, `targeting.relative_dates`,
+`object_rules.is_interrogative_create`…) — shared vocabulary other stages may
+call, never a channel to mutate state through.
 
 ## The state contract
 
@@ -76,14 +82,15 @@ channel to mutate state through.
 | `text` | transcript | all later | the working transcript (stop words stripped, vocab applied) |
 | `corrections` | transcript | response | vocab fixes, client shape |
 | `needs_edit` | transcript | orchestrator | doubtful words; non-empty ⇒ the gate fired, nothing executes |
-| `item.slots["confirm_create"]` | validate | orchestrator | an interrogative create; the intent SURVIVES to be offered, nothing executes |
+| `item.slots["confirm_create"]` | decompose_validate (object pass), or the front door for a range date / bare 7–8 | orchestrator | an interrogative create; the intent SURVIVES to be offered, nothing executes |
 | `ignored` | transcript | orchestrator | false start: not parsed, not executed, **not remembered** |
-| `items` | segment (create), decompose (split), generate (fill/expand) | validate, commit, label, crosscheck | the item tree; ids `item_1`, `item_1-2` |
+| `items` | segment (create), decompose_validate (kind, split, values in `slots`), fastrule (`action` + `intent`, or a DEFER / flag in `slots`), llmjudge's rescue (the deferred ones) | every later stage, commit, label | the item tree; ids `item_1`, `item_1-2`, `r1_item_1` on a loop round |
 | `item.relation` | segment | decompose_validate (the chain) | **CONTRACT EXTENSION, 2026-09-25 (Gil, DEVQA Q51).** How the item relates to the one before it — the reason segmentation cut there: `{"to", "kind", "words"}`, kind one of `sequence` (followed by / then / after that), `list` (and / comma), `sentence`, `envelope`, `same_span` (an enumeration), `adjacent`, `unknown`. None on the first item. Read off the words between the two items' verbatim spans, so it describes whatever cut them. decompose_validate chains an untimed `sequence` part after the one before it. |
-| `item.blocked` | validate | commit | refusal reason; a blocked item is reported, never silently dropped |
-| `item.intent = None` after generation | validate (drop rules) | commit | dropped as parser noise; traced, not messaged |
-| `executed`, `messages`, `refresh` | commit | label, crosscheck, response | what actually ran, per item |
-| `findings`, `retries`, `mistakes` | crosscheck | orchestrator | mismatches, loop-back budget, context for retried stages |
+| `item.blocked` | decompose_validate, fastrule (a `bad_item` / `not_an_ask` flag), the orchestrator (`_block_unresolved_subjects`) | commit | refusal reason; a blocked item is reported, never silently dropped. The observance gate FLAGS (`slots["flags"]`) rather than blocks since 2026-09-08 |
+| `item.intent = None` after object-making | decompose_validate (drop rules) | commit | dropped as parser noise; traced, not messaged |
+| `fastrule_verdict` | the front door (`fast_propose`, on a decline) | — (no stage reads it today) | why FastRule declined — reason, class, confidence, actions — carried forward for the deep track. `asked_fastrule` is declared beside it and nothing writes or reads it |
+| `executed`, `messages`, `refresh` | commit | label, llmjudge, response | what actually ran, per item |
+| `findings`, `retries`, `mistakes` | llmjudge | orchestrator | mismatches, loop-back budget, context for retried stages |
 | `fixes` | any stage via `state.add_fix` | trace, audit | every named-rule correction |
 | `trace`, `parse_path`, `llm_ms`, `rule_confidence`, `memory_id`, `verify_token`, `pending_id` | orchestrator + stages as noted | response | bookkeeping |
 
@@ -121,16 +128,20 @@ hole, and a gate with a known hole is worse than none.
 Two halves, both live. **Serialization**: `run_transcript` holds a lock — one
 command at a time, FIFO, so concurrent requests cannot race the anaphora
 context; the wait shows honestly in the trace total. **Coalescing**:
-`engine.coalesce(texts, budget)` combines queued inputs into `("…")and("…")`
+`ingest/coalesce.py` (`coalesce` / `coalesce_groups`, which the server's
+pending loop calls) combines queued inputs into `("…")and("…")`
 batches under `engine.coalesce_max_tokens` (a wrapper step 2 splits
 deterministically), overflow running sequentially — used by the pending-retry
-loop, where server-side inputs genuinely pile up; the phone's bracket batching
-flows through step 2 as before.
+loop, where server-side inputs genuinely pile up, and only within one stream
+(the server groups by `model_protocol.stream_key`); the phone's bracket batching flows through
+step 2 as before.
 
 ### 1 · transcript (`ingest/repair.py` · trace stage `vocab` · tests `test_engine_flow.py`)
 Reads `raw_text`; writes `text`, `corrections`, `needs_edit`, `ignored`.
-Stop-word strip → trivial-transcript filter (a false start is ignored AND not
-remembered) → `apply_vocab` (confident fixes, phonetic matching) → the
+Stop-word strip → spoken-noise cleanup (`intent/cleanup.strip_spoken_noise`)
+→ command-frame and misspelled-command-word repair (`repair_command_frames`) →
+trivial-transcript filter (a false start is ignored AND not remembered) →
+`apply_vocab` (confident fixes, phonetic matching) → the
 confidence gate: doubtful words with `engine.confirm_transcript` on and a
 client that declared `supports_edit` become a `needs_edit` response — the
 client shows an editor and resubmits with `edited_from`. A changed word is
@@ -139,46 +150,56 @@ confirmation (`confirm_unchanged`, counters beside the vocab in
 `transcript_confirms.json` — never inside the hand-curated vocab), and at 2
 confirmations the word is whitelisted and never asked about again. The Mac
 sends `supports_edit`, shows the dialog (`ask_transcript_edit`, real-click
-tested) and has the Settings toggle; the iOS sheet is queued. *Status: live.*
+tested) and has the Settings toggle; iOS sends it too and answers with
+`EditTranscriptionSheet` (`VoiceButton.swift`). *Status: live.*
 
-### 2 · segment (`segmentation/` — FastSeg → LLMSeg(off) → accept · trace `rule` · tests `test_engine_segment.py`)
+### 2 · segment (`segmentation/` — envelope → FastSeg → LLMSeg(off) → accept · trace `rule` · tests `test_engine_segment.py`)
 Reads `text`; writes fresh `items` (id, kind, text, time, source, and — since
-2026-09-25 — `relation`, how each relates to the one before it). Three tiers, in
-order, **biased to under-split** — a wrong merge gets two more chances (steps
-3 and 6); a wrong split of "meeting with Tal and Ravid" is immediate garbage.
-This is the pipeline's single point of failure and carries the densest tests.
+2026-09-25 — `relation`, how each relates to the one before it). Biased to
+under-split — a wrong merge gets more chances downstream (decompose and the
+judge's loop-back); a wrong split of "meeting with Tal and Ravid" is immediate
+garbage. `segmentation/__init__.py::run` is the whole stage:
 
-1. **Literal delimiters** — brackets, the coalescing wrapper, the configured
-   separator. Free and cannot be wrong, but every one of them is inserted by
-   the PHONE: none can occur in dictated speech, and on the persona corpus
-   they split nothing in 4,920 rows.
-2. **The clause tier** (2026-09-07) — `intent/coordination.clause_boundaries`
-   returns the position the coordination check already computed, and segment
-   splits there. A VERB conjunct with its own argument is a second ask; a
-   NOUN conjunct is a longer noun phrase, so names, lists and shared objects
-   ("buy chicken and rice", "wash and fold the laundry") are never split.
-   Refused whole when any part is not an ask, when the shape is an
-   enumeration with a header, or when a wrapper phrase spans both items.
-   Only a date the utterance OPENS with is shared into later parts — a date
-   inside the first ask belongs to that ask.
-3. **One gated LLM call** when neither tier fired and the words carry a
-   compound hint. A split producing a fragment is refused.
+1. **Envelope** — transport delimiters: the ingest queue's `("a")and("b")`
+   wrapper, the phone's `[…][…]` batches, the configured spoken separator.
+   None can occur in dictated speech; they are opened before any language is
+   read.
+2. **FastSeg** (`fastseg/fastseg.py`, deterministic, no model) — CUT, ASSIGN
+   TIME (`_TIME_PATTERNS`, longest span first), EXPAND ENUMERATIONS ("the dog
+   at 9 and 2:30" → two items), TAG. Splits on sequence words ("followed by",
+   "then", "after that"; DEVQA Q51).
+3. **LLMSeg** — wired, OFF by default (`MACALENDAR_LLMSEG`); with the flag off
+   no model call is made.
+4. **ACCEPT** — the invariant guard: a model answer that loses or invents a
+   word is reverted to FastSeg's.
 
-Kind is decided here too (`_kind_of` → `_enforce_pinned_kinds`) and matters
-more than it looks: step 3 branches ENTIRELY on kind, so a wrong label costs
-the decomposition as well. Signals, in precedence order: a review question; the
-calendar named as destination or a gathering ("get X and me together"); then
-the to-do signals — an explicit list destination ("on my list", "from my
-tasks"), completion wording, a named to-do, an errand opener, a chore verb.
+Then `relate` writes each item's `relation`, and an `other` item (not calendar
+work) carries `slots["junk"]` = the reason when `intent/junk.py` recognises a
+list-management request (DEVQA Q52).
 
-*Status: live — three tiers. Gate: `engine_stage_check --stage segment`;
-board: `scripts/kind_board.py` for the kind decision alone.* Exports the reader
-`is_interrogative_create(text)` — a question in which the speaker weighs their
-OWN create ("should I", "what if we") — read by step 4's confirm gate and
-step 5's fast-track guard, so the two cannot disagree about what a question is.
+The tag (`event | task | review | other`) is FastSeg's `tag` / `tag_path`,
+whose first reading is `fastseg/kind.py` (`_kind_of` → `_enforce_pinned_kinds`).
+It matters more than it looks: decompose branches ENTIRELY on kind. Since
+2026-09-24 an item NO rule decided is handed to decompose_validate's kind
+router (`kind_router.py`, a learned sklearn model, no ollama) — the tag stands
+whenever a rule fired.
 
-### 3 · decompose (`decompose_validate/decompose.py` · trace `rule` · tests `test_engine_decompose.py`)
-Reads `items`; may replace an item with sub-items (`item_N-M`, depth ≤ 2) and
+*Status: live, FastSeg only. Board: `segmentation/experiments/run_board.py`
+(`segmentation/ARCHITECTURE.md` §5); `scripts/kind_board.py` for the kind
+decision alone. `engine_stage_check --stage segment` still imports the retired
+`old_seg` and does not exercise FastSeg.* The interrogative-create reader lives
+in the next stage (`object_rules.is_interrogative_create`), read by its confirm
+gate.
+
+### 3 · decompose_validate — the text pass (`decompose_validate/stage.py::run` · trace `rule` · tests `test_engine_decompose.py`, `test_engine_kind_router.py`, `test_sequence_chain.py`)
+In order: the kind router (above), `decompose.run`, `text_repair.tidy`, then
+`resolve_values` — each item's own `time` resolved into `item.slots` (`date`,
+`start_time`, `end_time`, `recurrence`, `recur_days`, `recur_until`,
+`quantity`, `reminder_minutes`) by `resolve.py`, checked by `checks.py`, and a
+SEQUENCE's untimed parts chained after the one before (`chain.py`, DEVQA Q51;
+default length and gap are settings, per category).
+
+`decompose.py`: reads `items`; may replace an item with sub-items (`item_N-M`, depth ≤ 2) and
 fill `item.slots`. Two times joined by "and" → two events; task lists ride
 `intent/list_split.py` (verb handed down, idioms respected); counts ride
 `intent/quantity.py` — "buy 5 apples" is ONE task of (apples, 5).
@@ -196,25 +217,26 @@ serves segment's clause tier, so the two cannot drift.
 double-times (two clock-time mentions required; ranges excluded). Gate:
 `engine_stage_check --stage decompose`.*
 
-### 4 · validate (inside `decompose_validate/` — `stage.py` wires it; the rules are `object_rules.py` + `targeting.py`, the agreement/arithmetic pass `checks.py` · trace `validate` · tests `test_engine_validate.py`)
+### 4 · decompose_validate — the object pass (`stage.py::run_objects`; the rules are `object_rules.py` + `targeting.py`, the gate `observance_gate.py` · trace `validate` · tests `test_engine_validate.py`)
 
 *`validate.py`, the ported v1 module, was retired on 2026-09-08; the names below
 are the modules that own the same passes now.*
-Two passes, both contract:
-- `run` (pre-generation, item level): format hygiene, text repair of garbled
-  fragments.
-- `run_objects` (post-generation, field level): the NAMED rules, in fixed
-  order — `anaphor_guard`, `relative_date_pin`, `past_date_bump`,
-  `recurrence_words`, `until_exclusive`, `weekly_start_day`,
-  `at_time_is_start`, `morning_title_guard`, `bare_hour_pm`,
-  `junk_event_drop`, `due_date_pin`, `question_creates_nothing`,
-  `interrogative_create_asks_first`, `cadence_round_and_announce` — and the
-  **observance gate**: an AI-created one-off event inside Shabbat/yom tov
-  (sundown-bounded) must be leyning / a meal / davening; on a fast day a meal
-  must not be booked before the fast ends (Yom Kippur: the fast wins). Blocked
-  items get `item.blocked` and an honest refusal in the reply. Manual
-  edits/additions are never gated; series skipping stays in
-  `db._skip_for_observance`. Allowed on any computation failure.
+`run_objects` runs after FastRule (and on the fast track), because its rules
+need `item.intent` to exist. It writes this stage's resolved values onto the
+intents (`_resolve_onto_intent`, and a sequence part's chained times), then
+the NAMED rules — for edits `anaphor_guard`, `move_time_fill`; for creates
+`create_from_remove_guard`, `impossible_clock`, `past_date_bump`,
+`passed_clock_means_tomorrow`, `now_means_now`, `morning_title_guard`,
+`junk_event_drop`, `max_duration_cap`, `quiet_hours_flag`; then over all of
+them `question_creates_nothing`, `question_mutates_nothing`,
+`cadence_round_and_announce` (the `_rule_` prefix is dropped here) — and the
+**observance gate**: an AI-created one-off event inside Shabbat/yom tov
+(sundown-bounded) must be leyning / a meal / davening; on a fast day a meal
+must not be booked before the fast ends (Yom Kippur: the fast wins). Since
+2026-09-08 the gate FLAGS rather than blocks — the event is written with a
+note in `slots["flags"]` the speaker can act on. Manual edits/additions are
+never gated; series skipping stays in `db._skip_for_observance`. Allowed on
+any computation failure.
 Every applied rule lands in `state.fixes` under its name and in the trace.
 
 **The confirm-create gate** (`interrogative_create_asks_first`, Gil's ruling
@@ -270,8 +292,9 @@ them.**
 deterministic rule parser + its abstention gates + a confidence threshold, as
 a self-contained SELECTIVE CLASSIFIER: `FastRule(threshold).run(prompt)`
 returns a commit-or-abstain verdict (`.committed`, `.intents`, `.confidence`,
-`.reason`). Its gates: strong-compound (two-request wording), mixed-mode
-(create+edit/query), list-title (one calendar create over three or more listed
+`.reason`). Its gates: junk (a list-management request, DEVQA Q52 —
+`intent/junk.py`), strong-compound (two-request wording, and since DEVQA Q51 a
+sequence seam), mixed-mode (create+edit/query), list-title (one calendar create over three or more listed
 things — several events, Gil 2026-09-20), interrogative-create (a question
 producing a create), generic-target (a mutation aimed at a bare noun) — and on
 a fragment the compound gates double as the atomicity check.
@@ -296,18 +319,15 @@ pool's real wordings. Three rules hold it together:
 - `ATOMIC_MARGIN_FLOOR` is **set by a sweep on both training halves**
   (printed by `scripts.fit_route_models`), never assumed.
 
-Threshold tuned 2026-09-07:
-`RULE_THRESHOLD = 0.80` (whole-command) / `SUBITEM_RULE_THRESHOLD = 0.60`
-(per-fragment). `fast_propose` (whole input) is the thin adapter over
-`FastRule(0.80)`; `run` works per item: FastRule first (~50ms, free), LLM
-fills gaps
-from the rule parser's partial analysis, or parses from scratch — grounded on
-the item's own words, never another item's. An item parsing into several
-intents is expanded into sub-items, one intent each (per-item attribution is
-the row-75 fix). Slots from decomposition land on the intent (`quantity`).
-`AssistantError` propagates: the orchestrator owns offline queueing. An
-interrogative create never takes the fast track whatever the rules score it
-(`is_interrogative_create`): only deep can hold a parse and ask first.
+Threshold tuned 2026-09-07: `RULE_THRESHOLD = 0.80`
+(`intent/rule_parser.py`, whole-command). `fast_propose` (whole input) is the
+thin adapter over `FastRule(RULE_THRESHOLD)`. (The per-item path that ran
+FastRule and then the model on each fragment, at a 0.60 sub-item bar, went
+with `objects.py` on 2026-09-10: the stage is now the converter above, and the
+model half is LLMJudge's rescue.) `AssistantError` propagates: the
+orchestrator owns offline queueing. An interrogative create never takes the
+fast track whatever the rules score it (the `interrogative-create` REFUSAL):
+only deep can hold a parse and ask first.
 
 Two deterministic fallbacks close the honest-failure ladder. **They live in
 `llmjudge/rescue.py` since 2026-09-10** — they fire only after a model parse
@@ -349,10 +369,10 @@ Categories/colours and task tags are applied by the actions themselves
 `item.labels` so reply, trace and audit can see them. The two-level hierarchy
 (row 58) lands here.
 
-### 6 · llmjudge (`llmjudge/llmjudge.py` · trace `verify` · gate: extraction + router tests)
+### 6 · llmjudge (`llmjudge/llmjudge.py` · trace `verify` · tests `test_engine_llmjudge.py`, `test_engine_crosscheck.py`, `test_engine_contracts.py` for the router)
 
 **Rebuilt 2026-09-10** (`llmjudge/PLAN.md` §6, Gil). Job 0 answers FastRule's
-DEFERs (`rescue.py`); job 1 is the check, and it runs in BOTH directions:
+DEFERs (`rescue.py`); job 1 is the check:
 
 0. **No model in the check.** The two copying questions this section used to
    describe (`extract_asks`, `ground_claims`, in `evidence.py`) are RETIRED:
@@ -372,8 +392,9 @@ DEFERs (`rescue.py`); job 1 is the check, and it runs in BOTH directions:
 2. **ROUTE by finding TYPE, never by opinion** (`findings.py::ROUTE`, pinned by
    `test_engine_contracts.py`): `ungrounded_subject`, `coordinated_subject` and
    `unsplit_subject` → REWRITE; `unsupported_field` → COMMIT with a notice; `not_an_ask` → the
-   review panel. Only the two SUBJECT findings spend a round, because a rewrite
-   cannot invent a date nobody said and a re-run cannot un-produce an extra.
+   review panel. Only the three SUBJECT findings spend a round, because a
+   rewrite cannot invent a date nobody said and a re-run cannot un-produce an
+   extra.
    `coordinated_subject` (Gil, 2026-09-20) is one calendar event whose words
    list three or more things — "create an event for dentist, haircut and gym"
    — and its X1' is one clause per thing, every word the speaker's: *"on
@@ -407,12 +428,16 @@ refuses the whole answer, and no honest rewrite means no loop. On the fast track
 stage patches the committed answer — **tiered**: additive fixes silent,
 destructive corrections visible with one-tap revert. It owns what used to be
 four bolt-ons: the background verify, both placeholder-title fixers, the
-not-found second opinion (the last still lives in commit until this stage
-absorbs it). *Status: live. Foreground: extraction + diff + loop-back run
-pre-commit, budget honoured, exhaustion admitted in the reply. Background
-(fast track): verify token issued, placeholder titles renamed (minor), a
-missing ask parsed and committed additively (minor), an extra row reported as
-major — ADVISORY unless `self_check_apply` is on, because the old always-on
+not-found second opinion (the last still lives in commit, `_recheck_not_found`
+/ `_other_store`, until this stage absorbs it). *Status: live. Foreground:
+rescue + deterministic check + loop-back run pre-commit, budget honoured,
+exhaustion admitted in the reply. Background (fast track,
+`_start_background_verify`, skipped for `source: "test"` and under
+`MACALENDAR_NO_WARMUP`, and when `engine.reconcile` is `uncertain` and the rule
+confidence ≥ 0.95): verify token issued, placeholder titles renamed (minor —
+the one model call on this path, `fix_title_async`), a `not_an_ask` row
+reported as major — ADVISORY unless `self_check_apply` is on. (The additive
+"missing ask" patch went with the ask diff on 2026-09-10.) Advisory, because the old always-on
 verifier measurably proposed far more than it fixed (78 proposals, 0 fixes,
 2026-08-28). **One-tap revert (done 2026-09-04):** when a removal *is* applied,
 `_remove_extra` captures the row first and the correction carries
@@ -425,7 +450,8 @@ panel's `_RevertBar` and the iOS banner re-POST them to undo. Gate:
 ## The response contract (unchanged from the old brain)
 
 `message, actions, refresh ("events"|"todos"|"both"|""), parse, transcript,
-original_transcript, corrections, trace, uncertain_words, hint` + optional
+original_transcript, corrections, trace, boundaries, uncertain_words, brain,
+hint` + optional
 `memory_id, verify_token, pending_id, needs_edit`, and for a confirm gate
 `proposal` (`[{kind, body, summary}]`, bodies shaped for POST /events and POST
 /todos) plus the server-minted `confirm_token`, answered at
@@ -462,7 +488,7 @@ every command so it can finally be calibrated from outcomes (row 57).
 
 ## The thinking panel renders by brain version (merge requirement)
 
-`assistant/trace.py` holds `BRAIN_VERSION` (currently `"engine-v2"`), `CHAINS`
+`assistant/trace.py` holds `BRAIN_VERSION` (currently `"engine-v3"`; `"engine-v2"` is kept so older traces render), `CHAINS`
 — the single source of truth for how a brain's chain of thought reads, as
 ordered `(stage, short-label)` pairs matching the explorer diagram — and
 `STAGE_INFO`, the in-depth "what this step is" copy behind each slot's ⓘ,
@@ -486,4 +512,4 @@ an old trace still renders in its old format; add the new slots' `STAGE_INFO`.
 `test_panel_agreement` fails the build if a `CHAINS` slot has no `STAGE_INFO`
 entry, and `test_stage_info_parity` fails if the iOS Swift copy
 (`EngineChain.scaffold`) drifts from the Python source. A future claim-check
-can also assert the explorer diagram's step labels equal `CHAINS["engine-v2"]`.
+can also assert the explorer diagram's step labels equal `CHAINS["engine-v3"]`.

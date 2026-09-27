@@ -239,8 +239,9 @@ spread, which IS the finding.
 
 The Q9 flow (a first-person create QUESTION — "should i add yoga…?" —
 proposes and waits for a confirm) was audited against all 3,000 rows using
-the shipped detector (`segment.is_interrogative_create`): **zero rows
-match**. 478 rows end in "?" but all are schedule/list QUERIES, which the
+the shipped detector (`is_interrogative_create`, now
+`assistant/engine/decompose_validate/object_rules.py` — the audit ran it
+under its pre-restructure module path): **zero rows match**. 478 rows end in "?" but all are schedule/list QUERIES, which the
 ruling does not touch. Consequences: no relabeling, no convention
 overrides, no board impact — the confirm gate is inert on this pool by
 measurement, not assumption. Question-shape ground truth (propose rows,

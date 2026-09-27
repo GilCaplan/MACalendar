@@ -684,10 +684,14 @@ so the cut caps the row metric no matter how good the rest gets.
 ### What is OPEN, in the order the boards argue for
 
 1. **The CUT** — `PLAN.md` Phase 3. §8.1's enumeration (`walk the dog at 9 and
-   2:30`, still 54 malformed items downstream) plus the under-split compounds.
+   2:30`) plus the under-split compounds. *(§8.1 is RESOLVED; §0 has the cut
+   at 98.4% right item count, train, 2026-09-20.)*
 2. **TAG, stuck at 87.3%.** The logistic head is refuted (§6). The error is
    one-directional — event read as task, 116 of 175 — so it needs a different
-   idea rather than a better classifier.
+   idea rather than a better classifier. *(§0, 2026-09-20: tag 98.8% train /
+   93.6% sealed, after the Q26 gold relabel and the kind readers' move to
+   `fastseg/kind.py`; since 2026-09-24 an item no tagger rule decided goes to
+   `decompose_validate/kind_router.py`.)*
 3. **§8.3** — the date floor injected as a literal word, costing two workarounds.
 4. **Two contract questions from Gil** — where an enumeration header's count goes,
    and whether `other` should carry it. `PLAN.md` §3c.
@@ -734,16 +738,21 @@ here cannot be recovered later.
 |---|---|
 | `action` | the item's words with the time reference removed — verb, object, people, places, quantities, everything else kept |
 | `time` | the time reference for this item, **copied as spoken** |
-| `tag` | `event` \| `task` \| `review` |
+| `tag` | `event` \| `task` \| `review` \| `other` (not calendar work; a list-management request carries `slots["junk"]`, DEVQA Q52) |
+
+Two more ride along: `source`, the VERBATIM span the item was cut from, and —
+written by `segmentation.relate` after the component returns — `relation`,
+how the item relates to the one before it (`sequence`, `list`, `sentence`,
+`envelope`, `same_span`, `adjacent`, `unknown`; DEVQA Q51).
 
 Three properties the component guarantees, each enforced by code rather than
 by intention:
 
 **CAPTURE, DO NOT RESOLVE.** `time` holds words, never a date, a range or a
 clock reading. `"next friday"` stays `"next friday"`. Resolution happens
-downstream in `decompose_validate` (`relative_dates` + `_rule_past_date_bump`),
-which reads the raw transcript — so `"the 15th"` on the 20th becomes the 15th
-of *next* month without Segmentation knowing anything about it.
+downstream in `decompose_validate` (`resolve.py`, reading each item's own
+`time`) — so `"the 15th"` on the 20th becomes the 15th of *next* month without
+Segmentation knowing anything about it.
 
 **THE INVARIANT.** For every item, `tokens(action) ∪ tokens(time)` covers every
 content token of that item and contains nothing absent from the input. A token
@@ -778,7 +787,10 @@ Split → (Delete + Complete) beating the reverse by 9 exact-match points.
      v
   +--------------------------------------------------------------+
   |  1  CUT            -> pieces (SUBSTRINGS of `clean`)         |
-  |     loop to a FIXED POINT, max 3 rounds:                     |
+  |     first _hard_seams: a sentence mark + joiner, ", then",   |
+  |       and the SEQUENCE words ("followed by", "after that"…,  |
+  |       DEVQA Q51) — then each piece is                        |
+  |     looped to a FIXED POINT, max 3 rounds:                   |
   |       a. split_clauses + every_part_is_an_ask                |
   |       b. _split_verbless_conjuncts                           |
   |          both sides timed AND the right side has content      |
@@ -985,7 +997,9 @@ work. It has now been measured three times:
    The floor's bare "today" does not count, since the engine wrote it.
 
 Measured on 1,516 gold items: lexicon anywhere **88.6%** → head verb only 89.8% →
-+ the clock rule **90.8%**. Live board: **89.7% train, 90.2% sealed**.
++ the clock rule **90.8%**. Live board: **89.7% train, 90.2% sealed** — at
+the time; §0 has the current tag line (98.8% train / 93.6% sealed, 2026-09-20,
+after the Q26 gold relabel).
 
 The historical measurements that set the shape:
 Measured over 1,383 matched items — overriding both ways loses more events than
@@ -1142,8 +1156,10 @@ swapping the reader for a Component inside the stage is invisible to the trace.
 >
 > **When Segmentation is promoted over `old_seg`, this becomes a config
 > setting** — `engine.segmentation.llmseg: off` in `config.yaml`, mirrored into
-> `config.example.yaml` per the project convention. It is a module flag today
-> only because the component is not yet wired to `config.py`.
+> `config.example.yaml` per the project convention. FastSeg was promoted and
+> `old_seg` retired on 2026-09-20, but that setting was not added: it is still
+> only the module flag (`MACALENDAR_LLMSEG`), and `config.py` has no `llmseg`
+> field.
 >
 > **Why it is off**, in one line: measured four independent ways against
 > FastSeg on 571 trap-stratified rows, every one came back negative, and the
@@ -1198,12 +1214,16 @@ honest about the code.
 
 ## 4 · The datasets — `datasets/`
 
-**1,694 rows**, split BY FAMILY so a family never straddles the boundary.
+**1,711 rows**, split BY FAMILY so a family never straddles the boundary.
 
 | | rows | source | traps |
 |---|---|---|---|
-| TRAIN | 1,040 | 960 generated / 80 hand-written | 44/44 |
-| **TEST (sealed)** | 654 | 594 / 60 | 44/44 |
+| TRAIN | 1,051 | 960 generated / 91 hand-written | 44/44 |
+| **TEST (sealed)** | 660 | 589 / 71 | 44/44 |
+
+*(Counts re-read 2026-09-26 from `datasets/*.jsonl` with `run_board`'s split:
+1,711 rows; they replace the 1,694 / 1,040 / 654 first written here. The trap
+coverage and the leakage figures below were not re-measured.)*
 
 Leakage: 0 family overlap, 0 exact-text overlap; 11 test rows (1.8%) share a
 gold action-set with train — the one blemish, recorded rather than hidden.
@@ -1283,8 +1303,11 @@ failure mode is not a measurement.
 
 ## 6 · Results
 
+*A 2026-09-09 snapshot; §0 is where the stage stands now, including the
+sealed half's milestone readings.*
+
 FastSeg alone, segment-tuning **TRAIN** half (1,040 rows). The sealed 654 rows
-have never been scored.
+had not been scored at the time.
 
 | metric | start | segment-tuning | **+ span vocabulary (2026-09-09)** |
 |---|---|---|---|
@@ -1417,8 +1440,9 @@ so its 86.1% is a **model-assisted** score. FastSeg is within 2.4 points of it
 with **zero model calls**, at 551× the speed — and it additionally produces the
 `time` field, which `old_seg` does not do at all.
 
-So FastSeg is **not yet a clear win on boundaries alone**, and that is the
-honest state of the promotion question: it trades ~2 points of cut accuracy for
+*(Settled since: FastSeg was promoted and `old_seg` retired on 2026-09-20 —
+§0.)* So FastSeg was **not yet a clear win on boundaries alone**, and that was
+the honest state of the promotion question: it trades ~2 points of cut accuracy for
 a 551× latency cut, a better tagger, and a field the old stage never had. The
 +205-row span headroom in the oracle table above is what would settle it.
 
@@ -1449,16 +1473,17 @@ segmentation/
     fastseg/            the deterministic half + invariant.py
     llmseg/             the model half + prompts/
     (old_seg/           retired 2026-09-20 -> retired/segmentation-old-seg/)
-    datasets/           1,694 rows, train/test split by family
+    datasets/           1,711 rows, train/test split by family
       sequence/         3,580 rows for Q51's relations (generate.py, README)
     experiments/        scorer, boards, generator, and every study above
 ```
 
-**`old_seg` is still the stage the engine runs.** FastSeg and LLMSeg are proven
-on their own dataset first, per STAGE ISOLATION mode; promotion is a separate,
-deliberate change. Note the coupling honestly: `fastseg` currently *imports*
-`old_seg` for `_kind_of` / `_enforce_pinned_kinds`, so the two are not yet
-independent.
+**FastSeg is the stage the engine runs** (promoted 2026-09-20; `old_seg` is in
+`retired/segmentation-old-seg/`, tag `segmentation-old-seg`). The coupling that
+used to be here — `fastseg` importing `old_seg` for `_kind_of` /
+`_enforce_pinned_kinds` — is gone: those readers live in `fastseg/kind.py`.
+`segmentation/__init__.py` holds the envelope split and `relate`, the rest is
+`llmseg.segment` (FastSeg, then LLMSeg when enabled, then ACCEPT).
 
 ---
 
@@ -1597,7 +1622,11 @@ oversight — the same rule correctly keeps `take the tablets at noon and at six
 whole, so the fix has to distinguish an enumeration of times for ONE action from
 a decoy, not simply drop the condition.
 
-## 8.2 · The month can be severed from its ordinal
+## 8.2 · The month can be severed from its ordinal — FIXED
+
+**Fixed since:** `_TIME_PATTERNS` now carries a "MONTH + ORDINAL in the 'of'
+order" entry (`the 20th of November` is one `date` span). The record below is
+kept as written.
 
 Recorded rather than fixed, because the current job is wiring the engine
 together, not improving FastSeg (Gil, 2026-09-08). Each is a real case with a
@@ -1648,7 +1677,7 @@ because by then the month is already part of the title.
 
 ```python
 if not any(_slot(r) == "day" for r in mine):
-    time_str = f"today {time_str}".strip()      # fastseg.py:352
+    time_str = f"today {time_str}".strip()      # fastseg.py, assign_times
 ```
 
 **This resolves, and segmentation's contract is CAPTURE, DO NOT RESOLVE.** The
@@ -1663,7 +1692,7 @@ downstream, and two separate workarounds already exist for that:
 
 1. `Item.spoken()` filters the injected `"today"` back out, and says so:
    *"pasting that in would put a word in the title that nobody uttered."*
-2. `validate._resolve_onto_intent` now strips it again at this stage's boundary,
+2. `decompose_validate/stage.py::_resolve_onto_intent` now strips it again at this stage's boundary,
    because a carried day could not tell it had permission to fill a gap.
 
 **The live failure it caused**, from the audit corpus:

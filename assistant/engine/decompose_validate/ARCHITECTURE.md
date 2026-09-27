@@ -24,6 +24,15 @@ Splitting is segmentation's job and asking twice is how items get double-cut.
 "walk the dog at 9 and 2:30" is two items *before* this stage sees it; a
 recurrence is **not** a split — "every tuesday" is ONE item with a cadence.
 
+> **The code still carries splitters** (checked 2026-09-26): `stage.run` calls
+> `decompose.py::run` before the resolver, and it still cuts an event with two
+> clock times joined by "and" into two items (`_split_times`, with a
+> self-skipping model call for wordier phrasings, `_llm_split_times`) and a
+> to-do list via `intent/list_split.py` when every part is an ask
+> (`_split_tasks`); it also reads a to-do's quantity and an event's lead-time
+> clause into `slots`. The sentence above is the design; those backstops are
+> what runs.
+
 **decompose** (`resolve.py`) turns each item's spoken `time` into values. Pure
 functions, one item at a time, no transcript scan, no list to index into:
 
@@ -109,6 +118,8 @@ everywhere instead of being guessed per sentence.
 | **the dotted meridiem** | "a.m." / "p.m." end in a period, and a `\b` after one needs a word character next — so `\ba\.m\.\b` matched "a.m. tomorrow" and missed "for 5 p.m." at the end of a sentence. Every meridiem pattern in this stage ends in `(?!\w)` now; 26 of the 3,000 real utterances carry a sentence-final dotted meridiem the old boundary never matched. Shacharit counts as a morning word, mincha and maariv as evening. |
 | **a meal's own hour** | no clock stated ⇒ breakfast **09:00**, lunch and brunch **13:00**, dinner and supper **19:00** (Gil, 2026-09-20, DEVQA Q32). A stated clock wins; an explicit "all day" keeps its block. Matched on the TITLE at a word boundary, so "lunchbox" is not lunch. The general untimed event — a dated "book the dentist" — is **09:00 on both tracks** (Gil, 2026-09-20, DEVQA Q36); all-day is what the speaker ASKS for, not what we fall back to. |
 | **until / through** | "until" EXCLUDES the day it names; "through" and "including" keep it (CLAUDE.md). |
+| **a series with no stated end** | DEVQA Q57 (2026-09-26) rules a default end — daily 2 weeks, weekly 8 weeks, monthly 12 months, yearly 10 years, each a setting; a stated end always wins. **Recorded, not built yet**: today an open series has no `recur_until`. |
+| **a sequence's untimed part** | starts when the part before it ends, plus the gap, and lasts its own stated duration, else the default length (DEVQA Q51, `chain.py`). Gap 0 and length 60 min to start, both settings and per category (`assistant/event_defaults.py`). A stated clock always wins, and the chain continues from it. |
 | **a series' first instance** | the **soonest** weekday the sentence names — not the first one said. An explicit "starting X" outranks the cadence but must still land on a day the cadence names. |
 | **recurrence** | `daily` / `weekly` / `monthly` / `yearly`; anything else is rounded and the rounding is **announced in the reply**, never done quietly. |
 | **parts of day** | windows, ruled 2026-09-08: morning 09:00–12:00 · afternoon 12:00–17:00 · late afternoon 17:00–19:00 · evening & tonight 19:00–22:00 · night 21:00–23:00 · lunchtime 12:00–13:00. **A stated clock always wins** — "this evening at 8pm" is 20:00, and then no window end applies. "early evening" and "first thing in the morning" still have no ruling: the former would land inside late afternoon, the latter implies earlier than 09:00 by an unstated amount. |
@@ -122,9 +133,11 @@ everywhere instead of being guessed per sentence.
     datasets/normalization.py      the gold's CLOSED LOOKUP TABLE — 248 fillers, by hand
     datasets/generate.py           composes gold items from segmentation's own templates
     datasets/banks/grown_*.json    THIS stage's own families and filler pools
-    datasets/generated.jsonl       2,764 rows / 3,637 items / 317 families / 16 anchors
+    datasets/generated.jsonl       2,884 rows / 3,797 items / 320 families / 16 anchors
     eval_metrics/score.py          the boards + a 12-check self-test
     eval_metrics/run_board.py      --split train (default, full detail) | test (aggregates)
+    eval_metrics/end_to_end.py     board H, segmentation → this stage (below)
+    experiments/kind_router_board.py   the kind router, fitted and scored on TRAIN halves
     datasets/chain/chain.jsonl     Q51's chain: 3,580 rows, resolved per item (README there)
     experiments/chain_board.py     segmentation + this stage's text pass on it, frozen clock
 
@@ -138,8 +151,10 @@ layer's meal-hour/09:00 and one-hour completion applied, so "left for the
 object" and "wrong" separate), and damaged / decoy / rollover slices beside the
 headline. Baseline at the worktree that built it (no chaining yet): chained
 items with all five fields right 0.0% (0/3,153 TRAIN items); start 0.1%.
+`chain.py` has since shipped; no post-chaining reading of this board is logged
+in `experiments/RESULTS.md` yet.
 
-### The split — train 1,924 / test 840
+### The split — train 2,004 / test 880
 
 Per `engine/TRAIN_TEST_SPLIT_CONVENTION.md`, and the reason it had to be built by
 GROWTH rather than division is worth keeping:
@@ -150,8 +165,11 @@ GROWTH rather than division is worth keeping:
 
 |  | rows | families | source |
 |---|---:|---:|---|
-| train | 1,924 | 296 | the 268 original (train **by construction**) + 28 grown |
-| test | 840 | 21 | grown only — never mined, never printed |
+| train | 2,004 | 298 | the 268 original (train **by construction**) + 30 grown |
+| test | 880 | 22 | grown only — never mined, never printed |
+
+(2026-09-16 added the `period_clock` families: 80 train rows / 2 families,
+40 test rows / 1 family, on top of the 1,924 / 840 first carved.)
 
 Family-disjoint and **asserted, not assumed**: `build()` raises if a family
 appears on both sides, and raises if an original family ever reaches test.
@@ -335,8 +353,8 @@ That is the evidence that sent the next work to segmentation rather than here, a
 the reason to keep this board: if a change to `resolve.py` ever regresses, the
 words-AGREE bucket is where it appears, and it must stay at 0.
 
-**The live path uses this** as of 2026-09-08: `validate.run_objects` calls the
-per-item resolver instead of `_rule_relative_date_pin` and eight sibling rules.
+**The live path uses this** as of 2026-09-08: `run_objects` (then in
+`validate.py`, now `stage.py`) calls the per-item resolver instead of `_rule_relative_date_pin` and eight sibling rules.
 The audit regression floor is at **parity — 72% exact / 75% recall, the same 7
 failures as the legacy path**, which is what a swap of this size has to show
 before it is worth keeping.
@@ -364,7 +382,9 @@ time a form is added. **The fix is to derive it from `normalization.py`'s closed
 tables** — the GOLD's own words. That keeps the board independent of
 `resolve.py`, which is the property that lets it catch bugs at all, while
 removing the drift. Not done yet: it is a board refactor rather than a
-vocabulary patch, and it should be done before the next batch of forms lands.
+vocabulary patch. What exists instead is a guard:
+`tests/unit/test_decompose_validate_score_vocab.py` fails the moment the gold's
+`RECURRENCES` table uses a word the board's hand-kept list lacks.
 
 ### The bug no board could have found
 
@@ -422,14 +442,16 @@ No family was lost: the generator retried other anchors, so all 268 remain.
 
 | piece | state |
 |---|---|
-| `resolve.py` — the decompose half | **done**, 99.9% train / 97.1% sealed |
+| `resolve.py` — the decompose half | **done** — all fields exact, clean, gold-fed: 100.0% train (2,003/2,004) / 98.8% sealed test (873/880), the 2026-09-16 table above |
 | `datasets/` + `eval_metrics/` | **done**, 9 boards, self-test green, split sealed |
-| `checks.py` — the validate half | **done**, 12 rules, board G live, BROKE 0 both splits |
+| `checks.py` — the validate half | **done**, nine rules in `checks.RULES`, board G live (BROKE 1 on the sealed half in the 2026-09-16 table) |
 | `datasets/perturb.py` + board G | **done**, 11 defect classes, a third controls |
 | the observance **flag** | **done** — reuses `db._skip_for_observance`, says nothing when observance cannot be computed |
-| wiring into `stage.py` | **partial**: values land in `item.slots`, traced; the legacy pair still runs and is still what feeds FastRule |
-| FastRule reading `slots` | **next** — the swap that makes these values what rows are built from |
-| deleting `run_objects` | the finish line, blocked on the row above |
+| wiring into `stage.py` | **done**: `resolve_values` puts the values in `item.slots` on the text pass; `run_objects` writes them onto the intents (`_resolve_onto_intent`) |
+| FastRule reading `slots` | **done** (2026-09-10) — `fastrule/build.py` COPIES all eight values from `item.slots` and re-derives none |
+| `run_objects` | still the object pass: it carries the rules that need an intent (targeting, past-date roll, the duration cap, the question gates, the observance flag), so it is not being deleted |
+| the kind router | **live** (2026-09-24), `engine.kind_router` / `MACALENDAR_KIND_ROUTER` |
+| the sequence chain | **live** (2026-09-25, DEVQA Q51), `chain.py`, scored by `experiments/chain_board.py` |
 
 ## Both open questions are now RULED (Gil, 2026-09-08)
 

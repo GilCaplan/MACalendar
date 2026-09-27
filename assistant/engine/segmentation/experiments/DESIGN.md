@@ -1,5 +1,7 @@
 # Segment tuning — the design, for confirmation
 
+> **Superseded (2026-09-26):** built as FastSeg → LLMSeg → ACCEPT, with one reversal — LLMSeg is OFF by default (`MACALENDAR_LLMSEG`), not run on every command; the stage as it runs is `../ARCHITECTURE.md`.
+
 **Status: NOT IMPLEMENTED. Gil asked to confirm the design before any
 implementation or testing.** This file is the thing to argue with.
 

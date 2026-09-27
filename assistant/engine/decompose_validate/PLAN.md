@@ -1,7 +1,16 @@
 # decompose_validate — what it is now, and what Gil wants it to be
 
-Planning doc, 2026-09-08. Nothing here is built. `ARCHITECTURE.md` describes the
-stage as it stands; this is the argument for changing it.
+Planning doc, 2026-09-08. `ARCHITECTURE.md` describes the stage as it stands;
+this is the argument for changing it.
+
+> **Status (2026-09-26): mostly built.** The §4d design landed: `resolve.py`
+> resolves each item's own time, `checks.py` validates against X1 and flags,
+> `validate.py` and its index-pinning rules are retired, the observance verdict
+> is a flag, and FastRule copies the values from `item.slots`. Two parts of it
+> are NOT what runs: `decompose.py`'s `_split_times` / `_llm_split_times` /
+> `_split_tasks` still run (§4d says deleted), and `run_objects` still carries
+> the object-level rules (§6's finish line). §2–§3 describe the code as it was
+> on 2026-09-08.
 
 ---
 
@@ -337,6 +346,7 @@ and add my conference on the 20th of November at 9am
   should:   conference → Fri Nov 20
 ```
 
-It needs a second fix in Segmentation too (§6b there: `the 20th of November`
-must be captured as one span), which is why it is a good first case — it
-exercises the seam between the two stages.
+It needs a second fix in Segmentation too (§6b there — now §8.2 — `the 20th of
+November` must be captured as one span; since done in FastSeg's
+`_TIME_PATTERNS`), which is why it is a good first case — it exercises the
+seam between the two stages.

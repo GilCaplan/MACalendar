@@ -1,7 +1,7 @@
 # Label
 
 **The only place a row is written, and where it gets its label — in the same
-step.** An event gets one of thirteen categories and its colour; a task gets a
+step.** An event gets one of fourteen categories and its colour; a task gets a
 set of tags. Never a later step: a row written now and categorised later is a
 row that can exist uncategorised, and that window is where per-category settings
 (reminder leads, notification rules, filters) silently stop applying.
@@ -18,8 +18,8 @@ row that can exist uncategorised, and that window is where per-category settings
 
 | | shape | palette |
 |---|---|---|
-| event **category** | SINGLE label | 13, `actions/calendar/categories.py::DEFAULTS` |
-| task **tags** | MULTI label | 4 keyword-backed, `actions/todo/tagging.py` |
+| event **category** | SINGLE label | 14, `actions/calendar/categories.py::DEFAULTS` (Dog walking added by DEVQA Q44, 2026-09-24) |
+| task **tags** | MULTI label | 6 keyword-backed, `actions/todo/tagging.py::KEYWORDS` (Admin and Shabbat added by Q44) |
 
 They are kept apart everywhere — separate datasets, separate splits, separate
 models, separate metrics — because a task can be Groceries *and* Errands at once

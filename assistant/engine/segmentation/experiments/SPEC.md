@@ -154,6 +154,11 @@ other word must still be grounded.
 - **task** — goes on the to-do list
 - **review** — asks what is scheduled; creates nothing
 
+The stage can also emit a fourth tag, **`other`** — not calendar work at all
+(`ARCHITECTURE.md` §2 Phase 4; list management is `other` with a reason,
+DEVQA Q52). This corpus carries no `other` gold (0 of 2,527 items, checked
+2026-09-26).
+
 ## THE TRAP INVENTORY
 
 Every shape below has caused a real bug in this project. The set must cover
@@ -170,6 +175,7 @@ all of them, and each row lists which it exercises in `traps`.
 | `as-well-as` | `book school play at 6:45 as well as sales call at 8:30` | 2 |
 | `remind-then-remind` | `remind me to call the plumber and then remind me to book a flight` | 2 |
 | `verb-tagged-noun` | `remind me to wash the car and then book tennis lesson at 5` | 2 |
+| `time-enumeration` | `walk the dog at 9 and 2:30` | 2, the action copied (was `two-times-one-activity`, gold 1, under MUST NOT SPLIT; reversed 2026-09-09 — `ARCHITECTURE.md` §8.1) |
 
 ### MUST NOT SPLIT
 | trap | example | why |
@@ -177,7 +183,6 @@ all of them, and each row lists which it exercises in `traps`.
 | `name-coordination` | `meeting with Sam and Alex at 8` | two PEOPLE, one ask |
 | `serial-verb` | `wash and fold the laundry` | two verbs, one object |
 | `shared-object` | `clean and organize the garage` | same |
-| `two-times-one-activity` | `walk the dog at 9 and 2:30` | decompose's job, not segment's |
 | `lead-time` | `book the gym at 1pm and give me a nudge an hour before` | the tail is a MODIFIER |
 | `anaphoric-tail` | `i have the podiatry appointment at 2, please put that in the diary` | the tail points back |
 | `completion-marker` | `submit the report, wrapped up` | not an ask |
