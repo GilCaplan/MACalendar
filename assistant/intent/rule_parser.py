@@ -436,7 +436,8 @@ INTENT_MAP: dict[tuple[str, str | None], str] = {
     ("remove", "todo"): "delete_todo",
     ("clear", "todo"): "delete_todo",
     ("drop", "todo"): "delete_todo",
-    ("scrap", None): "delete_todo",
+    ("scrap", "calendar"): "delete_event",
+    ("scrap", "todo"): "delete_todo",
     # --- Todo query ---
     ("show", "todo"): "query_todos",
     ("list", "todo"): "query_todos",
@@ -2032,6 +2033,26 @@ def _marks_a_day(span_text: str) -> bool:
     return not re.sub(r"\b(?:on|for|the|my|down|off)\b|[\s,]", "", left, flags=re.I)
 
 
+_DELETE_VERBS = frozenset({"delete", "remove", "clear", "drop", "scrap", "erase"})
+
+
+def _delete_target_kind(span) -> "tuple[str, bool] | None":
+    """(domain, inferred) for a span that OPENS with a delete verb, read off
+    the words after it by segmentation's tagger; None for any other span."""
+    toks = [t for t in span if t.lower_ not in ("please", "can", "could", "you", "just")]
+    if not toks or toks[0].lemma_.lower() not in _DELETE_VERBS:
+        return None
+    target = span.text[toks[0].idx - span.start_char + len(toks[0].text):].strip()
+    if not target:
+        return None
+    kind, path = _tagger_kind(target)
+    if kind == "task":
+        return "todo", False
+    if kind == "event":
+        return "calendar", path == "default"
+    return None
+
+
 def _route_intent(span, current_view: str) -> tuple[str | None, str, bool, bool]:
     """Route a span to an (action_name, domain, domain_inferred, domain_material) tuple.
 
@@ -2071,6 +2092,18 @@ def _route_intent(span, current_view: str) -> tuple[str | None, str, bool, bool]
         # No explicit signal: fall back to current_view
         domain = "todo" if current_view in ("todo", "tasks") else "calendar"
         domain_inferred = True
+        # ...unless it is a DELETE, where the view is a guess that costs the
+        # most (2026-09-27): "scrap vet appointment" / "scrap walk the dog"
+        # carry no list word, and "scrap" meant delete_todo whatever followed
+        # — 18 events on the FastRule train half deleted as to-dos, harm 72 of
+        # the board's 108. The thing named decides, read by segmentation's
+        # tagger the way a create's kind is: a verb-led name is a to-do ("walk
+        # the dog"), a noun is an event ("blood test"). Still marked inferred
+        # when only the tagger's catch-all spoke, so the confidence discount
+        # stands.
+        target_kind = _delete_target_kind(span)
+        if target_kind:
+            domain, domain_inferred = target_kind
 
     # --- Find action verb and route to action ---
     # Strategy: collect all candidate verb tokens, try each until one maps to an action.
