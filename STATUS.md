@@ -69,6 +69,29 @@ that used to defer for a missing event date now commit as to-dos, and some of
 TEST's phrasings drop an ask. Next: grow TRAIN multi-ask no-time phrasings so
 the shape can be fixed from TRAIN (never from the TEST rows).
 
+**TEST milestone 3 — the generalisation check (2026-09-27)**, `d8aecf26` ->
+`85b08b76`, six TRAIN cycles (semicolon, compound noun / "i have to", deep
+delete/complete frames, "is now at", polite "put X in my calendar", the
+second train-only pool). Gil asked for it: *"careful that we are managing to
+generalize on patterns and not just finetune to very specific examples."*
+
+| instrument | result |
+|---|---|
+| Board D TEST (same 1,200 rows) | headline 82.1 -> 82.6% (**6 fixed / 0 broken**); harm 221 -> 209; destructive update_event 18 -> 12; count-correct 87.1 -> 87.9%; objects F1 93.9 -> 94.2% |
+| FastRule shape TEST | correct-on-handled 83.7 -> 84.1% |
+| segmentation, relation, dv, chain TEST | identical |
+| **real speech** (fast_sandbox, 2,699 non-sealed utterances) | **identical** (94.4%, 1,078/1,142 committed) |
+
+Reading: the STRUCTURAL fixes transfer (destructive update_event on TEST 18 ->
+12 — the compound-noun and speaker-obligation readings); the TEMPLATE-shaped
+ones (the deep delete frame, 6 of its 7 TRAIN fixes one family; the polite
+openers; "is now at") show little on TEST and nothing on real speech, whose
+utterances do not contain those templates at all. Rows fixed on TRAIN across
+the six cycles came from few families each. Rule from here
+(memory: generalise-not-templates): a fix needs its trigger in ≥3 TRAIN
+families or in real speech, structural readings before word lists, and every
+cycle reports rows AND distinct families.
+
 **The fast path alone** — FastRule shape board, FastRule 7,200 set, `04810fae`:
 
 | line | TRAIN (atomic n=4,068) | TEST (atomic n=1,472) |
