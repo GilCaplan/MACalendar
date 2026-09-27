@@ -15,26 +15,28 @@ ingest → segmentation → decompose_validate → fastrule → llmjudge → com
 LLMSeg is wired and INERT; the judge makes no model call; the model is called by
 `llmjudge/rescue.py` (parsing what FastRule deferred) and the judge's loop-back.
 
-## Where it stands (2026-09-26)
+## Where it stands (2026-09-27)
 
 **As production runs it** — Board D `--product` (front door first), FastRule
-7,200 set, **TRAIN**, 1,200 rows, seeded, fresh, `ca2c40dd`
-(`llmjudge/experiments/runs/board_d_train_1200_20260926T2320.json`; titles
-scored with the Q55/Q56 gold):
+7,200 set, **TRAIN**, 1,200 rows, seeded, fresh, `3b001720`
+(`llmjudge/experiments/runs/board_d_train_1200_20260927T0219.json`), scored on
+the current gold (Q55/Q56/Q61/Q62). The previous run is rescored on the same
+gold (`rescore.py`), so the columns compare:
 
-| metric (`dataset/METRICS.md`) | as shipped | deep chain only (`dc884b55`) |
+| metric (`dataset/METRICS.md`) | `3b001720` | `ca2c40dd` rescored |
 |---|---|---|
-| headline correct (action + title) | **93.1%** (1117/1200) | 92.2% |
-| count-correct | **93.0%** (855/919) | 91.0% |
-| objects F1 | **96.1%** | 95.2% |
-| date right · range right | **96.0%** (315/328) · **100%** (22/22) | 92.3% · 90.9% |
-| harm | 140 | 129 |
+| headline correct (action + title) | **94.6%** (1135/1200) | 91.8% (1101) |
+| count-correct | **92.7%** (852/919) | 90.9% |
+| objects F1 | **96.0%** | 94.5% |
+| date right · range right | 96.0% (314/327) · 100% (22/22) | same |
+| harm (wrong rows) | **111** (65) | 156 (99) |
 | vague target refused | 81.4% (35/43) | 81.4% |
-| rows needing a model call | **19.5%** | 40.8% |
+| rows needing a model call | 20.8% | 19.5% |
 
-Reading: the product beats the deep chain on every line but harm, at half the
-model calls; harm is the remaining gap — update/delete kind on to-dos whose
-names hold a verb, on both tracks.
+Reading: the front door no longer creates what it was asked to delete, finish
+or change (`3b001720`), and a delete takes its kind from the thing named
+(`75ef08b4`). The largest harm left is `update_todo -> update_event` (11 rows):
+a change aimed at a to-do whose name holds a verb.
 
 **The fast path alone** — FastRule shape board, FastRule 7,200 set, `04810fae`:
 
@@ -77,9 +79,9 @@ linked to-do (Q61, `cf74dec3`), and "buy A and B" is two to-dos (Q62,
 
 ## Next
 
-1. **Harm on the fast path**: an update/delete aimed at a to-do whose name
-   holds a verb ("rename submit the report to …") goes to update_event — on
-   BOTH tracks. The largest harm class left.
+1. **Harm on the fast path**: an UPDATE aimed at a to-do whose name holds a
+   verb goes to update_event (11 rows on Board D); "oil change …" read as a
+   move (5). The delete and create-for-a-mutation classes are done.
 2. **Real usage**: re-read the board once there is new reviewed usage (needs
    Gil's reviews in the HUD / phone).
 3. **Sealed 300 (TEST)** milestone read, aggregates only.
