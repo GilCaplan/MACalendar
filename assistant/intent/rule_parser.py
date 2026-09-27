@@ -2267,15 +2267,37 @@ def _route_intent(span, current_view: str) -> tuple[str | None, str, bool, bool]
             # dev-100 checkpoint's fast-path misses committed a QUERY for a
             # create (2026-09-20). "schedule meeting" (no determiner) still
             # reaches this pass as the verb it is.
+            # ...and so is a noun with a COMPOUND before it: "i have OIL CHANGE",
+            # "oil change the day after tomorrow at 7am" routed update_event
+            # through the noun 'change' (2026-09-27, Board D TRAIN: 5 events
+            # booked as edits of a record called 'oil change').
             if tok.pos_ in ("NOUN", "PROPN") and any(
                     c.dep_ in ("det", "amod", "poss", "nummod") for c in tok.children):
                 continue
             mapped, material = _maps_to_action(tok.lemma_)
+            # Only a MUTATION is refused that way: "on friday BOOK the dentist"
+            # parses 'book' as a noun under the compound 'friday', and a create
+            # read from it is right.
+            if mapped and mapped.split("_", 1)[0] in ("update", "delete", "complete") \
+                    and tok.pos_ in ("NOUN", "PROPN") \
+                    and any(c.dep_ == "compound" for c in tok.children):
+                continue
             if mapped:
                 root_verb = tok
                 action = mapped
                 domain_material = material
                 break
+
+    # THE SPEAKER'S OWN OBLIGATION is not an order to change a record (2026-09-27):
+    # "monthly at 2:30pm i have to UPDATE the resume" routed update_event
+    # through a verb that sits under "i have to" — the speaker saying what
+    # they must do, which is something to put down, not something to edit.
+    # Routed as a create; the kind rules decide event or to-do.
+    if action and action.split("_", 1)[0] in ("update", "delete", "complete") \
+            and root_verb is not None and root_verb.dep_ == "xcomp" \
+            and root_verb.head.lemma_ in ("have", "need", "get", "got", "must") \
+            and any(c.dep_ == "nsubj" and c.lower_ in ("i", "we") for c in root_verb.head.children):
+        action, domain_material = "create_todo", False
 
     # Pass 5: STT homophone fallback, ROOT position only. A preposition/adverb
     # can't legitimately be a well-formed sentence's syntactic ROOT — when spaCy
