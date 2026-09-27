@@ -29,49 +29,32 @@ def _task(text, id="item_1"):
     return Item(id=id, kind="task", text=text)
 
 
-# --- two times = two events (row: walk dog at 9am and 2:30pm) ---------------
+# --- times are SEGMENTATION's to split (2026-09-26) ------------------------
+# decompose used to split "walk the dog at 9am and 2:30pm" itself, by regex and
+# by asking the model; segmentation's bounded enumeration does it now, so an
+# event reaching decompose is ONE event and decompose never asks the model.
 
-def test_two_adjacent_times_become_two_events(cfg):
-    st = _run([_event("walk the dog at 9am and 2:30pm")], cfg)
-    assert [it.id for it in st.items] == ["item_1-1", "item_1-2"]
-    assert "at 9am" in st.items[0].text and "at 2:30pm" in st.items[1].text
-
-
-def test_and_again_at_is_the_same_activity_twice(cfg):
-    st = _run([_event("walk the dog at 9am and again at 2:30pm")], cfg)
-    assert len(st.items) == 2
-
-
-def test_a_time_range_is_one_event(cfg, monkeypatch):
-    def _boom(*a, **k):
-        raise AssertionError("a range must not consult the LLM")
-    monkeypatch.setattr(engine_llm, "call_json", _boom)
-    st = _run([_event("lunch from 12:00 to 1:00 and bring the laptop")], cfg)
-    assert len(st.items) == 1
-
-
-def test_guests_joined_by_and_never_split(cfg, monkeypatch):
+def test_decompose_leaves_a_two_time_event_alone_and_asks_no_model(cfg, monkeypatch):
     monkeypatch.setattr(engine_llm, "call_json",
                         lambda *a, **k: (_ for _ in ()).throw(AssertionError("no LLM")))
-    st = _run([_event("meeting with Tal and Ravid tomorrow at 3pm")], cfg)
-    assert len(st.items) == 1
+    for text in ("walk the dog at 9am and 2:30pm",
+                 "take Saba to physio at 10am and later on at 4:30pm today",
+                 "lunch from 12:00 to 1:00 and bring the laptop",
+                 "meeting with Tal and Ravid tomorrow at 3pm"):
+        st = _run([_event(text)], cfg)
+        assert len(st.items) == 1, text
 
 
-def test_llm_split_for_wordy_double_time(cfg, monkeypatch):
-    monkeypatch.setattr(engine_llm, "call_json", lambda *a, **k: ({"parts": [
-        {"text": "take Saba to physio at 10am"},
-        {"text": "take Saba to physio at 4:30pm"},
-    ]}, 7))
-    st = _run([_event("take Saba to physio at 10am and later on at 4:30pm today")], cfg)
-    assert [it.id for it in st.items] == ["item_1-1", "item_1-2"]
-
-
-def test_llm_returning_one_part_keeps_the_item(cfg, monkeypatch):
-    monkeypatch.setattr(engine_llm, "call_json", lambda *a, **k: ({"parts": [
-        {"text": "dinner at 8pm and drinks after at 10pm"},
-    ]}, 7))
-    st = _run([_event("dinner at 8pm and drinks after at 10pm")], cfg)
-    assert len(st.items) == 1
+def test_segmentation_splits_one_activity_at_several_times(cfg):
+    from assistant.engine import segmentation
+    for text, times in [
+            ("walk the dog at 9am and 2:30pm", ["at 9am", "at 2:30pm"]),
+            ("walk the dog at 6 in the evening and 7am", ["at 6 in the evening", "at 7am"]),
+            ("water the plants at 9 in the morning and at 8 o'clock", ["at 9 in the morning", "at 8 o'clock"])]:
+        st = EngineState(raw_text=text, text=text, source="test")
+        segmentation.run(st, cfg)
+        assert [i.text for i in st.items] == [st.items[0].text] * len(times), text
+        assert all(t in i.time for t, i in zip(times, st.items)), (text, [i.time for i in st.items])
 
 
 # --- task lists and quantities ---------------------------------------------

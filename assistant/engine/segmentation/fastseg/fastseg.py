@@ -63,6 +63,18 @@ _COUNTWORD = (r"a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twe
 _RANGEEND = (rf"(?:\d{{1,2}}(?::\d{{2}})?\s*(?:am|pm|a\.m\.|p\.m\.)?"
              rf"|noon|midday|midnight|{_HOURWORD})")
 
+#: One time IN A LIST of times (§8.1): a clock with the words it is spoken with
+#: ("6 in the evening", "8 o'clock"), or a part of the day said as a time
+#: ("late afternoon", "first thing in the morning"). Only digit clocks were
+#: listed, so "walk the dog at 6 in the evening and 7am" stayed ONE item and
+#: decompose_validate asked the model to split it (2026-09-26: the only
+#: splits it still made by model, 6 rows of the FastRule 7,200 train half).
+# `\s*`, not `\s+`: the clock's own optional am/pm is preceded by `\s*`, which
+# eats the space and leaves nothing for a `\s+` here ("at 8 o'clock" -> "at 8").
+_ENUMEND = (rf"(?:(?:{_RANGEEND})(?:\s*o'?clock)?"
+            r"(?:\s*in\s+the\s+(?:morning|afternoon|evening)|\s*at\s+night)?"
+            r"|late\s+afternoon|first\s+thing\s+in\s+the\s+morning|around\s+lunchtime)")
+
 #: Ordered longest-first: a longer phrase must win over a fragment of itself,
 #: or "every friday" is read as the bare date "friday" and the recurrence is
 #: lost. Each entry is (pattern, kind).
@@ -241,8 +253,8 @@ _TIME_PATTERNS: "list[tuple[str, str]]" = [
     #     It cannot swallow the decoys: `between 2 and 4` and
     #     `every tuesday and thursday` are LONGER patterns and win outright, and
     #     `meeting with Sam and Alex at 8` has no time on the left of its joiner.
-    (rf"\b(?:at\s+)?{_RANGEEND}(?:\s*,\s*(?:at\s+)?{_RANGEEND})*"
-     rf"\s+and\s+(?:at\s+)?{_RANGEEND}\b", "enum_clock"),
+    (rf"\b(?:at\s+)?{_ENUMEND}(?:\s*,\s*(?:at\s+)?{_ENUMEND})*"
+     rf"\s+and\s+(?:at\s+)?{_ENUMEND}\b", "enum_clock"),
     (rf"\b(?:on\s+)?(?:{_WEEKDAY})(?:\s*,\s*(?:on\s+)?(?:{_WEEKDAY}))*"
      rf"\s+and\s+(?:on\s+)?(?:{_WEEKDAY})\b", "enum_day"),
 

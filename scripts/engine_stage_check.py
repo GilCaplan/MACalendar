@@ -100,21 +100,12 @@ def _cases_segment(cfg):
         case("schedule lunch with Danny on friday at noon and add pasta to the shopping list", 2),
         case("what do I have this week", 1, ["review"], needs_llm=False),
         case("[gym tomorrow at 7am] [lunch with Tal at noon]", 2, needs_llm=False),
+        case("walk the dog at 9am and 2:30pm", 2, ["event", "event"], needs_llm=False),
     ]
 
 
 def _cases_decompose(cfg):
     from assistant.engine.decompose_validate import decompose
-
-    def two_walks():
-        st = _items_state([_item("event", "walk the dog at 9am and 2:30pm")])
-        decompose.run(st, cfg)
-        return len(st.items) == 2, f"{[i.text for i in st.items]}"
-
-    def wordy_two_times():
-        st = _items_state([_item("event", "take Saba to physio at 10am and later on at 4:30pm")])
-        decompose.run(st, cfg)
-        return len(st.items) == 2, f"{[i.text for i in st.items]}"
 
     def range_is_one():
         st = _items_state([_item("event", "lunch with Ima from 12:00 to 1:00 and bring the photos")])
@@ -133,9 +124,9 @@ def _cases_decompose(cfg):
         one = len(st.items) == 1 and st.items[0].slots.get("quantity") == 5
         return one, f"{[(i.text, i.slots) for i in st.items]}"
 
-    return [("two adjacent times → two events", False, two_walks),
-            ("wordy double time → two events", True, wordy_two_times),
-            ("a range stays one event", False, range_is_one),
+    # Two times of one activity are SEGMENTATION's to split (2026-09-26); see
+    # the segment cases.
+    return [("a range stays one event", False, range_is_one),
             ("task list splits, verb handed down", False, task_list),
             ("a count is one task × N", False, quantity)]
 
