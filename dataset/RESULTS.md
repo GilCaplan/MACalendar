@@ -3285,3 +3285,18 @@ generator emits. Until then those three numbers carry a known −1.
 real-usage cycle waits on new real commands — every row the board holds is
 now either right, acceptable under a ruling, or hand-set gold no parse can
 reach.
+
+## READING — dev-100 after a week of generated-set cycles (2026-09-27, `2439b748`, seeded 7)
+
+The first whole-chain read on real speech since cycle 40 (2026-09-22), asked
+for by Gil's generalisation question. **dev-100: 77% · precision 89.7 ·
+recall 75.3 · F1 81.9 · field quality 89.8% · when-correct 82.4% (n=17)** (was
+77 / 92.2 / 76.3 / 83.5 / 88.4 / 76.5 — that run unseeded, so ±3 pt). The
+week's gains on the generated boards (Board D TRAIN 93.2 -> 95.8%, TEST 79.6
+-> 82.6%) moved real speech's headline by nothing; precision fell (created 78
+for 70 matched). By shape: simple 94.1% (n=34), complex 48.5% (n=33);
+event+event 36.4% (n=11), event+task 45.5% (n=11) — the multi-ask command is
+the real weak spot. dev-100 holds only 20 DEV rows (90%) and 80 HELD-OUT
+(63.7%), so it is the fixed measure, not a mining pool; the next cycles mine
+the DEV range (ranks 1–600, run started the same day) and are measured back
+here.
