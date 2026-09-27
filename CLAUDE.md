@@ -604,6 +604,11 @@ reading its fixed/broke pair.
   the HUD's history view shipped green because tests called handlers instead
   of clicking controls. Use `QTest.mouseClick` / `QTest.keyClicks`, and
   connect `clicked` through a lambda.
+- **The installed apps are NO TOUCH** (Gil, 2026-09-26). They live in
+  `/Applications/MACalendar APPs/`; an install rebuilds its own bundle there in
+  place and never deletes or moves an app anywhere else — `build_apps.sh`'s old
+  "stray copy" cleanup is how the Desktop icons vanished.
+  `test_app_install_is_no_touch.py` holds every install script to it.
 - **Deleting is destructive.** When the engine cannot identify what to delete,
   empty slots — which surface as "I couldn't find …" — are the right answer.
   Guessing is not.

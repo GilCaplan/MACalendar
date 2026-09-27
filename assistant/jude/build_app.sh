@@ -2,7 +2,7 @@
 # Rebuild "Jude.app" from launch.sh.
 #
 #   assistant/jude/build_app.sh             # into the repo
-#   assistant/jude/build_app.sh --install   # + ~/Desktop and /Applications
+#   assistant/jude/build_app.sh --install   # + "/Applications/MACalendar APPs/"
 #
 # The bundle is a build artefact, not source — gitignored, and rebuilt from here
 # so the AppleScript inside it stays reviewable like any other file.
@@ -67,8 +67,10 @@ build() {
 
 build "$REPO/Jude.app"
 if [[ "${1:-}" == "--install" ]]; then
-  build "$HOME/Desktop/Jude.app"
-  build "/Applications/Jude.app"
+  # Into the ONE folder the apps live in (scripts/build_apps.sh), never loose on
+  # the Desktop or in /Applications (2026-09-26, no touch).
+  mkdir -p "/Applications/MACalendar APPs"
+  build "/Applications/MACalendar APPs/Jude.app"
   # Clear any half-recorded decision against this identity, so macOS asks again
   # on the next launch instead of silently refusing forever.
   tccutil reset SystemPolicyDesktopFolder "$BUNDLE_ID" 2>/dev/null || true

@@ -94,13 +94,11 @@ build_all_into "$REPO/$FOLDER"
 
 if [[ "${1:-}" == "--install" ]]; then
   build_all_into "/Applications/$FOLDER"
-  # The loose copies this replaces. Leaving them means two icons with one name
-  # and no way to tell which one you just clicked.
-  for stale in "/Applications/MACalendar.app" "/Applications/MACalendar HUD.app" \
-               "/Applications/Jude.app" "$HOME/Desktop/MACalendar.app" \
-               "$HOME/Desktop/MACalendar HUD.app"; do
-    [[ -e "$stale" ]] && rm -rf "$stale" && echo "  removed stale  $stale"
-  done
+  # NO TOUCH (Gil, 2026-09-26: the apps "should be a no touch — never move or
+  # delete them"). This used to rm -rf every "stray" copy on the Desktop and in
+  # /Applications, and on 2026-09-18 that is how the Desktop icons vanished.
+  # An install now only REBUILDS the four bundles inside /Applications/$FOLDER,
+  # in place; any other copy, anywhere, is left exactly where it is.
   # Clear any half-recorded privacy decision against these identities, so macOS
   # asks again on the next launch instead of silently refusing forever.
   for bundle in com.macalendar.server com.macalendar.app.launcher \

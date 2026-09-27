@@ -68,8 +68,11 @@ build() {
 
 build "$REPO/MACalendar HUD.app"
 if [[ "${1:-}" == "--install" ]]; then
-  build "$HOME/Desktop/MACalendar HUD.app"
-  build "/Applications/MACalendar HUD.app"
+  # Into the ONE folder the apps live in (scripts/build_apps.sh), never loose on
+  # the Desktop or in /Applications — loose copies are what an older install
+  # then "tidied" away (2026-09-26, no touch).
+  mkdir -p "/Applications/MACalendar APPs"
+  build "/Applications/MACalendar APPs/MACalendar HUD.app"
   # Clear any half-recorded decision against this identity, so macOS asks again
   # on the next launch instead of silently refusing forever.
   tccutil reset SystemPolicyDesktopFolder "$BUNDLE_ID" 2>/dev/null || true
