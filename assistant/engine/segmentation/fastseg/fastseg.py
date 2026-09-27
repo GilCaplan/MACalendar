@@ -737,7 +737,11 @@ def _locate(text: str, pieces: "list[str]") -> "list[tuple[int, int]]":
 #: the deep track made a to-do of each half — Board D TRAIN, 7 rows).
 _BACK_REFERENCE = re.compile(
     r"^(?:(?:so|and|then|just|please)\s+)*"
-    r"(?:delete|remove|wipe|clear|drop|scrap|erase|take|cross|tick|mark|update|rename|change)"
+    r"(?:delete|remove|wipe|clear|drop|scrap|erase|take|cross|tick|mark|update|rename|change|"
+    # …and the CREATE verbs: "this friday is the big game, PUT IT on the
+    # calendar" was cut into a statement and an ask to add nothing
+    # (c_tr_mark_fronted_statement, 2026-09-27).
+    r"put|add|book|schedule|pop|stick|note|save)"
     r"\s+(?:it|that|this|them)\b", re.I)
 
 

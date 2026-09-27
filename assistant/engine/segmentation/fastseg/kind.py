@@ -227,6 +227,10 @@ def _enforce_pinned_kinds(kind: str, text: str) -> str:
 #: "get rid of that task on my calendar the 3rd" says "task" and means an
 #: event, and the destination is the speaker being explicit about which of
 #: the two lists they mean.
+_PUT_ON_CALENDAR_RE = re.compile(
+    r"\b(?:put|pop|stick|add|book|schedule)\b.*?\b(?:on|in|to|into|onto)\s+(?:my|the)\s+"
+    r"(?:calendar|calender|diary|schedule|agenda)\b", re.I)
+
 _CALENDAR_DEST_RE = re.compile(
     r"\b(?:on|to|in|from|off)\s+(?:my|the)\s+"
     r"(?:calendar|calender|schedule|diary|agenda)\b", re.I)
@@ -253,6 +257,12 @@ def _kind_of_path(text: str) -> "tuple[str, str]":
     from assistant.intent.encounter import is_encounter
     if is_encounter(t):
         return "event", "encounter"
+    if _PUT_ON_CALENDAR_RE.search(t):
+        # a CREATE verb with the calendar as where outranks the review reader:
+        # "this friday is the big game, put it on the calendar" read "is the
+        # …" as a question (2026-09-27). "what's on my calendar" has no create
+        # verb and stays a review.
+        return "event", "calendar_destination"
     if _REVIEW_RE.search(t):
         return "review", "review"
     if _CALENDAR_DEST_RE.search(t) or _GATHERING_RE.search(t):
