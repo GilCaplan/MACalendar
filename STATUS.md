@@ -63,26 +63,29 @@ hypothesis source.
 
 ## What changed this week
 
-Rulings **Q49–Q58** (top of `DEVQA.md`) — sequences (Q51), a role call is an
+Rulings **Q49–Q62** (top of `DEVQA.md`) — sequences (Q51), a role call is an
 event + a linked to-do (Q50), list management is junk (Q52), one time reader
-(Q53), and on 2026-09-26: the 4-hour cap is only for ends the engine made (Q54),
+(Q53); on 2026-09-26: the 4-hour cap is only for ends the engine made (Q54),
 errand verbs (Q55) and the person (Q56) stay in titles, a series with no end
 gets a per-cadence default end (Q57), the fast-path fence is retired with
-conditions (Q58). Built: linked to-dos (`FEATURES.md`), sequences and chaining,
-event-default settings, `assistant/common/`, the measuring tools (Board D
-`--product`, `rescore`, full scoring, title similarity, range / cadence / kind /
-target lines). Numbers per cycle: `assistant/engine/fastrule/experiments/RESULTS.md`
-and `assistant/engine/llmjudge/experiments/RESULTS.md`.
+conditions (Q58), and every day has a "keep engine events off" switch (Q59,
+Q60). On 2026-09-27: a to-do that repeats is an event series with ONE rolling
+linked to-do (Q61, `cf74dec3`), and "buy A and B" is two to-dos (Q62,
+`d3facf4c`). All built. Numbers per cycle:
+`assistant/engine/fastrule/experiments/RESULTS.md`,
+`assistant/engine/llmjudge/experiments/RESULTS.md`, and the commit messages.
 
 ## Next
 
-1. **Build Q54–Q57** (queued at the end of `DOCUMENTATION/TASKS.md`): the cap
-   spares a stated end; relabel the gold for Q55/Q56; the default series end
-   and its settings (Mac + iPhone).
-2. **Harm on the fast path**: an update/delete aimed at a to-do whose name
+1. **Harm on the fast path**: an update/delete aimed at a to-do whose name
    holds a verb ("rename submit the report to …") goes to update_event — on
-   BOTH tracks.
-3. **Real usage**: re-read the board once there is new reviewed usage.
+   BOTH tracks. The largest harm class left.
+2. **Real usage**: re-read the board once there is new reviewed usage (needs
+   Gil's reviews in the HUD / phone).
+3. **Sealed 300 (TEST)** milestone read, aggregates only.
+4. **Train phrasing growth** for the FastRule title-precision gap (train
+   91.6% vs test 71.8%).
+5. Small queue in `DOCUMENTATION/TASKS.md` 19–25.
 
 ## Standing rulings worth remembering
 
