@@ -18,25 +18,34 @@ LLMSeg is wired and INERT; the judge makes no model call; the model is called by
 ## Where it stands (2026-09-27)
 
 **As production runs it** — Board D `--product` (front door first), FastRule
-7,200 set, **TRAIN**, 1,200 rows, seeded, fresh, `3b001720`
-(`llmjudge/experiments/runs/board_d_train_1200_20260927T0219.json`), scored on
-the current gold (Q55/Q56/Q61/Q62). The previous run is rescored on the same
-gold (`rescore.py`), so the columns compare:
+7,200 set, 1,200 rows per split, seeded, fresh, current gold
+(Q55/Q56/Q61/Q62). Before today's three harm cycles (`fcd02957`) against
+after them (`bafc30e3`); records in `llmjudge/experiments/runs/`
+(`board_d_{train,test}_1200_20260927T*`):
 
-| metric (`dataset/METRICS.md`) | `3b001720` | `ca2c40dd` rescored |
-|---|---|---|
-| headline correct (action + title) | **94.6%** (1135/1200) | 91.8% (1101) |
-| count-correct | **92.7%** (852/919) | 90.9% |
-| objects F1 | **96.0%** | 94.5% |
-| date right · range right | 96.0% (314/327) · 100% (22/22) | same |
-| harm (wrong rows) | **111** (65) | 156 (99) |
-| vague target refused | 81.4% (35/43) | 81.4% |
-| rows needing a model call | 20.8% | 19.5% |
+| metric (`dataset/METRICS.md`) | TRAIN before | TRAIN after | TEST before | TEST after |
+|---|---|---|---|---|
+| headline correct (action + title) | 93.2% (1118) | **95.2%** (1142) | 79.6% (955) | **82.7%** (992) |
+| rows fixed / broken | | 24 / **0** | | 37 / **0** |
+| count-correct | 92.7% (852/919) | same | 86.2% (755/876) | same |
+| objects F1 (P · R) | 96.0% (97.0 · 95.0) | same | 92.2% (95.9 · 88.8) | same |
+| title word F1 · exact | 92.5% · 80.1% | same | 80.0% · 44.5% | same |
+| date · start · range right | 96.0 · 100 · 100% | same | 93.6 · 100 · 100% | same |
+| cadence · reminder · invented time | 94.2 · 82.5 · 3.3% | same | 97.8 · 97.0 · 3.2% | same |
+| harm (wrong rows) | 139 (82) | **97** (58) | 260 (245) | **208** (208) |
+| destructive update_event | 21 | 13 | 25 | 18 |
+| vague target refused | 81.4% (35/43) | same | 77.1% (27/35) | same |
+| front door committed | 67.6% | 66.7% | 62.0% | 57.8% |
+| rows needing a model call | 19.5% | 20.8% | 21.2% | **25.0%** |
+| latency p50 / p95 with a model | 4.4s / 10.3s | 4.2s / 10.4s | 4.2s / 11.7s | 3.3s / 10.1s |
 
-Reading: the front door no longer creates what it was asked to delete, finish
-or change (`3b001720`), and a delete takes its kind from the thing named
-(`75ef08b4`). The largest harm left is `update_todo -> update_event` (11 rows):
-a change aimed at a to-do whose name holds a verb.
+Reading: the cycles touched only mutations, and every create line is
+identical on both splits. The costs are model calls (TEST +3.8 pt: the front
+door now defers what it used to get wrong) and front-door coverage. The
+TRAIN/TEST headline gap is update phrasings the front door does not know
+("flip the due date on …", "bump … to top priority", "retitle …"):
+`update_todo -> create_todo` is 41 TEST rows, and it can only be closed from
+TRAIN-grown phrasings, never from those rows.
 
 **The fast path alone** — FastRule shape board, FastRule 7,200 set, `04810fae`:
 
