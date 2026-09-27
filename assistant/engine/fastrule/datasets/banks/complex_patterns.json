@@ -4358,5 +4358,115 @@
   "event_label_sources": [],
   "task_label_sources": [],
   "force_split": "train"
+ },
+ {
+  "family": "c_tr2_bare_and_tt",
+  "nuance": "and_compound",
+  "action": "create_todo",
+  "atomic": false,
+  "events": 0,
+  "tasks": 2,
+  "template": "{task_title} and {task_title2}",
+  "force_split": "train2"
+ },
+ {
+  "family": "c_tr2_bare_three_ttt",
+  "nuance": "three_ask",
+  "action": "create_todo",
+  "atomic": false,
+  "events": 0,
+  "tasks": 3,
+  "template": "{task_title}, {task_title2}, and {task_title3}",
+  "force_split": "train2"
+ },
+ {
+  "family": "c_tr2_need_to_and_tt",
+  "nuance": "and_compound",
+  "action": "create_todo",
+  "atomic": false,
+  "events": 0,
+  "tasks": 2,
+  "template": "i need to {task_title} and {task_title2}",
+  "force_split": "train2"
+ },
+ {
+  "family": "c_tr2_remind_and_to_tt",
+  "nuance": "and_compound",
+  "action": "create_todo",
+  "atomic": false,
+  "events": 0,
+  "tasks": 2,
+  "template": "can you remind me to {task_title} and to {task_title2}",
+  "force_split": "train2"
+ },
+ {
+  "family": "c_tr2_comma_also_tt",
+  "nuance": "and_compound",
+  "action": "create_todo",
+  "atomic": false,
+  "events": 0,
+  "tasks": 2,
+  "template": "{task_title}, also {task_title2}",
+  "force_split": "train2"
+ },
+ {
+  "family": "c_tr2_put_on_todo_tt",
+  "nuance": "and_compound",
+  "action": "create_todo",
+  "atomic": false,
+  "events": 0,
+  "tasks": 2,
+  "template": "put {task_title} and {task_title2} on my to-do list",
+  "force_split": "train2"
+ },
+ {
+  "family": "c_tr2_semicolon_tt",
+  "nuance": "and_compound",
+  "action": "create_todo",
+  "atomic": false,
+  "events": 0,
+  "tasks": 2,
+  "template": "{task_title}; {task_title2}",
+  "force_split": "train2"
+ },
+ {
+  "family": "c_tr2_have_to_plus_tt",
+  "nuance": "and_compound",
+  "action": "create_todo",
+  "atomic": false,
+  "events": 0,
+  "tasks": 2,
+  "template": "i have to {task_title} plus {task_title2}",
+  "force_split": "train2"
+ },
+ {
+  "family": "c_tr2_remind_colon_tt",
+  "nuance": "and_compound",
+  "action": "create_todo",
+  "atomic": false,
+  "events": 0,
+  "tasks": 2,
+  "template": "remind me: {task_title}, {task_title2}",
+  "force_split": "train2"
+ },
+ {
+  "family": "c_tr2_gotta_and_tt",
+  "nuance": "and_compound",
+  "action": "create_todo",
+  "atomic": false,
+  "events": 0,
+  "tasks": 2,
+  "template": "gotta {task_title} and {task_title2} at some point",
+  "force_split": "train2"
+ },
+ {
+  "family": "c_tr2_please_add_three_ttt",
+  "nuance": "three_ask",
+  "action": "create_todo",
+  "atomic": false,
+  "events": 0,
+  "tasks": 3,
+  "template": "please add {task_title}, {task_title2} and {task_title3} to my tasks",
+  "force_split": "train2"
  }
 ]

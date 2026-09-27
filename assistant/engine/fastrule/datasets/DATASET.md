@@ -12,7 +12,8 @@ coverage without touching a single train row — see "Growing test-only"
 below and `engine/TRAIN_TEST_SPLIT_CONVENTION.md`. Grown again to **8,400**
 on 2026-09-25 with the mirror pool, **train-only**, which widens the phrasing
 train sees without touching a single existing row — see "Growing train-only"
-below. The file keeps its historical name, `fastrule_7200.jsonl`, because
+below — and to **8,700** on 2026-09-27 with a second train-only pool of
+no-time, multi-ask to-do commands ("Growing train-only, second pool"). The file keeps its historical name, `fastrule_7200.jsonl`, because
 forty-odd boards and tests open it by that path.
 
 **TEST ROWS ARE NEVER MINED — see `engine/TRAIN_TEST_SPLIT_CONVENTION.md` first.** That rule is the whole
@@ -27,7 +28,7 @@ is schema and composition, not the leakage discipline.
     banks/categories_fixture.json   canonical event-category + task-tag scheme (label ground truth)
     banks/simple_patterns.json      245 single-intent pattern families (157 stratified + 45 test-only + 43 train-only)
     banks/complex_patterns.json     374 nuance-targeting pattern families (265 stratified + 56 test-only + 53 train-only)
-    fastrule_7200.jsonl             the generated dataset — 8,400 rows (historical file name), one JSON object per line
+    fastrule_7200.jsonl             the generated dataset — 8,700 rows (historical file name), one JSON object per line
     ../../TRAIN_TEST_SPLIT_CONVENTION.md   how the split is built (80/20 + force_split), and the
                                     no-mining rule — ENGINE-WIDE, every stage's dataset obeys it
     DATASET.md                      this file
@@ -431,6 +432,24 @@ results are never mined) makes no distinction between the two test pools.
 Growing this pool is therefore always safe to do between measurement runs:
 it changes what generalization is measured against, never what the model is
 allowed to see.
+
+## Growing train-only, second pool: `force_split: "train2"` (2026-09-27)
+
+**What.** 11 complex families, 300 rows (`COMPLEX_FORCE_TRAIN2_TOTAL`), all
+`split == "train"`, tagged `force_split: "train2"` so the first train-only
+pool's quota is untouched, and generated after every other pool: the file is
+the 8,400 lines before it byte for byte, followed by 300 new ones.
+
+**Why.** TEST milestone 2 (STATUS, 2026-09-27) read FastRule's non-atomic
+HALF-EXECUTED line 26 -> 38 after DEVQA Q63, with no TRAIN counterpart
+(61 -> 61): TRAIN barely held a command with two or three asks and NO time
+said anywhere, so the shape could not be fixed from TRAIN. The families were
+written from the shape, not from any TEST row: bare "X and Y", "X, Y, and Z",
+"i need to X and Y", "can you remind me to X and to Y", "X, also Y", "put X
+and Y on my to-do list", "X; Y", "i have to X plus Y", "remind me: X, Y",
+"gotta X and Y at some point", "please add X, Y and Z to my tasks". No
+"then" (Q51 makes a sequence events). Gold by construction and the rulings
+(Q50 moved 6 role calls to the event side, Q55 kept 11 errand verbs).
 
 ## Growing train-only: `force_split: "train"` (2026-09-25)
 

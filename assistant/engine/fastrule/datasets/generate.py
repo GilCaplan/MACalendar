@@ -101,6 +101,13 @@ COMPLEX_FORCE_TEST_TOTAL = 800
 # row (TRAIN_TEST_SPLIT_CONVENTION.md, "Growing train-only").
 SIMPLE_FORCE_TRAIN_TOTAL = 400
 COMPLEX_FORCE_TRAIN_TOTAL = 800
+#: The SECOND train-only pool (2026-09-27): no-time, multi-ask to-do commands.
+#: TEST milestone 2 read FastRule's half-executed line 26 -> 38 after Q63,
+#: with no TRAIN counterpart (61 -> 61), and TRAIN barely held the shape — a
+#: timeless command with two or three asks — so it could not be fixed from
+#: TRAIN. Its own `force_split: "train2"` tag and total, generated after
+#: every other pool, so no existing row moves.
+COMPLEX_FORCE_TRAIN2_TOTAL = 300
 
 # action -> (atomic, events, tasks) for SIMPLE-tier families, which are
 # single-intent by construction so this is fully determined by the action.
@@ -918,11 +925,13 @@ def build_forced_train(tier: str, patterns: list[dict], total: int, fillers: dic
 
 
 def _build_forced(split_name: str, tier: str, patterns: list[dict], total: int, fillers: dict,
-                  global_seen: set, categories_mod, tagging_mod, task_tag_keywords: dict):
+                  global_seen: set, categories_mod, tagging_mod, task_tag_keywords: dict,
+                  tag: "str | None" = None):
     """The one body both forced pools share. Byte-identical to the original
-    `build_forced_test` loop for `split_name == "test"`."""
+    `build_forced_test` loop for `split_name == "test"`. `tag` is the
+    `force_split` value when it differs from the split (the "train2" pool)."""
     for fam in patterns:
-        assert fam.get("force_split") == split_name, (
+        assert fam.get("force_split") == (tag or split_name), (
             f"{fam['family']}: the forced-{split_name} pool only takes "
             f"force_split={split_name!r} (got {fam.get('force_split')!r})")
         _init_family(fam, tier, fillers)
@@ -961,7 +970,7 @@ def main():
     # train set — and the original 6,000 stratified rows generally —
     # byte-identical across this growth.
     for fam in simple_patterns + complex_patterns:
-        if fam.get("force_split") not in (None, "test", "train"):
+        if fam.get("force_split") not in (None, "test", "train", "train2"):
             raise ValueError(f"{fam['family']}: unknown force_split {fam['force_split']!r}")
     simple_free = [f for f in simple_patterns if not f.get("force_split")]
     simple_forced = [f for f in simple_patterns if f.get("force_split") == "test"]
@@ -969,6 +978,7 @@ def main():
     complex_free = [f for f in complex_patterns if not f.get("force_split")]
     complex_forced = [f for f in complex_patterns if f.get("force_split") == "test"]
     complex_forced_train = [f for f in complex_patterns if f.get("force_split") == "train"]
+    complex_forced_train2 = [f for f in complex_patterns if f.get("force_split") == "train2"]
 
     global_seen: set[str] = set()
     rows = []
@@ -1004,11 +1014,17 @@ def main():
                                        global_seen, categories_mod, tagging_mod, task_tag_keywords)
     random.Random(f"{SEED}:final-order:forced-train").shuffle(train_growth)
     rows += train_growth
+    train_growth2 = _build_forced("train", "complex", complex_forced_train2, COMPLEX_FORCE_TRAIN2_TOTAL,
+                                  fillers, global_seen, categories_mod, tagging_mod,
+                                  task_tag_keywords, tag="train2")
+    random.Random(f"{SEED}:final-order:forced-train2").shuffle(train_growth2)
+    rows += train_growth2
 
     # ---- verification -----------------------------------------------
     texts = [r["text"] for r in rows]
     expected_total = (SIMPLE_TOTAL + COMPLEX_TOTAL + SIMPLE_FORCE_TEST_TOTAL + COMPLEX_FORCE_TEST_TOTAL
-                      + SIMPLE_FORCE_TRAIN_TOTAL + COMPLEX_FORCE_TRAIN_TOTAL)
+                      + SIMPLE_FORCE_TRAIN_TOTAL + COMPLEX_FORCE_TRAIN_TOTAL
+                      + COMPLEX_FORCE_TRAIN2_TOTAL)
     assert len(rows) == expected_total, (len(rows), expected_total)
     assert len(set(texts)) == len(texts), "duplicate text rows"
 
@@ -1017,12 +1033,13 @@ def main():
     total = len(rows)
 
     forced_families = {f["family"] for f in (simple_forced + complex_forced)}
-    forced_train_families = {f["family"] for f in (simple_forced_train + complex_forced_train)}
+    forced_train_families = {f["family"] for f in (simple_forced_train + complex_forced_train
+                                                   + complex_forced_train2)}
     forced_test_rows_in_train = [r for r in rows if r["family"] in forced_train_families and r["split"] != "train"]
     if forced_test_rows_in_train:
         raise ValueError(f"force_split='train' family produced non-train rows: {forced_test_rows_in_train[:3]}")
     growth_n = sum(1 for r in rows if r["family"] in forced_train_families)
-    if growth_n != SIMPLE_FORCE_TRAIN_TOTAL + COMPLEX_FORCE_TRAIN_TOTAL:
+    if growth_n != SIMPLE_FORCE_TRAIN_TOTAL + COMPLEX_FORCE_TRAIN_TOTAL + COMPLEX_FORCE_TRAIN2_TOTAL:
         raise ValueError(f"forced-train pool produced {growth_n} rows")
 
     # The ORIGINAL stratified pool must still land at ~80/20 — the same
