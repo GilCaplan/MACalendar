@@ -48,6 +48,12 @@ build() {
   /usr/libexec/PlistBuddy -c "Add :NSDesktopFolderUsageDescription string 'Starts the Jude window from the project folder.'" "$out/Contents/Info.plist" 2>/dev/null || true
   # NOT LSUIElement: unlike the HUD, this is a real window with a real Dock icon.
   cp "$ICON" "$out/Contents/Resources/applet.icns"
+  # osacompile also ships the STOCK applet asset catalog (Assets.car) and points
+  # CFBundleIconName at it; on current macOS that wins over CFBundleIconFile, so
+  # the icns above was never drawn and Jude wore the grey script-scroll face
+  # (found 2026-09-27 on Tahoe). Drop both so the icns is the only icon.
+  /usr/libexec/PlistBuddy -c "Delete :CFBundleIconName" "$out/Contents/Info.plist" 2>/dev/null || true
+  rm -f "$out/Contents/Resources/Assets.car"
 
   # Re-seal. --identifier must match CFBundleIdentifier, or the bundle is
   # inconsistent in the same way it was before, just less obviously.
@@ -60,6 +66,12 @@ build() {
   local sig_id
   sig_id="$(codesign -dv "$out" 2>&1 | sed -n 's/^Identifier=//p')"
   [[ "$sig_id" == "$BUNDLE_ID" ]] || { echo "signature id '$sig_id' != '$BUNDLE_ID'"; exit 1; }
+  if /usr/libexec/PlistBuddy -c "Print :CFBundleIconName" "$out/Contents/Info.plist" >/dev/null 2>&1; then
+    echo "$out still names the stock icon catalog"; exit 1
+  fi
+  if [[ -e "$out/Contents/Resources/Assets.car" ]]; then
+    echo "$out still carries the stock Assets.car"; exit 1
+  fi
 
   touch "$out"
   echo "built + sealed $out  ($BUNDLE_ID)"
