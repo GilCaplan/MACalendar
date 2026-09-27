@@ -39,6 +39,12 @@ after them (`bafc30e3`); records in `llmjudge/experiments/runs/`
 | rows needing a model call | 19.5% | 20.8% | 21.2% | **25.0%** |
 | latency p50 / p95 with a model | 4.4s / 10.3s | 4.2s / 10.4s | 4.2s / 11.7s | 3.3s / 10.1s |
 
+**CORRECTION (same day): the TEST "after" column is contaminated.** The
+mutation frame in `3b001720` carried words read off TEST rows; they were
+removed in `4d070b41` (FastRule TEST harm with the clean frame: 174 -> 168,
+not -> 106). The TEST column is being re-read at `4d070b41`, together with
+Board D now running ingest first as production does (`dbd5c94b`).
+
 Reading: the cycles touched only mutations, and every create line is
 identical on both splits. The costs are model calls (TEST +3.8 pt: the front
 door now defers what it used to get wrong) and front-door coverage. The
