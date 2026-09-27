@@ -131,3 +131,14 @@ def test_n_weeks_from_now_names_a_day_not_the_clock_of_the_moment(registry_with_
     assert got == {"book dentist two weeks from now": "09:00",
                    "book dentist two weeks from now at 3pm": "15:00",
                    "book dentist in three weeks": "09:00"}
+
+
+def test_a_series_bound_is_never_in_the_past():
+    """"the end of october" said in September 2026 is read by the recogniser
+    as both October 2025 and October 2026; the first was taken, and "gym every
+    monday until the end of october" ended a year before it began."""
+    import datetime as dt
+    from assistant.intent.rule_parser import _extract_temporal
+    t = "gym every monday at 7am until the end of october"
+    assert _extract_temporal(t, dt.date(2026, 9, 26))["recur_until"] == "2026-10-31"
+    assert _extract_temporal(t, dt.date(2026, 11, 20))["recur_until"] == "2027-10-31"

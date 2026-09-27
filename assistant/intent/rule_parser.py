@@ -1115,7 +1115,21 @@ def _bound_date(tail: str, today: datetime.date, inclusive: bool) -> "tuple[str,
         for res in found:
             if not _BOUND_GAP.match(tail[:res.start]):
                 continue                     # a date, but not THIS keyword's
-            for wren in (getattr(res, "resolution", None) or {}).get("values", []):
+            # A SERIES CANNOT END BEFORE IT STARTS. For an ambiguous phrase the
+            # recogniser returns one reading per candidate — "the end of
+            # october" said in September 2026 comes back as October 2025 AND
+            # October 2026 — and the first was taken, so "gym every monday
+            # until the end of october" ended a year before it began
+            # (2026-09-26). Readings that end before today go last.
+            values = list((getattr(res, "resolution", None) or {}).get("values", []))
+            def _past(w):
+                edge = str(w.get("end") or w.get("value") or "")[:10]
+                try:
+                    return datetime.date.fromisoformat(edge) < today
+                except ValueError:
+                    return False
+            values.sort(key=_past)
+            for wren in values:
                 kind = wren.get("type", "")
                 iso = None
                 if kind in ("date", "datetime"):
