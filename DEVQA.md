@@ -6,7 +6,12 @@
   to-do for the next occurrence; ticking it marks that one done and the to-do
   moves to the next date of the series — the list shows only what is next,
   never one copy per date. Q47's "no clock -> a to-do" yields to this for a
-  repeating ask.
+  repeating ask. Built the same day: the tagger's `repeating_task` path,
+  `linked_todo` on the series, `db.roll_series_todo`; 91 FastRule gold rows
+  relabelled (64 train, 27 test, `ruled: Q61`). Interpreted in the build: an
+  overdue to-do rolls to the next date FROM TODAY, not the next missed one;
+  deleting its date moves it on; an event series or a clocked reminder gets
+  no to-do.
 
 - **2026-09-27 — Q62 ("BUY A AND B" IS TWO TO-DOS)**, Gil: *"buy a,b thats two
   actions of a buy apples, b buy bottles."* Same as a comma list. The engine

@@ -185,6 +185,12 @@ def run(state, cfg):
             items.append(Item(id=f"item_{len(items) + 1}", kind=kind,
                               text=action, time=when, source=source))
             envelope_of[items[-1].id] = e_i
+            if kind == "event" and when:
+                # A REPEATING TO-DO (DEVQA Q61) is tagged an event; the to-do
+                # the speaker asked for rides with it as its linked to-do.
+                from assistant.engine.segmentation.fastseg.fastseg import tag_path
+                if tag_path(action, when)[1] == "repeating_task":
+                    items[-1].slots["linked_todo"] = True
             if kind == "other":
                 # WHY it was thrown out, so the trace and the review can say
                 # (Gil, 2026-09-25: "just mark so we can see why").

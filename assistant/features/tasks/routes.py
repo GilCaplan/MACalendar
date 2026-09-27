@@ -106,7 +106,14 @@ def todo_toggle(todo_id: int):
     if db.get_todo(todo_id) is None:
         return jsonify({"error": "Todo not found", "code": 404}), 404
     new_state = db.toggle_todo_complete(todo_id)
-    return jsonify({"id": todo_id, "completed": int(new_state)})
+    out = {"id": todo_id, "completed": int(new_state)}
+    if not new_state:
+        # A repeating to-do (DEVQA Q61) rolls to its series' next date instead
+        # of completing; the client is told where, so it need not refetch.
+        row = db.get_todo(todo_id) or {}
+        out.update(due_date=row.get("due_date", ""), list_name=row.get("list", ""),
+                   linked_event_id=row.get("linked_event_id"))
+    return jsonify(out)
 
 
 @blueprint.delete("/todos/<int:todo_id>")

@@ -1605,7 +1605,21 @@ class CalendarDB:
             # (keeps things simple: title/time changes also re-sync future slots).
             old_recur = instance.get("recurrence", "")
             old_until = instance.get("recurrence_end", "")
+            if "title" in updates:
+                # the series' rolling to-do (Q61) is the same thing, renamed
+                conn.execute(
+                    "UPDATE todos SET title = ?, updated_at = ? WHERE linked_event_id IN "
+                    "(SELECT id FROM events WHERE series_id = ? OR id = ?)",
+                    (updates["title"], _utcnow_iso(), series_id, series_id))
             if recurrence != old_recur or recur_until != old_until or recurrence:
+                # The rolling to-do of a repeating to-do (Q61) points at an
+                # instance about to be regenerated; the delete trigger would
+                # unlink it, so it is re-linked below to the first rebuilt
+                # instance on or after the date it was due.
+                riding = conn.execute(
+                    "SELECT t.id, e.date FROM todos t JOIN events e ON e.id = t.linked_event_id "
+                    "WHERE (e.series_id = ? OR e.id = ?) AND e.date > ?",
+                    (series_id, series_id, instance["date"])).fetchall()
                 # Delete all future instances after the edited one
                 conn.execute(
                     "DELETE FROM events WHERE (series_id = ? OR id = ?) AND date > ?",
@@ -1625,6 +1639,13 @@ class CalendarDB:
                         seed_row.get("color") or instance["color"],
                         seed_row.get("category") or instance.get("category") or "",
                     )
+                for todo_id, was in riding:
+                    row = conn.execute(
+                        "SELECT id, date FROM events WHERE (series_id = ? OR id = ?) AND date >= ? "
+                        "ORDER BY date, start_time LIMIT 1",
+                        (series_id, series_id, was)).fetchone()
+                    if row is not None:
+                        self._move_link(conn, todo_id, row)
 
     # ------------------------------------------------------------------
     # Delete
@@ -1683,6 +1704,13 @@ class CalendarDB:
                         (new_root, new_root),
                     )
 
+            # One occurrence of a repeating to-do's series (Q61): its to-do
+            # moves to the next occurrence rather than going with this one.
+            linked = conn.execute("SELECT id FROM todos WHERE linked_event_id = ?",
+                                  (event_id,)).fetchone()
+            nxt = self._next_instance(conn, event_id) if linked else None
+            if nxt is not None:
+                self._move_link(conn, linked["id"], nxt)
             conn.execute("DELETE FROM todos WHERE linked_event_id = ?", (event_id,))
             conn.execute("DELETE FROM events WHERE id = ?", (event_id,))
 
@@ -1776,6 +1804,49 @@ class CalendarDB:
             title=todo["title"], date=day, start_time=start_time, end_time=end_time))
         self.link_todo(todo_id, event_id)
         return event_id
+
+    # A REPEATING TO-DO (DEVQA Q61, Gil 2026-09-27): the series is the event,
+    # and ONE to-do rides with it, linked to the next occurrence — never one
+    # copy per date. Ticking it marks that occurrence done and moves the to-do
+    # to the one after; deleting that occurrence moves it on the same way; a
+    # series edit that regenerates the instances re-links it (`update_series`).
+    # Only when the series has nothing left does the to-do complete.
+
+    @staticmethod
+    def _next_instance(conn, event_id: int, not_before: str = "") -> "Optional[sqlite3.Row]":
+        """The series instance after `event_id`, on or after `not_before`."""
+        ev = conn.execute("SELECT series_id, date FROM events WHERE id = ?",
+                          (event_id,)).fetchone()
+        if ev is None or ev["series_id"] is None:
+            return None
+        return conn.execute(
+            "SELECT id, date FROM events WHERE (series_id = ? OR id = ?) AND id != ? "
+            "AND date > ? AND date >= ? ORDER BY date, start_time LIMIT 1",
+            (ev["series_id"], ev["series_id"], event_id, ev["date"], not_before or "")).fetchone()
+
+    @staticmethod
+    def _move_link(conn, todo_id: int, row) -> None:
+        today = datetime.date.today().isoformat()
+        conn.execute(
+            "UPDATE todos SET linked_event_id = ?, due_date = ?, list = ?, completed = 0, "
+            "completed_at = '', updated_at = ? WHERE id = ?",
+            (row["id"], row["date"], "today" if row["date"] <= today else "general",
+             _utcnow_iso(), todo_id))
+
+    def roll_series_todo(self, todo_id: int) -> bool:
+        """Tick a to-do linked to a series: move it to the next occurrence from
+        today on. False when it is not on a series or the series has ended —
+        the caller then completes it as any other to-do."""
+        todo = self.get_todo(todo_id)
+        event_id = (todo or {}).get("linked_event_id")
+        if not event_id:
+            return False
+        with self._conn() as conn:
+            nxt = self._next_instance(conn, int(event_id), datetime.date.today().isoformat())
+            if nxt is None:
+                return False
+            self._move_link(conn, todo_id, nxt)
+        return True
 
     def _follow_event(self, conn, event_id: int, updates: dict) -> None:
         """Carry an event's new title or date onto its linked to-do."""
@@ -2063,6 +2134,11 @@ class CalendarDB:
                 updates["quantity"] = max(1, int(updates["quantity"]))
             except (TypeError, ValueError):
                 del updates["quantity"]
+        if str(updates.get("completed", "")).lower() in ("1", "true") \
+                and self.roll_series_todo(todo_id):
+            # a repeating to-do (Q61) moves to its next date instead
+            updates.pop("completed")
+            updates.pop("completed_at", None)
         if not updates:
             return
         with self._conn() as conn:
@@ -2099,7 +2175,8 @@ class CalendarDB:
         new_state = 0 if todo["completed"] else 1
         completed_at = datetime.datetime.now().isoformat() if new_state else ""
         self.update_todo(todo_id, completed=new_state, completed_at=completed_at)
-        return bool(new_state)
+        # read back: a repeating to-do (Q61) rolls on instead of completing
+        return bool((self.get_todo(todo_id) or {}).get("completed"))
 
     # ------------------------------------------------------------------
     # Todos: Delete

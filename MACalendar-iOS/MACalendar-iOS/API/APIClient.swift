@@ -876,7 +876,16 @@ class APIClient: ObservableObject {
         do {
             let data = try await request("/todos/\(id)/toggle", method: "PATCH")
             let obj  = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-            return (obj?["completed"] as? Int ?? 0) != 0
+            let done = (obj?["completed"] as? Int ?? 0) != 0
+            // A repeating to-do (DEVQA Q61) is not completed by a tick: it
+            // moves to its series' next date, and the Mac says where.
+            if !done, let due = obj?["due_date"] as? String {
+                var fields: [String: Any] = ["completed": 0, "due_date": due]
+                if let l = obj?["list_name"] as? String { fields["list_name"] = l }
+                if let e = obj?["linked_event_id"] as? Int { fields["linked_event_id"] = e }
+                LocalStore.shared.patchTodo(id, fields: fields)
+            }
+            return done
         } catch APIError.offline, APIError.badURL {
             LocalStore.shared.enqueue(method: "PATCH", path: "/todos/\(id)/toggle")
             return LocalStore.shared.allTodos(list: nil, includeCompleted: true)

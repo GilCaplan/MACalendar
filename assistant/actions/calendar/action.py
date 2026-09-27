@@ -78,7 +78,13 @@ class CreateEventAction(BaseAction):
                 if getattr(intent, "series_end_defaulted", False):
                     # DEVQA Q57: a default end is announced, never silent
                     reply += " — the default end; say \"until …\" to change it"
-            return reply + "."
+            reply += "."
+            if _files_linked_todo(intent):
+                # DEVQA Q61: ONE to-do for the series, on its first date; the
+                # database rolls it to the next date each time it is ticked.
+                db.create_linked_todo(event_id)
+                reply += " The next one is on your to-do list, and moves on when you tick it."
+            return reply
         reply = f"Created event '{intent.title}' on {_fmt_date(intent.date)} from {_fmt_time(intent.start_time)} to {_fmt_time(intent.end_time)}."
         if _files_linked_todo(intent):
             db.create_linked_todo(event_id)
@@ -88,10 +94,11 @@ class CreateEventAction(BaseAction):
 
 def _files_linked_todo(intent: CalendarIntent) -> bool:
     """File the linked to-do the ENGINE decided on (`linked_todo`). The
-    decision — a call to a role (Q50), a to-do chained into a sequence (Q51) —
-    is decompose_validate's (`stage._files_linked_todo`); the executor does
-    not re-read the title to make it a second time."""
-    return bool(getattr(intent, "linked_todo", False)) and not intent.recurrence
+    decision — a call to a role (Q50), a to-do chained into a sequence (Q51),
+    a to-do that repeats (Q61) — is decompose_validate's
+    (`stage._files_linked_todo`); the executor does not re-read the title to
+    make it a second time."""
+    return bool(getattr(intent, "linked_todo", False))
 
 
 # ---------------------------------------------------------------------------

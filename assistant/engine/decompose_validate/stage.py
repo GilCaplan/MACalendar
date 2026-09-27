@@ -185,10 +185,15 @@ def _files_linked_todo(item, intent) -> bool:
 
       * a to-do caught in a sequence and chained into an event (Q51)
       * a live call to a ROLE — "call the plumber tomorrow" (Q50)
+      * a to-do that repeats (Q61): segmentation's tagger made it a series,
+        and ONE to-do rides with it, rolling to the next date when ticked
 
-    Never a series: one to-do cannot stand for every instance."""
+    A series gets one only in that last case, carried on the item or the
+    front door's intent as `linked_todo` — the role-call reading is not
+    applied to a series."""
     if getattr(intent, "recurrence", None):
-        return False
+        return bool((item.slots or {}).get("linked_todo")
+                    or getattr(intent, "linked_todo", False))
     if (item.slots or {}).get("linked_todo"):
         return True
     from assistant.intent.encounter import is_role_call

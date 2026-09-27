@@ -222,8 +222,17 @@ can be linked and the same thing"*). Link any existing pair from either side,
 or create the missing half: an event's "Also add as a to-do", a task's "Add
 to calendar". By voice, a call to a role ("call the plumber tomorrow",
 DEVQA Q50) books the event and files its linked to-do. A call to a person is
-still one event (Q47), a written message is still one to-do, and a series
-gets no companion.
+still one event (Q47), and a written message is still one to-do.
+
+**A to-do that repeats is a series with ONE rolling to-do** (DEVQA Q61, Gil
+2026-09-27: *"repeating task always becomes an event"*). "Pay rent monthly on
+the 1st" books the monthly series and files one to-do, linked to the first
+date. Ticking it marks that date done and moves the to-do on to the next date
+from today, so the list only ever shows what is next. Deleting that one date
+moves it on too, and it completes only when the series has run out. Before
+this, the ask filed a single to-do and dropped the repeat without a word. An
+event series ("gym every monday at 7am") and a clocked reminder (an event by
+Q26) get no to-do.
 **Where:** the link is `todos.linked_event_id`, one to-do per event (a partial
 UNIQUE index). The DB rules are in `db.py`, under "A to-do and an event linked
 as ONE THING": `link_todo`, `unlink_todo`, `create_linked_todo`,
@@ -241,11 +250,16 @@ On iOS:
 - `TodoPickerSheet` and `EventPickerSheet` (`Features/Calendar/LinkedTodo.swift`).
 
 The voice rule is `intent/encounter.py` `is_role_call`, filed by
-`CreateEventAction`.
+`CreateEventAction`. For Q61 the rule is the tagger's `repeating_task` path
+(`segmentation/fastseg/fastseg.py` `tag_path`). The front door reads it too,
+and so does dv's kind router when its model reads a to-do. The rolling is
+`db.roll_series_todo`, called from `update_todo` on completion.
 
 **How:** Renaming either one renames both. Moving the event re-dates the
 to-do, and re-dating the to-do moves the event (same clock); clearing its due
-date moves nothing. Deleting the event, one or a series, removes the to-do.
+date moves nothing. Deleting the event, one or a series, removes the to-do,
+except one date of a repeating to-do's series, which moves it to the next
+date. Renaming or re-timing the series renames and re-links it.
 Ticking or deleting the to-do leaves the event: the thing happened, or the
 reminder is no longer wanted, and neither un-books it.
 
@@ -258,7 +272,7 @@ the phone, and both creates are replay-safe, because the Mac answers a second
 The link began that morning stored as `source='linked_event'`, and
 `_migrate_links` moved those rows onto the column. Tests:
 `tests/unit/test_linked_todo.py`, and `test_link_ui_mac.py`, which drives the
-controls with real clicks.
+controls with real clicks; the repeating case is `test_repeating_todo.py`.
 
 ### Tasks / to-dos
 **What:** Two lists (Today, General) with priorities, due dates, notes,

@@ -1138,6 +1138,34 @@ def _lexicon_kind(action: str) -> "str | None":
 
 
 def tag_path(action: str, time_str: str) -> "tuple[str, str]":
+    """`_tag_path`, then DEVQA Q61: a to-do that REPEATS is an event series.
+
+    Gil, 2026-09-27: *"repeating task always becomes an event, we have on the
+    calendar that it shows up on due date no? that is essentially part of the
+    linked event-task thoughts."* A to-do has no cadence to keep, so "pay rent
+    monthly on the 1st" and "take out the trash every tuesday" were filed as
+    ONE to-do and the repeat was dropped without a word. The series is the
+    event; the to-do the speaker asked for is its ONE rolling linked to-do,
+    which the path `repeating_task` tells the later stages to file.
+
+    Only a TO-DO reading moves. An event already repeats on its own ("gym every
+    monday at 7am"), and a clocked reminder is an event by Q26 before this is
+    reached, so neither gets a to-do it did not ask for."""
+    kind, path = _tag_path(action, time_str)
+    if kind == "task" and repeats(time_str):
+        return "event", "repeating_task"
+    return kind, path
+
+
+def repeats(time_str: str) -> bool:
+    """Does this time phrase name a cadence (`intent.recurrence`)?"""
+    if not (time_str or "").strip():
+        return False
+    from assistant.intent import recurrence as _recur
+    return bool(_recur.detect(time_str))
+
+
+def _tag_path(action: str, time_str: str) -> "tuple[str, str]":
     """`(kind, path)` — the kind (event | task | review | other) and the READER
     that decided it. `path == "default"` means no reader fired at all: `_kind_of`
     fell through to its catch-all `event` and nothing below moved it. That is

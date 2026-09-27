@@ -668,6 +668,8 @@ class LocalStore: ObservableObject {
         if let v = fields["due_date"]  as? String { todos[i].dueDate  = v }
         if let v = fields["tags"]      as? [String] { todos[i].tags   = v }
         if let v = fields["quantity"]  as? Int    { todos[i].quantity = max(1, v) }
+        if let v = fields["completed"] as? Int    { todos[i].completed = v }
+        if let v = fields["linked_event_id"] as? Int { todos[i].linkedEventId = v }
         persist()
     }
 

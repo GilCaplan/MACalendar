@@ -267,6 +267,12 @@ def run(state, cfg):
         if tagk != item.kind or path != "default":
             continue
         kind, why = route(text, when)
+        if kind == "task" and FS.repeats(when):
+            # A to-do that repeats is a series with ONE rolling to-do (DEVQA
+            # Q61) — the ruling the tagger applies when its own rules read a
+            # to-do, applied to the model's reading too.
+            item.slots["linked_todo"] = True
+            continue
         if kind != item.kind and why.startswith("model:"):
             state.add_fix("decompose_validate", "kind_router", item.kind, kind,
                           f"no rule fired; the model read {why[6:]} event")

@@ -3746,6 +3746,7 @@ class RuleBasedParser:
         carried_date: "str | None" = None
 
         for span in spans:
+            repeating_todo = False
             # Phase 2: Temporal extraction
             temporal = _extract_temporal(span.text, today)
 
@@ -3776,6 +3777,16 @@ class RuleBasedParser:
                     want = "create_event" if tk == "event" else "create_todo"
                     if want != action_name:
                         action_name, domain_inferred = want, False
+                repeating_todo = tpath == "repeating_task"      # DEVQA Q61
+                if action_name == "create_todo":
+                    # The same ruling where THIS router, not the tagger, read
+                    # a to-do: a to-do that repeats is a series with its one
+                    # rolling to-do, never a single to-do with the repeat
+                    # dropped ("put a reminder to water the plants every
+                    # sunday" had no tagger rule to fire).
+                    from assistant.intent import recurrence as _recur
+                    if _recur.detect(span.text):
+                        action_name, repeating_todo = "create_event", True
             if action_name in ("create_todo", "create_event"):
                 # Q47 (Gil, 2026-09-24): an encounter with a person — met,
                 # seen, called — is an event, day or no day ("call mum is an
@@ -3861,6 +3872,16 @@ class RuleBasedParser:
             slots = _fill_slots(span, action_name, temporal, current_view)
             if "_reroute" in slots:
                 action_name = slots.pop("_reroute")
+            if repeating_todo and action_name == "create_event" and slots.get("recurrence"):
+                # A REPEATING TO-DO (DEVQA Q61) books the series AND files its
+                # one rolling to-do. The title is the TO-DO reader's, which
+                # knows the to-do frames — the event reader kept "task to
+                # renew the car insurance" from "add a task to renew …".
+                slots["linked_todo"] = True
+                said_as_todo = _fill_slots(span, "create_todo", dict(temporal),
+                                           current_view).get("titles") or []
+                if len(said_as_todo) == 1:
+                    slots["title"] = said_as_todo[0]
 
             # Phase 5: Anaphora resolution
             slots, used_anaphora = _resolve_anaphora(slots, action_name, self._memory)

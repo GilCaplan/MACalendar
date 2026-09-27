@@ -636,6 +636,10 @@ SEVERAL weekdays** — `recur_days` carries them ("every tuesday and thursday");
 that is WHICH days a weekly series lands on, not a fourth cadence — "every other tuesday" became
 one event before anyone noticed, and "every weekday" books Shabbat.
 
+**A to-do that repeats is an event series with ONE rolling linked to-do**
+(DEVQA Q61): ticking it moves it to the next date, so never file one to-do
+per date, and never drop the repeat. A to-do has no cadence field; that is why.
+
 **A series the engine builds with no end said gets a DEFAULT end** (DEVQA Q57):
 daily 2 weeks, weekly 8, monthly 12 months, yearly 10 years — settings, and the
 reply says so. A stated end always wins.
