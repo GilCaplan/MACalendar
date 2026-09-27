@@ -31,9 +31,11 @@ LLMSeg is wired and INERT; the judge makes no model call; the model is called by
 | vague target refused | 67.4% (29/43) | 81.4% |
 
 Reading: the fast path now helps the product instead of costing it, at half the
-model calls. Harm and vague-target refusal still trail the deep chain.
-`04810fae` (dates the speaker named; vague completions refused) is being
-confirmed on the same board.
+model calls. At `04810fae` the same board read vague target refused **79.1%**
+(34/43) and harm **142**, headline unchanged — but its date and latency lines
+are void: the run paused ~15 h while the Mac slept and Board D's clock ran on
+(fixed, `6a08b0df`). Before the pause, date right read 95.8% (n=192) against
+90.0% at `299aeb0f`.
 
 **The fast path alone** — FastRule shape board, FastRule 7,200 set, `04810fae`:
 
