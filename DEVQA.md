@@ -1,3 +1,18 @@
+- **2026-09-27 — Q61 (A REPEATING TO-DO IS AN EVENT SERIES WITH ONE ROLLING
+  LINKED TO-DO)**, Gil: *"repeating task always becomes an event, we have on
+  the calendar that it shows up on due date no? that is essentially part of the
+  linked event-task thoughts how to handle that."* Asked and answered: the ask
+  ("pay rent monthly on the 1st") becomes a repeating EVENT, plus ONE linked
+  to-do for the next occurrence; ticking it marks that one done and the to-do
+  moves to the next date of the series — the list shows only what is next,
+  never one copy per date. Q47's "no clock -> a to-do" yields to this for a
+  repeating ask.
+
+- **2026-09-27 — Q62 ("BUY A AND B" IS TWO TO-DOS)**, Gil: *"buy a,b thats two
+  actions of a buy apples, b buy bottles."* Same as a comma list. The engine
+  already splits it (decompose's one-errand-several-things split); the FastRule
+  set's noun-phrase decoy families that labelled it one to-do are relabelled.
+
 - **2026-09-26 — Q60 (EVERY DAY HAS A "KEEP ENGINE EVENTS OFF" SWITCH)**, Gil:
   *"exception should include yom tov, also option for expanding to an
   additional box showing for this week what to personally edit because there

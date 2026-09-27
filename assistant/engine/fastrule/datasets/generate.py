@@ -717,6 +717,33 @@ def ruled_family(fam: dict, values: dict, slots: "dict | None" = None,
 _ERRAND_BEFORE = r"\b(buy|grab|pick up)\s+(?:like\s+)?(?:[\w-]+\s+){0,3}?"
 
 
+#: Q62 (Gil, 2026-09-27: *"buy a,b thats two actions of a buy apples, b buy
+#: bottles"*) — the noun-phrase decoy families labelled "buy {item} and
+#: {item2}" as ONE to-do titled "{item} and {item2}". Two to-dos now, each with
+#: the errand verb (Q55): family -> the verb.
+RULED_SPLITS = {
+    "c_npdecoy_buy_two_items": "buy",
+    "c_npdecoy_buy_two_party": "buy",
+    "c_npdecoy_remind_buy_two": "buy",
+    "c_npdecoy_pickup_two_items": "pick up",
+}
+
+
+def ruled_split(fam: dict, row_fam: dict, values: dict, slots: dict) -> "dict | None":
+    """The row as Q62 reads it: two to-dos, or None when the family is not one."""
+    verb = RULED_SPLITS.get(fam["family"])
+    if not verb or "item" not in values or "item2" not in values:
+        return None
+    slots["title"] = f"{verb} {values['item']}"
+    slots["title_2"] = f"{verb} {values['item2']}"
+    out = dict(row_fam)
+    out["events"], out["tasks"] = 0, 2
+    out["_label_sources"] = ([], ["title", "title_2"])
+    out["_ruled"] = "Q62"
+    out["_atomic"] = False                     # two asks, not one
+    return out
+
+
 def ruled_titles(fam: dict, row_fam: dict, text: str, slots: dict) -> "str | None":
     """Rewrite gold titles the title rulings decide, in place; the ruling tag
     or None. Q55 keeps the errand verb on a to-do; Q56 keeps "with <person>"
@@ -760,6 +787,9 @@ def _emit_family_rows(fam: dict, split_name: str, quota: int, tier: str, fillers
         row_fam = ruled_family(fam, values, slots, text) or fam
         if row_fam is not fam:
             item = dict(item, kind="task" if row_fam["action"].endswith("todo") else "event")
+        split = ruled_split(fam, row_fam, values, slots)
+        if split is not None:
+            row_fam = split
         title_ruling = ruled_titles(fam, row_fam, text, slots)
         add_labels(row_fam, slots, categories_mod, tagging_mod, task_tag_keywords)
         ruled = "+".join(x for x in ((row_fam.get("_ruled") if row_fam is not fam else None),
@@ -774,7 +804,7 @@ def _emit_family_rows(fam: dict, split_name: str, quota: int, tier: str, fillers
                 "events": row_fam["events"],
                 "tasks": row_fam["tasks"],
                 "action": row_fam["action"],
-                "atomic": fam["atomic"],
+                "atomic": row_fam.get("_atomic", fam["atomic"]),
                 "slots": slots,
                 # The Item the two upstream stages SHOULD produce (C1,
                 # 2026-09-10). ADDITIVE — every field above is untouched, which
