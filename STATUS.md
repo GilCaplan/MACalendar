@@ -48,6 +48,27 @@ ingest: a trailing ", done" stripped, "my reminder" passing the generic-target
 veto once the hedges are gone, and the repaired "set a reminder to X next week"
 read as an event.
 
+**TEST milestone 2 (2026-09-27)**, `4d070b41` -> `d8aecf26` (three TRAIN
+cycles: the bare-kind veto, the rescue's to-do narrowing, Q63), same gold:
+
+| TEST line | before | after |
+|---|---|---|
+| Board D headline | 80.6% | **82.1%** (18 fixed / **0 broken**) |
+| Board D count-correct · objects F1 | 86.2% · 92.2% | 87.1% · **93.9%** (extra 42 -> 24) |
+| Board D harm (wrong rows) | 241 (233) | **221** (215) |
+| Board D vague target refused | 77.1% | 80.0% (28/35) |
+| Board D title exact · word F1 | 44.5% · 80.0% | 43.9% · 79.8% (**worse**) |
+| segmentation exact-row | 83.5% (551/660) | **85.5%** (564/660) |
+| relation · dv · chain | | identical |
+| FastRule harm | 168 | 165 |
+| FastRule non-atomic HALF-EXECUTED | 26 | **38 (worse)** |
+
+The half-executed rise has no TRAIN counterpart (61 -> 61). From aggregates
+only: "deferred by accident" fell 8.8 -> 6.7% — no-time multi-ask commands
+that used to defer for a missing event date now commit as to-dos, and some of
+TEST's phrasings drop an ask. Next: grow TRAIN multi-ask no-time phrasings so
+the shape can be fixed from TRAIN (never from the TEST rows).
+
 **The fast path alone** — FastRule shape board, FastRule 7,200 set, `04810fae`:
 
 | line | TRAIN (atomic n=4,068) | TEST (atomic n=1,472) |
