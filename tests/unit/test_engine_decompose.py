@@ -145,3 +145,17 @@ def test_leading_courtesy_prefix_cleaned_after_strip():
     _strip_reminder_clause(it)
     assert it.slots["reminder_minutes"] == 60
     assert it.text == "the meeting I hace tomorrow"
+
+
+def test_a_list_split_is_one_errand_with_several_things(cfg):
+    """Decompose splits a to-do only when every part reads "<errand verb> <a
+    short thing>" (2026-09-26): 253 splits on the FastRule 7,200 train half
+    were mostly remarks, times and weekdays cut at a comma."""
+    st = _run([_task("buy 2 eggs, stamps, and protein bars")], cfg)
+    assert [i.text for i in st.items] == ["buy 2 eggs", "buy stamps", "buy protein bars"]
+    for text in ("mark submit the report as done, finally got to it",
+                 "remove change the air filter from my list, i already handled it",
+                 "print the boarding pass every tuesday and thursday at around lunchtime",
+                 "block out to back up the laptop, all day the 30th",
+                 "send me an alert and hour before my next appointment"):
+        assert len(_run([_task(text)], cfg).items) == 1, text

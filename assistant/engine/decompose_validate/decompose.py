@@ -34,6 +34,26 @@ from assistant.engine.state import EngineState, Item
 # its only model call here.
 
 
+#: Words that make a list part a CLAUSE or a TIME, never a thing to get.
+_NOT_A_THING = re.compile(
+    r"\b(?:i|i'm|i've|it|it's|you|we|they|that|this|is|was|are|be|been|done|got|"
+    r"won't|already|finally|anymore|now|including|something|before|after|every|each|all\s+day|today|tonight|tomorrow|"
+    r"monday|tuesday|wednesday|thursday|friday|saturday|sunday|weekend|week|month|"
+    r"morning|afternoon|evening|lunchtime|o'?clock|\d{1,2}(?::\d{2})?\s*(?:am|pm))\b", re.I)
+
+
+def _is_errand(part: str) -> bool:
+    """"buy stamps", "pick up the dry cleaning" — an errand verb and a short
+    thing, with no clause or time word in the thing."""
+    from assistant.intent.list_split import lead_verb
+    verb = lead_verb(part)
+    if not verb:
+        return False
+    thing = part[len(verb):].strip()
+    return (0 < len(thing.split()) <= 5 and not _NOT_A_THING.search(thing)
+            and not re.match(r"(?:on|to|from|off|of|for|at|in|with)\b", thing, re.I))
+
+
 def _split_tasks(item: Item) -> "list[Item] | None":
     """The list splitter, with the same discipline segment's clause tier has:
     every piece must be an ASK.
@@ -57,6 +77,16 @@ def _split_tasks(item: Item) -> "list[Item] | None":
     if len(parts) <= 1:
         return None
     if not every_part_is_an_ask(parts, ACTION_VERBS):
+        return None
+    # ONE ERRAND, SEVERAL THINGS — the only shape this split is for (Gil,
+    # 2026-09-26: a list is "another type of recurrence, which would be fine
+    # to keep"). Measured on the FastRule 7,200 train half, 253 splits and
+    # about 180 of them were not lists at all: a comma before a remark ("mark
+    # it done, finally got to it"), a time ("block out the 30th …, all day"),
+    # a weekday ("every tuesday and thursday" -> 'print thursday'). Every part
+    # must read "<errand verb> <a short thing>"; otherwise the item stays whole
+    # and an under-split is segmentation's to fix.
+    if not all(_is_errand(p) for p in parts):
         return None
     return [Item(id=f"{item.id}-{j}", kind="task", text=p,
                  slots=dict(item.slots))
