@@ -1376,9 +1376,14 @@ def create_app() -> Flask:
     #: `events` joined 2026-09-25 (DEVQA Q51): the default event length and the
     #: gap between chained events, which the engine reads through
     #: `assistant/event_defaults.py` and both apps edit.
+    #:
+    #: `observance` joined 2026-09-26 (DEVQA Q59) for its on/off switch ONLY —
+    #: `observance.enabled`, a Mac checkbox that the phone now has as a toggle.
+    #: Where sundown is computed for has its own route
+    #: (`/observance/location`), so the rest of that section is refused here.
     _ALLOWED_PATCH_KEYS = {"llm_engine", "tts", "confirmation_level",
                            "notifications", "theme", "ui", "todo",
-                           "hebrew_calendar", "events"}
+                           "hebrew_calendar", "events", "observance"}
 
     @app.get("/digest")
     def digest():
@@ -1451,6 +1456,8 @@ def create_app() -> Flask:
             "ui": cfg.ui.model_dump(),
             "hebrew_calendar": cfg.hebrew_calendar.model_dump(),
             "events": cfg.events.model_dump(),
+            # Only the switch (DEVQA Q59); the place is the location route's.
+            "observance": {"enabled": bool(cfg.observance.enabled)},
         })
 
     @app.patch("/config")
@@ -1496,6 +1503,15 @@ def create_app() -> Flask:
                     return jsonify({"error": f"events.{sub} must be a whole number of "
                                     f"{unit} from {low} to {high}",
                                     "code": 400}), 400
+
+        # The observance switch is a BOOL the engine gates on, and nothing else
+        # in that section is this route's to write (see `_ALLOWED_PATCH_KEYS`).
+        observance = data.get("observance")
+        if observance is not None and (
+                not isinstance(observance, dict) or set(observance) != {"enabled"}
+                or not isinstance(observance["enabled"], bool)):
+            return jsonify({"error": 'observance takes only {"enabled": true|false}',
+                            "code": 400}), 400
 
         for key, wren in data.items():
             if key not in _ALLOWED_PATCH_KEYS:

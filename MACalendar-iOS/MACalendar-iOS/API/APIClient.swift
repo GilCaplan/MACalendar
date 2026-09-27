@@ -2237,10 +2237,15 @@ struct SharedSettings: Decodable, Equatable {
     /// `events.series_end_*` (DEVQA Q57) — only the cadences the Mac sent, for
     /// the same reason.
     var seriesEnd: [SeriesEnd: Int] = [:]
+    /// `observance.enabled` (DEVQA Q59) — nil when the Mac predates serving it.
+    var observanceEnabled: Bool?
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         theme = try c.decodeIfPresent(String.self, forKey: .theme) ?? "dark"
+
+        let obs = try? c.nestedContainer(keyedBy: ObservanceKeys.self, forKey: .observance)
+        observanceEnabled = (try? obs?.decodeIfPresent(Bool.self, forKey: .enabled)) as? Bool
 
         let events = try? c.nestedContainer(keyedBy: EventsKeys.self, forKey: .events)
         eventLengthMinutes = (try? events?.decodeIfPresent(Int.self, forKey: .eventLengthMinutes)) as? Int
@@ -2273,9 +2278,10 @@ struct SharedSettings: Decodable, Equatable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case theme, ui, todo, tts, events
+        case theme, ui, todo, tts, events, observance
         case hebrewCalendar = "hebrew_calendar"
     }
+    enum ObservanceKeys: String, CodingKey { case enabled }
     enum EventsKeys: String, CodingKey {
         case eventLengthMinutes = "event_length_minutes"
         case chainGapMinutes = "chain_gap_minutes"
@@ -2307,4 +2313,42 @@ extension APIClient {
         do { _ = try await mutate("/config", method: "PATCH", body: body); return true }
         catch { announceRefusal(error, doing: "save that setting"); return false }
     }
+
+    // MARK: Shabbat / yom tov exception days (DEVQA Q59)
+
+    /// The dates the Shabbat / yom tov rule is OFF for, as ISO days, sorted.
+    /// The last list heard is kept, so the screen still shows it with the Mac
+    /// away.
+    func observanceExceptions() async -> [String] {
+        if let data = try? await request("/observance/exceptions"),
+           let got = try? decode(ObservanceExceptions.self, from: data) {
+            UserDefaults.standard.set(got.dates, forKey: ObservanceExceptions.cacheKey)
+            return got.dates
+        }
+        return UserDefaults.standard.stringArray(forKey: ObservanceExceptions.cacheKey) ?? []
+    }
+
+    /// Replace the whole list (`PUT` — so a queued copy replayed later is
+    /// still exactly what was shown). Returns what the Mac saved, or nil when
+    /// the write was queued or refused (a refusal is announced).
+    @discardableResult
+    func setObservanceExceptions(_ dates: [String]) async -> [String]? {
+        UserDefaults.standard.set(dates, forKey: ObservanceExceptions.cacheKey)
+        do {
+            guard let data = try await mutate("/observance/exceptions", method: "PUT",
+                                              body: ["dates": dates]) else { return nil }
+            let saved = try? decode(ObservanceExceptions.self, from: data).dates
+            if let saved { UserDefaults.standard.set(saved, forKey: ObservanceExceptions.cacheKey) }
+            return saved
+        } catch {
+            announceRefusal(error, doing: "save the exception days")
+            return nil
+        }
+    }
+}
+
+/// GET / PUT /observance/exceptions — `{"dates": ["YYYY-MM-DD", ...]}`.
+struct ObservanceExceptions: Decodable {
+    let dates: [String]
+    static let cacheKey = "observanceExceptions"
 }

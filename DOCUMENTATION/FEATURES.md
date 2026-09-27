@@ -1464,6 +1464,14 @@ included. Stored in `~/.assistant_tools/observance_exceptions.json`
 served by `GET/PUT /observance/exceptions`. **Chol hamoed is an ordinary day**
 and always was: `yom_tov_name` excludes it, so neither the check nor the series
 skip touches it.
+**Where to set them:** Mac — Settings › Hebrew Calendar: the "Keep engine-made
+events off Shabbat & yom tov" checkbox (`observance.enabled`) and, under it, an
+Exception days list (weekday + Shabbat / yom tov / fast name per date; a date
+picker, Add…, Remove), written through `observance.set_exception_dates()` on
+Save. iPhone — Settings › Hebrew Calendar: the same toggle (`PATCH /config`
+`{"observance": {"enabled": …}}` — the only observance key that route accepts)
+and an Exception days list (swipe to delete, DatePicker + Add), each change a
+`PUT /observance/exceptions` of the whole list, queued offline.
 
 ### Shabbat & yom tov lines
 **What:** A yellow line on the Day and Week grids, on both apps, at the exact
