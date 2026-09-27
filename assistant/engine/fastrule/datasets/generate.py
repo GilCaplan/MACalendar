@@ -710,6 +710,40 @@ def ruled_family(fam: dict, values: dict, slots: "dict | None" = None,
     return out
 
 
+#: Q55 (Gil, 2026-09-26: "buy/grab should stay in title") — the errand verb
+#: said right before a to-do's thing is part of its title: "grab a few light
+#: bulbs" is 'grab light bulbs', not 'light bulbs'. Only these verbs; "get" is
+#: too often not an errand.
+_ERRAND_BEFORE = r"\b(buy|grab|pick up)\s+(?:like\s+)?(?:[\w-]+\s+){0,3}?"
+
+
+def ruled_titles(fam: dict, row_fam: dict, text: str, slots: dict) -> "str | None":
+    """Rewrite gold titles the title rulings decide, in place; the ruling tag
+    or None. Q55 keeps the errand verb on a to-do; Q56 keeps "with <person>"
+    on an event ('sales call with Skyler', 'meeting with Jamie')."""
+    ev, ta = row_fam["_label_sources"]
+    low = " ".join(text.lower().split())
+    tags = []
+    for key in ta:
+        title = str(slots.get(key) or "")
+        if not title:
+            continue
+        m = re.search(_ERRAND_BEFORE + re.escape(title.lower()) + r"\b", low)
+        if m and not title.lower().startswith(m.group(1)):
+            slots[key] = f"{m.group(1)} {title}"
+            tags.append("Q55")
+    for key in ev:
+        title = str(slots.get(key) or "")
+        names = [str(slots[k]) for k in ("attendee", "attendee_2") if slots.get(k)]
+        if not title or not names or " with " in f" {title.lower()} ":
+            continue
+        said = " and ".join(names)
+        if re.search(r"\bwith\s+" + re.escape(said.lower()) + r"\b", low):
+            slots[key] = f"{title} with {said}"
+            tags.append("Q56")
+    return "+".join(sorted(set(tags))) or None
+
+
 def _emit_family_rows(fam: dict, split_name: str, quota: int, tier: str, fillers: dict,
                        global_seen: set, categories_mod, tagging_mod, task_tag_keywords: dict) -> list[dict]:
     """Generate `quota` rows for one family already assigned to `split_name`,
@@ -726,7 +760,10 @@ def _emit_family_rows(fam: dict, split_name: str, quota: int, tier: str, fillers
         row_fam = ruled_family(fam, values, slots, text) or fam
         if row_fam is not fam:
             item = dict(item, kind="task" if row_fam["action"].endswith("todo") else "event")
+        title_ruling = ruled_titles(fam, row_fam, text, slots)
         add_labels(row_fam, slots, categories_mod, tagging_mod, task_tag_keywords)
+        ruled = "+".join(x for x in ((row_fam.get("_ruled") if row_fam is not fam else None),
+                                     title_ruling) if x)
         out.append({
             "id": f"{fam['family']}-{counter:03d}",
             "text": text,
@@ -743,7 +780,7 @@ def _emit_family_rows(fam: dict, split_name: str, quota: int, tier: str, fillers
                 # 2026-09-10). ADDITIVE — every field above is untouched, which
                 # C2 asserts by regenerating and diffing with this key removed.
                 "item": item,
-                **({"ruled": row_fam["_ruled"]} if row_fam is not fam else {}),
+                **({"ruled": ruled} if ruled else {}),
             },
         })
     return out

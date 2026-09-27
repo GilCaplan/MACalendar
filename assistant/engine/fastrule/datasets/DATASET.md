@@ -663,12 +663,16 @@ generator now applies both **by construction** (`generate.py`,
 | **Q25/Q26** (2026-09-18): a stated CLOCK or RANGE makes it an event, whatever the phrasing | a to-do part whose own `{time}` filler is a clock (every `times` filler except `NOT_A_CLOCK`: "first thing in the morning", "around lunchtime", "late afternoon") or any `{time_range}` | `s_ct_task_with_time`, `c_recur_7`, `c_recur_12`, `c_range_ct_1`, `c_remindthen_2`, `c_timelist_ct_1..4` |
 | **Q47** (2026-09-24): an ENCOUNTER with a person — met, seen, talked to, or CALLED — is an event, day or no day; a written message stays a to-do | the "call {name}" part | `s_ct_call_someone`, `s_ct_call_someone_date`, `c_attendee_8`, `c_npdecoy_call_two_task`, `c_joiner_commathen_tt_1`, `c_remindthen_5` |
 | **Q50** (2026-09-25): a live call to a ROLE ("call the plumber") is an event like a call to a person | any to-do title the engine's own `encounter.is_role_call` reads as a call to a role, unless the command names the to-do list — decided by the title's words (`_q50_moves`), not per family, because "call the plumber" arrives through the `task_titles` bank | 56 rows (37 train, 19 test) across the families that draw on `task_titles` |
+| **Q55** (2026-09-26): the errand verb stays in a to-do's TITLE — *"buy/grab should stay in title"* | the title of a to-do part whose words say "buy / grab / pick up" right before it ("grab a few light bulbs" -> 'grab light bulbs'); `ruled_titles` in `generate.py`, decided on the row's words | 293 rows (239 train, 54 test) |
+| **Q56** (2026-09-26): the person stays in an event's TITLE — 'meeting with Jamie', 'sales call with Skyler' | the title of an event part whose words say "with {name}" (or "with {name} and {name2}") and whose gold title did not carry it | 145 rows (120 train, 25 test) |
 
 The WORDS, ids and splits do not move; the gold does. That means `action`,
 `events`/`tasks`, `item.kind`, and the label slots (`category` for a part that
 became an event, in place of `tags`). Each ruled row carries
-`expect.ruled: "Q26" | "Q47" | "Q50"` (or "Q26+Q50" where both moved one
-row). "email {name}" (`s_ct_email_someone`, `c_attendee_9`) stays a to-do,
+`expect.ruled: "Q26" | "Q47" | "Q50" | "Q55" | "Q56"` (joined with "+"
+where several moved one row). Q55/Q56 move only titles — and the `category` /
+`tags` labels that follow a title; nothing else moved (row-diffed,
+2026-09-26). "email {name}" (`s_ct_email_someone`, `c_attendee_9`) stays a to-do,
 because a written message is not an encounter (`assistant/intent/encounter.py`).
 "call the plumber" stayed one too until Q50; its regeneration moved those 56
 rows and nothing else (row-diffed, 2026-09-25).

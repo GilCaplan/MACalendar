@@ -56,7 +56,7 @@ Re-run with `python -m scripts.benchmark_models` (see flags in the file header).
 | Engine | Latency / clip | Accuracy on names + Hebrew terms |
 |---|---:|---|
 | faster-whisper base, int8 CPU (previous default) | 3.3–3.5 s | good |
-| **mlx-whisper base, Apple GPU (new default, `stt_engine: mlx`)** | **1.9–2.1 s** | same as CPU base |
+| **mlx-whisper base, Apple GPU (`stt_engine: mlx` — what this Mac runs; the shipped default in `config.py` and `config.example.yaml` is still `whisper`)** | **1.9–2.1 s** | same as CPU base |
 | mlx-whisper small, GPU | 5.0 s | slightly worse on Hebrew terms |
 | mlx-whisper large-v3-turbo, GPU | 7.5 s | no better |
 
