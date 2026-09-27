@@ -3327,3 +3327,18 @@ fixed / 0 broken** (the two "…and then add X to my grocery list" rows). The
 other rows the reader fix aimed at still fail for a second reason. Small, and
 honest: two real-speech fixes, +1.1 pt on multi-ask. Against the finish line
 (DEVQA Q64): single 91.9% vs ≥95%, multi 63.7% vs ≥80%.
+
+## CYCLE R3 — the calendar misspelled (2026-09-27, `d8b3e81d`) — and a stop
+
+Scorer first: it now counts the to-do an event files with it (linked_todo), so
+the dev range reads **84.5% adjusted** (n=600; single 91.9%, multi 67.6%) — and
+R1/R2 read identical under it (their "+2" was the scorer's blind spot).
+R3 (calender/calander/calandar read as the calendar; 90 of 528 real mentions):
+**count-correct 84.5 -> 84.5%, 0 rows flipped**; item recall 77.5 -> 78.8%,
+precision 89.6 -> 88.8% (created 472 -> 484), field quality unchanged.
+
+**Three real-speech cycles have now moved nothing past the noise.** Per the
+protocol the instrument changes, not the grind: the remaining 93 dev failures
+need a one-time triage into engine-wrong / answer-key-outdated /
+unanswerable, so the finish line (DEVQA Q64) is read against what the engine
+can own — and real usage (Gil's reviewed commands) becomes the primary read.
