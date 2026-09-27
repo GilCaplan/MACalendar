@@ -104,6 +104,15 @@ def chain(items: list, dicts: list) -> list:
             continue
         if item.kind not in ("event", "task") or d.get("start_time") or d.get("recurrence"):
             continue                                  # its own clock wins
+        if item.kind == "task":
+            from assistant.intent.encounter import names_the_list
+            if names_the_list(item.source or item.text):
+                # Said ONTO A NAMED LIST it stays a to-do (Q47): "…meeting with
+                # Julie at 5 pm, and then add broccoli to my shopping list" is
+                # a list add, not the next thing in a day. Real speech put
+                # these through the chain as events — 5 distinct phrasings on
+                # the verification pool's dev range (2026-09-27).
+                continue
         j = anchored[0] if anchored else i - 1
         prev, p = items[j], dicts[j]
         own_day = _names_a_day(item.source or item.text)
