@@ -2234,6 +2234,9 @@ struct SharedSettings: Decodable, Equatable {
     /// older Mac never resets the phone's copy to a made-up default.
     var eventLengthMinutes: Int?
     var chainGapMinutes: Int?
+    /// `events.series_end_*` (DEVQA Q57) — only the cadences the Mac sent, for
+    /// the same reason.
+    var seriesEnd: [SeriesEnd: Int] = [:]
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -2242,6 +2245,12 @@ struct SharedSettings: Decodable, Equatable {
         let events = try? c.nestedContainer(keyedBy: EventsKeys.self, forKey: .events)
         eventLengthMinutes = (try? events?.decodeIfPresent(Int.self, forKey: .eventLengthMinutes)) as? Int
         chainGapMinutes = (try? events?.decodeIfPresent(Int.self, forKey: .chainGapMinutes)) as? Int
+        for cadence in SeriesEnd.allCases {
+            guard let key = EventsKeys(rawValue: cadence.configKey) else { continue }
+            if let v = try? events?.decodeIfPresent(Int.self, forKey: key) {
+                seriesEnd[cadence] = v
+            }
+        }
 
         let ui = try? c.nestedContainer(keyedBy: UIKeys.self, forKey: .ui)
         accentColor = (try? ui?.decodeIfPresent(String.self, forKey: .accentColor)) as? String ?? ""
@@ -2270,6 +2279,10 @@ struct SharedSettings: Decodable, Equatable {
     enum EventsKeys: String, CodingKey {
         case eventLengthMinutes = "event_length_minutes"
         case chainGapMinutes = "chain_gap_minutes"
+        case seriesEndDailyDays = "series_end_daily_days"
+        case seriesEndWeeklyWeeks = "series_end_weekly_weeks"
+        case seriesEndMonthlyMonths = "series_end_monthly_months"
+        case seriesEndYearlyYears = "series_end_yearly_years"
     }
     enum UIKeys: String, CodingKey { case accentColor = "accent_color" }
     enum HebrewKeys: String, CodingKey {

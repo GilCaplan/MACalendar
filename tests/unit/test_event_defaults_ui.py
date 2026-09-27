@@ -337,3 +337,84 @@ def test_editing_an_existing_event_keeps_its_end(app, scratch, db):
     QTest.keyClicks(title, " session")
     QApplication.processEvents()
     assert _hhmm(dlg._end) == "09:20"
+
+
+# ── Settings › Events › a series' default end (DEVQA Q57) ─────────────
+
+_SERIES = (("daily", "series_end_daily_days"), ("weekly", "series_end_weekly_weeks"),
+           ("monthly", "series_end_monthly_months"), ("yearly", "series_end_yearly_years"))
+
+
+def _series_spins(dlg) -> dict:
+    spins = {key: dlg.findChild(QSpinBox, f"events_series_{cadence}_spin")
+             for cadence, key in _SERIES}
+    missing = [k for k, s in spins.items() if s is None]
+    assert not missing, f"no spin box for {missing}"
+    return spins
+
+
+def test_series_end_spins_show_the_file_and_the_shared_bounds(app, scratch):
+    """Shown from config.yaml (the phone may have changed them), ranged by
+    SERIES_END_BOUNDS — the table PATCH /config refuses against."""
+    from assistant.calendar_ui.settings_dialog import open_settings
+    from assistant.config import SERIES_END_BOUNDS
+    _set_events(scratch, series_end_daily_days=21, series_end_weekly_weeks=6,
+                series_end_monthly_months=3, series_end_yearly_years=2)
+    window = _Window()                        # its in-memory config says 14/8/12/10
+    failures: list = []
+    seen: dict = {}
+
+    def interact(dlg):
+        _open_events_section(dlg)
+        spins = _series_spins(dlg)
+        seen["values"] = {k: s.value() for k, s in spins.items()}
+        seen["ranges"] = {k: (s.minimum(), s.maximum()) for k, s in spins.items()}
+        seen["visible"] = all(s.isVisible() for s in spins.values())
+        dlg.reject()
+
+    _drive(interact, failures)
+    open_settings(window)
+    if failures:
+        raise failures[0]
+    assert seen["values"] == {"series_end_daily_days": 21, "series_end_weekly_weeks": 6,
+                              "series_end_monthly_months": 3, "series_end_yearly_years": 2}
+    assert seen["ranges"] == {k: (1, top) for k, (_d, top) in SERIES_END_BOUNDS.items()}
+    assert seen["visible"], "opening the Events section did not show the series spins"
+
+
+def test_typing_series_ends_and_saving_writes_them(app, scratch):
+    from assistant.calendar_ui.settings_dialog import open_settings
+    _set_events(scratch, event_length_minutes=45, chain_gap_minutes=10)
+    window = _Window()
+    failures: list = []
+    seen: dict = {}
+    typed = {"series_end_daily_days": "30", "series_end_weekly_weeks": "12",
+             "series_end_monthly_months": "6", "series_end_yearly_years": "999"}
+
+    def interact(dlg):
+        _open_events_section(dlg)
+        spins = _series_spins(dlg)
+        for key, text in typed.items():
+            _retype(spins[key], text)
+        seen["typed"] = {k: s.value() for k, s in spins.items()}
+        save = next(b for b in dlg.findChildren(QPushButton) if b.text() == "Save Config")
+        QTest.mouseClick(save, Qt.MouseButton.LeftButton)
+
+    _drive(interact, failures)
+    open_settings(window)
+    if failures:
+        raise failures[0]
+
+    # 999 years is past the 50-year bound: the spin box refuses the second
+    # 9, so what reaches the file is still in range.
+    expected = {"series_end_daily_days": 30, "series_end_weekly_weeks": 12,
+                "series_end_monthly_months": 6, "series_end_yearly_years": 9}
+    assert seen["typed"] == expected, "the keys did not reach the spin boxes"
+    events = yaml.safe_load(scratch.read_text())["events"]
+    assert {k: events[k] for k in expected} == expected
+    # The two neighbouring settings were written back unchanged.
+    assert (events["event_length_minutes"], events["chain_gap_minutes"]) == (45, 10)
+    # ...and the engine's read sees the new ends.
+    assert [event_defaults.series_count(c) for c, _k in _SERIES] == [30, 12, 6, 9]
+    assert event_defaults.series_default_until("weekly", "2026-09-28") == "2026-12-20"
+    assert window._config.events.series_end_weekly_weeks == 12

@@ -318,6 +318,19 @@ struct SettingsView: View {
                             Text("An event with no end said lasts the default length. In “gym at 9, then lunch”, lunch starts this gap after the gym ends. A category can set its own of either in Assistant › Event colours.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
+
+                            // DEVQA Q57 (Gil, 2026-09-26): a repeating event
+                            // with no end said stops after a default, per
+                            // cadence. Shared with the Mac (`events.series_end_*`).
+                            Divider()
+                            Label("A repeating event with no end stops after",
+                                  systemImage: "repeat")
+                            ForEach(SeriesEnd.allCases) { cadence in
+                                seriesEndStepper(cadence)
+                            }
+                            Text("Only when the words say no end — “until …” always wins — and the reply names the end it chose.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
                         .padding(.vertical, 4)
                     }
@@ -728,6 +741,31 @@ struct SettingsView: View {
         }
         if let v = shared.chainGapMinutes, v != settings.chainGapMinutes {
             settings.chainGapMinutes = v
+        }
+        for cadence in SeriesEnd.allCases {
+            if let v = shared.seriesEnd[cadence], v != settings[keyPath: cadence.keyPath] {
+                settings[keyPath: cadence.keyPath] = v
+            }
+        }
+    }
+
+    /// One "daily — 14 days" row (DEVQA Q57). Bounded by `SeriesEnd.bounds`,
+    /// the phone's copy of SERIES_END_BOUNDS, so every PATCH is one the Mac
+    /// accepts.
+    private func seriesEndStepper(_ cadence: SeriesEnd) -> some View {
+        let n = settings[keyPath: cadence.keyPath]
+        return Stepper(value: Binding(get: { settings[keyPath: cadence.keyPath] },
+                                      set: { settings[keyPath: cadence.keyPath] = $0 }),
+                       in: 1...cadence.bounds.max) {
+            HStack {
+                Text(cadence.rawValue.capitalized)
+                Spacer()
+                Text("\(n) \(n == 1 ? cadence.singularUnit : cadence.unit)")
+                    .foregroundColor(.secondary)
+            }
+        }
+        .onChange(of: settings[keyPath: cadence.keyPath]) { v in
+            Task { await api.patchShared(["events": [cadence.configKey: v]]) }
         }
     }
 
