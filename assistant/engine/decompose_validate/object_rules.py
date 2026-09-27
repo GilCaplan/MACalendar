@@ -159,7 +159,24 @@ def _rule_now_means_now(state, intent, transcript) -> None:
                   note="\"now\" is the clock, not midnight")
 
 
-def _rule_max_duration_cap(state, intent, cfg) -> None:
+#: An END the speaker stated: "until 5pm", "till noon", "to 2:30".
+_STATED_END = re.compile(
+    r"\b(?:until|till|til|through|thru|to)\s+(?:about\s+|around\s+)?"
+    r"(?:\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?|noon|midnight)\b", re.I)
+
+
+def _states_its_end(spoken: str) -> bool:
+    """Did the speaker's own words give the end — a range, an end clock or a
+    length? (DEVQA Q54: the cap is only for ends the ENGINE made.)"""
+    if not spoken:
+        return False
+    from assistant.engine.segmentation.fastseg.fastseg import find_time_refs
+    from assistant.engine.decompose_validate.resolve import resolve_duration
+    return (any(r.kind == "range" for r in find_time_refs(spoken))
+            or bool(_STATED_END.search(spoken)) or bool(resolve_duration(spoken)))
+
+
+def _rule_max_duration_cap(state, intent, cfg, spoken: str = "") -> None:
     """A ceiling on what the ENGINE ITSELF builds. `engine.max_event_hours`
     (default 4) — a `create_event` this stage produced longer than that is
     clipped from the END, keeping the start the speaker gave. Never touches a
@@ -173,6 +190,13 @@ def _rule_max_duration_cap(state, intent, cfg) -> None:
     start = getattr(intent, "start_time", None)
     end = getattr(intent, "end_time", None)
     if not start or not end:
+        return
+    # AN END THE SPEAKER STATED IS NOT CLIPPED (DEVQA Q54, Gil 2026-09-26:
+    # *"the engine does up to four hours unless the user purposefully states
+    # more than that"* — and the cap's own request, 7fea6a78: *"this is only on
+    # what the ai engine produces"*). "put physical therapy on my calendar
+    # tomorrow from 9 to 2:30" was booked 09:00-13:00.
+    if _states_its_end(spoken):
         return
     # AN ALL-DAY EVENT IS NOT A LONG ONE. The whole-day block is written
     # 00:00-23:59 (`CalendarIntent`), and this rule read it as a 24-hour span

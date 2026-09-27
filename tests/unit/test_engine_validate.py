@@ -172,13 +172,30 @@ def test_generic_event_beside_real_todos_is_dropped(cfg):
 # --- max_duration_cap (engine-built events only, config: engine.max_event_hours) --
 
 def test_a_construction_over_the_cap_is_clipped_from_the_end(cfg):
+    # The speaker said only the start; the long end is the ENGINE's (a model's
+    # guess), which is what the cap is for (DEVQA Q54).
     it = _item("create_event", _event_intent(
-        title="offsite", date="2026-09-10", start_time="09:00", end_time="20:00"))
-    st = _state("book offsite tomorrow 9am to 8pm", [it])
+        title="offsite", date="2026-09-10", start_time="09:00", end_time="20:00"),
+        text="book offsite tomorrow at 9am")
+    st = _state("book offsite tomorrow at 9am", [it])
     validate.run_objects(st, cfg)
     assert it.intent.start_time == "09:00"     # the start the speaker gave stays
     assert it.intent.end_time == "13:00"       # clipped to the default 4-hour cap
     assert "max_duration_cap" in _rules_applied(st)
+
+
+def test_an_end_the_speaker_stated_is_not_clipped(cfg):
+    """DEVQA Q54 (Gil, 2026-09-26): up to four hours "unless the user
+    purposefully states more than that" — a range, an end clock, a length."""
+    for said, end in [("put physical therapy on my calendar tomorrow from 9 to 2:30", "14:30"),
+                      ("offsite tomorrow at 9am until 8pm", "20:00"),
+                      ("offsite tomorrow at 9am for six hours", "15:00")]:
+        it = _item("create_event", _event_intent(
+            title="x", date="2026-09-10", start_time="09:00", end_time=end), text=said)
+        st = _state(said, [it])
+        validate.run_objects(st, cfg)
+        assert it.intent.end_time == end, said
+        assert "max_duration_cap" not in _rules_applied(st), said
 
 
 def test_a_construction_at_or_under_the_cap_is_left_alone(cfg):
@@ -194,7 +211,8 @@ def test_the_cap_is_configurable(cfg):
     cfg.engine.max_event_hours = 2.0
     it = _item("create_event", _event_intent(
         title="offsite", date="2026-09-10", start_time="09:00", end_time="13:00"))
-    st = _state("book offsite tomorrow 9am to 1pm", [it])
+    it.text = "book offsite tomorrow at 9am"
+    st = _state("book offsite tomorrow at 9am", [it])
     validate.run_objects(st, cfg)
     assert it.intent.end_time == "11:00"
 
@@ -359,10 +377,15 @@ def test_shabbat_gym_is_flagged_with_a_reason(cfg):
     committed with a note the speaker can see and act on. What must NOT change is
     that the reason names Shabbat — the point was never to be quiet about it.
     """
-    it = _item("create_event", _event_intent(
-        title="gym session", date=_next_saturday().isoformat(), start_time="10:00"))
-    st = _state("gym on saturday morning", [it])
-    validate.run_objects(st, cfg)
+    # ON A WEEKDAY (2026-09-26): said on a Saturday, "saturday" resolves from
+    # the words to TODAY, and the passed-clock rule then moves the gym to
+    # Sunday — this test failed every Saturday. Pinned to a Wednesday.
+    from freezegun import freeze_time
+    with freeze_time("2026-09-23 08:00"):
+        it = _item("create_event", _event_intent(
+            title="gym session", date=_next_saturday().isoformat(), start_time="10:00"))
+        st = _state("gym on saturday morning", [it])
+        validate.run_objects(st, cfg)
     assert it.blocked is None, "a flag must not block the item"
     flags = (it.slots or {}).get("flags") or []
     assert any("Shabbat" in f for f in flags), flags
