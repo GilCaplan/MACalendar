@@ -24,7 +24,10 @@ import threading
 import time
 from typing import Any
 
-IDLE_DAYS = 90
+#: None: a sign-in lasts until you sign out or the password changes. Gil,
+#: 2026-09-28: "have it stay logged in" — replacing the 90-day idle expiry he
+#: had first chosen (DEVQA Q65).
+IDLE_DAYS: "int | None" = None
 #: `last_seen` is written at most this often: a phone polling /changes every
 #: second must not rewrite the file every second.
 _TOUCH_EVERY_S = 3600
@@ -97,7 +100,8 @@ def resolve(token: "str | None") -> "dict | None":
         if rec is None:
             return None
         u = registry.load()["users"].get(rec["user_id"])
-        if u is None or u.get("disabled") or now - rec.get("last_seen", 0) > IDLE_DAYS * 86400:
+        expired = IDLE_DAYS is not None and now - rec.get("last_seen", 0) > IDLE_DAYS * 86400
+        if u is None or u.get("disabled") or expired:
             del data[k]
             _save(data)
             return None

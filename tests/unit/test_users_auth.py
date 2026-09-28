@@ -196,3 +196,23 @@ def test_a_voice_command_runs_as_the_speaker_even_on_the_streams_worker_thread(a
     r = app_client.post("/voice/stream", json={"transcript": "buy eggs", "source": "test"}, headers=_h(d))
     r.get_data()
     assert seen == [people[1], people[1]], seen
+
+
+def test_a_sign_in_never_times_out(app_client, people, monkeypatch):
+    """Gil, 2026-09-28: "have it stay logged in" — only sign-out or a
+    password change ends a session."""
+    import time
+    tok = _tok(app_client, "dana", "dana-pass")
+    real = time.time
+    monkeypatch.setattr(time, "time", lambda: real() + 400 * 86400)   # 400 days later
+    assert app_client.get("/auth/me", headers=_h(tok)).get_json()["username"] == "dana"
+
+
+def test_a_short_password_only_through_the_admins_own_override(app_client, people):
+    with pytest.raises(ValueError):
+        registry.set_password(people[0], "123")
+    registry.set_password(people[0], "123", min_length=1)
+    assert _login(app_client, "Gil", "123").status_code == 200
+    g_ = _tok(app_client, "gil", "123")
+    r = app_client.post("/auth/password", json={"current": "123", "new": "456"}, headers=_h(g_))
+    assert r.status_code == 400                                        # the screens keep 8

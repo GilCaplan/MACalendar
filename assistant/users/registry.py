@@ -215,8 +215,9 @@ def create_user(username: str, password: str, display_name: str = "",
     return uid
 
 
-def set_password(user_id: str, password: str, must_change: bool = False) -> None:
-    record = passwords.hash_password(password)
+def set_password(user_id: str, password: str, must_change: bool = False,
+                 min_length: int = passwords.MIN_LENGTH) -> None:
+    record = passwords.hash_password(password, min_length=min_length)
 
     def go(data):
         u = data["users"][user_id]

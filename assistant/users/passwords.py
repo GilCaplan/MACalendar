@@ -32,10 +32,14 @@ def _scrypt(password: str, salt: bytes, n: int, r: int, p: int, dklen: int) -> b
                           dklen=dklen, maxmem=64 * 1024 * 1024)
 
 
-def hash_password(password: str) -> dict:
-    """The record stored in `users.json` — no plaintext anywhere in it."""
-    if len(password or "") < MIN_LENGTH:
-        raise ValueError(f"a password needs at least {MIN_LENGTH} characters")
+def hash_password(password: str, min_length: int = MIN_LENGTH) -> dict:
+    """The record stored in `users.json` — no plaintext anywhere in it.
+
+    `min_length` is lowered only by the admin's own command-line override
+    (`scripts/set_password.py --allow-short`): Gil chose "123" for his own
+    account on 2026-09-28. Every screen keeps the 8-character rule."""
+    if len(password or "") < max(1, min_length):
+        raise ValueError(f"a password needs at least {min_length} characters")
     salt = os.urandom(16)
     return {"algo": "scrypt", "n": N, "r": R, "p": P, "dklen": DKLEN,
             "salt": _b64(salt), "hash": _b64(_scrypt(password, salt, N, R, P, DKLEN))}
