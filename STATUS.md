@@ -15,6 +15,16 @@ ingest → segmentation → decompose_validate → fastrule → llmjudge → com
 LLMSeg is wired and INERT; the judge makes no model call; the model is called by
 `llmjudge/rescue.py` (parsing what FastRule deferred) and the judge's loop-back.
 
+## Users (DEVQA Q65, shipped 2026-09-28)
+
+An admin (`gil`) plus users, each with their own stores under
+`~/.assistant_tools/users/<uid>/` (migrated 2026-09-28, backup
+`~/.assistant_tools.backup-20260928-151343`). Whole-calendar sharing view/edit,
+per-user learning and notifications. The **Account tab** is the admin's
+dashboard (people, require-sign-in, auto sign-out Off / N days, devices).
+"Require sign-in everywhere" is still OFF — Gil's switch. Engine work is
+paused while this settles. Map: `DOCUMENTATION/USERS_PLAN.md`.
+
 ## The finish line (DEVQA Q64, agreed 2026-09-27)
 
 Done when: **real usage** ≈90% fully right with no destructive error in the
