@@ -94,6 +94,13 @@ for _var, _name in (("MACALENDAR_DB", "calendar.db"),
                     # the running assistant's pulse.
                     ("MACALENDAR_HEARTBEATS", "heartbeats"),
                     ("MACALENDAR_HUD_STATE", "hud_state.json"),
+                    # Users (2026-09-28). The registry's directory is the root
+                    # of every per-user store (users/<uid>/…), so this one
+                    # redirect scratches all of them; the other two are the
+                    # login sessions and this machine's logged-in user.
+                    ("MACALENDAR_USERS", "users.json"),
+                    ("MACALENDAR_SESSIONS", "sessions.json"),
+                    ("MACALENDAR_SESSION_FILE", "session.json"),
                     # Experiment checkpoints. Scratched so a suite can never
                     # RESUME a real measurement run — it would read half a
                     # board's results as its own and report a number that came

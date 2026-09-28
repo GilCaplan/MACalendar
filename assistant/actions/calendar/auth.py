@@ -24,8 +24,10 @@ class MSALAuth:
         # MACALENDAR_MSAL_CACHE redirects the token cache like every other
         # personal store (tests/conftest.py scratches it): a suite exercising
         # the connect flow must never read or wipe the real sign-in.
-        self.cache_path = os.path.expanduser(
-            os.environ.get("MACALENDAR_MSAL_CACHE") or config.token_cache_path)
+        # ...and it is the BOUND user's: each person signs in to their own.
+        from assistant.users import paths as _paths
+        self.cache_path = _paths.resolve(os.path.expanduser(
+            os.environ.get("MACALENDAR_MSAL_CACHE") or config.token_cache_path))
         self._cache = msal.SerializableTokenCache()
 
         if os.path.exists(self.cache_path):

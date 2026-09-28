@@ -1,3 +1,27 @@
+- **2026-09-28 — Q65 (USERS: AN ADMIN AND OTHER USERS, EACH WITH THEIR OWN
+  CALENDAR)**, Gil: *"user admin, then other users, such that each one has
+  their own instance of a calendar i.e. a .db file plus for tasks as well…
+  admin has ultimate controls… users can only directly control their own"*.
+  Answered in two rounds of questions the same day:
+  1. **Login everywhere** — Mac and iPhone ask for a username + password; a
+     device can switch user.
+  2. **The admin sees and edits everything**, sees every username, and SETS or
+     RESETS any password — passwords are **hashed, never readable** (chosen over
+     "admin can reveal them"); a new one is shown to the admin once.
+  3. **Sharing is the WHOLE calendar + to-dos, per person, VIEW or EDIT**, the
+     owner choosing; shared items wear the owner's colour and name.
+  4. **Learning is per user** (vocabulary, command memory, labels, History);
+     the **admin decides whether his vocabulary is shared, and with whom**.
+  5. **The admin's view of others is OFF until he toggles it on.**
+  6. **Shared to-dos sit mixed in, with a filter, and a per-user setting to
+     group them by person instead.**
+  7. **Sessions last until logout, 90 days idle**; a password change signs
+     that user out everywhere.
+  Plan: `DOCUMENTATION/USERS_PLAN.md` (six phases). Deferred on purpose:
+  "add X to Dana's calendar" by VOICE — a mishearing would write into
+  someone else's store, and it fights Q56/Q47/Q50's reading of a person in
+  the words; the event editor's owner picker covers it.
+
 - **2026-09-27 — Q64 (WHEN THE ENGINE IS DONE)**, Gil agreed ("ok") to the
   finish line proposed after the day's generalisation check showed generated-
   set gains leaving real speech flat. The engine is DONE when all three hold:

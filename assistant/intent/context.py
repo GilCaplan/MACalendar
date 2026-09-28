@@ -18,11 +18,15 @@ class ContextMemory:
     Uses the Borg pattern (shared state dict) so all instances are the same object.
     """
 
-    _shared: dict = {}
+    #: One shared state PER USER (assistant/users): "it" / "the one I just
+    #: made" is the speaker's last event, never another user's. "" is the
+    #: state of a process nobody is bound in — today's single shared one.
+    _shared_by_user: "dict[str, dict]" = {}
     _lock: threading.Lock = threading.Lock()
 
     def __init__(self) -> None:
-        self.__dict__ = self._shared
+        from assistant import users
+        self.__dict__ = self._shared_by_user.setdefault(users.current() or "", {})
 
     # --- Event memory ---
     last_event_id: Optional[int] = None
@@ -69,14 +73,23 @@ class ContextMemory:
             self.last_todo_title = None
 
     def reset(self) -> None:
-        """Clear all memory. Used in tests."""
+        """Clear all memory — every user's. Used in tests."""
         with self._lock:
-            self.last_event_id = None
-            self.last_event_title = None
-            self.last_event_date = None
-            self.last_todo_id = None
-            self.last_todo_title = None
+            for state in self._shared_by_user.values():
+                state.clear()
 
 
-# Module-level singleton — import this everywhere
-context_memory = ContextMemory()
+class _CurrentUsersMemory:
+    """`context_memory`: forwards every read and write to the ContextMemory
+    of the user bound RIGHT NOW. A plain module-level ContextMemory would have
+    bound its state once, at import, to whoever was current then (nobody)."""
+
+    def __getattr__(self, name):
+        return getattr(ContextMemory(), name)
+
+    def __setattr__(self, name, value):
+        setattr(ContextMemory(), name, value)
+
+
+# Module-level handle — import this everywhere
+context_memory = _CurrentUsersMemory()

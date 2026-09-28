@@ -155,6 +155,12 @@ LOCATION_PATH = os.environ.get("MACALENDAR_LOCATION") or os.path.expanduser(
 EXCEPTIONS_PATH = os.environ.get("MACALENDAR_OBSERVANCE_EXCEPTIONS") or os.path.expanduser(
     "~/.assistant_tools/observance_exceptions.json")
 
+
+def _exceptions_path():
+    """`EXCEPTIONS_PATH` for the bound user (assistant/users); unchanged when none."""
+    from assistant.users import paths as _users_paths
+    return _users_paths.resolve(EXCEPTIONS_PATH)
+
 _exc_cache: dict = {}
 
 # ---------------------------------------------------------------------------
@@ -196,13 +202,14 @@ KEEP_OFF, ALLOW = "keep_off", "allow"
 
 def _read_overrides() -> "dict[datetime.date, str]":
     try:
-        mtime = os.path.getmtime(EXCEPTIONS_PATH)
+        # keyed on the path too: two users' files can share a timestamp
+        mtime = (_exceptions_path(), os.path.getmtime(_exceptions_path()))
     except OSError:
         return {}
     if _exc_cache.get("mtime") == mtime:
         return _exc_cache["overrides"]
     try:
-        with open(EXCEPTIONS_PATH, encoding="utf-8") as f:
+        with open(_exceptions_path(), encoding="utf-8") as f:
             data = json.load(f) or {}
     except (OSError, ValueError):
         return {}
@@ -251,11 +258,11 @@ def _write_overrides(overrides: "dict[datetime.date, str]", israel: bool = True)
         if (verdict == KEEP_OFF) == default_kept_off(day, israel):
             continue
         (keep if verdict == KEEP_OFF else allow).append(day.isoformat())
-    os.makedirs(os.path.dirname(EXCEPTIONS_PATH), exist_ok=True)
-    tmp = EXCEPTIONS_PATH + ".tmp"
+    os.makedirs(os.path.dirname(_exceptions_path()), exist_ok=True)
+    tmp = _exceptions_path() + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump({"allow": sorted(allow), "keep_off": sorted(keep)}, f, indent=1)
-    os.replace(tmp, EXCEPTIONS_PATH)
+    os.replace(tmp, _exceptions_path())
     _exc_cache.clear()
 
 

@@ -32,6 +32,8 @@ STORES = {
     "MACALENDAR_MEMORY_DB": "nlu_memory.db",
     "MACALENDAR_VOCAB": "vocab.json",
     "MACALENDAR_CATEGORIES": "categories.json",
+    # the user registry — its directory roots every per-user store
+    "MACALENDAR_USERS": "users.json",
 }
 
 REAL_DIR = os.path.expanduser("~/.assistant_tools")

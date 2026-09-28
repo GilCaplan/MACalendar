@@ -38,6 +38,8 @@ from __future__ import annotations
 import logging
 import os
 import threading
+
+from assistant import users as _users
 from typing import Any
 
 # ONE ALIAS PER BOX in the chain (DOCUMENTATION/ENGINE_REWIRE.md):
@@ -958,7 +960,9 @@ def _start_background_verify(state: EngineState, cfg) -> None:
                 store[token]["ready"] = True
                 store[token]["correction"] = correction or {"ok": True}
 
-    threading.Thread(target=_work, daemon=True, name="crosscheck-bg").start()
+    # users.thread: the self-check writes the SPEAKER's memory, not whoever
+    # the process default is (a new thread starts with no bound user)
+    _users.thread(target=_work, daemon=True, name="crosscheck-bg").start()
 
 
 def _background_verify(state: EngineState, cfg) -> "dict | None":
@@ -1485,7 +1489,7 @@ def _log_nlu(state: EngineState, action_names: list, failure: str = "") -> None:
             "unknown_intent" if not any(it.action and it.action != "unknown"
                                         for it in state.items if it.intent is not None)
             else "action_failed"))
-        threading.Thread(
+        _users.thread(
             target=Pipeline._append_nlu_log,
             args=(state.text, state.parse_path, state.parse_path == "fast",
                   action_names or [it.action for it in state.items
@@ -1525,7 +1529,7 @@ def _mine_reformulations(state: EngineState, cfg) -> None:
         except Exception as exc:
             logger.debug("Reformulation pass failed: %s", exc)
 
-    threading.Thread(target=_mine, daemon=True, name="reformulations").start()
+    _users.thread(target=_mine, daemon=True, name="reformulations").start()
 
 
 def _publish(state: EngineState, resp: dict, trace_run: "str | None") -> None:

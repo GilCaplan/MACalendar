@@ -350,7 +350,11 @@ def start_pending_retry_loop(run_transcript, interval: float = 30.0) -> None:
                 if not _llm.is_reachable(cfg):
                     continue
                 budget = int(getattr(cfg.engine, "coalesce_max_tokens", 300))
-                retry_pending_once(run_transcript, get_memory(), budget)
+                # each user's queue lives in their own memory file
+                from assistant import users as _users
+                for uid in _users.each_user():
+                    with _users.bind(uid):
+                        retry_pending_once(run_transcript, get_memory(), budget)
             except Exception as e:
                 logger.warning("📱 Pending retry loop error: %s", e)
     _threading.Thread(target=_loop, daemon=True, name="pending-retry").start()
@@ -690,7 +694,9 @@ def create_app() -> Flask:
             finally:
                 q.put(None)
 
-        _threading.Thread(target=work, daemon=True).start()
+        # the request's user rides along into the worker (assistant/users)
+        from assistant import users as _users
+        _users.thread(target=work, daemon=True).start()
 
         def gen():
             while True:

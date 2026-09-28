@@ -149,7 +149,12 @@ def _mask_dates(params: Any) -> Any:
 
 
 class CommandMemory:
-    def __init__(self, path: str = MEMORY_PATH) -> None:
+    def __init__(self, path: "str | None" = None) -> None:
+        # No path → the BOUND user's memory (assistant/users); nobody bound →
+        # MEMORY_PATH, as always. Read at call time, not frozen as a default.
+        if path is None:
+            from assistant.users import paths as _paths
+            path = _paths.resolve(MEMORY_PATH)
         self._path = path
         self._lock = threading.RLock()
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -582,10 +587,25 @@ _memory: CommandMemory | None = None
 _memory_lock = threading.Lock()
 
 
+_user_memories: "dict[str, CommandMemory]" = {}
+
+
 def get_memory() -> CommandMemory:
+    """The command memory of whoever the assistant is working for — the
+    shared instance when nobody is bound, one per user's file otherwise."""
     global _memory
-    if _memory is None:
-        with _memory_lock:
-            if _memory is None:
-                _memory = CommandMemory()
-    return _memory
+    from assistant import users
+    uid = users.current()
+    if uid is None:
+        if _memory is None:
+            with _memory_lock:
+                if _memory is None:
+                    _memory = CommandMemory()
+        return _memory
+    from assistant.users import paths as _paths
+    path = _paths.resolve(MEMORY_PATH, uid)
+    with _memory_lock:
+        mem = _user_memories.get(path)
+        if mem is None:
+            mem = _user_memories[path] = CommandMemory(path)
+        return mem

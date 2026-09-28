@@ -54,7 +54,10 @@ _EXPIRY_SKEW_S = 60
 
 
 def token_path() -> str:
-    return os.path.expanduser(os.environ.get("MACALENDAR_GOOGLE_TOKEN") or _DEFAULT_TOKEN_PATH)
+    """The bound user's Google sign-in — each person connects their own."""
+    from assistant.users import paths as _paths
+    return _paths.resolve(os.path.expanduser(
+        os.environ.get("MACALENDAR_GOOGLE_TOKEN") or _DEFAULT_TOKEN_PATH))
 
 
 def client_secret_path(cfg) -> str:

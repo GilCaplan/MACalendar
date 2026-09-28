@@ -79,6 +79,12 @@ MODELS_DIR = pathlib.Path(
     os.environ.get("MACALENDAR_MODELS")
     or os.path.expanduser("~/.assistant_tools/models"))
 
+
+def _models_dir():
+    """`MODELS_DIR` for the bound user (assistant/users); unchanged when none."""
+    from assistant.users import paths as _users_paths
+    return _users_paths.resolve(MODELS_DIR)
+
 #: Below this the model says nothing and the caller falls back. Swept by
 #: `experiments/threshold_sweep.py`; a value nobody swept is an assumption.
 MIN_CONFIDENCE = {"event": 0.35, "task": 0.40}
@@ -151,7 +157,7 @@ class LabelModel:
 
     @classmethod
     def path_for(cls, kind: str, tier: str = "personal") -> pathlib.Path:
-        root = MODELS_DIR if tier == "personal" else BASE_DIR
+        root = _models_dir() if tier == "personal" else BASE_DIR
         return root / f"{kind}_label.joblib"
 
     @classmethod

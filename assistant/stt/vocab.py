@@ -389,7 +389,10 @@ class VocabStore:
         # was handed the previous test's words and passed or failed by
         # accident. The identical mistake was fixed in `intent/lexicon.py` on
         # 2026-09-18; this is its twin.
-        self._path = path or os.environ.get("MACALENDAR_VOCAB") or VOCAB_PATH
+        if not path:
+            from assistant.users import paths as _paths
+            path = _paths.resolve(os.environ.get("MACALENDAR_VOCAB") or VOCAB_PATH)
+        self._path = path
         self._lock = threading.RLock()
         self._entries: list[VocabEntry] = []
         #: word-sound index, rebuilt lazily; None means "stale"
@@ -1108,14 +1111,29 @@ _store: VocabStore | None = None
 _store_lock = threading.Lock()
 
 
+_user_stores: "dict[str, VocabStore]" = {}
+
+
 def get_vocab() -> VocabStore:
-    """Process-wide singleton."""
+    """The vocabulary of whoever the assistant is working for — the shared
+    instance when nobody is bound, one per user's file otherwise (learning
+    is per user: one person's names never rewrite another's speech)."""
     global _store
-    if _store is None:
-        with _store_lock:
-            if _store is None:
-                _store = VocabStore()
-    return _store
+    from assistant import users
+    uid = users.current()
+    if uid is None:
+        if _store is None:
+            with _store_lock:
+                if _store is None:
+                    _store = VocabStore()
+        return _store
+    from assistant.users import paths as _paths
+    path = _paths.resolve(os.environ.get("MACALENDAR_VOCAB") or VOCAB_PATH, uid)
+    with _store_lock:
+        st = _user_stores.get(path)
+        if st is None:
+            st = _user_stores[path] = VocabStore(path)
+        return st
 
 
 def apply_vocab(transcript: str, source: str = "mac") -> tuple[str, list[Correction]]:

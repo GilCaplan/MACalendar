@@ -128,7 +128,10 @@ class LexiconStore:
         # exactly why `conftest.py` sets its overrides before importing
         # `assistant` at all. Here it would also make the path unpatchable from
         # a fixture, which is how the first version of this failed its own test.
-        self.path = path or LEXICON_PATH
+        if not path:
+            from assistant.users import paths as _paths
+            path = _paths.resolve(LEXICON_PATH)     # the bound user's, if any
+        self.path = path
         self._lock = threading.Lock()
         self._data: dict = {}
         self._mtime: float = -1.0
@@ -234,13 +237,27 @@ _store: "LexiconStore | None" = None
 _store_lock = threading.Lock()
 
 
+_user_stores: "dict[str, LexiconStore]" = {}
+
+
 def get_lexicon() -> LexiconStore:
+    """The bound user's word lists — the shared store when nobody is bound."""
     global _store
-    if _store is None:
-        with _store_lock:
-            if _store is None:
-                _store = LexiconStore()
-    return _store
+    from assistant import users
+    uid = users.current()
+    if uid is None:
+        if _store is None:
+            with _store_lock:
+                if _store is None:
+                    _store = LexiconStore()
+        return _store
+    from assistant.users import paths as _paths
+    path = _paths.resolve(LEXICON_PATH, uid)
+    with _store_lock:
+        st = _user_stores.get(path)
+        if st is None:
+            st = _user_stores[path] = LexiconStore(path)
+        return st
 
 
 def effective(name: str) -> "frozenset[str]":
@@ -253,3 +270,4 @@ def reset() -> None:
     """Tests swap the store path; the singleton must not outlive it."""
     global _store
     _store = None
+    _user_stores.clear()

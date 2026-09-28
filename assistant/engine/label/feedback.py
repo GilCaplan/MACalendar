@@ -56,6 +56,12 @@ FEEDBACK_PATH = pathlib.Path(
     os.environ.get("MACALENDAR_LABEL_FEEDBACK")
     or os.path.expanduser("~/.assistant_tools/label_feedback.jsonl"))
 
+
+def _feedback_path():
+    """`FEEDBACK_PATH` for the bound user (assistant/users); unchanged when none."""
+    from assistant.users import paths as _users_paths
+    return _users_paths.resolve(FEEDBACK_PATH)
+
 #: How many NEW gold rows since the last fit before retraining is worth it.
 #: Counted in GOLD, not in items: fifty tasks nobody corrected teach nothing,
 #: and triggering on item count would retrain on no new information.
@@ -71,8 +77,8 @@ _GOLD_ORIGINS = (CORRECTION, EXPLICIT)
 
 def _append(row: dict) -> None:
     try:
-        FEEDBACK_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with FEEDBACK_PATH.open("a") as fh:
+        _feedback_path().parent.mkdir(parents=True, exist_ok=True)
+        with _feedback_path().open("a") as fh:
             fh.write(json.dumps(row, sort_keys=True) + "\n")
     except Exception:
         pass          # collecting training data must never break a user action
@@ -109,11 +115,11 @@ def record_tags(title: str, was: "list | None", now: list,
 
 
 def _rows() -> list:
-    if not FEEDBACK_PATH.exists():
+    if not _feedback_path().exists():
         return []
     out = []
     try:
-        for line in FEEDBACK_PATH.read_text().splitlines():
+        for line in _feedback_path().read_text().splitlines():
             if line.strip():
                 try:
                     out.append(json.loads(line))
@@ -167,7 +173,7 @@ def counts(kind: str) -> dict:
 
 
 def _marker(kind: str) -> pathlib.Path:
-    return FEEDBACK_PATH.parent / f".last_fit_{kind}"
+    return _feedback_path().parent / f".last_fit_{kind}"
 
 
 def mark_trained(kind: str, n_gold: int) -> None:

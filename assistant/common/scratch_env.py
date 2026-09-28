@@ -42,6 +42,11 @@ STORES: "dict[str, tuple[str, str]]" = {
     "HUD_STATE": ("MACALENDAR_HUD_STATE", "hud_state.json"),
     "DEVICE_SECRET": ("MACALENDAR_DEVICE_SECRET", "device_secret"),
     "DEVICES": ("MACALENDAR_DEVICES", "devices.json"),
+    # The user registry (2026-09-28). Its directory is the ROOT of every
+    # per-user store (users/<uid>/...), so scratching it scratches them all.
+    "USERS": ("MACALENDAR_USERS", "users.json"),
+    "SESSIONS": ("MACALENDAR_SESSIONS", "sessions.json"),
+    "SESSION_FILE": ("MACALENDAR_SESSION_FILE", "session.json"),
 }
 
 #: setdefault, not set — a board pins threads without stomping a caller's own

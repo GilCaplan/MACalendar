@@ -41,6 +41,12 @@ logger = logging.getLogger(__name__)
 BUS_PATH = os.environ.get("MACALENDAR_TRACE_BUS") or os.path.expanduser(
     "~/.assistant_tools/trace_bus.jsonl")
 
+
+def _bus_path():
+    """`BUS_PATH` for the bound user (assistant/users); unchanged when none."""
+    from assistant.users import paths as _users_paths
+    return _users_paths.resolve(BUS_PATH)
+
 # Traces are only interesting for a few seconds after they happen; keep enough
 # to survive a slow poll, not a history. A streaming run is many lines, so this
 # counts lines rather than runs.
@@ -61,8 +67,8 @@ def _append(entry: dict[str, Any]) -> None:
     """Write one line. Never raises — this is a nicety, not a duty."""
     entry["ts"] = time.time()
     try:
-        os.makedirs(os.path.dirname(BUS_PATH), exist_ok=True)
-        with open(BUS_PATH, "a", encoding="utf-8") as f:
+        os.makedirs(os.path.dirname(_bus_path()), exist_ok=True)
+        with open(_bus_path(), "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except Exception as exc:                      # pragma: no cover - best effort
         logger.debug("trace bus publish failed: %s", exc)
@@ -113,10 +119,10 @@ def _trim() -> None:
     """Drop old lines. Called only when a run starts, so no run is ever cut
     in half by a trim that lands between its own lines."""
     try:
-        with open(BUS_PATH, encoding="utf-8") as f:
+        with open(_bus_path(), encoding="utf-8") as f:
             lines = f.readlines()
         if len(lines) > MAX_ENTRIES * 2:
-            with open(BUS_PATH, "w", encoding="utf-8") as f:
+            with open(_bus_path(), "w", encoding="utf-8") as f:
                 f.writelines(lines[-MAX_ENTRIES:])
     except Exception:
         pass
@@ -126,7 +132,7 @@ def size() -> int:
     """Current byte offset — the starting point for a reader that wants only
     what happens from now on."""
     try:
-        return os.path.getsize(BUS_PATH)
+        return os.path.getsize(_bus_path())
     except OSError:
         return 0
 
@@ -138,7 +144,7 @@ def read_since(offset: int) -> tuple[list[dict[str, Any]], int]:
     is moved to the end rather than replaying old traces as if they were new.
     """
     from assistant.common.jsonl import tail
-    out, offset = tail(BUS_PATH, offset)
+    out, offset = tail(_bus_path(), offset)
     for entry in out:
         entry.setdefault("kind", "trace")    # entries written before streaming
     return out, offset
@@ -157,7 +163,7 @@ def read_history(limit: int = 200) -> list[dict[str, Any]]:
     still be arriving.
     """
     try:
-        with open(BUS_PATH, encoding="utf-8") as f:
+        with open(_bus_path(), encoding="utf-8") as f:
             lines = f.readlines()
     except OSError:
         return []

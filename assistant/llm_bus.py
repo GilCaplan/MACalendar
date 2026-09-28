@@ -36,6 +36,12 @@ import time
 BUS_PATH = (os.environ.get("MACALENDAR_LLM_BUS")
             or os.path.expanduser("~/.assistant_tools/llm_calls.jsonl"))
 
+
+def _bus_path():
+    """`BUS_PATH` for the bound user (assistant/users); unchanged when none."""
+    from assistant.users import paths as _users_paths
+    return _users_paths.resolve(BUS_PATH)
+
 #: Its own budget. Deep commands make several calls each, so this is line-hungry
 #: in a way the trace bus is not.
 MAX_ENTRIES = 400
@@ -70,8 +76,8 @@ def record(*, transport: str, caller: str, model: str, system: str, user: str,
             "response": rsp_t, "response_len": rsp_n,
         }
         _trim()
-        os.makedirs(os.path.dirname(BUS_PATH), exist_ok=True)
-        with open(BUS_PATH, "a", encoding="utf-8") as f:
+        os.makedirs(os.path.dirname(_bus_path()), exist_ok=True)
+        with open(_bus_path(), "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except Exception:
         pass
@@ -94,8 +100,8 @@ def note(kind: str, detail: str, **extra) -> None:
                  "detail": detail, "caller": "", "model": "", "ms": 0}
         entry.update(extra)
         _trim()
-        os.makedirs(os.path.dirname(BUS_PATH), exist_ok=True)
-        with open(BUS_PATH, "a", encoding="utf-8") as f:
+        os.makedirs(os.path.dirname(_bus_path()), exist_ok=True)
+        with open(_bus_path(), "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except Exception:
         pass
@@ -115,14 +121,14 @@ def _trim() -> None:
         # lock. A full read+write of up to 800 lines inside the request path
         # is not something a visualisation should cost.
         try:
-            if os.path.getsize(BUS_PATH) < _TRIM_PROBE_BYTES:
+            if os.path.getsize(_bus_path()) < _TRIM_PROBE_BYTES:
                 return
         except OSError:
             return
-        with open(BUS_PATH, encoding="utf-8") as f:
+        with open(_bus_path(), encoding="utf-8") as f:
             lines = f.readlines()
         if len(lines) > MAX_ENTRIES * 2:
-            with open(BUS_PATH, "w", encoding="utf-8") as f:
+            with open(_bus_path(), "w", encoding="utf-8") as f:
                 f.writelines(lines[-MAX_ENTRIES:])
     except Exception:
         pass
@@ -130,7 +136,7 @@ def _trim() -> None:
 
 def size() -> int:
     try:
-        return os.path.getsize(BUS_PATH)
+        return os.path.getsize(_bus_path())
     except OSError:
         return 0
 
@@ -139,13 +145,13 @@ def read_since(offset: int) -> "tuple[list, int]":
     """New entries past `offset`. Mirrors trace_bus.read_since, including its
     trim handling: a file shorter than the offset was rewritten, so restart."""
     from assistant.common.jsonl import tail
-    return tail(BUS_PATH, offset)
+    return tail(_bus_path(), offset)
 
 
 def read_history(limit: int = 200) -> list:
     """The most recent entries, newest LAST (render order)."""
     try:
-        with open(BUS_PATH, encoding="utf-8") as f:
+        with open(_bus_path(), encoding="utf-8") as f:
             lines = f.readlines()[-limit:]
     except OSError:
         return []
@@ -156,7 +162,7 @@ def read_history(limit: int = 200) -> list:
 def clear() -> None:
     """Empty the log — the console's Clear button."""
     try:
-        open(BUS_PATH, "w").close()
+        open(_bus_path(), "w").close()
     except OSError:
         pass
 

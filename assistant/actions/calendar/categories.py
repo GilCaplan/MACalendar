@@ -24,6 +24,12 @@ from typing import Any
 # MACALENDAR_CATEGORIES: scratch override for tests (see MACALENDAR_DB).
 CATEGORIES_PATH = os.environ.get("MACALENDAR_CATEGORIES") or os.path.expanduser("~/.assistant_tools/categories.json")
 
+
+def _categories_path():
+    """`CATEGORIES_PATH` for the bound user (assistant/users); unchanged when none."""
+    from assistant.users import paths as _users_paths
+    return _users_paths.resolve(CATEGORIES_PATH)
+
 # name, primary colour, alternate shade, keywords (lower-case, substring match on word boundaries)
 DEFAULTS: list[dict[str, Any]] = [
     {"name": "Work", "color": "#3b82f6", "alt": "#1d4ed8", "keywords": [
@@ -150,7 +156,7 @@ def _check_minutes(field: str, value: Any) -> int:
 
 _lock = threading.RLock()
 _cache: dict[str, Any] | None = None
-_mtime = -1.0
+_mtime: "tuple | float" = -1.0
 
 
 def _load() -> dict[str, Any]:
@@ -158,15 +164,17 @@ def _load() -> dict[str, Any]:
     global _cache, _mtime
     with _lock:
         try:
-            m = os.path.getmtime(CATEGORIES_PATH)
+            m = (_categories_path(), os.path.getmtime(_categories_path()))
         except OSError:
-            m = -1.0
+            m = (_categories_path(), -1.0)
+        # keyed on the PATH as well as the mtime: two users' files can share
+        # a timestamp, and one must never be handed the other's categories
         if _cache is not None and m == _mtime:
             return _cache
         data = {"categories": [dict(c, keywords=list(c["keywords"])) for c in DEFAULTS], "removed": []}
-        if m >= 0:
+        if m[1] >= 0:
             try:
-                with open(CATEGORIES_PATH, encoding="utf-8") as f:
+                with open(_categories_path(), encoding="utf-8") as f:
                     user = json.load(f)
                 by = {c["name"]: c for c in data["categories"]}
                 for c in user.get("categories", []):
@@ -203,11 +211,11 @@ def _load() -> dict[str, Any]:
 def _save(data: dict[str, Any]) -> None:
     global _cache, _mtime
     with _lock:
-        os.makedirs(os.path.dirname(CATEGORIES_PATH), exist_ok=True)
-        tmp = CATEGORIES_PATH + ".tmp"
+        os.makedirs(os.path.dirname(_categories_path()), exist_ok=True)
+        tmp = _categories_path() + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        os.replace(tmp, CATEGORIES_PATH)
+        os.replace(tmp, _categories_path())
         _cache = None; _mtime = -1.0
 
 
@@ -245,9 +253,9 @@ def upsert(name: str, color: str | None = None, alt: str | None = None,
             durations[field] = None if value is None else _check_minutes(field, value)
     data = _load()
     user = {"categories": [], "removed": list(data.get("removed", []))}
-    if os.path.exists(CATEGORIES_PATH):
+    if os.path.exists(_categories_path()):
         try:
-            with open(CATEGORIES_PATH, encoding="utf-8") as f:
+            with open(_categories_path(), encoding="utf-8") as f:
                 user = json.load(f)
         except Exception:
             pass
@@ -279,9 +287,9 @@ def remove(name: str) -> bool:
     if not any(c["name"].lower() == name.lower() for c in data["categories"]):
         return False
     user = {"categories": [], "removed": []}
-    if os.path.exists(CATEGORIES_PATH):
+    if os.path.exists(_categories_path()):
         try:
-            with open(CATEGORIES_PATH, encoding="utf-8") as f:
+            with open(_categories_path(), encoding="utf-8") as f:
                 user = json.load(f)
         except Exception:
             pass

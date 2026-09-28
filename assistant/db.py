@@ -7,6 +7,7 @@ import datetime
 import json
 import os
 import sqlite3
+import threading
 import uuid
 from contextlib import contextmanager
 from typing import Generator, List, Optional
@@ -798,7 +799,10 @@ class CalendarDB:
         """
         if not (os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("PYTEST_VERSION")):
             return
-        if os.path.realpath(path) == os.path.realpath(DB_PATH):
+        real = os.path.realpath(path)
+        real_root = os.path.realpath(os.path.dirname(DB_PATH))
+        if real == os.path.realpath(DB_PATH) or real.startswith(
+                os.path.join(real_root, "users") + os.sep):
             raise RuntimeError(
                 f"Refusing to open the real calendar database ({DB_PATH}) from a test. "
                 "Set MACALENDAR_DB, or call tests.isolation.isolate() before importing "
@@ -809,7 +813,14 @@ class CalendarDB:
         # MACALENDAR_DB lets tests/audits point at a scratch database.
         if path is None:
             path = os.environ.get("MACALENDAR_DB") or None
-        self.path = path if path is not None else DB_PATH
+            # No explicit path → the BOUND user's calendar. The Mac window
+            # builds `CalendarDB()` directly (window.py), so resolving only in
+            # get_db() would leave it opening a fresh, empty file at the old
+            # location once the data had moved under users/<uid>/.
+            from assistant.users import paths as _paths
+            path = _paths.resolve(path or DB_PATH)
+        self.path = path
+        self.owner_id: "str | None" = None
         self._guard_real_db(self.path)
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
         with self._conn() as conn:
@@ -3563,9 +3574,29 @@ class CalendarDB:
 _db_instance: Optional[CalendarDB] = None
 
 
+#: One CalendarDB per user's file, once there are users (assistant/users).
+_user_dbs: "dict[str, CalendarDB]" = {}
+_user_dbs_lock = threading.Lock()
+
+
 def get_db() -> CalendarDB:
-    """Return the shared CalendarDB instance, creating it once on first call."""
+    """The calendar of whoever the assistant is working for right now.
+
+    Nobody bound (before the users migration, and in every test that does not
+    bind one) → the shared instance, exactly as always. A user bound → that
+    user's own file under `users/<uid>/`, one instance per file."""
     global _db_instance
-    if _db_instance is None:
-        _db_instance = CalendarDB()
-    return _db_instance
+    from assistant import users
+    uid = users.current()
+    if uid is None:
+        if _db_instance is None:
+            _db_instance = CalendarDB()
+        return _db_instance
+    from assistant.users import paths as _paths
+    path = _paths.resolve(os.environ.get("MACALENDAR_DB") or DB_PATH, uid)
+    with _user_dbs_lock:
+        db = _user_dbs.get(path)
+        if db is None:
+            db = _user_dbs[path] = CalendarDB(path)
+            db.owner_id = uid
+        return db
