@@ -79,6 +79,14 @@ struct PendingVoiceCommand: Codable, Identifiable {
     /// half hours (2026-09-10), showing "Running now…" the whole time.
     var startedAt: Date?
 
+    /// When it last came back, done or failed — for the detail screen.
+    var finishedAt: Date?
+
+    /// The Mac's whole answer, trace and all, kept so tapping a finished row
+    /// shows the run step by step (Gil, 2026-09-28: "make this clickable to see
+    /// details of run"). Optional, so rows saved before it decode unchanged.
+    var response: VoiceResponse?
+
     /// You are editing this right now, so a flush must walk past it.
     ///
     /// Several things ask for a flush at once — reconnect, foregrounding, the
@@ -816,13 +824,19 @@ class LocalStore: ObservableObject {
         try? Data(contentsOf: url(cmd.audioFile))
     }
 
-    func updateVoice(_ id: UUID, status: PendingVoiceCommand.Status, result: String = "") {
+    func updateVoice(_ id: UUID, status: PendingVoiceCommand.Status, result: String = "",
+                     response: VoiceResponse? = nil) {
         guard let i = pendingVoice.firstIndex(where: { $0.id == id }) else { return }
         pendingVoice[i].status = status
-        // Stamped on the way IN to `.running` so `reviveStalledVoice` can tell
-        // a command that is genuinely in flight from one that was abandoned.
-        pendingVoice[i].startedAt = (status == .running) ? Date() : nil
+        // Stamped on the way IN to `.running` so `reviveStalledVoice` (which
+        // only looks at `.running` rows) can tell a command genuinely in flight
+        // from one that was abandoned. Kept once it finishes, so the detail
+        // screen can say how long the run took; cleared on a requeue.
+        if status == .running { pendingVoice[i].startedAt = Date() }
+        if status == .queued { pendingVoice[i].startedAt = nil }
+        if status == .done || status == .failed { pendingVoice[i].finishedAt = Date() }
         if !result.isEmpty { pendingVoice[i].result = result }
+        if let response { pendingVoice[i].response = response }
         persistVoice()
     }
 

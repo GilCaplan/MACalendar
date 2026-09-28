@@ -539,7 +539,15 @@ def create_app() -> Flask:
 
     @app.post("/voice")
     def voice_audio():
-        """Accept a multipart audio file, transcribe via Whisper, then execute."""
+        """Accept a multipart audio file, transcribe via Whisper, then execute.
+
+        The phone's offline queue sends each command's own id as `client_id`;
+        a resend of the same id runs nothing a second time (`receipts`)."""
+        from assistant.api import receipts
+        out = receipts.run_once(request.form.get("client_id"), _voice_audio_once)
+        return jsonify(out) if isinstance(out, dict) else out
+
+    def _voice_audio_once():
         if "audio" not in request.files:
             return jsonify({"error": "Missing 'audio' file field", "code": 400}), 400
 
@@ -561,14 +569,16 @@ def create_app() -> Flask:
             return jsonify({"error": f"Transcription failed: {e}", "code": 500}), 500
 
         if not transcript.strip():
+            # a jsonify'd RESPONSE, not a dict: an unheard recording is not a
+            # result worth keeping for a resend of the same id
             return jsonify({"message": "I didn't catch that.", "actions": [], "refresh": "",
                             "parse": "error", "trace": trace.to_list()})
 
         logger.info("📱 Transcript: %s", transcript)
         trace.step(STT, "Heard", transcript, transcript=transcript)
-        return jsonify(_run_transcript(transcript, trace, source="ios",
-                                       supports_edit=_supports_edit(),
-                                       supports_confirm=_supports_confirm()))
+        return _run_transcript(transcript, trace, source="ios",
+                               supports_edit=_supports_edit(),
+                               supports_confirm=_supports_confirm())
 
     @app.post("/voice/transcribe")
     def voice_transcribe():
@@ -798,23 +808,32 @@ def create_app() -> Flask:
         # Either way the gate is bypassed for THIS resubmission — asking twice
         # about the same words would be nagging.
         edited_from = (body.get("edited_from") or "").strip()
-        if edited_from:
-            from assistant.engine.ingest import repair as _engine_transcript
-            if edited_from.strip().lower() != transcript.lower():
-                learned = _engine_transcript.learn_from_edit(edited_from, transcript, src)
-                if learned:
-                    logger.info("Learned from a transcript edit: %s",
-                                ", ".join(f"{w}→{r}" for w, r in learned))
-            else:
-                promoted = _engine_transcript.confirm_unchanged(transcript)
-                if promoted:
-                    logger.info("Whitelisted after repeated confirmation: %s",
-                                ", ".join(promoted))
-            edit_ok = False
-        return jsonify(_run_transcript(transcript, source=src, device=dev,
-                                       stream=stream, current_view=view,
-                                       trace_run=run, supports_edit=edit_ok,
-                                       supports_confirm=confirm_ok))
+
+        def _once():
+            nonlocal edit_ok
+            if edited_from:
+                from assistant.engine.ingest import repair as _engine_transcript
+                if edited_from.strip().lower() != transcript.lower():
+                    learned = _engine_transcript.learn_from_edit(edited_from, transcript, src)
+                    if learned:
+                        logger.info("Learned from a transcript edit: %s",
+                                    ", ".join(f"{w}→{r}" for w, r in learned))
+                else:
+                    promoted = _engine_transcript.confirm_unchanged(transcript)
+                    if promoted:
+                        logger.info("Whitelisted after repeated confirmation: %s",
+                                    ", ".join(promoted))
+                edit_ok = False
+            return _run_transcript(transcript, source=src, device=dev,
+                                   stream=stream, current_view=view,
+                                   trace_run=run, supports_edit=edit_ok,
+                                   supports_confirm=confirm_ok)
+
+        # A queued command's resend runs nothing twice — see `/voice` — and
+        # teaches the vocabulary nothing twice either: the edit-learning above
+        # is inside the once.
+        from assistant.api import receipts
+        return jsonify(receipts.run_once(body.get("client_id"), _once))
 
     @app.post("/voice/confirm")
     def voice_confirm():

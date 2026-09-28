@@ -1772,6 +1772,21 @@ and the Mac transcribes it properly; edited → the *text* is sent, because a
 correction beats any re-transcription. `heldForEdit` makes every flush —
 reconnect, foregrounding, the poll loop, opening the screen — walk past a row
 being edited.
+**Runs once, however often it is sent** (2026-09-28). "Walk Jada every day…"
+reached the Mac three times in 55 s and booked three identical series: the
+phone puts a row back to `.queued` on anything it reads as offline (the app
+backgrounded, the network blinking mid-upload) and resends it, while the Mac
+is still running the first copy. Each queued command now sends its own id as
+`client_id` (`/voice` form field, `/voice/text` JSON key), and
+`assistant/api/receipts.py` runs each id once: a resend during the run waits
+for it and gets its answer, a later one gets the stored answer (kept an hour,
+in memory), a FAILED run frees the id so a real retry still runs. The
+vocabulary's learn-from-edit is inside the once too. `test_voice_run_once.py`.
+**Tap a row for the run** (Gil, 2026-09-28). Every row opens
+`QueuedCommandDetail`: a finished command shows the same step-by-step
+`ThinkingView` a live one does, rebuilt from the answer the phone now keeps
+(`PendingVoiceCommand.response`); one still running shows how long it has been
+running, ticking; a failed one shows why.
 
 
 ## Request protocol

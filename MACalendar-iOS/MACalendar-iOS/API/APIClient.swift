@@ -394,7 +394,8 @@ class APIClient: ObservableObject {
             if let text = cmd.outgoingText {
                 LocalStore.shared.updateVoice(cmd.id, status: .running)
                 do {
-                    let response = try await sendText(text, editedFrom: cmd.draft)
+                    let response = try await sendText(text, editedFrom: cmd.draft,
+                                                      clientId: cmd.id.uuidString)
                     // See the audio path below for why `parse == "error"` +
                     // `pendingId` is a handoff to the Mac's own retry queue,
                     // not a completion.
@@ -404,7 +405,8 @@ class APIClient: ObservableObject {
                         continue
                     }
                     LocalStore.shared.updateVoice(cmd.id, status: .done,
-                                                  result: response.message.isEmpty ? "Done" : response.message)
+                                                  result: response.message.isEmpty ? "Done" : response.message,
+                                                  response: response)
                     Self.notify(title: "Ran your queued command", body: response.message)
                     ran += 1
                     burstRefresh()
@@ -424,7 +426,7 @@ class APIClient: ObservableObject {
             }
             LocalStore.shared.updateVoice(cmd.id, status: .running)
             do {
-                let response = try await sendAudio(audio)
+                let response = try await sendAudio(audio, clientId: cmd.id.uuidString)
                 // The Mac answered, but `parse == "error"` with a `pendingId`
                 // means it never actually ran the command — the model was
                 // offline/slow, so the Mac queued it in ITS OWN retry store
@@ -440,7 +442,8 @@ class APIClient: ObservableObject {
                     continue
                 }
                 LocalStore.shared.updateVoice(cmd.id, status: .done,
-                                              result: response.message.isEmpty ? "Done" : response.message)
+                                              result: response.message.isEmpty ? "Done" : response.message,
+                                              response: response)
                 Self.notify(title: "Ran your queued command", body: response.message)
                 ran += 1
                 burstRefresh()
@@ -1192,7 +1195,8 @@ class APIClient: ObservableObject {
     ///     what to do with a question about creating something.
     func sendText(_ transcript: String, editedFrom: String? = nil,
                   supportsEdit: Bool = false,
-                  supportsConfirm: Bool = false) async throws -> VoiceResponse {
+                  supportsConfirm: Bool = false,
+                  clientId: String? = nil) async throws -> VoiceResponse {
         // Identify the client. The server treats an unlabelled caller as a
         // test, so that a curl during development cannot masquerade as a
         // command you actually gave the phone.
@@ -1203,6 +1207,7 @@ class APIClient: ObservableObject {
         if supportsEdit { body["supports_edit"] = true }
         if supportsConfirm { body["supports_confirm"] = true }
         if let editedFrom { body["edited_from"] = editedFrom }
+        if let clientId, !clientId.isEmpty { body["client_id"] = clientId }   // see sendAudio
         let data = try await request("/voice/text", method: "POST", body: body)
         return try decode(VoiceResponse.self, from: data)
     }
@@ -1303,7 +1308,10 @@ class APIClient: ObservableObject {
         return try decode(ConfirmResponse.self, from: data)
     }
 
-    func sendAudio(_ audioData: Data) async throws -> VoiceResponse {
+    /// `clientId` is a QUEUED command's own id. The Mac runs each id once, so a
+    /// resend of an upload this phone lost track of gets the first run's answer
+    /// instead of booking it again (2026-09-28: one command, three series).
+    func sendAudio(_ audioData: Data, clientId: String? = nil) async throws -> VoiceResponse {
         guard !base.isEmpty, let url = URL(string: base + "/voice") else {
             throw APIError.badURL
         }
@@ -1331,7 +1339,13 @@ class APIClient: ObservableObject {
         body.append("Content-Disposition: form-data; name=\"audio\"; filename=\"audio.wav\"\r\n".data(using: .utf8)!)
         body.append("Content-Type: audio/wav\r\n\r\n".data(using: .utf8)!)
         body.append(audioData)
-        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        body.append("\r\n".data(using: .utf8)!)
+        if let clientId, !clientId.isEmpty {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"client_id\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(clientId)\r\n".data(using: .utf8)!)
+        }
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
         req.httpBody = body
         do {
             let (data, resp) = try await URLSession.shared.data(for: req)

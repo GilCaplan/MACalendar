@@ -607,6 +607,11 @@ struct VoiceQueueView: View {
     @EnvironmentObject var settings: AppSettings
     @Environment(\.dismiss) private var dismiss
     @State private var editing: PendingVoiceCommand?
+    /// The row tapped for its details (Gil, 2026-09-28: "make this clickable
+    /// to see details of run"). Held as the id, not the value, so the sheet
+    /// follows the live row — a command that finishes while you look at it
+    /// turns into its full run in place.
+    @State private var detail: UUID?
 
     var body: some View {
         StackNavigation {
@@ -648,8 +653,19 @@ struct VoiceQueueView: View {
                                 .buttonStyle(.borderless)
                             }
                         }
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.secondary.opacity(0.6))
+                            .padding(.top, 3)
                     }
                     .padding(.vertical, 2)
+                    // The whole row opens the details; the borderless Edit
+                    // button inside keeps its own tap.
+                    .contentShape(Rectangle())
+                    .onTapGesture { detail = cmd.id }
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityHint("Shows the details of this run")
                 }
                 .onDelete { idx in
                     for i in idx { store.removeVoice(store.pendingVoice[i].id) }
@@ -666,6 +682,10 @@ struct VoiceQueueView: View {
                 ToolbarItem(placement: .navigationBarTrailing) { Button("Done") { dismiss() } }
             }
             .task { await api.syncPendingVoice() }
+            .sheet(item: Binding(get: { detail.map(IdentifiedUUID.init) },
+                                 set: { detail = $0?.id })) { item in
+                QueuedCommandDetail(id: item.id)
+            }
             .sheet(item: $editing) { cmd in
                 QueuedCommandEditor(text: cmd.displayText) { corrected in
                     if let corrected {
@@ -708,6 +728,96 @@ struct VoiceQueueView: View {
         case .done:    return "Done"
         case .failed:  return "Didn't run"
         }
+    }
+}
+
+/// A UUID a `.sheet(item:)` can hold.
+private struct IdentifiedUUID: Identifiable { let id: UUID }
+
+/// One queued command, opened from the queue.
+///
+/// Finished with a trace → the same step-by-step `ThinkingView` a live command
+/// shows, rebuilt from the answer the phone kept. Otherwise → what is known
+/// about it: status, what the phone heard, when it was recorded, how long it
+/// has been running (ticking), and the Mac's reply or the error.
+struct QueuedCommandDetail: View {
+    let id: UUID
+    @ObservedObject private var store = LocalStore.shared
+    @Environment(\.dismiss) private var dismiss
+
+    private var cmd: PendingVoiceCommand? { store.pendingVoice.first { $0.id == id } }
+
+    var body: some View {
+        if let cmd, cmd.status == .done, let r = cmd.response, let steps = r.trace, !steps.isEmpty {
+            ThinkingView(steps: steps, finished: true, response: r,
+                         onFixWord: nil, onFeedback: nil)
+        } else {
+            StackNavigation {
+                List {
+                    if let cmd {
+                        Section {
+                            LabeledContent("Status", value: status(cmd))
+                            if !cmd.displayText.isEmpty {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(cmd.edited == nil ? "What this phone heard" : "What you typed")
+                                        .font(.caption).foregroundColor(.secondary)
+                                    Text("“\(cmd.displayText)”").italic(cmd.edited == nil)
+                                }
+                            }
+                            LabeledContent("Recorded",
+                                           value: cmd.recordedAt.formatted(date: .abbreviated, time: .standard))
+                            if let started = cmd.startedAt {
+                                if cmd.status == .running {
+                                    TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                                        LabeledContent("Running for", value: Self.elapsed(from: started, to: ctx.date))
+                                    }
+                                } else if let finished = cmd.finishedAt {
+                                    LabeledContent("Took", value: Self.elapsed(from: started, to: finished))
+                                }
+                            }
+                        }
+                        if cmd.status == .running {
+                            Section {
+                                Text("Your Mac is running this now. The full run — every step and what it made — appears here the moment it finishes.")
+                                    .font(.footnote).foregroundColor(.secondary)
+                            }
+                        }
+                        if !cmd.result.isEmpty {
+                            Section(cmd.status == .failed ? "Why it didn't run" : "Your Mac's reply") {
+                                Text(cmd.result).textSelection(.enabled)
+                            }
+                        }
+                        if cmd.status == .done && cmd.response?.trace == nil {
+                            Section {
+                                Text("This ran before the phone kept each run's steps, so only the reply is here.")
+                                    .font(.footnote).foregroundColor(.secondary)
+                            }
+                        }
+                    } else {
+                        Text("This command is no longer in the queue.").foregroundColor(.secondary)
+                    }
+                }
+                .navigationTitle("Queued command")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) { Button("Done") { dismiss() } }
+                }
+            }
+        }
+    }
+
+    private func status(_ cmd: PendingVoiceCommand) -> String {
+        switch cmd.status {
+        case .queued:  return cmd.heldForEdit ? "Being edited" : "Waiting for your Mac"
+        case .running: return "Running on your Mac"
+        case .done:    return "Done"
+        case .failed:  return "Didn't run"
+        }
+    }
+
+    static func elapsed(from a: Date, to b: Date) -> String {
+        let s = max(0, Int(b.timeIntervalSince(a)))
+        return s < 60 ? "\(s) s" : "\(s / 60) min \(s % 60) s"
     }
 }
 
