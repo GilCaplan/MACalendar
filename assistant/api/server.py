@@ -407,6 +407,11 @@ def create_app() -> Flask:
     from assistant.users import routes as _users_routes
     _users_routes.register(app)
 
+    # The phone's offline reader: its served spec and measured agreement
+    # (assistant/offline/PROTOCOL.md). HTTP only.
+    from assistant.offline import routes as _offline_routes
+    _offline_routes.register(app)
+
     # ------------------------------------------------------------------
     # Health
     # ------------------------------------------------------------------
@@ -571,7 +576,13 @@ def create_app() -> Flask:
         audio_bytes = request.files["audio"].read()
         cid = request.form.get("client_id") or (
             "audio-" + hashlib.sha256(audio_bytes).hexdigest()[:40])
-        out = receipts.run_once(cid, lambda: _voice_audio_once(audio_bytes))
+        # A command the phone read offline carries its reading; the engine's
+        # answer is compared with it INSIDE the once, so a resend neither logs
+        # twice nor loses the verdict (assistant/offline).
+        from assistant.offline import reconcile as _offline
+        reading = request.form.get("offline_reading")
+        out = receipts.run_once(cid, lambda: _offline.attach(
+            reading, _voice_audio_once(audio_bytes), source="ios"))
         return jsonify(out) if isinstance(out, dict) else out
 
     def _voice_audio_once(audio_bytes: bytes):
@@ -849,10 +860,13 @@ def create_app() -> Flask:
                         logger.info("Whitelisted after repeated confirmation: %s",
                                     ", ".join(promoted))
                 edit_ok = False
-            return _run_transcript(transcript, source=src, device=dev,
+            resp = _run_transcript(transcript, source=src, device=dev,
                                    stream=stream, current_view=view,
                                    trace_run=run, supports_edit=edit_ok,
                                    supports_confirm=confirm_ok)
+            from assistant.offline import reconcile as _offline
+            return _offline.attach(body.get("offline_reading"), resp,
+                                   source=src, device=dev)
 
         # A queued command's resend runs nothing twice — see `/voice` — and
         # teaches the vocabulary nothing twice either: the edit-learning above

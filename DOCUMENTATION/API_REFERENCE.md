@@ -155,6 +155,14 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `PUT` | `/jude/chats/<chat_id>/topic` | Confirm a topic pivot. |
 | `GET` | `/jude/status` | Never an error — a client draws whatever this says. |
 
+## /offline
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/offline/agreement` | How often the phone's offline reading matched the Mac's, from the log. |
+| `GET` | `/offline/pending/<int:pending_id>` | Has the Mac run a command it queued? The phone keeps its provisional |
+| `GET` | `/offline/reader` | What the phone's on-device model is told. Cached by the phone. |
+
 ## /auth
 
 | Method | Path | What it does |

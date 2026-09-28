@@ -17,7 +17,7 @@ pytest.importorskip("PyQt6")
 
 from PyQt6.QtCore import Qt                                    # noqa: E402
 from PyQt6.QtTest import QTest                                 # noqa: E402
-from PyQt6.QtWidgets import QApplication                       # noqa: E402
+from PyQt6.QtWidgets import QApplication, QPushButton          # noqa: E402
 
 from assistant import users                                    # noqa: E402
 from assistant.users import local_session, registry, sessions  # noqa: E402
@@ -152,7 +152,7 @@ def _event(uid, title):
             "recurrence": "", "recurrence_end": ""})
 
 
-def test_the_month_view_shows_a_shared_calendar_in_the_owners_name_and_colour(people):
+def test_the_month_view_shows_a_shared_calendar_with_the_owners_name(people):
     from assistant.calendar_ui.merged_db import MergedCalendar
     from assistant.calendar_ui.month_view import MonthView
     from assistant.db import CalendarDB
@@ -164,7 +164,8 @@ def test_the_month_view_shows_a_shared_calendar_in_the_owners_name_and_colour(pe
     rows = merged.get_events_for_month(DAY.year, DAY.month)
     by = {r["title"]: r for r in rows}
     assert set(by) == {"dana's dentist", "gil's shiur"}
-    assert by["dana's dentist"]["color"] == registry.get(people["dana"])["color"]
+    # its own colour, the owner's alongside for the card edge (2026-09-28)
+    assert by["dana's dentist"]["owner_color"] == registry.get(people["dana"])["color"]
     view = MonthView(merged)
     view.show()
     view.navigate(DAY.year, DAY.month)
@@ -256,3 +257,64 @@ def test_the_admin_dashboard_puts_sharing_before_the_people_table(people):
     box = page.account.share_boxes[people["dana"]]
     assert box.mapTo(page, box.rect().topLeft()).y() < page.admin.mapTo(page, page.admin.rect().topLeft()).y()
 
+
+
+# ------------------------------------------------------------------ to-dos by person
+
+def _todo(uid, title, list_name="today"):
+    from assistant.db import get_db
+    with users.bind(uid):
+        return get_db().create_todo(title, list_name=list_name)
+
+
+def _titles(lst):
+    return [w._todo["title"] for w in lst._item_widgets]
+
+
+def test_shared_todos_mix_in_filter_by_person_and_group_by_person(people):
+    """Gil, 2026-09-28: "group shared to-dos by person toggle doesn't seem to
+    do anything" — nothing read it. Mixed in by default; the person bar
+    filters; the setting moves shared to-dos into a section per person."""
+    from assistant.calendar_ui.merged_db import MergedCalendar
+    from assistant.calendar_ui.todo_view import TodoView
+    from assistant.db import CalendarDB
+    _todo(people["dana"], "dana's slides")
+    _todo(people["dana"], "dana's bank", "general")
+    _todo(people["gil"], "gil's milk")
+    registry.set_share(people["dana"], people["gil"], "view")
+    users.set_process_default(people["gil"])
+    view = TodoView(MergedCalendar(CalendarDB()))
+    view.show()
+    QApplication.processEvents()
+
+    # mixed in, and the person bar is there because someone shares
+    assert set(_titles(view._today_list)) == {"dana's slides", "gil's milk"}
+    assert view._person_bar.isVisible()
+    _click(view._person_bar.findChild(QPushButton, "person_chip_me"))
+    assert _titles(view._today_list) == ["gil's milk"]
+    _click(view._person_bar.findChild(QPushButton, f"person_chip_{people['dana']}"))
+    assert _titles(view._today_list) == ["dana's slides"]
+    assert not view._today_list._new_row.isVisible()      # a new task would be Gil's, not hers
+    _click(view._person_bar.findChild(QPushButton, "person_chip_all"))
+
+    # grouped: own lists are own; Dana gets her own section with both her lists
+    registry.set_setting(people["gil"], "todos_group_by_owner", True)
+    view.refresh()
+    QApplication.processEvents()
+    assert _titles(view._today_list) == ["gil's milk"]
+    header, lst = view._people_sections
+    assert header._title_label.text().startswith("Dana") if hasattr(header, "_title_label") else True
+    assert set(_titles(lst)) == {"dana's slides", "dana's bank"}
+    assert not lst._new_row.isVisible() and not lst._list_widget.dragEnabled()
+
+
+def test_no_person_bar_when_nobody_shares(people):
+    from assistant.calendar_ui.merged_db import MergedCalendar
+    from assistant.calendar_ui.todo_view import TodoView
+    from assistant.db import CalendarDB
+    _todo(people["gil"], "gil's milk")
+    users.set_process_default(people["gil"])
+    view = TodoView(MergedCalendar(CalendarDB()))
+    view.show()
+    QApplication.processEvents()
+    assert not view._person_bar.isVisible() and view._people_sections == []

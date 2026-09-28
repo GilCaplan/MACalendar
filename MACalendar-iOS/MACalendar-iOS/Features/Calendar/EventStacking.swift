@@ -7,6 +7,12 @@ import SwiftUI
 /// earlier cards' left edges stay visible like binder tabs. Tapping a card that
 /// is not on top pops it out (full width, raised, others dimmed); tapping the
 /// popped card opens it.
+///
+/// Since 2026-09-28 (Gil, four events overlapping at 9:00): a buried card
+/// steps right far enough to READ its title and time in the strip it keeps
+/// (`readStep`, capped at half the column for all buried strips together),
+/// and the viewer's OWN events go on top, other people's underneath. Same
+/// rules as the Mac's `stack_layout.py`.
 struct StackedEvent: Identifiable {
     let event: CalendarEvent
     let top: CGFloat
@@ -37,6 +43,9 @@ enum EventStacking {
         var bottom: CGFloat = -1
         var clusterID = 0
         func flush() {
+            // someone else's first (bottom), the viewer's own on top; the
+            // time order is kept within each group
+            cluster = cluster.filter { $0.0.shared == true } + cluster.filter { $0.0.shared != true }
             for (i, b) in cluster.enumerated() {
                 out.append(StackedEvent(event: b.0, top: b.1, height: b.2, depth: i, stackSize: cluster.count, cluster: clusterID))
             }
@@ -53,10 +62,22 @@ enum EventStacking {
 
     /// Horizontal inset for a card at `depth` in a stack of `size`, capped so the
     /// top card keeps at least half the column.
-    static func inset(depth: Int, size: Int, step: CGFloat, width: CGFloat) -> CGFloat {
+    static func inset(depth: Int, size: Int, step: CGFloat, readStep: CGFloat = 0,
+                      width: CGFloat) -> CGFloat {
+        CGFloat(depth) * effStep(size: size, step: step, readStep: readStep, width: width)
+    }
+
+    /// How much of a buried card shows — its text wraps inside this. 0 for the
+    /// top card and for a card that overlaps nothing.
+    static func strip(depth: Int, size: Int, step: CGFloat, readStep: CGFloat = 0,
+                      width: CGFloat) -> CGFloat {
+        guard size > 1, depth < size - 1 else { return 0 }
+        return effStep(size: size, step: step, readStep: readStep, width: width)
+    }
+
+    static func effStep(size: Int, step: CGFloat, readStep: CGFloat, width: CGFloat) -> CGFloat {
         guard size > 1 else { return 0 }
-        let eff = CGFloat(size) * step <= width * 0.5 ? step : max(3, width * 0.5 / CGFloat(size))
-        return CGFloat(depth) * eff
+        return max(3, min(max(step, readStep), width * 0.5 / CGFloat(size - 1)))
     }
 }
 
@@ -77,5 +98,21 @@ struct StackedCardModifier: ViewModifier {
             .opacity(dimmed ? 0.55 : 1)
             .animation(.spring(response: 0.3, dampingFraction: 0.8), value: popped)
             .animation(.easeOut(duration: 0.2), value: dimmed)
+    }
+}
+
+/// The owner's colour as a card's left edge — on someone else's event only.
+struct OwnerEdge: ViewModifier {
+    var event: CalendarEvent
+    var width: CGFloat = 4
+    var radius: CGFloat
+
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .leading) {
+            if event.shared == true, let hex = event.ownerColor, let c = Color(hex: hex) {
+                UnevenRoundedRectangle(topLeadingRadius: radius, bottomLeadingRadius: radius)
+                    .fill(c).frame(width: width)
+            }
+        }
     }
 }

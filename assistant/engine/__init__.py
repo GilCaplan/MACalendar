@@ -530,6 +530,11 @@ class Engine(Component):
             # key because `message` is SPOKEN — appended there, a tip would be
             # read aloud on every command.
             "hint": _hint(state),
+            # WHAT was written, as row references — so a client can compare a
+            # reading of its own against the engine's (assistant/offline).
+            "committed": [{"kind": ex.record[0], "id": ex.record[1], "action": ex.action}
+                          for ex in state.executed
+                          if ex.ok and ex.record and ex.record[1] is not None],
         }
         if state.memory_id is not None:
             resp["memory_id"] = state.memory_id

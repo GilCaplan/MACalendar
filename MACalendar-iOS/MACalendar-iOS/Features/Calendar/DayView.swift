@@ -78,9 +78,11 @@ struct DayView: View {
                         let poppedCluster = items.first { $0.id == popped }?.cluster
                         ForEach(items) { it in
                             let isPopped = popped == it.id
-                            let inset = isPopped ? 0 : EventStacking.inset(depth: it.depth, size: it.stackSize, step: 14, width: colW)
-                            EventBlock(event: it.event, height: it.height)
+                            let inset = isPopped ? 0 : EventStacking.inset(depth: it.depth, size: it.stackSize, step: 14, readStep: 110, width: colW)
+                            let strip = isPopped ? 0 : EventStacking.strip(depth: it.depth, size: it.stackSize, step: 14, readStep: 110, width: colW)
+                            EventBlock(event: it.event, height: it.height, strip: strip)
                                 .frame(width: max(colW - inset, 40), height: it.height)
+                                .modifier(OwnerEdge(event: it.event, radius: 6))
                                 .modifier(StackedCardModifier(stacked: it.stackSize > 1, popped: isPopped,
                                                               dimmed: poppedCluster == it.cluster && !isPopped, radius: 6))
                                 .offset(x: 44 + inset, y: it.top)
@@ -213,6 +215,9 @@ private struct EventBlock: View {
     @EnvironmentObject var settings: AppSettings
     var event: CalendarEvent
     var height: CGFloat
+    /// Visible width when buried in a stack (0 = whole card) — the text wraps
+    /// inside it so the strip that shows can be read.
+    var strip: CGFloat = 0
 
     var body: some View {
         let textColor = Color.onColor(hex: event.color.isEmpty ? settings.accentColorHex : event.color)
@@ -234,6 +239,7 @@ private struct EventBlock: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+                .frame(maxWidth: strip > 0 ? max(strip - 8, 20) : nil, alignment: .leading)
                 .padding(4)
             }
             .frame(height: height)

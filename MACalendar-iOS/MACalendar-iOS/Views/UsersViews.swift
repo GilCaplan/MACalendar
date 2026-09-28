@@ -163,7 +163,6 @@ struct AccountView: View {
     @State private var others: [PublicUser] = []
     @State private var sharedIn: [(name: String, color: String, level: String)] = []
     @State private var groupByOwner = false
-    @State private var notifyShared = false
     @State private var showPassword = false
     @State private var loaded = false
 
@@ -197,9 +196,9 @@ struct AccountView: View {
                     Toggle("Group shared to-dos by person", isOn: Binding(
                         get: { groupByOwner },
                         set: { v in groupByOwner = v; Task { await setting("todos_group_by_owner", v) } }))
-                    Toggle("Include shared items in my notifications", isOn: Binding(
-                        get: { notifyShared },
-                        set: { v in notifyShared = v; Task { await setting("notify_shared", v) } }))
+                } footer: {
+                    Text("Notifications are only ever about your own calendar and to-dos.")
+
                 }
                 if u.isAdmin {
                     Section { NavigationLink("Manage users") { AdminUsersView() } }
@@ -232,7 +231,6 @@ struct AccountView: View {
         }
         let st = obj["settings"] as? [String: Any] ?? [:]
         groupByOwner = st["todos_group_by_owner"] as? Bool ?? false
-        notifyShared = st["notify_shared"] as? Bool ?? false
     }
 
     private func setting(_ key: String, _ on: Bool) async {

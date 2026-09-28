@@ -57,8 +57,10 @@ class AccountPanel(FeaturePanel):
 
     def _title(self, lay, text: str, sub: str = "") -> None:
         t = QLabel(text)
-        f = t.font(); f.setPointSize(f.pointSize() + 6); f.setBold(True)
-        t.setFont(f)
+        t.setObjectName("account_title")
+        # a stylesheet, not setFont: the app's stylesheet sets every QLabel's
+        # font and silently wins over setFont — the title rendered body-sized
+        t.setStyleSheet("font-size: 22px; font-weight: 700;")
         lay.addWidget(t)
         if sub:
             s = QLabel(sub)
@@ -94,7 +96,6 @@ class AccountPanel(FeaturePanel):
         hint.setWordWrap(True)
         lay.addWidget(hint)
         self.admin = AdminDialog(self, embedded=True)
-        self.admin.setMinimumHeight(360)
         self.admin.changed.connect(lambda: self.reload())
         lay.addWidget(self.admin)
         self._section(lay, "Signed-in devices")

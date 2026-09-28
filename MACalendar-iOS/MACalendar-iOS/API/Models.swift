@@ -51,6 +51,9 @@ struct CalendarEvent: Identifiable, Codable, Equatable {
     /// whose id is namespaced by the Mac so it never collides with our own.
     var ownerId: String? = nil
     var ownerName: String? = nil
+    /// The owner's colour — drawn as the card's left edge on someone else's
+    /// event, which keeps its own category colour (Gil, 2026-09-28).
+    var ownerColor: String? = nil
     var shared: Bool? = nil
     var canEdit: Bool? = nil
 
@@ -59,6 +62,7 @@ struct CalendarEvent: Identifiable, Codable, Equatable {
         case shared
         case ownerId   = "owner_id"
         case ownerName = "owner_name"
+        case ownerColor = "owner_color"
         case canEdit   = "can_edit"
         case startTime      = "start_time"
         case endTime        = "end_time"
@@ -246,9 +250,13 @@ struct VoiceResponse: Codable {
     /// title was refused. Drawn once per code above the mic, dismissable.
     /// Optional: an older host sends none. (Gil, 2026-09-22, DEVQA Q41.)
     let hint: ReplyHint?
+    /// On a resent command the phone read offline: how the Mac's reading
+    /// compared with the phone's (assistant/offline). Absent otherwise.
+    var offline: OfflineVerdict? = nil
 
     enum CodingKeys: String, CodingKey {
         case message, actions, refresh, parse, transcript, corrections, trace, brain, hint
+        case offline
         case boundaries
         case verifyToken = "verify_token"
         case originalTranscript = "original_transcript"

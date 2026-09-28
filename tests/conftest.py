@@ -62,6 +62,9 @@ for _var, _name in (("MACALENDAR_DB", "calendar.db"),
                     # store the settings screens write
                     ("MACALENDAR_OBSERVANCE_EXCEPTIONS", "observance_exceptions.json"),
                     ("MACALENDAR_TRACE_BUS", "trace_bus.jsonl"),
+                    # the offline reader's comparisons (2026-09-28): what was
+                    # said on the phone, so a personal store like the bus
+                    ("MACALENDAR_OFFLINE_LOG", "offline_readings.jsonl"),
                     # The LLM console's call log (2026-09-22, found by the
                     # first test to reach the ollama transport): a test that
                     # drives `_call_ollama` was appending to the REAL

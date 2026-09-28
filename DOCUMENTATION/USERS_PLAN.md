@@ -68,3 +68,8 @@ Stays global (a device's or the machine's, not a person's): `model.lock`,
   (`policy.auto_signout_days`, read by `sessions.idle_days()`), and sign a
   person out everywhere (`POST /admin/users/<uid>/signout`). Both live in the
   **Account tab** (`assistant/features/account/`), the admin's dashboard.
+- Revised by Gil the same day (DEVQA Q67): `notify_shared` is retired —
+  notifications are only ever the person's own; shared events keep their own
+  colour with the owner's as the card edge; the viewer's own events sit on top
+  of an overlap stack; `todos_group_by_owner` is now read (a section per
+  person) and a Whose filter was added.

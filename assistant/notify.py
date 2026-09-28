@@ -153,6 +153,11 @@ def annotate(rows: "list[dict]", cfg=None) -> "list[dict]":
         from assistant.config import load_config
         cfg = load_config().notifications
     for r in rows:
+        if r.get("shared"):
+            # someone else's event: shown, never notified (Gil, 2026-09-28)
+            r["notify_at"], r["notify_suppressed_reason"] = None, "shared"
+            r.setdefault("reminder_minutes", None)
+            continue
         at, why = notify_verdict(r, cfg)
         r["notify_at"] = at
         r["notify_suppressed_reason"] = why

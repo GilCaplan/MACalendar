@@ -1385,6 +1385,12 @@ class TodoListWidget(QWidget):
         self._tag_filter: list[str] = []  # any of: tag names | UNTAGGED_KEY (empty = all)
         self._auto_tag: str = ""         # "tag mode": tag every new task with this
         self._auto_tag_infer: bool = True   # else: infer a tag from the title
+        #: whose rows this list shows (DEVQA Q65): None = everyone's, mixed in
+        self._owner_filter = None
+        #: a person's section: someone else's rows, in their order — no drag
+        #: (a reorder would rewrite THEIR positions) and no "New Task" row
+        #: (a new task would land on the viewer's own list, not theirs)
+        self._fixed_order = False
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -1404,7 +1410,19 @@ class TodoListWidget(QWidget):
         outer.addWidget(self._list_widget)
 
         # "New Task" row below the list
-        outer.addWidget(self._make_new_task_row())
+        self._new_row = self._make_new_task_row()
+        outer.addWidget(self._new_row)
+
+    def set_owner_filter(self, fn) -> None:
+        """`fn(todo) -> bool`, or None for every row the viewer can see."""
+        self._owner_filter = fn
+
+    def set_can_add(self, on: bool) -> None:
+        self._new_row.setVisible(bool(on))
+
+    def set_fixed_order(self, on: bool) -> None:
+        self._fixed_order = bool(on)
+        self._update_drag_enabled()
 
     # ------------------------------------------------------------------
     # Sort
@@ -1443,7 +1461,8 @@ class TodoListWidget(QWidget):
 
     def _update_drag_enabled(self) -> None:
         # Manual reorder only makes sense when every row is visible.
-        drag_on = (self._sort_mode == "manual") and not self._tag_filter
+        drag_on = (self._sort_mode == "manual") and not self._tag_filter \
+            and not self._fixed_order and self._owner_filter is None
         self._list_widget.setDragEnabled(drag_on)
         self._list_widget.setAcceptDrops(drag_on)
 
@@ -1489,7 +1508,8 @@ class TodoListWidget(QWidget):
         todos = self._db.get_todos(
             list_name=self._list_name, include_completed=show_completed,
         )
-        todos = self._sorted_todos([t for t in todos if self._matches_filter(t)])
+        todos = self._sorted_todos([t for t in todos if self._matches_filter(t)
+                                    and (self._owner_filter is None or self._owner_filter(t))])
 
         for todo in todos:
             item = QListWidgetItem(self._list_widget)
@@ -1646,6 +1666,80 @@ class TodoListWidget(QWidget):
 # ---------------------------------------------------------------------------
 # _SortBar — compact segmented sort control
 # ---------------------------------------------------------------------------
+
+class _PersonBar(QWidget):
+    """Whose to-dos: Everyone · Mine · one chip per person sharing with you
+    (DEVQA Q65 — "mixed in, with a filter"). Hidden while nobody shares."""
+
+    person_changed = pyqtSignal(str)   # "" everyone | "me" | an owner's user id
+
+    def __init__(self, dark: bool = False, parent=None) -> None:
+        super().__init__(parent)
+        self._dark = dark
+        self._selected = ""
+        self._people: dict = {}
+        self._btns: dict = {}
+        self._row = QHBoxLayout(self)
+        self._row.setContentsMargins(14, 2, 14, 4)
+        self._row.setSpacing(6)
+        self.hide()
+
+    def selected(self) -> str:
+        return self._selected
+
+    def set_people(self, people: dict) -> None:
+        """{uid: (name, colour)} of everyone whose to-dos are in view."""
+        if self._selected not in ("", "me") and self._selected not in people:
+            self._selected = ""
+        if people == self._people and self._btns:
+            self._restyle()
+            return
+        self._people = dict(people)
+        while self._row.count():
+            it = self._row.takeAt(0)
+            if it.widget():
+                it.widget().deleteLater()
+        self._btns = {}
+        lbl = QLabel("Whose:")
+        lbl.setStyleSheet("font-size: 11px; color: #888; margin-right: 2px;")
+        self._row.addWidget(lbl)
+        for key, name in [("", "Everyone"), ("me", "Mine")] + [
+                (uid, nc[0] or "?") for uid, nc in sorted(people.items(), key=lambda kv: kv[1][0] or "")]:
+            b = QPushButton(name)
+            b.setObjectName(f"person_chip_{key or 'all'}")
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.setFixedHeight(22)
+            b.clicked.connect(lambda _=False, k=key: self._select(k))
+            self._btns[key] = b
+            self._row.addWidget(b)
+        self._row.addStretch(1)
+        self.setVisible(bool(people))
+        self._restyle()
+
+    def _select(self, key: str) -> None:
+        if key == self._selected:
+            return
+        self._selected = key
+        self._restyle()
+        self.person_changed.emit(key)
+
+    def _restyle(self) -> None:
+        border = D_GRAY_BORDER if self._dark else GRAY_BORDER
+        for key, b in self._btns.items():
+            dot = (self._people.get(key) or (None, None))[1]
+            on = key == self._selected
+            edge = f"border-left: 3px solid {dot};" if dot else ""
+            b.setStyleSheet(
+                f"QPushButton {{ font-size: 11px; padding: 0 10px; border-radius: 11px;"
+                f" border: 1px solid {BLUE if on else border}; {edge}"
+                f" background: {BLUE if on else 'transparent'};"
+                f" color: {'#ffffff' if on else ('#dddddd' if self._dark else '#333333')};"
+                f" font-weight: {'600' if on else '400'}; }}")
+
+    def apply_theme(self, dark: bool) -> None:
+        self._dark = dark
+        self._restyle()
+
 
 class _SortBar(QWidget):
     """Three-button segmented control: Manual | Priority | Due Date."""
@@ -2155,6 +2249,11 @@ class TodoView(FeaturePanel):
         self._tag_bar.tags_changed.connect(self.refresh)
         self._content_layout.addWidget(self._tag_bar)
 
+        # ── Whose (DEVQA Q65): Everyone · Mine · each person sharing ──
+        self._person_bar = _PersonBar(dark=self._dark)
+        self._person_bar.person_changed.connect(lambda _k: self.refresh())
+        self._content_layout.addWidget(self._person_bar)
+
         # ── Today section ──
         self._today_header = SectionHeader(
             "Today", show_sync_button=True, show_sync_gear=True, dark=self._dark
@@ -2190,6 +2289,14 @@ class TodoView(FeaturePanel):
         self._general_list.count_changed.connect(self._general_header.set_count)
         self._content_layout.addWidget(self._general_list)
 
+        # ── One section per person, when "group shared to-dos by person" is on
+        self._people_box = QWidget()
+        self._people_layout = QVBoxLayout(self._people_box)
+        self._people_layout.setContentsMargins(0, 0, 0, 0)
+        self._people_layout.setSpacing(0)
+        self._people_sections: list = []
+        self._content_layout.addWidget(self._people_box)
+
         self._content_layout.addStretch()
 
         scroll.setWidget(content)
@@ -2212,11 +2319,76 @@ class TodoView(FeaturePanel):
         self.refresh()
 
     def refresh(self) -> None:
-        """Reload todos from DB and repopulate both lists."""
+        """Reload todos from DB and repopulate both lists — and, with users,
+        decide whose rows each list shows (DEVQA Q65): mixed in, filtered to
+        one person, or with shared to-dos grouped into a section per person."""
+        people = self._shared_people()
+        self._person_bar.set_people(people)
+        who = self._person_bar.selected()
+        group = bool(people) and self._group_by_owner()
+
+        def own(t):
+            return not t.get("shared")
+        if who == "me":
+            main = own
+        elif who:
+            main = lambda t, u=who: t.get("owner_id") == u      # noqa: E731
+        elif group:
+            main = own
+        else:
+            main = None
+        for lst in (self._today_list, self._general_list):
+            lst.set_owner_filter(main)
+            lst.set_can_add(who in ("", "me"))
+            lst._update_drag_enabled()
         self._today_list.populate(self._show_completed)
         self._general_list.populate(self._show_completed)
+        self._rebuild_people(people if group and not who else {})
         self._apply_sync_badge()
         self._update_clear_buttons()
+
+    def showEvent(self, event) -> None:
+        # the grouping is a setting on the Account tab; coming back here must
+        # show it without waiting for the next database change
+        super().showEvent(event)
+        self.refresh()
+
+    def _shared_people(self) -> dict:
+        """{owner id: (name, colour)} of everyone whose to-dos are in view."""
+        try:
+            rows = self._db.get_todos(list_name=None, include_completed=True)
+        except Exception:                                   # noqa: BLE001
+            return {}
+        return {t["owner_id"]: (t.get("owner_name") or "", t.get("owner_color") or "")
+                for t in rows if t.get("shared") and t.get("owner_id")}
+
+    @staticmethod
+    def _group_by_owner() -> bool:
+        from assistant import users
+        from assistant.users import registry
+        uid = users.current()
+        if not uid or not registry.exists():
+            return False
+        return bool(((registry.get(uid) or {}).get("settings") or {}).get("todos_group_by_owner"))
+
+    def _rebuild_people(self, people: dict) -> None:
+        for w in self._people_sections:
+            self._people_layout.removeWidget(w)
+            w.deleteLater()
+        self._people_sections = []
+        for uid, (name, _colour) in sorted(people.items(), key=lambda kv: kv[1][0]):
+            header = SectionHeader(name or "Shared", dark=self._dark)
+            lst = TodoListWidget(self._db, None, dark=self._dark)
+            lst._font_size = self._today_list._font_size
+            lst.set_owner_filter(lambda t, u=uid: t.get("owner_id") == u)
+            lst.set_can_add(False)
+            lst.set_fixed_order(True)
+            lst.count_changed.connect(header.set_count)
+            lst.todo_changed.connect(lambda: QTimer.singleShot(0, self.refresh))
+            self._people_layout.addWidget(header)
+            self._people_layout.addWidget(lst)
+            self._people_sections += [header, lst]
+            lst.populate(self._show_completed)
 
     def apply_theme(self, dark: bool) -> None:
         self._dark = dark
@@ -2224,6 +2396,7 @@ class TodoView(FeaturePanel):
         self.setStyleSheet(f"background-color: {bg};")
         self._sort_bar.apply_theme(dark)
         self._tag_bar.apply_theme(dark)
+        self._person_bar.apply_theme(dark)
         self._general_header.apply_theme(dark)
         self._today_list.apply_theme(dark)
         self._general_list.apply_theme(dark)

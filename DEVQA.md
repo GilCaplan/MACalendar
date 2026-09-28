@@ -1,3 +1,36 @@
+- **2026-09-28 — Q67 (OVERLAPS, SHARED COLOURS, NOTIFICATIONS, GROUPING)**,
+  Gil, looking at a demo account whose four events overlapped his at 9:00:
+  1. **Overlaps stay a binder**, but *"overlay shift to right so can see
+     details of each event with current users/admin on top"*: a buried card
+     steps right far enough to READ its title and time (the strip; capped at
+     half the column for all buried strips), and **the viewer's own events
+     sit on top**, other people's underneath. Shown side by side with a
+     capped binder, columns and a tabbed binder before choosing.
+  2. **A shared event keeps its own category colour**; the owner shows as
+     the card's left edge in their colour, plus "Name ·". (Replaces Q65's
+     "shared items wear the owner's colour": a stack of one person's events
+     in one colour read as a single block.)
+  3. *"Notifications should only be the main user, not include shared
+     events"* — **never**, on any surface (day panel, reminders, lock screen,
+     widget). Replaces Q65's opt-in "include what others share with me".
+  4. **"Group shared to-dos by person" must DO something** — it was saved and
+     read by nothing. On: a section per person; always: a Whose filter
+     (Everyone · Mine · each person), which Q65 promised and never shipped.
+
+- **2026-09-28 — Q66 (AN OFFLINE READER ON THE PHONE)**, Gil: *"implement the
+  thing we talked about regarding the offline model put on the phone or any
+  iOS device… not where the server is. And also to include in the protocol
+  how we manage that. So that if you want to do fixes and stuff, it works
+  with the protocol to do the correct LLM post."* Asked how the phone should
+  read, with the cost of each (PyPI has no iOS builds of spaCy's native
+  stack, so a port of the Mac engine was a multi-day build with no
+  guarantee): **Apple's on-device model** (iOS 26 Foundation Models). The
+  phone books CREATES only, provisionally; the Mac re-reads every command
+  on reconnect and its reading wins; the model's instructions are served by
+  the Mac, so a fix ships without a reinstall.
+  `assistant/offline/PROTOCOL.md` is the contract. Also: **engine
+  improvement paused** to gather real-usage data first.
+
 - **2026-09-28 — Q65 (USERS: AN ADMIN AND OTHER USERS, EACH WITH THEIR OWN
   CALENDAR)**, Gil: *"user admin, then other users, such that each one has
   their own instance of a calendar i.e. a .db file plus for tasks as well…

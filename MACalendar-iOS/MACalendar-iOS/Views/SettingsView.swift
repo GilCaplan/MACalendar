@@ -141,6 +141,12 @@ struct SettingsView: View {
                         }
                         .accessibilityIdentifier("server-connect-toggle")
 
+                        // The offline reader (assistant/offline): whether this
+                        // device can read a command itself while the Mac is away.
+                        Label(offlineReaderNote, systemImage: "iphone.gen3.radiowaves.left.and.right")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
                         if store.pendingCount > 0 {
                             Button { showQueue = true } label: {
                                 HStack {
@@ -414,7 +420,7 @@ struct SettingsView: View {
 
                             Button {
                                 let summary = LiveActivityManager.todaysAgendaSummary(
-                                    now: Date(), events: LocalStore.shared.allEvents())
+                                    now: Date(), events: LocalStore.shared.ownEvents())
                                 APIClient.notify(title: "Today's Agenda", body: summary)
                             } label: {
                                 Label("Show today's agenda now", systemImage: "list.bullet.rectangle")
@@ -814,6 +820,8 @@ struct SettingsView: View {
 
     /// What the connection switch means, in its two states. A stored property
     /// rather than an inline ternary — see the note at its use site.
+    private var offlineReaderNote: String { OfflineReader.availabilityNote }
+
     private var serverBlurb: String {
         settings.serverEnabled
             ? "Off means the app works entirely from its cache. Nothing is lost "

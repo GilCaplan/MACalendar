@@ -257,9 +257,9 @@ final class LiveActivityManager {
         }
 
         guard let state = Self.currentCard(now: Date(),
-                                           events: LocalStore.shared.allEvents(),
+                                           events: LocalStore.shared.ownEvents(),
                                            accentHex: Self.accentHex,
-                                           todos: LocalStore.shared.allTodos(list: nil, includeCompleted: false)) else {
+                                           todos: LocalStore.shared.ownTodos()) else {
             await endAll(reason: "nothing running and nothing starting within 8 h")
             return
         }

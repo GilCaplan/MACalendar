@@ -42,6 +42,7 @@ _COL_GAP = 3       # px gap between side-by-side event columns
 _LEFT_PAD = 4      # px left of first column
 _RIGHT_PAD = 6     # px right of last column
 _STACK_STEP = 14   # px each overlapping card steps in (binder tabs)
+_READ_STEP = 130   # …or as far as it takes to read the buried card (stack_layout)
 
 
 class EventBlock(QLabel):
@@ -84,16 +85,35 @@ class EventBlock(QLabel):
         self._resize_orig_height = 0
         self._resize_press_y = 0  # parent-relative y at press
 
+    #: visible width when buried in a stack (0 = whole card); the text wraps
+    #: inside it, so the strip that shows is readable (stack_layout)
+    _strip = 0
+
+    def set_strip(self, strip: int) -> None:
+        self._strip = max(0, int(strip))
+        self._apply_block_style()
+
+    def _edge_color(self) -> str:
+        """Another person's event shows WHOSE it is as its left edge, in their
+        colour; the card keeps its own category colour (Gil, 2026-09-28)."""
+        if self.event.get("shared") and self.event.get("owner_color"):
+            return self.event["owner_color"]
+        return "rgba(0,0,0,0.25)"
+
     def _apply_block_style(self) -> None:
         fs = self._font_size
+        right = 8
+        col_w = getattr(self, "_col_w", 0)
+        if self._strip and col_w > self._strip:
+            right += col_w - self._strip
         self.setStyleSheet(f"""
             QLabel {{
                 background-color: {self._color};
                 color: {_styles.on_color(self._color)};
                 border-radius: 6px;
                 font-size: {fs}px;
-                padding: 5px 8px 4px 10px;
-                border-left: 5px solid rgba(0,0,0,0.25);
+                padding: 5px {right}px 4px 10px;
+                border-left: {6 if self.event.get("shared") else 5}px solid {self._edge_color()};
                 border-bottom: 1px solid rgba(0,0,0,0.20);
             }}
         """)
@@ -356,7 +376,7 @@ class DayTimeline(QWidget):
 
         from assistant.calendar_ui.stack_layout import stacked_layout
         self._placed = stacked_layout(events, avail_w, self.hour_height, 30, _LEFT_PAD, _RIGHT_PAD,
-                                      _STACK_STEP, self._to_min)
+                                      _STACK_STEP, self._to_min, read_step=_READ_STEP)
         return [(pl.event, pl.x, pl.w, pl.top, pl.height) for pl in self._placed]
 
     # ------------------------------------------------------------------
@@ -381,6 +401,8 @@ class DayTimeline(QWidget):
             block._col_w = w
             pl = self._placed[len(self._event_widgets)]
             block._stack = (pl.depth, pl.stack_size, pl.full_x, pl.full_w)
+            block._stack_strip = pl.strip
+            block.set_strip(pl.strip)
             block.clicked.connect(self._on_block_clicked)
             block.resized.connect(self.event_rescheduled)
             block.setGeometry(x, top, w, h)
@@ -405,6 +427,7 @@ class DayTimeline(QWidget):
     def _pop(self, block, full_x: int, full_w: int) -> None:
         self._unpop()
         block._popped_geom = block.geometry()
+        block.set_strip(0)
         block.setGeometry(full_x, block.y(), full_w, block.height())
         block.raise_()
         eff = block.graphicsEffect()
@@ -419,6 +442,7 @@ class DayTimeline(QWidget):
             return
         try:
             block.setGeometry(block._popped_geom)
+            block.set_strip(getattr(block, "_stack_strip", 0))
             eff = block.graphicsEffect()
             if eff is not None:
                 eff.setBlurRadius(8); eff.setOffset(0, 2); eff.setColor(QColor(0, 0, 0, 55))

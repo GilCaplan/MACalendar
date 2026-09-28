@@ -6,6 +6,13 @@ each later card sits on top of the previous one, shifted right by ``step`` px so
 the earlier cards' left edges stay visible like the tabs of a binder. Clicking a
 card that is not on top "pops" it out (full width, raised); clicking the popped
 card opens it for editing.
+
+Two rules added 2026-09-28 (Gil, with four events overlapping at 9:00 and the
+buried three reduced to slivers): each buried card steps right far enough that
+its own title and time can be READ in the strip it keeps (`read_step`, capped so
+the buried strips never take more than half the column — the card's text wraps
+inside `strip`), and the viewer's OWN events go on top of the stack, other
+people's shared ones underneath.
 """
 
 from __future__ import annotations
@@ -25,10 +32,12 @@ class Placed:
     stack_size: int     # 1 = not overlapping anything
     full_x: int         # geometry to use when popped out
     full_w: int
+    strip: int = 0      # visible width of a buried card (0 = the whole card shows)
 
 
 def stacked_layout(events: List[dict], avail_w: int, hour_height: float, min_h: int,
-                   left_pad: int, right_pad: int, step: int, to_min: Callable[[str], int]) -> List[Placed]:
+                   left_pad: int, right_pad: int, step: int, to_min: Callable[[str], int],
+                   read_step: int = 0, buried_share: float = 0.5) -> List[Placed]:
     if not events:
         return []
 
@@ -57,9 +66,15 @@ def stacked_layout(events: List[dict], avail_w: int, hour_height: float, min_h: 
     out: List[Placed] = []
     for grp in clusters:
         n = len(grp)
-        eff_step = step if n * step <= usable * 0.5 else max(4, int(usable * 0.5 / n))
+        # Other people's shared events at the bottom, the viewer's own on top;
+        # time order within each (stable sort keeps the start-time order).
+        grp = sorted(grp, key=lambda b: 0 if b[0].get("shared") else 1)
+        want = max(step, read_step)
+        eff_step = want if n < 2 else max(4, min(want, int(usable * buried_share / (n - 1))))
         for depth, (ev, top, h) in enumerate(grp):
             x = left_pad + depth * eff_step if n > 1 else left_pad
             w = max(usable - depth * eff_step, 40) if n > 1 else max(usable, 40)
-            out.append(Placed(ev, x, w, top + 1, h - 2, depth, n, left_pad, max(usable, 40)))
+            strip = eff_step if n > 1 and depth < n - 1 else 0
+            out.append(Placed(ev, x, w, top + 1, h - 2, depth, n, left_pad, max(usable, 40),
+                              strip))
     return out

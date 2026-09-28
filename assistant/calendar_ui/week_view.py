@@ -47,6 +47,7 @@ _COL_GAP = 2       # px between side-by-side overlapping event columns
 _LEFT_PAD = 2
 _RIGHT_PAD = 2
 _STACK_STEP = 8    # px each overlapping card steps in (binder tabs)
+_READ_STEP = 120   # …or as far as it takes to read the buried card (stack_layout)
 _TEAL_TODO = "#0e9f8c"   # deadline pill colour (matches month view)
 
 
@@ -138,10 +139,26 @@ class EventBlock(QLabel):
         self._resize_orig_top = 0
         self._resize_orig_height = 0
         self._resize_press_y = 0  # parent-relative y at press
+        #: visible width when buried in a stack (0 = whole card) — the text
+        #: wraps or elides inside it, so the strip that shows is readable
+        self._strip = 0
         self._update_display()
+
+    def set_strip(self, strip: int) -> None:
+        self._strip = max(0, int(strip))
+        self._update_display()
+
+    def _edge_color(self) -> str:
+        """Another person's event shows WHOSE it is as its left edge, in their
+        colour; the card keeps its own category colour (Gil, 2026-09-28)."""
+        if self.event.get("shared") and self.event.get("owner_color"):
+            return self.event["owner_color"]
+        return "rgba(0,0,0,0.30)"
 
     def _apply_style(self, pad: tuple[int, int, int, int]) -> None:
         top, right, bottom, left = pad
+        if self._strip and self.width() > self._strip:
+            right += self.width() - self._strip
         self.setStyleSheet(
             f"""
             QLabel {{
@@ -149,7 +166,7 @@ class EventBlock(QLabel):
                 color: {_styles.on_color(self._color)};
                 border-radius: 4px;
                 padding: {top}px {right}px {bottom}px {left}px;
-                border-left: 4px solid rgba(0,0,0,0.30);
+                border-left: {5 if self.event.get("shared") else 4}px solid {self._edge_color()};
                 border-bottom: 1px solid rgba(0,0,0,0.20);
             }}
             """
@@ -201,7 +218,8 @@ class EventBlock(QLabel):
             self.setWordWrap(False)
             self.setTextFormat(Qt.TextFormat.PlainText)
             self.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-            avail_w = max(w - pad[1] - pad[3] - 4, 10)  # -4 for the border-left strip
+            vis_w = min(w, self._strip) if self._strip else w
+            avail_w = max(vis_w - pad[1] - pad[3] - 4, 10)  # -4 for the border-left strip
             elided = title_fm.elidedText(self._title_raw, Qt.TextElideMode.ElideRight, avail_w)
             self.setText(elided)
 
@@ -415,7 +433,7 @@ class DayColumn(QWidget):
 
         from assistant.calendar_ui.stack_layout import stacked_layout
         self._placed = stacked_layout(events, avail_w, self.hour_height, min_block_h, _LEFT_PAD, _RIGHT_PAD,
-                                      _STACK_STEP, self._to_min)
+                                      _STACK_STEP, self._to_min, read_step=_READ_STEP)
         return [(pl.event, pl.x, pl.w, pl.top, pl.height) for pl in self._placed]
 
     def load_events(self, events: List[dict]) -> None:
@@ -434,10 +452,10 @@ class DayColumn(QWidget):
             block.clicked.connect(self._on_block_clicked)
             block.resized.connect(self.event_rescheduled)
             block.setGeometry(x, top, w, h)
-            # setGeometry() on a still-hidden widget doesn't reliably deliver
-            # a resizeEvent, so refresh the label content explicitly instead
-            # of trusting resizeEvent alone for this first layout pass.
-            block._update_display()
+            block._stack_strip = pl.strip
+            # set_strip refreshes the label, which setGeometry() on a still-
+            # hidden widget doesn't reliably do through resizeEvent.
+            block.set_strip(pl.strip)
             shadow = QGraphicsDropShadowEffect()
             shadow.setBlurRadius(6)
             shadow.setOffset(0, 2)
@@ -459,7 +477,9 @@ class DayColumn(QWidget):
     def _pop(self, block, full_x: int, full_w: int) -> None:
         self._unpop()
         block._popped_geom = block.geometry()
+        block._strip = 0
         block.setGeometry(full_x, block.y(), full_w, block.height())
+        block._update_display()
         block._update_display()
         block.raise_()
         eff = block.graphicsEffect()
@@ -474,6 +494,7 @@ class DayColumn(QWidget):
             return
         try:
             block.setGeometry(block._popped_geom)
+            block.set_strip(getattr(block, "_stack_strip", 0))
             block._update_display()
             eff = block.graphicsEffect()
             if eff is not None:

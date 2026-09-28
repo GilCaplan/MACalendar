@@ -205,9 +205,11 @@ private struct WeekDayColumn: View {
                         let poppedCluster = items.first { $0.id == popped }?.cluster
                         ForEach(items) { it in
                             let isPopped = popped == it.id
-                            let inset = isPopped ? 0 : EventStacking.inset(depth: it.depth, size: it.stackSize, step: 7, width: colW)
-                            WeekEventBlock(event: it.event, height: it.height)
+                            let inset = isPopped ? 0 : EventStacking.inset(depth: it.depth, size: it.stackSize, step: 7, readStep: 60, width: colW)
+                            let strip = isPopped ? 0 : EventStacking.strip(depth: it.depth, size: it.stackSize, step: 7, readStep: 60, width: colW)
+                            WeekEventBlock(event: it.event, height: it.height, strip: strip)
                                 .frame(width: max(colW - inset, 24), height: it.height)
+                                .modifier(OwnerEdge(event: it.event, width: 3, radius: 3))
                                 .modifier(StackedCardModifier(stacked: it.stackSize > 1, popped: isPopped,
                                                               dimmed: poppedCluster == it.cluster && !isPopped, radius: 3))
                                 .offset(x: 1 + inset, y: it.top)
@@ -279,6 +281,7 @@ private struct WeekEventBlock: View {
     @EnvironmentObject var settings: AppSettings
     var event: CalendarEvent
     var height: CGFloat
+    var strip: CGFloat = 0
 
     var body: some View {
         let fillColor = Color(hex: event.color) ?? settings.accentColor
@@ -290,6 +293,7 @@ private struct WeekEventBlock: View {
                     .foregroundColor(Color.onColor(hex: event.color.isEmpty ? settings.accentColorHex : event.color))
                     .padding(2)
                     .lineLimit(height > 36 ? 2 : 1)
+                    .frame(maxWidth: strip > 0 ? strip : nil, alignment: .leading)
             }
     }
 }

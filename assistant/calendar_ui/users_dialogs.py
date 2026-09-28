@@ -254,11 +254,11 @@ class AccountDialog(QDialog):
         self.group_box = QCheckBox("Group shared to-dos by person (instead of mixed in)")
         self.group_box.setChecked(bool(st.get("todos_group_by_owner")))
         self.group_box.toggled.connect(lambda on: self._setting("todos_group_by_owner", on))
-        self.notify_box = QCheckBox("Include what others share with me in my notifications")
-        self.notify_box.setChecked(bool(st.get("notify_shared")))
-        self.notify_box.toggled.connect(lambda on: self._setting("notify_shared", on))
         lay.addWidget(self.group_box)
-        lay.addWidget(self.notify_box)
+        note = QLabel("Notifications are only ever about your own calendar and to-dos.")
+        note.setObjectName("muted")
+        note.setWordWrap(True)
+        lay.addWidget(note)
 
         if embedded:
             return
@@ -310,7 +310,9 @@ class AdminDialog(QDialog):
         if embedded:
             self.setWindowFlags(Qt.WindowType.Widget)
         self.setWindowTitle("Manage users")
-        self.setMinimumSize(720, 380)
+        self._embedded = embedded
+        if not embedded:
+            self.setMinimumSize(720, 380)
         self.setStyleSheet(_checkbox_style())
         self.me = users.current()
         lay = QVBoxLayout(self)
@@ -321,8 +323,12 @@ class AdminDialog(QDialog):
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        hdr = self.table.horizontalHeader()
+        hdr.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        # the NAME column takes the slack — stretching the last one made
+        # "My vocabulary" a page wide with its checkbox adrift in the middle
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        hdr.setStretchLastSection(False)
         lay.addWidget(self.table)
 
         self.revealed = QLineEdit()
@@ -364,6 +370,8 @@ class AdminDialog(QDialog):
         self.auto_days = QSpinBox()
         self.auto_days.setRange(1, 3650)
         self.auto_days.setSuffix(" days unused")
+        # disabled must LOOK disabled — it read as live while auto sign-out was Off
+        self.auto_days.setStyleSheet("QSpinBox:disabled { color: rgba(128,128,128,0.55); }")
         days = registry.load().get("policy", {}).get("auto_signout_days")
         self.auto_box.setCurrentIndex(1 if days else 0)
         self.auto_days.setValue(int(days or 30))
@@ -412,6 +420,12 @@ class AdminDialog(QDialog):
             voc.setChecked(u["id"] in vocab)
             voc.toggled.connect(lambda on, uid=u["id"]: registry.set_vocab_share(self.me, uid, on))
             self.table.setCellWidget(r, 6, self._centered(voc))
+        if self._embedded:
+            # a dashboard section, not a window: as tall as its rows, so two
+            # people don't sit above a screen of empty table
+            h = self.table.horizontalHeader().height() + 4 + sum(
+                self.table.rowHeight(r) for r in range(self.table.rowCount()))
+            self.table.setFixedHeight(h)
 
     @staticmethod
     def _centered(w: QWidget) -> QWidget:

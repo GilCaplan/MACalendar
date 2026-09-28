@@ -46,7 +46,10 @@ struct PendingChange: Codable, Identifiable {
 /// Mac is back, and the result is reported. Without this the recording was
 /// simply thrown away and the user was told it failed.
 struct PendingVoiceCommand: Codable, Identifiable {
-    enum Status: String, Codable { case queued, running, done, failed }
+    /// `waiting`: the Mac took it into ITS OWN queue (its model was busy) and
+    /// this row is kept only to hold the offline reading's provisional rows
+    /// until the Mac has run it — never sent again (assistant/offline).
+    enum Status: String, Codable { case queued, running, done, failed, waiting }
 
     let id: UUID
     let recordedAt: Date
@@ -109,6 +112,29 @@ struct PendingVoiceCommand: Codable, Identifiable {
         guard let edited, !edited.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { return nil }
         return edited
+    }
+
+    // -- the offline reader (assistant/offline/PROTOCOL.md) -------------
+    // Optionals, so a queue file written before these existed still decodes.
+
+    /// What the on-device model read, sent with the command as
+    /// `offline_reading` so the Mac can compare it with its own reading.
+    var offlineReadingData: Data?
+    /// The placeholder rows booked from that reading. Removed when the Mac
+    /// has answered — its rows replace them, whatever it concluded.
+    var provisionalEventIDs: [Int]?
+    var provisionalTodoIDs: [Int]?
+    /// Set when the Mac queued the command itself (`pending`); the phone asks
+    /// `/offline/pending/<id>` until it has run.
+    var macPendingID: Int?
+    /// The Mac's verdict on the offline reading, for the detail screen.
+    var offlineVerdict: String?
+
+    var offlineReading: OfflineReading? {
+        offlineReadingData.flatMap { try? JSONDecoder().decode(OfflineReading.self, from: $0) }
+    }
+    var hasProvisional: Bool {
+        !(provisionalEventIDs ?? []).isEmpty || !(provisionalTodoIDs ?? []).isEmpty
     }
 
     /// The line the queue screen shows under the status.
@@ -522,6 +548,14 @@ class LocalStore: ObservableObject {
     /// local notifications.
     func allEvents() -> [CalendarEvent] { events }
 
+    /// What may NOTIFY — reminders, the lock-screen card, the widget: this
+    /// person's own rows only, never a calendar shared with them (Gil,
+    /// 2026-09-28: "notifications should only be the main user").
+    func ownEvents() -> [CalendarEvent] { events.filter { $0.shared != true } }
+    func ownTodos(includeCompleted: Bool = false) -> [Todo] {
+        allTodos(list: nil, includeCompleted: includeCompleted).filter { $0.shared != true }
+    }
+
     func eventsForDate(_ str: String) -> [CalendarEvent] {
         events.filter { $0.date == str }
     }
@@ -611,7 +645,7 @@ class LocalStore: ObservableObject {
         let snapshot = WidgetSnapshot(
             generated: now,
             accentHex: accent,
-            items: Self.widgetItems(now: now, events: events, accentHex: accent))
+            items: Self.widgetItems(now: now, events: ownEvents(), accentHex: accent))
 
         // Write — and reload — only when the content actually moved. `sync()`
         // runs on every 30 s tick, and WidgetKit budgets timeline reloads:
@@ -914,6 +948,62 @@ class LocalStore: ObservableObject {
         persistVoice()
     }
 
+    // MARK: - Offline reading → provisional rows (assistant/offline)
+
+    /// Book what the phone's model read, as placeholder rows the Mac never
+    /// receives as creates — the Mac re-reads the COMMAND instead, and its
+    /// rows replace these. Only creates; anything else waits for the Mac.
+    /// Returns one line per booked item, for the reply.
+    @discardableResult
+    func bookProvisional(_ id: UUID, reading: OfflineReading) -> [String] {
+        guard let i = pendingVoice.firstIndex(where: { $0.id == id }) else { return [] }
+        var evs: [Int] = [], tds: [Int] = [], said: [String] = []
+        for it in reading.items where it.bookable {
+            if it.kind == "event" {
+                var end = it.end
+                if end.isEmpty, !it.start.isEmpty,
+                   let t = DateFormatter.hhmm.date(from: it.start) {
+                    end = DateFormatter.hhmm.string(from: t.addingTimeInterval(3600))
+                }
+                let e = insertEvent([
+                    "title": it.title, "date": it.date, "start_time": it.start,
+                    "end_time": end,
+                    "recurrence": it.recurrence == "none" ? "" : it.recurrence,
+                    "description": "Added on this phone while your Mac was away — your Mac will check it.",
+                ])
+                evs.append(e.id)
+                said.append("'\(it.title)' on \(it.date)" + (it.start.isEmpty ? "" : " at \(it.start)")
+                            + (it.recurrence == "none" ? "" : ", \(it.recurrence)"))
+            } else {
+                let t = insertTodo(title: it.title, list: "today")
+                tds.append(t.id)
+                said.append("to-do '\(it.title)'")
+            }
+        }
+        pendingVoice[i].offlineReadingData = try? JSONEncoder().encode(reading)
+        pendingVoice[i].provisionalEventIDs = evs
+        pendingVoice[i].provisionalTodoIDs = tds
+        persistVoice()
+        return said
+    }
+
+    /// Remove a command's placeholder rows — the Mac has answered for it.
+    func dropProvisional(_ id: UUID) {
+        guard let i = pendingVoice.firstIndex(where: { $0.id == id }) else { return }
+        for e in pendingVoice[i].provisionalEventIDs ?? [] { removeEvent(e) }
+        for t in pendingVoice[i].provisionalTodoIDs ?? [] { removeTodo(t) }
+        pendingVoice[i].provisionalEventIDs = []
+        pendingVoice[i].provisionalTodoIDs = []
+        persistVoice()
+    }
+
+    func setOfflineVerdict(_ id: UUID, verdict: String?, macPendingID: Int? = nil) {
+        guard let i = pendingVoice.firstIndex(where: { $0.id == id }) else { return }
+        pendingVoice[i].offlineVerdict = verdict
+        if let macPendingID { pendingVoice[i].macPendingID = macPendingID }
+        persistVoice()
+    }
+
     func voiceAudio(_ cmd: PendingVoiceCommand) -> Data? {
         try? Data(contentsOf: url(cmd.audioFile))
     }
@@ -1090,6 +1180,14 @@ extension DateFormatter {
     static let isoDay: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    /// 24-hour "HH:mm", POSIX, for the offline reader's clock times.
+    static let hhmm: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "HH:mm"
         return f
     }()
 }

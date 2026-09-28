@@ -1629,7 +1629,13 @@ rows scored, was 9). Open from the same work:
   inference unnecessary and is the only way to score a typed title honestly.
   iOS `AssistantReviewView`, the same `/memory/<id>/feedback` body.
 
-## DEFERRED UNTIL THE ENGINE WORK IS DONE — an offline engine on the phone (Gil, 2026-09-24)
+## BUILT 2026-09-28 (DEVQA Q66), was DEFERRED — an offline engine on the phone (Gil, 2026-09-24)
+
+> **Built differently from the brief below**: Apple's on-device model reads
+> offline, not a copy of the fast path (no iOS builds of spaCy's native
+> stack exist); the protocol is `assistant/offline/PROTOCOL.md`. Kept for the
+> reasoning. Open: the parity board is replaced by the agreement log
+> (`GET /offline/agreement`), which needs real offline use to read.
 
 Gil: *"mark when we finish working on the engine, to make an offline copy of
 the engine that the phone can use, and a protocol so it works together

@@ -452,8 +452,32 @@ struct VoiceButton: View {
             // published for the thinking sheet's "hearing…" row, so this costs
             // nothing — and without it a queued command is an anonymous row the
             // user cannot check or correct until after it has run.
-            LocalStore.shared.enqueueVoice(audio, draft: recorder.liveText)
-            if settings.showThinking {
+            let draft = recorder.liveText
+            let cmd = LocalStore.shared.enqueueVoice(audio, draft: draft)
+            // Read it HERE with Apple's on-device model and book what it can
+            // at once — provisionally: the Mac re-reads the command when it
+            // is back and its reading replaces this one (assistant/offline).
+            var booked: [String] = []
+            if OfflineReader.isAvailable,
+               !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                // Held while reading, so a reconnect mid-read cannot send the
+                // command without the reading and leave these rows orphaned.
+                LocalStore.shared.holdVoiceForEdit(cmd.id, true)
+                if let reading = await OfflineReader.read(draft) {
+                    booked = LocalStore.shared.bookProvisional(cmd.id, reading: reading)
+                }
+                LocalStore.shared.holdVoiceForEdit(cmd.id, false)
+            }
+            if !booked.isEmpty {
+                onRefresh?("both")
+                let line = "Added on this phone: " + booked.joined(separator: "; ")
+                    + ". Your Mac will check it when it's back."
+                if settings.showThinking {
+                    steps.append(TraceStep(stage: "verify", title: "Read on this phone",
+                                           detail: line, ms: 0, atMs: steps.last?.atMs ?? 0, ok: true))
+                }
+                if settings.speakReplies { player.speak(line, voiceIdentifier: settings.ttsVoice) }
+            } else if settings.showThinking {
                 steps.append(TraceStep(stage: "verify", title: "Saved for later",
                                        detail: "Your Mac isn't reachable. This command is queued and will "
                                                + "run — and tell you what it did — as soon as it's back.",

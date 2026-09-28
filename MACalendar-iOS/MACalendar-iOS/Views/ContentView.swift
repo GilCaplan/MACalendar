@@ -764,6 +764,7 @@ struct VoiceQueueView: View {
         case .running: ProgressView()
         case .done:    Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
         case .failed:  Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.red)
+        case .waiting: Image(systemName: "hourglass").foregroundColor(.orange)
         }
     }
 
@@ -777,9 +778,16 @@ struct VoiceQueueView: View {
             if cmd.heldForEdit { return "Editing — won't send until you're done" }
             if cmd.edited != nil { return "Edited — will send as text" }
             if cmd.draft.isEmpty { return "Recorded — waiting for your Mac" }
+            if cmd.hasProvisional { return "Added on this phone — your Mac will check it" }
             return "Heard on this phone — waiting for your Mac"
         case .running: return "Running now…"
-        case .done:    return "Done"
+        case .waiting: return "Your Mac is running this itself — the phone's version stays until then"
+        case .done:
+            switch cmd.offlineVerdict {
+            case "same":    return "Done — your Mac agreed with the phone"
+            case "changed": return "Done — your Mac read it differently and replaced it"
+            default:        return "Done"
+            }
         case .failed:  return "Didn't run"
         }
     }
@@ -866,6 +874,7 @@ struct QueuedCommandDetail: View {
         case .running: return "Running on your Mac"
         case .done:    return "Done"
         case .failed:  return "Didn't run"
+        case .waiting: return "Your Mac is running it itself"
         }
     }
 

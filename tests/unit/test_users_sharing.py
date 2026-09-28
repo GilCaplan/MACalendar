@@ -68,9 +68,15 @@ def test_own_ids_are_unchanged_and_others_round_trip():
     assert (enc >> sharing.SHIFT, enc & ((1 << sharing.SHIFT) - 1)) == (3, 7)
 
 
+def _color_in(uid, event_id):
+    from assistant.db import get_db
+    with users.bind(uid):
+        return get_db().get_event(event_id)["color"]
+
+
 # ------------------------------------------------------------------ view share
 
-def test_a_view_share_shows_the_owners_rows_in_their_colour_and_name(world):
+def test_a_view_share_shows_the_owners_rows_with_their_name_and_colour_edge(world):
     c, u, tok = world
     ev = _event(u["dana"], "dana's dentist")
     _event(u["noa"], "noa's gym")
@@ -79,7 +85,10 @@ def test_a_view_share_shows_the_owners_rows_in_their_colour_and_name(world):
     assert set(rows) == {"dana's dentist", "noa's gym"}
     shared, own = rows["dana's dentist"], rows["noa's gym"]
     assert shared["owner_name"] == "Dana" and shared["shared"] and not shared["can_edit"]
-    assert shared["color"] == registry.get(u["dana"])["color"]
+    # the event keeps its own (category) colour; the owner's rides alongside
+    # for the card's edge (Gil, 2026-09-28)
+    assert shared["owner_color"] == registry.get(u["dana"])["color"]
+    assert shared["color"] != "" and shared["color"] == _color_in(u["dana"], ev)
     assert shared["id"] != ev and shared["id"] > 2 ** 32           # namespaced
     assert own["id"] < 2 ** 32 and not own["shared"] and own["can_edit"]
     # readable by that id; not changeable with a view share

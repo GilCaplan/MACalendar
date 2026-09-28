@@ -14,6 +14,10 @@ struct TasksView: View {
     @State private var errorMsg: String?
     @State private var editMode: EditMode = .inactive
     @State private var showManageTags = false
+    /// DEVQA Q65: shared to-dos are mixed in, with a filter by person, or —
+    /// the person's Account setting — grouped into a section each.
+    @State private var groupByOwner = false
+    @State private var personFilter = ""        // "" everyone | "me" | an owner's id
 
     static let untaggedKey = "__untagged__"
 
@@ -54,7 +58,39 @@ struct TasksView: View {
 
     private var visibleTodos: [Todo] {
         let v = settings.hideCompletedTasks ? todos.filter { !$0.isDone } : todos
-        return v.filter { inScope($0) && matchesFilter($0) }
+        return v.filter { inScope($0) && matchesFilter($0) && inPersonScope($0) }
+    }
+
+    /// Everyone whose to-dos are in view, by id, sorted by name.
+    private var people: [(id: String, name: String)] {
+        var seen: [String: String] = [:]
+        for t in todos where t.shared == true {
+            if let id = t.ownerId { seen[id] = t.ownerName ?? "Shared" }
+        }
+        return seen.map { ($0.key, $0.value) }.sorted { $0.name < $1.name }
+    }
+
+    private var grouping: Bool { groupByOwner && personFilter.isEmpty && !people.isEmpty }
+
+    /// The Today / General lists: one person's rows when filtered; only your
+    /// own when shared ones have sections of their own.
+    private func inPersonScope(_ t: Todo) -> Bool {
+        switch personFilter {
+        case "":   return !(grouping && t.shared == true)
+        case "me": return t.shared != true
+        default:   return t.ownerId == personFilter
+        }
+    }
+
+    private func personTodos(_ id: String) -> [Todo] {
+        let v = settings.hideCompletedTasks ? todos.filter { !$0.isDone } : todos
+        return v.filter { $0.ownerId == id && $0.shared == true && matchesFilter($0) }
+    }
+
+    private func loadGrouping() async {
+        guard let data = try? await api.request("/auth/me"),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        groupByOwner = (obj["settings"] as? [String: Any])?["todos_group_by_owner"] as? Bool ?? false
     }
     private var todayTasks: [Todo]   { visibleTodos.filter { $0.list == "today" } }
     private var generalTasks: [Todo] { visibleTodos.filter { $0.list == "general" } }
@@ -89,6 +125,7 @@ struct TasksView: View {
         StackNavigation {
             VStack(spacing: 0) {
                 filterBar
+                if !people.isEmpty { personBar }
                 scopeBar
                     .padding(.vertical, 8)
                     .background(Color(.systemGroupedBackground))
@@ -164,6 +201,20 @@ struct TasksView: View {
                         handleDrop(providers: providers, toList: "general")
                     }
                     }
+
+                    // One section per person sharing with you, when grouped
+                    if grouping {
+                        ForEach(people, id: \.id) { person in
+                            let rows = personTodos(person.id)
+                            Section(header: sectionHeader(person.name, count: rows.count)) {
+                                if rows.isEmpty {
+                                    Text("Nothing here").font(.system(size: settings.fontTasks - 2))
+                                        .foregroundColor(.secondary)
+                                }
+                                ForEach(rows) { todo in row(for: todo) }
+                            }
+                        }
+                    }
                 }
                 .environment(\.editMode, $editMode)
             }
@@ -220,6 +271,9 @@ struct TasksView: View {
                 Color.clear.frame(height: 100)
             }
             .task { load() }
+            // the grouping is an Account setting — re-read it each time the
+            // tab comes back into view, so changing it there shows here
+            .onAppear { Task { await loadGrouping() } }
             // The list only refreshed on appear / pull, so a fetch that failed while the
             // Mac was restarting left it empty. Reload when the Mac comes back.
             .onReceive(api.$refreshTick) { _ in load() }
@@ -301,6 +355,32 @@ struct TasksView: View {
                 Label("Delete", systemImage: "trash")
             }
         }
+    }
+
+    /// Whose: Everyone · Mine · one chip per person sharing with you.
+    private var personBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                Text("Whose").font(.caption).foregroundColor(.secondary)
+                personChip("Everyone", key: "")
+                personChip("Mine", key: "me")
+                ForEach(people, id: \.id) { p in personChip(p.name, key: p.id) }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 6)
+        }
+    }
+
+    private func personChip(_ label: String, key: String) -> some View {
+        let on = personFilter == key
+        return Button { personFilter = key } label: {
+            Text(label)
+                .font(.system(size: 13, weight: on ? .semibold : .regular))
+                .padding(.horizontal, 12).padding(.vertical, 5)
+                .background(Capsule().fill(on ? settings.accentColor : Color.secondary.opacity(0.15)))
+                .foregroundColor(on ? .white : .primary)
+        }
+        .buttonStyle(.plain)
     }
 
     /// Horizontal chip strip: All · <each tag> · Untagged · manage.

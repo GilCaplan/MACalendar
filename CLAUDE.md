@@ -208,6 +208,8 @@ the rest:
                                suite holding the real ones syncs Gil's accounts
     MACALENDAR_HEARTBEATS / MACALENDAR_HUD_STATE
                                the processes' pulse and the HUD's window state
+    MACALENDAR_OFFLINE_LOG     the phone's offline readings vs the Mac's
+                               (assistant/offline/PROTOCOL.md) — what was said
 
 The feedback file is the one to be careful with: it holds the user's own
 CORRECTIONS, which are the only non-circular label source this project has, so

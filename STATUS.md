@@ -22,8 +22,17 @@ An admin (`gil`) plus users, each with their own stores under
 `~/.assistant_tools.backup-20260928-151343`). Whole-calendar sharing view/edit,
 per-user learning and notifications. The **Account tab** is the admin's
 dashboard (people, require-sign-in, auto sign-out Off / N days, devices).
-"Require sign-in everywhere" is still OFF — Gil's switch. Engine work is
-paused while this settles. Map: `DOCUMENTATION/USERS_PLAN.md`.
+"Require sign-in everywhere" is still OFF — Gil's switch. Map:
+`DOCUMENTATION/USERS_PLAN.md`. A demo user (`demo`, sharing view with gil)
+exists for trying the Account tab and overlaps — delete it from the Account
+tab when done.
+
+**Offline reader (DEVQA Q66, 2026-09-28):** away from the Mac, the phone reads
+with Apple's on-device model and books creates provisionally; the Mac re-reads
+and wins. `assistant/offline/PROTOCOL.md`; agreement at `GET /offline/agreement`.
+
+**Engine improvement is PAUSED (Gil, 2026-09-28)** to gather real-usage data
+before the next cycle — no engine cycles until he restarts them.
 
 ## The finish line (DEVQA Q64, agreed 2026-09-27)
 

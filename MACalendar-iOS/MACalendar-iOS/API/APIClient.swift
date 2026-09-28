@@ -396,6 +396,12 @@ class APIClient: ObservableObject {
         // this runs before EVERY flush, not just on relaunch, and a row that is
         // still genuinely in flight must not be reclaimed out from under itself.
         _ = LocalStore.shared.reviveStalledVoice()
+        // Commands the Mac took into its own queue, holding the phone's
+        // provisional rows until it has run them (assistant/offline).
+        await settleWaiting()
+        // The offline reader's instructions come from the Mac; refresh them
+        // while it is reachable (hourly — a fix ships without a reinstall).
+        await OfflineReader.refreshSpec(api: self)
         // A row being edited is SKIPPED, not sent. Reconnect, foregrounding, the
         // 30 s poll and opening the queue screen can all trigger a flush, and any
         // of them could otherwise fire mid-sentence and send the half-corrected
@@ -419,22 +425,9 @@ class APIClient: ObservableObject {
                 LocalStore.shared.updateVoice(cmd.id, status: .running)
                 do {
                     let response = try await sendText(text, editedFrom: cmd.draft,
-                                                      clientId: cmd.id.uuidString)
-                    // See the audio path below for why `parse == "error"` +
-                    // `pendingId` is a handoff to the Mac's own retry queue,
-                    // not a completion.
-                    if response.parse == "error", response.pendingId != nil {
-                        LocalStore.shared.removeVoice(cmd.id)
-                        Self.notify(title: "Your Mac is running this on its own", body: response.message)
-                        continue
-                    }
-                    LocalStore.shared.updateVoice(cmd.id, status: .done,
-                                                  result: response.message.isEmpty ? "Done" : response.message,
-                                                  response: response)
-                    Self.notify(title: "Ran your queued command", body: response.message)
-                    ran += 1
-                    burstRefresh()
-                    requestRefresh()
+                                                      clientId: cmd.id.uuidString,
+                                                      offlineReading: cmd.offlineReadingData)
+                    if settle(cmd, response) { ran += 1 }
                 } catch APIError.offline {
                     LocalStore.shared.updateVoice(cmd.id, status: .queued)
                     break
@@ -445,33 +438,15 @@ class APIClient: ObservableObject {
                 continue
             }
             guard let audio = LocalStore.shared.voiceAudio(cmd) else {
+                LocalStore.shared.dropProvisional(cmd.id)   // nothing will replace them
                 LocalStore.shared.removeVoice(cmd.id)
                 continue
             }
             LocalStore.shared.updateVoice(cmd.id, status: .running)
             do {
-                let response = try await sendAudio(audio, clientId: cmd.id.uuidString)
-                // The Mac answered, but `parse == "error"` with a `pendingId`
-                // means it never actually ran the command — the model was
-                // offline/slow, so the Mac queued it in ITS OWN retry store
-                // (assistant/engine's `add_pending`, `start_pending_retry_loop`)
-                // and will run it on its own. Marking this `.done` would be a
-                // lie, and leaving it `.queued` would replay the same audio
-                // again later — handing the Mac a second copy of the same
-                // command, which its own loop could then execute twice once
-                // the model is back. The Mac owns it now; drop our copy.
-                if response.parse == "error", response.pendingId != nil {
-                    LocalStore.shared.removeVoice(cmd.id)
-                    Self.notify(title: "Your Mac is running this on its own", body: response.message)
-                    continue
-                }
-                LocalStore.shared.updateVoice(cmd.id, status: .done,
-                                              result: response.message.isEmpty ? "Done" : response.message,
-                                              response: response)
-                Self.notify(title: "Ran your queued command", body: response.message)
-                ran += 1
-                burstRefresh()
-                requestRefresh()
+                let response = try await sendAudio(audio, clientId: cmd.id.uuidString,
+                                                   offlineReading: cmd.offlineReadingData)
+                if settle(cmd, response) { ran += 1 }
             } catch APIError.offline {
                 LocalStore.shared.updateVoice(cmd.id, status: .queued)   // still away — try again later
                 break
@@ -483,6 +458,80 @@ class APIClient: ObservableObject {
             }
         }
         return ran
+    }
+
+    /// What a queued command's answer means for the phone. Returns whether it
+    /// RAN (the count the caller reports).
+    ///
+    /// `parse == "error"` with a `pendingId` is a handoff, not a completion:
+    /// the Mac's model was offline/slow, so it queued the command in ITS OWN
+    /// retry store (`add_pending`, `start_pending_retry_loop`) and will run it
+    /// itself. Marking this `.done` would be a lie, and leaving it `.queued`
+    /// would replay it — a second copy the Mac's loop could run twice. Without
+    /// provisional rows the Mac owns it and our copy goes; WITH them the row
+    /// stays as `.waiting`, holding those rows until the Mac has run it.
+    ///
+    /// Any other answer is the Mac's reading of the command, and it wins: the
+    /// phone's provisional rows go and the Mac's arrive with the refresh.
+    private func settle(_ cmd: PendingVoiceCommand, _ response: VoiceResponse) -> Bool {
+        let verdict = response.offline?.verdict
+        let said = response.offline?.said ?? ""
+        if response.parse == "error", response.pendingId != nil {
+            if cmd.hasProvisional {
+                LocalStore.shared.setOfflineVerdict(cmd.id, verdict: verdict ?? "pending",
+                                                    macPendingID: response.pendingId)
+                LocalStore.shared.updateVoice(cmd.id, status: .waiting, result: response.message,
+                                              response: response)
+            } else {
+                LocalStore.shared.removeVoice(cmd.id)
+            }
+            Self.notify(title: "Your Mac is running this on its own",
+                        body: said.isEmpty ? response.message : said)
+            return false
+        }
+        LocalStore.shared.dropProvisional(cmd.id)
+        LocalStore.shared.setOfflineVerdict(cmd.id, verdict: verdict)
+        LocalStore.shared.updateVoice(cmd.id, status: .done,
+                                      result: response.message.isEmpty ? "Done" : response.message,
+                                      response: response)
+        if verdict == "changed" {
+            Self.notify(title: "Your Mac read this differently",
+                        body: [said, response.message].filter { !$0.isEmpty }.joined(separator: " "))
+        } else {
+            Self.notify(title: "Ran your queued command", body: response.message)
+        }
+        burstRefresh()
+        requestRefresh()
+        return true
+    }
+
+    /// Ask the Mac about each command it queued itself; once it has run one,
+    /// the phone's provisional rows give way to the Mac's.
+    private func settleWaiting() async {
+        for cmd in LocalStore.shared.pendingVoice where cmd.status == .waiting {
+            guard let pid = cmd.macPendingID else {
+                LocalStore.shared.dropProvisional(cmd.id)
+                LocalStore.shared.updateVoice(cmd.id, status: .done)
+                continue
+            }
+            let status: String
+            var result = ""
+            do {
+                let data = try await request("/offline/pending/\(pid)")
+                let obj = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+                status = obj["status"] as? String ?? "pending"
+                result = obj["result"] as? String ?? ""
+            } catch APIError.offline {
+                return                                  // away again — ask next time
+            } catch {
+                status = "failed"                       // the Mac no longer knows it
+            }
+            if status == "pending" { continue }
+            LocalStore.shared.dropProvisional(cmd.id)
+            LocalStore.shared.updateVoice(cmd.id, status: status == "done" ? .done : .failed,
+                                          result: result)
+            requestRefresh()
+        }
     }
 
     /// Local notification — the same pattern the workout rest timer uses.
@@ -1224,7 +1273,8 @@ class APIClient: ObservableObject {
     func sendText(_ transcript: String, editedFrom: String? = nil,
                   supportsEdit: Bool = false,
                   supportsConfirm: Bool = false,
-                  clientId: String? = nil) async throws -> VoiceResponse {
+                  clientId: String? = nil,
+                  offlineReading: Data? = nil) async throws -> VoiceResponse {
         // Identify the client. The server treats an unlabelled caller as a
         // test, so that a curl during development cannot masquerade as a
         // command you actually gave the phone.
@@ -1236,6 +1286,12 @@ class APIClient: ObservableObject {
         if supportsConfirm { body["supports_confirm"] = true }
         if let editedFrom { body["edited_from"] = editedFrom }
         if let clientId, !clientId.isEmpty { body["client_id"] = clientId }   // see sendAudio
+        // What the phone's own model read while the Mac was away — compared
+        // with the Mac's reading, never executed (assistant/offline).
+        if let offlineReading,
+           let obj = try? JSONSerialization.jsonObject(with: offlineReading) {
+            body["offline_reading"] = obj
+        }
         let data = try await request("/voice/text", method: "POST", body: body)
         return try decode(VoiceResponse.self, from: data)
     }
@@ -1339,7 +1395,8 @@ class APIClient: ObservableObject {
     /// `clientId` is a QUEUED command's own id. The Mac runs each id once, so a
     /// resend of an upload this phone lost track of gets the first run's answer
     /// instead of booking it again (2026-09-28: one command, three series).
-    func sendAudio(_ audioData: Data, clientId: String? = nil) async throws -> VoiceResponse {
+    func sendAudio(_ audioData: Data, clientId: String? = nil,
+                   offlineReading: Data? = nil) async throws -> VoiceResponse {
         guard !base.isEmpty, let url = URL(string: base + "/voice") else {
             throw APIError.badURL
         }
@@ -1370,6 +1427,11 @@ class APIClient: ObservableObject {
             body.append("--\(boundary)\r\n".data(using: .utf8)!)
             body.append("Content-Disposition: form-data; name=\"client_id\"\r\n\r\n".data(using: .utf8)!)
             body.append("\(clientId)\r\n".data(using: .utf8)!)
+        }
+        if let offlineReading, let json = String(data: offlineReading, encoding: .utf8) {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"offline_reading\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(json)\r\n".data(using: .utf8)!)
         }
         body.append("--\(boundary)--\r\n".data(using: .utf8)!)
         req.httpBody = body

@@ -110,6 +110,7 @@ built when it reaches the Mac.
 | hybrid | [Self-check & revert](#background-self-check--one-tap-revert) | background re-reasoning, one-tap undo | `engine/__init__.py`, panels |
 | hybrid | [Review panel / HUD](#the-review-panel-thinking-hud--ios-timeline) | live chain-of-thought card + history | `thinking_hud.py`, `ThinkingView` |
 | hybrid | [Users, sign-in & sharing](#users-sign-in--sharing) | an admin + users, each with their own calendar, to-dos and learning; share whole calendar view/edit; Account tab = admin dashboard | `assistant/users/`, `users_dialogs.py`, `UsersViews.swift` |
+| iOS + API | [Offline reader on the phone](#offline-reader-on-the-phone) | Apple's on-device model reads a command while the Mac is away and books creates provisionally; the Mac re-reads and wins | `assistant/offline/`, `OfflineReader.swift` |
 | mac | [Command graph](#the-review-panel-thinking-hud--ios-timeline) | the HUD's Graph view: each ask → rules or model → what it became; hover follows a lane, click explains a node | `command_graph.py` |
 | hybrid | [LLM console](#the-llm-console) | the panel's third view: every model call, with its caller | `llm_bus.py`, `thinking_panel.py` |
 | hybrid | [Personal vocabulary](#personal-vocabulary) | user's words fix transcripts first | `stt/vocab.py` |
@@ -1858,7 +1859,13 @@ policy, signed-in devices, his own account); for anyone else a minimal page
 — password, sharing, display settings, sign out. On the phone each person on
 the dashboard opens a page with every control visible (what the admin sees
 of them, what he shares with them, password, sign-out, disable). Notifications are each person's own; shared items join only if
-they asked; the admin's view toggles never add to his notifications.
+the admin's view toggles never add to his notifications. **Notifications are
+only ever your own** (Q67): shared events and to-dos never reach the day
+panel, a reminder, the lock screen or the widget. A shared event keeps its own
+category colour, with the owner's colour as its left edge; overlapping events
+stack as a binder whose buried cards step right far enough to read, your own
+on top. Shared to-dos are mixed in with a Whose filter (Everyone · Mine · each
+person), or grouped into a section per person (the Account setting).
 **Where:** `assistant/users/` (context, paths, registry, passwords, sessions,
 sharing, routes, local_session, migrate), `scripts/migrate_users.py`;
 `assistant/features/account/` (the tab), Mac `calendar_ui/account_panel.py`,
@@ -1876,3 +1883,23 @@ runs AS the owner (`sharing.for_request`) so side effects land in their
 stores. A voice command only ever touches the speaker's own calendar — a
 spoken delete can never reach a shared row. Tests: `test_users_*.py`
 (foundation/isolation, auth, sharing, Mac with real clicks, notifications).
+
+### Offline reader on the phone
+**What:** When the Mac can't be reached, the phone reads the command itself
+with Apple's on-device model (iOS 26, Apple Intelligence) and books what it
+can at once — events and to-dos only, provisionally ("Added on this phone…
+your Mac will check it"). On reconnect the Mac re-reads the same command and
+its reading wins: the phone's placeholders give way to the Mac's rows, and a
+different reading is announced. Moves, changes and deletes are never done
+offline. (DEVQA Q66, 2026-09-28.)
+**Where:** `assistant/offline/` (spec, reconcile, log, routes,
+`PROTOCOL.md`); iOS `Voice/OfflineReader.swift`, `LocalStore.bookProvisional`,
+`APIClient.settle` / `settleWaiting`, the queued-command labels, Settings'
+status line.
+**How:** The item shape is a compiled `@Generable` struct (`SCHEMA`); what
+the model is told is served by the Mac (`GET /offline/reader`, versioned by a
+hash of its text) so a fix ships without a reinstall. The resend carries
+`offline_reading`; the Mac compares it with what the engine committed
+(`committed` in the reply) and answers `same / changed / pending / deferred /
+unverified`. Every comparison is logged per user; `GET /offline/agreement`
+reads it back. Tests: `test_offline_protocol.py`.

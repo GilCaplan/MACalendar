@@ -53,13 +53,28 @@ def test_each_persons_day_panel_is_their_own(world):
     assert "shiur" not in _digest(c, tok["dana"])["body"]
 
 
-def test_shared_items_join_only_when_asked_and_say_whose(world):
+def test_shared_items_never_notify_even_with_the_old_opt_in_set(world):
+    """Gil, 2026-09-28: "notifications should only be the main user, not
+    include shared events" — the Q65 opt-in is gone, and a stale setting
+    left in users.json does nothing."""
     c, u, tok = world
     registry.set_share(u["dana"], u["noa"], "view")
-    assert "dentist" not in _digest(c, tok["noa"])["body"]
     registry.set_setting(u["noa"], "notify_shared", True)
     body = _digest(c, tok["noa"])["body"]
-    assert "dana's dentist · Dana" in body and "noa's exam" in body
+    assert "dentist" not in body and "noa's exam" in body
+
+
+def test_a_shared_event_carries_no_reminder_time(world):
+    c, u, tok = world
+    registry.set_share(u["dana"], u["noa"], "view")
+    rows = c.get(f"/events?date={TODAY.isoformat()}",
+                 headers={"X-Session-Token": tok["noa"]}).get_json()
+    shared = [r for r in rows if r.get("shared")]
+    own = [r for r in rows if not r.get("shared")]
+    assert shared and own
+    assert all(r["notify_at"] is None and r["notify_suppressed_reason"] == "shared"
+               for r in shared)
+    assert all(r["notify_suppressed_reason"] != "shared" for r in own)
 
 
 def test_the_admin_is_not_spammed_by_his_view_toggles(world):
