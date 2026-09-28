@@ -3342,3 +3342,45 @@ protocol the instrument changes, not the grind: the remaining 93 dev failures
 need a one-time triage into engine-wrong / answer-key-outdated /
 unanswerable, so the finish line (DEVQA Q64) is read against what the engine
 can own — and real usage (Gil's reviewed commands) becomes the primary read.
+
+## TRIAGE — the 93 dev failures, read one by one (2026-09-28, run `d8b3e81d`)
+
+The instrument change R3 called for. Every DEV-range failure (ranks 1–600,
+whole chain, seeded 7, adjusted count-correct 507/600 = 84.5%) hand-labelled
+into one of three buckets — `dataset/inputs/dev_triage_d8b3e81d.json`, one row
+each with the ruling or family and a note. DEV rows only; no held-out row read.
+
+| bucket | rows | single-ask | multi-ask | meaning |
+|---|---:|---:|---:|---|
+| **K** key out of date | 47 | 16 | 31 | the engine's output is right by a ruling: Q38 nothing named (16), Q52 list management (13, +2 combined), a question the HWU label calls `set` (5), Q47 no clock -> to-do (4), anaphora (2), Q33 / Q50 / other (5) |
+| **E** engine wrong | 36 | 15 | 21 | wrong under a key aligned to the rulings |
+| **U** no right answer | 10 | 3 | 7 | placeholders (`{client name}`, `xxx`), garbled, meta-instructions |
+
+**What it means, if the K labels hold** (one reader's labels, DEV range — a
+pointer, not a banked number): re-keyed and with U excluded, dev reads
+**93.9%** (554/590); single-ask **96.4%** (400/415, was 91.9%), multi-ask
+**88.0%** (154/175, was 67.6%). Most of the gap to DEVQA Q64 on real speech
+was the answer key, not the engine. Q64 reads HELD-OUT rows with the key
+aligned BY RULE, so the next step is to encode the K rules mechanically
+(`scripts/audit_dataset_conventions.py`, mined from DEV, applied to all 3,000)
+and read the held-out range once — not to take 96/88 as the result.
+
+**The 36 engine rows, by family** (9 on the fast path):
+
+| family | rows | e.g. |
+|---|---:|---|
+| nameless clause committed as junk (Q38/Q52 missed it) | 7 | "refresh the list with new one" -> to-do |
+| a question made into a to-do or event | 7 | "i need the details about my next schedule" -> to-do (fast) |
+| a create read as a query / nothing | 5 | "For my calendar, write Preschool Reading every Wednesday" -> query |
+| a list add made an EVENT (deep path) | 5 | "add mop to hardware store list" -> event |
+| an ask dropped | 4 | "check the oven in 15 minutes" lost |
+| **a MUTATION from a non-destructive command** | 4 | "sync my calendar with mark" -> complete_todo; "until I remove it" -> delete_todo |
+| ingest vocabulary rewrote a real word | 1 | "earse" (erase) -> a person's name from the vocabulary |
+| other (field, relative time, calendar-named create) | 3 | |
+
+**Priority by harm, not count:** the four mutations are the DESTRUCTIVE line
+Q64 gates on, and the vocabulary rewrite is ingest aim (b) overriding a
+misspelled command verb — both matter more than their row counts. The
+side defects count-correct cannot see (junk extra objects and titles kept on
+K rows: wake words "Olly"/"PDA" in titles, "Remind me to" leads, "X in grocery
+list" unread) are what item precision 88.8% is made of.

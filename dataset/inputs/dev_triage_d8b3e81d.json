@@ -1,0 +1,1995 @@
+{
+ "what": "One-time triage of the verification pool's DEV-range failures (ranks 1-600, whole chain, seeded 7) at d8b3e81d, adjusted count-correct 507/600. Each failing row is E (the engine is wrong under an answer key aligned to the rulings), K (the key is out of date: the engine's output is right by the ruling named in 'family') or U (no right answer exists: placeholder, garbled, meta). Hand-labelled 2026-09-28 from the DEV range only; no held-out row was read.",
+ "source_run": "devfull_d8b3e81d (dataset/RESULTS.md, CYCLE R3)",
+ "counts": {
+  "E": 36,
+  "K": 47,
+  "U": 10
+ },
+ "rows": [
+  {
+   "rank": 22,
+   "text": "Please repeat this event. Also, Set up recurring date on my calendar",
+   "intent": "event+event",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "recurring date",
+     "date": "2026-03-09",
+     "start": "09:00"
+    }
+   ],
+   "bucket": "E",
+   "family": "nameless-commit",
+   "note": "'recurring date' committed; nothing named (Q38)"
+  },
+  {
+   "rank": 96,
+   "text": "Please set recurring calendar event and set event in calandar.  repeat event every day",
+   "intent": "event+event",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [],
+   "bucket": "K",
+   "family": "Q38",
+   "note": ""
+  },
+  {
+   "rank": 98,
+   "text": "Olly, add lunch appointment with Lisa to January 2nd at 12:30pm. Also, Remind me at the 15th of every month.",
+   "intent": "event+event",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "olly add lunch appointment with lisa",
+     "date": "2027-01-02",
+     "start": "12:30"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q38",
+   "note": "2nd ask names nothing; side: wake word 'Olly' in title"
+  },
+  {
+   "rank": 105,
+   "text": "remind me about thing at time, and then I want you to remind me the next meeting with my girlfriend, it will be at 8 pm next sunday",
+   "intent": "event+event",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "I want you to remind me the next meeting with my girlfriend, it will be",
+     "date": "2026-03-22",
+     "start": "20:00"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q38",
+   "note": "1st ask names nothing; side: title keeps 'I want you to remind me … it will be'"
+  },
+  {
+   "rank": 173,
+   "text": "PDA, mark sarahs b-day party on the 12th. Also, I need to set up a recurring event in my calendar please",
+   "intent": "event+event",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "Sarah's B-Day Party",
+     "date": "2026-04-12",
+     "start": "09:00"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q38",
+   "note": ""
+  },
+  {
+   "rank": 236,
+   "text": "Add Event on Ausgut 21 at 9am and please add an event to my calendar.",
+   "intent": "event+event",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "event on ausgut 21",
+     "date": "2026-03-22",
+     "start": "09:00"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q38",
+   "note": "side: 'Ausgut' not read as August — wrong date, title 'event on ausgut 21'"
+  },
+  {
+   "rank": 247,
+   "text": "On the fifth of November, I need to go to Washington, D.C, and then I'd like to set a date for this week?",
+   "intent": "event+event",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "date",
+     "date": "2026-03-22",
+     "start": "09:00"
+    }
+   ],
+   "bucket": "E",
+   "family": "ask-dropped",
+   "note": "'go to Washington on Nov 5' lost; only 'date' made"
+  },
+  {
+   "rank": 255,
+   "text": "Remind me of my meeting, and then add a reminder of a conference for tomorrow in new york",
+   "intent": "event+event",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "query_schedule"
+    },
+    {
+     "action": "create_event",
+     "title": "reminder of a conference in new york",
+     "date": "2026-03-23",
+     "start": "09:00"
+    }
+   ],
+   "bucket": "K",
+   "family": "nothing-to-create",
+   "note": "'remind me of my meeting' names an existing record; side: title 'reminder of a conference'"
+  },
+  {
+   "rank": 272,
+   "text": "Add my sister on calendar for pedicures on Friday. Also, Remind me in two days to check my emails.",
+   "intent": "event+event",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/1t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "sister for pedicures",
+     "date": "2026-03-27",
+     "start": "09:00"
+    },
+    {
+     "action": "create_todo",
+     "titles": [
+      "check my emails"
+     ]
+    }
+   ],
+   "bucket": "K",
+   "family": "Q47",
+   "note": "'in two days … check my emails' has no clock -> to-do"
+  },
+  {
+   "rank": 313,
+   "text": "Remind me about next meeting in advance, and then Block off 3 to 5 on friday",
+   "intent": "event+event",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "next meeting in advance",
+     "date": "2026-03-27",
+     "start": "09:00"
+    }
+   ],
+   "bucket": "E",
+   "family": "ask-dropped",
+   "note": "'block off 3 to 5 on friday' lost; its day given to a junk event 'next meeting in advance'"
+  },
+  {
+   "rank": 365,
+   "text": "Don't let me forget Rover's vet appointment on the 25th and pDA add Sally's Birthday to Calander for Saturday at 10pm",
+   "intent": "event+event",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "Rover's vet appointment"
+     ]
+    },
+    {
+     "action": "create_event",
+     "title": "pda add sally's birthday to calander",
+     "date": "2026-04-04",
+     "start": "22:00"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q47",
+   "note": "vet appt has a day, no clock -> to-do; side: wake word 'pDA' in title"
+  },
+  {
+   "rank": 384,
+   "text": "Adding meetings on particaur dates of calender. Also, Notify me on March 11th, the day of my appointment.",
+   "intent": "event+event",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "adding meetings on particaur dates of calender"
+     ]
+    },
+    {
+     "action": "create_event",
+     "title": "Appointment",
+     "date": "2027-03-11",
+     "start": "09:00"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q38",
+   "note": "side: junk to-do from a meta sentence"
+  },
+  {
+   "rank": 392,
+   "text": "Pencil in coffee with Jamal at Starbucks for 3pm on Tuesday and i have a meeting tomorrow at 2pm with John, put that in my calendar.",
+   "intent": "event+event",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "coffee with jamal at starbucks",
+     "date": "2026-03-31",
+     "start": "15:00"
+    },
+    {
+     "action": "query_schedule",
+     "date": "2026-04-01"
+    }
+   ],
+   "bucket": "E",
+   "family": "create-read-as-query",
+   "note": "'i have a meeting tomorrow at 2pm with John, put that in my calendar' -> query_schedule"
+  },
+  {
+   "rank": 400,
+   "text": "Remind me if anything else happens and set on 22nd march badminton match in merita square",
+   "intent": "event+event",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "fast",
+   "override": null,
+   "got": "1e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "if anything else happens"
+     ]
+    },
+    {
+     "action": "create_event",
+     "title": "badminton match in merita square",
+     "date": "2027-03-22",
+     "start": "09:00"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q38",
+   "note": "side: junk to-do 'if anything else happens'"
+  },
+  {
+   "rank": 528,
+   "text": "PLZ REMIND TO SLEEP AT 9 P.M. Also, add to calendar and repeat",
+   "intent": "event+event",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": "remind_half",
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "plz remind to sleep",
+     "date": "2026-04-08",
+     "start": "21:00"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q38",
+   "note": "'add to calendar and repeat' is about the 1st ask; side: title 'plz remind to sleep'"
+  },
+  {
+   "rank": 532,
+   "text": "For a new event or meeting request, choose Repeat on the toolbar — and remind me every 1st of the month.",
+   "intent": "event+event",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "every 1st of the month",
+     "date": "2026-04-08",
+     "start": "09:00"
+    }
+   ],
+   "bucket": "U",
+   "family": "meta-instruction",
+   "note": "side: junk event 'every 1st of the month'"
+  },
+  {
+   "rank": 5,
+   "text": "Add event with these people and also add bread to my grocery list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "0e/2t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "event with these people"
+     ]
+    },
+    {
+     "action": "create_todo",
+     "titles": [
+      "bread"
+     ]
+    }
+   ],
+   "bucket": "K",
+   "family": "Q38",
+   "note": "'event with these people' names nothing; side: committed as a junk to-do"
+  },
+  {
+   "rank": 12,
+   "text": "Add event, book club, Debbie's house, Wednesday night and set a list for....",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "book club debbie's house",
+     "date": "2026-03-11",
+     "start": "21:00"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q52",
+   "note": ""
+  },
+  {
+   "rank": 23,
+   "text": "Set a event for the evening, and then get xxx on the list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": "placeholder",
+   "got": "1e/1t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "the",
+     "date": "2026-03-09",
+     "start": "19:00"
+    },
+    {
+     "action": "create_todo",
+     "titles": [
+      "get xxx"
+     ]
+    }
+   ],
+   "bucket": "U",
+   "family": "placeholder",
+   "note": "'get xxx'; side: event titled 'the'"
+  },
+  {
+   "rank": 31,
+   "text": "Remind me to read book next week — and can you add Gloria to my list of clients?",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": "remind_half",
+   "got": "0e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "Remind me to read book"
+     ]
+    }
+   ],
+   "bucket": "E",
+   "family": "ask-dropped",
+   "note": "'add Gloria to my list of clients' lost (a to-do by Q52); title keeps 'Remind me to'"
+  },
+  {
+   "rank": 42,
+   "text": "Will you send a calendar invite out to James and Alice for brunch at 11 am on Tuesday and also my new work schedule list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "2e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "send a calendar invite out to James and Alice for brunch",
+     "date": "2026-03-10",
+     "start": "11:00"
+    },
+    {
+     "action": "create_event",
+     "title": "new work schedule list",
+     "date": "2026-03-10",
+     "start": "09:00"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q52",
+   "note": "side: junk event 'new work schedule list'"
+  },
+  {
+   "rank": 78,
+   "text": "Remind me the wedding on time to buy a present and create a new list of my due bills",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "fast",
+   "override": null,
+   "got": "0e/2t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "wedding on time to buy a present"
+     ]
+    },
+    {
+     "action": "create_todo",
+     "titles": [
+      "my due bills"
+     ],
+     "list": "general"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q47+Q33",
+   "note": "two to-dos is right; side: title 'wedding on time to buy a present'"
+  },
+  {
+   "rank": 80,
+   "text": "Set this before event and also add apples to shopping list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "0e/2t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "this before event"
+     ]
+    },
+    {
+     "action": "create_todo",
+     "titles": [
+      "apples to shopping list"
+     ]
+    }
+   ],
+   "bucket": "K",
+   "family": "Q38",
+   "note": "side: junk to-do 'this before event'; 'apples to shopping list' — list not read"
+  },
+  {
+   "rank": 87,
+   "text": "set reminder for tomorrows meeting with {client name} and also add this one also.",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": "placeholder",
+   "got": "1e/1t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "reminder 's meeting",
+     "date": "2026-03-13",
+     "start": "09:00"
+    },
+    {
+     "action": "create_todo",
+     "titles": [
+      "add this one"
+     ]
+    }
+   ],
+   "bucket": "U",
+   "family": "placeholder",
+   "note": ""
+  },
+  {
+   "rank": 100,
+   "text": "Remind me the wedding on time to buy a present — and grocery list add eggs",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "0e/2t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "wedding on time to buy a present"
+     ]
+    },
+    {
+     "action": "create_todo",
+     "titles": [
+      "grocery list add eggs"
+     ]
+    }
+   ],
+   "bucket": "K",
+   "family": "Q47",
+   "note": "side: title 'grocery list add eggs'"
+  },
+  {
+   "rank": 139,
+   "text": "add an event to my calendar — and can you create new list for me?",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": "list_create_bare",
+   "got": "0e/0t/0m",
+   "actions": [],
+   "bucket": "K",
+   "family": "Q38+Q52",
+   "note": ""
+  },
+  {
+   "rank": 143,
+   "text": "Make a reminder at 1PM every Monday until I I remove it, and then Start a new grocery list.",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": "list_management",
+   "got": "0e/0t/1m",
+   "actions": [
+    {
+     "action": "delete_todo"
+    }
+   ],
+   "bucket": "E",
+   "family": "mutation",
+   "note": "'until I remove it' -> delete_todo; the bare-kind 'reminder' series (Q42) not made"
+  },
+  {
+   "rank": 145,
+   "text": "Schedule my 'event' with 'person' at 'time' and 'place' and i want to know could an extra item be added to my grocery list?",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "0e/2t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "event with person at time and 'place"
+     ]
+    },
+    {
+     "action": "create_todo",
+     "titles": [
+      "know could an extra item be added"
+     ]
+    }
+   ],
+   "bucket": "U",
+   "family": "placeholder",
+   "note": ""
+  },
+  {
+   "rank": 150,
+   "text": "Repeat this event every Friday on my calendar, and then add wine to list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "query_schedule",
+     "date": "2026-03-20"
+    },
+    {
+     "action": "create_event",
+     "title": "wine to list",
+     "date": "2026-03-20",
+     "start": "10:00"
+    }
+   ],
+   "bucket": "E",
+   "family": "list-add-as-event",
+   "note": "'add wine to list' -> event 'wine to list'"
+  },
+  {
+   "rank": 180,
+   "text": "Olly, please set work meeting at 12pm for every Thursday in February. Also, add new items in the alarm list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "2e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "olly please set work meeting",
+     "date": "2026-03-19",
+     "start": "12:00",
+     "rec": "weekly"
+    },
+    {
+     "action": "create_event",
+     "title": "new items in the alarm list",
+     "date": "2026-03-19",
+     "start": "09:00"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q52",
+   "note": "side: wake word 'olly please set' in title; junk event 'new items in the alarm list'"
+  },
+  {
+   "rank": 235,
+   "text": "Tell me something to remind this week and start a new list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": "list_create_bare",
+   "got": "0e/0t/0m",
+   "actions": [
+    {
+     "action": "query_schedule",
+     "date": "2026-03-21"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q52",
+   "note": "query + list management"
+  },
+  {
+   "rank": 237,
+   "text": "Remind me on 5th March of every year to arrange wedding anniversary presents and put this on my list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "arrange wedding anniversary presents and put this",
+     "date": "2026-03-21",
+     "start": "09:00",
+     "rec": "yearly"
+    }
+   ],
+   "bucket": "E",
+   "family": "field",
+   "note": "yearly series on 5 March -> dated 21 March; no linked to-do (Q61); title 'and put this'"
+  },
+  {
+   "rank": 274,
+   "text": "PDA please set this date to repeat. Also, Begin new list of lottery numbers",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "0e/2t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "pda please set this date to repeat"
+     ]
+    },
+    {
+     "action": "create_todo",
+     "titles": [
+      "lottery numbers"
+     ],
+     "list": "general"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q38+Q33",
+   "note": "side: junk to-do 'pda please set this date to repeat'"
+  },
+  {
+   "rank": 292,
+   "text": "add a meeting with my mother for next sunday and reopen groceries and add milk",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "2e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "meeting with my mother and reopen groceries",
+     "date": "2026-04-05",
+     "start": "09:00"
+    },
+    {
+     "action": "create_event",
+     "title": "milk",
+     "date": "2026-04-05",
+     "start": "09:00"
+    }
+   ],
+   "bucket": "E",
+   "family": "list-add-as-event",
+   "note": "'add milk' -> event; 'reopen groceries' merged into the meeting's title"
+  },
+  {
+   "rank": 309,
+   "text": "Alexa, give me my to do list for today and start a new grocery list.",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": "list_management",
+   "got": "0e/0t/0m",
+   "actions": [
+    {
+     "action": "query_schedule",
+     "date": "2026-03-26"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q52",
+   "note": ""
+  },
+  {
+   "rank": 326,
+   "text": "please set a reminder for my 5pm meeting today, and then add this to the list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "Meeting",
+     "date": "2026-03-27",
+     "start": "17:00"
+    }
+   ],
+   "bucket": "K",
+   "family": "anaphora",
+   "note": "'add this to the list' is the same meeting"
+  },
+  {
+   "rank": 341,
+   "text": "PDA set this date to repeat reminder — and pls add list of friends to invite for the party",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "0e/1t/1m",
+   "actions": [
+    {
+     "action": "update_todo"
+    },
+    {
+     "action": "create_todo",
+     "titles": [
+      "friends"
+     ]
+    }
+   ],
+   "bucket": "E",
+   "family": "mutation",
+   "note": "'set this date to repeat' -> update_todo on nothing named"
+  },
+  {
+   "rank": 354,
+   "text": "Add meeting with all employees on March 20 at 9 AM. Also, show a new list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "meeting with all employees",
+     "date": "2027-03-20",
+     "start": "09:00"
+    },
+    {
+     "action": "query_schedule",
+     "date": "2026-03-28"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q52",
+   "note": ""
+  },
+  {
+   "rank": 371,
+   "text": "Remind me to pick up John from the airport tonight at 8, and then add this to the list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": "remind_half",
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "pick up john",
+     "date": "2026-03-29",
+     "start": "20:00"
+    }
+   ],
+   "bucket": "K",
+   "family": "anaphora",
+   "note": "side: title 'pick up john' drops 'from the airport'"
+  },
+  {
+   "rank": 379,
+   "text": "how far we send money for digital and add something to my list.",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "0e/2t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "how far we send money for digital"
+     ]
+    },
+    {
+     "action": "create_todo",
+     "titles": [
+      "something"
+     ]
+    }
+   ],
+   "bucket": "U",
+   "family": "garbled",
+   "note": ""
+  },
+  {
+   "rank": 436,
+   "text": "I have a meeting tomorrow morning at 10:00, please remind me — and add mop to hardware store list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "2e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "mop to hardware store list",
+     "date": "2026-04-03",
+     "start": "09:00"
+    },
+    {
+     "action": "create_event",
+     "title": "Meeting",
+     "date": "2026-04-03",
+     "start": "10:00"
+    }
+   ],
+   "bucket": "E",
+   "family": "list-add-as-event",
+   "note": "'add mop to hardware store list' -> event (deep path; R2 fixed the reader, not this)"
+  },
+  {
+   "rank": 472,
+   "text": "Set a reminder to attend PTA on Tuesday, and then Add butter to the list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "0e/2t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "PTA"
+     ]
+    },
+    {
+     "action": "create_todo",
+     "titles": [
+      "butter"
+     ]
+    }
+   ],
+   "bucket": "K",
+   "family": "Q47",
+   "note": "'attend PTA on Tuesday' has no clock -> to-do"
+  },
+  {
+   "rank": 475,
+   "text": "please add party at chucky cheese to calander — and i need to add pasta and milk to the grocery list.",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "0e/3t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "party at chucky cheese to calander"
+     ]
+    },
+    {
+     "action": "create_todo",
+     "titles": [
+      "add pasta",
+      "milk"
+     ]
+    }
+   ],
+   "bucket": "E",
+   "family": "create-read-as-todo",
+   "note": "'add party at chucky cheese to calander' -> to-do (calendar named: Q63 event); 'add pasta' keeps 'add'"
+  },
+  {
+   "rank": 530,
+   "text": "Block one hour from 10 tomorrow morning, and then Add Diapers in cosmetic list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "2e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "one hour from 10",
+     "date": "2026-04-09",
+     "start": "09:00"
+    },
+    {
+     "action": "create_event",
+     "title": "diapers in cosmetic list",
+     "date": "2026-04-09",
+     "start": "12:00"
+    }
+   ],
+   "bucket": "E",
+   "family": "list-add-as-event",
+   "note": "'Add Diapers in cosmetic list' -> event; block title 'one hour from 10'"
+  },
+  {
+   "rank": 531,
+   "text": "Please add haricut to March 27th at 3 pm and add a new list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "haricut",
+     "date": "2027-03-27",
+     "start": "15:00"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q52",
+   "note": ""
+  },
+  {
+   "rank": 556,
+   "text": "Please add dinner plans to my calendar for (specific date/time) at (specific location) — and put this on my list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "dinner plans",
+     "date": "2026-04-10",
+     "start": "19:00"
+    }
+   ],
+   "bucket": "U",
+   "family": "placeholder",
+   "note": ""
+  },
+  {
+   "rank": 558,
+   "text": "Please add brunch with Erin to my calendar at the Diner. Also, add a new list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "brunch with erin at the diner",
+     "date": "2026-04-10",
+     "start": "13:00"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q52",
+   "note": ""
+  },
+  {
+   "rank": 580,
+   "text": "give me the list of all events coming up in the next month and set notifications for all of them. Also, save appointment to list",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "query_schedule"
+    },
+    {
+     "action": "create_event",
+     "title": "notifications for all of them",
+     "date": "2026-04-12",
+     "start": "09:00"
+    },
+    {
+     "action": "query_schedule",
+     "date": "2026-04-11"
+    }
+   ],
+   "bucket": "E",
+   "family": "nameless-commit",
+   "note": "'set notifications for all of them' -> event"
+  },
+  {
+   "rank": 587,
+   "text": "remind me to check the oven in 15 minutes and also i need to add bananas to my grocery list.",
+   "intent": "event+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "fast",
+   "override": "remind_half",
+   "got": "0e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "add bananas"
+     ]
+    }
+   ],
+   "bucket": "E",
+   "family": "ask-dropped",
+   "note": "'check the oven in 15 minutes' lost (fast path); 'add bananas' keeps 'add'"
+  },
+  {
+   "rank": 61,
+   "text": "Add milk to my grocery list, and then update work out list with new items",
+   "intent": "task+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "0e/1t/1m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "milk"
+     ]
+    },
+    {
+     "action": "update_todo"
+    }
+   ],
+   "bucket": "E",
+   "family": "mutation",
+   "note": "list-management clause 'update work out list with new items' -> update_todo"
+  },
+  {
+   "rank": 158,
+   "text": "Create a new folder — and create a list of jewels to be bought",
+   "intent": "task+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "fast",
+   "override": null,
+   "got": "0e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "new folder —"
+     ]
+    }
+   ],
+   "bucket": "E",
+   "family": "nameless-commit",
+   "note": "'create a new folder' -> to-do 'new folder —'; 'list of jewels to be bought' (Q33 to-do) lost"
+  },
+  {
+   "rank": 291,
+   "text": "Add the item to a list and please Find all name start with alphabetic of 'A' and create a list.",
+   "intent": "task+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": "list_create_bare",
+   "got": "0e/0t/0m",
+   "actions": [
+    {
+     "action": "query_schedule",
+     "date": "2026-03-25"
+    }
+   ],
+   "bucket": "U",
+   "family": "garbled",
+   "note": ""
+  },
+  {
+   "rank": 329,
+   "text": "PDA please update list with new item. Also, Add Moong daal in grocery list",
+   "intent": "task+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "0e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "moong daal in grocery list"
+     ]
+    }
+   ],
+   "bucket": "K",
+   "family": "Q52",
+   "note": "side: title 'moong daal in grocery list' — list not read"
+  },
+  {
+   "rank": 357,
+   "text": "open a new list for me, and then PDA please make a list.",
+   "intent": "task+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": "list_create_bare",
+   "got": "0e/0t/0m",
+   "actions": [],
+   "bucket": "K",
+   "family": "Q52",
+   "note": ""
+  },
+  {
+   "rank": 455,
+   "text": "Can you please create a list for me. Also, Please make a list of thing I have to shop tomorrow",
+   "intent": "task+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": "list_create_bare",
+   "got": "0e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "Please make a list of thing I have to shop"
+     ]
+    }
+   ],
+   "bucket": "E",
+   "family": "nameless-commit",
+   "note": "'make a list of thing I have to shop' -> junk to-do"
+  },
+  {
+   "rank": 463,
+   "text": "Add Bob to my list of contacts and also i need more milk",
+   "intent": "task+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "1e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "bob of contacts"
+     ]
+    },
+    {
+     "action": "create_event",
+     "title": "more milk",
+     "date": "2026-04-05",
+     "start": "09:00"
+    }
+   ],
+   "bucket": "E",
+   "family": "list-add-as-event",
+   "note": "'i need more milk' -> event; 'bob of contacts'"
+  },
+  {
+   "rank": 501,
+   "text": "Create a list for the following. Also, I want to make this week's shopping list",
+   "intent": "task+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": "list_management",
+   "got": "0e/2t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "list for the following"
+     ]
+    },
+    {
+     "action": "create_todo",
+     "titles": [
+      "make 's shopping list"
+     ]
+    }
+   ],
+   "bucket": "E",
+   "family": "nameless-commit",
+   "note": "two list-management clauses -> two junk to-dos (Q52 missed them)"
+  },
+  {
+   "rank": 507,
+   "text": "show a new list. Also, Add milk to my grocery list.",
+   "intent": "task+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "0e/1t/0m",
+   "actions": [
+    {
+     "action": "query_schedule",
+     "date": "2026-04-07"
+    },
+    {
+     "action": "create_todo",
+     "titles": [
+      "milk"
+     ]
+    }
+   ],
+   "bucket": "K",
+   "family": "Q52",
+   "note": ""
+  },
+  {
+   "rank": 565,
+   "text": "Open up a new list — and refresh the list with new one.",
+   "intent": "task+task",
+   "scenario": "compound",
+   "complexity": "complex",
+   "path": "deep",
+   "override": null,
+   "got": "0e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "refresh the list with new one"
+     ]
+    }
+   ],
+   "bucket": "E",
+   "family": "nameless-commit",
+   "note": "'refresh the list with new one' -> junk to-do (Q52 missed it)"
+  },
+  {
+   "rank": 294,
+   "text": "set a list for....",
+   "intent": "createoradd",
+   "scenario": "lists",
+   "complexity": "simple",
+   "path": "deep",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [],
+   "bucket": "K",
+   "family": "Q52",
+   "note": ""
+  },
+  {
+   "rank": 422,
+   "text": "prepare a new list",
+   "intent": "createoradd",
+   "scenario": "lists",
+   "complexity": "simple",
+   "path": "deep",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [],
+   "bucket": "K",
+   "family": "Q52",
+   "note": ""
+  },
+  {
+   "rank": 167,
+   "text": "Favorite places to eat",
+   "intent": "query",
+   "scenario": "lists",
+   "complexity": "simple",
+   "path": "deep",
+   "override": null,
+   "got": "0e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "Favorite places to eat"
+     ]
+    }
+   ],
+   "bucket": "U",
+   "family": "fragment",
+   "note": "side: to-do 'Favorite places to eat'"
+  },
+  {
+   "rank": 192,
+   "text": "where the party will take start",
+   "intent": "query",
+   "scenario": "calendar",
+   "complexity": "simple",
+   "path": "deep",
+   "override": null,
+   "got": "0e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "Party"
+     ]
+    }
+   ],
+   "bucket": "E",
+   "family": "question-as-create",
+   "note": "'where the party will take start' -> to-do"
+  },
+  {
+   "rank": 198,
+   "text": "COULD YOU PLEASE TELL WHEN WE HAVE TO PAY FOR CAR INSURANCE?",
+   "intent": "query",
+   "scenario": "calendar",
+   "complexity": "medium",
+   "path": "deep",
+   "override": null,
+   "got": "0e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "tell car insurance"
+     ]
+    }
+   ],
+   "bucket": "E",
+   "family": "question-as-create",
+   "note": "'could you tell when we have to pay for car insurance?' -> to-do"
+  },
+  {
+   "rank": 284,
+   "text": "Call Bill to reschedule our meeting",
+   "intent": "query",
+   "scenario": "calendar",
+   "complexity": "simple",
+   "path": "fast",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "call bill to reschedule our meeting",
+     "date": "2026-03-25",
+     "start": "09:00"
+    }
+   ],
+   "bucket": "K",
+   "family": "Q47/Q50",
+   "note": "calling a person is an event"
+  },
+  {
+   "rank": 290,
+   "text": "I need to seem my lists.",
+   "intent": "query",
+   "scenario": "lists",
+   "complexity": "simple",
+   "path": "fast",
+   "override": null,
+   "got": "0e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "seem my lists"
+     ]
+    }
+   ],
+   "bucket": "E",
+   "family": "question-as-create",
+   "note": "'I need to see my lists' -> to-do (Q52 junk)"
+  },
+  {
+   "rank": 352,
+   "text": "Get me the details of upcoming Oscar 2017.",
+   "intent": "query",
+   "scenario": "calendar",
+   "complexity": "medium",
+   "path": "fast",
+   "override": null,
+   "got": "0e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "get details of upcoming oscar"
+     ]
+    }
+   ],
+   "bucket": "E",
+   "family": "question-as-create",
+   "note": "'Get me the details of …' -> to-do (fast path)"
+  },
+  {
+   "rank": 396,
+   "text": "i need the details about my next schedule",
+   "intent": "query",
+   "scenario": "calendar",
+   "complexity": "medium",
+   "path": "fast",
+   "override": null,
+   "got": "0e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "the details about my next schedule"
+     ]
+    }
+   ],
+   "bucket": "E",
+   "family": "question-as-create",
+   "note": "'i need the details about my next schedule' -> to-do (fast path)"
+  },
+  {
+   "rank": 420,
+   "text": "I would like to know my next schedule details",
+   "intent": "query",
+   "scenario": "calendar",
+   "complexity": "medium",
+   "path": "fast",
+   "override": null,
+   "got": "0e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "next schedule details"
+     ]
+    }
+   ],
+   "bucket": "E",
+   "family": "question-as-create",
+   "note": "'I would like to know my next schedule details' -> to-do (fast path)"
+  },
+  {
+   "rank": 433,
+   "text": "search schedules for this week",
+   "intent": "query",
+   "scenario": "calendar",
+   "complexity": "simple",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "search schedules",
+     "date": "2026-04-02",
+     "start": "09:00"
+    }
+   ],
+   "bucket": "E",
+   "family": "question-as-create",
+   "note": "'search schedules for this week' -> event"
+  },
+  {
+   "rank": 516,
+   "text": "meetings from 20 to 25 june",
+   "intent": "query",
+   "scenario": "calendar",
+   "complexity": "simple",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "Meetings",
+     "date": "2026-06-20",
+     "start": "09:00"
+    }
+   ],
+   "bucket": "U",
+   "family": "fragment",
+   "note": "'meetings from 20 to 25 june' — no verb; key says query"
+  },
+  {
+   "rank": 170,
+   "text": "Please earse the next birthday event",
+   "intent": "remove",
+   "scenario": "calendar",
+   "complexity": "simple",
+   "path": "deep",
+   "override": null,
+   "got": "0e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": "<a vocabulary name>'s birthday"
+    }
+   ],
+   "bucket": "E",
+   "family": "ingest-vocab",
+   "note": "'earse' rewritten to a vocabulary NAME; the delete became a to-do"
+  },
+  {
+   "rank": 265,
+   "text": "its make me good lucking guy inside very very horkersd wo",
+   "intent": "remove",
+   "scenario": "lists",
+   "complexity": "medium",
+   "path": "deep",
+   "override": null,
+   "got": "1e/0t/0m",
+   "actions": [
+    {
+     "action": "create_event",
+     "title": "guy",
+     "date": "2026-03-24",
+     "start": "09:00"
+    }
+   ],
+   "bucket": "U",
+   "family": "garbled",
+   "note": ""
+  },
+  {
+   "rank": 34,
+   "text": "Add 'event' to my calendar",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "simple",
+   "path": "deep",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [],
+   "bucket": "K",
+   "family": "Q38",
+   "note": ""
+  },
+  {
+   "rank": 40,
+   "text": "please remind me 1 hour before the meeting I hace tomorrow morning",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "medium",
+   "path": "deep",
+   "override": null,
+   "got": "0e/0t/1m",
+   "actions": [
+    {
+     "action": "update_event"
+    }
+   ],
+   "bucket": "K",
+   "family": "reminder-on-existing",
+   "note": "update_event on the named meeting is the product's answer"
+  },
+  {
+   "rank": 49,
+   "text": "add 'christmas' to calendar",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "simple",
+   "path": "deep",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [],
+   "bucket": "E",
+   "family": "create-read-as-query",
+   "note": "\"add 'christmas' to calendar\" -> nothing (quoted title)"
+  },
+  {
+   "rank": 72,
+   "text": "Can you sync my calendar with mark?",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "medium",
+   "path": "fast",
+   "override": null,
+   "got": "0e/0t/1m",
+   "actions": [
+    {
+     "action": "complete_todo"
+    }
+   ],
+   "bucket": "E",
+   "family": "mutation",
+   "note": "'sync my calendar with mark' -> complete_todo"
+  },
+  {
+   "rank": 111,
+   "text": "Do I need to be reminded of any meetings on Monday?",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "medium",
+   "path": "deep",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [],
+   "bucket": "K",
+   "family": "question",
+   "note": ""
+  },
+  {
+   "rank": 125,
+   "text": "Please add an event to my schedule",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "medium",
+   "path": "deep",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [],
+   "bucket": "K",
+   "family": "Q38",
+   "note": ""
+  },
+  {
+   "rank": 157,
+   "text": "Set a weekly appointment reminder.",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "simple",
+   "path": "deep",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [],
+   "bucket": "K",
+   "family": "Q38",
+   "note": "no day, no clock, nothing named"
+  },
+  {
+   "rank": 201,
+   "text": "remind me about thing at time",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "simple",
+   "path": "deep",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [],
+   "bucket": "K",
+   "family": "Q38",
+   "note": ""
+  },
+  {
+   "rank": 210,
+   "text": "When is my meeting?",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "simple",
+   "path": "fast",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [
+    {
+     "action": "query_schedule"
+    }
+   ],
+   "bucket": "K",
+   "family": "question",
+   "note": ""
+  },
+  {
+   "rank": 220,
+   "text": "Please add an event to my calendar.",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "medium",
+   "path": "deep",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [],
+   "bucket": "K",
+   "family": "Q38",
+   "note": ""
+  },
+  {
+   "rank": 230,
+   "text": "Notify me when my rent due?",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "simple",
+   "path": "deep",
+   "override": "standing_alert",
+   "got": "0e/1t/0m",
+   "actions": [
+    {
+     "action": "create_todo",
+     "titles": [
+      "notify me when my rent due?"
+     ]
+    }
+   ],
+   "bucket": "E",
+   "family": "nameless-commit",
+   "note": "standing alert -> to-do titled with the whole question"
+  },
+  {
+   "rank": 301,
+   "text": "Please let me know about my Birthday",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "medium",
+   "path": "deep",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [
+    {
+     "action": "query_schedule",
+     "date": "2026-03-25"
+    }
+   ],
+   "bucket": "K",
+   "family": "question",
+   "note": ""
+  },
+  {
+   "rank": 328,
+   "text": "tell me later about",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "simple",
+   "path": "fast",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [
+    {
+     "action": "query_todos",
+     "list": "today"
+    }
+   ],
+   "bucket": "K",
+   "family": "truncated",
+   "note": ""
+  },
+  {
+   "rank": 332,
+   "text": "Do I have any time free on Tuesday for a 2 hour meeting with Ken?",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "medium",
+   "path": "fast",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [
+    {
+     "action": "query_schedule",
+     "date": "2026-03-31"
+    }
+   ],
+   "bucket": "K",
+   "family": "question",
+   "note": ""
+  },
+  {
+   "rank": 416,
+   "text": "For my calendar, write Preschool Reading every Wednesday.",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "medium",
+   "path": "deep",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [
+    {
+     "action": "query_schedule",
+     "date": "2026-04-01"
+    }
+   ],
+   "bucket": "E",
+   "family": "create-read-as-query",
+   "note": "'For my calendar, write Preschool Reading every Wednesday' -> query"
+  },
+  {
+   "rank": 424,
+   "text": "add an event to my calendar",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "simple",
+   "path": "deep",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [],
+   "bucket": "K",
+   "family": "Q38",
+   "note": ""
+  },
+  {
+   "rank": 440,
+   "text": "remind me to check the oven in 15 minutes.",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "medium",
+   "path": "fast",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [],
+   "bucket": "E",
+   "family": "relative-time",
+   "note": "'remind me to check the oven in 15 minutes' -> nothing (fast path)"
+  },
+  {
+   "rank": 466,
+   "text": "REMIND ABOUT OF ALL EVENT IN CALENDERS",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "medium",
+   "path": "deep",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [
+    {
+     "action": "query_schedule"
+    }
+   ],
+   "bucket": "K",
+   "family": "question",
+   "note": ""
+  },
+  {
+   "rank": 467,
+   "text": "Tell me to go to the grocery store after work.",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "medium",
+   "path": "fast",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [
+    {
+     "action": "query_todos",
+     "list": "today"
+    }
+   ],
+   "bucket": "E",
+   "family": "create-read-as-query",
+   "note": "'Tell me to go to the grocery store after work' -> query_todos"
+  },
+  {
+   "rank": 554,
+   "text": "Please add a 4 p.m. appointment for every Tuesday.",
+   "intent": "set",
+   "scenario": "calendar",
+   "complexity": "medium",
+   "path": "deep",
+   "override": null,
+   "got": "0e/0t/0m",
+   "actions": [],
+   "bucket": "E",
+   "family": "create-read-as-query",
+   "note": "'add a 4 p.m. appointment for every Tuesday' -> nothing (Q42 bare kind)"
+  }
+ ]
+}

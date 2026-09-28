@@ -142,8 +142,14 @@ linked to-do (Q61, `cf74dec3`), and "buy A and B" is two to-dos (Q62,
 
 ## Next
 
-1. **Align the real-speech answer key to the rulings, by rule** (Q52 list
-   management, Q42 bare kinds, …) so its number means the engine.
+1. **Align the real-speech answer key to the rulings, by rule.** The dev
+   failures are triaged (2026-09-28, `dataset/inputs/dev_triage_d8b3e81d.json`,
+   `dataset/RESULTS.md` TRIAGE): of 93, **47 key out of date** (Q38, Q52,
+   questions labelled `set`, Q47), **36 engine**, 10 unanswerable. Re-keyed,
+   dev would read single 96.4% / multi 88.0% — unconfirmed until the K rules
+   are encoded in `audit_dataset_conventions.py` and the held-out range read.
+   Engine priority from it: the 4 mutations from non-destructive commands
+   and the vocabulary rewriting "earse".
 2. **Multi-ask commands on real speech** (event + to-do 29%, two to-dos 60%,
    two events 71%; dev range n=182), fixes mined from the dev range with ≥3
    distinct phrasings each, verdict on the held-out range.
