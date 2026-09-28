@@ -344,9 +344,9 @@ class AdminDialog(QDialog):
         self.create_btn = QPushButton("New user…")
         self.create_btn.setObjectName("primary")
         self.reset_btn = QPushButton("Reset password")
-        self.disable_btn = QPushButton("Disable / enable")
+        self.disable_btn = QPushButton("Disable")
         self.signout_btn = QPushButton("Sign out")
-        self.signout_btn.setToolTip("Sign this person out on every device (password unchanged)")
+        self.signout_btn.setProperty("tip", "Sign this person out on every device (password unchanged)")
         self.remove_btn = QPushButton("Remove…")
         self.remove_btn.setStyleSheet(f"color:{_DESTRUCTIVE};")
         for b in (self.create_btn, self.reset_btn, self.signout_btn, self.disable_btn,
@@ -356,7 +356,8 @@ class AdminDialog(QDialog):
         self.require_box = QCheckBox("Require sign-in everywhere")
         self.require_box.setToolTip("Off: a device nobody signed in on acts as the admin.")
         self.require_box.setChecked(bool(registry.load().get("policy", {}).get("require_login")))
-        self.require_box.toggled.connect(lambda on: (registry.set_policy(on), self.changed.emit()))
+        self.require_box.toggled.connect(
+            lambda on: (registry.set_policy(require_login=bool(on)), self.changed.emit()))
         row.addWidget(self.require_box)
         lay.addLayout(row)
 
@@ -387,11 +388,13 @@ class AdminDialog(QDialog):
         self.disable_btn.clicked.connect(lambda: self._toggle_disabled())
         self.remove_btn.clicked.connect(lambda: self._remove())
         self.signout_btn.clicked.connect(lambda: self._sign_out())
+        self.table.itemSelectionChanged.connect(lambda: self._update_buttons())
         self._fill()
 
     # -- the table -----------------------------------------------------------
 
     def _fill(self) -> None:
+        keep = self._selected() if hasattr(self, "_ids") else None
         rows = [registry.get(uid) for uid in registry.user_ids(include_disabled=True)]
         self.table.setRowCount(len(rows))
         self._ids = []
@@ -420,12 +423,31 @@ class AdminDialog(QDialog):
             voc.setChecked(u["id"] in vocab)
             voc.toggled.connect(lambda on, uid=u["id"]: registry.set_vocab_share(self.me, uid, on))
             self.table.setCellWidget(r, 6, self._centered(voc))
+        if keep in self._ids:
+            self.table.selectRow(self._ids.index(keep))
+        self._update_buttons()
         if self._embedded:
             # a dashboard section, not a window: as tall as its rows, so two
             # people don't sit above a screen of empty table
             h = self.table.horizontalHeader().height() + 4 + sum(
                 self.table.rowHeight(r) for r in range(self.table.rowCount()))
             self.table.setFixedHeight(h)
+
+    def _update_buttons(self) -> None:
+        """The row buttons act on the SELECTED person, so they are off until
+        someone is selected — they used to look live and do nothing — and you
+        cannot disable or remove yourself."""
+        uid = self._selected()
+        for b in (self.reset_btn, self.signout_btn):
+            b.setEnabled(uid is not None)
+        for b in (self.disable_btn, self.remove_btn):
+            b.setEnabled(uid is not None and uid != self.me)
+        hint = "" if uid else "Select a person in the table first"
+        for b in (self.reset_btn, self.signout_btn, self.disable_btn, self.remove_btn):
+            b.setToolTip(hint or b.property("tip") or "")
+        if uid:
+            u = registry.get(uid) or {}
+            self.disable_btn.setText("Enable" if u.get("disabled") else "Disable")
 
     @staticmethod
     def _centered(w: QWidget) -> QWidget:
@@ -437,8 +459,9 @@ class AdminDialog(QDialog):
         return box
 
     def _selected(self) -> "str | None":
-        r = self.table.currentRow()
-        return self._ids[r] if 0 <= r < len(self._ids) else None
+        rows = self.table.selectionModel().selectedRows()
+        r = rows[0].row() if rows else -1
+        return self._ids[r] if 0 <= r < len(getattr(self, "_ids", [])) else None
 
     def _show(self, uid: str, on: bool) -> None:
         registry.set_admin_view(self.me, uid, on)
@@ -480,6 +503,7 @@ class AdminDialog(QDialog):
         keep = (local_session.read() or {}).get("session_token") if uid == self.me else None
         sessions.revoke_user(uid, keep=keep)
         self._reveal(registry.get(uid)["display_name"], pw)
+        self.changed.emit()
 
     def _auto_changed(self) -> None:
         on = self.auto_box.currentIndex() == 1
@@ -497,6 +521,7 @@ class AdminDialog(QDialog):
         self.revealed_note.show()
         self.revealed.hide()
         self._fill()
+        self.changed.emit()
 
     def _toggle_disabled(self) -> None:
         uid = self._selected()

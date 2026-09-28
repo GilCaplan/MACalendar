@@ -1882,7 +1882,10 @@ Other people's row ids are published as `(seq << 32) | id`; a by-id request
 runs AS the owner (`sharing.for_request`) so side effects land in their
 stores. A voice command only ever touches the speaker's own calendar — a
 spoken delete can never reach a shared row. Tests: `test_users_*.py`
-(foundation/isolation, auth, sharing, Mac with real clicks, notifications).
+(foundation/isolation, auth, sharing, Mac with real clicks, notifications);
+every Account-tab control is clicked in `test_account_tab_controls.py`, and
+every request the phone's Account screens make is held to a real route and
+replayed in `test_account_ios_contract.py`.
 
 ### Offline reader on the phone
 **What:** When the Mac can't be reached, the phone reads the command itself

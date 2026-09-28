@@ -163,6 +163,7 @@ struct AccountView: View {
     @State private var others: [PublicUser] = []
     @State private var sharedIn: [(name: String, color: String, level: String)] = []
     @State private var groupByOwner = false
+    @State private var settingError = ""
     @State private var showPassword = false
     @State private var loaded = false
 
@@ -195,10 +196,19 @@ struct AccountView: View {
                 Section {
                     Toggle("Group shared to-dos by person", isOn: Binding(
                         get: { groupByOwner },
-                        set: { v in groupByOwner = v; Task { await setting("todos_group_by_owner", v) } }))
+                        set: { v in
+                            groupByOwner = v
+                            Task {
+                                if let e = await accountCall(api, "/users/me/settings",
+                                                             body: ["todos_group_by_owner": v]) {
+                                    groupByOwner = !v; settingError = e
+                                } else { settingError = "" }
+                            }
+                        }))
                 } footer: {
-                    Text("Notifications are only ever about your own calendar and to-dos.")
-
+                    Text(settingError.isEmpty ? "Notifications are only ever about your own calendar and to-dos."
+                                              : "Couldn't change that: \(settingError)")
+                        .foregroundColor(settingError.isEmpty ? .secondary : .red)
                 }
                 if u.isAdmin {
                     Section { NavigationLink("Manage users") { AdminUsersView() } }
@@ -233,10 +243,6 @@ struct AccountView: View {
         groupByOwner = st["todos_group_by_owner"] as? Bool ?? false
     }
 
-    private func setting(_ key: String, _ on: Bool) async {
-        _ = try? await api.request("/users/me/settings", method: "PUT", body: [key: on])
-        api.requestRefresh()
-    }
 }
 
 // MARK: - sharing, one view for everyone
@@ -248,6 +254,7 @@ struct ShareMyCalendarSection: View {
     @ObservedObject private var session = UserSession.shared
     @State private var others: [PublicUser] = []
     @State private var levels: [String: String] = [:]        // grantee -> none|view|edit
+    @State private var error = ""
 
     var body: some View {
         Section {
@@ -261,11 +268,22 @@ struct ShareMyCalendarSection: View {
                     Spacer()
                     ShareLevelPicker(level: Binding(
                         get: { levels[o.id] ?? "none" },
-                        set: { v in levels[o.id] = v; Task { await setShare(api, o.id, v) } }))
+                        set: { v in
+                            let was = levels[o.id] ?? "none"
+                            levels[o.id] = v
+                            Task {
+                                if let e = await setShare(api, o.id, v) { levels[o.id] = was; error = e }
+                                else { error = "" }
+                            }
+                        }))
                 }
             }
         } header: { Text("Share my calendar and to-dos") }
-          footer: { Text("Everything, with the people you choose. View lets them see; Edit lets them change it too.") }
+          footer: {
+              Text(error.isEmpty ? "Everything, with the people you choose. View lets them see; Edit lets them change it too."
+                                 : "Couldn't change that: \(error)")
+                  .foregroundColor(error.isEmpty ? .secondary : .red)
+          }
         .task { await load() }
     }
 
@@ -304,14 +322,34 @@ func shareLevels(_ api: APIClient) async -> [String: String] {
     return out
 }
 
+/// Returns nil on success, else what went wrong — every Account control
+/// shows that and snaps back, instead of looking done when nothing happened
+/// (Gil, 2026-09-28: "not all the toggles/buttons in account tab work").
 @MainActor
-func setShare(_ api: APIClient, _ grantee: String, _ level: String) async {
-    if level == "none" {
-        _ = try? await api.request("/shares/\(grantee)", method: "DELETE")
-    } else {
-        _ = try? await api.request("/shares/\(grantee)", method: "PUT", body: ["level": level])
+func setShare(_ api: APIClient, _ grantee: String, _ level: String) async -> String? {
+    do {
+        if level == "none" {
+            _ = try await api.request("/shares/\(grantee)", method: "DELETE")
+        } else {
+            _ = try await api.request("/shares/\(grantee)", method: "PUT", body: ["level": level])
+        }
+        api.requestRefresh()
+        return nil
+    } catch {
+        return error.localizedDescription
     }
-    api.requestRefresh()
+}
+
+@MainActor
+func accountCall(_ api: APIClient, _ path: String, method: String = "PUT",
+                 body: [String: Any] = [:]) async -> String? {
+    do {
+        _ = try await api.request(path, method: method, body: body)
+        api.requestRefresh()
+        return nil
+    } catch {
+        return error.localizedDescription
+    }
 }
 
 // MARK: - one person, as the admin sees them
@@ -350,14 +388,19 @@ struct AdminUserDetailView: View {
                         get: { shown },
                         set: { v in shown = v; Task { await put("/admin/view/\(u.id)", ["shown": v]) } }))
                 } header: { Text("What you see") }
-                  footer: { Text("On: their items join your views in their colour, with their name.") }
+                  footer: { Text("On: their items join your views with their name and a stripe in their colour.") }
                 Section("What you share with them") {
                     HStack {
                         Text("My calendar and to-dos")
                         Spacer()
                         ShareLevelPicker(level: Binding(
                             get: { myShare },
-                            set: { v in myShare = v; Task { await setShare(api, u.id, v) } }))
+                            set: { v in
+                                myShare = v
+                                Task {
+                                    if let e = await setShare(api, u.id, v) { await failed(e) } else { note = "" }
+                                }
+                            }))
                     }
                     Toggle("My vocabulary", isOn: Binding(
                         get: { vocab },
@@ -399,30 +442,47 @@ struct AdminUserDetailView: View {
         myShare = await shareLevels(api)[userID] ?? "none"
     }
 
-    private func put(_ path: String, _ body: [String: Any]) async {
-        _ = try? await api.request(path, method: "PUT", body: body)
-        api.requestRefresh()
-    }
-
-    private func patch(_ body: [String: Any]) async {
-        _ = try? await api.request("/admin/users/\(userID)", method: "PATCH", body: body)
+    /// A control that didn't take: say so, and put every control back to
+    /// what the Mac actually has.
+    private func failed(_ e: String) async {
+        note = "Couldn't change that: \(e)"
         await load()
     }
 
+    private func put(_ path: String, _ body: [String: Any]) async {
+        if let e = await accountCall(api, path, body: body) { await failed(e) } else { note = "" }
+    }
+
+    private func patch(_ body: [String: Any]) async {
+        if let e = await accountCall(api, "/admin/users/\(userID)", method: "PATCH", body: body) {
+            await failed(e)
+        } else {
+            note = ""
+            await load()
+        }
+    }
+
     private func signOut() async {
-        if let data = try? await api.request("/admin/users/\(userID)/signout", method: "POST", body: [:]),
-           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+        do {
+            let data = try await api.request("/admin/users/\(userID)/signout", method: "POST", body: [:])
+            let obj = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
             let n = obj["signed_out"] as? Int ?? 0
             note = "Signed out of \(n) device\(n == 1 ? "" : "s"). Their password is unchanged."
+        } catch {
+            note = "Couldn't sign them out: \(error.localizedDescription)"
         }
         await load()
     }
 
     private func reset() async {
-        guard let data = try? await api.request("/admin/users/\(userID)/password", method: "POST", body: [:]),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let pw = obj["password"] as? String else { return }
-        revealed = pw
+        do {
+            let data = try await api.request("/admin/users/\(userID)/password", method: "POST", body: [:])
+            let obj = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+            revealed = obj["password"] as? String
+            note = revealed == nil ? "The Mac didn't send a new password." : ""
+        } catch {
+            note = "Couldn't reset it: \(error.localizedDescription)"
+        }
     }
 }
 
@@ -528,12 +588,12 @@ struct AdminUsersView: View {
     }
 
     private func patch(_ id: String, _ body: [String: Any]) async {
-        _ = try? await api.request("/admin/users/\(id)", method: "PATCH", body: body)
+        error = await accountCall(api, "/admin/users/\(id)", method: "PATCH", body: body) ?? ""
         await load()
     }
 
     private func signOut(_ u: AdminUser) async {
-        _ = try? await api.request("/admin/users/\(u.id)/signout", method: "POST", body: [:])
+        error = await accountCall(api, "/admin/users/\(u.id)/signout", method: "POST") ?? ""
         await load()
     }
 
@@ -592,6 +652,7 @@ struct AdminDashboardView: View {
     @State private var requireLogin = false
     @State private var autoOn = false
     @State private var autoDays = 30
+    @State private var policyError = ""
     @State private var loaded = false
 
     var body: some View {
@@ -639,8 +700,14 @@ struct AdminDashboardView: View {
                             in: 1...365)
                 }
             } header: { Text("Sign-in") }
-              footer: { Text(autoOn ? "A device unused this long is signed out."
-                                    : "Off: a sign-in lasts until the person signs out, or you sign them out.") }
+              footer: {
+                  if !policyError.isEmpty {
+                      Text("Couldn't change that: \(policyError)").foregroundColor(.red)
+                  } else {
+                      Text(autoOn ? "A device unused this long is signed out."
+                                  : "Off: a sign-in lasts until the person signs out, or you sign them out.")
+                  }
+              }
             Section("Me") {
                 NavigationLink { AccountView() } label: {
                     Label("My account, password & settings", systemImage: "person.crop.circle")
@@ -671,6 +738,11 @@ struct AdminDashboardView: View {
     }
 
     private func policy(_ body: [String: Any]) async {
-        _ = try? await api.request("/admin/policy", method: "PUT", body: body)
+        if let e = await accountCall(api, "/admin/policy", body: body) {
+            policyError = e
+            await load()                          // put the switches back
+        } else {
+            policyError = ""
+        }
     }
 }

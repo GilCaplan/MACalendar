@@ -40,6 +40,7 @@ class AccountPanel(FeaturePanel):
         lay = QVBoxLayout(page)
         lay.setContentsMargins(28, 22, 28, 22)
         lay.setSpacing(14)
+        self._sub = self._devices_lay = None
         uid = users.current()
         me = registry.get(uid) if (uid and registry.exists()) else None
         if me is None:
@@ -62,11 +63,13 @@ class AccountPanel(FeaturePanel):
         # font and silently wins over setFont — the title rendered body-sized
         t.setStyleSheet("font-size: 22px; font-weight: 700;")
         lay.addWidget(t)
+        self._sub = None
         if sub:
             s = QLabel(sub)
             s.setObjectName("muted")
             s.setWordWrap(True)
             lay.addWidget(s)
+            self._sub = s
 
     def _section(self, lay, text: str) -> None:
         h = QLabel(text.upper())
@@ -76,17 +79,41 @@ class AccountPanel(FeaturePanel):
         lay.addSpacing(8)
         lay.addWidget(h)
 
-    def _admin_page(self, lay, me: dict) -> None:
-        from assistant.calendar_ui.users_dialogs import AccountDialog, AdminDialog
+    def _summary(self) -> str:
         n = len(registry.user_ids())
         live = len(sessions.list_for())
-        self._title(lay, "Admin dashboard",
-                    f"{n} user{'s' if n != 1 else ''} · {live} signed-in device"
-                    f"{'s' if live != 1 else ''}")
+        return (f"{n} user{'s' if n != 1 else ''} · {live} signed-in device"
+                f"{'s' if live != 1 else ''}")
+
+    def _changed(self) -> None:
+        """Something on the page changed the world. Update what DEPENDS on it
+        — the counts, the device list, the calendar and the other panels —
+        and leave the page itself alone: rebuilding it destroyed the control
+        mid-click and wiped a new user's shown-once password the instant it
+        appeared (Gil, 2026-09-28: "not all the toggles/buttons work")."""
+        if getattr(self, "_sub", None) is not None:
+            self._sub.setText(self._summary())
+        if getattr(self, "_devices_lay", None) is not None:
+            while self._devices_lay.count():
+                it = self._devices_lay.takeAt(0)
+                if it.widget():
+                    it.widget().deleteLater()
+            self._devices(self._devices_lay)
+        win = self.window()
+        if win is not self and hasattr(win, "refresh_calendar"):
+            win.refresh_calendar()
+        for panel in getattr(win, "_panels", {}).values():
+            if panel is not self and hasattr(panel, "reload"):
+                panel.reload()
+
+    def _admin_page(self, lay, me: dict) -> None:
+        from assistant.calendar_ui.users_dialogs import AccountDialog, AdminDialog
+        self._title(lay, "Admin dashboard", self._summary())
         # Sharing first: it is the thing a person comes here to change, and it
         # sat at the bottom under "My own account" where Gil could not find it.
         self._section(lay, "My account · share my calendar and to-dos")
         self.account = AccountDialog(self, embedded=True)
+        self.account.changed.connect(lambda: self._changed())
         lay.addWidget(self.account)
         self._section(lay, "People · what you see of each, your vocabulary, sign-in")
         hint = QLabel("Tick a column to show that person's calendar in yours, or to give "
@@ -96,17 +123,23 @@ class AccountPanel(FeaturePanel):
         hint.setWordWrap(True)
         lay.addWidget(hint)
         self.admin = AdminDialog(self, embedded=True)
-        self.admin.changed.connect(lambda: self.reload())
+        self.admin.changed.connect(lambda: self._changed())
         lay.addWidget(self.admin)
         self._section(lay, "Signed-in devices")
-        self._devices(lay)
+        box = QWidget()
+        self._devices_lay = QVBoxLayout(box)
+        self._devices_lay.setContentsMargins(0, 0, 0, 0)
+        self._devices(self._devices_lay)
+        lay.addWidget(box)
         self._sign_out_row(lay)
 
     def _user_page(self, lay, me: dict) -> None:
         from assistant.calendar_ui.users_dialogs import AccountDialog
         self._title(lay, "Your account", "Your calendar, who you share it with, and how "
                     "you are signed in.")
-        lay.addWidget(AccountDialog(self, embedded=True))
+        self.account = AccountDialog(self, embedded=True)
+        self.account.changed.connect(lambda: self._changed())
+        lay.addWidget(self.account)
         self._sign_out_row(lay)
 
     def _devices(self, lay) -> None:
