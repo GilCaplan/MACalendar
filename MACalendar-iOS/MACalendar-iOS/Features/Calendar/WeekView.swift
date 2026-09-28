@@ -285,7 +285,7 @@ private struct WeekEventBlock: View {
         RoundedRectangle(cornerRadius: 3)
             .fill(fillColor)
             .overlay(alignment: .topLeading) {
-                Text(event.title)
+                Text(event.ownerPrefix + event.title)
                     .font(.system(size: max(settings.fontWeek - 2, 9), weight: .semibold))
                     .foregroundColor(Color.onColor(hex: event.color.isEmpty ? settings.accentColorHex : event.color))
                     .padding(2)

@@ -158,10 +158,64 @@ class LocalStore: ObservableObject {
     @Published private(set) var pending: [PendingChange] = []
     private var nextTemp = -1
 
-    private let dir = FileManager.default
-        .urls(for: .documentDirectory, in: .userDomainMask)[0]
+    /// Where this person's offline copy lives: `Documents/users/<id>/` once
+    /// someone has signed in (DEVQA Q65 — each person's calendar is their own,
+    /// on a shared phone too), the top of `Documents/` before users existed.
+    private var dir: URL = LocalStore.folder(for: LocalStore.storedUserID())
 
     private init() { load() }
+
+    private static var documents: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    }
+
+    private static func folder(for userID: String?) -> URL {
+        guard let userID, !userID.isEmpty else { return documents }
+        let d = documents.appendingPathComponent("users/\(userID)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
+        return d
+    }
+
+    private static func storedUserID() -> String? {
+        guard let data = UserDefaults.standard.data(forKey: "macalendar.session_user"),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return nil }
+        return obj["id"] as? String
+    }
+
+    /// Someone else signed in (or out): save what is on screen to its owner's
+    /// folder, then load theirs. The FIRST person to sign in on a phone that
+    /// already has a cache from before users takes it over — it is theirs
+    /// (on Gil's phone, Gil); anyone after them starts clean and never sees it.
+    func switchUser(_ userID: String?) {
+        let target = Self.folder(for: userID)
+        guard target.standardizedFileURL != dir.standardizedFileURL else { return }
+        flushCachesNow()
+        persistVoice()
+        try? JSONEncoder().encode(pending).write(to: url("mc_pending.json"))
+        if let userID, !userID.isEmpty {
+            let owner = UserDefaults.standard.string(forKey: "macalendar.cache_owner")
+            if owner == nil || owner == userID {
+                Self.claimLegacyCache(into: target)
+                UserDefaults.standard.set(userID, forKey: "macalendar.cache_owner")
+            }
+        }
+        dir = target
+        load()
+    }
+
+    /// Move the pre-users cache files from the top of Documents into `target`
+    /// — never over a file already there.
+    private static func claimLegacyCache(into target: URL) {
+        let fm = FileManager.default
+        guard let names = try? fm.contentsOfDirectory(atPath: documents.path) else { return }
+        for name in names where name.hasPrefix("mc_") || (name.hasPrefix("voice-") && name.hasSuffix(".wav")) {
+            let dst = target.appendingPathComponent(name)
+            if !fm.fileExists(atPath: dst.path) {
+                try? fm.moveItem(at: documents.appendingPathComponent(name), to: dst)
+            }
+        }
+    }
 
     // MARK: - Persistence
 

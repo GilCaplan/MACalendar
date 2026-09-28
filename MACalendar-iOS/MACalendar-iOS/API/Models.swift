@@ -46,8 +46,20 @@ struct CalendarEvent: Identifiable, Codable, Equatable {
     /// older caches and a row created offline have none.
     var category: String? = nil
 
+    /// Whose calendar this row is from (DEVQA Q65). Absent on a Mac from before
+    /// users and on a row made offline; `shared` is true for someone else's,
+    /// whose id is namespaced by the Mac so it never collides with our own.
+    var ownerId: String? = nil
+    var ownerName: String? = nil
+    var shared: Bool? = nil
+    var canEdit: Bool? = nil
+
     enum CodingKeys: String, CodingKey {
         case id, title, date, color, recurrence, attendees, location, description, source, category
+        case shared
+        case ownerId   = "owner_id"
+        case ownerName = "owner_name"
+        case canEdit   = "can_edit"
         case startTime      = "start_time"
         case endTime        = "end_time"
         case recurrenceEnd  = "recurrence_end"
@@ -65,7 +77,12 @@ struct CalendarEvent: Identifiable, Codable, Equatable {
         return endTime.isEmpty ? startTime : "\(startTime) – \(endTime)"
     }
 
-    var isReadOnly: Bool { source == "ics" }
+    var isReadOnly: Bool { source == "ics" || canEdit == false }
+
+    /// "Dana · " before someone else's row — display only.
+    var ownerPrefix: String {
+        (shared == true && !(ownerName ?? "").isEmpty) ? "\(ownerName!) · " : ""
+    }
 }
 
 struct Todo: Identifiable, Codable, Equatable {
@@ -90,11 +107,20 @@ struct Todo: Identifiable, Codable, Equatable {
     /// by voice ("call the plumber", DEVQA Q50). Renamed and re-dated with it.
     var linkedEventId: Int? = nil
 
+    /// Whose list this to-do is on (DEVQA Q65) — see CalendarEvent.
+    var ownerId: String? = nil
+    var ownerName: String? = nil
+    var shared: Bool? = nil
+    var canEdit: Bool? = nil
+
     enum CodingKeys: String, CodingKey {
-        case id, title, list, completed, priority, tags, quantity
+        case id, title, list, completed, priority, tags, quantity, shared
         case dueDate = "due_date"
         case updatedAt = "updated_at"
         case linkedEventId = "linked_event_id"
+        case ownerId = "owner_id"
+        case ownerName = "owner_name"
+        case canEdit = "can_edit"
     }
 
     init(id: Int, title: String, list: String, completed: Int,
@@ -120,9 +146,18 @@ struct Todo: Identifiable, Codable, Equatable {
         // column existed, so a missing value means one, not zero.
         quantity  = max(1, try c.decodeIfPresent(Int.self, forKey: .quantity) ?? 1)
         linkedEventId = try? c.decodeIfPresent(Int.self, forKey: .linkedEventId)
+        ownerId   = try? c.decodeIfPresent(String.self, forKey: .ownerId)
+        ownerName = try? c.decodeIfPresent(String.self, forKey: .ownerName)
+        shared    = try? c.decodeIfPresent(Bool.self, forKey: .shared)
+        canEdit   = try? c.decodeIfPresent(Bool.self, forKey: .canEdit)
     }
 
     var isDone: Bool { completed != 0 }
+
+    /// "Dana · " before someone else's to-do — display only.
+    var ownerPrefix: String {
+        (shared == true && !(ownerName ?? "").isEmpty) ? "\(ownerName!) · " : ""
+    }
 
     /// Shown next to the title only when there is more than one.
     var quantityLabel: String? { quantity > 1 ? "×\(quantity)" : nil }

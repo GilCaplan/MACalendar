@@ -129,7 +129,7 @@ private struct EventResultRow: View {
                 .fill(Color(hex: event.color) ?? settings.accentColor)
                 .frame(width: 4, height: 36)
             VStack(alignment: .leading, spacing: 2) {
-                Text(event.title)
+                Text(event.ownerPrefix + event.title)
                     .lineLimit(1)
                 Text(event.displayTime.isEmpty ? dayLabel : "\(dayLabel) · \(event.displayTime)")
                     .font(.caption)
@@ -165,7 +165,7 @@ private struct TodoResultRow: View {
             Image(systemName: todo.isDone ? "checkmark.circle.fill" : "circle")
                 .foregroundColor(todo.isDone ? .green : .secondary)
             VStack(alignment: .leading, spacing: 2) {
-                Text(todo.title)
+                Text(todo.ownerPrefix + todo.title)
                     .lineLimit(1)
                     .strikethrough(todo.isDone)
                     .foregroundColor(todo.isDone ? .secondary : .primary)

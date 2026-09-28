@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AAF0000200000000000000A2 /* UsersViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAF0000200000000000000B2 /* UsersViews.swift */; };
+		AAF0000100000000000000A1 /* UserSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAF0000100000000000000B1 /* UserSession.swift */; };
 		AA000001000000000000001A /* MACalendarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001000000000000001B /* MACalendarApp.swift */; };
 		AA000002000000000000001A /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000002000000000000001B /* ContentView.swift */; };
 		AA000003000000000000001A /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000003000000000000001B /* APIClient.swift */; };
@@ -82,6 +84,8 @@
 		/* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		AAF0000200000000000000B2 /* UsersViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsersViews.swift; sourceTree = "<group>"; };
+		AAF0000100000000000000B1 /* UserSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSession.swift; sourceTree = "<group>"; };
 		AA000001000000000000001B /* MACalendarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MACalendarApp.swift; sourceTree = "<group>"; };
 		AA000002000000000000001B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AA000003000000000000001B /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
@@ -288,6 +292,7 @@
 			isa = PBXGroup;
 			children = (
 				AA000003000000000000001B /* APIClient.swift */,
+				AAF0000100000000000000B1 /* UserSession.swift */,
 				AA000004000000000000001B /* Models.swift */,
 			);
 			path = API;
@@ -319,6 +324,7 @@
 				AA00009A00000000000000B1 /* VocabularyView.swift */,
 				AA0000AF00000000000000B1 /* LexiconView.swift */,
 				AA0000AF00000000000000B9 /* TipsView.swift */,
+				AAF0000200000000000000B2 /* UsersViews.swift */,
 				AA0000CC00000000000000B1 /* ConnectedCalendarsView.swift */,
 				AA0000A300000000000000B1 /* ThinkingView.swift */,
 				AA00009B00000000000000B1 /* VocabOnboardingView.swift */,
@@ -582,6 +588,8 @@
 				AA000001000000000000001A /* MACalendarApp.swift in Sources */,
 				AA000002000000000000001A /* ContentView.swift in Sources */,
 				AA000003000000000000001A /* APIClient.swift in Sources */,
+				AAF0000200000000000000A2 /* UsersViews.swift in Sources */,
+				AAF0000100000000000000A1 /* UserSession.swift in Sources */,
 				AA000004000000000000001A /* Models.swift in Sources */,
 				AA000005000000000000001A /* AppSettings.swift in Sources */,
 				AA000006000000000000001A /* DayView.swift in Sources */,

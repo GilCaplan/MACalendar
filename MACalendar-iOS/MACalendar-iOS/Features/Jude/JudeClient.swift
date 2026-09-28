@@ -109,6 +109,10 @@ extension APIClient {
         if !settings.apiKey.isEmpty {
             req.setValue(settings.apiKey, forHTTPHeaderField: "X-API-Key")
         }
+        do {
+            let token = UserSession.token          // who is asking (DEVQA Q65)
+            if !token.isEmpty { req.setValue(token, forHTTPHeaderField: "X-Session-Token") }
+        }
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let assertion = BackgroundAssertion()
@@ -228,6 +232,10 @@ extension APIClient {
                      forHTTPHeaderField: "Content-Type")
         if !settings.apiKey.isEmpty {
             req.setValue(settings.apiKey, forHTTPHeaderField: "X-API-Key")
+        }
+        do {
+            let token = UserSession.token          // who is asking (DEVQA Q65)
+            if !token.isEmpty { req.setValue(token, forHTTPHeaderField: "X-Session-Token") }
         }
         var body = Data()
         body.append("--\(boundary)\r\n".data(using: .utf8)!)

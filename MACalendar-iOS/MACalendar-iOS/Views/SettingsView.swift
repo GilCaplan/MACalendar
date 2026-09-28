@@ -32,6 +32,26 @@ struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
 
+                    // MARK: Account (DEVQA Q65)
+                    if let u = UserSession.shared.user {
+                        CollapsibleSection("Account", systemImage: "person.crop.circle", key: "account") {
+                            NavigationLink { AccountView() } label: {
+                                HStack(spacing: 10) {
+                                    Circle().fill(Color(hex: u.color) ?? .gray).frame(width: 12, height: 12)
+                                    Text(u.displayName).bold()
+                                    Text(u.isAdmin ? "admin" : "").font(.caption).foregroundColor(.secondary)
+                                    Spacer()
+                                    Text("Account & Sharing").foregroundColor(.secondary)
+                                    Image(systemName: "chevron.right").font(.caption).foregroundColor(.secondary)
+                                }
+                                .padding(10)
+                                .background(Color(.systemBackground))
+                                .cornerRadius(8)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
                     // MARK: Server
                     CollapsibleSection("Server", systemImage: "network", key: "server") {
                         VStack(spacing: 12) {

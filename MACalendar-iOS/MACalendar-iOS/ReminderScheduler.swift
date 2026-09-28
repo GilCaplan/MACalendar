@@ -181,6 +181,10 @@ enum NotificationPermission {
     /// or denied) is left alone — re-prompting is impossible on iOS anyway,
     /// Settings deep-links instead.
     static func requestIfNeeded() {
+        #if DEBUG
+        // simulator screenshots: the permission alert would cover the screen
+        if ProcessInfo.processInfo.environment["MACALENDAR_UITEST_SHOW"] != nil { return }
+        #endif
         let center = UNUserNotificationCenter.current()
         center.getNotificationSettings { settings in
             guard settings.authorizationStatus == .notDetermined else { return }
@@ -198,6 +202,11 @@ enum NotificationPermission {
     @discardableResult
     static func request() async -> UNAuthorizationStatus {
         let center = UNUserNotificationCenter.current()
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["MACALENDAR_UITEST_SHOW"] != nil {
+            return await center.notificationSettings().authorizationStatus
+        }
+        #endif
         if await center.notificationSettings().authorizationStatus == .notDetermined {
             _ = try? await center.requestAuthorization(options: [.alert, .sound])
         }

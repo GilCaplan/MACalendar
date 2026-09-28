@@ -220,7 +220,7 @@ private struct EventBlock: View {
             .fill(Color(hex: event.color) ?? settings.accentColor)
             .overlay(alignment: .topLeading) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(event.title).font(.system(size: settings.fontDay, weight: .semibold)).foregroundColor(textColor)
+                    Text(event.ownerPrefix + event.title).font(.system(size: settings.fontDay, weight: .semibold)).foregroundColor(textColor)
                     Text(event.displayTime).font(.system(size: settings.fontDay - 2)).foregroundColor(textColor.opacity(0.85))
                     // A planned session carries the part worth reading — the
                     // pace and the intervals — in its body. Show it on the grid

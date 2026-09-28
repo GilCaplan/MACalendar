@@ -41,6 +41,18 @@ class APIClient: ObservableObject {
     @Published var refreshTick = 0
     func requestRefresh() { refreshTick &+= 1 }
 
+    /// The API key, and WHO is asking: the signed-in person's session token
+    /// (DEVQA Q65). Every request to the Mac goes through here.
+    func authorize(_ req: inout URLRequest) {
+        if !settings.apiKey.isEmpty {
+            req.setValue(settings.apiKey, forHTTPHeaderField: "X-API-Key")
+        }
+        let token = UserSession.token
+        if !token.isEmpty {
+            req.setValue(token, forHTTPHeaderField: "X-Session-Token")
+        }
+    }
+
     /// While things are changing (a voice command just ran, an edit was saved) the
     /// background poll drops to 1 s; it returns to 30 s once this window passes.
     private var isFlushingVoice = false
@@ -181,9 +193,7 @@ class APIClient: ObservableObject {
         // has not been answered in 5s is not slow, it is absent.
         var req = URLRequest(url: url, timeoutInterval: isOnline ? 5 : 3)
         req.httpMethod = method
-        if !settings.apiKey.isEmpty {
-            req.setValue(settings.apiKey, forHTTPHeaderField: "X-API-Key")
-        }
+        authorize(&req)
         if let body {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -193,6 +203,11 @@ class APIClient: ObservableObject {
             guard let http = resp as? HTTPURLResponse,
                   (200...299).contains(http.statusCode) else {
                 let msg = String(data: data, encoding: .utf8) ?? "Unknown error"
+                // The session is gone (signed out elsewhere, password reset,
+                // 90 days idle): ask for sign-in rather than fail quietly.
+                if (resp as? HTTPURLResponse)?.statusCode == 401, msg.contains("login required") {
+                    UserSession.shared.unauthorized()
+                }
                 throw APIError.serverError(msg)
             }
             noteReachable()
@@ -467,6 +482,10 @@ class APIClient: ObservableObject {
         center.getNotificationSettings { settings in
             guard settings.authorizationStatus != .denied else { return }
             if settings.authorizationStatus == .notDetermined {
+                #if DEBUG
+                // simulator screenshots: the permission alert would cover them
+                if ProcessInfo.processInfo.environment["MACALENDAR_UITEST_SHOW"] != nil { return }
+                #endif
                 center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
             }
             let content = UNMutableNotificationContent()
@@ -1328,9 +1347,7 @@ class APIClient: ObservableObject {
         }
         var req = URLRequest(url: url, timeoutInterval: 120)
         req.httpMethod = "POST"
-        if !settings.apiKey.isEmpty {
-            req.setValue(settings.apiKey, forHTTPHeaderField: "X-API-Key")
-        }
+        authorize(&req)
         let boundary = UUID().uuidString
         req.setValue("multipart/form-data; boundary=\(boundary)",
                      forHTTPHeaderField: "Content-Type")
@@ -1393,9 +1410,7 @@ class APIClient: ObservableObject {
         if isBackingOff { throw APIError.offline("the Mac was unreachable a moment ago") }
         var req = URLRequest(url: url, timeoutInterval: 120)
         req.httpMethod = "POST"
-        if !settings.apiKey.isEmpty {
-            req.setValue(settings.apiKey, forHTTPHeaderField: "X-API-Key")
-        }
+        authorize(&req)
         let boundary = UUID().uuidString
         req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         var body = Data()

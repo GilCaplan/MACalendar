@@ -24,6 +24,12 @@ struct ContentView: View {
     @State private var showVoiceQueue = false
     @ObservedObject private var importInbox = ImportInbox.shared
     @ObservedObject private var notifRouter = NotificationRouter.shared
+    /// Who is signed in (DEVQA Q65). Sign-in covers the app only when the Mac
+    /// can answer it — an offline phone keeps its person's calendar.
+    @ObservedObject private var session = UserSession.shared
+    #if DEBUG
+    @State private var debugUsersScreen: String? = nil
+    #endif
     @State private var sharedImportText: String? = nil
     @State private var unreviewed = 0
     @State private var showReview = false
@@ -315,7 +321,8 @@ struct ContentView: View {
         // Simulator screenshots of the queue (`MACALENDAR_UITEST_SHOW`), since
         // UI automation does not run reliably on this Mac. Debug builds only.
         .onAppear {
-            if ProcessInfo.processInfo.environment["MACALENDAR_UITEST_SHOW"] != nil {
+            if ["queue", "finished", "running"].contains(
+                ProcessInfo.processInfo.environment["MACALENDAR_UITEST_SHOW"] ?? "") {
                 showVoiceQueue = true
             }
         }
@@ -360,7 +367,29 @@ struct ContentView: View {
         .sheet(isPresented: Binding(get: { sharedImportText != nil }, set: { if !$0 { sharedImportText = nil } })) {
             VocabImportView(initialText: sharedImportText, initialName: importInbox.pendingName)
         }
+        #if DEBUG
+        .sheet(isPresented: Binding(get: { debugUsersScreen != nil }, set: { if !$0 { debugUsersScreen = nil } })) {
+            StackNavigation {
+                if debugUsersScreen == "admin" { AdminUsersView() } else { AccountView() }
+            }
+            .environmentObject(api)
+        }
         .task {
+            let want = ProcessInfo.processInfo.environment["MACALENDAR_UITEST_SHOW"]
+            if want == "account" || want == "admin" {
+                try? await Task.sleep(nanoseconds: 2_500_000_000)
+                debugUsersScreen = want
+            }
+        }
+        #endif
+        .fullScreenCover(isPresented: $session.needsSignIn) {
+            LoginView().environmentObject(api).environmentObject(settings)
+        }
+        .onChange(of: api.isOnline) { online in
+            if online { Task { await session.refresh(api: api) } }
+        }
+        .task {
+            await session.refresh(api: api)
             // Wire the Workout store up to the network layer once, so its
             // local mutations (saveTemplate, finishSession, etc.) can push
             // themselves to the server immediately — see WorkoutStore.configure.
