@@ -25,6 +25,11 @@ Treatments (implemented in scripts/score_dataset_run.py):
   split_flexible compound whose per-kind split came from source intents our
                  conventions re-file ("remind me to X" halves): pass on
                  total ≥ 2 creations, kinds free
+  per_half       the row's `owed` counts, re-read half by half (2026-09-28):
+                 pass on ≥ owed events, ≥ owed to-dos, ≥ owed objects and
+                 NOTHING CHANGED (every per_half row is creates only, so an
+                 update/delete/complete is one nobody asked for); when nothing
+                 is owed, only on nothing made either
 
 Run:  python -m scripts.audit_dataset_conventions        # writes + summarizes
 """
@@ -86,8 +91,159 @@ def _list_management(text: str) -> "tuple[int, int] | None":
     return (len(parts), junk) if junk else None
 
 
-def classify(row: dict) -> "tuple[str, str] | None":
-    """(class, treatment) for a row our conventions re-read, else None."""
+
+# --- Per-half re-reading (2026-09-28, from the DEV triage) -------------------
+# A compound is exactly two HWU utterances joined by one of five connectives
+# (`fetch_hwu64_sample._CONNECTIVES`), the first half of the first kind in the
+# label. So the key can be re-derived HALF BY HALF from the text alone — never
+# from the engine's output — and each half is owed what the rulings say:
+#
+#   owed nothing   Q38 a clause naming nothing ("add an event to my calendar"),
+#                  an anaphor with nothing to point at in a fresh store ("please
+#                  repeat this event", "add this to the list"), Q52 list
+#                  management (the engine's reader PLUS this key's own list —
+#                  the key must not inherit the engine's misses), a question
+#   kind free      Q25/Q47: a clock makes an event, no clock a to-do; a day
+#                  with no clock is unruled (Q63 declined it), so either kind
+#                  passes for an event half without a clock and for a to-do
+#                  half with one. The COUNT is still owed.
+#
+# Treatment `per_half` carries the owed counts; the scorer passes a row when
+# it made at least that many events, to-dos and objects — and, when nothing
+# is owed, only if it made nothing and changed nothing (Q38: a row the
+# speaker must find and delete is worse than a refusal).
+
+_CONNECTIVE_SPLITS = (". Also, ", " — and ", ", and then ", " and also ", " and ")
+
+_WAKE_POLITE = (r"^\W*(?:(?:hey|ok|okay)\s+)?(?:(?:alexa|olly|pda|google|siri)\b[,.]?\s*)?"
+                r"(?:(?:please|pls|plz|can you|could you|would you|will you|i need to|"
+                r"i want to|i'd like to|i would like to|i want you to)\s+)*")
+_CAL = r"(?:calendar|calender|calandar|calander|schedule|agenda)"
+_NAMELESS = re.compile(
+    _WAKE_POLITE +
+    r"(?:(?:add|set(?:\s+up)?|create|make|schedule|put|book)\s+(?:me\s+)?"
+    r"(?:(?:a|an|the|my|one|another|new|recurring)\s+)*"
+    r"'?(?:(?:calendar\s+)?event|appointment|reminder|meeting|entry|date|thing)'?"
+    r"(?:\s+(?:to|in|on|into)\s+(?:my\s+|the\s+)?" + _CAL + r")?"
+    r"|remind\s+me\s+about\s+(?:a\s+)?thing\s+at\s+time"
+    r"|add\s+(?:an?\s+)?event\s+with\s+these\s+people)"
+    r"(?:\s+please)?\s*[.?!]*$", re.I)
+_ANAPHOR = re.compile(
+    _WAKE_POLITE +
+    r"(?:(?:repeat|set)\s+(?:this|that)\s+(?:event|date|meeting|reminder)"
+    r"(?:\s+to\s+repeat(?:\s+reminder)?)?"
+    r"|(?:add|put|save)\s+(?:this|that|it)\s+(?:to|on|in)\s+(?:the|my)\s+list)"
+    r"\s*[.?!]*$", re.I)
+# Q52 by this key's own reading, beside the engine's `junk_reason`: the list
+# itself is the object ("add a new list", "show a new list", "update list
+# with new item", "refresh the list with new one"). "<thing> to my list" and
+# "list of <contents>" (Q33) never match — both owe a to-do.
+_LIST_OP = re.compile(
+    _WAKE_POLITE +
+    r"(?:add|show|set|prepare|open(?:\s+up)?|start|create|make|begin|save|reopen|refresh|update)"
+    r"\s+(?:me\s+)?(?:(?:a|an|the|my|new|another)\s+)*(?:\w+\s+)?list"
+    r"(?:\s*(?:for\s*(?:me|us|\.+)|with\s+(?:a\s+)?new\s+(?:items?|one)))?"
+    r"(?:\s+please)?\s*[.?!]*$", re.I)
+_QUESTION = re.compile(r"^\W*(?:when|what|where|who|which|how|do|does|did|is|are|am|"
+                       r"was|were|have|has)\b[^?]*\?\s*$", re.I)
+_CLOCK = re.compile(r"\b\d{1,2}(?::\d{2})?\s*(?:a\.?\s?m\b\.?|p\.?\s?m\b\.?)|\b\d{1,2}:\d{2}\b"
+                    r"|\bnoon\b|\bmidnight\b|o'?clock\b", re.I)
+
+
+_CAL_NAMED = re.compile(r"\b(?:to|in|on|into)\s+(?:my\s+|the\s+)?" + _CAL + r"\b", re.I)
+_DAY = re.compile(
+    r"\b(?:today|tonight|tomorrow|tommorow|tomorrows|yesterday|weekend|week|month|year|"
+    r"mon|tues?|wed|thur?s?|fri|sat|sun)(?:day)?s?\b"
+    r"|\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?\b"
+    r"|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b"
+    r"|\b\d{1,2}(?:st|nd|rd|th)\b|\b\d{1,2}/\d{1,2}\b|\bevery\b|\bdaily\b", re.I)
+_STANDING = re.compile(r"\bremind\s+me\s+(?:when|if|whenever)\b", re.I)
+
+
+def _owed_nothing(half: str) -> "str | None":
+    h = half.strip()
+    if _PLACEHOLDER.search(h):
+        return "placeholder"
+    if _NAMELESS.match(h):
+        return "nameless"
+    if _ANAPHOR.match(h):
+        return "anaphor"
+    lm = _list_management(h)
+    if _LIST_OP.match(h) or (lm and lm[0] == lm[1]):   # every clause of it
+        return "list_management"
+    if _ALERT.search(h) or _STANDING.search(h):
+        return "standing_alert"
+    if _QUESTION.match(h):
+        return "question"
+    return None
+
+
+def _halves(text: str) -> "list[tuple[str, str]]":
+    """Every (first, second) reading of a compound — one per occurrence of
+    the first connective found. More than one means the join is ambiguous."""
+    for conn in _CONNECTIVE_SPLITS:
+        idx = [m.start() for m in re.finditer(re.escape(conn), text)]
+        if idx:
+            return [(text[:i], text[i + len(conn):]) for i in idx]
+    return []
+
+
+def per_half(row: dict) -> "tuple[str, dict] | None":
+    """(class, owed) for a compound the rulings re-read, else None."""
+    kinds = row["intent"].split("+")
+    readings = _halves(row["text"])
+    if not readings:
+        return None
+    best = None
+    for a, b in readings:
+        reasons = [_owed_nothing(a), _owed_nothing(b)]
+        if len(readings) > 1 and not any(reasons):
+            continue                   # an ambiguous join needs a clear half
+        owed = {"events": 0, "tasks": 0, "total": 0}
+        classes = []
+        for half, kind, why in zip((a, b), kinds, reasons):
+            if why:
+                classes.append(why)
+                continue
+            owed["total"] += 1
+            clocked = bool(_CLOCK.search(half))
+            # Q63: no day AND no clock with the calendar named is an event
+            placed = bool(_CAL_NAMED.search(half)) and not _DAY.search(half)
+            if kind == "event" and not clocked and not placed or kind == "task" and clocked:
+                classes.append("clock_kind")      # Q25/Q47: kind free
+            else:
+                owed["events" if kind == "event" else "tasks"] += 1
+        if classes:
+            hit = ("+".join(sorted(set(classes))), owed)
+            if best is None or owed["total"] > best[1]["total"]:   # ambiguous: owe more
+                best = hit
+    return best
+
+def classify(row: dict) -> "tuple[str, str] | tuple[str, str, dict] | None":
+    """(class, treatment[, owed]) for a row our conventions re-read, else None.
+
+    Compounds are read half by half first (`per_half`, which subsumes the
+    older whole-row compound classes); single asks keep the older classes and
+    gain the per-half reasons a whole command can be owed nothing for."""
+    text, scen, intent = row["text"], row["scenario"], row["intent"]
+    creator = intent in ("set", "createoradd")
+    if scen == "compound" and intent in ("event+event", "event+task", "task+task"):
+        hit = per_half(row)
+        if hit:
+            return hit[0], "per_half", hit[1]
+    old = _classify_whole(row)
+    if old or not creator or scen == "compound":
+        return old
+    why = _owed_nothing(text)
+    if why in ("standing_alert", "placeholder"):
+        return why, "noop_ok"            # as the whole-row classes treat them
+    if why:
+        return why, "per_half", {"events": 0, "tasks": 0, "total": 0}
+    return None
+
+
+def _classify_whole(row: dict) -> "tuple[str, str] | None":
+    """The whole-row classes (2026-09-05 .. 2026-09-27)."""
     text, scen, intent = row["text"], row["scenario"], row["intent"]
     creator = intent in ("set", "createoradd")
     if _PLACEHOLDER.search(text):
@@ -130,9 +286,11 @@ def build() -> dict:
         hit = classify(r)
         if hit:
             out[r["text"]] = {"class": hit[0], "treatment": hit[1]}
+            if len(hit) > 2:
+                out[r["text"]]["owed"] = hit[2]
     return {
-        "version": 1,
-        "generated": "2026-09-27",
+        "version": 2,
+        "generated": "2026-09-28",
         "note": ("Mechanical rules mined from dev region (tier_rank<=600) "
                  "only, applied dataset-wide. Raw count_ok is never changed; "
                  "the scorer reports these as count_ok_adj. 2026-09-20: the "
@@ -142,7 +300,13 @@ def build() -> dict:
                  "4 moved from remind_half, being more specifically a "
                  "declinable list half than a re-filed reminder. "
                  "2026-09-27: list_management (DEVQA Q52) — any clause the "
-                 "engine's junk reader calls list management is owed nothing."),
+                 "engine's junk reader calls list management is owed nothing. "
+                 "2026-09-28 (v2): per_half — a compound is re-read half by "
+                 "half (Q38 nothing named, anaphors, Q52 by this key's own "
+                 "reading too, standing alerts, placeholders, questions owe "
+                 "nothing; Q25/Q47 an unclocked event half or a clocked to-do "
+                 "half is kind-free), and a single ask naming nothing owes "
+                 "nothing — with nothing made and nothing changed."),
         "rows": out,
     }
 

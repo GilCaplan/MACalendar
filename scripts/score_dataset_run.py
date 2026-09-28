@@ -237,6 +237,16 @@ def _score_row(transcript: str, actions_json: str, prov: dict | None,
     elif treatment == "split_flexible":
         # per-kind split came from source intents our conventions re-file
         adj = total >= 2
+    elif treatment == "per_half":
+        # re-read half by half against the rulings (audit_dataset_conventions
+        # v2); nothing owed means nothing made AND nothing changed (Q38)
+        # nothing owed: nothing made. Every per_half row asks only for
+        # creations, so ANY change is one nobody asked for (the destructive
+        # line DEVQA Q64 gates on)
+        owed = override["owed"]
+        adj = n_mut == 0 and (total == 0 if owed["total"] == 0 else (
+            n_events >= owed["events"] and n_tasks >= owed["tasks"]
+            and total >= owed["total"]))
     row["count_ok_adj"] = adj
     row["override_class"] = (override or {}).get("class")
 

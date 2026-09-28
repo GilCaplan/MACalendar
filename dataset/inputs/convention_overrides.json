@@ -1,55 +1,267 @@
 {
- "version": 1,
- "generated": "2026-09-27",
- "note": "Mechanical rules mined from dev region (tier_rank<=600) only, applied dataset-wide. Raw count_ok is never changed; the scorer reports these as count_ok_adj. 2026-09-20: the list_create_bare class gained its COMPOUND form (DEVQA Q37) — a list with no name is refused, so a compound whose other half is a real ask is half_flexible. 68 rows joined; 4 moved from remind_half, being more specifically a declinable list half than a re-filed reminder. 2026-09-27: list_management (DEVQA Q52) — any clause the engine's junk reader calls list management is owed nothing.",
+ "version": 2,
+ "generated": "2026-09-28",
+ "note": "Mechanical rules mined from dev region (tier_rank<=600) only, applied dataset-wide. Raw count_ok is never changed; the scorer reports these as count_ok_adj. 2026-09-20: the list_create_bare class gained its COMPOUND form (DEVQA Q37) — a list with no name is refused, so a compound whose other half is a real ask is half_flexible. 68 rows joined; 4 moved from remind_half, being more specifically a declinable list half than a re-filed reminder. 2026-09-27: list_management (DEVQA Q52) — any clause the engine's junk reader calls list management is owed nothing. 2026-09-28 (v2): per_half — a compound is re-read half by half (Q38 nothing named, anaphors, Q52 by this key's own reading too, standing alerts, placeholders, questions owe nothing; Q25/Q47 an unclocked event half or a clocked to-do half is kind-free), and a single ask naming nothing owes nothing — with nothing made and nothing changed.",
  "rows": {
+  "can you schedule a meeting with Mr. Chen on next Monday 6:00pm, and then Set reminder in calendar.": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Add event with these people and also add bread to my grocery list": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Add event, book club, Debbie's house, Wednesday night and set a list for....": {
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Olly, set a reminder for my meeting today and create a birthday wish reminder for tommorrow at 10 AM": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
   "Remember to pick me up by 12 noon from the Airport, I have a 3 pm meeting — and pDA please make a list.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Olly, please set dinner plans at 7pm for every Friday in April and pDA please set this event on repeat this date": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please repeat this event. Also, Set up recurring date on my calendar": {
+   "class": "anaphor+nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Set a event for the evening, and then get xxx on the list": {
-   "class": "placeholder",
-   "treatment": "half_flexible"
+   "class": "clock_kind+placeholder",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Schedule an event in my calendar for the pool party at Jack's place this Saturday and add paper towels to the grocery list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Remind me to read book next week — and can you add Gloria to my list of clients?": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Add 'event' to my calendar": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Open up a new list.": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
+  "alexa set a meeting event reminder with mona on tuesday, and then Set a Thanks Giving event for Friday": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
   "add a note to attend. Also, save the new list": {
-   "class": "list_management",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "pencil me in for sarahs birthday thing on the 12th, PDA. Also, Add eggs to my list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "please set event on Tuesday — and alexa remind me to go to my doctors at 4pm on tuesday": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "notify me about any festival occurring next month. Also, open grocery list and add milk": {
-   "class": "list_management",
-   "treatment": "half_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Please remind to get donuts for the meeting, and then new scenario, time or calendar to new list": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Remind me the wedding on time to buy a present and create a new list of my due bills": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Set this before event and also add apples to shopping list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Mark reminder with these people, and then Pleas set a reminder for a meeting I have on Tuesday next week.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "set reminder for tomorrows meeting with {client name} and also add this one also.": {
    "class": "placeholder",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Create a new list called Grocery Store, please.": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
   "Before this event set notification and bring up a new shopping list.": {
-   "class": "list_management",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "create a new list of . Also, get xxx on the list": {
    "class": "placeholder",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Add a party in NY city for this saturday — and on Monday, the 20th, I need to have a conversation with Greg about our weekend trip.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please set recurring calendar event and set event in calandar.  repeat event every day": {
+   "class": "clock_kind+nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Olly, add lunch appointment with Lisa to January 2nd at 12:30pm. Also, Remind me at the 15th of every month.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set me a reminder for the get-together with the women's club on Sunday after church — and remind me 30 minutes before my meeting at 3pm tomorrow": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Remind me the wedding on time to buy a present — and grocery list add eggs": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Set reminder on calendar for": {
    "class": "truncated",
@@ -59,13 +271,68 @@
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "can you add my brother's birthday dinner at rusk for march 23rd — and add new event named anna to calendar": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "remind me about thing at time, and then I want you to remind me the next meeting with my girlfriend, it will be at 8 pm next sunday": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Do I need to be reminded of any meetings on Monday?": {
+   "class": "question",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
   "Open me a new list — and please add milk to the grocery list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Set notification for all-day meeting April 20th, and then Remind me of my 3pm meetng tomorrow 4 hours in advance.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Every Wednesday night at 5pm remind me to meet Phil and also make a new list for me, please.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Please add an event to my schedule": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Set a meeting with Phil every Wednesday for 5pm and pDA, I want to make a list and this should be automatically saved as a text file with the title, list.": {
    "class": "list_management",
@@ -77,51 +344,273 @@
   },
   "Add red wine to my shopping list and i need to create a new to do list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Remind me at the 15th of every month and pUT MILK ON MY SHOPPING LIST": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "add an event to my calendar — and can you create new list for me?": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management+nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Make a reminder at 1PM every Monday until I I remove it, and then Start a new grocery list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Add my co worker, Ann to submit project for work on Tuesday. Also, MAKE NEW SHCEDULE FOR TOMORROW MEETING": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Remind me about next meeting in advance, and then Please add sugar to my grocery list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Repeat this event every Friday on my calendar, and then add wine to list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Add paper towels to the grocery list and also pDA can you create a list for me.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Start a new (grocery, task, shopping) list and also i want to start a new list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "create a list that is available. Also, Create a new list for me": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "remind me at 5:00pm that I have a meeting, and then Please create a new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Please add event in calendar": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "PDA, mark sarahs b-day party on the 12th. Also, I need to set up a recurring event in my calendar please": {
+   "class": "clock_kind+nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Add to calendar a home visit everyday this week and also make new list of recent workouts": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "I have dinner with my sister this Saturday and i want to make next week's to-do list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Make a note of an event  'exhibition 2017 mass' on Mar 25 and also add to the list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "please add this event — and schedule a meeting on Tuesday": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set reminder for meeting with Mitushree on 04/04/2017 — and remember me to send the presentation today at 1:00pm": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Add dentist appointment for Friday at 5 and please add meeting at work to calander": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "I need to set up a meeting with Peter Francis on Monday — and refresh the list with new one.": {
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "alexa add shoes to my list, and then Could you create a new list for me": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "remind me when a contact calls, and then Please set up a meeting with Becky at 3 pm on Tuesday": {
+   "class": "standing_alert",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Start a new (grocery, task, shopping) list and also i need to set up a new list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "remind me about thing at time": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Remind me to meet Sarah at Safeway in Mckinleyville California at noon. Also, Please remind to get donuts for the meeting": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Add dates without me having to tell to, like tv schedules. Also, Please remind me about the 11am business meet": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "When is my meeting?": {
+   "class": "question",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "PDA, I want to make a list and this should be automatically saved as a text file with the title, list and i need to put together a todo list for work.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Please add an event to my calendar.": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "save the new list — and create a blank list.": {
    "class": "list_management",
-   "treatment": "noop_ok"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Remind me to send the presentation today at 1:00pm. Also, Go to Stripes at 5pm on 3 April.": {
    "class": "remind_half",
@@ -131,73 +620,421 @@
    "class": "standing_alert",
    "treatment": "noop_ok"
   },
+  "Olly remind me about the picnic at Regent park — and add paper towels to the grocery list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
   "remind me to brush my teeth at three thirty, and then pls add list of friends to invite for the party": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Tell me something to remind this week and start a new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Add Event on Ausgut 21 at 9am and please add an event to my calendar.": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Remind me on 5th March of every year to arrange wedding anniversary presents and put this on my list": {
+   "class": "anaphor+clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Schedule lunch with mom on tuesday of this month and i need a list of my clients today, make one": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "put this on my list": {
+   "class": "anaphor",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "On the fifth of November, I need to go to Washington, D.C, and then I'd like to set a date for this week?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Remind me of my meeting, and then add a reminder of a conference for tomorrow in new york": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Create a new list, and then olly I need you to put walk the dog on my list to do": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "I need new list to be created, Do it now and add xxx on the list": {
    "class": "placeholder",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Add my sister on calendar for pedicures on Friday. Also, Remind me in two days to check my emails.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "PDA please set this date to repeat. Also, Begin new list of lottery numbers": {
+   "class": "anaphor",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Put working out on my calendar for 8 a.m. every day this week. Also, I want to start a new list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Add the item to a list and please Find all name start with alphabetic of 'A' and create a list.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "set a list for....": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Let me know when the meeting is gonna happen. Also, Remind me to buy jeans on my shopping list": {
    "class": "standing_alert",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "PDA please set this date to repeat": {
+   "class": "anaphor",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "Alexa, mark my calendar as unavailable today — and add event to calendar app": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Add an event to my google calendar for the date march 22nd please — and bring up a new shopping list.": {
-   "class": "list_management",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Alexa, give me my to do list for today and start a new grocery list.": {
-   "class": "list_management",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Remind me about next meeting in advance, and then Block off 3 to 5 on friday": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Cortana, let me know when a next event if occurring from my calendar and send me a notification.": {
    "class": "standing_alert",
    "treatment": "noop_ok"
   },
+  "Add my mom to calendar for Monday brunch and on Monday, the 20th, I need to have a conversation with Greg about our weekend trip.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "On my sisters birthday send her flowers — and hey Olly, I need you to make a list of cricket players of Indian team who played for the international team in 2014": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "please set a reminder for my 5pm meeting today, and then add this to the list": {
+   "class": "anaphor",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "PDA please update list with new item. Also, Add Moong daal in grocery list": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
   "Please put meeting with <insert name> at <insert time> on <insert date> on my calendar": {
    "class": "placeholder",
    "treatment": "noop_ok"
+  },
+  "Do I have any time free on Tuesday for a 2 hour meeting with Ken?": {
+   "class": "question",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "Make a note of an event  'exhibition 2017 mass' on Mar 25, and then include MIke and jack to festival calender": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "PDA set this date to repeat reminder — and pls add list of friends to invite for the party": {
+   "class": "anaphor",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "tell me when the event starts": {
    "class": "standing_alert",
    "treatment": "noop_ok"
   },
+  "Please invite Kim, Marc, and Julian to a meeting on thursday at 3pm. Also, I need to something every monday set a reminder for it": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
   "add a new list": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
+  "Add meeting with all employees on March 20 at 9 AM. Also, show a new list": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
   "open a new list for me, and then PDA please make a list.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "Remind me if I miss my evening walk routine": {
+   "class": "standing_alert",
+   "treatment": "noop_ok"
+  },
+  "Don't let me forget Rover's vet appointment on the 25th and pDA add Sally's Birthday to Calander for Saturday at 10pm": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Remind me to pick up John from the airport tonight at 8, and then add this to the list": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "anaphor+clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Remind me that I have a birthday party on the thirtieth and also add this event to my calender": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "reopen groceries and add milk. Also, put xxx on the list": {
    "class": "placeholder",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Send me a reminder to pick up my dog from the groomer at 1pm — and will you mark that I have a meeting with tom at 3 tomorrow.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "how far we send money for digital and add something to my list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Remind me about my Monday meeting with Peter Francis fifteen minutes before the meeting — and remind me to wash the windows.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Adding meetings on particaur dates of calender. Also, Notify me on March 11th, the day of my appointment.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "The event ... will include ... and , and then I want sweet potato pie from a local bakery": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Remind me of my dentist appointment in two hours, and then I want sweet potato pie from a local bakery": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "It's Lee's birthday on 22 June, and then I need new list to be created, Do it now": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Remind me 8'O clock that i have a event. Also, Remind me about the office meeting tomorrow at 7": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Tell me when I have an event": {
    "class": "standing_alert",
@@ -207,41 +1044,193 @@
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
+  "Remind me if anything else happens and set on 22nd march badminton match in merita square": {
+   "class": "clock_kind+standing_alert",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Add to calendar may 2 is Mary's birthday. Repeat every year and olly later tonight remind me about tomorrows meeting": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
   "can you add to my calendar an event for next friday and put xxx on the list": {
-   "class": "placeholder",
-   "treatment": "half_flexible"
+   "class": "clock_kind+placeholder",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Create a meeting thursday afternoon for budget review. Also, create a new list of my pending bills": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Add event to calendar": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "prepare a new list": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "add an event to my calendar": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "Set a reminder for 5pm tomorrow, and then Remind me of Sarah's birthday three days ahead of time.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "new scenario, time or calendar to new list — and open my grocery list and add bananas to it.": {
    "class": "list_management",
    "treatment": "half_flexible"
+  },
+  "I need you to add this event to my calendar. Also, Be sure to remind me of this": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Make a things to do list": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
   "set on 2nd jan about soccer match of Manchester. Also, Remind me to contact old friends that I have not talked with in 6 months before they pass": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Remind me about my next meeting with joe one hour before and schedule a meeting with Brian Billings for 2:30 PM on Friday.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Can you please create a list for me. Also, Please make a list of thing I have to shop tomorrow": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Hey Olly, make a list of names starting with vowels and ending with vowels, and then Start a new grocery list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Set a reminder to attend PTA on Tuesday, and then Add butter to the list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "March 5th is John's birthday, please place this on the calendar and create a list of monthly groceries to be bought": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Save this afternoon for my date, and then I would like to start a new list": {
-   "class": "list_management",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Remind me to go to the store every friday and also mUJHE 8 PM YAAD DILANA MUJHE KAHIN BAHAR JANA HAI.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Create a list for the following. Also, I want to make this week's shopping list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "show a new list. Also, Add milk to my grocery list.": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "In the calender, put that we are having dinner with Frank at eight p.m. on the ninth of August and also schedule my meeting with my girlfriend Lisa in the night today at 9 PM.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "get xxx on the list": {
    "class": "placeholder",
@@ -251,29 +1240,273 @@
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "Olly, set an event on 2nd March at 12 pm noon in your calendar for Jim's birthday. Also, Make a repeting reminder for this calender event.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
   "PLZ REMIND TO SLEEP AT 9 P.M. Also, add to calendar and repeat": {
    "class": "remind_half",
    "treatment": "split_flexible"
+  },
+  "Block one hour from 10 tomorrow morning, and then Add Diapers in cosmetic list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Please add haricut to March 27th at 3 pm and add a new list": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "For a new event or meeting request, choose Repeat on the toolbar — and remind me every 1st of the month.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "remind me for tomorrow dinner. Also, alert me at the time of the event": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please repeat this event.": {
+   "class": "anaphor",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "remind me when i reach": {
+   "class": "standing_alert",
+   "treatment": "noop_ok"
+  },
+  "Please add dinner plans to my calendar for (specific date/time) at (specific location) — and put this on my list": {
+   "class": "anaphor",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Please add brunch with Erin to my calendar at the Diner. Also, add a new list": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Please Find all name start with alphabetic of 'G' and create a list and add pastries to the Christmas list": {
    "class": "list_management",
    "treatment": "half_flexible"
   },
+  "Open up a new list — and refresh the list with new one.": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
   "Save event for 5pm to 6pm on March 18th — and remind me to take my medicine at 9am": {
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "PDA please mark my calendar for a holiday in Cuba on April 2 and also put pencil on a new grocery list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "give me the list of all events coming up in the next month and set notifications for all of them. Also, save appointment to list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
   "remind me to check the oven in 15 minutes and also i need to add bananas to my grocery list.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "add 'birthday' wth mom for next month, and then Create a list of books to be ordered": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Alexa, what is on my calendar for today — and can you create a new list in the playlist?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Set a reminder to pick up food this Friday and also olly put wash the car to my to do list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Inform my group that the new meeting date is tomorrow — and set a meeting with Tom on Tuesday at 9am.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Can you put in Lee's birthday on the 22nd of June and also please feed that I have meeting at 5 PM.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please let me know about a meeting after  days and also add v8 to my groceries.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Add remember to call Mom to my reminders, and then Can you please add an item to my grocery list?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "set a reminder today at 1:00pm to send the presentation, and then Let me know the day before my trip to California": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Create a blank list. Also, generate a new inventory": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Set a notification for 11 March that an interview is scheduled with Mr. Rodriguez and please add party at chucky cheese to calander": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set up a meeting with my Tanya for every Thursday at 10 AM, and then Could you please schedule a meeting with this person": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set Reminder to go workout at the gym every Friday at 8:00 am, and then MAKE NEW SHCEDULE FOR TOMORROW MEETING": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please remind me of and can you invite mr. Chen for a meeting next Monday 6:00pm?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Remind me I need to be at the library a week from today at five — and on 23rd march i have to go to meet my aunt.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Start a grocery list, and then Please start a new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "set an event for friday — and olly I need you to put walk the dog on my list to do": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "For Every Odd Numbered Sunday, set a reminder for": {
    "class": "truncated",
@@ -283,25 +1516,121 @@
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "Can you add my business meeting to the work calender — and add ketchup to the list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
   "Reming me tonight to pick up my dry cleaning at 8pm. Also, Please Find all name start with alphabetic of 'A' and create a list.": {
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
   "Notify me when I have a meeting, and then Add practice to calendar on Feb 4 at King's Park at 2 p.m..": {
    "class": "standing_alert",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "prepare a new list and the list should contain this item.": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Make sure to remind me to pay my bills tomorrow morning — and please Find all name start with alphabetic of 'A' and create a list.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Set a timer for 5 minutes for cookies — and can you add Gloria to my list of clients?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Set reminder in calendar. Also, Make a calender note 'exhibition 2017 mass' on Mar 25.": {
+   "class": "clock_kind+nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Please block off Friday at 8 am on my calendar — and create a new list for me please": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Add to calendar a home visit everyday this week. Also, I've got a meeting by tonight 7:00PM, please mute the music for an hour": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "The event ... will include ... and , and then Set a event for the evening": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please set repeating reminder for my friends birthday on April 5 and also alert me about birthday of wife in advance.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set a reminder in one hour for my bread to bake. Also, Replace the furniture with electronics on the list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "make a new list for me": {
    "class": "list_management",
    "treatment": "noop_ok"
+  },
+  "flag two day after this day as my holiday and also set a nail appointment at Heaven Spa.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Please open grocery list and add bananas to list.": {
    "class": "list_create_bare",
@@ -309,175 +1638,873 @@
   },
   "Please start new list — and i need to start a list called...": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "the calendar event has multiple people and also please add (event) to calendar": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set a reminder for two days prior of the event and also add paper towels to the grocery list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "PDA can you create a list for me and also please start new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "Remind me 30 minutes before my meeting at 3pm tomorrow. Also, Put reminder to call Pawel tomorrow": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "tell me later about — and alexa add bananas to my shopping list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Alert me when registration opens — and i need to something every monday set a reminder for it": {
-   "class": "standing_alert",
-   "treatment": "half_flexible"
+   "class": "clock_kind+standing_alert",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "PDA please set this date to repeat and remind me of the meeting with my Teacher today by 5pm.": {
+   "class": "anaphor",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Notify me the day before the horse race at Santa Anita on March 7th. Also, recall me wedding anniversary day": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "remind me off about my tomorrow meeting sharply at 10 and also i think I ran out of this can you add it to my list?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "remind me about shopping 30 minutes later and also hi, please remind the next meeting with my boss It will be at 11 am next monday": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Please create a new list and also make a new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Make a list of camera photos and also create a new list for me please": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "blot me all the phone calls planned for the morning of 23 March, and then Set up a meeting with my sons teacher for Friday.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Open calendar schedule event, meeting — and i will need a reminder of the 3:00pm teachers meeting on Thursday.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Create a blank list.": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
+  },
+  "set a neighbor party for next week and also add chives to my shopping list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "add xxx on the list": {
    "class": "placeholder",
    "treatment": "noop_ok"
   },
   "Remind me the meeting with Allen on 15th match — and remind me to get the mail in 10 minutes.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "reopen groceries and add milk, and then show a new list": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Please make me updated about today's scenario and also create a list of jewels to be bought": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Set a reminder for my daughters birthday and also meeting with Joe next week tuesday": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Remind me to meet Joe for lunch tomorrow. Also, create repeating event 'john's birthday' on calendar": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "PDA please make a list, and then Can you please create a list for me": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "PDA can you give me a 10 minute timer. Also, Olly remind me about the picnic at Regent park": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Add my co worker, Ann to submit project for work on Tuesday and remind me of my meeting with Ms. Boland on Wednesday 8:00am on Tuesday 7:00pm": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Remind me  when my car is due the day before.": {
+   "class": "standing_alert",
+   "treatment": "noop_ok"
+  },
+  "I have a date with the World bank Group on the 28th, please remind me, and then get me with new list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "please add party at chucky cheese to calander. Also, Remind me the day when this event is supposed to take place.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Remind me to contact old friends that I have not talked with in 6 months before they pass. Also, Alexa, i would like to set the event repetitive": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "set a reminder for vacation next month — and help me start my kitchen list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "On Febuary 14th make dinner reservations at the restaurant and tHIS IS IMPORTANT EVENT, PLZ NOTE ON MY CALENDAR.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "remind me in time to do thing and also make a new list of dog breeds.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Notify me when the event is going to take place": {
    "class": "standing_alert",
    "treatment": "noop_ok"
   },
+  "Olly, set generic calendar event for next Saturday at 10 a.m — and olly, please set today as vini's birthday for each calendar year": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Write down that I am going to meet with Jenny on the third, okay. Also, Put my dinner at Red lobster on the calendar for today at 9.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
   "Is there room on my grocery list for an extra item, and then Please start a new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "My new health check up new list — and please Find all name start with alphabetic of 'A' and create a list.": {
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
   "I want to add something to my calendar and begin a new list.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "I need to set up a meeting with Debra for Thursday at 3pm. Also, please add my pay days": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Schedule a reminder on 15th march and input name as meeting. Also, will you remind me to go to hockey class every Sunday afternoon?": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "save the new list. Also, remember to put carrots in there.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Repeat reminder for Christmas, and then DAY AFTE DAY TOMAROW WILL CONDUCT ALL MEETINGS": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Remind me that I have a meeting at 3pm tomorrow — and please remind me to call mom in half an hour": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Remind me to go to my meeting tomorrow. Also, Add event: Baseball practice, 5pm tonight": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "My calender is to be updated with all RCCG March event — and can you let me know when it's 2:00?": {
-   "class": "standing_alert",
-   "treatment": "half_flexible"
+   "class": "clock_kind+standing_alert",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Let me know when my phone is due and also new scenario, time or calendar to new list": {
    "class": "standing_alert",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Just schedule a meeting with my boss and also remind me of meeting 5 minutes before time": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Remind me in two days to check my emails. Also, notify me with all events in the next one week": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Remind me in two days to check my emails and also begin new list of lottery numbers": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "'exhibition 2017 mass' on Mar 25 make a note of it on the corresponding date and also remind me after an hour to go for shopping.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Remind me of this meeting soon. Also, PDA can you create a list for me.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "repeating event meeting on mondays. Also, Create a list of books to be ordered": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Please Find all name start with alphabetic of 'G' and create a list. Also, Please add deodorant to my shopping list.": {
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "google calendar. add event for march 21st and add a Tab to the shopping list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Please set repeating reminder for my friends birthday on April 5 and also add Paav Bhaji in Menu card": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
   "announce a meeting today at evening and create a new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Make a list about selena gomez concert schedule and also open up a new list.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "set repeating reminder for every sunday — and set a event for the evening": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "It's Lee's birthday on 22 June, and then my new work schedule list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "REMIND THE REQURIED EVENTS TO BE RESET — and please add this event": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "will you remind me of my next dentist appointment one day before and make a new list for me": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "add TAL meeting this thursday to calendar and also remind meeting with sara on monday": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Add all RRCG events in March to my calender — and please set a reminder for my 5pm meeting today": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please set a reminder for Tuesdays at nine a.m — and olly, create a repeating event on Mondays at 7 pm": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "I have a event 8'O clock remind me — and please add oranges to my grocery list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "PDA please schedule a meeting for me and also set soccer game with Mark in my calendar for Tuesday night.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "New Meeting,add Bill and Malinda as attendees. Also, put on my calendar meeting with Ms. Boland on Wednesday 8:00am": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "I would like it to make doctor appointments, etc. for me, and then get xxx on the list": {
-   "class": "placeholder",
-   "treatment": "half_flexible"
+   "class": "clock_kind+placeholder",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Create a new list, please. Also, PDA, please add an item in my calendar.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Put my brother's birthday in my calendar for July 4th — and set reminder in one hour for a meeting.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Remind me of the meeting on tuesday, and then Can you create a new list?": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Remind me tomorrow morning of my schedules for Tuesday, and then I need more milk": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "save the new list, and then add this to a list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Notify me when this meeting is close, and then Put hamburger on my grocery list.": {
    "class": "standing_alert",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Set a meeting with Hongbin. Also, alexa add shoes to my list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "I need to add bananas to my grocery list — and get xxx on the list": {
    "class": "placeholder",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Give me an update on the election tomorrow at noon — and i would like to start a new list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Don't let me forget I have a Parent-Teacher conference this Monday at 4:00 pm and create a meeting thursday afternoon for budget review": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Remind me to go grocery shopping today and please add oranges to my grocery list.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "add juice to my grocery list — and add a new list": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "manage a meeting for today morning. Also, Please remind me to go to the post office.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "For Every Odd Numbered Sunday, set a reminder for, and then Help me start my kitchen list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Is there room on my grocery list for an extra item and make me a new checklist.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "create a new list of  and also create a blank list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Make a new list for me, please. Also, Put milk on the shopping list.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Add buy groceries to my to-do list for today, and then Can you create a new list?": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Add event for meeting with James — and i need a list of my clients today, make one": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "new scenario, time or calendar to new list — and begin a list for...": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Set a reminder for Tomorrow for meeting with Allen, and then Remind me if anything else happens": {
+   "class": "clock_kind+standing_alert",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Hello Google!! Take me to google calendar please — and pDA please add new item to list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Add v8 to my groceries, and then PDA please make a list.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "add 'new year' with family next week and please Find all name start with alphabetic of 'A' and create a list.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "set a new event": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "PDA start a new list for me and create a new list of ....": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Remind me to tweet at this company, and then create a list that is available": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Create a new event every friday at noon, and then I am unavailable from 4 to 6 in the evening tomorrow. Mark my calendar.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Next week their is a show at the pub can you make a reminder, and then Hey Olly, make a list of names starting with vowels and ending with vowels": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Could you please schedule a meeting with this person and also add a meeting with architect to my new project list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Make a note of an event  'exhibition 2017 mass' on Mar 25 and add every girl life by Evelyn Mayer to the must read list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Bring up the grocery list and add v8.": {
    "class": "list_management",
@@ -485,55 +2512,344 @@
   },
   "add grocery to list. Also, I need to make a grocery list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Set event in the calendar, and then i finished it once": {
+   "class": "clock_kind+nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Will you remind me of the dentist appointment I have in two hours — and pls add list of things to buy for pary": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "hey, put carrots on that and start me a new list.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "add a meeting with my mother for next sunday — and hey Olly, place an event in my calendar to go to the doctor on Friday, April 14th at 123 Water Street, New York, NY, 11289.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Make a things to do list — and open me a new list.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Start me a new list — and i want to have a new playlist of 80s songs": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Is there room on my grocery list for an extra item, and then start a new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "On Febuary 14th make dinner reservations at the restaurant — and add grocery shopping to today's to-do list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Remind me of the meeting on tuesday and can you remind my next meeting with my boss, one hour before it will happen?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "I need to set up a meeting with Peter Francis on Monday and add this item to the list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Create a list for today's tasks. Also, Bring up a new shopping list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Please add sugar to my grocery list — and i need to make a grocery list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Please add meeting to my calendar and i need to set up a new list": {
-   "class": "list_management",
-   "treatment": "half_flexible"
+   "class": "list_management+nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Set this before event. Also, Tell me when I have an event": {
+   "class": "clock_kind+standing_alert",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Write down that I am going to meet with Jenny on the third, okay — and set a event that will happen everyday.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set schedule for <time/date>, <name> at <location> and add spent five dollars in my expenses list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Remind me if I miss my evening walk routine and i need a list of my clients today, make one": {
    "class": "standing_alert",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Please remind me about this tomorrow and also make a note on my to-do list to call the realtor.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Remind me of my sister's birthday party tomorrow an hour before it starts. Also, alexa event calendar monas wedding tuesday": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set a reminder for gymnastics every Wednesday at 3 and also set reminder for tomorrow morning about  my meeting": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Open calendar.  Set event. Also, Set a birthday event for Wednesday": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Add a meeting to my calendar for 9am with Tom. Also, Set a event for the evening": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Open me a new list and add Diapers in cosmetic list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Refresh the list with new one and also add appointment in the list": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "remind me in 50minutes and also please add calendar event": {
+   "class": "clock_kind+nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Add event in calendar": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "Olly, make a calendar entry for next Saturday at ten a.m., please, and then Jonathan wants to meet up Sundays at eleven. Can you remind me Saturday night every week?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Set my calendar to remind me to buy groceries every Friday — and refresh the list with new one.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "alexa update my list with shoes — and add this to the list": {
+   "class": "anaphor",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "setting repeating event in calendar. Also, Remind me 2 days before my wife birthday": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Olly help me remember to call Janice at 4pm. Also, i need to set reminder on 15th march": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Could you create a new event with these people only and pDA please schedule all my doctors appointments": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "open a new list for me": {
    "class": "list_management",
    "treatment": "noop_ok"
   },
+  "Hey Olly, cancel all my other meetings and calls for 2nd March as it is Jim's birthday. Tag it as an event in your calendar, and then alexa add shoes to my list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "family date this monday, and then Add coffee to the grocery list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
   "Make a new list for me, please.": {
    "class": "list_management",
    "treatment": "noop_ok"
+  },
+  "add new event to calendar and name as anna, and then Please add event in calendar": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Set a meeting with the HR department for the end of the month and new item for list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Create a new list for me": {
    "class": "list_management",
@@ -545,87 +2861,459 @@
   },
   "Please Find all name start with alphabetic of 'A' and create a list and show a new list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Set event as meeting notification. Also, Add this item to the list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Put laundry on my to-do list. Also, I need to set up a new list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Make a new list and add grocery shopping to today's to-do list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "I want you to remind me about the evening program. Also, Please open grocery list and add bananas to list.": {
-   "class": "list_management",
-   "treatment": "half_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Set reminder for 2pm about my meeting and set a recurring event in my calendar.": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Make a new list": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
+  "set a notification on 3rd march about company meeting — and meet James at Mill Creek Cinema in McKinleyville California at 9pm": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Add wedding to my claendar and grocery list add eggs": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
   "Make a new list of dog breeds. Also, Create a new list, please": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "make appointment for next friday — and remind me to fill college's application form every two days from now": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Mark the event monthly. Also, Make new playlist from recent songs": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "show a new list": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "Research the clients that will attend the meeting and remind upcoming meeting with eminem": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Remind me if anything else happens, and then Make a grocery list, please.": {
-   "class": "list_management",
-   "treatment": "half_flexible"
+   "class": "list_management+standing_alert",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "I have a meeting, set a reminder for 4/9 — and create a list of jewels to be bought": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Can you please create a list for me — and please add milk to the grocery list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Don't forget about meeting Reveca todat at 6:00pm, and then Notify me about birthdays of all my facebook friends.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Remind me if anything else happens": {
+   "class": "standing_alert",
+   "treatment": "noop_ok"
+  },
+  "Remind me at this time. Also, create appointment to list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "I have to go to a meting on friday at noon, can you remind me — and please let me know about my aniversary": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Remind me every year/week/month on this date of": {
    "class": "truncated",
    "treatment": "noop_ok"
   },
   "Remind me to pay my bills at the start of every month. Also, Please Find all name start with alphabetic of 'G' and create a list.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "get me with new list and also create a new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "add 'valentine's day' with her tomorrow and also olly, can you please add my dinner reservations to my calender?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Let me know about my next meeting two hours before it starts, and then I think I ran out of this can you add it to my list?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "PDA, I want to make a list and this should be automatically saved as a text file with the title, list and also please Find all name start with alphabetic of 'A' and create a list.": {
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "Please give me an update on the election every 30 minutes and add shopping to my calendar for tomorrow.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
   "Remind me to send the presentation today at 1:00pm and also make a calendar entry for brunch on saturday morning with Chris, Kimberly, and Aaronson": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "I have a doctor's appointment with Dr. Barlease tomorrow at 7:30 a.m. Also, Create a meeting thursday afternoon for budget review": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Mark the event monthly and also make an event for a dentist appointment thursday at 9am": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Add a meeting With Francine for 2pm tomorrow. Also, show a new list": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Remind me about the office meeting tomorrow at 7, and then Add Ashley to the wedding invite list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "shedule a reminder one hour before the meeting. Also, PDA, notify me about the event in my calendar.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "start a new list — and create a new list for me please": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "Set event in the calendar and also remind me of the meeting on tuesday": {
+   "class": "clock_kind+nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Make me a new checklist — and begin new list of lottery numbers": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Remind me when the concert tickets go on sale": {
+   "class": "standing_alert",
+   "treatment": "noop_ok"
+  },
+  "Add a reminder for April 20 as my bro's birthday and also add to the list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Create a notification reminder for meeting tomorrow and also can you remind me about my meeting tomorrow?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "add to calendar new event 'thanksgiving' — and can you add this event with karl?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Mark the event monthly and also my new work schedule list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Remind me to meet Dad for coffee at 10 am and also remind me in the morning to call my mother.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "olly later tonight remind me about tomorrows meeting and add event: Baseball practice, 5pm tonight": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please add dinner with Mary to my calendar on Saturday — and get ready for the upcoming meeting before the given time": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Please create a new list for me": {
    "class": "list_management",
    "treatment": "noop_ok"
   },
+  "Create a notification reminder for meeting tomorrow. Also, Add soup to my shopping list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
   "Create an event for a John's birthday and also please Find all name start with alphabetic of 'A' and create a list.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "add a reminder of a conference for tomorrow in new york — and add paper towels to the grocery list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "get me with new list. Also, I would like to start a new list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Remind me of my meeting tomorrow at 3:00PM — and please set a notification on 23rd october about meeting with my colleague": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Remind me when I am at the library to get a new library card and open memo add note about my meeting": {
+   "class": "clock_kind+standing_alert",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Add all the event of March happening in RCCG to my calender, and then write down these items": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "I would like to start a new list — and put pencil on a new grocery list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "tell me when my moms birthday is": {
    "class": "standing_alert",
@@ -648,100 +3336,433 @@
    "treatment": "split_flexible"
   },
   "Start a new grocery list. Also, Make a new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Every other Wednesday, remind me to go grocery shopping — and remind me to take my medicine every day at 7PM for the next two weeks.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please let me know about my aniversary and i need to make a list of bills that are due": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "remind me of my meeting at 5:00pm, and then put this on my list": {
+   "class": "anaphor",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "I would like to start a new list and also add broccoli to my grocery list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Please put Event X into my calendar and mark it as a repeating event. Also, blot me all the phone calls planned for the morning of 23 March": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "add TAL meeting this thursday to calendar and also remind me at the time of the event": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Please Find all name start with alphabetic of 'A' and create a list.": {
    "class": "list_management",
    "treatment": "half_flexible"
   },
   "Remind me to ask an important question to my boss and generate a new inventory": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Add a movie name to the wish list. Also, Please Find all name start with alphabetic of 'A' and create a list.": {
    "class": "list_create_bare",
    "treatment": "half_flexible"
   },
+  "Open Google Calendar. In the My calendars section, click the down arrow that appears when you hover over your calendar, and select Reminders and notifications from the drop-down, and then Adding meetings on particaur dates of calender": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set a calendar event": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
   "make a new list for me. Also, Make new list of recent workouts": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "add 'happy new year' to calender, and then Schedule a meeting with Brian Billings for 2:30 PM on Friday.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Schedule an event in my calendar for the pool party at Jack's place this Saturday, and then Add the item to the list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Set a 2-week reminder for for the 20th of every quarter beginning 3/20 to pay my HOA and i need to add water to my Kroger list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Please set a reminder for Tuesdays at nine a.m and notify me the day before the horse race at Santa Anita on March 7th.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Open up a new list — and please Find all name start with alphabetic of 'G' and create a list.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "hey, put carrots on that and also create a new list for me please": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Open my grocery list and add bananas to it. Also, Add this one also.": {
    "class": "list_management",
    "treatment": "half_flexible"
   },
+  "pda remind me about my eye exam at Walmart on the 26th, and then Remind me about the March 16 meeting.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "set a meeting with Allen on tomorrow and also add Yoga class at noon to my schedule for the next three Sundays.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
   "Make a new shopping list. Also, Add red wine to my shopping list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Please remind me to call mom in half an hour and add coffee to the grocery list": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "I need to create a new to do list — and open grocery list and add milk": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Remind me to have the presentation ready by 10 on Wednesday and meeting at 8am to 12pm": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Add my mom to calendar for Monday brunch, and then Could you create a new event with these people only": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Open calendar.  Set event, and then Can you please create a list for me": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Next Thursday I need to be reminded to call the bank. Also, This item should be added to the list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Echo I need a reminder for tomorrow for Joe's party after work and put hamburger on my grocery list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "make a list for work and also i need to make a list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "PDA please set this date to repeat. Also, Send reminder to friend list of tomorrow's birthday brunch.": {
+   "class": "anaphor+clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Repeat this event every Friday on my calendar and please add this item to the list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Remind me to take my medicine at 9am. Also, Please make a list of thing I have to shop tomorrow": {
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "Please put me your input to know my schedule and also remind me at 8am tomorrow that I have a lunch meeting at noon in the conference room": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Just let me know the important work interviews in the next two days and i need to add water to my Kroger list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Please remind me about Swatishs' birthday — and please give me an update on the election every 30 minutes.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Remind me on the afternoon meeting at 2 and also can you set a reminder for me to go to my kid's basketball practice every friday night?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
   "Set and event for the 15th of every month to remind me to pay my internet bill. Also, add business contacts to contact list": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Remind me to pick up the laundry next Monday — and i would like to start a new list": {
-   "class": "list_management",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Hey Olly, cancel all my other meetings and calls for 2nd March as it is Jim's birthday. Tag it as an event in your calendar — and when is my husband's birthday this year?": {
+   "class": "clock_kind+question",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Remind me to check the stew at 6 o'clock, and then Add butter to the list": {
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "Please add meeting to my calendar and also add milk to my grocery list.": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Please alert me a day before Jeff's birthday. Also, olly I need you to put walk the dog on my list to do": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Remind me when it is lunchtime, and then I need oranges added to my grocery list.": {
+   "class": "standing_alert",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
   "Add soup to my shopping list and can you please create a list for me": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Open me a new list — and add new songs to playlist": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Arrange a meeting with our suppliers this week end. Also, Remind me tomorrow morning of my schedules for Tuesday": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Bring up a new shopping list and also new scenario, time or calendar to new list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Open my grocery list and add bananas to it, and then Make new playlist from recent songs": {
    "class": "list_management",
    "treatment": "half_flexible"
+  },
+  "Mark dad's retirement dinner for April fourth, and then please remind me the birthday of my uncle Joe, every may 4th?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Begin new list of lottery numbers, and then open grocery list and add milk": {
    "class": "list_management",
@@ -749,83 +3770,414 @@
   },
   "prepare a new list and also alexa create a new shopping list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "Set a meeting between myself and John at 2pm tomorrow — and i want you to make alert in the evening about upcoming meeting": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please set recurring calendar event, and then Set a reminder for my shopping trip tomorrow at 5:00PM": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Add grocery shopping to today's to-do list, and then I need to create a new to do list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "please add party at chucky cheese to calander — and give me a days notice before my next meeting.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Add event in calendar, and then olly later tonight remind me about tomorrows meeting": {
+   "class": "clock_kind+nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "how long its take — and create a list for the following...": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Please invite Kim, Marc, and Julian to a meeting on thursday at 3pm, and then Meet with Joe tomorrow at 3": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Church with Mom and Dad on Sunday and also can you tell me on tuesday to give Jane a call?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Remind me every 1st of the month and remind me what I am doing on Sunday afternoon": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "please add my birthday, and then include MIke and jack to festival calender": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Remind me to start the crock pot at 2:00 PM and add apples to shopping list": {
    "class": "remind_half",
    "treatment": "split_flexible"
   },
-  "I WANT YOU TO REMEBER ME TO TAKE MY RAIN COAT BECAUSE IT MAY RAIN. Also, I need to make a grocery list.": {
+  "set a reminder today at 1:00pm to send the presentation and mark April 20 as my brother's birthday.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "PDA please schedule a meeting for me, and then Set a reminder for my meeting at 5:00pm": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set a event for the evening and also start a list of dog names.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Open up a new list and add a Tab to the shopping list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "I WANT YOU TO REMEBER ME TO TAKE MY RAIN COAT BECAUSE IT MAY RAIN. Also, I need to make a grocery list.": {
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Add pastries to the Christmas list and save the new list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Let me know when my meetings are on Monday and also remind me about the meeting tomorrow at 6": {
-   "class": "standing_alert",
-   "treatment": "half_flexible"
+   "class": "clock_kind+standing_alert",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Please remind me about the meeting with Julie at 5 pm this evening, and then Please remind me at 8'O clock": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Calendar event with these people and also start a new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Make me a new checklist.": {
    "class": "list_management",
    "treatment": "noop_ok"
   },
+  "remind me about this and olly please remind me about Valia's wedding two days before": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Add event: Baseball practice, 5pm tonight, and then I need to organize a meeting with sarah, tomorrow alexa": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "It's my mother's birthday today Olly, send me a notification every year on this date. Also, Add cereal to my shopping list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
   "Add spent five dollars in my expenses list, and then Create a new list for me please": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Remind me to contact old friends that I have not talked with in 6 months before they pass and remember to fix a meeting between me and the players tomorrow evening by 7.": {
    "class": "remind_half",
    "treatment": "split_flexible"
   },
   "PDA can you create a list for me. Also, Make a list of camera photos": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "PDA please make a list, and then make a note of this on the list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Remind me to go shopping every week. Also, what are the events coming up soon?": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind+question",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Can you create a new list, and then Refresh the list with new one.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Can you add Name/Location to calendar, and then remind me to buy ham when I am in the shop next time": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "write down these items and also i need to make a grocery list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Set a timer for 5 minutes for cookies and set and event for the 15th of every month to remind me to pay my internet bill.": {
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "create a reminder for meeting and also hey PDA, make sure I go to sarahs birthday party on the 12th.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "remind me about Games of Thrones at seven pm each Sunday for the next three months and also make a note on my to-do list to call the realtor.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
   "Start a grocery list": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
+  "Please add an event to my schedule and add ketchup to the list": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
   "Please add deodorant to my shopping list — and add xxx on the list": {
    "class": "placeholder",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Remind me on the afternoon meeting at 2 — and hello Google! can you set a recurring event in my calendar for me?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set reminder for date night with husband next Friday. Also, on 3rd april we will go to watch jolly llb movie set it": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "I would like to attend church every Sunday at 11am, and then Olly, please add my meeting with Clara to my calender for this thursday afternoon.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Add event, book club, Debbie's house, Wednesday night. Also, Remind me everyday at 2 PM for lunch": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set a meeting with Hongbin and also i would like it to make doctor appointments, etc. for me": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "open grocery list and add milk. Also, Add every girl life by Evelyn Mayer to the must read list": {
    "class": "list_management",
    "treatment": "half_flexible"
+  },
+  "Refresh the list with new one and alexa create a new playlist.": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "add to calender on this date and time with these people. Also, Remind me at the start of each month.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please schedule a meeting with Brian Billings in accounting and set a reminder for tomorrow evening": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set a reminder to go to movies with Ron on March 27, and then Please schedule an appointment at my doctor for a prostate exam on Friday.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Every Wednesday night at 5pm remind me to meet Phil and put meeting with Pawel for tomorrow 10am": {
    "class": "remind_half",
@@ -833,171 +4185,977 @@
   },
   "Create a blank list and put hamburger on my grocery list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Remind me to do something then, and then Add milk to my grocery list.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "hayathis daughter baby shower and alexa add bananas to my shopping list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Notify me about the evening meeting five minute in advance — and make a new list for me, please.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "add a lunch with mike, and then Add car service to my list of things to do today": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "In the following week repeat this event at 10 am every day and can you remind me about my meeting tomorrow?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "set calender for date and time with this person, and then Set a reminder for Wednesdays at 2 p.m.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "date with Love the next day and also add carrots to the list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "alexa set a meeting event reminder with mona on tuesday — and i think I ran out of this can you add it to my list?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Alexa create a new shopping list and pDA, I want to make a list and this should be automatically saved as a text file with the title, list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Please create a new list — and the list should contain this item.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Set a reminder to x thing every x days, and then Set a reminder for Wednesdays at 2 p.m.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Begin new list of lottery numbers and create a new grocery list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Create a new list for me please. Also, Add new item to list.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Please set up a meeting with Jonh for Monday, and then Add something to my list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Notify me the day before the horse race at Santa Anita on March 7th, and then open a new list for me": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "meeting next week monday — and alexa add grocery shopping to my to do list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Start a grocery list. Also, Please create a new list for me": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Please add sugar to my grocery list. Also, Can you create a new list?": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Add a meeting at the office with Brian for 3:00PM on Tuesday. Also, make a new list for me": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Remind me on 5th March of every year to arrange wedding anniversary presents and also alexa put shoes on my list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "For the next three Sundays remind me I have yoga class at noon, and then yashas bithday with vinay ,vally": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Add a reminder to my calendar every year/month/week on this date and also i need to make a list.": {
-   "class": "list_management",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Add an event labeled Dan's Graduation party May 5th in Goshen and also set a reminder of meeting at 9 am tomorrow.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "put xxx on the list, and then PDA, I want to make a list and this should be automatically saved as a text file with the title, list.": {
    "class": "placeholder",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Remind me of the meeting on tuesday, and then Create a new list of my due bills": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "family bonding before meeting — and in the following week repeat this event at 10 am every day.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "save the new list and also add chives to my shopping list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "New calendar entry, meeting — and i am having a meeting on tomorrow, set it": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Add ... and ... to event , and then I need more milk": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Create a new event on my calendar": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Create a new list, please": {
    "class": "list_management",
    "treatment": "noop_ok"
   },
+  "yashas bithday with vinay ,vally. Also, please set a reminder for the office party next saturday?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Olly, create an empty calendar event for next Saturday at ten a.m, and then Add (name/location) to calendar": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
   "Create a new reminder at 3pm — and remind me to make a pizza tomorrow morning": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "I have an appointment tommorrow, remind me — and make a new list for me": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Church with Mom and Dad on Sunday — and set soccer game with Mark in my calendar for Tuesday night.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Mark the event monthly and also remind me to buy jeans on my shopping list": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Send me notice of meeting Wednesday 9 am — and set up the meeting with Justin and Katrina.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "12th July is Bola's birthday and my calender to be updated with this date — and let me know in two hours that I have to leave for my violin lesson that's at 4pm at MusicWorkz": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Can you create a new list and also new scenario, time or calendar to new list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Add event with these people and also i have a meeting by 2 pm today, please remind me.": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Remind me to look at the pasta in 30 mins and please update my grocery list with1 gallon of 2% milk.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Create a new list for me — and please create a new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Please remind me to pickup John at school today at 1 pm — and create a list for today's tasks": {
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "Jonathan wants to meet up Sundays at eleven. Can you remind me Saturday night every week and also don't let me forget I need a reminder for March 27th at Noon.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "i have a function at washington tomorrow, remind it, and then latest reminder about meeting": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
   "Can you create a new list — and create a blank list.": {
    "class": "list_management",
-   "treatment": "noop_ok"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Set a reminder for gymnastics every Wednesday at 3 — and create a new list for me please": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "olly I need you to put walk the dog on my list to do. Also, I want you to create a list for me": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Schedule lunch with mom on tuesday of this month, and then I want to make next week's to-do list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "add appointment to list — and create a new list, please": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Notify me when I am supposed to attend the dance recital on March 5th.": {
    "class": "standing_alert",
    "treatment": "noop_ok"
   },
+  "Add Lee's birthday to the calendar on 22 June, and then Remind me tomorrow morning of my schedules for Tuesday": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Don't let me forget I have a Parent-Teacher conference this Monday at 4:00 pm and olly add tomorrows dinner date to the calendar": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "In the Repeat section, enter a start date.Choose the drop-down next to Weekly to change the recurring event to a Daily,. Also, It's my mother's birthday today Olly, send me a notification every year on this date.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please remind me of. Also, add pencil to school supplies list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Please set a reminder of Raju marriage on 31/03/2017 and make a list of numbers for me": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
   "PDA can you remind me to check my clothes in a hour. Also, Set a meeting on Wednesday at 3pm in room G30.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "repetitive event added to calendar — and tell me something to remind this week": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Set reminder for 7 am for the City Team Meeting. Also, PLZ REMIND TO SLEEP AT 9 P.M.": {
    "class": "remind_half",
    "treatment": "split_flexible"
   },
+  "Remind me tomorrow at 4 about an event. Also, In the following week repeat this event at 10 am every day.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Add a wrist watch to the shopping list. Also, Is there room on my grocery list for an extra item?": {
+   "class": "question",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
   "Start me a new list — and begin a new list.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Please add sugar to my grocery list. Also, Bring up the grocery list and add v8.": {
    "class": "list_management",
    "treatment": "half_flexible"
   },
   "Add to calendar an everyday reminder for laundry and also make a new list for me": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "set the event name to ____. Also, I would like to start a new list": {
-   "class": "list_management",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "PDA set this date to repeat reminder": {
+   "class": "anaphor",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "Jonathan wants to meet up Sundays at eleven. Can you remind me Saturday night every week. Also, make a list for work": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Put an alert in my calendar every week. Also, hello Google! can you set a recurring event in my calendar for me?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "'exhibition 2017 mass' on Mar 25 make a note of it on the corresponding date and also add wine to list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Create a new grocery list and also my new work schedule list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Set a reminder for the thirteenth that I have a lunch with Dale. Also, I need to make a list of bills that are due": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "set an event for friday. Also, New notification for meeting in two hours.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Begin a list for...": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "put this on my list and also remember to put carrots in there.": {
+   "class": "anaphor",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "yashas bithday with vinay ,vally and also write down that I am going to meet with Jenny on the third, okay?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set a weekly appointment reminder and olly, its Jim's birthday on 2nd March, mark it in your calendar.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "create a reminder for meeting. Also, Add mow lawn to things to do list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "get ready for the meeting before the event starts — and remind me about Games of Thrones at seven pm each Sunday for the next three months": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Open calendar.  Set event, and then Add yoga to my calendar for friday.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "remember me my child's birthday and remind me about the office meeting tomorrow at 7": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "set the event name to ____ and rEMIND TO AT 8 P.M. TO TAKE MY MEDICINE.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "remind me of mondays meeting and add something to my list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "I would like to start a new list and also save the new list": {
    "class": "list_management",
-   "treatment": "noop_ok"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "Add new item to list and set a list for....": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Open up a new list and my new health check up new list": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Add a party in NY city for this saturday, and then Remind me to meet James at work tomorrow at 9am": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "set an event 'happy birthday john' to repeat on 21-Jan-2017. Also, Pick up dry cleaning tomorrow": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "I want to add a lunch date with mike, jim, and bob, and then buying of groceries new lsit": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Inform my group that the new meeting date is tomorrow and also add reminder today evening to collect the parcel from Jakes bristo": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "I would like to start a new list, and then Put pencil on a new grocery list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "add date and time in calender with these people. Also, Calendar event. send invite, Bill Malinda": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please put the following event in my calendar on this date, and then place it in the calendar every week thereafter. Also, I need a reminder at 2:00 every day to check on my mother.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Please start new list and also pDA please update list with new item": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "Set a recurring event in my calendar — and add cereal to my shopping list.": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Just let me know the important appointments with dealers over the week. Also, Start a list of dog names.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Set calendar reminder for noon titled lunch meeting, and then Notify me when the event is going to take place": {
    "class": "standing_alert",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "alert me at the time of the event — and create meeting with Paul tomorrow at 6 pm.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please remind me my favorite show is coming on at 1 pm and also put monday meeting on calandar ever monday": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "I need to add pasta and milk to the grocery list — and add xxx on the list": {
    "class": "placeholder",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Set reminder for tomorrow for this item and set repeat event in calendar": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please give me an update on the election every 30 minutes, and then 13th june is a day of election result.plz. set it.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Remind me the night before my doctor's appointment and also set a reminder for 15 minutes to change laundry loads": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Is there room on my grocery list for an extra item?": {
+   "class": "question",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "Repeat this event every Friday on my calendar — and add car service to my list of things to do today": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Can you set the event for monday at 6 at mcdonalds, and then Please add supervision to my calendar": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "make a new list for me and add new item to list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Please add an event to my schedule and also set the event to recur on the first Monday of the month": {
+   "class": "clock_kind+nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Notify me on March 11th, the day of my appointment and i have to be in hawaii for this upcoming event, can you add this?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Calendar event with these people — and remind this event in future": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Add a movie name to the wish list and also please open grocery list and add bananas to list.": {
    "class": "list_management",
@@ -1005,163 +5163,957 @@
   },
   "Create a new list for me please and also the list should contain this item.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Make sure to remind me to pay my bills tomorrow morning, and then PDA can you create a list for me.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Please set recurring calendar event.": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "olly later tonight remind me about tomorrows meeting, and then Add Diapers in cosmetic list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Start me a new list.": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
+  "Olly, set generic calendar event for next Saturday at 10 a.m. Also, schedule a chat with Adam on Thursday afternoon": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please let me know about my Birthday and put the item on the list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Add Bubbles birthday to March 15, and then Remind me of meeting time at 7pm next Monday": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
   "PDA can you create a list for me and add paper towels to the grocery list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "open grocery list and add milk": {
    "class": "list_management",
    "treatment": "half_flexible"
   },
   "create a new list of . Also, Can you create a new list?": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Remind me tomorrow morning of my schedules for Tuesday and set a reminder for next Saturday: Go to the library at five o'clock.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please set recurring calendar event. Also, Adding meetings on particaur dates of calender": {
+   "class": "clock_kind+nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Add Bubbles birthday to March 15 — and add Paav Bhaji in Menu card": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Hey Olly, place an event in my calendar to go to the dentist on Friday, April 7th at 450 Park Avenue, new york, ny, 11232 and remind me 2 days before my wife birthday": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set the event to recur on the first Monday of the month — and add oil change to my to do list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Remind me about my next meeting with joe one hour before — and start a new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "remind me when a contact calls": {
+   "class": "standing_alert",
+   "treatment": "noop_ok"
   },
   "Add paper towels to the grocery list and please create new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "I would like it to make doctor appointments, etc. for me and also i want to add an event to my calendar": {
+   "class": "clock_kind+nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Olly remind me my mom's birthday a week before and hey Olly, place an event in my calendar to go to soccer practice on Friday, April 21st at 1190 Whale Avenue, New York, NY, 11292.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Add the item to the list. Also, Create a new list for me please": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Add a meeting with... to my calendar and and also schedule a two hour empty time-block on saturday.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set a reminder to notify me 1 hour before lunch meeting — and pUT MILK ON MY SHOPPING LIST": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Remind me everyday at 2 PM for lunch. Also, olly make sure to remind about tomorrows afternoon meeting": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Set a calendar event, and then Alexa create a new shopping list.": {
-   "class": "list_management",
-   "treatment": "half_flexible"
+   "class": "list_management+nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "Set a monthly event. Also, Mike and Jack should be added to festival calender": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "PDA please set this event on repeat this date, and then Add milk to grocery list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "notification of meeting on Wednesday — and alert me when my anniversary is": {
-   "class": "standing_alert",
-   "treatment": "half_flexible"
+   "class": "clock_kind+standing_alert",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Notify me when I have a meeting.": {
    "class": "standing_alert",
    "treatment": "noop_ok"
   },
+  "Remind me about my anniversary in advance, and then i have a function at washington tomorrow, remind it": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set a timer for 5 minutes for cookies, and then I need to let my small group know the location has changed": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "please set a reminder for the office party next saturday, and then Grocery list add eggs": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Please let me know about my aniversary and also i need a meeting to be schedule with this person": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set Reminder to go workout at the gym every Friday at 8:00 am — and daily, Monthly, or Yearly event if necessary.Choose the interval between events.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Schedule and appointment with Mike for next Thursday morning, and then Add a wrist watch to the shopping list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "List out the upcoming meeting, and then PDA please order me this months groceries": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
   "Remind me of my sister's birthday party tomorrow an hour before it starts and i need to create a new to do list.": {
-   "class": "list_management",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "I will need a reminder of the 3:00pm teachers meeting on Thursday, and then I need to arrange a meeting with Jack.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Olly, I need to create a list of grocery items which are generally required for an outing for two days when you travel out of the city and get xxx on the list": {
    "class": "placeholder",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "get ready for the upcoming meeting before the given time — and please create a new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "PDA please add new item to list and open a new list for me": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Set a reminder for 15 minutes to change laundry loads. Also, Add a meeting with architect to my new project list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Add this one also, and then Create a new grocery list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "I have dinner with my sister this Saturday and put the item on the list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Add my sister on calendar for pedicures on Friday — and can you make an event for friday night with Emi, Maya, and Mackensie?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "add TAL meeting this thursday to calendar and also the list should contain this item.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Please set repeating reminder for my friends birthday on April 5. Also, Start a new (grocery, task, shopping) list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "I want you to remind me the next meeting with my girlfriend, it will be at 8 pm next sunday, and then set event in calandar.  repeat event every day": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please alert me on Friday at 8:00 am to go to the gym and schedule meeting with Laura": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "add apples to shopping list and begin a list for...": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "alert me when my anniversary is and pDA please mark my calendar for a holiday in Cuba on April 2.": {
-   "class": "standing_alert",
-   "treatment": "half_flexible"
+   "class": "clock_kind+standing_alert",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Can you let me know when it's 2:00?": {
    "class": "standing_alert",
    "treatment": "noop_ok"
   },
+  "set a reminder today at 1:00pm to send the presentation — and olly I need to remember to get to the shops before they close": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
   "Please remind me to go to the post office. Also, create a new list of my pending bills": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Set event in the calendar.": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "please remind me my doctor appointment on 13th July and also add eggs to the list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Remind me every Monday to take out the trash. Also, PUT MILK ON MY SHOPPING LIST": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Could you create a new list for me, and then remember to put carrots in there.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Please create a new list and also could you create a new list for me": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "I WANT YOU TO REMEBER ME TO TAKE MY RAIN COAT BECAUSE IT MAY RAIN and also i need to start a list called...": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Remind me tomorrow at 2 pm and save the new list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Can you create a new list?": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
+  "Please create a list of Due payment those who not received more then 10 Months, and then add a new list": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Refresh the list with new one.": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "Please remind me that i have a meeting tomorrow 10:00 in the morning. Also, Can you put in Lee's birthday on the 22nd of June?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
   "remind me to buy ham when I am in the shop next time, and then This item should be added to the list": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "make a list of management staff for the 20th oct meeting, and then Make sure to remind me to pay my bills tomorrow morning.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please add meeting to my calendar": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
   },
   "Please modify my calendar with this event and open my grocery list and add bananas to it.": {
    "class": "list_management",
    "treatment": "half_flexible"
   },
   "Remind me to meet Joe for lunch tomorrow, and then set repeating event 'gym day' on calendar": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please let me know about my Birthday and also create shopping list for Target": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Call Linda and remind her to pick me up for bowling — and hey, put carrots on that.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "start a new list and add grocery shopping to today's to-do list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Add wedding to my claendar, and then PDA can you create a list for me.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Set reminder for tomorrow morning about  my meeting. Also, Please add sugar to my grocery list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "add this to the list": {
+   "class": "anaphor",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "google calendar. add event for march 21st and also create shopping list for Target": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "The event ... will include ... and , and then Add Bob to my list of contacts.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "add an item to the list, and then Open my grocery list and add bananas to it.": {
    "class": "list_management",
    "treatment": "half_flexible"
   },
+  "set a reminder for 12:30:  Meeting with the boss. Also, what are the events coming up soon?": {
+   "class": "question",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Schedule a meeting this Monday with Peter Francis in the afternoon and also olly please remind me about Valia's wedding two days before": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
   "start a new list and please update my grocery list with1 gallon of 2% milk.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "Please create a new list for me and create a new grocery list": {
    "class": "list_management",
-   "treatment": "noop_ok"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "Set soccer game with Mark in my calendar for Tuesday night, and then add eggs to list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "set the event name to ____ — and set the event to recur every week": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "the location is _____. Also, Create a list of monthly groceries to be bought": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Write down that I am going to meet with Jenny on the third, okay. Also, Please start a new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Create a new list and also add business contacts to contact list": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
   },
   "I want you to create a list for me": {
    "class": "list_management",
    "treatment": "noop_ok"
   },
+  "remind me for tomorrow interview, and then create a new list of ....": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "I want to add an event to my calendar": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
+  "Remind me about my lunch date for Monday. Also, Add to calendar an office meeting for the next three days": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "remind me about tomorrows lunch meeting at 1 and add Jane's birthday party for tomorrow, 2pm at 123 Main St on my calendar.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Add my sister visiting to my family calender, and then I need to be reminded to do something on the 31th": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Be sure to remind me of this, and then I need more milk": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
   "Add coffee to the grocery list and also please create a new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Send a calendar appointment to and also thursday at 3:00pm there is a teachers meeting I need to be reminded of.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Thirteen minutes from now, remind me to drive to the park — and set a reminder to pick up food this Friday.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Please give me notice when I need to leave for the conference, and then Add an event labeled Dan's Graduation party May 5th in Goshen.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "I want you to schedule a meeting with Bryce, Jessie, and Carol for tomorrow at 9 am and also please set event on Tuesday": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "what are the events coming up soon. Also, Is there room on my grocery list for an extra item?": {
+   "class": "clock_kind+question",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Remind me of the following event:. Also, Create shopping list for Target": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Send me notice of meeting Wednesday 9 am and also remind me to meet Joe for lunch tomorrow.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Remind me to pick up the laundry next Monday and i want to meet with sara tomorrow alexa": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Hey Olly, place an event in my calendar to go to the dentist on Friday, April 7th at 450 Park Avenue, new york, ny, 11232. Also, delete the old playlist and create new": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "remind me after a month, and then Add milk to grocery list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "put this on my list — and add eggs to my grocery's├ö├ç├» shopping list": {
+   "class": "anaphor",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "I need to let my small group know the location has changed and also add new items in the alarm list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "NEXT MONTH MY BROTHERS BIRTHDAY. Also, Let me know about my next meeting two hours before it starts.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Remind me of my dentist appointment the night before and can you add my business meeting to the work calender?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Notify me when this happens": {
    "class": "standing_alert",
@@ -1171,29 +6123,112 @@
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
+  "I'd like to update my calendar. Also, Start a new (grocery, task, shopping) list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
   "Repeat reminder for Christmas, and then Notify me when the event is going to take place": {
-   "class": "standing_alert",
-   "treatment": "half_flexible"
+   "class": "clock_kind+standing_alert",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Do I need to be reminded of any meetings on Monday and also schedule meeting with manager tomorrow at 2 pm": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Remind me to do something then — and set a reminder about tomorrows meeting at 9am": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Alert me when registration opens": {
    "class": "standing_alert",
    "treatment": "noop_ok"
   },
   "Please give me an update on the election every 30 minutes. Also, Please put meeting with <insert name> at <insert time> on <insert date> on my calendar": {
-   "class": "placeholder",
-   "treatment": "half_flexible"
+   "class": "clock_kind+placeholder",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Alexa create a new shopping list.": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
+  "Set first week of June as holiday in my calendar — and reopen groceries and add milk": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
   "PDA can you remind me to check my clothes in a hour and nOTE DOWN IMPORTANT EVENT IN THIS WEEK.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set up a meeting with Peter Francis for Monday at 2 pm, and then When is my meeting?": {
+   "class": "question",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "create repeating event 'john's birthday' on calendar. Also, Add reminder today evening to collect the parcel from Jakes bristo": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set meeting witch jack on 10 march and create a new list called Grocery Store, please.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Add yoga to my calendar for friday and put this on my list": {
+   "class": "anaphor+clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "enter this to a list — and open grocery list and add milk": {
    "class": "list_management",
@@ -1208,48 +6243,275 @@
    "treatment": "split_flexible"
   },
   "Set my calendar to remind me to buy groceries every Friday — and add Jane's birthday party at 123 Main St for 2PM tomorrow on my calendar": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "please create new list": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
+  "Add Mike's birthday on March third to my calendar, and then Create a new list of grocery store": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
   "Please create a new list": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
+  "Remind me the day when this event is supposed to take place, and then Create an event with Zaf": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set a reminder every day at noon to take medciation. Also, remind me at the time of the event": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "PDA, add event to calender.": {
+   "class": "nameless",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
   "I need a list of my clients today, make one. Also, I need to make a list.": {
    "class": "list_management",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Make new list of recent workouts, and then Refresh the list with new one.": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Alert me of my dentist appointment at 2pm and invite jack for meeting tomorrow": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "Let me know when the meeting is gonna happen.": {
    "class": "standing_alert",
    "treatment": "noop_ok"
   },
+  "how we will get digital document and add apples to shopping list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Remind me tomorrow at 4 about an event and also generate a new inventory": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Remind me on monday at 2PM to have a meeting with Andrew, and then Add a reminder for April 20 as my bro's birthday.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Create an event for me at 3:30 pm, and then add this event with this people": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Remind me of Sarah's birthday three days ahead of time — and begin new list of lottery numbers": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
   "Open me a new list.": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
+  },
+  "Remind me every friday to go to my son's basketball game, and then alexa put shoes on my list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Tell me when I need to leave the airport": {
    "class": "standing_alert",
    "treatment": "noop_ok"
   },
+  "i want meeting with person A today and remember to put carrots in there.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Please add supervision to my calendar and also please set a reminder for me to 'something' in 'sometime'": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
   "set reminder for tomorrows meeting with {client name}. Also, I need a list of my clients today, make one": {
    "class": "placeholder",
-   "treatment": "half_flexible"
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Add ... and ... to event  — and i have a doctor's appointment with Dr. Barlease tomorrow at 7:30 a.m.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "hello Google! can you set a recurring event in my calendar for me — and remind me of the following event:": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "remind me about the meeting, and then Can you add Gloria to my list of clients?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Tell me when this meeting is coming up.": {
    "class": "standing_alert",
    "treatment": "noop_ok"
   },
+  "send a notification to friend and put pencil on a new grocery list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Schedule a meeting with Al on Tuesday and also set soccer game with Mark in my calendar for Tuesday night.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Create a new folder and begin a list for...": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "Please block off Friday at 8 am on my calendar and also please modify my calendar with this event.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 1,
+    "tasks": 0,
+    "total": 2
+   }
+  },
   "save the new list": {
    "class": "list_management",
    "treatment": "noop_ok"
   },
+  "Make a calender note 'exhibition 2017 mass' on Mar 25 and set a reminder for tomorrow evening": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Set an aniversary event for Tuesday, and then Grocery list add eggs": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
   "Conduct meeting on Thursday, and then Please Find all name start with alphabetic of 'A' and create a list.": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "Start creating a new list": {
    "class": "list_create_bare",
@@ -1259,25 +6521,135 @@
    "class": "standing_alert",
    "treatment": "noop_ok"
   },
+  "PDA please update list with new item": {
+   "class": "list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 0
+   }
+  },
   "Every other Wednesday, remind me to go grocery shopping. Also, Set a reminder to pick up food this Friday.": {
-   "class": "remind_half",
-   "treatment": "split_flexible"
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
   },
   "make a note of this on the list": {
    "class": "list_create_bare",
    "treatment": "noop_ok"
   },
   "Set reminder for tomorrow for this item. Also, Notify me when this happens": {
-   "class": "standing_alert",
-   "treatment": "half_flexible"
+   "class": "clock_kind+standing_alert",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
   },
   "Add to calendar may 2 is Mary's birthday. Repeat every year. Also, Create a new grocery list": {
-   "class": "list_management",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Add bread to my grocery list, and then put this on my list": {
+   "class": "anaphor",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "have John join me on the 10th at the 5th floor meeting. Also, add eggs to list": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   },
   "12th July is Bola's birthday and my calender to be updated with this date and please create a new list": {
-   "class": "list_create_bare",
-   "treatment": "half_flexible"
+   "class": "clock_kind+list_management",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Remind me 2 days before my wife birthday. Also, add this to the list": {
+   "class": "anaphor+clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 1
+   }
+  },
+  "Remind me of this meeting soon and also begin new list of lottery numbers": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "PDA please set this date to repeat, and then Create a list for today's tasks": {
+   "class": "anaphor",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 1
+   }
+  },
+  "set reminder anna for every monday and also can you sync my calendar with mark?": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "Remind me about the meeting in 1 hour. Also, Make a new list for school supplies": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
+  },
+  "Remind me about the upcoming national holiday — and set a meeting with Bill": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 0,
+    "total": 2
+   }
+  },
+  "PDA! Remind my friend to get the assignment tomorow — and add red wine to my shopping list.": {
+   "class": "clock_kind",
+   "treatment": "per_half",
+   "owed": {
+    "events": 0,
+    "tasks": 1,
+    "total": 2
+   }
   }
  }
 }

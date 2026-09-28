@@ -170,6 +170,13 @@ def main() -> int:
             adj = total >= 1
         elif ov == "split_flexible":
             adj = total >= 2
+        elif ov == "per_half":
+            owed = overrides[text]["owed"]
+            n_mut = sum(1 for it in st.items if it.action.startswith(
+                ("delete_", "update_", "complete_")))
+            adj = n_mut == 0 and (total == 0 if owed["total"] == 0 else (
+                n_ev >= owed["events"] and n_td >= owed["tasks"]
+                and total >= owed["total"]))
         else:
             adj = ok
         seg = "dev" if (rank or 0) <= 600 else "held-out"
