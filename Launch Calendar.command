@@ -75,6 +75,20 @@ if [ -z "$VENV_PYTHON" ]; then
     echo ""
 fi
 
+# ONE OF EACH ON THIS MAC (Gil, 2026-09-28). The apps in "MACalendar APPs"
+# can be clicked in any order and any number of times — the Server app, the
+# HUD app and this one all start pieces of the same stack — so every piece
+# below starts only when it is not already running, and a second click on
+# MACalendar brings the open window forward instead of opening another.
+# What this launch did NOT start, it does not stop when the window closes: a
+# server started by the Server app outlives the calendar window.
+GUI_RUNNING="$(pgrep -f -- '-m assistant\.main( |$)' | head -1)"
+if [ -n "$GUI_RUNNING" ]; then
+    echo "$(date '+%F %T')  the calendar is already open (PID $GUI_RUNNING) — bringing it forward"
+    osascript -e "tell application \"System Events\" to set frontmost of (first process whose unix id is $GUI_RUNNING) to true" 2>/dev/null
+    exit 0
+fi
+
 # Start Ollama server if it is not already running
 if command -v ollama &>/dev/null; then
     if ! lsof -i :11434 -sTCP:LISTEN -t >/dev/null; then
@@ -101,15 +115,25 @@ fi
 RELOAD="--reload"
 [ "$MACALENDAR_NO_RELOAD" = "1" ] && RELOAD=""
 PORT=8080
-python -m assistant.api --tailscale --port $PORT $RELOAD &
-API_PID=$!
+API_PID=""
+if lsof -i :$PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
+    echo "📱 API already running on :$PORT — using it"
+else
+    python -m assistant.api --tailscale --port $PORT $RELOAD &
+    API_PID=$!
+fi
 
 # Start the thinking HUD — its own always-on-top window, deliberately not part
 # of the calendar app: a command given from the phone usually arrives while you
 # are working in something else, and the HUD has to be visible there. It reads
 # the trace bus, so it keeps working whichever process ran the command.
-MACALENDAR_API_PORT=$PORT python -m assistant.thinking_hud &
-HUD_PID=$!
+HUD_PID=""
+if pgrep -f "assistant\.thinking_hud" >/dev/null; then
+    echo "🪟 Thinking HUD already running — using it"
+else
+    MACALENDAR_API_PORT=$PORT python -m assistant.thinking_hud &
+    HUD_PID=$!
+fi
 
 # Start Jude — the Judaic study assistant — when it is switched on. It is its
 # own app for the same reason the HUD is: studying a sugya is not something you
@@ -130,14 +154,18 @@ except ConfigError:
 sys.exit(0 if cfg.jude.enabled else 1)
 PYEOF
 then
-    MACALENDAR_API_PORT=$PORT python -m assistant.jude.app &
-    JUDE_PID=$!
-    echo "📖 Jude started (PID $JUDE_PID)"
+    if pgrep -f "assistant\.jude\.app" >/dev/null; then
+        echo "📖 Jude already running — using it"
+    else
+        MACALENDAR_API_PORT=$PORT python -m assistant.jude.app &
+        JUDE_PID=$!
+        echo "📖 Jude started (PID $JUDE_PID)"
+    fi
 fi
 
 echo "--------------------------------------------------------"
-echo "📱 iPhone API started (PID $API_PID)"
-echo "🪟 Thinking HUD started (PID $HUD_PID)"
+[ -n "$API_PID" ] && echo "📱 iPhone API started (PID $API_PID)"
+[ -n "$HUD_PID" ] && echo "🪟 Thinking HUD started (PID $HUD_PID)"
 echo "   1. Ensure Tailscale is UP on both Mac and iPhone."
 echo "   2. In the iOS app, set Server URL to the Tailscale IP + :$PORT"
 echo "   3. (Optional) Open Xcode to deploy: open MACalendar-iOS/MACalendar-iOS.xcodeproj"
@@ -149,9 +177,10 @@ echo "--------------------------------------------------------"
 # Start the Mac calendar app (foreground — closing this window stops everything)
 python -m assistant.main
 
-# When the Mac app exits, shut down the API server and the HUD too
-kill $API_PID 2>/dev/null
-kill $HUD_PID 2>/dev/null
+# When the Mac app exits, shut down what THIS launch started — never a piece
+# that was already running when it began
+[ -n "$API_PID" ] && kill $API_PID 2>/dev/null
+[ -n "$HUD_PID" ] && kill $HUD_PID 2>/dev/null
 if [ ! -z "$JUDE_PID" ]; then
     kill $JUDE_PID 2>/dev/null
 fi
