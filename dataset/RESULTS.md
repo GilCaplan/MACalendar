@@ -3384,3 +3384,38 @@ misspelled command verb — both matter more than their row counts. The
 side defects count-correct cannot see (junk extra objects and titles kept on
 K rows: wake words "Olly"/"PDA" in titles, "Remind me to" leads, "X in grocery
 list" unread) are what item precision 88.8% is made of.
+
+## READING — held-out real speech under answer key v2 (2026-09-28, `88168dcb`, seeded 7)
+
+The DEVQA Q64 read: the verification pool's HELD-OUT ranks 601–3000 (sealed
+300 excluded, n=2,099), whole chain, seeded 7, fresh; aggregates only (no
+held-out row was printed or read). Key v2 = `88168dcb`, the per-half rules
+mined from DEV.
+
+| adjusted count-correct | raw | key v1 | **key v2** | Q64 target |
+|---|---|---|---|---|
+| all | 76.9% (1615/2099) | 82.4% (1729) | **85.3%** (1790) | |
+| single-ask | 89.7% (1241/1383) | 90.9% (1257) | **91.0%** (1259) | ≥95% — **not met** |
+| multi-ask | 52.2% (374/716) | 65.9% (472) | **74.2%** (531) | ≥80% — **not met** |
+| event+event | | 67.6% (163/241) | 75.9% (183) | |
+| event+task | | 61.8% (139/225) | 69.3% (156) | |
+| task+task | | 68.0% (170/250) | 76.8% (192) | |
+
+Item P/R/F1 86.4 / 74.6 / 80.1% (matched 1,490 / expected 1,996 / created
+1,725); field quality 90.2%, when-correct 83.8% (n=572). The key moved 79 rows
+to pass and 18 to fail (junk objects the old noop_ok let through).
+
+**What it means.** The key correction transfers — multi-ask +8.3 pt on rows
+its rules never saw — but less than on DEV (+15.4), as rules mined there would.
+The engine is **4.0 pt short on single-ask and 5.8 pt short on multi-ask** of
+the finish line on held-out real speech. Single-ask barely moved under the
+key (90.9 -> 91.0), so its gap is the ENGINE's: the DEV triage's engine
+families (questions made into to-dos, a create read as a query, the unasked
+mutations) are where to look. DEV under the same key read 93.1 / 83.0, so
+DEV-to-held-out is -2.1 / -8.8 pt — multi-ask generalises worst.
+
+**Registered next:** the unasked-mutation fix in FastRule's verb picker (a
+destructive verb taken from a subordinate clause or a name — "until I remove
+it", "with mark"), boarded alone on the FastRule shape board (TRAIN, then
+TEST) for harm and the DESTRUCTIVE line; then the question-as-create family
+(7 DEV rows), which is single-ask and so aimed at the 4.0 pt gap.

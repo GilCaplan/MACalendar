@@ -150,6 +150,9 @@ linked to-do (Q61, `cf74dec3`), and "buy A and B" is two to-dos (Q62,
    are encoded in `audit_dataset_conventions.py` and the held-out range read.
    Engine priority from it: the 4 mutations from non-destructive commands
    and the vocabulary rewriting "earse".
+   **Held-out read under key v2 (2026-09-28, n=2,099, `dataset/RESULTS.md`):
+   single-ask 91.0% (target ≥95%), multi-ask 74.2% (target ≥80%) — neither
+   met.** Single-ask's gap is the engine's (the key moved it 0.1 pt).
 2. **Multi-ask commands on real speech** (event + to-do 29%, two to-dos 60%,
    two events 71%; dev range n=182), fixes mined from the dev range with ≥3
    distinct phrasings each, verdict on the held-out range.
