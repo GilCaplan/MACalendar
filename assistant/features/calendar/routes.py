@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import datetime
 
+from assistant.users import sharing
 from flask import Blueprint, current_app, jsonify, request
 
 from assistant.api.server import change_token, create_event_from_body
@@ -145,7 +146,6 @@ def categories_recolor():
 
 @blueprint.get("/events")
 def events_list():
-    db = get_db()
     year = request.args.get("year")
     month = request.args.get("month")
     date_str = request.args.get("date")
@@ -153,14 +153,20 @@ def events_list():
 
     try:
         if date_str:
-            rows = db.get_events_for_day(datetime.date.fromisoformat(date_str))
+            day = datetime.date.fromisoformat(date_str)
+            fetch = lambda db: db.get_events_for_day(day)
         elif week_start_str:
-            rows = db.get_events_for_week(datetime.date.fromisoformat(week_start_str))
+            week = datetime.date.fromisoformat(week_start_str)
+            fetch = lambda db: db.get_events_for_week(week)
         elif year and month:
-            rows = db.get_events_for_month(int(year), int(month))
+            y, m = int(year), int(month)
+            fetch = lambda db: db.get_events_for_month(y, m)
         else:
             # Default: today
-            rows = db.get_events_for_day(datetime.date.today())
+            fetch = lambda db: db.get_events_for_day(datetime.date.today())
+        # every calendar this viewer can see — their own, anyone sharing with
+        # them, and (the admin) anyone toggled into his view (DEVQA Q65)
+        rows = sharing.gather(fetch, sort_key=sharing.event_order)
     except ValueError as e:
         return jsonify({"error": str(e), "code": 400}), 400
 
@@ -170,20 +176,20 @@ def events_list():
 
 @blueprint.get("/events/<int:event_id>")
 def event_get(event_id: int):
-    db = get_db()
-    row = db.get_event(event_id)
+    db, rid = sharing.for_request(event_id)
+    row = db.get_event(rid)
     if row is None:
         return jsonify({"error": "Event not found", "code": 404}), 404
     from assistant.notify import annotate
-    return jsonify(annotate([row])[0])
+    return jsonify(sharing.present(annotate([row])[0]))
 
 
 @blueprint.get("/events/<int:event_id>.ics")
 def event_ics(event_id: int):
     """Share/export one event as an .ics file (import's symmetric half)."""
     from assistant.ics_export import event_to_ics, filename_for
-    db = get_db()
-    row = db.get_event(event_id)
+    db, rid = sharing.for_request(event_id)
+    row = db.get_event(rid)
     if row is None:
         return jsonify({"error": "Event not found", "code": 404}), 404
     resp = current_app.response_class(event_to_ics(row), mimetype="text/calendar")
@@ -195,21 +201,21 @@ def event_ics(event_id: int):
 @blueprint.get("/events/<int:event_id>/todo")
 def event_linked_todo(event_id: int):
     """The to-do that is this event, or `{"todo": null}`."""
-    db = get_db()
-    if db.get_event(event_id) is None:
+    db, rid = sharing.for_request(event_id)
+    if db.get_event(rid) is None:
         return jsonify({"error": "Event not found", "code": 404}), 404
-    return jsonify({"todo": db.linked_todo(event_id)})
+    return jsonify({"todo": sharing.present(db.linked_todo(rid))})
 
 
 @blueprint.post("/events/<int:event_id>/todo")
 def event_add_todo(event_id: int):
     """Also put this event on the to-do list, linked. Returns the existing
     linked to-do if it already has one."""
-    db = get_db()
-    todo_id = db.create_linked_todo(event_id)
+    db, rid = sharing.for_request(event_id, edit=True)
+    todo_id = db.create_linked_todo(rid)
     if todo_id is None:
         return jsonify({"error": "Event not found", "code": 404}), 404
-    return jsonify({"todo": db.get_todo(todo_id)}), 201
+    return jsonify({"todo": sharing.present(db.get_todo(todo_id))}), 201
 
 
 @blueprint.get("/search")
@@ -219,23 +225,28 @@ def search():
     if len(q) < 2:
         return jsonify({"error": "q must be at least 2 characters",
                         "code": 400}), 400
-    db = get_db()
-    return jsonify({"events": db.search_events(q),
-                    "todos": db.search_todos(q)})
+    return jsonify({"events": sharing.gather(lambda db: db.search_events(q),
+                                             sort_key=sharing.event_order),
+                    "todos": sharing.gather(lambda db: db.search_todos(q))})
 
 
 @blueprint.post("/events")
 def event_create():
-    """Create an event."""
-    payload, status = create_event_from_body(request.get_json(silent=True) or {})
+    """Create an event — in the viewer's calendar, or `owner_id`'s when they
+    may edit it (the editor's owner picker, DEVQA Q65)."""
+    body = request.get_json(silent=True) or {}
+    with sharing.creating_for(body.pop("owner_id", None)):
+        payload, status = create_event_from_body(body)
+        if isinstance(payload, dict) and "id" in payload:
+            payload["id"] = sharing.public_id(payload["id"])
     return jsonify(payload), status
 
 
 @blueprint.patch("/events/<int:event_id>")
 def event_update(event_id: int):
     data = request.get_json(silent=True) or {}
-    db = get_db()
-    event = db.get_event(event_id)
+    db, rid = sharing.for_request(event_id, edit=True)
+    event = db.get_event(rid)
     if event is None:
         return jsonify({"error": "Event not found", "code": 404}), 404
     if db.is_event_locked(event):
@@ -249,23 +260,23 @@ def event_update(event_id: int):
     base = str(data.pop("base_updated_at", "") or "")
     if base and str(event.get("updated_at") or "") not in ("", base):
         return jsonify({"error": "Event changed on the Mac since you edited it",
-                        "code": 409, "current": event}), 409
+                        "code": 409, "current": sharing.present(event)}), 409
 
-    db.update_event(event_id, **data)
+    db.update_event(rid, **data)
     if data.get("recurrence"):
-        db.promote_to_series(event_id)
+        db.promote_to_series(rid)
     return jsonify({"id": event_id})
 
 
 @blueprint.delete("/events/<int:event_id>")
 def event_delete(event_id: int):
-    db = get_db()
-    event = db.get_event(event_id)
+    db, rid = sharing.for_request(event_id, edit=True)
+    event = db.get_event(rid)
     if event is None:
         return jsonify({"error": "Event not found", "code": 404}), 404
     if db.is_event_locked(event):
         return jsonify({"error": "Event is read-only (synced source)", "code": 403}), 403
-    db.delete_event(event_id)
+    db.delete_event(rid)
     return jsonify({"deleted": event_id})
 
 
@@ -301,16 +312,17 @@ def _series_id_of(event: dict) -> "int | None":
 @blueprint.get("/events/<int:event_id>/series")
 def series_get(event_id: int):
     """Every instance of the series this event belongs to, plus its rule."""
-    db = get_db()
-    event = db.get_event(event_id)
+    db, rid = sharing.for_request(event_id)
+    event = db.get_event(rid)
     if event is None:
         return jsonify({"error": "Event not found", "code": 404}), 404
     series_id = _series_id_of(event)
     if series_id is None:
-        return jsonify({"series_id": None, "recurrence": "", "instances": [event]})
-    instances = db.get_series_events(series_id)
+        return jsonify({"series_id": None, "recurrence": "",
+                        "instances": [sharing.present(event)]})
+    instances = sharing.present(db.get_series_events(series_id))
     return jsonify({
-        "series_id": series_id,
+        "series_id": sharing.public_id(series_id),
         "recurrence": event.get("recurrence") or "",
         "recurrence_end": event.get("recurrence_end") or "",
         "recur_days": event.get("recur_days") or "",
@@ -335,8 +347,8 @@ def series_update(event_id: int):
     repeat weekly" is the same request as "change the cadence".
     """
     data = request.get_json(silent=True) or {}
-    db = get_db()
-    event = db.get_event(event_id)
+    db, rid = sharing.for_request(event_id, edit=True)
+    event = db.get_event(rid)
     if event is None:
         return jsonify({"error": "Event not found", "code": 404}), 404
     if db.is_event_locked(event):
@@ -345,7 +357,7 @@ def series_update(event_id: int):
     base = str(data.pop("base_updated_at", "") or "")
     if base and str(event.get("updated_at") or "") not in ("", base):
         return jsonify({"error": "Event changed on the Mac since you edited it",
-                        "code": 409, "current": event}), 409
+                        "code": 409, "current": sharing.present(event)}), 409
 
     cadence = str(data.get("recurrence", event.get("recurrence") or "")).strip()
     if cadence and cadence not in ("daily", "weekly", "monthly", "yearly"):
@@ -359,17 +371,17 @@ def series_update(event_id: int):
         if not cadence:
             return jsonify({"error": "This event does not repeat; send a "
                                      "`recurrence` to make it", "code": 400}), 400
-        db.update_event(event_id, **data)
-        db.promote_to_series(event_id)
-        series_id = _series_id_of(db.get_event(event_id) or event) or event_id
+        db.update_event(rid, **data)
+        db.promote_to_series(rid)
+        series_id = _series_id_of(db.get_event(rid) or event) or rid
     else:
         try:
-            db.update_series(series_id, event_id, **data)
+            db.update_series(series_id, rid, **data)
         except ValueError as e:       # an end date before this event, or not a date
             return jsonify({"error": str(e), "code": 400}), 400
 
-    instances = db.get_series_events(series_id)
-    return jsonify({"series_id": series_id, "count": len(instances),
+    instances = sharing.present(db.get_series_events(series_id))
+    return jsonify({"series_id": sharing.public_id(series_id), "count": len(instances),
                     "instances": instances})
 
 
@@ -380,21 +392,21 @@ def series_delete(event_id: int):
     `scope=future` is the one people actually want when a weekly thing stops:
     the instances already gone by are a record of what happened.
     """
-    db = get_db()
-    event = db.get_event(event_id)
+    db, rid = sharing.for_request(event_id, edit=True)
+    event = db.get_event(rid)
     if event is None:
         return jsonify({"error": "Event not found", "code": 404}), 404
     if db.is_event_locked(event):
         return jsonify({"error": "Event is read-only (synced source)", "code": 403}), 403
     series_id = _series_id_of(event)
     if series_id is None:
-        db.delete_event(event_id)
+        db.delete_event(rid)
         return jsonify({"deleted": 1, "series_id": None})
     if request.args.get("scope") == "future":
         removed = db.delete_series_from(series_id, str(event.get("date") or ""))
     else:
         removed = db.delete_series(series_id)
-    return jsonify({"deleted": removed, "series_id": series_id})
+    return jsonify({"deleted": removed, "series_id": sharing.public_id(series_id)})
 
 
 @blueprint.get("/sync/bootstrap")
@@ -436,9 +448,9 @@ def sync_bootstrap():
         y, m = divmod((first.year * 12 + first.month - 1) + delta, 12)
         months.append((y, m + 1))
 
-    events: list = []
-    for y, m in months:
-        events.extend(db.get_events_for_month(y, m))
+    events = sharing.gather(
+        lambda d: [e for y, m in months for e in d.get_events_for_month(y, m)],
+        sort_key=sharing.event_order)
 
     start = datetime.date(months[0][0], months[0][1], 1)
     last_y, last_m = months[-1]
@@ -450,7 +462,7 @@ def sync_bootstrap():
         "server_time": datetime.datetime.now().astimezone().isoformat(),
         "window": {"start": start.isoformat(), "end": end.isoformat()},
         "events": annotate(events),
-        "todos": db.get_todos(list_name=None, include_completed=False),
+        "todos": sharing.gather(lambda d: d.get_todos(list_name=None, include_completed=False)),
         "tags": db.get_tags(),
         "tag_rules": tag_rules().get_json(),
         "categories": _cat.all_categories(),

@@ -103,7 +103,9 @@ def sync_in_background() -> bool:
     """`sync_now` on a worker thread. False when a run is already going."""
     if _run_lock.locked():
         return False
-    threading.Thread(target=sync_now, daemon=True, name="calendar-sync-now").start()
+    # the requester's calendar and sign-ins ride along into the worker
+    from assistant import users as _users
+    _users.thread(target=sync_now, daemon=True, name="calendar-sync-now").start()
     return True
 
 
@@ -138,8 +140,13 @@ def start_background() -> bool:
                 interval_min = max(1, int(cfg.calendar_sync.interval_minutes))
                 # No connected source means no network call at all — the
                 # default posture stays fully offline.
-                if cfg.calendar_sync.enabled and _has_sources():
-                    sync_now(config=cfg)
+                # Each user's own connected calendars, into their own
+                # calendar, with their own sign-ins (DEVQA Q65).
+                from assistant import users as _users
+                for uid in _users.each_user():
+                    with _users.bind(uid):
+                        if cfg.calendar_sync.enabled and _has_sources():
+                            sync_now(config=cfg)
             except Exception as e:  # noqa: BLE001 — the loop must outlive any one failure
                 logger.warning("📅 Calendar sync loop error: %s", e)
             time.sleep(interval_min * 60)

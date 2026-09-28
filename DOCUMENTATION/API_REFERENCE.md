@@ -212,7 +212,7 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | Method | Path | What it does |
 |---|---|---|
 | `GET` | `/events` |  |
-| `POST` | `/events` | Create an event. |
+| `POST` | `/events` | Create an event — in the viewer's calendar, or `owner_id`'s when they |
 | `DELETE` | `/events/<int:event_id>` |  |
 | `GET` | `/events/<int:event_id>` |  |
 | `PATCH` | `/events/<int:event_id>` |  |

@@ -847,7 +847,8 @@ class VocabStore:
                 return False
         return True
 
-    def correct(self, transcript: str, *, learn: bool | None = None) -> tuple[str, list[Correction]]:
+    def correct(self, transcript: str, *, learn: bool | None = None,
+                read_only: bool = False) -> tuple[str, list[Correction]]:
         """Apply alias + fuzzy + phonetic corrections. Returns (fixed, corrections).
 
         A vocab entry is matched against token windows AROUND its own word
@@ -957,6 +958,11 @@ class VocabStore:
                     for j in range(i, i + m):
                         replaced[j] = True
                     corrections.append(Correction(original_text, entry.word, reason, score))
+                    if read_only:
+                        # someone ELSE's shared list: correct with it, never
+                        # write to it — not even a hit count (DEVQA Q65)
+                        i += m
+                        continue
                     entry.hits += 1
                     # Remember the mishearing so the next one is an exact hit
                     # rather than another guess. A phonetic or respaced match is
@@ -1136,12 +1142,32 @@ def get_vocab() -> VocabStore:
         return st
 
 
+def _shared_vocab_stores() -> "list[VocabStore]":
+    """The vocabularies shared WITH the bound user, in the order they apply."""
+    from assistant import users
+    uid = users.current()
+    if uid is None:
+        return []
+    from assistant.users import registry
+    out = []
+    for owner in registry.vocab_sources(uid)[1:]:
+        with users.bind(owner):
+            out.append(get_vocab())
+    return out
+
+
 def apply_vocab(transcript: str, source: str = "mac") -> tuple[str, list[Correction]]:
     """Convenience: correct (if enabled) + record recent. Never raises."""
     try:
         store = get_vocab()
         if store.auto_correct:
             fixed, corrections = store.correct(transcript)
+            # …then any vocabulary SHARED with this speaker (the admin decides
+            # whether his is shared, and with whom — DEVQA Q65). Read-only:
+            # learn=False, so one person's speech never teaches another's list.
+            for other in _shared_vocab_stores():
+                fixed, more = other.correct(fixed, learn=False, read_only=True)
+                corrections = list(corrections) + list(more)
         else:
             fixed, corrections = transcript, []
         store.record_recent(transcript, fixed, corrections, source)

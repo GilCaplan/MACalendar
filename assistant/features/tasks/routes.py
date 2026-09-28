@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import logging
 
+from assistant.users import sharing
 from flask import Blueprint, jsonify, request
 
 from assistant.api.server import create_todo_from_body
@@ -53,7 +54,6 @@ def get_db():
 
 @blueprint.get("/todos")
 def todos_list():
-    db = get_db()
     list_name = request.args.get("list")  # today | general | all | None
     include_completed = request.args.get("include_completed", "false").lower() == "true"
     tag = request.args.get("tag") or None  # tag name | "__untagged__" | None
@@ -61,7 +61,10 @@ def todos_list():
     if list_name == "all":
         list_name = None  # get_todos(None) returns everything
 
-    rows = db.get_todos(list_name=list_name, include_completed=include_completed, tag=tag)
+    # every to-do list this viewer can see, each row saying whose it is
+    # (DEVQA Q65: shared to-dos sit mixed in; the client filters or groups)
+    rows = sharing.gather(lambda db: db.get_todos(
+        list_name=list_name, include_completed=include_completed, tag=tag))
     return jsonify(rows)
 
 
@@ -76,15 +79,18 @@ def todo_create():
     logger.info("POST /todos from %s ua=%r token=%r",
                 request.remote_addr, request.headers.get("User-Agent", ""),
                 data.get("client_token"))
-    payload, status = create_todo_from_body(data)
+    with sharing.creating_for(data.pop("owner_id", None)):
+        payload, status = create_todo_from_body(data)
+        if isinstance(payload, dict) and "id" in payload:
+            payload["id"] = sharing.public_id(payload["id"])
     return jsonify(payload), status
 
 
 @blueprint.patch("/todos/<int:todo_id>")
 def todo_update(todo_id: int):
     data = request.get_json(silent=True) or {}
-    db = get_db()
-    todo = db.get_todo(todo_id)
+    db, rid = sharing.for_request(todo_id, edit=True)
+    todo = db.get_todo(rid)
     if todo is None:
         return jsonify({"error": "Todo not found", "code": 404}), 404
 
@@ -94,34 +100,34 @@ def todo_update(todo_id: int):
     base = str(data.pop("base_updated_at", "") or "")
     if base and str(todo.get("updated_at") or "") not in ("", base):
         return jsonify({"error": "Task changed on the Mac since you edited it",
-                        "code": 409, "current": todo}), 409
+                        "code": 409, "current": sharing.present(todo)}), 409
 
-    db.update_todo(todo_id, **data)
+    db.update_todo(rid, **data)
     return jsonify({"id": todo_id})
 
 
 @blueprint.patch("/todos/<int:todo_id>/toggle")
 def todo_toggle(todo_id: int):
-    db = get_db()
-    if db.get_todo(todo_id) is None:
+    db, rid = sharing.for_request(todo_id, edit=True)
+    if db.get_todo(rid) is None:
         return jsonify({"error": "Todo not found", "code": 404}), 404
-    new_state = db.toggle_todo_complete(todo_id)
+    new_state = db.toggle_todo_complete(rid)
     out = {"id": todo_id, "completed": int(new_state)}
     if not new_state:
         # A repeating to-do (DEVQA Q61) rolls to its series' next date instead
         # of completing; the client is told where, so it need not refetch.
-        row = db.get_todo(todo_id) or {}
+        row = db.get_todo(rid) or {}
         out.update(due_date=row.get("due_date", ""), list_name=row.get("list", ""),
-                   linked_event_id=row.get("linked_event_id"))
+                   linked_event_id=sharing.public_id(row.get("linked_event_id")))
     return jsonify(out)
 
 
 @blueprint.delete("/todos/<int:todo_id>")
 def todo_delete(todo_id: int):
-    db = get_db()
-    if db.get_todo(todo_id) is None:
+    db, rid = sharing.for_request(todo_id, edit=True)
+    if db.get_todo(rid) is None:
         return jsonify({"error": "Todo not found", "code": 404}), 404
-    db.delete_todo(todo_id)
+    db.delete_todo(rid)
     return jsonify({"deleted": todo_id})
 
 
@@ -134,19 +140,19 @@ def todo_link(todo_id: int):
         event_id = int(data.get("event_id"))
     except (TypeError, ValueError):
         return jsonify({"error": "event_id is required", "code": 400}), 400
-    db = get_db()
-    if not db.link_todo(todo_id, event_id):
+    db, rid = sharing.for_request(todo_id, edit=True)
+    if not db.link_todo(rid, sharing.same_owner_id(event_id)):
         return jsonify({"error": "Todo or event not found", "code": 404}), 404
-    return jsonify(db.get_todo(todo_id))
+    return jsonify(sharing.present(db.get_todo(rid)))
 
 
 @blueprint.delete("/todos/<int:todo_id>/link")
 def todo_unlink(todo_id: int):
-    db = get_db()
-    if db.get_todo(todo_id) is None:
+    db, rid = sharing.for_request(todo_id, edit=True)
+    if db.get_todo(rid) is None:
         return jsonify({"error": "Todo not found", "code": 404}), 404
-    db.unlink_todo(todo_id)
-    return jsonify(db.get_todo(todo_id))
+    db.unlink_todo(rid)
+    return jsonify(sharing.present(db.get_todo(rid)))
 
 
 @blueprint.post("/todos/<int:todo_id>/event")
@@ -155,14 +161,15 @@ def todo_to_event(todo_id: int):
     due date, else today) at `start_time` (else 09:00). Returns the existing
     linked event if it already has one."""
     data = request.get_json(silent=True) or {}
-    db = get_db()
+    db, rid = sharing.for_request(todo_id, edit=True)
     event_id = db.create_linked_event(
-        todo_id, date=str(data.get("date") or ""),
+        rid, date=str(data.get("date") or ""),
         start_time=str(data.get("start_time") or "09:00"),
         end_time=str(data.get("end_time") or ""))
     if event_id is None:
         return jsonify({"error": "Todo not found", "code": 404}), 404
-    return jsonify({"event": db.get_event(event_id), "todo": db.get_todo(todo_id)}), 201
+    return jsonify({"event": sharing.present(db.get_event(event_id)),
+                    "todo": sharing.present(db.get_todo(rid))}), 201
 
 
 @blueprint.post("/todos/sync")

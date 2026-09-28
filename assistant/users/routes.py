@@ -89,6 +89,8 @@ def bind_request_user():
 def unbind_request_user(_exc=None):
     """teardown_request. Idempotent: a STREAMED response (/voice/stream) tears
     the request down twice, and a ContextVar token resets only once."""
+    from assistant.users import sharing
+    sharing.release_request()           # an owner bound by a by-id route, first
     tok = getattr(g, "users_ctx_token", None)
     if tok is None:
         return
@@ -361,6 +363,9 @@ def admin_policy():
 def register(app) -> None:
     """The one line `server.py` calls: routes, plus the per-request binding —
     installed AFTER the API-key check, so a wrong key still fails first."""
+    from assistant.users import sharing
     app.before_request(bind_request_user)
     app.teardown_request(unbind_request_user)
+    app.register_error_handler(sharing.NotFound, lambda e: _err("not found", 404))
+    app.register_error_handler(sharing.Forbidden, lambda e: _err(str(e), 403))
     app.register_blueprint(bp)

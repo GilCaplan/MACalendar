@@ -87,6 +87,12 @@ def change_token() -> str:
     this one.
     """
     import os as _os
+    # With users: every calendar this viewer can see, plus the registry — a
+    # new share, or a shared calendar changing, moves the token (DEVQA Q65).
+    from assistant.users import sharing as _sharing
+    parts = _sharing.change_token_parts()
+    if parts:
+        return "-".join(parts)
     path = get_db().path
     try:
         st = _os.stat(path)
