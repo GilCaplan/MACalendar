@@ -311,6 +311,15 @@ struct ContentView: View {
         .sheet(isPresented: $showVocabOnboarding) {
             VocabOnboardingView()
         }
+        #if DEBUG
+        // Simulator screenshots of the queue (`MACALENDAR_UITEST_SHOW`), since
+        // UI automation does not run reliably on this Mac. Debug builds only.
+        .onAppear {
+            if ProcessInfo.processInfo.environment["MACALENDAR_UITEST_SHOW"] != nil {
+                showVoiceQueue = true
+            }
+        }
+        #endif
         .sheet(isPresented: $showVoiceQueue) {
             VoiceQueueView()
         }
@@ -682,6 +691,15 @@ struct VoiceQueueView: View {
                 ToolbarItem(placement: .navigationBarTrailing) { Button("Done") { dismiss() } }
             }
             .task { await api.syncPendingVoice() }
+            #if DEBUG
+            .onAppear {
+                switch ProcessInfo.processInfo.environment["MACALENDAR_UITEST_SHOW"] {
+                case "finished": detail = store.pendingVoice.first?.id
+                case "running":  detail = store.pendingVoice.last?.id
+                default: break
+                }
+            }
+            #endif
             .sheet(item: Binding(get: { detail.map(IdentifiedUUID.init) },
                                  set: { detail = $0?.id })) { item in
                 QueuedCommandDetail(id: item.id)

@@ -1,0 +1,92 @@
+{
+ "actions": [
+  "create_event"
+ ],
+ "boundaries": [
+  {
+   "at_ms": 10,
+   "detail": "one repaired command string",
+   "label": "X1",
+   "value": "walk the dog tomorrow at 9"
+  },
+  {
+   "at_ms": 2228,
+   "detail": "the rules read the whole command at once \u2014 no X2 or X3",
+   "label": "X4",
+   "parts": [
+    {
+     "action": "create_event",
+     "kind": "event",
+     "line": "create event \u00b7 title=walk the dog \u00b7 date=2026-09-29 (Tuesday 29 September) \u00b7 start_time=09:00 (9am)",
+     "text": "walk the dog",
+     "title": ""
+    }
+   ],
+   "value": "create event \u00b7 title=walk the dog \u00b7 date=2026-09-29 (Tuesday 29 September) \u00b7 start_time=09:00 (9am)"
+  }
+ ],
+ "brain": "engine-v3",
+ "corrections": [],
+ "hint": null,
+ "memory_id": 1,
+ "message": "Created event 'walk the dog' on Tuesday, Sep 29, 2026 from 9 AM to 10 AM.",
+ "original_transcript": "walk the dog tomorrow at 9",
+ "parse": "fast",
+ "refresh": "events",
+ "trace": [
+  {
+   "at_ms": 9,
+   "data": {
+    "transcript": "walk the dog tomorrow at 9"
+   },
+   "detail": "No corrections needed",
+   "ms": 9,
+   "ok": true,
+   "stage": "vocab",
+   "title": "Vocabulary"
+  },
+  {
+   "at_ms": 2217,
+   "data": {
+    "actions": [
+     "create_event"
+    ],
+    "confidence": 1.0
+   },
+   "detail": "Confident (1.00) \u2014 instant: create_event",
+   "ms": 2207,
+   "ok": true,
+   "stage": "rule",
+   "title": "Rule parser"
+  },
+  {
+   "at_ms": 2243,
+   "detail": "Created event 'walk the dog' on Tuesday, Sep 29, 2026 from 9 AM to 10 AM.",
+   "ms": 26,
+   "ok": true,
+   "stage": "execute",
+   "title": "Create Event"
+  },
+  {
+   "at_ms": 2243,
+   "detail": "item_1: Dog walking",
+   "ms": 0,
+   "ok": true,
+   "stage": "validate",
+   "title": "Labels"
+  },
+  {
+   "at_ms": 2243,
+   "data": {
+    "path": "fast"
+   },
+   "detail": "rules answered in 2.2 s \u00b7 reviewing in the background",
+   "ms": 0,
+   "ok": true,
+   "stage": "done",
+   "title": "Fast answer"
+  }
+ ],
+ "transcript": "walk the dog tomorrow at 9",
+ "uncertain_words": []
+}
