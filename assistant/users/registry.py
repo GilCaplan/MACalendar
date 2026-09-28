@@ -312,3 +312,35 @@ def vocab_sources(user_id: str) -> list[str]:
     then any shared with them."""
     shared = [o for o, gs in load().get("vocab_shares", {}).items() if user_id in gs]
     return [user_id] + sorted(shared)
+
+
+def remove_user(user_id: str) -> str:
+    """Take a user out of the registry — shares, view toggles and vocabulary
+    shares with them — and move their folder to `legacy/<uid>-<ts>`. NEVER a
+    delete: a removed person's calendar is still on disk if it was a mistake.
+    Returns where the folder went ("" when there was none)."""
+    import shutil
+
+    def go(data):
+        u = data["users"].get(user_id)
+        if u is None:
+            raise ValueError(f"no such user {user_id!r}")
+        if u.get("role") == "admin":
+            raise ValueError("the admin cannot be removed")
+        del data["users"][user_id]
+        data["shares"] = [s for s in data["shares"]
+                          if user_id not in (s["owner"], s["grantee"])]
+        for view in data.get("admin_view", {}).values():
+            view.pop(user_id, None)
+        vs = data.get("vocab_shares", {})
+        vs.pop(user_id, None)
+        for owner in vs:
+            vs[owner] = [g for g in vs[owner] if g != user_id]
+    _mutate(go)
+    src = paths.user_dir(user_id)
+    if not os.path.isdir(src):
+        return ""
+    dest = os.path.join(paths.root(), "legacy", f"{user_id}-{time.strftime('%Y%m%d-%H%M%S')}")
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    shutil.move(src, dest)
+    return dest

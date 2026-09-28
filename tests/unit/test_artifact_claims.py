@@ -423,12 +423,24 @@ def test_the_multi_item_title_cap_is_current(all_prose):
             f"match the {cap} in rule_parser.py")
 
 
+def _real_store_files(name: str) -> "list[pathlib.Path]":
+    """Every real copy of a personal store: the pre-users top level AND each
+    user's folder (DEVQA Q65). After the users migration the files moved into
+    `users/<uid>/`, and these checks — which read the REAL stores on purpose —
+    silently skipped as if on CI: the published-page leak check was off
+    without anyone noticing (2026-09-28). Read-only, like before."""
+    root = pathlib.Path(os.path.expanduser("~/.assistant_tools"))
+    found = [root / name] + sorted((root / "users").glob(f"*/{name}"))
+    return [f for f in found if f.exists()]
+
+
 def test_the_table_and_column_counts_are_current(all_prose):
     """Quoted as words on the page, so they cannot be caught by a number scan."""
     import sqlite3
-    db = pathlib.Path(os.path.expanduser("~/.assistant_tools/calendar.db"))
-    if not db.exists():
+    dbs = _real_store_files("calendar.db")
+    if not dbs:
         pytest.skip("no calendar database on this machine (CI)")
+    db = dbs[0]
     c = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     tables = len(list(c.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")))
@@ -514,21 +526,23 @@ def test_no_personal_word_list_entry_reaches_a_published_page(path):
     # to them, and checking a published page for leaks is what it is for.
     import json
     import os
-    real = pathlib.Path(os.path.expanduser("~/.assistant_tools/vocab.json"))
-    if not real.exists():
+    # EVERY user's vocabulary: each one's words are that person's names.
+    reals = _real_store_files("vocab.json")
+    if not reals:
         pytest.skip("no personal vocabulary on this machine (CI)")
-    try:
-        raw = json.loads(real.read_text())
-    except (json.JSONDecodeError, OSError):
-        pytest.skip("the vocabulary could not be read")
-    # The file is a settings object with the word list under "entries";
-    # reading it as the list itself picked up its own keys as words.
-    found = raw.get("entries") if isinstance(raw, dict) else raw
     words = set()
-    for entry in (found or []):
-        word = entry.get("word") if isinstance(entry, dict) else entry
-        if isinstance(word, str) and word.strip():
-            words.add(word.strip().lower())
+    for real in reals:
+        try:
+            raw = json.loads(real.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        # The file is a settings object with the word list under "entries";
+        # reading it as the list itself picked up its own keys as words.
+        found = raw.get("entries") if isinstance(raw, dict) else raw
+        for entry in (found or []):
+            word = entry.get("word") if isinstance(entry, dict) else entry
+            if isinstance(word, str) and word.strip():
+                words.add(word.strip().lower())
     if not words:
         pytest.skip("the vocabulary is empty in this environment")
     # A word is a leak unless it has been declared general. Presuming the

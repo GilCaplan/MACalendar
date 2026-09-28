@@ -85,7 +85,8 @@ def _hwu_rows() -> list[str]:
 def _memory_texts() -> list[str]:
     """The author's real commands, read-only. Returned ONLY to the counter
     below, which reduces them to lemma counts; nothing else sees them."""
-    path = os.path.expanduser("~/.assistant_tools/nlu_memory.db")
+    from assistant.users.paths import personal_store
+    path = personal_store("nlu_memory.db")        # the admin's, since users
     if not os.path.exists(path):
         return []
     con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)

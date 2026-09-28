@@ -63,7 +63,8 @@ os.environ.setdefault("OMP_NUM_THREADS", "4")
 _S = pathlib.Path(scratch_env(
     "label_rebuild_", keep=("LOCATION", "HEARTBEATS", "HUD_STATE")))
 os.environ["MACALENDAR_CHECKPOINTS"] = str(_S / "checkpoints")
-_REAL_VOCAB = pathlib.Path(os.path.expanduser("~/.assistant_tools/vocab.json"))
+from assistant.users.paths import personal_store as _personal_store   # the admin's, since users
+_REAL_VOCAB = pathlib.Path(_personal_store("vocab.json"))
 if _REAL_VOCAB.exists():
     shutil.copyfile(_REAL_VOCAB, _S / "vocab.json")      # a copy; the original is only read
 
@@ -77,8 +78,8 @@ import time              # noqa: E402
 import numpy as np       # noqa: E402
 
 STAGE = pathlib.Path(__file__).resolve().parents[1]
-REAL_DB = pathlib.Path(os.path.expanduser("~/.assistant_tools/calendar.db"))
-REAL_FEEDBACK = pathlib.Path(os.path.expanduser("~/.assistant_tools/label_feedback.jsonl"))
+REAL_DB = pathlib.Path(_personal_store("calendar.db"))
+REAL_FEEDBACK = pathlib.Path(_personal_store("label_feedback.jsonl"))
 EMBED_MODEL = "nomic-embed-text"
 EMBED_CACHE = pathlib.Path(tempfile.gettempdir()) / "macalendar_label_embed_cache.jsonl"
 DEFAULT_EVENT = "Personal"

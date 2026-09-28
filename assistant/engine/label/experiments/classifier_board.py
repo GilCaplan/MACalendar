@@ -55,7 +55,8 @@ _S = pathlib.Path(scratch_env(
 
 STAGE = pathlib.Path(__file__).resolve().parents[1]
 DATA = STAGE.parent / "fastrule" / "datasets" / "fastrule_7200.jsonl"
-REAL_DB = pathlib.Path(os.path.expanduser("~/.assistant_tools/calendar.db"))
+from assistant.users.paths import personal_store as _personal_store   # the admin's, since users
+REAL_DB = pathlib.Path(_personal_store("calendar.db"))
 
 #: The two-tier hierarchy, for the flat-vs-tiered comparison. Grouped by what
 #: the categories SHARE, not alphabetically: an obligation, a body thing, a

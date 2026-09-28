@@ -366,3 +366,25 @@ def test_the_real_users_tree_is_refused_under_pytest():
     real = os.path.join(os.path.dirname(DB_PATH), "users", "u_x", "calendar.db")
     with pytest.raises(RuntimeError, match="Refusing to open the real"):
         CalendarDB(path=real)
+
+
+def test_tools_reading_real_data_find_the_admins_copy_after_the_migration(tmp_path):
+    """The real-usage board, the audit's history replay and the label
+    experiments read the user's own stores on purpose; after the migration
+    those live under users/<admin>/ and the old path is empty."""
+    import json
+    root = tmp_path / "real"
+    root.mkdir()
+    assert paths.personal_store("calendar.db", str(root)) == str(root / "calendar.db")
+    (root / "users.json").write_text(json.dumps(
+        {"users": {"u_1": {"role": "user"}, "u_ad": {"role": "admin"}}}))
+    assert paths.personal_store("calendar.db", str(root)) == str(root / "users" / "u_ad" / "calendar.db")
+
+
+def test_the_tools_that_read_real_data_still_import():
+    import py_compile
+    for f in ("scripts/real_usage_board.py", "scripts/audit_assistant.py",
+              "assistant/engine/segmentation/experiments/missing_verbs.py",
+              "assistant/engine/label/experiments/rebuild_board.py",
+              "assistant/engine/label/experiments/classifier_board.py"):
+        py_compile.compile(str(REPO / f), doraise=True)

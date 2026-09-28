@@ -60,7 +60,8 @@ if _WANT_MEMORY:
     # instead of the live one — e.g. a slice with one dominant day held out,
     # to check that a k>0 effect is the user's general style and not one
     # day's particular vocabulary. Defaults to the real file, as before.
-    _real_memory = os.path.expanduser("~/.assistant_tools/nlu_memory.db")
+    from assistant.users.paths import personal_store as _personal_store
+    _real_memory = _personal_store("nlu_memory.db")   # the admin's, since users
     for _i, _arg in enumerate(sys.argv):
         if _arg == "--memory-source" and _i + 1 < len(sys.argv):
             _real_memory = os.path.expanduser(sys.argv[_i + 1])

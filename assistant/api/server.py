@@ -395,6 +395,12 @@ def create_app() -> Flask:
                 return jsonify({"error": "Unauthorized", "code": 401}), 401
         return None
 
+    # Users (DEVQA Q65): /auth, /users, /shares, /admin — and the per-request
+    # binding of the session's user, installed AFTER the API-key check above so
+    # a wrong key still fails first. HTTP only; lives in assistant/users/.
+    from assistant.users import routes as _users_routes
+    _users_routes.register(app)
+
     # ------------------------------------------------------------------
     # Health
     # ------------------------------------------------------------------

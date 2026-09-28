@@ -49,3 +49,27 @@ def resolve(path: P, user_id: "str | None" = None) -> P:
         return path
     target = os.path.join(user_dir(user_id), os.path.basename(str(path).rstrip("/")))
     return pathlib.Path(target) if isinstance(path, pathlib.Path) else target
+
+
+REAL_ROOT = os.path.expanduser("~/.assistant_tools")
+
+
+def personal_store(name: str, root: str = REAL_ROOT) -> str:
+    """Where the ADMIN's real copy of a store is, for a script or board that
+    reads the user's own data on purpose (the real-usage board, the audit's
+    history replay, the label experiments). Before the users migration that is
+    `<root>/<name>`; after it, `<root>/users/<admin>/<name>`.
+
+    Reads `users.json` directly and read-only — not through `registry`, whose
+    test guard would refuse the real file — because these callers want the
+    REAL tree by definition (they already refuse to write to it)."""
+    import json
+    reg = os.path.join(root, "users.json")
+    try:
+        with open(reg, encoding="utf-8") as f:
+            data = json.load(f)
+        admin = next(uid for uid, u in data.get("users", {}).items()
+                     if u.get("role") == "admin")
+        return os.path.join(root, "users", admin, name)
+    except (OSError, ValueError, StopIteration):
+        return os.path.join(root, name)

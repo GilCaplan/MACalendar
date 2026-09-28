@@ -155,6 +155,42 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `PUT` | `/jude/chats/<chat_id>/topic` | Confirm a topic pivot. |
 | `GET` | `/jude/status` | Never an error — a client draws whatever this says. |
 
+## /auth
+
+| Method | Path | What it does |
+|---|---|---|
+| `POST` | `/auth/login` |  |
+| `POST` | `/auth/logout` |  |
+| `GET` | `/auth/me` |  |
+| `POST` | `/auth/password` |  |
+
+## /users
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/users` | Everyone's name and colour — a user needs the list to pick who to share |
+| `PUT` | `/users/me/settings` |  |
+
+## /shares
+
+| Method | Path | What it does |
+|---|---|---|
+| `DELETE` | `/shares/<grantee>` |  |
+| `PUT` | `/shares/<grantee>` |  |
+
+## /admin
+
+| Method | Path | What it does |
+|---|---|---|
+| `PUT` | `/admin/policy` |  |
+| `GET` | `/admin/users` |  |
+| `POST` | `/admin/users` |  |
+| `DELETE` | `/admin/users/<uid>` |  |
+| `PATCH` | `/admin/users/<uid>` |  |
+| `POST` | `/admin/users/<uid>/password` |  |
+| `PUT` | `/admin/view/<uid>` |  |
+| `PUT` | `/admin/vocab_share/<uid>` |  |
+
 ## /categories
 
 | Method | Path | What it does |

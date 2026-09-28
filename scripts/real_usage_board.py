@@ -63,6 +63,12 @@ from assistant.common.scratch_env import scratch_env
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 REAL_STORES = pathlib.Path.home() / ".assistant_tools"
+
+
+def _personal(name: str) -> str:
+    """The admin's real copy — under users/<admin>/ since the users migration."""
+    from assistant.users.paths import personal_store
+    return personal_store(name, str(REAL_STORES))
 OUT_DIR = ROOT / "DOCUMENTATION" / "experiments" / "real_usage"
 TAXONOMY = OUT_DIR / "taxonomy.jsonl"
 REPLAY_OUT = OUT_DIR / "last_replay.json"
@@ -101,7 +107,7 @@ def _store_fingerprint() -> dict:
              "location.json", "trace_bus.jsonl", "label_feedback.jsonl")
     out = {}
     for name in names:
-        p = REAL_STORES / name
+        p = pathlib.Path(_personal(name))
         if p.is_file():
             with contextlib.suppress(OSError):
                 out[name] = hashlib.md5(p.read_bytes()).hexdigest()
@@ -120,7 +126,7 @@ def _real_contents() -> dict:
     ordinary use shows up as rows that did not.
     """
     out = {"events": [], "todos": []}
-    db = REAL_STORES / "calendar.db"
+    db = pathlib.Path(_personal("calendar.db"))
     if not db.is_file():
         return out
     with contextlib.suppress(Exception):
@@ -141,7 +147,7 @@ def _real_contents() -> dict:
 def load_history() -> list:
     """Every real reviewed command, newest last. Opened `mode=ro` so this cannot
     write to the store that feeds the review flows even by accident."""
-    db = REAL_STORES / "nlu_memory.db"
+    db = pathlib.Path(_personal("nlu_memory.db"))
     if not db.is_file():
         raise SystemExit(f"no command history at {db}")
     con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
@@ -244,7 +250,7 @@ def replay(rows: list, scratch: pathlib.Path, resume: bool = False) -> list:
     # guard still catches a write.
     for var, name in (("MACALENDAR_VOCAB", "vocab.json"),
                       ("MACALENDAR_CATEGORIES", "categories.json")):
-        real, dst = REAL_STORES / name, stores / name
+        real, dst = pathlib.Path(_personal(name)), stores / name
         if real.is_file():
             shutil.copyfile(real, dst)
         os.environ[var] = str(dst)
