@@ -25,17 +25,50 @@ _install_log_colour()
 logger = logging.getLogger(__name__)
 
 
+#: Where the `tailscale` CLI lives when PATH does not say. The MACalendar
+#: Server app runs this through `do shell script`, whose PATH is the bare
+#: /usr/bin:/bin:… — so "Tailscale IP not found" was logged from the app while
+#: the same Mac, started from Terminal, found it (2026-09-28).
+_TAILSCALE_CANDIDATES = ("tailscale", "/opt/homebrew/bin/tailscale",
+                         "/usr/local/bin/tailscale",
+                         "/Applications/Tailscale.app/Contents/MacOS/Tailscale")
+
+
 def _tailscale_ip() -> str | None:
     """Return the Tailscale IPv4 address, or None if Tailscale isn't running."""
+    for exe in _TAILSCALE_CANDIDATES:
+        try:
+            result = subprocess.run([exe, "ip", "-4"],
+                                    capture_output=True, text=True, timeout=3)
+        except (FileNotFoundError, PermissionError, subprocess.TimeoutExpired):
+            continue
+        ip = result.stdout.strip().splitlines()[0] if result.stdout.strip() else ""
+        if ip and not result.returncode:
+            return ip
+    return None
+
+
+def _already_running(port: int) -> "str | None":
+    """'ours' if this API already answers on `port`, 'other' if something else
+    holds it, None if it is free.
+
+    Clicking the Server app while the server runs used to load a whole second
+    copy (models and all, several seconds) only for it to die on "Address
+    already in use". Only one may run on this Mac; now the second says so and
+    leaves (Gil, 2026-09-28: "should only open one instance on this device")."""
+    import json
+    import socket
+    import urllib.request
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(0.5)
+        if s.connect_ex(("127.0.0.1", port)) != 0:
+            return None
     try:
-        result = subprocess.run(
-            ["tailscale", "ip", "-4"],
-            capture_output=True, text=True, timeout=3
-        )
-        ip = result.stdout.strip()
-        return ip if ip and not result.returncode else None
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return None
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=3) as r:
+            body = json.loads(r.read().decode() or "{}")
+        return "ours" if isinstance(body, dict) and "status" in body and "db" in body else "other"
+    except Exception:
+        return "other"
 
 
 def main() -> None:
@@ -74,6 +107,20 @@ def main() -> None:
                 "Tailscale IP not found — is Tailscale installed and running? "
                 "(brew install tailscale)"
             )
+
+    # One server per Mac. Checked only in the FIRST process: the reloader's own
+    # child (WERKZEUG_RUN_MAIN) is the server restarting, and must not find its
+    # predecessor's port and quit.
+    if not os.environ.get("WERKZEUG_RUN_MAIN"):
+        running = _already_running(args.port)
+        if running == "ours":
+            logger.info("MACalendar API is already running on port %d — not starting a "
+                        "second one.", args.port)
+            raise SystemExit(0)
+        if running == "other":
+            logger.error("Port %d is held by another program; the MACalendar API cannot "
+                         "start there (use --port).", args.port)
+            raise SystemExit(1)
 
     reload = args.reload or args.debug
     if reload:
