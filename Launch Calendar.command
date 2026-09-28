@@ -14,6 +14,13 @@
 
 cd "$(dirname "$0")"
 
+# Launched from the MACalendar app (osacompile's `do shell script`), this runs
+# with the bare system PATH — /usr/bin:/bin:/usr/sbin:/sbin — where python3 is
+# Apple's 3.9 and ollama does not exist. The venv check below then called a
+# healthy venv "broken", found no 3.11, and exited: the app "auto quit"
+# (2026-09-28). Terminal's PATH already has Homebrew; the app's does not.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
 if [ -z "$MACALENDAR_DETACHED" ]; then
     export MACALENDAR_DETACHED=1
     MY_TTY="$(tty)"
@@ -29,9 +36,9 @@ fi
 # Activate virtual environment
 VENV_PYTHON=""
 if [ -f ".venv/bin/python" ]; then
-    # Validate the venv's Python interpreter actually exists (not a broken symlink)
-    INTERP=$(head -1 .venv/bin/python 2>/dev/null | LC_ALL=C sed 's/#\!//')
-    if python3 -c "import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)" 2>/dev/null && \
+    # Validate the VENV's interpreter (not whatever python3 is on PATH): it
+    # resolves (not a broken symlink), is 3.11+, and has the GUI's Qt.
+    if .venv/bin/python -c "import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)" 2>/dev/null && \
        .venv/bin/python -c "import PyQt6" 2>/dev/null; then
         source .venv/bin/activate
         VENV_PYTHON=".venv/bin/python"
