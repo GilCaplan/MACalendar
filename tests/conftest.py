@@ -293,6 +293,16 @@ def reset_context_memory():
     context_memory.reset()
 
 
+@pytest.fixture(autouse=True)
+def reset_voice_receipts():
+    """The run-once store is module-level: two tests posting the same fake
+    recording would otherwise get the first test's stored answer."""
+    from assistant.api import receipts
+    receipts._reset()
+    yield
+    receipts._reset()
+
+
 # ---------------------------------------------------------------------------
 # Registry isolation — MUST run before each test to prevent pollution
 # ---------------------------------------------------------------------------
