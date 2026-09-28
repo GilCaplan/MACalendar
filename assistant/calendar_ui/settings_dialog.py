@@ -293,14 +293,24 @@ def open_settings(self) -> None:
 
     # ── Tabs ──────────────────────────────────────────────────────
     tabs = section("Tabs")
-    coursework_tab_cb = QCheckBox("Show Coursework tab")
-    coursework_tab_cb.setChecked(self._config.ui.show_coursework)
-    workout_tab_cb = QCheckBox("Show Workout tab")
-    workout_tab_cb.setChecked(getattr(self._config.ui, "show_workout", True))
-    timer_tab_cb = QCheckBox("Show Timer tab")
-    timer_tab_cb.setChecked(getattr(self._config.ui, "show_timer", True))
-    for cb in (coursework_tab_cb, workout_tab_cb, timer_tab_cb):
-        tabs.addWidget(cb)
+    # One switch per tab that CAN be hidden, straight from the feature
+    # registry — the three hand-written boxes this replaced knew nothing of
+    # Account, and wrote the old `ui.show_*` keys, which stop being read once
+    # `features:` has an entry for the name.
+    from assistant.features import registry as _feature_registry
+    tab_boxes: dict = {}
+    for _f in _feature_registry.all_features():
+        if _f.pinned or not _f.has_mac_panel:
+            continue
+        _cb = QCheckBox(f"Show {_f.label} tab")
+        _cb.setObjectName(f"tab_cb_{_f.name}")
+        _cb.setChecked(_f.visible())
+        tabs.addWidget(_cb)
+        tab_boxes[_f.name] = _cb
+
+    def _tab_shown(name: str) -> bool:
+        cb = tab_boxes.get(name)
+        return cb.isChecked() if cb is not None else True
 
     # ── Hebrew calendar ───────────────────────────────────────────
     hebrew = section("Hebrew Calendar")
@@ -992,9 +1002,9 @@ def open_settings(self) -> None:
                        "font_coursework": coursework_spin.value(),
                        "compact_ui": compact_cb.isChecked(),
                        "accent_color": accent_state["hex"],
-                       "show_coursework": coursework_tab_cb.isChecked(),
-                       "show_workout": workout_tab_cb.isChecked(),
-                       "show_timer": timer_tab_cb.isChecked(),
+                       "show_coursework": _tab_shown("coursework"),
+                       "show_workout": _tab_shown("workout"),
+                       "show_timer": _tab_shown("timer"),
                        "show_thinking": thinking_cb.isChecked(),
                        "thinking_corner": thinking_corner_combo.currentData()},
                 "audio": {"review_before_send": review_cb.isChecked(),
@@ -1063,18 +1073,21 @@ def open_settings(self) -> None:
                 self._config.ui.font_coursework = coursework_spin.value()
                 self._config.ui.compact_ui = compact_cb.isChecked()
                 self._config.ui.accent_color = accent_state["hex"]
-                self._config.ui.show_coursework = coursework_tab_cb.isChecked()
-                self._config.ui.show_workout = workout_tab_cb.isChecked()
-                self._config.ui.show_timer = timer_tab_cb.isChecked()
+                self._config.ui.show_coursework = _tab_shown("coursework")
+                self._config.ui.show_workout = _tab_shown("workout")
+                self._config.ui.show_timer = _tab_shown("timer")
                 # The HUD is a separate process; it notices config.yaml
                 # changing and re-reads these itself.
                 self._config.ui.show_thinking = thinking_cb.isChecked()
                 self._config.ui.thinking_corner = thinking_corner_combo.currentData()
                 self._config.audio.review_before_send = review_cb.isChecked()
                 self._config.audio.review_seconds = review_spin.value()
-                for _mode in ("coursework", "workout", "timer"):
-                    _visible = getattr(self._config.ui, f"show_{_mode}")
-                    getattr(self, f"_view_btn_{_mode}").setVisible(_visible)
+                for _mode, _cb in tab_boxes.items():
+                    _visible = _cb.isChecked()
+                    _feature_registry.get(_mode).set_visible(_visible)
+                    _btn = getattr(self, f"_view_btn_{_mode}", None)
+                    if _btn is not None:
+                        _btn.setVisible(_visible)
                     if not _visible and self._view_mode == _mode:
                         self._set_view("month")
                 _styles.set_accent(accent_state["hex"])

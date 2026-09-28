@@ -1853,9 +1853,11 @@ at sign-in), disables, removes (the data moves to `legacy/`, never deleted),
 shares his vocabulary with chosen users, sets "require sign-in
 everywhere", chooses auto sign-out (Off — a sign-in lasts until signed out —
 or after N days unused), and signs a person out of every device. All of it
-lives in the **Account tab** (pinned, last): the admin's dashboard (people,
+lives in the **Account tab** (last; hideable in Settings › Tabs like any other — the toolbar chip and the phone's Settings › Account reach the same pages): the admin's dashboard (people,
 policy, signed-in devices, his own account); for anyone else a minimal page
-— password, sharing, display settings, sign out. Notifications are each person's own; shared items join only if
+— password, sharing, display settings, sign out. On the phone each person on
+the dashboard opens a page with every control visible (what the admin sees
+of them, what he shares with them, password, sign-out, disable). Notifications are each person's own; shared items join only if
 they asked; the admin's view toggles never add to his notifications.
 **Where:** `assistant/users/` (context, paths, registry, passwords, sessions,
 sharing, routes, local_session, migrate), `scripts/migrate_users.py`;

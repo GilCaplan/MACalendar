@@ -81,15 +81,24 @@ class AccountPanel(FeaturePanel):
         self._title(lay, "Admin dashboard",
                     f"{n} user{'s' if n != 1 else ''} · {live} signed-in device"
                     f"{'s' if live != 1 else ''}")
-        self._section(lay, "People & sign-in policy")
+        # Sharing first: it is the thing a person comes here to change, and it
+        # sat at the bottom under "My own account" where Gil could not find it.
+        self._section(lay, "My account · share my calendar and to-dos")
+        self.account = AccountDialog(self, embedded=True)
+        lay.addWidget(self.account)
+        self._section(lay, "People · what you see of each, your vocabulary, sign-in")
+        hint = QLabel("Tick a column to show that person's calendar in yours, or to give "
+                      "them your vocabulary. Select a row, then reset their password, "
+                      "sign them out everywhere, or disable them.")
+        hint.setObjectName("muted")
+        hint.setWordWrap(True)
+        lay.addWidget(hint)
         self.admin = AdminDialog(self, embedded=True)
         self.admin.setMinimumHeight(360)
         self.admin.changed.connect(lambda: self.reload())
         lay.addWidget(self.admin)
         self._section(lay, "Signed-in devices")
         self._devices(lay)
-        self._section(lay, "My own account")
-        lay.addWidget(AccountDialog(self, embedded=True))
         self._sign_out_row(lay)
 
     def _user_page(self, lay, me: dict) -> None:

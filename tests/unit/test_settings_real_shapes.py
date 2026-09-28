@@ -444,3 +444,44 @@ def test_a_config_missing_a_brand_new_field_still_saves(app, real_config, monkey
     assert not shown, (
         "saving with a config that lacks a newly-added field must not report an "
         f"error — it showed: {shown}")
+
+
+def test_settings_tabs_has_an_account_switch_that_hides_the_tab(
+        app, real_config, odd_categories, monkeypatch):
+    """Settings › Tabs is drawn from the feature registry (Gil, 2026-09-28:
+    "add account to tabs as an additional toggle on settings"), so Account is
+    there beside Timer, and unticking it + Save hides it through `features:`."""
+    cfg, cfg_file = real_config
+    real = config_store.set_values
+    monkeypatch.setattr(config_store, "set_values",
+                        lambda updates, path=str(cfg_file): real(updates, path))
+    monkeypatch.setattr(config_store, "CONFIG_PATH", str(cfg_file))
+    monkeypatch.setenv("MACALENDAR_CONFIG", str(cfg_file))
+    from assistant.features import registry as feats
+
+    window = _Window(cfg)
+    window._view_btn_account = _Btn()
+    failures: list = []
+    seen: dict = {}
+
+    def interact(dlg):
+        names = {cb.objectName() for cb in dlg.findChildren(QCheckBox)
+                 if cb.objectName().startswith("tab_cb_")}
+        seen["names"] = names
+        box = dlg.findChild(QCheckBox, "tab_cb_account")
+        seen["before"] = box.isChecked()
+        _click(box)
+        save = next(b for b in dlg.findChildren(QPushButton) if b.text() == "Save Config")
+        QTest.mouseClick(save, Qt.MouseButton.LeftButton)
+
+    _drive(interact, failures)
+    open_settings(window)
+    if failures:
+        raise failures[0]
+
+    assert {"tab_cb_account", "tab_cb_timer", "tab_cb_coursework"} <= seen["names"]
+    assert "tab_cb_calendar" not in seen["names"]          # pinned: no switch
+    assert seen["before"] is True
+    assert yaml.safe_load(cfg_file.read_text())["features"]["account"] is False
+    assert not feats.get("account").visible()
+    assert window._view_btn_account.visible is False

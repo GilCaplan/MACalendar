@@ -105,9 +105,11 @@ enum FeatureRegistry {
                     + "installed on your Mac — the tab says how if it isn't.",
                 make: { AnyView(JudeView()) }),
         // The admin's dashboard, or a person's own account page (DEVQA Q65).
-        // Pinned: signing out must always be reachable.
+        // A Settings switch like the others; hiding it hides no control —
+        // Settings › Account reaches the same pages, sign-out included.
         Feature(name: "account", label: "Account", icon: "person.crop.circle",
-                order: 90, pinned: true,
+                order: 90,
+                note: "The admin's dashboard, or your own account and sharing.",
                 make: { AnyView(AccountTabView()) }),
     ].sorted { $0.order < $1.order }
 

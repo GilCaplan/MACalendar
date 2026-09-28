@@ -161,7 +161,6 @@ struct AccountView: View {
     @EnvironmentObject var api: APIClient
     @ObservedObject private var session = UserSession.shared
     @State private var others: [PublicUser] = []
-    @State private var levels: [String: String] = [:]        // grantee -> none|view|edit
     @State private var sharedIn: [(name: String, color: String, level: String)] = []
     @State private var groupByOwner = false
     @State private var notifyShared = false
@@ -182,27 +181,7 @@ struct AccountView: View {
                     }
                     Button("Change password…") { showPassword = true }
                 }
-                Section {
-                    if others.isEmpty {
-                        Text("Nobody else has an account yet.").foregroundColor(.secondary)
-                    }
-                    ForEach(others) { o in
-                        HStack {
-                            Circle().fill(Color(hex: o.color) ?? .gray).frame(width: 10, height: 10)
-                            Text(o.displayName)
-                            Spacer()
-                            Picker("", selection: Binding(
-                                get: { levels[o.id] ?? "none" },
-                                set: { v in levels[o.id] = v; Task { await share(o.id, v) } })) {
-                                Text("Not shared").tag("none")
-                                Text("View").tag("view")
-                                Text("Edit").tag("edit")
-                            }
-                            .pickerStyle(.menu)
-                        }
-                    }
-                } header: { Text("Share my calendar and to-dos") }
-                  footer: { Text("Everything, with the people you choose. View lets them see; Edit lets them change it too.") }
+                ShareMyCalendarSection()
                 if !sharedIn.isEmpty {
                     Section("Shared with me") {
                         ForEach(sharedIn, id: \.name) { s in
@@ -246,9 +225,6 @@ struct AccountView: View {
         }
         guard let data = try? await api.request("/auth/me"),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
-        for s in (obj["shares_out"] as? [[String: Any]]) ?? [] {
-            if let g = s["grantee"] as? String { levels[g] = s["level"] as? String ?? "none" }
-        }
         sharedIn = ((obj["shares_in"] as? [[String: Any]]) ?? []).compactMap { s in
             guard let owner = s["owner"] as? String,
                   let o = others.first(where: { $0.id == owner }) else { return nil }
@@ -259,18 +235,196 @@ struct AccountView: View {
         notifyShared = st["notify_shared"] as? Bool ?? false
     }
 
-    private func share(_ grantee: String, _ level: String) async {
-        if level == "none" {
-            _ = try? await api.request("/shares/\(grantee)", method: "DELETE")
-        } else {
-            _ = try? await api.request("/shares/\(grantee)", method: "PUT", body: ["level": level])
-        }
-        api.requestRefresh()
-    }
-
     private func setting(_ key: String, _ on: Bool) async {
         _ = try? await api.request("/users/me/settings", method: "PUT", body: [key: on])
         api.requestRefresh()
+    }
+}
+
+// MARK: - sharing, one view for everyone
+
+/// "Share my calendar and to-dos": one menu per other person. The person's
+/// own page and the admin's dashboard both show THIS view, so they can't drift.
+struct ShareMyCalendarSection: View {
+    @EnvironmentObject var api: APIClient
+    @ObservedObject private var session = UserSession.shared
+    @State private var others: [PublicUser] = []
+    @State private var levels: [String: String] = [:]        // grantee -> none|view|edit
+
+    var body: some View {
+        Section {
+            if others.isEmpty {
+                Text("Nobody else has an account yet.").foregroundColor(.secondary)
+            }
+            ForEach(others) { o in
+                HStack {
+                    Circle().fill(Color(hex: o.color) ?? .gray).frame(width: 10, height: 10)
+                    Text(o.displayName)
+                    Spacer()
+                    ShareLevelPicker(level: Binding(
+                        get: { levels[o.id] ?? "none" },
+                        set: { v in levels[o.id] = v; Task { await setShare(api, o.id, v) } }))
+                }
+            }
+        } header: { Text("Share my calendar and to-dos") }
+          footer: { Text("Everything, with the people you choose. View lets them see; Edit lets them change it too.") }
+        .task { await load() }
+    }
+
+    private func load() async {
+        guard let me = session.user else { return }
+        if let data = try? await api.request("/users"),
+           let all = try? JSONDecoder().decode([PublicUser].self, from: data) {
+            others = all.filter { $0.id != me.id }
+        }
+        levels = await shareLevels(api)
+    }
+}
+
+struct ShareLevelPicker: View {
+    @Binding var level: String
+    var label = ""
+    var body: some View {
+        Picker(label, selection: $level) {
+            Text("Not shared").tag("none")
+            Text("View").tag("view")
+            Text("Edit").tag("edit")
+        }
+        .pickerStyle(.menu)
+    }
+}
+
+/// My outgoing shares, grantee -> view|edit.
+@MainActor
+func shareLevels(_ api: APIClient) async -> [String: String] {
+    guard let data = try? await api.request("/auth/me"),
+          let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
+    var out: [String: String] = [:]
+    for s in (obj["shares_out"] as? [[String: Any]]) ?? [] {
+        if let g = s["grantee"] as? String { out[g] = s["level"] as? String ?? "none" }
+    }
+    return out
+}
+
+@MainActor
+func setShare(_ api: APIClient, _ grantee: String, _ level: String) async {
+    if level == "none" {
+        _ = try? await api.request("/shares/\(grantee)", method: "DELETE")
+    } else {
+        _ = try? await api.request("/shares/\(grantee)", method: "PUT", body: ["level": level])
+    }
+    api.requestRefresh()
+}
+
+// MARK: - one person, as the admin sees them
+
+/// Everything the admin can do about ONE person, visible — no swipe actions
+/// to discover: what he sees of them, what he shares with them, their account.
+struct AdminUserDetailView: View {
+    @EnvironmentObject var api: APIClient
+    let userID: String
+    @State private var u: AdminUser?
+    @State private var shown = false
+    @State private var vocab = false
+    @State private var myShare = "none"
+    @State private var revealed: String?
+    @State private var note = ""
+
+    var body: some View {
+        Form {
+            if let u {
+                Section {
+                    HStack(spacing: 10) {
+                        Circle().fill(Color(hex: u.color) ?? .gray).frame(width: 12, height: 12)
+                        VStack(alignment: .leading) {
+                            Text(u.displayName).bold()
+                            Text("@\(u.username)").font(.caption).foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        if u.disabled == true { Text("disabled").font(.caption).foregroundColor(.red) }
+                    }
+                    Text((u.sessions ?? 0) > 0 ? "Signed in on \(u.sessions!) device\(u.sessions! == 1 ? "" : "s")"
+                                               : "Not signed in anywhere")
+                        .foregroundColor(.secondary)
+                }
+                Section {
+                    Toggle("Show their calendar and to-dos in mine", isOn: Binding(
+                        get: { shown },
+                        set: { v in shown = v; Task { await put("/admin/view/\(u.id)", ["shown": v]) } }))
+                } header: { Text("What you see") }
+                  footer: { Text("On: their items join your views in their colour, with their name.") }
+                Section("What you share with them") {
+                    HStack {
+                        Text("My calendar and to-dos")
+                        Spacer()
+                        ShareLevelPicker(level: Binding(
+                            get: { myShare },
+                            set: { v in myShare = v; Task { await setShare(api, u.id, v) } }))
+                    }
+                    Toggle("My vocabulary", isOn: Binding(
+                        get: { vocab },
+                        set: { v in vocab = v; Task { await put("/admin/vocab_share/\(u.id)", ["on": v]) } }))
+                }
+                Section {
+                    Button("Reset password") { Task { await reset() } }
+                    if let pw = revealed {
+                        Text("New password — shown once. They'll choose their own when they sign in.")
+                            .font(.footnote)
+                        Text(pw).font(.system(.title3, design: .monospaced)).textSelection(.enabled)
+                    }
+                    Button("Sign out on every device") { Task { await signOut() } }
+                    Button(u.disabled == true ? "Enable account" : "Disable account",
+                           role: u.disabled == true ? nil : .destructive) {
+                        Task { await patch(["disabled": !(u.disabled ?? false)]) }
+                    }
+                } header: { Text("Their account") }
+                  footer: { Text(note) }
+            } else {
+                ProgressView()
+            }
+        }
+        .navigationTitle(u?.displayName ?? "User")
+        .task { await load() }
+    }
+
+    private func load() async {
+        if let data = try? await api.request("/admin/users"),
+           let got = try? JSONDecoder().decode([AdminUser].self, from: data),
+           let me = got.first(where: { $0.id == userID }) {
+            u = me
+            shown = me.shownInMyView ?? false
+        }
+        if let data = try? await api.request("/auth/me"),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            vocab = ((obj["vocab_shared_with"] as? [String]) ?? []).contains(userID)
+        }
+        myShare = await shareLevels(api)[userID] ?? "none"
+    }
+
+    private func put(_ path: String, _ body: [String: Any]) async {
+        _ = try? await api.request(path, method: "PUT", body: body)
+        api.requestRefresh()
+    }
+
+    private func patch(_ body: [String: Any]) async {
+        _ = try? await api.request("/admin/users/\(userID)", method: "PATCH", body: body)
+        await load()
+    }
+
+    private func signOut() async {
+        if let data = try? await api.request("/admin/users/\(userID)/signout", method: "POST", body: [:]),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let n = obj["signed_out"] as? Int ?? 0
+            note = "Signed out of \(n) device\(n == 1 ? "" : "s"). Their password is unchanged."
+        }
+        await load()
+    }
+
+    private func reset() async {
+        guard let data = try? await api.request("/admin/users/\(userID)/password", method: "POST", body: [:]),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let pw = obj["password"] as? String else { return }
+        revealed = pw
     }
 }
 
@@ -452,6 +606,28 @@ struct AdminDashboardView: View {
                 }
             }
             Section {
+                ForEach(rows) { u in
+                    NavigationLink {
+                        if u.role == "admin" { AccountView() } else { AdminUserDetailView(userID: u.id) }
+                    } label: {
+                        HStack {
+                            Circle().fill(Color(hex: u.color) ?? .gray).frame(width: 10, height: 10)
+                            Text(u.displayName)
+                            if u.role == "admin" { Text("you").font(.caption).foregroundColor(.secondary) }
+                            if u.disabled == true { Text("disabled").font(.caption).foregroundColor(.red) }
+                            Spacer()
+                            Text((u.sessions ?? 0) > 0 ? "signed in on \(u.sessions!)" : "signed out")
+                                .font(.caption).foregroundColor(.secondary)
+                        }
+                    }
+                }
+                NavigationLink { AdminUsersView() } label: {
+                    Label("Add a person", systemImage: "person.badge.plus")
+                }
+            } header: { Text("People") }
+              footer: { Text("Tap someone for what you see of them, what you share with them, and their password, sign-in and account.") }
+            ShareMyCalendarSection()
+            Section {
                 Toggle("Require sign-in everywhere", isOn: Binding(
                     get: { requireLogin },
                     set: { v in requireLogin = v; Task { await policy(["require_login": v]) } }))
@@ -467,30 +643,16 @@ struct AdminDashboardView: View {
             } header: { Text("Sign-in") }
               footer: { Text(autoOn ? "A device unused this long is signed out."
                                     : "Off: a sign-in lasts until the person signs out, or you sign them out.") }
-            Section("People") {
-                NavigationLink { AdminUsersView() } label: {
-                    Label("Manage users", systemImage: "person.2")
-                }
-                ForEach(rows) { u in
-                    HStack {
-                        Circle().fill(Color(hex: u.color) ?? .gray).frame(width: 10, height: 10)
-                        Text(u.displayName)
-                        if u.role == "admin" { Text("admin").font(.caption).foregroundColor(.secondary) }
-                        Spacer()
-                        Text((u.sessions ?? 0) > 0 ? "signed in on \(u.sessions!)" : "signed out")
-                            .font(.caption).foregroundColor(.secondary)
-                    }
-                }
-            }
             Section("Me") {
                 NavigationLink { AccountView() } label: {
-                    Label("My account & sharing", systemImage: "person.crop.circle")
+                    Label("My account, password & settings", systemImage: "person.crop.circle")
                 }
                 Button("Sign out", role: .destructive) { Task { await session.signOut(api: api) } }
             }
         }
         .navigationTitle("Admin")
-        .task { if !loaded { await load(); loaded = true } }
+        // Every appearance: coming back from a person's page must show what changed there.
+        .onAppear { Task { await load() } }
         .refreshable { await load() }
     }
 

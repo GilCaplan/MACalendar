@@ -243,3 +243,16 @@ def test_choosing_auto_sign_out_in_the_dashboard_sets_the_policy(people):
     QTest.keyClick(dlg.auto_box, Qt.Key.Key_Up)
     QApplication.processEvents()
     assert registry.load()["policy"]["auto_signout_days"] is None
+
+
+def test_the_admin_dashboard_puts_sharing_before_the_people_table(people):
+    from PyQt6.QtWidgets import QComboBox
+    from assistant.calendar_ui.account_panel import AccountPanel
+    users.set_process_default(people["gil"])
+    page = AccountPanel(None)
+    page.show()
+    QApplication.processEvents()
+    assert page.account.share_boxes, "the admin's sharing menus are on the dashboard"
+    box = page.account.share_boxes[people["dana"]]
+    assert box.mapTo(page, box.rect().topLeft()).y() < page.admin.mapTo(page, page.admin.rect().topLeft()).y()
+

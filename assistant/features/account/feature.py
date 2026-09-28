@@ -10,8 +10,10 @@ resets, sign-outs); anyone else gets their own sharing, their two settings,
 their password, and Sign out.
 
 Its routes are `assistant/users/routes.py` (the users surface owns them), so
-this declaration ships no blueprint. Pinned: signing out must always be
-reachable.
+this declaration ships no blueprint. NOT pinned — Gil asked for it as a
+switch in Settings › Tabs like the others (2026-09-28). Hiding it hides no
+control: the Mac's toolbar chip and the phone's Settings › Account still reach
+the same pages, sign-out included.
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ class AccountFeature(Feature):
     label = "Account"
     icon = "person.crop.circle"
     order = 90
-    pinned = True
+    pinned = False
     default_visible = True
 
     def panel(self):
