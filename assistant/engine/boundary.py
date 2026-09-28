@@ -81,6 +81,65 @@ def _verdict(state) -> str:
     return _clip(" · ".join(f"{n} to {route}" for route, n in sorted(by.items())))
 
 
+# --- the same values as PARTS, for a reader that draws them ------------------
+# One small dict per item, every item (capped, not clipped): the HUD's command
+# graph lays each ask out as its own lane, and a lane cannot be recovered from
+# a display string that stopped at 120 characters. Plain strings only — these
+# go to a JSON bus.
+_MAX_PARTS = 12
+_WHEN_SLOTS = ("date", "due_date", "start_time", "end_time", "recurrence",
+               "recur_days", "recur_until", "reminder_minutes")
+
+
+def _items_parts(state) -> list:
+    return [{"kind": str(it.kind or ""), "text": str(it.text or ""),
+             "time": str(it.time or "")}
+            for it in list(getattr(state, "items", []) or [])[:_MAX_PARTS]]
+
+
+def _resolved_parts(state) -> list:
+    out = []
+    for it in list(getattr(state, "items", []) or [])[:_MAX_PARTS]:
+        when = {k: str(v) for k, v in (it.slots or {}).items()
+                if k in _WHEN_SLOTS and v not in (None, "", [], {})}
+        out.append({"text": str(it.text or ""), "when": when})
+    return out
+
+
+def _objects_parts(state) -> list:
+    """EVERY item, built or not, so part i is item i — a lane whose ask made
+    nothing (refused, thrown out as junk) is still a lane, ending in why."""
+    from assistant.engine.llmjudge import render
+    out = []
+    for it in list(getattr(state, "items", []) or [])[:_MAX_PARTS]:
+        slots = it.slots or {}
+        built = it.intent is not None and bool(it.action)
+        title = slots.get("title") or ", ".join(str(t) for t in (slots.get("titles") or []))
+        part = {"text": str(it.text or ""), "kind": str(it.kind or ""),
+                "action": str(it.action or "") if built else "",
+                "title": str(title or ""),
+                "line": render.render_line(it.action, it.intent, slots) if built else ""}
+        part.update({k: str(slots[k]) for k in _WHEN_SLOTS
+                     if slots.get(k) not in (None, "", [], {})})
+        if slots.get("junk"):
+            part["junk"] = str(slots["junk"])
+        out.append(part)
+    return out
+
+
+_PARTS = {"X2": _items_parts, "X3": _resolved_parts, "X4": _objects_parts}
+
+
+def _parts(label: str, state) -> "list | None":
+    fn = _PARTS.get(label)
+    if fn is None:
+        return None
+    try:
+        return fn(state)
+    except Exception:
+        return None
+
+
 #: stage name → (boundary label, renderer, one-line meaning). Only the stages
 #: that produce a NAMED boundary appear; `ingest` and `commit` bracket the chain
 #: rather than sitting inside it.
@@ -105,7 +164,7 @@ def emit(stage_name: str, state) -> None:
         return
     label, render, detail = spec
     try:
-        trace.boundary(label, render(state), detail)
+        trace.boundary(label, render(state), detail, parts=_parts(label, state))
     except Exception:
         pass
 
@@ -123,6 +182,7 @@ def emit_fast(state) -> None:
         return
     try:
         trace.boundary("X4", _objects(state),
-                       "the rules read the whole command at once — no X2 or X3")
+                       "the rules read the whole command at once — no X2 or X3",
+                       parts=_parts("X4", state))
     except Exception:
         pass

@@ -109,6 +109,7 @@ built when it reaches the Mac.
 | hybrid | [Confirm-create gate](#the-confirm-create-gate-confirm_create) | "should I add yoga tomorrow?" → Add / No, never a silent guess | `decompose_validate/object_rules.py`, `/voice/confirm` |
 | hybrid | [Self-check & revert](#background-self-check--one-tap-revert) | background re-reasoning, one-tap undo | `engine/__init__.py`, panels |
 | hybrid | [Review panel / HUD](#the-review-panel-thinking-hud--ios-timeline) | live chain-of-thought card + history | `thinking_hud.py`, `ThinkingView` |
+| mac | [Command graph](#the-review-panel-thinking-hud--ios-timeline) | the HUD's Graph view: each ask → rules or model → what it became; hover follows a lane, click explains a node | `command_graph.py` |
 | hybrid | [LLM console](#the-llm-console) | the panel's third view: every model call, with its caller | `llm_bus.py`, `thinking_panel.py` |
 | hybrid | [Personal vocabulary](#personal-vocabulary) | user's words fix transcripts first | `stt/vocab.py` |
 | hybrid | [Command memory](#command-memory--feedback) | every command + verdicts, mined | `intent/memory.py` |
@@ -463,6 +464,26 @@ item). Engine side, `fastrule/objects.NOT_AN_ASK` / `BAD_ITEM` on the trace
 step's `data["outcome"]`; panel side, `_StepRow._OUTCOMES`; tied together by
 `test_panel_agreement`. Red stays reserved for the error stage.
 *iOS has no equivalent badge yet — the Mac is ahead here.*
+**The command graph** (2026-09-28, Gil: *"a more interactive viz option … like
+a graph, but … that doesn't get too cluttered"*). A **Graph** button in the
+header swaps the step list for the same command drawn as a graph: the
+sentence, one lane per ask, the chip on each lane saying who decided it
+(**rules** or **model**, with the model's time), and the node it ended in
+(Event / To-do / Thrown out / Nothing, with its date). Hovering an ask lights
+its lane and dims the rest; clicking any node — the sentence, an ask, a chip,
+an outcome, the cross-check line — shows what is behind it in one line under
+the graph, and clicking it again closes it. Nothing else is drawn on the
+canvas. The choice sticks: History and LLM come Back to it, and the next
+command opens in it, filling in live (unanswered asks pulse, dashed). Built
+from the trace alone (`calendar_ui/command_graph.py`: `build_graph` is pure
+and tested apart from the painted `CommandGraphView`). Engine side, the X2 /
+X3 / X4 boundaries now also carry `parts` — one dict per item, every item,
+built or not — beside the clipped display string, so a lane never has to be
+parsed back out of text cut at 120 characters; traces from before that are
+read from the strings. X4 is published before the rescue's model call, so a
+lane X4 left empty takes its object from the execute steps, which are what
+was actually written. `test_command_graph.py` drives it with real clicks and
+mouse moves. *Mac only; iOS `ThinkingView` has no graph yet.*
 **Looking at it:** `python -m scripts.shoot_panel "<command>" out.png [light]`
 renders the real panel against a real engine trace (scratch stores, no Ollama
 needed, `source: "test"`), writes the card unrolled to its full content
