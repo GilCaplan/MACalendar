@@ -44,6 +44,9 @@ class BrainClient:
                                      headers={"Content-Type": "application/json"})
         if self.key:
             req.add_header("X-API-Key", self.key)
+        from assistant.users import local_session as _ls    # the Mac's user's sign-ins
+        for _k, _v in _ls.headers().items():
+            req.add_header(_k, _v)
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 return r.status, json.loads(r.read().decode() or "{}")

@@ -556,6 +556,10 @@ class Pipeline:
         key = getattr(self.config.api, "key", None)
         if key:
             req.add_header("X-API-Key", key)
+        # WHO is speaking at the Mac: the API binds its user from this (Q65)
+        from assistant.users import local_session as _ls
+        for _k, _v in _ls.headers().items():
+            req.add_header(_k, _v)
 
         try:
             with urllib.request.urlopen(req, timeout=180) as r:
@@ -814,6 +818,9 @@ class Pipeline:
         )
         if key:
             req.add_header("X-API-Key", key)
+        from assistant.users import local_session as _ls
+        for _k, _v in _ls.headers().items():
+            req.add_header(_k, _v)
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
                 return _json.loads(r.read().decode())

@@ -486,9 +486,10 @@ class ThinkingHUD(QWidget):
                 port = os.environ.get("MACALENDAR_API_PORT") or str(
                     getattr(getattr(self._config, "api", None), "port", 8080))
                 key = getattr(getattr(self._config, "api", None), "key", None)
+                from assistant.users import local_session as _ls
                 requests.post(
                     f"http://127.0.0.1:{port}/pending/{pending_id}/retry",
-                    headers={"X-API-Key": key} if key else {},
+                    headers={**({"X-API-Key": key} if key else {}), **_ls.headers()},
                     timeout=60,
                 )
             except Exception as exc:
@@ -510,7 +511,8 @@ class ThinkingHUD(QWidget):
                 port = os.environ.get("MACALENDAR_API_PORT") or str(
                     getattr(getattr(self._config, "api", None), "port", 8080))
                 key = getattr(getattr(self._config, "api", None), "key", None)
-                headers = {"X-API-Key": key} if key else {}
+                from assistant.users import local_session as _ls
+                headers = {**({"X-API-Key": key} if key else {}), **_ls.headers()}
                 for spec in specs or []:
                     path = "/events" if spec.get("kind") == "event" else "/todos"
                     requests.post(f"http://127.0.0.1:{port}{path}",
@@ -561,6 +563,11 @@ class _BusReader:
     def __init__(self, hud: ThinkingHUD, config_path: str) -> None:
         self._hud = hud
         self._path = config_path
+        # The Mac's signed-in person (DEVQA Q65): their History, their live
+        # commands. Adopted BEFORE the offsets, which are into their bus.
+        from assistant.users import local_session
+        local_session.adopt()
+        self._session_mtime = self._session_stat()
         self._offset = trace_bus.size()      # only what happens from now on
         # A SECOND OFFSET for the LLM stream. trace_bus.read_since closes over
         # the module-global BUS_PATH and takes no path argument, and this
@@ -576,6 +583,26 @@ class _BusReader:
         except OSError:
             return -1.0
 
+    @staticmethod
+    def _session_stat() -> float:
+        from assistant.users import local_session
+        try:
+            return os.path.getmtime(local_session.path())
+        except OSError:
+            return -1.0
+
+    def _follow_session(self) -> None:
+        """Someone else signed in at the Mac: switch to their bus, from now."""
+        m = self._session_stat()
+        if m == self._session_mtime:
+            return
+        self._session_mtime = m
+        from assistant import llm_bus as _llm_bus
+        from assistant.users import local_session
+        local_session.adopt()
+        self._offset = trace_bus.size()
+        self._llm_offset = _llm_bus.size()
+
     def poll(self) -> None:
         # A liveness beat for `assistant doctor`, throttled well below the
         # 120ms poll so it costs nothing.
@@ -587,6 +614,7 @@ class _BusReader:
                 beat("hud")
             except Exception:
                 pass
+        self._follow_session()
         # The LLM stream, drained first so a call that a step refers to is
         # already in the console when the step arrives.
         try:

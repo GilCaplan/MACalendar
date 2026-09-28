@@ -106,7 +106,10 @@ class EventPill(QLabel):
         self._drag_start = None
         self._color = event.get("color", BLUE)
         start = event.get("start_time", "")
-        self._pill_text = f"{start}  {event['title']}" if start else event['title']
+        # "Dana · " on a row someone shared (display only — DEVQA Q65)
+        from assistant.calendar_ui.merged_db import owner_prefix
+        _t = owner_prefix(event) + event['title']
+        self._pill_text = f"{start}  {_t}" if start else _t
         self.setText(self._pill_text)
         self.setFixedHeight(20)
         self.setMinimumWidth(0)

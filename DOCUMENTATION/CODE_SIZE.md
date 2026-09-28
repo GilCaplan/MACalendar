@@ -1,32 +1,32 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 659, "total_lines": 183055} -->
+<!-- code-stats: {"total_files": 663, "total_lines": 184103} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**183,055 lines of source across 659 files.** Of that, **101,117 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**184,103 lines of source across 663 files.** Of that, **101,931 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
-| Test code | 209 | 40,513 |
+| Test code | 210 | 40,747 |
 | iOS application | 62 | 24,196 |
-| Actions, storage & domain (DB, config, observance, .ics) | 119 | 22,562 |
+| Actions, storage & domain (DB, config, observance, .ics) | 120 | 22,637 |
+| Mac application (calendar GUI) | 39 | 21,296 |
 | Engine (the brain, shipped path) | 57 | 20,735 |
-| Mac application (calendar GUI) | 37 | 20,585 |
 | Engine experiments & boards (not in the answer path) | 65 | 20,376 |
 | Dataset & measurement tooling | 51 | 13,516 |
 | Retired (old brain, kept on purpose) | 16 | 7,533 |
-| Review panel (Mac card + iOS timeline) | 6 | 4,217 |
+| Review panel (Mac card + iOS timeline) | 6 | 4,245 |
 | Model / Ollama code | 12 | 3,251 |
 | Microphone / speech (record, STT, TTS) | 17 | 3,195 |
 | API server (the front door) | 5 | 2,024 |
 | Launch scripts | 3 | 352 |
-| **TOTAL** | **659** | **183,055** |
+| **TOTAL** | **663** | **184,103** |
 
 ### By language
 
 | | files | lines |
 |---|---:|---:|
-| Python | 583 | 156,035 |
+| Python | 587 | 157,083 |
 | Swift | 67 | 26,090 |
 | shell | 8 | 741 |
 | launch script | 1 | 189 |

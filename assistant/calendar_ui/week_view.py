@@ -123,7 +123,8 @@ class EventBlock(QLabel):
         super().__init__(parent)
         self.event = event
         self._color = event.get("color", BLUE)
-        self._title_raw = event.get("title", "")
+        from assistant.calendar_ui.merged_db import owner_prefix   # display only
+        self._title_raw = owner_prefix(event) + event.get("title", "")
         self._title_html = _html.escape(self._title_raw)
         self._start = event.get("start_time", "")
         self._end = event.get("end_time", "")

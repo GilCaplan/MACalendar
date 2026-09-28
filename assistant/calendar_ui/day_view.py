@@ -60,7 +60,9 @@ class EventBlock(QLabel):
         self._font_size = 12
         self._hour_height = HOUR_HEIGHT
 
-        title_line = f"<b>{event['title']}</b>"
+        from assistant.calendar_ui.merged_db import owner_prefix
+        import html as _html
+        title_line = f"<b>{_html.escape(owner_prefix(event))}{event['title']}</b>"
         time_line = f"<span style='opacity:0.85;font-size:{self._font_size - 1}px'>{start}–{end}</span>"
         html = title_line + "<br>" + time_line
         if location:

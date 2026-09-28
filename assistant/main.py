@@ -91,6 +91,15 @@ def main() -> None:
     # ------------------------------------------------------------------
     # Launch calendar window (blocks until closed)
     # ------------------------------------------------------------------
+    # Who is using the calendar (DEVQA Q65). The saved session if it is still
+    # live, else the sign-in window; cancelling it quits. Before the users
+    # migration there is nobody to sign in and this is a no-op.
+    from assistant.users import registry as _registry
+    from assistant.calendar_ui.users_dialogs import sign_in
+    if _registry.exists() and sign_in() is None:
+        logger.info("🖥️ Sign-in cancelled — not opening the calendar")
+        sys.exit(0)
+
     window = CalendarWindow(pipeline, config=config)
     window.show()
 

@@ -58,7 +58,8 @@ class _EventRow(QFrame):
         self._time_label.setFixedWidth(96)
         lay.addWidget(self._time_label)
 
-        self._title_label = QLabel(event.get("title", ""))
+        from assistant.calendar_ui.merged_db import owner_prefix
+        self._title_label = QLabel(owner_prefix(event) + event.get("title", ""))
         self._title_label.setObjectName("agenda_row_title")
         lay.addWidget(self._title_label)
 

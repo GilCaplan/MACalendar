@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from assistant import users
+from assistant.users import local_session as _local_session
 import datetime
+import os
 import queue
 import threading
 import time
@@ -398,7 +401,11 @@ class CalendarWindow(QMainWindow):
         super().__init__(parent)
         self._pipeline = pipeline
         self._config = config
-        self._db = CalendarDB()
+        # The signed-in user's calendar PLUS what others share with them — one
+        # object every view keeps, reading and writing through users.sharing
+        # (DEVQA Q65). Before the users migration it is just the CalendarDB.
+        from assistant.calendar_ui.merged_db import MergedCalendar
+        self._db = MergedCalendar(CalendarDB(), on_refused=lambda m: self.show_toast(m))
         self._current_date = datetime.date.today()
         # Calendar modes, then one per feature panel (registry-driven).
         self._view_mode = "month"
@@ -675,6 +682,14 @@ class CalendarWindow(QMainWindow):
             jude_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             jude_btn.clicked.connect(self._on_jude)
             layout.addWidget(jude_btn, alignment=v_center)
+
+        # Who is signed in (hidden before the users migration).
+        from assistant.calendar_ui.users_dialogs import UserChip
+        self._user_chip = UserChip()          # the layout parents it
+        self._user_chip.switched.connect(lambda: self._on_user_switched())
+        self._user_chip.changed.connect(lambda: self.refresh_calendar())
+        self._user_chip.signed_out.connect(lambda: self.close())
+        layout.addWidget(self._user_chip, alignment=v_center)
 
         self._settings_btn = QPushButton("⚙")
         self._settings_btn.setObjectName("icon_btn")
@@ -1238,6 +1253,8 @@ class CalendarWindow(QMainWindow):
                 key = getattr(getattr(self._config, "api", None), "key", None)
                 if key:
                     req.add_header("X-API-Key", key)
+                for _k, _v in _local_session.headers().items():
+                    req.add_header(_k, _v)
                 with urllib.request.urlopen(req, timeout=5) as r:
                     c = _json.loads(r.read().decode())
                 if c and c.get("name"):
@@ -1274,6 +1291,8 @@ class CalendarWindow(QMainWindow):
                 key = getattr(getattr(self._config, "api", None), "key", None)
                 if key:
                     req.add_header("X-API-Key", key)
+                for _k, _v in _local_session.headers().items():
+                    req.add_header(_k, _v)
                 urllib.request.urlopen(req, timeout=5).read()
             except Exception:
                 pass
@@ -1392,6 +1411,19 @@ class CalendarWindow(QMainWindow):
             self._db_mtime = m
             self.reload_panels()
             self.refresh_calendar()
+
+    def _on_user_switched(self) -> None:
+        """A different person signed in: their calendar, their panels."""
+        self._db.set_own(CalendarDB())         # resolves to the new user's file
+        try:
+            self._db_mtime = os.path.getmtime(self._db.path)
+        except OSError:
+            pass
+        self.reload_panels()
+        self.refresh_calendar()
+        from assistant.users import registry
+        name = (registry.get(users.current() or "") or {}).get("display_name", "")
+        self.show_toast(f"Signed in as {name}")
 
     def reload_panels(self) -> None:
         """Re-read every feature panel.

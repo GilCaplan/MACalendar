@@ -170,3 +170,23 @@ def test_search_box_still_usable_at_the_default_window_size(qapp):
         assert win._search_box.width() >= 110
     finally:
         host.close()
+
+
+@pytest.mark.parametrize("width", ["min", "default"])
+def test_the_signed_in_users_chip_fits_the_toolbar_too(qapp, tmp_path, monkeypatch, width):
+    """With users (DEVQA Q65) the toolbar gains "● Name ▾"; everything above
+    ran with no users, where the chip is hidden."""
+    monkeypatch.setenv("MACALENDAR_USERS", str(tmp_path / "users.json"))
+    from assistant import users
+    from assistant.users import registry
+    uid = registry.create_user("gil", "admin-pass", role="admin", display_name="Gil Caplan")
+    users.set_process_default(uid)
+    try:
+        win, host, bar = _hosted_toolbar(qapp)
+        assert win._user_chip.isVisible()
+        if width == "min":
+            host.resize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
+            qapp.processEvents()
+        _assert_no_overlaps(bar)
+    finally:
+        users.set_process_default(None)

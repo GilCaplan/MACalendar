@@ -1,0 +1,214 @@
+"""Users, phase 4: the Mac — sign in, Account & Sharing, the admin console, the
+merged calendar in the window's own views, and the HUD following the Mac.
+
+Every control is driven with QTest key presses and mouse clicks (CLAUDE.md:
+three HUD bugs once shipped green under tests that called handlers).
+"""
+from __future__ import annotations
+
+import datetime as dt
+import json
+import os
+import stat
+
+import pytest
+
+pytest.importorskip("PyQt6")
+
+from PyQt6.QtCore import Qt                                    # noqa: E402
+from PyQt6.QtTest import QTest                                 # noqa: E402
+from PyQt6.QtWidgets import QApplication                       # noqa: E402
+
+from assistant import users                                    # noqa: E402
+from assistant.users import local_session, registry, sessions  # noqa: E402
+
+DAY = dt.date(2026, 10, 6)
+
+
+@pytest.fixture(scope="module")
+def qapp():
+    return QApplication.instance() or QApplication([])
+
+
+@pytest.fixture
+def people(tmp_path, monkeypatch, qapp):
+    monkeypatch.setenv("MACALENDAR_USERS", str(tmp_path / "users.json"))
+    monkeypatch.setenv("MACALENDAR_SESSIONS", str(tmp_path / "sessions.json"))
+    monkeypatch.setenv("MACALENDAR_SESSION_FILE", str(tmp_path / "session.json"))
+    gil = registry.create_user("gil", "admin-pass", role="admin")
+    dana = registry.create_user("dana", "dana-pass")
+    users.set_process_default(None)
+    yield {"gil": gil, "dana": dana}
+    users.set_process_default(None)
+
+
+def _click(w):
+    QTest.mouseClick(w, Qt.MouseButton.LeftButton)
+    QApplication.processEvents()
+
+
+def _type(w, text):
+    w.setFocus()
+    QTest.keyClicks(w, text)
+
+
+# ------------------------------------------------------------------ sign in
+
+def test_signing_in_writes_a_private_session_for_this_mac(people):
+    from assistant.calendar_ui.users_dialogs import LoginDialog
+    dlg = LoginDialog()
+    _type(dlg.username, "dana")
+    _type(dlg.password, "dana-pass")
+    _click(dlg.sign_in)
+    assert dlg.user_id == people["dana"] and users.current() == people["dana"]
+    saved = json.loads(open(local_session.path()).read())
+    assert saved["username"] == "dana" and saved["session_token"]
+    assert stat.S_IMODE(os.stat(local_session.path()).st_mode) == 0o600
+    assert sessions.resolve(saved["session_token"])["user_id"] == people["dana"]
+
+
+def test_a_wrong_password_says_so_and_saves_nothing(people):
+    from assistant.calendar_ui.users_dialogs import LoginDialog
+    dlg = LoginDialog()
+    dlg.show()
+    _type(dlg.username, "dana")
+    _type(dlg.password, "nope")
+    _click(dlg.sign_in)
+    assert dlg.user_id is None and dlg.error.isVisible()
+    assert not os.path.exists(local_session.path())
+
+
+def test_a_live_saved_session_signs_in_without_asking(people):
+    from assistant.calendar_ui.users_dialogs import sign_in
+    tok = sessions.issue(people["dana"], source="mac")
+    local_session.write(people["dana"], "dana", "Dana", tok)
+    assert sign_in() == people["dana"]
+
+
+# ------------------------------------------------------------------ account
+
+def test_choosing_edit_in_the_sharing_list_shares_the_calendar(people):
+    from assistant.calendar_ui.users_dialogs import AccountDialog
+    users.set_process_default(people["dana"])
+    dlg = AccountDialog()
+    dlg.show()
+    box = dlg.share_boxes[people["gil"]]
+    box.setFocus()
+    QTest.keyClick(box, Qt.Key.Key_Down)
+    QTest.keyClick(box, Qt.Key.Key_Down)
+    QApplication.processEvents()
+    assert registry.share_level(people["dana"], people["gil"]) == "edit"
+    _click(dlg.group_box)
+    assert registry.get(people["dana"])["settings"]["todos_group_by_owner"] is True
+
+
+# ------------------------------------------------------------------ admin
+
+def test_the_admin_resets_a_password_and_sees_it_once(people):
+    from assistant.calendar_ui.users_dialogs import AdminDialog
+    users.set_process_default(people["gil"])
+    dlg = AdminDialog()
+    dlg.show()
+    row = dlg._ids.index(people["dana"])
+    dlg.table.selectRow(row)
+    _click(dlg.reset_btn)
+    pw = dlg.revealed.text()
+    assert len(pw) == 12 and dlg.revealed.isVisible()
+    assert registry.verify_login("dana", pw) == people["dana"]
+    assert registry.get(people["dana"])["must_change_password"] is True
+
+
+def test_the_admin_toggles_a_user_into_his_view(people):
+    from assistant.calendar_ui.users_dialogs import AdminDialog
+    users.set_process_default(people["gil"])
+    dlg = AdminDialog()
+    dlg.show()
+    row = dlg._ids.index(people["dana"])
+    _click(dlg.table.cellWidget(row, 5).checkbox)
+    assert registry.admin_shows(people["gil"], people["dana"]) is True
+
+
+def test_the_admin_creates_a_user(people, monkeypatch):
+    from assistant.calendar_ui import users_dialogs
+    answers = iter([("noa", True), ("Noa", True)])
+    monkeypatch.setattr(users_dialogs.QInputDialog, "getText",
+                        staticmethod(lambda *a, **k: next(answers)))
+    users.set_process_default(people["gil"])
+    dlg = users_dialogs.AdminDialog()
+    dlg.show()
+    _click(dlg.create_btn)
+    uid = registry.by_username("noa")
+    assert uid and registry.verify_login("noa", dlg.revealed.text()) == uid
+
+
+# ------------------------------------------------------------------ the merged view
+
+def _event(uid, title):
+    from assistant.db import get_db
+    with users.bind(uid):
+        return get_db().create_event_from_dict({
+            "title": title, "date": DAY.isoformat(), "start_time": "09:00", "end_time": "10:00",
+            "attendees": "", "location": "", "description": "",
+            "recurrence": "", "recurrence_end": ""})
+
+
+def test_the_month_view_shows_a_shared_calendar_in_the_owners_name_and_colour(people):
+    from assistant.calendar_ui.merged_db import MergedCalendar
+    from assistant.calendar_ui.month_view import MonthView
+    from assistant.db import CalendarDB
+    _event(people["dana"], "dana's dentist")
+    _event(people["gil"], "gil's shiur")
+    registry.set_share(people["dana"], people["gil"], "view")
+    users.set_process_default(people["gil"])
+    merged = MergedCalendar(CalendarDB())
+    rows = merged.get_events_for_month(DAY.year, DAY.month)
+    by = {r["title"]: r for r in rows}
+    assert set(by) == {"dana's dentist", "gil's shiur"}
+    assert by["dana's dentist"]["color"] == registry.get(people["dana"])["color"]
+    view = MonthView(merged)
+    view.show()
+    view.navigate(DAY.year, DAY.month)
+    view.refresh()
+    QApplication.processEvents()
+    from PyQt6.QtWidgets import QLabel
+    texts = [w.text() for w in view.findChildren(QLabel)]
+    assert any("Dana · dana's dentist" in t for t in texts), texts[:20]
+
+
+def test_a_view_only_change_is_refused_with_a_message_not_a_crash(people):
+    from assistant.calendar_ui.merged_db import MergedCalendar
+    from assistant.db import CalendarDB
+    # Dana is the viewer: the ADMIN may edit anything (DEVQA Q65), so he could
+    # never be refused and would prove nothing here
+    _event(people["gil"], "gil's shiur")
+    registry.set_share(people["gil"], people["dana"], "view")
+    users.set_process_default(people["dana"])
+    said = []
+    merged = MergedCalendar(CalendarDB(), on_refused=said.append)
+    sid = next(r["id"] for r in merged.get_events_for_day(DAY) if r["shared"])
+    assert merged.update_event(sid, title="changed") is None
+    assert said and "view only" in said[0]
+    with users.bind(people["gil"]):
+        from assistant.db import get_db
+        assert [e["title"] for e in get_db().get_events_for_day(DAY)] == ["gil's shiur"]
+    registry.set_share(people["gil"], people["dana"], "edit")
+    merged.update_event(sid, title="changed by dana")
+    with users.bind(people["gil"]):
+        assert [e["title"] for e in get_db().get_events_for_day(DAY)] == ["changed by dana"]
+
+
+# ------------------------------------------------------------------ the HUD
+
+def test_the_hud_follows_whoever_signs_in_at_the_mac(people, tmp_path, monkeypatch):
+    from assistant import thinking_hud
+    hud = type("H", (), {"apply_llm_calls": lambda s, c: None, "apply_entry": lambda s, e: None,
+                         "_config": None})()
+    local_session.write(people["dana"], "dana", "Dana", sessions.issue(people["dana"]))
+    reader = thinking_hud._BusReader(hud, str(tmp_path / "config.yaml"))
+    assert users.current() == people["dana"]
+    import time
+    time.sleep(0.02)
+    local_session.write(people["gil"], "gil", "Gil", sessions.issue(people["gil"]))
+    os.utime(local_session.path(), None)
+    reader.poll()
+    assert users.current() == people["gil"]
