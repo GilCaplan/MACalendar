@@ -182,12 +182,15 @@ class ChangePasswordDialog(QDialog):
 # ------------------------------------------------------------------ account
 
 class AccountDialog(QDialog):
-    """Account & Sharing: who I am, who I share with, what I see of others."""
+    """Account & Sharing: who I am, who I share with, what I see of others.
+    `embedded=True` is the Account tab's page (no Done / Manage buttons)."""
 
     changed = pyqtSignal()
 
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent=None, embedded: bool = False) -> None:
         super().__init__(parent)
+        if embedded:
+            self.setWindowFlags(Qt.WindowType.Widget)
         self.setWindowTitle("Account & Sharing")
         self.setMinimumWidth(460)
         self.setStyleSheet(_checkbox_style())
@@ -257,6 +260,8 @@ class AccountDialog(QDialog):
         lay.addWidget(self.group_box)
         lay.addWidget(self.notify_box)
 
+        if embedded:
+            return
         foot = QHBoxLayout()
         if me["role"] == "admin":
             self.manage = QPushButton("Manage users…")
@@ -300,8 +305,10 @@ class AdminDialog(QDialog):
     COLS = ("", "Name", "Username", "Role", "Last seen", "Show in my calendar",
             "My vocabulary")
 
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent=None, embedded: bool = False) -> None:
         super().__init__(parent)
+        if embedded:
+            self.setWindowFlags(Qt.WindowType.Widget)
         self.setWindowTitle("Manage users")
         self.setMinimumSize(720, 380)
         self.setStyleSheet(_checkbox_style())
@@ -332,9 +339,12 @@ class AdminDialog(QDialog):
         self.create_btn.setObjectName("primary")
         self.reset_btn = QPushButton("Reset password")
         self.disable_btn = QPushButton("Disable / enable")
+        self.signout_btn = QPushButton("Sign out")
+        self.signout_btn.setToolTip("Sign this person out on every device (password unchanged)")
         self.remove_btn = QPushButton("Remove…")
         self.remove_btn.setStyleSheet(f"color:{_DESTRUCTIVE};")
-        for b in (self.create_btn, self.reset_btn, self.disable_btn, self.remove_btn):
+        for b in (self.create_btn, self.reset_btn, self.signout_btn, self.disable_btn,
+                  self.remove_btn):
             row.addWidget(b)
         row.addStretch(1)
         self.require_box = QCheckBox("Require sign-in everywhere")
@@ -343,10 +353,32 @@ class AdminDialog(QDialog):
         self.require_box.toggled.connect(lambda on: (registry.set_policy(on), self.changed.emit()))
         row.addWidget(self.require_box)
         lay.addLayout(row)
+
+        # Auto sign-out: OFF (a sign-in lasts until someone signs it out) or
+        # after N days unused — the admin's choice (Gil, 2026-09-28).
+        pol = QHBoxLayout()
+        pol.addWidget(QLabel("Auto sign-out:"))
+        self.auto_box = QComboBox()
+        self.auto_box.addItems(["Off — only when signed out", "After"])
+        from PyQt6.QtWidgets import QSpinBox
+        self.auto_days = QSpinBox()
+        self.auto_days.setRange(1, 3650)
+        self.auto_days.setSuffix(" days unused")
+        days = registry.load().get("policy", {}).get("auto_signout_days")
+        self.auto_box.setCurrentIndex(1 if days else 0)
+        self.auto_days.setValue(int(days or 30))
+        self.auto_days.setEnabled(bool(days))
+        self.auto_box.currentIndexChanged.connect(lambda _i: self._auto_changed())
+        self.auto_days.valueChanged.connect(lambda _v: self._auto_changed())
+        pol.addWidget(self.auto_box)
+        pol.addWidget(self.auto_days)
+        pol.addStretch(1)
+        lay.addLayout(pol)
         self.create_btn.clicked.connect(lambda: self._create())
         self.reset_btn.clicked.connect(lambda: self._reset())
         self.disable_btn.clicked.connect(lambda: self._toggle_disabled())
         self.remove_btn.clicked.connect(lambda: self._remove())
+        self.signout_btn.clicked.connect(lambda: self._sign_out())
         self._fill()
 
     # -- the table -----------------------------------------------------------
@@ -434,6 +466,23 @@ class AdminDialog(QDialog):
         keep = (local_session.read() or {}).get("session_token") if uid == self.me else None
         sessions.revoke_user(uid, keep=keep)
         self._reveal(registry.get(uid)["display_name"], pw)
+
+    def _auto_changed(self) -> None:
+        on = self.auto_box.currentIndex() == 1
+        self.auto_days.setEnabled(on)
+        registry.set_policy(auto_signout_days=self.auto_days.value() if on else None)
+
+    def _sign_out(self) -> None:
+        uid = self._selected()
+        if not uid:
+            return
+        keep = (local_session.read() or {}).get("session_token") if uid == self.me else None
+        n = sessions.revoke_user(uid, keep=keep)
+        self.revealed_note.setText(f"{registry.get(uid)['display_name']} is signed out "
+                                   f"({n} device{'s' if n != 1 else ''}).")
+        self.revealed_note.show()
+        self.revealed.hide()
+        self._fill()
 
     def _toggle_disabled(self) -> None:
         uid = self._selected()

@@ -182,12 +182,13 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 
 | Method | Path | What it does |
 |---|---|---|
-| `PUT` | `/admin/policy` |  |
+| `PUT` | `/admin/policy` | {require_login?, auto_signout_days?: null\|0 (off) \| N days} |
 | `GET` | `/admin/users` |  |
 | `POST` | `/admin/users` |  |
 | `DELETE` | `/admin/users/<uid>` |  |
 | `PATCH` | `/admin/users/<uid>` |  |
 | `POST` | `/admin/users/<uid>/password` |  |
+| `POST` | `/admin/users/<uid>/signout` | Sign a person out everywhere — the admin's half of "only manual logout |
 | `PUT` | `/admin/view/<uid>` |  |
 | `PUT` | `/admin/vocab_share/<uid>` |  |
 

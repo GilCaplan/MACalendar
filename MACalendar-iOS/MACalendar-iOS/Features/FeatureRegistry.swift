@@ -104,6 +104,11 @@ enum FeatureRegistry {
                 note: "Ask about Torah, Talmud and halacha. Needs Jude "
                     + "installed on your Mac — the tab says how if it isn't.",
                 make: { AnyView(JudeView()) }),
+        // The admin's dashboard, or a person's own account page (DEVQA Q65).
+        // Pinned: signing out must always be reachable.
+        Feature(name: "account", label: "Account", icon: "person.crop.circle",
+                order: 90, pinned: true,
+                make: { AnyView(AccountTabView()) }),
     ].sorted { $0.order < $1.order }
 
     /// Where a bounce-off lands, and the first tab on a fresh install. Pinned,

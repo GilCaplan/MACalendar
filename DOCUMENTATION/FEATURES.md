@@ -109,7 +109,7 @@ built when it reaches the Mac.
 | hybrid | [Confirm-create gate](#the-confirm-create-gate-confirm_create) | "should I add yoga tomorrow?" → Add / No, never a silent guess | `decompose_validate/object_rules.py`, `/voice/confirm` |
 | hybrid | [Self-check & revert](#background-self-check--one-tap-revert) | background re-reasoning, one-tap undo | `engine/__init__.py`, panels |
 | hybrid | [Review panel / HUD](#the-review-panel-thinking-hud--ios-timeline) | live chain-of-thought card + history | `thinking_hud.py`, `ThinkingView` |
-| hybrid | [Users, sign-in & sharing](#users-sign-in--sharing) | an admin + users, each with their own calendar, to-dos and learning; share whole calendar view/edit; admin console | `assistant/users/`, `users_dialogs.py`, `UsersViews.swift` |
+| hybrid | [Users, sign-in & sharing](#users-sign-in--sharing) | an admin + users, each with their own calendar, to-dos and learning; share whole calendar view/edit; Account tab = admin dashboard | `assistant/users/`, `users_dialogs.py`, `UsersViews.swift` |
 | mac | [Command graph](#the-review-panel-thinking-hud--ios-timeline) | the HUD's Graph view: each ask → rules or model → what it became; hover follows a lane, click explains a node | `command_graph.py` |
 | hybrid | [LLM console](#the-llm-console) | the panel's third view: every model call, with its caller | `llm_bus.py`, `thinking_panel.py` |
 | hybrid | [Personal vocabulary](#personal-vocabulary) | user's words fix transcripts first | `stt/vocab.py` |
@@ -1850,12 +1850,17 @@ shared rows in the owner's colour with "Dana · " before the title. The admin
 sees and edits everything, toggles a user into his own view (off by default),
 creates users, resets passwords (hashed; a new one shown once, must change
 at sign-in), disables, removes (the data moves to `legacy/`, never deleted),
-shares his vocabulary with chosen users, and sets "require sign-in
-everywhere". Notifications are each person's own; shared items join only if
+shares his vocabulary with chosen users, sets "require sign-in
+everywhere", chooses auto sign-out (Off — a sign-in lasts until signed out —
+or after N days unused), and signs a person out of every device. All of it
+lives in the **Account tab** (pinned, last): the admin's dashboard (people,
+policy, signed-in devices, his own account); for anyone else a minimal page
+— password, sharing, display settings, sign out. Notifications are each person's own; shared items join only if
 they asked; the admin's view toggles never add to his notifications.
 **Where:** `assistant/users/` (context, paths, registry, passwords, sessions,
 sharing, routes, local_session, migrate), `scripts/migrate_users.py`;
-Mac `calendar_ui/users_dialogs.py`, `calendar_ui/merged_db.py`, the toolbar
+`assistant/features/account/` (the tab), Mac `calendar_ui/account_panel.py`,
+`calendar_ui/users_dialogs.py`, `calendar_ui/merged_db.py`, the toolbar
 chip in `window.py`, sign-in in `main.py`; iOS `API/UserSession.swift`,
 `Views/UsersViews.swift`, `LocalStore.switchUser`. Plan and phases:
 `DOCUMENTATION/USERS_PLAN.md`.

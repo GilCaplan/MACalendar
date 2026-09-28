@@ -216,3 +216,33 @@ def test_a_short_password_only_through_the_admins_own_override(app_client, peopl
     g_ = _tok(app_client, "gil", "123")
     r = app_client.post("/auth/password", json={"current": "123", "new": "456"}, headers=_h(g_))
     assert r.status_code == 400                                        # the screens keep 8
+
+
+def test_auto_sign_out_follows_the_admins_choice(app_client, people, monkeypatch):
+    """Off (default): a year unused is fine. On, N days: longer than N ends it."""
+    import time
+    tok = _tok(app_client, "dana", "dana-pass")
+    real = time.time
+    g_ = _tok(app_client, "gil", "admin-pass")
+    r = app_client.put("/admin/policy", json={"auto_signout_days": 7}, headers=_h(g_))
+    assert r.get_json()["auto_signout_days"] == 7
+    monkeypatch.setattr(time, "time", lambda: real() + 3 * 86400)
+    assert app_client.get("/auth/me", headers=_h(tok)).status_code == 200      # 3 days: fine
+    monkeypatch.setattr(time, "time", lambda: real() + 11 * 86400)
+    assert app_client.get("/auth/me", headers=_h(tok)).status_code == 401      # 8 idle days: out
+    monkeypatch.setattr(time, "time", real)
+    g_ = _tok(app_client, "gil", "admin-pass")
+    app_client.put("/admin/policy", json={"auto_signout_days": 0}, headers=_h(g_))
+    assert registry.load()["policy"]["auto_signout_days"] is None
+
+
+def test_the_admin_signs_a_person_out_everywhere(app_client, people):
+    a, b = _tok(app_client, "dana", "dana-pass"), _tok(app_client, "dana", "dana-pass")
+    d = _tok(app_client, "dana", "dana-pass")
+    assert app_client.post(f"/admin/users/{people[1]}/signout", headers=_h(d)).status_code == 403
+    g_ = _tok(app_client, "gil", "admin-pass")
+    out = app_client.post(f"/admin/users/{people[1]}/signout", headers=_h(g_)).get_json()
+    assert out["signed_out"] == 3
+    for t in (a, b, d):
+        assert app_client.get("/auth/me", headers=_h(t)).status_code == 401
+    assert _login(app_client, "dana", "dana-pass").status_code == 200       # password unchanged

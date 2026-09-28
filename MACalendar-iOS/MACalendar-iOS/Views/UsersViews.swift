@@ -276,7 +276,7 @@ struct AccountView: View {
 
 // MARK: - the admin's users
 
-private struct AdminUser: Decodable, Identifiable {
+struct AdminUser: Decodable, Identifiable {
     let id: String
     let username: String
     let displayName: String
@@ -285,8 +285,9 @@ private struct AdminUser: Decodable, Identifiable {
     let disabled: Bool?
     let lastSeen: Double?
     let shownInMyView: Bool?
+    let sessions: Int?
     enum CodingKeys: String, CodingKey {
-        case id, username, color, role, disabled
+        case id, username, color, role, disabled, sessions
         case displayName = "display_name"
         case lastSeen = "last_seen"
         case shownInMyView = "shown_in_my_view"
@@ -334,6 +335,7 @@ struct AdminUsersView: View {
                 .swipeActions {
                     if u.role != "admin" {
                         Button("Reset password") { Task { await reset(u) } }.tint(.orange)
+                        Button("Sign out") { Task { await signOut(u) } }.tint(.gray)
                         Button(u.disabled == true ? "Enable" : "Disable") {
                             Task { await patch(u.id, ["disabled": !(u.disabled ?? false)]) }
                         }
@@ -378,6 +380,11 @@ struct AdminUsersView: View {
         await load()
     }
 
+    private func signOut(_ u: AdminUser) async {
+        _ = try? await api.request("/admin/users/\(u.id)/signout", method: "POST", body: [:])
+        await load()
+    }
+
     private func reset(_ u: AdminUser) async {
         guard let data = try? await api.request("/admin/users/\(u.id)/password", method: "POST", body: [:]),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -397,5 +404,113 @@ struct AdminUsersView: View {
             }
         } catch { self.error = error.localizedDescription }
         await load()
+    }
+}
+
+
+// MARK: - the Account tab
+
+/// The Account tab (DEVQA Q65): the admin's dashboard, or a person's own page.
+struct AccountTabView: View {
+    @ObservedObject private var session = UserSession.shared
+
+    var body: some View {
+        StackNavigation {
+            if let u = session.user {
+                if u.isAdmin { AdminDashboardView() } else { AccountView() }
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "person.crop.circle").font(.system(size: 44)).foregroundColor(.secondary)
+                    Text("No one is signed in on this phone.").foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .navigationTitle("Account")
+            }
+        }
+    }
+}
+
+/// Everything the admin controls, on one screen: who exists and who is signed
+/// in where, the sign-in policy (require sign-in; auto sign-out off or after N
+/// days), people, and his own account.
+struct AdminDashboardView: View {
+    @EnvironmentObject var api: APIClient
+    @ObservedObject private var session = UserSession.shared
+    @State private var rows: [AdminUser] = []
+    @State private var requireLogin = false
+    @State private var autoOn = false
+    @State private var autoDays = 30
+    @State private var loaded = false
+
+    var body: some View {
+        List {
+            Section {
+                HStack {
+                    stat("\(rows.count)", "users")
+                    stat("\(rows.reduce(0) { $0 + ($1.sessions ?? 0) })", "signed in")
+                    stat("\(rows.filter { $0.disabled == true }.count)", "disabled")
+                }
+            }
+            Section {
+                Toggle("Require sign-in everywhere", isOn: Binding(
+                    get: { requireLogin },
+                    set: { v in requireLogin = v; Task { await policy(["require_login": v]) } }))
+                Toggle("Auto sign-out", isOn: Binding(
+                    get: { autoOn },
+                    set: { v in autoOn = v; Task { await policy(["auto_signout_days": v ? autoDays : 0]) } }))
+                if autoOn {
+                    Stepper("After \(autoDays) day\(autoDays == 1 ? "" : "s") unused", value: Binding(
+                        get: { autoDays },
+                        set: { v in autoDays = v; Task { await policy(["auto_signout_days": v]) } }),
+                            in: 1...365)
+                }
+            } header: { Text("Sign-in") }
+              footer: { Text(autoOn ? "A device unused this long is signed out."
+                                    : "Off: a sign-in lasts until the person signs out, or you sign them out.") }
+            Section("People") {
+                NavigationLink { AdminUsersView() } label: {
+                    Label("Manage users", systemImage: "person.2")
+                }
+                ForEach(rows) { u in
+                    HStack {
+                        Circle().fill(Color(hex: u.color) ?? .gray).frame(width: 10, height: 10)
+                        Text(u.displayName)
+                        if u.role == "admin" { Text("admin").font(.caption).foregroundColor(.secondary) }
+                        Spacer()
+                        Text((u.sessions ?? 0) > 0 ? "signed in on \(u.sessions!)" : "signed out")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                }
+            }
+            Section("Me") {
+                NavigationLink { AccountView() } label: {
+                    Label("My account & sharing", systemImage: "person.crop.circle")
+                }
+                Button("Sign out", role: .destructive) { Task { await session.signOut(api: api) } }
+            }
+        }
+        .navigationTitle("Admin")
+        .task { if !loaded { await load(); loaded = true } }
+        .refreshable { await load() }
+    }
+
+    private func stat(_ n: String, _ what: String) -> some View {
+        VStack { Text(n).font(.title2.bold()); Text(what).font(.caption).foregroundColor(.secondary) }
+            .frame(maxWidth: .infinity)
+    }
+
+    private func load() async {
+        if let data = try? await api.request("/admin/users"),
+           let got = try? JSONDecoder().decode([AdminUser].self, from: data) { rows = got }
+        if let data = try? await api.request("/auth/me"),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let pol = obj["policy"] as? [String: Any] {
+            requireLogin = pol["require_login"] as? Bool ?? false
+            if let d = pol["auto_signout_days"] as? Int, d > 0 { autoOn = true; autoDays = d } else { autoOn = false }
+        }
+    }
+
+    private func policy(_ body: [String: Any]) async {
+        _ = try? await api.request("/admin/policy", method: "PUT", body: body)
     }
 }

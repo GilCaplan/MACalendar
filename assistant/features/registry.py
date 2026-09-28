@@ -27,6 +27,7 @@ def all_features() -> "list":
     missing from the list, not that the calendar will not start.
     """
     if not _cache:
+        from assistant.features.account import AccountFeature
         from assistant.features.calendar import CalendarFeature
         from assistant.features.coursework import CourseworkFeature
         from assistant.features.jude import JudeFeature
@@ -36,7 +37,8 @@ def all_features() -> "list":
         from assistant.features.workout import WorkoutFeature
 
         for factory in (CalendarFeature, TasksFeature, CourseworkFeature,
-                        WorkoutFeature, TimerFeature, TeachFeature, JudeFeature):
+                        WorkoutFeature, TimerFeature, TeachFeature, JudeFeature,
+                        AccountFeature):
             try:
                 inst = factory()
                 _cache[inst.name] = inst

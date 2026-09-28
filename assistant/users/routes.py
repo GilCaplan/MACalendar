@@ -23,7 +23,8 @@ should be able to reset passwords just by reaching the port.
     POST /admin/users/<id>/password                  → {password} shown ONCE
     PUT  /admin/view/<id>     {shown}
     PUT  /admin/vocab_share/<id> {on}
-    PUT  /admin/policy        {require_login}
+    PUT  /admin/policy        {require_login?, auto_signout_days?}
+    POST /admin/users/<id>/signout                    → sign them out everywhere
 """
 from __future__ import annotations
 
@@ -353,11 +354,31 @@ def admin_vocab_share(uid):
 
 @bp.put("/admin/policy")
 def admin_policy():
+    """{require_login?, auto_signout_days?: null|0 (off) | N days}"""
     _, err = _need_admin()
     if err:
         return err
-    registry.set_policy(bool(_body().get("require_login")))
+    b = _body()
+    try:
+        registry.set_policy(
+            require_login=bool(b["require_login"]) if "require_login" in b else None,
+            auto_signout_days=b["auto_signout_days"] if "auto_signout_days" in b else False)
+    except (ValueError, TypeError) as e:
+        return _err(str(e), 400)
     return jsonify(registry.load().get("policy", {}))
+
+
+@bp.post("/admin/users/<uid>/signout")
+def admin_sign_out(uid):
+    """Sign a person out everywhere — the admin's half of "only manual logout
+    or admin logs out". Their password is unchanged."""
+    admin, err = _need_admin()
+    if err:
+        return err
+    if registry.get(uid) is None:
+        return _err("no such user", 404)
+    keep = g.users_session["token"] if uid == admin else None
+    return jsonify({"id": uid, "signed_out": sessions.revoke_user(uid, keep=keep)})
 
 
 def register(app) -> None:

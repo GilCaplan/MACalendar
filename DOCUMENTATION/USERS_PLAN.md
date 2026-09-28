@@ -63,3 +63,8 @@ Stays global (a device's or the machine's, not a person's): `model.lock`,
 - A user's colour is theirs; the admin can override it; a viewer cannot recolour someone else's items.
 - A new user starts with an empty vocabulary; the admin's reaches them only if he shares it.
 - With nobody logged in on the Mac (after "Log out"), the Mac's notifier stays silent.
+- Sessions (revised by Gil the same day): a sign-in lasts until signed out;
+  the admin may turn on auto sign-out after N days unused
+  (`policy.auto_signout_days`, read by `sessions.idle_days()`), and sign a
+  person out everywhere (`POST /admin/users/<uid>/signout`). Both live in the
+  **Account tab** (`assistant/features/account/`), the admin's dashboard.

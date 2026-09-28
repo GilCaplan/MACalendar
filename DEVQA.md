@@ -16,7 +16,12 @@
   6. **Shared to-dos sit mixed in, with a filter, and a per-user setting to
      group them by person instead.**
   7. **Sessions last until logout, 90 days idle**; a password change signs
-     that user out everywhere.
+     that user out everywhere. *Superseded the same day by Gil:* a sign-in
+     lasts until the person signs out or the admin signs them out, and
+     **the admin chooses auto sign-out** — Off (default), or after N days
+     unused — in the Account tab (`policy.auto_signout_days`). The Account
+     tab is the admin's dashboard; everyone else's is a minimal page of what
+     they may change.
   Plan: `DOCUMENTATION/USERS_PLAN.md` (six phases). Deferred on purpose:
   "add X to Dana's calendar" by VOICE — a mishearing would write into
   someone else's store, and it fights Q56/Q47/Q50's reading of a person in

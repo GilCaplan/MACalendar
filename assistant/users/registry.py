@@ -245,8 +245,21 @@ def set_setting(user_id: str, key: str, value: Any) -> None:
     _mutate(lambda data: data["users"][user_id].setdefault("settings", {}).__setitem__(key, value))
 
 
-def set_policy(require_login: bool) -> None:
-    _mutate(lambda data: data.setdefault("policy", {}).__setitem__("require_login", bool(require_login)))
+def set_policy(require_login: "bool | None" = None,
+               auto_signout_days: "int | None | bool" = False) -> None:
+    """The admin's account policy. `auto_signout_days`: None or 0 = off (a
+    sign-in lasts until someone signs it out), N = end a sign-in after N days
+    unused. `False` (the default) leaves it as it is."""
+    def go(data):
+        pol = data.setdefault("policy", {})
+        if require_login is not None:
+            pol["require_login"] = bool(require_login)
+        if auto_signout_days is not False:
+            days = int(auto_signout_days or 0)
+            if days < 0 or days > 3650:
+                raise ValueError("auto sign-out is 1–3650 days, or off")
+            pol["auto_signout_days"] = days or None
+    _mutate(go)
 
 
 # ------------------------------------------------------------------ sharing

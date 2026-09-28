@@ -212,3 +212,34 @@ def test_the_hud_follows_whoever_signs_in_at_the_mac(people, tmp_path, monkeypat
     os.utime(local_session.path(), None)
     reader.poll()
     assert users.current() == people["gil"]
+
+
+def test_the_account_tab_is_the_dashboard_for_the_admin_and_minimal_for_others(people):
+    from PyQt6.QtWidgets import QLabel
+    from assistant.calendar_ui.account_panel import AccountPanel
+    users.set_process_default(people["gil"])
+    admin_page = AccountPanel(None)
+    admin_page.show()
+    QApplication.processEvents()
+    texts = [w.text() for w in admin_page.findChildren(QLabel)]
+    assert "Admin dashboard" in texts and hasattr(admin_page, "admin")
+    users.set_process_default(people["dana"])
+    admin_page.reload()
+    QApplication.processEvents()
+    texts = [w.text() for w in admin_page.findChildren(QLabel)]
+    assert "Your account" in texts and "Admin dashboard" not in texts
+
+
+def test_choosing_auto_sign_out_in_the_dashboard_sets_the_policy(people):
+    from assistant.calendar_ui.users_dialogs import AdminDialog
+    users.set_process_default(people["gil"])
+    dlg = AdminDialog()
+    dlg.show()
+    dlg.auto_box.setFocus()
+    QTest.keyClick(dlg.auto_box, Qt.Key.Key_Down)
+    QApplication.processEvents()
+    assert registry.load()["policy"]["auto_signout_days"] == 30
+    dlg.auto_box.setFocus()
+    QTest.keyClick(dlg.auto_box, Qt.Key.Key_Up)
+    QApplication.processEvents()
+    assert registry.load()["policy"]["auto_signout_days"] is None

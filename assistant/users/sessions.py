@@ -24,10 +24,18 @@ import threading
 import time
 from typing import Any
 
-#: None: a sign-in lasts until you sign out or the password changes. Gil,
-#: 2026-09-28: "have it stay logged in" — replacing the 90-day idle expiry he
-#: had first chosen (DEVQA Q65).
+#: The default when the admin has chosen nothing: a sign-in lasts until you
+#: sign out, the admin signs you out, or the password changes. Gil, 2026-09-28:
+#: "have it stay logged in" — then: the ADMIN chooses, off or "every x time"
+#: (`registry.policy.auto_signout_days`, read by `idle_days()`).
 IDLE_DAYS: "int | None" = None
+
+
+def idle_days() -> "int | None":
+    """Days idle before a sign-in ends — the admin's choice, else IDLE_DAYS."""
+    from assistant.users import registry
+    days = registry.load().get("policy", {}).get("auto_signout_days")
+    return int(days) if days else IDLE_DAYS
 #: `last_seen` is written at most this often: a phone polling /changes every
 #: second must not rewrite the file every second.
 _TOUCH_EVERY_S = 3600
@@ -100,11 +108,14 @@ def resolve(token: "str | None") -> "dict | None":
         if rec is None:
             return None
         u = registry.load()["users"].get(rec["user_id"])
-        expired = IDLE_DAYS is not None and now - rec.get("last_seen", 0) > IDLE_DAYS * 86400
+        limit = idle_days()
+        expired = limit is not None and now - rec.get("last_seen", 0) > limit * 86400
         if u is None or u.get("disabled") or expired:
             del data[k]
             _save(data)
             return None
+        # With auto sign-out on, `last_seen` must be fresh to the hour or a
+        # day's use would not count; with it off it is only for the console.
         if now - rec.get("last_seen", 0) > _TOUCH_EVERY_S:
             rec["last_seen"] = now
             _save(data)
