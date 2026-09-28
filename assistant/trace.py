@@ -249,10 +249,18 @@ class Trace:
     # Listeners are notified so the HUD can draw it as it happens rather than
     # after the fact: the point of showing X2 is watching it appear.
 
-    def boundary(self, label: str, value: str, detail: str = "") -> None:
-        """Record `X1`, `X2`, … and the value it carried."""
+    def boundary(self, label: str, value: str, detail: str = "",
+                 parts: list | None = None) -> None:
+        """Record `X1`, `X2`, … and the value it carried.
+
+        `value` is the clipped line a person reads; `parts`, when given, is the
+        same value as a list of small dicts — one per item — for a reader that
+        draws it (the HUD's command graph) and must not parse a display
+        string that was clipped to fit a card."""
         b = {"label": label, "value": value, "detail": detail,
              "at_ms": int((time.perf_counter() - self._t0) * 1000)}
+        if parts:
+            b["parts"] = parts
         self.boundaries.append(b)
         # A SEPARATE listener list, not `_listeners`. The step listeners are
         # `lambda st: publish_step(run, st.to_dict())` — handed a plain dict

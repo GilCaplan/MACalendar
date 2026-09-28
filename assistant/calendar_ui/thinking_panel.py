@@ -17,6 +17,7 @@ HUD feeds it from `assistant.trace_bus`.
 from __future__ import annotations
 
 import datetime as _dt
+import html as _html
 import time as _time
 
 from PyQt6.QtCore import (
@@ -32,6 +33,7 @@ from PyQt6.QtWidgets import (
 
 from assistant import trace as _trace
 from assistant.calendar_ui import icons
+from assistant.calendar_ui.command_graph import CommandGraphView, build_graph
 from assistant.calendar_ui import styles as _styles
 
 PANEL_WIDTH = 400
@@ -1479,7 +1481,9 @@ class ThinkingPanel(QFrame):
         self._header = QWidget()
         head = QHBoxLayout(self._header)
         head.setContentsMargins(14, 10, 8, 10)
-        head.setSpacing(8)
+        # 4, not 8: the header holds five controls since the Graph button, and
+        # at 8 they clipped "Thinking · from your iPhone" to "…from your".
+        head.setSpacing(4)
         self._title = QLabel("Thinking")
         tf = self._title.font()
         tf.setWeight(QFont.Weight.Bold)
@@ -1490,6 +1494,17 @@ class ThinkingPanel(QFrame):
         head.addStretch(1)
         # Minimise to the title bar. The header keeps showing the live step
         # count, so a command still in flight is visible while it's out of the way.
+        # The same command as a GRAPH (Gil, 2026-09-28): the sentence, the asks
+        # it split into, who decided each, what each became. The list below is
+        # the journey step by step; the graph is the shape of it.
+        self._graph_btn = QPushButton("Graph")
+        self._graph_btn.setFlat(True)
+        self._graph_btn.setFixedHeight(24)
+        self._graph_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._graph_btn.setToolTip("This command as a graph: each ask, who decided it, what it became")
+        self._graph_btn.clicked.connect(lambda: self.toggle_graph())
+        head.addWidget(self._graph_btn)
+
         self._hist_btn = QPushButton("History")
         self._hist_btn.setFlat(True)
         self._hist_btn.setFixedHeight(24)
@@ -1631,6 +1646,41 @@ class ThinkingPanel(QFrame):
         self._showing_history = False
         self._hist_rows: list = []
 
+        # -- the command graph ----------------------------------------------
+        # Built here with the other views, for the same reason as the LLM
+        # console below: the HUD's read-only sweep runs once over the tree.
+        self._graph_scroll = QScrollArea()
+        self._graph_scroll.setWidgetResizable(True)
+        self._graph_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._graph_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._graph_body = QWidget()
+        g_lay = QVBoxLayout(self._graph_body)
+        g_lay.setContentsMargins(0, 4, 0, 8)
+        g_lay.setSpacing(4)
+        self._graph = CommandGraphView(self._theme, self._graph_body)
+        self._graph.picked.connect(self._on_graph_pick)
+        g_lay.addWidget(self._graph)
+        # What is behind the node last clicked. One at a time, under the graph,
+        # never on it: the canvas stays one row per ask.
+        self._graph_detail = QLabel("")
+        self._graph_detail.setWordWrap(True)
+        self._graph_detail.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        self._graph_detail.hide()
+        g_lay.addWidget(self._graph_detail)
+        self._graph_hint = QLabel("Hover an ask to follow it · click anything for detail")
+        g_lay.addWidget(self._graph_hint)
+        g_lay.addStretch(1)
+        self._graph_scroll.setWidget(self._graph_body)
+        self._graph_scroll.hide()
+        root.addWidget(self._graph_scroll, 1)
+        # The current command, as the graph reads it — fed by the same calls
+        # that feed the timeline, so the two can never show different runs.
+        self._g_steps: list = []
+        self._g_bounds: list = []
+        self._g_input = ""
+        self._g_result: dict | None = None
+        self._main_view = "timeline"      # where History / LLM go "Back" to
+
         # -- the LLM console ------------------------------------------------
         # Built here, not lazily on first open: the HUD's _make_read_only()
         # sweep runs once over the whole tree and forces NoFocus on every child
@@ -1757,6 +1807,9 @@ class ThinkingPanel(QFrame):
         self._empty.hide()
         self._working.show()
         self._update_count()
+        self._g_steps, self._g_bounds, self._g_input, self._g_result = [], [], "", None
+        self._graph_detail.hide()
+        self._refresh_graph()
 
     def _trim_history(self) -> None:
         """Keep the card from growing without limit.
@@ -1792,16 +1845,38 @@ class ThinkingPanel(QFrame):
             self._notices.append(bar)
             self._body_lay.insertWidget(self._body_lay.indexOf(self._working), bar)
         self._update_count()
+        self._g_steps.append(step)
+        self._refresh_graph()
         QTimer.singleShot(0, self._scroll_to_bottom)
 
     def add_boundary(self, b: dict) -> None:
         """One X_i value, as it crosses. Live — this is the point of it."""
         if self._flow is not None:
             self._flow.add_boundary(b)
+        self._g_bounds.append(b)
+        self._refresh_graph()
 
     def set_input(self, text: str) -> None:
         if self._flow is not None and text:
             self._flow.seed_input(text)
+        self._g_input = text or self._g_input
+        self._refresh_graph()
+
+    def _refresh_graph(self) -> None:
+        """Re-read the run into the graph. Cheap — a handful of dicts — so it
+        runs on every step rather than only while the graph is showing, and
+        switching to the graph mid-command shows it already filled in."""
+        self._graph.set_graph(build_graph(
+            self._g_steps, self._g_bounds, self._g_result,
+            heard=self._g_input, running=not self._finished))
+
+    def _on_graph_pick(self, heading: str, text: str) -> None:
+        if not heading:
+            self._graph_detail.hide()
+            return
+        self._graph_detail.setText(f"<b>{_html.escape(heading)}</b><br>"
+                                   + _html.escape(text).replace("\n", "<br>"))
+        self._graph_detail.show()
 
     def finish(self, result: dict | None = None) -> None:
         # The brain that produced this run (assistant.trace.BRAIN_VERSION),
@@ -1820,6 +1895,8 @@ class ThinkingPanel(QFrame):
             self._result_card = card
             self._body_lay.insertWidget(self._body_lay.count() - 1, card)
         self._update_count()
+        self._g_result = result or {}
+        self._refresh_graph()
         QTimer.singleShot(0, self._scroll_to_bottom)
 
     @property
@@ -1844,8 +1921,17 @@ class ThinkingPanel(QFrame):
         that read it still work.
         """
         self._view = view
+        if view in ("timeline", "graph"):
+            self._main_view = view
         shown = {} if self._minimised else {view}
         self._scroll.setVisible("timeline" in shown)
+        self._graph_scroll.setVisible("graph" in shown)
+        # the step count describes the list; the graph shows asks, not steps
+        self._count.setVisible(view != "graph")
+        self._graph_btn.setText("List" if view == "graph" else "Graph")
+        self._graph_btn.setToolTip(
+            "Back to the step-by-step list" if view == "graph"
+            else "This command as a graph: each ask, who decided it, what it became")
         self._hist_scroll.setVisible("history" in shown)
         self._hist_tools.setVisible("history" in shown)
         self._llm_scroll.setVisible("llm" in shown)
@@ -1872,14 +1958,22 @@ class ThinkingPanel(QFrame):
         want = (self._view != "history") if on is None else on
         if want:
             self._load_history()
-        self._set_view("history" if want else "timeline")
+        self._set_view("history" if want else self._main_view)
 
     def toggle_llm(self, on: bool | None = None) -> None:
         """Swap to the LLM console — every model call, newest last."""
         want = (self._view != "llm") if on is None else on
         if want:
             self._load_llm()
-        self._set_view("llm" if want else "timeline")
+        self._set_view("llm" if want else self._main_view)
+
+    def toggle_graph(self, on: bool | None = None) -> None:
+        """Swap between the step list and the graph of the same command. The
+        choice sticks: History and LLM come Back to it, and the next command
+        opens in it."""
+        want = (self._view != "graph") if on is None else on
+        self._refresh_graph()
+        self._set_view("graph" if want else "timeline")
 
     def clear_llm_log(self) -> None:
         """Empty the call log and the view with it."""
@@ -2021,6 +2115,7 @@ class ThinkingPanel(QFrame):
         self.begin(source=entry.get("source") or "mac")
         for step in entry.get("steps") or []:
             self.add_step(step)
+        self._g_bounds = list((entry.get("result") or {}).get("boundaries") or [])
         self.finish(entry.get("result") or {})
         self.toggle_history(False)
 
@@ -2096,11 +2191,20 @@ class ThinkingPanel(QFrame):
                 f"QPushButton {{ background: transparent; border: none; color: {theme.text2};"
                 f" font-size: {_size}px; }} QPushButton:hover {{ color: {theme.text}; }}"
             )
-        self._hist_btn.setStyleSheet(
-            f"QPushButton {{ background: transparent; border: none; color: {theme.text2};"
-            f" font-size: 11px; padding: 0 6px; }}"
-            f"QPushButton:hover {{ color: {theme.text}; }}"
-        )
+        for _b in (self._hist_btn, self._graph_btn):
+            _b.setStyleSheet(
+                f"QPushButton {{ background: transparent; border: none; color: {theme.text2};"
+                f" font-size: 11px; padding: 0 3px; }}"
+                f"QPushButton:hover {{ color: {theme.text}; }}"
+            )
+        self._graph.apply_theme(theme)
+        self._graph_body.setStyleSheet(f"background-color: {theme.bg};")
+        self._graph_scroll.setStyleSheet(f"QScrollArea {{ background-color: {theme.bg}; border: none; }}")
+        self._graph_detail.setStyleSheet(
+            f"color: {theme.text}; background: {theme.surface}; border-radius: 6px;"
+            f" padding: 6px 8px; margin: 0 12px; font-size: 11px;")
+        self._graph_hint.setStyleSheet(
+            f"color: {theme.text2}; background: transparent; padding: 0 12px; font-size: 10px;")
         self._rule.setStyleSheet(f"background-color: {theme.border}; border: none;")
         self._hist_tools.setStyleSheet("background: transparent;")
         self._hist_count.setStyleSheet(f"color: {theme.text2}; background: transparent;")
