@@ -542,16 +542,23 @@ def create_app() -> Flask:
         """Accept a multipart audio file, transcribe via Whisper, then execute.
 
         The phone's offline queue sends each command's own id as `client_id`;
-        a resend of the same id runs nothing a second time (`receipts`)."""
-        from assistant.api import receipts
-        out = receipts.run_once(request.form.get("client_id"), _voice_audio_once)
-        return jsonify(out) if isinstance(out, dict) else out
+        a resend of the same id runs nothing a second time (`receipts`).
 
-    def _voice_audio_once():
+        Without an id — every phone build before 2026-09-28 — the RECORDING
+        is the id: the same bytes uploaded again are the same command resent,
+        because no two utterances are byte-identical. That is what caught the
+        fourth "Walk Jada every day" upload, sent by an app too old to send
+        an id."""
+        from assistant.api import receipts
         if "audio" not in request.files:
             return jsonify({"error": "Missing 'audio' file field", "code": 400}), 400
-
         audio_bytes = request.files["audio"].read()
+        cid = request.form.get("client_id") or (
+            "audio-" + hashlib.sha256(audio_bytes).hexdigest()[:40])
+        out = receipts.run_once(cid, lambda: _voice_audio_once(audio_bytes))
+        return jsonify(out) if isinstance(out, dict) else out
+
+    def _voice_audio_once(audio_bytes: bytes):
         logger.info("📱 Audio received: %.1f KB", len(audio_bytes) / 1024)
         try:
             from assistant.api.audio_utils import audio_bytes_to_numpy

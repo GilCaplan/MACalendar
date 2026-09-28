@@ -100,3 +100,31 @@ def test_the_voice_text_route_runs_a_repeated_client_id_once(monkeypatch):
     # a different id is a different command
     c.post("/voice/text", json=dict(body, client_id="q-78"))
     assert len(runs) == 2
+
+
+def test_the_same_recording_uploaded_again_runs_once_even_without_an_id(monkeypatch):
+    """An app too old to send `client_id` resent the same 493.3 KB recording a
+    fourth time; the recording's own bytes are the id."""
+    import io
+    from assistant.api import server
+    import assistant.engine as eng
+    runs = []
+    monkeypatch.setattr(eng, "run_transcript",
+                        lambda t, trace=None, **kw: runs.append(t) or
+                        {"message": "ran", "actions": [], "refresh": "none", "parse": "rule"})
+    import assistant.api.audio_utils as au
+    monkeypatch.setattr(au, "audio_bytes_to_numpy", lambda b: b)
+    app = server.create_app()
+    stt = type("S", (), {"transcribe": lambda self, a: "walk jada every day"})()
+    monkeypatch.setattr(server, "_get_stt", lambda: stt, raising=False)
+    c = app.test_client()
+
+    def post(data):
+        return c.post("/voice", data={"audio": (io.BytesIO(data), "a.wav")},
+                      content_type="multipart/form-data")
+
+    r1, r2 = post(b"RIFF-same-bytes"), post(b"RIFF-same-bytes")
+    assert r1.status_code == r2.status_code == 200, (r1.data, r2.data)
+    assert len(runs) == 1 and r2.get_json().get("duplicate") is True
+    post(b"RIFF-other-bytes")
+    assert len(runs) == 2
