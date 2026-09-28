@@ -36,6 +36,12 @@ final class UserSession: ObservableObject {
     @Published private(set) var user: SessionUser?
     /// Show the sign-in screen.
     @Published var needsSignIn = false
+    /// Does the Mac have users? Remembered, so a phone that has seen it once
+    /// never asks for anyone's data before someone signs in (APIClient.request).
+    @Published private(set) var serverHasUsers: Bool =
+        UserDefaults.standard.bool(forKey: "macalendar.server_has_users") {
+        didSet { UserDefaults.standard.set(serverHasUsers, forKey: "macalendar.server_has_users") }
+    }
 
     private static let tokenAccount = "macalendar.session_token"
     private static let userKey = "macalendar.session_user"
@@ -91,8 +97,10 @@ final class UserSession: ObservableObject {
         } else {
             UserDefaults.standard.removeObject(forKey: Self.userKey)
         }
-        // Each person's offline copy is their own (LocalStore).
-        LocalStore.shared.switchUser(u?.id)
+        // Each person's offline copy is their own (LocalStore). Only the ADMIN
+        // takes over a pre-users cache — that data was his (the Mac's migration
+        // gave him the same).
+        LocalStore.shared.switchUser(u?.id, mayClaimLegacy: u?.isAdmin ?? false)
     }
 
     // MARK: - the three moves
@@ -127,6 +135,7 @@ final class UserSession: ObservableObject {
             let data = try await api.request("/auth/me")
             guard let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
             let loggedIn = (obj["logged_in"] as? Bool) ?? false
+            serverHasUsers = true
             if loggedIn, let u = try? JSONDecoder().decode(
                 SessionUser.self, from: JSONSerialization.data(withJSONObject: obj)) {
                 if u != user { adopt(u) }
@@ -137,6 +146,7 @@ final class UserSession: ObservableObject {
             }
         } catch APIError.serverError(let msg) where msg.contains("no users yet") {
             needsSignIn = false          // a Mac from before users: nothing to sign in to
+            serverHasUsers = false
         } catch APIError.serverError(let msg) where msg.contains("login required") {
             unauthorized()
         } catch {

@@ -388,6 +388,13 @@ struct ContentView: View {
         .onChange(of: api.isOnline) { online in
             if online { Task { await session.refresh(api: api) } }
         }
+        // A different person is signed in: everything on screen is theirs now.
+        .onChange(of: session.user?.id) { _ in
+            CalendarNavigator.shared.reload()
+            api.requestRefresh()
+            // the tab list was asked for before sign-in and refused — ask again
+            Task { await visibility.refresh(api: api) }
+        }
         .task {
             await session.refresh(api: api)
             // Wire the Workout store up to the network layer once, so its

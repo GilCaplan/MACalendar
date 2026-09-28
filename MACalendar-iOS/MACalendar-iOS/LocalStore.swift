@@ -184,16 +184,18 @@ class LocalStore: ObservableObject {
     }
 
     /// Someone else signed in (or out): save what is on screen to its owner's
-    /// folder, then load theirs. The FIRST person to sign in on a phone that
-    /// already has a cache from before users takes it over — it is theirs
-    /// (on Gil's phone, Gil); anyone after them starts clean and never sees it.
-    func switchUser(_ userID: String?) {
+    /// folder, then load theirs. The ADMIN, signing in on a phone that already
+    /// has a cache from before users, takes it over — it was his, as the Mac's
+    /// migration decided for its own data; anyone else starts clean and never
+    /// sees it. (First version: "the first to sign in" — found in the
+    /// simulator handing Dana a cache fetched as the admin.)
+    func switchUser(_ userID: String?, mayClaimLegacy: Bool = false) {
         let target = Self.folder(for: userID)
         guard target.standardizedFileURL != dir.standardizedFileURL else { return }
         flushCachesNow()
         persistVoice()
         try? JSONEncoder().encode(pending).write(to: url("mc_pending.json"))
-        if let userID, !userID.isEmpty {
+        if let userID, !userID.isEmpty, mayClaimLegacy {
             let owner = UserDefaults.standard.string(forKey: "macalendar.cache_owner")
             if owner == nil || owner == userID {
                 Self.claimLegacyCache(into: target)

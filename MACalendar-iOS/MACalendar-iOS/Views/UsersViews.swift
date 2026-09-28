@@ -62,7 +62,17 @@ struct LoginView: View {
                 .font(.caption).foregroundColor(.secondary)
         }
         .padding(28)
-        .onAppear { focus = .user }
+        .onAppear {
+            focus = .user
+            #if DEBUG
+            // Simulator check of the real sign-in path (typing is not automatable here)
+            if let creds = ProcessInfo.processInfo.environment["MACALENDAR_UITEST_LOGIN"],
+               let colon = creds.firstIndex(of: ":") {
+                username = String(creds[..<colon]); password = String(creds[creds.index(after: colon)...])
+                Task { await signIn() }
+            }
+            #endif
+        }
         .sheet(isPresented: $changePassword) { ChangePasswordView(forced: true) }
     }
 

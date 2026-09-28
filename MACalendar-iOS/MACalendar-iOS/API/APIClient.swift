@@ -191,6 +191,15 @@ class APIClient: ObservableObject {
         // there at all is a different question with a different answer: on the
         // tailnet a reachable one replies in about 100ms, so a request that
         // has not been answered in 5s is not slow, it is absent.
+        // Nobody's data before somebody signs in (DEVQA Q65): on a Mac with
+        // users, a phone without a session asks for nothing but to sign in.
+        // Found in the simulator: the app fetched the calendar as the implicit
+        // admin before sign-in, cached it, and the next person inherited it.
+        let bare = String(path.prefix(while: { $0 != "?" }))
+        if UserSession.token.isEmpty, UserSession.shared.serverHasUsers,
+           !["/auth/login", "/auth/me", "/health", "/devices/enroll"].contains(bare) {
+            throw APIError.serverError("{\"error\": \"sign in first\", \"code\": 401}")
+        }
         var req = URLRequest(url: url, timeoutInterval: isOnline ? 5 : 3)
         req.httpMethod = method
         authorize(&req)
