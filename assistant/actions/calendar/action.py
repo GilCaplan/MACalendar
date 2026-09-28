@@ -66,6 +66,19 @@ class CreateEventAction(BaseAction):
         # default blue" when the accent became configurable and started meaning
         # "the user picked amber" — every voice-created event then came out the
         # same colour whatever its category (2026-09-10).
+        #
+        # The SAME event already there is not booked again (Gil, 2026-09-28:
+        # one queued command, four identical series). Said so in the reply,
+        # and "it" still means that event, so "move it" works next.
+        dup = db.find_duplicate_event(intent.title, intent.date, intent.start_time,
+                                      getattr(intent, "recurrence", None) or "")
+        if dup is not None:
+            context_memory.update_event(dup["id"], dup["title"], dup["date"])
+            what = f"'{dup['title']}' is already on your calendar"
+            when = (f"every {'day' if dup['recurrence'] == 'daily' else dup['recurrence'].removesuffix('ly')}"
+                    f" from {_fmt_date(dup['date'])}" if dup.get("recurrence")
+                    else f"on {_fmt_date(dup['date'])} at {_fmt_time(dup['start_time'])}")
+            return f"{what} {when} — I didn't add it again."
         event_id = db.create_event(intent)
 
         context_memory.update_event(event_id, intent.title, intent.date)

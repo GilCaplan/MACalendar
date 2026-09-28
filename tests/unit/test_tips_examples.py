@@ -56,6 +56,21 @@ def _no_model(monkeypatch):
     monkeypatch.setattr(_llm, "is_reachable", lambda cfg=None: False)
 
 
+@pytest.fixture(autouse=True)
+def _empty_calendar():
+    # Each tip is a standalone example said to an empty calendar. Since the
+    # same event is no longer booked twice (2026-09-28), an earlier test's
+    # "dentist tomorrow at 4" made tip 1's identical sentence a duplicate.
+    db = sqlite3.connect(os.environ["MACALENDAR_DB"])
+    for table in ("events", "todos"):
+        try:
+            db.execute(f"delete from {table}")
+        except sqlite3.OperationalError:
+            pass
+    db.commit()
+    db.close()
+
+
 @pytest.fixture(scope="module", autouse=True)
 def _frozen_monday():
     # Load the engine's lazy imports (spaCy, pydantic, the recogniser) BEFORE

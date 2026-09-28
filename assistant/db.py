@@ -1249,6 +1249,31 @@ class CalendarDB:
             )
             count += 1
 
+    def find_duplicate_event(self, title: str, date: str, start_time: str,
+                             recurrence: str = "") -> "dict | None":
+        """The event this one would duplicate, or None: same title (case and
+        spacing aside), same day, same start, same repeat.
+
+        Gil, 2026-09-28, after one queued command booked the same daily series
+        four times: *"reason duplicates if same event were created"*. The
+        run-once receipt (`api/receipts.py`) stops the same UPLOAD running
+        twice; this stops the same EVENT being written twice however it
+        arrives — said twice, typed twice, resent by an older phone. A
+        one-off never blocks a series (the repeat must match too), and a
+        different time is a different event."""
+        with self._conn() as conn:
+            row = conn.execute(
+                """
+                SELECT id, title, date, start_time, end_time, recurrence, series_id
+                FROM events
+                WHERE lower(trim(title)) = lower(trim(?)) AND date = ?
+                  AND start_time = ? AND COALESCE(recurrence, '') = ?
+                ORDER BY id LIMIT 1
+                """,
+                (title or "", date or "", start_time or "", recurrence or ""),
+            ).fetchone()
+        return dict(row) if row else None
+
     def create_event_from_dict(self, data: dict) -> int:
         """Create an event from a plain dict (used by EventDialog)."""
         recurrence = data.get("recurrence", "")

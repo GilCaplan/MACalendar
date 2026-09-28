@@ -1782,6 +1782,18 @@ is still running the first copy. Each queued command now sends its own id as
 for it and gets its answer, a later one gets the stored answer (kept an hour,
 in memory), a FAILED run frees the id so a real retry still runs. The
 vocabulary's learn-from-edit is inside the once too. `test_voice_run_once.py`.
+With no id (every phone build before this) `/voice` keys the run on the
+recording's sha256 — the same bytes again are the same command resent; that
+caught a fourth upload from the installed, older app.
+**The same event is never booked twice** (Gil, 2026-09-28: *"reason
+duplicates if same event were created"*). The receipt stops the same UPLOAD;
+`CreateEventAction` stops the same EVENT however it arrives: before writing,
+`CalendarDB.find_duplicate_event` looks for the same title (case and spacing
+aside), day, start time and repeat, and if it is there the reply says
+"'walk jada' is already on your calendar … — I didn't add it again", no
+linked to-do is filed, and "it" points at the existing event. A one-off never
+blocks a series; a different time is a different event. Engine-created events
+only — a manual add in the event editor is deliberate. `test_duplicate_event.py`.
 **Tap a row for the run** (Gil, 2026-09-28). Every row opens
 `QueuedCommandDetail`: a finished command shows the same step-by-step
 `ThinkingView` a live one does, rebuilt from the answer the phone now keeps
