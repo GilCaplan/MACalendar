@@ -313,3 +313,64 @@ final class OfflineSyncUITests: XCTestCase {
         }
     }
 }
+
+/// Tapping a queued command opens its run (Gil, 2026-09-28: "make this
+/// clickable to see details of run").
+///
+/// The queue is seeded by `LocalStore.seedVoiceForUITest` (DEBUG only) with a
+/// REAL server answer — `Fixtures/voice_response_walk_the_dog.json`, captured
+/// from the engine in scratch stores — pushed through the same `updateVoice`
+/// path a flush takes, so what the detail screen decodes has really been
+/// encoded into the queue first. The app points at a closed port: no Mac is
+/// touched.
+final class QueuedCommandDetailUITests: XCTestCase {
+
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
+    private func fixture() throws -> String {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/voice_response_walk_the_dog.json")
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    private func shot(_ app: XCUIApplication, _ name: String) {
+        let a = XCTAttachment(screenshot: app.screenshot())
+        a.name = name
+        a.lifetime = .keepAlways
+        add(a)
+    }
+
+    func testAFinishedRowOpensItsRunAndARunningRowItsProgress() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-serverURL", "127.0.0.1:59999"]
+        app.launchEnvironment["MACALENDAR_UITEST_VOICE_RESPONSE"] = try fixture()
+        app.launch()
+
+        let banner = app.buttons.containing(NSPredicate(format: "label CONTAINS 'Show'")).firstMatch
+        XCTAssertTrue(banner.waitForExistence(timeout: 10), "the queued-commands banner did not appear")
+        banner.tap()
+        XCTAssertTrue(app.navigationBars["Queued commands"].waitForExistence(timeout: 5))
+        shot(app, "1-queue")
+
+        // the finished one → the same step-by-step view a live command gets
+        app.staticTexts["“walk the dog tomorrow at 9”"].firstMatch.tap()
+        let reply = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'walk the dog'")).firstMatch
+        XCTAssertTrue(reply.waitForExistence(timeout: 5), "the run did not open")
+        XCTAssertFalse(app.navigationBars["Queued command"].exists,
+                       "fell back to the plain detail — the kept answer did not decode")
+        shot(app, "2-finished-run")
+        app.swipeDown(velocity: .fast)
+
+        // the running one → status and a ticking elapsed time
+        let running = app.staticTexts["“walk jada every day at 9”"].firstMatch
+        XCTAssertTrue(running.waitForExistence(timeout: 5))
+        running.tap()
+        XCTAssertTrue(app.navigationBars["Queued command"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Running on your Mac"].exists)
+        XCTAssertTrue(app.staticTexts["Running for"].exists)
+        shot(app, "3-running")
+    }
+}

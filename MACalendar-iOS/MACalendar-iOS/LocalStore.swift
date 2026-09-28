@@ -84,8 +84,18 @@ struct PendingVoiceCommand: Codable, Identifiable {
 
     /// The Mac's whole answer, trace and all, kept so tapping a finished row
     /// shows the run step by step (Gil, 2026-09-28: "make this clickable to see
-    /// details of run"). Optional, so rows saved before it decode unchanged.
-    var response: VoiceResponse?
+    /// details of run").
+    ///
+    /// Stored as its own encoded blob, NOT as a `VoiceResponse` field: this row
+    /// lives in the queue file, and `VoiceResponse` nests a dozen types with
+    /// hand-written coding. One that stopped round-tripping would make the
+    /// WHOLE file fail to decode on the next launch — every queued command
+    /// silently gone. As a blob, a bad one costs only its own detail screen.
+    var responseData: Data?
+
+    var response: VoiceResponse? {
+        responseData.flatMap { try? JSONDecoder().decode(VoiceResponse.self, from: $0) }
+    }
 
     /// You are editing this right now, so a flush must walk past it.
     ///
@@ -173,6 +183,9 @@ class LocalStore: ObservableObject {
         let negIDs = events.map { $0.id }.filter { $0 < 0 } + todos.map { $0.id }.filter { $0 < 0 }
         nextTemp = (negIDs.min().map { $0 - 1 }) ?? -1
         loadVoice()
+        #if DEBUG
+        seedVoiceForUITest()
+        #endif
     }
 
     private var cacheFlush: Task<Void, Never>?
@@ -763,6 +776,31 @@ class LocalStore: ObservableObject {
         }
     }
 
+    #if DEBUG
+    /// UI tests only (`QueuedCommandDetailUITests`): the test passes a REAL
+    /// server answer (captured from the engine in scratch stores) and this puts
+    /// one finished row and one running row in the queue, through the same
+    /// `updateVoice` path a real flush takes — so the detail screen is tested
+    /// against a response that has actually been encoded into the queue file
+    /// and decoded back out. Compiled out of release builds.
+    private func seedVoiceForUITest() {
+        let env = ProcessInfo.processInfo.environment
+        guard let json = env["MACALENDAR_UITEST_VOICE_RESPONSE"],
+              let resp = try? JSONDecoder().decode(VoiceResponse.self, from: Data(json.utf8))
+        else { return }
+        pendingVoice.removeAll()
+        var done = PendingVoiceCommand(audioFile: "", draft: "walk the dog tomorrow at 9")
+        done.status = .running
+        pendingVoice.append(done)
+        updateVoice(done.id, status: .running)
+        updateVoice(done.id, status: .done, result: resp.message, response: resp)
+        var running = PendingVoiceCommand(audioFile: "", draft: "walk jada every day at 9")
+        running.status = .running
+        pendingVoice.append(running)
+        updateVoice(running.id, status: .running)
+    }
+    #endif
+
     /// Park a recording until the Mac is reachable. Returns the queued command.
     ///
     /// `draft` is what the on-device recogniser heard while you were speaking —
@@ -836,7 +874,7 @@ class LocalStore: ObservableObject {
         if status == .queued { pendingVoice[i].startedAt = nil }
         if status == .done || status == .failed { pendingVoice[i].finishedAt = Date() }
         if !result.isEmpty { pendingVoice[i].result = result }
-        if let response { pendingVoice[i].response = response }
+        if let response { pendingVoice[i].responseData = try? JSONEncoder().encode(response) }
         persistVoice()
     }
 
