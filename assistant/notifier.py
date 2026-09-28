@@ -217,7 +217,8 @@ def _consider_digest(db, cfg, now: datetime.datetime, last: datetime.datetime,
     if not db.log_reminder(DIGEST_KEY, at_iso, "fired"):
         return                                  # already delivered today
 
-    panel = _notify.build_digest(now.date(), cfg, db)
+    from assistant.users import sharing as _sharing
+    panel = _notify.build_digest(now.date(), cfg, _sharing.digest_reader(db))
     _deliver_digest(panel, cfg, tts_voice)
 
 
@@ -281,6 +282,17 @@ def _tick(db, cfg, now: datetime.datetime, last: datetime.datetime, *,
 # The daemon
 # --------------------------------------------------------------------------
 
+def mac_user() -> "tuple[str | None, bool]":
+    """(whose banners, whether to show any) for the Mac's notifier: the user
+    signed in at the Mac; with nobody signed in, the admin while sign-in is not
+    required, else nobody — silent. Before users: (None, True), as always."""
+    from assistant.users import local_session, registry
+    if not registry.exists():
+        return None, True
+    uid = local_session.current_user() or registry.implicit_user()
+    return uid, uid is not None
+
+
 def start_notifier_loop(interval: float = 30.0) -> None:
     """Daemon: deliver due pre-event reminders as macOS banners.
 
@@ -304,8 +316,17 @@ def start_notifier_loop(interval: float = 30.0) -> None:
                 if not ncfg.enabled:
                     last = now
                     continue
-                _tick(get_db(), ncfg, now, last,
-                      tts_voice=cfg.tts.voice, interval=interval)
+                # The Mac's banners are for whoever is signed in AT the Mac
+                # (DEVQA Q65). With users and nobody signed in: silent — unless
+                # sign-in is not required yet, when the Mac acts as the admin.
+                from assistant import users as _users
+                uid, speak = mac_user()
+                if not speak:
+                    last = now
+                    continue
+                with _users.bind(uid):
+                    _tick(get_db(), ncfg, now, last,
+                          tts_voice=cfg.tts.voice, interval=interval)
                 last = now
             except Exception as exc:
                 # Keep `last` where it was: when the fault clears, the wider

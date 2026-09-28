@@ -1513,7 +1513,8 @@ def create_app() -> Flask:
         except ValueError:
             return jsonify({"error": "date must be YYYY-MM-DD"}), 400
         cfg = load_config().notifications
-        return jsonify(_notify.build_digest(day, cfg, get_db()))
+        from assistant.users import sharing as _sharing
+        return jsonify(_notify.build_digest(day, cfg, _sharing.digest_reader(get_db())))
 
     #: How many days ahead /digest/upcoming will build. A week covers a phone
     #: left off the tailnet over a trip; past that the content is stale enough
@@ -1544,7 +1545,8 @@ def create_app() -> Flask:
         days = max(1, min(days, _DIGEST_HORIZON))
 
         cfg = load_config().notifications
-        db = get_db()
+        from assistant.users import sharing as _sharing
+        db = _sharing.digest_reader(get_db())      # this person's, + shared if asked
         today = datetime.date.today()
         return jsonify({"days": [
             _notify.build_digest(today + datetime.timedelta(days=i), cfg, db)

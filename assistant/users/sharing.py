@@ -286,3 +286,58 @@ def release_request() -> None:
         except (ValueError, RuntimeError):
             pass
     g.sharing_tokens = []
+
+
+# ------------------------------------------------------------------ notifications
+
+def notify_owners(viewer: str) -> list[str]:
+    """Whose items a person is NOTIFIED about: their own, plus — only if they
+    turned on "include what others share with me" — everyone sharing with
+    them. The admin's view toggles are a view, NOT a subscription: turning
+    Dana on in his calendar never puts her day in his notifications
+    (DEVQA Q65: the admin is not spammed with everyone's)."""
+    me = registry.get(viewer) or {}
+    if not me.get("settings", {}).get("notify_shared"):
+        return [viewer]
+    return [viewer] + [s["owner"] for s in registry.shares_in(viewer)
+                       if s["owner"] in set(registry.user_ids())]
+
+
+class _DigestReader:
+    """What the day panel reads: `get_events_for_day` / `get_todos` over the
+    person's `notify_owners`, decorated so a shared row can say whose it is."""
+
+    def __init__(self, own, viewer: str) -> None:
+        self._own, self._viewer = own, viewer
+
+    def _over(self, name: str, *args, **kwargs) -> list:
+        from assistant.db import get_db
+        out = []
+        for owner in notify_owners(self._viewer):
+            if owner == self._viewer:
+                rows = getattr(self._own, name)(*args, **kwargs) or []
+            else:
+                with users.bind(owner):
+                    rows = getattr(get_db(), name)(*args, **kwargs) or []
+            out.extend(decorate(r, owner, self._viewer) for r in rows)
+        return out
+
+    def get_events_for_day(self, day):
+        return sorted(self._over("get_events_for_day", day), key=event_order)
+
+    def get_todos(self, *args, **kwargs):
+        return self._over("get_todos", *args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._own, name)
+
+
+def digest_reader(db):
+    """`db` for the day panel of whoever is bound — widened to shared
+    calendars only when they asked for that. Pass-through before users."""
+    if not active():
+        return db
+    viewer = users.current()
+    if notify_owners(viewer) == [viewer]:
+        return db
+    return _DigestReader(db, viewer)

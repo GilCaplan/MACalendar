@@ -181,7 +181,11 @@ between two of your own machines rather than a dependency on a service.
 ## Personal data lives outside the repo
 
 `~/.assistant_tools/` holds the calendar DB, the command memory, the personal
-vocabulary and the event categories. **None of it is test data.** The
+vocabulary and the event categories — **per user since 2026-09-28**, under
+`users/<uid>/` (DEVQA Q65, `DOCUMENTATION/USERS_PLAN.md`): every store resolves
+its path through `users.paths.resolve`, and a script that reads the real data
+on purpose uses `users.paths.personal_store(name)`, never the old top-level
+path (the leak check silently skipped for exactly that). **None of it is test data.** The
 vocabulary is hand-curated and the command memory feeds the review flows, so
 writing junk into either quietly degrades the assistant.
 

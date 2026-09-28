@@ -238,9 +238,13 @@ def digest_lines(events: "list[dict]", todos: "list[dict]") -> "tuple[list[str],
     ev = []
     for e in ordered:
         title = (e.get("title") or "Untitled").strip()
+        if e.get("shared") and e.get("owner_name"):
+            title = f"{title} · {e['owner_name']}"        # whose (DEVQA Q65)
         start = e.get("start_time")
         ev.append(f"{_clock(start)}  {title}" if start else f"All day  {title}")
-    td = [(t.get("title") or "Untitled").strip() for t in todos]
+    td = [(t.get("title") or "Untitled").strip()
+          + (f" · {t['owner_name']}" if t.get("shared") and t.get("owner_name") else "")
+          for t in todos]
     return ev, td
 
 

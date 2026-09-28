@@ -109,6 +109,7 @@ built when it reaches the Mac.
 | hybrid | [Confirm-create gate](#the-confirm-create-gate-confirm_create) | "should I add yoga tomorrow?" → Add / No, never a silent guess | `decompose_validate/object_rules.py`, `/voice/confirm` |
 | hybrid | [Self-check & revert](#background-self-check--one-tap-revert) | background re-reasoning, one-tap undo | `engine/__init__.py`, panels |
 | hybrid | [Review panel / HUD](#the-review-panel-thinking-hud--ios-timeline) | live chain-of-thought card + history | `thinking_hud.py`, `ThinkingView` |
+| hybrid | [Users, sign-in & sharing](#users-sign-in--sharing) | an admin + users, each with their own calendar, to-dos and learning; share whole calendar view/edit; admin console | `assistant/users/`, `users_dialogs.py`, `UsersViews.swift` |
 | mac | [Command graph](#the-review-panel-thinking-hud--ios-timeline) | the HUD's Graph view: each ask → rules or model → what it became; hover follows a lane, click explains a node | `command_graph.py` |
 | hybrid | [LLM console](#the-llm-console) | the panel's third view: every model call, with its caller | `llm_bus.py`, `thinking_panel.py` |
 | hybrid | [Personal vocabulary](#personal-vocabulary) | user's words fix transcripts first | `stt/vocab.py` |
@@ -1838,3 +1839,33 @@ flush), `assistant/intent/parser.py` and `llmseg` (the gate), and both clients.
 **Measured** (2026-09-10): before it existed, a trivial five-token call behind a
 running board took 2.0s → 42.5s → 43.9s. With it, live waits 52-74ms while a
 board is mid-inference; a killed board frees the gate in 0ms.
+
+
+### Users, sign-in & sharing
+**What:** An admin (Gil) plus other users (DEVQA Q65, 2026-09-28). Each person
+has their own calendar, to-dos, vocabulary, command memory, labels and
+History; signs in on the Mac and the phone (a device can switch user);
+shares their WHOLE calendar + to-dos with chosen people, VIEW or EDIT; sees
+shared rows in the owner's colour with "Dana · " before the title. The admin
+sees and edits everything, toggles a user into his own view (off by default),
+creates users, resets passwords (hashed; a new one shown once, must change
+at sign-in), disables, removes (the data moves to `legacy/`, never deleted),
+shares his vocabulary with chosen users, and sets "require sign-in
+everywhere". Notifications are each person's own; shared items join only if
+they asked; the admin's view toggles never add to his notifications.
+**Where:** `assistant/users/` (context, paths, registry, passwords, sessions,
+sharing, routes, local_session, migrate), `scripts/migrate_users.py`;
+Mac `calendar_ui/users_dialogs.py`, `calendar_ui/merged_db.py`, the toolbar
+chip in `window.py`, sign-in in `main.py`; iOS `API/UserSession.swift`,
+`Views/UsersViews.swift`, `LocalStore.switchUser`. Plan and phases:
+`DOCUMENTATION/USERS_PLAN.md`.
+**How:** The user travels as a `ContextVar` (the request-priority pattern),
+never through `EngineState`: the API binds the session's user per request,
+the Mac window and HUD set a process default, `users.thread` carries it into
+worker threads. Every store resolves its path through `users.paths.resolve`
+— unchanged when nobody is bound, `users/<uid>/<name>` when someone is.
+Other people's row ids are published as `(seq << 32) | id`; a by-id request
+runs AS the owner (`sharing.for_request`) so side effects land in their
+stores. A voice command only ever touches the speaker's own calendar — a
+spoken delete can never reach a shared row. Tests: `test_users_*.py`
+(foundation/isolation, auth, sharing, Mac with real clicks, notifications).

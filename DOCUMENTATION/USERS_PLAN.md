@@ -39,12 +39,12 @@ Stays global (a device's or the machine's, not a person's): `model.lock`,
 
 | # | phase | status |
 |---|---|---|
-| 1 | **Foundation** — `assistant/users/` (context, paths, registry, passwords), every personal store per user, `ContextMemory` per user, threads carry the user, the migration with backup / verification / automatic rollback / `--rollback`, scratch redirects | **built 2026-09-28** (`users` branch) — migration NOT yet run on the real data |
-| 2 | **Auth API** — sessions (`sessions.json`, token hashed), `/auth/*`, `/users/*`, `/admin/*`, device → user binding, route authorisation for own data, login rate limit | next |
-| 3 | **Sharing + merged views** — owner-namespaced ids (`seq << 32 \| row_id` for SHARED rows only; own ids unchanged), `MergedReader` used by the API and the Mac window in-process, permission-checked write routing, the admin's view toggles, calendar-sync per user, shared vocabulary (`registry.vocab_sources`) | |
-| 4 | **Mac UI** — login dialog, user chip + switcher, Settings › Account & Sharing, Admin console, the HUD follows the Mac session | |
-| 5 | **iOS** — LoginView, AccountView, AdminUsersView, per-user cache folders, owner name/colour on rows; then `require_login: true` (every device logs in once) | |
-| 6 | **Notifications per user + finish** — digests per user, `notify_shared`, the admin never spammed with others' items; docs; an end-to-end scenario script | |
+| 1 | **Foundation** — `assistant/users/` (context, paths, registry, passwords), every personal store per user, `ContextMemory` per user, threads carry the user, the migration with backup / verification / automatic rollback / `--rollback`, scratch redirects | **done 2026-09-28**; the real data MIGRATED the same day (7 stores, counts verified, backup `~/.assistant_tools.backup-20260928-151343`) |
+| 2 | **Auth API** — sessions (`sessions.json`, token hashed), `/auth/*`, `/users/*`, `/admin/*`, device → user binding, route authorisation for own data, login rate limit | **done 2026-09-28** |
+| 3 | **Sharing + merged views** (**done 2026-09-28**) — owner-namespaced ids (`seq << 32 \| row_id` for SHARED rows only; own ids unchanged), `MergedReader` used by the API and the Mac window in-process, permission-checked write routing, the admin's view toggles, calendar-sync per user, shared vocabulary (`registry.vocab_sources`) | |
+| 4 | **Mac UI** (**done 2026-09-28**) — login dialog, user chip + switcher, Settings › Account & Sharing, Admin console, the HUD follows the Mac session | |
+| 5 | **iOS** (**done 2026-09-28**; `require_login` left OFF until Gil turns it on) — LoginView, AccountView, AdminUsersView, per-user cache folders, owner name/colour on rows; then `require_login: true` (every device logs in once) | |
+| 6 | **Notifications per user + finish** (**done 2026-09-28**) — digests per user, `notify_shared`, the admin never spammed with others' items; docs; an end-to-end scenario script | |
 
 ## Phase 1 — what exists
 
