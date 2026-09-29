@@ -268,8 +268,16 @@ class Sidebar(QWidget):
         self._mini_cal.selectionChanged.connect(self._on_date_selected)
         layout.addWidget(self._mini_cal)
 
+        # Countdowns (Settings ▸ Occasions, Q73): "12 days · Wedding".
+        from assistant.calendar_ui.occasion_ui import CountdownList
+        self._countdowns = CountdownList()
+        layout.addWidget(self._countdowns)
+
         layout.addStretch()
 
+
+    def refresh_countdowns(self) -> None:
+        self._countdowns.reload()
 
     def apply_first_day(self) -> None:
         """Settings ▸ Appearance ▸ Week starts on — the mini-calendar too."""

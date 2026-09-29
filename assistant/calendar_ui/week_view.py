@@ -862,6 +862,8 @@ class WeekView(QWidget):
         pill_fs = 9 if not self._ui_config else max(8, self._ui_config.font_week - 2)
         pill_h = 20 if not self._ui_config else max(20, self._ui_config.font_week + 8)
 
+        from assistant.calendar_ui.occasion_ui import OccasionBanner, banners_between
+        occasions = banners_between(self._week_start, week_end)
         max_items = 0
         for i, col in enumerate(self._day_columns):
             date_str = col.date.isoformat()
@@ -869,13 +871,18 @@ class WeekView(QWidget):
 
             todos = todos_by_date.get(date_str, [])
             holidays = holidays_by_date.get(date_str, [])
-            max_items = max(max_items, len(todos) + len(holidays))
+            occ = occasions.get(date_str, [])
+            max_items = max(max_items, len(todos) + len(holidays) + len(occ))
             cell = self._allday_cells[i]
             cell_layout = cell.layout()
             while cell_layout.count():
                 w = cell_layout.takeAt(0).widget()
                 if w:
                     w.deleteLater()
+            for b in occ:
+                ob = OccasionBanner(b, font_size=pill_fs)
+                ob.setFixedHeight(pill_h)
+                cell_layout.addWidget(ob)
             for h in holidays:
                 is_erev = col.date == h.gregorian_erev_start
                 banner = HolidayBanner(h.name_en, h.category, is_erev, font_size=pill_fs)

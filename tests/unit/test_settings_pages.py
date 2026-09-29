@@ -134,7 +134,7 @@ def _page_of(dlg, header: QToolButton) -> QWidget:
     return dlg.findChild(QStackedWidget, "settings_pages").currentWidget()
 
 
-SECTIONS = ["appearance", "tabs", "hebrew_calendar", "events", "notifications",
+SECTIONS = ["appearance", "tabs", "hebrew_calendar", "occasions", "events", "notifications",
             "voice", "assistant", "connected_calendars", "server"]
 
 

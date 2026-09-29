@@ -53,7 +53,11 @@ CONFIG_PATH = (os.path.abspath(os.path.expanduser(os.environ["MACALENDAR_CONFIG"
 #: scalar otherwise. Order matters — the quoted/flow-list branches must be
 #: tried before the catch-all, or a value like "#f5a524" is never reached as
 #: a single alternative.
-_VALUE = r'(?:"[^"]*"|\[[^\]]*\]|[^#]*?)'
+#: A value: quoted, a flow list, a flow MAPPING, or a bare scalar. The mapping
+#: must be its own case — `colors: {birthday: "#ec4899"}` holds "#", and the
+#: bare-scalar case would have read everything after it as a comment and
+#: kept it, corrupting the line on the second save (2026-09-29, occasions).
+_VALUE = r'(?:"[^"]*"|\[[^\]]*\]|\{[^}]*\}|[^#]*?)'
 #: A YAML block-list item — "- meeting" at any indent. A key rewritten to a
 #: flow form must swallow these or they survive as orphaned siblings.
 _LIST_ITEM_RE = re.compile(r"^\s*-\s")

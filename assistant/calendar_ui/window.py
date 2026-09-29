@@ -1576,6 +1576,9 @@ class CalendarWindow(QMainWindow):
         self._week_view.refresh()
         self._day_view.refresh()
         self._agenda_view.refresh()
+        side = getattr(self, "_sidebar", None)
+        if side is not None and hasattr(side, "refresh_countdowns"):
+            side.refresh_countdowns()
 
     def refresh_todos(self) -> None:
         """Reload todos from DB in the TodoView and calendar (for deadline pills)."""

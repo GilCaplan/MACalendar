@@ -180,3 +180,81 @@ def test_the_routes(client):
     assert client.delete(f"/occasions/{oid}").status_code == 200
     assert client.delete(f"/occasions/{oid}").status_code == 404
     assert "occasions" in client.get("/config").get_json()
+
+
+def test_saving_colours_twice_keeps_config_yaml_readable(tmp_path):
+    """A flow mapping of "#rrggbb" values must survive being rewritten: the
+    comment matcher used to read `"#…` as a comment and keep it on the line."""
+    import yaml
+    from assistant.config_store import set_values
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text("occasions:\n  parasha: true   # the weekly portion\n")
+    for colour in ("#ec4899", "#123456"):
+        assert set_values({"occasions": {"colors": {"birthday": colour, "jewish": "#d4a72c"},
+                                         "holiday_types": ["major", "fast"]}}, path=str(cfg))
+    data = yaml.safe_load(cfg.read_text())
+    assert data["occasions"]["colors"] == {"birthday": "#123456", "jewish": "#d4a72c"}
+    assert data["occasions"]["holiday_types"] == ["major", "fast"]
+    assert data["occasions"]["parasha"] is True and "# the weekly portion" in cfg.read_text()
+
+
+# -- the Mac --------------------------------------------------------------------------------------
+
+@pytest.fixture
+def qapp():
+    from PyQt6.QtWidgets import QApplication
+    return QApplication.instance() or QApplication([])
+
+
+def test_the_editor_saves_a_hebrew_yahrzeit_in_adar(qapp):
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtTest import QTest
+    from assistant.calendar_ui.occasion_ui import OccasionDialog
+    d = OccasionDialog()
+    d.kind.setCurrentIndex(d.kind.findData("yahrzeit"))
+    QTest.keyClicks(d.title, "Grandpa Moshe")
+    d.calendar.setCurrentIndex(d.calendar.findData("hebrew"))
+    d.heb_month.setCurrentIndex(d.heb_month.findData(12))
+    d.heb_day.setValue(10)
+    d.show()
+    assert d.adar.isVisible(), "the leap-year choice appears for Adar"
+    d.adar.setCurrentIndex(d.adar.findData("adar1"))
+    QTest.mouseClick(d.save_btn, Qt.MouseButton.LeftButton)
+    [rec] = store.load()
+    assert (rec["kind"], rec["calendar"], rec["month"], rec["day"], rec["adar"]) == \
+        ("yahrzeit", "hebrew", 12, 10, "adar1")
+
+
+def test_a_countdown_is_always_a_regular_date(qapp):
+    from assistant.calendar_ui.occasion_ui import OccasionDialog
+    d = OccasionDialog()
+    d.calendar.setCurrentIndex(d.calendar.findData("hebrew"))
+    d.kind.setCurrentIndex(d.kind.findData("countdown"))
+    assert d.calendar.currentData() == "gregorian" and not d.calendar.isEnabled()
+
+
+def test_the_editor_says_what_is_wrong(qapp):
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtTest import QTest
+    from assistant.calendar_ui.occasion_ui import OccasionDialog
+    d = OccasionDialog()
+    d.show()
+    QTest.mouseClick(d.save_btn, Qt.MouseButton.LeftButton)          # no name
+    assert d.error.isVisible() and "name" in d.error.text() and store.load() == []
+
+
+def test_month_week_and_day_draw_the_banners(qapp, tmp_path):
+    from assistant.calendar_ui.day_view import DayView
+    from assistant.calendar_ui.month_view import MonthView
+    from assistant.calendar_ui.occasion_ui import OccasionBanner
+    from assistant.calendar_ui.week_view import WeekView
+    from assistant.db import CalendarDB
+    today = datetime.date.today()
+    store.add({"kind": "birthday", "title": "Dana", "month": today.month, "day": today.day})
+    db = CalendarDB(str(tmp_path / "c.db"))
+    m = MonthView(db); m.navigate(today.year, today.month); m.refresh()
+    w = WeekView(db); w.refresh()
+    dv = DayView(db); dv.navigate(today); dv.refresh()
+    for view in (m, w, dv):
+        titles = [b.banner["title"] for b in view.findChildren(OccasionBanner)]
+        assert "Dana's birthday" in titles, type(view).__name__

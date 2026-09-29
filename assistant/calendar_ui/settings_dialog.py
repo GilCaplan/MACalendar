@@ -62,7 +62,7 @@ def _ui_state() -> QSettings:
 #: The phone's grouping (MACalendar-iOS Views/SettingsView.swift), so the two
 #: Settings screens read alike. A section missing here lands under "More".
 _SECTION_GROUPS = (
-    ("Calendar", ("Appearance", "Events", "Hebrew Calendar", "Connected Calendars")),
+    ("Calendar", ("Appearance", "Events", "Hebrew Calendar", "Occasions", "Connected Calendars")),
     ("Notifications & tabs", ("Notifications", "Tabs")),
     ("Assistant", ("Assistant", "Voice")),
     ("Connection", ("Server",)),
@@ -75,8 +75,20 @@ _SECTION_TILES = {
     "Hebrew Calendar": ("#5e5ce6", "☾"), "Connected Calendars": ("#0a84ff", "⇄"),
     "Notifications": ("#ff453a", "!"), "Tabs": ("#8e8e93", "▤"),
     "Assistant": ("#bf5af2", "✦"), "Voice": ("#bf5af2", "∿"),
-    "Server": ("#8e8e93", "▣"),
+    "Server": ("#8e8e93", "▣"), "Occasions": ("#ec4899", "✿"),
 }
+
+
+#: National holidays offered in Settings ▸ Occasions (any code the `holidays`
+#: package knows works in config.yaml; these are the common ones).
+_COUNTRIES = [("IL", "Israel"), ("US", "United States"), ("GB", "United Kingdom"),
+              ("CA", "Canada"), ("AU", "Australia"), ("NZ", "New Zealand"), ("IE", "Ireland"),
+              ("ZA", "South Africa"), ("FR", "France"), ("DE", "Germany"), ("NL", "Netherlands"),
+              ("BE", "Belgium"), ("CH", "Switzerland"), ("AT", "Austria"), ("IT", "Italy"),
+              ("ES", "Spain"), ("PT", "Portugal"), ("SE", "Sweden"), ("NO", "Norway"),
+              ("DK", "Denmark"), ("PL", "Poland"), ("RU", "Russia"), ("UA", "Ukraine"),
+              ("AR", "Argentina"), ("BR", "Brazil"), ("MX", "Mexico"), ("IN", "India"),
+              ("JP", "Japan")]
 
 
 def _tile_icon(color: str, glyph: str):
@@ -701,6 +713,121 @@ def open_settings(self) -> None:
     # Event dialog; a category can override either in Event Colours &
     # Categories, which is where "each category its own" lives.
     from assistant.config import MAX_EVENT_MINUTES, MIN_EVENT_LENGTH
+    # ── Occasions (DEVQA Q73) ─────────────────────────────────────
+    occ = section("Occasions")
+    from assistant.calendar_ui.occasion_ui import OccasionsList
+    occ.addWidget(hint("Birthdays, anniversaries, yahrzeits, countdowns and other yearly "
+                       "dates — all-day banners; click one on the calendar to edit it."))
+    occ.addWidget(OccasionsList(dialog))
+    _ocfg = getattr(self._config, "occasions", None)
+    _types = set(getattr(_ocfg, "holiday_types", None) or ["major", "minor", "fast", "modern"])
+    occ.addWidget(QLabel("<b>Jewish holidays shown</b>"))
+    holiday_type_boxes: dict = {}
+    _types_row = QHBoxLayout()
+    for _k, _label in (("major", "Festivals"), ("minor", "Minor holidays"),
+                       ("fast", "Fast days"), ("modern", "Modern Israeli days")):
+        _cb = QCheckBox(_label)
+        _cb.setObjectName(f"holiday_type_{_k}")
+        _cb.setChecked(_k in _types)
+        holiday_type_boxes[_k] = _cb
+        _types_row.addWidget(_cb)
+    _types_row.addStretch(1)
+    occ.addLayout(_types_row)
+    occ.addWidget(hint("Only what the calendar shows — Shabbat and yom tov are kept free "
+                       "whatever is hidden here."))
+    occ.addWidget(QLabel("<b>Jewish weekly extras</b>"))
+    extras_boxes: dict = {}
+    _extras_row = QHBoxLayout()
+    for _k, _label, _tip in (
+            ("parasha", "Parasha", "The weekly Torah portion, on each Shabbat."),
+            ("omer", "Omer count", "Day 1–49 between Pesach and Shavuot, on the day whose\n"
+                                   "evening before it is counted."),
+            ("rosh_chodesh", "Rosh Chodesh", "The 30th of a month and the 1st of the next."),
+            ("daf_yomi", "Daf Yomi", "Today's daf in the seven-and-a-half-year cycle of the\n"
+                                     "Babylonian Talmud (a banner every day).")):
+        _cb = QCheckBox(_label)
+        _cb.setObjectName(f"occasions_{_k}")
+        _cb.setChecked(bool(getattr(_ocfg, _k, _k != "daf_yomi")))
+        _cb.setToolTip(_tip)
+        extras_boxes[_k] = _cb
+        _extras_row.addWidget(_cb)
+    _extras_row.addStretch(1)
+    occ.addLayout(_extras_row)
+    occ.addWidget(QLabel("<b>Other calendars</b>"))
+    other_form = QFormLayout()
+    country_combo = QComboBox()
+    country_combo.setObjectName("occasions_country")
+    country_combo.addItem("Off", "")
+    for _code, _name in _COUNTRIES:
+        country_combo.addItem(_name, _code)
+    country_combo.setCurrentIndex(max(0, country_combo.findData(
+        str(getattr(_ocfg, "country", "") or "").upper())))
+    country_combo.setToolTip("Public holidays of one country, as banners.")
+    other_form.addRow("National holidays:", country_combo)
+    christian_cb = QCheckBox("Christian holidays")
+    christian_cb.setObjectName("occasions_christian")
+    christian_cb.setChecked(bool(getattr(_ocfg, "christian", False)))
+    christian_cb.setToolTip("Easter and the dates that move with it, and the fixed feasts\n"
+                            "(Epiphany, All Saints, Christmas).")
+    islamic_cb = QCheckBox("Islamic holidays")
+    islamic_cb.setObjectName("occasions_islamic")
+    islamic_cb.setChecked(bool(getattr(_ocfg, "islamic", False)))
+    islamic_cb.setToolTip("By the Umm al-Qura calendar. Marked \"expected\": where they are\n"
+                          "kept by sighting the moon they can fall a day either way.")
+    _rel_row = QHBoxLayout()
+    _rel_row.addWidget(christian_cb)
+    _rel_row.addWidget(islamic_cb)
+    _rel_row.addStretch(1)
+    other_form.addRow("", _rel_row)
+    occ.addLayout(other_form)
+    occ.addWidget(QLabel("<b>Colours and reminders</b>"))
+    _colors = dict(getattr(_ocfg, "colors", None) or {})
+    _reminds = dict(getattr(_ocfg, "remind_days", None) or {})
+    colour_buttons: dict = {}
+    remind_combos: dict = {}
+    style_grid = QGridLayout()
+    style_grid.setHorizontalSpacing(12)
+    for _i, (_k, _label) in enumerate((("birthday", "Birthdays"), ("anniversary", "Anniversaries"),
+                                        ("yahrzeit", "Yahrzeits"), ("countdown", "Countdowns"),
+                                        ("custom", "Other dates"), ("jewish", "Jewish extras"),
+                                        ("national", "National"), ("christian", "Christian"),
+                                        ("islamic", "Islamic"))):
+        style_grid.addWidget(QLabel(_label), _i, 0)
+        _btn = QPushButton()
+        _btn.setObjectName(f"occasion_colour_{_k}")
+        _btn.setFixedSize(40, 20)
+        _btn.setProperty("hex", _colors.get(_k, "#8b5cf6"))
+        _btn.setStyleSheet(f"background: {_btn.property('hex')}; border-radius: 5px; border: none;")
+
+        def _pick(_b=_btn):
+            _c = QColorDialog.getColor(QColor(_b.property("hex")), dialog, "Banner colour")
+            if _c.isValid():
+                _b.setProperty("hex", _c.name())
+                _b.setStyleSheet(f"background: {_c.name()}; border-radius: 5px; border: none;")
+        _btn.clicked.connect(lambda _c=False, _f=_pick: _f())
+        colour_buttons[_k] = _btn
+        style_grid.addWidget(_btn, _i, 1)
+        if _k in ("birthday", "anniversary", "yahrzeit", "countdown", "custom"):
+            _rc = QComboBox()
+            _rc.setObjectName(f"occasion_remind_{_k}")
+            _rc.addItem("No reminder", -1)
+            _rc.addItem("On the day", 0)
+            for _n in (1, 2, 3, 7, 14):
+                _rc.addItem(f"{_n} day{'s' if _n > 1 else ''} before", _n)
+            _rc.setCurrentIndex(max(0, _rc.findData(int(_reminds.get(_k, 1)))))
+            remind_combos[_k] = _rc
+            style_grid.addWidget(_rc, _i, 2)
+    style_grid.setColumnStretch(3, 1)
+    occ.addLayout(style_grid)
+
+    def _occasions_values() -> dict:
+        return {"holiday_types": [k for k, cb in holiday_type_boxes.items() if cb.isChecked()],
+                **{k: cb.isChecked() for k, cb in extras_boxes.items()},
+                "country": country_combo.currentData() or "",
+                "christian": christian_cb.isChecked(), "islamic": islamic_cb.isChecked(),
+                "colors": {k: b.property("hex") for k, b in colour_buttons.items()},
+                "remind_days": {k: c.currentData() for k, c in remind_combos.items()}}
+
     events_box = section("Events")
     events_cfg = getattr(self._config, "events", None)
     events_form = QFormLayout()
@@ -1231,6 +1358,7 @@ def open_settings(self) -> None:
                           "stop_phrases": raw_phrases,
                           "event_separator": sep_edit.text().strip()},
                 "nlu": {"event_keywords": raw_keywords},
+                "occasions": _occasions_values(),
                 "engine": {"confirm_transcript": confirm_cb.isChecked(),
                            "enabled": assistant_on_cb.isChecked()},
                 # Read by event_defaults in whichever process asks (the API
@@ -1287,6 +1415,9 @@ def open_settings(self) -> None:
                 self._config.confirmation_level = 0 if auto_cb.isChecked() else 1
                 self._config.ui.start_view = start_view_combo.currentData()
                 self._config.ui.hours_from, self._config.ui.hours_to = _checked_hours()
+                _occ_cfg = getattr(self._config, "occasions", None)
+                for _k, _v in _occasions_values().items():
+                    _apply(_occ_cfg, _k, _v)
                 for _k, _v in (("week_starts", week_starts_combo.currentData()),
                                ("clock", clock_combo.currentData()),
                                ("week_days", _checked_days()),

@@ -786,12 +786,18 @@ class DayView(QWidget):
             for h in _shown(enumerate_holidays(self._date, self._date, israel=self._hebrew_config.israel_holidays)):
                 holidays.append(h)
 
-        if todos or holidays:
+        from assistant.calendar_ui.occasion_ui import OccasionBanner, banners_between
+        occasions = banners_between(self._date, self._date).get(date_str, [])
+        if todos or holidays or occasions:
             # Scale with the user's configured Day font size like every
             # other element in this view already does, instead of a
             # hardcoded small size that ignores it.
             pill_fs = 10 if not self._ui_config else max(9, self._ui_config.font_day - 3)
             pill_h = 22 if not self._ui_config else max(22, self._ui_config.font_day + 8)
+            for b in occasions:
+                ob = OccasionBanner(b, font_size=pill_fs)
+                ob.setFixedHeight(pill_h)
+                layout.addWidget(ob)
             for h in holidays:
                 is_erev = self._date == h.gregorian_erev_start
                 banner = HolidayBanner(h.name_en, h.category, is_erev, font_size=pill_fs)

@@ -316,6 +316,11 @@ class DayCell(QWidget):
         self._holidays = holidays
         self._render_pills()
 
+    def load_occasions(self, banners: List[dict]) -> None:
+        """Birthdays, anniversaries, parasha … (assistant/occasions, Q73)."""
+        self._occasions = banners
+        self._render_pills()
+
     def _render_pills(self) -> None:
         while self._event_layout.count():
             item = self._event_layout.takeAt(0)
@@ -323,6 +328,9 @@ class DayCell(QWidget):
                 item.widget().deleteLater()
 
         pill_fs = 8 if not self._ui_config else max(6, self._ui_config.font_month - 3)
+        from assistant.calendar_ui.occasion_ui import OccasionBanner
+        for b in getattr(self, "_occasions", []):
+            self._event_layout.addWidget(OccasionBanner(b, font_size=pill_fs))
         for h in self._holidays:
             banner = HolidayBanner(h["name"], h["category"], h["is_erev"], font_size=pill_fs)
             self._event_layout.addWidget(banner)
@@ -614,11 +622,14 @@ class MonthView(QWidget):
                     d += datetime.timedelta(days=1)
 
         display_mode = self._hebrew_config.display_mode if self._hebrew_config else "english"
+        from assistant.calendar_ui.occasion_ui import banners_between
+        occasions = banners_between(self._cells[0].date, self._cells[-1].date) if self._cells else {}
 
         for cell in self._cells:
             date_str = cell.date.isoformat()
             cell.load_events(events_by_date.get(date_str, []))
             cell.load_todos(todos_by_date.get(date_str, []))
+            cell._occasions = occasions.get(date_str, [])
             cell.load_holidays(holidays_by_date.get(date_str, []))
             if display_mode == "english":
                 cell.set_hebrew_date("")
