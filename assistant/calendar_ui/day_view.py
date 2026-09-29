@@ -782,7 +782,8 @@ class DayView(QWidget):
         ]
         holidays = []
         if self._hebrew_config and self._hebrew_config.show_holidays:
-            for h in enumerate_holidays(self._date, self._date, israel=self._hebrew_config.israel_holidays):
+            from assistant.occasions.feed import shown_holidays as _shown
+            for h in _shown(enumerate_holidays(self._date, self._date, israel=self._hebrew_config.israel_holidays)):
                 holidays.append(h)
 
         if todos or holidays:

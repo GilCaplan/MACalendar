@@ -192,6 +192,32 @@ class PairingConfig(BaseModel):
     require_code: bool = False
 
 
+class OccasionsConfig(BaseModel):
+    """Occasions and extra calendars (assistant/occasions/, DEVQA Q73)."""
+    # Which Jewish holidays show as banners (display only — the Shabbat /
+    # yom tov rules always see every holiday).
+    holiday_types: list[str] = ["major", "minor", "fast", "modern"]
+    # Jewish weekly extras, each its own switch.
+    parasha: bool = True
+    omer: bool = True
+    rosh_chodesh: bool = True
+    daf_yomi: bool = False
+    # Other calendars. country: an ISO code ("US", "GB", "IL", …); "" = off.
+    country: str = ""
+    christian: bool = False
+    islamic: bool = False
+    # Banner colour per kind of occasion / calendar.
+    colors: dict[str, str] = {
+        "birthday": "#ec4899", "anniversary": "#f43f5e", "yahrzeit": "#94a3b8",
+        "countdown": "#f5a524", "custom": "#8b5cf6", "jewish": "#d4a72c",
+        "national": "#0ea5e9", "christian": "#22c55e", "islamic": "#14b8a6",
+    }
+    # Days ahead a reminder comes, per kind (0 = on the day; -1 = none).
+    remind_days: dict[str, int] = {
+        "birthday": 3, "anniversary": 3, "yahrzeit": 1, "countdown": 0, "custom": 1,
+    }
+
+
 class HebrewCalendarConfig(BaseModel):
     # "english" = Gregorian only, "hebrew" = Hebrew (gematria) only, "both" = show both
     display_mode: Literal["english", "hebrew", "both"] = "both"
@@ -535,6 +561,7 @@ class AppConfig(BaseModel):
     todo: TodoConfig = TodoConfig()
     api: ApiConfig = ApiConfig()
     pairing: PairingConfig = PairingConfig()
+    occasions: OccasionsConfig = OccasionsConfig()
     nlu: NLUConfig = NLUConfig()
     engine: EngineConfig = EngineConfig()
     events: EventsConfig = EventsConfig()

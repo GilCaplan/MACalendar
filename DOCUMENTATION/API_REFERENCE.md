@@ -167,6 +167,16 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `GET` | `/servers/logs` |  |
 | `PUT` | `/servers/order` |  |
 
+## /occasions
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/occasions` |  |
+| `POST` | `/occasions` |  |
+| `DELETE` | `/occasions/<oid>` |  |
+| `PATCH` | `/occasions/<oid>` |  |
+| `GET` | `/occasions/range` |  |
+
 ## /offline
 
 | Method | Path | What it does |

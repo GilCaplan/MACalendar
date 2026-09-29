@@ -115,6 +115,20 @@ api:
                        # recommended when using --tailscale or --lan
   port: 8080           # where the phone API listens; the thinking HUD uses this to reach it
 
+# Occasions and extra calendars (assistant/occasions/, DEVQA Q73). Your own
+# birthdays, anniversaries, yahrzeits and countdowns are kept per person;
+# these switches decide which computed calendars show beside them.
+occasions:
+  holiday_types: [major, minor, fast, modern]   # which Jewish holidays show as banners
+  parasha: true          # the weekly Torah portion on each Shabbat
+  omer: true             # the Omer count between Pesach and Shavuot
+  rosh_chodesh: true     # Rosh Chodesh banners
+  daf_yomi: false        # today's daf
+  country: ""            # national holidays: US, GB, IL, … ("" = off)
+  christian: false       # Christian holidays (Easter-based and fixed)
+  islamic: false         # Islamic holidays (expected dates — sighting may shift a day)
+  remind_days: {birthday: 3, anniversary: 3, yahrzeit: 1, countdown: 0, custom: 1}
+
 # How phones find and join this server (assistant/pairing/, DEVQA Q69)
 pairing:
   advertise: true      # announce on the local network (Bonjour) so the phone lists this Mac

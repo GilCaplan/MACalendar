@@ -412,6 +412,11 @@ def create_app() -> Flask:
     from assistant.offline import routes as _offline_routes
     _offline_routes.register(app)
 
+    # Occasions (DEVQA Q73): birthdays, anniversaries, yahrzeits, countdowns
+    # and the extra calendars. HTTP only; lives in assistant/occasions/.
+    from assistant.occasions import routes as _occasion_routes
+    _occasion_routes.register(app)
+
     # Pairing (DEVQA Q69): the QR code's one-time code and enrolment by it.
     # HTTP only; lives in assistant/pairing/.
     from assistant.pairing import routes as _pairing_routes
@@ -1529,7 +1534,7 @@ def create_app() -> Flask:
     #: (`/observance/location`), so the rest of that section is refused here.
     _ALLOWED_PATCH_KEYS = {"llm_engine", "tts", "confirmation_level",
                            "notifications", "theme", "ui", "todo",
-                           "hebrew_calendar", "events", "observance"}
+                           "hebrew_calendar", "events", "observance", "occasions"}
 
     @app.get("/digest")
     def digest():
@@ -1606,6 +1611,8 @@ def create_app() -> Flask:
             "events": cfg.events.model_dump(),
             # Only the switch (DEVQA Q59); the place is the location route's.
             "observance": {"enabled": bool(cfg.observance.enabled)},
+            # Occasions' switches, colours and reminder days (DEVQA Q73).
+            "occasions": cfg.occasions.model_dump(),
         })
 
     @app.patch("/config")

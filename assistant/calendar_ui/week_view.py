@@ -849,7 +849,8 @@ class WeekView(QWidget):
 
         holidays_by_date: dict[str, list] = {}
         if self._hebrew_config and self._hebrew_config.show_holidays:
-            for h in enumerate_holidays(self._week_start, week_end, israel=self._hebrew_config.israel_holidays):
+            from assistant.occasions.feed import shown_holidays as _shown
+            for h in _shown(enumerate_holidays(self._week_start, week_end, israel=self._hebrew_config.israel_holidays)):
                 d = h.gregorian_erev_start
                 while d <= h.gregorian_end:
                     holidays_by_date.setdefault(d.isoformat(), []).append(h)

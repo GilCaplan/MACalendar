@@ -457,6 +457,9 @@ def sync_bootstrap():
     end = (datetime.date(last_y + last_m // 12, last_m % 12 + 1, 1)
            - datetime.timedelta(days=1))
 
+    from assistant.occasions.feed import banners as _occasion_banners
+    from assistant.occasions.feed import countdowns as _countdowns
+    from assistant.occasions.feed import shown_holidays as _shown_holidays
     return jsonify({
         "token": change_token(),
         "server_time": datetime.datetime.now().astimezone().isoformat(),
@@ -474,8 +477,13 @@ def sync_bootstrap():
                 "gregorian_erev_start": h.gregorian_erev_start.isoformat(),
                 "gregorian_end": h.gregorian_end.isoformat(),
             }
-            for h in enumerate_holidays(start, end, israel=israel)
+            for h in _shown_holidays(enumerate_holidays(start, end, israel=israel))
         ],
+        # Occasions (Q73): every banner in the window — the person's own and
+        # the calendars switched on — and the countdowns still ahead, so the
+        # phone draws them with the Mac away.
+        "occasions": _occasion_banners(start, end),
+        "countdowns": _countdowns(),
         # When Shabbat / yom tov begins and ends over the same span, to the
         # second, so the calendars' yellow lines survive the Mac being away
         # (the same payload as GET /observance/windows).
@@ -521,7 +529,9 @@ def holidays_list():
     except ValueError as e:
         return jsonify({"error": str(e), "code": 400}), 400
 
-    holidays = enumerate_holidays(start, end, israel=israel)
+    # Settings ▸ Occasions ▸ which Jewish holidays show (display only).
+    from assistant.occasions.feed import shown_holidays
+    holidays = shown_holidays(enumerate_holidays(start, end, israel=israel))
     return jsonify([
         {
             "name_en": h.name_en,

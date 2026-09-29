@@ -1,3 +1,21 @@
+- **2026-09-29 — Q73 (OCCASIONS AND EXTRA CALENDARS)**, Gil: *"like we have
+  for jewish calendar perhaps we should add a customizable option for user
+  to place like anniversaries, friends birthdays, other religious events,
+  also think of other relevant customizable options"*. Chosen from options:
+  all four kinds — **birthdays & anniversaries** (regular or Hebrew date,
+  counting the years, a heads-up before, import from iPhone Contacts),
+  **yahrzeits**, **Jewish weekly extras** (parasha, Omer, Rosh Chodesh, Daf
+  Yomi — each a switch), **other calendars** (national by country,
+  Christian, Islamic — offline packages); shown as **all-day banners that
+  the person can still edit** (*"all day but also customizable by user if
+  they want to edit it"*); and all four extras — **pick which holiday types
+  show**, **countdowns**, **colours per kind**, **adding them by voice**.
+  Calendar choices written down in `assistant/occasions/dates.py`: Feb 29 →
+  Feb 28 in a common year; Adar in a leap year per occasion (defaults:
+  yahrzeit Adar I, birthday/anniversary Adar II, or both); a missing 30th →
+  the month's last day. Hiding a holiday type is display only — the Shabbat
+  / yom tov rules always see every holiday.
+
 - **2026-09-29 — Q72 (ONE MENU-BAR ICON; SHOWN HOURS; AN ASSISTANT OFF
   SWITCH; SETTINGS LIKE THE PHONE'S)**, Gil, from screenshots:
   1. *"there are two icons should be consolidated"* — MACalendar Server's

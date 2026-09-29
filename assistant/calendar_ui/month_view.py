@@ -602,7 +602,8 @@ class MonthView(QWidget):
         if self._cells and self._hebrew_config and self._hebrew_config.show_holidays:
             grid_start = self._cells[0].date
             grid_end = self._cells[-1].date
-            for h in enumerate_holidays(grid_start, grid_end, israel=self._hebrew_config.israel_holidays):
+            from assistant.occasions.feed import shown_holidays as _shown
+            for h in _shown(enumerate_holidays(grid_start, grid_end, israel=self._hebrew_config.israel_holidays)):
                 d = h.gregorian_erev_start
                 while d <= h.gregorian_end:
                     holidays_by_date.setdefault(d.isoformat(), []).append({

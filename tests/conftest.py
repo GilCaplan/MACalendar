@@ -107,6 +107,8 @@ for _var, _name in (("MACALENDAR_DB", "calendar.db"),
                     ("MACALENDAR_MODEL_HOSTS", "model_hosts.json"),
                     ("MACALENDAR_HELPER_TOKENS", "helper_tokens.json"),
                     ("MACALENDAR_HOST_STATE", "host.json"),
+                    # Occasions (Q73): birthdays, yahrzeits … a person entered.
+                    ("MACALENDAR_OCCASIONS", "occasions.json"),
                     ("MACALENDAR_LOGS", "logs"),
                     # Users (2026-09-28). The registry's directory is the root
                     # of every per-user store (users/<uid>/…), so this one

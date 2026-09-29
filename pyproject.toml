@@ -22,7 +22,7 @@ dependencies = [
     "msal==1.31.0",
     "pydantic>=2.0",
     "pyyaml==6.0.2",
-    "python-dateutil==2.9.0",
+    "python-dateutil>=2.9.0",
     "pytz==2024.1",
     "pyluach>=2.3.0",
     # Sunset/nightfall for workout scheduling. Pure Python, fully offline.
@@ -32,6 +32,10 @@ dependencies = [
     # Both stay on this network — mDNS is link-local multicast.
     "zeroconf>=0.130",
     "segno>=1.6",
+    # Occasions (assistant/occasions/): national holidays by country, and the
+    # Hijri calendar for Islamic dates. Both compute from bundled data, offline.
+    "holidays>=0.60",
+    "hijridate>=2.5",
 ]
 
 [project.optional-dependencies]
