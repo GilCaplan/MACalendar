@@ -146,6 +146,7 @@ def open_settings(self) -> None:
     group = QButtonGroup(dialog)
     group.setExclusive(True)
     made: "list[tuple[str, QToolButton, QWidget]]" = []     # (title, row, page)
+    groups: "list[QVBoxLayout]" = []                        # each page's controls
 
     def section(title: str) -> QVBoxLayout:
         """One page and its sidebar row; returns the layout for its controls.
@@ -177,6 +178,7 @@ def open_settings(self) -> None:
         inner = QVBoxLayout(card)
         inner.setContentsMargins(18, 14, 18, 14)
         inner.setSpacing(10)
+        groups.append(inner)
         col.addWidget(card)
         col.addStretch(1)
         pages.addWidget(page)
@@ -364,7 +366,10 @@ def open_settings(self) -> None:
     appearance.addWidget(compact_cb)
 
     def update_style(compact: bool):
-        layout.setSpacing(10 if compact else 14)
+        # Every page's group (the one scrolling column this tightened is gone
+        # — referring to it crashed the app on this click, 2026-09-29).
+        for g in groups:
+            g.setSpacing(6 if compact else 10)
     compact_cb.toggled.connect(update_style)
 
     appearance.addWidget(hint("Font sizes"))

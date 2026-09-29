@@ -203,3 +203,35 @@ def test_the_rows_are_grouped_as_the_phone_groups_them():
            / "MACalendar-iOS/MACalendar-iOS/Views/SettingsView.swift").read_text()
     for heading in ("Calendar", "Assistant", "Connection"):
         assert f'"{heading}"' in ios or f'Text("{heading}")' in ios, heading
+
+
+def test_every_checkbox_on_every_page_can_be_clicked(app, monkeypatch):
+    """PyQt turns an exception in a click handler into a crash of the whole
+    app: "Compact layout density" did exactly that after the redesign (its
+    handler still named the removed column). Click everything; nothing may
+    raise. An installed excepthook makes PyQt report instead of abort."""
+    import sys
+    from PyQt6.QtWidgets import QCheckBox
+    raised = []
+    monkeypatch.setattr(sys, "excepthook", lambda *exc: raised.append(exc[1]))
+    failures = []
+
+    def interact(dlg):
+        for name in SECTIONS:
+            h = _header(dlg, name)
+            QTest.mouseClick(h, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+                             QPoint(10, h.height() // 2))
+            QApplication.processEvents()
+            page = _page_of(dlg, h)
+            for cb in page.findChildren(QCheckBox):
+                if cb.isVisible() and cb.isEnabled():
+                    for _ in range(2):               # on and back off
+                        QTest.mouseClick(cb, Qt.MouseButton.LeftButton,
+                                         Qt.KeyboardModifier.NoModifier,
+                                         QPoint(8, cb.height() // 2))
+                        QApplication.processEvents()
+    _drive(interact, failures)
+    open_settings(_Window())
+    if failures:
+        raise failures[0]
+    assert not raised, f"a click raised: {raised[0]!r}"
