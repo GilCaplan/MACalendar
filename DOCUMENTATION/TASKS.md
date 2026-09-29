@@ -2053,8 +2053,8 @@ Item 4 is closed: "from 5:30 to 7:45" is 17:30-19:45 on the front door since
 
 ## Queued from DEVQA Q54–Q57 (2026-09-26) — Q54 done (c2142331), Q55/Q56 done (ae0d3467), Q57 engine + config + API done (5b00da6b), its Mac and iPhone settings screens done
 
-Recorded in `DEVQA.md` but not built — none of the four has a matching code
-or dataset change as of this check:
+**All four built** (commits in the heading). The original notes, kept for
+the reasoning:
 
 - **Q54** — `object_rules._rule_max_duration_cap` should clip an end the
   ENGINE made and never one the speaker stated (a range, an end clock, a
@@ -2088,3 +2088,30 @@ or dataset change as of this check:
 25. **Segmentation's `generated.jsonl` is not what its generator writes.** Regenerating on 2026-09-27 gave 1,771 rows against the committed 1,549, and 100 compared rows differed: the Q47/Q50 relabels live only in the file, so a regen undoes them ("call Dana" -> task). Q61 was applied in place (`q61_tag`, 41 items) for that reason. Either fold the in-file relabels into the generator, or mark the file as the source of truth and the generator as history.
 26. **"X … is now at <time>" (TRAIN family `s_tr_ue_is_now_at`) is a move the front door cannot read.** Routing it to update_event (tried 2026-09-27) commits the move with the WRONG values — new_date today, new_start_time 00:00 — because the update slot filler reads the new value only after "to"; "the party is now at my place" would move a record called 'place' to midnight. Needs the update filler to read "is now at/on <when>" before any routing change. The FastRule family check scores such a commit as right; the values line does not exist yet for updates.
 27. **"<day> is the big game, put it on the calendar" makes an event with a JUNK title** ('is the big game, put it on the calendar') since the back-reference rejoin (4f97f662). Board D's headline accepts it (the title contains the gold words), so the 2 rows read as FIXED while title word F1 fell 92.6 -> 92.4%. The rejoined item needs its title read from the statement's subject ("the big game"), not the whole joined span. Until then those 2 "fixes" are not wins.
+
+## ORDER OF PLAY — 2026-09-28
+
+**Engine improvement is PAUSED** (Gil, 2026-09-28: gather real-usage data
+before the next cycle). Rows 14–27 above stay filed for when it resumes;
+start then from `weekly_review` / the real-usage board, not the generated
+boards. Shipped today: users, login and sharing (DEVQA Q65, Q67), the phone's
+offline reader (Q66), the Account tab on both platforms, the phone's Settings
+regrouped, and the Mac window clean-up (FEATURES.md has each).
+
+Open, app side:
+
+28. **"Require sign-in everywhere" is still OFF** — Gil's switch, on the
+    Account tab. Off, a device nobody signed in on acts as the admin.
+29. **The `demo` user** (made 2026-09-28 to try the Account tab and overlaps,
+    sharing view with gil) — remove it from the Account tab when done.
+30. **The Mac clean-up was checked in dark mode only.** Look at light mode, and
+    at the Mac's Settings dialog, which still has its folding sections (the
+    phone's became a grouped list).
+31. **The offline reader has no real-use data yet.** Read `GET /offline/agreement`
+    after a week of offline commands before touching `assistant/offline/spec.py`.
+    The iPad (10th gen) can't run Apple's model and still just queues.
+32. **Adding to someone else's calendar by voice** stays deferred (Q65): a
+    mishearing would write into another person's store; the event editor's
+    owner picker covers it.
+33. **Junk event 2103 "including"** in Gil's calendar (2026-09-28) — his to
+    delete.

@@ -451,7 +451,7 @@ panel's `_RevertBar` and the iOS banner re-POST them to undo. Gate:
 
 `message, actions, refresh ("events"|"todos"|"both"|""), parse, transcript,
 original_transcript, corrections, trace, boundaries, uncertain_words, brain,
-hint` + optional
+hint, committed` + optional
 `memory_id, verify_token, pending_id, needs_edit`, and for a confirm gate
 `proposal` (`[{kind, body, summary}]`, bodies shaped for POST /events and POST
 /todos) plus the server-minted `confirm_token`, answered at
@@ -466,6 +466,13 @@ when a create committed with a title that is only the kind of thing
 ('meeting'), `title_refused` when an item was held back for naming nothing.
 Its own key because `message` is spoken. Words in `assistant/tips.py::HINTS`,
 the pick in `engine._hint`, the ruling in DEVQA Q41.
+
+`committed` (2026-09-28, additive) is `[{kind, id, action}]` — the rows this
+command wrote, from each successful `ExecutedAction.record`. It exists so a
+client can compare a reading of its own with the engine's: the phone's offline
+reader resends a command with `offline_reading`, and `assistant/offline/
+reconcile.py` reads these rows back to answer `same` / `changed`
+(`assistant/offline/PROTOCOL.md`). No stage reads it.
 
 ## Config knobs (mirror into config.example.yaml)
 

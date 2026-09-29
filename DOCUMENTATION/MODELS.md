@@ -19,6 +19,14 @@ Set in `config.example.yaml` under `mlx_whisper.model`, hardcoded as
 | 5 | **Task-tag classifier** | one-vs-rest logistic regression on the title's embedding (fallback: word 1-2 ∪ char 3-5 grams) | CPU, in-process | a title → a SET of tags |
 | 6 | **`nomic-embed-text`** | ~137 M params, ~275 MB | Ollama on `localhost:11434`, `/api/embed` | a title → a 768-number vector, for 4 and 5 only |
 
+| 7 | **Apple's on-device model** (Foundation Models, iOS 26) | ~3 B params, Apple's | on the **phone**, only while the Mac can't be reached | a spoken command → provisional events / to-dos (the offline reader, DEVQA Q66) |
+
+Model 7 is the one model not on the Mac. It never decides anything final: the
+phone books what it reads provisionally and the Mac re-reads every command
+with models 1–3 when it is back, its reading winning (`assistant/offline/`).
+What it is told is served by the Mac, so improving it is an edit to
+`assistant/offline/spec.py`, not a reinstall.
+
 Models 4 and 5 are new (2026-09-10) and are the reason this file no longer says
 "three". They live in `assistant/engine/label/`, ship **off by default**
 (`labels.model_event` / `labels.model_task`), and **stack behind the keyword

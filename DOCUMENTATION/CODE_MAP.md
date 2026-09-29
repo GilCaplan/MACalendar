@@ -291,10 +291,12 @@ Used by the rule parser (`_resolve_anaphora`) and by actions for "delete it",
 |------|--------|
 | The window | `CalendarWindow` |
 | View stack setup | `_build_ui` |
-| Top toolbar | `_build_toolbar` |
+| Top toolbar (calendar controls, More menu, user chip) | `_build_toolbar` |
+| Sidebar section list (Calendar, Tasks, Timer, Account…) | `_build_sidebar_nav` |
+| Lights the current view in toolbar + sidebar | `_restyle_view_buttons` |
 | Receives pipeline status, triggers refresh / view-switch | `_poll_status` (100 ms timer) → `_handle_status` |
 | Refreshes | `refresh_calendar`, `refresh_todos` |
-| Switches Month / Week / Day / Tasks | `_set_view` |
+| Switches Month / Week / Day / Agenda / any panel | `_set_view` |
 | Opens the event detail view | `_on_event_clicked` |
 | Theme and config | `_apply_theme`, `_apply_ui_config`, `_on_settings_popup` |
 
@@ -339,11 +341,35 @@ synced to iOS.
 | `week_view.py` | `WeekView` | 7-column grid |
 | `month_view.py` | `MonthView` | `refresh()` → `_rebuild_grid()`; cells are `DayCell`, `EventPill`, `HolidayBanner` |
 | `agenda_view.py` | `AgendaView` | flat upcoming list |
-| `sidebar.py` | `Sidebar` | mini calendar, date selection |
+| `sidebar.py` | `Sidebar` | New Event, section list (`add_nav`), mini calendar |
+| `account_panel.py` | `AccountPanel`, `_PersonCard` | the Account tab — one card per person |
+| `users_dialogs.py` | `LoginDialog`, `ChangePasswordDialog`, `UserChip` | sign-in and the toolbar chip |
+| `merged_db.py` | `MergedCalendar` | shared calendars inside your own views |
 | `event_dialog.py` | `EventDialog` | create/edit event form |
 | `styles.py` | — | `get_app_style(dark)` — full Qt stylesheet; colour constants |
 
 ---
+
+## People — `assistant/users/` (DEVQA Q65)
+
+| What | Where |
+|------|-------|
+| Who is bound (ContextVar, process default, threads) | `users/__init__.py` — `current`, `bind`, `set_process_default`, `thread` |
+| A store's path for that person | `users/paths.py` — `resolve`, `personal_store` |
+| People, shares, admin view, vocabulary shares, policy | `users/registry.py` (`users.json`) |
+| Sessions (hashed tokens, auto sign-out) | `users/sessions.py` |
+| Shared rows: ids, owner fields, routing a change to the owner | `users/sharing.py` |
+| HTTP: `/auth/*`, `/users/*`, `/shares/*`, `/admin/*` | `users/routes.py` |
+
+## The phone's offline reader — `assistant/offline/` (DEVQA Q66)
+
+| What | Where |
+|------|-------|
+| What the phone's model is told (served, hash-versioned) | `offline/spec.py` |
+| Compare the phone's reading with what the engine committed | `offline/reconcile.py` — `attach` |
+| The agreement log | `offline/log.py` |
+| `/offline/reader`, `/offline/agreement`, `/offline/pending/<id>` | `offline/routes.py` |
+| The contract | `offline/PROTOCOL.md` |
 
 ## Flask API — `assistant/api/server.py`
 

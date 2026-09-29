@@ -254,7 +254,8 @@ socket, so a gate placed only in the parser would have had a silent hole.
 ## Two conventions, and they are not the same one
 
 **`assistant/features/` is OUR OWN surfaces** — Calendar, Tasks, Coursework,
-Workout, Timer, Teach, Jude-the-tab. **`assistant/integrations/` is somebody
+Workout, Timer, Teach, Account, Jude-the-tab (a row in the Mac's sidebar, a tab
+on the phone). **`assistant/integrations/` is somebody
 else's PROGRAM** — its own repo, its own server, its own process. A tab has no
 checkout, no port and no subprocess, so making one an `Integration` means five
 methods returning `None` to satisfy a base class describing something it isn't.
@@ -351,7 +352,10 @@ a MISSING list turns the "never rewrite a real English word" guard off
 
 Integration tests must skip when Ollama is not running — copy the `pytestmark`
 guard from `tests/integration/test_ollama_intent.py`. CI has no Ollama, so a
-test that fails instead of skipping turns the build red.
+test that fails instead of skipping turns the build red. With Ollama up they
+DO call it: `tests/integration/conftest.py` lifts the root's
+`MACALENDAR_LLM_DISABLED` for that folder (it had turned four skips into
+failures).
 
 `conftest.py` sets `MACALENDAR_NO_WARMUP=1`: `create_app()` otherwise spawns a
 thread that unzips Whisper and spaCy while the suite runs, and two model loads
@@ -396,7 +400,8 @@ text cannot get a new answer.
 
 ## How the work runs now (2026-09-26)
 
-`STATUS.md` has the current numbers and what is next; this is how a cycle is
+**Engine improvement is PAUSED** (Gil, 2026-09-28) to gather real usage first
+— no cycles until he restarts them. `STATUS.md` has the current numbers and what is next; this is how a cycle is
 run. **Mine TRAIN rows, change one thing, board it alone on its own stage
 first** (FastRule `fastrule_shape --split train|test`, segmentation
 `run_board`, the relation / chain / dv boards), because a whole-chain read

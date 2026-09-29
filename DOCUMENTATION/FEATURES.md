@@ -591,8 +591,8 @@ covered under **Tag discovery** above — the review/reverse/hide record.
 ### Calendar import & connected calendars
 **What:** Import events from an `.ics` file or scan macOS Calendar.app;
 subscribe read-only to any ICS/webcal link (Gmail, iCloud, Outlook.com…);
-connect **Google Calendar** or **Outlook** two-way from **Settings → Connected
-Calendars on the Mac AND the iPhone** — connect, account + last sync + error,
+connect **Google Calendar** or **Outlook** two-way from **Connected calendars
+on the Mac (More ▸ Connected calendars…) AND the iPhone (Settings › Calendar)** — connect, account + last sync + error,
 two-way switch, disconnect (keep or remove the synced events), Sync now. A
 "set-up needed" state until the one-time client registration exists, and a
 **"How to connect" walkthrough inside the section on both apps** (2026-09-24,
@@ -604,7 +604,7 @@ somewhere to go, and steps you tick off as you go. Written once in
 the why is `DOCUMENTATION/CALENDAR_SYNC.md`.
 **Where:** Mac `calendar_ui/connected_calendars.py` (in Settings and the
 toolbar's Connected Calendars dialog, which also lists ICS links); iOS
-`Views/ConnectedCalendarsView.swift` (Settings → Connected Calendars);
+`Views/ConnectedCalendarsView.swift` (Settings › Calendar › Connected calendars);
 brain `assistant/calendar_sync/` (see Hosted calendar sync).
 **How:** Both apps are clients of `/calendar_sync/*`; the brain holds the
 tokens. Sign-in: Outlook by device code (same on both); Google by
@@ -1879,7 +1879,8 @@ board is mid-inference; a killed board frees the gate in 0ms.
 has their own calendar, to-dos, vocabulary, command memory, labels and
 History; signs in on the Mac and the phone (a device can switch user);
 shares their WHOLE calendar + to-dos with chosen people, VIEW or EDIT; sees
-shared rows in the owner's colour with "Dana · " before the title. The admin
+shared rows in their own category colour, with the owner's colour as the
+card's edge and "Dana · " before the title (Q67). The admin
 sees and edits everything, toggles a user into his own view (off by default),
 creates users, resets passwords (hashed; a new one shown once, must change
 at sign-in), disables, removes (the data moves to `legacy/`, never deleted),

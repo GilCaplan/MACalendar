@@ -50,7 +50,7 @@ Stays global (a device's or the machine's, not a person's): `model.lock`,
 
 - `assistant/users/__init__.py` — `current()`, `bind()`, `set_process_default()`, `thread()`, `each_user()`.
 - `assistant/users/paths.py` — `registry_path()`, `root()`, `user_dir()`, `resolve()`.
-- `assistant/users/registry.py` — `users.json`: one admin; users (lower-case unique usernames, a colour each, `seq`); per-user settings (`notify_shared`, `todos_group_by_owner`); shares (`view`/`edit`, one per pair); `admin_view` (off by default); `vocab_shares`; `policy.require_login`. Atomic writes, mtime-cached reads, refuses the real file under pytest.
+- `assistant/users/registry.py` — `users.json`: one admin; users (lower-case unique usernames, a colour each, `seq`); per-user settings (`todos_group_by_owner`; `notify_shared` retired by Q67); shares (`view`/`edit`, one per pair); `admin_view` (off by default); `vocab_shares`; `policy.require_login`. Atomic writes, mtime-cached reads, refuses the real file under pytest.
 - `assistant/users/passwords.py` — scrypt (n=2¹⁴, r=8, p=1), constant-time verify, 12-character generated passwords without look-alike letters.
 - `assistant/users/migrate.py` + `scripts/migrate_users.py` — `--dry-run` / `--apply --admin gil` / `--rollback`. Refuses while the window, API or HUD runs; copies the whole directory to `…/.assistant_tools.backup-<ts>` first; snapshots row counts + md5s before and after the move; any mismatch rolls back on the spot. Old `*.bak*` files move to `legacy/`.
 - Stores made per user: calendar DB (`get_db` and the `CalendarDB()` constructor), command memory, vocabulary, categories, lexicon, label feedback and models, trace bus, LLM log, observance exceptions, Google token, MSAL cache. Caches keyed on path as well as mtime.

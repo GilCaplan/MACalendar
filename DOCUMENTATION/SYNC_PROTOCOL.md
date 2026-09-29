@@ -84,7 +84,12 @@ Unchanged, and the part that was already a protocol:
 - a replay the Mac refuses outright (404, 400) is dropped rather than left at
   the head of the queue blocking everything behind it;
 - recordings made offline are queued whole and replayed as audio, because the
-  phone cannot understand them — the brain is on the Mac.
+  brain is on the Mac. Since 2026-09-28 (DEVQA Q66) a phone with Apple
+  Intelligence also READS the command offline and books its creates
+  provisionally; the replay carries that reading as `offline_reading`, the Mac
+  re-reads the command and its reading wins, and the phone swaps its
+  placeholders for the Mac's rows. That protocol has its own contract:
+  `assistant/offline/PROTOCOL.md`.
 
 ## What the phone is allowed to compute
 

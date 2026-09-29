@@ -2,7 +2,9 @@
 
 Your Mac (the brain, `assistant.api`) keeps connected calendars in step on its
 own — every 15 minutes, calendar window open or not — and both apps have a
-**Settings → Connected Calendars** section to connect, see the last sync,
+**Connected calendars** screen (the Mac's toolbar **More ▸ Connected
+calendars…**; the phone's **Settings › Calendar › Connected calendars**) to
+connect, see the last sync,
 disconnect and "Sync now". The sign-ins and tokens live only on the Mac
 (`~/.assistant_tools/`); the phone only starts a connection and shows it.
 
@@ -38,7 +40,7 @@ MACalendar company holding a shared key.
 3. Scroll to **Integrate calendar** → copy **Secret address in iCal format**
    (ends in `/basic.ics`). Anyone with this link can read that calendar — treat
    it like a password.
-4. In MACalendar: **Settings → Connected Calendars → Read-only calendar links**
+4. In MACalendar: **Connected calendars → Read-only calendar links**
    (Mac: the "Read-only calendar links (ICS)…" button; iPhone: the section at
    the bottom), paste it, give it a label, **Add**.
 
@@ -86,7 +88,7 @@ You need only one to connect — the account stays connected for both apps.
 ### 3a. Desktop client (sign in from the Mac)
 7. **Clients → Create client** → Application type **Desktop app** → name
    `MACalendar Mac` → **Create** → **Download JSON**.
-8. Mac: **Settings → Connected Calendars → Google Calendar → Set up… →
+8. Mac: **More ▸ Connected calendars… → Google Calendar → Set up… →
    Choose client JSON…** and pick the downloaded file. (Or save it yourself as
    `~/.assistant_tools/google_client_secret.json`; the path is
    `google_calendar.client_secret_path` in config.yaml.)

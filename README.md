@@ -3,7 +3,9 @@
 A privacy-focused, voice-driven calendar and to-do assistant. You speak to the Mac,
 your iPhone or your iPad; one "brain" on the Mac understands the command and
 updates the calendar. Speech recognition, language understanding and storage all
-run locally — no account, no cloud service.
+run locally — no cloud account, no cloud service. Several people can share one
+Mac, each with their own calendar, to-dos and learning (see *People and
+sharing* below).
 
 > [!IMPORTANT]
 > The brain runs on **macOS** (Apple Silicon recommended). The iPhone and iPad
@@ -74,7 +76,8 @@ heard it.
 Whisper runs on the GPU from a cached model, the language and embedding models
 are Ollama on `localhost`, spaCy and the date recogniser are local, the Hebrew
 calendar is pure Python, and the database is a file in `~/.assistant_tools/`.
-There is no account, no API key and no telemetry. `tests/unit/test_offline.py`
+There is no cloud account, no API key and no telemetry — the people who use
+it sign in to the Mac itself. `tests/unit/test_offline.py`
 blocks every non-loopback socket and fails the build if that ever stops being
 true. Two links are yours to open: the phone reaching the Mac over Tailscale,
 and — only if you connect one — a Google or Outlook calendar (below).
@@ -133,7 +136,8 @@ settings. Toggle the lines in Settings › Hebrew Calendar
 
 ### Connected calendars (Google, Outlook)
 
-Settings › **Connected Calendars** on either app connects Google Calendar or
+**Connected calendars** (the Mac's **More** menu, or Settings › Calendar on the
+phone) connects Google Calendar or
 Outlook both ways, or subscribes to any calendar's read-only link (a Gmail
 calendar's "secret iCal address", iCloud, Outlook.com). "How to connect, step by
 step" walks each one inside the app; the one-time app registration with Google or
@@ -141,6 +145,26 @@ Microsoft is described in [DOCUMENTATION/CALENDAR_SYNC.md](DOCUMENTATION/CALENDA
 The Mac keeps them in step every 15 minutes (`calendar_sync.interval_minutes`),
 whether or not the calendar window is open. Nothing is contacted until you
 connect something.
+
+### People and sharing
+
+An **admin** and other **users**, each with their own calendar, to-dos,
+vocabulary, command memory and history in `~/.assistant_tools/users/<id>/`.
+Everyone signs in on the Mac and on the phone (the admin chooses whether a
+sign-in lasts until signed out, or ends after N days unused). On the
+**Account** tab each person is one card or row saying both directions at once
+— *"You share View · They share nothing"* — and holds every control about
+them: share your whole calendar and to-dos with them (view or edit); and, for
+the admin, whether theirs shows in your calendar, your vocabulary, and their
+account (reset password — shown once — sign out everywhere, disable, remove).
+
+Someone else's events keep their own colour with the owner's colour as the
+card's edge and their name in front; overlapping events stack like a binder,
+each card stepped far enough to read and your own on top. Shared to-dos sit
+among yours with a **Whose** filter, or in a section per person. Notifications
+are only ever about your own calendar and to-dos. A voice command only ever
+touches the speaker's own calendar. Decisions: `DEVQA.md` Q65 and Q67; how
+it's built: [DOCUMENTATION/USERS_PLAN.md](DOCUMENTATION/USERS_PLAN.md).
 
 ### Was it right? — reviewing commands
 
@@ -245,9 +269,13 @@ cp config.example.yaml config.yaml
   between them through `~/.assistant_tools/trace_bus.jsonl`.
 
 ### Views
-- **Month / Week / Day / Agenda** — switch with the toolbar buttons. The calendar
-  opens on **Week** unless you change "Open calendar on" in Settings › Appearance.
-- The **Day view** shows a full hourly timeline for any single date with a live red current-time indicator.
+- **Month / Week / Day / Agenda** — switch in the toolbar. The calendar opens on
+  **Week** unless you change "Open calendar on" in Settings › Appearance.
+- The **sidebar** lists the app's sections — Calendar, Tasks, Timer, Account and
+  any other tab you've switched on (Settings › Tabs) — above the mini-calendar.
+  Occasional tools (Import, Connected calendars, Tag suggestion history, Jude)
+  are in the toolbar's **More** menu.
+- The **Day view** shows a full hourly timeline for any single date with a live current-time line.
 - **Tasks** — Apple Reminders-style task panel with Today and General lists (see below).
 
 ### Morning Briefing
@@ -256,7 +284,7 @@ Click the **Brief Me** button in the Day view (or ask via voice) to have your as
 Voice triggers: *"What does my day look like?"*, *"When is my first meeting?"*, *"What's next?"*, *"How many events do I have today?"*
 
 ### Tasks View
-Switch to **Tasks** in the toolbar to manage your todo list with two sections:
+Open **Tasks** in the sidebar to manage your todo list with two sections:
 
 | Section | Purpose |
 |---------|---------|
@@ -315,8 +343,10 @@ When the Tasks tab is active, the mic button enters *Tasks mode* — voice comma
 Use the project's virtual environment — a bare `python` may lack the models'
 dependencies and report phantom failures:
 ```bash
-./.venv/bin/python -m pytest tests/unit          # fast, no model needed (what CI runs)
-./.venv/bin/python -m pytest tests/integration   # needs Ollama; skips without it
+./.venv/bin/python -m pytest tests/unit          # fast, no model needed
+./.venv/bin/python -m pytest tests/integration   # the real model; skips without Ollama
+./.venv/bin/python -m pytest tests/              # everything (what CI runs)
+python -m assistant.cli doctor                   # every layer of the running stack
 ```
 
 Don't judge a change to the assistant by trying a couple of phrasings. Each
@@ -343,8 +373,18 @@ source of truth. It keeps a full local copy and a queue, so it works with the Ma
 away and syncs when it is back. Beyond the calendar and tasks it has: voice with
 a live "thinking" timeline, the **Up Next** lock-screen card (two events at a
 time, a Today and a General to-do page with a tick button; tap it to open the
-right tab), Review commands, Connected Calendars, the Shabbat lines, and the
-in-app tips.
+right tab), the **Account** tab, Review commands, Connected Calendars, the
+Shabbat lines, and the in-app tips. Settings is a short grouped list —
+Calendar, Notifications & tabs, Assistant, Connection — each row opening its
+own page.
+
+**Commands with the Mac away.** On a device with Apple Intelligence (iOS 26),
+the phone reads a command itself with Apple's on-device model and adds the
+events and to-dos it can at once, marked as added on the phone. When the Mac
+is back it re-reads the same command with the full engine and its reading
+wins — the phone's version is replaced, and you're told if it read it
+differently. Moves, changes and deletes always wait for the Mac. The contract:
+[assistant/offline/PROTOCOL.md](assistant/offline/PROTOCOL.md).
 
 ### 1. Deploy the App (via Xcode)
 1. Open `MACalendar-iOS/MACalendar-iOS.xcodeproj` in **Xcode**.
@@ -371,6 +411,7 @@ For full deployment details and API reference, see [**SYSTEM_IPHONE.md**](DOCUME
 | GET | `/health` | Server status |
 | GET | `/events?date=YYYY-MM-DD` | Events for a day |
 | POST | `/events` | Create event |
+| POST | `/auth/login` | Sign in → session token (`X-Session-Token`) |
 | POST | `/voice/text` | Voice command as text |
 | GET | `/todos` | Todo list |
 | PATCH | `/todos/<id>/toggle` | Complete a task |

@@ -20,8 +20,10 @@ LLMSeg is wired and INERT; the judge makes no model call; the model is called by
 An admin (`gil`) plus users, each with their own stores under
 `~/.assistant_tools/users/<uid>/` (migrated 2026-09-28, backup
 `~/.assistant_tools.backup-20260928-151343`). Whole-calendar sharing view/edit,
-per-user learning and notifications. The **Account tab** is the admin's
-dashboard (people, require-sign-in, auto sign-out Off / N days, devices).
+per-user learning; notifications are only ever your own (Q67). The
+**Account tab** (both platforms, same design) is one card or row per person —
+both directions of sharing, and for the admin their account controls — then
+Tasks, Sign-in (require sign-in, auto sign-out Off / N days), Devices.
 "Require sign-in everywhere" is still OFF — Gil's switch. Map:
 `DOCUMENTATION/USERS_PLAN.md`. A demo user (`demo`, sharing view with gil)
 exists for trying the Account tab and overlaps — delete it from the Account
@@ -39,8 +41,9 @@ before the next cycle — no engine cycles until he restarts them.
 Done when: **real usage** ≈90% fully right with no destructive error in the
 last 100 (≥100 reviewed); **real speech held-out** single-ask ≥95% and
 multi-ask ≥80% (answer key aligned to the rulings by rule); **sealed 300**
-≥85% adjusted, read once to sign off. Today: single-ask ~90%, multi-ask
-~50%, sealed 75% (09-22), real usage too thin. Generated boards (FastRule,
+≥85% adjusted, read once to sign off. Latest (2026-09-28, held-out real
+speech n=2,099, key v2): single-ask 91.0%, multi-ask 74.2%; sealed 75%
+adjusted (09-22); real usage too thin. Generated boards (FastRule,
 Board D) are the fast inner loop, not the finish line.
 
 ## Where it stands (2026-09-27)
@@ -155,11 +158,21 @@ gets a per-cadence default end (Q57), the fast-path fence is retired with
 conditions (Q58), and every day has a "keep engine events off" switch (Q59,
 Q60). On 2026-09-27: a to-do that repeats is an event series with ONE rolling
 linked to-do (Q61, `cf74dec3`), and "buy A and B" is two to-dos (Q62,
-`d3facf4c`). All built. Numbers per cycle:
+`d3facf4c`). All built. On 2026-09-28: users, login and sharing (Q65), the phone's offline
+reader (Q66), and overlaps / shared colours / own-only notifications / to-dos
+grouped by person (Q67); plus the Account tab on both platforms, the phone's
+Settings regrouped and the Mac window cleaned up (FEATURES.md). Numbers per
+cycle:
 `assistant/engine/fastrule/experiments/RESULTS.md`,
 `assistant/engine/llmjudge/experiments/RESULTS.md`, and the commit messages.
 
 ## Next
+
+**App side (while the engine is paused):** `DOCUMENTATION/TASKS.md` rows
+28–33 — require sign-in (Gil's switch), remove the demo user, look at the Mac
+clean-up in light mode, read the offline reader's agreement after a week.
+
+**Engine, when Gil resumes it:**
 
 1. **Align the real-speech answer key to the rulings, by rule.** The dev
    failures are triaged (2026-09-28, `dataset/inputs/dev_triage_d8b3e81d.json`,
@@ -175,12 +188,12 @@ linked to-do (Q61, `cf74dec3`), and "buy A and B" is two to-dos (Q62,
 2. **Multi-ask commands on real speech** (event + to-do 29%, two to-dos 60%,
    two events 71%; dev range n=182), fixes mined from the dev range with ≥3
    distinct phrasings each, verdict on the held-out range.
-2. **Real usage**: re-read the board once there is new reviewed usage (needs
-   Gil's reviews in the HUD / phone).
-3. **Sealed 300 (TEST)** milestone read, aggregates only.
-4. **Train phrasing growth** for the FastRule title-precision gap (train
+3. **Real usage**: re-read the board once there is new reviewed usage (needs
+   Gil's reviews in the HUD / phone) — the reason for the pause.
+4. **Sealed 300 (TEST)** milestone read, aggregates only.
+5. **Train phrasing growth** for the FastRule title-precision gap (train
    91.6% vs test 71.8%).
-5. Small queue in `DOCUMENTATION/TASKS.md` 19–25.
+6. Small queue in `DOCUMENTATION/TASKS.md` 19–27.
 
 ## Standing rulings worth remembering
 
@@ -196,6 +209,9 @@ linked to-do (Q61, `cf74dec3`), and "buy A and B" is two to-dos (Q62,
 
 - The API reloads itself; the calendar GUI and the thinking HUD do not — restart
   them by hand. The phone needs a reinstall.
+- `pytest tests/` is the whole suite (what CI runs); the integration folder
+  talks to the real model when Ollama is up (`tests/integration/conftest.py`).
+  `python -m assistant.cli doctor` checks the running stack.
 - One model-loading job at a time; never edit files under `assistant/` while a
   board replays them.
 - `git status` before assuming HEAD is what is on disk.

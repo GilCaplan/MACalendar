@@ -43,6 +43,18 @@ and where the two disagree the ledger is the one that was re-read.
 
 ---
 
+## Whose notifications — added 2026-09-28 (DEVQA Q65, Q67)
+
+With several people on one Mac, notifications are **only ever the person's
+own**: their day panel, their per-event reminder times, their lock-screen
+card and widget. A calendar someone shares with you is something to look at
+and never rings — `users/sharing.notify_owners` returns only the viewer,
+`notify.annotate` gives a shared row `notify_at = None` (reason `"shared"`),
+and the phone's `LocalStore.ownEvents()` feeds the lock screen and widget.
+Q65's opt-in ("include what others share with me") was retired by Gil the
+same day. The Mac's banners follow whoever is signed in there
+(`notifier.mac_user`). Tests: `test_users_notifications.py`.
+
 ## Where this actually stands — verified 2026-09-14
 
 Every row below was checked by opening the file, not by reading a tracker.

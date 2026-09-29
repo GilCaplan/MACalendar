@@ -133,6 +133,13 @@ so nothing else on iOS learns the new name. Visibility lives in
 `show*Tab` keys; a toggle applies locally first and queues its PATCH when the
 Mac is away.
 
+On the Mac a panel is a row in the **sidebar's section list**
+(`CalendarWindow._build_sidebar_nav`, 2026-09-28 — it used to be one more
+button in the toolbar), and Settings › Tabs offers a switch for every
+non-pinned feature with a Mac panel, drawn from the registry. Account is the
+most recent example: `assistant/features/account/` + `calendar_ui/account_panel.py`
++ one iOS registry entry.
+
 ## Things that will bite
 
 - **`ready`/`visible` is not `working`.** A visible tab whose backend is absent

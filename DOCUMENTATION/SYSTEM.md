@@ -44,7 +44,7 @@ so today the setting is a control that changes nothing — worth knowing before
 someone trusts it.
 
 ## Quick Facts
-- **DB**: `~/.assistant_tools/calendar.db` (SQLite, Mac is source of truth)
+- **DB**: one SQLite file per person, `~/.assistant_tools/users/<uid>/calendar.db` (Mac is source of truth) — see *People* below
 - **GitHub**: `https://github.com/GilCaplan/MACalendar`
 - **Mac launch**: `python -m assistant.main` or `Launch Calendar.command`
 - **iPhone API**: `python -m assistant.api --tailscale` (auto-started by `Launch Calendar.command`)
@@ -58,14 +58,41 @@ someone trusts it.
 - **Smart Recurrence**: Edit whole series or single instances with an intuitive prompt.
 - **Task Management**: Native drag-and-drop reordering on both platforms.
 
+## People — an admin, users, sharing (DEVQA Q65, 2026-09-28)
+
+Every personal store — calendar, command memory, vocabulary, categories,
+labels, trace bus, LLM log — is per person: `users.paths.resolve(path)` maps
+the store's path to `users/<uid>/<name>` for whoever is bound. The user travels
+as a `ContextVar` (`assistant/users/__init__.py`), never through `EngineState`:
+the API binds the session's user per request (`X-Session-Token`), the Mac
+window and the HUD set a process default, and `users.thread` carries it into
+worker threads. `users.json` holds the people, the shares (whole calendar +
+to-dos, view or edit), the admin's view toggles, vocabulary shares and the
+sign-in policy. Someone else's rows arrive with namespaced ids and
+`owner_*` fields (`users/sharing.py`); a voice command only ever writes the
+speaker's own store; notifications are only ever the person's own (Q67). The
+plan and the rules: `DOCUMENTATION/USERS_PLAN.md`.
+
+## The phone's offline reader (DEVQA Q66, 2026-09-28)
+
+Away from the Mac, the phone reads a command with Apple's on-device model
+(iOS 26 Foundation Models), books CREATES provisionally, and resends the
+command with its reading attached when the Mac is back; the Mac runs its full
+engine, compares (`assistant/offline/reconcile.py`, using the reply's new
+`committed` row references) and its reading wins. What the phone's model is
+told is served by the Mac (`GET /offline/reader`), so improving it needs no
+reinstall; every comparison is logged per user (`GET /offline/agreement`).
+Contract: `assistant/offline/PROTOCOL.md`.
+
 ## Models
 
-Three, all local: Whisper `base` for speech, spaCy `en_core_web_sm` for the
+Three on the Mac, all local: Whisper `base` for speech, spaCy `en_core_web_sm` for the
 grammar the rule parser reads, and Llama 3.1 8B in Ollama for meaning. The 8B
 model does six distinct jobs, only three of which are on the path between
 speaking and seeing the result. No embedding model; no classifier model.
 Full table, including which config key sets each and why the sizes were chosen:
-`DOCUMENTATION/MODELS.md`.
+`DOCUMENTATION/MODELS.md`. On the phone, Apple's on-device model is the offline
+reader above — used only while the Mac can't be reached.
 
 ## NLU Parse Path — the engine (`assistant/engine/`, contracts in [ENGINE.md](ENGINE.md))
 
@@ -181,7 +208,7 @@ override, and `source: "test"` traffic is dropped (`llm_bus.py:58, 90`).
 | Vocabulary | `assistant/stt/vocab.py` | Personal words (names, Hebrew, places). Fed to Whisper as `initial_prompt`; transcripts auto-corrected via learned aliases + fuzzy match (difflib ≥ 0.80, protected common words). Every fuzzy fix is remembered as an alias. Store: `~/.assistant_tools/vocab.json` (local only). |
 | Onboarding | `assistant/stt/vocab_onboarding.py` | First-run interview (6 questions) + opt-in starter packs (prayer/Shabbat, holidays, Israeli life, family, life events). iOS `VocabOnboardingView`, Mac `VocabDialog › Set up…`. |
 | Command memory (RAG) | `assistant/intent/memory.py` | Every command → executed intents → result → timings in `~/.assistant_tools/nlu_memory.db`. Edits/deletes of a voice-created record within 24 h become `corrected`/`rejected` feedback (hooked in `db.update_event/delete_event/update_todo/delete_todo`). `few_shot_block()` can inject the k most similar examples (dates masked) into the LLM system prompt — but **`nlu.memory_examples` is `0` in both the default (`assistant/config.py:271`) and `config.example.yaml:194`, so no few-shot block is injected today**. The config's own comment says why: *"run 7 measured no effect at k=4, so the engine ships with it off"* (`config.example.yaml:194`). Also holds the **pending queue** of commands that failed because the LLM was offline; the API server retries them every 30 s. |
-| Trace | `assistant/trace.py` | Stage-by-stage "thinking" log with ms timings, plus the two things the review panel is pinned to: `BRAIN_VERSION` (stamped on every response) and `CHAINS`, the ordered `(stage, label)` spec per version. Returned in `/voice` responses, streamed live as NDJSON from `POST /voice/stream` (iOS `ThinkingView`, toggle in Settings › Voice), and published to the trace bus — see above. |
+| Trace | `assistant/trace.py` | Stage-by-stage "thinking" log with ms timings, plus the two things the review panel is pinned to: `BRAIN_VERSION` (stamped on every response) and `CHAINS`, the ordered `(stage, label)` spec per version. Returned in `/voice` responses, streamed live as NDJSON from `POST /voice/stream` (iOS `ThinkingView`, toggle in Settings › Voice & recording), and published to the trace bus — see above. |
 | Self-check | `assistant/engine/llmjudge/llmjudge.py` | The engine's cross-check, **with no model call** since 2026-09-10 (`retired/llmjudge-grounding-call/`): `verdict.py` checks every field of every produced object against the words, deterministically, and routes each finding (commit with a note, rewrite the ask, or the review panel). The judge's only model calls are `rescue.py` (reading what FastRule deferred) and the model tier of `rewrite.py`. Behind a fast commit it runs as a background review (`assistant/engine/__init__.py`, `_start_background_verify`) with three tiers: a placeholder title is **renamed in place**; a missing ask and an extra row are **advisory only** — they say *"Worth a look: …"* and change nothing — unless `self_check_apply` is on, and it is `false` in both `assistant/config.py` and `config.example.yaml`. That default is deliberate: the always-on verifier proposed far more than it fixed, and four commands were broken by confident duplicate adds ("add eggs" against an existing "buy eggs"). A `verify_token` is issued on every fast commit (`_start_background_verify`) and both clients poll `GET /voice/verify/<token>` for the outcome. |
 | Benchmark | `scripts/benchmark_models.py` → `DOCUMENTATION/MODEL_BENCHMARK.md` | Accuracy + latency of Ollama models on real commands. |
 
@@ -191,16 +218,17 @@ Speed: Ollama `keep_alive` (`-1` = keep loaded forever, or e.g. `"30m"`; `config
 
 ## Event categories & colours
 
-`assistant/actions/calendar/categories.py` tags every new event (Work, Study, Meeting, Social, Family, Prayer, Fitness, Health, Errand, Meal, Travel, Personal) from its title/attendees/location with a keyword classifier — "Personal" when unsure — and picks the category colour. If the event immediately before or after on the same day already has that colour, the category's alternate shade is used, so two adjacent events never look the same. A colour chosen by hand is never overridden. Users add/remove categories, change colours and keywords from iOS → Settings → *Event colours* (stored in `~/.assistant_tools/categories.json`, local only). API: `GET/POST /categories`, `DELETE /categories/<name>`, `POST /categories/classify`, `POST /categories/recolor[?force=1]` (backfills existing events).
+`assistant/actions/calendar/categories.py` tags every new event (Work, Study, Meeting, Social, Family, Prayer, Fitness, Health, Errand, Meal, Travel, Personal) from its title/attendees/location with a keyword classifier — "Personal" when unsure — and picks the category colour. If the event immediately before or after on the same day already has that colour, the category's alternate shade is used, so two adjacent events never look the same. A colour chosen by hand is never overridden. Users add/remove categories, change colours and keywords from iOS → Settings › Calendar › *Event colours* (stored in `~/.assistant_tools/categories.json`, local only). API: `GET/POST /categories`, `DELETE /categories/<name>`, `POST /categories/classify`, `POST /categories/recolor[?force=1]` (backfills existing events).
 
 ## Sync between Mac and phone
 
-Both apps read and write the same SQLite file (`~/.assistant_tools/calendar.db`) — the phone through the Mac's API. The Mac app polls the DB's modification time every 5 s and reloads calendar, tasks and the Timer tab when it changes. The phone polls every 30 s while idle, and drops to **1 s for 45 s after a voice command** (10 s after a manual edit) via `APIClient.burstRefresh`, so both sides settle together; the Timer tab polls every 3 s while any timer is running.
+Both apps read and write the same per-person SQLite file (`~/.assistant_tools/users/<uid>/calendar.db`, plus any calendars shared with that person) — the phone through the Mac's API. The Mac app polls the DB's modification time every 5 s and reloads calendar, tasks and the Timer tab when it changes. The phone polls every 30 s while idle, and drops to **1 s for 45 s after a voice command** (10 s after a manual edit) via `APIClient.burstRefresh`, so both sides settle together; the Timer tab polls every 3 s while any timer is running.
 
 ## Connected calendars (Google, Outlook, subscription links)
 
 Google (two-way), Outlook (two-way) and read-only ICS links are connected from
-Settings → Connected Calendars on either app; both apps are clients of
+the Mac's **More ▸ Connected calendars…** or the phone's Settings › Calendar ›
+Connected calendars; both apps are clients of
 `/calendar_sync/*`, and the tokens live only on the Mac. The periodic sync is a
 thread the API process owns (`assistant/calendar_sync/scheduler.py`: first run
 45 s after start, then every `calendar_sync.interval_minutes`), so it runs with
@@ -214,7 +242,7 @@ why: `DOCUMENTATION/CALENDAR_SYNC.md`.
 
 ## Recording controls (phone)
 
-Recording stops on tap, on a stop word or after silence (Settings → Voice; the silence auto-stop can be turned off). The stop words are `execute · done · go · stop · submit · confirm` (`Voice/VoiceRecorder.swift:16`), of which `execute`, `submit` and `confirm` are treated as unambiguous and fire immediately (`:134`). With "Ask before sending" on, a Redo / Add more / Send bar appears for **3 s** (`Views/VoiceButton.swift:270`) — *Add more* resumes the same recording so a sentence cut off early can be finished. A **stop word skips the bar entirely** (`VoiceButton.swift:266`): saying "execute" is the decision, so making the speaker wait out a countdown they just talked past would be silly.
+Recording stops on tap, on a stop word or after silence (Settings › Voice & recording; the silence auto-stop can be turned off). The stop words are `execute · done · go · stop · submit · confirm` (`Voice/VoiceRecorder.swift:16`), of which `execute`, `submit` and `confirm` are treated as unambiguous and fire immediately (`:134`). With "Ask before sending" on, a Redo / Add more / Send bar appears for **3 s** (`Views/VoiceButton.swift:270`) — *Add more* resumes the same recording so a sentence cut off early can be finished. A **stop word skips the bar entirely** (`VoiceButton.swift:266`): saying "execute" is the decision, so making the speaker wait out a countdown they just talked past would be silly.
 
 ## Referring to events by voice
 

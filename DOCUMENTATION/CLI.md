@@ -28,7 +28,7 @@ of the command memory and out of the HUD's History.
 | # | Layer | What "healthy" means | How it's checked |
 |---|---|---|---|
 | 1 | **llm** | the model the API talks to is reachable | Ollama: `/api/tags` + model pulled; cloud: api key present. Plus the local spaCy grammar model loads. (STT is exercised only on a real `/voice` audio call, so it's noted, not asserted.) |
-| 2 | **storage** | the databases and trace log are connected + writable | open calendar.db read-only (events/todos tables), memory.db present, trace-log dir writable |
+| 2 | **storage** | the databases and trace log are connected + writable | open calendar.db read-only (events/todos tables), memory.db present, trace-log dir writable — each resolved for the bound person, `users/<uid>/…` since the users migration (2026-09-28; the raw top-level paths reported a healthy install as "not yet created") |
 | 3 | **engine** | each stage of THIS engine version is wired, and the live path answers | every stage module imports; `CHAINS[BRAIN_VERSION]` is defined; a live read-only probe returns `brain=BRAIN_VERSION` with a coherent trace. `--deep` points at the per-stage gate |
 | 4 | **panel** | the thinking HUD is running and beating | the HUD's heartbeat is fresh (< 30s); trace log readable |
 | 5 | **macos** | the calendar GUI is beating; hosted-calendar sync valid if configured | the GUI's heartbeat is fresh; Microsoft Graph auth if a hosted calendar is set (else local-only, informational) |

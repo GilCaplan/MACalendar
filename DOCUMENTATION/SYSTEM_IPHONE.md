@@ -12,7 +12,15 @@ the live "thinking" timeline, the **Up Next** lock-screen Live Activity (two
 events at a time, Today / General to-do pages with a tick, a tap opens the
 right tab via `macalendar://`), Review commands with the per-object Fix sheet,
 Connected Calendars, the yellow Shabbat / yom tov lines, End repeat on the event
-editor, and the in-app tips. Signing with a free Apple ID lasts 7 days.
+editor, the **Account** tab (sign-in, sharing, and the admin's controls — one
+page per person, DEVQA Q65/Q67), the offline reader (below), and the in-app
+tips. Signing with a free Apple ID lasts 7 days.
+
+**Settings** (reorganised 2026-09-28) is a short grouped list, each row opening
+its own page: the account at the top; **Calendar** (Appearance, Events, Hebrew
+& Shabbat, Event colours, Connected calendars); **Notifications & tabs**;
+**Assistant** (Review commands, Voice & recording, Vocabulary, How I say
+things, How to talk to me); **Connection** (Your Mac, the sync queue); About.
 
 ---
 
@@ -91,10 +99,14 @@ Deployment target is **iOS 16.0**. Tested on iPhone 16e (iOS 26.x). `AVAudioAppl
    python -m assistant.api --tailscale --port 8080
    ```
 2. **Find the IP**: Look for `Tailscale IP detected: 100.x.x.x` in terminal.
-3. **Enter in iPhone**: App → **Settings** → **Server URL** → `http://100.x.x.x:8080`
+3. **Enter in iPhone**: App → **Settings** › Connection › **Your Mac** → `http://100.x.x.x:8080`
    - Must be `http://` not `https://` (plain HTTP, no TLS)
    - The app auto-corrects `https://` → `http://` if mistyped
 4. **Health Check**: Tap **Test Connection** → should show `✓ ollama` (or your LLM engine).
+5. **Sign in** with your username and password (the Mac's admin creates them on
+   its Account tab). The session token lives in the Keychain; every request
+   carries it as `X-Session-Token`. Before anyone signs in, a phone asks the Mac
+   for nothing but the sign-in.
 
 ### Port Collisions
 
@@ -115,7 +127,7 @@ The app works fully without a Mac connection:
 | View events/todos | Served from local JSON cache |
 | Create event/todo | Saved locally with temp ID (negative int) |
 | Edit / delete | Applied locally immediately |
-| Voice commands | Requires Mac (Whisper + LLM run on Mac) |
+| Voice commands | Queued for the Mac; on iOS 26 with Apple Intelligence, also read on the phone and its creates booked provisionally (below) |
 
 An orange **"Offline — N changes pending sync"** banner appears at the top when the Mac is unreachable.
 
@@ -124,6 +136,20 @@ An orange **"Offline — N changes pending sync"** banner appears at the top whe
 **Polling**: `GET /changes` returns a few bytes derived from the database file. The phone asks every 2 s and only refetches when the answer changes, with a full refresh every 30 s regardless — so a change made on the Mac reaches the phone in about two seconds.
 
 **Voice offline**: a command recorded while the Mac is unreachable is kept on the phone, shown in a banner and a Queued commands screen, replayed on reconnect, and its result delivered as a local notification.
+
+**The offline reader** (DEVQA Q66, 2026-09-28): on a device with Apple
+Intelligence (iOS 26), `Voice/OfflineReader.swift` reads the queued command's
+draft with Apple's on-device model (a `@Generable` item shape, guided
+generation) and `LocalStore.bookProvisional` adds its events and to-dos as
+placeholder rows — never as queued creates. On reconnect the resend carries
+`offline_reading`; the Mac runs its full engine and answers `same`, `changed`,
+`pending` or `deferred`, and `APIClient.settle` swaps the phone's placeholders
+for the Mac's rows (a `pending` command stays `.waiting` until
+`GET /offline/pending/<id>` says the Mac has run it). Moves, changes and
+deletes are never done offline. The model's instructions are served by the Mac
+(`GET /offline/reader`), so a fix needs no reinstall. Settings › Connection ›
+Your Mac shows whether this device can read offline. Contract:
+`assistant/offline/PROTOCOL.md`.
 
 ### Proving it: the offline round-trip UI test
 
@@ -289,7 +315,10 @@ MACalendar-iOS/                 (the app target)
                             starts, the dismissal-until-06:00 rule, BGAppRefreshTask
   ReminderScheduler.swift   schedules the local notifications the Mac describes
   API/
-    APIClient.swift         URLSession wrapper — offline-aware, falls back to LocalStore
+    APIClient.swift         URLSession wrapper — offline-aware, falls back to LocalStore;
+                            settle()/settleWaiting() for the offline reader
+    UserSession.swift       who is signed in: Keychain token, the Account tab's
+                            shared state (groupSharedTodos)
     Models.swift            CalendarEvent, Todo, TodoTag, VoiceResponse,
                             NotificationsConfig, DayDigest … (Codable, tolerant decoders)
   Shared/                   compiled into BOTH the app and the widgets target,
@@ -300,7 +329,7 @@ MACalendar-iOS/                 (the app target)
     FeatureRegistry.swift   one declaration per tab; the tab bar is built from it
     Calendar/               CalendarTabView, MonthGridView, WeekView, DayView,
                             EventDetailView, EventStacking, GuestsSection
-    Tasks/                  TasksView, TaskRowView
+    Tasks/                  TasksView (Whose filter, a section per person), TaskRowView
     Coursework/             CourseworkView, CourseStore (local-only, no Mac sync)
     Workout/                WorkoutView + store, models, templates, live session, stats
     Timer/                  TimerView
@@ -310,9 +339,12 @@ MACalendar-iOS/                 (the app target)
                             else's program, see assistant/integrations/CONVENTION.md)
   Views/                    screens that are not a tab of their own
     ContentView.swift       the tab bar + offline banner; tabs come from FeatureRegistry
-    SettingsView.swift      foldable sections, ALL FOLDED on a first run:
-                            Server, Appearance, Hebrew Calendar,
-                            Notifications, Tabs, Voice, About
+    SettingsView.swift      a grouped list (2026-09-28): account; Calendar ·
+                            Notifications & tabs · Assistant · Connection · About;
+                            each row opens a SettingsPage with that section's controls
+    UsersViews.swift        sign-in, change password, and the Account tab —
+                            AccountView (one page for everyone) + PersonView
+                            (one per person), fed by AccountModel
     VoiceButton.swift       mic button — records WAV, POSTs, speaks the reply
     ThinkingView.swift      the command's chain of thought, from its trace
     AssistantReviewView.swift · PendingQueueView.swift · SearchView.swift
@@ -320,6 +352,8 @@ MACalendar-iOS/                 (the app target)
     VocabularyView.swift · VocabImportView.swift · VocabOnboardingView.swift
   Voice/
     VoiceRecorder.swift     AVAudioRecorder → 16 kHz mono WAV bytes
+    OfflineReader.swift     Apple's on-device model reads a command while the Mac
+                            is away (iOS 26; weak-linked FoundationModels)
     SpeechPlayer.swift      AVSpeechSynthesizer reads response.message
   Settings/
     AppSettings.swift       the device-local prefs (serverURL, apiKey, theme, fonts,
