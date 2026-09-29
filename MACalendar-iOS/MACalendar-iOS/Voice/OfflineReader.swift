@@ -59,10 +59,18 @@ struct OfflineReaderSpec: Codable {
     let instructions: String
     let examples: [Example]
     let names: [String]?
+    /// What to leave for the Mac, decided before the model (Q68). Optional:
+    /// a spec from before the guard has none, and the bundled rules apply.
+    let guardRules: GuardRules?
+
+    enum CodingKeys: String, CodingKey {
+        case `protocol`, schema, version, instructions, examples, names
+        case guardRules = "guard"
+    }
 }
 
 enum OfflineReader {
-    static let schema = 1
+    static let schema = 2
     static let protocolVersion = 1
     static let kinds = ["event", "todo", "other"]
     static let recurrences = ["none", "daily", "weekly", "monthly", "yearly"]
@@ -86,7 +94,7 @@ enum OfflineReader {
         when not said. A bare 7 or 8 means evening. recurrence is "none" unless the \
         speaker said it repeats. Never invent a date, time or person.
         """,
-        examples: [], names: [])
+        examples: [], names: [], guardRules: nil)
 
     // MARK: availability
 
@@ -173,16 +181,28 @@ enum OfflineReader {
         guard !said.isEmpty else { return nil }
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
-            guard isAvailable else { return nil }
             let s = spec()
+            // Q68 step 1: an edit, delete, completion or question is the Mac's
+            // — decided by the engine's own tables, before (and instead of)
+            // a model call, so it can never be booked as something new.
+            if OfflineGuard.leavesForMac(said, rules: s.guardRules ?? .bundled) {
+                return OfflineReading(protocol: protocolVersion, schema: schema,
+                                      reader: "guard", specVersion: s.version, text: said, ms: 0,
+                                      items: [OfflineItem(kind: "other", title: said, date: "",
+                                                          start: "", end: "", recurrence: "none")])
+            }
+            guard isAvailable else { return nil }
             let t0 = Date()
             do {
                 let session = LanguageModelSession(instructions: instructions(s))
                 let prompt = "Today: \(dayLine(now))\nSaid: \(said)"
                 let out = try await session.respond(to: prompt, generating: GenReading.self,
                                                     options: GenerationOptions(sampling: .greedy))
+                // Q68 step 1: the DAY is worked out here, by the project's
+                // rules (OfflineDates.swift) — never by the model.
                 let items = out.content.items.map {
-                    OfflineItem(kind: $0.kind, title: $0.title, date: $0.date,
+                    OfflineItem(kind: $0.kind, title: $0.title,
+                                date: OfflineDates.resolve($0.when, today: now) ?? "",
                                 start: $0.start, end: $0.end, recurrence: $0.recurrence)
                 }
                 return OfflineReading(protocol: protocolVersion, schema: schema,
@@ -232,8 +252,8 @@ struct GenItem {
     var kind: String
     @Guide(description: "The thing itself, short, in the speaker's words; no date or time")
     var title: String
-    @Guide(description: "YYYY-MM-DD, or empty when no day was said")
-    var date: String
+    @Guide(description: "The words that say which day, exactly as said (tomorrow, next tuesday, march 5th), or empty")
+    var when: String
     @Guide(description: "24-hour HH:MM start, or empty")
     var start: String
     @Guide(description: "24-hour HH:MM end, or empty unless an end was said")
@@ -246,7 +266,9 @@ struct GenItem {
 @available(iOS 26.0, *)
 @Generable
 struct GenReading {
-    @Guide(description: "One item per thing the speaker asked for, in order")
+    // At most 6 (DEVQA Q68 step 1c): uncapped, the model looped on repeat
+    // phrases until its context window filled — 21 of 1,200, ~37 s each.
+    @Guide(description: "One item per thing the speaker asked for, in order", .maximumCount(6))
     var items: [GenItem]
 }
 #endif

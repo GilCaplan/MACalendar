@@ -41,6 +41,8 @@
 		AA00000D000000000000001A /* WeekView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000D000000000000001B /* WeekView.swift */; };
 		AA00000E000000000000001A /* SpeechPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E000000000000001B /* SpeechPlayer.swift */; };
 		AAF0000300000000000000A1 /* OfflineReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAF0000300000000000000B1 /* OfflineReader.swift */; };
+		AAF0000300000000000000A2 /* OfflineGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAF0000300000000000000B2 /* OfflineGuard.swift */; };
+		AAF0000300000000000000A3 /* OfflineDates.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAF0000300000000000000B3 /* OfflineDates.swift */; };
 		AA00000F000000000000001A /* VoiceRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000F000000000000001B /* VoiceRecorder.swift */; };
 		AA000010000000000000001A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000010000000000000001B /* Assets.xcassets */; };
 		AA0000010000000000000F1A /* TagClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000F1B /* TagClassifier.swift */; };
@@ -119,6 +121,8 @@
 		AA00000D000000000000001B /* WeekView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekView.swift; sourceTree = "<group>"; };
 		AA00000E000000000000001B /* SpeechPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechPlayer.swift; sourceTree = "<group>"; };
 		AAF0000300000000000000B1 /* OfflineReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineReader.swift; sourceTree = "<group>"; };
+		AAF0000300000000000000B2 /* OfflineGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineGuard.swift; sourceTree = "<group>"; };
+		AAF0000300000000000000B3 /* OfflineDates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineDates.swift; sourceTree = "<group>"; };
 		AA00000F000000000000001B /* VoiceRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceRecorder.swift; sourceTree = "<group>"; };
 		AA000010000000000000001B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA000011000000000000001B /* MACalendar-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "MACalendar-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -344,6 +348,8 @@
 				AA00000E000000000000001B /* SpeechPlayer.swift */,
 				AA00000F000000000000001B /* VoiceRecorder.swift */,
 				AAF0000300000000000000B1 /* OfflineReader.swift */,
+				AAF0000300000000000000B2 /* OfflineGuard.swift */,
+				AAF0000300000000000000B3 /* OfflineDates.swift */,
 			);
 			path = Voice;
 			sourceTree = "<group>";
@@ -622,6 +628,8 @@
 				AA00000E000000000000001A /* SpeechPlayer.swift in Sources */,
 				AA00000F000000000000001A /* VoiceRecorder.swift in Sources */,
 				AAF0000300000000000000A1 /* OfflineReader.swift in Sources */,
+				AAF0000300000000000000A2 /* OfflineGuard.swift in Sources */,
+				AAF0000300000000000000A3 /* OfflineDates.swift in Sources */,
 				AA0000010000000000000F1A /* TagClassifier.swift in Sources */,
 				AA0000020000000000000F1A /* JudeView.swift in Sources */,
 				AA00000030000000000000F1A /* JudeModels.swift in Sources */,

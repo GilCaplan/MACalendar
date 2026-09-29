@@ -11,6 +11,9 @@ import datetime as dt
 import json
 import pathlib
 import re
+import shutil
+import subprocess
+import sys
 
 import pytest
 
@@ -71,9 +74,9 @@ def test_learning_a_word_is_not_a_new_reader_version(monkeypatch):
 def test_every_example_is_in_the_compiled_shape():
     for ex in spec.EXAMPLES:
         for it in ex["items"]:
-            assert set(it) == {"kind", "title", "date", "start", "end", "recurrence"}
+            assert set(it) == {"kind", "title", "when", "start", "end", "recurrence"}
             assert it["kind"] in spec.KINDS and it["recurrence"] in spec.RECURRENCES
-            assert it["date"] == "" or re.fullmatch(r"\d{4}-\d{2}-\d{2}", it["date"])
+            assert not re.search(r"\d{4}-\d{2}-\d{2}", it["when"]), "the model gives WORDS, code the date"
 
 
 def test_the_phone_was_built_for_this_protocol_and_schema():
@@ -205,3 +208,122 @@ def test_the_reader_spec_is_served(client):
     body = client.get("/offline/reader").get_json()
     assert body["version"] == spec.reader_spec()["version"]
     assert body["instructions"].startswith("You turn one spoken calendar command")
+
+
+# -- the guard (DEVQA Q68 step 1) ---------------------------------------------------
+
+
+GUARD_SWIFT = ROOT / "MACalendar-iOS" / "MACalendar-iOS" / "Voice" / "OfflineGuard.swift"
+
+
+def test_the_guard_is_generated_from_the_engines_own_tables():
+    """Every verb the engine routes to an edit, delete, completion or query —
+    so the phone's guard and the Mac's routing cannot disagree."""
+    from assistant.intent.rule_parser import INTENT_MAP
+    g = spec.guard()
+    for (verb, domain), action in INTENT_MAP.items():
+        if action.startswith("create") or verb in ("set", "note"):
+            continue
+        if verb in spec.DONE_FRAMED:          # a completion only beside done/complete/…
+            assert any(verb in f for f in g["frames"]), verb
+            continue
+        assert verb in g["leave_verbs"] + g["leave_verbs_with_domain"], verb
+    assert "move" in g["leave_verbs"] and "remove" in g["leave_verbs_with_domain"]
+    # a destructive verb LEADING the command is an edit even without a list word
+    # (a miss books something wrong; a false guard only waits for the Mac)
+    assert spec.LEAD_EDITS <= set(g["leave_verbs"])
+    assert "book" not in g["leave_verbs"] + g["leave_verbs_with_domain"]
+
+
+def test_the_phones_bundled_guard_is_the_served_one():
+    """A phone that has never reached the Mac uses `GuardRules.bundled`; it must
+    be exactly what the Mac would serve, or the two guard different things."""
+    src = GUARD_SWIFT.read_text()
+    src = src[src.index("static let bundled"):src.index("enum OfflineGuard")]
+    g = spec.guard()
+
+    def swift_array(name):
+        m = re.search(rf"{name}: \[(.*?)\]", src, re.S)
+        return re.findall(r'"((?:[^"\\]|\\.)*)"', m.group(1))
+
+    for key, name in (("leave_verbs", "leaveVerbs"), ("leave_verbs_with_domain", "leaveVerbsWithDomain"),
+                      ("domain_words", "domainWords"), ("question_starts", "questionStarts"),
+                      ("lead_ins", "leadIns")):
+        assert swift_array(name) == g[key], key
+    frames = re.findall(r'#"(.*?)"#', src)
+    assert frames == g["frames"]
+
+
+def test_the_served_spec_carries_the_guard(client):
+    body = client.get("/offline/reader").get_json()
+    assert body["guard"]["leave_verbs"] == spec.guard()["leave_verbs"]
+
+
+# -- dates in code (DEVQA Q68 step 1) — the Swift resolver against the Python rules --
+
+
+@pytest.mark.skipif(sys.platform != "darwin" or not shutil.which("swiftc"),
+                    reason="needs the Swift compiler (the Mac; CI's Linux runner has none)")
+def test_the_phones_day_resolver_matches_the_python_rules(tmp_path):
+    """Every date phrase the FastRule set uses, plus the edge cases, resolved
+    by OfflineDates.swift and by gold._phrase_to_date against four different
+    todays — identical, or the phone reads dates by different rules."""
+    from assistant.engine.fastrule.experiments.gold import _phrase_to_date
+    exe = tmp_path / "dates"
+    subprocess.run(["swiftc", "-O", "-parse-as-library",
+                    str(ROOT / "assistant/offline/experiments/dates_parity.swift"),
+                    str(ROOT / "MACalendar-iOS/MACalendar-iOS/Voice/OfflineDates.swift"),
+                    "-o", str(exe)], check=True, capture_output=True)
+    rows = [json.loads(l) for l in (ROOT / "assistant/engine/fastrule/datasets/fastrule_7200.jsonl")
+            .read_text().splitlines() if l.strip()]
+    phrases = {(r["expect"].get("slots") or {}).get(k) or "" for r in rows
+               for k in ("date_phrase", "date_phrase_2")} - {""}
+    phrases |= {"this friday", "friday", "on the 15th", "next wednesday", "the 21st", "the 31st", "february 29th",
+                "december 31st", "the end of next month", "in 3 days", "this weekend"}
+    phrases = sorted(phrases)
+    for today in ("2026-09-09", "2026-09-28", "2026-12-31", "2027-02-27"):
+        out = subprocess.run([str(exe), today], input="\n".join(phrases) + "\n",
+                             capture_output=True, text=True, check=True).stdout.splitlines()
+        got = {o["p"]: o["d"] for o in map(json.loads, out)}
+        for p in phrases:
+            want = _phrase_to_date(p, dt.date.fromisoformat(today))
+            if want is None and _phone_extension(p):
+                # the phone's documented additions (a bare weekday, a leading
+                # "on"): it resolves where the board's rules leave it open
+                assert got[p] is None or re.fullmatch(r"\d{4}-\d{2}-\d{2}", got[p]), (today, p)
+                continue
+            assert got[p] == want, (today, p)
+
+
+def _phone_extension(p: str) -> bool:
+    """Where the board's rules name no single day, the phone may still
+    resolve a phrase that HAS one (a repeat's first day, a fixed offset, a
+    named holiday) — never a range, which test_ranges_stay_with_the_mac pins."""
+    return p not in _RANGES
+
+
+_RANGES = {"next week", "next month", "this weekend", "next weekend", "this week", "this month"}
+
+
+@pytest.mark.skipif(sys.platform != "darwin" or not shutil.which("swiftc"),
+                    reason="needs the Swift compiler")
+def test_the_phones_own_day_readings(tmp_path):
+    """The phone's additions resolve to the ONE day they name; ranges stay open."""
+    exe = tmp_path / "dates"
+    subprocess.run(["swiftc", "-O", "-parse-as-library",
+                    str(ROOT / "assistant/offline/experiments/dates_parity.swift"),
+                    str(ROOT / "MACalendar-iOS/MACalendar-iOS/Voice/OfflineDates.swift"),
+                    "-o", str(exe)], check=True, capture_output=True)
+    cases = {                                   # today: Wednesday 2026-09-09
+        "every sunday": "2026-09-13", "every other tuesday at 5 pm": "2026-09-15",
+        "every tuesday and thursday": "2026-09-10", "daily": "2026-09-09",
+        "every weekday": "2026-09-09", "this coming saturday": "2026-09-12",
+        "in three weeks": "2026-09-30", "two weeks from now": "2026-09-23",
+        "a week from today": "2026-09-16", "tomorrow week": "2026-09-17",
+        "christmas day": "2026-12-25", "new year's eve": "2026-12-31",
+        "next week": None, "next month": None, "this weekend": None,
+    }
+    out = subprocess.run([str(exe), "2026-09-09"], input="\n".join(cases) + "\n",
+                         capture_output=True, text=True, check=True).stdout.splitlines()
+    got = {o["p"]: o["d"] for o in map(json.loads, out)}
+    assert got == cases

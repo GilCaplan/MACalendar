@@ -28,6 +28,16 @@ from assistant.common.wordlists import WEEKDAY_INDEX as _WEEKDAY  # noqa: E402
 
 
 def _phrase_to_date(phrase: str, today: "_dt.date") -> "str | None":
+    """A day that does not exist ("the 31st" in September, "february 29th"
+    in a common year) names no single day: None, like a range. It raised
+    ValueError until 2026-09-29, found by the Swift port's parity check."""
+    try:
+        return _phrase_to_date_raw(phrase, today)
+    except ValueError:
+        return None
+
+
+def _phrase_to_date_raw(phrase: str, today: "_dt.date") -> "str | None":
     """Resolve a ground-truth date phrase to an ISO date, or None when the
     phrase is inherently a RANGE ("next week", "this weekend") — those have
     no single right answer, so they are excluded from scoring rather than

@@ -1,3 +1,25 @@
+- **2026-09-29 — Q68 (THE PHONE RUNS A SMALL COPY OF THE ENGINE'S SHAPE)**,
+  Gil, after a 40-row probe of Apple's model as the offline reader (it booked
+  a new item on 8 of 9 edit/delete/question rows and got 3 of 8 dates right):
+  *"the system should be same, and prompts finetuned to apple model"* — then
+  *"three versions of the engine: the main one on the server, a duplicate
+  which works with the apple LLM … and third one for devices that don't have
+  a llm … mixed in with a protocol to sync"*. Agreed ("ok") as TWO engines:
+  1. **The server engine** (Mac, Python) — unchanged, the final say.
+  2. **One phone engine** (Swift) — a deterministic core ported from the
+     Mac's code-only parts (edit/delete/question guard, dates and times by the
+     same rules, splitting, the front door), with a MODEL SLOT: Apple's model
+     where Apple Intelligence exists, empty where it doesn't (those commands
+     wait for the Mac, as the Mac's own engine does with its model off).
+  3. **The protocol** (`assistant/offline/PROTOCOL.md`) plus: rules and
+     prompts SERVED from the Mac as data, so a fix needs no rebuild; and a
+     PARITY BOARD — the same TRAIN commands through both cores, compared on
+     every change, so two engines cannot drift unnoticed.
+  Staged: (1) dates in code + an edit/question guard in the current reader,
+  each measured alone on `assistant/offline/experiments/apple_board.py`;
+  (2) the deterministic core, grown piece by piece against the parity board;
+  (3) prompts tuned to Apple's model on TRAIN, checked on TEST.
+
 - **2026-09-28 — Q67 (OVERLAPS, SHARED COLOURS, NOTIFICATIONS, GROUPING)**,
   Gil, looking at a demo account whose four events overlapped his at 9:00:
   1. **Overlaps stay a binder**, but *"overlay shift to right so can see
