@@ -6,12 +6,15 @@ import datetime
 
 from PyQt6.QtCore import (
     QDate,
+    QPointF,
+    QSize,
     QEasingCurve,
     QEvent,
     QPropertyAnimation,
     Qt,
     pyqtSignal,
 )
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QCalendarWidget,
     QGraphicsOpacityEffect,
@@ -259,14 +262,25 @@ class Sidebar(QWidget):
 
         layout.addStretch()
 
-    def add_nav(self, label: str) -> QPushButton:
-        """One section row; the window styles it and wires what it opens."""
-        btn = QPushButton(label)
+    def add_nav(self, label: str, glyph: str = "•") -> QPushButton:
+        """One section row; the window styles it and wires what it opens.
+        The glyph becomes a fixed-size ICON (`nav_icon`), not text: as text,
+        symbols of different widths ("▦", "✓", "◷", "◉") started every label
+        at a different place (Gil, 2026-09-29: "these icons are not aligned")."""
+        btn = QPushButton("  " + label)
         btn.setObjectName("nav_item")
+        btn.setProperty("glyph", glyph)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setFixedHeight(32)
+        btn.setIconSize(QSize(18, 18))
         self._nav.addWidget(btn)
         return btn
+
+    @staticmethod
+    def nav_icon(glyph: str, color: str) -> QIcon:
+        """`glyph` as an 18 px icon in `color` (toolbar_icons.glyph_icon)."""
+        from assistant.calendar_ui.toolbar_icons import glyph_icon
+        return glyph_icon(glyph, color)
 
     def _apply_bg(self, dark: bool) -> None:
         bg     = _styles.D_GRAY_BG     if dark else GRAY_BG

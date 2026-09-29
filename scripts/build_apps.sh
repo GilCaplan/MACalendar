@@ -36,8 +36,13 @@ ICONS="$REPO/assistant/calendar_ui/assets"
 [[ -f "$ICONS/hud_icon.icns" ]] || \
   ./.venv/bin/python "$ICONS/make_hud_icon.py" >/dev/null
 
+# `--install MACalendar` rebuilds just that one bundle (in place, like all of
+# them): rebuilding the other three would reset their Desktop approvals too.
+ONLY="${2:-}"
+
 build() {
   local out="$1" name="$2" bundle="$3" icon="$4" cmd="$5" agent="$6"
+  if [[ -n "$ONLY" && "$name" != "$ONLY" ]]; then return 0; fi
   rm -rf "$out"
   osacompile -o "$out" -e \
     "do shell script \"mkdir -p ~/.assistant_tools && $cmd >> ~/.assistant_tools/$(echo "$name" | tr 'A-Z ' 'a-z-')-launch.log 2>&1 &\""
@@ -97,9 +102,12 @@ build_all_into() {
   build "$dir/MACalendar Server.app" "MACalendar Server" "com.macalendar.server" \
     "$ICONS/server_icon.icns" \
     "cd '$REPO' && ./.venv/bin/python -m assistant.api --tailscale" true
+  # An AGENT like the Server and HUD launchers: it starts the stack and quits,
+  # and the Dock shows the calendar WINDOW (which names itself MACalendar,
+  # assistant/main.py) — not the applet beside it as a second icon.
   build "$dir/MACalendar.app" "MACalendar" "com.macalendar.app.launcher" \
     "$REPO/assistant/app_icon.icns" \
-    "'$REPO/Launch Calendar.command'" false
+    "'$REPO/Launch Calendar.command'" true
   build "$dir/MACalendar HUD.app" "MACalendar HUD" "com.macalendar.hud" \
     "$ICONS/hud_icon.icns" \
     "MACALENDAR_DETACHED=1 '$REPO/launch_hud.sh'" true
@@ -119,8 +127,9 @@ if [[ "${1:-}" == "--install" ]]; then
   # in place; any other copy, anywhere, is left exactly where it is.
   # Clear any half-recorded privacy decision against these identities, so macOS
   # asks again on the next launch instead of silently refusing forever.
-  for bundle in com.macalendar.server com.macalendar.app.launcher \
-                com.macalendar.hud com.macalendar.jude; do
+  bundles=(com.macalendar.server com.macalendar.app.launcher com.macalendar.hud com.macalendar.jude)
+  [[ "$ONLY" == "MACalendar" ]] && bundles=(com.macalendar.app.launcher)
+  for bundle in "${bundles[@]}"; do
     tccutil reset SystemPolicyDesktopFolder "$bundle" 2>/dev/null || true
   done
   echo

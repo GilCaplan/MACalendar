@@ -580,9 +580,14 @@ class UserChip(QToolButton):
 
     def refresh(self) -> None:
         u = registry.get(users.current() or "") or {}
-        self.setText(f"● {u.get('display_name', '')}")
-        self.setStyleSheet(f"QToolButton#user_chip {{ color: {u.get('color', '#888')}; "
-                           f"padding: 0 8px; border: none; }}")
+        # The arrow is TEXT, like the "More ▾" beside it: Qt's own menu
+        # indicator drew oversized and over the name (Gil, 2026-09-29).
+        self.setText(f"● {u.get('display_name', '')} ▾")
+        c = u.get("color", "#888888")
+        self.setStyleSheet(f"QToolButton#user_chip {{ color: {c}; padding: 2px 10px; "
+                           f"border: 1px solid {c}55; border-radius: 12px; }}"
+                           f"QToolButton#user_chip:hover {{ background: {c}22; }}"
+                           "QToolButton#user_chip::menu-indicator { image: none; width: 0px; }")
         self.setToolTip(f"Signed in as {u.get('display_name', '?')}")
         self.setVisible(bool(u))
 

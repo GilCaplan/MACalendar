@@ -42,6 +42,15 @@ def main() -> None:
     from PyQt6.QtGui import QIcon
     from PyQt6.QtWidgets import QApplication
 
+    # One MACalendar in the Dock (Gil, 2026-09-29): this process is Python's,
+    # so without this it is a second icon labelled "Python" beside the
+    # launcher's. Must happen before QApplication creates the NSApplication.
+    try:
+        from Foundation import NSBundle
+        info = NSBundle.mainBundle().localizedInfoDictionary() or NSBundle.mainBundle().infoDictionary()
+        info["CFBundleName"] = "MACalendar"
+    except Exception:                                   # noqa: BLE001 — cosmetic only
+        pass
     app = QApplication(sys.argv)
     app.setApplicationName("Calendar")
     app.setOrganizationName("VoiceAssistant")

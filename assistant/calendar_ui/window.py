@@ -632,19 +632,27 @@ class CalendarWindow(QMainWindow):
         # "feels messy"). The feature panels — Tasks, Timer, Account… — used to
         # share this strip, twelve buttons in a row; they are the sidebar's
         # section list now (`_build_sidebar_nav`).
+        # ONE segmented control, a rounded group, rather than four loose words
+        # (Gil, 2026-09-29: the right side "could be more clean").
+        self._seg_group = QFrame()
+        self._seg_group.setObjectName("seg_group")
+        seg_lay = QHBoxLayout(self._seg_group)
+        seg_lay.setContentsMargins(2, 2, 2, 2)
+        seg_lay.setSpacing(2)
         for label, mode in self._toolbar_modes()[:4]:
             btn = QPushButton(label)
             btn.setObjectName("seg_btn")
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setFixedHeight(30)
+            btn.setFixedHeight(26)
             btn.clicked.connect(lambda _, m=mode: self._set_view(m))
             feature = _features.get(mode)
             if feature is not None and not feature.pinned:
                 btn.setVisible(feature.visible())
-            layout.addWidget(btn, alignment=v_center)
+            seg_lay.addWidget(btn)
             setattr(self, f"_view_btn_{mode}", btn)
             # Styled by _apply_theme(), always called right after _build_ui()
             # in __init__ — no need to style twice here.
+        layout.addWidget(self._seg_group, alignment=v_center)
 
         # ── Separator ────────────────────────────────────────────────
         layout.addSpacing(8)
@@ -690,7 +698,7 @@ class CalendarWindow(QMainWindow):
         self._user_chip.signed_out.connect(lambda: self.close())
         layout.addWidget(self._user_chip, alignment=v_center)
 
-        self._settings_btn = QPushButton("⚙")
+        self._settings_btn = QPushButton("")
         self._settings_btn.setObjectName("icon_btn")
         self._settings_btn.setFixedSize(30, 30)
         self._settings_btn.setToolTip("Assistant Settings")
@@ -709,8 +717,12 @@ class CalendarWindow(QMainWindow):
 
         layout.addSpacing(2)
 
-        self._mic_btn = QPushButton("🎙")
+        self._mic_btn = QPushButton("")
         self._mic_btn.setObjectName("mic_idle")
+        from PyQt6.QtCore import QSize as _QSize
+        from assistant.calendar_ui.toolbar_icons import mic_icon as _mic_icon
+        self._mic_btn.setIcon(_mic_icon(_styles.ON_ACCENT))
+        self._mic_btn.setIconSize(_QSize(18, 18))
         self._mic_btn.setFixedSize(30, 30)
         self._mic_btn.setToolTip("Click or press Ctrl+J to toggle the microphone")
         self._mic_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -751,12 +763,13 @@ class CalendarWindow(QMainWindow):
         if active:
             btn.setStyleSheet(
                 f"QPushButton#seg_btn {{ background-color: {_styles.BLUE}; "
-                f"color: {_styles.ON_ACCENT}; font-weight: 700; border: none; }}"
+                f"color: {_styles.ON_ACCENT}; font-weight: 700; border: none; "
+                f"border-radius: 6px; padding: 0 12px; }}"
             )
         else:
             btn.setStyleSheet(
                 f"QPushButton#seg_btn {{ background-color: transparent; color: {text2}; "
-                f"font-weight: 500; border: none; }}"
+                f"font-weight: 500; border: none; border-radius: 6px; padding: 0 12px; }}"
                 f"QPushButton#seg_btn:hover {{ background-color: {hover}; color: {text}; }}"
             )
         btn.setProperty("active", active)
@@ -777,6 +790,13 @@ class CalendarWindow(QMainWindow):
         four calendar views."""
         mode = getattr(self, "_view_mode", "month")
         on_calendar = mode in self._CALENDAR_MODES
+        grp = getattr(self, "_seg_group", None)
+        if grp is not None:
+            dark = getattr(self, "_dark", True)
+            bg = _styles.D_GRAY_LIGHT if dark else _styles.WHITE
+            border = _styles.D_GRAY_BORDER if dark else GRAY_BORDER
+            grp.setStyleSheet(f"QFrame#seg_group {{ background: {bg}; border: 1px solid {border}; "
+                              f"border-radius: 8px; }}")
         for _label, m in self._toolbar_modes():
             btn = getattr(self, f"_view_btn_{m}", None)
             if btn is None:
@@ -800,6 +820,11 @@ class CalendarWindow(QMainWindow):
         text2 = _styles.D_GRAY_TEXT if dark else GRAY_TEXT
         hover = _styles.D_GRAY_LIGHT if dark else _styles.GRAY_LIGHT
         r, g, b = _styles._hex_to_rgb(_styles.BLUE)
+        # the glyph is an icon in the row's own colour (Sidebar.nav_icon), so
+        # every label starts at the same x whatever the symbol's width
+        from assistant.calendar_ui.sidebar import Sidebar
+        btn.setIcon(Sidebar.nav_icon(btn.property("glyph") or "•",
+                                     _styles.BLUE if active else text))
         base = ("QPushButton#nav_item { text-align: left; padding: 6px 10px; "
                 "border: none; border-radius: 6px; font-size: 13px; ")
         if active:
@@ -818,11 +843,11 @@ class CalendarWindow(QMainWindow):
         eight more buttons in the toolbar's view strip."""
         glyphs = {"tasks": "✓", "timer": "◷", "coursework": "✎", "workout": "⚡",
                   "account": "◉", "jude": "❡", "teach": "✦"}
-        self._nav_calendar_btn = self._sidebar.add_nav("▦   Calendar")
+        self._nav_calendar_btn = self._sidebar.add_nav("Calendar", "▦")
         self._nav_calendar_btn.clicked.connect(
             lambda: self._set_view(getattr(self, "_last_calendar_mode", "month")))
         for label, mode in self._toolbar_modes()[4:]:
-            btn = self._sidebar.add_nav(f"{glyphs.get(mode, '•')}   {label}")
+            btn = self._sidebar.add_nav(label, glyphs.get(mode, "•"))
             btn.clicked.connect(lambda _=False, m=mode: self._set_view(m))
             feature = _features.get(mode)
             if feature is not None and not feature.pinned:
@@ -830,8 +855,23 @@ class CalendarWindow(QMainWindow):
             setattr(self, f"_view_btn_{mode}", btn)
 
     def _update_theme_btn(self) -> None:
-        # Show the icon for what the mode will switch TO
-        self._theme_btn.setText("☀" if self._dark else "☾")
+        # Show the icon for what the mode will switch TO — drawn, like the gear
+        # and the mic (toolbar_icons), so the row reads as one set.
+        from PyQt6.QtCore import QSize
+        from assistant.calendar_ui.toolbar_icons import glyph_icon, mic_icon
+        ink = _styles.D_GRAY_TEXT if self._dark else GRAY_TEXT
+        self._theme_btn.setText("")
+        self._theme_btn.setIcon(glyph_icon("☀" if self._dark else "☾", ink, 16, 14))
+        self._theme_btn.setIconSize(QSize(16, 16))
+        # vars(), not hasattr: this runs mid-_build_toolbar, before the mic
+        # exists, and hasattr on a half-built Qt object raises
+        gear, mic = vars(self).get("_settings_btn"), vars(self).get("_mic_btn")
+        if gear is not None:
+            gear.setIcon(glyph_icon("⚙", ink, 16, 14))
+            gear.setIconSize(QSize(16, 16))
+        if mic is not None and not mic.text():
+            mic.setIcon(mic_icon(_styles.ON_ACCENT))
+            mic.setIconSize(QSize(18, 18))
         self._theme_btn.setToolTip("Switch to light mode" if self._dark else "Switch to dark mode")
 
     # ------------------------------------------------------------------
@@ -1410,7 +1450,16 @@ class CalendarWindow(QMainWindow):
     def _handle_status(self, status: str, message: str = "") -> None:
         icon = _MIC_ICONS.get(status, "🎙")
         obj_name = _MIC_OBJ_NAMES.get(status, "mic_idle")
-        self._mic_btn.setText(icon)
+        if icon == "🎙":                 # idle: the drawn microphone, not the emoji
+            from PyQt6.QtCore import QSize
+            from assistant.calendar_ui.toolbar_icons import mic_icon
+            self._mic_btn.setText("")
+            self._mic_btn.setIcon(mic_icon(_styles.ON_ACCENT))
+            self._mic_btn.setIconSize(QSize(18, 18))
+        else:
+            from PyQt6.QtGui import QIcon
+            self._mic_btn.setIcon(QIcon())
+            self._mic_btn.setText(icon)
         self._mic_btn.setObjectName(obj_name)
         self._mic_btn.style().unpolish(self._mic_btn)
         self._mic_btn.style().polish(self._mic_btn)

@@ -135,33 +135,11 @@ else
     HUD_PID=$!
 fi
 
-# Start Jude — the Judaic study assistant — when it is switched on. It is its
-# own app for the same reason the HUD is: studying a sugya is not something you
-# do inside a calendar, and it should survive the calendar window being closed.
-#
-# Jude itself is a SEPARATE REPOSITORY and is not vendored here; this only
-# starts the window, which talks to Jude through this API on $PORT. If the
-# checkout is missing, the window says so and says where to get it.
-# See assistant/jude/ARCHITECTURE.md.
+# Jude is NOT started here (Gil, 2026-09-29: clicking MACalendar "also opens
+# the jude application … when it should be only the calendar"). Jude has its
+# own app (Jude.app, scripts/build_apps.sh); the API still reaches Jude's
+# server through the integration when it is used.
 JUDE_PID=""
-if python - <<'PYEOF' 2>/dev/null
-import sys
-from assistant.config import load_config, ConfigError
-try:
-    cfg = load_config("config.yaml")
-except ConfigError:
-    sys.exit(1)
-sys.exit(0 if cfg.jude.enabled else 1)
-PYEOF
-then
-    if pgrep -f "assistant\.jude\.app" >/dev/null; then
-        echo "📖 Jude already running — using it"
-    else
-        MACALENDAR_API_PORT=$PORT python -m assistant.jude.app &
-        JUDE_PID=$!
-        echo "📖 Jude started (PID $JUDE_PID)"
-    fi
-fi
 
 echo "--------------------------------------------------------"
 [ -n "$API_PID" ] && echo "📱 iPhone API started (PID $API_PID)"
