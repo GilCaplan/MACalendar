@@ -241,3 +241,35 @@ an invented event used to be held back when its day could not be resolved,
 and now its day resolves, so it is booked. The resolver did not create them;
 it stopped hiding them. With the cap gone the inventions should fall back —
 the shipped configuration's run is next.
+
+## The shipped reader (2026-09-29 12:06–12:37) — end of step 1
+
+Same 1,200 TRAIN rows, seed 7: guard v3 + dates in code + the one-answer day
+words, no cap — exactly what is installed on the phones. The app also cuts a
+reading off at 12 s; on this board 8 of 787 model calls ran past it (all
+context-window loops, ~35 s), and in the app those 8 wait for the Mac.
+
+| line | baseline (as first shipped) | guard v3 + dates | **shipped** |
+|---|---|---|---|
+| **booked something on an edit/delete/complete/question** | 66.6% (203/305) | 0.3% (1/305) | **0.3% (1/305)** |
+| right number of each kind (create rows) | 54.9% (491/895) | 43.4% (388/895) | **51.8% (464/895)** |
+| booked nothing on a create (left to the Mac) | 2.5% (22/895) | 24.1% (216/895) | 16.9% (151/895) |
+| **extra (invented) items** | 315 | 100 | **135** |
+| right kind, single-item | 86.5% (430/497) | 63.2% (314/497) | 81.3% (404/497) |
+| title matches | 98.6% (424/430) | 98.4% (309/314) | 98.8% (399/404) |
+| **date right** | 46.9% (97/207) | 94.6% (194/205) | **94.6% (194/205)** |
+| explicit time right | 87.3% (137/157) | 87.4% (90/103) | 87.6% (127/145) |
+| repeat right | 96.3% (78/81) | 82.9% (29/35) | 95.4% (83/87) |
+| **whole item right, single-item** | 60.0% (298/497) | 56.3% (280/497) | **73.8% (367/497)** |
+| latency p50 / p90 (model calls) | 1,861 / 2,308 ms | 1,801 / 2,676 ms | 1,729 / 2,093 ms |
+| readings past the app's 12 s limit | 21 | 8 | 8 (→ the Mac) |
+
+**What it means.** Against the reader as first shipped, on the same 1,200
+TRAIN rows: wrong bookings on edits, deletes and questions 203 → 1, dates
+right 47% → 95%, invented items 315 → 135, and a single item wholly right
+60% → 74% — while about one create in six (16.9%) now waits for the Mac
+instead of being guessed. The generalisation caveat stands: the guard fits
+TRAIN's phrasings (on TEST the model-free guard catches 73.9%, above), so a
+TEST read of this configuration is the next measurement, aggregates only.
+What is left on TRAIN is the model's own inventions (135) — the target for
+step 3, instructions tuned to this model.
