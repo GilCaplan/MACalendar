@@ -144,8 +144,15 @@ struct ChangePasswordView: View {
 }
 
 // MARK: - account & sharing
+//
+// Revamped 2026-09-28 (Gil: "I was also referring to the account tab, can you
+// revamp and fix that as well"). Three admin screens that overlapped — a
+// dashboard, a "Manage users" list whose actions hid behind swipes, and a
+// per-person page — plus a page that listed "Share my calendar" and "Shared
+// with me" as two separate lists, became ONE Account page for everyone and
+// ONE page per person. Each person's row says both directions at once.
 
-private struct PublicUser: Decodable, Identifiable {
+struct PublicUser: Decodable, Identifiable {
     let id: String
     let username: String
     let displayName: String
@@ -157,150 +164,441 @@ private struct PublicUser: Decodable, Identifiable {
     }
 }
 
+struct AdminUser: Decodable, Identifiable {
+    let id: String
+    let username: String
+    let displayName: String
+    let color: String
+    let role: String
+    let disabled: Bool?
+    let lastSeen: Double?
+    let shownInMyView: Bool?
+    let sessions: Int?
+    enum CodingKeys: String, CodingKey {
+        case id, username, color, role, disabled, sessions
+        case displayName = "display_name"
+        case lastSeen = "last_seen"
+        case shownInMyView = "shown_in_my_view"
+    }
+}
+
+/// Everything the Account pages show, loaded in one place so the home page
+/// and a person's page can never disagree about who shares what.
+@MainActor
+final class AccountModel: ObservableObject {
+    static let shared = AccountModel()
+
+    @Published var people: [PublicUser] = []             // everyone but me
+    @Published var accounts: [String: AdminUser] = [:]   // the admin's view of each
+    @Published var sharesOut: [String: String] = [:]     // who sees mine: id -> view|edit
+    @Published var sharesIn: [String: String] = [:]      // whose I see:   id -> view|edit
+    @Published var vocab: Set<String> = []
+    @Published var requireLogin = false
+    @Published var autoDays: Int? = nil
+    @Published var groupByOwner = false
+    @Published var loadError = ""
+
+    func load(_ api: APIClient) async {
+        guard let me = UserSession.shared.user else { return }
+        do {
+            let data = try await api.request("/users")
+            people = ((try? JSONDecoder().decode([PublicUser].self, from: data)) ?? [])
+                .filter { $0.id != me.id }
+            let meData = try await api.request("/auth/me")
+            let obj = (try? JSONSerialization.jsonObject(with: meData) as? [String: Any]) ?? [:]
+            func levels(_ key: String, _ who: String) -> [String: String] {
+                var out: [String: String] = [:]
+                for s in (obj[key] as? [[String: Any]]) ?? [] {
+                    if let id = s[who] as? String { out[id] = s["level"] as? String ?? "view" }
+                }
+                return out
+            }
+            sharesOut = levels("shares_out", "grantee")
+            sharesIn = levels("shares_in", "owner")
+            vocab = Set((obj["vocab_shared_with"] as? [String]) ?? [])
+            let pol = obj["policy"] as? [String: Any] ?? [:]
+            requireLogin = pol["require_login"] as? Bool ?? false
+            autoDays = (pol["auto_signout_days"] as? Int).flatMap { $0 > 0 ? $0 : nil }
+            groupByOwner = (obj["settings"] as? [String: Any])?["todos_group_by_owner"] as? Bool ?? false
+            UserSession.shared.groupSharedTodos = groupByOwner
+            if me.isAdmin {
+                let rows = try await api.request("/admin/users")
+                let list = (try? JSONDecoder().decode([AdminUser].self, from: rows)) ?? []
+                accounts = Dictionary(uniqueKeysWithValues: list.map { ($0.id, $0) })
+            }
+            loadError = ""
+        } catch {
+            loadError = error.localizedDescription
+        }
+    }
+
+    /// "You share View · They share nothing" — both directions in one line.
+    func relation(_ id: String) -> String {
+        let mine = sharesOut[id].map { $0 == "edit" ? "Edit" : "View" } ?? "nothing"
+        let theirs = sharesIn[id].map { $0 == "edit" ? "Edit" : "View" } ?? "nothing"
+        return "You share \(mine) · They share \(theirs)"
+    }
+}
+
+/// A person's initial on their colour.
+struct PersonAvatar: View {
+    let name: String
+    let color: String
+    var size: CGFloat = 36
+    var body: some View {
+        ZStack {
+            Circle().fill(Color(hex: color) ?? .gray)
+            Text(String(name.prefix(1)).uppercased())
+                .font(.system(size: size * 0.45, weight: .semibold)).foregroundColor(.white)
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+// MARK: - the Account page
+
 struct AccountView: View {
     @EnvironmentObject var api: APIClient
     @ObservedObject private var session = UserSession.shared
-    @State private var others: [PublicUser] = []
-    @State private var sharedIn: [(name: String, color: String, level: String)] = []
-    @State private var groupByOwner = false
-    @State private var settingError = ""
+    @ObservedObject private var model = AccountModel.shared
     @State private var showPassword = false
-    @State private var loaded = false
+    @State private var showNew = false
+    @State private var newName = ""
+    @State private var created: (name: String, password: String)?
+    @State private var error = ""
 
     var body: some View {
-        Form {
+        List {
             if let u = session.user {
                 Section {
-                    HStack(spacing: 10) {
-                        Circle().fill(Color(hex: u.color) ?? .gray).frame(width: 12, height: 12)
-                        VStack(alignment: .leading) {
-                            Text(u.displayName).bold()
+                    HStack(spacing: 14) {
+                        PersonAvatar(name: u.displayName, color: u.color, size: 52)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(u.displayName).font(.title3.weight(.semibold))
                             Text("@\(u.username)\(u.isAdmin ? " · admin" : "")")
-                                .font(.caption).foregroundColor(.secondary)
-                        }
-                    }
-                    Button("Change password…") { showPassword = true }
-                }
-                ShareMyCalendarSection()
-                if !sharedIn.isEmpty {
-                    Section("Shared with me") {
-                        ForEach(sharedIn, id: \.name) { s in
-                            HStack {
-                                Circle().fill(Color(hex: s.color) ?? .gray).frame(width: 10, height: 10)
-                                Text(s.name); Spacer()
-                                Text(s.level).foregroundColor(.secondary)
+                                .font(.subheadline).foregroundColor(.secondary)
+                            if u.isAdmin {
+                                Text(adminStats).font(.caption).foregroundColor(.secondary)
                             }
                         }
                     }
+                    .padding(.vertical, 6)
                 }
+
+                if let c = created {
+                    Section {
+                        Text("\(c.name)'s password — shown once. They'll choose their own when they sign in.")
+                            .font(.footnote)
+                        Text(c.password).font(.system(.title3, design: .monospaced)).textSelection(.enabled)
+                    } header: { Text("New person added") }
+                }
+
+                Section {
+                    ForEach(model.people) { p in
+                        NavigationLink { PersonView(personID: p.id) } label: {
+                            HStack(spacing: 12) {
+                                PersonAvatar(name: p.displayName, color: p.color)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(spacing: 6) {
+                                        Text(p.displayName)
+                                        if model.accounts[p.id]?.disabled == true {
+                                            Text("disabled").font(.caption2.weight(.semibold))
+                                                .foregroundColor(.red)
+                                        }
+                                    }
+                                    Text(model.relation(p.id)).font(.caption).foregroundColor(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    }
+                    if u.isAdmin {
+                        Button { showNew = true } label: {
+                            Label("Add a person", systemImage: "person.badge.plus")
+                        }
+                    }
+                } header: { Text("People") }
+                  footer: {
+                      Text(model.people.isEmpty
+                           ? "Nobody else has an account yet."
+                           : u.isAdmin
+                             ? "Tap someone to choose what you share with them, whether their calendar shows in yours, and their account."
+                             : "Tap someone to choose what you share with them.")
+                  }
+
                 Section {
                     Toggle("Group shared to-dos by person", isOn: Binding(
-                        get: { groupByOwner },
+                        get: { model.groupByOwner },
                         set: { v in
-                            groupByOwner = v
+                            model.groupByOwner = v
                             Task {
                                 if let e = await accountCall(api, "/users/me/settings",
                                                              body: ["todos_group_by_owner": v]) {
-                                    groupByOwner = !v; settingError = e
+                                    model.groupByOwner = !v; error = e
                                 } else {
-                                    settingError = ""
+                                    error = ""
                                     session.groupSharedTodos = v      // Tasks follows at once
                                 }
                             }
                         }))
-                } footer: {
-                    Text(settingError.isEmpty
-                         ? "In Tasks: on, each person who shares with you gets their own section below yours; off, their to-dos sit in Today and General with yours (the Whose chips filter them). Notifications are only ever about your own."
-                         : "Couldn't change that: \(settingError)")
-                        .foregroundColor(settingError.isEmpty ? .secondary : .red)
-                }
+                } header: { Text("Tasks") }
+                  footer: {
+                      Text("On: each person who shares with you gets their own section in Tasks, below yours. Off: their to-dos sit in Today and General with yours — the Whose chips filter them.")
+                  }
+
                 if u.isAdmin {
-                    Section { NavigationLink("Manage users") { AdminUsersView() } }
+                    Section {
+                        Toggle("Require sign-in everywhere", isOn: Binding(
+                            get: { model.requireLogin },
+                            set: { v in
+                                model.requireLogin = v
+                                Task { await policy(["require_login": v]) }
+                            }))
+                        Toggle("Sign out after a while unused", isOn: Binding(
+                            get: { model.autoDays != nil },
+                            set: { v in
+                                model.autoDays = v ? 30 : nil
+                                Task { await policy(["auto_signout_days": v ? 30 : 0]) }
+                            }))
+                        if let d = model.autoDays {
+                            Stepper("After \(d) day\(d == 1 ? "" : "s")", value: Binding(
+                                get: { model.autoDays ?? 30 },
+                                set: { v in
+                                    model.autoDays = v
+                                    Task { await policy(["auto_signout_days": v]) }
+                                }), in: 1...365)
+                        }
+                    } header: { Text("Sign-in") }
+                      footer: {
+                          Text(model.requireLogin
+                               ? "Every device must sign in. "
+                               : "Off: a device nobody signed in on acts as you, the admin. ")
+                          + Text(model.autoDays == nil
+                                 ? "A sign-in lasts until the person signs out, or you sign them out."
+                                 : "A device unused this long is signed out.")
+                      }
                 }
+
                 Section {
-                    Button("Switch user") { Task { await session.signOut(api: api) } }
-                    Button("Sign out", role: .destructive) { Task { await session.signOut(api: api) } }
+                    Button("Change password…") { showPassword = true }
+                } header: { Text("Security") }
+
+                if !error.isEmpty || !model.loadError.isEmpty {
+                    Section {
+                        Text("Couldn't do that: \(error.isEmpty ? model.loadError : error)")
+                            .font(.footnote).foregroundColor(.red)
+                    }
                 }
+
+                Section {
+                    Button("Sign out", role: .destructive) { Task { await session.signOut(api: api) } }
+                } footer: { Text("Signs this device out. Anyone can then sign in here as themselves.") }
             } else {
-                Text("Not signed in.").foregroundColor(.secondary)
+                Text("No one is signed in on this device.").foregroundColor(.secondary)
             }
         }
-        .navigationTitle("Account & Sharing")
-        .task { if !loaded { await load(); loaded = true } }
+        .listStyle(.insetGrouped)
+        .navigationTitle("Account")
+        .onAppear { Task { await model.load(api) } }
+        .refreshable { await model.load(api) }
         .sheet(isPresented: $showPassword) { ChangePasswordView() }
+        .alert("Add a person", isPresented: $showNew) {
+            TextField("username", text: $newName).textInputAutocapitalization(.never)
+            Button("Add") { Task { await create() } }
+            Button("Cancel", role: .cancel) { newName = "" }
+        } message: { Text("Letters and numbers. They get a password to change when they first sign in.") }
     }
 
-    private func load() async {
-        guard let me = session.user else { return }
-        if let data = try? await api.request("/users"),
-           let all = try? JSONDecoder().decode([PublicUser].self, from: data) {
-            others = all.filter { $0.id != me.id }
-        }
-        guard let data = try? await api.request("/auth/me"),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
-        sharedIn = ((obj["shares_in"] as? [[String: Any]]) ?? []).compactMap { s in
-            guard let owner = s["owner"] as? String,
-                  let o = others.first(where: { $0.id == owner }) else { return nil }
-            return (o.displayName, o.color, s["level"] as? String ?? "")
-        }
-        let st = obj["settings"] as? [String: Any] ?? [:]
-        groupByOwner = st["todos_group_by_owner"] as? Bool ?? false
-        session.groupSharedTodos = groupByOwner
+    private var adminStats: String {
+        let n = model.people.count + 1
+        let devices = model.accounts.values.reduce(0) { $0 + ($1.sessions ?? 0) }
+        return "\(n) people · \(devices) device\(devices == 1 ? "" : "s") signed in"
     }
 
+    private func policy(_ body: [String: Any]) async {
+        if let e = await accountCall(api, "/admin/policy", body: body) {
+            error = e
+            await model.load(api)                   // put the switches back
+        } else {
+            error = ""
+        }
+    }
+
+    private func create() async {
+        let name = newName.trimmingCharacters(in: .whitespaces).lowercased()
+        newName = ""
+        guard !name.isEmpty else { return }
+        do {
+            let data = try await api.request("/admin/users", method: "POST", body: ["username": name])
+            let obj = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+            if let pw = obj["password"] as? String {
+                created = ((obj["display_name"] as? String) ?? name, pw)
+            }
+            error = ""
+        } catch {
+            self.error = error.localizedDescription
+        }
+        await model.load(api)
+    }
 }
 
-// MARK: - sharing, one view for everyone
+// MARK: - one person
 
-/// "Share my calendar and to-dos": one menu per other person. The person's
-/// own page and the admin's dashboard both show THIS view, so they can't drift.
-struct ShareMyCalendarSection: View {
+/// Everything about ONE person, for whoever is looking: what you share with
+/// them, what you see of theirs — and, for the admin, their vocabulary and
+/// account. Every control visible; nothing behind a swipe.
+struct PersonView: View {
     @EnvironmentObject var api: APIClient
     @ObservedObject private var session = UserSession.shared
-    @State private var others: [PublicUser] = []
-    @State private var levels: [String: String] = [:]        // grantee -> none|view|edit
-    @State private var error = ""
+    @ObservedObject private var model = AccountModel.shared
+    let personID: String
+    @State private var revealed: String?
+    @State private var note = ""
+
+    private var person: PublicUser? { model.people.first { $0.id == personID } }
+    private var account: AdminUser? { model.accounts[personID] }
+    private var isAdmin: Bool { session.user?.isAdmin == true }
 
     var body: some View {
-        Section {
-            if others.isEmpty {
-                Text("Nobody else has an account yet.").foregroundColor(.secondary)
-            }
-            ForEach(others) { o in
-                HStack {
-                    Circle().fill(Color(hex: o.color) ?? .gray).frame(width: 10, height: 10)
-                    Text(o.displayName)
-                    Spacer()
-                    ShareLevelPicker(level: Binding(
-                        get: { levels[o.id] ?? "none" },
-                        set: { v in
-                            let was = levels[o.id] ?? "none"
-                            levels[o.id] = v
-                            Task {
-                                if let e = await setShare(api, o.id, v) { levels[o.id] = was; error = e }
-                                else { error = "" }
+        List {
+            if let p = person {
+                Section {
+                    HStack(spacing: 14) {
+                        PersonAvatar(name: p.displayName, color: p.color, size: 52)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(p.displayName).font(.title3.weight(.semibold))
+                            Text("@\(p.username)").font(.subheadline).foregroundColor(.secondary)
+                            if let a = account {
+                                Text(a.disabled == true ? "Disabled"
+                                     : (a.sessions ?? 0) > 0 ? "Signed in on \(a.sessions!) device\(a.sessions! == 1 ? "" : "s")"
+                                     : "Not signed in anywhere")
+                                    .font(.caption)
+                                    .foregroundColor(a.disabled == true ? .red : .secondary)
                             }
-                        }))
+                        }
+                    }
+                    .padding(.vertical, 6)
                 }
+
+                Section {
+                    HStack {
+                        Text("They can")
+                        Spacer()
+                        ShareLevelPicker(level: Binding(
+                            get: { model.sharesOut[personID] ?? "none" },
+                            set: { v in
+                                let was = model.sharesOut[personID]
+                                model.sharesOut[personID] = v == "none" ? nil : v
+                                Task {
+                                    if let e = await setShare(api, personID, v) {
+                                        model.sharesOut[personID] = was
+                                        note = "Couldn't change that: \(e)"
+                                    } else { note = "" }
+                                }
+                            }))
+                    }
+                } header: { Text("Your calendar & to-dos") }
+                  footer: { Text("Not shared: they see nothing of yours. View: they see all of it. Edit: they can change it too.") }
+
+                Section {
+                    if isAdmin {
+                        Toggle("Show in my calendar & to-dos", isOn: Binding(
+                            get: { account?.shownInMyView ?? false },
+                            set: { v in Task { await put("/admin/view/\(personID)", ["shown": v]) } }))
+                    } else {
+                        Label(model.sharesIn[personID] == nil
+                              ? "They haven't shared theirs with you"
+                              : "They share theirs with you (\(model.sharesIn[personID]!))",
+                              systemImage: model.sharesIn[personID] == nil ? "eye.slash" : "eye")
+                    }
+                } header: { Text("Their calendar & to-dos") }
+                  footer: {
+                      Text(isAdmin
+                           ? "On: their items join your calendar and to-dos, with their name and a stripe in their colour. \(model.sharesIn[personID] == nil ? "They don't share with you — as admin you can still see them." : "They share with you, so this starts on.")"
+                           : "Only they can share theirs.")
+                  }
+
+                if isAdmin {
+                    Section {
+                        Toggle("Share my vocabulary", isOn: Binding(
+                            get: { model.vocab.contains(personID) },
+                            set: { v in Task { await put("/admin/vocab_share/\(personID)", ["on": v]) } }))
+                    } footer: { Text("The names and words you've taught the assistant help it hear them too.") }
+
+                    Section {
+                        Button("Reset password") { Task { await reset() } }
+                        if let pw = revealed {
+                            Text("New password — shown once. They'll choose their own when they sign in.")
+                                .font(.footnote)
+                            Text(pw).font(.system(.title3, design: .monospaced)).textSelection(.enabled)
+                        }
+                        Button("Sign out on every device") { Task { await signOut() } }
+                        Button(account?.disabled == true ? "Enable account" : "Disable account",
+                               role: account?.disabled == true ? nil : .destructive) {
+                            Task {
+                                if let e = await accountCall(api, "/admin/users/\(personID)", method: "PATCH",
+                                                             body: ["disabled": !(account?.disabled ?? false)]) {
+                                    note = "Couldn't change that: \(e)"
+                                } else { note = "" }
+                                await model.load(api)
+                            }
+                        }
+                    } header: { Text("Their account") }
+                }
+
+                if !note.isEmpty {
+                    Section { Text(note).font(.footnote).foregroundColor(note.hasPrefix("Couldn't") ? .red : .secondary) }
+                }
+            } else {
+                ProgressView()
             }
-        } header: { Text("Share my calendar and to-dos") }
-          footer: {
-              Text(error.isEmpty ? "Everything, with the people you choose. View lets them see; Edit lets them change it too."
-                                 : "Couldn't change that: \(error)")
-                  .foregroundColor(error.isEmpty ? .secondary : .red)
-          }
-        .task { await load() }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle(person?.displayName ?? "")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear { Task { await model.load(api) } }
     }
 
-    private func load() async {
-        guard let me = session.user else { return }
-        if let data = try? await api.request("/users"),
-           let all = try? JSONDecoder().decode([PublicUser].self, from: data) {
-            others = all.filter { $0.id != me.id }
+    private func put(_ path: String, _ body: [String: Any]) async {
+        note = await accountCall(api, path, body: body).map { "Couldn't change that: \($0)" } ?? ""
+        await model.load(api)
+    }
+
+    private func signOut() async {
+        do {
+            let data = try await api.request("/admin/users/\(personID)/signout", method: "POST", body: [:])
+            let obj = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+            let n = obj["signed_out"] as? Int ?? 0
+            note = "Signed out of \(n) device\(n == 1 ? "" : "s"). Their password is unchanged."
+        } catch {
+            note = "Couldn't sign them out: \(error.localizedDescription)"
         }
-        levels = await shareLevels(api)
+        await model.load(api)
+    }
+
+    private func reset() async {
+        do {
+            let data = try await api.request("/admin/users/\(personID)/password", method: "POST", body: [:])
+            let obj = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+            revealed = obj["password"] as? String
+            note = revealed == nil ? "Couldn't reset it: the Mac sent no password." : ""
+        } catch {
+            note = "Couldn't reset it: \(error.localizedDescription)"
+        }
     }
 }
+
+// MARK: - the Account tab
+
+/// The Account tab: the same Account page for everyone (DEVQA Q65) — the
+/// admin's extra controls appear on it and on each person's page.
+struct AccountTabView: View {
+    var body: some View {
+        StackNavigation { AccountView() }
+    }
+}
+
+// MARK: - sharing helpers
 
 struct ShareLevelPicker: View {
     @Binding var level: String
@@ -354,400 +652,5 @@ func accountCall(_ api: APIClient, _ path: String, method: String = "PUT",
         return nil
     } catch {
         return error.localizedDescription
-    }
-}
-
-// MARK: - one person, as the admin sees them
-
-/// Everything the admin can do about ONE person, visible — no swipe actions
-/// to discover: what he sees of them, what he shares with them, their account.
-struct AdminUserDetailView: View {
-    @EnvironmentObject var api: APIClient
-    let userID: String
-    @State private var u: AdminUser?
-    @State private var shown = false
-    @State private var vocab = false
-    @State private var myShare = "none"
-    @State private var revealed: String?
-    @State private var note = ""
-
-    var body: some View {
-        Form {
-            if let u {
-                Section {
-                    HStack(spacing: 10) {
-                        Circle().fill(Color(hex: u.color) ?? .gray).frame(width: 12, height: 12)
-                        VStack(alignment: .leading) {
-                            Text(u.displayName).bold()
-                            Text("@\(u.username)").font(.caption).foregroundColor(.secondary)
-                        }
-                        Spacer()
-                        if u.disabled == true { Text("disabled").font(.caption).foregroundColor(.red) }
-                    }
-                    Text((u.sessions ?? 0) > 0 ? "Signed in on \(u.sessions!) device\(u.sessions! == 1 ? "" : "s")"
-                                               : "Not signed in anywhere")
-                        .foregroundColor(.secondary)
-                }
-                Section {
-                    Toggle("Show their calendar and to-dos in mine", isOn: Binding(
-                        get: { shown },
-                        set: { v in shown = v; Task { await put("/admin/view/\(u.id)", ["shown": v]) } }))
-                } header: { Text("What you see") }
-                  footer: { Text("On: their items join your views with their name and a stripe in their colour.") }
-                Section("What you share with them") {
-                    HStack {
-                        Text("My calendar and to-dos")
-                        Spacer()
-                        ShareLevelPicker(level: Binding(
-                            get: { myShare },
-                            set: { v in
-                                myShare = v
-                                Task {
-                                    if let e = await setShare(api, u.id, v) { await failed(e) } else { note = "" }
-                                }
-                            }))
-                    }
-                    Toggle("My vocabulary", isOn: Binding(
-                        get: { vocab },
-                        set: { v in vocab = v; Task { await put("/admin/vocab_share/\(u.id)", ["on": v]) } }))
-                }
-                Section {
-                    Button("Reset password") { Task { await reset() } }
-                    if let pw = revealed {
-                        Text("New password — shown once. They'll choose their own when they sign in.")
-                            .font(.footnote)
-                        Text(pw).font(.system(.title3, design: .monospaced)).textSelection(.enabled)
-                    }
-                    Button("Sign out on every device") { Task { await signOut() } }
-                    Button(u.disabled == true ? "Enable account" : "Disable account",
-                           role: u.disabled == true ? nil : .destructive) {
-                        Task { await patch(["disabled": !(u.disabled ?? false)]) }
-                    }
-                } header: { Text("Their account") }
-                  footer: { Text(note) }
-            } else {
-                ProgressView()
-            }
-        }
-        .navigationTitle(u?.displayName ?? "User")
-        .task { await load() }
-    }
-
-    private func load() async {
-        if let data = try? await api.request("/admin/users"),
-           let got = try? JSONDecoder().decode([AdminUser].self, from: data),
-           let me = got.first(where: { $0.id == userID }) {
-            u = me
-            shown = me.shownInMyView ?? false
-        }
-        if let data = try? await api.request("/auth/me"),
-           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            vocab = ((obj["vocab_shared_with"] as? [String]) ?? []).contains(userID)
-        }
-        myShare = await shareLevels(api)[userID] ?? "none"
-    }
-
-    /// A control that didn't take: say so, and put every control back to
-    /// what the Mac actually has.
-    private func failed(_ e: String) async {
-        note = "Couldn't change that: \(e)"
-        await load()
-    }
-
-    private func put(_ path: String, _ body: [String: Any]) async {
-        if let e = await accountCall(api, path, body: body) { await failed(e) } else { note = "" }
-    }
-
-    private func patch(_ body: [String: Any]) async {
-        if let e = await accountCall(api, "/admin/users/\(userID)", method: "PATCH", body: body) {
-            await failed(e)
-        } else {
-            note = ""
-            await load()
-        }
-    }
-
-    private func signOut() async {
-        do {
-            let data = try await api.request("/admin/users/\(userID)/signout", method: "POST", body: [:])
-            let obj = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
-            let n = obj["signed_out"] as? Int ?? 0
-            note = "Signed out of \(n) device\(n == 1 ? "" : "s"). Their password is unchanged."
-        } catch {
-            note = "Couldn't sign them out: \(error.localizedDescription)"
-        }
-        await load()
-    }
-
-    private func reset() async {
-        do {
-            let data = try await api.request("/admin/users/\(userID)/password", method: "POST", body: [:])
-            let obj = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
-            revealed = obj["password"] as? String
-            note = revealed == nil ? "The Mac didn't send a new password." : ""
-        } catch {
-            note = "Couldn't reset it: \(error.localizedDescription)"
-        }
-    }
-}
-
-// MARK: - the admin's users
-
-struct AdminUser: Decodable, Identifiable {
-    let id: String
-    let username: String
-    let displayName: String
-    let color: String
-    let role: String
-    let disabled: Bool?
-    let lastSeen: Double?
-    let shownInMyView: Bool?
-    let sessions: Int?
-    enum CodingKeys: String, CodingKey {
-        case id, username, color, role, disabled, sessions
-        case displayName = "display_name"
-        case lastSeen = "last_seen"
-        case shownInMyView = "shown_in_my_view"
-    }
-}
-
-struct AdminUsersView: View {
-    @EnvironmentObject var api: APIClient
-    @State private var rows: [AdminUser] = []
-    @State private var vocabSharedWith: Set<String> = []
-    @State private var requireLogin = false
-    @State private var newName = ""
-    @State private var showNew = false
-    @State private var revealed: (who: String, password: String)?
-    @State private var error = ""
-
-    var body: some View {
-        List {
-            if let r = revealed {
-                Section {
-                    Text("New password for \(r.who) — shown once. They'll choose their own when they sign in.")
-                        .font(.footnote)
-                    Text(r.password).font(.system(.title3, design: .monospaced)).textSelection(.enabled)
-                }
-            }
-            if !error.isEmpty { Text(error).foregroundColor(.red).font(.footnote) }
-            ForEach(rows) { u in
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Circle().fill(Color(hex: u.color) ?? .gray).frame(width: 10, height: 10)
-                        Text(u.displayName).bold()
-                        Text("@\(u.username)").foregroundColor(.secondary)
-                        if u.role == "admin" { Text("admin").font(.caption).foregroundColor(.secondary) }
-                        if u.disabled == true { Text("disabled").font(.caption).foregroundColor(.red) }
-                    }
-                    if u.role != "admin" {
-                        Toggle("Show in my calendar", isOn: Binding(
-                            get: { u.shownInMyView ?? false },
-                            set: { v in Task { await put("/admin/view/\(u.id)", ["shown": v]) } }))
-                        Toggle("Share my vocabulary", isOn: Binding(
-                            get: { vocabSharedWith.contains(u.id) },
-                            set: { v in Task { await put("/admin/vocab_share/\(u.id)", ["on": v]) } }))
-                    }
-                }
-                .swipeActions {
-                    if u.role != "admin" {
-                        Button("Reset password") { Task { await reset(u) } }.tint(.orange)
-                        Button("Sign out") { Task { await signOut(u) } }.tint(.gray)
-                        Button(u.disabled == true ? "Enable" : "Disable") {
-                            Task { await patch(u.id, ["disabled": !(u.disabled ?? false)]) }
-                        }
-                    }
-                }
-            }
-            Section {
-                Toggle("Require sign-in everywhere", isOn: Binding(
-                    get: { requireLogin },
-                    set: { v in requireLogin = v; Task { await put("/admin/policy", ["require_login": v]) } }))
-            } footer: { Text("Off: a device nobody signed in on acts as the admin.") }
-        }
-        .navigationTitle("Users")
-        .toolbar { Button { showNew = true } label: { Image(systemName: "person.badge.plus") } }
-        .alert("New user", isPresented: $showNew) {
-            TextField("username", text: $newName).textInputAutocapitalization(.never)
-            Button("Create") { Task { await create() } }
-            Button("Cancel", role: .cancel) {}
-        }
-        .task { await load() }
-        .refreshable { await load() }
-    }
-
-    private func load() async {
-        if let data = try? await api.request("/admin/users"),
-           let got = try? JSONDecoder().decode([AdminUser].self, from: data) { rows = got }
-        if let data = try? await api.request("/auth/me"),
-           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            vocabSharedWith = Set((obj["vocab_shared_with"] as? [String]) ?? [])
-            requireLogin = ((obj["policy"] as? [String: Any])?["require_login"] as? Bool) ?? false
-        }
-    }
-
-    private func put(_ path: String, _ body: [String: Any]) async {
-        do { _ = try await api.request(path, method: "PUT", body: body) }
-        catch { self.error = error.localizedDescription }
-        await load(); api.requestRefresh()
-    }
-
-    private func patch(_ id: String, _ body: [String: Any]) async {
-        error = await accountCall(api, "/admin/users/\(id)", method: "PATCH", body: body) ?? ""
-        await load()
-    }
-
-    private func signOut(_ u: AdminUser) async {
-        error = await accountCall(api, "/admin/users/\(u.id)/signout", method: "POST") ?? ""
-        await load()
-    }
-
-    private func reset(_ u: AdminUser) async {
-        guard let data = try? await api.request("/admin/users/\(u.id)/password", method: "POST", body: [:]),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let pw = obj["password"] as? String else { return }
-        revealed = (u.displayName, pw)
-    }
-
-    private func create() async {
-        let name = newName.trimmingCharacters(in: .whitespaces).lowercased()
-        newName = ""
-        guard !name.isEmpty else { return }
-        do {
-            let data = try await api.request("/admin/users", method: "POST", body: ["username": name])
-            if let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let pw = obj["password"] as? String {
-                revealed = ((obj["display_name"] as? String) ?? name, pw)
-            }
-        } catch { self.error = error.localizedDescription }
-        await load()
-    }
-}
-
-
-// MARK: - the Account tab
-
-/// The Account tab (DEVQA Q65): the admin's dashboard, or a person's own page.
-struct AccountTabView: View {
-    @ObservedObject private var session = UserSession.shared
-
-    var body: some View {
-        StackNavigation {
-            if let u = session.user {
-                if u.isAdmin { AdminDashboardView() } else { AccountView() }
-            } else {
-                VStack(spacing: 12) {
-                    Image(systemName: "person.crop.circle").font(.system(size: 44)).foregroundColor(.secondary)
-                    Text("No one is signed in on this phone.").foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .navigationTitle("Account")
-            }
-        }
-    }
-}
-
-/// Everything the admin controls, on one screen: who exists and who is signed
-/// in where, the sign-in policy (require sign-in; auto sign-out off or after N
-/// days), people, and his own account.
-struct AdminDashboardView: View {
-    @EnvironmentObject var api: APIClient
-    @ObservedObject private var session = UserSession.shared
-    @State private var rows: [AdminUser] = []
-    @State private var requireLogin = false
-    @State private var autoOn = false
-    @State private var autoDays = 30
-    @State private var policyError = ""
-    @State private var loaded = false
-
-    var body: some View {
-        List {
-            Section {
-                HStack {
-                    stat("\(rows.count)", "users")
-                    stat("\(rows.reduce(0) { $0 + ($1.sessions ?? 0) })", "signed in")
-                    stat("\(rows.filter { $0.disabled == true }.count)", "disabled")
-                }
-            }
-            Section {
-                ForEach(rows) { u in
-                    NavigationLink {
-                        if u.role == "admin" { AccountView() } else { AdminUserDetailView(userID: u.id) }
-                    } label: {
-                        HStack {
-                            Circle().fill(Color(hex: u.color) ?? .gray).frame(width: 10, height: 10)
-                            Text(u.displayName)
-                            if u.role == "admin" { Text("you").font(.caption).foregroundColor(.secondary) }
-                            if u.disabled == true { Text("disabled").font(.caption).foregroundColor(.red) }
-                            Spacer()
-                            Text((u.sessions ?? 0) > 0 ? "signed in on \(u.sessions!)" : "signed out")
-                                .font(.caption).foregroundColor(.secondary)
-                        }
-                    }
-                }
-                NavigationLink { AdminUsersView() } label: {
-                    Label("Add a person", systemImage: "person.badge.plus")
-                }
-            } header: { Text("People") }
-              footer: { Text("Tap someone for what you see of them, what you share with them, and their password, sign-in and account.") }
-            ShareMyCalendarSection()
-            Section {
-                Toggle("Require sign-in everywhere", isOn: Binding(
-                    get: { requireLogin },
-                    set: { v in requireLogin = v; Task { await policy(["require_login": v]) } }))
-                Toggle("Auto sign-out", isOn: Binding(
-                    get: { autoOn },
-                    set: { v in autoOn = v; Task { await policy(["auto_signout_days": v ? autoDays : 0]) } }))
-                if autoOn {
-                    Stepper("After \(autoDays) day\(autoDays == 1 ? "" : "s") unused", value: Binding(
-                        get: { autoDays },
-                        set: { v in autoDays = v; Task { await policy(["auto_signout_days": v]) } }),
-                            in: 1...365)
-                }
-            } header: { Text("Sign-in") }
-              footer: {
-                  if !policyError.isEmpty {
-                      Text("Couldn't change that: \(policyError)").foregroundColor(.red)
-                  } else {
-                      Text(autoOn ? "A device unused this long is signed out."
-                                  : "Off: a sign-in lasts until the person signs out, or you sign them out.")
-                  }
-              }
-            Section("Me") {
-                NavigationLink { AccountView() } label: {
-                    Label("My account, password & settings", systemImage: "person.crop.circle")
-                }
-                Button("Sign out", role: .destructive) { Task { await session.signOut(api: api) } }
-            }
-        }
-        .navigationTitle("Admin")
-        // Every appearance: coming back from a person's page must show what changed there.
-        .onAppear { Task { await load() } }
-        .refreshable { await load() }
-    }
-
-    private func stat(_ n: String, _ what: String) -> some View {
-        VStack { Text(n).font(.title2.bold()); Text(what).font(.caption).foregroundColor(.secondary) }
-            .frame(maxWidth: .infinity)
-    }
-
-    private func load() async {
-        if let data = try? await api.request("/admin/users"),
-           let got = try? JSONDecoder().decode([AdminUser].self, from: data) { rows = got }
-        if let data = try? await api.request("/auth/me"),
-           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let pol = obj["policy"] as? [String: Any] {
-            requireLogin = pol["require_login"] as? Bool ?? false
-            if let d = pol["auto_signout_days"] as? Int, d > 0 { autoOn = true; autoDays = d } else { autoOn = false }
-        }
-    }
-
-    private func policy(_ body: [String: Any]) async {
-        if let e = await accountCall(api, "/admin/policy", body: body) {
-            policyError = e
-            await load()                          // put the switches back
-        } else {
-            policyError = ""
-        }
     }
 }

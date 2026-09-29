@@ -325,6 +325,9 @@ struct ContentView: View {
                 ProcessInfo.processInfo.environment["MACALENDAR_UITEST_SHOW"] ?? "") {
                 showVoiceQueue = true
             }
+            if let tab = ProcessInfo.processInfo.environment["MACALENDAR_UITEST_TAB"] {
+                router.show(tab)
+            }
             if ProcessInfo.processInfo.environment["MACALENDAR_UITEST_SHOW"] == "settings" {
                 // after launch-time presentations (the permission alert) settle
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { showSettings = true }
@@ -374,7 +377,7 @@ struct ContentView: View {
         #if DEBUG
         .sheet(isPresented: Binding(get: { debugUsersScreen != nil }, set: { if !$0 { debugUsersScreen = nil } })) {
             StackNavigation {
-                if debugUsersScreen == "admin" { AdminUsersView() } else { AccountView() }
+                AccountView()
             }
             .environmentObject(api)
         }
