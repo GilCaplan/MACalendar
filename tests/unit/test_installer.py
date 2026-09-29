@@ -404,3 +404,22 @@ def test_an_update_that_did_not_happen_does_not_hand_over(inst, tmp_path, monkey
     monkeypatch.setattr(i, "hand_over_if_newer", lambda: handed.append(1))
     i.code()
     assert handed == []
+
+
+
+def test_a_file_inside_any_git_checkout_is_never_deleted(inst, tmp_path):
+    """Running the repository's own install-macalendar.sh passes ITS path as
+    the installer file; --yes must not delete source (found in a real run)."""
+    src = tmp_path / "somerepo" / "install" / "install-macalendar.sh"
+    src.parent.mkdir(parents=True)
+    (tmp_path / "somerepo" / ".git").mkdir()
+    src.write_text("x")
+    _installer(inst, tmp_path, "Darwin", "--yes", "--installer-file", str(src)).tidy_up()
+    assert src.exists()
+
+
+def test_a_hand_over_passes_only_options_the_other_version_knows(inst):
+    old = 'p.add_argument("--root")\np.add_argument("--yes")\np.add_argument("--no-apps")'
+    argv = ["--root", "/r", "--installer-file", "/d/x.sh", "--existing", "reinstall",
+            "--yes", "--no-apps", "--desktop-icons", "yes"]
+    assert inst._args_it_knows(argv, old) == ["--root", "/r", "--yes", "--no-apps"]

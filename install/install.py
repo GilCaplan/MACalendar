@@ -208,12 +208,17 @@ class Installer:
         if self.a.dry_run:
             print(f"   (dry run) keep config.yaml, delete {self.repo}, clone it fresh")
             return
+        # Fetch it again from where it CAME from (a fork, a branch), not
+        # necessarily the public repository.
+        source = self.a.repo_url or subprocess.run(
+            ["git", "-C", str(self.repo), "remote", "get-url", "origin"],
+            capture_output=True, text=True).stdout.strip() or REPO_URL
         if cfg.exists():
             shutil.copyfile(cfg, keep)
         os.chdir(self.root)
         shutil.rmtree(self.repo, onerror=_force_remove)
         print(f"   Deleted {self.repo}")
-        self.run(["git", "clone", "--depth", "1", self.a.repo_url or REPO_URL, self.repo])
+        self.run(["git", "clone", "--depth", "1", source, self.repo])
         if keep.exists():
             shutil.copyfile(keep, cfg)
             keep.unlink()
@@ -227,10 +232,7 @@ class Installer:
         if new.read_bytes() == _MY_SOURCE:
             return
         print("   The installer itself was updated — continuing with the new one.")
-        argv = [a for a in sys.argv[1:]]
-        if "--existing" in argv:
-            i = argv.index("--existing")
-            del argv[i:i + 2]
+        argv = _args_it_knows(sys.argv[1:], new.read_text(errors="replace"))
         os.environ["MACALENDAR_INSTALL_REEXEC"] = "1"
         os.execv(sys.executable, [sys.executable, str(new), *argv, "--existing", "update"])
 
@@ -478,6 +480,8 @@ class Installer:
             return
         if self.root in p.resolve().parents:
             return                        # the checkout's own copy stays
+        if any((d / ".git").exists() for d in p.resolve().parents):
+            return                        # a file in ANY git checkout is source, not a download
         updater = self.repo / "install" / "install.py"
         self.say("Tidying up")
         if self.ask(f"Delete the installer you downloaded ({p})? You won't need it — "
@@ -678,6 +682,22 @@ def stop_running_server(root: "Path | str" = "", name: str = INSTANCE) -> bool:
         return True
     except OSError:
         return False
+
+
+def _args_it_knows(argv: list, source: str) -> list:
+    """The arguments to hand another installer version: without --existing
+    (the question is answered: "update"), and without any option that version
+    does not define — an unknown option would stop it with a usage error."""
+    out, i = [], 0
+    while i < len(argv):
+        a = argv[i]
+        takes = i + 1 < len(argv) and not argv[i + 1].startswith("--")
+        if a.startswith("--") and (a == "--existing" or f'"{a}"' not in source):
+            i += 2 if takes else 1
+            continue
+        out.append(a)
+        i += 1
+    return out
 
 
 def _force_remove(func, path, _exc) -> None:
