@@ -212,3 +212,32 @@ Note: the dates-extension run below was compiled WITH the cap (it started
 before this was read), so it measures the extension on top of the cap; the
 shipped configuration — guard v3 + dates + extension, no cap — is boarded
 after it.
+
+## Step 1b' — the resolver's one-answer day words (2026-09-29 11:35–12:06)
+
+Same 1,200 TRAIN rows, seed 7, guard v3 + dates + cap (compiled before the
+cap was read; see above). `OfflineDates.swift` now also resolves a repeat's
+first day ("every sunday", "every weekday"), fixed offsets ("in three weeks",
+"tomorrow week"), named holidays and "this coming X"; ranges ("next week",
+"this weekend") still wait for the Mac.
+
+| line | + cap | **+ one-answer day words** |
+|---|---|---|
+| **right kind, single-item** | 68.6% (341/497) | **85.3% (424/497)** |
+| **whole item right, single-item** | 58.6% (291/497) | **75.5% (375/497)** |
+| repeat right | 79.6% (39/49) | 94.7% (89/94) |
+| booked nothing on a create | 16.0% (143/895) | 13.5% (121/895) |
+| right number of each kind (create rows) | 31.5% (282/895) | 35.1% (314/895) |
+| date right | 92.1% (197/214) | 92.1% (197/214) |
+| booked something on an edit/delete/complete/question | 0.3% (1/305) | 0.3% (1/305) |
+| extra (invented) items | 306 | 388 |
+| latency p50 / p99 (model calls, n=787) | 1,899 / 4,390 ms | 1,898 / 3,942 ms |
+
+**What it means.** Predicted "right kind back above 75%": it reached 85.3%,
+and the whole single item is right three times in four, up 16.9 points —
+the events that named their day as a repeat or an offset are no longer held
+back for want of a date. Invented items ROSE (306 → 388) for the same reason:
+an invented event used to be held back when its day could not be resolved,
+and now its day resolves, so it is booked. The resolver did not create them;
+it stopped hiding them. With the cap gone the inventions should fall back —
+the shipped configuration's run is next.
