@@ -88,7 +88,9 @@ def test_rows_and_headers_render_in_date_order(qapp, tmp_path):
 
     # Row content: times, and location when present.
     dentist = next(r for r in rows if r.event["title"] == "Dentist")
-    assert dentist._time_label.text() == "10:00–11:00"
+    # The clock setting decides (Settings ▸ Appearance ▸ Clock); 12-hour by
+    # default, like every other time the app draws.
+    assert dentist._time_label.text() == "10a–11a"
     assert "Clinic" in dentist._location_label.text()
 
     # The empty state stays hidden when there are events.

@@ -38,6 +38,7 @@ from PyQt6.QtWidgets import (
 )
 
 from assistant.calendar_ui import icons
+from assistant.calendar_ui import view_prefs as _vp
 from assistant.calendar_ui.agenda_view import AgendaView, DAYS_AHEAD as _AGENDA_DAYS
 from assistant.calendar_ui.day_view import DayView
 from assistant.calendar_ui.event_dialog import EventDialog, repeat_rule_changed
@@ -67,14 +68,9 @@ STATUS_SWITCH_TODO = "switch_todo"
 
 
 def _fmt_time(time_str: str) -> str:
-    """Convert '14:30' → '2:30 PM'."""
-    try:
-        h, m = map(int, time_str.split(":"))
-        period = "AM" if h < 12 else "PM"
-        h12 = h % 12 or 12
-        return f"{h12}:{m:02d} {period}" if m else f"{h12} {period}"
-    except Exception:
-        return time_str
+    """'14:30' as the person reads times (Settings ▸ Appearance ▸ Clock)."""
+    from assistant.calendar_ui import view_prefs as _vp
+    return _vp.fmt_hhmm(time_str)
 
 _MIC_ICONS = {
     STATUS_IDLE: "🎙",
@@ -401,6 +397,9 @@ class CalendarWindow(QMainWindow):
         super().__init__(parent)
         self._pipeline = pipeline
         self._config = config
+        # How the calendar is drawn — before any view is built, since the
+        # week view works out its first day as it is made.
+        _vp.apply(getattr(config, "ui", None))
         # The signed-in user's calendar PLUS what others share with them — one
         # object every view keeps, reading and writing through users.sharing
         # (DEVQA Q65). Before the users migration it is just the CalendarDB.
@@ -994,7 +993,7 @@ class CalendarWindow(QMainWindow):
         if self._view_mode == "month":
             self._month_view.navigate(self._current_date.year, self._current_date.month)
         elif self._view_mode == "week":
-            week_start = self._current_date - datetime.timedelta(days=(self._current_date.weekday() + 1) % 7)
+            week_start = _vp.week_start(self._current_date)
             self._week_view.navigate(week_start)
         elif self._view_mode == "agenda":
             self._agenda_view.set_start_date(self._current_date)
@@ -1077,7 +1076,7 @@ class CalendarWindow(QMainWindow):
             mid = self._current_date.replace(day=15)
             self._title_label.setText(self._title_with_hebrew(base, mid))
         elif self._view_mode == "week":
-            week_start = self._current_date - datetime.timedelta(days=(self._current_date.weekday() + 1) % 7)
+            week_start = _vp.week_start(self._current_date)
             week_end = week_start + datetime.timedelta(days=6)
             if week_start.month == week_end.month:
                 base = f"{week_start.strftime('%B %-d')} – {week_end.day}, {week_end.year}"
@@ -1700,6 +1699,22 @@ class CalendarWindow(QMainWindow):
         mic.setEnabled(on)
         mic.setToolTip("Click or press Ctrl+J to toggle the microphone" if on else
                        "The assistant is off — Settings ▸ Assistant")
+
+    def _apply_view_prefs(self) -> None:
+        """Settings ▸ Appearance saved: first day, clock, days, row height,
+        week numbers — into every view that draws them."""
+        _vp.apply(getattr(self._config, "ui", None))
+        for view in (getattr(self, "_week_view", None), getattr(self, "_day_view", None)):
+            if view is not None and hasattr(view, "relabel"):
+                view.relabel()
+        month = getattr(self, "_month_view", None)
+        if month is not None:
+            month.apply_ui_config(self._config.ui)
+        side = getattr(self, "_sidebar", None)
+        if side is not None and hasattr(side, "apply_first_day"):
+            side.apply_first_day()
+        self._apply_visible_hours()
+        self._navigate()                  # the week around today, from the new first day
 
     def _apply_visible_hours(self) -> None:
         """Settings ▸ Appearance ▸ Show hours, into Week and Day."""

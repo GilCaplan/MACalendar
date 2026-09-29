@@ -167,6 +167,10 @@ ui:
   start_view: week          # the view the calendar opens on: month | week | day | agenda
   hours_from: 0          # Week/Day fit these hours to the window (0–23)…
   hours_to: 24           # …to this one (1–24, 24 = midnight); the rest is a scroll away
+  week_starts: sunday    # the week's first day in Month, Week and the mini-calendar: sunday | monday
+  clock: 12h             # times as 12h ("2:30 PM") or 24h ("14:30") — display only
+  week_days: [sun, mon, tue, wed, thu, fri, sat]   # the days Week shows
+  hour_height: 0         # Week/Day hour rows in px (20–160); 0 = fit the shown hours to the window
   font_month: 11
   font_week: 11
   font_day: 13

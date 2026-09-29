@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
 logger = logging.getLogger(__name__)
 
 import assistant.calendar_ui.styles as _styles
+from assistant.calendar_ui import view_prefs as _vp
 from assistant.calendar_ui.styles import (
     BLUE,
     GRAY_BORDER,
@@ -64,7 +65,8 @@ class EventBlock(QLabel):
         from assistant.calendar_ui.merged_db import owner_prefix
         import html as _html
         title_line = f"<b>{_html.escape(owner_prefix(event))}{event['title']}</b>"
-        time_line = f"<span style='opacity:0.85;font-size:{self._font_size - 1}px'>{start}–{end}</span>"
+        time_line = (f"<span style='opacity:0.85;font-size:{self._font_size - 1}px'>"
+                     f"{_vp.fmt_hhmm(start, compact=True)}–{_vp.fmt_hhmm(end, compact=True)}</span>")
         html = title_line + "<br>" + time_line
         if location:
             html += f"<br><span style='opacity:0.8;font-size:{self._font_size - 1}px'>📍 {location}</span>"
@@ -660,14 +662,7 @@ class DayView(QWidget):
         time_layout.setContentsMargins(0, 0, 4, 0)
         time_layout.setSpacing(0)
         for h in range(24):
-            if h == 0:
-                label_text = "12 AM"
-            elif h < 12:
-                label_text = f"{h} AM"
-            elif h == 12:
-                label_text = "12 PM"
-            else:
-                label_text = f"{h - 12} PM"
+            label_text = _vp.hour_label(h)
             lbl = QLabel(label_text)
             lbl.setFixedHeight(self._hour_height)
             lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
@@ -712,6 +707,12 @@ class DayView(QWidget):
             self._recalc_hour_height(event.size().height())
         return super().eventFilter(obj, event)
 
+    def relabel(self) -> None:
+        """The clock setting changed: redraw the hour labels and the blocks."""
+        for h, lbl in enumerate(self._time_labels):
+            lbl.setText(_vp.hour_label(h))
+        self.refresh()
+
     def set_visible_hours(self, first: int, last: int) -> None:
         """Fit hours first…last to the window; the rest stay a scroll away."""
         self._hours = (first, last)
@@ -725,7 +726,8 @@ class DayView(QWidget):
         if viewport_h <= 0:
             return
         from assistant.calendar_ui.visible_hours import fit
-        new_h = fit(viewport_h, *getattr(self, "_hours", (0, 24)), MIN_HOUR_HEIGHT, HOUR_HEIGHT)
+        new_h = _vp.fixed_hour_height() or \
+            fit(viewport_h, *getattr(self, "_hours", (0, 24)), MIN_HOUR_HEIGHT, HOUR_HEIGHT)
         if new_h == self._hour_height:
             return
         self._hour_height = new_h

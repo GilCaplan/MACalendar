@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
 import assistant.calendar_ui.styles as _styles
 
 logger = logging.getLogger(__name__)
+from assistant.calendar_ui import view_prefs as _vp
 from assistant.calendar_ui.styles import (
     BLUE,
     GRAY_BORDER,
@@ -35,6 +36,8 @@ from assistant.calendar_ui.styles import (
 from assistant.hebrew_calendar import enumerate_holidays, hebrew_day_label
 
 DAY_HEADERS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+#: weekday() → short name; the header's order comes from view_prefs.
+_WEEKDAY_SHORT = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 _HOLIDAY_COLORS = {
     "major": "#c9a227",
@@ -109,7 +112,8 @@ class EventPill(QLabel):
         # "Dana · " on a row someone shared (display only — DEVQA Q65)
         from assistant.calendar_ui.merged_db import owner_prefix
         _t = owner_prefix(event) + event['title']
-        self._pill_text = f"{start}  {_t}" if start else _t
+        from assistant.calendar_ui import view_prefs as _vp
+        self._pill_text = f"{_vp.fmt_hhmm(start, compact=True)}  {_t}" if start else _t
         self.setText(self._pill_text)
         self.setFixedHeight(20)
         self.setMinimumWidth(0)
@@ -131,7 +135,11 @@ class EventPill(QLabel):
         # zero — so the title keeps the room (2026-09-28 clean-up: "06:30"
         # in full weight took a third of every pill).
         start = self.event.get("start_time", "") or ""
-        short = start[1:] if len(start) == 5 and start.startswith("0") else start
+        from assistant.calendar_ui import view_prefs as _vp
+        if _vp.clock24():
+            short = start[1:] if len(start) == 5 and start.startswith("0") else start
+        else:
+            short = _vp.fmt_hhmm(start, compact=True) if start else ""
         from assistant.calendar_ui.merged_db import owner_prefix
         title = owner_prefix(self.event) + self.event.get("title", "")
         x = 5
@@ -493,24 +501,10 @@ class MonthView(QWidget):
         self._header = QWidget()
         self._header.setFixedHeight(30)
         self._header_labels: List[QLabel] = []
-        header_layout = QGridLayout(self._header)
-        header_layout.setContentsMargins(0, 0, 0, 0)
-        header_layout.setSpacing(0)
+        self._header_grid = QGridLayout(self._header)
+        self._header_grid.setContentsMargins(0, 0, 0, 0)
+        self._header_grid.setSpacing(0)
         self._show_wknums = bool(getattr(self._ui_config, "show_week_numbers", True))
-        off = 1 if self._show_wknums else 0
-        if self._show_wknums:
-            corner = QLabel("wk")
-            corner.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            corner.setStyleSheet("color: gray; font-size: 9px;")
-            header_layout.addWidget(corner, 0, 0)
-            header_layout.setColumnMinimumWidth(0, 26)
-            header_layout.setColumnStretch(0, 0)
-        for col, name in enumerate(DAY_HEADERS):
-            lbl = QLabel(name)
-            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self._header_labels.append(lbl)
-            header_layout.addWidget(lbl, 0, col + off)
-            header_layout.setColumnStretch(col + off, 1)
         layout.addWidget(self._header)
 
         # Grid
@@ -518,15 +512,41 @@ class MonthView(QWidget):
         self._grid = QGridLayout(self._grid_widget)
         self._grid.setContentsMargins(0, 0, 0, 0)
         self._grid.setSpacing(0)
-        if self._show_wknums:
-            self._grid.setColumnMinimumWidth(0, 26)
-            self._grid.setColumnStretch(0, 0)
-        for col in range(7):
-            self._grid.setColumnStretch(col + (1 if self._show_wknums else 0), 1)
         layout.addWidget(self._grid_widget, stretch=1)
+        self._build_header()
 
         self._apply_header_style()
         self._rebuild_grid()
+
+    def _build_header(self) -> None:
+        """The weekday names (from the first day of the week) and the "wk"
+        corner — rebuilt when either setting changes, not only at startup."""
+        while self._header_grid.count():
+            item = self._header_grid.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self._header_labels.clear()
+        self._show_wknums = bool(getattr(self._ui_config, "show_week_numbers", True))
+        off = 1 if self._show_wknums else 0
+        for grid in (self._header_grid, self._grid):
+            for k in range(8):
+                grid.setColumnStretch(k, 0)
+                grid.setColumnMinimumWidth(k, 0)
+            if self._show_wknums:
+                grid.setColumnMinimumWidth(0, 26)
+            for col in range(7):
+                grid.setColumnStretch(col + off, 1)
+        if self._show_wknums:
+            corner = QLabel("wk")
+            corner.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            corner.setStyleSheet("color: gray; font-size: 9px;")
+            self._header_grid.addWidget(corner, 0, 0)
+        self._header_days = _vp.weekday_order()
+        for col, wd in enumerate(self._header_days):
+            lbl = QLabel(_WEEKDAY_SHORT[wd])
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._header_labels.append(lbl)
+            self._header_grid.addWidget(lbl, 0, col + off)
 
     def _apply_header_style(self) -> None:
         dark   = _styles._dark
@@ -538,8 +558,9 @@ class MonthView(QWidget):
         )
         fs = 11 if not self._ui_config else self._ui_config.font_month
         for i, lbl in enumerate(self._header_labels):
-            # Sunday (0) and Saturday (6) in red
-            lbl_color = (_styles.DESTRUCTIVE_DARK if dark else _styles.DESTRUCTIVE) if i in (0, 6) else color
+            # Saturday and Sunday in red, wherever the week starts
+            wd = self._header_days[i] if i < len(self._header_days) else i
+            lbl_color = (_styles.DESTRUCTIVE_DARK if dark else _styles.DESTRUCTIVE) if wd in (5, 6) else color
             lbl.setStyleSheet(
                 f"font-size: {fs}px; font-weight: 600; color: {lbl_color};"
             )
@@ -551,6 +572,7 @@ class MonthView(QWidget):
 
     def apply_ui_config(self, ui_config) -> None:
         self._ui_config = ui_config
+        self._build_header()
         self._apply_header_style()
         self._rebuild_grid()
 
@@ -609,7 +631,7 @@ class MonthView(QWidget):
                 item.widget().deleteLater()
         self._cells.clear()
 
-        cal   = calendar.Calendar(firstweekday=6)
+        cal   = calendar.Calendar(firstweekday=_vp.first_weekday())
         weeks = cal.monthdatescalendar(self._year, self._month)
         while len(weeks) < 6:
             last = weeks[-1]
@@ -620,9 +642,10 @@ class MonthView(QWidget):
             self._grid.setRowStretch(row, 1)
             if self._show_wknums:
                 # ISO weeks run Mon-Sun, so a Sunday-first row straddles two of
-                # them; the row's Monday (week[1]) names the week most of the
-                # row belongs to.
-                wk = QLabel(str(week[1].isocalendar()[1]))
+                # them; the row's Monday names the week most of the row belongs
+                # to (week[0] when the week starts on Monday, week[1] if Sunday).
+                monday = next(d for d in week if d.weekday() == 0)
+                wk = QLabel(str(monday.isocalendar()[1]))
                 wk.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 wk.setStyleSheet("color: gray; font-size: 9px;")
                 self._grid.addWidget(wk, row, 0)

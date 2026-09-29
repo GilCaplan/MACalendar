@@ -53,7 +53,9 @@ class _EventRow(QFrame):
 
         start = event.get("start_time", "") or ""
         end = event.get("end_time", "") or ""
-        self._time_label = QLabel(f"{start}–{end}" if (start or end) else "")
+        from assistant.calendar_ui import view_prefs as _vp
+        self._time_label = QLabel(f"{_vp.fmt_hhmm(start, compact=True)}–{_vp.fmt_hhmm(end, compact=True)}"
+                                  if (start or end) else "")
         self._time_label.setObjectName("agenda_row_time")
         self._time_label.setFixedWidth(96)
         lay.addWidget(self._time_label)

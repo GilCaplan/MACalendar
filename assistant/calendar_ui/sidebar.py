@@ -80,6 +80,7 @@ class MiniCalendar(QWidget):
         self._cal.setHorizontalHeaderFormat(QCalendarWidget.HorizontalHeaderFormat.ShortDayNames)
         self._cal.setNavigationBarVisible(False)
         self._cal.setMaximumHeight(184)
+        self.apply_first_day()
         self._cal.currentPageChanged.connect(self._on_page_changed)
         self._cal.selectionChanged.connect(self.selectionChanged)
         outer.addWidget(self._cal)
@@ -106,6 +107,13 @@ class MiniCalendar(QWidget):
     # ------------------------------------------------------------------
     # Navigation
     # ------------------------------------------------------------------
+
+
+    def apply_first_day(self) -> None:
+        """The mini-calendar starts its week where the views do (Settings)."""
+        from assistant.calendar_ui import view_prefs as _vp
+        self._cal.setFirstDayOfWeek(Qt.DayOfWeek.Monday if _vp.first_weekday() == 0
+                                    else Qt.DayOfWeek.Sunday)
 
     def _shift_month(self, delta: int) -> None:
         year, month = self._cal.yearShown(), self._cal.monthShown()
@@ -262,6 +270,10 @@ class Sidebar(QWidget):
 
         layout.addStretch()
 
+
+    def apply_first_day(self) -> None:
+        """Settings ▸ Appearance ▸ Week starts on — the mini-calendar too."""
+        self._mini_cal.apply_first_day()
     def add_nav(self, label: str, glyph: str = "•") -> QPushButton:
         """One section row; the window styles it and wires what it opens.
         The glyph becomes a fixed-size ICON (`nav_icon`), not text: as text,

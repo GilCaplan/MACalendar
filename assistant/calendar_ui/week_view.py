@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
 logger = logging.getLogger(__name__)
 
 import assistant.calendar_ui.styles as _styles
+from assistant.calendar_ui import view_prefs as _vp
 from assistant.calendar_ui.styles import (
     BLUE,
     BLUE_LIGHT,
@@ -206,7 +207,7 @@ class EventBlock(QLabel):
             self.setText(
                 f"<b style='font-size:{self._font_size}px'>{self._title_html}</b>"
                 f"<br><span style='font-size:{sub_size}px;"
-                f"opacity:0.82'>{self._start}–{self._end}</span>"
+                f"opacity:0.82'>{_vp.fmt_hhmm(self._start, compact=True)}–{_vp.fmt_hhmm(self._end, compact=True)}</span>"
             )
         else:
             # Not enough vertical room for both lines: drop the time-range
@@ -633,7 +634,7 @@ class WeekView(QWidget):
         super().__init__(parent)
         self._db = db
         today = datetime.date.today()
-        self._week_start = today - datetime.timedelta(days=(today.weekday() + 1) % 7)
+        self._week_start = _vp.week_start(today)
         self._day_columns: List[DayColumn] = []
         self._ui_config = None
         self._hebrew_config = None
@@ -682,7 +683,7 @@ class WeekView(QWidget):
         time_layout.setContentsMargins(0, 0, 4, 0)
         time_layout.setSpacing(0)
         for h in range(24):
-            lbl = QLabel("12 AM" if h == 0 else f"{h} AM" if h < 12 else "12 PM" if h == 12 else f"{h-12} PM")
+            lbl = QLabel(_vp.hour_label(h))
             lbl.setFixedHeight(self._hour_height)
             lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
             self._time_labels.append(lbl)
@@ -727,6 +728,14 @@ class WeekView(QWidget):
             self._recalc_hour_height(event.size().height())
         return super().eventFilter(obj, event)
 
+    def relabel(self) -> None:
+        """The view settings changed (clock, first day, shown days): redraw
+        the hour labels and rebuild the columns."""
+        for h, lbl in enumerate(self._time_labels):
+            lbl.setText(_vp.hour_label(h))
+        self._week_start = _vp.week_start(self._week_start + datetime.timedelta(days=3))
+        self._rebuild_columns()
+
     def set_visible_hours(self, first: int, last: int) -> None:
         """Fit hours first…last to the window and open there; the rest stay a
         scroll away (calendar_ui/visible_hours.py)."""
@@ -745,7 +754,8 @@ class WeekView(QWidget):
         if viewport_h <= 0:
             return
         from assistant.calendar_ui.visible_hours import fit
-        new_h = fit(viewport_h, *getattr(self, "_hours", (0, 24)), MIN_HOUR_HEIGHT, HOUR_HEIGHT)
+        new_h = _vp.fixed_hour_height() or \
+            fit(viewport_h, *getattr(self, "_hours", (0, 24)), MIN_HOUR_HEIGHT, HOUR_HEIGHT)
         if new_h == self._hour_height:
             return
         self._hour_height = new_h
@@ -904,9 +914,15 @@ class WeekView(QWidget):
                 item.widget().deleteLater()
         self._day_columns.clear()
 
+        # Settings ▸ Appearance ▸ Days in Week: a hidden day gets no column;
+        # stretches from a wider week are cleared or they leave empty space.
+        for lay in (self._header_layout, self._col_layout, self._allday_layout):
+            for k in range(7):
+                lay.setColumnStretch(k, 0)
         today = datetime.date.today()
-        for i in range(7):
-            date = self._week_start + datetime.timedelta(days=i)
+        shown = [self._week_start + datetime.timedelta(days=k) for k in range(7)]
+        shown = [d for d in shown if _vp.shows(d)]
+        for i, date in enumerate(shown):
             is_today = date == today
 
             # Header cell

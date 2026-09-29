@@ -146,6 +146,13 @@ class UIConfig(BaseModel):
     # the rest stay a scroll away (calendar_ui/visible_hours.py).
     hours_from: int = 0
     hours_to: int = 24
+    # How the calendar is drawn (calendar_ui/view_prefs.py): the week's first
+    # day, the clock, the days Week shows, and a fixed hour-row height in px
+    # (0 = fit the shown hours to the window).
+    week_starts: Literal["sunday", "monday"] = "sunday"
+    clock: Literal["12h", "24h"] = "12h"
+    week_days: list[str] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
+    hour_height: int = 0
     font_month: int = 11
     font_week: int = 11
     font_day: int = 13

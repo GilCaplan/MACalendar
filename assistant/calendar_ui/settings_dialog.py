@@ -359,6 +359,58 @@ def open_settings(self) -> None:
                                 "scroll away — nothing is hidden.")
     hours_to_combo.setToolTip(hours_from_combo.toolTip())
     appearance_form.addRow("Show hours:", _hours_row)
+
+    # How the calendar is drawn (calendar_ui/view_prefs.py; Gil, 2026-09-29:
+    # "sure can add all those").
+    _ui = self._config.ui
+    week_starts_combo = QComboBox()
+    week_starts_combo.setObjectName("week_starts")
+    for _label, _v in (("Sunday", "sunday"), ("Monday", "monday")):
+        week_starts_combo.addItem(_label, _v)
+    week_starts_combo.setCurrentIndex(max(0, week_starts_combo.findData(
+        str(getattr(_ui, "week_starts", "sunday")))))
+    appearance_form.addRow("Week starts on:", week_starts_combo)
+
+    clock_combo = QComboBox()
+    clock_combo.setObjectName("clock")
+    clock_combo.addItem("12-hour (2:30 PM)", "12h")
+    clock_combo.addItem("24-hour (14:30)", "24h")
+    clock_combo.setCurrentIndex(max(0, clock_combo.findData(str(getattr(_ui, "clock", "12h")))))
+    appearance_form.addRow("Clock:", clock_combo)
+
+    _day_order = [("sun", "S"), ("mon", "M"), ("tue", "T"), ("wed", "W"),
+                  ("thu", "T"), ("fri", "F"), ("sat", "S")]
+    _shown_days = {str(d).lower()[:3] for d in (getattr(_ui, "week_days", None) or [])} \
+        or {d for d, _ in _day_order}
+    week_day_boxes: dict = {}
+    _days_row = QHBoxLayout()
+    for _d, _letter in _day_order:
+        _cb = QCheckBox(_d.capitalize())
+        _cb.setObjectName(f"week_day_{_d}")
+        _cb.setChecked(_d in _shown_days)
+        week_day_boxes[_d] = _cb
+        _days_row.addWidget(_cb)
+    _days_row.addStretch(1)
+    appearance_form.addRow("Days in Week:", _days_row)
+
+    hour_height_combo = QComboBox()
+    hour_height_combo.setObjectName("hour_height")
+    for _label, _v in (("Fit the shown hours to the window", 0), ("Small (32 px)", 32),
+                       ("Medium (48 px)", 48), ("Large (64 px)", 64),
+                       ("Extra large (88 px)", 88)):
+        hour_height_combo.addItem(_label, _v)
+    _hh = int(getattr(_ui, "hour_height", 0) or 0)
+    if hour_height_combo.findData(_hh) < 0:
+        hour_height_combo.addItem(f"{_hh} px", _hh)
+    hour_height_combo.setCurrentIndex(hour_height_combo.findData(_hh))
+    hour_height_combo.setToolTip("Week and Day: fit the shown hours to the window, or a "
+                                 "fixed size that scrolls")
+    appearance_form.addRow("Hour rows:", hour_height_combo)
+
+    week_numbers_cb = QCheckBox("Show week numbers in Month")
+    week_numbers_cb.setObjectName("show_week_numbers")
+    week_numbers_cb.setChecked(bool(getattr(_ui, "show_week_numbers", True)))
+    appearance_form.addRow("", week_numbers_cb)
     appearance.addLayout(appearance_form)
 
     compact_cb = QCheckBox("Compact layout density")
@@ -1081,6 +1133,12 @@ def open_settings(self) -> None:
 
     save_btn = QPushButton("Save Config")
     save_btn.setDefault(True)
+    def _checked_days() -> list:
+        """The ticked days, Sunday first; none ticked means all seven — an
+        empty week is never what someone meant."""
+        days = [d for d, cb in week_day_boxes.items() if cb.isChecked()]
+        return days or list(week_day_boxes)
+
     def _checked_hours() -> tuple:
         """The two boxes as (first, last); "to" at or before "from" means the
         whole day rather than an empty view."""
@@ -1124,6 +1182,11 @@ def open_settings(self) -> None:
                 "ui": {"start_view": start_view_combo.currentData(),
                        "hours_from": _checked_hours()[0],
                        "hours_to": _checked_hours()[1],
+                       "week_starts": week_starts_combo.currentData(),
+                       "clock": clock_combo.currentData(),
+                       "week_days": _checked_days(),
+                       "hour_height": hour_height_combo.currentData(),
+                       "show_week_numbers": week_numbers_cb.isChecked(),
                        "font_month": month_spin.value(),
                        "font_week": week_spin.value(),
                        "font_day": day_spin.value(),
@@ -1197,6 +1260,14 @@ def open_settings(self) -> None:
                 self._config.confirmation_level = 0 if auto_cb.isChecked() else 1
                 self._config.ui.start_view = start_view_combo.currentData()
                 self._config.ui.hours_from, self._config.ui.hours_to = _checked_hours()
+                for _k, _v in (("week_starts", week_starts_combo.currentData()),
+                               ("clock", clock_combo.currentData()),
+                               ("week_days", _checked_days()),
+                               ("hour_height", hour_height_combo.currentData()),
+                               ("show_week_numbers", week_numbers_cb.isChecked())):
+                    _apply(self._config.ui, _k, _v)
+                if hasattr(self, "_apply_view_prefs"):
+                    self._apply_view_prefs()
                 _apply(getattr(self._config, "engine", None), "enabled", assistant_on_cb.isChecked())
                 if hasattr(self, "_apply_assistant_switch"):
                     self._apply_assistant_switch(assistant_on_cb.isChecked())
