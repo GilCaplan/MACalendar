@@ -423,3 +423,15 @@ def test_a_hand_over_passes_only_options_the_other_version_knows(inst):
     argv = ["--root", "/r", "--installer-file", "/d/x.sh", "--existing", "reinstall",
             "--yes", "--no-apps", "--desktop-icons", "yes"]
     assert inst._args_it_knows(argv, old) == ["--root", "/r", "--yes", "--no-apps"]
+
+
+def test_the_end_of_input_is_the_default_not_a_crash(inst, monkeypatch):
+    """A closed terminal, or answers piped in that run out (found driving the
+    installer through `script`): every question falls back to its default."""
+    def eof(_prompt=""):
+        raise EOFError
+    monkeypatch.setattr("builtins.input", eof)
+    assert inst._input("? ") == ""
+    src = (INSTALL / "install.py").read_text()
+    # a prompt is a call with a string: none may use input() directly
+    assert not re.findall(r"(?<![\w.])input\(\s*f?[\"']", src), "every prompt goes through _input"

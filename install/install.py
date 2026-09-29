@@ -97,7 +97,7 @@ class Installer:
         if self.a.yes or self.a.dry_run or not sys.stdin.isatty():
             return default
         hint = "[Y/n]" if default else "[y/N]"
-        got = input(f"\n? {question} {hint} ").strip().lower()
+        got = _input(f"\n? {question} {hint} ").strip().lower()
         return default if not got else got.startswith("y")
 
     def choose_role(self) -> str:
@@ -109,7 +109,7 @@ class Installer:
               "   1. The primary — the brain. Your calendar lives here and your phone\n"
               "      connects to it. (Choose this for your first computer.)\n"
               "   2. A model helper — it only lends its model to a primary elsewhere.")
-        return "helper" if input("  1 or 2 [1]: ").strip() == "2" else "primary"
+        return "helper" if _input("  1 or 2 [1]: ").strip() == "2" else "primary"
 
     # -- the steps ---------------------------------------------------------------
 
@@ -154,7 +154,7 @@ class Installer:
               "   2. Delete and reinstall it — a fresh copy of the program; your settings\n"
               "      and your own data (~/.assistant_tools) are kept\n"
               "   3. Leave it as it is — change nothing")
-        got = input("  1, 2 or 3 [1]: ").strip()
+        got = _input("  1, 2 or 3 [1]: ").strip()
         return {"2": "reinstall", "3": "keep"}.get(got, "update")
 
     # -- 1. the code ---------------------------------------------------------------
@@ -338,11 +338,11 @@ class Installer:
                   f"   1. Applications ▸ MACalendar APPs (recommended)\n"
                   "   2. Your Desktop\n"
                   "   3. Another folder")
-            got = input("  1, 2 or 3 [1]: ").strip()
+            got = _input("  1, 2 or 3 [1]: ").strip()
             if got == "2":
                 self.apps_dir = Path.home() / "Desktop"
             elif got == "3":
-                typed = input("  Folder (it is created if missing): ").strip()
+                typed = _input("  Folder (it is created if missing): ").strip()
                 if typed:
                     self.apps_dir = Path(typed).expanduser()
             return
@@ -682,6 +682,16 @@ def stop_running_server(root: "Path | str" = "", name: str = INSTANCE) -> bool:
         return True
     except OSError:
         return False
+
+
+def _input(prompt: str) -> str:
+    """input(), but the end of input is an empty answer — the default — not
+    a crash (a closed terminal, or answers piped in that run out)."""
+    try:
+        return input(prompt)
+    except EOFError:
+        print()
+        return ""
 
 
 def _args_it_knows(argv: list, source: str) -> list:
