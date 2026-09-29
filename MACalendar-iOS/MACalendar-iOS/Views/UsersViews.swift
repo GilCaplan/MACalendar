@@ -348,18 +348,28 @@ struct AccountView: View {
 
                 if u.isAdmin {
                     Section {
-                        Toggle("Require sign-in everywhere", isOn: Binding(
+                        Toggle(isOn: Binding(
                             get: { model.requireLogin },
                             set: { v in
                                 model.requireLogin = v
                                 Task { await policy(["require_login": v]) }
-                            }))
-                        Toggle("Sign out after a while unused", isOn: Binding(
+                            })) {
+                            HStack(spacing: 6) {
+                                Text("Require sign-in everywhere")
+                                InfoTip("On: every phone, tablet and computer must sign in as someone before it shows anything. Off: a device nobody signed in on acts as the admin.")
+                            }
+                        }
+                        Toggle(isOn: Binding(
                             get: { model.autoDays != nil },
                             set: { v in
                                 model.autoDays = v ? 30 : nil
                                 Task { await policy(["auto_signout_days": v ? 30 : 0]) }
-                            }))
+                            })) {
+                            HStack(spacing: 6) {
+                                Text("Sign out after a while unused")
+                                InfoTip("A device signs out on its own once it has gone this many days without being used.")
+                            }
+                        }
                         if let d = model.autoDays {
                             Stepper("After \(d) day\(d == 1 ? "" : "s")", value: Binding(
                                 get: { model.autoDays ?? 30 },
@@ -483,6 +493,7 @@ struct PersonView: View {
                 Section {
                     HStack {
                         Text("They can")
+                        InfoTip("Not shared: they see nothing of yours. View: your calendar and to-dos appear in theirs, read-only. Edit: they can also add to them and change them.")
                         Spacer()
                         ShareLevelPicker(level: Binding(
                             get: { model.sharesOut[personID] ?? "none" },

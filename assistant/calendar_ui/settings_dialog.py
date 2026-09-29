@@ -390,6 +390,11 @@ def open_settings(self) -> None:
         _cb.setChecked(_d in _shown_days)
         week_day_boxes[_d] = _cb
         _days_row.addWidget(_cb)
+    from assistant.calendar_ui.info_tip import info_button as _info_button
+    _days_row.addWidget(_info_button(
+        "The days the Week view draws a column for — untick Saturday, say, to\n"
+        "give the other days more room. Month and Day are unaffected. Nothing\n"
+        "ticked shows all seven."))
     _days_row.addStretch(1)
     appearance_form.addRow("Days in Week:", _days_row)
 
@@ -410,11 +415,15 @@ def open_settings(self) -> None:
     week_numbers_cb = QCheckBox("Show week numbers in Month")
     week_numbers_cb.setObjectName("show_week_numbers")
     week_numbers_cb.setChecked(bool(getattr(_ui, "show_week_numbers", True)))
+    week_numbers_cb.setToolTip("A narrow column at the left of Month with each row's ISO week\n"
+                               "number (ISO weeks run Monday to Sunday).")
     appearance_form.addRow("", week_numbers_cb)
     appearance.addLayout(appearance_form)
 
     compact_cb = QCheckBox("Compact layout density")
     compact_cb.setChecked(self._config.ui.compact_ui)
+    compact_cb.setToolTip("Tighter spacing on these Settings pages. The calendar views\n"
+                          "themselves are sized by Font sizes and Hour rows.")
     appearance.addWidget(compact_cb)
 
     def update_style(compact: bool):
@@ -484,6 +493,9 @@ def open_settings(self) -> None:
     hebrew_holidays_cb.setChecked(self._config.hebrew_calendar.show_holidays)
     hebrew.addWidget(hebrew_holidays_cb)
     hebrew_israel_cb = QCheckBox("Israel holiday schedule (uncheck for Diaspora)")
+    hebrew_israel_cb.setToolTip("Israel keeps one day of each yom tov; outside Israel the\n"
+                                "second day is kept too. This decides which days are marked\n"
+                                "and kept free.")
     hebrew_israel_cb.setChecked(self._config.hebrew_calendar.israel_holidays)
     hebrew.addWidget(hebrew_israel_cb)
     shabbat_lines_cb = QCheckBox("Mark when Shabbat && yom tov begin and end")
@@ -926,6 +938,9 @@ def open_settings(self) -> None:
     voice.addLayout(voice_form)
 
     review_cb = QCheckBox("Ask before sending (Redo / Add more / Send)")
+    review_cb.setToolTip("When you stop talking, what was heard waits a few seconds with\n"
+                         "Redo / Add more / Send before it goes — and sends by itself when\n"
+                         "the time runs out. Off: it is sent the moment you stop.")
     review_cb.setChecked(getattr(self._config.audio, "review_before_send", True))
     voice.addWidget(review_cb)
 
@@ -974,6 +989,9 @@ def open_settings(self) -> None:
     assistant_on_cb = QCheckBox("Assistant on — voice and typed commands")
     assistant_on_cb.setObjectName("assistant_on")
     assistant_on_cb.setChecked(bool(getattr(getattr(self._config, "engine", None), "enabled", True)))
+    assistant_on_cb.setToolTip("Off: nothing you say or type is acted on — here or on your\n"
+                               "phone — until it is switched back on. The mics are shut; the\n"
+                               "calendar and to-dos work as usual.")
     assistant.addWidget(assistant_on_cb)
     assistant.addWidget(hint("Off: nothing you say or type is acted on, here or on your phone, "
                              "until you switch it back on. Your calendar and to-dos work as usual."))
@@ -990,6 +1008,10 @@ def open_settings(self) -> None:
     assistant.addWidget(auto_cb)
 
     thinking_cb = QCheckBox("Show assistant thinking (floating step-by-step HUD)")
+    thinking_cb.setToolTip("A small card that floats over any app and shows each step the\n"
+                           "assistant takes on a command — from this Mac or your phone — and\n"
+                           "keeps a History of them. Show it again from the calendar icon in\n"
+                           "the menu bar.")
     thinking_cb.setToolTip(
         "A timeline of what the assistant heard, parsed and did.\n"
         "It is its own always-on-top window, so it shows commands you gave\n"
@@ -1116,6 +1138,11 @@ def open_settings(self) -> None:
         dialog, port=getattr(getattr(self._config, "api", None), "port", 8080)))
 
     _build_sidebar()
+    # ⓘ beside every setting that explains itself (Gil, 2026-09-29: "add info
+    # tooltip for non trivial features") — the text is each control's own
+    # tooltip, so the two can never disagree.
+    from assistant.calendar_ui.info_tip import attach as _attach_info
+    _attach_info(pages)
     # Test & Save
     btn_layout = QHBoxLayout()
     test_btn = QPushButton("Test Audio")

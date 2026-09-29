@@ -457,7 +457,12 @@ struct SettingsView: View {
                                     Task { await api.patchShared(
                                         ["hebrew_calendar": ["show_holidays": v]]) }
                                 }
-                            Toggle("Israel holiday schedule", isOn: $settings.israelHolidays)
+                            Toggle(isOn: $settings.israelHolidays) {
+                                HStack(spacing: 6) {
+                                    Text("Israel holiday schedule")
+                                    InfoTip("Israel keeps one day of each yom tov; outside Israel the second day is kept too. This decides which days are marked and kept free.")
+                                }
+                            }
                                 .onChange(of: settings.israelHolidays) { v in
                                     Task { await api.patchShared(
                                         ["hebrew_calendar": ["israel_holidays": v]]) }
@@ -470,7 +475,12 @@ struct SettingsView: View {
 
                             Divider().padding(.vertical, 2)
 
-                            Toggle("Mark when Shabbat & yom tov begin and end", isOn: $settings.showShabbatTimes)
+                            Toggle(isOn: $settings.showShabbatTimes) {
+                                HStack(spacing: 6) {
+                                    Text("Mark when Shabbat & yom tov begin and end")
+                                    InfoTip("Lines on the Day and Week views at the exact minute of candle lighting and of nightfall, worked out for where you are.")
+                                }
+                            }
                                 .onChange(of: settings.showShabbatTimes) { v in
                                     Task { await api.patchShared(
                                         ["hebrew_calendar": ["show_shabbat_times": v]]) }
@@ -483,7 +493,12 @@ struct SettingsView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
 
-                            Toggle("Sundown follows this device", isOn: $settings.followMyLocation)
+                            Toggle(isOn: $settings.followMyLocation) {
+                                HStack(spacing: 6) {
+                                    Text("Sundown follows this device")
+                                    InfoTip("When you travel, candle lighting and nightfall are worked out for this phone's location, so series skip Shabbat at the right hour. Off: for the place set on your Mac. Your position stays on your own devices.")
+                                }
+                            }
                                 .onChange(of: settings.followMyLocation) { on in
                                     if on {
                                         DeviceLocation.shared.refresh(using: api, force: true)
@@ -516,8 +531,12 @@ struct SettingsView: View {
                             // per-day "keep engine events off" switch.
                             Divider().padding(.vertical, 2)
 
-                            Toggle("Keep engine-made events off Shabbat & yom tov",
-                                   isOn: $settings.observanceEnabled)
+                            Toggle(isOn: $settings.observanceEnabled) {
+                                HStack(spacing: 6) {
+                                    Text("Keep engine-made events off Shabbat & yom tov")
+                                    InfoTip("For what the assistant books by voice (never your own edits): on a day kept off, a repeating series skips it and a one-off is still added, with a note. Shabbat and yom tov are kept off by default; chol hamoed and ordinary days are not. Switch off to turn all of it off.")
+                                }
+                            }
                                 .onChange(of: settings.observanceEnabled) { v in
                                     Task { await api.patchShared(
                                         ["observance": ["enabled": v]]) }
@@ -541,6 +560,7 @@ struct SettingsView: View {
                                     in: EventDefaults.minLength...EventDefaults.maxMinutes, step: 5) {
                                 HStack {
                                     Label("Default length", systemImage: "hourglass")
+                                    InfoTip("An event said with no end lasts this long. A category can set its own (Event colours & categories).")
                                     Spacer()
                                     Text("\(settings.eventLengthMinutes) min")
                                         .foregroundColor(.secondary)
@@ -554,6 +574,7 @@ struct SettingsView: View {
                                     in: 0...EventDefaults.maxMinutes, step: 5) {
                                 HStack {
                                     Label("Gap between chained events", systemImage: "arrow.right.to.line")
+                                    InfoTip("In “gym at 9, then lunch”, lunch starts this long after the gym ends.")
                                     Spacer()
                                     Text("\(settings.chainGapMinutes) min")
                                         .foregroundColor(.secondary)
@@ -571,8 +592,11 @@ struct SettingsView: View {
                             // with no end said stops after a default, per
                             // cadence. Shared with the Mac (`events.series_end_*`).
                             Divider()
-                            Label("A repeating event with no end stops after",
-                                  systemImage: "repeat")
+                            HStack(spacing: 6) {
+                                Label("A repeating event with no end stops after",
+                                      systemImage: "repeat")
+                                InfoTip("A series you say without an end gets one, so it can't run forever. Saying an end (“until June”) always wins, and the reply tells you which end it used.")
+                            }
                             ForEach(SeriesEnd.allCases) { cadence in
                                 seriesEndStepper(cadence)
                             }
@@ -649,7 +673,7 @@ struct SettingsView: View {
 
                             Divider()
 
-                            Toggle("Quiet on Shabbat & chagim", isOn: Binding(
+                            Toggle(isOn: Binding(
                                 get: { notifConfig?.respectObservance ?? true },
                                 set: { on in
                                     notifConfig?.respectObservance = on
@@ -657,7 +681,9 @@ struct SettingsView: View {
                                         await api.patchNotifications(["respect_observance": on])
                                         await api.refreshDigests()
                                     }
-                                }))
+                                })) {
+                                Text("Quiet on Shabbat & chagim")
+                            }
                                 .disabled(notifConfig == nil)
                             Text("Holds the panel through Shabbat and yom tov, candle lighting to nightfall — computed on your Mac, never by the clock date alone.")
                                 .font(.caption).foregroundColor(.secondary)
@@ -1123,6 +1149,48 @@ private struct SettingsPage<Content: View>: View {
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// The ⓘ beside a setting whose effect is not obvious from its name (Gil,
+/// 2026-09-29: "add info tooltip for non trivial features") — a small
+/// popover on iOS 16.4+, an alert before. The Mac's calendar_ui/info_tip.py
+/// is the same idea, and its texts say the same things.
+struct InfoTip: View {
+    let text: String
+    @State private var shown = false
+
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Button { shown = true } label: {
+            Image(systemName: "info.circle").foregroundColor(.secondary)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel("More about this setting")
+        .modifier(InfoTipPresenter(text: text, shown: $shown))
+    }
+}
+
+private struct InfoTipPresenter: ViewModifier {
+    let text: String
+    @Binding var shown: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 16.4, *) {
+            content.popover(isPresented: $shown) {
+                Text(text)
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding()
+                    .frame(maxWidth: 320)
+                    .presentationCompactAdaptation(.popover)
+            }
+        } else {
+            content.alert("About this setting", isPresented: $shown) {
+                Button("OK", role: .cancel) {}
+            } message: { Text(text) }
+        }
     }
 }
 

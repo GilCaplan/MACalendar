@@ -247,3 +247,19 @@ def test_a_users_page_shares_groups_and_signs_out(people):
     assert win.calendar_refreshes >= 1
     _click(panel.sign_out_btn)
     assert win._user_chip.signed_out == 1
+
+
+def test_the_non_obvious_controls_have_an_info_button(people):
+    """Gil, 2026-09-29: "add info tooltip for non trivial features". The ⓘ
+    says what the control's own tooltip says — including after the person
+    cards are rebuilt by a change."""
+    from PyQt6.QtWidgets import QToolButton
+    win, panel = _open(people["gil"])
+
+    def texts():
+        return {t.toolTip() for t in panel.findChildren(QToolButton, "info_tip")}
+    card = panel.cards[people["dana"]]
+    for w in (card.share_box, card.show_box, card.vocab_box, panel.require_box, panel.auto_box):
+        assert w.toolTip() and w.toolTip() in texts(), w.objectName() or w.text()
+    _pick(card.share_box, 1)                                     # a change rebuilds the cards
+    assert panel.cards[people["dana"]].share_box.toolTip() in texts()

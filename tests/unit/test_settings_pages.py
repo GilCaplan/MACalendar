@@ -235,3 +235,58 @@ def test_every_checkbox_on_every_page_can_be_clicked(app, monkeypatch):
     if failures:
         raise failures[0]
     assert not raised, f"a click raised: {raised[0]!r}"
+
+
+def test_every_explained_setting_has_an_info_button_saying_the_same(app):
+    """Gil, 2026-09-29: "add info tooltip for non trivial features". Every
+    control with an explanation gets an ⓘ beside it, and the ⓘ says exactly
+    what the control's own tooltip says — one text, two ways to reach it."""
+    from PyQt6.QtWidgets import QCheckBox, QComboBox
+    failures = []
+
+    def interact(dlg):
+        tips = dlg.findChildren(QToolButton, "info_tip")
+        assert len(tips) >= 12, f"only {len(tips)} ⓘ"
+        texts = {t.toolTip() for t in tips}
+        for name in ("hours_from", "hour_height", "show_week_numbers", "assistant_on",
+                     "shabbat_lines_cb", "observance_enabled_cb", "notif_observance_cb"):
+            w = dlg.findChild(QWidget, name)
+            assert w is not None, name
+            assert w.toolTip() in texts, f"{name} has no ⓘ with its text"
+        # clicking one shows its text without raising
+        QTest.mouseClick(tips[0], Qt.MouseButton.LeftButton)
+        QApplication.processEvents()
+    _drive(interact, failures)
+    open_settings(_Window())
+    if failures:
+        raise failures[0]
+
+
+def test_attach_is_idempotent_and_one_per_row(app):
+    from PyQt6.QtWidgets import QComboBox, QHBoxLayout
+    from assistant.calendar_ui.info_tip import attach
+    root = QWidget()
+    row = QHBoxLayout(root)
+    a, b = QComboBox(), QComboBox()
+    a.setToolTip("same"); b.setToolTip("same")
+    row.addWidget(a); row.addWidget(b)
+    assert attach(root) == 1, "a from…to pair gets one ⓘ"
+    assert attach(root) == 0, "a second pass adds nothing"
+
+
+def test_the_phone_explains_shared_settings_in_the_same_words():
+    """The same setting, explained the same way on both apps (the Mac's
+    tooltips, the phone's InfoTip)."""
+    import re
+    root = pathlib.Path(__file__).resolve().parents[2]
+    norm = lambda t: re.sub(r'\\n"\s*"|\s+', " ", t)
+    mac = norm((root / "assistant/calendar_ui/settings_dialog.py").read_text()
+               + (root / "assistant/calendar_ui/account_panel.py").read_text())
+    ios = norm((root / "MACalendar-iOS/MACalendar-iOS/Views/SettingsView.swift").read_text()
+               + (root / "MACalendar-iOS/MACalendar-iOS/Views/UsersViews.swift").read_text())
+    for sentence in ("Not shared: they see nothing of yours.",
+                     "Off: a device nobody signed in on acts as the admin.",
+                     "Israel keeps one day of each yom tov; outside Israel the",
+                     "For what the assistant books by voice (never your own edits):"):
+        assert sentence in mac, f"Mac: {sentence}"
+        assert sentence in ios, f"phone: {sentence}"

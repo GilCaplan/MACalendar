@@ -114,6 +114,10 @@ class _PersonCard(QFrame):
         self.share_box.addItems(["Not shared", "View", "Edit"])
         self.share_box.setCurrentIndex(_LEVELS.index(registry.share_level(me, uid)))
         self.share_box.currentIndexChanged.connect(lambda i: self._share(_LEVELS[i]))
+        self.share_box.setToolTip(
+            "Not shared: they see nothing of yours.\n"
+            "View: your calendar and to-dos appear in theirs, read-only.\n"
+            "Edit: they can also add to them and change them.")
         row.addWidget(self.share_box)
         lay.addLayout(row)
 
@@ -122,11 +126,18 @@ class _PersonCard(QFrame):
             self.show_box = QCheckBox("Show their calendar && to-dos in mine")
             self.show_box.setChecked(registry.admin_shows(me, uid))
             self.show_box.toggled.connect(lambda on: self._show(on))
+            self.show_box.setToolTip(
+                "Whether their calendar and to-dos appear in yours. Left alone,\n"
+                "it follows whether they share with you; ticking or unticking it\n"
+                "decides for good.")
             row.addWidget(self.show_box)
             row.addSpacing(18)
             self.vocab_box = QCheckBox("Share my vocabulary")
             self.vocab_box.setChecked(uid in registry.load().get("vocab_shares", {}).get(me, []))
             self.vocab_box.toggled.connect(lambda on: self._vocab(on))
+            self.vocab_box.setToolTip(
+                "Lets the assistant use the names and words you have taught it\n"
+                "when it listens to them too, so they are heard the same way.")
             row.addWidget(self.vocab_box)
             row.addStretch(1)
             lay.addLayout(row)
@@ -266,6 +277,7 @@ class AccountPanel(FeaturePanel):
             self._build(col, me)
         col.addStretch(1)
         self._scroll.setWidget(page)
+        self._attach_info()
 
     def apply_theme(self, dark: bool) -> None:
         self._dark = dark
@@ -342,11 +354,17 @@ class AccountPanel(FeaturePanel):
             self.require_box.setChecked(bool(policy.get("require_login")))
             self.require_box.toggled.connect(
                 lambda on: (registry.set_policy(require_login=bool(on)), self._changed()))
+            self.require_box.setToolTip(
+                "On: every phone, tablet and computer must sign in as someone\n"
+                "before it shows anything. Off: a device nobody signed in on\n"
+                "acts as the admin.")
             col.addWidget(self.require_box)
             row = QHBoxLayout()
             row.addWidget(QLabel("Auto sign-out:"))
             self.auto_box = QComboBox()
             self.auto_box.addItems(["Off — only when signed out", "After"])
+            self.auto_box.setToolTip("Sign a device out on its own once it has gone this many\n"
+                                     "days without being used.")
             self.auto_days = QSpinBox()
             self.auto_days.setRange(1, 3650)
             self.auto_days.setSuffix(" days unused")
@@ -395,6 +413,12 @@ class AccountPanel(FeaturePanel):
             card = _PersonCard(self, uid)
             self.cards[uid] = card
             self._people_lay.addWidget(card)
+        self._attach_info()
+
+    def _attach_info(self) -> None:
+        """ⓘ beside every control that explains itself (Gil, 2026-09-29)."""
+        from assistant.calendar_ui.info_tip import attach
+        attach(self)
 
     # -- pieces ---------------------------------------------------------------
 
