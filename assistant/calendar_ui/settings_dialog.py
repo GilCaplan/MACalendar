@@ -18,7 +18,7 @@ import os
 import re
 import subprocess
 
-from PyQt6.QtCore import QDate, QSettings, Qt
+from PyQt6.QtCore import QDate, QSettings, QSize, Qt
 from PyQt6.QtGui import QColor, QPainter, QPixmap
 from PyQt6.QtWidgets import (
     QAbstractItemView, QCheckBox, QColorDialog, QComboBox, QDateEdit, QDialog, QFormLayout, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSpinBox, QToolButton, QVBoxLayout, QWidget,
@@ -59,6 +59,48 @@ def _ui_state() -> QSettings:
     return QSettings("MACalendar", "CalendarUI")
 
 
+#: The phone's grouping (MACalendar-iOS Views/SettingsView.swift), so the two
+#: Settings screens read alike. A section missing here lands under "More".
+_SECTION_GROUPS = (
+    ("Calendar", ("Appearance", "Events", "Hebrew Calendar", "Connected Calendars")),
+    ("Notifications & tabs", ("Notifications", "Tabs")),
+    ("Assistant", ("Assistant", "Voice")),
+    ("Connection", ("Server",)),
+)
+_SECTION_LABELS = {"Hebrew Calendar": "Hebrew & Shabbat",
+                   "Connected Calendars": "Connected calendars"}
+#: The coloured tile before each row, as the phone's SettingsIcon draws them.
+_SECTION_TILES = {
+    "Appearance": ("#0a84ff", "◐"), "Events": ("#ff453a", "▦"),
+    "Hebrew Calendar": ("#5e5ce6", "☾"), "Connected Calendars": ("#0a84ff", "⇄"),
+    "Notifications": ("#ff453a", "!"), "Tabs": ("#8e8e93", "▤"),
+    "Assistant": ("#bf5af2", "✦"), "Voice": ("#bf5af2", "∿"),
+    "Server": ("#8e8e93", "▣"),
+}
+
+
+def _tile_icon(color: str, glyph: str):
+    """A rounded square in `color` with `glyph` in white — the phone's tile."""
+    from PyQt6.QtCore import QRectF
+    from PyQt6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap
+    pm = QPixmap(44, 44)
+    pm.setDevicePixelRatio(2.0)
+    pm.fill(Qt.GlobalColor.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(QColor(color))
+    p.drawRoundedRect(QRectF(0, 0, 22, 22), 5.5, 5.5)
+    f = QFont()
+    f.setPixelSize(14)
+    f.setBold(True)
+    p.setFont(f)
+    p.setPen(QColor("#ffffff"))
+    p.drawText(QRectF(0, 0, 22, 22), int(Qt.AlignmentFlag.AlignCenter), glyph)
+    p.end()
+    return QIcon(pm)
+
+
 def open_settings(self) -> None:
     if not self._pipeline:
         return
@@ -66,100 +108,132 @@ def open_settings(self) -> None:
     from PyQt6.QtWidgets import QFormLayout, QFrame, QGroupBox, QScrollArea
 
     dialog = QDialog(self)
-    dialog.setWindowTitle("Assistant Settings")
-    dialog.setMinimumSize(520, 560)
-    dialog.resize(560, 720)
+    dialog.setWindowTitle("Settings")
+    dialog.setMinimumSize(780, 540)
+    dialog.resize(900, 680)
 
-    # Grouped into the same sections the iPhone's Settings screen uses
-    # (Appearance / Tabs / Hebrew Calendar / Voice / Assistant) and scrolled,
-    # with Test & Save pinned. It used to be one flat column of controls with
-    # stretches between them, which squeezed everything below "Hebrew
-    # Calendar" into overlapping slivers — the Font Sizes grid rendered at
-    # zero height and could not be reached at all.
+    # LIKE THE PHONE'S SETTINGS (Gil, 2026-09-29: "fix UI of settings on macos
+    # app to be like ios app UI of settings"): a sidebar of rows with coloured
+    # icon tiles, grouped as the phone groups them, and one page per row. It
+    # replaced a single scrolling column of folding sections (2026-09-17/18),
+    # whose list of names was the whole screen once everything was folded —
+    # the sidebar keeps that list on screen AND shows the page beside it.
+    # Test & Save stay pinned under both.
+    from PyQt6.QtWidgets import QButtonGroup, QStackedWidget
     outer = QVBoxLayout(dialog)
     outer.setContentsMargins(0, 0, 0, 0)
     outer.setSpacing(0)
-    scroll = QScrollArea()
-    scroll.setWidgetResizable(True)
-    scroll.setFrameShape(QFrame.Shape.NoFrame)
-    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-    content = QWidget()
-    scroll.setWidget(content)
-    outer.addWidget(scroll, 1)
+    body_row = QHBoxLayout()
+    body_row.setContentsMargins(0, 0, 0, 0)
+    body_row.setSpacing(0)
+    sidebar = QWidget()
+    sidebar.setObjectName("settings_sidebar")
+    sidebar.setFixedWidth(230)
+    side = QVBoxLayout(sidebar)
+    side.setContentsMargins(10, 14, 10, 14)
+    side.setSpacing(2)
+    pages = QStackedWidget()
+    pages.setObjectName("settings_pages")
+    body_row.addWidget(sidebar)
+    body_row.addWidget(pages, 1)
+    outer.addLayout(body_row, 1)
+    _dark = getattr(_styles, "_dark", True)
+    _surface = _styles.D_GRAY_LIGHT if _dark else _styles.GRAY_LIGHT
+    _border = _styles.D_GRAY_BORDER if _dark else _styles.GRAY_BORDER
+    sidebar.setStyleSheet(
+        f"QWidget#settings_sidebar {{ background: {_surface}; border-right: 1px solid {_border}; }}")
 
-    layout = QVBoxLayout(content)
-    layout.setContentsMargins(16, 16, 16, 16)
-    layout.setSpacing(14)
+    group = QButtonGroup(dialog)
+    group.setExclusive(True)
+    made: "list[tuple[str, QToolButton, QWidget]]" = []     # (title, row, page)
 
     def section(title: str) -> QVBoxLayout:
-        """One titled group that FOLDS AWAY; returns the layout for its controls.
+        """One page and its sidebar row; returns the layout for its controls.
 
-        Gil, 2026-09-17: *"perhaps add a minimize on each section starting to be
-        a lot of things there"*. Six sections had grown past one screenful, and
-        the dialog scrolls, so the ones you never touch push the ones you do out
-        of sight.
+        The row keeps the name the fold header had (`section_header_<title>`)
+        and is checked while its page shows, so everything that opened a
+        section by clicking its header still does. Which page was open last is
+        remembered in QSettings, per machine — window chrome, not a setting."""
+        key = title.lower().replace(" ", "_")
+        page = QScrollArea()
+        page.setWidgetResizable(True)
+        page.setFrameShape(QFrame.Shape.NoFrame)
+        page.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        holder = QWidget()
+        page.setWidget(holder)
+        col = QVBoxLayout(holder)
+        col.setContentsMargins(26, 22, 26, 22)
+        col.setSpacing(12)
+        heading = QLabel(_SECTION_LABELS.get(title, title))
+        heading.setStyleSheet("font-size: 22px; font-weight: 700; padding-bottom: 2px;")
+        col.addWidget(heading)
+        card = QFrame()
+        card.setObjectName("settings_card")
+        # A rounded group like the phone's, drawn by its border: its controls
+        # paint the page's own background, so a filled card would show a
+        # strip behind every label.
+        card.setStyleSheet(
+            f"QFrame#settings_card {{ border: 1px solid {_border}; border-radius: 12px; }}")
+        inner = QVBoxLayout(card)
+        inner.setContentsMargins(18, 14, 18, 14)
+        inner.setSpacing(10)
+        col.addWidget(card)
+        col.addStretch(1)
+        pages.addWidget(page)
 
-        Collapsing is on the header, not on `QGroupBox.setCheckable` — a
-        checkbox beside a section title reads as "switch this whole section
-        off", which is a different and alarming promise. An arrow that turns
-        says only what it does.
+        row = QToolButton()
+        row.setObjectName(f"section_header_{key}")
+        # "&&": a single & is Qt's shortcut marker ("Hebrew _Shabbat")
+        row.setText("  " + _SECTION_LABELS.get(title, title).replace("&", "&&"))
+        color, glyph = _SECTION_TILES.get(title, ("#8e8e93", "•"))
+        row.setIcon(_tile_icon(color, glyph))
+        row.setIconSize(QSize(22, 22))
+        row.setCheckable(True)
+        row.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        row.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        row.setCursor(Qt.CursorShape.PointingHandCursor)
+        row.setAccessibleName(f"{title} section")
+        row.setStyleSheet(
+            "QToolButton { border: none; border-radius: 7px; padding: 5px 8px;"
+            " text-align: left; background: transparent; }"
+            f"QToolButton:hover {{ background: {'rgba(255,255,255,0.06)' if _dark else 'rgba(0,0,0,0.05)'}; }}"
+            f"QToolButton:checked {{ background: {_styles.get_accent()}33; font-weight: 600; }}")
+        group.addButton(row)
 
-        Which sections are folded is remembered in `QSettings`, per machine:
-        it is window chrome, not a preference about the calendar, so it has no
-        business in `config.yaml` (which the phone also reads) or in
-        `~/.assistant_tools` (which holds personal data).
-        """
-        box = QGroupBox()
-        box.setObjectName("collapsible_section")
-        outer = QVBoxLayout(box)
-        outer.setContentsMargins(14, 8, 14, 8)
-        outer.setSpacing(6)
-
-        key = f"settings/section_open/{title}"
-        # FOLDED by default (Gil, 2026-09-18: "Default is minimized please"),
-        # matching the phone. Both screens shipped opening every section, which
-        # undid most of the point: what is hard to find on a long settings
-        # screen is a section's NAME, and six open bodies push five of the six
-        # names off it. Folded, the list of names IS the screen.
-        #
-        # Only sections nobody has touched change — `QSettings` holds a value
-        # for a section only once it has been folded or opened by hand, so a
-        # deliberate choice survives this.
-        open_ = _ui_state().value(key, False, type=bool)
-
-        header = QToolButton()
-        header.setObjectName(f"section_header_{title.lower().replace(' ', '_')}")
-        header.setText(title)
-        header.setCheckable(True)
-        header.setChecked(open_)
-        header.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        header.setArrowType(Qt.ArrowType.DownArrow if open_ else Qt.ArrowType.RightArrow)
-        header.setCursor(Qt.CursorShape.PointingHandCursor)
-        header.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        header.setStyleSheet(
-            "QToolButton { border: none; background: transparent; font-weight: 600;"
-            " padding: 4px 0; text-align: left; }")
-        header.setAccessibleName(f"{title} section")
-        outer.addWidget(header)
-
-        body = QWidget()
-        inner = QVBoxLayout(body)
-        inner.setContentsMargins(0, 4, 0, 4)
-        inner.setSpacing(8)
-        body.setVisible(open_)
-        outer.addWidget(body)
-
-        def _toggled(on: bool, _b=body, _h=header, _k=key) -> None:
-            _b.setVisible(on)
-            _h.setArrowType(Qt.ArrowType.DownArrow if on else Qt.ArrowType.RightArrow)
-            _ui_state().setValue(_k, on)
-            # Without this the dialog keeps the height it had when everything
-            # was open, leaving a folded section sitting above empty space.
-            self.adjustSize()
-
-        header.toggled.connect(_toggled)
-        layout.addWidget(box)
+        def _show(on: bool, _p=page, _k=key) -> None:
+            if on:
+                pages.setCurrentWidget(_p)
+                _ui_state().setValue("settings/page", _k)
+        row.toggled.connect(_show)
+        made.append((title, row, page))
         return inner
+
+    def _build_sidebar() -> None:
+        """The rows, in the phone's groups, once every section exists."""
+        placed = set()
+        for heading, titles in _SECTION_GROUPS:
+            present = [m for t in titles for m in made if m[0] == t]
+            if not present:
+                continue
+            h = QLabel(heading.upper())
+            h.setStyleSheet(f"color: {'#8a8a90' if _dark else '#6e6e73'}; font-size: 11px;"
+                            " font-weight: 600; padding: 12px 8px 4px 8px; background: transparent;")
+            side.addWidget(h)
+            for title, row, _page in present:
+                side.addWidget(row)
+                placed.add(title)
+        rest = [m for m in made if m[0] not in placed]
+        if rest:
+            h = QLabel("MORE")
+            h.setStyleSheet(f"color: {'#8a8a90' if _dark else '#6e6e73'}; font-size: 11px;"
+                            " font-weight: 600; padding: 12px 8px 4px 8px; background: transparent;")
+            side.addWidget(h)
+            for _t, row, _p in rest:
+                side.addWidget(row)
+        side.addStretch(1)
+        last = _ui_state().value("settings/page", "", type=str)
+        first = next((r for t, r, _ in made if t.lower().replace(" ", "_") == last), None)
+        (first or made[0][1]).setChecked(True)
 
     def _apply(obj, field: str, value) -> None:
         """Set a config field in memory, skipping one this object does not have.
@@ -984,7 +1058,7 @@ def open_settings(self) -> None:
     server.addWidget(ServersPanel(
         dialog, port=getattr(getattr(self._config, "api", None), "port", 8080)))
 
-    layout.addStretch(1)
+    _build_sidebar()
     # Test & Save
     btn_layout = QHBoxLayout()
     test_btn = QPushButton("Test Audio")

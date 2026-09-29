@@ -1,3 +1,24 @@
+- **2026-09-29 — Q72 (ONE MENU-BAR ICON; SHOWN HOURS; AN ASSISTANT OFF
+  SWITCH; SETTINGS LIKE THE PHONE'S)**, Gil, from screenshots:
+  1. *"there are two icons should be consolidated"* — MACalendar Server's
+     calendar icon is the one menu (Open calendar, Show thinking card, Open
+     Jude, pairing, Servers & logs, role, Open at login); the HUD's ✦ hides
+     while that menu's heartbeat is fresh and comes back if it quits. The
+     calendar's launcher starts MACalendar Server, so the icon is there
+     whenever the calendar is.
+  2. *"allow user … to control from what hour to what hour shows"* — Settings
+     ▸ Appearance ▸ Show hours: Week and Day FIT those hours to the window and
+     open at the first; the rest are a scroll away, never removed (an event at
+     5 AM must not vanish because of a display preference).
+  3. *"an option to turn assistant i.e engine off so it can't be used"* —
+     `engine.enabled`, on the Mac and the phone: off, every command route
+     answers 503 and the mics are shut; the calendar works as usual.
+  4. *"fix UI of settings on macos app to be like ios app UI of settings"* —
+     a sidebar of tiled rows in the phone's groups (Calendar · Notifications &
+     tabs · Assistant · Connection), one page each. This REPLACES the folding
+     sections (2026-09-17/18, "Default is minimized"): the sidebar keeps every
+     name on screen, which is what folding was for.
+
 - **2026-09-29 — Q71 (THE INSTALLER ASKS, DETECTS AND TIDIES UP)**, Gil:
   *"does the installation also offer user to pick where to store application
   icons … perhaps have it auto detect what os … tells user or auto deletes the
