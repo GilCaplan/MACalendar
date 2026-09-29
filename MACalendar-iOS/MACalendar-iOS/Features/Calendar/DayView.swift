@@ -15,13 +15,17 @@ struct DayView: View {
     @State private var now: Date = Date()
     private let timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
-    /// Fits Settings ▸ Appearance ▸ Show hours to the measured screen.
+    /// Settings ▸ Appearance ▸ Show hours: only these hours are drawn,
+    /// widened for an event outside them today (CalendarPrefs.shownSpan).
     @State private var viewportH: CGFloat = 0
-    private var hourHeight: CGFloat {
-        CalendarPrefs.hourHeight(viewport: viewportH, from: settings.hoursFrom, to: settings.hoursTo,
-                                 minH: 40, maxH: 80, fallback: 56)
+    private var span: (Int, Int) {
+        CalendarPrefs.shownSpan(from: settings.hoursFrom, to: settings.hoursTo,
+                                times: events.map { ($0.startTime, $0.endTime) })
     }
-    private var startHour: Int { CalendarPrefs.firstHour(from: settings.hoursFrom, to: settings.hoursTo) }
+    private var hourHeight: CGFloat {
+        CalendarPrefs.hourHeight(viewport: viewportH - 8, from: span.0, to: span.1,
+                                 minH: 24, maxH: 110, fallback: 56)
+    }
 
     private var dateStr: String { ISO8601DateFormatter.yyyyMMdd.string(from: date) }
 
@@ -71,6 +75,7 @@ struct DayView: View {
     private var dayTimeline: some View {
         ScrollViewReader { proxy in
             ScrollView {
+                Color.clear.frame(height: 0).id("top")
                 ZStack(alignment: .topLeading) {
                     // Shabbat / yom tov wash, under everything else. Offset
                     // past the hour labels so only the event area is tinted.
@@ -94,7 +99,6 @@ struct DayView: View {
                                     .padding(.top, 8)
                             }
                             .frame(height: hourHeight)
-                            .id(hour)
                         }
                     }
 
@@ -145,6 +149,11 @@ struct DayView: View {
                             .offset(x: 49, y: nowY - 1)
                     }
                 }
+                // the 24-hour canvas, seen through a window on the shown hours
+                .frame(height: hourHeight * 24, alignment: .top)
+                .offset(y: -CGFloat(span.0) * hourHeight)
+                .frame(height: CGFloat(span.1 - span.0) * hourHeight, alignment: .top)
+                .clipped()
                 .padding(.top, 8)
                 .contentShape(Rectangle())
                 .onTapGesture { popped = nil }
@@ -154,10 +163,9 @@ struct DayView: View {
                     .onAppear { viewportH = g.size.height }
                     .onChange(of: g.size.height) { h in viewportH = h }
             })
-            .onChange(of: viewportH) { _ in proxy.scrollTo(startHour, anchor: .top) }
-            .onChange(of: settings.hoursFrom) { _ in proxy.scrollTo(startHour, anchor: .top) }
+            .onChange(of: settings.hoursFrom) { _ in proxy.scrollTo("top", anchor: .top) }
             .onAppear {
-                proxy.scrollTo(startHour, anchor: .top)
+                proxy.scrollTo("top", anchor: .top)
                 load()
             }
             .onChange(of: date) { _ in
@@ -173,7 +181,7 @@ struct DayView: View {
                         .filter { $0.overlaps(day: date) }
                     : []
                 popped = nil
-                proxy.scrollTo(startHour, anchor: .top)
+                proxy.scrollTo("top", anchor: .top)
                 load()
             }
         }

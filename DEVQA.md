@@ -65,6 +65,16 @@
      ▸ Appearance ▸ Show hours: Week and Day FIT those hours to the window and
      open at the first; the rest are a scroll away, never removed (an event at
      5 AM must not vanish because of a display preference).
+     **AMENDED the same day** — Gil: *"The show 7am to midnight doesn't work
+     well enough"*. Looked at on both apps: the night was still there to
+     scroll into, a sliver of 6 AM showed above 7 AM (whole-pixel rows), a
+     5:30 AM event sat invisible above the top, and on the iPhone the rows hit
+     their 30 pt floor so 11 PM was below the fold. Now Week and Day DRAW only
+     the chosen hours — the first at the top edge, the last at the bottom,
+     filling the window — and the reason for the first design is kept a
+     different way: an event outside the hours WIDENS them for that week or
+     day (`visible_hours.widen` / `CalendarPrefs.shownSpan`, held equal by a
+     test). The phone's row floor is 24 pt, so 17 hours fit an iPhone screen.
   3. *"an option to turn assistant i.e engine off so it can't be used"* —
      `engine.enabled`, on the Mac and the phone: off, every command route
      answers 503 and the mics are shut; the calendar works as usual.

@@ -1,6 +1,8 @@
-"""Settings ▸ Appearance ▸ Show hours (Gil, 2026-09-29): Week and Day fit the
-chosen hours to the window and open at the first; the rest stay a scroll away
-— nothing is hidden."""
+"""Settings ▸ Appearance ▸ Show hours (Gil, 2026-09-29): Week and Day SHOW
+only the chosen hours — the first at the top edge, the last at the bottom,
+filling the window — and widen them for an event outside, which must never
+be hidden. The first build left the night a scroll away; Gil: "doesn't work
+well enough"."""
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -52,9 +54,80 @@ def qapp_offscreen():
     return QApplication.instance() or QApplication([])
 
 
-def test_the_week_opens_at_the_first_hour_and_keeps_the_rest(week, qapp_offscreen):
+def _settle(app):
+    from PyQt6.QtCore import QCoreApplication, QEvent
+    for _ in range(5):
+        app.processEvents()
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+
+
+def _shown(view):
+    """(top hour, bottom hour) actually on screen."""
+    bar, h = view._scroll.verticalScrollBar(), view._hour_height
+    top = view._window.first + bar.value() / h
+    return top, top + min(view._scroll.viewport().height(), view._window.height()) / h
+
+
+def test_the_week_shows_the_chosen_hours_and_nothing_else(week, qapp_offscreen):
     week.set_visible_hours(7, 24)
-    qapp_offscreen.processEvents()
+    _settle(qapp_offscreen)
+    top, bottom = _shown(week)
+    assert top == 7, "no sliver of 6 AM above the first hour"
+    assert 23.5 < bottom <= 24
+    assert week._scroll.verticalScrollBar().maximum() == 0, "nothing to scroll into"
+
+
+def test_an_event_outside_the_hours_widens_them(qapp_offscreen, tmp_path):
+    import datetime
+    from assistant.actions.calendar.intent import CalendarIntent
+    from assistant.calendar_ui.day_view import DayView
+    from assistant.calendar_ui.week_view import WeekView
+    from assistant.db import CalendarDB
+    db = CalendarDB(str(tmp_path / "c.db"))
+    today = datetime.date.today()
+    db.create_event(CalendarIntent(title="early run", date=today.isoformat(),
+                                   start_time="05:30", end_time="06:30"))
+    for cls in (WeekView, DayView):
+        v = cls(db)
+        v.resize(1200, 900)
+        v.show()
+        _settle(qapp_offscreen)
+        v.set_visible_hours(7, 24)
+        v.refresh()
+        _settle(qapp_offscreen)
+        assert v._span == (5, 24), cls.__name__
+        assert _shown(v)[0] == 5, f"{cls.__name__}: the 5:30 run is on screen"
+
+
+def test_a_short_window_scrolls_within_the_chosen_hours_only(week, qapp_offscreen):
+    week.resize(1200, 420)
+    _settle(qapp_offscreen)
+    week.set_visible_hours(7, 24)
+    _settle(qapp_offscreen)
     bar = week._scroll.verticalScrollBar()
-    assert bar.value() == min(week._hour_height * 7, bar.maximum())
-    assert week._time_col.height() == week._hour_height * 24, "midnight–7 AM still there"
+    bar.setValue(bar.minimum())
+    assert _shown(week)[0] == 7, "scrolling up stops at the first chosen hour"
+    bar.setValue(bar.maximum())
+    assert _shown(week)[1] <= 24
+
+
+def test_the_whole_day_still_opens_at_8(week, qapp_offscreen):
+    week.set_visible_hours(0, 24)
+    _settle(qapp_offscreen)
+    assert week._span == (0, 24)
+
+
+@pytest.mark.parametrize("events,want", [
+    ([], (7, 24)),
+    ([{"start_time": "05:30", "end_time": "06:30"}], (5, 24)),
+    ([{"start_time": "22:00", "end_time": "01:00"}], (7, 24)),      # runs past midnight
+    ([{"start_time": "06:00", "end_time": None}], (6, 24)),
+    ([{"start_time": None}], (7, 24)),                                # all-day
+    ([{"start_time": "03:00", "end_time": "04:00", "all_day": 1}], (7, 24)),
+])
+def test_widen(events, want):
+    assert vh.widen(7, 24, events) == want
+
+
+def test_widen_grows_the_end_too():
+    assert vh.widen(7, 20, [{"start_time": "21:00", "end_time": "22:30"}]) == (7, 23)

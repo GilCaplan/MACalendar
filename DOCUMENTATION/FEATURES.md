@@ -14,6 +14,27 @@ needs no knowledge of them), hybrid (coordinated frontend + backend), and
 purely backend (no client code beyond displaying the effects).
 
 
+## Show hours
+
+**What.** Settings ▸ Appearance ▸ Show hours (Mac and phone, each its own
+setting): Week and Day draw only those hours — "7 AM to midnight" puts 7 AM at
+the top edge and midnight at the bottom, filling the window, with nothing
+above or below to scroll into. An event outside the hours still shows: that
+week or day grows to include it (DEVQA Q72, amended).
+
+**Where.** `calendar_ui/visible_hours.py` (`span`, `fit`, `widen`,
+`HourWindow`), `week_view.py`, `day_view.py`; iOS `CalendarPrefs.shownSpan`
+/ `hourHeight` in `AppSettings.swift`, `WeekView.swift`, `DayView.swift`.
+
+**How.** The views still draw a 24-hour canvas measured from midnight; a
+window as tall as the shown hours holds it, shifted up by the first hour
+(`HourWindow` on the Mac, an offset + clipped frame in SwiftUI), so drawing,
+dragging and the now-line keep their coordinates. Rows fill the window down
+to a floor (Mac 22/24 px, phone 24 pt), below which the window scrolls — within
+the shown hours only. `tests/unit/test_view_prefs.py` holds the phone's
+`shownSpan` equal to the Mac's `widen`; `ShownHoursUITests` looks at the
+phone's screen.
+
 ## Days said by name
 
 **What.** "Dentist on 12 Adar at 3pm", "dinner on erev Pesach", "the day
@@ -230,6 +251,7 @@ built when it reaches the Mac.
 | iOS + API | [Offline reader on the phone](#offline-reader-on-the-phone) | Apple's on-device model reads a command while the Mac is away and books creates provisionally; the Mac re-reads and wins | `assistant/offline/`, `OfflineReader.swift` |
 | mac | [Command graph](#the-review-panel-thinking-hud--ios-timeline) | the HUD's Graph view: each ask → rules or model → what it became; hover follows a lane, click explains a node | `command_graph.py` |
 | hybrid | [LLM console](#the-llm-console) | the panel's third view: every model call, with its caller | `llm_bus.py`, `thinking_panel.py` |
+| UI | [Show hours](#show-hours) | Week and Day draw only the chosen hours (e.g. 7 AM–midnight), filling the window; an event outside widens them | `visible_hours.py`, `AppSettings.swift` |
 | assistant | [Days said by name](#days-said-by-name) | Hebrew dates, holidays, erev/motzei, Rosh Chodesh, Easter, Eid, "Dana's birthday" → the right day; a switch per family | `named_days.py`, `intent/pretag.py` |
 | hybrid | [Personal vocabulary](#personal-vocabulary) | user's words fix transcripts first | `stt/vocab.py` |
 | hybrid | [Command memory](#command-memory--feedback) | every command + verdicts, mined | `intent/memory.py` |

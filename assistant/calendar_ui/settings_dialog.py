@@ -366,9 +366,9 @@ def open_settings(self) -> None:
     _hours_row.addWidget(QLabel("to"))
     _hours_row.addWidget(hours_to_combo)
     _hours_row.addStretch(1)
-    hours_from_combo.setToolTip("Week and Day fit these hours to the window and open "
-                                "at the first one. Earlier and later hours are a "
-                                "scroll away — nothing is hidden.")
+    hours_from_combo.setToolTip("Week and Day show only these hours, filling the window.\n"
+                                "An event outside them still shows: that week or day\n"
+                                "grows to include it.")
     hours_to_combo.setToolTip(hours_from_combo.toolTip())
     appearance_form.addRow("Show hours:", _hours_row)
 

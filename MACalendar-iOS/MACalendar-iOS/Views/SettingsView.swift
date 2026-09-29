@@ -411,8 +411,8 @@ struct SettingsView: View {
                                     }
                                     .pickerStyle(.menu)
                                 }
-                                Text("Day and Week fit these hours to the screen and open at the first. "
-                                     + "Earlier and later hours are a scroll away — nothing is hidden.")
+                                Text("Day and Week show only these hours, filling the screen. "
+                                     + "An event outside them still shows — that week or day grows to include it.")
                                     .font(.caption).foregroundColor(.secondary)
                             }
 

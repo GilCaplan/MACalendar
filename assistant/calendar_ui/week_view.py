@@ -699,7 +699,11 @@ class WeekView(QWidget):
         body_layout.addWidget(self._col_container, 0, 1)
         body_layout.setColumnStretch(1, 1)
 
-        scroll.setWidget(body)
+        # The body is a 24-hour canvas; the window shows only the hours
+        # chosen in Settings ▸ Appearance ▸ Show hours (visible_hours.py).
+        from assistant.calendar_ui.visible_hours import HourWindow
+        self._window = HourWindow(body)
+        scroll.setWidget(self._window)
         layout.addWidget(scroll, stretch=1)
         self._scroll = scroll
 
@@ -710,6 +714,8 @@ class WeekView(QWidget):
         # Open at the first chosen hour (Settings ▸ Appearance ▸ Show hours),
         # or 8am when the whole day is shown.
         self._hours = (0, 24)
+        #: the hours on screen: the chosen ones, widened to hold this week's events
+        self._span = (0, 24)
         from PyQt6.QtCore import QTimer
         QTimer.singleShot(100, self._scroll_to_first_hour)
         QTimer.singleShot(0, lambda: self._recalc_hour_height(scroll.viewport().height()))
@@ -737,35 +743,46 @@ class WeekView(QWidget):
         self._rebuild_columns()
 
     def set_visible_hours(self, first: int, last: int) -> None:
-        """Fit hours first…last to the window and open there; the rest stay a
-        scroll away (calendar_ui/visible_hours.py)."""
+        """Show hours first…last — widened when this week has an event
+        outside them (calendar_ui/visible_hours.py)."""
         self._hours = (first, last)
-        self._recalc_hour_height(self._scroll.viewport().height())
+        self._set_span(self._widened())
+
+    def _widened(self) -> tuple:
+        from assistant.calendar_ui.visible_hours import widen
+        events = [ev for col in self._day_columns for ev in getattr(col, "_events", [])]
+        return widen(*self._hours, events)
+
+    def _set_span(self, span: tuple) -> None:
+        self._span = span
+        self._recalc_hour_height(self._scroll.viewport().height(), force=True)
         self._scroll_to_first_hour()
 
     def _scroll_to_first_hour(self) -> None:
-        first = self._hours[0] if self._hours != (0, 24) else 8
-        self._scroll.verticalScrollBar().setValue(self._hour_height * first)
+        # The whole day opens at 8 AM; chosen hours are all there is — the top.
+        top = self._hour_height * 8 if self._span == (0, 24) else 0
+        self._scroll.verticalScrollBar().setValue(top)
 
-    def _recalc_hour_height(self, viewport_h: int) -> None:
-        """Shrink/grow the hour-row height so the chosen hours (the whole day
-        unless set) fit the window, only falling back to scrolling below
-        MIN_HOUR_HEIGHT."""
+    def _recalc_hour_height(self, viewport_h: int, force: bool = False) -> None:
+        """Size the hour rows so the shown hours fill the window, only
+        falling back to scrolling below MIN_HOUR_HEIGHT."""
         if viewport_h <= 0:
             return
         from assistant.calendar_ui.visible_hours import fit
-        new_h = _vp.fixed_hour_height() or \
-            fit(viewport_h, *getattr(self, "_hours", (0, 24)), MIN_HOUR_HEIGHT, HOUR_HEIGHT)
-        if new_h == self._hour_height:
+        span = getattr(self, "_span", (0, 24))
+        # a short span may grow its rows past the full-day size, to fill
+        ceiling = HOUR_HEIGHT if span == (0, 24) else HOUR_HEIGHT * 2
+        new_h = _vp.fixed_hour_height() or fit(viewport_h, *span, MIN_HOUR_HEIGHT, ceiling)
+        if new_h != self._hour_height:
+            self._hour_height = new_h
+            self._time_col.setFixedHeight(new_h * 24)
+            for lbl in self._time_labels:
+                lbl.setFixedHeight(new_h)
+            for col in self._day_columns:
+                col.set_hour_height(new_h)
+        elif not force:
             return
-        self._hour_height = new_h
-        self._time_col.setFixedHeight(new_h * 24)
-        for lbl in self._time_labels:
-            lbl.setFixedHeight(new_h)
-        for col in self._day_columns:
-            col.set_hour_height(new_h)
-        if getattr(self, "_hours", (0, 24)) != (0, 24):
-            self._scroll_to_first_hour()          # the rows moved; keep the first hour on top
+        self._window.set_window(*span, new_h)
 
     def _tick_time(self) -> None:
         # Re-sync to the OS timezone in case it changed while the app was
@@ -900,6 +917,10 @@ class WeekView(QWidget):
             self._allday_row.setVisible(False)
 
         self._refresh_holy()
+        # An event outside the chosen hours widens the window, this week only.
+        span = self._widened()
+        if span != self._span:
+            self._set_span(span)
 
     def _rebuild_columns(self) -> None:
         # Clear header

@@ -168,3 +168,30 @@ for (v, f, t) in [(680.0, 7, 24), (0.0, 7, 24), (680.0, 9, 9), (2000.0, 8, 12), 
     assert got == [(40, 7), (56, 7), (40, 0), (80, 8), (40, 0)]
     # the same arithmetic the Mac uses, within the phone's bounds
     assert vh.fit(680, 7, 24, 40, 80) == 40 and vh.fit(2000, 8, 12, 40, 80) == 80
+
+
+@pytest.mark.skipif(not __import__("shutil").which("swiftc") or __import__("sys").platform != "darwin",
+                    reason="needs the Swift compiler")
+def test_the_phone_widens_the_shown_hours_like_the_mac(tmp_path):
+    """Only the chosen hours are drawn, widened for an event outside them —
+    the phone's CalendarPrefs.shownSpan and the Mac's visible_hours.widen
+    must agree, or one surface hides an event the other shows."""
+    import pathlib, subprocess
+    from assistant.calendar_ui import visible_hours as vh
+    root = pathlib.Path(__file__).resolve().parents[2]
+    src = (root / "MACalendar-iOS/MACalendar-iOS/Settings/AppSettings.swift").read_text()
+    cases = [(7, 24, []), (7, 24, [("05:30", "06:30")]), (7, 24, [("22:00", "01:00")]),
+             (7, 24, [("06:00", "")]), (7, 24, [("", "")]), (7, 20, [("21:00", "22:30")]),
+             (0, 24, [("03:00", "04:00")]), (9, 17, [("08:15", "18:05")])]
+    lines = "\n".join(
+        "print(CalendarPrefs.shownSpan(from: %d, to: %d, times: [%s]))"
+        % (f, t, ", ".join(f'("{a}", "{b}")' for a, b in ev)) for f, t, ev in cases)
+    main = tmp_path / "main.swift"
+    main.write_text("import Foundation\n" + src[src.index("enum CalendarPrefs"):] + "\n" + lines + "\n")
+    exe = tmp_path / "span"
+    subprocess.run(["swiftc", str(main), "-o", str(exe)], check=True, capture_output=True)
+    got = [l for l in subprocess.run([str(exe)], capture_output=True, text=True,
+                                     check=True).stdout.split("\n") if l]
+    for (f, t, ev), line in zip(cases, got):
+        want = vh.widen(f, t, [{"start_time": a or None, "end_time": b or None} for a, b in ev])
+        assert line == str(want), (f, t, ev, line)

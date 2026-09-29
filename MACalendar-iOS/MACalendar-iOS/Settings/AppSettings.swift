@@ -503,6 +503,30 @@ enum CalendarPrefs {
         return Swift.min(maxH, Swift.max(minH, (viewport / CGFloat(span)).rounded(.down)))
     }
 
+    /// The hours Day and Week SHOW: `from`…`to`, widened to hold every timed
+    /// event in `times` ([(start, end)] as "HH:MM") — an event outside the
+    /// chosen hours is never hidden by a display preference. The Mac's
+    /// `visible_hours.widen`; a nonsense range is the whole day.
+    static func shownSpan(from: Int, to: Int, times: [(String, String)]) -> (Int, Int) {
+        guard (0...23).contains(from), (1...24).contains(to), to > from else { return (0, 24) }
+        if from == 0 && to == 24 { return (0, 24) }
+        var first = from, last = to
+        for (s, e) in times {
+            guard let start = minutesOf(s) else { continue }
+            var end = start + 60
+            if let stated = minutesOf(e) { end = stated <= start ? 24 * 60 : stated }
+            first = Swift.min(first, start / 60)
+            last = Swift.max(last, Swift.min(24, (end + 59) / 60))
+        }
+        return (first, last)
+    }
+
+    private static func minutesOf(_ hhmm: String) -> Int? {
+        let parts = hhmm.split(separator: ":")
+        guard parts.count >= 2, let h = Int(parts[0]), let m = Int(parts[1]) else { return nil }
+        return h * 60 + m
+    }
+
     /// Where Day and Week open: the first shown hour.
     static func firstHour(from: Int, to: Int) -> Int {
         (0...23).contains(from) && (1...24).contains(to) && to > from ? from : 0

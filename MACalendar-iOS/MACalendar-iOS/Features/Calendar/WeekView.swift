@@ -18,14 +18,20 @@ struct WeekView: View {
     @State private var selected: CalendarEvent?
     private let timer = Timer.publish(every: 900, on: .main, in: .common).autoconnect()
 
-    /// Fits Settings ▸ Appearance ▸ Show hours to the measured screen.
+    /// Settings ▸ Appearance ▸ Show hours: only these hours are drawn — the
+    /// first at the top edge, the last at the bottom — widened for an event
+    /// outside them this week (CalendarPrefs.shownSpan). Gil, of the first
+    /// build that left the night a scroll away: "doesn't work well enough".
     @State private var viewportH: CGFloat = 0
+    private var span: (Int, Int) {
+        CalendarPrefs.shownSpan(from: settings.hoursFrom, to: settings.hoursTo,
+                                times: weekDays.flatMap { eventsForDay($0) }.map { ($0.startTime, $0.endTime) })
+    }
     private var hourHeight: CGFloat {
-        CalendarPrefs.hourHeight(viewport: viewportH, from: settings.hoursFrom, to: settings.hoursTo,
-                                 minH: 30, maxH: 64, fallback: 44)
+        CalendarPrefs.hourHeight(viewport: viewportH - 4, from: span.0, to: span.1,
+                                 minH: 24, maxH: 96, fallback: 44)
     }
     private let labelWidth: CGFloat = 36
-    private var startHour: Int { CalendarPrefs.firstHour(from: settings.hoursFrom, to: settings.hoursTo) }
 
     private var weekDays: [Date] {
         let cal = Calendar(identifier: .gregorian)
@@ -62,6 +68,7 @@ struct WeekView: View {
             // Scrollable timeline
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: false) {
+                    Color.clear.frame(height: 0).id("top")
                     HStack(alignment: .top, spacing: 0) {
                         // Time label column
                         VStack(spacing: 0) {
@@ -71,7 +78,6 @@ struct WeekView: View {
                                     .foregroundColor(.secondary)
                                     .frame(width: labelWidth, height: hourHeight, alignment: .topTrailing)
                                     .padding(.trailing, 3)
-                                    .id(h)
                             }
                         }
 
@@ -87,6 +93,11 @@ struct WeekView: View {
                             )
                         }
                     }
+                    // the 24-hour canvas, seen through a window on the shown hours
+                    .frame(height: hourHeight * 24, alignment: .top)
+                    .offset(y: -CGFloat(span.0) * hourHeight)
+                    .frame(height: CGFloat(span.1 - span.0) * hourHeight, alignment: .top)
+                    .clipped()
                     .padding(.top, 4)
                 }
                 .background(GeometryReader { g in
@@ -94,10 +105,9 @@ struct WeekView: View {
                         .onAppear { viewportH = g.size.height }
                         .onChange(of: g.size.height) { h in viewportH = h }
                 })
-                .onChange(of: viewportH) { _ in proxy.scrollTo(startHour, anchor: .top) }
-                .onChange(of: settings.hoursFrom) { _ in proxy.scrollTo(startHour, anchor: .top) }
-                .onAppear { proxy.scrollTo(startHour, anchor: .top) }
-                .onChange(of: selectedDate) { _ in proxy.scrollTo(startHour, anchor: .top); popped = nil }
+                .onChange(of: settings.hoursFrom) { _ in proxy.scrollTo("top", anchor: .top) }
+                .onAppear { proxy.scrollTo("top", anchor: .top) }
+                .onChange(of: selectedDate) { _ in proxy.scrollTo("top", anchor: .top); popped = nil }
                 .sheet(item: $selected) { ev in
                     EventDetailView(event: ev, onDismiss: { api.requestRefresh() })
                 }

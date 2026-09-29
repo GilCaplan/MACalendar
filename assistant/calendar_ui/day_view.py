@@ -681,7 +681,13 @@ class DayView(QWidget):
         self._tc_layout.setSpacing(0)
         body_layout.addWidget(self._timeline_container, stretch=1)
 
-        scroll.setWidget(body)
+        # The body is a 24-hour canvas; the window shows only the hours
+        # chosen in Settings ▸ Appearance ▸ Show hours (visible_hours.py).
+        from assistant.calendar_ui.visible_hours import HourWindow
+        self._hours = (0, 24)
+        self._span = (0, 24)
+        self._window = HourWindow(body)
+        scroll.setWidget(self._window)
         layout.addWidget(scroll, stretch=1)
         self._scroll = scroll
 
@@ -714,29 +720,41 @@ class DayView(QWidget):
         self.refresh()
 
     def set_visible_hours(self, first: int, last: int) -> None:
-        """Fit hours first…last to the window; the rest stay a scroll away."""
+        """Show hours first…last — widened when the day has an event outside
+        them (calendar_ui/visible_hours.py)."""
         self._hours = (first, last)
-        self._recalc_hour_height(self._scroll.viewport().height())
+        self._set_span(self._widened())
+
+    def _widened(self) -> tuple:
+        from assistant.calendar_ui.visible_hours import widen
+        events = (getattr(self._timeline, "_events", None) or []) if self._timeline else []
+        return widen(*self._hours, events)
+
+    def _set_span(self, span: tuple) -> None:
+        self._span = span
+        self._recalc_hour_height(self._scroll.viewport().height(), force=True)
         self._scroll_to_now()
 
-    def _recalc_hour_height(self, viewport_h: int) -> None:
-        """Shrink/grow the hour-row height so the chosen hours (the whole day
-        unless set) fit the window, only falling back to scrolling below
-        MIN_HOUR_HEIGHT."""
+    def _recalc_hour_height(self, viewport_h: int, force: bool = False) -> None:
+        """Size the hour rows so the shown hours fill the window, only
+        falling back to scrolling below MIN_HOUR_HEIGHT."""
         if viewport_h <= 0:
             return
         from assistant.calendar_ui.visible_hours import fit
-        new_h = _vp.fixed_hour_height() or \
-            fit(viewport_h, *getattr(self, "_hours", (0, 24)), MIN_HOUR_HEIGHT, HOUR_HEIGHT)
-        if new_h == self._hour_height:
+        span = getattr(self, "_span", (0, 24))
+        ceiling = HOUR_HEIGHT if span == (0, 24) else HOUR_HEIGHT * 2
+        new_h = _vp.fixed_hour_height() or fit(viewport_h, *span, MIN_HOUR_HEIGHT, ceiling)
+        if new_h != self._hour_height:
+            self._hour_height = new_h
+            self._time_col.setFixedHeight(new_h * 24)
+            for lbl in self._time_labels:
+                lbl.setFixedHeight(new_h)
+            self._timeline_container.setFixedHeight(new_h * 24)
+            if self._timeline:
+                self._timeline.set_hour_height(new_h)
+        elif not force:
             return
-        self._hour_height = new_h
-        self._time_col.setFixedHeight(new_h * 24)
-        for lbl in self._time_labels:
-            lbl.setFixedHeight(new_h)
-        self._timeline_container.setFixedHeight(new_h * 24)
-        if self._timeline:
-            self._timeline.set_hour_height(new_h)
+        self._window.set_window(*span, new_h)
 
     # ------------------------------------------------------------------
     # Public API
@@ -755,6 +773,10 @@ class DayView(QWidget):
         self._update_count(len(events))
         self._refresh_allday()
         self._refresh_holy()
+        # An event outside the chosen hours widens the window, this day only.
+        span = self._widened()
+        if span != self._span:
+            self._set_span(span)
 
     def _refresh_holy(self) -> None:
         """Hand the timeline the Shabbat / yom tov windows touching this day."""
@@ -889,15 +911,17 @@ class DayView(QWidget):
             self._refresh_holy()
 
     def _scroll_to_now(self) -> None:
-        first, last = getattr(self, "_hours", (0, 24))
-        top = self._hour_height * (first if (first, last) != (0, 24) else 8)
+        """Today opens near now; any other day at its top (8 AM for the whole
+        day). Positions are the window's: 0 is its first hour. When the
+        chosen hours fit, there is nothing to scroll and this is a no-op."""
+        first, last = getattr(self, "_span", (0, 24))
+        top = self._hour_height * (8 if (first, last) == (0, 24) else first)
         if self._date == datetime.date.today():
             now = datetime.datetime.now()
             y = int((now.hour * 60 + now.minute) / 60 * self._hour_height)
-            # Now, when it falls inside the chosen hours; else their start.
-            if (first, last) == (0, 24) or first <= now.hour < last:
+            if first <= now.hour < last:
                 top = max(self._hour_height * first, y - 120)
-        self._scroll.verticalScrollBar().setValue(max(0, top))
+        self._scroll.verticalScrollBar().setValue(max(0, top - self._hour_height * first))
 
     def _apply_theme_styles(self) -> None:
         dark = _styles._dark
