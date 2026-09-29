@@ -34,7 +34,7 @@ struct GenItem {
 struct GenReading {
     // At most 6 (DEVQA Q68 step 1c): uncapped, the model looped on repeat
     // phrases until its context window filled — 21 of 1,200, ~37 s each.
-    @Guide(description: "One item per thing the speaker asked for, in order", .maximumCount(6))
+    @Guide(description: "One item per thing the speaker asked for, in order")
     var items: [GenItem]
 }
 

@@ -179,3 +179,36 @@ The p99 jump is a denominator effect, not a regression: the same 8
 context-window loops (~35 s each) are 1.0% of 787 model calls but 0.9% of
 ~862, so the 99th percentile now lands on one — the cap run removes them.
 
+## Step 1c — a cap on items (2026-09-29 11:08–11:35) — REVERTED
+
+Same 1,200 TRAIN rows, seed 7, guard v3 + dates in code, plus
+`.maximumCount(6)` on the item list.
+
+| line | guard v3 | **+ cap** |
+|---|---|---|
+| generation errors (context-window loops) | 0.7% (8) | **0.0% (0)** |
+| latency p50 / p90 / p99 / max (model calls, n=787) | 1,801 / 2,676 / 34,094 / 56,349 ms | 1,899 / 2,635 / **4,390 / 6,798 ms** |
+| booked something on an edit/delete/complete/question | 0.3% (1/305) | 0.3% (1/305) |
+| **extra (invented) items** | 100 | **306** |
+| right number of each kind (create rows) | 43.4% (388/895) | **31.5% (282/895)** |
+| booked nothing on a create | 24.1% (216/895) | 16.0% (143/895) |
+| right kind, single-item | 63.2% (314/497) | 68.6% (341/497) |
+| title matches | 98.4% (309/314) | 95.6% (326/341) |
+| date right | 94.6% (194/205) | 92.1% (197/214) |
+| whole item right, single-item | 56.3% (280/497) | 58.6% (291/497) |
+
+**What it means.** The prediction held on the tail — no loops, p99 34 s →
+4.4 s — and failed badly on inventions, which TRIPLED. Row by row: 180 model
+rows gained exactly one item, 169 of them a new title, and most of those are
+the instructions' own examples copied in ("buy milk", "email the landlord",
+"buy groceries"); 25 rows now sit AT the cap, mostly one title repeated six
+times. A count bound on the list reads to this model as "make a list". An
+invented item is exactly what the phone must not show, so the cap is out.
+The loops are bounded by TIME in the app instead (`OfflineReader.timeLimit`,
+12 s → the command waits for the Mac): they are ~1% of model calls, and a
+normal call takes ~2 s (max 6.8 s here).
+
+Note: the dates-extension run below was compiled WITH the cap (it started
+before this was read), so it measures the extension on top of the cap; the
+shipped configuration — guard v3 + dates + extension, no cap — is boarded
+after it.

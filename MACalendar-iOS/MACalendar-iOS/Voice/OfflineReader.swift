@@ -70,6 +70,8 @@ struct OfflineReaderSpec: Codable {
 }
 
 enum OfflineReader {
+    /// Seconds a reading may take before the command is left for the Mac.
+    static let timeLimit: Double = 12
     static let schema = 2
     static let protocolVersion = 1
     static let kinds = ["event", "todo", "other"]
@@ -196,11 +198,26 @@ enum OfflineReader {
             do {
                 let session = LanguageModelSession(instructions: instructions(s))
                 let prompt = "Today: \(dayLine(now))\nSaid: \(said)"
-                let out = try await session.respond(to: prompt, generating: GenReading.self,
-                                                    options: GenerationOptions(sampling: .greedy))
+                // A runaway list (the model repeating an item until its
+                // context fills, ~35 s, about 1 in 100 on the TRAIN board) is
+                // cut off and left for the Mac; a normal reading takes ~2 s.
+                let reading = try await withThrowingTaskGroup(of: GenReading?.self) { group in
+                    group.addTask {
+                        try await session.respond(to: prompt, generating: GenReading.self,
+                                                  options: GenerationOptions(sampling: .greedy)).content
+                    }
+                    group.addTask {
+                        try await Task.sleep(nanoseconds: UInt64(Self.timeLimit * 1_000_000_000))
+                        return nil
+                    }
+                    let first = try await group.next() ?? nil
+                    group.cancelAll()
+                    return first
+                }
+                guard let reading else { return nil }
                 // Q68 step 1: the DAY is worked out here, by the project's
                 // rules (OfflineDates.swift) — never by the model.
-                let items = out.content.items.map {
+                let items = reading.items.map {
                     OfflineItem(kind: $0.kind, title: $0.title,
                                 date: OfflineDates.resolve($0.when, today: now) ?? "",
                                 start: $0.start, end: $0.end, recurrence: $0.recurrence)
@@ -268,7 +285,12 @@ struct GenItem {
 struct GenReading {
     // At most 6 (DEVQA Q68 step 1c): uncapped, the model looped on repeat
     // phrases until its context window filled — 21 of 1,200, ~37 s each.
-    @Guide(description: "One item per thing the speaker asked for, in order", .maximumCount(6))
+    // No .maximumCount: capping the list made the model FILL it — on the
+    // 1,200-row TRAIN board 180 more rows gained an item, most of them copies
+    // of the instructions' examples ("buy milk", "email the landlord"), and
+    // invented items went 100 -> 306. Runaway lists are bounded by
+    // `timeLimit` instead.
+    @Guide(description: "One item per thing the speaker asked for, in order")
     var items: [GenItem]
 }
 #endif
