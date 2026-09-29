@@ -119,6 +119,7 @@ def test_one_script_for_mac_and_linux_detects_which():
     assert "install/install.py" in text and '${@+"$@"}' in text, "bash 3.2-safe hand-over"
     assert "--installer-file" in text, "the downloaded file is offered for deletion"
     assert "pull" not in text, "an existing copy is install.py's question, not stage one's"
+    assert "FETCH_HEAD:install/install.py" in text, "the NEWEST installer asks"
     assert path.stat().st_mode & 0o111, "executable"
 
 
@@ -134,6 +135,7 @@ def test_the_windows_stage_one_hands_over(tmp_path):
     text = (INSTALL / "install-macalendar-windows.ps1").read_text()
     assert "winget install" in text and "install\\install.py" in text
     assert "--installer-file" in text and "pull" not in text
+    assert "FETCH_HEAD:install/install.py" in text, "the NEWEST installer asks"
     if shutil.which("pwsh"):
         r = subprocess.run(["pwsh", "-NoProfile", "-Command",
                             f"$null = [ScriptBlock]::Create((Get-Content -Raw '{INSTALL / 'install-macalendar-windows.ps1'}'))"])

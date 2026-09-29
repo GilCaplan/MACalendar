@@ -47,7 +47,19 @@ Need ollama "Ollama.Ollama" "Ollama (runs the assistant's model on this PC)"
 # about (update, reinstall, or leave it as it is).
 New-Item -ItemType Directory -Force -Path $Root | Out-Null
 $Repo = Join-Path $Root "MACalendar"
-if (-not (Test-Path (Join-Path $Repo ".git"))) {
+$Installer = Join-Path $Repo "install\install.py"
+if (Test-Path (Join-Path $Repo ".git")) {
+    # Already installed: the NEWEST installer must ask (update / reinstall /
+    # leave it), not the one inside an old copy. Fetch — your files stay as
+    # they are — and run the fetched one; offline, the one you have. cmd's
+    # redirect keeps the bytes exactly (PowerShell's would re-encode them).
+    $Tmp = Join-Path $env:TEMP "macalendar-install.py"
+    git -C $Repo fetch --quiet --depth 1 origin 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        cmd /c "git -C `"$Repo`" show FETCH_HEAD:install/install.py > `"$Tmp`""
+        if ($LASTEXITCODE -eq 0) { $Installer = $Tmp }
+    }
+} else {
     Say "Fetching the code"
     git clone --depth 1 $RepoUrl $Repo
 }
@@ -56,5 +68,5 @@ if (-not (Test-Path (Join-Path $Repo ".git"))) {
 # path goes along so the installer can offer to delete it at the end.
 $More = @("--root", $Root)
 if ($PSCommandPath) { $More += @("--installer-file", $PSCommandPath) }
-& py -3.12 (Join-Path $Repo "install\install.py") @More @args
+& py -3.12 $Installer @More @args
 exit $LASTEXITCODE

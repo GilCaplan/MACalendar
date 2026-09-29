@@ -114,9 +114,19 @@ else
 fi
 
 # The code — fetched once. An EXISTING copy is left for install.py to ask
-# about (update, reinstall, or leave it as it is).
+# about (update, reinstall, or leave it as it is) — and it must be the NEWEST
+# install.py asking, not the one inside an old copy, which would not know the
+# question. So: fetch (the files you have stay as they are) and run the
+# fetched installer; offline, the one you have.
 mkdir -p "$ROOT"
-if [ ! -d "$ROOT/MACalendar/.git" ]; then
+INSTALLER="$ROOT/MACalendar/install/install.py"
+if [ -d "$ROOT/MACalendar/.git" ]; then
+  TMPD="$(mktemp -d)"
+  if git -C "$ROOT/MACalendar" fetch --quiet --depth 1 origin 2>/dev/null && \
+     git -C "$ROOT/MACalendar" show FETCH_HEAD:install/install.py > "$TMPD/install.py" 2>/dev/null; then
+    INSTALLER="$TMPD/install.py"
+  fi
+else
   say "Fetching the code"
   git clone --depth 1 "$REPO_URL" "$ROOT/MACalendar"
 fi
@@ -127,6 +137,6 @@ ARGS=(--root "$ROOT")
 # (curl … | bash); ${@+"$@"} keeps macOS's bash 3.2 from calling an empty
 # argument list unbound.
 if [ -r /dev/tty ] && [ -w /dev/tty ] && { : </dev/tty; } 2>/dev/null; then
-  exec "$PY" "$ROOT/MACalendar/install/install.py" "${ARGS[@]}" ${@+"$@"} </dev/tty
+  exec "$PY" "$INSTALLER" "${ARGS[@]}" ${@+"$@"} </dev/tty
 fi
-exec "$PY" "$ROOT/MACalendar/install/install.py" "${ARGS[@]}" ${@+"$@"}
+exec "$PY" "$INSTALLER" "${ARGS[@]}" ${@+"$@"}
