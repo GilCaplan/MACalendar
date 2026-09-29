@@ -98,3 +98,21 @@ def test_every_module_the_engine_layer_claims_actually_imports():
     from assistant.cli import ENGINE_STAGES
     for _component, module in ENGINE_STAGES:
         importlib.import_module(module)
+
+
+def test_doctor_checks_each_persons_own_stores(tmp_path, monkeypatch):
+    """After the users migration (DEVQA Q65) the memory db and the trace log
+    live in users/<uid>/; the doctor read the old top-level paths and called
+    a healthy install "not yet created"."""
+    from assistant import users
+    from assistant.users import registry
+    monkeypatch.setenv("MACALENDAR_USERS", str(tmp_path / "users.json"))
+    uid = registry.create_user("gil", "admin-pass", role="admin")
+    users.set_process_default(uid)
+    try:
+        lines = [m for _ok, m in cli.check_storage().rows]
+    finally:
+        users.set_process_default(None)
+    mem = next(m for m in lines if "memory db" in m)
+    log = next(m for m in lines if "trace log dir" in m)
+    assert f"users/{uid}/" in mem and f"users/{uid}/" in log

@@ -170,7 +170,13 @@ def check_storage() -> Check:
     except Exception as e:
         c.add(False, f"calendar db not readable — {e}")
     try:
-        mem = os.environ.get("MACALENDAR_MEMORY_DB") or os.path.expanduser("~/.assistant_tools/nlu_memory.db")
+        # Resolved per user, as the store itself resolves it (DEVQA Q65): the
+        # raw top-level path reported "not yet created" for every user after
+        # the users migration, while the real file sat in users/<uid>/.
+        from assistant.users import paths as _users_paths
+        mem = str(_users_paths.resolve(
+            os.environ.get("MACALENDAR_MEMORY_DB")
+            or os.path.expanduser("~/.assistant_tools/nlu_memory.db")))
         if os.path.exists(mem):
             c.add(True, f"memory db present ({mem})")
         else:
@@ -191,7 +197,7 @@ def check_storage() -> Check:
     except Exception as e:
         c.add(False, f"memory db check failed — {e}")
     try:
-        p = trace_bus.BUS_PATH
+        p = str(trace_bus._bus_path())       # this user's log, as the engine writes it
         d = os.path.dirname(p)
         writable = os.access(d, os.W_OK)
         c.add(writable, f"trace log dir writable ({p})")
