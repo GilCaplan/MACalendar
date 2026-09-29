@@ -145,7 +145,8 @@ class Installer:
         print(f"\n  MACalendar is already installed in {self.root}"
               + (f" (installed {when})" if when else "")
               + (f";\n  its apps are in {where}" if where else "")
-              + (".\n  It is running now — it will be stopped and started again." if running else "."))
+              + (".\n  A MACalendar server is running on this computer; if it is this\n"
+                 "  install's, it will be stopped and started again." if running else "."))
         if self.a.yes or self.a.dry_run or not sys.stdin.isatty():
             return "update"
         print("\n? What would you like to do?\n"
@@ -164,13 +165,35 @@ class Installer:
         if self.state in ("update", "reinstall"):
             if not self.a.dry_run and stop_running_server(self.root):
                 print("   Stopped the running MACalendar Server (it starts again at the end).")
+        mine = self.repo / "install" / "install.py"
+        before = mine.read_bytes() if mine.is_file() else b""
         if self.state == "reinstall":
             self.reinstall_code()
         elif (self.repo / ".git").is_dir():
-            self.run(["git", "-C", self.repo, "pull", "--ff-only"], check=False)
+            self.update_code()
         else:
             self.run(["git", "clone", "--depth", "1", self.a.repo_url or REPO_URL, self.repo])
-        self.hand_over_if_newer()
+        # Only an installer this step actually CHANGED is newer. (An update
+        # that did not happen leaves the old copy's installer, which must not
+        # take over — found in the first real update run.)
+        if mine.is_file() and mine.read_bytes() != before:
+            self.hand_over_if_newer()
+
+    def update_code(self) -> None:
+        """Bring the copy to the newest version. The clone is SHALLOW (one
+        commit), and `git pull` cannot fast-forward a shallow clone across a
+        gap — so: fetch the newest commit and move to it. Untracked files
+        (config.yaml, the .venv) are not touched; hand-edited program files
+        are replaced only when the person says so."""
+        dirty = "" if self.a.dry_run else subprocess.run(
+            ["git", "-C", str(self.repo), "status", "--porcelain", "--untracked-files=no"],
+            capture_output=True, text=True).stdout.strip()
+        if dirty and not self.ask("Some program files in the install were changed by hand. "
+                                  "Replace them with the new version?", False):
+            print("   Kept your changed files — the program was NOT updated.")
+            return
+        self.run(["git", "-C", self.repo, "fetch", "--depth", "1", "origin"])
+        self.run(["git", "-C", self.repo, "reset", "--hard", "FETCH_HEAD"])
 
     def reinstall_code(self) -> None:
         """Delete the program and fetch it fresh. Only this install's own

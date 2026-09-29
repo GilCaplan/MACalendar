@@ -358,3 +358,49 @@ def qapp_or_skip():
     pytest.importorskip("PyQt6")
     from PyQt6.QtCore import QCoreApplication
     return QCoreApplication.instance() or QCoreApplication([])
+
+
+
+def test_an_update_moves_a_shallow_clone_to_the_newest_commit(tmp_path):
+    """`git pull` cannot fast-forward a depth-1 clone across a gap — the
+    first real update run failed exactly so. Fetch + reset does, and keeps
+    config.yaml."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("mc_install2", INSTALL / "install.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    git = lambda *a, cwd=None: subprocess.run(["git", *a], cwd=cwd, check=True,
+                                              capture_output=True, text=True).stdout
+    origin = tmp_path / "origin"
+    origin.mkdir()
+    git("init", "-q", "-b", "main", cwd=origin)
+    git("config", "user.email", "t@t", cwd=origin)
+    git("config", "user.name", "t", cwd=origin)
+    for i in range(3):
+        (origin / "f.txt").write_text(f"v{i}\n")
+        git("add", "f.txt", cwd=origin)
+        git("commit", "-q", "-m", f"v{i}", cwd=origin)
+        if i == 0:
+            root = tmp_path / "root"
+            git("clone", "-q", "--depth", "1", f"file://{origin}", str(root / "MACalendar"))
+            (root / "MACalendar" / "config.yaml").write_text("mine\n")
+    args = mod.parse(["--root", str(root), "--yes"])
+    i = mod.Installer(args, system="Linux")
+    i.update_code()
+    assert (root / "MACalendar" / "f.txt").read_text() == "v2\n"
+    assert (root / "MACalendar" / "config.yaml").read_text() == "mine\n"
+
+
+def test_an_update_that_did_not_happen_does_not_hand_over(inst, tmp_path, monkeypatch):
+    """The old copy's installer must never take over."""
+    repo = tmp_path / "root" / "MACalendar"
+    (repo / "install").mkdir(parents=True)
+    (repo / "install" / "install.py").write_text("# an OLD installer\n")
+    (repo / ".git").mkdir()
+    i = _installer(inst, tmp_path, "Linux", "--yes")
+    i.state = "update"
+    monkeypatch.setattr(i, "update_code", lambda: None)      # the fetch failed
+    handed = []
+    monkeypatch.setattr(i, "hand_over_if_newer", lambda: handed.append(1))
+    i.code()
+    assert handed == []
