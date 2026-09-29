@@ -392,6 +392,28 @@ struct SettingsView: View {
                             Toggle(isOn: $settings.clock24) {
                                 Label("24-hour clock", systemImage: "clock")
                             }
+                            VStack(alignment: .leading, spacing: 6) {
+                                Label("Show hours", systemImage: "clock.arrow.2.circlepath")
+                                HStack {
+                                    Picker("From", selection: $settings.hoursFrom) {
+                                        ForEach(0..<24, id: \.self) { h in
+                                            Text(CalendarPrefs.hourLabel(h, clock24: settings.clock24)).tag(h)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    Text("to")
+                                    Picker("To", selection: $settings.hoursTo) {
+                                        ForEach(1...24, id: \.self) { h in
+                                            Text(h == 24 ? "Midnight"
+                                                 : CalendarPrefs.hourLabel(h, clock24: settings.clock24)).tag(h)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                }
+                                Text("Day and Week fit these hours to the screen and open at the first. "
+                                     + "Earlier and later hours are a scroll away — nothing is hidden.")
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
 
                             Divider().padding(.vertical, 4)
 

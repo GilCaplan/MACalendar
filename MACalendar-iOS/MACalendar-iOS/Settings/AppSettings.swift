@@ -77,6 +77,16 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(weekStartsMonday, forKey: "weekStartsMonday") }
     }
 
+    /// The hours Day and Week fit to the screen and open at, first to last
+    /// (24 = midnight); the rest are a scroll away (Gil, 2026-09-29: "start
+    /// is 7am … end is midnight"). 7 → 24 is where the phone always opened.
+    @Published var hoursFrom: Int {
+        didSet { UserDefaults.standard.set(hoursFrom, forKey: "hoursFrom") }
+    }
+    @Published var hoursTo: Int {
+        didSet { UserDefaults.standard.set(hoursTo, forKey: "hoursTo") }
+    }
+
     /// Hour labels as 24-hour ("14:00") instead of "2 PM".
     @Published var clock24: Bool {
         didSet { UserDefaults.standard.set(clock24, forKey: "clock24") }
@@ -283,6 +293,8 @@ class AppSettings: ObservableObject {
         self.defaultCalendarView = UserDefaults.standard.string(forKey: "defaultCalendarView") ?? "week"
         self.weekStartsMonday = UserDefaults.standard.bool(forKey: "weekStartsMonday")
         self.clock24 = UserDefaults.standard.bool(forKey: "clock24")
+        self.hoursFrom = UserDefaults.standard.object(forKey: "hoursFrom") as? Int ?? 7
+        self.hoursTo = UserDefaults.standard.object(forKey: "hoursTo") as? Int ?? 24
 
         let fm = UserDefaults.standard.double(forKey: "fontMonth")
         self.fontMonth = fm == 0 ? 13 : fm
@@ -479,6 +491,21 @@ enum CalendarPrefs {
     static func dayHeaders(mondayFirst: Bool) -> [String] {
         mondayFirst ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
                     : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    }
+
+    /// Points per hour so hours `from`…`to` fill `viewport`, within
+    /// `minH`…`maxH`; `fallback` until the screen has been measured. A range
+    /// that makes no sense is the whole day.
+    static func hourHeight(viewport: CGFloat, from: Int, to: Int,
+                           minH: CGFloat, maxH: CGFloat, fallback: CGFloat) -> CGFloat {
+        guard viewport > 0 else { return fallback }
+        let span = (0...23).contains(from) && (1...24).contains(to) && to > from ? to - from : 24
+        return Swift.min(maxH, Swift.max(minH, (viewport / CGFloat(span)).rounded(.down)))
+    }
+
+    /// Where Day and Week open: the first shown hour.
+    static func firstHour(from: Int, to: Int) -> Int {
+        (0...23).contains(from) && (1...24).contains(to) && to > from ? from : 0
     }
 
     /// The time column's label for hour `h` (0…23).

@@ -16,9 +16,14 @@ struct WeekView: View {
     @State private var selected: CalendarEvent?
     private let timer = Timer.publish(every: 900, on: .main, in: .common).autoconnect()
 
-    private let hourHeight: CGFloat = 44
+    /// Fits Settings ▸ Appearance ▸ Show hours to the measured screen.
+    @State private var viewportH: CGFloat = 0
+    private var hourHeight: CGFloat {
+        CalendarPrefs.hourHeight(viewport: viewportH, from: settings.hoursFrom, to: settings.hoursTo,
+                                 minH: 30, maxH: 64, fallback: 44)
+    }
     private let labelWidth: CGFloat = 36
-    private let startHour = 7
+    private var startHour: Int { CalendarPrefs.firstHour(from: settings.hoursFrom, to: settings.hoursTo) }
 
     private var weekDays: [Date] {
         let cal = Calendar(identifier: .gregorian)
@@ -81,6 +86,13 @@ struct WeekView: View {
                     }
                     .padding(.top, 4)
                 }
+                .background(GeometryReader { g in
+                    Color.clear
+                        .onAppear { viewportH = g.size.height }
+                        .onChange(of: g.size.height) { h in viewportH = h }
+                })
+                .onChange(of: viewportH) { _ in proxy.scrollTo(startHour, anchor: .top) }
+                .onChange(of: settings.hoursFrom) { _ in proxy.scrollTo(startHour, anchor: .top) }
                 .onAppear { proxy.scrollTo(startHour, anchor: .top) }
                 .onChange(of: selectedDate) { _ in proxy.scrollTo(startHour, anchor: .top); popped = nil }
                 .sheet(item: $selected) { ev in

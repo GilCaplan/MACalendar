@@ -12,8 +12,13 @@ struct DayView: View {
     @State private var now: Date = Date()
     private let timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
-    private let hourHeight: CGFloat = 56
-    private let startHour = 7
+    /// Fits Settings ▸ Appearance ▸ Show hours to the measured screen.
+    @State private var viewportH: CGFloat = 0
+    private var hourHeight: CGFloat {
+        CalendarPrefs.hourHeight(viewport: viewportH, from: settings.hoursFrom, to: settings.hoursTo,
+                                 minH: 40, maxH: 80, fallback: 56)
+    }
+    private var startHour: Int { CalendarPrefs.firstHour(from: settings.hoursFrom, to: settings.hoursTo) }
 
     private var dateStr: String { ISO8601DateFormatter.yyyyMMdd.string(from: date) }
 
@@ -121,6 +126,13 @@ struct DayView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { popped = nil }
             }
+            .background(GeometryReader { g in
+                Color.clear
+                    .onAppear { viewportH = g.size.height }
+                    .onChange(of: g.size.height) { h in viewportH = h }
+            })
+            .onChange(of: viewportH) { _ in proxy.scrollTo(startHour, anchor: .top) }
+            .onChange(of: settings.hoursFrom) { _ in proxy.scrollTo(startHour, anchor: .top) }
             .onAppear {
                 proxy.scrollTo(startHour, anchor: .top)
                 load()

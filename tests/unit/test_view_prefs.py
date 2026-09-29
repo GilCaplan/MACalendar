@@ -143,3 +143,28 @@ for d in CommandLine.arguments.dropFirst() {
         vp.apply(ui(week_starts="monday"))
         assert mon_first == str(vp.week_start(d)), d
         assert (h24, h12) == ("13:00", "1 PM")
+
+
+@pytest.mark.skipif(not __import__("shutil").which("swiftc") or __import__("sys").platform != "darwin",
+                    reason="needs the Swift compiler")
+def test_the_phone_fits_the_shown_hours_like_the_mac(tmp_path):
+    """Show hours on the phone: the rows fill the screen with the chosen span,
+    within bounds; a nonsense range is the whole day; it opens at the first."""
+    import pathlib, subprocess
+    from assistant.calendar_ui import visible_hours as vh
+    root = pathlib.Path(__file__).resolve().parents[2]
+    src = (root / "MACalendar-iOS/MACalendar-iOS/Settings/AppSettings.swift").read_text()
+    main = tmp_path / "main.swift"
+    main.write_text("import Foundation\n" + src[src.index("enum CalendarPrefs"):] + '''
+for (v, f, t) in [(680.0, 7, 24), (0.0, 7, 24), (680.0, 9, 9), (2000.0, 8, 12), (680.0, 0, 24)] {
+    print(Int(CalendarPrefs.hourHeight(viewport: CGFloat(v), from: f, to: t, minH: 40, maxH: 80, fallback: 56)),
+          CalendarPrefs.firstHour(from: f, to: t))
+}
+''')
+    exe = tmp_path / "fit"
+    subprocess.run(["swiftc", str(main), "-o", str(exe)], check=True, capture_output=True)
+    got = [tuple(map(int, l.split())) for l in
+           subprocess.run([str(exe)], capture_output=True, text=True, check=True).stdout.split("\n") if l]
+    assert got == [(40, 7), (56, 7), (40, 0), (80, 8), (40, 0)]
+    # the same arithmetic the Mac uses, within the phone's bounds
+    assert vh.fit(680, 7, 24, 40, 80) == 40 and vh.fit(2000, 8, 12, 40, 80) == 80
