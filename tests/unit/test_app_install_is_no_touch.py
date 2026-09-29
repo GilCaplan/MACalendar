@@ -57,3 +57,19 @@ def test_a_bundle_wears_its_own_icon_not_the_stock_applet_catalog():
         guard = code[seal:]
         assert "Print :CFBundleIconName" in guard and "Assets.car" in guard, \
             f"{path.name}: verify after sealing that the stock icon is gone"
+
+
+def test_a_one_app_rebuild_resets_only_that_apps_desktop_approval():
+    """`--install "MACalendar Server"` reset all four apps' Desktop approvals
+    (2026-09-29): only the name "MACalendar" had its own case. Every app the
+    script builds must map to exactly its own bundle."""
+    import re
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[2] / "scripts" / "build_apps.sh").read_text()
+    built = dict(re.findall(r'build "\$dir/[^"]+\.app" "([^"]+)" "([^"]+)"', src))
+    assert len(built) == 4
+    case = src[src.index('case "$ONLY" in'):src.index("esac")]
+    for name, bundle in built.items():
+        line = re.search(rf'^\s*"{re.escape(name)}"\)\s*bundles=\(([^)]*)\)', case, re.M)
+        assert line, f"no reset case for {name}"
+        assert line.group(1).split() == [bundle], (name, line.group(1))

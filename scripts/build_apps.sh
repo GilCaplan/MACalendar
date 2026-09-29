@@ -129,8 +129,17 @@ if [[ "${1:-}" == "--install" ]]; then
   # in place; any other copy, anywhere, is left exactly where it is.
   # Clear any half-recorded privacy decision against these identities, so macOS
   # asks again on the next launch instead of silently refusing forever.
-  bundles=(com.macalendar.server com.macalendar.app.launcher com.macalendar.hud com.macalendar.jude)
-  [[ "$ONLY" == "MACalendar" ]] && bundles=(com.macalendar.app.launcher)
+  # A one-app rebuild resets ONLY that app's decision. Special-casing one name
+  # left the others resetting all four: `--install "MACalendar Server"` cost
+  # every app its Desktop approval (2026-09-29).
+  case "$ONLY" in
+    "")                  bundles=(com.macalendar.server com.macalendar.app.launcher com.macalendar.hud com.macalendar.jude) ;;
+    "MACalendar")        bundles=(com.macalendar.app.launcher) ;;
+    "MACalendar Server") bundles=(com.macalendar.server) ;;
+    "MACalendar HUD")    bundles=(com.macalendar.hud) ;;
+    "Jude")              bundles=(com.macalendar.jude) ;;
+    *) echo "unknown app: $ONLY (MACalendar | MACalendar Server | MACalendar HUD | Jude)" >&2; exit 1 ;;
+  esac
   for bundle in "${bundles[@]}"; do
     tccutil reset SystemPolicyDesktopFolder "$bundle" 2>/dev/null || true
   done
