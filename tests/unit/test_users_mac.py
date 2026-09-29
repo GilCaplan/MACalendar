@@ -307,6 +307,13 @@ def test_shared_todos_mix_in_filter_by_person_and_group_by_person(people):
     assert set(_titles(lst)) == {"dana's slides", "dana's bank"}
     assert not lst._new_row.isVisible() and not lst._list_widget.dragEnabled()
 
+    # and OFF again really ungroups (Gil: "when untoggle … it didn't change")
+    registry.set_setting(people["gil"], "todos_group_by_owner", False)
+    view.hide(); view.show()                       # coming back to the tab
+    QApplication.processEvents()
+    assert view._people_sections == []
+    assert set(_titles(view._today_list)) == {"dana's slides", "gil's milk"}
+
 
 def test_no_person_bar_when_nobody_shares(people):
     from assistant.calendar_ui.merged_db import MergedCalendar

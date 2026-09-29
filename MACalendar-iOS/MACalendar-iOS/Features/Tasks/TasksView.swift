@@ -16,7 +16,8 @@ struct TasksView: View {
     @State private var showManageTags = false
     /// DEVQA Q65: shared to-dos are mixed in, with a filter by person, or —
     /// the person's Account setting — grouped into a section each.
-    @State private var groupByOwner = false
+    @ObservedObject private var session = UserSession.shared
+    private var groupByOwner: Bool { session.groupSharedTodos }
     @State private var personFilter = ""        // "" everyone | "me" | an owner's id
 
     static let untaggedKey = "__untagged__"
@@ -90,7 +91,7 @@ struct TasksView: View {
     private func loadGrouping() async {
         guard let data = try? await api.request("/auth/me"),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
-        groupByOwner = (obj["settings"] as? [String: Any])?["todos_group_by_owner"] as? Bool ?? false
+        session.groupSharedTodos = (obj["settings"] as? [String: Any])?["todos_group_by_owner"] as? Bool ?? false
     }
     private var todayTasks: [Todo]   { visibleTodos.filter { $0.list == "today" } }
     private var generalTasks: [Todo] { visibleTodos.filter { $0.list == "general" } }
@@ -540,6 +541,9 @@ struct TasksView: View {
             }
             loading = false
         }
+        // after the cache draw (test_ios_offline): the grouping can change
+        // on another device too, e.g. the Mac's Account tab
+        Task { await loadGrouping() }
     }
 
     private func addTask() {

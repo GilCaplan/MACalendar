@@ -43,6 +43,15 @@ final class UserSession: ObservableObject {
         didSet { UserDefaults.standard.set(serverHasUsers, forKey: "macalendar.server_has_users") }
     }
 
+    /// "Group shared to-dos by person" (DEVQA Q65/Q67), held HERE rather than
+    /// read by Tasks on appear: the tabs are layers kept alive, so Tasks'
+    /// `onAppear` runs once per launch and a change made on the Account tab
+    /// never reached it (Gil, 2026-09-28: switching it off changed nothing).
+    @Published var groupSharedTodos: Bool =
+        UserDefaults.standard.bool(forKey: "macalendar.group_shared_todos") {
+        didSet { UserDefaults.standard.set(groupSharedTodos, forKey: "macalendar.group_shared_todos") }
+    }
+
     private static let tokenAccount = "macalendar.session_token"
     private static let userKey = "macalendar.session_user"
 

@@ -202,7 +202,10 @@ struct AccountView: View {
                                 if let e = await accountCall(api, "/users/me/settings",
                                                              body: ["todos_group_by_owner": v]) {
                                     groupByOwner = !v; settingError = e
-                                } else { settingError = "" }
+                                } else {
+                                    settingError = ""
+                                    session.groupSharedTodos = v      // Tasks follows at once
+                                }
                             }
                         }))
                 } footer: {
@@ -242,6 +245,7 @@ struct AccountView: View {
         }
         let st = obj["settings"] as? [String: Any] ?? [:]
         groupByOwner = st["todos_group_by_owner"] as? Bool ?? false
+        session.groupSharedTodos = groupByOwner
     }
 
 }

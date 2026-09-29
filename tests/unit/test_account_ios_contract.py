@@ -119,3 +119,17 @@ def test_a_users_own_controls_take_effect_and_admin_ones_are_refused(world):
     for method, path in (("PUT", "/admin/policy"), ("PUT", f"/admin/view/{u['gil']}"),
                          ("POST", f"/admin/users/{u['gil']}/signout")):
         assert c.open(path, method=method, json={}, headers=_h(t)).status_code == 403
+
+
+def test_tasks_follows_the_grouping_switch_without_reappearing():
+    """The phone's tabs are layers kept alive, so Tasks' onAppear runs once:
+    a grouping read there went stale the moment Account changed it (Gil,
+    2026-09-28: switching it off changed nothing). It lives in UserSession,
+    which Account writes and Tasks observes."""
+    root = SWIFT.parents[1]
+    tasks = (root / "Features" / "Tasks" / "TasksView.swift").read_text()
+    session = (root / "API" / "UserSession.swift").read_text()
+    assert "@Published var groupSharedTodos" in session
+    assert "session.groupSharedTodos" in tasks
+    assert not re.search(r"@State private var groupByOwner", tasks)
+    assert "session.groupSharedTodos = v" in SWIFT.read_text()
