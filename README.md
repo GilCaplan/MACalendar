@@ -8,8 +8,14 @@ Mac, each with their own calendar, to-dos and learning (see *People and
 sharing* below).
 
 > [!IMPORTANT]
-> The brain runs on **macOS** (Apple Silicon recommended). The iPhone and iPad
-> apps are clients of it, reaching the Mac over a private Tailscale link.
+> **To install: [INSTALL.md](INSTALL.md)** — one file that does everything, an
+> AI agent following [install/FOR_AI_AGENTS.md](install/FOR_AI_AGENTS.md), or
+> every step by hand.
+>
+> The brain runs on **macOS** (Apple Silicon recommended); Linux and Windows run
+> the same code but are not yet tried on real hardware. The iPhone and iPad
+> apps are clients of it: they join by scanning a QR code, and reach the Mac
+> over Wi-Fi at home and Tailscale away.
 
 
 ## How the AI assistant works
@@ -176,60 +182,39 @@ one-tap **"Nothing should have been done"**, a way to add what it missed, and a
 reason. Your answers are the gold the engine is scored against; nothing leaves
 the Mac.
 
-## Installation — one file
+## Installation
 
-Download the one file for your computer and run it. It installs everything —
-Python, git, Ollama and the model, the code, and the apps — into **one folder,
-`~/MACalendar`**, and asks two questions: is this computer the **primary** (the
-brain your phone connects to) or a **model helper** (it only lends its model to
-a primary), and do you want **Jude**. Run it again any time to update.
+**[INSTALL.md](INSTALL.md) has all three ways**, each giving the same result —
+everything in one folder, `~/MACalendar`, and two questions (is this computer
+the **primary** or a **model helper**; do you want **Jude**):
 
-| Your computer | Download | Then |
-|---|---|---|
-| **macOS** | [`install-macalendar-mac.command`](install/install-macalendar-mac.command) | double-click it (first time: right-click ▸ Open ▸ Open) |
-| **Linux** | [`install-macalendar-linux.sh`](install/install-macalendar-linux.sh) | `bash install-macalendar-linux.sh` |
-| **Windows** | [`install-macalendar-windows.ps1`](install/install-macalendar-windows.ps1) | right-click ▸ Run with PowerShell |
+- **A. One file (automatic).** Download the file for your computer and run it —
+  [macOS](install/install-macalendar-mac.command) ·
+  [Linux](install/install-macalendar-linux.sh) ·
+  [Windows](install/install-macalendar-windows.ps1) — or one line:
 
-Or paste one line into a terminal:
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar-mac.command | bash    # macOS
+  curl -fsSL https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar-linux.sh | bash      # Linux
+  ```
+  ```powershell
+  irm https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar-windows.ps1 | iex           # Windows
+  ```
 
-```bash
-# macOS
-curl -fsSL https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar-mac.command | bash
-# Linux
-curl -fsSL https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar-linux.sh | bash
-```
-```powershell
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar-windows.ps1 | iex
-```
+  It installs git, Python, Ollama and the model, the code and the apps, then
+  checks that it works and starts **MACalendar Server** in the menu bar / tray.
+  Run it again to update.
+- **B. Ask an AI agent.** Point Claude Code, Codex or Cursor at
+  [install/FOR_AI_AGENTS.md](install/FOR_AI_AGENTS.md): it asks you the
+  questions, runs the installer non-interactively, hands you the steps that
+  need your password, and finishes with the installer's check.
+- **C. By hand.** Every step as a command you run yourself —
+  [INSTALL.md § C](INSTALL.md#c-by-hand).
 
-What you get: **MACalendar Server** in the menu bar / system tray (it starts
-the model and the brain and shows the QR code your phone scans), **MACalendar**
-(the calendar window), the **HUD** and, if you chose it, **Jude**. On a Mac they
-are in `/Applications/MACalendar APPs`; on Linux in the applications menu; on
-Windows in the Start menu under MACalendar. A model helper gets only the
-Server. Your own data is never in that folder — it lives in `~/.assistant_tools`.
-
-The installer is two stages: the file above installs what it needs (git,
-Python 3.11+, Ollama — with Homebrew, apt/dnf/pacman or winget) and fetches the
-code, then [`install/install.py`](install/install.py) does the rest the same
-way on every system. `python3 install/install.py --help` lists its options
-(`--role`, `--jude`, `--yes`, `--dry-run`, …). macOS is the tested platform;
-Linux and Windows run the same code but have not been tried on real hardware
-yet, and spoken replies there still need a voice (TASKS row 78).
-
+`python3 install/install.py --verify` checks an existing install any time.
+macOS is tested end to end; Linux and Windows are dry-run-tested only so far.
 **The iPhone app** is not in the installer — Apple only lets Xcode put it on a
 phone ([below](#iphone--ipad-app)).
-
-### By hand (developers)
-
-```bash
-git clone https://github.com/GilCaplan/MACalendar.git && cd MACalendar
-python3.11 -m venv .venv && source .venv/bin/activate
-pip install --upgrade pip && pip install -e ".[nlp,dev]"
-python -m spacy download en_core_web_sm
-ollama pull llama3.1:8b          # or the model config.yaml names
-```
 
 ## Configuration
 

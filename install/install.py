@@ -261,6 +261,35 @@ class Installer:
                              cwd=str(self.repo), stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL, **flags)
 
+    def verify(self) -> bool:
+        """Does it work? One line per check, ✓ or ✗ with what to do. The
+        installer ends with this, and ``--verify`` runs only this — so a
+        person, or an AI agent driving the install, can tell done from broken."""
+        self.say("Checking that it works")
+        if self.a.dry_run:
+            print("   (dry run) the checks below would run against the installed copy")
+            return True
+        py = self.venv_python()
+        if not py.exists():
+            print(f"   ✗ no installed copy at {self.repo} — run the installer first")
+            return False
+        r = subprocess.run([str(py), "-c", _VERIFY], cwd=str(self.repo),
+                           capture_output=True, text=True,
+                           env=dict(os.environ, MACALENDAR_NO_WARMUP="1",
+                                    MACALENDAR_NO_DISCOVERY="1"))
+        try:
+            checks = json.loads(r.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            print("   ✗ the checks could not run:\n" + (r.stderr or r.stdout)[-2000:])
+            return False
+        for name, good, detail in checks:
+            print(f"   {'✓' if good else '✗'} {name}" + (f" — {detail}" if detail else ""))
+        good = all(c[1] for c in checks)
+        print("   All good." if good else
+              "   Something above needs fixing; run the installer again after, or "
+              "`install.py --verify` to re-check.")
+        return good
+
     def remember(self) -> None:
         if not self.a.dry_run:
             (self.root / "install.json").write_text(json.dumps(
@@ -270,6 +299,8 @@ class Installer:
 
     def main(self) -> None:
         self.check_python()
+        if self.a.verify:
+            raise SystemExit(0 if self.verify() else 1)
         print(f"MACalendar installer — {self.system}, into {self.root}")
         self.code()
         self.packages()
@@ -291,8 +322,11 @@ class Installer:
             self.apps(role, with_jude)
         self.autostart()
         self.remember()
+        ok = self.verify()
         self.launch()
         print(summary(self.root, role, self.system, launched=not self.a.no_launch))
+        if not ok:
+            raise SystemExit(1)
 
 
 # -- per-platform pieces (pure, so they are tested) ------------------------------
@@ -355,6 +389,54 @@ def summary(root: Path, role: str, system: str, launched: bool = True) -> str:
     return "\n".join(lines)
 
 
+#: Run by the INSTALLED copy's Python (it has the packages). Prints one JSON
+#: line: [[check, ok, detail], …]. Never writes: the brain is built with its
+#: warm-up and network announcement off, and only /health is asked.
+_VERIFY = r"""
+import json, os, socket
+res = []
+def check(name, fn):
+    try:
+        good, detail = fn()
+    except Exception as e:
+        good, detail = False, f"{type(e).__name__}: {e}"
+    res.append([name, bool(good), detail])
+
+def qt():
+    import PyQt6.QtWidgets
+    return True, ""
+def nlp():
+    import spacy
+    spacy.load("en_core_web_sm")
+    return True, ""
+def brain():
+    from assistant.api.server import create_app
+    code = create_app().test_client().get("/health").status_code
+    return code == 200, "" if code == 200 else f"/health answered {code}"
+def role():
+    from assistant.host import role as r
+    return True, r.get()
+def model():
+    import urllib.request
+    from assistant.config import load_config
+    want = load_config().ollama.model
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:11434/api/tags", timeout=3) as f:
+            have = {m["name"] for m in json.loads(f.read()).get("models", [])}
+    except OSError:
+        return False, "Ollama isn't running — MACalendar Server starts it"
+    ok = want in have or f"{want}:latest" in have
+    return ok, want if ok else f"{want} not downloaded — run: ollama pull {want}"
+
+check("windows (Qt)", qt)
+check("language model (spaCy)", nlp)
+check("the brain starts", brain)
+check("this computer's role", role)
+check("the assistant's model", model)
+print(json.dumps(res))
+"""
+
+
 def _port_open(port: int) -> bool:
     import socket
     with socket.socket() as s:
@@ -382,6 +464,8 @@ def parse(argv=None):
     p.add_argument("--no-apps", action="store_true")
     p.add_argument("--no-autostart", action="store_true")
     p.add_argument("--no-launch", action="store_true")
+    p.add_argument("--verify", action="store_true",
+                   help="only check that an existing install works (exit 1 if not)")
     p.add_argument("--system", help=argparse.SUPPRESS)       # tests: plan another OS
     p.add_argument("--repo-url", help=argparse.SUPPRESS)     # tests: clone a local copy
     return p.parse_args(argv)

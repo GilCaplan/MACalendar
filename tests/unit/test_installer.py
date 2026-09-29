@@ -135,3 +135,36 @@ def test_the_readme_points_at_files_that_exist():
     for f in ("install-macalendar-mac.command", "install-macalendar-linux.sh",
               "install-macalendar-windows.ps1"):
         assert f in readme
+
+
+# -- the guides agree with the installer ---------------------------------------
+
+def test_every_option_the_agent_guide_names_exists(inst):
+    """An agent runs exactly what FOR_AI_AGENTS.md says; an option that was
+    renamed would fail its install with a usage error."""
+    guide = (INSTALL / "FOR_AI_AGENTS.md").read_text()
+    named = set(re.findall(r"`(--[a-z-]+)", guide)) | set(re.findall(r" (--[a-z-]+)", guide))
+    named -= {"--depth", "--ff-only"}                        # git's, not ours
+    real = {a for act in inst.parse([])._get_kwargs() for a in [f"--{act[0].replace('_', '-')}"]}
+    assert named and named <= real, named - real
+
+
+def test_the_install_guides_link_to_files_that_exist():
+    for doc in (ROOT / "INSTALL.md", INSTALL / "FOR_AI_AGENTS.md"):
+        for target in re.findall(r"\]\(((?!https?:|#)[^)#]+)", doc.read_text()):
+            assert (doc.parent / target).resolve().exists(), (doc.name, target)
+
+
+def test_the_check_is_valid_python_and_a_dry_run_passes_it(inst, tmp_path):
+    compile(inst._VERIFY, "<verify>", "exec")
+    args = inst.parse(["--dry-run", "--root", str(tmp_path), "--verify"])
+    with pytest.raises(SystemExit) as done:
+        inst.Installer(args, system="Linux").main()
+    assert done.value.code == 0
+
+
+def test_verify_on_nothing_installed_says_so(inst, tmp_path):
+    args = inst.parse(["--root", str(tmp_path), "--verify"])
+    with pytest.raises(SystemExit) as done:
+        inst.Installer(args).main()
+    assert done.value.code == 1
