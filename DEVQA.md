@@ -1,3 +1,27 @@
+- **2026-09-29 — Q70 (MODEL HELPERS, SERVER CONTROLS, AN INSTALLER)**, Gil:
+  *"a way to decide and control server — primary … and if other OS devices
+  are capable of running models, control what primary and secondary and make
+  sure protocol is matched for model calls no matter what type OS it is, and
+  option to open from there a terminal or show server commands/logs"*, and
+  *"some kind of installer … downloads based on the os type … installs all
+  software … the different applications"*. Answered by picking options:
+  1. **A secondary is a MODEL HELPER** — the primary keeps the brain and the
+     calendar; a helper (Mac, Linux or Windows) lends its model through the
+     same gate (`model_protocol.hold()`, now portable to Windows), open to the
+     network only with a token it issued for the code on its screen. A call
+     goes to the first machine in the person's order that is up, speaks the
+     same gate version and holds the SAME build of the model (digest); this
+     machine is skipped while busy only if a helper follows, and is always the
+     last resort. A seeded board never leaves the primary.
+     (`assistant/model_hosts/`, `assistant/host/helper.py`.)
+  2. **Controls in three places**: the menu-bar app (role switch, Servers &
+     logs, Open in Terminal), the calendar's Settings ▸ Server (the same
+     panel), and the phone (read-only; the log is the admin's).
+  3. **The installer is one small file per OS** (Mac .command, Linux .sh,
+     Windows .ps1) that installs the prerequisites, the code in its own folder,
+     the model and the apps. **Jude is asked about during install.**
+  Standby-brain failover was not chosen.
+
 - **2026-09-29 — Q69 (THE SERVER IS AN APP YOU CLICK; DEVICES JOIN WITHOUT
   TYPING)**, Gil: *"for the app on the macOS (also option for Linux and
   windows as well…) such that on server clickable and easy to set up server

@@ -66,7 +66,12 @@ from __future__ import annotations
 import contextlib
 import contextvars
 import errno
-import fcntl
+try:                                   # POSIX: macOS, Linux
+    import fcntl
+    msvcrt = None
+except ImportError:                    # Windows: a model helper can run there (Q70)
+    fcntl = None
+    import msvcrt
 import hashlib
 import hmac
 import json
@@ -446,6 +451,59 @@ def may_merge(a: "tuple", b: "tuple") -> bool:
     return stream_key(*a) == stream_key(*b)
 
 
+def route_post(path: str, payload: dict, timeout, base_url: str, session=None):
+    """THE door for a generating call: this machine's model under `hold()`,
+    or a model helper that holds the same model (DEVQA Q70,
+    `assistant/model_hosts/`). With no helpers it is `hold()` + POST, exactly
+    what every caller did before."""
+    from assistant.model_hosts.router import post
+    return post(path, payload, timeout, base_url, session=session)
+
+
+def _lock_nb(fd) -> None:
+    """Take the lock without blocking; OSError(EAGAIN) when someone has it.
+
+    The same gate on every OS (DEVQA Q70): a Windows machine lending its model
+    queues calls exactly as a Mac does. `msvcrt.locking` locks a byte range
+    rather than the file, so every caller locks byte 0."""
+    if fcntl is not None:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return
+    os.lseek(fd, 0, os.SEEK_SET)
+    try:
+        msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+    except OSError as e:               # Windows says EACCES or EDEADLOCK
+        raise OSError(errno.EAGAIN, str(e)) from e
+
+
+def _unlock(fd) -> None:
+    if fcntl is not None:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        return
+    os.lseek(fd, 0, os.SEEK_SET)
+    msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+
+
+def local_busy() -> bool:
+    """Is a model call running on THIS machine right now? A peek, not a
+    wait: take the lock without blocking and give it straight back."""
+    fd = _open_lock()
+    if fd is None:
+        return False
+    try:
+        _lock_nb(fd)
+    except OSError:
+        return True
+    else:
+        try:
+            _unlock(fd)
+        except OSError:
+            pass
+        return False
+    finally:
+        os.close(fd)
+
+
 def _open_lock():
     try:
         LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -483,7 +541,7 @@ def hold(kind: "str | None" = None):
         deadline = t0 + limit
         while True:
             try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                _lock_nb(fd)
                 held = True
                 break
             except OSError as e:
@@ -498,7 +556,7 @@ def hold(kind: "str | None" = None):
         if fd is not None:
             if held:
                 try:
-                    fcntl.flock(fd, fcntl.LOCK_UN)
+                    _unlock(fd)
                 except OSError:
                     pass
             os.close(fd)

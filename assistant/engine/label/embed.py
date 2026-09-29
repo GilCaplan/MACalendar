@@ -85,16 +85,14 @@ def _unit(v) -> np.ndarray:
 
 def _post(texts: "list[str]", base_url: str, timeout: float) -> "list | None":
     """The door. Returns the raw vectors or None; never raises."""
-    import urllib.request
     from assistant import model_protocol
-    body = json.dumps({"model": MODEL, "keep_alive": KEEP_ALIVE,
-                       "input": [PREFIX + t for t in texts]}).encode()
+    body = {"model": MODEL, "keep_alive": KEEP_ALIVE,
+            "input": [PREFIX + t for t in texts]}
     try:
-        with model_protocol.hold():
-            with urllib.request.urlopen(urllib.request.Request(
-                    f"{base_url}/api/embed", data=body,
-                    headers={"Content-Type": "application/json"}), timeout=timeout) as r:
-                got = json.loads(r.read()).get("embeddings")
+        # this machine under hold(), or a helper with the same embedding model
+        r = model_protocol.route_post("/api/embed", body, timeout, base_url)
+        r.raise_for_status()
+        got = r.json().get("embeddings")
     except Exception as e:
         # SAID, not swallowed (2026-09-24): the kind board saw 14 of ~25
         # batches come back empty and nothing anywhere said why — one failure

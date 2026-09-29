@@ -26,6 +26,9 @@ for _threads in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
 # No test may open a real window: the Qt widgets under test are constructed
 # headless, and on a CI runner there is no display to open one on.
 _os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+# No test announces or browses on the network (mDNS is multicast, and
+# test_offline blocks every non-loopback socket anyway). DEVQA Q69/Q70.
+_os.environ["MACALENDAR_NO_DISCOVERY"] = "1"
 
 # create_app() otherwise spawns a daemon thread that loads Whisper and spaCy
 # while the suite keeps running, and the two unzipping model files on separate
@@ -97,6 +100,14 @@ for _var, _name in (("MACALENDAR_DB", "calendar.db"),
                     # the running assistant's pulse.
                     ("MACALENDAR_HEARTBEATS", "heartbeats"),
                     ("MACALENDAR_HUD_STATE", "hud_state.json"),
+                    # Model helpers (DEVQA Q70): the primary's helper list
+                    # holds TOKENS for other machines, a helper's token file
+                    # decides who may use its model, host.json is this
+                    # machine's role, and logs/ is what the Servers pages read.
+                    ("MACALENDAR_MODEL_HOSTS", "model_hosts.json"),
+                    ("MACALENDAR_HELPER_TOKENS", "helper_tokens.json"),
+                    ("MACALENDAR_HOST_STATE", "host.json"),
+                    ("MACALENDAR_LOGS", "logs"),
                     # Users (2026-09-28). The registry's directory is the root
                     # of every per-user store (users/<uid>/…), so this one
                     # redirect scratches all of them; the other two are the

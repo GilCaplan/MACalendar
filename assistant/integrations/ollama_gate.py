@@ -84,7 +84,16 @@ _servers: "dict[int, ThreadingHTTPServer]" = {}
 _lock = threading.Lock()
 
 
-def _handler_for(upstream: str, priority: str):
+def _handler_for(upstream: str, priority: str, authorize=None,
+                 priority_header: bool = False, extra=None):
+    """The proxy handler. The three optional hooks are what a MODEL HELPER
+    adds (assistant/host/helper.py, DEVQA Q70) — Jude's gate uses none:
+
+    authorize(headers) -> bool   refuse (401) a caller without a valid token
+    priority_header              take the priority from X-MACalendar-Priority,
+                                 so a primary's LIVE call stays live here
+    extra(handler, method) -> bool   serve the gate's own /gate/* endpoints
+    """
     class _GateHandler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
 
@@ -94,13 +103,24 @@ def _handler_for(upstream: str, priority: str):
             logger.debug("ollama-gate %s", fmt % args)
 
         def _relay(self, method: str) -> None:
+            if extra is not None and extra(self, method):
+                return
+            if authorize is not None and not authorize(self.headers):
+                self._send_json(401, {"error": "this model helper needs its token"})
+                return
             length = int(self.headers.get("Content-Length") or 0)
             body = self.rfile.read(length) if length else None
             path = self.path
             gated = any(path.startswith(p) for p in GATED_PATHS)
+            kind = priority
+            if priority_header:
+                asked = (self.headers.get("X-MACalendar-Priority") or "").strip().lower()
+                kind = asked if asked in (model_protocol.LIVE, model_protocol.BACKGROUND) \
+                    else model_protocol.BACKGROUND
 
             headers = {k: v for k, v in self.headers.items()
-                       if k.lower() not in _HOP_BY_HOP}
+                       if k.lower() not in _HOP_BY_HOP
+                       and k.lower() not in ("authorization", "x-macalendar-priority")}
             req = urllib.request.Request(
                 upstream + path, data=body, method=method, headers=headers)
 
@@ -108,7 +128,7 @@ def _handler_for(upstream: str, priority: str):
                 # The hold spans the WHOLE response, because for a streaming
                 # generate that IS the call — releasing at the first token
                 # would hand the model over mid-answer.
-                with model_protocol.hold(priority) as waited_ms:
+                with model_protocol.hold(kind) as waited_ms:
                     if waited_ms > 250:
                         logger.info("ollama-gate: %s waited %dms for the model",
                                     path, waited_ms)
@@ -162,6 +182,15 @@ def _handler_for(upstream: str, priority: str):
             self.wfile.write(b"0\r\n\r\n")
             self.wfile.flush()
 
+        def _send_json(self, code: int, obj) -> None:
+            import json
+            payload = json.dumps(obj).encode()
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
         def _fail(self, message: str) -> None:
             import json
             payload = json.dumps({"error": message}).encode()
@@ -189,7 +218,9 @@ def _handler_for(upstream: str, priority: str):
     return _GateHandler
 
 
-def start(port: int, upstream: str, priority: str = model_protocol.BACKGROUND) -> str:
+def start(port: int, upstream: str, priority: str = model_protocol.BACKGROUND,
+          host: str = "127.0.0.1", authorize=None, priority_header: bool = False,
+          extra=None) -> str:
     """Start the gate (idempotent) and return the base URL to point a child at.
 
     Runs in a daemon thread inside whichever process calls this — normally the
@@ -198,14 +229,19 @@ def start(port: int, upstream: str, priority: str = model_protocol.BACKGROUND) -
     """
     with _lock:
         if port not in _servers:
-            handler = _handler_for(upstream.rstrip("/"), priority)
-            server = ThreadingHTTPServer(("127.0.0.1", port), handler)
+            if host != "127.0.0.1" and authorize is None:
+                # Open to the network without a token is ollama for anyone
+                # on the Wi-Fi. Refused, not warned about.
+                raise ValueError("a gate beyond this machine needs authorize=")
+            handler = _handler_for(upstream.rstrip("/"), priority, authorize,
+                                   priority_header, extra)
+            server = ThreadingHTTPServer((host, port), handler)
             server.daemon_threads = True
             threading.Thread(target=server.serve_forever, daemon=True,
                              name=f"ollama-gate-{port}").start()
             _servers[port] = server
-            logger.info("ollama gate on 127.0.0.1:%d -> %s (priority=%s)",
-                        port, upstream, priority)
+            logger.info("ollama gate on %s:%d -> %s (priority=%s)",
+                        host, port, upstream, priority)
     return f"http://127.0.0.1:{port}"
 
 

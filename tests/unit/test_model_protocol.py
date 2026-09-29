@@ -260,7 +260,9 @@ def test_every_door_to_the_model_goes_through_the_gate():
             if not OLLAMA.search(args) or PROBE.search(args):
                 continue
             window = "\n".join(lines[max(0, i - 14):i + 4])
-            if "model_protocol.hold()" not in window:
+            # route_post IS the gate: hold() for this machine, a helper's own
+            # gate otherwise (assistant/model_hosts/router.py).
+            if "model_protocol.hold()" not in window and "model_protocol.route_post(" not in window:
                 missed.append(f"{rel}:{i + 1}  {line.strip()[:64]}")
     assert not missed, (
         "these reach the model outside the gate:\n  " + "\n  ".join(missed))

@@ -93,6 +93,7 @@ struct SettingsView: View {
 
                 Section {
                     row("Your Mac", "desktopcomputer", .gray, connectionSummary) { serverPage }
+                    row("Servers & logs", "server.rack", .gray, "Model helpers") { ServersView() }
                     if store.pendingCount > 0 {
                         Button { showQueue = true } label: {
                             HStack {

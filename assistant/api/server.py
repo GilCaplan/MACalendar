@@ -417,6 +417,11 @@ def create_app() -> Flask:
     from assistant.pairing import routes as _pairing_routes
     _pairing_routes.register(app)
 
+    # Servers (DEVQA Q70): which computers run the model, and the server log.
+    # HTTP only; lives in assistant/model_hosts/.
+    from assistant.model_hosts import routes as _servers_routes
+    _servers_routes.register(app)
+
     # ------------------------------------------------------------------
     # Health
     # ------------------------------------------------------------------

@@ -28,10 +28,16 @@ def _normal(code: str) -> str:
     return "".join(ch for ch in (code or "").upper() if ch.isalnum())
 
 
+def fresh() -> str:
+    """A new code, NOT registered here — for a caller that checks its own
+    (a model helper's code, assistant/host/helper.py)."""
+    return "".join(secrets.choice(ALPHABET) for _ in range(LENGTH))
+
+
 def issue(ttl_s: float = 600.0, now: float | None = None) -> str:
     """A fresh code, valid for ``ttl_s`` seconds."""
     now = time.time() if now is None else now
-    code = "".join(secrets.choice(ALPHABET) for _ in range(LENGTH))
+    code = fresh()
     with _lock:
         for c in [c for c, exp in _codes.items() if exp <= now]:
             del _codes[c]

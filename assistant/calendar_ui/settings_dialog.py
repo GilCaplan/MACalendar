@@ -942,6 +942,16 @@ def open_settings(self) -> None:
         on_links=getattr(self, "_on_connected_calendars", None),
         on_synced=self.refresh_calendar))
 
+    # Which computers run the model, and the server's log (DEVQA Q70) — the
+    # same panel as the menu-bar app's "Servers & logs".
+    server = section("Server")
+    server.addWidget(hint(
+        "This Mac is the primary — the brain. Other computers can lend it their "
+        "model: open MACalendar Server on them and choose “A model helper”."))
+    from assistant.host.servers_panel import ServersPanel
+    server.addWidget(ServersPanel(
+        dialog, port=getattr(getattr(self._config, "api", None), "port", 8080)))
+
     layout.addStretch(1)
     # Test & Save
     btn_layout = QHBoxLayout()

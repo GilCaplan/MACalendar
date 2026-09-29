@@ -13,11 +13,12 @@ import sys
 import threading
 
 from PyQt6.QtCore import QObject, QPointF, QRectF, QSettings, Qt, QTimer, QUrl, pyqtSignal
-from PyQt6.QtGui import QAction, QColor, QDesktopServices, QIcon, QPainter, QPen, QPixmap
+from PyQt6.QtGui import QAction, QActionGroup, QColor, QDesktopServices, QIcon, QPainter, QPen, QPixmap
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
-from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
+from PyQt6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
 from assistant.host import autostart
+from assistant.host import role as role_mod
 from assistant.host.supervisor import Stack
 
 INSTANCE = "macalendar-server-host"
@@ -84,8 +85,11 @@ class HostTray(QObject):
         self.stack = stack or Stack()
         self.state: dict = {}
         self._dialog = None
-        self._started = self.stack.start() if start else []
+        self._servers_win = None
+        self.role = role_mod.get()
+        self.helper = None
         self._settings = QSettings("MACalendar", "Server")
+        self._started = self._start_role() if start else []
 
         mac = platform.system() == "Darwin"
         self.tray = QSystemTrayIcon(tray_icon("#000000" if mac else "#f5a524", mask=mac))
@@ -100,9 +104,22 @@ class HostTray(QObject):
         self.menu.addSeparator()
         self.pair_act = self.menu.addAction("Pair a phone or tablet…")
         self.pair_act.triggered.connect(lambda: self.show_pairing())
+        self.servers_act = self.menu.addAction("Servers & logs…")
+        self.servers_act.triggered.connect(lambda: self.show_servers())
         self.open_act = self.menu.addAction("Open calendar")
         self.open_act.triggered.connect(lambda: self.open_calendar())
         self.menu.addSeparator()
+        # The role (DEVQA Q70): the brain, or a machine that lends its model.
+        self.role_menu = self.menu.addMenu("This computer is")
+        group = QActionGroup(self.role_menu)
+        group.setExclusive(True)
+        self.primary_act = self.role_menu.addAction("The primary (the brain)")
+        self.helper_act = self.role_menu.addAction("A model helper (lends its model)")
+        for act, r in ((self.primary_act, role_mod.PRIMARY), (self.helper_act, role_mod.HELPER)):
+            act.setCheckable(True)
+            act.setChecked(self.role == r)
+            group.addAction(act)
+            act.triggered.connect(lambda _c=False, r=r: self.set_role(r))
         self.login_act = self.menu.addAction("Open at login")
         self.login_act.setCheckable(True)
         self.login_act.setChecked(autostart.is_enabled())
@@ -127,9 +144,56 @@ class HostTray(QObject):
         act.setEnabled(False)
         return act
 
+    # -- role ---------------------------------------------------------------
+    def _start_role(self) -> list[str]:
+        did = self.stack.start(api=self.role == role_mod.PRIMARY)
+        if self.role == role_mod.HELPER:
+            self._start_helper()
+        return did
+
+    def _start_helper(self) -> None:
+        if self.helper is None:
+            from assistant.host.helper import Helper
+            self.helper = Helper()
+            try:
+                self.helper.start()
+            except OSError as exc:            # the port is taken
+                self.tray.showMessage("MACalendar Server",
+                                      f"Couldn't lend the model: {exc}") if hasattr(self, "tray") else None
+                self.helper = None
+
+    def set_role(self, new: str, confirm: bool = True) -> None:
+        if new == self.role:
+            return
+        if confirm:
+            text = ("This computer will stop being the brain: phones and the calendar "
+                    "need a primary somewhere else, and your calendar data stays here."
+                    if new == role_mod.HELPER else
+                    "This computer will become the brain again and stop lending its model.")
+            if QMessageBox.question(None, "Change this computer's role?", text) \
+                    != QMessageBox.StandardButton.Yes:
+                (self.primary_act if self.role == role_mod.PRIMARY else self.helper_act).setChecked(True)
+                return
+        role_mod.set(new)
+        self.role = new
+        if new == role_mod.HELPER:
+            self.stack.stop_api()
+            self._start_helper()
+        else:
+            if self.helper is not None:
+                self.helper.stop()
+                self.helper = None
+            self._started = self.stack.start(api=True)
+        self.poller.poll()
+
     # -- status -----------------------------------------------------------
     def apply_status(self, st: dict) -> None:
         self.state = st
+        if self.role == role_mod.HELPER:
+            self._apply_helper_status(st)
+            return
+        self.pair_act.setVisible(True)
+        self.servers_act.setText("Servers & logs…")
         up = bool(st.get("api"))
         if up:
             self.status_act.setText("●  Running")
@@ -153,6 +217,22 @@ class HostTray(QObject):
         if up and n == 0 and not self._settings.value("offered_pairing", False, type=bool):
             self._settings.setValue("offered_pairing", True)
             self.show_pairing()
+
+    def _apply_helper_status(self, st: dict) -> None:
+        from assistant.pairing import codes
+        lending = bool(st.get("ollama")) and self.helper is not None
+        self.status_act.setText("●  Lending its model" if lending else "○  Model not running")
+        self.where_act.setText("Code for your primary: " + codes.pretty(self.helper.code)
+                               if self.helper else "")
+        self.where_act.setVisible(self.helper is not None)
+        n = len(self.helper.primaries()) if self.helper else 0
+        self.devices_act.setVisible(True)
+        self.devices_act.setText("Not used by a primary yet" if n == 0 else
+                                 f"Used by {n} primar{'ies' if n != 1 else 'y'}")
+        self.pair_act.setVisible(False)
+        self.servers_act.setText("Helper code & log…")
+        self._show_setup(st)
+        self.tray.setToolTip("MACalendar Server — " + self.status_act.text().split(None, 1)[-1])
 
     def _show_setup(self, st: dict) -> None:
         if not st.get("ollama_installed", True):
@@ -190,6 +270,31 @@ class HostTray(QObject):
         self._dialog.raise_()
         self._dialog.activateWindow()
 
+    def show_servers(self) -> None:
+        """Servers & logs (primary) or the helper's code and log (helper)."""
+        if self._servers_win is not None and self._servers_win.isVisible():
+            self._servers_win.raise_()
+            self._servers_win.activateWindow()
+            return
+        if self.role == role_mod.HELPER and self.helper is not None:
+            from assistant.host.helper_window import HelperWindow
+            win = HelperWindow(self.helper)
+        else:
+            from PyQt6.QtWidgets import QDialog, QVBoxLayout
+            from assistant.host.servers_panel import ServersPanel
+            win = QDialog()
+            win.setWindowTitle("Servers & logs")
+            lay = QVBoxLayout(win)
+            lay.addWidget(ServersPanel(win, port=self.stack.port))
+            win.resize(620, 640)
+        win.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        win.finished.connect(lambda _r: setattr(self, "_servers_win", None))
+        self._servers_win = win
+        _bring_forward()
+        win.show()
+        win.raise_()
+        win.activateWindow()
+
     def open_calendar(self) -> None:
         import subprocess
         from pathlib import Path
@@ -204,6 +309,8 @@ class HostTray(QObject):
         (autostart.enable if on else autostart.disable)()
 
     def quit(self) -> None:
+        if self.helper is not None:
+            self.helper.stop()
         self.tray.hide()
         self.app.quit()
 
@@ -233,6 +340,18 @@ def _hide_from_dock() -> None:
 
 
 def main() -> None:
+    # `--role primary|helper` sets this machine's role and leaves (the
+    # installer's question, DEVQA Q70).
+    if "--role" in sys.argv:
+        i = sys.argv.index("--role")
+        want = sys.argv[i + 1] if i + 1 < len(sys.argv) else ""
+        role_mod.set(want)
+        print(f"This computer is now: {want}")
+        return
+    from assistant.host.logs import HOST_LOG, install_file_handler
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    install_file_handler(HOST_LOG)
     app = QApplication(sys.argv)
     app.setApplicationName("MACalendar Server")
     app.setQuitOnLastWindowClosed(False)

@@ -14,6 +14,35 @@ needs no knowledge of them), hybrid (coordinated frontend + backend), and
 purely backend (no client code beyond displaying the effects).
 
 
+## Model helpers and server controls
+
+**What.** Another computer — Mac, Linux or Windows — can lend the brain its
+model. On it, MACalendar Server ▸ This computer is ▸ A model helper shows a
+code; on the primary, Servers & logs ▸ Add a helper picks it off the network
+and takes the code once. Model calls then go to the first machine in the
+order you set that is up and has the same build of the model, falling back to
+this one. The Servers panel (menu-bar app and the calendar's Settings ▸
+Server) shows each machine's state, the live server log and Open in
+Terminal; the phone's Settings ▸ Servers & logs shows the same, read-only.
+DEVQA Q70.
+
+**Where.** `assistant/model_hosts/` (store, router — `model_protocol.
+route_post` is the door every generating call uses — and the `/servers`
+routes); `assistant/host/helper.py` (the helper's gate: `/gate/info`,
+`/gate/claim`, `/gate/release`, token-checked `/api/*`), `role.py`, `logs.py`,
+`servers_panel.py`, `helper_window.py`; `integrations/ollama_gate.py` gained
+the token, priority-header and extra-endpoint hooks; iOS
+`Views/ServersView.swift`.
+
+**How.** Helpers announce `_macalendar-llm._tcp` with their addresses; the
+primary stores each helper's token 0600 and the helper stores only its hash.
+Health is read every 20 s off the command's clock; a helper that fails is set
+aside for a minute and the call moves on. The priority rides along in
+`X-MACalendar-Priority` so a live command stays live on the helper's gate.
+The API writes `~/.assistant_tools/logs/api.log` itself (2 MB × 3). Tests:
+`test_model_hosts.py` (including real HTTP through the helper's gate).
+
+
 ## Pairing: the server as an app, devices join without typing
 
 **What.** MACalendar Server is a menu-bar app (system tray on Windows and

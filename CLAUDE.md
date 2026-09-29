@@ -27,6 +27,8 @@ run on the Mac, started by `Launch Calendar.command`:
 **MACalendar Server is `python -m assistant.host`** — a menu-bar app that
 starts ollama + the API and pairs devices by QR or Wi-Fi (DEVQA Q69,
 `assistant/pairing/`); only the API's own process announces on the network.
+Other machines can lend it their MODEL (Q70, `assistant/model_hosts/`): every
+generating call goes through `model_protocol.route_post`, never a bare POST.
 
 **Both the GUI and the iPhone are clients of the API.** The GUI records audio,
 posts the transcript to `127.0.0.1:8080/voice/text`, and renders the answer;
@@ -214,6 +216,9 @@ the rest:
                                the processes' pulse and the HUD's window state
     MACALENDAR_OFFLINE_LOG     the phone's offline readings vs the Mac's
                                (assistant/offline/PROTOCOL.md) — what was said
+    MACALENDAR_MODEL_HOSTS / _HELPER_TOKENS / _HOST_STATE / _LOGS
+                               model helpers (Q70): tokens for OTHER machines,
+                               who may use this one's model, its role, the log
 
 The feedback file is the one to be careful with: it holds the user's own
 CORRECTIONS, which are the only non-circular label source this project has, so

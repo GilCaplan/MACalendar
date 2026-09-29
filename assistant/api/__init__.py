@@ -110,6 +110,13 @@ def main() -> None:
         # watcher, not the server, and should skip loading the models.
         os.environ["MACALENDAR_RELOADING"] = "1"
 
+    # The server log, as a file, whoever started this: the Servers pages and
+    # "Open in Terminal" read it (assistant/host/logs.py, DEVQA Q70). In the
+    # process that SERVES — the reloader's watcher would write a second copy.
+    if os.environ.get("WERKZEUG_RUN_MAIN") or not reload:
+        from assistant.host.logs import install_file_handler
+        install_file_handler()
+
     from assistant.api.server import create_app
     app = create_app()
 

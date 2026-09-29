@@ -19,6 +19,7 @@
 		AA000007000000000000001A /* EventDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000007000000000000001B /* EventDetailView.swift */; };
 		AA000008000000000000001A /* MonthGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000008000000000000001B /* MonthGridView.swift */; };
 		AA000009000000000000001A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000009000000000000001B /* SettingsView.swift */; };
+		AAF0000500000000000000A5 /* ServersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAF0000500000000000000B5 /* ServersView.swift */; };
 		AA00000A000000000000001A /* TaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000A000000000000001B /* TaskRowView.swift */; };
 		AA00000B000000000000001A /* TasksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000B000000000000001B /* TasksView.swift */; };
 		AA00000C000000000000001A /* VoiceButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000C000000000000001B /* VoiceButton.swift */; };
@@ -100,6 +101,7 @@
 		AA000007000000000000001B /* EventDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDetailView.swift; sourceTree = "<group>"; };
 		AA000008000000000000001B /* MonthGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthGridView.swift; sourceTree = "<group>"; };
 		AA000009000000000000001B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		AAF0000500000000000000B5 /* ServersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServersView.swift; sourceTree = "<group>"; };
 		AA00000A000000000000001B /* TaskRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskRowView.swift; sourceTree = "<group>"; };
 		AA00000B000000000000001B /* TasksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksView.swift; sourceTree = "<group>"; };
 		AA00000C000000000000001B /* VoiceButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceButton.swift; sourceTree = "<group>"; };
@@ -328,6 +330,7 @@
 				AA000002000000000000001B /* ContentView.swift */,
 				AA0000A400000000000000B1 /* SearchView.swift */,
 				AA000009000000000000001B /* SettingsView.swift */,
+				AAF0000500000000000000B5 /* ServersView.swift */,
 				AA0000BC00000000000000C1 /* TagHistoryView.swift */,
 				AA00000C000000000000001B /* VoiceButton.swift */,
 				AA00009A00000000000000B1 /* VocabularyView.swift */,
@@ -609,6 +612,7 @@
 				AA000007000000000000001A /* EventDetailView.swift in Sources */,
 				AA000008000000000000001A /* MonthGridView.swift in Sources */,
 				AA000009000000000000001A /* SettingsView.swift in Sources */,
+				AAF0000500000000000000A5 /* ServersView.swift in Sources */,
 				AA00000A000000000000001A /* TaskRowView.swift in Sources */,
 				AA00000B000000000000001A /* TasksView.swift in Sources */,
 				AA00000C000000000000001A /* VoiceButton.swift in Sources */,

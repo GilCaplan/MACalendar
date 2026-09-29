@@ -600,10 +600,8 @@ class IntentParser:
         import time as _t
         _who, _t0 = _bus.caller_label(), _t.perf_counter()
         try:
-            with model_protocol.hold():
-                resp = self._session.post(
-                    f"{conf.base_url}/api/chat", json=payload, timeout=60
-                )
+            resp = model_protocol.route_post("/api/chat", payload, 60,
+                                             conf.base_url, session=self._session)
             resp.raise_for_status()
             content = resp.json()["message"]["content"]
         except Exception as e:
@@ -668,9 +666,11 @@ class IntentParser:
         # gate is not the model being slow, so it does not count against it.
         from assistant import model_protocol
         try:
-            with model_protocol.hold():
-                resp = self._session.post(f"{conf.base_url}/api/chat",
-                                          json=payload, timeout=timeout)
+            # route_post: this machine under hold(), or a model helper
+            # holding the same model (DEVQA Q70). The gate's wait still does
+            # not count against `timeout`.
+            resp = model_protocol.route_post("/api/chat", payload, timeout,
+                                             conf.base_url, session=self._session)
             resp.raise_for_status()
             content = resp.json()["message"]["content"]
             _bus.record(transport="chat+schema", caller=_who, model=conf.model,

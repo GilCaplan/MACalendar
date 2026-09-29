@@ -96,8 +96,9 @@ class Stack:
         self.log_dir.mkdir(parents=True, exist_ok=True)
         return open(self.log_dir / f"server-{name}.log", "ab")
 
-    def start(self) -> list[str]:
-        """Start whatever is missing. Returns what was started."""
+    def start(self, api: bool = True) -> list[str]:
+        """Start whatever is missing. Returns what was started. ``api=False``
+        on a model helper: it runs only the model (DEVQA Q70)."""
         widen_path()
         did = []
         exe = ollama_path()
@@ -105,7 +106,7 @@ class Stack:
             self.started["ollama"] = subprocess.Popen(
                 [exe, "serve"], stdout=self._log("ollama"), stderr=subprocess.STDOUT)
             did.append("ollama")
-        if not port_open(self.port) and "api" not in self.started:
+        if api and not port_open(self.port) and "api" not in self.started:
             # --reload: editing the assistant restarts it by itself, as the
             # launcher's copy does (CLAUDE.md, "The API reloads itself").
             self.started["api"] = subprocess.Popen(
@@ -114,6 +115,16 @@ class Stack:
                 cwd=str(ROOT), stdout=self._log("api"), stderr=subprocess.STDOUT)
             did.append("api")
         return did
+
+    def stop_api(self) -> None:
+        """Stop the brain if this app started it (switching to helper)."""
+        proc = self.started.pop("api", None)
+        if proc and proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=8)
+            except subprocess.TimeoutExpired:
+                proc.kill()
 
     def stop(self) -> None:
         """Stop only what this app started, API first (it talks to ollama)."""

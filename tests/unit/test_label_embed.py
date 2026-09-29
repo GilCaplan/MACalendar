@@ -111,13 +111,16 @@ def test_the_embedding_door_is_one_the_door_test_can_see():
     next lines name the server. A door it cannot SEE is a hole that reads as covered."""
     import pathlib
     lines = pathlib.Path(E.__file__).read_text().splitlines()
-    CALL = re.compile(r"\.post\(|urlopen\(")
+    # Since DEVQA Q70 the door is `model_protocol.route_post(` — this
+    # machine under hold(), or a model helper's own gate.
+    CALL = re.compile(r"\.post\(|urlopen\(|route_post\(")
     OLLAMA = re.compile(r"base_url|ENDPOINT|11434")
     doors = [i for i, l in enumerate(lines) if CALL.search(l)
              and OLLAMA.search("\n".join(lines[i:i + 4]))]
     assert doors, "the embedding call is invisible to the door test"
     for i in doors:
-        assert "model_protocol.hold()" in "\n".join(lines[max(0, i - 14):i + 4])
+        window = "\n".join(lines[max(0, i - 14):i + 4])
+        assert "model_protocol.hold()" in window or "model_protocol.route_post(" in window
 
 
 # --- the head and its fallback --------------------------------------------------

@@ -70,7 +70,8 @@ class _FakeStack:
     def __init__(self):
         self.pulled = 0
 
-    def start(self):
+    def start(self, api=True):
+        self.api = api
         return []
 
     def stop(self):
@@ -173,3 +174,43 @@ def test_on_a_mac_it_opens_the_installed_app(tmp_path):
     app.mkdir()
     plist = plistlib.loads(autostart.enable(tmp_path, "Darwin", app=app).read_bytes())
     assert plist["ProgramArguments"] == ["/usr/bin/open", "-a", str(app)]
+
+
+class _FakeHelper:
+    code = "ABCDEFGH"
+
+    def primaries(self):
+        return [{"id": "x", "primary": "MacBook Air"}]
+
+    def stop(self):
+        pass
+
+
+def test_a_helper_says_it_is_lending_and_shows_its_code(tray):
+    from assistant.host import role
+    tray.role, tray.helper = role.HELPER, _FakeHelper()
+    tray.apply_status({"api": False, "ollama": True})
+    assert "Lending" in tray.status_act.text()
+    assert tray.where_act.text() == "Code for your primary: ABCD-EFGH"
+    assert tray.devices_act.text() == "Used by 1 primary"
+    assert not tray.pair_act.isVisible() and tray.servers_act.text() == "Helper code & log…"
+
+
+def test_switching_role_is_remembered_and_stops_the_brain(tray, monkeypatch):
+    from assistant.host import role
+    stopped = []
+    tray.stack.stop_api = lambda: stopped.append(1)
+    monkeypatch.setattr(tray, "_start_helper", lambda: setattr(tray, "helper", _FakeHelper()))
+    tray.poller.poll = lambda: None
+    tray.set_role(role.HELPER, confirm=False)
+    assert role.get() == role.HELPER and stopped == [1] and tray.helper is not None
+    tray.set_role(role.PRIMARY, confirm=False)
+    assert role.get() == role.PRIMARY and tray.helper is None
+
+
+def test_the_installer_can_set_the_role_without_a_window(monkeypatch, capsys):
+    from assistant.host import role, tray as tray_mod
+    monkeypatch.setattr("sys.argv", ["host", "--role", "helper"])
+    tray_mod.main()
+    assert role.get() == role.HELPER
+    role.set(role.PRIMARY)

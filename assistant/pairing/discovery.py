@@ -25,11 +25,14 @@ from assistant.pairing import addresses
 logger = logging.getLogger(__name__)
 
 SERVICE = "_macalendar._tcp.local."
+#: A model helper (DEVQA Q70) announces itself under its own type, so a phone
+#: never lists a machine that only lends its model.
+HELPER_SERVICE = "_macalendar-llm._tcp.local."   # a service name is <= 15 bytes
 TXT_VERSION = "1"
 _REFRESH_S = 60.0
 
 
-def txt(urls: list[str], name: str) -> dict[str, str]:
+def txt(urls: list[str], name: str, extra: dict | None = None) -> dict[str, str]:
     """The TXT record. One DNS-SD string holds at most 255 bytes, so URLs are
     kept whole and dropped from the END (the least preferred) until it fits."""
     kept: list[str] = []
@@ -37,15 +40,18 @@ def txt(urls: list[str], name: str) -> dict[str, str]:
         if len("urls=" + ",".join(kept + [u])) > 250:
             break
         kept.append(u)
-    return {"v": TXT_VERSION, "name": name[:60], "urls": ",".join(kept)}
+    return dict({"v": TXT_VERSION, "name": name[:60], "urls": ",".join(kept)}, **(extra or {}))
 
 
 class Advertiser:
     """One registration, kept current. ``close()`` withdraws it."""
 
-    def __init__(self, port: int, name: str | None = None):
+    def __init__(self, port: int, name: str | None = None, service: str = SERVICE,
+                 extra: dict | None = None):
         from zeroconf import IPVersion, Zeroconf
         self.port = port
+        self.service = service
+        self.extra = extra or {}
         self.name = name or addresses.server_name()
         self._zc = Zeroconf(ip_version=IPVersion.V4Only)
         self._info = None
@@ -60,9 +66,9 @@ class Advertiser:
         urls = addresses.candidate_urls(self.port, ips, ask_cli=False)
         host = socket.gethostname().split(".")[0] or "macalendar"
         return ServiceInfo(
-            SERVICE, f"{self.name}.{SERVICE}",
+            self.service, f"{self.name}.{self.service}",
             addresses=[socket.inet_aton(ip) for ip in lan],
-            port=self.port, properties=txt(urls, self.name),
+            port=self.port, properties=txt(urls, self.name, self.extra),
             server=f"{host}.local.")
 
     def _refresh(self, first: bool = False) -> None:
@@ -78,7 +84,7 @@ class Advertiser:
             self._zc.update_service(info)
         self._info = info
         logger.info("📡 Announced on the local network as %r (%s)",
-                    self._info.name.removesuffix("." + SERVICE),
+                    self._info.name.removesuffix("." + self.service),
                     info.properties.get(b"urls", b"").decode() or "no addresses")
 
     def _loop(self) -> None:
@@ -89,6 +95,11 @@ class Advertiser:
                 logger.debug("mDNS refresh failed: %s", exc)
 
     def close(self) -> None:
+        """Withdraw the announcement. Idempotent: ``stop()`` and the atexit
+        hook both call it, and a second unregister on a closed Zeroconf
+        leaves an un-awaited coroutine behind."""
+        if self._stop.is_set():
+            return
         self._stop.set()
         try:
             if self._info is not None:
@@ -98,15 +109,45 @@ class Advertiser:
             pass
 
 
-def advertise(port: int) -> Advertiser | None:
+def advertise(port: int, service: str = SERVICE, extra: dict | None = None) -> Advertiser | None:
     """Start announcing; None (logged) if the network or zeroconf says no.
     Never raises: a server that cannot be FOUND can still be reached by QR or
     by typing its address, so this must not stop it starting."""
     try:
-        adv = Advertiser(port)
+        adv = Advertiser(port, service=service, extra=extra)
     except Exception as exc:
-        logger.warning("Not announcing on the local network (%s) — devices can "
-                       "still pair with the QR code.", exc)
+        logger.warning("Not announcing on the local network (%s) — it can still "
+                       "be reached by its address.", exc)
         return None
     atexit.register(adv.close)
     return adv
+
+
+def browse(service: str, timeout: float = 2.0) -> list[dict]:
+    """``[{name, urls, os, …TXT}]`` announced under ``service`` right now.
+    A short, one-off look (the primary's Servers page asks when it opens)."""
+    import time as _t
+    from zeroconf import IPVersion, ServiceBrowser, Zeroconf
+    found: dict[str, dict] = {}
+    zc = Zeroconf(ip_version=IPVersion.V4Only)
+
+    class _L:
+        def add_service(self, z, type_, name):
+            info = z.get_service_info(type_, name, timeout=1500)
+            if info is None:
+                return
+            props = {k.decode(): (v or b"").decode() for k, v in info.properties.items()}
+            urls = [u for u in props.get("urls", "").split(",") if u]
+            if urls:
+                found[name] = dict(props, name=props.get("name") or name.split(".")[0],
+                                   urls=urls)
+
+        update_service = add_service
+
+        def remove_service(self, z, type_, name):
+            found.pop(name, None)
+
+    ServiceBrowser(zc, service, _L())
+    _t.sleep(timeout)
+    zc.close()
+    return list(found.values())
