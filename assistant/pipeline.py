@@ -187,6 +187,17 @@ class Pipeline:
           3rd press → cancel the queued session
         """
         with self._trigger_lock:
+            # Settings ▸ Assistant can switch the assistant off (the phone can
+            # too — so read it now, not from the config this window opened
+            # with). Off: the mic does not open at all.
+            if not self._busy.is_set():
+                try:
+                    from assistant.config import load_config
+                    if not getattr(load_config().engine, "enabled", True):
+                        self._set_status(STATUS_ERROR, "The assistant is off — Settings ▸ Assistant")
+                        return
+                except Exception:
+                    pass
             if self._busy.is_set():
                 if self._phase == STATUS_REVIEW:
                     # Mic press while the Redo / Add more / Send bar is up means

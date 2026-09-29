@@ -8,6 +8,7 @@ struct VoiceButton: View {
     @StateObject private var player  = SpeechPlayer()
 
     @State private var status: Status = .idle
+    @State private var offNote = false
     var onRefresh: ((String) -> Void)?
     /// Full response, for callers that need more than the refresh string —
     /// e.g. the Workout tab keys off `actions.contains("generate_workout_routine")`
@@ -216,6 +217,12 @@ struct VoiceButton: View {
             }
         }
         .disabled(status == .thinking || status == .speaking)
+        .opacity(api.assistantEnabled || status != .idle ? 1 : 0.4)
+        .alert("The assistant is off", isPresented: $offNote) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Turn it on in Settings ▸ Assistant (here or on your Mac).")
+        }
         // Turning "speak replies" off should stop the sentence already being
         // read, not just suppress the next one. The guards at the call sites
         // are checked before an utterance starts, so an in-flight reply
@@ -295,6 +302,16 @@ struct VoiceButton: View {
     }
 
     private func handleTap() {
+        // Settings ▸ Assistant switched off (here or on the Mac): check again
+        // first — it may have been switched back on elsewhere — and only then
+        // say so. The Mac refuses commands too; this just saves a recording.
+        if status == .idle && !api.assistantEnabled {
+            Task {
+                _ = try? await api.health()
+                if api.assistantEnabled { handleTap() } else { offNote = true }
+            }
+            return
+        }
         switch status {
         case .idle:
             let requestPermission: (@escaping (Bool) -> Void) -> Void

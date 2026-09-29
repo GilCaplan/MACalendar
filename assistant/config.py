@@ -292,6 +292,10 @@ class NLUConfig(BaseModel):
 class EngineConfig(BaseModel):
     """The engine's knobs (DOCUMENTATION/ENGINE.md). Stage behaviour only —
     the routing threshold stays with the rule parser."""
+    # The assistant's on/off switch (Settings ▸ Assistant, on the Mac and the
+    # phone). Off: no command reaches the engine — voice or typed — and the
+    # mics are disabled; the calendar itself works as always.
+    enabled: bool = True
     # Step 1's gate: when the vocabulary doubts a word, ask the speaker to
     # check the transcription before anything executes (clients that declared
     # supports_edit only). Off = proceed with the best guess + tap-a-word.

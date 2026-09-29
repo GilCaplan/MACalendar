@@ -417,6 +417,10 @@ def create_app() -> Flask:
     from assistant.pairing import routes as _pairing_routes
     _pairing_routes.register(app)
 
+    # The assistant's on/off switch: no command reaches the engine while off.
+    from assistant.api import assistant_switch as _assistant_switch
+    _assistant_switch.register(app)
+
     # Servers (DEVQA Q70): which computers run the model, and the server log.
     # HTTP only; lives in assistant/model_hosts/.
     from assistant.model_hosts import routes as _servers_routes
@@ -446,6 +450,8 @@ def create_app() -> Flask:
             "llm_engine": cfg.llm_engine,
             "llm_status": llm_status,
             "db": db.path,
+            # Settings ▸ Assistant: the phone disables its mic while off.
+            "assistant": _assistant_switch.enabled(),
         })
 
     @app.post("/heartbeat")

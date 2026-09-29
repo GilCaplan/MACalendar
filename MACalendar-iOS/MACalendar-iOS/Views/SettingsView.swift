@@ -9,6 +9,7 @@ struct SettingsView: View {
     @ObservedObject private var visibility = FeatureVisibility.shared
     @State private var healthStatus: String? = nil
     @State private var checking = false
+    @State private var assistantNote: String?
     @State private var unreviewed = 0
     // The day panel: the server-side policy (nil until the Mac answers).
     @State private var notifConfig: NotificationsConfig? = nil
@@ -69,7 +70,32 @@ struct SettingsView: View {
                     row("Tabs", "square.grid.2x2", .teal, tabsSummary) { tabsPage }
                 }
 
-                Section("Assistant") {
+                Section {
+                    // The switch (Gil, 2026-09-29): off, nothing said or typed
+                    // is acted on — here or on the Mac. The Mac keeps it.
+                    Toggle(isOn: Binding(
+                        get: { api.assistantEnabled },
+                        set: { on in
+                            Task { assistantNote = await api.setAssistant(on) }
+                        })) {
+                        HStack {
+                            SettingsIcon("sparkles", .purple)
+                            Text("Assistant")
+                        }
+                    }
+                    .onAppear { Task { _ = try? await api.health() } }
+                    if let assistantNote {
+                        Text(assistantNote).font(.caption).foregroundColor(.red)
+                    }
+                } header: {
+                    Text("Assistant")
+                } footer: {
+                    Text(api.assistantEnabled
+                         ? "On: speak or type commands here and on your Mac."
+                         : "Off: nothing you say or type is acted on, here or on your Mac. "
+                           + "Your calendar and to-dos work as usual.")
+                }
+                Section {
                     NavigationLink { AssistantReviewView() } label: {
                         HStack {
                             SettingsIcon("checkmark.bubble", .purple)

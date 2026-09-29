@@ -509,6 +509,8 @@ class CalendarWindow(QMainWindow):
         self._week_view = WeekView(self._db)
         self._day_view = DayView(self._db)
         self._apply_visible_hours()
+        self._apply_assistant_switch(bool(getattr(getattr(self._config, "engine", None),
+                                                  "enabled", True)))
         self._agenda_view = AgendaView(self._db)
         for _view in (self._month_view, self._week_view,
                       self._day_view, self._agenda_view):
@@ -733,6 +735,8 @@ class CalendarWindow(QMainWindow):
         if self._pipeline is not None:
             self._mic_btn.clicked.connect(self._pipeline.trigger)
         layout.addWidget(self._mic_btn, alignment=v_center)
+        self._apply_assistant_switch(bool(getattr(getattr(self._config, "engine", None),
+                                                  "enabled", True)))
 
         # Discard, beside the mic and only while it is listening. Cancelling a
         # recording was a double-tap on the mic, which is to say undiscoverable
@@ -1686,6 +1690,16 @@ class CalendarWindow(QMainWindow):
     def _on_settings_popup(self) -> None:
         from assistant.calendar_ui.settings_dialog import open_settings
         open_settings(self)
+
+    def _apply_assistant_switch(self, on: bool) -> None:
+        """Settings ▸ Assistant: off shuts the mic (the brain refuses commands
+        too, so a phone or a stale window cannot slip one past it)."""
+        mic = vars(self).get("_mic_btn")
+        if mic is None:
+            return
+        mic.setEnabled(on)
+        mic.setToolTip("Click or press Ctrl+J to toggle the microphone" if on else
+                       "The assistant is off — Settings ▸ Assistant")
 
     def _apply_visible_hours(self) -> None:
         """Settings ▸ Appearance ▸ Show hours, into Week and Day."""

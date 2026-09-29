@@ -204,6 +204,7 @@ nlu:
 
 # The engine — the 7-step brain (DOCUMENTATION/ENGINE.md)
 engine:
+  enabled: true             # the assistant on/off (Settings ▸ Assistant): off = no command reaches it
   confirm_transcript: false  # step 1: doubted words block execution behind an "edit the
                              # transcription" round-trip (clients that support it only)
   confirm_create: true       # step 4: "should I add yoga tomorrow?" is offered for

@@ -838,6 +838,14 @@ def open_settings(self) -> None:
 
     # ── Assistant ─────────────────────────────────────────────────
     assistant = section("Assistant")
+    # The switch (Gil, 2026-09-29): off, no command reaches the engine — from
+    # this Mac or the phone — and the mics stay shut. The calendar still works.
+    assistant_on_cb = QCheckBox("Assistant on — voice and typed commands")
+    assistant_on_cb.setObjectName("assistant_on")
+    assistant_on_cb.setChecked(bool(getattr(getattr(self._config, "engine", None), "enabled", True)))
+    assistant.addWidget(assistant_on_cb)
+    assistant.addWidget(hint("Off: nothing you say or type is acted on, here or on your phone, "
+                             "until you switch it back on. Your calendar and to-dos work as usual."))
     auto_cb = QCheckBox("Auto-approve actions (no confirmations)")
     # config.confirmation_level is the source of truth, not the pipeline.
     # Pipeline._confirmer was deleted in e3ea4f6 ("Delete the Mac's dead half")
@@ -1054,7 +1062,8 @@ def open_settings(self) -> None:
                           "stop_phrases": raw_phrases,
                           "event_separator": sep_edit.text().strip()},
                 "nlu": {"event_keywords": raw_keywords},
-                "engine": {"confirm_transcript": confirm_cb.isChecked()},
+                "engine": {"confirm_transcript": confirm_cb.isChecked(),
+                           "enabled": assistant_on_cb.isChecked()},
                 # Read by event_defaults in whichever process asks (the API
                 # re-reads on the file's mtime), and by the New Event dialog.
                 "events": {"event_length_minutes": event_length_spin.value(),
@@ -1109,6 +1118,9 @@ def open_settings(self) -> None:
                 self._config.confirmation_level = 0 if auto_cb.isChecked() else 1
                 self._config.ui.start_view = start_view_combo.currentData()
                 self._config.ui.hours_from, self._config.ui.hours_to = _checked_hours()
+                _apply(getattr(self._config, "engine", None), "enabled", assistant_on_cb.isChecked())
+                if hasattr(self, "_apply_assistant_switch"):
+                    self._apply_assistant_switch(assistant_on_cb.isChecked())
                 if hasattr(self, "_apply_visible_hours"):
                     self._apply_visible_hours()
                 self._config.ui.font_month = month_spin.value()

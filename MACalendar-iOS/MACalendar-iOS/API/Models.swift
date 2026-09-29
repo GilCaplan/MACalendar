@@ -721,6 +721,9 @@ struct HealthResponse: Codable {
     let status: String
     let llm: String
     let db: String
+    /// Settings ▸ Assistant on the Mac or here: false = the assistant is
+    /// switched off and every command is refused. Absent on older Macs.
+    let assistant: Bool?
 }
 
 /// The `notifications` section of the Mac's config (GET /config). The server

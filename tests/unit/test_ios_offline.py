@@ -36,6 +36,10 @@ NOT_QUEUEABLE = {
     # ten-minute one-time code while the person holds the phone to the QR:
     # replayed later, the code is dead and the answer is "scan again".
     "heartbeat", "enrollIfNeeded", "testConnection", "pair",
+    # The assistant's on/off switch: flipped while the Mac is away, replaying
+    # it later could switch the assistant off (or on) after the person has
+    # changed their mind on the Mac — the toggle says "try again" instead.
+    "setAssistant",
     # Voice has its OWN queue (`LocalStore.enqueueVoice`): recordings are
     # replayed as audio, because the phone cannot understand them — the brain
     # is on the Mac.

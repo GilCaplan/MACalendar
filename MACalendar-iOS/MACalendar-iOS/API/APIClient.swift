@@ -36,6 +36,12 @@ class APIClient: ObservableObject {
     /// else to appear. See `announceRefusal`.
     @Published var lastRefusal: String?
     @Published var isOnline   = true
+    /// The assistant's on/off switch (Settings ▸ Assistant), as the Mac last
+    /// said. Remembered, so the mic stays shut offline too.
+    @Published var assistantEnabled: Bool =
+        UserDefaults.standard.object(forKey: "macalendar.assistant_enabled") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(assistantEnabled, forKey: "macalendar.assistant_enabled") }
+    }
     /// Bumped whenever every view should re-fetch from the Mac (foreground, 30 s poll,
     /// reconnect, voice command). Views subscribe with `.onReceive(api.$refreshTick)`.
     @Published var refreshTick = 0
@@ -569,7 +575,27 @@ class APIClient: ObservableObject {
 
     func health() async throws -> HealthResponse {
         let data = try await request("/health")
-        return try decode(HealthResponse.self, from: data)
+        let h = try decode(HealthResponse.self, from: data)
+        if let on = h.assistant, on != assistantEnabled { assistantEnabled = on }
+        return h
+    }
+
+    /// Switch the assistant on or off (PUT /assistant). nil on success, else
+    /// what to tell the person.
+    func setAssistant(_ on: Bool) async -> String? {
+        do {
+            let data = try await request("/assistant", method: "PUT", body: ["enabled": on])
+            if let got = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let now = got["enabled"] as? Bool {
+                assistantEnabled = now
+            }
+            return nil
+        } catch APIError.serverError(let msg) {
+            return msg.contains("admins only") ? "Only the admin can switch the assistant."
+                                               : "The Mac refused: \(msg)"
+        } catch {
+            return "Your Mac isn't reachable — try again when it is."
+        }
     }
 
     // MARK: - Teaching the labeller
