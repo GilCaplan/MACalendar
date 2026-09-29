@@ -1,8 +1,26 @@
-"""The Account tab on the Mac: the admin's dashboard, or a person's own page.
+"""The Account tab on the Mac — the same design as the phone's (2026-09-28).
 
-`assistant/features/account/feature.py` has the why. The two pages reuse the
-dialogs the toolbar chip opens (`users_dialogs`), embedded, so there is one
-implementation of each screen, not a dialog and a tab that drift apart.
+Gil asked for the Account tab to be revamped, and then for the whole Mac app
+to be cleaned up. The page used to embed two dialogs: a sharing list that
+split "share my calendar" from "shared with me", and a people TABLE whose
+buttons acted on whichever row happened to be selected. It is now what the
+phone shows:
+
+    a header card    you, and (admin) how many people and devices
+    People           one card per person — both directions of sharing in one
+                     line, and every control about them ON the card: what
+                     they can do with yours, and for the admin whether theirs
+                     shows in your calendar, your vocabulary, and their
+                     account (reset, sign out everywhere, disable, remove)
+    Tasks            group shared to-dos by person, explained
+    Sign-in          (admin) require sign-in, auto sign-out
+    Devices          (admin) who is signed in where
+    Sign out of this Mac
+
+A change updates what depends on it — the card's own line, the counts, the
+device list, the calendar and the other panels — and never rebuilds the page
+under the control being clicked (that destroyed the control mid-click and
+wiped a new user's shown-once password; test_account_tab_controls.py).
 """
 from __future__ import annotations
 
@@ -10,12 +28,199 @@ import datetime as _dt
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget,
+    QCheckBox, QComboBox, QFrame, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
+    QMessageBox, QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget,
 )
 
 from assistant import users
+from assistant.calendar_ui import styles as _styles
 from assistant.calendar_ui.feature_panel import FeaturePanel
-from assistant.users import registry, sessions
+from assistant.users import local_session, passwords, registry, sessions
+
+_LEVELS = [None, "view", "edit"]
+
+
+def _palette(dark: bool) -> dict:
+    return {
+        "card": _styles.D_GRAY_LIGHT if dark else _styles.WHITE,
+        "border": _styles.D_GRAY_BORDER if dark else _styles.GRAY_BORDER,
+        "text": _styles.D_GRAY_DARK if dark else _styles.GRAY_DARK,
+        "muted": _styles.D_GRAY_TEXT if dark else _styles.GRAY_TEXT,
+        "danger": _styles.DESTRUCTIVE_DARK if dark else _styles.DESTRUCTIVE,
+    }
+
+
+def _card_style(pal: dict) -> str:
+    return (f"QFrame#person_card {{ background:{pal['card']};"
+            f" border:1px solid {pal['border']}; border-radius:{_styles.RADIUS_LG}px; }}"
+            " QFrame#person_card QLabel { background: transparent; border: none; }")
+
+
+def _avatar(name: str, color: str, size: int = 36) -> QLabel:
+    color = color or "#888888"
+    a = QLabel((name[:1] or "?").upper())
+    a.setFixedSize(size, size)
+    a.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    a.setStyleSheet(f"background:{color}; color:{_styles.on_color(color)};"
+                    f" border-radius:{size // 2}px; font-weight:700; font-size:{int(size * 0.42)}px;")
+    return a
+
+
+def _relation(me: str, other: str) -> str:
+    """"You share View · They share nothing" — both directions in one line."""
+    def word(level):
+        return {"view": "View", "edit": "Edit"}.get(level or "", "nothing")
+    return (f"You share {word(registry.share_level(me, other))} · "
+            f"They share {word(registry.share_level(other, me))}")
+
+
+class _PersonCard(QFrame):
+    """Everything about one person, on one card."""
+
+    def __init__(self, panel: "AccountPanel", uid: str) -> None:
+        super().__init__()
+        self.panel, self.uid = panel, uid
+        me, admin = panel.me, panel.is_admin
+        u = registry.get(uid) or {}
+        pal = _palette(panel._dark)
+        self.setObjectName("person_card")
+        self.setStyleSheet(_card_style(pal))
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(16, 14, 16, 14)
+        lay.setSpacing(10)
+
+        head = QHBoxLayout()
+        head.setSpacing(12)
+        head.addWidget(_avatar(u.get("display_name", "?"), u.get("color", "")))
+        names = QVBoxLayout()
+        names.setSpacing(1)
+        title = QLabel(f"<b>{u.get('display_name', '?')}</b>  <span style='color:{pal['muted']}'>"
+                       f"@{u.get('username', '')}</span>"
+                       + (f"  <span style='color:{pal['danger']}'>disabled</span>"
+                          if u.get("disabled") else ""))
+        title.setStyleSheet(f"font-size:14px; color:{pal['text']};")
+        names.addWidget(title)
+        self.relation = QLabel(_relation(me, uid))
+        self.relation.setStyleSheet(f"font-size:12px; color:{pal['muted']};")
+        names.addWidget(self.relation)
+        head.addLayout(names, 1)
+        lay.addLayout(head)
+
+        # what they can do with yours — for everyone
+        row = QHBoxLayout()
+        row.addWidget(self._label("Your calendar & to-dos — they can", pal))
+        row.addStretch(1)
+        self.share_box = QComboBox()
+        self.share_box.addItems(["Not shared", "View", "Edit"])
+        self.share_box.setCurrentIndex(_LEVELS.index(registry.share_level(me, uid)))
+        self.share_box.currentIndexChanged.connect(lambda i: self._share(_LEVELS[i]))
+        row.addWidget(self.share_box)
+        lay.addLayout(row)
+
+        if admin:
+            row = QHBoxLayout()
+            self.show_box = QCheckBox("Show their calendar && to-dos in mine")
+            self.show_box.setChecked(registry.admin_shows(me, uid))
+            self.show_box.toggled.connect(lambda on: self._show(on))
+            row.addWidget(self.show_box)
+            row.addSpacing(18)
+            self.vocab_box = QCheckBox("Share my vocabulary")
+            self.vocab_box.setChecked(uid in registry.load().get("vocab_shares", {}).get(me, []))
+            self.vocab_box.toggled.connect(lambda on: self._vocab(on))
+            row.addWidget(self.vocab_box)
+            row.addStretch(1)
+            lay.addLayout(row)
+
+            row = QHBoxLayout()
+            row.setSpacing(6)
+            self.reset_btn = QPushButton("Reset password")
+            self.signout_btn = QPushButton("Sign out everywhere")
+            self.disable_btn = QPushButton("Enable" if u.get("disabled") else "Disable")
+            self.remove_btn = QPushButton("Remove…")
+            self.remove_btn.setStyleSheet(f"color:{pal['danger']};")
+            self.reset_btn.clicked.connect(lambda: self._reset())
+            self.signout_btn.clicked.connect(lambda: self._sign_out())
+            self.disable_btn.clicked.connect(lambda: self._toggle_disabled())
+            self.remove_btn.clicked.connect(lambda: self._remove())
+            for b in (self.reset_btn, self.signout_btn, self.disable_btn, self.remove_btn):
+                row.addWidget(b)
+            row.addStretch(1)
+            lay.addLayout(row)
+        else:
+            theirs = registry.share_level(uid, me)
+            lay.addWidget(self._label(
+                "Their calendar & to-dos: "
+                + (f"shared with you ({theirs})" if theirs else "not shared with you"), pal))
+
+        self.note = QLabel("")
+        self.note.setWordWrap(True)
+        self.note.setStyleSheet(f"font-size:12px; color:{pal['muted']};")
+        self.note.hide()
+        lay.addWidget(self.note)
+        self.revealed = QLineEdit()
+        self.revealed.setReadOnly(True)
+        self.revealed.hide()
+        lay.addWidget(self.revealed)
+
+    @staticmethod
+    def _label(text: str, pal: dict) -> QLabel:
+        lbl = QLabel(text)
+        lbl.setStyleSheet(f"font-size:13px; color:{pal['text']};")
+        return lbl
+
+    def _say(self, text: str) -> None:
+        self.note.setText(text)
+        self.note.setVisible(bool(text))
+
+    # -- actions ---------------------------------------------------------
+
+    def _share(self, level) -> None:
+        registry.set_share(self.panel.me, self.uid, level)
+        self.relation.setText(_relation(self.panel.me, self.uid))
+        self.panel._changed()
+
+    def _show(self, on: bool) -> None:
+        registry.set_admin_view(self.panel.me, self.uid, on)
+        self.panel._changed()
+
+    def _vocab(self, on: bool) -> None:
+        registry.set_vocab_share(self.panel.me, self.uid, on)
+
+    def _reset(self) -> None:
+        pw = passwords.generate()
+        registry.set_password(self.uid, pw, must_change=True)
+        sessions.revoke_user(self.uid)
+        self._say("New password — shown once. They'll choose their own when they sign in.")
+        self.revealed.setText(pw)
+        self.revealed.show()
+        self.revealed.selectAll()
+        self.panel._changed()
+
+    def _sign_out(self) -> None:
+        n = sessions.revoke_user(self.uid)
+        self._say(f"Signed out of {n} device{'s' if n != 1 else ''}. Their password is unchanged.")
+        self.panel._changed()
+
+    def _toggle_disabled(self) -> None:
+        u = registry.get(self.uid) or {}
+        registry.update_user(self.uid, disabled=not u.get("disabled"))
+        if not u.get("disabled"):
+            sessions.revoke_user(self.uid)
+        self.disable_btn.setText("Disable" if u.get("disabled") else "Enable")
+        self._say("" if u.get("disabled") else "Disabled — they can't sign in until you enable them.")
+        self.panel._changed()
+
+    def _remove(self) -> None:
+        u = registry.get(self.uid) or {}
+        typed, ok = QInputDialog.getText(
+            self, "Remove person",
+            f"Type {u.get('username')} to remove them. Their calendar is kept in legacy/, not deleted.")
+        if not ok or typed.strip().lower() != u.get("username"):
+            return
+        registry.remove_user(self.uid)
+        sessions.revoke_user(self.uid)
+        self.panel._rebuild_people()
+        self.panel._changed()
 
 
 class AccountPanel(FeaturePanel):
@@ -24,6 +229,7 @@ class AccountPanel(FeaturePanel):
     def __init__(self, db=None, dark: bool = True) -> None:
         super().__init__()
         self._db = db
+        self._dark = dark
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         self._scroll = QScrollArea()
@@ -35,70 +241,209 @@ class AccountPanel(FeaturePanel):
     # -- the contract -----------------------------------------------------------
 
     def reload(self) -> None:
-        """Rebuilt, not refreshed: who is signed in decides which page this is."""
+        """Rebuilt, not refreshed: who is signed in decides what the page is."""
+        self.me = users.current()
+        me = registry.get(self.me) if (self.me and registry.exists()) else None
+        self.is_admin = bool(me and me.get("role") == "admin")
+        self.cards: dict = {}
+        self._sub = self._devices_lay = self._people_lay = None
         page = QWidget()
-        lay = QVBoxLayout(page)
-        lay.setContentsMargins(28, 22, 28, 22)
-        lay.setSpacing(14)
-        self._sub = self._devices_lay = None
-        uid = users.current()
-        me = registry.get(uid) if (uid and registry.exists()) else None
+        from assistant.calendar_ui.users_dialogs import _checkbox_style
+        page.setStyleSheet(_checkbox_style())     # boxes that read in both themes
+        outer = QHBoxLayout(page)
+        outer.setContentsMargins(28, 22, 28, 22)
+        wrap = QWidget()
+        wrap.setMaximumWidth(820)             # a readable column, not a 1400px page
+        col = QVBoxLayout(wrap)
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(12)
+        outer.addWidget(wrap, 1, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
         if me is None:
             msg = QLabel("No accounts on this Mac yet.")
             msg.setObjectName("muted")
-            lay.addWidget(msg)
-        elif me["role"] == "admin":
-            self._admin_page(lay, me)
+            col.addWidget(msg)
         else:
-            self._user_page(lay, me)
-        lay.addStretch(1)
+            self._build(col, me)
+        col.addStretch(1)
         self._scroll.setWidget(page)
 
-    # -- pages ----------------------------------------------------------------
+    def apply_theme(self, dark: bool) -> None:
+        self._dark = dark
+        self.reload()
 
-    def _title(self, lay, text: str, sub: str = "") -> None:
-        t = QLabel(text)
+    # -- the page ---------------------------------------------------------------
+
+    def _build(self, col, me: dict) -> None:
+        pal = _palette(self._dark)
+        head = QFrame()
+        head.setObjectName("person_card")
+        head.setStyleSheet(_card_style(pal))
+        h = QHBoxLayout(head)
+        h.setContentsMargins(18, 16, 18, 16)
+        h.setSpacing(14)
+        h.addWidget(_avatar(me["display_name"], me.get("color", ""), 52))
+        names = QVBoxLayout()
+        names.setSpacing(2)
+        t = QLabel(me["display_name"])
         t.setObjectName("account_title")
-        # a stylesheet, not setFont: the app's stylesheet sets every QLabel's
-        # font and silently wins over setFont — the title rendered body-sized
-        t.setStyleSheet("font-size: 22px; font-weight: 700;")
-        lay.addWidget(t)
-        self._sub = None
-        if sub:
-            s = QLabel(sub)
-            s.setObjectName("muted")
-            s.setWordWrap(True)
-            lay.addWidget(s)
-            self._sub = s
+        t.setStyleSheet(f"font-size: 22px; font-weight: 700; color:{pal['text']};")
+        names.addWidget(t)
+        sub = QLabel(f"@{me['username']}{' · admin' if self.is_admin else ''}")
+        sub.setStyleSheet(f"font-size:13px; color:{pal['muted']};")
+        names.addWidget(sub)
+        if self.is_admin:
+            self._sub = QLabel(self._summary())
+            self._sub.setStyleSheet(f"font-size:12px; color:{pal['muted']};")
+            names.addWidget(self._sub)
+        h.addLayout(names, 1)
+        self.change_pw_btn = QPushButton("Change password…")
+        self.change_pw_btn.clicked.connect(lambda: self._change_password())
+        h.addWidget(self.change_pw_btn, 0, Qt.AlignmentFlag.AlignVCenter)
+        col.addWidget(head)
 
-    def _section(self, lay, text: str) -> None:
+        self._section(col, "People", pal)
+        self.created_note = QLabel("")
+        self.created_note.setWordWrap(True)
+        self.created_note.hide()
+        self.created = QLineEdit()
+        self.created.setReadOnly(True)
+        self.created.hide()
+        col.addWidget(self.created_note)
+        col.addWidget(self.created)
+        box = QWidget()
+        self._people_lay = QVBoxLayout(box)
+        self._people_lay.setContentsMargins(0, 0, 0, 0)
+        self._people_lay.setSpacing(10)
+        col.addWidget(box)
+        self._rebuild_people()
+        if self.is_admin:
+            row = QHBoxLayout()
+            self.add_btn = QPushButton("+ Add a person")
+            self.add_btn.setObjectName("primary")
+            self.add_btn.clicked.connect(lambda: self._create())
+            row.addWidget(self.add_btn)
+            row.addStretch(1)
+            col.addLayout(row)
+
+        self._section(col, "Tasks", pal)
+        self.group_box = QCheckBox("Group shared to-dos by person")
+        self.group_box.setChecked(bool((me.get("settings") or {}).get("todos_group_by_owner")))
+        self.group_box.toggled.connect(lambda on: self._setting("todos_group_by_owner", on))
+        col.addWidget(self.group_box)
+        col.addWidget(self._hint(
+            "On: each person who shares with you gets their own section in Tasks, below "
+            "yours. Off: their to-dos sit in Today and General with yours — the Whose chips "
+            "filter them. Notifications are only ever about your own calendar and to-dos.", pal))
+
+        if self.is_admin:
+            self._section(col, "Sign-in", pal)
+            policy = registry.load().get("policy", {})
+            self.require_box = QCheckBox("Require sign-in everywhere")
+            self.require_box.setChecked(bool(policy.get("require_login")))
+            self.require_box.toggled.connect(
+                lambda on: (registry.set_policy(require_login=bool(on)), self._changed()))
+            col.addWidget(self.require_box)
+            row = QHBoxLayout()
+            row.addWidget(QLabel("Auto sign-out:"))
+            self.auto_box = QComboBox()
+            self.auto_box.addItems(["Off — only when signed out", "After"])
+            self.auto_days = QSpinBox()
+            self.auto_days.setRange(1, 3650)
+            self.auto_days.setSuffix(" days unused")
+            self.auto_days.setStyleSheet("QSpinBox:disabled { color: rgba(128,128,128,0.55); }")
+            days = policy.get("auto_signout_days")
+            self.auto_box.setCurrentIndex(1 if days else 0)
+            self.auto_days.setValue(int(days or 30))
+            self.auto_days.setEnabled(bool(days))
+            self.auto_box.currentIndexChanged.connect(lambda _i: self._auto_changed())
+            self.auto_days.valueChanged.connect(lambda _v: self._auto_changed())
+            row.addWidget(self.auto_box)
+            row.addWidget(self.auto_days)
+            row.addStretch(1)
+            col.addLayout(row)
+            col.addWidget(self._hint("Off: a device nobody signed in on acts as you, the admin.", pal))
+
+            self._section(col, "Signed-in devices", pal)
+            dev = QWidget()
+            self._devices_lay = QVBoxLayout(dev)
+            self._devices_lay.setContentsMargins(0, 0, 0, 0)
+            self._devices(self._devices_lay, pal)
+            col.addWidget(dev)
+
+        col.addSpacing(10)
+        row = QHBoxLayout()
+        row.addStretch(1)
+        self.sign_out_btn = QPushButton("Sign out of this Mac")
+        self.sign_out_btn.clicked.connect(lambda: self._sign_out())
+        row.addWidget(self.sign_out_btn)
+        col.addLayout(row)
+
+    def _rebuild_people(self) -> None:
+        if self._people_lay is None:
+            return
+        while self._people_lay.count():
+            it = self._people_lay.takeAt(0)
+            if it.widget():
+                it.widget().deleteLater()
+        self.cards = {}
+        others = [uid for uid in registry.user_ids(include_disabled=self.is_admin)
+                  if uid != self.me]
+        if not others:
+            self._people_lay.addWidget(self._hint("Nobody else has an account yet.",
+                                                  _palette(self._dark)))
+        for uid in others:
+            card = _PersonCard(self, uid)
+            self.cards[uid] = card
+            self._people_lay.addWidget(card)
+
+    # -- pieces ---------------------------------------------------------------
+
+    @staticmethod
+    def _section(col, text: str, pal: dict) -> None:
         h = QLabel(text.upper())
-        h.setObjectName("muted")
-        f = h.font(); f.setBold(True); f.setPointSize(max(9, f.pointSize() - 1))
-        h.setFont(f)
-        lay.addSpacing(8)
-        lay.addWidget(h)
+        h.setStyleSheet(f"font-size:11px; font-weight:700; letter-spacing:1px; color:{pal['muted']};")
+        col.addSpacing(10)
+        col.addWidget(h)
+
+    @staticmethod
+    def _hint(text: str, pal: dict) -> QLabel:
+        lbl = QLabel(text)
+        lbl.setWordWrap(True)
+        lbl.setStyleSheet(f"font-size:12px; color:{pal['muted']};")
+        return lbl
 
     def _summary(self) -> str:
         n = len(registry.user_ids())
         live = len(sessions.list_for())
-        return (f"{n} user{'s' if n != 1 else ''} · {live} signed-in device"
+        return (f"{n} {'person' if n == 1 else 'people'} · {live} signed-in device"
                 f"{'s' if live != 1 else ''}")
 
+    def _devices(self, lay, pal: dict) -> None:
+        rows = sorted(sessions.list_for(), key=lambda r: -r.get("last_seen", 0))
+        if not rows:
+            lay.addWidget(self._hint("Nobody is signed in anywhere.", pal))
+        for r in rows:
+            u = registry.get(r["user_id"]) or {}
+            where = r.get("label") or r.get("source") or "device"
+            seen = _dt.datetime.fromtimestamp(r.get("last_seen", 0)).strftime("%d %b %H:%M")
+            line = QLabel(f"<b>{u.get('display_name', '?')}</b> — {where}  "
+                          f"<span style='color:{pal['muted']}'>last seen {seen}</span>")
+            line.setStyleSheet(f"font-size:13px; color:{pal['text']};")
+            lay.addWidget(line)
+
+    # -- what a change touches ----------------------------------------------------
+
     def _changed(self) -> None:
-        """Something on the page changed the world. Update what DEPENDS on it
-        — the counts, the device list, the calendar and the other panels —
-        and leave the page itself alone: rebuilding it destroyed the control
-        mid-click and wiped a new user's shown-once password the instant it
-        appeared (Gil, 2026-09-28: "not all the toggles/buttons work")."""
-        if getattr(self, "_sub", None) is not None:
+        """Update what DEPENDS on a change — counts, devices, the calendar, the
+        other panels — and leave the page alone (see the module docstring)."""
+        if self._sub is not None:
             self._sub.setText(self._summary())
-        if getattr(self, "_devices_lay", None) is not None:
+        if self._devices_lay is not None:
             while self._devices_lay.count():
                 it = self._devices_lay.takeAt(0)
                 if it.widget():
                     it.widget().deleteLater()
-            self._devices(self._devices_lay)
+            self._devices(self._devices_lay, _palette(self._dark))
         win = self.window()
         if win is not self and hasattr(win, "refresh_calendar"):
             win.refresh_calendar()
@@ -106,63 +451,46 @@ class AccountPanel(FeaturePanel):
             if panel is not self and hasattr(panel, "reload"):
                 panel.reload()
 
-    def _admin_page(self, lay, me: dict) -> None:
-        from assistant.calendar_ui.users_dialogs import AccountDialog, AdminDialog
-        self._title(lay, "Admin dashboard", self._summary())
-        # Sharing first: it is the thing a person comes here to change, and it
-        # sat at the bottom under "My own account" where Gil could not find it.
-        self._section(lay, "My account · share my calendar and to-dos")
-        self.account = AccountDialog(self, embedded=True)
-        self.account.changed.connect(lambda: self._changed())
-        lay.addWidget(self.account)
-        self._section(lay, "People · what you see of each, your vocabulary, sign-in")
-        hint = QLabel("Tick a column to show that person's calendar in yours, or to give "
-                      "them your vocabulary. Select a row, then reset their password, "
-                      "sign them out everywhere, or disable them.")
-        hint.setObjectName("muted")
-        hint.setWordWrap(True)
-        lay.addWidget(hint)
-        self.admin = AdminDialog(self, embedded=True)
-        self.admin.changed.connect(lambda: self._changed())
-        lay.addWidget(self.admin)
-        self._section(lay, "Signed-in devices")
-        box = QWidget()
-        self._devices_lay = QVBoxLayout(box)
-        self._devices_lay.setContentsMargins(0, 0, 0, 0)
-        self._devices(self._devices_lay)
-        lay.addWidget(box)
-        self._sign_out_row(lay)
+    def _setting(self, key: str, on: bool) -> None:
+        registry.set_setting(self.me, key, bool(on))
+        self._changed()
 
-    def _user_page(self, lay, me: dict) -> None:
-        from assistant.calendar_ui.users_dialogs import AccountDialog
-        self._title(lay, "Your account", "Your calendar, who you share it with, and how "
-                    "you are signed in.")
-        self.account = AccountDialog(self, embedded=True)
-        self.account.changed.connect(lambda: self._changed())
-        lay.addWidget(self.account)
-        self._sign_out_row(lay)
+    def _auto_changed(self) -> None:
+        on = self.auto_box.currentIndex() == 1
+        self.auto_days.setEnabled(on)
+        registry.set_policy(auto_signout_days=self.auto_days.value() if on else None)
 
-    def _devices(self, lay) -> None:
-        rows = sorted(sessions.list_for(), key=lambda r: -r.get("last_seen", 0))
-        if not rows:
-            lay.addWidget(QLabel("Nobody is signed in anywhere."))
-        for r in rows:
-            u = registry.get(r["user_id"]) or {}
-            where = r.get("label") or r.get("source") or "device"
-            seen = _dt.datetime.fromtimestamp(r.get("last_seen", 0)).strftime("%d %b %H:%M")
-            line = QLabel(f"<b>{u.get('display_name', '?')}</b> — {where}  "
-                          f"<span style='color:gray'>last seen {seen}</span>")
-            lay.addWidget(line)
+    def _create(self) -> None:
+        name, ok = QInputDialog.getText(self, "Add a person", "Username (a–z, 0–9):")
+        if not ok or not name.strip():
+            return
+        display, _ = QInputDialog.getText(self, "Add a person", "Display name:",
+                                          text=name.strip().capitalize())
+        pw = passwords.generate()
+        try:
+            uid = registry.create_user(name, pw, display_name=display.strip())
+        except ValueError as e:
+            QMessageBox.warning(self, "Add a person", str(e))
+            return
+        registry.set_password(uid, pw, must_change=True)
+        self.created_note.setText(f"{registry.get(uid)['display_name']}'s password — shown once. "
+                                  "They'll choose their own when they sign in.")
+        self.created.setText(pw)
+        self.created_note.show()
+        self.created.show()
+        self.created.selectAll()
+        self._rebuild_people()
+        self._changed()
 
-    def _sign_out_row(self, lay) -> None:
-        row = QHBoxLayout()
-        row.addStretch(1)
-        self.sign_out_btn = QPushButton("Sign out of this Mac")
-        self.sign_out_btn.clicked.connect(lambda: self._sign_out())
-        row.addWidget(self.sign_out_btn)
-        lay.addLayout(row)
+    def _change_password(self) -> None:
+        from assistant.calendar_ui.users_dialogs import ChangePasswordDialog
+        ChangePasswordDialog(self).exec()
 
     def _sign_out(self) -> None:
         chip = getattr(self.window(), "_user_chip", None)
         if chip is not None:
             chip.sign_out()
+        else:
+            s = local_session.read()
+            if s:
+                sessions.revoke(s["session_token"])

@@ -921,6 +921,27 @@ grocery task on both lists.
   things that combine; this is a single choice between three that exclude each
   other. Making them look alike would say they behave alike.
 
+### Mac window layout (clean-up, 2026-09-28)
+**What:** Gil: the Mac app *"feels messy and not so nice to look at"*. The
+toolbar carries the calendar only — ‹ › Today, search, the title with its
+Hebrew date, Month/Week/Day/Agenda, one labelled **More** menu (Import,
+Connected calendars, Tag suggestion history, Jude) — then the user chip,
+settings, theme and the mic. The feature panels (Tasks, Timer, Account…)
+are the **sidebar's section list**, lit for the current one; the date
+arrows and Today hide on a panel, and a date picked in the mini-calendar
+there opens that day. The **Account** page is the phone's design: a header
+card, then one card per person with both directions of sharing and every
+control about them on the card.
+**Fixed on the way:** the month grid put every day one column left of its
+header (Sunday squeezed into the week-number slot, Saturday always empty);
+the mini-calendar's weekday row was a white bar in dark mode; the day view's
+all-day pill clipped its own text; an unscoped toolbar stylesheet drew a line
+under every toolbar widget and hid the mic's accent.
+**Where:** `calendar_ui/window.py` (`_build_toolbar`, `_build_sidebar_nav`,
+`_restyle_view_buttons`), `calendar_ui/sidebar.py`, `calendar_ui/month_view.py`,
+`calendar_ui/account_panel.py`. Tests: `test_mac_layout_cleanup.py`,
+`test_account_tab_controls.py`.
+
 ### Foldable settings sections
 
 > **The phone's half was replaced 2026-09-28** (Gil: *"settings feel a little

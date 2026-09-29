@@ -1,5 +1,9 @@
 """Every control on the Mac's Account tab, clicked, with its effect checked.
 
+Rewritten 2026-09-28 for the card design (one card per person, the phone's
+layout): the row buttons live ON each person's card, so "select a row first"
+no longer exists as a way for a button to do nothing.
+
 Gil, 2026-09-28: "not all the toggles/buttons in account tab work properly".
 Three did not: the page rebuilt itself on every change (destroying the
 control mid-click and wiping a new user's shown-once password), the row
@@ -100,144 +104,115 @@ def _pick(combo: QComboBox, index: int):
     QApplication.processEvents()
 
 
-def _select_row(admin, uid):
-    row = admin._ids.index(uid)
-    item = admin.table.item(row, 1)
-    rect = admin.table.visualItemRect(item)
-    QTest.mouseClick(admin.table.viewport(), Qt.MouseButton.LeftButton,
-                     Qt.KeyboardModifier.NoModifier, rect.center())
-    QApplication.processEvents()
+# -- the admin's page -----------------------------------------------------------
 
 
-def _cell_box(admin, uid, col) -> QCheckBox:
-    return admin.table.cellWidget(admin._ids.index(uid), col).checkbox
-
-
-# -- the admin's dashboard -----------------------------------------------------
-
-
-def test_sharing_from_the_dashboard_saves_and_refreshes_the_calendar(people):
+def test_sharing_from_a_card_saves_updates_the_card_and_refreshes_the_calendar(people):
     win, panel = _open(people["gil"])
-    combo = panel.account.share_boxes[people["dana"]]
-    _pick(combo, 2)                                              # Edit
+    card = panel.cards[people["dana"]]
+    _pick(card.share_box, 2)                                     # Edit
     assert registry.share_level(people["gil"], people["dana"]) == "edit"
+    assert card.relation.text().startswith("You share Edit")
     assert win.calendar_refreshes >= 1
-    _pick(combo, 0)                                              # Not shared
+    _pick(card.share_box, 0)                                     # Not shared
     assert registry.share_level(people["gil"], people["dana"]) is None
 
 
 def test_group_by_person_saves_and_reloads_the_tasks_panel(people):
     win, panel = _open(people["gil"])
-    _click(panel.account.group_box)
+    _click(panel.group_box)
     assert registry.get(people["gil"])["settings"]["todos_group_by_owner"] is True
     assert win._panels["tasks"].reloads >= 1
-    _click(panel.account.group_box)
+    _click(panel.group_box)
     assert registry.get(people["gil"])["settings"]["todos_group_by_owner"] is False
 
 
-def test_the_table_checkboxes_work_and_the_page_survives_the_click(people):
+def test_the_card_checkboxes_work_and_the_page_survives_the_click(people):
     win, panel = _open(people["gil"])
-    admin = panel.admin
-    _click(_cell_box(admin, people["dana"], 5))                   # show in my calendar
+    card = panel.cards[people["dana"]]
+    _click(card.show_box)
     assert registry.admin_shows(people["gil"], people["dana"])
-    assert panel.admin is admin, "the page rebuilt itself under the click"
+    assert panel.cards[people["dana"]] is card, "the page rebuilt itself under the click"
     assert win.calendar_refreshes >= 1
-    _click(_cell_box(admin, people["dana"], 6))                   # my vocabulary
+    _click(card.vocab_box)
     assert people["dana"] in registry.load()["vocab_shares"][people["gil"]]
 
 
-def test_row_buttons_wait_for_a_selection_and_never_act_on_yourself(people):
+def test_reset_password_shows_it_once_on_the_card_and_it_stays(people):
     _, panel = _open(people["gil"])
-    admin = panel.admin
-    assert not any(b.isEnabled() for b in (admin.reset_btn, admin.signout_btn,
-                                           admin.disable_btn, admin.remove_btn))
-    assert "Select a person" in admin.reset_btn.toolTip()
-    _select_row(admin, people["gil"])
-    assert admin.reset_btn.isEnabled() and admin.signout_btn.isEnabled()
-    assert not admin.disable_btn.isEnabled() and not admin.remove_btn.isEnabled()
-    _select_row(admin, people["dana"])
-    assert all(b.isEnabled() for b in (admin.reset_btn, admin.signout_btn,
-                                       admin.disable_btn, admin.remove_btn))
-
-
-def test_reset_password_shows_it_once_and_it_stays_on_screen(people):
-    _, panel = _open(people["gil"])
-    admin = panel.admin
-    _select_row(admin, people["dana"])
-    _click(admin.reset_btn)
-    pw = admin.revealed.text()
-    assert admin.revealed.isVisible() and len(pw) >= 8
+    card = panel.cards[people["dana"]]
+    _click(card.reset_btn)
+    pw = card.revealed.text()
+    assert card.revealed.isVisible() and len(pw) >= 8
     assert registry.verify_login("dana", pw) == people["dana"]
-    assert panel.admin is admin and admin.revealed.text() == pw
+    assert panel.cards[people["dana"]] is card and card.revealed.text() == pw
 
 
-def test_sign_out_ends_their_sessions_and_updates_the_devices(people):
+def test_sign_out_everywhere_ends_their_sessions_and_updates_the_counts(people):
     sessions.issue(people["dana"], source="ios", label="iPhone")
     _, panel = _open(people["gil"])
     assert "2 signed-in devices" in panel._sub.text()
-    _select_row(panel.admin, people["dana"])
-    _click(panel.admin.signout_btn)
+    card = panel.cards[people["dana"]]
+    _click(card.signout_btn)
     assert sessions.list_for(people["dana"]) == []
     assert "1 signed-in device" in panel._sub.text()
+    assert "Signed out of 1 device" in card.note.text()
 
 
 def test_disable_then_enable(people):
     _, panel = _open(people["gil"])
-    admin = panel.admin
-    _select_row(admin, people["dana"])
-    _click(admin.disable_btn)
+    card = panel.cards[people["dana"]]
+    _click(card.disable_btn)
     assert registry.get(people["dana"]).get("disabled")
-    assert admin.disable_btn.text() == "Enable"
-    _click(admin.disable_btn)
+    assert card.disable_btn.text() == "Enable"
+    _click(card.disable_btn)
     assert not registry.get(people["dana"]).get("disabled")
 
 
-def test_new_user_is_created_and_its_password_stays_visible(people, monkeypatch):
-    from assistant.calendar_ui import users_dialogs
+def test_add_a_person_and_their_password_stays_visible(people, monkeypatch):
+    from assistant.calendar_ui import account_panel
     answers = iter([("noa", True), ("Noa", True)])
-    monkeypatch.setattr(users_dialogs.QInputDialog, "getText",
+    monkeypatch.setattr(account_panel.QInputDialog, "getText",
                         staticmethod(lambda *a, **k: next(answers)))
     _, panel = _open(people["gil"])
-    admin = panel.admin
-    _click(admin.create_btn)
-    uid = registry.find("noa") if hasattr(registry, "find") else next(
-        i for i in registry.user_ids() if registry.get(i)["username"] == "noa")
-    assert uid and panel.admin is admin and admin.revealed.isVisible()
-    assert registry.verify_login("noa", admin.revealed.text()) == uid
-    assert "3 users" in panel._sub.text()
+    _click(panel.add_btn)
+    uid = next(i for i in registry.user_ids() if registry.get(i)["username"] == "noa")
+    assert uid in panel.cards and panel.created.isVisible()
+    assert registry.verify_login("noa", panel.created.text()) == uid
+    assert "3 people" in panel._sub.text()
 
 
 def test_remove_asks_for_the_username_then_removes(people, monkeypatch):
-    from assistant.calendar_ui import users_dialogs
+    from assistant.calendar_ui import account_panel
     _, panel = _open(people["gil"])
-    admin = panel.admin
-    _select_row(admin, people["dana"])
-    monkeypatch.setattr(users_dialogs.QInputDialog, "getText",
+    card = panel.cards[people["dana"]]
+    monkeypatch.setattr(account_panel.QInputDialog, "getText",
                         staticmethod(lambda *a, **k: ("nope", True)))
-    _click(admin.remove_btn)
+    _click(card.remove_btn)
     assert registry.get(people["dana"]) is not None               # wrong name: kept
-    monkeypatch.setattr(users_dialogs.QInputDialog, "getText",
+    monkeypatch.setattr(account_panel.QInputDialog, "getText",
                         staticmethod(lambda *a, **k: ("dana", True)))
-    _click(admin.remove_btn)
+    _click(card.remove_btn)
     assert people["dana"] not in registry.user_ids(include_disabled=True)
+    QApplication.processEvents()
+    assert people["dana"] not in panel.cards
 
 
 def test_require_sign_in_and_auto_sign_out(people):
     _, panel = _open(people["gil"])
-    admin = panel.admin
-    _click(admin.require_box)
+    _click(panel.require_box)
     assert registry.load()["policy"]["require_login"] is True
-    _click(admin.require_box)
+    _click(panel.require_box)
     assert registry.load()["policy"]["require_login"] is False
-    assert not admin.auto_days.isEnabled()
-    _pick(admin.auto_box, 1)
-    assert admin.auto_days.isEnabled()
+    assert not panel.auto_days.isEnabled()
+    _pick(panel.auto_box, 1)
+    assert panel.auto_days.isEnabled()
     assert registry.load()["policy"]["auto_signout_days"] == 30
-    admin.auto_days.setFocus()
-    QTest.keyClick(admin.auto_days, Qt.Key.Key_Up)
+    panel.auto_days.setFocus()
+    QTest.keyClick(panel.auto_days, Qt.Key.Key_Up)
     QApplication.processEvents()
     assert registry.load()["policy"]["auto_signout_days"] == 31
-    _pick(admin.auto_box, 0)
+    _pick(panel.auto_box, 0)
     assert registry.load()["policy"]["auto_signout_days"] is None
 
 
@@ -247,9 +222,7 @@ def test_change_password_opens_the_dialog(people, monkeypatch):
     monkeypatch.setattr(users_dialogs.ChangePasswordDialog, "exec",
                         lambda self: opened.append(self) or 0)
     _, panel = _open(people["gil"])
-    btn = next(b for b in panel.account.findChildren(QPushButton)
-               if b.text().startswith("Change password"))
-    _click(btn)
+    _click(panel.change_pw_btn)
     assert len(opened) == 1
 
 
@@ -264,10 +237,12 @@ def test_sign_out_of_this_mac_goes_through_the_window(people):
 
 def test_a_users_page_shares_groups_and_signs_out(people):
     win, panel = _open(people["dana"])
-    assert not hasattr(panel, "admin") or panel.__dict__.get("admin") is None
-    _pick(panel.account.share_boxes[people["gil"]], 1)            # View
+    assert not panel.is_admin
+    card = panel.cards[people["gil"]]
+    assert not hasattr(card, "reset_btn")                        # no account controls
+    _pick(card.share_box, 1)                                     # View
     assert registry.share_level(people["dana"], people["gil"]) == "view"
-    _click(panel.account.group_box)
+    _click(panel.group_box)
     assert registry.get(people["dana"])["settings"]["todos_group_by_owner"] is True
     assert win.calendar_refreshes >= 1
     _click(panel.sign_out_btn)

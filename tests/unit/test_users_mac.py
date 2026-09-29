@@ -215,20 +215,22 @@ def test_the_hud_follows_whoever_signs_in_at_the_mac(people, tmp_path, monkeypat
     assert users.current() == people["gil"]
 
 
-def test_the_account_tab_is_the_dashboard_for_the_admin_and_minimal_for_others(people):
-    from PyQt6.QtWidgets import QLabel
+def test_the_account_tab_shows_the_admins_controls_only_to_the_admin(people):
+    """One page for everyone (2026-09-28): the admin's cards carry the account
+    controls and the page has Sign-in; a user's cards carry sharing only."""
     from assistant.calendar_ui.account_panel import AccountPanel
     users.set_process_default(people["gil"])
-    admin_page = AccountPanel(None)
-    admin_page.show()
+    page = AccountPanel(None)
+    page.show()
     QApplication.processEvents()
-    texts = [w.text() for w in admin_page.findChildren(QLabel)]
-    assert "Admin dashboard" in texts and hasattr(admin_page, "admin")
+    card = page.cards[people["dana"]]
+    assert hasattr(card, "reset_btn") and hasattr(page, "require_box")
     users.set_process_default(people["dana"])
-    admin_page.reload()
+    page.reload()
     QApplication.processEvents()
-    texts = [w.text() for w in admin_page.findChildren(QLabel)]
-    assert "Your account" in texts and "Admin dashboard" not in texts
+    card = page.cards[people["gil"]]
+    assert hasattr(card, "share_box") and not hasattr(card, "reset_btn")
+    assert not hasattr(page, "require_box") or page.require_box is None or not page.is_admin
 
 
 def test_choosing_auto_sign_out_in_the_dashboard_sets_the_policy(people):
@@ -246,16 +248,15 @@ def test_choosing_auto_sign_out_in_the_dashboard_sets_the_policy(people):
     assert registry.load()["policy"]["auto_signout_days"] is None
 
 
-def test_the_admin_dashboard_puts_sharing_before_the_people_table(people):
-    from PyQt6.QtWidgets import QComboBox
+def test_each_person_is_one_card_with_both_directions_of_sharing(people):
     from assistant.calendar_ui.account_panel import AccountPanel
+    registry.set_share(people["dana"], people["gil"], "view")
     users.set_process_default(people["gil"])
     page = AccountPanel(None)
     page.show()
     QApplication.processEvents()
-    assert page.account.share_boxes, "the admin's sharing menus are on the dashboard"
-    box = page.account.share_boxes[people["dana"]]
-    assert box.mapTo(page, box.rect().topLeft()).y() < page.admin.mapTo(page, page.admin.rect().topLeft()).y()
+    card = page.cards[people["dana"]]
+    assert card.relation.text() == "You share nothing · They share View"
 
 
 

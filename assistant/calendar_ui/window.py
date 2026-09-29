@@ -565,8 +565,12 @@ class CalendarWindow(QMainWindow):
         from PyQt6.QtWidgets import QFrame
         bar = QWidget()
         self._toolbar_bar = bar
+        bar.setObjectName("toolbar_bar")
         bar.setFixedHeight(54)
-        bar.setStyleSheet(f"background-color: {GRAY_BG}; border-bottom: 1px solid {GRAY_BORDER};")
+        # Scoped to the bar itself: unscoped, the bottom border cascaded onto
+        # every widget inside it and drew a stray underline under the title,
+        # the More button and the user chip.
+        bar.setStyleSheet(self._toolbar_qss(GRAY_BG, GRAY_BORDER))
         layout = QHBoxLayout(bar)
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(2)
@@ -756,6 +760,14 @@ class CalendarWindow(QMainWindow):
                 f"QPushButton#seg_btn:hover {{ background-color: {hover}; color: {text}; }}"
             )
         btn.setProperty("active", active)
+
+    @staticmethod
+    def _toolbar_qss(bg: str, border: str) -> str:
+        """The bar's own look, and its labels and chip see-through so they sit
+        on the bar instead of in boxes of the page colour."""
+        return (f"QWidget#toolbar_bar {{ background-color: {bg}; border-bottom: 1px solid {border}; }}"
+                " QWidget#toolbar_bar QLabel { background: transparent; }"
+                " QWidget#toolbar_bar QToolButton#user_chip { background: transparent; }")
 
     _CALENDAR_MODES = ("month", "week", "day", "agenda")
 
@@ -1565,9 +1577,7 @@ class CalendarWindow(QMainWindow):
         bg = _styles.D_GRAY_BG if dark else _styles.GRAY_BG
         border = _styles.D_GRAY_BORDER if dark else GRAY_BORDER
         if hasattr(self, "_toolbar_bar"):
-            self._toolbar_bar.setStyleSheet(
-                f"background-color: {bg}; border-bottom: 1px solid {border};"
-            )
+            self._toolbar_bar.setStyleSheet(self._toolbar_qss(bg, border))
         if hasattr(self, "_toolbar_sep"):
             self._toolbar_sep.setStyleSheet(f"color: {border};")
         # Re-apply view-button styling (colors depend on theme + accent)
