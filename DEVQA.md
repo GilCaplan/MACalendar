@@ -13,7 +13,12 @@
   3. *"Notifications should only be the main user, not include shared
      events"* — **never**, on any surface (day panel, reminders, lock screen,
      widget). Replaces Q65's opt-in "include what others share with me".
-  4. **"Group shared to-dos by person" must DO something** — it was saved and
+  4. **The admin's "show in my calendar" switch is the one control over
+     whose calendars fill his views** — it covers people sharing with him
+     too (untouched: on if they share, off otherwise; touched: his choice
+     wins both ways). It ignored shares, so for Demo, who shared with him,
+     it "wasn't working".
+  5. **"Group shared to-dos by person" must DO something** — it was saved and
      read by nothing. On: a section per person; always: a Whose filter
      (Everyone · Mine · each person), which Q65 promised and never shipped.
 

@@ -63,17 +63,20 @@ def active() -> bool:
 
 
 def visible_owners(viewer: str) -> list[str]:
-    """The viewer's own calendar, then everyone who shares with them, then —
-    for the admin — every user he has toggled into his view."""
+    """The viewer's own calendar, then everyone who shares with them — or,
+    for the admin, everyone his "show in my calendar" switch says: it covers
+    people sharing with him too (on until he turns it off), so it is the one
+    control over whose calendars fill his views."""
     out = [viewer]
-    for s in registry.shares_in(viewer):
-        if s["owner"] not in out:
-            out.append(s["owner"])
     me = registry.get(viewer) or {}
     if me.get("role") == "admin":
         for uid in registry.user_ids():
-            if uid not in out and registry.admin_shows(viewer, uid):
+            if uid != viewer and registry.admin_shows(viewer, uid):
                 out.append(uid)
+    else:
+        for s in registry.shares_in(viewer):
+            if s["owner"] not in out:
+                out.append(s["owner"])
     active_ids = set(registry.user_ids())
     return [o for o in out if o == viewer or o in active_ids]
 

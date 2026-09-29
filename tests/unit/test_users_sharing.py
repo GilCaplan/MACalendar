@@ -223,3 +223,29 @@ def test_a_vocabulary_the_admin_shares_corrects_that_users_speech_and_learns_not
         assert "Jada" not in [e.word for e in get_vocab().entries]           # Dana's own list untouched
     with users.bind(u["gil"]):
         assert pathlib.Path(get_vocab()._path).read_bytes() == before       # Gil's list learned nothing
+
+
+def test_the_admins_show_switch_governs_someone_who_shares_with_him(world):
+    """Gil, 2026-09-28, on the phone: "button circled isn't working" — Demo
+    shared with him, so the switch changed nothing he could see. Untouched it
+    follows the share; once touched it decides, both ways."""
+    c, u, tok = world
+    _event(u["dana"], "dana's dentist")
+    registry.set_share(u["dana"], u["gil"], "view")
+    titles = lambda: {r["title"] for r in _day(c, tok["gil"])}     # noqa: E731
+    assert registry.admin_shows(u["gil"], u["dana"]) is True
+    assert "dana's dentist" in titles()
+    assert c.put(f"/admin/view/{u['dana']}", json={"shown": False},
+                 headers=_h(tok["gil"])).get_json()["shown"] is False
+    assert "dana's dentist" not in titles()
+    c.put(f"/admin/view/{u['dana']}", json={"shown": True}, headers=_h(tok["gil"]))
+    assert "dana's dentist" in titles()
+    rows = {r["id"]: r for r in c.get("/admin/users", headers=_h(tok["gil"])).get_json()}
+    assert rows[u["dana"]]["shown_in_my_view"] is True
+
+
+def test_a_user_sees_a_share_with_no_switch_to_touch(world):
+    c, u, tok = world
+    _event(u["dana"], "dana's dentist")
+    registry.set_share(u["dana"], u["noa"], "view")
+    assert "dana's dentist" in {r["title"] for r in _day(c, tok["noa"])}

@@ -308,8 +308,18 @@ def set_admin_view(admin: str, other: str, shown: bool) -> None:
 
 
 def admin_shows(admin: str, other: str) -> bool:
-    """Off until the admin turns it on (Gil, 2026-09-28)."""
-    return bool(load().get("admin_view", {}).get(admin, {}).get(other, False))
+    """Is `other`'s calendar in the admin's views? His switch decides, both
+    ways, once he has touched it. Untouched, it follows whether they share
+    with him — off for everyone else (Gil, 2026-09-28: off until he turns it
+    on). It used to ignore shares, so for someone ALREADY sharing with him
+    the switch changed nothing he could see ("button circled isn't
+    working")."""
+    data = load()
+    choice = data.get("admin_view", {}).get(admin, {})
+    if other in choice:
+        return bool(choice[other])
+    return any(s.get("owner") == other and s.get("grantee") == admin
+               for s in data.get("shares", []))
 
 
 def set_vocab_share(owner: str, grantee: str, on: bool) -> None:
