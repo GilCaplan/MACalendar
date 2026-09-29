@@ -149,6 +149,29 @@ def _trim_command_frame(value: str) -> str:
     return trimmed or value
 
 
+def _minus_named_day(title: str, item: Item) -> str:
+    """The title without the words of a day the item NAMED in its time
+    ("Shabbat dinner" for "dinner" + "on erev shabbat"), or "" when the time
+    names none. Segmentation moves a named day into the time words
+    (assistant/named_days.py), so the model's habit of titling by the
+    occasion read as an invention and dropped the whole event (2026-09-29)."""
+    from assistant import named_days
+    when = getattr(item, "time", "") or ""
+    named = named_days.find_all(when)
+    if not named:
+        return ""
+    day_words = set()
+    for n in named:
+        a, b = n.phrase_span
+        day_words |= {w for w in _tokens(when[a:b]) if len(w) > 2}
+    kept = [w for w in re.findall(r"[\w'’\-]+", title)
+            if not any(w.lower().startswith(d[:4]) for d in day_words)]
+    out = " ".join(kept).strip()
+    # "Dinner on erev shabbat" leaves "Dinner on": the preposition went with the day
+    return re.sub(r"(?:\s+\b(?:on|for|at|the|of|over|during|this|next|erev|motzei))+$",
+                  "", out, flags=re.I).strip()
+
+
 def _guard_inventions(got, item: Item, state: EngineState):
     """Drop LLM-fabricated events, and STRIP fabricated fields off real ones.
 
@@ -186,9 +209,15 @@ def _guard_inventions(got, item: Item, state: EngineState):
                               note="the command frame is not the thing asked for")
                 intent.title = title = framed
             if not _grounded_title(title, item.text):
-                state.add_fix("generate", "invention_guard", title[:40], "",
-                              note="LLM title not grounded in the item's words")
-                continue
+                trimmed = _minus_named_day(title, item)
+                if trimmed and _grounded_title(trimmed, item.text):
+                    state.add_fix("generate", "named_day_trimmed", title[:40], trimmed[:40],
+                                  note="the day's name is the date, not the title")
+                    intent.title = title = trimmed
+                else:
+                    state.add_fix("generate", "invention_guard", title[:40], "",
+                                  note="LLM title not grounded in the item's words")
+                    continue
             # AND IT HAS TO NAME SOMETHING (2026-09-20, the same rule the
             # parser applies since Q26). Grounding asks whether the words were
             # SAID; naming asks whether they are a name. 'calendar event',

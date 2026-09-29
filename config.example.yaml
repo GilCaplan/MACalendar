@@ -128,6 +128,9 @@ occasions:
   christian: false       # Christian holidays (Easter-based and fixed)
   islamic: false         # Islamic holidays (expected dates — sighting may shift a day)
   remind_days: {birthday: 3, anniversary: 3, yahrzeit: 1, countdown: 0, custom: 1}
+  # which days a command may name instead of a date ("on erev Pesach", "on Easter",
+  # "on Dana's birthday"); off = read as before, the words left alone
+  by_name: {jewish: true, christian: true, islamic: true, mine: true}
 
 # How phones find and join this server (assistant/pairing/, DEVQA Q69)
 pairing:

@@ -46,6 +46,14 @@ PRESETS: list[dict[str, Any]] = [
                "Chanukah", "Purim", "Pesach", "Seder", "Chol Hamoed", "Lag BaOmer", "Shavuot",
                "Tisha B'Av", "Yom HaZikaron", "Yom HaAtzmaut", "Yom Yerushalayim", "Erev Chag",
                "Tu BiShvat", "Fast of Esther"]},
+    # The months a Hebrew date is said in ("dentist on 12 Adar") — the engine
+    # reads them as dates (assistant/named_days.py), so a misheard one is a
+    # missed date. "Av" is left out on purpose: a two-letter entry is one
+    # phonetic slip from "of".
+    {"id": "hebrew_months", "label": "Hebrew months",
+     "words": ["Nisan", "Iyar", "Sivan", "Tammuz", "Menachem Av", "Elul", "Tishrei",
+               "Cheshvan", "Marcheshvan", "Kislev", "Tevet", "Shevat", "Adar", "Adar Bet",
+               "Rosh Chodesh", "Erev", "Motzei"]},
     {"id": "israel", "label": "Israeli life",
      "words": ["Technion", "Haifa", "Tel Aviv", "Jerusalem", "Yerushalayim", "Herzliya",
                "Beer Sheva", "Netanya", "Modi'in", "Miluim", "Tzahal", "Kupat Cholim", "Misrad",

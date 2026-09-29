@@ -14,6 +14,38 @@ needs no knowledge of them), hybrid (coordinated frontend + backend), and
 purely backend (no client code beyond displaying the effects).
 
 
+## Days said by name
+
+**What.** "Dentist on 12 Adar at 3pm", "dinner on erev Pesach", "the day
+after Yom Kippur", "the first night of Chanukah", "shiur on Rosh Chodesh
+Kislev", "brunch on Easter", "lunch on Eid al-Fitr", "dinner on Dana's
+birthday", "gym every monday until Pesach" — booked on that day (DEVQA Q74).
+A holiday that lasts ("on Pesach", "over Sukkot") is a range and is offered
+for confirmation. Each family — Jewish, Christian, Islamic, my occasions — is
+a switch in Settings ▸ Occasions; off, its names are just words. Beside the
+switches, one button adds the Holidays and Hebrew months word packs to the
+vocabulary, so a misheard month is repaired before it is read.
+
+**Where.** `assistant/named_days.py` (the reader), used by
+`intent/rule_parser.py` (FastRule's date reading and series bound),
+`segmentation/fastseg/fastseg.py` (`find_time_refs`),
+`decompose_validate/resolve.py` (`resolve_date`) and
+`llmjudge/llm_fallback.py` (a model title's day name is trimmed, not the
+event dropped); `intent/pretag.py` (spaCy pre-tagging); `occasions.by_name`
+in config; `settings_dialog.py` and `Occasions.swift` (switches, word-pack
+button); `stt/vocab_onboarding.py` (the `hebrew_months` pack).
+
+**How.** When anything falls comes from the tables the calendar already draws
+(`hebrew_calendar.enumerate_holidays`, `occasions.calendars`, the person's
+occasions store) — the reader keeps only the spellings. In free text a
+holiday dates something only after on/over/during/this/next/until/through
+and when no noun follows ("cook food for Shabbat", "the Purim party" stay
+names); "erev X", "motzei X", "the day before/after X", "the Nth night of X"
+need no lead. A named day in date position that nothing could place makes
+FastRule defer rather than commit a default day. `pretag` re-tags Jewish
+calendar words as NOUN and the user's own vocabulary as PROPN after spaCy's
+tagger. Measured with `python -m scripts.named_days_bench`.
+
 ## The installer: one file per OS
 
 **What.** One command on macOS or Linux (`install-macalendar.sh` detects
@@ -198,6 +230,7 @@ built when it reaches the Mac.
 | iOS + API | [Offline reader on the phone](#offline-reader-on-the-phone) | Apple's on-device model reads a command while the Mac is away and books creates provisionally; the Mac re-reads and wins | `assistant/offline/`, `OfflineReader.swift` |
 | mac | [Command graph](#the-review-panel-thinking-hud--ios-timeline) | the HUD's Graph view: each ask → rules or model → what it became; hover follows a lane, click explains a node | `command_graph.py` |
 | hybrid | [LLM console](#the-llm-console) | the panel's third view: every model call, with its caller | `llm_bus.py`, `thinking_panel.py` |
+| assistant | [Days said by name](#days-said-by-name) | Hebrew dates, holidays, erev/motzei, Rosh Chodesh, Easter, Eid, "Dana's birthday" → the right day; a switch per family | `named_days.py`, `intent/pretag.py` |
 | hybrid | [Personal vocabulary](#personal-vocabulary) | user's words fix transcripts first | `stt/vocab.py` |
 | hybrid | [Command memory](#command-memory--feedback) | every command + verdicts, mined | `intent/memory.py` |
 | hybrid | [Tag suggestion history](#tag-suggestion-history) | the reviewable record behind the ask | `TagHistoryView.swift` |

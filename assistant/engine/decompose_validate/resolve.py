@@ -123,6 +123,16 @@ def resolve_date(said: str, anchor: dt.date) -> "str | None":
     if not t.strip():
         return None
 
+    # A DAY NAMED INSTEAD OF DATED — "12 Adar", "erev Pesach", "Rosh Chodesh
+    # Kislev", "Dana's birthday" (assistant/named_days.py). First, because the
+    # month branch below reads "adar 12" as nothing and the bare ordinal reads
+    # "12 adar" as the 12th of THIS month. ``whole``: these are an item's time
+    # words already, so no "on" is needed to make a holiday a date.
+    from assistant import named_days as _named_days
+    named = _named_days.find(said, anchor, whole=True)
+    if named is not None:
+        return named.date.isoformat()
+
     # "the 20th of November" / "November the 20th" / "November 20"
     m = (re.search(r"\bthe\s+(\d{1,2})(?:st|nd|rd|th)?\s+of\s+([a-z]+)", t)
          or re.search(r"\b([a-z]+)\s+the\s+(\d{1,2})(?:st|nd|rd|th)?\b", t)

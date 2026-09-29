@@ -58,6 +58,10 @@ def _ensure_nlp() -> None:
         try:
             import spacy as _spacy
             _NLP = _spacy.load("en_core_web_sm")
+            # Words we know the part of speech of, told to spaCy after its
+            # tagger guesses (intent/pretag.py): "shiur" is not an adverb.
+            from assistant.intent import pretag as _pretag
+            _pretag.install(_NLP)
             _nlp_loaded = True
             logger.info("spaCy model loaded (lazy).")
         except (ImportError, OSError) as exc:
@@ -1140,6 +1144,17 @@ def _bound_date(tail: str, today: datetime.date, inclusive: bool) -> "tuple[str,
     from its END — and the recogniser's range ends are exclusive, hence the extra
     day off. A plain date needs no arithmetic beyond the exclusive step.
     """
+    # "every monday until Pesach" / "through Chanukah": a NAMED day first —
+    # the recogniser would read the "12" of "until 12 Adar" as this month's.
+    # Inclusive keeps the named thing's LAST day, exclusive stops the day
+    # before its first.
+    from assistant import named_days as _named_days
+    named = _named_days.find(tail, today, whole=True)
+    if named is not None and _BOUND_GAP.match(tail[:named.phrase_span[0]]):
+        d = named.date + datetime.timedelta(
+            days=(named.days - 1) if inclusive else -1)
+        return d.isoformat(), named.phrase_span[1]
+
     if _DT_AVAILABLE:
         _ensure_dt()
     if _DT_AVAILABLE and _DT_MODEL is not None:
@@ -1288,6 +1303,30 @@ def _extract_temporal(span_text: str, today: datetime.date,
             span_text = (span_text[:b_start]
                          + " " * (b_end - b_start)
                          + span_text[b_end:])
+
+    # A DAY NAMED INSTEAD OF DATED comes off next — a Hebrew date, a holiday,
+    # the person's own occasion (assistant/named_days.py). The recogniser
+    # knows none of them: it read "12 Adar" as the 12th of THIS month, and a
+    # holiday it did not know fell through to today or tomorrow with its name
+    # left in the title — five of eight probe commands booked on the wrong
+    # day without a word (2026-09-29). Masked like the bound, so the
+    # recogniser cannot read "the day after" out of "the day after Yom
+    # Kippur". A holiday that LASTS ("on Pesach") is a range and is offered
+    # for confirmation like "next week"; one this reader sees in date position
+    # but cannot place is left for the model, never put on a default day.
+    from assistant import named_days as _named_days
+    named = _named_days.find(span_text, today)
+    if named is not None:
+        result["date"] = named.date.isoformat()
+        result["_named_day"] = named.name
+        if named.days > 1:
+            a, b = named.phrase_span
+            result["_date_from_range"] = span_text[a:b].strip()
+        for a, b in named.spans:
+            result["spans"].append((a, b))
+            span_text = span_text[:a] + " " * (b - a) + span_text[b:]
+    elif not _bound_pass:
+        result["_unread_named_day"] = _named_days.unread(span_text, today)
 
     if _DT_AVAILABLE:
         _ensure_dt()
@@ -3972,6 +4011,11 @@ class RuleBasedParser:
             repeating_todo = False
             # Phase 2: Temporal extraction
             temporal = _extract_temporal(span.text, today)
+            if temporal.get("_unread_named_day"):
+                # "on erev Pesach", read by nothing here: a default day would
+                # be a wrong day said confidently. The deep track reads it.
+                raise RuleParserSkip(
+                    f"a named day this reader cannot place: {temporal['_unread_named_day']!r}")
 
             # Phase 3: Intent/domain routing
             action_name, _, domain_inferred, domain_material = _route_intent(span, current_view)

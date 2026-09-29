@@ -216,6 +216,12 @@ class OccasionsConfig(BaseModel):
     remind_days: dict[str, int] = {
         "birthday": 3, "anniversary": 3, "yahrzeit": 1, "countdown": 0, "custom": 1,
     }
+    # Which days the assistant reads BY NAME in a command (assistant/
+    # named_days.py): "on 12 Adar", "erev Pesach" (jewish); "on Easter"
+    # (christian); "on Eid al-Fitr" (islamic); "on Dana's birthday" (mine).
+    # A family switched off reads exactly as it did before there was a reader.
+    by_name: dict[str, bool] = {"jewish": True, "christian": True, "islamic": True,
+                                "mine": True}
 
 
 class HebrewCalendarConfig(BaseModel):

@@ -35,13 +35,9 @@ _GREG = {m: i for i, m in enumerate(
      "september", "october", "november", "december"], start=1)}
 _GREG.update({"jan": 1, "feb": 2, "mar": 3, "apr": 4, "jun": 6, "jul": 7, "aug": 8,
               "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dec": 12})
-#: Hebrew months → pyluach numbers (Nisan = 1 … Adar = 12, Adar II = 13).
-_HEB = {"nisan": 1, "nissan": 1, "iyar": 2, "iyyar": 2, "sivan": 3, "tammuz": 4, "tamuz": 4,
-        "av": 5, "menachem av": 5, "elul": 6, "tishrei": 7, "tishri": 7, "cheshvan": 8,
-        "heshvan": 8, "marcheshvan": 8, "kislev": 9, "tevet": 10, "teves": 10, "shevat": 11,
-        "shvat": 11, "adar": 12, "adar i": 12, "adar 1": 12, "adar aleph": 12,
-        "adar rishon": 12, "adar ii": 13, "adar 2": 13, "adar bet": 13, "adar beis": 13,
-        "adar sheni": 13}
+#: Hebrew months → pyluach numbers (Nisan = 1 … Adar = 12, Adar II = 13) —
+#: the one table, kept where the engine's named-day reader uses it too.
+from assistant.named_days import HEBREW_MONTHS as _HEB  # noqa: E402
 
 _GREG_ALT = "|".join(sorted(_GREG, key=len, reverse=True))
 _HEB_ALT = "|".join(sorted((re.escape(k) for k in _HEB), key=len, reverse=True))

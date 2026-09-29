@@ -357,6 +357,7 @@ struct OccasionsSettingsView: View {
     @State private var importNote: String?
     @State private var toImport: [Occasion] = []
     @State private var confirmImport = false
+    @State private var teachNote: String?
 
     static let countries: [(String, String)] = [
         ("", "Off"), ("IL", "Israel"), ("US", "United States"), ("GB", "United Kingdom"),
@@ -422,6 +423,28 @@ struct OccasionsSettingsView: View {
             }
 
             Section {
+                byName("jewish", "Jewish days", "Hebrew dates (“12 Adar”), holidays, erev / motzei, Rosh Chodesh, “the first night of Chanukah”, Shabbat.")
+                byName("christian", "Christian days", "Easter and the dates that move with it.")
+                byName("islamic", "Islamic days", "Eid al-Fitr, Eid al-Adha, Ramadan … (expected dates).")
+                byName("mine", "My occasions", "Your own birthdays, anniversaries and yahrzeits — “on Dana's birthday”.")
+                Button {
+                    Task {
+                        let n = (try? await api.vocabAddPresets(["chagim", "hebrew_months"])) ?? -1
+                        teachNote = n < 0 ? "Couldn't reach the Mac." : n == 0
+                            ? "Already in your vocabulary." : "Added \(n) word\(n == 1 ? "" : "s")."
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text("Add holiday and Hebrew-month names to my vocabulary")
+                        InfoTip("So a misheard “Cheshvan” or “Shavuot” is corrected before it is read.")
+                    }
+                }
+                if let teachNote { Text(teachNote).font(.caption).foregroundColor(.secondary) }
+            } header: { Text("Days you can say by name") } footer: {
+                Text("“Dinner on erev Pesach”, “brunch on Easter” — booked on that day. Switch a family off and its names are just words again.")
+            }
+
+            Section {
                 ForEach(styleKinds, id: \.0) { k in
                     HStack {
                         ColorPicker(k.1, selection: colourBinding(k.0), supportsOpacity: false)
@@ -483,6 +506,19 @@ struct OccasionsSettingsView: View {
 
     private func flag(_ key: String, _ label: String, _ tip: String) -> some View {
         Toggle(isOn: Binding(get: { cfg[key] as? Bool ?? false }, set: { patch([key: $0]) })) {
+            HStack(spacing: 6) { Text(label); InfoTip(tip) }
+        }
+    }
+
+    private func byName(_ key: String, _ label: String, _ tip: String) -> some View {
+        Toggle(isOn: Binding(
+            get: { (cfg["by_name"] as? [String: Bool])?[key] ?? true },
+            set: { v in
+                var all = cfg["by_name"] as? [String: Bool]
+                    ?? ["jewish": true, "christian": true, "islamic": true, "mine": true]
+                all[key] = v
+                patch(["by_name": all])
+            })) {
             HStack(spacing: 6) { Text(label); InfoTip(tip) }
         }
     }

@@ -3419,3 +3419,35 @@ destructive verb taken from a subordinate clause or a name — "until I remove
 it", "with mark"), boarded alone on the FastRule shape board (TRAIN, then
 TEST) for harm and the DESTRUCTIVE line; then the question-as-create family
 (7 DEV rows), which is single-ask and so aimed at the 4.0 pt gap.
+
+## Named days (DEVQA Q74) — measured, not a cycle · 2026-09-29
+
+Engine improvement is paused; Gil approved this one ("Ok"). Stages touched:
+FastRule (date reading, series bound, spaCy pre-tagging), segmentation
+(`find_time_refs`), decompose_validate (`resolve_date`), llmjudge (the
+invention guard trims a day's name from a model title). Nothing on TRAIN can
+move, and that is the claim measured:
+
+| reading | before (28481333) | after |
+|---|---|---|
+| generated bench, fast road (`_extract_temporal`), date-correct | 0/2,540 (0.0%) | 2,540/2,540 (100%) |
+| generated bench, deep road (`find_time_refs` → `resolve_date`) | 0/2,540 (0.0%) | 2,540/2,540 (100%) |
+| reader fires, FastRule 7,200 TRAIN | — | 0/6,300 |
+| reader fires, verification pool TRAIN | — | 0/2,699 |
+| vocabulary pre-tagging changes a parse, FastRule TRAIN / pool TRAIN | — | 0/6,300 · 0/2,699 |
+| vocabulary pre-tagging changes a parse, real history (probe) | — | 0/180 (52 with a vocabulary word) |
+
+**The bench is GENERATED** (`scripts/named_days_bench.py`): 127 hand-written
+named-day phrases (8 shapes: Hebrew date, holiday, erev, day-after, ordinal
+night/day, Rosh Chodesh, Shabbat, Christian) × 20 event frames; expected dates
+are computed independently of the reader (a civil-day scan with pyluach). So
+the 100% says the dates are RIGHT for the forms the reader was built for —
+not that unseen phrasings are covered; that needs real speech, which has none
+of these words yet (0 of 2,699 pool TRAIN rows). The negative lines are the
+observed half: a named day read out of a name is a wrong date said
+confidently, and none of 8,999 TRAIN commands is touched. The 180 real
+commands are a probe (small n), not a measurement. Board D `--product` was
+not run: with 0 TRAIN rows reachable it would re-read the same rows.
+
+**Next when real usage has some:** the weekly review's rows mentioning a
+Hebrew month, holiday or occasion, read for phrasings the reader misses.

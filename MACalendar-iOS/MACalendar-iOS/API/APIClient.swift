@@ -1749,6 +1749,15 @@ class APIClient: ObservableObject {
         try decode(TipsPayload.self, from: try await request("/tips"))
     }
 
+    /// Word packs only, onboarding left as it is (Settings ▸ Occasions'
+    /// "add holiday and Hebrew-month names"). Returns how many were new.
+    func vocabAddPresets(_ presets: [String]) async throws -> Int {
+        let data = try await request("/vocab/onboarding", method: "POST",
+                                     body: ["answers": [String: [String]](), "presets": presets,
+                                            "done": false])
+        return ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any])?["added"] as? Int ?? 0
+    }
+
     func vocabOnboardingSubmit(answers: [String: [String]], presets: [String]) async throws {
         try await mutate("/vocab/onboarding", method: "POST",
                          body: ["answers": answers, "presets": presets, "done": true])

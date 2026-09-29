@@ -40,6 +40,11 @@ NOT_QUEUEABLE = {
     # it later could switch the assistant off (or on) after the person has
     # changed their mind on the Mac — the toggle says "try again" instead.
     "setAssistant",
+    # Settings ▸ Occasions' "add holiday and Hebrew-month names" (Q74): the
+    # button reports how many words were NEW, which only the Mac can say, and
+    # says "Couldn't reach the Mac" when it is away — a tap to repeat, not a
+    # write to replay.
+    "vocabAddPresets",
     # Voice has its OWN queue (`LocalStore.enqueueVoice`): recordings are
     # replayed as audio, because the phone cannot understand them — the brain
     # is on the Mac.

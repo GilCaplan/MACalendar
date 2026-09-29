@@ -780,6 +780,50 @@ def open_settings(self) -> None:
     _rel_row.addStretch(1)
     other_form.addRow("", _rel_row)
     occ.addLayout(other_form)
+    occ.addWidget(QLabel("<b>Days you can say by name</b>"))
+    occ.addWidget(hint("\"Dinner on erev Pesach\", \"dentist on 12 Adar\", \"brunch on Easter\", "
+                       "\"dinner on Dana's birthday\" — booked on that day. Switch a family off "
+                       "and its names are just words again."))
+    _by_name = dict(getattr(_ocfg, "by_name", None) or {})
+    by_name_boxes: dict = {}
+    _by_row = QHBoxLayout()
+    for _k, _label, _tip in (
+            ("jewish", "Jewish days", "Hebrew dates (\"12 Adar\", \"5 Tishrei\"), holidays, erev / motzei,\n"
+                                      "Rosh Chodesh, \"the first night of Chanukah\", Shabbat."),
+            ("christian", "Christian days", "Easter and the dates that move with it."),
+            ("islamic", "Islamic days", "Eid al-Fitr, Eid al-Adha, Ramadan … (expected dates)."),
+            ("mine", "My occasions", "Your own birthdays, anniversaries and yahrzeits:\n"
+                                     "\"on Dana's birthday\", \"on our anniversary\".")):
+        _cb = QCheckBox(_label)
+        _cb.setObjectName(f"occasions_by_name_{_k}")
+        _cb.setChecked(bool(_by_name.get(_k, True)))
+        _cb.setToolTip(_tip)
+        by_name_boxes[_k] = _cb
+        _by_row.addWidget(_cb)
+    _by_row.addStretch(1)
+    occ.addLayout(_by_row)
+    _teach_row = QHBoxLayout()
+    teach_btn = QPushButton("Add holiday and Hebrew-month names to my vocabulary")
+    teach_btn.setObjectName("occasions_teach_vocab")
+    teach_btn.setToolTip("So a misheard \"Cheshvan\" or \"Shavuot\" is corrected before it is read —\n"
+                         "the Holidays and Hebrew months word packs (Settings ▸ Vocabulary).")
+    teach_note = QLabel("")
+    teach_note.setObjectName("occasions_teach_note")
+
+    def _teach() -> None:
+        from assistant.stt import vocab_onboarding as _ob
+        from assistant.stt.vocab import get_vocab
+        try:
+            got = _ob.apply(get_vocab(), {}, ["chagim", "hebrew_months"], mark_done=False)
+            teach_note.setText(f"Added {got['added']} word{'s' if got['added'] != 1 else ''}."
+                               if got["added"] else "Already in your vocabulary.")
+        except Exception as exc:                     # a settings button never crashes the app
+            teach_note.setText(f"Couldn't add them: {exc}")
+    teach_btn.clicked.connect(lambda _c=False: _teach())
+    _teach_row.addWidget(teach_btn)
+    _teach_row.addWidget(teach_note)
+    _teach_row.addStretch(1)
+    occ.addLayout(_teach_row)
     occ.addWidget(QLabel("<b>Colours and reminders</b>"))
     occ.addWidget(hint("Reminders arrive in the daily summary (Notifications), on the "
                        "day chosen — \"🎂 Dana's 30th birthday — in 3 days\"."))
@@ -828,7 +872,8 @@ def open_settings(self) -> None:
                 "country": country_combo.currentData() or "",
                 "christian": christian_cb.isChecked(), "islamic": islamic_cb.isChecked(),
                 "colors": {k: b.property("hex") for k, b in colour_buttons.items()},
-                "remind_days": {k: c.currentData() for k, c in remind_combos.items()}}
+                "remind_days": {k: c.currentData() for k, c in remind_combos.items()},
+                "by_name": {k: cb.isChecked() for k, cb in by_name_boxes.items()}}
 
     events_box = section("Events")
     events_cfg = getattr(self._config, "events", None)

@@ -1,3 +1,30 @@
+- **2026-09-29 — Q74 (DAYS SAID BY NAME)**, Gil: *"The engine can deal with
+  given hebrew dates and other built in events? Those words get auto added to
+  vocab?"* — it could not: probed on eight commands, five were booked on the
+  WRONG DAY without a word ("12 Adar" read as the 12th of this month; an
+  unknown holiday fell to today/tomorrow with its name in the title). Then
+  "Ok" to all three fixes: never put a named day on a default day, read Hebrew
+  dates / holidays / own occasions (`assistant/named_days.py`, used by
+  FastRule's date reading, its series bound, segmentation's time finder and
+  decompose_validate's `resolve_date`), and a **Hebrew months** word pack
+  offered beside the switches. Gil, mid-build: *"have a flag on it whether
+  it's taken into account in case there are users who Israeli/jewish days
+  aren't relevant or customized events"* → `occasions.by_name` — Jewish,
+  Christian, Islamic, my occasions — each a switch in Settings ▸ Occasions
+  (Mac and phone); off reads exactly as before. And *"Can have vocab words
+  tagged ahead of time to switch out what spacy model does"* →
+  `intent/pretag.py`: Jewish calendar words become NOUN and the user's own
+  vocabulary PROPN after spaCy's tagger ("shiur" was an adverb, so the
+  command was not read). Conventions written down: in free text a holiday is
+  a date only after on/over/during/this/next/until/through and when no noun
+  follows it ("cook food FOR Shabbat", "the Purim party", "the Christmas list"
+  stay names); a multi-day holiday is a RANGE, offered for confirmation like
+  "next week"; plain "Adar" in a leap year is Adar II; "X night" / "first
+  night of X" keeps the evening word for the clock reader. Measured: the
+  generated bench (2,540 rows = 127 phrases × 20 frames, dates computed
+  independently) 0% → 100% on both roads; the reader fires on 0 of 6,300
+  FastRule TRAIN and 0 of 2,699 pool TRAIN rows; vocabulary pre-tagging
+  changes 0 of those and 0 of 180 real commands (52 with a vocabulary word).
 - **2026-09-29 — Q73 (OCCASIONS AND EXTRA CALENDARS)**, Gil: *"like we have
   for jewish calendar perhaps we should add a customizable option for user
   to place like anniversaries, friends birthdays, other religious events,

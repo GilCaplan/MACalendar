@@ -304,6 +304,15 @@ def find_time_refs(text: str) -> "list[TimeRef]":
     for rx, kind in _COMPILED:
         for m in rx.finditer(text):
             candidates.append((m.start(), m.end(), kind))
+    # A DAY NAMED INSTEAD OF DATED is a date too — "on 12 Adar", "erev
+    # Pesach", "on Dana's birthday" (assistant/named_days.py). None of the
+    # patterns above knows one, so the item kept only "at 3pm" as its time
+    # and was booked on the default day with the holiday in its title
+    # (2026-09-29). Longest-first below lets "on 12 Adar" beat a bare "12".
+    from assistant import named_days as _named_days
+    for n in _named_days.find_all(text):
+        a, b = n.phrase_span
+        candidates.append((a, b, "date"))
     candidates.sort(key=lambda c: (-(c[1] - c[0]), c[0]))
 
     refs: list[TimeRef] = []

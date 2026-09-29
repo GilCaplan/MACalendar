@@ -2472,8 +2472,11 @@ series_id   NULL
     action between them — and only then, and only when both are decisive. A model-routed action is an
     inference and is billed like one: it goes through the guessed-domain penalty below, so the threshold
     still guards the commit.</p>
-    <p><strong>Fill slots.</strong> Dates and times go through a dedicated recognizer with regex fallbacks
-    for what it misses; a title is picked from the sentence's own noun chunks, with every temporal word
+    <p><strong>Fill slots.</strong> A day <em>named</em> instead of dated — a Hebrew date, a holiday, the
+    evening before one, the speaker's own birthday or anniversary — is read first, by a table-driven reader
+    that knows the Hebrew calendar, since the recognizer knows none of them; a holiday that lasts several days
+    is offered for confirmation like any range. Every other date and time goes through a dedicated recognizer
+    with regex fallbacks for what it misses; a title is picked from the sentence's own noun chunks, with every temporal word
     carved out first so a time is never mistaken for part of a title. Which slots count as required depends
     on the action: creating an event needs a title, a date and a start time, while deleting one is
     satisfied by naming the event <em>or</em> giving the time that pins it down.</p>
