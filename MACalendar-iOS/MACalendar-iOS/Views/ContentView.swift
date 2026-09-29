@@ -325,6 +325,10 @@ struct ContentView: View {
                 ProcessInfo.processInfo.environment["MACALENDAR_UITEST_SHOW"] ?? "") {
                 showVoiceQueue = true
             }
+            if ProcessInfo.processInfo.environment["MACALENDAR_UITEST_SHOW"] == "settings" {
+                // after launch-time presentations (the permission alert) settle
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { showSettings = true }
+            }
         }
         #endif
         .sheet(isPresented: $showVoiceQueue) {

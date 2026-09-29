@@ -27,33 +27,170 @@ struct SettingsView: View {
     @ObservedObject private var store = LocalStore.shared
     @State private var showQueue = false
 
+
     var body: some View {
         StackNavigation {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-
-                    // MARK: Account (DEVQA Q65)
-                    if let u = UserSession.shared.user {
-                        CollapsibleSection("Account", systemImage: "person.crop.circle", key: "account") {
-                            NavigationLink { AccountView() } label: {
-                                HStack(spacing: 10) {
-                                    Circle().fill(Color(hex: u.color) ?? .gray).frame(width: 12, height: 12)
-                                    Text(u.displayName).bold()
-                                    Text(u.isAdmin ? "admin" : "").font(.caption).foregroundColor(.secondary)
-                                    Spacer()
-                                    Text("Account & Sharing").foregroundColor(.secondary)
-                                    Image(systemName: "chevron.right").font(.caption).foregroundColor(.secondary)
+            List {
+                // Your account first: who this phone is signed in as.
+                if let u = UserSession.shared.user {
+                    Section {
+                        NavigationLink { AccountView() } label: {
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    Circle().fill(Color(hex: u.color) ?? .gray)
+                                    Text(String(u.displayName.prefix(1)).uppercased())
+                                        .font(.headline).foregroundColor(.white)
                                 }
-                                .padding(10)
-                                .background(Color(.systemBackground))
-                                .cornerRadius(8)
+                                .frame(width: 40, height: 40)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(u.displayName).font(.headline)
+                                    Text("Account, password & sharing\(u.isAdmin ? " · admin" : "")")
+                                        .font(.caption).foregroundColor(.secondary)
+                                }
                             }
-                            .buttonStyle(.plain)
+                            .padding(.vertical, 4)
                         }
                     }
+                }
 
-                    // MARK: Server
-                    CollapsibleSection("Server", systemImage: "network", key: "server") {
+                Section("Calendar") {
+                    row("Appearance", "paintbrush", .orange, appearanceSummary) { appearancePage }
+                    row("Events", "clock", .blue, eventsSummary) { eventsPage }
+                    row("Hebrew & Shabbat", "calendar.badge.clock", .indigo, hebrewSummary) { hebrewPage }
+                    row("Event colours", "paintpalette", .pink, "Categories") { CategoriesView() }
+                    row("Connected calendars", "calendar.badge.plus", .green, "Google, Outlook") {
+                        ConnectedCalendarsView()
+                    }
+                }
+
+                Section("Notifications & tabs") {
+                    row("Notifications", "bell.badge", .red,
+                        settings.remindersEnabled ? "Morning summary on" : "Off") { notificationsPage }
+                    row("Tabs", "square.grid.2x2", .teal, tabsSummary) { tabsPage }
+                }
+
+                Section("Assistant") {
+                    NavigationLink { AssistantReviewView() } label: {
+                        HStack {
+                            SettingsIcon("checkmark.bubble", .purple)
+                            Text("Review commands")
+                            Spacer()
+                            if unreviewed > 0 {
+                                Text("\(unreviewed)")
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 7).padding(.vertical, 2)
+                                    .background(settings.accentColor.opacity(0.2))
+                                    .foregroundColor(settings.accentColor)
+                                    .clipShape(Capsule())
+                            }
+                        }
+                    }
+                    row("Voice & recording", "waveform", .purple, voiceSummary) { voicePage }
+                    row("Vocabulary", "character.book.closed", .purple, "Names & words") { VocabularyView() }
+                    row("How I say things", "text.book.closed", .purple, "Words it acts on") { LexiconView() }
+                    row("How to talk to me", "lightbulb", .yellow, "Tips") { TipsView() }
+                }
+
+                Section {
+                    row("Your Mac", "desktopcomputer", .gray, connectionSummary) { serverPage }
+                    if store.pendingCount > 0 {
+                        Button { showQueue = true } label: {
+                            HStack {
+                                SettingsIcon("tray.full", .orange)
+                                Text("\(store.pendingCount) change\(store.pendingCount == 1 ? "" : "s") waiting to sync")
+                                    .foregroundColor(.primary)
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.caption).foregroundColor(.secondary)
+                            }
+                        }
+                        .accessibilityIdentifier("pending-queue-link")
+                    }
+                } header: { Text("Connection") }
+
+                Section {
+                    HStack { Text("Version"); Spacer(); Text("1.0").foregroundColor(.secondary) }
+                    Link("GitHub", destination: URL(string: "https://github.com/GilCaplan/MACalendar")!)
+                } header: { Text("About") }
+            }
+            .listStyle(.insetGrouped)
+            .sheet(isPresented: $showQueue) { PendingQueueView() }
+            .navigationTitle("Settings")
+            .onAppear {
+                if !validLanguages.contains(settings.ttsVoice) {
+                    settings.ttsVoice = "en-US"
+                }
+                Task { unreviewed = await api.unreviewedCount() }
+                // The tab switches may have been flipped on the Mac. The
+                // toggles render from the local cache first and correct
+                // themselves if and when this answers.
+                Task { await visibility.refresh(api: api) }
+                Task {
+                    permStatus = await NotificationPermission.status()
+                    notifConfig = try? await api.notificationsConfig()
+                    await adoptSharedSettings()
+                    // The switch is shared, so the Mac's answer wins — EXCEPT
+                    // while this phone is still holding one of its own. A
+                    // toggle flipped offline sits in the queue; adopting the
+                    // server's value before it replays would flip the switch
+                    // back under the user's finger and then un-flip it later.
+                    if let cfg = notifConfig,
+                       !LocalStore.shared.pending.contains(where: { $0.path == "/config" }) {
+                        settings.remindersEnabled = cfg.dailyDigest
+                        // The card's switch is shared with the Mac too, so adopt
+                        // it the same way and on the same condition. Routed
+                        // through `setEnabled` rather than assigned, or the
+                        // manager would not act on a change made on the Mac
+                        // until something else happened to call `sync()`.
+                        if cfg.agendaCard != settings.agendaCardEnabled {
+                            settings.agendaCardEnabled = cfg.agendaCard
+                            LiveActivityManager.shared.setEnabled(cfg.agendaCard)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - The pages
+    //
+    // Reorganised 2026-09-28 (Gil: "settings feel a little messy"). Twelve
+    // fold-open sections on one scroll became a short list grouped the way
+    // iOS's own Settings is: each row says where things stand and opens a
+    // page of its own. The contents of each page are the old sections'
+    // controls, unchanged.
+
+    private func row<Dest: View>(_ title: String, _ icon: String, _ tint: Color,
+                                 _ detail: String,
+                                 @ViewBuilder destination: @escaping () -> Dest) -> some View {
+        NavigationLink { destination() } label: {
+            HStack {
+                SettingsIcon(icon, tint)
+                Text(title).lineLimit(1).layoutPriority(1)     // the name never wraps;
+                Spacer(minLength: 8)
+                Text(detail).font(.callout).foregroundColor(.secondary).lineLimit(1)   // the detail gives way
+            }
+        }
+    }
+
+    private var appearanceSummary: String {
+        "\(settings.theme.capitalized) · \(settings.defaultCalendarView.capitalized)"
+    }
+    private var eventsSummary: String { "\(settings.eventLengthMinutes) min" }
+    private var hebrewSummary: String {
+        settings.hebrewDisplayMode == "english" ? (settings.showHolidays ? "Holidays" : "Off")
+            : settings.hebrewDisplayMode.capitalized
+    }
+    private var tabsSummary: String {
+        let shown = FeatureRegistry.togglable.filter { visibility.isVisible($0) }.count
+        return "\(shown) of \(FeatureRegistry.togglable.count) optional"
+    }
+    private var voiceSummary: String { settings.speakReplies ? "Speaks replies" : "Silent" }
+    private var connectionSummary: String {
+        !settings.serverEnabled ? "Offline" : (api.isOnline ? "Connected" : "Not reachable")
+    }
+
+    private var serverPage: some View {
+        SettingsPage("Your Mac") {
                         VStack(spacing: 12) {
                             HStack {
                                 TextField("http://100.x.x.x:8080", text: $settings.serverURL)
@@ -159,10 +296,11 @@ struct SettingsView: View {
                             }
                             .accessibilityIdentifier("pending-queue-link")
                         }
-                    }
+            }
+    }
 
-                    // MARK: Appearance
-                    CollapsibleSection("Appearance", systemImage: "paintbrush", key: "appearance") {
+    private var appearancePage: some View {
+        SettingsPage("Appearance") {
                         VStack(alignment: .leading, spacing: 12) {
                             Picker("Theme", selection: $settings.theme) {
                                 Text("Light").tag("light")
@@ -234,10 +372,11 @@ struct SettingsView: View {
                             }
                         }
                         .padding(.vertical, 4)
-                    }
+            }
+    }
 
-                    // MARK: Hebrew Calendar
-                    CollapsibleSection("Hebrew Calendar", systemImage: "calendar.badge.clock", key: "hebrew") {
+    private var hebrewPage: some View {
+        SettingsPage("Hebrew calendar & Shabbat") {
                         VStack(alignment: .leading, spacing: 12) {
                             Picker("Show dates as", selection: $settings.hebrewDisplayMode) {
                                 Text("English").tag("english")
@@ -325,15 +464,11 @@ struct SettingsView: View {
                             ObservanceDaysEditor()
                         }
                         .padding(.top, 4)
-                    }
+            }
+    }
 
-                    // MARK: Events
-                    //
-                    // DEVQA Q51 (Gil, 2026-09-25): how long an event lasts when
-                    // no end is said, and the gap between chained events.
-                    // Shared with the Mac (`events:` in config.yaml); a
-                    // category can set its own in Assistant › Event colours.
-                    CollapsibleSection("Events", systemImage: "clock", key: "events") {
+    private var eventsPage: some View {
+        SettingsPage("Events") {
                         VStack(alignment: .leading, spacing: 12) {
                             Stepper(value: $settings.eventLengthMinutes,
                                     in: EventDefaults.minLength...EventDefaults.maxMinutes, step: 5) {
@@ -361,7 +496,7 @@ struct SettingsView: View {
                                 Task { await api.patchShared(
                                     ["events": ["chain_gap_minutes": v]]) }
                             }
-                            Text("An event with no end said lasts the default length. In “gym at 9, then lunch”, lunch starts this gap after the gym ends. A category can set its own of either in Assistant › Event colours.")
+                            Text("An event with no end said lasts the default length. In “gym at 9, then lunch”, lunch starts this gap after the gym ends. A category can set its own of either in Calendar › Event colours.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
 
@@ -379,22 +514,11 @@ struct SettingsView: View {
                                 .foregroundColor(.secondary)
                         }
                         .padding(.vertical, 4)
-                    }
+            }
+    }
 
-                    // MARK: Notifications
-                    //
-                    // ONE switch (Gil, 2026-09-11: "it's on or off"). This
-                    // replaced a lead-time menu, a per-category lead menu and
-                    // a master toggle — three controls deciding when each of
-                    // fifty-five banners would interrupt you, for a feature
-                    // whose answer turned out to be "once, in the morning".
-                    // "Notifications" is what the Mac's settings dialog calls
-                    // the same section (`settings_dialog.py`), and Gil went
-                    // looking for that word and could not find it here
-                    // (2026-09-18). The `key:` stays "panel" on purpose — it
-                    // stores whether the section is folded, and renaming it
-                    // would spring open every screen that had it closed.
-                    CollapsibleSection("Notifications", systemImage: "bell.badge", key: "panel") {
+    private var notificationsPage: some View {
+        SettingsPage("Notifications") {
                         VStack(alignment: .leading, spacing: 12) {
                             Toggle(isOn: $settings.remindersEnabled) {
                                 VStack(alignment: .leading, spacing: 2) {
@@ -477,39 +601,11 @@ struct SettingsView: View {
                             }
                         }
                         .padding(.top, 4)
-                    }
+            }
+    }
 
-                    // MARK: Connected Calendars
-                    //
-                    // Google / Outlook two-way and read-only iCal links (Gil,
-                    // 2026-09-24). The Mac holds the sign-ins and runs the
-                    // sync; this screen, like the Mac's, only starts a
-                    // connection and shows how it is going.
-                    CollapsibleSection("Connected Calendars", systemImage: "calendar.badge.plus", key: "calendars") {
-                        NavigationLink {
-                            ConnectedCalendarsView()
-                        } label: {
-                            HStack {
-                                Label("Google, Outlook & links", systemImage: "link")
-                                Spacer()
-                                Text("Sync automatically")
-                                    .font(.caption).foregroundColor(.secondary)
-                                Image(systemName: "chevron.right")
-                                    .font(.caption).foregroundColor(.secondary)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-
-                    // MARK: Tabs
-                    //
-                    // ONE loop over the registry, not five hand-written toggles:
-                    // a feature appears here by being declared in
-                    // `FeatureRegistry`, never by someone remembering to add a
-                    // row. Pinned features (Calendar, Tasks) are not offered at
-                    // all — they are what the app IS, and the Mac answers 409 to
-                    // a request to hide one.
-                    CollapsibleSection("Tabs", systemImage: "square.grid.2x2", key: "tabs") {
+    private var tabsPage: some View {
+        SettingsPage("Tabs") {
                         VStack(alignment: .leading, spacing: 8) {
                             ForEach(FeatureRegistry.togglable) { feature in
                                 Toggle(isOn: Binding(
@@ -536,11 +632,11 @@ struct SettingsView: View {
                                  + "the Mac is reachable.")
                                 .font(.caption).foregroundColor(.secondary)
                         }
-                    }
-                    .padding(.top, 4)
+            }
+    }
 
-                    // MARK: Voice
-                    CollapsibleSection("Voice", systemImage: "speaker.wave.2", key: "voice") {
+    private var voicePage: some View {
+        SettingsPage("Voice & recording") {
                         VStack(alignment: .leading, spacing: 12) {
                             Toggle(isOn: $settings.speakReplies) {
                                 VStack(alignment: .leading, spacing: 2) {
@@ -590,153 +686,7 @@ struct SettingsView: View {
                             }
                         }
                         .padding(.vertical, 4)
-                    }
-
-                    // MARK: Assistant
-                    //
-                    // Split out of Voice on 2026-09-18. Four screens about
-                    // TEACHING the assistant — reviewing what it did, the words
-                    // it should hear, the words it acts on, the colours it
-                    // assigns — were sitting inside a section about the
-                    // MICROPHONE, and a collapsed one at that. Gil went looking
-                    // for "How I Say Things" on the settings screen and could
-                    // not see it, because the only thing on screen was the word
-                    // "Voice". The Mac has had an Assistant section all along;
-                    // this is the same section, in the same order.
-                    CollapsibleSection("Assistant", systemImage: "sparkles", key: "assistant") {
-                        VStack(alignment: .leading, spacing: 12) {
-                            NavigationLink {
-                                AssistantReviewView()
-                            } label: {
-                                HStack {
-                                    Label("Review commands", systemImage: "checkmark.bubble")
-                                    Spacer()
-                                    if unreviewed > 0 {
-                                        Text("\(unreviewed)")
-                                            .font(.caption.weight(.semibold))
-                                            .padding(.horizontal, 7).padding(.vertical, 2)
-                                            .background(settings.accentColor.opacity(0.2))
-                                            .foregroundColor(settings.accentColor)
-                                            .clipShape(Capsule())
-                                    } else {
-                                        Text("Was it right? Tap yes or no").font(.caption).foregroundColor(.secondary)
-                                    }
-                                    Image(systemName: "chevron.right").font(.caption).foregroundColor(.secondary)
-                                }
-                            }
-
-                            NavigationLink {
-                                VocabularyView()
-                            } label: {
-                                HStack {
-                                    Label("Vocabulary", systemImage: "character.book.closed")
-                                    Spacer()
-                                    Text("Names & words it should know")
-                                        .font(.caption).foregroundColor(.secondary)
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption).foregroundColor(.secondary)
-                                }
-                            }
-
-                            // The Mac's "How to Talk to Me" (Settings →
-                            // Assistant), on the phone too — the same five
-                            // tips, fetched from the host so there is one copy.
-                            NavigationLink {
-                                TipsView()
-                            } label: {
-                                HStack {
-                                    Label("How to Talk to Me", systemImage: "lightbulb")
-                                    Spacer()
-                                    Text("Five ways to phrase it")
-                                        .font(.caption).foregroundColor(.secondary)
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption).foregroundColor(.secondary)
-                                }
-                            }
-
-                            // The word lists the ENGINE matches on, as opposed
-                            // to the Vocabulary above, which is what WHISPER
-                            // should hear. Two different failures: "Conello
-                            // oil" is a mishearing, "squeeze" is a word the
-                            // parser has simply never been taught.
-                            NavigationLink {
-                                LexiconView()
-                            } label: {
-                                HStack {
-                                    Label("How I Say Things", systemImage: "text.book.closed")
-                                    Spacer()
-                                    Text("Words it acts on")
-                                        .font(.caption).foregroundColor(.secondary)
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption).foregroundColor(.secondary)
-                                }
-                            }
-
-                            NavigationLink {
-                                CategoriesView()
-                            } label: {
-                                HStack {
-                                    Label("Event colours", systemImage: "paintpalette")
-                                    Spacer()
-                                    Text("Categories & colours")
-                                        .font(.caption).foregroundColor(.secondary)
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption).foregroundColor(.secondary)
-                                }
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-
-                    // MARK: About
-                    CollapsibleSection("About", systemImage: "info.circle", key: "about") {
-                        HStack {
-                            Text("Version")
-                            Spacer()
-                            Text("1.0").foregroundColor(.secondary)
-                        }
-                        Divider()
-                        Link("GitHub", destination: URL(string: "https://github.com/GilCaplan/MACalendar")!)
-                    }
-                }
-                .padding()
             }
-            .sheet(isPresented: $showQueue) { PendingQueueView() }
-            .navigationTitle("Settings")
-            .onAppear {
-                if !validLanguages.contains(settings.ttsVoice) {
-                    settings.ttsVoice = "en-US"
-                }
-                Task { unreviewed = await api.unreviewedCount() }
-                // The tab switches may have been flipped on the Mac. The
-                // toggles render from the local cache first and correct
-                // themselves if and when this answers.
-                Task { await visibility.refresh(api: api) }
-                Task {
-                    permStatus = await NotificationPermission.status()
-                    notifConfig = try? await api.notificationsConfig()
-                    await adoptSharedSettings()
-                    // The switch is shared, so the Mac's answer wins — EXCEPT
-                    // while this phone is still holding one of its own. A
-                    // toggle flipped offline sits in the queue; adopting the
-                    // server's value before it replays would flip the switch
-                    // back under the user's finger and then un-flip it later.
-                    if let cfg = notifConfig,
-                       !LocalStore.shared.pending.contains(where: { $0.path == "/config" }) {
-                        settings.remindersEnabled = cfg.dailyDigest
-                        // The card's switch is shared with the Mac too, so adopt
-                        // it the same way and on the same condition. Routed
-                        // through `setEnabled` rather than assigned, or the
-                        // manager would not act on a change made on the Mac
-                        // until something else happened to call `sync()`.
-                        if cfg.agendaCard != settings.agendaCardEnabled {
-                            settings.agendaCardEnabled = cfg.agendaCard
-                            LiveActivityManager.shared.setEnabled(cfg.agendaCard)
-                        }
-                    }
-                }
-            }
-        }
     }
 
     // MARK: - Day panel helpers
@@ -1081,70 +1031,46 @@ private struct ObservanceDaysEditor: View {
     }
 }
 
-// MARK: - Collapsible section
+// MARK: - A settings page, and a row's icon
 
-/// A settings section that folds away, remembering whether it was open.
-///
-/// Gil, 2026-09-17: *"perhaps add a minimize on each section starting to be a
-/// lot of things there"* — seven sections had grown past what one screen can
-/// hold, and the two anyone actually visits (Server, Notifications) sit above
-/// and below things nobody touches twice.
-///
-/// It wraps `GroupBox` rather than replacing it, so every section keeps exactly
-/// the look it had; the only change is a header you can tap. State lives in
-/// `@AppStorage` under `settingsSection.<key>`, which is per-device UI chrome
-/// and deliberately NOT part of the shared config — which sections you keep
-/// folded on your phone is not a thing the Mac should have an opinion about.
-private struct CollapsibleSection<Content: View>: View {
+/// One page behind a row of the Settings list (2026-09-28 reorganisation).
+/// The card look the fold-open sections had — a GroupBox on the grouped
+/// background — so each page's controls look exactly as they did.
+private struct SettingsPage<Content: View>: View {
     private let title: String
-    private let systemImage: String
-    @AppStorage private var expanded: Bool
-    private let content: () -> Content
+    private let content: Content
 
-    init(_ title: String, systemImage: String, key: String,
-         @ViewBuilder content: @escaping () -> Content) {
+    init(_ title: String, @ViewBuilder content: () -> Content) {
         self.title = title
-        self.systemImage = systemImage
-        self.content = content
-        // FOLDED by default (Gil, 2026-09-18: "By default can everything be
-        // minimized in settings"). This used to open every section, with the
-        // note "a first run must not look like an empty screen" — but seven
-        // sections open is a screen you scroll through to find anything, and
-        // the thing that was actually hard to find was a section NAME. Folded,
-        // the whole list of names fits at once and is its own table of
-        // contents.
-        //
-        // Only sections you have never touched are affected: `AppStorage`
-        // writes on change, not on read, so anyone who deliberately opened or
-        // closed one keeps that choice.
-        _expanded = AppStorage(wrappedValue: false, "settingsSection.\(key)")
+        self.content = content()
     }
 
     var body: some View {
-        GroupBox {
-            if expanded { content() }
-        } label: {
-            Button {
-                withAnimation(.easeInOut(duration: 0.18)) { expanded.toggle() }
-            } label: {
-                HStack(spacing: 8) {
-                    Label(title, systemImage: systemImage)
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.down")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .rotationEffect(.degrees(expanded ? 0 : -90))
-                }
-                // The whole row is the target, not just the words — and 44pt
-                // tall, which is the smallest thing a finger should be asked
-                // to hit.
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
+        ScrollView {
+            GroupBox {
+                VStack(alignment: .leading, spacing: 12) { content }
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(title)
-            .accessibilityHint(expanded ? "Collapse this section" : "Expand this section")
-            .accessibilityAddTraits(expanded ? [.isSelected] : [])
+            .padding()
         }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// The small coloured tile iOS's own Settings puts before each row.
+private struct SettingsIcon: View {
+    private let name: String
+    private let tint: Color
+    init(_ name: String, _ tint: Color) { self.name = name; self.tint = tint }
+
+    var body: some View {
+        Image(systemName: name)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundColor(.white)
+            .frame(width: 28, height: 28)
+            .background(RoundedRectangle(cornerRadius: 7).fill(tint))
+            .padding(.trailing, 4)
     }
 }

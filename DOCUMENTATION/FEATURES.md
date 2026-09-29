@@ -923,6 +923,17 @@ grocery task on both lists.
 
 ### Foldable settings sections
 
+> **The phone's half was replaced 2026-09-28** (Gil: *"settings feel a little
+> messy reorganize perhaps?"*). Twelve fold-open sections on one scroll became
+> a short grouped list the way iOS's own Settings is: the account at the top,
+> then Calendar (Appearance, Events, Hebrew & Shabbat, Event colours,
+> Connected calendars), Notifications & tabs, Assistant (Review commands,
+> Voice & recording, Vocabulary, How I say things, How to talk to me),
+> Connection (Your Mac) and About. Each row states where things stand and
+> opens a page holding the old section's controls, unchanged. The list of
+> names still fits on one screen, which was the point of folding. The Mac's
+> dialog keeps its folding sections.
+
 **What:** every section on both Settings screens folds away, and stays folded
 until you open it again (Gil, 2026-09-17: *"perhaps add a minimize on each
 section starting to be a lot of things there"*). Six sections on the Mac and

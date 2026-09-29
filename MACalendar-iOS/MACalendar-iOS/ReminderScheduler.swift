@@ -127,7 +127,13 @@ final class ReminderScheduler {
         // ask is explicable. `request()` prompts only when the answer is
         // notDetermined, and we AWAIT it so this same pass schedules rather
         // than waiting for the next reconcile.
-        _ = await NotificationPermission.request()
+        #if DEBUG
+        // simulator screenshots: the permission alert would cover them
+        let screenshot = ProcessInfo.processInfo.environment["MACALENDAR_UITEST_SHOW"] != nil
+        #else
+        let screenshot = false
+        #endif
+        if !screenshot { _ = await NotificationPermission.request() }
 
         for digest in due {
             guard let fire = digest.firesAt.flatMap(Self.parseLocal) else { continue }
