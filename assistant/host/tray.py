@@ -360,6 +360,10 @@ def main() -> None:
     probe = QLocalSocket()
     probe.connectToServer(INSTANCE)
     if probe.waitForConnected(300):
+        # --background (the calendar's launcher on Linux/Windows): make sure a
+        # server runs, and if one does, do nothing — no pairing window.
+        if "--background" in sys.argv:
+            return
         probe.write(b"pair")
         probe.waitForBytesWritten(300)
         probe.disconnectFromServer()

@@ -1,14 +1,14 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 718, "total_lines": 193544} -->
+<!-- code-stats: {"total_files": 721, "total_lines": 194095} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**193,544 lines of source across 718 files.** Of that, **109,273 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**194,095 lines of source across 721 files.** Of that, **109,824 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
 | Test code | 220 | 42,774 |
-| Actions, storage & domain (DB, config, observance, .ics) | 152 | 26,252 |
+| Actions, storage & domain (DB, config, observance, .ics) | 152 | 26,256 |
 | iOS application | 69 | 26,055 |
 | Mac application (calendar GUI) | 41 | 22,451 |
 | Engine (the brain, shipped path) | 57 | 20,738 |
@@ -19,17 +19,18 @@
 | Microphone / speech (record, STT, TTS) | 20 | 3,846 |
 | Model / Ollama code | 12 | 3,251 |
 | API server (the front door) | 5 | 2,103 |
-| Launch scripts | 3 | 332 |
-| **TOTAL** | **718** | **193,544** |
+| Launch scripts | 5 | 488 |
+| UNCATEGORISED | 1 | 391 |
+| **TOTAL** | **721** | **194,095** |
 
 ### By language
 
 | | files | lines |
 |---|---:|---:|
-| Python | 632 | 164,014 |
+| Python | 633 | 164,409 |
 | Swift | 77 | 28,600 |
-| shell | 8 | 761 |
-| launch script | 1 | 169 |
+| shell | 9 | 845 |
+| launch script | 2 | 241 |
 
 Not counted above, and deliberately so:
 
@@ -45,3 +46,7 @@ Every tracked source file lands in exactly one category, so the rows sum to the 
 - iOS `Voice/` and `VoiceButton.swift` count as **Microphone**, not iOS.
 - `trace.py` / `trace_bus.py` count as **Review panel** — they exist to feed it.
 - A stage folder's `experiments/`, `datasets/` and `eval_metrics/` are **boards**, not the shipped engine.
+
+**Uncategorised — add a rule for these:**
+
+- `install/install.py`
