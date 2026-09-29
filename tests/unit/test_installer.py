@@ -64,9 +64,9 @@ def test_a_helper_gets_only_the_server(inst, tmp_path):
     assert list(shortcuts) == ["MACalendar Server"]
 
 
-def test_linux_menu_entries_start_the_server_quietly_with_the_calendar(inst):
-    e = inst.desktop_entries(Path("/home/u/MACalendar/MACalendar"),
-                             Path("/home/u/MACalendar/MACalendar/.venv/bin/python"), "primary", False)
+def test_linux_menu_entries_start_the_server_quietly_with_the_calendar(inst, tmp_path):
+    repo = tmp_path / "MACalendar"
+    e = inst.desktop_entries(repo, repo / ".venv" / "bin" / "python", "primary", False)
     assert set(e) == {"macalendar-server.desktop", "macalendar.desktop", "macalendar-hud.desktop"}
     assert "-m assistant.host --background" in e["macalendar.desktop"]
     assert "-m assistant.main" in e["macalendar.desktop"]
