@@ -182,9 +182,29 @@ class MiniCalendar(QWidget):
         self._prev_btn.setStyleSheet(nav_style)
         self._next_btn.setStyleSheet(nav_style)
 
+        # The weekday row is the calendar's own header view, which the item
+        # stylesheet never reached: it drew Qt's default WHITE bar with grey
+        # letters in the dark theme. Its text format sets the colours; the
+        # weekend days get the same muted tone, not Qt's default red.
+        from PyQt6.QtGui import QTextCharFormat, QColor as _QColor
+        head = QTextCharFormat()
+        head.setBackground(_QColor(bg))
+        head.setForeground(_QColor(text2))
+        self._cal.setHeaderTextFormat(head)
+        for day in (Qt.DayOfWeek.Saturday, Qt.DayOfWeek.Sunday):
+            wk = QTextCharFormat()
+            wk.setForeground(_QColor(text2 if day == Qt.DayOfWeek.Sunday else BLUE))
+            self._cal.setWeekdayTextFormat(day, wk)
         self._cal.setStyleSheet(f"""
             QCalendarWidget {{
                 background-color: {bg};
+            }}
+            QCalendarWidget QHeaderView::section {{
+                background-color: {bg};
+                color: {text2};
+                border: none;
+                font-size: 10px;
+                font-weight: 600;
             }}
             QCalendarWidget QAbstractItemView {{
                 font-size: 11px;
@@ -225,12 +245,28 @@ class Sidebar(QWidget):
         new_btn.clicked.connect(self.new_event_clicked)
         layout.addWidget(new_btn)
 
+        # The app's sections (Calendar, Tasks, Timer, Account…), added by the
+        # window from the feature registry — see `CalendarWindow._build_sidebar_nav`.
+        self._nav = QVBoxLayout()
+        self._nav.setContentsMargins(0, 0, 0, 0)
+        self._nav.setSpacing(2)
+        layout.addLayout(self._nav)
+
         # Mini calendar
         self._mini_cal = MiniCalendar()
         self._mini_cal.selectionChanged.connect(self._on_date_selected)
         layout.addWidget(self._mini_cal)
 
         layout.addStretch()
+
+    def add_nav(self, label: str) -> QPushButton:
+        """One section row; the window styles it and wires what it opens."""
+        btn = QPushButton(label)
+        btn.setObjectName("nav_item")
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setFixedHeight(32)
+        self._nav.addWidget(btn)
+        return btn
 
     def _apply_bg(self, dark: bool) -> None:
         bg     = _styles.D_GRAY_BG     if dark else GRAY_BG

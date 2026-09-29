@@ -222,6 +222,14 @@ class _TodoPill(QLabel):
         self.setStyleSheet("background: transparent;")
         self.setToolTip(f"Task due: {todo.get('title', '')}")
         self.setFixedHeight(pill_height)
+        # Measured with the font it PAINTS with (bold, `font_size` pt). The
+        # label's own size hint used its stylesheet font, so the pill came out
+        # narrower than its text and clipped "walk jada" to "walk …".
+        f = self.font()
+        f.setPointSize(font_size)
+        f.setBold(True)
+        from PyQt6.QtGui import QFontMetrics
+        self.setMinimumWidth(QFontMetrics(f).horizontalAdvance(self._text) + 16)
 
     def paintEvent(self, _event):
         painter = QPainter(self)

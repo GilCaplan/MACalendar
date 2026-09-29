@@ -300,6 +300,17 @@ QPushButton#flat:pressed {{
     background-color: {pressed};
 }}
 
+/* ── The toolbar's "More" menu button: a flat button, not a system combo ── */
+QToolButton#more_btn {{
+    background-color: transparent;
+    border: none;
+    padding: 4px 10px;
+    border-radius: {RADIUS_MD}px;
+    color: {text};
+}}
+QToolButton#more_btn:hover {{ background-color: {hover}; }}
+QToolButton#more_btn::menu-indicator {{ image: none; width: 0px; }}
+
 /* ── Icon-only toolbar buttons (settings, theme, mic) ── */
 /* No min-width/min-height here: every caller already calls
    setFixedSize(30, 30) in Python, and pairing that with a QSS min-height

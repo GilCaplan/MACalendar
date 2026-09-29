@@ -126,14 +126,35 @@ class EventPill(QLabel):
         painter.setBrush(QColor(self._color))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(self.rect(), 4, 4)
-        painter.setPen(QColor(_styles.on_color(self._color)))
+        ink = QColor(_styles.on_color(self._color))
+        # The time is quieter than the title — smaller, lighter, no leading
+        # zero — so the title keeps the room (2026-09-28 clean-up: "06:30"
+        # in full weight took a third of every pill).
+        start = self.event.get("start_time", "") or ""
+        short = start[1:] if len(start) == 5 and start.startswith("0") else start
+        from assistant.calendar_ui.merged_db import owner_prefix
+        title = owner_prefix(self.event) + self.event.get("title", "")
+        x = 5
+        if short:
+            tf = self.font()
+            tf.setPointSize(max(7, self._font_size - 2))
+            tf.setWeight(tf.Weight.Normal)
+            painter.setFont(tf)
+            dim = QColor(ink)
+            dim.setAlphaF(0.72)
+            painter.setPen(dim)
+            tw = painter.fontMetrics().horizontalAdvance(short)
+            painter.drawText(self.rect().adjusted(x, 0, 0, 0),
+                             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, short)
+            x += tw + 5
         font = self.font()
         font.setPointSize(self._font_size)
-        font.setWeight(font.Weight.Medium)
+        font.setWeight(font.Weight.DemiBold)
         painter.setFont(font)
-        fm = painter.fontMetrics()
-        elided = fm.elidedText(self._pill_text, Qt.TextElideMode.ElideRight, self.width() - 8)
-        painter.drawText(self.rect().adjusted(4, 0, -4, 0),
+        painter.setPen(ink)
+        elided = painter.fontMetrics().elidedText(title, Qt.TextElideMode.ElideRight,
+                                                  max(0, self.width() - x - 4))
+        painter.drawText(self.rect().adjusted(x, 0, -4, 0),
                          Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, elided)
 
     def mousePressEvent(self, event):
@@ -616,7 +637,10 @@ class MonthView(QWidget):
                 cell.day_clicked.connect(self._on_cell_clicked)
                 cell.event_clicked.connect(self.event_clicked)
                 cell.event_rescheduled.connect(self.event_rescheduled)
-                self._grid.addWidget(cell, row, col)
+                # + off: the week-number column is column 0. Without it every
+                # day sat one column left — Sunday squeezed into the 26px
+                # week-number slot and Saturday's column always empty.
+                self._grid.addWidget(cell, row, col + off)
                 self._cells.append(cell)
 
         self.refresh()

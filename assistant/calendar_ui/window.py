@@ -498,6 +498,7 @@ class CalendarWindow(QMainWindow):
         self._sidebar = Sidebar()
         self._sidebar.new_event_clicked.connect(self._on_new_event)
         self._sidebar.date_selected.connect(self._on_sidebar_date)
+        self._build_sidebar_nav()
         splitter.addWidget(self._sidebar)
 
         # The calendar's own four views are MODES of one feature rather than
@@ -598,6 +599,8 @@ class CalendarWindow(QMainWindow):
         today_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         today_btn.clicked.connect(self._on_today)
         layout.addWidget(today_btn, alignment=v_center)
+        # hidden on a feature panel, where a date means nothing
+        self._calendar_only = (prev_btn, next_btn, today_btn)
 
         layout.addSpacing(6)
         self._search_box = _ElasticSearchBox()
@@ -620,8 +623,12 @@ class CalendarWindow(QMainWindow):
 
         layout.addStretch()
 
-        # ── Group 2: view toggle tabs ────────────────────────────────
-        for label, mode in self._toolbar_modes():
+        # ── Group 2: the calendar's four views ─────────────────────────
+        # Only the calendar's own modes live here (2026-09-28, Gil: the Mac app
+        # "feels messy"). The feature panels — Tasks, Timer, Account… — used to
+        # share this strip, twelve buttons in a row; they are the sidebar's
+        # section list now (`_build_sidebar_nav`).
+        for label, mode in self._toolbar_modes()[:4]:
             btn = QPushButton(label)
             btn.setObjectName("seg_btn")
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -646,42 +653,30 @@ class CalendarWindow(QMainWindow):
         layout.addSpacing(6)
 
         # ── Group 3: tools ───────────────────────────────────────────
-        import_btn = QPushButton("Import")
-        import_btn.setObjectName("flat")
-        import_btn.setFixedHeight(30)
-        import_btn.setToolTip("Import events from an .ics file or macOS Calendar")
-        import_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        import_btn.clicked.connect(self._on_import)
-        layout.addWidget(import_btn, alignment=v_center)
-
-        connected_btn = QPushButton("🔗")
-        connected_btn.setObjectName("icon_btn")
-        connected_btn.setFixedSize(30, 30)
-        connected_btn.setToolTip("Connected Calendars — connect Google or Outlook two-way, or subscribe to any calendar link")
-        connected_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        connected_btn.clicked.connect(self._on_connected_calendars)
-        layout.addWidget(connected_btn, alignment=v_center)
-
-        tag_history_btn = QPushButton("🏷")
-        tag_history_btn.setObjectName("icon_btn")
-        tag_history_btn.setFixedSize(30, 30)
-        tag_history_btn.setToolTip("Tag Suggestion History — review, reverse or hide "
-                                   "past tag suggestions")
-        tag_history_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        tag_history_btn.clicked.connect(self._on_tag_history)
-        layout.addWidget(tag_history_btn, alignment=v_center)
-
-        # Jude — the Judaic study assistant, its own app (assistant/jude/ARCHITECTURE.md).
-        # Shown only when it is switched on, because a button that always
-        # answers "not installed" is worse than no button.
+        # One labelled menu for the occasional things, instead of "Import" and
+        # three unlabelled emoji buttons whose meaning lived only in tooltips.
+        from PyQt6.QtWidgets import QMenu, QToolButton
+        self._more_btn = QToolButton()
+        self._more_btn.setObjectName("more_btn")
+        self._more_btn.setText("More ▾")
+        self._more_btn.setFixedHeight(30)
+        self._more_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._more_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        more = QMenu(self._more_btn)
+        more.addAction("Import events…", self._on_import).setToolTip(
+            "From an .ics file or macOS Calendar")
+        more.addAction("Connected calendars…", self._on_connected_calendars)
+        more.addAction("Tag suggestion history…", self._on_tag_history)
+        # Jude — the Judaic study assistant, its own app
+        # (assistant/jude/ARCHITECTURE.md). Offered only when it is switched
+        # on: an entry that always answers "not installed" is worse than none.
         if getattr(getattr(self._config, "jude", None), "enabled", False):
-            jude_btn = QPushButton("📖")
-            jude_btn.setObjectName("icon_btn")
-            jude_btn.setFixedSize(30, 30)
-            jude_btn.setToolTip("Jude — ask about Torah, Talmud and halacha")
-            jude_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            jude_btn.clicked.connect(self._on_jude)
-            layout.addWidget(jude_btn, alignment=v_center)
+            more.addSeparator()
+            more.addAction("Ask Jude…", self._on_jude)
+        self._more_menu = more
+        self._more_btn.setMenu(more)
+        layout.addWidget(self._more_btn, alignment=v_center)
+        layout.addSpacing(4)
 
         # Who is signed in (hidden before the users migration).
         from assistant.calendar_ui.users_dialogs import UserChip
@@ -762,6 +757,66 @@ class CalendarWindow(QMainWindow):
             )
         btn.setProperty("active", active)
 
+    _CALENDAR_MODES = ("month", "week", "day", "agenda")
+
+    def _restyle_view_buttons(self) -> None:
+        """The toolbar's calendar views and the sidebar's sections, marked for
+        the current view. The sidebar's "Calendar" row is lit on any of the
+        four calendar views."""
+        mode = getattr(self, "_view_mode", "month")
+        on_calendar = mode in self._CALENDAR_MODES
+        for _label, m in self._toolbar_modes():
+            btn = getattr(self, f"_view_btn_{m}", None)
+            if btn is None:
+                continue
+            if m in self._CALENDAR_MODES:
+                self._style_seg_btn(btn, m == mode)
+            else:
+                self._style_nav_btn(btn, m == mode)
+        cal = getattr(self, "_nav_calendar_btn", None)
+        if cal is not None:
+            self._style_nav_btn(cal, on_calendar)
+        # the date controls mean nothing on a panel
+        for w in getattr(self, "_calendar_only", ()):
+            w.setVisible(on_calendar)
+
+    def _style_nav_btn(self, btn: QPushButton, active: bool) -> None:
+        """A sidebar section row. Complete inline stylesheets for both states,
+        for the reason `_style_seg_btn` gives."""
+        dark = self._dark
+        text = _styles.D_GRAY_DARK if dark else GRAY_DARK
+        text2 = _styles.D_GRAY_TEXT if dark else GRAY_TEXT
+        hover = _styles.D_GRAY_LIGHT if dark else _styles.GRAY_LIGHT
+        r, g, b = _styles._hex_to_rgb(_styles.BLUE)
+        base = ("QPushButton#nav_item { text-align: left; padding: 6px 10px; "
+                "border: none; border-radius: 6px; font-size: 13px; ")
+        if active:
+            btn.setStyleSheet(
+                base + f"background-color: rgba({r},{g},{b},0.18); color: {_styles.BLUE}; "
+                "font-weight: 700; }")
+        else:
+            btn.setStyleSheet(
+                base + f"background-color: transparent; color: {text}; font-weight: 500; }}"
+                f"QPushButton#nav_item:hover {{ background-color: {hover}; color: {text}; }}")
+            _ = text2
+
+    def _build_sidebar_nav(self) -> None:
+        """The app's sections, in the sidebar: Calendar, then one row per
+        feature panel from the registry (Tasks, Timer, Account…). They were
+        eight more buttons in the toolbar's view strip."""
+        glyphs = {"tasks": "✓", "timer": "◷", "coursework": "✎", "workout": "⚡",
+                  "account": "◉", "jude": "❡", "teach": "✦"}
+        self._nav_calendar_btn = self._sidebar.add_nav("▦   Calendar")
+        self._nav_calendar_btn.clicked.connect(
+            lambda: self._set_view(getattr(self, "_last_calendar_mode", "month")))
+        for label, mode in self._toolbar_modes()[4:]:
+            btn = self._sidebar.add_nav(f"{glyphs.get(mode, '•')}   {label}")
+            btn.clicked.connect(lambda _=False, m=mode: self._set_view(m))
+            feature = _features.get(mode)
+            if feature is not None and not feature.pinned:
+                btn.setVisible(feature.visible())
+            setattr(self, f"_view_btn_{mode}", btn)
+
     def _update_theme_btn(self) -> None:
         # Show the icon for what the mode will switch TO
         self._theme_btn.setText("☀" if self._dark else "☾")
@@ -801,6 +856,10 @@ class CalendarWindow(QMainWindow):
 
     def _on_sidebar_date(self, date: datetime.date) -> None:
         self._current_date = date
+        if self._on_panel():
+            # a date picked while on Tasks or Timer means "show me that day"
+            self._set_view("day")
+            return
         self._navigate()
 
     # ── Toolbar search: find events/tasks, or jump straight to a date ────
@@ -914,10 +973,9 @@ class CalendarWindow(QMainWindow):
             "agenda": self._agenda_view,
         }.get(mode) or self._panels.get(mode) or self._month_view
         self._stack.setCurrentWidget(widget)
-        for _label, m in self._toolbar_modes():
-            btn = getattr(self, f"_view_btn_{m}", None)
-            if btn:
-                self._style_seg_btn(btn, m == mode)
+        if mode in self._CALENDAR_MODES:
+            self._last_calendar_mode = mode
+        self._restyle_view_buttons()
         # Keep pipeline context-aware of current view for voice routing
         if self._pipeline is not None:
             self._pipeline.current_view = mode
@@ -1512,11 +1570,8 @@ class CalendarWindow(QMainWindow):
             )
         if hasattr(self, "_toolbar_sep"):
             self._toolbar_sep.setStyleSheet(f"color: {border};")
-        # Re-apply segmented button styling (colors depend on theme + accent)
-        for m in ("month", "week", "day", "agenda", "todo", "timer", "coursework", "workout"):
-            btn = getattr(self, f"_view_btn_{m}", None)
-            if btn:
-                self._style_seg_btn(btn, m == self._view_mode)
+        # Re-apply view-button styling (colors depend on theme + accent)
+        self._restyle_view_buttons()
         self._update_theme_btn()
         if show_toast:
             self.show_toast("Dark mode on" if dark else "Light mode on")
