@@ -274,22 +274,32 @@ def build_digest(day: datetime.date, cfg, db=None) -> dict:
              or (not t.get("due_date") and day == today)]
 
     ev_lines, td_lines = digest_lines(events, todos)
+    # Occasions due a reminder today (DEVQA Q73): "🎂 Dana's 30th birthday —
+    # in 3 days". Never allowed to break the panel.
+    try:
+        from assistant.occasions.feed import reminder_lines
+        oc_lines = reminder_lines(day)
+    except Exception:
+        oc_lines = []
     heading = day.strftime("%A %-d %B")
 
     # The COUNT belongs in the title, where a notification shows it without
     # being opened; the detail belongs in the body. "Nothing on" is a real
     # answer and reads better than an empty panel.
-    if ev_lines or td_lines:
+    if ev_lines or td_lines or oc_lines:
         parts = []
         if ev_lines:
             parts.append(f"{len(ev_lines)} event" + ("s" if len(ev_lines) != 1 else ""))
         if td_lines:
             parts.append(f"{len(td_lines)} task" + ("s" if len(td_lines) != 1 else ""))
+        if oc_lines:
+            parts.append(f"{len(oc_lines)} occasion" + ("s" if len(oc_lines) != 1 else ""))
         title = f"{heading} — " + " · ".join(parts)
     else:
         title = f"{heading} — nothing on"
 
-    body = "\n".join(ev_lines + (["—"] if ev_lines and td_lines else []) + td_lines)
+    sections = [x for x in (ev_lines, td_lines, oc_lines) if x]
+    body = "\n—\n".join("\n".join(x) for x in sections)
 
     return {
         "date": day.isoformat(),
@@ -307,4 +317,5 @@ def build_digest(day: datetime.date, cfg, db=None) -> dict:
         "tasks": [{"id": t.get("id"), "title": t.get("title"),
                    "list_name": t.get("list_name"),
                    "tags": t.get("tags")} for t in todos],
+        "occasions": oc_lines,
     }

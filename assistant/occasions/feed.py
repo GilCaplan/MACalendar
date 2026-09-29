@@ -102,3 +102,42 @@ def countdowns(today: "datetime.date | None" = None) -> list[dict]:
             out.append({"id": r["id"], "title": r["title"], "date": d.isoformat(),
                         "days_left": (d - today).days})
     return sorted(out, key=lambda c: c["days_left"])
+
+
+GLYPH = {"birthday": "🎂", "anniversary": "💍", "yahrzeit": "🕯", "countdown": "⏳", "custom": "★"}
+_DEFAULT_REMIND = {"birthday": 3, "anniversary": 3, "yahrzeit": 1, "countdown": 0, "custom": 1}
+
+
+def reminder_lines(day: datetime.date, recs: "list | None" = None) -> list[str]:
+    """What the day panel says about occasions on ``day`` — each of a person's
+    own that is due its reminder then ("in 3 days", "tomorrow", "today"). A
+    yahrzeit's reminder names the evening it begins, since a Hebrew date
+    starts at nightfall the day before."""
+    s = settings()
+    defaults = dict(_DEFAULT_REMIND, **(getattr(s, "remind_days", None) or {}))
+    out = []
+    for rec in (store.load() if recs is None else recs):
+        lead = rec.get("remind_days")
+        lead = defaults.get(rec.get("kind"), 1) if lead is None else int(lead)
+        if lead < 0:
+            continue
+        for occ in dates.occurrences(rec, day, day + datetime.timedelta(days=lead)):
+            d = datetime.date.fromisoformat(occ["date"])
+            if (d - day).days != lead:
+                continue
+            g = GLYPH.get(rec.get("kind"), "•")
+            if rec.get("kind") == "yahrzeit":
+                eve = d - datetime.timedelta(days=1)
+                when = ("begins this evening" if eve == day else
+                        "begins tomorrow evening" if eve == day + datetime.timedelta(days=1) else
+                        f"begins the evening of {eve:%a %-d %b}")
+                if lead == 0:
+                    when = "today (it began last night)"
+            elif lead == 0:
+                when = "today"
+            elif lead == 1:
+                when = f"tomorrow ({d:%a %-d %b})"
+            else:
+                when = f"in {lead} days ({d:%a %-d %b})"
+            out.append(f"{g} {occ['title']} — {when}")
+    return out

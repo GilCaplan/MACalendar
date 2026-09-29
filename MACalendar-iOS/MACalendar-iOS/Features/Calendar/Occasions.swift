@@ -421,7 +421,7 @@ struct OccasionsSettingsView: View {
                 flag("islamic", "Islamic holidays", "By the Umm al-Qura calendar; marked “expected” — moon sighting can move them a day.")
             }
 
-            Section("Colours and reminders") {
+            Section {
                 ForEach(styleKinds, id: \.0) { k in
                     HStack {
                         ColorPicker(k.1, selection: colourBinding(k.0), supportsOpacity: false)
@@ -435,6 +435,8 @@ struct OccasionsSettingsView: View {
                         .font(.caption)
                     }
                 }
+            } header: { Text("Colours and reminders") } footer: {
+                Text("Reminders arrive in the daily summary (Notifications) on the day chosen — “🎂 Dana's 30th birthday — in 3 days”.")
             }
         }
         .navigationTitle("Occasions")

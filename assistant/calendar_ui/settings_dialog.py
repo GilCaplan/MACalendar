@@ -781,6 +781,8 @@ def open_settings(self) -> None:
     other_form.addRow("", _rel_row)
     occ.addLayout(other_form)
     occ.addWidget(QLabel("<b>Colours and reminders</b>"))
+    occ.addWidget(hint("Reminders arrive in the daily summary (Notifications), on the "
+                       "day chosen — \"🎂 Dana's 30th birthday — in 3 days\"."))
     _colors = dict(getattr(_ocfg, "colors", None) or {})
     _reminds = dict(getattr(_ocfg, "remind_days", None) or {})
     colour_buttons: dict = {}
