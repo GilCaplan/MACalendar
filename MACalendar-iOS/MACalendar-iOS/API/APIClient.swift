@@ -769,6 +769,10 @@ class APIClient: ObservableObject {
         store.cacheTags(snap.tags)
         store.cacheHolidays(snap.holidays, from: snap.window.start, to: snap.window.end)
         if let holy = snap.holyWindows { store.cacheHolyWindows(holy) }
+        if let occ = snap.occasions {
+            OccasionCache.shared.store(occ, from: snap.window.start, to: snap.window.end)
+        }
+        if let cd = snap.countdowns { OccasionCache.shared.storeCountdowns(cd) }
         if let rules = snap.tagRules { TagClassifier.shared.update(rules) }
         requestRefresh()
         return snap.token

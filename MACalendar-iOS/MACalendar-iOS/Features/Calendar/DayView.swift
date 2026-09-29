@@ -6,6 +6,9 @@ struct DayView: View {
     @EnvironmentObject var settings: AppSettings
     @State private var events: [CalendarEvent] = []
     @State private var holidays: [Holiday] = []
+    /// Birthdays, anniversaries, parasha … (Occasions.swift, Q73)
+    @State private var occasions: [OccasionBanner] = []
+    @State private var editingOccasion: Occasion?
     @State private var holyWindows: [HolyWindow] = []
     @State private var selected: CalendarEvent?
     @State private var popped: Int?
@@ -24,7 +27,7 @@ struct DayView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if settings.hebrewDisplayMode != "english" || !holidays.isEmpty {
+            if settings.hebrewDisplayMode != "english" || !holidays.isEmpty || !occasions.isEmpty {
                 VStack(alignment: .leading, spacing: 2) {
                     if settings.hebrewDisplayMode != "english" {
                         Text(HebrewDateFormatting.fullString(for: date))
@@ -36,12 +39,32 @@ struct DayView: View {
                             .font(.caption.weight(.semibold))
                             .foregroundColor(h.color)
                     }
+                    ForEach(occasions) { o in
+                        Button {
+                            guard o.editable, let oid = o.occasionId else { return }
+                            Task {
+                                if let p = await api.occasions(),
+                                   let rec = p.occasions.first(where: { $0.id == oid }) {
+                                    editingOccasion = rec
+                                }
+                            }
+                        } label: {
+                            Text("\(o.glyph) \(o.title)")
+                                .font(.caption.weight(.semibold))
+                                .foregroundColor(o.uiColor)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint(o.editable ? "Opens it to edit" : "")
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal)
                 .padding(.top, 6)
             }
             dayTimeline
+        }
+        .sheet(item: $editingOccasion) { o in
+            OccasionEditor(occasion: o, onDone: { load() })
         }
     }
 
@@ -179,6 +202,10 @@ struct DayView: View {
             }
         }
         loadHolyWindows(for: targetDate)
+        Task {
+            let fresh = await api.occasionBanners(start: targetDate, end: targetDate)
+            if date == targetDate { occasions = fresh }
+        }
         guard settings.showHolidays else { holidays = []; return }
         Task {
             let fresh = (try? await api.holidays(start: targetDate, end: targetDate, israel: settings.israelHolidays)) ?? []

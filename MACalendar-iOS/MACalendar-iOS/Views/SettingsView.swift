@@ -58,6 +58,7 @@ struct SettingsView: View {
                     row("Appearance", "paintbrush", .orange, appearanceSummary) { appearancePage }
                     row("Events", "clock", .blue, eventsSummary) { eventsPage }
                     row("Hebrew & Shabbat", "calendar.badge.clock", .indigo, hebrewSummary) { hebrewPage }
+                    row("Occasions", "gift", .pink, "Birthdays, yahrzeits…") { OccasionsSettingsView() }
                     row("Event colours", "paintpalette", .pink, "Categories") { CategoriesView() }
                     row("Connected calendars", "calendar.badge.plus", .green, "Google, Outlook") {
                         ConnectedCalendarsView()

@@ -8,6 +8,8 @@ struct WeekView: View {
     /// is off) — the yellow lines.
     var holyWindows: [HolyWindow] = []
     var onDateSelected: ((Date) -> Void)? = nil
+    /// Birthdays, anniversaries, parasha … (Occasions.swift, Q73)
+    var occasions: [OccasionBanner] = []
     @EnvironmentObject var settings: AppSettings
 
     @EnvironmentObject var api: APIClient
@@ -41,7 +43,8 @@ struct WeekView: View {
                         day: day,
                         isSelected: Calendar.current.isDate(day, inSameDayAs: selectedDate),
                         isToday: Calendar.current.isDateInToday(day),
-                        holidays: holidaysForDay(day)
+                        holidays: holidaysForDay(day),
+                        occasions: occasions.filter { $0.date == ISO8601DateFormatter.yyyyMMdd.string(from: day) }
                     )
                     .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())
@@ -126,6 +129,7 @@ private struct WeekDayHeader: View {
     var isSelected: Bool
     var isToday: Bool
     var holidays: [Holiday] = []
+    var occasions: [OccasionBanner] = []
 
     private var label: String {
         let f = DateFormatter()
@@ -162,6 +166,12 @@ private struct WeekDayHeader: View {
                 Text(first.nameEn)
                     .font(.system(size: 8, weight: .semibold))
                     .foregroundColor(first.color)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+            } else if let o = occasions.first {
+                Text("\(o.glyph) \(o.title)")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundColor(o.uiColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
             }

@@ -258,3 +258,23 @@ def test_month_week_and_day_draw_the_banners(qapp, tmp_path):
     for view in (m, w, dv):
         titles = [b.banner["title"] for b in view.findChildren(OccasionBanner)]
         assert "Dana's birthday" in titles, type(view).__name__
+
+
+def test_the_phone_reads_the_keys_the_mac_sends(client):
+    """Occasions.swift decodes these names; the Mac must send exactly them."""
+    import pathlib
+    swift = (pathlib.Path(__file__).resolve().parents[2]
+             / "MACalendar-iOS/MACalendar-iOS/Features/Calendar/Occasions.swift").read_text()
+    for pair in ('case occasionId = "occasion_id"', 'case daysLeft = "days_left"',
+                 'case remindDays = "remind_days"',
+                 "case date, title, kind, source, color, editable, years"):
+        assert pair in swift, pair
+    client.post("/occasions", json={"kind": "birthday", "title": "Dana", "month": 10, "day": 2})
+    client.post("/occasions", json={"kind": "countdown", "title": "Trip", "month": 12,
+                                    "day": 1, "year": datetime.date.today().year + 1})
+    b = client.get("/occasions/range?start=2026-10-01&end=2026-10-03").get_json()["banners"][0]
+    assert set(b) >= {"date", "title", "kind", "source", "color", "editable", "occasion_id", "years"}
+    got = client.get("/occasions").get_json()
+    assert set(got["countdowns"][0]) == {"id", "title", "date", "days_left"}
+    assert set(got["occasions"][0]) >= {"id", "kind", "title", "calendar", "month", "day",
+                                        "year", "adar", "remind_days", "color", "note"}

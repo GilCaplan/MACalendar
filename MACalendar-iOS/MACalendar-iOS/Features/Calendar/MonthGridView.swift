@@ -11,6 +11,8 @@ struct MonthGridView: View {
     /// minute in small yellow type.
     var holyWindows: [HolyWindow] = []
     var onDateSelected: ((Date) -> Void)? = nil
+    /// Birthdays, anniversaries, parasha … (Occasions.swift, Q73)
+    var occasions: [OccasionBanner] = []
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
     private var dayHeaders: [String] { CalendarPrefs.dayHeaders(mondayFirst: settings.weekStartsMonday) }
@@ -37,6 +39,7 @@ struct MonthGridView: View {
                             isSelected: Calendar.current.isDate(date, inSameDayAs: selectedDate),
                             events: events(for: date),
                             holidays: holidaysForDay(date),
+                            occasions: occasions.filter { $0.date == ISO8601DateFormatter.yyyyMMdd.string(from: date) },
                             holyMarks: holyMarks(for: date))
                         .onTapGesture {
                             selectedDate = date
@@ -83,6 +86,7 @@ private struct DayCell: View {
     var isSelected: Bool
     var events: [CalendarEvent]
     var holidays: [Holiday] = []
+    var occasions: [OccasionBanner] = []
     var holyMarks: [HolyTimes.Mark] = []
 
     private var dayNum: String { "\(Calendar.current.component(.day, from: date))" }
@@ -110,6 +114,9 @@ private struct DayCell: View {
                     .minimumScaleFactor(0.6)
             }
 
+            ForEach(occasions.prefix(2)) { o in
+                Capsule().fill(o.uiColor).frame(height: 4).padding(.horizontal, 3)
+            }
             ForEach(holidays) { h in
                 Capsule()
                     .fill(h.color.opacity(h.isErev(on: dateStr) ? 0.4 : 1.0))

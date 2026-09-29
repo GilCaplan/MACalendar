@@ -41,6 +41,7 @@
 		AA0000A500000000000000A1 /* ReminderScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000A500000000000000B1 /* ReminderScheduler.swift */; };
 		AA00009C00000000000000A1 /* AssistantIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00009C00000000000000B1 /* AssistantIcons.swift */; };
 		AA00000D000000000000001A /* WeekView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000D000000000000001B /* WeekView.swift */; };
+		AAF0000600000000000000A6 /* Occasions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAF0000600000000000000B6 /* Occasions.swift */; };
 		AA00000E000000000000001A /* SpeechPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E000000000000001B /* SpeechPlayer.swift */; };
 		AAF0000300000000000000A1 /* OfflineReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAF0000300000000000000B1 /* OfflineReader.swift */; };
 		AAF0000300000000000000A2 /* OfflineGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAF0000300000000000000B2 /* OfflineGuard.swift */; };
@@ -123,6 +124,7 @@
 		AA0000A500000000000000B1 /* ReminderScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderScheduler.swift; sourceTree = "<group>"; };
 		AA00009C00000000000000B1 /* AssistantIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantIcons.swift; sourceTree = "<group>"; };
 		AA00000D000000000000001B /* WeekView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekView.swift; sourceTree = "<group>"; };
+		AAF0000600000000000000B6 /* Occasions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Occasions.swift; sourceTree = "<group>"; };
 		AA00000E000000000000001B /* SpeechPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechPlayer.swift; sourceTree = "<group>"; };
 		AAF0000300000000000000B1 /* OfflineReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineReader.swift; sourceTree = "<group>"; };
 		AAF0000300000000000000B2 /* OfflineGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineGuard.swift; sourceTree = "<group>"; };
@@ -389,6 +391,7 @@
 				AA0000FB000000000000F001 /* CalendarTabView.swift */,
 				AA000008000000000000001B /* MonthGridView.swift */,
 				AA00000D000000000000001B /* WeekView.swift */,
+				AAF0000600000000000000B6 /* Occasions.swift */,
 				AA000006000000000000001B /* DayView.swift */,
 				AA000007000000000000001B /* EventDetailView.swift */,
 				AA0000A000000000000000B1 /* EventStacking.swift */,
@@ -633,6 +636,7 @@
 				AA0000C100000000000000A1 /* LinkedTodo.swift in Sources */,
 				AA00009C00000000000000A1 /* AssistantIcons.swift in Sources */,
 				AA00000D000000000000001A /* WeekView.swift in Sources */,
+				AAF0000600000000000000A6 /* Occasions.swift in Sources */,
 				AA00000E000000000000001A /* SpeechPlayer.swift in Sources */,
 				AA00000F000000000000001A /* VoiceRecorder.swift in Sources */,
 				AAF0000300000000000000A1 /* OfflineReader.swift in Sources */,

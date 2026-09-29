@@ -1006,9 +1006,12 @@ struct BootstrapSnapshot: Codable {
     /// Optional: a Mac from before the Shabbat lines existed does not send it,
     /// and a non-optional key missing from the JSON would fail the whole decode.
     var holyWindows: HolyWindowsPayload? = nil
+    /// Occasions (Q73) — optional for the same reason: an older Mac sends none.
+    var occasions: [OccasionBanner]? = nil
+    var countdowns: [OccasionCountdown]? = nil
 
     enum CodingKeys: String, CodingKey {
-        case token, window, events, todos, tags, holidays
+        case token, window, events, todos, tags, holidays, occasions, countdowns
         case tagRules = "tag_rules"
         case holyWindows = "holy_windows"
     }

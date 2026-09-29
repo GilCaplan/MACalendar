@@ -53,6 +53,10 @@ struct CalendarTabView: View {
         CalendarMode(rawValue: UserDefaults.standard.string(forKey: "defaultCalendarView") ?? "week") ?? .week
     @State private var monthEvents: [CalendarEvent] = []
     @State private var monthHolidays: [Holiday] = []
+    /// Birthdays, anniversaries, parasha … and the countdowns (Q73).
+    @State private var monthOccasions: [OccasionBanner] = []
+    @State private var countdowns: [OccasionCountdown] = OccasionCache.shared.countdowns()
+    @State private var editingOccasion: Occasion?
     /// Shabbat / yom tov windows for the month and a week either side (the
     /// week view reaches across a month edge). Empty when the setting is off.
     @State private var monthHolyWindows: [HolyWindow] = []
@@ -74,6 +78,32 @@ struct CalendarTabView: View {
                         .pickerStyle(.segmented)
                         .padding(.horizontal)
                         .padding(.vertical, 8)
+
+                        // Countdowns (Settings ▸ Occasions): "⏳ 12 days · Wedding".
+                        if !countdowns.isEmpty {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(countdowns) { c in
+                                        Button {
+                                            Task {
+                                                if let p = await api.occasions(),
+                                                   let o = p.occasions.first(where: { $0.id == c.id }) {
+                                                    editingOccasion = o
+                                                }
+                                            }
+                                        } label: {
+                                            Text("⏳ \(c.label) · \(c.title)")
+                                                .font(.caption.weight(.semibold))
+                                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                                .background(Capsule().fill(Color.orange.opacity(0.18)))
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.horizontal)
+                            }
+                            .padding(.bottom, 6)
+                        }
 
                         Divider()
 
@@ -102,7 +132,8 @@ struct CalendarTabView: View {
                                     events: monthEvents,
                                     holidays: monthHolidays,
                                     holyWindows: monthHolyWindows,
-                                    onDateSelected: { date in nav.viewedDate = date }
+                                    onDateSelected: { date in nav.viewedDate = date },
+                                    occasions: monthOccasions
                                 )
                                 Spacer()
                             }
@@ -149,7 +180,8 @@ struct CalendarTabView: View {
                                         nav.selectedDate = date
                                         nav.viewedDate = date
                                         Task { await loadMonth() }
-                                    }
+                                    },
+                                    occasions: monthOccasions
                                 )
                             }
                             .tag(CalendarMode.week)
@@ -181,6 +213,9 @@ struct CalendarTabView: View {
 
                         }
                         .tabViewStyle(.page(indexDisplayMode: .never))
+                        .sheet(item: $editingOccasion) { o in
+                            OccasionEditor(occasion: o, onDone: { Task { await loadMonth() } })
+                        }
 
                         Spacer(minLength: 0)
                     }
@@ -364,6 +399,13 @@ struct CalendarTabView: View {
 
         monthEvents = await eventsResult
         loadingMonth = false
+        // Occasions: the cache at once, then the Mac's answer (Q73). A week
+        // either side, for the week view at a month's edge.
+        monthOccasions = OccasionCache.shared.between(
+            ISO8601DateFormatter.yyyyMMdd.string(from: holyFrom),
+            ISO8601DateFormatter.yyyyMMdd.string(from: holyTo))
+        monthOccasions = await api.occasionBanners(start: holyFrom, end: holyTo)
+        if let p = await api.occasions() { countdowns = p.countdowns }
         let fresh = await holidaysResult
         // An empty answer from an unreachable Mac must not wipe the cached
         // list off the screen; showHolidays == false already cleared it above.
