@@ -255,7 +255,10 @@ class AccountDialog(QDialog):
         self.group_box.setChecked(bool(st.get("todos_group_by_owner")))
         self.group_box.toggled.connect(lambda on: self._setting("todos_group_by_owner", on))
         lay.addWidget(self.group_box)
-        note = QLabel("Notifications are only ever about your own calendar and to-dos.")
+        note = QLabel("In Tasks: on, each person who shares with you gets their own section "
+                      "below yours; off, their to-dos sit in Today and General with yours "
+                      "(the Whose chips filter them). Notifications are only ever about "
+                      "your own calendar and to-dos.")
         note.setObjectName("muted")
         note.setWordWrap(True)
         lay.addWidget(note)

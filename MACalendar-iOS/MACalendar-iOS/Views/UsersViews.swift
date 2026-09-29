@@ -206,8 +206,9 @@ struct AccountView: View {
                             }
                         }))
                 } footer: {
-                    Text(settingError.isEmpty ? "Notifications are only ever about your own calendar and to-dos."
-                                              : "Couldn't change that: \(settingError)")
+                    Text(settingError.isEmpty
+                         ? "In Tasks: on, each person who shares with you gets their own section below yours; off, their to-dos sit in Today and General with yours (the Whose chips filter them). Notifications are only ever about your own."
+                         : "Couldn't change that: \(settingError)")
                         .foregroundColor(settingError.isEmpty ? .secondary : .red)
                 }
                 if u.isAdmin {

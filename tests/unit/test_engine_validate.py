@@ -615,11 +615,20 @@ def test_a_new_list_goes_to_general_on_the_deep_path_too():
 
 def test_a_series_with_no_end_gets_the_cadence_default(cfg):
     """Gil, 2026-09-26: daily 2 weeks, weekly 8 weeks, monthly 12 months,
-    yearly 10 years — the number is how many times it happens."""
-    for cadence, start, until in [("daily", "2026-09-28", "2026-10-11"),
-                                  ("weekly", "2026-09-28", "2026-11-22"),
-                                  ("monthly", "2026-09-28", "2027-09-27"),
-                                  ("yearly", "2026-09-28", "2036-09-27")]:
+    yearly 10 years — the number is how many times it happens.
+
+    Dates are relative to TODAY: this pinned 2026-09-28 and went red the day
+    it became the past (CI's UTC clock got there first), because a past start
+    is moved forward before the default end is counted from it."""
+    import datetime as _d
+    s = _d.date.today() + _d.timedelta(days=7)
+    while s.day > 28:                                  # a month end would clamp
+        s += _d.timedelta(days=1)
+    day = _d.timedelta(days=1)
+    rows = [("daily", s, s + 13 * day), ("weekly", s, s + 55 * day),
+            ("monthly", s, s.replace(year=s.year + 1) - day),
+            ("yearly", s, s.replace(year=s.year + 10) - day)]
+    for cadence, start, until in [(c, a.isoformat(), b.isoformat()) for c, a, b in rows]:
         it = _item("create_event", _event_intent(
             title="gym", date=start, start_time="07:00", end_time="08:00", recurrence=cadence),
             text="gym")
