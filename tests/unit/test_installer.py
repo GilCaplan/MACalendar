@@ -323,15 +323,34 @@ def test_a_running_server_is_asked_to_quit(inst, qapp_or_skip):
     assert server.listen(name)
     got = []
     import threading
-    t = threading.Thread(target=lambda: got.append(inst.stop_running_server(name)))
+    t = threading.Thread(target=lambda: got.append(inst.stop_running_server("/some/root", name)))
     t.start()
     assert server.waitForNewConnection(3000)
     conn = server.nextPendingConnection()
     conn.waitForReadyRead(3000)
-    assert bytes(conn.readAll()) == b"quit"
+    assert bytes(conn.readAll()) == b"quit /some/root"
     t.join(5)
     assert got == [True]
-    assert inst.stop_running_server(name + "-nobody") is False
+    assert inst.stop_running_server("/some/root", name + "-nobody") is False
+
+
+def test_a_tray_quits_only_for_its_own_install():
+    """Updating ~/MACalendar must not stop a server run from another checkout."""
+    from pathlib import Path
+    from assistant.host import tray
+    calls = []
+
+    class H:
+        def quit(self):
+            calls.append("quit")
+
+        def show_pairing(self):
+            calls.append("pair")
+    mine = Path(tray.__file__).resolve().parents[3]
+    tray._on_message(H(), f"quit {mine}".encode())
+    tray._on_message(H(), b"quit /somewhere/else")
+    tray._on_message(H(), b"pair")
+    assert calls == ["quit", "pair"]
 
 
 @pytest.fixture

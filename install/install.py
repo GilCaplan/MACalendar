@@ -162,7 +162,7 @@ class Installer:
         self.say(f"The code → {self.repo}")
         self.root.mkdir(parents=True, exist_ok=True) if not self.a.dry_run else None
         if self.state in ("update", "reinstall"):
-            if not self.a.dry_run and stop_running_server():
+            if not self.a.dry_run and stop_running_server(self.root):
                 print("   Stopped the running MACalendar Server (it starts again at the end).")
         if self.state == "reinstall":
             self.reinstall_code()
@@ -631,20 +631,25 @@ print(json.dumps(res))
 """
 
 
-def stop_running_server(name: str = INSTANCE) -> bool:
+def stop_running_server(root: "Path | str" = "", name: str = INSTANCE) -> bool:
     """Ask a running MACalendar Server to quit (its tray listens on a local
-    socket, assistant/host/tray.py). True when one answered. Best effort."""
+    socket, assistant/host/tray.py). True when one answered. Best effort.
+
+    The message names THIS install's folder, and a tray quits only if it runs
+    from there: updating ~/MACalendar must not stop a server someone runs from
+    another checkout on the same machine."""
+    msg = f"quit {root}".strip().encode()
     try:
         if os.name == "nt":
             with open("\\\\.\\pipe\\" + name, "wb") as f:     # \\.\pipe\<name>
-                f.write(b"quit")
+                f.write(msg)
         else:
             import socket
             import tempfile
             with socket.socket(socket.AF_UNIX) as s:
                 s.settimeout(2)
                 s.connect(os.path.join(tempfile.gettempdir(), name))
-                s.sendall(b"quit")
+                s.sendall(msg)
         import time
         time.sleep(1.5)                  # let it stop what it started
         return True

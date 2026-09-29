@@ -315,6 +315,21 @@ class HostTray(QObject):
         self.app.quit()
 
 
+def _on_message(host, data: bytes) -> None:
+    """``quit <folder>`` — the installer updating the install in <folder>:
+    quit only if this server runs from there (the folder that holds this
+    checkout). Anything else is a second click on the app: show the QR."""
+    text = data.decode(errors="replace").strip()
+    if text == "quit" or text.startswith("quit "):
+        from pathlib import Path
+        target = text[5:].strip()
+        mine = Path(__file__).resolve().parents[3]        # <root>/MACalendar/assistant/host
+        if not target or Path(target).resolve() == mine:
+            host.quit()
+        return
+    host.show_pairing()
+
+
 def _bring_forward() -> None:
     """An accessory app's windows open BEHIND the frontmost app on macOS."""
     if platform.system() != "Darwin":
@@ -384,8 +399,7 @@ def main() -> None:
             # "quit": the installer, updating or reinstalling this program,
             # stops the running copy first (install/install.py). Anything else
             # is a second click on the app: show the QR.
-            conn.readyRead.connect(lambda: host.quit() if bytes(conn.readAll()).strip() == b"quit"
-                                   else host.show_pairing())
+            conn.readyRead.connect(lambda: _on_message(host, bytes(conn.readAll())))
     server.newConnection.connect(on_other)
 
     # Stopped by the launcher (SIGTERM) or Ctrl-C: quit through Qt so
