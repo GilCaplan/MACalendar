@@ -67,6 +67,8 @@ if (Test-Path (Join-Path $Repo ".git")) {
 # Everything else. When this ran from a downloaded FILE (not irm | iex), its
 # path goes along so the installer can offer to delete it at the end.
 $More = @("--root", $Root)
-if ($PSCommandPath) { $More += @("--installer-file", $PSCommandPath) }
+if ($PSCommandPath -and (Select-String -Quiet -SimpleMatch '"--installer-file"' $Installer)) {
+    $More += @("--installer-file", $PSCommandPath)     # an old installer would stop on it
+}
 & py -3.12 $Installer @More @args
 exit $LASTEXITCODE

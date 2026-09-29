@@ -132,7 +132,11 @@ else
 fi
 
 ARGS=(--root "$ROOT")
-[ -n "$SELF" ] && ARGS+=(--installer-file "$SELF")
+# Only to an installer that knows the option (an old copy's, when offline,
+# would stop on it).
+if [ -n "$SELF" ] && grep -q -- '"--installer-file"' "$INSTALLER"; then
+  ARGS+=(--installer-file "$SELF")
+fi
 # Its questions read the KEYBOARD even when this came through a pipe
 # (curl … | bash); ${@+"$@"} keeps macOS's bash 3.2 from calling an empty
 # argument list unbound.
