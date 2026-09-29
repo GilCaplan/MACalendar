@@ -14,6 +14,29 @@ needs no knowledge of them), hybrid (coordinated frontend + backend), and
 purely backend (no client code beyond displaying the effects).
 
 
+## The installer: one file per OS
+
+**What.** Download one file — `install-macalendar-mac.command`,
+`install-macalendar-linux.sh` or `install-macalendar-windows.ps1` — and run
+it: git, Python, Ollama and the model, the code, the packages and the apps go
+into one folder (`~/MACalendar`), after two questions (primary or model
+helper; Jude or not). Running it again updates. DEVQA Q70.
+
+**Where.** `install/` — the three stage-one files and `install.py`, the
+stdlib-only stage two shared by every OS. README ▸ "Installation — one file".
+
+**How.** Stage one installs prerequisites with Homebrew, apt/dnf/pacman or
+winget, clones the repository and hands over (reading the keyboard even when
+piped from curl). Stage two: venv + `pip install -e .[nlp(,mlx)]`, the spaCy
+model, config.yaml once, `assistant.host --role`, Jude (own venv, the 2.2 GB
+index asked separately), `ollama pull` for what config.yaml names, then apps
+(macOS `build_apps.sh --install <name>` — never repointing apps installed from
+another folder without asking; Linux .desktop entries; Windows Start-menu
+shortcuts via WScript.Shell), open at login, and MACalendar Server. Verified
+by a real run on macOS into a scratch folder; Linux and Windows are planned
+and dry-run-tested only. Tests: `test_installer.py`.
+
+
 ## Model helpers and server controls
 
 **What.** Another computer — Mac, Linux or Windows — can lend the brain its

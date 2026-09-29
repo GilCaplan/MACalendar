@@ -176,35 +176,60 @@ one-tap **"Nothing should have been done"**, a way to add what it missed, and a
 reason. Your answers are the gold the engine is scored against; nothing leaves
 the Mac.
 
-## Prerequisites
+## Installation — one file
 
-Before installation, ensure you have the following:
+Download the one file for your computer and run it. It installs everything —
+Python, git, Ollama and the model, the code, and the apps — into **one folder,
+`~/MACalendar`**, and asks two questions: is this computer the **primary** (the
+brain your phone connects to) or a **model helper** (it only lends its model to
+a primary), and do you want **Jude**. Run it again any time to update.
 
-- **Hardware:** A Mac (Apple Silicon M-series recommended for best performance).
-- **Python:** Version 3.11 or higher.
-- **Microphone Access:** You will need to grant your Terminal or IDE permissions to access the microphone.
-- **Ollama:** Download and install [Ollama](https://ollama.ai).
-  - After installing Ollama, pull the reasoning model: `ollama pull llama3.1:8b` (or your preferred model according to `config.yaml`).
+| Your computer | Download | Then |
+|---|---|---|
+| **macOS** | [`install-macalendar-mac.command`](install/install-macalendar-mac.command) | double-click it (first time: right-click ▸ Open ▸ Open) |
+| **Linux** | [`install-macalendar-linux.sh`](install/install-macalendar-linux.sh) | `bash install-macalendar-linux.sh` |
+| **Windows** | [`install-macalendar-windows.ps1`](install/install-macalendar-windows.ps1) | right-click ▸ Run with PowerShell |
 
-## Installation
+Or paste one line into a terminal:
 
-1. **Clone the project:**
-   ```bash
-   git clone <repository-url>
-   cd MACalendar
-   ```
+```bash
+# macOS
+curl -fsSL https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar-mac.command | bash
+# Linux
+curl -fsSL https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar-linux.sh | bash
+```
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar-windows.ps1 | iex
+```
 
-2. **Set up a Virtual Environment:**
-   ```bash
-   python3.11 -m venv .venv
-   source .venv/bin/activate
-   ```
+What you get: **MACalendar Server** in the menu bar / system tray (it starts
+the model and the brain and shows the QR code your phone scans), **MACalendar**
+(the calendar window), the **HUD** and, if you chose it, **Jude**. On a Mac they
+are in `/Applications/MACalendar APPs`; on Linux in the applications menu; on
+Windows in the Start menu under MACalendar. A model helper gets only the
+Server. Your own data is never in that folder — it lives in `~/.assistant_tools`.
 
-3. **Install Dependencies:**
-   ```bash
-   pip install --upgrade pip
-   pip install -e .
-   ```
+The installer is two stages: the file above installs what it needs (git,
+Python 3.11+, Ollama — with Homebrew, apt/dnf/pacman or winget) and fetches the
+code, then [`install/install.py`](install/install.py) does the rest the same
+way on every system. `python3 install/install.py --help` lists its options
+(`--role`, `--jude`, `--yes`, `--dry-run`, …). macOS is the tested platform;
+Linux and Windows run the same code but have not been tried on real hardware
+yet, and spoken replies there still need a voice (TASKS row 78).
+
+**The iPhone app** is not in the installer — Apple only lets Xcode put it on a
+phone ([below](#iphone--ipad-app)).
+
+### By hand (developers)
+
+```bash
+git clone https://github.com/GilCaplan/MACalendar.git && cd MACalendar
+python3.11 -m venv .venv && source .venv/bin/activate
+pip install --upgrade pip && pip install -e ".[nlp,dev]"
+python -m spacy download en_core_web_sm
+ollama pull llama3.1:8b          # or the model config.yaml names
+```
 
 ## Configuration
 

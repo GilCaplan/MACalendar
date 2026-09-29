@@ -123,6 +123,8 @@ def category(f: str) -> "str | None":
         return C_DOMAIN
     if f.startswith("scripts/"):
         return C_TOOLING
+    if f.startswith("install/"):          # the installer (DEVQA Q70)
+        return C_LAUNCH
     if f.endswith((".sh", ".command")):
         return C_LAUNCH
     return None

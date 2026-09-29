@@ -292,7 +292,7 @@ class Installer:
         self.autostart()
         self.remember()
         self.launch()
-        print(summary(self.root, role, self.system))
+        print(summary(self.root, role, self.system, launched=not self.a.no_launch))
 
 
 # -- per-platform pieces (pure, so they are tested) ------------------------------
@@ -337,15 +337,16 @@ def shortcut_ps(name: str, target: str, args: str, repo: Path) -> str:
             f"$s.WorkingDirectory='{esc(repo)}'; $s.Save()")
 
 
-def summary(root: Path, role: str, system: str) -> str:
+def summary(root: Path, role: str, system: str, launched: bool = True) -> str:
     where = {"Darwin": "the menu bar", "Windows": "the system tray (by the clock)"}.get(
         system, "the system tray")
     lines = ["", "✓ Installed.", f"  Everything is in {root}.",
-             f"  MACalendar Server now runs in {where}."]
+             f"  MACalendar Server now runs in {where}." if launched else
+             f"  Start MACalendar Server; it will sit in {where}."]
     if role == "primary":
         lines += ["  Next: in its menu choose “Pair a phone or tablet…” and point your",
                   "  iPhone's Camera at the code. (The iPhone app itself is installed",
-                  "  from Xcode — see “Install on iPhone” in the README.)",
+                  "  from Xcode — see “iPhone & iPad App” in the README.)",
                   "  Away from home, install Tailscale on both with the same account."]
     else:
         lines += ["  Next: in its menu choose “Helper code & log…”, then on your primary:",
