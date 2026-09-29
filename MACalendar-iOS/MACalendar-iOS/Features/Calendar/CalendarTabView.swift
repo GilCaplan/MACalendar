@@ -276,11 +276,9 @@ struct CalendarTabView: View {
     }
 
     private var weekTitle: String {
-        var cal = Calendar(identifier: .gregorian)
-        cal.firstWeekday = 1
-        let weekday = cal.component(.weekday, from: nav.selectedDate) - 1
-        guard let sunday   = cal.date(byAdding: .day, value: -weekday,    to: nav.selectedDate),
-              let saturday = cal.date(byAdding: .day, value: 6 - weekday, to: nav.selectedDate) else { return "" }
+        let cal = Calendar(identifier: .gregorian)
+        let sunday = CalendarPrefs.weekStart(of: nav.selectedDate, mondayFirst: settings.weekStartsMonday)
+        guard let saturday = cal.date(byAdding: .day, value: 6, to: sunday) else { return "" }
         let f = DateFormatter()
         f.dateFormat = "MMM d"
         let year = Calendar.current.component(.year, from: sunday)

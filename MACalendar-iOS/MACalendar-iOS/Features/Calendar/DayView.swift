@@ -207,7 +207,7 @@ struct DayView: View {
     }
 
     private func hourLabel(_ h: Int) -> String {
-        h == 0 ? "12 AM" : h < 12 ? "\(h) AM" : h == 12 ? "12 PM" : "\(h - 12) PM"
+        CalendarPrefs.hourLabel(h, clock24: settings.clock24)
     }
 }
 

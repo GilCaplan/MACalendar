@@ -111,3 +111,35 @@ def test_agenda_rows_follow_the_clock(qapp):
     assert AgendaRow(ev)._time_label.text() == "10a–11:30a"
     vp.apply(ui(clock="24h"))
     assert AgendaRow(ev)._time_label.text() == "10:00–11:30"
+
+
+@pytest.mark.skipif(not __import__("shutil").which("swiftc") or __import__("sys").platform != "darwin",
+                    reason="needs the Swift compiler")
+def test_the_phone_starts_the_week_where_the_mac_does(tmp_path):
+    """The phone's CalendarPrefs, compiled as it ships, against view_prefs."""
+    import pathlib, re, subprocess
+    root = pathlib.Path(__file__).resolve().parents[2]
+    src = (root / "MACalendar-iOS/MACalendar-iOS/Settings/AppSettings.swift").read_text()
+    enum = src[src.index("enum CalendarPrefs"):]
+    main = tmp_path / "main.swift"
+    main.write_text("import Foundation\n" + enum + '''
+let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.timeZone = TimeZone.current
+for d in CommandLine.arguments.dropFirst() {
+    let day = f.date(from: d)!
+    print(d, f.string(from: CalendarPrefs.weekStart(of: day, mondayFirst: false)),
+          f.string(from: CalendarPrefs.weekStart(of: day, mondayFirst: true)),
+          CalendarPrefs.hourLabel(13, clock24: true), CalendarPrefs.hourLabel(13, clock24: false))
+}
+''')
+    exe = tmp_path / "prefs"
+    subprocess.run(["swiftc", str(main), "-o", str(exe)], check=True, capture_output=True)
+    days = [datetime.date(2026, 9, 27) + datetime.timedelta(days=k) for k in range(8)]
+    out = subprocess.run([str(exe), *map(str, days)], capture_output=True, text=True,
+                         check=True).stdout.split("\n")
+    for d, line in zip(days, out):
+        _, sun_first, mon_first, h24, h12 = line.split(" ", 4)
+        vp.apply(ui(week_starts="sunday"))
+        assert sun_first == str(vp.week_start(d)), d
+        vp.apply(ui(week_starts="monday"))
+        assert mon_first == str(vp.week_start(d)), d
+        assert (h24, h12) == ("13:00", "1 PM")

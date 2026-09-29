@@ -13,7 +13,7 @@ struct MonthGridView: View {
     var onDateSelected: ((Date) -> Void)? = nil
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
-    private let dayHeaders = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    private var dayHeaders: [String] { CalendarPrefs.dayHeaders(mondayFirst: settings.weekStartsMonday) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -48,12 +48,10 @@ struct MonthGridView: View {
     }
 
     private var gridDays: [Date] {
-        var cal = Calendar(identifier: .gregorian)
-        cal.firstWeekday = 1 // Sunday first
+        let cal = Calendar(identifier: .gregorian)
         let comps = DateComponents(year: year, month: month, day: 1)
         guard let firstDay = cal.date(from: comps) else { return [] }
-        let weekday = cal.component(.weekday, from: firstDay) - 1
-        guard let start = cal.date(byAdding: .day, value: -weekday, to: firstDay) else { return [] }
+        let start = CalendarPrefs.weekStart(of: firstDay, mondayFirst: settings.weekStartsMonday)
         return (0..<42).compactMap { cal.date(byAdding: .day, value: $0, to: start) }
     }
 

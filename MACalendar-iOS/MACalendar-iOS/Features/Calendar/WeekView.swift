@@ -21,10 +21,9 @@ struct WeekView: View {
     private let startHour = 7
 
     private var weekDays: [Date] {
-        var cal = Calendar(identifier: .gregorian)
-        cal.firstWeekday = 1
-        let weekday = cal.component(.weekday, from: selectedDate) - 1
-        return (0..<7).compactMap { cal.date(byAdding: .day, value: $0 - weekday, to: selectedDate) }
+        let cal = Calendar(identifier: .gregorian)
+        let start = CalendarPrefs.weekStart(of: selectedDate, mondayFirst: settings.weekStartsMonday)
+        return (0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: start) }
     }
 
     var body: some View {
@@ -103,7 +102,7 @@ struct WeekView: View {
     }
 
     private func hourLabel(_ h: Int) -> String {
-        h == 0 ? "12 AM" : h < 12 ? "\(h) AM" : h == 12 ? "12 PM" : "\(h - 12) PM"
+        CalendarPrefs.hourLabel(h, clock24: settings.clock24)
     }
 }
 

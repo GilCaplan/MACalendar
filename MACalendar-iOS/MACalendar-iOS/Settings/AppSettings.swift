@@ -71,6 +71,17 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(defaultCalendarView, forKey: "defaultCalendarView") }
     }
 
+    /// The week's first day in Month and Week (Settings ▸ Appearance), per
+    /// device like the Mac's own (Gil, 2026-09-29).
+    @Published var weekStartsMonday: Bool {
+        didSet { UserDefaults.standard.set(weekStartsMonday, forKey: "weekStartsMonday") }
+    }
+
+    /// Hour labels as 24-hour ("14:00") instead of "2 PM".
+    @Published var clock24: Bool {
+        didSet { UserDefaults.standard.set(clock24, forKey: "clock24") }
+    }
+
     @Published var fontMonth: Double {
         didSet { UserDefaults.standard.set(fontMonth, forKey: "fontMonth") }
     }
@@ -270,6 +281,8 @@ class AppSettings: ObservableObject {
         self.accentColorHex = UserDefaults.standard.string(forKey: "accentColorHex") ?? Theme.defaultAccentHex
 
         self.defaultCalendarView = UserDefaults.standard.string(forKey: "defaultCalendarView") ?? "week"
+        self.weekStartsMonday = UserDefaults.standard.bool(forKey: "weekStartsMonday")
+        self.clock24 = UserDefaults.standard.bool(forKey: "clock24")
 
         let fm = UserDefaults.standard.double(forKey: "fontMonth")
         self.fontMonth = fm == 0 ? 13 : fm
@@ -447,5 +460,30 @@ struct ResolvedEventDefaults: Decodable {
         case gapMinutes = "gap_minutes"
         case eventLengthMinutes = "event_length_minutes"
         case chainGapMinutes = "chain_gap_minutes"
+    }
+}
+
+
+/// How the calendar is drawn, from the settings above — the one place the
+/// views ask (the Mac's calendar_ui/view_prefs.py is the same idea).
+enum CalendarPrefs {
+    /// The first day of the week holding `date` (Sunday, or Monday).
+    static func weekStart(of date: Date, mondayFirst: Bool) -> Date {
+        let cal = Calendar(identifier: .gregorian)
+        let wd = cal.component(.weekday, from: date)           // 1 = Sunday … 7 = Saturday
+        let back = mondayFirst ? (wd + 5) % 7 : wd - 1
+        return cal.date(byAdding: .day, value: -back, to: cal.startOfDay(for: date)) ?? date
+    }
+
+    /// Weekday names in display order.
+    static func dayHeaders(mondayFirst: Bool) -> [String] {
+        mondayFirst ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                    : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    }
+
+    /// The time column's label for hour `h` (0…23).
+    static func hourLabel(_ h: Int, clock24: Bool) -> String {
+        if clock24 { return String(format: "%02d:00", h) }
+        return h == 0 ? "12 AM" : h < 12 ? "\(h) AM" : h == 12 ? "12 PM" : "\(h - 12) PM"
     }
 }

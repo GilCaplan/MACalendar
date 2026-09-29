@@ -379,6 +379,20 @@ struct SettingsView: View {
                                     .font(.caption).foregroundColor(.secondary)
                             }
 
+                            // How the calendar is drawn (Gil, 2026-09-29) — per
+                            // device, like the Mac's Settings ▸ Appearance.
+                            VStack(alignment: .leading, spacing: 6) {
+                                Label("Week starts on", systemImage: "calendar.day.timeline.left")
+                                Picker("Week starts on", selection: $settings.weekStartsMonday) {
+                                    Text("Sunday").tag(false)
+                                    Text("Monday").tag(true)
+                                }
+                                .pickerStyle(.segmented)
+                            }
+                            Toggle(isOn: $settings.clock24) {
+                                Label("24-hour clock", systemImage: "clock")
+                            }
+
                             Divider().padding(.vertical, 4)
 
                             HStack {
