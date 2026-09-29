@@ -33,6 +33,7 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `GET` | `/devices` | What has enrolled, when it last spoke, and whether it is revoked — |
 | `POST` | `/devices/<device_id>/revoke` | Retire one device. It keeps working as an ISOLATED stream rather |
 | `POST` | `/devices/enroll` | Issue this client a device id and a token. Called once, on first run. |
+| `POST` | `/devices/pair` | Enrol a device that shows a live one-time code. |
 
 ## /lexicon
 
@@ -162,6 +163,12 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `GET` | `/offline/agreement` | How often the phone's offline reading matched the Mac's, from the log. |
 | `GET` | `/offline/pending/<int:pending_id>` | Has the Mac run a command it queued? The phone keeps its provisional |
 | `GET` | `/offline/reader` | What the phone's on-device model is told. Cached by the phone. |
+
+## /pair
+
+| Method | Path | What it does |
+|---|---|---|
+| `POST` | `/pair/start` | A fresh one-time code and the link a QR code shows. |
 
 ## /auth
 

@@ -28,6 +28,10 @@ dependencies = [
     # Sunset/nightfall for workout scheduling. Pure Python, fully offline.
     "astral>=3.2",
     "Flask>=3.0",
+    # Pairing (assistant/pairing/): the local-network announcement and the QR.
+    # Both stay on this network — mDNS is link-local multicast.
+    "zeroconf>=0.130",
+    "segno>=1.6",
 ]
 
 [project.optional-dependencies]

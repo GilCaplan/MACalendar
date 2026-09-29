@@ -64,7 +64,14 @@
 	<key>NSContactsUsageDescription</key>
 	<string>Names from your contacts are added to the assistant's vocabulary so voice commands spell them correctly. They stay on your Mac.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>MACalendar talks to the assistant server running on your Mac over your local network or Tailscale.</string>
+	<string>MACalendar finds the assistant server running on your Mac on this Wi-Fi and talks to it over your local network or Tailscale.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<!-- The server's announcement (assistant/pairing/discovery.py). iOS
+		     browses ONLY the types listed here, and silently finds nothing
+		     for any other. -->
+		<string>_macalendar._tcp</string>
+	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Sundown is computed for wherever you are, so repeating events skip Shabbat and festivals at the right hour when you travel. Your position stays on your own devices.</string>
 	<key>NSMicrophoneUsageDescription</key>

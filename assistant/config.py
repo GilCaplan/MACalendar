@@ -169,6 +169,18 @@ class ApiConfig(BaseModel):
     port: int = 8080
 
 
+class PairingConfig(BaseModel):
+    """How devices find and join this server (DEVQA Q69, assistant/pairing/)."""
+    # Announce the server on the local network (Bonjour) so a phone on the
+    # same Wi-Fi lists it — no address to type.
+    advertise: bool = True
+    # How long a QR code's one-time code stays valid.
+    code_minutes: int = 10
+    # True: a device on another machine can join ONLY with a one-time code
+    # (the QR); plain /devices/enroll then answers 403 except from this Mac.
+    require_code: bool = False
+
+
 class HebrewCalendarConfig(BaseModel):
     # "english" = Gregorian only, "hebrew" = Hebrew (gematria) only, "both" = show both
     display_mode: Literal["english", "hebrew", "both"] = "both"
@@ -507,6 +519,7 @@ class AppConfig(BaseModel):
     tts: TTSConfig = TTSConfig()
     todo: TodoConfig = TodoConfig()
     api: ApiConfig = ApiConfig()
+    pairing: PairingConfig = PairingConfig()
     nlu: NLUConfig = NLUConfig()
     engine: EngineConfig = EngineConfig()
     events: EventsConfig = EventsConfig()

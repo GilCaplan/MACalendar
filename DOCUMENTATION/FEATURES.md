@@ -14,6 +14,37 @@ needs no knowledge of them), hybrid (coordinated frontend + backend), and
 purely backend (no client code beyond displaying the effects).
 
 
+## Pairing: the server as an app, devices join without typing
+
+**What.** MACalendar Server is a menu-bar app (system tray on Windows and
+Linux). One click starts the model and the brain and says whether they run,
+where the server can be reached and how many devices have joined. A phone
+joins without an address: on the same Wi-Fi it is listed on the phone's
+Settings ▸ Your Mac (one tap), and anywhere it scans a QR code with the
+Camera. The first time the server is up with nothing joined, the QR opens by
+itself. DEVQA Q69.
+
+**Where.** `assistant/pairing/` (addresses, one-time codes, the
+`macalendar://pair` link and QR, the Bonjour announcement, the routes
+`POST /pair/start` — loopback only — and `POST /devices/pair`);
+`assistant/host/` (the tray, the stack supervisor, the QR window, Open at
+login for macOS / Linux / Windows); the calendar's More ▸ Pair a phone or
+tablet; iOS `API/Pairing.swift` (the link, the Bonjour browser, the overlay,
+the Your Mac list) and `NSBonjourServices` in Info.plist. Settings:
+`pairing:` in config.yaml.
+
+**How.** Addresses are read off the machine's own interfaces (`ifaddr`, no
+packet sent); Tailscale's 100.64/10 comes first because it reaches the Mac
+from anywhere. The API's watcher process announces (the reloader's child
+never does, and `create_app` never does, so no test multicasts), refreshing
+once a minute for a laptop that changes networks. A code is eight characters
+with no look-alikes, lives in the API's memory for `code_minutes`, and is
+consumed on use. The phone tries the addresses in order with a 3 s probe,
+keeps the first that answers, and stores the issued device id and token as
+enrolment does. `pairing.require_code` closes plain `/devices/enroll` to
+other machines. Tests: `test_pairing.py`, `test_host_app.py`.
+
+
 ## Recurring series, edited as one thing
 
 **What.** A repeating event is a linked group, not a pile of rows. Change its

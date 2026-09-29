@@ -115,6 +115,12 @@ api:
                        # recommended when using --tailscale or --lan
   port: 8080           # where the phone API listens; the thinking HUD uses this to reach it
 
+# How phones find and join this server (assistant/pairing/, DEVQA Q69)
+pairing:
+  advertise: true      # announce on the local network (Bonjour) so the phone lists this Mac
+  code_minutes: 10     # how long a pairing QR code's one-time code stays valid
+  require_code: false  # true = a device elsewhere can join ONLY by scanning the QR
+
 # Hebrew calendar + Jewish/Israeli holidays (all computed offline via pyluach)
 # Workout scheduling around Shabbat and the chagim (assistant/observance.py).
 # Sundown is computed locally with `astral` — no network calls.

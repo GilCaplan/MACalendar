@@ -39,7 +39,10 @@ from assistant.users import passwords, registry, sessions
 bp = Blueprint("users", __name__)
 
 #: Paths that work with no session at all, whatever the policy.
-OPEN_PATHS = frozenset({"/health", "/auth/login", "/devices/enroll"})
+# /pair/start is loopback-only in its own route; /devices/pair needs a live
+# one-time code (assistant/pairing/).
+OPEN_PATHS = frozenset({"/health", "/auth/login", "/devices/enroll",
+                        "/pair/start", "/devices/pair"})
 
 # -- login rate limit: 5 failures per (username, address) → 30 s pause ------
 _FAIL_LIMIT, _FAIL_WINDOW_S, _LOCK_S = 5, 300, 30

@@ -12,6 +12,7 @@
 		AA000001000000000000001A /* MACalendarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001000000000000001B /* MACalendarApp.swift */; };
 		AA000002000000000000001A /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000002000000000000001B /* ContentView.swift */; };
 		AA000003000000000000001A /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000003000000000000001B /* APIClient.swift */; };
+		AAF0000400000000000000A4 /* Pairing.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAF0000400000000000000B4 /* Pairing.swift */; };
 		AA000004000000000000001A /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000004000000000000001B /* Models.swift */; };
 		AA000005000000000000001A /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000005000000000000001B /* AppSettings.swift */; };
 		AA000006000000000000001A /* DayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000006000000000000001B /* DayView.swift */; };
@@ -92,6 +93,7 @@
 		AA000001000000000000001B /* MACalendarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MACalendarApp.swift; sourceTree = "<group>"; };
 		AA000002000000000000001B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AA000003000000000000001B /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		AAF0000400000000000000B4 /* Pairing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pairing.swift; sourceTree = "<group>"; };
 		AA000004000000000000001B /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		AA000005000000000000001B /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		AA000006000000000000001B /* DayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayView.swift; sourceTree = "<group>"; };
@@ -298,6 +300,7 @@
 			isa = PBXGroup;
 			children = (
 				AA000003000000000000001B /* APIClient.swift */,
+				AAF0000400000000000000B4 /* Pairing.swift */,
 				AAF0000100000000000000B1 /* UserSession.swift */,
 				AA000004000000000000001B /* Models.swift */,
 			);
@@ -597,6 +600,7 @@
 				AA000001000000000000001A /* MACalendarApp.swift in Sources */,
 				AA000002000000000000001A /* ContentView.swift in Sources */,
 				AA000003000000000000001A /* APIClient.swift in Sources */,
+				AAF0000400000000000000A4 /* Pairing.swift in Sources */,
 				AAF0000200000000000000A2 /* UsersViews.swift in Sources */,
 				AAF0000100000000000000A1 /* UserSession.swift in Sources */,
 				AA000004000000000000001A /* Models.swift in Sources */,

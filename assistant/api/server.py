@@ -412,6 +412,11 @@ def create_app() -> Flask:
     from assistant.offline import routes as _offline_routes
     _offline_routes.register(app)
 
+    # Pairing (DEVQA Q69): the QR code's one-time code and enrolment by it.
+    # HTTP only; lives in assistant/pairing/.
+    from assistant.pairing import routes as _pairing_routes
+    _pairing_routes.register(app)
+
     # ------------------------------------------------------------------
     # Health
     # ------------------------------------------------------------------
@@ -753,6 +758,12 @@ def create_app() -> Flask:
         src = (body.get("source") or "").strip().lower()
         if src not in ("ios", "mac", "test"):
             return jsonify({"error": "source must be ios|mac|test", "code": 400}), 400
+        # pairing.require_code: a device elsewhere joins only with a one-time
+        # code (POST /devices/pair, the QR). This Mac's own clients still enrol.
+        from assistant.pairing.routes import is_local as _pair_local
+        if load_config().pairing.require_code and not _pair_local():
+            return jsonify({"error": "pair this device by scanning the QR code on the "
+                                     "server (menu bar ▸ Pair a device)", "code": 403}), 403
         got = _mp.enroll(src, (body.get("label") or "").strip())
         if not got.get("token"):
             # No secret means no trust is possible. Say so rather than issuing a

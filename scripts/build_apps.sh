@@ -10,7 +10,9 @@
 #
 # Four apps, because four things run:
 #
-#     MACalendar Server   assistant.api      — the brain's front door
+#     MACalendar Server   assistant.host     — the brain, as a menu-bar app
+#                                              (starts ollama + assistant.api;
+#                                              pairs phones by QR, DEVQA Q69)
 #     MACalendar          assistant.main     — the calendar window
 #     MACalendar HUD      thinking_hud       — the floating review card
 #     Jude                jude               — the Judaic study assistant
@@ -101,7 +103,7 @@ build_all_into() {
   echo "$dir"
   build "$dir/MACalendar Server.app" "MACalendar Server" "com.macalendar.server" \
     "$ICONS/server_icon.icns" \
-    "cd '$REPO' && ./.venv/bin/python -m assistant.api --tailscale" true
+    "cd '$REPO' && ./.venv/bin/python -m assistant.host" true
   # An AGENT like the Server and HUD launchers: it starts the stack and quits,
   # and the Dock shows the calendar WINDOW (which names itself MACalendar,
   # assistant/main.py) — not the applet beside it as a second icon.

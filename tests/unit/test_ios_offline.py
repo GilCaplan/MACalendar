@@ -32,8 +32,10 @@ from tests.unit._ios_sources import ios_source
 NOT_QUEUEABLE = {
     # Presence and transport. A stale "I am here" replayed an hour later is
     # worse than none; enrolment must happen against a reachable server or the
-    # device simply stays unenrolled and retries.
-    "heartbeat", "enrollIfNeeded", "testConnection",
+    # device simply stays unenrolled and retries. Pairing (Q69) redeems a
+    # ten-minute one-time code while the person holds the phone to the QR:
+    # replayed later, the code is dead and the answer is "scan again".
+    "heartbeat", "enrollIfNeeded", "testConnection", "pair",
     # Voice has its OWN queue (`LocalStore.enqueueVoice`): recordings are
     # replayed as audio, because the phone cannot understand them — the brain
     # is on the Mac.

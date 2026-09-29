@@ -395,12 +395,21 @@ differently. Moves, changes and deletes always wait for the Mac. The contract:
 With a free Apple ID the app must be reinstalled every 7 days; a paid developer
 account lasts a year.
 
-### 2. Connect via Tailscale (Recommended)
-Tailscale provides a secure, private tunnel between your Mac and iPhone without port forwarding.
-1. **Mac:** `brew install tailscale` → Sign in.
-2. **iPhone / iPad:** Install [Tailscale](https://apps.apple.com/app/tailscale/id1470499037) → sign in with the **same account** as the Mac.
-3. **Start API:** `python -m assistant.api --tailscale` (Prints your 100.x.x.x IP).
-4. **App Settings:** Set Server URL to `http://<your-tailscale-ip>:8080`.
+### 2. Connect — no address to type
+1. **Start the server:** click **MACalendar Server** (`/Applications/MACalendar
+   APPs/`, or `python -m assistant.host` on any platform). It sits in the menu
+   bar, starts the model and the brain, and offers to download the model if
+   it is missing.
+2. **Join a phone:** menu bar ▸ **Pair a phone or tablet…** shows a QR code —
+   point the iPhone's Camera at it and tap *Open in MACalendar*. On the same
+   Wi-Fi you can instead open the app's **Settings ▸ Your Mac** and tap the
+   Mac it lists.
+3. **Away from home:** install [Tailscale](https://apps.apple.com/app/tailscale/id1470499037)
+   on both with the **same account**; the QR already carries the Tailscale
+   address, so nothing changes on the phone.
+
+Typing the address by hand (Settings ▸ Your Mac ▸ *Or type its address*) still
+works. How it fits together: `assistant/pairing/__init__.py`, DEVQA Q69.
 
 For full deployment details and API reference, see [**SYSTEM_IPHONE.md**](DOCUMENTATION/SYSTEM_IPHONE.md).
 

@@ -679,6 +679,9 @@ class CalendarWindow(QMainWindow):
             "From an .ics file or macOS Calendar")
         more.addAction("Connected calendars…", self._on_connected_calendars)
         more.addAction("Tag suggestion history…", self._on_tag_history)
+        more.addSeparator()
+        # The QR code a phone scans to join this Mac (assistant/pairing/, Q69).
+        more.addAction("Pair a phone or tablet…", self._on_pair_device)
         # Jude — the Judaic study assistant, its own app
         # (assistant/jude/ARCHITECTURE.md). Offered only when it is switched
         # on: an entry that always answers "not installed" is worse than none.
@@ -1682,6 +1685,11 @@ class CalendarWindow(QMainWindow):
     def _on_settings_popup(self) -> None:
         from assistant.calendar_ui.settings_dialog import open_settings
         open_settings(self)
+
+    def _on_pair_device(self) -> None:
+        from assistant.host.pair_dialog import PairDialog
+        port = getattr(getattr(self._config, "api", None), "port", 8080)
+        PairDialog(self, port=port).exec()
 
     def _on_tag_history(self) -> None:
         from assistant.calendar_ui.tag_history_dialog import open_tag_history

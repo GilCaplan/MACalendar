@@ -191,6 +191,10 @@ struct SettingsView: View {
 
     private var serverPage: some View {
         SettingsPage("Your Mac") {
+                        // Found or scanned — no address to type (DEVQA Q69).
+                        NearbyServers()
+                        Divider().padding(.vertical, 4)
+                        Text("Or type its address").font(.subheadline.weight(.semibold))
                         VStack(spacing: 12) {
                             HStack {
                                 TextField("http://100.x.x.x:8080", text: $settings.serverURL)

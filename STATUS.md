@@ -161,7 +161,10 @@ linked to-do (Q61, `cf74dec3`), and "buy A and B" is two to-dos (Q62,
 `d3facf4c`). All built. On 2026-09-28: users, login and sharing (Q65), the phone's offline
 reader (Q66), and overlaps / shared colours / own-only notifications / to-dos
 grouped by person (Q67); plus the Account tab on both platforms, the phone's
-Settings regrouped and the Mac window cleaned up (FEATURES.md). Numbers per
+Settings regrouped and the Mac window cleaned up (FEATURES.md). On 2026-09-29:
+the phone's offline reader measured on Apple's model with the guard and dates
+in code (Q68, `assistant/offline/experiments/RESULTS.md`), and the server as a
+menu-bar app that devices join by QR or Wi-Fi without typing (Q69). Numbers per
 cycle:
 `assistant/engine/fastrule/experiments/RESULTS.md`,
 `assistant/engine/llmjudge/experiments/RESULTS.md`, and the commit messages.

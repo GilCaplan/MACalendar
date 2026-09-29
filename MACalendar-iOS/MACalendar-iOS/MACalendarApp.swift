@@ -44,9 +44,16 @@ struct MACalendarApp: App {
                 .environmentObject(api)
                 .preferredColorScheme(settings.theme == "dark" ? .dark : .light)
                 .tint(settings.accentColor)
+                .modifier(PairingOverlay())
                 .onOpenURL { url in
                     // A tap on the lock-screen card: macalendar://open/tasks
                     // or macalendar://open/calendar?event=<id>.
+                    // A pairing QR scanned with the Camera (DEVQA Q69):
+                    // macalendar://pair?u=…&c=… — join that server.
+                    if let link = PairLink(url) {
+                        Task { await PairingCenter.shared.pair(link, settings: settings, api: api) }
+                        return
+                    }
                     if url.scheme == "macalendar" {
                         Self.route(url)
                         return

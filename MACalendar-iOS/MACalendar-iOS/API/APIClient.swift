@@ -197,7 +197,7 @@ class APIClient: ObservableObject {
         // admin before sign-in, cached it, and the next person inherited it.
         let bare = String(path.prefix(while: { $0 != "?" }))
         if UserSession.token.isEmpty, UserSession.shared.serverHasUsers,
-           !["/auth/login", "/auth/me", "/health", "/devices/enroll"].contains(bare) {
+           !["/auth/login", "/auth/me", "/health", "/devices/enroll", "/devices/pair"].contains(bare) {
             throw APIError.serverError("{\"error\": \"sign in first\", \"code\": 401}")
         }
         var req = URLRequest(url: url, timeoutInterval: isOnline ? 5 : 3)
@@ -1381,6 +1381,39 @@ class APIClient: ObservableObject {
             // Offline, or an older host with no /devices/enroll. Either way the
             // phone keeps working, unenrolled and isolated.
         }
+    }
+
+    /// Join by a scanned QR's one-time code (`POST /devices/pair`, DEVQA Q69).
+    /// Always replaces what is stored: a phone pairing with a server is saying
+    /// which one it belongs to now. nil on success, else what to tell the person.
+    func pair(code: String) async -> String? {
+        let label = "iPhone · " + UIDevice.current.name
+        do {
+            let data = try await request("/devices/pair", method: "POST",
+                                         body: ["code": code, "source": "ios", "label": label])
+            guard let got = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let id = got["device_id"] as? String, !id.isEmpty,
+                  let token = got["token"] as? String, !token.isEmpty
+            else { return "The server's answer was not understood." }
+            UserDefaults.standard.set(id, forKey: DeviceStore.idKey)
+            DeviceStore.saveToken(token)
+            return nil
+        } catch APIError.serverError(let msg) {
+            if let d = msg.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+               let e = obj["error"] as? String {
+                return e.prefix(1).uppercased() + e.dropFirst() + "."
+            }
+            return msg
+        } catch {
+            return "The server stopped answering: \(error.localizedDescription)"
+        }
+    }
+
+    /// Drop this device's id and token (joining a different server).
+    static func forgetDevice() {
+        UserDefaults.standard.removeObject(forKey: DeviceStore.idKey)
+        DeviceStore.saveToken("")
     }
 
     /// Answer a confirm_create proposal. The host does the creating, through

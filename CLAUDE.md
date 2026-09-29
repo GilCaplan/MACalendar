@@ -24,6 +24,10 @@ run on the Mac, started by `Launch Calendar.command`:
     python -m assistant.thinking_hud the floating card, reads trace_bus.jsonl
     python -m assistant.main         the calendar GUI
 
+**MACalendar Server is `python -m assistant.host`** — a menu-bar app that
+starts ollama + the API and pairs devices by QR or Wi-Fi (DEVQA Q69,
+`assistant/pairing/`); only the API's own process announces on the network.
+
 **Both the GUI and the iPhone are clients of the API.** The GUI records audio,
 posts the transcript to `127.0.0.1:8080/voice/text`, and renders the answer;
 the phone does the same over Tailscale. `source` — `"mac"` or `"ios"` — is the

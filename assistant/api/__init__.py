@@ -11,7 +11,6 @@ Usage:
 import argparse
 import logging
 import os
-import subprocess
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,27 +24,10 @@ _install_log_colour()
 logger = logging.getLogger(__name__)
 
 
-#: Where the `tailscale` CLI lives when PATH does not say. The MACalendar
-#: Server app runs this through `do shell script`, whose PATH is the bare
-#: /usr/bin:/bin:… — so "Tailscale IP not found" was logged from the app while
-#: the same Mac, started from Terminal, found it (2026-09-28).
-_TAILSCALE_CANDIDATES = ("tailscale", "/opt/homebrew/bin/tailscale",
-                         "/usr/local/bin/tailscale",
-                         "/Applications/Tailscale.app/Contents/MacOS/Tailscale")
-
-
-def _tailscale_ip() -> str | None:
-    """Return the Tailscale IPv4 address, or None if Tailscale isn't running."""
-    for exe in _TAILSCALE_CANDIDATES:
-        try:
-            result = subprocess.run([exe, "ip", "-4"],
-                                    capture_output=True, text=True, timeout=3)
-        except (FileNotFoundError, PermissionError, subprocess.TimeoutExpired):
-            continue
-        ip = result.stdout.strip().splitlines()[0] if result.stdout.strip() else ""
-        if ip and not result.returncode:
-            return ip
-    return None
+# Kept under its old name: the helper lives with the rest of "where can this
+# server be reached" now (assistant/pairing/addresses.py).
+from assistant.pairing.addresses import (  # noqa: E402
+    _TAILSCALE_CANDIDATES, tailscale_ip as _tailscale_ip)
 
 
 def _already_running(port: int) -> "str | None":
@@ -130,6 +112,17 @@ def main() -> None:
 
     from assistant.api.server import create_app
     app = create_app()
+
+    # Announce on the local network so a phone on the same Wi-Fi lists this
+    # server (assistant/pairing/, DEVQA Q69). In the process that owns the port
+    # — the reloader's watcher outlives every reload, so one announcement lasts
+    # the whole run — and only when something beyond this machine can connect.
+    if host != "127.0.0.1" and not os.environ.get("WERKZEUG_RUN_MAIN") \
+            and not os.environ.get("MACALENDAR_NO_DISCOVERY"):
+        from assistant.config import load_config
+        if load_config().pairing.advertise:
+            from assistant.pairing.discovery import advertise
+            advertise(args.port)
 
     logger.info("Starting MACalendar API on http://%s:%d%s",
                 host, args.port, "  (auto-reloading on source changes)" if reload else "")

@@ -1,3 +1,26 @@
+- **2026-09-29 — Q69 (THE SERVER IS AN APP YOU CLICK; DEVICES JOIN WITHOUT
+  TYPING)**, Gil: *"for the app on the macOS (also option for Linux and
+  windows as well…) such that on server clickable and easy to set up server
+  without needing to type in any links … as automatic as possible"*. Agreed
+  ("ok") on the proposal:
+  1. **MACalendar Server is a menu-bar app** (`python -m assistant.host`,
+     Qt's system tray — the same code runs on Linux and Windows): one click
+     starts ollama and the API, the menu says whether it runs and where it can
+     be reached, and offers Pair a phone or tablet, Open calendar, Open at
+     login, Quit. It checks its own setup (no ollama → a link to get it; the
+     model missing → one click downloads it — the only time it goes online,
+     and only when asked).
+  2. **At home the phone FINDS it**: the API announces itself on the Wi-Fi
+     (Bonjour, `_macalendar._tcp`, TXT = every address, Tailscale first).
+  3. **Anywhere, a QR**: a `macalendar://pair` link with every address and a
+     ONE-TIME code (loopback-issued, 10 minutes, gone once used); the iPhone's
+     Camera opens it in the app, which keeps the first address that answers
+     and redeems the code at `POST /devices/pair`.
+  `pairing.require_code` (off by default, so nothing already paired breaks)
+  makes the QR the only way a device elsewhere can join. **Mac first**:
+  Linux and Windows run the same tray, but their packaging and the
+  `say`-based spoken replies (TASKS row 78) are still to do.
+
 - **2026-09-29 — Q68 (THE PHONE RUNS A SMALL COPY OF THE ENGINE'S SHAPE)**,
   Gil, after a 40-row probe of Apple's model as the offline reader (it booked
   a new item on 8 of 9 edit/delete/question rows and got 3 of 8 dates right):
