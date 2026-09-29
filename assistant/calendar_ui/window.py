@@ -508,6 +508,7 @@ class CalendarWindow(QMainWindow):
         self._month_view = MonthView(self._db)
         self._week_view = WeekView(self._db)
         self._day_view = DayView(self._db)
+        self._apply_visible_hours()
         self._agenda_view = AgendaView(self._db)
         for _view in (self._month_view, self._week_view,
                       self._day_view, self._agenda_view):
@@ -1685,6 +1686,14 @@ class CalendarWindow(QMainWindow):
     def _on_settings_popup(self) -> None:
         from assistant.calendar_ui.settings_dialog import open_settings
         open_settings(self)
+
+    def _apply_visible_hours(self) -> None:
+        """Settings ▸ Appearance ▸ Show hours, into Week and Day."""
+        from assistant.calendar_ui.visible_hours import span
+        first, last = span(getattr(self._config, "ui", None))
+        for view in (getattr(self, "_week_view", None), getattr(self, "_day_view", None)):
+            if view is not None and hasattr(view, "set_visible_hours"):
+                view.set_visible_hours(first, last)
 
     def _on_pair_device(self) -> None:
         from assistant.host.pair_dialog import PairDialog

@@ -706,9 +706,11 @@ class WeekView(QWidget):
         # scrolling — recalculated whenever the scroll viewport is resized.
         scroll.viewport().installEventFilter(self)
 
-        # Scroll to 8am on load
+        # Open at the first chosen hour (Settings ▸ Appearance ▸ Show hours),
+        # or 8am when the whole day is shown.
+        self._hours = (0, 24)
         from PyQt6.QtCore import QTimer
-        QTimer.singleShot(100, lambda: scroll.verticalScrollBar().setValue(self._hour_height * 8))
+        QTimer.singleShot(100, self._scroll_to_first_hour)
         QTimer.singleShot(0, lambda: self._recalc_hour_height(scroll.viewport().height()))
 
         self._rebuild_columns()
@@ -725,12 +727,25 @@ class WeekView(QWidget):
             self._recalc_hour_height(event.size().height())
         return super().eventFilter(obj, event)
 
+    def set_visible_hours(self, first: int, last: int) -> None:
+        """Fit hours first…last to the window and open there; the rest stay a
+        scroll away (calendar_ui/visible_hours.py)."""
+        self._hours = (first, last)
+        self._recalc_hour_height(self._scroll.viewport().height())
+        self._scroll_to_first_hour()
+
+    def _scroll_to_first_hour(self) -> None:
+        first = self._hours[0] if self._hours != (0, 24) else 8
+        self._scroll.verticalScrollBar().setValue(self._hour_height * first)
+
     def _recalc_hour_height(self, viewport_h: int) -> None:
-        """Shrink/grow the hour-row height so the full day fits the window when
-        possible, only falling back to scrolling below MIN_HOUR_HEIGHT."""
+        """Shrink/grow the hour-row height so the chosen hours (the whole day
+        unless set) fit the window, only falling back to scrolling below
+        MIN_HOUR_HEIGHT."""
         if viewport_h <= 0:
             return
-        new_h = max(MIN_HOUR_HEIGHT, min(HOUR_HEIGHT, viewport_h // 24))
+        from assistant.calendar_ui.visible_hours import fit
+        new_h = fit(viewport_h, *getattr(self, "_hours", (0, 24)), MIN_HOUR_HEIGHT, HOUR_HEIGHT)
         if new_h == self._hour_height:
             return
         self._hour_height = new_h
@@ -739,6 +754,8 @@ class WeekView(QWidget):
             lbl.setFixedHeight(new_h)
         for col in self._day_columns:
             col.set_hour_height(new_h)
+        if getattr(self, "_hours", (0, 24)) != (0, 24):
+            self._scroll_to_first_hour()          # the rows moved; keep the first hour on top
 
     def _tick_time(self) -> None:
         # Re-sync to the OS timezone in case it changed while the app was

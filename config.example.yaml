@@ -165,6 +165,8 @@ theme: "dark"  # "light" | "dark" - default theme on startup
 
 ui:
   start_view: week          # the view the calendar opens on: month | week | day | agenda
+  hours_from: 0          # Week/Day fit these hours to the window (0–23)…
+  hours_to: 24           # …to this one (1–24, 24 = midnight); the rest is a scroll away
   font_month: 11
   font_week: 11
   font_day: 13

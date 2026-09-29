@@ -259,6 +259,30 @@ def open_settings(self) -> None:
         getattr(self._config.ui, "start_view", "week"))))
     start_view_combo.setToolTip("The view the calendar shows when the app opens")
     appearance_form.addRow("Open calendar on:", start_view_combo)
+
+    # Which hours Week and Day fit to the window (Gil, 2026-09-29): the rest
+    # stay a scroll away, so nothing outside them is ever hidden.
+    from assistant.calendar_ui.visible_hours import label as _hour_label, span as _span
+    _first, _last = _span(self._config.ui)
+    hours_from_combo, hours_to_combo = QComboBox(), QComboBox()
+    hours_from_combo.setObjectName("hours_from")
+    hours_to_combo.setObjectName("hours_to")
+    for _h in range(0, 24):
+        hours_from_combo.addItem(_hour_label(_h), _h)
+    for _h in range(1, 25):
+        hours_to_combo.addItem(_hour_label(_h), _h)
+    hours_from_combo.setCurrentIndex(hours_from_combo.findData(_first))
+    hours_to_combo.setCurrentIndex(hours_to_combo.findData(_last))
+    _hours_row = QHBoxLayout()
+    _hours_row.addWidget(hours_from_combo)
+    _hours_row.addWidget(QLabel("to"))
+    _hours_row.addWidget(hours_to_combo)
+    _hours_row.addStretch(1)
+    hours_from_combo.setToolTip("Week and Day fit these hours to the window and open "
+                                "at the first one. Earlier and later hours are a "
+                                "scroll away — nothing is hidden.")
+    hours_to_combo.setToolTip(hours_from_combo.toolTip())
+    appearance_form.addRow("Show hours:", _hours_row)
     appearance.addLayout(appearance_form)
 
     compact_cb = QCheckBox("Compact layout density")
@@ -970,6 +994,12 @@ def open_settings(self) -> None:
 
     save_btn = QPushButton("Save Config")
     save_btn.setDefault(True)
+    def _checked_hours() -> tuple:
+        """The two boxes as (first, last); "to" at or before "from" means the
+        whole day rather than an empty view."""
+        a, b = hours_from_combo.currentData(), hours_to_combo.currentData()
+        return (a, b) if b > a else (0, 24)
+
     def save_config():
         # Only if this pipeline still has one — see the note by auto_cb above.
         _confirmer = getattr(self._pipeline, "_confirmer", None)
@@ -1005,6 +1035,8 @@ def open_settings(self) -> None:
                         "voice": voice_combo.currentText(),
                         "rate": speed_spin.value()},
                 "ui": {"start_view": start_view_combo.currentData(),
+                       "hours_from": _checked_hours()[0],
+                       "hours_to": _checked_hours()[1],
                        "font_month": month_spin.value(),
                        "font_week": week_spin.value(),
                        "font_day": day_spin.value(),
@@ -1076,6 +1108,9 @@ def open_settings(self) -> None:
                 # Apply changes immediately
                 self._config.confirmation_level = 0 if auto_cb.isChecked() else 1
                 self._config.ui.start_view = start_view_combo.currentData()
+                self._config.ui.hours_from, self._config.ui.hours_to = _checked_hours()
+                if hasattr(self, "_apply_visible_hours"):
+                    self._apply_visible_hours()
                 self._config.ui.font_month = month_spin.value()
                 self._config.ui.font_week = week_spin.value()
                 self._config.ui.font_day = day_spin.value()

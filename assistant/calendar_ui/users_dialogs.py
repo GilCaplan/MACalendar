@@ -568,7 +568,9 @@ class UserChip(QToolButton):
         self.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.menu_ = QMenu(self)
-        self.act_account = self.menu_.addAction("Account & Sharing…")
+        # "&&": a single & is Qt's shortcut marker — it ate itself and showed
+        # "Account  Sharing…" (2026-09-29).
+        self.act_account = self.menu_.addAction("Account && Sharing…")
         self.act_switch = self.menu_.addAction("Switch user…")
         self.menu_.addSeparator()
         self.act_out = self.menu_.addAction("Sign out")

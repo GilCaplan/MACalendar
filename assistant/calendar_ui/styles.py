@@ -311,6 +311,27 @@ QToolButton#more_btn {{
 QToolButton#more_btn:hover {{ background-color: {hover}; }}
 QToolButton#more_btn::menu-indicator {{ image: none; width: 0px; }}
 
+/* ── Drop-down menus (More ▾, the user chip, context menus) ──
+   Qt's default rows sat edge to edge (Gil, 2026-09-29: "fix the spacing, too
+   tight"): room inside each row, a rounded highlight, dividers with air. */
+QMenu {{
+    background-color: {surface};
+    border: 1px solid {border};
+    border-radius: 8px;
+    padding: 6px;
+}}
+QMenu::item {{
+    padding: 7px 28px 7px 12px;
+    border-radius: 5px;
+    color: {text};
+}}
+QMenu::item:selected {{ background-color: {hover}; }}
+QMenu::separator {{
+    height: 1px;
+    background-color: {border};
+    margin: 6px 8px;
+}}
+
 /* ── Icon-only toolbar buttons (settings, theme, mic) ── */
 /* No min-width/min-height here: every caller already calls
    setFixedSize(30, 30) in Python, and pairing that with a QSS min-height

@@ -142,6 +142,10 @@ class UIConfig(BaseModel):
     # The view the calendar window opens on (Settings → Appearance). Week by
     # default (Gil, 2026-09-24); the phone keeps its own choice.
     start_view: Literal["month", "week", "day", "agenda"] = "week"
+    # The hours Week and Day fit to the window, first to last (24 = midnight);
+    # the rest stay a scroll away (calendar_ui/visible_hours.py).
+    hours_from: int = 0
+    hours_to: int = 24
     font_month: int = 11
     font_week: int = 11
     font_day: int = 13

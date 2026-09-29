@@ -712,12 +712,20 @@ class DayView(QWidget):
             self._recalc_hour_height(event.size().height())
         return super().eventFilter(obj, event)
 
+    def set_visible_hours(self, first: int, last: int) -> None:
+        """Fit hours first…last to the window; the rest stay a scroll away."""
+        self._hours = (first, last)
+        self._recalc_hour_height(self._scroll.viewport().height())
+        self._scroll_to_now()
+
     def _recalc_hour_height(self, viewport_h: int) -> None:
-        """Shrink/grow the hour-row height so the full day fits the window when
-        possible, only falling back to scrolling below MIN_HOUR_HEIGHT."""
+        """Shrink/grow the hour-row height so the chosen hours (the whole day
+        unless set) fit the window, only falling back to scrolling below
+        MIN_HOUR_HEIGHT."""
         if viewport_h <= 0:
             return
-        new_h = max(MIN_HOUR_HEIGHT, min(HOUR_HEIGHT, viewport_h // 24))
+        from assistant.calendar_ui.visible_hours import fit
+        new_h = fit(viewport_h, *getattr(self, "_hours", (0, 24)), MIN_HOUR_HEIGHT, HOUR_HEIGHT)
         if new_h == self._hour_height:
             return
         self._hour_height = new_h
@@ -872,12 +880,15 @@ class DayView(QWidget):
             self._refresh_holy()
 
     def _scroll_to_now(self) -> None:
+        first, last = getattr(self, "_hours", (0, 24))
+        top = self._hour_height * (first if (first, last) != (0, 24) else 8)
         if self._date == datetime.date.today():
             now = datetime.datetime.now()
             y = int((now.hour * 60 + now.minute) / 60 * self._hour_height)
-            self._scroll.verticalScrollBar().setValue(max(0, y - 120))
-        else:
-            self._scroll.verticalScrollBar().setValue(self._hour_height * 8)
+            # Now, when it falls inside the chosen hours; else their start.
+            if (first, last) == (0, 24) or first <= now.hour < last:
+                top = max(self._hour_height * first, y - 120)
+        self._scroll.verticalScrollBar().setValue(max(0, top))
 
     def _apply_theme_styles(self) -> None:
         dark = _styles._dark

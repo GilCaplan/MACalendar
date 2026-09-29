@@ -214,3 +214,37 @@ def test_the_installer_can_set_the_role_without_a_window(monkeypatch, capsys):
     tray_mod.main()
     assert role.get() == role.HELPER
     role.set(role.PRIMARY)
+
+
+# -- ONE menu-bar icon (Gil, 2026-09-29: "two icons should be consolidated") --
+
+def test_the_server_menu_has_every_app(tray):
+    texts = [a.text() for a in tray.menu.actions()]
+    for want in ("Open calendar", "Show thinking card", "Pair a phone or tablet…",
+                 "Servers & logs…"):
+        assert want in texts, want
+
+
+def test_the_hud_star_steps_aside_while_the_server_menu_is_up(tray):
+    from assistant import thinking_hud
+    from assistant.heartbeat import beat
+    import json, os, time
+    from assistant import heartbeat
+    path = os.path.join(heartbeat._DIR, "host.json")
+    if os.path.exists(path):
+        os.remove(path)
+    assert thinking_hud.needs_own_icon(), "no server menu: the ✦ stays"
+    tray.apply_status({"api": True, "devices": 1, "urls": []})      # the server beats
+    assert not thinking_hud.needs_own_icon(), "one icon, not two"
+    with open(path, "w") as f:
+        json.dump({"ts": time.time() - 60}, f)                          # it went away
+    assert thinking_hud.needs_own_icon(), "the card must stay reopenable"
+
+
+def test_show_card_starts_the_hud_when_it_is_not_running(tray, monkeypatch):
+    started = []
+    monkeypatch.setattr("subprocess.Popen", lambda cmd, **kw: started.append(cmd))
+    from assistant.host import tray as tray_mod
+    monkeypatch.setattr(tray_mod, "HUD_INSTANCE", "macalendar-hud-test-nobody")
+    tray.show_card()
+    assert started and started[0][-2:] == ["assistant.thinking_hud", "--show"]

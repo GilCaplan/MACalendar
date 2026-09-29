@@ -22,6 +22,11 @@ from assistant.host import role as role_mod
 from assistant.host.supervisor import Stack
 
 INSTANCE = "macalendar-server-host"
+#: The thinking HUD's own local socket (assistant/thinking_hud.py): "show",
+#: "hide". THIS menu is the one MACalendar icon; the HUD hides its ✦ while
+#: this app's heartbeat is fresh (Gil, 2026-09-29: "two icons should be
+#: consolidated").
+HUD_INSTANCE = "macalendar-hud"
 OLLAMA_DOWNLOAD = "https://ollama.com/download"
 POLL_MS = 5000
 
@@ -106,8 +111,16 @@ class HostTray(QObject):
         self.pair_act.triggered.connect(lambda: self.show_pairing())
         self.servers_act = self.menu.addAction("Servers & logs…")
         self.servers_act.triggered.connect(lambda: self.show_servers())
+        self.menu.addSeparator()
+        # The apps — everything MACalendar has, from its one menu-bar icon.
         self.open_act = self.menu.addAction("Open calendar")
         self.open_act.triggered.connect(lambda: self.open_calendar())
+        self.card_act = self.menu.addAction("Show thinking card")
+        self.card_act.triggered.connect(lambda: self.show_card())
+        self.jude_act = self.menu.addAction("Open Jude")
+        self.jude_act.triggered.connect(lambda: self.open_app("Jude"))
+        self.jude_act.setVisible((role_mod.apps_dir() / "Jude.app").exists()
+                                 or platform.system() != "Darwin" and _jude_enabled())
         self.menu.addSeparator()
         # The role (DEVQA Q70): the brain, or a machine that lends its model.
         self.role_menu = self.menu.addMenu("This computer is")
@@ -189,6 +202,11 @@ class HostTray(QObject):
     # -- status -----------------------------------------------------------
     def apply_status(self, st: dict) -> None:
         self.state = st
+        try:                                    # the HUD hides its ✦ while this is fresh
+            from assistant.heartbeat import beat
+            beat("host")
+        except Exception:
+            pass
         if self.role == role_mod.HELPER:
             self._apply_helper_status(st)
             return
@@ -296,14 +314,32 @@ class HostTray(QObject):
         win.activateWindow()
 
     def open_calendar(self) -> None:
+        self.open_app("MACalendar", ["-m", "assistant.main"])
+
+    def open_app(self, name: str, module_args: list | None = None) -> None:
+        """Open one of MACalendar's apps: its bundle on a Mac, else its module."""
         import subprocess
-        from pathlib import Path
         from assistant.host.supervisor import ROOT
-        app = role_mod.apps_dir() / "MACalendar.app"
+        app = role_mod.apps_dir() / f"{name}.app"
         if platform.system() == "Darwin" and app.exists():
             subprocess.Popen(["/usr/bin/open", "-a", str(app)])
-        else:
-            subprocess.Popen([sys.executable, "-m", "assistant.main"], cwd=str(ROOT))
+            return
+        mod = module_args or ["-m", {"Jude": "assistant.jude",
+                                     "MACalendar HUD": "assistant.thinking_hud"}.get(name, "assistant.main")]
+        subprocess.Popen([sys.executable, *mod], cwd=str(ROOT))
+
+    def show_card(self) -> None:
+        """Show the thinking card: tell the running HUD, or start it showing."""
+        sock = QLocalSocket()
+        sock.connectToServer(HUD_INSTANCE)
+        if sock.waitForConnected(300):
+            sock.write(b"show")
+            sock.waitForBytesWritten(300)
+            sock.disconnectFromServer()
+            return
+        import subprocess
+        from assistant.host.supervisor import ROOT
+        subprocess.Popen([sys.executable, "-m", "assistant.thinking_hud", "--show"], cwd=str(ROOT))
 
     def _set_login(self, on: bool) -> None:
         (autostart.enable if on else autostart.disable)()
@@ -328,6 +364,14 @@ def _on_message(host, data: bytes) -> None:
             host.quit()
         return
     host.show_pairing()
+
+
+def _jude_enabled() -> bool:
+    try:
+        from assistant.config import load_config
+        return bool(getattr(load_config().jude, "enabled", False))
+    except Exception:
+        return False
 
 
 def _bring_forward() -> None:

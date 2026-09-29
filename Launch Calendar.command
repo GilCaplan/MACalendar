@@ -116,7 +116,20 @@ RELOAD="--reload"
 [ "$MACALENDAR_NO_RELOAD" = "1" ] && RELOAD=""
 PORT=8080
 API_PID=""
-if lsof -i :$PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
+# MACalendar Server — the ONE menu-bar icon (Gil, 2026-09-29: "there are two
+# icons, should be consolidated") — starts the brain itself when it is not
+# running. --background: if it already runs, do nothing. If it cannot start
+# (no Qt tray), start the brain directly as before.
+if pgrep -f -- '-m assistant\.host' >/dev/null 2>&1; then
+    echo "🗓  MACalendar Server already running — using it"
+elif python -c "import PyQt6.QtWidgets" 2>/dev/null; then
+    python -m assistant.host --background &
+    API_PID=$!
+    for _ in $(seq 1 40); do                   # the window wants the brain up
+        lsof -i :$PORT -sTCP:LISTEN -t >/dev/null 2>&1 && break
+        sleep 0.5
+    done
+elif lsof -i :$PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
     echo "📱 API already running on :$PORT — using it"
 else
     python -m assistant.api --tailscale --port $PORT $RELOAD &

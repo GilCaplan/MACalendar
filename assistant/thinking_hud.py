@@ -646,6 +646,16 @@ class _BusReader:
                 self._hud.hide()
 
 
+
+def needs_own_icon() -> bool:
+    """Show the ✦? Only while MACalendar Server's menu — which has the card's
+    Show/Hide — is not there (its heartbeat is stale or missing)."""
+    try:
+        from assistant.heartbeat import is_fresh
+        return not is_fresh("host", within=15)
+    except Exception:
+        return True
+
 def main(argv: list[str] | None = None) -> int:
     import argparse
 
@@ -712,6 +722,39 @@ def main(argv: list[str] | None = None) -> int:
         logger.warning("No menu bar item (%s) — the card will reappear on the "
                        "next command instead of staying hidden", exc)
         hud.allow_reappear_without_tray()
+
+    # ONE MACalendar icon in the menu bar (Gil, 2026-09-29: "there are two
+    # icons, should be consolidated"). MACalendar Server's menu carries the
+    # card's Show/Hide, so this ✦ steps aside while that app is alive (its
+    # heartbeat), and comes back if it quits — the card must always have
+    # somewhere to be reopened from. The server reaches the card through this
+    # local socket: "show", "hide".
+    from PyQt6.QtNetwork import QLocalServer
+    QLocalServer.removeServer("macalendar-hud")
+    hud_server = QLocalServer()
+    hud_server.listen("macalendar-hud")
+
+    def _on_hud_message():
+        conn = hud_server.nextPendingConnection()
+        if conn is None:
+            return
+
+        def _read(c=conn):
+            msg = bytes(c.readAll()).strip()
+            if msg == b"show":
+                hud.reopen()
+            elif msg == b"hide":
+                hud._on_panel_closed()
+        conn.readyRead.connect(_read)
+    hud_server.newConnection.connect(_on_hud_message)
+
+    def _one_icon():
+        if tray is not None:
+            tray.setVisible(needs_own_icon())
+    icon_timer = QTimer()
+    icon_timer.timeout.connect(_one_icon)
+    icon_timer.start(3000)
+    _one_icon()
     if args.show:
         hud.reopen()
 

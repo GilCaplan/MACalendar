@@ -1,35 +1,35 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 722, "total_lines": 194972} -->
+<!-- code-stats: {"total_files": 724, "total_lines": 195303} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**194,972 lines of source across 722 files.** Of that, **110,251 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**195,303 lines of source across 724 files.** Of that, **110,488 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
-| Test code | 221 | 43,217 |
-| Actions, storage & domain (DB, config, observance, .ics) | 152 | 26,302 |
+| Test code | 222 | 43,311 |
+| Actions, storage & domain (DB, config, observance, .ics) | 152 | 26,350 |
 | iOS application | 69 | 26,055 |
-| Mac application (calendar GUI) | 41 | 22,451 |
+| Mac application (calendar GUI) | 42 | 22,584 |
 | Engine (the brain, shipped path) | 57 | 20,738 |
 | Engine experiments & boards (not in the answer path) | 65 | 20,386 |
 | Dataset & measurement tooling | 52 | 13,585 |
 | Retired (old brain, kept on purpose) | 16 | 7,533 |
-| Review panel (Mac card + iOS timeline) | 6 | 4,245 |
+| Review panel (Mac card + iOS timeline) | 6 | 4,288 |
 | Microphone / speech (record, STT, TTS) | 20 | 3,846 |
 | Model / Ollama code | 12 | 3,251 |
 | API server (the front door) | 5 | 2,103 |
-| Launch scripts | 6 | 1,260 |
-| **TOTAL** | **722** | **194,972** |
+| Launch scripts | 6 | 1,273 |
+| **TOTAL** | **724** | **195,303** |
 
 ### By language
 
 | | files | lines |
 |---|---:|---:|
-| Python | 634 | 165,272 |
+| Python | 636 | 165,590 |
 | Swift | 77 | 28,600 |
 | shell | 9 | 914 |
-| launch script | 2 | 186 |
+| launch script | 2 | 199 |
 
 Not counted above, and deliberately so:
 
