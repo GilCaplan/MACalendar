@@ -24,11 +24,12 @@ def test_f4b_marking_a_date_never_completes_a_task(fastrule):
     never commit a complete_* — abstaining to deep is the accepted outcome."""
     r = fastrule.run("mark 13 october of this year as my birthday")
     assert not any(n.startswith("complete_") for n, _ in r.intents)
-    # F15 improved the outcome: it now COMMITS this as an all-day event
-    # (a dated create with no spoken clock time). The rule being pinned is
-    # "never tick a task off", not the old inability to handle it at all.
+    # F15 improved the outcome: it COMMITTED this as an all-day event (a
+    # dated create with no spoken clock time); since DEVQA Q73 a stated
+    # birthday with a calendar date is an OCCASION (a yearly banner). The rule
+    # being pinned is "never tick a task off", not which create it becomes.
     if r.committed:
-        assert r.intents[0][0] == "create_event"
+        assert r.intents[0][0] in ("create_event", "add_occasion")
     r = fastrule.run("mark groceries as done")
     assert r.committed and r.intents[0][0] == "complete_todo"
 

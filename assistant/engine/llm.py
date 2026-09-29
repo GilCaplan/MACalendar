@@ -45,6 +45,7 @@ def get_registry():
     import assistant.actions.clarify           # noqa: F401
     import assistant.actions.workout_routine   # noqa: F401
     import assistant.actions.schedule_workout  # noqa: F401
+    import assistant.actions.occasion          # noqa: F401  (Q73)
     from assistant.actions import ActionRegistry
     return ActionRegistry()
 

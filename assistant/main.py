@@ -15,6 +15,7 @@ import assistant.actions.todo             # noqa: F401, PLC0415  registers todo 
 import assistant.actions.clarify          # noqa: F401, PLC0415  registers ClarifyAction
 import assistant.actions.workout_routine  # noqa: F401, PLC0415  registers GenerateWorkoutRoutineAction
 import assistant.actions.schedule_workout  # noqa: F401, PLC0415  registers ScheduleWorkoutAction
+import assistant.actions.occasion  # noqa: F401, PLC0415  registers AddOccasionAction (Q73)
 
 from assistant.actions import registry
 from assistant.calendar_ui.window import CalendarWindow

@@ -336,6 +336,7 @@ def reset_voice_receipts():
 import assistant.actions.calendar   # noqa: E402,F401
 import assistant.actions.todo       # noqa: E402,F401
 import assistant.actions.clarify    # noqa: E402,F401
+import assistant.actions.occasion   # noqa: E402,F401  (Q73)
 
 _REAL_ACTIONS = dict(global_registry._actions)
 

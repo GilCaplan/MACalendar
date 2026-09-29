@@ -15,6 +15,16 @@
   yahrzeit Adar I, birthday/anniversary Adar II, or both); a missing 30th →
   the month's last day. Hiding a holiday type is display only — the Shabbat
   / yom tov rules always see every holiday.
+  **By voice** (Gil: "go for it", after being told it touches the paused
+  engine): a narrow reader before the rule parser's phases files an occasion
+  stated with a calendar date and NO time, relative day or event word
+  ("Dana's birthday is March 3rd", "12 Adar" for a yahrzeit) as
+  `add_occasion`; everything else is untouched. Measured: 0 of 6,300 FastRule
+  TRAIN commands change (116 mention birthdays/anniversaries — nearly all
+  events); on TEST, 3 commands of the "mark March 5th as our anniversary"
+  shape become occasions (aggregate only, not read for tuning). The action is
+  NOT offered to the model yet (`model_visible = False`): a new name changes
+  the prompt every command sees, and that waits for Board D --product.
 
 - **2026-09-29 — Q72 (ONE MENU-BAR ICON; SHOWN HOURS; AN ASSISTANT OFF
   SWITCH; SETTINGS LIKE THE PHONE'S)**, Gil, from screenshots:

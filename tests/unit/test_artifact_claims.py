@@ -156,8 +156,8 @@ def test_the_size_of_the_verb_table_is_current(all_prose):
 
 
 def test_the_number_of_rule_reachable_actions_is_current(all_prose):
-    from assistant.intent.rule_parser import INTENT_MAP
-    reachable = len(set(INTENT_MAP.values()))
+    from assistant.intent.rule_parser import DIRECT_READERS, INTENT_MAP
+    reachable = len(set(INTENT_MAP.values()) | set(DIRECT_READERS))
     for name, text in all_prose.items():
         if "reachable" not in text.lower():
             continue

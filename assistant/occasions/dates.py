@@ -102,11 +102,16 @@ def occurrences(rec: dict, start: datetime.date, end: datetime.date) -> list[dic
 def banner_title(kind: str, title: str, years: "int | None") -> str:
     """"Dana's 30th birthday", "Gil & Dana — 5 years", "Yahrzeit · Grandpa"."""
     if kind == "birthday":
+        if title.lower().endswith("birthday"):            # "My birthday"
+            return title.replace("birthday", f"{ordinal(years)} birthday") if years and years > 0 else title
         if years and years > 0:
             return f"{title}'s {ordinal(years)} birthday"
         return f"{title}'s birthday"
     if kind == "anniversary":
-        return f"{title} — {years} year{'s' if years != 1 else ''}" if years else f"{title} (anniversary)"
+        base = title if "anniversary" in title.lower() else f"{title} (anniversary)"
+        if years:
+            return f"{title} — {years} year{'s' if years != 1 else ''}"
+        return base
     if kind == "yahrzeit":
         return f"Yahrzeit · {title}" + (f" ({years})" if years else "")
     return title

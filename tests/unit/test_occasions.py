@@ -313,3 +313,76 @@ def test_the_day_panel_carries_them(tmp_path):
     panel = notify.build_digest(D(2026, 10, 5), cfg, db=CalendarDB(str(tmp_path / "c.db")))
     assert panel["occasions"] == ["🎂 Dana's birthday — today"]
     assert "1 occasion" in panel["title"] and "Dana's birthday — today" in panel["body"]
+
+
+# -- by voice ------------------------------------------------------------------------------------------
+
+from assistant.occasions import voice  # noqa: E402
+
+
+@pytest.mark.parametrize("said,kind,title,cal,md,year", [
+    ("Dana's birthday is March 3rd", "birthday", "Dana", "gregorian", (3, 3), None),
+    ("remember our anniversary, June 20 2021", "anniversary", "Our anniversary", "gregorian", (6, 20), 2021),
+    ("add grandpa Moshe's yahrzeit, 12 Adar", "yahrzeit", "Grandpa Moshe", "hebrew", (12, 12), None),
+    ("my birthday is the 5th of Kislev", "birthday", "My birthday", "hebrew", (9, 5), None),
+    ("add the yahrzeit of my grandmother on 3 Tammuz", "yahrzeit", "My grandmother", "hebrew", (4, 3), None),
+    ("Noa's birthday is 14 February 1998", "birthday", "Noa", "gregorian", (2, 14), 1998),
+    ("Avi's bday: 7 July", "birthday", "Avi", "gregorian", (7, 7), None),
+])
+def test_an_occasion_said_outright_is_read(said, kind, title, cal, md, year):
+    got = voice.read(said)
+    assert got and (got["kind"], got["title"], got["calendar"], (got["month"], got["day"]),
+                    got["year"]) == (kind, title, cal, md, year)
+
+
+@pytest.mark.parametrize("said", [
+    "Dana's birthday party on March 3rd at 7pm",       # an event
+    "book birthday dinner on March 3rd",                # an event
+    "Dana's birthday is tomorrow",                      # no calendar date said
+    "what's Dana's birthday",                           # a question, no date
+    "I may go to Dana's birthday",                      # "may" is not a month here
+    "put a marker on tonight for our anniversary",      # tonight: a one-off
+    "grandpa's yahrzeit is March 3rd",                  # a yahrzeit is by the Hebrew date: engine decides
+    "buy flowers for our anniversary on June 20",       # a task
+])
+def test_everything_else_is_left_to_the_engine(said):
+    assert voice.read(said) is None
+
+
+def test_no_practice_command_is_taken_from_the_engine():
+    """The narrowness, measured: on FastRule's TRAIN half (6,300 commands, 116
+    mention birthdays and anniversaries — nearly all events), the recogniser
+    takes nothing. (TEST is not read row by row.)"""
+    import json
+    import pathlib
+    rows = [json.loads(l) for l in (pathlib.Path(__file__).resolve().parents[2]
+            / "assistant/engine/fastrule/datasets/fastrule_7200.jsonl").read_text().splitlines() if l.strip()]
+    train = [r for r in rows if r.get("split") == "train"]
+    assert len(train) == 6300
+    assert [r["text"] for r in train if voice.read(r.get("text") or "")] == []
+
+
+def test_the_model_path_reads_the_words_it_passes():
+    assert voice.from_words("birthday", "Dana", "March 3rd") == {
+        "kind": "birthday", "title": "Dana", "calendar": "gregorian", "month": 3, "day": 3, "year": None}
+    assert voice.from_words("yahrzeit", "grandpa", "12 Adar II")["month"] == 13
+    assert voice.from_words("birthday", "Dana", "next tuesday") is None
+
+
+def test_by_voice_end_to_end(registry_with_real_actions, client):
+    r = client.post("/voice/text", json={"transcript": "Dana's birthday is March 3rd",
+                                         "source": "test"}).get_json()
+    assert r["message"].startswith("Added Dana's birthday — 3 March, every year")
+    assert r.get("refresh") == "events", "the banner redraws"
+    [o] = store.load()
+    assert (o["kind"], o["title"], o["month"], o["day"]) == ("birthday", "Dana", 3, 3)
+
+
+def test_the_model_does_not_see_it_until_measured(registry_with_real_actions):
+    from assistant.engine import llm
+    reg = llm.get_registry()
+    assert "add_occasion" in reg.all_names(), "executable"
+    assert "add_occasion" not in reg.model_names()
+    prompt = reg.build_system_prompt("2026-09-29", "Asia/Jerusalem")
+    assert "add_occasion" not in prompt and "create_event" in prompt
+    assert "add_occasion" not in str(reg.build_ollama_schema())

@@ -480,7 +480,7 @@ class IntentParser:
             '     "action": "<correct_action_name>",\n'
             '     "parameters": {<full correct params>},\n'
             '     "speech": "<under 15 words for TTS>"}\n'
-            f"Valid action names: {', '.join(self.registry.all_names())}.\n\n"
+            f"Valid action names: {', '.join(self.registry.model_names())}.\n\n"
             "Default to agreement. Most commands are interpreted correctly, and a\n"
             "wrong 'correction' overwrites a record the user is already happy with.\n"
             'Return {"ok": true} unless you can name a definite error. In particular:\n'

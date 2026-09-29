@@ -765,6 +765,11 @@ def _commit(state: EngineState, cfg) -> None:
                 refresh_set.add("events")
             elif "todo" in item.action:
                 refresh_set.add("todos")
+            elif getattr(action_cls, "refreshes", None) in ("events", "todos"):
+                # An action outside events/todos says what its row redraws
+                # (add_occasion: the calendar's banners, DEVQA Q73). Only the
+                # two real answers — anything else would reach the reply's JSON.
+                refresh_set.add(action_cls.refreshes)
             idx += 1
         except Exception as e:
             logger.exception("Action %s failed: %s", item.action, e)

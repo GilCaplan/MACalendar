@@ -44,6 +44,12 @@ class ActionRegistry:
     def all_names(self) -> list[str]:
         return list(self._actions.keys())
 
+    def model_names(self) -> list[str]:
+        """The actions offered to the MODEL. An action may be executable yet
+        kept out of the prompt (``model_visible = False``) until adding it has
+        been measured — a new name changes the prompt every command sees."""
+        return [n for n, c in self._actions.items() if getattr(c, "model_visible", True)]
+
     # ------------------------------------------------------------------
     # Prompt / schema construction (called by IntentParser at startup)
     # ------------------------------------------------------------------
@@ -137,6 +143,8 @@ class ActionRegistry:
             "Registered actions and what triggers them:",
         ]
         for name, cls in self._actions.items():
+            if not getattr(cls, "model_visible", True):
+                continue
             lines.append(f"\n  action: \"{name}\"")
             lines.append(f"  description: {cls.description}")
             # compact one-line schema: same information, ~40% fewer tokens
@@ -149,7 +157,7 @@ class ActionRegistry:
         Top-level JSON schema passed to Ollama's structured-output feature.
         Ollama enforces only the envelope; Pydantic validates parameters (two-pass).
         """
-        action_names = self.all_names() + ["unknown"]
+        action_names = self.model_names() + ["unknown"]
         return {
             "type": "object",
             "properties": {

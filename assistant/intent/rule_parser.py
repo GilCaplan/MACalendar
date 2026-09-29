@@ -124,6 +124,28 @@ class RuleParseResult:
     range_dates: "list[str] | None" = None
 
 
+#: Actions the rules reach WITHOUT the verb table — a reader of their own in
+#: `analyze()`. Counted with INTENT_MAP's wherever "reachable by rule" is said.
+DIRECT_READERS = ("add_occasion",)
+
+
+def _occasion_reading(transcript: str) -> "RuleParseResult | None":
+    """The ``add_occasion`` intent for an occasion stated outright, else None."""
+    from assistant.occasions.voice import read
+    hit = read(transcript)
+    if hit is None:
+        return None
+    from assistant.actions.occasion.action import (_GREG_NAMES, _HEB_NAMES,
+                                                   AddOccasionIntent)
+    names = _HEB_NAMES if hit["calendar"] == "hebrew" else _GREG_NAMES
+    intent = AddOccasionIntent(kind=hit["kind"], name=hit["title"],
+                               date_text=f"{hit['day']} {names[hit['month'] - 1]}",
+                               year=hit.get("year"))
+    return RuleParseResult(confidence=0.99, intents=[("add_occasion", intent)],
+                           missing_slots=[], raw_slots={"add_occasion": dict(hit)},
+                           transcript=transcript)
+
+
 class RuleParserSkip(Exception):
     """Raised when the rule parser cannot handle the input (complexity gate or no match).
     Pipeline should catch this and fall through to the standard LLM parse.
@@ -3914,6 +3936,15 @@ class RuleBasedParser:
         """
         if not _RULE_PARSER_AVAILABLE:
             raise RuleParserSkip("spaCy not available")
+
+        # OCCASIONS (DEVQA Q73): a stated birthday / anniversary / yahrzeit /
+        # countdown with an explicit calendar date and nothing that makes it an
+        # event ("Dana's birthday is March 3rd") is filed as an occasion, not
+        # booked. assistant/occasions/voice.py keeps this narrow on purpose —
+        # "birthday dinner Tuesday at 8" never gets here.
+        occ = _occasion_reading(transcript)
+        if occ is not None:
+            return occ
 
         # Phase 0: Preprocess + complexity gate
         normalized, should_skip, lead_minutes = _preprocess(transcript)

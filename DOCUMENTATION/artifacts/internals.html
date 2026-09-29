@@ -441,8 +441,9 @@ base       = <span class="a">required slots filled ÷ required slots</span>   <s
     <h2><span class="num">05</span>How the rules read a sentence</h2>
     <p>
       No model. spaCy tags the words, a date recogniser lifts times out, and a table of
-      <strong>123 verb → action mappings</strong> decides what you asked for. Nine of the
-      fifteen actions are reachable this way; the rest always need llama.
+      <strong>123 verb → action mappings</strong> decides what you asked for. Ten of the
+      sixteen actions are reachable this way (one, adding an occasion, by a reader of its own);
+      the rest always need llama.
     </p>
     <p>
       The verb lookup tries four things in order, and the fourth is where it goes wrong:
@@ -921,7 +922,7 @@ Sat  5 Sep   tzeit   <span class="a">19:37</span>   →  20:00 is <span class="g
   <section>
     <h2><span class="num">12</span>Tasks are not small events</h2>
     <p>
-      Eight of the fifteen actions are about tasks, and they behave differently from
+      Eight of the sixteen actions are about tasks, and they behave differently from
       events in ways worth knowing: a task has no time, it has a <em>list</em>, and it
       can be finished.
     </p>
