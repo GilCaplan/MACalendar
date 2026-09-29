@@ -41,3 +41,23 @@ def set(role: str) -> None:                     # noqa: A001 — the module's ve
     data["role"] = role
     PATH.parent.mkdir(parents=True, exist_ok=True)
     PATH.write_text(json.dumps(data, indent=2))
+
+
+#: Where this machine's Mac apps live: the installer's question (DEVQA Q71).
+DEFAULT_APPS_DIR = "/Applications/MACalendar APPs"
+
+
+def recall(key: str, default=None):
+    """Another per-machine fact the installer recorded (e.g. ``apps_dir``)."""
+    return _read().get(key, default)
+
+
+def remember(key: str, value) -> None:
+    data = _read()
+    data[key] = value
+    PATH.parent.mkdir(parents=True, exist_ok=True)
+    PATH.write_text(json.dumps(data, indent=2))
+
+
+def apps_dir() -> pathlib.Path:
+    return pathlib.Path(recall("apps_dir") or DEFAULT_APPS_DIR)

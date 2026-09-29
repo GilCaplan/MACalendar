@@ -16,11 +16,13 @@ purely backend (no client code beyond displaying the effects).
 
 ## The installer: one file per OS
 
-**What.** Download one file — `install-macalendar-mac.command`,
-`install-macalendar-linux.sh` or `install-macalendar-windows.ps1` — and run
-it: git, Python, Ollama and the model, the code, the packages and the apps go
-into one folder (`~/MACalendar`), after two questions (primary or model
-helper; Jude or not). Running it again updates. DEVQA Q70.
+**What.** One command on macOS or Linux (`install-macalendar.sh` detects
+which; a double-clickable `.command` for the Mac) or one PowerShell file on
+Windows: git, Python, Ollama and the model, the code, the packages and the
+apps go into one folder (`~/MACalendar`). It first checks for an existing
+install (update / delete and reinstall / leave it), asks primary or model
+helper, Jude or not, and where the app icons go, checks that it works, and
+offers to delete the downloaded file. DEVQA Q70, Q71.
 
 **Where.** `install/` — the three stage-one files and `install.py`, the
 stdlib-only stage two shared by every OS. README ▸ "Installation — one file".

@@ -9,8 +9,10 @@
 #
 # It installs what the installer needs — Git, Python 3.12 and Ollama — with
 # winget (built into Windows 10/11), fetches MACalendar into
-# %USERPROFILE%\MACalendar, and hands over to install\install.py, which does
-# the rest the same way on every system. Safe to run again.
+# %USERPROFILE%\MACalendar if it is not there yet, and hands over to
+# install\install.py, which asks the rest (an existing install: update /
+# reinstall / leave; the role; Jude; desktop shortcuts) and at the end offers
+# to delete this file. Safe to run again.
 #
 # $env:MACALENDAR_HOME puts everything elsewhere. Arguments go to install.py.
 
@@ -41,17 +43,18 @@ Need git "Git.Git" "Git"
 Need py "Python.Python.3.12" "Python 3.12"
 Need ollama "Ollama.Ollama" "Ollama (runs the assistant's model on this PC)"
 
-# The code.
+# The code — fetched once. An EXISTING copy is left for install.py to ask
+# about (update, reinstall, or leave it as it is).
 New-Item -ItemType Directory -Force -Path $Root | Out-Null
 $Repo = Join-Path $Root "MACalendar"
-if (Test-Path (Join-Path $Repo ".git")) {
-    Say "Updating the code"
-    git -C $Repo pull --ff-only
-} else {
+if (-not (Test-Path (Join-Path $Repo ".git"))) {
     Say "Fetching the code"
     git clone --depth 1 $RepoUrl $Repo
 }
 
-# Everything else.
-& py -3.12 (Join-Path $Repo "install\install.py") --root $Root @args
+# Everything else. When this ran from a downloaded FILE (not irm | iex), its
+# path goes along so the installer can offer to delete it at the end.
+$More = @("--root", $Root)
+if ($PSCommandPath) { $More += @("--installer-file", $PSCommandPath) }
+& py -3.12 (Join-Path $Repo "install\install.py") @More @args
 exit $LASTEXITCODE

@@ -83,7 +83,7 @@ def test_windows_shortcuts_use_pythonw_so_no_console_opens(inst):
 def test_the_mac_apps_are_not_repointed_without_asking(inst, tmp_path, monkeypatch):
     """No-touch (CLAUDE.md): apps installed from another folder stay put."""
     apps = tmp_path / "MACalendar APPs"
-    apps.mkdir()
+    (apps / "MACalendar Server.app").mkdir(parents=True)
     monkeypatch.setattr(inst, "APPS_DIR", apps)
     plan = "\n".join(_plan(inst, tmp_path, "Darwin", "--no-model"))
     assert "build_apps.sh" not in plan
@@ -109,19 +109,31 @@ def test_stage_two_needs_nothing_but_the_standard_library():
     assert mods <= set(sys.stdlib_module_names) | {"__future__"}, mods - set(sys.stdlib_module_names)
 
 
-@pytest.mark.parametrize("script", ["install-macalendar-mac.command", "install-macalendar-linux.sh"])
-def test_the_shell_stage_ones_parse_and_hand_over(script):
-    path = INSTALL / script
+def test_one_script_for_mac_and_linux_detects_which():
+    path = INSTALL / "install-macalendar.sh"
     assert subprocess.run(["bash", "-n", str(path)]).returncode == 0
     text = path.read_text()
+    assert 'uname -s' in text and "Darwin)" in text and "Linux)" in text
+    assert "MINGW*" in text and "install-macalendar-windows.ps1" in text, "Windows is pointed at its own"
     assert "https://github.com/GilCaplan/MACalendar.git" in text
     assert "install/install.py" in text and '${@+"$@"}' in text, "bash 3.2-safe hand-over"
+    assert "--installer-file" in text, "the downloaded file is offered for deletion"
+    assert "pull" not in text, "an existing copy is install.py's question, not stage one's"
     assert path.stat().st_mode & 0o111, "executable"
+
+
+def test_the_mac_double_click_file_runs_the_same_script():
+    path = INSTALL / "install-macalendar-mac.command"
+    assert subprocess.run(["bash", "-n", str(path)]).returncode == 0
+    text = path.read_text()
+    assert "install-macalendar.sh" in text and "MACALENDAR_INSTALLER_FILE" in text
+    assert path.stat().st_mode & 0o111
 
 
 def test_the_windows_stage_one_hands_over(tmp_path):
     text = (INSTALL / "install-macalendar-windows.ps1").read_text()
     assert "winget install" in text and "install\\install.py" in text
+    assert "--installer-file" in text and "pull" not in text
     if shutil.which("pwsh"):
         r = subprocess.run(["pwsh", "-NoProfile", "-Command",
                             f"$null = [ScriptBlock]::Create((Get-Content -Raw '{INSTALL / 'install-macalendar-windows.ps1'}'))"])
@@ -132,7 +144,7 @@ def test_the_readme_points_at_files_that_exist():
     readme = (ROOT / "README.md").read_text()
     for url in re.findall(r"https://raw\.githubusercontent\.com/GilCaplan/MACalendar/main/(\S+?)[)`\s|]", readme):
         assert (ROOT / url).exists(), url
-    for f in ("install-macalendar-mac.command", "install-macalendar-linux.sh",
+    for f in ("install-macalendar.sh", "install-macalendar-mac.command",
               "install-macalendar-windows.ps1"):
         assert f in readme
 
@@ -168,3 +180,160 @@ def test_verify_on_nothing_installed_says_so(inst, tmp_path):
     with pytest.raises(SystemExit) as done:
         inst.Installer(args).main()
     assert done.value.code == 1
+
+
+# -- an existing install, the icons, tidying up (DEVQA Q71) ---------------------
+
+def _installer(inst, tmp_path, system, *extra):
+    args = inst.parse(["--root", str(tmp_path / "root"), "--no-launch", *extra])
+    return inst.Installer(args, system=system)
+
+
+def _mark(tmp_path, **kw):
+    root = tmp_path / "root"
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "install.json").write_text(__import__("json").dumps(dict({"root": str(root.resolve())}, **kw)))
+
+
+def test_a_fresh_folder_is_a_fresh_install_even_with_the_code_fetched(inst, tmp_path):
+    (tmp_path / "root" / "MACalendar" / ".git").mkdir(parents=True)     # stage one cloned it
+    assert _installer(inst, tmp_path, "Linux", "--yes").existing() == "fresh"
+
+
+def test_an_existing_install_is_updated_by_default(inst, tmp_path):
+    _mark(tmp_path)
+    assert _installer(inst, tmp_path, "Linux", "--yes").existing() == "update"
+
+
+def test_leave_it_as_it_is_changes_nothing(inst, tmp_path, capsys):
+    _mark(tmp_path)
+    i = _installer(inst, tmp_path, "Linux", "--existing", "keep", "--dry-run")
+    i.main()
+    assert i.plan == [] and "nothing was changed" in capsys.readouterr().out
+
+
+def test_reinstall_deletes_only_a_real_checkout(inst, tmp_path):
+    _mark(tmp_path)
+    (tmp_path / "root" / "MACalendar").mkdir()
+    i = _installer(inst, tmp_path, "Linux", "--existing", "reinstall")
+    i.state = "reinstall"
+    with pytest.raises(SystemExit, match="does not look like a MACalendar checkout"):
+        i.reinstall_code()
+    assert (tmp_path / "root" / "MACalendar").exists()
+
+
+def test_reinstall_keeps_the_settings(inst, tmp_path, monkeypatch):
+    # reinstall_code steps out of the folder it deletes (os.chdir); undo that
+    # for the tests after this one, which open files by relative path
+    monkeypatch.chdir(tmp_path)
+    _mark(tmp_path)
+    repo = tmp_path / "root" / "MACalendar"
+    (repo / "install").mkdir(parents=True)
+    (repo / "install" / "install.py").write_text("")
+    (repo / "assistant").mkdir()
+    (repo / "config.yaml").write_text("mine: true\n")
+    i = _installer(inst, tmp_path, "Linux", "--existing", "reinstall")
+
+    def fake_clone(cmd, **kw):
+        repo.mkdir(parents=True, exist_ok=True)
+        (repo / "fresh").write_text("")
+        return 0
+    monkeypatch.setattr(i, "run", fake_clone)
+    i.reinstall_code()
+    assert (repo / "fresh").exists() and (repo / "config.yaml").read_text() == "mine: true\n"
+    assert not (repo / "assistant").exists(), "the old program is gone"
+
+
+def test_an_update_finishes_with_the_newest_installer(inst, tmp_path, monkeypatch):
+    repo = tmp_path / "root" / "MACalendar" / "install"
+    repo.mkdir(parents=True)
+    (repo / "install.py").write_text("# a newer installer\n")
+    monkeypatch.delenv("MACALENDAR_INSTALL_REEXEC", raising=False)
+    seen = []
+    monkeypatch.setattr(inst.os, "execv", lambda exe, argv: seen.append(argv))
+    monkeypatch.setattr(inst.sys, "argv", ["install.py", "--existing", "reinstall", "--yes"])
+    _installer(inst, tmp_path, "Linux").hand_over_if_newer()
+    assert seen and seen[0][1].endswith("install.py")
+    assert seen[0][-2:] == ["--existing", "update"] and "reinstall" not in seen[0]
+    monkeypatch.setenv("MACALENDAR_INSTALL_REEXEC", "1")
+    seen.clear()
+    _installer(inst, tmp_path, "Linux").hand_over_if_newer()
+    assert not seen, "never twice"
+
+
+def test_the_mac_icons_go_where_the_person_says(inst, tmp_path):
+    i = _installer(inst, tmp_path, "Darwin", "--apps-dir", str(tmp_path / "Mine"), "--yes")
+    i.choose_icons()
+    assert i.apps_dir == tmp_path / "Mine"
+
+
+def test_an_update_keeps_the_last_icon_choice(inst, tmp_path):
+    _mark(tmp_path, apps_dir=str(tmp_path / "Desk"), desktop_icons=True)
+    i = _installer(inst, tmp_path, "Darwin", "--yes")
+    i.state = "update"
+    i.choose_icons()
+    assert i.apps_dir == tmp_path / "Desk"
+    j = _installer(inst, tmp_path, "Linux", "--yes")
+    j.state = "update"
+    j.choose_icons()
+    assert j.desktop_icons is True
+
+
+def test_linux_desktop_icons_are_a_second_copy_of_the_menu_entries(inst, tmp_path, monkeypatch):
+    monkeypatch.setattr(inst, "linux_desktop", lambda: tmp_path / "Desktop")
+    plan = "\n".join(_plan(inst, tmp_path, "Linux", "--no-model", "--desktop-icons", "yes"))
+    assert f"write {tmp_path / 'Desktop' / 'macalendar.desktop'}" in plan
+    assert "/.local/share/applications/macalendar.desktop" in plan
+
+
+def test_windows_desktop_shortcuts_when_asked(inst, tmp_path):
+    plan = _plan(inst, tmp_path, "Windows", "--no-model", "--desktop-icons", "yes")
+    assert sum("GetFolderPath('Desktop')" in step for step in plan) == 3
+    assert sum("Start Menu" in step for step in plan) == 3
+
+
+def test_the_downloaded_installer_is_offered_for_deletion(inst, tmp_path):
+    f = tmp_path / "Downloads" / "install-macalendar-mac.command"
+    f.parent.mkdir()
+    f.write_text("#!/bin/bash\n")
+    _installer(inst, tmp_path, "Darwin", "--yes", "--installer-file", str(f)).tidy_up()
+    assert not f.exists(), "--yes takes the default: delete it"
+
+
+def test_only_the_downloaded_installer_is_ever_deleted(inst, tmp_path):
+    other = tmp_path / "notes.txt"
+    other.write_text("x")
+    _installer(inst, tmp_path, "Darwin", "--yes", "--installer-file", str(other)).tidy_up()
+    inside = tmp_path / "root" / "MACalendar" / "install" / "install-macalendar.sh"
+    inside.parent.mkdir(parents=True)
+    inside.write_text("x")
+    _installer(inst, tmp_path, "Darwin", "--yes", "--installer-file", str(inside)).tidy_up()
+    assert other.exists() and inside.exists()
+
+
+def test_a_running_server_is_asked_to_quit(inst, qapp_or_skip):
+    """Through Qt's own local socket, as the tray listens (the name is unique
+    here so the real MACalendar Server is never told to quit by a test)."""
+    from PyQt6.QtNetwork import QLocalServer
+    name = f"macalendar-test-{__import__('os').getpid()}"
+    server = QLocalServer()
+    QLocalServer.removeServer(name)
+    assert server.listen(name)
+    got = []
+    import threading
+    t = threading.Thread(target=lambda: got.append(inst.stop_running_server(name)))
+    t.start()
+    assert server.waitForNewConnection(3000)
+    conn = server.nextPendingConnection()
+    conn.waitForReadyRead(3000)
+    assert bytes(conn.readAll()) == b"quit"
+    t.join(5)
+    assert got == [True]
+    assert inst.stop_running_server(name + "-nobody") is False
+
+
+@pytest.fixture
+def qapp_or_skip():
+    pytest.importorskip("PyQt6")
+    from PyQt6.QtCore import QCoreApplication
+    return QCoreApplication.instance() or QCoreApplication([])

@@ -1,3 +1,27 @@
+- **2026-09-29 — Q71 (THE INSTALLER ASKS, DETECTS AND TIDIES UP)**, Gil:
+  *"does the installation also offer user to pick where to store application
+  icons … perhaps have it auto detect what os … tells user or auto deletes the
+  installer after everything is installed … first checks if macalendar
+  software is already installed, and offer to delete and reinstall or to leave
+  as is"*. Built:
+  1. **Icons where the person says.** Mac: Applications ▸ MACalendar APPs
+     (default), the Desktop, or any folder — `build_apps.sh` takes it as
+     `MACALENDAR_APPS_DIR` and still builds only into that ONE folder, removing
+     nothing elsewhere (the no-touch rule stands: the place is the person's
+     choice, never a script's). Linux / Windows: the menu / Start menu, plus the
+     Desktop if asked. An update keeps the last answer.
+  2. **One command for macOS and Linux** (`install-macalendar.sh`, `uname`
+     decides); the Mac's double-click file runs it; Windows keeps its
+     PowerShell file (it cannot run a shell script, and the script says so).
+  3. **The downloaded installer is offered for deletion** once the check
+     passes (deleted with `--yes`); only a file named `install-macalendar*`
+     outside the install folder, never anything else.
+  4. **An existing install is asked about first**: update (default), delete
+     and reinstall (the program only — config.yaml and ~/.assistant_tools are
+     kept, and a folder that is not a MACalendar checkout is refused), or
+     leave it as it is. A running MACalendar Server is asked to quit first,
+     and an update that brings a newer installer finishes with the new one.
+
 - **2026-09-29 — Q70 (MODEL HELPERS, SERVER CONTROLS, AN INSTALLER)**, Gil:
   *"a way to decide and control server — primary … and if other OS devices
   are capable of running models, control what primary and secondary and make

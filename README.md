@@ -185,25 +185,25 @@ the Mac.
 ## Installation
 
 **[INSTALL.md](INSTALL.md) has all three ways**, each giving the same result —
-everything in one folder, `~/MACalendar`, and two questions (is this computer
-the **primary** or a **model helper**; do you want **Jude**):
+everything in one folder, `~/MACalendar`:
 
-- **A. One file (automatic).** Download the file for your computer and run it —
-  [macOS](install/install-macalendar-mac.command) ·
-  [Linux](install/install-macalendar-linux.sh) ·
-  [Windows](install/install-macalendar-windows.ps1) — or one line:
+- **A. One command (automatic).** On **macOS or Linux** — it detects which:
 
   ```bash
-  curl -fsSL https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar-mac.command | bash    # macOS
-  curl -fsSL https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar-linux.sh | bash      # Linux
+  curl -fsSL https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar.sh | bash
   ```
+  On **Windows** (PowerShell):
   ```powershell
-  irm https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar-windows.ps1 | iex           # Windows
+  irm https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar-windows.ps1 | iex
   ```
+  Or download a file and double-click it: [Mac](install/install-macalendar-mac.command) ·
+  [Mac/Linux](install/install-macalendar.sh) · [Windows](install/install-macalendar-windows.ps1).
 
-  It installs git, Python, Ollama and the model, the code and the apps, then
-  checks that it works and starts **MACalendar Server** in the menu bar / tray.
-  Run it again to update.
+  It checks whether MACalendar is already installed (update, reinstall, or
+  leave it), asks primary or model helper, Jude or not, and where the app
+  icons go; installs git, Python, Ollama and the model, the code and the apps;
+  checks that it works; starts **MACalendar Server**; and offers to delete the
+  file you downloaded.
 - **B. Ask an AI agent.** Point Claude Code, Codex or Cursor at
   [install/FOR_AI_AGENTS.md](install/FOR_AI_AGENTS.md): it asks you the
   questions, runs the installer non-interactively, hands you the steps that

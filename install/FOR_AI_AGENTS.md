@@ -36,17 +36,29 @@ result with its check. Human-facing overview: [`../INSTALL.md`](../INSTALL.md).
 3. **Folder** — "Install into `~/MACalendar`?" Default: yes. (Anything else:
    pass `--root`.)
 4. **Open at login** — "Start MACalendar Server when you log in?" Default: yes.
+5. **Icons** — Mac: "Where should the app icons go: Applications ▸ MACalendar
+   APPs, your Desktop, or another folder?" (default Applications; pass
+   `--apps-dir`). Linux / Windows: "Also put icons on your Desktop?" (default
+   no; `--desktop-icons yes|no`).
+6. **Only if it is already installed** (`~/MACalendar/install.json` exists):
+   "Update it (keep settings), delete and reinstall it (fresh program; settings
+   and your data kept), or leave it as it is?" Default: update
+   (`--existing update|reinstall|keep`).
+
+The installer offers to delete the installer file it was started from; with
+`--yes` it deletes it (only a file named `install-macalendar*`, never one
+inside the install folder).
 
 ## 2. Run the installer non-interactively
 
-Detect the OS (`uname` / `$env:OS`) and run ONE of these, filling in the
-answers. `--yes` takes every remaining default and asks nothing.
+Run ONE of these, filling in the answers. `--yes` takes every remaining
+default and asks nothing.
 
-**macOS / Linux**
+**macOS or Linux** (the script detects which):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar-mac.command -o /tmp/mc-install   # Linux: install-macalendar-linux.sh
-bash /tmp/mc-install --yes --role primary --jude no
+curl -fsSL https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar.sh -o /tmp/install-macalendar.sh
+bash /tmp/install-macalendar.sh --yes --role primary --jude no
 ```
 
 **Windows (PowerShell)**
@@ -70,6 +82,10 @@ Options (all passed through to `install/install.py`):
 | `--no-launch` | do not start MACalendar Server at the end |
 | `--dry-run` | print every step, change nothing — use it first if unsure |
 | `--verify` | only run the check on an existing install (exit 1 if broken) |
+| `--existing update\|reinstall\|keep` | when already installed (question 6) |
+| `--apps-dir DIR` | macOS: the folder the app icons go in (question 5) |
+| `--desktop-icons yes\|no` | Linux / Windows: also icons on the Desktop |
+| `--installer-file PATH` | the downloaded installer, deleted at the end (stage one passes it; you need not) |
 
 The run takes a few minutes, plus the model download (several GB) the first
 time. Use a long timeout and let it finish; progress lines start with `▸`.
@@ -121,8 +137,11 @@ for a helper, add it on the primary: Servers & logs ▸ Add a helper).
 
 ## 5. Updating and removing
 
-- **Update:** run the same command again; every step is safe to repeat.
-- **Remove:** only when asked. Delete the install folder and, on a Mac,
-  `/Applications/MACalendar APPs`; turn off Open at login first (server menu).
+- **Update:** `python3 ~/MACalendar/MACalendar/install/install.py --yes --existing update`
+  (or the same command as the install).
+- **Reinstall:** `--existing reinstall` — deletes and re-fetches the program
+  only; config.yaml and `~/.assistant_tools` are kept.
+- **Remove:** only when asked. Delete the install folder and the apps (Mac: the
+  folder in `install.json`'s `apps_dir`); turn off Open at login first.
   Leave `~/.assistant_tools` unless the person explicitly says to delete their
   data too — it cannot be recovered.

@@ -29,12 +29,18 @@ def test_an_install_removes_nothing_but_the_bundle_it_rebuilds():
 
 
 def test_an_install_goes_only_into_the_one_apps_folder():
+    """ONE folder: /Applications/MACalendar APPs, or the folder the person
+    chose in the installer ($MACALENDAR_APPS_DIR, DEVQA Q71) — never a place
+    a script picks on its own, like the Desktop."""
     for path in SCRIPTS:
         code = _code(path)
         assert "$HOME/Desktop/" not in code, path.name
-        for target in re.findall(r'build(?:_all_into)?\s+"(/Applications/[^"]*)"', code):
-            assert target.startswith(("/Applications/MACalendar APPs", "/Applications/$FOLDER")), \
-                (path.name, target)
+        for target in re.findall(r'build(?:_all_into)?\s+"(/Applications/[^"]*|\$APPS_DIR[^"]*)"', code):
+            assert target.startswith(("/Applications/MACalendar APPs", "/Applications/$FOLDER",
+                                      "$APPS_DIR")), (path.name, target)
+        for line in code.splitlines():
+            if "APPS_DIR=" in line and "MACALENDAR_APPS_DIR" not in line:
+                raise AssertionError(f"{path.name}: the folder must be the person's choice: {line}")
 
 
 def test_a_bundle_wears_its_own_icon_not_the_stock_applet_catalog():

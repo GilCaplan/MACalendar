@@ -79,10 +79,12 @@ build() {
 
 build "$REPO/Jude.app"
 if [[ "${1:-}" == "--install" ]]; then
-  # Into the ONE folder the apps live in (scripts/build_apps.sh), never loose on
-  # the Desktop or in /Applications (2026-09-26, no touch).
-  mkdir -p "/Applications/MACalendar APPs"
-  build "/Applications/MACalendar APPs/Jude.app"
+  # Into the ONE folder the apps live in (scripts/build_apps.sh) — the person's
+  # choice from the installer, else /Applications/MACalendar APPs (DEVQA Q71;
+  # 2026-09-26, no touch).
+  APPS_DIR="${MACALENDAR_APPS_DIR:-/Applications/MACalendar APPs}"
+  mkdir -p "$APPS_DIR"
+  build "$APPS_DIR/Jude.app"
   # Clear any half-recorded decision against this identity, so macOS asks again
   # on the next launch instead of silently refusing forever.
   tccutil reset SystemPolicyDesktopFolder "$BUNDLE_ID" 2>/dev/null || true

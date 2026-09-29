@@ -1,30 +1,36 @@
 #!/usr/bin/env python3
 """MACalendar installer, stage two — the same on macOS, Linux and Windows.
 
-Stage one (``install-macalendar-mac.command`` / ``-linux.sh`` /
-``-windows.ps1``) installs what this needs to run — git, Python 3.11+ and
-Ollama — clones the code, and runs this. Everything else happens here, with
-the standard library only (nothing is installed yet when it starts):
+Stage one (``install-macalendar.sh`` — macOS and Linux, it detects which —
+its double-clickable Mac wrapper ``install-macalendar-mac.command``, or
+``install-macalendar-windows.ps1``) installs what this needs to run — git,
+Python 3.11+ and Ollama — fetches the code if it is not there, and runs this.
+Everything else happens here, with the standard library only (nothing is
+installed yet when it starts):
 
-    1. the code         ROOT/MACalendar (a git checkout; updated if present)
+    0. an existing install?  update it, delete and reinstall it, or leave it
+    1. the code         ROOT/MACalendar (a git checkout)
     2. its packages     ROOT/MACalendar/.venv
     3. the settings     config.yaml from config.example.yaml, once
     4. the role         primary (the brain) or a model helper (DEVQA Q70)
     5. Jude (optional)  ROOT/JudeTheJudaicChatBot, its packages, its index
     6. the model        ollama pull, for what config.yaml names
-    7. the apps         macOS: /Applications/MACalendar APPs; Linux: the
-                        applications menu; Windows: the Start menu
+    7. the apps         where YOU choose: macOS /Applications/MACalendar APPs,
+                        the Desktop or any folder; Linux the applications menu
+                        and Windows the Start menu, each optionally also on the
+                        Desktop
     8. open at login    optional
-    9. start it         MACalendar Server, which offers the pairing QR
+    9. check it         five checks, ✓ or ✗ (``--verify`` runs only this)
+   10. start it         MACalendar Server, which offers the pairing QR
+   11. tidy up          offer to delete the installer file you downloaded
 
 Everything lives in ONE folder, ROOT (``~/MACalendar`` unless you say
 otherwise). Run it again to update: every step is safe to repeat.
 
-    python3 install.py [--root DIR] [--role primary|helper] [--jude yes|no]
-                       [--yes] [--dry-run] [--no-model] [--no-apps]
-                       [--no-autostart] [--no-launch]
+    python3 install.py --help      (every option; FOR_AI_AGENTS.md explains them)
 
-DEVQA Q70. Personal data is never here: it lives in ~/.assistant_tools.
+DEVQA Q70/Q71. Personal data is never here: it lives in ~/.assistant_tools,
+and nothing here — not even "delete and reinstall" — touches it.
 """
 
 from __future__ import annotations
@@ -43,6 +49,10 @@ JUDE_URL = "https://github.com/GilCaplan/JudeTheJudaicChatBot.git"
 JUDE_INDEX = "RockyCo/jude-judaic-data"          # 2.2 GB, on Hugging Face
 MIN_PY = (3, 11)
 APPS_DIR = Path("/Applications/MACalendar APPs")
+INSTANCE = "macalendar-server-host"               # assistant/host/tray.py
+#: This file as it was when it started — a pull that changes it hands over to
+#: the new one, so an update always finishes with the newest installer.
+_MY_SOURCE = Path(__file__).read_bytes()
 
 
 # -- small helpers -------------------------------------------------------------
@@ -55,6 +65,9 @@ class Installer:
         self.repo = self.root / "MACalendar"
         self.jude = self.root / "JudeTheJudaicChatBot"
         self.plan: list[str] = []            # what ran (or would run), in order
+        self.state = "fresh"                 # fresh | update | reinstall | keep
+        self.apps_dir = APPS_DIR             # macOS: where the apps go
+        self.desktop_icons = False           # Linux / Windows: also on the Desktop
 
     # paths inside the venv differ on Windows
     def venv_python(self, checkout: Path | None = None) -> Path:
@@ -106,13 +119,97 @@ class Installer:
                              f"{platform.python_version()}. The stage-one installer "
                              "for your system installs it.")
 
+    # -- 0. an existing install ---------------------------------------------------
+
+    def marker(self) -> dict:
+        try:
+            data = json.loads((self.root / "install.json").read_text())
+            return data if isinstance(data, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def existing(self) -> str:
+        """Is MACalendar already installed here? Ask what to do with it.
+
+        Installed = a finished install's marker, or a checkout with its
+        packages (an interrupted install). A bare checkout is what stage one
+        just fetched: that is a fresh install, not an existing one."""
+        found = self.marker() or (self.venv_python().exists() and {"root": str(self.root)})
+        if not found:
+            return "fresh"
+        if self.a.existing:
+            return self.a.existing
+        when = found.get("installed_at", "")
+        where = found.get("apps_dir", "")
+        running = _port_open(8080)
+        print(f"\n  MACalendar is already installed in {self.root}"
+              + (f" (installed {when})" if when else "")
+              + (f";\n  its apps are in {where}" if where else "")
+              + (".\n  It is running now — it will be stopped and started again." if running else "."))
+        if self.a.yes or self.a.dry_run or not sys.stdin.isatty():
+            return "update"
+        print("\n? What would you like to do?\n"
+              "   1. Update it — keep your settings, get the newest version (recommended)\n"
+              "   2. Delete and reinstall it — a fresh copy of the program; your settings\n"
+              "      and your own data (~/.assistant_tools) are kept\n"
+              "   3. Leave it as it is — change nothing")
+        got = input("  1, 2 or 3 [1]: ").strip()
+        return {"2": "reinstall", "3": "keep"}.get(got, "update")
+
+    # -- 1. the code ---------------------------------------------------------------
+
     def code(self) -> None:
         self.say(f"The code → {self.repo}")
         self.root.mkdir(parents=True, exist_ok=True) if not self.a.dry_run else None
-        if (self.repo / ".git").is_dir():
+        if self.state in ("update", "reinstall"):
+            if not self.a.dry_run and stop_running_server():
+                print("   Stopped the running MACalendar Server (it starts again at the end).")
+        if self.state == "reinstall":
+            self.reinstall_code()
+        elif (self.repo / ".git").is_dir():
             self.run(["git", "-C", self.repo, "pull", "--ff-only"], check=False)
         else:
             self.run(["git", "clone", "--depth", "1", self.a.repo_url or REPO_URL, self.repo])
+        self.hand_over_if_newer()
+
+    def reinstall_code(self) -> None:
+        """Delete the program and fetch it fresh. Only this install's own
+        checkout goes — never ~/.assistant_tools, never Jude's library — and
+        config.yaml is carried across."""
+        if not ((self.repo / "install" / "install.py").is_file() and (self.repo / "assistant").is_dir()):
+            raise SystemExit(f"✗ {self.repo} does not look like a MACalendar checkout; "
+                             "not deleting it. Remove it yourself or pick another --root.")
+        keep = self.root / "config.yaml.keep"
+        cfg = self.repo / "config.yaml"
+        self.plan.append(f"keep {cfg} → {keep}; delete {self.repo}; clone fresh")
+        if self.a.dry_run:
+            print(f"   (dry run) keep config.yaml, delete {self.repo}, clone it fresh")
+            return
+        if cfg.exists():
+            shutil.copyfile(cfg, keep)
+        os.chdir(self.root)
+        shutil.rmtree(self.repo, onerror=_force_remove)
+        print(f"   Deleted {self.repo}")
+        self.run(["git", "clone", "--depth", "1", self.a.repo_url or REPO_URL, self.repo])
+        if keep.exists():
+            shutil.copyfile(keep, cfg)
+            keep.unlink()
+            print("   Your settings (config.yaml) are back in place.")
+
+    def hand_over_if_newer(self) -> None:
+        """The pull may have brought a newer installer: finish with IT."""
+        new = self.repo / "install" / "install.py"
+        if self.a.dry_run or os.environ.get("MACALENDAR_INSTALL_REEXEC") or not new.is_file():
+            return
+        if new.read_bytes() == _MY_SOURCE:
+            return
+        print("   The installer itself was updated — continuing with the new one.")
+        argv = [a for a in sys.argv[1:]]
+        if "--existing" in argv:
+            i = argv.index("--existing")
+            del argv[i:i + 2]
+        os.environ["MACALENDAR_INSTALL_REEXEC"] = "1"
+        os.execv(sys.executable, [sys.executable, str(new), *argv, "--existing", "update"])
 
     def packages(self) -> None:
         self.say("Its packages (a few minutes the first time)")
@@ -198,6 +295,40 @@ class Installer:
             cwd=str(self.repo), capture_output=True, text=True)
         return [l for l in out.stdout.split() if l] or ["llama3.1:8b"]
 
+    def choose_icons(self) -> None:
+        """Where the app icons go — the person's choice (DEVQA Q71). An update
+        keeps the last answer unless told otherwise."""
+        before = self.marker()
+        quiet = self.a.yes or self.a.dry_run or not sys.stdin.isatty()
+        if self.system == "Darwin":
+            if self.a.apps_dir:
+                self.apps_dir = Path(self.a.apps_dir).expanduser()
+                return
+            if before.get("apps_dir") and self.state != "fresh":
+                self.apps_dir = Path(before["apps_dir"])
+                return
+            if quiet:
+                return
+            print("\n? Where should the app icons go?\n"
+                  f"   1. Applications ▸ MACalendar APPs (recommended)\n"
+                  "   2. Your Desktop\n"
+                  "   3. Another folder")
+            got = input("  1, 2 or 3 [1]: ").strip()
+            if got == "2":
+                self.apps_dir = Path.home() / "Desktop"
+            elif got == "3":
+                typed = input("  Folder (it is created if missing): ").strip()
+                if typed:
+                    self.apps_dir = Path(typed).expanduser()
+            return
+        if self.a.desktop_icons:
+            self.desktop_icons = self.a.desktop_icons == "yes"
+        elif "desktop_icons" in before and self.state != "fresh":
+            self.desktop_icons = bool(before["desktop_icons"])
+        else:
+            where = "the Start menu" if self.system == "Windows" else "the applications menu"
+            self.desktop_icons = self.ask(f"The apps go in {where}. Also put icons on your Desktop?", False)
+
     def apps(self, role: str, with_jude: bool) -> None:
         self.say("The apps")
         names = ["MACalendar Server"] if role == "helper" else \
@@ -206,37 +337,50 @@ class Installer:
             if not self.ours_or_ok():
                 print("   Left the existing apps alone.")
                 return
+            print(f"   into {self.apps_dir}")
             for name in names:
-                self.run(["bash", self.repo / "scripts" / "build_apps.sh", "--install", name])
+                self.run(["bash", self.repo / "scripts" / "build_apps.sh", "--install", name],
+                         env={"MACALENDAR_APPS_DIR": str(self.apps_dir)})
+            # so the Server's "Open calendar" and "Open at login" find them
+            self.run([self.venv_python(), "-c",
+                      f"from assistant.host import role; role.remember('apps_dir', {str(self.apps_dir)!r})"],
+                     cwd=self.repo)
             return
         py = self.venv_python()
         entries = desktop_entries(self.repo, py, role, with_jude)
         if self.system == "Windows":
-            for name, (target, args) in windows_shortcuts(self.repo, py, role).items():
-                self.run(["powershell", "-NoProfile", "-Command",
-                          shortcut_ps(name, target, args, self.repo)])
+            folders = [START_MENU] + ([DESKTOP] if self.desktop_icons else [])
+            for folder in folders:
+                for name, (target, args) in windows_shortcuts(self.repo, py, role).items():
+                    self.run(["powershell", "-NoProfile", "-Command",
+                              shortcut_ps(name, target, args, self.repo, folder)])
             return
-        apps = Path.home() / ".local" / "share" / "applications"
-        for fname, text in entries.items():
-            self.plan.append(f"write {apps / fname}")
-            if self.a.dry_run:
-                print(f"   (dry run) write {apps / fname}")
-            else:
-                apps.mkdir(parents=True, exist_ok=True)
-                (apps / fname).write_text(text)
+        folders = [Path.home() / ".local" / "share" / "applications"]
+        if self.desktop_icons:
+            folders.append(linux_desktop())
+        for folder in folders:
+            for fname, text in entries.items():
+                self.plan.append(f"write {folder / fname}")
+                if self.a.dry_run:
+                    print(f"   (dry run) write {folder / fname}")
+                    continue
+                folder.mkdir(parents=True, exist_ok=True)
+                (folder / fname).write_text(text)
+                if folder != folders[0]:
+                    # a Desktop launcher must be executable, and GNOME asks
+                    # it to be marked trusted before it will run it
+                    os.chmod(folder / fname, 0o755)
+                    subprocess.run(["gio", "set", str(folder / fname),
+                                    "metadata::trusted", "true"], capture_output=True)
 
     def ours_or_ok(self) -> bool:
         """The Mac apps are NO TOUCH (CLAUDE.md): if they are already installed
         from a DIFFERENT folder, replacing them repoints them — ask first."""
-        if not APPS_DIR.exists():
+        if not (self.apps_dir / "MACalendar Server.app").exists():
             return True
-        mark = self.root / "install.json"
-        try:
-            if json.loads(mark.read_text()).get("root") == str(self.root):
-                return True
-        except (OSError, ValueError):
-            pass
-        return self.ask(f"MACalendar's apps are already in {APPS_DIR}, installed from "
+        if self.marker().get("root") == str(self.root):
+            return True
+        return self.ask(f"MACalendar's apps are already in {self.apps_dir}, installed from "
                         "another folder. Replace them so they run from this one?", False)
 
     def autostart(self) -> None:
@@ -291,9 +435,36 @@ class Installer:
         return good
 
     def remember(self) -> None:
-        if not self.a.dry_run:
-            (self.root / "install.json").write_text(json.dumps(
-                {"root": str(self.root), "system": self.system}, indent=2))
+        if self.a.dry_run:
+            return
+        import datetime
+        (self.root / "install.json").write_text(json.dumps({
+            "root": str(self.root), "system": self.system,
+            "installed_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "apps_dir": str(self.apps_dir) if self.system == "Darwin" else "",
+            "desktop_icons": self.desktop_icons}, indent=2))
+
+    def tidy_up(self) -> None:
+        """Offer to delete the installer file the person downloaded — it is
+        not needed again (updating runs the copy inside the install)."""
+        f = self.a.installer_file
+        if not f:
+            return
+        p = Path(f)
+        if not p.is_file() or not p.name.startswith("install-macalendar"):
+            return
+        if self.root in p.resolve().parents:
+            return                        # the checkout's own copy stays
+        updater = self.repo / "install" / "install.py"
+        self.say("Tidying up")
+        if self.ask(f"Delete the installer you downloaded ({p})? You won't need it — "
+                    f"to update later, run: python3 \"{updater}\"", True):
+            self.plan.append(f"delete {p}")
+            if not self.a.dry_run:
+                p.unlink()
+            print(f"   Deleted {p}.")
+        else:
+            print(f"   Kept {p}. You can delete it any time — it isn't needed again.")
 
     # -- the whole thing --------------------------------------------------------
 
@@ -302,6 +473,11 @@ class Installer:
         if self.a.verify:
             raise SystemExit(0 if self.verify() else 1)
         print(f"MACalendar installer — {self.system}, into {self.root}")
+        self.state = self.existing()
+        if self.state == "keep":
+            print("\n  Left as it is — nothing was changed.")
+            self.tidy_up()
+            return
         self.code()
         self.packages()
         self.settings()
@@ -319,11 +495,14 @@ class Installer:
         if not self.a.no_model:
             self.models()
         if not self.a.no_apps:
+            self.choose_icons()
             self.apps(role, with_jude)
         self.autostart()
         self.remember()
         ok = self.verify()
         self.launch()
+        if ok:
+            self.tidy_up()
         print(summary(self.root, role, self.system, launched=not self.a.no_launch))
         if not ok:
             raise SystemExit(1)
@@ -362,8 +541,22 @@ def windows_shortcuts(repo: Path, py: Path, role: str) -> dict[str, tuple[str, s
     return out
 
 
-def shortcut_ps(name: str, target: str, args: str, repo: Path) -> str:
-    folder = r"$env:APPDATA\Microsoft\Windows\Start Menu\Programs\MACalendar"
+START_MENU = r"$env:APPDATA\Microsoft\Windows\Start Menu\Programs\MACalendar"
+DESKTOP = "$([Environment]::GetFolderPath('Desktop'))"
+
+
+def linux_desktop() -> Path:
+    """The Desktop folder, in the person's own language (xdg-user-dir)."""
+    try:
+        got = subprocess.run(["xdg-user-dir", "DESKTOP"], capture_output=True, text=True)
+        if got.returncode == 0 and got.stdout.strip():
+            return Path(got.stdout.strip())
+    except OSError:
+        pass
+    return Path.home() / "Desktop"
+
+
+def shortcut_ps(name: str, target: str, args: str, repo: Path, folder: str = START_MENU) -> str:
     esc = lambda s: str(s).replace("'", "''")
     return (f"New-Item -ItemType Directory -Force -Path \"{folder}\" | Out-Null; "
             f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut(\"{folder}\\{esc(name)}.lnk\"); "
@@ -385,7 +578,8 @@ def summary(root: Path, role: str, system: str, launched: bool = True) -> str:
     else:
         lines += ["  Next: in its menu choose “Helper code & log…”, then on your primary:",
                   "  MACalendar Server ▸ Servers & logs ▸ Add a helper, and type the code."]
-    lines.append("  To update later, run this installer again.")
+    updater = root / "MACalendar" / "install" / "install.py"
+    lines.append(f"  To update later: python3 \"{updater}\" (or run the installer again).")
     return "\n".join(lines)
 
 
@@ -437,6 +631,34 @@ print(json.dumps(res))
 """
 
 
+def stop_running_server(name: str = INSTANCE) -> bool:
+    """Ask a running MACalendar Server to quit (its tray listens on a local
+    socket, assistant/host/tray.py). True when one answered. Best effort."""
+    try:
+        if os.name == "nt":
+            with open("\\\\.\\pipe\\" + name, "wb") as f:     # \\.\pipe\<name>
+                f.write(b"quit")
+        else:
+            import socket
+            import tempfile
+            with socket.socket(socket.AF_UNIX) as s:
+                s.settimeout(2)
+                s.connect(os.path.join(tempfile.gettempdir(), name))
+                s.sendall(b"quit")
+        import time
+        time.sleep(1.5)                  # let it stop what it started
+        return True
+    except OSError:
+        return False
+
+
+def _force_remove(func, path, _exc) -> None:
+    """rmtree on Windows: git leaves read-only files."""
+    import stat
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
 def _port_open(port: int) -> bool:
     import socket
     with socket.socket() as s:
@@ -466,6 +688,15 @@ def parse(argv=None):
     p.add_argument("--no-launch", action="store_true")
     p.add_argument("--verify", action="store_true",
                    help="only check that an existing install works (exit 1 if not)")
+    p.add_argument("--existing", choices=("update", "reinstall", "keep"),
+                   help="when MACalendar is already installed: update it (default), delete "
+                        "and reinstall it, or leave it as it is")
+    p.add_argument("--apps-dir", help="macOS: the folder the app icons go in "
+                                      "(default /Applications/MACalendar APPs)")
+    p.add_argument("--desktop-icons", choices=("yes", "no"),
+                   help="Linux / Windows: also put icons on the Desktop")
+    p.add_argument("--installer-file", help="the downloaded installer, offered for deletion "
+                                            "at the end (stage one passes it)")
     p.add_argument("--system", help=argparse.SUPPRESS)       # tests: plan another OS
     p.add_argument("--repo-url", help=argparse.SUPPRESS)     # tests: clone a local copy
     return p.parse_args(argv)

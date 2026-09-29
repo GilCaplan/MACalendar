@@ -21,7 +21,12 @@ from pathlib import Path
 from assistant.host.supervisor import ROOT
 
 LABEL = "com.macalendar.server"
-MAC_APP = Path("/Applications/MACalendar APPs/MACalendar Server.app")
+
+
+def _mac_app() -> Path:
+    """The Server app in the folder the installer put the apps in (Q71)."""
+    from assistant.host import role
+    return role.apps_dir() / "MACalendar Server.app"
 
 
 def _file(home: Path, system: str) -> Path:
@@ -39,8 +44,9 @@ def is_enabled(home: Path | None = None, system: str | None = None) -> bool:
 
 
 def enable(home: Path | None = None, system: str | None = None,
-           app: Path = MAC_APP) -> Path:
+           app: Path | None = None) -> Path:
     home, system = home or Path.home(), system or platform.system()
+    app = app or _mac_app()
     path = _file(home, system)
     path.parent.mkdir(parents=True, exist_ok=True)
     py = sys.executable

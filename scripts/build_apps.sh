@@ -38,6 +38,11 @@ ICONS="$REPO/assistant/calendar_ui/assets"
 [[ -f "$ICONS/hud_icon.icns" ]] || \
   ./.venv/bin/python "$ICONS/make_hud_icon.py" >/dev/null
 
+# Where `--install` puts them: /Applications/MACalendar APPs, unless the person
+# chose another folder in the installer (install/install.py, DEVQA Q71). One
+# folder either way — an install builds only there and removes nothing else.
+APPS_DIR="${MACALENDAR_APPS_DIR:-/Applications/$FOLDER}"
+
 # `--install MACalendar` rebuilds just that one bundle (in place, like all of
 # them): rebuilding the other three would reset their Desktop approvals too.
 ONLY="${2:-}"
@@ -121,7 +126,7 @@ build_all_into() {
 build_all_into "$REPO/$FOLDER"
 
 if [[ "${1:-}" == "--install" ]]; then
-  build_all_into "/Applications/$FOLDER"
+  build_all_into "$APPS_DIR"
   # NO TOUCH (Gil, 2026-09-26: the apps "should be a no touch — never move or
   # delete them"). This used to rm -rf every "stray" copy on the Desktop and in
   # /Applications, and on 2026-09-18 that is how the Desktop icons vanished.
@@ -144,6 +149,6 @@ if [[ "${1:-}" == "--install" ]]; then
     tccutil reset SystemPolicyDesktopFolder "$bundle" 2>/dev/null || true
   done
   echo
-  echo "All four are in /Applications/$FOLDER."
+  echo "All four are in $APPS_DIR."
   echo "Launch each once and APPROVE the Desktop prompt if it appears."
 fi

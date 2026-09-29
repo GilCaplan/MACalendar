@@ -14,10 +14,19 @@ Whichever you pick:
   `%USERPROFILE%\MACalendar`), holding `MACalendar/` (the code) and, if chosen,
   `JudeTheJudaicChatBot/`. Your own data is never there — it lives in
   `~/.assistant_tools`.
-- **Two questions:** is this computer the **primary** (the brain — your calendar
-  lives here and your phone connects to it) or a **model helper** (it only lends
-  its model to a primary elsewhere)? And do you want **Jude**, the Judaic study
-  assistant (about 2.5 GB with its library)?
+- **A few questions, each with a sensible default:**
+  - **Already installed?** It checks first, and offers to **update** it (keeps
+    your settings), **delete and reinstall** it (a fresh copy of the program;
+    your settings and your own data are kept), or **leave it as it is**.
+  - **Primary or model helper?** The primary is the brain — your calendar lives
+    there and your phone connects to it. A helper only lends its model to a
+    primary elsewhere.
+  - **Jude**, the Judaic study assistant (about 2.5 GB with its library)?
+  - **Where the app icons go** — Mac: Applications ▸ MACalendar APPs, your
+    Desktop, or any folder you name. Linux / Windows: the applications menu /
+    Start menu, and optionally also your Desktop.
+  - **Delete the installer file** you downloaded, once everything works? You
+    won't need it again — updating runs the copy inside the install.
 - **The iPhone app is separate** — Apple only lets Xcode install it; see the
   README's *iPhone & iPad App*. Once the server runs, the phone joins by
   scanning a QR code: nothing to type.
@@ -29,26 +38,28 @@ Whichever you pick:
 
 ## A. One file (automatic)
 
-Download the file for your computer and run it:
+**macOS or Linux — one command, it works out which:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar.sh | bash
+```
+
+**Windows (PowerShell):** see below. Prefer a file to double-click?
 
 | Your computer | File | Run it |
 |---|---|---|
 | **macOS** | [`install/install-macalendar-mac.command`](install/install-macalendar-mac.command) | double-click (first time: right-click ▸ Open ▸ Open) |
-| **Linux** | [`install/install-macalendar-linux.sh`](install/install-macalendar-linux.sh) | `bash install-macalendar-linux.sh` |
+| **macOS or Linux** | [`install/install-macalendar.sh`](install/install-macalendar.sh) | `bash install-macalendar.sh` |
 | **Windows** | [`install/install-macalendar-windows.ps1`](install/install-macalendar-windows.ps1) | right-click ▸ Run with PowerShell |
 
-Or one line in a terminal:
 
-```bash
-# macOS
-curl -fsSL https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar-mac.command | bash
-# Linux
-curl -fsSL https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar-linux.sh | bash
-```
 ```powershell
 # Windows (PowerShell)
 irm https://raw.githubusercontent.com/GilCaplan/MACalendar/main/install/install-macalendar-windows.ps1 | iex
 ```
+
+(Running `install-macalendar.sh` on Windows tells you to use the PowerShell
+line instead — Windows cannot run it.)
 
 It installs git, Python 3.11+ and Ollama (with Homebrew, apt/dnf/pacman or
 winget — it may ask for your password), fetches the code, then
@@ -56,10 +67,11 @@ winget — it may ask for your password), fetches the code, then
 everywhere: packages, settings, your role, Jude if wanted, the model, the apps,
 open-at-login, and finally a **check that it works**. It ends by starting
 **MACalendar Server** in the menu bar / system tray, which offers the QR code
-for your phone.
+for your phone, and by offering to delete the file you downloaded.
 
-Run it again any time to update — every step is safe to repeat.
-`install.py --verify` re-runs only the check.
+**To update:** `python3 ~/MACalendar/MACalendar/install/install.py` (or run the
+installer again) and choose *Update*. `install.py --verify` re-runs only the
+check.
 
 ## B. Ask an AI agent
 
@@ -122,7 +134,9 @@ ollama pull llama3.1:8b
 
 - macOS: `bash scripts/build_apps.sh --install` (all four) or
   `--install "MACalendar Server"` for one; they land in
-  `/Applications/MACalendar APPs`. Launch each once and allow the Desktop
+  `/Applications/MACalendar APPs`, or in the folder you set with
+  `MACALENDAR_APPS_DIR=/some/folder` (then tell the server where:
+  `.venv/bin/python -c "from assistant.host import role; role.remember('apps_dir', '/some/folder')"`). Launch each once and allow the Desktop
   prompt if it appears.
 - Linux / Windows: run `.venv/bin/python -m assistant.host` (the server, in the
   system tray) and `.venv/bin/python -m assistant.main` (the calendar); or run

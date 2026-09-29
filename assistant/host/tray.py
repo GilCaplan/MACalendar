@@ -299,7 +299,7 @@ class HostTray(QObject):
         import subprocess
         from pathlib import Path
         from assistant.host.supervisor import ROOT
-        app = Path("/Applications/MACalendar APPs/MACalendar.app")
+        app = role_mod.apps_dir() / "MACalendar.app"
         if platform.system() == "Darwin" and app.exists():
             subprocess.Popen(["/usr/bin/open", "-a", str(app)])
         else:
@@ -381,7 +381,11 @@ def main() -> None:
     def on_other():
         conn = server.nextPendingConnection()
         if conn is not None:
-            conn.readyRead.connect(lambda: (conn.readAll(), host.show_pairing()))
+            # "quit": the installer, updating or reinstalling this program,
+            # stops the running copy first (install/install.py). Anything else
+            # is a second click on the app: show the QR.
+            conn.readyRead.connect(lambda: host.quit() if bytes(conn.readAll()).strip() == b"quit"
+                                   else host.show_pairing())
     server.newConnection.connect(on_other)
 
     # Stopped by the launcher (SIGTERM) or Ctrl-C: quit through Qt so
