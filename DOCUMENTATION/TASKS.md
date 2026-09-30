@@ -2184,3 +2184,26 @@ FEATURES.md). Open:
     helper plays built-ins only.
 47. **Try the photo path on a real phone** (row 44) — cut-out, anime look,
     walk/roll rigs and animal-pose legs have only met stand-in pictures.
+
+Asked 2026-09-30, to build next (not started — Gil: *"just update the
+todo's … don't go implementing yet"*):
+
+48. **Animated loading screen, built by the user.** Wherever the app waits
+    (a slow command, a sync, the app stuck loading) show an animation instead
+    of the plain spinner — a "special wheel of death". Settings ▸ Easter egg
+    gets a section to build it: which graphic(s), motion, trail, colours,
+    speed, drawn on the same Egg renderer; a preview; a default that needs no
+    set-up. Phone first; the Mac's waits (the HUD, the calendar) after.
+49. **"Suggest words" doesn't work — and should ask, not add.** Reported
+    broken on the phone (the button shows, nothing arrives: find why before
+    anything else). Redesign: tapping it opens a sheet of suggestions where
+    the user can Accept all, or tick yes / no on each; a dropdown beside the
+    button sets how many to ask for. Generated on the device the user is on
+    (Apple's on-device model on the phone); if that can't, ask the server's
+    model when connected; if neither, say plainly that no model is available
+    to suggest words.
+50. **Settings sections that fold.** The Settings groups (Calendar,
+    Notifications & tabs, Assistant, Connection, Just for fun…) can be
+    collapsed and expanded, on the phone and the Mac, with a setting for how
+    they start: all open, all closed, or as they were last left. The look of
+    the pages stays exactly as it is — only the fold is added.
