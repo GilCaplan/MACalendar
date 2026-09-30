@@ -156,6 +156,12 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `PUT` | `/jude/chats/<chat_id>/topic` | Confirm a topic pivot. |
 | `GET` | `/jude/status` | Never an error — a client draws whatever this says. |
 
+## /magic
+
+| Method | Path | What it does |
+|---|---|---|
+| `POST` | `/magic/suggest-words` |  |
+
 ## /servers
 
 | Method | Path | What it does |

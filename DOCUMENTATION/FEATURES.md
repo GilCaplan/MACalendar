@@ -787,6 +787,31 @@ one), so old servers still work.
 `/counters*`.
 **How:** Same local-first pattern as timers.
 
+### Suggest words — more words for a magic word
+**What:** On a magic word's page (and for a new one made from a photo),
+"Suggest words…" opens a sheet: choose how many (5, 10, 15, 20), and the
+device you're holding asks its own model — Apple's on-device model on the
+phone. If it can't, your Mac's model is asked (when connected), and a phone
+answer can be re-asked of the Mac ("Ask my Mac instead"); with neither, the
+sheet says there's no model to ask. Nothing is added until you choose: Accept
+all, or yes / no on each, then "Add N chosen". A word another magic word
+already has is marked, and adding it moves it here.
+**Why it had been empty** (TASKS 49, probed 2026-09-30): greedy sampling made
+the small model repeat itself ("dragon" ×8), and repeats of existing words were
+all filtered away; "Sukkah" tripped the default guardrail; an unbounded list
+hit the context limit; and every failure was a silent `try?`. Now: a fixed
+count per round, sampled, the permissive guardrail, rounds until there are
+enough, and failures said in words. The simulator can't run the on-device
+model at all (Apple's safety classifier has no data there), so its UI test
+skips with that reason; a real iPhone runs it.
+**Where:** `EasterEgg/EggWordSuggester.swift`, `EggSuggestSheet.swift`, the
+cleaning in `EggRules.cleanWords` (tested on the models' real outputs); the
+Mac's side `POST /magic/suggest-words` (`assistant/magic/routes.py`) — through
+the model protocol like every generating call: `route_post` (the gate and
+model helpers), the request's priority (`serving`), seed options, the call
+bus. Tests: `tests/unit/test_magic_suggest.py`,
+`test_suggested_words_are_cleaned_before_anyone_sees_them`.
+
 ### The loading screen — your own wheel of death
 **What:** Wherever the phone waits — the mic while a command thinks, the
 thinking panel's "Working…", the to-do list loading, a queued command running

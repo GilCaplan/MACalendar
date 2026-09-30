@@ -225,3 +225,32 @@ def test_every_loading_screen_style_draws(tmp_path):
     out = subprocess.run([str(exe), str(png)], capture_output=True, text=True, check=True)
     assert int(out.stdout.strip()) == 6
     assert png.stat().st_size > 30_000
+
+
+# What the models actually returned in the 2026-09-30 probes, and what the
+# user should be shown from it (TASKS 49).
+CLEAN = [
+    ({"words": ["german shepherd", "german", "shepherd", "breed", "dog breed", "hound", "pooch", "pup", "doggy"],
+      "name": "German Shepherd", "existing": ["dog", "puppy", "german shepherd"], "count": 10},
+     ["breed", "dog breed", "hound", "pooch", "pup", "doggy"]),
+    ({"words": ["dragon"] * 8, "name": "Dragon", "existing": ["dragon"], "count": 10}, []),
+    ({"words": ["automobile", "motor vehicle", "motor car", "automobile", "motor vehicle"], "name": "Car",
+      "existing": ["car"], "count": 10}, ["automobile", "motor vehicle", "motor car"]),
+    ({"words": ["A type of dinosaur", "a member of theropod dinosaurs", "The King", "T-Rex!"], "name": "Rex",
+      "existing": [], "count": 10}, ["king", "t-rex"]),
+    ({"words": ["hootie", "moonbird", "night hunter", "silent flyer", "owlie"], "name": "Owl",
+      "existing": ["owl"], "count": 3}, ["hootie", "moonbird", "night hunter"]),
+    ({"words": ["a really very long phrase indeed", "booth"], "name": "Sukkah", "existing": ["sukkah"], "count": 5},
+     ["booth"]),
+]
+
+
+def test_suggested_words_are_cleaned_before_anyone_sees_them(tmp_path):
+    exe = tmp_path / "clean"
+    subprocess.run(["swiftc", "-O", "-parse-as-library", str(TOOLS / "egg_clean.swift"),
+                    *[str(EGG / f) for f in SHARED], "-o", str(exe)], check=True, capture_output=True)
+    out = subprocess.run([str(exe)], input="\n".join(json.dumps(c) for c, _ in CLEAN) + "\n",
+                         capture_output=True, text=True, check=True).stdout.splitlines()
+    got = [json.loads(l) for l in out]
+    wrong = [(c["name"], g, want) for (c, want), g in zip(CLEAN, got) if g != want]
+    assert not wrong, wrong

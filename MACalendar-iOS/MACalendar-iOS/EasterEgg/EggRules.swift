@@ -78,4 +78,29 @@ enum EggRules {
         let key = "egg_greeted_\(f.id)_\(Int(cal.startOfDay(for: now).timeIntervalSince1970))"
         return greeted(key) ? nil : (f, key)
     }
+
+    // MARK: - Suggested words (EggWordSuggester, both sources)
+
+    /// Lower-case, trimmed, one to three words; no repeats, nothing the object
+    /// already has, not the name's own words one by one, no leading article,
+    /// no "a type of …" descriptions; at most `count`.
+    static func cleanWords(_ words: [String], name: String, existing: [String], count: Int) -> [String] {
+        let have = Set(existing.map { $0.lowercased() })
+        let lowerName = name.lowercased()
+        let nameParts = Set(lowerName.split(separator: " ").map(String.init))
+        var out: [String] = []
+        for w in words {
+            var t = w.lowercased().trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+            for article in ["a ", "an ", "the "] where t.hasPrefix(article) { t.removeFirst(article.count) }
+            let parts = t.split(separator: " ")
+            guard !t.isEmpty, parts.count <= 3, t != lowerName || have.isEmpty == false,
+                  !have.contains(t), !out.contains(t),
+                  !(nameParts.count > 1 && nameParts.contains(t)),
+                  !t.contains("type of"), !t.contains("member of"), !t.contains("kind of")
+            else { continue }
+            out.append(t)
+            if out.count >= count { break }
+        }
+        return out
+    }
 }

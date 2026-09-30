@@ -413,6 +413,8 @@ def create_app() -> Flask:
     # (assistant/offline/PROTOCOL.md). HTTP only.
     from assistant.offline import routes as _offline_routes
     _offline_routes.register(app)
+    from assistant.magic import routes as _magic_routes       # Easter egg: suggest words
+    _magic_routes.register(app)
 
     # Occasions (DEVQA Q73): birthdays, anniversaries, yahrzeits, countdowns
     # and the extra calendars. HTTP only; lives in assistant/occasions/.

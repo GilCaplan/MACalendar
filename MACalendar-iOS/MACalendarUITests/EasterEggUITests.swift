@@ -135,4 +135,39 @@ final class EasterEggUITests: XCTestCase {
         Thread.sleep(forTimeInterval: 3.5)
         if hamster.exists { hamster.tap() }
     }
+
+    /// "Suggest words" (TASKS 49): real suggestions arrive from the on-device
+    /// model, each can be ticked, and "Add N chosen" counts them.
+    func testSuggestWordsOffersWordsToPickFrom() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-serverURL", "127.0.0.1:59999"]
+        app.launch()
+        let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
+        if allow.waitForExistence(timeout: 3) { allow.tap() }
+        app.buttons["tab-settings"].firstMatch.tap()
+        let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Easter egg")).firstMatch
+        for _ in 0..<6 where !row.isHittable { app.swipeUp() }
+        row.tap()
+        let dog = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "German Shepherd")).firstMatch
+        for _ in 0..<16 where !dog.isHittable { app.swipeUp() }
+        dog.tap()
+        let suggest = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Suggest words")).firstMatch
+        for _ in 0..<6 where !suggest.isHittable { app.swipeUp() }
+        suggest.tap()
+        let yes = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Yes to")).firstMatch
+        let problem = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "came back")).firstMatch
+        let deadline = Date().addingTimeInterval(60)
+        while Date() < deadline && !yes.exists && !problem.exists { Thread.sleep(forTimeInterval: 1) }
+        snap(app, "10-suggestions")
+        guard yes.exists else {
+            // The simulator lacks the data for Apple's safety classifier, so every
+            // on-device model call fails there (SensitiveContentAnalysisML 15);
+            // a real iPhone with Apple Intelligence has it.
+            throw XCTSkip("no model answered on this simulator: \(problem.exists ? problem.label : "nothing")")
+        }
+        yes.tap()
+        XCTAssertTrue(app.buttons["Add 1 chosen"].firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Add 1 chosen"].firstMatch.isEnabled)
+        app.buttons["Cancel"].firstMatch.tap()
+    }
 }

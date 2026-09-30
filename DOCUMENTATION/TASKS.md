@@ -2194,7 +2194,7 @@ todo's … don't go implementing yet"*):
     gets a section to build it: which graphic(s), motion, trail, colours,
     speed, drawn on the same Egg renderer; a preview; a default that needs no
     set-up. Phone first; the Mac's waits (the HUD, the calendar) after.
-49. **"Suggest words" doesn't work — and should ask, not add.** Reported
+49. ~~"Suggest words" doesn't work — and should ask, not add~~ — **fixed and redesigned 2026-09-30** (FEATURES.md "Suggest words"). Was: Reported
     broken on the phone (the button shows, nothing arrives: find why before
     anything else). Redesign: tapping it opens a sheet of suggestions where
     the user can Accept all, or tick yes / no on each; a dropdown beside the

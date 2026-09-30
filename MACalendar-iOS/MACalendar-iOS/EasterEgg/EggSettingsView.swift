@@ -251,7 +251,6 @@ struct EggObjectView: View {
     @State private var adding = false
     @State private var editing: EggVariant?
     @State private var confirmDelete = false
-    @State private var suggestions: [String] = []
     @State private var suggesting = false
     @State private var drawing = false
     @Environment(\.dismiss) private var dismiss
@@ -278,27 +277,7 @@ struct EggObjectView: View {
                             .onSubmit(add)
                         Button("Add", action: add).disabled(word.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
-                    if EggWordSuggester.isAvailable {
-                        Button {
-                            suggesting = true
-                            Task {
-                                suggestions = await EggWordSuggester.suggest(for: o.name, existing: o.keywords)
-                                suggesting = false
-                            }
-                        } label: {
-                            HStack {
-                                Label("Suggest words", systemImage: "sparkles")
-                                if suggesting { Spacer(); ProgressView() }
-                            }
-                        }
-                        .disabled(suggesting)
-                        ForEach(suggestions, id: \.self) { s in
-                            Button {
-                                word = s; add()
-                                suggestions.removeAll { $0 == s }
-                            } label: { Label(s, systemImage: "plus.circle") }
-                        }
-                    }
+                    Button { suggesting = true } label: { Label("Suggest words…", systemImage: "sparkles") }
                     if o.builtin {
                         Button("Reset to the original words") { store.resetKeywords(id) }
                     }
@@ -432,6 +411,12 @@ struct EggObjectView: View {
             }
             .navigationTitle(o.name)
             .sheet(isPresented: $adding) { EggPhotoEditor(mode: .addTo(id)) }
+            .sheet(isPresented: $suggesting) {
+                EggSuggestSheet(name: o.name, existing: o.keywords) { chosen in
+                    let moved = chosen.compactMap { store.addKeyword($0, to: id) }
+                    note = moved.isEmpty ? nil : "Moved here from \(Set(moved).sorted().joined(separator: ", ")) — a word summons one thing."
+                }
+            }
             .sheet(isPresented: $drawing) { EggPathDrawer(objectID: id, path: $store.settings.objects[i].drawnPath) }
             .sheet(item: $editing) { v in EggPhotoEditor(mode: .edit(id, v)) }
             .confirmationDialog("Delete \(o.name) and its photos?", isPresented: $confirmDelete, titleVisibility: .visible) {
@@ -598,22 +583,8 @@ struct EggPhotoEditor: View {
                         TextField("Name (e.g. Rex)", text: $name)
                         TextField("Words, separated by commas", text: $words)
                             .textInputAutocapitalization(.never).autocorrectionDisabled()
-                        if EggWordSuggester.isAvailable {
-                            Button {
-                                suggesting = true
-                                Task {
-                                    let more = await EggWordSuggester.suggest(for: name, existing: keywordList)
-                                    words = (keywordList + more).joined(separator: ", ")
-                                    suggesting = false
-                                }
-                            } label: {
-                                HStack {
-                                    Label("Suggest words from the name", systemImage: "sparkles")
-                                    if suggesting { Spacer(); ProgressView() }
-                                }
-                            }
-                            .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || suggesting)
-                        }
+                        Button { suggesting = true } label: { Label("Suggest words…", systemImage: "sparkles") }
+                            .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                     } header: { Text("Name and magic words") } footer: {
                         Text("Edit the list before saving — take out any everyday word you don't want to trigger it.")
                     }
@@ -639,6 +610,11 @@ struct EggPhotoEditor: View {
             .onChange(of: anime) { _ in Task { await rerender() } }
             .onChange(of: lasso) { _ in if drawn { Task { await rerender() } } }
             .onAppear(perform: load)
+            .sheet(isPresented: $suggesting) {
+                EggSuggestSheet(name: name.trimmingCharacters(in: .whitespaces), existing: keywordList) { chosen in
+                    words = (keywordList + chosen.filter { !keywordList.contains($0) }).joined(separator: ", ")
+                }
+            }
         }
     }
 
