@@ -59,6 +59,7 @@
 		AA00000E6600000000000107 /* EggImageTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000207 /* EggImageTools.swift */; };
 		AA00000E6600000000000108 /* EggSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000208 /* EggSettingsView.swift */; };
 		AA00000E6600000000000109 /* EggWordSuggester.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000209 /* EggWordSuggester.swift */; };
+		AA00000E6600000000000119 /* EggWordBank.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000219 /* EggWordBank.swift */; };
 		AA00000E6600000000000118 /* EggSuggestSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000218 /* EggSuggestSheet.swift */; };
 		AA00000E6600000000000117 /* EggLoaderViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000217 /* EggLoaderViews.swift */; };
 		AA00000E6600000000000116 /* EggLoaderSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000216 /* EggLoaderSettingsView.swift */; };
@@ -176,6 +177,7 @@
 		AA00000E6600000000000207 /* EggImageTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggImageTools.swift; sourceTree = "<group>"; };
 		AA00000E6600000000000208 /* EggSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggSettingsView.swift; sourceTree = "<group>"; };
 		AA00000E6600000000000209 /* EggWordSuggester.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggWordSuggester.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000219 /* EggWordBank.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggWordBank.swift; sourceTree = "<group>"; };
 		AA00000E6600000000000218 /* EggSuggestSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggSuggestSheet.swift; sourceTree = "<group>"; };
 		AA00000E6600000000000217 /* EggLoaderViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggLoaderViews.swift; sourceTree = "<group>"; };
 		AA00000E6600000000000216 /* EggLoaderSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggLoaderSettingsView.swift; sourceTree = "<group>"; };
@@ -349,6 +351,7 @@
 				AA00000E6600000000000207 /* EggImageTools.swift */,
 				AA00000E6600000000000208 /* EggSettingsView.swift */,
 				AA00000E6600000000000209 /* EggWordSuggester.swift */,
+				AA00000E6600000000000219 /* EggWordBank.swift */,
 				AA00000E6600000000000218 /* EggSuggestSheet.swift */,
 				AA00000E6600000000000217 /* EggLoaderViews.swift */,
 				AA00000E6600000000000216 /* EggLoaderSettingsView.swift */,
@@ -751,6 +754,7 @@
 				AA00000E6600000000000107 /* EggImageTools.swift in Sources */,
 				AA00000E6600000000000108 /* EggSettingsView.swift in Sources */,
 				AA00000E6600000000000109 /* EggWordSuggester.swift in Sources */,
+				AA00000E6600000000000119 /* EggWordBank.swift in Sources */,
 				AA00000E6600000000000118 /* EggSuggestSheet.swift in Sources */,
 				AA00000E6600000000000117 /* EggLoaderViews.swift in Sources */,
 				AA00000E6600000000000116 /* EggLoaderSettingsView.swift in Sources */,

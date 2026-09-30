@@ -21,11 +21,15 @@ import FoundationModels
 ///
 /// Nothing is ever added here: the caller shows the words and the user picks.
 enum EggWordSuggester {
-    enum Source: String { case phone = "this iPhone", mac = "your Mac" }
+    enum Source: String {
+        case phone = "this iPhone", mac = "your Mac", bank = "the built-in list"
+    }
 
     struct Result {
         var words: [String] = []
         var source: Source?
+        /// How many of `words` were topped up from the built-in list.
+        var fromBank = 0
         /// Why there are no words, in words a person can act on.
         var problem: String?
     }
@@ -40,9 +44,25 @@ enum EggWordSuggester {
         return false
     }
 
+    /// A model's words, topped up from the built-in list to `count` (Gil,
+    /// 2026-09-30: "create our own fallback … some randomness … if the llm
+    /// doesn't work nor generate the right number").
     @MainActor
-    static func suggest(for name: String, existing: [String], count: Int, api: APIClient,
+    static func suggest(for name: String, id: String? = nil, existing: [String], count: Int, api: APIClient,
                         preferMac: Bool = false) async -> Result {
+        var r = await modelSuggest(for: name, existing: existing, count: count, api: api, preferMac: preferMac)
+        let filled = EggWordBank.fill(r.words, id: id, name: name, existing: existing, count: count)
+        guard filled.fromBank > 0 else { return r }
+        r.words = filled.words
+        r.fromBank = filled.fromBank
+        if r.source == nil || filled.fromBank == filled.words.count { r.source = .bank }
+        r.problem = nil
+        return r
+    }
+
+    @MainActor
+    private static func modelSuggest(for name: String, existing: [String], count: Int, api: APIClient,
+                                     preferMac: Bool) async -> Result {
         let thing = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !thing.isEmpty else { return Result(problem: "Give it a name first.") }
         let macReachable = api.settings.serverEnabled && api.isOnline

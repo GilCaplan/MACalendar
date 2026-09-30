@@ -412,7 +412,7 @@ struct EggObjectView: View {
             .navigationTitle(o.name)
             .sheet(isPresented: $adding) { EggPhotoEditor(mode: .addTo(id)) }
             .sheet(isPresented: $suggesting) {
-                EggSuggestSheet(name: o.name, existing: o.keywords) { chosen in
+                EggSuggestSheet(name: o.name, objectID: o.id, existing: o.keywords) { chosen in
                     let moved = chosen.compactMap { store.addKeyword($0, to: id) }
                     note = moved.isEmpty ? nil : "Moved here from \(Set(moved).sorted().joined(separator: ", ")) — a word summons one thing."
                 }

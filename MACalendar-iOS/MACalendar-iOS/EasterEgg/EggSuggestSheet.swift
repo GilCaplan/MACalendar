@@ -5,6 +5,7 @@ import SwiftUI
 /// Accept all, or yes / no on each. Nothing is added until they say so.
 struct EggSuggestSheet: View {
     let name: String
+    var objectID: String? = nil
     let existing: [String]
     let onAdd: ([String]) -> Void
     @EnvironmentObject private var api: APIClient
@@ -16,6 +17,7 @@ struct EggSuggestSheet: View {
     @State private var source: EggWordSuggester.Source?
     @State private var problem: String?
     @State private var working = false
+    @State private var fromBank = 0
 
     var body: some View {
         NavigationView {
@@ -44,7 +46,11 @@ struct EggSuggestSheet: View {
                         .disabled(working)
                     }
                 } footer: {
-                    if let source { Text("Suggested by \(source.rawValue). Tick the ones to keep.") }
+                    if let source {
+                        Text(source == .bank ? "From the built-in list — picked at random, ask again for others. Tick the ones to keep."
+                             : fromBank > 0 ? "Suggested by \(source.rawValue), \(fromBank) topped up from the built-in list. Tick the ones to keep."
+                             : "Suggested by \(source.rawValue). Tick the ones to keep.")
+                    }
                 }
 
                 if let problem {
@@ -103,7 +109,9 @@ struct EggSuggestSheet: View {
         problem = nil
         let have = existing + (more ? words : [])
         Task {
-            let r = await EggWordSuggester.suggest(for: name, existing: have, count: count, api: api, preferMac: preferMac)
+            let r = await EggWordSuggester.suggest(for: name, id: objectID, existing: have, count: count, api: api,
+                                                   preferMac: preferMac)
+            fromBank = r.fromBank
             if more { words += r.words.filter { !words.contains($0) } } else { words = r.words; chosen = [] }
             source = r.source ?? source
             problem = r.problem

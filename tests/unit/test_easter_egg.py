@@ -20,7 +20,8 @@ EGG = ROOT / "MACalendar-iOS/MACalendar-iOS/EasterEgg"
 TOOLS = ROOT / "MACalendar-iOS/Tools"
 # The platform-neutral Easter-egg files — what the Mac helper compiles too.
 SHARED = ["EggArt.swift", "EggFigures.swift", "EggJewish.swift", "EggEffects.swift", "EggCatalog.swift",
-          "EggRules.swift", "EggStage.swift", "EggTrails.swift", "EggPuppet.swift", "EggLoader.swift"]
+          "EggRules.swift", "EggStage.swift", "EggTrails.swift", "EggPuppet.swift", "EggLoader.swift",
+          "EggWordBank.swift"]
 
 pytestmark = pytest.mark.skipif(sys.platform != "darwin" or not shutil.which("swiftc"),
                                 reason="needs the Swift compiler (the Mac; CI's Linux runner has none)")
@@ -254,3 +255,37 @@ def test_suggested_words_are_cleaned_before_anyone_sees_them(tmp_path):
     got = [json.loads(l) for l in out]
     wrong = [(c["name"], g, want) for (c, want), g in zip(CLEAN, got) if g != want]
     assert not wrong, wrong
+
+
+def _bank(tmp_path, cases):
+    exe = tmp_path / "bank"
+    subprocess.run(["swiftc", "-O", "-parse-as-library", str(TOOLS / "egg_bank.swift"),
+                    *[str(EGG / f) for f in SHARED], "-o", str(exe)], check=True, capture_output=True)
+    out = subprocess.run([str(exe)], input="\n".join(json.dumps(c) for c in cases) + "\n",
+                         capture_output=True, text=True, check=True).stdout.splitlines()
+    return [json.loads(l) for l in out]
+
+
+def test_the_word_bank_tops_up_to_the_count_with_names_and_adjective_phrases(tmp_path):
+    """The fallback (Gil, 2026-09-30): when no model answers, or too few words
+    come back, the built-in list fills the count — at random, never a word the
+    object has, and partly adjective phrases ("baby dragon")."""
+    cases = [
+        {"words": [], "id": "dragon", "name": "Dragon", "existing": ["dragon"], "count": 10, "seed": 1},
+        {"words": ["wyvern"], "id": "dragon", "name": "Dragon", "existing": ["dragon"], "count": 10, "seed": 2},
+        {"words": [], "id": "dog", "name": "German Shepherd", "existing": ["dog", "puppy"], "count": 15, "seed": 3},
+        {"words": [], "id": "custom-x", "name": "Rex", "existing": ["dog"], "count": 8, "seed": 4},
+        {"words": ["a", "b", "c"], "id": "cat", "name": "Cat", "existing": ["cat"], "count": 3, "seed": 5},
+        {"words": [], "id": "dragon", "name": "Dragon", "existing": ["dragon"], "count": 10, "seed": 9},
+    ]
+    got = _bank(tmp_path, cases)
+    for c, g in zip(cases[:4], got[:4]):
+        words = g["words"]
+        assert len(words) == c["count"], (c["name"], words)
+        assert len(set(words)) == len(words), words
+        assert not set(words) & set(c["existing"]), words
+        assert any(" " + (c["existing"][0]) in w for w in words), f"no adjective phrase: {words}"
+    assert got[1]["words"][0] == "wyvern" and got[1]["fromBank"] == 9          # the model's words come first
+    assert got[3]["words"] and all("rex" not in w or w.endswith("dog") for w in got[3]["words"])  # Rex is a dog
+    assert got[4] == {"words": ["a", "b", "c"], "fromBank": 0}                 # enough already: untouched
+    assert got[0]["words"] != got[5]["words"]                                  # the randomness
