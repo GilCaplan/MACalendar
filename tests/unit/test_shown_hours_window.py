@@ -81,10 +81,15 @@ def test_picking_the_hours_in_settings_and_saving_shows_them(app):
     seen = {}
 
     def _go():
+        # THIS dialog, by what it holds — not "a visible dialog": on CI's
+        # display there may be no active modal, and the first visible dialog
+        # was a stale one from an earlier test; touching it segfaulted the
+        # suite (2026-09-30).
+        from PyQt6 import sip
         from PyQt6.QtWidgets import QDialog
-        dlg = QApplication.activeModalWidget() or next(
-            (x for x in QApplication.topLevelWidgets() if isinstance(x, QDialog) and x.isVisible()),
-            None)
+        dlg = next((x for x in QApplication.topLevelWidgets()
+                    if isinstance(x, QDialog) and not sip.isdeleted(x) and x.isVisible()
+                    and x.findChild(QComboBox, "hours_from") is not None), None)
         if dlg is None:
             seen["tries"] = seen.get("tries", 0) + 1
             if seen["tries"] < 300:
