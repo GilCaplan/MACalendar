@@ -139,7 +139,8 @@ def create_todo_from_body(data: dict) -> "tuple[dict, int]":
     except (TypeError, ValueError):
         quantity = parsed_qty
     list_name = data.get("list_name", "today")
-    todo_cfg = load_config().todo
+    cfg = load_config()
+    todo_cfg = cfg.todo
     # Second net, for callers that send no token at all. `client_token` is
     # the precise key, but the partial unique index only referees non-empty
     # tokens — so a token-less client (the HUD's revert POST, a curl, a
@@ -160,12 +161,13 @@ def create_todo_from_body(data: dict) -> "tuple[dict, int]":
     tags = data.get("tags") or []
     if not tags:
         # Client didn't say — server-side "tag mode", else infer from the
-        # title, the same order of precedence voice creation uses.
+        # title, the same order of precedence voice creation uses, and the
+        # same labeller: keyword rules, then the learned tagger behind them.
         if todo_cfg.auto_tag:
             tags = [todo_cfg.auto_tag]
         elif getattr(todo_cfg, "auto_tag_infer", True):
-            from assistant.actions.todo.tagging import suggest_tags
-            tags = suggest_tags(title, [r["name"] for r in db.get_tags()])
+            from assistant.actions.todo.tagging import auto_tags
+            tags = auto_tags(title, [r["name"] for r in db.get_tags()], cfg)
     todo_id = db.create_todo(
         title=title,
         list_name=list_name,

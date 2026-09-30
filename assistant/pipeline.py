@@ -490,6 +490,20 @@ class Pipeline:
             transcript = "[TASKS VIEW] " + transcript
 
         logger.info("🖥️ Transcript (cleaned): %s", transcript)
+
+        # Easter egg (DEVQA Q75): nothing but magic words ("dragon!") plays on
+        # this Mac and is not sent — there is no command in it. A command that
+        # names one plays it while it runs, and runs as usual either way. The
+        # matching is the Swift helper's, shared with the phone.
+        from assistant import magic_words
+        if magic_words.heard(transcript, bare=True):
+            logger.info("✨ Magic words only — played, not sent")
+            self._trace_result(transcript=transcript, message="✨ Magic words — played on this Mac, not sent")
+            self._set_status(STATUS_IDLE, "✨")
+            self._phase = STATUS_IDLE
+            return
+        magic_words.heard(transcript, bare=False)
+
         snippet = transcript[:60] + ("…" if len(transcript) > 60 else "")
         self._set_status(STATUS_PROCESSING, f'💭 "{snippet}"')
 

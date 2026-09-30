@@ -576,7 +576,7 @@ class LocalStore: ObservableObject {
     }
 
     func insertEvent(_ fields: [String: Any]) -> CalendarEvent {
-        let e = CalendarEvent(
+        var e = CalendarEvent(
             id: nextTemp,
             title:         fields["title"]          as? String ?? "New Event",
             date:          fields["date"]           as? String ?? DateFormatter.isoDay.string(from: Date()),
@@ -589,11 +589,39 @@ class LocalStore: ObservableObject {
             recurrence:    fields["recurrence"]     as? String ?? "",
             recurrenceEnd: fields["recurrence_end"] as? String ?? ""
         )
+        // Categorised and coloured the way the Mac will do it on replay
+        // (`db.auto_category_and_color`): a category or colour the caller
+        // chose stands; otherwise the Mac's labeller, run here. Local only —
+        // the caller queues its own `fields`, which say neither.
+        if let given = fields["category"] as? String, !given.isEmpty {
+            e.category = given
+        } else if let label = Labeller.shared.label(
+                    title: e.title, attendees: e.attendees, location: e.location,
+                    description: e.description, neighbours: neighbourColors(e.date, e.startTime)) {
+            e.category = label.category
+            if Self.autoColors.contains(e.color), let c = label.color { e.color = c }
+        }
         nextTemp -= 1
         events.append(e)
         persist()
         ReminderScheduler.shared.reconcile()
         return e
+    }
+
+    /// `db._AUTO_COLORS`: a caller passing one of these is asking for the
+    /// category's colour, not choosing one.
+    private static let autoColors: Set<String> = ["", "#0078d4"]
+
+    /// `db._neighbour_colors`: the colours of the events immediately before
+    /// and after this start time on the same day.
+    private func neighbourColors(_ date: String, _ start: String) -> [String] {
+        let day = events.filter { $0.date == date }.enumerated()
+            .sorted { ($0.element.startTime, $0.offset) < ($1.element.startTime, $1.offset) }
+            .map { $0.element }
+        var out: [String] = []
+        if let before = day.last(where: { $0.startTime <= start }) { out.append(before.color) }
+        if let after = day.first(where: { $0.startTime > start }) { out.append(after.color) }
+        return out.filter { !$0.isEmpty }
     }
 
     func event(_ id: Int) -> CalendarEvent? { events.first { $0.id == id } }
@@ -975,7 +1003,8 @@ class LocalStore: ObservableObject {
                 said.append("'\(it.title)' on \(it.date)" + (it.start.isEmpty ? "" : " at \(it.start)")
                             + (it.recurrence == "none" ? "" : ", \(it.recurrence)"))
             } else {
-                let t = insertTodo(title: it.title, list: "today")
+                let t = insertTodo(title: it.title, list: "today",
+                                   tags: Labeller.shared.tags(for: it.title))
                 tds.append(t.id)
                 said.append("to-do '\(it.title)'")
             }

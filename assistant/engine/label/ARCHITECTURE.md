@@ -11,6 +11,7 @@ row that can exist uncategorised, and that window is where per-category settings
     embed.py       the title's vector (nomic-embed-text, local ollama), or None
     train.py       fit them, gate them, promote them
     feedback.py    the user's own corrections — the only labels worth learning
+    export.py      the n-gram half as data, for the phone (GET /labels/model/<kind>)
     datasets/      generated FROM the label, so nothing is circular
     experiments/   the boards, and RESULTS.md — every number this file quotes
 
@@ -86,6 +87,26 @@ traffic; a label for a live command inherits the command's priority.
 **Abstention is an answer.** `predict` returns None below `MIN_CONFIDENCE`
 rather than guessing. An event labelled `Travel` at 0.21 because that was the
 argmax is worse than the catch-all it replaced.
+
+## On the phone: the n-gram half, as data
+
+The phone labels what it makes with the Mac away (a typed task, an offline
+event, the offline reader's provisional rows), and it cannot run either
+artefact — they are pickles, and the head that answers here needs ollama. So
+`export.py` serves each model's N-GRAM half as data (vocabulary, idf, weights,
+the bar, the user's `labels.*` switches) and `LabelModel.swift` does the
+arithmetic, stacked behind the phone's ports of the rules (`TagClassifier`,
+`CategoryClassifier`) exactly as `tags_for` / `category_for` stack them here.
+**The phone is this machine with ollama down**: same pipeline, same fallback bar
+(`LabelModel.ngram_bar`, one definition for both), same tier. Its answer is a
+preview; the Mac re-labels on replay.
+
+`export._block` refuses a vectoriser the phone could not reproduce, and
+`tests/unit/test_label_export.py` holds the payload, the reference inference
+(`export.ngram_proba`) and the compiled Swift to sklearn and to `classify` /
+`category_for` / `tags_for` over every title in `datasets/` — so a retrain that
+changes the recipe goes red there, not wrong on the phone. The harness is
+`experiments/phone_parity.swift`.
 
 ## Two tiers, because a user is not the author
 

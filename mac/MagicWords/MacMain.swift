@@ -1,0 +1,78 @@
+import AppKit
+import SwiftUI
+
+/// MACalendar Magic — the Mac's Easter egg. Started by the calendar app,
+/// which talks to it over stdin/stdout, one JSON object per line:
+///
+///     {"op":"heard","text":"…","bare":true}  → {"bare":true|false}
+///     {"op":"settings"}   opens the settings window
+///     {"op":"demo"}       plays a demo
+///     {"op":"festival"}   greets a festival day (once a day)
+///     {"op":"quit"}
+///
+/// argv[1]: the folder its settings live in (this user's data folder).
+@main
+struct MacMagic {
+    static func main() {
+        let app = NSApplication.shared
+        app.setActivationPolicy(.accessory)          // no Dock icon, no menu bar
+        let delegate = MagicDelegate()
+        app.delegate = delegate
+        app.run()
+    }
+}
+
+@MainActor
+final class MagicDelegate: NSObject, NSApplicationDelegate {
+    private var settingsWindow: NSWindow?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        _ = MacEggStore.shared
+        Thread.detachNewThread { [weak self] in
+            while let line = readLine() {
+                guard let data = line.data(using: .utf8),
+                      let msg = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let op = msg["op"] as? String else { continue }
+                let semaphore = DispatchSemaphore(value: 0)
+                var reply: [String: Any]?
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { reply = self?.handle(op, msg) }
+                    semaphore.signal()
+                }
+                semaphore.wait()
+                if let reply, let out = try? JSONSerialization.data(withJSONObject: reply),
+                   let s = String(data: out, encoding: .utf8) {
+                    print(s); fflush(stdout)
+                }
+            }
+            DispatchQueue.main.async { NSApp.terminate(nil) }     // the calendar app went away
+        }
+    }
+
+    private func handle(_ op: String, _ msg: [String: Any]) -> [String: Any]? {
+        switch op {
+        case "heard":
+            let bare = MacEggStore.shared.heard(msg["text"] as? String ?? "", bare: msg["bare"] as? Bool ?? false)
+            return ["bare": bare]
+        case "settings": showSettings(); return ["ok": true]
+        case "demo": MacEggStore.shared.demo(); return ["ok": true]
+        case "festival": MacEggStore.shared.festivalTick(); return ["ok": true]
+        case "quit": NSApp.terminate(nil); return nil
+        default: return ["error": "unknown op"]
+        }
+    }
+
+    private func showSettings() {
+        if settingsWindow == nil {
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 720),
+                             styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
+            w.title = "Magic words"
+            w.contentView = NSHostingView(rootView: MacSettingsView())
+            w.isReleasedWhenClosed = false
+            w.center()
+            settingsWindow = w
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+}

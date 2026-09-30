@@ -179,6 +179,30 @@ def suggest_tags(title: str, palette: Optional[Iterable[str]] = None) -> list[st
     return [tag] if tag else []
 
 
+def auto_tags(title: str, palette: Optional[Iterable[str]] = None, cfg=None) -> list[str]:
+    """What a task nobody tagged gets: these keyword rules, then the learned
+    tagger stacked behind them (`engine/label/model.py::tags_for`).
+
+    ONE definition for every way a task arrives — voice, `POST /todos` and the
+    store's own inference (`db._infer_tags`). Only voice had the model; the
+    other two had the rules alone, so a title the rules miss came out tagged
+    when spoken and untagged when typed — and `POST /todos` is every task the
+    phone makes by hand, plus every one it queued offline, since those replay
+    through it. `tags_for` owns the stacking (rules first,
+    `labels.model_first`, the live-palette check), so this only calls it.
+
+    `cfg=None` means rules only, the same as `labels` being switched off.
+    """
+    rules = suggest_tags(title, palette)
+    if cfg is None:
+        return rules
+    try:
+        from assistant.engine.label import model as _lm
+        return _lm.tags_for(title, rules, cfg)[0]
+    except Exception:
+        return rules
+
+
 def resolve_tags(names: Iterable[str], palette: Optional[Iterable[str]] = None) -> list[str]:
     """Keep only names that exist in the palette, corrected to its casing.
 

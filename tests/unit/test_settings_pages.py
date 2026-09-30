@@ -135,7 +135,7 @@ def _page_of(dlg, header: QToolButton) -> QWidget:
 
 
 SECTIONS = ["appearance", "tabs", "hebrew_calendar", "occasions", "events", "notifications",
-            "voice", "assistant", "connected_calendars", "server"]
+            "voice", "assistant", "connected_calendars", "server", "easter_egg"]
 
 
 # ── the tests ────────────────────────────────────────────────────────
@@ -198,10 +198,10 @@ def test_the_page_you_left_open_is_open_next_time(app):
 def test_the_rows_are_grouped_as_the_phone_groups_them():
     from assistant.calendar_ui.settings_dialog import _SECTION_GROUPS
     assert [g for g, _ in _SECTION_GROUPS] == [
-        "Calendar", "Notifications & tabs", "Assistant", "Connection"]
+        "Calendar", "Notifications & tabs", "Assistant", "Connection", "Just for fun"]
     ios = (pathlib.Path(__file__).resolve().parents[2]
            / "MACalendar-iOS/MACalendar-iOS/Views/SettingsView.swift").read_text()
-    for heading in ("Calendar", "Assistant", "Connection"):
+    for heading in ("Calendar", "Assistant", "Connection", "Just for fun"):
         assert f'"{heading}"' in ios or f'Text("{heading}")' in ios, heading
 
 

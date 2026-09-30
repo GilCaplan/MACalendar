@@ -2148,3 +2148,39 @@ Measured next steps (engine still paused):
 40. **The offline reader's agreement** after a week of real offline use (row
     31).
 
+
+Built 2026-09-30: **the learned labellers on the phone** (FEATURES.md
+"Learned labellers", SYNC_PROTOCOL.md). A task typed, an event made or the
+offline reader's rows are labelled with the Mac away by the Mac's own rules
+and each model's n-gram half, served as data (`GET /labels/model/<kind>`,
+`GET /categories/rules`); and `POST /todos` and the store's `_infer_tags` now
+ask the tag model as voice always did (`tagging.auto_tags`).
+
+41. **The Mac's quick-add still tags with the rules alone**
+    (`todo_view._new_task_tags`): it writes to the DB on the GUI thread, where
+    the model's embedding call can take up to 3 s. Route it through
+    `auto_tags` off the main thread, or through `POST /todos`.
+42. **The event model's n-gram fallback bar was never measured** (0.35; the
+    task one was, and went to 0.90 on 2026-09-24). The phone always runs that
+    fallback, as the Mac does with ollama down. PROBE only (2026-09-30, not
+    banked): of 8 real titles it filled, 3 were right and 5 wrong (4 of those
+    at 0.35–0.39) — 58 distinct titles in the live DB plus 11 in
+    `real_event_gold`. Sweep `FALLBACK_MIN_CONFIDENCE["event"]` on a board of
+    1,000+ rows before changing it; the phone follows automatically (its bar
+    is served).
+
+Built 2026-09-30: **Magic words, the iPhone Easter egg** (DEVQA Q75,
+FEATURES.md). Open:
+
+43. **The Mac's half** — the same animations over the Mac for commands said
+    there (a PyQt overlay; the drawings would be redrawn, or rendered by the
+    phone's code into sprites).
+44. **Try the photo path on a real phone** — the automatic cut-out and the
+    anime look were built against the APIs but not yet run on a real photo.
+45. ~~Magic words, next ideas~~ — all built 2026-09-30 (FEATURES.md), plus the
+    Jewish festivals set (Q76), the Mac's half, a phone-only mode and set-up
+    guide (Q77), and the licence (Q78). Still open:
+46. **The Mac's photos and drawn paths** — made on the phone today; the Mac
+    helper plays built-ins only.
+47. **Try the photo path on a real phone** (row 44) — cut-out, anime look,
+    walk/roll rigs and animal-pose legs have only met stand-in pictures.

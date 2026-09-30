@@ -18,7 +18,7 @@ from assistant.actions.todo.intent import (
     QueryTodoIntent,
     UpdateTodoIntent,
 )
-from assistant.actions.todo.tagging import resolve_tags, suggest_tags
+from assistant.actions.todo.tagging import auto_tags, resolve_tags
 from assistant.intent.context import context_memory
 from assistant.intent.list_split import split_items
 
@@ -230,15 +230,10 @@ class CreateTodoAction(BaseAction):
             elif auto_tag:
                 tags = [auto_tag]
             elif infer:
-                tags = suggest_tags(title, palette)
-                if not tags:
-                    # Stacked behind the rules, same as the event side: the
-                    # model fills a BLANK and never overrules a keyword match.
-                    try:
-                        from assistant.engine.label import model as _lm
-                        tags, _who = _lm.tags_for(title, tags, _config)
-                    except Exception:
-                        pass
+                # The rules, then the model stacked behind them — the same
+                # labeller `POST /todos` uses, so a typed task and a spoken
+                # one come out tagged alike.
+                tags = auto_tags(title, palette, _config)
             else:
                 tags = []
             qty = intent.quantity_for(index)

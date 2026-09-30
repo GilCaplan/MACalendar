@@ -92,3 +92,4 @@ MACalendar-iOS/Local.xcconfig
 MACalendar APPs/
 assistant/calendar_ui/assets/server_icon.icns
 assistant/calendar_ui/assets/server_icon.png
+mac/MagicWords/build/

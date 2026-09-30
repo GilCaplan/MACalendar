@@ -34,6 +34,8 @@ final class TagClassifier: ObservableObject {
         if let data = try? Data(contentsOf: file) {
             rules = try? JSONDecoder().decode(TagRules.self, from: data)
         }
+        // Never reached a Mac (or phone only): the defaults compiled in.
+        if rules == nil { rules = DefaultRules.tagRules }
     }
 
     /// Adopt a freshly served table. A no-op when the revision is unchanged,

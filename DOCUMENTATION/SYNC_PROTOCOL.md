@@ -104,7 +104,7 @@ can derive, never what it must decide.**
   every month view while the Hebrew dates beside them carried on, which looked
   exactly like a bug because it was one. A bootstrap covers three months; the
   cache keeps every window it has ever been told about.
-- **Task tags** — see below.
+- **Task tags and event categories** — see below.
 
 ## Task tags offline
 
@@ -151,6 +151,47 @@ nothing — so on replay the Mac classifies the task itself and the Mac's answer
 is the one that lands. When the phone's table is current the two agree by
 construction; when it is stale, the Mac wins, which is the right way round.
 
+## Event categories and the learned labellers offline (2026-09-30)
+
+The keyword rules were only half of the Mac's labeller. Behind them sit two
+learned models (`assistant/engine/label/`, MODELS.md 4 and 5) that answer where
+the rules fell through — and the phone had neither, nor any event
+categorisation at all, so an event made offline had no category and no colour
+until its create replayed, and a task the rules missed stayed untagged.
+
+`Labeller.swift` is the Mac's order, run on the phone:
+
+    task    TagClassifier (the rules)        → LabelModel (the tag model)
+    event   CategoryClassifier (the rules)   → LabelModel (the category model)
+            → CategoryClassifier.pickColor (avoiding the neighbours' colours)
+
+Three things are served, and cached so they work on a train:
+
+| what | route | carried by |
+|---|---|---|
+| the category rules — categories in order, colours, keywords, and the person names `classify`'s last rule reads | `GET /categories/rules` | the bootstrap (`category_rules`) |
+| each model's **n-gram half** — vocabulary, idf, weights, the bar, the user's switches | `GET /labels/model/<kind>` (`engine/label/export.py`) | fetched when its `rev` changes; `?have=<rev>` answers "unchanged" in a few bytes, checked at most hourly |
+
+**Why only the n-gram half.** The half that answers on the Mac reads the
+title's nomic-embed-text vector from ollama, which the phone does not have. The
+other half — two TF-IDF vectorisers and a logistic regression — is a tokeniser,
+a lookup and a dot product, so it ships as data and `LabelModel.swift` is the
+arithmetic. **The phone is therefore the Mac with ollama down**: the same
+pipeline, held to the same fallback bar (tasks 0.90, which tags almost nothing
+it is not sure of), and it is whichever tier the Mac would load — the user's
+personal model once one is fitted from their corrections, else the base.
+
+**Held to the Mac, not trusted.** `tests/unit/test_label_export.py` compiles
+the Swift files on their own and runs every title in the label datasets
+(19,277 distinct strings) through them: the probabilities match sklearn's
+within 1e-5, and the rule category, the stacked category and the stacked tags
+match `classify`, `category_for` and `tags_for` on every row.
+
+**Same preview rule as tags.** The category and colour are local; the queued
+create says only what the user said, and on replay the Mac labels it with its
+full model. The offline reader's provisional rows get the same labels, and are
+replaced by the Mac's when it answers.
+
 ## What this does not do (and why)
 
 - **No two-way merge.** There is no vector clock, no CRDT, no last-writer-wins
@@ -160,10 +201,9 @@ construction; when it is stale, the Mac wins, which is the right way round.
 - **No push.** The Mac never initiates. The phone polls a 40-byte token, which
   over a tailnet is cheaper than keeping a socket alive, and works after the
   phone has been asleep for six hours.
-- **No offline event categorisation.** An event created on the phone offline
-  keeps the colour the sheet gave it and is categorised by the Mac on replay.
-  Unlike tags, nothing about the event *disappears* in the meantime, so the
-  same treatment is available if it is ever wanted — but it is not needed.
+- **No embedding on the phone.** The labellers' embedding head needs ollama,
+  so offline the phone answers with the n-gram half alone, as the Mac does
+  when ollama is down. Its answer is a preview either way.
 - **No conflict UI beyond one notification.** A refused edit says so and the
   Mac's version stands. Anything more elaborate would need the phone to hold a
   second version, which is the thing this document exists to prevent.

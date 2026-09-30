@@ -45,6 +45,10 @@ struct MACalendarApp: App {
                 .preferredColorScheme(settings.theme == "dark" ? .dark : .light)
                 .tint(settings.accentColor)
                 .modifier(PairingOverlay())
+                // Festival days: the once-a-day greeting and the festival icon.
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                    EggStore.shared.festivalTick()
+                }
                 .onOpenURL { url in
                     // A tap on the lock-screen card: macalendar://open/tasks
                     // or macalendar://open/calendar?event=<id>.

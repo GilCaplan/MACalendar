@@ -1,0 +1,127 @@
+"""The Mac's Easter egg: magic words (DEVQA Q75), through its own helper.
+
+The drawings, the word matcher and every decision live in Swift, shared with
+the phone (`MACalendar-iOS/MACalendar-iOS/EasterEgg/`, `EggRules`), so this
+module does not match words itself — a second matcher in Python would drift
+from the phone's. It starts the helper (`mac/MagicWords`, built on first use)
+and asks it, one JSON line at a time:
+
+    heard(text, bare=True)   → True when the words were only magic words:
+                               the caller then does not send them.
+    heard(text, bare=False)  → plays what a command names, while it runs.
+
+Best effort throughout: no helper (not a Mac, no Swift compiler, a build that
+failed) means no animations and nothing else changes — a command is never
+held up or dropped because of an Easter egg.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import os
+import pathlib
+import select
+import shutil
+import subprocess
+import sys
+import threading
+
+logger = logging.getLogger(__name__)
+
+HERE = pathlib.Path(__file__).resolve().parents[1] / "mac" / "MagicWords"
+BINARY = HERE / "build" / "MACalendarMagic"
+
+_proc: "subprocess.Popen | None" = None
+_lock = threading.Lock()
+_building = False
+
+
+def _disabled() -> bool:
+    return (sys.platform != "darwin" or "PYTEST_CURRENT_TEST" in os.environ
+            or os.environ.get("MACALENDAR_NO_MAGIC") == "1")
+
+
+def _store_dir() -> str:
+    override = os.environ.get("MACALENDAR_MAGIC_WORDS")
+    if override:
+        return override
+    from assistant.users import paths as _paths
+    return os.path.dirname(_paths.resolve(os.path.expanduser("~/.assistant_tools/magic_words.json")))
+
+
+def _build() -> None:
+    global _building
+    try:
+        subprocess.run([str(HERE / "build.sh")], check=True, capture_output=True, timeout=600)
+        logger.info("✨ Built the magic-words helper")
+        _spawn()
+    except Exception as e:                       # noqa: BLE001 — best effort
+        logger.warning("✨ Could not build the magic-words helper: %s", e)
+    finally:
+        _building = False
+
+
+def _spawn() -> None:
+    global _proc
+    with _lock:
+        if _proc and _proc.poll() is None:
+            return
+        _proc = subprocess.Popen([str(BINARY), _store_dir()], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                 stderr=subprocess.DEVNULL, text=True, bufsize=1)
+
+
+def start() -> None:
+    """Start the helper, building it in the background the first time."""
+    global _building
+    if _disabled():
+        return
+    if BINARY.exists():
+        try:
+            _spawn()
+        except OSError as e:
+            logger.warning("✨ Could not start the magic-words helper: %s", e)
+    elif not _building and shutil.which("swiftc"):
+        _building = True
+        threading.Thread(target=_build, daemon=True, name="magic-words-build").start()
+
+
+def _ask(op: str, wait: bool = False, timeout: float = 0.5, **fields) -> "dict | None":
+    if _disabled():
+        return None
+    with _lock:
+        p = _proc
+        if not p or p.poll() is not None or not p.stdin or not p.stdout:
+            return None
+        try:
+            p.stdin.write(json.dumps({"op": op, **fields}) + "\n")
+            p.stdin.flush()
+            if not wait:
+                return None
+            ready, _, _ = select.select([p.stdout], [], [], timeout)
+            if not ready:
+                return None
+            return json.loads(p.stdout.readline() or "null")
+        except (OSError, ValueError):
+            return None
+
+
+def heard(text: str, bare: bool) -> bool:
+    """Tell the helper what was said. True: only magic words — don't send."""
+    reply = _ask("heard", wait=True, text=text, bare=bare)
+    return bool(reply and reply.get("bare")) if bare else False
+
+
+def open_settings() -> None:
+    _ask("settings", wait=True)
+
+
+def demo() -> None:
+    _ask("demo", wait=True)
+
+
+def festival_tick() -> None:
+    _ask("festival", wait=True)
+
+
+def stop() -> None:
+    _ask("quit")

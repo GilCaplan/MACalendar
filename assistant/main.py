@@ -113,6 +113,14 @@ def main() -> None:
     window = CalendarWindow(pipeline, config=config)
     window.show()
 
+    # The Easter egg's helper (DEVQA Q75): magic words animate over this Mac.
+    # Started after sign-in so its settings are this user's; best effort.
+    from assistant import magic_words
+    magic_words.start()
+    from PyQt6.QtCore import QTimer
+    QTimer.singleShot(4000, magic_words.festival_tick)        # a festival day's greeting
+    app.aboutToQuit.connect(magic_words.stop)
+
     sys.exit(app.exec())
 
 

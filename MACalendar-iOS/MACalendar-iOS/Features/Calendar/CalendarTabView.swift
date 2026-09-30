@@ -222,6 +222,13 @@ struct CalendarTabView: View {
                     .navigationTitle("Calendar")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
+                        ToolbarItem(placement: .principal) {
+                            // In a festival's days, a small festive figure by the title (Easter egg).
+                            HStack(spacing: 6) {
+                                Text("Calendar").font(.headline)
+                                EggSeasonBadge()
+                            }
+                        }
                         ToolbarItem(placement: .navigationBarLeading) {
                             Button { showSearch = true } label: {
                                 Image(systemName: "magnifyingglass")

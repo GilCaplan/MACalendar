@@ -49,6 +49,30 @@
 		AA00000F000000000000001A /* VoiceRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000F000000000000001B /* VoiceRecorder.swift */; };
 		AA000010000000000000001A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000010000000000000001B /* Assets.xcassets */; };
 		AA0000010000000000000F1A /* TagClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000F1B /* TagClassifier.swift */; };
+		AA00000E6600000000000100 /* EggArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000200 /* EggArt.swift */; };
+		AA00000E6600000000000101 /* EggFigures.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000201 /* EggFigures.swift */; };
+		AA00000E6600000000000102 /* EggEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000202 /* EggEffects.swift */; };
+		AA00000E6600000000000103 /* EggCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000203 /* EggCatalog.swift */; };
+		AA00000E6600000000000104 /* EggStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000204 /* EggStage.swift */; };
+		AA00000E6600000000000105 /* EggOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000205 /* EggOverlay.swift */; };
+		AA00000E6600000000000106 /* EggStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000206 /* EggStore.swift */; };
+		AA00000E6600000000000107 /* EggImageTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000207 /* EggImageTools.swift */; };
+		AA00000E6600000000000108 /* EggSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000208 /* EggSettingsView.swift */; };
+		AA00000E6600000000000109 /* EggWordSuggester.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000209 /* EggWordSuggester.swift */; };
+		AA00000E6600000000000114 /* EggRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000214 /* EggRules.swift */; };
+		AA00000E6600000000000113 /* EggSynth.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000213 /* EggSynth.swift */; };
+		AA00000E6600000000000112 /* DefaultRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000212 /* DefaultRules.swift */; };
+		AA00000E6600000000000111 /* SetupGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000211 /* SetupGuideView.swift */; };
+		AA00000E6600000000000110 /* EggFestivalViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000210 /* EggFestivalViews.swift */; };
+		AA00000E660000000000010F /* EggJewish.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E660000000000020F /* EggJewish.swift */; };
+		AA00000E660000000000010E /* EggSounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E660000000000020E /* EggSounds.swift */; };
+		AA00000E660000000000010D /* EggLivePreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E660000000000020D /* EggLivePreview.swift */; };
+		AA00000E660000000000010C /* EggPuppet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E660000000000020C /* EggPuppet.swift */; };
+		AA00000E660000000000010B /* EggPathDrawer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E660000000000020B /* EggPathDrawer.swift */; };
+		AA00000E660000000000010A /* EggTrails.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E660000000000020A /* EggTrails.swift */; };
+		AA0000010000000000000F2A /* LabelModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000F2B /* LabelModel.swift */; };
+		AA0000010000000000000F3A /* CategoryClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000F3B /* CategoryClassifier.swift */; };
+		AA0000010000000000000F4A /* Labeller.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000F4B /* Labeller.swift */; };
 		AA0000020000000000000F1A /* JudeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000020000000000000F1B /* JudeView.swift */; };
 		AA00000030000000000000F1A /* JudeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000030000000000000F1B /* JudeModels.swift */; };
 		AA00000040000000000000F1A /* JudeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000040000000000000F1B /* JudeClient.swift */; };
@@ -86,6 +110,7 @@
 		AB000003000000000000001A /* OfflineSyncUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000002000000000000001B /* OfflineSyncUITests.swift */; };
 		AB000013000000000000001A /* DayPanelUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000012000000000000001B /* DayPanelUITests.swift */; };
 		AB000017000000000000001A /* ShownHoursUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000016000000000000001B /* ShownHoursUITests.swift */; };
+		AB00001F000000000000001A /* EasterEggUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00001E000000000000001B /* EasterEggUITests.swift */; };
 		AB000015000000000000001A /* EventEditorUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000014000000000000001B /* EventEditorUITests.swift */; };
 		AC000001000000000000001A /* PendingQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC000002000000000000001A /* PendingQueueView.swift */; };
 		/* End PBXBuildFile section */
@@ -135,6 +160,30 @@
 		AA000011000000000000001B /* MACalendar-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "MACalendar-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA000012000000000000001B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA0000010000000000000F1B /* TagClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagClassifier.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000212 /* DefaultRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultRules.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000211 /* SetupGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/SetupGuideView.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000200 /* EggArt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggArt.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000201 /* EggFigures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggFigures.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000202 /* EggEffects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggEffects.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000203 /* EggCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggCatalog.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000204 /* EggStage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggStage.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000205 /* EggOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggOverlay.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000206 /* EggStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggStore.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000207 /* EggImageTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggImageTools.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000208 /* EggSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggSettingsView.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000209 /* EggWordSuggester.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggWordSuggester.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000214 /* EggRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggRules.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000213 /* EggSynth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggSynth.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000210 /* EggFestivalViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggFestivalViews.swift; sourceTree = "<group>"; };
+		AA00000E660000000000020F /* EggJewish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggJewish.swift; sourceTree = "<group>"; };
+		AA00000E660000000000020E /* EggSounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggSounds.swift; sourceTree = "<group>"; };
+		AA00000E660000000000020D /* EggLivePreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggLivePreview.swift; sourceTree = "<group>"; };
+		AA00000E660000000000020C /* EggPuppet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggPuppet.swift; sourceTree = "<group>"; };
+		AA00000E660000000000020B /* EggPathDrawer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggPathDrawer.swift; sourceTree = "<group>"; };
+		AA00000E660000000000020A /* EggTrails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggTrails.swift; sourceTree = "<group>"; };
+		AA0000010000000000000F2B /* LabelModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabelModel.swift; sourceTree = "<group>"; };
+		AA0000010000000000000F3B /* CategoryClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryClassifier.swift; sourceTree = "<group>"; };
+		AA0000010000000000000F4B /* Labeller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Labeller.swift; sourceTree = "<group>"; };
 		AA0000020000000000000F1B /* JudeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeView.swift; sourceTree = "<group>"; };
 		AA00000030000000000000F1B /* JudeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeModels.swift; sourceTree = "<group>"; };
 		AA00000040000000000000F1B /* JudeClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeClient.swift; sourceTree = "<group>"; };
@@ -174,6 +223,7 @@
 				AB000002000000000000001B /* OfflineSyncUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineSyncUITests.swift; sourceTree = "<group>"; };
 		AB000012000000000000001B /* DayPanelUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPanelUITests.swift; sourceTree = "<group>"; };
 		AB000016000000000000001B /* ShownHoursUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShownHoursUITests.swift; sourceTree = "<group>"; };
+		AB00001E000000000000001B /* EasterEggUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasterEggUITests.swift; sourceTree = "<group>"; };
 		AB000014000000000000001B /* EventEditorUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventEditorUITests.swift; sourceTree = "<group>"; };
 		AB00000E000000000000001B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AB000004000000000000001B /* MACalendarUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MACalendarUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -278,10 +328,42 @@
 			path = Shared;
 			sourceTree = "<group>";
 		};
+		AA00000E6600000000000000 /* EasterEgg */ = {
+			isa = PBXGroup;
+			children = (
+				AA00000E6600000000000200 /* EggArt.swift */,
+				AA00000E6600000000000201 /* EggFigures.swift */,
+				AA00000E6600000000000202 /* EggEffects.swift */,
+				AA00000E6600000000000203 /* EggCatalog.swift */,
+				AA00000E6600000000000204 /* EggStage.swift */,
+				AA00000E6600000000000205 /* EggOverlay.swift */,
+				AA00000E6600000000000206 /* EggStore.swift */,
+				AA00000E6600000000000207 /* EggImageTools.swift */,
+				AA00000E6600000000000208 /* EggSettingsView.swift */,
+				AA00000E6600000000000209 /* EggWordSuggester.swift */,
+				AA00000E6600000000000214 /* EggRules.swift */,
+				AA00000E6600000000000213 /* EggSynth.swift */,
+				AA00000E6600000000000210 /* EggFestivalViews.swift */,
+				AA00000E660000000000020F /* EggJewish.swift */,
+				AA00000E660000000000020E /* EggSounds.swift */,
+				AA00000E660000000000020D /* EggLivePreview.swift */,
+				AA00000E660000000000020C /* EggPuppet.swift */,
+				AA00000E660000000000020B /* EggPathDrawer.swift */,
+				AA00000E660000000000020A /* EggTrails.swift */,
+			);
+			path = EasterEgg;
+			sourceTree = "<group>";
+		};
 		AA000031000000000000001A /* MACalendar-iOS */ = {
 			isa = PBXGroup;
 			children = (
+				AA00000E6600000000000000 /* EasterEgg */,
 				AA0000010000000000000F1B /* TagClassifier.swift */,
+				AA00000E6600000000000212 /* DefaultRules.swift */,
+				AA00000E6600000000000211 /* SetupGuideView.swift */,
+				AA0000010000000000000F2B /* LabelModel.swift */,
+				AA0000010000000000000F3B /* CategoryClassifier.swift */,
+				AA0000010000000000000F4B /* Labeller.swift */,
 				AA000001000000000000001B /* MACalendarApp.swift */,
 				AA000013000000000000001B /* LocalStore.swift */,
 				AA0000A500000000000000B1 /* ReminderScheduler.swift */,
@@ -469,6 +551,7 @@
 				AB000002000000000000001B /* OfflineSyncUITests.swift */,
 				AB000012000000000000001B /* DayPanelUITests.swift */,
 				AB000016000000000000001B /* ShownHoursUITests.swift */,
+				AB00001E000000000000001B /* EasterEggUITests.swift */,
 				AB000014000000000000001B /* EventEditorUITests.swift */,
 				AB00000E000000000000001B /* Info.plist */,
 			);
@@ -646,6 +729,30 @@
 				AAF0000300000000000000A2 /* OfflineGuard.swift in Sources */,
 				AAF0000300000000000000A3 /* OfflineDates.swift in Sources */,
 				AA0000010000000000000F1A /* TagClassifier.swift in Sources */,
+				AA00000E6600000000000100 /* EggArt.swift in Sources */,
+				AA00000E6600000000000101 /* EggFigures.swift in Sources */,
+				AA00000E6600000000000102 /* EggEffects.swift in Sources */,
+				AA00000E6600000000000103 /* EggCatalog.swift in Sources */,
+				AA00000E6600000000000104 /* EggStage.swift in Sources */,
+				AA00000E6600000000000105 /* EggOverlay.swift in Sources */,
+				AA00000E6600000000000106 /* EggStore.swift in Sources */,
+				AA00000E6600000000000107 /* EggImageTools.swift in Sources */,
+				AA00000E6600000000000108 /* EggSettingsView.swift in Sources */,
+				AA00000E6600000000000109 /* EggWordSuggester.swift in Sources */,
+				AA00000E6600000000000114 /* EggRules.swift in Sources */,
+				AA00000E6600000000000113 /* EggSynth.swift in Sources */,
+				AA00000E6600000000000112 /* DefaultRules.swift in Sources */,
+				AA00000E6600000000000111 /* SetupGuideView.swift in Sources */,
+				AA00000E6600000000000110 /* EggFestivalViews.swift in Sources */,
+				AA00000E660000000000010F /* EggJewish.swift in Sources */,
+				AA00000E660000000000010E /* EggSounds.swift in Sources */,
+				AA00000E660000000000010D /* EggLivePreview.swift in Sources */,
+				AA00000E660000000000010C /* EggPuppet.swift in Sources */,
+				AA00000E660000000000010B /* EggPathDrawer.swift in Sources */,
+				AA00000E660000000000010A /* EggTrails.swift in Sources */,
+				AA0000010000000000000F2A /* LabelModel.swift in Sources */,
+				AA0000010000000000000F3A /* CategoryClassifier.swift in Sources */,
+				AA0000010000000000000F4A /* Labeller.swift in Sources */,
 				AA0000020000000000000F1A /* JudeView.swift in Sources */,
 				AA00000030000000000000F1A /* JudeModels.swift in Sources */,
 				AA00000040000000000000F1A /* JudeClient.swift in Sources */,
@@ -694,6 +801,7 @@
 				AB000003000000000000001A /* OfflineSyncUITests.swift in Sources */,
 				AB000013000000000000001A /* DayPanelUITests.swift in Sources */,
 				AB000017000000000000001A /* ShownHoursUITests.swift in Sources */,
+				AB00001F000000000000001A /* EasterEggUITests.swift in Sources */,
 				AB000015000000000000001A /* EventEditorUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -836,6 +944,7 @@
 			baseConfigurationReference = AA0000A000000000000000C1 /* Base.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIconSukkot AppIconRoshHashanah AppIconChanukah AppIconPurim AppIconPesach";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "MACalendar-iOS/MACalendar-iOS.entitlements";
 				CODE_SIGN_STYLE = Automatic;
@@ -865,6 +974,7 @@
 			baseConfigurationReference = AA0000A000000000000000C1 /* Base.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIconSukkot AppIconRoshHashanah AppIconChanukah AppIconPurim AppIconPesach";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "MACalendar-iOS/MACalendar-iOS.entitlements";
 				CODE_SIGN_STYLE = Automatic;

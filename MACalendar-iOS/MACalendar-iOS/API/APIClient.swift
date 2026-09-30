@@ -774,6 +774,9 @@ class APIClient: ObservableObject {
         }
         if let cd = snap.countdowns { OccasionCache.shared.storeCountdowns(cd) }
         if let rules = snap.tagRules { TagClassifier.shared.update(rules) }
+        if let rules = snap.categoryRules { Labeller.shared.update(categoryRules: rules) }
+        // The learned labellers, when a retrain changed them (hourly check).
+        Task { await Labeller.shared.refreshModels(api: self) }
         requestRefresh()
         return snap.token
     }
@@ -935,13 +938,14 @@ class APIClient: ObservableObject {
             // to show untagged, drop out of whatever tag view you were looking
             // at, and stay that way until the queued create replayed.
             //
-            // `TagClassifier` is the Mac's own classifier running here, on the
-            // table the Mac serves, so it can be shown with its tag straight
-            // away. The QUEUED BODY is deliberately left alone: it still says
-            // what the user said (possibly nothing), so on replay the Mac
-            // classifies it itself and its answer is the one that lands. This
-            // is a preview, not a second source of truth.
-            let shown = tags.isEmpty ? TagClassifier.shared.tags(for: title) : tags
+            // `Labeller` is the Mac's own labeller running here — its keyword
+            // rules, then its learned tag model — on data the Mac serves, so
+            // it can be shown with its tag straight away. The QUEUED BODY is
+            // deliberately left alone: it still says what the user said
+            // (possibly nothing), so on replay the Mac classifies it itself
+            // and its answer is the one that lands. This is a preview, not a
+            // second source of truth.
+            let shown = tags.isEmpty ? Labeller.shared.tags(for: title) : tags
             let local = LocalStore.shared.insertTodo(title: title, list: list, tags: shown)
             LocalStore.shared.enqueue(method: "POST", path: "/todos",
                                       body: body.merging(["_temp_id": local.id]) { a, _ in a })

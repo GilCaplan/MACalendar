@@ -15,6 +15,7 @@ routes, request shapes, CRUD — and the feature's CRUD belongs with the feature
 | `GET/POST /categories` | the colour classes, each with an optional default length and chain gap; `DELETE /categories/<name>` |
 | `GET /event_defaults` | the default event length and chain gap, resolved for a category or a title (DEVQA Q51) |
 | `POST /categories/classify` `POST /categories/recolor` | classify one title; re-colour everything |
+| `GET /categories/rules` | the category classifier as data, for the phone to run offline |
 | `GET /holidays` | the Hebrew calendar over a range |
 | `GET /sync/bootstrap` | a cold client's whole first screen in one round trip (incl. Shabbat/yom tov windows) |
 
@@ -131,6 +132,33 @@ def categories_classify():
     cat = _cat.classify(b.get("title", ""), b.get("attendees"), b.get("location", ""), b.get("description", ""))
     color, alt = _cat.color_for(cat)
     return jsonify({"category": cat, "color": color, "alt": alt})
+
+
+@blueprint.get("/categories/rules")
+def category_rules():
+    """The event-category classifier as data, so a client can run it offline.
+
+    `categories.classify` only runs where the database is, so an event made
+    on the phone with the Mac away had no category and no colour until the
+    queued create replayed. The phone carries a port of the scorer
+    (`CategoryClassifier.swift`); this hands it the table it reads — the
+    categories IN ORDER (a tie goes to the first, as `classify` breaks it),
+    their colours for `pick_color`, and the person names its last rule reads
+    — the same split as `/tags/rules`. `rev` changes whenever any of it does.
+    """
+    import hashlib
+    import json as _json
+
+    from assistant.actions.calendar import categories as _cat
+    payload = {
+        "categories": [{"name": c["name"], "color": c["color"], "alt": c.get("alt", c["color"]),
+                        "keywords": list(c.get("keywords", []))}
+                       for c in _cat.all_categories()],
+        "people": _cat.people_words(),
+    }
+    payload["rev"] = hashlib.sha1(
+        _json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:12]
+    return jsonify(payload)
 
 
 @blueprint.post("/categories/recolor")
@@ -468,6 +496,7 @@ def sync_bootstrap():
         "todos": sharing.gather(lambda d: d.get_todos(list_name=None, include_completed=False)),
         "tags": db.get_tags(),
         "tag_rules": tag_rules().get_json(),
+        "category_rules": category_rules().get_json(),
         "categories": _cat.all_categories(),
         "holidays": [
             {

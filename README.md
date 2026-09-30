@@ -396,6 +396,17 @@ wins — the phone's version is replaced, and you're told if it read it
 differently. Moves, changes and deletes always wait for the Mac. The contract:
 [assistant/offline/PROTOCOL.md](assistant/offline/PROTOCOL.md).
 
+**Or no Mac at all.** Settings ▸ How it runs ▸ *This phone only* runs the app
+on the phone alone — calendar, to-dos, reminders, and voice commands that add
+things, read on the device — with no "offline" line. The same page walks
+through setting up a Mac: the installer, the model (Ollama or an API key),
+Tailscale, and pairing.
+
+**Magic words** (Settings ▸ Easter egg). Say "dog" and a German Shepherd runs
+across the screen; "dragon", "fireworks", "sukkah", "menorah"… — 40 drawn
+graphics, your own photos, and a Jewish festivals set with greetings on
+festival days. The Mac plays them too.
+
 ### 1. Deploy the App (via Xcode)
 1. Open `MACalendar-iOS/MACalendar-iOS.xcodeproj` in **Xcode**.
 2. Set your **Signing Team** in *Signing & Capabilities*.
@@ -473,3 +484,13 @@ describes the commit it ships in, and it stages nothing when the counts have
 not moved. It never blocks a commit. `tests/unit/test_code_size.py` is the
 backstop for a checkout without the hook — red once the written figure is more
 than 2% out.
+
+## License
+
+**Free for personal and other noncommercial use; commercial use needs permission.**
+MACalendar is released under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+You may use, copy, modify and share it for any noncommercial purpose — for
+yourself, as a hobby, for study, or in a charity, school or public institution —
+at no charge. Selling it, offering it as a paid service, or building a
+commercial product on it or on a fork of it requires the author's explicit
+written permission; open an issue on GitHub to ask.

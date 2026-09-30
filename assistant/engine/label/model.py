@@ -205,6 +205,17 @@ class LabelModel:
 
     # -- prediction ---------------------------------------------------------
 
+    def ngram_bar(self) -> float:
+        """The n-gram pipeline's bar: `MIN_CONFIDENCE`, raised to
+        `FALLBACK_MIN_CONFIDENCE` when the artefact has an embedding head the
+        pipeline is only standing in for (a fallback, not the model). One
+        definition, because the phone applies it too (`export.py`) — the phone
+        never has the vector, so it is always the fallback."""
+        bar = MIN_CONFIDENCE.get(self.kind, 0.4)
+        if getattr(self, "embed_head", None) is not None:
+            bar = max(bar, FALLBACK_MIN_CONFIDENCE.get(self.kind, bar))
+        return bar
+
     def _embedded(self, text: str, base_url: "str | None"):
         """The embedding head's probabilities for one title, or None when the
         vector cannot be had (disabled, ollama down or slow) or the head fails.
@@ -252,7 +263,7 @@ class LabelModel:
             return None
         best = max(range(len(proba)), key=lambda i: proba[i])
         conf = float(proba[best])
-        if conf < MIN_CONFIDENCE.get(self.kind, 0.4):
+        if conf < self.ngram_bar():
             return None
         return str(self.pipeline.classes_[best]), conf
 
@@ -274,10 +285,7 @@ class LabelModel:
                 return None
             return [name for name, _ in picked], min(sc for _, sc in picked)
         self.last_source = "ngram"
-        bar = MIN_CONFIDENCE.get(self.kind, 0.4)
-        if getattr(self, "embed_head", None) is not None:
-            # A fallback, not the model: hold it to the fallback bar.
-            bar = max(bar, FALLBACK_MIN_CONFIDENCE.get(self.kind, bar))
+        bar = self.ngram_bar()
         try:
             scores = []
             for i, est in enumerate(self.pipeline.named_steps["clf"].estimators_):

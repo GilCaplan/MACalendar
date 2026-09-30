@@ -152,7 +152,9 @@ struct ContentView: View {
             // connection they SWITCHED OFF is not a problem at all. Same
             // information — what is queued — in a calmer voice, and grey rather
             // than orange, because nothing is wrong.
-            if !settings.serverEnabled || !api.isOnline {
+            // Never in phone-only mode (there is no Mac to be away), and never
+            // when switched off in Settings ▸ How it runs.
+            if (!settings.serverEnabled || !api.isOnline) && !settings.phoneOnly && settings.showConnectionBanner {
                 let chosen = !settings.serverEnabled
                 let pending = store.pendingCount
                 HStack(spacing: 6) {

@@ -46,6 +46,21 @@ class AppSettings: ObservableObject {
     @Published var apiKey: String {
         didSet { UserDefaults.standard.set(apiKey, forKey: "apiKey") }
     }
+    /// "This phone only": no Mac at all, by choice. The app never looks for
+    /// one, so there is nothing to call offline — no banner. Voice commands
+    /// are read here by Apple's on-device model; everything stays on the
+    /// phone and is sent to a Mac if one is ever set up.
+    @Published var phoneOnly: Bool {
+        didSet {
+            UserDefaults.standard.set(phoneOnly, forKey: "phoneOnly")
+            if phoneOnly { serverEnabled = false } else if oldValue { serverEnabled = true }
+        }
+    }
+    /// The coloured "offline" line at the top of the app, for anyone who
+    /// would rather not see it at all.
+    @Published var showConnectionBanner: Bool {
+        didSet { UserDefaults.standard.set(showConnectionBanner, forKey: "showConnectionBanner") }
+    }
     @Published var ttsVoice: String {
         didSet { UserDefaults.standard.set(ttsVoice, forKey: "ttsVoice") }
     }
@@ -286,6 +301,9 @@ class AppSettings: ObservableObject {
         self.serverURL = UserDefaults.standard.string(forKey: "serverURL")
             ?? Self.defaultServerURL
         self.apiKey    = UserDefaults.standard.string(forKey: "apiKey") ?? ""
+        self.phoneOnly = UserDefaults.standard.bool(forKey: "phoneOnly")
+        self.showConnectionBanner = UserDefaults.standard.object(forKey: "showConnectionBanner") == nil
+            ? true : UserDefaults.standard.bool(forKey: "showConnectionBanner")
         self.ttsVoice  = UserDefaults.standard.string(forKey: "ttsVoice") ?? "en-US"
         self.theme     = UserDefaults.standard.string(forKey: "userTheme") ?? "dark"
         self.accentColorHex = UserDefaults.standard.string(forKey: "accentColorHex") ?? Theme.defaultAccentHex

@@ -237,6 +237,7 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `DELETE` | `/categories/<path:name>` |  |
 | `POST` | `/categories/classify` |  |
 | `POST` | `/categories/recolor` | Apply categories/colours to existing events. ?force=1 re-does everything. |
+| `GET` | `/categories/rules` | The event-category classifier as data, so a client can run it offline. |
 
 ## /event_defaults
 
@@ -333,6 +334,7 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | Method | Path | What it does |
 |---|---|---|
 | `POST` | `/labels` | {"kind": "event", "text": "...", "label": "Fitness"} — or `labels` |
+| `GET` | `/labels/model/<kind>` | The learned labeller's n-gram half as data (`engine/label/export.py`), |
 | `GET` | `/labels/next` | Items worth labelling, hardest-first. |
 | `POST` | `/labels/retrain` | Refit now. The gate still applies — a model that is not better than |
 

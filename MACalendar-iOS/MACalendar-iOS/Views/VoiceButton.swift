@@ -34,6 +34,8 @@ struct VoiceButton: View {
     enum Status { case idle, recording, review, thinking, speaking }
     /// Audio captured but not yet sent — the user can Redo / Add more / Send.
     @State private var pendingAudio: Data?
+    /// This command's magic words have played — once per command.
+    @State private var eggPlayed = false
     @State private var sendCountdown = 0
     @State private var countdownTask: Task<Void, Never>?
 
@@ -323,10 +325,12 @@ struct VoiceButton: View {
             requestPermission { granted in
                 guard granted else { return }
                 Task { @MainActor in
-                    if settings.stopWordsEnabled {
+                    let eggs = EggStore.shared.settings.enabled
+                    if settings.stopWordsEnabled || eggs {
                         _ = await VoiceRecorder.requestSpeechPermission()   // no-op once granted
                     }
                     recorder.stopWordsEnabled = settings.stopWordsEnabled
+                    recorder.transcribe = eggs
                     recorder.silenceStopSeconds = settings.silenceStopEnabled ? settings.silenceStopSeconds : 0
                     recorder.onAutoStop = { [self] in finishRecording() }
                     // Stop talking before listening. The synthesizer holds the
@@ -354,6 +358,12 @@ struct VoiceButton: View {
     private func finishRecording() {
         guard status == .recording else { return }
         guard let audioData = recorder.stop(), !audioData.isEmpty else {
+            status = .idle
+            return
+        }
+        // Easter egg: nothing but magic words ("dragon!") plays and sends
+        // nothing — there is no command in it to run.
+        if EggStore.shared.heard(recorder.liveText, bare: true) {
             status = .idle
             return
         }
@@ -417,6 +427,10 @@ struct VoiceButton: View {
             steps = []
             finished = false
             lastResponse = nil
+            // Easter egg: a magic word inside a command plays while the
+            // command is being made. The phone's own hearing if it has one;
+            // otherwise the Mac's transcript, the moment it arrives below.
+            eggPlayed = EggStore.shared.heard(recorder.liveText, bare: false)
             if settings.showThinking {
                 steps = [TraceStep(stage: "stt", title: "Sending", detail: "Uploading audio to your Mac…",
                                    ms: 0, atMs: 0, ok: true)]
@@ -439,6 +453,9 @@ struct VoiceButton: View {
                         if settings.showThinking {
                             if steps.count == 1, steps[0].title == "Sending" { steps = [] }
                             steps.append(step)
+                        }
+                        if !eggPlayed, step.stage == "stt", recorder.liveText.isEmpty {
+                            eggPlayed = EggStore.shared.heard(step.detail, bare: false)
                         }
                         if step.stage == "execute" && step.ok {
                             api.burstRefresh()
@@ -487,8 +504,10 @@ struct VoiceButton: View {
             }
             if !booked.isEmpty {
                 onRefresh?("both")
-                let line = "Added on this phone: " + booked.joined(separator: "; ")
-                    + ". Your Mac will check it when it's back."
+                let line = settings.phoneOnly
+                    ? "Added: " + booked.joined(separator: "; ") + "."
+                    : "Added on this phone: " + booked.joined(separator: "; ")
+                      + ". Your Mac will check it when it's back."
                 if settings.showThinking {
                     steps.append(TraceStep(stage: "verify", title: "Read on this phone",
                                            detail: line, ms: 0, atMs: steps.last?.atMs ?? 0, ok: true))
@@ -496,8 +515,11 @@ struct VoiceButton: View {
                 if settings.speakReplies { player.speak(line, voiceIdentifier: settings.ttsVoice) }
             } else if settings.showThinking {
                 steps.append(TraceStep(stage: "verify", title: "Saved for later",
-                                       detail: "Your Mac isn't reachable. This command is queued and will "
-                                               + "run — and tell you what it did — as soon as it's back.",
+                                       detail: settings.phoneOnly
+                                           ? "Reading commands on this phone needs Apple Intelligence (iOS 26). "
+                                             + "It's kept, and runs if you set up a Mac later."
+                                           : "Your Mac isn't reachable. This command is queued and will "
+                                             + "run — and tell you what it did — as soon as it's back.",
                                        ms: 0, atMs: steps.last?.atMs ?? 0, ok: true))
             }
             finished = true
@@ -548,6 +570,12 @@ struct VoiceButton: View {
 
     private func handleResponse(_ response: VoiceResponse) async {
         lastResponse = response
+        // Easter egg: play for what the command MADE (a trip → a plane), when
+        // that is switched on. After the reply, off the main path.
+        if let rows = response.committed, !rows.isEmpty {
+            let made = rows.filter { ($0.action ?? "").hasPrefix("create") }.map { (kind: $0.kind, id: $0.id) }
+            Task { await EggStore.shared.made(made, api: api) }
+        }
         if let t = response.trace, !t.isEmpty, steps.isEmpty || !settings.showThinking {
             steps = t
         }

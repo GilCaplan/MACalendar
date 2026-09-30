@@ -253,10 +253,18 @@ struct VoiceResponse: Codable {
     /// On a resent command the phone read offline: how the Mac's reading
     /// compared with the phone's (assistant/offline). Absent otherwise.
     var offline: OfflineVerdict? = nil
+    /// What the command wrote, as row references (the engine's `committed`).
+    var committed: [CommittedRow]? = nil
+
+    struct CommittedRow: Codable, Equatable {
+        let kind: String
+        let id: Int
+        let action: String?
+    }
 
     enum CodingKeys: String, CodingKey {
         case message, actions, refresh, parse, transcript, corrections, trace, brain, hint
-        case offline
+        case offline, committed
         case boundaries
         case verifyToken = "verify_token"
         case originalTranscript = "original_transcript"
@@ -1003,6 +1011,9 @@ struct BootstrapSnapshot: Codable {
     let tags: [TodoTag]
     let holidays: [Holiday]
     var tagRules: TagRules? = nil
+    /// The event-category classifier's table (`Labeller`); optional because
+    /// a Mac from before it sends none.
+    var categoryRules: CategoryRules? = nil
     /// Optional: a Mac from before the Shabbat lines existed does not send it,
     /// and a non-optional key missing from the JSON would fail the whole decode.
     var holyWindows: HolyWindowsPayload? = nil
@@ -1013,6 +1024,7 @@ struct BootstrapSnapshot: Codable {
     enum CodingKeys: String, CodingKey {
         case token, window, events, todos, tags, holidays, occasions, countdowns
         case tagRules = "tag_rules"
+        case categoryRules = "category_rules"
         case holyWindows = "holy_windows"
     }
 }

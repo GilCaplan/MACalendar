@@ -33,6 +33,12 @@ Models 4 and 5 are new (2026-09-10) and are the reason this file no longer says
 rules rather than replacing them** — the rules answer first and keep their
 measured precision, and a model only fills a row they had no opinion about.
 
+**They label on the phone too** (2026-09-30), with the Mac away: the phone
+cannot run model 6, so it runs each artefact's n-gram half — served as data by
+`GET /labels/model/<kind>` (`assistant/engine/label/export.py`), computed by
+`LabelModel.swift` — exactly as the Mac does when ollama is down, and only as a
+preview the Mac replaces on replay. `DOCUMENTATION/SYNC_PROTOCOL.md` has it.
+
 **Two tiers.** A BASE model, identical for every user, fitted from committed
 datasets that contain nobody's data and built automatically on first use. A
 PERSONAL model on top of it, fitted from the labels *that* user has corrected,

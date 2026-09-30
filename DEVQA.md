@@ -1,3 +1,50 @@
+- **2026-09-30 — Q78 (A NONCOMMERCIAL LICENCE)**, Gil: *"a license so it can't
+  be commercialized without my explicit permission, or forked for commercial
+  purposes, although can be used personally for no charge"*. The PolyForm
+  Noncommercial License 1.0.0, verbatim (`LICENSE`), under a notice naming
+  him and saying commercial use needs his written permission; a README
+  section says the same in plain words.
+
+- **2026-09-30 — Q77 (A REAL APP: SET-UP GUIDE AND PHONE-ONLY MODE)**, Gil:
+  the phone's Settings explain how to install the server, Tailscale, Ollama or
+  an API key — and a phone-only mode for those who want no server, where the
+  orange "offline" line never shows; a switch hides that line anyway.
+  Settings ▸ How it runs (FEATURES.md).
+
+- **2026-09-30 — Q76 (THE JEWISH FESTIVALS SET)**, Gil: *"more jewish stuff
+  especially for certain times of year like succot … lulav and etrog and
+  succah in certain places in app, icon … and also for purim a mask,
+  costume"*, with an on/off toggle. Fourteen figures across Rosh Hashanah,
+  Sukkot / Simchat Torah, Chanukah, Purim, Pesach, Shavuot and Shabbat; a
+  festival greeting once a day; a festive figure by the calendar's title; a
+  festival app icon (off by default — iOS announces every icon change with
+  an alert). Seasons start a few days early.
+
+- **2026-09-30 — Q75 (MAGIC WORDS — THE EASTER EGG)**, Gil: *"say the word dog
+  … this graphic of a dog appears"* — a German Shepherd, dragon, fairy, wolf,
+  car, plane and more, under Settings ▸ Easter egg. Decided with him:
+  **iPhone first**, each device animating its own commands (the Mac later);
+  **a magic word said on its own animates only and sends nothing**, while a
+  command with one in it always runs; show it on its own / in a command /
+  both; several at once together or one after another; motion per word or
+  one for all; a tap vanishes it or hurries it then closes. **An object is
+  its keywords plus a LIST of graphics with a pointer to the one that
+  plays** — the drawn original is always kept; his photos (auto cut-out or a
+  loop drawn round the character, anime-styled or as is) are added beside it,
+  or start a new object with its own words; Apple's on-device model can
+  suggest words. **Art:** anime cel style drawn in code (he asked for
+  generated anime art; nothing here can generate images, and art pulled off
+  the internet is mostly copyrighted and would not match); the anime photo
+  look is Core Image, not a neural model (AnimeGAN's licence is
+  non-commercial). Map: `MACalendar-iOS/MACalendar-iOS/EasterEgg/`.
+  **Added the same day, at his asking — "everything should be controllable
+  in settings":** a subgraphic trail; direction; sixteen motions and a path he
+  draws himself; three-step timing with a hold; see-through, glowing and
+  outline looks; touches that pass through to the app; photos that walk or
+  roll (rigged automatically); plurals that bring a pack and group words; a
+  live preview in Settings. His call on what next: build and check these
+  first, then add more (TASKS 45).
+
 - **2026-09-29 — Q74 (DAYS SAID BY NAME)**, Gil: *"The engine can deal with
   given hebrew dates and other built in events? Those words get auto added to
   vocab?"* — it could not: probed on eight commands, five were booked on the

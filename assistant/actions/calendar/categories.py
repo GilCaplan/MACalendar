@@ -359,15 +359,23 @@ def classify(title: str, attendees: str | list | None = None, location: str = ""
             best_score = rival
     # Names of people alone (vocab) → Social unless something stronger matched
     if best_score == 0:
-        try:
-            from assistant.stt.vocab import get_vocab
-            words = {w.lower() for w in re.findall(r"[a-zA-Z][a-zA-Z'-]+", title or "")}
-            people = {e.word.lower() for e in get_vocab().entries if len(e.word.split()) == 1 and e.word[:1].isupper()}
-            if words & people:
-                return "Social"
-        except Exception:
-            pass
+        words = {w.lower() for w in re.findall(r"[a-zA-Z][a-zA-Z'-]+", title or "")}
+        if words & set(people_words()):
+            return "Social"
     return best
+
+
+def people_words() -> list[str]:
+    """The user's single capitalised vocabulary words, lower-cased — who
+    `classify` treats as a person. Its own function because the phone runs
+    `classify` too (`GET /categories/rules`), and a copy of this rule there
+    would drift from the one here."""
+    try:
+        from assistant.stt.vocab import get_vocab
+        return sorted({e.word.lower() for e in get_vocab().entries
+                       if len(e.word.split()) == 1 and e.word[:1].isupper()})
+    except Exception:
+        return []
 
 
 def color_for(category: str) -> tuple[str, str]:

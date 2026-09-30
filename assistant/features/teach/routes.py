@@ -1,4 +1,4 @@
-"""Teach's HTTP surface: `/labels*` — the labelling game.
+"""Teach's HTTP surface: `/labels*` — the labelling game, and the models it trains.
 
 A Flask blueprint rather than lines in `server.py`, per
 `assistant/features/CONVENTION.md`: a surface owns a folder, declares itself
@@ -11,6 +11,7 @@ like every other feature's.
 | `GET /labels/next` | items worth labelling, hardest-first (active learning) |
 | `POST /labels` | record one answer as an EXPLICIT pick |
 | `POST /labels/retrain` | refit now; the gate still applies |
+| `GET /labels/model/<kind>` | the model's n-gram half as data, for the phone to run offline |
 
 No `url_prefix`: every path above is already absolute, and a prefix would move
 all of them.
@@ -161,3 +162,23 @@ def labels_retrain():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)[:200]}), 500
     return jsonify({"ok": True, "result": out})
+
+
+@blueprint.get("/labels/model/<kind>")
+def labels_model(kind: str):
+    """The learned labeller's n-gram half as data (`engine/label/export.py`),
+    so the phone can run it with the Mac away — `LabelModel.swift` is the
+    arithmetic. `?have=<rev>` answers `{"rev", "unchanged": true}` when the
+    phone's copy is current, so the ~2 MB event model travels once per
+    retrain, not once per foreground."""
+    from assistant.api.server import load_config
+    from assistant.engine.label import export as _export
+    try:
+        payload = _export.export(kind, load_config())
+    except _export.UnsupportedModel as e:
+        return jsonify({"error": str(e)[:300], "code": 501}), 501
+    if payload is None:
+        return jsonify({"error": f"No {kind!r} label model", "code": 404}), 404
+    if request.args.get("have") == payload["rev"]:
+        return jsonify({"kind": kind, "rev": payload["rev"], "unchanged": True})
+    return jsonify(payload)

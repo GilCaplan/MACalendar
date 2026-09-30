@@ -17,6 +17,10 @@ class VoiceRecorder: NSObject, ObservableObject {
     var stopWords: [String] = VoiceRecorder.defaultStopWords
     var silenceStopSeconds: Double = 6.0
     var stopWordsEnabled = true
+    /// Run the on-device recogniser even with stop words off — the Easter
+    /// egg reads what was said before the audio leaves the phone. It never
+    /// ends a recording by itself; only a stop word does.
+    var transcribe = false
     /// Called on the main actor when a stop word or silence ends the recording.
     var onAutoStop: (() -> Void)?
 
@@ -63,7 +67,7 @@ class VoiceRecorder: NSObject, ObservableObject {
         converter = AVAudioConverter(from: inFormat, to: targetFormat)
 
         // On-device stop-word listener (optional — recording works without it)
-        if stopWordsEnabled, SFSpeechRecognizer.authorizationStatus() == .authorized {
+        if stopWordsEnabled || transcribe, SFSpeechRecognizer.authorizationStatus() == .authorized {
             let rec = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
             // On-device only. Where the device can't recognise locally, skip the
             // stop-word listener entirely rather than letting Apple's servers see

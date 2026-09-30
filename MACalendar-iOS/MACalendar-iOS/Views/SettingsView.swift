@@ -119,6 +119,9 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    row("How it runs", "switch.2", .blue, settings.phoneOnly ? "This phone only" : "Mac + phone") {
+                        SetupGuideView()
+                    }
                     row("Your Mac", "desktopcomputer", .gray, connectionSummary) { serverPage }
                     row("Servers & logs", "server.rack", .gray, "Model helpers") { ServersView() }
                     if store.pendingCount > 0 {
@@ -134,6 +137,11 @@ struct SettingsView: View {
                         .accessibilityIdentifier("pending-queue-link")
                     }
                 } header: { Text("Connection") }
+
+                Section {
+                    row("Easter egg", "wand.and.stars", .pink,
+                        EggStore.shared.settings.enabled ? "Magic words on" : "Off") { EggSettingsView() }
+                } header: { Text("Just for fun") }
 
                 Section {
                     HStack { Text("Version"); Spacer(); Text("1.0").foregroundColor(.secondary) }

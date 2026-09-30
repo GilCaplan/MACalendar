@@ -1964,10 +1964,19 @@ class CalendarDB:
         `None` means "nobody chose"; an empty list means "chosen to be none" —
         which the todo list's Untagged filter relies on, so the two must stay
         distinguishable and only `None` may be filled in here.
+
+        `auto_tags` — the keyword rules, then the learned tagger behind them,
+        the same labeller voice and `POST /todos` use, as the event side has
+        its model inside `auto_category_and_color`.
         """
         try:
-            from assistant.actions.todo.tagging import suggest_tags
-            return suggest_tags(title, [r["name"] for r in self.get_tags()])
+            from assistant.actions.todo.tagging import auto_tags
+            try:
+                from assistant.config import load_config as _lc
+                cfg = _lc("config.yaml")
+            except Exception:  # no config: the rules alone, as with labels off
+                cfg = None
+            return auto_tags(title, [r["name"] for r in self.get_tags()], cfg)
         except Exception:      # labelling is never worth failing a create over
             return []
 

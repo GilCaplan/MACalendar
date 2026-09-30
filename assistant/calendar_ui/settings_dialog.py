@@ -66,6 +66,7 @@ _SECTION_GROUPS = (
     ("Notifications & tabs", ("Notifications", "Tabs")),
     ("Assistant", ("Assistant", "Voice")),
     ("Connection", ("Server",)),
+    ("Just for fun", ("Easter egg",)),
 )
 _SECTION_LABELS = {"Hebrew Calendar": "Hebrew & Shabbat",
                    "Connected Calendars": "Connected calendars"}
@@ -76,6 +77,7 @@ _SECTION_TILES = {
     "Notifications": ("#ff453a", "!"), "Tabs": ("#8e8e93", "▤"),
     "Assistant": ("#bf5af2", "✦"), "Voice": ("#bf5af2", "∿"),
     "Server": ("#8e8e93", "▣"), "Occasions": ("#ec4899", "✿"),
+    "Easter egg": ("#ff2d55", "✨"),
 }
 
 
@@ -1157,6 +1159,33 @@ def open_settings(self) -> None:
     voice.addLayout(phrase_form)
 
     # ── Assistant ─────────────────────────────────────────────────
+    # Easter egg (DEVQA Q75): its settings are the helper's own window — the
+    # same controls as the phone's, drawn by the same code — so this page is
+    # the door to it.
+    egg = section("Easter egg")
+    egg.addWidget(hint("Say a magic word — “dragon”, “dog”, “fireworks”, “sukkah” — and its "
+                       "picture plays across this Mac's screen. A command that names one still "
+                       "runs; a magic word on its own isn't sent."))
+    _egg_row = QHBoxLayout()
+    _egg_open = QPushButton("Magic words settings…")
+    _egg_open.setObjectName("magic_words_settings")
+    _egg_demo = QPushButton("Play a demo")
+    _egg_demo.setObjectName("magic_words_demo")
+
+    def _egg(fn):
+        def run():
+            from assistant import magic_words
+            magic_words.start()
+            fn(magic_words)
+        return run
+
+    _egg_open.clicked.connect(lambda: _egg(lambda m: m.open_settings())())
+    _egg_demo.clicked.connect(lambda: _egg(lambda m: m.demo())())
+    _egg_row.addWidget(_egg_open)
+    _egg_row.addWidget(_egg_demo)
+    _egg_row.addStretch(1)
+    egg.addLayout(_egg_row)
+
     assistant = section("Assistant")
     # The switch (Gil, 2026-09-29): off, no command reaches the engine — from
     # this Mac or the phone — and the mics stay shut. The calendar still works.
