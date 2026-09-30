@@ -921,7 +921,10 @@ class TodoItemWidget(QWidget):
         # Drag grip handle
         self._grip = QLabel("⠿")
         self._grip.setFixedWidth(14)
-        self._grip.setCursor(Qt.CursorShape.SizeAllCursor)
+        # OpenHand, a NATIVE macOS cursor. SizeAllCursor is one Qt draws from
+        # a bundled PNG, and converting that image took the whole app down
+        # (EXC_BREAKPOINT in QImage::toCGImage on hover, 2026-09-29 11:05).
+        self._grip.setCursor(Qt.CursorShape.OpenHandCursor)
         self._grip.setToolTip("Drag to reorder")
         title_row.addWidget(self._grip)
 

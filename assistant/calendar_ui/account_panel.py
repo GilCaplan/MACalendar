@@ -352,8 +352,7 @@ class AccountPanel(FeaturePanel):
             policy = registry.load().get("policy", {})
             self.require_box = QCheckBox("Require sign-in everywhere")
             self.require_box.setChecked(bool(policy.get("require_login")))
-            self.require_box.toggled.connect(
-                lambda on: (registry.set_policy(require_login=bool(on)), self._changed()))
+            self.require_box.toggled.connect(lambda on: self._require_changed(bool(on)))
             self.require_box.setToolTip(
                 "On: every phone, tablet and computer must sign in as someone\n"
                 "before it shows anything. Off: a device nobody signed in on\n"
@@ -477,6 +476,19 @@ class AccountPanel(FeaturePanel):
 
     def _setting(self, key: str, on: bool) -> None:
         registry.set_setting(self.me, key, bool(on))
+        self._changed()
+
+    def _require_changed(self, on: bool) -> None:
+        """Requiring sign-in must not sign out the admin who asked for it.
+        A Mac nobody signed in on acts as the admin only WHILE sign-in is not
+        required; turning it on left this window acting as nobody, and the
+        next click on Account & Sharing crashed the app (found by the
+        click-everything sweep, 2026-09-29). So the person flipping the switch
+        is signed in for real first — a session that survives a restart."""
+        if on:
+            from assistant.calendar_ui.users_dialogs import keep_signed_in
+            keep_signed_in(users.current())
+        registry.set_policy(require_login=on)
         self._changed()
 
     def _auto_changed(self) -> None:

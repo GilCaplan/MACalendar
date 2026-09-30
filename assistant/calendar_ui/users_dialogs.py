@@ -109,6 +109,20 @@ class LoginDialog(QDialog):
         self.accept()
 
 
+def keep_signed_in(uid: "str | None") -> None:
+    """Make ``uid`` the signed-in person on this Mac, with a saved session —
+    for when they are acting as the admin implicitly and are about to change
+    something (requiring sign-in) that would end that."""
+    if not uid or registry.get(uid) is None:
+        return
+    s = local_session.read() or {}
+    if s.get("user_id") != uid or local_session.current_user() != uid:
+        u = registry.get(uid)
+        local_session.write(uid, u["username"], u["display_name"],
+                            sessions.issue(uid, source="mac", label="Mac"))
+    users.set_process_default(uid)
+
+
 def sign_in(parent=None) -> "str | None":
     """Make sure someone is signed in on this Mac: the saved session if it is
     still live, else the sign-in dialog. Returns who, or None if cancelled.
@@ -195,10 +209,19 @@ class AccountDialog(QDialog):
         self.setMinimumWidth(460)
         self.setStyleSheet(_checkbox_style())
         self.me = users.current()
-        me = registry.get(self.me)
+        me = registry.get(self.me or "")
         lay = QVBoxLayout(self)
         lay.setContentsMargins(24, 20, 24, 18)
         lay.setSpacing(12)
+        if me is None:
+            # Nobody is signed in on this Mac (sign-in became required, or the
+            # person was deleted): say so and offer to sign in, rather than
+            # crash the app on a missing record.
+            lay.addWidget(QLabel("Nobody is signed in on this Mac."))
+            btn = QPushButton("Sign in…")
+            btn.clicked.connect(lambda: (sign_in(self.window()), self.accept()))
+            lay.addWidget(btn)
+            return
 
         head = QHBoxLayout()
         head.addWidget(_dot(me["color"], 14))
