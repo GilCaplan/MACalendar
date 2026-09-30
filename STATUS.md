@@ -166,16 +166,25 @@ the phone's offline reader measured on Apple's model with the guard and dates
 in code (Q68, `assistant/offline/experiments/RESULTS.md`), and the server as a
 menu-bar app that devices join by QR or Wi-Fi without typing (Q69), model
 helpers on other computers and a one-file installer for macOS / Linux / Windows
-(Q70; INSTALL.md has the automatic, AI-agent and by-hand paths). Numbers per
+(Q70; INSTALL.md has the automatic, AI-agent and by-hand paths); then the
+installer's detect / ask / tidy-up (Q71), one menu-bar icon, Show hours, an
+assistant-off switch and Settings laid out like the phone's (Q72, Show hours
+AMENDED to draw only the chosen hours), occasions and extra calendars (Q73)
+and days said by name — Hebrew dates, holidays, own occasions, each family a
+switch (Q74). Last: a click-everything crash sweep of the Mac app
+(`tests/unit/test_gui_crash_sweep.py`), which found and fixed an Account &
+Sharing crash after requiring sign-in and the native cursor crash from the
+Mac's crash reports. Numbers per
 cycle:
 `assistant/engine/fastrule/experiments/RESULTS.md`,
 `assistant/engine/llmjudge/experiments/RESULTS.md`, and the commit messages.
 
 ## Next
 
-**App side (while the engine is paused):** `DOCUMENTATION/TASKS.md` rows
-28–33 — require sign-in (Gil's switch), remove the demo user, look at the Mac
-clean-up in light mode, read the offline reader's agreement after a week.
+**App side (while the engine is paused):** `DOCUMENTATION/TASKS.md`'s order
+of play of 2026-09-30 — Gil's decisions (require sign-in, the demo user, the
+junk "including" event, compact density), then the measured next steps
+(Board D for `add_occasion`, the offline agreement after a week).
 
 **Engine, when Gil resumes it:**
 

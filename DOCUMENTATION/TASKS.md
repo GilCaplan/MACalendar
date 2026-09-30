@@ -2115,3 +2115,36 @@ Open, app side:
     owner picker covers it.
 33. **Junk event 2103 "including"** in Gil's calendar (2026-09-28) — his to
     delete.
+
+## ORDER OF PLAY — 2026-09-30
+
+Shipped 2026-09-29 (DEVQA Q68–Q74, FEATURES.md has each): the server as a
+menu-bar app with pairing, model helpers, the one-file installer; Show hours
+(amended: only the chosen hours are drawn, widened for an event outside);
+occasions and extra calendars; days said by name; and a click-everything
+crash sweep of the Mac app, the card and the menu-bar app, with the two
+crashes it and the crash logs found fixed. Row 30 above is done — Settings is
+a sidebar of pages like the phone's (Q72), and light mode is in the sweep.
+
+Gil's to decide (nothing to build until he does):
+
+34. **Require sign-in everywhere** (row 28) — still off.
+35. **The `demo` user** (row 29) and **event 2103 "including"** (row 33) —
+    both still there; delete from the Account tab / the calendar.
+36. **"Compact layout density"** changes only the Settings dialog's own
+    spacing — make it reach the calendar views, or remove it.
+37. **Show hours is per device** (Mac config, phone UserDefaults; the Mac
+    defaults to the whole day, the phone to 7 AM–midnight) — one shared
+    setting instead?
+
+Measured next steps (engine still paused):
+
+38. **`add_occasion` offered to the model** (`model_visible`): a new action
+    name changes the prompt every command sees — Board D `--product`, a few
+    hours in the background, before it ships.
+39. **Days said by name on real speech:** 0 of 2,699 pool TRAIN rows carry
+    one, so the 100% is on a generated bench only — read the weekly review's
+    rows that name a Hebrew date or holiday once there are some.
+40. **The offline reader's agreement** after a week of real offline use (row
+    31).
+
