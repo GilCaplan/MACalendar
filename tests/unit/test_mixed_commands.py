@@ -91,10 +91,16 @@ def test_a_list_of_things_to_buy_makes_exactly_its_items(client):
 
 def test_every_record_from_one_sentence_is_written(client, tmp_path):
     """There is no half-executed command."""
+    import datetime
     from assistant.db import get_db
     db = get_db()
-    before_ev = len(db.get_events_for_month(2026, 9))
+    # "on tuesday" is up to a week away — counted over the fortnight ahead,
+    # not a named month: September was hardcoded and CI, on UTC, was already
+    # past the month's last Tuesday on 2026-09-30 while the Mac was not.
+    today = datetime.date.today()
+    window = (today - datetime.timedelta(days=1), today + datetime.timedelta(days=14))
+    before_ev = len(db.get_events_between(*window))
     before_td = len(db.get_todos())
     _say(client, "book gym on tuesday at 7am and remind me to buy milk")
-    assert len(db.get_events_for_month(2026, 9)) > before_ev, "the event was not written"
+    assert len(db.get_events_between(*window)) > before_ev, "the event was not written"
     assert len(db.get_todos()) > before_td, "the task was not written"
