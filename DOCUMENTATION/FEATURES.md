@@ -262,6 +262,7 @@ built when it reaches the Mac.
 | hybrid | [Counters](#counters) | tap counters + payouts | db `counters*` |
 | hybrid | [Teach](#teach--the-labelling-game) | the labelling game — label models' only non-circular data (iOS only) | `features/teach/`, `LabelGameView.swift` |
 | UI | [Magic words (Easter egg)](#magic-words--the-easter-egg) | say "dog" and a German Shepherd runs across the phone; 26 anime graphics, your own photos (iOS only) | `MACalendar-iOS/…/EasterEgg/` |
+| UI | [The loading screen](#the-loading-screen--your-own-wheel-of-death) | your own animated spinner and \"taking a while\" screen, built in Settings ▸ Easter egg (iOS) | `EasterEgg/EggLoader*.swift` |
 | UI | [How it runs: Mac + phone, or phone only](#how-it-runs--mac--phone-or-phone-only) | a setup guide in the phone's Settings; a phone-only mode with no Mac and no offline banner | `SetupGuideView.swift`, `DefaultRules.swift` |
 | hybrid | [Coursework](#coursework) | courses + assignments tab | db `courses*`, `CourseworkView` |
 | hybrid | [Jude](#jude--the-judaic-study-assistant) | Torah/Talmud/halacha study assistant — a separate repo, hosted as an integration | `assistant/jude/`, `assistant/integrations/`, `MACalendar-iOS/.../Jude/` |
@@ -785,6 +786,23 @@ one), so old servers still work.
 **Where:** db `counters`, `counter_presses`, `counter_payouts`; API
 `/counters*`.
 **How:** Same local-first pattern as timers.
+
+### The loading screen — your own wheel of death
+**What:** Wherever the phone waits — the mic while a command thinks, the
+thinking panel's "Working…", the to-do list loading, a queued command running
+— one of the user's magic-word graphics plays instead of the plain spinner: by
+default the German Shepherd running in a hamster wheel. A wait that runs long
+(4 s by default; 0 = never) takes the middle of the screen with a line
+("Still working on it…"), over sheets too, and never blocks a touch.
+Built in Settings ▸ Easter egg ▸ Loading screen: six styles (hamster wheel,
+wheel of friends, spin, bounce, pulse, parade), up to four objects, trail,
+speed, the ring and its colour, the threshold and the line; a live preview,
+a tile per style, and a button that shows the "taking a while" screen.
+**Where:** `EasterEgg/EggLoader.swift` (the drawing, platform-neutral),
+`EggLoaderViews.swift` (`EggSpinner`, a drop-in for `ProgressView`;
+`EggWaits` and its window), `EggLoaderSettingsView.swift`. Tests:
+`test_every_loading_screen_style_draws`, `EasterEggUITests.testTheLoadingScreenBuilder`.
+TASKS 48.
 
 ### How it runs — Mac + phone, or phone only
 **What:** Settings ▸ How it runs (iPhone). "My Mac and this phone" shows the

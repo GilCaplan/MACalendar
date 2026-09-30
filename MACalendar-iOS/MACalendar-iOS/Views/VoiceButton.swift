@@ -36,6 +36,8 @@ struct VoiceButton: View {
     @State private var pendingAudio: Data?
     /// This command's magic words have played — once per command.
     @State private var eggPlayed = false
+    /// The wait the loading screen watches while a command thinks.
+    @State private var eggWait: UUID?
     @State private var sendCountdown = 0
     @State private var countdownTask: Task<Void, Never>?
 
@@ -96,7 +98,7 @@ struct VoiceButton: View {
             } else if settings.showThinking && !showThinking && canReopen {
                 Button { showThinking = true } label: {
                     HStack(spacing: 6) {
-                        if status == .thinking { ProgressView().scaleEffect(0.7) }
+                        if status == .thinking { EggSpinner(side: 18) }
                         else { AssistantIcon(finished ? .done : .llm).frame(width: 12, height: 12) }
                         Text(status == .thinking ? "Thinking… \(steps.count) step\(steps.count == 1 ? "" : "s")"
                              : status == .speaking ? "Speaking…" : "Show what it did")
@@ -201,7 +203,7 @@ struct VoiceButton: View {
                     .shadow(radius: status == .idle ? 4 : 8)
 
                 if status == .thinking {
-                    ProgressView().tint(iconColor).scaleEffect(1.2)
+                    EggSpinner(side: 40)
                 } else {
                     Image(systemName: iconName)
                         .font(.system(size: 24, weight: .semibold))
@@ -431,6 +433,8 @@ struct VoiceButton: View {
             // command is being made. The phone's own hearing if it has one;
             // otherwise the Mac's transcript, the moment it arrives below.
             eggPlayed = EggStore.shared.heard(recorder.liveText, bare: false)
+            EggWaits.shared.end(eggWait)
+            eggWait = EggWaits.shared.begin()
             if settings.showThinking {
                 steps = [TraceStep(stage: "stt", title: "Sending", detail: "Uploading audio to your Mac…",
                                    ms: 0, atMs: 0, ok: true)]
@@ -478,6 +482,7 @@ struct VoiceButton: View {
     /// than reporting a failure that didn't happen.
     @MainActor
     private func recoverLostStream(_ error: Error, sentAt: Date, audio: Data) async {
+        EggWaits.shared.end(eggWait); eggWait = nil
         // Never reached the Mac at all? Then nothing ran: keep the recording and
         // replay it when the Mac is back, rather than polling for a result that
         // cannot exist and then reporting a failure.
@@ -569,6 +574,7 @@ struct VoiceButton: View {
     }
 
     private func handleResponse(_ response: VoiceResponse) async {
+        EggWaits.shared.end(eggWait); eggWait = nil
         lastResponse = response
         // Easter egg: play for what the command MADE (a trip → a plane), when
         // that is switched on. After the reply, off the main path.

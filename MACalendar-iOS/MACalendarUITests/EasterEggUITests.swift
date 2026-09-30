@@ -50,7 +50,7 @@ final class EasterEggUITests: XCTestCase {
         XCTAssertTrue(kept.waitForExistence(timeout: 5),
                       "the original picture is not marked as kept")
         snap(app, "4-dog-page")
-        for _ in 0..<4 where !app.buttons["Play it on the whole screen"].firstMatch.isHittable { app.swipeDown() }
+        for _ in 0..<12 where !app.buttons["Play it on the whole screen"].firstMatch.isHittable { app.swipeDown() }
         app.buttons["Play it on the whole screen"].firstMatch.tap()
         Thread.sleep(forTimeInterval: 1.2)
         snap(app, "5-dog-running")
@@ -102,5 +102,37 @@ final class EasterEggUITests: XCTestCase {
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Its own")).firstMatch.tap()
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Motion, Its own"))
                         .firstMatch.waitForExistence(timeout: 5), "the motion was not put back")
+    }
+
+    /// The loading screen builder: pick a style, and see the "taking a while" screen.
+    func testTheLoadingScreenBuilder() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-serverURL", "127.0.0.1:59999"]
+        app.launch()
+        let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
+        if allow.waitForExistence(timeout: 3) { allow.tap() }
+        app.buttons["tab-settings"].firstMatch.tap()
+        let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Easter egg")).firstMatch
+        for _ in 0..<6 where !row.isHittable { app.swipeUp() }
+        row.tap()
+        let loader = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Loading screen")).firstMatch
+        for _ in 0..<14 where !loader.isHittable { app.swipeUp() }
+        XCTAssertTrue(loader.waitForExistence(timeout: 5), "no Loading screen row")
+        loader.tap()
+        XCTAssertTrue(app.switches["Use my loading screen"].firstMatch.waitForExistence(timeout: 5))
+        snap(app, "8-loader-builder")
+        let wheel = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Wheel of friends")).firstMatch
+        if wheel.waitForExistence(timeout: 3) { wheel.tap() }
+        let stuckLine = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Still working on it…"))
+        let before = stuckLine.count
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "taking a while")).firstMatch.tap()
+        Thread.sleep(forTimeInterval: 1.2)
+        snap(app, "9-loader-stuck")
+        // The overlay is a window of its own, above the Settings sheet.
+        XCTAssertGreaterThan(stuckLine.count, before, "the “taking a while” screen did not appear")
+        // Back to the default style for the next run.
+        let hamster = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Hamster wheel")).firstMatch
+        Thread.sleep(forTimeInterval: 3.5)
+        if hamster.exists { hamster.tap() }
     }
 }

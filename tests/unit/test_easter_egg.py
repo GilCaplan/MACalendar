@@ -18,6 +18,9 @@ import pytest
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 EGG = ROOT / "MACalendar-iOS/MACalendar-iOS/EasterEgg"
 TOOLS = ROOT / "MACalendar-iOS/Tools"
+# The platform-neutral Easter-egg files — what the Mac helper compiles too.
+SHARED = ["EggArt.swift", "EggFigures.swift", "EggJewish.swift", "EggEffects.swift", "EggCatalog.swift",
+          "EggRules.swift", "EggStage.swift", "EggTrails.swift", "EggPuppet.swift", "EggLoader.swift"]
 
 pytestmark = pytest.mark.skipif(sys.platform != "darwin" or not shutil.which("swiftc"),
                                 reason="needs the Swift compiler (the Mac; CI's Linux runner has none)")
@@ -27,7 +30,7 @@ pytestmark = pytest.mark.skipif(sys.platform != "darwin" or not shutil.which("sw
 def words(tmp_path_factory):
     exe = tmp_path_factory.mktemp("egg") / "words"
     subprocess.run(["swiftc", "-O", "-parse-as-library", str(TOOLS / "egg_words.swift"),
-                    str(EGG / "EggCatalog.swift"), "-o", str(exe)], check=True, capture_output=True)
+                    *[str(EGG / f) for f in SHARED], "-o", str(exe)], check=True, capture_output=True)
 
     def run(lines):
         out = subprocess.run([str(exe)], input="\n".join(lines) + "\n", capture_output=True,
@@ -107,8 +110,7 @@ def test_every_graphic_renders_in_every_motion(tmp_path):
     directions, and a drawn path — drawn through the overlay's own renderer."""
     exe = tmp_path / "render"
     subprocess.run(["swiftc", "-O", "-parse-as-library", str(TOOLS / "egg_render.swift"),
-                    *[str(EGG / f) for f in ("EggArt.swift", "EggFigures.swift", "EggEffects.swift", "EggJewish.swift",
-                                             "EggCatalog.swift", "EggStage.swift", "EggTrails.swift", "EggPuppet.swift")],
+                    *[str(EGG / f) for f in SHARED],
                     "-o", str(exe)], check=True, capture_output=True)
     png = tmp_path / "all.png"
     out = subprocess.run([str(exe), str(png)], capture_output=True, text=True, check=True)
@@ -157,7 +159,7 @@ FESTIVAL_DAYS = {
 def test_festival_seasons_land_on_the_right_days(tmp_path):
     exe = tmp_path / "festivals"
     subprocess.run(["swiftc", "-O", "-parse-as-library", str(TOOLS / "egg_festivals.swift"),
-                    *[str(EGG / f) for f in ("EggArt.swift", "EggFigures.swift", "EggJewish.swift")],
+                    *[str(EGG / f) for f in SHARED],
                     "-o", str(exe)], check=True, capture_output=True)
     out = subprocess.run([str(exe)], input="\n".join(FESTIVAL_DAYS) + "\n", capture_output=True,
                          text=True, check=True).stdout.splitlines()
@@ -203,8 +205,7 @@ def test_the_shared_decisions(tmp_path):
     """EggRules is what the phone AND the Mac helper decide with."""
     exe = tmp_path / "rules"
     subprocess.run(["swiftc", "-O", "-parse-as-library", str(TOOLS / "egg_rules.swift"),
-                    *[str(EGG / f) for f in ("EggArt.swift", "EggFigures.swift", "EggJewish.swift",
-                                             "EggCatalog.swift", "EggRules.swift")],
+                    *[str(EGG / f) for f in SHARED],
                     "-o", str(exe)], check=True, capture_output=True)
     out = subprocess.run([str(exe)], input="\n".join(json.dumps(c) for c, *_ in RULES) + "\n",
                          capture_output=True, text=True, check=True).stdout.splitlines()
@@ -212,3 +213,15 @@ def test_the_shared_decisions(tmp_path):
     wrong = [(c, g) for (c, ids, tog, bare), g in zip(RULES, got)
              if g["ids"] != ids or g["bare"] != bare or (ids and g["together"] != tog)]
     assert not wrong, wrong
+
+
+def test_every_loading_screen_style_draws(tmp_path):
+    """The loading screen (TASKS 48): every style, with one to four objects."""
+    exe = tmp_path / "loaders"
+    subprocess.run(["swiftc", "-O", "-parse-as-library", str(TOOLS / "egg_loaders.swift"),
+                    *[str(EGG / f) for f in SHARED],
+                    "-o", str(exe)], check=True, capture_output=True)
+    png = tmp_path / "loaders.png"
+    out = subprocess.run([str(exe), str(png)], capture_output=True, text=True, check=True)
+    assert int(out.stdout.strip()) == 6
+    assert png.stat().st_size > 30_000

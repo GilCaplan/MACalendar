@@ -330,6 +330,8 @@ struct EggSettings: Codable, Equatable {
     var festivalGreeting = true
     var festivalDecor = true
     var festivalIcon = false
+    /// The loading screen the user builds (EggLoader.swift).
+    var loader = EggLoaderConfig()
     /// Seconds of motion, entrance plus exit.
     var seconds: Double { entrance + exit }
     /// Override every object's own choice unless `.auto`.
@@ -345,7 +347,7 @@ struct EggSettings: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case enabled, trigger, together, group, groupWords, pluralCount, entrance, pause, exit, untilTapped, passThrough, opacity, look, tap
         case size, sizePercent, lane, sound, volume, haptics, chance, cooldown, quietHours, quietFrom, quietTo, forWhatsMade, madeMap
-        case jewish, jewishInSeason, festivalGreeting, festivalDecor, festivalIcon
+        case jewish, jewishInSeason, festivalGreeting, festivalDecor, festivalIcon, loader
         case motion, direction, trail, drawnPath, objects
         case legacySeconds = "seconds"
     }
@@ -370,6 +372,7 @@ struct EggSettings: Codable, Equatable {
         try c.encode(jewish, forKey: .jewish); try c.encode(jewishInSeason, forKey: .jewishInSeason)
         try c.encode(festivalGreeting, forKey: .festivalGreeting); try c.encode(festivalDecor, forKey: .festivalDecor)
         try c.encode(festivalIcon, forKey: .festivalIcon)
+        try c.encode(loader, forKey: .loader)
         try c.encode(objects, forKey: .objects)
     }
 
@@ -411,6 +414,7 @@ struct EggSettings: Codable, Equatable {
         festivalGreeting = (try? c.decodeIfPresent(Bool.self, forKey: .festivalGreeting)) ?? true
         festivalDecor = (try? c.decodeIfPresent(Bool.self, forKey: .festivalDecor)) ?? true
         festivalIcon = (try? c.decodeIfPresent(Bool.self, forKey: .festivalIcon)) ?? false
+        loader = (try? c.decodeIfPresent(EggLoaderConfig.self, forKey: .loader)) ?? EggLoaderConfig()
         tap = (try? c.decodeIfPresent(EggTap.self, forKey: .tap)) ?? base.tap
         motion = (try? c.decodeIfPresent(EggMotion.self, forKey: .motion)) ?? .auto
         direction = (try? c.decodeIfPresent(EggDirection.self, forKey: .direction)) ?? .auto

@@ -261,7 +261,7 @@ struct TasksView: View {
                 }
             }
             .overlay {
-                if loading { ProgressView() }
+                if loading { EggSpinner(side: 64) }
             }
             .alert("Synced", isPresented: Binding(get: { syncMessage != nil },
                                                   set: { if !$0 { syncMessage = nil } })) {
@@ -521,7 +521,9 @@ struct TasksView: View {
         if tags.isEmpty, !cachedTags.isEmpty { tags = cachedTags }
 
         loading = todos.isEmpty      // only spin when there is nothing to show
+        let wait = loading ? EggWaits.shared.begin() : nil      // a long one shows the loading screen
         Task {
+            defer { EggWaits.shared.end(wait) }
             do {
                 async let t = api.todos(list: "all", includeCompleted: true)
                 async let g = api.tags()

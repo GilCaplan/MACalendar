@@ -2,6 +2,9 @@
 // stdin: one utterance per line. stdout: {"ids", "bare", "pack" (plurals bring 3), "group"} per line.
 import Foundation
 
+// The stage asks the app's overlay to show; a harness has none.
+@MainActor final class EggOverlay { static let shared = EggOverlay(); func show(passThrough: Bool = false) {}; func hide() {} }
+
 @main
 struct EggWords {
     static func main() {

@@ -397,6 +397,8 @@ struct CalendarTabView: View {
         }
 
         loadingMonth = true
+        let wait = EggWaits.shared.begin()          // a long one shows the loading screen
+        defer { EggWaits.shared.end(wait) }
         // Independent requests — run concurrently instead of paying the sum
         // of both latencies on every month navigation.
         async let eventsResult: [CalendarEvent] = (try? await api.eventsForMonth(year: year, month: month)) ?? []

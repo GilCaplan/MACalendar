@@ -1,14 +1,14 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 791, "total_lines": 208848} -->
+<!-- code-stats: {"total_files": 795, "total_lines": 209411} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**208,848 lines of source across 791 files.** Of that, **121,367 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**209,411 lines of source across 795 files.** Of that, **121,917 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
-| Test code | 233 | 45,728 |
-| iOS application | 105 | 33,191 |
+| Test code | 233 | 45,741 |
+| iOS application | 109 | 33,735 |
 | Actions, storage & domain (DB, config, observance, .ics) | 163 | 28,142 |
 | Mac application (calendar GUI) | 45 | 23,926 |
 | Engine (the brain, shipped path) | 59 | 21,171 |
@@ -16,25 +16,25 @@
 | Dataset & measurement tooling | 54 | 13,834 |
 | Retired (old brain, kept on purpose) | 16 | 7,533 |
 | Review panel (Mac card + iOS timeline) | 6 | 4,288 |
-| Microphone / speech (record, STT, TTS) | 20 | 3,903 |
+| Microphone / speech (record, STT, TTS) | 20 | 3,909 |
 | Model / Ollama code | 12 | 3,281 |
 | API server (the front door) | 6 | 2,176 |
 | Launch scripts | 7 | 1,289 |
-| **TOTAL** | **791** | **208,848** |
+| **TOTAL** | **795** | **209,411** |
 
 ### By language
 
 | | files | lines |
 |---|---:|---:|
-| Python | 666 | 171,934 |
-| Swift | 113 | 35,785 |
+| Python | 666 | 171,947 |
+| Swift | 117 | 36,335 |
 | shell | 10 | 930 |
 | launch script | 2 | 199 |
 
 Not counted above, and deliberately so:
 
 - **Data** — the utterance corpus, fitted weights and fixtures: 327,347 lines across 212 files. Bigger than the code, and not written by hand.
-- **Prose** — markdown and the published HTML explainers: 51,771 lines across 124 files.
+- **Prose** — markdown and the published HTML explainers: 51,789 lines across 124 files.
 
 ### How the categories are drawn
 

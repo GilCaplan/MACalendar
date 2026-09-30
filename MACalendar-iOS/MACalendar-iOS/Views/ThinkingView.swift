@@ -122,7 +122,7 @@ struct ThinkingView: View {
                         }
                         if !finished {
                             HStack(spacing: 10) {
-                                ProgressView().scaleEffect(0.8)
+                                EggSpinner(side: 26)
                                 Text("Working…").font(.subheadline).foregroundColor(.secondary)
                             }
                             .padding(.leading, 40).padding(.top, 8)

@@ -152,6 +152,21 @@ struct EggSettingsView: View {
                 EggFestivalSection()
 
                 Section {
+                    NavigationLink { EggLoaderSettingsView() } label: {
+                        HStack(spacing: 12) {
+                            EggLoaderView(side: 40)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Loading screen")
+                                Text(store.settings.loader.enabled ? store.settings.loader.style.label : "Off")
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                } footer: {
+                    Text("Build what plays whenever the app is waiting — your own wheel of death.")
+                }
+
+                Section {
                     Picker("Play", selection: $store.settings.chance) {
                         Text("Every time").tag(1)
                         Text("1 time in 2").tag(2)

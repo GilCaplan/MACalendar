@@ -59,6 +59,9 @@
 		AA00000E6600000000000107 /* EggImageTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000207 /* EggImageTools.swift */; };
 		AA00000E6600000000000108 /* EggSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000208 /* EggSettingsView.swift */; };
 		AA00000E6600000000000109 /* EggWordSuggester.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000209 /* EggWordSuggester.swift */; };
+		AA00000E6600000000000117 /* EggLoaderViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000217 /* EggLoaderViews.swift */; };
+		AA00000E6600000000000116 /* EggLoaderSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000216 /* EggLoaderSettingsView.swift */; };
+		AA00000E6600000000000115 /* EggLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000215 /* EggLoader.swift */; };
 		AA00000E6600000000000114 /* EggRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000214 /* EggRules.swift */; };
 		AA00000E6600000000000113 /* EggSynth.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000213 /* EggSynth.swift */; };
 		AA00000E6600000000000112 /* DefaultRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000212 /* DefaultRules.swift */; };
@@ -172,6 +175,9 @@
 		AA00000E6600000000000207 /* EggImageTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggImageTools.swift; sourceTree = "<group>"; };
 		AA00000E6600000000000208 /* EggSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggSettingsView.swift; sourceTree = "<group>"; };
 		AA00000E6600000000000209 /* EggWordSuggester.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggWordSuggester.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000217 /* EggLoaderViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggLoaderViews.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000216 /* EggLoaderSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggLoaderSettingsView.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000215 /* EggLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggLoader.swift; sourceTree = "<group>"; };
 		AA00000E6600000000000214 /* EggRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggRules.swift; sourceTree = "<group>"; };
 		AA00000E6600000000000213 /* EggSynth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggSynth.swift; sourceTree = "<group>"; };
 		AA00000E6600000000000210 /* EggFestivalViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EggFestivalViews.swift; sourceTree = "<group>"; };
@@ -341,6 +347,9 @@
 				AA00000E6600000000000207 /* EggImageTools.swift */,
 				AA00000E6600000000000208 /* EggSettingsView.swift */,
 				AA00000E6600000000000209 /* EggWordSuggester.swift */,
+				AA00000E6600000000000217 /* EggLoaderViews.swift */,
+				AA00000E6600000000000216 /* EggLoaderSettingsView.swift */,
+				AA00000E6600000000000215 /* EggLoader.swift */,
 				AA00000E6600000000000214 /* EggRules.swift */,
 				AA00000E6600000000000213 /* EggSynth.swift */,
 				AA00000E6600000000000210 /* EggFestivalViews.swift */,
@@ -739,6 +748,9 @@
 				AA00000E6600000000000107 /* EggImageTools.swift in Sources */,
 				AA00000E6600000000000108 /* EggSettingsView.swift in Sources */,
 				AA00000E6600000000000109 /* EggWordSuggester.swift in Sources */,
+				AA00000E6600000000000117 /* EggLoaderViews.swift in Sources */,
+				AA00000E6600000000000116 /* EggLoaderSettingsView.swift in Sources */,
+				AA00000E6600000000000115 /* EggLoader.swift in Sources */,
 				AA00000E6600000000000114 /* EggRules.swift in Sources */,
 				AA00000E6600000000000113 /* EggSynth.swift in Sources */,
 				AA00000E6600000000000112 /* DefaultRules.swift in Sources */,

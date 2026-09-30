@@ -3,6 +3,9 @@
 // {"text","bare","date":"yyyy-MM-dd HH:mm","roll","lastPlayedAgo", "settings": {...overrides}}
 import Foundation
 
+// The stage asks the app's overlay to show; a harness has none.
+@MainActor final class EggOverlay { static let shared = EggOverlay(); func show(passThrough: Bool = false) {}; func hide() {} }
+
 @main
 struct EggRulesHarness {
     static func main() {

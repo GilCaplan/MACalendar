@@ -2188,7 +2188,7 @@ FEATURES.md). Open:
 Asked 2026-09-30, to build next (not started — Gil: *"just update the
 todo's … don't go implementing yet"*):
 
-48. **Animated loading screen, built by the user.** Wherever the app waits
+48. ~~Animated loading screen, built by the user~~ — **built on the phone 2026-09-30** (FEATURES.md "The loading screen"); the Mac's waits are still to do. Wherever the app waits
     (a slow command, a sync, the app stuck loading) show an animation instead
     of the plain spinner — a "special wheel of death". Settings ▸ Easter egg
     gets a section to build it: which graphic(s), motion, trail, colours,

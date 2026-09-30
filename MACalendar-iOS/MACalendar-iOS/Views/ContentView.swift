@@ -143,6 +143,13 @@ struct ContentView: View {
     }
 
     var body: some View {
+        mainBody
+            // A wait that runs long shows the user's loading screen (Easter
+            // egg) — in a window of its own, so it shows over sheets too.
+            .onAppear { EggWaitWindow.shared.install() }
+    }
+
+    @ViewBuilder private var mainBody: some View {
         VStack(spacing: 0) {
 
             // Offline banner.
@@ -770,7 +777,7 @@ struct VoiceQueueView: View {
     private func icon(for status: PendingVoiceCommand.Status) -> some View {
         switch status {
         case .queued:  Image(systemName: "clock").foregroundColor(.orange)
-        case .running: ProgressView()
+        case .running: EggSpinner(side: 22)
         case .done:    Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
         case .failed:  Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.red)
         case .waiting: Image(systemName: "hourglass").foregroundColor(.orange)
