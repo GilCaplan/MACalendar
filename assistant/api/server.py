@@ -1014,6 +1014,12 @@ def create_app() -> Flask:
         word = (request.get_json(silent=True) or {}).get("word", "")
         if not str(word).strip():
             return jsonify({"error": "word is required"}), 400
+        lx = LEXICONS[name]
+        if lx.normalize is not None and lx.normalize(str(word).strip().lower()) is None:
+            # A list whose entries have a shape says so, rather than a silent
+            # "added": false the screen cannot explain.
+            return jsonify({"error": f"Write it as word = time, e.g. {lx.example}. "
+                                     "The built-in times themselves can't be changed."}), 400
         added = get_lexicon().add(name, str(word))
         return jsonify({"ok": True, "added": added,
                         "words": get_lexicon().added(name)})

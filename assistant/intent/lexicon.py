@@ -59,10 +59,13 @@ class Lexicon:
     this exists to prevent.
     """
 
-    __slots__ = ("name", "label", "why", "module", "attr", "example")
+    __slots__ = ("name", "label", "why", "module", "attr", "example", "normalize")
 
-    def __init__(self, name, label, why, module, attr, example=""):
+    def __init__(self, name, label, why, module, attr, example="", normalize=None):
         self.name = name
+        #: optional: the stored form of an entry, or None to refuse it — for a
+        #: list whose entries have a SHAPE ("lunch break = 13:30")
+        self.normalize = normalize
         self.label = label          # what the settings screen calls it
         self.why = why              # one line: what adding a word here does
         self.module = module
@@ -82,6 +85,11 @@ class Lexicon:
         if isinstance(value, (set, frozenset, list, tuple)):
             return frozenset(str(v).lower() for v in value)
         return frozenset()
+
+
+def _time_entry(entry: str) -> "str | None":
+    from assistant.intent.time_words import normalize_entry
+    return normalize_entry(entry)
 
 
 #: Every list a person may extend. NOT all 239 — only the ones that are about
@@ -112,6 +120,16 @@ LEXICONS: "dict[str, Lexicon]" = {
                 "one, so they are never treated as a title on their own.",
                 "assistant.intent.rule_parser", "_CALENDAR_SIGNALS",
                 example="meeting, appointment, event"),
+        Lexicon("time_words", "Words that name a time",
+                "A word you say instead of a clock — write it as word = time. "
+                "The time is a clock (13:30), or a key time it follows: now, "
+                "noon, midnight, or sunrise / sunset / candle lighting / "
+                "nightfall with minutes before or after (sunset-20). Say it "
+                "after \"at\" — \"call mom at lunch break\" — unless it is "
+                "bound to now, noon or midnight. The built-in ones can't be edited.",
+                "assistant.intent.time_words", "BUILT_IN_ENTRIES",
+                example="lunch break = 13:30, straight away = now, mincha = sunset-20",
+                normalize=_time_entry),
     )
 }
 
@@ -196,6 +214,10 @@ class LexiconStore:
         word = (word or "").strip().lower()
         if name not in LEXICONS or not word:
             return False
+        if LEXICONS[name].normalize is not None:
+            word = LEXICONS[name].normalize(word)
+            if not word:
+                return False                    # not the list's shape
         if word in LEXICONS[name].built_in():
             return False                        # already known; nothing to store
         with self._lock:

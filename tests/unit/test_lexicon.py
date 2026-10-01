@@ -59,12 +59,14 @@ def test_an_edit_can_only_ever_WIDEN_what_the_engine_knows():
     store = lx.get_lexicon()
     for name, entry in lx.LEXICONS.items():
         built = entry.built_in()
-        store.add(name, "zzz-made-up-word")
+        # a list whose entries have a shape ("lunch break = 13:30") gets one
+        word = "zzz made up word = 10:00" if entry.normalize else "zzz-made-up-word"
+        store.add(name, word)
         effective = store.effective(name)
         assert built <= effective, f"{name}: a built-in word was lost"
-        assert "zzz-made-up-word" in effective
+        assert word in effective
         # ...and removing the person's own word leaves the built-ins intact
-        store.remove(name, "zzz-made-up-word")
+        store.remove(name, word)
         assert built <= store.effective(name)
 
 

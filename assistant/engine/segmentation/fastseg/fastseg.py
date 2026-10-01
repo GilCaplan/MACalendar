@@ -321,6 +321,11 @@ def find_time_refs(text: str) -> "list[TimeRef]":
     for n in _named_days.find_all(text):
         a, b = n.phrase_span
         candidates.append((a, b, "date"))
+    # WORDS THAT NAME A TIME — "at sunset", "at candle lighting", the person's
+    # own "at lunch break" (`intent.time_words`): a clock, like "at 7pm".
+    from assistant.intent import time_words as _time_words
+    for f in _time_words.find_all(text):
+        candidates.append((f.start, f.end, "clock"))
     candidates.sort(key=lambda c: (-(c[1] - c[0]), c[0]))
 
     refs: list[TimeRef] = []
@@ -975,6 +980,13 @@ _PREAMBLE = frozenset("""
 #: "remind me ABOUT the dentist at 9am" is not this shape and stays an event.
 _REMINDER_TASK_FRAME = re.compile(r"^\s*(?:please\s+)?remind me\s+to\b", re.I)
 
+def _names_a_time(time_str: str) -> bool:
+    """A word that names a time ("at sunset", "at lunch break") states a clock
+    as much as "at 7pm" does — `intent.time_words`, the one table."""
+    from assistant.intent import time_words as _time_words
+    return _time_words.names_a_time(time_str or "")
+
+
 _STATED_CLOCK = re.compile(
     rf"\d{{1,2}}:\d{{2}}|\d{{1,2}}\s*(?:am|pm)|\bat\s+\d{{1,2}}\b|\bnoon\b|\bmidnight\b"
     rf"|\d{{3,4}}\s*(?:am|pm)|\b(?:at|for)\s+\d{{3,4}}\b"                 # compact: 910am, for 830
@@ -1306,7 +1318,7 @@ def _tag_path(action: str, time_str: str) -> "tuple[str, str]":
     # speaker gave a slot, and Q26 puts it on the calendar — FastRule's own
     # gold relabelled `c_range_ct_1` that way the day it was ruled. Without a
     # clock the idiom still reads as a task, below.
-    stated = bool(_STATED_CLOCK.search(time_str or ""))
+    stated = bool(_STATED_CLOCK.search(time_str or "")) or _names_a_time(time_str)
     if kind == "task" and stated \
             and not _VAGUE_TIME_HEDGE.search(action) \
             and not _DUE_DATE_EDIT.match(action) \
@@ -1336,7 +1348,7 @@ def _tag_path(action: str, time_str: str) -> "tuple[str, str]":
         verdict = _lexicon_kind(action)
         anchored = _ANCHORED_TO_EVENT.search(action) and not _head_is_outreach_verb(action)
         if verdict == "task" and (
-                _STATED_CLOCK.search(time_str or "")
+                (_STATED_CLOCK.search(time_str or "") or _names_a_time(time_str))
                 or anchored
                 or _has_person_argument(action)
                 or _meets_a_person(action)):          # Q47: "call mum", "pick up my sister"

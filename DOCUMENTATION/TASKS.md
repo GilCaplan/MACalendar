@@ -2262,3 +2262,16 @@ now"*):
     are the positives, pinned in `tests/unit/test_now_word.py`. Board D
     `--product` (needs the model) NOT run. Still open: "The event now …" — a
     misheard "Add event" is not read as a create-event frame (ingest aim a).
+    **Generalised 2026-10-01** (Gil: *"make it a function … key in a word and
+    time, so midnight would be 00:00, sunrise … now is now"*; editable in
+    Settings only as fixed times or words bound to a key time):
+    `intent/time_words.py` + the "Words that name a time" lexicon (FEATURES.md).
+    Measured alone, all 11,700 rows: 2 changed, both fixes ("at noon" inside a
+    compound read 00:00; "this friday at 12noon" read 09:00 with "at" in the
+    title). Found on the way and fixed as its own change: the encounter rule
+    ("call mom at 8pm", no day) chose the day by comparing the hour with its
+    9 AM default whatever was said, so after 9 AM every stated time rolled to
+    tomorrow — 2 rows changed, both to the right day. FastRule and
+    segmentation boards, both splits: no line moved. The corpora have no
+    sunrise/sunset/candle-lighting rows; the positives are pinned in
+    `test_time_words.py`.

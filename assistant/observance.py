@@ -497,6 +497,14 @@ def _shift(t: datetime.time, minutes: int) -> datetime.time:
     return (base + datetime.timedelta(minutes=minutes)).time()
 
 
+def sunrise(date: datetime.date, settings: Optional[ObservanceSettings] = None) -> Optional[datetime.time]:
+    """Sunrise at the configured place — "at sunrise" (`intent.time_words`)."""
+    settings = settings or current_settings()
+    times = _sun_times(date, settings.latitude, settings.longitude,
+                       settings.timezone, settings.tzeit_depression)
+    return times[0] if times else None
+
+
 def sunset(date: datetime.date, settings: Optional[ObservanceSettings] = None) -> Optional[datetime.time]:
     settings = settings or current_settings()
     times = _sun_times(date, settings.latitude, settings.longitude,

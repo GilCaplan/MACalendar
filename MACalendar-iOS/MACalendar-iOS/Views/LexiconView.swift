@@ -126,7 +126,10 @@ struct LexiconView: View {
                 drafts[entry.name] = ""
                 await load()
             } catch {
-                self.error = "Couldn't add “\(word)”: \(error.localizedDescription)"
+                // The Mac's own sentence when it has one — "Write it as word
+                // = time, e.g. …" for a time word in the wrong shape.
+                let why = (error as? APIError)?.serverSentence ?? error.localizedDescription
+                self.error = "Couldn't add “\(word)”: \(why)"
             }
         }
     }

@@ -152,7 +152,11 @@ def _rule_now_means_now(state, intent, transcript) -> None:
     ways: the speaker must actually have said "now", must NOT have said
     midnight, and the object must be sitting on exactly the 00:00 default.
     """
-    if not _NOW_RE.search(transcript or ""):
+    # Every word that names a time, not only "now" (2026-10-01): "at sunset"
+    # left at the 00:00 default is the same defect. One table: `time_words`.
+    from assistant.intent import time_words as _time_words
+    found = _time_words.find(transcript or "")
+    if found is None or found.word.value == "midnight":
         return
     if re.search(r"\bmidnight\b", (transcript or ""), re.I):
         return
@@ -160,14 +164,20 @@ def _rule_now_means_now(state, intent, transcript) -> None:
     if start != "00:00":
         return                       # a real time was read; leave it alone
     import datetime as _dt
-    now = _dt.datetime.now()
-    fresh = f"{now.hour:02d}:{now.minute:02d}"
+    try:
+        on = _dt.date.fromisoformat(getattr(intent, "date", None) or "")
+    except ValueError:
+        on = None
+    fresh = _time_words.resolve(found.word, on)
+    if not fresh:
+        return                       # no place configured for a sun time: invent nothing
     intent.start_time = fresh
     end = getattr(intent, "end_time", None)
     if end in ("01:00", "23:59", None, ""):
-        intent.end_time = f"{(now.hour + 1) % 24:02d}:{now.minute:02d}"
+        h, m = int(fresh[:2]), int(fresh[3:])
+        intent.end_time = f"{(h + 1) % 24:02d}:{m:02d}"
     state.add_fix("validate", "now_means_now", start, fresh,
-                  note="\"now\" is the clock, not midnight")
+                  note=f"\"{found.word.name}\" is {fresh}, not midnight")
 
 
 #: An END the speaker stated: "until 5pm", "till noon", "to 2:30".

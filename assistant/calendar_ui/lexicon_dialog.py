@@ -120,6 +120,16 @@ class LexiconDialog(QDialog):
             word = _f.text().strip()
             if not word:
                 return
+            from assistant.intent.lexicon import LEXICONS
+            shape = LEXICONS[_n].normalize if _n in LEXICONS else None
+            if shape is not None and shape(word.lower()) is None:
+                # A list whose entries have a shape ("lunch break = 13:30"):
+                # say what the shape is, not "already known".
+                QMessageBox.information(
+                    self, "Not in the right form",
+                    f"Write it as word = time, e.g. {LEXICONS[_n].example}. "
+                    "The built-in times themselves can't be changed.")
+                return
             if not self._store.add(_n, word):
                 QMessageBox.information(
                     self, "Already known",

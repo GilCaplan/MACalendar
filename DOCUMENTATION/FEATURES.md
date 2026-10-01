@@ -233,6 +233,7 @@ built when it reaches the Mac.
 | UI | [Small conveniences](#small-conveniences) | duplicate event, week numbers, Timer CSV export | `event_dialog.py`, `month_view.py`, `timer_view.py` |
 | UI | ["How to Talk to Me" tips](#how-to-talk-to-me-tips) | a 4-step "how it works" + 5 short voice-phrasing tips, every example verified on the engine (Settings → Assistant, Mac and iOS) + a one-line hint above the phone's mic keyed on the reply | `tips.py`, `tips_dialog.py`, `TipsView.swift`, `GET /tips` |
 | assistant | [Personal lexicon](#personal-lexicon) | the engine's word lists, extendable from Settings so it learns how you say things | `intent/lexicon.py`, `/lexicon` |
+| assistant | [Words that name a time](#words-that-name-a-time) | "now", "midnight", "at sunset", "at candle lighting" and your own ("lunch break = 13:30", "mincha = sunset-20") read as clock times — one table | `intent/time_words.py`, Settings ▸ How I say things |
 | UI | [Foldable settings sections](#foldable-settings-sections) | every Settings group folds, on both apps; they start all closed, all open, or as you left them (your choice) | `settings_dialog.py`, `SettingsView.swift` |
 | hybrid | [Calendar views](#calendar-views-month--week--day) | month/week/day/agenda browsing + event CRUD, drag, undo | `calendar_ui/`, iOS views, `db.py` |
 | hybrid | [Tasks](#tasks--to-dos) | Today/General lists, priorities, quantities | `db.py`, `TasksView` |
@@ -1137,6 +1138,27 @@ past what the tips were verified against, the same "downstream of the
 pipeline" contract `test_panel_agreement.py` holds the thinking panel to —
 so a future engine change forces a re-verification rather than silently
 shipping stale claims.
+
+### Words that name a time
+**What:** a word said instead of a clock is read as one, everywhere the
+engine reads a time (Gil, 2026-09-30 / 10-01). Built in, not editable:
+**now** (the present minute — "for now", "from now on", "two weeks from now",
+"now that", "is now at 9", "do it now" are not), **midnight** 00:00, **noon**
+12:00, and computed for that day at the configured place, offline: **at
+sunrise**, **at sunset**, **at candle lighting**, **at nightfall** (tzeit).
+**Your own**, in Settings ▸ How I say things ▸ "Words that name a time", in
+two forms: a fixed time (`lunch break = 13:30`), or a word BOUND one way to a
+key time (`straight away = now`, `first light = sunrise`, `mincha =
+sunset-20`). A computed or personal word needs "at"/"around"/"about"/"by"
+before it, so "watch the sunrise" keeps its name; a word bound to now, noon or
+midnight is said bare, like its key. A word that names a time is a clock, so
+Q26 makes the thing an event; "now" never rolls to tomorrow.
+**Where:** `assistant/intent/time_words.py` (`time_for` — the one function;
+"now"'s vetoes in `now_word.py`), read by FastRule's time reader, segmentation's
+`find_time_refs` and stated-clock test, and Decompose/Validate's net; stored in
+the personal lexicon (`time_words`, per user), refused with a sentence when not
+`word = time` (`POST /lexicon/time_words` → 400). Tests:
+`test_time_words.py`, `test_now_word.py`.
 
 ### Personal lexicon
 

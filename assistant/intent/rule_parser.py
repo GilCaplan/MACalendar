@@ -1616,19 +1616,29 @@ def _extract_temporal(span_text: str, today: datetime.date,
     # to midnight — real usage, 2026-09-08, and the user got a run booked for
     # 12 AM. It is the same class of word as noon: a time the speaker gave in
     # words rather than digits.
-    # "NOW" IS THE PRESENT MINUTE (Gil, 2026-09-30) — and it has to be read
-    # before the fallback below could ever see it: the date recogniser reads
-    # "now" as today 00:00, so the start was never empty and "create an event
-    # now" was booked at midnight. A 00:00 the speaker did not say (no
-    # "midnight", "12 am", "00:00") is that misreading. `now_word` holds the
-    # vague senses ("for now", "two weeks from now"), which stay untouched.
-    from assistant.intent.now_word import says_now as _says_now, clock as _clock
-    if _says_now(span_text) and (
+    # WORDS THAT NAME A TIME (`time_words`, Gil 2026-09-30/10-01): "now" is
+    # the present minute, "at sunset" that day's sunset, "at lunch break" the
+    # person's own 13:30. Read before the fallback below could ever see them:
+    # the date recogniser reads "now" as today 00:00, so the start was never
+    # empty and "create an event now" was booked at midnight. A 00:00 the
+    # speaker did not say (no "midnight", "12 am", "00:00") is that misreading.
+    # The vague senses ("for now", "two weeks from now") are `now_word`'s.
+    from assistant.intent import time_words as _time_words
+    _tw = _time_words.find(span_text)
+    if _tw and _tw.word.value != "midnight" and (
             not result["start_time"]
             or (result["start_time"] == "00:00"
                 and not re.search(r"\bmidnight\b|\b12\s*(?:am|a\.m\.)|\b0?0:00\b", span_text, re.I))):
-        result["start_time"] = _clock()
-        result["_source"] = "now"
+        _on = None
+        try:
+            _on = datetime.date.fromisoformat(result["date"]) if result["date"] else None
+        except (TypeError, ValueError):
+            pass
+        _at = _time_words.resolve(_tw.word, _on or today)
+        if _at:
+            result["start_time"] = _at
+            result["_source"] = "time_word"
+            result["spans"].append((_tw.start, _tw.end))
     if not result["start_time"]:
         lower = span_text.lower()
         if re.search(r"\bnoon\b", lower):
@@ -4108,8 +4118,15 @@ class RuleBasedParser:
                     # rule ran on events as well).
                     from assistant.engine.decompose_validate.object_rules import _DAY_WORD_RE
                     if not temporal.get("date") and not _DAY_WORD_RE.search(said):
+                        # The STATED time decides, not the 9 AM default: this
+                        # compared the hour with 9 whatever was said, so "call
+                        # mom at 8pm" at 09:40 was booked for tomorrow (found
+                        # 2026-10-01 wiring the time words; "now" is the minute
+                        # it was said, so it never rolls).
                         now = datetime.datetime.now()
-                        day = now.date() if now.hour < 9 else now.date() + datetime.timedelta(days=1)
+                        st = str(temporal["start_time"])[:5]
+                        day = (now.date() if st >= now.strftime("%H:%M")
+                               else now.date() + datetime.timedelta(days=1))
                         temporal["date"] = day.isoformat()
             if action_name is None and len(spans) == 1 and _bare_noun_event(span, temporal):
                 # A BARE NOUN WITH A DAY OR A CLOCK IS AN EVENT (2026-09-24).
