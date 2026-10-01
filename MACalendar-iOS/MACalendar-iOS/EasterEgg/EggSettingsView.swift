@@ -4,6 +4,7 @@ import PhotosUI
 /// Settings ▸ Easter egg: magic words, and what they summon.
 struct EggSettingsView: View {
     @ObservedObject private var store = EggStore.shared
+    @ObservedObject private var fold = SettingsFold.shared
     @State private var newObject = false
     @State private var newSymbol = false
     @State private var drawing = false
@@ -73,7 +74,7 @@ struct EggSettingsView: View {
                     Text("Every change below shows here at once.")
                 }
 
-                Section {
+                Section { if fold.isOpen("egg.When") {
                     Picker("Show it", selection: $store.settings.trigger) {
                         ForEach(EggTrigger.allCases, id: \.self) { Text($0.label).tag($0) }
                     }
@@ -93,11 +94,11 @@ struct EggSettingsView: View {
                         Text("3").tag(3)
                         Text("5").tag(5)
                     }
-                } header: { Text("When") } footer: {
+                } } header: { FoldHeader("egg.When", label: "When") } footer: { if fold.isOpen("egg.When") {
                     Text("“Dogs” brings a pack; “a pack of dogs” groups them when group words are on.")
-                }
+                } }
 
-                Section {
+                Section { if fold.isOpen("egg.Movement") {
                     Picker("Motion", selection: $store.settings.motion) {
                         ForEach(EggMotion.allCases, id: \.self) {
                             Text($0 == .auto ? "Each one's own" : $0.label).tag($0)
@@ -119,23 +120,23 @@ struct EggSettingsView: View {
                             Text($0 == .auto ? "Each one's own" : $0.label).tag($0)
                         }
                     }
-                } header: { Text("Movement") } footer: {
+                } } header: { FoldHeader("egg.Movement", label: "Movement") } footer: { if fold.isOpen("egg.Movement") {
                     Text("“Each one's own” lets every word keep what's set on its page.")
-                }
+                } }
 
-                Section {
+                Section { if fold.isOpen("egg.Timing") {
                     secondsRow("Coming in", $store.settings.entrance, 0.3...5)
                     secondsRow("Pause in the middle", $store.settings.pause, 0...10)
                     secondsRow("Going out", $store.settings.exit, 0.3...5)
                     Toggle("Stay until I tap it", isOn: $store.settings.untilTapped)
                         .disabled(store.settings.passThrough)
-                } header: { Text("Timing") } footer: {
+                } } header: { FoldHeader("egg.Timing", label: "Timing") } footer: { if fold.isOpen("egg.Timing") {
                     Text(store.settings.passThrough
                          ? "“Stay until I tap it” needs taps, so it's off while touches go through."
                          : "The pause happens in the middle of the screen; a tap lets it carry on.")
-                }
+                } }
 
-                Section("Look") {
+                Section { if fold.isOpen("egg.Look") {
                     VStack(alignment: .leading) {
                         Text("Solid \(Int((store.settings.opacity * 100).rounded()))%")
                         Slider(value: $store.settings.opacity, in: 0.15...1)
@@ -150,9 +151,9 @@ struct EggSettingsView: View {
                     Picker("Where on the screen", selection: $store.settings.lane) {
                         ForEach(EggLane.allCases, id: \.self) { Text($0.label).tag($0) }
                     }
-                }
+                } } header: { FoldHeader("egg.Look", label: "Look") }
 
-                Section {
+                Section { if fold.isOpen("egg.Sound") {
                     Toggle("Sound", isOn: $store.settings.sound)
                     if store.settings.sound {
                         HStack {
@@ -170,9 +171,9 @@ struct EggSettingsView: View {
                         }
                     }
                     Toggle("Haptics", isOn: $store.settings.haptics)
-                } header: { Text("Sound & feel") } footer: {
+                } } header: { FoldHeader("egg.Sound", label: "Sound & feel") } footer: { if fold.isOpen("egg.Sound") {
                     Text("Every sound is made on the phone. They follow the ring switch.")
-                }
+                } }
 
                 EggFestivalSection()
 
@@ -191,7 +192,7 @@ struct EggSettingsView: View {
                     Text("Build what plays whenever the app is waiting — your own wheel of death.")
                 }
 
-                Section {
+                Section { if fold.isOpen("egg.Surprise") {
                     Picker("Play", selection: $store.settings.chance) {
                         Text("Every time").tag(1)
                         Text("1 time in 2").tag(2)
@@ -212,32 +213,32 @@ struct EggSettingsView: View {
                         DatePicker("From", selection: minutes($store.settings.quietFrom), displayedComponents: .hourAndMinute)
                         DatePicker("Until", selection: minutes($store.settings.quietTo), displayedComponents: .hourAndMinute)
                     }
-                } header: { Text("Keep it a surprise") } footer: {
+                } } header: { FoldHeader("egg.Surprise", label: "Keep it a surprise") } footer: { if fold.isOpen("egg.Surprise") {
                     Text("Held back, a magic word said on its own still isn't sent to your Mac.")
-                }
+                } }
 
-                Section {
+                Section { if fold.isOpen("egg.Made") {
                     Toggle("Also for what gets made", isOn: $store.settings.forWhatsMade)
                     if store.settings.forWhatsMade {
                         NavigationLink("Which plays for what") { EggMadeMapView() }
                     }
-                } header: { Text("What gets made") } footer: {
+                } } header: { FoldHeader("egg.Made", label: "What gets made") } footer: { if fold.isOpen("egg.Made") {
                     Text("A command that books a trip can bring the plane even if you never said “plane”: "
                          + "an event's category or a task's tag picks what plays.")
-                }
+                } }
 
-                Section {
+                Section { if fold.isOpen("egg.Touch") {
                     Toggle("Touches go through to the app", isOn: $store.settings.passThrough)
                     if !store.settings.passThrough {
                         Picker("A tap", selection: $store.settings.tap) {
                             ForEach(EggTap.allCases, id: \.self) { Text($0.label).tag($0) }
                         }
                     }
-                } header: { Text("Touch") } footer: {
+                } } header: { FoldHeader("egg.Touch", label: "Touch") } footer: { if fold.isOpen("egg.Touch") {
                     Text(store.settings.passThrough
                          ? "It just plays: you can keep scrolling and tapping underneath."
                          : "While it plays, a tap anywhere is for the animation.")
-                }
+                } }
             }
 
             Section {
@@ -273,6 +274,7 @@ struct EggSettingsView: View {
 struct EggObjectView: View {
     let id: String
     @ObservedObject private var store = EggStore.shared
+    @ObservedObject private var fold = SettingsFold.shared
     @State private var word = ""
     @State private var note: String?
     @State private var adding = false
@@ -304,7 +306,7 @@ struct EggObjectView: View {
                     Button { store.demo([o.id]) } label: { Label("Play it on the whole screen", systemImage: "play.circle") }
                 }
 
-                Section {
+                Section { if fold.isOpen("egg.word.Words") {
                     ForEach(o.keywords, id: \.self) { Text($0) }
                         .onDelete { idx in idx.map { o.keywords[$0] }.forEach { store.removeKeyword($0, from: id) } }
                     HStack {
@@ -317,12 +319,12 @@ struct EggObjectView: View {
                     if o.builtin {
                         Button("Reset to the original words") { store.resetKeywords(id) }
                     }
-                } header: { Text("Words that summon it") } footer: {
+                } } header: { FoldHeader("egg.word.Words", label: "Words that summon it") } footer: { if fold.isOpen("egg.word.Words") {
                     Text(note ?? "Plurals count too: “dog” also answers to “dogs”.")
-                }
+                } }
 
                 if case .effect = o.activeVariant.source {} else {
-                    Section {
+                    Section { if fold.isOpen("egg.word.Motion") {
                         Picker("Motion", selection: $store.settings.objects[i].motion) {
                             ForEach(EggMotion.allCases, id: \.self) {
                                 Text($0 == .auto ? "Its own (\(EggCatalog.defaultMotion(id).label))" : $0.label).tag($0)
@@ -342,14 +344,14 @@ struct EggObjectView: View {
                                 Text($0 == .auto ? "Its own (\(EggCatalog.defaultTrail(id).label))" : $0.label).tag($0)
                             }
                         }
-                    } header: { Text("Motion") } footer: {
+                    } } header: { FoldHeader("egg.word.Motion", label: "Motion") } footer: { if fold.isOpen("egg.word.Motion") {
                         if store.settings.motion != .auto || store.settings.direction != .auto || store.settings.trail != .auto {
                             Text("A choice for everything on the Easter egg page overrides these.")
                         }
-                    }
+                    } }
                 }
 
-                Section {
+                Section { if fold.isOpen("egg.word.Own") {
                     VStack(alignment: .leading) {
                         HStack {
                             Text("Size \(Int(o.sizePercent ?? store.settings.sizePercent))%")
@@ -400,11 +402,11 @@ struct EggObjectView: View {
                             ForEach(EggLook.allCases, id: \.self) { Text($0.label).tag($0) }
                         }
                     }
-                } header: { Text("This one's own") } footer: {
+                } } header: { FoldHeader("egg.word.Own", label: "This one's own") } footer: { if fold.isOpen("egg.word.Own") {
                     Text("Anything left as “like the rest” follows the Easter egg page.")
-                }
+                } }
 
-                Section {
+                Section { if fold.isOpen("egg.word.Pictures") {
                     ForEach(o.variants) { v in
                         Button { store.setActive(v.id, for: id) } label: {
                             HStack(spacing: 12) {
@@ -436,9 +438,9 @@ struct EggObjectView: View {
                     }
                     Button { adding = true } label: { Label("Add a photo…", systemImage: "photo.badge.plus") }
                     Button { addingSymbol = true } label: { Label("Add an emoji, flag or symbol…", systemImage: "face.smiling") }
-                } header: { Text("Pictures") } footer: {
+                } } header: { FoldHeader("egg.word.Pictures", label: "Pictures") } footer: { if fold.isOpen("egg.word.Pictures") {
                     Text("Tap one to make it the one that plays. Swipe a photo to edit its outline or style, or to delete it.")
-                }
+                } }
 
                 if !o.builtin {
                     Section {
@@ -860,6 +862,7 @@ private struct Checkerboard: View {
 /// makes one.
 struct EggMadeMapView: View {
     @ObservedObject private var store = EggStore.shared
+    @ObservedObject private var fold = SettingsFold.shared
 
     private var categories: [String] {
         let served = (Labeller.shared.categoryRules ?? DefaultRules.categoryRules)?.categories.map(\.name) ?? []

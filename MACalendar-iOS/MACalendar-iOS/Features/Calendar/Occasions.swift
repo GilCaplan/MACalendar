@@ -350,6 +350,7 @@ enum ContactOccasions {
 // MARK: - Settings ▸ Occasions
 
 struct OccasionsSettingsView: View {
+    @ObservedObject private var fold = SettingsFold.shared
     @EnvironmentObject var api: APIClient
     @State private var mine: [Occasion] = []
     @State private var cfg: [String: Any] = [:]
@@ -396,23 +397,23 @@ struct OccasionsSettingsView: View {
                 Text("All-day banners on the calendar. Tap one here or on the calendar to edit it.")
             }
 
-            Section {
+            Section { if fold.isOpen("occ.Holidays") {
                 typeToggle("major", "Festivals")
                 typeToggle("minor", "Minor holidays")
                 typeToggle("fast", "Fast days")
                 typeToggle("modern", "Modern Israeli days")
-            } header: { Text("Jewish holidays shown") } footer: {
+            } } header: { FoldHeader("occ.Holidays", label: "Jewish holidays shown") } footer: { if fold.isOpen("occ.Holidays") {
                 Text("Only what the calendar shows — Shabbat and yom tov are kept free whatever is hidden.")
-            }
+            } }
 
-            Section("Jewish weekly extras") {
+            Section { if fold.isOpen("occ.Weekly") {
                 flag("parasha", "Parasha", "The weekly Torah portion, on each Shabbat.")
                 flag("omer", "Omer count", "Day 1–49 between Pesach and Shavuot.")
                 flag("rosh_chodesh", "Rosh Chodesh", "The 30th of a month and the 1st of the next.")
                 flag("daf_yomi", "Daf Yomi", "Today's daf in the Babylonian Talmud cycle — a banner every day.")
-            }
+            } } header: { FoldHeader("occ.Weekly", label: "Jewish weekly extras") }
 
-            Section("Other calendars") {
+            Section { if fold.isOpen("occ.Other") {
                 Picker("National holidays", selection: Binding(
                     get: { (cfg["country"] as? String ?? "").uppercased() },
                     set: { patch(["country": $0]) })) {
@@ -420,9 +421,9 @@ struct OccasionsSettingsView: View {
                 }
                 flag("christian", "Christian holidays", "Easter and the dates that move with it, and the fixed feasts.")
                 flag("islamic", "Islamic holidays", "By the Umm al-Qura calendar; marked “expected” — moon sighting can move them a day.")
-            }
+            } } header: { FoldHeader("occ.Other", label: "Other calendars") }
 
-            Section {
+            Section { if fold.isOpen("occ.Named") {
                 byName("jewish", "Jewish days", "Hebrew dates (“12 Adar”), holidays, erev / motzei, Rosh Chodesh, “the first night of Chanukah”, Shabbat.")
                 byName("christian", "Christian days", "Easter and the dates that move with it.")
                 byName("islamic", "Islamic days", "Eid al-Fitr, Eid al-Adha, Ramadan … (expected dates).")
@@ -440,11 +441,11 @@ struct OccasionsSettingsView: View {
                     }
                 }
                 if let teachNote { Text(teachNote).font(.caption).foregroundColor(.secondary) }
-            } header: { Text("Days you can say by name") } footer: {
+            } } header: { FoldHeader("occ.Named", label: "Days you can say by name") } footer: { if fold.isOpen("occ.Named") {
                 Text("“Dinner on erev Pesach”, “brunch on Easter” — booked on that day. Switch a family off and its names are just words again.")
-            }
+            } }
 
-            Section {
+            Section { if fold.isOpen("occ.Colours") {
                 ForEach(styleKinds, id: \.0) { k in
                     HStack {
                         ColorPicker(k.1, selection: colourBinding(k.0), supportsOpacity: false)
@@ -458,9 +459,9 @@ struct OccasionsSettingsView: View {
                         .font(.caption)
                     }
                 }
-            } header: { Text("Colours and reminders") } footer: {
+            } } header: { FoldHeader("occ.Colours", label: "Colours and reminders") } footer: { if fold.isOpen("occ.Colours") {
                 Text("Reminders arrive in the daily summary (Notifications) on the day chosen — “🎂 Dana's 30th birthday — in 3 days”.")
-            }
+            } }
         }
         .navigationTitle("Occasions")
         .navigationBarTitleDisplayMode(.inline)

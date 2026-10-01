@@ -56,6 +56,19 @@ final class MacEggStore: ObservableObject {
         return d.bareHandled
     }
 
+    /// "Also for what gets made", as on the phone (`EggStore.made`): the
+    /// categories and tags of what a command just wrote — read by the calendar
+    /// app, which has the database — pick what plays through `madeMap`.
+    func made(_ labels: [String]) {
+        let s = settings
+        guard s.enabled, s.forWhatsMade, !labels.isEmpty else { return }
+        let byLower = Dictionary(s.madeMap.map { ($0.key.lowercased(), $0.value) }, uniquingKeysWith: { a, _ in a })
+        var ids: [String] = []
+        for l in labels { if let id = byLower[l.lowercased()], !ids.contains(id) { ids.append(id) } }
+        guard !ids.isEmpty, EggRules.allowed(s, now: Date(), lastPlayed: lastPlayed) else { return }
+        play(ids, together: s.group != .oneAfterAnother)
+    }
+
     func play(_ ids: [String], together: Bool, caption: String? = nil) {
         lastPlayed = Date()
         EggStage.shared.play(ids, settings: settings, together: together, caption: caption)

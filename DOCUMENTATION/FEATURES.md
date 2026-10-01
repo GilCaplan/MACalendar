@@ -1344,6 +1344,20 @@ under every toolbar widget and hid the mic's accent.
 
 ### Foldable settings sections
 
+> **Inside the long pages too, 2026-10-01** (Gil: *"minimize the sections …
+> it takes too much time to scroll down to find the right thing"*; *"look at
+> other subsections which might be heavy"*). Measured every settings page, then
+> folded the long ones by the same start rule. Phone: the Easter egg page
+> (When, Movement, Timing, Look, Sound & feel, Jewish festivals, Keep it a
+> surprise, What gets made, Touch — the switch, preview and the magic words
+> list stay open), each word's page, the loading-screen page, and Occasions'
+> reference switches (`FoldSection` keys in `SettingsFold.sections`). Mac:
+> Occasions' five sub-groups and Notifications' per-category reminders
+> (`settings_dialog.fold`; Notifications was 1,598 px against a 631 px view),
+> and the magic-words window's sections (`MacFoldSection`, remembered).
+> Left whole: Account (a ruled design, Q65), Server (one panel), and forms
+> such as the event editor. `EasterEggUITests.testTheEasterEggPageFolds`.
+
 > **Back, with a choice, 2026-09-30** (TASKS 50, Gil: *"minimize options on
 > calendar/notifications etc... and default keep it closed/open, or as last
 > status … keep UI the same"*). On the phone each group's title (Calendar,

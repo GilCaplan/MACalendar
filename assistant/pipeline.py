@@ -613,6 +613,8 @@ class Pipeline:
         message = data.get("message") or ""
         actions = data.get("actions") or []
         pending_id = data.get("pending_id")
+        # "Also for what gets made" (the Easter egg): the rows this wrote.
+        magic_words.made_rows(data.get("committed") or [])
 
         if data.get("parse") == "needs_edit":
             # The vocabulary doubts a word and the setting says ask first.

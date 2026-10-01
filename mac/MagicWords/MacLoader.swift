@@ -166,7 +166,7 @@ struct MacLoaderSettings: View {
     private var cfg: Binding<EggLoaderConfig> { $store.settings.loader }
 
     var body: some View {
-        Section {
+        MacFoldSection("Loading screen") {
             MacLoaderView(side: 150, caption: cfg.wrappedValue.showCaption ? cfg.wrappedValue.stuckCaption : nil)
                 .frame(maxWidth: .infinity)
             Toggle("Use my loading screen", isOn: cfg.enabled)
@@ -208,9 +208,9 @@ struct MacLoaderSettings: View {
             if cfg.wrappedValue.showCaption {
                 TextField("Line", text: cfg.stuckCaption)
             }
-        } header: { Text("Loading screen") } footer: {
             Text("Plays while a command thinks — in the thinking card, and in the middle of the screen when it "
                  + "takes a while (it never blocks a click). Up to four in it; the wheel and the parade use them all.")
+                .font(.caption).foregroundColor(.secondary)
         }
     }
 

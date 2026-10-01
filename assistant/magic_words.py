@@ -164,6 +164,41 @@ def wait_end(wid: "str | None") -> None:
         _ask("wait_end", id=wid)
 
 
+def made(labels: "list[str]") -> None:
+    """What a command just made — its events' categories and to-dos' tags —
+    for "Also for what gets made" (the helper decides, as the phone does)."""
+    if labels:
+        _ask("made", labels=list(labels))
+
+
+def made_rows(rows: "list[dict]") -> None:
+    """The reply's `committed` rows ({"kind", "id"}) → their category or tags
+    → `made`. On a daemon thread: it reads the database, and the caller is the
+    voice pipeline, which must not wait on an Easter egg."""
+    if _disabled() or not rows:
+        return
+
+    def work():
+        try:
+            from assistant.db import get_db
+            db = get_db()
+            labels: list[str] = []
+            for r in rows:
+                if r.get("kind") == "event":
+                    e = db.get_event(int(r["id"]))
+                    if e and e.get("category"):
+                        labels.append(e["category"])
+                elif r.get("kind") == "todo":
+                    t = db.get_todo(int(r["id"]))
+                    if t:
+                        labels.extend(t.get("tags") or [])
+            made(labels)
+        except Exception as e:                   # noqa: BLE001 — best effort
+            logger.debug("✨ made: %s", e)
+
+    threading.Thread(target=work, daemon=True, name="magic-words-made").start()
+
+
 def loader_demo() -> None:
     _ask("loader_demo", wait=True)
 

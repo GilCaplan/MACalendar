@@ -23,6 +23,16 @@ final class SettingsFold: ObservableObject {
 
     static let shared = SettingsFold()
     static let sections = ["Calendar", "Notifications & tabs", "Assistant", "Connection", "Just for fun", "About"]
+        // The Easter egg's own pages fold too (Gil, 2026-10-01: "minimize the
+        // sections … it takes too much time to scroll down to find the right
+        // thing"). Keys, not titles: two pages each have a "Look".
+        + ["egg.When", "egg.Movement", "egg.Timing", "egg.Look", "egg.Sound", "egg.Festivals",
+           "egg.Surprise", "egg.Made", "egg.Touch",
+           "egg.word.Words", "egg.word.Motion", "egg.word.Own", "egg.word.Pictures",
+           "egg.loader.Style", "egg.loader.Who", "egg.loader.Look", "egg.loader.Wait"]
+        // Occasions & extra calendars: your own stay open, the reference
+        // switches below them fold.
+        + ["occ.Holidays", "occ.Weekly", "occ.Other", "occ.Named", "occ.Colours"]
 
     private let defaults: UserDefaults
     @Published var start: Start { didSet { defaults.set(start.rawValue, forKey: "settingsFold.start") } }
@@ -51,16 +61,18 @@ final class SettingsFold: ObservableObject {
 /// A section header that folds its section: the same title, plus a chevron.
 struct FoldHeader: View {
     let title: String
+    let label: String
     @ObservedObject private var fold = SettingsFold.shared
 
-    init(_ title: String) { self.title = title }
+    /// `title` is the fold's key; `label`, when given, is what shows.
+    init(_ title: String, label: String? = nil) { self.title = title; self.label = label ?? title }
 
     var body: some View {
         Button {
             withAnimation(.easeInOut(duration: 0.2)) { fold.toggle(title) }
         } label: {
             HStack {
-                Text(title)
+                Text(label)
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))

@@ -179,6 +179,39 @@ def open_settings(self) -> None:
     made: "list[tuple[str, QToolButton, QWidget]]" = []     # (title, row, page)
     groups: "list[QVBoxLayout]" = []                        # each page's controls
 
+    def fold(page: QVBoxLayout, title: str) -> QVBoxLayout:
+        """A sub-group of a long page that folds (Gil, 2026-10-01: "minimize
+        the sections … it takes too much time to scroll down to find the right
+        thing"): a heading that opens and closes the controls under it. Starts
+        as "Settings groups start" says — open, closed (the default), or as it
+        was left, remembered per machine like the page that was open."""
+        key = title.lower().replace(" ", "_")
+        start = _ui_state().value("settings/fold_start", "closed", type=str)
+        remembered = _ui_state().value(f"settings/subfold/{key}", "", type=str)
+        is_open = (start == "open") or (start == "last" and remembered == "open")
+        head = QToolButton()
+        head.setObjectName(f"subfold_{key}")
+        head.setCheckable(True)
+        head.setChecked(is_open)
+        head.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        head.setStyleSheet("QToolButton { border: none; font-weight: 600; padding: 6px 0 2px 0; "
+                           "text-align: left; background: transparent; }")
+        body = QWidget()
+        body.setObjectName(f"subfold_body_{key}")
+        inner = QVBoxLayout(body)
+        inner.setContentsMargins(14, 0, 0, 4)
+        inner.setSpacing(10)
+
+        def show(on: bool) -> None:
+            head.setText(("▾  " if on else "▸  ") + title)
+            body.setVisible(on)
+            _ui_state().setValue(f"settings/subfold/{key}", "open" if on else "closed")
+        head.toggled.connect(show)
+        show(is_open)
+        page.addWidget(head)
+        page.addWidget(body)
+        return inner
+
     def section(title: str) -> QVBoxLayout:
         """One page and its sidebar row; returns the layout for its controls.
 
@@ -772,13 +805,14 @@ def open_settings(self) -> None:
     from assistant.config import MAX_EVENT_MINUTES, MIN_EVENT_LENGTH
     # ── Occasions (DEVQA Q73) ─────────────────────────────────────
     occ = section("Occasions")
+    occ_page = occ
     from assistant.calendar_ui.occasion_ui import OccasionsList
     occ.addWidget(hint("Birthdays, anniversaries, yahrzeits, countdowns and other yearly "
                        "dates — all-day banners; click one on the calendar to edit it."))
     occ.addWidget(OccasionsList(dialog))
     _ocfg = getattr(self._config, "occasions", None)
     _types = set(getattr(_ocfg, "holiday_types", None) or ["major", "minor", "fast", "modern"])
-    occ.addWidget(QLabel("<b>Jewish holidays shown</b>"))
+    occ = fold(occ_page, "Jewish holidays shown")
     holiday_type_boxes: dict = {}
     _types_row = QHBoxLayout()
     for _k, _label in (("major", "Festivals"), ("minor", "Minor holidays"),
@@ -792,7 +826,7 @@ def open_settings(self) -> None:
     occ.addLayout(_types_row)
     occ.addWidget(hint("Only what the calendar shows — Shabbat and yom tov are kept free "
                        "whatever is hidden here."))
-    occ.addWidget(QLabel("<b>Jewish weekly extras</b>"))
+    occ = fold(occ_page, "Jewish weekly extras")
     extras_boxes: dict = {}
     _extras_row = QHBoxLayout()
     for _k, _label, _tip in (
@@ -810,7 +844,7 @@ def open_settings(self) -> None:
         _extras_row.addWidget(_cb)
     _extras_row.addStretch(1)
     occ.addLayout(_extras_row)
-    occ.addWidget(QLabel("<b>Other calendars</b>"))
+    occ = fold(occ_page, "Other calendars")
     other_form = QFormLayout()
     country_combo = QComboBox()
     country_combo.setObjectName("occasions_country")
@@ -837,7 +871,7 @@ def open_settings(self) -> None:
     _rel_row.addStretch(1)
     other_form.addRow("", _rel_row)
     occ.addLayout(other_form)
-    occ.addWidget(QLabel("<b>Days you can say by name</b>"))
+    occ = fold(occ_page, "Days you can say by name")
     occ.addWidget(hint("\"Dinner on erev Pesach\", \"dentist on 12 Adar\", \"brunch on Easter\", "
                        "\"dinner on Dana's birthday\" — booked on that day. Switch a family off "
                        "and its names are just words again."))
@@ -881,7 +915,7 @@ def open_settings(self) -> None:
     _teach_row.addWidget(teach_note)
     _teach_row.addStretch(1)
     occ.addLayout(_teach_row)
-    occ.addWidget(QLabel("<b>Colours and reminders</b>"))
+    occ = fold(occ_page, "Colours and reminders")
     occ.addWidget(hint("Reminders arrive in the daily summary (Notifications), on the "
                        "day chosen — \"🎂 Dana's 30th birthday — in 3 days\"."))
     _colors = dict(getattr(_ocfg, "colors", None) or {})
@@ -1061,6 +1095,7 @@ def open_settings(self) -> None:
     notif_observance_cb.setChecked(bool(getattr(notif_cfg, "respect_observance", True)))
     notif.addWidget(notif_observance_cb)
 
+    notif = fold(notif, "Reminders by category")
     notif.addWidget(hint("Per category — Muted silences it outright; Default "
                          "follows the lead time above."))
     from assistant.actions.calendar.categories import all_categories

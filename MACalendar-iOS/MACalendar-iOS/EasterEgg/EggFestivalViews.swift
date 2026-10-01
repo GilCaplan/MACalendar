@@ -5,6 +5,7 @@ import SwiftUI
 /// title. A tap plays the festival's show. Nothing at all otherwise.
 struct EggSeasonBadge: View {
     @ObservedObject private var store = EggStore.shared
+    @ObservedObject private var fold = SettingsFold.shared
     @State private var from = Date()
 
     private var festival: EggFestivals.Festival? {
@@ -37,9 +38,10 @@ struct EggSeasonBadge: View {
 /// Settings ▸ Easter egg ▸ Jewish festivals.
 struct EggFestivalSection: View {
     @ObservedObject private var store = EggStore.shared
+    @ObservedObject private var fold = SettingsFold.shared
 
     var body: some View {
-        Section {
+        Section { if fold.isOpen("egg.Festivals") {
             Toggle("Jewish festivals", isOn: $store.settings.jewish)
             if store.settings.jewish {
                 Toggle("Their words only in their season", isOn: $store.settings.jewishInSeason)
@@ -53,10 +55,10 @@ struct EggFestivalSection: View {
                     Button { store.greet(f) } label: { Label("Play \(f.greeting.replacingOccurrences(of: "!", with: ""))", systemImage: "sparkles") }
                 }
             }
-        } header: { Text("Jewish festivals") } footer: {
+        } } header: { FoldHeader("egg.Festivals", label: "Jewish festivals") } footer: { if fold.isOpen("egg.Festivals") {
             Text("Sukkah, lulav and etrog; shofar and apple and honey; menorah and dreidel; mask, grogger and "
                  + "hamantasch; matzah; Shabbat candles and challah; a Torah. On festival days the app greets you "
                  + "once, and a small figure by the calendar's title plays it again when tapped.")
-        }
+        } }
     }
 }

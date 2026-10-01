@@ -94,3 +94,24 @@ def test_a_command_closes_its_wait_even_when_the_api_is_down(monkeypatch):
     monkeypatch.setattr(pipeline, "_identity", lambda port: ("dev", "tok"))
     assert p._process_transcript("add milk", Trace(), 0.0) is False
     assert seen == ["begin", ("end", "w1")]
+
+
+def test_what_a_command_made_reaches_the_helper_as_its_labels(tmp_path, monkeypatch):
+    """"Also for what gets made" on the Mac (2026-10-01): the reply's committed
+    rows become their event category and to-do tags, sent to the helper,
+    which picks what plays as the phone does."""
+    import threading
+    from assistant import db as db_module, magic_words
+    from assistant.db import CalendarDB
+    real = CalendarDB(path=str(tmp_path / "made.db"))
+    monkeypatch.setattr(db_module, "get_db", lambda *a, **k: real)
+    ev = real.create_event_from_dict({"title": "flight to Rome", "date": "2026-10-09",
+                                      "start_time": "08:00", "end_time": "11:00"})
+    td = real.create_todo(title="buy milk", tags=["Groceries"])
+    sent, done = [], threading.Event()
+    monkeypatch.setattr(magic_words, "_disabled", lambda: False)
+    monkeypatch.setattr(magic_words, "made", lambda labels: (sent.append(labels), done.set()))
+    magic_words.made_rows([{"kind": "event", "id": ev}, {"kind": "todo", "id": td}])
+    assert done.wait(5)
+    category = real.get_event(ev)["category"]
+    assert sent == [[category, "Groceries"]]

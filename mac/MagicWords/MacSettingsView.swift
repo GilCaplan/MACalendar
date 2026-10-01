@@ -47,7 +47,7 @@ struct MacSettingsView: View {
                         Text("A word can only summon one thing. Choose which keeps it.")
                     }
                 }
-                Section("When") {
+                MacFoldSection("When") {
                     Picker("Show it", selection: $store.settings.trigger) {
                         ForEach(EggTrigger.allCases, id: \.self) { Text($0.label).tag($0) }
                     }
@@ -58,7 +58,7 @@ struct MacSettingsView: View {
                         Text("Just one").tag(1); Text("2").tag(2); Text("3").tag(3); Text("5").tag(5)
                     }
                 }
-                Section("Movement") {
+                MacFoldSection("Movement") {
                     Picker("Motion", selection: $store.settings.motion) {
                         ForEach(EggMotion.allCases.filter { $0 != .drawn || store.settings.drawnPath != nil }, id: \.self) {
                             Text($0 == .auto ? "Each one's own" : $0.label).tag($0)
@@ -72,12 +72,28 @@ struct MacSettingsView: View {
                         ForEach(EggTrail.allCases, id: \.self) { Text($0 == .auto ? "Each one's own" : $0.label).tag($0) }
                     }
                 }
-                Section("Timing") {
+                MacFoldSection("Timing") {
                     slider("Coming in", $store.settings.entrance, 0.3...5)
                     slider("Pause in the middle", $store.settings.pause, 0...10)
                     slider("Going out", $store.settings.exit, 0.3...5)
                 }
-                Section("Look") {
+                MacFoldSection("What gets made") {
+                    Toggle("Also for what gets made", isOn: $store.settings.forWhatsMade)
+                    Text("A command that books a trip can bring the plane even if you never said “plane”: "
+                         + "an event's category or a task's tag picks what plays.")
+                        .font(.caption).foregroundColor(.secondary)
+                    if store.settings.forWhatsMade {
+                        ForEach(Array(Set(store.settings.madeMap.keys).union(EggCatalog.madeMap.keys)).sorted(), id: \.self) { label in
+                            Picker(label, selection: Binding(
+                                get: { store.settings.madeMap[label] ?? "" },
+                                set: { store.settings.madeMap[label] = $0.isEmpty ? nil : $0 })) {
+                                Text("Nothing").tag("")
+                                ForEach(store.settings.objects.filter(\.enabled)) { Text($0.name).tag($0.id) }
+                            }
+                        }
+                    }
+                }
+                MacFoldSection("Look") {
                     slider("Solid", $store.settings.opacity, 0.15...1, unit: "")
                     Picker("Style", selection: $store.settings.look) {
                         ForEach(EggLook.allCases, id: \.self) { Text($0.label).tag($0) }
@@ -89,12 +105,12 @@ struct MacSettingsView: View {
                     }
                     Toggle("Clicks go through to the apps underneath", isOn: $store.settings.passThrough)
                 }
-                Section("Sound") {
+                MacFoldSection("Sound") {
                     Toggle("Sound", isOn: $store.settings.sound)
                     if store.settings.sound { slider("Volume", $store.settings.volume, 0...1, unit: "") }
                 }
                 MacLoaderSettings()
-                Section("Keep it a surprise") {
+                MacFoldSection("Keep it a surprise") {
                     Picker("Play", selection: $store.settings.chance) {
                         Text("Every time").tag(1); Text("1 time in 2").tag(2); Text("1 time in 3").tag(3)
                         Text("1 time in 5").tag(5); Text("1 time in 10").tag(10)
@@ -104,7 +120,7 @@ struct MacSettingsView: View {
                     }
                     Toggle("Quiet hours (22:00–07:00)", isOn: $store.settings.quietHours)
                 }
-                Section("Jewish festivals") {
+                MacFoldSection("Jewish festivals") {
                     Toggle("Jewish festivals", isOn: $store.settings.jewish)
                     Toggle("Their words only in their season", isOn: $store.settings.jewishInSeason)
                     Toggle("Greet me on festival days", isOn: $store.settings.festivalGreeting)
@@ -189,7 +205,7 @@ struct MacWordEditor: View {
                         Button("Delete this magic word", role: .destructive) { dismiss(); store.deleteObject(id) }
                     }
                 }
-                Section("Words that summon it") {
+                MacFoldSection("Words that summon it") {
                     ForEach(o.keywords, id: \.self) { k in
                         HStack { Text(k); Spacer(); Button("Remove") { store.settings.objects[i].keywords.removeAll { $0 == k } } }
                     }
@@ -199,7 +215,7 @@ struct MacWordEditor: View {
                     }
                     Button("Suggest words…") { suggesting = true }
                 }
-                Section("This one's own") {
+                MacFoldSection("This one's own") {
                     Picker("Motion", selection: $store.settings.objects[i].motion) {
                         ForEach(EggMotion.allCases.filter { $0 != .drawn || o.drawnPath != nil }, id: \.self) { Text($0.label).tag($0) }
                     }
@@ -289,5 +305,34 @@ struct MacPreview: View {
                 EggRender.draw(show, ctx, size, progress: p, t: e, image: { store.image($0) })
             }
         }
+    }
+}
+
+
+/// A section that folds (Gil, 2026-10-01: "minimize the sections … too much
+/// time to scroll down to find the right thing"). Closed until opened, as the
+/// calendar's Settings groups start (his standing "Default is minimized"); the
+/// sections left open are remembered, so the window comes back as it was left.
+struct MacFoldSection<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: () -> Content
+    @AppStorage("magicWords.openSections") private var openRaw = ""
+
+    init(_ title: String, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.content = content
+    }
+
+    private var isOpen: Binding<Bool> {
+        Binding(get: { openRaw.split(separator: "|").contains(Substring(title)) },
+                set: { on in
+                    var set = Set(openRaw.split(separator: "|").map(String.init))
+                    if on { set.insert(title) } else { set.remove(title) }
+                    openRaw = set.sorted().joined(separator: "|")
+                })
+    }
+
+    var body: some View {
+        Section(isExpanded: isOpen) { content() } header: { Text(title) }
     }
 }

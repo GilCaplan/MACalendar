@@ -56,6 +56,42 @@ final class EasterEggUITests: XCTestCase {
         snap(app, "5-dog-running")
     }
 
+    /// The page folds (Gil, 2026-10-01: too much scrolling to find the right
+    /// thing): started closed, the headings are its table of contents, the
+    /// magic words are a short scroll away, and a heading opens its section.
+    func testTheEasterEggPageFolds() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-serverURL", "127.0.0.1:59999", "-settingsFold.start", "closed"]
+        app.launch()
+        let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
+        if allow.waitForExistence(timeout: 3) { allow.tap() }
+        app.buttons["tab-settings"].firstMatch.tap()
+        let fun = app.buttons["fold-Just for fun"].firstMatch
+        for _ in 0..<6 where !fun.isHittable { app.swipeUp() }
+        fun.tap()
+        let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Easter egg")).firstMatch
+        for _ in 0..<6 where !row.isHittable { app.swipeUp() }
+        row.tap()
+
+        let when = app.buttons["fold-egg.When"].firstMatch
+        for _ in 0..<4 where !when.isHittable { app.swipeUp() }
+        XCTAssertTrue(when.waitForExistence(timeout: 5))
+        XCTAssertEqual(when.value as? String, "closed")
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Show it")).firstMatch.exists,
+                       "a closed section still shows its rows")
+        snap(app, "10-egg-folded")
+        // Closed, the magic words are a few swipes away, not fourteen.
+        let dog = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "German Shepherd")).firstMatch
+        for _ in 0..<5 where !dog.isHittable { app.swipeUp() }
+        XCTAssertTrue(dog.isHittable, "the magic words are still a long scroll down")
+        for _ in 0..<5 where !when.isHittable { app.swipeDown() }
+        when.tap()
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Show it")).firstMatch
+                        .waitForExistence(timeout: 5), "opening When did not show its rows")
+        snap(app, "11-egg-when-open")
+        when.tap()                                  // as it was, for the next run
+    }
+
     /// "The path I drew": pick it, trace a route with a finger, save, play.
     func testDrawingAPath() throws {
         let app = XCUIApplication()

@@ -12,6 +12,8 @@ import SwiftUI
 ///                         a command in flight; one that runs long shows the
 ///                         loading screen in the middle of the screen
 ///     {"op":"loader_demo"} shows the "taking a while" screen for 4 s
+///     {"op":"made","labels":["Travel","Groceries"]} — what a command just
+///                         made, when "Also for what gets made" is on
 ///     {"op":"quit"}
 ///
 /// argv[1]: the folder its settings live in (this user's data folder).
@@ -65,6 +67,7 @@ final class MagicDelegate: NSObject, NSApplicationDelegate {
         case "wait_begin": MacLoader.shared.begin(msg["id"] as? String ?? ""); return nil
         case "wait_end": MacLoader.shared.end(msg["id"] as? String ?? ""); return nil
         case "loader_demo": MacLoader.shared.demo(); return ["ok": true]
+        case "made": MacEggStore.shared.made(msg["labels"] as? [String] ?? []); return nil
         case "quit": NSApp.terminate(nil); return nil
         default: return ["error": "unknown op"]
         }

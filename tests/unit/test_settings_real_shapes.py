@@ -320,7 +320,14 @@ def test_saving_creates_the_sections_the_live_config_never_had(
     seen: dict = {}
 
     def interact(dlg):
+        # The per-category rows sit in a fold that starts closed (2026-10-01):
+        # open it as a person would, then use the row.
+        _click(dlg.findChild(QWidget, "section_header_notifications"))
+        fold = dlg.findChild(QWidget, "subfold_reminders_by_category")
+        if not fold.isChecked():
+            _click(fold)
         cafe = dlg.findChild(QComboBox, "notif_cat_lead_Café Meetings ☕")
+        assert cafe.isVisibleTo(dlg), "the row is still folded away"
         assert cafe is not None, "the non-ascii category has no row"
         QTest.keyClicks(cafe, "M")                  # → "Muted" (0)
         seen["cafe"] = (cafe.currentText(), cafe.currentData())

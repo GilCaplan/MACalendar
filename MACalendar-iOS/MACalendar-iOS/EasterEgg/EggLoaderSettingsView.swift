@@ -6,6 +6,7 @@ import UIKit
 /// long wait takes the middle of the screen.
 struct EggLoaderSettingsView: View {
     @ObservedObject private var store = EggStore.shared
+    @ObservedObject private var fold = SettingsFold.shared
 
     private var cfg: Binding<EggLoaderConfig> { $store.settings.loader }
 
@@ -24,7 +25,7 @@ struct EggLoaderSettingsView: View {
                      + "Off, the app uses the plain spinner.")
             }
 
-            Section("Style") {
+            Section { if fold.isOpen("egg.loader.Style") {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         ForEach(EggLoaderStyle.allCases, id: \.self) { style in
@@ -45,9 +46,9 @@ struct EggLoaderSettingsView: View {
                     }
                     .padding(.vertical, 4)
                 }
-            }
+            } } header: { FoldHeader("egg.loader.Style", label: "Style") }
 
-            Section {
+            Section { if fold.isOpen("egg.loader.Who") {
                 ForEach(store.settings.objects.filter(\.enabled)) { o in
                     Button { toggle(o.id) } label: {
                         HStack(spacing: 12) {
@@ -61,11 +62,11 @@ struct EggLoaderSettingsView: View {
                         }
                     }
                 }
-            } header: { Text("Who's in it") } footer: {
+            } } header: { FoldHeader("egg.loader.Who", label: "Who's in it") } footer: { if fold.isOpen("egg.loader.Who") {
                 Text("Up to four. The wheel and the parade use them all; the other styles use the first.")
-            }
+            } }
 
-            Section("Look") {
+            Section { if fold.isOpen("egg.loader.Look") {
                 Picker("Trail", selection: cfg.trail) {
                     ForEach(EggTrail.allCases.filter { $0 != .auto }, id: \.self) { Text($0.label).tag($0) }
                 }
@@ -79,9 +80,9 @@ struct EggLoaderSettingsView: View {
                         get: { Color(eggHex: cfg.wrappedValue.ringHex) },
                         set: { cfg.wrappedValue.ringHex = Self.hex($0) }), supportsOpacity: false)
                 }
-            }
+            } } header: { FoldHeader("egg.loader.Look", label: "Look") }
 
-            Section {
+            Section { if fold.isOpen("egg.loader.Wait") {
                 VStack(alignment: .leading) {
                     Text(cfg.wrappedValue.stuckAfter == 0 ? "Never take the middle of the screen"
                          : "Take the middle of the screen after \(cfg.wrappedValue.stuckAfter, specifier: "%.0f") s")
@@ -91,9 +92,9 @@ struct EggLoaderSettingsView: View {
                 if cfg.wrappedValue.showCaption {
                     TextField("Still working on it…", text: cfg.stuckCaption)
                 }
-            } header: { Text("When it takes a while") } footer: {
+            } } header: { FoldHeader("egg.loader.Wait", label: "When it takes a while") } footer: { if fold.isOpen("egg.loader.Wait") {
                 Text("It never blocks: you can keep using the app underneath while it shows.")
-            }
+            } }
         }
         .navigationTitle("Loading screen")
     }
