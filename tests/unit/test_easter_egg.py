@@ -382,3 +382,34 @@ def test_the_made_map_takes_new_defaults_but_never_resurrects_a_cleared_one(tmp_
     assert got["cleared_stays_cleared"] is True
     assert got["fresh_has_fitness"] == "dumbbell"
 
+
+
+# The Mac's words, checked when the device's own hearing played nothing —
+# for EVERY magic word, the user's own included (Gil, 2026-10-01: "it needs to
+# be true for every similar type of object"). (trigger, words) -> objects.
+LATE = [
+    # said on its own: plays under "on its own" and "both"
+    ("onItsOwn", "Val", ["custom-val"]), ("both", "Val!", ["custom-val"]), ("both", "val.", ["custom-val"]),
+    ("both", "VAL", ["custom-val"]), ("onItsOwn", "Israel!", ["custom-flag"]),
+    ("onItsOwn", "[TASKS VIEW] Val", ["custom-val"]),
+    ("onItsOwn", "grandma's cake", ["custom-cake"]), ("both", "dragon", ["dragon"]),
+    # inside a command — whatever it made, or nothing at all
+    ("both", "walk Val at 5", ["custom-val"]), ("inCommand", "take Val's leash to the vet", ["custom-val"]),
+    ("both", "bake grandma's cake tomorrow", ["custom-cake"]), ("inCommand", "flight to Israel on Monday", ["plane", "custom-flag"]),
+    ("both", "what's the weather for the dragon parade", ["dragon"]),
+    # the setting is honoured: on its own only → a word inside a command stays quiet, and back
+    ("onItsOwn", "walk Val at 5", []), ("inCommand", "Val", ["custom-val"]),
+    # words that only CONTAIN a magic word never fire
+    ("both", "valley walk", []), ("both", "evaluate the report", []), ("both", "israeli salad", []),
+]
+
+
+def test_late_words_play_for_every_magic_word(tmp_path):
+    exe = tmp_path / "late"
+    subprocess.run(["swiftc", "-O", "-parse-as-library", str(TOOLS / "egg_late.swift"),
+                    *[str(EGG / f) for f in SHARED], "-o", str(exe)], check=True, capture_output=True)
+    out = subprocess.run([str(exe)], input="".join(f"{t}\t{w}\n" for t, w, _ in LATE),
+                         capture_output=True, text=True, check=True).stdout.splitlines()
+    got = [json.loads(l)["ids"] for l in out]
+    wrong = [(t, w, want, g) for (t, w, want), g in zip(LATE, got) if g != want]
+    assert not wrong, wrong

@@ -1011,7 +1011,12 @@ doesnt make an event or task"): the Mac's transcript, corrected by the
 vocabulary, is checked whenever the device's own hearing played nothing — on
 the phone every transcription step and the final words (`EggStore.heardLate`),
 on the Mac the reply's transcript (`magic_words.heard_late`) — whether or not
-the command made anything.
+the command made anything. ONE rule for both apps and every magic word, the
+user's own included (`EggRules.decideLate`; `test_late_words_play_for_every_magic_word`
+covers a pet's photo, a two-word name and a flag under each "Show it"
+setting). And the Mac read magic words AFTER tagging a Tasks-view command
+"[TASKS VIEW] …", so a word said alone there was never "only a magic word" —
+for any word; the words are read first now.
 **Photos and drawn paths on the Mac** (2026-10-01, TASKS 46): its settings
 window adds a photo to a word or makes a new word from one (a file, cut out
 automatically or by a loop drawn with the mouse, anime look or as it is, the

@@ -527,9 +527,6 @@ class Pipeline:
         # Save clean transcript for potential future combine session
         self._last_transcript = transcript
 
-        # Inject view context so the LLM biases routing appropriately
-        if self.current_view == "todo":
-            transcript = "[TASKS VIEW] " + transcript
 
         logger.info("🖥️ Transcript (cleaned): %s", transcript)
 
@@ -545,6 +542,11 @@ class Pipeline:
             self._phase = STATUS_IDLE
             return
         self._egg_played = magic_words.heard(transcript, bare=False)
+
+        # The view tag goes on AFTER the magic words are read: "[TASKS VIEW]
+        # dragon!" was never "only a magic word", whatever the word.
+        if self.current_view == "todo":
+            transcript = "[TASKS VIEW] " + transcript
 
         snippet = transcript[:60] + ("…" if len(transcript) > 60 else "")
         self._set_status(STATUS_PROCESSING, f'💭 "{snippet}"')

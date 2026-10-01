@@ -62,9 +62,9 @@ final class MacEggStore: ObservableObject {
     /// didnt show the graphic"). On its own it plays as a bare word would;
     /// otherwise as one inside a command.
     func heardLate(_ text: String) -> Bool {
-        let b = heard(text, bare: true)
-        if b.played || b.bare { return b.played }
-        return heard(text, bare: false).played
+        let d = EggRules.decideLate(text, settings: settings, lastPlayed: lastPlayed)
+        if !d.ids.isEmpty { play(d.ids, together: d.together) }
+        return !d.ids.isEmpty
     }
 
     /// "Also for what gets made", as on the phone (`EggStore.made`): the

@@ -157,3 +157,29 @@ def test_the_corrected_words_get_a_second_look_for_magic_words(monkeypatch, raw_
     except Exception:
         pass                                    # the rest of the reply path is not this test's
     assert late == (["Val"] if expect_late else [])
+
+
+def test_magic_words_see_the_words_not_the_view_tag(monkeypatch):
+    """In the Tasks view the Mac tags a command "[TASKS VIEW] …" for the
+    brain. That tag went on BEFORE the magic words were read, so "dragon!"
+    said in Tasks was never "only a magic word" — for any word. The words are
+    read first now; the brain still gets the tag."""
+    from assistant import magic_words, pipeline
+    seen, sent = [], []
+    monkeypatch.setattr(magic_words, "heard", lambda t, bare: seen.append((t, bare)) or False)
+    p = pipeline.Pipeline.__new__(pipeline.Pipeline)
+    p._last_transcript = ""
+    p.current_view = "todo"
+    p._set_status = lambda *a, **k: None
+    p._process_transcript = lambda t, *a, **k: sent.append(t)
+    p._send_transcript("dragon", None, 0.0)
+    assert seen[0] == ("dragon", True)
+    assert sent == ["[TASKS VIEW] dragon"]
+
+
+def test_heard_late_reads_past_a_view_tag(monkeypatch):
+    from assistant import magic_words
+    asked = []
+    monkeypatch.setattr(magic_words, "_ask", lambda op, **k: asked.append(k.get("text")) or {"played": True})
+    assert magic_words.heard_late("[TASKS VIEW] Val")
+    assert asked == ["Val"]

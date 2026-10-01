@@ -34,6 +34,23 @@ enum EggRules {
         return d
     }
 
+    /// Words heard LATE — the Mac's transcript, corrected by the vocabulary —
+    /// after the device's own hearing played nothing (Gil, 2026-10-01: "it
+    /// should always look for words even if it doesnt make an event or
+    /// task"). For EVERY magic word and every kind of graphic, on both apps:
+    /// said on its own it is a bare magic word (it reached the Mac anyway);
+    /// otherwise one inside a command. `bareHandled` here only means "held
+    /// back on purpose" (chance, quiet hours) — nothing is left unsent.
+    static func decideLate(_ text: String, settings s: EggSettings, now: Date = Date(),
+                           lastPlayed: Date = .distantPast, roll: Int? = nil) -> Decision {
+        // The words, not a tag the brain was handed ("[TASKS VIEW] Val").
+        let words = text.replacingOccurrences(of: #"^\s*\[[A-Z ]+ VIEW\]\s*"#, with: "",
+                                              options: .regularExpression)
+        let bare = decide(words, bare: true, settings: s, now: now, lastPlayed: lastPlayed, roll: roll)
+        if !bare.ids.isEmpty || bare.bareHandled { return bare }
+        return decide(words, bare: false, settings: s, now: now, lastPlayed: lastPlayed, roll: roll)
+    }
+
     /// The Jewish set only when it is on, and only in season when asked.
     static func liveObjects(_ s: EggSettings, now: Date = Date()) -> [EggObject] {
         let inSeason = Set(EggFestivals.current(now).flatMap(\.objects))

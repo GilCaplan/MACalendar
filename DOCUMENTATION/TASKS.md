@@ -2310,3 +2310,8 @@ now"*):
     the event dialog in the full `tests/` run on Linux. If it comes back, run
     the unit folder in CI order with `-p no:randomly -x` to find the test that
     leaves a Qt object behind.
+    **Again 2026-10-01** (run 36929279073; its twin run on the same commit
+    green), this time in `test_observance_settings_ui.py` `_save` — the same
+    shape: a settings-dialog test iterating `dlg.findChildren(...)` on Linux
+    offscreen Qt. Both crashes are inside `findChildren`, so suspect a widget
+    the dialog deleted (deleteLater) still being walked.

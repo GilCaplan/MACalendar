@@ -77,13 +77,9 @@ final class EggStore: ObservableObject {
     /// inside a command. True when something played.
     @discardableResult
     func heardLate(_ text: String) -> Bool {
-        let d = EggRules.decide(text, bare: true, settings: settings, lastPlayed: lastPlayed)
-        if !d.ids.isEmpty {
-            play(d.ids, together: d.together)
-            return true
-        }
-        if d.bareHandled { return true }          // bare, but held back (chance, quiet hours)
-        return heard(text, bare: false)
+        let d = EggRules.decideLate(text, settings: settings, lastPlayed: lastPlayed)
+        if !d.ids.isEmpty { play(d.ids, together: d.together) }
+        return !d.ids.isEmpty || d.bareHandled
     }
 
     func liveObjects(_ now: Date = Date()) -> [EggObject] { EggRules.liveObjects(settings, now: now) }
