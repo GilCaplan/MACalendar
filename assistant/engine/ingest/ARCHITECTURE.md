@@ -141,6 +141,18 @@ cut it into an item of its own that nothing could read. Only at the START of the
 command and only before an ask, so "send a note to self" and "a note to self is
 useful" are untouched (`tests/unit/test_ingest_frames.py`).
 
+## "The event now for …" (2026-10-01)
+
+Aim (a), generic: "Add event now for walking my dog" heard as "The event now
+for …" filed a to-do (Gil's real speech, 2026-09-30). It is put back as "add an
+event now for …" — but only at the START, and only when a time word (now, right
+now, today, tonight, tomorrow) is followed by "for", because an UPDATE also
+opens "the event" ("the event tomorrow is now at 6", "the meeting with … has
+been changed"). Fires on 0 of 12,900 commands (FastRule 8,700, the pool's
+3,000, real speech 1,200), so no board line can move; the positive is the one
+real command (`tests/unit/test_now_word.py`). Narrow by design: one real case
+is not breadth, so it claims nothing more than that sentence's shape.
+
 ## Misspelled command words (2026-09-24)
 
 Aim (a), generic damage: `repair._WORD_REPAIRS` puts back fourteen misspelled

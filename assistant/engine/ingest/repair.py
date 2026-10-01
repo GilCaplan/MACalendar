@@ -94,6 +94,14 @@ _FRAME_REPAIRS = [
     # Only at the start, and only before an ask.
     (re.compile(r"^\s*(?:(?:ok|okay|so|um|uh)[,\s]+)?note\s+to\s+self\s*[,:;-]?\s+(?:to\s+)?", re.I),
      "remind me to "),
+    # "Add event now for walking my dog" heard as "The event now for …" (Gil,
+    # 2026-09-30, real speech — it filed a to-do). Narrow on purpose: an
+    # UPDATE also opens "the event" ("the event tomorrow is now at 6", "the
+    # meeting with … has been changed"), so only at the start, only before a
+    # time word AND "for", which an update never says there. Measured on
+    # 13,000 commands before adding: fires on none of them.
+    (re.compile(r"^\s*the\s+event\s+(now|right\s+now|today|tonight|tomorrow)\s+for\b", re.I),
+     r"add an event \1 for"),
 ]
 
 

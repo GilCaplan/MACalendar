@@ -93,3 +93,21 @@ def test_the_deep_tracks_floor_does_not_roll_now_to_tomorrow():
     item = NS(source="walk my dog now", time="", text="walk my dog")
     _rule_passed_clock_means_tomorrow(state, item, intent, datetime.datetime(2026, 9, 30, 21, 3))
     assert intent.date == "2026-09-30" and not fixes
+
+
+def test_a_misheard_add_event_now_is_an_event_at_this_minute(fastrule):
+    """The third real command of that evening, the one left open: "Add event
+    now for walking my dog" was heard as "The event now for …" and filed a
+    to-do. Ingest puts the frame back (aim a, `repair._FRAME_REPAIRS`); an
+    UPDATE that opens "the event" is left alone."""
+    from assistant.engine.ingest.repair import repair_command_frames
+    said = "The event now for walking my dog with my ex-girl"
+    with freeze_time(CLOCK):
+        r = fastrule.run(repair_command_frames(said))
+    (action, intent), = r.intents
+    assert action == "create_event"
+    assert intent.date == "2026-09-30" and intent.start_time == "21:02"
+    assert "walking my dog" in intent.title
+    for update in ("The event tomorrow is now at 6", "the event now starts at 5",
+                   "The meeting with Justin has been changed, put it on Thursday"):
+        assert repair_command_frames(update) == update
