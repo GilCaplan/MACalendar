@@ -164,6 +164,13 @@ def _drive(interact, failures):
 def _open_events_section(dlg) -> None:
     header = dlg.findChild(QToolButton, "section_header_events")
     assert header is not None, "no Events section in Settings"
+    if not header.isVisible():
+        # The sidebar's groups start folded (TASKS 50): open Calendar first.
+        from PyQt6.QtWidgets import QAbstractButton
+        group = dlg.findChild(QAbstractButton, "settings_group_calendar")
+        QTest.mouseClick(group, Qt.MouseButton.LeftButton,
+                         Qt.KeyboardModifier.NoModifier, QPoint(10, group.height() // 2))
+        QApplication.processEvents()
     if not header.isChecked():
         QTest.mouseClick(header, Qt.MouseButton.LeftButton,
                          Qt.KeyboardModifier.NoModifier, QPoint(10, header.height() // 2))

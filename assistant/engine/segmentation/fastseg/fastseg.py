@@ -26,6 +26,10 @@ from __future__ import annotations
 
 import os
 import re
+
+from assistant.intent.now_word import NOW_RE as _NOW_WORD_RE
+
+_NOW_PATTERN = _NOW_WORD_RE.pattern
 import sys
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
@@ -141,6 +145,10 @@ _TIME_PATTERNS: "list[tuple[str, str]]" = [
     (r"\b(?:half\s+past|quarter\s+past|quarter\s+to)\s+\w+\b", "clock"),
     (r"\b(?:noon|midday|midnight)\b", "clock"),
     (r"\bat\s+(?:first\s+thing|lunchtime|dinnertime)\b", "clock"),
+    # "now" said as a time IS a clock — the present minute (Gil, 2026-09-30),
+    # so Q26 makes it an event. One definition with its vetoes ("for now",
+    # "from now on", "two weeks from now"…): `intent.now_word`.
+    (_NOW_PATTERN, "clock"),
 
     # --- dates
     (r"\b(?:the\s+)?day\s+after\s+tomorrow\b", "date"),
@@ -977,7 +985,10 @@ _STATED_CLOCK = re.compile(
     # and this pattern only ever reads the assigned TIME string, so "from
     # the store to the office" cannot reach it.
     rf"|\bat\s+(?:{_HOURWORD})\b"
-    r"|\bfrom\s+\S+\s+to\s+\S+|\bbetween\s+\S+\s+and\s+\S+", re.I)
+    r"|\bfrom\s+\S+\s+to\s+\S+|\bbetween\s+\S+\s+and\s+\S+"
+    # "now" as a time is the present minute (2026-09-30) — with its vetoes, so
+    # a date phrase like "two weeks from now" does not state a clock.
+    rf"|{_NOW_PATTERN}", re.I)
 
 #: A hedge that says nothing was actually committed to a slot — "schedule a
 #: haircut AT SOME POINT" names an intention, not an appointment, whatever

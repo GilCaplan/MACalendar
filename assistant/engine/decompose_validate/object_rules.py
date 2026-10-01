@@ -27,7 +27,9 @@ from assistant.engine.decompose_validate.targeting import _CREATE_VERB
 from assistant.engine.decompose_validate.text_helpers import unsupported_cadence
 from assistant.engine.state import EngineState
 
-_NOW_RE = re.compile(r"\b(?:right\s+now|now|immediately|asap)\b", re.I)
+#: "now" said as a time — one definition with its vetoes ("for now", "two
+#: weeks from now", "now that" …), shared with the tagger and FastRule.
+from assistant.intent.now_word import NOW_RE as _NOW_RE, says_now as _says_now  # noqa: E402
 
 
 _JUNK_TITLES = {"task", "tasks", "todo", "event", "events", "reminder",
@@ -127,6 +129,8 @@ def _rule_passed_clock_means_tomorrow(state, item, intent, now) -> None:
               or f"{item.time or ''} {item.text or ''}")
     if _DAY_WORD_RE.search(spoken):
         return
+    if _says_now(spoken):
+        return                       # "now" is never tomorrow (2026-09-30)
     if st[:5] < now.strftime("%H:%M"):
         bump = (now.date() + _dt.timedelta(days=1)).isoformat()
         state.add_fix("validate", "passed_clock_tomorrow", d, bump,

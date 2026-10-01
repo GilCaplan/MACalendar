@@ -2232,31 +2232,34 @@ now"*):
       of the same emoji, never on a title that already has one.
     - **Measure:** false positives on the real titles corpus (thousands, the
       negative surface first — a wrong emoji is visible on every screen).
-52. **"now" means the clock — but only when it IS a time** (Gil, 2026-09-30:
-    *"replace now with the time that it is currently … deterministic … as
-    long as that now is not something more vague. So I'd also double check"*).
-    Already half there: FastRule's reader (`rule_parser._extract_temporal`,
-    the "now → the clock" fallback) and Decompose/Validate's safety net
-    (`object_rules._rule_now_means_now`, 00:00 → the clock) both exist since
-    the 2026-09-08 "run booked at 12 AM". A PROBE (11 hand-written phrases,
-    not a measurement) found the gaps:
-    - the real ones never reach the reader's fallback — the date recogniser
-      reads "create an event now…" / "right now" as today **00:00**, so only
-      the D/V net saves them;
-    - the vague ones fire: "buy milk **for now**", "**every now and then**
-      call grandma", "**by now** the laundry…" get today's clock (20:46) from
-      the reader; "**from now on**", "**now that**…", "**not now**" come back
-      00:00 and the D/V net, which matches any "now", would clock them too;
-    - "call mom in an hour **from now**" read 13:00 — "from now" arithmetic
-      is wrong (should be the clock + 1h).
-    **Recommendation (not built):** ONE shared sense test, `is_time_now(text)`,
-    with the vague senses as vetoes (for now, from now on, now that, by now,
-    until now, every now and then, not now, "now," as an opener — already in
-    `cleanup._NOW_OPENER`), used by the reader AND the D/V net; plus "X from
-    now" as clock arithmetic in the reader. **Not at ingest**, though that was
-    the suggestion: ingest's two aims are transcription damage and personal
-    vocabulary, and writing "20:46" into the words would put it in titles and
-    in every later stage's grounding. Board: FastRule `fastrule_shape` both
-    splits + the D/V board, the negative surface (every "now" in the corpora
-    that is NOT a time) counted first, then Board D `--product`. Engine
-    cycles are paused (2026-09-28) — this needs Gil's go.
+52. ~~"now" means the clock — but only when it IS a time~~ — **built
+    2026-09-30** (Gil: *"replace now with the time that it is currently …
+    as long as that now is not something more vague"*, then *"i ran an example
+    of now and it didnt work"*). Three real commands that evening were all
+    wrong: "Walk, Val, now" (a to-do, no time), "Walk my dog Val now, thanks
+    to …" (right clock, TOMORROW), "The event now for walking my dog …" (a
+    to-do). Causes: the date recogniser reads "now" as 00:00 so FastRule's
+    fallback never fired; the tagger had no "now" in its times, so Q26 never
+    made it an event; both passed-clock floors rolled the present minute a day.
+    **One definition**, `assistant/intent/now_word.py` (vetoes: for now, from
+    now on, N weeks from now, now that, by/until/up to now, just now, not now,
+    is now at …, every now and then, "do it now", and a clause-opening "now"
+    with words after it) read by segmentation's tagger (`fastseg`: a clock,
+    and a stated clock in `_STATED_CLOCK`), FastRule's reader
+    (`rule_parser._extract_temporal`), its date floor, and D/V's net and floor
+    (`object_rules`). Not at ingest: writing "21:02" into the words would put
+    it in titles and every later stage's grounding.
+    **Measured** — negative surface first: every row of the FastRule 8,700
+    (train+test) and the 3,000 pool, before vs after, clock frozen: 11 of
+    11,700 changed, none of them a vague "now" (the first cut changed ten
+    "X is done, now add Y to my list" rows into events — that veto came from
+    this diff). The 11 are "two weeks from now" rows the OLD fallback stamped
+    with the clock. Boards, both splits: FastRule "explicit time right" train
+    99.9% → 100% (n=672), test 99.5% → 100% (n=209); "bare, by convention"
+    test 98.4% → 100% (n=61); handle rate, correct-on-handled, dates, titles,
+    harm unchanged. Segmentation (fastseg) board: no accuracy line moved on
+    either split. Positives are few in the corpora (24 rows say "now" as a
+    time-like word, all updates/queries, all unchanged) — the real-usage rows
+    are the positives, pinned in `tests/unit/test_now_word.py`. Board D
+    `--product` (needs the model) NOT run. Still open: "The event now …" — a
+    misheard "Add event" is not read as a create-event frame (ingest aim a).

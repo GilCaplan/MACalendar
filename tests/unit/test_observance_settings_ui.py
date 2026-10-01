@@ -58,6 +58,14 @@ def test_the_real_store_is_scratched_by_conftest():
 def _open_hebrew_section(dlg) -> None:
     header = dlg.findChild(QToolButton, "section_header_hebrew_calendar")
     assert header is not None, "no Hebrew Calendar section in Settings"
+    if not header.isVisible():
+        # The sidebar's groups start folded (TASKS 50): open Calendar first,
+        # as a person would.
+        from PyQt6.QtWidgets import QAbstractButton
+        group = dlg.findChild(QAbstractButton, "settings_group_calendar")
+        QTest.mouseClick(group, Qt.MouseButton.LeftButton,
+                         Qt.KeyboardModifier.NoModifier, QPoint(10, group.height() // 2))
+        QApplication.processEvents()
     if not header.isChecked():
         QTest.mouseClick(header, Qt.MouseButton.LeftButton,
                          Qt.KeyboardModifier.NoModifier, QPoint(10, header.height() // 2))

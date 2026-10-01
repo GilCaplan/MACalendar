@@ -1616,6 +1616,19 @@ def _extract_temporal(span_text: str, today: datetime.date,
     # to midnight — real usage, 2026-09-08, and the user got a run booked for
     # 12 AM. It is the same class of word as noon: a time the speaker gave in
     # words rather than digits.
+    # "NOW" IS THE PRESENT MINUTE (Gil, 2026-09-30) — and it has to be read
+    # before the fallback below could ever see it: the date recogniser reads
+    # "now" as today 00:00, so the start was never empty and "create an event
+    # now" was booked at midnight. A 00:00 the speaker did not say (no
+    # "midnight", "12 am", "00:00") is that misreading. `now_word` holds the
+    # vague senses ("for now", "two weeks from now"), which stay untouched.
+    from assistant.intent.now_word import says_now as _says_now, clock as _clock
+    if _says_now(span_text) and (
+            not result["start_time"]
+            or (result["start_time"] == "00:00"
+                and not re.search(r"\bmidnight\b|\b12\s*(?:am|a\.m\.)|\b0?0:00\b", span_text, re.I))):
+        result["start_time"] = _clock()
+        result["_source"] = "now"
     if not result["start_time"]:
         lower = span_text.lower()
         if re.search(r"\bnoon\b", lower):
@@ -1624,7 +1637,7 @@ def _extract_temporal(span_text: str, today: datetime.date,
         elif re.search(r"\bmidnight\b", lower):
             result["start_time"] = "00:00"
             result["_source"] = "regex_fallback"
-        elif re.search(r"\b(?:right now|now|immediately|asap)\b", lower):
+        elif re.search(r"\b(?:immediately|asap)\b", lower):
             result["start_time"] = datetime.datetime.now().strftime("%H:%M")
             result["_source"] = "regex_fallback"
 
@@ -3888,8 +3901,12 @@ def _compute_missing_slots(action_name: str, slots: dict) -> list[str]:
         # morning" as a date, so it reached this floor and rolled to tomorrow
         # once the range read its clock right (2026-09-25).
         from assistant.engine.decompose_validate.object_rules import _DAY_WORD_RE
+        from assistant.intent.now_word import says_now as _says_now
+        # "now" is never tomorrow: its minute is "passed" a second after it
+        # was read, and a real "walk my dog now" was booked for the next day.
         if (str(slots["start_time"])[:5] < now.strftime("%H:%M")
-                and not _DAY_WORD_RE.search(slots.get("_raw_text") or "")):
+                and not _DAY_WORD_RE.search(slots.get("_raw_text") or "")
+                and not _says_now(slots.get("_raw_text") or "")):
             floor = floor + datetime.timedelta(days=1)
         slots["date"] = floor.isoformat()
         return []
