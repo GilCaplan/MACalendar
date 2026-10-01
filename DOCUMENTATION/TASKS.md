@@ -2172,9 +2172,8 @@ ask the tag model as voice always did (`tagging.auto_tags`).
 Built 2026-09-30: **Magic words, the iPhone Easter egg** (DEVQA Q75,
 FEATURES.md). Open:
 
-43. **The Mac's half** — the same animations over the Mac for commands said
-    there (a PyQt overlay; the drawings would be redrawn, or rendered by the
-    phone's code into sprites).
+43. ~~The Mac's half~~ — built 2026-09-30 as the Swift helper
+    `mac/MagicWords` (the phone's own drawing code, compiled for the Mac).
 44. **Try the photo path on a real phone** — the automatic cut-out and the
     anime look were built against the APIs but not yet run on a real photo.
 45. ~~Magic words, next ideas~~ — all built 2026-09-30 (FEATURES.md), plus the
