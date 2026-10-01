@@ -21,7 +21,8 @@ TOOLS = ROOT / "MACalendar-iOS/Tools"
 # The platform-neutral Easter-egg files — what the Mac helper compiles too.
 SHARED = ["EggArt.swift", "EggFigures.swift", "EggJewish.swift", "EggEffects.swift", "EggCatalog.swift",
           "EggRules.swift", "EggStage.swift", "EggTrails.swift", "EggPuppet.swift", "EggLoader.swift",
-          "EggWordBank.swift", "EggSymbol.swift", "EggOnDevice.swift", "EggImageCore.swift"]
+          "EggWordBank.swift", "EggSymbol.swift", "EggOnDevice.swift", "EggImageCore.swift",
+          "EggActivities.swift"]
 
 pytestmark = pytest.mark.skipif(sys.platform != "darwin" or not shutil.which("swiftc"),
                                 reason="needs the Swift compiler (the Mac; CI's Linux runner has none)")
@@ -107,7 +108,7 @@ def test_plurals_bring_a_pack_and_group_words_are_heard(words):
 
 
 def test_every_graphic_renders_in_every_motion(tmp_path):
-    """All 40 graphics x all 17 motions, cycling through every trail, both
+    """All 51 graphics x all 17 motions, cycling through every trail, both
     directions, and a drawn path — drawn through the overlay's own renderer."""
     exe = tmp_path / "render"
     subprocess.run(["swiftc", "-O", "-parse-as-library", str(TOOLS / "egg_render.swift"),
@@ -115,7 +116,7 @@ def test_every_graphic_renders_in_every_motion(tmp_path):
                     "-o", str(exe)], check=True, capture_output=True)
     png = tmp_path / "all.png"
     out = subprocess.run([str(exe), str(png)], capture_output=True, text=True, check=True)
-    assert int(out.stdout.strip()) == 40
+    assert int(out.stdout.strip()) == 51
     assert png.stat().st_size > 50_000
     puppets = tmp_path / "all-puppets.png"          # every photo rig: walk, roll, flap, hop, still
     assert puppets.exists() and puppets.stat().st_size > 20_000
@@ -138,7 +139,7 @@ def test_every_builtin_is_a_real_graphic():
     import re
     block = src[src.index("static let builtins"):src.index("static func defaults")]
     ids = re.findall(r'\("([a-z]+)", "', block)
-    assert len(ids) == 40
+    assert len(ids) == 51
     cases = set(re.findall(r"case ([a-z, ]+)\n", figures + effects))
     names = {n.strip() for c in cases for n in c.split(",")}
     assert set(ids) <= names, set(ids) - names
@@ -363,3 +364,21 @@ def test_real_photos_through_the_photo_pipeline(tmp_path):
     if "bus.jpg" in by:
         assert by["bus.jpg"]["rig"] == "roll"           # a vehicle rolls
     assert (tmp_path / "sheet.png").stat().st_size > 50_000
+
+
+def test_the_made_map_takes_new_defaults_but_never_resurrects_a_cleared_one(tmp_path):
+    """The activities set (2026-10-01) added tag and category links — Groceries
+    -> the cart, Fitness -> the dumbbell. A map saved before it must gain them
+    (a saved map used to replace the defaults whole, so nobody with saved
+    settings would ever have seen one), while a link the person cleared — then
+    or later — stays cleared."""
+    exe = tmp_path / "mademap"
+    subprocess.run(["swiftc", "-O", "-parse-as-library", str(TOOLS / "egg_mademap.swift"),
+                    *[str(EGG / f) for f in SHARED], "-o", str(exe)], check=True, capture_output=True)
+    got = json.loads(subprocess.run([str(exe)], capture_output=True, text=True, check=True).stdout)
+    assert got["old_has_groceries"] == "cart"
+    assert got["old_has_study"] == "", "Study was a default when that map was saved; its absence was a choice"
+    assert got["old_keeps_travel"] == "plane"
+    assert got["cleared_stays_cleared"] is True
+    assert got["fresh_has_fitness"] == "dumbbell"
+

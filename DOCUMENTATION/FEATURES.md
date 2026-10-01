@@ -262,7 +262,7 @@ built when it reaches the Mac.
 | hybrid | [Timer](#timer-work-tracking) | per-project work + earnings | db `timers*`, `TimerView` |
 | hybrid | [Counters](#counters) | tap counters + payouts | db `counters*` |
 | hybrid | [Teach](#teach--the-labelling-game) | the labelling game — label models' only non-circular data (iOS only) | `features/teach/`, `LabelGameView.swift` |
-| UI | [Magic words (Easter egg)](#magic-words--the-easter-egg) | say "dog" and a German Shepherd runs across the phone; 40 built-in graphics, your own photos, emoji, flags and symbols | `MACalendar-iOS/…/EasterEgg/` |
+| UI | [Magic words (Easter egg)](#magic-words--the-easter-egg) | say "dog" and a German Shepherd runs across the phone; 51 built-in graphics (the activities you actually do among them), your own photos, emoji, flags and symbols | `MACalendar-iOS/…/EasterEgg/` |
 | UI | [The loading screen](#the-loading-screen--your-own-wheel-of-death) | your own animated spinner and \"taking a while\" screen, built in Settings ▸ Easter egg (iOS and Mac) | `EasterEgg/EggLoader*.swift`, `mac/MagicWords/MacLoader.swift` |
 | engine | [Emoji in titles](#emoji-in-titles) | "walk my dog 🐕" — none, one or two, only in the word's emoji sense; off by default | `engine/label/title_emoji.py` |
 | UI | [How it runs: Mac + phone, or phone only](#how-it-runs--mac--phone-or-phone-only) | a setup guide in the phone's Settings; a phone-only mode with no Mac and no offline banner | `SetupGuideView.swift`, `DefaultRules.swift` |
@@ -839,6 +839,36 @@ all: it is dropped deterministically and the built-in list fills the gap.
 `EggSettingsView`. Tests: `test_one_word_summons_one_thing`,
 `test_suggestions_never_offer_a_word_another_object_has`, the UI test
 `testATakenWordAsksKeepOrMove`.
+
+### Your activities, drawn — the activities set
+**What:** eleven new animated magic-word graphics for the things the calendar
+actually holds (Gil, 2026-10-01: *"look at activities i have done like gym etc
+and at tag categories and make some animations and graphics for that"*),
+chosen from the live data read-only and in aggregate — dog walks, gym and
+calisthenics, a running plan, groceries (the to-do list's biggest tag), Work,
+Coursework, Errands, Admin, Wishlist, cycling, cooking. Each moves on its own:
+a **dumbbell** lifted with sweat flying ("gym", "workout", "weights"), a chibi
+doing **pull-ups** ("calisthenics", "pull ups"), a **running shoe** toeing off
+with dust ("run", "easy run", "threshold run", "strides"), a **cart** rolling with
+the shopping bouncing ("groceries", "supermarket"), a **laptop** typing code
+("work", "coding"), **books** under a bobbing mortarboard ("study", "exam"), a
+**bike** with wheels and pedals turning, a **clipboard** ticking itself off
+("errands", "chores"), a **pot** rattling on the boil ("cooking", "meal prep"), a
+**passport** being stamped ("passport", "visa"), and a **gift** popping hearts
+("gift", "wishlist"). The dog also answers "dog walk", "walk the dog".
+**What's made plays them too:** "what plays for what" links the event
+categories Fitness, Work, Errand, Meal, Shabbat Meal and the tags Groceries,
+Coursework, Errands, Admin, Wishlist, Shabbat to them. A saved map takes in
+links added after it was saved and never brings back one the person cleared
+(`madeMapKnown`) — before, a saved map replaced the defaults whole.
+**Emoji in titles** learned the same words: 🤸 calisthenics / pull-ups, and the
+plan's run kinds (threshold, speed, interval… run; strides) for 🏃 — on the
+11,700 corpus rows nothing changed; on the calendar's own 234 titles, 17 gained
+one (3 distinct: "Easy 5 km + strides 🏃", "Gym 🏋️ / Calisthenics 🤸").
+**Where:** `EasterEgg/EggActivities.swift` (shared — the Mac helper draws them),
+the catalog and word bank; tests: the render sheet (51 graphics × every
+motion), `test_the_made_map_takes_new_defaults_but_never_resurrects_a_cleared_one`,
+`test_title_emoji.py::test_a_training_plans_own_words`.
 
 ### Your own emoji, flag or symbol
 **What:** Besides the built-in art, a photo or a drawn path, a magic word's

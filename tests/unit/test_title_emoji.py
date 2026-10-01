@@ -181,3 +181,17 @@ def test_patch_takes_a_kind_switch_and_refuses_anything_else(tmp_path, monkeypat
     assert c.patch("/config", json={"title_emoji": {"pets": False}}).status_code == 400
     assert c.patch("/config", json={"title_emoji": {"food": "no"}}).status_code == 400
     assert yaml.safe_load(target.read_text())["title_emoji"] == {"food": False}
+
+
+@pytest.mark.parametrize("title,want", [
+    ("Gym / Calisthenics", "Gym 🏋️ / Calisthenics 🤸"),
+    ("Easy 5 km + strides", "Easy 5 km + strides 🏃"),
+    ("threshold run 3x8 min", "threshold run 🏃 3x8 min"),
+    ("speed run on the track", "speed run 🏃 on the track"),
+])
+def test_a_training_plans_own_words(title, want):
+    """The calendar's top activities on 2026-10-01 — calisthenics and a running
+    plan's run kinds — had no emoji; on the 11,700 corpus rows the additions
+    change nothing (no false positives)."""
+    assert decorate(title, 2) == want
+

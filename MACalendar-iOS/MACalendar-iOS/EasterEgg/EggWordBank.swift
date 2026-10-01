@@ -66,7 +66,19 @@ enum EggWordBank {
         (["coffee"], ["espresso", "latte", "cappuccino", "cup of coffee", "caffeine", "americano", "flat white"]),
         (["pizza"], ["slice", "pepperoni", "margherita", "pizza night", "pie"]),
         (["cake", "birthday"], ["birthday cake", "happy birthday", "candles", "cupcake", "yom huledet", "b-day"]),
-        (["gym", "workout"], ["training", "lifting", "weights", "exercise", "cardio", "run", "running", "fitness"]),
+        (["gym", "workout", "dumbbell"], ["training", "lifting", "weights", "exercise", "fitness", "leg day", "chest day",
+                                         "bench press", "deadlift", "squats", "strength training"]),
+        // The activities set (2026-10-01).
+        (["pullup", "calisthenics"], ["pull ups", "chin ups", "push ups", "dips", "muscle up", "bodyweight", "street workout", "handstand"]),
+        (["sneaker", "run", "running"], ["jog", "jogging", "easy run", "long run", "tempo run", "threshold run", "intervals",
+                                         "strides", "5k", "10k", "half marathon", "parkrun", "track session"]),
+        (["cart", "groceries"], ["grocery", "supermarket", "shopping", "grocery run", "food shopping", "the shops", "makolet"]),
+        (["laptop", "work"], ["office", "coding", "deep work", "meeting prep", "the office", "spreadsheet", "standup"]),
+        (["books", "study"], ["studying", "homework", "coursework", "exam", "revision", "lecture", "tutorial", "library", "problem set"]),
+        (["clipboard", "errands"], ["errand", "chores", "to do list", "checklist", "odd jobs", "pick up", "drop off"]),
+        (["pot", "cooking"], ["cook", "meal prep", "soup", "stew", "dinner prep", "bake", "recipe"]),
+        (["passport", "admin"], ["visa", "paperwork", "embassy", "forms", "documents", "renewal", "bureaucracy"]),
+        (["gift", "wishlist"], ["present", "presents", "wish list", "surprise", "birthday present", "matana"]),
         (["football", "soccer"], ["soccer", "goal", "match", "kickoff", "the game", "ball"]),
         (["basketball"], ["hoops", "dunk", "slam dunk", "court", "nba"]),
         (["beach", "sea"], ["seaside", "ocean", "waves", "sand", "swim", "surf", "yam"]),
@@ -110,6 +122,7 @@ enum EggWordBank {
         "food": ["fresh", "warm", "sweet", "homemade", "big", "delicious", "hot"],
         "person": ["my", "dear", "sweet", "little", "old"],
         "thing": ["big", "little", "new", "old", "beautiful", "favourite"],
+        "activity": ["morning", "evening", "quick", "long", "big", "early", "weekly", "easy", "hard"],
     ]
 
     static func kind(of match: [String]) -> String {
@@ -121,6 +134,8 @@ enum EggWordBank {
         if any(["sukkah", "lulav", "etrog", "shofar", "menorah", "dreidel", "mask", "grogger", "torah", "candles"]) { return "festival" }
         if any(["hamantasch", "matzah", "challah", "applehoney", "coffee", "pizza", "cake"]) { return "food" }
         if any(["baby", "grandma", "grandpa"]) { return "person" }
+        if any(["dumbbell", "gym", "pullup", "sneaker", "run", "cart", "groceries", "laptop", "work", "books", "study",
+                "bicycle", "clipboard", "errands", "pot", "cooking", "passport", "admin"]) { return "activity" }
         if any(["dog", "wolf", "cat", "horse", "lion", "eagle", "shark", "owl", "bee", "butterfly", "fish", "bird",
                 "rabbit", "bear", "monkey", "elephant", "penguin", "frog", "turtle"]) { return "animal" }
         return "thing"

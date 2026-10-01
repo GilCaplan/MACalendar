@@ -72,8 +72,14 @@ LEXICON: tuple[Entry, ...] = (
     # -- sport and fitness -----------------------------------------------------
     E("sport", "🏋️", "gym", "weights", "lifting", "weightlifting"),
     E("sport", "💪", "workout", "workouts"),
-    E("sport", "🏃", "run", "running", "jog", "jogging", "marathon",
-      needs=(r"\b(go|going|went|for|a|morning|evening|night|long|easy|short|tempo|recovery|trail|group)\s+(run|running|jog)\b",
+    # Calisthenics and the run kinds of a training plan (2026-10-01: the
+    # calendar's own top activities — "calisthenics", "threshold run", "speed
+    # run", "strides" — had no emoji).
+    E("sport", "🤸", "calisthenics", "pull ups", "pull-ups", "pullups", "push ups", "push-ups", "pushups", "chin ups"),
+    E("sport", "🏃", "run", "running", "jog", "jogging", "marathon", "strides",
+      needs=(r"\b(go|going|went|for|a|morning|evening|night|long|easy|short|tempo|recovery|trail|group"
+             r"|threshold|speed|interval|fartlek|progression|steady|hill)\s+(run|running|jog)\b",
+             r"\bstrides\b",
              r"\b(run|running|jog|jogging)\s+(\d+|a|the)?\s*(k|km|kms|mile|miles|laps?|5k|10k|half|marathon)\b",
              r"\b\d+\s*(k|km|mile|miles)\s+(run|jog)\b",
              r"\bjog(ging)?\b", r"\bmarathon\b", r"^(run|running)$",

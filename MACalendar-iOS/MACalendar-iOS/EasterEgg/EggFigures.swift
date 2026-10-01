@@ -9,6 +9,8 @@ enum EggFigure: String, CaseIterable, Codable {
     case rocket, ufo, train, motorcycle, helicopter
     // The Jewish festivals set (EggJewish.swift).
     case lulav, etrog, sukkah, mask, grogger, hamantasch, menorah, dreidel, shofar, applehoney, matzah, candles, challah, torah
+    // The activities set (EggActivities.swift), from what the calendar holds.
+    case dumbbell, pullup, sneaker, cart, laptop, books, bicycle, clipboard, pot, passport, gift
 
     /// Cycles per second of the figure's own movement (gait, flap, rotor).
     var speed: Double {
@@ -23,6 +25,8 @@ enum EggFigure: String, CaseIterable, Codable {
         case .plane, .rocket, .ufo, .shark, .wizard: return 1.2
         case .lulav, .etrog, .sukkah, .mask, .grogger, .hamantasch, .menorah, .dreidel,
              .shofar, .applehoney, .matzah, .candles, .challah, .torah: return 1
+        case .sneaker: return 2.4
+        case .dumbbell, .pullup, .cart, .laptop, .books, .bicycle, .clipboard, .pot, .passport, .gift: return 1
         }
     }
 
@@ -63,6 +67,17 @@ enum EggFigure: String, CaseIterable, Codable {
         case .candles: drawCandles(p, pose)
         case .challah: drawChallah(p, pose)
         case .torah: drawTorah(p, pose)
+        case .dumbbell: drawDumbbell(p, pose)
+        case .pullup: drawPullup(p, pose)
+        case .sneaker: drawSneaker(p, pose)
+        case .cart: drawCart(p, pose)
+        case .laptop: drawLaptop(p, pose)
+        case .books: drawBooks(p, pose)
+        case .bicycle: drawBicycle(p, pose)
+        case .clipboard: drawClipboard(p, pose)
+        case .pot: drawPot(p, pose)
+        case .passport: drawPassport(p, pose)
+        case .gift: drawGift(p, pose)
         }
     }
 }

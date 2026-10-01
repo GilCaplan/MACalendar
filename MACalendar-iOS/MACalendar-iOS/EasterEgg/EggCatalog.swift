@@ -347,7 +347,7 @@ struct EggSettings: Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case enabled, trigger, together, group, groupWords, pluralCount, entrance, pause, exit, untilTapped, passThrough, opacity, look, tap
-        case size, sizePercent, lane, sound, volume, haptics, chance, cooldown, quietHours, quietFrom, quietTo, forWhatsMade, madeMap
+        case size, sizePercent, lane, sound, volume, haptics, chance, cooldown, quietHours, quietFrom, quietTo, forWhatsMade, madeMap, madeMapKnown
         case jewish, jewishInSeason, festivalGreeting, festivalDecor, festivalIcon, loader
         case motion, direction, trail, drawnPath, objects
         case legacySeconds = "seconds"
@@ -370,6 +370,7 @@ struct EggSettings: Codable, Equatable {
         try c.encode(quietHours, forKey: .quietHours); try c.encode(quietFrom, forKey: .quietFrom)
         try c.encode(quietTo, forKey: .quietTo); try c.encode(forWhatsMade, forKey: .forWhatsMade)
         try c.encode(madeMap, forKey: .madeMap)
+        try c.encode(Array(EggCatalog.madeMap.keys).sorted(), forKey: .madeMapKnown)
         try c.encode(jewish, forKey: .jewish); try c.encode(jewishInSeason, forKey: .jewishInSeason)
         try c.encode(festivalGreeting, forKey: .festivalGreeting); try c.encode(festivalDecor, forKey: .festivalDecor)
         try c.encode(festivalIcon, forKey: .festivalIcon)
@@ -410,6 +411,11 @@ struct EggSettings: Codable, Equatable {
         quietTo = (try? c.decodeIfPresent(Int.self, forKey: .quietTo)) ?? 7 * 60
         forWhatsMade = (try? c.decodeIfPresent(Bool.self, forKey: .forWhatsMade)) ?? false
         madeMap = (try? c.decodeIfPresent([String: String].self, forKey: .madeMap)) ?? base.madeMap
+        // Defaults added after this map was saved come in; ones the person
+        // cleared stay cleared (they are among the keys the save already knew).
+        let knew = (try? c.decodeIfPresent([String].self, forKey: .madeMapKnown)).flatMap { $0 }.map(Set.init)
+            ?? EggCatalog.madeMapFirstKeys
+        for (k, v) in EggCatalog.madeMap where !knew.contains(k) && madeMap[k] == nil { madeMap[k] = v }
         jewish = (try? c.decodeIfPresent(Bool.self, forKey: .jewish)) ?? true
         jewishInSeason = (try? c.decodeIfPresent(Bool.self, forKey: .jewishInSeason)) ?? false
         festivalGreeting = (try? c.decodeIfPresent(Bool.self, forKey: .festivalGreeting)) ?? true
@@ -430,7 +436,17 @@ enum EggCatalog {
     /// a task's tag → an object. Editable in Settings.
     static let madeMap: [String: String] = [
         "Travel": "plane", "Dog walking": "dog", "Social": "confetti", "Study": "owl", "Family": "fireworks",
+        // The activities set (2026-10-01): the event categories and to-do
+        // tags people actually fill, each to the graphic drawn for it.
+        "Fitness": "dumbbell", "Work": "laptop", "Errand": "clipboard", "Meal": "pot",
+        "Groceries": "cart", "Coursework": "books", "Errands": "clipboard", "Admin": "passport",
+        "Wishlist": "gift", "Shabbat": "candles", "Shabbat Meal": "challah",
     ]
+
+    /// The map's keys every build before the activities set shipped — so a
+    /// saved map takes in the NEW defaults without bringing back one the
+    /// person cleared.
+    static let madeMapFirstKeys: Set<String> = ["Travel", "Dog walking", "Social", "Study", "Family"]
 
     /// The object's own sound, for `.auto`.
     static func defaultSound(_ id: String, motion: EggMotion) -> EggSound {
@@ -438,7 +454,7 @@ enum EggCatalog {
         case "fireworks": return .boom
         case "lightning": return .thunder
         case "fairy", "wizard", "unicorn", "rainbow", "phoenix": return .magic
-        case "confetti", "snow", "menorah", "candles": return .chime
+        case "confetti", "snow", "menorah", "candles", "gift": return .chime
         case "shofar": return .shofar
         case "grogger": return .rattle
         default: return motion == .pop ? .pop : .whoosh
@@ -450,7 +466,7 @@ enum EggCatalog {
 
     /// Built-ins: (id, name, keywords, figure or effect, is effect).
     static let builtins: [(String, String, [String], Bool)] = [
-        ("dog", "German Shepherd", ["dog", "puppy", "doggy", "pup", "german shepherd"], false),
+        ("dog", "German Shepherd", ["dog", "puppy", "doggy", "pup", "german shepherd", "dog walk", "walk the dog", "walkies"], false),
         ("dragon", "Dragon", ["dragon"], false),
         ("fairy", "Fairy", ["fairy"], false),
         ("wolf", "Wolf", ["wolf", "wolves"], false),
@@ -491,7 +507,24 @@ enum EggCatalog {
         ("candles", "Shabbat candles", ["shabbat candles", "candle lighting", "candles", "shabbat shalom"], false),
         ("challah", "Challah", ["challah", "chala", "hallah"], false),
         ("torah", "Torah", ["torah", "sefer torah", "simchat torah", "shavuot", "hakafot"], false),
+        // The activities set — what the calendar actually holds (EggActivities.swift).
+        ("dumbbell", "Gym", ["gym", "workout", "weights", "lifting", "weightlifting", "strength training", "dumbbell", "dumbbells"], false),
+        ("pullup", "Calisthenics", ["calisthenics", "pull ups", "pull-ups", "pullups", "pull up", "chin ups", "push ups", "pushups", "muscle up"], false),
+        ("sneaker", "Run", ["run", "running", "jog", "jogging", "easy run", "long run", "threshold run", "tempo run",
+                            "intervals", "strides", "speed work", "5k", "10k", "marathon"], false),
+        ("cart", "Groceries", ["groceries", "grocery", "grocery shopping", "supermarket", "shopping cart"], false),
+        ("laptop", "Work", ["work", "laptop", "coding", "office", "deep work"], false),
+        ("books", "Study", ["study", "studying", "coursework", "homework", "exam", "exams", "lecture", "revision", "library"], false),
+        ("bicycle", "Bike", ["bike", "bicycle", "cycling", "bike ride", "spin class"], false),
+        ("clipboard", "Errands", ["errands", "errand", "chores", "checklist", "to do list", "todo list"], false),
+        ("pot", "Cooking", ["cook", "cooking", "meal prep", "soup", "stew"], false),
+        ("passport", "Passport", ["passport", "visa", "paperwork", "embassy"], false),
+        ("gift", "Gift", ["gift", "gifts", "present", "presents", "wishlist", "wish list"], false),
     ]
+
+    /// The activities set.
+    static let activities: Set<String> = ["dumbbell", "pullup", "sneaker", "cart", "laptop", "books", "bicycle",
+                                          "clipboard", "pot", "passport", "gift"]
 
     /// The Jewish festivals set.
     static let jewish: Set<String> = ["sukkah", "lulav", "etrog", "shofar", "applehoney", "menorah", "dreidel",
@@ -527,6 +560,9 @@ enum EggCatalog {
         case "shark": return .wave
         case "lulav", "sukkah", "shofar", "menorah", "candles", "grogger", "applehoney": return .pop
         case "etrog", "hamantasch", "challah": return .bounce
+        case "sneaker", "cart", "bicycle": return .run
+        case "dumbbell", "books", "passport": return .bounce
+        case "pullup", "laptop", "clipboard", "pot", "gift": return .pop
         case "dreidel", "torah": return .run
         case "mask": return .zigzag
         default: return .flyBy
@@ -547,7 +583,11 @@ enum EggCatalog {
         case "lulav", "sukkah": return .leaves
         case "mask", "menorah", "candles", "torah": return .stars
         case "grogger", "shofar": return .notes
-        case "applehoney": return .hearts
+        case "applehoney", "gift": return .hearts
+        case "sneaker", "bicycle", "cart": return .clouds
+        case "dumbbell", "pullup": return .stars
+        case "books", "laptop", "clipboard", "passport": return .sparkles
+        case "pot": return .bubbles
         default: return .sparkles
         }
     }
