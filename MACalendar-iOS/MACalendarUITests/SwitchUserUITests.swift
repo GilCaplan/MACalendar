@@ -60,7 +60,9 @@ final class SwitchUserUITests: XCTestCase {
     }
 
     func testSwitchingAccounts() throws {
-        let ada = try XCTUnwrap(login("ada", "ada-pass-1"), "no scratch users server on 59125")
+        guard let ada = login("ada", "ada-pass-1") else {
+            throw XCTSkip("no scratch users server on 59125 (scratchpad/users_server.py)")
+        }
         let app = XCUIApplication()
         app.launchArguments = ["-serverURL", "127.0.0.1:59125", "-serverEnabled", "1", "-phoneOnly", "0",
                                "-vocabOnboardingDone", "1", "-remindersEnabled", "0"]

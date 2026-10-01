@@ -107,7 +107,7 @@ final class EasterEggUITests: XCTestCase {
         for _ in 0..<14 where !dog.isHittable { app.swipeUp() }
         dog.tap()
 
-        let motion = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Motion")).firstMatch
+        let motion = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Motion, ")).firstMatch
         for _ in 0..<6 where !motion.isHittable { app.swipeUp() }
         motion.tap()
         let drawnChoice = app.buttons["The path I drew"].firstMatch

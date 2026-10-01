@@ -92,7 +92,20 @@ def tray(qapp, tmp_path, monkeypatch):
     t = tray_mod.HostTray(qapp, stack=_FakeStack(), start=False)
     t.timer.stop()
     t._settings = QSettings(str(tmp_path / "host.ini"), QSettings.Format.IniFormat)
-    return t
+    yield t
+    _retire(t)
+
+
+def _retire(t) -> None:
+    """A tray outlives its test unless told to stop: its first status check
+    runs on a thread and lands later, possibly in another test, on widgets the
+    garbage collector is tearing down (TASKS 53: CI's random segfaults)."""
+    t.timer.stop()
+    try:
+        t.poller.got.disconnect()
+    except TypeError:
+        pass
+    t.tray.hide()
 
 
 def test_the_menu_says_running_where_and_how_many(tray):

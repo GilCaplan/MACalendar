@@ -1517,7 +1517,13 @@ class TodoListWidget(QWidget):
             except Exception:
                 return
             if tags != shown:
-                self._tags_inferred.emit(todo_id, list(shown), list(tags))
+                try:
+                    from PyQt6 import sip
+                    if sip.isdeleted(self):
+                        return          # the list was rebuilt meanwhile (a refresh)
+                    self._tags_inferred.emit(todo_id, list(shown), list(tags))
+                except RuntimeError:     # deleted between the check and the emit
+                    return
 
         import threading
         threading.Thread(target=_work, name="quick-add-tagger", daemon=True).start()

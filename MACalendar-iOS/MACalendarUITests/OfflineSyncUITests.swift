@@ -53,19 +53,18 @@ final class OfflineSyncUITests: XCTestCase {
             ?? "UITest \(UUID().uuidString.prefix(8))"
     }()
 
-    /// Where the Mac really is. The test bundle's Info.plist first (built from
-    /// the xcconfig), an environment override second, loopback last — the
-    /// simulator shares the host's network stack, so `127.0.0.1:8080` is the
-    /// Mac's own API when this runs on the machine serving it.
+    /// The server a test that reaches "the Mac" drives — ONLY when named in
+    /// MACALENDAR_UITEST_SERVER (a scratch one). It used to fall back to the
+    /// build's server URL, then 127.0.0.1:8080 — the person's LIVE API, where
+    /// a test course would have been written (QA sweep, 2026-10-01).
     private var realServer: String {
-        if let env = ProcessInfo.processInfo.environment["MACALENDAR_UITEST_SERVER"],
-           !env.trimmingCharacters(in: .whitespaces).isEmpty {
-            return env
-        }
-        let fromPlist = Bundle(for: Self.self)
-            .object(forInfoDictionaryKey: "MACalendarServerURL") as? String ?? ""
-        let trimmed = fromPlist.trimmingCharacters(in: .whitespaces)
-        return trimmed.isEmpty ? "127.0.0.1:8080" : trimmed
+        (ProcessInfo.processInfo.environment["MACALENDAR_UITEST_SERVER"] ?? "")
+            .trimmingCharacters(in: .whitespaces)
+    }
+
+    private func requireServer() throws {
+        try XCTSkipIf(realServer.isEmpty,
+                      "set MACALENDAR_UITEST_SERVER to a scratch server — never the live one")
     }
 
     override func setUpWithError() throws {
@@ -77,6 +76,7 @@ final class OfflineSyncUITests: XCTestCase {
     /// One method, not five: every step depends on the state the last one left
     /// on disk, and XCTest gives no ordering guarantee between methods.
     func testCourseAddedOfflineReachesTheMacAndADeleteOfflineStaysDeleted() throws {
+        try requireServer()
         // 1 — the Mac is away. Add a course.
         var app = openCoursework(server: Self.unreachable)
         addCourse(app)
@@ -357,7 +357,8 @@ final class QueuedCommandDetailUITests: XCTestCase {
         shot(app, "1-queue")
 
         // the finished one → the same step-by-step view a live command gets
-        app.staticTexts["“walk the dog tomorrow at 9”"].firstMatch.tap()
+        // a row is one button: its words are part of its label, not a text of their own
+        app.buttons.containing(NSPredicate(format: "label CONTAINS 'walk the dog tomorrow at 9'")).firstMatch.tap()
         let reply = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'walk the dog'")).firstMatch
         XCTAssertTrue(reply.waitForExistence(timeout: 5), "the run did not open")
         XCTAssertFalse(app.navigationBars["Queued command"].exists,
@@ -366,12 +367,16 @@ final class QueuedCommandDetailUITests: XCTestCase {
         app.swipeDown(velocity: .fast)
 
         // the running one → status and a ticking elapsed time
-        let running = app.staticTexts["“walk jada every day at 9”"].firstMatch
+        let running = app.buttons.containing(NSPredicate(format: "label CONTAINS 'walk jada every day at 9'")).firstMatch
         XCTAssertTrue(running.waitForExistence(timeout: 5))
         running.tap()
         XCTAssertTrue(app.navigationBars["Queued command"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Running on your Mac"].exists)
-        XCTAssertTrue(app.staticTexts["Running for"].exists)
+        // a LabeledContent reads as one element, "Status, Running on your Mac"
+        func shows(_ text: String) -> Bool {
+            app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch.exists
+        }
+        XCTAssertTrue(shows("Running on your Mac"))
+        XCTAssertTrue(shows("Running for"))
         shot(app, "3-running")
     }
 }

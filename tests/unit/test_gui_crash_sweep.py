@@ -184,6 +184,9 @@ class _Sweep:
         a dialog or destroy a row last, so the rest are reached first."""
         from PyQt6.QtWidgets import (QAbstractButton, QAbstractSpinBox, QComboBox,
                                      QLineEdit)
+        from PyQt6 import sip
+        if sip.isdeleted(root):
+            return []            # a click closed it (WA_DeleteOnClose): nothing left to walk
         out = []
         for cls in (QAbstractButton, QComboBox, QAbstractSpinBox, QLineEdit):
             out += [w for w in root.findChildren(cls)]
@@ -350,6 +353,8 @@ class _Sweep:
                 self.path.pop()
         done = set()
         for _ in range(3):                   # a click can add controls; look again
+            if sip.isdeleted(root):
+                break
             fresh = [w for w in self.controls(root)
                      if id(w) not in done and self._nearest_stack(w, root) is None
                      and not sip.isdeleted(w) and w.isVisible()]
@@ -667,7 +672,9 @@ def test_the_card_and_the_menu_bar_app_survive_every_click(app, quarantine, monk
                     s.log(f"sweeping {win.windowTitle()!r}: {len(s.controls(win))} controls, "
                           f"{sum(1 for c in s.controls(win) if c.isVisible() and c.isEnabled())} live")
                     s.sweep(win)
-                    win.close()
+                    from PyQt6 import sip as _sip
+                    if not _sip.isdeleted(win):
+                        win.close()
                     s.path.pop()
     except Exception:
         s.hook(*sys.exc_info())

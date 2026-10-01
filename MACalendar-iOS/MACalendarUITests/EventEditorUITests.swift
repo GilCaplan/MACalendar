@@ -27,15 +27,18 @@ final class EventEditorUITests: XCTestCase {
     private let hour = "04:00"
     private var createdId: Int?
 
+    /// The server these tests drive — ONLY when named in
+    /// MACALENDAR_UITEST_SERVER (a scratch one). They used to fall back to the
+    /// build's server URL, then 127.0.0.1:8080 — the person's LIVE API — and so
+    /// created and deleted real calendar events (QA sweep, 2026-10-01).
     private var realServer: String {
-        if let env = ProcessInfo.processInfo.environment["MACALENDAR_UITEST_SERVER"],
-           !env.trimmingCharacters(in: .whitespaces).isEmpty {
-            return env
-        }
-        let fromPlist = Bundle(for: Self.self)
-            .object(forInfoDictionaryKey: "MACalendarServerURL") as? String ?? ""
-        let trimmed = fromPlist.trimmingCharacters(in: .whitespaces)
-        return trimmed.isEmpty ? "127.0.0.1:8080" : trimmed
+        (ProcessInfo.processInfo.environment["MACALENDAR_UITEST_SERVER"] ?? "")
+            .trimmingCharacters(in: .whitespaces)
+    }
+
+    override func setUpWithError() throws {
+        try XCTSkipIf(realServer.isEmpty,
+                      "set MACALENDAR_UITEST_SERVER to a scratch server — never the live one")
     }
 
     override func setUp() {
