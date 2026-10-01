@@ -1,14 +1,16 @@
 import SwiftUI
 
 /// The Mac's Easter-egg settings window — the phone's settings, laid out for
-/// a Mac. Photos and drawn paths are made on the phone (they need a camera
-/// roll and a finger); everything else is here — emoji, flags and symbols,
-/// suggested words, and the one-word-one-thing rule.
+/// a Mac: emoji, flags and symbols, your own photos (cut out by the phone's
+/// own pipeline, `EggImageCore`), paths drawn with the mouse, suggested
+/// words, and the one-word-one-thing rule.
 struct MacSettingsView: View {
     @ObservedObject private var store = MacEggStore.shared
     @State private var previewID = "dog"
     @State private var selected: String?
     @State private var newSymbol = false
+    @State private var newPhoto = false
+    @State private var drawing = false
 
     var body: some View {
         HSplitView {
@@ -21,6 +23,7 @@ struct MacSettingsView: View {
                     }
                     Button("Play a demo on the whole screen") { store.demo() }
                     Button("New magic word from an emoji, flag or symbol…") { newSymbol = true }
+                    Button("New magic word from a photo…") { newPhoto = true }
                 }
                 if !store.conflicts.isEmpty {
                     Section {
@@ -57,10 +60,11 @@ struct MacSettingsView: View {
                 }
                 Section("Movement") {
                     Picker("Motion", selection: $store.settings.motion) {
-                        ForEach(EggMotion.allCases.filter { $0 != .drawn }, id: \.self) {
+                        ForEach(EggMotion.allCases.filter { $0 != .drawn || store.settings.drawnPath != nil }, id: \.self) {
                             Text($0 == .auto ? "Each one's own" : $0.label).tag($0)
                         }
                     }
+                    Button(store.settings.drawnPath == nil ? "Draw a path…" : "Redraw the path…") { drawing = true }
                     Picker("Direction", selection: $store.settings.direction) {
                         ForEach(EggDirection.allCases, id: \.self) { Text($0 == .auto ? "Each one's own" : $0.label).tag($0) }
                     }
@@ -122,6 +126,15 @@ struct MacSettingsView: View {
                 MacWordEditor(id: s.id).frame(width: 440, height: 640)
             }
             .sheet(isPresented: $newSymbol) { MacSymbolEditor(mode: .newObject) }
+            .sheet(isPresented: $newPhoto) { MacPhotoSheet(mode: .newObject) }
+            .sheet(isPresented: $drawing) {
+                MacPathDrawer(objectID: nil, path: Binding(
+                    get: { store.settings.drawnPath },
+                    set: { p in
+                        store.settings.drawnPath = p
+                        if p != nil { store.settings.motion = .drawn }
+                    }))
+            }
         }
         .frame(minWidth: 560, minHeight: 640)
     }
@@ -146,6 +159,8 @@ struct MacWordEditor: View {
     @State private var word = ""
     @State private var suggesting = false
     @State private var addingSymbol = false
+    @State private var addingPhoto = false
+    @State private var drawingPath = false
     /// Words waiting on "move it here, or keep it where it is?".
     @State private var asking: [String] = []
 
@@ -165,6 +180,10 @@ struct MacWordEditor: View {
                     }
                     Button("Play it") { store.play([id], together: true) }
                     Button("Add an emoji, flag or symbol…") { addingSymbol = true }
+                    Button("Add a photo…") { addingPhoto = true }
+                    if o.active != EggVariant.originalID {
+                        Button("Delete this graphic", role: .destructive) { store.deleteVariant(o.active, from: id) }
+                    }
                     if !o.builtin {
                         Button("Delete this magic word", role: .destructive) { dismiss(); store.deleteObject(id) }
                     }
@@ -183,6 +202,7 @@ struct MacWordEditor: View {
                     Picker("Motion", selection: $store.settings.objects[i].motion) {
                         ForEach(EggMotion.allCases.filter { $0 != .drawn || o.drawnPath != nil }, id: \.self) { Text($0.label).tag($0) }
                     }
+                    Button(o.drawnPath == nil ? "Draw the path…" : "Redraw the path…") { drawingPath = true }
                     Picker("Direction", selection: $store.settings.objects[i].direction) {
                         ForEach(EggDirection.allCases, id: \.self) { Text($0.label).tag($0) }
                     }
@@ -209,6 +229,16 @@ struct MacWordEditor: View {
                 MacSuggestSheet(name: o.name, objectID: id, existing: o.keywords) { adding($0) }
             }
             .sheet(isPresented: $addingSymbol) { MacSymbolEditor(mode: .addTo(id)) }
+            .sheet(isPresented: $addingPhoto) { MacPhotoSheet(mode: .addTo(id)) }
+            .sheet(isPresented: $drawingPath) {
+                MacPathDrawer(objectID: id, path: Binding(
+                    get: { store.settings.objects.first { $0.id == id }?.drawnPath },
+                    set: { p in
+                        guard let j = store.settings.objects.firstIndex(where: { $0.id == id }) else { return }
+                        store.settings.objects[j].drawnPath = p
+                        if p != nil { store.settings.objects[j].motion = .drawn }
+                    }))
+            }
             .alert(asking.count == 1 ? "That word is taken" : "Some words are taken",
                    isPresented: Binding(get: { !asking.isEmpty }, set: { if !$0 { asking = [] } })) {
                 Button("Move \(asking.count == 1 ? "it" : "them") to “\(o.name)”") {
@@ -255,7 +285,7 @@ struct MacPreview: View {
                 let loop = s.entrance + (show.holdForever ? 2 : show.hold) + s.exit + 0.6
                 let e = tl.date.timeIntervalSince(from).truncatingRemainder(dividingBy: loop)
                 let p = show.progress(elapsed: e, releasedAfter: show.holdForever ? s.entrance + 2 : nil)
-                EggRender.draw(show, ctx, size, progress: p, t: e, image: { _ in nil })
+                EggRender.draw(show, ctx, size, progress: p, t: e, image: { store.image($0) })
             }
         }
     }

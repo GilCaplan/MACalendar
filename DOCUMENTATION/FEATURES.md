@@ -954,6 +954,19 @@ Hebrew dates by Foundation's Hebrew calendar). **The Mac** plays them too
 (`mac/MagicWords`, a helper built from the same Swift; `assistant/magic_words.py`
 talks to it; Settings ▸ Easter egg opens its settings window). The decisions
 are one file both use (`EggRules`).
+**Photos and drawn paths on the Mac** (2026-10-01, TASKS 46): its settings
+window adds a photo to a word or makes a new word from one (a file, cut out
+automatically or by a loop drawn with the mouse, anime look or as it is, the
+rig picked by Apple's classifier, a live puppet preview), and draws a path
+with the mouse — per word or for all of them. The pipeline is ONE copy,
+`EggImageCore` (CGImage), which the phone's `EggImageTools` now wraps; the
+Mac keeps its pictures in `eggs/` beside `magic_words.json`.
+**Run on real photographs** (TASKS 44/47, `Tools/egg_photo.swift`, test
+`test_real_photos_through_the_photo_pipeline`): the anime look turned real
+photos nearly black — the ink traced every texture as an edge, the contrast
+boost crushed dark subjects, and the flattening ran in linear light. Now the
+ink is traced from the flattened picture at a high threshold, flattened in
+sRGB, and a styled photo keeps 80-95% of its brightness (6 real photos).
 
 ### Teach — the labelling game
 **What:** A phone tab that shows one title and the categories (or tags) as

@@ -23,7 +23,7 @@ final class EggOverlay {
             p.contentView = NSHostingView(rootView: EggStageView(
                 stage: EggStage.shared,
                 settings: { MacEggStore.shared.settings },
-                image: { _ in nil }))
+                image: { MacEggStore.shared.image($0) }))
             panel = p
         }
         panel?.setFrame(frame, display: true)

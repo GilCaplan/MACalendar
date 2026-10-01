@@ -1,5 +1,9 @@
+import AppKit
 import AVFoundation
 import Foundation
+import ImageIO
+import SwiftUI
+import UniformTypeIdentifiers
 
 /// The Mac's Easter-egg settings — its own, per device (Gil, 2026-09-30: an
 /// animation plays on the device the command came from) — kept as one JSON
@@ -81,6 +85,67 @@ final class MacEggStore: ObservableObject {
         guard !word.isEmpty, let i = settings.objects.firstIndex(where: { $0.id == id }) else { return }
         keepWord(word, on: id)
         if !settings.objects[i].keywords.contains(word) { settings.objects[i].keywords.append(word) }
+    }
+
+    // MARK: - Photos (TASKS 46 — the phone's, made here with the same pipeline)
+
+    /// Beside magic_words.json, as the phone keeps them beside eggs.json.
+    var folder: URL { file.deletingLastPathComponent().appendingPathComponent("eggs", isDirectory: true) }
+    private var images: [String: Image] = [:]
+
+    /// The finished graphic a variant names, for the stage and the previews.
+    func image(_ name: String) -> Image? {
+        if let hit = images[name] { return hit }
+        guard let ns = NSImage(contentsOf: folder.appendingPathComponent(name)) else { return nil }
+        let img = Image(nsImage: ns)
+        images[name] = img
+        return img
+    }
+
+    /// Writes a picture into the eggs folder; its file name, or nil.
+    func write(_ cg: CGImage, jpeg: Bool = false) -> String? {
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let name = UUID().uuidString + (jpeg ? ".jpg" : ".png")
+        let type = (jpeg ? UTType.jpeg : UTType.png).identifier as CFString
+        guard let dest = CGImageDestinationCreateWithURL(folder.appendingPathComponent(name) as CFURL, type, 1, nil)
+        else { return nil }
+        CGImageDestinationAddImage(dest, cg, jpeg ? [kCGImageDestinationLossyCompressionQuality: 0.85] as CFDictionary : nil)
+        return CGImageDestinationFinalize(dest) ? name : nil
+    }
+
+    /// A photo file, upright (its EXIF orientation applied), at most 2048 px.
+    static func loadUpright(_ url: URL) -> CGImage? {
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        let opts: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true,
+                                     kCGImageSourceCreateThumbnailWithTransform: true,
+                                     kCGImageSourceThumbnailMaxPixelSize: 2048]
+        return CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary)
+    }
+
+    /// The kept original of a photo variant, to re-outline or re-style it.
+    func original(_ name: String) -> CGImage? { Self.loadUpright(folder.appendingPathComponent(name)) }
+
+    /// Drop a variant (never the original — the phone's rule); its files go with it.
+    func deleteVariant(_ vid: String, from id: String) {
+        guard vid != EggVariant.originalID, let i = settings.objects.firstIndex(where: { $0.id == id }),
+              let v = settings.objects[i].variants.first(where: { $0.id == vid }) else { return }
+        settings.objects[i].variants.removeAll { $0.id == vid }
+        if settings.objects[i].active == vid { settings.objects[i].active = EggVariant.originalID }
+        var names: [String] = []
+        if case .image(let f) = v.source { names.append(f) }
+        if let p = v.photo { names.append(p) }
+        for n in names { images[n] = nil; try? FileManager.default.removeItem(at: folder.appendingPathComponent(n)) }
+    }
+
+    func replaceVariant(_ v: EggVariant, in id: String) {
+        guard let i = settings.objects.firstIndex(where: { $0.id == id }),
+              let j = settings.objects[i].variants.firstIndex(where: { $0.id == v.id }) else { return }
+        let old = settings.objects[i].variants[j]
+        if case .image(let f) = old.source, case .image(let g) = v.source, f != g {
+            images[f] = nil
+            try? FileManager.default.removeItem(at: folder.appendingPathComponent(f))
+        }
+        settings.objects[i].variants[j] = v
     }
 
     func addVariant(_ v: EggVariant, to id: String) {

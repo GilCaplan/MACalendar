@@ -554,3 +554,25 @@ struct EggStageView: View {
         .accessibilityLabel("Easter egg animation. Tap to close.")
     }
 }
+
+
+/// A route drawn for `.drawn` — by finger on the phone (`EggPathDrawer`), by
+/// mouse on the Mac (`MacPathDrawer`). One normaliser so a path drawn on
+/// either plays the same.
+enum EggDrawnPath {
+    /// Points to [x, y, t], all 0…1. A path drawn in one flick (or by a
+    /// stylus that reports no time) is paced evenly by distance instead.
+    static func normalise(_ pts: [(CGPoint, TimeInterval)], in size: CGSize) -> [[Double]]? {
+        guard pts.count >= 2, size.width > 0, size.height > 0 else { return nil }
+        let t0 = pts[0].1, span = pts[pts.count - 1].1 - t0
+        var lengths: [Double] = [0]
+        for i in 1..<pts.count {
+            lengths.append(lengths[i - 1] + Double(hypot(pts[i].0.x - pts[i - 1].0.x, pts[i].0.y - pts[i - 1].0.y)))
+        }
+        let total = max(lengths.last ?? 0, 1)
+        return pts.enumerated().map { i, p in
+            let t = span > 0.25 ? (p.1 - t0) / span : lengths[i] / total
+            return [Double(p.0.x / size.width), Double(p.0.y / size.height), t]
+        }
+    }
+}

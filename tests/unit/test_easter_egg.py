@@ -21,7 +21,7 @@ TOOLS = ROOT / "MACalendar-iOS/Tools"
 # The platform-neutral Easter-egg files — what the Mac helper compiles too.
 SHARED = ["EggArt.swift", "EggFigures.swift", "EggJewish.swift", "EggEffects.swift", "EggCatalog.swift",
           "EggRules.swift", "EggStage.swift", "EggTrails.swift", "EggPuppet.swift", "EggLoader.swift",
-          "EggWordBank.swift", "EggSymbol.swift", "EggOnDevice.swift"]
+          "EggWordBank.swift", "EggSymbol.swift", "EggOnDevice.swift", "EggImageCore.swift"]
 
 pytestmark = pytest.mark.skipif(sys.platform != "darwin" or not shutil.which("swiftc"),
                                 reason="needs the Swift compiler (the Mac; CI's Linux runner has none)")
@@ -324,3 +324,42 @@ def test_suggestions_never_offer_a_word_another_object_has(tmp_path):
     assert words[0] == "wolfhound" and len(words) == 8, words          # model's free word kept, first
     assert not set(words) & set(taken), words                          # none of the taken ones
     assert "dogs" not in got[1]["words"]                               # a plural of a taken word is taken
+
+
+# Real photographs that are not the user's: Apple's simulator sample set and
+# two that ship with Python packages. Whichever exist on this Mac are used.
+_SAMPLES = [
+    *sorted(pathlib.Path("/Library/Developer/CoreSimulator/Volumes").glob(
+        "*/Library/Developer/CoreSimulator/Profiles/Runtimes/*.simruntime/Contents/Resources/"
+        "SampleContent/Media/DCIM/100APPLE/IMG_000[26].*"))[:2],
+    *sorted(pathlib.Path("/Library/Frameworks/Python.framework/Versions").glob(
+        "*/lib/python*/site-packages/ultralytics/assets/*.jpg"))[:2],
+    *sorted(pathlib.Path("/Library/Frameworks/Python.framework/Versions").glob(
+        "*/lib/python*/site-packages/sklearn/datasets/images/*.jpg"))[:2],
+]
+
+
+@pytest.mark.skipif(len(_SAMPLES) < 3, reason="no real sample photographs on this machine")
+def test_real_photos_through_the_photo_pipeline(tmp_path):
+    """TASKS 44/47: the photo path had only met drawn stand-ins. Run on real
+    photographs (`Tools/egg_photo.swift`, the code the phone and the Mac
+    share) it found the anime look turning them nearly black — the ink traced
+    every texture as an edge, and the flattening ran in linear light. Each
+    photo with a subject must cut out, keep 75%+ of its brightness when
+    styled, and take a hand-drawn loop."""
+    exe = tmp_path / "photo"
+    subprocess.run(["swiftc", "-O", "-parse-as-library", str(TOOLS / "egg_photo.swift"),
+                    *[str(EGG / f) for f in SHARED], "-o", str(exe)], check=True, capture_output=True)
+    out = subprocess.run([str(exe), str(tmp_path / "sheet.png"), *map(str, _SAMPLES)],
+                         capture_output=True, text=True, check=True, timeout=600)
+    rows = [json.loads(l) for l in out.stdout.splitlines()]
+    assert len(rows) == len(_SAMPLES)
+    cut = [r for r in rows if r["cutout"]]
+    assert len(cut) >= len(rows) // 2, rows             # landscapes have no subject; the rest do
+    for r in cut:
+        assert r["anime"] and r["luma_anime"] >= 0.75 * r["luma_cut"], r
+    assert all(r["lasso"] for r in rows), rows
+    by = {r["photo"]: r for r in rows}
+    if "bus.jpg" in by:
+        assert by["bus.jpg"]["rig"] == "roll"           # a vehicle rolls
+    assert (tmp_path / "sheet.png").stat().st_size > 50_000
