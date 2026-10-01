@@ -2100,11 +2100,11 @@ regrouped, and the Mac window clean-up (FEATURES.md has each).
 
 Open, app side:
 
-28. **"Require sign-in everywhere" is still OFF** — Gil's switch, on the
+28. ~~**"Require sign-in everywhere" is still OFF**~~ — closed (DEVQA Q83: a user setting) — Gil's switch, on the
     Account tab. Off, a device nobody signed in on acts as the admin.
-29. **The `demo` user** (made 2026-09-28 to try the Account tab and overlaps,
+29. ~~**The `demo` user**~~ — closed (Q83: the person's own data) (made 2026-09-28 to try the Account tab and overlaps,
     sharing view with gil) — remove it from the Account tab when done.
-30. **The Mac clean-up was checked in dark mode only.** Look at light mode, and
+30. ~~**The Mac clean-up was checked in dark mode only.**~~ — done 2026-09-30 (light mode is in the crash sweep) Look at light mode, and
     at the Mac's Settings dialog, which still has its folding sections (the
     phone's became a grouped list).
 31. **The offline reader has no real-use data yet.** Read `GET /offline/agreement`
@@ -2113,7 +2113,7 @@ Open, app side:
 32. **Adding to someone else's calendar by voice** stays deferred (Q65): a
     mishearing would write into another person's store; the event editor's
     owner picker covers it.
-33. **Junk event 2103 "including"** in Gil's calendar (2026-09-28) — his to
+33. ~~**Junk event 2103 "including"**~~ — closed (Q83) in Gil's calendar (2026-09-28) — his to
     delete.
 
 ## ORDER OF PLAY — 2026-09-30
