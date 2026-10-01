@@ -744,3 +744,38 @@ scored "no tag" — so it leans toward abstaining; the generated gold always has
 a tag, so it leans the other way.) Both agree the 0.40 bar was the wrong place:
 it tagged "call mom" and "pay rent" Groceries. The fallback now needs 0.90 for
 a to-do (`FALLBACK_MIN_CONFIDENCE`); events were not measured and keep theirs.
+
+## The event fallback bar (2026-10-01) — measured, KEPT at 0.35
+
+**Stage: label · `model.predict`, the n-gram fallback for EVENTS** (ollama down
+on the Mac; ALWAYS on the phone). `event_fallback_bar.py`, fitted on the
+generated TRAIN split alone; record `runs/event_fallback_bar_20261001T1049.json`.
+Only the titles the keyword rules leave on the catch-all (`Personal`) are read —
+the only ones the model ever answers. RIGHT = the model's label is the gold, or
+it abstains on a gold `Personal`.
+
+| data · n (rule-blank / rows · distinct) | 0.35 (now) | 0.50 | 0.75 | 0.90 | no fallback |
+|---|---|---|---|---|---|
+| generated TEST · 1,733 / 4,333 · 1,733 | **575 right** · 480 relabelled wrong | 436 · 273 | 310 · 61 | 239 · 24 | 219 · 0 |
+| real gold · 11 / 81 · 11 | 5 · 0 | 4 · 0 | 4 · 0 | 4 · 0 | 2 · 0 |
+
+**Why the to-do answer does not transfer.** A to-do with no tag is a real,
+neutral state, so a confidently wrong tag was pure loss and the to-do bar went
+to 0.90. An event ALWAYS has a category: abstaining leaves `Personal`, which is
+just as wrong when the event is a meeting. So every abstention on a real
+category is a miss too, and on 1,733 rule-blank TEST titles the lowest bar gets
+the most right (33.2% vs 12.6% with no fallback). What the fallback breaks is
+only gold-`Personal` rows it relabels: 63 broken against 419 fixed at 0.35. No
+bar lifts the model's own precision past 63% (0.75-0.80), so there is no bar
+that is both precise and useful.
+
+**What a category does besides colour** (checked, so "only a colour" is not
+assumed): the Shabbat meal permission reads the keyword RULES, never the model
+(`db._is_meal`); notification leads can be set per category and 0 MUTES one
+(`notify.category_leads`) — empty in this config. If categories are ever muted,
+a confident wrong label could silence a reminder and this should be re-read.
+
+**Not banked as a real-speech claim:** 11 real rule-blank titles cannot carry
+one (the 2026-09-30 probe's 5-of-8 wrong were titles that would otherwise have
+been `Personal`, not right). Re-read on the user's own category corrections
+once there are a few hundred (`label/feedback.py`).

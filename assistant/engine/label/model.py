@@ -97,8 +97,11 @@ MIN_CONFIDENCE = {"event": 0.35, "task": 0.40}
 #: Groceries 0.41); leaving them untagged got 11 right and 0 wrong; at 0.90 it
 #: tags almost nothing (11 right, 2 wrong). On 626 generated TEST titles the
 #: 0.40 bar was confidently wrong on 126. So a to-do falls back to "no tag"
-#: unless the n-gram model is near-certain. Events were not measured and keep
-#: their bar.
+#: unless the n-gram model is near-certain. EVENTS were measured 2026-10-01
+#: (`experiments/event_fallback_bar.py`, 1,733 rule-blank generated TEST
+#: titles) and keep 0.35 on purpose: an event always has a category, so
+#: abstaining leaves `Personal`, which is as wrong as a mislabel — the lowest
+#: bar got the most right (575 vs 219 with no fallback, 239 at 0.90).
 FALLBACK_MIN_CONFIDENCE = {"task": 0.90}
 
 
