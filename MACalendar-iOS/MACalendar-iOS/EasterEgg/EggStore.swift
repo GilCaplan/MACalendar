@@ -68,6 +68,24 @@ final class EggStore: ObservableObject {
         return d.bareHandled || (!bare && !d.ids.isEmpty)
     }
 
+    /// Words the MAC heard — its transcript, corrected by your vocabulary —
+    /// checked when the phone's own hearing played nothing (Gil, 2026-10-01:
+    /// "i said val but it didnt show the graphic, it should always look for
+    /// words even if it doesnt make an event or task"). The phone's recogniser
+    /// can miss a name the Mac's vocabulary knows. Said on its own it plays as
+    /// a bare magic word would (it reached the Mac anyway); otherwise as one
+    /// inside a command. True when something played.
+    @discardableResult
+    func heardLate(_ text: String) -> Bool {
+        let d = EggRules.decide(text, bare: true, settings: settings, lastPlayed: lastPlayed)
+        if !d.ids.isEmpty {
+            play(d.ids, together: d.together)
+            return true
+        }
+        if d.bareHandled { return true }          // bare, but held back (chance, quiet hours)
+        return heard(text, bare: false)
+    }
+
     func liveObjects(_ now: Date = Date()) -> [EggObject] { EggRules.liveObjects(settings, now: now) }
 
     // MARK: - Festival days

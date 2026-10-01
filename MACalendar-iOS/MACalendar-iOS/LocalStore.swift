@@ -935,6 +935,17 @@ class LocalStore: ObservableObject {
         return cmd
     }
 
+    /// A TYPED command while the Mac is away: no audio, and the text is final —
+    /// what was typed is what runs, so it goes as `edited` (sent as text).
+    @discardableResult
+    func enqueueTyped(_ text: String) -> PendingVoiceCommand {
+        var cmd = PendingVoiceCommand(audioFile: "", draft: text)
+        cmd.edited = text
+        pendingVoice.append(cmd)
+        persistVoice()
+        return cmd
+    }
+
     /// Put back any row that has been "running" for longer than a command can
     /// plausibly take.
     ///

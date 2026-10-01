@@ -426,6 +426,7 @@ class CalendarWindow(QMainWindow):
         # (create/update/delete/drag-reschedule/resize of an event). Separate
         # from the voice pipeline's own background-verification undo+redo.
         QShortcut(QKeySequence.StandardKey.Undo, self, activated=self._on_undo)
+        QShortcut(QKeySequence("Ctrl+K"), self, activated=self._open_type_box)   # ⌘K on a Mac
         # Shift+Cmd+Z (Ctrl+Shift+Z elsewhere) — redoes an undone action.
         QShortcut(QKeySequence.StandardKey.Redo, self, activated=self._on_redo)
 
@@ -722,6 +723,17 @@ class CalendarWindow(QMainWindow):
 
         layout.addSpacing(2)
 
+        # Type a command instead of saying it (Gil, 2026-10-01) — one small
+        # button beside the mic and ⌘K; the box pops under it, Enter sends.
+        self._type_btn = QPushButton("")
+        self._type_btn.setObjectName("icon_btn")
+        self._type_btn.setFixedSize(30, 30)
+        self._type_btn.setToolTip("Type a command instead of saying it (⌘K)")
+        self._type_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._type_btn.clicked.connect(self._open_type_box)
+        layout.addWidget(self._type_btn, alignment=v_center)
+        self._update_theme_btn()                 # draws the keyboard in the theme's ink
+
         self._mic_btn = QPushButton("")
         self._mic_btn.setObjectName("mic_idle")
         from PyQt6.QtCore import QSize as _QSize
@@ -876,6 +888,11 @@ class CalendarWindow(QMainWindow):
         if gear is not None:
             gear.setIcon(glyph_icon("⚙", ink, 16, 14))
             gear.setIconSize(QSize(16, 16))
+        typer = vars(self).get("_type_btn")
+        if typer is not None:
+            from assistant.calendar_ui.toolbar_icons import keyboard_icon
+            typer.setIcon(keyboard_icon(ink, 18))
+            typer.setIconSize(QSize(18, 18))
         if mic is not None and not mic.text():
             mic.setIcon(mic_icon(_styles.ON_ACCENT))
             mic.setIconSize(QSize(18, 18))
@@ -1702,6 +1719,40 @@ class CalendarWindow(QMainWindow):
         mic.setEnabled(on)
         mic.setToolTip("Click or press Ctrl+J to toggle the microphone" if on else
                        "The assistant is off — Settings ▸ Assistant")
+        typer = vars(self).get("_type_btn")
+        if typer is not None:
+            typer.setEnabled(on)
+            typer.setToolTip("Type a command instead of saying it (⌘K)" if on else
+                             "The assistant is off — Settings ▸ Assistant")
+
+    def _open_type_box(self) -> None:
+        """The box a command is typed into: a popup under the ⌨ button, the
+        same width as a sentence, gone on Enter or Esc. What is typed takes
+        the spoken command's road (`Pipeline.submit_typed`)."""
+        btn = vars(self).get("_type_btn")
+        if self._pipeline is None or btn is None or not btn.isEnabled():
+            return
+        from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLineEdit
+        box = QFrame(self, Qt.WindowType.Popup)
+        box.setObjectName("type_command_box")
+        lay = QHBoxLayout(box)
+        lay.setContentsMargins(8, 8, 8, 8)
+        edit = QLineEdit()
+        edit.setObjectName("type_command_field")
+        edit.setPlaceholderText("Type a command — e.g. lunch with Dana tomorrow at 1")
+        edit.setMinimumWidth(380)
+        lay.addWidget(edit)
+
+        def send() -> None:
+            if self._pipeline.submit_typed(edit.text()):
+                box.close()
+        edit.returnPressed.connect(send)
+        box.adjustSize()
+        pos = btn.mapToGlobal(btn.rect().bottomRight())
+        box.move(pos.x() - box.width(), pos.y() + 6)
+        box.show()
+        edit.setFocus()
+        self._type_box = box
 
     def _apply_view_prefs(self) -> None:
         """Settings ▸ Appearance saved: first day, clock, days, row height,

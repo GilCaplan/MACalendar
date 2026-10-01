@@ -232,6 +232,39 @@ class Pipeline:
             self._busy.set()
         threading.Thread(target=self._run, daemon=True).start()
 
+    def submit_typed(self, text: str) -> bool:
+        """A command TYPED instead of said (Gil, 2026-10-01): straight to the
+        brain as text — same path as a transcript from here on. Refused while
+        another command is in flight (the window says so); True when started."""
+        text = (text or "").strip()
+        if not text:
+            return False
+        with self._trigger_lock:
+            if self._busy.is_set():
+                self._set_status(STATUS_PROCESSING, "Still working on the last one — send it again in a moment")
+                return False
+            try:
+                from assistant.config import load_config
+                if not getattr(load_config().engine, "enabled", True):
+                    self._set_status(STATUS_ERROR, "The assistant is off — Settings ▸ Assistant")
+                    return False
+            except Exception:
+                pass
+            self._busy.set()
+        threading.Thread(target=self._run_typed, args=(text,), daemon=True).start()
+        return True
+
+    def _run_typed(self, text: str) -> None:
+        try:
+            from assistant.trace import STT
+            t_start = time.perf_counter()
+            trace = self._trace_begin()
+            trace.step(STT, "Typed", text)
+            self._send_transcript(text, trace, t_start, raw_transcript=text)
+        finally:
+            self._busy.clear()
+            self._phase = STATUS_IDLE
+
     def review_choice(self, choice: str) -> None:
         """Answer the Redo / Add more / Send bar (called from the UI thread)."""
         self._review_choice = choice
@@ -470,6 +503,15 @@ class Pipeline:
         # every fix twice.
         _corrections: list = []
 
+        self._send_transcript(transcript, trace, t_start, combine=combine,
+                              raw_transcript=_raw_transcript, corrections=_corrections)
+
+    def _send_transcript(self, transcript: str, trace, t_start: float, *,
+                         combine: bool = False, raw_transcript: str = "",
+                         corrections: list | None = None) -> None:
+        """Everything after the words are known, spoken or typed: combine mode,
+        the view context, magic words, then the brain. One road for both, so a
+        typed command behaves exactly like the same words said."""
         # Combine mode: send the previous command and this one as one request.
         #
         # Joined with brackets rather than a comma. A comma made them a single
@@ -502,13 +544,13 @@ class Pipeline:
             self._set_status(STATUS_IDLE, "✨")
             self._phase = STATUS_IDLE
             return
-        magic_words.heard(transcript, bare=False)
+        self._egg_played = magic_words.heard(transcript, bare=False)
 
         snippet = transcript[:60] + ("…" if len(transcript) > 60 else "")
         self._set_status(STATUS_PROCESSING, f'💭 "{snippet}"')
 
         self._process_transcript(transcript, trace, t_start,
-                                 raw_transcript=_raw_transcript, corrections=_corrections)
+                                 raw_transcript=raw_transcript, corrections=corrections)
 
     def _process_transcript(self, transcript: str, trace, t_start: float, *,
                             raw_transcript: str = "", corrections: list | None = None,
@@ -615,6 +657,10 @@ class Pipeline:
         pending_id = data.get("pending_id")
         # "Also for what gets made" (the Easter egg): the rows this wrote.
         magic_words.made_rows(data.get("committed") or [])
+        # And the words the brain settled on, if the raw ones played nothing:
+        # the vocabulary can fix a name Whisper missed — whatever was made.
+        if not getattr(self, "_egg_played", False):
+            magic_words.heard_late(data.get("transcript") or "")
 
         if data.get("parse") == "needs_edit":
             # The vocabulary doubts a word and the setting says ask first.

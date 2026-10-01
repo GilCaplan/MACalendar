@@ -1330,6 +1330,20 @@ class APIClient: ObservableObject {
         return try decode(VoiceResponse.self, from: data)
     }
 
+    /// End ONE sign-in on the Mac by its token — the previous person's, after
+    /// a switch (`UserSession.switchTo`). Best effort: an unreachable Mac just
+    /// keeps the old sign-in until it expires or is signed out from Account.
+    func endSession(token: String) async {
+        guard let url = URL(string: base + "/auth/logout") else { return }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = Data("{}".utf8)
+        if !settings.apiKey.isEmpty { req.setValue(settings.apiKey, forHTTPHeaderField: "X-API-Key") }
+        req.setValue(token, forHTTPHeaderField: "X-Session-Token")
+        _ = try? await URLSession.shared.data(for: req)
+    }
+
     // MARK: - Device identity
 
     /// This phone's ISSUED name and token — not a name it chose for itself.

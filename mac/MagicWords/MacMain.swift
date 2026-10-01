@@ -4,7 +4,9 @@ import SwiftUI
 /// MACalendar Magic — the Mac's Easter egg. Started by the calendar app,
 /// which talks to it over stdin/stdout, one JSON object per line:
 ///
-///     {"op":"heard","text":"…","bare":true}  → {"bare":true|false}
+///     {"op":"heard","text":"…","bare":true}  → {"bare":true|false, "played":…}
+///     {"op":"heard_late","text":"…"}      → {"played":…} — the brain's own
+///                         corrected words, when the raw ones played nothing
 ///     {"op":"settings"}   opens the settings window
 ///     {"op":"demo"}       plays a demo
 ///     {"op":"festival"}   greets a festival day (once a day)
@@ -59,8 +61,10 @@ final class MagicDelegate: NSObject, NSApplicationDelegate {
     private func handle(_ op: String, _ msg: [String: Any]) -> [String: Any]? {
         switch op {
         case "heard":
-            let bare = MacEggStore.shared.heard(msg["text"] as? String ?? "", bare: msg["bare"] as? Bool ?? false)
-            return ["bare": bare]
+            let r = MacEggStore.shared.heard(msg["text"] as? String ?? "", bare: msg["bare"] as? Bool ?? false)
+            return ["bare": r.bare, "played": r.played]
+        case "heard_late":
+            return ["played": MacEggStore.shared.heardLate(msg["text"] as? String ?? "")]
         case "settings": showSettings(); return ["ok": true]
         case "demo": MacEggStore.shared.demo(); return ["ok": true]
         case "festival": MacEggStore.shared.festivalTick(); return ["ok": true]

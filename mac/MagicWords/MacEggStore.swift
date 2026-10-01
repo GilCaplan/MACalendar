@@ -49,11 +49,22 @@ final class MacEggStore: ObservableObject {
         try? JSONEncoder().encode(settings).write(to: file, options: .atomic)
     }
 
-    /// Returns true when the words were only magic words (don't send them).
-    func heard(_ text: String, bare: Bool) -> Bool {
+    /// `bare`: true when the words were only magic words (don't send them).
+    /// `played`: whether anything played.
+    func heard(_ text: String, bare: Bool) -> (bare: Bool, played: Bool) {
         let d = EggRules.decide(text, bare: bare, settings: settings, lastPlayed: lastPlayed)
         if !d.ids.isEmpty { play(d.ids, together: d.together) }
-        return d.bareHandled
+        return (d.bareHandled, !d.ids.isEmpty)
+    }
+
+    /// The words the brain settled on — corrected by your vocabulary — when
+    /// the raw hearing played nothing (Gil, 2026-10-01: "i said val but it
+    /// didnt show the graphic"). On its own it plays as a bare word would;
+    /// otherwise as one inside a command.
+    func heardLate(_ text: String) -> Bool {
+        let b = heard(text, bare: true)
+        if b.played || b.bare { return b.played }
+        return heard(text, bare: false).played
     }
 
     /// "Also for what gets made", as on the phone (`EggStore.made`): the

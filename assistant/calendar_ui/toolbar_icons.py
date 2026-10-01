@@ -40,6 +40,26 @@ def glyph_icon(glyph: str, color: str, size: int = 18, ink: float = 14.0) -> QIc
     return QIcon(pm)
 
 
+def keyboard_icon(color: str, size: int = 18) -> QIcon:
+    """A keyboard: a rounded outline, two rows of keys and a space bar —
+    drawn, because the ⌨ glyph comes out as a dash at toolbar size."""
+    pm, p = _canvas(size)
+    c = QColor(color)
+    s = size / 18.0
+    pen = QPen(c, 1.4 * s)
+    p.setPen(pen)
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    p.drawRoundedRect(QRectF(1.5 * s, 4 * s, 15 * s, 10 * s), 2 * s, 2 * s)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(c)
+    for row, y in ((5, 6.2), (5, 8.7)):
+        for i in range(row):
+            p.drawRect(QRectF((3.6 + i * 2.4) * s, y * s, 1.4 * s, 1.4 * s))
+    p.drawRoundedRect(QRectF(5.5 * s, 11.2 * s, 7 * s, 1.4 * s), 0.6 * s, 0.6 * s)
+    p.end()
+    return QIcon(pm)
+
+
 def mic_icon(color: str, size: int = 18) -> QIcon:
     """A microphone: a capsule, the cradle arc and the stand."""
     pm, p = _canvas(size)

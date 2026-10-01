@@ -56,8 +56,57 @@ struct VoiceButton: View {
     /// its own. Never a modal: it must not get in the way (Gil, 2026-09-22).
     @State private var hint: ReplyHint?
     @State private var hintTask: Task<Void, Never>?
+    /// Typing instead of speaking (Gil, 2026-10-01): the sheet, and its text.
+    @State private var typing = false
+    @State private var typed = ""
 
     var body: some View {
+        // The keyboard is a small badge on the mic's edge, not a third button:
+        // the bottom row keeps its size and the mic stays where it was
+        // (Gil, 2026-10-01: intuitive without taking too much space).
+        micWithChips
+            .overlay(alignment: .bottomLeading) { keyboardButton.offset(x: -10, y: 6) }
+            .sheet(isPresented: $typing) { typeSheet }
+    }
+
+    /// Type a command instead of saying it — everything after is the spoken
+    /// path's: the thinking panel, the review, magic words, cancel.
+    private var keyboardButton: some View {
+        Button {
+            if !api.assistantEnabled {
+                Task {
+                    _ = try? await api.health()
+                    if api.assistantEnabled { typing = true } else { offNote = true }
+                }
+                return
+            }
+            typing = true
+        } label: {
+            Image(systemName: "keyboard")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(.primary)
+                .frame(width: 26, height: 26)
+                .background(Circle().fill(.regularMaterial))
+                .overlay(Circle().stroke(Color.secondary.opacity(0.35), lineWidth: 0.5))
+                .shadow(radius: 1.5)
+                .frame(width: 40, height: 40)          // a finger-sized target around a small badge
+                .contentShape(Circle())
+        }
+        .accessibilityIdentifier("type-command-button")
+        .accessibilityLabel("Type a command")
+        .opacity(status == .idle ? (api.assistantEnabled ? 1 : 0.4) : 0)
+        .disabled(status != .idle)
+    }
+
+    private var typeSheet: some View {
+        TypeCommandSheet(text: $typed) { text in
+            typing = false
+            typed = ""
+            sendTyped(text)
+        }
+    }
+
+    private var micWithChips: some View {
         // The chip floats above the mic as an overlay so the mic never moves and
         // stays level with the "+" button next to it.
         micButton.overlay(alignment: .top) {
@@ -557,8 +606,11 @@ struct VoiceButton: View {
                             if steps.count == 1, steps[0].title == "Sending" { steps = [] }
                             steps.append(step)
                         }
-                        if !eggPlayed, step.stage == "stt", recorder.liveText.isEmpty {
-                            eggPlayed = EggStore.shared.heard(step.detail, bare: false)
+                        // The Mac's hearing, whenever the phone's played nothing —
+                        // not only when the phone heard nothing at all: its
+                        // recogniser can miss a name ("Val") the Mac's vocabulary knows.
+                        if !eggPlayed, step.stage == "stt" || step.stage == "vocab" {
+                            eggPlayed = EggStore.shared.heardLate(step.detail)
                         }
                         if step.stage == "execute" && step.ok {
                             api.burstRefresh()
@@ -574,6 +626,74 @@ struct VoiceButton: View {
                     inFlight = nil
                     await recoverLostStream(error, sentAt: sentAt, audio: audioData)
                 }
+            }
+        }
+    }
+
+    /// A typed command: the same road as a spoken one, minus the microphone.
+    /// The Mac reads it as text ("Typed" in its trace); away from the Mac it
+    /// queues like a recording would, already in its final words.
+    private func sendTyped(_ text: String) {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty, status == .idle else { return }
+        // Nothing but magic words ("dragon!"): played here, not sent.
+        if EggStore.shared.heard(t, bare: true) { return }
+        player.stop()
+        status = .thinking
+        steps = []
+        finished = false
+        lastResponse = nil
+        eggPlayed = EggStore.shared.heard(t, bare: false)
+        EggWaits.shared.end(eggWait)
+        eggWait = EggWaits.shared.begin()
+        if settings.showThinking {
+            steps = [TraceStep(stage: "stt", title: "Typed", detail: t, ms: 0, atMs: 0, ok: true)]
+            showThinking = true
+        }
+        let me = UUID()
+        inFlight = me
+        Task {
+            do {
+                let response = try await api.sendText(t, supportsEdit: false, supportsConfirm: true)
+                guard inFlight == me else { await undoAbandoned(response); return }
+                inFlight = nil
+                await handleResponse(response)
+            } catch APIError.offline, APIError.badURL {
+                guard inFlight == me else { return }
+                inFlight = nil
+                EggWaits.shared.end(eggWait); eggWait = nil
+                let cmd = LocalStore.shared.enqueueTyped(t)
+                var booked: [String] = []
+                if OfflineReader.isAvailable {
+                    LocalStore.shared.holdVoiceForEdit(cmd.id, true)
+                    if let reading = await OfflineReader.read(t) {
+                        booked = LocalStore.shared.bookProvisional(cmd.id, reading: reading)
+                    }
+                    LocalStore.shared.holdVoiceForEdit(cmd.id, false)
+                }
+                if !booked.isEmpty { onRefresh?("both") }
+                if settings.showThinking {
+                    steps.append(TraceStep(stage: "verify",
+                                           title: booked.isEmpty ? "Saved for later" : "Read on this phone",
+                                           detail: booked.isEmpty
+                                               ? "Your Mac isn't reachable. This command is queued and runs as soon as it's back."
+                                               : "Added on this phone: " + booked.joined(separator: "; ")
+                                                 + ". Your Mac will check it when it's back.",
+                                           ms: 0, atMs: 0, ok: true))
+                }
+                finished = true
+                finishedAt = Date()
+                status = .idle
+            } catch {
+                guard inFlight == me else { return }
+                inFlight = nil
+                EggWaits.shared.end(eggWait); eggWait = nil
+                if settings.showThinking {
+                    steps.append(TraceStep(stage: "error", title: "Couldn't send that",
+                                           detail: error.localizedDescription, ms: 0, atMs: 0, ok: false))
+                }
+                finished = true
+                status = .idle
             }
         }
     }
@@ -677,6 +797,11 @@ struct VoiceButton: View {
     }
 
     private func handleResponse(_ response: VoiceResponse) async {
+        // Last chance for a magic word: the final, vocabulary-corrected words
+        // — even when the command made nothing at all.
+        if !eggPlayed, let heard = response.transcript, !heard.isEmpty {
+            eggPlayed = EggStore.shared.heardLate(heard)
+        }
         EggWaits.shared.end(eggWait); eggWait = nil
         lastResponse = response
         // Easter egg: play for what the command MADE (a trip → a plane), when
@@ -928,5 +1053,59 @@ private struct QuickFixSheet: View {
         let r = right.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !r.isEmpty, r != wrong else { return }
         onSave(r); dismiss()
+    }
+}
+
+
+/// The box a command is typed into: the keyboard comes up at once, Return or
+/// Send sends it, and it is short enough to keep the calendar in view.
+struct TypeCommandSheet: View {
+    @Binding var text: String
+    var onSend: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @FocusState private var focused: Bool
+
+    private var canSend: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Type a command").font(.headline)
+                Spacer()
+                Button("Cancel") { dismiss() }
+            }
+            HStack(alignment: .bottom, spacing: 10) {
+                TextField("e.g. lunch with Dana tomorrow at 1", text: $text, axis: .vertical)
+                    .lineLimit(1...4)
+                    .focused($focused)
+                    .submitLabel(.send)
+                    .onSubmit { if canSend { onSend(text) } }
+                    .padding(10)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
+                    .accessibilityIdentifier("type-command-field")
+                Button { onSend(text) } label: {
+                    Image(systemName: "arrow.up.circle.fill").font(.system(size: 32))
+                }
+                .disabled(!canSend)
+                .accessibilityIdentifier("type-command-send")
+                .accessibilityLabel("Send")
+            }
+            Text("Same as saying it: it runs on your Mac, and the thinking panel shows what it did.")
+                .font(.caption).foregroundColor(.secondary)
+        }
+        .padding()
+        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { focused = true } }
+        .modifier(ShortSheet())
+    }
+}
+
+/// A short sheet where the OS allows it (iOS 16+), a full one otherwise.
+private struct ShortSheet: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 16.0, *) {
+            content.presentationDetents([.height(200)]).presentationDragIndicator(.visible)
+        } else {
+            content
+        }
     }
 }

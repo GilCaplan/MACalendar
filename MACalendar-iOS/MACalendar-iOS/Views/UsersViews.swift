@@ -11,6 +11,9 @@ struct LoginView: View {
     @EnvironmentObject var api: APIClient
     @EnvironmentObject var settings: AppSettings
     @ObservedObject private var session = UserSession.shared
+    /// Opened from "Switch user": Cancel keeps whoever is signed in now.
+    var switching = false
+    @Environment(\.dismiss) private var dismiss
     @State private var username = ""
     @State private var password = ""
     @State private var error = ""
@@ -21,14 +24,45 @@ struct LoginView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            if switching {
+                HStack { Spacer(); Button("Cancel") { dismiss() }.accessibilityIdentifier("switch-cancel") }
+            }
             Spacer()
             Image(systemName: "calendar.circle.fill")
                 .font(.system(size: 54))
                 .foregroundColor(settings.accentColor)
-            Text("Who's using the calendar?")
+            Text(switching ? "Switch to…" : "Who's using the calendar?")
                 .font(.title2.weight(.bold))
             Text("Each person has their own calendar and to-dos.")
                 .font(.subheadline).foregroundColor(.secondary)
+            // Who has used this device: a tap fills the name, the password is next.
+            let others = session.recent.filter { $0.id != (switching ? session.user?.id : nil) }
+            if !others.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(others, id: \.id) { u in
+                            Button {
+                                username = u.username
+                                password = ""
+                                focus = .pass
+                            } label: {
+                                VStack(spacing: 4) {
+                                    PersonAvatar(name: u.displayName, color: u.color, size: 46)
+                                        .overlay(Circle().stroke(settings.accentColor,
+                                                                 lineWidth: username == u.username ? 2.5 : 0))
+                                    Text(u.displayName).font(.caption).lineLimit(1).frame(maxWidth: 64)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("recent-user-\(u.username)")
+                            .contextMenu {
+                                Button("Forget on this device", role: .destructive) { session.forget(u.username) }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
             VStack(spacing: 10) {
                 TextField("Username", text: $username)
                     .textContentType(.username)
@@ -64,6 +98,11 @@ struct LoginView: View {
         .padding(28)
         .onAppear {
             focus = .user
+            // Coming back to a device someone used: their name is ready.
+            if !switching, username.isEmpty, let last = session.recent.first {
+                username = last.username
+                focus = .pass
+            }
             #if DEBUG
             // Simulator check of the real sign-in path (typing is not automatable here)
             if let creds = ProcessInfo.processInfo.environment["MACALENDAR_UITEST_LOGIN"],
@@ -80,8 +119,13 @@ struct LoginView: View {
         busy = true; defer { busy = false }
         error = ""
         do {
-            try await session.signIn(username: username, password: password, api: api)
+            if switching {
+                try await session.switchTo(username: username, password: password, api: api)
+            } else {
+                try await session.signIn(username: username, password: password, api: api)
+            }
             if session.user?.mustChangePassword == true { changePassword = true }
+            else if switching { dismiss() }
         } catch APIError.serverError(let msg) {
             error = msg.contains("too many") ? "Too many tries — wait half a minute."
                   : msg.contains("wrong") ? "That username and password don't match."
@@ -259,6 +303,7 @@ struct PersonAvatar: View {
 
 struct AccountView: View {
     @EnvironmentObject var api: APIClient
+    @EnvironmentObject var settings: AppSettings
     @ObservedObject private var session = UserSession.shared
     @ObservedObject private var model = AccountModel.shared
     @State private var showPassword = false
@@ -266,6 +311,7 @@ struct AccountView: View {
     @State private var newName = ""
     @State private var created: (name: String, password: String)?
     @State private var error = ""
+    @State private var switchingUser = false
 
     var body: some View {
         List {
@@ -283,6 +329,15 @@ struct AccountView: View {
                         }
                     }
                     .padding(.vertical, 6)
+                    Button { switchingUser = true } label: {
+                        Label("Switch user", systemImage: "person.2.circle")
+                    }
+                    .accessibilityIdentifier("switch-user")
+                    // On the button, not the list: the list already carries the
+                    // password sheet, and two sheets on one view present one.
+                    .sheet(isPresented: $switchingUser) {
+                        LoginView(switching: true).environmentObject(api).environmentObject(settings)
+                    }
                 }
 
                 if let c = created {
@@ -408,6 +463,10 @@ struct AccountView: View {
             }
         }
         .listStyle(.insetGrouped)
+        // Someone else is signed in now: the switch sheet has done its job.
+        // Closed here too, because the page rebuilds for the new person and
+        // the sheet's own dismiss can be lost with the old one.
+        .onChange(of: session.user?.id) { _ in switchingUser = false }
         .navigationTitle("Account")
         .onAppear { Task { await model.load(api) } }
         .refreshable { await model.load(api) }

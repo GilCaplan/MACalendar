@@ -115,3 +115,45 @@ def test_what_a_command_made_reaches_the_helper_as_its_labels(tmp_path, monkeypa
     assert done.wait(5)
     category = real.get_event(ev)["category"]
     assert sent == [[category, "Groceries"]]
+
+
+@pytest.mark.parametrize("raw_played, expect_late", [(False, True), (True, False)])
+def test_the_corrected_words_get_a_second_look_for_magic_words(monkeypatch, raw_played, expect_late):
+    """Gil, 2026-10-01: "i said val but it didnt show the graphic, it should
+    always look for words even if it doesnt make an event or task". Whisper can
+    miss a name the vocabulary fixes, so the reply's corrected transcript is
+    checked when the raw words played nothing — the command having made
+    nothing at all here — and never twice."""
+    import json
+    import urllib.request
+    from assistant import magic_words, pipeline
+    late = []
+    monkeypatch.setattr(magic_words, "heard_late", lambda t: late.append(t) or True)
+    monkeypatch.setattr(magic_words, "made_rows", lambda rows: None)
+    monkeypatch.setattr(magic_words, "wait_begin", lambda: "w")
+    monkeypatch.setattr(magic_words, "wait_end", lambda w: None)
+
+    class Resp:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self):
+            return json.dumps({"message": "I couldn't find anything to do.", "actions": [],
+                               "transcript": "Val", "committed": []}).encode()
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: Resp())
+
+    class Trace:
+        def step(self, *a, **k): pass
+    p = pipeline.Pipeline.__new__(pipeline.Pipeline)
+    p.config = type("C", (), {"api": type("A", (), {"port": 1, "key": None})()})()
+    p._tts = type("T", (), {"speak": lambda self, m: None, "mute": True})()
+    p._set_status = lambda *a, **k: None
+    p._trace_result = lambda **k: None
+    p.current_view = "calendar"
+    p._trace_run = None
+    p._egg_played = raw_played
+    monkeypatch.setattr(pipeline, "_identity", lambda port: ("dev", "tok"))
+    try:
+        p._process_transcript("vowel", Trace(), 0.0)
+    except Exception:
+        pass                                    # the rest of the reply path is not this test's
+    assert late == (["Val"] if expect_late else [])

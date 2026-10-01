@@ -1005,6 +1005,13 @@ Hebrew dates by Foundation's Hebrew calendar). **The Mac** plays them too
 (`mac/MagicWords`, a helper built from the same Swift; `assistant/magic_words.py`
 talks to it; Settings ▸ Easter egg opens its settings window). The decisions
 are one file both use (`EggRules`).
+**A magic word the phone mis-heard still plays** (2026-10-01, Gil: "i said
+val but it didnt show the graphic, it should always look for words even if it
+doesnt make an event or task"): the Mac's transcript, corrected by the
+vocabulary, is checked whenever the device's own hearing played nothing — on
+the phone every transcription step and the final words (`EggStore.heardLate`),
+on the Mac the reply's transcript (`magic_words.heard_late`) — whether or not
+the command made anything.
 **Photos and drawn paths on the Mac** (2026-10-01, TASKS 46): its settings
 window adds a photo to a word or makes a new word from one (a file, cut out
 automatically or by a loop drawn with the mouse, anime look or as it is, the
@@ -2229,6 +2236,34 @@ labelled — and events coloured — with the Mac away. It is the Mac with ollam
 down (no embedding, the fallback bar), a preview the Mac replaces on replay,
 and held to the Mac on every title in the label datasets
 (`DOCUMENTATION/SYNC_PROTOCOL.md`).
+
+### Type a command instead of saying it
+**What:** On every app, a command can be typed. Phone: a small keyboard badge
+on the mic's edge (no extra button in the row) opens a short box with the
+keyboard up; Send runs it. Mac: a ⌨ button beside the mic, or ⌘K, pops a box
+under it; Enter runs it. 2026-10-01 (Gil: "offer on all app versions an option
+type out instead of audio prompt … intuitive … without taking too much space").
+**Where:** iOS `VoiceButton.sendTyped` + `TypeCommandSheet`; Mac
+`Pipeline.submit_typed` and `_send_transcript` (the spoken road from the words
+on), `window._open_type_box`, `toolbar_icons.keyboard_icon`.
+**How:** From the words on it is the spoken command's road — the thinking
+panel, review, magic words, cancel, the "Typed" step in the trace (`POST
+/voice/text`). Away from the Mac a typed command queues like a recording, its
+text final (`LocalStore.enqueueTyped`), and the offline reader books what it
+can. Tests: `TypeCommandUITests`, `tests/unit/test_typed_commands.py`.
+
+### Switching accounts on the phone
+**What:** Account ▸ **Switch user** (right under who you are) opens sign-in
+WITHOUT signing out first — Cancel keeps you as you were — and the people who
+have used this phone are names to tap, so switching is a tap and a password.
+The Mac already had Switch user… on its name chip. 2026-10-01.
+**Where:** `UserSession.switchTo` / `recent`, `APIClient.endSession`,
+`LoginView(switching:)`, `AccountView`. Test: `SwitchUserUITests` (against a
+scratch two-person server).
+**How:** The new person signs in first; only then is the old sign-in ended on
+the Mac, so a wrong password leaves nothing changed and no stale entry is left
+in "Signed-in devices". Remembered names never include a password; a name can
+be forgotten from the device (long-press).
 
 ### Emoji in titles
 **What:** What the assistant adds gets an emoji right after a word that clearly

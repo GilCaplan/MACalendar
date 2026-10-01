@@ -54,6 +54,29 @@ final class UserSession: ObservableObject {
 
     private static let tokenAccount = "macalendar.session_token"
     private static let userKey = "macalendar.session_user"
+    private static let recentKey = "macalendar.recent_users"
+
+    /// People who have signed in on THIS device, most recent first (Gil,
+    /// 2026-10-01: make switching easy) — names to tap instead of a username
+    /// to type. Never a password: those stay with the Mac.
+    @Published private(set) var recent: [SessionUser] = {
+        guard let data = UserDefaults.standard.data(forKey: "macalendar.recent_users"),
+              let list = try? JSONDecoder().decode([SessionUser].self, from: data) else { return [] }
+        var seen = Set<String>()
+        return list.filter { seen.insert($0.username).inserted }
+    }()
+
+    func forget(_ username: String) {
+        recent.removeAll { $0.username == username }
+        UserDefaults.standard.set(try? JSONEncoder().encode(recent), forKey: Self.recentKey)
+    }
+
+    private func remember(_ u: SessionUser) {
+        recent.removeAll { $0.id == u.id || $0.username == u.username }   // one name, once
+        recent.insert(u, at: 0)
+        recent = Array(recent.prefix(6))
+        UserDefaults.standard.set(try? JSONEncoder().encode(recent), forKey: Self.recentKey)
+    }
 
     private init() {
         #if DEBUG
@@ -127,8 +150,19 @@ final class UserSession: ObservableObject {
         else { throw APIError.serverError("The Mac's answer to sign-in was not understood") }
         Self.saveToken(token)
         adopt(u)
+        remember(u)
         needsSignIn = false
         api.requestRefresh()
+    }
+
+    /// Switch to someone else WITHOUT signing out first: the new person signs
+    /// in, and only then is the old sign-in ended on the Mac — so a wrong
+    /// password or Cancel leaves this device exactly as it was, and no stale
+    /// sign-in is left behind in "Signed-in devices".
+    func switchTo(username: String, password: String, api: APIClient) async throws {
+        let old = Self.token
+        try await signIn(username: username, password: password, api: api)
+        if !old.isEmpty, old != Self.token { await api.endSession(token: old) }
     }
 
     func signOut(api: APIClient) async {

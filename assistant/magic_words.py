@@ -127,9 +127,22 @@ def _ask(op: str, wait: bool = False, timeout: float = 0.5, **fields) -> "dict |
 
 
 def heard(text: str, bare: bool) -> bool:
-    """Tell the helper what was said. True: only magic words — don't send."""
+    """Tell the helper what was said. bare=True → True when the words were
+    only magic words (don't send). bare=False → True when something played."""
     reply = _ask("heard", wait=True, text=text, bare=bare)
-    return bool(reply and reply.get("bare")) if bare else False
+    if bare:
+        return bool(reply and reply.get("bare"))
+    return bool(reply and reply.get("played"))
+
+
+def heard_late(text: str) -> bool:
+    """The brain's corrected transcript, when the raw words played nothing —
+    a name Whisper misheard and the vocabulary fixed ("Val"). Checked whether
+    or not the command made anything. True when something played."""
+    if not (text or "").strip():
+        return False
+    reply = _ask("heard_late", wait=True, text=text)
+    return bool(reply and reply.get("played"))
 
 
 def open_settings() -> None:
