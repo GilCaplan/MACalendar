@@ -331,7 +331,7 @@ class ThinkingHUD(QWidget):
             if getattr(self.panel, "_view", "timeline") == "llm":
                 self.panel._load_llm()
         except Exception as exc:
-            log.debug("LLM console refresh failed: %s", exc)
+            logger.debug("LLM console refresh failed: %s", exc)
 
     def apply_entry(self, entry: dict) -> None:
         """Render one bus line. See assistant/trace_bus.py for the shapes."""
@@ -623,7 +623,7 @@ class _BusReader:
             if calls:
                 self._hud.apply_llm_calls(calls)
         except Exception as exc:
-            log.debug("LLM stream poll failed: %s", exc)
+            logger.debug("LLM stream poll failed: %s", exc)
 
         entries, self._offset = trace_bus.read_since(self._offset)
         for entry in entries:

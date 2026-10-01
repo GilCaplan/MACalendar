@@ -667,6 +667,7 @@ def create_app() -> Flask:
         raw = (transcript or "").strip()
         if not raw:
             return jsonify({"text": "", "raw": "", "corrections": []})
+        from assistant.stt.vocab import get_vocab
         fixed, fixes = get_vocab().correct(raw, learn=False)
         return jsonify({
             "text": fixed,

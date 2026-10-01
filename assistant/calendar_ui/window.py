@@ -5,12 +5,15 @@ from __future__ import annotations
 from assistant import users
 from assistant.users import local_session as _local_session
 import datetime
+import logging
 import os
 import queue
 import threading
 import time
 from typing import Optional
 
+
+logger = logging.getLogger(__name__)
 from PyQt6.QtCore import QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QCloseEvent, QColor, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
