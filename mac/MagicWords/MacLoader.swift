@@ -120,31 +120,41 @@ final class MacLoader {
         let dir = root.appendingPathComponent(hash, isDirectory: true)
         let n = Int(seconds * fps)
         let fm = FileManager.default
-        if enabled && !fm.fileExists(atPath: dir.appendingPathComponent(String(format: "%03d.png", n - 1)).path) {
-            try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-            for i in 0..<n {
-                let t = Double(i) / fps
-                let view = Canvas { ctx, size in
-                    EggLoaderRender.draw(cfg, objects, ctx, size, t: t, image: { MacEggStore.shared.image($0) })
-                }
-                .frame(width: side, height: side)
-                let r = ImageRenderer(content: view)
-                r.scale = 2
-                guard let cg = r.cgImage,
-                      let png = NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:]) else { continue }
-                try? png.write(to: dir.appendingPathComponent(String(format: "%03d.png", i)))
+        let publish = {
+            let current: [String: Any] = ["dir": dir.path, "frames": n, "fps": fps, "enabled": enabled,
+                                          "caption": cfg.showCaption ? cfg.stuckCaption : ""]
+            if let data = try? JSONSerialization.data(withJSONObject: current) {
+                try? data.write(to: root.appendingPathComponent("current.json"), options: .atomic)
+            }
+            // Old looks are dropped, so the folder holds one.
+            for old in (try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
+            where old.hasDirectoryPath && old.lastPathComponent != hash {
+                try? fm.removeItem(at: old)
             }
         }
-        let current: [String: Any] = ["dir": dir.path, "frames": n, "fps": fps, "enabled": enabled,
-                                      "caption": cfg.showCaption ? cfg.stuckCaption : ""]
-        if let data = try? JSONSerialization.data(withJSONObject: current) {
-            try? data.write(to: root.appendingPathComponent("current.json"), options: .atomic)
+        guard enabled, !fm.fileExists(atPath: dir.appendingPathComponent(String(format: "%03d.png", n - 1)).path)
+        else { publish(); return }
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        // ONE FRAME PER RUN-LOOP TURN. Rendering all sixty at once held the
+        // main thread for a second or two — and the calendar app waits half a
+        // second for "were those only magic words?", so a bare word said then
+        // was sent as a command. Between frames the helper answers at once.
+        func frame(_ i: Int) {
+            guard i < n else { publish(); return }
+            let t = Double(i) / fps
+            let view = Canvas { ctx, size in
+                EggLoaderRender.draw(cfg, objects, ctx, size, t: t, image: { MacEggStore.shared.image($0) })
+            }
+            .frame(width: side, height: side)
+            let r = ImageRenderer(content: view)
+            r.scale = 2
+            if let cg = r.cgImage,
+               let png = NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:]) {
+                try? png.write(to: dir.appendingPathComponent(String(format: "%03d.png", i)))
+            }
+            DispatchQueue.main.async { MainActor.assumeIsolated { frame(i + 1) } }
         }
-        // Old looks are dropped, so the folder holds one.
-        for old in (try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
-        where old.hasDirectoryPath && old.lastPathComponent != hash {
-            try? fm.removeItem(at: old)
-        }
+        frame(0)
     }
 }
 

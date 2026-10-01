@@ -36,7 +36,12 @@ final class MagicDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         _ = MacEggStore.shared
-        MacLoader.shared.writeFrames()               // the HUD's "working…" loop
+        // The HUD's "working…" loop — a few seconds in, so the first render
+        // (SwiftUI's renderer warming up, ~2 s) never delays a command said
+        // right as the calendar opens.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+            MainActor.assumeIsolated { MacLoader.shared.writeFrames() }
+        }
         Thread.detachNewThread { [weak self] in
             while let line = readLine() {
                 guard let data = line.data(using: .utf8),

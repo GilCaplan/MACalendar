@@ -129,7 +129,10 @@ def _ask(op: str, wait: bool = False, timeout: float = 0.5, **fields) -> "dict |
 def heard(text: str, bare: bool) -> bool:
     """Tell the helper what was said. bare=True → True when the words were
     only magic words (don't send). bare=False → True when something played."""
-    reply = _ask("heard", wait=True, text=text, bare=bare)
+    # Usually answered in a millisecond; the longer leash is for the rare
+    # moment the helper is busy rendering, so a bare magic word is still
+    # recognised rather than sent on as a command.
+    reply = _ask("heard", wait=True, timeout=2.5, text=text, bare=bare)
     if bare:
         return bool(reply and reply.get("bare"))
     return bool(reply and reply.get("played"))
