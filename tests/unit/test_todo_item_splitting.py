@@ -480,7 +480,13 @@ def test_a_dropped_fragment_leaves_its_date_behind(parser):
     become a fourth date-sharing convention.
     """
     got = parser.analyze("the 30th, wash and fold the laundry")
-    assert got.raw_slots["create_todo"]["due_date"] == "2026-09-30"
+    # "the 30th" is the next 30th from today — this read "2026-09-30" and went
+    # red on CI at 00:19 UTC on 1 October, while it was still 30 September here.
+    import datetime as _dt
+    d = _dt.date.today()
+    while d.day != 30:
+        d += _dt.timedelta(days=1)
+    assert got.raw_slots["create_todo"]["due_date"] == d.isoformat()
     assert got.dropped_spans, "the fragment should still be reported as dropped"
 
     # Two surviving asks: the date stays dropped and the deep track decides.

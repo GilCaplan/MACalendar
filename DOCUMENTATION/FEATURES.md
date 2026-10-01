@@ -233,7 +233,7 @@ built when it reaches the Mac.
 | UI | [Small conveniences](#small-conveniences) | duplicate event, week numbers, Timer CSV export | `event_dialog.py`, `month_view.py`, `timer_view.py` |
 | UI | ["How to Talk to Me" tips](#how-to-talk-to-me-tips) | a 4-step "how it works" + 5 short voice-phrasing tips, every example verified on the engine (Settings → Assistant, Mac and iOS) + a one-line hint above the phone's mic keyed on the reply | `tips.py`, `tips_dialog.py`, `TipsView.swift`, `GET /tips` |
 | assistant | [Personal lexicon](#personal-lexicon) | the engine's word lists, extendable from Settings so it learns how you say things | `intent/lexicon.py`, `/lexicon` |
-| UI | [Foldable settings sections](#foldable-settings-sections) | every Settings section collapses and stays collapsed, on both apps; the phone starts them all folded | `settings_dialog.py`, `SettingsView.swift` |
+| UI | [Foldable settings sections](#foldable-settings-sections) | every Settings group folds, on both apps; they start all closed, all open, or as you left them (your choice) | `settings_dialog.py`, `SettingsView.swift` |
 | hybrid | [Calendar views](#calendar-views-month--week--day) | month/week/day/agenda browsing + event CRUD, drag, undo | `calendar_ui/`, iOS views, `db.py` |
 | hybrid | [Tasks](#tasks--to-dos) | Today/General lists, priorities, quantities | `db.py`, `TasksView` |
 | hybrid | [Linked to-dos and events](#linked-to-dos-and-events) | a to-do and an event as ONE thing — link any pair from either side, or add the other half; "call the plumber" does it by voice | `db.py`, `link_picker.py`, `LinkedTodo.swift`, `/todos/<id>/link` |
@@ -1245,6 +1245,18 @@ under every toolbar widget and hid the mic's accent.
 `test_account_tab_controls.py`.
 
 ### Foldable settings sections
+
+> **Back, with a choice, 2026-09-30** (TASKS 50, Gil: *"minimize options on
+> calendar/notifications etc... and default keep it closed/open, or as last
+> status … keep UI the same"*). On the phone each group's title (Calendar,
+> Notifications & tabs, Assistant, Connection, Just for fun, About) folds it,
+> with a chevron; on the Mac each sidebar group heading folds its rows. How
+> they start is a setting — **All closed** (the default, Gil's 2026-09-18
+> call), All open, or As I left them — phone: Appearance ▸ "Settings sections
+> start" (`Views/SettingsFold.swift`, UserDefaults); Mac: Appearance ▸
+> "Settings groups start" (`_FOLD_STARTS`, QSettings). Nothing else on either
+> screen changed. Tests: `SettingsFoldUITests` (three, real taps),
+> `test_settings_pages.py` (fold, default closed, closed→as-left).
 
 > **The phone's half was replaced 2026-09-28** (Gil: *"settings feel a little
 > messy reorganize perhaps?"*). Twelve fold-open sections on one scroll became

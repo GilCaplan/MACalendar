@@ -1,16 +1,16 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 808, "total_lines": 211115} -->
+<!-- code-stats: {"total_files": 810, "total_lines": 211404} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**211,115 lines of source across 808 files.** Of that, **123,395 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**211,404 lines of source across 810 files.** Of that, **123,601 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
-| Test code | 235 | 45,967 |
-| iOS application | 118 | 35,098 |
+| Test code | 235 | 46,050 |
+| iOS application | 120 | 35,250 |
 | Actions, storage & domain (DB, config, observance, .ics) | 165 | 28,255 |
-| Mac application (calendar GUI) | 45 | 23,926 |
+| Mac application (calendar GUI) | 45 | 23,980 |
 | Engine (the brain, shipped path) | 59 | 21,171 |
 | Engine experiments & boards (not in the answer path) | 65 | 20,386 |
 | Dataset & measurement tooling | 54 | 13,834 |
@@ -20,21 +20,21 @@
 | Model / Ollama code | 12 | 3,281 |
 | API server (the front door) | 6 | 2,178 |
 | Launch scripts | 7 | 1,289 |
-| **TOTAL** | **808** | **211,115** |
+| **TOTAL** | **810** | **211,404** |
 
 ### By language
 
 | | files | lines |
 |---|---:|---:|
-| Python | 670 | 172,288 |
-| Swift | 126 | 37,698 |
+| Python | 670 | 172,425 |
+| Swift | 128 | 37,850 |
 | shell | 10 | 930 |
 | launch script | 2 | 199 |
 
 Not counted above, and deliberately so:
 
 - **Data** — the utterance corpus, fitted weights and fixtures: 327,347 lines across 212 files. Bigger than the code, and not written by hand.
-- **Prose** — markdown and the published HTML explainers: 51,862 lines across 124 files.
+- **Prose** — markdown and the published HTML explainers: 51,899 lines across 124 files.
 
 ### How the categories are drawn
 

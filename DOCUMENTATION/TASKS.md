@@ -2181,7 +2181,7 @@ FEATURES.md). Open:
     Jewish festivals set (Q76), the Mac's half, a phone-only mode and set-up
     guide (Q77), and the licence (Q78). Still open:
 46. **The Mac's photos and drawn paths** — made on the phone today; the Mac
-    helper plays built-ins only.
+    helper plays built-ins, emoji, flags and symbols (2026-09-30) but not photos.
 47. **Try the photo path on a real phone** (row 44) — cut-out, anime look,
     walk/roll rigs and animal-pose legs have only met stand-in pictures.
 
@@ -2194,7 +2194,7 @@ todo's … don't go implementing yet"*):
     gets a section to build it: which graphic(s), motion, trail, colours,
     speed, drawn on the same Egg renderer; a preview; a default that needs no
     set-up. Phone first; the Mac's waits (the HUD, the calendar) after.
-49. ~~"Suggest words" doesn't work — and should ask, not add~~ — **fixed and redesigned 2026-09-30** (FEATURES.md "Suggest words"). Was: Reported
+49. ~~"Suggest words" doesn't work — and should ask, not add~~ — **fixed and redesigned 2026-09-30** (FEATURES.md "Suggest words"; the Mac too, plus the word bank, one-word-one-thing and emoji/flag/symbol graphics). Was: Reported
     broken on the phone (the button shows, nothing arrives: find why before
     anything else). Redesign: tapping it opens a sheet of suggestions where
     the user can Accept all, or tick yes / no on each; a dropdown beside the
@@ -2202,8 +2202,33 @@ todo's … don't go implementing yet"*):
     (Apple's on-device model on the phone); if that can't, ask the server's
     model when connected; if neither, say plainly that no model is available
     to suggest words.
-50. **Settings sections that fold.** The Settings groups (Calendar,
+50. ~~Settings sections that fold~~ — **built 2026-09-30, phone and Mac**
+    (FEATURES.md "Foldable settings sections"; default all closed). Was: The Settings groups (Calendar,
     Notifications & tabs, Assistant, Connection, Just for fun…) can be
     collapsed and expanded, on the phone and the Mac, with a setting for how
     they start: all open, all closed, or as they were last left. The look of
     the pages stays exactly as it is — only the fold is added.
+
+Asked 2026-09-30, next (Gil: *"I could do this next. Don't have to do it right
+now"*):
+
+51. **Emoji in titles.** An on/off switch, in Settings ▸ Easter egg AND in the
+    Assistant section, with how many: none, one or two. After an event or
+    to-do is COMMITTED, look at its title and, when a word clearly names
+    something with an emoji, put it right after that word: "walk my dog" →
+    "walk my dog 🐕"; "date with Noa" → "date 💕 with Noa". Ambiguous words must
+    not fire: "eat a date", "due date", "save the date", "update" — a sense
+    guard per word, not a substring match. Proposed shape, to agree before
+    building:
+    - **Where:** a Component inside the Label stage folder (it already runs
+      after commit) — no new Stage, so the chain and the panel are unchanged;
+      or a display-time decoration that leaves the stored title alone (search,
+      matching and Google sync see the plain words). Storing vs displaying is
+      the one design decision to make first.
+    - **How:** deterministic first — a word → emoji lexicon with sense rules
+      (neighbouring words that confirm or veto), seeded from the magic-words
+      catalogue and the word bank; the model only for a word the lexicon
+      marks ambiguous, schema-constrained, and silence when unsure. Never two
+      of the same emoji, never on a title that already has one.
+    - **Measure:** false positives on the real titles corpus (thousands, the
+      negative surface first — a wrong emoji is visible on every screen).

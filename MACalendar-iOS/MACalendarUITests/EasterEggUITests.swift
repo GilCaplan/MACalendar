@@ -17,7 +17,7 @@ final class EasterEggUITests: XCTestCase {
 
     func testTheSettingsPageAndTheDemo() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-serverURL", "127.0.0.1:59999"]
+        app.launchArguments = ["-serverURL", "127.0.0.1:59999", "-settingsFold.start", "open"]
         app.launch()
         let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
         if allow.waitForExistence(timeout: 3) { allow.tap() }
@@ -59,7 +59,7 @@ final class EasterEggUITests: XCTestCase {
     /// "The path I drew": pick it, trace a route with a finger, save, play.
     func testDrawingAPath() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-serverURL", "127.0.0.1:59999"]
+        app.launchArguments = ["-serverURL", "127.0.0.1:59999", "-settingsFold.start", "open"]
         app.launch()
         let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
         if allow.waitForExistence(timeout: 3) { allow.tap() }
@@ -107,7 +107,7 @@ final class EasterEggUITests: XCTestCase {
     /// The loading screen builder: pick a style, and see the "taking a while" screen.
     func testTheLoadingScreenBuilder() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-serverURL", "127.0.0.1:59999"]
+        app.launchArguments = ["-serverURL", "127.0.0.1:59999", "-settingsFold.start", "open"]
         app.launch()
         let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
         if allow.waitForExistence(timeout: 3) { allow.tap() }
@@ -140,7 +140,7 @@ final class EasterEggUITests: XCTestCase {
     /// model, each can be ticked, and "Add N chosen" counts them.
     func testSuggestWordsOffersWordsToPickFrom() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-serverURL", "127.0.0.1:59999"]
+        app.launchArguments = ["-serverURL", "127.0.0.1:59999", "-settingsFold.start", "open"]
         app.launch()
         let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
         if allow.waitForExistence(timeout: 3) { allow.tap() }
@@ -175,7 +175,7 @@ final class EasterEggUITests: XCTestCase {
     /// "Keep it where it is" adds nothing.
     func testATakenWordAsksKeepOrMove() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-serverURL", "127.0.0.1:59999"]
+        app.launchArguments = ["-serverURL", "127.0.0.1:59999", "-settingsFold.start", "open"]
         app.launch()
         let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
         if allow.waitForExistence(timeout: 3) { allow.tap() }
@@ -202,7 +202,7 @@ final class EasterEggUITests: XCTestCase {
     /// and saves it onto the object.
     func testAnEmojiBecomesAGraphic() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-serverURL", "127.0.0.1:59999"]
+        app.launchArguments = ["-serverURL", "127.0.0.1:59999", "-settingsFold.start", "open"]
         app.launch()
         let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
         if allow.waitForExistence(timeout: 3) { allow.tap() }

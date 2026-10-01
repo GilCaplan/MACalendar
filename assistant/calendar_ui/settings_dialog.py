@@ -115,6 +115,23 @@ def _tile_icon(color: str, glyph: str):
     return QIcon(pm)
 
 
+#: How the sidebar's groups start: Appearance ▸ "Settings groups start".
+_FOLD_STARTS = (("open", "All open"), ("closed", "All closed"), ("last", "As I left them"))
+
+
+def _folded_at_start() -> "set[str]":
+    """The groups shut when Settings opens: none, all, or as last left.
+    All, unless changed — Gil's standing call (2026-09-18, "Default is
+    minimized please"); the headings are then the sidebar's contents."""
+    state = _ui_state()
+    start = state.value("settings/fold_start", "closed", type=str)
+    if start == "closed":
+        return {g for g, _ in _SECTION_GROUPS}
+    if start == "last":
+        return set(filter(None, state.value("settings/folded", "", type=str).split("|")))
+    return set()
+
+
 def open_settings(self) -> None:
     if not self._pipeline:
         return
@@ -227,17 +244,42 @@ def open_settings(self) -> None:
     def _build_sidebar() -> None:
         """The rows, in the phone's groups, once every section exists."""
         placed = set()
+        # Each group's heading folds it (TASKS 50, Gil 2026-09-30: "minimize
+        # options … default keep it closed/open, or as last status"). How
+        # they start is Appearance ▸ "Settings groups start"; per machine.
+        folded = _folded_at_start()
         for heading, titles in _SECTION_GROUPS:
             present = [m for t in titles for m in made if m[0] == t]
             if not present:
                 continue
-            h = QLabel(heading.upper())
-            h.setStyleSheet(f"color: {'#8a8a90' if _dark else '#6e6e73'}; font-size: 11px;"
-                            " font-weight: 600; padding: 12px 8px 4px 8px; background: transparent;")
+            h = QPushButton()               # not a QToolButton: that one centres its text
+            h.setFlat(True)
+            h.setObjectName(f"settings_group_{heading.lower().replace(' & ', '_').replace(' ', '_')}")
+            h.setCheckable(True)
+            h.setChecked(heading not in folded)
+            h.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            h.setCursor(Qt.CursorShape.PointingHandCursor)
+            h.setAccessibleName(f"{heading} group")
+            h.setStyleSheet(
+                f"QPushButton {{ color: {'#8a8a90' if _dark else '#6e6e73'}; font-size: 11px;"
+                " font-weight: 600; padding: 12px 8px 4px 8px; background: transparent; border: none;"
+                " text-align: left; }")
             side.addWidget(h)
+            rows = [row for _t, row, _p in present]
+
+            def _fold(open_: bool, _h=h, _rows=rows, _name=heading) -> None:
+                _h.setText(("▾  " if open_ else "▸  ") + _name.upper().replace("&", "&&"))
+                for r in _rows:
+                    r.setVisible(open_)
+                state = _ui_state()
+                shut = set(filter(None, state.value("settings/folded", "", type=str).split("|")))
+                shut.discard(_name) if open_ else shut.add(_name)
+                state.setValue("settings/folded", "|".join(sorted(shut)))
+            h.toggled.connect(_fold)
             for title, row, _page in present:
                 side.addWidget(row)
                 placed.add(title)
+            _fold(h.isChecked())
         rest = [m for m in made if m[0] not in placed]
         if rest:
             h = QLabel("MORE")
@@ -289,6 +331,18 @@ def open_settings(self) -> None:
     theme_combo.setCurrentText("Dark" if (self._config.theme == "dark") else "Light")
     theme_combo.setMaximumWidth(160)
     appearance_form.addRow("Theme on startup:", theme_combo)
+
+    # Window chrome, not a setting: saved per machine the moment it changes.
+    fold_combo = QComboBox()
+    fold_combo.setObjectName("settings_fold_start")
+    for key, label in _FOLD_STARTS:
+        fold_combo.addItem(label, key)
+    fold_combo.setCurrentIndex(max(0, fold_combo.findData(
+        _ui_state().value("settings/fold_start", "closed", type=str))))
+    fold_combo.setMaximumWidth(160)
+    fold_combo.currentIndexChanged.connect(
+        lambda _i: _ui_state().setValue("settings/fold_start", fold_combo.currentData()))
+    appearance_form.addRow("Settings groups start:", fold_combo)
 
     accent_state = {"hex": self._config.ui.accent_color or "#f5a524"}
     swatch_row = QHBoxLayout()

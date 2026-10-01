@@ -43,6 +43,7 @@ def _clean_ui_state():
     persistence they are checking."""
     s = _ui_state()
     s.clear()
+    s.setValue("settings/fold_start", "open")     # the rows these tests click are visible
     s.sync()
     yield
     s = _ui_state()
@@ -290,3 +291,79 @@ def test_the_phone_explains_shared_settings_in_the_same_words():
                      "For what the assistant books by voice (never your own edits):"):
         assert sentence in mac, f"Mac: {sentence}"
         assert sentence in ios, f"phone: {sentence}"
+
+
+# ── the groups fold (TASKS 50) ───────────────────────────────────────
+
+
+def _group(dlg, name: str):
+    from PyQt6.QtWidgets import QAbstractButton
+    g = dlg.findChild(QAbstractButton, f"settings_group_{name}")
+    assert g is not None, f"no folding heading for {name!r}"
+    return g
+
+
+def _click(w) -> None:
+    QTest.mouseClick(w, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+                     QPoint(10, w.height() // 2))
+    QApplication.processEvents()
+
+
+def test_a_group_heading_folds_its_rows_and_only_its_rows(app):
+    failures = []
+
+    def interact(dlg):
+        assert _header(dlg, "appearance").isVisible(), "groups start open when set to"
+        _click(_group(dlg, "calendar"))
+        assert not _header(dlg, "appearance").isVisible() and not _header(dlg, "events").isVisible()
+        assert _header(dlg, "notifications").isVisible(), "folding Calendar folded another group"
+        _click(_group(dlg, "calendar"))
+        assert _header(dlg, "appearance").isVisible()
+    _drive(interact, failures)
+    open_settings(_Window())
+    if failures:
+        raise failures[0]
+
+
+def test_the_groups_start_folded_unless_changed(app):
+    """Gil, 2026-09-18: "Default is minimized please"."""
+    s = _ui_state()
+    s.clear()
+    s.sync()
+    failures = []
+
+    def interact(dlg):
+        assert not _header(dlg, "appearance").isVisible() and not _header(dlg, "easter_egg").isVisible()
+        assert _group(dlg, "calendar").isVisible(), "the headings stay as the contents"
+    _drive(interact, failures)
+    open_settings(_Window())
+    if failures:
+        raise failures[0]
+
+
+def test_how_the_groups_start_all_closed_and_as_left(app):
+    from PyQt6.QtWidgets import QComboBox
+    failures = []
+
+    def choose_closed(dlg):
+        combo = dlg.findChild(QComboBox, "settings_fold_start")
+        combo.setCurrentIndex(combo.findData("closed"))
+    _drive(choose_closed, failures)
+    open_settings(_Window())
+
+    def all_closed_then_open_voice_group(dlg):
+        assert not _header(dlg, "appearance").isVisible() and not _header(dlg, "voice").isVisible()
+        _click(_group(dlg, "assistant"))
+        assert _header(dlg, "voice").isVisible()
+        combo = dlg.findChild(QComboBox, "settings_fold_start")
+        combo.setCurrentIndex(combo.findData("last"))
+    _drive(all_closed_then_open_voice_group, failures)
+    open_settings(_Window())
+
+    def as_left(dlg):
+        assert _header(dlg, "voice").isVisible(), "Assistant was left open"
+        assert not _header(dlg, "appearance").isVisible(), "Calendar was left closed"
+    _drive(as_left, failures)
+    open_settings(_Window())
+    if failures:
+        raise failures[0]

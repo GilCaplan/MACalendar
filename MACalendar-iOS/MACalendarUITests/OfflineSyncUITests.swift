@@ -153,6 +153,7 @@ final class OfflineSyncUITests: XCTestCase {
             // launch, and reminders ask for notification permission.
             "-vocabOnboardingDone", "1",
             "-remindersEnabled", "0",
+            "-settingsFold.start", "open",       // Settings groups start closed by default
         ]
         app.launch()
         dismissSystemAlertIfPresent()
@@ -192,10 +193,10 @@ final class OfflineSyncUITests: XCTestCase {
     private func enableCourseworkTab(_ app: XCUIApplication) {
         app.buttons["tab-settings"].tap()
         let toggle = app.switches["feature-toggle-coursework"]
-        // Sections start FOLDED (2026-09-18), so Tabs has to be opened before
-        // anything inside it is in the tree at all.
+        // Tabs is a row that opens its own page (2026-09-28); the row reads
+        // "Tabs, 2 of 6 optional", so it is matched by its start.
         if !toggle.exists {
-            let header = app.buttons["Tabs"].firstMatch
+            let header = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Tabs")).firstMatch
             if header.waitForExistence(timeout: 10) {
                 for _ in 0..<10 where !header.isHittable { app.swipeUp() }
                 header.tap()

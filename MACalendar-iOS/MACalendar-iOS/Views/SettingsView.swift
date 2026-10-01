@@ -7,6 +7,7 @@ struct SettingsView: View {
     @EnvironmentObject var settings: AppSettings
     @EnvironmentObject var api: APIClient
     @ObservedObject private var visibility = FeatureVisibility.shared
+    @ObservedObject private var fold = SettingsFold.shared
     @State private var healthStatus: String? = nil
     @State private var checking = false
     @State private var assistantNote: String?
@@ -54,7 +55,8 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("Calendar") {
+                Section {
+                  if fold.isOpen("Calendar") {
                     row("Appearance", "paintbrush", .orange, appearanceSummary) { appearancePage }
                     row("Events", "clock", .blue, eventsSummary) { eventsPage }
                     row("Hebrew & Shabbat", "calendar.badge.clock", .indigo, hebrewSummary) { hebrewPage }
@@ -63,14 +65,18 @@ struct SettingsView: View {
                     row("Connected calendars", "calendar.badge.plus", .green, "Google, Outlook") {
                         ConnectedCalendarsView()
                     }
-                }
+                  }
+                } header: { FoldHeader("Calendar") }
 
-                Section("Notifications & tabs") {
+                Section {
+                  if fold.isOpen("Notifications & tabs") {
                     row("Notifications", "bell.badge", .red,
                         settings.remindersEnabled ? "Morning summary on" : "Off") { notificationsPage }
                     row("Tabs", "square.grid.2x2", .teal, tabsSummary) { tabsPage }
-                }
+                  }
+                } header: { FoldHeader("Notifications & tabs") }
 
+                if fold.isOpen("Assistant") {
                 Section {
                     // The switch (Gil, 2026-09-29): off, nothing said or typed
                     // is acted on — here or on the Mac. The Mac keeps it.
@@ -89,7 +95,7 @@ struct SettingsView: View {
                         Text(assistantNote).font(.caption).foregroundColor(.red)
                     }
                 } header: {
-                    Text("Assistant")
+                    FoldHeader("Assistant")
                 } footer: {
                     Text(api.assistantEnabled
                          ? "On: speak or type commands here and on your Mac."
@@ -117,8 +123,12 @@ struct SettingsView: View {
                     row("How I say things", "text.book.closed", .purple, "Words it acts on") { LexiconView() }
                     row("How to talk to me", "lightbulb", .yellow, "Tips") { TipsView() }
                 }
+                } else {
+                    Section {} header: { FoldHeader("Assistant") }
+                }
 
                 Section {
+                  if fold.isOpen("Connection") {
                     row("How it runs", "switch.2", .blue, settings.phoneOnly ? "This phone only" : "Mac + phone") {
                         SetupGuideView()
                     }
@@ -136,17 +146,22 @@ struct SettingsView: View {
                         }
                         .accessibilityIdentifier("pending-queue-link")
                     }
-                } header: { Text("Connection") }
+                  }
+                } header: { FoldHeader("Connection") }
 
                 Section {
+                  if fold.isOpen("Just for fun") {
                     row("Easter egg", "wand.and.stars", .pink,
                         EggStore.shared.settings.enabled ? "Magic words on" : "Off") { EggSettingsView() }
-                } header: { Text("Just for fun") }
+                  }
+                } header: { FoldHeader("Just for fun") }
 
                 Section {
+                  if fold.isOpen("About") {
                     HStack { Text("Version"); Spacer(); Text("1.0").foregroundColor(.secondary) }
                     Link("GitHub", destination: URL(string: "https://github.com/GilCaplan/MACalendar")!)
-                } header: { Text("About") }
+                  }
+                } header: { FoldHeader("About") }
             }
             .listStyle(.insetGrouped)
             .sheet(isPresented: $showQueue) { PendingQueueView() }
@@ -400,6 +415,15 @@ struct SettingsView: View {
                             }
                             Toggle(isOn: $settings.clock24) {
                                 Label("24-hour clock", systemImage: "clock")
+                            }
+                            VStack(alignment: .leading, spacing: 6) {
+                                Label("Settings sections start", systemImage: "rectangle.compress.vertical")
+                                Picker("Settings sections start", selection: $fold.start) {
+                                    ForEach(SettingsFold.Start.allCases, id: \.self) { Text($0.label).tag($0) }
+                                }
+                                .pickerStyle(.segmented)
+                                Text("Tap a section's title in Settings to fold it.")
+                                    .font(.caption).foregroundColor(.secondary)
                             }
                             VStack(alignment: .leading, spacing: 6) {
                                 Label("Show hours", systemImage: "clock.arrow.2.circlepath")

@@ -19,6 +19,7 @@
 		AA000007000000000000001A /* EventDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000007000000000000001B /* EventDetailView.swift */; };
 		AA000008000000000000001A /* MonthGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000008000000000000001B /* MonthGridView.swift */; };
 		AA000009000000000000001A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000009000000000000001B /* SettingsView.swift */; };
+		AA00000E6600000000000150 /* SettingsFold.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000E6600000000000250 /* SettingsFold.swift */; };
 		AAF0000500000000000000A5 /* ServersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAF0000500000000000000B5 /* ServersView.swift */; };
 		AA00000A000000000000001A /* TaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000A000000000000001B /* TaskRowView.swift */; };
 		AA00000B000000000000001A /* TasksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000B000000000000001B /* TasksView.swift */; };
@@ -118,6 +119,7 @@
 		AB000003000000000000001A /* OfflineSyncUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000002000000000000001B /* OfflineSyncUITests.swift */; };
 		AB000013000000000000001A /* DayPanelUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000012000000000000001B /* DayPanelUITests.swift */; };
 		AB000017000000000000001A /* ShownHoursUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000016000000000000001B /* ShownHoursUITests.swift */; };
+		AB0000170000000000000050 /* SettingsFoldUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000160000000000000051 /* SettingsFoldUITests.swift */; };
 		AB00001F000000000000001A /* EasterEggUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00001E000000000000001B /* EasterEggUITests.swift */; };
 		AB000015000000000000001A /* EventEditorUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000014000000000000001B /* EventEditorUITests.swift */; };
 		AC000001000000000000001A /* PendingQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC000002000000000000001A /* PendingQueueView.swift */; };
@@ -136,6 +138,7 @@
 		AA000007000000000000001B /* EventDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDetailView.swift; sourceTree = "<group>"; };
 		AA000008000000000000001B /* MonthGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthGridView.swift; sourceTree = "<group>"; };
 		AA000009000000000000001B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		AA00000E6600000000000250 /* SettingsFold.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFold.swift; sourceTree = "<group>"; };
 		AAF0000500000000000000B5 /* ServersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServersView.swift; sourceTree = "<group>"; };
 		AA00000A000000000000001B /* TaskRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskRowView.swift; sourceTree = "<group>"; };
 		AA00000B000000000000001B /* TasksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksView.swift; sourceTree = "<group>"; };
@@ -239,6 +242,7 @@
 				AB000002000000000000001B /* OfflineSyncUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineSyncUITests.swift; sourceTree = "<group>"; };
 		AB000012000000000000001B /* DayPanelUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPanelUITests.swift; sourceTree = "<group>"; };
 		AB000016000000000000001B /* ShownHoursUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShownHoursUITests.swift; sourceTree = "<group>"; };
+		AB0000160000000000000051 /* SettingsFoldUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFoldUITests.swift; sourceTree = "<group>"; };
 		AB00001E000000000000001B /* EasterEggUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasterEggUITests.swift; sourceTree = "<group>"; };
 		AB000014000000000000001B /* EventEditorUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventEditorUITests.swift; sourceTree = "<group>"; };
 		AB00000E000000000000001B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -440,6 +444,7 @@
 				AA000002000000000000001B /* ContentView.swift */,
 				AA0000A400000000000000B1 /* SearchView.swift */,
 				AA000009000000000000001B /* SettingsView.swift */,
+				AA00000E6600000000000250 /* SettingsFold.swift */,
 				AAF0000500000000000000B5 /* ServersView.swift */,
 				AA0000BC00000000000000C1 /* TagHistoryView.swift */,
 				AA00000C000000000000001B /* VoiceButton.swift */,
@@ -575,6 +580,7 @@
 				AB000002000000000000001B /* OfflineSyncUITests.swift */,
 				AB000012000000000000001B /* DayPanelUITests.swift */,
 				AB000016000000000000001B /* ShownHoursUITests.swift */,
+				AB0000160000000000000051 /* SettingsFoldUITests.swift */,
 				AB00001E000000000000001B /* EasterEggUITests.swift */,
 				AB000014000000000000001B /* EventEditorUITests.swift */,
 				AB00000E000000000000001B /* Info.plist */,
@@ -725,6 +731,7 @@
 				AA000007000000000000001A /* EventDetailView.swift in Sources */,
 				AA000008000000000000001A /* MonthGridView.swift in Sources */,
 				AA000009000000000000001A /* SettingsView.swift in Sources */,
+				AA00000E6600000000000150 /* SettingsFold.swift in Sources */,
 				AAF0000500000000000000A5 /* ServersView.swift in Sources */,
 				AA00000A000000000000001A /* TaskRowView.swift in Sources */,
 				AA00000B000000000000001A /* TasksView.swift in Sources */,
@@ -833,6 +840,7 @@
 				AB000003000000000000001A /* OfflineSyncUITests.swift in Sources */,
 				AB000013000000000000001A /* DayPanelUITests.swift in Sources */,
 				AB000017000000000000001A /* ShownHoursUITests.swift in Sources */,
+				AB0000170000000000000050 /* SettingsFoldUITests.swift in Sources */,
 				AB00001F000000000000001A /* EasterEggUITests.swift in Sources */,
 				AB000015000000000000001A /* EventEditorUITests.swift in Sources */,
 			);
