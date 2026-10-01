@@ -2303,3 +2303,10 @@ now"*):
     segmentation boards, both splits: no line moved. The corpora have no
     sunrise/sunset/candle-lighting rows; the positives are pinned in
     `test_time_words.py`.
+
+53. **CI flake: a segfault in `test_event_share_ics.py::test_share_button_writes_the_ics_file`**
+    (2026-10-01, run 36913653815 attempt 1; attempt 2 on the same commit green;
+    passes locally alone and offscreen). It died inside Qt's `findChildren` on
+    the event dialog in the full `tests/` run on Linux. If it comes back, run
+    the unit folder in CI order with `-p no:randomly -x` to find the test that
+    leaves a Qt object behind.
