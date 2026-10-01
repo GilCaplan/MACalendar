@@ -437,6 +437,21 @@ def _clamp_minutes(v, default: int, low: int) -> int:
     return max(low, min(MAX_EVENT_MINUTES, n))
 
 
+class TitleEmojiConfig(BaseModel):
+    """Emoji in titles (TASKS 51): after the assistant commits an event or a
+    to-do, up to `count` emoji go right after the words that clearly name
+    them ("walk my dog 🐕"). 0 = off (the default), 1 or 2.
+    `engine/label/title_emoji.py`."""
+    count: int = 0
+
+    @field_validator("count")
+    @classmethod
+    def _count(cls, v: int) -> int:
+        if v not in (0, 1, 2):
+            raise ValueError("title_emoji.count must be 0, 1 or 2")
+        return v
+
+
 class LabelsConfig(BaseModel):
     """The learned labellers (`assistant/engine/label/`).
 
@@ -562,6 +577,7 @@ class AppConfig(BaseModel):
     # by default it is ADVISORY: logged + shown in the trace, not applied.
     self_check_apply: bool = False
     labels: LabelsConfig = LabelsConfig()
+    title_emoji: TitleEmojiConfig = TitleEmojiConfig()
     audio: AudioConfig = AudioConfig()
     tts: TTSConfig = TTSConfig()
     todo: TodoConfig = TodoConfig()

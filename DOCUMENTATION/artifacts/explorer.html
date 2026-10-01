@@ -2947,7 +2947,7 @@ series_id   NULL
       z: [820, 446, 2.0],
       sum: `<p>The single place the engine touches the database, and it goes through the same action classes the calendar window uses. Everything upstream produces intents; only this executes them.</p>
     <p class="figs">a blocked item is refused out loud · guessing is never the answer</p>`,
-      more: `<svg viewBox="0 0 380 204" role="img" aria-label="The write and the label happen in one step. An approved intent goes through the same action classes the calendar window uses, into the database. An event takes one category out of fourteen plus its colour; a task takes a set of tags, because a task can be two things at once. A blocked item is refused out loud rather than dropped.">
+      more: `<svg viewBox="0 0 380 226" role="img" aria-label="The write and the label happen in one step. An approved intent goes through the same action classes the calendar window uses, into the database. An event takes one category out of fourteen plus its colour; a task takes a set of tags, because a task can be two things at once. A blocked item is refused out loud rather than dropped. Then, only if switched on, an emoji goes right after a word in the title that clearly names one, read from the plain words; a word with two meanings stays plain unless its neighbours confirm the one with the emoji.">
   <text x="0" y="8" font-size="7" letter-spacing="1" fill="var(--muted)">ONE STEP &#183; THE LABEL IS WRITTEN WITH THE ROW, NOT AFTER IT</text>
   <rect x="0" y="16" width="92" height="28" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1"/>
   <text x="46" y="34" text-anchor="middle" font-size="7">approved intent</text>
@@ -2981,6 +2981,7 @@ series_id   NULL
   <rect x="196" y="158" width="184" height="18" rx="9" fill="none" stroke="var(--line)" stroke-dasharray="3 2"/>
   <text x="288" y="170" text-anchor="middle" font-size="6.5" fill="var(--muted)">never dropped quietly</text>
   <text x="0" y="196" font-size="7" letter-spacing="1" fill="var(--amber)">EVERYTHING UPSTREAM PRODUCES INTENTS &#183; ONLY THIS EXECUTES THEM</text>
+  <text x="0" y="216" font-size="6.5" fill="var(--muted)">if switched on: &#8220;walk the dog&#8221; &#8594; &#8220;walk the dog &#128021;&#8221; &#183; &#8220;due date&#8221; stays plain</text>
 </svg>
     <figcaption>The write and the label are one step, which is what makes the middle column matter: a category is a choice, a tag set is a set, and the difference is not cosmetic. Nothing here guesses &mdash; an item it cannot place is refused where you can see it.</figcaption>
     <h3>The label is written with the row, not after it</h3>
@@ -2999,6 +3000,12 @@ series_id   NULL
     the title through the embedding model lifts it to 64% &mdash; the one change that moved it on unseen
     words. Across six synthetic speakers the learned model is roughly three times more even-handed than
     the keyword lists, which serve whoever wrote them best.</p>
+    <p>Last, and only if switched on (none, one or two per title, off by default): an emoji goes right
+    after a word in the title that clearly names one &mdash; &ldquo;walk the dog &#128021;&rdquo;. It is a
+    word list with a sense rule for every word that has two meanings, so &ldquo;due date&rdquo;,
+    &ldquo;book a table&rdquo; and &ldquo;run errands&rdquo; stay plain; when the neighbours do not confirm
+    the meaning, it says nothing. The label is read from the plain words before it, and a title is matched
+    by its words, so the emoji never changes what the row is or which row a later command finds.</p>
     <p>Nothing about a person&rsquo;s corrections leaves their machine. The shipped model is fitted on
     generated vocabulary belonging to nobody; a second, personal one is fitted on top of it from the labels
     that person has actually changed &mdash; and only the ones they changed, because a label nobody

@@ -485,3 +485,36 @@ def test_settings_tabs_has_an_account_switch_that_hides_the_tab(
     assert yaml.safe_load(cfg_file.read_text())["features"]["account"] is False
     assert not feats.get("account").visible()
     assert window._view_btn_account.visible is False
+
+
+def test_emoji_in_titles_is_one_setting_in_two_places(app, real_config, odd_categories, monkeypatch):
+    """TASKS 51: Gil asked for the switch under Easter egg AND under
+    Assistant. Two combos, one value: changing either moves the other, and
+    the save writes `title_emoji.count` (a section the live config lacks)."""
+    cfg, cfg_file = real_config
+    real = config_store.set_values
+    monkeypatch.setattr(config_store, "set_values",
+                        lambda updates, path=str(cfg_file): real(updates, path))
+    monkeypatch.setattr(config_store, "CONFIG_PATH", str(cfg_file))
+    window = _Window(cfg)
+    failures: list = []
+    seen: dict = {}
+
+    def interact(dlg):
+        here = dlg.findChild(QComboBox, "title_emoji")
+        there = dlg.findChild(QComboBox, "title_emoji_egg")
+        assert here is not None and there is not None
+        seen["start"] = (here.currentText(), there.currentText())
+        QTest.keyClicks(here, "T")                  # → "Two"
+        seen["moved"] = (here.currentData(), there.currentData())
+        save = next(b for b in dlg.findChildren(QPushButton) if b.text() == "Save Config")
+        QTest.mouseClick(save, Qt.MouseButton.LeftButton)
+
+    _drive(interact, failures)
+    open_settings(window)
+    if failures:
+        raise failures[0]
+    assert seen["start"] == ("None", "None")
+    assert seen["moved"] == (2, 2)
+    assert yaml.safe_load(cfg_file.read_text())["title_emoji"] == {"count": 2}
+    assert cfg.title_emoji.count == 2

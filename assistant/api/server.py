@@ -1544,7 +1544,8 @@ def create_app() -> Flask:
     #: (`/observance/location`), so the rest of that section is refused here.
     _ALLOWED_PATCH_KEYS = {"llm_engine", "tts", "confirmation_level",
                            "notifications", "theme", "ui", "todo",
-                           "hebrew_calendar", "events", "observance", "occasions"}
+                           "hebrew_calendar", "events", "observance", "occasions",
+                           "title_emoji"}
 
     @app.get("/digest")
     def digest():
@@ -1623,6 +1624,8 @@ def create_app() -> Flask:
             "observance": {"enabled": bool(cfg.observance.enabled)},
             # Occasions' switches, colours and reminder days (DEVQA Q73).
             "occasions": cfg.occasions.model_dump(),
+            # Emoji in titles: 0 none, 1, 2 (TASKS 51).
+            "title_emoji": cfg.title_emoji.model_dump(),
         })
 
     @app.patch("/config")
@@ -1677,6 +1680,14 @@ def create_app() -> Flask:
                 or not isinstance(observance["enabled"], bool)):
             return jsonify({"error": 'observance takes only {"enabled": true|false}',
                             "code": 400}), 400
+
+        # A count the engine reads; anything else would be clamped to 0 on
+        # read and the setting would silently not be what the client showed.
+        te = data.get("title_emoji")
+        if te is not None and (
+                not isinstance(te, dict) or set(te) != {"count"}
+                or isinstance(te["count"], bool) or te["count"] not in (0, 1, 2)):
+            return jsonify({"error": 'title_emoji takes only {"count": 0|1|2}', "code": 400}), 400
 
         for key, wren in data.items():
             if key not in _ALLOWED_PATCH_KEYS:

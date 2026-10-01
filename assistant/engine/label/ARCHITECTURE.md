@@ -12,6 +12,10 @@ row that can exist uncategorised, and that window is where per-category settings
     train.py       fit them, gate them, promote them
     feedback.py    the user's own corrections — the only labels worth learning
     export.py      the n-gram half as data, for the phone (GET /labels/model/<kind>)
+    title_emoji.py emoji in titles (TASKS 51): a Component, off by default — after the
+                   label is read from the plain words, an emoji right after a word that
+                   clearly names one; a two-sense word fires only when its neighbours
+                   confirm the sense (board: experiments/title_emoji_board.py)
     datasets/      generated FROM the label, so nothing is circular
     experiments/   the boards, and RESULTS.md — every number this file quotes
 

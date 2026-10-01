@@ -2424,6 +2424,8 @@ struct SharedSettings: Decodable, Equatable {
     var seriesEnd: [SeriesEnd: Int] = [:]
     /// `observance.enabled` (DEVQA Q59) — nil when the Mac predates serving it.
     var observanceEnabled: Bool?
+    /// `title_emoji.count` (TASKS 51) — nil when the Mac predates it.
+    var titleEmojiCount: Int?
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -2431,6 +2433,9 @@ struct SharedSettings: Decodable, Equatable {
 
         let obs = try? c.nestedContainer(keyedBy: ObservanceKeys.self, forKey: .observance)
         observanceEnabled = (try? obs?.decodeIfPresent(Bool.self, forKey: .enabled)) as? Bool
+
+        let emoji = try? c.nestedContainer(keyedBy: TitleEmojiKeys.self, forKey: .titleEmoji)
+        titleEmojiCount = (try? emoji?.decodeIfPresent(Int.self, forKey: .count)) as? Int
 
         let events = try? c.nestedContainer(keyedBy: EventsKeys.self, forKey: .events)
         eventLengthMinutes = (try? events?.decodeIfPresent(Int.self, forKey: .eventLengthMinutes)) as? Int
@@ -2465,8 +2470,10 @@ struct SharedSettings: Decodable, Equatable {
     enum CodingKeys: String, CodingKey {
         case theme, ui, todo, tts, events, observance
         case hebrewCalendar = "hebrew_calendar"
+        case titleEmoji = "title_emoji"
     }
     enum ObservanceKeys: String, CodingKey { case enabled }
+    enum TitleEmojiKeys: String, CodingKey { case count }
     enum EventsKeys: String, CodingKey {
         case eventLengthMinutes = "event_length_minutes"
         case chainGapMinutes = "chain_gap_minutes"

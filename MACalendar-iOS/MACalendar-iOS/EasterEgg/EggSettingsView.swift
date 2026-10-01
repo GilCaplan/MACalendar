@@ -30,6 +30,7 @@ struct EggSettingsView: View {
         Form {
             Section {
                 Toggle("Magic words", isOn: $store.settings.enabled)
+                TitleEmojiPicker()
             } footer: {
                 Text("Say a magic word and its picture plays across the screen. Your commands still run as usual; "
                      + "a magic word said on its own is just for fun and isn't sent to your Mac.")

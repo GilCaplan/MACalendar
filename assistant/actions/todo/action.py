@@ -237,8 +237,11 @@ class CreateTodoAction(BaseAction):
             else:
                 tags = []
             qty = intent.quantity_for(index)
+            # Emoji in titles (TASKS 51): tagged by the plain words above, then
+            # an emoji after a word that clearly names one, if switched on.
+            from assistant.engine.label import title_emoji
             todo_id = db.create_todo(
-                title=title,
+                title=title_emoji.decorate(title, title_emoji.count_from(_config)),
                 list_name=intent.list_name,
                 priority=intent.priority,
                 due_date=intent.due_date or "",

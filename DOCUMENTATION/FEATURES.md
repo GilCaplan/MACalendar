@@ -263,7 +263,8 @@ built when it reaches the Mac.
 | hybrid | [Counters](#counters) | tap counters + payouts | db `counters*` |
 | hybrid | [Teach](#teach--the-labelling-game) | the labelling game — label models' only non-circular data (iOS only) | `features/teach/`, `LabelGameView.swift` |
 | UI | [Magic words (Easter egg)](#magic-words--the-easter-egg) | say "dog" and a German Shepherd runs across the phone; 40 built-in graphics, your own photos, emoji, flags and symbols | `MACalendar-iOS/…/EasterEgg/` |
-| UI | [The loading screen](#the-loading-screen--your-own-wheel-of-death) | your own animated spinner and \"taking a while\" screen, built in Settings ▸ Easter egg (iOS) | `EasterEgg/EggLoader*.swift` |
+| UI | [The loading screen](#the-loading-screen--your-own-wheel-of-death) | your own animated spinner and \"taking a while\" screen, built in Settings ▸ Easter egg (iOS and Mac) | `EasterEgg/EggLoader*.swift`, `mac/MagicWords/MacLoader.swift` |
+| engine | [Emoji in titles](#emoji-in-titles) | "walk my dog 🐕" — none, one or two, only in the word's emoji sense; off by default | `engine/label/title_emoji.py` |
 | UI | [How it runs: Mac + phone, or phone only](#how-it-runs--mac--phone-or-phone-only) | a setup guide in the phone's Settings; a phone-only mode with no Mac and no offline banner | `SetupGuideView.swift`, `DefaultRules.swift` |
 | hybrid | [Coursework](#coursework) | courses + assignments tab | db `courses*`, `CourseworkView` |
 | hybrid | [Jude](#jude--the-judaic-study-assistant) | Torah/Talmud/halacha study assistant — a separate repo, hosted as an integration | `assistant/jude/`, `assistant/integrations/`, `MACalendar-iOS/.../Jude/` |
@@ -2173,6 +2174,32 @@ labelled — and events coloured — with the Mac away. It is the Mac with ollam
 down (no embedding, the fallback bar), a preview the Mac replaces on replay,
 and held to the Mac on every title in the label datasets
 (`DOCUMENTATION/SYNC_PROTOCOL.md`).
+
+### Emoji in titles
+**What:** What the assistant adds gets an emoji right after a word that clearly
+names one — "walk my dog 🐕", "date 💕 with Noa", "shiur 📜 at shul 🕍". None, one
+or two per title (Settings ▸ Assistant or Settings ▸ Easter egg, either app;
+one shared value), off by default (TASKS 51, 2026-10-01).
+**Where:** `assistant/engine/label/title_emoji.py` (a Component of the Label
+stage), called by the create actions; config `title_emoji.count`; `GET/PATCH
+/config`; Mac `settings_dialog` (two combos kept in step), iOS
+`TitleEmojiPicker`. Tests `tests/unit/test_title_emoji.py`, the settings test
+in `test_settings_real_shapes.py`; board `label/experiments/title_emoji_board.py`.
+**How:** A word list (~150 words) where every word with two senses carries the
+neighbours that CONFIRM the emoji's sense or VETO it — "eat a date", "due
+date", "book a table", "run errands", "train for the marathon" stay plain; with
+no confirmation it is silent, and there is no model call. Never on a title
+that already has an emoji, never the same one twice. Only the assistant's own
+creates — not calendar sync, which would rewrite Google titles. Labels are
+read from the plain words (`db.auto_category_and_color` strips emoji), the
+duplicate check compares words, and title matching tokenises on `\w+`, so the
+emoji never changes what a row is or which row "delete walk my dog" finds.
+The reply stays plain because it is spoken. **Measured** (count 2, every
+decorated title read): 79 of 215 real titles decorated, none in a wrong
+sense; on the 3,000 real commands (a stress set full of "update the date",
+"book a…") and 2,070 generated titles, the wrong senses found ("the interview
+date", "bottle bank", "cling film", "meter reading" …) became vetoes, then a
+seeded random 150 of the rest read 1 mild miss ("eye exam 📝", also vetoed).
 
 ### Passive label learning — corrections become training data
 **What:** When a person *changes* an assigned category or tag, that correction

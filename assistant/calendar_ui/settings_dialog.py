@@ -1241,6 +1241,37 @@ def open_settings(self) -> None:
     _egg_row.addStretch(1)
     egg.addLayout(_egg_row)
 
+    # Emoji in titles (TASKS 51) — the same setting here and under Assistant,
+    # kept in step: Gil asked for it in both places.
+    _emoji_now = int(getattr(getattr(self._config, "title_emoji", None), "count", 0) or 0)
+    emoji_combos: list[QComboBox] = []
+
+    def _emoji_combo(name: str) -> QComboBox:
+        cb = QComboBox()
+        cb.setObjectName(name)
+        for label, n in (("None", 0), ("One", 1), ("Two", 2)):
+            cb.addItem(label, n)
+        cb.setCurrentIndex(cb.findData(_emoji_now))
+        cb.setToolTip("What the assistant adds gets an emoji after a word that clearly\n"
+                      "names one — “walk my dog 🐕”, “date 💕 with Noa”. A word with\n"
+                      "two meanings only gets one in the right one: “due date” stays plain.")
+
+        def follow(_i, me=cb):
+            for other in emoji_combos:
+                if other is not me and other.currentData() != me.currentData():
+                    other.blockSignals(True)
+                    other.setCurrentIndex(other.findData(me.currentData()))
+                    other.blockSignals(False)
+        cb.currentIndexChanged.connect(follow)
+        emoji_combos.append(cb)
+        return cb
+
+    _emoji_egg_row = QHBoxLayout()
+    _emoji_egg_row.addWidget(QLabel("Emoji in titles:"))
+    _emoji_egg_row.addWidget(_emoji_combo("title_emoji_egg"))
+    _emoji_egg_row.addStretch(1)
+    egg.addLayout(_emoji_egg_row)
+
     assistant = section("Assistant")
     # The switch (Gil, 2026-09-29): off, no command reaches the engine — from
     # this Mac or the phone — and the mics stay shut. The calendar still works.
@@ -1253,6 +1284,11 @@ def open_settings(self) -> None:
     assistant.addWidget(assistant_on_cb)
     assistant.addWidget(hint("Off: nothing you say or type is acted on, here or on your phone, "
                              "until you switch it back on. Your calendar and to-dos work as usual."))
+    _emoji_row = QHBoxLayout()
+    _emoji_row.addWidget(QLabel("Emoji in titles:"))
+    _emoji_row.addWidget(_emoji_combo("title_emoji"))
+    _emoji_row.addStretch(1)
+    assistant.addLayout(_emoji_row)
     auto_cb = QCheckBox("Auto-approve actions (no confirmations)")
     # config.confirmation_level is the source of truth, not the pipeline.
     # Pipeline._confirmer was deleted in e3ea4f6 ("Delete the Mac's dead half")
@@ -1504,6 +1540,7 @@ def open_settings(self) -> None:
                 # Read by observance.is_enabled() in the API process, which
                 # loads config.yaml itself — nothing to apply in-memory here.
                 "observance": {"enabled": observance_cb.isChecked()},
+                "title_emoji": {"count": int(emoji_combos[0].currentData() or 0)},
                 # Scalars here; `category_leads`, a mapping, goes through the
                 # same writer in `_persist_category_leads` below (one call
                 # since 2026-09-22, when config_store learned the dict case).
@@ -1558,6 +1595,8 @@ def open_settings(self) -> None:
                 if hasattr(self, "_apply_view_prefs"):
                     self._apply_view_prefs()
                 _apply(getattr(self._config, "engine", None), "enabled", assistant_on_cb.isChecked())
+                _apply(getattr(self._config, "title_emoji", None), "count",
+                       int(emoji_combos[0].currentData() or 0))
                 if hasattr(self, "_apply_assistant_switch"):
                     self._apply_assistant_switch(assistant_on_cb.isChecked())
                 if hasattr(self, "_apply_visible_hours"):

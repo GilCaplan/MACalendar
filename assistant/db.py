@@ -638,6 +638,8 @@ def auto_category_and_color(conn: sqlite3.Connection, title: str, date: str, sta
     category's colour, switched to its alternate shade if a neighbouring event has it."""
     try:
         from assistant.actions.calendar import categories as _cat
+        from assistant.engine.label.title_emoji import strip as _words
+        title = _words(title)          # labelled by its words, not its emoji (TASKS 51)
         cat = category or _cat.classify(title, attendees, location, description)
         if not category:
             # THE LEARNED LABELLER, STACKED BEHIND THE RULES. It only answers
@@ -1272,18 +1274,25 @@ class CalendarDB:
         arrives — said twice, typed twice, resent by an older phone. A
         one-off never blocks a series (the repeat must match too), and a
         different time is a different event."""
+        # Titles compared by their WORDS: an emoji the title got at commit
+        # (TASKS 51, `label/title_emoji`) must not make "walk my dog" said
+        # twice look like two different events.
+        from assistant.engine.label.title_emoji import strip as _words
+        want = _words(title).lower()
         with self._conn() as conn:
-            row = conn.execute(
+            rows = conn.execute(
                 """
                 SELECT id, title, date, start_time, end_time, recurrence, series_id
                 FROM events
-                WHERE lower(trim(title)) = lower(trim(?)) AND date = ?
-                  AND start_time = ? AND COALESCE(recurrence, '') = ?
-                ORDER BY id LIMIT 1
+                WHERE date = ? AND start_time = ? AND COALESCE(recurrence, '') = ?
+                ORDER BY id
                 """,
-                (title or "", date or "", start_time or "", recurrence or ""),
-            ).fetchone()
-        return dict(row) if row else None
+                (date or "", start_time or "", recurrence or ""),
+            ).fetchall()
+        for row in rows:
+            if _words(row["title"]).lower() == want:
+                return dict(row)
+        return None
 
     def create_event_from_dict(self, data: dict) -> int:
         """Create an event from a plain dict (used by EventDialog)."""

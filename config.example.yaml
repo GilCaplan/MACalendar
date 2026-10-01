@@ -267,6 +267,14 @@ labels:
   model_first: false     # true: a confident model answer wins over the keyword rules; the
                          # rules answer only where the model abstains (Gil, 2026-09-22)
 
+# Emoji in titles (TASKS 51): what the assistant creates gets an emoji right
+# after a word that clearly names one — "walk my dog 🐕", "date 💕 with Noa".
+# A word with two senses fires only in the one with the emoji ("eat a date",
+# "due date" stay plain). 0 = off, 1 or 2 per title. Settings ▸ Assistant, or
+# Settings ▸ Easter egg, on either app.
+title_emoji:
+  count: 0
+
 # Jude — the Judaic study assistant (assistant/jude/ARCHITECTURE.md)
 #
 # An INTEGRATION: an external app this assistant hosts, gates and proxies

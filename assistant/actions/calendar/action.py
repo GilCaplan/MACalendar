@@ -79,7 +79,14 @@ class CreateEventAction(BaseAction):
                     f" from {_fmt_date(dup['date'])}" if dup.get("recurrence")
                     else f"on {_fmt_date(dup['date'])} at {_fmt_time(dup['start_time'])}")
             return f"{what} {when} — I didn't add it again."
-        event_id = db.create_event(intent)
+        # Emoji in titles (TASKS 51): the stored title may carry one after a
+        # word that clearly names it; the category reads the plain words
+        # (`db.auto_category_and_color` strips them) and the reply stays plain,
+        # because it is spoken.
+        from assistant.engine.label import title_emoji
+        stored = title_emoji.decorate(intent.title, title_emoji.count_from(_config))
+        event_id = db.create_event(intent if stored == intent.title
+                                   else intent.model_copy(update={"title": stored}))
 
         context_memory.update_event(event_id, intent.title, intent.date)
 

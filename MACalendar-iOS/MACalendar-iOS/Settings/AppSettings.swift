@@ -145,6 +145,13 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(observanceEnabled, forKey: "observanceEnabled") }
     }
 
+    /// Emoji in titles (TASKS 51): 0 none, 1, 2 — what the assistant adds gets
+    /// an emoji after a word that clearly names one. Shared with the Mac as
+    /// `title_emoji.count`; the Mac's engine does the adding.
+    @Published var titleEmojiCount: Int {
+        didSet { UserDefaults.standard.set(titleEmojiCount, forKey: "titleEmojiCount") }
+    }
+
     // Local-only, mirrors the Mac's config.yaml `todo.show_completed` (default
     // off) but isn't synced from it — same precedent as the Hebrew settings
     // above. Unlike Mac, which only exposes this via config.yaml, iOS gets an
@@ -335,6 +342,7 @@ class AppSettings: ObservableObject {
             ? true : UserDefaults.standard.bool(forKey: "showShabbatTimes")
         self.observanceEnabled = UserDefaults.standard.object(forKey: "observanceEnabled") == nil
             ? true : UserDefaults.standard.bool(forKey: "observanceEnabled")
+        self.titleEmojiCount = UserDefaults.standard.integer(forKey: "titleEmojiCount")
 
         self.hideCompletedTasks = UserDefaults.standard.object(forKey: "hideCompletedTasks") == nil
             ? true : UserDefaults.standard.bool(forKey: "hideCompletedTasks")

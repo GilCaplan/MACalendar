@@ -122,6 +122,7 @@ struct SettingsView: View {
                     row("Vocabulary", "character.book.closed", .purple, "Names & words") { VocabularyView() }
                     row("How I say things", "text.book.closed", .purple, "Words it acts on") { LexiconView() }
                     row("How to talk to me", "lightbulb", .yellow, "Tips") { TipsView() }
+                    TitleEmojiPicker()
                 }
                 } else {
                     Section {} header: { FoldHeader("Assistant") }
@@ -855,6 +856,9 @@ struct SettingsView: View {
         if let v = shared.observanceEnabled, v != settings.observanceEnabled {
             settings.observanceEnabled = v
         }
+        if let v = shared.titleEmojiCount, v != settings.titleEmojiCount {
+            settings.titleEmojiCount = v
+        }
         if shared.hideCompletedTasks != settings.hideCompletedTasks {
             settings.hideCompletedTasks = shared.hideCompletedTasks
         }
@@ -1189,6 +1193,31 @@ private struct SettingsPage<Content: View>: View {
 /// 2026-09-29: "add info tooltip for non trivial features") — a small
 /// popover on iOS 16.4+, an alert before. The Mac's calendar_ui/info_tip.py
 /// is the same idea, and its texts say the same things.
+/// Emoji in titles (TASKS 51) — the same setting under Assistant and under
+/// Easter egg (Gil asked for both), shared with the Mac as `title_emoji.count`.
+struct TitleEmojiPicker: View {
+    @EnvironmentObject var settings: AppSettings
+    @EnvironmentObject var api: APIClient
+
+    var body: some View {
+        Picker(selection: $settings.titleEmojiCount) {
+            Text("None").tag(0)
+            Text("One").tag(1)
+            Text("Two").tag(2)
+        } label: {
+            HStack(spacing: 6) {
+                SettingsIcon("face.smiling", .pink)
+                Text("Emoji in titles")
+                InfoTip("What the assistant adds gets an emoji after a word that clearly names one — “walk my dog 🐕”, “date 💕 with Noa”. A word with two meanings only gets one in the right one: “due date” and “eat a date” stay plain.")
+            }
+        }
+        .accessibilityIdentifier("title-emoji-picker")
+        .onChange(of: settings.titleEmojiCount) { v in
+            Task { await api.patchShared(["title_emoji": ["count": v]]) }
+        }
+    }
+}
+
 struct InfoTip: View {
     let text: String
     @State private var shown = false
