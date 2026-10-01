@@ -35,7 +35,7 @@ class _EventRow(QFrame):
 
     clicked = pyqtSignal(dict)
 
-    def __init__(self, event: dict, font_size: int = 13, parent=None):
+    def __init__(self, event: dict, font_size: int = 13, compact: bool = False, parent=None):
         super().__init__(parent)
         self.event = event
         self._font_size = font_size
@@ -43,7 +43,7 @@ class _EventRow(QFrame):
         self.setObjectName("agenda_row")
 
         lay = QHBoxLayout(self)
-        lay.setContentsMargins(10, 5, 10, 5)
+        lay.setContentsMargins(10, *((2, 10, 2) if compact else (5, 10, 5)))
         lay.setSpacing(10)
 
         self._bar = QFrame()
@@ -203,6 +203,9 @@ class AgendaView(QWidget):
         self._headers = []
 
         fs = 13 if not self._ui_config else self._ui_config.font_day
+        from assistant.calendar_ui import view_prefs as _vp
+        dense = _vp.dense(self._ui_config)
+        self._list_layout.setSpacing(1 if dense else 2)
         show_hebrew = bool(self._hebrew_config
                            and self._hebrew_config.display_mode != "english")
 
@@ -226,7 +229,7 @@ class AgendaView(QWidget):
             self._headers.append(header)
 
             for ev in sorted(events, key=lambda e: e.get("start_time", "")):
-                row = _EventRow(ev, font_size=fs)
+                row = _EventRow(ev, font_size=fs, compact=dense)
                 row.clicked.connect(self.event_clicked)
                 self._list_layout.insertWidget(insert_at, row)
                 insert_at += 1

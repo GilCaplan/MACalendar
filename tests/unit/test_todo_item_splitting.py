@@ -350,6 +350,7 @@ def test_mac_panel_tag_precedence(db):
         _auto_tag = ""
         _auto_tag_infer = True
         _tag_filter: list = []
+        _infers_new_task_tags = TodoListWidget._infers_new_task_tags
 
     pick = TodoListWidget._new_task_tags
     panel = Panel()
@@ -370,6 +371,46 @@ def test_mac_panel_tag_precedence(db):
     panel._auto_tag = ""
     panel._auto_tag_infer = False
     assert pick(panel, "buy chicken") == []
+
+
+def test_mac_quick_add_asks_the_full_labeller_off_the_gui_thread(db, monkeypatch):
+    """Row 41: the quick-add tagged with the keyword rules alone, because the
+    learned tagger's embedding call can take seconds on the GUI thread — so a
+    typed task was tagged worse than the same words spoken. The row is now
+    created at once with the rules' answer and `auto_tags` follows on a
+    thread; typed through the real editor, as a user would."""
+    pytest.importorskip("PyQt6.QtWidgets")
+    from PyQt6.QtCore import Qt, QThread
+    from PyQt6.QtTest import QTest
+    from PyQt6.QtWidgets import QApplication
+    from assistant.actions.todo import tagging
+    from assistant.calendar_ui.todo_view import TodoListWidget
+
+    app = QApplication.instance() or QApplication([])
+    seen = {}
+
+    def fake_auto_tags(title, palette=None, cfg=None):
+        seen["thread"] = QThread.currentThread() is app.thread()
+        return ["Errands"] if "pharmacy" in title else []
+    monkeypatch.setattr(tagging, "auto_tags", fake_auto_tags)
+    if not any(t["name"] == "Errands" for t in db.get_tags()):
+        db.create_tag("Errands")
+
+    w = TodoListWidget(db, "today")
+    w.show()
+    QTest.mouseClick(w._plus_label, Qt.MouseButton.LeftButton)
+    QTest.qWait(10)
+    QTest.keyClicks(w._new_task_editor, "pick up the pharmacy order")
+    QTest.keyClick(w._new_task_editor, Qt.Key.Key_Return)
+
+    row = next(t for t in db.get_todos("today") if t["title"] == "pick up the pharmacy order")
+    for _ in range(100):                      # the thread, then the queued slot
+        QTest.qWait(20)
+        if db.get_todo(row["id"])["tags"] == ["Errands"]:
+            break
+    assert db.get_todo(row["id"])["tags"] == ["Errands"]
+    assert seen["thread"] is False            # never on the GUI thread
+    w.close()
 
 
 # ---------------------------------------------------------------------------

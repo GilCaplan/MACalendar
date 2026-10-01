@@ -310,6 +310,14 @@ theme-aware SVG icon tinting.
 `window.py`; iOS `Theme.swift` + `AppSettings.swift`.
 **How:** One accent hex derives hover/pressed states; the whole QSS sheet
 regenerates on toggle (cached per palette — the PyQt6 QSS-caching gotcha).
+**Compact density** (2026-10-01, TASKS 36) reaches the views, not only the
+Settings dialog: Month's pills take their text's line height (never taller
+than the normal 20px) with tighter cell margins, Tasks and agenda rows lose
+their vertical padding (`view_prefs.dense`). At either density a Month cell
+now shows **as many pills as fit** its height, re-fitted on resize, then a
+short "+N more" line (its tooltip lists the rest) — a fixed three used to draw
+the third pill and "+N more" over each other in a short cell. Week and Day are
+sized by Hour rows. `tests/unit/test_layout_density.py`.
 
 ### Direct-manipulation editing & undo
 **What:** Drag an event to another day/slot (30-min snap), drag its edges to
@@ -1719,6 +1727,14 @@ the workout planner and the coursework view did not, so a task's tag depended
 on which surface made it. `update_todo` labels a renamed task that is still
 untagged — how a calendar-sync task gets one when its event is renamed — and
 never replaces a tag that already exists. Pinned by `tests/unit/test_autolabel.py`.
+**The Mac's quick-add asks the full labeller** (2026-10-01, TASKS 41): the row
+is created at once with the keyword rules' answer, then `auto_tags` — rules,
+then the learned tagger — runs on a daemon thread and replaces it only if it
+disagrees and the user has not re-tagged meanwhile (`todo_view.
+_label_in_background`). It used to ask the rules alone, because the tagger's
+embedding call can take seconds on the GUI thread, so a typed task was tagged
+worse than the same words spoken. Written with `update_todo`, never
+`set_todo_tags`, which files a user CORRECTION into the label feedback.
 **Offline, on the phone:** the Mac serves the classifier's table at
 `GET /tags/rules` (keywords, never-infer set, the real palette, and the user's
 own vocabulary labels) and `TagClassifier.swift` scores against it, so a task

@@ -259,6 +259,7 @@ class DayCell(QWidget):
         layout.setContentsMargins(5, 5, 5, 3)
         layout.setSpacing(2)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self._layout = layout
 
         is_weekend = date.weekday() in (5, 6)
         self._num_label = DayNumberLabel(date.day, self.is_today, self.is_current_month, is_weekend=is_weekend)
@@ -328,27 +329,86 @@ class DayCell(QWidget):
                 item.widget().deleteLater()
 
         pill_fs = 8 if not self._ui_config else max(6, self._ui_config.font_month - 3)
-        from assistant.calendar_ui.occasion_ui import OccasionBanner
-        for b in getattr(self, "_occasions", []):
-            self._event_layout.addWidget(OccasionBanner(b, font_size=pill_fs))
-        for h in self._holidays:
-            banner = HolidayBanner(h["name"], h["category"], h["is_erev"], font_size=pill_fs)
-            self._event_layout.addWidget(banner)
+        from assistant.calendar_ui import view_prefs as _vp
+        dense = _vp.dense(self._ui_config)
+        pill_h = self._pill_height(pill_fs, dense)
+        sp = 1 if dense else 2
+        self._layout.setContentsMargins(*((4, 3, 4, 2) if dense else (5, 5, 5, 3)))
+        self._layout.setSpacing(sp)
+        self._event_layout.setSpacing(sp)
+        self.setMinimumHeight(72 if dense else 88)
 
-        all_items = [("event", e) for e in self._events] + [("todo", t) for t in self._todos]
-        for tag, item in all_items[:3]:
-            if tag == "todo":
-                pill = TodoDeadlinePill(item, font_size=pill_fs)
+        from assistant.calendar_ui.occasion_ui import OccasionBanner
+        items = [("occasion", b) for b in getattr(self, "_occasions", [])] \
+            + [("holiday", h) for h in self._holidays] \
+            + [("event", e) for e in self._events] + [("todo", t) for t in self._todos]
+        # AS MANY AS FIT, then "+N more". A fixed three overflowed a short
+        # cell — the third pill and "+N more" drew over each other — and left
+        # a tall one half empty (row 36, seen rendering both densities).
+        more_h = 14 if dense else 16
+        cap, with_more = self._fit(pill_h, sp, more_h)
+        self._fitted_for = (self.height(), pill_h, sp, more_h)
+        # the "+N more" line is shorter than a pill, so it costs less than one
+        shown = len(items) if len(items) <= cap else with_more
+        for tag, item in items[:shown]:
+            if tag == "occasion":
+                w = OccasionBanner(item, font_size=pill_fs)
+            elif tag == "holiday":
+                w = HolidayBanner(item["name"], item["category"], item["is_erev"], font_size=pill_fs)
+            elif tag == "todo":
+                w = TodoDeadlinePill(item, font_size=pill_fs)
             else:
-                pill = EventPill(item, font_size=pill_fs)
-                pill.clicked.connect(self.event_clicked)
-            self._event_layout.addWidget(pill)
-        if len(all_items) > 3:
+                w = EventPill(item, font_size=pill_fs)
+                w.clicked.connect(self.event_clicked)
+            w.setFixedHeight(pill_h)
+            self._event_layout.addWidget(w)
+        if len(items) > shown:
             more_fs = 11 if not self._ui_config else self._ui_config.font_month
             text_color = _styles.D_GRAY_TEXT if _styles._dark else GRAY_TEXT
-            more = QLabel(f"  +{len(all_items) - 3} more")
-            more.setStyleSheet(f"font-size: {more_fs}px; color: {text_color}; padding: 0 2px;")
+            more = QLabel(f"  +{len(items) - shown} more")
+            more.setStyleSheet(f"font-size: {min(more_fs, more_h - 2)}px; color: {text_color}; "
+                               f"padding: 0 2px; background: transparent;")
+            more.setFixedHeight(more_h)
+            more.setToolTip("\n".join(
+                (i.get("title") or i.get("name") or "") for _t, i in items[shown:]))
             self._event_layout.addWidget(more)
+
+    def _pill_height(self, pill_fs: int, dense: bool) -> int:
+        """Normal: the 20px pill this view always drew. Compact: the text's
+        own line height and no padding — never TALLER than normal (the first
+        cut added padding to the point size and made big-font pills grow)."""
+        if not dense:
+            return 20
+        from PyQt6.QtGui import QFont, QFontMetrics
+        f = QFont(self.font())
+        f.setPointSize(pill_fs)
+        return max(14, min(20, QFontMetrics(f).height()))
+
+    def _room(self, height: int | None = None) -> int:
+        """Pixels under the day number in this cell's height."""
+        m = self._layout.contentsMargins()
+        header = max(self._num_label.sizeHint().height(), 26)
+        h = self.height() if height is None else height
+        return max(h, self.minimumHeight()) - m.top() - m.bottom() \
+            - header - self._layout.spacing()
+
+    def _fit(self, pill_h: int, sp: int, more_h: int,
+             height: int | None = None) -> tuple[int, int]:
+        """(pills that fit when they all do, pills that fit above "+N more")."""
+        room = self._room(height)
+        cap = max(1, (room + sp) // (pill_h + sp))
+        return cap, max(0, min(cap, (room - more_h) // (pill_h + sp)))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        fitted = getattr(self, "_fitted_for", None)
+        if not fitted or fitted[0] == self.height():
+            return
+        old_h, pill_h, sp, more_h = fitted
+        if self._fit(pill_h, sp, more_h) != self._fit(pill_h, sp, more_h, old_h):
+            self._render_pills()
+        else:
+            self._fitted_for = (self.height(), pill_h, sp, more_h)
 
     def mousePressEvent(self, event):
         self.day_clicked.emit(self.date)

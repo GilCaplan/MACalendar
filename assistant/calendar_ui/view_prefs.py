@@ -61,6 +61,16 @@ def weekday_order() -> list[int]:
     return [(_first + i) % 7 for i in range(7)]
 
 
+# -- density -----------------------------------------------------------------------
+
+def dense(ui) -> bool:
+    """Settings ▸ Appearance ▸ Compact layout density. Tighter rows where a
+    view lists things — Month's pills, Tasks, the agenda; Week and Day are
+    sized by Hour rows instead. It used to tighten only the Settings dialog's
+    own spacing, which nobody looks at long enough to want denser (row 36)."""
+    return bool(getattr(ui, "compact_ui", False))
+
+
 # -- the clock ---------------------------------------------------------------------
 
 def clock24() -> bool:

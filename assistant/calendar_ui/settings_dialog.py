@@ -490,8 +490,9 @@ def open_settings(self) -> None:
 
     compact_cb = QCheckBox("Compact layout density")
     compact_cb.setChecked(self._config.ui.compact_ui)
-    compact_cb.setToolTip("Tighter spacing on these Settings pages. The calendar views\n"
-                          "themselves are sized by Font sizes and Hour rows.")
+    compact_cb.setToolTip("Tighter rows in Month (a fourth event before \"+N more\"), Tasks\n"
+                          "and the agenda, and on these Settings pages. Week and Day are\n"
+                          "sized by Hour rows.")
     appearance.addWidget(compact_cb)
 
     def update_style(compact: bool):

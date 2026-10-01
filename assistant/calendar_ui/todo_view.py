@@ -878,7 +878,8 @@ class TodoItemWidget(QWidget):
     deleted      = pyqtSignal(int)        # (todo_id,)
     detail_saved = pyqtSignal()           # any field in detail panel auto-saved
 
-    def __init__(self, todo: dict, db, dark: bool = False, font_size: int = 13, parent=None) -> None:
+    def __init__(self, todo: dict, db, dark: bool = False, font_size: int = 13,
+                 compact: bool = False, parent=None) -> None:
         super().__init__(parent)
         self._todo = todo
         self._db = db
@@ -886,6 +887,7 @@ class TodoItemWidget(QWidget):
         self._editing = False
         self._expanded = False
         self._font_size = font_size
+        self._compact = compact
         self._detail_panel: Optional[TodoDetailPanel] = None
         self._list_item: Optional[QListWidgetItem] = None
         self._list_widget: Optional[QListWidget] = None
@@ -915,7 +917,7 @@ class TodoItemWidget(QWidget):
 
         # Title row
         title_row = QHBoxLayout()
-        title_row.setContentsMargins(14, 6, 10, 6)
+        title_row.setContentsMargins(14, *((2, 10, 2) if self._compact else (6, 10, 6)))
         title_row.setSpacing(10)
 
         # Drag grip handle
@@ -994,7 +996,7 @@ class TodoItemWidget(QWidget):
         self._meta_row = QWidget()
         self._meta_row.setContentsMargins(0, 0, 0, 0)
         meta_layout = QHBoxLayout(self._meta_row)
-        meta_layout.setContentsMargins(56, 0, 14, 5)  # left-align under title (past grip+check)
+        meta_layout.setContentsMargins(56, 0, 14, 3 if self._compact else 5)  # left-align under title (past grip+check)
         meta_layout.setSpacing(8)
 
         self._meta_subtasks = QLabel()
@@ -1375,6 +1377,8 @@ class TodoListWidget(QWidget):
 
     todo_changed  = pyqtSignal()      # bubbles up to TodoView
     count_changed = pyqtSignal(int)   # pending task count
+    #: (todo_id, tags shown, tags the full labeller chose) — from a thread
+    _tags_inferred = pyqtSignal(int, list, list)
 
     def __init__(self, db, list_name: str, dark: bool = False, parent=None) -> None:
         super().__init__(parent)
@@ -1384,6 +1388,7 @@ class TodoListWidget(QWidget):
         self._item_widgets: list[TodoItemWidget] = []
         self._reorder_enabled = True
         self._font_size = 13
+        self._compact = False            # Settings ▸ Compact layout density
         self._sort_mode: str = "manual"  # "manual" | "priority" | "due_date"
         self._tag_filter: list[str] = []  # any of: tag names | UNTAGGED_KEY (empty = all)
         self._auto_tag: str = ""         # "tag mode": tag every new task with this
@@ -1415,6 +1420,7 @@ class TodoListWidget(QWidget):
         # "New Task" row below the list
         self._new_row = self._make_new_task_row()
         outer.addWidget(self._new_row)
+        self._tags_inferred.connect(self._apply_inferred_tags)
 
     def set_owner_filter(self, fn) -> None:
         """`fn(todo) -> bool`, or None for every row the viewer can see."""
@@ -1469,17 +1475,65 @@ class TodoListWidget(QWidget):
         self._list_widget.setDragEnabled(drag_on)
         self._list_widget.setAcceptDrops(drag_on)
 
+    def _infers_new_task_tags(self) -> bool:
+        """True when a new task's tags come from its title rather than from
+        tag mode or the filter the user is looking at."""
+        return not self._auto_tag and not self._tag_filter and self._auto_tag_infer
+
     def _new_task_tags(self, title: str = "") -> list[str]:
         """Tag mode wins; otherwise inherit the active filter tag so the new
         task doesn't vanish from the list the user is looking at; failing both,
-        infer one from the title, the same way voice and the phone do."""
+        infer one from the title — the keyword rules here, at once; the learned
+        tagger behind them follows off the GUI thread (`_label_in_background`)."""
         if self._auto_tag:
             return [self._auto_tag]
         inherited = [t for t in self._tag_filter if t != UNTAGGED_KEY]
-        if inherited or UNTAGGED_KEY in self._tag_filter or not self._auto_tag_infer:
+        if not self._infers_new_task_tags():
             return inherited        # looking at Untagged means untagged is the point
         from assistant.actions.todo.tagging import suggest_tags
         return suggest_tags(title)
+
+    def _label_in_background(self, todo_id: int, title: str, shown: list[str]) -> None:
+        """Run `auto_tags` — the rules, then the learned tagger, the labeller
+        voice and `POST /todos` use — on a daemon thread. The tagger's embedding
+        call can take seconds, which the quick-add used to dodge by asking the
+        rules alone, so a typed task was tagged worse than the same words
+        spoken. The row is created first with the rules' answer; this only
+        replaces it when the full labeller disagrees."""
+        try:
+            palette = [r["name"] for r in self._db.get_tags()]
+        except Exception:
+            return
+
+        def _work():
+            try:
+                from assistant.actions.todo.tagging import auto_tags
+                from assistant.config import load_config
+                try:
+                    cfg = load_config("config.yaml")
+                except Exception:
+                    cfg = None
+                tags = auto_tags(title, palette, cfg)
+            except Exception:
+                return
+            if tags != shown:
+                self._tags_inferred.emit(todo_id, list(shown), list(tags))
+
+        import threading
+        threading.Thread(target=_work, name="quick-add-tagger", daemon=True).start()
+
+    def _apply_inferred_tags(self, todo_id: int, shown: list, tags: list) -> None:
+        """On the GUI thread. `update_todo`, not `set_todo_tags`: the latter
+        files a user CORRECTION into the label feedback the classifier is
+        fitted on, and this is the classifier's own answer."""
+        try:
+            row = self._db.get_todo(todo_id)
+            if row is None or list(row.get("tags") or []) != shown:
+                return          # deleted, or re-tagged by the user meanwhile
+            self._db.update_todo(todo_id, tags=tags)
+        except Exception:
+            return
+        self.todo_changed.emit()
 
     def _sorted_todos(self, todos: list) -> list:
         if self._sort_mode == "priority":
@@ -1517,7 +1571,8 @@ class TodoListWidget(QWidget):
         for todo in todos:
             item = QListWidgetItem(self._list_widget)
             item.setData(Qt.ItemDataRole.UserRole, todo["id"])
-            widget = TodoItemWidget(todo, self._db, dark=self._dark, font_size=self._font_size)
+            widget = TodoItemWidget(todo, self._db, dark=self._dark, font_size=self._font_size,
+                                    compact=self._compact)
             widget.toggled.connect(self._on_toggled)
             widget.edited.connect(self._on_edited)
             widget.quantity_changed.connect(self._on_quantity_changed)
@@ -1586,9 +1641,12 @@ class TodoListWidget(QWidget):
             self._new_task_editor.blockSignals(False)
             self._plus_label.show()
             if title:
-                self._db.create_todo(
-                    title=title, list_name=self._list_name, tags=self._new_task_tags(title)
+                tags = self._new_task_tags(title)
+                new_id = self._db.create_todo(
+                    title=title, list_name=self._list_name, tags=tags
                 )
+                if new_id and self._infers_new_task_tags():
+                    self._label_in_background(new_id, title, tags)
                 QTimer.singleShot(0, self.todo_changed.emit)
 
         def _cancel():
@@ -2383,6 +2441,7 @@ class TodoView(FeaturePanel):
             header = SectionHeader(name or "Shared", dark=self._dark)
             lst = TodoListWidget(self._db, None, dark=self._dark)
             lst._font_size = self._today_list._font_size
+            lst._compact = self._today_list._compact
             lst.set_owner_filter(lambda t, u=uid: t.get("owner_id") == u)
             lst.set_can_add(False)
             lst.set_fixed_order(True)
@@ -2412,6 +2471,8 @@ class TodoView(FeaturePanel):
         self._general_header._font_size = fs
         self._today_list._font_size = fs
         self._general_list._font_size = fs
+        from assistant.calendar_ui import view_prefs as _vp
+        self._today_list._compact = self._general_list._compact = _vp.dense(ui_config)
         self._today_header.apply_theme(self._dark)
         self._general_header.apply_theme(self._dark)
         self.refresh()
