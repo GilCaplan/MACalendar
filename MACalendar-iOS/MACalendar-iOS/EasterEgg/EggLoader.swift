@@ -89,6 +89,8 @@ enum EggLoaderRender {
                 f.draw(EggPainter(ctx: g), pose)
             case .image(let file):
                 if let img = image(file) { EggPuppet.draw(o.activeVariant, g.resolve(img), g, t: t * pace) }
+            case .symbol(let spec):
+                EggSymbol.draw(spec, g, t: t * pace)
             case .effect(let raw):
                 var e = ctx
                 e.translateBy(x: p.x - box / 2, y: p.y - box / 2)

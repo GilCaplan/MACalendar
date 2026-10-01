@@ -261,7 +261,7 @@ built when it reaches the Mac.
 | hybrid | [Timer](#timer-work-tracking) | per-project work + earnings | db `timers*`, `TimerView` |
 | hybrid | [Counters](#counters) | tap counters + payouts | db `counters*` |
 | hybrid | [Teach](#teach--the-labelling-game) | the labelling game — label models' only non-circular data (iOS only) | `features/teach/`, `LabelGameView.swift` |
-| UI | [Magic words (Easter egg)](#magic-words--the-easter-egg) | say "dog" and a German Shepherd runs across the phone; 26 anime graphics, your own photos (iOS only) | `MACalendar-iOS/…/EasterEgg/` |
+| UI | [Magic words (Easter egg)](#magic-words--the-easter-egg) | say "dog" and a German Shepherd runs across the phone; 40 built-in graphics, your own photos, emoji, flags and symbols | `MACalendar-iOS/…/EasterEgg/` |
 | UI | [The loading screen](#the-loading-screen--your-own-wheel-of-death) | your own animated spinner and \"taking a while\" screen, built in Settings ▸ Easter egg (iOS) | `EasterEgg/EggLoader*.swift` |
 | UI | [How it runs: Mac + phone, or phone only](#how-it-runs--mac--phone-or-phone-only) | a setup guide in the phone's Settings; a phone-only mode with no Mac and no offline banner | `SetupGuideView.swift`, `DefaultRules.swift` |
 | hybrid | [Coursework](#coursework) | courses + assignments tab | db `courses*`, `CourseworkView` |
@@ -811,6 +811,48 @@ the model protocol like every generating call: `route_post` (the gate and
 model helpers), the request's priority (`serving`), seed options, the call
 bus. Tests: `tests/unit/test_magic_suggest.py`,
 `test_suggested_words_are_cleaned_before_anyone_sees_them`.
+**The built-in list** (`EggWordBank.swift`, shared with the Mac): when no model
+answers, or one answers short, the sheet is topped up to the count from ~70
+things people ask for (synonyms, kinds, the Jewish set), about a third of them
+adjective phrases ("fluffy dog", "golden retriever"), in a seeded shuffle so
+"Suggest again" gives a different handful. The footer says which came from
+where. Test: `test_the_word_bank_tops_up_to_the_count_with_names_and_adjective_phrases`.
+
+### One word, one thing — word conflicts
+**What:** A word (or its plural) can summon only one thing. Adding a word that
+another magic word already has asks: move it here, or keep it where it is — and
+then does it. A new object made from a photo or a symbol asks the same before
+saving. Settings lists any words already on two things ("Words on two things")
+with a "Keep on…" menu to settle each. Suggestions never offer a taken word at
+all: it is dropped deterministically and the built-in list fills the gap.
+**Where:** `EggRules.sameWord` / `conflicts`, `EggStore.keepWord`,
+`EggSettingsView`. Tests: `test_one_word_summons_one_thing`,
+`test_suggestions_never_offer_a_word_another_object_has`, the UI test
+`testATakenWordAsksKeepOrMove`.
+
+### Your own emoji, flag or symbol
+**What:** Besides the built-in art, a photo or a drawn path, a magic word's
+graphic can be any emoji or flag from the keyboard (🇮🇱, 😎, a few letters), or
+one of Apple's SF Symbols in a colour you pick (a person, a crown, a
+graduation cap). "Add an emoji, flag or symbol…" on a magic word's page, or
+"New from an emoji, flag or symbol…" for a new magic word with its own words
+(and Suggest words). It hops and wobbles with a white sticker glow, and plays
+in every motion, trail and loading-screen style. A mistyped symbol name draws
+a question mark rather than nothing.
+**Where:** `EasterEgg/EggSymbol.swift` (shared; the Mac helper draws it too),
+`EggSymbolEditor.swift`; stored as `EggVariant.Source.symbol("emoji:…" |
+"sf:name|#hex")`. Test: the symbols sheet in
+`test_every_graphic_renders_in_every_motion`, the UI test
+`testAnEmojiBecomesAGraphic`.
+**On the Mac** (the magic-words helper, `mac/MagicWords/MacWords.swift`): the
+same three — Suggest words (this Mac's model through the API's
+`/magic/suggest-words` first, then Apple's on-device model via the shared
+`EggOnDevice.swift`, then the built-in list), the keep-or-move question and the
+"Words on two things" repair, and "Add an emoji, flag or symbol…" / "New magic
+word from an emoji, flag or symbol…". The calendar app now rebuilds the helper
+whenever a Swift file it is built from has changed (`magic_words._stale`,
+`tests/unit/test_magic_words_helper.py`) — it used to build it only when
+missing, so Mac changes never arrived.
 
 ### The loading screen — your own wheel of death
 **What:** Wherever the phone waits — the mic while a command thinks, the

@@ -159,11 +159,15 @@ enum EggWordBank {
     /// `words`, topped up from the bank to `count`, drawn at random (a fixed
     /// `seed` for tests), never repeating a word the object has or already got.
     static func fill(_ words: [String], id: String?, name: String, existing: [String], count: Int,
-                     seed: UInt64? = nil) -> (words: [String], fromBank: Int) {
+                     taken: [String] = [], seed: UInt64? = nil) -> (words: [String], fromBank: Int) {
+        // Never a word another object already has (Gil: remove conflicts,
+        // deterministically, and top up from the bank instead).
+        let words = words.filter { w in !taken.contains { EggRules.sameWord($0, w) } }
         guard words.count < count else { return (Array(words.prefix(count)), 0) }
         let have = Set((existing + words).map { $0.lowercased() })
-        var names = candidates(id: id, name: name, keywords: existing).filter { !have.contains($0) }
-        var phrases = adjectivePhrases(id: id, name: name, keywords: existing).filter { !have.contains($0) }
+        func free(_ w: String) -> Bool { !have.contains(w) && !taken.contains { EggRules.sameWord($0, w) } }
+        var names = candidates(id: id, name: name, keywords: existing).filter(free)
+        var phrases = adjectivePhrases(id: id, name: name, keywords: existing).filter(free)
         var g = SeededGenerator(state: seed ?? UInt64.random(in: 1...UInt64.max))
         names.shuffle(using: &g)
         phrases.shuffle(using: &g)

@@ -170,4 +170,66 @@ final class EasterEggUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Add 1 chosen"].firstMatch.isEnabled)
         app.buttons["Cancel"].firstMatch.tap()
     }
+
+    /// One word, one thing: adding a word another object has asks first, and
+    /// "Keep it where it is" adds nothing.
+    func testATakenWordAsksKeepOrMove() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-serverURL", "127.0.0.1:59999"]
+        app.launch()
+        let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
+        if allow.waitForExistence(timeout: 3) { allow.tap() }
+        app.buttons["tab-settings"].firstMatch.tap()
+        let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Easter egg")).firstMatch
+        for _ in 0..<6 where !row.isHittable { app.swipeUp() }
+        row.tap()
+        let dog = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "German Shepherd")).firstMatch
+        for _ in 0..<16 where !dog.isHittable { app.swipeUp() }
+        dog.tap()
+        let field = app.textFields["Add a word"].firstMatch
+        for _ in 0..<6 where !field.isHittable { app.swipeUp() }
+        field.tap()
+        field.typeText("cat\n")          // Return submits, as the Add button does
+        let alert = app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 5), "no keep-or-move question")
+        XCTAssertTrue(alert.label.contains("taken") || alert.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Cat")).count > 0)
+        snap(app, "11-word-taken")
+        alert.buttons["Keep it where it is"].tap()
+        XCTAssertFalse(app.staticTexts["cat"].exists, "cat was added although the user kept it on Cat")
+    }
+
+    /// Your own emoji as a magic word's graphic: the editor opens, previews,
+    /// and saves it onto the object.
+    func testAnEmojiBecomesAGraphic() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-serverURL", "127.0.0.1:59999"]
+        app.launch()
+        let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
+        if allow.waitForExistence(timeout: 3) { allow.tap() }
+        app.buttons["tab-settings"].firstMatch.tap()
+        let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Easter egg")).firstMatch
+        for _ in 0..<6 where !row.isHittable { app.swipeUp() }
+        row.tap()
+        let dog = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "German Shepherd")).firstMatch
+        for _ in 0..<16 where !dog.isHittable { app.swipeUp() }
+        dog.tap()
+        let add = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "emoji, flag or symbol")).firstMatch
+        for _ in 0..<6 where !add.isHittable { app.swipeUp() }
+        add.tap()
+        let cool = app.buttons["😎"].firstMatch
+        XCTAssertTrue(cool.waitForExistence(timeout: 5), "no emoji picks")
+        cool.tap()
+        snap(app, "12-emoji-editor")
+        app.buttons["Save"].firstMatch.tap()
+        let saved = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Emoji 😎")).firstMatch
+        for _ in 0..<6 where !saved.exists { app.swipeDown() }
+        XCTAssertTrue(saved.waitForExistence(timeout: 5), "the emoji was not added to the dog")
+        // Leave the dog as it was: the other tests (and the demo) expect it.
+        let rows = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Emoji 😎"))
+        for _ in 0..<4 where rows.count > 0 {
+            rows.firstMatch.swipeLeft()
+            app.buttons["Delete"].firstMatch.tap()
+        }
+        XCTAssertEqual(rows.count, 0, "the test's emoji was left on the dog")
+    }
 }

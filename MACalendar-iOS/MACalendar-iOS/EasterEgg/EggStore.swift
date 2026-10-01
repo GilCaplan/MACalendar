@@ -158,16 +158,33 @@ final class EggStore: ObservableObject {
 
     func index(_ id: String) -> Int? { settings.objects.firstIndex { $0.id == id } }
 
-    /// Add a keyword. A keyword summons ONE object, so if another object had
-    /// it, it moves here — and the returned name says from where.
+    /// The other object this word (or its plural) already summons — the
+    /// caller asks the user before adding it (Gil: keep, or change).
+    func owner(of word: String, besides id: String) -> EggObject? {
+        EggRules.owner(of: word.trimmingCharacters(in: .whitespacesAndNewlines), besides: id, in: settings.objects)
+    }
+
+    /// Words on more than one object — to repair.
+    var conflicts: [(word: String, ids: [String])] { EggRules.conflicts(settings.objects) }
+
+    /// Keep `word` on `id` only: take it (and its plural/singular) off every
+    /// other object.
+    func keepWord(_ word: String, on id: String) {
+        for j in settings.objects.indices where settings.objects[j].id != id {
+            settings.objects[j].keywords.removeAll { EggRules.sameWord($0, word) }
+        }
+    }
+
+    /// Add a keyword. A keyword summons ONE object: the caller has asked the
+    /// user (`owner`) and this moves it here, returning where it came from.
     @discardableResult
     func addKeyword(_ raw: String, to id: String) -> String? {
         let word = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !word.isEmpty, let i = index(id) else { return nil }
         var movedFrom: String?
         for j in settings.objects.indices where j != i {
-            if settings.objects[j].keywords.contains(word) {
-                settings.objects[j].keywords.removeAll { $0 == word }
+            if settings.objects[j].keywords.contains(where: { EggRules.sameWord($0, word) }) {
+                settings.objects[j].keywords.removeAll { EggRules.sameWord($0, word) }
                 movedFrom = settings.objects[j].name
             }
         }

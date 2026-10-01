@@ -5,6 +5,7 @@ import PhotosUI
 struct EggSettingsView: View {
     @ObservedObject private var store = EggStore.shared
     @State private var newObject = false
+    @State private var newSymbol = false
     @State private var drawing = false
     @State private var previewID = "dog"
 
@@ -32,6 +33,29 @@ struct EggSettingsView: View {
             } footer: {
                 Text("Say a magic word and its picture plays across the screen. Your commands still run as usual; "
                      + "a magic word said on its own is just for fun and isn't sent to your Mac.")
+            }
+
+            if store.settings.enabled, !store.conflicts.isEmpty {
+                Section {
+                    ForEach(store.conflicts, id: \.word) { c in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("“\(c.word)”").font(.headline)
+                                Text("summons " + c.ids.compactMap { id in store.settings.objects.first { $0.id == id }?.name }
+                                        .joined(separator: " and "))
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Menu("Keep on…") {
+                                ForEach(c.ids, id: \.self) { id in
+                                    Button(store.settings.objects.first { $0.id == id }?.name ?? id) { store.keepWord(c.word, on: id) }
+                                }
+                            }
+                        }
+                    }
+                } header: { Text("Words on two things") } footer: {
+                    Text("A word can only summon one thing — pick where each stays and it's taken off the other.")
+                }
             }
 
             if store.settings.enabled {
@@ -229,6 +253,7 @@ struct EggSettingsView: View {
                     }
                 }
                 Button { newObject = true } label: { Label("New from a photo…", systemImage: "photo.badge.plus") }
+                Button { newSymbol = true } label: { Label("New from an emoji, flag or symbol…", systemImage: "face.smiling") }
             } header: {
                 Text("Magic words")
             } footer: {
@@ -238,6 +263,7 @@ struct EggSettingsView: View {
         }
         .navigationTitle("Easter egg")
         .sheet(isPresented: $newObject) { EggPhotoEditor(mode: .newObject) }
+        .sheet(isPresented: $newSymbol) { EggSymbolEditor(mode: .newObject) }
         .sheet(isPresented: $drawing) { EggPathDrawer(objectID: nil, path: $store.settings.drawnPath) }
     }
 }
@@ -252,10 +278,19 @@ struct EggObjectView: View {
     @State private var editing: EggVariant?
     @State private var confirmDelete = false
     @State private var suggesting = false
+    @State private var addingSymbol = false
     @State private var drawing = false
+    /// Words waiting on "move here, or keep there?" (one word, one thing).
+    @State private var asking: [String] = []
     @Environment(\.dismiss) private var dismiss
 
     private var i: Int? { store.index(id) }
+
+    private var askingText: String {
+        let parts = asking.map { w in "“\(w)” (\(store.owner(of: w, besides: id)?.name ?? "another"))" }
+        return (asking.count == 1 ? "\(parts[0]) already summons that." : "These already summon other things: \(parts.joined(separator: ", ")).")
+            + " A word can only summon one thing."
+    }
 
     var body: some View {
         if let i {
@@ -399,6 +434,7 @@ struct EggObjectView: View {
                         }
                     }
                     Button { adding = true } label: { Label("Add a photo…", systemImage: "photo.badge.plus") }
+                    Button { addingSymbol = true } label: { Label("Add an emoji, flag or symbol…", systemImage: "face.smiling") }
                 } header: { Text("Pictures") } footer: {
                     Text("Tap one to make it the one that plays. Swipe a photo to edit its outline or style, or to delete it.")
                 }
@@ -411,12 +447,22 @@ struct EggObjectView: View {
             }
             .navigationTitle(o.name)
             .sheet(isPresented: $adding) { EggPhotoEditor(mode: .addTo(id)) }
+            .sheet(isPresented: $addingSymbol) { EggSymbolEditor(mode: .addTo(id)) }
             .sheet(isPresented: $suggesting) {
                 EggSuggestSheet(name: o.name, objectID: o.id, existing: o.keywords) { chosen in
-                    let moved = chosen.compactMap { store.addKeyword($0, to: id) }
-                    note = moved.isEmpty ? nil : "Moved here from \(Set(moved).sorted().joined(separator: ", ")) — a word summons one thing."
+                    // After the sheet has gone, so the question isn't hidden under it.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { adding(chosen) }
                 }
             }
+            .alert(asking.count == 1 ? "That word is taken" : "Some words are taken",
+                   isPresented: Binding(get: { !asking.isEmpty }, set: { if !$0 { asking = [] } })) {
+                Button(asking.count == 1 ? "Move it to \(o.name)" : "Move them to \(o.name)") {
+                    for w in asking { store.addKeyword(w, to: id) }
+                    note = "Moved to \(o.name): \(asking.joined(separator: ", "))."
+                    asking = []
+                }
+                Button(asking.count == 1 ? "Keep it where it is" : "Keep them where they are", role: .cancel) { asking = [] }
+            } message: { Text(askingText) }
             .sheet(isPresented: $drawing) { EggPathDrawer(objectID: id, path: $store.settings.objects[i].drawnPath) }
             .sheet(item: $editing) { v in EggPhotoEditor(mode: .edit(id, v)) }
             .confirmationDialog("Delete \(o.name) and its photos?", isPresented: $confirmDelete, titleVisibility: .visible) {
@@ -443,14 +489,18 @@ struct EggObjectView: View {
     }
 
     private func add() {
-        let w = word.trimmingCharacters(in: .whitespacesAndNewlines)
+        let w = word.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !w.isEmpty else { return }
-        if let from = store.addKeyword(w, to: id) {
-            note = "“\(w.lowercased())” moved here from \(from) — a word summons one thing."
-        } else {
-            note = nil
-        }
         word = ""
+        adding([w])
+    }
+
+    /// Add these words — asking first about any another object already has.
+    private func adding(_ words: [String]) {
+        let taken = words.filter { store.owner(of: $0, besides: id) != nil }
+        for w in words where !taken.contains(w) { store.addKeyword(w, to: id) }
+        note = nil
+        asking = taken
     }
 }
 
@@ -475,8 +525,13 @@ struct EggThumb: View {
                 if let img = EggStore.shared.image(file) {
                     img.resizable().scaledToFit().padding(3)
                 }
+            case .symbol(let spec):
+                EggSymbol.thumb(spec)
             }
         }
+        // A picture of the row's thing: VoiceOver reads the row's name, not
+        // "smiling face with sunglasses, German Shepherd".
+        .accessibilityHidden(true)
     }
 
     static func symbol(_ effect: String) -> String {
@@ -610,6 +665,15 @@ struct EggPhotoEditor: View {
             .onChange(of: anime) { _ in Task { await rerender() } }
             .onChange(of: lasso) { _ in if drawn { Task { await rerender() } } }
             .onAppear(perform: load)
+            .alert("Some words are taken", isPresented: Binding(get: { !taken.isEmpty && moveTaken == nil },
+                                                                 set: { if !$0 && moveTaken == nil { taken = [] } })) {
+                Button("Move them to “\(name)”") { moveTaken = true; save() }
+                Button("Keep them where they are") { moveTaken = false; save() }
+                Button("Cancel", role: .cancel) { taken = [] }
+            } message: {
+                Text(taken.map { w in "“\(w)” (\(EggStore.shared.owner(of: w, besides: "")?.name ?? "another"))" }
+                        .joined(separator: ", ") + " already summon other things. A word can only summon one thing.")
+            }
             .sheet(isPresented: $suggesting) {
                 EggSuggestSheet(name: name.trimmingCharacters(in: .whitespaces), existing: keywordList) { chosen in
                     words = (keywordList + chosen.filter { !keywordList.contains($0) }).joined(separator: ", ")
@@ -673,8 +737,17 @@ struct EggPhotoEditor: View {
         busy = false
     }
 
+    /// Words the new magic word would take from another — asked before saving.
+    @State private var taken: [String] = []
+    /// The user's answer: nil not asked yet, true move them, false keep them there.
+    @State private var moveTaken: Bool?
+
     private func save() {
         let store = EggStore.shared
+        if case .newObject = mode, moveTaken == nil {
+            let clash = keywordList.filter { store.owner(of: $0, besides: "") != nil }
+            if !clash.isEmpty { taken = clash; return }
+        }
         guard let result, let photo, let png = store.write(result) else { return }
         let keptLasso = drawn ? lasso.map { [Double($0.x), Double($0.y)] } : nil
         switch mode {
@@ -693,7 +766,8 @@ struct EggPhotoEditor: View {
                                         scalePercent: scale), to: id)
         case .newObject:
             guard let jpg = store.write(photo, jpeg: true) else { return }
-            _ = store.addCustom(name: name.trimmingCharacters(in: .whitespaces), keywords: keywordList,
+            let words = moveTaken == false ? keywordList.filter { !taken.contains($0) } : keywordList
+            _ = store.addCustom(name: name.trimmingCharacters(in: .whitespaces), keywords: words,
                                 original: EggVariant(id: EggVariant.originalID, name: "Original photo",
                                                      source: .image(png), photo: jpg, lasso: keptLasso, anime: anime,
                                                      rig: rig, detectedRig: detected, wheels: wheels, legs: legs,

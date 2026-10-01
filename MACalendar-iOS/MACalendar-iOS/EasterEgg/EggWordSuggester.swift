@@ -1,20 +1,11 @@
 import Foundation
-#if canImport(FoundationModels)
-import FoundationModels
-#endif
 
 /// "Suggest words" for a magic-word object (TASKS 49).
 ///
-/// It used to come back EMPTY, silently. Probed on the Mac's copy of the same
-/// on-device model (2026-09-30): greedy sampling made it repeat itself
-/// ("dragon" ×8, "rex" ×8), and every repeat of a word the object already had
-/// was filtered out; "Sukkah" tripped the default guardrail ("may contain
-/// unsafe content"); an unbounded list ran into the context limit; and every
-/// one of those failures was swallowed by a `try?`. Now:
+/// It used to come back EMPTY, silently — `EggOnDevice` says why. Now:
 ///
-///     this device first   Apple's on-device model, a fixed count per round,
-///                         sampled, the permissive guardrail, rounds until
-///                         there are enough clean words
+///     this device first   Apple's on-device model (`EggOnDevice`, shared
+///                         with the Mac)
 ///     then the Mac        its model (POST /magic/suggest-words), when this
 ///                         device can't, or when asked ("Ask my Mac")
 ///     else                a plain sentence saying no model is available
@@ -37,12 +28,7 @@ enum EggWordSuggester {
     /// What the on-device model last said when it failed, for the message.
     @MainActor static var lastPhoneError: String?
 
-    static var phoneCan: Bool {
-        #if canImport(FoundationModels)
-        if #available(iOS 26.0, *), case .available = SystemLanguageModel.default.availability { return true }
-        #endif
-        return false
-    }
+    static var phoneCan: Bool { EggOnDevice.available }
 
     /// A model's words, topped up from the built-in list to `count` (Gil,
     /// 2026-09-30: "create our own fallback … some randomness … if the llm
@@ -51,8 +37,15 @@ enum EggWordSuggester {
     static func suggest(for name: String, id: String? = nil, existing: [String], count: Int, api: APIClient,
                         preferMac: Bool = false) async -> Result {
         var r = await modelSuggest(for: name, existing: existing, count: count, api: api, preferMac: preferMac)
-        let filled = EggWordBank.fill(r.words, id: id, name: name, existing: existing, count: count)
-        guard filled.fromBank > 0 else { return r }
+        // Every word another magic word already has is dropped, and the bank
+        // tops the list back up — a suggestion is never a conflict.
+        let taken = EggStore.shared.settings.objects.filter { $0.id != id }.flatMap(\.keywords)
+        let filled = EggWordBank.fill(r.words, id: id, name: name, existing: existing, count: count, taken: taken)
+        r.words = filled.words
+        guard filled.fromBank > 0 else {
+            if r.words.isEmpty, r.problem == nil { r.problem = "Every word that came back already summons something else." }
+            return r
+        }
         r.words = filled.words
         r.fromBank = filled.fromBank
         if r.source == nil || filled.fromBank == filled.words.count { r.source = .bank }
@@ -93,46 +86,10 @@ enum EggWordSuggester {
 
     @MainActor
     private static func onPhone(_ thing: String, existing: [String], count: Int) async -> [String] {
-        lastPhoneError = nil
-        #if canImport(FoundationModels)
-        guard #available(iOS 26.0, *), phoneCan else { return [] }
-        var got: [String] = []
-        let model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
-        for _ in 0..<3 where got.count < count {
-            let session = LanguageModelSession(model: model, instructions: instructions)
-            let prompt = "Thing: \(thing)\nAlready listed: \((existing + got).joined(separator: ", ").ifEmpty("nothing"))"
-            let round: [String]?
-            do {
-                round = try await withThrowingTaskGroup(of: [String]?.self) { group in
-                    group.addTask {
-                        try await session.respond(to: prompt, generating: GenEggIdeas.self,
-                                                  options: GenerationOptions(temperature: 0.7)).content.ideas.map(\.phrase)
-                    }
-                    group.addTask { try await Task.sleep(nanoseconds: 30_000_000_000); return nil }
-                    let first = try await group.next() ?? nil
-                    group.cancelAll()
-                    return first
-                }
-                if round == nil { lastPhoneError = "the on-device model took too long" }
-            } catch {
-                lastPhoneError = "the on-device model said: \(error)"
-                round = nil
-            }
-            guard let round else { break }
-            got = clean(got + round, name: thing, existing: existing, count: count)
-        }
-        return got
-        #else
-        return []
-        #endif
+        let r = await EggOnDevice.words(for: thing, existing: existing, count: count)
+        lastPhoneError = r.error
+        return r.words
     }
-
-    static let instructions = """
-        You list the other names people use for a thing, for a word game in a calendar app. Give words \
-        someone might say in a sentence that clearly mean that same thing: synonyms, kinds, breeds, types, \
-        famous examples, nicknames, other spellings. Lower case. Never repeat a word, never repeat the ones \
-        already listed, never split a name into its separate words.
-        """
 
     // MARK: - The Mac
 
@@ -157,23 +114,3 @@ enum EggWordSuggester {
         EggRules.cleanWords(words, name: name, existing: existing, count: count)
     }
 }
-
-private extension String {
-    func ifEmpty(_ other: String) -> String { isEmpty ? other : self }
-}
-
-#if canImport(FoundationModels)
-@available(iOS 26.0, *)
-@Generable
-struct GenEggIdea {
-    @Guide(description: "A word or short phrase, one to three words, that a person would say to mean the thing")
-    var phrase: String
-}
-
-@available(iOS 26.0, *)
-@Generable
-struct GenEggIdeas {
-    @Guide(description: "Different phrases for the same thing, no repeats", .count(10))
-    var ideas: [GenEggIdea]
-}
-#endif

@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import pathlib
+import re
 import select
 import shutil
 import subprocess
@@ -70,12 +71,27 @@ def _spawn() -> None:
                                  stderr=subprocess.DEVNULL, text=True, bufsize=1)
 
 
+def _stale() -> bool:
+    """The helper is older than a Swift file it is built from — rebuild, or a
+    change to the drawings or the settings window never reaches the Mac."""
+    if not BINARY.exists():
+        return True
+    built = BINARY.stat().st_mtime
+    egg = HERE.parents[1] / "MACalendar-iOS" / "MACalendar-iOS" / "EasterEgg"
+    script = (HERE / "build.sh").read_text()
+    # Only what build.sh compiles: the phone's own screens don't count.
+    shared = [egg / name for name in re.findall(r'"\$EGG/([\w.]+\.swift)"', script)]
+    sources = [*HERE.glob("*.swift"), HERE / "build.sh", *shared]
+    return any(p.stat().st_mtime > built for p in sources if p.exists())
+
+
 def start() -> None:
-    """Start the helper, building it in the background the first time."""
+    """Start the helper, building it in the background the first time and
+    whenever its sources have changed since."""
     global _building
     if _disabled():
         return
-    if BINARY.exists():
+    if not _stale():
         try:
             _spawn()
         except OSError as e:
@@ -83,6 +99,11 @@ def start() -> None:
     elif not _building and shutil.which("swiftc"):
         _building = True
         threading.Thread(target=_build, daemon=True, name="magic-words-build").start()
+    elif BINARY.exists():                        # stale, but nothing to rebuild it with
+        try:
+            _spawn()
+        except OSError as e:
+            logger.warning("✨ Could not start the magic-words helper: %s", e)
 
 
 def _ask(op: str, wait: bool = False, timeout: float = 0.5, **fields) -> "dict | None":

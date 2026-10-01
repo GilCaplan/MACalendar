@@ -103,4 +103,36 @@ enum EggRules {
         }
         return out
     }
+
+    // MARK: - One word, one thing
+
+    /// Do two keywords summon the same speech — equal, or one the other's
+    /// plural ("dog" / "dogs")?
+    static func sameWord(_ a: String, _ b: String) -> Bool {
+        let x = a.lowercased(), y = b.lowercased()
+        return x == y || EggMatcher.same(x, y) || EggMatcher.same(y, x)
+    }
+
+    /// The other object `word` (or its plural / singular) already summons.
+    static func owner(of word: String, besides id: String, in objects: [EggObject]) -> EggObject? {
+        objects.first { $0.id != id && $0.keywords.contains { sameWord($0, word) } }
+    }
+
+    /// Words that summon more than one thing, with the objects that have them.
+    static func conflicts(_ objects: [EggObject]) -> [(word: String, ids: [String])] {
+        var out: [(String, [String])] = []
+        var seen = Set<String>()
+        for o in objects {
+            for k in o.keywords where !seen.contains(k.lowercased()) {
+                let ids = objects.filter { $0.keywords.contains { sameWord($0, k) } }.map(\.id)
+                if ids.count > 1 {
+                    out.append((k.lowercased(), ids))
+                    for other in objects where ids.contains(other.id) {
+                        for w in other.keywords where sameWord(w, k) { seen.insert(w.lowercased()) }
+                    }
+                }
+            }
+        }
+        return out
+    }
 }

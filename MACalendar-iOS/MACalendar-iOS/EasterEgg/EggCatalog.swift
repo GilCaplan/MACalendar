@@ -181,6 +181,7 @@ struct EggVariant: Codable, Identifiable, Equatable {
         case figure(String)          // EggFigure raw value
         case effect(String)          // EggEffect raw value
         case image(String)           // the finished PNG's file name, in the eggs folder
+        case symbol(String)          // the user's own emoji, flag or SF Symbol (EggSymbol)
     }
     var id: String
     var name: String

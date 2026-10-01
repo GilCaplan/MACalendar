@@ -69,6 +69,32 @@ struct EggRenderAll {
            let png = rep.representation(using: .png, properties: [:]) {
             try? png.write(to: URL(fileURLWithPath: CommandLine.arguments[1].replacingOccurrences(of: ".png", with: "-puppets.png")))
         }
+        // The user's own graphics: emoji, a flag, a word, SF Symbols (one a typo).
+        let specs = ["emoji:🇮🇱", "emoji:😎", "emoji:GO", "sf:star.fill|#FFD23A", "sf:person.fill|#3A7BFF",
+                     "sf:no.such.symbol|#FF0000"]
+        let symbols = Canvas { ctx, size in
+            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(egg: 0x5b6b8c)))
+            for (c, spec) in specs.enumerated() {
+                for (j, t) in [0.0, 0.2, 0.4].enumerated() {
+                    var cc = ctx
+                    cc.translateBy(x: CGFloat(c * 3 + j) * 110, y: 0)
+                    cc.scaleBy(x: 0.5, y: 0.5)
+                    EggSymbol.draw(spec, cc, t: t)
+                    let v = EggVariant(id: "s", name: "s", source: .symbol(spec))
+                    let s = EggShow(objectID: "s", variant: v, motion: EggMotion.allCases[c % EggMotion.allCases.count], start: Date(), seconds: 3, slot: 0, count: 1,
+                                    delay: 0, trail: .sparkles, mirrored: false, path: nil)
+                    var ov = ctx
+                    ov.translateBy(x: CGFloat(c * 3 + j) * 110, y: 110)
+                    ov.scaleBy(x: 0.28, y: 0.15)
+                    EggRender.draw(s, ov, CGSize(width: 390, height: 700), progress: 0.5, t: t, image: { _ in nil })
+                }
+            }
+        }.frame(width: CGFloat(specs.count * 3) * 110, height: 220)
+        let sr = ImageRenderer(content: symbols)
+        if let img = sr.nsImage, let tiff = img.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
+           let png = rep.representation(using: .png, properties: [:]) {
+            try? png.write(to: URL(fileURLWithPath: CommandLine.arguments[1].replacingOccurrences(of: ".png", with: "-symbols.png")))
+        }
         let r = ImageRenderer(content: view)
         guard let img = r.nsImage, let tiff = img.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
               let png = rep.representation(using: .png, properties: [:]) else { exit(1) }

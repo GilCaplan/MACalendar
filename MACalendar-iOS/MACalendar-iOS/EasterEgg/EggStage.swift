@@ -450,6 +450,8 @@ enum EggRender {
         case .image(let file):
             guard let img = image(file) else { return }
             EggPuppet.draw(s.variant, c.resolve(img), c, t: t)
+        case .symbol(let spec):
+            EggSymbol.draw(spec, c, t: t)
         case .effect:
             break
         }

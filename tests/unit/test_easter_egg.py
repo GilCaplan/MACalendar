@@ -21,7 +21,7 @@ TOOLS = ROOT / "MACalendar-iOS/Tools"
 # The platform-neutral Easter-egg files — what the Mac helper compiles too.
 SHARED = ["EggArt.swift", "EggFigures.swift", "EggJewish.swift", "EggEffects.swift", "EggCatalog.swift",
           "EggRules.swift", "EggStage.swift", "EggTrails.swift", "EggPuppet.swift", "EggLoader.swift",
-          "EggWordBank.swift"]
+          "EggWordBank.swift", "EggSymbol.swift", "EggOnDevice.swift"]
 
 pytestmark = pytest.mark.skipif(sys.platform != "darwin" or not shutil.which("swiftc"),
                                 reason="needs the Swift compiler (the Mac; CI's Linux runner has none)")
@@ -119,6 +119,8 @@ def test_every_graphic_renders_in_every_motion(tmp_path):
     assert png.stat().st_size > 50_000
     puppets = tmp_path / "all-puppets.png"          # every photo rig: walk, roll, flap, hop, still
     assert puppets.exists() and puppets.stat().st_size > 20_000
+    symbols = tmp_path / "all-symbols.png"          # the user's own emoji, flags and SF Symbols
+    assert symbols.exists() and symbols.stat().st_size > 20_000
     # The car picture's wheels are drawn at (58,156) and (158,156), r 17, in a
     # 200 box: the silhouette reading has to land on them.
     found = [[float(x) for x in w.split(",")] for w in out.stderr.strip().split(";")]
@@ -289,3 +291,36 @@ def test_the_word_bank_tops_up_to_the_count_with_names_and_adjective_phrases(tmp
     assert got[3]["words"] and all("rex" not in w or w.endswith("dog") for w in got[3]["words"])  # Rex is a dog
     assert got[4] == {"words": ["a", "b", "c"], "fromBank": 0}                 # enough already: untouched
     assert got[0]["words"] != got[5]["words"]                                  # the randomness
+
+
+def test_one_word_summons_one_thing(tmp_path):
+    """Gil: the same word on two objects is a conflict — ask to keep or move.
+    A word and its plural are the same word ("dog" / "dogs")."""
+    exe = tmp_path / "conflicts"
+    subprocess.run(["swiftc", "-O", "-parse-as-library", str(TOOLS / "egg_conflicts.swift"),
+                    *[str(EGG / f) for f in SHARED], "-o", str(exe)], check=True, capture_output=True)
+    got = json.loads(subprocess.run([str(exe)], capture_output=True, text=True, check=True).stdout)
+    assert got["same"] == [True, True, False]
+    assert got["owner_cat_for_dog"] == "cat"
+    assert got["owner_dogs_for_cat"] in ("dog", "rex")
+    assert got["owner_cat_for_cat"] is None                       # your own word is not a conflict
+    found = {c["word"]: sorted(c["ids"]) for c in got["conflicts"]}
+    assert found.get("dog") == ["dog", "rex"]                     # dog / dogs
+    assert found.get("puppy") == ["dog", "puppies"]               # puppy / puppies
+    assert "cat" not in found
+
+
+def test_suggestions_never_offer_a_word_another_object_has(tmp_path):
+    """Gil: drop conflicting words deterministically and top up from the bank."""
+    taken = ["hound", "pooch", "doggo", "mutt", "canine", "alsatian", "labrador", "retriever", "poodle", "beagle",
+             "husky", "collie", "terrier", "good boy", "woof", "baby dog", "cat"]
+    got = _bank(tmp_path, [
+        {"words": ["hound", "wolfhound", "pooch"], "id": "dog", "name": "German Shepherd",
+         "existing": ["dog", "puppy"], "count": 8, "taken": taken, "seed": 1},
+        {"words": ["dogs"], "id": "dog", "name": "German Shepherd", "existing": ["puppy"], "count": 3,
+         "taken": ["dog"], "seed": 2},
+    ])
+    words = got[0]["words"]
+    assert words[0] == "wolfhound" and len(words) == 8, words          # model's free word kept, first
+    assert not set(words) & set(taken), words                          # none of the taken ones
+    assert "dogs" not in got[1]["words"]                               # a plural of a taken word is taken

@@ -2,11 +2,13 @@ import SwiftUI
 
 /// The Mac's Easter-egg settings window — the phone's settings, laid out for
 /// a Mac. Photos and drawn paths are made on the phone (they need a camera
-/// roll and a finger); everything else is here.
+/// roll and a finger); everything else is here — emoji, flags and symbols,
+/// suggested words, and the one-word-one-thing rule.
 struct MacSettingsView: View {
     @ObservedObject private var store = MacEggStore.shared
     @State private var previewID = "dog"
     @State private var selected: String?
+    @State private var newSymbol = false
 
     var body: some View {
         HSplitView {
@@ -18,6 +20,29 @@ struct MacSettingsView: View {
                         ForEach(store.settings.objects) { Text($0.name).tag($0.id) }
                     }
                     Button("Play a demo on the whole screen") { store.demo() }
+                    Button("New magic word from an emoji, flag or symbol…") { newSymbol = true }
+                }
+                if !store.conflicts.isEmpty {
+                    Section {
+                        ForEach(store.conflicts, id: \.word) { c in
+                            HStack {
+                                Text("“\(c.word)”")
+                                Text(c.ids.compactMap { id in store.settings.objects.first { $0.id == id }?.name }
+                                        .joined(separator: " and ")).foregroundColor(.secondary)
+                                Spacer()
+                                Menu("Keep on…") {
+                                    ForEach(c.ids, id: \.self) { id in
+                                        Button(store.settings.objects.first { $0.id == id }?.name ?? id) {
+                                            store.keepWord(c.word, on: id)
+                                        }
+                                    }
+                                }
+                                .fixedSize()
+                            }
+                        }
+                    } header: { Text("Words on two things") } footer: {
+                        Text("A word can only summon one thing. Choose which keeps it.")
+                    }
                 }
                 Section("When") {
                     Picker("Show it", selection: $store.settings.trigger) {
@@ -94,8 +119,9 @@ struct MacSettingsView: View {
             }
             .frame(minWidth: 180)
             .sheet(item: Binding(get: { selected.map(Selected.init) }, set: { selected = $0?.id })) { s in
-                MacWordEditor(id: s.id).frame(width: 420, height: 560)
+                MacWordEditor(id: s.id).frame(width: 440, height: 640)
             }
+            .sheet(isPresented: $newSymbol) { MacSymbolEditor(mode: .newObject) }
         }
         .frame(minWidth: 560, minHeight: 640)
     }
@@ -118,6 +144,10 @@ struct MacWordEditor: View {
     @ObservedObject private var store = MacEggStore.shared
     @Environment(\.dismiss) private var dismiss
     @State private var word = ""
+    @State private var suggesting = false
+    @State private var addingSymbol = false
+    /// Words waiting on "move it here, or keep it where it is?".
+    @State private var asking: [String] = []
 
     var body: some View {
         if let i = store.settings.objects.firstIndex(where: { $0.id == id }) {
@@ -126,22 +156,28 @@ struct MacWordEditor: View {
                 Section(o.name) {
                     Toggle("On", isOn: $store.settings.objects[i].enabled)
                     MacPreview(objectID: id).frame(height: 150)
+                    if o.variants.count > 1 {
+                        Picker("Graphic", selection: $store.settings.objects[i].active) {
+                            ForEach(o.variants, id: \.id) { v in
+                                Text(v.isOriginal ? "Original" : v.name).tag(v.id)
+                            }
+                        }
+                    }
                     Button("Play it") { store.play([id], together: true) }
+                    Button("Add an emoji, flag or symbol…") { addingSymbol = true }
+                    if !o.builtin {
+                        Button("Delete this magic word", role: .destructive) { dismiss(); store.deleteObject(id) }
+                    }
                 }
                 Section("Words that summon it") {
                     ForEach(o.keywords, id: \.self) { k in
                         HStack { Text(k); Spacer(); Button("Remove") { store.settings.objects[i].keywords.removeAll { $0 == k } } }
                     }
                     HStack {
-                        TextField("Add a word", text: $word)
-                        Button("Add") {
-                            let w = word.trimmingCharacters(in: .whitespaces).lowercased()
-                            guard !w.isEmpty else { return }
-                            for j in store.settings.objects.indices { store.settings.objects[j].keywords.removeAll { $0 == w } }
-                            store.settings.objects[i].keywords.append(w)
-                            word = ""
-                        }
+                        TextField("Add a word", text: $word).onSubmit(addTyped)
+                        Button("Add", action: addTyped)
                     }
+                    Button("Suggest words…") { suggesting = true }
                 }
                 Section("This one's own") {
                     Picker("Motion", selection: $store.settings.objects[i].motion) {
@@ -169,6 +205,36 @@ struct MacWordEditor: View {
                 Button("Done") { dismiss() }
             }
             .formStyle(.grouped)
+            .sheet(isPresented: $suggesting) {
+                MacSuggestSheet(name: o.name, objectID: id, existing: o.keywords) { adding($0) }
+            }
+            .sheet(isPresented: $addingSymbol) { MacSymbolEditor(mode: .addTo(id)) }
+            .alert(asking.count == 1 ? "That word is taken" : "Some words are taken",
+                   isPresented: Binding(get: { !asking.isEmpty }, set: { if !$0 { asking = [] } })) {
+                Button("Move \(asking.count == 1 ? "it" : "them") to “\(o.name)”") {
+                    for w in asking { store.addKeyword(w, to: id) }
+                    asking = []
+                }
+                Button("Keep \(asking.count == 1 ? "it where it is" : "them where they are")", role: .cancel) { asking = [] }
+            } message: {
+                Text(asking.map { w in "“\(w)” already summons \(store.owner(of: w, besides: id)?.name ?? "something else")." }
+                        .joined(separator: " ") + " A word can only summon one thing.")
+            }
+        }
+    }
+
+    private func addTyped() {
+        adding([word])
+        word = ""
+    }
+
+    /// Add words; any another magic word already has are asked about first.
+    private func adding(_ words: [String]) {
+        let clean = words.map { $0.trimmingCharacters(in: .whitespaces).lowercased() }.filter { !$0.isEmpty }
+        let taken = clean.filter { store.owner(of: $0, besides: id) != nil }
+        for w in clean where !taken.contains(w) { store.addKeyword(w, to: id) }
+        if !taken.isEmpty {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { asking = taken }
         }
     }
 }

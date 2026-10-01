@@ -57,6 +57,53 @@ final class MacEggStore: ObservableObject {
         play(Array(pool.prefix(settings.group == .oneAfterAnother ? 2 : 3)), together: settings.group != .oneAfterAnother)
     }
 
+    // MARK: - Words and graphics (the phone's EggStore rules)
+
+    /// Who else already has this word (or its plural), if anyone.
+    func owner(of word: String, besides id: String) -> EggObject? {
+        EggRules.owner(of: word.trimmingCharacters(in: .whitespacesAndNewlines), besides: id, in: settings.objects)
+    }
+
+    /// Words on more than one object — to repair.
+    var conflicts: [(word: String, ids: [String])] { EggRules.conflicts(settings.objects) }
+
+    /// Keep `word` on `id` only.
+    func keepWord(_ word: String, on id: String) {
+        for j in settings.objects.indices where settings.objects[j].id != id {
+            settings.objects[j].keywords.removeAll { EggRules.sameWord($0, word) }
+        }
+    }
+
+    /// Add a word, moving it here from wherever else it was — the caller has
+    /// already asked (a word summons ONE thing).
+    func addKeyword(_ raw: String, to id: String) {
+        let word = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !word.isEmpty, let i = settings.objects.firstIndex(where: { $0.id == id }) else { return }
+        keepWord(word, on: id)
+        if !settings.objects[i].keywords.contains(word) { settings.objects[i].keywords.append(word) }
+    }
+
+    func addVariant(_ v: EggVariant, to id: String) {
+        guard let i = settings.objects.firstIndex(where: { $0.id == id }) else { return }
+        settings.objects[i].variants.append(v)
+        settings.objects[i].active = v.id
+    }
+
+    @discardableResult
+    func addCustom(name: String, keywords: [String], original: EggVariant) -> String {
+        let id = "custom-" + UUID().uuidString.prefix(8).lowercased()
+        var v = original
+        v.id = EggVariant.originalID
+        settings.objects.append(EggObject(id: id, name: name, keywords: [], variants: [v],
+                                          active: EggVariant.originalID, motion: .flyBy, builtin: false))
+        for k in keywords { addKeyword(k, to: id) }
+        return id
+    }
+
+    func deleteObject(_ id: String) {
+        settings.objects.removeAll { $0.id == id && !$0.builtin }
+    }
+
     private var greeted: Set<String> = []
 
     func festivalTick() {
