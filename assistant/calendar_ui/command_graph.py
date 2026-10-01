@@ -35,7 +35,7 @@ import re
 from dataclasses import dataclass, field
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen
+from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen, QPixmap
 from PyQt6.QtWidgets import QSizePolicy, QWidget
 
 # ----------------------------------------------------------------- the model
@@ -360,6 +360,34 @@ _ASK_X = _PAD + 26
 _EDGE_W = 64          # the edge that carries the decider chip
 _FOOT_H = 30
 
+#: The user's loading screen as frames (TASKS 48). The magic-words helper
+#: writes them — this card runs in the HUD's own process and cannot ask it —
+#: and the "working…" foot plays them. Re-read at most every few seconds.
+_LOADER: dict = {"dir": None, "pix": [], "fps": 15.0, "checked": -1e9}
+
+
+def _loader_frames() -> "tuple[list, float]":
+    import os
+    import time
+    now = time.monotonic()
+    if now - _LOADER["checked"] > 5:
+        _LOADER["checked"] = now
+        try:
+            from assistant import magic_words
+            info = magic_words.loader_frames()
+        except Exception:                       # never worth breaking the card over
+            info = None
+        d = info["dir"] if info else None
+        if d != _LOADER["dir"]:
+            pix = []
+            if d:
+                for i in range(int(info.get("frames", 0))):
+                    pm = QPixmap(os.path.join(d, f"{i:03d}.png"))
+                    if not pm.isNull():
+                        pix.append(pm)
+            _LOADER.update(dir=d, pix=pix, fps=float(info.get("fps", 15)) if info else 15.0)
+    return _LOADER["pix"], _LOADER["fps"]
+
 
 class CommandGraphView(QWidget):
     """Paints a `Graph`. Hover an ask to follow it; click any node for what is
@@ -394,6 +422,8 @@ class CommandGraphView(QWidget):
         if self._sel and self._sel[1] is not None and self._sel[1] >= len(g.lanes):
             self._sel = None
         if g.running:
+            # faster while the loader's frames play, so they don't stutter
+            self._pulse.setInterval(66 if _loader_frames()[0] else 90)
             self._pulse.start()
         else:
             self._pulse.stop()
@@ -486,6 +516,13 @@ class CommandGraphView(QWidget):
         p.setFont(small)
         if g.running:
             p.setPen(QColor(t.text2))
+            frames, fps = _loader_frames()
+            if frames:
+                import time
+                pm = frames[int(time.monotonic() * fps) % len(frames)]
+                side = foot.height()
+                p.drawPixmap(QRectF(foot.left(), foot.top(), side, side), pm, QRectF(pm.rect()))
+                foot = foot.adjusted(side + 6, 0, 0, 0)
             p.drawText(foot, Qt.AlignmentFlag.AlignVCenter, "working…")
         else:
             mark = "✓" if g.check_ok is not False else "⚠"

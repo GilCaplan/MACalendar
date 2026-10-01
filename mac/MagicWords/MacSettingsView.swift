@@ -93,6 +93,7 @@ struct MacSettingsView: View {
                     Toggle("Sound", isOn: $store.settings.sound)
                     if store.settings.sound { slider("Volume", $store.settings.volume, 0...1, unit: "") }
                 }
+                MacLoaderSettings()
                 Section("Keep it a surprise") {
                     Picker("Play", selection: $store.settings.chance) {
                         Text("Every time").tag(1); Text("1 time in 2").tag(2); Text("1 time in 3").tag(3)

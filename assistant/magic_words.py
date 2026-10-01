@@ -146,3 +146,39 @@ def festival_tick() -> None:
 
 def stop() -> None:
     _ask("quit")
+
+
+# -- the loading screen (TASKS 48) --------------------------------------------
+
+def wait_begin() -> str:
+    """A command is in flight. One that runs past the loader's threshold shows
+    the user's loading screen in the middle of the screen. Returns its id."""
+    import uuid
+    wid = uuid.uuid4().hex
+    _ask("wait_begin", id=wid)
+    return wid
+
+
+def wait_end(wid: "str | None") -> None:
+    if wid:
+        _ask("wait_end", id=wid)
+
+
+def loader_demo() -> None:
+    _ask("loader_demo", wait=True)
+
+
+def loader_frames() -> "dict | None":
+    """The loader as a loop of frames the helper wrote for the HUD — which is a
+    separate process and cannot talk to the helper — or None (off, never
+    written, not a Mac). {"dir", "frames", "fps", "enabled", "caption"}."""
+    if sys.platform != "darwin" or (_disabled() and not os.environ.get("MACALENDAR_MAGIC_WORDS")):
+        return None
+    try:
+        with open(os.path.join(_store_dir(), "loader", "current.json"), encoding="utf-8") as f:
+            info = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if not info.get("enabled") or not os.path.isdir(info.get("dir", "")):
+        return None
+    return info

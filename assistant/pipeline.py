@@ -586,6 +586,10 @@ class Pipeline:
         for _k, _v in _ls.headers().items():
             req.add_header(_k, _v)
 
+        # The loading screen (TASKS 48): a command that runs long shows the
+        # user's loader in the middle of the screen, as the phone does.
+        from assistant import magic_words
+        _wait = magic_words.wait_begin()
         try:
             with urllib.request.urlopen(req, timeout=180) as r:
                 data = _json.loads(r.read().decode())
@@ -603,6 +607,8 @@ class Pipeline:
             self._trace_result(transcript=transcript, message=msg)
             self._phase = STATUS_IDLE
             return False
+        finally:
+            magic_words.wait_end(_wait)
 
         message = data.get("message") or ""
         actions = data.get("actions") or []

@@ -879,6 +879,15 @@ a tile per style, and a button that shows the "taking a while" screen.
 `EggWaits` and its window), `EggLoaderSettingsView.swift`. Tests:
 `test_every_loading_screen_style_draws`, `EasterEggUITests.testTheLoadingScreenBuilder`.
 TASKS 48.
+**On the Mac** (2026-10-01): the same drawing, with the Mac's own settings
+(a "Loading screen" section in the magic-words window). A voice command is
+bracketed `wait_begin` / `wait_end` (`pipeline._process_transcript`, in a
+`finally`); one that runs past the threshold shows the loader in a
+click-through panel in the middle of the screen. The thinking card is a
+separate process that cannot ask the helper, so the helper also writes the
+loader as a 4-second loop of frames beside its settings (`loader/current.json`)
+and the card's "working…" plays them (`command_graph._loader_frames`).
+`mac/MagicWords/MacLoader.swift`; `tests/unit/test_mac_loader.py`.
 
 ### How it runs — Mac + phone, or phone only
 **What:** Settings ▸ How it runs (iPhone). "My Mac and this phone" shows the

@@ -13,7 +13,12 @@ import UniformTypeIdentifiers
 final class MacEggStore: ObservableObject {
     static let shared = MacEggStore()
 
-    @Published var settings: EggSettings { didSet { save() } }
+    @Published var settings: EggSettings {
+        didSet {
+            save()
+            if settings.loader != oldValue.loader || settings.objects != oldValue.objects { MacLoader.shared.framesSoon() }
+        }
+    }
     private var lastPlayed = Date.distantPast
     let file: URL
     private let engine = AVAudioEngine()

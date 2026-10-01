@@ -8,6 +8,10 @@ import SwiftUI
 ///     {"op":"settings"}   opens the settings window
 ///     {"op":"demo"}       plays a demo
 ///     {"op":"festival"}   greets a festival day (once a day)
+///     {"op":"wait_begin","id":"…"} / {"op":"wait_end","id":"…"}
+///                         a command in flight; one that runs long shows the
+///                         loading screen in the middle of the screen
+///     {"op":"loader_demo"} shows the "taking a while" screen for 4 s
 ///     {"op":"quit"}
 ///
 /// argv[1]: the folder its settings live in (this user's data folder).
@@ -28,6 +32,7 @@ final class MagicDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         _ = MacEggStore.shared
+        MacLoader.shared.writeFrames()               // the HUD's "working…" loop
         Thread.detachNewThread { [weak self] in
             while let line = readLine() {
                 guard let data = line.data(using: .utf8),
@@ -57,6 +62,9 @@ final class MagicDelegate: NSObject, NSApplicationDelegate {
         case "settings": showSettings(); return ["ok": true]
         case "demo": MacEggStore.shared.demo(); return ["ok": true]
         case "festival": MacEggStore.shared.festivalTick(); return ["ok": true]
+        case "wait_begin": MacLoader.shared.begin(msg["id"] as? String ?? ""); return nil
+        case "wait_end": MacLoader.shared.end(msg["id"] as? String ?? ""); return nil
+        case "loader_demo": MacLoader.shared.demo(); return ["ok": true]
         case "quit": NSApp.terminate(nil); return nil
         default: return ["error": "unknown op"]
         }

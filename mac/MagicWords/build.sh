@@ -11,6 +11,6 @@ swiftc -O -parse-as-library -target "$(uname -m)-apple-macos14.0" \
   "$EGG/EggArt.swift" "$EGG/EggFigures.swift" "$EGG/EggJewish.swift" "$EGG/EggEffects.swift" \
   "$EGG/EggCatalog.swift" "$EGG/EggRules.swift" "$EGG/EggStage.swift" "$EGG/EggTrails.swift" \
   "$EGG/EggPuppet.swift" "$EGG/EggImageCore.swift" "$EGG/EggSynth.swift" "$EGG/EggLoader.swift" "$EGG/EggWordBank.swift" "$EGG/EggSymbol.swift" "$EGG/EggOnDevice.swift" \
-  "$HERE/MacOverlay.swift" "$HERE/MacEggStore.swift" "$HERE/MacSettingsView.swift" "$HERE/MacWords.swift" "$HERE/MacPhotos.swift" "$HERE/MacMain.swift" \
+  "$HERE/MacOverlay.swift" "$HERE/MacEggStore.swift" "$HERE/MacSettingsView.swift" "$HERE/MacWords.swift" "$HERE/MacPhotos.swift" "$HERE/MacLoader.swift" "$HERE/MacMain.swift" \
   -o "$HERE/build/MACalendarMagic"
 echo "$HERE/build/MACalendarMagic"
