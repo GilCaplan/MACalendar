@@ -2128,20 +2128,23 @@ a sidebar of pages like the phone's (Q72), and light mode is in the sweep.
 
 Gil's to decide (nothing to build until he does):
 
-34. **Require sign-in everywhere** (row 28) — still off.
-35. **The `demo` user** (row 29) and **event 2103 "including"** (row 33) —
-    both still there; delete from the Account tab / the calendar.
-36. **"Compact layout density"** changes only the Settings dialog's own
-    spacing — make it reach the calendar views, or remove it.
-37. **Show hours is per device** (Mac config, phone UserDefaults; the Mac
-    defaults to the whole day, the phone to 7 AM–midnight) — one shared
-    setting instead?
+34. ~~**Require sign-in everywhere**~~ — closed (DEVQA Q83): a user setting;
+    the repo ships the generic default and the person flips it.
+35. ~~**The `demo` user** and **event 2103**~~ — closed (Q83): the person's own data.
+36. ~~**"Compact layout density"**~~ — **built 2026-10-01** (Q83, my call): it
+    reaches Month's pills, task rows and agenda rows, and a Month cell now shows
+    as many pills as FIT at either density (a fixed three overlapped "+N more"
+    in a short cell). Rendered both ways offscreen before shipping;
+    `test_layout_density.py`.
+37. ~~**Show hours is per device**~~ — closed (Q83): per device on purpose.
 
 Measured next steps (engine still paused):
 
 38. **`add_occasion` offered to the model** (`model_visible`): a new action
     name changes the prompt every command sees — Board D `--product`, a few
-    hours in the background, before it ships.
+    hours in the background, before it ships. **Running 2026-10-01**: OFF vs
+    ON at `08abb563`, both splits, seeded, fresh (`occ_{off,on}_{train,test}`).
+    Its OFF arm found a regression from Q81 (below, row 52).
 39. **Days said by name on real speech:** 0 of 2,699 pool TRAIN rows carry
     one, so the 100% is on a generated bench only — read the weekly review's
     rows that name a Hebrew date or holiday once there are some.
@@ -2156,11 +2159,20 @@ and each model's n-gram half, served as data (`GET /labels/model/<kind>`,
 `GET /categories/rules`); and `POST /todos` and the store's `_infer_tags` now
 ask the tag model as voice always did (`tagging.auto_tags`).
 
-41. **The Mac's quick-add still tags with the rules alone**
+41. ~~**The Mac's quick-add still tags with the rules alone**~~ — **built
+    2026-10-01**: created at once with the rules' answer, then `auto_tags` on a
+    daemon thread replaces it if it disagrees (never through `set_todo_tags`,
+    which files a CORRECTION). The phone already does both halves locally
+    (`Labeller.swift` away from the Mac). Was: **The Mac's quick-add still tags with the rules alone**
     (`todo_view._new_task_tags`): it writes to the DB on the GUI thread, where
     the model's embedding call can take up to 3 s. Route it through
     `auto_tags` off the main thread, or through `POST /todos`.
-42. **The event model's n-gram fallback bar was never measured** (0.35; the
+42. ~~**The event model's n-gram fallback bar was never measured**~~ —
+    **measured 2026-10-01, kept at 0.35** (`label/experiments/event_fallback_bar.py`,
+    RESULTS.md): on 1,733 rule-blank generated TEST titles the lowest bar gets
+    the most right (575 vs 219 with no fallback) — an event always has a
+    category, so abstaining is just as wrong. Real gold has 11 such titles:
+    not enough to bank. Was: **The event model's n-gram fallback bar was never measured** (0.35; the
     task one was, and went to 0.90 on 2026-09-24). The phone always runs that
     fallback, as the Mac does with ollama down. PROBE only (2026-09-30, not
     banked): of 8 real titles it filled, 3 were right and 5 wrong (4 of those
@@ -2174,20 +2186,25 @@ FEATURES.md). Open:
 
 43. ~~The Mac's half~~ — built 2026-09-30 as the Swift helper
     `mac/MagicWords` (the phone's own drawing code, compiled for the Mac).
-44. **Try the photo path on a real phone** — the automatic cut-out and the
-    anime look were built against the APIs but not yet run on a real photo.
+44. ~~**Try the photo path on a real photo**~~ — **run 2026-10-01** on real
+    photographs through the shared pipeline on the Mac (`Tools/egg_photo.swift`,
+    `test_real_photos_through_the_photo_pipeline`): cut-out, loop, rig and
+    puppet held up; **the anime look turned real photos nearly black** — fixed
+    (ink from the flattened picture, sRGB posterise, contrast 1.05; 80-95% of
+    brightness kept). Still worth one look on a real phone's camera roll.
 45. ~~Magic words, next ideas~~ — all built 2026-09-30 (FEATURES.md), plus the
     Jewish festivals set (Q76), the Mac's half, a phone-only mode and set-up
     guide (Q77), and the licence (Q78). Still open:
-46. **The Mac's photos and drawn paths** — made on the phone today; the Mac
-    helper plays built-ins, emoji, flags and symbols (2026-09-30) but not photos.
-47. **Try the photo path on a real phone** (row 44) — cut-out, anime look,
-    walk/roll rigs and animal-pose legs have only met stand-in pictures.
+46. ~~**The Mac's photos and drawn paths**~~ — **built 2026-10-01**: add a
+    photo (file, auto cut-out or a mouse-drawn loop, anime look, rig, live
+    puppet) and draw paths with the mouse; one pipeline, `EggImageCore`, which
+    the phone's `EggImageTools` now wraps.
+47. ~~**Try the photo path**~~ — see row 44.
 
 Asked 2026-09-30, to build next (not started — Gil: *"just update the
 todo's … don't go implementing yet"*):
 
-48. ~~Animated loading screen, built by the user~~ — **built on the phone 2026-09-30** (FEATURES.md "The loading screen"); the Mac's waits are still to do. Wherever the app waits
+48. ~~Animated loading screen, built by the user~~ — **built on the phone 2026-09-30, the Mac 2026-10-01** (FEATURES.md "The loading screen": a long command shows it mid-screen, the thinking card plays it as frames). Wherever the app waits
     (a slow command, a sync, the app stuck loading) show an animation instead
     of the plain spinner — a "special wheel of death". Settings ▸ Easter egg
     gets a section to build it: which graphic(s), motion, trail, colours,
@@ -2211,7 +2228,8 @@ todo's … don't go implementing yet"*):
 Asked 2026-09-30, next (Gil: *"I could do this next. Don't have to do it right
 now"*):
 
-51. **Emoji in titles.** An on/off switch, in Settings ▸ Easter egg AND in the
+51. ~~**Emoji in titles.**~~ — **built 2026-10-01** (FEATURES.md "Emoji in
+    titles"; stored at commit, Q83 — Gil may veto for display-time). Was: An on/off switch, in Settings ▸ Easter egg AND in the
     Assistant section, with how many: none, one or two. After an event or
     to-do is COMMITTED, look at its title and, when a word clearly names
     something with an emoji, put it right after that word: "walk my dog" →
@@ -2262,6 +2280,14 @@ now"*):
     are the positives, pinned in `tests/unit/test_now_word.py`. Board D
     `--product` (needs the model) NOT run. Still open: "The event now …" — a
     misheard "Add event" is not read as a create-event frame (ingest aim a).
+    **Closed 2026-10-01:** "The event now for …" is put back as "add an event
+    now for …" (ingest frame, fires on 0 of 12,900 corpus rows). And Board D
+    `--product` (TRAIN 1,200, `08abb563`) found what the corpus diff could
+    not: "X is due <date> now, update it" became an EVENT update — the deep
+    chain's tagger read "now" as a clock (2 Board D rows, destructive
+    update_event 12 → 14). Fixed with a due-clause veto every NOW_RE reader
+    asks (`now_word.vetoed`): changes 10 of 12,900 rows, all that one TRAIN
+    family; FastRule and segmentation boards identical on both splits.
     **Generalised 2026-10-01** (Gil: *"make it a function … key in a word and
     time, so midnight would be 00:00, sunrise … now is now"*; editable in
     Settings only as fixed times or words bound to a key time):

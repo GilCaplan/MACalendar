@@ -1,3 +1,22 @@
+- **2026-10-01 — Q83 (THE 2026-09-30 ORDER OF PLAY, ANSWERED)**, Gil: *"For 34
+  to 37, I don't necessarily care about specific customizable things that I
+  can edit as the user. Because that's just to my device or set of devices
+  here … at the end of the day, the GitHub is more generic. … the density
+  layout, you can decide … just make sure you visually check that it looks
+  good and the overlapping isn't too awkward. … you can test 38 … the MAC
+  tags, just make sure it's also done locally on the iOS devices … measure
+  for 42 if needed … do all the forty-four to fifty-two."* So: **34, 35, 37
+  closed as user settings** (require sign-in, the demo user and event 2103,
+  Show hours per device stay as they are — the person changes them; the repo
+  ships the generic default). **36, decided:** compact density reaches the
+  views (Month pills, task rows, agenda rows), and a Month cell shows as many
+  pills as fit at either density (rendered both ways before it shipped).
+  **51, decided here and open to Gil's veto:** the emoji is STORED in the
+  title at commit rather than drawn at display time — one place instead of
+  every view on two platforms and the widgets; the duplicate check, the
+  category and title matching read the words, so it changes nothing else;
+  off by default.
+
 - **2026-10-01 — Q82 (WORDS THAT NAME A TIME — ONE TABLE)**, Gil: *"the now
   thing could be applied to other words so perhaps make it a function that
   applies those changes wherever then we can key in a word and time, so

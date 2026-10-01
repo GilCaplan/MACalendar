@@ -188,10 +188,16 @@ cycle:
 
 ## Next
 
-**App side (while the engine is paused):** `DOCUMENTATION/TASKS.md`'s order
-of play of 2026-09-30 — Gil's decisions (require sign-in, the demo user, the
-junk "including" event, compact density), then the measured next steps
-(Board D for `add_occasion`, the offline agreement after a week).
+**App side (while the engine is paused):** the 2026-09-30 order of play is
+answered (DEVQA Q83) and built on 2026-10-01 — compact density, the Mac's
+quick-add tagger, the event fallback bar measured (kept), photos / paths /
+loading screen on the Mac, the photo pipeline run on real photos (the anime
+look was blackening them), emoji in titles, and "the event now for …". Open:
+**38**, `add_occasion` offered to the model — its Board D `--product` A/B
+(OFF vs ON, both splits) is running in `../MACalendar-board`; its OFF arm
+already found a Q81 regression ("X is due friday now, update it" became an
+EVENT update), fixed with a due-clause veto. Then the offline agreement after
+a week (40) and one look at the photo path on a real phone's camera roll.
 
 **Engine, when Gil resumes it:**
 

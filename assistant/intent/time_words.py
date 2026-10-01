@@ -146,8 +146,11 @@ class Found:
 def find_all(text: str) -> "list[Found]":
     """Every time word in `text`, left to right, longest first at a place."""
     got: list[Found] = []
+    from assistant.intent import now_word as _now_word
     for w in words():
         for m in w.rx.finditer(text or ""):
+            if w.rx.pattern == NOW_RE.pattern and _now_word.vetoed(text, m.start()):
+                continue                    # "X is due friday now" (now_word)
             got.append(Found(w, m.start(), m.end()))
     got.sort(key=lambda f: (f.start, -(f.end - f.start)))
     out: list[Found] = []

@@ -26,7 +26,11 @@ VAGUE = ["buy milk for now", "from now on remind me to drink water", "now that t
          "until now i forgot", "not now, maybe dinner tomorrow", "Now, what do I have today",
          "i just now remembered the dentist", "as of now", "now and again check the oven",
          "feed the cat is done, now add take out the trash to my list", "I need a new list, do it now",
-         "Now add buy milk to my list", "eye exam next month is now at 8:30pm", "snowboard trip friday"]
+         "Now add buy milk to my list", "eye exam next month is now at 8:30pm", "snowboard trip friday",
+         # Board D --product, 2026-10-01: "now" in a clause naming a due date
+         # is "as of now" — these became update_EVENT once read as the clock
+         "renew the passport is due march 5th now, update it",
+         "buy groceries is due in three weeks now, update it"]
 
 
 @pytest.mark.parametrize("text", TIME)
@@ -111,3 +115,14 @@ def test_a_misheard_add_event_now_is_an_event_at_this_minute(fastrule):
     for update in ("The event tomorrow is now at 6", "the event now starts at 5",
                    "The meeting with Justin has been changed, put it on Thursday"):
         assert repair_command_frames(update) == update
+
+
+def test_a_due_clause_now_is_not_a_clock_anywhere():
+    """The veto a regex cannot hold, asked by every reader of `NOW_RE`."""
+    import importlib
+    from assistant.intent import time_words
+    fastseg = importlib.import_module("assistant.engine.segmentation.fastseg.fastseg")
+    said = "renew the passport is due march 5th now, update it"
+    assert not any(f.word.name == "now" for f in time_words.find_all(said))
+    assert not any("now" in str(r) for r in fastseg.find_time_refs(said))
+    assert says_now("walk the dog now, it's due")    # a later clause does not veto

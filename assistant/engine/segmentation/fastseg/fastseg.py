@@ -309,8 +309,11 @@ def find_time_refs(text: str) -> "list[TimeRef]":
     the ordering of `_TIME_PATTERNS` cannot silently decide the answer.
     """
     candidates: list[tuple[int, int, str]] = []
+    from assistant.intent import now_word as _now_word
     for rx, kind in _COMPILED:
         for m in rx.finditer(text):
+            if rx.pattern == _NOW_PATTERN and _now_word.vetoed(text, m.start()):
+                continue            # "X is due friday now": "as of now" (now_word)
             candidates.append((m.start(), m.end(), kind))
     # A DAY NAMED INSTEAD OF DATED is a date too — "on 12 Adar", "erev
     # Pesach", "on Dana's birthday" (assistant/named_days.py). None of the

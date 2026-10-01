@@ -52,9 +52,26 @@ NOW_RE = re.compile(
     re.I)
 
 
+#: A clause that already names a DUE date: "renew the passport is due march
+#: 5th now, update it" — "now" is "as of now", the due date is what changed.
+#: Found on Board D --product (2026-10-01): two TRAIN rows of that family
+#: became update_EVENT once "now" was read as the clock.
+_DUE_CLAUSE = re.compile(r"\bdue\b", re.I)
+
+
+def vetoed(text: str, start: int) -> bool:
+    """A `NOW_RE` match at `start` that its CLAUSE makes vague — the one veto a
+    regex cannot hold (Python's lookbehind is fixed-width), so every place that
+    takes a `NOW_RE` match asks this: `says_now`, `time_words.find_all` (and
+    through it FastRule's reader), segmentation's tagger."""
+    head = re.split(r"[,.;:!?]", (text or "")[:start])[-1]
+    return bool(_DUE_CLAUSE.search(head))
+
+
 def says_now(text: str) -> bool:
     """Did the speaker give "now" as the time?"""
-    return bool(NOW_RE.search(text or ""))
+    text = text or ""
+    return any(not vetoed(text, m.start()) for m in NOW_RE.finditer(text))
 
 
 def clock(now: "datetime.datetime | None" = None) -> str:
