@@ -357,6 +357,10 @@ struct TraceStep: Codable, Identifiable, Equatable {
     /// `data` is heterogeneous (numbers, lists, strings), and a Codable that
     /// tried to model it would break the first time a stage added a field.
     let fastruleResult: String?
+    /// The words as this step left them — on the vocabulary step, the
+    /// CORRECTED transcript (its `detail` reads "Fixed dragon→Dragan", which
+    /// holds the misheard word too). Lifted from `data` like the one above.
+    let transcript: String?
 
     enum CodingKeys: String, CodingKey {
         case stage, title, detail, ms, ok, data
@@ -365,6 +369,7 @@ struct TraceStep: Codable, Identifiable, Equatable {
 
     private enum DataKeys: String, CodingKey {
         case fastruleResult = "fastrule_result"
+        case transcript
     }
 
     /// The memberwise init, restored by hand. Declaring `init(from:)` below
@@ -373,7 +378,7 @@ struct TraceStep: Codable, Identifiable, Equatable {
     /// "Saved for later" entries, which never come from the server and so have
     /// no `fastruleResult`.
     init(stage: String, title: String, detail: String = "", ms: Int = 0,
-         atMs: Int = 0, ok: Bool = true, fastruleResult: String? = nil) {
+         atMs: Int = 0, ok: Bool = true, fastruleResult: String? = nil, transcript: String? = nil) {
         self.stage = stage
         self.title = title
         self.detail = detail
@@ -381,6 +386,7 @@ struct TraceStep: Codable, Identifiable, Equatable {
         self.atMs = atMs
         self.ok = ok
         self.fastruleResult = fastruleResult
+        self.transcript = transcript
     }
 
     init(from decoder: Decoder) throws {
@@ -393,6 +399,7 @@ struct TraceStep: Codable, Identifiable, Equatable {
         ok = (try? c.decode(Bool.self, forKey: .ok)) ?? true
         let d = try? c.nestedContainer(keyedBy: DataKeys.self, forKey: .data)
         fastruleResult = try? d?.decode(String.self, forKey: .fastruleResult)
+        transcript = try? d?.decode(String.self, forKey: .transcript)
     }
 
     func encode(to encoder: Encoder) throws {

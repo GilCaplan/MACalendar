@@ -608,9 +608,11 @@ struct VoiceButton: View {
                         }
                         // The Mac's hearing, whenever the phone's played nothing —
                         // not only when the phone heard nothing at all: its
-                        // recogniser can miss a name ("Val") the Mac's vocabulary knows.
-                        if !eggPlayed, step.stage == "stt" || step.stage == "vocab" {
-                            eggPlayed = EggStore.shared.heardLate(step.detail)
+                        // recogniser can miss a name ("Val") the Mac's vocabulary
+                        // knows. The CORRECTED words only: the step's detail
+                        // ("Fixed dragon→Dragan") also holds the misheard one.
+                        if !eggPlayed, step.stage == "vocab", let words = step.transcript, !words.isEmpty {
+                            eggPlayed = EggStore.shared.heardLate(words)
                         }
                         if step.stage == "execute" && step.ok {
                             api.burstRefresh()
