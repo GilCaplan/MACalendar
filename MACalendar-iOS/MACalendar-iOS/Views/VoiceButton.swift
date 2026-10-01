@@ -40,6 +40,10 @@ struct VoiceButton: View {
     @State private var eggWait: UUID?
     @State private var sendCountdown = 0
     @State private var countdownTask: Task<Void, Never>?
+    /// The command in flight. Cancelling it, redoing it or adding to it sets
+    /// this to nil: the Mac keeps going (it already has the audio), so its
+    /// reply is still read — to remove what it added — but no longer shown.
+    @State private var inFlight: UUID?
 
     /// True while there is something worth reopening: work in flight, or a result
     /// from the last ~2 minutes.
@@ -84,6 +88,36 @@ struct VoiceButton: View {
                 HStack(spacing: 6) {
                     Text("Listening…").foregroundColor(.secondary)
                     discardButton
+                }
+                .font(.caption.weight(.medium))
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .padding(6)
+                .background(.regularMaterial)
+                .clipShape(Capsule())
+                .shadow(radius: 2)
+                .fixedSize()
+                .offset(y: -44)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            } else if status == .thinking {
+                // While it works: change your mind (Gil, 2026-10-01 — "why
+                // can't i rerecord or cancel prompt … support cancelling /
+                // rerecording / adding to original prompt more audio").
+                HStack(spacing: 6) {
+                    if settings.showThinking {
+                        Button { showThinking = true } label: {
+                            HStack(spacing: 4) {
+                                EggSpinner(side: 16)
+                                Text("\(steps.count)")
+                            }
+                        }
+                        .accessibilityLabel("Show what it's doing, \(steps.count) steps")
+                    }
+                    Button { abandon(.redo) } label: { Label("Redo", systemImage: "arrow.counterclockwise") }
+                    Button { abandon(.addMore) } label: { Label("Add more", systemImage: "mic.badge.plus") }
+                    Button(role: .destructive) { abandon(.cancel) } label: { Image(systemName: "xmark") }
+                        .tint(.red)
+                        .accessibilityLabel("Cancel this command")
                 }
                 .font(.caption.weight(.medium))
                 .buttonStyle(.bordered)
@@ -220,7 +254,7 @@ struct VoiceButton: View {
                 }
             }
         }
-        .disabled(status == .thinking || status == .speaking)
+        .accessibilityIdentifier("mic-button")
         .opacity(api.assistantEnabled || status != .idle ? 1 : 0.4)
         .alert("The assistant is off", isPresented: $offNote) {
             Button("OK", role: .cancel) {}
@@ -349,10 +383,72 @@ struct VoiceButton: View {
             finishRecording()
         case .review:
             sendPending()
+        case .thinking:
+            abandon(.redo)              // tap the mic again: say it again
         default:
-            player.stop()
+            player.stop()               // speaking: a tap stops it
             status = .idle
         }
+    }
+
+    enum Abandon { case cancel, redo, addMore }
+
+    /// Stop waiting for the command in flight and do what was asked instead.
+    /// The Mac already has the audio and finishes it; `undoAbandoned` reads
+    /// its reply and removes what it added. "Add more" resumes the recorder,
+    /// which still holds the audio that was sent, so the next send is the
+    /// whole thing — the first words and the new ones.
+    private func abandon(_ then: Abandon) {
+        inFlight = nil
+        EggWaits.shared.end(eggWait); eggWait = nil
+        player.stop()
+        showThinking = false
+        if settings.showThinking {
+            steps.append(TraceStep(stage: "verify", title: then == .cancel ? "Cancelled" : "Stopped — recording again",
+                                   detail: "Anything this command adds will be removed when your Mac answers.",
+                                   ms: 0, atMs: steps.last?.atMs ?? 0, ok: true))
+        }
+        finished = true
+        finishedAt = Date()
+        switch then {
+        case .cancel:
+            recorder.cancel()           // drop the kept audio: the next recording starts fresh
+            status = .idle
+        case .redo:
+            status = .recording
+            recorder.start()
+        case .addMore:
+            status = .recording
+            recorder.start(resume: true)
+        }
+    }
+
+    /// The reply to a command the person cancelled, redid or added to: remove
+    /// what it CREATED. A change or a delete it already made is not guessed
+    /// back — it is said, so nothing is silently half-undone.
+    @MainActor
+    private func undoAbandoned(_ r: VoiceResponse) async {
+        var removed = 0
+        var changed: [String] = []
+        for row in r.committed ?? [] {
+            if (row.action ?? "").hasPrefix("create") {
+                do {
+                    if row.kind == "event" { try await api.deleteEvent(id: row.id) }
+                    else { try await api.deleteTodo(id: row.id) }
+                    removed += 1
+                } catch {}
+            } else {
+                changed.append((row.action ?? "change").replacingOccurrences(of: "_", with: " "))
+            }
+        }
+        api.requestRefresh()
+        onRefresh?("both")
+        guard removed > 0 || !changed.isEmpty else { return }
+        let body = changed.isEmpty
+            ? "\(removed == 1 ? "What it added was" : "The \(removed) things it added were") removed."
+            : "It had already done this before you stopped it: \(r.message)"
+        showHint(ReplyHint(code: "cancelled", headline: changed.isEmpty ? "Cancelled" : "Cancelled — one thing was already done",
+                           body: body))
     }
 
     /// Ends the recording (tap, stop word, or silence). With "Ask before sending" on,
@@ -441,6 +537,8 @@ struct VoiceButton: View {
                 showThinking = true
             }
             let sentAt = Date()
+            let me = UUID()
+            inFlight = me
             // Hold a background assertion for the whole command — leaving the app
             // mid-command used to get the process suspended, which killed the
             // stream and froze the timeline half-written.
@@ -454,6 +552,7 @@ struct VoiceButton: View {
                     // and again when the self-check has finished (fixed version).
                     let response = try await api.sendAudioStreaming(audioData, supportsEdit: true,
                                                                      supportsConfirm: true) { step in
+                        guard inFlight == me else { return }        // cancelled: not shown
                         if settings.showThinking {
                             if steps.count == 1, steps[0].title == "Sending" { steps = [] }
                             steps.append(step)
@@ -467,8 +566,12 @@ struct VoiceButton: View {
                             onRefresh?("both")
                         }
                     }
+                    guard inFlight == me else { await undoAbandoned(response); return }
+                    inFlight = nil
                     await handleResponse(response)
                 } catch {
+                    guard inFlight == me else { return }
+                    inFlight = nil
                     await recoverLostStream(error, sentAt: sentAt, audio: audioData)
                 }
             }

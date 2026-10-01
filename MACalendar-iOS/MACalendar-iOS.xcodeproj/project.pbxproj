@@ -121,6 +121,7 @@
 		AB000003000000000000001A /* OfflineSyncUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000002000000000000001B /* OfflineSyncUITests.swift */; };
 		AB000013000000000000001A /* DayPanelUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000012000000000000001B /* DayPanelUITests.swift */; };
 		AB000017000000000000001A /* ShownHoursUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000016000000000000001B /* ShownHoursUITests.swift */; };
+		AB0000170000000000000052 /* VoiceCancelUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000160000000000000053 /* VoiceCancelUITests.swift */; };
 		AB0000170000000000000050 /* SettingsFoldUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000160000000000000051 /* SettingsFoldUITests.swift */; };
 		AB00001F000000000000001A /* EasterEggUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00001E000000000000001B /* EasterEggUITests.swift */; };
 		AB000015000000000000001A /* EventEditorUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000014000000000000001B /* EventEditorUITests.swift */; };
@@ -246,6 +247,7 @@
 				AB000002000000000000001B /* OfflineSyncUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineSyncUITests.swift; sourceTree = "<group>"; };
 		AB000012000000000000001B /* DayPanelUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPanelUITests.swift; sourceTree = "<group>"; };
 		AB000016000000000000001B /* ShownHoursUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShownHoursUITests.swift; sourceTree = "<group>"; };
+		AB0000160000000000000053 /* VoiceCancelUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCancelUITests.swift; sourceTree = "<group>"; };
 		AB0000160000000000000051 /* SettingsFoldUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFoldUITests.swift; sourceTree = "<group>"; };
 		AB00001E000000000000001B /* EasterEggUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasterEggUITests.swift; sourceTree = "<group>"; };
 		AB000014000000000000001B /* EventEditorUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventEditorUITests.swift; sourceTree = "<group>"; };
@@ -586,6 +588,7 @@
 				AB000002000000000000001B /* OfflineSyncUITests.swift */,
 				AB000012000000000000001B /* DayPanelUITests.swift */,
 				AB000016000000000000001B /* ShownHoursUITests.swift */,
+				AB0000160000000000000053 /* VoiceCancelUITests.swift */,
 				AB0000160000000000000051 /* SettingsFoldUITests.swift */,
 				AB00001E000000000000001B /* EasterEggUITests.swift */,
 				AB000014000000000000001B /* EventEditorUITests.swift */,
@@ -848,6 +851,7 @@
 				AB000003000000000000001A /* OfflineSyncUITests.swift in Sources */,
 				AB000013000000000000001A /* DayPanelUITests.swift in Sources */,
 				AB000017000000000000001A /* ShownHoursUITests.swift in Sources */,
+				AB0000170000000000000052 /* VoiceCancelUITests.swift in Sources */,
 				AB0000170000000000000050 /* SettingsFoldUITests.swift in Sources */,
 				AB00001F000000000000001A /* EasterEggUITests.swift in Sources */,
 				AB000015000000000000001A /* EventEditorUITests.swift in Sources */,

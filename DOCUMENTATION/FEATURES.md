@@ -515,6 +515,17 @@ non-loopback sockets in the build. Discarding happens entirely client-side —
 the audio is dropped before any upload, so nothing is transcribed, executed or
 remembered. On the phone `cancel()` also clears the PCM buffer, which
 `start(resume: true)` ("Add more") deliberately keeps.
+**Changing your mind while it thinks** (phone, 2026-10-01 — Gil: *"why can't i
+rerecord or cancel prompt … support cancelling/rerecording/adding to original
+prompt more audio"*). The mic used to be disabled until the reply came. Now
+the bar above it offers **Redo**, **Add more** (resumes the recorder, which
+still holds what was sent, so the next send is the first words plus the new
+ones) and **✕ Cancel**; tapping the mic itself re-records, and tapping it
+while a reply is read stops the voice. The Mac already has the audio and
+finishes the command, so the phone stops waiting at once and, when the reply
+arrives, deletes what that command CREATED (its `committed` rows); a change or
+delete it had already made is said in a note, not guessed back. Test:
+`VoiceCancelUITests` against a deliberately slow fake Mac (skips without it).
 
 ### The edit-transcription round-trip (needs_edit)
 **What:** When the vocabulary doubts words in a transcript, nothing executes —
