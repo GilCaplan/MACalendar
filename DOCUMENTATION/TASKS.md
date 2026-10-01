@@ -2142,9 +2142,11 @@ Measured next steps (engine still paused):
 
 38. **`add_occasion` offered to the model** (`model_visible`): a new action
     name changes the prompt every command sees — Board D `--product`, a few
-    hours in the background, before it ships. **Running 2026-10-01**: OFF vs
-    ON at `08abb563`, both splits, seeded, fresh (`occ_{off,on}_{train,test}`).
-    Its OFF arm found a regression from Q81 (below, row 52).
+    hours in the background, before it ships. **Measured 2026-10-01, NOT
+    shipped** (llmjudge RESULTS.md): TRAIN headline 95.6 → 95.7%, harm 89 → 85;
+    TEST headline 82.4% both, harm 211 → 212, destructive update_todo 3 → 5;
+    no row became an occasion. Stays rules-only. Its OFF arm found a Q81
+    regression (row 52), fixed.
 39. **Days said by name on real speech:** 0 of 2,699 pool TRAIN rows carry
     one, so the 100% is on a generated bench only — read the weekly review's
     rows that name a Hebrew date or holiday once there are some.

@@ -2073,3 +2073,32 @@ is a gold question more than an engine one.
 runs, and the prompts are untouched. Within the later run, the median call
 went 3.6 s → 5.0 s → 6.7 s → 5.7 s by quarter: the model server was shared
 while it ran.
+
+## `add_occasion` offered to the model — measured, NOT shipped (2026-10-01)
+
+**Stage: llmjudge · `rescue.py`'s prompt** (a new action in the registry's
+`model_names` changes the prompt every model-read row sees). Board D
+`--product`, seeded, fresh, 1,200 rows per split, at `08abb563`, OFF =
+`model_visible = False` (shipped), ON = True. Records
+`runs/board_d_{train,test}_1200_20261001T{1128,1229,1310,1359}.json`.
+
+| line | TRAIN off | TRAIN on | TEST off | TEST on |
+|---|---|---|---|---|
+| headline correct | 95.6% (1147) | 95.7% (1148) | 82.4% (989) | 82.4% (989) |
+| harm | 89 | 85 | 211 | **212** |
+| destructive update_event / update_todo / delete_todo | 14 / 0 / 5 | 14 / 0 / 4 | 12 / 3 / 0 | 9 / **5** / 0 |
+| invented time | 4 | 1 | — | — |
+| p95 latency, model rows | 14.2s | 10.8s | 16.0s | 12.9s |
+
+7 TRAIN rows changed, all model-read, both ways (one compound now builds both
+events; two titles took attendees into them); none became an occasion on
+either split. TEST, read once as the gate: harm +1 and the destructive
+update_todo line +2. The rule is that nothing ships that raises harm or a
+destructive line, and there is no measured gain to weigh against it — so the
+action stays rules-only (`model_visible = False`). To revisit: a bench of
+occasion phrasings the narrow reader misses, so the gain side has rows.
+
+**Found on the way** (OFF arm vs the 2026-09-27 run, same TRAIN rows): Q81's
+"now" turned "X is due <date> now, update it" into update_EVENT — fixed by a
+due-clause veto (`57611e40`). And on TEST the judge's loop-back read 0 fixed /
+6 broken (aggregates only) — for when engine cycles resume.

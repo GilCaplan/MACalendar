@@ -1,0 +1,3334 @@
+{
+ "split": "train",
+ "n": 1200,
+ "off_pct": 95.4,
+ "on_pct": 95.6,
+ "fixed": 2,
+ "broke": 0,
+ "changed_same": 0,
+ "disagreed": 2,
+ "net": 2,
+ "latency_s": {
+  "off_p50": 0.062,
+  "off_p95": 6.657,
+  "on_p50": 0.047,
+  "on_p95": 7.937
+ },
+ "by": {
+  "family": {
+   "s_ue_change_event_time": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_generic_co_2": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_tr2_semicolon_tt": {
+    "n": 9,
+    "off": 8,
+    "on": 8,
+    "net": 0
+   },
+   "c_encounter_5": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_joiner_plus_tt_1": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_tr2_bare_and_tt": {
+    "n": 8,
+    "off": 8,
+    "on": 8,
+    "net": 0
+   },
+   "s_tr_dt_never_mind": {
+    "n": 5,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_tr_np_two_items_on_list": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_dt_casual_get_rid_of": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_timelist_ce_3": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_encounter_2": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_co_please_mark_done": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_tr_ce_ive_got": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_tr_np_lunch_with_two": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_leadtime_6": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_npdecoy_reschedule_call_two": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_ct_hey_remind": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_de_cancel_event_date": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_remindthen_5": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_confsub_te_1": {
+    "n": 8,
+    "off": 8,
+    "on": 8,
+    "net": 0
+   },
+   "c_attendee_9": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_tr_lead_uk_give_a_shout": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_tr2_bare_three_ttt": {
+    "n": 9,
+    "off": 9,
+    "on": 9,
+    "net": 0
+   },
+   "s_ct_add_task_todo": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_generic_ue_1": {
+    "n": 8,
+    "off": 8,
+    "on": 8,
+    "net": 0
+   },
+   "c_tr_enc_text_is_todo": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_tr_np_with_two_uk_time": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_texture_2": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_ce_misspelled_schedule_word": {
+    "n": 7,
+    "off": 7,
+    "on": 7,
+    "net": 0
+   },
+   "c_tr_np_serial_sand_paint": {
+    "n": 5,
+    "off": 0,
+    "on": 0,
+    "net": 0
+   },
+   "s_ce_put_on_calendar": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_threeask_ee_2": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_attendee_8": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   },
+   "c_joiner_plus_ee_2": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_tr_de_nonnative_please_to": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_leadtime_1": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_allday_3": {
+    "n": 6,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_tr_tex_run_on_decoy": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_de_scrap_event": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_ue_misspelled_reschedule": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_ce_around_time": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_tr2_need_to_and_tt": {
+    "n": 9,
+    "off": 9,
+    "on": 9,
+    "net": 0
+   },
+   "c_recur_6": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_joiner_commathen_te_2": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_ut_rename_casual": {
+    "n": 3,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_ct_bare_task": {
+    "n": 8,
+    "off": 7,
+    "on": 7,
+    "net": 0
+   },
+   "c_leadtime_10": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_ct_quiet_task_no_verb": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_ce_can_you_book": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_ce_schedule_basic": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_co_done_with_task": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_ce_book_basic": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_remindthen_12": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_npdecoy_buy_two_party": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_ce_mark_calendar": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_range_ce_4": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_until_endofmonth": {
+    "n": 8,
+    "off": 8,
+    "on": 8,
+    "net": 0
+   },
+   "c_range_ce_3": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_range_ce_1": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_co_finish_task": {
+    "n": 4,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_range_ce_5": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_extra_ce_1": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_tr_rec_clock_chore_q26": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_remindthen_11": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_ut_add_note": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_tr_x_dt_no_longer": {
+    "n": 7,
+    "off": 7,
+    "on": 7,
+    "net": 0
+   },
+   "c_recur_5": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_generic_dt_1": {
+    "n": 3,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_recur_2": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_attendee_7": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_ct_casual_lowercase_ok": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_ut_rename_task": {
+    "n": 5,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_recur_7": {
+    "n": 8,
+    "off": 8,
+    "on": 8,
+    "net": 0
+   },
+   "s_ce_create_event_basic": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_allday_1": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   },
+   "c_joiner_andthen_ee_1": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_attendee_10": {
+    "n": 6,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_tr_ce_wake_set": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_joiner_commathen_tt_1": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_timelist_ct_4": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_ce_please_book": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_tr_enc_coffee_with": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_tr2_remind_and_to_tt": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_de_drop_event": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_dt_delete_task_basic": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_tr_x_ue_running_late": {
+    "n": 8,
+    "off": 7,
+    "on": 8,
+    "net": 1
+   },
+   "s_tr_ce_nonnative_please_to": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_allday_6": {
+    "n": 8,
+    "off": 8,
+    "on": 8,
+    "net": 0
+   },
+   "c_tr_x_de_question_cancel": {
+    "n": 2,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_joiner_also_ee_2": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_encounter_1": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_leadtime_3": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_leadtime_4": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_and_tt_1": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_allday_5": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_ue_rename_event": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_dt_can_you_remove_task": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_ue_move_event": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_datemark_1": {
+    "n": 7,
+    "off": 7,
+    "on": 7,
+    "net": 0
+   },
+   "s_co_tick_off": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_datemark_6": {
+    "n": 8,
+    "off": 8,
+    "on": 8,
+    "net": 0
+   },
+   "s_ce_get_on_calendar": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_leadtime_9": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_ue_reschedule_event": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_and_ee_5": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   },
+   "c_recur_1": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_ct_email_someone": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_ct_remind_me_task_date": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_de_remove_calendar": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_threeask_tt_1": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   },
+   "s_dt_scrap_task": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_datemark_10": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_tr_mark_fronted_statement": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_ct_filler_um_task": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_attendee_1": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_and_tt_4": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   },
+   "s_ce_add_calendar_misspelled": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_until_2": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_tr_ut_due_now": {
+    "n": 3,
+    "off": 0,
+    "on": 0,
+    "net": 0
+   },
+   "c_tr_enc_facetime": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_ct_can_you_add_task": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_generic_de_1": {
+    "n": 6,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_confsub_tt_1": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_tr2_please_add_three_ttt": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_tr_lead_fronted_ping": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_tr_rec_nonnative": {
+    "n": 6,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_joiner_plus_ee_1": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_confsub_ee_1": {
+    "n": 2,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_leadtime_11": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_through_2": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_confsub_ee_2": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_recur_12": {
+    "n": 8,
+    "off": 8,
+    "on": 8,
+    "net": 0
+   },
+   "s_ct_grab_item_qty": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   },
+   "c_recur_13": {
+    "n": 7,
+    "off": 7,
+    "on": 7,
+    "net": 0
+   },
+   "s_ct_call_someone": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_recur_3": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_ce_uh_i_guess": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_npdecoy_serial_wash_fold": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_ce_plan_basic": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_tr_tex_stutter": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_ct_pick_up_items": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_leadtime_12": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_through_3": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_joiner_also_tt_1": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_threeask_ttt_1": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_tr2_have_to_plus_tt": {
+    "n": 14,
+    "off": 14,
+    "on": 14,
+    "net": 0
+   },
+   "s_ue_extend_event": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_attendee_2": {
+    "n": 7,
+    "off": 7,
+    "on": 7,
+    "net": 0
+   },
+   "s_ct_casual_need_to": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_ut_move_due_date": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_recur_11": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_recur_16": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_tr_de_cant_make_it": {
+    "n": 1,
+    "off": 0,
+    "on": 0,
+    "net": 0
+   },
+   "c_npdecoy_buy_two_items": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   },
+   "s_ce_im_free_book": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_de_casual_cancel": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_dt_generic_target": {
+    "n": 4,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_tr_ct_keep_forgetting": {
+    "n": 4,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_de_take_off_calendar": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_encounter_7": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_tr_ct_nonnative_remember_me": {
+    "n": 1,
+    "off": 0,
+    "on": 0,
+    "net": 0
+   },
+   "s_dt_delete_misspelled_todo": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_recur_4": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   },
+   "c_tr2_put_on_todo_tt": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   },
+   "c_npdecoy_serial_clean_organize": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   },
+   "s_ut_quoted_update_task": {
+    "n": 3,
+    "off": 0,
+    "on": 0,
+    "net": 0
+   },
+   "c_until_4": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_texture_4": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_tr_att_name_and_i": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   },
+   "c_tr_two_things_tt": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   },
+   "s_ce_hey_book": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_texture_3": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ct_task_by_date": {
+    "n": 3,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_co_check_off": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_and_ee_4": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_including_1": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_attendee_5": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_ut_set_priority": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_ce_pencil_in": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_tr2_remind_colon_tt": {
+    "n": 10,
+    "off": 10,
+    "on": 10,
+    "net": 0
+   },
+   "s_de_delete_basic": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_attendee_3": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_tr_allday_keep_clear": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_de_misspelled_calendar": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_ue_generic_target": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_ce_recurrence_daily": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_datemark_8": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_attendee_6": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_ue_shorten_event": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_tr2_comma_also_tt": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_tr_att_coming_too": {
+    "n": 2,
+    "off": 0,
+    "on": 0,
+    "net": 0
+   },
+   "c_encounter_10": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   },
+   "c_tr_first_then_finally_ttt": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_tr_rec_terse": {
+    "n": 7,
+    "off": 7,
+    "on": 7,
+    "net": 0
+   },
+   "c_texture_10": {
+    "n": 7,
+    "off": 7,
+    "on": 7,
+    "net": 0
+   },
+   "s_ct_buy_item_no_qty": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_tr_dt_wipe_wont_do": {
+    "n": 3,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_joiner_commathen_ee_2": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_tr_ce_time_first_put_in": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_ce_all_day_basic": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_remindthen_10": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_tr_mark_circle": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   },
+   "c_recur_14": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_ct_misspelled_reminder": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_generic_ue_2": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_extra_ut_2": {
+    "n": 6,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_ce_misspelled_appointment": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_threeask_ttt_2": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_npdecoy_remind_buy_two": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_tr2_gotta_and_tt": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_tr_ct_filler_gotta_remember": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_generic_ut_1": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_remindthen_9": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_tr_ce_can_you_put_on": {
+    "n": 2,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ce_trailing_please": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_co_casual_already_did": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_npdecoy_call_two_task": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_texture_11": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_allday_8": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_and_ee_3": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_npdecoy_book_with_two": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_tr_ct_wake_add_item": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_including_2": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_tr_de_wake_get_rid": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_recur_8": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_timelist_ct_3": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   },
+   "c_npdecoy_call_with_two": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_through_1": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_datemark_5": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_joiner_commathen_te_1": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_ue_postpone_event": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_co_misspelled_complet": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_ct_task_with_time": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_tr_ct_put_item_on_list": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_datemark_9": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_ct_casual_gotta": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_tr_ce_uk_pop_in_diary": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_texture_7": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_dt_quoted_delete_task": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_tr_fronted_date_list_ee": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_tr_ct_uk_chuck_on_todo": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_joiner_plus_tt_2": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_generic_de_2": {
+    "n": 4,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_and_ee_2": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_co_complete_basic": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_npdecoy_serial_sort_file": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_ct_add_task_todo_date": {
+    "n": 5,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_ct_note_to_self": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_ce_time_before_date": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_de_quoted_delete": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_tr_as_well_tt": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_datemark_4": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   },
+   "s_ce_misspelled_tomorrow": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_tr_ut_change_to_say": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_extra_ue_2": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_extra_co_1": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_ct_could_you_remind": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "c_joiner_commathen_ee_1": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_and_tt_5": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_tr_tex_filler_mid": {
+    "n": 5,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_co_quoted_complete": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ce_would_you_add": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_tr_rec_fronted": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_tr_ce_polite_verbose": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_encounter_8": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_tr_ct_terse_todo_colon": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_tr_ct_any_chance_remind": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_tr_de_fronted_cancel_it": {
+    "n": 1,
+    "off": 0,
+    "on": 0,
+    "net": 0
+   },
+   "c_tr_dash_ee": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_tr_co_terse_done": {
+    "n": 3,
+    "off": 0,
+    "on": 0,
+    "net": 0
+   },
+   "c_allday_2": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_leadtime_7": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_ce_squeeze_in": {
+    "n": 6,
+    "off": 6,
+    "on": 6,
+    "net": 0
+   },
+   "c_npdecoy_table_for_two": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_and_ee_1": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_recur_10": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_npdecoy_meeting_between": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_de_clear_event": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_range_ce_2": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_tr_ue_is_now_at": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_tr_from_through": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_tr_ce_fronted_time": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_dt_drop_task": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_encounter_6": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_ct_misspelled_tomorrow": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_encounter_4": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_extra_de_1": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_timelist_ct_2": {
+    "n": 3,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_tr_ct_ive_got_to_by": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_tr_ce_need_to_be_at": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_joiner_also_tt_2": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_tr_x_ut_rename_it": {
+    "n": 2,
+    "off": 1,
+    "on": 2,
+    "net": 1
+   },
+   "s_ut_misspelled_updat": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_attendee_4": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_ct_call_someone_date": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_npdecoy_meeting_two": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_generic_de_3": {
+    "n": 3,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_npdecoy_invite_two": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_timelist_ct_1": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "s_de_generic_target": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_tr_till": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_tr_ue_uk_shift": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "c_datemark_2": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_leadtime_5": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_ct_create_task_basic": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_timelist_ce_4": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_recur_9": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_tr_x_co_managed_to": {
+    "n": 3,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_ce_attendee_two_names": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_dt_clear_task": {
+    "n": 4,
+    "off": 4,
+    "on": 4,
+    "net": 0
+   },
+   "c_remindthen_2": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_tr_ce_hedged_need_to_book": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ce_time_range": {
+    "n": 5,
+    "off": 5,
+    "on": 5,
+    "net": 0
+   },
+   "s_co_mark_complete": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_ce_lets_do": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_tr_rec_needs_doing": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_tr_one_more_thing_ee": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_until_1": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_ue_push_event": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "c_extra_dt_1": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "c_threeask_eet_1": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ut_update_basic": {
+    "n": 2,
+    "off": 2,
+    "on": 2,
+    "net": 0
+   },
+   "s_co_mark_done": {
+    "n": 3,
+    "off": 3,
+    "on": 3,
+    "net": 0
+   },
+   "s_tr_co_finished_cross_that": {
+    "n": 2,
+    "off": 0,
+    "on": 0,
+    "net": 0
+   },
+   "s_tr_dt_not_needed": {
+    "n": 2,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_tr_ce_terse_weekday_clock": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ce_could_you_schedule": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   },
+   "s_ct_add_with_deadline": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   }
+  },
+  "shape": {
+   "atomic": {
+    "n": 922,
+    "off": 870,
+    "on": 872,
+    "net": 2
+   },
+   "compound": {
+    "n": 278,
+    "off": 275,
+    "on": 275,
+    "net": 0
+   }
+  },
+  "reentries": {
+   "0": {
+    "n": 1183,
+    "off": 1131,
+    "on": 1132,
+    "net": 1
+   },
+   "1": {
+    "n": 16,
+    "off": 13,
+    "on": 14,
+    "net": 1
+   },
+   "2": {
+    "n": 1,
+    "off": 1,
+    "on": 1,
+    "net": 0
+   }
+  },
+  "model_round": {
+   "no model round": {
+    "n": 1191,
+    "off": 1137,
+    "on": 1138,
+    "net": 1
+   },
+   "model round fired": {
+    "n": 9,
+    "off": 8,
+    "on": 9,
+    "net": 1
+   }
+  },
+  "pool": {
+   "original families": {
+    "n": 991,
+    "off": 968,
+    "on": 968,
+    "net": 0
+   },
+   "train-growth phrasings": {
+    "n": 209,
+    "off": 177,
+    "on": 179,
+    "net": 2
+   }
+  }
+ },
+ "row_ids": [
+  "s_ue_change_event_time-004",
+  "c_generic_co_2-011",
+  "c_tr2_semicolon_tt-010",
+  "c_encounter_5-001",
+  "c_joiner_plus_tt_1-003",
+  "c_tr2_bare_and_tt-022",
+  "s_tr_dt_never_mind-006",
+  "c_tr_np_two_items_on_list-003",
+  "s_dt_casual_get_rid_of-009",
+  "c_encounter_5-006",
+  "c_timelist_ce_3-006",
+  "c_encounter_2-011",
+  "s_co_please_mark_done-002",
+  "c_generic_co_2-008",
+  "s_tr_dt_never_mind-002",
+  "s_tr_ce_ive_got-002",
+  "c_tr_np_lunch_with_two-010",
+  "c_leadtime_6-001",
+  "c_npdecoy_reschedule_call_two-001",
+  "s_ct_hey_remind-011",
+  "s_de_cancel_event_date-009",
+  "c_remindthen_5-011",
+  "c_confsub_te_1-015",
+  "c_attendee_9-009",
+  "c_tr_lead_uk_give_a_shout-006",
+  "c_tr2_bare_three_ttt-016",
+  "s_ct_add_task_todo-010",
+  "c_generic_ue_1-014",
+  "c_tr_enc_text_is_todo-012",
+  "c_tr_np_with_two_uk_time-015",
+  "c_texture_2-012",
+  "s_ce_misspelled_schedule_word-002",
+  "s_de_cancel_event_date-003",
+  "c_tr_np_serial_sand_paint-002",
+  "s_ce_put_on_calendar-011",
+  "c_threeask_ee_2-008",
+  "c_attendee_8-016",
+  "c_joiner_plus_ee_2-003",
+  "s_tr_de_nonnative_please_to-001",
+  "s_de_cancel_event_date-010",
+  "c_leadtime_1-007",
+  "c_allday_3-002",
+  "c_tr_tex_run_on_decoy-009",
+  "s_de_scrap_event-007",
+  "s_ue_misspelled_reschedule-007",
+  "s_ce_around_time-006",
+  "c_tr2_need_to_and_tt-013",
+  "c_recur_6-015",
+  "c_allday_3-016",
+  "c_joiner_commathen_te_2-004",
+  "s_ut_rename_casual-003",
+  "s_ct_bare_task-012",
+  "c_leadtime_10-010",
+  "s_ct_quiet_task_no_verb-014",
+  "s_ce_can_you_book-010",
+  "s_ce_schedule_basic-004",
+  "s_co_done_with_task-014",
+  "s_ce_book_basic-009",
+  "c_remindthen_12-006",
+  "c_tr_enc_text_is_todo-013",
+  "c_npdecoy_buy_two_party-008",
+  "s_ce_mark_calendar-007",
+  "c_range_ce_4-006",
+  "c_until_endofmonth-013",
+  "c_range_ce_3-009",
+  "c_range_ce_1-006",
+  "c_confsub_te_1-011",
+  "s_co_finish_task-004",
+  "c_range_ce_5-004",
+  "s_ce_can_you_book-003",
+  "c_texture_2-014",
+  "c_extra_ce_1-006",
+  "c_tr_rec_clock_chore_q26-003",
+  "c_remindthen_11-002",
+  "s_ue_change_event_time-012",
+  "s_ut_add_note-008",
+  "c_tr_x_dt_no_longer-002",
+  "c_recur_5-005",
+  "c_extra_ce_1-002",
+  "c_generic_dt_1-010",
+  "c_tr_enc_text_is_todo-001",
+  "c_recur_2-012",
+  "c_attendee_7-007",
+  "s_ct_casual_lowercase_ok-002",
+  "s_ut_rename_task-014",
+  "c_recur_7-001",
+  "s_ce_create_event_basic-013",
+  "c_allday_1-005",
+  "c_joiner_andthen_ee_1-013",
+  "c_tr2_bare_three_ttt-007",
+  "c_attendee_10-010",
+  "s_tr_ce_wake_set-001",
+  "c_joiner_commathen_tt_1-011",
+  "c_timelist_ct_4-006",
+  "s_ce_please_book-007",
+  "c_tr_enc_coffee_with-006",
+  "c_tr2_remind_and_to_tt-024",
+  "s_de_drop_event-008",
+  "s_dt_delete_task_basic-014",
+  "c_tr_x_ue_running_late-013",
+  "c_leadtime_10-001",
+  "s_tr_ce_nonnative_please_to-009",
+  "c_allday_6-005",
+  "c_tr_x_de_question_cancel-003",
+  "c_remindthen_11-003",
+  "c_attendee_8-015",
+  "c_joiner_also_ee_2-013",
+  "c_encounter_1-007",
+  "c_leadtime_3-012",
+  "c_leadtime_4-005",
+  "c_and_tt_1-004",
+  "c_allday_5-015",
+  "c_generic_dt_1-007",
+  "s_ue_rename_event-001",
+  "c_tr_tex_run_on_decoy-003",
+  "c_encounter_1-015",
+  "s_dt_can_you_remove_task-010",
+  "s_ue_move_event-013",
+  "c_datemark_1-001",
+  "s_co_tick_off-003",
+  "c_datemark_6-010",
+  "s_ce_get_on_calendar-007",
+  "c_tr_np_lunch_with_two-012",
+  "c_leadtime_9-010",
+  "s_ue_reschedule_event-004",
+  "c_and_ee_5-005",
+  "c_recur_1-003",
+  "c_allday_6-006",
+  "s_ct_email_someone-013",
+  "c_recur_7-014",
+  "s_ct_remind_me_task_date-005",
+  "s_de_remove_calendar-006",
+  "c_threeask_tt_1-007",
+  "c_recur_5-010",
+  "s_dt_scrap_task-002",
+  "c_datemark_10-009",
+  "s_ce_get_on_calendar-014",
+  "s_ct_add_task_todo-009",
+  "c_tr_mark_fronted_statement-006",
+  "s_ct_filler_um_task-006",
+  "c_attendee_1-009",
+  "c_and_ee_5-008",
+  "c_allday_6-004",
+  "c_and_tt_4-007",
+  "c_range_ce_5-017",
+  "s_ct_bare_task-002",
+  "s_ce_add_calendar_misspelled-004",
+  "c_until_2-001",
+  "s_tr_ut_due_now-007",
+  "c_tr_enc_facetime-010",
+  "s_ct_can_you_add_task-011",
+  "c_leadtime_6-012",
+  "c_generic_de_1-010",
+  "c_confsub_tt_1-011",
+  "c_tr2_please_add_three_ttt-010",
+  "c_recur_7-002",
+  "c_tr_lead_fronted_ping-001",
+  "c_tr_rec_nonnative-005",
+  "c_joiner_plus_ee_1-007",
+  "c_allday_3-006",
+  "s_ce_put_on_calendar-002",
+  "s_ce_misspelled_schedule_word-013",
+  "c_confsub_ee_1-014",
+  "c_leadtime_11-002",
+  "c_generic_co_2-001",
+  "c_joiner_commathen_tt_1-010",
+  "c_through_2-002",
+  "c_confsub_ee_2-005",
+  "c_recur_12-003",
+  "s_ct_grab_item_qty-003",
+  "c_recur_13-010",
+  "s_ct_call_someone-007",
+  "c_recur_3-011",
+  "c_recur_5-011",
+  "s_ce_uh_i_guess-001",
+  "c_leadtime_1-015",
+  "s_ct_can_you_add_task-004",
+  "c_tr_x_ue_running_late-014",
+  "c_npdecoy_serial_wash_fold-012",
+  "c_encounter_5-003",
+  "c_recur_13-007",
+  "s_ce_plan_basic-001",
+  "c_tr_tex_stutter-008",
+  "s_ct_pick_up_items-004",
+  "c_leadtime_12-011",
+  "c_through_3-013",
+  "c_generic_ue_1-015",
+  "c_datemark_1-016",
+  "s_tr_ce_wake_set-008",
+  "c_tr2_bare_three_ttt-010",
+  "s_dt_scrap_task-001",
+  "s_ct_filler_um_task-009",
+  "c_joiner_also_tt_1-009",
+  "c_npdecoy_buy_two_party-003",
+  "c_tr_np_lunch_with_two-008",
+  "c_threeask_ttt_1-002",
+  "s_ue_move_event-002",
+  "c_range_ce_1-010",
+  "c_tr2_have_to_plus_tt-013",
+  "s_de_remove_calendar-008",
+  "s_ue_extend_event-004",
+  "c_attendee_2-006",
+  "s_ct_casual_need_to-011",
+  "s_ut_move_due_date-006",
+  "c_recur_11-011",
+  "c_threeask_ee_2-011",
+  "c_recur_16-014",
+  "s_tr_de_cant_make_it-003",
+  "c_npdecoy_buy_two_items-013",
+  "s_ce_im_free_book-001",
+  "s_ct_bare_task-001",
+  "s_de_casual_cancel-014",
+  "s_dt_generic_target-004",
+  "c_tr_x_ue_running_late-010",
+  "c_leadtime_6-008",
+  "s_tr_ct_keep_forgetting-004",
+  "s_de_take_off_calendar-009",
+  "c_encounter_7-013",
+  "s_tr_ct_nonnative_remember_me-001",
+  "s_dt_delete_misspelled_todo-004",
+  "c_joiner_also_tt_1-007",
+  "c_recur_4-007",
+  "s_ce_im_free_book-011",
+  "c_threeask_ee_2-015",
+  "c_tr2_put_on_todo_tt-001",
+  "c_tr_np_with_two_uk_time-011",
+  "c_npdecoy_serial_clean_organize-014",
+  "s_ct_grab_item_qty-012",
+  "s_ut_quoted_update_task-006",
+  "c_confsub_te_1-002",
+  "s_de_casual_cancel-003",
+  "c_until_4-005",
+  "c_attendee_2-003",
+  "c_texture_4-011",
+  "c_tr2_bare_and_tt-003",
+  "c_tr_att_name_and_i-007",
+  "c_tr_two_things_tt-007",
+  "c_confsub_te_1-012",
+  "c_confsub_te_1-003",
+  "c_confsub_te_1-006",
+  "s_ce_hey_book-011",
+  "s_dt_delete_task_basic-008",
+  "c_texture_3-017",
+  "s_ct_task_by_date-012",
+  "c_recur_13-006",
+  "s_ce_misspelled_schedule_word-004",
+  "s_ct_filler_um_task-005",
+  "c_through_3-011",
+  "s_co_check_off-009",
+  "s_tr_ce_ive_got-007",
+  "c_joiner_plus_ee_2-013",
+  "c_tr2_bare_three_ttt-025",
+  "c_and_ee_5-002",
+  "c_attendee_8-017",
+  "c_datemark_10-014",
+  "s_ce_book_basic-006",
+  "c_npdecoy_serial_wash_fold-007",
+  "c_and_ee_4-005",
+  "c_including_1-015",
+  "c_attendee_5-005",
+  "s_ut_set_priority-006",
+  "s_ce_pencil_in-003",
+  "c_tr2_remind_colon_tt-027",
+  "s_de_drop_event-005",
+  "c_encounter_5-012",
+  "s_de_drop_event-010",
+  "c_timelist_ct_4-010",
+  "s_de_delete_basic-007",
+  "c_tr2_need_to_and_tt-003",
+  "c_tr2_put_on_todo_tt-015",
+  "c_attendee_3-007",
+  "s_ut_rename_task-008",
+  "c_tr_allday_keep_clear-006",
+  "c_tr_x_de_question_cancel-014",
+  "s_de_misspelled_calendar-007",
+  "s_ue_generic_target-002",
+  "s_ce_recurrence_daily-004",
+  "c_joiner_plus_ee_2-008",
+  "c_generic_de_1-007",
+  "c_datemark_8-004",
+  "c_remindthen_12-002",
+  "c_attendee_6-001",
+  "s_ue_shorten_event-014",
+  "c_tr2_comma_also_tt-022",
+  "c_tr_att_coming_too-014",
+  "s_ct_casual_lowercase_ok-007",
+  "c_joiner_plus_tt_1-010",
+  "c_encounter_10-016",
+  "c_tr_first_then_finally_ttt-006",
+  "s_ut_add_note-006",
+  "s_ce_around_time-005",
+  "c_tr_rec_terse-008",
+  "c_texture_10-001",
+  "s_ct_buy_item_no_qty-003",
+  "c_tr2_remind_and_to_tt-026",
+  "s_ce_add_calendar_misspelled-007",
+  "c_tr2_have_to_plus_tt-026",
+  "s_ce_pencil_in-013",
+  "c_recur_11-001",
+  "c_tr_two_things_tt-001",
+  "s_tr_dt_wipe_wont_do-005",
+  "c_joiner_commathen_ee_2-004",
+  "c_until_4-014",
+  "s_tr_ct_keep_forgetting-006",
+  "s_tr_ce_time_first_put_in-003",
+  "s_tr_ce_wake_set-003",
+  "s_ct_bare_task-009",
+  "c_npdecoy_reschedule_call_two-008",
+  "c_npdecoy_serial_clean_organize-003",
+  "s_dt_generic_target-008",
+  "c_tr_tex_stutter-010",
+  "s_ce_all_day_basic-004",
+  "s_co_finish_task-014",
+  "c_tr_rec_terse-010",
+  "s_ce_add_calendar_misspelled-014",
+  "c_remindthen_10-004",
+  "c_tr_mark_circle-006",
+  "c_recur_14-008",
+  "c_recur_14-013",
+  "s_ct_misspelled_reminder-002",
+  "s_ce_please_book-001",
+  "c_generic_ue_2-002",
+  "s_ct_buy_item_no_qty-005",
+  "s_de_misspelled_calendar-009",
+  "c_extra_ut_2-003",
+  "c_recur_13-014",
+  "s_ce_misspelled_appointment-003",
+  "c_threeask_ttt_2-003",
+  "c_npdecoy_remind_buy_two-014",
+  "c_until_endofmonth-011",
+  "s_ce_pencil_in-006",
+  "c_attendee_3-008",
+  "c_joiner_plus_ee_1-013",
+  "c_encounter_10-005",
+  "s_ct_casual_need_to-004",
+  "c_datemark_6-012",
+  "c_attendee_10-011",
+  "c_tr2_gotta_and_tt-022",
+  "s_ut_rename_casual-004",
+  "c_tr2_bare_three_ttt-027",
+  "c_tr2_remind_and_to_tt-010",
+  "c_tr2_gotta_and_tt-006",
+  "c_tr_mark_circle-015",
+  "s_tr_ct_filler_gotta_remember-007",
+  "c_generic_ut_1-010",
+  "c_remindthen_9-011",
+  "c_until_2-005",
+  "s_ce_put_on_calendar-013",
+  "c_threeask_ee_2-013",
+  "c_tr_tex_run_on_decoy-011",
+  "s_tr_ce_can_you_put_on-009",
+  "c_texture_10-002",
+  "c_texture_2-004",
+  "s_ce_trailing_please-004",
+  "s_de_scrap_event-004",
+  "c_texture_4-008",
+  "s_ce_can_you_book-013",
+  "s_ut_add_note-002",
+  "s_tr_dt_never_mind-009",
+  "c_and_tt_4-006",
+  "s_ct_casual_lowercase_ok-009",
+  "s_co_casual_already_did-007",
+  "c_tr2_have_to_plus_tt-020",
+  "s_ut_set_priority-011",
+  "c_npdecoy_call_two_task-013",
+  "s_co_tick_off-008",
+  "c_texture_11-015",
+  "c_joiner_commathen_ee_2-009",
+  "c_allday_8-011",
+  "s_ce_plan_basic-010",
+  "s_co_casual_already_did-012",
+  "s_tr_ce_nonnative_please_to-007",
+  "c_and_ee_3-007",
+  "c_tr_enc_text_is_todo-002",
+  "c_until_endofmonth-001",
+  "c_until_endofmonth-015",
+  "c_threeask_ttt_2-006",
+  "c_tr_enc_facetime-013",
+  "c_npdecoy_book_with_two-005",
+  "c_recur_7-012",
+  "s_tr_ct_wake_add_item-009",
+  "s_co_casual_already_did-008",
+  "c_confsub_tt_1-015",
+  "s_tr_dt_never_mind-007",
+  "c_npdecoy_buy_two_items-015",
+  "c_including_2-010",
+  "s_tr_dt_wipe_wont_do-006",
+  "c_tr_rec_terse-009",
+  "s_tr_de_wake_get_rid-006",
+  "c_recur_8-013",
+  "c_timelist_ct_3-005",
+  "c_npdecoy_call_with_two-005",
+  "c_through_1-014",
+  "c_recur_3-007",
+  "s_tr_ce_wake_set-007",
+  "s_ct_casual_need_to-014",
+  "c_tr_np_serial_sand_paint-003",
+  "c_encounter_2-001",
+  "c_datemark_6-009",
+  "s_ct_quiet_task_no_verb-004",
+  "c_attendee_10-009",
+  "c_datemark_5-002",
+  "c_allday_1-009",
+  "c_npdecoy_call_with_two-006",
+  "c_range_ce_4-015",
+  "c_joiner_commathen_te_1-008",
+  "s_ue_postpone_event-006",
+  "s_co_done_with_task-006",
+  "c_attendee_6-005",
+  "c_tr2_remind_colon_tt-005",
+  "c_confsub_ee_2-003",
+  "s_co_misspelled_complet-009",
+  "c_remindthen_10-013",
+  "s_ct_task_with_time-009",
+  "c_timelist_ce_3-013",
+  "c_npdecoy_remind_buy_two-010",
+  "c_npdecoy_serial_clean_organize-011",
+  "s_ce_schedule_basic-008",
+  "s_tr_ct_put_item_on_list-004",
+  "s_dt_generic_target-005",
+  "c_datemark_9-008",
+  "s_ct_casual_gotta-012",
+  "c_tr2_bare_and_tt-014",
+  "s_tr_ce_uk_pop_in_diary-005",
+  "c_tr_rec_terse-013",
+  "s_ce_pencil_in-010",
+  "c_texture_7-001",
+  "c_joiner_plus_ee_2-010",
+  "s_ce_all_day_basic-007",
+  "s_dt_quoted_delete_task-010",
+  "c_tr_fronted_date_list_ee-014",
+  "s_tr_ct_uk_chuck_on_todo-009",
+  "s_ut_rename_casual-008",
+  "c_joiner_plus_tt_2-008",
+  "c_allday_3-010",
+  "c_recur_11-009",
+  "c_generic_de_2-009",
+  "c_and_ee_2-010",
+  "c_attendee_8-014",
+  "s_ce_misspelled_schedule_word-007",
+  "s_co_complete_basic-012",
+  "s_ct_remind_me_task_date-004",
+  "s_ct_bare_task-003",
+  "c_npdecoy_serial_sort_file-015",
+  "s_ct_add_task_todo_date-010",
+  "s_ce_book_basic-002",
+  "c_texture_10-005",
+  "c_threeask_ee_2-003",
+  "s_ct_note_to_self-002",
+  "c_joiner_commathen_ee_2-012",
+  "c_npdecoy_serial_wash_fold-001",
+  "c_tr_rec_nonnative-008",
+  "c_attendee_7-014",
+  "s_ce_time_before_date-012",
+  "s_ut_rename_task-001",
+  "s_dt_delete_misspelled_todo-008",
+  "c_joiner_andthen_ee_1-005",
+  "s_dt_quoted_delete_task-008",
+  "c_tr_x_dt_no_longer-010",
+  "s_ct_note_to_self-013",
+  "s_de_quoted_delete-007",
+  "s_ct_casual_need_to-003",
+  "c_tr_as_well_tt-008",
+  "c_tr2_have_to_plus_tt-009",
+  "c_confsub_te_1-007",
+  "c_attendee_8-012",
+  "c_confsub_tt_1-009",
+  "c_datemark_4-014",
+  "s_tr_ct_filler_gotta_remember-008",
+  "s_dt_casual_get_rid_of-003",
+  "c_allday_1-002",
+  "c_npdecoy_remind_buy_two-008",
+  "s_ce_misspelled_tomorrow-012",
+  "c_tr_enc_coffee_with-002",
+  "s_tr_ut_change_to_say-005",
+  "c_leadtime_3-007",
+  "s_ct_add_task_todo_date-013",
+  "c_extra_ue_2-012",
+  "c_tr_x_ue_running_late-009",
+  "c_tr2_bare_and_tt-013",
+  "c_datemark_5-010",
+  "c_allday_8-004",
+  "c_extra_co_1-007",
+  "s_ct_could_you_remind-008",
+  "c_timelist_ct_3-002",
+  "s_tr_dt_wipe_wont_do-004",
+  "c_joiner_commathen_ee_1-012",
+  "c_recur_3-012",
+  "c_tr_x_ue_running_late-003",
+  "c_timelist_ct_3-013",
+  "c_and_tt_5-002",
+  "c_tr_tex_filler_mid-002",
+  "s_ce_schedule_basic-014",
+  "s_ue_misspelled_reschedule-002",
+  "c_attendee_6-004",
+  "s_co_quoted_complete-007",
+  "c_including_2-002",
+  "c_datemark_5-015",
+  "s_ce_uh_i_guess-010",
+  "c_tr2_gotta_and_tt-017",
+  "c_tr_fronted_date_list_ee-011",
+  "c_tr2_have_to_plus_tt-021",
+  "c_generic_co_2-009",
+  "c_threeask_tt_1-002",
+  "s_ct_can_you_add_task-003",
+  "c_through_2-003",
+  "c_recur_14-010",
+  "s_co_finish_task-012",
+  "c_attendee_7-009",
+  "c_including_2-012",
+  "s_ce_would_you_add-013",
+  "s_ct_add_task_todo-011",
+  "c_tr_rec_fronted-015",
+  "s_tr_ce_can_you_put_on-005",
+  "s_tr_ct_wake_add_item-002",
+  "s_tr_ce_polite_verbose-010",
+  "c_leadtime_11-012",
+  "c_joiner_plus_tt_2-007",
+  "c_datemark_4-004",
+  "c_recur_4-004",
+  "c_attendee_9-006",
+  "c_encounter_8-014",
+  "s_tr_ct_terse_todo_colon-007",
+  "c_joiner_plus_tt_2-014",
+  "s_tr_ct_any_chance_remind-003",
+  "s_tr_de_fronted_cancel_it-007",
+  "s_ct_add_task_todo-013",
+  "c_generic_co_2-003",
+  "c_tr_dash_ee-011",
+  "s_ct_add_task_todo_date-006",
+  "c_joiner_commathen_te_1-013",
+  "s_tr_co_terse_done-010",
+  "s_ct_buy_item_no_qty-010",
+  "c_tr2_bare_three_ttt-020",
+  "c_recur_16-007",
+  "c_allday_2-008",
+  "c_allday_2-010",
+  "c_joiner_also_tt_1-013",
+  "c_leadtime_7-004",
+  "c_npdecoy_remind_buy_two-006",
+  "s_co_check_off-013",
+  "s_ct_task_with_time-001",
+  "s_ce_create_event_basic-012",
+  "s_ct_add_task_todo_date-009",
+  "c_remindthen_11-007",
+  "c_range_ce_1-002",
+  "c_tr_lead_uk_give_a_shout-002",
+  "c_datemark_8-013",
+  "c_and_tt_4-008",
+  "c_tr_rec_fronted-007",
+  "s_ct_task_by_date-005",
+  "c_tr_np_serial_sand_paint-004",
+  "s_ce_mark_calendar-004",
+  "c_attendee_10-014",
+  "s_ce_hey_book-009",
+  "s_ce_squeeze_in-004",
+  "s_tr_ct_wake_add_item-007",
+  "c_joiner_plus_tt_1-002",
+  "c_allday_6-013",
+  "c_npdecoy_table_for_two-003",
+  "c_threeask_ttt_1-011",
+  "c_timelist_ct_3-006",
+  "c_tr2_comma_also_tt-009",
+  "c_and_ee_1-014",
+  "c_attendee_5-008",
+  "c_recur_12-004",
+  "c_allday_2-014",
+  "s_ue_generic_target-013",
+  "c_tr2_semicolon_tt-003",
+  "c_recur_12-013",
+  "s_ue_generic_target-006",
+  "c_attendee_5-002",
+  "c_tr2_semicolon_tt-024",
+  "c_datemark_4-011",
+  "c_tr_np_serial_sand_paint-006",
+  "c_tr_as_well_tt-012",
+  "s_co_done_with_task-001",
+  "c_datemark_8-008",
+  "c_tr_as_well_tt-014",
+  "s_ct_call_someone-013",
+  "c_npdecoy_book_with_two-004",
+  "c_recur_7-008",
+  "s_ut_quoted_update_task-007",
+  "s_ct_bare_task-008",
+  "s_ce_get_on_calendar-005",
+  "s_ct_could_you_remind-010",
+  "c_tr2_put_on_todo_tt-014",
+  "c_tr_fronted_date_list_ee-012",
+  "s_tr_ct_keep_forgetting-001",
+  "c_encounter_10-004",
+  "c_tr_tex_filler_mid-013",
+  "c_recur_14-007",
+  "s_de_cancel_event_date-006",
+  "c_recur_10-001",
+  "c_tr2_put_on_todo_tt-026",
+  "c_npdecoy_meeting_between-008",
+  "c_and_ee_1-002",
+  "s_de_clear_event-005",
+  "c_until_endofmonth-010",
+  "s_ce_would_you_add-003",
+  "c_generic_de_2-006",
+  "c_range_ce_2-001",
+  "s_tr_ue_is_now_at-004",
+  "c_joiner_commathen_te_1-001",
+  "c_npdecoy_buy_two_party-002",
+  "s_tr_ct_filler_gotta_remember-011",
+  "c_datemark_1-015",
+  "c_confsub_tt_1-008",
+  "c_leadtime_10-013",
+  "c_recur_2-013",
+  "c_remindthen_12-003",
+  "c_tr_from_through-012",
+  "c_texture_10-014",
+  "s_ce_time_before_date-013",
+  "c_generic_ue_2-013",
+  "s_tr_ce_fronted_time-001",
+  "c_tr_mark_circle-007",
+  "s_ue_shorten_event-013",
+  "s_ct_pick_up_items-010",
+  "s_ct_email_someone-006",
+  "c_and_ee_5-012",
+  "s_dt_drop_task-007",
+  "c_tr_rec_clock_chore_q26-007",
+  "c_tr_rec_nonnative-013",
+  "s_de_delete_basic-008",
+  "s_ce_recurrence_daily-010",
+  "c_recur_13-003",
+  "s_tr_ct_any_chance_remind-007",
+  "s_ce_plan_basic-002",
+  "c_allday_6-003",
+  "c_encounter_6-002",
+  "c_joiner_plus_tt_2-011",
+  "c_joiner_commathen_tt_1-013",
+  "s_ct_misspelled_tomorrow-005",
+  "c_encounter_4-008",
+  "c_and_ee_5-014",
+  "s_tr_ce_polite_verbose-005",
+  "c_recur_7-004",
+  "c_npdecoy_remind_buy_two-007",
+  "c_timelist_ce_3-008",
+  "s_de_casual_cancel-002",
+  "c_leadtime_3-002",
+  "s_dt_drop_task-013",
+  "c_attendee_2-014",
+  "c_tr_att_name_and_i-005",
+  "c_datemark_6-015",
+  "c_texture_10-004",
+  "s_tr_ct_uk_chuck_on_todo-005",
+  "s_co_done_with_task-011",
+  "c_extra_de_1-013",
+  "c_and_ee_2-004",
+  "c_tr2_gotta_and_tt-019",
+  "c_recur_1-012",
+  "c_tr_mark_fronted_statement-008",
+  "c_tr2_remind_colon_tt-009",
+  "c_datemark_4-006",
+  "c_timelist_ct_2-010",
+  "s_ce_misspelled_schedule_word-010",
+  "c_generic_de_2-005",
+  "s_tr_ct_ive_got_to_by-008",
+  "s_ue_misspelled_reschedule-001",
+  "c_recur_13-002",
+  "s_tr_ce_need_to_be_at-009",
+  "c_joiner_also_tt_2-012",
+  "c_tr_x_ut_rename_it-009",
+  "c_range_ce_3-011",
+  "s_dt_generic_target-002",
+  "s_tr_ct_keep_forgetting-002",
+  "c_tr_np_with_two_uk_time-013",
+  "c_threeask_tt_1-008",
+  "s_ut_misspelled_updat-007",
+  "c_npdecoy_buy_two_items-008",
+  "c_and_ee_3-015",
+  "s_co_check_off-007",
+  "c_tr_lead_fronted_ping-012",
+  "c_attendee_4-001",
+  "s_ce_im_free_book-003",
+  "c_attendee_10-016",
+  "c_texture_10-015",
+  "c_tr_rec_terse-001",
+  "c_tr2_bare_and_tt-002",
+  "s_ct_call_someone_date-014",
+  "c_encounter_4-010",
+  "c_tr_rec_nonnative-002",
+  "c_npdecoy_meeting_two-003",
+  "s_dt_can_you_remove_task-005",
+  "c_joiner_commathen_te_2-010",
+  "c_encounter_1-014",
+  "c_tr_tex_filler_mid-005",
+  "s_ut_misspelled_updat-006",
+  "c_leadtime_10-003",
+  "c_recur_6-006",
+  "c_until_endofmonth-008",
+  "c_threeask_ttt_2-012",
+  "s_ct_bare_task-010",
+  "s_tr_ce_need_to_be_at-003",
+  "c_tr_tex_run_on_decoy-008",
+  "c_npdecoy_reschedule_call_two-012",
+  "c_generic_ue_1-006",
+  "c_joiner_commathen_te_1-012",
+  "c_npdecoy_buy_two_party-010",
+  "c_tr_mark_circle-008",
+  "c_through_3-001",
+  "s_co_tick_off-009",
+  "s_ce_hey_book-004",
+  "c_tr_np_lunch_with_two-005",
+  "c_generic_de_3-002",
+  "s_tr_ce_wake_set-006",
+  "c_datemark_4-015",
+  "c_allday_6-014",
+  "c_tr2_please_add_three_ttt-008",
+  "s_ue_postpone_event-001",
+  "c_npdecoy_invite_two-005",
+  "c_tr2_remind_colon_tt-018",
+  "c_generic_ue_1-004",
+  "s_ce_would_you_add-002",
+  "c_timelist_ct_4-005",
+  "s_ct_misspelled_tomorrow-014",
+  "c_allday_6-015",
+  "c_datemark_6-008",
+  "c_timelist_ct_1-006",
+  "c_encounter_10-015",
+  "c_npdecoy_buy_two_party-015",
+  "s_de_generic_target-001",
+  "c_allday_1-007",
+  "s_ct_quiet_task_no_verb-010",
+  "s_ce_im_free_book-009",
+  "c_range_ce_5-016",
+  "c_extra_co_1-003",
+  "c_tr2_need_to_and_tt-027",
+  "s_de_misspelled_calendar-008",
+  "c_including_2-011",
+  "c_tr_lead_uk_give_a_shout-007",
+  "c_joiner_commathen_ee_2-002",
+  "c_recur_5-001",
+  "s_ct_misspelled_tomorrow-002",
+  "c_timelist_ct_4-004",
+  "c_remindthen_12-012",
+  "c_generic_de_1-002",
+  "s_de_remove_calendar-005",
+  "c_recur_12-010",
+  "s_de_scrap_event-013",
+  "s_tr_ct_put_item_on_list-003",
+  "c_joiner_also_ee_2-009",
+  "s_ct_note_to_self-012",
+  "c_recur_7-003",
+  "c_tr_lead_fronted_ping-010",
+  "c_leadtime_4-007",
+  "s_dt_casual_get_rid_of-014",
+  "c_recur_3-002",
+  "c_tr_two_things_tt-013",
+  "c_npdecoy_meeting_two-004",
+  "c_tr_rec_clock_chore_q26-015",
+  "c_attendee_1-002",
+  "c_recur_12-006",
+  "c_texture_4-012",
+  "c_tr_till-009",
+  "s_tr_ue_uk_shift-005",
+  "c_datemark_2-009",
+  "s_ce_time_before_date-002",
+  "c_npdecoy_meeting_two-011",
+  "c_leadtime_5-002",
+  "c_recur_12-001",
+  "c_attendee_6-007",
+  "c_remindthen_10-014",
+  "s_ct_create_task_basic-014",
+  "c_tr_att_name_and_i-001",
+  "s_ce_squeeze_in-007",
+  "s_ut_move_due_date-002",
+  "c_extra_de_1-010",
+  "s_ce_trailing_please-001",
+  "s_ut_misspelled_updat-011",
+  "c_generic_ue_1-013",
+  "c_until_endofmonth-012",
+  "s_ce_can_you_book-001",
+  "s_ct_bare_task-013",
+  "c_recur_1-014",
+  "s_ct_can_you_add_task-010",
+  "c_generic_ue_2-015",
+  "c_tr_x_ue_running_late-002",
+  "c_texture_11-011",
+  "c_and_ee_4-015",
+  "c_npdecoy_buy_two_items-004",
+  "s_ct_create_task_basic-001",
+  "c_recur_4-013",
+  "c_recur_8-015",
+  "s_ce_please_book-011",
+  "s_ce_misspelled_schedule_word-011",
+  "c_generic_ue_1-011",
+  "c_tr2_bare_and_tt-011",
+  "c_tr2_remind_colon_tt-012",
+  "c_tr2_remind_colon_tt-006",
+  "s_ct_misspelled_reminder-012",
+  "s_co_misspelled_complet-003",
+  "c_timelist_ct_3-004",
+  "c_texture_10-003",
+  "s_tr_ue_is_now_at-007",
+  "s_tr_co_terse_done-003",
+  "c_timelist_ce_4-008",
+  "c_tr_x_ue_running_late-007",
+  "c_and_tt_4-015",
+  "c_recur_9-001",
+  "c_tr_x_co_managed_to-003",
+  "s_dt_scrap_task-007",
+  "c_leadtime_6-006",
+  "s_tr_ue_uk_shift-007",
+  "c_extra_ut_2-007",
+  "c_leadtime_4-001",
+  "s_de_generic_target-007",
+  "s_ce_attendee_two_names-006",
+  "s_tr_ce_uk_pop_in_diary-009",
+  "s_ct_pick_up_items-013",
+  "c_tr2_remind_colon_tt-003",
+  "c_leadtime_4-008",
+  "c_tr2_remind_colon_tt-013",
+  "c_datemark_9-013",
+  "c_and_ee_3-011",
+  "c_recur_11-004",
+  "c_extra_ce_1-005",
+  "s_ce_time_before_date-004",
+  "c_range_ce_3-015",
+  "c_tr2_remind_colon_tt-011",
+  "c_tr2_semicolon_tt-019",
+  "s_ct_quiet_task_no_verb-003",
+  "c_extra_ue_2-014",
+  "s_co_complete_basic-003",
+  "s_ct_could_you_remind-013",
+  "c_tr_enc_facetime-006",
+  "c_tr2_have_to_plus_tt-022",
+  "c_leadtime_5-001",
+  "c_joiner_commathen_ee_2-001",
+  "c_texture_2-006",
+  "s_ut_add_note-011",
+  "s_dt_clear_task-010",
+  "c_leadtime_3-003",
+  "s_ct_email_someone-003",
+  "s_tr_ut_due_now-002",
+  "c_tr2_have_to_plus_tt-007",
+  "c_generic_de_3-007",
+  "c_joiner_commathen_tt_1-006",
+  "s_dt_clear_task-013",
+  "s_ce_attendee_two_names-001",
+  "c_allday_5-012",
+  "s_tr_ce_time_first_put_in-009",
+  "c_tr2_remind_colon_tt-020",
+  "s_ce_pencil_in-005",
+  "s_tr_ce_ive_got-011",
+  "s_co_casual_already_did-009",
+  "c_encounter_8-001",
+  "s_ue_generic_target-010",
+  "c_timelist_ct_1-003",
+  "c_npdecoy_serial_wash_fold-013",
+  "s_ce_squeeze_in-014",
+  "c_tr_tex_run_on_decoy-004",
+  "c_recur_1-007",
+  "c_timelist_ct_1-010",
+  "s_dt_drop_task-010",
+  "c_datemark_1-003",
+  "c_tr_first_then_finally_ttt-007",
+  "c_datemark_9-007",
+  "s_ce_squeeze_in-008",
+  "s_tr_ue_uk_shift-006",
+  "s_dt_casual_get_rid_of-013",
+  "c_datemark_1-009",
+  "s_ce_uh_i_guess-007",
+  "s_ct_call_someone-012",
+  "s_dt_clear_task-007",
+  "c_recur_10-015",
+  "s_ce_attendee_two_names-007",
+  "s_ct_call_someone_date-008",
+  "c_and_ee_2-012",
+  "c_tr2_put_on_todo_tt-024",
+  "s_ct_note_to_self-004",
+  "c_tr_x_dt_no_longer-013",
+  "c_recur_4-014",
+  "c_remindthen_2-005",
+  "c_joiner_andthen_ee_1-012",
+  "c_tr_till-008",
+  "s_tr_ce_hedged_need_to_book-007",
+  "c_joiner_plus_ee_1-002",
+  "c_encounter_4-005",
+  "s_ut_rename_task-007",
+  "s_ue_generic_target-004",
+  "s_de_remove_calendar-010",
+  "s_ct_call_someone-014",
+  "c_and_tt_1-008",
+  "c_remindthen_9-013",
+  "c_tr_np_serial_sand_paint-001",
+  "c_leadtime_7-001",
+  "c_npdecoy_table_for_two-014",
+  "s_ce_time_range-001",
+  "s_ct_grab_item_qty-005",
+  "c_tr2_bare_three_ttt-021",
+  "c_npdecoy_serial_clean_organize-002",
+  "c_attendee_2-009",
+  "c_tr_x_dt_no_longer-003",
+  "c_tr_enc_text_is_todo-015",
+  "s_dt_scrap_task-014",
+  "c_attendee_10-007",
+  "s_dt_clear_task-012",
+  "c_tr2_have_to_plus_tt-016",
+  "c_recur_5-012",
+  "c_tr_np_with_two_uk_time-008",
+  "s_ce_squeeze_in-005",
+  "c_datemark_2-006",
+  "c_npdecoy_meeting_between-001",
+  "c_tr_fronted_date_list_ee-007",
+  "c_tr_rec_nonnative-007",
+  "s_co_mark_complete-005",
+  "s_ce_plan_basic-013",
+  "c_joiner_plus_tt_1-008",
+  "s_ce_lets_do-001",
+  "c_datemark_6-002",
+  "s_ct_pick_up_items-005",
+  "c_generic_ut_1-004",
+  "c_datemark_8-015",
+  "c_recur_6-012",
+  "c_tr_att_name_and_i-013",
+  "c_npdecoy_buy_two_items-005",
+  "c_timelist_ce_4-003",
+  "s_ut_move_due_date-001",
+  "c_tr_mark_circle-012",
+  "c_tr2_need_to_and_tt-005",
+  "c_tr2_need_to_and_tt-008",
+  "c_tr_rec_needs_doing-007",
+  "c_threeask_tt_1-006",
+  "c_tr2_have_to_plus_tt-014",
+  "c_through_1-004",
+  "s_ut_set_priority-001",
+  "c_tr_x_ue_running_late-006",
+  "c_tr_one_more_thing_ee-009",
+  "s_tr_ct_ive_got_to_by-006",
+  "c_recur_12-014",
+  "c_extra_ut_2-012",
+  "s_ce_misspelled_tomorrow-002",
+  "c_tr2_comma_also_tt-018",
+  "c_recur_2-003",
+  "c_remindthen_5-013",
+  "s_tr_dt_never_mind-008",
+  "c_tr2_bare_three_ttt-014",
+  "s_co_please_mark_done-010",
+  "s_ce_time_range-009",
+  "c_tr2_semicolon_tt-025",
+  "c_datemark_6-007",
+  "c_range_ce_4-012",
+  "c_npdecoy_reschedule_call_two-011",
+  "c_confsub_ee_2-011",
+  "c_tr_mark_circle-001",
+  "c_tr_enc_facetime-009",
+  "c_tr2_have_to_plus_tt-005",
+  "c_recur_16-011",
+  "s_ue_reschedule_event-003",
+  "s_co_mark_complete-013",
+  "c_encounter_6-014",
+  "s_ce_squeeze_in-006",
+  "s_ut_quoted_update_task-013",
+  "c_attendee_4-011",
+  "s_ct_casual_gotta-004",
+  "c_encounter_2-009",
+  "s_ce_time_range-003",
+  "c_encounter_1-005",
+  "c_timelist_ct_2-009",
+  "c_tr_att_coming_too-010",
+  "s_ue_move_event-012",
+  "c_timelist_ct_4-007",
+  "s_ce_time_range-002",
+  "c_tr2_have_to_plus_tt-011",
+  "c_attendee_6-011",
+  "s_de_generic_target-003",
+  "c_tr_np_lunch_with_two-011",
+  "c_timelist_ct_3-008",
+  "c_npdecoy_serial_sort_file-003",
+  "s_tr_ut_change_to_say-009",
+  "c_tr2_have_to_plus_tt-025",
+  "s_ct_could_you_remind-009",
+  "s_dt_delete_misspelled_todo-006",
+  "c_recur_2-008",
+  "c_tr_rec_clock_chore_q26-011",
+  "c_npdecoy_buy_two_items-007",
+  "c_through_3-008",
+  "c_npdecoy_serial_clean_organize-001",
+  "c_tr_lead_fronted_ping-009",
+  "c_allday_3-009",
+  "c_attendee_3-010",
+  "c_threeask_tt_1-011",
+  "s_de_drop_event-002",
+  "c_tr2_semicolon_tt-022",
+  "c_tr2_semicolon_tt-002",
+  "s_tr_ct_uk_chuck_on_todo-001",
+  "c_tr_x_dt_no_longer-014",
+  "c_texture_2-009",
+  "c_and_tt_5-011",
+  "c_tr2_need_to_and_tt-012",
+  "c_and_tt_1-007",
+  "c_datemark_8-007",
+  "c_until_1-010",
+  "c_including_1-008",
+  "c_tr_rec_terse-007",
+  "s_ct_task_with_time-014",
+  "c_tr_rec_terse-005",
+  "c_tr_x_dt_no_longer-004",
+  "s_ct_grab_item_qty-009",
+  "c_tr2_need_to_and_tt-009",
+  "s_ue_push_event-009",
+  "s_de_delete_basic-002",
+  "c_extra_dt_1-013",
+  "c_npdecoy_meeting_two-002",
+  "s_de_misspelled_calendar-001",
+  "c_encounter_1-010",
+  "s_ct_grab_item_qty-007",
+  "c_leadtime_9-014",
+  "c_tr_tex_filler_mid-009",
+  "c_recur_4-001",
+  "c_threeask_eet_1-006",
+  "c_tr_first_then_finally_ttt-010",
+  "s_ce_put_on_calendar-003",
+  "s_co_check_off-004",
+  "c_range_ce_2-011",
+  "s_ct_remind_me_task_date-002",
+  "c_tr2_need_to_and_tt-011",
+  "c_tr_rec_needs_doing-003",
+  "s_ut_rename_task-005",
+  "s_ue_extend_event-010",
+  "c_recur_16-003",
+  "s_dt_delete_misspelled_todo-010",
+  "c_texture_4-009",
+  "s_tr_ut_due_now-003",
+  "c_leadtime_5-015",
+  "c_generic_de_2-002",
+  "c_recur_14-001",
+  "c_recur_4-003",
+  "c_tr2_bare_three_ttt-002",
+  "s_dt_quoted_delete_task-009",
+  "s_ue_rename_event-012",
+  "c_joiner_commathen_tt_1-003",
+  "c_tr_two_things_tt-002",
+  "c_remindthen_11-009",
+  "c_recur_16-013",
+  "c_extra_co_1-008",
+  "c_datemark_4-010",
+  "c_tr2_put_on_todo_tt-010",
+  "c_tr_from_through-010",
+  "c_range_ce_5-002",
+  "c_attendee_8-013",
+  "c_allday_1-004",
+  "c_tr_lead_fronted_ping-002",
+  "s_ct_task_by_date-003",
+  "c_leadtime_3-001",
+  "s_de_casual_cancel-013",
+  "c_tr_two_things_tt-004",
+  "s_tr_ue_is_now_at-003",
+  "s_ut_update_basic-001",
+  "s_tr_co_terse_done-011",
+  "s_co_mark_done-005",
+  "c_tr_one_more_thing_ee-001",
+  "c_encounter_8-010",
+  "c_leadtime_12-002",
+  "c_and_ee_1-006",
+  "s_tr_co_finished_cross_that-008",
+  "c_npdecoy_serial_wash_fold-016",
+  "s_dt_quoted_delete_task-006",
+  "c_tr_att_name_and_i-015",
+  "c_recur_12-009",
+  "c_npdecoy_serial_sort_file-002",
+  "c_confsub_te_1-005",
+  "c_encounter_4-001",
+  "s_tr_de_nonnative_please_to-008",
+  "s_tr_dt_not_needed-005",
+  "s_tr_dt_not_needed-009",
+  "c_encounter_2-002",
+  "s_ue_change_event_time-002",
+  "c_npdecoy_serial_clean_organize-009",
+  "c_recur_13-009",
+  "c_attendee_2-016",
+  "c_joiner_commathen_ee_1-015",
+  "s_co_mark_complete-004",
+  "c_and_tt_4-016",
+  "s_ct_remind_me_task_date-006",
+  "c_through_2-010",
+  "c_generic_ue_1-012",
+  "c_and_tt_4-014",
+  "s_ue_postpone_event-009",
+  "s_tr_ut_change_to_say-003",
+  "c_tr_two_things_tt-008",
+  "c_tr2_comma_also_tt-003",
+  "s_ct_hey_remind-001",
+  "c_tr_np_with_two_uk_time-014",
+  "c_tr2_have_to_plus_tt-001",
+  "c_tr2_semicolon_tt-027",
+  "c_threeask_tt_1-001",
+  "c_range_ce_3-005",
+  "s_ce_im_free_book-010",
+  "c_through_1-013",
+  "s_ce_lets_do-012",
+  "s_ce_misspelled_tomorrow-013",
+  "c_leadtime_6-005",
+  "s_tr_ue_is_now_at-008",
+  "c_tr2_need_to_and_tt-025",
+  "s_tr_ce_terse_weekday_clock-005",
+  "c_generic_de_3-010",
+  "c_joiner_commathen_te_1-010",
+  "s_ct_quiet_task_no_verb-008",
+  "c_range_ce_3-003",
+  "c_allday_1-014",
+  "c_tr2_bare_and_tt-026",
+  "c_tr2_comma_also_tt-008",
+  "s_ce_schedule_basic-010",
+  "s_ce_could_you_schedule-006",
+  "s_tr_ce_need_to_be_at-004",
+  "s_tr_co_finished_cross_that-001",
+  "c_leadtime_4-004",
+  "c_tr2_please_add_three_ttt-024",
+  "c_allday_6-011",
+  "c_npdecoy_invite_two-012",
+  "c_until_2-002",
+  "c_confsub_ee_1-010",
+  "c_tr2_please_add_three_ttt-018",
+  "c_leadtime_11-015",
+  "c_tr2_semicolon_tt-007",
+  "c_range_ce_1-014",
+  "c_generic_dt_1-005",
+  "c_tr_tex_filler_mid-010",
+  "c_extra_ut_2-001",
+  "s_ct_add_with_deadline-012",
+  "c_extra_dt_1-008",
+  "c_attendee_2-004",
+  "s_ce_time_range-004",
+  "c_range_ce_2-008",
+  "c_timelist_ct_2-005",
+  "c_allday_3-012",
+  "c_tr_x_ut_rename_it-011",
+  "s_co_complete_basic-014",
+  "c_threeask_ttt_2-002",
+  "c_recur_7-005",
+  "s_ue_move_event-001",
+  "c_generic_de_1-005",
+  "c_datemark_1-013",
+  "c_generic_ue_1-001",
+  "c_recur_10-012",
+  "c_encounter_7-011",
+  "c_and_ee_2-002",
+  "c_tr2_gotta_and_tt-021",
+  "s_ce_would_you_add-006",
+  "c_tr_rec_nonnative-001",
+  "s_ce_around_time-011",
+  "s_ce_uh_i_guess-013",
+  "c_generic_de_1-004",
+  "s_co_done_with_task-004",
+  "s_ct_grab_item_qty-004",
+  "c_extra_ut_2-002",
+  "c_until_endofmonth-003",
+  "s_ce_misspelled_appointment-009",
+  "c_tr2_have_to_plus_tt-027",
+  "c_tr_x_dt_no_longer-008",
+  "s_ce_hey_book-005",
+  "c_allday_2-013",
+  "c_encounter_6-001",
+  "c_timelist_ct_1-002",
+  "s_ct_filler_um_task-002",
+  "c_until_4-004",
+  "c_extra_ue_2-005",
+  "c_encounter_10-009",
+  "c_texture_11-001",
+  "c_npdecoy_meeting_between-004",
+  "s_ue_reschedule_event-013",
+  "s_ct_email_someone-011",
+  "c_datemark_1-014",
+  "c_tr_att_name_and_i-002",
+  "c_generic_ue_2-017",
+  "s_co_finish_task-006",
+  "s_ct_add_task_todo_date-004",
+  "c_until_1-005",
+  "c_tr_lead_uk_give_a_shout-013",
+  "c_datemark_6-001",
+  "c_encounter_10-003",
+  "c_remindthen_5-010",
+  "c_tr_x_co_managed_to-015",
+  "s_ce_misspelled_schedule_word-006",
+  "c_through_3-015",
+  "s_co_mark_done-004",
+  "s_ct_could_you_remind-007",
+  "c_extra_ce_1-007",
+  "s_ue_change_event_time-011",
+  "s_ut_update_basic-003",
+  "c_tr_x_co_managed_to-010",
+  "c_remindthen_2-014",
+  "s_ue_change_event_time-005",
+  "s_ce_create_event_basic-009",
+  "c_encounter_2-007",
+  "c_tr2_remind_and_to_tt-027",
+  "s_ct_misspelled_reminder-008",
+  "c_tr2_bare_and_tt-007",
+  "c_generic_de_1-006",
+  "s_ct_casual_gotta-013",
+  "c_attendee_2-012",
+  "c_and_ee_5-015",
+  "c_joiner_plus_tt_2-003",
+  "s_co_mark_done-014",
+  "s_ct_email_someone-005",
+  "c_extra_ut_2-008"
+ ],
+ "mode": "product",
+ "metrics": {
+  "counts": {
+   "rows": 1200,
+   "model_rows": 249,
+   "path_known": 1200,
+   "fast_rows": 752,
+   "generic_n": 47,
+   "generic_refused": 38,
+   "count_n": 941,
+   "count_ok": 833,
+   "obj_expected": 1236,
+   "obj_created": 1183,
+   "obj_matched": 1141,
+   "missing": 95,
+   "extra": 42,
+   "harm": 89,
+   "wrong": 53,
+   "field_rows": 653,
+   "title_n": 653,
+   "title_exact": 529,
+   "title_p_milli": 606344,
+   "title_r_milli": 627520,
+   "title_f_milli": 603525,
+   "title_contained": 646,
+   "date_n": 296,
+   "date_ok": 284,
+   "invent_n": 168,
+   "invent": 4,
+   "time_n": 204,
+   "time_ok": 204,
+   "lead_n": 42,
+   "lead_ok": 36,
+   "rec_n": 139,
+   "rec_ok": 128,
+   "range_n": 24,
+   "range_ok": 24
+  },
+  "by_pool": {
+   "original": {
+    "rows": 991,
+    "correct": 968,
+    "count_n": 787,
+    "count_ok": 701
+   },
+   "new phrasings": {
+    "rows": 209,
+    "correct": 179,
+    "count_n": 154,
+    "count_ok": 132
+   }
+  },
+  "destructive": {
+   "delete_todo": 5,
+   "update_event": 14,
+   "update_todo": 4,
+   "delete_event": 2
+  },
+  "confusion": {
+   "create_todo -> create_event": 8,
+   "update_todo -> update_event": 6,
+   "complete_todo -> create_todo": 6,
+   "delete_todo -> create_todo": 5,
+   "create_event -> update_event": 4,
+   "create_event -> create_event": 3,
+   "update_todo -> update_todo": 3,
+   "delete_event -> delete_todo": 2,
+   "delete_event -> create_event": 2,
+   "create_event -> create_todo": 2,
+   "create_todo -> create_todo": 1,
+   "update_todo -> delete_todo": 1,
+   "delete_todo -> update_todo": 1,
+   "create_todo -> delete_todo": 1,
+   "complete_todo -> nothing": 1,
+   "delete_event -> update_event": 1,
+   "create_event -> nothing": 1,
+   "delete_event -> delete_event": 1,
+   "delete_todo -> delete_todo": 1,
+   "create_todo -> update_event": 1
+  }
+ }
+}
