@@ -1266,9 +1266,47 @@ def open_settings(self) -> None:
         emoji_combos.append(cb)
         return cb
 
+    # Which KINDS get one (Gil, 2026-10-01) — one state behind both pages'
+    # "Which kinds…" buttons, saved with everything else.
+    from assistant.engine.label.title_emoji import GROUPS as _EMOJI_GROUPS
+    _te_cfg = getattr(self._config, "title_emoji", None)
+    emoji_groups = {g: bool(getattr(_te_cfg, g, True)) for g in _EMOJI_GROUPS}
+
+    def _emoji_kinds(name: str) -> QPushButton:
+        btn = QPushButton("Which kinds…")
+        btn.setObjectName(name)
+        btn.setToolTip("Choose which kinds of emoji the assistant may add — "
+                       "animals, food, travel…")
+
+        def open_kinds():
+            from PyQt6.QtWidgets import QDialog, QDialogButtonBox
+            d = QDialog(btn.window())
+            d.setObjectName("title_emoji_kinds_dialog")
+            d.setWindowTitle("Emoji in titles — which kinds")
+            lay = QVBoxLayout(d)
+            lay.addWidget(QLabel("Add an emoji for these kinds of words:"))
+            boxes = {}
+            for g, label in _EMOJI_GROUPS.items():
+                cb = QCheckBox(label)
+                cb.setObjectName(f"title_emoji_kind_{g}")
+                cb.setChecked(emoji_groups[g])
+                lay.addWidget(cb)
+                boxes[g] = cb
+            bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok
+                                  | QDialogButtonBox.StandardButton.Cancel)
+            bb.accepted.connect(d.accept)
+            bb.rejected.connect(d.reject)
+            lay.addWidget(bb)
+            if d.exec():
+                for g, cb in boxes.items():
+                    emoji_groups[g] = cb.isChecked()
+        btn.clicked.connect(lambda: open_kinds())
+        return btn
+
     _emoji_egg_row = QHBoxLayout()
     _emoji_egg_row.addWidget(QLabel("Emoji in titles:"))
     _emoji_egg_row.addWidget(_emoji_combo("title_emoji_egg"))
+    _emoji_egg_row.addWidget(_emoji_kinds("title_emoji_kinds_egg"))
     _emoji_egg_row.addStretch(1)
     egg.addLayout(_emoji_egg_row)
 
@@ -1287,6 +1325,7 @@ def open_settings(self) -> None:
     _emoji_row = QHBoxLayout()
     _emoji_row.addWidget(QLabel("Emoji in titles:"))
     _emoji_row.addWidget(_emoji_combo("title_emoji"))
+    _emoji_row.addWidget(_emoji_kinds("title_emoji_kinds"))
     _emoji_row.addStretch(1)
     assistant.addLayout(_emoji_row)
     auto_cb = QCheckBox("Auto-approve actions (no confirmations)")
@@ -1540,7 +1579,8 @@ def open_settings(self) -> None:
                 # Read by observance.is_enabled() in the API process, which
                 # loads config.yaml itself — nothing to apply in-memory here.
                 "observance": {"enabled": observance_cb.isChecked()},
-                "title_emoji": {"count": int(emoji_combos[0].currentData() or 0)},
+                "title_emoji": {"count": int(emoji_combos[0].currentData() or 0),
+                                **emoji_groups},
                 # Scalars here; `category_leads`, a mapping, goes through the
                 # same writer in `_persist_category_leads` below (one call
                 # since 2026-09-22, when config_store learned the dict case).
@@ -1597,6 +1637,8 @@ def open_settings(self) -> None:
                 _apply(getattr(self._config, "engine", None), "enabled", assistant_on_cb.isChecked())
                 _apply(getattr(self._config, "title_emoji", None), "count",
                        int(emoji_combos[0].currentData() or 0))
+                for _g, _on in emoji_groups.items():
+                    _apply(getattr(self._config, "title_emoji", None), _g, _on)
                 if hasattr(self, "_apply_assistant_switch"):
                     self._apply_assistant_switch(assistant_on_cb.isChecked())
                 if hasattr(self, "_apply_visible_hours"):

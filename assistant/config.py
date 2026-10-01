@@ -440,9 +440,20 @@ def _clamp_minutes(v, default: int, low: int) -> int:
 class TitleEmojiConfig(BaseModel):
     """Emoji in titles (TASKS 51): after the assistant commits an event or a
     to-do, up to `count` emoji go right after the words that clearly name
-    them ("walk my dog 🐕"). 0 = off (the default), 1 or 2.
+    them ("walk my dog 🐕"). 0 = off (the default), 1 or 2. Each KIND of
+    emoji has its own switch, on unless set off (Gil, 2026-10-01) — the keys
+    are `title_emoji.GROUPS`, and a test keeps the two lists equal.
     `engine/label/title_emoji.py`."""
     count: int = 0
+    animals: bool = True
+    sport: bool = True
+    health: bool = True
+    food: bool = True
+    occasions: bool = True
+    travel: bool = True
+    home: bool = True
+    work: bool = True
+    jewish: bool = True
 
     @field_validator("count")
     @classmethod

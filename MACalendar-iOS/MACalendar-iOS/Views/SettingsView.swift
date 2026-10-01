@@ -859,6 +859,9 @@ struct SettingsView: View {
         if let v = shared.titleEmojiCount, v != settings.titleEmojiCount {
             settings.titleEmojiCount = v
         }
+        if let v = shared.titleEmojiOff, v != settings.titleEmojiOff {
+            settings.titleEmojiOff = v
+        }
         if shared.hideCompletedTasks != settings.hideCompletedTasks {
             settings.hideCompletedTasks = shared.hideCompletedTasks
         }
@@ -1215,6 +1218,65 @@ struct TitleEmojiPicker: View {
         .onChange(of: settings.titleEmojiCount) { v in
             Task { await api.patchShared(["title_emoji": ["count": v]]) }
         }
+        if settings.titleEmojiCount > 0 {
+            NavigationLink {
+                TitleEmojiKindsView()
+            } label: {
+                HStack {
+                    Text("Which kinds")
+                    Spacer()
+                    Text(settings.titleEmojiOff.isEmpty ? "All"
+                         : "\(TitleEmojiKind.all.count - settings.titleEmojiOff.count) of \(TitleEmojiKind.all.count)")
+                        .foregroundColor(.secondary)
+                }
+            }
+            .accessibilityIdentifier("title-emoji-kinds")
+        }
+    }
+}
+
+/// The kinds of emoji, as `title_emoji.GROUPS` on the Mac
+/// (`test_title_emoji.py` holds the two lists equal).
+struct TitleEmojiKind: Identifiable {
+    let key: String
+    let label: String
+    var id: String { key }
+    static let all: [TitleEmojiKind] = [
+        .init(key: "animals", label: "Animals 🐕"),
+        .init(key: "sport", label: "Sport & fitness 🏃"),
+        .init(key: "health", label: "Health 🦷"),
+        .init(key: "food", label: "Food & drink ☕"),
+        .init(key: "occasions", label: "Occasions 🎂"),
+        .init(key: "travel", label: "Travel ✈️"),
+        .init(key: "home", label: "Home & errands 🧹"),
+        .init(key: "work", label: "Work & study 📚"),
+        .init(key: "jewish", label: "Jewish life 🕯️"),
+    ]
+}
+
+/// One switch per kind: which kinds of words may get an emoji.
+struct TitleEmojiKindsView: View {
+    @EnvironmentObject var settings: AppSettings
+    @EnvironmentObject var api: APIClient
+
+    var body: some View {
+        Form {
+            Section {
+                ForEach(TitleEmojiKind.all) { kind in
+                    Toggle(kind.label, isOn: Binding(
+                        get: { !settings.titleEmojiOff.contains(kind.key) },
+                        set: { on in
+                            settings.titleEmojiOff.removeAll { $0 == kind.key }
+                            if !on { settings.titleEmojiOff.append(kind.key) }
+                            Task { await api.patchShared(["title_emoji": [kind.key: on]]) }
+                        }))
+                    .accessibilityIdentifier("title-emoji-kind-\(kind.key)")
+                }
+            } footer: {
+                Text("Off, words of that kind keep a plain title. Shared with your Mac.")
+            }
+        }
+        .navigationTitle("Emoji kinds")
     }
 }
 

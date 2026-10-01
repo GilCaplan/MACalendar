@@ -2179,7 +2179,10 @@ and held to the Mac on every title in the label datasets
 **What:** What the assistant adds gets an emoji right after a word that clearly
 names one — "walk my dog 🐕", "date 💕 with Noa", "shiur 📜 at shul 🕍". None, one
 or two per title (Settings ▸ Assistant or Settings ▸ Easter egg, either app;
-one shared value), off by default (TASKS 51, 2026-10-01).
+one shared value), off by default (TASKS 51, 2026-10-01). **Which kinds** —
+animals, sport, health, food, occasions, travel, home, work, Jewish life —
+each has its own switch ("Which kinds…" on the Mac, "Which kinds" on the
+phone; `title_emoji.<kind>`, all on unless set off).
 **Where:** `assistant/engine/label/title_emoji.py` (a Component of the Label
 stage), called by the create actions; config `title_emoji.count`; `GET/PATCH
 /config`; Mac `settings_dialog` (two combos kept in step), iOS

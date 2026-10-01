@@ -151,6 +151,11 @@ class AppSettings: ObservableObject {
     @Published var titleEmojiCount: Int {
         didSet { UserDefaults.standard.set(titleEmojiCount, forKey: "titleEmojiCount") }
     }
+    /// The kinds switched OFF (`title_emoji.<kind>: false`); every kind is on
+    /// unless listed here.
+    @Published var titleEmojiOff: [String] {
+        didSet { UserDefaults.standard.set(titleEmojiOff, forKey: "titleEmojiOff") }
+    }
 
     // Local-only, mirrors the Mac's config.yaml `todo.show_completed` (default
     // off) but isn't synced from it — same precedent as the Hebrew settings
@@ -343,6 +348,7 @@ class AppSettings: ObservableObject {
         self.observanceEnabled = UserDefaults.standard.object(forKey: "observanceEnabled") == nil
             ? true : UserDefaults.standard.bool(forKey: "observanceEnabled")
         self.titleEmojiCount = UserDefaults.standard.integer(forKey: "titleEmojiCount")
+        self.titleEmojiOff = UserDefaults.standard.stringArray(forKey: "titleEmojiOff") ?? []
 
         self.hideCompletedTasks = UserDefaults.standard.object(forKey: "hideCompletedTasks") == nil
             ? true : UserDefaults.standard.bool(forKey: "hideCompletedTasks")

@@ -2426,6 +2426,9 @@ struct SharedSettings: Decodable, Equatable {
     var observanceEnabled: Bool?
     /// `title_emoji.count` (TASKS 51) — nil when the Mac predates it.
     var titleEmojiCount: Int?
+    /// The kinds the Mac has switched off (`title_emoji.<kind>: false`), or
+    /// nil when it predates the switches.
+    var titleEmojiOff: [String]?
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -2436,6 +2439,12 @@ struct SharedSettings: Decodable, Equatable {
 
         let emoji = try? c.nestedContainer(keyedBy: TitleEmojiKeys.self, forKey: .titleEmoji)
         titleEmojiCount = (try? emoji?.decodeIfPresent(Int.self, forKey: .count)) as? Int
+        if let kinds = try? c.nestedContainer(keyedBy: AnyKey.self, forKey: .titleEmoji),
+           TitleEmojiKind.all.contains(where: { kinds.contains(AnyKey($0.key)) }) {
+            titleEmojiOff = TitleEmojiKind.all.map(\.key).filter {
+                ((try? kinds.decodeIfPresent(Bool.self, forKey: AnyKey($0))) ?? nil) == false
+            }
+        }
 
         let events = try? c.nestedContainer(keyedBy: EventsKeys.self, forKey: .events)
         eventLengthMinutes = (try? events?.decodeIfPresent(Int.self, forKey: .eventLengthMinutes)) as? Int
@@ -2474,6 +2483,13 @@ struct SharedSettings: Decodable, Equatable {
     }
     enum ObservanceKeys: String, CodingKey { case enabled }
     enum TitleEmojiKeys: String, CodingKey { case count }
+    struct AnyKey: CodingKey {
+        var stringValue: String
+        var intValue: Int? { nil }
+        init(_ s: String) { stringValue = s }
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { nil }
+    }
     enum EventsKeys: String, CodingKey {
         case eventLengthMinutes = "event_length_minutes"
         case chainGapMinutes = "chain_gap_minutes"

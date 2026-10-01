@@ -516,5 +516,48 @@ def test_emoji_in_titles_is_one_setting_in_two_places(app, real_config, odd_cate
         raise failures[0]
     assert seen["start"] == ("None", "None")
     assert seen["moved"] == (2, 2)
-    assert yaml.safe_load(cfg_file.read_text())["title_emoji"] == {"count": 2}
+    assert yaml.safe_load(cfg_file.read_text())["title_emoji"]["count"] == 2
     assert cfg.title_emoji.count == 2
+
+
+def test_which_kinds_of_emoji_is_chosen_in_a_dialog_and_saved(app, real_config, odd_categories, monkeypatch):
+    """The kinds (Gil, 2026-10-01): a "Which kinds…" button opens one switch
+    per kind; unticking Food and pressing OK, then Save, writes food: false."""
+    cfg, cfg_file = real_config
+    real = config_store.set_values
+    monkeypatch.setattr(config_store, "set_values",
+                        lambda updates, path=str(cfg_file): real(updates, path))
+    monkeypatch.setattr(config_store, "CONFIG_PATH", str(cfg_file))
+    window = _Window(cfg)
+    failures: list = []
+    seen: dict = {}
+
+    def in_kinds():
+        try:
+            from PyQt6.QtWidgets import QDialog, QDialogButtonBox
+            d = next(w for w in QApplication.topLevelWidgets()
+                     if w.objectName() == "title_emoji_kinds_dialog" and w.isVisible())
+            food = d.findChild(QCheckBox, "title_emoji_kind_food")
+            seen["food_before"] = food.isChecked()
+            _click(food)
+            ok = d.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Ok)
+            QTest.mouseClick(ok, Qt.MouseButton.LeftButton)
+        except Exception as e:                      # surfaced after the dialog closes
+            failures.append(e)
+
+    def interact(dlg):
+        btn = dlg.findChild(QPushButton, "title_emoji_kinds")
+        assert btn is not None
+        QTimer.singleShot(150, in_kinds)
+        QTest.mouseClick(btn, Qt.MouseButton.LeftButton)
+        save = next(b for b in dlg.findChildren(QPushButton) if b.text() == "Save Config")
+        QTest.mouseClick(save, Qt.MouseButton.LeftButton)
+
+    _drive(interact, failures)
+    open_settings(window)
+    if failures:
+        raise failures[0]
+    assert seen["food_before"] is True
+    data = yaml.safe_load(cfg_file.read_text())["title_emoji"]
+    assert data["food"] is False and data["animals"] is True
+    assert cfg.title_emoji.food is False

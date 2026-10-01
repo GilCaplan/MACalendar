@@ -1684,10 +1684,15 @@ def create_app() -> Flask:
         # A count the engine reads; anything else would be clamped to 0 on
         # read and the setting would silently not be what the client showed.
         te = data.get("title_emoji")
-        if te is not None and (
-                not isinstance(te, dict) or set(te) != {"count"}
-                or isinstance(te["count"], bool) or te["count"] not in (0, 1, 2)):
-            return jsonify({"error": 'title_emoji takes only {"count": 0|1|2}', "code": 400}), 400
+        if te is not None:
+            from assistant.engine.label.title_emoji import GROUPS as _EMOJI_GROUPS
+            bad = (not isinstance(te, dict) or not te
+                   or any(k != "count" and k not in _EMOJI_GROUPS for k in te)
+                   or ("count" in te and (isinstance(te["count"], bool) or te["count"] not in (0, 1, 2)))
+                   or any(k != "count" and not isinstance(v, bool) for k, v in te.items()))
+            if bad:
+                return jsonify({"error": 'title_emoji takes {"count": 0|1|2} and a true/false '
+                                f'per kind: {", ".join(_EMOJI_GROUPS)}', "code": 400}), 400
 
         for key, wren in data.items():
             if key not in _ALLOWED_PATCH_KEYS:

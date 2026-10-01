@@ -127,3 +127,57 @@ def test_the_setting_is_validated_on_patch(tmp_path, monkeypatch):
     assert c.patch("/config", json={"title_emoji": {"count": True}}).status_code == 400
     assert c.patch("/config", json={"title_emoji": {"count": 2}}).status_code == 200
     assert yaml.safe_load(target.read_text())["title_emoji"] == {"count": 2}
+
+
+# -- which kinds (Gil, 2026-10-01: "allow user to decide for which categories") --
+
+def test_a_kind_switched_off_keeps_its_words_plain():
+    from assistant.engine.label.title_emoji import GROUPS
+    title = "walk my dog and buy milk"
+    assert decorate(title, 2, set(GROUPS)) == "walk my dog 🐕 and buy milk 🥛"
+    assert decorate(title, 2, set(GROUPS) - {"food"}) == "walk my dog 🐕 and buy milk"
+    assert decorate(title, 2, set()) == title
+
+
+def test_every_word_belongs_to_a_kind_that_can_be_switched():
+    from assistant.engine.label.title_emoji import GROUPS, LEXICON
+    assert {e.group for e in LEXICON} == set(GROUPS)
+
+
+def test_the_kinds_are_one_list_in_config_the_engine_and_the_phone():
+    import pathlib
+    import re
+    from assistant.config import TitleEmojiConfig
+    from assistant.engine.label.title_emoji import GROUPS
+    assert set(TitleEmojiConfig.model_fields) - {"count"} == set(GROUPS)
+    swift = (pathlib.Path(__file__).resolve().parents[2]
+             / "MACalendar-iOS/MACalendar-iOS/Views/SettingsView.swift").read_text()
+    block = swift[swift.index("struct TitleEmojiKind"):swift.index("struct TitleEmojiKindsView")]
+    assert re.findall(r'key: "(\w+)"', block) == list(GROUPS)
+
+
+def test_the_create_action_honours_the_kinds(db, sample_config):
+    from assistant.actions.todo.action import CreateTodoAction
+    from assistant.actions.todo.intent import CreateTodoIntent
+    from assistant.config import TitleEmojiConfig
+    c = sample_config.model_copy()
+    c.title_emoji = TitleEmojiConfig(count=2, food=False)
+    CreateTodoAction().execute(CreateTodoIntent(titles=["buy milk", "walk the dog"]), c)
+    assert sorted(t["title"] for t in db.get_todos()) == ["buy milk", "walk the dog 🐕"]
+
+
+def test_patch_takes_a_kind_switch_and_refuses_anything_else(tmp_path, monkeypatch):
+    import importlib
+    import yaml
+    target = tmp_path / "config.yaml"
+    target.write_text("theme: dark\n")
+    monkeypatch.setenv("MACALENDAR_CONFIG", str(target))
+    import assistant.api.server as server
+    importlib.reload(server)
+    app = server.create_app()
+    app.config["TESTING"] = True
+    c = app.test_client()
+    assert c.patch("/config", json={"title_emoji": {"food": False}}).status_code == 200
+    assert c.patch("/config", json={"title_emoji": {"pets": False}}).status_code == 400
+    assert c.patch("/config", json={"title_emoji": {"food": "no"}}).status_code == 400
+    assert yaml.safe_load(target.read_text())["title_emoji"] == {"food": False}

@@ -274,6 +274,8 @@ labels:
 # Settings ▸ Easter egg, on either app.
 title_emoji:
   count: 0
+  # each kind on or off: animals, sport, health, food, occasions, travel,
+  # home, work, jewish (all on unless set false)
 
 # Jude — the Judaic study assistant (assistant/jude/ARCHITECTURE.md)
 #
