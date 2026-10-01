@@ -191,7 +191,9 @@ vocabulary and the event categories — **per user since 2026-09-28**, under
 `users/<uid>/` (DEVQA Q65, `DOCUMENTATION/USERS_PLAN.md`): every store resolves
 its path through `users.paths.resolve`, and a script that reads the real data
 on purpose uses `users.paths.personal_store(name)`, never the old top-level
-path (the leak check silently skipped for exactly that). **None of it is test data.** The
+path (the leak check silently skipped for exactly that). An env override does NOT protect a
+raw script once a user is bound: `resolve` keeps the basename and re-roots it
+in the user's real folder — a store-writing probe runs under pytest. **None of it is test data.** The
 vocabulary is hand-curated and the command memory feeds the review flows, so
 writing junk into either quietly degrades the assistant.
 

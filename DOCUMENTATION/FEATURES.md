@@ -1193,6 +1193,10 @@ extend/shorten slot logic. API: `GET /lexicon`, `POST /lexicon/<name>`,
   exists.
 - **A corrupt store degrades to the built-ins** rather than raising inside a
   voice command; `~/.assistant_tools` is hand-editable by design.
+- **A list may have a SHAPE** (2026-10-01): "Words that name a time" takes
+  `word = time` entries only (`Lexicon.normalize`), so a malformed one is
+  refused with the format — a 400 from the API, a message on the Mac — rather
+  than stored where it could never resolve. See "Words that name a time".
 
 **Both screens shipped 2026-09-18.** Mac: Settings ▸ Assistant ▸ *How I Say
 Things…* (`calendar_ui/lexicon_dialog.py`). iPhone: Settings ▸ Assistant ▸ *How

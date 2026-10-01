@@ -174,7 +174,14 @@ and days said by name — Hebrew dates, holidays, own occasions, each family a
 switch (Q74). Last: a click-everything crash sweep of the Mac app
 (`tests/unit/test_gui_crash_sweep.py`), which found and fixed an Account &
 Sharing crash after requiring sign-in and the native cursor crash from the
-Mac's crash reports. Numbers per
+Mac's crash reports. On 2026-09-30 / 10-01 (app side, plus two engine
+fixes Gil asked for directly): magic words grew suggest-words with a word bank,
+one word one thing, your own emoji / flag / symbol, a loading screen, and the
+Mac got them (Q79); Settings groups fold on both apps, starting closed (Q80);
+**"now" is the present minute** and **words that name a time** are one table
+with personal entries (Q81, Q82) — measured on all 11,700 corpus rows, only
+fixes changed, no board line moved; and "call X at 8pm" no longer goes to
+tomorrow after 9 AM. Numbers per
 cycle:
 `assistant/engine/fastrule/experiments/RESULTS.md`,
 `assistant/engine/llmjudge/experiments/RESULTS.md`, and the commit messages.

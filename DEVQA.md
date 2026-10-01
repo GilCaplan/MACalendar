@@ -1,3 +1,52 @@
+- **2026-10-01 — Q82 (WORDS THAT NAME A TIME — ONE TABLE)**, Gil: *"the now
+  thing could be applied to other words so perhaps make it a function that
+  applies those changes wherever then we can key in a word and time, so
+  midnight would be 00:00, sunrise when that is which can be calculated or
+  given for each day, now is now"*; and *"have that list editable on settings,
+  although only for words where the time can be hardcoded so not now or
+  midnight, for those can add words to bind to the key time which would be
+  one way"*. **Built in and NOT editable:** now (the present minute), midnight
+  00:00, noon 12:00, and at sunrise / sunset / candle lighting / nightfall,
+  computed for that day at the configured place. **Your own**, in the personal
+  lexicon ("Words that name a time"): a fixed time (`lunch break = 13:30`) or
+  a word bound ONE WAY to a key (`straight away = now`, `mincha = sunset-20`);
+  redefining a key is refused. A computed or personal word needs "at" /
+  "around" / "about" / "by" before it, so "watch the sunrise" keeps its title;
+  a word bound to now / noon / midnight is said bare, like its key. A time
+  word is a CLOCK, so Q26 makes it an event. `intent/time_words.py`.
+
+- **2026-09-30 — Q81 ("NOW" IS THE PRESENT MINUTE)**, Gil: *"when I say like
+  now, then you can automatically change that or replace now with the time
+  that it is currently … in a very deterministic manner … as long as that now
+  is not something more vague. So I'd also double check on that."* "now" said
+  as a time is the minute it was said, today — never rolled to tomorrow by
+  Q42's passed-clock floor — and, being a clock, makes an event (Q26). NOT a
+  time: for now, from now on, N weeks from now, now that, by / until / up to
+  now, just now, not now, is now at …, every now and then, do it now, and a
+  clause-opening "now" with words after it ("…is done, now add X"). Resolved
+  where the time is READ, not rewritten at ingest (ingest's aims are
+  transcription damage and personal vocabulary; "21:02" in the words would
+  reach the title). `intent/now_word.py`.
+
+- **2026-09-30 — Q80 (SETTINGS GROUPS FOLD, WITH A START CHOICE)**, Gil:
+  *"in settings i still want minimize options on calendar/notifications
+  etc... and default keep it closed/open, or as last status … keep UI the
+  same."* Each group folds by its title (phone) or heading (Mac sidebar); a
+  setting picks All closed / All open / As I left them, per device. Default
+  **All closed** — his standing 2026-09-18 call, *"Default is minimized
+  please"*. Nothing else on either screen changed.
+
+- **2026-09-30 — Q79 (MAGIC WORDS: ONE WORD ONE THING, A WORD BANK, YOUR OWN
+  SYMBOL)**, Gil, refining Q75: a word may summon only ONE thing — adding a
+  taken word asks *"keep or change"* and then does it; suggestions never offer
+  a taken word at all (*"just remove words that would be a conflict … something
+  deterministic"*); when no model answers or it answers short, a built-in word
+  bank tops the list up, with some randomness and adjective phrases (*"prefixes
+  of adjectives is important here"*); every model call goes through the model
+  protocol; any emoji, flag or SF Symbol can be a graphic (*"a person
+  logo/symbol/flag option where user can enter their own"*); and all of it on
+  the Mac too.
+
 - **2026-09-30 — Q78 (A NONCOMMERCIAL LICENCE)**, Gil: *"a license so it can't
   be commercialized without my explicit permission, or forked for commercial
   purposes, although can be used personally for no charge"*. The PolyForm

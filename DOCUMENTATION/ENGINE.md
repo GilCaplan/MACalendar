@@ -229,7 +229,9 @@ the NAMED rules — for edits `anaphor_guard`, `move_time_fill`; for creates
 `passed_clock_means_tomorrow`, `now_means_now`, `morning_title_guard`,
 `junk_event_drop`, `max_duration_cap`, `quiet_hours_flag`; then over all of
 them `question_creates_nothing`, `question_mutates_nothing`,
-`cadence_round_and_announce` (the `_rule_` prefix is dropped here) — and the
+`cadence_round_and_announce` (the `_rule_` prefix is dropped here; `now_means_now`
+keeps its name but since 2026-10-01 covers every word that names a time —
+`intent/time_words.py`, DEVQA Q82 — not only "now") — and the
 **observance gate**: an AI-created one-off event inside Shabbat/yom tov
 (sundown-bounded) must be leyning / a meal / davening; on a fast day a meal
 must not be booked before the fast ends (Yom Kippur: the fast wins). Since
