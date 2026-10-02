@@ -270,10 +270,15 @@ final class EasterEggUITests: XCTestCase {
         for _ in 0..<6 where !saved.exists { app.swipeDown() }
         XCTAssertTrue(saved.waitForExistence(timeout: 5), "the drawing was not added to the dog")
         // Leave the dog as it was: the other tests (and the demo) expect it.
-        let rows = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Drawing: cool"))
-        for _ in 0..<4 where rows.count > 0 {
-            rows.firstMatch.swipeLeft()
+        // Each deleted row is waited out before the next check: the count
+        // still sees a row while it animates away, and swiping that row fails.
+        let rows = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Drawing: cool"))
+        for _ in 0..<4 {
+            let row = rows.firstMatch
+            guard row.waitForExistence(timeout: 2) else { break }
+            row.swipeLeft()
             app.buttons["Delete"].firstMatch.tap()
+            _ = row.waitForNonExistence(timeout: 5)
         }
         XCTAssertEqual(rows.count, 0, "the test's drawing was left on the dog")
     }
