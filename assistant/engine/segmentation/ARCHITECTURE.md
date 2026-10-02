@@ -1257,6 +1257,128 @@ the six boards above. Baseline at the worktree that built it (no `relate()`
 yet): relation kind 0.0% (0/2,502 matched TRAIN items), right item count 29.9%
 (809/2,710 TRAIN rows), decoys 100% (140/140).
 
+### 4b · Size TIERS — base / 10k / 40k (2026-10-02)
+
+Gil, 2026-10-01: *"a lot of the datasets seem really small, they should be at
+least 40k with enough variation in the data … you can have different level of
+the same dataset as well, sometimes can let user choose."* Every set this stage
+owns now has TIERS. **`base` is the committed file, byte-identical and still
+the default everywhere**; each larger tier is a SUPERSET (the base lines first,
+verbatim, then new rows), written to a gitignored `tiers/` folder and rebuilt
+deterministically by its generator — or on demand by the board that asks for
+it. Pinned by `tests/unit/test_seg_dv_dataset_tiers.py` (base md5 + count;
+smoke draws of every source; the full 10k/40k builds with
+`MACALENDAR_TIER_TESTS=1`, ~2 min).
+
+| set (generator) | tier | rows | distinct texts | families | TRAIN rows / fam | TEST rows / fam | file |
+|---|---|---:|---:|---:|---:|---:|---|
+| `generated.jsonl` (`experiments/generate.py`) | base | 1,549 | 1,549 | 259 | 960 / 160 | 589 / 99 | `datasets/generated.jsonl` |
+| | 10k | 11,092 | 11,092 | 1,597 | 6,602 / 945 | 4,490 / 652 | `datasets/tiers/generated_10k.jsonl` |
+| | 40k | 40,988 | 40,988 | 1,597 | 24,267 / 945 | 16,721 / 652 | `datasets/tiers/generated_40k.jsonl` |
+| `split_traps.jsonl` (hand) | base | 75 | 75 | 33 | 43 / 17 | 32 / 16 | `datasets/split_traps.jsonl` |
+| | grown | 975 | 975 | 63 | 643 / 37 | 332 / 26 | `datasets/tiers/split_traps_grown.jsonl` |
+| `nosplit_traps.jsonl` (hand) | base | 87 | 87 | 30 | 48 / 15 | 39 / 15 | `datasets/nosplit_traps.jsonl` |
+| | grown | 1,357 | 1,357 | 73 | 768 / 39 | 589 / 34 | `datasets/tiers/nosplit_traps_grown.jsonl` |
+| `sequence.jsonl` + DV's `chain.jsonl` (`datasets/sequence/generate.py`) | base | 3,580 | 3,580 | 154 (483 skeletons) | 2,886 / 124 | 694 / 30 | `datasets/sequence/sequence.jsonl` |
+| | 10k | 10,886 | 10,886 | 1,340 (4,229 skeletons) | 8,732 / 1,073 | 2,154 / 267 | `datasets/sequence/tiers/sequence_10k.jsonl` |
+| | 40k | 41,192 | 41,192 | 1,340 (6,342 skeletons) | 32,998 / 1,073 | 8,194 / 267 | `datasets/sequence/tiers/sequence_40k.jsonl` |
+
+Splits as each set already assigned them: `generated` by `run_board.assign_splits`
+(SHA-1 of the family, 40% of families to test — tier rows carry no `split`,
+like the base rows); traps stamped per row by that same rule for template
+families; sequence 80/20 stratified by bucket, run over the tier families on
+their own so no base family changes side.
+
+**How to choose.** `base` is what every number in this file was measured on —
+keep it for comparisons with the past. `10k` is the working size for a stage
+board (seconds to a minute, no model). `40k` is for a claim that needs n and
+diversity behind it (Gil, 2026-09-19: "a thousand examples would probably be
+more adequate"), or for fitting anything. **TEST is aggregates only at every
+tier** — the boards refuse row detail on it as before.
+
+    ./.venv/bin/python -m assistant.engine.segmentation.experiments.generate --tier 10k      # or 40k
+    ./.venv/bin/python -m assistant.engine.segmentation.experiments.generate --tier grown    # both trap tiers
+    ./.venv/bin/python -m assistant.engine.segmentation.datasets.sequence.generate --tier 40k
+    ./.venv/bin/python -m assistant.engine.segmentation.experiments.run_board --predictor fastseg --tier 10k
+    ./.venv/bin/python -m assistant.engine.segmentation.experiments.relation_board --tier 40k
+
+(`run_board --tier 10k|40k` reads the generated tier plus BOTH grown trap tiers;
+the trap files have no 10k/40k of their own — see below.)
+
+**What the new rows are — real variation, not copies.**
+
+* `generated` — the committed file is NOT what `experiments/generate.py`
+  writes today (FastRule's bank grew 47 families since, and the file's gold was
+  relabelled by Q47/Q50 and kept "what's on my calendar" as `review`). So the
+  tiers grow from what can be labelled EXACTLY as the base was:
+  `datasets/tiers.py::relabel` reproduces the committed gold for **257 of 259
+  base families** (every row of each); the 2 it cannot (`c_threeask_ttt_2`,
+  `c_until_3`) are not grown. Sources: 255 grown base families (up to 25 rows
+  each instead of 6), FastRule's 47 newer complex families (no `force_split:
+  "test"` family is added), 29 hand-written templates (`datasets/banks/
+  tier_patterns.json`: decoys whose "and" must not split — "salt and pepper",
+  "the food and wine festival", "coffee with A and B", "print and sign", "buy
+  X, Y and Z" — and multi-ask shapes in new wordings), and **1,262 COMPOSED
+  families**: 2–4 single-ask clauses (199 clause templates: 167 FastRule
+  single-ask templates from its train side + 32 hand-written) joined by and ·
+  then · and then · , then · and also · , also · plus · as well as · commas.
+  A composition is kept only when `derive()` cuts it exactly at its clauses,
+  and an edge time may scope onto another clause only between two creates (no
+  "what's on this week" range handed to a create; no "to 11am" handed to a
+  finished task). 40k tier by asks: 1 · 5,396 / 2 · 24,507 / 3 · 8,235 /
+  4 · 2,850. Subject words widen with `banks/tier_fillers.json` (48 event
+  titles, 40 to-dos, 20 items, 25 names, 4 new action banks — generic,
+  hand-written; dates and times are NOT extended, because decompose_validate
+  normalises those from a closed table).
+* `sequence` — 1,150 STRUCTURAL families, each a skeleton no base family has
+  (2–5 parts; event · meal · encounter · role call · to-do · "remind me to";
+  clocks on any subset, ranges, durations, leading / inside / new days,
+  trailing "afterwards", lead tails, six styles, base and new joiners mixed),
+  shapes the gold rules cannot honour refused before drawing; 12 NEW sequence
+  joiner banks (following that · thereafter · once finished · once I'm done ·
+  after I'm done · when done · then after that · directly / immediately after
+  that · then lastly · and then right after that · following which) plus
+  ". Also," / as well as / ", and also", each with a forced-TRAIN sweep family;
+  34 damage families over 12 NEW damage operations ("an then", "thats",
+  "finaly", "folowing", "ones that's done", "then um", "after after that" …),
+  clean/damaged pairs with identical gold; 13 NEW decoy kinds ("the first aid
+  course", "a follow up with", "followed up on", "the after party", "next
+  door", "next week's", a book title with "and then", "before and after
+  photos", "the first draft", "the next steps", "after school club", "plus
+  one", "salt and pepper"); 8 new "right after <named>" shapes; 36 more spoken
+  clocks, 10 ranges, 7 durations, 13 day phrases (no Friday, nothing inside
+  Rosh Hashana, Yom Kippur or Sukkot), new openers. The chain gold is computed
+  by the same `draw_family` → `build_family_row` as the base.
+
+**TRAPS: an honest ceiling, not 40k.** The trap files are hand-written
+sentences with hand-written gold, and their conventions are not `derive()`'s
+("tomorrow book the physio at 8 and the team sync at 11" distributes the verb;
+"two tasks due tomorrow …" drops its header). Generating 40k of them would
+either be near-copies or quietly change those conventions. The `grown` tier is
+the base rows plus **73 trap TEMPLATES** (43 no-split, 30 split; `datasets/
+banks/trap_templates.json`), each a sentence shape from a trap class with its
+gold written BY HAND in the trap files' conventions, filled from generic banks,
+30 rows each, every render checked (invariant, Q26/Q61 tags, the Q47/Q50
+relabel). Modelled only on trap families with TRAIN rows — no row of a
+test-only trap family was read (their names appeared once, in a family count). Ceiling: 975 split / 1,357 no-split rows. More would need
+more hand-written templates, not more rows per template.
+
+**Checked, 2026-10-02.** The BASE boards (FastSeg `run_board`, `relation_board`,
+DV `chain_board` and `eval_metrics/run_board`, TRAIN and TEST, no model) print
+identical numbers before and after this change, timing lines aside. **One
+PROBE on the 40k tiers — not banked, no code was tuned to it:** FastSeg
+exact-set 70.4% (18,083/25,678 TRAIN rows) and 68.0% (12,000/17,642 TEST) on
+generated-40k + grown traps, against 91.4% (961/1,051) / 88.9% (587/660) on
+base — the drop is almost all UNDER-split (4,296 TRAIN rows) on the composed
+2–4-ask families (exact-row 56.0% / 44.2% / 35.4% by asks); relation board
+right item count 60.7% (19,732/32,512 TRAIN rows) vs 88.5% (2,399/2,710) on
+base, decoys no-false-split 100% (450/450 TRAIN); chain board all-five-right
+67.0% (63,580/94,837 TRAIN items) vs 92.5% (5,857/6,332). Read as: the new
+families are much harder for today's cutter, which is what a bigger, more
+varied set is for — and also a prompt to audit a TRAIN sample of the composed
+gold before trusting the gap, since a generated row can be odd in ways the
+validators do not catch.
+
 ---
 
 ## 5 · The evaluation — `experiments/score.py`

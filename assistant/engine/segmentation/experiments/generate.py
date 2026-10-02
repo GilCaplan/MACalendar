@@ -355,7 +355,12 @@ _FILL = {"event_title": "event_titles", "event_title2": "event_titles",
          # clock times, "11.15am" — 2026-09-16, kept out of the shared
          # "times" bank on purpose so growing it can never perturb which
          # filler an EXISTING family's `{time}` draw picks).
-         "period_time": "period_times", "period_time2": "period_times"}
+         "period_time": "period_times", "period_time2": "period_times",
+         # Purely additive again: ACTION-only slots used by the size tiers'
+         # own templates (`datasets/banks/tier_patterns.json`), filled from
+         # `datasets/banks/tier_fillers.json`. No base template names them.
+         "fixed_pair": "fixed_pairs", "place": "places", "doc": "docs",
+         "show": "shows"}
 
 
 def _bind(template: str, banks: dict, rng: random.Random) -> dict:
@@ -500,7 +505,24 @@ def main() -> None:
     ap.add_argument("--per-template", type=int, default=6)
     ap.add_argument("--out", default=os.path.join(_HERE, "datasets", "generated.jsonl"))
     ap.add_argument("--report", action="store_true")
+    ap.add_argument("--tier", choices=("10k", "40k", "grown"),
+                    help="write a SIZE TIER to datasets/tiers/ instead (datasets/tiers.py): "
+                         "10k / 40k = generated.jsonl's committed rows + tier rows; "
+                         "grown = the trap files' committed rows + trap templates (--traps)")
+    ap.add_argument("--traps", action="store_true",
+                    help="with --tier: build the two trap tiers instead of generated")
     a = ap.parse_args()
+
+    if a.tier:
+        from assistant.engine.segmentation.datasets import tiers
+        names = ["split_traps", "nosplit_traps"] if (a.traps or a.tier == "grown") else ["generated"]
+        for name in names:
+            p = tiers.write_tier(name, a.tier if name == "generated" else "grown")
+            print(f"wrote {p}")
+            print("   " + json.dumps(tiers.stats(p.read_text().splitlines())))
+        if names == ["generated"] and a.report:
+            print("   " + json.dumps(tiers._CACHE["gen"][2]))
+        return
 
     rows, dropped = build(a.per_template)
     with open(a.out, "w") as fh:

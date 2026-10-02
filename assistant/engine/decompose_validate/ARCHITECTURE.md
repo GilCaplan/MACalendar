@@ -155,6 +155,61 @@ items with all five fields right 0.0% (0/3,153 TRAIN items); start 0.1%.
 `chain.py` has since shipped; no post-chaining reading of this board is logged
 in `experiments/RESULTS.md` yet.
 
+### Size TIERS — base / 10k / 40k (2026-10-02)
+
+Gil, 2026-10-01: *"they should be at least 40k with enough variation in the
+data … you can have different level of the same dataset as well, sometimes can
+let user choose."* Both sets this stage scores have tiers. **`base` is the
+committed file, byte-identical and the default**; a larger tier is a SUPERSET
+(the base lines verbatim, then new rows) in a gitignored `tiers/` folder,
+rebuilt deterministically by the generator or on demand by the board.
+
+| set | tier | rows | distinct texts | families | TRAIN rows / fam | TEST rows / fam | items |
+|---|---|---:|---:|---:|---:|---:|---:|
+| `datasets/generated.jsonl` | base | 2,884 | 2,806 (2,884 text·anchor) | 320 | 2,004 / 298 | 880 / 22 | 3,797 |
+| | 10k | 10,934 | 10,856 | 1,659 | 7,404 / 1,117 | 3,530 / 542 | 21,657 |
+| | 40k | 41,229 | 41,151 | 1,659 | 27,679 / 1,117 | 13,550 / 542 | 89,169 |
+| `datasets/chain/chain.jsonl` | base | 3,580 | 3,580 | 154 | 2,886 / 124 | 694 / 30 | — |
+| | 10k | 10,886 | 10,886 | 1,340 | 8,732 / 1,073 | 2,154 / 267 | — |
+| | 40k | 41,192 | 41,192 | 1,340 | 32,998 / 1,073 | 8,194 / 267 | — |
+
+(Texts repeat only inside the committed base, where one text under two anchors
+is two rows on purpose; no tier row repeats any text. The chain tiers are the
+same rows as segmentation's sequence tiers — one generator — described in
+`segmentation/ARCHITECTURE.md` §4b.)
+
+    ./.venv/bin/python -m assistant.engine.decompose_validate.datasets.generate --tier 10k   # or 40k
+    ./.venv/bin/python -m assistant.engine.decompose_validate.eval_metrics.run_board --tier 10k
+    ./.venv/bin/python -m assistant.engine.decompose_validate.experiments.chain_board --tier 40k
+
+**How to choose.** `base` for any comparison with a number already in this
+file; `10k` as the working size for a stage board; `40k` when a claim needs n
+and diversity behind it. TEST stays aggregates only at every tier.
+
+**What the new `generated` rows are.** The committed file is not what
+`generate.py` writes today (FastRule's bank grew 48 families; 183 rows' gold
+differs from a regeneration), so the tiers start from it verbatim and grow only
+where the gold can be computed exactly as the base's was — this generator's
+own `_gold_item` over segmentation's `derive`, normalised by
+`normalization.py`:
+
+* 273 base families whose every committed row a regeneration reproduces
+  exactly (text, anchor and gold) — more renders each, over all 16
+  `GROWN_ANCHORS`; the 44 that do not reproduce are not grown, and are listed by
+  `generate.py --tier 40k --report`.
+* FastRule's 48 newer complex families (none `force_split: "test"`) — ORIGINAL
+  bank families by this generator's rule, so TRAIN.
+* 1,291 of segmentation's tier families (`segmentation/datasets/tiers.py`): 29
+  hand-written templates and the COMPOSED 2–4-ask families — shared so the two
+  stages agree by construction about item boundaries. They are GROWN families:
+  split 60/40 by nuance with this generator's `stratified_split`, over the tier
+  families alone.
+
+A filler `normalization.py` cannot resolve still drops the row (never guessed);
+dates and times come only from the closed banks; subject words widen with
+segmentation's `datasets/banks/tier_fillers.json`. 40k tier by asks:
+1 · 6,738 / 2 · 23,805 / 3 · 7,923 / 4 · 2,763.
+
 ### The split — train 2,004 / test 880
 
 Per `engine/TRAIN_TEST_SPLIT_CONVENTION.md`, and the reason it had to be built by

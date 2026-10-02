@@ -499,6 +499,20 @@ def damage(segs, dtype, rng):
         "misspelt_next": (r"\bnext\b", ["nxt"]),
         "split_word": (r"\bthen\b", ["the n"]),
         "doubled_joiner": (r"\bthen\b", ["then then"]),
+        # --- operations only the size TIERS use (tiers.py); no base family
+        # names them, so adding them here cannot move a base row ------------
+        "misspelt_and_then": (r"\band then\b", ["an then", "and the n", "andthen"]),
+        "dropped_apostrophe": (r"\b(?:that's|i'm)\b", ["thats", "im"]),
+        "misspelt_finally": (r"\bfinally\b", ["finaly", "finnally"]),
+        "misspelt_lastly": (r"\blastly\b", ["lastley", "lasty"]),
+        "misspelt_following": (r"\bfollowing\b", ["folowing", "followin"]),
+        "misspelt_subsequently": (r"\bsubsequently\b", ["subsequentally", "subsequentlly"]),
+        "misspelt_afterward": (r"\bafterward\b", ["afterword", "after ward"]),
+        "misspelt_once": (r"\bonce\b", ["ones", "onse"]),
+        "misspelt_when": (r"\bwhen\b", ["wen", "whn"]),
+        "filler_in_joiner": (r"\bthen\b", ["then um", "um then", "then uh"]),
+        "stutter_after_that": (r"\bafter that\b", ["after after that", "after that that"]),
+        "misspelt_thereafter": (r"\bthereafter\b", ["there after", "thereafer"]),
     }
     joins = [i for i, (t, role, _k) in enumerate(segs) if role == "join"]
     if dtype in subs:
@@ -586,11 +600,27 @@ def render(segs) -> str:
     return _clean("".join(t for t, _, _ in segs))
 
 
-def build_family_row(fam, pools, rng):
+#: The closed tables a row is drawn from. The BASE rows always use exactly
+#: these; the size TIERS (`tiers.py`) pass a superset, so a tier row can say
+#: "at quarter past nine" or "following that" while every base row keeps the
+#: draw it always had (same tables, same rng calls, byte-identical file).
+BASE_TABLES = {"clocks": CLOCKS, "ranges": RANGES, "durations": DURATIONS,
+               "days": DAYS, "leads": LEADS, "enums": ENUMS, "J": J,
+               "fillers": FILLER_OPENERS, "hedges": HEDGES, "polite": POLITE}
+
+
+def build_family_row(fam, pools, rng, tables=None):
     """One row of a structural family, or None when the draw breaks a guard
     (a clock earlier than the item it follows, a chain past midnight, an
     anchor name that is not unique). Rejection keeps the draw honest instead of
-    bending the gold to fit it."""
+    bending the gold to fit it.
+
+    `tables` (default `BASE_TABLES`) names the closed tables to draw from; the
+    names below shadow the module's own so the body reads the same either way."""
+    T = tables or BASE_TABLES
+    CLOCKS, RANGES, DURATIONS, DAYS = T["clocks"], T["ranges"], T["durations"], T["days"]
+    LEADS, ENUMS, J = T["leads"], T["enums"], T["J"]
+    FILLER_OPENERS, HEDGES, POLITE = T["fillers"], T["hedges"], T["polite"]
     name, bucket, parts, joiners, opts = fam
     n = len(parts)
     ambiguous = bool(opts.get("ambiguous"))
@@ -762,7 +792,7 @@ def build_family_row(fam, pools, rng):
         segs.append((lead_day, "time", -1))
         segs.append((" " if opts["lead_day"] == "nocomma" else ", ", "join", -1))
     opener = {"filler": FILLER_OPENERS, "hedge": HEDGES, "polite": POLITE,
-              "first": ["first "]}.get(style)
+              "first": T.get("first", ["first "])}.get(style)
     if opener:
         # "first" orders the sequence, like every other sequence word, so it
         # is a JOINER and not part of the first item's action (2026-09-25:
@@ -854,9 +884,18 @@ def build_family_row(fam, pools, rng):
 # Decoys and the ambiguous programme shape — one-item rows
 # ---------------------------------------------------------------------------
 
-def build_decoy_row(kind, pools, rng):
+_BASE_DECOYS = {"well_see", "remind_then", "until_then", "back_then", "if_then",
+                "next_adj", "after_that_meeting", "by_then", "before_then",
+                "followed_title"}
+
+def build_decoy_row(kind, pools, rng, tables=None):
     """(text, action, time, tag, kind, date, start) for ONE item. Every decoy
-    carries a sequence-looking word that is NOT a seam."""
+    carries a sequence-looking word that is NOT a seam. Kinds the size tiers
+    add are built in `tiers.py` (`tiers.decoy_row`), never here, so a base
+    decoy's draw cannot move."""
+    if kind not in _BASE_DECOYS:
+        from assistant.engine.segmentation.datasets.sequence import tiers as _tiers
+        return _tiers.decoy_row(kind, pools, rng, tables)
     name = rng.choice(pools["names"])
     ev = rng.choice([e for e in pools["E"] if not e.startswith(("a ", "the "))])
     task = rng.choice(pools["T"])
@@ -928,6 +967,76 @@ def all_families():
     return FAMILIES + _sweep_families() + _damage_families()
 
 
+def row_record(rid, fam, split, text, skeleton, seq_gold, chain_gold, extra):
+    """The (sequence row, chain row) pair for one generated text."""
+    name, bucket, _parts, _joiners, opts = fam
+    common = {"id": rid, "family": name, "bucket": bucket, "split": split,
+              "text": text, "skeleton": skeleton,
+              "decoy": bool(opts.get("decoy")),
+              "ambiguous": bool(opts.get("ambiguous")),
+              "rollover": bool(opts.get("rollover")),
+              "damage": None, "twin": None,
+              "joiners": sorted({(g["relation"] or {}).get("joiner") for g in seq_gold} - {None})}
+    common.update(extra)
+    return dict(common, gold=seq_gold), dict(common, anchor=ANCHOR, gold=chain_gold)
+
+
+def draw_family(fam, pools, want, seen, split, tables=None):
+    """Draw up to `want` row GROUPS for one family — a group is one row, or a
+    clean row and its damaged twin. `seen` (lower-cased texts) is shared
+    across families and updated in place, so no text is emitted twice.
+    Returns (groups, tries); each group is a list of (seq_row, chain_row).
+
+    The base build and the size tiers both draw through here, so a tier row is
+    built by exactly the code that built the base rows."""
+    name, bucket, parts, joiners, opts = fam
+    rng = random.Random(_stable(SEED, "rows", name))
+    groups = []
+    got, tries = 0, 0
+    while got < want and tries < want * 400:
+        tries += 1
+        if opts.get("decoy") or opts.get("ambiguous") == "programme":
+            kind = opts.get("decoy") or "followed_title"
+            text, action, time, tag, dkind, date, start = build_decoy_row(kind, pools, rng, tables)
+            seq_gold = [{"action": action, "time": time, "tag": tag, "relation": None}]
+            chain_gold = [{"action": action, "kind": dkind, "date": date,
+                           "start_time": hhmm(start) if start is not None else None,
+                           "end_time": hhmm(start + DEFAULT_LEN) if start is not None else None,
+                           "linked_todo": False, "chained": False,
+                           "role": "decoy" if opts.get("decoy") else "head"}]
+            skeleton, segs = f"decoy:{kind}", None
+        else:
+            out = build_family_row(fam, pools, rng, tables)
+            if out is None:
+                continue
+            text, seq_gold, chain_gold, skeleton, segs = out
+        dmg = opts.get("damage")
+        dtext = None
+        if dmg:
+            dsegs = damage(segs, dmg, rng)
+            if dsegs is None:
+                continue
+            dtext = render(dsegs)
+            if dtext.lower() == text.lower() or dtext.lower() in seen:
+                continue
+        if text.lower() in seen:
+            continue
+        seen.add(text.lower())
+        rid = f"seq_{name}_{got}"
+        if dmg:
+            seen.add(dtext.lower())
+            groups.append([
+                row_record(rid, fam, split, text, skeleton, seq_gold, chain_gold,
+                           {"twin": rid + "_dmg"}),
+                row_record(rid + "_dmg", fam, split, dtext, skeleton + f"|dmg:{dmg}",
+                           json.loads(json.dumps(seq_gold)), json.loads(json.dumps(chain_gold)),
+                           {"damage": dmg, "twin": rid})])
+        else:
+            groups.append([row_record(rid, fam, split, text, skeleton, seq_gold, chain_gold, {})])
+        got += 1
+    return groups, tries
+
+
 def build():
     fillers = json.loads(FILLERS.read_text())
     pools = _pools(fillers)
@@ -938,67 +1047,18 @@ def build():
     seq_rows, chain_rows = [], []
     seen = set()
 
-    def emit(rid, name, bucket, text, skeleton, seq_gold, chain_gold, opts, extra):
-        common = {"id": rid, "family": name, "bucket": bucket, "split": split_of[name],
-                  "text": text, "skeleton": skeleton,
-                  "decoy": bool(opts.get("decoy")),
-                  "ambiguous": bool(opts.get("ambiguous")),
-                  "rollover": bool(opts.get("rollover")),
-                  "damage": None, "twin": None,
-                  "joiners": sorted({(g["relation"] or {}).get("joiner") for g in seq_gold} - {None})}
-        common.update(extra)
-        seq_rows.append(dict(common, gold=seq_gold))
-        chain_rows.append(dict(common, anchor=ANCHOR, gold=chain_gold))
-
     for fam in families:
         name, bucket, parts, joiners, opts = fam
-        rng = random.Random(_stable(SEED, "rows", name))
         want = opts.get("rows") or (DECOY_ROWS if opts.get("decoy") else ROWS_PER_FAMILY)
         if opts.get("ambiguous") or opts.get("rollover"):
             want = 12
-        got, tries = 0, 0
-        while got < want and tries < want * 400:
-            tries += 1
-            if opts.get("decoy") or opts.get("ambiguous") == "programme":
-                kind = opts.get("decoy") or "followed_title"
-                text, action, time, tag, dkind, date, start = build_decoy_row(kind, pools, rng)
-                seq_gold = [{"action": action, "time": time, "tag": tag, "relation": None}]
-                chain_gold = [{"action": action, "kind": dkind, "date": date,
-                               "start_time": hhmm(start) if start is not None else None,
-                               "end_time": hhmm(start + DEFAULT_LEN) if start is not None else None,
-                               "linked_todo": False, "chained": False,
-                               "role": "decoy" if opts.get("decoy") else "head"}]
-                skeleton, segs = f"decoy:{kind}", None
-            else:
-                out = build_family_row(fam, pools, rng)
-                if out is None:
-                    continue
-                text, seq_gold, chain_gold, skeleton, segs = out
-            dmg = opts.get("damage")
-            dtext = None
-            if dmg:
-                dsegs = damage(segs, dmg, rng)
-                if dsegs is None:
-                    continue
-                dtext = render(dsegs)
-                if dtext.lower() == text.lower() or dtext.lower() in seen:
-                    continue
-            if text.lower() in seen:
-                continue
-            seen.add(text.lower())
-            rid = f"seq_{name}_{got}"
-            if dmg:
-                seen.add(dtext.lower())
-                emit(rid, name, bucket, text, skeleton, seq_gold, chain_gold, opts,
-                     {"twin": rid + "_dmg"})
-                emit(rid + "_dmg", name, bucket, dtext, skeleton + f"|dmg:{dmg}",
-                     json.loads(json.dumps(seq_gold)), json.loads(json.dumps(chain_gold)),
-                     opts, {"damage": dmg, "twin": rid})
-            else:
-                emit(rid, name, bucket, text, skeleton, seq_gold, chain_gold, opts, {})
-            got += 1
-        if got < want:
-            raise ValueError(f"{name}: only {got}/{want} rows after {tries} draws")
+        groups, tries = draw_family(fam, pools, want, seen, split_of[name])
+        if len(groups) < want:
+            raise ValueError(f"{name}: only {len(groups)}/{want} rows after {tries} draws")
+        for group in groups:
+            for srow, crow in group:
+                seq_rows.append(srow)
+                chain_rows.append(crow)
     # the split is asserted, not assumed
     fam_split = defaultdict(set)
     for r in seq_rows:
@@ -1031,7 +1091,18 @@ def summary(rows) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="rebuild and compare, write nothing")
+    ap.add_argument("--tier", default="base", choices=("base", "10k", "40k"),
+                    help="size tier (tiers.py): base = the committed files; 10k / 40k are "
+                         "supersets written to the gitignored tiers/ folders")
     a = ap.parse_args()
+    if a.tier != "base":
+        from assistant.engine.segmentation.datasets.sequence import tiers
+        ps, pc = tiers.write_tier(a.tier)
+        seq_rows = [json.loads(line) for line in ps.read_text().splitlines()]
+        print(summary(seq_rows))
+        print(json.dumps(tiers.stats(seq_rows)))
+        print(f"wrote {ps.relative_to(REPO)}\nwrote {pc.relative_to(REPO)}")
+        return 0
     seq_rows, chain_rows = build()
     s, c = _dump(seq_rows), _dump(chain_rows)
     if a.check:

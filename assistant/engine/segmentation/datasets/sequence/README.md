@@ -117,3 +117,14 @@ print no row and no family name for it and refuse `--show` there.
 
 Deterministic (seed `sequence-q51-v1`); `tests/unit/test_sequence_dataset.py`
 rebuilds it and fails when the committed files are stale.
+
+## Size tiers (2026-10-02)
+
+The committed files are the `base` tier (3,580 rows, unchanged). `--tier 10k`
+(10,886 rows) and `--tier 40k` (41,192 rows, 1,340 families, 6,342 distinct
+skeletons) write SUPERSETS to the gitignored `tiers/` folders here and under
+`decompose_validate/datasets/chain/` — the base rows verbatim, then 1,220 new
+families (structural, new joiners, new damage operations, new decoys, new
+anchors). `tiers.py` has the full list; the boards take `--tier`.
+
+    ./.venv/bin/python -m assistant.engine.segmentation.datasets.sequence.generate --tier 40k

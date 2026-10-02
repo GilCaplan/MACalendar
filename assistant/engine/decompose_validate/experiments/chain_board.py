@@ -264,10 +264,18 @@ def main() -> int:
     ap.add_argument("--split", choices=("train", "test"), default="train")
     ap.add_argument("--show", type=int, default=0, help="TRAIN only: print N rows with a wrong item")
     ap.add_argument("--family", default="", help="TRAIN only: one family")
+    ap.add_argument("--tier", default="base", choices=("base", "10k", "40k"),
+                    help="dataset size tier (segmentation/datasets/sequence/tiers.py); "
+                         "base = the committed chain.jsonl, larger tiers are built on demand")
     a = ap.parse_args()
     if a.split == "test" and (a.show or a.family):
         raise SystemExit("--show/--family read rows; the TEST half prints aggregates only")
-    rows = [json.loads(l) for l in DATA.open()]
+    data = DATA
+    if a.tier != "base":
+        from assistant.engine.segmentation.datasets.sequence import tiers
+        data = tiers.ensure(a.tier, "chain")
+        print(f"tier {a.tier}: {data}")
+    rows = [json.loads(l) for l in data.open()]
     rows = [r for r in rows if r["split"] == a.split]
     if a.family:
         rows = [r for r in rows if r["family"] == a.family]

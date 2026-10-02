@@ -46,9 +46,17 @@ def main() -> None:
     ap.add_argument("--perturb", action="store_true",
                     help="INJECT defects into the gold and let validate repair "
                          "them — this is what makes board G measurable")
+    ap.add_argument("--tier", default="base", choices=("base", "10k", "40k"),
+                    help="dataset size tier (datasets/tiers.py): base = the committed "
+                         "generated.jsonl; larger tiers are built on demand")
     a = ap.parse_args()
 
-    every = [json.loads(l) for l in open(_DATA)]
+    data = _DATA
+    if a.tier != "base":
+        from assistant.engine.decompose_validate.datasets import tiers
+        data = str(tiers.ensure(a.tier))
+        print(f"tier {a.tier}: {data}")
+    every = [json.loads(l) for l in open(data)]
     rows = [r for r in every if r.get("split", "train") == a.split]
     if not rows:
         sys.exit(f"no rows with split={a.split}")

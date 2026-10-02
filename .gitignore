@@ -93,3 +93,10 @@ MACalendar APPs/
 assistant/calendar_ui/assets/server_icon.icns
 assistant/calendar_ui/assets/server_icon.png
 mac/MagicWords/build/
+
+# Dataset SIZE TIERS (10k / 40k / grown) — multi-MB, rebuilt deterministically
+# by their generators and on demand by the boards (see each stage ARCHITECTURE.md)
+assistant/engine/segmentation/datasets/tiers/
+assistant/engine/segmentation/datasets/sequence/tiers/
+assistant/engine/decompose_validate/datasets/tiers/
+assistant/engine/decompose_validate/datasets/chain/tiers/
