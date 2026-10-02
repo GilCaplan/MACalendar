@@ -378,6 +378,45 @@ A case row carries `id`, `command_id`, `split`, `family`, `grammar`, `joiner`,
 
 ---
 
+## Size tiers — 10k and 40k (2026-10-01)
+
+The files above are the `base` tier and nothing below rewrites them.
+`generate_v2 --tier 10k|40k|all` writes gitignored SUPERSETS to `tiers/`: the
+base file's bytes, then grown rows (`grown_in`, `grown_by`). Two kinds of
+growth, interleaved one family at a time so 10k is a prefix of 40k:
+
+* **`new_voices`** — every base family and variant rendered in the six
+  `voices.TIER_VOICES` (voice memo, texting shorthand, hands-free driver,
+  academic, sports coach, hospitality manager). Same rng streams and base
+  banks, so the gold IS the base command's gold; a test pins all 13
+  renderings of an utterance to one gold.
+* **`new_family`** — 582 families `families()` never built (every ordered
+  pair it skipped, 160 triples, 48 quads, longer lists and runs) over three
+  new joiners — `"; then "` (a seam `findings.UNSPLIT_SUBJECT` names, so it
+  joins `SEAM_JOINERS`), `" plus "` and `". After that, "` (plain) — in all 13
+  voices, drawing from `banks.extended()`: 97 event and 57 to-do subjects,
+  8 days, 8 clock values, 5 cadence phrases, 3 anaphors, all invented. The new
+  subjects were checked against the persona banks (as an overlap COUNT only)
+  and the five that collided were rewritten, so the persona board stays clean.
+
+Splits use `split_of` unchanged. Cases are planted on the grown commands with
+the same `build_cases`, on streams of their own (`cases|tier|<chunk>`), 500
+commands per checkpointed chunk under `tiers/judge_cases_v2.parts/`.
+
+| tier | commands | families | grammars | voices | cases | TRAIN / TEST cases |
+|---|---:|---:|---:|---:|---:|---|
+| base | 5,292 | 189 | 61 | 7 | 11,187 | 5,385 / 5,802 |
+| 10k | 10,013 | 251 | 117 | 13 | 19,888 | 9,732 / 10,156 |
+| 40k | 40,018 | 771 | 461 | 13 | 80,428 | 38,279 / 42,149 |
+
+Grown commands plant 1.99 cases each (69,241 on 34,726) against base's 2.11:
+a clean twin plus one plant, a second only when three or more objects were
+built. `verify_v2 --data-tier 40k` passes every refusal.
+
+    python -m assistant.engine.llmjudge.datasets.v2.generate_v2 --tier all --commands-only  # ~20 s
+    python -m assistant.engine.llmjudge.datasets.v2.generate_v2 --tier all                  # ~50 min, resumable
+    python -m assistant.engine.llmjudge.experiments.judge_board_v2 --data-tier 40k
+
 ## What this set does NOT do
 
 * It is **not a real-usage instrument**. Generated speech with observed damage

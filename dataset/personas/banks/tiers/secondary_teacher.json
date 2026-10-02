@@ -1,0 +1,60 @@
+{
+  "persona": {
+    "id": "secondary_teacher",
+    "label": "Secondary-school teacher",
+    "role": "SIZE-TIER persona (10k / 40k only) — orderly, school-timetable vocabulary",
+    "speech_habits": [
+      "orderly full sentences with a lead-in: 'Okay, for the calendar:', 'Note for me:'",
+      "school vocabulary: year groups, duties, briefings, trips, marking",
+      "'I need to make sure I' for tasks — a checklist voice",
+      "dates named by the school week ('next Thursday', 'on the fourteenth') more than clock words"
+    ],
+    "action_bias": "balanced: a dense fixed timetable plus a long marking-and-admin list",
+    "leak_note": "Every school, colleague and pupil name is invented for the size tiers; none was taken from any real person or transcript — and the leak gate runs on every tier build (see PERSONAS.md § Size tiers for what it currently reads)."
+  },
+  "fillers": {
+    "names": ["Ottilie", "Kwame", "Siobhan", "Rafferty", "Greta", "Idris", "Maeve", "Joaquin", "Leopold", "Saskia", "Thaddeus", "Ursula", "Valentin", "Winifred", "Xander", "Yvaine"],
+    "event_titles": ["the year nine trip", "the department meeting", "the consultation evening", "the mock exam", "the open evening", "the moderation meeting", "detention duty", "the staff briefing", "the curriculum review", "the drama club rehearsal", "the safeguarding training", "the sixth form interviews", "the exam board webinar", "the reading group", "the field trip briefing", "the governors meeting", "the training day", "lunch duty", "the art exhibition setup", "the coursework deadline meeting", "the cover lesson", "the year seven induction"],
+    "task_titles": ["mark the year ten essays", "write the reports", "photocopy the worksheets", "email the exams officer", "update the seating plans", "order the lab supplies", "upload the homework", "book the minibus", "collect the permission slips", "plan the revision session", "return the borrowed projector", "enter the predicted grades", "laminate the posters", "chase the missing coursework", "set the cover work", "tidy the stock cupboard", "print the mark schemes", "update the trip risk assessment"],
+    "items": ["whiteboard pens", "glue sticks", "exercise books", "staples", "plastic wallets", "highlighters", "sugar paper", "sticky labels", "rulers", "board spray", "coloured card", "pencil sharpeners", "printer toner", "poster putty", "sticky notes"],
+    "occasions": ["results day", "the last day of term", "the training day", "sports morning", "the school play", "the inspection", "the exam season start", "half term", "the leavers assembly", "prize day"],
+    "quotable": ["the department meeting", "the mock exam", "the open evening", "detention duty", "the staff briefing", "the reading group", "lunch duty", "the cover lesson", "the training day", "the governors meeting"],
+    "filler_words": ["okay", "right", "so", "now", "um", "let me see", "alright", "erm"]
+  },
+  "mix": {"ct_bare": 1.4, "ct_dated": 1.5, "ce_datetime": 1.4, "ce_date_only": 1.3, "ce_allday": 1.2, "q_schedule": 1.2, "q_todos": 1.2, "and_tt": 1.2, "three_ask": 0.9, "propose_q": 0.6},
+  "templates": {
+    "ce_datetime": ["okay, for the calendar: {event_title} {date} at {time}", "please add {event_title} {date} at {time}"],
+    "ce_date_only": ["note for me: {event_title} {date}", "add {event_title} to the calendar for {date}"],
+    "ce_time_only": ["{event_title} is at {time}, please add it"],
+    "ce_attendee": ["add {event_title} with {name} {date}"],
+    "ce_recurring": ["{event_title} runs {recurrence} at {time}, please add it", "set up {event_title} {recurrence} at {time}"],
+    "ce_allday": ["{date} is {occasion}, mark the whole day"],
+    "ct_bare": ["i need to make sure i {task_title}", "note for me: {task_title}"],
+    "ct_dated": ["i need to {task_title} by {date}", "remind me to {task_title} {date}"],
+    "ct_buy": ["i need to order {qty} {item} for the classroom"],
+    "q_schedule": ["what is on my timetable {query_range}"],
+    "q_todos": ["what is still on my checklist {query_range}"],
+    "de_named": ["please cancel {event_title} {date}"],
+    "dt_named": ["remove {task_title} from my checklist"],
+    "comp_todo": ["i have finished {task_title}, tick it off"],
+    "ue_move": ["{event_title} has moved to {time}, please update it"],
+    "ut_change": ["move {task_title} to {date} on my checklist"],
+    "npdecoy_attendees": ["add {event_title} with {name} and {name2} at {time}"],
+    "npdecoy_items": ["i need to order {item} and {item2}"],
+    "time_range": ["add {event_title} {time_range}"],
+    "leadtime": ["add {event_title} {date} at {time} and remind me {lead_time}"],
+    "polite_request": ["could you please add {event_title} {date} at {time}"],
+    "propose_q": ["should i put {event_title} in the calendar for {date}"],
+    "quoted_delete": ["please remove '{quoted_item}' from the calendar"],
+    "generic_delete": ["please remove {generic_target} from the timetable"],
+    "ramble_ce": ["{filler} so i have {event_title} {date} at {time} {filler2}"],
+    "and_ee": ["add {event_title} {date} at {time} and {event_title2} at {time2}"],
+    "and_et": ["add {event_title} {date} at {time} and remind me to {task_title2}"],
+    "and_te": ["remind me to {task_title} and add {event_title2} {date2}"],
+    "and_tt": ["i need to {task_title} and {task_title2}"],
+    "joiner_then_et": ["add {event_title} at {time}, then remind me to {task_title2}"],
+    "also_ee": ["add {event_title} {date}, and also {event_title2} {date2}"],
+    "mixed_create_delete": ["please cancel {event_title2} and add {event_title} {date}"],
+    "three_ask": ["add {event_title} at {time} and {event_title2} at {time2} and remind me to {task_title3}"]
+  }
+}

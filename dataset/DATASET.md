@@ -247,3 +247,108 @@ overrides, no board impact — the confirm gate is inert on this pool by
 measurement, not assumption. Question-shape ground truth (propose rows,
 confirm subprompts, the two-phase doctrine) lives in the FastRule 7,200
 (`assistant/engine/fastrule/datasets/DATASET.md`), which was built after the ruling.
+
+## Size tiers — the judge, persona and real-speech sets (2026-10-01)
+
+Gil, 2026-10-01: *"a lot of the datasets seem really small, they should be at
+least 40k with enough variation in the data"* and *"you can have different
+level of the same dataset as well, sometimes can let user choose."* Four
+generated sets now come in three sizes. `scripts/dataset_tiers.py` is the one
+place that says where a tier lives, whether it is current, and how to build it.
+
+    base   the committed file — BYTE-IDENTICAL, md5-pinned by
+           tests/unit/test_judge_persona_dataset_tiers.py. THE DEFAULT
+           EVERYWHERE, and what every recorded number was measured on.
+    10k    base + grown rows, >= 10,000   (v2: 10,000 COMMANDS)
+    40k    base + more grown rows, >= 40,000   (v2: 40,000 COMMANDS)
+
+**A larger tier is a SUPERSET.** The tier file is the base file's bytes
+followed by the grown rows, and every 10k row is a 40k row — so no row ever
+changes its id, split or gold between tiers, and a number on base is a number
+on the first rows of every tier. Grown rows carry `grown_in` (the smallest tier
+holding them). Tier files are gitignored (`<set dir>/tiers/`, multi-MB,
+deterministic by seed); the generator is the artefact.
+
+### What the sizes are (dataset · rows · distinct texts · families · TRAIN / TEST)
+
+| set | tier | rows | distinct texts | families | TRAIN | TEST |
+|---|---|---:|---:|---:|---:|---:|
+| LLMJudge v1 cases `judge_cases.jsonl` | base | 1,800 | 1,800 | 347 | 900 | 900 |
+| | 10k | 10,000 | 10,000 | 1,452 | 6,282 | 3,718 |
+| | 40k | 40,000 | 40,000 | 1,453 | 21,199 | 18,801 |
+| LLMJudge v2 commands `commands_v2.jsonl` | base | 5,292 | 5,229 | 189 | 2,520 | 2,772 |
+| | 10k | 10,013 | 9,950 | 251 | 4,849 | 5,164 |
+| | 40k | 40,018 | 39,955 | 771 | 19,046 | 20,972 |
+| LLMJudge v2 cases `judge_cases_v2.jsonl` | base | 11,187 | 4,924 | 189 | 5,385 | 5,802 |
+| | 10k | 19,888 | 9,016 | 251 | 9,732 | 10,156 |
+| | 40k | 80,428 | 36,644 | 771 | 38,279 | 42,149 |
+| personas `personas.jsonl` (TEST-ONLY) | base | 2,520 | 2,520 | 241 | 0 | 2,520 |
+| | 10k | 10,008 | 10,008 | 533 | 0 | 10,008 |
+| | 40k | 40,008 | 40,008 | 533 | 0 | 40,008 |
+| persona ablation `personas_ablation.jsonl` (TEST-ONLY) | base | 2,520 | 2,424 | 469 | 0 | 2,520 |
+| | 10k | 10,008 | 9,772 | 1,134 | 0 | 10,008 |
+| | 40k | 40,008 | 38,816 | 1,134 | 0 | 40,008 |
+| real speech `realspeech_1200.jsonl` | base | 1,200 | 1,200 | 79 | 875 | 325 |
+| | 10k | 10,000 | 10,000 | 302 | 7,580 | 2,420 |
+| | 40k | 40,000 | 40,000 | 302 | 30,455 | 9,545 |
+
+"Families" is each set's own split unit (v1: FastRule family for base and the
+FastRule leftovers, `v1x:<voice>:<shape>:<frame>` for grammar rows; v2: ask
+skeleton + joiner; personas: `<persona>:<structure>:<variant>`; real speech:
+structure + register + join). v2 cases repeat a command's text by design (a
+clean twin plus one or two plants per command), so their distinct-text count
+is the commands'. The ablation repeats texts ACROSS cells by design (base does
+too) and dedupes within a cell.
+
+### Where the variation comes from — new material, not refills
+
+| set | new in the grown tiers |
+|---|---|
+| v1 cases | every FastRule row base did not use (3,702), then single-ask commands from the v2 grammar in all 13 voices with the v2 tier banks — 682 wording families, the 16 damage operations, one case per source row, half clean (base's rule) |
+| v2 commands | the six new VOICES on every base command (same gold, new words: 4,520 rows) and 582 new families — every ordered ask pair base skipped, 160 triples, 48 quads, longer lists — over 3 new joiners ("; then" is a seam, " plus " and ". After that, " are plain), 97 new event and 57 new to-do subjects, 8 new days, 8 new clock values, 5 new cadence phrases; 461 ask grammars (base 61), 1,009 distinct subjects (base 311) |
+| personas | six NEW personas (ward nurse, small-business owner, tradesperson, secondary teacher, family caregiver, amateur musician), each with its own content banks and a phrasing for all 33 shared structures; the base six get extra fillers and template variants in their own voice. 12 personas x 3,334 rows at 40k, every cell covering every structure |
+| real speech | 130 new ask skeletons, three new registers (hedge, narr, frag), two new ask classes (complete / delete a to-do), 15 new structures, 4 new joins, new names with homophone mangles, new possessive / compound / loanword damage material, 30 new no-ask texts. The pools keep base proportions (faithful 2/3 at the measured ask mix, stress 1/3) |
+
+All of it is hand-written, invented and generic — no model wrote a row, no real
+transcript was copied, and nothing was read from `~/.assistant_tools/` beyond
+what the persona and real-speech leak gates already read. Gold is computed by
+the same code as base. Splits follow each generator's existing rule; personas
+stay TEST-ONLY at every size.
+
+### Which tier for which job — and what it costs
+
+These sets are mostly SCORED WITH THE ENGINE, and the cost is the board's per
+row, not the file's. A deterministic board (`judge_board`, `judge_board_v2`,
+`kind_board`, the FastRule-only real-speech board) reads 40k in minutes; a
+board that calls the model reads it in MANY HOURS — at the ~1–3 s per row the
+rescue path costs, 40,000 rows is an overnight run, not an iteration step.
+
+| use | tier | why |
+|---|---|---|
+| smoke / the recorded numbers | **base** | what every banked number used; seconds to minutes |
+| iterate on one stage | **10k** | 4–8x base, every family and voice present, still minutes deterministic |
+| confirm a deterministic change | **40k** | per-slice n in the hundreds to thousands (e.g. every v2 mutation >= 1,500 per half) |
+| a model-calling board | **base**, or a sliced 10k | 40k with the model is many hours; run it only when the slice is worth a night |
+
+### Choosing one
+
+Every loader takes `--data-tier base|10k|40k` (default `base`):
+`llmjudge/experiments/judge_board.py`, `judge_board_v2.py`,
+`llmjudge/datasets/verify.py`, `v2/verify_v2.py`, `title_falseflag.py`,
+`scripts/persona_board.py`, `label/experiments/persona_board.py`,
+`scripts/realspeech_board.py`, `scripts/kind_board.py`,
+`scripts/atomizer_board.py`. A missing or stale command / persona /
+real-speech tier is built on demand (seconds); a missing CASE tier stops with
+the command, because building one runs the converter over every grown command.
+
+    python -m scripts.gen_personas --tier all              # ~2 s
+    python -m scripts.gen_personas --ablation --tier all   # ~5 s
+    python -m scripts.gen_realspeech --tier all            # ~20 s
+    python -m assistant.engine.llmjudge.datasets.generate --tier all       # ~10 min (resolver)
+    python -m assistant.engine.llmjudge.datasets.v2.generate_v2 --tier all # ~50 min (converter)
+
+The two case builds are checkpointed per chunk (`tiers/*.parts/`) and resume
+where they stopped, with a timestamped progress line.
+
+**Board D is not on this list**: it reads FastRule's set, whose tiers live with
+the FastRule generator.

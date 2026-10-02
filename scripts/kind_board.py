@@ -216,7 +216,14 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", default="train", choices=["train", "test"])
     ap.add_argument("--dataset", default="all", choices=["all", *DATASETS])
+    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    _add_tier(ap)
     args = ap.parse_args()
+    if args.data_tier != "base":
+        # the persona and real-speech sets have size tiers; FastRule's own
+        # tiers live with its generator, so it stays on its base file here
+        DATASETS["personas"] = _resolve("personas", args.data_tier)
+        DATASETS["realspeech"] = _resolve("realspeech", args.data_tier)
 
     # The leakage rule: the held-back half reports aggregates, never rows.
     show_rows = args.split == "train"

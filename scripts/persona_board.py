@@ -410,9 +410,17 @@ def main() -> int:
                     help="jsonl to score (default the persona set; pass "
                          "dataset/personas/personas_ablation.jsonl for the "
                          "vocabulary-vs-phrasing ablation)")
+    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    _add_tier(ap)
     a = ap.parse_args()
 
     path = pathlib.Path(a.data).resolve()
+    if a.data_tier != "base":
+        # the tier of whichever set --data names (persona set or ablation),
+        # built on demand in seconds; still TEST-ONLY like base
+        path = _resolve("personas_ablation" if "ablation" in path.name
+                        else "personas", a.data_tier)
+        print(f"· data: {path.name} (tier {a.data_tier})", flush=True)
     rows = [json.loads(l) for l in path.open(encoding="utf-8")]
     set_columns({r["persona"] for r in rows})
     structures = sorted({r["structure"] for r in rows})

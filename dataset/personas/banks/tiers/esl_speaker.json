@@ -1,0 +1,80 @@
+{
+  "_comment": "SIZE-TIER extension for `esl_speaker` (2026-10-01): read ONLY by `gen_personas --tier 10k|40k`. Each filler list is APPENDED to the persona's own list of the same name; each template list adds VARIANTS to a structure (new family ids `esl_speaker:<structure>:<k>` after the base variants). Same voice, same invented-content rule; the leak gate runs on every tier build.",
+  "fillers": {
+    "names": [
+      "Bogdan",
+      "Ileana",
+      "Kemal",
+      "Ludmila",
+      "Thanh",
+      "Wojtek"
+    ],
+    "event_titles": [
+      "the bank appointment",
+      "the course of computer",
+      "the meeting in the municipality",
+      "the exam of driving",
+      "the parents meeting in school",
+      "the appointment for the residence card",
+      "the job fair",
+      "the dentist for my son"
+    ],
+    "task_titles": [
+      "fill the form for the tax",
+      "send the copy of passport",
+      "pay the bill of electricity",
+      "buy the ticket for the train",
+      "make the photo for the document",
+      "translate the diploma",
+      "renew the insurance of car",
+      "register in the clinic"
+    ],
+    "items": [
+      "bread",
+      "potatoes",
+      "sunflower oil",
+      "buckwheat",
+      "sour cream"
+    ],
+    "occasions": [
+      "the national holiday of my country",
+      "the day of moving",
+      "my daughter birthday"
+    ],
+    "quotable": [
+      "bank appointment",
+      "job fair",
+      "exam of driving"
+    ]
+  },
+  "templates": {
+    "ce_datetime": [
+      "{event_title}, i have it {date} at {time}",
+      "i must to go {event_title} {date} at {time}"
+    ],
+    "ce_date_only": [
+      "please to add {event_title} {date}"
+    ],
+    "ct_bare": [
+      "please to remind me {task_title}"
+    ],
+    "ct_dated": [
+      "{date} i must to {task_title}"
+    ],
+    "q_schedule": [
+      "please to tell what i have {query_range}"
+    ],
+    "de_named": [
+      "please to cancel {event_title} {date}"
+    ],
+    "comp_todo": [
+      "{task_title}, i did it already"
+    ],
+    "ue_move": [
+      "{event_title} is now in {time}, please to change"
+    ],
+    "and_et": [
+      "please to add {event_title} {date} at {time} and i must to {task_title2}"
+    ]
+  }
+}

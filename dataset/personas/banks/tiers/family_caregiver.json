@@ -1,0 +1,60 @@
+{
+  "persona": {
+    "id": "family_caregiver",
+    "label": "Adult child caring for an elderly parent",
+    "role": "SIZE-TIER persona (10k / 40k only) — double-checking, possessive 'mum's / dad's'",
+    "speech_habits": [
+      "possessive framing of every subject: 'mum's review', 'dad's eye clinic'",
+      "double-checking and reassurance-seeking: 'can you make sure', 'just so i don't forget'",
+      "medical and benefits admin vocabulary carried as titles",
+      "long requests with the WHY in front: 'because the carer changes, put ...'"
+    ],
+    "action_bias": "appointment-heavy calendar plus a medication and paperwork task list",
+    "leak_note": "Every person, clinic and service is invented for the size tiers; none was taken from any real person or transcript — and the leak gate runs on every tier build (see PERSONAS.md § Size tiers for what it currently reads)."
+  },
+  "fillers": {
+    "names": ["Agnieszka", "Dermot", "Fenella", "Ignatius", "Jocasta", "Kasimir", "Lavinia", "Mordecai", "Nerys", "Orrin", "Philippa", "Quentin", "Rosalind", "Septimus", "Theodora", "Ulric"],
+    "event_titles": ["mum's cardiology review", "the carer handover", "dad's hearing aid check", "the occupational therapist visit", "the pharmacy review", "mum's hair appointment", "the respite day centre", "the falls clinic", "the benefits assessment", "the stairlift survey", "the memory cafe", "the district nurse visit", "the wheelchair service", "the care plan meeting", "dad's eye clinic", "mum's dentist", "the carers support group", "the solicitor about the power of attorney", "the phone appointment with the surgery", "dad's foot clinic", "mum's blood test", "the bathroom adaptation visit"],
+    "task_titles": ["reorder mum's tablets", "fill the pill organiser", "renew the parking badge", "wash dad's cardigans", "pay the care invoice", "update the medication list", "book the patient transport", "sort the pharmacy delivery", "charge the alarm pendant", "fix the grab rail", "post the allowance form", "change the bed linen at mum's", "pick up dad's prescription", "check the smoke alarm at dad's", "top up mum's phone", "cancel the newspaper delivery", "label the medicine cupboard", "print the care rota"],
+    "items": ["ready meals", "thickener", "soft biscuits", "prune juice", "denture cleaner", "hand gel", "nutrition drinks", "puzzle books", "large print crosswords", "slipper socks", "tissues", "talc", "paracetamol", "night light bulbs", "bananas"],
+    "occasions": ["mum's ninetieth", "dad's discharge day", "the carers' week off", "the move to the ground floor flat", "the review deadline", "my respite weekend", "the family visit", "mum's anniversary of moving in", "the new carer's first day", "the benefits renewal date"],
+    "quotable": ["the carer handover", "the pharmacy review", "the falls clinic", "the memory cafe", "the district nurse visit", "the care plan meeting", "the respite day centre", "the stairlift survey", "the wheelchair service", "the benefits assessment"],
+    "filler_words": ["oh", "so", "um", "now", "right", "honestly", "well", "you see"]
+  },
+  "mix": {"ce_datetime": 1.6, "ce_attendee": 1.3, "ct_bare": 1.4, "ct_dated": 1.4, "ct_buy": 1.2, "leadtime": 1.4, "polite_request": 1.3, "ue_move": 1.2, "ramble_ce": 1.2, "generic_delete": 0.7},
+  "templates": {
+    "ce_datetime": ["can you make sure {event_title} is in for {date} at {time}", "put {event_title} in {date} at {time}, just so i don't forget"],
+    "ce_date_only": ["{event_title} is {date}, can you add it", "add {event_title} for {date}"],
+    "ce_time_only": ["{event_title} is at {time}, put it in"],
+    "ce_attendee": ["add {event_title} with {name} {date}"],
+    "ce_recurring": ["{event_title} is {recurrence} at {time} now, put it in", "set up {event_title} {recurrence} at {time}"],
+    "ce_allday": ["{date} is {occasion}, keep the day clear"],
+    "ct_bare": ["just so i don't forget, i need to {task_title}", "can you remind me to {task_title}"],
+    "ct_dated": ["i need to {task_title} {date}, remind me"],
+    "ct_buy": ["i need to get {qty} {item} for mum"],
+    "q_schedule": ["what have we got on {query_range}, i've lost track"],
+    "q_todos": ["what's still to do {query_range}"],
+    "de_named": ["{event_title} {date} has been cancelled, take it out"],
+    "dt_named": ["take {task_title} off the list, the carers are doing it"],
+    "comp_todo": ["i've done {task_title}, mark it done"],
+    "ue_move": ["{event_title} has moved to {time}, can you change it"],
+    "ut_change": ["put {task_title} back to {date}"],
+    "npdecoy_attendees": ["{event_title} with {name} and {name2} at {time}, add it please"],
+    "npdecoy_items": ["i need to get {item} and {item2}"],
+    "time_range": ["{event_title} {time_range}, put it in"],
+    "leadtime": ["{event_title} {date} at {time}, and remind me {lead_time} so we're not late"],
+    "polite_request": ["would you be able to add {event_title} {date} at {time}"],
+    "propose_q": ["should i book {event_title} for {date}"],
+    "quoted_delete": ["can you take '{quoted_item}' out of the calendar"],
+    "generic_delete": ["delete {generic_target}, it was a mistake"],
+    "ramble_ce": ["{filler} because the carer changes, put {event_title} in {date} at {time} {filler2}"],
+    "and_ee": ["add {event_title} {date} at {time} and {event_title2} at {time2}"],
+    "and_et": ["add {event_title} {date} at {time} and remind me to {task_title2}"],
+    "and_te": ["remind me to {task_title} and add {event_title2} {date2}"],
+    "and_tt": ["i need to {task_title} and {task_title2}"],
+    "joiner_then_et": ["put {event_title} in at {time}, then remind me to {task_title2}"],
+    "also_ee": ["add {event_title} {date} and also {event_title2} {date2}"],
+    "mixed_create_delete": ["cancel {event_title2} and put {event_title} in {date}"],
+    "three_ask": ["add {event_title} at {time} and {event_title2} at {time2} and remind me to {task_title3}"]
+  }
+}

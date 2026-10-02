@@ -1,0 +1,85 @@
+{
+  "_comment": "SIZE-TIER extension for `freelance_consultant` (2026-10-01): read ONLY by `gen_personas --tier 10k|40k`. Each filler list is APPENDED to the persona's own list of the same name; each template list adds VARIANTS to a structure (new family ids `freelance_consultant:<structure>:<k>` after the base variants). Same voice, same invented-content rule; the leak gate runs on every tier build.",
+  "fillers": {
+    "names": [
+      "Leontine",
+      "Barnaby",
+      "Clementine",
+      "Evander",
+      "Rosamund",
+      "Torquil"
+    ],
+    "event_titles": [
+      "the Brightwater pitch",
+      "the quarterly business review",
+      "the procurement call with Halvard",
+      "the workshop dry run",
+      "the partner offsite",
+      "the Fernhill retro",
+      "the onboarding call with the new client",
+      "the pricing review"
+    ],
+    "task_titles": [
+      "send the proposal deck",
+      "reconcile the expenses",
+      "renew the professional indemnity",
+      "update the rate card",
+      "draft the case study",
+      "chase the signed contract",
+      "prepare the workshop pack",
+      "book the coworking desk"
+    ],
+    "items": [
+      "business cards",
+      "presentation clickers",
+      "notebooks",
+      "printer ink",
+      "lanyards"
+    ],
+    "occasions": [
+      "the financial year end",
+      "the client offsite",
+      "the conference week"
+    ],
+    "quotable": [
+      "Brightwater pitch",
+      "pricing review",
+      "partner offsite"
+    ]
+  },
+  "templates": {
+    "ce_datetime": [
+      "could you get {event_title} in for {date} at {time}"
+    ],
+    "ce_date_only": [
+      "let's hold {date} for {event_title}"
+    ],
+    "ce_time_only": [
+      "get {event_title} in at {time}"
+    ],
+    "ct_bare": [
+      "make a note that i need to {task_title}"
+    ],
+    "ct_dated": [
+      "i'll need to {task_title} {date}, please remind me"
+    ],
+    "q_schedule": [
+      "how is my diary looking {query_range}"
+    ],
+    "de_named": [
+      "please release {event_title} on {date}"
+    ],
+    "comp_todo": [
+      "{task_title} is done, please mark it complete"
+    ],
+    "ue_move": [
+      "let's shift {event_title} to {time}"
+    ],
+    "and_et": [
+      "block off {event_title} {date} at {time}, and i'll need to {task_title2}"
+    ],
+    "polite_request": [
+      "if it's no trouble, pencil in {event_title} {date} at {time}"
+    ]
+  }
+}

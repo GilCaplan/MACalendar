@@ -50,6 +50,7 @@ in a generated row. Genuinely general words are declared, with a reason, in
 Usage:
     python -m scripts.gen_personas              # generate + verify + write
     python -m scripts.gen_personas --no-write   # same, without writing
+    python -m scripts.gen_personas --tier all   # 10k + 40k supersets (still test-only)
 """
 from __future__ import annotations
 
@@ -331,6 +332,226 @@ def leak_check(rows) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# size tiers — base / 10k / 40k (Gil, 2026-10-01)
+# ---------------------------------------------------------------------------
+#
+# *"a lot of the datasets seem really small, they should be at least 40k with
+# enough variation in the data."* The committed 2,520 rows (and the 2,520
+# ablation rows) are the `base` tier; a grown tier is base's BYTES followed by
+# grown rows (`scripts/dataset_tiers.py`). STILL TEST-ONLY: every grown row is
+# `split: "test"`, exactly like base — the size tiers make the persona board
+# able to carry a claim per structure, they do not make it something to fit on.
+#
+# Where the growth is new rather than more of the same:
+#
+#   SIX NEW PERSONAS   `banks/tiers/<id>.json` — a ward nurse on shifts, a
+#                      small-business owner, a tradesperson, a secondary
+#                      teacher, a family caregiver, an amateur musician. Each
+#                      has its own content banks AND its own phrasing for
+#                      every one of the 33 shared structures, so the
+#                      structure-matched comparison still holds across 12.
+#   THE BASE SIX, WIDER `banks/tiers/<base id>.json` APPENDS fillers and adds
+#                      template VARIANTS in the persona's own voice; a new
+#                      variant is a new family (`<id>:<structure>:<k>`).
+#
+# Every cell (persona, or ablation cell) is filled to the same size at each
+# tier, so a per-persona number is always over the same n. A cell's grown
+# rows are ordered by their fractional position inside their family, so the
+# 10k tier — the first rows of each cell — still holds every structure.
+
+TIER_BANKS = BANKS / "tiers"
+TIER_PERSONAS = ["shift_nurse", "small_business_owner", "tradesperson",
+                 "secondary_teacher", "family_caregiver", "amateur_musician"]
+
+
+def _extend(base: list, extra: list) -> list:
+    return list(base) + [x for x in extra if x not in base]
+
+
+def load_world(tier: bool = False) -> tuple:
+    """`(catalog, personas, fillers_of, ids)` — the base world, or with
+    `tier=True` the base six widened by their tier extensions plus the six
+    tier personas. The base path reads exactly what `main()` always read."""
+    catalog = load_json(PERSONA_DIR / "structures.json")["structures"]
+    common = load_json(BANKS / "common.json")["fillers"]
+    ids = list(PERSONAS) + (TIER_PERSONAS if tier else [])
+    personas, fillers_of = {}, {}
+    for pid in ids:
+        path = (TIER_BANKS if pid in TIER_PERSONAS else BANKS) / f"{pid}.json"
+        p = load_json(path)
+        if p["persona"]["id"] != pid:
+            raise ValueError(f"{pid}.json declares id {p['persona']['id']!r}")
+        if tier and pid in PERSONAS:
+            ext = load_json(TIER_BANKS / f"{pid}.json")
+            for k, v in ext.get("fillers", {}).items():
+                p["fillers"][k] = _extend(p["fillers"].get(k, common.get(k, [])), v)
+            for st, extra in ext.get("templates", {}).items():
+                have = p["templates"][st]
+                have = [have] if isinstance(have, str) else list(have)
+                p["templates"][st] = _extend(have, extra)
+        personas[pid] = p
+        merged = dict(common)
+        merged.update(p["fillers"])
+        fillers_of[pid] = merged
+    return catalog, personas, fillers_of, ids
+
+
+def _cells_for(ids: list, ablation: bool) -> list:
+    if ablation:
+        return ([(f"vocab:{p}", ABLATION_CONTROL, p) for p in ids]
+                + [(f"phrase:{p}", p, ABLATION_CONTROL) for p in ids])
+    return [(p, p, p) for p in ids]
+
+
+def _tier_family_rows(fam, quota: int, fillers: dict, seen: set, stream: str = "") -> list:
+    """`gen_rows` on a stream of its own that never raises: a family whose
+    combinations run out hands its shortfall back to the caller."""
+    tokens = family_tokens(fam["template"])
+    validate_family(fam, fillers)
+    banks = {tok: fillers[placeholder_info(tok)[0]] for tok in tokens}
+    rng = random.Random(f"{SEED}:tier:{fam['family']}:{stream}")
+    out, combos, attempts = [], set(), 0
+    while len(out) < quota and attempts < max(400, quota * 80):
+        attempts += 1
+        combo = tuple(rng.choice(banks[t]) for t in tokens) if tokens else ()
+        if combo in combos:
+            continue
+        combos.add(combo)
+        values = dict(zip(tokens, combo))
+        text = re.sub(r"\s+", " ", fam["template"].format(**values).strip())
+        if text in seen:
+            continue
+        seen.add(text)
+        out.append((text, resolve_slots(fam, values, tokens)))
+    return out
+
+
+def build_tier_cells(ablation: bool = False, top: str = "40k") -> dict:
+    """`{cell label: [grown rows in tier order]}` for the TOP tier."""
+    from scripts.dataset_tiers import TARGET
+    catalog, personas, fillers_of, ids = load_world(tier=True)
+    fams = build_families(catalog, personas)
+    cells = _cells_for(ids, ablation)
+    base_path = ABLATION_OUT if ablation else OUT
+    base_rows = [json.loads(l) for l in base_path.open(encoding="utf-8")]
+    base_n = Counter(r["persona"] for r in base_rows)
+    per_cell = -(-TARGET[top] // len(cells))
+    global_seen = {r["text"] for r in base_rows}
+    out = {}
+    for label, tpl_owner, content_owner in cells:
+        fill = dict(fillers_of[tpl_owner])
+        for k in CONTENT_BANKS:
+            fill[k] = fillers_of[content_owner][k]
+        mine = []
+        for f in fams:
+            if f["persona"] != tpl_owner:
+                continue
+            g = dict(f)
+            g["persona"] = label
+            g["family"] = f"{label}:{f['structure']}:{f['variant']}"
+            mine.append(g)
+        seen = ({r["text"] for r in base_rows if r["persona"] == label}
+                if ablation else global_seen)
+        quota = per_cell - base_n.get(label, 0)
+        quotas = allocate(mine, fill, quota)
+        got = {}
+        for f in sorted(mine, key=lambda f: f["family"]):
+            got[f["family"]] = _tier_family_rows(f, quotas[f["family"]], fill, seen)
+        short = quota - sum(len(v) for v in got.values())
+        for f in sorted(mine, key=lambda f: (-family_capacity(f, fill), f["family"])):
+            if short <= 0:
+                break
+            more = _tier_family_rows(f, short, fill, seen, stream="more")
+            got[f["family"]] += more
+            short -= len(more)
+        if short > 0:
+            raise ValueError(f"{label}: {short} rows short — widen its tier banks")
+        by_fam = {f["family"]: f for f in mine}
+        ordered = []
+        for fam_id, rows in sorted(got.items()):
+            f = by_fam[fam_id]
+            for i, (text, slots) in enumerate(rows):
+                ordered.append(((i + 0.5) / len(rows), stable_int(SEED, "tier", fam_id, str(i)), {
+                    "id": f"{fam_id}-x{i:04d}",
+                    "text": text,
+                    "persona": label,
+                    "split": "test",          # ALWAYS. see PERSONAS.md
+                    "tier": f["tier"],
+                    "structure": f["structure"],
+                    "family": fam_id,
+                    "gold": {"operation": f["op_gold"], "kind": f["kind_gold"],
+                             "atomicity": "atomic" if f["atomic"] else "compound"},
+                    "expect": {"events": f["events"], "tasks": f["tasks"],
+                               "action": f["action"], "atomic": f["atomic"],
+                               "slots": slots},
+                }))
+        ordered.sort(key=lambda t: (t[0], t[1]))
+        out[label] = [r for _f, _h, r in ordered]
+    return out
+
+
+def tier_rows(tier: str, ablation: bool = False) -> list:
+    """The grown rows of `tier`: per cell, the first rows of the 40k build,
+    so every 10k row is a 40k row."""
+    from scripts.dataset_tiers import GROWN, TARGET
+    cells = build_tier_cells(ablation)
+    base_path = ABLATION_OUT if ablation else OUT
+    base_n = Counter(json.loads(l)["persona"] for l in base_path.open(encoding="utf-8"))
+    rows = []
+    for label, grown in cells.items():
+        want = {t: -(-TARGET[t] // len(cells)) - base_n.get(label, 0) for t in GROWN}
+        for i, r in enumerate(grown[:want[tier]]):
+            r["grown_in"] = next(t for t in GROWN if i < want[t])
+            rows.append(r)
+    return rows
+
+
+def verify_tier(base_rows: list, rows: list, ablation: bool) -> None:
+    catalog = load_json(PERSONA_DIR / "structures.json")["structures"]
+    allr = base_rows + rows
+    assert all(r["split"] == "test" for r in allr), "a persona row is not test-only"
+    assert len({r["id"] for r in allr}) == len(allr), "duplicate id"
+    if ablation:
+        per = defaultdict(list)
+        for r in allr:
+            per[r["persona"]].append(r["text"])
+        assert all(len(set(v)) == len(v) for v in per.values()), "duplicate text in a cell"
+    else:
+        assert len({r["text"] for r in allr}) == len(allr), "duplicate text"
+    cover = defaultdict(set)
+    for r in allr:
+        cover[r["persona"]].add(r["structure"])
+    ids = {s["id"] for s in catalog}
+    for label, have in cover.items():
+        if have != ids:
+            raise ValueError(f"{label} is missing structure(s) {sorted(ids - have)}")
+
+
+def _write_tier(tier: str, ablation: bool, leak: bool = True):
+    from scripts.dataset_tiers import write_tier as _write
+    base_path = ABLATION_OUT if ablation else OUT
+    base_rows = [json.loads(l) for l in base_path.open(encoding="utf-8")]
+    rows = tier_rows(tier, ablation)
+    verify_tier(base_rows, rows, ablation)
+    if leak:
+        leaks = leak_check(rows)
+        if leaks:
+            raise SystemExit(f"LEAK GATE FAILED on the {tier} tier: {sorted(leaks)} "
+                             f"— replace the tier bank word, or declare it in "
+                             f"dataset/personas/allowed_words.txt with a reason")
+    return _write(base_path, tier, rows,
+                  dumps=lambda r: json.dumps(r, ensure_ascii=False, sort_keys=True))
+
+
+def write_tier(tier: str, leak: bool = True):
+    return _write_tier(tier, ablation=False, leak=leak)
+
+
+def write_ablation_tier(tier: str, leak: bool = True):
+    return _write_tier(tier, ablation=True, leak=leak)
+
+
+# ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
 
@@ -345,7 +566,24 @@ def main() -> int:
                     help="write personas_ablation.jsonl instead: 12 cells that hold "
                          "vocabulary or phrasing fixed against the control, so the "
                          "board can say WHICH of the two the spread comes from")
+    ap.add_argument("--tier", choices=("base", "10k", "40k", "all"), default="base",
+                    help="base (default) rewrites the committed file; 10k / 40k "
+                         "write a gitignored, still TEST-ONLY superset under "
+                         "tiers/; all = both")
     a = ap.parse_args()
+
+    if a.tier != "base":
+        for tier in (("10k", "40k") if a.tier == "all" else (a.tier,)):
+            path = _write_tier(tier, a.ablation, leak=not a.no_leak_check)
+            rows = [json.loads(l) for l in path.open(encoding="utf-8")]
+            per = Counter(r["persona"] for r in rows)
+            print(f"{tier}: {len(rows)} rows, {len(per)} cells "
+                  f"({min(per.values())}-{max(per.values())} each), "
+                  f"{len({r['family'] for r in rows})} families, "
+                  f"{len({r['text'] for r in rows})} distinct texts -> {path}")
+            print(f"Leak gate: {'SKIPPED' if a.no_leak_check else 'clean'} "
+                  f"({len(read_vocab_words())} author words checked)")
+        return 0
 
     catalog = load_json(PERSONA_DIR / "structures.json")["structures"]
     common = load_json(BANKS / "common.json")["fillers"]

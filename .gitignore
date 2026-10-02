@@ -98,3 +98,12 @@ mac/MagicWords/build/
 # deterministic by seed — the generator is the artefact, not the files.
 # `python -m assistant.engine.label.datasets.generate --tier all`
 assistant/engine/label/datasets/tiers/
+
+# Judge / persona / real-speech size tiers (10k, 40k): multi-MB SUPERSETS of
+# the committed base files, deterministic by seed and rebuilt on demand —
+# `scripts/dataset_tiers.py` says how. The case tiers keep their resumable
+# chunk checkpoints in the same folders.
+assistant/engine/llmjudge/datasets/tiers/
+assistant/engine/llmjudge/datasets/v2/tiers/
+dataset/personas/tiers/
+dataset/realspeech/tiers/

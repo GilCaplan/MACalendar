@@ -2,6 +2,7 @@
 
     python -m assistant.engine.llmjudge.datasets.v2.generate_v2
     python -m assistant.engine.llmjudge.datasets.v2.generate_v2 --commands-only
+    python -m assistant.engine.llmjudge.datasets.v2.generate_v2 --tier all   # 10k + 40k
 
 Writes `commands_v2.jsonl` (~5,000 utterances) and `judge_cases_v2.jsonl`
 (~10,000 object-level cases) beside this file. `README.md` is the reference and
@@ -173,7 +174,17 @@ JOINERS = {
 #: The seams `findings.UNSPLIT_SUBJECT` is DEFINED by — "and then", ". Also,",
 #: "; then". A merge that uses one of these is a defect today's taxonomy has a
 #: name for; a merge on a plain "and" is one it does not.
-SEAM_JOINERS = ("also", "and_then", "comma_then")
+SEAM_JOINERS = ("also", "and_then", "comma_then", "semicolon_then")
+
+#: THE TIER JOINERS (2026-10-01), used only by the size tiers' new families —
+#: no base family names one, so adding them moves no base row. "; then" is a
+#: seam `findings.UNSPLIT_SUBJECT` names ("and then", ". Also,", "; then"), so
+#: it joins `SEAM_JOINERS` and a merge on it expects that finding; " plus "
+#: and ". After that, " are not in the seam definition, so a merge planted on
+#: them is a PLAIN merge with no expected finding — the same reading the
+#: plain "and" gets, decided by `findings.py`'s own definition.
+JOINERS.update({"semicolon_then": "; then ", "plus": " plus ",
+                "after_that": ". After that, "})
 
 
 @dataclass
@@ -390,6 +401,9 @@ def _frame(voice, ask, rng) -> str:
         key = "update_anaphor" if ask["action"] == "update_event" else "delete_anaphor"
     frames = voice.frames[key]
     tpl = frames[rng.randrange(len(frames))]
+    # Kept on the ask for the v1 size tier, whose split unit is the wording
+    # frame; `_row` copies named fields only, so no committed row carries it.
+    ask["frame"] = (key, tpl)
     return tpl.format(s=ask["subject_said"]) if "{s}" in tpl else tpl
 
 
@@ -488,44 +502,61 @@ def build_commands(seed: int = SEED, variants: int = 4,
     fams = families()
     if limit_families:
         fams = fams[:limit_families]
-    op_names = sorted(damage.OPERATIONS)
     rows, n = [], 0
     for shapes, joiner, list_n in fams:
-        fam = family_id(shapes, joiner, list_n)
-        split = split_of(fam, shapes, joiner, seed)
-        plan = _damage_plan(random.Random(f"{seed}|plan|{fam}"), variants,
-                            op_names)
-        for variant in range(variants):
-            form = voices.CLOCK_FORMS[
-                random.Random(f"{seed}|form|{fam}|{variant}")
-                .randrange(len(voices.CLOCK_FORMS))]
-            for voice in voices.VOICES:
-                rng_gold = random.Random(f"{seed}|{fam}|{variant}")
-                rng_words = random.Random(f"{seed}|{fam}|{variant}|{voice.id}")
-                rng_damage = random.Random(f"{seed}|{fam}|{variant}|damage")
-                cmd = Command(family=fam, grammar=shapes, joiner=joiner,
-                              voice=voice.id)
-                n_asks = (list_n if joiner == "comma_list_and"
-                          else 1 if joiner == "comma_run_plain" else len(shapes))
-                seq = ([shapes[0]] * n_asks if joiner in ("comma_list_and",
-                                                          "comma_run_plain")
-                       else list(shapes))
-                cmd.asks = [_ask(i + 1, s, rng_gold, voice, form)
-                            for i, s in enumerate(seq)]
-                if joiner == "comma_list_and":
-                    _compose_list(cmd, rng_words, voice)
-                elif joiner == "comma_run_plain":
-                    _compose_run(cmd, rng_words, voice, list_n or 2)
-                else:
-                    _compose_clauses(cmd, rng_words, voice)
-                clean_text = voices.finish(voice, cmd.render())
-                for op_name in plan[variant]:
-                    if damage.OPERATIONS[op_name](cmd, rng_damage):
-                        cmd.applied.append(op_name)
-                n += 1
-                rows.append(_row(cmd, voice, split, joiner, list_n, variant, n,
-                                 voices.finish(voice, cmd.render()), clean_text))
+        for variant, voice, cmd, split, clean_text, text in _family_renderings(
+                shapes, joiner, list_n, seed, variants, voices.VOICES):
+            n += 1
+            rows.append(_row(cmd, voice, split, joiner, list_n, variant, n,
+                             text, clean_text))
     return rows
+
+
+def _family_renderings(shapes, joiner, list_n, seed, variants, voice_list,
+                       variant_ids=None):
+    """Every (variant, voice) rendering of one family, in generation order:
+    `(variant, voice, cmd, split, clean_text, text)`.
+
+    The ONE body both `build_commands` and the size tiers run, so a tier row is
+    composed by exactly the code that composed the base rows. Every random
+    stream is keyed on the family, the variant and (for the words) the voice —
+    never on a counter — so rendering a base family in a NEW voice draws the
+    same gold the seven base voices drew, which is what lets a tier add voices
+    to an existing command without moving its gold.
+    """
+    fam = family_id(shapes, joiner, list_n)
+    split = split_of(fam, shapes, joiner, seed)
+    plan = _damage_plan(random.Random(f"{seed}|plan|{fam}"), variants,
+                        sorted(damage.OPERATIONS))
+    for variant in (range(variants) if variant_ids is None else variant_ids):
+        form = voices.CLOCK_FORMS[
+            random.Random(f"{seed}|form|{fam}|{variant}")
+            .randrange(len(voices.CLOCK_FORMS))]
+        for voice in voice_list:
+            rng_gold = random.Random(f"{seed}|{fam}|{variant}")
+            rng_words = random.Random(f"{seed}|{fam}|{variant}|{voice.id}")
+            rng_damage = random.Random(f"{seed}|{fam}|{variant}|damage")
+            cmd = Command(family=fam, grammar=shapes, joiner=joiner,
+                          voice=voice.id)
+            n_asks = (list_n if joiner == "comma_list_and"
+                      else 1 if joiner == "comma_run_plain" else len(shapes))
+            seq = ([shapes[0]] * n_asks if joiner in ("comma_list_and",
+                                                      "comma_run_plain")
+                   else list(shapes))
+            cmd.asks = [_ask(i + 1, s, rng_gold, voice, form)
+                        for i, s in enumerate(seq)]
+            if joiner == "comma_list_and":
+                _compose_list(cmd, rng_words, voice)
+            elif joiner == "comma_run_plain":
+                _compose_run(cmd, rng_words, voice, list_n or 2)
+            else:
+                _compose_clauses(cmd, rng_words, voice)
+            clean_text = voices.finish(voice, cmd.render())
+            for op_name in plan[variant % len(plan)]:
+                if damage.OPERATIONS[op_name](cmd, rng_damage):
+                    cmd.applied.append(op_name)
+            yield (variant, voice, cmd, split, clean_text,
+                   voices.finish(voice, cmd.render()))
 
 
 def _item_words(cmd: Command, ask: dict) -> dict:
@@ -629,7 +660,8 @@ def scratch_env() -> None:
         os.environ[f"MACALENDAR_{var}"] = os.path.join(s, var.lower())
 
 
-def build_cases(rows: list, seed: int = SEED, progress: bool = False) -> tuple:
+def build_cases(rows: list, seed: int = SEED, progress: bool = False,
+                stream: str = "cases") -> tuple:
     """Plant one defect per command, on objects the REAL converter built.
 
     Returns `(cases, clock_forms_seen, clock_forms_right, deferred)`.
@@ -653,7 +685,9 @@ def build_cases(rows: list, seed: int = SEED, progress: bool = False) -> tuple:
     # under freezegun raises, and every row would then resolve nothing.
     _llm.get_rule_parser().analyze("book gym tomorrow at 7am", current_view="month")
 
-    rng = random.Random(f"{seed}|cases")
+    # `stream` is "cases" for the committed set; a size tier plants its grown
+    # commands on streams of its own, so it never re-draws a base case.
+    rng = random.Random(f"{seed}|{stream}")
     cases = []
     used = {"train": collections.Counter(), "test": collections.Counter()}
     seen, right = collections.Counter(), collections.Counter()
@@ -770,7 +804,201 @@ def rule_cases(cases: list, rows: list) -> tuple:
 
 
 # ---------------------------------------------------------------------------
-# 5 · main
+# 5 · SIZE TIERS — base / 10k / 40k (Gil, 2026-10-01)
+# ---------------------------------------------------------------------------
+#
+# *"a lot of the datasets seem really small, they should be at least 40k with
+# enough variation in the data"*. The committed files are the `base` tier and
+# are never rewritten by anything here: a grown tier is the base file's BYTES
+# followed by grown rows (`scripts/dataset_tiers.py`), so no base row moves
+# its id, split, gold or line. What the grown rows add, and where it is
+# honestly new:
+#
+#   NEW VOICES ON BASE COMMANDS   every base family, every variant, rendered in
+#                                 the six `voices.TIER_VOICES`. Same streams,
+#                                 same base banks, so the gold IS the base
+#                                 command's gold — only the words are new.
+#   NEW FAMILIES                  ask skeletons the base catalog never built
+#                                 (every ordered pair it skipped, a sample of
+#                                 triples and quads, longer lists), over three
+#                                 new joiners, in all thirteen voices, drawing
+#                                 from `banks.extended()`.
+#
+# The two are interleaved one FAMILY at a time and a tier stops at the first
+# family boundary past its target, so 10k is a prefix of 40k and every family
+# is whole. Splits follow the base rule exactly (`split_of`, the family name's
+# stable MD5); dedupe is by text against everything earlier, base included.
+
+TIER_JOINERS = ("and", "also", "comma_then", "and_then", "semicolon_then",
+                "plus", "after_that")
+TIER_QUAD_JOINERS = ("and", "also", "and_then", "semicolon_then",
+                     "after_that")
+TIER_TRIPLES = 160
+TIER_QUADS = 48
+
+
+def tier_families(seed: int = SEED) -> list:
+    """The grown catalog, `(shapes, joiner, list_n)`, in its stable ORDER.
+
+    Never overlaps `families()` (asserted), and is ordered by a hash of the
+    family name rather than built order, so any prefix — which is what a tier
+    is — mixes pairs, triples, quads and lists instead of being all pairs.
+    """
+    shapes = list(SHAPES)
+    base = {family_id(*f) for f in families()}
+    out = []
+    pairs_done = set(_PAIRS)
+    for a in shapes:
+        for b in shapes:
+            if (a, b) in pairs_done or (a == b == "q_todo"):
+                continue
+            out += [((a, b), j, None) for j in TIER_JOINERS]
+    for n, want, joiners, have in ((3, TIER_TRIPLES, TIER_JOINERS, _TRIPLES),
+                                   (4, TIER_QUADS, TIER_QUAD_JOINERS, _QUADS)):
+        rng = random.Random(f"{seed}|tier|grammars|{n}")
+        picked: set = set()
+        while len(picked) < want:
+            g = tuple(shapes[rng.randrange(len(shapes))] for _ in range(n))
+            # two bare to-do queries in one breath is the same question twice
+            if g in have or g.count("q_todo") > 1:
+                continue
+            picked.add(g)
+        for g in sorted(picked):
+            out += [(g, j, None) for j in joiners]
+    for s, ns in (("ce_t", (2, 3, 4)), ("ce_recur", (2, 3)),
+                  ("ce_dt", (5,)), ("ce_d", (5,)), ("ct", (5,))):
+        out += [((s,), "comma_list_and", n) for n in ns]
+    out += [(("ce_t",), "comma_run_plain", n) for n in (2, 3)]
+    ids = [family_id(*f) for f in out]
+    assert not set(ids) & base, "a tier family is already a base family"
+    assert len(set(ids)) == len(ids)
+    return sorted(out, key=lambda f: hashlib.md5(
+        f"{seed}|tier-order|{family_id(*f)}".encode()).hexdigest())
+
+
+def _tier_blocks(seed: int = SEED):
+    """`(kind, (shapes, joiner, list_n))` in tier order: a base family in the
+    new voices, then a new family in every voice, alternating until the base
+    families run out."""
+    base, grown = families(), tier_families(seed)
+    for i in range(max(len(base), len(grown))):
+        if i < len(base):
+            yield "new_voices", base[i]
+        if i < len(grown):
+            yield "new_family", grown[i]
+
+
+def _base_rows_from_file(path: pathlib.Path) -> list:
+    return [json.loads(l) for l in path.open() if l.strip()]
+
+
+def build_command_tier(tier: str, seed: int = SEED, variants: int = 4,
+                       base_rows: "list | None" = None) -> list:
+    """The GROWN rows of `tier` (the base file supplies the rest).
+
+    Each grown row carries `grown_in` — the smallest tier it belongs to — and
+    `grown_by` — `new_voices` or `new_family` — so a board can slice the
+    grown material from the base, or the new voices from the new skeletons.
+    """
+    from scripts.dataset_tiers import GROWN, TARGET
+    if tier not in GROWN:
+        raise ValueError(f"{tier!r} is not a grown tier")
+    base_rows = base_rows if base_rows is not None else _base_rows_from_file(COMMANDS)
+    seen = {r["text"] for r in base_rows}
+    n = len(base_rows)
+    wants = {t: TARGET[t] - len(base_rows) for t in GROWN}
+    rows: list = []
+    for kind, (shapes, joiner, list_n) in _tier_blocks(seed):
+        if len(rows) >= wants[tier]:
+            break
+        reached = [t for t in GROWN if len(rows) >= wants[t]]
+        grown_in = next(t for t in GROWN if t not in reached)
+        if kind == "new_voices":
+            renders = list(_family_renderings(shapes, joiner, list_n, seed,
+                                              variants, voices.TIER_VOICES))
+        else:
+            with banks.extended():
+                renders = list(_family_renderings(shapes, joiner, list_n, seed,
+                                                  variants, voices.ALL_VOICES))
+        for variant, voice, cmd, split, clean_text, text in renders:
+            if text in seen:
+                continue
+            seen.add(text)
+            n += 1
+            row = _row(cmd, voice, split, joiner, list_n, variant, n, text,
+                       clean_text)
+            row["grown_in"] = grown_in
+            row["grown_by"] = kind
+            rows.append(row)
+    return rows
+
+
+def _dumps(r: dict) -> str:
+    return json.dumps(r, sort_keys=True, separators=(",", ":"))
+
+
+def write_command_tier(tier: str, seed: int = SEED) -> pathlib.Path:
+    from scripts.dataset_tiers import write_tier
+    rows = build_command_tier(tier, seed)
+    return write_tier(COMMANDS, tier, rows, dumps=_dumps)
+
+
+#: Commands per checkpointed chunk of a case build. Each chunk plants on its
+#: own rng stream and quota, so a killed build resumes at the chunk it was in
+#: and a chunk's cases do not depend on how many chunks came before it.
+CASE_CHUNK = 500
+
+
+def write_case_tier(tier: str, seed: int = SEED, progress: bool = True) -> pathlib.Path:
+    """Plant cases on the grown commands of `tier` and write the case tier.
+
+    The converter runs on every grown command (~11 commands a second here), so
+    this is the slow half: the 40k tier is roughly an hour. It is CHECKPOINTED
+    — one file per chunk of `CASE_CHUNK` commands under
+    `tiers/judge_cases_v2.<tier>.parts/`, written whole and renamed — and a
+    re-run resumes at the first missing chunk. Because the grown commands of
+    10k are a prefix of 40k's and each chunk is planted sequentially, the 10k
+    cases are exactly the 40k cases whose command is in the 10k tier.
+    """
+    from scripts.dataset_tiers import is_fresh, tier_path, write_tier
+    if not is_fresh(COMMANDS, tier):
+        write_command_tier(tier, seed)
+    base_n = sum(1 for l in COMMANDS.open() if l.strip())
+    rows = _base_rows_from_file(tier_path(COMMANDS, tier))[base_n:]
+    # ONE parts folder for every tier: a chunk is named by its first command
+    # and its length, so a 10k build reuses the 40k build's whole chunks.
+    parts = CASES.parent / "tiers" / "judge_cases_v2.parts"
+    parts.mkdir(parents=True, exist_ok=True)
+    cases: list = []
+    t0, done = time.time(), 0
+    chunks = [rows[i:i + CASE_CHUNK] for i in range(0, len(rows), CASE_CHUNK)]
+    for k, chunk in enumerate(chunks):
+        part = parts / f"chunk_{k:04d}_{chunk[0]['id']}_{len(chunk)}.jsonl"
+        if part.exists():
+            cases += [json.loads(l) for l in part.open() if l.strip()]
+            continue
+        got, _s, _r, _d = build_cases(chunk, seed, stream=f"cases|tier|{k}")
+        tmp = part.with_suffix(".tmp")
+        with tmp.open("w") as fh:
+            for c in got:
+                fh.write(_dumps(c) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, part)
+        cases += got
+        done += 1
+        if progress:
+            el = time.time() - t0
+            left = len(chunks) - k - 1
+            print(f"    [{_dt.datetime.now():%Y-%m-%d %H:%M:%S}] chunk {k + 1}/"
+                  f"{len(chunks)} · {len(cases)} cases · "
+                  f"{done * CASE_CHUNK / max(el, 1e-6):.1f} commands/s · "
+                  f"eta {left * el / max(done, 1) / 60:.0f} min", flush=True)
+    return write_tier(CASES, tier, cases, dumps=_dumps)
+
+
+# ---------------------------------------------------------------------------
+# 6 · main
 # ---------------------------------------------------------------------------
 
 def write_jsonl(path: pathlib.Path, rows: list) -> None:
@@ -790,6 +1018,11 @@ def main() -> int:
     ap.add_argument("--limit-families", type=int, default=0)
     ap.add_argument("--commands-only", action="store_true")
     ap.add_argument("--seed", type=int, default=SEED)
+    ap.add_argument("--tier", choices=("base", "10k", "40k", "all"),
+                    default="base",
+                    help="base (default) rewrites the committed files; 10k / 40k "
+                         "write a gitignored SUPERSET under tiers/ and never touch "
+                         "the committed ones; all = 10k and 40k")
     ap.add_argument("--rule-cases", action="store_true",
                     help="rewrite the commands, then apply `rule_cases` to the COMMITTED "
                          "judge_cases_v2.jsonl instead of rebuilding it (see rule_cases)")
@@ -797,6 +1030,8 @@ def main() -> int:
 
     scratch_env()
     t0 = time.time()
+    if a.tier != "base":
+        return _main_tiers(a, t0)
     print("· composing commands …", flush=True)
     rows = build_commands(a.seed, a.variants, a.limit_families)
     fams = {r["family"] for r in rows}
@@ -837,6 +1072,29 @@ def main() -> int:
         for act, n in deferred.most_common():
             print(f"    {act:<18}{n:>6}")
     print(f"\n  total {time.time() - t0:.0f}s")
+    return 0
+
+
+def _main_tiers(a, t0) -> int:
+    tiers = ("10k", "40k") if a.tier == "all" else (a.tier,)
+    # 40k first when both are asked for: the 10k cases then come out of the
+    # 40k build's chunks instead of being planted twice.
+    for tier in sorted(tiers, key=lambda t: t != "40k"):
+        print(f"· {tier} tier: composing grown commands …", flush=True)
+        path = write_command_tier(tier, a.seed)
+        rows = _base_rows_from_file(path)
+        grown = [r for r in rows if r.get("grown_in")]
+        print(f"  {len(rows)} commands ({len(grown)} grown) · "
+              f"{len({r['family'] for r in rows})} families · "
+              f"{len({r['text'] for r in rows})} distinct texts · "
+              f"{time.time() - t0:.1f}s -> {path}", flush=True)
+    if a.commands_only:
+        return 0
+    for tier in sorted(tiers, key=lambda t: t != "40k"):
+        print(f"· {tier} tier: planting cases on the grown commands …", flush=True)
+        path = write_case_tier(tier, a.seed)
+        n = sum(1 for _ in path.open())
+        print(f"  {n} cases -> {path} · {time.time() - t0:.0f}s", flush=True)
     return 0
 
 

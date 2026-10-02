@@ -53,6 +53,8 @@ def main() -> int:
     ap.add_argument("--split", choices=("train", "test"), default="train")
     ap.add_argument("-n", type=int, default=0, help="0 = every case in the split")
     ap.add_argument("--show", type=int, default=8, help="misses to print (train only)")
+    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    _add_tier(ap)
     a = ap.parse_args()
     if a.split == "test":
         a.show = 0
@@ -70,7 +72,9 @@ def main() -> int:
     engine.load_config()
     _llm.get_rule_parser().analyze("book gym tomorrow at 7am", current_view="month")
 
-    cases = [json.loads(l) for l in DATA.open() if l.strip()]
+    data = _resolve("judge_v2", a.data_tier)
+    print(f"· data: {data.name} (tier {a.data_tier})", flush=True)
+    cases = [json.loads(l) for l in data.open() if l.strip()]
     cases = [c for c in cases if c["split"] == a.split]
     if a.n:
         cases = cases[:a.n]

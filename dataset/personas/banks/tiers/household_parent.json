@@ -1,0 +1,88 @@
+{
+  "_comment": "SIZE-TIER extension for `household_parent` (2026-10-01): read ONLY by `gen_personas --tier 10k|40k`. Each filler list is APPENDED to the persona's own list of the same name; each template list adds VARIANTS to a structure (new family ids `household_parent:<structure>:<k>` after the base variants). Same voice, same invented-content rule; the leak gate runs on every tier build.",
+  "fillers": {
+    "names": [
+      "Juno",
+      "Bodhi",
+      "Elsie",
+      "Monty",
+      "Pip",
+      "Rosa"
+    ],
+    "event_titles": [
+      "the nursery pickup",
+      "Bodhi's rugby",
+      "the school nativity",
+      "the health visitor",
+      "the playdate at Elsie's",
+      "the swimming gala",
+      "the orthodontist for Juno",
+      "the after school club meeting"
+    ],
+    "task_titles": [
+      "label the school jumpers",
+      "top up the lunch money",
+      "buy a costume for book day",
+      "renew the library cards",
+      "book the summer camp",
+      "fix the stair gate",
+      "sort the outgrown clothes",
+      "pay the music lesson invoice"
+    ],
+    "items": [
+      "fruit pouches",
+      "baby wipes",
+      "fish fingers",
+      "squash",
+      "nappies"
+    ],
+    "occasions": [
+      "book day",
+      "the inset day",
+      "the school disco"
+    ],
+    "quotable": [
+      "nursery pickup",
+      "swimming gala",
+      "school nativity"
+    ]
+  },
+  "templates": {
+    "ce_datetime": [
+      "{event_title} {date}, {time}, put it in"
+    ],
+    "ce_date_only": [
+      "oh and {event_title} {date}"
+    ],
+    "ce_time_only": [
+      "{event_title} at {time}, stick it in"
+    ],
+    "ct_bare": [
+      "oh and {task_title}"
+    ],
+    "ct_dated": [
+      "need to {task_title} {date}"
+    ],
+    "ct_buy": [
+      "get {qty} {item}, we're out"
+    ],
+    "q_schedule": [
+      "what's on {query_range}"
+    ],
+    "de_named": [
+      "{event_title} {date} is off, cancel"
+    ],
+    "comp_todo": [
+      "done {task_title}"
+    ],
+    "ue_move": [
+      "{event_title} is at {time} now"
+    ],
+    "and_tt": [
+      "need to {task_title} and also {task_title2}"
+    ],
+    "and_ee": [
+      "{event_title} {date} at {time} and also {event_title2} at {time2}"
+    ]
+  }
+}

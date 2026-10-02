@@ -129,8 +129,16 @@ def intended_still_reachable(row: dict) -> int:
 # ---------------------------------------------------------------------------
 
 def main() -> int:
-    rows = _load(COMMANDS)
-    cases = _load(CASES)
+    import argparse
+    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    ap = argparse.ArgumentParser()
+    _add_tier(ap)
+    a = ap.parse_args()
+    rows = _load(_resolve("commands_v2", a.data_tier))
+    cases = _load(_resolve("judge_v2", a.data_tier))
+    from assistant.engine.llmjudge.datasets.v2 import voices as _voices
+    # the base seven, plus the size tiers' six when the tier carries them
+    voice_ids = tuple(dict.fromkeys(_voices.VOICE_IDS + tuple(r["voice"] for r in rows)))
     fails = []
 
     # 1 · REACHABLE
@@ -165,7 +173,7 @@ def main() -> int:
             op_splits[d].add(r["split"])
     from assistant.engine.llmjudge.datasets.v2 import damage as _damage
     from assistant.engine.llmjudge.datasets.v2 import voices as _voices
-    for name in _voices.VOICE_IDS:
+    for name in voice_ids:
         if voice_splits.get(name, set()) != {"train", "test"}:
             fails.append(f"voice {name!r} is not in both halves "
                          f"({sorted(voice_splits.get(name, ()))})")
@@ -250,7 +258,7 @@ def main() -> int:
 
     print("\n  VOICES (rows, by split)")
     per_voice = collections.Counter((r["voice"], r["split"]) for r in rows)
-    for name in _voices.VOICE_IDS:
+    for name in voice_ids:
         print(f"    {name:<26}{per_voice[(name, 'train')]:>8}"
               f"{per_voice[(name, 'test')]:>8}")
 

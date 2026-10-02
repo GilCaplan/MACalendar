@@ -35,6 +35,7 @@ meant — it changes what was heard, which is the whole point.
     python -m scripts.gen_realspeech             # generate + verify + write
     python -m scripts.gen_realspeech --no-write  # same, without writing
     python -m scripts.gen_realspeech --shapes    # print the shape-rate table
+    python -m scripts.gen_realspeech --tier all  # 10k + 40k supersets
 
 See dataset/realspeech/REALSPEECH.md for the derivation, the schema, the
 measured-vs-generated shape table and the leakage rules.
@@ -483,7 +484,10 @@ def render_ask(ask: dict, fillers: dict, speech: dict, rng, fired: set,
 
 
 CLASS_ACTION = {"e": "create_event", "t": "create_todo", "q": "query",
-                "u": "update_event", "d": "delete_event"}
+                "u": "update_event", "d": "delete_event",
+                # the size tiers' two extra ask classes (banks/tiers/); no base
+                # structure names either, so the base rows cannot move
+                "c": "complete_todo", "r": "delete_todo"}
 EXPECT_COUNTS = {"create_event": (1, 0), "create_todo": (0, 1)}
 
 
@@ -753,6 +757,230 @@ def report(rows: list[dict], shapes_only: bool = False) -> None:
               + ("   (real: mean 15.3, median 12, p90 28, max 92)" if label == "faithful" else ""))
 
 
+# ---------------------------------------------------------------------------
+# size tiers — base / 10k / 40k (Gil, 2026-10-01)
+# ---------------------------------------------------------------------------
+#
+# *"a lot of the datasets seem really small, they should be at least 40k with
+# enough variation in the data."* The committed 1,200 rows are the `base`
+# tier; a grown tier is base's BYTES followed by grown rows
+# (`scripts/dataset_tiers.py`). The grown rows come from the SAME composer and
+# speech layer (`compose_row`, `apply_row_shapes`, the measured RATES) over the
+# base banks MERGED with `banks/tiers/` — new ask skeletons, three new
+# registers, two new ask classes, 15 new structures, new joins, new fillers
+# and new material for the measured damage shapes. The two pools keep their
+# base proportions and ask mixes (faithful 2/3 at the measured mix, stress 1/3
+# at the stress mix), so the faithful pool stays a real-usage PROXY at any
+# size — it is still not real usage, and the 83 real rows it was derived from
+# are still the only measurement of that.
+#
+# Families: a base family keeps its base split; a family the base never had is
+# split by the base's own mechanism (`stratified_split`, 80/20 by family,
+# stratified by ask count and first action) over the new families alone.
+
+TIER_BANKS = BANKS / "tiers"
+#: No family may hold more than this share of a tier's grown rows (the base
+#: `verify` refuses 5%; this is the tighter cap the growth is built to).
+TIER_FAMILY_SHARE = 0.015
+TIER_EXT_POOL_SHARE = {"faithful": 2 / 3, "stress": 1 / 3}
+TIER_ASK_MIX = {"faithful": MEASURED_ASK_MIX, "stress": STRESS_ASK_MIX}
+
+
+def merge_banks(base: dict, ext: dict) -> dict:
+    """base + ext: lists appended (order kept, no duplicates), dict banks
+    merged with a collision being an ERROR (a base reading must not change),
+    and a base structure's `registers` extended rather than replaced."""
+    out = json.loads(json.dumps(base))
+    for key, val in ext.items():
+        if key.startswith("_"):
+            continue
+        if key == "structures":
+            for name, st in val.items():
+                if name in out["structures"]:
+                    have = out["structures"][name]
+                    assert have["asks"] == st["asks"], name
+                    have["registers"] += [r for r in st["registers"]
+                                          if r not in have["registers"]]
+                else:
+                    out["structures"][name] = st
+        elif isinstance(val, dict):
+            clash = set(val) & set(out.get(key, {}))
+            if clash:
+                raise ValueError(f"tier bank {key!r} redefines {sorted(clash)}")
+            out.setdefault(key, {}).update(val)
+        elif isinstance(val, list):
+            have = out.setdefault(key, [])
+            have += [v for v in val if v not in have]
+        else:
+            raise ValueError(f"tier bank {key!r}: unsupported type")
+    return out
+
+
+def tier_banks() -> tuple:
+    def ld(name):
+        with open(TIER_BANKS / name, encoding="utf-8") as f:
+            return json.load(f)
+    return (merge_banks(load_json("ask_patterns.json"), ld("ask_patterns.json")),
+            merge_banks(load_json("fillers.json"), ld("fillers.json")),
+            merge_banks(load_json("speech.json"), ld("speech.json")))
+
+
+def _largest_remainder(total: int, weights: dict) -> dict:
+    raw = {k: total * w / sum(weights.values()) for k, w in weights.items()}
+    out = {k: int(v) for k, v in raw.items()}
+    for k in sorted(raw, key=lambda k: (-(raw[k] - out[k]), k))[:total - sum(out.values())]:
+        out[k] += 1
+    return out
+
+
+def build_tier_rows(top: str = "40k") -> list:
+    """Every grown row of the TOP tier, in tier order.
+
+    Each family's rows are generated on their own stream, then ordered by
+    their fractional position in the family ((i + .5) / n), so ANY prefix of
+    the list holds every family and every pool in proportion — which is what
+    lets the 10k tier be the first rows of the 40k one.
+    """
+    from scripts.dataset_tiers import TARGET
+    base_rows = [json.loads(l) for l in OUT.open(encoding="utf-8")]
+    patterns_b, _f, speech_b = (load_json("ask_patterns.json"),
+                                load_json("fillers.json"), load_json("speech.json"))
+    patterns, fillers, speech = tier_banks()
+    base_fams = build_families(patterns_b, speech_b)
+    base_split = {r["family"]: r["split"] for r in base_rows}
+    merged = build_families(patterns, speech)
+    known = {f["family"] for f in base_fams}
+    new = [f for f in merged if f["family"] not in known]
+    split_new = stratified_split([{"family": f["family"], "tier": f"n{f['n_asks']}",
+                                   "action": CLASS_ACTION[f["asks"][0]]} for f in new])
+    fams = base_fams + new
+    split_of = {f["family"]: base_split.get(f["family"]) or split_new[f["family"]]
+                for f in fams}
+    ext_total = TARGET[top] - len(base_rows)
+    cap = int(TIER_FAMILY_SHARE * ext_total)
+    seen = {r["text"] for r in base_rows}
+    per_family: dict = defaultdict(list)
+    for pool, share in TIER_EXT_POOL_SHARE.items():
+        pool_n = round(ext_total * share)
+        for n_asks, quota in sorted(_largest_remainder(pool_n, TIER_ASK_MIX[pool]).items()):
+            if n_asks == 0:
+                ntrain = round(quota * TRAIN_FRAC)
+                for split, q in (("train", ntrain), ("test", quota - ntrain)):
+                    for r in _tier_null_rows(patterns, speech, q, split, seen):
+                        per_family[(pool, r["family"])].append(r)
+                continue
+            group = sorted(f["family"] for f in fams if f["n_asks"] == n_asks)
+            quotas = distribute_quota(quota, group, {f: cap for f in group})
+            by_slug = {f["family"]: f for f in fams}
+            short = 0
+            for slug in group:
+                got = _tier_family_rows(by_slug[slug], pool, quotas[slug],
+                                        patterns, fillers, speech, seen, split_of)
+                per_family[(pool, slug)] += got
+                short += quotas[slug] - len(got)
+            # a family whose words run out before its quota hands the rest to
+            # the families that still have room, never over the cap
+            for slug in group:
+                if short <= 0:
+                    break
+                room = cap - len(per_family[(pool, slug)])
+                if room <= 0:
+                    continue
+                more = _tier_family_rows(by_slug[slug], pool, min(room, short),
+                                         patterns, fillers, speech, seen, split_of,
+                                         stream="more")
+                per_family[(pool, slug)] += more
+                short -= len(more)
+            if short > 0:
+                raise ValueError(f"{pool} {n_asks}-ask rows short by {short} — "
+                                 f"widen banks/tiers/")
+    ordered = []
+    for key, rows in sorted(per_family.items()):
+        for i, r in enumerate(rows):
+            frac = (i + 0.5) / len(rows)
+            ordered.append((frac, stable_int(SEED, "tier-order", r["id"]), r))
+    ordered.sort(key=lambda t: (t[0], t[1]))
+    return [r for _f, _h, r in ordered]
+
+
+def _tier_family_rows(fam, pool, quota, patterns, fillers, speech, seen,
+                      split_of, stream: str = "") -> list:
+    rng = random.Random(f"{SEED}:tier:{pool}:{fam['family']}:{stream}")
+    out, tries = [], 0
+    while len(out) < quota and tries < quota * 60 + 200:
+        tries += 1
+        text, clean, expect, fired = compose_row(fam, patterns, fillers, speech, rng)
+        if text in seen:
+            continue
+        seen.add(text)
+        row = {"id": f"{fam['family']}-x{pool[0]}{stream[:1]}{len(out):05d}",
+               "text": text, "clean": clean, "split": split_of[fam["family"]],
+               "tier": "realspeech", "pool": pool, "family": fam["family"],
+               "n_asks": fam["n_asks"], "register": fam["register"],
+               "join": fam["join"], "shapes": fired, "expect": expect}
+        if rng.random() < RATES["wake_suffix_raw"]:
+            row["raw_text"] = text + rng.choice(speech["wake_suffix"])
+        out.append(row)
+    return out
+
+
+def _tier_null_rows(patterns, speech, quota, split, seen) -> list:
+    rng = random.Random(f"{SEED}:tier:null:{split}")
+    texts = patterns["null_texts"]
+    fam = "rs_null" if split == "train" else "rs_null_unseen"
+    out, i = [], 0
+    while len(out) < quota and i < quota * 60:
+        i += 1
+        base = texts[rng.randrange(len(texts))]
+        t = base
+        if rng.random() < 0.5:
+            t = f"{rng.choice(speech['openers'])} {base}"
+        if rng.random() < 0.4:
+            t = f"{t} {rng.choice(speech['cutoff_tails'] + speech['hedge_tails'])}"
+        t = re.sub(r"\s+", " ", t).strip()
+        if t in seen:
+            continue
+        seen.add(t)
+        row = {"id": f"{fam}-x{len(out):05d}", "text": t, "clean": base,
+               "split": split, "tier": "realspeech", "pool": "faithful",
+               "family": fam, "n_asks": 0, "shapes": [], "null_input": True,
+               "expect": {"events": 0, "tasks": 0, "action": "propose",
+                          "atomic": True, "must_not_commit": True, "slots": {}}}
+        if rng.random() < RATES["wake_suffix_raw"]:
+            row["raw_text"] = t + rng.choice(speech["wake_suffix"])
+        out.append(row)
+    if len(out) < quota:
+        raise ValueError(f"null rows short: {len(out)}/{quota} — widen null_texts")
+    return out
+
+
+def tier_rows(tier: str) -> list:
+    """The grown rows of `tier`: a prefix of the 40k tier's grown rows."""
+    from scripts.dataset_tiers import GROWN, TARGET
+    base_n = sum(1 for _ in OUT.open(encoding="utf-8"))
+    rows = build_tier_rows("40k")
+    want = {t: TARGET[t] - base_n for t in GROWN}
+    out = rows[:want[tier]]
+    for i, r in enumerate(out):
+        r["grown_in"] = next(t for t in GROWN if i < want[t])
+    return out
+
+
+def write_tier(tier: str, leak: bool = True):
+    from scripts.dataset_tiers import write_tier as _write
+    rows = tier_rows(tier)
+    base_rows = [json.loads(l) for l in OUT.open(encoding="utf-8")]
+    verify(base_rows + rows)
+    if leak:
+        leaks = leak_check(rows)
+        if leaks:
+            raise SystemExit(f"LEAK GATE FAILED on the {tier} tier: "
+                             f"{sorted(leaks)} — change the tier bank word, or "
+                             f"declare it in {ALLOWED_WORDS.relative_to(ROOT)}")
+    return _write(OUT, tier, rows,
+                  dumps=lambda r: json.dumps(r, ensure_ascii=False, sort_keys=True))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--no-write", action="store_true")
@@ -760,7 +988,20 @@ def main() -> int:
     ap.add_argument("--no-leak-check", action="store_true",
                     help="skip the vocabulary leak gate (CI has no vocabulary; "
                          "never pass this on the author's machine)")
+    ap.add_argument("--tier", choices=("base", "10k", "40k", "all"), default="base",
+                    help="base (default) rewrites the committed file; 10k / 40k "
+                         "write a gitignored SUPERSET under tiers/; all = both")
     a = ap.parse_args()
+
+    if a.tier != "base":
+        for tier in (("10k", "40k") if a.tier == "all" else (a.tier,)):
+            path = write_tier(tier, leak=not a.no_leak_check)
+            rows = [json.loads(l) for l in path.open(encoding="utf-8")]
+            report(rows, shapes_only=a.shapes)
+            print(f"wrote {path.relative_to(ROOT)}  ({len(rows)} rows, "
+                  f"{os.path.getsize(path)} bytes) · leak gate "
+                  f"{'SKIPPED' if a.no_leak_check else 'clean'}")
+        return 0
 
     patterns = load_json("ask_patterns.json")
     fillers = load_json("fillers.json")

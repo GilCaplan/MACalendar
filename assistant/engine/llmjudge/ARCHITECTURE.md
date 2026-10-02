@@ -269,6 +269,28 @@ object, since "clean" means "nothing planted", not "flawless".
 The v2 set (`datasets/v2/`, 5,292 commands / 11,187 cases, its own README) is
 the stress instrument beside it: `experiments/judge_board_v2.py`.
 
+**Both sets come in three sizes (2026-10-01)** — `base` (the committed files,
+byte-identical, the default), `10k` and `40k`, each a SUPERSET of the one
+below (`scripts/dataset_tiers.py`; full table in `dataset/DATASET.md`
+§"Size tiers"). Every board and verifier here takes `--data-tier`.
+
+| set | base | 10k | 40k | what the growth adds |
+|---|---:|---:|---:|---|
+| v1 cases (one per source row, half clean) | 1,800 | 10,000 | 40,000 | the 3,702 FastRule rows base never used, then single-ask v2-grammar commands in 13 voices — 682 wording families |
+| v2 commands | 5,292 | 10,013 | 40,018 | 6 new voices on every base command (same gold) + 582 new families: 461 grammars (base 61), 13 joiners, 1,009 subjects |
+| v2 cases | 11,187 | 19,888 | 80,428 | every one of the 13 mutations >= 1,573 per half at 40k (base: >= 248) |
+
+The case tiers are built by the same planting code at the same CLOCK and are
+checked by the same verifiers (`verify_v2 --data-tier 40k` passes all five
+refusals). `datasets/verify.py --data-tier 40k` (v1, 2026-10-02): 0 duplicate
+text+mutation pairs; the converter declines 9,638 of 40,000 cases (24.1%, base
+307 of 1,800 = 17.1% — the board skips these, it does not score them); a plant
+changed nothing on 50 (0.13%, base 3 = 0.17%). So a 40k v1 board scores about
+30,300 cases. They are SCORED deterministically by the judge, so a 40k board is
+minutes, not hours — but a 40k tier is still synthetic, and real usage outranks
+it exactly as it outranks base. `base` stays the number of record; a 40k read
+is the confirmation that a slice's n can carry the claim.
+
 **Stage 2 — connected.** Board D (`experiments/board_d.py`), run on the
 FastRule set's TRAIN rows. The metric is *rows fixed minus rows broken*, net. A
 stage with a good isolated board and a negative net is a liability. By default

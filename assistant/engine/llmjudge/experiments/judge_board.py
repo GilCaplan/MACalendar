@@ -131,6 +131,8 @@ def main() -> int:
                     help="0 = every case in the split (the default when the "
                          "grounding pass is off)")
     ap.add_argument("--split", choices=("train", "test"), default="train")
+    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    _add_tier(ap)
     ap.add_argument("--show", type=int, default=6,
                     help="failing rows to print (train only; test prints none)")
     a = ap.parse_args()
@@ -170,7 +172,11 @@ def main() -> int:
     # reported a full table in 2 SECONDS with Ollama dead and the numbers looked
     # like a result. See `retired/llmjudge-grounding-call/README.md`.
 
-    cases = [json.loads(l) for l in DATA.open() if l.strip()]
+    # base by default; 10k / 40k are supersets (scripts/dataset_tiers.py). A
+    # case tier is never built from here — `resolve` prints the command.
+    data = _resolve("judge_v1", a.data_tier)
+    print(f"· data: {data.name} (tier {a.data_tier})", flush=True)
+    cases = [json.loads(l) for l in data.open() if l.strip()]
     cases = [c for c in cases if c["split"] == a.split]
     limit = a.n or len(cases)
     cases = cases[:limit]

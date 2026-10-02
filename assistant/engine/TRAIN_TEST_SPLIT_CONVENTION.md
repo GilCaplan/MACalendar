@@ -18,6 +18,16 @@ stage copies the mechanism and records its own numbers.
 | **Segmentation + decompose_validate (Q51 sequences)** | `segmentation/datasets/sequence/sequence.jsonl` and the same rows resolved, `decompose_validate/datasets/chain/chain.jsonl` | pattern family | 694 (30 families) | generated fresh: stratified 80/20 by bucket over a stable hash; the joiner sweep forced so every joiner keeps a train family; damaged rows share their clean twin's family |
 | **LLMJudge v2** | `llmjudge/datasets/v2/commands_v2.jsonl` (5,292 commands) + `judge_cases_v2.jsonl` | pattern family (ask skeleton + joiner) | 2,772 commands (99 families) | stable MD5 of the family name, stratified by asks · first action · joiner; voices and damage operations on both sides (`v2/README.md`) |
 
+**Size tiers (2026-10-01).** The judge (v1, v2), persona and real-speech sets
+also come as `10k` / `40k` SUPERSETS of the committed file
+(`scripts/dataset_tiers.py`, `dataset/DATASET.md` §"Size tiers"). The rule
+here binds them unchanged: base rows keep their split, a grown row of a base
+family takes that family's split, and a NEW family is split by its set's own
+mechanism — v2 `split_of`; real speech `stratified_split` over the new
+families; v1's grammar rows a stable MD5 of `v1x:<voice>:<shape>:<frame>`
+stratified by the shape's action (its FastRule leftovers keep FastRule's
+split); personas TEST-ONLY. Tests pin "no family on both sides" on every tier.
+
 **Why an existing dataset cannot simply be cut in half.** decompose_validate's
 795 rows were all fitted against — the resolver was tuned until it scored 100%
 on them — so a split carved out of them now would be measuring memorisation, not

@@ -41,8 +41,13 @@ def main() -> int:
     from assistant.engine.llmjudge import render
     from assistant.engine.llmjudge.experiments.judge_board import _mutate
 
+    import argparse
+    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    ap = argparse.ArgumentParser()
+    _add_tier(ap)
+    a = ap.parse_args()
     _llm.get_rule_parser().analyze("book gym tomorrow at 7am", current_view="month")
-    cases = [json.loads(l) for l in CASES.open() if l.strip()]
+    cases = [json.loads(l) for l in _resolve("judge_v1", a.data_tier).open() if l.strip()]
 
     unbuildable = collections.Counter()
     ineffective = collections.Counter()

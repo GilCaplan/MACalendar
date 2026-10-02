@@ -381,6 +381,48 @@ runs last and fails the build on any hit.
 Changing `SEED` or any bank reseeds rows; note the regeneration here and
 record the new md5.
 
+## Size tiers — 10k and 40k (2026-10-01)
+
+`realspeech_1200.jsonl` is the `base` tier and is never rewritten by a tier
+build. `python -m scripts.gen_realspeech --tier all` writes gitignored
+SUPERSETS to `tiers/` (base's bytes, then grown rows marked `grown_in`), built
+by the same composer, speech layer and `RATES` over the base banks MERGED with
+`banks/tiers/` (lists appended, dict banks merged — a key the base already has
+is an error, so no base reading changes).
+
+| tier | rows | TRAIN / TEST | families | registers | ask classes | distinct texts |
+|---|---:|---|---:|---:|---:|---:|
+| base | 1,200 | 875 / 325 | 79 | 4 | 5 | 1,200 |
+| 10k | 10,000 | 7,580 / 2,420 | 302 | 7 | 7 | 10,000 |
+| 40k | 40,000 | 30,455 / 9,545 | 302 | 7 | 7 | 40,000 |
+
+New: 130 ask skeletons, three registers (hedge "i think i have …", narr "so
+tomorrow at 3 i've got …", frag "calendar, X, friday, 3pm"), two ask classes
+(complete a to-do, delete a to-do), 15 structures, 4 joins, 20 names with
+homophone mangles, possessive / compound / loanword damage material, 30
+no-ask texts. A base family keeps its split; a new family is split by the
+base's own `stratified_split` over the new families alone. No ask family holds
+more than 1.5% of a tier (the two no-ask families, one per side as in base,
+hold the measured ~4.8% null share between them).
+
+**The grown faithful pool keeps the measured ASK mix, not every measured
+marginal.** Pools stay at base proportions (faithful 2/3 at the measured
+asks-per-utterance mix, stress 1/3) and every shape fires at the same
+per-eligible-row rate, but the marginals move with the template mix — the new
+classes (complete / delete a to-do, queries) carry no name and no clock:
+
+| shape (faithful pool) | measured (n=83) | base | 40k |
+|---|---:|---:|---:|
+| name_mangle | 19.3% | 16.2% | 12.4% |
+| decimal_time | 18.1% | 14.4% | 13.1% |
+| spelled_oclock | 14.5% | 16.9% | 9.2% |
+| date_restatement | 27.7% | 26.8% | 21.5% |
+| ANY STT damage | 47.0% | 46.1% | 40.2% |
+
+So for the real-usage PROXY reading, base stays the closer match; the tiers
+are for n — per-register, per-class and per-shape slices that base is too thin
+to read. Neither is real usage (the 83 real rows were).
+
 ## How to score it
 
     python -m scripts.realspeech_board                        # faithful, test
