@@ -48,7 +48,13 @@ def main() -> int:
     _cat._categories_path = lambda: str(DATA / "__no_user_categories__.json")
     _cat._cache = None
 
-    gen = _rows("event_categories.jsonl")
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--data-tier", default="base", choices=("base", "20k", "40k"),
+                    help="size of the generated event set (default base)")
+    a = ap.parse_args()
+    from assistant.engine.label.datasets.generate import load_rows
+    gen = load_rows("event", a.data_tier)
     tr = [(r["text"], r["label"]) for r in gen if r["split"] == "train"]
     pipe, _classes = _train._fit_event(tr, [1.0] * len(tr))
 

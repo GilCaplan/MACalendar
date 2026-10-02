@@ -53,7 +53,7 @@ def _commands() -> list[str]:
     return [r["text"] for r in d["rows"] if r.get("text")]
 
 
-def _generated() -> list[str]:
+def _generated(data_tier: str = "base") -> list[str]:
     out = []
     for l in (ROOT / "assistant/engine/fastrule/datasets/fastrule_7200.jsonl").open():
         if not l.strip():
@@ -61,12 +61,11 @@ def _generated() -> list[str]:
         t = (json.loads(l).get("expect", {}).get("slots") or {}).get("title")
         if t:
             out.append(t)
-    for name, key in (("event_categories.jsonl", "subject"), ("task_tags.jsonl", "subject")):
-        for l in (HERE.parent / "datasets" / name).open():
-            if l.strip():
-                r = json.loads(l)
-                if r.get(key) or r.get("text"):
-                    out.append(r.get(key) or r["text"])
+    from assistant.engine.label.datasets.generate import load_rows
+    for kind, key in (("event", "subject"), ("task", "subject")):
+        for r in load_rows(kind, data_tier):
+            if r.get(key) or r.get("text"):
+                out.append(r.get(key) or r["text"])
     return out
 
 
@@ -74,9 +73,11 @@ def main() -> int:
     from assistant.engine.label import title_icons as te
     ap = argparse.ArgumentParser()
     ap.add_argument("--dump", default="")
+    ap.add_argument("--data-tier", default="base", choices=("base", "20k", "40k"),
+                    help="which size of the label sets feeds 'generated titles'")
     a = ap.parse_args()
     corpora = {"real titles": _real_titles(), "real commands (stress)": _commands(),
-               "generated titles": _generated()}
+               "generated titles": _generated(a.data_tier)}
     print("\nTITLE ICON BOARD — label stage, title_icons at count 2\n")
     dump = []
     record = {}
