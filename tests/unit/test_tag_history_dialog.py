@@ -79,8 +79,9 @@ def _drive(interact, failures):
     forever, so it is recorded and the dialog closed; the test re-raises it.
     """
     def _go():
+        from PyQt6 import sip as _sip   # a stale wrapper segfaulted Linux CI (TASKS 53)
         dlg = QApplication.activeModalWidget()
-        if dlg is None:
+        if dlg is None or _sip.isdeleted(dlg) or not dlg.isVisible():
             QTimer.singleShot(10, _go)
             return
         try:

@@ -28,8 +28,7 @@ def test_share_button_writes_the_ics_file(qapp, tmp_path, monkeypatch):
         "attendees": "", "location": "Clinic", "description": "",
         "color": "#0078d4", "recurrence": "", "recurrence_end": "",
     })
-    btn = next(b for b in dlg.findChildren(QPushButton)
-               if b.text() == "Share .ics")
+    btn = dlg.share_button
     QTest.mouseClick(btn, Qt.MouseButton.LeftButton)
     text = out.read_text()
     assert "SUMMARY:Dentist" in text
@@ -43,8 +42,7 @@ def test_duplicate_button_sets_the_flag(qapp):
         "attendees": "", "location": "", "description": "",
         "color": "#0078d4", "recurrence": "", "recurrence_end": "",
     })
-    btn = next(b for b in dlg.findChildren(QPushButton)
-               if b.text() == "Duplicate")
+    btn = dlg.duplicate_button
     QTest.mouseClick(btn, Qt.MouseButton.LeftButton)
     assert dlg.duplicate_requested is True
     assert dlg.result() == 1        # accepted - the caller makes the copy
@@ -52,4 +50,4 @@ def test_duplicate_button_sets_the_flag(qapp):
 
 def test_create_mode_has_no_share_button(qapp):
     dlg = EventDialog(event=None)
-    assert not any(b.text() == "Share .ics" for b in dlg.findChildren(QPushButton))
+    assert getattr(dlg, "share_button", None) is None

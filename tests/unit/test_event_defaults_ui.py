@@ -149,8 +149,12 @@ class _Window(QWidget):
 
 def _drive(interact, failures):
     def _go():
+        # The SETTINGS dialog, alive and shown — not whatever modal is up. A
+        # stale wrapper here is what Linux CI segfaulted on (TASKS 53).
+        from PyQt6 import sip
         dlg = QApplication.activeModalWidget()
-        if dlg is None:
+        if dlg is None or sip.isdeleted(dlg) or not dlg.isVisible() \
+                or dlg.objectName() != "settings_dialog":
             QTimer.singleShot(10, _go)
             return
         try:
@@ -213,7 +217,7 @@ def test_typing_and_saving_writes_the_events_section(app, scratch):
         _retype(length, "45")
         _retype(gap, "15")
         seen["typed"] = (length.value(), gap.value())
-        save = next(b for b in dlg.findChildren(QPushButton) if b.text() == "Save Config")
+        save = dlg.save_button
         QTest.mouseClick(save, Qt.MouseButton.LeftButton)
 
     _drive(interact, failures)
@@ -404,7 +408,7 @@ def test_typing_series_ends_and_saving_writes_them(app, scratch):
         for key, text in typed.items():
             _retype(spins[key], text)
         seen["typed"] = {k: s.value() for k, s in spins.items()}
-        save = next(b for b in dlg.findChildren(QPushButton) if b.text() == "Save Config")
+        save = dlg.save_button
         QTest.mouseClick(save, Qt.MouseButton.LeftButton)
 
     _drive(interact, failures)

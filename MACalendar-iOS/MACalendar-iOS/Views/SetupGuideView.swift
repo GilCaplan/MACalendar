@@ -136,6 +136,10 @@ struct WelcomeView: View {
     }
 
     private func finish() {
+        // A new install starts with the Jewish calendar off (Gil, 2026-10-02);
+        // Settings ▸ Hebrew calendar turns it on. Local only: a Mac paired
+        // later brings its own settings, and the phone takes them.
+        settings.setJewishCalendar(false)
         UserDefaults.standard.set(true, forKey: "welcomeDone")
         done()
     }

@@ -479,6 +479,17 @@ struct SettingsView: View {
     private var hebrewPage: some View {
         SettingsPage("Hebrew calendar & Shabbat") {
                         VStack(alignment: .leading, spacing: 12) {
+                            // one switch for all of it; each part stays its own below
+                            Toggle(isOn: Binding(get: { settings.jewishCalendarOn }, set: { on in
+                                settings.setJewishCalendar(on)
+                                Task { await api.patchShared(["hebrew_calendar": ["display_mode": on ? "both" : "english",
+                                                                                  "show_holidays": on, "show_shabbat_times": on],
+                                                              "observance": ["enabled": on],
+                                                              "title_emoji": ["jewish": on]]) }
+                            })) {
+                                Text("Jewish calendar").font(.headline)
+                            }
+                            .accessibilityIdentifier("jewish-calendar-toggle")
                             Picker("Show dates as", selection: $settings.hebrewDisplayMode) {
                                 Text("English").tag("english")
                                 Text("Hebrew").tag("hebrew")

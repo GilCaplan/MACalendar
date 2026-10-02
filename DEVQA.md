@@ -1,3 +1,19 @@
+- **2026-10-02 — Q86 (FINISHING: A PLACE STAYS IN THE TITLE; THE JEWISH
+  CALENDAR IS OFF FOR A NEW INSTALL)**, Gil, closing the project's loose
+  ends: *"Spoken place, yes, I think it should be in the title"* — so
+  "picnic at the cafe on the corner" keeps the place in the title (as the
+  FastRule size tiers' gold already does), beside any location slot; gold that
+  drops it is relabelled. *"you can have the whole Jewish thing off by default
+  and then user can put it on if they want"* — a NEW install (the Mac's
+  `config.example.yaml`, the phone's first-launch screen) starts with Hebrew
+  dates, holidays, Shabbat lines, the Shabbat / yom tov rule, the weekly
+  extras and the Jewish title icons all off; one "Jewish calendar" switch in
+  Settings (Mac and phone) turns them on together. Existing installs keep what
+  they have. Also decided: the two engine bugs are not worth a cycle while
+  engine work is paused — TASKS 27 (a junk title) was a contained fix and is
+  done; TASKS 26 ("X is now at <time>" as a move) needs the update filler to
+  learn a new grammar, with a destructive failure mode, and waits.
+
 - **2026-10-02 — Q85 (THE PHONE WORKS WITH NO MAC)**, Gil: *"if i wanted to
   publish the app on the appstore is it ready? can also be used completely
   offline without a server?"*, then *"improve so the app can work alone if no

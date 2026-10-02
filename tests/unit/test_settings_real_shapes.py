@@ -224,8 +224,9 @@ class _Window(QWidget):
 def _drive(interact, failures):
     """Run interaction against the modal once it is up (see the sibling suites)."""
     def _go():
+        from PyQt6 import sip as _sip   # a stale wrapper segfaulted Linux CI (TASKS 53)
         dlg = QApplication.activeModalWidget()
-        if dlg is None:
+        if dlg is None or _sip.isdeleted(dlg) or not dlg.isVisible() or dlg.objectName() != "settings_dialog":
             QTimer.singleShot(10, _go)
             return
         try:
@@ -335,8 +336,7 @@ def test_saving_creates_the_sections_the_live_config_never_had(
                     if cb.text().startswith("Auto-approve"))
         _click(auto)                                # on → off
         seen["auto_after_click"] = auto.isChecked()
-        save = next(b for b in dlg.findChildren(QPushButton)
-                    if b.text() == "Save Config")
+        save = dlg.save_button
         QTest.mouseClick(save, Qt.MouseButton.LeftButton)
 
     _drive(interact, failures)
@@ -439,8 +439,7 @@ def test_a_config_missing_a_brand_new_field_still_saves(app, real_config, monkey
     seen: dict = {}
 
     def interact(dlg):
-        save = next(b for b in dlg.findChildren(QPushButton)
-                    if b.text() == "Save Config")
+        save = dlg.save_button
         QTest.mouseClick(save, Qt.MouseButton.LeftButton)
 
     _drive(interact, failures)
@@ -478,7 +477,7 @@ def test_settings_tabs_has_an_account_switch_that_hides_the_tab(
         box = dlg.findChild(QCheckBox, "tab_cb_account")
         seen["before"] = box.isChecked()
         _click(box)
-        save = next(b for b in dlg.findChildren(QPushButton) if b.text() == "Save Config")
+        save = dlg.save_button
         QTest.mouseClick(save, Qt.MouseButton.LeftButton)
 
     _drive(interact, failures)
@@ -514,7 +513,7 @@ def test_emoji_in_titles_is_one_setting_in_two_places(app, real_config, odd_cate
         seen["start"] = (here.currentText(), there.currentText())
         QTest.keyClicks(here, "T")                  # → "Two"
         seen["moved"] = (here.currentData(), there.currentData())
-        save = next(b for b in dlg.findChildren(QPushButton) if b.text() == "Save Config")
+        save = dlg.save_button
         QTest.mouseClick(save, Qt.MouseButton.LeftButton)
 
     _drive(interact, failures)
@@ -557,7 +556,7 @@ def test_which_kinds_of_emoji_is_chosen_in_a_dialog_and_saved(app, real_config, 
         assert btn is not None
         QTimer.singleShot(150, in_kinds)
         QTest.mouseClick(btn, Qt.MouseButton.LeftButton)
-        save = next(b for b in dlg.findChildren(QPushButton) if b.text() == "Save Config")
+        save = dlg.save_button
         QTest.mouseClick(save, Qt.MouseButton.LeftButton)
 
     _drive(interact, failures)
@@ -568,3 +567,52 @@ def test_which_kinds_of_emoji_is_chosen_in_a_dialog_and_saved(app, real_config, 
     data = yaml.safe_load(cfg_file.read_text())["title_emoji"]
     assert data["food"] is False and data["animals"] is True
     assert cfg.title_emoji.food is False
+
+
+# -- the Jewish calendar: off for a new install, one switch to turn it on ------
+
+def test_a_new_install_ships_with_the_jewish_calendar_off():
+    """Gil, 2026-10-02: "the whole Jewish thing off by default and then user
+    can put it on". config.example.yaml is what a new Mac copies."""
+    import pathlib
+    import yaml
+    ex = yaml.safe_load((pathlib.Path(__file__).resolve().parents[2] / "config.example.yaml").read_text())
+    assert ex["hebrew_calendar"]["display_mode"] == "english"
+    assert ex["hebrew_calendar"]["show_holidays"] is False
+    assert ex["hebrew_calendar"]["show_shabbat_times"] is False
+    assert ex["observance"]["enabled"] is False
+    assert not any(ex["occasions"][k] for k in ("parasha", "omer", "rosh_chodesh"))
+    assert ex["title_emoji"]["jewish"] is False
+
+
+def test_the_jewish_calendar_switch_sets_every_part(app, real_config, odd_categories, monkeypatch):
+    from PyQt6.QtWidgets import QCheckBox
+    cfg, cfg_file = real_config
+    real = config_store.set_values
+    monkeypatch.setattr(config_store, "set_values",
+                        lambda updates, path=str(cfg_file): real(updates, path))
+    monkeypatch.setattr(config_store, "CONFIG_PATH", str(cfg_file))
+    cfg.hebrew_calendar.show_holidays = True                 # whatever the fixture's file says
+    window = _Window(cfg)
+    failures: list = []
+
+    def interact(dlg):
+        master = dlg.findChild(QCheckBox, "jewish_calendar_cb")
+        assert master.isChecked()                       # the suite's config has it on
+        master.setChecked(False)
+        assert not dlg.findChild(QCheckBox, "observance_enabled_cb").isChecked()
+        assert not dlg.findChild(QCheckBox, "occasions_parasha").isChecked()
+        master.setChecked(True)
+        assert dlg.findChild(QCheckBox, "shabbat_lines_cb").isChecked()
+        master.setChecked(False)
+        QTest.mouseClick(dlg.save_button, Qt.MouseButton.LeftButton)
+
+    _drive(interact, failures)
+    from assistant.calendar_ui.settings_dialog import open_settings
+    open_settings(window)
+    if failures:
+        raise failures[0]
+    import yaml
+    data = yaml.safe_load(cfg_file.read_text())
+    assert data["hebrew_calendar"]["show_holidays"] is False and data["hebrew_calendar"]["display_mode"] == "english"
+    assert data["observance"]["enabled"] is False

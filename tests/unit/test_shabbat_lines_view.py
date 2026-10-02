@@ -198,7 +198,7 @@ def test_the_settings_switch_is_on_by_default_and_saves_off(qapp, tmp_path, monk
         seen["initially"] = cb.isChecked()
         _click(cb)
         seen["after_click"] = cb.isChecked()
-        save = next(b for b in dlg.findChildren(QPushButton) if b.text() == "Save Config")
+        save = dlg.save_button
         QTest.mouseClick(save, Qt.MouseButton.LeftButton)
 
     _drive(interact, failures)

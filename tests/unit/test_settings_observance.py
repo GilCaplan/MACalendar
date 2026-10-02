@@ -115,8 +115,9 @@ def _drive(interact, failures):
     the test re-raises it afterwards.
     """
     def _go():
+        from PyQt6 import sip as _sip   # a stale wrapper segfaulted Linux CI (TASKS 53)
         dlg = QApplication.activeModalWidget()
-        if dlg is None:                      # not up yet — try again
+        if dlg is None or _sip.isdeleted(dlg) or not dlg.isVisible() or dlg.objectName() != "settings_dialog":                      # not up yet — try again
             QTimer.singleShot(10, _go)
             return
         try:
@@ -157,8 +158,7 @@ def test_unchecking_and_saving_writes_enabled_false(app, tmp_path, monkeypatch):
         seen["initially"] = cb.isChecked()
         _click(cb)
         seen["after_click"] = cb.isChecked()
-        save = next(b for b in dlg.findChildren(QPushButton)
-                    if b.text() == "Save Config")
+        save = dlg.save_button
         QTest.mouseClick(save, Qt.MouseButton.LeftButton)
 
     _drive(interact, failures)

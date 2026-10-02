@@ -147,8 +147,9 @@ def _drive(interact, failures):
     the test re-raises it afterwards.
     """
     def _go():
+        from PyQt6 import sip as _sip   # a stale wrapper segfaulted Linux CI (TASKS 53)
         dlg = QApplication.activeModalWidget()
-        if dlg is None:                      # not up yet — try again
+        if dlg is None or _sip.isdeleted(dlg) or not dlg.isVisible() or dlg.objectName() != "settings_dialog":                      # not up yet — try again
             QTimer.singleShot(10, _go)
             return
         try:
@@ -235,8 +236,7 @@ def test_interacting_and_saving_writes_the_notifications_section(app, tmp_path, 
         work = _combo(dlg, "notif_cat_lead_Work")
         QTest.keyClicks(work, "M")            # → "Muted" (0)
         seen["work_after_keys"] = (work.currentText(), work.currentData())
-        save = next(b for b in dlg.findChildren(QPushButton)
-                    if b.text() == "Save Config")
+        save = dlg.save_button
         QTest.mouseClick(save, Qt.MouseButton.LeftButton)
 
     _drive(interact, failures)

@@ -144,6 +144,7 @@ def open_settings(self) -> None:
     from PyQt6.QtWidgets import QFormLayout, QFrame, QGroupBox, QScrollArea
 
     dialog = QDialog(self)
+    dialog.setObjectName("settings_dialog")
     dialog.setWindowTitle("Settings")
     dialog.setMinimumSize(780, 540)
     dialog.resize(900, 680)
@@ -585,6 +586,20 @@ def open_settings(self) -> None:
 
     # ── Hebrew calendar ───────────────────────────────────────────
     hebrew = section("Hebrew Calendar")
+    # ONE switch for the whole Jewish calendar (Gil, 2026-10-02: "you can have
+    # the whole Jewish thing off by default and then user can put it on").
+    # It sets the controls below — and the parasha / omer / Rosh Chodesh
+    # extras and the Jewish title icons further down — together; each stays
+    # its own control after that. Wired once they all exist (`_jewish_all`).
+    jewish_cb = QCheckBox("Jewish calendar")
+    jewish_cb.setObjectName("jewish_calendar_cb")
+    jewish_cb.setToolTip("Hebrew dates, Jewish holidays, Shabbat times, the Shabbat / yom tov\n"
+                         "rules for what the assistant books, the weekly extras and the\n"
+                         "Jewish icons beside titles — on or off together.")
+    _hc = self._config.hebrew_calendar
+    jewish_cb.setChecked(bool(_hc.show_holidays or _hc.display_mode != "english"
+                              or getattr(getattr(self._config, "observance", None), "enabled", True)))
+    hebrew.addWidget(jewish_cb)
     hebrew_form = QFormLayout()
     hebrew_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
     hebrew_mode_combo = QComboBox()
@@ -1536,6 +1551,22 @@ def open_settings(self) -> None:
 
     save_btn = QPushButton("Save Config")
     save_btn.setDefault(True)
+    # Held on the dialog: a test that found it by walking findChildren() met an
+    # intermittent segfault on Linux CI (TASKS 53) — a stale wrapper for a
+    # Qt-owned widget, read mid-walk. A direct reference walks nothing.
+    dialog.save_button = save_btn
+
+    def _jewish_all(on: bool) -> None:
+        """The Jewish calendar switch: every part of it at once."""
+        hebrew_mode_combo.setCurrentIndex(hebrew_mode_combo.findData("both" if on else "english"))
+        for cb in (hebrew_holidays_cb, shabbat_lines_cb, observance_cb):
+            cb.setChecked(on)
+        for k in ("parasha", "omer", "rosh_chodesh"):
+            if k in extras_boxes:
+                extras_boxes[k].setChecked(on)
+        emoji_groups["jewish"] = on
+    jewish_cb.toggled.connect(_jewish_all)
+
     def _checked_days() -> list:
         """The ticked days, Sunday first; none ticked means all seven — an
         empty week is never what someone meant."""

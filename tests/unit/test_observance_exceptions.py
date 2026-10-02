@@ -73,17 +73,19 @@ def test_patch_config_writes_the_observance_switch_and_get_serves_it(scratch_con
     from assistant.api.server import create_app
     from assistant.config import load_config
     c = create_app().test_client()
-    assert c.get("/config").get_json()["observance"] == {"enabled": True}
+    # a new install ships with the Jewish calendar off (DEVQA Q86) …
+    assert c.get("/config").get_json()["observance"] == {"enabled": False}
 
-    r = c.patch("/config", json={"observance": {"enabled": False}})
+    # … and switching the rule on is one PATCH
+    r = c.patch("/config", json={"observance": {"enabled": True}})
     assert r.status_code == 200, r.get_json()
     text = scratch_config.read_text()
-    assert yaml.safe_load(text)["observance"]["enabled"] is False
+    assert yaml.safe_load(text)["observance"]["enabled"] is True
     # a text edit, not a re-dump: the section's notes and its place survive
     assert "Shabbat/yom tov/fast gating" in text
     assert yaml.safe_load(text)["observance"]["timezone"] == "Asia/Jerusalem"
-    assert load_config().observance.enabled is False
-    assert c.get("/config").get_json()["observance"] == {"enabled": False}
+    assert load_config().observance.enabled is True
+    assert c.get("/config").get_json()["observance"] == {"enabled": True}
 
 
 @pytest.mark.parametrize("body", [

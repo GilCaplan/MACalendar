@@ -145,6 +145,23 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(observanceEnabled, forKey: "observanceEnabled") }
     }
 
+    /// The Jewish calendar as ONE switch (Gil, 2026-10-02: "the whole Jewish
+    /// thing off by default and then user can put it on"): Hebrew dates,
+    /// holidays, Shabbat lines, the Shabbat / yom tov rule and the Jewish
+    /// icons beside titles. On when any part is.
+    var jewishCalendarOn: Bool {
+        showHolidays || showShabbatTimes || observanceEnabled || hebrewDisplayMode != "english"
+    }
+
+    func setJewishCalendar(_ on: Bool) {
+        hebrewDisplayMode = on ? "both" : "english"
+        showHolidays = on
+        showShabbatTimes = on
+        observanceEnabled = on
+        titleEmojiOff.removeAll { $0 == "jewish" }
+        if !on { titleEmojiOff.append("jewish") }
+    }
+
     /// Emoji in titles (TASKS 51): 0 none, 1, 2 — what the assistant adds gets
     /// an emoji after a word that clearly names one. Shared with the Mac as
     /// `title_emoji.count`; the Mac's engine does the adding.

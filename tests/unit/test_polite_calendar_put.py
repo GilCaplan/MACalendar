@@ -26,3 +26,25 @@ def test_put_it_on_the_calendar_is_an_event_not_a_question():
     got = F.fastseg("this friday is the big game, put it on the calendar")
     assert [d["tag"] for d in got] == ["event"]
     assert [d["tag"] for d in F.fastseg("what's on my calendar tomorrow")] == ["review"]
+
+
+@pytest.mark.parametrize("said,title", [
+    ("this friday is the big game, put it on the calendar", "the big game"),
+    ("the big game is this friday, put it on the calendar", "the big game"),
+    ("march 5th is the interview, add it to my calendar", "the interview"),
+])
+def test_a_statement_then_put_it_names_its_subject(said, title):
+    """TASKS 27: the rejoined ask's title was the whole span, 'is the big game,
+    put it on the calendar'. It is what the statement names; the kind is still
+    read from the whole ask, so it stays an event."""
+    import importlib
+    F = importlib.import_module("assistant.engine.segmentation.fastseg.fastseg")
+    got = F.fastseg(said)
+    assert [(d["tag"], d["action"]) for d in got] == [("event", title)]
+
+
+def test_an_ordinary_back_reference_is_untouched():
+    import importlib
+    F = importlib.import_module("assistant.engine.segmentation.fastseg.fastseg")
+    got = F.fastseg("i no longer need to refill the prescription, so delete it from the list")
+    assert len(got) == 1 and "refill the prescription" in got[0]["action"]

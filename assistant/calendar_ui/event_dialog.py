@@ -439,6 +439,7 @@ class EventDialog(QDialog):
             btn_row.addWidget(del_btn)
 
             share_btn = QPushButton("Share .ics")
+            self.share_button = share_btn            # held: tests click it without walking the tree
             share_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             share_btn.setAutoDefault(False)
             share_btn.setDefault(False)
@@ -446,6 +447,7 @@ class EventDialog(QDialog):
             btn_row.addWidget(share_btn)
 
             dup_btn = QPushButton("Duplicate")
+            self.duplicate_button = dup_btn
             dup_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             dup_btn.setAutoDefault(False)
             dup_btn.setDefault(False)

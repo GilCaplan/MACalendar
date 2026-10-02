@@ -110,8 +110,9 @@ class _Window(QWidget):
 
 def _drive(interact, failures):
     def _go():
+        from PyQt6 import sip as _sip   # a stale wrapper segfaulted Linux CI (TASKS 53)
         dlg = QApplication.activeModalWidget()
-        if dlg is None:
+        if dlg is None or _sip.isdeleted(dlg) or not dlg.isVisible() or dlg.objectName() != "settings_dialog":
             QTimer.singleShot(10, _go)
             return
         try:

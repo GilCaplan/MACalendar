@@ -99,7 +99,7 @@ def test_picking_the_hours_in_settings_and_saving_shows_them(app):
             a, b = dlg.findChild(QComboBox, "hours_from"), dlg.findChild(QComboBox, "hours_to")
             a.setCurrentIndex(a.findData(7))
             b.setCurrentIndex(b.findData(24))
-            save = next(x for x in dlg.findChildren(QPushButton) if x.text() == "Save Config")
+            save = dlg.save_button
             QTest.mouseClick(save, Qt.MouseButton.LeftButton)
             seen["ok"] = True
         finally:

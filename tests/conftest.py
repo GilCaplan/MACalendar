@@ -174,6 +174,18 @@ if not _os.path.exists(_os.environ["MACALENDAR_CONFIG"]):
                 _block["enabled"] = False
             else:
                 _cfg[_name] = {"enabled": False}
+        # THE JEWISH CALENDAR ON. A new install ships with it off
+        # (config.example.yaml, Gil 2026-10-02), and CI seeds from that file —
+        # but the suite's Shabbat, holiday and observance tests are written
+        # against it on, as the real config has it. One state everywhere.
+        for _sec, _vals in (("hebrew_calendar", {"display_mode": "both", "show_holidays": True,
+                                                 "show_shabbat_times": True}),
+                            ("observance", {"enabled": True}),
+                            ("occasions", {"parasha": True, "omer": True, "rosh_chodesh": True}),
+                            ("title_emoji", {"jewish": True})):
+            _block = _cfg.get(_sec) if isinstance(_cfg.get(_sec), dict) else {}
+            _block.update(_vals)
+            _cfg[_sec] = _block
         with open(_os.environ["MACALENDAR_CONFIG"], "w") as _f:
             _yaml.safe_dump(_cfg, _f)
     except Exception:

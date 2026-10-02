@@ -770,6 +770,27 @@ _BACK_REFERENCE = re.compile(
     r"\s+(?:it|that|this|them)\b", re.I)
 
 
+#: A statement then "put it on the calendar": "<day> is the big game, put it on
+#: the calendar" / "the big game is <day>, add it to my calendar". The rejoin
+#: makes it ONE ask (above); its TITLE is the statement's subject, not the
+#: joined span — 'is the big game, put it on the calendar' was being committed
+#: as the title (TASKS 27, found on Board D TRAIN 2026-09-27).
+_STATEMENT_THEN_PUT = re.compile(
+    r"^(?:(?P<subj>.+?)\s+(?:is|are|was|will be|'s)|(?:is|are|was|will be|'s)\s+(?P<obj>.+?))"
+    r"\s*,?\s*(?:(?:so|and|then|just|please)\s+)*(?:put|add|book|schedule|pop|stick|note|save)"
+    r"\s+(?:it|that|this|them)\b.*$", re.I)
+
+
+def _statement_subject(action: str) -> str:
+    """The thing a statement names, when the action is a statement then a
+    back-referring create; the action unchanged otherwise."""
+    m = _STATEMENT_THEN_PUT.match(action.strip())
+    if not m:
+        return action
+    subject = (m.group("subj") or m.group("obj") or "").strip(" ,")
+    return subject or action
+
+
 def _rejoin_back_references(text: str, pieces: "list[str]") -> "list[str]":
     """Join each back-reference piece onto the piece before it, as the
     verbatim stretch of `text` covering both."""
@@ -1493,7 +1514,9 @@ def fastseg(text: str) -> "list[dict]":
     # "something to infer" the ruling keeps as an event.
     from assistant.intent.placed import nothing_to_infer
     timeless = nothing_to_infer(clean)
-    return [{"action": a, "time": t,
+    # the KIND is read from the whole ask ("put it on the calendar" is what
+    # makes it an event); the ACTION — the title's words — from its subject
+    return [{"action": _statement_subject(a), "time": t,
              "tag": tag(a, t, nothing_said=timeless and t.strip().lower() == "today"),
              "source": _source_piece(a, pieces)} for a, t in pairs]
 

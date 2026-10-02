@@ -87,7 +87,7 @@ def _click_checkbox(cb) -> None:
 
 
 def _save(dlg) -> None:
-    save = next(b for b in dlg.findChildren(QPushButton) if b.text() == "Save Config")
+    save = dlg.save_button
     QTest.mouseClick(save, Qt.MouseButton.LeftButton)
 
 

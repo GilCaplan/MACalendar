@@ -2312,6 +2312,21 @@ reading" …) became vetoes, then a seeded random 150 of the rest read 1 mild
 miss ("eye exam", also vetoed). Moving from emoji to icons changed no reading:
 the stress set fires on the same 949 of 2,999 titles.
 
+### The Jewish calendar, one switch
+**What:** Hebrew dates, Jewish / Israeli holidays, the Shabbat and yom tov
+lines, the rule that keeps engine-made events off Shabbat and yom tov, the
+weekly extras (parasha, omer, Rosh Chodesh) and the Jewish icons beside titles
+are ONE switch — Settings ▸ Hebrew Calendar ▸ "Jewish calendar" on the Mac,
+Settings ▸ Hebrew calendar & Shabbat on the phone — and each part stays its
+own control after it. A new install starts with it OFF (Gil, 2026-10-02,
+DEVQA Q86); existing installs keep what they had.
+**Where:** `settings_dialog.py` (`jewish_calendar_cb`, `_jewish_all`),
+`config.example.yaml` (what a new Mac copies), `AppSettings.setJewishCalendar`
+and `WelcomeView` on the phone; the test suite runs with it on
+(`tests/conftest.py`). Tests: `test_settings_real_shapes.py`
+(`test_a_new_install_ships_with_the_jewish_calendar_off`,
+`test_the_jewish_calendar_switch_sets_every_part`).
+
 ### The phone on its own
 **What:** The iPhone app works with NO Mac (Gil, 2026-10-02: *"improve so the
 app can work alone if no server connected, with the audio engine features

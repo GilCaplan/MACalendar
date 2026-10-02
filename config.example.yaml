@@ -120,9 +120,9 @@ api:
 # these switches decide which computed calendars show beside them.
 occasions:
   holiday_types: [major, minor, fast, modern]   # which Jewish holidays show as banners
-  parasha: true          # the weekly Torah portion on each Shabbat
-  omer: true             # the Omer count between Pesach and Shavuot
-  rosh_chodesh: true     # Rosh Chodesh banners
+  parasha: false         # the weekly Torah portion on each Shabbat
+  omer: false            # the Omer count between Pesach and Shavuot
+  rosh_chodesh: false    # Rosh Chodesh banners
   daf_yomi: false        # today's daf
   country: ""            # national holidays: US, GB, IL, … ("" = off)
   christian: false       # Christian holidays (Easter-based and fixed)
@@ -142,7 +142,7 @@ pairing:
 # Workout scheduling around Shabbat and the chagim (assistant/observance.py).
 # Sundown is computed locally with `astral` — no network calls.
 observance:
-  enabled: true                  # Shabbat/yom tov/fast gating (engine gate +
+  enabled: false                 # Shabbat/yom tov/fast gating (engine gate +
                                  # recurring-series skip). false switches all
                                  # of it off; MACALENDAR_OBSERVANCE=0 overrides
                                  # (the dataset replay harness sets that).
@@ -173,10 +173,13 @@ notifications:
   speak: false                 # Mac only: also read it aloud
 
 hebrew_calendar:
-  display_mode: "both"      # "english" | "hebrew" | "both" — Hebrew dates use gematria letters, never numerals
-  show_holidays: true        # overlay Jewish/Israeli holidays on Month/Week/Day views
+  # THE JEWISH CALENDAR IS OFF FOR A NEW INSTALL (Gil, 2026-10-02): Settings ▸
+  # Hebrew Calendar ▸ "Jewish calendar" turns all of it on at once — these four,
+  # observance.enabled, the occasions extras and title_emoji.jewish.
+  display_mode: "english"   # "english" | "hebrew" | "both" — Hebrew dates use gematria letters, never numerals
+  show_holidays: false       # overlay Jewish/Israeli holidays on Month/Week/Day views
   israel_holidays: true      # true = Israel schedule (1-day Yom Tov), false = Diaspora (2-day)
-  show_shabbat_times: true   # yellow lines on Day/Week at candle lighting and nightfall
+  show_shabbat_times: false  # yellow lines on Day/Week at candle lighting and nightfall
 
 theme: "dark"  # "light" | "dark" - default theme on startup
 
@@ -267,15 +270,16 @@ labels:
   model_first: false     # true: a confident model answer wins over the keyword rules; the
                          # rules answer only where the model abstains (Gil, 2026-09-22)
 
-# Emoji in titles (TASKS 51): what the assistant creates gets an emoji right
-# after a word that clearly names one — "walk my dog 🐕", "date 💕 with Noa".
-# A word with two senses fires only in the one with the emoji ("eat a date",
-# "due date" stay plain). 0 = off, 1 or 2 per title. Settings ▸ Assistant, or
-# Settings ▸ Easter egg, on either app.
+# Icons beside titles (TASKS 51, DEVQA Q84): a drawing beside an event or a
+# to-do whose title clearly names something — a dog for "walk my dog", a heart
+# for "date with Noa". A word with two senses fires only in the right one ("eat
+# a date", "due date" get none). The title itself stays words. 0 = off, 1 or 2
+# per title. Settings ▸ Assistant, or Settings ▸ Easter egg, on either app.
 title_emoji:
   count: 0
   # each kind on or off: animals, sport, health, food, occasions, travel,
   # home, work, jewish (all on unless set false)
+  jewish: false            # with the Jewish calendar, off for a new install
 
 # Jude — the Judaic study assistant (assistant/jude/ARCHITECTURE.md)
 #

@@ -32,8 +32,9 @@ def _payload(text, words):
 def _drive(interact):
     """Schedule real interaction against the modal once it is up."""
     def _go():
+        from PyQt6 import sip as _sip   # a stale wrapper segfaulted Linux CI (TASKS 53)
         dlg = QApplication.activeModalWidget()
-        if dlg is None:                      # not up yet — try again
+        if dlg is None or _sip.isdeleted(dlg) or not dlg.isVisible():                      # not up yet — try again
             QTimer.singleShot(10, _go)
             return
         interact(dlg)
