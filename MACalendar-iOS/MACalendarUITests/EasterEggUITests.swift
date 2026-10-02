@@ -50,8 +50,16 @@ final class EasterEggUITests: XCTestCase {
         XCTAssertTrue(kept.waitForExistence(timeout: 5),
                       "the original picture is not marked as kept")
         snap(app, "4-dog-page")
-        for _ in 0..<12 where !app.buttons["Play it on the whole screen"].firstMatch.isHittable { app.swipeDown() }
-        app.buttons["Play it on the whole screen"].firstMatch.tap()
+        // Only until it is in the tree: the page is long with every section
+        // open, and a lazily drawn list has no button above the screen until
+        // it is scrolled to — a fixed twelve swipes ran out (flaky, QA 10-01).
+        let play = app.buttons["Play it on the whole screen"].firstMatch
+        for _ in 0..<30 where !play.exists { app.swipeDown() }
+        if !play.waitForExistence(timeout: 5) {
+            snap(app, "debug-no-play")
+        }
+        XCTAssertTrue(play.exists, "the word's page lost its Play button")
+        play.tap()                                  // XCTest scrolls it into view
         Thread.sleep(forTimeInterval: 1.2)
         snap(app, "5-dog-running")
     }
