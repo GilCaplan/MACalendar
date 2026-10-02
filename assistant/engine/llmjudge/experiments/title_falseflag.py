@@ -87,7 +87,12 @@ def main() -> int:
     ap.add_argument("-n", type=int, default=3000, help="0 = every row")
     ap.add_argument("--seed", type=int, default=11)
     ap.add_argument("--show", type=int, default=12)
+    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    _add_tier(ap)
     a = ap.parse_args()
+    global CORPORA
+    CORPORA = tuple((name, _resolve("realspeech", a.data_tier) if name == "realspeech"
+                     else path) for name, path in CORPORA)
 
     import assistant.engine as engine
     from assistant.engine import llm as _llm

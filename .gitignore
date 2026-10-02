@@ -111,3 +111,12 @@ assistant/engine/segmentation/datasets/tiers/
 assistant/engine/segmentation/datasets/sequence/tiers/
 assistant/engine/decompose_validate/datasets/tiers/
 assistant/engine/decompose_validate/datasets/chain/tiers/
+
+# Judge / persona / real-speech size tiers (10k, 40k): multi-MB SUPERSETS of
+# the committed base files, deterministic by seed and rebuilt on demand —
+# `scripts/dataset_tiers.py` says how. The case tiers keep their resumable
+# chunk checkpoints in the same folders.
+assistant/engine/llmjudge/datasets/tiers/
+assistant/engine/llmjudge/datasets/v2/tiers/
+dataset/personas/tiers/
+dataset/realspeech/tiers/

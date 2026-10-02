@@ -68,9 +68,12 @@ def main() -> int:
                          "MINING ONLY — slicing the test half by shape to "
                          "decide what to fix is exactly the leakage the "
                          "protocol forbids (ITERATION_PROTOCOL.md).")
+    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    _add_tier(ap)
     a = ap.parse_args()
 
-    rows = [json.loads(l) for l in DATA.open(encoding="utf-8")]
+    data = _resolve("realspeech", a.data_tier)
+    rows = [json.loads(l) for l in data.open(encoding="utf-8")]
     sel = [r for r in rows if r["split"] == a.split
            and (a.pool == "all" or r["pool"] == a.pool)
            and (a.asks is None or r["n_asks"] == a.asks)

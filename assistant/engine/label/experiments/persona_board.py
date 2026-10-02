@@ -80,6 +80,13 @@ def main() -> int:
     from assistant.actions.todo import tagging as _tag
     from assistant.engine.label.model import LabelModel
 
+    import argparse
+    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    ap = argparse.ArgumentParser()
+    _add_tier(ap)
+    a = ap.parse_args()
+    global PERSONAS
+    PERSONAS = _resolve("personas", a.data_tier)
     by_persona = _titles()
     if not by_persona:
         print("no persona titles found — is dataset/personas/personas.jsonl present?")

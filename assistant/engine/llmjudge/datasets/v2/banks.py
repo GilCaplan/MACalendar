@@ -188,3 +188,169 @@ RESTATEMENTS = {
     "chiropractor visit": "the chiropractor",
     "podiatry appointment": "the foot clinic",
 }
+
+
+# ---------------------------------------------------------------------------
+# 3 · the TIER banks (2026-10-01) — read ONLY by the 10k / 40k tiers
+# ---------------------------------------------------------------------------
+#
+# Gil, 2026-10-01: *"a lot of the datasets seem really small, they should be at
+# least 40k with enough variation in the data."* The committed set (the `base`
+# tier) is drawn from the lists ABOVE by index, so appending to them would move
+# every base row. The tier generator instead swaps these in for the NEW
+# families only (`extended()`), and the base lists stay exactly as they were.
+#
+# Same rules as everything above: every term is INVENTED — generic activity
+# nouns, loanwords and ordinary compounds — no real transcript and no word of
+# anyone's personal vocabulary. Event subjects keep a content head of five or
+# more letters, because the recogniser operations need one to land on. No
+# to-do subject names a person or a role to call or meet (Q47 / Q50 would move
+# its gold and this bank is not where that should be decided).
+
+TIER_EVENT_SUBJECTS = [
+    "glassblowing class", "pottery workshop", "archery session",
+    "fencing practice", "climbing session", "rowing practice",
+    "aquafit lesson", "badminton match", "volleyball training",
+    "cricket nets", "squash game", "triathlon briefing", "marathon clinic",
+    "hiking meetup", "birdwatching walk", "stargazing evening",
+    "astronomy lecture", "chemistry tutorial", "geography seminar",
+    "statistics lecture", "portfolio review", "pension consultation",
+    "mortgage meeting", "insurance renewal call", "warranty inspection",
+    "chimney sweep visit", "plumbing inspection", "window cleaning",
+    "carpet fitting", "furniture delivery", "kitchen survey",
+    "allotment meeting", "compost workshop", "beekeeping course",
+    "orchard tour", "vineyard tasting", "cheese tasting", "chocolate workshop",
+    "dumpling night", "tapas evening", "brunch reservation",
+    "barbecue afternoon", "picnic outing", "museum visit", "gallery opening",
+    "theatre matinee", "cinema screening", "concert rehearsal",
+    "madrigal rehearsal", "drumming circle", "saxophone lesson", "cello recital",
+    "harmonica workshop", "dance rehearsal", "salsa class", "tango lesson",
+    "ballet recital", "puppet show", "magic show", "trivia night",
+    "chess tournament", "bowling league", "darts evening", "snooker match",
+    "sketching session", "printmaking class", "watercolour workshop",
+    "photography walk", "editing session", "podcast recording",
+    "interview rehearsal", "induction session", "safety briefing",
+    "planning session", "strategy offsite", "vendor demo", "product launch",
+    "release review", "design critique", "sprint planning", "retrospective meeting",
+    "vaccination appointment", "dermatology appointment", "hearing test",
+    "allergy clinic", "nutrition consultation", "massage appointment",
+    "osteopath session", "orthodontic check", "blood donation",
+    "curriculum evening", "prizegiving rehearsal", "sports carnival", "science fair",
+    "library storytime", "homework club", "graduation rehearsal",
+]
+
+TIER_TASK_SUBJECTS = [
+    "defrost the salmon", "descale the kettle", "oil the bike chain",
+    "repot the cactus", "prune the roses", "clean the gutters",
+    "bleed the radiators", "test the smoke alarm", "change the bed sheets",
+    "iron the shirts", "polish the shoes", "darn the socks",
+    "renew the library card", "update the address book", "shred the old bills",
+    "scan the warranty cards", "archive the photos", "clear the inbox",
+    "export the spreadsheet", "rename the project folder", "install the updates",
+    "reset the router", "replace the printer cartridge", "order the bin bags",
+    "buy the birthday candles", "wrap the presents", "write the thank you cards",
+    "plan the weekly menu", "prepare the packed lunches", "soak the chickpeas",
+    "marinate the tofu", "bake the banana bread", "freeze the leftovers",
+    "empty the dishwasher", "descale the shower head", "vacuum the stairs",
+    "mop the hallway", "dust the bookshelves", "tidy the wardrobe",
+    "donate the old coats", "sell the spare bike", "list the camping gear",
+    "inflate the bike tyres", "check the tyre pressure", "top up the screen wash",
+    "renew the car insurance", "book the mot test", "pay the parking fine",
+    "submit the expense claim", "sign the tenancy form", "fill in the census form",
+    "photocopy the passport", "laminate the timetable", "sharpen the pencils",
+    "restock the first aid kit", "charge the power bank", "pack the gym bag",
+]
+
+#: More days, with the same `deliberate` reading (cycle 36): a weekday is a
+#: gloss, a relative day or a month-day is chosen. Saturday is left out for
+#: the same reason the base list leaves it out.
+TIER_DATE_PHRASES = [
+    ("on friday", False),
+    ("next tuesday", False),
+    ("next wednesday", False),
+    ("this coming thursday", False),
+    ("on the 21st", True),
+    ("on the 2nd of december", True),
+    ("on the 15th of october", True),
+    ("the day after tomorrow", True),
+]
+
+#: More clock values, each with every field its forms need. The same
+#: refusals apply (`voices.render_clock`): no `oclock` on an afternoon hour,
+#: and `bare_hour` only where the conventions table reads it the same way.
+TIER_CLOCKS = [
+    {"value": "09:45", "h12": "9:45", "mer": "am", "compact": "945",
+     "words": "quarter to ten in the morning", "pad": "0945"},
+    {"value": "19:00", "h12": "7:00", "mer": "pm", "compact": "700",
+     "words": "seven in the evening", "hour": 7},
+    {"value": "10:00", "h12": "10:00", "mer": "am", "compact": "1000",
+     "words": "ten in the morning", "hour": 10},
+    {"value": "15:15", "h12": "3:15", "mer": "pm", "compact": "315",
+     "words": "quarter past three in the afternoon"},
+    {"value": "11:30", "h12": "11:30", "mer": "am", "compact": "1130",
+     "words": "half past eleven in the morning"},
+    {"value": "16:00", "h12": "4:00", "mer": "pm", "compact": "400",
+     "words": "four in the afternoon", "hour": 4},
+    {"value": "07:45", "h12": "7:45", "mer": "am", "compact": "745",
+     "words": "quarter to eight in the morning", "pad": "0745"},
+    {"value": "18:30", "h12": "6:30", "mer": "pm", "compact": "630",
+     "words": "half past six in the evening"},
+]
+
+TIER_RECURRENCES = [
+    {"phrase": "every friday", "cadence": "weekly", "days": ["friday"]},
+    {"phrase": "every wednesday and friday", "cadence": "weekly",
+     "days": ["wednesday", "friday"]},
+    {"phrase": "every week on thursday", "cadence": "weekly",
+     "days": ["thursday"]},
+    {"phrase": "every month on the 10th", "cadence": "monthly", "days": []},
+    {"phrase": "every year on the 2nd of march", "cadence": "yearly",
+     "days": []},
+]
+
+TIER_ANAPHORS = ["the one i just added", "that last event",
+                 "the event from a minute ago"]
+
+TIER_RESTATEMENTS = {
+    "aquafit lesson": "aquafit",
+    "pottery workshop": "pottery",
+    "chess tournament": "the chess",
+    "museum visit": "the museum",
+    "salsa class": "salsa",
+    "trivia night": "the quiz",
+    "sprint planning": "planning",
+    "hearing test": "the audiologist",
+    "curriculum evening": "the school evening",
+    "furniture delivery": "the delivery",
+    "climbing session": "climbing",
+    "cinema screening": "the film",
+}
+
+
+def extended():
+    """Swap the tier banks in for the duration of a `with` block.
+
+    The generator reads `banks.X` at call time, so this is the one switch that
+    gives the NEW families the wider vocabulary while every base row keeps
+    drawing from the lists it was built from. Restores on exit, even on error.
+    """
+    import contextlib
+
+    @contextlib.contextmanager
+    def _swap():
+        g = globals()
+        saved = {k: g[k] for k in ("EVENT_SUBJECTS", "TASK_SUBJECTS",
+                                   "DATE_PHRASES", "CLOCKS", "RECURRENCES",
+                                   "ANAPHORS", "RESTATEMENTS")}
+        try:
+            g["EVENT_SUBJECTS"] = saved["EVENT_SUBJECTS"] + TIER_EVENT_SUBJECTS
+            g["TASK_SUBJECTS"] = saved["TASK_SUBJECTS"] + TIER_TASK_SUBJECTS
+            g["DATE_PHRASES"] = saved["DATE_PHRASES"] + TIER_DATE_PHRASES
+            g["CLOCKS"] = saved["CLOCKS"] + TIER_CLOCKS
+            g["RECURRENCES"] = saved["RECURRENCES"] + TIER_RECURRENCES
+            g["ANAPHORS"] = saved["ANAPHORS"] + TIER_ANAPHORS
+            g["RESTATEMENTS"] = {**saved["RESTATEMENTS"], **TIER_RESTATEMENTS}
+            yield
+        finally:
+            g.update(saved)
+    return _swap()

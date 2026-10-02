@@ -584,10 +584,14 @@ def main() -> int:
                     help="skip FastRule; segment then sees no verdict (measures "
                          "the cue-word gate alone)")
     ap.add_argument("--limit", type=int, default=0)
+    global P_DATA
     from assistant.engine.fastrule.datasets import tiers as _sizes
     _sizes.add_argument(ap)  # --size base|20k|40k|80k: the FastRule set's size tier
+    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    _add_tier(ap)            # --data-tier base|10k|40k: the persona set
     a = ap.parse_args()
     globals()["B_DATA"] = _sizes.ensure(a.size)
+    P_DATA = _resolve("personas", a.data_tier)
 
     from freezegun import freeze_time
 

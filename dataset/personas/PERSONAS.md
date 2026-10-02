@@ -241,6 +241,52 @@ the author's *words*; it is tuned to his *sentence shapes* — verb-initial
 imperatives of moderate length. Detail, mechanism and the failure families are
 in the boards.
 
+## Size tiers — 10k and 40k (2026-10-01)
+
+`personas.jsonl` and `personas_ablation.jsonl` are the `base` tier and are
+never rewritten by a tier build. `python -m scripts.gen_personas --tier all`
+(and `--ablation --tier all`) writes gitignored SUPERSETS to `tiers/`: base's
+bytes, then grown rows marked `grown_in`. **Every grown row is
+`split: "test"`** — the two rules above bind the tiers exactly as they bind
+base; a bigger persona set is a sharper measurement, never something to fit on.
+
+| file | tier | rows | cells | per cell | families | distinct texts |
+|---|---|---:|---:|---:|---:|---:|
+| personas | base | 2,520 | 6 | 420 | 241 | 2,520 |
+| | 10k | 10,008 | 12 | 834 | 533 | 10,008 |
+| | 40k | 40,008 | 12 | 3,334 | 533 | 40,008 |
+| ablation | base | 2,520 | 12 | 210 | 469 | 2,424 |
+| | 10k | 10,008 | 24 | 417 | 1,134 | 9,772 |
+| | 40k | 40,008 | 24 | 1,667 | 1,134 | 38,816 |
+
+**Six new personas**, `banks/tiers/<id>.json`, built to the same contract as
+the six above (own content banks, own phrasing for all 33 structures, a mix):
+
+| id | who | speech habits |
+|---|---|---|
+| `shift_nurse` | ward nurse on rotating shifts | clipped handover shorthand, 24-hour clock, thing-first |
+| `small_business_owner` | owner of a small bakery-cafe | first-person plural, suppliers and deliveries, brisk |
+| `tradesperson` | self-employed plumber / electrician | jobs named by street, parts with quantities, trade idiom |
+| `secondary_teacher` | secondary-school teacher | orderly lead-ins ("note for me:"), school timetable vocabulary |
+| `family_caregiver` | adult child caring for a parent | possessive "mum's / dad's", double-checking, the why first |
+| `amateur_musician` | member of a gigging band | band slang, venues, gear as the shopping list |
+
+The base six get `banks/tiers/<id>.json` EXTENSIONS: fillers appended and new
+template variants in their own voice (a new variant is a new family). Every
+cell is filled to the same size, so the structure-matched comparison holds
+across 12 personas, and every cell covers all 33 structures at 10k and 40k.
+
+**The leak gate runs on every tier build — and reads nothing today.** It reads
+`~/.assistant_tools/vocab.json`, the pre-2026-09-28 top-level path; since
+stores moved per user (`users/<uid>/`) it finds no words there, so on
+2026-10-02 every build (base and tiers, personas and real speech) printed
+`0 author words checked` and passed vacuously — the silent skip CLAUDE.md
+warns about. The tier banks were written invented and generic for that reason,
+and a new term was dropped wherever it might plausibly be someone's own word
+(no new Hebrew transliterations or Israeli names were added). Re-pointing the
+gate at `users.paths.personal_store` is a separate change — it reads personal
+data — and is left to whoever owns the privacy gates.
+
 ## Adding a persona
 
 Add `banks/<id>.json` with a `persona` block (id, label, speech habits, action

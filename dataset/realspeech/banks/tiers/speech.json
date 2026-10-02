@@ -1,0 +1,20 @@
+{
+ "_comment": "SIZE-TIER extension of ../speech.json (2026-10-01), for the 10k / 40k tiers only. Lists are APPENDED to the base list of the same name; `joins`, `name_mangles` and `verb_mangles` are MERGED key by key (a key the base already has is an error, so no base reading changes). Every surface form is invented for this file. The damage SHAPES are the base file's measured ones (possessive / compound / loanword, homophone names, mangled command verbs) applied to new material — no new kind of damage is introduced, because the rates in gen_realspeech.RATES were calibrated against the measured store for those shapes only.",
+ "openers": ["okay so um,", "right okay,", "hey,", "so basically,", "listen,", "quick one,", "um so,", "oh,"],
+ "mid_fillers": ["basically", "kind of", "erm", "like, you know"],
+ "hedge_tails": ["if that's okay", "cheers", "ta", "or whatever", "i think"],
+ "dangler_tails": ["then", "or", "about", "from", "because"],
+ "meta_tails": ["write that down", "just add that", "that's everything", "got that?", "save that"],
+ "cutoff_tails": ["and also the-", "oh and i need to c-", "and maybe the-", "plus the other th-"],
+ "stall_phrases": ["um, let me see,", "what is it, um,", "give me a second,", "oh what's it called,"],
+ "apology_tails": ["sorry.", "my bad.", "sorry, ignore the noise."],
+ "joins": {"plus": " plus ", "ohand": ". oh and ", "afterthat": ", after that ", "alsocomma": ", also "},
+ "correction_cues": ["no sorry,", "oops, i mean", "wait no,", "actually,"],
+ "wrong_dates": ["wednesday", "friday", "the weekend"],
+ "wrong_times": ["three", "eight", "half past six", "quarter to five"],
+ "name_mangles": {"Ellis": ["Alice", "Elis"], "Marlow": ["Marlo", "Marlowe"], "Peyton": ["Payton", "Paten"], "Hollis": ["Holis", "Hollace"], "Kendall": ["Kendal", "Ken Doll"], "Lennox": ["Lenox", "Len Ox"], "Remy": ["Remmy", "Ramy"], "Tatum": ["Tatem", "Tay Tum"], "Shiloh": ["Shy Low", "Shilo"], "Arden": ["Arton", "Ardin"], "Briar": ["Brier", "Bryer"], "Corin": ["Corinne", "Koren"], "Dallas": ["Dalis", "Dallis"], "Ember": ["Amber", "Embur"], "Gray": ["Grey", "Gra"], "Indigo": ["In Digo", "Indego"], "Jules": ["Joules", "Jewels"], "Kit": ["Kitt", "Kid"], "Lark": ["Lurk", "Larks"], "Merritt": ["Merit", "Marit"]},
+ "verb_mangles": {"pencil in": ["pencilling", "pencil inn"], "block out": ["block doubt", "blocked out"], "reschedule": ["re-shed you'll", "rescheduled"], "tick off": ["tic off", "tick of"], "remove": ["re move", "remover"], "push": ["posh", "pushed"], "scrap": ["scrapped", "scrab"]},
+ "possessive_templates": [{"clean": "collect {name}'s prescription", "damaged": ["collect {name}sprescription", "collect {name} Spree Scription"]}, {"clean": "fix {name}'s bike", "damaged": ["fix {name}sbike", "fix {name} Sbike"]}, {"clean": "sign {name}'s form", "damaged": ["sign {name}sform", "sign {name} Storm"]}],
+ "compound_titles": [{"clean": "swim meet", "damaged": ["swimmeet", "Swim Meat"]}, {"clean": "spin class", "damaged": ["spinclass", "Spin Glass"]}, {"clean": "tea party", "damaged": ["teaparty", "Tee Party"]}, {"clean": "flea market", "damaged": ["fleamarket", "Flee Market"]}, {"clean": "fish market", "damaged": ["fishmarket", "Fish Mark It"]}],
+ "loanword_titles": [{"clean": "gnocchi night", "damaged": ["no key night", "nyocki night"]}, {"clean": "paella evening", "damaged": ["pie ella evening", "pa ella evening"]}, {"clean": "tai chi class", "damaged": ["tie chee class", "thai she class"]}, {"clean": "macrame workshop", "damaged": ["mac ra may workshop", "macramay workshop"]}, {"clean": "bruschetta lunch", "damaged": ["brew shetta lunch", "bru sketta lunch"]}, {"clean": "capoeira class", "damaged": ["cap oh Aira class", "capo era class"]}]
+}

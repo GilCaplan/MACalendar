@@ -1,0 +1,61 @@
+{
+  "persona": {
+    "id": "tradesperson",
+    "label": "Self-employed plumber and electrician",
+    "role": "SIZE-TIER persona (10k / 40k only) — jobs named by street, quotes and callouts",
+    "speech_habits": [
+      "an event is a JOB, named by its street or customer ('the boiler job on Larch Road')",
+      "'first thing', 'pop round', 'stick it in the diary' — trade idiom around the ask",
+      "parts and materials as the shopping list, said with quantities",
+      "short, practical, dictated from the van between jobs"
+    ],
+    "action_bias": "event-heavy job diary with frequent moves and cancellations; parts orders as tasks",
+    "leak_note": "Every customer, street and job is invented for the size tiers; none was taken from any real person or transcript — and the leak gate runs on every tier build (see PERSONAS.md § Size tiers for what it currently reads)."
+  },
+  "fillers": {
+    "names": ["Mr Pellow", "Mrs Varga", "Dunmore", "Agnew", "Tremlett", "Halloran", "Mrs Quayle", "Mr Ostrowski", "Fennimore", "Mrs Ibbotson", "Lindqvist", "Mr Abara", "Penhaligon", "Mrs Tasker", "Rocco", "Mr Delacroix"],
+    "event_titles": ["the boiler job on Larch Road", "the rewire at Quarry Close", "the quote at the Fenwick house", "the consumer unit swap", "the bathroom fit on Mill Lane", "the van test", "the merchant pickup", "the gas safety check at Orchard Rise", "the leak callout on Tanner Street", "the site meeting at the new build", "the tiling job", "the radiator flush", "the snagging visit", "the kitchen first fix", "the testing at the school", "the extractor fan install", "the fuse board inspection", "the callback at number twelve", "the shower repair on Birch Walk", "the outside tap job", "the survey at the flats", "the cylinder replacement"],
+    "task_titles": ["send the quote to the Fenwicks", "order copper pipe", "invoice the Larch Road job", "fuel the van", "pick up the fittings", "renew the gas card", "charge the drill batteries", "log the mileage", "chase the deposit", "return the hired tile cutter", "update the job sheet", "buy more sealant", "book the van service", "photograph the meter", "sort the receipts for the accountant", "renew the liability cover", "restock the van shelves", "write up the test certificate"],
+    "items": ["copper elbows", "PTFE tape", "jubilee clips", "wall plugs", "cable ties", "silicone sealant", "flux", "solder", "grout", "rawl bolts", "isolation valves", "cartridge fuses", "masonry drill bits", "sandpaper", "dust sheets"],
+    "occasions": ["the van being off the road", "the bank holiday", "the trade show", "my week off", "the start of the big job", "the end of the tax year", "the new apprentice's first day", "the merchant's open day", "handover of the new build", "the yard clear-out"],
+    "quotable": ["the tiling job", "the radiator flush", "the snagging visit", "the kitchen first fix", "the van test", "the merchant pickup", "the outside tap job", "the survey at the flats", "the consumer unit swap", "the cylinder replacement"],
+    "times": ["7am", "7:30am", "8am", "8:45am", "9:30am", "10am", "11am", "noon", "1pm", "2:30pm", "3pm", "4pm", "4:30pm", "5pm", "6pm", "8:15am"],
+    "filler_words": ["right", "so", "erm", "okay", "yeah", "mate", "listen", "anyway"]
+  },
+  "mix": {"ce_datetime": 1.7, "ce_date_only": 1.4, "ue_move": 1.5, "de_named": 1.4, "ct_buy": 1.4, "ct_bare": 1.2, "ce_attendee": 1.2, "and_ee": 1.2, "polite_request": 0.4, "ce_recurring": 0.6},
+  "templates": {
+    "ce_datetime": ["stick {event_title} in the diary {date} at {time}", "{event_title}, {date}, {time}"],
+    "ce_date_only": ["{event_title} {date}, stick it in", "book in {event_title} for {date}"],
+    "ce_time_only": ["{event_title} at {time}, stick it in"],
+    "ce_attendee": ["{event_title} with {name} {date}", "pop round for {event_title} with {name} {date}"],
+    "ce_recurring": ["{event_title} {recurrence} at {time}"],
+    "ce_allday": ["block out {date}, it's {occasion}"],
+    "ct_bare": ["remind me to {task_title}", "got to {task_title}"],
+    "ct_dated": ["got to {task_title} {date}"],
+    "ct_buy": ["get {qty} {item} from the merchant", "pick up {qty} {item}"],
+    "q_schedule": ["what jobs have i got {query_range}"],
+    "q_todos": ["what's on my jobs list {query_range}"],
+    "de_named": ["{event_title} {date} is cancelled, take it out", "scrap {event_title} {date}"],
+    "dt_named": ["scrap {task_title} off the list"],
+    "comp_todo": ["{task_title} is sorted"],
+    "ue_move": ["move {event_title} to {time}", "{event_title} wants me at {time} now, change it"],
+    "ut_change": ["leave {task_title} till {date}"],
+    "npdecoy_attendees": ["{event_title} with {name} and {name2} at {time}"],
+    "npdecoy_items": ["pick up {item} and {item2}"],
+    "time_range": ["{event_title} {time_range}"],
+    "leadtime": ["{event_title} {date} at {time}, remind me {lead_time}"],
+    "polite_request": ["can you stick {event_title} in {date} at {time} for me"],
+    "propose_q": ["should i book in {event_title} for {date}"],
+    "quoted_delete": ["take '{quoted_item}' out of the diary"],
+    "generic_delete": ["scrap {generic_target} from the diary"],
+    "ramble_ce": ["{filler} {event_title} {date} at {time} {filler2}"],
+    "and_ee": ["{event_title} {date} at {time} and {event_title2} at {time2}"],
+    "and_et": ["{event_title} {date} at {time} and remind me to {task_title2}"],
+    "and_te": ["remind me to {task_title} and stick {event_title2} in {date2}"],
+    "and_tt": ["remind me to {task_title} and {task_title2}"],
+    "joiner_then_et": ["{event_title} at {time}, then i've got to {task_title2}"],
+    "also_ee": ["{event_title} {date}, also {event_title2} {date2}"],
+    "mixed_create_delete": ["scrap {event_title2} and book in {event_title} {date}"],
+    "three_ask": ["{event_title} at {time} and {event_title2} at {time2} and remind me to {task_title3}"]
+  }
+}

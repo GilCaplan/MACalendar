@@ -1,0 +1,1168 @@
+{
+ "_comment": [
+  "SIZE-TIER extension of ../ask_patterns.json (2026-10-01). Read ONLY by",
+  "`gen_realspeech --tier 10k|40k`; the base build never opens this file, so",
+  "the committed 1,200 rows cannot move. Merge rule (gen_realspeech.merge_banks):",
+  "`asks` and new `structures` are ADDED (a key collision is an error); a",
+  "structure already in the base file gets the extra `registers` listed here",
+  "appended, which yields NEW family slugs and leaves every base slug as it was.",
+  "Three registers are new here — hedge (tentative: 'i think', 'maybe'), narr",
+  "(narrated: 'so tomorrow at 3 i've got'), frag (dictated fragments) — and two",
+  "ask classes: c = complete_todo, r = delete_todo. Everything is invented and",
+  "generic, written for this file; same placeholder contract as the base."
+ ],
+ "asks": {
+  "e_imp_pencil": {
+   "action": "create_event",
+   "register": "imp",
+   "template": "pencil in {event_title} for {date} at {time}",
+   "content": "event"
+  },
+  "e_imp_blockout": {
+   "action": "create_event",
+   "register": "imp",
+   "template": "block out {date} at {time} for {event_title}",
+   "content": "event"
+  },
+  "e_imp_stick": {
+   "action": "create_event",
+   "register": "imp",
+   "template": "stick {event_title} in for {date} at {time}",
+   "content": "event"
+  },
+  "e_imp_calendar": {
+   "action": "create_event",
+   "register": "imp",
+   "template": "put {event_title} in the calendar {date} at {time}",
+   "content": "event"
+  },
+  "e_imp_called": {
+   "action": "create_event",
+   "register": "imp",
+   "template": "add an event called {event_title} {date} at {time}",
+   "content": "event"
+  },
+  "e_imp_entry": {
+   "action": "create_event",
+   "register": "imp",
+   "template": "make a calendar entry for {event_title} on {date} at {time}",
+   "content": "event"
+  },
+  "e_imp_compound": {
+   "action": "create_event",
+   "register": "imp",
+   "template": "add {event_title} on {date} at {time}",
+   "content": "compound"
+  },
+  "e_imp_loan2": {
+   "action": "create_event",
+   "register": "imp",
+   "template": "schedule {event_title} {date} at {time}",
+   "content": "loanword"
+  },
+  "e_decl_gotten": {
+   "action": "create_event",
+   "register": "decl",
+   "template": "i've got {event_title} {date} at {time}",
+   "content": "event"
+  },
+  "e_decl_happening": {
+   "action": "create_event",
+   "register": "decl",
+   "template": "{event_title} is happening {date} at {time}",
+   "content": "event"
+  },
+  "e_decl_doing": {
+   "action": "create_event",
+   "register": "decl",
+   "template": "we're doing {event_title} {date} at {time}",
+   "content": "event"
+  },
+  "e_decl_goingto": {
+   "action": "create_event",
+   "register": "decl",
+   "template": "i'm going to {event_title} on {date} at {time}",
+   "content": "loanword"
+  },
+  "e_decl_theres_name": {
+   "action": "create_event",
+   "register": "decl",
+   "template": "there's {event_title} with {name} {date} at {time}",
+   "content": "event"
+  },
+  "e_bare_commas": {
+   "action": "create_event",
+   "register": "bare",
+   "template": "{event_title}, {date}, {time}",
+   "content": "event"
+  },
+  "e_bare_time_first": {
+   "action": "create_event",
+   "register": "bare",
+   "template": "{event_title} at {time} {date}",
+   "content": "event"
+  },
+  "e_bare_date_comma": {
+   "action": "create_event",
+   "register": "bare",
+   "template": "{date}, {event_title}, at {time}",
+   "content": "event"
+  },
+  "e_pol_mind": {
+   "action": "create_event",
+   "register": "pol",
+   "template": "would you mind adding {event_title} on {date} at {time}",
+   "content": "event"
+  },
+  "e_pol_pleaseput": {
+   "action": "create_event",
+   "register": "pol",
+   "template": "could you please put {event_title} in for {date} at {time}",
+   "content": "event"
+  },
+  "e_pol_great": {
+   "action": "create_event",
+   "register": "pol",
+   "template": "if you could book {event_title} {date} at {time} that would be great",
+   "content": "event"
+  },
+  "e_hedge_think": {
+   "action": "create_event",
+   "register": "hedge",
+   "template": "i think i have {event_title} {date} at {time}, can you add it",
+   "content": "event"
+  },
+  "e_hedge_maybe": {
+   "action": "create_event",
+   "register": "hedge",
+   "template": "maybe put {event_title} in for {date} at {time}",
+   "content": "event"
+  },
+  "e_hedge_sure": {
+   "action": "create_event",
+   "register": "hedge",
+   "template": "i'm pretty sure {event_title} is {date} at {time}, add that",
+   "content": "event"
+  },
+  "e_hedge_probably": {
+   "action": "create_event",
+   "register": "hedge",
+   "template": "probably {event_title} {date} at {time}, put it down",
+   "content": "event"
+  },
+  "e_hedge_loan": {
+   "action": "create_event",
+   "register": "hedge",
+   "template": "i think {event_title} is {date} at {time}",
+   "content": "loanword"
+  },
+  "e_narr_sogot": {
+   "action": "create_event",
+   "register": "narr",
+   "template": "so {date} at {time} i've got {event_title}",
+   "content": "event"
+  },
+  "e_narr_doing": {
+   "action": "create_event",
+   "register": "narr",
+   "template": "{date} i'm doing {event_title} at {time}",
+   "content": "event"
+  },
+  "e_narr_okso": {
+   "action": "create_event",
+   "register": "narr",
+   "template": "okay so {date} there's {event_title} at {time}",
+   "content": "event"
+  },
+  "e_narr_with": {
+   "action": "create_event",
+   "register": "narr",
+   "template": "and {date} at {time} we have {event_title} with {name}",
+   "content": "event"
+  },
+  "e_narr_compound": {
+   "action": "create_event",
+   "register": "narr",
+   "template": "so {date} at {time} there's {event_title}",
+   "content": "compound"
+  },
+  "e_frag_dash": {
+   "action": "create_event",
+   "register": "frag",
+   "template": "{event_title} - {date} - {time}",
+   "content": "event"
+  },
+  "e_frag_calendar": {
+   "action": "create_event",
+   "register": "frag",
+   "template": "calendar, {event_title}, {date}, {time}",
+   "content": "event"
+  },
+  "e_frag_new": {
+   "action": "create_event",
+   "register": "frag",
+   "template": "new event {event_title} {date} {time}",
+   "content": "event"
+  },
+  "e_frag_loan": {
+   "action": "create_event",
+   "register": "frag",
+   "template": "{event_title} {date} {time}",
+   "content": "loanword"
+  },
+  "t_imp_todolist": {
+   "action": "create_todo",
+   "register": "imp",
+   "template": "add {task_title} to the to-do list",
+   "content": "task"
+  },
+  "t_imp_maketask": {
+   "action": "create_todo",
+   "register": "imp",
+   "template": "make a task to {task_title}",
+   "content": "task"
+  },
+  "t_imp_note": {
+   "action": "create_todo",
+   "register": "imp",
+   "template": "make a note to {task_title}",
+   "content": "task"
+  },
+  "t_imp_pickup": {
+   "action": "create_todo",
+   "register": "imp",
+   "template": "remind me to pick up {item}",
+   "content": "item"
+  },
+  "t_decl_gotto": {
+   "action": "create_todo",
+   "register": "decl",
+   "template": "i've got to {task_title}",
+   "content": "task"
+  },
+  "t_decl_should": {
+   "action": "create_todo",
+   "register": "decl",
+   "template": "i should {task_title}",
+   "content": "task"
+  },
+  "t_decl_still": {
+   "action": "create_todo",
+   "register": "decl",
+   "template": "i still need to {task_title}",
+   "content": "task"
+  },
+  "t_decl_runout": {
+   "action": "create_todo",
+   "register": "decl",
+   "template": "we're out of {item}, i need to get some",
+   "content": "item"
+  },
+  "t_bare_todo": {
+   "action": "create_todo",
+   "register": "bare",
+   "template": "to do, {task_title}",
+   "content": "task"
+  },
+  "t_bare_sometime": {
+   "action": "create_todo",
+   "register": "bare",
+   "template": "{task_title} at some point",
+   "content": "task"
+  },
+  "t_pol_tasks": {
+   "action": "create_todo",
+   "register": "pol",
+   "template": "could you add {task_title} to my tasks",
+   "content": "task"
+  },
+  "t_pol_would": {
+   "action": "create_todo",
+   "register": "pol",
+   "template": "would you remind me to {task_title}",
+   "content": "task"
+  },
+  "t_pol_listplease": {
+   "action": "create_todo",
+   "register": "pol",
+   "template": "can you put {task_title} on the list please",
+   "content": "task"
+  },
+  "t_hedge_think": {
+   "action": "create_todo",
+   "register": "hedge",
+   "template": "i think i need to {task_title}, add it",
+   "content": "task"
+  },
+  "t_hedge_maybe": {
+   "action": "create_todo",
+   "register": "hedge",
+   "template": "maybe remind me to {task_title}",
+   "content": "task"
+  },
+  "t_hedge_probably": {
+   "action": "create_todo",
+   "register": "hedge",
+   "template": "i should probably {task_title}, put it on the list",
+   "content": "task"
+  },
+  "t_hedge_poss": {
+   "action": "create_todo",
+   "register": "hedge",
+   "template": "i think i'm meant to {task_title}",
+   "content": "possessive"
+  },
+  "t_narr_later": {
+   "action": "create_todo",
+   "register": "narr",
+   "template": "so later i need to {task_title}",
+   "content": "task"
+  },
+  "t_narr_also": {
+   "action": "create_todo",
+   "register": "narr",
+   "template": "oh and i have to {task_title} at some point",
+   "content": "task"
+  },
+  "t_frag_todo": {
+   "action": "create_todo",
+   "register": "frag",
+   "template": "todo {task_title}",
+   "content": "task"
+  },
+  "t_frag_task": {
+   "action": "create_todo",
+   "register": "frag",
+   "template": "task, {task_title}",
+   "content": "task"
+  },
+  "t_frag_buy": {
+   "action": "create_todo",
+   "register": "frag",
+   "template": "buy {item}",
+   "content": "item"
+  },
+  "q_imp_check": {
+   "action": "query",
+   "register": "imp",
+   "template": "check my calendar for {query_range}"
+  },
+  "q_imp_tell": {
+   "action": "query",
+   "register": "imp",
+   "template": "tell me what's happening {query_range}"
+  },
+  "q_imp_read": {
+   "action": "query",
+   "register": "imp",
+   "template": "read out my schedule for {query_range}"
+  },
+  "q_decl_want": {
+   "action": "query",
+   "register": "decl",
+   "template": "i want to know what i have {query_range}"
+  },
+  "q_decl_wonder": {
+   "action": "query",
+   "register": "decl",
+   "template": "i'm wondering what's on {query_range}"
+  },
+  "q_pol_could": {
+   "action": "query",
+   "register": "pol",
+   "template": "could you tell me what's on {query_range}"
+  },
+  "q_pol_would": {
+   "action": "query",
+   "register": "pol",
+   "template": "would you check what i have {query_range}"
+  },
+  "q_hedge_free": {
+   "action": "query",
+   "register": "hedge",
+   "template": "i think i'm free {query_range}, can you check"
+  },
+  "q_hedge_might": {
+   "action": "query",
+   "register": "hedge",
+   "template": "do i have anything {query_range}, i might"
+  },
+  "q_narr_so": {
+   "action": "query",
+   "register": "narr",
+   "template": "so what's happening {query_range}"
+  },
+  "q_frag_sched": {
+   "action": "query",
+   "register": "frag",
+   "template": "schedule {query_range}"
+  },
+  "q_frag_cal": {
+   "action": "query",
+   "register": "frag",
+   "template": "calendar for {query_range}"
+  },
+  "q_bare_whatson": {
+   "action": "query",
+   "register": "bare",
+   "template": "{query_range}, what's on"
+  },
+  "u_imp_push": {
+   "action": "update_event",
+   "register": "imp",
+   "template": "push {event_title} on {date} to {time}",
+   "content": "event"
+  },
+  "u_imp_shift": {
+   "action": "update_event",
+   "register": "imp",
+   "template": "shift the meeting on {date} to {time}"
+  },
+  "u_imp_change": {
+   "action": "update_event",
+   "register": "imp",
+   "template": "change {event_title} on {date} to {time}",
+   "content": "event"
+  },
+  "u_imp_resched": {
+   "action": "update_event",
+   "register": "imp",
+   "template": "reschedule {event_title} on {date} to {time}",
+   "content": "event"
+  },
+  "u_decl_moved": {
+   "action": "update_event",
+   "register": "decl",
+   "template": "{event_title} on {date} moved to {time}",
+   "content": "event"
+  },
+  "u_decl_now": {
+   "action": "update_event",
+   "register": "decl",
+   "template": "the meeting on {date} is now at {time}"
+  },
+  "u_pol_could": {
+   "action": "update_event",
+   "register": "pol",
+   "template": "could you move {event_title} on {date} to {time}",
+   "content": "event"
+  },
+  "u_pol_would": {
+   "action": "update_event",
+   "register": "pol",
+   "template": "would you push the meeting on {date} to {time}"
+  },
+  "u_hedge_think": {
+   "action": "update_event",
+   "register": "hedge",
+   "template": "i think {event_title} on {date} is actually at {time}, can you change it",
+   "content": "event"
+  },
+  "u_narr_got": {
+   "action": "update_event",
+   "register": "narr",
+   "template": "so {event_title} on {date} got moved to {time}",
+   "content": "event"
+  },
+  "u_frag_now": {
+   "action": "update_event",
+   "register": "frag",
+   "template": "{event_title} {date} now {time}",
+   "content": "event"
+  },
+  "u_bare_make": {
+   "action": "update_event",
+   "register": "bare",
+   "template": "{event_title} on {date}, make it {time}",
+   "content": "event"
+  },
+  "d_imp_scrap": {
+   "action": "delete_event",
+   "register": "imp",
+   "template": "scrap {event_title} on {date}",
+   "content": "event"
+  },
+  "d_imp_rid": {
+   "action": "delete_event",
+   "register": "imp",
+   "template": "get rid of {event_title} on {date}",
+   "content": "event"
+  },
+  "d_imp_clear": {
+   "action": "delete_event",
+   "register": "imp",
+   "template": "clear {event_title} from {date}",
+   "content": "event"
+  },
+  "d_imp_drop": {
+   "action": "delete_event",
+   "register": "imp",
+   "template": "drop the meeting on {date} at {time}"
+  },
+  "d_decl_cancelled": {
+   "action": "delete_event",
+   "register": "decl",
+   "template": "{event_title} on {date} is cancelled",
+   "content": "event"
+  },
+  "d_decl_notgoing": {
+   "action": "delete_event",
+   "register": "decl",
+   "template": "i'm not going to {event_title} on {date} anymore",
+   "content": "event"
+  },
+  "d_pol_remove": {
+   "action": "delete_event",
+   "register": "pol",
+   "template": "could you remove {event_title} from {date}",
+   "content": "event"
+  },
+  "d_pol_name_cancel": {
+   "action": "delete_event",
+   "register": "pol",
+   "template": "would you cancel the meeting with {name} on {date}"
+  },
+  "d_hedge_think": {
+   "action": "delete_event",
+   "register": "hedge",
+   "template": "i don't think i'm doing {event_title} on {date}, cancel it",
+   "content": "event"
+  },
+  "d_narr_off": {
+   "action": "delete_event",
+   "register": "narr",
+   "template": "so {event_title} on {date} is off",
+   "content": "event"
+  },
+  "d_frag_cancelled": {
+   "action": "delete_event",
+   "register": "frag",
+   "template": "{event_title} {date} cancelled",
+   "content": "event"
+  },
+  "d_bare_cancel": {
+   "action": "delete_event",
+   "register": "bare",
+   "template": "{event_title} on {date}, cancel",
+   "content": "event"
+  },
+  "c_imp_mark": {
+   "action": "complete_todo",
+   "register": "imp",
+   "template": "mark {task_title} as done",
+   "content": "task"
+  },
+  "c_imp_tick": {
+   "action": "complete_todo",
+   "register": "imp",
+   "template": "tick off {task_title}",
+   "content": "task"
+  },
+  "c_imp_check": {
+   "action": "complete_todo",
+   "register": "imp",
+   "template": "check off {task_title}",
+   "content": "task"
+  },
+  "c_decl_done": {
+   "action": "complete_todo",
+   "register": "decl",
+   "template": "{task_title} is done",
+   "content": "task"
+  },
+  "c_decl_finished": {
+   "action": "complete_todo",
+   "register": "decl",
+   "template": "{task_title} is finished now",
+   "content": "task"
+  },
+  "c_pol_could": {
+   "action": "complete_todo",
+   "register": "pol",
+   "template": "could you mark {task_title} as done",
+   "content": "task"
+  },
+  "c_hedge_think": {
+   "action": "complete_todo",
+   "register": "hedge",
+   "template": "i think {task_title} is done, tick it off",
+   "content": "task"
+  },
+  "c_frag_done": {
+   "action": "complete_todo",
+   "register": "frag",
+   "template": "{task_title} done",
+   "content": "task"
+  },
+  "c_frag_donecolon": {
+   "action": "complete_todo",
+   "register": "frag",
+   "template": "done, {task_title}",
+   "content": "task"
+  },
+  "r_imp_takeoff": {
+   "action": "delete_todo",
+   "register": "imp",
+   "template": "take {task_title} off my list",
+   "content": "task"
+  },
+  "r_imp_remove": {
+   "action": "delete_todo",
+   "register": "imp",
+   "template": "remove {task_title} from my tasks",
+   "content": "task"
+  },
+  "r_imp_delete": {
+   "action": "delete_todo",
+   "register": "imp",
+   "template": "delete the task {task_title}",
+   "content": "task"
+  },
+  "r_decl_noneed": {
+   "action": "delete_todo",
+   "register": "decl",
+   "template": "i don't need to {task_title} anymore",
+   "content": "task"
+  },
+  "r_pol_could": {
+   "action": "delete_todo",
+   "register": "pol",
+   "template": "could you take {task_title} off the list",
+   "content": "task"
+  },
+  "r_hedge_probably": {
+   "action": "delete_todo",
+   "register": "hedge",
+   "template": "i probably don't need to {task_title}, remove it",
+   "content": "task"
+  },
+  "r_frag_off": {
+   "action": "delete_todo",
+   "register": "frag",
+   "template": "{task_title} off the list",
+   "content": "task"
+  },
+  "e_imp_book_name": {
+   "action": "create_event",
+   "register": "imp",
+   "template": "book {event_title} with {name} {date} at {time}",
+   "content": "event"
+  },
+  "e_imp_setup_name": {
+   "action": "create_event",
+   "register": "imp",
+   "template": "set up a meeting with {name} {date} at {time}"
+  },
+  "e_decl_seeing": {
+   "action": "create_event",
+   "register": "decl",
+   "template": "i'm seeing {name} {date} at {time} for {event_title}",
+   "content": "event"
+  },
+  "e_decl_name_loan": {
+   "action": "create_event",
+   "register": "decl",
+   "template": "i've got {event_title} with {name} {date} at {time}",
+   "content": "loanword"
+  },
+  "e_pol_name_meeting": {
+   "action": "create_event",
+   "register": "pol",
+   "template": "could you put in a meeting with {name} {date} at {time}"
+  },
+  "e_pol_loan3": {
+   "action": "create_event",
+   "register": "pol",
+   "template": "would you book {event_title} for {date} at {time}",
+   "content": "loanword"
+  },
+  "e_hedge_name": {
+   "action": "create_event",
+   "register": "hedge",
+   "template": "i think i'm meeting {name} {date} at {time}, add it"
+  },
+  "e_hedge_cmp": {
+   "action": "create_event",
+   "register": "hedge",
+   "template": "maybe {event_title} {date} at {time}",
+   "content": "compound"
+  },
+  "e_narr_name": {
+   "action": "create_event",
+   "register": "narr",
+   "template": "so {date} at {time} i'm meeting {name} about {event_title}",
+   "content": "event"
+  },
+  "e_frag_name": {
+   "action": "create_event",
+   "register": "frag",
+   "template": "{name}, {event_title}, {date} {time}",
+   "content": "event"
+  },
+  "e_frag_cmp": {
+   "action": "create_event",
+   "register": "frag",
+   "template": "{event_title}, {date}, {time}",
+   "content": "compound"
+  },
+  "e_bare_name_cmp": {
+   "action": "create_event",
+   "register": "bare",
+   "template": "{event_title} with {name} {date} at {time}",
+   "content": "compound"
+  },
+  "t_frag_poss": {
+   "action": "create_todo",
+   "register": "frag",
+   "template": "todo {task_title}",
+   "content": "possessive"
+  },
+  "t_narr_poss": {
+   "action": "create_todo",
+   "register": "narr",
+   "template": "so later i need to {task_title}",
+   "content": "possessive"
+  },
+  "t_decl_cmp": {
+   "action": "create_todo",
+   "register": "decl",
+   "template": "i need to get {item}",
+   "content": "compound"
+  },
+  "u_hedge_name": {
+   "action": "update_event",
+   "register": "hedge",
+   "template": "i think the meeting with {name} on {date} is at {time} now, change it"
+  },
+  "u_narr_name": {
+   "action": "update_event",
+   "register": "narr",
+   "template": "so the meeting with {name} on {date} moved to {time}"
+  },
+  "u_pol_name2": {
+   "action": "update_event",
+   "register": "pol",
+   "template": "could you move my meeting with {name} on {date} to {time}"
+  },
+  "d_hedge_name": {
+   "action": "delete_event",
+   "register": "hedge",
+   "template": "i'm not meeting {name} on {date} anymore, cancel it"
+  },
+  "d_narr_name": {
+   "action": "delete_event",
+   "register": "narr",
+   "template": "so the meeting with {name} on {date} is off"
+  },
+  "d_frag_name": {
+   "action": "delete_event",
+   "register": "frag",
+   "template": "meeting with {name} {date} cancelled"
+  },
+  "d_imp_name2": {
+   "action": "delete_event",
+   "register": "imp",
+   "template": "scrap the meeting with {name} on {date}"
+  }
+ },
+ "structures": {
+  "e1": {
+   "asks": [
+    "e"
+   ],
+   "registers": [
+    "hedge",
+    "narr",
+    "frag"
+   ]
+  },
+  "t1": {
+   "asks": [
+    "t"
+   ],
+   "registers": [
+    "hedge",
+    "narr",
+    "frag"
+   ]
+  },
+  "q1": {
+   "asks": [
+    "q"
+   ],
+   "registers": [
+    "decl",
+    "hedge",
+    "narr",
+    "frag",
+    "bare"
+   ]
+  },
+  "u1": {
+   "asks": [
+    "u"
+   ],
+   "registers": [
+    "hedge",
+    "narr",
+    "frag",
+    "bare"
+   ]
+  },
+  "d1": {
+   "asks": [
+    "d"
+   ],
+   "registers": [
+    "decl",
+    "hedge",
+    "narr",
+    "frag",
+    "bare"
+   ]
+  },
+  "c1": {
+   "asks": [
+    "c"
+   ],
+   "registers": [
+    "imp",
+    "decl",
+    "pol",
+    "hedge",
+    "frag"
+   ]
+  },
+  "r1": {
+   "asks": [
+    "r"
+   ],
+   "registers": [
+    "imp",
+    "decl",
+    "pol",
+    "hedge",
+    "frag"
+   ]
+  },
+  "ee2": {
+   "asks": [
+    "e",
+    "e"
+   ],
+   "registers": [
+    "pol",
+    "hedge",
+    "narr",
+    "frag"
+   ]
+  },
+  "tt2": {
+   "asks": [
+    "t",
+    "t"
+   ],
+   "registers": [
+    "pol",
+    "frag",
+    "hedge"
+   ]
+  },
+  "et2": {
+   "asks": [
+    "e",
+    "t"
+   ],
+   "registers": [
+    "pol",
+    "narr",
+    "hedge"
+   ]
+  },
+  "te2": {
+   "asks": [
+    "t",
+    "e"
+   ],
+   "registers": [
+    "narr",
+    "frag"
+   ]
+  },
+  "eq2": {
+   "asks": [
+    "e",
+    "q"
+   ],
+   "registers": [
+    "pol",
+    "decl"
+   ]
+  },
+  "ed2": {
+   "asks": [
+    "e",
+    "d"
+   ],
+   "registers": [
+    "decl",
+    "narr"
+   ]
+  },
+  "eu2": {
+   "asks": [
+    "e",
+    "u"
+   ],
+   "registers": [
+    "pol",
+    "narr"
+   ]
+  },
+  "tq2": {
+   "asks": [
+    "t",
+    "q"
+   ],
+   "registers": [
+    "imp",
+    "decl"
+   ]
+  },
+  "de2": {
+   "asks": [
+    "d",
+    "e"
+   ],
+   "registers": [
+    "imp",
+    "pol",
+    "narr"
+   ]
+  },
+  "ec2": {
+   "asks": [
+    "e",
+    "c"
+   ],
+   "registers": [
+    "imp",
+    "decl"
+   ]
+  },
+  "tr2": {
+   "asks": [
+    "t",
+    "r"
+   ],
+   "registers": [
+    "imp",
+    "frag"
+   ]
+  },
+  "ut2": {
+   "asks": [
+    "u",
+    "t"
+   ],
+   "registers": [
+    "imp",
+    "pol"
+   ]
+  },
+  "dt2": {
+   "asks": [
+    "d",
+    "t"
+   ],
+   "registers": [
+    "imp",
+    "narr"
+   ]
+  },
+  "ct2": {
+   "asks": [
+    "c",
+    "t"
+   ],
+   "registers": [
+    "imp",
+    "decl"
+   ]
+  },
+  "qe2": {
+   "asks": [
+    "q",
+    "e"
+   ],
+   "registers": [
+    "imp",
+    "hedge"
+   ]
+  },
+  "eee3": {
+   "asks": [
+    "e",
+    "e",
+    "e"
+   ],
+   "registers": [
+    "narr",
+    "frag"
+   ]
+  },
+  "eet3": {
+   "asks": [
+    "e",
+    "e",
+    "t"
+   ],
+   "registers": [
+    "narr",
+    "pol"
+   ]
+  },
+  "ttt3": {
+   "asks": [
+    "t",
+    "t",
+    "t"
+   ],
+   "registers": [
+    "frag"
+   ]
+  },
+  "ett3": {
+   "asks": [
+    "e",
+    "t",
+    "t"
+   ],
+   "registers": [
+    "imp",
+    "decl",
+    "narr"
+   ]
+  },
+  "tee3": {
+   "asks": [
+    "t",
+    "e",
+    "e"
+   ],
+   "registers": [
+    "imp",
+    "hedge"
+   ]
+  },
+  "eqt3": {
+   "asks": [
+    "e",
+    "q",
+    "t"
+   ],
+   "registers": [
+    "imp"
+   ]
+  },
+  "edt3": {
+   "asks": [
+    "e",
+    "d",
+    "t"
+   ],
+   "registers": [
+    "imp",
+    "pol"
+   ]
+  },
+  "ctt3": {
+   "asks": [
+    "c",
+    "t",
+    "t"
+   ],
+   "registers": [
+    "imp"
+   ]
+  },
+  "eeee4": {
+   "asks": [
+    "e",
+    "e",
+    "e",
+    "e"
+   ],
+   "registers": [
+    "narr"
+   ]
+  },
+  "tttt4": {
+   "asks": [
+    "t",
+    "t",
+    "t",
+    "t"
+   ],
+   "registers": [
+    "imp",
+    "frag"
+   ]
+  },
+  "etet4": {
+   "asks": [
+    "e",
+    "t",
+    "e",
+    "t"
+   ],
+   "registers": [
+    "imp",
+    "narr"
+   ]
+  },
+  "edtt4": {
+   "asks": [
+    "e",
+    "d",
+    "t",
+    "t"
+   ],
+   "registers": [
+    "imp"
+   ]
+  }
+ },
+ "null_texts": [
+  "hello?",
+  "is this on",
+  "testing testing",
+  "sorry wrong button",
+  "ignore that",
+  "cancel that",
+  "forget it",
+  "no no no",
+  "wait wait",
+  "hang on a sec",
+  "uh what was i",
+  "let me think",
+  "what was i going to say",
+  "oops",
+  "not now",
+  "stop",
+  "okay never mind",
+  "hmm hold on",
+  "where was i",
+  "that's all",
+  "nothing",
+  "hello",
+  "erm",
+  "right so um",
+  "can you hear me",
+  "i forgot",
+  "oh never mind then",
+  "give me a sec",
+  "no actually",
+  "ok bye"
+ ]
+}

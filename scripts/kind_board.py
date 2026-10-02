@@ -218,8 +218,13 @@ def main() -> int:
     ap.add_argument("--dataset", default="all", choices=["all", *DATASETS])
     from assistant.engine.fastrule.datasets import tiers as _sizes
     _sizes.add_argument(ap)  # --size base|20k|40k|80k: the FastRule set's size tier
+    from scripts.dataset_tiers import add_argument as _add_tier, resolve as _resolve
+    _add_tier(ap)            # --data-tier base|10k|40k: the persona and real-speech sets
     args = ap.parse_args()
     DATASETS["fastrule"] = _sizes.ensure(args.size)
+    if args.data_tier != "base":
+        DATASETS["personas"] = _resolve("personas", args.data_tier)
+        DATASETS["realspeech"] = _resolve("realspeech", args.data_tier)
 
     # The leakage rule: the held-back half reports aggregates, never rows.
     show_rows = args.split == "train"

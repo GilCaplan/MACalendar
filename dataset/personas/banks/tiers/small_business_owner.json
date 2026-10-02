@@ -1,0 +1,60 @@
+{
+  "persona": {
+    "id": "small_business_owner",
+    "label": "Owner of a small bakery-café",
+    "role": "SIZE-TIER persona (10k / 40k only) — brisk first-person plural, trade vocabulary",
+    "speech_habits": [
+      "'we' and 'the shop' rather than 'i'; asks framed as what the business needs",
+      "suppliers, deliveries and staff as the subjects of most events",
+      "brisk and friendly: 'can we', 'let's get', 'stick it in for us'",
+      "money and paperwork tasks said as chores to chase ('chase', 'sort', 'get')"
+    ],
+    "action_bias": "task-heavy admin plus a delivery and supplier calendar; frequent reschedules",
+    "leak_note": "The business, suppliers and staff are invented for the size tiers; none was taken from any real person or transcript — and the leak gate runs on every tier build (see PERSONAS.md § Size tiers for what it currently reads)."
+  },
+  "fillers": {
+    "names": ["Benedikt", "Lorna", "Mateo", "Hanne", "Rashid", "Tilly", "Gideon", "Annika", "Bertie", "Constance", "Desmond", "Elodie", "Fergus", "Ginevra", "Horatio", "Isolde"],
+    "event_titles": ["the supplier tasting", "the flour delivery", "the accountant meeting", "the shop fit-out", "staff training", "the market stall", "the health inspection", "the till engineer visit", "the window display reshoot", "the stocktake", "the landlord walkthrough", "the wholesale order review", "the farmers market", "the staff party", "the new oven install", "the pop-up event", "the photographer shoot", "the business bank review", "the insurance review", "the trial shift for Lorna", "the delivery van service", "the coffee machine descale visit"],
+    "task_titles": ["order more cake boxes", "chase the unpaid invoice", "update the price list", "pay the quarterly tax", "post on the shop page", "reorder the paper bags", "fix the card reader", "renew the food hygiene certificate", "print the loyalty cards", "reply to the catering enquiry", "count the float", "send out the staff rota", "clean the display fridge", "book the window cleaner", "file the supplier receipts", "top up the till roll", "change the chalkboard menu", "sort the waste collection"],
+    "items": ["strong flour", "caster sugar", "free range eggs", "unsalted butter", "takeaway cups", "cake boxes", "paper bags", "oat milk cartons", "vanilla pods", "baking parchment", "napkins", "till rolls", "blue roll", "coffee beans", "lemons"],
+    "occasions": ["the shop's anniversary", "the bank holiday closure", "the street fair", "the refit week", "stocktake day", "the summer sale", "the christmas order cutoff", "our first day open on sundays", "the price change day", "the deep clean day"],
+    "quotable": ["the supplier tasting", "the flour delivery", "staff training", "the market stall", "the stocktake", "the farmers market", "the staff party", "the pop-up event", "the business bank review", "the insurance review"],
+    "filler_words": ["right", "so", "okay", "um", "listen", "basically", "anyway", "yeah"]
+  },
+  "mix": {"ct_bare": 1.6, "ct_dated": 1.5, "ct_buy": 1.4, "ce_datetime": 1.3, "ue_move": 1.3, "ut_change": 1.2, "and_tt": 1.2, "and_et": 1.1, "q_todos": 1.1, "ce_allday": 0.8},
+  "templates": {
+    "ce_datetime": ["stick {event_title} in for us {date} at {time}", "we've got {event_title} {date} at {time}"],
+    "ce_date_only": ["we've got {event_title} {date}", "can we put {event_title} in for {date}"],
+    "ce_time_only": ["{event_title} at {time}, put it in for us"],
+    "ce_attendee": ["we're doing {event_title} with {name} {date}"],
+    "ce_recurring": ["we do {event_title} {recurrence} at {time}, put that in", "set up {event_title} for the shop {recurrence} at {time}"],
+    "ce_allday": ["{date} is {occasion} for the shop"],
+    "ct_bare": ["we need to {task_title}", "can we remember to {task_title}"],
+    "ct_dated": ["we need to {task_title} {date}", "let's get {task_title} done {date}"],
+    "ct_buy": ["we're low, order {qty} {item}"],
+    "q_schedule": ["what has the shop got on {query_range}"],
+    "q_todos": ["what's still on the shop list {query_range}"],
+    "de_named": ["we're not doing {event_title} {date}, cancel it"],
+    "dt_named": ["take {task_title} off the shop list"],
+    "comp_todo": ["we've done {task_title}, tick it off"],
+    "ue_move": ["can we push {event_title} to {time}"],
+    "ut_change": ["move {task_title} to {date} for us"],
+    "npdecoy_attendees": ["{event_title} with {name} and {name2} at {time}, put it in"],
+    "npdecoy_items": ["we need {item} and {item2}"],
+    "time_range": ["we've got {event_title} {time_range}"],
+    "leadtime": ["{event_title} {date} at {time}, give us a nudge {lead_time}"],
+    "polite_request": ["could you book {event_title} in for us {date} at {time}"],
+    "propose_q": ["should we book {event_title} for {date}"],
+    "quoted_delete": ["take '{quoted_item}' out of the calendar"],
+    "generic_delete": ["get rid of {generic_target}"],
+    "ramble_ce": ["{filler} we've got {event_title} {date} at {time} {filler2}"],
+    "and_ee": ["we've got {event_title} {date} at {time} and {event_title2} at {time2}"],
+    "and_et": ["stick {event_title} in {date} at {time} and we need to {task_title2}"],
+    "and_te": ["we need to {task_title} and we've got {event_title2} {date2}"],
+    "and_tt": ["we need to {task_title} and {task_title2}"],
+    "joiner_then_et": ["{event_title} at {time}, then we need to {task_title2}"],
+    "also_ee": ["{event_title} {date} and also {event_title2} {date2}"],
+    "mixed_create_delete": ["cancel {event_title2} and put {event_title} in for {date}"],
+    "three_ask": ["{event_title} at {time} and {event_title2} at {time2} and we need to {task_title3}"]
+  }
+}

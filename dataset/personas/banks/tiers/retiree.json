@@ -1,0 +1,79 @@
+{
+  "_comment": "SIZE-TIER extension for `retiree` (2026-10-01): read ONLY by `gen_personas --tier 10k|40k`. Each filler list is APPENDED to the persona's own list of the same name; each template list adds VARIANTS to a structure (new family ids `retiree:<structure>:<k>` after the base variants). Same voice, same invented-content rule; the leak gate runs on every tier build.",
+  "fillers": {
+    "names": [
+      "Beryl",
+      "Desmond",
+      "Edna",
+      "Lionel",
+      "Muriel",
+      "Percival"
+    ],
+    "event_titles": [
+      "the library talk",
+      "the whist drive",
+      "the bus trip to the abbey",
+      "the over sixties exercise class",
+      "the church flower rota",
+      "the u3a history group",
+      "the optician",
+      "the luncheon club"
+    ],
+    "task_titles": [
+      "write to the gas board",
+      "renew the television licence",
+      "send the christmas cards",
+      "book the chimney sweep",
+      "order the large print books",
+      "return the library audiobooks",
+      "pay the window cleaner",
+      "put the bird feeders out"
+    ],
+    "items": [
+      "fruit cake",
+      "ginger biscuits",
+      "barley water",
+      "plasters",
+      "spare spectacles"
+    ],
+    "occasions": [
+      "the harvest festival",
+      "the bowls club dinner",
+      "my sister's visit"
+    ],
+    "quotable": [
+      "whist drive",
+      "luncheon club",
+      "library talk"
+    ]
+  },
+  "templates": {
+    "ce_datetime": [
+      "i have {event_title} {date} at {time}, would you note it down"
+    ],
+    "ce_date_only": [
+      "would you be good enough to note {event_title} for {date}"
+    ],
+    "ct_bare": [
+      "i must not forget to {task_title}"
+    ],
+    "ct_dated": [
+      "would you remind me to {task_title} {date}, please"
+    ],
+    "q_schedule": [
+      "i should like to know what is in the diary {query_range}"
+    ],
+    "de_named": [
+      "i'm afraid {event_title} {date} has been called off, please remove it"
+    ],
+    "comp_todo": [
+      "i have seen to {task_title}, you may cross it off"
+    ],
+    "ue_move": [
+      "they have changed {event_title} to {time}, would you alter it"
+    ],
+    "and_et": [
+      "i have {event_title} {date} at {time}, and would you remind me to {task_title2}"
+    ]
+  }
+}

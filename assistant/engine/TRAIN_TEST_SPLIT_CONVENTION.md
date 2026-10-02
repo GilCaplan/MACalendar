@@ -24,6 +24,16 @@ also come as 10k / 40k SUPERSETS of the committed base (their ARCHITECTURE.md).
 A tier family takes its set's own rule above, applied to the tier families
 alone, so no committed family ever changes side.
 
+**Size tiers (2026-10-01).** The judge (v1, v2), persona and real-speech sets
+also come as `10k` / `40k` SUPERSETS of the committed file
+(`scripts/dataset_tiers.py`, `dataset/DATASET.md` §"Size tiers"). The rule
+here binds them unchanged: base rows keep their split, a grown row of a base
+family takes that family's split, and a NEW family is split by its set's own
+mechanism — v2 `split_of`; real speech `stratified_split` over the new
+families; v1's grammar rows a stable MD5 of `v1x:<voice>:<shape>:<frame>`
+stratified by the shape's action (its FastRule leftovers keep FastRule's
+split); personas TEST-ONLY. Tests pin "no family on both sides" on every tier.
+
 **Why an existing dataset cannot simply be cut in half.** decompose_validate's
 795 rows were all fitted against — the resolver was tuned until it scored 100%
 on them — so a split carved out of them now would be measuring memorisation, not

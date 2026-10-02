@@ -283,3 +283,147 @@ def subject_for(voice: Voice, subject: str) -> str:
 
 def finish(voice: Voice, text: str) -> str:
     return _finish(voice, text)
+
+
+# ---------------------------------------------------------------------------
+# the TIER voices (2026-10-01) — rendered only in the 10k / 40k tiers
+# ---------------------------------------------------------------------------
+#
+# Six more speaking habits, written fresh for the size tiers. They are NOT the
+# persona sets' new speakers either — `dataset/personas/` is test-only forever,
+# so nothing here was taken from its banks, and its tier personas were written
+# against different habits (a nurse's shift shorthand, a tradesperson's jobs,
+# …) so the two never share a frame. The base `VOICES` list is untouched:
+# `build_commands()` still renders exactly the seven it always did.
+TIER_VOICES = [
+    Voice(
+        id="voice_memo",
+        habit="dictating a note to self — 'note to self', 'memo', a label first",
+        frames={
+            "create_event": ["note to self, {s}", "memo, {s} in the calendar",
+                             "calendar note, {s}"],
+            "create_todo": ["note to self, {s}", "memo to {s}",
+                            "to do note, {s}"],
+            "query_schedule": ["memo, what is in the calendar",
+                               "note, read me the calendar"],
+            "query_todos": ["memo, read me the to do notes",
+                            "note, what is still open"],
+            "update_event": ["memo, shift {s}", "note to self, move {s}"],
+            "delete_event": ["memo, scrap {s}", "note to self, cancel {s}"],
+            "delete_todo": ["memo, strike {s} from the notes",
+                            "note to self, delete {s} from the list"],
+            "complete_todo": ["memo, {s} finished", "note to self, {s} sorted"],
+            "update_anaphor": ["memo, shift {s}", "note to self, move {s}"],
+            "delete_anaphor": ["memo, scrap {s}", "note to self, cancel {s}"],
+        },
+        clock_forms=("colon",),
+    ),
+    Voice(
+        id="texting_shorthand",
+        habit="typed-message register spoken aloud — pls, u, thx, no capitals",
+        frames={
+            "create_event": ["pls add {s}", "can u book {s}", "add {s} thx"],
+            "create_todo": ["pls remind me to {s}", "can u remind me to {s}",
+                            "remind me to {s} thx"],
+            "query_schedule": ["what have i got pls", "can u check what i have"],
+            "query_todos": ["whats on my list pls", "can u check my list"],
+            "update_event": ["pls move {s}", "can u move {s}"],
+            "delete_event": ["pls cancel {s}", "can u cancel {s}"],
+            "delete_todo": ["pls take {s} off my list",
+                            "can u remove {s} from my list"],
+            "complete_todo": ["{s} done thx", "pls mark {s} done"],
+            "update_anaphor": ["pls move {s}", "can u move {s}"],
+            "delete_anaphor": ["pls cancel {s}", "can u cancel {s}"],
+        },
+        clock_forms=("plain_mer",),
+        punctuate=False,
+        lowercase=True,
+    ),
+    Voice(
+        id="hands_free_driver",
+        habit="talking while driving — 'ok', 'hey', 'for me', short and loud",
+        frames={
+            "create_event": ["ok put {s} in for me", "hey add {s}",
+                             "ok calendar, {s}"],
+            "create_todo": ["ok remind me to {s}", "hey i need to {s}",
+                            "ok add {s} to the list for me"],
+            "query_schedule": ["ok what have i got", "hey what is on"],
+            "query_todos": ["ok what is on my list", "hey read me my list"],
+            "update_event": ["ok move {s} for me", "hey shift {s}"],
+            "delete_event": ["ok cancel {s} for me", "hey kill {s}"],
+            "delete_todo": ["ok take {s} off the list for me",
+                            "hey drop {s} from the list"],
+            "complete_todo": ["ok {s} is done", "hey tick off {s} for me"],
+            "update_anaphor": ["ok move {s} for me", "hey shift {s}"],
+            "delete_anaphor": ["ok cancel {s} for me", "hey kill {s}"],
+        },
+        clock_forms=("bare_hour", "oclock"),
+    ),
+    Voice(
+        id="academic",
+        habit="formal and conditional — 'i'd appreciate it', 'might you', 'arrange'",
+        frames={
+            "create_event": ["might you arrange {s}",
+                             "i'd appreciate it if you scheduled {s}",
+                             "please arrange {s}"],
+            "create_todo": ["i'd appreciate a reminder to {s}",
+                            "might you note that i must {s}"],
+            "query_schedule": ["might you summarise my commitments",
+                               "what commitments do i have"],
+            "query_todos": ["might you summarise my outstanding tasks",
+                            "which tasks remain outstanding"],
+            "update_event": ["might you postpone {s}", "please rearrange {s}"],
+            "delete_event": ["might you withdraw {s}", "please call off {s}"],
+            "delete_todo": ["please strike {s} from my task list",
+                            "might you delete {s} from my tasks"],
+            "complete_todo": ["please record {s} as complete",
+                              "might you mark {s} complete"],
+            "update_anaphor": ["might you postpone {s}", "please rearrange {s}"],
+            "delete_anaphor": ["might you withdraw {s}", "please call off {s}"],
+        },
+        clock_forms=("dotted_mer", "colon"),
+    ),
+    Voice(
+        id="sports_coach",
+        habit="clipped team-talk imperatives — 'lock in', 'get it on the board'",
+        frames={
+            "create_event": ["lock in {s}", "get {s} on the board",
+                             "pencil {s} on the board"],
+            "create_todo": ["get it done, {s}", "jobs list, {s}",
+                            "remind me to {s}"],
+            "query_schedule": ["whats on the board", "run me through the board"],
+            "query_todos": ["whats on the jobs list", "run me through the jobs"],
+            "update_event": ["shift {s}", "bump {s}"],
+            "delete_event": ["scratch {s}", "pull {s} off the board"],
+            "delete_todo": ["scratch {s} off the jobs list",
+                            "pull {s} off the jobs"],
+            "complete_todo": ["{s} is sorted", "tick {s} off the jobs"],
+            "update_anaphor": ["shift {s}", "bump {s}"],
+            "delete_anaphor": ["scratch {s}", "pull {s}"],
+        },
+        clock_forms=("compact_ap", "twentyfour"),
+    ),
+    Voice(
+        id="hospitality_manager",
+        habit="front-of-house idiom — 'pop it in the book', 'we've got', 'cheers'",
+        frames={
+            "create_event": ["pop {s} in the book", "we've got {s}, put it in",
+                             "can we book in {s}"],
+            "create_todo": ["can we remember to {s}", "pop {s} on the list",
+                            "we need to {s}"],
+            "query_schedule": ["what's in the book", "what have we got on"],
+            "query_todos": ["what's on our list", "what have we still got to do"],
+            "update_event": ["can we move {s}", "shuffle {s}"],
+            "delete_event": ["take {s} out of the book", "we're not doing {s}"],
+            "delete_todo": ["take {s} off our list", "scrub {s} from the list"],
+            "complete_todo": ["{s} is done, cheers", "tick off {s}, cheers"],
+            "update_anaphor": ["can we move {s}", "shuffle {s}"],
+            "delete_anaphor": ["take {s} out of the book", "scrub {s}"],
+        },
+        clock_forms=("oclock", "plain_mer"),
+    ),
+]
+
+TIER_VOICE_IDS = tuple(v.id for v in TIER_VOICES)
+ALL_VOICES = VOICES + TIER_VOICES
+BY_ID.update({v.id: v for v in TIER_VOICES})

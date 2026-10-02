@@ -266,7 +266,7 @@ def _merge_expect(row: dict, n: int) -> tuple:
     joiner = row["joiner"].split("x")[0]
     if joiner in SEAM_JOINERS:
         seam = {"and_then": " and then ", "also": ". Also, ",
-                "comma_then": ", then "}[joiner]
+                "comma_then": ", then ", "semicolon_then": "; then "}[joiner]
         return "seam", seam, "unsplit_subject", 2
     if n >= 3:
         return "list", None, "coordinated_subject", 3
