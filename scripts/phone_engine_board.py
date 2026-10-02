@@ -6,6 +6,8 @@
     python -m scripts.phone_engine_board --show 30       # print TRAIN misses
     python -m scripts.phone_engine_board --source hwu     # REAL speech: the 2,700 HWU-64 commands
                                                           # outside the sealed 300 (actions only)
+    python -m scripts.phone_engine_board --board-d --split test   # Board D's rows, Board D's scorer:
+                                                          # head to head with the Mac (llama3.1:8b)
 
 **Component: the phone's `LocalEngine`** (MACalendar-iOS/Engine/LocalEngine.swift,
 DEVQA Q85) — the reader a phone with no Mac uses. Scored on the FastRule set's
@@ -147,15 +149,53 @@ def hwu_board(show: int) -> int:
     return 0
 
 
+def board_d(split: str, n: int) -> int:
+    """The phone on EXACTLY Board D's rows, scored by Board D's own `_correct`
+    (right action AND the gold title's words) — so its headline sits beside
+    the Mac's `--product` reading (llama3.1:8b, STATUS.md) on one yardstick.
+    The rows: the FastRule set's `split`, actions create/update/delete/
+    complete, shuffled with seed 31, first `n` — as `board_d.main` picks them."""
+    import random
+    from assistant.engine.llmjudge.experiments import board_d as bd
+    rows = [json.loads(line) for line in bd.DATA.open()]
+    rows = [r for r in rows if r["split"] == split
+            and r["expect"].get("action", "").startswith(("create", "update", "delete", "complete"))]
+    random.Random(31).shuffle(rows)
+    rows = rows[:n]
+    with tempfile.TemporaryDirectory() as tmp:
+        got = read_all(build(pathlib.Path(tmp)), [r["text"] for r in rows])
+    hit = 0
+    by = collections.defaultdict(lambda: [0, 0])
+    for r, g in zip(rows, got):
+        outcome = []
+        for a in g.get("actions") or []:
+            if a.get("op") in ("create", "update", "delete", "complete"):
+                title = a.get("title") if a["op"] == "create" else (a.get("new_title") or a.get("target") or "")
+                outcome.append((f'{a["op"]}_{a.get("kind", "event")}', " ".join(str(title).lower().split())))
+        ok = bd._correct(tuple(sorted(outcome)), r)
+        hit += ok
+        key = r["expect"]["action"]
+        by[key][1] += 1; by[key][0] += ok
+    print(f"\nPHONE ENGINE on BOARD D's rows ({split.upper()}, n={len(rows)}), Board D's scorer (action + title)\n")
+    print(f"  headline correct          {100 * hit / len(rows):5.1f}%  ({hit}/{len(rows)})")
+    for k, (h, m) in sorted(by.items(), key=lambda kv: -kv[1][1]):
+        print(f"    {k:<16} {100 * h / m:5.1f}%  ({h}/{m})")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--source", choices=("fastrule", "hwu"), default="fastrule")
+    ap.add_argument("--board-d", action="store_true", help="Board D's rows and scorer (the Mac comparison)")
+    ap.add_argument("--n", type=int, default=1200)
     ap.add_argument("--split", choices=("train", "test"), default="train")
     ap.add_argument("--size", default="base")
     ap.add_argument("--show", type=int, default=0, help="print this many TRAIN misses per metric")
     a = ap.parse_args(argv)
     if a.source == "hwu":
         return hwu_board(a.show)
+    if a.board_d:
+        return board_d(a.split, a.n)
     data = [r for r in rows(a.size) if r["split"] == a.split and r["expect"].get("atomic")]
     with tempfile.TemporaryDirectory() as tmp:
         exe = build(pathlib.Path(tmp))
