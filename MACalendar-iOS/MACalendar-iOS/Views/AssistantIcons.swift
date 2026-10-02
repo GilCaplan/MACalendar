@@ -238,8 +238,13 @@ struct IconTitle: View {
     let icons: [String]?
     var size: CGFloat = 14
 
+    /// The Mac's answer when it gave one; a row it has not seen (made here
+    /// with no Mac, or offline) is worked out on the phone (`TitleIcons`).
+    private var shown: [String] { icons ?? TitleIcons.icons(for: title) }
+
     var body: some View {
-        if let icons, !icons.isEmpty {
+        let icons = shown
+        if !icons.isEmpty {
             HStack(spacing: 4) {
                 ForEach(icons, id: \.self) { Ico($0, size: size) }
                 Text(title)

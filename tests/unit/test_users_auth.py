@@ -246,3 +246,23 @@ def test_the_admin_signs_a_person_out_everywhere(app_client, people):
     for t in (a, b, d):
         assert app_client.get("/auth/me", headers=_h(t)).status_code == 401
     assert _login(app_client, "dana", "dana-pass").status_code == 200       # password unchanged
+
+
+# ------------------------------------------------------------------ deleting your own account
+
+def test_a_person_can_delete_their_own_account_with_their_password(app_client, people):
+    """App Store 5.1.1(v): an account can be deleted in the app it lives in."""
+    tok = _tok(app_client, "dana", "dana-pass")
+    assert app_client.delete("/auth/me", headers=_h(tok), json={"password": "wrong"}).status_code == 401
+    r = app_client.delete("/auth/me", headers=_h(tok), json={"password": "dana-pass"})
+    assert r.status_code == 200 and r.get_json()["removed"] == people[1]
+    assert registry.get(people[1]) is None
+    assert app_client.get("/auth/me", headers=_h(tok)).status_code == 401      # signed out everywhere
+    assert _login(app_client, "dana", "dana-pass").status_code == 401
+
+
+def test_the_admin_cannot_delete_themself_and_nobody_without_a_session(app_client, people):
+    tok = _tok(app_client, "gil", "admin-pass")
+    r = app_client.delete("/auth/me", headers=_h(tok), json={"password": "admin-pass"})
+    assert r.status_code == 400 and registry.get(people[0]) is not None
+    assert app_client.delete("/auth/me", json={"password": "x"}).status_code == 401

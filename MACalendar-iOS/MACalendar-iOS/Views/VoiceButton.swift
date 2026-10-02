@@ -941,6 +941,8 @@ struct VoiceButton: View {
     /// back as text (with `editedFrom` so the host bypasses the gate and learns
     /// the fix), then run the normal response flow.
     private func resubmitEdited(_ corrected: String, editedFrom: String) {
+        // No Mac: the corrected words are read again here (DEVQA Q85).
+        if settings.phoneOnly { status = .idle; runLocal(corrected); return }
         status = .thinking
         finished = false
         if settings.showThinking {

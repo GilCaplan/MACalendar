@@ -312,6 +312,8 @@ struct AccountView: View {
     @State private var created: (name: String, password: String)?
     @State private var error = ""
     @State private var switchingUser = false
+    @State private var deleting = false
+    @State private var deletePassword = ""
 
     var body: some View {
         List {
@@ -458,6 +460,18 @@ struct AccountView: View {
                 Section {
                     Button("Sign out", role: .destructive) { Task { await session.signOut(api: api) } }
                 } footer: { Text("Signs this device out. Anyone can then sign in here as themselves.") }
+
+                // App Store 5.1.1(v): an account can be deleted where it is used.
+                // The admin runs the house and hands it over on the Mac first.
+                if !u.isAdmin {
+                    Section {
+                        Button("Delete my account…", role: .destructive) { deletePassword = ""; deleting = true }
+                            .accessibilityIdentifier("delete-my-account")
+                    } footer: {
+                        Text("Removes you from this Mac and signs you out everywhere. Your calendar is set aside on the Mac, "
+                             + "not shared with anyone, so the owner of the Mac can restore it if this was a mistake.")
+                    }
+                }
             } else {
                 Text("No one is signed in on this device.").foregroundColor(.secondary)
             }
@@ -467,6 +481,13 @@ struct AccountView: View {
         // Closed here too, because the page rebuilds for the new person and
         // the sheet's own dismiss can be lost with the old one.
         .onChange(of: session.user?.id) { _ in switchingUser = false }
+        .alert("Delete your account?", isPresented: $deleting) {
+            SecureField("Your password", text: $deletePassword)
+            Button("Delete", role: .destructive) { Task { await deleteMe() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Type your password to confirm. You'll be signed out on every device.")
+        }
         .navigationTitle("Account")
         .onAppear { Task { await model.load(api) } }
         .refreshable { await model.load(api) }
@@ -516,6 +537,19 @@ struct AccountView: View {
 /// Everything about ONE person, for whoever is looking: what you share with
 /// them, what you see of theirs — and, for the admin, their vocabulary and
 /// account. Every control visible; nothing behind a swipe.
+extension AccountView {
+    func deleteMe() async {
+        do {
+            _ = try await api.request("/auth/me", method: "DELETE", body: ["password": deletePassword])
+            deletePassword = ""
+            await session.signOut(api: api)
+        } catch {
+            self.error = error.localizedDescription.contains("wrong password")
+                ? "That password isn't right — nothing was deleted." : error.localizedDescription
+        }
+    }
+}
+
 struct PersonView: View {
     @EnvironmentObject var api: APIClient
     @ObservedObject private var session = UserSession.shared
@@ -523,6 +557,7 @@ struct PersonView: View {
     let personID: String
     @State private var revealed: String?
     @State private var note = ""
+    @State private var confirmRemove = false
 
     private var person: PublicUser? { model.people.first { $0.id == personID } }
     private var account: AdminUser? { model.accounts[personID] }
@@ -614,6 +649,12 @@ struct PersonView: View {
                             }
                         }
                     } header: { Text("Their account") }
+
+                    Section {
+                        Button("Remove this account…", role: .destructive) { confirmRemove = true }
+                    } footer: {
+                        Text("Signs them out everywhere and takes them off this Mac. Their calendar is set aside on the Mac, not erased.")
+                    }
                 }
 
                 if !note.isEmpty {
@@ -624,6 +665,17 @@ struct PersonView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .confirmationDialog("Remove \(person?.displayName ?? "this account")?", isPresented: $confirmRemove,
+                            titleVisibility: .visible) {
+            Button("Remove", role: .destructive) {
+                Task {
+                    if let e = await accountCall(api, "/admin/users/\(personID)", method: "DELETE") {
+                        note = "Couldn't remove them: \(e)"
+                    } else { note = "Removed." }
+                    await model.load(api)
+                }
+            }
+        }
         .navigationTitle(person?.displayName ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { Task { await model.load(api) } }

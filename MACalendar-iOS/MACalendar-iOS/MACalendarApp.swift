@@ -7,6 +7,12 @@ struct MACalendarApp: App {
     @StateObject private var api: APIClient
 
     init() {
+        #if DEBUG
+        // UI tests: start from a fresh install's choices (StandaloneUITests).
+        if ProcessInfo.processInfo.arguments.contains("-uitestFreshStart") {
+            for k in ["phoneOnly", "welcomeDone", "serverURL", "serverEnabled"] { UserDefaults.standard.removeObject(forKey: k) }
+        }
+        #endif
         let s = AppSettings()
         _settings = StateObject(wrappedValue: s)
         _api = StateObject(wrappedValue: APIClient(settings: s))

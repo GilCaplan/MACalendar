@@ -715,7 +715,10 @@ class APIClient: ObservableObject {
             LocalStore.shared.cacheHolidays(items, from: s, to: e)
             return items
         } catch APIError.offline, APIError.badURL {
-            return LocalStore.shared.holidaysBetween(s, e)
+            // No Mac (DEVQA Q85), or nothing cached for these dates: worked out
+            // here, with the Mac's own rules (HebrewCalendar)
+            let cached = LocalStore.shared.holidaysBetween(s, e)
+            return settings.phoneOnly || cached.isEmpty ? HebrewCalendar.holidays(from: s, to: e, israel: israel) : cached
         }
     }
 
@@ -738,7 +741,9 @@ class APIClient: ObservableObject {
             LocalStore.shared.cacheHolyWindows(payload)
             return payload.windows
         }
-        return LocalStore.shared.holyWindowsBetween(s, e)
+        let cached = LocalStore.shared.holyWindowsBetween(s, e)
+        return settings.phoneOnly || cached.isEmpty
+            ? HebrewCalendar.holyWindows(from: s, to: e, israel: israel, place: .current) : cached
     }
 
     // MARK: - Bootstrap (one round trip for a cold start)
@@ -820,6 +825,7 @@ class APIClient: ObservableObject {
     }
 
     func updateEvent(id: Int, fields: [String: Any]) async throws {
+        let id = LocalStore.shared.canonicalID(id)   // an occurrence of a phone-made series edits the series
         burstRefresh(seconds: 10)
         do {
             _ = try await request("/events/\(id)", method: "PATCH", body: fields)
@@ -837,6 +843,7 @@ class APIClient: ObservableObject {
     }
 
     func deleteEvent(id: Int) async throws {
+        let id = LocalStore.shared.canonicalID(id)
         burstRefresh(seconds: 10)
         LocalStore.shared.removeEvent(id)   // optimistic local remove
         do {

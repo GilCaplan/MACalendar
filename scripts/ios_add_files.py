@@ -1,6 +1,7 @@
 """Add Swift files to the iOS app target — the project lists every file by hand.
 
     python -m scripts.ios_add_files Engine LocalEngine.swift LocalCommand.swift
+    python -m scripts.ios_add_files --like TypeCommandUITests.swift StandaloneUITests.swift
 
 The first argument is a folder under `MACalendar-iOS/MACalendar-iOS/`; it
 becomes (or joins) a group of that name beside `Voice`. Each file gets a file
@@ -38,10 +39,38 @@ def before_marker(text: str, section: str, entry: str) -> str:
                   lambda m: f"\t\t{entry}\n{m.group(1)}/* End {section} section */", text, count=1)
 
 
+def add_like(text: str, like: str, files: list[str]) -> tuple[str, int]:
+    """Each file into the group and the Sources phase that hold `like`."""
+    lref = re.search(r"(\w{24}) /\* " + re.escape(like) + r" \*/ = \{isa = PBXFileReference", text).group(1)
+    lbld = re.search(r"(\w{24}) /\* " + re.escape(like) + r" in Sources \*/ = \{isa = PBXBuildFile", text).group(1)
+    added = 0
+    for i, f in enumerate(files):
+        if re.search(r"/\* " + re.escape(f) + r" \*/ = \{isa = PBXFileReference", text):
+            continue
+        ref = fresh_id(text, 0x200 + i * 2)
+        bld = fresh_id(text + ref, 0x200 + i * 2 + 1)
+        text = before_marker(text, "PBXFileReference",
+                             f"{ref} /* {f} */ = {{isa = PBXFileReference; lastKnownFileType = sourcecode.swift; "
+                             f"path = {f}; sourceTree = \"<group>\"; }};")
+        text = before_marker(text, "PBXBuildFile",
+                             f"{bld} /* {f} in Sources */ = {{isa = PBXBuildFile; fileRef = {ref} /* {f} */; }};")
+        text = re.sub(r"(\t+)" + lref + r" /\* " + re.escape(like) + r" \*/,\n",
+                      lambda m: f"{m.group(0)}{m.group(1)}{ref} /* {f} */,\n", text, count=1)
+        text = re.sub(r"(\t+)" + lbld + r" /\* " + re.escape(like) + r" in Sources \*/,\n",
+                      lambda m: f"{m.group(0)}{m.group(1)}{bld} /* {f} in Sources */,\n", text, count=1)
+        added += 1
+    return text, added
+
+
 def main(argv: list[str]) -> int:
     if len(argv) < 2:
         print(__doc__)
         return 2
+    if argv[0] == "--like":
+        text, added = add_like(PBX.read_text(), argv[1], argv[2:])
+        PBX.write_text(text)
+        print(f"{added} file(s) added beside {argv[1]}")
+        return 0
     folder, files = argv[0], argv[1:]
     text = PBX.read_text()
     for f in files:

@@ -52,6 +52,10 @@ struct Feature: Identifiable {
     /// Declared with the feature rather than typed into SettingsView, so it
     /// cannot go missing when the toggles become a loop.
     let note: String?
+    /// Only works with a Mac: on a phone set up as "This phone only" (DEVQA
+    /// Q85) it is neither shown nor offered — a tab that can only say "needs
+    /// your Mac" is not a feature there.
+    let needsMac: Bool
     /// The tab's content. `AnyView` because the seven have nothing in common
     /// but being views, and the shell must not learn which is which.
     let make: () -> AnyView
@@ -60,7 +64,7 @@ struct Feature: Identifiable {
 
     init(name: String, label: String, icon: String, order: Int,
          pinned: Bool = false, defaultVisible: Bool = true,
-         note: String? = nil, make: @escaping () -> AnyView) {
+         note: String? = nil, needsMac: Bool = false, make: @escaping () -> AnyView) {
         self.name = name
         self.label = label
         self.icon = icon
@@ -68,6 +72,7 @@ struct Feature: Identifiable {
         self.pinned = pinned
         self.defaultVisible = defaultVisible
         self.note = note
+        self.needsMac = needsMac
         self.make = make
     }
 }
@@ -94,7 +99,7 @@ enum FeatureRegistry {
                 order: 40,
                 make: { AnyView(TimerView()) }),
         Feature(name: "teach", label: "Teach", icon: "brain.head.profile",
-                order: 50,
+                order: 50, needsMac: true,
                 make: { AnyView(LabelGameView()) }),
         // Off by default: Jude is a separate repository that has to be cloned
         // on the Mac, and a tab that can only say "not installed" is not a
@@ -103,6 +108,7 @@ enum FeatureRegistry {
                 order: 60, defaultVisible: false,
                 note: "Ask about Torah, Talmud and halacha. Needs Jude "
                     + "installed on your Mac — the tab says how if it isn't.",
+                needsMac: true,
                 make: { AnyView(JudeView()) }),
         // The admin's dashboard, or a person's own account page (DEVQA Q65).
         // A Settings switch like the others; hiding it hides no control —
@@ -110,6 +116,7 @@ enum FeatureRegistry {
         Feature(name: "account", label: "Account", icon: "person.crop.circle",
                 order: 90,
                 note: "The admin's dashboard, or your own account and sharing.",
+                needsMac: true,
                 make: { AnyView(AccountTabView()) }),
     ].sorted { $0.order < $1.order }
 
@@ -122,7 +129,12 @@ enum FeatureRegistry {
     }
 
     /// The ones Settings may offer a switch for.
-    static var togglable: [Feature] { all.filter { !$0.pinned } }
+    static var togglable: [Feature] {
+        all.filter { !$0.pinned && !($0.needsMac && phoneOnly) }
+    }
+
+    /// "This phone only" — read where AppSettings keeps it.
+    static var phoneOnly: Bool { UserDefaults.standard.bool(forKey: "phoneOnly") }
 }
 
 // MARK: - Which of them are switched on
@@ -176,7 +188,8 @@ final class FeatureVisibility: ObservableObject {
     // -- reading ---------------------------------------------------------
 
     func isVisible(_ feature: Feature) -> Bool {
-        feature.pinned || (map[feature.name] ?? feature.defaultVisible)
+        if feature.needsMac && FeatureRegistry.phoneOnly { return false }
+        return feature.pinned || (map[feature.name] ?? feature.defaultVisible)
     }
 
     func isVisible(_ name: String) -> Bool {

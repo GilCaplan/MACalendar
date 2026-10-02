@@ -130,6 +130,12 @@
 		AC000001000000000000001A /* PendingQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC000002000000000000001A /* PendingQueueView.swift */; };
 		AE0001010000000000000000 /* LocalEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0001000000000000000000 /* LocalEngine.swift */; };
 		AE0001030000000000000000 /* LocalCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0001020000000000000000 /* LocalCommand.swift */; };
+		AE0001050000000000000000 /* TitleIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0001040000000000000000 /* TitleIcons.swift */; };
+		AE0001070000000000000000 /* TitleIconsData.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0001060000000000000000 /* TitleIconsData.swift */; };
+		AE0002010000000000000000 /* StandaloneUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0002000000000000000000 /* StandaloneUITests.swift */; };
+		AE0001090000000000000000 /* HebrewCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0001080000000000000000 /* HebrewCalendar.swift */; };
+		AE0003010000000000000000 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AE0003000000000000000000 /* PrivacyInfo.xcprivacy */; };
+		AE0003030000000000000000 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AE0003020000000000000000 /* PrivacyInfo.xcprivacy */; };
 		/* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -262,6 +268,12 @@
 		AC000002000000000000001A /* PendingQueueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingQueueView.swift; sourceTree = "<group>"; };
 		AE0001000000000000000000 /* LocalEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalEngine.swift; sourceTree = "<group>"; };
 		AE0001020000000000000000 /* LocalCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCommand.swift; sourceTree = "<group>"; };
+		AE0001040000000000000000 /* TitleIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleIcons.swift; sourceTree = "<group>"; };
+		AE0001060000000000000000 /* TitleIconsData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleIconsData.swift; sourceTree = "<group>"; };
+		AE0002000000000000000000 /* StandaloneUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StandaloneUITests.swift; sourceTree = "<group>"; };
+		AE0001080000000000000000 /* HebrewCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HebrewCalendar.swift; sourceTree = "<group>"; };
+		AE0003000000000000000000 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		AE0003020000000000000000 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		/* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
@@ -339,6 +351,7 @@
 				AA0000B300000000000000C1 /* UpNextLiveActivity.swift */,
 				AA0000B900000000000000C1 /* UpNextHomeWidget.swift */,
 				AA0000B400000000000000C1 /* Info.plist */,
+				AE0003020000000000000000 /* PrivacyInfo.xcprivacy */,
 				AA0000BB00000000000000C1 /* MACalendarWidgets.entitlements */,
 			);
 			path = MACalendarWidgets;
@@ -424,6 +437,7 @@
 				AA000035000000000000001A /* Settings */,
 				AA000010000000000000001B /* Assets.xcassets */,
 				AA000012000000000000001B /* Info.plist */,
+				AE0003000000000000000000 /* PrivacyInfo.xcprivacy */,
 				AA0000BA00000000000000C1 /* MACalendar-iOS.entitlements */,
 			);
 			path = "MACalendar-iOS";
@@ -600,6 +614,7 @@
 				AB0000160000000000000053 /* VoiceCancelUITests.swift */,
 				EC2F4EEBC7FE37F8B0DEC5E0 /* SwitchUserUITests.swift */,
 				EC1F572FA4E31367620F0069 /* TypeCommandUITests.swift */,
+				AE0002000000000000000000 /* StandaloneUITests.swift */,
 				AB0000160000000000000051 /* SettingsFoldUITests.swift */,
 				AB00001E000000000000001B /* EasterEggUITests.swift */,
 				AB000014000000000000001B /* EventEditorUITests.swift */,
@@ -611,6 +626,9 @@
 		AE0000100000000000000000 /* Engine */ = {
 			isa = PBXGroup;
 			children = (
+				AE0001080000000000000000 /* HebrewCalendar.swift */,
+				AE0001060000000000000000 /* TitleIconsData.swift */,
+				AE0001040000000000000000 /* TitleIcons.swift */,
 				AE0001020000000000000000 /* LocalCommand.swift */,
 				AE0001000000000000000000 /* LocalEngine.swift */,
 			);
@@ -722,6 +740,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA000010000000000000001A /* Assets.xcassets in Resources */,
+				AE0003010000000000000000 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -729,6 +748,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AE0003030000000000000000 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -746,6 +766,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AE0001090000000000000000 /* HebrewCalendar.swift in Sources */,
+				AE0001070000000000000000 /* TitleIconsData.swift in Sources */,
+				AE0001050000000000000000 /* TitleIcons.swift in Sources */,
 				AE0001030000000000000000 /* LocalCommand.swift in Sources */,
 				AE0001010000000000000000 /* LocalEngine.swift in Sources */,
 				AC000001000000000000001A /* PendingQueueView.swift in Sources */,
@@ -876,6 +899,7 @@
 				AB0000170000000000000052 /* VoiceCancelUITests.swift in Sources */,
 				EC2E89797238FF31FD72A7C0 /* SwitchUserUITests.swift in Sources */,
 				EC1E781D2F22AD22F6668E3B /* TypeCommandUITests.swift in Sources */,
+				AE0002010000000000000000 /* StandaloneUITests.swift in Sources */,
 				AB0000170000000000000050 /* SettingsFoldUITests.swift in Sources */,
 				AB00001F000000000000001A /* EasterEggUITests.swift in Sources */,
 				AB000015000000000000001A /* EventEditorUITests.swift in Sources */,

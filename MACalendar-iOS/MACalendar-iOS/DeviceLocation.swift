@@ -117,6 +117,10 @@ final class DeviceLocation: NSObject, ObservableObject {
 extension DeviceLocation: CLLocationManagerDelegate {
     nonisolated func locationManager(_ m: CLLocationManager, didUpdateLocations locs: [CLLocation]) {
         guard let best = locs.last else { return }
+        // Kept on the phone too: with no Mac (DEVQA Q85) the phone works out
+        // sundown itself, for here (HebrewCalendar.Place.current).
+        UserDefaults.standard.set([best.coordinate.latitude, best.coordinate.longitude], forKey: "phonePlace")
+        UserDefaults.standard.set(TimeZone.current.identifier, forKey: "phonePlaceZone")
         Task { @MainActor in
             guard self.pending else { return }
             self.pending = false

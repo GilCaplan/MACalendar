@@ -60,7 +60,8 @@ enum LocalCommand {
             let (line, did) = await execute(action, api: api, now: now)
             replies.append(line)
             changed = changed || did
-            steps.append(TraceStep(stage: did ? "execute" : "verify", title: did ? "Done" : "Nothing changed",
+            steps.append(TraceStep(stage: did ? "execute" : "verify",
+                                   title: did ? "Done" : action.op == .query ? "Answer" : "Nothing changed",
                                    detail: line, ms: 0, atMs: 0, ok: did || action.op == .query))
         }
         return Outcome(reply: replies.joined(separator: " "), steps: steps, changed: changed)
@@ -230,7 +231,7 @@ enum LocalCommand {
     }
 
     static func when(_ a: LocalEngine.Action) -> String {
-        var w = a.date.map { "on \(pretty($0))" } ?? ""
+        var w = a.date.map { d in pretty(d).hasPrefix("to") ? pretty(d) : "on \(pretty(d))" } ?? ""
         if let s = a.start, !a.allDay { w += (w.isEmpty ? "" : " ") + "at \(s)" }
         return w
     }
