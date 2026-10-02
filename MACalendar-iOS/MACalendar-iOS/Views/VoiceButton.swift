@@ -411,11 +411,12 @@ struct VoiceButton: View {
                 guard granted else { return }
                 Task { @MainActor in
                     let eggs = EggStore.shared.settings.enabled
-                    if settings.stopWordsEnabled || eggs {
+                    // With no Mac the phone's own hearing IS the transcript (DEVQA Q85)
+                    if settings.stopWordsEnabled || eggs || settings.phoneOnly {
                         _ = await VoiceRecorder.requestSpeechPermission()   // no-op once granted
                     }
                     recorder.stopWordsEnabled = settings.stopWordsEnabled
-                    recorder.transcribe = eggs
+                    recorder.transcribe = eggs || settings.phoneOnly
                     recorder.silenceStopSeconds = settings.silenceStopEnabled ? settings.silenceStopSeconds : 0
                     recorder.onAutoStop = { [self] in finishRecording() }
                     // Stop talking before listening. The synthesizer holds the
@@ -569,6 +570,8 @@ struct VoiceButton: View {
     }
 
     private func send(_ audioData: Data) {
+        // No Mac at all: the phone reads and does it (DEVQA Q85).
+        if settings.phoneOnly { runLocal(recorder.liveText); return }
         do {   // one block so the placeholder row + upload read top-to-bottom
             status = .thinking
             steps = []
@@ -641,6 +644,7 @@ struct VoiceButton: View {
         // Nothing but magic words ("dragon!"): played here, not sent.
         if EggStore.shared.heard(t, bare: true) { return }
         player.stop()
+        if settings.phoneOnly { runLocal(t); return }
         status = .thinking
         steps = []
         finished = false
@@ -697,6 +701,24 @@ struct VoiceButton: View {
                 finished = true
                 status = .idle
             }
+        }
+    }
+
+    /// A command on a phone with no Mac: `LocalCommand` reads and does it, and
+    /// its reply goes down the same road as the Mac's — spoken, traced, and
+    /// the calendar refreshed (DEVQA Q85).
+    private func runLocal(_ said: String) {
+        status = .thinking
+        steps = []
+        finished = false
+        lastResponse = nil
+        eggPlayed = EggStore.shared.heard(said, bare: false)
+        if settings.showThinking { showThinking = true }
+        Task { @MainActor in
+            let out = await LocalCommand.run(said, api: api)
+            steps = out.steps
+            await handleResponse(VoiceResponse.local(message: out.reply, transcript: said,
+                                                     refresh: out.changed ? "both" : ""))
         }
     }
 

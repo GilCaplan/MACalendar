@@ -128,6 +128,8 @@
 		AB00001F000000000000001A /* EasterEggUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00001E000000000000001B /* EasterEggUITests.swift */; };
 		AB000015000000000000001A /* EventEditorUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000014000000000000001B /* EventEditorUITests.swift */; };
 		AC000001000000000000001A /* PendingQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC000002000000000000001A /* PendingQueueView.swift */; };
+		AE0001010000000000000000 /* LocalEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0001000000000000000000 /* LocalEngine.swift */; };
+		AE0001030000000000000000 /* LocalCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0001020000000000000000 /* LocalCommand.swift */; };
 		/* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -258,6 +260,8 @@
 		AB00000E000000000000001B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AB000004000000000000001B /* MACalendarUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MACalendarUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AC000002000000000000001A /* PendingQueueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingQueueView.swift; sourceTree = "<group>"; };
+		AE0001000000000000000000 /* LocalEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalEngine.swift; sourceTree = "<group>"; };
+		AE0001020000000000000000 /* LocalCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCommand.swift; sourceTree = "<group>"; };
 		/* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
@@ -416,6 +420,7 @@
 				AA0000FC000000000000F000 /* Features */,
 				AA000033000000000000001A /* Views */,
 				AA000034000000000000001A /* Voice */,
+				AE0000100000000000000000 /* Engine */,
 				AA000035000000000000001A /* Settings */,
 				AA000010000000000000001B /* Assets.xcassets */,
 				AA000012000000000000001B /* Info.plist */,
@@ -603,6 +608,15 @@
 			path = MACalendarUITests;
 			sourceTree = "<group>";
 		};
+		AE0000100000000000000000 /* Engine */ = {
+			isa = PBXGroup;
+			children = (
+				AE0001020000000000000000 /* LocalCommand.swift */,
+				AE0001000000000000000000 /* LocalEngine.swift */,
+			);
+			path = Engine;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -732,6 +746,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AE0001030000000000000000 /* LocalCommand.swift in Sources */,
+				AE0001010000000000000000 /* LocalEngine.swift in Sources */,
 				AC000001000000000000001A /* PendingQueueView.swift in Sources */,
 				E2B71CDD3565402A9538CB7E /* DeviceLocation.swift in Sources */,
 				AA000001000000000000001A /* MACalendarApp.swift in Sources */,
