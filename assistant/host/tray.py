@@ -104,6 +104,8 @@ class HostTray(QObject):
         self.where_act = self._info("")
         self.devices_act = self._info("")
         self.setup_act = QAction("", self.menu)
+        from assistant.calendar_ui import icons as _icons
+        self.setup_act.setIcon(_icons.icon("warning", "#f5a524", 16))
         self.setup_act.triggered.connect(lambda: self._fix_setup())
         self.menu.addAction(self.setup_act)
         self.menu.addSeparator()
@@ -254,11 +256,11 @@ class HostTray(QObject):
 
     def _show_setup(self, st: dict) -> None:
         if not st.get("ollama_installed", True):
-            text, enabled = "⚠  Ollama isn't installed — Get Ollama…", True
+            text, enabled = "Ollama isn't installed — Get Ollama…", True
         elif st.get("pulling"):
             text, enabled = "Downloading the assistant's model…", False
         elif st.get("model_ready") is False:
-            text, enabled = "⚠  The assistant's model isn't downloaded — Download…", True
+            text, enabled = "The assistant's model isn't downloaded — Download…", True
         else:
             text, enabled = "", False
         self.setup_act.setText(text)

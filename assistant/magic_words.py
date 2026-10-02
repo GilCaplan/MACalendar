@@ -54,10 +54,10 @@ def _build() -> None:
     global _building
     try:
         subprocess.run([str(HERE / "build.sh")], check=True, capture_output=True, timeout=600)
-        logger.info("✨ Built the magic-words helper")
+        logger.info("Built the magic-words helper")
         _spawn()
     except Exception as e:                       # noqa: BLE001 — best effort
-        logger.warning("✨ Could not build the magic-words helper: %s", e)
+        logger.warning("Could not build the magic-words helper: %s", e)
     finally:
         _building = False
 
@@ -67,8 +67,11 @@ def _spawn() -> None:
     with _lock:
         if _proc and _proc.poll() is None:
             return
+        # the drawings a "Drawing" picture is made of — the calendar's own copy
+        # of the GraphicsLibrary set (scripts/sync_icons.py)
+        env = dict(os.environ, MACALENDAR_ICONS_DIR=str(pathlib.Path(__file__).resolve().parent / "calendar_ui" / "icons"))
         _proc = subprocess.Popen([str(BINARY), _store_dir()], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                 stderr=subprocess.DEVNULL, text=True, bufsize=1)
+                                 stderr=subprocess.DEVNULL, text=True, bufsize=1, env=env)
 
 
 def _stale() -> bool:
@@ -95,7 +98,7 @@ def start() -> None:
         try:
             _spawn()
         except OSError as e:
-            logger.warning("✨ Could not start the magic-words helper: %s", e)
+            logger.warning("Could not start the magic-words helper: %s", e)
     elif not _building and shutil.which("swiftc"):
         _building = True
         threading.Thread(target=_build, daemon=True, name="magic-words-build").start()
@@ -103,7 +106,7 @@ def start() -> None:
         try:
             _spawn()
         except OSError as e:
-            logger.warning("✨ Could not start the magic-words helper: %s", e)
+            logger.warning("Could not start the magic-words helper: %s", e)
 
 
 def _ask(op: str, wait: bool = False, timeout: float = 0.5, **fields) -> "dict | None":
@@ -211,7 +214,7 @@ def made_rows(rows: "list[dict]") -> None:
                         labels.extend(t.get("tags") or [])
             made(labels)
         except Exception as e:                   # noqa: BLE001 — best effort
-            logger.debug("✨ made: %s", e)
+            logger.debug("made: %s", e)
 
     threading.Thread(target=work, daemon=True, name="magic-words-made").start()
 

@@ -242,9 +242,10 @@ final class EasterEggUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["cat"].exists, "cat was added although the user kept it on Cat")
     }
 
-    /// Your own emoji as a magic word's graphic: the editor opens, previews,
-    /// and saves it onto the object.
-    func testAnEmojiBecomesAGraphic() throws {
+    /// A library drawing as a magic word's graphic: the editor opens, previews,
+    /// and saves it onto the object. (Emoji until 2026-10-01 — the picks are
+    /// GraphicsLibrary drawings now.)
+    func testADrawingBecomesAGraphic() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-serverURL", "127.0.0.1:59999", "-settingsFold.start", "open"]
         app.launch()
@@ -257,23 +258,23 @@ final class EasterEggUITests: XCTestCase {
         let dog = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "German Shepherd")).firstMatch
         for _ in 0..<16 where !dog.isHittable { app.swipeUp() }
         dog.tap()
-        let add = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "emoji, flag or symbol")).firstMatch
+        let add = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "drawing, symbol or letters")).firstMatch
         for _ in 0..<6 where !add.isHittable { app.swipeUp() }
         add.tap()
-        let cool = app.buttons["😎"].firstMatch
-        XCTAssertTrue(cool.waitForExistence(timeout: 5), "no emoji picks")
+        let cool = app.buttons["cool"].firstMatch
+        XCTAssertTrue(cool.waitForExistence(timeout: 5), "no drawing picks")
         cool.tap()
-        snap(app, "12-emoji-editor")
+        snap(app, "12-drawing-editor")
         app.buttons["Save"].firstMatch.tap()
-        let saved = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Emoji 😎")).firstMatch
+        let saved = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Drawing: cool")).firstMatch
         for _ in 0..<6 where !saved.exists { app.swipeDown() }
-        XCTAssertTrue(saved.waitForExistence(timeout: 5), "the emoji was not added to the dog")
+        XCTAssertTrue(saved.waitForExistence(timeout: 5), "the drawing was not added to the dog")
         // Leave the dog as it was: the other tests (and the demo) expect it.
-        let rows = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Emoji 😎"))
+        let rows = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Drawing: cool"))
         for _ in 0..<4 where rows.count > 0 {
             rows.firstMatch.swipeLeft()
             app.buttons["Delete"].firstMatch.tap()
         }
-        XCTAssertEqual(rows.count, 0, "the test's emoji was left on the dog")
+        XCTAssertEqual(rows.count, 0, "the test's drawing was left on the dog")
     }
 }

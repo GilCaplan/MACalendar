@@ -255,7 +255,7 @@ struct EggSettingsView: View {
                     }
                 }
                 Button { newObject = true } label: { Label("New from a photo…", systemImage: "photo.badge.plus") }
-                Button { newSymbol = true } label: { Label("New from an emoji, flag or symbol…", systemImage: "face.smiling") }
+                Button { newSymbol = true } label: { Label("New from a drawing, symbol or letters…", systemImage: "scribble") }
             } header: {
                 Text("Magic words")
             } footer: {
@@ -437,7 +437,7 @@ struct EggObjectView: View {
                         }
                     }
                     Button { adding = true } label: { Label("Add a photo…", systemImage: "photo.badge.plus") }
-                    Button { addingSymbol = true } label: { Label("Add an emoji, flag or symbol…", systemImage: "face.smiling") }
+                    Button { addingSymbol = true } label: { Label("Add a drawing, symbol or letters…", systemImage: "scribble") }
                 } } header: { FoldHeader("egg.word.Pictures", label: "Pictures") } footer: { if fold.isOpen("egg.word.Pictures") {
                     Text("Tap one to make it the one that plays. Swipe a photo to edit its outline or style, or to delete it.")
                 } }

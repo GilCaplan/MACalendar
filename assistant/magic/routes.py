@@ -82,7 +82,7 @@ def suggest_words():
         with model_protocol.serving(source):
             words = suggest(name, existing, count, load_config(), source=source)
     except Exception as e:                  # noqa: BLE001 — any model failure is "no model"
-        logger.warning("✨ suggest-words: the model could not answer: %s", e)
+        logger.warning("suggest-words: the model could not answer: %s", e)
         return jsonify({"error": "Your Mac's model isn't available right now.", "code": 503}), 503
     return jsonify({"words": words, "source": "mac"})
 

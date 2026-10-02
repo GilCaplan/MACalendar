@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import QDate, QTime
 
 import assistant.calendar_ui.styles as _styles
+from assistant.calendar_ui import icons
 from assistant.calendar_ui.styles import BLUE, EVENT_COLORS, GRAY_BORDER, GRAY_TEXT
 from assistant.calendar_ui.dialog_utils import install_enter_confirms
 
@@ -221,22 +222,22 @@ class EventDialog(QDialog):
 
         source = (self._event or {}).get("source", "local")
         if source == "ics":
-            banner = QLabel("🔗 Synced from a subscribed calendar — read-only. "
-                             "Unsubscribe in Connected Calendars to remove it.")
-            banner.setWordWrap(True)
             banner_text = _styles.D_GRAY_TEXT if _styles._dark else GRAY_TEXT
+            banner = QLabel(icons.html("link", banner_text, 12) + "&nbsp;Synced from a subscribed "
+                            "calendar — read-only. Unsubscribe in Connected Calendars to remove it.")
+            banner.setWordWrap(True)
             banner.setStyleSheet(f"color: {banner_text}; font-size: 12px; padding-bottom: 4px;")
             layout.addWidget(banner)
         elif source in ("outlook", "google"):
             name = "Outlook" if source == "outlook" else "Google Calendar"
             if self._read_only:
-                text = (f"🔗 Synced from {name} — read-only. Turn on two-way sync in "
+                text = (f"Synced from {name} — read-only. Turn on two-way sync in "
                         "Connected Calendars to edit this event.")
             else:
-                text = f"🔗 Synced with {name} — edits are pushed back automatically."
-            banner = QLabel(text)
-            banner.setWordWrap(True)
+                text = f"Synced with {name} — edits are pushed back automatically."
             banner_text = _styles.D_GRAY_TEXT if _styles._dark else GRAY_TEXT
+            banner = QLabel(icons.html("link", banner_text, 12) + "&nbsp;" + text)
+            banner.setWordWrap(True)
             banner.setStyleSheet(f"color: {banner_text}; font-size: 12px; padding-bottom: 4px;")
             layout.addWidget(banner)
 
@@ -252,9 +253,10 @@ class EventDialog(QDialog):
         # only other sign of it was the question Save asks afterwards.
         badge = series_badge(self._event)
         if badge:
-            self._series_badge = QLabel(f"🔁 {badge}")
-            self._series_badge.setObjectName("series_badge")
             badge_color = _styles.D_GRAY_TEXT if _styles._dark else GRAY_TEXT
+            import html as _html
+            self._series_badge = QLabel(icons.html("repeat", badge_color, 12) + "&nbsp;" + _html.escape(badge))
+            self._series_badge.setObjectName("series_badge")
             self._series_badge.setStyleSheet(f"color: {badge_color}; font-size: 12px;")
             layout.addWidget(self._series_badge)
 
@@ -427,7 +429,8 @@ class EventDialog(QDialog):
 
         # Delete button (edit mode only)
         if self._event:
-            del_btn = QPushButton("🗑 Delete")
+            del_btn = QPushButton("Delete")
+            del_btn.setIcon(icons.icon("trash", _styles.DESTRUCTIVE_DARK if _styles._dark else _styles.DESTRUCTIVE, 14))
             del_btn.setObjectName("destructive")
             del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             del_btn.setAutoDefault(False)
@@ -530,7 +533,9 @@ class EventDialog(QDialog):
                 w.deleteLater()
         todo = self._db.linked_todo(self._event["id"])
         if todo:
-            label = QLabel(("☑ " if todo.get("completed") else "☐ ") + f"🔗 {todo['title']}")
+            import html as _html
+            label = QLabel(("☑ " if todo.get("completed") else "☐ ") + icons.html("link", None, 12)
+                           + "&nbsp;" + _html.escape(todo["title"]))
             label.setObjectName("linked_todo_label")
             label.setToolTip("Linked: renaming or moving one changes the other; "
                              "deleting the event removes the to-do")

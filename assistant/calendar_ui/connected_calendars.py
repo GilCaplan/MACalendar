@@ -185,7 +185,7 @@ class ConnectedCalendarsSection(QWidget):
                 who = p.get("account") or "connected"
                 text = f"Connected — {who} · last synced {_when(p.get('last_synced', ''))}"
                 if p.get("last_error"):
-                    text += f"\n⚠ {p['last_error']}"
+                    text += f"\nLast error: {p['last_error']}"
             elif p.get("setup_needed"):
                 text = "Set-up needed — see steps (a free one-time client registration)."
             else:
@@ -362,7 +362,9 @@ class GuideDialog(QDialog):
             page = QWidget()
             pv = QVBoxLayout(page)
             pv.setSpacing(10)
-            head = QLabel(f"{g['summary']}<br><span style='color: gray;'>⏱ {g['time']}</span>")
+            from assistant.calendar_ui import icons as _icons
+            head = QLabel(f"{g['summary']}<br><span style='color: gray;'>"
+                          f"{_icons.html('stopwatch', '#808080', 12)}&nbsp;{g['time']}</span>")
             head.setWordWrap(True)
             pv.addWidget(head)
             boxes = []

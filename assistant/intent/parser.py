@@ -138,7 +138,7 @@ class IntentParser:
         ]
         lowered = transcript.lower()
         if any(f in lowered for f in forbidden):
-            logger.warning("🖥️ Potential prompt injection detected: %r", transcript)
+            logger.warning("Potential prompt injection detected: %r", transcript)
             return [("unknown", UnknownIntent())]
 
         system_prompt = self._get_system_prompt()
@@ -548,7 +548,7 @@ class IntentParser:
             return None
 
         if data.get("ok") is True:
-            logger.debug("🖥️ Background verify: confirmed ✓")
+            logger.debug("Background verify: confirmed ✓")
             return None  # silent — rule parser was right
 
         # Severity decides between patching a field and undoing the record and
@@ -565,16 +565,16 @@ class IntentParser:
             elif data.get("patch"):
                 severity = "minor"
             else:
-                logger.info("🖥️ Background verify: not-ok with no action or patch — ignoring")
+                logger.info("Background verify: not-ok with no action or patch — ignoring")
                 return None
             data["severity"] = severity
 
         if severity == "minor" and not data.get("patch"):
-            logger.info("🖥️ Background verify: minor with an empty patch — ignoring")
+            logger.info("Background verify: minor with an empty patch — ignoring")
             return None
 
         logger.info(
-            "🖥️ Background verify correction — severity=%s action=%r patch=%r",
+            "Background verify correction — severity=%s action=%r patch=%r",
             severity, data.get("action"), data.get("patch"),
         )
         return data  # pipeline decides what to do with minor vs major

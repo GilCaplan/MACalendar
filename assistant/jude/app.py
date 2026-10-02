@@ -74,7 +74,7 @@ def main(argv: "list[str] | None" = None) -> int:
     window.show()
     window.raise_()
     window.activateWindow()
-    logger.info("📖 Jude window up, talking to %s/jude", client.api_base(config))
+    logger.info("Jude window up, talking to %s/jude", client.api_base(config))
     return app.exec()
 
 

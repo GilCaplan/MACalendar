@@ -638,7 +638,7 @@ def auto_category_and_color(conn: sqlite3.Connection, title: str, date: str, sta
     category's colour, switched to its alternate shade if a neighbouring event has it."""
     try:
         from assistant.actions.calendar import categories as _cat
-        from assistant.engine.label.title_emoji import strip as _words
+        from assistant.engine.label.title_icons import strip as _words
         title = _words(title)          # labelled by its words, not its emoji (TASKS 51)
         cat = category or _cat.classify(title, attendees, location, description)
         if not category:
@@ -1277,7 +1277,7 @@ class CalendarDB:
         # Titles compared by their WORDS: an emoji the title got at commit
         # (TASKS 51, `label/title_emoji`) must not make "walk my dog" said
         # twice look like two different events.
-        from assistant.engine.label.title_emoji import strip as _words
+        from assistant.engine.label.title_icons import strip as _words
         want = _words(title).lower()
         with self._conn() as conn:
             rows = conn.execute(

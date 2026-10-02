@@ -15,6 +15,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget,
 )
+from assistant.calendar_ui import icons as _icons
 
 SEFARIA = "https://www.sefaria.org/"
 
@@ -80,7 +81,7 @@ class SourceCard(QFrame):
         head.addWidget(ref)
 
         if source.get("is_primary") is True:
-            head.addWidget(_chip("⚖ Primary", theme.accent, theme))
+            head.addWidget(_chip("Primary", theme.accent, theme))
 
         category = source.get("category") or ""
         if category:
@@ -96,7 +97,8 @@ class SourceCard(QFrame):
 
         self._hebrew = (source.get("he_text") or "").strip()
         if self._hebrew:
-            self._toggle = QPushButton("🔤 Hebrew ▾")
+            self._toggle = QPushButton("Hebrew ▾")
+            self._toggle.setIcon(_icons.icon("letters", theme.text2, 13))
             self._toggle.setObjectName("flat")
             self._toggle.setCursor(Qt.CursorShape.PointingHandCursor)
             self._toggle.setStyleSheet(f"color:{theme.text2}; font-size:11px;")
@@ -132,7 +134,7 @@ class SourceCard(QFrame):
             return
         shown = not self._he_label.isVisible()
         self._he_label.setVisible(shown)
-        self._toggle.setText("🔤 Hebrew ▴" if shown else "🔤 Hebrew ▾")
+        self._toggle.setText("Hebrew ▴" if shown else "Hebrew ▾")
 
 
 def _escape(text) -> str:
@@ -204,7 +206,7 @@ class SourcesView(QFrame):
         lay.setContentsMargins(0, 6, 0, 0)
         lay.setSpacing(6)
 
-        header = QLabel(f"📚 Sources ({len(sources)})")
+        header = QLabel(_icons.html("books", theme.text2, 12) + f"&nbsp;Sources ({len(sources)})")
         header.setStyleSheet(
             f"color:{theme.text2}; font-size:11px; font-weight:700;")
         lay.addWidget(header)
@@ -215,9 +217,9 @@ class SourcesView(QFrame):
 
         if primary or secondary:
             if primary:
-                lay.addWidget(_Section("⚖ Primary Sources", primary, theme, True, self))
+                lay.addWidget(_Section("Primary Sources", primary, theme, True, self))
             if secondary:
-                lay.addWidget(_Section("🔍 Secondary Sources", secondary, theme, False, self))
+                lay.addWidget(_Section("Secondary Sources", secondary, theme, False, self))
             if rest:
                 lay.addWidget(_Section("Other Sources", rest, theme, False, self))
         else:

@@ -39,7 +39,10 @@ struct DayView: View {
                             .foregroundColor(.secondary)
                     }
                     ForEach(holidays) { h in
-                        Text(h.isErev(on: dateStr) ? "🌙 Erev \(h.nameEn)" : "✡ \(h.nameEn)")
+                        HStack(spacing: 4) {
+                            Ico(h.isErev(on: dateStr) ? "moon" : "star_of_david", size: 12)
+                            Text(h.isErev(on: dateStr) ? "Erev \(h.nameEn)" : h.nameEn)
+                        }
                             .font(.caption.weight(.semibold))
                             .foregroundColor(h.color)
                     }
@@ -53,7 +56,7 @@ struct DayView: View {
                                 }
                             }
                         } label: {
-                            Text("\(o.glyph) \(o.title)")
+                            HStack(spacing: 4) { Ico(o.icon, size: 12); Text(o.title) }
                                 .font(.caption.weight(.semibold))
                                 .foregroundColor(o.uiColor)
                         }
@@ -272,7 +275,8 @@ private struct EventBlock: View {
             .fill(Color(hex: event.color) ?? settings.accentColor)
             .overlay(alignment: .topLeading) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(event.ownerPrefix + event.title).font(.system(size: settings.fontDay, weight: .semibold)).foregroundColor(textColor)
+                    IconTitle(title: event.ownerPrefix + event.title, icons: event.icons, size: settings.fontDay)
+                        .font(.system(size: settings.fontDay, weight: .semibold)).foregroundColor(textColor)
                     Text(event.displayTime).font(.system(size: settings.fontDay - 2)).foregroundColor(textColor.opacity(0.85))
                     // A planned session carries the part worth reading — the
                     // pace and the intervals — in its body. Show it on the grid

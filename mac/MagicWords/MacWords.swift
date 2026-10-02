@@ -138,15 +138,17 @@ struct MacSuggestSheet: View {
     }
 }
 
-/// Your own emoji, flag or symbol as a graphic — the phone's `EggSymbolEditor`
+/// Your own drawing, symbol or letters as a graphic — the phone's `EggSymbolEditor`
 /// on a Mac.
 struct MacSymbolEditor: View {
     enum Mode { case addTo(String), newObject }
     let mode: Mode
     @ObservedObject private var store = MacEggStore.shared
     @Environment(\.dismiss) private var dismiss
-    @State private var sf = false
-    @State private var emoji = "🇮🇱"
+    /// 0 a GraphicsLibrary drawing, 1 an SF Symbol, 2 a few letters
+    @State private var kind = 0
+    @State private var icon = "flag_israel"
+    @State private var letters = "GO"
     @State private var symbol = "star.fill"
     @State private var color = Color(egg: 0xFFD23A)
     @State private var name = ""
@@ -156,8 +158,11 @@ struct MacSymbolEditor: View {
     @State private var from = Date()
 
     private var spec: String {
-        sf ? EggSymbol.sf(symbol.trimmingCharacters(in: .whitespaces), hex: Self.hex(color))
-           : EggSymbol.emoji(emoji.trimmingCharacters(in: .whitespaces))
+        switch kind {
+        case 0: return EggSymbol.icon(icon, hex: Self.hex(color))
+        case 1: return EggSymbol.sf(symbol.trimmingCharacters(in: .whitespaces), hex: Self.hex(color))
+        default: return EggSymbol.emoji(letters.trimmingCharacters(in: .whitespaces))
+        }
     }
 
     private var keywordList: [String] {
@@ -179,13 +184,14 @@ struct MacSymbolEditor: View {
                     }
                 }
                 .frame(height: 150)
-                Picker("Kind", selection: $sf) {
-                    Text("Emoji or flag").tag(false)
-                    Text("Symbol").tag(true)
+                Picker("Kind", selection: $kind) {
+                    Text("Drawing").tag(0)
+                    Text("Symbol").tag(1)
+                    Text("Letters").tag(2)
                 }
                 .pickerStyle(.segmented)
             }
-            if sf {
+            if kind == 1 {
                 Section("Symbol") {
                     TextField("SF Symbol name (e.g. crown.fill)", text: $symbol)
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 10) {
@@ -198,15 +204,24 @@ struct MacSymbolEditor: View {
                     }
                     ColorPicker("Colour", selection: $color, supportsOpacity: false)
                 }
-            } else {
+            } else if kind == 0 {
                 Section {
-                    TextField("An emoji, a flag, or a few letters (⌃⌘Space for emoji)", text: $emoji)
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 10), spacing: 8) {
-                        ForEach(EggSymbolPicks.emoji, id: \.self) { e in
-                            Button { emoji = e } label: { Text(e).font(.title2) }.buttonStyle(.plain)
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 12) {
+                        ForEach(EggSymbolPicks.icons, id: \.self) { n in
+                            Button { icon = n } label: {
+                                EggSymbol.iconImage(n).resizable().scaledToFit().frame(width: 26, height: 26)
+                                    .foregroundColor(icon == n ? color : .secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(n)
                         }
                     }
-                } header: { Text("Emoji or flag") }
+                    ColorPicker("Colour", selection: $color, supportsOpacity: false)
+                } header: { Text("Drawing") }
+            } else {
+                Section {
+                    TextField("A few letters (e.g. GO)", text: $letters)
+                } header: { Text("Letters") }
             }
             if case .newObject = mode {
                 Section("Name and magic words") {
@@ -240,7 +255,9 @@ struct MacSymbolEditor: View {
     }
 
     private var canSave: Bool {
-        let has = sf ? !symbol.trimmingCharacters(in: .whitespaces).isEmpty : !emoji.trimmingCharacters(in: .whitespaces).isEmpty
+        let has = kind == 0 ? !icon.isEmpty
+            : kind == 1 ? !symbol.trimmingCharacters(in: .whitespaces).isEmpty
+            : !letters.trimmingCharacters(in: .whitespaces).isEmpty
         if case .newObject = mode {
             return has && !name.trimmingCharacters(in: .whitespaces).isEmpty && !keywordList.isEmpty
         }
@@ -248,7 +265,7 @@ struct MacSymbolEditor: View {
     }
 
     private func save(move: Bool?) {
-        let variant = EggVariant(id: UUID().uuidString, name: sf ? "Symbol: \(symbol)" : "Emoji \(emoji)",
+        let variant = EggVariant(id: UUID().uuidString, name: kind == 0 ? "Drawing: \(icon)" : kind == 1 ? "Symbol: \(symbol)" : "Letters \(letters)",
                                  source: .symbol(spec))
         switch mode {
         case .addTo(let id):

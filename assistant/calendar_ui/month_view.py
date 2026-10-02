@@ -60,7 +60,8 @@ class HolidayBanner(QLabel):
         self._color = _HOLIDAY_COLORS.get(category, "#c9a227")
         self._is_erev = is_erev
         self._font_size = font_size
-        self._text = f"🌙 Erev {name}" if is_erev else f"✡ {name}"
+        self._icon = "moon" if is_erev else "star_of_david"
+        self._text = f"Erev {name}" if is_erev else name
         self.setText(self._text)
         self.setFixedHeight(20)
         self.setMinimumWidth(0)
@@ -92,8 +93,10 @@ class HolidayBanner(QLabel):
         font.setWeight(font.Weight.DemiBold)
         painter.setFont(font)
         fm = painter.fontMetrics()
-        elided = fm.elidedText(self._text, Qt.TextElideMode.ElideRight, self.width() - 8)
-        painter.drawText(self.rect().adjusted(4, 0, -4, 0),
+        from assistant.calendar_ui import icons as _icons
+        x = _icons.draw_row(painter, 4, self.rect().adjusted(0, 1, -1, -2), [self._icon], "#ffffff", 12)
+        elided = fm.elidedText(self._text, Qt.TextElideMode.ElideRight, self.width() - x - 4)
+        painter.drawText(self.rect().adjusted(int(x), 0, -4, 0),
                          Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, elided)
 
 
@@ -155,6 +158,10 @@ class EventPill(QLabel):
             painter.drawText(self.rect().adjusted(x, 0, 0, 0),
                              Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, short)
             x += tw + 5
+        # the title's icons (label/title_icons), in the title's own ink
+        from assistant.calendar_ui import icons as _icons
+        x = _icons.draw_row(painter, x, self.rect(), _vp.title_icons(self.event.get("title", "")),
+                            ink.name(), 12)
         font = self.font()
         font.setPointSize(self._font_size)
         font.setWeight(font.Weight.DemiBold)

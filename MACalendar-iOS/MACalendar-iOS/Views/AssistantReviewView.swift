@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// "Was this right?" — a quick pass over recent voice commands that have no
-/// feedback yet. Each 👍 / 👎 / fix feeds the command memory on the Mac so the
+/// feedback yet. Each thumbs up / down / fix feeds the command memory on the Mac so the
 /// assistant's few-shot examples reflect what you actually meant.
 struct AssistantReviewView: View {
     @EnvironmentObject var api: APIClient
@@ -30,7 +30,7 @@ struct AssistantReviewView: View {
                 } else {
                     List {
                         Section {
-                            Text("\(items.count) to review · tap 👍 if it did the right thing, 👎 if not. Only what you tick is stored.")
+                            Text("\(items.count) to review · tap thumbs up if it did the right thing, thumbs down if not. Only what you tick is stored.")
                                 .font(.footnote).foregroundColor(.secondary)
                         }
                         ForEach(items) { ex in

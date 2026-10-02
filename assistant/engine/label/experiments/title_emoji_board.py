@@ -1,8 +1,11 @@
-"""TITLE EMOJI BOARD — where does `title_emoji` fire, and is it the right sense?
+"""TITLE ICON BOARD — where does `title_icons` fire, and is it the right sense?
+
+(Named for its first form, which wrote an emoji into the title; since
+2026-10-01 the component names a drawing instead, and the pairs read "word icon".)
 
     python -m assistant.engine.label.experiments.title_emoji_board [--dump PATH]
 
-**Stage: label · `title_emoji` (a Component, TASKS 51).** A wrong emoji shows on
+**Stage: label · `title_icons` (a Component, TASKS 51).** A wrong emoji shows on
 every screen a row is drawn on, so the NEGATIVE surface is read first: every
 corpus of titles this project has, decorated at count 2, and what fired — by
 word, with the distinct titles behind it. `--dump` writes every fired title
@@ -68,13 +71,13 @@ def _generated() -> list[str]:
 
 
 def main() -> int:
-    from assistant.engine.label import title_emoji as te
+    from assistant.engine.label import title_icons as te
     ap = argparse.ArgumentParser()
     ap.add_argument("--dump", default="")
     a = ap.parse_args()
     corpora = {"real titles": _real_titles(), "real commands (stress)": _commands(),
                "generated titles": _generated()}
-    print("\nTITLE EMOJI BOARD — label stage, title_emoji at count 2\n")
+    print("\nTITLE ICON BOARD — label stage, title_icons at count 2\n")
     dump = []
     record = {}
     for name, rows in corpora.items():
@@ -84,13 +87,13 @@ def main() -> int:
         silent_ambiguous = []
         n_fired = 0
         for t in distinct:
-            got = te.matches(t)[:2] if not te.has_emoji(t) else []
+            got = te.matches(t)[:2]
             if got:
                 n_fired += 1
                 for _end, emoji, w in got:
                     fired[(w.lower(), emoji)] += 1
                     fired_titles[(w.lower(), emoji)].append(t)
-                dump.append({"corpus": name, "title": t, "out": te.decorate(t, 2)})
+                dump.append({"corpus": name, "title": t, "icons": te.icons(t, 2)})
             words = set(w.lower() for w in __import__("re").findall(r"[\w']+", t))
             if words & AMBIGUOUS and not any(w.lower() in AMBIGUOUS for _e, _m, w in got):
                 silent_ambiguous.append(t)

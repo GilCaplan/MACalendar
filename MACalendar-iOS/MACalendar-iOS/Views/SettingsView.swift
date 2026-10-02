@@ -1210,8 +1210,8 @@ struct TitleEmojiPicker: View {
         } label: {
             HStack(spacing: 6) {
                 SettingsIcon("face.smiling", .pink)
-                Text("Emoji in titles")
-                InfoTip("What the assistant adds gets an emoji after a word that clearly names one — “walk my dog 🐕”, “date 💕 with Noa”. A word with two meanings only gets one in the right one: “due date” and “eat a date” stay plain.")
+                Text("Icons beside titles")
+                InfoTip("An event or to-do whose title clearly names something gets its drawing beside it — a dog for “walk my dog”, a heart for “date with Noa”. A word with two meanings only gets one in the right one: “due date” and “eat a date” stay plain. The title itself stays words.")
             }
         }
         .accessibilityIdentifier("title-emoji-picker")
@@ -1235,22 +1235,23 @@ struct TitleEmojiPicker: View {
     }
 }
 
-/// The kinds of emoji, as `title_emoji.GROUPS` on the Mac
-/// (`test_title_emoji.py` holds the two lists equal).
+/// The kinds of words that get a drawing, as `title_icons.GROUPS` and
+/// `GROUP_ICONS` on the Mac (`test_title_icons.py` holds the lists equal).
 struct TitleEmojiKind: Identifiable {
     let key: String
     let label: String
+    let icon: String
     var id: String { key }
     static let all: [TitleEmojiKind] = [
-        .init(key: "animals", label: "Animals 🐕"),
-        .init(key: "sport", label: "Sport & fitness 🏃"),
-        .init(key: "health", label: "Health 🦷"),
-        .init(key: "food", label: "Food & drink ☕"),
-        .init(key: "occasions", label: "Occasions 🎂"),
-        .init(key: "travel", label: "Travel ✈️"),
-        .init(key: "home", label: "Home & errands 🧹"),
-        .init(key: "work", label: "Work & study 📚"),
-        .init(key: "jewish", label: "Jewish life 🕯️"),
+        .init(key: "animals", label: "Animals", icon: "dog"),
+        .init(key: "sport", label: "Sport & fitness", icon: "run"),
+        .init(key: "health", label: "Health", icon: "tooth"),
+        .init(key: "food", label: "Food & drink", icon: "coffee"),
+        .init(key: "occasions", label: "Occasions", icon: "cake"),
+        .init(key: "travel", label: "Travel", icon: "plane"),
+        .init(key: "home", label: "Home & errands", icon: "broom"),
+        .init(key: "work", label: "Work & study", icon: "books"),
+        .init(key: "jewish", label: "Jewish life", icon: "candles"),
     ]
 }
 
@@ -1263,20 +1264,22 @@ struct TitleEmojiKindsView: View {
         Form {
             Section {
                 ForEach(TitleEmojiKind.all) { kind in
-                    Toggle(kind.label, isOn: Binding(
+                    Toggle(isOn: Binding(
                         get: { !settings.titleEmojiOff.contains(kind.key) },
                         set: { on in
                             settings.titleEmojiOff.removeAll { $0 == kind.key }
                             if !on { settings.titleEmojiOff.append(kind.key) }
                             Task { await api.patchShared(["title_emoji": [kind.key: on]]) }
-                        }))
+                        })) {
+                        Label { Text(kind.label) } icon: { Ico(kind.icon, size: 18) }
+                    }
                     .accessibilityIdentifier("title-emoji-kind-\(kind.key)")
                 }
             } footer: {
-                Text("Off, words of that kind keep a plain title. Shared with your Mac.")
+                Text("Off, words of that kind get no drawing. Shared with your Mac.")
             }
         }
-        .navigationTitle("Emoji kinds")
+        .navigationTitle("Icon kinds")
     }
 }
 

@@ -73,7 +73,7 @@ struct JudeChatList: View {
                             }
                         }
                         Spacer()
-                        if !chat.modeGlyph.isEmpty { Text(chat.modeGlyph).font(.caption) }
+                        if !chat.modeIcon.isEmpty { Ico(chat.modeIcon, size: 13).foregroundColor(.secondary) }
                     }
                 }
             }

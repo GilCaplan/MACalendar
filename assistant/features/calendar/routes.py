@@ -198,8 +198,9 @@ def events_list():
     except ValueError as e:
         return jsonify({"error": str(e), "code": 400}), 400
 
+    from assistant.engine.label.title_icons import attach
     from assistant.notify import annotate
-    return jsonify(annotate(rows))
+    return jsonify(attach(annotate(rows)))
 
 
 @blueprint.get("/events/<int:event_id>")
@@ -208,8 +209,9 @@ def event_get(event_id: int):
     row = db.get_event(rid)
     if row is None:
         return jsonify({"error": "Event not found", "code": 404}), 404
+    from assistant.engine.label.title_icons import attach
     from assistant.notify import annotate
-    return jsonify(sharing.present(annotate([row])[0]))
+    return jsonify(sharing.present(attach(annotate([row]))[0]))
 
 
 @blueprint.get("/events/<int:event_id>.ics")
@@ -253,9 +255,10 @@ def search():
     if len(q) < 2:
         return jsonify({"error": "q must be at least 2 characters",
                         "code": 400}), 400
-    return jsonify({"events": sharing.gather(lambda db: db.search_events(q),
-                                             sort_key=sharing.event_order),
-                    "todos": sharing.gather(lambda db: db.search_todos(q))})
+    from assistant.engine.label.title_icons import attach
+    return jsonify({"events": attach(sharing.gather(lambda db: db.search_events(q),
+                                                    sort_key=sharing.event_order)),
+                    "todos": attach(sharing.gather(lambda db: db.search_todos(q)))})
 
 
 @blueprint.post("/events")

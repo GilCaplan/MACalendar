@@ -1,14 +1,16 @@
 import SwiftUI
 
-/// Add your own emoji, flag or symbol as a picture — to a magic word, or as
+/// Add your own drawing, symbol or letters as a picture — to a magic word, or as
 /// a new magic word with its own words (Gil, 2026-09-30).
 struct EggSymbolEditor: View {
     enum Mode { case addTo(String), newObject }
     let mode: Mode
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var store = EggStore.shared
-    @State private var sf = false
-    @State private var emoji = "🇮🇱"
+    /// 0 a GraphicsLibrary drawing, 1 an SF Symbol, 2 a few letters
+    @State private var kind = 0
+    @State private var icon = "flag_israel"
+    @State private var letters = "GO"
     @State private var symbol = "star.fill"
     @State private var color = Color(egg: 0xFFD23A)
     @State private var name = ""
@@ -18,8 +20,11 @@ struct EggSymbolEditor: View {
     @State private var from = Date()
 
     private var spec: String {
-        sf ? EggSymbol.sf(symbol.trimmingCharacters(in: .whitespaces), hex: EggLoaderSettingsView.hex(color))
-           : EggSymbol.emoji(emoji.trimmingCharacters(in: .whitespaces))
+        switch kind {
+        case 0: return EggSymbol.icon(icon, hex: EggLoaderSettingsView.hex(color))
+        case 1: return EggSymbol.sf(symbol.trimmingCharacters(in: .whitespaces), hex: EggLoaderSettingsView.hex(color))
+        default: return EggSymbol.emoji(letters.trimmingCharacters(in: .whitespaces))
+        }
     }
 
     private var keywordList: [String] {
@@ -40,14 +45,15 @@ struct EggSymbolEditor: View {
                         }
                     }
                     .frame(height: 170)
-                    Picker("Kind", selection: $sf) {
-                        Text("Emoji or flag").tag(false)
-                        Text("Symbol").tag(true)
+                    Picker("Kind", selection: $kind) {
+                        Text("Drawing").tag(0)
+                        Text("Symbol").tag(1)
+                        Text("Letters").tag(2)
                     }
                     .pickerStyle(.segmented)
                 }
 
-                if sf {
+                if kind == 1 {
                     Section("Symbol") {
                         TextField("SF Symbol name (e.g. crown.fill)", text: $symbol)
                             .textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -62,18 +68,24 @@ struct EggSymbolEditor: View {
                         }
                         ColorPicker("Colour", selection: $color, supportsOpacity: false)
                     }
-                } else {
+                } else if kind == 0 {
                     Section {
-                        TextField("Type or paste an emoji, a flag, or a few letters", text: $emoji)
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 10) {
-                            ForEach(EggSymbolPicks.emoji, id: \.self) { e in
-                                Button { emoji = e } label: { Text(e).font(.title2) }
-                                    .buttonStyle(.plain)
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
+                            ForEach(EggSymbolPicks.icons, id: \.self) { n in
+                                Button { icon = n } label: {
+                                    EggSymbol.iconImage(n).resizable().scaledToFit().frame(width: 26, height: 26)
+                                        .foregroundColor(icon == n ? color : .secondary)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(n)
                             }
                         }
-                    } header: { Text("Emoji or flag") } footer: {
-                        Text("Any emoji from the keyboard works — a flag, a face, your team's colours.")
-                    }
+                        ColorPicker("Colour", selection: $color, supportsOpacity: false)
+                    } header: { Text("Drawing") }
+                } else {
+                    Section {
+                        TextField("A few letters (e.g. GO)", text: $letters)
+                    } header: { Text("Letters") }
                 }
 
                 if case .newObject = mode {
@@ -86,7 +98,7 @@ struct EggSymbolEditor: View {
                     }
                 }
             }
-            .navigationTitle("Emoji, flag or symbol")
+            .navigationTitle("Drawing, symbol or letters")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -109,7 +121,9 @@ struct EggSymbolEditor: View {
     }
 
     private var canSave: Bool {
-        let has = sf ? !symbol.trimmingCharacters(in: .whitespaces).isEmpty : !emoji.trimmingCharacters(in: .whitespaces).isEmpty
+        let has = kind == 0 ? !icon.isEmpty
+            : kind == 1 ? !symbol.trimmingCharacters(in: .whitespaces).isEmpty
+            : !letters.trimmingCharacters(in: .whitespaces).isEmpty
         if case .newObject = mode {
             return has && !name.trimmingCharacters(in: .whitespaces).isEmpty && !keywordList.isEmpty
         }
@@ -117,7 +131,7 @@ struct EggSymbolEditor: View {
     }
 
     private func save(move: Bool?) {
-        let label = sf ? "Symbol: \(symbol)" : "Emoji \(emoji)"
+        let label = kind == 0 ? "Drawing: \(icon)" : kind == 1 ? "Symbol: \(symbol)" : "Letters \(letters)"
         let variant = EggVariant(id: UUID().uuidString, name: label, source: .symbol(spec))
         switch mode {
         case .addTo(let id):

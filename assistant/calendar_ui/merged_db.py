@@ -56,7 +56,7 @@ class MergedCalendar:
 
     def __init__(self, own, on_refused: "Callable[[str], None] | None" = None) -> None:
         self._own = own
-        self._on_refused = on_refused or (lambda msg: logger.info("🖥️ %s", msg))
+        self._on_refused = on_refused or (lambda msg: logger.info("%s", msg))
 
     def set_own(self, own) -> None:
         """A different user signed in: every view keeps this object, and it

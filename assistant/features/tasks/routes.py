@@ -65,7 +65,8 @@ def todos_list():
     # (DEVQA Q65: shared to-dos sit mixed in; the client filters or groups)
     rows = sharing.gather(lambda db: db.get_todos(
         list_name=list_name, include_completed=include_completed, tag=tag))
-    return jsonify(rows)
+    from assistant.engine.label.title_icons import attach
+    return jsonify(attach(rows))
 
 
 @blueprint.post("/todos")

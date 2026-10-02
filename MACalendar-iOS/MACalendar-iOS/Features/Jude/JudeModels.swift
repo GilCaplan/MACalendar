@@ -421,12 +421,13 @@ struct JudeChatSummary: Decodable, Identifiable {
         user = (try? c.decode(String.self, forKey: .user)) ?? ""
     }
 
-    /// 📖 study · 📋 sources · nothing for plain Q&A, mirroring the badge the
-    /// web UI puts on a conversation's title.
-    var modeGlyph: String {
+    /// The mode's drawing — an open book for study, a clipboard for sources,
+    /// nothing for plain Q&A — mirroring the badge the web UI puts on a
+    /// conversation's title.
+    var modeIcon: String {
         switch mode {
-        case "study": return "📖"
-        case "sources": return "📋"
+        case "study": return "book_open"
+        case "sources": return "clipboard"
         default: return ""
         }
     }

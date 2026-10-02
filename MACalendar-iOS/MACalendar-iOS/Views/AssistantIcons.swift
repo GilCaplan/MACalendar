@@ -204,3 +204,48 @@ private struct _Grid {
                width: CGFloat(w) * sx, height: CGFloat(h) * sy)
     }
 }
+
+// MARK: - GraphicsLibrary drawings (Assets.xcassets/Icons)
+
+/// One drawing from the shared GraphicsLibrary — the same SVG the Mac draws
+/// (`scripts/sync_icons.py` copies both), tinted like text. MACalendar draws
+/// no emoji (Gil, 2026-10-01: "i dont want emojis, rather custom made
+/// graphics"). Usage: `Ico("cake")`, `Ico("hourglass", size: 12)`.
+struct Ico: View {
+    let name: String
+    var size: CGFloat
+
+    init(_ name: String, size: CGFloat = 16) {
+        self.name = name
+        self.size = size
+    }
+
+    var body: some View {
+        Image("Icons/\(name)")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
+    }
+}
+
+/// A title with its drawings before it (`label/title_icons`, served by the
+/// Mac as `icons`) — what a list draws for an event or a to-do. The title
+/// stays words; with no icons this is just the Text.
+struct IconTitle: View {
+    let title: String
+    let icons: [String]?
+    var size: CGFloat = 14
+
+    var body: some View {
+        if let icons, !icons.isEmpty {
+            HStack(spacing: 4) {
+                ForEach(icons, id: \.self) { Ico($0, size: size) }
+                Text(title)
+            }
+        } else {
+            Text(title)
+        }
+    }
+}

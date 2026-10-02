@@ -1,3 +1,19 @@
+- **2026-10-01 — Q84 (NO EMOJI: DRAWN ICONS, AND Q83's 51 REVERSED)**, Gil:
+  *"change emojis to custom designed graphics"*, then *"all emojis, i dont
+  want emojis, rather custom made graphics, i think we have on this computer,
+  so find that library can maek more of our own"*. So: every picture on every
+  surface is a GraphicsLibrary drawing (`../GraphicsLibrary`, 121 new ones
+  drawn into it for this), copied in by `scripts/sync_icons.py`; typographic
+  marks (✓ ✕ ⌘ ▾ ★ ⚑ ☑) stay text, and log lines and notification text — which
+  cannot draw — lose their emoji. **Q83's 51 call is reversed:** a picture can
+  no longer live in the stored title, so the title stays words and the views
+  DRAW the icons (`label/title_icons`; the API serves `icons` per row). The
+  cost Q83 avoided — every view on two platforms — was paid once in
+  `view_prefs.title_icons` / `IconTitle`; the widgets show titles only. Gains:
+  Google never receives a picture, switching a kind off reaches every row at
+  once, typed and synced events get icons too. The Easter egg's emoji picks
+  became drawings ("icon:name|#hex"); an emoji someone saved still plays.
+
 - **2026-10-01 — Q83 (THE 2026-09-30 ORDER OF PLAY, ANSWERED)**, Gil: *"For 34
   to 37, I don't necessarily care about specific customizable things that I
   can edit as the user. Because that's just to my device or set of devices

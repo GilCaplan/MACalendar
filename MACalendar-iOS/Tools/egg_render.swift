@@ -69,8 +69,8 @@ struct EggRenderAll {
            let png = rep.representation(using: .png, properties: [:]) {
             try? png.write(to: URL(fileURLWithPath: CommandLine.arguments[1].replacingOccurrences(of: ".png", with: "-puppets.png")))
         }
-        // The user's own graphics: emoji, a flag, a word, SF Symbols (one a typo).
-        let specs = ["emoji:🇮🇱", "emoji:😎", "emoji:GO", "sf:star.fill|#FFD23A", "sf:person.fill|#3A7BFF",
+        // The user's own graphics: drawings, a word, SF Symbols (one a typo).
+        let specs = ["icon:flag_israel|#3A7BFF", "icon:cool|#FFD23A", "emoji:GO", "sf:star.fill|#FFD23A", "sf:person.fill|#3A7BFF",
                      "sf:no.such.symbol|#FF0000"]
         let symbols = Canvas { ctx, size in
             ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(egg: 0x5b6b8c)))

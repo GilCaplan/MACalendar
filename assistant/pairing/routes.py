@@ -64,5 +64,5 @@ def register(app) -> None:
         got = _mp.enroll(src, (body.get("label") or "").strip())
         if not got.get("token"):
             return _err("device secret unavailable", 503)
-        logger.info("🔑 Paired %s device %s (%s)", src, got["device_id"], got["label"])
+        logger.info("Paired %s device %s (%s)", src, got["device_id"], got["label"])
         return jsonify(dict(got, server=addresses.server_name()))

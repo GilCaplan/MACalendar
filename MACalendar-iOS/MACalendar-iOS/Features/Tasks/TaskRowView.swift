@@ -86,7 +86,8 @@ struct TaskRowView: View {
                     // the task says, so putting it on its own row would read as
                     // a second, unrelated fact about the task.
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(todo.ownerPrefix + todo.title)
+                        IconTitle(title: todo.ownerPrefix + todo.title, icons: todo.icons,
+                                  size: settings.fontTasks)
                             .font(.system(size: settings.fontTasks))
                             .strikethrough(todo.isDone)
                             .foregroundColor(todo.isDone ? .secondary : .primary)

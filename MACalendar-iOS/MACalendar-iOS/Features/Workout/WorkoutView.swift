@@ -60,7 +60,7 @@ struct WorkoutView: View {
 
                 Section("Templates") {
                     if savedTemplates.isEmpty {
-                        Text("No templates yet — tap + to build one, or ✨ to generate one")
+                        Text("No templates yet — tap + to build one, or the sparkle to generate one")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     } else {

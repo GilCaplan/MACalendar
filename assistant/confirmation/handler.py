@@ -117,7 +117,7 @@ class ConfirmationHandler:
     def _confirm_delete(self, intent: DeleteEventIntent) -> bool:
         """Always confirm deletes — even at level 0 a delete is shown."""
         lines = [
-            f"⚠️ Delete event matching: '{intent.match_title}'",
+            f"Delete event matching: '{intent.match_title}'",
         ]
         if intent.match_date:
             lines.append(f"On: {intent.match_date}")

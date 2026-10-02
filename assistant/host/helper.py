@@ -146,7 +146,7 @@ class Helper:
                     handler._send_json(403, {"error": "that code is not the one shown on this "
                                                       "computer (or too many tries — wait a minute)"})
                 else:
-                    logger.info("🤝 %s may now use this computer's model", body.get("primary"))
+                    logger.info("%s may now use this computer's model", body.get("primary"))
                     handler._send_json(200, {"token": token, "name": self.name, "os": os_name()})
                 return True
             if not self.authorize(handler.headers):

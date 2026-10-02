@@ -118,7 +118,7 @@ class Composer(QWidget):
         row.addWidget(self._ask)
         lay.addLayout(row)
 
-        disclaimer = QLabel("⚠ Jude can make mistakes. Verify rulings and citations "
+        disclaimer = QLabel("Jude can make mistakes. Verify rulings and citations "
                             "with a qualified rabbi.")
         disclaimer.setStyleSheet(f"color:{theme.text2}; font-size:10px;")
         lay.addWidget(disclaimer)

@@ -35,21 +35,64 @@ def _load_svg(name: str, color: str) -> bytes:
     return svg.replace("currentColor", color).encode("utf-8")
 
 
+_DPR = 2          # drawn at twice the size asked, so a Retina screen gets crisp lines
+
+
+def exists(name: str) -> bool:
+    return os.path.exists(os.path.join(_ICONS_DIR, f"{name}.svg"))
+
+
 def pixmap(name: str, color: str | None = None, size: int = 16) -> QPixmap:
-    """Rasterize an icon to a QPixmap (for QLabel icons, composite rows, …)."""
+    """Rasterize an icon to a QPixmap (for QLabel icons, composite rows, …),
+    `size` logical px at a device pixel ratio of 2."""
     color = color or _default_color()
     key = (name, color, size)
     cached = _pixmap_cache.get(key)
     if cached is not None:
         return cached
     renderer = QSvgRenderer(QByteArray(_load_svg(name, color)))
-    out = QPixmap(QSize(size, size))
+    out = QPixmap(QSize(size * _DPR, size * _DPR))
     out.fill(Qt.GlobalColor.transparent)
     painter = QPainter(out)
     renderer.render(painter)
     painter.end()
+    out.setDevicePixelRatio(_DPR)
     _pixmap_cache[key] = out
     return out
+
+
+def draw_row(painter: QPainter, x: float, rect, names, color: str, size: int) -> float:
+    """Paint `names` left to right from `x`, centred in `rect`'s height; the x
+    after the last one (plus a gap), or `x` itself when there are none. What
+    a hand-painted row (a month pill, a week block) puts before its title."""
+    y = rect.top() + (rect.height() - size) / 2
+    for name in names or ():
+        if not exists(name):
+            continue
+        painter.drawPixmap(int(x), int(round(y)), pixmap(name, color, size))
+        x += size + 3
+    return x
+
+
+def html(name: str, color: str | None = None, size: int = 14) -> str:
+    """`<img>` markup for an icon inside a QLabel's rich text — for a label
+    that is a sentence with a picture in it ("[pin] Room 4"). Written once to
+    a cache folder as a PNG plus its @2x, which Qt's rich text picks on a
+    Retina screen; `""` for a name the folder does not have."""
+    if not exists(name):
+        return ""
+    import tempfile
+    color = color or _default_color()
+    folder = os.path.join(tempfile.gettempdir(), "macalendar-icons")
+    os.makedirs(folder, exist_ok=True)
+    base = os.path.join(folder, f"{name}-{color.lstrip('#')}-{size}")
+    if not os.path.exists(base + "@2x.png"):
+        pm = pixmap(name, color, size)
+        pm.save(base + "@2x.png")
+        pm.scaled(size, size, Qt.AspectRatioMode.KeepAspectRatio,
+                  Qt.TransformationMode.SmoothTransformation).save(base + ".png")
+    return f'<img src="{base}.png" width="{size}" height="{size}" style="vertical-align: middle">'
+
 
 
 def icon(name: str, color: str | None = None, size: int = 16) -> QIcon:

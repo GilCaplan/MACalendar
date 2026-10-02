@@ -124,7 +124,8 @@ struct JudeTracePanel: View {
     private var toolSection: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
-                Text("🔧 Tools").font(.caption2.weight(.bold))
+                Ico("tools", size: 11)
+                Text("Tools").font(.caption2.weight(.bold))
                 Text("\(toolCalls.count) call(s)").font(.caption2).foregroundColor(.secondary)
             }
             .padding(.top, 2)

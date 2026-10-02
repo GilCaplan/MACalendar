@@ -104,7 +104,6 @@ def countdowns(today: "datetime.date | None" = None) -> list[dict]:
     return sorted(out, key=lambda c: c["days_left"])
 
 
-GLYPH = {"birthday": "🎂", "anniversary": "💍", "yahrzeit": "🕯", "countdown": "⏳", "custom": "★"}
 _DEFAULT_REMIND = {"birthday": 3, "anniversary": 3, "yahrzeit": 1, "countdown": 0, "custom": 1}
 
 
@@ -125,7 +124,6 @@ def reminder_lines(day: datetime.date, recs: "list | None" = None) -> list[str]:
             d = datetime.date.fromisoformat(occ["date"])
             if (d - day).days != lead:
                 continue
-            g = GLYPH.get(rec.get("kind"), "•")
             if rec.get("kind") == "yahrzeit":
                 eve = d - datetime.timedelta(days=1)
                 when = ("begins this evening" if eve == day else
@@ -139,5 +137,6 @@ def reminder_lines(day: datetime.date, recs: "list | None" = None) -> list[str]:
                 when = f"tomorrow ({d:%a %-d %b})"
             else:
                 when = f"in {lead} days ({d:%a %-d %b})"
-            out.append(f"{g} {occ['title']} — {when}")
+            # words only: this is notification text, which draws no icons
+            out.append(f"{occ['title']} — {when}")
     return out

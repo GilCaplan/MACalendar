@@ -128,6 +128,8 @@ class EventBlock(QLabel):
         from assistant.calendar_ui.merged_db import owner_prefix   # display only
         self._title_raw = owner_prefix(event) + event.get("title", "")
         self._title_html = _html.escape(self._title_raw)
+        from assistant.calendar_ui import view_prefs as _vpt
+        self._icons = _vpt.title_icons(event.get("title", ""))
         self._start = event.get("start_time", "")
         self._end = event.get("end_time", "")
         self._font_size = font_size
@@ -205,7 +207,7 @@ class EventBlock(QLabel):
             self.setTextFormat(Qt.TextFormat.RichText)
             self.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
             self.setText(
-                f"<b style='font-size:{self._font_size}px'>{self._title_html}</b>"
+                f"<b style='font-size:{self._font_size}px'>{self._icon_html()}{self._title_html}</b>"
                 f"<br><span style='font-size:{sub_size}px;"
                 f"opacity:0.82'>{_vp.fmt_hhmm(self._start, compact=True)}–{_vp.fmt_hhmm(self._end, compact=True)}</span>"
             )
@@ -217,12 +219,23 @@ class EventBlock(QLabel):
             self._apply_style(pad)
             self.setFont(title_font)
             self.setWordWrap(False)
-            self.setTextFormat(Qt.TextFormat.PlainText)
             self.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
             vis_w = min(w, self._strip) if self._strip else w
             avail_w = max(vis_w - pad[1] - pad[3] - 4, 10)  # -4 for the border-left strip
+            avail_w = max(avail_w - (self._font_size + 3) * len(self._icons), 10)
             elided = title_fm.elidedText(self._title_raw, Qt.TextElideMode.ElideRight, avail_w)
-            self.setText(elided)
+            if self._icons:
+                self.setTextFormat(Qt.TextFormat.RichText)
+                self.setText(self._icon_html() + _html.escape(elided))
+            else:
+                self.setTextFormat(Qt.TextFormat.PlainText)
+                self.setText(elided)
+
+    def _icon_html(self) -> str:
+        """The title's icons as rich text, in the block's text colour."""
+        from assistant.calendar_ui import icons as _icons
+        ink = _styles.on_color(self._color)
+        return "".join(_icons.html(n, ink, self._font_size) + "&nbsp;" for n in self._icons)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

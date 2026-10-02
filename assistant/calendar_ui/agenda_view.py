@@ -60,6 +60,13 @@ class _EventRow(QFrame):
         self._time_label.setFixedWidth(96)
         lay.addWidget(self._time_label)
 
+        from assistant.calendar_ui import icons as _icons
+        for name in _vp.title_icons(event.get("title", "")):     # label/title_icons
+            art = QLabel()
+            art.setObjectName("agenda_row_icon")
+            art.setPixmap(_icons.pixmap(name, None, 14))
+            lay.addWidget(art)
+
         from assistant.calendar_ui.merged_db import owner_prefix
         self._title_label = QLabel(owner_prefix(event) + event.get("title", ""))
         self._title_label.setObjectName("agenda_row_title")
@@ -68,7 +75,8 @@ class _EventRow(QFrame):
         location = event.get("location") or ""
         self._location_label: QLabel | None = None
         if location:
-            self._location_label = QLabel(f"📍 {location}")
+            import html as _html
+            self._location_label = QLabel(f"{_icons.html('pin', None, 12)}&nbsp;{_html.escape(location)}")
             self._location_label.setObjectName("agenda_row_location")
             lay.addWidget(self._location_label)
 

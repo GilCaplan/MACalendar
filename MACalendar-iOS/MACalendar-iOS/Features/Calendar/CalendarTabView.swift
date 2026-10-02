@@ -92,7 +92,7 @@ struct CalendarTabView: View {
                                                 }
                                             }
                                         } label: {
-                                            Text("⏳ \(c.label) · \(c.title)")
+                                            HStack(spacing: 4) { Ico("hourglass", size: 12); Text("\(c.label) · \(c.title)") }
                                                 .font(.caption.weight(.semibold))
                                                 .padding(.horizontal, 10).padding(.vertical, 5)
                                                 .background(Capsule().fill(Color.orange.opacity(0.18)))

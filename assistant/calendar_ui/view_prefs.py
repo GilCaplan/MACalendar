@@ -28,6 +28,7 @@ _first = SUNDAY
 _clock24 = False
 _days = frozenset(range(7))
 _hour_height = 0                            # 0 = fit the window
+_icon_count, _icon_groups = 0, frozenset()  # title icons (label/title_icons)
 
 
 def apply(ui) -> None:
@@ -43,6 +44,23 @@ def apply(ui) -> None:
     except (TypeError, ValueError):
         h = 0
     _hour_height = h if 20 <= h <= 160 else 0
+
+
+def apply_titles(config) -> None:
+    """Take the `title_emoji` settings: how many icons a title gets, of which
+    kinds. Read once here, like the rest, so a redraw never re-reads config."""
+    global _icon_count, _icon_groups
+    from assistant.engine.label import title_icons
+    _icon_count = title_icons.count_from(config)
+    _icon_groups = frozenset(title_icons.groups_from(config))
+
+
+def title_icons(title: str) -> "list[str]":
+    """The icons drawn before `title` on every view — none unless switched on."""
+    if not _icon_count:
+        return []
+    from assistant.engine.label import title_icons as _ti
+    return _ti.icons(title, _icon_count, set(_icon_groups))
 
 
 # -- the first day of the week ---------------------------------------------------

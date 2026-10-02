@@ -83,7 +83,7 @@ class Advertiser:
             info.name = self._info.name        # keep a name mDNS may have changed
             self._zc.update_service(info)
         self._info = info
-        logger.info("📡 Announced on the local network as %r (%s)",
+        logger.info("Announced on the local network as %r (%s)",
                     self._info.name.removesuffix("." + self.service),
                     info.properties.get(b"urls", b"").decode() or "no addresses")
 

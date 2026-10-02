@@ -37,7 +37,7 @@ struct JudeTurn: Identifiable {
     /// "Hilchot Shabbat · Seder Moed" — from the meta event, when Jude
     /// detected a halachic topic and ran its dual retrieval for it.
     var topicBadge: String = ""
-    /// "📖 Study · 41 sources loaded" — study mode's equivalent.
+    /// "Study · 41 sources loaded" — study mode's equivalent.
     var poolBadge: String = ""
     var clarification: JudeClarification?
     var error: String = ""
@@ -206,7 +206,7 @@ final class JudeConversation: ObservableObject {
             // exactly the uncheckable answer Jude exists to avoid.
             turns[index].sources.append(contentsOf: event.newSources)
             let summary = event.resultSummary.isEmpty ? "" : " — \(event.resultSummary)"
-            stage = "🔧 \(event.tool)\(summary)"
+            stage = "Using \(event.tool)\(summary)"
 
         case "clarification":
             chatId = event.chatId ?? chatId

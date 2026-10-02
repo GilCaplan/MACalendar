@@ -1377,7 +1377,9 @@ class WorkoutView(FeaturePanel):
             n = len(drafts)
             noun = "draft" if n == 1 else "drafts"
             verb = "needs" if n == 1 else "need"
-            self._draft_banner_btn.setText(f"⚠ {n} {noun} {verb} review")
+            self._draft_banner_btn.setText(f"{n} {noun} {verb} review")
+            from assistant.calendar_ui import icons as _icons
+            self._draft_banner_btn.setIcon(_icons.icon("warning", None, 14))
             self._draft_banner_btn.setVisible(True)
         else:
             self._draft_banner_btn.setVisible(False)

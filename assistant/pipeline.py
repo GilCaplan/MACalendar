@@ -101,7 +101,7 @@ def _identity(port: int) -> tuple:
             os.write(fd, json.dumps(got).encode())
         finally:
             os.close(fd)
-        logger.info("🔑 Enrolled this Mac as %s (%s)", got["device_id"], label)
+        logger.info("Enrolled this Mac as %s (%s)", got["device_id"], label)
         return got["device_id"], got.get("token", "")
     except Exception as e:
         logger.debug("device enrolment deferred: %s", e)
@@ -132,7 +132,7 @@ class Pipeline:
         # noticing events appearing unannounced is not acceptable.
         if config.confirmation_level > 0:
             logger.warning(
-                "🖥️ confirmation_level=%d is not in effect: parsing and execution now "
+                "confirmation_level=%d is not in effect: parsing and execution now "
                 "happen in the assistant API process, which cannot show a dialog here. "
                 "Commands run without confirmation. Set confirmation_level: 0 to silence "
                 "this, or file the dry-run endpoint work if you want the prompts back.",
@@ -210,23 +210,23 @@ class Pipeline:
                         self._recording_cancelled.set()
                         self._audio.stop()
                         self._queued = None
-                        self._set_status(STATUS_IDLE, "❌ Recording cancelled")
+                        self._set_status(STATUS_IDLE, "Recording cancelled")
                     else:
                         # Single press: stop + auto-queue a fresh session
                         self._last_listen_press = now
                         self._audio.stop()
                         if self._queued is None:
                             self._queued = "new"
-                            self._set_status(STATUS_LISTENING, "⏸ Got it — recording again after processing")
+                            self._set_status(STATUS_LISTENING, "Got it — recording again after processing")
                 elif self._queued is None:
                     self._queued = "new"
-                    self._set_status(STATUS_PROCESSING, "🕐 Queued — tap again to combine instead")
+                    self._set_status(STATUS_PROCESSING, "Queued — tap again to combine instead")
                 elif self._queued == "new":
                     self._queued = "combine"
-                    self._set_status(STATUS_PROCESSING, "🔗 Will combine with previous — tap again to cancel")
+                    self._set_status(STATUS_PROCESSING, "Will combine with previous — tap again to cancel")
                 else:
                     self._queued = None
-                    self._set_status(STATUS_PROCESSING, "⏸ Queued session cancelled")
+                    self._set_status(STATUS_PROCESSING, "Queued session cancelled")
                 return
             # Mark busy before spawning so rapid re-triggers see it immediately
             self._busy.set()
@@ -291,7 +291,7 @@ class Pipeline:
             self._recording_cancelled.set()
             self._audio.stop()
             self._queued = None
-            self._set_status(STATUS_IDLE, "❌ Recording discarded")
+            self._set_status(STATUS_IDLE, "Recording discarded")
 
     def retry_pending(self, pending_id: int) -> bool:
         """Re-run a command that was parked because the LLM was unreachable.
@@ -315,14 +315,14 @@ class Pipeline:
                 trace = self._trace_begin()
                 trace.step("memory", "Retrying", row["transcript"])
                 self._phase = STATUS_PROCESSING
-                self._set_status(STATUS_PROCESSING, "🔁 Retrying queued command…")
+                self._set_status(STATUS_PROCESSING, "Retrying queued command…")
                 if self._process_transcript(row["transcript"], trace, time.perf_counter()):
                     get_memory().resolve_pending(pending_id, "done")
                 else:
                     get_memory().bump_pending(pending_id)   # still stuck — leave it queued
             except Exception as exc:
-                logger.error("🖥️ Pending retry failed: %s", exc)
-                self._set_status(STATUS_ERROR, "⚠️ Retry failed")
+                logger.error("Pending retry failed: %s", exc)
+                self._set_status(STATUS_ERROR, "Retry failed")
             finally:
                 self._phase = STATUS_IDLE
                 self._busy.clear()
@@ -367,8 +367,8 @@ class Pipeline:
         # 1. Listen
         self._recording_cancelled.clear()
         self._phase = STATUS_LISTENING
-        listen_hint = ("🔗 Listening to add on… (say 'done', or 🗑 to discard)" if combine
-                       else "🎙 Listening… (tap to stop & re-record, 🗑 to discard)")
+        listen_hint = ("Listening to add on… (say 'done', or the trash button to discard)" if combine
+                       else "Listening… (tap to stop & re-record, the trash button to discard)")
         self._set_status(STATUS_LISTENING, listen_hint)
         trace.step(STT, "Listening",
                    "Adding on to the last command…" if combine
@@ -388,7 +388,7 @@ class Pipeline:
                 _last_partial[0] = partial
                 _last_partial[1] = time.perf_counter()
                 if _stream_stop_re.search(partial):
-                    logger.info("🖥️ Early termination detected in stream: %s", partial)
+                    logger.info("Early termination detected in stream: %s", partial)
                     _stopped_early[0] = True
                     self.stop_recording()
             except Exception as e:
@@ -402,18 +402,18 @@ class Pipeline:
         except AudioCaptureError as e:
             msg = str(e)
             if "already in progress" in msg:
-                logger.warning("🖥️ Audio capture blocked: already in progress.")
+                logger.warning("Audio capture blocked: already in progress.")
                 self._set_status(STATUS_IDLE, "")
             else:
                 self._tts.speak("Microphone error. Please check your audio settings.")
-                logger.error("🖥️ Audio capture error: %s", e)
-                self._set_status(STATUS_ERROR, "⚠️ Microphone error")
+                logger.error("Audio capture error: %s", e)
+                self._set_status(STATUS_ERROR, "Microphone error")
             trace.step(ERROR, "Microphone error", msg, ok=False)
             self._trace_result()
             return
 
         t_recorded = time.perf_counter()
-        logger.info("🖥️ ⏱ Recording: %.2fs", t_recorded - t_start)
+        logger.info("Recording: %.2fs", t_recorded - t_start)
 
         # Double-tap cancel: discard audio and abort without processing
         if self._recording_cancelled.is_set():
@@ -435,19 +435,19 @@ class Pipeline:
 
             if reuse:
                 transcript = partial_text
-                logger.info("🖥️ ⏱ Transcription: reused stream-checker result (0.00s)")
+                logger.info("Transcription: reused stream-checker result (0.00s)")
             else:
-                self._set_status(STATUS_PROCESSING, "⏳ Transcribing…")
+                self._set_status(STATUS_PROCESSING, "Transcribing…")
                 try:
                     transcript = self._stt.transcribe(audio)
                 except AssistantError as e:
                     self._tts.speak("I couldn't understand that. Please try again.")
-                    logger.error("🖥️ STT error: %s", e)
-                    self._set_status(STATUS_ERROR, "⚠️ Transcription failed")
+                    logger.error("STT error: %s", e)
+                    self._set_status(STATUS_ERROR, "Transcription failed")
                     trace.step(ERROR, "Transcription failed", str(e), ok=False)
                     self._trace_result()
                     return
-                logger.info("🖥️ ⏱ Transcription: %.2fs", time.perf_counter() - t_recorded)
+                logger.info("Transcription: %.2fs", time.perf_counter() - t_recorded)
 
             if not transcript or len(transcript.strip()) < 3:
                 self._tts.speak("I didn't catch that.")
@@ -468,7 +468,7 @@ class Pipeline:
             if choice == "send":
                 break
             if choice == "cancel":
-                self._set_status(STATUS_IDLE, "❌ Cancelled")
+                self._set_status(STATUS_IDLE, "Cancelled")
                 trace.step(ERROR, "Cancelled", "You discarded the recording.", ok=False)
                 self._trace_result()
                 return
@@ -477,15 +477,15 @@ class Pipeline:
             # transcribe again from the top of this loop.
             self._phase = STATUS_LISTENING
             self._set_status(STATUS_LISTENING,
-                             "🎙 Listening again…" if choice == "redo" else "🎙 Go on…")
+                             "Listening again…" if choice == "redo" else "Go on…")
             _last_partial[0], _last_partial[1] = "", 0.0
             _stopped_early[0] = False
             try:
                 more = self._audio.record_until_silence(
                     streaming_callback=stream_checker, streaming_interval_sec=2.5)
             except AudioCaptureError as e:
-                logger.error("🖥️ Audio capture error on %s: %s", choice, e)
-                self._set_status(STATUS_ERROR, "⚠️ Microphone error")
+                logger.error("Audio capture error on %s: %s", choice, e)
+                self._set_status(STATUS_ERROR, "Microphone error")
                 trace.step(ERROR, "Microphone error", str(e), ok=False)
                 self._trace_result()
                 return
@@ -522,13 +522,13 @@ class Pipeline:
         # twice, which is the actual saving.
         if combine and self._last_transcript:
             transcript = f"[{self._last_transcript}] [{transcript}]"
-            logger.info("🖥️ Combined transcript: %s", transcript)
+            logger.info("Combined transcript: %s", transcript)
 
         # Save clean transcript for potential future combine session
         self._last_transcript = transcript
 
 
-        logger.info("🖥️ Transcript (cleaned): %s", transcript)
+        logger.info("Transcript (cleaned): %s", transcript)
 
         # Easter egg (DEVQA Q75): nothing but magic words ("dragon!") plays on
         # this Mac and is not sent — there is no command in it. A command that
@@ -536,9 +536,9 @@ class Pipeline:
         # matching is the Swift helper's, shared with the phone.
         from assistant import magic_words
         if magic_words.heard(transcript, bare=True):
-            logger.info("✨ Magic words only — played, not sent")
-            self._trace_result(transcript=transcript, message="✨ Magic words — played on this Mac, not sent")
-            self._set_status(STATUS_IDLE, "✨")
+            logger.info("Magic words only — played, not sent")
+            self._trace_result(transcript=transcript, message="Magic words — played on this Mac, not sent")
+            self._set_status(STATUS_IDLE, "Magic words")
             self._phase = STATUS_IDLE
             return
         self._egg_played = magic_words.heard(transcript, bare=False)
@@ -549,7 +549,7 @@ class Pipeline:
             transcript = "[TASKS VIEW] " + transcript
 
         snippet = transcript[:60] + ("…" if len(transcript) > 60 else "")
-        self._set_status(STATUS_PROCESSING, f'💭 "{snippet}"')
+        self._set_status(STATUS_PROCESSING, f'"{snippet}"')
 
         self._process_transcript(transcript, trace, t_start,
                                  raw_transcript=raw_transcript, corrections=corrections)
@@ -587,7 +587,7 @@ class Pipeline:
         if corrections:
             # Already-applied corrections only reach here from the pending
             # queue, whose transcript was corrected when it was parked.
-            logger.debug("🖥️ %d correction(s) carried from the pending queue", len(corrections))
+            logger.debug("%d correction(s) carried from the pending queue", len(corrections))
 
         port = getattr(self.config.api, "port", 8080)
         _dev_id, _dev_token = _identity(port)
@@ -642,11 +642,11 @@ class Pipeline:
             # never came up. Say so plainly rather than failing silently — the
             # GUI cannot do the work itself any more, and pretending otherwise
             # is how you get two implementations again.
-            logger.error("🖥️ Cannot reach the assistant API on port %d: %s", port, e)
+            logger.error("Cannot reach the assistant API on port %d: %s", port, e)
             msg = ("I can't reach the assistant service. "
                    "Restart it with Launch Calendar.command.")
             self._tts.speak(msg)
-            self._set_status(STATUS_ERROR, "⚠️ Assistant service unreachable")
+            self._set_status(STATUS_ERROR, "Assistant service unreachable")
             trace.step(ERROR, "Service unreachable", f"port {port}: {e}", ok=False)
             self._trace_result(transcript=transcript, message=msg)
             self._phase = STATUS_IDLE
@@ -670,7 +670,7 @@ class Pipeline:
             shown = data.get("transcript") or transcript
             edited = self._await_transcript_edit(shown, data.get("needs_edit") or [])
             if edited is None:
-                self._set_status(STATUS_IDLE, "❌ Cancelled")
+                self._set_status(STATUS_IDLE, "Cancelled")
                 trace.step(ERROR, "Cancelled", "You discarded the doubted transcript.", ok=False)
                 self._trace_result(transcript=shown, message="Cancelled — nothing was done.")
                 self._phase = STATUS_IDLE
@@ -697,7 +697,7 @@ class Pipeline:
 
         if data.get("parse") == "error" and not actions:
             self._tts.speak(message or "I couldn't understand that request.")
-            self._set_status(STATUS_ERROR, "⚠️ Couldn't parse request")
+            self._set_status(STATUS_ERROR, "Couldn't parse request")
             self._trace_result(transcript=transcript, message=message,
                                pending_id=pending_id,
                                uncertain_words=data.get("uncertain_words") or [])
@@ -719,7 +719,7 @@ class Pipeline:
         if message:
             self._tts.speak_sync(message)
 
-        logger.info("🖥️ ⏱ Total pipeline: %.2fs", time.perf_counter() - t_start)
+        logger.info("Total pipeline: %.2fs", time.perf_counter() - t_start)
         self._trace_result(transcript=transcript, message=message,
                            pending_id=pending_id,
                            uncertain_words=data.get("uncertain_words") or [])
@@ -763,9 +763,9 @@ class Pipeline:
             with open(path, "a", encoding="utf-8") as f:
                 f.writelines(lines)
 
-            logger.debug("🖥️ Scenario bug appended (%s): %s", issue_type, details[:80])
+            logger.debug("Scenario bug appended (%s): %s", issue_type, details[:80])
         except Exception as exc:
-            logger.warning("🖥️ Could not append scenario bug: %s", exc)
+            logger.warning("Could not append scenario bug: %s", exc)
 
     @staticmethod
     def _append_nlu_log(
@@ -799,11 +799,11 @@ class Pipeline:
             ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
             if success:
-                status_label = "✅ rule fast-path" if fast_path_used else f"🤖 {parse_method}"
+                status_label = "rule fast-path" if fast_path_used else parse_method
             else:
-                status_label = f"❌ failed ({parse_method})"
+                status_label = f"failed ({parse_method})"
 
-            source_label = "🖥️ Mac" if source == "mac" else "📱 iOS"
+            source_label = "Mac" if source == "mac" else "iOS"
             lines = [
                 f"## [{ts}] {'SUCCESS' if success else 'FAILED'} — {source_label}\n",
                 f"**Transcript:** `{transcript}`\n\n",
@@ -822,7 +822,7 @@ class Pipeline:
             with open(path, "a", encoding="utf-8") as f:
                 f.writelines(lines)
         except Exception as exc:
-            logger.warning("🖥️ Could not append NLU log: %s", exc)
+            logger.warning("Could not append NLU log: %s", exc)
 
     def _await_review(self, transcript: str) -> str:
         """Block on the Redo / Add more / Send bar; auto-sends when it times out.
@@ -906,7 +906,7 @@ class Pipeline:
             with urllib.request.urlopen(req, timeout=30) as r:
                 return _json.loads(r.read().decode())
         except (urllib.error.URLError, OSError, ValueError) as e:
-            logger.error("🖥️ Could not answer the confirmation: %s", e)
+            logger.error("Could not answer the confirmation: %s", e)
             return {"ok": False, "accepted": accept, "created": [], "refresh": "",
                     "message": "I couldn't reach the assistant service to do that."}
 

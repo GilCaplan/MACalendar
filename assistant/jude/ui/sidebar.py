@@ -13,6 +13,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
+from assistant.calendar_ui import icons as _icons
 
 # Wide enough for the three mode buttons on ONE ROW without eliding. At 236 they
 # rendered as "QA | Stud | Sourc": the app QSS gives #seg_btn 14px of horizontal
@@ -20,7 +21,9 @@ from PyQt6.QtWidgets import (
 # extra width also gives chat titles somewhere to go.
 SIDEBAR_WIDTH = 280
 
-MODES = [("qa", "⚡ Q&A"), ("study", "📖 Study"), ("sources", "📋 Sources")]
+MODES = [("qa", "Q&A"), ("study", "Study"), ("sources", "Sources")]
+#: each mode's picture (GraphicsLibrary, `calendar_ui/icons`)
+MODE_ICONS = {"qa": "lightning", "study": "book_open", "sources": "clipboard"}
 
 
 class _ChatRow(QWidget):
@@ -37,7 +40,8 @@ class _ChatRow(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(2)
 
-        self._open = QPushButton("📝  " + self._title)
+        self._open = QPushButton("  " + self._title)
+        self._open.setIcon(_icons.icon("memo", theme.text2, 14))
         self._open.setObjectName("flat")
         self._open.setCursor(Qt.CursorShape.PointingHandCursor)
         self._open.setToolTip(self._title)
@@ -84,7 +88,7 @@ class Sidebar(QWidget):
         lay.setContentsMargins(10, 12, 10, 10)
         lay.setSpacing(8)
 
-        brand = QLabel("🕎  <b>Jude</b>")
+        brand = QLabel(_icons.html("menorah", theme.text, 18) + "&nbsp;&nbsp;<b>Jude</b>")
         brand.setStyleSheet(f"color:{theme.text}; font-size:15px;")
         lay.addWidget(brand)
         tagline = QLabel("Your Judaic study assistant")
@@ -106,6 +110,7 @@ class Sidebar(QWidget):
         self._mode_buttons: "dict[str, QPushButton]" = {}
         for key, label in MODES:
             button = QPushButton(label)
+            button.setIcon(_icons.icon(MODE_ICONS[key], theme.text2, 13))
             button.setObjectName("seg_btn")
             # Tighter than the app default (5px 14px): three of these share one
             # row, and the shared style is written for toolbars with space.

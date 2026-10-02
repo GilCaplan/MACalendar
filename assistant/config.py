@@ -438,12 +438,13 @@ def _clamp_minutes(v, default: int, low: int) -> int:
 
 
 class TitleEmojiConfig(BaseModel):
-    """Emoji in titles (TASKS 51): after the assistant commits an event or a
-    to-do, up to `count` emoji go right after the words that clearly name
-    them ("walk my dog 🐕"). 0 = off (the default), 1 or 2. Each KIND of
-    emoji has its own switch, on unless set off (Gil, 2026-10-01) — the keys
-    are `title_emoji.GROUPS`, and a test keeps the two lists equal.
-    `engine/label/title_emoji.py`."""
+    """Icons beside titles (TASKS 51): up to `count` icons are drawn beside an
+    event's or a to-do's title, one per word that clearly names one (a dog
+    for "walk my dog"); the title itself stays words. 0 = off (the default),
+    1 or 2. Each KIND has its own switch, on unless set off (Gil, 2026-10-01)
+    — the keys are `title_icons.GROUPS`, and a test keeps the two lists
+    equal. The key is still `title_emoji`: it predates the drawings, and
+    every saved config uses it. `engine/label/title_icons.py`."""
     count: int = 0
     animals: bool = True
     sport: bool = True

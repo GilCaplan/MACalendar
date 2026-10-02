@@ -178,11 +178,11 @@ struct JudeSourcesSection: View {
                 if expanded {
                     if isDual {
                         if !primaries.isEmpty {
-                            group(label: "⚖ Primary Sources (\(primaries.count))",
+                            group(label: "Primary Sources (\(primaries.count))",
                                   tint: settings.accentColor, items: primaries)
                         }
                         if !secondaries.isEmpty {
-                            group(label: "🔍 Secondary Sources (\(secondaries.count))",
+                            group(label: "Secondary Sources (\(secondaries.count))",
                                   tint: .secondary, items: secondaries)
                         }
                         if !unranked.isEmpty {

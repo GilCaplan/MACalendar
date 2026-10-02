@@ -127,7 +127,7 @@ def register(app) -> None:
             hid = store.add(got.get("name") or url, got.get("os", ""), urls, got["token"])
             threading.Thread(target=router.refresh, args=(_cfg().ollama.base_url,),
                              daemon=True).start()
-            logger.info("🧠 Model helper %s (%s) added", got.get("name"), got.get("os"))
+            logger.info("Model helper %s (%s) added", got.get("name"), got.get("os"))
             return jsonify({"id": hid, "name": got.get("name"), "os": got.get("os")})
         return _err(f"couldn't reach the helper ({last})", 502)
 

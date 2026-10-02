@@ -166,7 +166,10 @@ class _AssignmentRow(QWidget):
         # Calendar sync button
         self._cal_btn = QPushButton()
         synced = self._row.get("calendar_event_id") is not None
-        self._cal_btn.setText("✓ synced" if synced else "📅")
+        self._cal_btn.setText("✓ synced" if synced else "")
+        if not synced:
+            from assistant.calendar_ui import icons as _icons
+            self._cal_btn.setIcon(_icons.icon("calendar", None, 15))
         self._cal_btn.setToolTip(
             "Already synced to calendar" if synced else "Add due date to main calendar"
         )
@@ -256,7 +259,8 @@ class _CourseItem(QWidget):
             try: partners = json.loads(partners)
             except Exception: partners = []
         if partners:
-            pc = QLabel(f"👥 {len(partners)}")
+            from assistant.calendar_ui import icons as _icons
+            pc = QLabel(_icons.html("users", "#888888", 12) + f"&nbsp;{len(partners)}")
             pc.setStyleSheet("font-size: 11px; color: #888;")
             layout.addWidget(pc)
 
@@ -300,7 +304,9 @@ class _AssignmentPanel(QWidget):
         self._title_lbl.setFont(f)
         title_row.addWidget(self._title_lbl, stretch=1)
 
-        self._edit_course_btn = QPushButton("✎  Edit Course")
+        self._edit_course_btn = QPushButton("Edit Course")
+        from assistant.calendar_ui import icons as _icons
+        self._edit_course_btn.setIcon(_icons.icon("pencil", None, 14))
         self._edit_course_btn.setObjectName("flat")
         self._edit_course_btn.setFixedHeight(26)
         self._edit_course_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -397,7 +403,10 @@ class _AssignmentPanel(QWidget):
         if isinstance(partners, str):
             try: partners = json.loads(partners)
             except Exception: partners = []
-        self._partners_lbl.setText("👥  " + "   ·   ".join(partners) if partners else "")
+        from assistant.calendar_ui import icons as _icons
+        import html as _html
+        self._partners_lbl.setText(_icons.html("users", None, 13) + "&nbsp;&nbsp;"
+                                   + _html.escape("   ·   ".join(partners)) if partners else "")
         self._partners_lbl.setVisible(bool(partners))
 
         self._add_bar.setVisible(True)
@@ -485,7 +494,7 @@ class _AssignmentPanel(QWidget):
         num  = self._course.get("number", "")
         desc = f"{num} — {self._course['name']}".strip(" —") if num else self._course["name"]
         event_id = self._db.create_event_from_dict({
-            "title":       f"📚 {asgn['title']}",
+            "title":       asgn["title"],
             "date":        asgn["due_date"],
             "start_time":  "23:59",
             "end_time":    "23:59",

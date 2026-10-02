@@ -22,7 +22,7 @@ struct MacSettingsView: View {
                         ForEach(store.settings.objects) { Text($0.name).tag($0.id) }
                     }
                     Button("Play a demo on the whole screen") { store.demo() }
-                    Button("New magic word from an emoji, flag or symbol…") { newSymbol = true }
+                    Button("New magic word from a drawing, symbol or letters…") { newSymbol = true }
                     Button("New magic word from a photo…") { newPhoto = true }
                 }
                 if !store.conflicts.isEmpty {
@@ -196,7 +196,7 @@ struct MacWordEditor: View {
                         }
                     }
                     Button("Play it") { store.play([id], together: true) }
-                    Button("Add an emoji, flag or symbol…") { addingSymbol = true }
+                    Button("Add a drawing, symbol or letters…") { addingSymbol = true }
                     Button("Add a photo…") { addingPhoto = true }
                     if o.active != EggVariant.originalID {
                         Button("Delete this graphic", role: .destructive) { store.deleteVariant(o.active, from: id) }

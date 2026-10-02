@@ -19,8 +19,8 @@ struct EggLate {
         }
         s.objects = EggCatalog.defaults() + [
             custom("custom-val", "Val", ["val"], .image("val.png")),
-            custom("custom-cake", "Grandma's cake", ["grandma's cake"], .symbol("🎂")),
-            custom("custom-flag", "Israel", ["israel"], .symbol("🇮🇱")),
+            custom("custom-cake", "Grandma's cake", ["grandma's cake"], .symbol("icon:cake|#FF6FAE")),
+            custom("custom-flag", "Israel", ["israel"], .symbol("icon:flag_israel|#3A7BFF")),
         ]
         while let line = readLine() {
             let parts = line.split(separator: "\t", maxSplits: 1).map(String.init)

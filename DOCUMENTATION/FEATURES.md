@@ -264,7 +264,8 @@ built when it reaches the Mac.
 | hybrid | [Teach](#teach--the-labelling-game) | the labelling game — label models' only non-circular data (iOS only) | `features/teach/`, `LabelGameView.swift` |
 | UI | [Magic words (Easter egg)](#magic-words--the-easter-egg) | say "dog" and a German Shepherd runs across the phone; 51 built-in graphics (the activities you actually do among them), your own photos, emoji, flags and symbols | `MACalendar-iOS/…/EasterEgg/` |
 | UI | [The loading screen](#the-loading-screen--your-own-wheel-of-death) | your own animated spinner and \"taking a while\" screen, built in Settings ▸ Easter egg (iOS and Mac) | `EasterEgg/EggLoader*.swift`, `mac/MagicWords/MacLoader.swift` |
-| engine | [Emoji in titles](#emoji-in-titles) | "walk my dog 🐕" — none, one or two, only in the word's emoji sense; off by default | `engine/label/title_emoji.py` |
+| engine | [Icons beside titles](#icons-beside-titles) | a dog drawn beside "walk my dog" — none, one or two, only in the word's sense; the title stays words; off by default | `engine/label/title_icons.py` |
+| app | [Drawn icons, no emoji](#drawn-icons-no-emoji) | every picture on the Mac, the phone and the Easter egg is a GraphicsLibrary drawing | `scripts/sync_icons.py`, `calendar_ui/icons`, `Assets.xcassets/Icons` |
 | UI | [How it runs: Mac + phone, or phone only](#how-it-runs--mac--phone-or-phone-only) | a setup guide in the phone's Settings; a phone-only mode with no Mac and no offline banner | `SetupGuideView.swift`, `DefaultRules.swift` |
 | hybrid | [Coursework](#coursework) | courses + assignments tab | db `courses*`, `CourseworkView` |
 | hybrid | [Jude](#jude--the-judaic-study-assistant) | Torah/Talmud/halacha study assistant — a separate repo, hosted as an integration | `assistant/jude/`, `assistant/integrations/`, `MACalendar-iOS/.../Jude/` |
@@ -872,29 +873,33 @@ categories Fitness, Work, Errand, Meal, Shabbat Meal and the tags Groceries,
 Coursework, Errands, Admin, Wishlist, Shabbat to them. A saved map takes in
 links added after it was saved and never brings back one the person cleared
 (`madeMapKnown`) — before, a saved map replaced the defaults whole.
-**Emoji in titles** learned the same words: 🤸 calisthenics / pull-ups, and the
-plan's run kinds (threshold, speed, interval… run; strides) for 🏃 — on the
+**Icons beside titles** learned the same words: calisthenics / pull-ups, and the
+plan's run kinds (threshold, speed, interval… run; strides) for the runner — on the
 11,700 corpus rows nothing changed; on the calendar's own 234 titles, 17 gained
-one (3 distinct: "Easy 5 km + strides 🏃", "Gym 🏋️ / Calisthenics 🤸").
+one (3 distinct: "Easy 5 km + strides" → run, "Gym / Calisthenics" → dumbbell, bicep).
 **Where:** `EasterEgg/EggActivities.swift` (shared — the Mac helper draws them),
 the catalog and word bank; tests: the render sheet (51 graphics × every
 motion), `test_the_made_map_takes_new_defaults_but_never_resurrects_a_cleared_one`,
-`test_title_emoji.py::test_a_training_plans_own_words`.
+`test_title_icons.py::test_a_training_plans_own_words`.
 
-### Your own emoji, flag or symbol
+### Your own drawing, symbol or letters
 **What:** Besides the built-in art, a photo or a drawn path, a magic word's
-graphic can be any emoji or flag from the keyboard (🇮🇱, 😎, a few letters), or
-one of Apple's SF Symbols in a colour you pick (a person, a crown, a
-graduation cap). "Add an emoji, flag or symbol…" on a magic word's page, or
-"New from an emoji, flag or symbol…" for a new magic word with its own words
-(and Suggest words). It hops and wobbles with a white sticker glow, and plays
-in every motion, trail and loading-screen style. A mistyped symbol name draws
-a question mark rather than nothing.
-**Where:** `EasterEgg/EggSymbol.swift` (shared; the Mac helper draws it too),
-`EggSymbolEditor.swift`; stored as `EggVariant.Source.symbol("emoji:…" |
-"sf:name|#hex")`. Test: the symbols sheet in
+graphic can be a GraphicsLibrary drawing in a colour you pick (the Israel
+flag, a star of David, a menorah, faces, a heart, a cake, a crown… — the
+emoji picks until 2026-10-01, redrawn), one of Apple's SF Symbols in a colour
+(a person, a crown, a graduation cap), or a few letters ("GO"). "Add a
+drawing, symbol or letters…" on a magic word's page, or "New from a drawing,
+symbol or letters…" for a new magic word with its own words (and Suggest
+words). It hops and wobbles with a white sticker glow, and plays in every
+motion, trail and loading-screen style. A mistyped symbol name draws a
+question mark rather than nothing; an emoji saved before the drawings still
+plays.
+**Where:** `EasterEgg/EggSymbol.swift` (shared; the Mac helper draws it too,
+loading the same SVGs from `MACALENDAR_ICONS_DIR`, which `magic_words.py`
+sets), `EggSymbolEditor.swift`; stored as `EggVariant.Source.symbol(
+"icon:name|#hex" | "sf:name|#hex" | "emoji:text")`. Test: the symbols sheet in
 `test_every_graphic_renders_in_every_motion`, the UI test
-`testAnEmojiBecomesAGraphic`.
+`testADrawingBecomesAGraphic`.
 **On the Mac** (the magic-words helper, `mac/MagicWords/MacWords.swift`): the
 same three — Suggest words (this Mac's model through the API's
 `/magic/suggest-words` first, then Apple's on-device model via the shared
@@ -2270,34 +2275,65 @@ the Mac, so a wrong password leaves nothing changed and no stale entry is left
 in "Signed-in devices". Remembered names never include a password; a name can
 be forgotten from the device (long-press).
 
-### Emoji in titles
-**What:** What the assistant adds gets an emoji right after a word that clearly
-names one — "walk my dog 🐕", "date 💕 with Noa", "shiur 📜 at shul 🕍". None, one
-or two per title (Settings ▸ Assistant or Settings ▸ Easter egg, either app;
-one shared value), off by default (TASKS 51, 2026-10-01). **Which kinds** —
-animals, sport, health, food, occasions, travel, home, work, Jewish life —
-each has its own switch ("Which kinds…" on the Mac, "Which kinds" on the
-phone; `title_emoji.<kind>`, all on unless set off).
-**Where:** `assistant/engine/label/title_emoji.py` (a Component of the Label
-stage), called by the create actions; config `title_emoji.count`; `GET/PATCH
-/config`; Mac `settings_dialog` (two combos kept in step), iOS
-`TitleEmojiPicker`. Tests `tests/unit/test_title_emoji.py`, the settings test
-in `test_settings_real_shapes.py`; board `label/experiments/title_emoji_board.py`.
+### Icons beside titles
+**What:** An event or a to-do whose title clearly names something gets that
+thing's drawing beside it — a dog for "walk my dog", a heart for "date with
+Noa", a scroll and a synagogue for "shiur at shul". None, one or two per title
+(Settings ▸ Assistant or Settings ▸ Easter egg, either app; one shared value),
+off by default (TASKS 51, 2026-10-01). **Which kinds** — animals, sport,
+health, food, occasions, travel, home, work, Jewish life — each has its own
+switch, shown with its own drawing ("Which kinds…" on the Mac, "Which kinds"
+on the phone; `title_emoji.<kind>`, all on unless set off). **The title stays
+words** (since 2026-10-01, Gil: *"i dont want emojis, rather custom made
+graphics"*): until then an emoji was written INTO the stored title; now nothing
+is written, the views draw the icons, so Google never receives a picture,
+switching a kind off takes effect on every row at once, and a typed or synced
+event gets its icon too.
+**Where:** `assistant/engine/label/title_icons.py` (a Component of the Label
+stage: `icons(title, count, groups)`, `attach(rows)`); the API serves each
+row's `icons` (`GET /events`, `/events/<id>`, `/todos`, `/search`); the Mac
+draws them through `view_prefs.title_icons` in the month pill, week and day
+blocks, agenda and to-do rows; the phone through `IconTitle` (week, day,
+tasks, search). Config `title_emoji.count` (the key predates the drawings);
+Mac `settings_dialog` (two combos kept in step), iOS `TitleEmojiPicker`.
+Tests `tests/unit/test_title_icons.py`, `test_icons.py`, the settings test in
+`test_settings_real_shapes.py`; board `label/experiments/title_emoji_board.py`.
 **How:** A word list (~150 words) where every word with two senses carries the
-neighbours that CONFIRM the emoji's sense or VETO it — "eat a date", "due
-date", "book a table", "run errands", "train for the marathon" stay plain; with
-no confirmation it is silent, and there is no model call. Never on a title
-that already has an emoji, never the same one twice. Only the assistant's own
-creates — not calendar sync, which would rewrite Google titles. Labels are
-read from the plain words (`db.auto_category_and_color` strips emoji), the
-duplicate check compares words, and title matching tokenises on `\w+`, so the
-emoji never changes what a row is or which row "delete walk my dog" finds.
-The reply stays plain because it is spoken. **Measured** (count 2, every
-decorated title read): 79 of 215 real titles decorated, none in a wrong
-sense; on the 3,000 real commands (a stress set full of "update the date",
-"book a…") and 2,070 generated titles, the wrong senses found ("the interview
-date", "bottle bank", "cling film", "meter reading" …) became vetoes, then a
-seeded random 150 of the rest read 1 mild miss ("eye exam 📝", also vetoed).
+neighbours that CONFIRM the icon's sense or VETO it — "eat a date", "due
+date", "book a table", "run errands", "train for the marathon" get none; with
+no confirmation it is silent, and there is no model call. One icon once per
+title; a title saved with an emoji before 2026-10-01 is read by its words.
+**Measured** (count 2, every fired title read, 2026-10-01): 81 of 216 real
+titles get one, none in a wrong sense; on the 3,000 real commands (a stress set
+full of "update the date", "book a…") and 2,070 generated titles, the wrong
+senses found ("the interview date", "bottle bank", "cling film", "meter
+reading" …) became vetoes, then a seeded random 150 of the rest read 1 mild
+miss ("eye exam", also vetoed). Moving from emoji to icons changed no reading:
+the stress set fires on the same 949 of 2,999 titles.
+
+### Drawn icons, no emoji
+**What:** No emoji anywhere — the Mac calendar, Jude, the server's tray, the
+magic-words helper and the phone draw every picture as a line drawing from
+the shared GraphicsLibrary (`../GraphicsLibrary`, 24×24, one stroke, tinted
+like text), so the two apps and the Easter egg read as one set (Gil,
+2026-10-01). 121 drawings were made for it — animals, sport, food, travel,
+home, study, Jewish life, the interface (calendar, hourglass, repeat, users,
+record, bell…) and faces for the egg — and live in the library for the next
+project. The mic's status, the sidebar's sections, Settings' tiles, occasion
+and holiday banners, the event dialog's sync and series badges, Timer's
+Work/Personal, Jude's modes and sources, the egg's picker: all drawn.
+Typographic marks (✓ ✕ ⌘ ▾ ★ ⚑ ☑) stay text; log lines and notification text,
+which cannot draw, lost their emoji instead.
+**Where:** `scripts/sync_icons.py` copies the names in
+`calendar_ui/icons/LIBRARY.txt` to the Mac (`calendar_ui/icons/*.svg`, drawn by
+`calendar_ui/icons.py`: `icon`, `pixmap`, `html` for rich text, `draw_row` for
+painted rows, all at 2× for Retina) and the phone (`Assets.xcassets/Icons/`,
+template images, drawn by `Ico` / `IconTitle` in `Views/AssistantIcons.swift`).
+New drawings are made in the library (`tools/add_icons.py`, judged on
+`tools/preview.py`'s 48/24/16 contact sheet), never here. The retired rumps
+menu-bar app is in `retired/rumps-menu-bar/`. Tests `tests/unit/test_icons.py`:
+every name the code draws exists on both platforms, the Mac and the phone give
+each occasion and each kind the same drawing, and no emoji reaches a screen.
 
 ### Passive label learning — corrections become training data
 **What:** When a person *changes* an assigned category or tag, that correction

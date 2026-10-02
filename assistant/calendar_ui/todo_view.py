@@ -434,7 +434,9 @@ class TodoDetailPanel(QWidget):
         self._att_lbl = QLabel("Attachments")
         att_header_row.addWidget(self._att_lbl)
         att_header_row.addStretch()
-        self._add_att_btn = QPushButton("📎 Add")
+        self._add_att_btn = QPushButton("Add")
+        from assistant.calendar_ui import icons as _icons
+        self._add_att_btn.setIcon(_icons.icon("paperclip", None, 13))
         self._add_att_btn.setFixedHeight(22)
         self._add_att_btn.clicked.connect(self._on_add_attachment)
         att_header_row.addWidget(self._add_att_btn)
@@ -937,6 +939,15 @@ class TodoItemWidget(QWidget):
         self._check.toggled.connect(self._on_toggled)
         title_row.addWidget(self._check)
 
+        # The title's icons (label/title_icons), then the title
+        from assistant.calendar_ui import icons as _icons
+        from assistant.calendar_ui import view_prefs as _vpt
+        for name in _vpt.title_icons(self._todo["title"]):
+            art = QLabel()
+            art.setObjectName("todo_title_icon")
+            art.setPixmap(_icons.pixmap(name, None, 15))
+            title_row.addWidget(art)
+
         # Title label (click to edit)
         self._label = QLabel(self._todo["title"])
         self._label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -955,7 +966,8 @@ class TodoItemWidget(QWidget):
 
         # A to-do filed beside an event (DEVQA Q50: "call the plumber" is both)
         # says so — it is renamed with the event and goes when the event does.
-        self._link_chip = QLabel("🔗")
+        self._link_chip = QLabel()
+        self._link_chip.setPixmap(_icons.pixmap("link", None, 13))
         self._link_chip.setObjectName("link_chip")
         title_row.addWidget(self._link_chip)
         self._refresh_link_chip()
@@ -1256,7 +1268,8 @@ class TodoItemWidget(QWidget):
         linked = self._linked_event()
         if linked:
             from assistant.calendar_ui.link_picker import event_label
-            menu.addAction(f"🔗 {event_label(linked)}").setEnabled(False)
+            from assistant.calendar_ui import icons as _icons
+            menu.addAction(_icons.icon("link", None, 14), event_label(linked)).setEnabled(False)
             link_actions[menu.addAction("Unlink from event")] = "unlink"
         else:
             link_actions[menu.addAction("Add to calendar (linked)")] = "to_calendar"
@@ -2168,7 +2181,9 @@ class SectionHeader(QWidget):
 
         self._sync_btn = None
         if show_sync_button:
-            self._sync_btn = QPushButton("🔄 Sync Today")
+            self._sync_btn = QPushButton("Sync Today")
+            from assistant.calendar_ui import icons as _icons
+            self._sync_btn.setIcon(_icons.icon("refresh", None, 14))
             self._sync_btn.setToolTip("Pull today's calendar events into this list")
             self._sync_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             self._sync_btn.setFixedHeight(26)
@@ -2177,7 +2192,9 @@ class SectionHeader(QWidget):
 
         self._gear_btn = None
         if show_sync_gear:
-            self._gear_btn = QPushButton("⚙")
+            self._gear_btn = QPushButton()
+            from assistant.calendar_ui import icons as _icons
+            self._gear_btn.setIcon(_icons.icon("gear", None, 15))
             self._gear_btn.setFixedSize(24, 24)
             self._gear_btn.setToolTip("Sync settings")
             self._gear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -2555,7 +2572,7 @@ class TodoView(FeaturePanel):
         if hasattr(self._today_header, "_sync_btn"):
             btn = self._today_header._sync_btn
             btn.setText(f"✓ {count} synced" if count else "✓ Up to date")
-            QTimer.singleShot(2000, lambda: btn.setText("🔄 Sync Today"))
+            QTimer.singleShot(2000, lambda: btn.setText("Sync Today"))
 
     def _on_sync_mode_changed(self, mode: str) -> None:
         self._sync_mode = mode

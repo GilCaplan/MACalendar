@@ -8,6 +8,7 @@ Swift compiled on its own, as the other phone ports are
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -115,12 +116,15 @@ def test_every_graphic_renders_in_every_motion(tmp_path):
                     *[str(EGG / f) for f in SHARED],
                     "-o", str(exe)], check=True, capture_output=True)
     png = tmp_path / "all.png"
-    out = subprocess.run([str(exe), str(png)], capture_output=True, text=True, check=True)
+    # the drawings a "Drawing" sticker is made of, as magic_words.py points the helper at them
+    icons_dir = ROOT / "assistant" / "calendar_ui" / "icons"
+    out = subprocess.run([str(exe), str(png)], capture_output=True, text=True, check=True,
+                         env=dict(os.environ, MACALENDAR_ICONS_DIR=str(icons_dir)))
     assert int(out.stdout.strip()) == 51
     assert png.stat().st_size > 50_000
     puppets = tmp_path / "all-puppets.png"          # every photo rig: walk, roll, flap, hop, still
     assert puppets.exists() and puppets.stat().st_size > 20_000
-    symbols = tmp_path / "all-symbols.png"          # the user's own emoji, flags and SF Symbols
+    symbols = tmp_path / "all-symbols.png"          # the user's own drawings, letters and SF Symbols
     assert symbols.exists() and symbols.stat().st_size > 20_000
     # The car picture's wheels are drawn at (58,156) and (158,156), r 17, in a
     # 200 box: the silhouette reading has to land on them.

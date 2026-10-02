@@ -763,7 +763,7 @@ def main(argv: list[str] | None = None) -> int:
     timer.timeout.connect(reader.poll)
     timer.start(POLL_MS)
 
-    logger.info("🪟 Thinking HUD listening on %s", trace_bus.BUS_PATH)
+    logger.info("Thinking HUD listening on %s", trace_bus.BUS_PATH)
     return app.exec()
 
 

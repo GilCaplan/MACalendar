@@ -21,9 +21,13 @@ struct OccasionBanner: Codable, Equatable, Identifiable {
 
     var id: String { "\(date)|\(title)|\(occasionId ?? source)" }
     var uiColor: Color { Color(hex: color) ?? .pink }
-    var glyph: String {
-        ["birthday": "🎂", "anniversary": "💍", "yahrzeit": "🕯", "countdown": "⏳",
-         "custom": "★", "jewish": "✡", "national": "⚑", "christian": "✝", "islamic": "☪"][kind] ?? "•"
+    /// Its kind's drawing (Assets.xcassets/Icons — the Mac's `occasion_ui.ICON`).
+    var icon: String { OccasionBanner.icon(kind) }
+
+    static func icon(_ kind: String) -> String {
+        ["birthday": "cake", "anniversary": "ring", "yahrzeit": "candles", "countdown": "hourglass",
+         "custom": "star", "jewish": "star_of_david", "national": "flag", "christian": "cross",
+         "islamic": "crescent_star"][kind] ?? "star"
     }
 
     enum CodingKeys: String, CodingKey {
@@ -380,7 +384,7 @@ struct OccasionsSettingsView: View {
                 ForEach(mine) { o in
                     Button { editing = o } label: {
                         HStack {
-                            Text(glyph(o.kind))
+                            Ico(OccasionBanner.icon(o.kind), size: 18).foregroundColor(.accentColor)
                             VStack(alignment: .leading) {
                                 Text(o.title).foregroundColor(.primary)
                                 Text(summary(o)).font(.caption).foregroundColor(.secondary)
@@ -460,7 +464,7 @@ struct OccasionsSettingsView: View {
                     }
                 }
             } } header: { FoldHeader("occ.Colours", label: "Colours and reminders") } footer: { if fold.isOpen("occ.Colours") {
-                Text("Reminders arrive in the daily summary (Notifications) on the day chosen — “🎂 Dana's 30th birthday — in 3 days”.")
+                Text("Reminders arrive in the daily summary (Notifications) on the day chosen — “Dana's 30th birthday — in 3 days”.")
             } }
         }
         .navigationTitle("Occasions")
@@ -479,10 +483,6 @@ struct OccasionsSettingsView: View {
     }
 
     // MARK: rows
-
-    private func glyph(_ kind: String) -> String {
-        ["birthday": "🎂", "anniversary": "💍", "yahrzeit": "🕯", "countdown": "⏳"][kind] ?? "★"
-    }
 
     private func summary(_ o: Occasion) -> String {
         let kind = OccasionEditor.kinds.first { $0.0 == o.kind }?.1 ?? o.kind

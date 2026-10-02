@@ -1358,7 +1358,7 @@ class _LLMRow(QFrame):
         e = self._entry
         when = _dt.datetime.fromtimestamp(e.get("ts", 0)).strftime("%H:%M:%S")
         if self._is_protocol():
-            return f"{when}  ⚙ {e.get('kind', 'event')} — {e.get('detail', '')}"
+            return f"{when}  {e.get('kind', 'event')} — {e.get('detail', '')}"
         return f"{when}  {e.get('caller') or 'unknown'}"
 
     def _timing(self) -> str:
@@ -1368,7 +1368,7 @@ class _LLMRow(QFrame):
         if e.get("error"):
             return "failed"
         ms = e.get("ms") or 0
-        mark = " ⛓" if e.get("schema") else ""
+        mark = " · schema" if e.get("schema") else ""
         return (f"{ms / 1000:.1f}s{mark}" if ms >= 1000 else f"{ms}ms{mark}")
 
     def matches(self, needle: str, slow_only: bool, errors_only: bool) -> bool:

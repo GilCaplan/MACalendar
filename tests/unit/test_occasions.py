@@ -289,8 +289,8 @@ def test_reminders_come_on_the_lead_day_in_words():
                "remind_days": 1})
     store.add({"kind": "custom", "title": "Quiet", "month": 10, "day": 2, "remind_days": -1})
     assert feed.reminder_lines(D(2026, 10, 2)) == [
-        "🎂 Dana's 30th birthday — in 3 days (Mon 5 Oct)",
-        "💍 Gil & Dana — 5 years — tomorrow (Sat 3 Oct)"]
+        "Dana's 30th birthday — in 3 days (Mon 5 Oct)",
+        "Gil & Dana — 5 years — tomorrow (Sat 3 Oct)"]
     assert feed.reminder_lines(D(2026, 10, 1)) == []
 
 
@@ -300,7 +300,7 @@ def test_a_yahrzeit_reminder_names_the_evening_it_begins():
     store.add({"kind": "yahrzeit", "title": "Grandpa", "calendar": "hebrew", "month": 7, "day": 20,
                "remind_days": 1})
     [line] = feed.reminder_lines(d - datetime.timedelta(days=1))
-    assert line == "🕯 Yahrzeit · Grandpa — begins this evening"
+    assert line == "Yahrzeit · Grandpa — begins this evening"
 
 
 def test_the_day_panel_carries_them(tmp_path):
@@ -311,7 +311,7 @@ def test_the_day_panel_carries_them(tmp_path):
     cfg = SimpleNamespace(enabled=True, daily_digest=True, digest_time="07:30",
                           respect_observance=False)
     panel = notify.build_digest(D(2026, 10, 5), cfg, db=CalendarDB(str(tmp_path / "c.db")))
-    assert panel["occasions"] == ["🎂 Dana's birthday — today"]
+    assert panel["occasions"] == ["Dana's birthday — today"]
     assert "1 occasion" in panel["title"] and "Dana's birthday — today" in panel["body"]
 
 

@@ -48,7 +48,7 @@ class AudioDeviceProfile:
             f"  Mic access  : {'✓' if self.permission_ok else '✗ DENIED'}",
         ]
         for w in self.warnings:
-            lines.append(f"  ⚠  {w}")
+            lines.append(f"  !  {w}")
         return "\n".join(lines)
 
 

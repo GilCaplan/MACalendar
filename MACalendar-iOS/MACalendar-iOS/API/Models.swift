@@ -56,10 +56,14 @@ struct CalendarEvent: Identifiable, Codable, Equatable {
     var ownerColor: String? = nil
     var shared: Bool? = nil
     var canEdit: Bool? = nil
+    /// The drawings beside the title (`label/title_icons`): Assets.xcassets
+    /// Icons/<name>, served by the Mac so both draw the same — empty when the
+    /// setting is off, the title names nothing, or the Mac predates it.
+    var icons: [String]? = nil
 
     enum CodingKeys: String, CodingKey {
         case id, title, date, color, recurrence, attendees, location, description, source, category
-        case shared
+        case shared, icons
         case ownerId   = "owner_id"
         case ownerName = "owner_name"
         case ownerColor = "owner_color"
@@ -116,9 +120,11 @@ struct Todo: Identifiable, Codable, Equatable {
     var ownerName: String? = nil
     var shared: Bool? = nil
     var canEdit: Bool? = nil
+    /// See CalendarEvent.icons.
+    var icons: [String]? = nil
 
     enum CodingKeys: String, CodingKey {
-        case id, title, list, completed, priority, tags, quantity, shared
+        case id, title, list, completed, priority, tags, quantity, shared, icons
         case dueDate = "due_date"
         case updatedAt = "updated_at"
         case linkedEventId = "linked_event_id"
@@ -154,6 +160,7 @@ struct Todo: Identifiable, Codable, Equatable {
         ownerName = try? c.decodeIfPresent(String.self, forKey: .ownerName)
         shared    = try? c.decodeIfPresent(Bool.self, forKey: .shared)
         canEdit   = try? c.decodeIfPresent(Bool.self, forKey: .canEdit)
+        icons     = try? c.decodeIfPresent([String].self, forKey: .icons)
     }
 
     var isDone: Bool { completed != 0 }

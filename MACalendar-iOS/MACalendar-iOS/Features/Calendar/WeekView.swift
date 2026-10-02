@@ -179,7 +179,7 @@ private struct WeekDayHeader: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
             } else if let o = occasions.first {
-                Text("\(o.glyph) \(o.title)")
+                HStack(spacing: 2) { Ico(o.icon, size: 8); Text(o.title) }
                     .font(.system(size: 8, weight: .semibold))
                     .foregroundColor(o.uiColor)
                     .lineLimit(1)
@@ -319,7 +319,8 @@ private struct WeekEventBlock: View {
         RoundedRectangle(cornerRadius: 3)
             .fill(fillColor)
             .overlay(alignment: .topLeading) {
-                Text(event.ownerPrefix + event.title)
+                IconTitle(title: event.ownerPrefix + event.title, icons: event.icons,
+                          size: max(settings.fontWeek - 2, 9))
                     .font(.system(size: max(settings.fontWeek - 2, 9), weight: .semibold))
                     .foregroundColor(Color.onColor(hex: event.color.isEmpty ? settings.accentColorHex : event.color))
                     .padding(2)

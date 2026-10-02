@@ -2230,8 +2230,10 @@ todo's … don't go implementing yet"*):
 Asked 2026-09-30, next (Gil: *"I could do this next. Don't have to do it right
 now"*):
 
-51. ~~**Emoji in titles.**~~ — **built 2026-10-01** (FEATURES.md "Emoji in
-    titles"; stored at commit, Q83 — Gil may veto for display-time). Was: An on/off switch, in Settings ▸ Easter egg AND in the
+51. ~~**Emoji in titles.**~~ — **built 2026-10-01** (FEATURES.md "Icons
+    beside titles"; first stored at commit, Q83 — then reversed the same day
+    by Q84: no emoji anywhere, the title stays words and the views draw
+    GraphicsLibrary icons; FEATURES.md "Drawn icons, no emoji"). Was: An on/off switch, in Settings ▸ Easter egg AND in the
     Assistant section, with how many: none, one or two. After an event or
     to-do is COMMITTED, look at its title and, when a word clearly names
     something with an emoji, put it right after that word: "walk my dog" →
@@ -2315,3 +2317,10 @@ now"*):
     shape: a settings-dialog test iterating `dlg.findChildren(...)` on Linux
     offscreen Qt. Both crashes are inside `findChildren`, so suspect a widget
     the dialog deleted (deleteLater) still being walked.
+
+54. ~~**No emoji — drawn icons everywhere**~~ — **built 2026-10-01** (Gil:
+    *"change emojis to custom designed graphics … all emojis … find that
+    library can make more of our own"*; DEVQA Q84). 121 drawings added to
+    `../GraphicsLibrary`, 160 synced into the Mac and the phone by
+    `scripts/sync_icons.py`; titles get icons at display time; the egg's
+    picks are drawings. FEATURES.md "Drawn icons, no emoji".

@@ -494,7 +494,7 @@ class Engine(Component):
         response_msg = " ".join(deduped)
         action_names = [ex.action for ex in state.executed if ex.ok]
         logger.info("%s Response: %s | refresh=%s | parse=%s",
-                    "🖥️" if source == "mac" else "📱",
+                    "[mac]" if source == "mac" else "[ios]",
                     response_msg, state.refresh or "none", state.parse_path)
 
         _log_nlu(state, action_names)

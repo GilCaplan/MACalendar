@@ -330,7 +330,7 @@ def retry_pending_once(run_transcript, mem, budget: int) -> int:
             batch_rows = ordered[taken:taken + len(group)]
             taken += len(group)
             batch = wrap(group)
-            logger.info("📱 Retrying %d queued command(s) from %s: %s",
+            logger.info("Retrying %d queued command(s) from %s: %s",
                         len(batch_rows), stream, batch[:80])
             result = run_transcript(batch, source=src)
             ran += 1
@@ -364,7 +364,7 @@ def start_pending_retry_loop(run_transcript, interval: float = 30.0) -> None:
                     with _users.bind(uid):
                         retry_pending_once(run_transcript, get_memory(), budget)
             except Exception as e:
-                logger.warning("📱 Pending retry loop error: %s", e)
+                logger.warning("Pending retry loop error: %s", e)
     _threading.Thread(target=_loop, daemon=True, name="pending-retry").start()
 
 
@@ -611,12 +611,12 @@ def create_app() -> Flask:
         return jsonify(out) if isinstance(out, dict) else out
 
     def _voice_audio_once(audio_bytes: bytes):
-        logger.info("📱 Audio received: %.1f KB", len(audio_bytes) / 1024)
+        logger.info("Audio received: %.1f KB", len(audio_bytes) / 1024)
         try:
             from assistant.api.audio_utils import audio_bytes_to_numpy
             audio_np = audio_bytes_to_numpy(audio_bytes)
         except Exception as e:
-            logger.error("📱 Audio decode failed: %s", e)
+            logger.error("Audio decode failed: %s", e)
             return jsonify({"error": f"Audio decode failed: {e}", "code": 422}), 422
 
         from assistant.trace import Trace, STT
@@ -633,7 +633,7 @@ def create_app() -> Flask:
             return jsonify({"message": "I didn't catch that.", "actions": [], "refresh": "",
                             "parse": "error", "trace": trace.to_list()})
 
-        logger.info("📱 Transcript: %s", transcript)
+        logger.info("Transcript: %s", transcript)
         trace.step(STT, "Heard", transcript, transcript=transcript)
         return _run_transcript(transcript, trace, source="ios",
                                supports_edit=_supports_edit(),
@@ -718,7 +718,7 @@ def create_app() -> Flask:
                     transcript = text_cmd
                     trace.step(STT, "Typed", transcript, transcript=transcript)
                 else:
-                    logger.info("📱 Audio received (stream): %.1f KB", len(audio_bytes) / 1024)
+                    logger.info("Audio received (stream): %.1f KB", len(audio_bytes) / 1024)
                     from assistant.api.audio_utils import audio_bytes_to_numpy
                     audio_np = audio_bytes_to_numpy(audio_bytes)
                     q.put({"type": "step", "stage": STT, "title": "Listening",
@@ -729,14 +729,14 @@ def create_app() -> Flask:
                         q.put({"type": "result", "message": "I didn't catch that.", "actions": [],
                                "refresh": "", "parse": "error", "trace": trace.to_list()})
                         return
-                    logger.info("📱 Transcript: %s", transcript)
+                    logger.info("Transcript: %s", transcript)
                     trace.step(STT, "Heard", transcript, transcript=transcript)
                 result = _run_transcript(transcript, trace, source="ios",
                                          supports_edit=edit_ok,
                                          supports_confirm=confirm_ok)
                 q.put({"type": "result", **result})
             except Exception as e:  # never leave the stream hanging
-                logger.exception("📱 Stream pipeline failed: %s", e)
+                logger.exception("Stream pipeline failed: %s", e)
                 trace.step(ERROR, "Failed", str(e), ok=False)
                 q.put({"type": "result", "message": f"Error: {e}", "actions": [], "refresh": "",
                        "parse": "error", "trace": trace.to_list()})
@@ -790,7 +790,7 @@ def create_app() -> Flask:
             # No secret means no trust is possible. Say so rather than issuing a
             # token that will never verify and look like an attack later.
             return jsonify({"error": "device secret unavailable", "code": 503}), 503
-        logger.info("🔑 Enrolled %s device %s (%s)", src, got["device_id"], got["label"])
+        logger.info("Enrolled %s device %s (%s)", src, got["device_id"], got["label"])
         return jsonify(got)
 
     @app.get("/devices")
@@ -808,7 +808,7 @@ def create_app() -> Flask:
         ok = _mp.revoke(device_id)
         if not ok:
             return jsonify({"error": "unknown device", "code": 404}), 404
-        logger.info("🔑 Revoked device %s", device_id)
+        logger.info("Revoked device %s", device_id)
         return jsonify({"revoked": device_id})
 
     @app.post("/voice/text")
@@ -860,7 +860,7 @@ def create_app() -> Flask:
             (request.remote_addr or "?").encode()).hexdigest()[:12]
         stream = _mp.stream_key(src, dev, trusted=_trusted, anon=_anon)
         view = (body.get("current_view") or "month").strip().lower()
-        logger.info("%s Text command: %s", "🖥️" if src == "mac" else "📱", transcript)
+        logger.info("%s Text command: %s", "[mac]" if src == "mac" else "[ios]", transcript)
         run = (body.get("trace_run") or "").strip() or None
         # A client that can show the "edit the transcription" round-trip says
         # so; older clients never see a needs_edit response.
@@ -1333,7 +1333,7 @@ def create_app() -> Flask:
                             "code": 400}), 400
         except ValueError as exc:
             return jsonify({"error": str(exc), "code": 400}), 400
-        logger.info("📍 Location set to %s (%.4f, %.4f)",
+        logger.info("Location set to %s (%.4f, %.4f)",
                     settings.city or "an unnamed place", settings.latitude, settings.longitude)
         return jsonify({"latitude": settings.latitude, "longitude": settings.longitude,
                         "timezone": settings.timezone, "city": settings.city})
@@ -1686,7 +1686,7 @@ def create_app() -> Flask:
         # read and the setting would silently not be what the client showed.
         te = data.get("title_emoji")
         if te is not None:
-            from assistant.engine.label.title_emoji import GROUPS as _EMOJI_GROUPS
+            from assistant.engine.label.title_icons import GROUPS as _EMOJI_GROUPS
             bad = (not isinstance(te, dict) or not te
                    or any(k != "count" and k not in _EMOJI_GROUPS for k in te)
                    or ("count" in te and (isinstance(te["count"], bool) or te["count"] not in (0, 1, 2)))

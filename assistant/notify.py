@@ -274,7 +274,7 @@ def build_digest(day: datetime.date, cfg, db=None) -> dict:
              or (not t.get("due_date") and day == today)]
 
     ev_lines, td_lines = digest_lines(events, todos)
-    # Occasions due a reminder today (DEVQA Q73): "🎂 Dana's 30th birthday —
+    # Occasions due a reminder today (DEVQA Q73): "Dana's 30th birthday —
     # in 3 days". Never allowed to break the panel.
     try:
         from assistant.occasions.feed import reminder_lines

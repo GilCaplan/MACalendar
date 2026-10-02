@@ -2,7 +2,7 @@
 
 The desktop twin of the iPhone's Review-commands screen. Every command the
 assistant runs is kept in the shared memory DB (~/.assistant_tools) with no
-verdict until someone gives one; a 👍 / 👎 / fix here feeds the few-shot
+verdict until someone gives one; a thumbs up / down / fix here feeds the few-shot
 examples the parser learns from. Since the Mac *is* the brain, this talks to
 `assistant.intent.memory` directly rather than through the API the phone uses.
 """
@@ -458,7 +458,7 @@ class ReviewDialog(QDialog):
                      "whether it was right; a few seconds a day and the assistant learns your phrasing.")
             return
         self._intro.setText(
-            f"{len(items)} to review · 👍 if it did the right thing, 👎 if not. "
+            f"{len(items)} to review · thumbs up if it did the right thing, thumbs down if not. "
             "Only what you tick is stored.")
         for ex in items:
             self._list.insertWidget(self._list.count() - 1,

@@ -22,8 +22,10 @@ logger = logging.getLogger(__name__)
 
 KIND_LABELS = {"birthday": "Birthday", "anniversary": "Anniversary", "yahrzeit": "Yahrzeit",
                "countdown": "Countdown", "custom": "Other yearly date"}
-GLYPH = {"birthday": "🎂", "anniversary": "💍", "yahrzeit": "🕯", "countdown": "⏳",
-         "custom": "★", "jewish": "✡", "national": "⚑", "christian": "✝", "islamic": "☪"}
+#: Each kind's picture — a GraphicsLibrary icon (`calendar_ui/icons`).
+ICON = {"birthday": "cake", "anniversary": "ring", "yahrzeit": "candles", "countdown": "hourglass",
+        "custom": "star", "jewish": "star_of_david", "national": "flag", "christian": "cross",
+        "islamic": "crescent_star"}
 SOURCE_LABELS = {"jewish": "Jewish calendar", "national": "national holidays",
                  "christian": "Christian holidays", "islamic": "Islamic holidays"}
 HEBREW_MONTHS = ["Nisan", "Iyar", "Sivan", "Tammuz", "Av", "Elul", "Tishrei", "Cheshvan",
@@ -56,7 +58,8 @@ class OccasionBanner(QLabel):
         self.banner = banner
         self._color = banner.get("color") or "#8b5cf6"
         self._font_size = font_size
-        self._text = f"{GLYPH.get(banner.get('kind'), '•')} {banner.get('title', '')}"
+        self._icon = ICON.get(banner.get("kind"), "star")
+        self._text = banner.get("title", "")
         self.setText(self._text)
         self.setFixedHeight(20)
         self.setMinimumWidth(0)
@@ -82,8 +85,12 @@ class OccasionBanner(QLabel):
         f.setPointSize(self._font_size)
         f.setWeight(f.Weight.DemiBold)
         p.setFont(f)
-        elided = p.fontMetrics().elidedText(self._text, Qt.TextElideMode.ElideRight, self.width() - 8)
-        p.drawText(self.rect().adjusted(4, 0, -4, 0),
+        from assistant.calendar_ui import icons as _icons
+        x = _icons.draw_row(p, 4, self.rect().adjusted(0, 1, -1, -2), [self._icon],
+                            on_color(self._color), 12)
+        elided = p.fontMetrics().elidedText(self._text, Qt.TextElideMode.ElideRight,
+                                            self.width() - x - 4)
+        p.drawText(self.rect().adjusted(int(x), 0, -4, 0),
                    Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, elided)
         p.end()
 
@@ -334,8 +341,9 @@ class OccasionsList(QWidget):
             when = nd.strftime("%a %-d %b %Y") if nd else "—"
             kind = KIND_LABELS.get(rec.get("kind"), rec.get("kind", ""))
             cal = " · Hebrew date" if rec.get("calendar") == "hebrew" else ""
-            item = QListWidgetItem(f"{GLYPH.get(rec.get('kind'), '•')}  {rec.get('title')}"
-                                   f"   —   {kind}{cal} · next {when}")
+            item = QListWidgetItem(f"{rec.get('title')}   —   {kind}{cal} · next {when}")
+            from assistant.calendar_ui import icons as _icons
+            item.setIcon(_icons.icon(ICON.get(rec.get("kind"), "star"), None, 16))
             item.setData(Qt.ItemDataRole.UserRole, rec.get("id"))
             self.list.addItem(item)
             if rec.get("id") == keep:
@@ -420,7 +428,9 @@ class CountdownList(QWidget):
         for c in items[:5]:
             n = c["days_left"]
             when = "today" if n == 0 else "tomorrow" if n == 1 else f"{n} days"
-            b = QPushButton(f"⏳  {when} · {c['title']}")
+            b = QPushButton(f"  {when} · {c['title']}")
+            from assistant.calendar_ui import icons as _icons
+            b.setIcon(_icons.icon("hourglass", None, 14))
             b.setObjectName("countdown_row")
             b.setFlat(True)
             b.setCursor(Qt.CursorShape.PointingHandCursor)

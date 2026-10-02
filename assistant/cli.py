@@ -419,8 +419,8 @@ def cmd_say(args) -> int:
         print(_c("31", f"cannot reach the API — {e}"), file=sys.stderr)
         return 2
     print(_c("2", f"— chain of thought ({r.get('brain','?')}) —"))
-    glyphs = {"vocab": "✎", "rule": "⚡", "llm": "◆", "validate": "✓",
-              "execute": "▸", "verify": "⟳", "done": "●", "error": "✗", "memory": "≡", "stt": "🎙"}
+    glyphs = {"vocab": "✎", "rule": "»", "llm": "◆", "validate": "✓",
+              "execute": "▸", "verify": "⟳", "done": "●", "error": "✗", "memory": "≡", "stt": "◉"}
     for st in r.get("trace", []):
         g = glyphs.get(st.get("stage", ""), "·")
         print(f"  {g} {st.get('title','')}  {_c('2', (st.get('detail') or '')[:70])}")

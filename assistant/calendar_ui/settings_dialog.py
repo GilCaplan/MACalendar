@@ -72,12 +72,12 @@ _SECTION_LABELS = {"Hebrew Calendar": "Hebrew & Shabbat",
                    "Connected Calendars": "Connected calendars"}
 #: The coloured tile before each row, as the phone's SettingsIcon draws them.
 _SECTION_TILES = {
-    "Appearance": ("#0a84ff", "◐"), "Events": ("#ff453a", "▦"),
-    "Hebrew Calendar": ("#5e5ce6", "☾"), "Connected Calendars": ("#0a84ff", "⇄"),
-    "Notifications": ("#ff453a", "!"), "Tabs": ("#8e8e93", "▤"),
-    "Assistant": ("#bf5af2", "✦"), "Voice": ("#bf5af2", "∿"),
-    "Server": ("#8e8e93", "▣"), "Occasions": ("#ec4899", "✿"),
-    "Easter egg": ("#ff2d55", "✨"),
+    "Appearance": ("#0a84ff", "palette"), "Events": ("#ff453a", "calendar"),
+    "Hebrew Calendar": ("#5e5ce6", "moon"), "Connected Calendars": ("#0a84ff", "refresh"),
+    "Notifications": ("#ff453a", "bell"), "Tabs": ("#8e8e93", "list"),
+    "Assistant": ("#bf5af2", "sparkle"), "Voice": ("#bf5af2", "soundwave"),
+    "Server": ("#8e8e93", "monitor"), "Occasions": ("#ec4899", "cake"),
+    "Easter egg": ("#ff2d55", "wizard_hat"),
 }
 
 
@@ -105,6 +105,11 @@ def _tile_icon(color: str, glyph: str):
     p.setPen(Qt.PenStyle.NoPen)
     p.setBrush(QColor(color))
     p.drawRoundedRect(QRectF(0, 0, 22, 22), 5.5, 5.5)
+    from assistant.calendar_ui import icons as _icons
+    if _icons.exists(glyph):                    # a GraphicsLibrary icon, in white
+        p.drawPixmap(4, 4, _icons.pixmap(glyph, "#ffffff", 14))
+        p.end()
+        return QIcon(pm)
     f = QFont()
     f.setPixelSize(14)
     f.setBold(True)
@@ -917,7 +922,7 @@ def open_settings(self) -> None:
     occ.addLayout(_teach_row)
     occ = fold(occ_page, "Colours and reminders")
     occ.addWidget(hint("Reminders arrive in the daily summary (Notifications), on the "
-                       "day chosen — \"🎂 Dana's 30th birthday — in 3 days\"."))
+                       "day chosen — \"Dana's 30th birthday — in 3 days\"."))
     _colors = dict(getattr(_ocfg, "colors", None) or {})
     _reminds = dict(getattr(_ocfg, "remind_days", None) or {})
     colour_buttons: dict = {}
@@ -1287,9 +1292,10 @@ def open_settings(self) -> None:
         for label, n in (("None", 0), ("One", 1), ("Two", 2)):
             cb.addItem(label, n)
         cb.setCurrentIndex(cb.findData(_emoji_now))
-        cb.setToolTip("What the assistant adds gets an emoji after a word that clearly\n"
-                      "names one — “walk my dog 🐕”, “date 💕 with Noa”. A word with\n"
-                      "two meanings only gets one in the right one: “due date” stays plain.")
+        cb.setToolTip("An event or to-do whose title clearly names something gets its\n"
+                      "icon drawn beside it — a dog for “walk my dog”, a heart for “date\n"
+                      "with Noa”. A word with two meanings only gets one in the right one:\n"
+                      "“due date” stays plain. The title itself stays words.")
 
         def follow(_i, me=cb):
             for other in emoji_combos:
@@ -1303,26 +1309,28 @@ def open_settings(self) -> None:
 
     # Which KINDS get one (Gil, 2026-10-01) — one state behind both pages'
     # "Which kinds…" buttons, saved with everything else.
-    from assistant.engine.label.title_emoji import GROUPS as _EMOJI_GROUPS
+    from assistant.engine.label.title_icons import GROUPS as _EMOJI_GROUPS
     _te_cfg = getattr(self._config, "title_emoji", None)
     emoji_groups = {g: bool(getattr(_te_cfg, g, True)) for g in _EMOJI_GROUPS}
 
     def _emoji_kinds(name: str) -> QPushButton:
         btn = QPushButton("Which kinds…")
         btn.setObjectName(name)
-        btn.setToolTip("Choose which kinds of emoji the assistant may add — "
+        btn.setToolTip("Choose which kinds of words get an icon — "
                        "animals, food, travel…")
 
         def open_kinds():
             from PyQt6.QtWidgets import QDialog, QDialogButtonBox
             d = QDialog(btn.window())
             d.setObjectName("title_emoji_kinds_dialog")
-            d.setWindowTitle("Emoji in titles — which kinds")
+            d.setWindowTitle("Icons beside titles — which kinds")
             lay = QVBoxLayout(d)
-            lay.addWidget(QLabel("Add an emoji for these kinds of words:"))
+            lay.addWidget(QLabel("Draw an icon for these kinds of words:"))
             boxes = {}
+            from assistant.engine.label.title_icons import GROUP_ICONS as _GI
             for g, label in _EMOJI_GROUPS.items():
                 cb = QCheckBox(label)
+                cb.setIcon(icons.icon(_GI[g], None, 16))
                 cb.setObjectName(f"title_emoji_kind_{g}")
                 cb.setChecked(emoji_groups[g])
                 lay.addWidget(cb)
@@ -1339,7 +1347,7 @@ def open_settings(self) -> None:
         return btn
 
     _emoji_egg_row = QHBoxLayout()
-    _emoji_egg_row.addWidget(QLabel("Emoji in titles:"))
+    _emoji_egg_row.addWidget(QLabel("Icons beside titles:"))
     _emoji_egg_row.addWidget(_emoji_combo("title_emoji_egg"))
     _emoji_egg_row.addWidget(_emoji_kinds("title_emoji_kinds_egg"))
     _emoji_egg_row.addStretch(1)
@@ -1358,7 +1366,7 @@ def open_settings(self) -> None:
     assistant.addWidget(hint("Off: nothing you say or type is acted on, here or on your phone, "
                              "until you switch it back on. Your calendar and to-dos work as usual."))
     _emoji_row = QHBoxLayout()
-    _emoji_row.addWidget(QLabel("Emoji in titles:"))
+    _emoji_row.addWidget(QLabel("Icons beside titles:"))
     _emoji_row.addWidget(_emoji_combo("title_emoji"))
     _emoji_row.addWidget(_emoji_kinds("title_emoji_kinds"))
     _emoji_row.addStretch(1)

@@ -366,13 +366,16 @@ class TimerDialog(QDialog):
         type_layout.setContentsMargins(0, 0, 0, 0)
         type_layout.setSpacing(0)
 
-        self._work_btn = QPushButton("💼  Work")
+        from assistant.calendar_ui import icons as _icons
+        self._work_btn = QPushButton("  Work")
+        self._work_btn.setIcon(_icons.icon("briefcase", None, 15))
         self._work_btn.setCheckable(True)
         self._work_btn.setFixedHeight(32)
         self._work_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._work_btn.clicked.connect(lambda: self._set_type("work"))
 
-        self._personal_btn = QPushButton("🏠  Personal")
+        self._personal_btn = QPushButton("  Personal")
+        self._personal_btn.setIcon(_icons.icon("house", None, 15))
         self._personal_btn.setCheckable(True)
         self._personal_btn.setFixedHeight(32)
         self._personal_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -2067,7 +2070,9 @@ class CounterCard(QWidget):
         self._plus_btn.clicked.connect(lambda: self._on_press(1))
         header.addWidget(self._plus_btn)
 
-        self._payouts_btn = QPushButton("🧾")
+        self._payouts_btn = QPushButton()
+        from assistant.calendar_ui import icons as _icons
+        self._payouts_btn.setIcon(_icons.icon("receipt", None, 16))
         self._payouts_btn.setObjectName("flat")
         self._payouts_btn.setFixedSize(28, 28)
         self._payouts_btn.setCursor(Qt.CursorShape.PointingHandCursor)

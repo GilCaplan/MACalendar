@@ -208,7 +208,7 @@ struct ConnectedCalendarsView: View {
                 ForEach(status?.subscriptions ?? []) { sub in
                     VStack(alignment: .leading, spacing: 2) {
                         Text((sub.label?.isEmpty == false ? sub.label : sub.url) ?? "Calendar link")
-                        Text(sub.lastError?.isEmpty == false ? "⚠ \(sub.lastError!)"
+                        Text(sub.lastError?.isEmpty == false ? "Last error: \(sub.lastError!)"
                              : "Last synced \(Self.when(sub.lastSynced))")
                             .font(.caption).foregroundColor(.secondary)
                     }
@@ -283,7 +283,8 @@ struct ConnectedCalendarsView: View {
                     Text(title).font(.headline)
                     Text(stateLine(key, p)).font(.caption).foregroundColor(.secondary)
                     if let err = p?.lastError, !err.isEmpty {
-                        Text("⚠ \(err)").font(.caption).foregroundColor(.orange)
+                        Label { Text(err) } icon: { Ico("warning", size: 12) }
+                            .font(.caption).foregroundColor(.orange)
                     }
                 }
             }

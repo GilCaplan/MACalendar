@@ -525,7 +525,7 @@ class CommandGraphView(QWidget):
                 foot = foot.adjusted(side + 6, 0, 0, 0)
             p.drawText(foot, Qt.AlignmentFlag.AlignVCenter, "working…")
         else:
-            mark = "✓" if g.check_ok is not False else "⚠"
+            mark = "✓" if g.check_ok is not False else "✗"
             colour = QColor(t.green if g.check_ok is not False else t.orange)
             check = ("every field traced back to the words" if g.check_ok is not False
                      else unsupported(g.check))

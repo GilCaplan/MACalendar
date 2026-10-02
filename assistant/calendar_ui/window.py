@@ -75,18 +75,20 @@ def _fmt_time(time_str: str) -> str:
     from assistant.calendar_ui import view_prefs as _vp
     return _vp.fmt_hhmm(time_str)
 
+#: The mic button's picture per status — GraphicsLibrary icons
+#: (`calendar_ui/icons`), drawn in the button's ink; idle is the drawn mic.
 _MIC_ICONS = {
-    STATUS_IDLE: "🎙",
-    STATUS_LISTENING: "🔴",
-    STATUS_REVIEW: "📨",
-    STATUS_EDIT: "✏️",
-    STATUS_CONFIRM: "❓",
-    STATUS_PROCESSING: "⚙️",
-    STATUS_DONE: "✅",
-    STATUS_ERROR: "⚠️",
-    STATUS_REFRESH: "✅",
-    STATUS_SWITCH_TODAY: "✅",
-    STATUS_SWITCH_TODO: "✅",
+    STATUS_IDLE: "mic",
+    STATUS_LISTENING: "record",
+    STATUS_REVIEW: "envelope",
+    STATUS_EDIT: "pencil",
+    STATUS_CONFIRM: "help_circle",
+    STATUS_PROCESSING: "gear",
+    STATUS_DONE: "check_circle",
+    STATUS_ERROR: "warning",
+    STATUS_REFRESH: "check_circle",
+    STATUS_SWITCH_TODAY: "check_circle",
+    STATUS_SWITCH_TODO: "check_circle",
 }
 
 _MIC_OBJ_NAMES = {
@@ -227,7 +229,8 @@ class ReviewBar(QFrame):
         self._more = QPushButton("Add more")
         self._more.setToolTip("Keep what you said and carry on")
         self._send = QPushButton("Send")
-        self._cancel = QPushButton("🗑")
+        self._cancel = QPushButton()
+        self._cancel.setIcon(icons.icon("trash", None, 15))
         self._cancel.setToolTip("Discard — throw this recording away without running it")
         self._cancel.setFixedWidth(30)
         for btn, choice in ((self._redo, "redo"), (self._more, "add"),
@@ -403,6 +406,7 @@ class CalendarWindow(QMainWindow):
         # How the calendar is drawn — before any view is built, since the
         # week view works out its first day as it is made.
         _vp.apply(getattr(config, "ui", None))
+        _vp.apply_titles(config)
         # The signed-in user's calendar PLUS what others share with them — one
         # object every view keeps, reading and writing through users.sharing
         # (DEVQA Q65). Before the users migration it is just the CalendarDB.
@@ -756,7 +760,8 @@ class CalendarWindow(QMainWindow):
         # recording was a double-tap on the mic, which is to say undiscoverable
         # — and tapping the mic once sends, so changing your mind mid-sentence
         # meant letting the command run and undoing it afterwards.
-        self._discard_btn = QPushButton("🗑")
+        self._discard_btn = QPushButton()
+        self._discard_btn.setIcon(icons.icon("trash", None, 15))
         self._discard_btn.setObjectName("icon_btn")
         self._discard_btn.setFixedSize(30, 30)
         self._discard_btn.setToolTip("Discard this recording — nothing is transcribed or run")
@@ -863,9 +868,10 @@ class CalendarWindow(QMainWindow):
         """The app's sections, in the sidebar: Calendar, then one row per
         feature panel from the registry (Tasks, Timer, Account…). They were
         eight more buttons in the toolbar's view strip."""
-        glyphs = {"tasks": "✓", "timer": "◷", "coursework": "✎", "workout": "⚡",
-                  "account": "◉", "jude": "❡", "teach": "✦"}
-        self._nav_calendar_btn = self._sidebar.add_nav("Calendar", "▦")
+        glyphs = {"tasks": "clipboard_check", "timer": "stopwatch", "coursework": "graduation",
+                  "workout": "dumbbell", "account": "user_circle", "jude": "book_open",
+                  "teach": "idea"}
+        self._nav_calendar_btn = self._sidebar.add_nav("Calendar", "calendar")
         self._nav_calendar_btn.clicked.connect(
             lambda: self._set_view(getattr(self, "_last_calendar_mode", "month")))
         for label, mode in self._toolbar_modes()[4:]:
@@ -883,13 +889,17 @@ class CalendarWindow(QMainWindow):
         from assistant.calendar_ui.toolbar_icons import glyph_icon, mic_icon
         ink = _styles.D_GRAY_TEXT if self._dark else GRAY_TEXT
         self._theme_btn.setText("")
-        self._theme_btn.setIcon(glyph_icon("☀" if self._dark else "☾", ink, 16, 14))
+        self._theme_btn.setIcon(icons.icon("sun" if self._dark else "moon", ink, 16))
         self._theme_btn.setIconSize(QSize(16, 16))
         # vars(), not hasattr: this runs mid-_build_toolbar, before the mic
         # exists, and hasattr on a half-built Qt object raises
         gear, mic = vars(self).get("_settings_btn"), vars(self).get("_mic_btn")
         if gear is not None:
-            gear.setIcon(glyph_icon("⚙", ink, 16, 14))
+            gear.setIcon(icons.icon("gear", ink, 16))
+        for trash in (vars(self).get("_discard_btn"), vars(self).get("_review_bar")):
+            btn = getattr(trash, "_cancel", trash)
+            if btn is not None:
+                btn.setIcon(icons.icon("trash", ink, 15))
             gear.setIconSize(QSize(16, 16))
         typer = vars(self).get("_type_btn")
         if typer is not None:
@@ -1475,18 +1485,16 @@ class CalendarWindow(QMainWindow):
         bar.raise_()
 
     def _handle_status(self, status: str, message: str = "") -> None:
-        icon = _MIC_ICONS.get(status, "🎙")
+        icon = _MIC_ICONS.get(status, "mic")
         obj_name = _MIC_OBJ_NAMES.get(status, "mic_idle")
-        if icon == "🎙":                 # idle: the drawn microphone, not the emoji
-            from PyQt6.QtCore import QSize
+        from PyQt6.QtCore import QSize
+        self._mic_btn.setText("")
+        if icon == "mic":                # idle: the toolbar's own drawn microphone
             from assistant.calendar_ui.toolbar_icons import mic_icon
-            self._mic_btn.setText("")
             self._mic_btn.setIcon(mic_icon(_styles.ON_ACCENT))
-            self._mic_btn.setIconSize(QSize(18, 18))
         else:
-            from PyQt6.QtGui import QIcon
-            self._mic_btn.setIcon(QIcon())
-            self._mic_btn.setText(icon)
+            self._mic_btn.setIcon(icons.icon(icon, _styles.ON_ACCENT, 18))
+        self._mic_btn.setIconSize(QSize(18, 18))
         self._mic_btn.setObjectName(obj_name)
         self._mic_btn.style().unpolish(self._mic_btn)
         self._mic_btn.style().polish(self._mic_btn)
@@ -1761,6 +1769,7 @@ class CalendarWindow(QMainWindow):
         """Settings ▸ Appearance saved: first day, clock, days, row height,
         week numbers — into every view that draws them."""
         _vp.apply(getattr(self._config, "ui", None))
+        _vp.apply_titles(self._config)
         for view in (getattr(self, "_week_view", None), getattr(self, "_day_view", None)):
             if view is not None and hasattr(view, "relabel"):
                 view.relabel()
@@ -1795,8 +1804,10 @@ class CalendarWindow(QMainWindow):
         msg = QMessageBox(self)
         msg.setWindowTitle("Import Calendar Events")
         msg.setText("How would you like to import events?")
-        ics_btn = msg.addButton("📂 Open .ics file", QMessageBox.ButtonRole.ActionRole)
-        mac_btn = msg.addButton("🗓 Scan macOS Calendar", QMessageBox.ButtonRole.ActionRole)
+        ics_btn = msg.addButton("Open .ics file", QMessageBox.ButtonRole.ActionRole)
+        ics_btn.setIcon(icons.icon("folder", None, 15))
+        mac_btn = msg.addButton("Scan macOS Calendar", QMessageBox.ButtonRole.ActionRole)
+        mac_btn.setIcon(icons.icon("calendar", None, 15))
         msg.addButton(QMessageBox.StandardButton.Cancel)
         msg.exec()
 

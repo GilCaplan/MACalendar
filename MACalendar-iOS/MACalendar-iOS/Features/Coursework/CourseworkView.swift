@@ -240,7 +240,7 @@ private struct CourseSection: View {
         guard !assignment.dueDate.isEmpty, assignment.calendarEventId == nil else { return }
         Task {
             let fields: [String: Any] = [
-                "title":       "📚 \(assignment.title)",
+                "title":       assignment.title,
                 "date":        assignment.dueDate,
                 "start_time":  "23:59",
                 "end_time":    "23:59",

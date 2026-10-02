@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 # enough on loopback to simply keep asking.
 STATUS_POLL_MS = 15000
 
-NO_ANSWER = ("⚠ No response was generated. Try rephrasing the question, or "
+NO_ANSWER = ("No response was generated. Try rephrasing the question, or "
              "raise the number of sources.")
 
 
@@ -303,11 +303,11 @@ class JudeWindow(QMainWindow):
         label = meta.get("halachic_label")
         if meta.get("halachic_topic") and label:
             seder = meta.get("halachic_seder")
-            self._badge.setText(f"📚 {label}" + (f" · Seder {seder}" if seder else ""))
+            self._badge.setText(f"{label}" + (f" · Seder {seder}" if seder else ""))
         elif meta.get("mode") == "study" and meta.get("study_pool_size"):
-            self._badge.setText(f"📖 Study · {meta['study_pool_size']} sources loaded")
+            self._badge.setText(f"Study · {meta['study_pool_size']} sources loaded")
         elif meta.get("mode") == "sources":
-            self._badge.setText("📋 Sources Only")
+            self._badge.setText("Sources Only")
         else:
             self._badge.hide()
             return

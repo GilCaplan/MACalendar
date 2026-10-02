@@ -93,9 +93,9 @@ def sync_now(db=None, config=None) -> dict:
         _run_lock.release()
     _state["last_run"] = {"started": started, "finished": _utcnow_iso(), "results": results}
     if results.get("errors"):
-        logger.warning("📅 Calendar sync finished with errors: %s", "; ".join(results["errors"]))
+        logger.warning("Calendar sync finished with errors: %s", "; ".join(results["errors"]))
     else:
-        logger.info("📅 Calendar sync: %s", {k: v for k, v in results.items() if v and k != "errors"})
+        logger.info("Calendar sync: %s", {k: v for k, v in results.items() if v and k != "errors"})
     return results
 
 
@@ -148,9 +148,9 @@ def start_background() -> bool:
                         if cfg.calendar_sync.enabled and _has_sources():
                             sync_now(config=cfg)
             except Exception as e:  # noqa: BLE001 — the loop must outlive any one failure
-                logger.warning("📅 Calendar sync loop error: %s", e)
+                logger.warning("Calendar sync loop error: %s", e)
             time.sleep(interval_min * 60)
 
     threading.Thread(target=_loop, daemon=True, name=THREAD_NAME).start()
-    logger.info("📅 Calendar sync loop started")
+    logger.info("Calendar sync loop started")
     return True

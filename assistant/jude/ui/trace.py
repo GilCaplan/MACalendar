@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from assistant.calendar_ui import icons as _icons
 
 # Long enough to be recognisable, short enough that a router's four search
 # queries do not push the duration off the right edge of the card.
@@ -64,7 +65,8 @@ class TracePanel(QFrame):
         outer.setContentsMargins(8, 6, 8, 6)
         outer.setSpacing(4)
 
-        self._head = QPushButton("🔍 Pipeline trace  ▴")
+        self._head = QPushButton("Pipeline trace  ▴")
+        self._head.setIcon(_icons.icon("search", theme.text2, 12))
         self._head.setObjectName("flat")
         self._head.setCursor(Qt.CursorShape.PointingHandCursor)
         self._head.setStyleSheet(
@@ -81,7 +83,7 @@ class TracePanel(QFrame):
     def _toggle(self) -> None:
         shown = not self._body.isVisible()
         self._body.setVisible(shown)
-        self._head.setText("🔍 Pipeline trace  " + ("▴" if shown else "▾"))
+        self._head.setText("Pipeline trace  " + ("▴" if shown else "▾"))
 
     # ------------------------------------------------------------- content
 
@@ -129,7 +131,7 @@ class TracePanel(QFrame):
             lead = f"{lead} [{args['category']}]".strip()
         summary = event.get("result_summary") or ""
         detail = f"{lead} → {summary}".strip(" →")
-        self._row(f"🔧 {event.get('tool') or 'tool'}", None, detail,
+        self._row(f"tool · {event.get('tool') or 'tool'}", None, detail,
                   colour=self._theme.accent)
 
     def set_timing(self, timing: dict) -> None:

@@ -298,7 +298,12 @@ class Sidebar(QWidget):
 
     @staticmethod
     def nav_icon(glyph: str, color: str) -> QIcon:
-        """`glyph` as an 18 px icon in `color` (toolbar_icons.glyph_icon)."""
+        """`glyph` as an 18 px icon in `color`: a GraphicsLibrary icon when it
+        names one (`calendar_ui/icons`), else the character drawn to size
+        (toolbar_icons.glyph_icon)."""
+        from assistant.calendar_ui import icons
+        if icons.exists(glyph):
+            return icons.icon(glyph, color, 18)
         from assistant.calendar_ui.toolbar_icons import glyph_icon
         return glyph_icon(glyph, color)
 

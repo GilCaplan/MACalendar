@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
 from assistant.jude.ui import markdown as _md
 from assistant.jude.ui.sources import SourcesView
 from assistant.jude.ui.trace import TracePanel
+from assistant.calendar_ui import icons as _icons
 
 # Fast enough that the answer reads as live, slow enough that a whole
 # paragraph's worth of tokens costs one relayout instead of forty.
@@ -62,7 +63,7 @@ class UserMessage(_Card):
         super().__init__(theme, parent)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(12, 9, 12, 9)
-        label = QLabel("👤  " + _escape(text))
+        label = QLabel(_icons.html("user", theme.text, 14) + "&nbsp;&nbsp;" + _escape(text))
         label.setWordWrap(True)
         label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         label.setStyleSheet(f"color:{theme.text}; font-size:13px;")
@@ -81,13 +82,15 @@ class PendingRow(_Card):
         super().__init__(theme, parent)
         lay = QHBoxLayout(self)
         lay.setContentsMargins(12, 9, 12, 9)
-        self._label = QLabel("✡  Thinking…")
+        self._ink = theme.text2
+        self._label = QLabel(_icons.html("star_of_david", theme.text2, 13) + "&nbsp;&nbsp;Thinking…")
         self._label.setStyleSheet(f"color:{theme.text2}; font-size:12px;")
         lay.addWidget(self._label)
         lay.addStretch(1)
 
     def set_stage(self, name: str) -> None:
-        self._label.setText("✡  " + (name or "Thinking…"))
+        self._label.setText(_icons.html("star_of_david", self._ink, 13) + "&nbsp;&nbsp;"
+                            + _escape(name or "Thinking…"))
 
 
 class AnswerMessage(_Card):
@@ -167,7 +170,8 @@ class AnswerMessage(_Card):
         lay = QHBoxLayout(row)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.addStretch(1)
-        button = QPushButton("📋 Copy answer")
+        button = QPushButton("Copy answer")
+        button.setIcon(_icons.icon("clipboard", self._theme.text2, 13))
         button.setObjectName("flat")
         button.setCursor(Qt.CursorShape.PointingHandCursor)
         button.setStyleSheet(f"color:{self._theme.text2}; font-size:11px;")
@@ -187,7 +191,7 @@ class AnswerMessage(_Card):
         # aborts the interpreter. A child timer dies with its parent.
         reset = QTimer(button)
         reset.setSingleShot(True)
-        reset.timeout.connect(lambda: button.setText("📋 Copy answer"))
+        reset.timeout.connect(lambda: button.setText("Copy answer"))
         reset.start(2000)
 
 
@@ -208,7 +212,7 @@ class ClarificationCard(_Card):
         lay.setContentsMargins(12, 10, 12, 10)
         lay.setSpacing(7)
 
-        question = QLabel("🤔  " + _escape(event.get("question")
+        question = QLabel(_icons.html("thought", theme.text, 15) + "&nbsp;&nbsp;" + _escape(event.get("question")
                                            or "Did you mean one of these?"))
         question.setWordWrap(True)
         question.setStyleSheet(f"color:{theme.text}; font-size:13px; font-weight:600;")
@@ -303,7 +307,7 @@ class ErrorCard(_Card):
             f" border-radius:{theme.radius_lg}px; }}")
         lay = QVBoxLayout(self)
         lay.setContentsMargins(12, 9, 12, 9)
-        label = QLabel("⚠  " + _escape(message))
+        label = QLabel(_icons.html("warning", theme.destructive, 14) + "&nbsp;&nbsp;" + _escape(message))
         label.setWordWrap(True)
         label.setStyleSheet(f"color:{theme.destructive}; font-size:12.5px;")
         lay.addWidget(label)
@@ -318,9 +322,9 @@ class EmptyState(QWidget):
         lay.setContentsMargins(24, 40, 24, 24)
         lay.setSpacing(8)
 
-        seal = QLabel("📜")
+        seal = QLabel()
+        seal.setPixmap(_icons.pixmap("scroll", None, 40))
         seal.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        seal.setStyleSheet("font-size:34px;")
         lay.addWidget(seal)
 
         headline = QLabel("What would you like to learn?")
@@ -486,7 +490,7 @@ class Transcript(QScrollArea):
         if self._answer is not None:
             self._answer.trace_panel().add_tool_call(event)
         elif self._pending is not None:
-            self._pending.set_stage(f"🔧 {event.get('tool') or 'tool'}")
+            self._pending.set_stage(f"Using {event.get('tool') or 'a tool'}")
 
     def finish_answer(self, sources: list, steps: list, tool_calls: list,
                       timing: dict, fallback: str = "") -> None:
@@ -516,7 +520,8 @@ class Transcript(QScrollArea):
         lay = QVBoxLayout(card)
         lay.setContentsMargins(12, 9, 12, 9)
         lay.setSpacing(6)
-        header = QLabel(f"📚  {len(sources or [])} sources — {_escape(query[:70])}")
+        header = QLabel(_icons.html("books", self._theme.text, 14)
+                        + f"&nbsp;&nbsp;{len(sources or [])} sources — {_escape(query[:70])}")
         header.setWordWrap(True)
         header.setStyleSheet(f"color:{self._theme.text}; font-size:12.5px; font-weight:600;")
         lay.addWidget(header)
@@ -543,7 +548,7 @@ class Transcript(QScrollArea):
         if self._answer is not None:
             # Tokens already arrived: keep them and say what went wrong after
             # them, rather than replacing a half-answer with an error.
-            self._answer.append("\n\n⚠ " + message)
+            self._answer.append("\n\n" + message)
             self._answer.finish()
             self._answer = None
             return

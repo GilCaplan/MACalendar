@@ -64,12 +64,16 @@ class EventBlock(QLabel):
 
         from assistant.calendar_ui.merged_db import owner_prefix
         import html as _html
-        title_line = f"<b>{_html.escape(owner_prefix(event))}{event['title']}</b>"
+        from assistant.calendar_ui import icons as _icons
+        ink = _styles.on_color(color)
+        art = "".join(_icons.html(n, ink, self._font_size) + "&nbsp;"
+                      for n in _vp.title_icons(event.get("title", "")))
+        title_line = f"<b>{art}{_html.escape(owner_prefix(event) + event['title'])}</b>"
         time_line = (f"<span style='opacity:0.85;font-size:{self._font_size - 1}px'>"
                      f"{_vp.fmt_hhmm(start, compact=True)}–{_vp.fmt_hhmm(end, compact=True)}</span>")
         html = title_line + "<br>" + time_line
         if location:
-            html += f"<br><span style='opacity:0.8;font-size:{self._font_size - 1}px'>📍 {location}</span>"
+            html += f"<br><span style='opacity:0.8;font-size:{self._font_size - 1}px'>{_icons.html('pin', ink, self._font_size - 1)}&nbsp;{_html.escape(location)}</span>"
         self.setText(html)
         self.setTextFormat(Qt.TextFormat.RichText)
         self.setWordWrap(True)
