@@ -93,3 +93,9 @@ MACalendar APPs/
 assistant/calendar_ui/assets/server_icon.icns
 assistant/calendar_ui/assets/server_icon.png
 mac/MagicWords/build/
+
+# FastRule size tiers (2026-10-01): 20k/40k/80k supersets of the committed
+# fastrule_7200.jsonl, rebuilt deterministically by
+# `python -m assistant.engine.fastrule.datasets.generate --size <tier>`.
+# Multi-MB and a pure function of the generator + banks, so never committed.
+assistant/engine/fastrule/datasets/tiers/

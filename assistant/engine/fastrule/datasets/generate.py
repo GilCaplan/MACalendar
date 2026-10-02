@@ -40,6 +40,14 @@ exactly the one thing this growth was required not to do.
 Usage:
     python -m assistant.engine.fastrule.datasets.generate            # generate + verify
     python -m assistant.engine.fastrule.datasets.generate --no-write  # verify-only dry run
+    python -m assistant.engine.fastrule.datasets.generate --size 40k  # a SIZE TIER (gitignored)
+
+SIZE TIERS (2026-10-01): `--size base|20k|40k|80k`. base is the committed file,
+unchanged. Each larger tier is a strict SUPERSET — base's rows first, byte for
+byte, then the smaller tier's growth, then its own — built from NEW pattern
+families in `banks/growth.json` by `growth.py`. Tier files are written under
+`datasets/tiers/` (gitignored); the generator is the artifact. `tiers.py` is
+how a board picks one.
 
 See assistant/engine/fastrule/datasets/DATASET.md for the schema and design rationale, and
 assistant/engine/TRAIN_TEST_SPLIT_CONVENTION.md for how the 80/20 train/test split is built and
@@ -158,6 +166,28 @@ BASE_INFO = {
     "wake": ("wake_words", None),
     "opener": ("polite_openers", None),
     "hedge": ("hedges", None),
+    # 2026-10-01, the SIZE TIERS (`growth.py`, `banks/growth.json`). Read only
+    # by the growth families: no base template names a `g_` placeholder, so
+    # the committed rows cannot see these lines.
+    "g_event": ("g_event_titles", "title"),
+    "g_task": ("g_task_titles", "title"),
+    "g_item": ("g_items", "title"),
+    "g_date": ("g_dates", "date_phrase"),
+    "g_pdate": ("g_prep_dates", "date_phrase"),         # g_dates that can follow "by"/"to"
+    "g_clock": ("g_clock_times", "time_phrase"),        # every value states a clock
+    "g_range": ("g_time_ranges", "time_phrase"),
+    "g_recur": ("g_recurrences", "recurrence"),
+    "g_length": ("g_lengths", "length"),               # how long a NEW event runs
+    "g_lead": ("g_lead_times", "lead_time"),
+    "g_place": ("g_places", "location"),
+    "g_name": ("g_names", "attendee"),
+    "g_qrange": ("g_query_ranges", "date_phrase"),
+    "g_open": ("g_lead_ins", None),
+    "g_polite": ("g_polite", None),
+    "g_tail": ("g_tails", None),
+    "g_hedge": ("g_hedges", None),
+    "g_um": ("g_ums", None),
+    "g_notify": ("g_notifies", None),
 }
 
 # Recurrence must round to daily/weekly/monthly (CLAUDE.md convention).
@@ -216,6 +246,15 @@ def setup_label_env():
     os.environ.setdefault("MACALENDAR_DB", str(scratch / "calendar.db"))
     os.environ.setdefault("MACALENDAR_MEMORY_DB", str(scratch / "memory.db"))
     os.environ.setdefault("MACALENDAR_TRACE_BUS", str(scratch / "trace_bus.jsonl"))
+    # 2026-10-01: the USERS registry too, and FORCED. Once ~/.assistant_tools
+    # has a users.json, `users.paths.resolve` re-roots every store path —
+    # MACALENDAR_CATEGORIES included — into the bound admin's real folder,
+    # where no `categories_fixture.json` exists, so categories.classify() fell
+    # back to its built-in defaults: a raw regeneration silently disagreed
+    # with the committed file on 240 rows ("flu shot" Health -> Personal) and
+    # read the real registry to do it. With no registry, no user is bound and
+    # the fixture path is used as given: byte-identical again.
+    os.environ["MACALENDAR_USERS"] = str(scratch / "users.json")
     from assistant.actions.calendar import categories as categories_mod
     from assistant.actions.todo import tagging as tagging_mod
     return categories_mod, tagging_mod
@@ -346,7 +385,10 @@ def placeholder_info(token: str):
 #: of these banks to be a time at all.
 TIME_BANKS = {"dates", "times", "time_ranges", "recurrences", "durations",
               "lead_times", "query_ranges",
-              "weekdays", "clock_times", "uk_times", "uk_dates", "recurrences_more"}
+              "weekdays", "clock_times", "uk_times", "uk_dates", "recurrences_more",
+              # the size tiers' banks (growth.py) — no base family draws on them
+              "g_dates", "g_prep_dates", "g_clock_times", "g_time_ranges", "g_recurrences",
+              "g_lengths", "g_lead_times", "g_query_ranges"}
 
 #: Prepositions and connectives that exist ONLY to attach the time that follows
 #: them. Removed with it, or the action words keep a dangling "at".
@@ -836,8 +878,18 @@ def _emit_family_rows(fam: dict, split_name: str, quota: int, tier: str, fillers
         raise ValueError(
             f"family {fam['family']} only produced {len(fam_rows)}/{quota} "
             f"unique rows — widen its filler banks")
+    return finish_rows(fam, fam_rows, split_name, tier, 0,
+                       categories_mod, tagging_mod, task_tag_keywords)
+
+
+def finish_rows(fam: dict, fam_rows: list, split_name: str, tier: str, start: int,
+                categories_mod, tagging_mod, task_tag_keywords: dict) -> list[dict]:
+    """Rulings, labels and the row dict for rows `gen_family_rows` produced —
+    the body `_emit_family_rows` always had, split out (2026-10-01) so the
+    size tiers (`growth.py`) build their gold through the SAME code and can
+    continue a family's id counter from `start` when a deeper tier adds rows."""
     out = []
-    counter = 0
+    counter = start
     for text, slots, item, values in fam_rows:
         counter += 1
         row_fam = ruled_family(fam, values, slots, text) or fam
@@ -951,10 +1003,19 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--no-write", action="store_true",
                      help="build and verify in memory but don't write the jsonl")
-    ap.add_argument("--out", default=str(OUT),
-                    help="where to write (default: the committed fastrule_7200.jsonl); "
+    ap.add_argument("--out", default=None,
+                    help="where to write (default: the committed fastrule_7200.jsonl for "
+                         "--size base, datasets/tiers/fastrule_<size>.jsonl otherwise); "
                          "a scratch path is how a regeneration is diffed before it lands")
+    from assistant.engine.fastrule.datasets import tiers as _tiers
+    ap.add_argument("--size", choices=_tiers.SIZES, default="base",
+                    help="which SIZE TIER to build (2026-10-01). base is the committed "
+                         "8,700-row file, byte-identical; every larger tier is base's rows "
+                         "first and unchanged, then growth rows (growth.py). Not to be "
+                         "confused with a row's `tier` field (simple/complex).")
     args = ap.parse_args()
+    if args.out is None:
+        args.out = str(_tiers.path(args.size))
 
     fillers = load_json("fillers.json")
     simple_patterns = load_json("simple_patterns.json")
@@ -1177,6 +1238,15 @@ def main():
     print(f"  multi-tag (2+ tags):   {multi_tag:5d}  ({multi_tag/max(1,tasks_expected):.1%})")
     for tag, n in tag_counts.most_common():
         print(f"  {tag:12s} {n:5d}")
+
+    if args.size != "base":
+        # The size tiers grow AFTER every base row exists and has claimed its
+        # text — the same append-only discipline as the forced pools above —
+        # so base's 8,700 rows are this file's first 8,700 lines, byte for byte.
+        from assistant.engine.fastrule.datasets import growth
+        rows += growth.build(args.size, simple_patterns + complex_patterns, fillers,
+                             global_seen, categories_mod, tagging_mod, task_tag_keywords)
+        total = len(rows)
 
     if args.no_write:
         print("\n--no-write: skipping file output")

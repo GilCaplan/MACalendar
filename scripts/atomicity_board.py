@@ -193,7 +193,10 @@ def main() -> int:
     ap.add_argument("--floor", type=float, default=None,
                     help="override the model tier's margin floor")
     ap.add_argument("--sweep", action="store_true")
+    from assistant.engine.fastrule.datasets import tiers as _sizes
+    _sizes.add_argument(ap)  # --size base|20k|40k|80k: the FastRule set's size tier
     a = ap.parse_args()
+    globals()["B_DATA"] = _sizes.ensure(a.size)
 
     print(f"ATOMICITY BINARY BOARD — {a.split} halves"
           f"{'' if a.floor is None else f' (model floor {a.floor})'}")

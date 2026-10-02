@@ -95,7 +95,9 @@ def main() -> int:
     fr.run("book gym tomorrow at 7am")
     rp = _objects.get_rule_parser()
 
-    rows = [json.loads(l) for l in DATA.open()]
+    from assistant.engine.fastrule.datasets import tiers as _sizes
+    # FASTRULE_SIZE=base|20k|40k|80k picks the set's size tier (default base)
+    rows = [json.loads(l) for l in _sizes.ensure(os.environ.get("FASTRULE_SIZE", "base")).open()]
     rows = [r for r in rows if r["split"] == "train"]
 
     n = 0

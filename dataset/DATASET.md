@@ -247,3 +247,5 @@ overrides, no board impact — the confirm gate is inert on this pool by
 measurement, not assumption. Question-shape ground truth (propose rows,
 confirm subprompts, the two-phase doctrine) lives in the FastRule 7,200
 (`assistant/engine/fastrule/datasets/DATASET.md`), which was built after the ruling.
+(That generated set now also comes in 20k / 40k / 80k size tiers — supersets
+of its committed 8,700 rows, chosen with `--size`; same file's §"Size tiers".)

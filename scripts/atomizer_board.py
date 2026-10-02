@@ -584,7 +584,10 @@ def main() -> int:
                     help="skip FastRule; segment then sees no verdict (measures "
                          "the cue-word gate alone)")
     ap.add_argument("--limit", type=int, default=0)
+    from assistant.engine.fastrule.datasets import tiers as _sizes
+    _sizes.add_argument(ap)  # --size base|20k|40k|80k: the FastRule set's size tier
     a = ap.parse_args()
+    globals()["B_DATA"] = _sizes.ensure(a.size)
 
     from freezegun import freeze_time
 
