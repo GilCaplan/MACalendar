@@ -199,7 +199,7 @@ class _PersonCard(QFrame):
 
     def _reset(self) -> None:
         pw = passwords.generate()
-        registry.set_password(self.uid, pw, must_change=True)
+        registry.set_password(self.uid, pw, must_change=True, min_length=0)
         sessions.revoke_user(self.uid)
         self._say("New password — shown once. They'll choose their own when they sign in.")
         self.revealed.setText(pw)
@@ -379,6 +379,26 @@ class AccountPanel(FeaturePanel):
             row.addStretch(1)
             col.addLayout(row)
             col.addWidget(self._hint("Off: a device nobody signed in on acts as you, the admin.", pal))
+            row = QHBoxLayout()
+            row.addWidget(QLabel("Shortest password:"))
+            self.pw_min = QSpinBox()
+            self.pw_min.setRange(1, 64)
+            self.pw_min.setSuffix(" characters")
+            self.pw_min.setValue(int(policy.get("password_min_length") or passwords.MIN_LENGTH))
+            self.pw_min.valueChanged.connect(
+                lambda v: registry.set_policy(password_min_length=int(v)))
+            row.addWidget(self.pw_min)
+            row.addStretch(1)
+            col.addLayout(row)
+            self.pw_empty_box = QCheckBox("Allow empty passwords")
+            self.pw_empty_box.setChecked(bool(policy.get("allow_empty_password")))
+            self.pw_empty_box.toggled.connect(
+                lambda on: registry.set_policy(allow_empty_password=bool(on)))
+            self.pw_empty_box.setToolTip("On: a person may choose no password at all, and signs in\n"
+                                         "with the password field left blank.")
+            col.addWidget(self.pw_empty_box)
+            col.addWidget(self._hint("For everyone else when they choose a password. "
+                                     "Yours follows no rule.", pal))
 
             self._section(col, "Signed-in devices", pal)
             dev = QWidget()
@@ -508,7 +528,7 @@ class AccountPanel(FeaturePanel):
         except ValueError as e:
             QMessageBox.warning(self, "Add a person", str(e))
             return
-        registry.set_password(uid, pw, must_change=True)
+        registry.set_password(uid, pw, must_change=True, min_length=0)
         self.created_note.setText(f"{registry.get(uid)['display_name']}'s password — shown once. "
                                   "They'll choose their own when they sign in.")
         self.created.setText(pw)

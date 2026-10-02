@@ -23,7 +23,7 @@ should be able to reset passwords just by reaching the port.
     POST /admin/users/<id>/password                  → {password} shown ONCE
     PUT  /admin/view/<id>     {shown}
     PUT  /admin/vocab_share/<id> {on}
-    PUT  /admin/policy        {require_login?, auto_signout_days?}
+    PUT  /admin/policy        {require_login?, auto_signout_days?, password_min_length?, allow_empty_password?}
     POST /admin/users/<id>/signout                    → sign them out everywhere
 """
 from __future__ import annotations
@@ -209,8 +209,7 @@ def change_password():
     if err:
         return err
     b = _body()
-    if not registry.verify_login((registry.get(uid) or {}).get("username", ""),
-                                 str(b.get("current") or "")):
+    if not registry.check_password(uid, str(b.get("current") or "")):
         return _err("the current password is wrong", 403)
     try:
         registry.set_password(uid, str(b.get("new") or ""))
@@ -305,7 +304,7 @@ def admin_create():
                                    display_name=str(b.get("display_name") or ""))
     except ValueError as e:
         return _err(str(e), 400)
-    registry.set_password(uid, pw, must_change=not b.get("password"))
+    registry.set_password(uid, pw, must_change=not b.get("password"), min_length=0)
     out = registry.get(uid)
     out["password"] = pw            # shown ONCE; never stored readably
     return jsonify(out), 201
@@ -348,7 +347,7 @@ def admin_reset_password(uid):
     if registry.get(uid) is None:
         return _err("no such user", 404)
     pw = passwords.generate()
-    registry.set_password(uid, pw, must_change=True)
+    registry.set_password(uid, pw, must_change=True, min_length=0)
     sessions.revoke_user(uid, keep=g.users_session["token"] if uid == admin else None)
     return jsonify({"id": uid, "password": pw})
 
@@ -378,7 +377,8 @@ def admin_vocab_share(uid):
 
 @bp.put("/admin/policy")
 def admin_policy():
-    """{require_login?, auto_signout_days?: null|0 (off) | N days}"""
+    """{require_login?, auto_signout_days?: null|0 (off) | N days,
+    password_min_length?: 1–64, allow_empty_password?}"""
     _, err = _need_admin()
     if err:
         return err
@@ -386,7 +386,10 @@ def admin_policy():
     try:
         registry.set_policy(
             require_login=bool(b["require_login"]) if "require_login" in b else None,
-            auto_signout_days=b["auto_signout_days"] if "auto_signout_days" in b else False)
+            auto_signout_days=b["auto_signout_days"] if "auto_signout_days" in b else False,
+            password_min_length=b.get("password_min_length"),
+            allow_empty_password=(bool(b["allow_empty_password"])
+                                  if "allow_empty_password" in b else None))
     except (ValueError, TypeError) as e:
         return _err(str(e), 400)
     return jsonify(registry.load().get("policy", {}))

@@ -216,6 +216,19 @@ def test_require_sign_in_and_auto_sign_out(people):
     assert registry.load()["policy"]["auto_signout_days"] is None
 
 
+def test_the_admins_password_rules_are_set_from_the_tab(people):
+    _, panel = _open(people["gil"])
+    assert panel.pw_min.value() == 3 and not panel.pw_empty_box.isChecked()
+    panel.pw_min.setFocus()
+    QTest.keyClick(panel.pw_min, Qt.Key.Key_Up)
+    QApplication.processEvents()
+    assert registry.load()["policy"]["password_min_length"] == 4
+    _click(panel.pw_empty_box)
+    assert registry.load()["policy"]["allow_empty_password"] is True
+    assert registry.password_rules(people["dana"]) == (4, True)
+    assert registry.password_rules(people["gil"]) == (0, True)
+
+
 def test_change_password_opens_the_dialog(people, monkeypatch):
     from assistant.calendar_ui import users_dialogs
     opened = []
@@ -224,6 +237,42 @@ def test_change_password_opens_the_dialog(people, monkeypatch):
     _, panel = _open(people["gil"])
     _click(panel.change_pw_btn)
     assert len(opened) == 1
+
+
+def _no_password(uid):
+    """The admin's real state while login is off: migrated with no password."""
+    registry._mutate(lambda d: d["users"][uid].__setitem__("password", None))
+
+
+def _change(dialog, current, new):
+    for field, text in ((dialog.current, current), (dialog.new, new), (dialog.again, new)):
+        QTest.keyClicks(field, text)
+    _click(dialog.save)
+
+
+def test_save_sets_a_first_password_with_current_left_blank(people):
+    """Gil, 2026-10-02: "when i try to change password, the save button doesn't
+    work". His account had no password, so no answer to "Current" matched."""
+    from assistant.calendar_ui.users_dialogs import ChangePasswordDialog
+    _no_password(people["gil"])
+    users.set_process_default(people["gil"])
+    d = ChangePasswordDialog(None)
+    d.show()
+    assert d.current.placeholderText()
+    _change(d, "", "brand-new-pass")
+    assert d.result() == d.DialogCode.Accepted, d.error.text()
+    assert registry.verify_login("gil", "brand-new-pass") == people["gil"]
+
+
+def test_save_still_refuses_a_wrong_current_password(people):
+    from assistant.calendar_ui.users_dialogs import ChangePasswordDialog
+    users.set_process_default(people["dana"])
+    for current in ("", "not-it"):
+        d = ChangePasswordDialog(None)
+        d.show()
+        _change(d, current, "brand-new-pass")
+        assert d.result() != d.DialogCode.Accepted and "wrong" in d.error.text()
+    assert registry.verify_login("dana", "dana-pass") == people["dana"]
 
 
 def test_sign_out_of_this_mac_goes_through_the_window(people):

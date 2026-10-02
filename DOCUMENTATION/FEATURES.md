@@ -2492,7 +2492,8 @@ sees and edits everything, toggles a user into his own view (off by default),
 creates users, resets passwords (hashed; a new one shown once, must change
 at sign-in), disables, removes (the data moves to `legacy/`, never deleted),
 shares his vocabulary with chosen users, sets "require sign-in
-everywhere", chooses auto sign-out (Off — a sign-in lasts until signed out —
+everywhere", sets everyone else's password rules (shortest, default 3, and
+whether an empty one is allowed — his own follows none), chooses auto sign-out (Off — a sign-in lasts until signed out —
 or after N days unused), and signs a person out of every device. All of it
 lives in the **Account tab** (last; hideable in Settings › Tabs like any other — the toolbar chip and the phone's Settings › Account reach the same pages): the admin's dashboard (people,
 policy, signed-in devices, his own account); for anyone else a minimal page

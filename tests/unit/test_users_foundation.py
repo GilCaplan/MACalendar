@@ -75,7 +75,7 @@ def test_passwords_round_trip_and_are_never_stored_readably(reg):
 
 def test_a_short_password_is_refused():
     with pytest.raises(ValueError):
-        passwords.hash_password("short")
+        passwords.hash_password("ab")
 
 
 def test_generated_passwords_are_readable_and_do_not_repeat():

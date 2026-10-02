@@ -1,10 +1,11 @@
 """Set a user's password from the Mac's terminal — the admin's own override.
 
     python -m scripts.set_password gil                  # asks twice
-    python -m scripts.set_password gil --allow-short    # permits under 8 characters
+    python -m scripts.set_password dana --allow-short   # ignores the admin's minimum
 
-The app's screens keep the 8-character rule; this is how Gil set a short one
-for his own account (2026-09-28). Existing sign-ins stay signed in.
+Everyone but the admin follows the admin's password policy (Account tab);
+`--allow-short` sets any password, empty included. Existing sign-ins stay
+signed in.
 """
 from __future__ import annotations
 
@@ -20,7 +21,7 @@ def main(argv=None) -> int:
     ap.add_argument("--allow-short", action="store_true")
     ap.add_argument("--password-stdin", action="store_true")
     a = ap.parse_args(argv)
-    from assistant.users import passwords, registry
+    from assistant.users import registry
     uid = registry.by_username(a.username)
     if uid is None:
         print(f"no user {a.username!r}", file=sys.stderr)
@@ -33,7 +34,8 @@ def main(argv=None) -> int:
             print("the two passwords differ", file=sys.stderr)
             return 1
     registry.set_password(uid, pw, must_change=False,
-                          min_length=1 if a.allow_short else passwords.MIN_LENGTH)
+                          min_length=0 if a.allow_short else None,
+                          allow_empty=True if a.allow_short else None)
     print(f"password set for {a.username}")
     return 0
 

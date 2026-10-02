@@ -142,6 +142,18 @@ def test_changing_my_password_keeps_this_device_and_signs_out_the_rest(app_clien
     assert wrong.status_code == 403
 
 
+def test_an_account_with_no_password_sets_one_with_current_blank(app_client, people):
+    registry._mutate(lambda d: d["users"][people[0]].__setitem__("password", None))
+    tok = sessions.issue(people[0])
+    assert app_client.post("/auth/password", json={"current": "x", "new": "x" * 9},
+                           headers=_h(tok)).status_code == 403
+    r = app_client.post("/auth/password", json={"current": "", "new": "first-pass"}, headers=_h(tok))
+    assert r.status_code == 200, r.get_json()
+    assert _login(app_client, "gil", "first-pass").status_code == 200
+    blank = app_client.post("/auth/password", json={"current": "", "new": "x" * 9}, headers=_h(tok))
+    assert blank.status_code == 403                  # once set, blank is wrong again
+
+
 def test_removing_a_user_moves_their_folder_never_deletes_it(app_client, people):
     g_ = _tok(app_client, "gil", "admin-pass")
     d_dir = pathlib.Path(registry.paths.user_dir(people[1]))
@@ -208,14 +220,36 @@ def test_a_sign_in_never_times_out(app_client, people, monkeypatch):
     assert app_client.get("/auth/me", headers=_h(tok)).get_json()["username"] == "dana"
 
 
-def test_a_short_password_only_through_the_admins_own_override(app_client, people):
-    with pytest.raises(ValueError):
-        registry.set_password(people[0], "123")
-    registry.set_password(people[0], "123", min_length=1)
-    assert _login(app_client, "Gil", "123").status_code == 200
-    g_ = _tok(app_client, "gil", "123")
-    r = app_client.post("/auth/password", json={"current": "123", "new": "456"}, headers=_h(g_))
-    assert r.status_code == 400                                        # the screens keep 8
+def test_the_admins_own_password_follows_no_rule(app_client, people):
+    """Gil, 2026-10-02: "admin can change however he wants"."""
+    g_ = _tok(app_client, "gil", "admin-pass")
+    r = app_client.post("/auth/password", json={"current": "admin-pass", "new": "1"}, headers=_h(g_))
+    assert r.status_code == 200
+    r = app_client.post("/auth/password", json={"current": "1", "new": ""}, headers=_h(g_))
+    assert r.status_code == 200 and not registry.has_password(people[0])
+    assert _login(app_client, "gil", "").status_code == 200
+    assert _login(app_client, "gil", "x").status_code == 401
+
+
+def test_everyone_else_follows_the_admins_password_policy(app_client, people):
+    d = _tok(app_client, "dana", "dana-pass")
+
+    def change(cur, new):
+        return app_client.post("/auth/password", json={"current": cur, "new": new}, headers=_h(d))
+    assert change("dana-pass", "ab").status_code == 400                # default minimum is 3
+    assert change("dana-pass", "").status_code == 400                  # empty off by default
+    assert change("dana-pass", "abc").status_code == 200
+    g_ = _tok(app_client, "gil", "admin-pass")
+    r = app_client.put("/admin/policy", json={"password_min_length": 6, "allow_empty_password": True},
+                       headers=_h(g_))
+    assert r.get_json()["password_min_length"] == 6 and r.get_json()["allow_empty_password"]
+    assert app_client.put("/admin/policy", json={"password_min_length": 6},
+                          headers=_h(d)).status_code == 403          # only the admin sets it
+    assert change("abc", "abcde").status_code == 400
+    assert change("abc", "").status_code == 200
+    assert _login(app_client, "dana", "").status_code == 200
+    app_client.put("/admin/policy", json={"allow_empty_password": False}, headers=_h(g_))
+    assert _login(app_client, "dana", "").status_code == 401           # turned off: no way in
 
 
 def test_auto_sign_out_follows_the_admins_choice(app_client, people, monkeypatch):

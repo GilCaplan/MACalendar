@@ -90,7 +90,7 @@ struct LoginView: View {
             .background(settings.accentColor)
             .foregroundColor(Color.onColor(hex: settings.accentColorHex))
             .cornerRadius(Theme.radiusMD)
-            .disabled(busy || username.isEmpty || password.isEmpty)
+            .disabled(busy || username.isEmpty)
             Spacer()
             Text(api.isOnline ? "Connected to your Mac" : "Your Mac isn't reachable right now")
                 .font(.caption).foregroundColor(.secondary)
@@ -154,8 +154,9 @@ struct ChangePasswordView: View {
                     Text("You're using a password someone else set. Pick your own.")
                         .font(.footnote).foregroundColor(.secondary)
                 }
-                SecureField("Current password", text: $current)
-                SecureField("New password (8+ characters)", text: $new)
+                // Blank is right for an account with no password yet.
+                SecureField("Current password (blank if none)", text: $current)
+                SecureField("New password", text: $new)
                 SecureField("Again", text: $again)
                 if !error.isEmpty { Text(error).foregroundColor(.red).font(.footnote) }
             }
@@ -167,7 +168,7 @@ struct ChangePasswordView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") { Task { await save() } }
-                        .disabled(new.count < 8 || new != again || current.isEmpty)
+                        .disabled(new != again)
                 }
             }
         }
@@ -239,6 +240,8 @@ final class AccountModel: ObservableObject {
     @Published var vocab: Set<String> = []
     @Published var requireLogin = false
     @Published var autoDays: Int? = nil
+    @Published var passwordMin = 3
+    @Published var allowEmptyPassword = false
     @Published var groupByOwner = false
     @Published var loadError = ""
 
@@ -263,6 +266,8 @@ final class AccountModel: ObservableObject {
             let pol = obj["policy"] as? [String: Any] ?? [:]
             requireLogin = pol["require_login"] as? Bool ?? false
             autoDays = (pol["auto_signout_days"] as? Int).flatMap { $0 > 0 ? $0 : nil }
+            passwordMin = pol["password_min_length"] as? Int ?? 3
+            allowEmptyPassword = pol["allow_empty_password"] as? Bool ?? false
             groupByOwner = (obj["settings"] as? [String: Any])?["todos_group_by_owner"] as? Bool ?? false
             UserSession.shared.groupSharedTodos = groupByOwner
             if me.isAdmin {
@@ -434,6 +439,23 @@ struct AccountView: View {
                                     model.autoDays = v
                                     Task { await policy(["auto_signout_days": v]) }
                                 }), in: 1...365)
+                        }
+                        Stepper("Shortest password: \(model.passwordMin)", value: Binding(
+                            get: { model.passwordMin },
+                            set: { v in
+                                model.passwordMin = v
+                                Task { await policy(["password_min_length": v]) }
+                            }), in: 1...64)
+                        Toggle(isOn: Binding(
+                            get: { model.allowEmptyPassword },
+                            set: { v in
+                                model.allowEmptyPassword = v
+                                Task { await policy(["allow_empty_password": v]) }
+                            })) {
+                            HStack(spacing: 6) {
+                                Text("Allow empty passwords")
+                                InfoTip("On: a person may choose no password at all, and signs in with the password field left blank. Your own password follows no rule.")
+                            }
                         }
                     } header: { Text("Sign-in") }
                       footer: {
