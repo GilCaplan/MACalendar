@@ -197,3 +197,30 @@ def test_a_training_plans_own_words(title, want):
     plan's run kinds — had none; on the 11,700 corpus rows the additions
     change nothing (no false positives)."""
     assert icons(title, 2) == want
+
+
+# -- the phone's copy (DEVQA Q85: a phone with no Mac works icons out itself) --
+
+def test_the_phones_lexicon_is_generated_from_this_one():
+    from scripts.gen_title_icons_swift import OUT, render
+    assert OUT.read_text() == render(), "stale: python -m scripts.gen_title_icons_swift"
+
+
+@pytest.mark.skipif(__import__("platform").system() != "Darwin" or not __import__("shutil").which("swiftc"),
+                    reason="needs swiftc")
+def test_the_phone_draws_what_the_mac_draws(tmp_path):
+    """The Swift matcher and the Python one, on every distinct title the
+    label stage's real-titles corpus and the stress set hold."""
+    import subprocess
+    ios = ROOT / "MACalendar-iOS"
+    exe = tmp_path / "title_icons_cli"
+    subprocess.run(["swiftc", "-parse-as-library", str(ios / "MACalendar-iOS/Engine/TitleIcons.swift"),
+                    str(ios / "MACalendar-iOS/Engine/TitleIconsData.swift"), str(ios / "Tools/title_icons_cli.swift"),
+                    "-o", str(exe)], check=True, capture_output=True)
+    from assistant.engine.label.experiments.title_emoji_board import _commands, _generated
+    titles = sorted({t.strip().replace("\n", " ") for t in _commands() + _generated() if t and t.strip()})
+    out = subprocess.run([str(exe)], input="\n".join(titles) + "\n", capture_output=True, text=True, check=True)
+    swift = out.stdout.split("\n")[:len(titles)]
+    differ = [(t, s, icons(t, 2)) for t, s in zip(titles, swift) if s.split(",") != (icons(t, 2) or [""])]
+    assert len(titles) > 4000
+    assert not differ, f"{len(differ)} of {len(titles)} differ, e.g. {differ[:5]}"

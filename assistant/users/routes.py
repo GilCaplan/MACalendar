@@ -182,6 +182,27 @@ def me():
     return jsonify(out)
 
 
+@bp.delete("/auth/me")
+def delete_me():
+    """A person removes their OWN account (App Store 5.1.1(v): whoever can
+    have an account must be able to delete it in the app). Asks for the
+    password again — a phone left unlocked must not be enough. The admin
+    cannot: someone has to run the house; they hand it over first. The data is
+    moved aside like an admin's removal (`registry.remove_user`), never erased
+    on the spot, so a mistake is recoverable from the Mac."""
+    uid, err = _need_session()
+    if err:
+        return err
+    if registry.verify_login(registry.get(uid)["username"], _body().get("password", "")) != uid:
+        return _err("wrong password", 401)
+    try:
+        moved = registry.remove_user(uid)
+    except ValueError as e:
+        return _err(str(e), 400)
+    sessions.revoke_user(uid)
+    return jsonify({"removed": uid, "data_moved_to": moved})
+
+
 @bp.post("/auth/password")
 def change_password():
     uid, err = _need_session()

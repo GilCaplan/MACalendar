@@ -1,3 +1,21 @@
+- **2026-10-02 — Q85 (THE PHONE WORKS WITH NO MAC)**, Gil: *"if i wanted to
+  publish the app on the appstore is it ready? can also be used completely
+  offline without a server?"*, then *"improve so the app can work alone if no
+  server connected, with the audio engine features etc... and so it could
+  potentially be published to the appstore (ignore the program that is a
+  decision for me...)"*. Decided here: **two modes.** Paired, Q66 stands
+  unchanged (the phone reads offline commands provisionally; the Mac re-reads
+  and wins). **"This phone only"**, the phone IS the reader: a deterministic
+  Swift engine (`MACalendar-iOS/Engine/LocalEngine.swift`) carrying the Mac's
+  rulings, with Apple's on-device model only for what the rules cannot read;
+  its writes are real, queued for a Mac that may come later (the queue is the
+  upload, compacted). It is a second reader by design, so it is held to the
+  same gold as the Mac's fast path (`scripts/phone_engine_board.py`) and to
+  the Mac's lexicon and calendar by parity tests. The Jewish calendar and
+  Shabbat times are ported (pyluach, astral), not approximated. Account
+  deletion added for App Store 5.1.1(v). Left for Gil: the developer program,
+  the listing, the policy URL (`DOCUMENTATION/APP_STORE.md`).
+
 - **2026-10-01 — Q84 (NO EMOJI: DRAWN ICONS, AND Q83's 51 REVERSED)**, Gil:
   *"change emojis to custom designed graphics"*, then *"all emojis, i dont
   want emojis, rather custom made graphics, i think we have on this computer,

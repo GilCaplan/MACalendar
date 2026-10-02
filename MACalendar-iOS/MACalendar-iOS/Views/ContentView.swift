@@ -21,6 +21,12 @@ struct ContentView: View {
     @State private var tagSuggestion: TagSuggestion? = nil
     @State private var showTagSuggestion = false
     @State private var showVocabOnboarding = false
+    /// First launch with nothing set up: on this iPhone, or with a Mac (DEVQA Q85).
+    @State private var showWelcome = ProcessInfo.processInfo.arguments.contains("-uitestFreshStart")
+        || !UserDefaults.standard.bool(forKey: "welcomeDone")
+        && (UserDefaults.standard.string(forKey: "serverURL") ?? "").isEmpty
+        && !UserDefaults.standard.bool(forKey: "phoneOnly")
+        && !ProcessInfo.processInfo.arguments.contains("-serverURL")
     @State private var showVoiceQueue = false
     @ObservedObject private var importInbox = ImportInbox.shared
     @ObservedObject private var notifRouter = NotificationRouter.shared
@@ -400,6 +406,9 @@ struct ContentView: View {
         #endif
         .fullScreenCover(isPresented: $session.needsSignIn) {
             LoginView().environmentObject(api).environmentObject(settings)
+        }
+        .fullScreenCover(isPresented: $showWelcome) {
+            WelcomeView { showWelcome = false }.environmentObject(settings)
         }
         .onChange(of: api.isOnline) { online in
             if online { Task { await session.refresh(api: api) } }

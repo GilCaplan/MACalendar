@@ -22,6 +22,11 @@ struct PendingChange: Codable, Identifiable {
         self.bodyJSON = bodyJSON; self.createdAt = createdAt
     }
 
+    /// The body as a dictionary (nil when there is none).
+    var body: [String: Any]? {
+        bodyJSON.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+    }
+
     /// Same queued change, pointed at a different path (used when a temporary
     /// offline id is replaced by the real one the Mac assigned).
     func replacingPath(_ newPath: String) -> PendingChange {
@@ -546,30 +551,85 @@ class LocalStore: ObservableObject {
 
     /// Every cached event — what ReminderScheduler mirrors into scheduled
     /// local notifications.
-    func allEvents() -> [CalendarEvent] { events }
+    func allEvents() -> [CalendarEvent] { events + localSeriesOccurrences() }
 
     /// What may NOTIFY — reminders, the lock-screen card, the widget: this
     /// person's own rows only, never a calendar shared with them (Gil,
     /// 2026-09-28: "notifications should only be the main user").
     func ownEvents() -> [CalendarEvent] { events.filter { $0.shared != true } }
+
+    // MARK: Series made on this phone
+    //
+    // The Mac stores a series as one row per occurrence. A series made on a
+    // phone with no Mac (DEVQA Q85) is ONE row until a Mac exists to expand it
+    // — its POST is queued with `recurrence` and the Mac makes the rows on
+    // replay. Until then the views must still see every occurrence, so they
+    // are drawn here, from the one row: same title, time and colour, on each
+    // day the series lands. Their ids are derived from the row's
+    // (`id * 10_000 - n`) so SwiftUI can tell them apart, and `event(_:)`
+    // answers any of them with the row itself — editing one edits the series.
+
+    static let occurrenceStride = 10_000
+
+    func localSeriesOccurrences() -> [CalendarEvent] {
+        var out: [CalendarEvent] = []
+        for base in events where base.id < 0 && !base.recurrence.isEmpty {
+            out += Self.occurrences(of: base)
+        }
+        return out
+    }
+
+    static func occurrences(of base: CalendarEvent, limit: Int = 400) -> [CalendarEvent] {
+        let fmt = DateFormatter.isoDay
+        let cal = Calendar(identifier: .gregorian)
+        guard let first = fmt.date(from: base.date) else { return [] }
+        let last = fmt.date(from: base.recurrenceEnd)
+            ?? cal.date(byAdding: .year, value: base.recurrence == "yearly" ? 10 : 1, to: first)!
+        let names = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+        let days = Set((base.recurDays ?? "").split(separator: ",").compactMap { names.firstIndex(of: String($0).trimmingCharacters(in: .whitespaces)) })
+        var out: [CalendarEvent] = []
+        var n = 0
+        var d = cal.date(byAdding: .day, value: 1, to: first)!
+        while d <= last && out.count < limit {
+            let wd = cal.component(.weekday, from: d) - 1
+            let lands: Bool
+            switch base.recurrence {
+            case "daily": lands = true
+            case "weekly": lands = days.isEmpty ? wd == cal.component(.weekday, from: first) - 1 : days.contains(wd)
+            case "monthly": lands = cal.component(.day, from: d) == cal.component(.day, from: first)
+            case "yearly": lands = cal.component(.day, from: d) == cal.component(.day, from: first)
+                && cal.component(.month, from: d) == cal.component(.month, from: first)
+            default: lands = false
+            }
+            if lands {
+                n += 1
+                var e = base
+                e.id = base.id * occurrenceStride - n
+                e.date = fmt.string(from: d)
+                out.append(e)
+            }
+            d = cal.date(byAdding: .day, value: 1, to: d)!
+        }
+        return out
+    }
     func ownTodos(includeCompleted: Bool = false) -> [Todo] {
         allTodos(list: nil, includeCompleted: includeCompleted).filter { $0.shared != true }
     }
 
     func eventsForDate(_ str: String) -> [CalendarEvent] {
-        events.filter { $0.date == str }
+        allEvents().filter { $0.date == str }
     }
 
     func eventsForMonth(_ year: Int, _ month: Int) -> [CalendarEvent] {
         let pfx = String(format: "%04d-%02d", year, month)
-        return events.filter { $0.date.hasPrefix(pfx) }
+        return allEvents().filter { $0.date.hasPrefix(pfx) }
     }
 
     func eventsForWeek(startStr: String) -> [CalendarEvent] {
         let fmt = DateFormatter.isoDay
         guard let start = fmt.date(from: startStr) else { return [] }
         let end = Calendar.current.date(byAdding: .day, value: 7, to: start)!
-        return events.filter {
+        return allEvents().filter {
             guard let d = fmt.date(from: $0.date) else { return false }
             return d >= start && d < end
         }
@@ -589,6 +649,7 @@ class LocalStore: ObservableObject {
             recurrence:    fields["recurrence"]     as? String ?? "",
             recurrenceEnd: fields["recurrence_end"] as? String ?? ""
         )
+        if let days = fields["recur_days"] as? String, !days.isEmpty { e.recurDays = days }
         // Categorised and coloured the way the Mac will do it on replay
         // (`db.auto_category_and_color`): a category or colour the caller
         // chose stands; otherwise the Mac's labeller, run here. Local only —
@@ -624,7 +685,18 @@ class LocalStore: ObservableObject {
         return out.filter { !$0.isEmpty }
     }
 
-    func event(_ id: Int) -> CalendarEvent? { events.first { $0.id == id } }
+    func event(_ id: Int) -> CalendarEvent? {
+        if let e = events.first(where: { $0.id == id }) { return e }
+        // an occurrence of a series made on this phone: the series row answers
+        guard id <= -Self.occurrenceStride else { return nil }
+        return events.first { $0.id == canonicalID(id) }
+    }
+
+    /// The row an id stands for: itself, or — for an occurrence drawn from a
+    /// series made on this phone — the series row (`id * stride - n`).
+    func canonicalID(_ id: Int) -> Int {
+        id <= -Self.occurrenceStride ? -((-id) / Self.occurrenceStride) : id
+    }
     func todo(_ id: Int) -> Todo? { todos.first { $0.id == id } }
 
     func patchEvent(_ id: Int, fields: [String: Any]) {
@@ -848,8 +920,43 @@ class LocalStore: ObservableObject {
     // MARK: - Pending queue
 
     func enqueue(method: String, path: String, body: [String: Any]? = nil) {
-        pending.append(PendingChange(method: method, path: path, body: body))
+        if !compact(method: method, path: path, body: body) {
+            pending.append(PendingChange(method: method, path: path, body: body))
+        }
         persist()
+    }
+
+    /// Fold a change into what is already queued, when that loses nothing.
+    ///
+    /// A phone with no Mac (DEVQA Q85) may keep its queue for months, and a
+    /// row made here and edited ten times would replay as eleven requests. So,
+    /// for a row the Mac has NEVER seen (a temporary id, its create still
+    /// queued): an edit merges into the create's body, and a delete removes
+    /// the create and every queued edit — the Mac never hears of it. Rows the
+    /// Mac knows are left exactly as queued: their edits carry
+    /// `base_updated_at` for conflict detection, which a merge would blur.
+    /// Returns true when the change was absorbed.
+    private func compact(method: String, path: String, body: [String: Any]?) -> Bool {
+        let parts = path.split(separator: "/").map(String.init)      // ["events", "-3"]
+        guard parts.count == 2, ["events", "todos"].contains(parts[0]),
+              let id = Int(parts[1]), id < 0 else { return false }
+        let createPath = "/" + parts[0]
+        guard let ci = pending.firstIndex(where: { p in
+            p.method == "POST" && p.path == createPath && (p.body?["_temp_id"] as? Int) == id
+        }) else { return false }
+        switch method {
+        case "PATCH":
+            var merged = pending[ci].body ?? [:]
+            for (k, v) in body ?? [:] where k != "base_updated_at" { merged[k] = v }
+            pending[ci] = pending[ci].replacingBody(merged)
+            return true
+        case "DELETE":
+            let createID = pending[ci].id
+            pending.removeAll { p in p.id == createID || p.path == path || p.path.hasPrefix(path + "/") }
+            return true
+        default:
+            return false
+        }
     }
 
     // MARK: - Voice commands queued while offline

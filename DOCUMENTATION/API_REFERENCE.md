@@ -203,6 +203,7 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 |---|---|---|
 | `POST` | `/auth/login` |  |
 | `POST` | `/auth/logout` |  |
+| `DELETE` | `/auth/me` | A person removes their OWN account (App Store 5.1.1(v): whoever can |
 | `GET` | `/auth/me` |  |
 | `POST` | `/auth/password` |  |
 

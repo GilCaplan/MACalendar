@@ -2324,3 +2324,7 @@ now"*):
     `../GraphicsLibrary`, 160 synced into the Mac and the phone by
     `scripts/sync_icons.py`; titles get icons at display time; the egg's
     picks are drawings. FEATURES.md "Drawn icons, no emoji".
+
+55. ~~**The phone works alone; App Store readiness**~~ — **built 2026-10-02**
+    (DEVQA Q85; FEATURES.md "The phone on its own"; DOCUMENTATION/APP_STORE.md
+    for what is left — the developer account and listing are Gil's).

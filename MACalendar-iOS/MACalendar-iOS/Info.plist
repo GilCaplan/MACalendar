@@ -59,8 +59,6 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
-	<key>NSCameraUsageDescription</key>
-	<string>Not used.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>Names from your contacts are added to the assistant's vocabulary so voice commands spell them correctly. They stay on your Mac.</string>
 	<key>NSLocalNetworkUsageDescription</key>

@@ -30,6 +30,13 @@ starts ollama + the API and pairs devices by QR or Wi-Fi (DEVQA Q69,
 Other machines can lend it their MODEL (Q70, `assistant/model_hosts/`): every
 generating call goes through `model_protocol.route_post`, never a bare POST.
 
+**A phone with NO Mac reads commands itself** (DEVQA Q85,
+`MACalendar-iOS/Engine/`): a second reader on purpose, held to the FastRule
+gold by `scripts/phone_engine_board.py` and to the Mac's lexicon and calendar
+by parity tests. A paired phone never uses it (Q66: the Mac reads and wins) —
+so a fix to how a command is UNDERSTOOD still belongs in `assistant/engine/`
+first; the phone's copy follows, measured.
+
 **Both the GUI and the iPhone are clients of the API.** The GUI records audio,
 posts the transcript to `127.0.0.1:8080/voice/text`, and renders the answer;
 the phone does the same over Tailscale. `source` — `"mac"` or `"ios"` — is the

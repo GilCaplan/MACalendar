@@ -29,8 +29,10 @@ struct SetupGuideView: View {
             if settings.phoneOnly {
                 Section("On this phone alone") {
                     point("checkmark.circle", "Calendar, to-dos, reminders, the Hebrew calendar, tags and colours")
-                    point("checkmark.circle", "Voice commands that ADD things, read by Apple's on-device model — needs iOS 26 with Apple Intelligence on")
-                    point("xmark.circle", "Moving, changing or deleting by voice, the command memory and review, other devices and sharing — those need a Mac")
+                    point("checkmark.circle", "Voice and typed commands, read on this phone: add, move, rename, delete, tick off, "
+                          + "and “what do I have tomorrow?” — on any iPhone, with Apple's on-device model helping where it's available")
+                    point("checkmark.circle", "Repeating events, the icons beside titles, and everything working with no signal at all")
+                    point("xmark.circle", "Jude, Teach, accounts and sharing, other devices, and the Mac's learning from your corrections — those need a Mac")
                     point("wifi.slash", "No “offline” line at the top — there's nothing to be offline from")
                 }
             } else {
@@ -90,5 +92,69 @@ struct SetupGuideView: View {
             }
             .buttonStyle(.bordered)
         }
+    }
+}
+
+
+/// The first screen of a fresh install (DEVQA Q85): this iPhone on its own,
+/// or with a Mac. Asked once; Settings ▸ How it runs changes it any time.
+struct WelcomeView: View {
+    @EnvironmentObject var settings: AppSettings
+    let done: () -> Void
+    @State private var showMac = false
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 22) {
+                Spacer()
+                Image(systemName: "calendar.badge.clock")
+                    .font(.system(size: 54, weight: .semibold))
+                    .foregroundColor(.accentColor)
+                Text("MACalendar").font(.largeTitle.weight(.bold))
+                Text("A calendar and to-do list you can talk to.")
+                    .font(.title3).foregroundColor(.secondary).multilineTextAlignment(.center)
+                Spacer()
+                choice("Use it on this iPhone", "Everything stays on this phone, and works with no signal. "
+                       + "You can add a Mac later — what you made goes with it.", "iphone", id: "welcome-phone") {
+                    settings.phoneOnly = true
+                    finish()
+                }
+                choice("Connect my Mac", "Your Mac becomes the brain: it hears you with Whisper, understands with a "
+                       + "local language model, and keeps your devices in step.", "laptopcomputer", id: "welcome-mac") {
+                    showMac = true
+                }
+                Spacer().frame(height: 12)
+            }
+            .padding(.horizontal, 22)
+            .background(
+                NavigationLink(isActive: $showMac) {
+                    SetupGuideView()
+                        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { finish() } } }
+                } label: { EmptyView() }
+            )
+        }
+    }
+
+    private func finish() {
+        UserDefaults.standard.set(true, forKey: "welcomeDone")
+        done()
+    }
+
+    private func choice(_ title: String, _ detail: String, _ icon: String, id: String,
+                        action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: icon).font(.title2).frame(width: 34).foregroundColor(.accentColor)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).font(.headline).foregroundColor(.primary)
+                    Text(detail).font(.subheadline).foregroundColor(.secondary).multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(16)
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(id)
     }
 }

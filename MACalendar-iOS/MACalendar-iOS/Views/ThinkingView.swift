@@ -191,7 +191,9 @@ struct ThinkingView: View {
         let arrived = Dictionary(uniqueKeysWithValues:
             (response?.boundaries ?? []).map { ($0.label, $0) })
         let x0 = response?.transcript ?? response?.originalTranscript
-        if !arrived.isEmpty || (x0?.isEmpty == false) {
+        // X0…X4 are the Mac engine's boundaries; a reading made on the phone
+        // (`phone-local`, DEVQA Q85) has none of them to show
+        if response?.brain != "phone-local", !arrived.isEmpty || (x0?.isEmpty == false) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 4) {
                     ForEach(Array(["X0", "X1", "X2", "X3", "X4"].enumerated()), id: \.element) { i, label in

@@ -224,6 +224,17 @@ extension UIColor {
 }
 
 struct VoiceResponse: Codable {
+    /// A reply made on this phone (`LocalCommand`, no Mac): the same shape, so
+    /// it is shown, spoken and refreshed exactly like the Mac's.
+    static func local(message: String, transcript: String, refresh: String) -> VoiceResponse {
+        let body: [String: Any] = ["message": message, "actions": [String](), "refresh": refresh,
+                                   "parse": "local", "transcript": transcript,
+                                   // not the Mac's chain: the panel draws no engine scaffold for it
+                                   "brain": "phone-local"]
+        let data = try! JSONSerialization.data(withJSONObject: body)
+        return try! JSONDecoder().decode(VoiceResponse.self, from: data)
+    }
+
     let message: String
     let actions: [String]
     let refresh: String

@@ -265,6 +265,7 @@ built when it reaches the Mac.
 | UI | [Magic words (Easter egg)](#magic-words--the-easter-egg) | say "dog" and a German Shepherd runs across the phone; 51 built-in graphics (the activities you actually do among them), your own photos, emoji, flags and symbols | `MACalendar-iOS/…/EasterEgg/` |
 | UI | [The loading screen](#the-loading-screen--your-own-wheel-of-death) | your own animated spinner and \"taking a while\" screen, built in Settings ▸ Easter egg (iOS and Mac) | `EasterEgg/EggLoader*.swift`, `mac/MagicWords/MacLoader.swift` |
 | engine | [Icons beside titles](#icons-beside-titles) | a dog drawn beside "walk my dog" — none, one or two, only in the word's sense; the title stays words; off by default | `engine/label/title_icons.py` |
+| ios | [The phone on its own](#the-phone-on-its-own) | no Mac needed: a first-launch choice, commands read and done on the phone, the Jewish calendar and Shabbat times worked out there; App Store ready but for Gil's account | `MACalendar-iOS/Engine/`, `DOCUMENTATION/APP_STORE.md` |
 | app | [Drawn icons, no emoji](#drawn-icons-no-emoji) | every picture on the Mac, the phone and the Easter egg is a GraphicsLibrary drawing | `scripts/sync_icons.py`, `calendar_ui/icons`, `Assets.xcassets/Icons` |
 | UI | [How it runs: Mac + phone, or phone only](#how-it-runs--mac--phone-or-phone-only) | a setup guide in the phone's Settings; a phone-only mode with no Mac and no offline banner | `SetupGuideView.swift`, `DefaultRules.swift` |
 | hybrid | [Coursework](#coursework) | courses + assignments tab | db `courses*`, `CourseworkView` |
@@ -2310,6 +2311,42 @@ senses found ("the interview date", "bottle bank", "cling film", "meter
 reading" …) became vetoes, then a seeded random 150 of the rest read 1 mild
 miss ("eye exam", also vetoed). Moving from emoji to icons changed no reading:
 the stress set fires on the same 949 of 2,999 titles.
+
+### The phone on its own
+**What:** The iPhone app works with NO Mac (Gil, 2026-10-02: *"improve so the
+app can work alone if no server connected, with the audio engine features
+etc… and so it could potentially be published to the appstore"*; DEVQA Q85).
+A fresh install asks: **Use it on this iPhone** or **Connect my Mac**. On the
+phone alone, a spoken or typed command is read and DONE there — add, move,
+push back, extend, rename, delete, tick off, and "what do I have tomorrow?" —
+on any iPhone, deterministic first, Apple's on-device model (iOS 26) taking
+only what the rules cannot read. The Mac's rulings come with it (Q25/Q26/Q47/
+Q50/Q56/Q57/Q61, the bare-hour convention), and so does its caution: an edit
+that cannot name ONE row asks "Which one…?" or says it found nothing. Series,
+the icons beside titles, the holidays and Shabbat / yom tov lines are worked
+out on the phone; Jude, Teach and Account (which need the Mac) are hidden.
+Connecting a Mac later sends everything up through the change queue — which
+now folds edits into a never-synced create and drops a create deleted before
+it was sent. With a Mac paired nothing changes: the Mac reads, and wins (Q66).
+**Where:** `MACalendar-iOS/Engine/` — `LocalEngine.swift` (the reader),
+`LocalCommand.swift` (does it, through the normal APIClient writes),
+`TitleIcons.swift` + generated `TitleIconsData.swift`
+(`scripts/gen_title_icons_swift.py`), `HebrewCalendar.swift` (pyluach's rules
+and astral's sun, ported); `LocalStore` (series drawn from one row, queue
+compaction); `WelcomeView` in `SetupGuideView.swift`; `FeatureRegistry.needsMac`;
+`DELETE /auth/me` and the phone's account deletion; privacy manifests;
+`DOCUMENTATION/APP_STORE.md` (what review needs, what is left — mostly Gil's
+developer account — a privacy policy draft and review notes).
+**How it is held:** `scripts/phone_engine_board.py` — on the FastRule set's
+single-ask TRAIN rows (n=4,023): action 93.9%, create title 93.3%, edit target
+87.5%, repeat 99.3%; on real speech (HWU-64 outside the sealed 300, n=2,699)
+the right action 82.1%; the FastRule TEST half reads action 80.5%, title
+46.7% (unseen wordings — reported, never tuned on). Tests:
+`test_phone_engine.py` (the rulings), `test_title_icons.py` (the phone draws
+what the Mac draws on 4,000+ titles), `test_hebrew_calendar_phone.py` (every
+holiday 2024–2030 both schedules, every window over three years to the
+minute), `test_users_auth.py` (deleting your own account), and the UI test
+`StandaloneUITests` (welcome, then add / ask / delete with no server).
 
 ### Drawn icons, no emoji
 **What:** No emoji anywhere — the Mac calendar, Jude, the server's tray, the
