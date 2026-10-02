@@ -71,3 +71,7 @@ rows / 124 families, test 694 / 30, 483 distinct skeletons).
 Written by the same generator as the sequence file:
 
     ./.venv/bin/python -m assistant.engine.segmentation.datasets.sequence.generate
+
+Size tiers (2026-10-02): `--tier 10k` / `--tier 40k` on that generator also
+write `tiers/chain_10k.jsonl` (10,886 rows) and `tiers/chain_40k.jsonl` (41,192
+rows) here — gitignored supersets of this file; `chain_board --tier` reads them.

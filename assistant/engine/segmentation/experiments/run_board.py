@@ -186,9 +186,19 @@ def main() -> None:
     ap.add_argument("--source", choices=("handwritten", "generated"),
                     help="score only one provenance")
     ap.add_argument("--samples", type=int, default=12)
+    ap.add_argument("--tier", default="base", choices=("base", "10k", "40k"),
+                    help="dataset size tier (datasets/tiers.py): base = the three committed "
+                         "files; 10k / 40k = the generated tier + the GROWN trap tiers, "
+                         "built on demand")
     a = ap.parse_args()
 
-    rows = assign_splits(scorer.load_rows(sorted(glob.glob(f"{_HERE}/datasets/*.jsonl"))))
+    if a.tier == "base":
+        files = sorted(glob.glob(f"{_HERE}/datasets/*.jsonl"))
+    else:
+        from assistant.engine.segmentation.datasets import tiers
+        files = [str(p) for p in tiers.board_files(a.tier)]
+        print(f"tier {a.tier}: " + ", ".join(os.path.basename(f) for f in files))
+    rows = assign_splits(scorer.load_rows(files))
     want = "test" if a.test else "train"
     rows = [r for r in rows if r["split"] == want]
     if a.source:

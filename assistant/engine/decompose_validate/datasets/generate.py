@@ -393,7 +393,19 @@ def main() -> None:
                     help="permit rows to keep their text while their GOLD moves. "
                          "Only for a deliberate correction to normalization.py — "
                          "it is otherwise the signature of an accident.")
+    ap.add_argument("--tier", choices=("10k", "40k"),
+                    help="write a SIZE TIER to datasets/tiers/ (datasets/tiers.py): the "
+                         "committed rows verbatim + tier rows; generated.jsonl is untouched")
     a = ap.parse_args()
+
+    if a.tier:
+        from assistant.engine.decompose_validate.datasets import tiers
+        p = tiers.write_tier(a.tier)
+        print(f"wrote {p}")
+        print("   " + json.dumps(tiers.stats(p.read_text().splitlines())))
+        if a.report:
+            print("   " + json.dumps(tiers._CACHE["dv"][2]))
+        return
 
     rows, dropped = build(a.per_template)
 

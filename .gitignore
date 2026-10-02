@@ -104,3 +104,10 @@ assistant/engine/label/datasets/tiers/
 # `python -m assistant.engine.fastrule.datasets.generate --size <tier>`.
 # Multi-MB and a pure function of the generator + banks, so never committed.
 assistant/engine/fastrule/datasets/tiers/
+
+# Dataset SIZE TIERS (10k / 40k / grown) — multi-MB, rebuilt deterministically
+# by their generators and on demand by the boards (see each stage ARCHITECTURE.md)
+assistant/engine/segmentation/datasets/tiers/
+assistant/engine/segmentation/datasets/sequence/tiers/
+assistant/engine/decompose_validate/datasets/tiers/
+assistant/engine/decompose_validate/datasets/chain/tiers/

@@ -1,0 +1,59 @@
+{
+  "_comment": "Hand-written, generic filler ADDITIONS for the size tiers (segmentation/datasets/tiers.py). Appended to FastRule's fillers.json pools for tier rows only; the base rows never draw from here. No personal vocabulary: nothing is read from ~/.assistant_tools. Dates and times are deliberately NOT extended — decompose_validate's gold normalises those from a closed hand-written table.",
+  "event_titles": [
+    "choir rehearsal", "pottery class", "spin class", "pilates class", "massage appointment",
+    "open day", "site visit", "board meeting", "office hours", "lab session", "seminar",
+    "piano recital", "swim practice", "football practice", "car inspection", "dental cleaning",
+    "physics lecture", "code review", "sprint planning", "design review", "tutoring session",
+    "book fair", "photo shoot", "art class", "driving lesson", "climbing session",
+    "chess club", "debate practice", "guitar lesson", "quarterly review", "mortgage appointment",
+    "bank appointment", "skin check", "hearing test", "karate class", "language exchange",
+    "volunteer shift", "community meeting", "museum visit", "bike repair appointment",
+    "gallery opening", "cooking class", "study group", "team offsite", "vaccination appointment",
+    "school assembly", "hackathon kickoff", "career fair"
+  ],
+  "task_titles": [
+    "pay the gas bill", "renew the car insurance", "order printer ink", "fix the bike tyre",
+    "file the receipts", "clean the fridge", "defrost the freezer", "sort the recycling",
+    "iron the shirts", "polish the shoes", "hang the curtains", "assemble the bookshelf",
+    "descale the kettle", "replace the smoke alarm battery", "update the budget spreadsheet",
+    "cancel the gym membership", "pay the parking fine", "register for the course",
+    "fill in the tax form", "renew the library card", "sharpen the kitchen knives",
+    "clear out the inbox", "mow the lawn", "rake the leaves", "wipe down the counters",
+    "empty the dishwasher", "change the bed sheets", "top up the travel card",
+    "check the tyre pressure", "print the tickets", "label the boxes", "sweep the patio",
+    "clean the windows", "reply to the survey", "update the phone software",
+    "order a birthday card", "wrap the present", "return the parcel",
+    "pick up the prescription", "sort out the paperwork"
+  ],
+  "items": [
+    "rice", "pasta", "olive oil", "tea bags", "yogurt", "bin liners", "toothpaste",
+    "light switches", "masking tape", "printer cartridges", "cat food", "oat milk",
+    "tomatoes", "lemons", "garlic", "candles", "sponges", "hand soap", "aluminium foil",
+    "lunch boxes"
+  ],
+  "names": [
+    "Ben", "Chloe", "Daniel", "Emma", "Grace", "Hannah", "Isaac", "Jack", "Kate", "Leo",
+    "Mia", "Nathan", "Olivia", "Paul", "Rachel", "Sophie", "Tom", "Victor", "Zoe", "Ella",
+    "Max", "Lucy", "Oscar", "Ruby", "Henry"
+  ],
+  "fixed_pairs": [
+    "salt and pepper", "fish and chips", "bread and butter", "shampoo and conditioner",
+    "nuts and bolts", "pen and paper", "milk and cookies", "needle and thread",
+    "soap and water", "cheese and crackers", "dustpan and brush", "knife and fork"
+  ],
+  "places": [
+    "garage", "spare room", "attic", "hallway", "kitchen cupboards", "shed", "basement",
+    "bathroom cabinet", "home office", "storage unit"
+  ],
+  "docs": [
+    "the lease", "the contract", "the permission form", "the expense report", "the essay",
+    "the grant application", "the quote", "the insurance claim", "the timesheet",
+    "the meeting notes"
+  ],
+  "shows": [
+    "the food and wine festival", "the arts and crafts fair", "the rhythm and blues night",
+    "the science and tech expo", "the fashion and design show", "the questions and answers panel",
+    "the sun and sea swim", "the bits and bobs market"
+  ]
+}
