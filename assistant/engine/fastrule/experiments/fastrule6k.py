@@ -68,6 +68,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", choices=("train", "test"), default="train")
     ap.add_argument("--tier", choices=("simple", "complex", ""), default="")
+    from assistant.engine.fastrule.datasets import tiers as _sizes
+    _sizes.add_argument(ap)      # --size base|20k|40k|80k (NOT --tier, a row field)
     a = ap.parse_args()
     aggregates_only = a.split == "test"
 
@@ -90,8 +92,7 @@ def main() -> int:
             return sorted(d["name"] for d in task_tag_kw
                           if any(k in low for k in d.get("keywords", ())))
 
-        rows = [json.loads(l) for l in
-                (ROOT / "datasets" / "fastrule_7200.jsonl").open()]
+        rows = [json.loads(l) for l in _sizes.ensure(a.size).open()]
         rows = [r for r in rows if r["split"] == a.split
                 and (not a.tier or r["tier"] == a.tier)]
 

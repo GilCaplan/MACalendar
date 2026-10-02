@@ -38,7 +38,10 @@ def main() -> int:
     ap.add_argument("--split", default="train", choices=("train", "test"))
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--show-wrong", type=int, default=0, help="TRAIN only: print this many decoy-changed rows")
+    from assistant.engine.fastrule.datasets import tiers as _sizes
+    _sizes.add_argument(ap)  # --size base|20k|40k|80k: the FastRule set's size tier
     a = ap.parse_args()
+    globals()["DATA"] = _sizes.ensure(a.size)
 
     import datetime as dt
     import assistant.engine as engine

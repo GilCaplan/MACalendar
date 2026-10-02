@@ -310,7 +310,10 @@ def main() -> int:
                     help="source rows to use (0 = all)")
     ap.add_argument("--multi-limit", type=int, default=250,
                     help="built two-ask utterances for arm 2 (0 = all)")
+    from assistant.engine.fastrule.datasets import tiers as _sizes
+    _sizes.add_argument(ap)  # --size base|20k|40k|80k: the FastRule set's size tier
     a = ap.parse_args()
+    globals()["DATA"] = _sizes.ensure(a.size)
 
     from freezegun import freeze_time
     from assistant.config import load_config

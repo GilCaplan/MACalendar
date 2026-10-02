@@ -216,7 +216,10 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", default="train", choices=["train", "test"])
     ap.add_argument("--dataset", default="all", choices=["all", *DATASETS])
+    from assistant.engine.fastrule.datasets import tiers as _sizes
+    _sizes.add_argument(ap)  # --size base|20k|40k|80k: the FastRule set's size tier
     args = ap.parse_args()
+    DATASETS["fastrule"] = _sizes.ensure(args.size)
 
     # The leakage rule: the held-back half reports aggregates, never rows.
     show_rows = args.split == "train"

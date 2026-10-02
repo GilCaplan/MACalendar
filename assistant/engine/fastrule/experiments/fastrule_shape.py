@@ -22,6 +22,7 @@ being "the metric":
 
     python -m assistant.engine.fastrule.experiments.fastrule_shape                # test split (reported)
     python -m assistant.engine.fastrule.experiments.fastrule_shape --split train  # mining
+    python -m assistant.engine.fastrule.experiments.fastrule_shape --size 40k     # a size tier
 """
 from __future__ import annotations
 
@@ -106,6 +107,8 @@ def _todos(intents) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", choices=("train", "test"), default="test")
+    from assistant.engine.fastrule.datasets import tiers as _sizes
+    _sizes.add_argument(ap)      # --size base|20k|40k|80k (2026-10-01), default base
     a = ap.parse_args()
     mining = a.split == "train"
 
@@ -116,7 +119,7 @@ def main() -> int:
     fr = FastRule(RULE_THRESHOLD)
     fr.run("book gym tomorrow at 7am")          # warm outside the frozen clock
 
-    rows = [json.loads(l) for l in DATA.open() if f'"{a.split}"' in l]
+    rows = [json.loads(l) for l in _sizes.ensure(a.size).open() if f'"{a.split}"' in l]
     rows = [r for r in rows if r["split"] == a.split]
 
     # atomic buckets: a propose row is atomic-but-must-not-commit (Q9), so it
@@ -447,7 +450,8 @@ def main() -> int:
     N_N = N_DEFER + N_COMMIT
     P_N = P_DEFER + P_COMMIT
     def pc(x, n): return f"{x/n:.1%}" if n else "—"
-    print(f"[{a.split}] FastRule product-shape board\n")
+    print(f"[{a.split}] FastRule product-shape board"
+          + (f"  (size tier {a.size}, {len(rows)} rows)" if a.size != "base" else "") + "\n")
     print(f"ATOMIC rows ({A_N}) — should HANDLE")
     print(f"   handled (committed)      {pc(A_OK + A_WRONG, A_N)}")
     print(f"   correct-on-handled       {pc(A_OK, A_OK + A_WRONG)}")

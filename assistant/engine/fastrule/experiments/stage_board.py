@@ -124,6 +124,8 @@ def main() -> int:
                     help="gold = the Item the upstream SHOULD produce (this "
                          "stage ALONE); chain = the real segmenter's output")
     ap.add_argument("-n", type=int, default=int(os.environ.get("N", "600")))
+    from assistant.engine.fastrule.datasets import tiers as _sizes
+    _sizes.add_argument(ap)      # --size base|20k|40k|80k, default base
     a = ap.parse_args()
 
     from freezegun import freeze_time
@@ -143,7 +145,7 @@ def main() -> int:
     # run reads "converts nothing" when the truth is "never got a parser".
     _llm.get_rule_parser().analyze("book gym tomorrow at 7am", current_view="month")
 
-    rows = [json.loads(l) for l in DATA.open()]
+    rows = [json.loads(l) for l in _sizes.ensure(a.size).open()]
     rows = [r for r in rows if r["split"] == "train"
             and r["expect"].get("atomic", True)
             and r["expect"].get("action") != "propose"]

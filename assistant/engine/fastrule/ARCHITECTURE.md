@@ -180,6 +180,41 @@ land as later measured batches, not as part of the port.
 Split into halves; **the test half reports aggregates only and never spawns a
 hypothesis**, the same rule as the verification corpus.
 
+### Size tiers — pick how big (2026-10-01)
+
+Gil: *"they should be at least 40k with enough variation"* and *"different
+level of the same dataset ... let user choose"*. The committed file is the
+**base** tier (8,700 rows, now 630 families — the counts above predate the
+second train pool) and stays byte-identical; `datasets/growth.py` builds three
+supersets from a new hand-written bank, `banks/growth.json`:
+
+| `--size` | rows | families (train / test) | train / test rows | what it adds |
+|---|---:|---:|---:|---|
+| `base` | 8,700 | 630 (442 / 188) | 6,300 / 2,400 | the committed set — the board of record |
+| `20k` | 20,000 | 1,504 (1,140 / 364) | 15,340 / 4,660 | 874 new families from 193 new constructions |
+| `40k` | 40,000 | 3,046 (2,377 / 669) | 31,340 / 8,660 | 1,542 more families, 242 constructions in all |
+| `80k` | 80,000 | 3,046 (2,377 / 669) | 63,340 / 16,660 | no new family: ~16 more rows on every growth family |
+
+Every text is distinct in every tier; each tier's file starts with the
+smaller tier's bytes. A growth FAMILY is one hand-written verb frame × one
+placement of the when, wrapped in one of nine registers (polite, hedged,
+wake word, filler, a flat transcript ...); 571 of the 40k tier's 2,416 growth
+families are two-ask compounds. The split is by CONSTRUCTION, with the
+generator's own `stratified_split()` — 194 train, 48 test — so a test frame is
+never seen in train in any arrangement. Gold goes through the base set's own
+`finish_rows`, rulings and labels included. `datasets/DATASET.md` §"Size
+tiers" has the bank, the guard and what was left out.
+
+Every board here takes `--size` (default `base`): `fastrule_shape`,
+`fastrule6k`, `stage_board`; `b1_ceiling` / `b3_live_chain` read
+`FASTRULE_SIZE`; and `scripts/` `atomicity_board`, `atomizer_board`,
+`cross_store_board`, `invariance_board`, `kind_board`. A missing tier is built
+on demand into the gitignored `datasets/tiers/`, or by
+`python -m assistant.engine.fastrule.datasets.generate --size 40k`.
+Name the size with every number: "correct-on-handled X% on the FastRule
+**40k** test half (atomic rows, n=…)". A non-base number is not comparable
+with a base one — different rows — and the board of record stays base.
+
 > These templates turned out to be worth far more than the board they were
 > built for. Because they carry `atomic` and *named* slots, they generate
 > **exact segment gold by construction** — 1,549 of Segmentation's 1,711 rows
@@ -228,7 +263,9 @@ fastrule/
                       commit. Atomicity belongs here, where no Item exists yet
     fastrule.py       the rule engine behind the front door: Atomicity, Scorer,
                       FastRule, and the DEFER contract
-    datasets/         8,400 rows, the banks, generate.py and DATASET.md
+    datasets/         8,700 rows (base), the banks, generate.py, DATASET.md;
+                      growth.py + banks/growth.json + tiers.py: the 20k/40k/80k
+                      size tiers (files gitignored under datasets/tiers/)
     experiments/      RESULTS.md (the run log) · stage_board.py (THE STAGE's
                       board, attributed) · fastrule_shape.py (the FRONT DOOR's
                       board) · gold.py · fastrule6k.py · fast_sandbox.py ·

@@ -555,10 +555,132 @@ phrase to an absolute date/time is the parser's job, never this dataset's;
 scoring should compare the phrase (or its presence/absence), not attempt
 date arithmetic against it.
 
+## Size tiers: base · 20k · 40k · 80k (2026-10-01)
+
+Gil, 2026-10-01: *"a lot of the datasets seem really small, they should be at
+least 40k with enough variation in the data"* and *"you can have different
+level of the same dataset as well, sometimes can let user choose"*. The
+committed file stays exactly as it was and becomes the **base** tier; three
+larger tiers are built on top of it by `growth.py` from a new hand-written
+bank, `banks/growth.json`.
+
+| size | rows | distinct texts | distinct families (train / test) | train rows | test rows | growth constructions | rows per family, max |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **base** (committed) | 8,700 | 8,700 | 630 (442 / 188) | 6,300 | 2,400 | — | 28 |
+| **20k** | 20,000 | 20,000 | 1,504 (1,140 / 364) | 15,340 | 4,660 | 193 | 28 |
+| **40k** | 40,000 | 40,000 | 3,046 (2,377 / 669) | 31,340 | 8,660 | 242 | 28 |
+| **80k** | 80,000 | 80,000 | 3,046 (2,377 / 669) | 63,340 | 16,660 | 242 | 61 |
+
+(Counts read off the generated files; "distinct families" includes base's
+630. The max in the 20k and 40k rows is a BASE family — no growth family
+there exceeds 26 rows.)
+
+**What a size means.** 20k and 40k are WIDE: each adds new families (874,
+then 1,542 more), ~13 rows each — the same density as base (~14). 80k is
+DEEP: no new family, ~16 more rows on every growth family (up to 61). So 40k
+is the most varied per row; 80k is for when n matters more than shape count.
+Say which you used: "correct-on-handled X% on the FastRule **40k** test half
+(atomic rows, n=…)".
+
+**How to choose.** Every board that reads this set takes `--size`
+(default `base`, which stays the board of record):
+
+    python -m assistant.engine.fastrule.experiments.fastrule_shape --split train --size 40k
+    python -m assistant.engine.fastrule.experiments.fastrule6k --size 20k
+    python -m assistant.engine.fastrule.experiments.stage_board --size 40k
+    FASTRULE_SIZE=40k python -m assistant.engine.fastrule.experiments.b1_ceiling   # b1, b3: env
+    python scripts/atomicity_board.py --size 40k     # also atomizer, cross_store, invariance, kind
+
+A missing tier file is generated on demand (`tiers.ensure()`), or by hand:
+
+    python -m assistant.engine.fastrule.datasets.generate --size 40k   # -> datasets/tiers/fastrule_40k.jsonl
+
+The tier files are gitignored (`datasets/tiers/`, 10 / 22 / 46 MB): the
+generator is the artifact, and a tier is a pure function of it and the banks.
+Generating takes ~25 s (20k), ~50 s (40k), ~90 s (80k) on the Mac.
+
+**Superset, by construction.** Each tier's file BEGINS with the smaller tier's
+file, byte for byte (base → 20k → 40k → 80k), because each growth level runs
+after everything before it has claimed its texts, draws on its families' own
+RNG streams, is shuffled on its own stream and is appended — the same
+discipline the forced pools used. `tests/unit/test_fastrule_dataset_tiers.py`
+pins it, and pins base's own md5.
+
+### What grew — constructions, arrangements, registers, joiners
+
+`banks/growth.json` holds four authored parts, all generic vocabulary:
+
+| part | count | examples |
+|---|---:|---|
+| CONSTRUCTIONS — verb frames with `{T}` for the title | 246 written, 242 used | "pencil in {T}", "i've got {T} coming up", "we're running low on {T}", "{T} got cancelled, remove it", "move {T} over to", "what does {g_qrange} look like" |
+| ARRANGEMENTS — where the when goes | 42 (35 names) | date-then-clock, clock-then-date, fronted ("tomorrow at 5, ..."), a range, a weekday, a length ("for 90 minutes"), a repeat with a start / an until / a through, a lead time, an attendee, a place, all-day, a quantity |
+| REGISTERS — how it is wrapped | 9 | bare, lead-in ("ok so"), polite ("could i get you to"), polite + tail, tail (", cheers"), wake word, hedge ("turns out"), a filler after the first word ("book um ..."), FLAT (punctuation gone, as a transcript) |
+| JOINERS — two asks in one command | 18 | "{A}, oh and {B}", "{A}. one more thing, {B}", "{A}, and while you're at it {B}" |
+
+Plus new filler banks: 94 event titles, 79 to-dos, 45 grocery items, 49
+dates, 42 clock times, 15 ranges, 17 repeats (yearly among them), lengths,
+lead times, 25 places, 30 names, 19 query ranges — each extending the base
+list it mirrors where there is one. No base list was edited.
+
+A **family** is one construction × one arrangement, with one register chosen
+per family by a stable hash (the register's own words vary row to row). The
+40k tier holds 1,845 atomic growth families and 571 two-ask compounds.
+
+**New gold, computed the same way.** Growth rows go through the base set's
+own `gen_family_rows` → `finish_rows` (split out of `_emit_family_rows` for
+this, behaviour unchanged), so slots, `item`, the rulings (Q26 · Q47 · Q50 ·
+Q55 · Q56 · Q61 · Q62 · Q63) and the category/tag labels are computed exactly
+as for a committed row. A to-do said with a clock or range is declared to
+`RULED_FAMILIES` like base's Q26 families and carries `ruled: "Q26"`. Three
+slot keys are new: `length` (how long a new event runs, "for 90 minutes"),
+`location` (the place said), and the yearly cadence in `recurrence_rounded`.
+**One judgement call to flag:** where a place is said ("book picnic at the
+cafe on the corner"), the gold title KEEPS it (`"picnic at the cafe on the
+corner"`) — by analogy with Q56's "with <person>", not by a ruling; the
+engine has no location field. `location` carries the place on its own.
+
+Growth rows also carry `level` (which size added them) and `construction`
+(compounds: `a+b`).
+
+### The split: by CONSTRUCTION, with the generator's own rule
+
+`stratified_split()` — the base set's 80/20, stratified and hashed on `SEED`
+— is run over the CONSTRUCTIONS (stratum = group: event / to-do / shopping /
+delete / complete / update / query) and over the joiners. Every family takes
+its construction's side, and a compound is only built from two constructions
+and a joiner on the same side, so **a test construction never appears in
+train in any arrangement, register or compound**: 194 constructions train,
+48 test. Each growth level is exactly 80/20 by rows. No existing row moved
+split; the base test families are byte-identical, and no growth row belongs
+to one.
+
+**The base-skeleton guard.** A growth family whose skeleton (slots reduced to
+their class, wrappers dropped) EQUALS any base skeleton is dropped — it would
+add rows, not a new construction — as is one within 0.85 bigram-Jaccard of a
+skeleton on the opposite split (a train family near a test skeleton would leak
+it; a test family near a train one would not be unseen). The guard prints
+counts only: 56 exact duplicates dropped, 0 near ones. The base test half's
+words were never printed to write the bank. Disclosure: while reading the
+bank format, six base `propose_confirm` templates (test) and two test row
+texts were printed by accident; growth has no `propose` group at all, and
+the guard found no growth skeleton near any test one.
+
+### What was left out
+
+- **`propose` rows** (Q9) — see the disclosure above.
+- **ASR word damage** (homophones, dropped words): the base generator models
+  register and disfluency, not misrecognition, and a damaged title word would
+  need gold that says what was MEANT. FLAT and midfill registers are the only
+  transcript damage here.
+- **The `fit_route_models.py` fitter and `named_days_bench.py`** keep reading
+  base only: one FITS a shipped model, and a bigger set there is a model
+  change, not a measurement.
+
 ## How to regenerate
 
     python -m assistant.engine.fastrule.datasets.generate            # writes fastrule_7200.jsonl
     python -m assistant.engine.fastrule.datasets.generate --no-write  # prints the composition table, doesn't write
+    python -m assistant.engine.fastrule.datasets.generate --size 40k  # a size tier, see "Size tiers"
 
 Fully deterministic: `SEED = "fastrule-6000-v1"` in
 `assistant/engine/fastrule/datasets/generate.py` (a fixed historical identifier now, not a
@@ -591,6 +713,17 @@ never touches `~/.assistant_tools/`: `setup_label_env()` points
 (the one exception being `MACALENDAR_CATEGORIES`, deliberately pointed at
 this dataset's own fixture rather than a scratch dir, since that's the
 whole mechanism being used).
+
+**That stopped being true on 2026-09-28 and nobody noticed until
+2026-10-01.** Once `~/.assistant_tools/users.json` existed (the users system,
+DEVQA Q65), `users.paths.resolve` re-rooted `MACALENDAR_CATEGORIES` into the
+admin's real folder, where no `categories_fixture.json` exists — so a raw
+regeneration READ the real user registry and labelled with the built-in
+default categories: **240 of 8,700 rows came out different** ("flu shot"
+Health → Personal) and the file no longer reproduced. `setup_label_env()` now
+also forces `MACALENDAR_USERS` to its scratch directory; regeneration is
+byte-identical again (md5 `29f3d9c1a8ad4ea79e561c5e5b7ee4ac`, pinned by
+`test_fastrule_dataset_tiers.py`).
 
 To extend the dataset: add a family to `banks/simple_patterns.json` or
 `banks/complex_patterns.json` (simple needs only `family`/`action`/
