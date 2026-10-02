@@ -62,13 +62,15 @@ def _pct(xs):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("-n", type=int, default=200)
+    ap.add_argument("--data-tier", default="base", choices=("base", "20k", "40k"))
     ap.add_argument("--batch-cache", default=str(pathlib.Path(tempfile.gettempdir())
                                                   / "macalendar_label_embed_cache.jsonl"))
     a = ap.parse_args()
     from assistant.engine.label import embed as E
     E.TIMEOUT_S = 60.0                  # measure the call, do not cut it off
     url = E.DEFAULT_URL
-    rows = [json.loads(l) for l in (STAGE / "datasets" / "event_categories.jsonl").open()]
+    from assistant.engine.label.datasets.generate import load_rows
+    rows = load_rows("event", a.data_tier)
     titles = sorted({r["text"] for r in rows if r["split"] == "test"})
     rng = np.random.default_rng(0)
     titles = [titles[i] for i in rng.choice(len(titles), size=2 * a.n, replace=False)]

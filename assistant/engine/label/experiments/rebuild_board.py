@@ -109,9 +109,13 @@ def norm(s: str) -> str:
 # data
 # ---------------------------------------------------------------------------
 
-def load_gen(kind: str):
-    name = "event_categories.jsonl" if kind == "event" else "task_tags.jsonl"
-    rows = [json.loads(l) for l in (STAGE / "datasets" / name).open() if l.strip()]
+#: Which size of the generated sets the board reads (`--data-tier`).
+DATA_TIER = "base"
+
+
+def load_gen(kind: str, data_tier: "str | None" = None):
+    from assistant.engine.label.datasets.generate import load_rows
+    rows = load_rows(kind, data_tier or DATA_TIER)
     key = "label" if kind == "event" else "labels"
     tr = [r for r in rows if r["split"] == "train"]
     te = [r for r in rows if r["split"] == "test"]
@@ -1154,7 +1158,12 @@ def main() -> int:
     ap.add_argument("--only", choices=("events", "tasks", "newtag", "palette", "shipped"))
     ap.add_argument("--embed-cache", default=str(EMBED_CACHE))
     ap.add_argument("--out", default=None, help="write the numbers as JSON here")
+    ap.add_argument("--data-tier", default="base", choices=("base", "20k", "40k"),
+                    help="size of the generated label sets (default base; larger "
+                         "tiers are built on demand into ../datasets/tiers/)")
     a = ap.parse_args()
+    global DATA_TIER
+    DATA_TIER = a.data_tier
     use_emb = not a.no_embed
     emb = Embedder(pathlib.Path(a.embed_cache), enabled=use_emb)
     print(f"\nLABEL REBUILD BOARD · {time.strftime('%Y-%m-%d %H:%M:%S')} · "

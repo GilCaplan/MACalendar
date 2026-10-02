@@ -16,7 +16,8 @@ row that can exist uncategorised, and that window is where per-category settings
                    label is read from the plain words, an emoji right after a word that
                    clearly names one; a two-sense word fires only when its neighbours
                    confirm the sense (board: experiments/title_emoji_board.py)
-    datasets/      generated FROM the label, so nothing is circular
+    datasets/      generated FROM the label, so nothing is circular — in three
+                   size tiers, base / 20k / 40k (§"The datasets come in sizes")
     experiments/   the boards, and RESULTS.md — every number this file quotes
 
 ## Two problems, not one
@@ -29,6 +30,90 @@ row that can exist uncategorised, and that window is where per-category settings
 They are kept apart everywhere — separate datasets, separate splits, separate
 models, separate metrics — because a task can be Groceries *and* Errands at once
 and answering with the strongest tag alone would silently drop the other.
+
+## The datasets come in sizes
+
+Gil, 2026-10-01: *"they should be at least 40k with enough variation in the
+data"* and *"you can have different level of the same dataset as well,
+sometimes can let user choose"*. So `datasets/generate.py` builds each set at
+three sizes, and every loader takes the size as an option (default `base`).
+
+**Generated label sets, all rows, both splits** (`generate.py --stats`; a
+"frame" is a sentence template, a "subject" the noun phrase the row is about):
+
+| set | tier | rows | distinct texts | frames | subjects | TRAIN / TEST rows | classes |
+|---|---|---|---|---|---|---|---|
+| events | **base** | 14,692 | 14,692 | 39 | 1,055 | 10,359 / 4,333 | 13 |
+| events | 20k | 20,006 | 20,006 | 160 | 1,760 | 14,112 / 5,894 | 14 |
+| events | 40k | 40,000 | 40,000 | 160 | 1,769 | 28,245 / 11,755 | 14 |
+| tasks | **base** | 3,800 | 3,800 | 32 | 238 | 2,687 / 1,113 | 4 |
+| tasks | 20k | 20,000 | 20,000 | 128 | 629 | 14,118 / 5,882 | 6 |
+| tasks | 40k | 40,000 | 40,000 | 128 | 629 | 28,253 / 11,747 | 6 |
+
+- **`base` is the committed files, byte-identical** to what the generator has
+  always written (md5 pinned by `tests/unit/test_label_dataset_tiers.py`). The
+  shipped base model and every number below were measured on it. Nothing about
+  the tiers changes what ships.
+- **Each tier is a SUPERSET of the one below**: base rows first, unchanged and
+  in order, then the 20k segment, then the 40k segment. A row never changes
+  split, so a 20k reading is a reading on a prefix of 40k. New rows carry
+  `frame`, `added_in` and, when damaged, `damage`.
+- **New material, not refills.** The new rows come from `datasets/
+  tier_banks.py`, hand-written, no model, no personal data: 714 new event
+  subjects and 391 new task subjects (none in any base list), 121 new event
+  frames and 96 new task frames (none in a base list), in registers the base
+  set barely had: calendar notes ("{d}: {s}", "{s} @ {t}"), time-first,
+  statements ("i've got {s} {d}"), recurrence, duration, texting, US phrasing,
+  spoken repairs ("{s} {d} no wait {d}"). A base subject gets only NEW frames;
+  a new subject gets base + new. One row per (frame, subject); at most 40 new
+  rows per event subject, 80 per task subject; exact duplicate texts dropped.
+  About 22% of new rows get transcript damage on their FRAME words only
+  (stutter, filler, homophone, sentence case, trailing punctuation, dropped
+  apostrophes) — never on the subject, so the vocabulary split still means
+  what it says.
+- **The vocabulary split holds**: 30% of each class's new subjects are
+  TEST-only, exactly as in base, and no subject sits on both sides in any tier
+  (pinned).
+- **The palette caught up.** Dog walking (events) and Admin and Shabbat (tasks)
+  joined the palette on 2026-09-24 (DEVQA Q44), after base was written, so base
+  has no row for them; 20k and 40k do. Admin's subjects keep off the paperwork
+  base already files under Errands ("the passport form", "the parking ticket
+  appeal", "the visa documents") — that overlap is real, and a model trained on
+  a larger tier sees those base rows say Errands.
+
+**Balance and what the denominator hides.** Classes are filled toward an equal
+share; a narrow class that runs out of subjects at its cap hands the rest to
+the others rather than repeating itself. Events 40k: 2,907–2,908 rows per
+class, Dog walking 2,200 (55 subjects × the 40-row cap). Tasks 40k: Groceries
+7,634, Errands 7,633, Coursework 7,626, Work 7,391, Admin 5,581, Shabbat 4,957
+(rows per tag; multi-label rows count once per tag). **Tasks are the thinner
+set**: 40,000 rows over 629 subjects is ~64 rows per subject (the busiest
+carries 112 = 32 base + the 80 cap), against ~23 for events (busiest 42). The
+size grew 10.5x; the distinct subjects grew 2.6x. Read a tasks-40k number as
+629 subjects × 128 frames, not 40,000 independent examples.
+
+**How to choose.** `base` is the default everywhere and the only tier the
+shipped model, its first-use build and every recorded board used — compare
+against it. 20k and 40k are for scaling studies and for fitting a bigger model
+on purpose; neither has been boarded yet, so no number on this page comes from
+them.
+
+    python -m assistant.engine.label.datasets.generate              # base (committed)
+    python -m assistant.engine.label.datasets.generate --tier 40k   # or 20k, or all
+    python -m assistant.engine.label.datasets.generate --stats      # the table above
+
+    python -m assistant.engine.label.train --data-tier 40k          # fit on 40k
+    python -m assistant.engine.label.experiments.classifier_board --data-tier 40k
+    python -m assistant.engine.label.experiments.rebuild_board --data-tier 20k
+
+`--data-tier` is on `train.py` and on `classifier_board`, `rebuild_board`,
+`event_fallback_bar`, `embed_latency` and `title_emoji_board`. Tier files live
+in `datasets/tiers/<tier>/` (gitignored, ~6 MB a set at 40k, each with a
+`MANIFEST.json`); `generate.load_rows(kind, tier)` builds a missing tier in
+about a second and rebuilds one whose generator has changed since. Note that
+`train.py --data-tier 40k` installs what it fits like any refit — `--base`
+overwrites the committed base artefact, which is then no longer the base
+tier's.
 
 ## The rules keep their rows. The model fills the blanks.
 

@@ -93,3 +93,8 @@ MACalendar APPs/
 assistant/calendar_ui/assets/server_icon.icns
 assistant/calendar_ui/assets/server_icon.png
 mac/MagicWords/build/
+
+# Label-dataset size tiers (20k, 40k): multi-MB, regenerated on demand and
+# deterministic by seed — the generator is the artefact, not the files.
+# `python -m assistant.engine.label.datasets.generate --tier all`
+assistant/engine/label/datasets/tiers/

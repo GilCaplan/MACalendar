@@ -3,6 +3,9 @@
     python -m assistant.engine.label.train              # both, if worth it
     python -m assistant.engine.label.train --force      # refit regardless
     python -m assistant.engine.label.train --kind task
+    python -m assistant.engine.label.train --data-tier 40k   # fit on a larger
+                    # generated tier (datasets/tiers/, built on demand) — the
+                    # default `base` is what ships and what first use builds
 
 Two sources, deliberately mixed:
 
@@ -37,7 +40,6 @@ pipeline, because nobody is watching it.
 from __future__ import annotations
 
 import argparse
-import json
 import pathlib
 import time
 
@@ -68,21 +70,23 @@ def _vectoriser():
     ])
 
 
-def _load(kind: str):
-    name = "event_categories.jsonl" if kind == "event" else "task_tags.jsonl"
-    rows = [json.loads(l) for l in (DATASETS / name).open() if l.strip()]
+def _load(kind: str, data_tier: str = "base"):
+    """(train, test) pairs from the generated set at `data_tier` — "base" is
+    the committed files (what the shipped model is fitted on); "20k"/"40k" are
+    the larger supersets in `datasets/tiers/`, built on demand."""
+    from assistant.engine.label.datasets.generate import load_rows
+    rows = load_rows(kind, data_tier)
     key = "label" if kind == "event" else "labels"
     tr = [(r["text"], r[key]) for r in rows if r["split"] == "train"]
     te = [(r["text"], r[key]) for r in rows if r["split"] == "test"]
     return tr, te
 
 
-def _subjects(kind: str) -> dict:
+def _subjects(kind: str, data_tier: str = "base") -> dict:
     """text -> subject for the generated TRAIN rows (the carve groups by it)."""
-    name = "event_categories.jsonl" if kind == "event" else "task_tags.jsonl"
+    from assistant.engine.label.datasets.generate import load_rows
     try:
-        return {r["text"]: r["subject"] for r in
-                (json.loads(l) for l in (DATASETS / name).open() if l.strip())
+        return {r["text"]: r["subject"] for r in load_rows(kind, data_tier)
                 if r.get("split") == "train"}
     except Exception:
         return {}
@@ -138,7 +142,8 @@ def _head_answers(head, texts, E, t):
     return out
 
 
-def _fit_embed(kind: str, rows, weights, classes, verbose: bool = False):
+def _fit_embed(kind: str, rows, weights, classes, verbose: bool = False,
+               data_tier: str = "base"):
     """(EmbedHead, info) — or (None, reason) when the vectors cannot be had.
 
     THE THRESHOLD IS CHOSEN ON TRAIN. A subject-grouped carve of the generated
@@ -158,7 +163,7 @@ def _fit_embed(kind: str, rows, weights, classes, verbose: bool = False):
     E = _embed_rows(texts)
     if E is None:
         return None, "embeddings unavailable (ollama down or MACALENDAR_LLM_DISABLED)"
-    subj = _subjects(kind)
+    subj = _subjects(kind, data_tier)
     groups = [subj.get(t) for t in texts]
     pool = sorted({g for g in groups if g})
     rng = np.random.default_rng(0)
@@ -220,11 +225,13 @@ def _score_head(head, kind, test_rows) -> "dict | None":
             "macro_f1": float(f1_score(Y, pred, average="macro", zero_division=0))}
 
 
-def _attach_head(kind, rows, weights, classes, generic_te, ngram_generic, verbose):
+def _attach_head(kind, rows, weights, classes, generic_te, ngram_generic, verbose,
+                 data_tier: str = "base"):
     """Fit the embedding head and return (head or None, meta). A head that
     scores BELOW the n-gram pipeline on the generic TEST half is not attached:
     it would be worse than the fallback it sits in front of."""
-    head, info = _fit_embed(kind, rows, weights, classes, verbose=verbose)
+    head, info = _fit_embed(kind, rows, weights, classes, verbose=verbose,
+                            data_tier=data_tier)
     if head is None:
         return None, {"embed": None, "embed_why": info}
     got = _score_head(head, kind, generic_te)
@@ -329,7 +336,8 @@ def _evaluate(pipe, kind, generic_te, personal_te, classes) -> dict:
     return out
 
 
-def train(kind: str, force: bool = False, verbose: bool = True) -> "dict | None":
+def train(kind: str, force: bool = False, verbose: bool = True,
+          data_tier: str = "base") -> "dict | None":
     from assistant.engine.label import feedback
     from assistant.engine.label.model import LabelModel
 
@@ -341,7 +349,7 @@ def train(kind: str, force: bool = False, verbose: bool = True) -> "dict | None"
                   f"last fit. Skipping — --force to refit anyway.")
         return None
 
-    base_tr, generic_te = _load(kind)
+    base_tr, generic_te = _load(kind) if data_tier == "base" else _load(kind, data_tier)
     p_train, p_eval, how = _personal_split(kind)
 
     rows = list(base_tr) + list(p_train)
@@ -390,7 +398,9 @@ def train(kind: str, force: bool = False, verbose: bool = True) -> "dict | None"
         return {"promoted": False, "score": got, "previous": prev, "why": reason}
 
     head, head_meta = _attach_head(kind, rows, weights, classes, generic_te,
-                                   got.get("generic"), verbose)
+                                   got.get("generic"), verbose, data_tier)
+    if data_tier != "base":                     # the shipped default records nothing new
+        head_meta["data_tier"] = data_tier
     model = LabelModel(kind, pipe, classes, {
         "tier": "base" if not p_train else "personal",
         "trained_at": time.time(),
@@ -413,7 +423,8 @@ def train(kind: str, force: bool = False, verbose: bool = True) -> "dict | None"
     return {"promoted": True, "score": got, "previous": prev, "path": str(path)}
 
 
-def train_base(kind: str, verbose: bool = True, embed: bool = True) -> "dict | None":
+def train_base(kind: str, verbose: bool = True, embed: bool = True,
+               data_tier: str = "base") -> "dict | None":
     """Fit the USER-AGNOSTIC model from the committed datasets alone.
 
     Identical on every machine: no personal gold is read, the datasets are in
@@ -428,7 +439,7 @@ def train_base(kind: str, verbose: bool = True, embed: bool = True) -> "dict | N
     from assistant.engine.label.model import LabelModel
     import assistant.engine.label.model as _m
 
-    base_tr, generic_te = _load(kind)
+    base_tr, generic_te = _load(kind) if data_tier == "base" else _load(kind, data_tier)
     weights = [1.0] * len(base_tr)
     if kind == "event":
         pipe, classes = _fit_event(base_tr, weights)
@@ -439,8 +450,10 @@ def train_base(kind: str, verbose: bool = True, embed: bool = True) -> "dict | N
         got = {"generic": _score_task(pipe, generic_te, classes)}
 
     head, head_meta = (_attach_head(kind, base_tr, weights, classes, generic_te,
-                                    got.get("generic"), verbose)
+                                    got.get("generic"), verbose, data_tier)
                        if embed else (None, {"embed": None, "embed_why": "not requested"}))
+    if data_tier != "base":                     # the shipped default records nothing new
+        head_meta["data_tier"] = data_tier
     model = LabelModel(kind, pipe, classes, {
         "tier": "base", "trained_at": time.time(),
         "n_generated": len(base_tr), "n_personal": 0, "score": got, **head_meta,
@@ -460,6 +473,10 @@ def main() -> int:
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--base", action="store_true",
                     help="build the shipped user-agnostic model and stop")
+    ap.add_argument("--data-tier", default="base", choices=("base", "20k", "40k"),
+                    help="size of the generated set to fit on (default base, what "
+                         "ships; a larger tier is built on demand into "
+                         "datasets/tiers/ and changes the installed model)")
     a = ap.parse_args()
     # a refit is never a person waiting: its embedding calls yield to live traffic
     import os
@@ -467,9 +484,9 @@ def main() -> int:
     print("\nLABEL MODELS — fit, gate, promote\n")
     for kind in ([a.kind] if a.kind else ["event", "task"]):
         if a.base:
-            train_base(kind)
+            train_base(kind, data_tier=a.data_tier)
         else:
-            train(kind, force=a.force)
+            train(kind, force=a.force, data_tier=a.data_tier)
     print()
     return 0
 

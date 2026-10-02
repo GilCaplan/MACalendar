@@ -1,8 +1,15 @@
 """Build the label datasets — and the labels are NOT the rules' output.
 
-    python -m assistant.engine.label.datasets.generate
+    python -m assistant.engine.label.datasets.generate              # base (committed)
+    python -m assistant.engine.label.datasets.generate --tier 40k    # tiers/40k/ (gitignored)
+    python -m assistant.engine.label.datasets.generate --tier all    # 20k and 40k
+    python -m assistant.engine.label.datasets.generate --stats       # counts, writes nothing
 
-Writes `event_categories.jsonl` and `task_tags.jsonl` beside this file.
+Writes `event_categories.jsonl` and `task_tags.jsonl` beside this file — the
+`base` tier, unchanged since it was first written. The larger tiers (20k, 40k:
+rows per set) are SUPERSETS of it built from new material in `tier_banks.py`;
+see "SIZE TIERS" below. Code that reads these sets takes a tier through
+`load_rows(kind, tier)`, which builds a missing tier on demand.
 **A generator lives in the folder whose data it generates** (CLAUDE.md).
 
 ## The problem this exists to solve
@@ -636,8 +643,365 @@ def build_tasks(seed: int = 5, per_class: int = 1000) -> list:
     return rows
 
 
-def main() -> int:
-    import collections
+# ===========================================================================
+# SIZE TIERS (2026-10-01) — the same dataset at several sizes, user's choice
+# ===========================================================================
+#
+# Gil: *"a lot of the datasets seem really small, they should be at least 40k
+# with enough variation in the data"* and *"you can have different level of
+# the same dataset as well, sometimes can let user choose"*.
+#
+#     base   the committed files above — 14,692 event rows, 3,800 task rows.
+#            BYTE-IDENTICAL to what this generator always wrote; the shipped
+#            base model is fitted from it and nothing here may move it.
+#     20k    >= 20,000 rows per set
+#     40k    >= 40,000 rows per set
+#
+# Each tier is a SUPERSET of the one below: base rows first, unchanged and in
+# their order, then the 20k segment, then the 40k segment. A row never changes
+# split between tiers. Non-base tiers are written to `tiers/<tier>/` (git-
+# ignored — the generator is the artefact, deterministic by seed) and built on
+# demand by `load_rows` / `dataset_path`.
+#
+# WHERE THE NEW ROWS COME FROM — new material, never the base frames refilled:
+#
+#   * a BASE subject gets only NEW frames (`tier_banks.*_FRAMES_EXT`), and
+#     keeps its base split;
+#   * a NEW subject (`tier_banks.*_SUBJECTS_EXT`, disjoint from every base
+#     subject) gets base + new frames, and is split BY VOCABULARY exactly as
+#     the base set is (30% of each class's new subjects are test-only);
+#   * one row per (frame, subject) across the whole tier, at most
+#     `SUBJECT_CAP[kind]` new rows per subject, exact duplicate texts dropped;
+#   * a share of new rows get transcript damage on their FRAME words
+#     (`DAMAGE_OPS`) — the subject is never touched, so the vocabulary split
+#     still means what it says.
+#
+# Classes are filled toward an equal share of the tier; a class whose pool
+# runs out (a narrow one at its subject cap) hands its deficit to the others
+# rather than repeating itself. The tier records report the balance.
+
+import collections
+import hashlib
+import math
+
+TIERS_DIR = HERE / "tiers"
+#: tier name -> minimum rows per set (None = the committed base files).
+TIERS: "dict[str, int | None]" = {"base": None, "20k": 20_000, "40k": 40_000}
+TIER_ORDER = list(TIERS)
+#: Most NEW rows any one subject may contribute to a tier. Events have ~120
+#: frames available to a base subject and ~160 to a new one; tasks ~96 / ~128.
+SUBJECT_CAP = {"event": 40, "task": 80}
+#: Share of new rows that get frame-word transcript damage.
+DAMAGE_RATE = 0.22
+NAMES = {"event": "event_categories.jsonl", "task": "task_tags.jsonl"}
+
+
+def _fingerprint() -> str:
+    """md5 of the generator + banks: a tier file built by other code is stale."""
+    h = hashlib.md5()
+    for p in (HERE / "generate.py", HERE / "tier_banks.py"):
+        h.update(p.read_bytes())
+    return h.hexdigest()
+
+
+_S = "\x00"       # the subject's slot while the frame is filled and damaged
+
+
+def _fill_ext(frame: str, rng: random.Random, kind: str) -> str:
+    """Fill every placeholder but {s}, each OCCURRENCE drawn independently
+    (so "{s} with {who} and {who}" can name two people), from the base
+    fillers plus the new ones."""
+    from assistant.engine.label.datasets import tier_banks as B
+    pools = {"{who}": _WHO + B._WHO_EXT, "{where}": _WHERE + B._WHERE_EXT,
+             "{d}": _DAY + B._DAY_EXT, "{t}": _TIME + B._TIME_EXT,
+             "{wd}": B._WEEKDAY, "{dur}": B._DUR}
+    out = frame.replace("{s}", _S)
+    for ph, pool in pools.items():
+        while ph in out:
+            i = out.index(ph)
+            fill = rng.choice(pool)
+            # "for {d}" + "on sunday" -> "for sunday", "at {t}" + "at 7" -> "at 7":
+            # the base set doubles these prepositions; the new rows do not.
+            prev = out[:i].rstrip().rsplit(" ", 1)[-1]
+            if prev in _PREPS and fill.split(" ", 1)[0] in ("on", "at") and " " in fill:
+                fill = fill.split(" ", 1)[1]
+            out = out[:i] + fill + out[i + len(ph):]
+    return out
+
+
+_PREPS = {"for", "on", "at", "by", "before", "in", "until", "from"}
+
+
+_HOMOPHONES = {"for": "four", "to": "too", "at": "add", "in": "and",
+               "on": "un", "the": "a", "i": "eye", "your": "you're"}
+_FILLERS = ["um", "uh", "like", "you know", "erm", "so"]
+
+
+def _damage(text: str, rng: random.Random) -> "tuple[str, str | None]":
+    """ASR-style damage to the FRAME words only. Returns (text, op or None)."""
+    toks = text.split(" ")
+    free = [i for i, t in enumerate(toks) if _S not in t and t]
+    ops = ["drop_apostrophes", "stutter", "filler", "homophone",
+           "sentence_case", "trailing_punct", "no_commas"]
+    rng.shuffle(ops)
+    for op in ops:
+        if op == "drop_apostrophes" and "'" in "".join(toks[i] for i in free):
+            return " ".join(t.replace("'", "") if i in free else t
+                            for i, t in enumerate(toks)), op
+        if op == "stutter" and free:
+            i = rng.choice(free)
+            return " ".join(toks[:i + 1] + [toks[i]] + toks[i + 1:]), op
+        if op == "filler" and len(toks) > 1:
+            i = rng.randrange(1, len(toks))
+            return " ".join(toks[:i] + [rng.choice(_FILLERS)] + toks[i:]), op
+        if op == "homophone":
+            hits = [i for i in free if toks[i] in _HOMOPHONES]
+            if hits:
+                i = rng.choice(hits)
+                toks = list(toks)
+                toks[i] = _HOMOPHONES[toks[i]]
+                return " ".join(toks), op
+        if op == "sentence_case" and not text.startswith(_S) and text[:1].isalpha():
+            return text[0].upper() + text[1:], op
+        if op == "trailing_punct" and text[-1:].isalnum():
+            return text + rng.choice([".", "?", "..."]), op
+        if op == "no_commas" and "," in "".join(toks[i] for i in free):
+            return " ".join(t.replace(",", "") if i in free else t
+                            for i, t in enumerate(toks)), op
+    return text, None
+
+
+def _base_rows(kind: str, seed: int = 5) -> list:
+    return build_events(seed) if kind == "event" else build_tasks(seed)
+
+
+def _class_pools(kind: str, base: list, seed: int = 5) -> "dict[str, list]":
+    """{class: [new row, ...]} in the order a tier consumes them.
+
+    Round-robin over the class's subjects (shuffled), so ANY prefix of a pool
+    is spread across subjects rather than exhausting one subject first — the
+    20k tier takes a short prefix and must be as diverse as the 40k one.
+    Each class has its own rng, so editing one class's bank leaves every
+    other class's rows unchanged.
+    """
+    from assistant.engine.label.datasets import tier_banks as B
+    if kind == "event":
+        old_by, new_by = EVENT_SUBJECTS, B.EVENT_SUBJECTS_EXT
+        old_f, new_f = EVENT_FRAMES, B.EVENT_FRAMES_EXT
+        multi = {}
+    else:
+        old_by, new_by = TASK_SUBJECTS, B.TASK_SUBJECTS_EXT
+        old_f, new_f = TASK_FRAMES, B.TASK_FRAMES_EXT
+        multi = {**TASK_MULTI, **B.TASK_MULTI_EXT}
+    split_of = {r["subject"]: r["split"] for r in base}
+    seen = {r["text"] for r in base}
+    cap = SUBJECT_CAP[kind]
+    pools = {}
+    for cls in sorted(set(old_by) | set(new_by)):
+        rng = random.Random(f"label-tier:{seed}:{kind}:{cls}")
+        new_s = list(new_by.get(cls, []))
+        tr_new, te_new = _split_vocab(new_s, rng) if new_s else ([], [])
+        subjects = ([(s, split_of[s], new_f) for s in old_by.get(cls, [])]
+                    + [(s, "train", old_f + new_f) for s in tr_new]
+                    + [(s, "test", old_f + new_f) for s in te_new])
+        rng.shuffle(subjects)
+        streams = []
+        for subj, split, frames in subjects:
+            fr = list(frames)
+            rng.shuffle(fr)
+            streams.append([subj, split, fr, 0])
+        rows = []
+        while streams:
+            alive = []
+            for st in streams:
+                subj, split, fr, made = st
+                while fr and made < cap:
+                    frame = fr.pop()
+                    text = None
+                    for _ in range(4):           # resample fillers on a dup
+                        filled = _fill_ext(frame, rng, kind)
+                        op = None
+                        if rng.random() < DAMAGE_RATE:
+                            filled, op = _damage(filled, rng)
+                        cand = " ".join(filled.replace(_S, subj).split())
+                        if cand not in seen:
+                            text = cand
+                            break
+                    if text is None:
+                        continue
+                    seen.add(text)
+                    st[3] = made = made + 1
+                    row = {"text": text, "subject": subj, "split": split,
+                           "frame": frame}
+                    if op:
+                        row["damage"] = op
+                    if kind == "event":
+                        row["label"] = cls
+                    else:
+                        row["labels"] = sorted(set(multi.get(subj, [cls])))
+                    rows.append(row)
+                    break                        # one row, then the next subject
+                if fr and made < cap:
+                    alive.append(st)
+            streams = alive
+        pools[cls] = rows
+    return pools
+
+
+def _labels(r) -> list:
+    return [r["label"]] if "label" in r else list(r["labels"])
+
+
+def build_tier(kind: str, tier: str = "base", seed: int = 5) -> list:
+    """Every row of `tier` for `kind` ("event" | "task"), base rows first."""
+    if tier not in TIERS:
+        raise ValueError(f"unknown tier {tier!r}; choose from {TIER_ORDER}")
+    base = _base_rows(kind, seed)
+    if TIERS[tier] is None:
+        return base
+    pools = _class_pools(kind, base, seed)
+    classes = sorted(pools)
+    cursor = dict.fromkeys(classes, 0)
+    rows = list(base)
+    counts = collections.Counter(l for r in base for l in _labels(r))
+    for name in TIER_ORDER[1:TIER_ORDER.index(tier) + 1]:
+        target = TIERS[name]
+        share = math.ceil(target / len(classes))
+        seg = []
+
+        def take(cls, n):
+            got = pools[cls][cursor[cls]:cursor[cls] + n]
+            cursor[cls] += len(got)
+            for r in got:
+                r = dict(r, added_in=name)
+                seg.append(r)
+                counts.update(_labels(r))
+            return len(got)
+
+        for cls in classes:                      # an equal share each
+            take(cls, max(0, share - counts[cls]))
+        while len(rows) + len(seg) < target:     # deficits to whoever has room
+            room = [c for c in classes if cursor[c] < len(pools[c])]
+            if not room:
+                raise RuntimeError(f"{kind} {name}: banks exhausted at "
+                                   f"{len(rows) + len(seg)} rows")
+            for cls in sorted(room, key=lambda c: (counts[c], c)):
+                if len(rows) + len(seg) >= target:
+                    break
+                take(cls, 1)
+        random.Random(f"label-tier-shuffle:{seed}:{kind}:{name}").shuffle(seg)
+        rows += seg
+    return rows
+
+
+def tier_path(kind: str, tier: str = "base") -> pathlib.Path:
+    """Where `tier`'s file for `kind` lives (it may not exist yet)."""
+    if TIERS.get(tier, 0) is None:
+        return EVENTS_OUT if kind == "event" else TASKS_OUT
+    return TIERS_DIR / tier / NAMES[kind]
+
+
+def _write(rows: list, out: pathlib.Path) -> None:
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w") as fh:
+        for r in rows:
+            fh.write(json.dumps(r, sort_keys=True) + "\n")
+
+
+def build_tier_files(tier: str, seed: int = 5) -> dict:
+    """Write `tiers/<tier>/` (both sets + MANIFEST.json). Returns the stats."""
+    if TIERS.get(tier, 0) is None:
+        raise ValueError("the base tier is the committed files — run with no --tier")
+    stats = {}
+    for kind in ("event", "task"):
+        rows = build_tier(kind, tier, seed)
+        _write(rows, tier_path(kind, tier))
+        stats[kind] = tier_stats(rows, kind)
+    (TIERS_DIR / tier / "MANIFEST.json").write_text(json.dumps(
+        {"tier": tier, "seed": seed, "fingerprint": _fingerprint(),
+         "stats": stats}, indent=1, sort_keys=True) + "\n")
+    return stats
+
+
+def dataset_path(kind: str, tier: str = "base", build: bool = True) -> pathlib.Path:
+    """The file to read for `kind` at `tier`, built (or rebuilt, if the
+    generator changed since) when it is missing. With build=False a missing
+    file raises, naming the exact command."""
+    if tier not in TIERS:
+        raise ValueError(f"unknown tier {tier!r}; choose from {TIER_ORDER}")
+    path = tier_path(kind, tier)
+    if TIERS[tier] is None:
+        return path
+    man = TIERS_DIR / tier / "MANIFEST.json"
+    fresh = (path.exists() and man.exists() and
+             json.loads(man.read_text()).get("fingerprint") == _fingerprint())
+    if not fresh:
+        if not build:
+            raise FileNotFoundError(
+                f"{path} is missing or stale — build it with:\n"
+                f"    python -m assistant.engine.label.datasets.generate --tier {tier}")
+        build_tier_files(tier)
+    return path
+
+
+def load_rows(kind: str, tier: str = "base") -> list:
+    """Every row of the label dataset `kind` at `tier` (base = committed)."""
+    return [json.loads(l) for l in dataset_path(kind, tier).open() if l.strip()]
+
+
+def tier_stats(rows: list, kind: str) -> dict:
+    """The counts a report needs: rows, distinct texts/frames/subjects, splits,
+    per-class rows, and how many rows the busiest subject carries."""
+    base_frames = EVENT_FRAMES if kind == "event" else TASK_FRAMES
+    frames = set(base_frames) | {r["frame"] for r in rows if "frame" in r}
+    per_cls = collections.Counter(l for r in rows for l in _labels(r))
+    per_subj = collections.Counter(r["subject"] for r in rows)
+    tr = {r["subject"] for r in rows if r["split"] == "train"}
+    te = {r["subject"] for r in rows if r["split"] == "test"}
+    return {"rows": len(rows), "distinct_texts": len({r["text"] for r in rows}),
+            "distinct_frames": len(frames),
+            "distinct_subjects": len(per_subj),
+            "train_rows": sum(r["split"] == "train" for r in rows),
+            "test_rows": sum(r["split"] == "test" for r in rows),
+            "train_subjects": len(tr), "test_subjects": len(te),
+            "subject_overlap": len(tr & te),
+            "damaged_rows": sum(1 for r in rows if r.get("damage")),
+            "max_rows_per_subject": max(per_subj.values()),
+            "per_class": dict(sorted(per_cls.items()))}
+
+
+def _print_stats(name: str, s: dict) -> None:
+    print(f"{s['rows']:6d} rows -> {name}   train {s['train_rows']} / test {s['test_rows']}"
+          f"   distinct texts {s['distinct_texts']}, frames {s['distinct_frames']}, "
+          f"subjects {s['distinct_subjects']} ({s['train_subjects']} train / "
+          f"{s['test_subjects']} test, overlap {s['subject_overlap']})")
+    print("       " + "  ".join(f"{k} {v}" for k, v in s["per_class"].items()))
+    print(f"       damaged {s['damaged_rows']}, busiest subject {s['max_rows_per_subject']} rows")
+
+
+def main(argv=None) -> int:
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--tier", choices=TIER_ORDER[1:] + ["all"], default=None,
+                    help="build a larger tier into tiers/<tier>/ (gitignored); "
+                         "omit to rewrite the committed base files")
+    ap.add_argument("--stats", action="store_true",
+                    help="print every tier's counts and write nothing")
+    a = ap.parse_args(argv)
+    if a.stats:
+        for tier in TIER_ORDER:
+            print(f"\n[{tier}]")
+            for kind in ("event", "task"):
+                _print_stats(NAMES[kind], tier_stats(build_tier(kind, tier), kind))
+        return 0
+    if a.tier:
+        for tier in (TIER_ORDER[1:] if a.tier == "all" else [a.tier]):
+            stats = build_tier_files(tier)
+            print(f"\n[{tier}] -> {TIERS_DIR / tier}")
+            for kind in ("event", "task"):
+                _print_stats(NAMES[kind], stats[kind])
+        return 0
+    # no flag: the committed base files, exactly as this generator always wrote them
     for rows, out, key in ((build_events(), EVENTS_OUT, "label"),
                            (build_tasks(), TASKS_OUT, "labels")):
         with out.open("w") as fh:

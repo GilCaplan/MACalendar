@@ -79,15 +79,17 @@ def _words(s: str) -> set:
 # data
 # ---------------------------------------------------------------------------
 
-def load_events():
-    """(texts, labels, splits) from the class-conditional set."""
-    rows = [json.loads(l) for l in (STAGE / "datasets" / "event_categories.jsonl").open()]
+def load_events(data_tier: str = "base"):
+    """(texts, labels, splits) from the class-conditional set at `data_tier`."""
+    from assistant.engine.label.datasets.generate import load_rows
+    rows = load_rows("event", data_tier)
     return ([r["text"] for r in rows], [r["label"] for r in rows],
             [r["split"] for r in rows], [r["subject"] for r in rows])
 
 
-def load_tasks():
-    rows = [json.loads(l) for l in (STAGE / "datasets" / "task_tags.jsonl").open()]
+def load_tasks(data_tier: str = "base"):
+    from assistant.engine.label.datasets.generate import load_rows
+    rows = load_rows("task", data_tier)
     return ([r["text"] for r in rows], [r["labels"] for r in rows],
             [r["split"] for r in rows], [r["subject"] for r in rows])
 
@@ -189,7 +191,7 @@ def run_events(args) -> None:
     from sklearn.pipeline import Pipeline
     from assistant.actions.calendar import categories as _cat
 
-    texts, labels, splits, subjects = load_events()
+    texts, labels, splits, subjects = load_events(getattr(args, "data_tier", "base"))
     X, y, sp = np.array(texts), np.array(labels), np.array(splits)
     tr, te = np.where(sp == "train")[0], np.where(sp == "test")[0]
 
@@ -348,7 +350,7 @@ def run_tasks(args) -> None:
     from sklearn.preprocessing import MultiLabelBinarizer
     from assistant.actions.todo import tagging as _tag
 
-    texts, labels, splits, subjects = load_tasks()
+    texts, labels, splits, subjects = load_tasks(getattr(args, "data_tier", "base"))
     palette = sorted(_tag.KEYWORDS)
     X, sp = np.array(texts), np.array(splits)
     mlb = MultiLabelBinarizer(classes=palette)
@@ -430,6 +432,9 @@ def main() -> int:
                     help="also run the flat-vs-two-tier comparison")
     ap.add_argument("--events-only", action="store_true")
     ap.add_argument("--tasks-only", action="store_true")
+    ap.add_argument("--data-tier", default="base", choices=("base", "20k", "40k"),
+                    help="size of the generated label set (default base; larger "
+                         "tiers are built on demand into ../datasets/tiers/)")
     a = ap.parse_args()
 
     if not a.tasks_only:
