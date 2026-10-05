@@ -232,6 +232,10 @@ final class EggStore: ObservableObject {
             images[f] = nil
             try? FileManager.default.removeItem(at: folder.appendingPathComponent(f))
         }
+        if let p = old.photo, p != v.photo {    // a replaced original photo
+            images[p] = nil
+            try? FileManager.default.removeItem(at: folder.appendingPathComponent(p))
+        }
         settings.objects[i].variants[j] = v
     }
 

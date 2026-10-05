@@ -577,6 +577,12 @@ struct EggPhotoEditor: View {
     @State private var wheels: [[Double]]?
     @State private var legs: [[Double]]?
     @State private var scale: Double = 100
+    /// Bumped by every render; a render that finishes after a newer one began
+    /// is dropped, so the old photo's cut-out (or its failure) never lands on
+    /// the new one and leaves Save greyed out.
+    @State private var renderGen = 0
+    /// The photo was replaced while editing — save writes the new original.
+    @State private var photoChanged = false
 
     var body: some View {
         NavigationView {
@@ -653,13 +659,21 @@ struct EggPhotoEditor: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) { Button("Save", action: save).disabled(!canSave) }
+                if let why = whyNotSave {
+                    ToolbarItem(placement: .bottomBar) { Text(why).font(.caption).foregroundColor(.secondary) }
+                }
             }
             .onChange(of: pick) { item in
                 Task {
                     guard let data = try? await item?.loadTransferable(type: Data.self),
                           let ui = UIImage(data: data) else { return }
                     photo = EggImageTools.normalised(ui, side: 1600)
+                    photoChanged = true
+                    // The old loop was drawn round the OLD photo: a new one
+                    // starts automatic again, or Save waits on a loop nobody
+                    // knows they owe.
                     lasso = []
+                    if EggImageTools.canCutOutAutomatically { drawn = false }
                     detected = nil
                     await rerender()
                 }
@@ -668,8 +682,10 @@ struct EggPhotoEditor: View {
             .onChange(of: anime) { _ in Task { await rerender() } }
             .onChange(of: lasso) { _ in if drawn { Task { await rerender() } } }
             .onAppear(perform: load)
+            // The binding never clears `taken` itself: SwiftUI may close the
+            // alert before running the button, and "Keep them" needs the list.
             .alert("Some words are taken", isPresented: Binding(get: { !taken.isEmpty && moveTaken == nil },
-                                                                 set: { if !$0 && moveTaken == nil { taken = [] } })) {
+                                                                 set: { _ in })) {
                 Button("Move them to “\(name)”") { moveTaken = true; save() }
                 Button("Keep them where they are") { moveTaken = false; save() }
                 Button("Cancel", role: .cancel) { taken = [] }
@@ -706,6 +722,20 @@ struct EggPhotoEditor: View {
         return true
     }
 
+    /// Why Save is grey, said beside it rather than left to guess.
+    private var whyNotSave: String? {
+        if photo == nil { return "Choose a photo first." }
+        if busy { return "Cutting it out…" }
+        if result == nil {
+            return drawn ? "Draw a loop round your character to save." : "No subject found — draw round it to save."
+        }
+        if case .newObject = mode {
+            if name.trimmingCharacters(in: .whitespaces).isEmpty { return "Give it a name to save." }
+            if keywordList.isEmpty { return "Add at least one magic word to save." }
+        }
+        return nil
+    }
+
     private var keywordList: [String] {
         words.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }.filter { !$0.isEmpty }
     }
@@ -727,16 +757,25 @@ struct EggPhotoEditor: View {
 
     private func rerender() async {
         guard let photo else { return }
-        if drawn && lasso.count < 3 { result = nil; return }
+        renderGen += 1
+        let gen = renderGen
+        if drawn && lasso.count < 3 { result = nil; busy = false; return }
         busy = true
         let out = await EggImageTools.render(photo: photo, lasso: drawn ? lasso : nil, anime: anime)
+        guard gen == renderGen else { return }
         failed = out == nil
         result = out
         if let out {
             wheels = EggImageTools.findWheels(out)
-            legs = await EggImageTools.findLegs(out)
+            let found = await EggImageTools.findLegs(out)
+            guard gen == renderGen else { return }
+            legs = found
         }
-        if detected == nil { detected = await EggImageTools.guessRig(photo) }
+        if detected == nil {
+            let guess = await EggImageTools.guessRig(photo)
+            guard gen == renderGen else { return }
+            detected = guess
+        }
         busy = false
     }
 
@@ -756,6 +795,10 @@ struct EggPhotoEditor: View {
         switch mode {
         case .edit(let id, var v):
             v.source = .image(png)
+            if photoChanged {
+                guard let jpg = store.write(photo, jpeg: true) else { return }
+                v.photo = jpg
+            }
             v.lasso = keptLasso
             v.anime = anime
             v.rig = rig; v.detectedRig = detected; v.wheels = wheels; v.legs = legs; v.scalePercent = scale
