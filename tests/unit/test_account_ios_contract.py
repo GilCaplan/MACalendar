@@ -28,7 +28,8 @@ def _calls():
     """(METHOD, path-with-<x>) for every literal request in the Swift."""
     src = SWIFT.read_text()
     out = set()
-    norm = lambda p: re.sub(r"\\\([^)]*\)", "<x>", p)            # noqa: E731
+    # Interpolations become <x>; a query string is not part of a route.
+    norm = lambda p: re.sub(r"\\\([^)]*\)", "<x>", p).split("?")[0]   # noqa: E731
     for m in re.finditer(r'request\("(/[^"]+)"(?:\s*,\s*method:\s*"(\w+)")?', src):
         out.add(((m.group(2) or "GET").upper(), norm(m.group(1))))
     for m in re.finditer(r'accountCall\(api,\s*"(/[^"]+)"(?:\s*,\s*method:\s*"(\w+)")?', src):

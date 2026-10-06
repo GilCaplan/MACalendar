@@ -25,10 +25,12 @@ wiped a new user's shown-once password; test_account_tab_controls.py).
 from __future__ import annotations
 
 import datetime as _dt
+import os
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QBuffer, QIODevice, Qt
+from PyQt6.QtGui import QImage, QPainter, QPainterPath, QPixmap
 from PyQt6.QtWidgets import (
-    QCheckBox, QComboBox, QFrame, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
+    QCheckBox, QComboBox, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
     QMessageBox, QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget,
 )
 
@@ -56,14 +58,60 @@ def _card_style(pal: dict) -> str:
             " QFrame#person_card QLabel { background: transparent; border: none; }")
 
 
-def _avatar(name: str, color: str, size: int = 36) -> QLabel:
+def _avatar(name: str, color: str, size: int = 36, uid: str = "") -> QLabel:
+    """Their photo in a circle, or their initial on their colour."""
     color = color or "#888888"
+    found = registry.avatar_file(uid) if uid else None
+    pix = QPixmap(found[0]) if found else QPixmap()
+    if not pix.isNull():
+        a = QLabel()
+        a.setFixedSize(size, size)
+        a.setPixmap(_round(pix, size))
+        a.setStyleSheet("background: transparent;")
+        return a
     a = QLabel((name[:1] or "?").upper())
     a.setFixedSize(size, size)
     a.setAlignment(Qt.AlignmentFlag.AlignCenter)
     a.setStyleSheet(f"background:{color}; color:{_styles.on_color(color)};"
                     f" border-radius:{size // 2}px; font-weight:700; font-size:{int(size * 0.42)}px;")
     return a
+
+
+def _round(pix: QPixmap, size: int) -> QPixmap:
+    """`pix` filled into a `size` circle, drawn at the screen's pixel ratio."""
+    ratio = 2.0
+    side = int(size * ratio)
+    src = pix.scaled(side, side, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                     Qt.TransformationMode.SmoothTransformation)
+    out = QPixmap(side, side)
+    out.fill(Qt.GlobalColor.transparent)
+    p = QPainter(out)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    clip = QPainterPath()
+    clip.addEllipse(0, 0, side, side)
+    p.setClipPath(clip)
+    p.drawPixmap((side - src.width()) // 2, (side - src.height()) // 2, src)
+    p.end()
+    out.setDevicePixelRatio(ratio)
+    return out
+
+
+def photo_bytes(path: str, side: int = 512) -> bytes:
+    """A picked file as the server wants it: cropped square from the middle,
+    at most `side` pixels, JPEG. Raises ValueError for a file that is not a
+    picture Qt can read."""
+    img = QImage(path)
+    if img.isNull():
+        raise ValueError("that file isn't a picture")
+    n = min(img.width(), img.height())
+    img = img.copy((img.width() - n) // 2, (img.height() - n) // 2, n, n)
+    if n > side:
+        img = img.scaled(side, side, Qt.AspectRatioMode.IgnoreAspectRatio,
+                         Qt.TransformationMode.SmoothTransformation)
+    buf = QBuffer()
+    buf.open(QIODevice.OpenModeFlag.WriteOnly)
+    img.convertToFormat(QImage.Format.Format_RGB32).save(buf, "JPEG", 88)
+    return bytes(buf.data())
 
 
 def _relation(me: str, other: str) -> str:
@@ -91,7 +139,7 @@ class _PersonCard(QFrame):
 
         head = QHBoxLayout()
         head.setSpacing(12)
-        head.addWidget(_avatar(u.get("display_name", "?"), u.get("color", "")))
+        head.addWidget(_avatar(u.get("display_name", "?"), u.get("color", ""), uid=uid))
         names = QVBoxLayout()
         names.setSpacing(1)
         title = QLabel(f"<b>{u.get('display_name', '?')}</b>  <span style='color:{pal['muted']}'>"
@@ -293,7 +341,8 @@ class AccountPanel(FeaturePanel):
         h = QHBoxLayout(head)
         h.setContentsMargins(18, 16, 18, 16)
         h.setSpacing(14)
-        h.addWidget(_avatar(me["display_name"], me.get("color", ""), 52))
+        self.avatar = _avatar(me["display_name"], me.get("color", ""), 52, uid=self.me)
+        h.addWidget(self.avatar)
         names = QVBoxLayout()
         names.setSpacing(2)
         t = QLabel(me["display_name"])
@@ -308,9 +357,24 @@ class AccountPanel(FeaturePanel):
             self._sub.setStyleSheet(f"font-size:12px; color:{pal['muted']};")
             names.addWidget(self._sub)
         h.addLayout(names, 1)
+        btns = QVBoxLayout()
+        btns.setSpacing(6)
         self.change_pw_btn = QPushButton("Change password…")
         self.change_pw_btn.clicked.connect(lambda: self._change_password())
-        h.addWidget(self.change_pw_btn, 0, Qt.AlignmentFlag.AlignVCenter)
+        btns.addWidget(self.change_pw_btn)
+        photo = QHBoxLayout()
+        photo.setSpacing(6)
+        self.photo_btn = QPushButton("Change photo…" if me.get("avatar") else "Add photo…")
+        self.photo_btn.clicked.connect(lambda: self._pick_photo())
+        photo.addWidget(self.photo_btn)
+        self.clear_photo_btn = QPushButton("Remove")
+        self.clear_photo_btn.setToolTip("Remove your photo — your initial shows instead.")
+        self.clear_photo_btn.clicked.connect(lambda: self._clear_photo())
+        self.clear_photo_btn.setVisible(bool(me.get("avatar")))
+        photo.addWidget(self.clear_photo_btn)
+        btns.addLayout(photo)
+        h.addLayout(btns)
+        h.setAlignment(btns, Qt.AlignmentFlag.AlignVCenter)
         col.addWidget(head)
 
         self._section(col, "People", pal)
@@ -537,6 +601,35 @@ class AccountPanel(FeaturePanel):
         self.created.selectAll()
         self._rebuild_people()
         self._changed()
+
+    def _pick_photo(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Choose a photo", os.path.expanduser("~/Pictures"),
+            "Pictures (*.png *.jpg *.jpeg *.heic *.heif *.webp *.bmp *.gif *.tif *.tiff)")
+        if not path:
+            return
+        try:
+            registry.set_avatar(self.me, photo_bytes(path))
+        except ValueError as e:
+            QMessageBox.warning(self, "Profile photo", str(e))
+            return
+        self._photo_changed()
+
+    def _clear_photo(self) -> None:
+        registry.clear_avatar(self.me)
+        self._photo_changed()
+
+    def _photo_changed(self) -> None:
+        """Swap the header's picture in place — the page is not rebuilt under
+        the button that was just clicked (module docstring)."""
+        me = registry.get(self.me) or {}
+        fresh = _avatar(me.get("display_name", "?"), me.get("color", ""), 52, uid=self.me)
+        lay = self.avatar.parentWidget().layout()
+        lay.replaceWidget(self.avatar, fresh)
+        self.avatar.deleteLater()
+        self.avatar = fresh
+        self.photo_btn.setText("Change photo…" if me.get("avatar") else "Add photo…")
+        self.clear_photo_btn.setVisible(bool(me.get("avatar")))
 
     def _change_password(self) -> None:
         from assistant.calendar_ui.users_dialogs import ChangePasswordDialog

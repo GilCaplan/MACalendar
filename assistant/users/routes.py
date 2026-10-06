@@ -16,6 +16,8 @@ should be able to reset passwords just by reaching the port.
     POST /auth/password       {current, new}
     GET  /users
     PUT  /users/me/settings   {notify_shared?, todos_group_by_owner?, color?}
+    PUT  /users/me/avatar     {image: base64 JPEG|PNG}   DELETE /users/me/avatar
+    GET  /users/<id>/avatar   the photo itself
     PUT  /shares/<grantee>    {level: view|edit}      DELETE /shares/<grantee>
     GET  /admin/users         POST /admin/users {username, display_name?, password?}
     PATCH /admin/users/<id>   {display_name?, color?, disabled?}
@@ -28,10 +30,12 @@ should be able to reset passwords just by reaching the port.
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import threading
 import time
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, g, jsonify, request, send_file
 
 from assistant import users
 from assistant.users import passwords, registry, sessions
@@ -227,7 +231,8 @@ def list_users():
     with. No passwords, no settings."""
     if not _me():
         return jsonify([])
-    return jsonify([{k: u[k] for k in ("id", "username", "display_name", "color", "role")}
+    return jsonify([{**{k: u[k] for k in ("id", "username", "display_name", "color", "role")},
+                     "avatar": u.get("avatar")}
                     for u in (registry.get(i) for i in registry.user_ids())])
 
 
@@ -246,6 +251,47 @@ def my_settings():
     except ValueError as e:
         return _err(str(e), 400)
     return jsonify(registry.get(uid))
+
+
+@bp.put("/users/me/avatar")
+def set_my_avatar():
+    """{image: base64} — already cropped square and shrunk by the client."""
+    uid = _me()
+    if not uid:
+        return _err("no users yet", 404)
+    try:
+        data = base64.b64decode(str(_body().get("image") or ""), validate=True)
+    except (binascii.Error, ValueError):
+        return _err("the photo was not base64", 400)
+    try:
+        registry.set_avatar(uid, data)
+    except ValueError as e:
+        return _err(str(e), 400)
+    return jsonify(registry.get(uid))
+
+
+@bp.delete("/users/me/avatar")
+def clear_my_avatar():
+    uid = _me()
+    if not uid:
+        return _err("no users yet", 404)
+    registry.clear_avatar(uid)
+    return jsonify(registry.get(uid))
+
+
+@bp.get("/users/<uid>/avatar")
+def avatar(uid):
+    """Anyone who may see the people list may see their photos. Clients ask
+    with `?v=<avatar.v>`, so a new photo is a new URL and the old one may be
+    cached for good."""
+    if not _me():
+        return _err("no users yet", 404)
+    found = registry.avatar_file(uid)
+    if found is None:
+        return _err("no photo", 404)
+    resp = send_file(found[0], mimetype=found[1], max_age=31536000)
+    resp.headers["Cache-Control"] = "private, max-age=31536000, immutable"
+    return resp
 
 
 @bp.put("/shares/<grantee>")

@@ -212,6 +212,9 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | Method | Path | What it does |
 |---|---|---|
 | `GET` | `/users` | Everyone's name and colour — a user needs the list to pick who to share |
+| `GET` | `/users/<uid>/avatar` | Anyone who may see the people list may see their photos. Clients ask |
+| `DELETE` | `/users/me/avatar` |  |
+| `PUT` | `/users/me/avatar` | {image: base64} — already cropped square and shrunk by the client. |
 | `PUT` | `/users/me/settings` |  |
 
 ## /shares
@@ -225,7 +228,7 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 
 | Method | Path | What it does |
 |---|---|---|
-| `PUT` | `/admin/policy` | {require_login?, auto_signout_days?: null\|0 (off) \| N days} |
+| `PUT` | `/admin/policy` | {require_login?, auto_signout_days?: null\|0 (off) \| N days, |
 | `GET` | `/admin/users` |  |
 | `POST` | `/admin/users` |  |
 | `DELETE` | `/admin/users/<uid>` |  |

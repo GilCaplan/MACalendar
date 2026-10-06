@@ -7,6 +7,7 @@
                               "created_at": 0.0, "disabled": false,
                               "must_change_password": false,
                               "password": {<passwords.hash_password record>},
+                              "avatar": {"type": "jpeg", "v": 0},   # optional
                               "settings": {...SETTINGS_DEFAULTS}}},
      "shares": [{"owner": uid, "grantee": uid, "level": "view" | "edit",
                  "created_at": 0.0}],
@@ -386,6 +387,66 @@ def vocab_sources(user_id: str) -> list[str]:
     then any shared with them."""
     shared = [o for o, gs in load().get("vocab_shares", {}).items() if user_id in gs]
     return [user_id] + sorted(shared)
+
+
+# ------------------------------------------------------------------ photos
+
+#: A profile photo is small by the time it arrives: the Mac and the phone each
+#: crop it square and shrink it before sending, so the server needs no image
+#: library — it only checks it is a JPEG or PNG and not absurdly big.
+AVATAR_MAX_BYTES = 2_000_000
+_AVATAR_TYPES = {"jpeg": (b"\xff\xd8\xff", "image/jpeg"),
+                 "png": (b"\x89PNG\r\n\x1a\n", "image/png")}
+
+
+def set_avatar(user_id: str, data: bytes) -> dict:
+    """Save `user_id`'s profile photo in their own folder and stamp the
+    registry with a new version, so every client knows to fetch it again.
+    Returns the registry's `avatar` record: {"type": jpeg|png, "v": int}."""
+    if not data:
+        raise ValueError("no photo")
+    if len(data) > AVATAR_MAX_BYTES:
+        raise ValueError("that photo is too big (2 MB at most)")
+    kind = next((k for k, (magic, _) in _AVATAR_TYPES.items() if data.startswith(magic)), None)
+    if kind is None:
+        raise ValueError("a photo must be a JPEG or a PNG")
+    if user_id not in load()["users"]:
+        raise ValueError(f"no such user {user_id!r}")
+    folder = paths.user_dir(user_id)
+    os.makedirs(folder, exist_ok=True)
+    target = os.path.join(folder, f"avatar.{kind}")
+    tmp = target + ".tmp"
+    with open(tmp, "wb") as f:
+        f.write(data)
+    os.replace(tmp, target)
+    for other in _AVATAR_TYPES:                 # a PNG replacing a JPEG leaves no orphan
+        if other != kind:
+            try:
+                os.remove(os.path.join(folder, f"avatar.{other}"))
+            except OSError:
+                pass
+    rec = {"type": kind, "v": int(time.time() * 1000)}
+    _mutate(lambda d: d["users"][user_id].__setitem__("avatar", rec))
+    return rec
+
+
+def clear_avatar(user_id: str) -> None:
+    """Back to the initial on their colour. The file goes; nothing else does."""
+    for kind in _AVATAR_TYPES:
+        try:
+            os.remove(os.path.join(paths.user_dir(user_id), f"avatar.{kind}"))
+        except OSError:
+            pass
+    _mutate(lambda d: d["users"].get(user_id, {}).pop("avatar", None))
+
+
+def avatar_file(user_id: str) -> "tuple[str, str] | None":
+    """(path, mimetype) of `user_id`'s photo, or None when they have none."""
+    rec = (load()["users"].get(user_id) or {}).get("avatar")
+    if not rec or rec.get("type") not in _AVATAR_TYPES:
+        return None
+    path = os.path.join(paths.user_dir(user_id), f"avatar.{rec['type']}")
+    return (path, _AVATAR_TYPES[rec["type"]][1]) if os.path.exists(path) else None
 
 
 def remove_user(user_id: str) -> str:

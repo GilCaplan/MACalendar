@@ -312,3 +312,40 @@ def test_the_non_obvious_controls_have_an_info_button(people):
         assert w.toolTip() and w.toolTip() in texts(), w.objectName() or w.text()
     _pick(card.share_box, 1)                                     # a change rebuilds the cards
     assert panel.cards[people["dana"]].share_box.toolTip() in texts()
+
+
+def test_add_photo_crops_it_shows_it_and_remove_puts_the_initial_back(people, tmp_path, monkeypatch):
+    """A tall picture comes back square and small, on the header and on the
+    card the OTHER person sees; Remove takes it away again."""
+    from PyQt6.QtGui import QColor, QImage
+    from PyQt6.QtWidgets import QFileDialog
+    pic = tmp_path / "me.png"
+    img = QImage(900, 1400, QImage.Format.Format_RGB32)
+    img.fill(QColor("#3b82f6"))
+    img.save(str(pic))
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(pic), "")))
+    win, panel = _open(people["dana"])
+    assert not panel.clear_photo_btn.isVisible() and panel.photo_btn.text() == "Add photo…"
+    _click(panel.photo_btn)
+    path, mime = registry.avatar_file(people["dana"])
+    saved = QImage(path)
+    assert mime == "image/jpeg" and saved.width() == saved.height() == 512
+    assert panel.avatar.pixmap() is not None and not panel.avatar.pixmap().isNull()
+    assert panel.clear_photo_btn.isVisible() and panel.photo_btn.text() == "Change photo…"
+    _, admin = _open(people["gil"])
+    assert not admin.cards[people["dana"]].findChildren(type(panel.avatar))[0].pixmap().isNull()
+    _click(panel.clear_photo_btn)
+    assert registry.avatar_file(people["dana"]) is None
+    assert panel.avatar.text() == "D" and not panel.clear_photo_btn.isVisible()
+
+
+def test_a_file_that_is_not_a_picture_is_refused_with_a_message(people, tmp_path, monkeypatch):
+    from PyQt6.QtWidgets import QFileDialog, QMessageBox
+    bad = tmp_path / "notes.png"
+    bad.write_text("not a picture")
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(bad), "")))
+    said = []
+    monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *a: said.append(a[2])))
+    win, panel = _open(people["dana"])
+    _click(panel.photo_btn)
+    assert said == ["that file isn't a picture"] and registry.avatar_file(people["dana"]) is None
