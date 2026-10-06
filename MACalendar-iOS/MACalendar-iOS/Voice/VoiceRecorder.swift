@@ -6,6 +6,26 @@ import Speech
 /// for a stop word while you talk. Stop-word detection uses Apple's on-device
 /// speech recogniser purely as a trigger; the actual transcript still comes from
 /// Whisper + your vocabulary on the Mac. Also auto-stops after a stretch of silence.
+/// Every AVAudioSession activate / deactivate, in order, OFF the main thread.
+///
+/// `setActive` blocks until the audio hardware has started or stopped — Xcode
+/// logs "This method can lead to UI unresponsiveness if called on the main
+/// thread" (2026-10-06). iOS has no asynchronous form of it for an iPhone app,
+/// so the calls go to one SERIAL queue: serial, because a deactivate left
+/// running behind a new recording's activate would switch the mic off under it.
+enum AudioSessionQueue {
+    private static let queue = DispatchQueue(label: "MACalendar.audio-session", qos: .userInitiated)
+
+    /// `work` on the session queue, then `then` back on the main actor.
+    static func run(_ work: @escaping @Sendable (AVAudioSession) -> Void,
+                    then: (@MainActor @Sendable () -> Void)? = nil) {
+        queue.async {
+            work(AVAudioSession.sharedInstance())
+            if let then { Task { @MainActor in then() } }
+        }
+    }
+}
+
 @MainActor
 class VoiceRecorder: NSObject, ObservableObject {
     @Published var isRecording = false
@@ -44,6 +64,9 @@ class VoiceRecorder: NSObject, ObservableObject {
     private var heardSpeech = false
     private var silenceTimer: Timer?
     private var stopping = false
+    /// The recording whose session is being switched on; a stop or cancel
+    /// before it lands changes this, so the engine never starts afterwards.
+    private var startToken = UUID()
 
     // MARK: - Permissions
 
@@ -58,10 +81,20 @@ class VoiceRecorder: NSObject, ObservableObject {
     func start(resume: Bool = false) {
         if !resume { pcm = Data(); liveText = "" }
         heardSpeech = false; stopping = false; lastVoiceAt = Date(); stopReason = .manual
-        let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.record, mode: .measurement, options: [.duckOthers])
-        try? session.setActive(true, options: .notifyOthersOnDeactivation)
+        isRecording = true
+        let token = UUID()
+        startToken = token
+        AudioSessionQueue.run({ session in
+            try? session.setCategory(.record, mode: .measurement, options: [.duckOthers])
+            try? session.setActive(true, options: .notifyOthersOnDeactivation)
+        }, then: { [weak self] in
+            guard let self, self.startToken == token, self.isRecording else { return }
+            self.startEngine()
+        })
+    }
 
+    /// The mic, once the session is on.
+    private func startEngine() {
         let input = engine.inputNode
         let inFormat = input.outputFormat(forBus: 0)
         converter = AVAudioConverter(from: inFormat, to: targetFormat)
@@ -99,7 +132,6 @@ class VoiceRecorder: NSObject, ObservableObject {
         }
         engine.prepare()
         try? engine.start()
-        isRecording = true
 
         silenceTimer?.invalidate()
         silenceTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
@@ -132,12 +164,13 @@ class VoiceRecorder: NSObject, ObservableObject {
     }
 
     private func teardown() {
+        startToken = UUID()             // a session still switching on must not start the engine
         silenceTimer?.invalidate(); silenceTimer = nil
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         request?.endAudio(); task?.cancel(); task = nil; request = nil
         isRecording = false
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        AudioSessionQueue.run { try? $0.setActive(false, options: .notifyOthersOnDeactivation) }
     }
 
     // MARK: - Internals
