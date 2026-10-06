@@ -67,9 +67,17 @@ struct TaskRowView: View {
         self.onMoveList = onMoveList
         _editTitle    = State(initialValue: todo.title)
         _editQuantity = State(initialValue: max(1, todo.quantity))
-        _editPriority = State(initialValue: todo.priority)
+        _editPriority = State(initialValue: Self.pickerPriority(todo.priority))
         _editDueDate  = State(initialValue: Self.dateFormatter.date(from: todo.dueDate))
         _editTags     = State(initialValue: todo.tags)
+    }
+
+    /// The DB's "no priority" is "none" (db.py's column default), and the
+    /// picker used to tag None as "" — so every unprioritised task opened a
+    /// picker with no matching row ("Picker: the selection \"none\" is
+    /// invalid"). Anything the picker does not offer reads as None.
+    private static func pickerPriority(_ p: String) -> String {
+        ["low", "medium", "high"].contains(p) ? p : "none"
     }
 
     private func hex(for name: String) -> String {
@@ -237,7 +245,7 @@ struct TaskRowView: View {
                             .font(.system(size: settings.fontTasks - 2))
                             .foregroundColor(.secondary)
                         Picker("Priority", selection: $editPriority) {
-                            Text("None").tag("")
+                            Text("None").tag("none")
                             Text("Low").tag("low")
                             Text("Medium").tag("medium")
                             Text("High").tag("high")
@@ -288,7 +296,7 @@ struct TaskRowView: View {
             guard !isExpanded, !editingTitle else { return }
             editTitle    = newTodo.title
             editQuantity = max(1, newTodo.quantity)
-            editPriority = newTodo.priority
+            editPriority = Self.pickerPriority(newTodo.priority)
             editDueDate  = Self.dateFormatter.date(from: newTodo.dueDate)
             editTags     = newTodo.tags
         }
