@@ -329,10 +329,16 @@ struct TasksView: View {
             onSave:   { title, priority, dueDate, newTags, quantity in
                 save(todo, title: title, priority: priority, dueDate: dueDate,
                      tags: newTags, quantity: quantity)
-            }
+            },
+            onMoveList: { list in move(todo, to: list) }
         )
         .onDrag { NSItemProvider(object: "\(todo.id)" as NSString) }
         .contextMenu {
+            let other = todo.list == "today" ? "general" : "today"
+            Button { move(todo, to: other) } label: {
+                Label(other == "today" ? "Move to Today" : "Move to General",
+                      systemImage: other == "today" ? "sun.max" : "tray")
+            }
             Menu("Tags") {
                 ForEach(tags) { tag in
                     Button {
@@ -625,17 +631,25 @@ struct TasksView: View {
         provider.loadObject(ofClass: NSString.self) { string, _ in
             guard let idStr = string as? String, let id = Int(idStr) else { return }
             DispatchQueue.main.async {
-                if let idx = todos.firstIndex(where: { $0.id == id }) {
-                    var todo = todos[idx]
-                    if todo.list != toList {
-                        todo.list = toList
-                        todos[idx] = todo
-                        Task { try? await api.updateTodo(id: id, list: toList) }
-                    }
-                }
+                if let todo = todos.first(where: { $0.id == id }) { move(todo, to: toList) }
             }
         }
         return true
+    }
+
+    /// Today ⇄ General. Drag-and-drop was the only way on the phone, and a drag
+    /// between sections of a List does not work in practice — and with the
+    /// scope set to one list there is no other section to drop on. The row now
+    /// offers it three ways: a leading swipe, the long-press menu, and the
+    /// List picker in its detail panel.
+    private func move(_ todo: Todo, to list: String) {
+        guard let i = todos.firstIndex(where: { $0.id == todo.id }),
+              todos[i].list != list else { return }
+        withAnimation { todos[i].list = list }      // optimistic
+        Task {
+            do { try await api.updateTodo(id: todo.id, list: list) }
+            catch { api.announceRefusal(error, doing: "move the task") }
+        }
     }
 
     private func save(_ todo: Todo, title: String, priority: String, dueDate: String,
