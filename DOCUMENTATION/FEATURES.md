@@ -345,10 +345,11 @@ typing; Manual/Priority/Due-date sort modes; drag-to-reorder; Clear
 Completed per section; priority dots and due-date picker; a Manage-tags
 sheet on iOS (built-ins protected); calendar→tasks sync (pull today's or the
 week's events into Today/General, with an auto mode).
-On iOS a task's title is edited in place — one tap on it, Return or tapping
-away saves — and a task moves Today ⇄ General by a leading swipe, the
-long-press menu, or the List picker in its detail panel (2026-10-06; drag
-between sections was the only way before, and did not work).
+On iOS a task's title is a live text field — one tap puts the cursor in it,
+Return or tapping away saves — and a task moves Today ⇄ General by a swipe
+right, "Move to …" in its long-press menu, or the Today / General buttons in
+its detail panel (2026-10-06; drag between sections was the only way before,
+and did not work).
 **Where:** `calendar_ui/todo_view.py`; `db.sync_calendar_to_todos`; iOS
 `TasksView`/`TaskRowView` + manage-tags sheet.
 **How:** Synced rows carry `source='calendar_sync'` so they update rather
