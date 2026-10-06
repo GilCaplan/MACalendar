@@ -109,6 +109,14 @@ struct ThinkingView: View {
     @State private var chainLiveTick = Date()
 
     var body: some View {
+        panel
+            // Holds the "Still working on it…" screen down while this is up,
+            // from whichever place opened it (EggWaits.panelOpen).
+            .onAppear { EggWaits.shared.panelOpen = true }
+            .onDisappear { EggWaits.shared.panelOpen = false }
+    }
+
+    private var panel: some View {
         StackNavigation {
             ScrollViewReader { proxy in
                 ScrollView {

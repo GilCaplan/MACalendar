@@ -924,8 +924,10 @@ default the German Shepherd running in a hamster wheel. A wait that runs long
 (4 s by default; 0 = never) takes the middle of the screen with a line
 ("Still working on it…"), over sheets too, and never blocks a touch.
 Except while the thinking panel is open (2026-10-06): the panel is already
-the progress for a command, so the command's wait does not take the screen
-over it; closing the panel mid-command brings the loader back.
+the progress for a command, so NO wait takes the screen over it
+(`EggWaits.panelOpen`) — the calendar's reload during a command, slow because
+the Mac is busy with that command, was the one that kept showing. Closing the
+panel mid-command brings the loader back.
 Built in Settings ▸ Easter egg ▸ Loading screen: six styles (hamster wheel,
 wheel of friends, spin, bounce, pulse, parade), up to four objects, trail,
 speed, the ring and its colour, the threshold and the line; a live preview,
