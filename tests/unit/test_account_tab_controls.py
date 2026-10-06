@@ -349,3 +349,27 @@ def test_a_file_that_is_not_a_picture_is_refused_with_a_message(people, tmp_path
     win, panel = _open(people["dana"])
     _click(panel.photo_btn)
     assert said == ["that file isn't a picture"] and registry.avatar_file(people["dana"]) is None
+
+
+def test_the_admin_sets_and_takes_down_someone_elses_photo_from_their_card(people, tmp_path, monkeypatch):
+    from PyQt6.QtGui import QColor, QImage
+    from PyQt6.QtWidgets import QFileDialog
+    pic = tmp_path / "them.jpg"
+    img = QImage(300, 200, QImage.Format.Format_RGB32)
+    img.fill(QColor("#10b981"))
+    img.save(str(pic))
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(pic), "")))
+    win, panel = _open(people["gil"])
+    card = panel.cards[people["dana"]]
+    assert card.photo_btn.text() == "Set their photo…" and not card.clear_photo_btn.isVisible()
+    _click(card.photo_btn)
+    assert registry.avatar_file(people["dana"]) is not None
+    assert not card.avatar.pixmap().isNull() and card.clear_photo_btn.isVisible()
+    assert panel.cards[people["dana"]] is card                  # the page was not rebuilt
+    _click(card.clear_photo_btn)
+    assert registry.avatar_file(people["dana"]) is None and card.avatar.text() == "D"
+
+
+def test_a_user_gets_no_photo_controls_on_anyone_elses_card(people):
+    _, panel = _open(people["dana"])
+    assert not hasattr(panel.cards[people["gil"]], "photo_btn")

@@ -27,6 +27,7 @@ should be able to reset passwords just by reaching the port.
     PUT  /admin/vocab_share/<id> {on}
     PUT  /admin/policy        {require_login?, auto_signout_days?, password_min_length?, allow_empty_password?}
     POST /admin/users/<id>/signout                    → sign them out everywhere
+    PUT  /admin/users/<id>/avatar {image}  DELETE /admin/users/<id>/avatar
 """
 from __future__ import annotations
 
@@ -253,12 +254,8 @@ def my_settings():
     return jsonify(registry.get(uid))
 
 
-@bp.put("/users/me/avatar")
-def set_my_avatar():
+def _put_avatar(uid: str):
     """{image: base64} — already cropped square and shrunk by the client."""
-    uid = _me()
-    if not uid:
-        return _err("no users yet", 404)
     try:
         data = base64.b64decode(str(_body().get("image") or ""), validate=True)
     except (binascii.Error, ValueError):
@@ -268,6 +265,14 @@ def set_my_avatar():
     except ValueError as e:
         return _err(str(e), 400)
     return jsonify(registry.get(uid))
+
+
+@bp.put("/users/me/avatar")
+def set_my_avatar():
+    uid = _me()
+    if not uid:
+        return _err("no users yet", 404)
+    return _put_avatar(uid)
 
 
 @bp.delete("/users/me/avatar")
@@ -439,6 +444,29 @@ def admin_policy():
     except (ValueError, TypeError) as e:
         return _err(str(e), 400)
     return jsonify(registry.load().get("policy", {}))
+
+
+@bp.put("/admin/users/<uid>/avatar")
+def admin_set_avatar(uid):
+    """The admin sets anyone's photo, overriding theirs."""
+    _, err = _need_admin()
+    if err:
+        return err
+    if registry.get(uid) is None:
+        return _err("no such user", 404)
+    return _put_avatar(uid)
+
+
+@bp.delete("/admin/users/<uid>/avatar")
+def admin_clear_avatar(uid):
+    """The admin takes anyone's photo down (an unsuitable one, say)."""
+    _, err = _need_admin()
+    if err:
+        return err
+    if registry.get(uid) is None:
+        return _err("no such user", 404)
+    registry.clear_avatar(uid)
+    return jsonify(registry.get(uid))
 
 
 @bp.post("/admin/users/<uid>/signout")

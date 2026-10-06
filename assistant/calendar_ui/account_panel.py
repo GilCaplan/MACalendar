@@ -114,6 +114,29 @@ def photo_bytes(path: str, side: int = 512) -> bytes:
     return bytes(buf.data())
 
 
+def _choose_photo(parent) -> "bytes | None":
+    """Ask for a picture and return it ready to save, or None (cancelled,
+    or not a picture — which is said)."""
+    path, _ = QFileDialog.getOpenFileName(
+        parent, "Choose a photo", os.path.expanduser("~/Pictures"),
+        "Pictures (*.png *.jpg *.jpeg *.heic *.heif *.webp *.bmp *.gif *.tif *.tiff)")
+    if not path:
+        return None
+    try:
+        return photo_bytes(path)
+    except ValueError as e:
+        QMessageBox.warning(parent, "Profile photo", str(e))
+        return None
+
+
+def _swap(old: QLabel, new: QLabel) -> QLabel:
+    """Put `new` where `old` sits — the page is not rebuilt under the button
+    that was just clicked (module docstring)."""
+    old.parentWidget().layout().replaceWidget(old, new)   # searches nested rows too
+    old.deleteLater()
+    return new
+
+
 def _relation(me: str, other: str) -> str:
     """"You share View · They share nothing" — both directions in one line."""
     def word(level):
@@ -139,7 +162,8 @@ class _PersonCard(QFrame):
 
         head = QHBoxLayout()
         head.setSpacing(12)
-        head.addWidget(_avatar(u.get("display_name", "?"), u.get("color", ""), uid=uid))
+        self.avatar = _avatar(u.get("display_name", "?"), u.get("color", ""), uid=uid)
+        head.addWidget(self.avatar)
         names = QVBoxLayout()
         names.setSpacing(1)
         title = QLabel(f"<b>{u.get('display_name', '?')}</b>  <span style='color:{pal['muted']}'>"
@@ -205,6 +229,20 @@ class _PersonCard(QFrame):
                 row.addWidget(b)
             row.addStretch(1)
             lay.addLayout(row)
+
+            # Their photo: the admin can set or take down anyone's.
+            row = QHBoxLayout()
+            row.setSpacing(6)
+            self.photo_btn = QPushButton()
+            self.photo_btn.clicked.connect(lambda: self._pick_photo())
+            self.clear_photo_btn = QPushButton("Remove photo")
+            self.clear_photo_btn.setToolTip("Take their photo down — their initial shows instead.")
+            self.clear_photo_btn.clicked.connect(lambda: self._clear_photo())
+            row.addWidget(self.photo_btn)
+            row.addWidget(self.clear_photo_btn)
+            row.addStretch(1)
+            lay.addLayout(row)
+            self._photo_buttons(u)
         else:
             theirs = registry.share_level(uid, me)
             lay.addWidget(self._label(
@@ -268,6 +306,27 @@ class _PersonCard(QFrame):
         self.disable_btn.setText("Disable" if u.get("disabled") else "Enable")
         self._say("" if u.get("disabled") else "Disabled — they can't sign in until you enable them.")
         self.panel._changed()
+
+    def _photo_buttons(self, u: dict) -> None:
+        self.photo_btn.setText("Change their photo…" if u.get("avatar") else "Set their photo…")
+        self.clear_photo_btn.setVisible(bool(u.get("avatar")))
+
+    def _pick_photo(self) -> None:
+        data = _choose_photo(self)
+        if data is None:
+            return
+        registry.set_avatar(self.uid, data)
+        self._photo_changed()
+
+    def _clear_photo(self) -> None:
+        registry.clear_avatar(self.uid)
+        self._photo_changed()
+
+    def _photo_changed(self) -> None:
+        u = registry.get(self.uid) or {}
+        self.avatar = _swap(self.avatar, _avatar(u.get("display_name", "?"), u.get("color", ""),
+                                                 uid=self.uid))
+        self._photo_buttons(u)
 
     def _remove(self) -> None:
         u = registry.get(self.uid) or {}
@@ -603,16 +662,10 @@ class AccountPanel(FeaturePanel):
         self._changed()
 
     def _pick_photo(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Choose a photo", os.path.expanduser("~/Pictures"),
-            "Pictures (*.png *.jpg *.jpeg *.heic *.heif *.webp *.bmp *.gif *.tif *.tiff)")
-        if not path:
+        data = _choose_photo(self)
+        if data is None:
             return
-        try:
-            registry.set_avatar(self.me, photo_bytes(path))
-        except ValueError as e:
-            QMessageBox.warning(self, "Profile photo", str(e))
-            return
+        registry.set_avatar(self.me, data)
         self._photo_changed()
 
     def _clear_photo(self) -> None:
@@ -620,14 +673,9 @@ class AccountPanel(FeaturePanel):
         self._photo_changed()
 
     def _photo_changed(self) -> None:
-        """Swap the header's picture in place — the page is not rebuilt under
-        the button that was just clicked (module docstring)."""
         me = registry.get(self.me) or {}
-        fresh = _avatar(me.get("display_name", "?"), me.get("color", ""), 52, uid=self.me)
-        lay = self.avatar.parentWidget().layout()
-        lay.replaceWidget(self.avatar, fresh)
-        self.avatar.deleteLater()
-        self.avatar = fresh
+        self.avatar = _swap(self.avatar, _avatar(me.get("display_name", "?"), me.get("color", ""),
+                                                 52, uid=self.me))
         self.photo_btn.setText("Change photo…" if me.get("avatar") else "Add photo…")
         self.clear_photo_btn.setVisible(bool(me.get("avatar")))
 

@@ -720,6 +720,7 @@ struct PersonView: View {
     @State private var revealed: String?
     @State private var note = ""
     @State private var confirmRemove = false
+    @State private var photoPick: PhotosPickerItem?
 
     private var person: PublicUser? { model.people.first { $0.id == personID } }
     private var account: AdminUser? { model.accounts[personID] }
@@ -794,6 +795,31 @@ struct PersonView: View {
                     } footer: { Text("The names and words you've taught the assistant help it hear them too.") }
 
                     Section {
+                        PhotosPicker(selection: $photoPick, matching: .images) {
+                            Label(p.avatar == nil ? "Set their photo" : "Change their photo",
+                                  systemImage: "person.crop.circle.badge.plus")
+                        }
+                        .accessibilityIdentifier("admin-set-photo")
+                        if p.avatar != nil {
+                            Button(role: .destructive) {
+                                Task {
+                                    note = await accountCall(api, "/admin/users/\(personID)/avatar", method: "DELETE")
+                                        .map { "Couldn't remove it: \($0)" } ?? ""
+                                    await model.load(api)
+                                }
+                            } label: {
+                                Label("Remove their photo", systemImage: "person.crop.circle.badge.minus")
+                            }
+                            .accessibilityIdentifier("admin-remove-photo")
+                        }
+                    } header: { Text("Their photo") }
+                      footer: { Text("As admin you can set or take down anyone's photo.") }
+                    .onChange(of: photoPick) { item in
+                        guard let item else { return }
+                        Task { await setPhoto(item) }
+                    }
+
+                    Section {
                         Button("Reset password") { Task { await reset() } }
                         if let pw = revealed {
                             Text("New password — shown once. They'll choose their own when they sign in.")
@@ -842,6 +868,20 @@ struct PersonView: View {
         .navigationTitle(person?.displayName ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { Task { await model.load(api) } }
+    }
+
+    private func setPhoto(_ item: PhotosPickerItem) async {
+        defer { photoPick = nil }
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let picked = UIImage(data: data),
+              let jpeg = AvatarCache.prepared(picked) else {
+            note = "Couldn't read that photo."
+            return
+        }
+        note = await accountCall(api, "/admin/users/\(personID)/avatar",
+                                 body: ["image": jpeg.base64EncodedString()])
+            .map { "Couldn't change it: \($0)" } ?? ""
+        await model.load(api)
     }
 
     private func put(_ path: String, _ body: [String: Any]) async {

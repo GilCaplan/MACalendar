@@ -86,3 +86,25 @@ def test_a_photo_never_leaves_with_the_password_hash(app_client, people):
     h = _tok(app_client, "dana", "dana-pass")
     body = _put(app_client, h, JPEG).get_json()
     assert "password" not in body
+
+
+def test_the_admin_sets_and_removes_anyones_photo(app_client, people):
+    _, dana = people
+    gil = _tok(app_client, "gil", "admin-pass")
+    img = {"image": base64.b64encode(PNG).decode()}
+    r = app_client.put(f"/admin/users/{dana}/avatar", headers=gil, json=img)
+    assert r.status_code == 200 and r.get_json()["avatar"]["type"] == "png"
+    assert registry.avatar_file(dana)[1] == "image/png"
+    _put(app_client, _tok(app_client, "dana", "dana-pass"), JPEG)      # they change it back
+    assert app_client.delete(f"/admin/users/{dana}/avatar", headers=gil).status_code == 200
+    assert registry.avatar_file(dana) is None                          # and the admin's removal wins
+
+
+def test_only_the_admin_touches_someone_elses_photo(app_client, people):
+    gil_id, _ = people
+    dana = _tok(app_client, "dana", "dana-pass")
+    img = {"image": base64.b64encode(JPEG).decode()}
+    assert app_client.put(f"/admin/users/{gil_id}/avatar", headers=dana, json=img).status_code == 403
+    assert app_client.delete(f"/admin/users/{gil_id}/avatar", headers=dana).status_code == 403
+    gil = _tok(app_client, "gil", "admin-pass")
+    assert app_client.put("/admin/users/u_nobody/avatar", headers=gil, json=img).status_code == 404

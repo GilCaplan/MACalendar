@@ -249,7 +249,7 @@ built when it reaches the Mac.
 | hybrid | [Self-check & revert](#background-self-check--one-tap-revert) | background re-reasoning, one-tap undo | `engine/__init__.py`, panels |
 | hybrid | [Review panel / HUD](#the-review-panel-thinking-hud--ios-timeline) | live chain-of-thought card + history | `thinking_hud.py`, `ThinkingView` |
 | hybrid | [Users, sign-in & sharing](#users-sign-in--sharing) | an admin + users, each with their own calendar, to-dos and learning; share whole calendar view/edit; Account tab = admin dashboard | `assistant/users/`, `users_dialogs.py`, `UsersViews.swift` |
-| hybrid | [Profile photos](#profile-photos) | each person sets their own photo (Mac Account tab / tap your picture on the phone); shown wherever their initial was | `users/registry.py`, `account_panel.py`, `UsersViews.swift` |
+| hybrid | [Profile photos](#profile-photos) | each person sets their own photo (Mac Account tab / tap your picture on the phone), the admin can set or remove anyone's; shown wherever their initial was | `users/registry.py`, `account_panel.py`, `UsersViews.swift` |
 | iOS + API | [Offline reader on the phone](#offline-reader-on-the-phone) | Apple's on-device model reads a command while the Mac is away and books creates provisionally; the Mac re-reads and wins | `assistant/offline/`, `OfflineReader.swift` |
 | mac | [Command graph](#the-review-panel-thinking-hud--ios-timeline) | the HUD's Graph view: each ask → rules or model → what it became; hover follows a lane, click explains a node | `command_graph.py` |
 | hybrid | [LLM console](#the-llm-console) | the panel's third view: every model call, with its caller | `llm_bus.py`, `thinking_panel.py` |
@@ -2291,9 +2291,11 @@ be forgotten from the device (long-press).
 **What:** Anyone can give their account a photo. It replaces the coloured
 initial everywhere people are shown: your header, the People list, a person's
 page, and the faces on the phone's sign-in screen. Remove it and the initial
-comes back. 2026-10-06.
+comes back. The admin overrides anyone's: Set / Change their photo and
+Remove photo on each person's card (Mac) or page (phone). 2026-10-06.
 **Where:** `registry.set_avatar` / `clear_avatar` / `avatar_file`; routes
-`PUT|DELETE /users/me/avatar`, `GET /users/<id>/avatar`; Mac
+`PUT|DELETE /users/me/avatar`, `PUT|DELETE /admin/users/<id>/avatar`,
+`GET /users/<id>/avatar`; Mac
 `account_panel.py` (Add photo… / Remove, `photo_bytes`); iOS `AccountView`
 (tap your picture: `PhotosPicker`), `PersonAvatar`, `AvatarCache`.
 **How:** The client crops the photo square from the middle, shrinks it to
