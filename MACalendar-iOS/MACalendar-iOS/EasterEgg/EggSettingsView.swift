@@ -571,6 +571,8 @@ struct EggPhotoEditor: View {
     @State private var failed = false
     @State private var name = ""
     @State private var words = ""
+    /// What the name last typed into `words`; once they differ, the user owns them.
+    @State private var lastAutoWord = ""
     @State private var suggesting = false
     @State private var rig: EggRig = .auto
     @State private var detected: EggRig?
@@ -639,10 +641,14 @@ struct EggPhotoEditor: View {
                 if case .newObject = mode {
                     Section {
                         TextField("Name (e.g. Rex)", text: $name)
-                        TextField(name.trimmingCharacters(in: .whitespaces).isEmpty
-                                  ? "Words, separated by commas"
-                                  : "Words (blank = \"\(name.trimmingCharacters(in: .whitespaces).lowercased())\")",
-                                  text: $words)
+                            // The name IS the first magic word, typed into the
+                            // words field as you go so you can see it and add
+                            // more after it — until you edit the words yourself.
+                            .onChange(of: name) { n in
+                                let auto = n.trimmingCharacters(in: .whitespaces).lowercased()
+                                if words == lastAutoWord { words = auto; lastAutoWord = auto }
+                            }
+                        TextField("Words, separated by commas", text: $words)
                             .textInputAutocapitalization(.never).autocorrectionDisabled()
                         Button { suggesting = true } label: { Label("Suggest words…", systemImage: "sparkles") }
                             .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
