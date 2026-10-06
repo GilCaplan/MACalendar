@@ -27,8 +27,14 @@ struct EggSymbolEditor: View {
         }
     }
 
+    /// The words typed, or — when none are — the name itself (Gil, 2026-10-06:
+    /// "Murad" filled in as the name and Save stayed off, because the name is
+    /// only a label and the words field was empty). Typing words replaces it.
     private var keywordList: [String] {
-        words.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }.filter { !$0.isEmpty }
+        let typed = words.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }.filter { !$0.isEmpty }
+        if !typed.isEmpty { return typed }
+        let n = name.trimmingCharacters(in: .whitespaces).lowercased()
+        return n.isEmpty ? [] : [n]
     }
 
     var body: some View {
@@ -91,7 +97,10 @@ struct EggSymbolEditor: View {
                 if case .newObject = mode {
                     Section("Name and magic words") {
                         TextField("Name (e.g. Israel)", text: $name)
-                        TextField("Words, separated by commas", text: $words)
+                        TextField(name.trimmingCharacters(in: .whitespaces).isEmpty
+                                  ? "Words, separated by commas"
+                                  : "Words (blank = \"\(name.trimmingCharacters(in: .whitespaces).lowercased())\")",
+                                  text: $words)
                             .textInputAutocapitalization(.never).autocorrectionDisabled()
                         Button { suggesting = true } label: { Label("Suggest words…", systemImage: "sparkles") }
                             .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
