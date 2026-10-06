@@ -33,8 +33,17 @@ struct TaskRowView: View {
     var onToggle: () -> Void
     var onDelete: () -> Void
     var onSave: (String, String, String, [String], Int) -> Void  // title, priority, dueDate, tags, quantity
+    var onMoveList: (String) -> Void   // "today" | "general"
+    var onTagsChanged: ([String]) -> Void
 
     @State private var isExpanded = false
+    /// The title IS a text field, always — one tap puts the cursor in it, and
+    /// Return or tapping away saves (Gil, 2026-10-06). The first attempt drew
+    /// a Text and swapped in a field on tap, then focused it from code; inside
+    /// a List row that programmatic focus is dropped on device, so the first
+    /// tap only swapped two identical-looking views and it took a second tap
+    /// to type. A real field needs no focus code to work.
+    @FocusState private var titleFocused: Bool
     @State private var editTitle: String
     @State private var editQuantity: Int
     @State private var editPriority: String
@@ -51,23 +60,39 @@ struct TaskRowView: View {
          allTags: [TodoTag] = [],
          onToggle: @escaping () -> Void,
          onDelete: @escaping () -> Void,
-         onSave: @escaping (String, String, String, [String], Int) -> Void) {
+         onSave: @escaping (String, String, String, [String], Int) -> Void,
+         onMoveList: @escaping (String) -> Void,
+         onTagsChanged: @escaping ([String]) -> Void) {
         self.todo = todo
         self.allTags = allTags
         self.onToggle = onToggle
         self.onDelete = onDelete
         self.onSave = onSave
+        self.onMoveList = onMoveList
+        self.onTagsChanged = onTagsChanged
         _editTitle    = State(initialValue: todo.title)
         _editQuantity = State(initialValue: max(1, todo.quantity))
-        _editPriority = State(initialValue: todo.priority)
+        _editPriority = State(initialValue: Self.pickerPriority(todo.priority))
         _editDueDate  = State(initialValue: Self.dateFormatter.date(from: todo.dueDate))
         _editTags     = State(initialValue: todo.tags)
+    }
+
+    /// The DB's "no priority" is "none" (db.py's column default), and the
+    /// picker used to tag None as "" — so every unprioritised task opened a
+    /// picker with no matching row ("Picker: the selection \"none\" is
+    /// invalid"). Anything the picker does not offer reads as None.
+    private static func pickerPriority(_ p: String) -> String {
+        ["low", "medium", "high"].contains(p) ? p : "none"
     }
 
     private func hex(for name: String) -> String {
         allTags.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.hexColor
             ?? TodoTag(name: name).hexColor
     }
+
+    /// The list this task is NOT on — where a move sends it.
+    private var otherList: String { todo.list == "today" ? "general" : "today" }
+    private var otherListName: String { otherList == "today" ? "Today" : "General" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -86,11 +111,30 @@ struct TaskRowView: View {
                     // the task says, so putting it on its own row would read as
                     // a second, unrelated fact about the task.
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        IconTitle(title: todo.ownerPrefix + todo.title, icons: todo.icons,
-                                  size: settings.fontTasks)
+                        ForEach(todo.icons ?? TitleIcons.icons(for: todo.title), id: \.self) {
+                            Ico($0, size: settings.fontTasks)
+                        }
+                        if !todo.ownerPrefix.isEmpty {
+                            Text(todo.ownerPrefix)
+                                .font(.system(size: settings.fontTasks))
+                                .foregroundColor(.secondary)
+                        }
+                        // Vertical so a long title wraps like the Text it
+                        // replaced; a Return is caught below and means "done".
+                        TextField("Title", text: $editTitle, axis: .vertical)
                             .font(.system(size: settings.fontTasks))
-                            .strikethrough(todo.isDone)
-                            .foregroundColor(todo.isDone ? .secondary : .primary)
+                            .strikethrough(todo.isDone && !titleFocused)
+                            .foregroundColor(todo.isDone && !titleFocused ? .secondary : .primary)
+                            .focused($titleFocused)
+                            .submitLabel(.done)
+                            .disabled(todo.canEdit == false)
+                            .onChange(of: editTitle) { t in
+                                if t.contains("\n") {
+                                    editTitle = t.replacingOccurrences(of: "\n", with: "")
+                                    titleFocused = false
+                                }
+                            }
+                            .accessibilityIdentifier("task-title-field")
 
                         if let label = todo.quantityLabel {
                             Text(label)
@@ -147,11 +191,30 @@ struct TaskRowView: View {
             // ── Expanded detail panel ─────────────────────────────────
             if isExpanded {
                 VStack(alignment: .leading, spacing: 10) {
-                    // Editable title
-                    TextField("Title", text: $editTitle)
-                        .font(.system(size: settings.fontTasks - 1))
-                        .textFieldStyle(.roundedBorder)
-                        .submitLabel(.done)
+                    // Which list — moves the task the moment it changes,
+                    // like the swipe and the long-press menu do.
+                    HStack(spacing: 6) {
+                        Text("List")
+                            .font(.system(size: settings.fontTasks - 2))
+                            .foregroundColor(.secondary)
+                        // Two borderless buttons, not a segmented Picker: in
+                        // a List row only a .borderless button gets its own
+                        // tap rather than the row's.
+                        ForEach(["today", "general"], id: \.self) { l in
+                            let on = todo.list == l
+                            Button { if !on { onMoveList(l) } } label: {
+                                Text(l == "today" ? "Today" : "General")
+                                    .font(.system(size: settings.fontTasks - 2,
+                                                  weight: on ? .semibold : .regular))
+                                    .padding(.horizontal, 12).padding(.vertical, 5)
+                                    .background(Capsule().fill(on ? settings.accentColor
+                                                                  : Color.secondary.opacity(0.15)))
+                                    .foregroundColor(on ? .white : .primary)
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityIdentifier("task-list-\(l)")
+                        }
+                    }
 
                     // Tags — tap to toggle membership
                     VStack(alignment: .leading, spacing: 6) {
@@ -195,7 +258,7 @@ struct TaskRowView: View {
                             .font(.system(size: settings.fontTasks - 2))
                             .foregroundColor(.secondary)
                         Picker("Priority", selection: $editPriority) {
-                            Text("None").tag("")
+                            Text("None").tag("none")
                             Text("Low").tag("low")
                             Text("Medium").tag("medium")
                             Text("High").tag("high")
@@ -243,12 +306,23 @@ struct TaskRowView: View {
         // Keep edit fields in sync when the parent refreshes (but only when closed
         // so we don't stomp on the user's in-progress edits).
         .onChange(of: todo) { newTodo in
+            if !titleFocused { editTitle = newTodo.title }
             guard !isExpanded else { return }
-            editTitle    = newTodo.title
             editQuantity = max(1, newTodo.quantity)
-            editPriority = newTodo.priority
+            editPriority = Self.pickerPriority(newTodo.priority)
             editDueDate  = Self.dateFormatter.date(from: newTodo.dueDate)
             editTags     = newTodo.tags
+        }
+        .onChange(of: titleFocused) { focused in
+            // Return, tapping another row, scrolling the keyboard away — every
+            // way of leaving the field saves it.
+            if !focused { endTitleEdit() }
+        }
+        .swipeActions(edge: .leading) {
+            Button { onMoveList(otherList) } label: {
+                Label(otherListName, systemImage: otherList == "today" ? "sun.max" : "tray")
+            }
+            .tint(settings.accentColor)
         }
         .swipeActions(edge: .trailing) {
             Button(role: .destructive, action: onDelete) {
@@ -256,7 +330,36 @@ struct TaskRowView: View {
             }
         }
         // The event this task IS (Gil, 2026-09-25) — see LinkedTodo.swift.
+        // The ONE long-press menu. TasksView used to wrap this row in a
+        // second .contextMenu (Tags, Delete) and only one of two stacked
+        // menus is ever shown.
         .contextMenu {
+            Button { onMoveList(otherList) } label: {
+                Label("Move to \(otherListName)",
+                      systemImage: otherList == "today" ? "sun.max" : "tray")
+            }
+            if !allTags.isEmpty {
+                Menu("Tags") {
+                    ForEach(allTags) { tag in
+                        Button {
+                            var t = todo.tags
+                            if let i = t.firstIndex(where: { $0.caseInsensitiveCompare(tag.name) == .orderedSame }) {
+                                t.remove(at: i)
+                            } else {
+                                t.append(tag.name)
+                            }
+                            editTags = t
+                            onTagsChanged(t)
+                        } label: {
+                            if todo.hasTag(tag.name) {
+                                Label(tag.name, systemImage: "checkmark")
+                            } else {
+                                Text(tag.name)
+                            }
+                        }
+                    }
+                }
+            }
             if todo.linkedEventId != nil {
                 Button { link { try await api.unlinkTodo(todoId: todo.id) } } label: {
                     Label("Unlink from Event", systemImage: "minus.circle")
@@ -268,6 +371,9 @@ struct TaskRowView: View {
                 Button { pickingEvent = true } label: {
                     Label("Link to Event…", systemImage: "link")
                 }
+            }
+            Button(role: .destructive, action: onDelete) {
+                Label("Delete", systemImage: "trash")
             }
         }
         .sheet(isPresented: $pickingEvent) {
@@ -292,11 +398,26 @@ struct TaskRowView: View {
         }
     }
 
+    private func endTitleEdit() {
+        let trimmed = editTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        // An emptied title is a slip, not a rename — put the old one back.
+        guard !trimmed.isEmpty, trimmed != todo.title else {
+            editTitle = todo.title
+            return
+        }
+        editTitle = trimmed
+        commitEdits()
+    }
+
+    private func commitEdits() {
+        let dueDateStr = editDueDate.map { Self.dateFormatter.string(from: $0) } ?? ""
+        onSave(editTitle, editPriority, dueDateStr, editTags, editQuantity)
+    }
+
     private func toggleExpand() {
         if isExpanded {
             // Collapsing — persist edits
-            let dueDateStr = editDueDate.map { Self.dateFormatter.string(from: $0) } ?? ""
-            onSave(editTitle, editPriority, dueDateStr, editTags, editQuantity)
+            commitEdits()
         }
         withAnimation(.easeInOut(duration: 0.2)) {
             isExpanded.toggle()
