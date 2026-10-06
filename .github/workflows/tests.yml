@@ -62,7 +62,9 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         # Integration tests skip without Ollama, which CI has none of.
-        run: python -m pytest tests/ -v
+        # Each Qt UI test file runs in a process of its own — an intermittent
+        # segfault in a widget-tree walk otherwise (TASKS 53); the script says why.
+        run: scripts/run_tests.sh -v
 
       # DOCUMENTATION/API_REFERENCE.md is GENERATED, and a generated doc that
       # silently stops covering a surface is worse than one nobody wrote — it

@@ -135,3 +135,16 @@ def test_patch_config_writes_the_OVERRIDE_not_the_real_file(tmp_path, monkeypatc
     if before is not None:
         assert open(repo_config).read() == before, \
             "the REAL config.yaml was modified by a test"
+
+
+def test_no_module_resolves_config_yaml_against_the_working_directory():
+    """`os.path.abspath("config.yaml")` ignores `MACALENDAR_CONFIG`, so a test
+    that reaches it writes the REAL config. The Tasks tab's tag-mode and
+    sync-mode writers did (2026-10-06): two suites at once tore the repo's
+    config.yaml mid-write, and on the Mac any UI test that clicked tag mode
+    rewrote the user's own setting. `main.py` only READS it, at GUI start."""
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parents[2] / "assistant"
+    hits = [str(p.relative_to(root)) for p in root.rglob("*.py")
+            if p.name != "main.py" and 'abspath("config.yaml")' in p.read_text()]
+    assert hits == [], f"resolve through config_store.CONFIG_PATH instead: {hits}"
