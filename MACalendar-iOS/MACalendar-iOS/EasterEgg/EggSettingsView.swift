@@ -571,6 +571,8 @@ struct EggPhotoEditor: View {
     @State private var failed = false
     @State private var name = ""
     @State private var words = ""
+    /// What the name last typed into `words`; once they differ, the user owns them.
+    @State private var lastAutoWord = ""
     @State private var suggesting = false
     @State private var rig: EggRig = .auto
     @State private var detected: EggRig?
@@ -639,6 +641,13 @@ struct EggPhotoEditor: View {
                 if case .newObject = mode {
                     Section {
                         TextField("Name (e.g. Rex)", text: $name)
+                            // The name IS the first magic word, typed into the
+                            // words field as you go so you can see it and add
+                            // more after it — until you edit the words yourself.
+                            .onChange(of: name) { n in
+                                let auto = n.trimmingCharacters(in: .whitespaces).lowercased()
+                                if words == lastAutoWord { words = auto; lastAutoWord = auto }
+                            }
                         TextField("Words, separated by commas", text: $words)
                             .textInputAutocapitalization(.never).autocorrectionDisabled()
                         Button { suggesting = true } label: { Label("Suggest words…", systemImage: "sparkles") }
@@ -706,8 +715,14 @@ struct EggPhotoEditor: View {
         return true
     }
 
+    /// The words typed, or — when none are — the name itself (Gil, 2026-10-06:
+    /// "Murad" filled in as the name and Save stayed off, because the name is
+    /// only a label and the words field was empty). Typing words replaces it.
     private var keywordList: [String] {
-        words.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }.filter { !$0.isEmpty }
+        let typed = words.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }.filter { !$0.isEmpty }
+        if !typed.isEmpty { return typed }
+        let n = name.trimmingCharacters(in: .whitespaces).lowercased()
+        return n.isEmpty ? [] : [n]
     }
 
     private func load() {

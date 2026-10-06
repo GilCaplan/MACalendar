@@ -180,9 +180,6 @@ struct TasksView: View {
                             .onDelete { offsets in deleteTasks(list: "today", at: offsets) }
                         }
                     }
-                    .onDrop(of: ["public.text"], isTargeted: nil) { providers in
-                        handleDrop(providers: providers, toList: "today")
-                    }
                     }
 
                     if showsGeneral {
@@ -197,9 +194,6 @@ struct TasksView: View {
                             .onMove { from, to in moveTasksWithin(list: "general", from: from, to: to) }
                             .onDelete { offsets in deleteTasks(list: "general", at: offsets) }
                         }
-                    }
-                    .onDrop(of: ["public.text"], isTargeted: nil) { providers in
-                        handleDrop(providers: providers, toList: "general")
                     }
                     }
 
@@ -329,33 +323,16 @@ struct TasksView: View {
             onSave:   { title, priority, dueDate, newTags, quantity in
                 save(todo, title: title, priority: priority, dueDate: dueDate,
                      tags: newTags, quantity: quantity)
+            },
+            onMoveList: { list in move(todo, to: list) },
+            onTagsChanged: { t in
+                save(todo, title: todo.title, priority: todo.priority, dueDate: todo.dueDate, tags: t)
             }
         )
-        .onDrag { NSItemProvider(object: "\(todo.id)" as NSString) }
-        .contextMenu {
-            Menu("Tags") {
-                ForEach(tags) { tag in
-                    Button {
-                        var t = todo.tags
-                        if let i = t.firstIndex(where: { $0.caseInsensitiveCompare(tag.name) == .orderedSame }) {
-                            t.remove(at: i)
-                        } else {
-                            t.append(tag.name)
-                        }
-                        save(todo, title: todo.title, priority: todo.priority, dueDate: todo.dueDate, tags: t)
-                    } label: {
-                        if todo.hasTag(tag.name) {
-                            Label(tag.name, systemImage: "checkmark")
-                        } else {
-                            Text(tag.name)
-                        }
-                    }
-                }
-            }
-            Button(role: .destructive, action: { delete(todo) }) {
-                Label("Delete", systemImage: "trash")
-            }
-        }
+        // No .onDrag and no second .contextMenu here (2026-10-06): the drag
+        // lift took over the long press, so the row's own menu — the one with
+        // "Move to …" — did not open, and a drop between List sections never
+        // moved anything anyway. Moving is the row's swipe, menu and panel.
     }
 
     /// Whose: Everyone · Mine · one chip per person sharing with you.
@@ -620,22 +597,19 @@ struct TasksView: View {
         Task { try? await api.reorderTodos(list: list, ids: ids) }
     }
 
-    private func handleDrop(providers: [NSItemProvider], toList: String) -> Bool {
-        guard let provider = providers.first else { return false }
-        provider.loadObject(ofClass: NSString.self) { string, _ in
-            guard let idStr = string as? String, let id = Int(idStr) else { return }
-            DispatchQueue.main.async {
-                if let idx = todos.firstIndex(where: { $0.id == id }) {
-                    var todo = todos[idx]
-                    if todo.list != toList {
-                        todo.list = toList
-                        todos[idx] = todo
-                        Task { try? await api.updateTodo(id: id, list: toList) }
-                    }
-                }
-            }
+    /// Today ⇄ General. Drag-and-drop was the only way on the phone, and a drag
+    /// between sections of a List does not work in practice — and with the
+    /// scope set to one list there is no other section to drop on. The row
+    /// offers it three ways: a swipe right, the long-press menu, and the
+    /// Today / General buttons in its detail panel.
+    private func move(_ todo: Todo, to list: String) {
+        guard let i = todos.firstIndex(where: { $0.id == todo.id }),
+              todos[i].list != list else { return }
+        withAnimation { todos[i].list = list }      // optimistic
+        Task {
+            do { try await api.updateTodo(id: todo.id, list: list) }
+            catch { api.announceRefusal(error, doing: "move the task") }
         }
-        return true
     }
 
     private func save(_ todo: Todo, title: String, priority: String, dueDate: String,

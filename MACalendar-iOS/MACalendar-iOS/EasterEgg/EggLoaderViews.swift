@@ -58,6 +58,12 @@ final class EggWaits: ObservableObject {
     @Published private(set) var active: [UUID: Date] = [:]
     /// A demo from Settings: show the stuck screen for a few seconds.
     @Published var demoUntil: Date?
+    /// The thinking panel is open. It shows its own "Working…", so the stuck
+    /// screen stays down whatever is waiting (Gil, 2026-10-06, "remove this
+    /// wheel when it's thinking"). Keyed here, not per wait: the wait that
+    /// showed over the panel was the CALENDAR's reload, slow because the Mac
+    /// was busy with the very command the panel was showing.
+    @Published var panelOpen = false
 
     @discardableResult
     func begin() -> UUID {
@@ -84,6 +90,7 @@ struct EggWaitOverlay: View {
             let cfg = store.settings.loader
             let demo = (waits.demoUntil ?? .distantPast) > tl.date
             let stuck = cfg.enabled && cfg.stuckAfter > 0 && !cfg.objects.isEmpty
+                && !waits.panelOpen
                 && (waits.oldest.map { tl.date.timeIntervalSince($0) >= cfg.stuckAfter } ?? false)
             if stuck || demo {
                 ZStack {

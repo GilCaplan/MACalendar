@@ -319,6 +319,13 @@ struct VoiceButton: View {
         .onChange(of: settings.speakReplies) { on in
             if !on { player.stop() }
         }
+        .onChange(of: showThinking) { open in
+            if open {
+                EggWaits.shared.end(eggWait); eggWait = nil
+            } else if status == .thinking {
+                beginScreenWaitUnlessPanel()
+            }
+        }
         .sheet(isPresented: $showThinking) {
             ThinkingView(
                 steps: steps,
@@ -569,6 +576,17 @@ struct VoiceButton: View {
         send(audio)
     }
 
+    /// The full-screen "taking a while" loader is for a wait with nothing
+    /// else on screen. While the thinking panel is open it IS the progress —
+    /// its own "Working…" spinner plays — and the loader sat over it, hiding
+    /// the reasoning it was waiting on (Gil, 2026-10-06: "remove wheel of
+    /// death showing on the whole screen when panel showing reasoning").
+    /// Closing the panel mid-command brings the loader back (see .onChange).
+    private func beginScreenWaitUnlessPanel() {
+        guard !showThinking, eggWait == nil else { return }
+        eggWait = EggWaits.shared.begin()
+    }
+
     private func send(_ audioData: Data) {
         // No Mac at all: the phone reads and does it (DEVQA Q85).
         if settings.phoneOnly { runLocal(recorder.liveText); return }
@@ -581,13 +599,13 @@ struct VoiceButton: View {
             // command is being made. The phone's own hearing if it has one;
             // otherwise the Mac's transcript, the moment it arrives below.
             eggPlayed = EggStore.shared.heard(recorder.liveText, bare: false)
-            EggWaits.shared.end(eggWait)
-            eggWait = EggWaits.shared.begin()
+            EggWaits.shared.end(eggWait); eggWait = nil
             if settings.showThinking {
                 steps = [TraceStep(stage: "stt", title: "Sending", detail: "Uploading audio to your Mac…",
                                    ms: 0, atMs: 0, ok: true)]
                 showThinking = true
             }
+            beginScreenWaitUnlessPanel()
             let sentAt = Date()
             let me = UUID()
             inFlight = me
@@ -650,12 +668,12 @@ struct VoiceButton: View {
         finished = false
         lastResponse = nil
         eggPlayed = EggStore.shared.heard(t, bare: false)
-        EggWaits.shared.end(eggWait)
-        eggWait = EggWaits.shared.begin()
+        EggWaits.shared.end(eggWait); eggWait = nil
         if settings.showThinking {
             steps = [TraceStep(stage: "stt", title: "Typed", detail: t, ms: 0, atMs: 0, ok: true)]
             showThinking = true
         }
+        beginScreenWaitUnlessPanel()
         let me = UUID()
         inFlight = me
         Task {
