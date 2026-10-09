@@ -250,7 +250,7 @@ built when it reaches the Mac.
 | hybrid | [Review panel / HUD](#the-review-panel-thinking-hud--ios-timeline) | live chain-of-thought card + history | `thinking_hud.py`, `ThinkingView` |
 | hybrid | [Users, sign-in & sharing](#users-sign-in--sharing) | an admin + users, each with their own calendar, to-dos and learning; share whole calendar view/edit; Account tab = admin dashboard | `assistant/users/`, `users_dialogs.py`, `UsersViews.swift` |
 | hybrid | [Profile photos](#profile-photos) | each person sets their own photo (Mac Account tab / tap your picture on the phone), the admin can set or remove anyone's; shown wherever their initial was | `users/registry.py`, `account_panel.py`, `UsersViews.swift` |
-| iOS + API | [Offline reader on the phone](#offline-reader-on-the-phone) | Apple's on-device model reads a command while the Mac is away and books creates provisionally; the Mac re-reads and wins | `assistant/offline/`, `OfflineReader.swift` |
+| iOS + API | [Offline reader on the phone](#offline-reader-on-the-phone) | the phone reads and does a command first (rules, else Apple's on-device model), online or away, without waiting; the Mac re-reads and wins | `assistant/offline/`, `OfflineReader.swift` |
 | mac | [Command graph](#the-review-panel-thinking-hud--ios-timeline) | the HUD's Graph view: each ask → rules or model → what it became; hover follows a lane, click explains a node | `command_graph.py` |
 | hybrid | [LLM console](#the-llm-console) | the panel's third view: every model call, with its caller | `llm_bus.py`, `thinking_panel.py` |
 | UI | [Show hours](#show-hours) | Week and Day draw only the chosen hours (e.g. 7 AM–midnight), filling the window; an event outside widens them | `visible_hours.py`, `AppSettings.swift` |
@@ -2567,7 +2567,14 @@ can at once — events and to-dos only, provisionally ("Added on this phone…
 your Mac will check it"). On reconnect the Mac re-reads the same command and
 its reading wins: the phone's placeholders give way to the Mac's rows, and a
 different reading is announced. Moves, changes and deletes are never done
-offline. (DEVQA Q66, 2026-09-28.)
+offline. (DEVQA Q66, 2026-09-28.) **Phone first** (Q87, 2026-10-09): with
+the Mac reachable, the phone still reads and does the command itself and
+answers at once — on its own copy only, nothing sent or queued; the Mac
+reads the same command in the background, its rows replace the phone's,
+and a different reading is announced. Settings ▸ How it runs ▸ "Read on
+this phone first" (on). **Read as of when it was said** (Q88): a queued
+command carries its `recordedAt` as `said_at`, and the Mac reads "today",
+"tomorrow" and "tonight" from that moment (`assistant/clock.py`).
 **Where:** `assistant/offline/` (spec, reconcile, log, routes,
 `PROTOCOL.md`); iOS `Voice/OfflineReader.swift`, `LocalStore.bookProvisional`,
 `APIClient.settle` / `settleWaiting`, the queued-command labels, Settings'

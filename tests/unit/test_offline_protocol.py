@@ -195,6 +195,53 @@ def test_the_audio_route_takes_the_reading_as_a_form_field(client, monkeypatch):
     assert json.loads(got["reading"])["items"][0]["title"] == "Buy milk"
 
 
+# -- phone first, Mac behind (DEVQA Q87) -------------------------------------------
+
+
+def _stream(client, reading):
+    """The phone's live road: /voice/stream, NDJSON, the result last."""
+    raw = client.post("/voice/stream", json={"transcript": "book gym tomorrow at 7am",
+                                              "offline_reading": reading}).get_data(as_text=True)
+    return [json.loads(line) for line in raw.splitlines() if line.strip()][-1]
+
+
+def test_the_live_road_compares_what_the_phone_already_booked(client):
+    r = _reading({"kind": "event", "title": "gym", "date": _tomorrow(), "start": "07:00",
+                  "end": "", "recurrence": "none"})
+    r.update(reader="phone-rules", live=True)
+    out = _stream(client, r)
+    assert out["type"] == "result" and out["offline"]["verdict"] == "same", out.get("offline")
+    [row] = log.rows()
+    assert row["live"] is True and row["reader"] == "phone-rules"
+
+
+def test_the_live_road_says_changed_when_the_mac_read_it_differently(client):
+    r = _reading({"kind": "event", "title": "gym", "date": _tomorrow(), "start": "19:00",
+                  "end": "", "recurrence": "none"})
+    r.update(reader="phone-rules", live=True)
+    out = _stream(client, r)
+    assert out["offline"]["verdict"] == "changed"
+    assert out["offline"]["differences"]["fields"] == ["start"]
+
+
+def test_a_live_command_without_a_reading_is_untouched(client):
+    raw = client.post("/voice/stream", json={"transcript": "book gym tomorrow at 7am"})
+    out = [json.loads(x) for x in raw.get_data(as_text=True).splitlines() if x.strip()][-1]
+    assert "offline" not in out and not log.rows()
+
+
+def test_agreement_is_reported_per_reader(client):
+    rules = _reading({"kind": "event", "title": "gym", "date": _tomorrow(), "start": "07:00",
+                      "end": "", "recurrence": "none"})
+    rules.update(reader="phone-rules", live=True)
+    _stream(client, rules)
+    _post(client, _reading({"kind": "event", "title": "Gym", "date": _tomorrow(),
+                            "start": "19:00", "end": "", "recurrence": "none"}), cid="fm-1")
+    by = client.get("/offline/agreement").get_json()["by_reader"]
+    assert by["phone-rules"] == {"scored": 1, "same": 1, "agreement": 1.0}
+    assert by["apple-fm"] == {"scored": 1, "same": 0, "agreement": 0.0}
+
+
 def test_the_phone_can_ask_whether_a_queued_command_has_run(client):
     from assistant.intent.memory import get_memory
     pid = get_memory().add_pending("buy milk", "model offline", source="test")

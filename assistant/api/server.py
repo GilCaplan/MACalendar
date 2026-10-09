@@ -332,7 +332,11 @@ def retry_pending_once(run_transcript, mem, budget: int) -> int:
             batch = wrap(group)
             logger.info("Retrying %d queued command(s) from %s: %s",
                         len(batch_rows), stream, batch[:80])
-            result = run_transcript(batch, source=src)
+            # read as of when it was SAID (assistant/clock); a batch holds
+            # neighbouring rows of one stream, so its oldest moment stands
+            from assistant import clock as _clock
+            with _clock.said_at(_field(batch_rows[0], "ts", None)):
+                result = run_transcript(batch, source=src)
             ran += 1
             for row in batch_rows:
                 if result.get("parse") == "error":
@@ -606,8 +610,15 @@ def create_app() -> Flask:
         # twice nor loses the verdict (assistant/offline).
         from assistant.offline import reconcile as _offline
         reading = request.form.get("offline_reading")
-        out = receipts.run_once(cid, lambda: _offline.attach(
-            reading, _voice_audio_once(audio_bytes), source="ios"))
+        # `said_at` (epoch seconds): a queued command is read as of when it
+        # was said, not when it arrived (assistant/clock)
+        from assistant import clock as _clock
+        said = request.form.get("said_at")
+
+        def _once():
+            with _clock.said_at(said):
+                return _offline.attach(reading, _voice_audio_once(audio_bytes), source="ios")
+        out = receipts.run_once(cid, _once)
         return jsonify(out) if isinstance(out, dict) else out
 
     def _voice_audio_once(audio_bytes: bytes):
@@ -686,6 +697,10 @@ def create_app() -> Flask:
         Each line is a JSON object: {"type": "step", ...TraceStep} while the
         request is processed, then a final {"type": "result", ...response}.
         The iOS app renders the steps as a timeline as they arrive.
+
+        `offline_reading` (form field, or JSON key with `transcript`): what the
+        phone read and already booked while this runs (phone first, DEVQA
+        Q87); the result carries the comparison as `offline`, as on `/voice`.
         """
         from flask import Response, stream_with_context
         import json as _json
@@ -699,12 +714,16 @@ def create_app() -> Flask:
             text_cmd = None
             edit_ok = _supports_edit()
             confirm_ok = _supports_confirm()
+            reading = request.form.get("offline_reading")
+            said = request.form.get("said_at")
         else:
             body = request.get_json(silent=True) or {}
             text_cmd = (body.get("transcript") or "").strip()
             audio_bytes = b""
             edit_ok = _supports_edit(body)
             confirm_ok = _supports_confirm(body)
+            reading = body.get("offline_reading")
+            said = body.get("said_at")
             if not text_cmd:
                 return jsonify({"error": "Missing 'audio' file or 'transcript'", "code": 400}), 400
 
@@ -731,9 +750,15 @@ def create_app() -> Flask:
                         return
                     logger.info("Transcript: %s", transcript)
                     trace.step(STT, "Heard", transcript, transcript=transcript)
-                result = _run_transcript(transcript, trace, source="ios",
-                                         supports_edit=edit_ok,
-                                         supports_confirm=confirm_ok)
+                from assistant import clock as _clock
+                with _clock.said_at(said):
+                    result = _run_transcript(transcript, trace, source="ios",
+                                             supports_edit=edit_ok,
+                                             supports_confirm=confirm_ok)
+                # Phone first (DEVQA Q87): what the phone read and booked while
+                # this ran is compared with what the engine did, as on a resend.
+                from assistant.offline import reconcile as _offline
+                result = _offline.attach(reading, result, source="ios")
                 q.put({"type": "result", **result})
             except Exception as e:  # never leave the stream hanging
                 logger.exception("Stream pipeline failed: %s", e)
@@ -892,10 +917,13 @@ def create_app() -> Flask:
                         logger.info("Whitelisted after repeated confirmation: %s",
                                     ", ".join(promoted))
                 edit_ok = False
-            resp = _run_transcript(transcript, source=src, device=dev,
-                                   stream=stream, current_view=view,
-                                   trace_run=run, supports_edit=edit_ok,
-                                   supports_confirm=confirm_ok)
+            # read as of when it was said (assistant/clock)
+            from assistant import clock as _clock
+            with _clock.said_at(body.get("said_at")):
+                resp = _run_transcript(transcript, source=src, device=dev,
+                                       stream=stream, current_view=view,
+                                       trace_run=run, supports_edit=edit_ok,
+                                       supports_confirm=confirm_ok)
             from assistant.offline import reconcile as _offline
             return _offline.attach(body.get("offline_reading"), resp,
                                    source=src, device=dev)

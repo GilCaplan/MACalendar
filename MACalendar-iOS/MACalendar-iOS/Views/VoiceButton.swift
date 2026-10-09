@@ -419,11 +419,12 @@ struct VoiceButton: View {
                 Task { @MainActor in
                     let eggs = EggStore.shared.settings.enabled
                     // With no Mac the phone's own hearing IS the transcript (DEVQA Q85)
-                    if settings.stopWordsEnabled || eggs || settings.phoneOnly {
+                    let readHere = settings.phoneOnly || settings.readOnPhoneFirst
+                    if settings.stopWordsEnabled || eggs || readHere {
                         _ = await VoiceRecorder.requestSpeechPermission()   // no-op once granted
                     }
                     recorder.stopWordsEnabled = settings.stopWordsEnabled
-                    recorder.transcribe = eggs || settings.phoneOnly
+                    recorder.transcribe = eggs || readHere
                     recorder.silenceStopSeconds = settings.silenceStopEnabled ? settings.silenceStopSeconds : 0
                     recorder.onAutoStop = { [self] in finishRecording() }
                     // Stop talking before listening. The synthesizer holds the
@@ -587,9 +588,13 @@ struct VoiceButton: View {
         eggWait = EggWaits.shared.begin()
     }
 
-    private func send(_ audioData: Data) {
+    private func send(_ audioData: Data, phoneFirst: Bool = true) {
         // No Mac at all: the phone reads and does it (DEVQA Q85).
         if settings.phoneOnly { runLocal(recorder.liveText); return }
+        // A Mac, but the phone answers first and the Mac checks behind (Q87).
+        if phoneFirst, settings.readOnPhoneFirst, !recorder.liveText.isEmpty {
+            runPhoneFirst(recorder.liveText, audio: audioData); return
+        }
         do {   // one block so the placeholder row + upload read top-to-bottom
             status = .thinking
             steps = []
@@ -656,13 +661,14 @@ struct VoiceButton: View {
     /// A typed command: the same road as a spoken one, minus the microphone.
     /// The Mac reads it as text ("Typed" in its trace); away from the Mac it
     /// queues like a recording would, already in its final words.
-    private func sendTyped(_ text: String) {
+    private func sendTyped(_ text: String, phoneFirst: Bool = true) {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty, status == .idle else { return }
         // Nothing but magic words ("dragon!"): played here, not sent.
-        if EggStore.shared.heard(t, bare: true) { return }
+        if phoneFirst, EggStore.shared.heard(t, bare: true) { return }
         player.stop()
         if settings.phoneOnly { runLocal(t); return }
+        if phoneFirst, settings.readOnPhoneFirst { runPhoneFirst(t, audio: nil); return }
         status = .thinking
         steps = []
         finished = false
@@ -719,6 +725,124 @@ struct VoiceButton: View {
                 finished = true
                 status = .idle
             }
+        }
+    }
+
+    /// Phone first, Mac behind (DEVQA Q87). The phone reads the command and
+    /// does it — on ITS OWN COPY only (`PhonePreview`: nothing is sent or
+    /// queued) — and answers at once, exactly as with no Mac. The Mac gets the
+    /// command in the background, reads it itself, and its rows replace the
+    /// phone's when it answers; a different reading is said then. When the
+    /// phone read nothing, there is nothing to show, so the Mac is waited for
+    /// as before.
+    private func runPhoneFirst(_ said: String, audio: Data?) {
+        status = .thinking
+        steps = []
+        finished = false
+        lastResponse = nil
+        if settings.showThinking { showThinking = true }
+        Task { @MainActor in
+            let preview = PhonePreview()
+            let out = await PhonePreview.$current.withValue(preview) {
+                await LocalCommand.run(said, api: api)
+            }
+            guard out.understood else {
+                // Nothing read here: the Mac's road, as if this never ran.
+                status = .idle
+                if let audio { send(audio, phoneFirst: false) } else { sendTyped(said, phoneFirst: false) }
+                return
+            }
+            let key = UUID().uuidString
+            LocalStore.shared.holdLive(key, events: preview.events, todos: preview.todos)
+            eggPlayed = EggStore.shared.heard(said, bare: false)
+            steps = out.steps
+            if settings.showThinking {
+                steps.append(TraceStep(stage: "verify", title: "Your Mac is checking it",
+                                       detail: "Done on this phone. Your Mac reads it too, and its version wins.",
+                                       ms: 0, atMs: 0, ok: true))
+            }
+            checkOnMac(key: key, said: said, audio: audio, phone: out)
+            await handleResponse(VoiceResponse.local(message: out.reply, transcript: said,
+                                                     refresh: out.changed ? "both" : ""))
+        }
+    }
+
+    /// The Mac's half of a phone-first command, in the background: nobody
+    /// waits on it. Its answer replaces the phone's rows; it speaks up only
+    /// when it read the command differently, or needs something from you.
+    private func checkOnMac(key: String, said: String, audio: Data?, phone: LocalCommand.Outcome) {
+        let reading = phone.reading.flatMap { try? JSONEncoder().encode($0) }
+        let assertion = BackgroundAssertion()
+        assertion.begin("voice-command-check")
+        Task { @MainActor in
+            defer { assertion.end() }
+            do {
+                let r: VoiceResponse
+                if let audio {
+                    r = try await api.sendAudioStreaming(audio, supportsEdit: true, supportsConfirm: true,
+                                                         offlineReading: reading) { _ in }
+                } else {
+                    r = try await api.sendText(said, supportsEdit: true, supportsConfirm: true,
+                                               offlineReading: reading)
+                }
+                macAnswered(key: key, r, phone: phone)
+            } catch APIError.offline, APIError.badURL {
+                // The Mac is away after all: the command joins the offline
+                // queue, and the phone's new rows go with it, as on any
+                // offline command (Q66).
+                LocalStore.shared.dropLive(key)
+                let cmd = audio.map { LocalStore.shared.enqueueVoice($0, draft: said) }
+                    ?? LocalStore.shared.enqueueTyped(said)
+                if var queued = phone.reading {
+                    queued.live = nil
+                    LocalStore.shared.bookProvisional(cmd.id, reading: queued)
+                }
+                onRefresh?("both")
+            } catch {
+                // The stream broke after the upload: the Mac most likely ran
+                // it. Its rows arrive with the refresh; the phone's step aside.
+                LocalStore.shared.dropLive(key)
+                api.burstRefresh()
+                api.requestRefresh()
+                onRefresh?("both")
+            }
+        }
+    }
+
+    private func macAnswered(key: String, _ r: VoiceResponse, phone: LocalCommand.Outcome) {
+        if r.offline?.verdict == "pending" {
+            LocalStore.shared.extendLive(key)          // its model is busy: keep the phone's rows a while
+        } else {
+            LocalStore.shared.dropLive(key)
+        }
+        api.burstRefresh()
+        api.requestRefresh()
+        onRefresh?("both")
+        // The Mac doubted the words or asks before adding: nothing of the
+        // phone's stands, and the question is shown as if it had been waited for.
+        if r.parse == "needs_edit" || r.parse == "confirm_create" {
+            guard status == .idle else { return }
+            if r.parse == "needs_edit" {
+                editRequest = EditRequest(text: r.transcript ?? "",
+                                          doubtful: r.needsEdit ?? r.uncertainWords ?? [])
+            } else if let token = r.confirmToken {
+                confirmRequest = ConfirmRequest(token: token, prompt: r.message, items: r.proposal ?? [])
+            }
+            return
+        }
+        // Did it read it differently? The compared creates say so directly;
+        // a move, change or delete the phone made is not compared, so a Mac
+        // that did nothing at all where the phone did something is too.
+        let differed = r.offline?.verdict == "changed"
+            || (phone.changed && (r.committed ?? []).isEmpty)
+        let line = "Your Mac corrected it: " + r.message
+        if settings.showThinking {
+            steps.append(TraceStep(stage: "verify", title: differed ? "Your Mac corrected it" : "Your Mac agrees",
+                                   detail: r.message, ms: 0, atMs: steps.last?.atMs ?? 0, ok: true))
+        }
+        if differed {
+            showHint(ReplyHint(code: "mac-corrected", headline: "Your Mac read it differently", body: r.message))
+            if settings.speakReplies, status == .idle { player.speak(line, voiceIdentifier: settings.ttsVoice) }
         }
     }
 

@@ -47,6 +47,38 @@ Placeholders are removed whatever the verdict (except `pending`): the Mac's
 rows are the truth. An `end` the phone left empty is not a disagreement, since
 it's the Mac's default duration.
 
+## Phone first, Mac behind (DEVQA Q87, 2026-10-09)
+
+The same contract, used while the Mac IS reachable — and the phone does not
+wait for it. With "Read on this phone first" on (the default; Settings ▸ How
+it runs), `VoiceButton.runPhoneFirst`:
+
+1. **Reads and does the command on the phone** — `LocalCommand.run`, the
+   same reader as "This phone only" (rules, else Apple's model) — inside
+   `PhonePreview`: every request fails as offline, so each write takes its
+   offline road and changes the phone's copy (new rows get placeholder ids,
+   edits and deletes patch the cache), and `LocalStore.enqueue` drops the
+   queue entry. **Nothing the phone does reaches the Mac.** The reply is
+   shown and spoken at once; the rows it made are held under the command
+   (`LocalStore.holdLive`).
+2. **The phone read nothing:** nothing to show, so the Mac's road, waited
+   for, exactly as before.
+3. **The Mac gets the command in the background** (`checkOnMac`) with the
+   phone's reading as `offline_reading` (`reader` `phone-rules` or
+   `apple-fm`, `live: true`; creates are items, anything else `other`).
+4. **The Mac answers:** the held rows go (`dropLive`) and the refresh brings
+   the Mac's rows — which also undoes any edit or delete the phone made that
+   the Mac did not. `changed`, or a Mac that committed nothing where the
+   phone changed something, is said ("Your Mac read it differently").
+   `pending` keeps the rows up to 30 min. `needs_edit` / `confirm_create`
+   bring up the edit sheet or the "add this?" prompt.
+5. **The Mac turns out to be unreachable:** the command joins the offline
+   queue, booked from the same reading (creates only, as offline).
+
+Held rows are persisted with an expiry and swept at launch, so a crash
+between the phone's answer and the Mac's cannot strand them. `live` is
+logged; `GET /offline/agreement` reports agreement `by_reader`.
+
 ## Versions: how a fix reaches the phone
 
 - **`spec_version`** is a hash of what the model is TOLD

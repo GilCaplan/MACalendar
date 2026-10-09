@@ -56,6 +56,16 @@ struct SetupGuideView: View {
                 }
             }
 
+            if !settings.phoneOnly {
+                Section {
+                    Toggle("Read on this phone first", isOn: $settings.readOnPhoneFirst)
+                } footer: {
+                    Text("This phone reads each command and does it straight away, without waiting for your Mac. "
+                         + "Your Mac reads it too in the background; its version is the one that's kept, "
+                         + "and you're told if it understood it differently.")
+                }
+            }
+
             Section {
                 Toggle("Show the connection line", isOn: $settings.showConnectionBanner)
                     .disabled(settings.phoneOnly)

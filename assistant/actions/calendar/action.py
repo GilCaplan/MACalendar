@@ -8,6 +8,7 @@ from assistant.exceptions import TargetNotFound
 from assistant.actions.base import BaseAction, BaseIntent
 from assistant.actions.calendar.intent import CalendarIntent, DeleteEventIntent, QueryScheduleIntent, UpdateEventIntent
 from assistant.intent.context import context_memory
+from assistant import clock as _clock  # the moment the command was SAID
 
 
 def _fmt_date(date_str: str) -> str:
@@ -306,7 +307,7 @@ class QueryScheduleAction(BaseAction):
         from assistant.db import get_db
         db = get_db()
 
-        today = dt.date.today()
+        today = _clock.today()
         # A named day wins over scope: scope can only say today/tomorrow/week,
         # so "friday" used to arrive as the default and answer for today.
         named = None
@@ -352,7 +353,7 @@ class QueryScheduleAction(BaseAction):
             return f"Your first event {day_label} is {ev['title']} at {_fmt_time(ev.get('start_time', ''))}."
 
         if intent.query_type == "next":
-            now_time = dt.datetime.now().strftime("%H:%M")
+            now_time = _clock.now().strftime("%H:%M")
             upcoming = [e for e in events if e.get("start_time", "") >= now_time]
             if not upcoming:
                 return f"No more events for {day_label}."
@@ -470,7 +471,7 @@ def _find_event(db, match_title: str, match_date: Optional[str], match_start_tim
         else:
             return None
 
-    today = dt.date.today().isoformat()
+    today = _clock.today().isoformat()
 
     # THE WHOLE NAME FIRST (2026-09-24, the cross-store board). "move team
     # meeting to next friday" moved 'team standup' and "cancel conference call

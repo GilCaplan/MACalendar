@@ -33,8 +33,9 @@ generating call goes through `model_protocol.route_post`, never a bare POST.
 **A phone with NO Mac reads commands itself** (DEVQA Q85,
 `MACalendar-iOS/Engine/`): a second reader on purpose, held to the FastRule
 gold by `scripts/phone_engine_board.py` and to the Mac's lexicon and calendar
-by parity tests. A paired phone never uses it (Q66: the Mac reads and wins) —
-so a fix to how a command is UNDERSTOOD still belongs in `assistant/engine/`
+by parity tests. A paired phone reads and does it FIRST, on its own copy only
+(`PhonePreview`), without waiting; the Mac's reading replaces it (Q87; Q66:
+the Mac wins) — so a fix to how a command is UNDERSTOOD still belongs in `assistant/engine/`
 first; the phone's copy follows, measured.
 
 **Both the GUI and the iPhone are clients of the API.** The GUI records audio,

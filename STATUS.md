@@ -31,7 +31,10 @@ tab when done.
 
 **Offline reader (DEVQA Q66, 2026-09-28):** away from the Mac, the phone reads
 with Apple's on-device model and books creates provisionally; the Mac re-reads
-and wins. `assistant/offline/PROTOCOL.md`; agreement at `GET /offline/agreement`.
+and wins. Since Q87 (2026-10-09) the phone reads and does every command
+FIRST even with the Mac reachable, on its own copy, without waiting; the Mac
+checks in the background and its rows replace the phone's.
+`assistant/offline/PROTOCOL.md`; agreement at `GET /offline/agreement`.
 
 **Engine improvement is PAUSED (Gil, 2026-09-28)** to gather real-usage data
 before the next cycle — no engine cycles until he restarts them.

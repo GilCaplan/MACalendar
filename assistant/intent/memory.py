@@ -559,7 +559,7 @@ class CommandMemory:
             cur = c.execute("INSERT INTO pending"
                             " (ts, source, transcript, reason, device, stream)"
                             " VALUES (?,?,?,?,?,?)",
-                            (time.time(), source, transcript, reason, device, stream))
+                            (time.time() - _said_lag(), source, transcript, reason, device, stream))
             return int(cur.lastrowid)
 
     def pending(self, include_done: bool = False) -> list[dict[str, Any]]:
@@ -609,3 +609,10 @@ def get_memory() -> CommandMemory:
         if mem is None:
             mem = _user_memories[path] = CommandMemory(path)
         return mem
+
+
+def _said_lag() -> float:
+    """A command read as of an earlier moment (a queued resend) is parked
+    with THAT moment, so the retry reads it the same way (assistant/clock)."""
+    from assistant import clock
+    return clock.behind()

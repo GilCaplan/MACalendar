@@ -21,6 +21,7 @@ from assistant.engine.decompose_validate.text_helpers import spoken_times
 from assistant.engine.state import EngineState
 
 from assistant.common.wordlists import WEEKDAY_ABBR_INDEX as _WEEKDAY_WORDS  # noqa: E402
+from assistant import clock as _clock  # the moment the command was SAID
 
 
 _REMOVE_SHAPE = re.compile(
@@ -56,7 +57,7 @@ def relative_dates(transcript: str) -> list:
     = that weekday in NEXT calendar week; 'tomorrow', 'today/tonight',
     'the 19th' handled too. Returns ISO dates.
     """
-    today = _dt.date.today()
+    today = _clock.today()
     out = []
     t = transcript.lower()
     pat = re.compile(
