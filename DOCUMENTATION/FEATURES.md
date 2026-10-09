@@ -528,7 +528,7 @@ styles on both platforms, picked from a design canvas — **waveform**, **rings*
 **sunburst** and **dancing dots** — each moving with how loud you are; Settings
 picks one per device. Phone (Settings ▸ Voice ▸ "While recording",
 `AppSettings.micVisual`): default the **waveform card** above the mic — bars,
-clock, what it has heard so far, trash. Mac (Settings ▸ Appearance ▸ "While
+clock, what it has heard so far, trash. Mac (Settings ▸ Voice ▸ "While
 listening", `ui.mic_visual`): default the **bars beside the toolbar mic**, the
 card in miniature; rings / sunburst / dots are a `MicHalo` laid over the mic,
 transparent to the mouse (`calendar_ui/mic_meter.py`, fed one RMS per chunk by

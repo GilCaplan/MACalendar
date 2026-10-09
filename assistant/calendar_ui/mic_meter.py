@@ -34,7 +34,7 @@ SILENT_AFTER_S = 2.0
 BARS = 16
 FRAME_MS = 33
 
-#: The styles Settings ▸ Appearance ▸ "While listening" offers (``ui.mic_visual``),
+#: The styles Settings ▸ Voice ▸ "While listening" offers (``ui.mic_visual``),
 #: the same four the phone has (Gil, 2026-10-09, from the design canvas).
 #: "bars" — the row beside the mic — is the Mac's default and the phone's
 #: waveform card in miniature; the other three ring the mic itself.

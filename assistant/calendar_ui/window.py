@@ -1491,7 +1491,7 @@ class CalendarWindow(QMainWindow):
 
     def _show_mic_level(self, listening: bool) -> None:
         """The live mic level while listening, in the style Settings ▸
-        Appearance ▸ "While listening" names (mic_meter.py): the bars beside
+        Voice ▸ "While listening" names (mic_meter.py): the bars beside
         the mic, or a halo of rings / sunburst / dots laid over it."""
         meter = vars(self).get("_mic_meter")
         halo = vars(self).get("_mic_halo")

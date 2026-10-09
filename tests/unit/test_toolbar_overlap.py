@@ -158,7 +158,7 @@ def test_nothing_overlaps_while_listening_at_the_minimum_width(qapp):
 @pytest.mark.parametrize("style,bars_shown", [
     ("bars", True), ("rings", False), ("sunburst", False), ("dots", False)])
 def test_the_listening_style_follows_the_setting(qapp, style, bars_shown):
-    """Settings ▸ Appearance ▸ "While listening" (ui.mic_visual): the bars
+    """Settings ▸ Voice ▸ "While listening" (ui.mic_visual): the bars
     beside the mic for "bars", a halo over the mic for the other three — and
     neither once listening stops."""
     from types import SimpleNamespace
