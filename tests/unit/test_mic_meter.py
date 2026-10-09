@@ -91,3 +91,49 @@ def test_a_broken_source_draws_silence_instead_of_raising(app):
     m.repaint()
     assert list(m._levels)[-1] == 0.0
     m.stop()
+
+
+# --- the radial styles around the mic (ui.mic_visual) ------------------------
+
+from PyQt6.QtWidgets import QPushButton, QWidget  # noqa: E402
+
+from assistant.calendar_ui.mic_meter import HALO, STYLES, MicHalo  # noqa: E402
+
+
+def test_settings_offers_the_same_four_styles_as_the_phone():
+    assert [k for k, _ in STYLES] == ["bars", "rings", "sunburst", "dots"]
+
+
+@pytest.mark.parametrize("style", ["rings", "sunburst", "dots"])
+def test_each_halo_style_draws_and_sits_centred_on_the_mic(app, style):
+    host = QWidget()
+    host.resize(400, 200)
+    mic = QPushButton("", host)
+    mic.setGeometry(300, 12, 30, 30)
+    host.show()
+    halo = MicHalo(host)
+    level = [0.0]
+    halo.start(lambda: level[0], style, anchor=mic)
+    for v in (0.0, 0.05, 0.3, 0.01):            # quiet, speech, loud, falling
+        level[0] = v
+        halo._tick()
+        halo.repaint()                          # paints every style without raising
+    assert halo.style_name == style
+    assert not halo.isHidden()
+    assert halo.geometry().center() == mic.geometry().center()
+    assert halo.width() == HALO
+    halo.stop()
+    assert halo.isHidden()
+    host.close()
+
+
+def test_an_unknown_style_falls_back_to_rings(app):
+    halo = MicHalo()
+    halo.start(lambda: 0.0, "confetti")
+    assert halo.style_name == "rings"
+    halo.stop()
+
+
+def test_the_halo_never_takes_the_click_meant_for_the_mic(app):
+    from PyQt6.QtCore import Qt
+    assert MicHalo().testAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)

@@ -233,6 +233,17 @@ class AppSettings: ObservableObject {
     @Published var silenceStopSeconds: Double {
         didSet { UserDefaults.standard.set(silenceStopSeconds, forKey: "silenceStopSeconds") }
     }
+    /// How the mic shows it is hearing you (Gil, 2026-10-09, chosen from the
+    /// design canvas): "card" — the waveform card, the default — "rings",
+    /// "sunburst" or "dots". Unknown values read as the default.
+    @Published var micVisual: String {
+        didSet { UserDefaults.standard.set(micVisual, forKey: "micVisual") }
+    }
+    struct MicVisual: Identifiable { let id: String; let label: String }
+    static let micVisuals: [MicVisual] = [
+        MicVisual(id: "card", label: "Card"), MicVisual(id: "rings", label: "Rings"),
+        MicVisual(id: "sunburst", label: "Sunburst"), MicVisual(id: "dots", label: "Dots"),
+    ]
 
     // First-run vocabulary interview shown/skipped (local-only flag).
     @Published var vocabOnboardingDone: Bool {
@@ -316,6 +327,8 @@ class AppSettings: ObservableObject {
             ? true : UserDefaults.standard.bool(forKey: "silenceStopEnabled")
         let sil = UserDefaults.standard.double(forKey: "silenceStopSeconds")
         self.silenceStopSeconds = sil == 0 ? 6 : sil
+        let visual = UserDefaults.standard.string(forKey: "micVisual") ?? "card"
+        self.micVisual = AppSettings.micVisuals.contains { $0.id == visual } ? visual : "card"
         self.vocabOnboardingDone = UserDefaults.standard.bool(forKey: "vocabOnboardingDone")
         self.shownHints = UserDefaults.standard.stringArray(forKey: "shownHints") ?? []
         self.remindersEnabled = UserDefaults.standard.object(forKey: "remindersEnabled") == nil

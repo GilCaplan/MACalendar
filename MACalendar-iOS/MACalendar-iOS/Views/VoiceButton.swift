@@ -130,6 +130,15 @@ struct VoiceButton: View {
                 .fixedSize()
                 .offset(y: -44)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
+            } else if status == .recording && settings.micVisual == "card" {
+                // The default style (Settings ▸ Voice ▸ While recording): a
+                // card above the mic, its bottom 12 pt over the mic's top.
+                WaveformCard(levels: recorder.levels, startedAt: recorder.startedAt,
+                             soundSeen: recorder.soundSeen, heard: recorder.liveText,
+                             onDiscard: { discard() })
+                    .fixedSize()
+                    .alignmentGuide(.top) { d in d[.bottom] + 12 }
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
             } else if status == .recording {
                 // Stopping the recording sends it — on the countdown path or
                 // straight away. Until this there was no way to change your
@@ -284,7 +293,12 @@ struct VoiceButton: View {
                 // Rings that swell with your voice — the live sign the phone
                 // is hearing you. Replaced a "pulsing" ring that never moved.
                 if status == .recording {
-                    MicLevelRings(level: recorder.level)
+                    switch settings.micVisual {
+                    case "rings":    MicLevelRings(level: recorder.level)
+                    case "sunburst": MicSunburst(levels: recorder.levels)
+                    case "dots":     MicDots(levels: recorder.levels)
+                    default:         EmptyView()      // "card": the card above is the meter
+                    }
                 }
                 Circle()
                     .fill(buttonColor)
@@ -1228,5 +1242,122 @@ private struct ListeningMeter: View {
     private static func clock(_ t: TimeInterval) -> String {
         let s = Int(t)
         return String(format: "%d:%02d", s / 60, s % 60)
+    }
+}
+
+/// The default style: a card above the mic with a full-width waveform, the
+/// clock, what the phone has heard so far, and a trash button.
+private struct WaveformCard: View {
+    let levels: [Float]
+    let startedAt: Date?
+    let soundSeen: Bool
+    let heard: String
+    let onDiscard: () -> Void
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.5)) { tl in
+            let elapsed = startedAt.map { tl.date.timeIntervalSince($0) } ?? 0
+            let silent = !soundSeen && elapsed > 2
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Circle().fill(silent ? Color.orange : Color.red).frame(width: 8, height: 8)
+                    Text(silent ? "No sound — check the mic" : "Listening")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundColor(silent ? .orange : .red)
+                    Spacer()
+                    Text(String(format: "%d:%02d", Int(elapsed) / 60, Int(elapsed) % 60))
+                        .font(.footnote).monospacedDigit().foregroundColor(.secondary)
+                    Button(role: .destructive, action: onDiscard) {
+                        Image(systemName: "trash").font(.footnote)
+                    }
+                    .buttonStyle(.bordered).controlSize(.small).tint(.red)
+                    .accessibilityLabel("Discard recording")
+                }
+                HStack(alignment: .center, spacing: 3) {
+                    ForEach(Array(levels.enumerated()), id: \.offset) { i, v in
+                        Capsule()
+                            .fill(silent ? Color.orange : Self.colour(i, of: levels.count))
+                            .frame(width: 6, height: 4 + CGFloat(v) * 44)
+                    }
+                }
+                .frame(height: 48)
+                .animation(.linear(duration: 0.05), value: levels)
+                if !heard.isEmpty {
+                    Text(heard)
+                        .font(.subheadline)
+                        .lineLimit(2)
+                        .truncationMode(.head)
+                        .frame(width: 280, alignment: .leading)
+                }
+            }
+            .padding(14)
+            .frame(width: 308)
+            .background(.regularMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .shadow(radius: 3)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(silent ? "Recording, but no sound is reaching the microphone"
+                                       : "Recording, \(Int(elapsed)) seconds")
+        }
+    }
+
+    /// Red on the left warming to amber on the right, as on the design canvas.
+    static func colour(_ i: Int, of n: Int) -> Color {
+        let t = n > 1 ? Double(i) / Double(n - 1) : 0
+        return Color(red: 1, green: (69 + 90 * t) / 255, blue: (58 - 48 * t) / 255)
+    }
+}
+
+/// Rays all the way round the mic, each as long as the voice was a moment
+/// ago — neighbours read different moments, so it ripples rather than pulses.
+private struct MicSunburst: View {
+    let levels: [Float]
+    private let rays = 32
+
+    var body: some View {
+        ZStack {
+            ForEach(0..<rays, id: \.self) { i in
+                let v = levels.isEmpty ? 0 : CGFloat(levels[(i * 7) % levels.count])
+                let warm = abs(sin(Double(i) * .pi / Double(rays)))
+                Capsule()
+                    .fill(Color(red: 1, green: (69 + 100 * warm) / 255, blue: (58 - 40 * warm) / 255))
+                    .frame(width: 3.5, height: 6 + v * 28)
+                    .offset(y: -(38 + (6 + v * 28) / 2))
+                    .rotationEffect(.degrees(Double(i) * 360 / Double(rays)))
+            }
+        }
+        .frame(width: 64, height: 64)
+        .animation(.easeOut(duration: 0.08), value: levels)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// A ring of coloured dots that hop outward and grow with the voice.
+private struct MicDots: View {
+    let levels: [Float]
+    private let count = 16
+    private let palette: [Color] = [
+        Color(red: 1, green: 0.27, blue: 0.23), Color(red: 1, green: 0.62, blue: 0.04),
+        Color(red: 1, green: 0.84, blue: 0.04), Color(red: 1, green: 0.41, blue: 0.38),
+        Color(red: 0.75, green: 0.35, blue: 0.95), Color(red: 1, green: 0.22, blue: 0.37),
+    ]
+
+    var body: some View {
+        ZStack {
+            ForEach(0..<count, id: \.self) { i in
+                let v = levels.isEmpty ? 0 : CGFloat(levels[(i * 5 + 3) % levels.count])
+                Circle()
+                    .fill(palette[i % palette.count])
+                    .frame(width: 10, height: 10)
+                    .scaleEffect(0.7 + v * 0.8)
+                    .offset(y: -(40 + v * 24))
+                    .rotationEffect(.degrees(Double(i) * 360 / Double(count)))
+            }
+        }
+        .frame(width: 64, height: 64)
+        .animation(.spring(response: 0.18, dampingFraction: 0.55), value: levels)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }

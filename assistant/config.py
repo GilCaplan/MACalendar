@@ -142,6 +142,10 @@ class UIConfig(BaseModel):
     # The view the calendar window opens on (Settings → Appearance). Week by
     # default (Gil, 2026-09-24); the phone keeps its own choice.
     start_view: Literal["month", "week", "day", "agenda"] = "week"
+    # How the toolbar mic shows it is hearing you while it listens
+    # (calendar_ui/mic_meter.py, Gil 2026-10-09): bars beside it, or rings,
+    # a sunburst or dancing dots around it. The phone keeps its own choice.
+    mic_visual: Literal["bars", "rings", "sunburst", "dots"] = "bars"
     # The hours Week and Day fit to the window, first to last (24 = midnight);
     # the rest stay a scroll away (calendar_ui/visible_hours.py).
     hours_from: int = 0

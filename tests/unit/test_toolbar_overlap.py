@@ -155,6 +155,33 @@ def test_nothing_overlaps_while_listening_at_the_minimum_width(qapp):
         host.close()
 
 
+@pytest.mark.parametrize("style,bars_shown", [
+    ("bars", True), ("rings", False), ("sunburst", False), ("dots", False)])
+def test_the_listening_style_follows_the_setting(qapp, style, bars_shown):
+    """Settings ▸ Appearance ▸ "While listening" (ui.mic_visual): the bars
+    beside the mic for "bars", a halo over the mic for the other three — and
+    neither once listening stops."""
+    from types import SimpleNamespace
+    win, host, bar = _hosted_toolbar(qapp)
+    try:
+        win._config = SimpleNamespace(ui=SimpleNamespace(mic_visual=style))
+        win._pipeline = SimpleNamespace(mic_level=0.1)
+        win._show_mic_level(True)
+        qapp.processEvents()
+        assert win._mic_meter.isHidden() is (not bars_shown)
+        halo = vars(win).get("_mic_halo")
+        if bars_shown:
+            assert halo is None or halo.isHidden()
+        else:
+            assert halo is not None and not halo.isHidden()
+            assert halo.style_name == style
+        win._show_mic_level(False)
+        assert win._mic_meter.isHidden()
+        assert halo is None or halo.isHidden()
+    finally:
+        host.close()
+
+
 def test_search_box_shrinks_instead_of_forcing_overlap(qapp):
     """The specific fix: the search box now gives ground under pressure —
     its minimumSizeHint (what the layout shrinks it toward) is below its
