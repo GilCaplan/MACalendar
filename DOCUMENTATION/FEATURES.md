@@ -523,11 +523,16 @@ the audio is dropped before any upload, so nothing is transcribed, executed or
 remembered. On the phone `cancel()` also clears the PCM buffer, which
 `start(resume: true)` ("Add more") deliberately keeps.
 **You can SEE it hearing you** (2026-10-09 — Gil: *"see that the audio is
-being captured so that I know that I'm not just talking to the air"*). While
-it listens, the phone's mic grows three rings that swell with your voice and
-its chip shows a scrolling bar waveform with a clock; the Mac shows the same
-bars beside the toolbar mic (`calendar_ui/mic_meter.py`, fed one RMS per
-chunk by `AudioCapture`'s `level_callback`). Both use one scale, −55 dB (empty)
+being captured so that I know that I'm not just talking to the air"*). Four
+styles on both platforms, picked from a design canvas — **waveform**, **rings**,
+**sunburst** and **dancing dots** — each moving with how loud you are; Settings
+picks one per device. Phone (Settings ▸ Voice ▸ "While recording",
+`AppSettings.micVisual`): default the **waveform card** above the mic — bars,
+clock, what it has heard so far, trash. Mac (Settings ▸ Voice ▸ "While
+listening", `ui.mic_visual`): default the **bars beside the toolbar mic**, the
+card in miniature; rings / sunburst / dots are a `MicHalo` laid over the mic,
+transparent to the mouse (`calendar_ui/mic_meter.py`, fed one RMS per chunk by
+`AudioCapture`'s `level_callback`). Both use one scale, −55 dB (empty)
 to −10 dB (full), and both turn orange — "No sound — check the mic" — when
 nothing louder than the room has arrived after two seconds. The phone's
 "Sending" step then says what was captured ("4.2 s of audio, loudest −18 dB"),

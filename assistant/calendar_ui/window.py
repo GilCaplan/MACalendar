@@ -1489,6 +1489,33 @@ class CalendarWindow(QMainWindow):
         bar.move(x, 58)
         bar.raise_()
 
+    def _show_mic_level(self, listening: bool) -> None:
+        """The live mic level while listening, in the style Settings ▸
+        Voice ▸ "While listening" names (mic_meter.py): the bars beside
+        the mic, or a halo of rings / sunburst / dots laid over it."""
+        meter = vars(self).get("_mic_meter")
+        halo = vars(self).get("_mic_halo")
+        if meter is None:
+            return
+        style = getattr(getattr(self._config, "ui", None), "mic_visual", "bars")
+        if not listening or self._pipeline is None:
+            meter.stop()
+            if halo is not None:
+                halo.stop()
+            return
+        pipe = self._pipeline
+        source = lambda: getattr(pipe, "mic_level", 0.0)  # noqa: E731
+        if style == "bars":
+            meter.start(source)
+            if halo is not None:
+                halo.stop()
+            return
+        meter.stop()
+        if halo is None:
+            from assistant.calendar_ui.mic_meter import MicHalo
+            halo = self._mic_halo = MicHalo(self._mic_btn.window())
+        halo.start(source, style, anchor=self._mic_btn)
+
     def _handle_status(self, status: str, message: str = "") -> None:
         icon = _MIC_ICONS.get(status, "mic")
         obj_name = _MIC_OBJ_NAMES.get(status, "mic_idle")
@@ -1506,13 +1533,7 @@ class CalendarWindow(QMainWindow):
         # Only offered while there is a recording to throw away; the review bar
         # carries its own trash button for the few seconds it is up.
         self._discard_btn.setVisible(status == STATUS_LISTENING)
-        meter = vars(self).get("_mic_meter")
-        if meter is not None:
-            if status == STATUS_LISTENING and self._pipeline is not None:
-                pipe = self._pipeline
-                meter.start(lambda: getattr(pipe, "mic_level", 0.0))
-            else:
-                meter.stop()
+        self._show_mic_level(status == STATUS_LISTENING)
 
         if status == STATUS_REVIEW:
             # The message is "<seconds>|<transcript snippet>" for the review bar,

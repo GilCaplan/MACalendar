@@ -1249,6 +1249,18 @@ def open_settings(self) -> None:
     phrase_form = QFormLayout()
     phrase_form.setSpacing(8)
     phrase_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+    # With the other recording options, as on the phone (Settings ▸ Voice):
+    # how the mic shows it is hearing you. Stored as ui.mic_visual.
+    from assistant.calendar_ui.mic_meter import STYLES as _MIC_STYLES
+    mic_visual_combo = QComboBox()
+    mic_visual_combo.setObjectName("mic_visual")
+    for _mode, _label in _MIC_STYLES:
+        mic_visual_combo.addItem(_label, _mode)
+    mic_visual_combo.setCurrentIndex(max(0, mic_visual_combo.findData(
+        getattr(self._config.ui, "mic_visual", "bars"))))
+    mic_visual_combo.setToolTip("How the mic shows it is hearing you while it listens")
+    phrase_form.addRow("While listening:", mic_visual_combo)
+
     stop_phrases_edit = QLineEdit()
     stop_phrases_edit.setPlaceholderText("e.g. finish, that's all, stop recording")
     stop_phrases_edit.setText(", ".join(self._config.audio.stop_phrases or []))
@@ -1614,6 +1626,7 @@ def open_settings(self) -> None:
                         "voice": voice_combo.currentText(),
                         "rate": speed_spin.value()},
                 "ui": {"start_view": start_view_combo.currentData(),
+                       "mic_visual": mic_visual_combo.currentData(),
                        "hours_from": _checked_hours()[0],
                        "hours_to": _checked_hours()[1],
                        "week_starts": week_starts_combo.currentData(),
@@ -1696,6 +1709,7 @@ def open_settings(self) -> None:
                 # Apply changes immediately
                 self._config.confirmation_level = 0 if auto_cb.isChecked() else 1
                 self._config.ui.start_view = start_view_combo.currentData()
+                self._config.ui.mic_visual = mic_visual_combo.currentData()
                 self._config.ui.hours_from, self._config.ui.hours_to = _checked_hours()
                 _occ_cfg = getattr(self._config, "occasions", None)
                 for _k, _v in _occasions_values().items():
