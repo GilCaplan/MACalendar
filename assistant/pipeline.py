@@ -169,6 +169,11 @@ class Pipeline:
         self._confirm_choice: Optional[bool] = None
         self._last_listen_press: float = 0.0  # monotonic time of last press during STATUS_LISTENING
 
+        # The mic's loudness right now (chunk RMS, 0..1), written on the audio
+        # thread and read by the window's meter while it listens. A bare float:
+        # one writer, a reader that only paints it.
+        self.mic_level: float = 0.0
+
         self.on_auth_expired: Optional[Callable[[], None]] = None
         # Set by the UI when the active view changes; used to inject parse context
         self.current_view: str = "month"
@@ -395,9 +400,11 @@ class Pipeline:
                 logger.error("Stream checker error: %s", e)
 
         try:
+            self.mic_level = 0.0          # no leftover from the last take
             audio = self._audio.record_until_silence(
                 streaming_callback=stream_checker,
-                streaming_interval_sec=2.5
+                streaming_interval_sec=2.5,
+                level_callback=self._on_mic_level,
             )
         except AudioCaptureError as e:
             msg = str(e)
@@ -481,8 +488,10 @@ class Pipeline:
             _last_partial[0], _last_partial[1] = "", 0.0
             _stopped_early[0] = False
             try:
+                self.mic_level = 0.0          # no leftover from the last take
                 more = self._audio.record_until_silence(
-                    streaming_callback=stream_checker, streaming_interval_sec=2.5)
+                    streaming_callback=stream_checker, streaming_interval_sec=2.5,
+                    level_callback=self._on_mic_level)
             except AudioCaptureError as e:
                 logger.error("Audio capture error on %s: %s", choice, e)
                 self._set_status(STATUS_ERROR, "Microphone error")
@@ -935,6 +944,9 @@ class Pipeline:
             return
         from assistant import trace_bus
         trace_bus.publish_result(self._trace_run, fields)
+
+    def _on_mic_level(self, rms: float) -> None:
+        self.mic_level = rms
 
     def _set_status(self, status: str, message: str = "") -> None:
         """Push (status, message) to the queue. Message is shown as a UI toast."""

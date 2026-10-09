@@ -135,7 +135,8 @@ struct VoiceButton: View {
                 // straight away. Until this there was no way to change your
                 // mind mid-sentence except to let the command run and undo it.
                 HStack(spacing: 6) {
-                    Text("Listening…").foregroundColor(.secondary)
+                    ListeningMeter(levels: recorder.levels, startedAt: recorder.startedAt,
+                                   soundSeen: recorder.soundSeen)
                     discardButton
                 }
                 .font(.caption.weight(.medium))
@@ -280,6 +281,11 @@ struct VoiceButton: View {
     private var micButton: some View {
         Button(action: handleTap) {
             ZStack {
+                // Rings that swell with your voice — the live sign the phone
+                // is hearing you. Replaced a "pulsing" ring that never moved.
+                if status == .recording {
+                    MicLevelRings(level: recorder.level)
+                }
                 Circle()
                     .fill(buttonColor)
                     .frame(width: 60, height: 60)
@@ -293,14 +299,6 @@ struct VoiceButton: View {
                         .foregroundColor(iconColor)
                 }
 
-                // Pulsing ring when recording
-                if status == .recording {
-                    Circle()
-                        .stroke(Color.red.opacity(0.4), lineWidth: 3)
-                        .frame(width: 72, height: 72)
-                        .scaleEffect(1.0)
-                        .animation(.easeInOut(duration: 0.8).repeatForever(), value: status == .recording)
-                }
             }
         }
         .accessibilityIdentifier("mic-button")
@@ -369,6 +367,17 @@ struct VoiceButton: View {
                 }
             }
         }
+    }
+
+    /// What the phone captured, said once in the "Sending" step: "4.2 s of
+    /// audio, loudest −18 dB". A command that comes back as only "execute"
+    /// can then be placed — a second of audio is the phone, five is the Mac.
+    private var captureNote: String {
+        guard let c = recorder.lastCapture else { return "" }
+        var note = String(format: "\n%.1f s of audio, loudest %.0f dB", c.seconds, c.peakDb)
+        if c.peakDb < -45 { note += " — very quiet; check the mic" }
+        if c.restarts > 0 { note += " · audio route changed \(c.restarts)× mid-recording" }
+        return note
     }
 
     private var buttonColor: Color {
@@ -601,7 +610,8 @@ struct VoiceButton: View {
             eggPlayed = EggStore.shared.heard(recorder.liveText, bare: false)
             EggWaits.shared.end(eggWait); eggWait = nil
             if settings.showThinking {
-                steps = [TraceStep(stage: "stt", title: "Sending", detail: "Uploading audio to your Mac…",
+                steps = [TraceStep(stage: "stt", title: "Sending",
+                                   detail: "Uploading audio to your Mac…" + captureNote,
                                    ms: 0, atMs: 0, ok: true)]
                 showThinking = true
             }
@@ -1151,5 +1161,72 @@ private struct ShortSheet: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+
+// MARK: - Live mic level (Gil, 2026-10-09: "pops out and changes dynamically
+// according to how loud the input is — just see that it's captured")
+
+/// Three soft rings behind the mic button, each swelling with the voice by a
+/// different amount, so a word reads as a ripple outwards.
+private struct MicLevelRings: View {
+    let level: Float
+
+    var body: some View {
+        let l = CGFloat(level)
+        ZStack {
+            ForEach(0..<3, id: \.self) { i in
+                let reach: CGFloat = [0.35, 0.65, 0.95][i]
+                Circle()
+                    .fill(RadialGradient(colors: [Color.red.opacity(0.35 - Double(i) * 0.09), .clear],
+                                         center: .center, startRadius: 24, endRadius: 50))
+                    .overlay(Circle().stroke(Color.red.opacity(0.5 - Double(i) * 0.14),
+                                             lineWidth: 2))
+                    .frame(width: 64, height: 64)
+                    .scaleEffect(1 + l * reach)
+                    .opacity(0.35 + Double(l) * 0.65)
+            }
+        }
+        .animation(.spring(response: 0.16, dampingFraction: 0.6), value: level)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// The recording chip: a scrolling bar waveform of the last second or so and
+/// a clock — or, while nothing louder than room noise has arrived, "No sound".
+private struct ListeningMeter: View {
+    let levels: [Float]
+    let startedAt: Date?
+    let soundSeen: Bool
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.5)) { tl in
+            let elapsed = startedAt.map { tl.date.timeIntervalSince($0) } ?? 0
+            let silent = !soundSeen && elapsed > 2
+            HStack(spacing: 6) {
+                HStack(alignment: .center, spacing: 2) {
+                    ForEach(Array(levels.enumerated()), id: \.offset) { _, v in
+                        Capsule()
+                            .fill(silent ? Color.orange : Color.red.opacity(0.55 + Double(v) * 0.45))
+                            .frame(width: 2.5, height: 3 + CGFloat(v) * 17)
+                    }
+                }
+                .frame(height: 20)
+                .animation(.linear(duration: 0.05), value: levels)
+                Text(silent ? "No sound — check the mic" : Self.clock(elapsed))
+                    .monospacedDigit()
+                    .foregroundColor(silent ? .orange : .secondary)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(silent ? "Recording, but no sound is reaching the microphone"
+                                       : "Recording, \(Int(elapsed)) seconds")
+        }
+    }
+
+    private static func clock(_ t: TimeInterval) -> String {
+        let s = Int(t)
+        return String(format: "%d:%02d", s / 60, s % 60)
     }
 }
