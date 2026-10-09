@@ -353,7 +353,7 @@ filters out by default.
 
     pytest tests/unit                 # fast, no model needed
     pytest tests/integration          # needs Ollama; skips without it
-    pytest tests/                     # what CI runs
+    scripts/run_tests.sh              # what CI runs: tests/, each Qt file in its own process
 
 **Use the project venv — `./.venv/bin/python -m pytest`.** A bare `python` may
 be a pyenv shim without `astral`, `pytest` or spaCy, and the suite then reports

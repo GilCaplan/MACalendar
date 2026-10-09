@@ -63,16 +63,37 @@ def scratch_restored(tmp_path_factory):
 @pytest.fixture
 def quarantine(monkeypatch):
     """Nothing a click does may leave this process."""
+    # The mic's audio library finds PortAudio with a real subprocess
+    # (ctypes.util.find_library -> ldconfig) on its FIRST import. In the
+    # shared suite an earlier file already did that; run alone (CI runs each
+    # Qt file in its own process, 2026-10-06) it happened under the stub below
+    # and failed. Do it here, for real, before Popen is replaced.
+    try:
+        import sounddevice  # noqa: F401
+    except OSError:
+        pass
     import subprocess
     import webbrowser
     from PyQt6.QtGui import QColor, QDesktopServices
     from PyQt6.QtWidgets import QColorDialog, QFileDialog, QFontDialog, QInputDialog
 
     class _Done:
-        returncode, stdout, stderr, pid = 0, "", "", 0
+        """A process that ran and printed nothing. A context manager with
+        readable (empty) pipes too: ctypes.util.find_library runs
+        `with Popen(["/sbin/ldconfig", "-p"]) as p: p.stdout.read()` the first
+        time a library is looked up, which in a process of its own (CI runs
+        each Qt file alone, 2026-10-06) happens inside this test."""
+        returncode, pid = 0, 0
 
         def __init__(self, *a, **k):
-            pass
+            import io
+            self.stdout, self.stderr = io.BytesIO(b""), io.BytesIO(b"")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
 
         def communicate(self, *a, **k):
             return "", ""

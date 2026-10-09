@@ -2526,7 +2526,10 @@ class TodoView(FeaturePanel):
         """Persist a scalar under the top-level `todo:` block of config.yaml."""
         import os
         import re
-        config_path = os.path.abspath("config.yaml")
+        # MACALENDAR_CONFIG first (config_store.CONFIG_PATH): the cwd-relative
+        # path made a UI test that clicked tag mode or the sync mode write the
+        # REAL config.yaml — and two suites at once tore it (2026-10-06).
+        from assistant.config_store import CONFIG_PATH as config_path
         if not os.path.exists(config_path):
             return
         try:
@@ -2588,7 +2591,10 @@ class TodoView(FeaturePanel):
     def _write_sync_mode_to_config(self, mode: str) -> None:
         import os
         import re
-        config_path = os.path.abspath("config.yaml")
+        # MACALENDAR_CONFIG first (config_store.CONFIG_PATH): the cwd-relative
+        # path made a UI test that clicked tag mode or the sync mode write the
+        # REAL config.yaml — and two suites at once tore it (2026-10-06).
+        from assistant.config_store import CONFIG_PATH as config_path
         if not os.path.exists(config_path):
             return
         try:
