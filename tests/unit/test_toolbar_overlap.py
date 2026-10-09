@@ -138,6 +138,23 @@ def test_toolbar_widgets_never_overlap_at_the_minimum_window_width(qapp):
         host.close()
 
 
+def test_nothing_overlaps_while_listening_at_the_minimum_width(qapp):
+    """Mid-recording the toolbar grows two widgets: the live level meter
+    (mic_meter.py, 2026-10-09) and the discard button. Both are hidden in the
+    tests above, so this is the only one that sees the listening toolbar."""
+    win, host, bar = _hosted_toolbar(qapp)
+    try:
+        win._mic_meter.start(lambda: 0.1)
+        win._discard_btn.setVisible(True)
+        host.resize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
+        qapp.processEvents()
+        assert not win._mic_meter.isHidden()
+        _assert_no_overlaps(bar)
+    finally:
+        win._mic_meter.stop()
+        host.close()
+
+
 def test_search_box_shrinks_instead_of_forcing_overlap(qapp):
     """The specific fix: the search box now gives ground under pressure —
     its minimumSizeHint (what the layout shrinks it toward) is below its

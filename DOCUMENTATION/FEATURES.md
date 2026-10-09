@@ -522,6 +522,19 @@ non-loopback sockets in the build. Discarding happens entirely client-side —
 the audio is dropped before any upload, so nothing is transcribed, executed or
 remembered. On the phone `cancel()` also clears the PCM buffer, which
 `start(resume: true)` ("Add more") deliberately keeps.
+**You can SEE it hearing you** (2026-10-09 — Gil: *"see that the audio is
+being captured so that I know that I'm not just talking to the air"*). While
+it listens, the phone's mic grows three rings that swell with your voice and
+its chip shows a scrolling bar waveform with a clock; the Mac shows the same
+bars beside the toolbar mic (`calendar_ui/mic_meter.py`, fed one RMS per
+chunk by `AudioCapture`'s `level_callback`). Both use one scale, −55 dB (empty)
+to −10 dB (full), and both turn orange — "No sound — check the mic" — when
+nothing louder than the room has arrived after two seconds. The phone's
+"Sending" step then says what was captured ("4.2 s of audio, loudest −18 dB"),
+which tells a phone dropout from a Mac mishearing, and its recorder restarts
+the audio engine when iOS reconfigures it mid-take (AirPods, a call) instead
+of capturing nothing for the rest of the sentence.
+
 **Changing your mind while it thinks** (phone, 2026-10-01 — Gil: *"why can't i
 rerecord or cancel prompt … support cancelling/rerecording/adding to original
 prompt more audio"*). The mic used to be disabled until the reply came. Now

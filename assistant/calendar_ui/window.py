@@ -741,6 +741,11 @@ class CalendarWindow(QMainWindow):
         layout.addWidget(self._type_btn, alignment=v_center)
         self._update_theme_btn()                 # draws the keyboard in the theme's ink
 
+        # The live level beside the mic while it listens (mic_meter.py).
+        from assistant.calendar_ui.mic_meter import MicLevelMeter
+        self._mic_meter = MicLevelMeter()     # the layout parents it
+        layout.addWidget(self._mic_meter, alignment=v_center)
+
         self._mic_btn = QPushButton("")
         self._mic_btn.setObjectName("mic_idle")
         from PyQt6.QtCore import QSize as _QSize
@@ -1501,6 +1506,13 @@ class CalendarWindow(QMainWindow):
         # Only offered while there is a recording to throw away; the review bar
         # carries its own trash button for the few seconds it is up.
         self._discard_btn.setVisible(status == STATUS_LISTENING)
+        meter = vars(self).get("_mic_meter")
+        if meter is not None:
+            if status == STATUS_LISTENING and self._pipeline is not None:
+                pipe = self._pipeline
+                meter.start(lambda: getattr(pipe, "mic_level", 0.0))
+            else:
+                meter.stop()
 
         if status == STATUS_REVIEW:
             # The message is "<seconds>|<transcript snippet>" for the review bar,
