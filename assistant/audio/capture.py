@@ -59,6 +59,7 @@ class AudioCapture:
         self,
         streaming_callback: Optional[Callable[[np.ndarray], None]] = None,
         streaming_interval_sec: float = 2.0,
+        level_callback: Optional[Callable[[float], None]] = None,
     ) -> np.ndarray:
         """
         Open the mic and accumulate audio chunks.
@@ -67,6 +68,10 @@ class AudioCapture:
 
         streaming_callback receives already-resampled 16 kHz audio every
         streaming_interval_sec so the stream-checker STT always gets valid input.
+
+        level_callback receives every chunk's RMS (0..1, float audio) on the
+        audio thread — the window's live meter. It must be cheap and never
+        raise; an exception from it is swallowed so the recording goes on.
 
         Returns: float32 numpy array at WHISPER_RATE (16 kHz), shape (N,).
         """
@@ -103,6 +108,11 @@ class AudioCapture:
             chunk_count[0] += 1
 
             rms = float(np.sqrt(np.mean(chunk ** 2)))
+            if level_callback is not None:
+                try:
+                    level_callback(rms)
+                except Exception:  # noqa: BLE001 — a meter must never end a recording
+                    pass
 
             if chunk_count[0] <= calibration_chunks:
                 calibration_rms.append(rms)

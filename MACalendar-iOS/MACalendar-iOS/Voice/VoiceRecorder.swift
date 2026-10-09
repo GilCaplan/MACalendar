@@ -32,6 +32,32 @@ class VoiceRecorder: NSObject, ObservableObject {
     /// Live on-device partial transcript (for the thinking sheet's "hearing…" row).
     @Published var liveText = ""
 
+    /// How loud the mic is RIGHT NOW, 0…1 (−55 dB…−10 dB), smoothed: fast up,
+    /// slower down. Drives the rings and the waveform, so you can see the
+    /// phone is hearing you rather than talking to the air (Gil, 2026-10-09).
+    @Published private(set) var level: Float = 0
+    /// The last `historyCount` levels, oldest first — the scrolling waveform.
+    @Published private(set) var levels: [Float] = Array(repeating: 0, count: VoiceRecorder.historyCount)
+    static let historyCount = 28
+    /// When this recording (not its resume) started — the chip's clock.
+    @Published private(set) var startedAt: Date?
+    /// Anything louder than room noise has arrived since the take began. The
+    /// chip turns to "No sound" while it is false, so a dead mic shows within
+    /// two seconds instead of after the whole sentence.
+    @Published private(set) var soundSeen = false
+
+    /// What the last recording actually captured — said in the thinking
+    /// panel, so "it only heard 'execute'" can be told apart: 0.6 s captured
+    /// is the phone, 5 s captured is the Mac.
+    struct Capture: Equatable {
+        var seconds: Double
+        var peakDb: Float           // loudest buffer, dBFS
+        var restarts: Int           // times iOS reconfigured the engine mid-take
+    }
+    @Published private(set) var lastCapture: Capture?
+    private var peakDb: Float = -120
+    private var restarts = 0
+
     /// Same defaults as the Mac (`config.audio` stop words); extra words from Settings.
     static let defaultStopWords = ["execute", "done", "go", "stop", "submit", "confirm"]
     var stopWords: [String] = VoiceRecorder.defaultStopWords
@@ -51,7 +77,17 @@ class VoiceRecorder: NSObject, ObservableObject {
     private(set) var stopReason: StopReason = .manual
 
     private let engine = AVAudioEngine()
-    private var pcm = Data()
+    /// The 16 kHz PCM, appended ON the tap thread under a lock. It used to be
+    /// handed to the main actor one Task per buffer, so stop() read it before
+    /// the last buffers landed (the tail was dropped) and a new recording's
+    /// reset could be followed by the previous one's stragglers.
+    private nonisolated let pcmLock = NSLock()
+    private nonisolated(unsafe) var pcmStore = Data()
+    private var pcm: Data {
+        get { pcmLock.lock(); defer { pcmLock.unlock() }; return pcmStore }
+        set { pcmLock.lock(); pcmStore = newValue; pcmLock.unlock() }
+    }
+    private var configObserver: NSObjectProtocol?
     // Touched from the audio tap thread; the converter is created before the tap starts.
     private nonisolated(unsafe) var converter: AVAudioConverter?
     private nonisolated let targetFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16000, channels: 1, interleaved: true)!
@@ -79,8 +115,12 @@ class VoiceRecorder: NSObject, ObservableObject {
     // MARK: - Start / stop
 
     func start(resume: Bool = false) {
-        if !resume { pcm = Data(); liveText = "" }
+        if !resume {
+            pcm = Data(); liveText = ""
+            peakDb = -120; restarts = 0; startedAt = Date(); soundSeen = false
+        }
         heardSpeech = false; stopping = false; lastVoiceAt = Date(); stopReason = .manual
+        level = 0; levels = Array(repeating: 0, count: Self.historyCount)
         isRecording = true
         let token = UUID()
         startToken = token
@@ -95,10 +135,6 @@ class VoiceRecorder: NSObject, ObservableObject {
 
     /// The mic, once the session is on.
     private func startEngine() {
-        let input = engine.inputNode
-        let inFormat = input.outputFormat(forBus: 0)
-        converter = AVAudioConverter(from: inFormat, to: targetFormat)
-
         // On-device stop-word listener (optional — recording works without it)
         if stopWordsEnabled || transcribe, SFSpeechRecognizer.authorizationStatus() == .authorized {
             let rec = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
@@ -120,18 +156,23 @@ class VoiceRecorder: NSObject, ObservableObject {
             }
         }
 
-        input.removeTap(onBus: 0)
-        input.installTap(onBus: 0, bufferSize: 2048, format: inFormat) { [weak self] buffer, _ in
-            guard let self else { return }
-            self.request?.append(buffer)
-            self.appendConverted(buffer)
-            let level = Self.rms(buffer)
-            Task { @MainActor in
-                if level > 0.012 { self.lastVoiceAt = Date(); self.heardSpeech = true }
+        tapAndRun()
+
+        // iOS stops the engine when the audio route or format changes under it
+        // — AirPods connecting, a call, another app taking the mic — and never
+        // starts it again: the recording carried on in name, capturing nothing,
+        // until something restarted it. Pick it straight back up instead.
+        if configObserver == nil {
+            configObserver = NotificationCenter.default.addObserver(
+                forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self, self.isRecording, !self.stopping else { return }
+                    self.restarts += 1
+                    self.tapAndRun()
+                }
             }
         }
-        engine.prepare()
-        try? engine.start()
 
         silenceTimer?.invalidate()
         silenceTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
@@ -144,11 +185,47 @@ class VoiceRecorder: NSObject, ObservableObject {
         }
     }
 
+    /// (Re)install the tap at the input's CURRENT format and run the engine —
+    /// at the start, and again after iOS reconfigures it mid-recording.
+    private func tapAndRun() {
+        let input = engine.inputNode
+        let inFormat = input.outputFormat(forBus: 0)
+        converter = AVAudioConverter(from: inFormat, to: targetFormat)
+        input.removeTap(onBus: 0)
+        input.installTap(onBus: 0, bufferSize: 2048, format: inFormat) { [weak self] buffer, _ in
+            guard let self else { return }
+            self.request?.append(buffer)
+            self.appendConverted(buffer)
+            let rms = Self.rms(buffer)
+            Task { @MainActor in
+                if rms > 0.012 { self.lastVoiceAt = Date(); self.heardSpeech = true }
+                self.push(rms: rms)
+            }
+        }
+        engine.prepare()
+        try? engine.start()
+    }
+
+    /// One buffer's loudness into the meter: dBFS mapped −55…−10 dB onto 0…1,
+    /// rising at once and falling over a few buffers so it reads as a voice
+    /// rather than flicker.
+    private func push(rms: Float) {
+        let db = 20 * log10(max(rms, 1e-6))
+        peakDb = max(peakDb, db)
+        let target = min(1, max(0, (db + 55) / 45))
+        if target > 0.3, !soundSeen { soundSeen = true }
+        level = target > level ? target : level * 0.75 + target * 0.25
+        levels.removeFirst()
+        levels.append(level)
+    }
+
     /// Stop and return a WAV file (16 kHz, mono, 16-bit) for the Mac.
     func stop() -> Data? {
         teardown()
-        guard !pcm.isEmpty else { return nil }
-        return Self.wav(from: pcm, sampleRate: 16000)
+        let audio = pcm
+        lastCapture = Capture(seconds: Double(audio.count) / 32_000, peakDb: peakDb, restarts: restarts)
+        guard !audio.isEmpty else { return nil }
+        return Self.wav(from: audio, sampleRate: 16000)
     }
 
     /// Throw the recording away: stop listening and drop the audio unheard.
@@ -169,7 +246,9 @@ class VoiceRecorder: NSObject, ObservableObject {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         request?.endAudio(); task?.cancel(); task = nil; request = nil
+        if let o = configObserver { NotificationCenter.default.removeObserver(o); configObserver = nil }
         isRecording = false
+        level = 0
         AudioSessionQueue.run { try? $0.setActive(false, options: .notifyOthersOnDeactivation) }
     }
 
@@ -212,7 +291,7 @@ class VoiceRecorder: NSObject, ObservableObject {
         }
         guard err == nil, let ch = out.int16ChannelData else { return }
         let bytes = Data(bytes: ch[0], count: Int(out.frameLength) * 2)
-        Task { @MainActor in self.pcm.append(bytes) }
+        pcmLock.lock(); pcmStore.append(bytes); pcmLock.unlock()
     }
 
     private nonisolated static func rms(_ buffer: AVAudioPCMBuffer) -> Float {
