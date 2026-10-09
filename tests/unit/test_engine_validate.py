@@ -93,7 +93,11 @@ def test_until_excludes_the_day_it_names(cfg):
     it = _item("create_event", _event_intent(
         date="2026-10-01", recurrence="daily", recur_until="2026-10-06"))
     st = _state("every day at 7pm until Oct 6", [it])
-    validate.run_objects(st, cfg)
+    # "Oct 6" is read against today: frozen before the series starts, or on
+    # 7 October 2026 it became 2027 and the test went red (CI, 2026-10-09).
+    from freezegun import freeze_time
+    with freeze_time("2026-09-25"):
+        validate.run_objects(st, cfg)
     assert it.intent.recur_until == "2026-10-05"
 
 
@@ -101,7 +105,11 @@ def test_through_keeps_the_day_it_names(cfg):
     it = _item("create_event", _event_intent(
         date="2026-10-01", recurrence="daily", recur_until="2026-10-06"))
     st = _state("every day at 7pm through Oct 6", [it])
-    validate.run_objects(st, cfg)
+    # "Oct 6" is read against today: frozen before the series starts, or on
+    # 7 October 2026 it became 2027 and the test went red (CI, 2026-10-09).
+    from freezegun import freeze_time
+    with freeze_time("2026-09-25"):
+        validate.run_objects(st, cfg)
     assert it.intent.recur_until == "2026-10-06"
 
 
