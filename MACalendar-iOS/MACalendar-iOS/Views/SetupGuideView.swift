@@ -57,10 +57,10 @@ struct SetupGuideView: View {
             }
 
             Section {
-                Toggle("Show the connection line", isOn: $settings.showConnectionBanner)
+                Toggle("Show the connection lines", isOn: $settings.showConnectionBanner)
                     .disabled(settings.phoneOnly)
             } footer: {
-                Text("The orange line at the top when your Mac can't be reached (grey when you've switched the connection off).")
+                Text("Strips at the top of the screen when your Mac can't be reached and when commands are waiting for it. Off by default — Settings ▸ Your Mac always shows both.")
             }
         }
         .navigationTitle("How it runs")

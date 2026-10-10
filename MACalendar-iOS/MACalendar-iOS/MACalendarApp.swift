@@ -12,6 +12,11 @@ struct MACalendarApp: App {
         if ProcessInfo.processInfo.arguments.contains("-uitestFreshStart") {
             for k in ["phoneOnly", "welcomeDone", "serverURL", "serverEnabled"] { UserDefaults.standard.removeObject(forKey: k) }
         }
+        // UI tests: forget the choices one test makes in Settings, so the next
+        // test sees the defaults (MicAndConnectionUITests picks Dots).
+        if ProcessInfo.processInfo.arguments.contains("-uitestDefaultPrefs") {
+            for k in ["micVisual", "showConnectionBanner"] { UserDefaults.standard.removeObject(forKey: k) }
+        }
         #endif
         let s = AppSettings()
         _settings = StateObject(wrappedValue: s)

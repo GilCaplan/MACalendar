@@ -217,8 +217,10 @@ struct ContentView: View {
 
             // Voice commands parked because the Mac was away. Shown whether or
             // not we're online: while offline so you know it was kept, and after
-            // reconnecting so you can see what it went on to do.
-            if !store.pendingVoice.isEmpty {
+            // reconnecting so you can see what it went on to do. Behind the same
+            // switch as the offline line, off by default (2026-10-10): Settings
+            // ▸ Your Mac shows both, live, without taking over the screen.
+            if !store.pendingVoice.isEmpty && settings.showConnectionBanner && !settings.phoneOnly {
                 Button { showVoiceQueue = true } label: {
                     HStack(spacing: 8) {
                         Image(systemName: voiceQueueIcon)

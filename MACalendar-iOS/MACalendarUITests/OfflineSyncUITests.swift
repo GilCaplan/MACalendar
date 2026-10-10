@@ -154,6 +154,9 @@ final class OfflineSyncUITests: XCTestCase {
             "-vocabOnboardingDone", "1",
             "-remindersEnabled", "0",
             "-settingsFold.start", "open",       // Settings groups start closed by default
+            // The offline strip is this test's reading of the queue; it is off
+            // by default since 2026-10-10 (Settings ▸ Your Mac shows it instead).
+            "-showConnectionBanner", "1",
         ]
         app.launch()
         dismissSystemAlertIfPresent()
@@ -346,7 +349,9 @@ final class QueuedCommandDetailUITests: XCTestCase {
 
     func testAFinishedRowOpensItsRunAndARunningRowItsProgress() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-serverURL", "127.0.0.1:59999"]
+        // The strip is off by default since 2026-10-10; this test is about the
+        // queue it opens, so it switches the strip on.
+        app.launchArguments = ["-serverURL", "127.0.0.1:59999", "-showConnectionBanner", "1"]
         app.launchEnvironment["MACALENDAR_UITEST_VOICE_RESPONSE"] = try fixture()
         app.launch()
 

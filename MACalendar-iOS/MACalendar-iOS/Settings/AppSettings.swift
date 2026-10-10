@@ -344,8 +344,9 @@ class AppSettings: ObservableObject {
             ?? Self.defaultServerURL
         self.apiKey    = UserDefaults.standard.string(forKey: "apiKey") ?? ""
         self.phoneOnly = UserDefaults.standard.bool(forKey: "phoneOnly")
-        self.showConnectionBanner = UserDefaults.standard.object(forKey: "showConnectionBanner") == nil
-            ? true : UserDefaults.standard.bool(forKey: "showConnectionBanner")
+        // Off unless switched on (Gil, 2026-10-10: the strips at the top were
+        // "awkward"; the same facts live in Settings ▸ Your Mac, live).
+        self.showConnectionBanner = UserDefaults.standard.bool(forKey: "showConnectionBanner")
         self.ttsVoice  = UserDefaults.standard.string(forKey: "ttsVoice") ?? "en-US"
         self.theme     = UserDefaults.standard.string(forKey: "userTheme") ?? "dark"
         self.accentColorHex = UserDefaults.standard.string(forKey: "accentColorHex") ?? Theme.defaultAccentHex

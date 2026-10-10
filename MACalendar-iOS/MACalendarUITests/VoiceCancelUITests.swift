@@ -43,7 +43,8 @@ final class VoiceCancelUITests: XCTestCase {
 
     /// Record a second, stop: the command goes to the slow Mac and thinks.
     private func sendACommand(_ app: XCUIApplication) {
-        let listening = app.staticTexts["Listening…"]
+        // The card (default) or the chip — "Listening…" text left the screen in #12.
+        let listening = app.otherElements.matching(NSPredicate(format: "identifier IN %@", ["listening-card", "listening-chip"])).firstMatch
         XCTAssertTrue(app.buttons["mic-button"].firstMatch.waitForExistence(timeout: 10), "no mic")
         mic(app).tap()
         allowAlerts()
@@ -67,18 +68,18 @@ final class VoiceCancelUITests: XCTestCase {
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "thinking-bar"; shot.lifetime = .keepAlways; add(shot)
         cancel.tap()
         XCTAssertFalse(cancel.waitForExistence(timeout: 2), "still thinking after Cancel")
-        XCTAssertFalse(app.staticTexts["Listening…"].exists, "Cancel must not start recording")
+        XCTAssertFalse(app.otherElements.matching(NSPredicate(format: "identifier IN %@", ["listening-card", "listening-chip"])).firstMatch.exists, "Cancel must not start recording")
 
         sendACommand(app)
         XCTAssertTrue(more.waitForExistence(timeout: 8))
         more.tap()
-        XCTAssertTrue(app.staticTexts["Listening…"].waitForExistence(timeout: 3), "Add more did not resume recording")
+        XCTAssertTrue(app.otherElements.matching(NSPredicate(format: "identifier IN %@", ["listening-card", "listening-chip"])).firstMatch.waitForExistence(timeout: 3), "Add more did not resume recording")
         app.buttons["Discard recording"].firstMatch.tap()
 
         sendACommand(app)
         XCTAssertTrue(redo.waitForExistence(timeout: 8))
         mic(app).tap()                                             // the mic itself: say it again
-        XCTAssertTrue(app.staticTexts["Listening…"].waitForExistence(timeout: 3), "tapping the mic did not re-record")
+        XCTAssertTrue(app.otherElements.matching(NSPredicate(format: "identifier IN %@", ["listening-card", "listening-chip"])).firstMatch.waitForExistence(timeout: 3), "tapping the mic did not re-record")
         app.buttons["Discard recording"].firstMatch.tap()
     }
 }
