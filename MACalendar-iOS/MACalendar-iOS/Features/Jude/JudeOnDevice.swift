@@ -50,6 +50,32 @@ enum JudeOnDevice {
         return lines.joined(separator: "\n")
     }
 
+    /// A sentence for the screen instead of "GenerationError error -1" —
+    /// what went wrong and what to do, with the sources still shown above it.
+    #if canImport(FoundationModels)
+    @available(iOS 26.0, *)
+    static func explain(_ error: Error) -> String {
+        let fix = " The sources are below; switch \"Answer on\" to your Mac for a written answer."
+        guard let e = error as? LanguageModelSession.GenerationError else {
+            return "Apple's on-device model couldn't write an answer here." + fix
+        }
+        switch e {
+        case .exceededContextWindowSize:
+            return "The sources were too long for Apple's on-device model." + fix
+        case .guardrailViolation, .refusal:
+            return "Apple's on-device model declined to answer this." + fix
+        case .unsupportedLanguageOrLocale:
+            return "Apple's on-device model can't answer in this language yet." + fix
+        case .assetsUnavailable:
+            return "Apple's on-device model isn't downloaded on this phone yet." + fix
+        case .rateLimited, .concurrentRequests:
+            return "Apple's on-device model is busy — try again in a moment." + fix
+        default:
+            return "Apple's on-device model couldn't write an answer here." + fix
+        }
+    }
+    #endif
+
     enum Failure: LocalizedError {
         case unavailable(String)
         var errorDescription: String? {
@@ -64,13 +90,19 @@ enum JudeOnDevice {
         if #available(iOS 26.0, *), isAvailable {
             let session = LanguageModelSession(instructions: instructions)
             var sent = 0
-            for try await snapshot in session.streamResponse(
-                to: prompt(question: question, sources: sources, lang: lang)) {
-                let text = snapshot.content
-                if text.count > sent {
-                    onText(String(text.dropFirst(sent)))
-                    sent = text.count
+            do {
+                for try await snapshot in session.streamResponse(
+                    to: prompt(question: question, sources: sources, lang: lang)) {
+                    let text = snapshot.content
+                    if text.count > sent {
+                        onText(String(text.dropFirst(sent)))
+                        sent = text.count
+                    }
                 }
+            } catch {
+                // Not always a typed GenerationError: the simulator throws it
+                // bridged, as "GenerationError error -1".
+                throw Failure.unavailable(explain(error))
             }
             return
         }
