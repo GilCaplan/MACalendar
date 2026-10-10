@@ -107,7 +107,14 @@ DEFAULTS: list[dict[str, Any]] = [
     # "hot dogs" is a meal.
     {"name": "Dog walking", "color": "#84cc16", "alt": "#4d7c0f", "keywords": [
         "walk the dog", "walk the dogs", "walk dog", "walk dogs", "dog walk", "dog walking",
-        "dog sitting", "dogsitting", "dog-sitting", "pet sitting", "petsitting", "dog park"]},
+        "dog sitting", "dogsitting", "dog-sitting", "pet sitting", "petsitting", "dog park",
+        # 2026-10-10 (Gil: manual "walk my dog" landed in Social): the
+        # everyday wordings — mined from the label set's TRAIN half, where
+        # these missed 730 of 1,560 Dog walking rows.
+        "walk my dog", "walk my dogs", "walking the dog", "walking the dogs", "walking my dog",
+        "with the dog", "with the dogs", "take the dog", "dog walker", "dog's walk", "dog hike",
+        "dog daycare", "dog training", "dog's evening", "dog's afternoon", "dog's morning",
+        "pack walk", "puppy", "pet sitter", "canicross", "obedience class", "recall training"]},
     {"name": "Personal", "color": "#64748b", "alt": "#475569", "keywords": []},   # default
 ]
 
