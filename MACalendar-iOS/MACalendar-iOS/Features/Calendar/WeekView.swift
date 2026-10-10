@@ -237,7 +237,8 @@ private struct WeekDayColumn: View {
                         ForEach(items) { it in
                             let isPopped = popped == it.id
                             let inset = isPopped ? 0 : EventStacking.inset(depth: it.depth, size: it.stackSize, step: 7, readStep: 60, width: colW)
-                            let strip = isPopped ? 0 : EventStacking.strip(depth: it.depth, size: it.stackSize, step: 7, readStep: 60, width: colW)
+                            let strip = isPopped ? 0 : EventStacking.titleStrip(it, in: items, band: { _ in settings.fontWeek * 1.3 + 4 },
+                                                                                step: 7, readStep: 60, width: colW)
                             WeekEventBlock(event: it.event, height: it.height, strip: strip)
                                 .frame(width: max(colW - inset, 24), height: it.height)
                                 .modifier(OwnerEdge(event: it.event, width: 3, radius: 3))
@@ -319,14 +320,35 @@ private struct WeekEventBlock: View {
         RoundedRectangle(cornerRadius: 3)
             .fill(fillColor)
             .overlay(alignment: .topLeading) {
-                IconTitle(title: event.ownerPrefix + event.title, icons: event.icons,
-                          size: max(settings.fontWeek - 2, 9))
-                    .font(.system(size: max(settings.fontWeek - 2, 9), weight: .semibold))
-                    .foregroundColor(Color.onColor(hex: event.color.isEmpty ? settings.accentColorHex : event.color))
-                    .padding(2)
-                    .lineLimit(height > 36 ? 2 : 1)
-                    .frame(maxWidth: strip > 0 ? strip : nil, alignment: .leading)
+                // Readable at arm's length (Gil, 2026-10-10: "way too small"):
+                // the Week size itself, not two points under it, and as many
+                // lines as the block is tall — a seven-column week leaves a
+                // word or two per line, so a one- or two-line cap cut titles.
+                GeometryReader { geo in
+                    let room = (strip > 0 ? min(strip, geo.size.width) : geo.size.width) - 6
+                    let size = Self.fitting(event.ownerPrefix + event.title, base: settings.fontWeek, width: room)
+                    IconTitle(title: event.ownerPrefix + event.title, icons: event.icons, size: size)
+                        .font(.system(size: size, weight: .semibold))
+                        .foregroundColor(Color.onColor(hex: event.color.isEmpty ? settings.accentColorHex : event.color))
+                        .lineLimit(max(1, Int((height - 4) / (size * 1.2))))
+                        .padding(.horizontal, 3).padding(.vertical, 2)
+                        .frame(maxWidth: strip > 0 ? strip : nil, alignment: .leading)
+                }
             }
+    }
+}
+
+extension WeekEventBlock {
+    /// The Week size, unless the title's longest word would not fit the
+    /// column at it — then just small enough that it does (never under three
+    /// points less), so a word wraps whole instead of "ceremo / ny".
+    static func fitting(_ title: String, base: Double, width: CGFloat) -> CGFloat {
+        let font = UIFont.systemFont(ofSize: base, weight: .semibold)
+        let longest = title.split(whereSeparator: { $0 == " " || $0 == "-" })
+            .map { (String($0) as NSString).size(withAttributes: [.font: font]).width }
+            .max() ?? 0
+        guard longest > width, width > 0 else { return base }
+        return max(base - 3, floor(base * width / longest * 10) / 10)
     }
 }
 

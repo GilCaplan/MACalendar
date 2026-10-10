@@ -126,6 +126,7 @@
 		EC1E781D2F22AD22F6668E3B /* TypeCommandUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC1F572FA4E31367620F0069 /* TypeCommandUITests.swift */; };
 		AB0000170000000000000050 /* SettingsFoldUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000160000000000000051 /* SettingsFoldUITests.swift */; };
 		AB00001F0000000000000070 /* MicAndConnectionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00001E0000000000000071 /* MicAndConnectionUITests.swift */; };
+		AB0000210000000000000072 /* CalendarTitlesUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000200000000000000073 /* CalendarTitlesUITests.swift */; };
 		AB00001F000000000000001A /* EasterEggUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00001E000000000000001B /* EasterEggUITests.swift */; };
 		AB000015000000000000001A /* EventEditorUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000014000000000000001B /* EventEditorUITests.swift */; };
 		AC000001000000000000001A /* PendingQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC000002000000000000001A /* PendingQueueView.swift */; };
@@ -263,6 +264,7 @@
 		EC1F572FA4E31367620F0069 /* TypeCommandUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypeCommandUITests.swift; sourceTree = "<group>"; };
 		AB0000160000000000000051 /* SettingsFoldUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFoldUITests.swift; sourceTree = "<group>"; };
 		AB00001E0000000000000071 /* MicAndConnectionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicAndConnectionUITests.swift; sourceTree = "<group>"; };
+		AB0000200000000000000073 /* CalendarTitlesUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTitlesUITests.swift; sourceTree = "<group>"; };
 		AB00001E000000000000001B /* EasterEggUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasterEggUITests.swift; sourceTree = "<group>"; };
 		AB000014000000000000001B /* EventEditorUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventEditorUITests.swift; sourceTree = "<group>"; };
 		AB00000E000000000000001B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -619,6 +621,7 @@
 				AE0002000000000000000000 /* StandaloneUITests.swift */,
 				AB0000160000000000000051 /* SettingsFoldUITests.swift */,
 				AB00001E0000000000000071 /* MicAndConnectionUITests.swift */,
+				AB0000200000000000000073 /* CalendarTitlesUITests.swift */,
 				AB00001E000000000000001B /* EasterEggUITests.swift */,
 				AB000014000000000000001B /* EventEditorUITests.swift */,
 				AB00000E000000000000001B /* Info.plist */,
@@ -905,6 +908,7 @@
 				AE0002010000000000000000 /* StandaloneUITests.swift in Sources */,
 				AB0000170000000000000050 /* SettingsFoldUITests.swift in Sources */,
 				AB00001F0000000000000070 /* MicAndConnectionUITests.swift in Sources */,
+				AB0000210000000000000072 /* CalendarTitlesUITests.swift in Sources */,
 				AB00001F000000000000001A /* EasterEggUITests.swift in Sources */,
 				AB000015000000000000001A /* EventEditorUITests.swift in Sources */,
 			);
