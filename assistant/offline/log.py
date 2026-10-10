@@ -68,4 +68,21 @@ def summary() -> dict:
         "differences": dict(fields),
         "readers": dict(Counter(f"{r.get('reader', '?')}@{r.get('spec_version', '?')}"
                                 for r in rs)),
+        # the phone's rules (phone first, Q87) and Apple's model are two
+        # readers; one agreement over both would hide which one is wrong
+        "by_reader": _by_reader(rs),
     }
+
+
+def _by_reader(rs: list[dict]) -> dict:
+    out: dict = {}
+    for r in rs:
+        v = r.get("verdict")
+        if v not in ("same", "changed"):
+            continue
+        d = out.setdefault(str(r.get("reader") or "?"), {"scored": 0, "same": 0})
+        d["scored"] += 1
+        d["same"] += v == "same"
+    for d in out.values():
+        d["agreement"] = round(d["same"] / d["scored"], 3)
+    return out

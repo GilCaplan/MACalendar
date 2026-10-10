@@ -40,6 +40,7 @@ import re
 from dataclasses import dataclass
 
 from assistant.intent.now_word import NOW_RE, clock as _now_clock
+from assistant import clock as _clock  # the moment the command was SAID
 
 #: The lead-in a computed or personal word must have (see the docstring).
 _AT = r"\b(?:at|around|about|by)\s+(?:the\s+)?"
@@ -192,7 +193,7 @@ def resolve(w: TimeWord, date: "datetime.date | None" = None,
     m = re.fullmatch(r"(sunrise|sunset|candle lighting|nightfall)(?:([+-])(\d+))?", v)
     if not m:
         return None
-    day = date or (now or datetime.datetime.now()).date()
+    day = date or (now or _clock.now()).date()
     t = _sun(m.group(1), day)
     if t is None:
         return None

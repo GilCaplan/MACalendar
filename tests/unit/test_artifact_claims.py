@@ -440,10 +440,16 @@ def test_the_table_and_column_counts_are_current(all_prose):
     dbs = _real_store_files("calendar.db")
     if not dbs:
         pytest.skip("no calendar database on this machine (CI)")
-    db = dbs[0]
+    # The FULLEST store: a table some feature creates on first use is missing
+    # from an account that never used it, and the first folder by name was a
+    # fresh account one table short of the page (2026-10-09).
+    def _count(path):
+        with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as cc:
+            return len(list(cc.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")))
+    db = max(dbs, key=_count)
     c = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
-    tables = len(list(c.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")))
+    tables = _count(db)
     events = len(list(c.execute("PRAGMA table_info(events)")))
     todos = len(list(c.execute("PRAGMA table_info(todos)")))
 

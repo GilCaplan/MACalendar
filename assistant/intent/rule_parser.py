@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 import importlib.util as _iutil
 import threading as _thr
+from assistant import clock as _clock  # the moment the command was SAID
 
 # --- spaCy ---
 _RULE_PARSER_AVAILABLE: bool = _iutil.find_spec("spacy") is not None
@@ -1648,7 +1649,7 @@ def _extract_temporal(span_text: str, today: datetime.date,
             result["start_time"] = "00:00"
             result["_source"] = "regex_fallback"
         elif re.search(r"\b(?:immediately|asap)\b", lower):
-            result["start_time"] = datetime.datetime.now().strftime("%H:%M")
+            result["start_time"] = _clock.now().strftime("%H:%M")
             result["_source"] = "regex_fallback"
 
     # Compact clocks (see `_COMPACT_AP_RE`): the recogniser reads none of them
@@ -2981,7 +2982,7 @@ def _bare_noun_event(span, temporal: dict) -> bool:
     # today. The model reads those right; this rule does not guess.
     from assistant.intent import recurrence as _recur
     if (not _recur.detect(text)          # a series takes its start from the cadence
-            and temporal.get("date") in (None, "", datetime.date.today().isoformat())
+            and temporal.get("date") in (None, "", _clock.today().isoformat())
             and _NAMES_ANOTHER_DAY_RE.search(text)
             and not re.search(r"\b(?:today|tonight|this (?:morning|afternoon|evening))\b", text, re.I)):
         return False
@@ -3244,7 +3245,7 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
             if _rec.rounded_from:
                 slots["recurrence_rounded_from"] = _rec.rounded_from
             if not temporal.get("date"):
-                slots["date"] = _rec.start_date(datetime.date.today()).isoformat()
+                slots["date"] = _rec.start_date(_clock.today()).isoformat()
             # Where the series STOPS. `db.create_event` has honoured
             # `recur_until` since it was written and NOTHING in this parser ever
             # set it, so "every monday until the end of the month" became an
@@ -3266,7 +3267,7 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
                 names = ("monday", "tuesday", "wednesday", "thursday",
                          "friday", "saturday", "sunday")
                 if names[read.weekday()] in _rec.days:
-                    slots["date"] = _rec.start_date(datetime.date.today()).isoformat()
+                    slots["date"] = _rec.start_date(_clock.today()).isoformat()
             except ValueError:
                 pass
         if temporal.get("start_time"):
@@ -3300,10 +3301,10 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
         name = _clean_title(" ".join(name.split()))
         if name and names_something(name):
             slots["match_title"] = name
-        old_when = _extract_temporal(before, datetime.date.today()) if before else {}
+        old_when = _extract_temporal(before, _clock.today()) if before else {}
         if old_when.get("date"):
             slots["match_date"] = old_when["date"]
-        new_when = _extract_temporal(after, datetime.date.today())
+        new_when = _extract_temporal(after, _clock.today())
         if new_when.get("start_time"):
             slots["new_start_time"] = new_when["start_time"]
         if new_when.get("end_time"):
@@ -3411,7 +3412,7 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
                 if m:
                     old_name, new_name = m.group(1).strip(), m.group(2).strip()
                     # "rename the meeting to 3pm" is a reschedule, not a rename.
-                    _probe = _extract_temporal(new_name, datetime.date.today())
+                    _probe = _extract_temporal(new_name, _clock.today())
                     if new_name and not _probe.get("start_time"):
                         new_title_from_rename = _clean_title(new_name)
                         if old_name:
@@ -3574,7 +3575,7 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
             # parse a date moved 23 of 462 train rows onto the fast path
             # wrongly (an afternoon chore booked as a 09:00 event, a Monday
             # series "starting tonight" begun on a Wednesday).
-            slots["due_date"] = datetime.date.today().isoformat()
+            slots["due_date"] = _clock.today().isoformat()
         # Detect list_name from explicit "general" / "someday" keywords in span
         span_lower = span.text.lower()
         if re.search(r"\b(general|someday|later|backlog)\b", span_lower):
@@ -3903,7 +3904,7 @@ def _compute_missing_slots(action_name: str, slots: dict) -> list[str]:
         # has already gone by, then tomorrow ("Add an event for 5 p.m." said
         # at 6pm is tomorrow's 5pm). The deep track applies the same rule
         # (`object_rules._rule_passed_clock_means_tomorrow`).
-        now = datetime.datetime.now()
+        now = _clock.now()
         floor = now.date()
         # ...and only when NO DAY was named, the deep rule's own guard (one
         # definition, `object_rules._DAY_WORD_RE`). "this morning from 6 to 8"
@@ -4022,7 +4023,7 @@ class RuleBasedParser:
         # Phase 1: Multi-intent splitting
         spans = _split_intents(doc)
 
-        today = datetime.date.today()
+        today = _clock.today()
 
         all_intents: list[tuple[str, "BaseIntent"]] = []
         all_missing: list[str] = []
@@ -4123,7 +4124,7 @@ class RuleBasedParser:
                         # mom at 8pm" at 09:40 was booked for tomorrow (found
                         # 2026-10-01 wiring the time words; "now" is the minute
                         # it was said, so it never rolls).
-                        now = datetime.datetime.now()
+                        now = _clock.now()
                         st = str(temporal["start_time"])[:5]
                         day = (now.date() if st >= now.strftime("%H:%M")
                                else now.date() + datetime.timedelta(days=1))

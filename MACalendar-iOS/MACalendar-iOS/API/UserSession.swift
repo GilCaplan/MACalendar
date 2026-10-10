@@ -19,11 +19,13 @@ struct SessionUser: Codable, Equatable {
     let role: String
     let color: String
     var mustChangePassword: Bool
+    /// Their profile photo, when they have set one (nil: the initial shows).
+    var avatar: AvatarRef?
 
     var isAdmin: Bool { role == "admin" }
 
     enum CodingKeys: String, CodingKey {
-        case id, username, role, color
+        case id, username, role, color, avatar
         case displayName = "display_name"
         case mustChangePassword = "must_change_password"
     }
@@ -201,6 +203,13 @@ final class UserSession: ObservableObject {
     func unauthorized() {
         Self.saveToken(nil)
         needsSignIn = true
+    }
+
+    /// The Mac's answer to a profile change (a new or removed photo).
+    func updated(_ u: SessionUser) {
+        guard u.id == user?.id else { return }
+        adopt(u)
+        remember(u)
     }
 
     func passwordChanged() {

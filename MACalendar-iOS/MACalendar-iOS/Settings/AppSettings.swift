@@ -56,6 +56,12 @@ class AppSettings: ObservableObject {
             if phoneOnly { serverEnabled = false } else if oldValue { serverEnabled = true }
         }
     }
+    /// Phone first, Mac behind (DEVQA Q87): with a Mac paired and reachable,
+    /// the phone still reads each command itself and books what it can at
+    /// once; the Mac reads it too, and its rows replace the phone's.
+    @Published var readOnPhoneFirst: Bool {
+        didSet { UserDefaults.standard.set(readOnPhoneFirst, forKey: "readOnPhoneFirst") }
+    }
     /// The coloured "offline" line at the top of the app, for anyone who
     /// would rather not see it at all.
     @Published var showConnectionBanner: Bool {
@@ -359,6 +365,8 @@ class AppSettings: ObservableObject {
             ?? Self.defaultServerURL
         self.apiKey    = UserDefaults.standard.string(forKey: "apiKey") ?? ""
         self.phoneOnly = UserDefaults.standard.bool(forKey: "phoneOnly")
+        self.readOnPhoneFirst = UserDefaults.standard.object(forKey: "readOnPhoneFirst") == nil
+            ? true : UserDefaults.standard.bool(forKey: "readOnPhoneFirst")
         // Off unless switched on (Gil, 2026-10-10: the strips at the top were
         // "awkward"; the same facts live in Settings ▸ Your Mac, live).
         self.showConnectionBanner = UserDefaults.standard.bool(forKey: "showConnectionBanner")

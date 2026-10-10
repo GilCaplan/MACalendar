@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import logging
+from assistant import clock as _clock  # the moment the command was SAID
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +144,7 @@ def build_objects(text: str, cfg) -> "tuple[list, int]":
     """The single call. Returns ([(action_name, intent)], llm_ms)."""
     from assistant.engine import llm as _llm
 
-    today = _dt.date.today()
+    today = _clock.today()
     user = (f"TODAY is {today.isoformat()} ({today.strftime('%A')}).\n"
             f"The command: {text}")
     out, ms = _llm.call_json(cfg, _SYSTEM, user, SCHEMA)

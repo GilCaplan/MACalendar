@@ -749,7 +749,11 @@ struct VoiceQueueView: View {
                     .accessibilityHint("Shows the details of this run")
                 }
                 .onDelete { idx in
-                    for i in idx { store.removeVoice(store.pendingVoice[i].id) }
+                    // its placeholder rows go with it: nothing else would ever remove them
+                    for id in idx.map({ store.pendingVoice[$0].id }) {
+                        store.dropProvisional(id)
+                        store.removeVoice(id)
+                    }
                 }
             }
             .navigationTitle("Queued commands")

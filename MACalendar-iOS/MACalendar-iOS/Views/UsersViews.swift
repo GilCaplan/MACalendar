@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 // The phone's user screens (DEVQA Q65): sign in, Account & Sharing, and the
@@ -47,7 +48,8 @@ struct LoginView: View {
                                 focus = .pass
                             } label: {
                                 VStack(spacing: 4) {
-                                    PersonAvatar(name: u.displayName, color: u.color, size: 46)
+                                    PersonAvatar(name: u.displayName, color: u.color, size: 46,
+                                                 userID: u.id, avatar: u.avatar)
                                         .overlay(Circle().stroke(settings.accentColor,
                                                                  lineWidth: username == u.username ? 2.5 : 0))
                                     Text(u.displayName).font(.caption).lineLimit(1).frame(maxWidth: 64)
@@ -90,7 +92,7 @@ struct LoginView: View {
             .background(settings.accentColor)
             .foregroundColor(Color.onColor(hex: settings.accentColorHex))
             .cornerRadius(Theme.radiusMD)
-            .disabled(busy || username.isEmpty || password.isEmpty)
+            .disabled(busy || username.isEmpty)
             Spacer()
             Text(api.isOnline ? "Connected to your Mac" : "Your Mac isn't reachable right now")
                 .font(.caption).foregroundColor(.secondary)
@@ -154,8 +156,9 @@ struct ChangePasswordView: View {
                     Text("You're using a password someone else set. Pick your own.")
                         .font(.footnote).foregroundColor(.secondary)
                 }
-                SecureField("Current password", text: $current)
-                SecureField("New password (8+ characters)", text: $new)
+                // Blank is right for an account with no password yet.
+                SecureField("Current password (blank if none)", text: $current)
+                SecureField("New password", text: $new)
                 SecureField("Again", text: $again)
                 if !error.isEmpty { Text(error).foregroundColor(.red).font(.footnote) }
             }
@@ -167,7 +170,7 @@ struct ChangePasswordView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") { Task { await save() } }
-                        .disabled(new.count < 8 || new != again || current.isEmpty)
+                        .disabled(new != again)
                 }
             }
         }
@@ -202,8 +205,9 @@ struct PublicUser: Decodable, Identifiable {
     let displayName: String
     let color: String
     let role: String
+    let avatar: AvatarRef?
     enum CodingKeys: String, CodingKey {
-        case id, username, color, role
+        case id, username, color, role, avatar
         case displayName = "display_name"
     }
 }
@@ -218,8 +222,9 @@ struct AdminUser: Decodable, Identifiable {
     let lastSeen: Double?
     let shownInMyView: Bool?
     let sessions: Int?
+    let avatar: AvatarRef?
     enum CodingKeys: String, CodingKey {
-        case id, username, color, role, disabled, sessions
+        case id, username, color, role, disabled, sessions, avatar
         case displayName = "display_name"
         case lastSeen = "last_seen"
         case shownInMyView = "shown_in_my_view"
@@ -239,6 +244,8 @@ final class AccountModel: ObservableObject {
     @Published var vocab: Set<String> = []
     @Published var requireLogin = false
     @Published var autoDays: Int? = nil
+    @Published var passwordMin = 3
+    @Published var allowEmptyPassword = false
     @Published var groupByOwner = false
     @Published var loadError = ""
 
@@ -263,6 +270,8 @@ final class AccountModel: ObservableObject {
             let pol = obj["policy"] as? [String: Any] ?? [:]
             requireLogin = pol["require_login"] as? Bool ?? false
             autoDays = (pol["auto_signout_days"] as? Int).flatMap { $0 > 0 ? $0 : nil }
+            passwordMin = pol["password_min_length"] as? Int ?? 3
+            allowEmptyPassword = pol["allow_empty_password"] as? Bool ?? false
             groupByOwner = (obj["settings"] as? [String: Any])?["todos_group_by_owner"] as? Bool ?? false
             UserSession.shared.groupSharedTodos = groupByOwner
             if me.isAdmin {
@@ -284,18 +293,97 @@ final class AccountModel: ObservableObject {
     }
 }
 
-/// A person's initial on their colour.
+/// A profile photo on the Mac: its format and a version that changes with
+/// every new photo, so the version names the picture and a cached copy of it
+/// is good for ever.
+struct AvatarRef: Codable, Equatable {
+    let type: String
+    let v: Int64
+}
+
+/// Profile photos, kept in memory and on disk under Caches — so a person's
+/// face still shows on the sign-in screen, before anyone may ask the Mac.
+@MainActor
+final class AvatarCache {
+    static let shared = AvatarCache()
+    private var memory: [String: UIImage] = [:]
+    private let dir: URL = {
+        let d = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("avatars", isDirectory: true)
+        try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
+        return d
+    }()
+
+    private func key(_ id: String, _ ref: AvatarRef) -> String { "\(id)-\(ref.v)" }
+
+    func cached(_ id: String, _ ref: AvatarRef) -> UIImage? {
+        let k = key(id, ref)
+        if let img = memory[k] { return img }
+        guard let data = try? Data(contentsOf: dir.appendingPathComponent(k)),
+              let img = UIImage(data: data) else { return nil }
+        memory[k] = img
+        return img
+    }
+
+    func image(_ id: String, _ ref: AvatarRef, api: APIClient) async -> UIImage? {
+        if let img = cached(id, ref) { return img }
+        guard let data = try? await api.request("/users/\(id)/avatar?v=\(ref.v)"),
+              let img = UIImage(data: data) else { return nil }
+        let k = key(id, ref)
+        memory[k] = img
+        // Older versions of this person's photo are dead: drop them.
+        let old = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+        for f in old where f.hasPrefix("\(id)-") && f != k {
+            try? FileManager.default.removeItem(at: dir.appendingPathComponent(f))
+        }
+        try? data.write(to: dir.appendingPathComponent(k), options: .atomic)
+        return img
+    }
+
+    /// A picked photo as the Mac wants it: cropped square from the middle,
+    /// at most 512 px, JPEG.
+    static func prepared(_ image: UIImage, side: CGFloat = 512) -> Data? {
+        let w = image.size.width, h = image.size.height
+        guard w > 0, h > 0 else { return nil }
+        let out = min(side, min(w, h))
+        let scale = out / min(w, h)
+        let fmt = UIGraphicsImageRendererFormat()
+        fmt.scale = 1
+        let img = UIGraphicsImageRenderer(size: CGSize(width: out, height: out), format: fmt).image { _ in
+            image.draw(in: CGRect(x: (out - w * scale) / 2, y: (out - h * scale) / 2,
+                                  width: w * scale, height: h * scale))
+        }
+        return img.jpegData(compressionQuality: 0.85)
+    }
+}
+
+/// A person's photo, or their initial on their colour.
 struct PersonAvatar: View {
+    @EnvironmentObject var api: APIClient
     let name: String
     let color: String
     var size: CGFloat = 36
+    var userID: String? = nil
+    var avatar: AvatarRef? = nil
+    @State private var photo: UIImage?
+
     var body: some View {
         ZStack {
-            Circle().fill(Color(hex: color) ?? .gray)
-            Text(String(name.prefix(1)).uppercased())
-                .font(.system(size: size * 0.45, weight: .semibold)).foregroundColor(.white)
+            if let photo {
+                Image(uiImage: photo).resizable().scaledToFill()
+            } else {
+                Circle().fill(Color(hex: color) ?? .gray)
+                Text(String(name.prefix(1)).uppercased())
+                    .font(.system(size: size * 0.45, weight: .semibold)).foregroundColor(.white)
+            }
         }
         .frame(width: size, height: size)
+        .clipShape(Circle())
+        .task(id: avatar?.v) {
+            guard let userID, let avatar else { photo = nil; return }
+            photo = AvatarCache.shared.cached(userID, avatar)
+            if photo == nil { photo = await AvatarCache.shared.image(userID, avatar, api: api) }
+        }
     }
 }
 
@@ -314,13 +402,29 @@ struct AccountView: View {
     @State private var switchingUser = false
     @State private var deleting = false
     @State private var deletePassword = ""
+    @State private var photoPick: PhotosPickerItem?
+    @State private var savingPhoto = false
 
     var body: some View {
         List {
             if let u = session.user {
                 Section {
                     HStack(spacing: 14) {
-                        PersonAvatar(name: u.displayName, color: u.color, size: 52)
+                        PhotosPicker(selection: $photoPick, matching: .images) {
+                            PersonAvatar(name: u.displayName, color: u.color, size: 52,
+                                         userID: u.id, avatar: u.avatar)
+                                .overlay(alignment: .bottomTrailing) {
+                                    Image(systemName: "camera.circle.fill")
+                                        .font(.system(size: 18))
+                                        .symbolRenderingMode(.multicolor)
+                                        .background(Circle().fill(Color(.systemBackground)))
+                                        .offset(x: 3, y: 3)
+                                }
+                                .opacity(savingPhoto ? 0.4 : 1)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(u.avatar == nil ? "Add a profile photo" : "Change profile photo")
+                        .accessibilityIdentifier("profile-photo")
                         VStack(alignment: .leading, spacing: 3) {
                             Text(u.displayName).font(.title3.weight(.semibold))
                             Text("@\(u.username)\(u.isAdmin ? " · admin" : "")")
@@ -331,6 +435,16 @@ struct AccountView: View {
                         }
                     }
                     .padding(.vertical, 6)
+                    .onChange(of: photoPick) { item in
+                        guard let item else { return }
+                        Task { await setPhoto(item) }
+                    }
+                    if u.avatar != nil {
+                        Button(role: .destructive) { Task { await clearPhoto() } } label: {
+                            Label("Remove photo", systemImage: "person.crop.circle.badge.minus")
+                        }
+                        .accessibilityIdentifier("remove-photo")
+                    }
                     Button { switchingUser = true } label: {
                         Label("Switch user", systemImage: "person.2.circle")
                     }
@@ -354,7 +468,7 @@ struct AccountView: View {
                     ForEach(model.people) { p in
                         NavigationLink { PersonView(personID: p.id) } label: {
                             HStack(spacing: 12) {
-                                PersonAvatar(name: p.displayName, color: p.color)
+                                PersonAvatar(name: p.displayName, color: p.color, userID: p.id, avatar: p.avatar)
                                 VStack(alignment: .leading, spacing: 2) {
                                     HStack(spacing: 6) {
                                         Text(p.displayName)
@@ -434,6 +548,23 @@ struct AccountView: View {
                                     model.autoDays = v
                                     Task { await policy(["auto_signout_days": v]) }
                                 }), in: 1...365)
+                        }
+                        Stepper("Shortest password: \(model.passwordMin)", value: Binding(
+                            get: { model.passwordMin },
+                            set: { v in
+                                model.passwordMin = v
+                                Task { await policy(["password_min_length": v]) }
+                            }), in: 1...64)
+                        Toggle(isOn: Binding(
+                            get: { model.allowEmptyPassword },
+                            set: { v in
+                                model.allowEmptyPassword = v
+                                Task { await policy(["allow_empty_password": v]) }
+                            })) {
+                            HStack(spacing: 6) {
+                                Text("Allow empty passwords")
+                                InfoTip("On: a person may choose no password at all, and signs in with the password field left blank. Your own password follows no rule.")
+                            }
                         }
                     } header: { Text("Sign-in") }
                       footer: {
@@ -538,6 +669,37 @@ struct AccountView: View {
 /// them, what you see of theirs — and, for the admin, their vocabulary and
 /// account. Every control visible; nothing behind a swipe.
 extension AccountView {
+    func setPhoto(_ item: PhotosPickerItem) async {
+        savingPhoto = true
+        defer { savingPhoto = false; photoPick = nil }
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let picked = UIImage(data: data),
+              let jpeg = AvatarCache.prepared(picked) else {
+            error = "That photo couldn't be read."
+            return
+        }
+        await photoCall { try await api.request("/users/me/avatar", method: "PUT",
+                                                body: ["image": jpeg.base64EncodedString()]) }
+    }
+
+    func clearPhoto() async {
+        await photoCall { try await api.request("/users/me/avatar", method: "DELETE") }
+    }
+
+    /// Either photo request; the Mac answers with my updated record.
+    private func photoCall(_ send: () async throws -> Data) async {
+        do {
+            let data = try await send()
+            if let u = try? JSONDecoder().decode(SessionUser.self, from: data) {
+                session.updated(u)
+            }
+            error = ""
+            await model.load(api)
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
     func deleteMe() async {
         do {
             _ = try await api.request("/auth/me", method: "DELETE", body: ["password": deletePassword])
@@ -558,6 +720,7 @@ struct PersonView: View {
     @State private var revealed: String?
     @State private var note = ""
     @State private var confirmRemove = false
+    @State private var photoPick: PhotosPickerItem?
 
     private var person: PublicUser? { model.people.first { $0.id == personID } }
     private var account: AdminUser? { model.accounts[personID] }
@@ -568,7 +731,8 @@ struct PersonView: View {
             if let p = person {
                 Section {
                     HStack(spacing: 14) {
-                        PersonAvatar(name: p.displayName, color: p.color, size: 52)
+                        PersonAvatar(name: p.displayName, color: p.color, size: 52,
+                                     userID: p.id, avatar: p.avatar)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(p.displayName).font(.title3.weight(.semibold))
                             Text("@\(p.username)").font(.subheadline).foregroundColor(.secondary)
@@ -631,6 +795,31 @@ struct PersonView: View {
                     } footer: { Text("The names and words you've taught the assistant help it hear them too.") }
 
                     Section {
+                        PhotosPicker(selection: $photoPick, matching: .images) {
+                            Label(p.avatar == nil ? "Set their photo" : "Change their photo",
+                                  systemImage: "person.crop.circle.badge.plus")
+                        }
+                        .accessibilityIdentifier("admin-set-photo")
+                        if p.avatar != nil {
+                            Button(role: .destructive) {
+                                Task {
+                                    note = await accountCall(api, "/admin/users/\(personID)/avatar", method: "DELETE")
+                                        .map { "Couldn't remove it: \($0)" } ?? ""
+                                    await model.load(api)
+                                }
+                            } label: {
+                                Label("Remove their photo", systemImage: "person.crop.circle.badge.minus")
+                            }
+                            .accessibilityIdentifier("admin-remove-photo")
+                        }
+                    } header: { Text("Their photo") }
+                      footer: { Text("As admin you can set or take down anyone's photo.") }
+                    .onChange(of: photoPick) { item in
+                        guard let item else { return }
+                        Task { await setPhoto(item) }
+                    }
+
+                    Section {
                         Button("Reset password") { Task { await reset() } }
                         if let pw = revealed {
                             Text("New password — shown once. They'll choose their own when they sign in.")
@@ -679,6 +868,20 @@ struct PersonView: View {
         .navigationTitle(person?.displayName ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { Task { await model.load(api) } }
+    }
+
+    private func setPhoto(_ item: PhotosPickerItem) async {
+        defer { photoPick = nil }
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let picked = UIImage(data: data),
+              let jpeg = AvatarCache.prepared(picked) else {
+            note = "Couldn't read that photo."
+            return
+        }
+        note = await accountCall(api, "/admin/users/\(personID)/avatar",
+                                 body: ["image": jpeg.base64EncodedString()])
+            .map { "Couldn't change it: \($0)" } ?? ""
+        await model.load(api)
     }
 
     private func put(_ path: String, _ body: [String: Any]) async {

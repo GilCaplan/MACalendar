@@ -31,6 +31,7 @@ from assistant.actions import register
 from assistant.actions.base import BaseAction, BaseIntent
 from assistant.actions.schedule_workout.intent import ScheduleWorkoutIntent
 from assistant.exceptions import ParseError
+from assistant import clock as _clock  # the moment the command was SAID
 
 # How far ahead the planner is allowed to reach when the request doesn't say.
 _DEFAULT_HORIZON_DAYS = 56
@@ -123,7 +124,7 @@ class ScheduleWorkoutAction(BaseAction):
         settings = observance_settings(config)
         policy = schedule_policy(config)
 
-        today = datetime.date.today()
+        today = _clock.today()
         horizon = today + datetime.timedelta(days=_DEFAULT_HORIZON_DAYS)
 
         parser = IntentParser(config, global_registry)
