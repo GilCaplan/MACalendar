@@ -357,9 +357,9 @@ struct SettingsView: View {
                                 Text("Dark").tag("dark")
                             }
                             .pickerStyle(.segmented)
-                            .onChange(of: settings.theme) { v in
-                                Task { await api.patchShared(["theme": v]) }
-                            }
+                            // This phone's own: the Mac keeps its own theme and
+                            // accent (Gil, 2026-10-10 — how a screen looks is per
+                            // device; what the assistant does stays shared).
 
                             Divider().padding(.vertical, 4)
 
@@ -476,9 +476,10 @@ struct SettingsView: View {
                             // one switch for all of it; each part stays its own below
                             Toggle(isOn: Binding(get: { settings.jewishCalendarOn }, set: { on in
                                 settings.setJewishCalendar(on)
-                                Task { await api.patchShared(["hebrew_calendar": ["display_mode": on ? "both" : "english",
-                                                                                  "show_holidays": on, "show_shabbat_times": on],
-                                                              "observance": ["enabled": on],
+                                // How the calendar is DRAWN stays on this phone
+                                // (Gil, 2026-10-10); what the assistant does on
+                                // those days, and its title emoji, are shared.
+                                Task { await api.patchShared(["observance": ["enabled": on],
                                                               "title_emoji": ["jewish": on]]) }
                             })) {
                                 Text("Jewish calendar").font(.headline)
@@ -492,10 +493,6 @@ struct SettingsView: View {
                             .pickerStyle(.segmented)
 
                             Toggle("Show Jewish / Israeli holidays", isOn: $settings.showHolidays)
-                                .onChange(of: settings.showHolidays) { v in
-                                    Task { await api.patchShared(
-                                        ["hebrew_calendar": ["show_holidays": v]]) }
-                                }
                             Toggle(isOn: $settings.israelHolidays) {
                                 HStack(spacing: 6) {
                                     Text("Israel holiday schedule")
@@ -520,9 +517,7 @@ struct SettingsView: View {
                                     InfoTip("Lines on the Day and Week views at the exact minute of candle lighting and of nightfall, worked out for where you are.")
                                 }
                             }
-                                .onChange(of: settings.showShabbatTimes) { v in
-                                    Task { await api.patchShared(
-                                        ["hebrew_calendar": ["show_shabbat_times": v]]) }
+                                .onChange(of: settings.showShabbatTimes) { _ in
                                     CalendarNavigator.shared.reload()
                                     api.requestRefresh()
                                 }
@@ -856,21 +851,10 @@ struct SettingsView: View {
         guard let shared = try? await api.sharedSettings() else { return }
         guard !LocalStore.shared.pending.contains(where: { $0.path == "/config" })
         else { return }
-        if shared.theme != settings.theme { settings.theme = shared.theme }
-        if !shared.accentColor.isEmpty, shared.accentColor != settings.accentColorHex {
-            settings.accentColorHex = shared.accentColor
-        }
-        if shared.hebrewDisplayMode != settings.hebrewDisplayMode {
-            settings.hebrewDisplayMode = shared.hebrewDisplayMode
-        }
-        if shared.showHolidays != settings.showHolidays {
-            settings.showHolidays = shared.showHolidays
-        }
+        // Not adopted, on purpose (Gil, 2026-10-10): the theme, the accent
+        // colour and how the Hebrew calendar is drawn are this phone's own.
         if shared.israelHolidays != settings.israelHolidays {
             settings.israelHolidays = shared.israelHolidays
-        }
-        if shared.showShabbatTimes != settings.showShabbatTimes {
-            settings.showShabbatTimes = shared.showShabbatTimes
         }
         if let v = shared.observanceEnabled, v != settings.observanceEnabled {
             settings.observanceEnabled = v
