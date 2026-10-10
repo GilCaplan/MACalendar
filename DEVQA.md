@@ -1,3 +1,20 @@
+- **2026-10-10 — Q87 (EACH SCREEN'S LOOK IS ITS OWN; THE ASSISTANT IS SHARED)**,
+  Gil: *"it's separate and independent between the Mac and the iOS, right?
+  Like the only configurations relevant for that device is on that device …
+  In general, also for other things … If not, fix."* It was not: Q-era
+  2026-09-18 (*"everything should be synchronized"*) had made the phone push
+  and adopt the THEME, the ACCENT colour and how the HEBREW CALENDAR is drawn.
+  Asked which to separate, he chose **theme & accent** and **Hebrew calendar
+  display** (Hebrew dates, holiday markers, Shabbat lines) — per device now.
+  **Still shared, by his answer:** spoken replies (`tts.mute`) and completed
+  tasks (`todo.show_completed`); and everything that changes what the
+  ASSISTANT does — event length / chain gap, series ends, the kept-off days
+  (`observance.enabled`) and which yom tov days they are (`israel_holidays`),
+  title emoji, occasions. Already per device, unchanged: the mic's listening
+  style (phone `micVisual`, Mac `ui.mic_visual`), font sizes, layout, fold
+  state, the server address. `tests/unit/test_ios_device_settings.py` pins
+  both halves.
+
 - **2026-10-02 — Q86 (FINISHING: A PLACE STAYS IN THE TITLE; THE JEWISH
   CALENDAR IS OFF FOR A NEW INSTALL)**, Gil, closing the project's loose
   ends: *"Spoken place, yes, I think it should be in the title"* — so
