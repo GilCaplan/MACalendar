@@ -1,14 +1,14 @@
 # Code size, by category
 
-<!-- code-stats: {"total_files": 864, "total_lines": 227751} -->
+<!-- code-stats: {"total_files": 865, "total_lines": 227913} -->
 **Generated — do not edit by hand.** The pre-commit hook (`python -m scripts.code_stats --install-hook`) rewrites this whenever the numbers move, so it describes the commit it ships in. By hand: `python -m scripts.code_stats --write`; `--check` says whether it is current, and `tests/unit/test_code_size.py` fails once it is more than 2% out.
 
-**227,751 lines of source across 864 files.** Of that, **131,376 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
+**227,913 lines of source across 865 files.** Of that, **131,499 lines are the live product** — the rest is tests, the retired brain, the measurement boards and the dataset tooling.
 
 | category | files | lines |
 |---|---:|---:|
-| Test code | 251 | 49,010 |
-| iOS application | 140 | 40,492 |
+| Test code | 252 | 49,049 |
+| iOS application | 140 | 40,615 |
 | Actions, storage & domain (DB, config, observance, .ics) | 165 | 28,439 |
 | Mac application (calendar GUI) | 45 | 24,807 |
 | Engine experiments & boards (not in the answer path) | 73 | 24,614 |
@@ -20,21 +20,21 @@
 | Model / Ollama code | 12 | 3,281 |
 | API server (the front door) | 6 | 2,201 |
 | Launch scripts | 7 | 1,289 |
-| **TOTAL** | **864** | **227,751** |
+| **TOTAL** | **865** | **227,913** |
 
 ### By language
 
 | | files | lines |
 |---|---:|---:|
-| Python | 703 | 182,780 |
-| Swift | 148 | 43,796 |
+| Python | 704 | 182,819 |
+| Swift | 148 | 43,919 |
 | shell | 11 | 976 |
 | launch script | 2 | 199 |
 
 Not counted above, and deliberately so:
 
 - **Data** — the utterance corpus, fitted weights and fixtures: 344,414 lines across 399 files. Bigger than the code, and not written by hand.
-- **Prose** — markdown and the published HTML explainers: 53,358 lines across 126 files.
+- **Prose** — markdown and the published HTML explainers: 53,364 lines across 126 files.
 
 ### How the categories are drawn
 

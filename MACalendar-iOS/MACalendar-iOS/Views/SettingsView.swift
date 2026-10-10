@@ -238,11 +238,18 @@ struct SettingsView: View {
     }
     private var voiceSummary: String { settings.speakReplies ? "Speaks replies" : "Silent" }
     private var connectionSummary: String {
-        !settings.serverEnabled ? "Offline" : (api.isOnline ? "Connected" : "Not reachable")
+        let state = !settings.serverEnabled ? "Offline" : (api.isOnline ? "Connected" : "Not reachable")
+        let waiting = store.pendingCount + store.pendingVoice.filter { $0.status == .queued }.count
+        return waiting > 0 ? "\(state) · \(waiting) waiting" : state
     }
 
     private var serverPage: some View {
         SettingsPage("Your Mac") {
+                        // Live: the connection, what is waiting to sync, and
+                        // the commands waiting for the Mac — the facts the top
+                        // strips used to shout across every screen (2026-10-10).
+                        ConnectionStatusCard(showQueue: $showQueue)
+                        Divider().padding(.vertical, 4)
                         // Found or scanned — no address to type (DEVQA Q69).
                         NearbyServers()
                         Divider().padding(.vertical, 4)
@@ -339,19 +346,6 @@ struct SettingsView: View {
                         Label(offlineReaderNote, systemImage: "iphone.gen3.radiowaves.left.and.right")
                             .font(.caption)
                             .foregroundColor(.secondary)
-
-                        if store.pendingCount > 0 {
-                            Button { showQueue = true } label: {
-                                HStack {
-                                    Label("\(store.pendingCount) change\(store.pendingCount == 1 ? "" : "s") waiting to sync",
-                                          systemImage: "tray.full")
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption).foregroundColor(.secondary)
-                                }
-                            }
-                            .accessibilityIdentifier("pending-queue-link")
-                        }
             }
     }
 
@@ -1359,5 +1353,131 @@ private struct SettingsIcon: View {
             .frame(width: 28, height: 28)
             .background(RoundedRectangle(cornerRadius: 7).fill(tint))
             .padding(.trailing, 4)
+    }
+}
+
+
+// MARK: - Live connection status (Settings ▸ Your Mac)
+
+/// The connection, the writes waiting to sync and the voice commands waiting
+/// for the Mac, updating as they change. Replaces the strips at the top of
+/// every screen as the default place to see them (Gil, 2026-10-10: "those i
+/// feel should be shown … in the server part of the settings in a dynamic
+/// way"); the strips are a switch here for anyone who wants them back.
+private struct ConnectionStatusCard: View {
+    @EnvironmentObject var settings: AppSettings
+    @EnvironmentObject var api: APIClient
+    @ObservedObject private var store = LocalStore.shared
+    @Binding var showQueue: Bool
+    @State private var showVoiceQueue = false
+
+    private enum Link { case phoneOnly, off, connected, unreachable }
+
+    private var state: Link {
+        if settings.phoneOnly { return .phoneOnly }
+        if !settings.serverEnabled { return .off }
+        return api.isOnline ? .connected : .unreachable
+    }
+
+    private var title: String {
+        switch state {
+        case .phoneOnly:   return "This phone runs on its own"
+        case .off:         return "Connection switched off"
+        case .connected:   return "Connected to your Mac"
+        case .unreachable: return "Your Mac can't be reached"
+        }
+    }
+
+    private var detail: String {
+        switch state {
+        case .phoneOnly:   return "No Mac to sync with."
+        case .off:         return "Changes stay on this phone until you switch it back on."
+        case .connected:   return "Everything you change goes to your Mac right away."
+        case .unreachable: return "Working offline — changes are saved here and sync when it's back."
+        }
+    }
+
+    private var colour: Color {
+        switch state {
+        case .connected:   return .green
+        case .unreachable: return .orange
+        case .off, .phoneOnly: return .secondary
+        }
+    }
+
+    private var waitingVoice: Int { store.pendingVoice.filter { $0.status == .queued }.count }
+    private var failedVoice: Int { store.pendingVoice.filter { $0.status == .failed }.count }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                Circle().fill(colour).frame(width: 10, height: 10).padding(.top, 5)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.subheadline.weight(.semibold))
+                    Text(detail).font(.caption).foregroundColor(.secondary)
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("connection-status")
+
+            if store.pendingCount > 0 {
+                statusRow("tray.full", .orange,
+                          "\(store.pendingCount) change\(store.pendingCount == 1 ? "" : "s") waiting to sync") {
+                    showQueue = true
+                }
+                .accessibilityIdentifier("pending-queue-link")
+            }
+            if !store.pendingVoice.isEmpty {
+                statusRow("mic.badge.plus", failedVoice > 0 ? .red : .orange, voiceSummary) {
+                    showVoiceQueue = true
+                }
+                .accessibilityIdentifier("voice-queue-link")
+            }
+            if store.pendingCount == 0 && store.pendingVoice.isEmpty && state != .phoneOnly {
+                Label("Nothing waiting", systemImage: "checkmark.circle")
+                    .font(.caption).foregroundColor(.secondary)
+            }
+
+            if state != .phoneOnly {
+                Toggle(isOn: $settings.showConnectionBanner) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Also show it at the top of the screen")
+                        Text("A strip when the Mac can't be reached or commands are waiting.")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                }
+                .accessibilityIdentifier("connection-banner-toggle")
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: store.pendingCount)
+        .animation(.easeInOut(duration: 0.2), value: api.isOnline)
+        .sheet(isPresented: $showVoiceQueue) {
+            VoiceQueueView().environmentObject(api).environmentObject(settings)
+        }
+    }
+
+    private var voiceSummary: String {
+        if store.pendingVoice.contains(where: { $0.status == .running }) {
+            return "Running a command you spoke while offline…"
+        }
+        if waitingVoice > 0 {
+            return "\(waitingVoice) voice command\(waitingVoice == 1 ? "" : "s") waiting for your Mac"
+        }
+        if failedVoice > 0 { return "\(failedVoice) queued command\(failedVoice == 1 ? "" : "s") didn't run" }
+        return "Queued commands ran — see what they did"
+    }
+
+    private func statusRow(_ icon: String, _ tint: Color, _ text: String,
+                           action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Label { Text(text).foregroundColor(.primary) } icon: {
+                    Image(systemName: icon).foregroundColor(tint)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption).foregroundColor(.secondary)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
