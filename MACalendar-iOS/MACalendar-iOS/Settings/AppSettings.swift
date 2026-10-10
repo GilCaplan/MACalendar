@@ -100,6 +100,11 @@ class AppSettings: ObservableObject {
     @Published var weekFitsAll: Bool {
         didSet { UserDefaults.standard.set(weekFitsAll, forKey: "weekFitsAll") }
     }
+    /// Jude's answers written on this phone by Apple's model, from sources
+    /// the Mac finds (JudeOnDevice) — or by the Mac, as before (default).
+    @Published var judeAnswerOnPhone: Bool {
+        didSet { UserDefaults.standard.set(judeAnswerOnPhone, forKey: "judeAnswerOnPhone") }
+    }
     @Published var weekStartsMonday: Bool {
         didSet { UserDefaults.standard.set(weekStartsMonday, forKey: "weekStartsMonday") }
     }
@@ -348,6 +353,7 @@ class AppSettings: ObservableObject {
         self.transcribeOnPhone = UserDefaults.standard.object(forKey: "transcribeOnPhone") == nil
             ? true : UserDefaults.standard.bool(forKey: "transcribeOnPhone")
         self.weekFitsAll = UserDefaults.standard.bool(forKey: "weekFitsAll")
+        self.judeAnswerOnPhone = UserDefaults.standard.bool(forKey: "judeAnswerOnPhone")
         let visual = UserDefaults.standard.string(forKey: "micVisual") ?? "card"
         self.micVisual = AppSettings.micVisuals.contains { $0.id == visual } ? visual : "card"
         self.vocabOnboardingDone = UserDefaults.standard.bool(forKey: "vocabOnboardingDone")

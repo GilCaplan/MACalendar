@@ -135,6 +135,20 @@ struct JudeComposer: View {
                 Spacer()
             }
 
+            // Who writes the answer (2026-10-11): the Mac, or this phone with
+            // Apple's model from sources the Mac finds. Greyed out where the
+            // phone can't run it.
+            Picker("Answer on", selection: $settings.judeAnswerOnPhone) {
+                Image(systemName: "desktopcomputer").tag(false)
+                Image(systemName: "iphone").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 76)
+            .disabled(isBusy || !JudeOnDevice.isAvailable)
+            .accessibilityLabel("Answer on")
+            .accessibilityValue(settings.judeAnswerOnPhone ? "This phone" : "Mac")
+            .accessibilityIdentifier("jude-answer-on")
+
             Picker("Language", selection: $lang) {
                 Text("EN").tag("en")
                 Text("עב").tag("he")

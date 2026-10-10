@@ -88,6 +88,7 @@
 		AA00000030000000000000F1A /* JudeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000030000000000000F1B /* JudeModels.swift */; };
 		AA00000040000000000000F1A /* JudeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000040000000000000F1B /* JudeClient.swift */; };
 		AA00000050000000000000F1A /* JudeSourceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000050000000000000F1B /* JudeSourceCard.swift */; };
+		AB0000230000000000000074 /* JudeOnDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000220000000000000075 /* JudeOnDevice.swift */; };
 		AA00000060000000000000F1A /* JudeTracePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000060000000000000F1B /* JudeTracePanel.swift */; };
 		AA00000070000000000000F1A /* JudeComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000070000000000000F1B /* JudeComposer.swift */; };
 		AA00000080000000000000F1A /* JudeChatList.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000080000000000000F1B /* JudeChatList.swift */; };
@@ -224,6 +225,7 @@
 		AA00000030000000000000F1B /* JudeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeModels.swift; sourceTree = "<group>"; };
 		AA00000040000000000000F1B /* JudeClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeClient.swift; sourceTree = "<group>"; };
 		AA00000050000000000000F1B /* JudeSourceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeSourceCard.swift; sourceTree = "<group>"; };
+		AB0000220000000000000075 /* JudeOnDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeOnDevice.swift; sourceTree = "<group>"; };
 		AA00000060000000000000F1B /* JudeTracePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeTracePanel.swift; sourceTree = "<group>"; };
 		AA00000070000000000000F1B /* JudeComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeComposer.swift; sourceTree = "<group>"; };
 		AA00000080000000000000F1B /* JudeChatList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudeChatList.swift; sourceTree = "<group>"; };
@@ -465,6 +467,7 @@
 				AA00000030000000000000F1B /* JudeModels.swift */,
 				AA00000040000000000000F1B /* JudeClient.swift */,
 				AA00000050000000000000F1B /* JudeSourceCard.swift */,
+				AB0000220000000000000075 /* JudeOnDevice.swift */,
 				AA00000060000000000000F1B /* JudeTracePanel.swift */,
 				AA00000070000000000000F1B /* JudeComposer.swift */,
 				AA00000080000000000000F1B /* JudeChatList.swift */,
@@ -858,6 +861,7 @@
 				AA00000030000000000000F1A /* JudeModels.swift in Sources */,
 				AA00000040000000000000F1A /* JudeClient.swift in Sources */,
 				AA00000050000000000000F1A /* JudeSourceCard.swift in Sources */,
+				AB0000230000000000000074 /* JudeOnDevice.swift in Sources */,
 				AA00000060000000000000F1A /* JudeTracePanel.swift in Sources */,
 				AA00000070000000000000F1A /* JudeComposer.swift in Sources */,
 				AA00000080000000000000F1A /* JudeChatList.swift in Sources */,
