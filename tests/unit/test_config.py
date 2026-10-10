@@ -144,7 +144,10 @@ def test_the_example_config_documents_it():
 
 # ---------------------------------------------------------------------------
 # Settings shared between the Mac and the phone (Gil, 2026-09-18: "mac and ios
-# should have same settings, everything should be synchronized").
+# should have same settings, everything should be synchronized") — narrowed
+# 2026-10-10 (DEVQA Q87): each screen's LOOK is its own; the phone's side of
+# that is pinned by test_ios_device_settings.py. The Mac still SERVES these
+# keys (its own Settings reads them), which is what this block checks.
 # ---------------------------------------------------------------------------
 
 def _client(tmp_path, monkeypatch):

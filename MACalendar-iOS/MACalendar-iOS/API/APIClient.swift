@@ -2419,6 +2419,13 @@ extension APIClient {
 /// that drift (Gil, 2026-09-18: "mac and ios should have same settings,
 /// everything should be synchronized").
 ///
+/// Narrowed 2026-10-10 (Gil: "the only configurations relevant for that device
+/// is on that device"): how each SCREEN looks is per device — the theme, the
+/// accent colour, and how the Hebrew calendar is drawn (Hebrew dates, holiday
+/// markers, Shabbat lines). What the ASSISTANT does stays shared: event lengths,
+/// series ends, the kept-off days and which yom tov days they are (Israel or
+/// abroad), title emoji, spoken replies, completed tasks.
+///
 /// What is NOT here is deliberate, not missing: the server address and API key
 /// describe this phone's route to the Mac and mean nothing on it;
 /// `followMyLocation` is about THIS device; the font sizes are per-device on
@@ -2428,12 +2435,7 @@ extension APIClient {
 /// Decodable only: it is never encoded — a change is pushed as an explicit
 /// `["theme": ...]` dict, because the Mac patches one key at a time.
 struct SharedSettings: Decodable, Equatable {
-    var theme: String
-    var accentColor: String
-    var hebrewDisplayMode: String
-    var showHolidays: Bool
     var israelHolidays: Bool
-    var showShabbatTimes: Bool
     var hideCompletedTasks: Bool
     var speakReplies: Bool
     /// `events:` (DEVQA Q51) — nil when the Mac predates the setting, so an
@@ -2453,7 +2455,6 @@ struct SharedSettings: Decodable, Equatable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        theme = try c.decodeIfPresent(String.self, forKey: .theme) ?? "dark"
 
         let obs = try? c.nestedContainer(keyedBy: ObservanceKeys.self, forKey: .observance)
         observanceEnabled = (try? obs?.decodeIfPresent(Bool.self, forKey: .enabled)) as? Bool
@@ -2477,14 +2478,8 @@ struct SharedSettings: Decodable, Equatable {
             }
         }
 
-        let ui = try? c.nestedContainer(keyedBy: UIKeys.self, forKey: .ui)
-        accentColor = (try? ui?.decodeIfPresent(String.self, forKey: .accentColor)) as? String ?? ""
-
         let heb = try? c.nestedContainer(keyedBy: HebrewKeys.self, forKey: .hebrewCalendar)
-        hebrewDisplayMode = (try? heb?.decodeIfPresent(String.self, forKey: .displayMode)) as? String ?? "both"
-        showHolidays = ((try? heb?.decodeIfPresent(Bool.self, forKey: .showHolidays)) as? Bool) ?? true
         israelHolidays = ((try? heb?.decodeIfPresent(Bool.self, forKey: .israelHolidays)) as? Bool) ?? true
-        showShabbatTimes = ((try? heb?.decodeIfPresent(Bool.self, forKey: .showShabbatTimes)) as? Bool) ?? true
 
         let todo = try? c.nestedContainer(keyedBy: TodoKeys.self, forKey: .todo)
         // The Mac stores SHOW-completed; the phone has always asked HIDE.

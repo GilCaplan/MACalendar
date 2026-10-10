@@ -1527,6 +1527,12 @@ def create_app() -> Flask:
     #: accent colour, the Hebrew conventions and show-completed; the phone just
     #: kept private copies of all four and neither knew about the other.
     #:
+    #: Narrowed 2026-10-10 (DEVQA Q87, Gil: "the only configurations relevant
+    #: for that device is on that device"): the phone no longer pushes or adopts
+    #: the theme, the accent colour or how the Hebrew calendar is drawn — each
+    #: screen keeps its own look. They stay patchable here for the Mac's own
+    #: Settings and for older phone builds; what the assistant does stays shared.
+    #:
     #: NOT here, and each for a reason rather than an omission: the server
     #: address and API key describe the phone's route to this Mac and mean
     #: nothing on it; `followMyLocation` is about THIS device's position; the
