@@ -49,5 +49,9 @@ final class CalendarTitlesUITests: XCTestCase {
         app.buttons["Week"].firstMatch.tap()
         sleep(2)
         shot(app, "week")
+        // the days scroll sideways; the header must move with them
+        app.swipeRight(); app.swipeRight()
+        sleep(1)
+        shot(app, "week-start")
     }
 }
