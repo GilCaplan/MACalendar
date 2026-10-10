@@ -28,6 +28,10 @@ struct MacPhotoSheet: View {
     @State private var name = ""
     @State private var words = ""
     @State private var taken: [String] = []
+    @State private var asking = false
+    /// Bumped by every render; one that finishes after a newer one began is
+    /// dropped, so the old photo's cut-out (or failure) never lands on the new one.
+    @State private var renderGen = 0
 
     private var keywordList: [String] {
         words.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }.filter { !$0.isEmpty }
@@ -86,12 +90,15 @@ struct MacPhotoSheet: View {
             HStack {
                 Button("Cancel") { dismiss() }
                 Spacer()
+                if let why = whyNotSave { Text(why).font(.callout).foregroundColor(.secondary) }
                 Button("Save", action: save).keyboardShortcut(.defaultAction).disabled(!canSave)
             }
         }
         .formStyle(.grouped)
         .frame(minWidth: 600, minHeight: 520)
-        .alert("Some words are taken", isPresented: Binding(get: { !taken.isEmpty }, set: { if !$0 { taken = [] } })) {
+        // `asking`, not `taken`, drives the alert: SwiftUI may close it before
+        // running the button, and "Keep them" needs the list to filter.
+        .alert("Some words are taken", isPresented: $asking) {
             Button("Move them here") { finish(moving: true) }
             Button("Keep them where they are", role: .cancel) { finish(moving: false) }
         } message: {
@@ -107,35 +114,59 @@ struct MacPhotoSheet: View {
         return true
     }
 
+    /// Why Save is grey, said beside it rather than left to guess.
+    private var whyNotSave: String? {
+        if photo == nil { return "Choose a photo first." }
+        if busy { return "Cutting it out…" }
+        if result == nil { return byHand ? "Draw a loop round it to save." : "No subject found — draw round it to save." }
+        if case .newObject = mode {
+            if name.trimmingCharacters(in: .whitespaces).isEmpty { return "Give it a name to save." }
+            if keywordList.isEmpty { return "Add at least one word to save." }
+        }
+        return nil
+    }
+
     private func choose() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.image]
         panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url, let cg = MacEggStore.loadUpright(url) else { return }
         photo = EggImageCore.normalised(cg)
+        // The old loop was drawn round the OLD photo: a new one starts
+        // automatic again, or Save waits on a loop nobody knows they owe.
         lasso = []; detected = nil; rig = .auto
+        if EggImageCore.canCutOutAutomatically { byHand = false }
         Task { await rerender() }
     }
 
     private func rerender() async {
         guard let photo else { return }
-        if byHand && lasso.count < 3 { result = nil; failed = true; return }
+        renderGen += 1
+        let gen = renderGen
+        if byHand && lasso.count < 3 { result = nil; failed = true; busy = false; return }
         busy = true
         let out = await EggImageCore.render(photo: photo, lasso: byHand ? lasso : nil, anime: anime)
+        guard gen == renderGen else { return }
         failed = out == nil
         result = out
         if let out {
             wheels = EggPuppet.findWheels(out)
-            legs = await EggImageCore.findLegs(out)
+            let found = await EggImageCore.findLegs(out)
+            guard gen == renderGen else { return }
+            legs = found
         }
-        if detected == nil { detected = await EggImageCore.guessRig(photo) }
+        if detected == nil {
+            let guess = await EggImageCore.guessRig(photo)
+            guard gen == renderGen else { return }
+            detected = guess
+        }
         busy = false
     }
 
     private func save() {
         if case .newObject = mode {
             let clash = keywordList.filter { store.owner(of: $0, besides: "") != nil }
-            if !clash.isEmpty { taken = clash; return }
+            if !clash.isEmpty { taken = clash; asking = true; return }
         }
         finish(moving: true)
     }
