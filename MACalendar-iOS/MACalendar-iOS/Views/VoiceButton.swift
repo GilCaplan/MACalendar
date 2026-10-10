@@ -34,6 +34,10 @@ struct VoiceButton: View {
     enum Status { case idle, recording, review, thinking, speaking }
     /// Audio captured but not yet sent — the user can Redo / Add more / Send.
     @State private var pendingAudio: Data?
+    /// What the phone heard for `pendingAudio` — sent instead of it.
+    @State private var pendingHeard = ""
+    /// Between the mic stopping and the phone's last words arriving.
+    @State private var finishing = false
     /// This command's magic words have played — once per command.
     @State private var eggPlayed = false
     /// The wait the loading screen watches while a command thinks.
@@ -446,12 +450,12 @@ struct VoiceButton: View {
                 guard granted else { return }
                 Task { @MainActor in
                     let eggs = EggStore.shared.settings.enabled
-                    // With no Mac the phone's own hearing IS the transcript (DEVQA Q85)
-                    if settings.stopWordsEnabled || eggs || settings.phoneOnly {
-                        _ = await VoiceRecorder.requestSpeechPermission()   // no-op once granted
-                    }
+                    // The phone transcribes its own recordings (2026-10-10), so
+                    // speech recognition is always asked for; refused, the
+                    // recording goes to the Mac as audio instead.
+                    _ = eggs
+                    _ = await VoiceRecorder.requestSpeechPermission()   // no-op once answered
                     recorder.stopWordsEnabled = settings.stopWordsEnabled
-                    recorder.transcribe = eggs || settings.phoneOnly
                     recorder.silenceStopSeconds = settings.silenceStopEnabled ? settings.silenceStopSeconds : 0
                     recorder.onAutoStop = { [self] in finishRecording() }
                     // Stop talking before listening. The synthesizer holds the
@@ -539,14 +543,25 @@ struct VoiceButton: View {
     /// Ends the recording (tap, stop word, or silence). With "Ask before sending" on,
     /// a Redo / Add more / Send bar appears for a few seconds; otherwise it sends at once.
     private func finishRecording() {
-        guard status == .recording else { return }
+        guard status == .recording, !finishing else { return }
         guard let audioData = recorder.stop(), !audioData.isEmpty else {
             status = .idle
             return
         }
+        finishing = true
+        Task { @MainActor in
+            // The phone's own transcript, its last words settled (≤1.2 s).
+            let phone = await recorder.heardText(timeout: settings.transcribeOnPhone ? 1.2 : 0)
+            finishing = false
+            guard status == .recording else { return }      // discarded while it settled
+            finishRecording(audioData, heard: settings.transcribeOnPhone ? phone : "", phone: phone)
+        }
+    }
+
+    private func finishRecording(_ audioData: Data, heard: String, phone: String) {
         // Easter egg: nothing but magic words ("dragon!") plays and sends
         // nothing — there is no command in it to run.
-        if EggStore.shared.heard(recorder.liveText, bare: true) {
+        if EggStore.shared.heard(phone, bare: true) {
             status = .idle
             return
         }
@@ -554,9 +569,10 @@ struct VoiceButton: View {
         // send at once rather than making the user wait out the countdown they
         // just talked their way past. Silence or a mic tap still offers the bar.
         guard settings.reviewBeforeSend, recorder.stopReason != .stopWord else {
-            send(audioData); return
+            send(audioData, heard: heard); return
         }
         pendingAudio = audioData
+        pendingHeard = heard
         status = .review
         sendCountdown = 3
         countdownTask?.cancel()
@@ -601,7 +617,7 @@ struct VoiceButton: View {
         countdownTask?.cancel()
         guard status == .review, let audio = pendingAudio else { return }
         pendingAudio = nil
-        send(audio)
+        send(audio, heard: pendingHeard)
     }
 
     /// The full-screen "taking a while" loader is for a wait with nothing
@@ -615,9 +631,15 @@ struct VoiceButton: View {
         eggWait = EggWaits.shared.begin()
     }
 
-    private func send(_ audioData: Data) {
+    /// Send one recording. `heard` is the phone's own transcript: when there is
+    /// one it is sent INSTEAD of the audio and the Mac does not transcribe
+    /// again (Gil, 2026-10-10: "whatever device it comes from, just use that
+    /// one … we don't want to do double work"). Empty — recognition refused,
+    /// unavailable, or switched off in Settings — and the audio goes, for
+    /// Whisper on the Mac.
+    private func send(_ audioData: Data, heard: String = "") {
         // No Mac at all: the phone reads and does it (DEVQA Q85).
-        if settings.phoneOnly { runLocal(recorder.liveText); return }
+        if settings.phoneOnly { runLocal(heard.isEmpty ? recorder.liveText : heard); return }
         do {   // one block so the placeholder row + upload read top-to-bottom
             status = .thinking
             steps = []
@@ -626,12 +648,17 @@ struct VoiceButton: View {
             // Easter egg: a magic word inside a command plays while the
             // command is being made. The phone's own hearing if it has one;
             // otherwise the Mac's transcript, the moment it arrives below.
-            eggPlayed = EggStore.shared.heard(recorder.liveText, bare: false)
+            eggPlayed = EggStore.shared.heard(heard.isEmpty ? recorder.liveText : heard, bare: false)
             EggWaits.shared.end(eggWait); eggWait = nil
+            // The placeholder the Mac's first step replaces.
+            let placeholder = PlaceholderStep()
             if settings.showThinking {
-                steps = [TraceStep(stage: "stt", title: "Sending",
-                                   detail: "Uploading audio to your Mac…" + captureNote,
-                                   ms: 0, atMs: 0, ok: true)]
+                steps = [heard.isEmpty
+                    ? TraceStep(stage: "stt", title: "Sending",
+                                detail: "Uploading audio to your Mac…" + captureNote,
+                                ms: 0, atMs: 0, ok: true)
+                    : TraceStep(stage: "stt", title: "Heard on your phone",
+                                detail: heard + captureNote, ms: 0, atMs: 0, ok: true)]
                 showThinking = true
             }
             beginScreenWaitUnlessPanel()
@@ -649,11 +676,10 @@ struct VoiceButton: View {
                     // Always stream: the Mac reports each stage as it happens, so the
                     // calendar can refresh the moment an action executes (first version)
                     // and again when the self-check has finished (fixed version).
-                    let response = try await api.sendAudioStreaming(audioData, supportsEdit: true,
-                                                                     supportsConfirm: true) { step in
+                    let onStep: (TraceStep) -> Void = { step in
                         guard inFlight == me else { return }        // cancelled: not shown
                         if settings.showThinking {
-                            if steps.count == 1, steps[0].title == "Sending" { steps = [] }
+                            if placeholder.showing { steps = []; placeholder.showing = false }
                             steps.append(step)
                         }
                         // The Mac's hearing, whenever the phone's played nothing —
@@ -670,13 +696,18 @@ struct VoiceButton: View {
                             onRefresh?("both")
                         }
                     }
+                    let response = heard.isEmpty
+                        ? try await api.sendAudioStreaming(audioData, supportsEdit: true,
+                                                           supportsConfirm: true, onStep: onStep)
+                        : try await api.sendHeardStreaming(heard, supportsEdit: true,
+                                                           supportsConfirm: true, onStep: onStep)
                     guard inFlight == me else { await undoAbandoned(response); return }
                     inFlight = nil
                     await handleResponse(response)
                 } catch {
                     guard inFlight == me else { return }
                     inFlight = nil
-                    await recoverLostStream(error, sentAt: sentAt, audio: audioData)
+                    await recoverLostStream(error, sentAt: sentAt, audio: audioData, heard: heard)
                 }
             }
         }
@@ -775,7 +806,7 @@ struct VoiceButton: View {
     /// calendar, and wait for the record to show up in the command log rather
     /// than reporting a failure that didn't happen.
     @MainActor
-    private func recoverLostStream(_ error: Error, sentAt: Date, audio: Data) async {
+    private func recoverLostStream(_ error: Error, sentAt: Date, audio: Data, heard: String = "") async {
         EggWaits.shared.end(eggWait); eggWait = nil
         // Never reached the Mac at all? Then nothing ran: keep the recording and
         // replay it when the Mac is back, rather than polling for a result that
@@ -785,8 +816,10 @@ struct VoiceButton: View {
             // published for the thinking sheet's "hearing…" row, so this costs
             // nothing — and without it a queued command is an anonymous row the
             // user cannot check or correct until after it has run.
-            let draft = recorder.liveText
-            let cmd = LocalStore.shared.enqueueVoice(audio, draft: draft)
+            // When the phone transcribed it, its words are what replays — as
+            // text, so the Mac does not transcribe it a second time.
+            let draft = heard.isEmpty ? recorder.liveText : heard
+            let cmd = LocalStore.shared.enqueueVoice(audio, draft: draft, heardOnPhone: !heard.isEmpty)
             // Read it HERE with Apple's on-device model and book what it can
             // at once — provisionally: the Mac re-reads the command when it
             // is back and its reading replaces this one (assistant/offline).
@@ -1490,3 +1523,7 @@ struct MicStylePicker: View {
         }
     }
 }
+
+/// The "Sending" / "Heard on your phone" row shown until the Mac's first step
+/// arrives — a reference, so the streaming callback can clear it exactly once.
+private final class PlaceholderStep { var showing = true }

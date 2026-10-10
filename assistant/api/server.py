@@ -694,6 +694,7 @@ def create_app() -> Flask:
 
         # Read anything off the request here, in the request context — the
         # worker below runs on a bare thread where `request` is gone.
+        heard_on = ""
         if "audio" in request.files:
             audio_bytes = request.files["audio"].read()
             text_cmd = None
@@ -702,6 +703,10 @@ def create_app() -> Flask:
         else:
             body = request.get_json(silent=True) or {}
             text_cmd = (body.get("transcript") or "").strip()
+            # "phone": the words came from the phone's own recogniser, not a
+            # keyboard (Gil, 2026-10-10: each device transcribes its own
+            # recordings — "we don't want to do double work").
+            heard_on = (body.get("heard_on") or "").strip().lower()
             audio_bytes = b""
             edit_ok = _supports_edit(body)
             confirm_ok = _supports_confirm(body)
@@ -716,7 +721,8 @@ def create_app() -> Flask:
             try:
                 if text_cmd is not None:
                     transcript = text_cmd
-                    trace.step(STT, "Typed", transcript, transcript=transcript)
+                    trace.step(STT, "Heard on your phone" if heard_on == "phone" else "Typed",
+                               transcript, transcript=transcript)
                 else:
                     logger.info("Audio received (stream): %.1f KB", len(audio_bytes) / 1024)
                     from assistant.api.audio_utils import audio_bytes_to_numpy
