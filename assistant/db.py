@@ -1332,6 +1332,21 @@ class CalendarDB:
             )
             first_id = cur.lastrowid
 
+            # A category the PERSON chose for a new event, in an editor
+            # (`category_explicit`, set only by the event editors) — their
+            # label, filed for the learned labeller. Never for a copy, an undo
+            # or a restore, which carry a category nobody just chose.
+            if data.get("category_explicit") and data.get("category"):
+                try:
+                    from assistant.actions.calendar import categories as _cat
+                    from assistant.engine.label import feedback as _fb
+                    guess = _cat.classify(data["title"], data.get("attendees", ""),
+                                          data.get("location", ""), data.get("description", ""))
+                    _fb.record_category(data["title"], guess, str(data["category"]),
+                                        origin=_fb.EXPLICIT)
+                except Exception:
+                    pass
+
             if recurrence:
                 # `category` travels with the colour: the instances used to be
                 # generated uncategorised here (the 2026-09-10 fix reached only

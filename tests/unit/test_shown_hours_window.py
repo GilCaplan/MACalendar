@@ -81,15 +81,18 @@ def test_picking_the_hours_in_settings_and_saving_shows_them(app):
     seen = {}
 
     def _go():
-        # THIS dialog, by what it holds — not "a visible dialog": on CI's
-        # display there may be no active modal, and the first visible dialog
-        # was a stale one from an earlier test; touching it segfaulted the
-        # suite (2026-09-30).
+        # THE Settings dialog, asked of Qt — not found by walking every
+        # top-level window: that walk touched a window an earlier test in this
+        # file had left behind, and a freed one segfaulted CI (2026-09-30, and
+        # again on PR #20, 2026-10-10, inside the walk). The modal Qt hands
+        # back is live; the same lookup the other Settings tests drive with
+        # (test_event_defaults_ui._drive), which has held on CI.
         from PyQt6 import sip
-        from PyQt6.QtWidgets import QDialog
-        dlg = next((x for x in QApplication.topLevelWidgets()
-                    if isinstance(x, QDialog) and not sip.isdeleted(x) and x.isVisible()
-                    and x.findChild(QComboBox, "hours_from") is not None), None)
+        dlg = QApplication.activeModalWidget()
+        if dlg is not None and (sip.isdeleted(dlg) or not dlg.isVisible()
+                                or dlg.objectName() != "settings_dialog"
+                                or dlg.findChild(QComboBox, "hours_from") is None):
+            dlg = None
         if dlg is None:
             seen["tries"] = seen.get("tries", 0) + 1
             if seen["tries"] < 300:

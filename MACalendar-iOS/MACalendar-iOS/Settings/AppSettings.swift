@@ -449,6 +449,14 @@ enum EventDefaults {
         var map: [String: Int] = [:]
         for c in categories { if let m = c.defaultMinutes { map[c.name.lowercased()] = m } }
         UserDefaults.standard.set(map, forKey: categoryLengthsKey)
+        UserDefaults.standard.set(categories.map(\.name), forKey: categoryNamesKey)
+    }
+
+    /// The Mac's category names, last heard — the event editor's Category
+    /// picker draws from these, so it works with the Mac away.
+    static let categoryNamesKey = "eventCategoryNames"
+    static var categoryNames: [String] {
+        UserDefaults.standard.stringArray(forKey: categoryNamesKey) ?? []
     }
 
     /// Remember one answer from GET /event_defaults: the global, and the
