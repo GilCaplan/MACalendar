@@ -110,6 +110,42 @@ final class MicAndConnectionUITests: XCTestCase {
         shot(app, "settings-voice-picker")
     }
 
+    // MARK: - Who transcribes
+
+    /// The phone transcribes its own recording and sends the WORDS (2026-10-10).
+    /// Needs a stand-in Mac on 127.0.0.1:59130 that logs what it is sent
+    /// (scratchpad fake_mac.py) and speech playing into the Mac's microphone
+    /// while it records; the driver reads the log. Skips without the stand-in.
+    func testASpokenCommandGoesAsWords() throws {
+        let up: Bool = {
+            let sem = DispatchSemaphore(value: 0); var ok = false
+            URLSession.shared.dataTask(with: URL(string: "http://127.0.0.1:59130/health")!) { _, r, _ in
+                ok = (r as? HTTPURLResponse)?.statusCode == 200; sem.signal()
+            }.resume()
+            _ = sem.wait(timeout: .now() + 3); return ok
+        }()
+        try XCTSkipUnless(up, "start fake_mac.py on 59130 to run this")
+        let app = XCUIApplication()
+        app.launchArguments = ["-serverURL", "127.0.0.1:59130", "-vocabOnboardingDone", "1",
+                               "-remindersEnabled", "0", "-reviewBeforeSend", "0",
+                               "-showThinking", "1", "-stopWordsEnabled", "0",
+                               "-silenceStopEnabled", "0", "-uitestDefaultPrefs"]
+        app.launch()
+        allowAlerts()
+        startRecording(app, expect: "listening-card")
+        sleep(12)                                         // the driver is speaking
+        shot(app, "spoken-heard")
+        mic(app).tap()
+        // The fake Mac answers "Done (fake Mac)." whichever way it was sent;
+        // the driver reads its log for WHICH way (words, or audio when the
+        // device has no on-device recognition — the simulator has none).
+        let done = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS 'Done (fake Mac)'")).firstMatch
+        let ok = done.waitForExistence(timeout: 40)
+        shot(app, "spoken-sent")
+        XCTAssertTrue(ok, "the command never came back from the fake Mac")
+    }
+
     // MARK: - The connection
 
     func testNoStripsByDefaultEvenOfflineWithCommandsWaiting() throws {

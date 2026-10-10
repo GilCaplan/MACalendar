@@ -522,6 +522,19 @@ non-loopback sockets in the build. Discarding happens entirely client-side —
 the audio is dropped before any upload, so nothing is transcribed, executed or
 remembered. On the phone `cancel()` also clears the PCM buffer, which
 `start(resume: true)` ("Add more") deliberately keeps.
+**Each device transcribes its own recordings** (2026-10-10 — Gil: *"whatever
+device it comes from, just use that one … we don't want to do double work"*).
+The phone's on-device recogniser (Apple, `SFSpeechRecognizer`, on-device only)
+writes the command down; when the mic stops it waits ≤1.2 s for the last words
+(`VoiceRecorder.heardText`) and sends the WORDS to `/voice/stream` with
+`heard_on: "phone"` — the Mac runs them through the engine (vocabulary
+corrections included) without Whisper, and the panel says "Heard on your
+phone". Audio goes only when the phone has no transcript (speech recognition
+refused or unavailable on-device, or Settings ▸ Voice & recording ▸ "Transcribe
+on this phone" off), and Whisper on the Mac takes it as before. A command
+queued offline replays its words as text (`PendingVoiceCommand.heardOnPhone`).
+The Mac's own recordings use Whisper, as ever. `test_phone_transcribes_own`.
+
 **You can SEE it hearing you** (2026-10-09 — Gil: *"see that the audio is
 being captured so that I know that I'm not just talking to the air"*). Four
 styles on both platforms, picked from a design canvas — **waveform**, **rings**,
