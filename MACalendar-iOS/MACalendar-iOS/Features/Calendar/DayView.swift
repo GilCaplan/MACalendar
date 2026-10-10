@@ -109,12 +109,21 @@ struct DayView: View {
                     // tap a buried card to pop it out, tap again to open it.
                     GeometryReader { geo in
                         let colW = geo.size.width - 44 - 8
-                        let items = EventStacking.layout(events, hourHeight: hourHeight, minHeight: 24)
+                        // The title line stays clear of the cards stacked on top.
+                        // Only the title: clearing the time line too pushed the
+                        // next card into the one after it and cost THAT card
+                        // its title — a title beats a time.
+                        let titleLine: CGFloat = settings.fontDay * 1.3 + 8
+                        let band: (StackedEvent) -> CGFloat = { (_: StackedEvent) -> CGFloat in titleLine }
+                        let items = EventStacking.clearTitles(
+                            EventStacking.layout(events, hourHeight: hourHeight, minHeight: 24),
+                            band: band, minHeight: 24)
                         let poppedCluster = items.first { $0.id == popped }?.cluster
                         ForEach(items) { it in
                             let isPopped = popped == it.id
                             let inset = isPopped ? 0 : EventStacking.inset(depth: it.depth, size: it.stackSize, step: 14, readStep: 110, width: colW)
-                            let strip = isPopped ? 0 : EventStacking.strip(depth: it.depth, size: it.stackSize, step: 14, readStep: 110, width: colW)
+                            let strip = isPopped ? 0 : EventStacking.titleStrip(it, in: items, band: band,
+                                                                                step: 14, readStep: 110, width: colW)
                             EventBlock(event: it.event, height: it.height, strip: strip)
                                 .frame(width: max(colW - inset, 40), height: it.height)
                                 .modifier(OwnerEdge(event: it.event, radius: 6))
@@ -275,9 +284,15 @@ private struct EventBlock: View {
             .fill(Color(hex: event.color) ?? settings.accentColor)
             .overlay(alignment: .topLeading) {
                 VStack(alignment: .leading, spacing: 2) {
+                    // The title gets the lines the block has room for — never cut
+                    // off mid-word while there is space below it.
                     IconTitle(title: event.ownerPrefix + event.title, icons: event.icons, size: settings.fontDay)
                         .font(.system(size: settings.fontDay, weight: .semibold)).foregroundColor(textColor)
-                    Text(event.displayTime).font(.system(size: settings.fontDay - 2)).foregroundColor(textColor.opacity(0.85))
+                        .lineLimit(max(1, Int((height - 8) / (settings.fontDay * 1.25))))
+                        .fixedSize(horizontal: false, vertical: true)
+                    if height >= settings.fontDay * 2.6 + 8 {
+                        Text(event.displayTime).font(.system(size: settings.fontDay - 2)).foregroundColor(textColor.opacity(0.85))
+                    }
                     // A planned session carries the part worth reading — the
                     // pace and the intervals — in its body. Show it on the grid
                     // when the block is tall enough to hold a line without
