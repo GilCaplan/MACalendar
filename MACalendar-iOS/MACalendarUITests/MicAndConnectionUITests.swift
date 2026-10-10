@@ -25,7 +25,8 @@ final class MicAndConnectionUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-serverURL", "127.0.0.1:59999", "-vocabOnboardingDone", "1",
                                "-remindersEnabled", "0", "-reviewBeforeSend", "0",
-                               "-settingsFold.start", "open"] + extra
+                               "-settingsFold.start", "open",
+                               "-uitestDefaultPrefs"] + extra   // a choice saved by an earlier test is forgotten
         if seedQueue {
             let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
                 .appendingPathComponent("Fixtures/voice_response_walk_the_dog.json")
