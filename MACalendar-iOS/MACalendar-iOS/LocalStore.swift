@@ -114,10 +114,16 @@ struct PendingVoiceCommand: Codable, Identifiable {
 
     /// What actually gets sent, and whether it is text or audio.
     var outgoingText: String? {
-        guard let edited, !edited.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else { return nil }
-        return edited
+        if let edited, !edited.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return edited }
+        // Transcribed on the phone (2026-10-10): its words ARE the command —
+        // replayed as text, so the Mac does not transcribe it a second time.
+        if heardOnPhone == true, !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return draft }
+        return nil
     }
+
+    /// The draft is the phone's own transcript of the command, not a preview
+    /// (optional, so a queue written before 2026-10-10 still decodes).
+    var heardOnPhone: Bool?
 
     // -- the offline reader (assistant/offline/PROTOCOL.md) -------------
     // Optionals, so a queue file written before these existed still decodes.
@@ -1033,10 +1039,11 @@ class LocalStore: ObservableObject {
     /// so it costs nothing to keep. Without it a queued command is an anonymous
     /// row you cannot check or correct until it has already run.
     @discardableResult
-    func enqueueVoice(_ audio: Data, draft: String = "") -> PendingVoiceCommand {
+    func enqueueVoice(_ audio: Data, draft: String = "", heardOnPhone: Bool = false) -> PendingVoiceCommand {
         let name = "voice-\(UUID().uuidString).wav"
         try? audio.write(to: url(name))
-        let cmd = PendingVoiceCommand(audioFile: name, draft: draft)
+        var cmd = PendingVoiceCommand(audioFile: name, draft: draft)
+        if heardOnPhone { cmd.heardOnPhone = true }
         pendingVoice.append(cmd)
         persistVoice()
         return cmd

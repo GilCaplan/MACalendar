@@ -430,7 +430,9 @@ class APIClient: ObservableObject {
             if let text = cmd.outgoingText {
                 LocalStore.shared.updateVoice(cmd.id, status: .running)
                 do {
-                    let response = try await sendText(text, editedFrom: cmd.draft,
+                    // "edited from" only for a real edit — the phone's own
+                    // transcript sent as-is is not a correction to learn from.
+                    let response = try await sendText(text, editedFrom: cmd.edited == nil ? nil : cmd.draft,
                                                       clientId: cmd.id.uuidString,
                                                       offlineReading: cmd.offlineReadingData)
                     if settle(cmd, response) { ran += 1 }
@@ -1593,7 +1595,35 @@ class APIClient: ObservableObject {
         body.append(audioData)
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
         req.httpBody = body
+        return try await readStream(req, onStep: onStep)
+    }
 
+    /// A spoken command the PHONE transcribed: its words go to the same
+    /// streaming route as the audio would, so the timeline is the same, and
+    /// the Mac skips Whisper ("Heard on your phone" in the trace). Gil,
+    /// 2026-10-10: each device transcribes its own recordings.
+    func sendHeardStreaming(_ text: String, supportsEdit: Bool = false,
+                            supportsConfirm: Bool = false,
+                            onStep: @escaping (TraceStep) -> Void) async throws -> VoiceResponse {
+        guard !base.isEmpty, let url = URL(string: base + "/voice/stream") else {
+            throw APIError.badURL
+        }
+        if isBackingOff { throw APIError.offline("the Mac was unreachable a moment ago") }
+        var req = URLRequest(url: url, timeoutInterval: 120)
+        req.httpMethod = "POST"
+        authorize(&req)
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var body: [String: Any] = ["transcript": text, "heard_on": "phone"]
+        if supportsEdit { body["supports_edit"] = true }
+        if supportsConfirm { body["supports_confirm"] = true }
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return try await readStream(req, onStep: onStep)
+    }
+
+    /// The NDJSON trace stream both senders read: a step per line while the
+    /// Mac works, then the result.
+    private func readStream(_ req: URLRequest,
+                            onStep: @escaping (TraceStep) -> Void) async throws -> VoiceResponse {
         let decoder = JSONDecoder()
         let assertion = BackgroundAssertion()
         assertion.begin("voice-command")

@@ -800,6 +800,15 @@ struct SettingsView: View {
                                     .font(.caption).foregroundColor(.secondary)
                             }
 
+                            Toggle(isOn: $settings.transcribeOnPhone) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Transcribe on this phone")
+                                    Text("Apple's on-device recogniser writes down what you said and the words go to your Mac — it doesn't transcribe them again. Off: the recording goes to your Mac for Whisper.")
+                                        .font(.caption).foregroundColor(.secondary)
+                                }
+                            }
+                            .accessibilityIdentifier("transcribe-on-phone-toggle")
+
                             Toggle(isOn: $settings.stopWordsEnabled) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Stop on “execute”")
