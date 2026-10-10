@@ -1907,6 +1907,18 @@ dropped from the model's answer (`_live_tags`). Numbers: label Board 6 in
 voice asked the model, so a typed task (every task the phone makes by hand,
 and every one it queued offline) got the rules alone.
 
+### Phone calendar: sideways = full-screen schedule; the week's width
+**What:** (2026-10-10, Gil) Turned sideways, the Calendar tab is just the
+schedule: the tab bar, toolbar, Month/Week/Day switch, countdowns, status strips
+and the mic/+ buttons tuck away (an error strip still shows), and one small
+button brings them back. The Week view fits all seven days sideways; upright it
+shows about three with a swipe for the rest, or all seven — Settings ▸ Calendar
+▸ "Week shows". Titles read across in both (stacked cards start below a title
+line).
+**Where:** iOS `CalendarTabView` (`CalendarFocus`), `ContentView`, `WeekView`
+(`daysInView`, judged by the view's own shape), `AppSettings.weekFitsAll`;
+`CalendarTitlesUITests` rotates the simulator and checks the layout.
+
 ### Events: categories, colours & binder stacking
 **You can set it in the event editor, and that teaches the labeller**
 (2026-10-10 — Gil: *"when i manually add events make sure the category ml model

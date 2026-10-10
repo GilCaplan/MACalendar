@@ -408,6 +408,17 @@ struct SettingsView: View {
                                 }
                                 .pickerStyle(.segmented)
                             }
+                            VStack(alignment: .leading, spacing: 6) {
+                                Label("Week shows", systemImage: "rectangle.split.3x1")
+                                Picker("Week shows", selection: $settings.weekFitsAll) {
+                                    Text("3 days, swipe for more").tag(false)
+                                    Text("All 7 days").tag(true)
+                                }
+                                .pickerStyle(.segmented)
+                                .accessibilityIdentifier("week-shows-picker")
+                                Text("With the phone upright. Turned sideways, the week always shows all 7 days, full screen.")
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
                             Toggle(isOn: $settings.clock24) {
                                 Label("24-hour clock", systemImage: "clock")
                             }
