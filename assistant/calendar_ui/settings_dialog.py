@@ -1258,8 +1258,45 @@ def open_settings(self) -> None:
         mic_visual_combo.addItem(_label, _mode)
     mic_visual_combo.setCurrentIndex(max(0, mic_visual_combo.findData(
         getattr(self._config.ui, "mic_visual", "bars"))))
-    mic_visual_combo.setToolTip("How the mic shows it is hearing you while it listens")
-    phrase_form.addRow("While listening:", mic_visual_combo)
+    # Shown as live demos, not names (Gil, 2026-10-10): each style moving to
+    # a made-up voice, click one to use it on this Mac. The combo stays as
+    # the value Save reads, hidden.
+    from PyQt6.QtWidgets import QButtonGroup as _QButtonGroup, QGridLayout as _QGrid
+    from assistant.calendar_ui.mic_meter import MicStyleTile as _MicStyleTile
+    mic_visual_combo.setVisible(False)
+    mic_tiles = QWidget()
+    mic_tiles_grid = _QGrid(mic_tiles)
+    mic_tiles_grid.setContentsMargins(0, 0, 0, 0)
+    mic_tiles_grid.setSpacing(8)
+    mic_tile_group = _QButtonGroup(mic_tiles)
+    mic_tile_group.setExclusive(True)
+    for _i, (_mode, _label) in enumerate(_MIC_STYLES):
+        _btn = QPushButton()
+        _btn.setObjectName(f"mic_style_{_mode}")
+        _btn.setCheckable(True)
+        _btn.setChecked(_mode == mic_visual_combo.currentData())
+        _btn.setAccessibleName(_label)
+        _btn.setFixedSize(170, 132)
+        _btn.setStyleSheet(
+            "QPushButton { border: 1px solid rgba(128,128,128,0.35); border-radius: 12px; }"
+            f"QPushButton:checked {{ border: 2px solid {_styles.get_accent()}; }}")
+        _col = QVBoxLayout(_btn)
+        _col.setContentsMargins(10, 6, 10, 6)
+        _col.addWidget(_MicStyleTile(_mode), alignment=Qt.AlignmentFlag.AlignHCenter)
+        _name = QLabel(_label)
+        _name.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        _name.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        _col.addWidget(_name)
+        _btn.clicked.connect(lambda _c=False, m=_mode: mic_visual_combo.setCurrentIndex(
+            mic_visual_combo.findData(m)))
+        mic_tile_group.addButton(_btn)
+        mic_tiles_grid.addWidget(_btn, _i // 2, _i % 2)
+    mic_tiles_note = QLabel("This Mac's choice — your phone has its own.")
+    mic_tiles_note.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 11px;")
+    mic_tiles_grid.addWidget(mic_tiles_note, 2, 0, 1, 2)
+    mic_tiles_grid.addWidget(mic_visual_combo, 3, 0)      # hidden: the saved value
+    mic_visual_combo.setVisible(False)
+    phrase_form.addRow("While listening:", mic_tiles)
 
     stop_phrases_edit = QLineEdit()
     stop_phrases_edit.setPlaceholderText("e.g. finish, that's all, stop recording")

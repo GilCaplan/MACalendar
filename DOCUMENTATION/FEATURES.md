@@ -532,7 +532,10 @@ clock, what it has heard so far, trash. Mac (Settings ▸ Voice ▸ "While
 listening", `ui.mic_visual`): default the **bars beside the toolbar mic**, the
 card in miniature; rings / sunburst / dots are a `MicHalo` laid over the mic,
 transparent to the mouse (`calendar_ui/mic_meter.py`, fed one RMS per chunk by
-`AudioCapture`'s `level_callback`). Both use one scale, −55 dB (empty)
+`AudioCapture`'s `level_callback`). **Settings shows each style as a live demo** (2026-10-10 — Gil: *"there should
+be demo and toggle to which one is relevant, separate per device"*): four tiles,
+each the real view drawing a made-up voice (`DemoVoice` / `demo_rms`), tap or
+click one to use it on that device (`MicStylePicker`, `MicStyleTile`). Both use one scale, −55 dB (empty)
 to −10 dB (full), and both turn orange — "No sound — check the mic" — when
 nothing louder than the room has arrived after two seconds. The phone's
 "Sending" step then says what was captured ("4.2 s of audio, loudest −18 dB"),
