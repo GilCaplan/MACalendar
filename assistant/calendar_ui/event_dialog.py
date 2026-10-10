@@ -403,6 +403,24 @@ class EventDialog(QDialog):
         self._update_color_dots()
         form.addRow("Color", color_row)
 
+        # Category (Gil, 2026-10-10): it was assigned and could not be
+        # corrected here, so the learned labeller never heard where it was
+        # wrong. "Automatic" leaves it to the labeller; a choice the user MAKES
+        # is sent, and filed as their label (engine/label/feedback.py) — an
+        # untouched one never is.
+        from assistant.actions.calendar import categories as _cats
+        self._category = QComboBox()
+        self._category.setObjectName("event_category")
+        self._category.addItem("Automatic", "")
+        for c in _cats.all_categories():
+            self._category.addItem(c["name"], c["name"])
+        current = (self._event or {}).get("category") or ""
+        if current and self._category.findData(current) < 0:
+            self._category.addItem(current, current)
+        self._category.setCurrentIndex(max(0, self._category.findData(current)))
+        self._category_initial = self._category.currentData()
+        form.addRow("Category", self._category)
+
         # The to-do this event IS (Gil, 2026-09-25: "they can be linked and
         # the same thing"). Acts at once, like the delete and share buttons —
         # the link is not a field of the event, so Cancel does not undo it.
@@ -652,6 +670,13 @@ class EventDialog(QDialog):
             "recurrence": recurrence,
             "recurrence_end": recur_until,
         }
+        # Only a category the user CHANGED travels — so an untouched one is
+        # never filed as their label, and "Automatic" leaves it to the labeller.
+        cat = self._category.currentData()
+        if cat and cat != self._category_initial:
+            self.event_data["category"] = cat
+            if not self._event:
+                self.event_data["category_explicit"] = True
         if self._event:
             self.event_data["id"] = self._event["id"]
             if self._event.get("series_id"):

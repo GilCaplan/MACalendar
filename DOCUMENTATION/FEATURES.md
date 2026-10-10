@@ -1908,6 +1908,17 @@ voice asked the model, so a typed task (every task the phone makes by hand,
 and every one it queued offline) got the rules alone.
 
 ### Events: categories, colours & binder stacking
+**You can set it in the event editor, and that teaches the labeller**
+(2026-10-10 — Gil: *"when i manually add events make sure the category ml model
+runs and tags it accordingly"*). A typed event is labelled the same way a spoken
+one is (keyword rules, the learned model behind them on the catch-all), but the
+category could not be corrected anywhere, so the model's only real feedback was
+five Teach-tab rows. Both editors now have **Category**: "Automatic" (the
+labeller decides) or a choice. Only a category the user CHANGES is sent — an
+edit is filed as a `correction`, a pick on a new event (`category_explicit`) as
+`explicit` in `label_feedback.jsonl`; untouched categories, copies, undo and
+offline replays never are. `test_event_category_pick`.
+
 **What:** Every event auto-categorised and coloured — adjacent events never
 share a colour, hand-picked colours are never overridden; overlapping events
 stack like binders.

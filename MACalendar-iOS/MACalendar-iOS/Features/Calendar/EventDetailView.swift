@@ -39,6 +39,11 @@ struct EventDetailView: View {
     /// or this event's category's own length (DEVQA Q51). Starts from the
     /// cached value; a new event's is refined from the Mac once it has a title.
     @State private var lengthMinutes: Int
+    /// "" = Automatic: the Mac's labeller decides (Gil, 2026-10-10). A choice
+    /// the user MAKES is sent and becomes their label for the labeller.
+    @State private var category: String
+    private let initialCategory: String
+    @State private var categoryNames: [String] = EventDefaults.categoryNames
     @Environment(\.dismiss) var dismiss
 
     /// ICS-subscribed events are always read-only (no write endpoint behind
@@ -63,6 +68,8 @@ struct EventDetailView: View {
         _notes     = State(initialValue: event.description)
         _reminderChoice = State(initialValue: event.reminderMinutes ?? -1)
         _lengthMinutes = State(initialValue: EventDefaults.length(for: event.category))
+        _category = State(initialValue: isNew ? "" : (event.category ?? ""))
+        initialCategory = isNew ? "" : (event.category ?? "")
     }
 
     // MARK: - Computed helpers
@@ -146,6 +153,15 @@ struct EventDetailView: View {
                         .onSubmit { if !saving && !title.isEmpty { save() } }
                     TextField("Attendees", text: $attendees)
                         .onSubmit { if !saving && !title.isEmpty { save() } }
+                    Picker("Category", selection: $category) {
+                        Text("Automatic").tag("")
+                        ForEach(pickerCategories, id: \.self) { Text($0).tag($0) }
+                    }
+                    .accessibilityIdentifier("event-category-picker")
+                    .disabled(isReadOnly)
+                }
+                .task {
+                    if let cats = try? await api.categories() { categoryNames = cats.map(\.name) }
                 }
                 Section {
                     Picker("Reminder", selection: $reminderChoice) {
@@ -317,6 +333,12 @@ struct EventDetailView: View {
         recurrence != event.recurrence || recurrenceEnd != event.recurrenceEnd
     }
 
+    /// The Mac's categories, plus this event's own if it is no longer one.
+    private var pickerCategories: [String] {
+        initialCategory.isEmpty || categoryNames.contains(initialCategory)
+            ? categoryNames : categoryNames + [initialCategory]
+    }
+
     private func save() {
         guard !saving else { return }
         // The end is inclusive and may not precede the event: if the date was
@@ -335,6 +357,12 @@ struct EventDetailView: View {
                     "location": location, "attendees": attendees,
                     "description": notes
                 ]
+                // Only a category the user CHANGED travels, so an untouched
+                // one is never filed as their label (engine/label/feedback.py).
+                if !category.isEmpty && category != initialCategory {
+                    fields["category"] = category
+                    if isNew { fields["category_explicit"] = true }
+                }
                 if isNew {
                     // Only send an override that exists — a fresh event with
                     // "Inherit" simply has no reminder_minutes.
