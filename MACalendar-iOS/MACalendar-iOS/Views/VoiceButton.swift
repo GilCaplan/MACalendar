@@ -1317,19 +1317,36 @@ private struct MicSunburst: View {
     var body: some View {
         ZStack {
             ForEach(0..<rays, id: \.self) { i in
-                let v = levels.isEmpty ? 0 : CGFloat(levels[(i * 7) % levels.count])
-                let warm = abs(sin(Double(i) * .pi / Double(rays)))
                 Capsule()
-                    .fill(Color(red: 1, green: (69 + 100 * warm) / 255, blue: (58 - 40 * warm) / 255))
-                    .frame(width: 3.5, height: 6 + v * 28)
-                    .offset(y: -(38 + (6 + v * 28) / 2))
-                    .rotationEffect(.degrees(Double(i) * 360 / Double(rays)))
+                    .fill(colour(i))
+                    .frame(width: 3.5, height: length(i))
+                    .offset(y: -(38 + length(i) / 2))
+                    .rotationEffect(angle(i))
             }
         }
         .frame(width: 64, height: 64)
         .animation(.easeOut(duration: 0.08), value: levels)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+
+    // Typed helpers, not inline maths: the inline version is more than the
+    // Swift type checker will solve in time ("unable to type-check").
+    private func length(_ i: Int) -> CGFloat {
+        guard !levels.isEmpty else { return 6 }
+        let v = CGFloat(levels[(i * 7) % levels.count])
+        return 6 + v * 28
+    }
+
+    private func colour(_ i: Int) -> Color {
+        let warm: Double = abs(sin(Double(i) * Double.pi / Double(rays)))
+        let green: Double = (69 + 100 * warm) / 255
+        let blue: Double = (58 - 40 * warm) / 255
+        return Color(red: 1, green: green, blue: blue)
+    }
+
+    private func angle(_ i: Int) -> Angle {
+        .degrees(Double(i) * 360 / Double(rays))
     }
 }
 
@@ -1346,18 +1363,36 @@ private struct MicDots: View {
     var body: some View {
         ZStack {
             ForEach(0..<count, id: \.self) { i in
-                let v = levels.isEmpty ? 0 : CGFloat(levels[(i * 5 + 3) % levels.count])
                 Circle()
                     .fill(palette[i % palette.count])
                     .frame(width: 10, height: 10)
-                    .scaleEffect(0.7 + v * 0.8)
-                    .offset(y: -(40 + v * 24))
-                    .rotationEffect(.degrees(Double(i) * 360 / Double(count)))
+                    .scaleEffect(scale(i))
+                    .offset(y: lift(i))
+                    .rotationEffect(angle(i))
             }
         }
         .frame(width: 64, height: 64)
         .animation(.spring(response: 0.18, dampingFraction: 0.55), value: levels)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+
+    // Typed helpers, not inline maths — see MicSunburst.
+    private func level(_ i: Int) -> CGFloat {
+        levels.isEmpty ? 0 : CGFloat(levels[(i * 5 + 3) % levels.count])
+    }
+
+    private func scale(_ i: Int) -> CGFloat {
+        let v: CGFloat = level(i)
+        return 0.7 + v * 0.8
+    }
+
+    private func lift(_ i: Int) -> CGFloat {
+        let v: CGFloat = level(i)
+        return -(40 + v * 24)
+    }
+
+    private func angle(_ i: Int) -> Angle {
+        .degrees(Double(i) * 360 / Double(count))
     }
 }
