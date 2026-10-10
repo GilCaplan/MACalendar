@@ -1,6 +1,6 @@
 """Which phone settings travel to the Mac, and which stay on the phone.
 
-DEVQA Q87 (Gil, 2026-10-10): "the only configurations relevant for that device
+DEVQA Q89 (Gil, 2026-10-10): "the only configurations relevant for that device
 is on that device". How each SCREEN looks — the theme, the accent colour, how
 the Hebrew calendar is drawn — is per device. What the ASSISTANT does is
 shared, and so, by his answer, are spoken replies and completed tasks.
@@ -44,14 +44,14 @@ def test_the_phone_never_pushes_how_its_screen_looks():
     pushed = _pushes()
     assert pushed, "found no patchShared calls — the pattern needs updating"
     for key in PER_DEVICE_KEYS:
-        assert key not in pushed, f"the phone pushes {key} to the Mac — it is per device (Q87)"
+        assert key not in pushed, f"the phone pushes {key} to the Mac — it is per device (Q89)"
 
 
 def test_the_phone_never_adopts_the_macs_look():
     body = _adopt_body()
     for field in PER_DEVICE_FIELDS:
         assert f"shared.{field}" not in body, \
-            f"the phone takes the Mac's {field} — it is per device (Q87)"
+            f"the phone takes the Mac's {field} — it is per device (Q89)"
     struct = CLIENT[CLIENT.index("struct SharedSettings"):]
     struct = struct[:struct.index("\n}\n")]
     for field in PER_DEVICE_FIELDS:

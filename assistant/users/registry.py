@@ -7,6 +7,7 @@
                               "created_at": 0.0, "disabled": false,
                               "must_change_password": false,
                               "password": {<passwords.hash_password record>},
+                              "avatar": {"type": "jpeg", "v": 0},   # optional
                               "settings": {...SETTINGS_DEFAULTS}}},
      "shares": [{"owner": uid, "grantee": uid, "level": "view" | "edit",
                  "created_at": 0.0}],
@@ -161,8 +162,27 @@ def verify_login(username: str, password: str) -> "str | None":
     as long as a wrong password and the timing says nothing."""
     uid = by_username(username)
     rec = load()["users"].get(uid, {}) if uid else {}
-    ok = passwords.verify(password, rec.get("password") or _dummy())
+    if uid and not rec.get("password") and password == "" and password_rules(uid)[1]:
+        ok = True                       # an empty password, where one is allowed
+    else:
+        ok = passwords.verify(password, rec.get("password") or _dummy())
     return uid if (uid and ok and not rec.get("disabled")) else None
+
+
+def check_password(user_id: str, password: str) -> bool:
+    """Is `password` this account's current password? For a password CHANGE,
+    not a login. An account with no password set (the admin's, migrated with
+    none while login is off) has an empty current password: without that the
+    change dialog asked for a password that did not exist and refused every
+    answer, so it could never be set."""
+    rec = load()["users"].get(user_id, {})
+    if not rec.get("password"):
+        return (password or "") == ""
+    return passwords.verify(password or "", rec["password"])
+
+
+def has_password(user_id: str) -> bool:
+    return bool(load()["users"].get(user_id, {}).get("password"))
 
 
 _DUMMY: "dict | None" = None
@@ -194,7 +214,7 @@ def create_user(username: str, password: str, display_name: str = "",
         raise ValueError("a username is 2–32 of a–z, 0–9, _ . -")
     if role not in ("admin", "user"):
         raise ValueError(f"unknown role {role!r}")
-    record = passwords.hash_password(password)
+    record = passwords.hash_password(password, min_length=0)   # the admin chose it
 
     def go(data):
         if any(u["username"] == name for u in data["users"].values()):
@@ -215,9 +235,31 @@ def create_user(username: str, password: str, display_name: str = "",
     return uid
 
 
+def password_rules(user_id: str) -> "tuple[int, bool]":
+    """(shortest allowed, may it be empty) for a password `user_id` CHOOSES.
+    The admin follows no rule (Gil, 2026-10-02: "admin can change however he
+    wants"); everyone else follows the admin's policy."""
+    data = load()
+    if (data["users"].get(user_id) or {}).get("role") == "admin":
+        return 0, True
+    pol = data.get("policy", {})
+    return (int(pol.get("password_min_length") or passwords.MIN_LENGTH),
+            bool(pol.get("allow_empty_password")))
+
+
 def set_password(user_id: str, password: str, must_change: bool = False,
-                 min_length: int = passwords.MIN_LENGTH) -> None:
-    record = passwords.hash_password(password, min_length=min_length)
+                 min_length: "int | None" = None, allow_empty: "bool | None" = None) -> None:
+    """Rules default to `password_rules(user_id)`; the admin setting someone
+    else's passes `min_length=0, allow_empty=True`. Empty = no password."""
+    rule_min, rule_empty = password_rules(user_id)
+    min_length = rule_min if min_length is None else min_length
+    allow_empty = rule_empty if allow_empty is None else allow_empty
+    if not password:
+        if not allow_empty:
+            raise ValueError("a password can't be empty")
+        record = None
+    else:
+        record = passwords.hash_password(password, min_length=min_length)
 
     def go(data):
         u = data["users"][user_id]
@@ -246,7 +288,9 @@ def set_setting(user_id: str, key: str, value: Any) -> None:
 
 
 def set_policy(require_login: "bool | None" = None,
-               auto_signout_days: "int | None | bool" = False) -> None:
+               auto_signout_days: "int | None | bool" = False,
+               password_min_length: "int | None" = None,
+               allow_empty_password: "bool | None" = None) -> None:
     """The admin's account policy. `auto_signout_days`: None or 0 = off (a
     sign-in lasts until someone signs it out), N = end a sign-in after N days
     unused. `False` (the default) leaves it as it is."""
@@ -259,6 +303,13 @@ def set_policy(require_login: "bool | None" = None,
             if days < 0 or days > 3650:
                 raise ValueError("auto sign-out is 1–3650 days, or off")
             pol["auto_signout_days"] = days or None
+        if password_min_length is not None:
+            n = int(password_min_length)
+            if n < 1 or n > 64:
+                raise ValueError("the shortest password is 1–64 characters")
+            pol["password_min_length"] = n
+        if allow_empty_password is not None:
+            pol["allow_empty_password"] = bool(allow_empty_password)
     _mutate(go)
 
 
@@ -336,6 +387,66 @@ def vocab_sources(user_id: str) -> list[str]:
     then any shared with them."""
     shared = [o for o, gs in load().get("vocab_shares", {}).items() if user_id in gs]
     return [user_id] + sorted(shared)
+
+
+# ------------------------------------------------------------------ photos
+
+#: A profile photo is small by the time it arrives: the Mac and the phone each
+#: crop it square and shrink it before sending, so the server needs no image
+#: library — it only checks it is a JPEG or PNG and not absurdly big.
+AVATAR_MAX_BYTES = 2_000_000
+_AVATAR_TYPES = {"jpeg": (b"\xff\xd8\xff", "image/jpeg"),
+                 "png": (b"\x89PNG\r\n\x1a\n", "image/png")}
+
+
+def set_avatar(user_id: str, data: bytes) -> dict:
+    """Save `user_id`'s profile photo in their own folder and stamp the
+    registry with a new version, so every client knows to fetch it again.
+    Returns the registry's `avatar` record: {"type": jpeg|png, "v": int}."""
+    if not data:
+        raise ValueError("no photo")
+    if len(data) > AVATAR_MAX_BYTES:
+        raise ValueError("that photo is too big (2 MB at most)")
+    kind = next((k for k, (magic, _) in _AVATAR_TYPES.items() if data.startswith(magic)), None)
+    if kind is None:
+        raise ValueError("a photo must be a JPEG or a PNG")
+    if user_id not in load()["users"]:
+        raise ValueError(f"no such user {user_id!r}")
+    folder = paths.user_dir(user_id)
+    os.makedirs(folder, exist_ok=True)
+    target = os.path.join(folder, f"avatar.{kind}")
+    tmp = target + ".tmp"
+    with open(tmp, "wb") as f:
+        f.write(data)
+    os.replace(tmp, target)
+    for other in _AVATAR_TYPES:                 # a PNG replacing a JPEG leaves no orphan
+        if other != kind:
+            try:
+                os.remove(os.path.join(folder, f"avatar.{other}"))
+            except OSError:
+                pass
+    rec = {"type": kind, "v": int(time.time() * 1000)}
+    _mutate(lambda d: d["users"][user_id].__setitem__("avatar", rec))
+    return rec
+
+
+def clear_avatar(user_id: str) -> None:
+    """Back to the initial on their colour. The file goes; nothing else does."""
+    for kind in _AVATAR_TYPES:
+        try:
+            os.remove(os.path.join(paths.user_dir(user_id), f"avatar.{kind}"))
+        except OSError:
+            pass
+    _mutate(lambda d: d["users"].get(user_id, {}).pop("avatar", None))
+
+
+def avatar_file(user_id: str) -> "tuple[str, str] | None":
+    """(path, mimetype) of `user_id`'s photo, or None when they have none."""
+    rec = (load()["users"].get(user_id) or {}).get("avatar")
+    if not rec or rec.get("type") not in _AVATAR_TYPES:
+        return None
+    path = os.path.join(paths.user_dir(user_id), f"avatar.{rec['type']}")
+    return (path, _AVATAR_TYPES[rec["type"]][1]) if os.path.exists(path) else None
 
 
 def remove_user(user_id: str) -> str:

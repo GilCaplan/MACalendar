@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 from assistant.actions import ActionRegistry
 from assistant.actions.base import BaseIntent
 from assistant.config import AppConfig
+from assistant import clock as _clock  # the moment the command was SAID
 from assistant.exceptions import (
     AssistantError,
     LLMTimeoutError,
@@ -117,7 +118,7 @@ class IntentParser:
 
     def _get_system_prompt(self) -> str:
         """Return cached system prompt, refreshing it if the date has changed."""
-        today = datetime.date.today().isoformat()
+        today = _clock.today().isoformat()
         if today != self._prompt_date:
             try:
                 tz = str(datetime.datetime.now().astimezone().tzname())

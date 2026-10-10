@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import datetime
 import re
+from assistant import clock as _clock  # the moment the command was SAID
 
 #: Before "now": the word that makes it vague. One lookbehind each (fixed width).
 _BEFORE = (r"(?<!\bfor\s)(?<!\bby\s)(?<!\buntil\s)(?<!\btill\s)(?<!\bnot\s)(?<!\bjust\s)"
@@ -76,4 +77,4 @@ def says_now(text: str) -> bool:
 
 def clock(now: "datetime.datetime | None" = None) -> str:
     """The present minute, "HH:MM"."""
-    return (now or datetime.datetime.now()).strftime("%H:%M")
+    return (now or _clock.now()).strftime("%H:%M")

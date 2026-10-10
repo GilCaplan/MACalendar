@@ -21,6 +21,7 @@ from assistant.actions.todo.intent import (
 from assistant.actions.todo.tagging import auto_tags, resolve_tags
 from assistant.intent.context import context_memory
 from assistant.intent.list_split import split_items
+from assistant import clock as _clock  # the moment the command was SAID
 
 _ANAPHORS = {"it", "that", "this", "the task", "that task", "the last one", "the last task"}
 
@@ -654,7 +655,7 @@ class QueryTodoAction(BaseAction):
             if due:
                 try:
                     due_dt = datetime.date.fromisoformat(due)
-                    today = datetime.date.today()
+                    today = _clock.today()
                     delta = (due_dt - today).days
                     if delta == 0:
                         parts.append("due today")
@@ -672,7 +673,7 @@ class QueryTodoAction(BaseAction):
         # For today/all queries also read out calendar events
         calendar_parts: List[str] = []
         if intent.list_name in ("today", "all"):
-            today = datetime.date.today()
+            today = _clock.today()
             events = db.get_events_for_day(today)
             if events:
                 def _fmt_event(ev: dict) -> str:

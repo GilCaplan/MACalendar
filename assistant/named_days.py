@@ -50,6 +50,7 @@ import dataclasses
 import datetime
 import functools
 import re
+from assistant import clock as _clock  # the moment the command was SAID
 
 #: Hebrew months -> pyluach numbers (Nisan = 1 ... Adar = 12, Adar II = 13).
 #: Shared with ``occasions.voice``, which reads the same words for occasions.
@@ -440,7 +441,7 @@ def find(text: str, today: datetime.date, *, whole: bool = False,
 def find_all(text: str, today: "datetime.date | None" = None) -> "list[Named]":
     """Every named day in ``text``, left to right (a command may hold two:
     "dinner on erev shabbat and dentist on 12 Adar")."""
-    today = today or datetime.date.today()
+    today = today or _clock.today()
     t, out = text or "", []
     for _ in range(4):
         got = find(t, today)

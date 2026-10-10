@@ -38,6 +38,7 @@ _GREG.update({"jan": 1, "feb": 2, "mar": 3, "apr": 4, "jun": 6, "jul": 7, "aug":
 #: Hebrew months → pyluach numbers (Nisan = 1 … Adar = 12, Adar II = 13) —
 #: the one table, kept where the engine's named-day reader uses it too.
 from assistant.named_days import HEBREW_MONTHS as _HEB  # noqa: E402
+from assistant import clock as _clock  # the moment the command was SAID
 
 _GREG_ALT = "|".join(sorted(_GREG, key=len, reverse=True))
 _HEB_ALT = "|".join(sorted((re.escape(k) for k in _HEB), key=len, reverse=True))
@@ -104,7 +105,7 @@ def read(text: str) -> "dict | None":
     if m and cal == "gregorian":
         name = _clean_name(m.group(1))
         if name:
-            today = datetime.date.today()
+            today = _clock.today()
             y = year or (today.year if (month, day) >= (today.month, today.day) else today.year + 1)
             return {"kind": "countdown", "title": name, "calendar": "gregorian",
                     "month": month, "day": day, "year": y}
@@ -147,7 +148,7 @@ def from_words(kind: str, name: str, date_text: str, year: "int | None" = None) 
         if cal != "gregorian":
             return None
         if not y:
-            today = datetime.date.today()
+            today = _clock.today()
             y = today.year if (month, day) >= (today.month, today.day) else today.year + 1
     return {"kind": kind, "title": _clean_name(name), "calendar": cal, "month": month,
             "day": day, "year": y}

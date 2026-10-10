@@ -249,7 +249,8 @@ built when it reaches the Mac.
 | hybrid | [Self-check & revert](#background-self-check--one-tap-revert) | background re-reasoning, one-tap undo | `engine/__init__.py`, panels |
 | hybrid | [Review panel / HUD](#the-review-panel-thinking-hud--ios-timeline) | live chain-of-thought card + history | `thinking_hud.py`, `ThinkingView` |
 | hybrid | [Users, sign-in & sharing](#users-sign-in--sharing) | an admin + users, each with their own calendar, to-dos and learning; share whole calendar view/edit; Account tab = admin dashboard | `assistant/users/`, `users_dialogs.py`, `UsersViews.swift` |
-| iOS + API | [Offline reader on the phone](#offline-reader-on-the-phone) | Apple's on-device model reads a command while the Mac is away and books creates provisionally; the Mac re-reads and wins | `assistant/offline/`, `OfflineReader.swift` |
+| hybrid | [Profile photos](#profile-photos) | each person sets their own photo (Mac Account tab / tap your picture on the phone), the admin can set or remove anyone's; shown wherever their initial was | `users/registry.py`, `account_panel.py`, `UsersViews.swift` |
+| iOS + API | [Offline reader on the phone](#offline-reader-on-the-phone) | the phone reads and does a command first (rules, else Apple's on-device model), online or away, without waiting; the Mac re-reads and wins | `assistant/offline/`, `OfflineReader.swift` |
 | mac | [Command graph](#the-review-panel-thinking-hud--ios-timeline) | the HUD's Graph view: each ask → rules or model → what it became; hover follows a lane, click explains a node | `command_graph.py` |
 | hybrid | [LLM console](#the-llm-console) | the panel's third view: every model call, with its caller | `llm_bus.py`, `thinking_panel.py` |
 | UI | [Show hours](#show-hours) | Week and Day draw only the chosen hours (e.g. 7 AM–midnight), filling the window; an event outside widens them | `visible_hours.py`, `AppSettings.swift` |
@@ -2349,6 +2350,27 @@ the Mac, so a wrong password leaves nothing changed and no stale entry is left
 in "Signed-in devices". Remembered names never include a password; a name can
 be forgotten from the device (long-press).
 
+### Profile photos
+**What:** Anyone can give their account a photo. It replaces the coloured
+initial everywhere people are shown: your header, the People list, a person's
+page, and the faces on the phone's sign-in screen. Remove it and the initial
+comes back. The admin overrides anyone's: Set / Change their photo and
+Remove photo on each person's card (Mac) or page (phone). 2026-10-06.
+**Where:** `registry.set_avatar` / `clear_avatar` / `avatar_file`; routes
+`PUT|DELETE /users/me/avatar`, `PUT|DELETE /admin/users/<id>/avatar`,
+`GET /users/<id>/avatar`; Mac
+`account_panel.py` (Add photo… / Remove, `photo_bytes`); iOS `AccountView`
+(tap your picture: `PhotosPicker`), `PersonAvatar`, `AvatarCache`.
+**How:** The client crops the photo square from the middle, shrinks it to
+512 px and sends a JPEG. That way the server needs no image library: it only
+checks the bytes are a JPEG or PNG of 2 MB or less, and keeps them in the
+person's own folder (`users/<uid>/avatar.jpeg`). Removing a person moves the
+photo to `legacy/` along with the rest of their data. The registry stamps
+`avatar: {type, v}`, and clients fetch `?v=<v>`. A new photo is therefore a
+new URL, and the phone keeps each version on disk for good, so faces still
+show on the sign-in screen before anyone may ask the Mac. Tests:
+`test_users_avatar.py`, `test_account_tab_controls.py` (real clicks).
+
 ### Icons beside titles
 **What:** An event or a to-do whose title clearly names something gets that
 thing's drawing beside it — a dog for "walk my dog", a heart for "date with
@@ -2565,7 +2587,8 @@ sees and edits everything, toggles a user into his own view (off by default),
 creates users, resets passwords (hashed; a new one shown once, must change
 at sign-in), disables, removes (the data moves to `legacy/`, never deleted),
 shares his vocabulary with chosen users, sets "require sign-in
-everywhere", chooses auto sign-out (Off — a sign-in lasts until signed out —
+everywhere", sets everyone else's password rules (shortest, default 3, and
+whether an empty one is allowed — his own follows none), chooses auto sign-out (Off — a sign-in lasts until signed out —
 or after N days unused), and signs a person out of every device. All of it
 lives in the **Account tab** (last; hideable in Settings › Tabs like any other — the toolbar chip and the phone's Settings › Account reach the same pages): the admin's dashboard (people,
 policy, signed-in devices, his own account); for anyone else a minimal page
@@ -2607,7 +2630,14 @@ can at once — events and to-dos only, provisionally ("Added on this phone…
 your Mac will check it"). On reconnect the Mac re-reads the same command and
 its reading wins: the phone's placeholders give way to the Mac's rows, and a
 different reading is announced. Moves, changes and deletes are never done
-offline. (DEVQA Q66, 2026-09-28.)
+offline. (DEVQA Q66, 2026-09-28.) **Phone first** (Q87, 2026-10-09): with
+the Mac reachable, the phone still reads and does the command itself and
+answers at once — on its own copy only, nothing sent or queued; the Mac
+reads the same command in the background, its rows replace the phone's,
+and a different reading is announced. Settings ▸ How it runs ▸ "Read on
+this phone first" (on). **Read as of when it was said** (Q88): a queued
+command carries its `recordedAt` as `said_at`, and the Mac reads "today",
+"tomorrow" and "tonight" from that moment (`assistant/clock.py`).
 **Where:** `assistant/offline/` (spec, reconcile, log, routes,
 `PROTOCOL.md`); iOS `Voice/OfflineReader.swift`, `LocalStore.bookProvisional`,
 `APIClient.settle` / `settleWaiting`, the queued-command labels, Settings'

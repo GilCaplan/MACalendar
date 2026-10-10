@@ -16,6 +16,8 @@ should be able to reset passwords just by reaching the port.
     POST /auth/password       {current, new}
     GET  /users
     PUT  /users/me/settings   {notify_shared?, todos_group_by_owner?, color?}
+    PUT  /users/me/avatar     {image: base64 JPEG|PNG}   DELETE /users/me/avatar
+    GET  /users/<id>/avatar   the photo itself
     PUT  /shares/<grantee>    {level: view|edit}      DELETE /shares/<grantee>
     GET  /admin/users         POST /admin/users {username, display_name?, password?}
     PATCH /admin/users/<id>   {display_name?, color?, disabled?}
@@ -23,15 +25,18 @@ should be able to reset passwords just by reaching the port.
     POST /admin/users/<id>/password                  → {password} shown ONCE
     PUT  /admin/view/<id>     {shown}
     PUT  /admin/vocab_share/<id> {on}
-    PUT  /admin/policy        {require_login?, auto_signout_days?}
+    PUT  /admin/policy        {require_login?, auto_signout_days?, password_min_length?, allow_empty_password?}
     POST /admin/users/<id>/signout                    → sign them out everywhere
+    PUT  /admin/users/<id>/avatar {image}  DELETE /admin/users/<id>/avatar
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import threading
 import time
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, g, jsonify, request, send_file
 
 from assistant import users
 from assistant.users import passwords, registry, sessions
@@ -209,8 +214,7 @@ def change_password():
     if err:
         return err
     b = _body()
-    if not registry.verify_login((registry.get(uid) or {}).get("username", ""),
-                                 str(b.get("current") or "")):
+    if not registry.check_password(uid, str(b.get("current") or "")):
         return _err("the current password is wrong", 403)
     try:
         registry.set_password(uid, str(b.get("new") or ""))
@@ -228,7 +232,8 @@ def list_users():
     with. No passwords, no settings."""
     if not _me():
         return jsonify([])
-    return jsonify([{k: u[k] for k in ("id", "username", "display_name", "color", "role")}
+    return jsonify([{**{k: u[k] for k in ("id", "username", "display_name", "color", "role")},
+                     "avatar": u.get("avatar")}
                     for u in (registry.get(i) for i in registry.user_ids())])
 
 
@@ -247,6 +252,51 @@ def my_settings():
     except ValueError as e:
         return _err(str(e), 400)
     return jsonify(registry.get(uid))
+
+
+def _put_avatar(uid: str):
+    """{image: base64} — already cropped square and shrunk by the client."""
+    try:
+        data = base64.b64decode(str(_body().get("image") or ""), validate=True)
+    except (binascii.Error, ValueError):
+        return _err("the photo was not base64", 400)
+    try:
+        registry.set_avatar(uid, data)
+    except ValueError as e:
+        return _err(str(e), 400)
+    return jsonify(registry.get(uid))
+
+
+@bp.put("/users/me/avatar")
+def set_my_avatar():
+    uid = _me()
+    if not uid:
+        return _err("no users yet", 404)
+    return _put_avatar(uid)
+
+
+@bp.delete("/users/me/avatar")
+def clear_my_avatar():
+    uid = _me()
+    if not uid:
+        return _err("no users yet", 404)
+    registry.clear_avatar(uid)
+    return jsonify(registry.get(uid))
+
+
+@bp.get("/users/<uid>/avatar")
+def avatar(uid):
+    """Anyone who may see the people list may see their photos. Clients ask
+    with `?v=<avatar.v>`, so a new photo is a new URL and the old one may be
+    cached for good."""
+    if not _me():
+        return _err("no users yet", 404)
+    found = registry.avatar_file(uid)
+    if found is None:
+        return _err("no photo", 404)
+    resp = send_file(found[0], mimetype=found[1], max_age=31536000)
+    resp.headers["Cache-Control"] = "private, max-age=31536000, immutable"
+    return resp
 
 
 @bp.put("/shares/<grantee>")
@@ -305,7 +355,7 @@ def admin_create():
                                    display_name=str(b.get("display_name") or ""))
     except ValueError as e:
         return _err(str(e), 400)
-    registry.set_password(uid, pw, must_change=not b.get("password"))
+    registry.set_password(uid, pw, must_change=not b.get("password"), min_length=0)
     out = registry.get(uid)
     out["password"] = pw            # shown ONCE; never stored readably
     return jsonify(out), 201
@@ -348,7 +398,7 @@ def admin_reset_password(uid):
     if registry.get(uid) is None:
         return _err("no such user", 404)
     pw = passwords.generate()
-    registry.set_password(uid, pw, must_change=True)
+    registry.set_password(uid, pw, must_change=True, min_length=0)
     sessions.revoke_user(uid, keep=g.users_session["token"] if uid == admin else None)
     return jsonify({"id": uid, "password": pw})
 
@@ -378,7 +428,8 @@ def admin_vocab_share(uid):
 
 @bp.put("/admin/policy")
 def admin_policy():
-    """{require_login?, auto_signout_days?: null|0 (off) | N days}"""
+    """{require_login?, auto_signout_days?: null|0 (off) | N days,
+    password_min_length?: 1–64, allow_empty_password?}"""
     _, err = _need_admin()
     if err:
         return err
@@ -386,10 +437,36 @@ def admin_policy():
     try:
         registry.set_policy(
             require_login=bool(b["require_login"]) if "require_login" in b else None,
-            auto_signout_days=b["auto_signout_days"] if "auto_signout_days" in b else False)
+            auto_signout_days=b["auto_signout_days"] if "auto_signout_days" in b else False,
+            password_min_length=b.get("password_min_length"),
+            allow_empty_password=(bool(b["allow_empty_password"])
+                                  if "allow_empty_password" in b else None))
     except (ValueError, TypeError) as e:
         return _err(str(e), 400)
     return jsonify(registry.load().get("policy", {}))
+
+
+@bp.put("/admin/users/<uid>/avatar")
+def admin_set_avatar(uid):
+    """The admin sets anyone's photo, overriding theirs."""
+    _, err = _need_admin()
+    if err:
+        return err
+    if registry.get(uid) is None:
+        return _err("no such user", 404)
+    return _put_avatar(uid)
+
+
+@bp.delete("/admin/users/<uid>/avatar")
+def admin_clear_avatar(uid):
+    """The admin takes anyone's photo down (an unsuitable one, say)."""
+    _, err = _need_admin()
+    if err:
+        return err
+    if registry.get(uid) is None:
+        return _err("no such user", 404)
+    registry.clear_avatar(uid)
+    return jsonify(registry.get(uid))
 
 
 @bp.post("/admin/users/<uid>/signout")

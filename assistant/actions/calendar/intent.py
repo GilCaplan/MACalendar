@@ -5,6 +5,7 @@ from typing import Any, List, Optional
 from pydantic import field_validator, model_validator
 
 from assistant.actions.base import BaseIntent
+from assistant import clock as _clock  # the moment the command was SAID
 
 
 #: A meal names its own hour (Gil, 2026-09-20). Word-boundary matched on the
@@ -161,7 +162,7 @@ class CalendarIntent(BaseIntent):
         if t in ("now", "right now", "immediately", "asap",
                  "straight away", "right away", "at once"):
             import datetime as _dt
-            return _dt.datetime.now().strftime("%H:%M")
+            return _clock.now().strftime("%H:%M")
         m = (_re.fullmatch(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm|a:m|p:m)?", t)
              or _re.fullmatch(r"(\d{2})(\d{2})()", t)
              or _re.fullmatch(r"(\d{1,2})(\d{2})\s*(am|pm|a:m|p:m)", t))
@@ -181,7 +182,7 @@ class CalendarIntent(BaseIntent):
         """Fill in missing date and time fields with sensible defaults."""
         # 1. Date defaults to today
         if not self.date:
-            self.date = datetime.date.today().isoformat()
+            self.date = _clock.today().isoformat()
 
         # 2. Start time: a MEAL has an hour of its own, everything else
         #    falls back to the current hour.

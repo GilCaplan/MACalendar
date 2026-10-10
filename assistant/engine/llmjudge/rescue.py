@@ -41,6 +41,7 @@ import logging
 import re
 
 from assistant.engine.state import EngineState, Item
+from assistant import clock as _clock  # the moment the command was SAID
 from assistant.engine.llmjudge.llm_fallback import (
     _guard_inventions, _honour_refusal, _llm_trace)
 
@@ -76,7 +77,7 @@ def _event_fallback(text: str):
     noun = next(g for g in m.groups() if g)
     import datetime as _dt
     from assistant.intent.rule_parser import _extract_temporal
-    t = _extract_temporal(text, _dt.date.today())
+    t = _extract_temporal(text, _clock.today())
     if not (t.get("date") or t.get("start_time")):
         return None
     from assistant.actions.calendar.intent import CalendarIntent

@@ -26,6 +26,19 @@ final class BackgroundAssertion {
     }
 }
 
+/// Phone first, Mac behind (DEVQA Q87). While a command is read on the phone
+/// with the Mac reachable, its writes change ONLY this phone's copy: every
+/// request fails as offline, so each write takes its offline road (patch the
+/// cache, insert a placeholder), and `LocalStore.enqueue` drops the queue
+/// entry — the Mac gets the COMMAND instead, reads it itself, and its answer
+/// and the refresh after it replace whatever the phone did. The rows made
+/// are collected here so they can be removed when the Mac answers.
+final class PhonePreview: @unchecked Sendable {
+    @TaskLocal static var current: PhonePreview?
+    var events: [Int] = []
+    var todos: [Int] = []
+}
+
 @MainActor
 class APIClient: ObservableObject {
     @Published var isLoading  = false
@@ -172,6 +185,7 @@ class APIClient: ObservableObject {
 
     func request(_ path: String, method: String = "GET",
                  body: [String: Any]? = nil) async throws -> Data {
+        if PhonePreview.current != nil { throw APIError.offline("read on this phone; the Mac reads it too") }
         let isPlaceholder = base.contains("x.x.x") || base.contains("100.x")
         guard !base.isEmpty, !isPlaceholder, let url = URL(string: base + path) else {
             throw APIError.badURL
@@ -434,7 +448,8 @@ class APIClient: ObservableObject {
                     // transcript sent as-is is not a correction to learn from.
                     let response = try await sendText(text, editedFrom: cmd.edited == nil ? nil : cmd.draft,
                                                       clientId: cmd.id.uuidString,
-                                                      offlineReading: cmd.offlineReadingData)
+                                                      offlineReading: cmd.offlineReadingData,
+                                                      saidAt: cmd.recordedAt)
                     if settle(cmd, response) { ran += 1 }
                 } catch APIError.offline {
                     LocalStore.shared.updateVoice(cmd.id, status: .queued)
@@ -453,7 +468,8 @@ class APIClient: ObservableObject {
             LocalStore.shared.updateVoice(cmd.id, status: .running)
             do {
                 let response = try await sendAudio(audio, clientId: cmd.id.uuidString,
-                                                   offlineReading: cmd.offlineReadingData)
+                                                   offlineReading: cmd.offlineReadingData,
+                                                   saidAt: cmd.recordedAt)
                 if settle(cmd, response) { ran += 1 }
             } catch APIError.offline {
                 LocalStore.shared.updateVoice(cmd.id, status: .queued)   // still away — try again later
@@ -1317,7 +1333,8 @@ class APIClient: ObservableObject {
                   supportsEdit: Bool = false,
                   supportsConfirm: Bool = false,
                   clientId: String? = nil,
-                  offlineReading: Data? = nil) async throws -> VoiceResponse {
+                  offlineReading: Data? = nil,
+                  saidAt: Date? = nil) async throws -> VoiceResponse {
         // Identify the client. The server treats an unlabelled caller as a
         // test, so that a curl during development cannot masquerade as a
         // command you actually gave the phone.
@@ -1329,6 +1346,9 @@ class APIClient: ObservableObject {
         if supportsConfirm { body["supports_confirm"] = true }
         if let editedFrom { body["edited_from"] = editedFrom }
         if let clientId, !clientId.isEmpty { body["client_id"] = clientId }   // see sendAudio
+        // When it was SAID: a queued command's "tomorrow" is the day after
+        // that, not after the resend (assistant/clock).
+        if let saidAt { body["said_at"] = saidAt.timeIntervalSince1970 }
         // What the phone's own model read while the Mac was away — compared
         // with the Mac's reading, never executed (assistant/offline).
         if let offlineReading,
@@ -1486,7 +1506,8 @@ class APIClient: ObservableObject {
     /// resend of an upload this phone lost track of gets the first run's answer
     /// instead of booking it again (2026-09-28: one command, three series).
     func sendAudio(_ audioData: Data, clientId: String? = nil,
-                   offlineReading: Data? = nil) async throws -> VoiceResponse {
+                   offlineReading: Data? = nil,
+                   saidAt: Date? = nil) async throws -> VoiceResponse {
         guard !base.isEmpty, let url = URL(string: base + "/voice") else {
             throw APIError.badURL
         }
@@ -1517,6 +1538,12 @@ class APIClient: ObservableObject {
             body.append("--\(boundary)\r\n".data(using: .utf8)!)
             body.append("Content-Disposition: form-data; name=\"client_id\"\r\n\r\n".data(using: .utf8)!)
             body.append("\(clientId)\r\n".data(using: .utf8)!)
+        }
+        // When it was SAID (assistant/clock) — see sendText.
+        if let saidAt {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"said_at\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(saidAt.timeIntervalSince1970)\r\n".data(using: .utf8)!)
         }
         if let offlineReading, let json = String(data: offlineReading, encoding: .utf8) {
             body.append("--\(boundary)\r\n".data(using: .utf8)!)
@@ -1561,6 +1588,7 @@ class APIClient: ObservableObject {
     /// `onStep` fires on the main actor as each stage arrives.
     func sendAudioStreaming(_ audioData: Data, supportsEdit: Bool = false,
                             supportsConfirm: Bool = false,
+                            offlineReading: Data? = nil,
                             onStep: @escaping (TraceStep) -> Void) async throws -> VoiceResponse {
         guard !base.isEmpty, let url = URL(string: base + "/voice/stream") else {
             throw APIError.badURL
@@ -1588,6 +1616,13 @@ class APIClient: ObservableObject {
             body.append("--\(boundary)\r\n".data(using: .utf8)!)
             body.append("Content-Disposition: form-data; name=\"supports_confirm\"\r\n\r\n".data(using: .utf8)!)
             body.append("true\r\n".data(using: .utf8)!)
+        }
+        // What the phone read and booked while the Mac reads it too (phone
+        // first, DEVQA Q87) — compared with the Mac's reading, never executed.
+        if let offlineReading, let json = String(data: offlineReading, encoding: .utf8) {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"offline_reading\"\r\n\r\n".data(using: .utf8)!)
+            body.append((json + "\r\n").data(using: .utf8)!)
         }
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"audio\"; filename=\"audio.wav\"\r\n".data(using: .utf8)!)

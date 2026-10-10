@@ -216,6 +216,19 @@ def test_require_sign_in_and_auto_sign_out(people):
     assert registry.load()["policy"]["auto_signout_days"] is None
 
 
+def test_the_admins_password_rules_are_set_from_the_tab(people):
+    _, panel = _open(people["gil"])
+    assert panel.pw_min.value() == 3 and not panel.pw_empty_box.isChecked()
+    panel.pw_min.setFocus()
+    QTest.keyClick(panel.pw_min, Qt.Key.Key_Up)
+    QApplication.processEvents()
+    assert registry.load()["policy"]["password_min_length"] == 4
+    _click(panel.pw_empty_box)
+    assert registry.load()["policy"]["allow_empty_password"] is True
+    assert registry.password_rules(people["dana"]) == (4, True)
+    assert registry.password_rules(people["gil"]) == (0, True)
+
+
 def test_change_password_opens_the_dialog(people, monkeypatch):
     from assistant.calendar_ui import users_dialogs
     opened = []
@@ -224,6 +237,42 @@ def test_change_password_opens_the_dialog(people, monkeypatch):
     _, panel = _open(people["gil"])
     _click(panel.change_pw_btn)
     assert len(opened) == 1
+
+
+def _no_password(uid):
+    """The admin's real state while login is off: migrated with no password."""
+    registry._mutate(lambda d: d["users"][uid].__setitem__("password", None))
+
+
+def _change(dialog, current, new):
+    for field, text in ((dialog.current, current), (dialog.new, new), (dialog.again, new)):
+        QTest.keyClicks(field, text)
+    _click(dialog.save)
+
+
+def test_save_sets_a_first_password_with_current_left_blank(people):
+    """Gil, 2026-10-02: "when i try to change password, the save button doesn't
+    work". His account had no password, so no answer to "Current" matched."""
+    from assistant.calendar_ui.users_dialogs import ChangePasswordDialog
+    _no_password(people["gil"])
+    users.set_process_default(people["gil"])
+    d = ChangePasswordDialog(None)
+    d.show()
+    assert d.current.placeholderText()
+    _change(d, "", "brand-new-pass")
+    assert d.result() == d.DialogCode.Accepted, d.error.text()
+    assert registry.verify_login("gil", "brand-new-pass") == people["gil"]
+
+
+def test_save_still_refuses_a_wrong_current_password(people):
+    from assistant.calendar_ui.users_dialogs import ChangePasswordDialog
+    users.set_process_default(people["dana"])
+    for current in ("", "not-it"):
+        d = ChangePasswordDialog(None)
+        d.show()
+        _change(d, current, "brand-new-pass")
+        assert d.result() != d.DialogCode.Accepted and "wrong" in d.error.text()
+    assert registry.verify_login("dana", "dana-pass") == people["dana"]
 
 
 def test_sign_out_of_this_mac_goes_through_the_window(people):
@@ -263,3 +312,64 @@ def test_the_non_obvious_controls_have_an_info_button(people):
         assert w.toolTip() and w.toolTip() in texts(), w.objectName() or w.text()
     _pick(card.share_box, 1)                                     # a change rebuilds the cards
     assert panel.cards[people["dana"]].share_box.toolTip() in texts()
+
+
+def test_add_photo_crops_it_shows_it_and_remove_puts_the_initial_back(people, tmp_path, monkeypatch):
+    """A tall picture comes back square and small, on the header and on the
+    card the OTHER person sees; Remove takes it away again."""
+    from PyQt6.QtGui import QColor, QImage
+    from PyQt6.QtWidgets import QFileDialog
+    pic = tmp_path / "me.png"
+    img = QImage(900, 1400, QImage.Format.Format_RGB32)
+    img.fill(QColor("#3b82f6"))
+    img.save(str(pic))
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(pic), "")))
+    win, panel = _open(people["dana"])
+    assert not panel.clear_photo_btn.isVisible() and panel.photo_btn.text() == "Add photo…"
+    _click(panel.photo_btn)
+    path, mime = registry.avatar_file(people["dana"])
+    saved = QImage(path)
+    assert mime == "image/jpeg" and saved.width() == saved.height() == 512
+    assert panel.avatar.pixmap() is not None and not panel.avatar.pixmap().isNull()
+    assert panel.clear_photo_btn.isVisible() and panel.photo_btn.text() == "Change photo…"
+    _, admin = _open(people["gil"])
+    assert not admin.cards[people["dana"]].findChildren(type(panel.avatar))[0].pixmap().isNull()
+    _click(panel.clear_photo_btn)
+    assert registry.avatar_file(people["dana"]) is None
+    assert panel.avatar.text() == "D" and not panel.clear_photo_btn.isVisible()
+
+
+def test_a_file_that_is_not_a_picture_is_refused_with_a_message(people, tmp_path, monkeypatch):
+    from PyQt6.QtWidgets import QFileDialog, QMessageBox
+    bad = tmp_path / "notes.png"
+    bad.write_text("not a picture")
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(bad), "")))
+    said = []
+    monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *a: said.append(a[2])))
+    win, panel = _open(people["dana"])
+    _click(panel.photo_btn)
+    assert said == ["that file isn't a picture"] and registry.avatar_file(people["dana"]) is None
+
+
+def test_the_admin_sets_and_takes_down_someone_elses_photo_from_their_card(people, tmp_path, monkeypatch):
+    from PyQt6.QtGui import QColor, QImage
+    from PyQt6.QtWidgets import QFileDialog
+    pic = tmp_path / "them.jpg"
+    img = QImage(300, 200, QImage.Format.Format_RGB32)
+    img.fill(QColor("#10b981"))
+    img.save(str(pic))
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(pic), "")))
+    win, panel = _open(people["gil"])
+    card = panel.cards[people["dana"]]
+    assert card.photo_btn.text() == "Set their photo…" and not card.clear_photo_btn.isVisible()
+    _click(card.photo_btn)
+    assert registry.avatar_file(people["dana"]) is not None
+    assert not card.avatar.pixmap().isNull() and card.clear_photo_btn.isVisible()
+    assert panel.cards[people["dana"]] is card                  # the page was not rebuilt
+    _click(card.clear_photo_btn)
+    assert registry.avatar_file(people["dana"]) is None and card.avatar.text() == "D"
+
+
+def test_a_user_gets_no_photo_controls_on_anyone_elses_card(people):
+    _, panel = _open(people["dana"])
+    assert not hasattr(panel.cards[people["gil"]], "photo_btn")

@@ -47,6 +47,7 @@ from assistant.engine.decompose_validate import text_repair as _tidy
 from assistant.engine.state import EngineState
 
 import re
+from assistant import clock as _clock  # the moment the command was SAID
 
 #: The value fields this stage fills, written into `item.slots`.
 VALUE_FIELDS = ("date", "start_time", "end_time", "recurrence", "recur_days",
@@ -207,7 +208,7 @@ def run_objects(state: EngineState, cfg) -> EngineState:
 
     transcript = state.text
     tl = transcript.lower()
-    today = _dt.date.today()
+    today = _clock.today()
     fixes_before = len(state.fixes)
 
     rel = _target.relative_dates(transcript)
@@ -249,7 +250,7 @@ def run_objects(state: EngineState, cfg) -> EngineState:
                 intent.linked_todo = True
             _obj._rule_impossible_clock(state, intent)
             _obj._rule_past_date_bump(state, intent, today)
-            _obj._rule_passed_clock_means_tomorrow(state, item, intent, _dt.datetime.now())
+            _obj._rule_passed_clock_means_tomorrow(state, item, intent, _clock.now())
             _obj._rule_now_means_now(state, intent, transcript)
             _obj._rule_morning_title_guard(state, intent, transcript)
             _obj._rule_junk_event_drop(state, item, intent, n_events, pairs)
@@ -422,7 +423,7 @@ def resolve_values(state, anchor: "dt.date | None" = None):
     Returns (fixes, flags). Flags land in `slots["flags"]` and never in
     `item.blocked` — a flag notifies, it does not refuse.
     """
-    anchor = anchor or dt.date.today()
+    anchor = anchor or _clock.today()
     items = list(getattr(state, "items", []) or [])
     if not items:
         return [], []

@@ -160,6 +160,8 @@ class ChangePasswordDialog(QDialog):
         self.current = QLineEdit(); self.current.setEchoMode(QLineEdit.EchoMode.Password)
         self.new = QLineEdit(); self.new.setEchoMode(QLineEdit.EchoMode.Password)
         self.again = QLineEdit(); self.again.setEchoMode(QLineEdit.EchoMode.Password)
+        if not registry.has_password(users.current() or ""):
+            self.current.setPlaceholderText("None set — leave blank")
         form.addRow("Current", self.current)
         form.addRow("New", self.new)
         form.addRow("Again", self.again)
@@ -179,8 +181,7 @@ class ChangePasswordDialog(QDialog):
 
     def _save(self) -> None:
         uid = users.current()
-        me = registry.get(uid) or {}
-        if registry.verify_login(me.get("username", ""), self.current.text()) != uid:
+        if not uid or not registry.check_password(uid, self.current.text()):
             return _say(self.error, "The current password is wrong.")
         if self.new.text() != self.again.text():
             return _say(self.error, "The two new passwords differ.")
@@ -515,7 +516,7 @@ class AdminDialog(QDialog):
         except ValueError as e:
             QMessageBox.warning(self, "New user", str(e))
             return
-        registry.set_password(uid, pw, must_change=True)
+        registry.set_password(uid, pw, must_change=True, min_length=0)
         self._fill()
         self._reveal(registry.get(uid)["display_name"], pw)
         self.changed.emit()
@@ -525,7 +526,7 @@ class AdminDialog(QDialog):
         if not uid:
             return
         pw = passwords.generate()
-        registry.set_password(uid, pw, must_change=True)
+        registry.set_password(uid, pw, must_change=True, min_length=0)
         keep = (local_session.read() or {}).get("session_token") if uid == self.me else None
         sessions.revoke_user(uid, keep=keep)
         self._reveal(registry.get(uid)["display_name"], pw)

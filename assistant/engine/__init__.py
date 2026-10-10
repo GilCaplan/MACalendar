@@ -61,6 +61,7 @@ from assistant.engine.llmjudge import llmjudge as _crosscheck
 from assistant.engine.component import Component, Stage
 from assistant.engine.state import EngineState, ExecutedAction
 from assistant.exceptions import AssistantError, TargetNotFound
+from assistant import clock as _clock  # the moment the command was SAID
 
 logger = logging.getLogger(__name__)
 
@@ -1327,7 +1328,7 @@ def _other_store(state: EngineState, item) -> "tuple | None":
                                                ("new_list", "new_priority", "new_notes")):
                 return None                 # a list or a priority is the to-do list's alone
             import datetime as _dt
-            today = _dt.date.today().isoformat()
+            today = _clock.today().isoformat()
             with db._conn() as conn:
                 rows = conn.execute("SELECT DISTINCT title FROM events WHERE date >= ?",
                                     (today,)).fetchall()

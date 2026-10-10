@@ -19,6 +19,12 @@ enum LocalCommand {
         var reply: String
         var steps: [TraceStep]
         var changed: Bool
+        /// Something was read — done, or answered. false: nothing to show,
+        /// so a Mac that is there should be waited for.
+        var understood = false
+        /// What was read, in the protocol's shape, for the Mac to compare
+        /// (phone first, DEVQA Q87).
+        var reading: OfflineReading? = nil
     }
 
     static func run(_ said: String, api: APIClient, now: Date = Date()) async -> Outcome {
@@ -28,6 +34,7 @@ enum LocalCommand {
             return Outcome(reply: "I didn't catch that.", steps: steps, changed: false)
         }
         let t0 = Date()
+        var reader = "phone-rules"
         var reading = LocalEngine.read(text, now: now)
         steps.append(TraceStep(stage: "rule", title: "Read on this phone",
                                detail: reading.actions.map(describe).joined(separator: " · "),
@@ -44,6 +51,7 @@ enum LocalCommand {
                 return a
             }
             if !creates.isEmpty {
+                reader = OfflineReader.readerName
                 reading = LocalEngine.Reading(actions: creates, understood: true)
                 steps.append(TraceStep(stage: "llm", title: "Apple's on-device model",
                                        detail: creates.map(describe).joined(separator: " · "),
@@ -64,7 +72,37 @@ enum LocalCommand {
                                    title: did ? "Done" : action.op == .query ? "Answer" : "Nothing changed",
                                    detail: line, ms: 0, atMs: 0, ok: did || action.op == .query))
         }
-        return Outcome(reply: replies.joined(separator: " "), steps: steps, changed: changed)
+        return Outcome(reply: replies.joined(separator: " "), steps: steps, changed: changed,
+                       understood: true,
+                       reading: protocolReading(reading.actions, text: text, reader: reader,
+                                                ms: Int(Date().timeIntervalSince(t0) * 1000), now: now))
+    }
+
+    // MARK: - Phone first, Mac behind (DEVQA Q87)
+
+    /// What the phone read, in the shape the Mac compares (`offline_reading`,
+    /// assistant/offline). Creates are items; a move, change, delete, tick or
+    /// question is `other` — done on the phone's copy, but not compared.
+    static func protocolReading(_ actions: [LocalEngine.Action], text: String, reader: String,
+                                ms: Int, now: Date) -> OfflineReading {
+        let items = actions.map { a -> OfflineItem in
+            guard a.op == .create else {
+                return OfflineItem(kind: "other", title: a.target ?? a.title, date: "",
+                                   start: "", end: "", recurrence: "none")
+            }
+            if a.kind == .event {
+                return OfflineItem(kind: "event", title: a.title,
+                                   date: a.date ?? DateFormatter.isoDay.string(from: now),
+                                   start: a.allDay ? "" : (a.start ?? ""),
+                                   end: a.allDay ? "" : (a.end ?? ""),
+                                   recurrence: a.recurrence ?? "none")
+            }
+            return OfflineItem(kind: "todo", title: a.title, date: a.date ?? "",
+                               start: "", end: "", recurrence: "none")
+        }
+        return OfflineReading(protocol: OfflineReader.protocolVersion, schema: OfflineReader.schema,
+                              reader: reader, specVersion: OfflineReader.spec().version, text: text,
+                              ms: ms, items: OfflineReader.sanitize(items), live: true)
     }
 
     // MARK: - Acting

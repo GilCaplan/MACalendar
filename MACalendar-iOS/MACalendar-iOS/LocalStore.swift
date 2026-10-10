@@ -275,6 +275,7 @@ class LocalStore: ObservableObject {
         // Prevent temp-ID collisions after a restart: start below the lowest existing negative ID.
         let negIDs = events.map { $0.id }.filter { $0 < 0 } + todos.map { $0.id }.filter { $0 < 0 }
         nextTemp = (negIDs.min().map { $0 - 1 }) ?? -1
+        sweepLive(atLaunch: true)
         loadVoice()
         #if DEBUG
         seedVoiceForUITest()
@@ -669,6 +670,7 @@ class LocalStore: ObservableObject {
             if Self.autoColors.contains(e.color), let c = label.color { e.color = c }
         }
         nextTemp -= 1
+        PhonePreview.current?.events.append(e.id)
         events.append(e)
         persist()
         ReminderScheduler.shared.reconcile()
@@ -864,6 +866,7 @@ class LocalStore: ObservableObject {
         let t = Todo(id: nextTemp, title: title, list: list,
                      completed: 0, priority: "none", dueDate: "", tags: tags)
         nextTemp -= 1
+        PhonePreview.current?.todos.append(t.id)
         todos.append(t)
         persist()
         return t
@@ -926,6 +929,7 @@ class LocalStore: ObservableObject {
     // MARK: - Pending queue
 
     func enqueue(method: String, path: String, body: [String: Any]? = nil) {
+        if PhonePreview.current != nil { return }      // the Mac gets the command instead
         if !compact(method: method, path: path, body: body) {
             pending.append(PendingChange(method: method, path: path, body: body))
         }
@@ -1149,6 +1153,67 @@ class LocalStore: ObservableObject {
         pendingVoice[i].provisionalEventIDs = []
         pendingVoice[i].provisionalTodoIDs = []
         persistVoice()
+    }
+
+    // MARK: - Phone first, Mac behind (assistant/offline, live)
+
+    /// The placeholder rows of commands the phone did while the Mac WAS
+    /// reachable — made at once, then removed when the Mac answers (its rows
+    /// are the truth; an edit or delete the phone made to its copy is undone
+    /// by the refresh, or kept, by whatever the Mac did). Persisted so a crash between the two can't strand them:
+    /// anything past `keepUntil` is swept at launch and at the next booking.
+    struct LiveBooking: Codable {
+        var events: [Int]
+        var todos: [Int]
+        var keepUntil: Date
+    }
+    private static let liveKey = "macalendar.live_placeholders"
+    private var live: [String: LiveBooking] {
+        get {
+            guard let d = UserDefaults.standard.data(forKey: Self.liveKey) else { return [:] }
+            return (try? JSONDecoder().decode([String: LiveBooking].self, from: d)) ?? [:]
+        }
+        set { UserDefaults.standard.set(try? JSONEncoder().encode(newValue), forKey: Self.liveKey) }
+    }
+
+    /// Hold the rows a phone-first command made (`PhonePreview`) under
+    /// `key` until the Mac answers for it.
+    func holdLive(_ key: String, events evs: [Int], todos tds: [Int]) {
+        sweepLive()
+        guard !evs.isEmpty || !tds.isEmpty else { return }
+        live[key] = LiveBooking(events: evs, todos: tds, keepUntil: Date().addingTimeInterval(600))
+    }
+
+    /// The Mac has answered for `key`: remove its placeholders.
+    func dropLive(_ key: String) {
+        guard let b = live[key] else { return }
+        for e in b.events { removeEvent(e) }
+        for t in b.todos { removeTodo(t) }
+        live[key] = nil
+    }
+
+    /// The Mac queued the command for its model (`pending`): keep the rows a
+    /// while longer — the Mac's twins replace them by title, day and time on a
+    /// refresh (`cacheEvents`), and the sweep takes whatever is left.
+    func extendLive(_ key: String, by seconds: TimeInterval = 1800) {
+        guard var b = live[key] else { return }
+        b.keepUntil = Date().addingTimeInterval(seconds)
+        live[key] = b
+    }
+
+    /// At launch the arrays are filtered directly: `removeEvent` asks the
+    /// ReminderScheduler, which reads `LocalStore.shared` — still being built.
+    private func sweepLive(atLaunch: Bool = false) {
+        let now = Date()
+        for (k, b) in live where b.keepUntil < now {
+            if atLaunch {
+                events.removeAll { b.events.contains($0.id) }
+                todos.removeAll { b.todos.contains($0.id) }
+                live[k] = nil
+            } else {
+                dropLive(k)
+            }
+        }
     }
 
     func setOfflineVerdict(_ id: UUID, verdict: String?, macPendingID: Int? = nil) {

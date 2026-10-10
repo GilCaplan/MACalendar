@@ -1,4 +1,4 @@
-- **2026-10-10 — Q87 (EACH SCREEN'S LOOK IS ITS OWN; THE ASSISTANT IS SHARED)**,
+- **2026-10-10 — Q89 (EACH SCREEN'S LOOK IS ITS OWN; THE ASSISTANT IS SHARED)**,
   Gil: *"it's separate and independent between the Mac and the iOS, right?
   Like the only configurations relevant for that device is on that device …
   In general, also for other things … If not, fix."* It was not: Q-era
@@ -14,6 +14,35 @@
   style (phone `micVisual`, Mac `ui.mic_visual`), font sizes, layout, fold
   state, the server address. `tests/unit/test_ios_device_settings.py` pins
   both halves.
+
+- **2026-10-09 — Q88 (A COMMAND IS READ AS OF WHEN IT WAS SAID)**, Gil, after
+  two commands typed on Thursday sat in the phone's queue and were read on
+  Friday ("date tomorrow at 10:30" landed on Saturday): *"well it should be
+  timestamped"*, *"the now should be a variable and used by the timestamp of
+  the command not hardcoded"*. Everything that READS a command asks
+  `assistant/clock.py` (`now()`, `today()`), never the wall clock; a route
+  given `said_at` (epoch seconds — the phone sends its queued command's
+  `recordedAt`) reads it as of then, and the Mac's own retry queue reads a
+  parked command as of its row's moment. Bookkeeping stamps stay real. A
+  moment in the future or over 60 days old is not believed.
+
+- **2026-10-09 — Q87 (PHONE FIRST, MAC BEHIND)**, Gil: *"when i use prompts
+  on the ios app it defers to the computer but the iphone i have has a small
+  foundational model so it should run that version of the engine and work,
+  then also on the mac when ready just to double check and correct if
+  needed. not completely defer and not commit objects."*, and then *"i
+  don't want it to wait on mac that defeats the purpose"*. Revises Q66/Q85's
+  "a paired phone never reads": **with the Mac reachable, the phone reads
+  and DOES every command first** — its rules (`LocalEngine`), else Apple's
+  model — and answers at once, as with no Mac. Its writes touch ONLY its own
+  copy (`PhonePreview`: never sent, never queued), so nothing is done twice.
+  The command goes to the Mac in the background, carrying the phone's
+  reading as `offline_reading` (`live: true`); the Mac's answer and the
+  refresh after it replace what the phone did, and the phone says so when
+  the Mac read it differently ("Your Mac read it differently"). When the
+  phone reads nothing, it waits for the Mac as before. On by default;
+  Settings ▸ How it runs ▸ "Read on this phone first" turns it off.
+  `assistant/offline/PROTOCOL.md` §"Phone first".
 
 - **2026-10-02 — Q86 (FINISHING: A PLACE STAYS IN THE TITLE; THE JEWISH
   CALENDAR IS OFF FOR A NEW INSTALL)**, Gil, closing the project's loose

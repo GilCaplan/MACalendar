@@ -169,6 +169,8 @@ def attach(reading: Any, resp: Any, *, source: str = "", device: str = "") -> An
         log.append({
             "ts": time.time(), "source": source, "device": device,
             "reader": str(reading.get("reader") or ""),
+            # read while the Mac was reachable (phone first, Q87), not offline
+            "live": bool(reading.get("live")),
             "spec_version": str(reading.get("spec_version") or ""),
             "schema": reading.get("schema"), "protocol": reading.get("protocol"),
             "phone_text": str(reading.get("text") or ""),

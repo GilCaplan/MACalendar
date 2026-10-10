@@ -18,7 +18,11 @@ import os
 import secrets
 
 N, R, P, DKLEN = 2 ** 14, 8, 1, 32
-MIN_LENGTH = 8
+#: The default shortest password (Gil, 2026-10-02: "put minimum to 3"). The
+#: admin changes it, and whether an empty one is allowed, in the Account tab
+#: (`policy.password_min_length` / `policy.allow_empty_password`); his own
+#: password, and any he sets for someone, follow no rule at all.
+MIN_LENGTH = 3
 #: No 0/O, 1/l/I: a generated password is read off a screen and typed once.
 _ALPHABET = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
@@ -35,9 +39,9 @@ def _scrypt(password: str, salt: bytes, n: int, r: int, p: int, dklen: int) -> b
 def hash_password(password: str, min_length: int = MIN_LENGTH) -> dict:
     """The record stored in `users.json` — no plaintext anywhere in it.
 
-    `min_length` is lowered only by the admin's own command-line override
-    (`scripts/set_password.py --allow-short`): Gil chose "123" for his own
-    account on 2026-09-28. Every screen keeps the 8-character rule."""
+    `min_length` comes from `registry.password_rules` — the admin's policy
+    for everyone else, 0 for the admin. An EMPTY password is not hashed at
+    all: `registry.set_password` stores no record instead."""
     if len(password or "") < max(1, min_length):
         raise ValueError(f"a password needs at least {min_length} characters")
     salt = os.urandom(16)

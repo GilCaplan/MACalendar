@@ -38,9 +38,12 @@ struct OfflineReading: Codable {
     var text: String
     var ms: Int
     var items: [OfflineItem]
+    /// Read while the Mac WAS reachable (phone first, DEVQA Q87) rather than
+    /// while it was away. Absent on an offline reading; the Mac only logs it.
+    var live: Bool? = nil
 
     enum CodingKeys: String, CodingKey {
-        case `protocol`, schema, reader, text, ms, items
+        case `protocol`, schema, reader, text, ms, items, live
         case specVersion = "spec_version"
     }
 }
