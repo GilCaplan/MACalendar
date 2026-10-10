@@ -41,6 +41,8 @@ struct JudeTurn: Identifiable {
     var poolBadge: String = ""
     var clarification: JudeClarification?
     var error: String = ""
+    /// Written on this phone (JudeOnDevice), from sources the Mac found.
+    var answeredOnPhone = false
 
     var isEmpty: Bool {
         answer.isEmpty && sources.isEmpty && error.isEmpty && clarification == nil
@@ -145,8 +147,12 @@ final class JudeConversation: ObservableObject {
     }
 
     func ask(_ prompt: String, mode: String, lang: String, topK: Int,
-             skipClarification: Bool = false) {
+             skipClarification: Bool = false, onPhone: Bool = false) {
         guard let api, !asking else { return }
+        // On this phone: the Mac only finds the sources (Jude's own "sources"
+        // mode); the answer is written here. "Sources" asked for is the same
+        // request either way — there is nothing to write.
+        let writeHere = onPhone && mode != "sources"
         asking = true
         stage = ""
         buffer = ""
@@ -157,10 +163,12 @@ final class JudeConversation: ObservableObject {
 
         Task {
             do {
-                try await api.judeAsk(prompt, chatId: self.chatId, mode: mode, lang: lang,
-                                      topK: topK, skipClarification: skipClarification) { event in
+                try await api.judeAsk(prompt, chatId: self.chatId, mode: writeHere ? "sources" : mode,
+                                      lang: lang, topK: topK,
+                                      skipClarification: skipClarification) { event in
                     self.apply(event, to: index, originalPrompt: prompt)
                 }
+                if writeHere { try await self.writeOnPhone(prompt, mode: mode, lang: lang, index: index) }
             } catch {
                 self.turns[index].error = error.localizedDescription
             }
@@ -176,6 +184,27 @@ final class JudeConversation: ObservableObject {
             self.asking = false
             self.stage = ""
         }
+    }
+
+    /// The answer, written by Apple's model from the sources the Mac found —
+    /// into the same buffer the Mac's tokens fill, so the view is the same.
+    private func writeOnPhone(_ prompt: String, mode: String, lang: String, index: Int) async throws {
+        guard index < turns.count, turns[index].clarification == nil,
+              turns[index].error.isEmpty else { return }
+        turns[index].mode = mode                     // what was ASKED, not "sources"
+        guard !turns[index].sources.isEmpty else {
+            turns[index].error = "No sources were found to answer from."
+            return
+        }
+        stage = "Writing the answer on this phone…"
+        let started = Date()
+        try await JudeOnDevice.answer(question: prompt, sources: turns[index].sources,
+                                      lang: lang) { piece in
+            self.buffer += piece
+        }
+        turns[index].answeredOnPhone = true
+        turns[index].steps.append(JudeStep(module: "On this phone",
+                                           durationMs: Date().timeIntervalSince(started) * 1000))
     }
 
     private func apply(_ event: JudeEvent, to index: Int, originalPrompt: String) {
@@ -283,6 +312,8 @@ struct JudeView: View {
 
     @State private var status: JudeStatus?
     @StateObject private var chat = JudeConversation()
+    /// Answers written on this phone (the composer's Mac / iPhone switch).
+    private var answerOnPhone: Bool { settings.judeAnswerOnPhone && JudeOnDevice.isAvailable }
 
     @State private var draft = ""
     @State private var mode = "qa"
@@ -385,6 +416,9 @@ struct JudeView: View {
                 badge(turn.poolBadge, icon: "text.book.closed", tint: .secondary)
             } else if turn.mode == "sources" {
                 badge("Sources only", icon: "list.bullet.rectangle", tint: .secondary)
+            }
+            if turn.answeredOnPhone {
+                badge("Answered on this phone", icon: "iphone", tint: .secondary)
             }
 
             if !turn.answer.isEmpty { answerText(turn) }
@@ -498,7 +532,7 @@ struct JudeView: View {
                 .fixedSize(horizontal: false, vertical: true)
             ForEach(c.options) { option in
                 Button {
-                    chat.ask(option.prompt, mode: mode, lang: lang, topK: Int(topK))
+                    chat.ask(option.prompt, mode: mode, lang: lang, topK: Int(topK), onPhone: answerOnPhone)
                 } label: {
                     Text(option.label)
                         .font(.footnote)
@@ -515,7 +549,7 @@ struct JudeView: View {
             // answers what was actually asked instead of asking again.
             Button {
                 chat.ask(c.originalPrompt, mode: mode, lang: lang, topK: Int(topK),
-                         skipClarification: true)
+                         skipClarification: true, onPhone: answerOnPhone)
             } label: {
                 Text("Continue with my original question →").font(.caption)
             }
@@ -670,6 +704,6 @@ struct JudeView: View {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty, !chat.asking else { return }
         draft = ""
-        chat.ask(prompt, mode: mode, lang: lang, topK: Int(topK))
+        chat.ask(prompt, mode: mode, lang: lang, topK: Int(topK), onPhone: answerOnPhone)
     }
 }
