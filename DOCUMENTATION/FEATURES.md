@@ -1138,6 +1138,19 @@ key, and the server translates Jude's SSE into the NDJSON every client already
 renders for `/voice/stream`, so Jude's own port never leaves the machine and no
 client learns a second protocol.
 
+**Answered on the phone** (Gil, 2026-10-11, option A). The composer's
+"Answer on" switch (Mac / iPhone, per device, Mac by default) lets the phone
+write the answer with Apple's on-device model. The library cannot move
+(1.2 GB of text, a 2 GB index), so the Mac still finds the sources, asked in
+Jude's own `sources` mode (route, retrieve, filter, no synthesis), and only the
+top six passages cross the wire, each trimmed to 650 characters to fit the
+model's ~4k window (`Features/Jude/JudeOnDevice.swift`). The turn is badged
+"Answered on this phone". Where Apple's model is missing or fails, the sources
+still show, with a sentence saying to switch back to the Mac. The switch is
+greyed out on phones without the model.
+`MACalendarUITests/JudeOnPhoneUITests` drives it against a fake Mac and checks
+the request was sources-only.
+
 Missing checkout, switched off, or not started yet are all normal states that
 produce a sentence naming what to do — `GET /jude/status` never errors. The
 brain is untouched: these routes are plumbing, and Jude cannot be asked to
