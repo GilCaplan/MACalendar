@@ -17,7 +17,7 @@ import yaml                                                          # noqa: E40
 from PyQt6.QtCore import QPoint, Qt                                  # noqa: E402
 from PyQt6.QtTest import QTest                                       # noqa: E402
 from PyQt6.QtWidgets import (                                        # noqa: E402
-    QAbstractButton, QApplication, QComboBox, QScrollArea, QToolButton,
+    QAbstractButton, QApplication, QComboBox, QPushButton, QScrollArea, QToolButton,
 )
 
 from tests.unit.test_event_defaults_ui import (                      # noqa: E402,F401
@@ -40,16 +40,18 @@ def _open_voice(dlg) -> QComboBox:
         _click(dlg.findChild(QAbstractButton, "settings_group_assistant"))
     if not header.isChecked():
         _click(header)
-    assert combo.isVisible(), "opening Voice did not show it"
+    # Shown as live demo tiles (2026-10-10); the combo is the hidden value.
+    tiles = {k: dlg.findChild(QPushButton, f"mic_style_{k}") for k in ("bars", "rings", "sunburst", "dots")}
+    assert all(t is not None and t.isVisible() for t in tiles.values()), "no demo tiles on the Voice page"
     # The page it is on: each section is a scroll area whose first row is its
     # heading. (Not "hidden until Voice opens" — the dialog reopens on the
     # page it was last left on, so that would depend on the test before.)
-    page = combo
+    page = tiles["bars"]
     while page is not None and not isinstance(page, QScrollArea):
         page = page.parentWidget()
     heading = page.widget().layout().itemAt(0).widget().text()
     assert heading == "Voice", f"it is on the {heading!r} page"
-    return combo
+    return combo, tiles
 
 
 def test_it_lives_in_voice_and_starts_on_the_bars(app, scratch):
@@ -58,9 +60,10 @@ def test_it_lives_in_voice_and_starts_on_the_bars(app, scratch):
     seen: dict = {}
 
     def interact(dlg):
-        combo = _open_voice(dlg)
+        combo, tiles = _open_voice(dlg)
         seen["value"] = combo.currentData()
         seen["options"] = [combo.itemData(i) for i in range(combo.count())]
+        seen["checked"] = [k for k, t in tiles.items() if t.isChecked()]
         dlg.reject()
 
     _drive(interact, failures)
@@ -69,6 +72,7 @@ def test_it_lives_in_voice_and_starts_on_the_bars(app, scratch):
         raise failures[0]
     assert seen["value"] == "bars"                     # the default Gil chose
     assert seen["options"] == ["bars", "rings", "sunburst", "dots"]
+    assert seen["checked"] == ["bars"], "the default's tile should be the one marked"
 
 
 def test_choosing_a_style_and_saving_writes_it(app, scratch):
@@ -77,10 +81,9 @@ def test_choosing_a_style_and_saving_writes_it(app, scratch):
     failures: list = []
 
     def interact(dlg):
-        combo = _open_voice(dlg)
-        combo.setFocus()
-        QTest.keyClick(combo, Qt.Key.Key_End)        # the last style: dancing dots
-        QApplication.processEvents()
+        combo, tiles = _open_voice(dlg)
+        _click(tiles["dots"])                        # a click on the demo itself
+        assert tiles["dots"].isChecked() and not tiles["bars"].isChecked()
         assert combo.currentData() == "dots"
         QTest.mouseClick(dlg.save_button, Qt.MouseButton.LeftButton)
 

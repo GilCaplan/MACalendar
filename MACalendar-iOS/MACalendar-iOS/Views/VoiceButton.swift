@@ -1438,6 +1438,92 @@ private struct MicDots: View {
 }
 
 
+// MARK: - The style picker in Settings (Gil, 2026-10-10: "there should be
+// demo and toggle to which one is relevant, separate per device")
+
+/// A speaking voice, made up: phrases with pauses, syllables inside them — so
+/// a demo moves the way the real meter does while you talk.
+enum DemoVoice {
+    static func level(at t: TimeInterval) -> Float {
+        let phrase = max(0, sin(t * 1.25))                // talk, pause, talk
+        let syllables = 0.45 + 0.55 * abs(sin(t * 9.0) * sin(t * 3.7 + 1))
+        return Float(min(1, phrase.squareRoot() * syllables * 1.05))
+    }
+
+    /// The last `count` levels, oldest first, ending at `t`.
+    static func history(at t: TimeInterval, count: Int = VoiceRecorder.historyCount) -> [Float] {
+        (0..<count).map { level(at: t - Double(count - 1 - $0) * 0.06) }
+    }
+}
+
+/// Settings ▸ Voice & recording ▸ "While recording": the four styles as live
+/// demos, tap one to use it on this phone. Each tile is the real view the mic
+/// draws, fed a made-up voice.
+struct MicStylePicker: View {
+    @EnvironmentObject var settings: AppSettings
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+                  spacing: 10) {
+            ForEach(AppSettings.micVisuals) { v in
+                tile(v)
+            }
+        }
+        .accessibilityIdentifier("mic-visual-picker")
+    }
+
+    private func tile(_ v: AppSettings.MicVisual) -> some View {
+        let on = settings.micVisual == v.id
+        return Button { settings.micVisual = v.id } label: {
+            VStack(spacing: 6) {
+                TimelineView(.animation(minimumInterval: 1.0 / 30)) { tl in
+                    let t = tl.date.timeIntervalSinceReferenceDate
+                    demo(v.id, level: DemoVoice.level(at: t), levels: DemoVoice.history(at: t))
+                }
+                .frame(height: 112)
+                .frame(maxWidth: .infinity)
+                .clipped()
+                HStack(spacing: 4) {
+                    if on { Image(systemName: "checkmark.circle.fill").foregroundColor(settings.accentColor) }
+                    Text(v.label).font(.subheadline.weight(on ? .semibold : .regular))
+                }
+            }
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color(.tertiarySystemBackground)))
+            .overlay(RoundedRectangle(cornerRadius: 14)
+                .stroke(on ? settings.accentColor : Color.clear, lineWidth: 2))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(v.label)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    @ViewBuilder
+    private func demo(_ id: String, level: Float, levels: [Float]) -> some View {
+        if id == "card" {
+            WaveformCard(levels: levels, startedAt: Date().addingTimeInterval(-4), soundSeen: true,
+                         heard: "Lunch with Dana at noon", onDiscard: {})
+                .fixedSize()
+                .scaleEffect(0.46)
+                .frame(width: 150, height: 112)
+                .allowsHitTesting(false)
+        } else {
+            ZStack {
+                switch id {
+                case "rings":    MicLevelRings(level: level)
+                case "sunburst": MicSunburst(levels: levels)
+                default:         MicDots(levels: levels)
+                }
+                Circle().fill(Color.red).frame(width: 60, height: 60)
+                Image(systemName: "stop.fill").font(.system(size: 20, weight: .semibold)).foregroundColor(.white)
+            }
+            .scaleEffect(0.62)
+            .frame(width: 150, height: 112)
+            .allowsHitTesting(false)
+        }
+    }
+}
+
 /// The "Sending" / "Heard on your phone" row shown until the Mac's first step
 /// arrives — a reference, so the streaming callback can clear it exactly once.
 private final class PlaceholderStep { var showing = true }

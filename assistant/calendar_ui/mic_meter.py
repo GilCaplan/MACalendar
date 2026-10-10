@@ -211,3 +211,57 @@ class MicHalo(MicLevelMeter):
                 p.drawEllipse(QPointF(0, -(19 + v * 16)), size, size)
                 p.restore()
         p.end()
+
+
+# ---------------------------------------------------------------------------
+# Live demos for Settings ▸ Voice (Gil, 2026-10-10: "there should be demo and
+# toggle to which one is relevant, separate per device")
+# ---------------------------------------------------------------------------
+
+def demo_rms(t: Optional[float] = None) -> float:
+    """A made-up speaking voice as chunk RMS: phrases with pauses, syllables
+    inside them — the same voice the phone's demos use (DemoVoice)."""
+    t = time.monotonic() if t is None else t
+    phrase = max(0.0, math.sin(t * 1.25))
+    syllables = 0.45 + 0.55 * abs(math.sin(t * 9.0) * math.sin(t * 3.7 + 1))
+    level = min(1.0, math.sqrt(phrase) * syllables * 1.05)
+    return 10 ** ((FLOOR_DB + level * (CEIL_DB - FLOOR_DB)) / 20)
+
+
+class MicStyleTile(QWidget):
+    """One style, alive: a stand-in toolbar mic with the real meter or halo
+    beside / around it, fed `demo_rms`. Drawn inside a Settings button;
+    transparent to the mouse so the click lands on the button."""
+
+    def __init__(self, style: str, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(150, 96)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.style_name = style
+        self._mic = QWidget(self)                       # the mic, painted below
+        self._mic.setFixedSize(30, 30)
+        self._mic.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        if style == "bars":
+            self._mic.move(150 - 30 - 18, 33)
+            self.demo: MicLevelMeter = MicLevelMeter(self)
+            self.demo.move(self._mic.x() - self.demo.width() - 6, 37)
+            self.demo.start(demo_rms)
+        else:
+            self._mic.move(60, 33)
+            self.demo = MicHalo(self)
+            self.demo.start(demo_rms, style, anchor=self._mic)
+
+    def stop(self) -> None:
+        self.demo.stop()
+
+    def paintEvent(self, _event) -> None:  # noqa: N802 — Qt's name
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(_RED)
+        g = self._mic.geometry()
+        p.drawRoundedRect(QRectF(g), 8, 8)
+        p.setBrush(QColor("white"))
+        c = QPointF(g.center())
+        p.drawRoundedRect(QRectF(c.x() - 5, c.y() - 5, 10, 10), 2, 2)
+        p.end()

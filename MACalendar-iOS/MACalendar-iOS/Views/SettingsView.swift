@@ -788,15 +788,11 @@ struct SettingsView: View {
 
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("While recording")
-                                Picker("While recording", selection: $settings.micVisual) {
-                                    ForEach(AppSettings.micVisuals) { v in
-                                        Text(v.label).tag(v.id)
-                                    }
-                                }
-                                .pickerStyle(.segmented)
-                                .labelsHidden()
-                                .accessibilityIdentifier("mic-visual-picker")
-                                Text("How the mic shows it is hearing you — every style moves with how loud you are.")
+                                // Live demos, not names: you see each style move
+                                // before choosing (Gil, 2026-10-10). This phone's
+                                // choice only — the Mac keeps its own.
+                                MicStylePicker()
+                                Text("How the mic shows it is hearing you on this phone — each moves with how loud you are. Your Mac has its own setting.")
                                     .font(.caption).foregroundColor(.secondary)
                             }
 

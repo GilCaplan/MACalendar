@@ -137,3 +137,25 @@ def test_an_unknown_style_falls_back_to_rings(app):
 def test_the_halo_never_takes_the_click_meant_for_the_mic(app):
     from PyQt6.QtCore import Qt
     assert MicHalo().testAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
+
+def test_the_demo_voice_talks_and_pauses():
+    from assistant.calendar_ui.mic_meter import demo_rms
+    levels = [to_level(demo_rms(t / 20)) for t in range(200)]      # ten seconds
+    assert max(levels) > 0.6, "the demo never sounds like speech"
+    assert min(levels) < 0.05, "the demo never pauses"
+
+
+@pytest.mark.parametrize("style", ["bars", "rings", "sunburst", "dots"])
+def test_each_demo_tile_moves_and_ignores_the_mouse(app, style):
+    from PyQt6.QtCore import Qt
+    from assistant.calendar_ui.mic_meter import MicStyleTile
+    tile = MicStyleTile(style)
+    tile.show()
+    for _ in range(5):
+        tile.demo._tick()
+    tile.repaint()
+    assert not tile.demo.isHidden()
+    assert tile.testAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+    tile.stop()
+    tile.close()
