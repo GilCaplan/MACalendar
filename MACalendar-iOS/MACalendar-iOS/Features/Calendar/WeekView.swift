@@ -39,81 +39,121 @@ struct WeekView: View {
         return (0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: start) }
     }
 
+    /// How many day-columns fit across the screen. Seven left ~6 letters a
+    /// line, so titles broke mid-word ("ceremo/ny"); the week now scrolls
+    /// sideways with about three days in view and a sliver of the next, so
+    /// titles read across like the Day view's (Gil, 2026-10-10).
+    private let daysInView: CGFloat = 3.2
+    /// How far the day columns are scrolled — the header strip follows it.
+    @State private var scrollX: CGFloat = 0
+
     var body: some View {
-        VStack(spacing: 0) {
-            // Day header strip
-            HStack(spacing: 0) {
-                Spacer().frame(width: labelWidth)
-                ForEach(weekDays, id: \.self) { day in
-                    WeekDayHeader(
-                        day: day,
-                        isSelected: Calendar.current.isDate(day, inSameDayAs: selectedDate),
-                        isToday: Calendar.current.isDateInToday(day),
-                        holidays: holidaysForDay(day),
-                        occasions: occasions.filter { $0.date == ISO8601DateFormatter.yyyyMMdd.string(from: day) }
-                    )
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        selectedDate = day
-                        onDateSelected?(day)
-                    }
-                }
-            }
-            .frame(height: 56)
-            .background(Color(.systemBackground))
-
-            Divider()
-
-            // Scrollable timeline
-            ScrollViewReader { proxy in
-                ScrollView(.vertical, showsIndicators: false) {
-                    Color.clear.frame(height: 0).id("top")
-                    HStack(alignment: .top, spacing: 0) {
-                        // Time label column
-                        VStack(spacing: 0) {
-                            ForEach(0..<24, id: \.self) { h in
-                                Text(hourLabel(h))
-                                    .font(.system(size: 9))
-                                    .foregroundColor(.secondary)
-                                    .frame(width: labelWidth, height: hourHeight, alignment: .topTrailing)
-                                    .padding(.trailing, 3)
+        GeometryReader { outer in
+            let colW = max(64, (outer.size.width - labelWidth) / daysInView)
+            VStack(spacing: 0) {
+                // Day header strip — not a scroll view of its own (two can't be
+                // kept in step before iOS 17): it is moved by the columns' offset.
+                HStack(spacing: 0) {
+                    Spacer().frame(width: labelWidth)
+                    HStack(spacing: 0) {
+                        ForEach(weekDays, id: \.self) { day in
+                            WeekDayHeader(
+                                day: day,
+                                isSelected: Calendar.current.isDate(day, inSameDayAs: selectedDate),
+                                isToday: Calendar.current.isDateInToday(day),
+                                holidays: holidaysForDay(day),
+                                occasions: occasions.filter { $0.date == ISO8601DateFormatter.yyyyMMdd.string(from: day) }
+                            )
+                            .frame(width: colW)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                selectedDate = day
+                                onDateSelected?(day)
                             }
                         }
-
-                        // Day columns
-                        ForEach(Array(weekDays.enumerated()), id: \.offset) { i, day in
-                            WeekDayColumn(
-                                    day: day, popped: $popped, onOpen: { selected = $0 },
-                                events: eventsForDay(day),
-                                holyWindows: holyWindows.filter { $0.overlaps(day: day) },
-                                now: now,
-                                hourHeight: hourHeight,
-                                showLeftBorder: i > 0
-                            )
-                        }
                     }
-                    // the 24-hour canvas, seen through a window on the shown hours
-                    .frame(height: hourHeight * 24, alignment: .top)
-                    .offset(y: -CGFloat(span.0) * hourHeight)
-                    .frame(height: CGFloat(span.1 - span.0) * hourHeight, alignment: .top)
+                    .offset(x: scrollX)
+                    .frame(width: max(0, outer.size.width - labelWidth), alignment: .leading)
                     .clipped()
-                    .padding(.top, 4)
                 }
-                .background(GeometryReader { g in
-                    Color.clear
-                        .onAppear { viewportH = g.size.height }
-                        .onChange(of: g.size.height) { h in viewportH = h }
-                })
-                .onChange(of: settings.hoursFrom) { _ in proxy.scrollTo("top", anchor: .top) }
-                .onAppear { proxy.scrollTo("top", anchor: .top) }
-                .onChange(of: selectedDate) { _ in proxy.scrollTo("top", anchor: .top); popped = nil }
-                .sheet(item: $selected) { ev in
-                    EventDetailView(event: ev, onDismiss: { api.requestRefresh() })
+                .frame(height: 56)
+                .background(Color(.systemBackground))
+
+                Divider()
+
+                // Scrollable timeline: up and down for the hours, sideways for the days
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        Color.clear.frame(height: 0).id("top")
+                        HStack(alignment: .top, spacing: 0) {
+                            // Time label column — stays put while the days scroll
+                            VStack(spacing: 0) {
+                                ForEach(0..<24, id: \.self) { h in
+                                    Text(hourLabel(h))
+                                        .font(.system(size: 9))
+                                        .foregroundColor(.secondary)
+                                        .frame(width: labelWidth, height: hourHeight, alignment: .topTrailing)
+                                        .padding(.trailing, 3)
+                                }
+                            }
+
+                            ScrollViewReader { days in
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 0) {
+                                        // Reads the real scroll view's offset: SwiftUI's
+                                        // geometry readers did not update while this was
+                                        // nested in the vertical scroll, and the header sat
+                                        // on Sun–Tue over Thu–Sat columns (seen in the
+                                        // simulator, 2026-10-10).
+                                        ScrollOffsetReader { x in scrollX = -x }
+                                            .frame(width: 0, height: 0)
+                                        ForEach(Array(weekDays.enumerated()), id: \.offset) { i, day in
+                                            WeekDayColumn(
+                                                day: day, popped: $popped, onOpen: { selected = $0 },
+                                                events: eventsForDay(day),
+                                                holyWindows: holyWindows.filter { $0.overlaps(day: day) },
+                                                now: now,
+                                                hourHeight: hourHeight,
+                                                showLeftBorder: i > 0
+                                            )
+                                            .frame(width: colW)
+                                            .id(i)
+                                        }
+                                    }
+                                }
+                                .onAppear { showSelected(days) }
+                                .onChange(of: selectedDate) { _ in showSelected(days) }
+                            }
+                        }
+                        // the 24-hour canvas, seen through a window on the shown hours
+                        .frame(height: hourHeight * 24, alignment: .top)
+                        .offset(y: -CGFloat(span.0) * hourHeight)
+                        .frame(height: CGFloat(span.1 - span.0) * hourHeight, alignment: .top)
+                        .clipped()
+                        .padding(.top, 4)
+                    }
+                    .background(GeometryReader { g in
+                        Color.clear
+                            .onAppear { viewportH = g.size.height }
+                            .onChange(of: g.size.height) { h in viewportH = h }
+                    })
+                    .onChange(of: settings.hoursFrom) { _ in proxy.scrollTo("top", anchor: .top) }
+                    .onAppear { proxy.scrollTo("top", anchor: .top) }
+                    .onChange(of: selectedDate) { _ in proxy.scrollTo("top", anchor: .top); popped = nil }
+                    .sheet(item: $selected) { ev in
+                        EventDetailView(event: ev, onDismiss: { api.requestRefresh() })
+                    }
                 }
             }
         }
         .onReceive(timer) { d in now = d }
+    }
+
+    /// The selected day in view, with the day before it for context.
+    private func showSelected(_ days: ScrollViewProxy) {
+        guard let i = weekDays.firstIndex(where: { Calendar.current.isDate($0, inSameDayAs: selectedDate) })
+        else { return }
+        DispatchQueue.main.async { days.scrollTo(max(0, i - 1), anchor: .leading) }
     }
 
     private func eventsForDay(_ date: Date) -> [CalendarEvent] {
@@ -128,6 +168,43 @@ struct WeekView: View {
 
     private func hourLabel(_ h: Int) -> String {
         CalendarPrefs.hourLabel(h, clock24: settings.clock24)
+    }
+}
+
+/// The horizontal offset of the UIScrollView this sits inside, reported on
+/// every scroll (key-value observation of `contentOffset`).
+private struct ScrollOffsetReader: UIViewRepresentable {
+    var onChange: (CGFloat) -> Void
+
+    func makeUIView(context: Context) -> UIView {
+        let v = UIView(frame: .zero)
+        v.isUserInteractionEnabled = false
+        DispatchQueue.main.async { context.coordinator.attach(from: v) }
+        return v
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        context.coordinator.onChange = onChange
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(onChange: onChange) }
+
+    final class Coordinator {
+        var onChange: (CGFloat) -> Void
+        private var watch: NSKeyValueObservation?
+        init(onChange: @escaping (CGFloat) -> Void) { self.onChange = onChange }
+
+        /// The nearest enclosing scroll view — the horizontal one, since the
+        /// vertical one is further out.
+        func attach(from view: UIView) {
+            var sv = view.superview
+            while let s = sv, !(s is UIScrollView) { sv = s.superview }
+            guard let scroll = sv as? UIScrollView else { return }
+            watch = scroll.observe(\.contentOffset, options: [.initial, .new]) { [weak self] s, _ in
+                let x = s.contentOffset.x
+                DispatchQueue.main.async { self?.onChange(x) }
+            }
+        }
     }
 }
 
@@ -232,12 +309,17 @@ private struct WeekDayColumn: View {
                     GeometryReader { geo in
                         // Event blocks — binder stacking for overlaps (see EventStacking)
                         let colW = geo.size.width - 3
-                        let items = EventStacking.layout(events, hourHeight: hourHeight, minHeight: 18)
+                        let titleLine: CGFloat = settings.fontWeek * 1.3 + 4
+                        let band: (StackedEvent) -> CGFloat = { (_: StackedEvent) -> CGFloat in titleLine }
+                        let items = EventStacking.clearTitles(
+                            EventStacking.layout(events, hourHeight: hourHeight, minHeight: 18),
+                            band: band, minHeight: 18)
                         let poppedCluster = items.first { $0.id == popped }?.cluster
                         ForEach(items) { it in
                             let isPopped = popped == it.id
                             let inset = isPopped ? 0 : EventStacking.inset(depth: it.depth, size: it.stackSize, step: 7, readStep: 60, width: colW)
-                            let strip = isPopped ? 0 : EventStacking.strip(depth: it.depth, size: it.stackSize, step: 7, readStep: 60, width: colW)
+                            let strip = isPopped ? 0 : EventStacking.titleStrip(it, in: items, band: band,
+                                                                                step: 7, readStep: 60, width: colW)
                             WeekEventBlock(event: it.event, height: it.height, strip: strip)
                                 .frame(width: max(colW - inset, 24), height: it.height)
                                 .modifier(OwnerEdge(event: it.event, width: 3, radius: 3))
@@ -319,14 +401,35 @@ private struct WeekEventBlock: View {
         RoundedRectangle(cornerRadius: 3)
             .fill(fillColor)
             .overlay(alignment: .topLeading) {
-                IconTitle(title: event.ownerPrefix + event.title, icons: event.icons,
-                          size: max(settings.fontWeek - 2, 9))
-                    .font(.system(size: max(settings.fontWeek - 2, 9), weight: .semibold))
-                    .foregroundColor(Color.onColor(hex: event.color.isEmpty ? settings.accentColorHex : event.color))
-                    .padding(2)
-                    .lineLimit(height > 36 ? 2 : 1)
-                    .frame(maxWidth: strip > 0 ? strip : nil, alignment: .leading)
+                // Readable at arm's length (Gil, 2026-10-10: "way too small"):
+                // the Week size itself, not two points under it, and as many
+                // lines as the block is tall — a seven-column week leaves a
+                // word or two per line, so a one- or two-line cap cut titles.
+                GeometryReader { geo in
+                    let room = (strip > 0 ? min(strip, geo.size.width) : geo.size.width) - 6
+                    let size = Self.fitting(event.ownerPrefix + event.title, base: settings.fontWeek, width: room)
+                    IconTitle(title: event.ownerPrefix + event.title, icons: event.icons, size: size)
+                        .font(.system(size: size, weight: .semibold))
+                        .foregroundColor(Color.onColor(hex: event.color.isEmpty ? settings.accentColorHex : event.color))
+                        .lineLimit(max(1, Int((height - 4) / (size * 1.2))))
+                        .padding(.horizontal, 3).padding(.vertical, 2)
+                        .frame(maxWidth: strip > 0 ? strip : nil, alignment: .leading)
+                }
             }
+    }
+}
+
+extension WeekEventBlock {
+    /// The Week size, unless the title's longest word would not fit the
+    /// column at it — then just small enough that it does (never under three
+    /// points less), so a word wraps whole instead of "ceremo / ny".
+    static func fitting(_ title: String, base: Double, width: CGFloat) -> CGFloat {
+        let font = UIFont.systemFont(ofSize: base, weight: .semibold)
+        let longest = title.split(whereSeparator: { $0 == " " || $0 == "-" })
+            .map { (String($0) as NSString).size(withAttributes: [.font: font]).width }
+            .max() ?? 0
+        guard longest > width, width > 0 else { return base }
+        return max(base - 3, floor(base * width / longest * 10) / 10)
     }
 }
 

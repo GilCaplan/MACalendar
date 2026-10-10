@@ -75,6 +75,50 @@ enum EventStacking {
         return effStep(size: size, step: step, readStep: readStep, width: width)
     }
 
+    /// Cards stacked on another card's title line start just below it, so
+    /// every title reads across in one line (Gil, 2026-10-10: "I want it to be
+    /// left to right … push it below that line, the next events that are on
+    /// top of it"). Only the overlap is moved: a card keeps its bottom (its end
+    /// time) and loses `band` at most from its top; nothing outside a stack
+    /// moves.
+    static func clearTitles(_ items: [StackedEvent], band: (StackedEvent) -> CGFloat,
+                            minHeight: CGFloat) -> [StackedEvent] {
+        var out = items
+        for i in out.indices.sorted(by: { out[$0].depth < out[$1].depth }) {
+            let it = out[i]
+            guard it.stackSize > 1 else { continue }
+            let lineEnd = out.filter { $0.cluster == it.cluster && $0.depth < it.depth
+                                       && $0.top <= it.top && it.top < $0.top + band($0) }
+                .map { $0.top + band($0) }.max()
+            guard let lineEnd else { continue }
+            let bottom = it.top + it.height
+            let top = min(lineEnd, bottom - minHeight)
+            guard top > it.top else { continue }
+            out[i] = StackedEvent(event: it.event, top: top, height: bottom - top,
+                                  depth: it.depth, stackSize: it.stackSize, cluster: it.cluster)
+        }
+        return out
+    }
+
+    /// The width a card's TITLE may use: the strip up to the nearest card
+    /// stacked above it — but only where that card actually covers the title's
+    /// rows (`band` points from the card's top). 0 = the whole card. A long
+    /// event with a short one stacked on its middle used to squeeze its title
+    /// into the strip all the way down, so "Army ceremony" read "Army ceremo"
+    /// beside empty colour (Gil, 2026-10-10).
+    static func titleStrip(_ it: StackedEvent, in items: [StackedEvent], band: (StackedEvent) -> CGFloat,
+                           step: CGFloat, readStep: CGFloat, width: CGFloat) -> CGFloat {
+        guard it.stackSize > 1 else { return 0 }
+        let rows = (it.top, it.top + min(band(it), it.height))
+        let above = items.filter {
+            $0.cluster == it.cluster && $0.depth > it.depth
+                && $0.top < rows.1 && $0.top + $0.height > rows.0
+        }
+        guard let nearest = above.map(\.depth).min() else { return 0 }
+        return CGFloat(nearest - it.depth) * effStep(size: it.stackSize, step: step,
+                                                     readStep: readStep, width: width)
+    }
+
     static func effStep(size: Int, step: CGFloat, readStep: CGFloat, width: CGFloat) -> CGFloat {
         guard size > 1 else { return 0 }
         return max(3, min(max(step, readStep), width * 0.5 / CGFloat(size - 1)))
