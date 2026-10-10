@@ -233,6 +233,12 @@ class AppSettings: ObservableObject {
     @Published var silenceStopSeconds: Double {
         didSet { UserDefaults.standard.set(silenceStopSeconds, forKey: "silenceStopSeconds") }
     }
+    /// The phone transcribes its own recordings and sends the words, not the
+    /// audio (Gil, 2026-10-10: "whatever device it comes from, just use that
+    /// one"). Off: the recording goes to the Mac for Whisper, as before.
+    @Published var transcribeOnPhone: Bool {
+        didSet { UserDefaults.standard.set(transcribeOnPhone, forKey: "transcribeOnPhone") }
+    }
     /// How the mic shows it is hearing you (Gil, 2026-10-09, chosen from the
     /// design canvas): "card" — the waveform card, the default — "rings",
     /// "sunburst" or "dots". Unknown values read as the default.
@@ -327,6 +333,8 @@ class AppSettings: ObservableObject {
             ? true : UserDefaults.standard.bool(forKey: "silenceStopEnabled")
         let sil = UserDefaults.standard.double(forKey: "silenceStopSeconds")
         self.silenceStopSeconds = sil == 0 ? 6 : sil
+        self.transcribeOnPhone = UserDefaults.standard.object(forKey: "transcribeOnPhone") == nil
+            ? true : UserDefaults.standard.bool(forKey: "transcribeOnPhone")
         let visual = UserDefaults.standard.string(forKey: "micVisual") ?? "card"
         self.micVisual = AppSettings.micVisuals.contains { $0.id == visual } ? visual : "card"
         self.vocabOnboardingDone = UserDefaults.standard.bool(forKey: "vocabOnboardingDone")

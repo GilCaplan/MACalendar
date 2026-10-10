@@ -100,6 +100,13 @@ class VoiceRecorder: NSObject, ObservableObject {
     private var heardSpeech = false
     private var silenceTimer: Timer?
     private var stopping = false
+    /// What was heard before an "Add more" resumed the take: the recogniser
+    /// restarts with the mic, so its words would otherwise start over.
+    private var heardBefore = ""
+    /// The recogniser has given its last word for this take (or failed).
+    private var heardFinal = false
+    private var heardWaiters: [CheckedContinuation<Void, Never>] = []
+
     /// The recording whose session is being switched on; a stop or cancel
     /// before it lands changes this, so the engine never starts afterwards.
     private var startToken = UUID()
@@ -115,6 +122,8 @@ class VoiceRecorder: NSObject, ObservableObject {
     // MARK: - Start / stop
 
     func start(resume: Bool = false) {
+        heardBefore = resume ? liveText : ""
+        heardFinal = false
         if !resume {
             pcm = Data(); liveText = ""
             peakDb = -120; restarts = 0; startedAt = Date(); soundSeen = false
@@ -136,7 +145,11 @@ class VoiceRecorder: NSObject, ObservableObject {
     /// The mic, once the session is on.
     private func startEngine() {
         // On-device stop-word listener (optional — recording works without it)
-        if stopWordsEnabled || transcribe, SFSpeechRecognizer.authorizationStatus() == .authorized {
+        // Always, when allowed: the phone transcribes its own recordings and
+        // sends the words, not the audio (Gil, 2026-10-10 — "whatever device
+        // it comes from, just use that one"). Stop words and magic words read
+        // the same partials.
+        if SFSpeechRecognizer.authorizationStatus() == .authorized {
             let rec = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
             // On-device only. Where the device can't recognise locally, skip the
             // stop-word listener entirely rather than letting Apple's servers see
@@ -148,10 +161,14 @@ class VoiceRecorder: NSObject, ObservableObject {
                 req.requiresOnDeviceRecognition = true
                 req.taskHint = .dictation
                 recognizer = rec; request = req
-                task = rec.recognitionTask(with: req) { [weak self] result, _ in
-                    guard let self, let result else { return }
-                    let text = result.bestTranscription.formattedString
-                    Task { @MainActor in self.handlePartial(text) }
+                task = rec.recognitionTask(with: req) { [weak self] result, error in
+                    guard let self else { return }
+                    let text = result?.bestTranscription.formattedString
+                    let done = (result?.isFinal ?? false) || error != nil
+                    Task { @MainActor in
+                        if let text { self.handlePartial(text) }
+                        if done { self.finishHearing() }
+                    }
                 }
             }
         }
@@ -221,7 +238,7 @@ class VoiceRecorder: NSObject, ObservableObject {
 
     /// Stop and return a WAV file (16 kHz, mono, 16-bit) for the Mac.
     func stop() -> Data? {
-        teardown()
+        teardown(keepHearing: true)
         let audio = pcm
         lastCapture = Capture(seconds: Double(audio.count) / 32_000, peakDb: peakDb, restarts: restarts)
         guard !audio.isEmpty else { return nil }
@@ -240,12 +257,41 @@ class VoiceRecorder: NSObject, ObservableObject {
         stopReason = .cancelled
     }
 
-    private func teardown() {
+    /// The phone's transcript of the take, final: the mic has stopped, and the
+    /// recogniser is given up to `timeout` to settle its last words (it
+    /// usually needs a few hundred ms). Empty when it never ran — no
+    /// permission, or no on-device recognition — and the caller then sends
+    /// the audio instead.
+    func heardText(timeout: Double = 1.2) async -> String {
+        if task != nil && !heardFinal {
+            await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+                heardWaiters.append(c)
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                    self.finishHearing()
+                }
+            }
+        }
+        task?.cancel(); task = nil; request = nil
+        return liveText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func finishHearing() {
+        heardFinal = true
+        let waiting = heardWaiters
+        heardWaiters = []
+        waiting.forEach { $0.resume() }
+    }
+
+    private func teardown(keepHearing: Bool = false) {
         startToken = UUID()             // a session still switching on must not start the engine
         silenceTimer?.invalidate(); silenceTimer = nil
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
-        request?.endAudio(); task?.cancel(); task = nil; request = nil
+        request?.endAudio()
+        // A stop keeps the recogniser a moment for its last words (heardText);
+        // a cancel drops it at once.
+        if !keepHearing { task?.cancel(); task = nil; request = nil; finishHearing() }
         if let o = configObserver { NotificationCenter.default.removeObserver(o); configObserver = nil }
         isRecording = false
         level = 0
@@ -255,7 +301,7 @@ class VoiceRecorder: NSObject, ObservableObject {
     // MARK: - Internals
 
     private func handlePartial(_ text: String) {
-        liveText = text
+        liveText = heardBefore.isEmpty ? text : heardBefore + " " + text
         guard stopWordsEnabled, !stopping else { return }
         let words = text.lowercased().replacingOccurrences(of: "[^a-z' ]", with: " ", options: .regularExpression)
             .split(separator: " ").map(String.init)
