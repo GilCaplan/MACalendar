@@ -41,10 +41,23 @@ final class CalendarNavigator: ObservableObject {
 /// This was `ContentView.calendarContent` plus half of ContentView's state. It
 /// moved here whole so the shell holds nothing calendar-shaped: the shell now
 /// only knows there is a feature called "calendar" and asks it for a view.
+/// Sideways, the calendar is just the schedule, full screen (Gil, 2026-10-10:
+/// "when turn device sideways just open up only the schedule and sort of full
+/// screen it and can minimize the rest"). `showControls` brings the rest back
+/// for a moment; the app frame (ContentView) reads it too, for the tab bar.
+final class CalendarFocus: ObservableObject {
+    static let shared = CalendarFocus()
+    @Published var showControls = false
+}
+
 struct CalendarTabView: View {
     @EnvironmentObject var api: APIClient
     @EnvironmentObject var settings: AppSettings
     @ObservedObject private var nav = CalendarNavigator.shared
+    @ObservedObject private var focus = CalendarFocus.shared
+    @Environment(\.verticalSizeClass) private var vSize
+    /// Sideways on a phone, controls tucked away.
+    private var focused: Bool { vSize == .compact && !focus.showControls }
 
     /// Opens on the view chosen in Settings → Appearance ("Open calendar on"),
     /// Week unless changed. Read from the same UserDefaults key AppSettings
@@ -70,6 +83,7 @@ struct CalendarTabView: View {
         StackNavigation {
                     VStack(spacing: 0) {
 
+                        if !focused {
                         Picker("View", selection: $calendarView) {
                             Text("Month").tag(CalendarMode.month)
                             Text("Week").tag(CalendarMode.week)
@@ -106,6 +120,7 @@ struct CalendarTabView: View {
                         }
 
                         Divider()
+                        }
 
                         TabView(selection: $calendarView) {
 
@@ -221,6 +236,26 @@ struct CalendarTabView: View {
                     }
                     .navigationTitle("Calendar")
                     .navigationBarTitleDisplayMode(.inline)
+                    .toolbar(focused ? .hidden : .visible, for: .navigationBar)
+                    // Sideways: one small button brings the controls back (and
+                    // tucks them away again).
+                    .overlay(alignment: .topTrailing) {
+                        if vSize == .compact {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) { focus.showControls.toggle() }
+                            } label: {
+                                Image(systemName: focus.showControls
+                                      ? "arrow.up.left.and.arrow.down.right"
+                                      : "slider.horizontal.3")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .frame(width: 34, height: 34)
+                                    .background(Circle().fill(.regularMaterial))
+                            }
+                            .accessibilityLabel(focus.showControls ? "Full-screen schedule" : "Show controls")
+                            .accessibilityIdentifier("calendar-focus-toggle")
+                            .padding(.trailing, 10).padding(.top, 4)
+                        }
+                    }
                     .toolbar {
                         ToolbarItem(placement: .principal) {
                             // In a festival's days, a small festive figure by the title (Easter egg).
@@ -242,6 +277,7 @@ struct CalendarTabView: View {
                         }
                     }
                     .overlay(alignment: .bottom) {
+                        if !focused {
                         HStack(spacing: 20) {
                             VoiceButton(onRefresh: { refresh in
                                 if refresh == "events" || refresh == "both" {
@@ -262,6 +298,7 @@ struct CalendarTabView: View {
                             }
                         }
                         .padding(.bottom, 24)
+                        }
                     }
                 }
         // Something outside the calendar moved the month on (a reminder tap, the

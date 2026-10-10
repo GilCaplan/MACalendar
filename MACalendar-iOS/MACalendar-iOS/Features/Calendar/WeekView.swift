@@ -43,13 +43,20 @@ struct WeekView: View {
     /// line, so titles broke mid-word ("ceremo/ny"); the week now scrolls
     /// sideways with about three days in view and a sliver of the next, so
     /// titles read across like the Day view's (Gil, 2026-10-10).
-    private let daysInView: CGFloat = 3.2
+    /// Sideways, or when chosen in Settings, all seven fit with no scrolling.
+    /// "Sideways" is judged by the view's own shape: the size class did not
+    /// reach in here through the Month/Week/Day pager (the week stayed on
+    /// three days in landscape, seen in the simulator).
+    private func daysInView(_ size: CGSize) -> CGFloat {
+        settings.weekFitsAll || size.width > size.height ? 7 : 3.2
+    }
     /// How far the day columns are scrolled — the header strip follows it.
     @State private var scrollX: CGFloat = 0
 
     var body: some View {
         GeometryReader { outer in
-            let colW = max(64, (outer.size.width - labelWidth) / daysInView)
+            let colW = max(daysInView(outer.size) >= 7 ? 30 : 64,
+                           (outer.size.width - labelWidth) / daysInView(outer.size))
             VStack(spacing: 0) {
                 // Day header strip — not a scroll view of its own (two can't be
                 // kept in step before iOS 17): it is moved by the columns' offset.

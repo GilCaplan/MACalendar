@@ -54,4 +54,52 @@ final class CalendarTitlesUITests: XCTestCase {
         sleep(1)
         shot(app, "week-start")
     }
+
+    /// Sideways: just the schedule, full screen, all seven days; one button
+    /// brings the controls back (Gil, 2026-10-10).
+    func testSidewaysIsAFullScreenSchedule() throws {
+        try XCTSkipUnless(standInIsUp(), "start fake_mac.py on 59130 to run this")
+        let app = XCUIApplication()
+        app.launchArguments = ["-serverURL", "127.0.0.1:59130", "-vocabOnboardingDone", "1",
+                               "-remindersEnabled", "0", "-uitestDefaultPrefs"]
+        app.launch()
+        let sb = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        for label in ["Allow", "OK"] where sb.buttons[label].waitForExistence(timeout: 1.5) { sb.buttons[label].tap() }
+        app.buttons["Week"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["tab-settings"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Back"].firstMatch.tap()                 // the stand-in's week
+        XCUIDevice.shared.orientation = .landscapeLeft
+        sleep(2)
+        shot(app, "landscape-week")
+        let win = app.windows.firstMatch.frame
+        let days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map { d -> String in
+            let e = app.staticTexts[d].firstMatch
+            return e.exists ? "\(d)@\(Int(e.frame.midX))" : "\(d)@-"
+        }
+        print("LANDSCAPE window \(win) days \(days.joined(separator: " "))")
+        XCTAssertFalse(app.buttons["tab-settings"].firstMatch.exists, "the tab bar is still there sideways")
+        XCTAssertFalse(app.buttons["mic-button"].firstMatch.isHittable, "the mic is still there sideways")
+        let toggle = app.buttons["calendar-focus-toggle"].firstMatch
+        XCTAssertTrue(toggle.exists, "no way to bring the controls back")
+        toggle.tap()
+        sleep(1)
+        XCTAssertTrue(app.buttons["tab-settings"].firstMatch.waitForExistence(timeout: 3), "controls did not come back")
+        shot(app, "landscape-controls")
+        toggle.tap()
+        XCUIDevice.shared.orientation = .portrait
+        sleep(2)
+        XCTAssertTrue(app.buttons["tab-settings"].firstMatch.waitForExistence(timeout: 3), "upright lost the tab bar")
+        shot(app, "portrait-again")
+    }
+
+    func testTheWeekCanShowAllSevenUpright() throws {
+        try XCTSkipUnless(standInIsUp(), "start fake_mac.py on 59130 to run this")
+        let app = XCUIApplication()
+        app.launchArguments = ["-serverURL", "127.0.0.1:59130", "-vocabOnboardingDone", "1",
+                               "-remindersEnabled", "0", "-weekFitsAll", "1"]
+        app.launch()
+        app.buttons["Week"].firstMatch.tap()
+        sleep(2)
+        shot(app, "week-all-seven")
+    }
 }

@@ -88,6 +88,12 @@ class AppSettings: ObservableObject {
 
     /// The week's first day in Month and Week (Settings ▸ Appearance), per
     /// device like the Mac's own (Gil, 2026-09-29).
+    /// Upright, the Week view scrolls sideways with ~3 days in view (titles
+    /// read across) or fits all seven (Gil, 2026-10-10). Sideways it always
+    /// fits all seven — the screen is wide enough.
+    @Published var weekFitsAll: Bool {
+        didSet { UserDefaults.standard.set(weekFitsAll, forKey: "weekFitsAll") }
+    }
     @Published var weekStartsMonday: Bool {
         didSet { UserDefaults.standard.set(weekStartsMonday, forKey: "weekStartsMonday") }
     }
@@ -335,6 +341,7 @@ class AppSettings: ObservableObject {
         self.silenceStopSeconds = sil == 0 ? 6 : sil
         self.transcribeOnPhone = UserDefaults.standard.object(forKey: "transcribeOnPhone") == nil
             ? true : UserDefaults.standard.bool(forKey: "transcribeOnPhone")
+        self.weekFitsAll = UserDefaults.standard.bool(forKey: "weekFitsAll")
         let visual = UserDefaults.standard.string(forKey: "micVisual") ?? "card"
         self.micVisual = AppSettings.micVisuals.contains { $0.id == visual } ? visual : "card"
         self.vocabOnboardingDone = UserDefaults.standard.bool(forKey: "vocabOnboardingDone")

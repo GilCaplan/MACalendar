@@ -155,6 +155,13 @@ struct ContentView: View {
             .onAppear { EggWaitWindow.shared.install() }
     }
 
+    @ObservedObject private var calendarFocus = CalendarFocus.shared
+    @Environment(\.verticalSizeClass) private var vSize
+    /// The calendar sideways: just the schedule, full screen (CalendarFocus).
+    private var calendarFullScreen: Bool {
+        vSize == .compact && selectedFeature == "calendar" && !calendarFocus.showControls
+    }
+
     @ViewBuilder private var mainBody: some View {
         VStack(spacing: 0) {
 
@@ -167,7 +174,8 @@ struct ContentView: View {
             // than orange, because nothing is wrong.
             // Never in phone-only mode (there is no Mac to be away), and never
             // when switched off in Settings ▸ How it runs.
-            if (!settings.serverEnabled || !api.isOnline) && !settings.phoneOnly && settings.showConnectionBanner {
+            if (!settings.serverEnabled || !api.isOnline) && !settings.phoneOnly && settings.showConnectionBanner
+                && !calendarFullScreen {
                 let chosen = !settings.serverEnabled
                 let pending = store.pendingCount
                 HStack(spacing: 6) {
@@ -220,7 +228,8 @@ struct ContentView: View {
             // reconnecting so you can see what it went on to do. Behind the same
             // switch as the offline line, off by default (2026-10-10): Settings
             // ▸ Your Mac shows both, live, without taking over the screen.
-            if !store.pendingVoice.isEmpty && settings.showConnectionBanner && !settings.phoneOnly {
+            if !store.pendingVoice.isEmpty && settings.showConnectionBanner && !settings.phoneOnly
+                && !calendarFullScreen {
                 Button { showVoiceQueue = true } label: {
                     HStack(spacing: 8) {
                         Image(systemName: voiceQueueIcon)
@@ -235,7 +244,7 @@ struct ContentView: View {
                 .buttonStyle(.plain)
             }
 
-            if unreviewed >= 5 {
+            if unreviewed >= 5 && !calendarFullScreen {
                 Button { showReview = true } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.bubble")
@@ -252,7 +261,7 @@ struct ContentView: View {
             }
 
             tabContent
-            customTabBar
+            if !calendarFullScreen { customTabBar }
         }
         // ONE bounce-off for all seven features, instead of the per-tab
         // `onChange` handlers this replaced — Timer never got one, so hiding it
