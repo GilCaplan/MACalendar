@@ -137,7 +137,12 @@ struct VoiceButton: View {
                              soundSeen: recorder.soundSeen, heard: recorder.liveText,
                              onDiscard: { discard() })
                     .fixedSize()
-                    .alignmentGuide(.top) { d in d[.bottom] + 12 }
+                    // Hung from a zero-height box at the mic's top edge, so it
+                    // grows UP from there. An alignmentGuide here was ignored
+                    // and the card sat over the mic and under the tab bar
+                    // (seen in the simulator, 2026-10-10).
+                    .frame(width: 308, height: 0, alignment: .bottom)
+                    .offset(y: -12)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             } else if status == .recording {
                 // Stopping the recording sends it — on the countdown path or
@@ -1236,6 +1241,7 @@ private struct ListeningMeter: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(silent ? "Recording, but no sound is reaching the microphone"
                                        : "Recording, \(Int(elapsed)) seconds")
+            .accessibilityIdentifier("listening-chip")
         }
     }
 
@@ -1298,6 +1304,7 @@ private struct WaveformCard: View {
             .accessibilityElement(children: .contain)
             .accessibilityLabel(silent ? "Recording, but no sound is reaching the microphone"
                                        : "Recording, \(Int(elapsed)) seconds")
+            .accessibilityIdentifier("listening-card")
         }
     }
 
