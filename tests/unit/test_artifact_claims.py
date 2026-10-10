@@ -436,24 +436,26 @@ def _real_store_files(name: str) -> "list[pathlib.Path]":
 
 def test_the_table_and_column_counts_are_current(all_prose):
     """Quoted as words on the page, so they cannot be caught by a number scan."""
+    # Counted on the SCHEMA, not on someone's database: it read the first
+    # real calendar.db it found, and those differ — a table made on first use
+    # (tag discovery's) exists in one user's file and not another's, so the
+    # test passed or failed by which user folder sorted first, and CI (with
+    # no real file) never ran it at all (2026-10-10). A fresh database, plus
+    # every table a feature creates when it is first used.
     import sqlite3
-    dbs = _real_store_files("calendar.db")
-    if not dbs:
-        pytest.skip("no calendar database on this machine (CI)")
-    # The FULLEST store: a table some feature creates on first use is missing
-    # from an account that never used it, and the first folder by name was a
-    # fresh account one table short of the page (2026-10-09).
-    def _count(path):
-        with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as cc:
-            return len(list(cc.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")))
-    db = max(dbs, key=_count)
-    c = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
-    tables = _count(db)
+    import tempfile
+    from assistant.actions.todo import tag_discovery
+    from assistant.db import CalendarDB
+    db = pathlib.Path(tempfile.mkdtemp()) / "schema.db"
+    CalendarDB(path=str(db))
+    c = sqlite3.connect(str(db))
+    tag_discovery._ensure(c)
+    tables = len(list(c.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")))
     events = len(list(c.execute("PRAGMA table_info(events)")))
     todos = len(list(c.execute("PRAGMA table_info(todos)")))
 
-    words = {16: "sixteen", 19: "nineteen", 21: "twenty-one"}
+    words = {16: "sixteen", 19: "nineteen", 21: "twenty-one", 22: "twenty-two", 23: "twenty-three"}
     for name, text in all_prose.items():
         if "tables" not in text:
             continue
