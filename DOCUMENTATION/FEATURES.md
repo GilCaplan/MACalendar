@@ -1176,6 +1176,10 @@ with a score per set. Seven card types: basic (optionally both ways), image,
 cloze, multiple choice, order, typed (marks the words you missed) and
 occlusion (a labelled picture with the labels hidden — the blank-map exam).
 Right-to-left sets lay out right-to-left.
+**Private:** the sets are personal study material and never enter the (public)
+repo. They live only in the per-user store; `.gitignore` refuses set files
+(`*.flashcards.yaml/json`, `/decks/`, `/study/`), PDFs, the inbox, the media
+folder and the databases; and docs, tests and examples use neutral facts.
 **Where:** `assistant/features/flashcards/` — `store.py` (its own per-user
 `flashcards.db`, override `MACALENDAR_FLASHCARDS`, pictures in
 `flashcards_media/`), `cardformat.py` (the one definition of a valid card),

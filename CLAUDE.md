@@ -205,6 +205,13 @@ in the user's real folder — a store-writing probe runs under pytest. **None of
 vocabulary is hand-curated and the command memory feeds the review flows, so
 writing junk into either quietly degrades the assistant.
 
+**The GitHub repo is PUBLIC, so what the user STUDIES never enters it**
+(Gil, 2026-10-11). Flashcard sets, source booklets and anything that says what
+they are for stay in `~/.assistant_tools`. A set file goes in the inbox, never
+the checkout; docs, tests and examples use neutral facts; and a commit message
+does not say what the material is either. `.gitignore` refuses set files, decks,
+PDFs and the flashcard stores, but it cannot catch a sentence.
+
 Every store honours an environment override, and `tests/conftest.py` points
 all four at a scratch directory *before* importing anything from `assistant`
 (the paths are read at import time, so a fixture is too late):

@@ -119,6 +119,12 @@ A path may not climb out of the folder (`../x.png` is refused).
 
 ## Getting a set into the app
 
+**Never into the repo.** A set is someone's own study material and the
+repository is public. Write it to the inbox (or import it), never into the
+checkout, and keep what it is about out of commits, docs and tests.
+`.gitignore` refuses `*.flashcards.yaml` / `.json`, `/decks/`, `/study/` and
+PDFs as a backstop.
+
 1. **The inbox (for agents).** Write the file — or a .zip, or the file plus its
    `images/` — into the inbox folder. It is imported the next time the tab
    opens or anything calls `POST /flashcards/inbox`, then moved to
