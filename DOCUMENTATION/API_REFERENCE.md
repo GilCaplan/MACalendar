@@ -312,6 +312,31 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `PATCH` | `/assignments/<int:asgn_id>/toggle` |  |
 | `DELETE` | `/assignments/completed` |  |
 
+## /flashcards
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/flashcards` |  |
+| `DELETE` | `/flashcards/cards/<int:card_id>` |  |
+| `PATCH` | `/flashcards/cards/<int:card_id>` |  |
+| `GET` | `/flashcards/format` |  |
+| `POST` | `/flashcards/import` |  |
+| `POST` | `/flashcards/inbox` |  |
+| `GET` | `/flashcards/media/<int:set_id>/<path:rel>` |  |
+| `POST` | `/flashcards/review` |  |
+| `POST` | `/flashcards/sets` |  |
+| `DELETE` | `/flashcards/sets/<int:set_id>` |  |
+| `GET` | `/flashcards/sets/<int:set_id>` |  |
+| `PATCH` | `/flashcards/sets/<int:set_id>` |  |
+| `POST` | `/flashcards/sets/<int:set_id>/cards` |  |
+| `GET` | `/flashcards/sets/<int:set_id>/export` |  |
+| `POST` | `/flashcards/sets/<int:set_id>/media` |  |
+| `POST` | `/flashcards/sets/<int:set_id>/reset` |  |
+| `POST` | `/flashcards/study` |  |
+| `POST` | `/flashcards/subjects` |  |
+| `DELETE` | `/flashcards/subjects/<int:sid>` |  |
+| `PATCH` | `/flashcards/subjects/<int:sid>` |  |
+
 ## /todos
 
 | Method | Path | What it does |

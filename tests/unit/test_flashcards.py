@@ -202,6 +202,18 @@ def test_cards_by_hand(store):
     assert store.get_set(sid)["cards"] == []
 
 
+def test_move_card_reorders_within_its_set(store):
+    sid = store.create_set("Spanish", "Order")
+    ids = [store.add_card(sid, {"type": "basic", "front": f"f{i}", "back": "b"}) for i in range(3)]
+    store.move_card(ids[2], -1)
+    assert [c["id"] for c in store.get_set(sid)["cards"]] == [ids[0], ids[2], ids[1]]
+    store.move_card(ids[0], -5)                  # clamped at the top: no change
+    store.move_card(ids[0], 9)                   # clamped at the bottom
+    assert [c["id"] for c in store.get_set(sid)["cards"]] == [ids[2], ids[1], ids[0]]
+    with pytest.raises(FlashcardError):
+        store.move_card(99999, 1)
+
+
 # ---------------------------------------------------------------- study + schedule
 
 def _two_sets(store):

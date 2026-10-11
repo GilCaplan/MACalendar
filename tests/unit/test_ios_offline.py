@@ -386,3 +386,47 @@ def test_the_queue_is_readable_before_it_is_editable():
     view = ios_source("PendingQueueView.swift")
     assert "LocalStore.describe" in view
     assert "cancelPending" in view and "clearPending" in view
+
+
+# ---------------------------------------------------------------------------
+# Flashcards keeps its calls in its own folder (Features/Flashcards/), like
+# Jude — which the checks above, reading APIClient.swift only, cannot see.
+# ---------------------------------------------------------------------------
+
+#: The flashcard calls that do not queue, each with its reason (the file's
+#: header says the same): the inbox asks the Mac to read ITS OWN folder, and the
+#: two uploads send a FILE whose answer is needed now — the queue holds JSON.
+FLASHCARDS_NOT_QUEUEABLE = {"flashcardInbox", "uploadFlashMedia", "importFlashcards", "uploadFile"}
+
+
+def test_every_flashcard_write_is_queued_or_declared():
+    src = ios_source("FlashcardAPI.swift")
+    offenders, writes = [], 0
+    for name, body in _methods(src):
+        if name in FLASHCARDS_NOT_QUEUEABLE:
+            continue
+        if MUTATING.search(body):
+            offenders.append(name)
+        if re.search(r"\bmutate\(", body):
+            writes += 1
+    assert not offenders, f"flashcard writes that bypass mutate(): {offenders}"
+    assert writes >= 10, "the flashcard writes no longer go through mutate()"
+
+
+def test_flashcard_creates_and_reviews_carry_a_token():
+    """A review replayed from the queue must not count twice, and a set made
+    offline must not land twice — the Mac dedupes both on client_token."""
+    src = ios_source("FlashcardAPI.swift")
+    for func in ("createFlashSubject", "createFlashSet", "addFlashCard", "reviewFlashCard"):
+        body = next((b for n, b in _methods(src) if n == func), None)
+        assert body, f"{func} not found"
+        assert "client_token" in body, f"{func} mints no client_token"
+    review = next(b for n, b in _methods(src) if n == "reviewFlashCard")
+    assert '"at"' in review, "a queued review must carry the instant it was given"
+
+
+def test_flashcard_placeholders_are_remapped():
+    store = ios_source("LocalStore.swift")
+    remap = re.search(r"func remapTemporaryID.*?\n    \}", store, re.S).group(0)
+    assert "FlashcardStore" in remap, (
+        "FlashcardStore mints placeholder ids that nothing repoints on reconnect")

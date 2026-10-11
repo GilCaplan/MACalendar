@@ -270,6 +270,7 @@ built when it reaches the Mac.
 | app | [Drawn icons, no emoji](#drawn-icons-no-emoji) | every picture on the Mac, the phone and the Easter egg is a GraphicsLibrary drawing | `scripts/sync_icons.py`, `calendar_ui/icons`, `Assets.xcassets/Icons` |
 | UI | [How it runs: Mac + phone, or phone only](#how-it-runs--mac--phone-or-phone-only) | a setup guide in the phone's Settings; a phone-only mode with no Mac and no offline banner | `SetupGuideView.swift`, `DefaultRules.swift` |
 | hybrid | [Coursework](#coursework) | courses + assignments tab | db `courses*`, `CourseworkView` |
+| hybrid | [Flashcards](#flashcards) | subjects → sets → cards, seven card types, study one set / some / all mixed, FSRS review; cards made by hand, imported, or dropped in by an agent | `assistant/features/flashcards/`, `flashcards_view.py`, `Features/Flashcards/` |
 | hybrid | [Jude](#jude--the-judaic-study-assistant) | Torah/Talmud/halacha study assistant — a separate repo, hosted as an integration | `assistant/jude/`, `assistant/integrations/`, `MACalendar-iOS/.../Jude/` |
 | hybrid | [iOS app & offline](#ios-app--offline-queues) | full client, 3 offline queues, Tailscale | `MACalendar-iOS/` |
 | hybrid | [Health CLI & heartbeats](#heartbeats--the-health-cli) | `assistant doctor`, 6 layers | `cli.py`, `heartbeat.py` |
@@ -1165,6 +1166,31 @@ role is pinned to `ollama.model`.
 **Where:** db `courses`/`assignments`; Mac Coursework tab; iOS
 `Features/Coursework/CourseworkView.swift`, `CourseStore.swift`.
 **How:** Toggleable tab (settings); feeds tags ("Coursework").
+
+### Flashcards
+**What:** An Anki-style study tab for any subject (2026-10-11; first use: the
+officer-course exam, 13 sets / 1,881 cards from the booklet). A subject holds
+sets; you study one set, several or all of them mixed, in three modes — spaced
+review (FSRS: due cards first, then new), all cards, or a multiple-choice exam
+with a score per set. Seven card types: basic (optionally both ways), image,
+cloze, multiple choice, order, typed (marks the words you missed) and
+occlusion (a labelled picture with the labels hidden — the blank-map exam).
+Right-to-left sets lay out right-to-left.
+**Where:** `assistant/features/flashcards/` — `store.py` (its own per-user
+`flashcards.db`, override `MACALENDAR_FLASHCARDS`, pictures in
+`flashcards_media/`), `cardformat.py` (the one definition of a valid card),
+`fsrs.py`, `routes.py` (`/flashcards*`), `FORMAT.md`; Mac
+`calendar_ui/flashcards_view.py`; iOS `Features/Flashcards/` (with
+`FSRS.swift`, held to the Python weights by a test).
+**How:** Three doors, one format (`FORMAT.md`, also served at
+`GET /flashcards/format`): the editors on both devices; Import (.yaml / .json,
+or a .zip with pictures); and the **inbox** — an agent writes a set file into
+`flashcards_inbox/` beside the store and it is imported the next time the tab
+loads (`.append.` in the name adds to the set instead of replacing it).
+Re-importing keeps progress on every card whose content did not change (tags,
+page and explanation are not part of a card's identity). The phone caches every
+set and its pictures and builds rounds locally, so it studies offline; reviews
+carry the instant they happened and queue through `APIClient.mutate`.
 
 ### iOS app & offline queues
 **What:** The full iPhone client — calendar, tasks, voice, review, vocabulary,

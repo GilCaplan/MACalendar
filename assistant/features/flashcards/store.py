@@ -334,6 +334,21 @@ class FlashcardStore:
         if not n:
             raise FlashcardError(f"No card {card_id}.")
 
+    def move_card(self, card_id: int, delta: int) -> None:
+        """Move a card `delta` places within its set (the editor's up/down).
+        Positions are renumbered 0..n-1, so a set imported with gaps settles."""
+        with self._conn() as c:
+            r = c.execute("SELECT set_id FROM cards WHERE id=?", (card_id,)).fetchone()
+            if r is None:
+                raise FlashcardError(f"No card {card_id}.")
+            ids = [row["id"] for row in c.execute(
+                "SELECT id FROM cards WHERE set_id=? ORDER BY position, id", (r["set_id"],))]
+            i = ids.index(card_id)
+            j = max(0, min(len(ids) - 1, i + delta))
+            ids.insert(j, ids.pop(i))
+            for pos, cid in enumerate(ids):
+                c.execute("UPDATE cards SET position=? WHERE id=?", (pos, cid))
+
     # ------------------------------------------------------------ pictures
 
     def media_path(self, set_id: int, rel: str) -> str:
