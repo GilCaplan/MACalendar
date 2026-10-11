@@ -4,6 +4,7 @@
 |---|---|
 | `GET /ranker` | recipes, the current one, the saved number list, the last table's columns |
 | `POST /ranker/numbers` | pictures (multipart `image`, repeatable) -> their unique numbers, saved as the list |
+| `POST /ranker/new` | start a new search: forget the table and the numbers, keep recipes |
 | `PUT /ranker/numbers` | `{numbers: [...]}` — the list as edited; `[]` switches the filter off |
 | `POST /ranker/rank` | rank: multipart `table` (.html/.csv/.tsv/.json) and/or `image`s, plus `recipe` (JSON) or `preset`, `numbers`, `use_numbers` (the filter switch); any of them left out uses the saved one |
 | `PUT /ranker/presets/<name>` `DELETE /ranker/presets/<name>` | save / remove a recipe |
@@ -57,6 +58,12 @@ def numbers_from_pictures():
     found = ocr.numbers_from_images(images)
     store.update(numbers=found)
     return jsonify({"numbers": found})
+
+
+@blueprint.post("/ranker/new")
+def new_search():
+    """Start over: no table, no numbers. Saved recipes stay."""
+    return jsonify(_summary(store.new_search()))
 
 
 @blueprint.put("/ranker/numbers")
@@ -126,8 +133,6 @@ def rank_table():
 @blueprint.put("/ranker/presets/<name>")
 def save_preset(name: str):
     recipe = request.get_json(silent=True) or {}
-    if not recipe.get("criteria"):
-        return _bad("A recipe needs at least one thing to rank by.")
     recipe["name"] = name
     data = store.load()
     data["presets"][name] = recipe

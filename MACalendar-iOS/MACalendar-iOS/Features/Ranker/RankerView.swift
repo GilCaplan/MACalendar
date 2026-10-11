@@ -8,10 +8,13 @@ import UniformTypeIdentifiers
 // Two inputs and one answer. A TABLE (an .html export, .csv, .tsv, .json —
 // from Files, which reaches iCloud Drive, Dropbox, Google Drive and OneDrive
 // through their providers) and, optionally, SCREENSHOTS whose numbers narrow
-// it (from Photos, Files or the clipboard). Rank sends whatever is staged;
-// the Mac keeps the last table, so tuning the recipe afterwards re-ranks
-// without sending it again. Ranking runs on the Mac — the backend is
-// `assistant/features/ranker/` — so with the Mac away the tab says so.
+// it (from Photos, Files or the clipboard). Pick both, press Rank once, and
+// the answer comes back; new pictures REPLACE the number list and a new table
+// replaces the old one. "New search" (toolbar) makes the Mac forget both, so
+// no search is stuck on the last one. The Mac keeps the last table, so tuning
+// the recipe afterwards re-ranks without sending it again. Ranking runs on the
+// Mac — the backend is `assistant/features/ranker/` — so with the Mac away
+// the tab says so.
 
 struct RankerView: View {
     @EnvironmentObject var api: APIClient
@@ -26,6 +29,8 @@ struct RankerView: View {
 
     @State private var overview: RankerOverview?
     @State private var result: RankerResult?
+    /// A recipe applied before there was a table to rank: used by the first rank.
+    @State private var pendingRecipe: RankerRecipe?
     @State private var unreachable: String?
     @State private var busy: String?
     @State private var refusal: String?
@@ -38,6 +43,7 @@ struct RankerView: View {
     @State private var pickingPhotos = false
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var editingRecipe = false
+    @State private var choosingColumns = false
     @State private var newNumbers = ""
     @State private var expanded: Set<Int> = []
 
@@ -53,7 +59,7 @@ struct RankerView: View {
     private var hasTable: Bool { stagedTable != nil || overview?.hasTable == true || result != nil }
 
     private var currentRecipe: RankerRecipe? {
-        if let r = result?.recipe { return r }
+        if let r = result?.recipe ?? pendingRecipe { return r }
         guard let o = overview else { return nil }
         return o.presets.first { $0.name == o.preset } ?? o.presets.first
     }
@@ -77,6 +83,7 @@ struct RankerView: View {
             Task { await loadPhotos(items) }
         }
         .sheet(isPresented: $editingRecipe) { recipeSheet }
+        .sheet(isPresented: $choosingColumns) { columnsSheet }
         .alert("Couldn't do that", isPresented: Binding(
             get: { refusal != nil }, set: { if !$0 { refusal = nil } })) {
             Button("OK", role: .cancel) {}
@@ -93,9 +100,13 @@ struct RankerView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             List {
-                inputsSection
-                numbersSection
-                resultSection
+                if hasTable {
+                    inputsSection
+                    numbersSection
+                    resultSection
+                } else {
+                    startCard
+                }
             }
             .listStyle(.insetGrouped)
             .refreshable { if hasTable { await rank() } else { await load() } }
@@ -122,80 +133,142 @@ struct RankerView: View {
         .refreshable { await load() }
     }
 
+    // MARK: Start
+
+    /// A new search: one card, both inputs, one Rank.
+    private var startCard: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 10) {
+                    Image(systemName: "list.number")
+                        .font(.title2)
+                        .foregroundColor(settings.accentColor)
+                    Text("Add screenshots and a table")
+                        .font(.title3.weight(.semibold))
+                }
+                Text("A table to rank — an .html page, .csv, .tsv or .json, from Files, iCloud Drive, Dropbox or Google Drive — and, if you like, screenshots whose numbers pick the rows to rank.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("ranker-empty")
+                pickButtons(prominent: true)
+            }
+            .padding(.vertical, 8)
+
+            stagedRows
+            if !numbers.isEmpty {
+                Text("\(numbers.count) \(numbers.count == 1 ? "number" : "numbers") from your pictures: \(numbers.map(String.init).joined(separator: ", ")). Add a table to rank them.")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
+            goButton
+            busyRow
+        } footer: {
+            if overview?.engine == "none" {
+                Text("Your Mac has no way to read pictures yet (it needs Xcode's command-line tools or Tesseract), so only the table will be used.")
+            }
+        }
+    }
+
     // MARK: Inputs
 
     private var inputsSection: some View {
         Section {
-            HStack(spacing: 10) {
-                Button {
-                    importKind = .table
-                    importing = true
-                } label: { Label("Table", systemImage: "tablecells") }
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier("ranker-table")
-
-                Menu {
-                    Button { pickingPhotos = true } label: { Label("Photo library", systemImage: "photo.on.rectangle") }
-                    Button {
-                        importKind = .images
-                        importing = true
-                    } label: { Label("Files", systemImage: "folder") }
-                    Button { pastePicture() } label: { Label("Paste", systemImage: "doc.on.clipboard") }
-                } label: { Label("Picture", systemImage: "camera.viewfinder") }
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier("ranker-picture")
-
-                Spacer()
+            if stagedTable == nil, let o = overview, o.hasTable {
+                Label("\(o.tableName ?? "Table") · \(o.tableRows) rows", systemImage: "tablecells")
+                    .font(.subheadline)
+                    .lineLimit(1)
             }
-            .tint(settings.accentColor)
-
-            if let t = stagedTable {
-                stagedRow(icon: "tablecells", text: t.filename) { stagedTable = nil }
-            } else if let o = overview, o.hasTable {
-                Text("Last table: \(o.tableName ?? "a table") · \(o.tableRows) rows")
-                    .font(.footnote).foregroundColor(.secondary)
-            }
-            if !stagedImages.isEmpty {
-                stagedRow(icon: "photo",
-                          text: stagedImages.count == 1 ? "1 picture" : "\(stagedImages.count) pictures") {
-                    stagedImages = []
-                }
-            }
-
-            if stagedTable != nil || !stagedImages.isEmpty {
-                Button {
-                    Task { await go() }
-                } label: {
-                    Text(goLabel)
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 4)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(settings.accentColor)
-                .disabled(busy != nil)
-                .accessibilityIdentifier("ranker-go")
-            }
-            if let busy {
-                HStack(spacing: 8) {
-                    ProgressView()
-                    Text(busy).font(.footnote).foregroundColor(.secondary)
-                }
-            }
+            pickButtons(prominent: false)
+            stagedRows
+            goButton
+            busyRow
         } header: {
             Text("Inputs")
         } footer: {
             if overview?.engine == "none" {
                 Text("Your Mac has no way to read pictures yet (it needs Xcode's command-line tools or Tesseract), so only the table will be used.")
             } else {
-                Text("A picture is optional: its numbers narrow the table to the rows they name.")
+                Text("A new table replaces this one; new pictures replace the numbers.")
+            }
+        }
+    }
+
+    private func pickButtons(prominent: Bool) -> some View {
+        HStack(spacing: 10) {
+            Button {
+                importKind = .table
+                importing = true
+            } label: {
+                Label(prominent || stagedTable != nil || overview?.hasTable != true ? "Table" : "New table",
+                      systemImage: "tablecells")
+                    .frame(maxWidth: prominent ? .infinity : nil)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(prominent ? .large : .regular)
+            .accessibilityIdentifier("ranker-table")
+
+            Menu {
+                Button { pickingPhotos = true } label: { Label("Photo library", systemImage: "photo.on.rectangle") }
+                Button {
+                    importKind = .images
+                    importing = true
+                } label: { Label("Files", systemImage: "folder") }
+                Button { pastePicture() } label: { Label("Paste", systemImage: "doc.on.clipboard") }
+            } label: {
+                Label("Pictures", systemImage: "camera.viewfinder")
+                    .frame(maxWidth: prominent ? .infinity : nil)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(prominent ? .large : .regular)
+            .accessibilityIdentifier("ranker-picture")
+
+            if !prominent { Spacer() }
+        }
+        .tint(settings.accentColor)
+    }
+
+    @ViewBuilder private var stagedRows: some View {
+        if let t = stagedTable {
+            stagedRow(icon: "tablecells", text: t.filename) { stagedTable = nil }
+        }
+        if !stagedImages.isEmpty {
+            stagedRow(icon: "photo",
+                      text: stagedImages.count == 1 ? "1 picture" : "\(stagedImages.count) pictures") {
+                stagedImages = []
+            }
+        }
+    }
+
+    @ViewBuilder private var goButton: some View {
+        if stagedTable != nil || !stagedImages.isEmpty {
+            Button {
+                Task { await go() }
+            } label: {
+                Text(goLabel)
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(settings.accentColor)
+            .disabled(busy != nil)
+            .accessibilityIdentifier("ranker-go")
+        }
+    }
+
+    @ViewBuilder private var busyRow: some View {
+        if let busy {
+            HStack(spacing: 8) {
+                ProgressView()
+                Text(busy).font(.footnote).foregroundColor(.secondary)
             }
         }
     }
 
     private var goLabel: String {
         if stagedTable == nil && !hasTable { return "Read the numbers" }
-        return stagedImages.isEmpty ? "Rank" : "Read the numbers and rank"
+        return "Rank"
     }
 
     private func stagedRow(icon: String, text: String, remove: @escaping () -> Void) -> some View {
@@ -257,7 +330,7 @@ struct RankerView: View {
             }
         } footer: {
             Text(numbers.isEmpty || !onlyNumbers
-                 ? "Every row is a candidate. Add a picture or type numbers to rank only those."
+                 ? "Every row is a candidate. Add pictures or type numbers to rank only those."
                  : "Only rows whose \(keyLabel) is one of these are ranked.")
         }
     }
@@ -283,40 +356,54 @@ struct RankerView: View {
     @ViewBuilder private var resultSection: some View {
         if let r = result {
             Section {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(summary(r)).font(.subheadline)
+                    ForEach(r.notes, id: \.self) { note in
+                        Text(note).font(.caption).foregroundColor(.secondary)
+                    }
+                }
+                .accessibilityIdentifier("ranker-summary")
                 if r.rows.isEmpty {
                     Text(r.total == 0 ? "None of the numbers are in the table." : "No row meets the recipe's conditions.")
                         .foregroundColor(.secondary)
                 }
                 ForEach(r.rows) { row in rowView(row, in: r) }
             } header: {
-                HStack {
-                    Text("Ranked \(r.kept) of \(r.total)")
+                HStack(spacing: 14) {
+                    Text("Result")
                     Spacer()
-                    Button { editingRecipe = true } label: {
-                        Text(currentRecipe?.name ?? "Recipe").lineLimit(1)
+                    Button { choosingColumns = true } label: {
+                        Label("Columns", systemImage: "eye")
                     }
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(settings.accentColor)
+                    .accessibilityIdentifier("ranker-columns")
+                    Button { editingRecipe = true } label: {
+                        Text(currentRecipe?.name ?? "Rank by").lineLimit(1)
+                    }
                 }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(settings.accentColor)
             } footer: {
                 Text("Score is a weighted average of percentiles, 0–100. Tap a row to see each part. Pull down to rank again.")
-            }
-        } else if !hasTable {
-            Section {
-                Text("No table yet. Tap Table and pick an export — an .html page, .csv, .tsv or .json, from Files, iCloud Drive, Dropbox or Google Drive. Add a screenshot under Picture to rank only the numbers it shows.")
-                    .foregroundColor(.secondary)
-                    .accessibilityIdentifier("ranker-empty")
             }
         }
     }
 
+    /// "Ranked 12 of 40 · matched on Number".
+    private func summary(_ r: RankerResult) -> String {
+        var s = "Ranked \(r.kept) of \(r.total)"
+        if onlyNumbers, !numbers.isEmpty, !r.key.isEmpty {
+            s += " · matched on \(label(r.key, in: r))"
+        }
+        return s
+    }
+
     private func rowView(_ row: RankedRow, in r: RankerResult) -> some View {
         let open = expanded.contains(row.rank)
-        let shown = r.columns.filter { $0.name != r.key }
+        let shown = shownColumns(r).filter { $0.name != r.key }
         return Button {
             if open { expanded.remove(row.rank) } else { expanded.insert(row.rank) }
         } label: {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline) {
                     Text("\(row.rank)")
                         .font(.subheadline.weight(.semibold))
@@ -330,11 +417,20 @@ struct RankerView: View {
                         .foregroundColor(settings.accentColor)
                 }
                 if !shown.isEmpty {
-                    FlowLayout(spacing: 10) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 10, alignment: .topLeading)],
+                              alignment: .leading, spacing: 8) {
                         ForEach(shown) { c in
-                            Text("\(c.label) \(row.cells[c.name]?.compact ?? "—")")
-                                .font(.caption.monospacedDigit())
-                                .foregroundColor(.secondary)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(c.label)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                                Text(row.cells[c.name]?.compact ?? "—")
+                                    .font(.subheadline.monospacedDigit())
+                                    .foregroundColor(.primary)
+                                    .lineLimit(1)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
                 }
@@ -356,7 +452,7 @@ struct RankerView: View {
                         Text(label(c.column, in: r))
                         Text(c.better == "higher" ? "higher is better" : "lower is better")
                             .foregroundColor(.secondary)
-                        if c.weight != 1 { Text("×\(RankerCell.trim(c.weight, places: 1))").foregroundColor(.secondary) }
+                        if c.weight != 1 { Text("x\(RankerCell.trim(c.weight, places: 1))").foregroundColor(.secondary) }
                         Spacer()
                         Text(row.cells[c.column]?.compact ?? "—").foregroundColor(.secondary)
                         Text(RankerCell.trim(pct, places: 1)).monospacedDigit()
@@ -385,9 +481,48 @@ struct RankerView: View {
     }
 
     private var keyLabel: String {
-        let key = currentRecipe?.key ?? result?.key ?? ""
-        guard let r = result else { return key.isEmpty ? "key" : key }
-        return label(key, in: r)
+        guard let r = result, !r.key.isEmpty else { return "number" }
+        return label(r.key, in: r)
+    }
+
+    // MARK: Columns
+
+    /// Every column a result can show, in the Mac's order: the key, what it
+    /// ranks by, the sums it makes, then the rest of the table.
+    private func allColumns(_ r: RankerResult) -> [RankerColumn] {
+        var names = [r.key] + (r.recipe?.criteria.map(\.column) ?? [])
+        names += (r.recipe?.derived.map(\.name) ?? []) + r.tableColumns.map(\.name) + r.columns.map(\.name)
+        var seen = Set<String>()
+        return names.filter { !$0.isEmpty && seen.insert($0).inserted }
+            .map { RankerColumn(name: $0, label: label($0, in: r)) }
+    }
+
+    /// What the rows show: the recipe's `show`, or every column when it is empty.
+    private func shownColumns(_ r: RankerResult) -> [RankerColumn] {
+        let show = Set(r.recipe?.show ?? [])
+        let all = allColumns(r)
+        return show.isEmpty ? all : all.filter { show.contains($0.name) }
+    }
+
+    /// The Columns sheet's switches write the recipe's `show` straight into
+    /// the result, so the rows change at once; the next rank and a Save carry
+    /// it to the Mac. Empty means every column.
+    private var showBinding: Binding<[String]> {
+        Binding(get: { result?.recipe?.show ?? [] },
+                set: { names in
+                    guard var r = result else { return }
+                    var recipe = r.recipe ?? currentRecipe ?? RankerRecipe(name: "My ranking")
+                    recipe.show = names
+                    r.recipe = recipe
+                    result = r
+                })
+    }
+
+    @ViewBuilder private var columnsSheet: some View {
+        if let r = result {
+            RankerColumnsSheet(columns: allColumns(r), key: r.key, show: showBinding)
+                .environmentObject(settings)
+        }
     }
 
     // MARK: - Toolbar and sheet
@@ -396,26 +531,55 @@ struct RankerView: View {
         ToolbarItem(placement: .navigationBarLeading) {
             if busy != nil { ProgressView() }
         }
-        ToolbarItem(placement: .navigationBarTrailing) {
+        ToolbarItemGroup(placement: .navigationBarTrailing) {
+            Button { Task { await newSearch() } } label: {
+                Label("New search", systemImage: "plus.magnifyingglass")
+            }
+            .disabled(overview == nil || busy != nil)
+            .accessibilityIdentifier("ranker-new")
             Button { editingRecipe = true } label: { Image(systemName: "slider.horizontal.3") }
                 .disabled(overview == nil)
-                .accessibilityLabel("Recipe")
+                .accessibilityLabel("Rank by")
                 .accessibilityIdentifier("ranker-recipe")
         }
     }
 
     private var recipeSheet: some View {
         RankerRecipeView(
-            recipe: currentRecipe ?? RankerRecipe(name: "My recipe"),
+            recipe: currentRecipe ?? RankerRecipe(name: "My ranking"),
             presets: overview?.presets ?? [],
             tableColumns: result?.tableColumns ?? overview?.tableColumns ?? [],
-            onApply: { recipe in Task { await rank(recipe: recipe) } },
+            onApply: { recipe in
+                if hasTable { Task { await rank(recipe: recipe) } } else { pendingRecipe = recipe }
+            },
             onSave: { recipe in await savePreset(recipe) },
             onDelete: { name in await deletePreset(name) })
         .environmentObject(settings)
     }
 
     // MARK: - Actions
+
+    /// Start over: the Mac forgets the table and the numbers (saved rankings
+    /// stay), and the tab is back to its one card. Needs the Mac — queued, a
+    /// reset would land later on whatever was sent in between.
+    private func newSearch() async {
+        busy = "Starting a new search…"
+        defer { busy = nil }
+        do {
+            let o = try await api.newRankerSearch()
+            overview = o
+            result = nil
+            pendingRecipe = nil
+            stagedTable = nil
+            stagedImages = []
+            expanded = []
+            newNumbers = ""
+            setNumbers(o.numbers)
+            onlyNumbers = o.useNumbers
+        } catch {
+            refusal = sentence(for: error)
+        }
+    }
 
     private func load() async {
         do {
@@ -456,20 +620,25 @@ struct RankerView: View {
     }
 
     /// Rank with what is staged, else the Mac's last table; `recipe` when the
-    /// sheet applied one, else the current preset.
+    /// sheet applied one, else the one on screen. A recipe unchanged since it
+    /// was saved goes by NAME, so the Mac's current ranking follows the
+    /// phone's; an edited one (a Columns switch included) goes whole.
     private func rank(recipe: RankerRecipe? = nil) async {
         let images = stagedImages
         busy = images.isEmpty ? "Ranking…" : "Reading the pictures and ranking…"
         defer { busy = nil }
+        let current = recipe ?? currentRecipe
+        let saved = current.flatMap { c in overview?.presets.first { $0.name == c.name } }
+        let byName = current != nil && saved?.signature == current?.signature
         do {
             let r = try await api.rankTable(
                 table: stagedTable, images: images,
                 numbers: images.isEmpty ? numbers : nil,
                 useNumbers: images.isEmpty ? onlyNumbers : true,
-                preset: recipe == nil ? (result?.recipe?.name ?? overview?.preset) : nil,
-                recipe: recipe ?? (result?.recipe.flatMap { r in
-                    overview?.presets.contains(where: { $0.name == r.name }) == true ? nil : r }))
+                preset: byName ? current?.name : (current == nil ? overview?.preset : nil),
+                recipe: byName ? nil : current)
             result = r
+            pendingRecipe = nil
             expanded = []
             stagedTable = nil
             stagedImages = []
@@ -547,8 +716,11 @@ struct RankerView: View {
 
     // MARK: Picking
 
+    /// A pick REPLACES what was staged: new pictures are a new number list
+    /// (the Mac replaces its list with theirs too), a new table a new table.
     private func pickedFiles(_ picked: Result<[URL], Error>) {
         guard case .success(let urls) = picked else { return }
+        if importKind == .images, !urls.isEmpty { stagedImages = [] }
         for url in urls {
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
@@ -570,6 +742,7 @@ struct RankerView: View {
     private func loadPhotos(_ items: [PhotosPickerItem]) async {
         busy = "Loading the pictures…"
         defer { busy = nil; photoItems = [] }
+        stagedImages = []
         for item in items {
             guard let raw = try? await item.loadTransferable(type: Data.self) else { continue }
             stagePicture(raw)
@@ -582,6 +755,7 @@ struct RankerView: View {
             refusal = "There's no picture on the clipboard. Copy a screenshot first."
             return
         }
+        stagedImages = []
         for img in images {
             if let png = img.pngData() {
                 stagedImages.append(RankerUpload(filename: "pasted-\(stagedImages.count + 1).png",
@@ -610,5 +784,59 @@ struct RankerView: View {
             }
         }
         return error.localizedDescription
+    }
+}
+
+// MARK: - The Columns sheet
+//
+// Which columns the rows show: a switch per column, several in a row (a Menu
+// closes on every tap), and "Show all". Writes the recipe's `show` — empty
+// means every column — so it travels with the next rank and a saved ranking.
+// The key column is the row's own heading, so it is always shown.
+
+struct RankerColumnsSheet: View {
+    @EnvironmentObject var settings: AppSettings
+    @Environment(\.dismiss) private var dismiss
+
+    let columns: [RankerColumn]
+    let key: String
+    @Binding var show: [String]
+
+    private var choosable: [RankerColumn] { columns.filter { $0.name != key } }
+
+    private func isOn(_ name: String) -> Bool { show.isEmpty || show.contains(name) }
+
+    private func set(_ name: String, _ on: Bool) {
+        var shown = Set(columns.map(\.name).filter(isOn))
+        if on { shown.insert(name) } else { shown.remove(name) }
+        if !key.isEmpty { shown.insert(key) }
+        let ordered = columns.map(\.name).filter(shown.contains)
+        show = ordered.count == columns.count ? [] : ordered
+    }
+
+    var body: some View {
+        StackNavigation {
+            List {
+                Section {
+                    ForEach(choosable) { c in
+                        Toggle(c.label, isOn: Binding(get: { isOn(c.name) }, set: { set(c.name, $0) }))
+                            .accessibilityIdentifier("ranker-column-\(c.name)")
+                    }
+                } footer: {
+                    if !key.isEmpty {
+                        Text("\(columns.first { $0.name == key }?.label ?? key) heads every row, so it is always shown.")
+                    }
+                }
+            }
+            .navigationTitle("Columns")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Show all") { show = [] }.disabled(show.isEmpty)
+                }
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            }
+        }
+        .tint(settings.accentColor)
     }
 }

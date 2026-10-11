@@ -3,7 +3,8 @@ import Foundation
 // MARK: - Ranker's shapes
 //
 // The Mac's answers are `assistant/features/ranker/routes.py` (documented at
-// its top) and a recipe is `rank.py`'s: key, derived, filters, criteria, show.
+// its top) and a recipe is `rank.py`'s: key, derived, filters, criteria, show
+// (the columns a ranking shows; empty means every one).
 // Read with JSONSerialization rather than Codable because a table's cells are
 // numbers OR words, and a condition's value is either — the same column can
 // hold `3.62B` read as a number and `—` kept as text.
@@ -107,6 +108,13 @@ struct RankerRecipe: Identifiable, Hashable {
         guard let data = try? JSONSerialization.data(withJSONObject: json) else { return "{}" }
         return String(data: data, encoding: .utf8) ?? "{}"
     }
+
+    /// The recipe's content, stable across reads (criteria carry fresh ids
+    /// each time, so `==` cannot say "unchanged since it was saved").
+    var signature: String {
+        guard let data = try? JSONSerialization.data(withJSONObject: json, options: .sortedKeys) else { return "" }
+        return String(data: data, encoding: .utf8) ?? ""
+    }
 }
 
 /// One table cell: a number (shown compactly, 3.62B) or the text it held.
@@ -189,7 +197,10 @@ struct RankerResult {
     var kept: Int
     var total: Int
     var missing: [String]
+    /// The column the picture's numbers matched — the Mac picks it from the data.
     var key: String
+    /// Sentences about recipe parts left out because this table lacks their columns.
+    var notes: [String]
     var numbers: [Int]
     /// Whether `numbers` narrowed this ranking (the Mac's filter switch).
     var useNumbers: Bool
@@ -203,6 +214,7 @@ struct RankerResult {
         total = (o["total"] as? NSNumber)?.intValue ?? rows.count
         missing = (o["missing"] as? [Any] ?? []).map { RankerCell(json: $0).plain }
         key = o["key"] as? String ?? ""
+        notes = (o["notes"] as? [Any] ?? []).compactMap { $0 as? String }
         numbers = RankerOverview.ints(o["numbers"])
         useNumbers = o["use_numbers"] as? Bool ?? true
         tableColumns = (o["table_columns"] as? [Any] ?? []).compactMap(RankerColumn.init(json:))

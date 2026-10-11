@@ -135,10 +135,35 @@ def test_filters_and_weights():
     assert [r["K"] for r in rows] == [2, 3]
 
 
-def test_a_recipe_naming_a_missing_column_says_which(migration):
-    bad = dict(rank.MIGRATION, criteria=[{"column": "Nope", "better": "higher", "weight": 1}])
-    with pytest.raises(rank.RecipeError, match="'Nope'"):
-        rank.rank(migration, bad)
+def test_a_recipe_from_another_table_ranks_by_what_it_can(migration):
+    """A saved recipe must not lock Ranker to one export: what a new table
+    lacks is left out, with a sentence, and the rest still ranks."""
+    other = dict(rank.MIGRATION, criteria=rank.MIGRATION["criteria"] + [
+        {"column": "Nope", "better": "higher", "weight": 1}],
+        filters=[{"column": "Gone", "op": ">", "value": 1}])
+    res = rank.rank(migration, other)
+    assert len(res["rows"]) == 40
+    assert any("'Nope'" in n for n in res["notes"]) and any("'Gone'" in n for n in res["notes"])
+    assert set(res["rows"][0]["_parts"]) == {"Players", "Burned24h", "Strong"}
+
+
+def test_every_column_shows_unless_the_recipe_narrows_it(migration):
+    recipe = {"key": "Kingdom", "criteria": [{"column": "PlayerRank", "better": "lower", "weight": 1}]}
+    cols = [c["name"] for c in rank.rank(migration, recipe)["columns"]]
+    assert cols[:2] == ["Kingdom", "PlayerRank"] and set(migration.names) <= set(cols)
+    narrow = dict(recipe, show=["Kingdom", "Players"])
+    assert [c["name"] for c in rank.rank(migration, narrow)["columns"]] == ["Kingdom", "Players"]
+
+
+def test_the_numbers_find_their_own_column(migration):
+    """The picture's numbers are kingdoms; nobody should have to say so."""
+    res = rank.rank(migration, {"key": "Players", "criteria": []}, numbers=[1, 711, 708])
+    assert res["key"] == "Kingdom" and res["kept"] == 3
+
+
+def test_no_criteria_keeps_the_table_order(migration):
+    rows = rank.rank(migration, {"criteria": []})["rows"]
+    assert [r["Kingdom"] for r in rows] == [r["Kingdom"] for r in migration.rows]
 
 
 # ---------------------------------------------------------------- HTTP
@@ -154,7 +179,7 @@ def client(tmp_path, monkeypatch):
 
 def test_http_round_trip(client):
     first = client.get("/ranker").json
-    assert first["preset"] == rank.MIGRATION["name"] and first["numbers"] == [] and first["table"] is None
+    assert first["preset"] == "My ranking" and first["numbers"] == [] and first["table"] is None
     assert client.post("/ranker/rank", json={}).status_code == 400          # no table yet
 
     r = client.post("/ranker/rank", data={"table": (io.BytesIO(FIX.read_bytes()), FIX.name),
@@ -177,5 +202,9 @@ def test_http_round_trip(client):
     saved = client.put("/ranker/presets/Small first", json=recipe).json
     assert saved["preset"] == "Small first" and len(saved["presets"]) == 2
     assert client.delete("/ranker/presets/Small first").status_code == 200
-    assert client.delete(f"/ranker/presets/{rank.MIGRATION['name']}").status_code == 409
+    assert client.delete("/ranker/presets/My ranking").status_code == 409     # keep one
+
+    fresh = client.post("/ranker/new").json                                    # new search
+    assert fresh["numbers"] == [] and fresh["table"] is None and len(fresh["presets"]) == 1
+    assert client.post("/ranker/rank", json={}).status_code == 400            # nothing to rank yet
     assert client.post("/ranker/numbers").status_code == 400

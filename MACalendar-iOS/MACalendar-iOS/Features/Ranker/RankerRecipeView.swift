@@ -2,10 +2,14 @@ import SwiftUI
 
 // MARK: - The recipe sheet
 //
-// What makes a row better (criteria: a column, higher or lower, a weight),
-// which rows count at all (conditions), and which column the picture's
-// numbers match. Apply re-ranks with this recipe without saving it; Save keeps
-// it as a preset under its name (`PUT /ranker/presets/<name>`).
+// What makes a row better, and nothing else up front: "Rank by" rows — a
+// column of THIS table, Higher or Lower — and "+ Add". Everything else waits
+// under "More options": how much each column counts, conditions a row must
+// meet, and the saved rankings (load / save / delete). The column the
+// picture's numbers match is not asked: the Mac picks it from the data.
+// Apply re-ranks with this recipe without saving it; Save keeps it under its
+// name (`PUT /ranker/presets/<name>`). The recipe's `show` (the columns a
+// ranking shows) rides along untouched — the Columns control sets it.
 
 struct RankerRecipeView: View {
     @EnvironmentObject var settings: AppSettings
@@ -23,6 +27,7 @@ struct RankerRecipeView: View {
     @State private var working = false
     @State private var refusal: String?
     @State private var confirmDelete = false
+    @State private var moreOpen = false
 
     init(recipe: RankerRecipe, presets: [RankerRecipe], tableColumns: [RankerColumn],
          onApply: @escaping (RankerRecipe) -> Void,
@@ -44,7 +49,7 @@ struct RankerRecipeView: View {
         for d in recipe.derived where !out.contains(where: { $0.name == d.name }) {
             out.append(RankerColumn(name: d.name, label: d.label))
         }
-        let named = recipe.criteria.map(\.column) + recipe.filters.map(\.column) + [recipe.key].compactMap { $0 }
+        let named = recipe.criteria.map(\.column) + recipe.filters.map(\.column)
         for n in named where !n.isEmpty && !out.contains(where: { $0.name == n }) {
             out.append(RankerColumn(name: n, label: n))
         }
@@ -60,19 +65,24 @@ struct RankerRecipeView: View {
     var body: some View {
         StackNavigation {
             Form {
-                presetSection
                 criteriaSection
-                conditionsSection
-                keySection
-                saveSection
+                Section {
+                    DisclosureGroup(isExpanded: $moreOpen) {
+                        moreOptions
+                    } label: {
+                        Text("More options")
+                    }
+                    .accessibilityIdentifier("ranker-recipe-more")
+                } footer: {
+                    Text("How much each column counts, conditions a row must meet, and saved rankings.")
+                }
             }
-            .navigationTitle("Recipe")
+            .navigationTitle("Rank by")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Apply") { onApply(recipe); dismiss() }
-                        .disabled(recipe.criteria.isEmpty)
                         .accessibilityIdentifier("ranker-recipe-apply")
                 }
             }
@@ -83,7 +93,7 @@ struct RankerRecipeView: View {
             get: { refusal != nil }, set: { if !$0 { refusal = nil } })) {
             Button("OK", role: .cancel) {}
         } message: { Text(refusal ?? "") }
-        .confirmationDialog("Delete this recipe?", isPresented: $confirmDelete,
+        .confirmationDialog("Delete this ranking?", isPresented: $confirmDelete,
                             titleVisibility: .visible) {
             Button("Delete \(recipe.name)", role: .destructive) {
                 Task {
@@ -96,123 +106,132 @@ struct RankerRecipeView: View {
         }
     }
 
-    // MARK: Sections
-
-    private var presetSection: some View {
-        Section {
-            if presets.count > 1 {
-                Picker("Start from", selection: Binding(
-                    get: { isSaved ? recipe.name : "" },
-                    set: { name in if let p = presets.first(where: { $0.name == name }) { recipe = p } })) {
-                    if !isSaved { Text("Unsaved").tag("") }
-                    ForEach(presets) { p in Text(p.name).tag(p.name) }
-                }
-            }
-            TextField("Name", text: $recipe.name)
-        } header: { Text("Recipe") }
-    }
+    // MARK: Rank by
 
     private var criteriaSection: some View {
         Section {
             ForEach($recipe.criteria) { $c in
-                VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 10) {
                     columnMenu(selection: $c.column)
-                    HStack {
-                        Picker("Better", selection: $c.better) {
-                            Text("Higher").tag("higher")
-                            Text("Lower").tag("lower")
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(maxWidth: 170)
-                        Spacer()
-                        Stepper(value: $c.weight, in: 0...10, step: 0.5) {
-                            Text("×\(RankerCell.trim(c.weight, places: 1))")
-                                .monospacedDigit()
-                                .frame(maxWidth: .infinity, alignment: .trailing)
-                        }
-                        .fixedSize()
+                    Spacer(minLength: 4)
+                    Picker("Better", selection: $c.better) {
+                        Text("Higher").tag("higher")
+                        Text("Lower").tag("lower")
                     }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 140)
+                    Button {
+                        recipe.criteria.removeAll { $0.id == c.id }
+                    } label: {
+                        Image(systemName: "minus.circle.fill").foregroundColor(.red)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Remove \(label(c.column))")
                 }
-                .padding(.vertical, 2)
             }
             .onDelete { recipe.criteria.remove(atOffsets: $0) }
             Button {
-                recipe.criteria.append(RankerCriterion(column: columns.first?.name ?? ""))
-            } label: { Label("Rank by another column", systemImage: "plus") }
+                let used = Set(recipe.criteria.map(\.column))
+                let next = columns.first { !used.contains($0.name) } ?? columns.first
+                recipe.criteria.append(RankerCriterion(column: next?.name ?? ""))
+            } label: { Label("Add", systemImage: "plus") }
             .disabled(columns.isEmpty)
+            .accessibilityIdentifier("ranker-recipe-add")
         } header: {
             Text("Rank by")
         } footer: {
-            Text("Each column ranks the rows against each other, so a column in billions and one in single digits count only by their weights. Weight 0 leaves a column out.")
-        }
-    }
-
-    private var conditionsSection: some View {
-        Section {
-            ForEach($recipe.filters) { $f in
-                HStack {
-                    columnMenu(selection: $f.column)
-                    Spacer()
-                    Picker("", selection: $f.op) {
-                        ForEach(RankerCondition.ops, id: \.self) { Text($0).tag($0) }
-                    }
-                    .labelsHidden()
-                    .fixedSize()
-                    TextField("value", text: $f.value)
-                        .multilineTextAlignment(.trailing)
-                        .frame(maxWidth: 80)
-                }
-            }
-            .onDelete { recipe.filters.remove(atOffsets: $0) }
-            Button {
-                recipe.filters.append(RankerCondition(column: columns.first?.name ?? ""))
-            } label: { Label("Add a condition", systemImage: "plus") }
-            .disabled(columns.isEmpty)
-        } header: {
-            Text("Only rows where")
-        } footer: {
             if columns.isEmpty {
-                Text("Send a table first — its columns are what a recipe can name.")
+                Text("Add a table first — its columns are what you can rank by.")
+            } else if recipe.criteria.isEmpty {
+                Text("Nothing yet: rows stay in the table's own order. Add a column to rank by it.")
+            } else {
+                Text("Score 0–100: how each row places against the others on these columns.")
             }
         }
     }
 
-    private var keySection: some View {
-        Section {
-            Picker("Numbers match", selection: Binding(
-                get: { recipe.key ?? columns.first?.name ?? "" },
-                set: { recipe.key = $0 })) {
-                ForEach(columns) { c in Text(c.label).tag(c.name) }
+    // MARK: More options
+
+    @ViewBuilder private var moreOptions: some View {
+        if !recipe.criteria.isEmpty {
+            subheading("How much each counts")
+            ForEach($recipe.criteria) { $c in
+                Stepper(value: $c.weight, in: 0...10, step: 0.5) {
+                    HStack {
+                        Text(label(c.column)).lineLimit(1)
+                        Spacer()
+                        Text("x\(RankerCell.trim(c.weight, places: 1))")
+                            .monospacedDigit()
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
-        } footer: {
-            Text("The column holding the numbers a screenshot is matched against.")
+        }
+
+        subheading("Only rows where")
+        ForEach($recipe.filters) { $f in
+            HStack {
+                columnMenu(selection: $f.column)
+                Spacer()
+                Picker("", selection: $f.op) {
+                    ForEach(RankerCondition.ops, id: \.self) { Text($0).tag($0) }
+                }
+                .labelsHidden()
+                .fixedSize()
+                TextField("value", text: $f.value)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 70)
+                Button {
+                    recipe.filters.removeAll { $0.id == f.id }
+                } label: {
+                    Image(systemName: "minus.circle.fill").foregroundColor(.red)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Remove condition")
+            }
+        }
+        Button {
+            recipe.filters.append(RankerCondition(column: columns.first?.name ?? ""))
+        } label: { Label("Add a condition", systemImage: "plus") }
+        .disabled(columns.isEmpty)
+
+        subheading("Saved rankings")
+        if presets.count > 1 || !isSaved {
+            Picker("Load", selection: Binding(
+                get: { isSaved ? recipe.name : "" },
+                set: { name in if let p = presets.first(where: { $0.name == name }) { recipe = p } })) {
+                if !isSaved { Text("Unsaved").tag("") }
+                ForEach(presets) { p in Text(p.name).tag(p.name) }
+            }
+        }
+        TextField("Name", text: $recipe.name)
+        Button {
+            Task {
+                working = true
+                var r = recipe
+                r.name = r.name.trimmingCharacters(in: .whitespaces)
+                refusal = await onSave(r)
+                working = false
+                if refusal == nil { dismiss() }
+            }
+        } label: {
+            Label(isSaved ? "Save changes" : "Save this ranking", systemImage: "square.and.arrow.down")
+        }
+        .disabled(recipe.name.trimmingCharacters(in: .whitespaces).isEmpty)
+        if isSaved {
+            Button(role: .destructive) { confirmDelete = true } label: {
+                Label("Delete this ranking", systemImage: "trash")
+            }
+            .disabled(presets.count < 2)
         }
     }
 
-    private var saveSection: some View {
-        Section {
-            Button {
-                Task {
-                    working = true
-                    var r = recipe
-                    r.name = r.name.trimmingCharacters(in: .whitespaces)
-                    refusal = await onSave(r)
-                    working = false
-                    if refusal == nil { dismiss() }
-                }
-            } label: {
-                Label(isSaved ? "Save changes" : "Save as a recipe", systemImage: "square.and.arrow.down")
-            }
-            .disabled(recipe.criteria.isEmpty || recipe.name.trimmingCharacters(in: .whitespaces).isEmpty)
-            if isSaved {
-                Button(role: .destructive) { confirmDelete = true } label: {
-                    Label("Delete this recipe", systemImage: "trash")
-                }
-                .disabled(presets.count < 2)
-            }
-        } footer: {
-            if isSaved && presets.count < 2 { Text("Keep at least one recipe — edit this one instead.") }
-        }
+    private func subheading(_ text: String) -> some View {
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .foregroundColor(.secondary)
+            .textCase(.uppercase)
+            .padding(.top, 6)
     }
 
     // MARK: Pieces
@@ -229,6 +248,7 @@ struct RankerRecipeView: View {
             HStack(spacing: 4) {
                 Text(selection.wrappedValue.isEmpty ? "Column" : label(selection.wrappedValue))
                     .foregroundColor(.primary)
+                    .lineLimit(1)
                 Image(systemName: "chevron.up.chevron.down").font(.caption2)
                     .foregroundColor(.secondary)
             }
