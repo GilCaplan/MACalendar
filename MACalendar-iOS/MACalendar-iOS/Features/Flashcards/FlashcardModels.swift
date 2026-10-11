@@ -8,11 +8,26 @@ import Foundation
 // Codable both ways because the phone WRITES them to disk: the library and
 // every set's cards are cached so a round can be studied with the Mac away.
 
-/// One subject in the library: a group of sets.
+/// One subject in the library: a group of sets. `archived` takes it — and so
+/// every set in it — out of the library and the study picker, keeping all of
+/// it (cards, pictures, progress) until it is unarchived.
 struct FlashSubject: Codable, Identifiable, Equatable {
     var id: Int
     var name: String
+    var archived: Bool
     var sets: [FlashSetSummary]
+
+    init(id: Int, name: String, archived: Bool = false, sets: [FlashSetSummary]) {
+        self.id = id; self.name = name; self.archived = archived; self.sets = sets
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        archived = try c.decodeIfPresent(Bool.self, forKey: .archived) ?? false
+        sets = try c.decodeIfPresent([FlashSetSummary].self, forKey: .sets) ?? []
+    }
 }
 
 /// A set as the library lists it: counts, no cards.
@@ -28,19 +43,21 @@ struct FlashSetSummary: Codable, Identifiable, Equatable {
     var items: Int
     var seen: Int
     var due: Int
+    var archived: Bool
     var updatedAt: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, slug, name, source, lang, dir, cards, items, seen, due
+        case id, slug, name, source, lang, dir, cards, items, seen, due, archived
         case subjectId = "subject_id", updatedAt = "updated_at"
     }
 
     init(id: Int, subjectId: Int, slug: String = "", name: String, source: String = "",
          lang: String = "", dir: String = "ltr", cards: Int = 0, items: Int = 0,
-         seen: Int = 0, due: Int = 0, updatedAt: String? = nil) {
+         seen: Int = 0, due: Int = 0, archived: Bool = false, updatedAt: String? = nil) {
         self.id = id; self.subjectId = subjectId; self.slug = slug; self.name = name
         self.source = source; self.lang = lang; self.dir = dir; self.cards = cards
-        self.items = items; self.seen = seen; self.due = due; self.updatedAt = updatedAt
+        self.items = items; self.seen = seen; self.due = due; self.archived = archived
+        self.updatedAt = updatedAt
     }
 
     init(from decoder: Decoder) throws {
@@ -56,13 +73,43 @@ struct FlashSetSummary: Codable, Identifiable, Equatable {
         items = try c.decodeIfPresent(Int.self, forKey: .items) ?? 0
         seen = try c.decodeIfPresent(Int.self, forKey: .seen) ?? 0
         due = try c.decodeIfPresent(Int.self, forKey: .due) ?? 0
+        archived = try c.decodeIfPresent(Bool.self, forKey: .archived) ?? false
         updatedAt = try c.decodeIfPresent(String.self, forKey: .updatedAt)
     }
 
     var isRTL: Bool { dir == "rtl" }
 }
 
-struct FlashLibrary: Codable { var subjects: [FlashSubject] }
+/// `GET /flashcards`: the library, and what was DELETED on the Mac, by id.
+/// `deleted` is the only thing that may take a set or subject off this phone
+/// (besides deleting it here): one merely missing from an answer is kept.
+struct FlashLibrary: Codable {
+    var subjects: [FlashSubject]
+    var deleted: FlashDeleted?
+}
+
+/// What the Mac deleted. Ids are never reused there, so a record here can
+/// never land on a set made later.
+struct FlashDeleted: Codable, Equatable {
+    var sets: [FlashDeletion]
+    var subjects: [FlashDeletion]
+
+    init(sets: [FlashDeletion] = [], subjects: [FlashDeletion] = []) {
+        self.sets = sets; self.subjects = subjects
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        sets = try c.decodeIfPresent([FlashDeletion].self, forKey: .sets) ?? []
+        subjects = try c.decodeIfPresent([FlashDeletion].self, forKey: .subjects) ?? []
+    }
+}
+
+struct FlashDeletion: Codable, Equatable {
+    var id: Int
+    var name: String?
+    var at: String?
+}
 
 /// Where one study item stands: the Mac's `progress` row.
 struct FlashProgress: Codable, Equatable {

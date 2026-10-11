@@ -11,6 +11,7 @@ class WorkoutFeature(Feature):
     name = "workout"
     label = "Workout"
     icon = "figure.strengthtraining.traditional"
+    mac_icon = "dumbbell"
     order = 30
     pinned = False
     default_visible = True

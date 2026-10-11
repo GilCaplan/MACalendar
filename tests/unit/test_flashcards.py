@@ -327,3 +327,73 @@ def test_the_feature_is_registered():
     from assistant.features import registry
     f = registry.get("flashcards")
     assert f is not None and f.blueprint() is not None
+
+
+# ---------------------------------------------------------------- archive / delete
+
+def test_archive_keeps_everything_and_only_flags(store):
+    sid = store.import_doc(_doc(BASIC))[0]["set_id"]
+    cid = store.get_set(sid)["cards"][0]["id"]
+    store.review(cid, "", 3)
+    store.set_archived("set", sid, True)
+    [sub] = store.library()
+    assert sub["sets"][0]["archived"] is True and sub["archived"] is False
+    assert store.get_set(sid)["cards"][0]["progress"][""]["reps"] == 1       # nothing lost
+    store.set_archived("subject", sub["id"], True)
+    assert store.library()[0]["archived"] is True
+    store.update_set(sid, archived=False)
+    assert store.library()[0]["sets"][0]["archived"] is False
+    with pytest.raises(FlashcardError):
+        store.set_archived("set", 999, True)
+
+
+def test_a_delete_is_recorded_and_ids_are_never_reused(store):
+    """The phone removes its copy of a set ONLY for a recorded delete. If ids
+    were reused, an old record could remove a set made later."""
+    a = store.import_doc(_doc(BASIC, set_="A"))[0]["set_id"]
+    b = store.import_doc(_doc(BASIC, set_="B"))[0]["set_id"]
+    store.delete_set(b)                            # the TOP id — the one SQLite would reuse
+    c = store.create_set("Spanish", "C")
+    assert c > b
+    gone = store.deleted()
+    assert [d["id"] for d in gone["sets"]] == [b] and gone["sets"][0]["name"] == "B"
+    sub = store.library()[0]["id"]
+    store.delete_subject(sub)
+    gone = store.deleted()
+    assert {d["id"] for d in gone["sets"]} == {a, b, c} and [d["id"] for d in gone["subjects"]] == [sub]
+    assert store.subject_id("Spanish") > sub
+
+
+def test_an_existing_store_gains_archive_in_place(tmp_path):
+    import sqlite3
+    path = tmp_path / "old.db"
+    old = sqlite3.connect(path)
+    old.executescript("CREATE TABLE subjects (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE,"
+                      " client_token TEXT UNIQUE, created_at TEXT NOT NULL);"
+                      "INSERT INTO subjects(name, created_at) VALUES ('Old', '2026-01-01');")
+    old.commit(); old.close()
+    s = FlashcardStore(str(path))
+    assert s.library()[0]["name"] == "Old" and s.library()[0]["archived"] is False
+
+
+def test_http_archive_and_deleted(client):
+    sid = client.post("/flashcards/import", json={"doc": _doc(BASIC)}).json["imported"][0]["set_id"]
+    assert client.patch(f"/flashcards/sets/{sid}", json={"archived": True}).status_code == 200
+    lib = client.get("/flashcards").json
+    assert lib["subjects"][0]["sets"][0]["archived"] is True and lib["deleted"] == {"sets": [], "subjects": []}
+    sub = lib["subjects"][0]["id"]
+    assert client.patch(f"/flashcards/subjects/{sub}", json={"archived": True}).status_code == 200
+    assert client.get("/flashcards").json["subjects"][0]["archived"] is True
+    assert client.get("/flashcards").json["subjects"][0]["name"] == "Spanish"      # archiving did not rename
+    assert client.delete(f"/flashcards/sets/{sid}").status_code == 200
+    assert [d["id"] for d in client.get("/flashcards").json["deleted"]["sets"]] == [sid]
+    assert client.delete(f"/flashcards/sets/{sid}").status_code == 404
+
+
+def test_naming_an_archived_subject_again_brings_it_back(store):
+    sid = store.import_doc(_doc(BASIC))[0]["set_id"]
+    sub = store.library()[0]["id"]
+    store.set_archived("subject", sub, True)
+    store.create_set("Spanish", "New verbs")
+    assert store.library()[0]["archived"] is False
+    assert store.subject_id("Spanish", create=False) == sub and sid

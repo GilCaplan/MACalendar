@@ -11,6 +11,7 @@ class CalendarFeature(Feature):
     name = "calendar"
     label = "Calendar"
     icon = "calendar"
+    mac_icon = "calendar"
     order = 0
     pinned = True
     default_visible = True

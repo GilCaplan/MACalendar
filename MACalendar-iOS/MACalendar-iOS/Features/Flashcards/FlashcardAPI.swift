@@ -26,9 +26,12 @@ extension APIClient {
 
     // -- reads ----------------------------------------------------------
 
-    func flashcardLibrary() async throws -> [FlashSubject] {
+    /// The library and what was deleted on the Mac. A decode failure THROWS
+    /// (never an empty library), so a reply this app cannot read takes nothing
+    /// off the phone.
+    func flashcardLibrary() async throws -> FlashLibrary {
         let data = try await request("/flashcards")
-        return try JSONDecoder().decode(FlashLibrary.self, from: data).subjects
+        return try JSONDecoder().decode(FlashLibrary.self, from: data)
     }
 
     func flashcardSet(_ id: Int) async throws -> FlashSet {
@@ -63,6 +66,12 @@ extension APIClient {
         try await mutate("/flashcards/subjects/\(id)", method: "PATCH", body: ["name": name])
     }
 
+    /// Archive keeps everything; it only takes the subject (and its sets) out
+    /// of the library and the study picker. Queued like any write.
+    func archiveFlashSubject(_ id: Int, archived: Bool) async throws {
+        try await mutate("/flashcards/subjects/\(id)", method: "PATCH", body: ["archived": archived])
+    }
+
     func deleteFlashSubject(_ id: Int) async throws {
         try await mutate("/flashcards/subjects/\(id)", method: "DELETE")
     }
@@ -78,6 +87,10 @@ extension APIClient {
 
     func updateFlashSet(_ id: Int, fields: [String: Any]) async throws {
         try await mutate("/flashcards/sets/\(id)", method: "PATCH", body: fields)
+    }
+
+    func archiveFlashSet(_ id: Int, archived: Bool) async throws {
+        try await mutate("/flashcards/sets/\(id)", method: "PATCH", body: ["archived": archived])
     }
 
     func deleteFlashSet(_ id: Int) async throws {

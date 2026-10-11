@@ -19,7 +19,7 @@ pytest.importorskip("PyQt6")
 
 from PyQt6.QtCore import QPoint, Qt  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
-from PyQt6.QtWidgets import QApplication, QCheckBox, QLabel  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QCheckBox, QLabel, QMenu  # noqa: E402
 
 from assistant.calendar_ui.flashcards_view import (  # noqa: E402
     FlashcardsView, SetEditorDialog, Tile, missing_words)
@@ -47,6 +47,14 @@ LEFT = Qt.MouseButton.LeftButton
 @pytest.fixture(scope="module")
 def qapp():
     return QApplication.instance() or QApplication([])
+
+
+@pytest.fixture(autouse=True)
+def _ui_state(tmp_path, monkeypatch):
+    """Each test folds subjects in its own QSettings file — ids restart at 1
+    in every scratch store, so a shared file would carry one test's folds
+    into the next."""
+    monkeypatch.setenv("MACALENDAR_UI_STATE", str(tmp_path / "ui_state.ini"))
 
 
 @pytest.fixture
@@ -424,3 +432,180 @@ def test_import_button_takes_a_zip_with_its_picture(store, qapp, tmp_path):
     title, text, error = told[-1]
     assert error and "bad.yaml" in text and "not one of the choices" in text
     assert "Pics: 0 added, 1 kept" in text
+
+
+# ---------------------------------------------------------------- archive / delete / fold / rename
+
+@pytest.fixture
+def menu_pick(monkeypatch):
+    """QMenu.exec would block; instead it records the menu's entries and
+    TRIGGERS the one the test names — the same action a click would fire."""
+    seen: list = []
+    want: list = []
+
+    def fake_exec(self, *a, **k):
+        texts = [a_.text() for a_ in self.actions() if not a_.isSeparator()]
+        seen.append(texts)
+        pick = want.pop(0)
+        act = next(a_ for a_ in self.actions() if a_.text() == pick)
+        act.trigger()
+        return act
+
+    monkeypatch.setattr(QMenu, "exec", fake_exec)
+
+    def choose(text):
+        want.append(text)
+        return seen
+    return choose
+
+
+def _set_row(view, name):
+    cb = next(cb for cb in view._lib_body.findChildren(QCheckBox) if cb.text() == name)
+    return cb.parentWidget()
+
+
+def _subject_block(view, name):
+    return next(l for l in view._lib_body.findChildren(QLabel)
+                if l.objectName() == "fc_subject" and l.text() == name).parentWidget().parentWidget()
+
+
+def _main_sets(view):
+    return sorted(view._set_boxes.keys())
+
+
+def _archived_texts(view):
+    box = view._archived_box
+    return [] if box is None else [l.text() for l in box.findChildren(QLabel)]
+
+
+def test_archive_a_set_leaves_the_list_and_the_round_then_unarchive(store, qapp, menu_pick):
+    a = store.import_doc(_doc(BASIC, set_="A"))[0]["set_id"]
+    b = store.import_doc(_doc(MC, set_="B"))[0]["set_id"]
+    view = _view(store, qapp)
+    _click(view._all_btn)
+    _click(view._mode_btns["all"])
+    _click(view._size_btns[0])
+    assert view._study_btn.text() == "Study 9 cards"
+
+    seen = menu_pick("Archive")
+    _click(_set_row(view, "A").more_btn)
+    assert "Archive" in seen[-1] and "Delete…" in seen[-1]
+    assert store.library()[0]["sets"][0]["archived"] is True
+    assert _main_sets(view) == [b]
+    assert view._study_btn.text() == "Study 4 cards"          # A left the round
+    assert any("1 set · 4 cards" in t for t in _labels(view._lib_body))   # header excludes it
+    # under Archived (1), collapsed until its arrow is clicked
+    box = view._archived_box
+    assert "Archived (1)" in _archived_texts(view)
+    assert not box.body.isVisible()
+    _click(box.toggle_btn)
+    assert box.body.isVisible()
+    assert "A" in _archived_texts(view)
+
+    seen = menu_pick("Unarchive")
+    _click(view._archived_box.rows[("set", a)].more_btn)
+    assert seen[-1] == ["Unarchive", "Delete…"]
+    assert _main_sets(view) == [a, b]
+    assert view._archived_box is None
+    _click(view._set_boxes[a])
+    assert view._study_btn.text() == "Study 9 cards"
+
+
+def test_archive_a_subject_takes_all_its_sets_out(store, qapp, menu_pick):
+    store.import_doc(_doc(BASIC, set_="A"))
+    store.import_doc(_doc(MC, set_="B"))
+    c = store.import_doc(_doc(BASIC, set_="C", subject="Hebrew"))[0]["set_id"]
+    view = _view(store, qapp)
+    _click(view._all_btn)
+    menu_pick("Archive subject")
+    _click(_subject_block(view, "Spanish").more_btn)
+    assert _main_sets(view) == [c]
+    assert sorted(view._selected) == [c]
+    assert "Spanish" not in [l.text() for l in view._lib_body.findChildren(QLabel)
+                             if l.objectName() == "fc_subject"]
+    assert "Archived (1)" in _archived_texts(view)
+    assert any("subject · 2 sets · 9 cards" in t for t in _archived_texts(view))
+
+
+def test_delete_from_archived_asks_then_removes(store, qapp, menu_pick):
+    a = store.import_doc(_doc(BASIC, set_="A"))[0]["set_id"]
+    store.import_doc(_doc(MC, set_="B"))
+    store.set_archived("set", a, True)
+    view = _view(store, qapp)
+    asked = []
+    answer = [False]
+    view._confirm = lambda title, text, yes="Delete": asked.append(text) or answer[0]
+    _click(view._archived_box.toggle_btn)
+    menu_pick("Delete…")
+    _click(view._archived_box.rows[("set", a)].more_btn)
+    assert asked and "“A”" in asked[0]
+    assert a in {s["id"] for s in store.library()[0]["sets"]}   # cancelled: still there
+    answer[0] = True
+    menu_pick("Delete…")
+    _click(view._archived_box.rows[("set", a)].more_btn)
+    assert a not in {s["id"] for s in store.library()[0]["sets"]}
+    assert view._archived_box is None
+    assert store.deleted()["sets"][0]["id"] == a
+
+
+def test_right_click_opens_the_same_menus(store, qapp, menu_pick):
+    store.import_doc(_doc(BASIC, set_="A"))
+    view = _view(store, qapp)
+    seen = menu_pick("Edit cards…")
+    view._edit_set = lambda sid: None
+    row = _set_row(view, "A")
+    row.customContextMenuRequested.emit(QPoint(5, 5))
+    assert "Archive" in seen[-1]
+    view._rename_subject = lambda sub: None
+    menu_pick("Rename subject…")
+    block = _subject_block(view, "Spanish")
+    block.name_label.customContextMenuRequested.emit(QPoint(2, 2))
+    assert "Archive subject" in seen[-1] and "Delete subject…" in seen[-1]
+
+
+def test_subject_folds_to_its_header_and_stays_folded_across_restarts(store, qapp):
+    store.import_doc(_doc(BASIC, set_="A"))
+    store.import_doc(_doc(BASIC, set_="H", subject="Hebrew"))
+    view = _view(store, qapp)
+    for subj in ("Spanish", "Hebrew"):                        # every subject's arrow works
+        block = _subject_block(view, subj)
+        assert block.rows.isVisible()
+        _click(block.toggle_btn)
+        assert not block.rows.isVisible()
+    assert any("1 set · 5 cards" in t for t in _labels(view._lib_body))   # counts stay on the header
+    _click(_subject_block(view, "Hebrew").toggle_btn)       # open Hebrew again
+    view.reload()
+    QApplication.processEvents()
+    assert not _subject_block(view, "Spanish").rows.isVisible()
+    assert _subject_block(view, "Hebrew").rows.isVisible()
+    # a new panel (an app restart) reads the same state back
+    view2 = _view(store, qapp)
+    assert not _subject_block(view2, "Spanish").rows.isVisible()
+    assert _subject_block(view2, "Hebrew").rows.isVisible()
+    # and none of it went into the flashcards store
+    with sqlite3.connect(store.path) as c:
+        tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert not any("collaps" in t or "ui" == t for t in tables)
+
+
+def test_rename_subject_by_menu_and_double_click_with_a_readable_error(store, qapp, menu_pick):
+    store.import_doc(_doc(BASIC, set_="A"))
+    store.import_doc(_doc(BASIC, set_="H", subject="Hebrew"))
+    view = _view(store, qapp)
+    told = []
+    view._inform = lambda title, text, error=False: told.append((title, text, error))
+    view._ask_text = lambda title, label, text="": "Español"
+    menu_pick("Rename subject…")
+    _click(_subject_block(view, "Spanish").more_btn)
+    assert sorted(s["name"] for s in store.library()) == ["Español", "Hebrew"]
+
+    view._ask_text = lambda title, label, text="": "Español"     # already taken
+    QTest.mouseDClick(_subject_block(view, "Hebrew").name_label, LEFT)
+    QApplication.processEvents()
+    assert told and told[-1][2] is True
+    assert "already a subject called 'Español'" in told[-1][1]
+    assert "Hebrew" in told[-1][1]
+    view._ask_text = lambda title, label, text="": "Ivrit"
+    QTest.mouseDClick(_subject_block(view, "Hebrew").name_label, LEFT)
+    QApplication.processEvents()
+    assert sorted(s["name"] for s in store.library()) == ["Español", "Ivrit"]

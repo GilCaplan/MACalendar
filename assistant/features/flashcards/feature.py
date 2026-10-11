@@ -11,6 +11,7 @@ class FlashcardsFeature(Feature):
     name = "flashcards"
     label = "Flashcards"
     icon = "rectangle.on.rectangle.angled"
+    mac_icon = "flashcards"
     order = 25          # beside Coursework: both are studying
     pinned = False
     default_visible = True

@@ -25,6 +25,7 @@ class AccountFeature(Feature):
     name = "account"
     label = "Account"
     icon = "person.crop.circle"
+    mac_icon = "user_circle"
     order = 90
     pinned = False
     default_visible = True

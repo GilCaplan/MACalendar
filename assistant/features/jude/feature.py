@@ -23,6 +23,7 @@ class JudeFeature(Feature):
     name = "jude"
     label = "Jude"
     icon = "books.vertical"
+    mac_icon = "book_open"
     order = 60
     pinned = False
     has_mac_panel = False

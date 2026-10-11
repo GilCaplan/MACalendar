@@ -14,6 +14,7 @@ class TasksFeature(Feature):
     name = "tasks"
     label = "Tasks"
     icon = "checklist"
+    mac_icon = "clipboard_check"
     order = 10
     pinned = True
     default_visible = True

@@ -60,6 +60,9 @@ CREATE TABLE IF NOT EXISTS progress (
   stability REAL, difficulty REAL, due TEXT NOT NULL, last TEXT NOT NULL,
   reps INTEGER NOT NULL DEFAULT 0, lapses INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY(card_id, item));
+CREATE TABLE IF NOT EXISTS deleted (
+  kind TEXT NOT NULL, id INTEGER NOT NULL, name TEXT NOT NULL DEFAULT '',
+  at TEXT NOT NULL, PRIMARY KEY(kind, id));
 CREATE TABLE IF NOT EXISTS reviews (
   id INTEGER PRIMARY KEY,
   card_id INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
@@ -110,6 +113,10 @@ class FlashcardStore:
         os.makedirs(base, exist_ok=True)
         with self._conn() as c:
             c.executescript(_SCHEMA)
+            for table in ("subjects", "sets"):
+                cols = {r["name"] for r in c.execute(f"PRAGMA table_info({table})")}
+                if "archived" not in cols:
+                    c.execute(f"ALTER TABLE {table} ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
 
     @contextmanager
     def _conn(self):
@@ -132,9 +139,9 @@ class FlashcardStore:
         now_s = _iso(now or _now())
         with self._conn() as c:
             subjects = [dict(r) for r in c.execute(
-                "SELECT id, name FROM subjects ORDER BY name COLLATE NOCASE")]
+                "SELECT id, name, archived FROM subjects ORDER BY name COLLATE NOCASE")]
             sets = [dict(r) for r in c.execute(
-                "SELECT id, subject_id, slug, name, source, lang, dir, updated_at "
+                "SELECT id, subject_id, slug, name, source, lang, dir, archived, updated_at "
                 "FROM sets ORDER BY id")]
             cards = c.execute("SELECT id, set_id, type, body FROM cards").fetchall()
             prog = {(r["card_id"], r["item"]): r["due"] for r in c.execute(
@@ -153,7 +160,38 @@ class FlashcardStore:
             s.update(counts.get(s["id"], {"cards": 0, "items": 0, "seen": 0, "due": 0}))
         for sub in subjects:
             sub["sets"] = [s for s in sets if s["subject_id"] == sub["id"]]
+        for row in subjects + sets:
+            row["archived"] = bool(row["archived"])
         return subjects
+
+    def deleted(self) -> dict:
+        """What was DELETED here, by id — the only thing that may remove a set
+        from a phone's own copy. A set merely missing from an answer (a store
+        that was reset, a different user's library) must never wipe what the
+        phone holds; a deleted one must not linger there either."""
+        with self._conn() as c:
+            rows = c.execute("SELECT kind, id, name, at FROM deleted ORDER BY at").fetchall()
+        return {"sets": [dict(r) for r in rows if r["kind"] == "set"],
+                "subjects": [dict(r) for r in rows if r["kind"] == "subject"]}
+
+    def _next_id(self, c, kind: str) -> int:
+        """Ids are never reused, so a phone's record of a deletion can never
+        land on a set made later. (SQLite's rowid would reuse the top id.)"""
+        table = "subjects" if kind == "subject" else "sets"
+        top = c.execute(f"SELECT COALESCE(MAX(id), 0) FROM {table}").fetchone()[0]
+        gone = c.execute("SELECT COALESCE(MAX(id), 0) FROM deleted WHERE kind=?", (kind,)).fetchone()[0]
+        return max(top, gone) + 1
+
+    def set_archived(self, kind: str, oid: int, archived: bool) -> None:
+        """Archive keeps everything — cards, pictures, progress — and only takes
+        it out of the library and the study picker until unarchived."""
+        table = {"subject": "subjects", "set": "sets"}[kind]
+        with self._conn() as c:
+            n = c.execute(f"UPDATE {table} SET archived=? WHERE id=?", (int(bool(archived)), oid)).rowcount
+            if table == "sets" and n:
+                c.execute("UPDATE sets SET updated_at=? WHERE id=?", (_iso(_now()), oid))
+        if not n:
+            raise FlashcardError(f"No {kind} {oid}.")
 
     # ------------------------------------------------------------ subjects / sets
 
@@ -166,14 +204,19 @@ class FlashcardStore:
                 r = c.execute("SELECT id FROM subjects WHERE client_token=?", (client_token,)).fetchone()
                 if r:
                     return r["id"]
-            r = c.execute("SELECT id FROM subjects WHERE name=?", (name,)).fetchone()
+            r = c.execute("SELECT id, archived FROM subjects WHERE name=?", (name,)).fetchone()
             if r:
+                if r["archived"] and create:
+                    # Naming it again (a new set, an import) means you want it
+                    # back: new cards must not vanish into the archive.
+                    c.execute("UPDATE subjects SET archived=0 WHERE id=?", (r["id"],))
                 return r["id"]
             if not create:
                 raise FlashcardError(f"No subject called {name!r}.")
-            return c.execute(
-                "INSERT INTO subjects(name, client_token, created_at) VALUES (?,?,?)",
-                (name, client_token or None, _iso(_now()))).lastrowid
+            new_id = self._next_id(c, "subject")
+            c.execute("INSERT INTO subjects(id, name, client_token, created_at) VALUES (?,?,?,?)",
+                      (new_id, name, client_token or None, _iso(_now())))
+            return new_id
 
     def rename_subject(self, subject_id: int, name: str) -> None:
         name = (name or "").strip()
@@ -191,7 +234,12 @@ class FlashcardStore:
         for s in self._sets_of(subject_id):
             self.delete_set(s)
         with self._conn() as c:
+            r = c.execute("SELECT name FROM subjects WHERE id=?", (subject_id,)).fetchone()
+            if r is None:
+                raise FlashcardError(f"No subject {subject_id}.")
             c.execute("DELETE FROM subjects WHERE id=?", (subject_id,))
+            c.execute("INSERT OR REPLACE INTO deleted(kind, id, name, at) VALUES ('subject',?,?,?)",
+                      (subject_id, r["name"], _iso(_now())))
 
     def _sets_of(self, subject_id: int) -> "list[int]":
         with self._conn() as c:
@@ -219,13 +267,17 @@ class FlashcardStore:
             base, n = slug, 2
             while c.execute("SELECT 1 FROM sets WHERE subject_id=? AND slug=?", (sid, slug)).fetchone():
                 slug, n = f"{base}-{n}", n + 1
-            return c.execute(
-                "INSERT INTO sets(subject_id, slug, name, source, lang, dir, client_token,"
-                " created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
-                (sid, slug, name, source or "", lang or "", direction,
-                 client_token or None, now, now)).lastrowid
+            new_id = self._next_id(c, "set")
+            c.execute(
+                "INSERT INTO sets(id, subject_id, slug, name, source, lang, dir, client_token,"
+                " created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (new_id, sid, slug, name, source or "", lang or "", direction,
+                 client_token or None, now, now))
+            return new_id
 
     def update_set(self, set_id: int, **fields) -> None:
+        if "archived" in fields:
+            self.set_archived("set", set_id, bool(fields.pop("archived")))
         allowed = {k: v for k, v in fields.items() if k in ("name", "source", "lang", "dir", "subject_id")}
         if "subject" in fields:
             allowed["subject_id"] = self.subject_id(str(fields["subject"]))
@@ -244,7 +296,12 @@ class FlashcardStore:
 
     def delete_set(self, set_id: int) -> None:
         with self._conn() as c:
+            r = c.execute("SELECT name FROM sets WHERE id=?", (set_id,)).fetchone()
+            if r is None:
+                raise FlashcardError(f"No set {set_id}.")
             c.execute("DELETE FROM sets WHERE id=?", (set_id,))
+            c.execute("INSERT OR REPLACE INTO deleted(kind, id, name, at) VALUES ('set',?,?,?)",
+                      (set_id, r["name"], _iso(_now())))
         shutil.rmtree(os.path.join(self.media_dir, str(set_id)), ignore_errors=True)
 
     def get_set(self, set_id: int) -> dict:

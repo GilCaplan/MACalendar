@@ -873,16 +873,14 @@ class CalendarWindow(QMainWindow):
         """The app's sections, in the sidebar: Calendar, then one row per
         feature panel from the registry (Tasks, Timer, Account…). They were
         eight more buttons in the toolbar's view strip."""
-        glyphs = {"tasks": "clipboard_check", "timer": "stopwatch", "coursework": "graduation",
-                  "workout": "dumbbell", "account": "user_circle", "jude": "book_open",
-                  "teach": "idea"}
         self._nav_calendar_btn = self._sidebar.add_nav("Calendar", "calendar")
         self._nav_calendar_btn.clicked.connect(
             lambda: self._set_view(getattr(self, "_last_calendar_mode", "month")))
         for label, mode in self._toolbar_modes()[4:]:
-            btn = self._sidebar.add_nav(label, glyphs.get(mode, "•"))
-            btn.clicked.connect(lambda _=False, m=mode: self._set_view(m))
             feature = _features.get(mode)
+            # Each feature declares its own drawing (`Feature.mac_icon`).
+            btn = self._sidebar.add_nav(label, getattr(feature, "mac_icon", "") or "list")
+            btn.clicked.connect(lambda _=False, m=mode: self._set_view(m))
             if feature is not None and not feature.pinned:
                 btn.setVisible(feature.visible())
             setattr(self, f"_view_btn_{mode}", btn)

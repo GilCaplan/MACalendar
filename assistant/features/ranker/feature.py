@@ -11,6 +11,7 @@ class RankerFeature(Feature):
     name = "ranker"
     label = "Ranker"
     icon = "list.number"
+    mac_icon = "ranking"
     order = 45
     pinned = False
     default_visible = True
