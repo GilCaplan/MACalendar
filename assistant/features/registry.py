@@ -30,13 +30,14 @@ def all_features() -> "list":
         from assistant.features.account import AccountFeature
         from assistant.features.calendar import CalendarFeature
         from assistant.features.coursework import CourseworkFeature
+        from assistant.features.flashcards import FlashcardsFeature
         from assistant.features.jude import JudeFeature
         from assistant.features.tasks import TasksFeature
         from assistant.features.teach import TeachFeature
         from assistant.features.timer import TimerFeature
         from assistant.features.workout import WorkoutFeature
 
-        for factory in (CalendarFeature, TasksFeature, CourseworkFeature,
+        for factory in (CalendarFeature, TasksFeature, CourseworkFeature, FlashcardsFeature,
                         WorkoutFeature, TimerFeature, TeachFeature, JudeFeature,
                         AccountFeature):
             try:
