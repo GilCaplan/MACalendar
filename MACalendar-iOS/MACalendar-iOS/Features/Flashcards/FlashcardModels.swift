@@ -197,7 +197,7 @@ struct FlashCard: Codable, Identifiable, Equatable {
         items = try c.decodeIfPresent([String].self, forKey: .items) ?? Self.computeItems(self)
     }
 
-    /// Text, or a number written as text — YAML turns `back: 1878` into an int.
+    /// Text, or a number written as text — YAML turns `back: 1889` into an int.
     private static func text(_ c: KeyedDecodingContainer<CodingKeys>, _ k: CodingKeys) -> String? {
         if let s = try? c.decodeIfPresent(String.self, forKey: k) { return s }
         if let i = try? c.decodeIfPresent(Int.self, forKey: k) { return String(i) }

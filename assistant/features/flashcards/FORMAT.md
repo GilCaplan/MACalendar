@@ -60,14 +60,14 @@ cards:
 
   # 3. cloze — each {{gap}} is its own question, the rest stays visible.
   - type: cloze
-    text: "The anthem was written by {{Naftali Herz Imber}} in {{1878}}."
+    text: "The Eiffel Tower was designed by {{Gustave Eiffel}}'s company and finished in {{1889}}."
 
   # 4. mc — multiple choice. answer must equal one choice exactly.
   - type: mc
-    question: In which year did the flag become the Zionist movement's flag?
-    choices: ["1897", "1933", "1948", "1917"]
-    answer: "1933"
-    explain: The 18th Zionist Congress, 1933.
+    question: In which year did the Berlin Wall fall?
+    choices: ["1961", "1989", "1991", "1979"]
+    answer: "1989"
+    explain: 9 November 1989.
 
   # 5. order — put the steps in order. List them in the RIGHT order;
   #    the app shuffles them.
@@ -77,7 +77,7 @@ cards:
 
   # 6. typed — write it out from memory; the app marks the words you missed.
   - type: typed
-    front: Write the first verse of the anthem
+    front: Write the first verse of the poem
     answer: |-
       first line
       second line

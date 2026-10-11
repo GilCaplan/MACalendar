@@ -595,7 +595,7 @@ class FlashcardStore:
 
         smart: items due now (most overdue first), then new ones.
         all:   every item, shuffled.
-        exam:  multiple-choice only, shuffled — the shape of the officer exam.
+        exam:  multiple-choice only, shuffled — the shape of a multiple-choice exam.
         """
         if mode not in ("smart", "all", "exam"):
             raise FlashcardError("mode is smart, all or exam.")

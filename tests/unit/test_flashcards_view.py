@@ -304,7 +304,7 @@ def test_typed_marks_missing_words_ignoring_niqqud_and_punctuation():
 
 
 def test_typed_card_check_then_self_grade(store, qapp):
-    sid = store.import_doc(_doc([{"type": "typed", "front": "anthem", "answer": "one two three"}]))[0]["set_id"]
+    sid = store.import_doc(_doc([{"type": "typed", "front": "poem", "answer": "one two three"}]))[0]["set_id"]
     view = _view(store, qapp)
     _start(view, [sid])
     QTest.keyClicks(view._cur["editor"], "one three")

@@ -197,7 +197,7 @@ struct CardForm: View {
                     .lineLimit(3...10)
             } footer: {
                 let n = Cloze.gaps(card.text ?? "").count
-                Text("Wrap each gap in double braces: The anthem was written by {{Naftali Herz Imber}} in {{1878}}. Each gap is its own question. "
+                Text("Wrap each gap in double braces: The Eiffel Tower was finished in {{1889}}. Each gap is its own question. "
                      + (n == 0 ? "No gaps marked yet." : "\(n) gap\(n == 1 ? "" : "s") marked."))
             }
         case "mc":

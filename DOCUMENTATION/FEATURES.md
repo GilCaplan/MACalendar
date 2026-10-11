@@ -1169,8 +1169,7 @@ role is pinned to `ollama.model`.
 **How:** Toggleable tab (settings); feeds tags ("Coursework").
 
 ### Flashcards
-**What:** An Anki-style study tab for any subject (2026-10-11; first use: the
-officer-course exam, 13 sets / 1,881 cards from the booklet). A subject holds
+**What:** An Anki-style study tab for any subject (2026-10-11). A subject holds
 sets; you study one set, several or all of them mixed, in three modes — spaced
 review (FSRS: due cards first, then new), all cards, or a multiple-choice exam
 with a score per set. Seven card types: basic (optionally both ways), image,

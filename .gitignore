@@ -120,3 +120,15 @@ assistant/engine/llmjudge/datasets/tiers/
 assistant/engine/llmjudge/datasets/v2/tiers/
 dataset/personas/tiers/
 dataset/realspeech/tiers/
+
+# Flashcard study material is personal and never published: the stores live in
+# ~/.assistant_tools, and a set file or source booklet dropped into the
+# checkout must not ride along in a commit (the repo is public).
+flashcards_inbox/
+flashcards_media/
+flashcards*.db*
+*.flashcards.yaml
+*.flashcards.json
+/decks/
+/study/
+*.pdf
