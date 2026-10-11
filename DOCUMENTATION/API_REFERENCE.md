@@ -335,7 +335,7 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `POST` | `/flashcards/study` |  |
 | `POST` | `/flashcards/subjects` |  |
 | `DELETE` | `/flashcards/subjects/<int:sid>` |  |
-| `PATCH` | `/flashcards/subjects/<int:sid>` |  |
+| `PATCH` | `/flashcards/subjects/<int:sid>` | Rename and/or archive: `{name}`, `{archived: true\|false}`. |
 
 ## /ranker
 
