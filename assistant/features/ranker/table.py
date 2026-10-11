@@ -10,7 +10,7 @@ header row, and each cell's value from the most precise thing the page offers:
 - `3.62B` / `850M` / `12K` read as numbers, `12%` and `1,234` too.
 
 A column's NAME is its `data-column` attribute when there is one (a stable
-identifier — `Burned24h`), and its LABEL is what the header shows (`🔥 24h`).
+identifier — `Burned24h`), and its LABEL is what the header shows (the export's fire-emoji header).
 Presets refer to names, the screen shows labels.
 """
 

@@ -6,7 +6,9 @@ changing a recipe re-ranks without sending the file again (the phone picks a
 file once, then tunes).
 
 The number list is the picture's answer as the person EDITED it: an empty list
-means "no filter", which is how the filter is switched off.
+means "no filter", which is how the filter is switched off. `use_numbers` is
+the Mac panel's on/off switch: off ranks as if the list were empty but keeps
+it, so switching back on restores it.
 """
 
 from __future__ import annotations
@@ -29,7 +31,8 @@ def store_path() -> str:
 
 def _blank() -> dict:
     return {"presets": {MIGRATION["name"]: copy.deepcopy(MIGRATION)},
-            "preset": MIGRATION["name"], "numbers": [], "last_table": None}
+            "preset": MIGRATION["name"], "numbers": [], "use_numbers": True,
+            "last_table": None}
 
 
 def load() -> dict:

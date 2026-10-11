@@ -168,6 +168,9 @@ def test_http_round_trip(client):
     again = client.post("/ranker/rank", json={"recipe": recipe}).json
     assert [int(x["Kingdom"]) for x in again["rows"]] == [711, 708, 1]
 
+    off = client.post("/ranker/rank", json={"use_numbers": False}).json
+    assert off["kept"] == 40 and off["numbers"] == [1, 711, 708]            # off keeps the list
+    assert client.post("/ranker/rank", json={"use_numbers": True}).json["kept"] == 3
     assert client.put("/ranker/numbers", json={"numbers": []}).json["numbers"] == []
     assert client.post("/ranker/rank", json={}).json["kept"] == 40           # filter off
 

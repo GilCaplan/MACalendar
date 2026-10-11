@@ -5,7 +5,7 @@
 | `GET /ranker` | recipes, the current one, the saved number list, the last table's columns |
 | `POST /ranker/numbers` | pictures (multipart `image`, repeatable) -> their unique numbers, saved as the list |
 | `PUT /ranker/numbers` | `{numbers: [...]}` — the list as edited; `[]` switches the filter off |
-| `POST /ranker/rank` | rank: multipart `table` (.html/.csv/.tsv/.json) and/or `image`s, plus `recipe` (JSON) or `preset`, `numbers`; any of them left out uses the saved one |
+| `POST /ranker/rank` | rank: multipart `table` (.html/.csv/.tsv/.json) and/or `image`s, plus `recipe` (JSON) or `preset`, `numbers`, `use_numbers` (the filter switch); any of them left out uses the saved one |
 | `PUT /ranker/presets/<name>` `DELETE /ranker/presets/<name>` | save / remove a recipe |
 
 HTTP only. Reading tables is `table.py`, choosing numbers `ocr.py`, ranking
@@ -37,7 +37,8 @@ def _refused(e):
 def _summary(data: dict) -> dict:
     last = data.get("last_table") or {}
     return {"presets": list(data["presets"].values()), "preset": data["preset"],
-            "numbers": data["numbers"], "engine": ocr.engine(),
+            "numbers": data["numbers"], "use_numbers": data.get("use_numbers", True),
+            "engine": ocr.engine(),
             "table": {"filename": last.get("filename"), "rows": len(last.get("rows", [])),
                       "columns": last.get("columns", [])} if last else None}
 
@@ -97,6 +98,13 @@ def rank_table():
         raw = json.loads(raw) if isinstance(raw, str) else raw
         data["numbers"] = [int(str(n).strip().lstrip("#")) for n in raw if str(n).strip()]
 
+    # The filter switch: off ranks every row but KEEPS the list, so turning it
+    # back on restores it. Sending `numbers: []` to switch it off would erase
+    # the list instead — that is what `use_numbers` is for.
+    use = get("use_numbers")
+    if use is not None:
+        data["use_numbers"] = use if isinstance(use, bool) else str(use).lower() in ("1", "true", "yes", "on")
+
     recipe = get("recipe")
     if recipe:
         recipe = json.loads(recipe) if isinstance(recipe, str) else recipe
@@ -106,9 +114,10 @@ def rank_table():
             return _bad(f"No saved recipe called {name!r}.")
         recipe = data["presets"][name]
         data["preset"] = name
-    result = ranking.rank(t, recipe, data["numbers"])
+    result = ranking.rank(t, recipe, data["numbers"] if data.get("use_numbers", True) else [])
     store.save(data)
     result["numbers"] = data["numbers"]
+    result["use_numbers"] = data.get("use_numbers", True)
     result["table_columns"] = [{"name": n, "label": l} for n, l in t.columns]
     result["recipe"] = recipe
     return jsonify(result)

@@ -3,7 +3,7 @@
 A RECIPE (a saved preset) says, in order:
 
     key        the column holding the identifier the picture's numbers match
-    derived    new columns, each the sum of others (Strong ⭐ = Stars150+200+250)
+    derived    new columns, each the sum of others (Stars = Stars150+200+250)
     filters    conditions a row must meet (Scrolls <= 1)
     criteria   what makes a row better: a column, `higher` or `lower` is
                better, and a weight
@@ -139,13 +139,13 @@ def rank(table: Table, recipe: dict, numbers: "list | None" = None) -> dict:
 
 #: The first preset: Gil's migration pick (2026-10-11). More players, more
 #: castles burned in the last day (an ACTIVE kingdom), and fewer strong players
-#: — ✨ blessed and ⭐ starred counted together as "strong".
+#: — blessed and starred counted together as "strong".
 MIGRATION = {
     "name": "Migration — active, populous, few strong players",
     "key": "Kingdom",
     "derived": [
-        {"name": "Blessed", "label": "✨", "sum": ["Blessed50", "Blessed100", "Blessed150"]},
-        {"name": "Stars", "label": "⭐", "sum": ["Stars150", "Stars200", "Stars250"]},
+        {"name": "Blessed", "label": "Blessed", "sum": ["Blessed50", "Blessed100", "Blessed150"]},
+        {"name": "Stars", "label": "Stars", "sum": ["Stars150", "Stars200", "Stars250"]},
         {"name": "Strong", "label": "Strong", "sum": ["Blessed50", "Blessed100", "Blessed150",
                                                      "Stars150", "Stars200", "Stars250"]},
     ],
