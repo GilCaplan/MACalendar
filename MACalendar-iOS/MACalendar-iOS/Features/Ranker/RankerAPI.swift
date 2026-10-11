@@ -16,6 +16,10 @@ import Foundation
 //   JSON bodies, and a ranking delivered an hour later is for a screen nobody
 //   is looking at. Offline they throw `.offline` and the tab says so.
 // - `rankerUpload` is the multipart transport under both.
+// - `newRankerSearch` forgets the Mac's table and number list. Queued, it would
+//   replay whenever the Mac came back and wipe whatever table had been sent
+//   since (the Mac panel shares the same store); and it is pressed to start
+//   ranking, which needs the Mac anyway. Offline it throws and the tab says so.
 extension APIClient {
 
     // -- reads ----------------------------------------------------------
@@ -48,7 +52,13 @@ extension APIClient {
         return RankerOverview(json: try Self.rankerObject(data))
     }
 
-    // -- uploads (online only, see the header) -------------------------
+    // -- online only, see the header ---------------------------------
+
+    /// Start a new search: the Mac forgets the table and the numbers, keeps
+    /// the saved rankings. Answers like `GET /ranker`.
+    func newRankerSearch() async throws -> RankerOverview {
+        RankerOverview(json: try Self.rankerObject(try await request("/ranker/new", method: "POST")))
+    }
 
     /// Read the numbers in the pictures; the Mac keeps them as the list.
     func readRankerNumbers(images: [RankerUpload]) async throws -> [Int] {

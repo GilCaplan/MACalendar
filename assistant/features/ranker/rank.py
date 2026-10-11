@@ -93,17 +93,64 @@ def _percentiles(values: "list[float]") -> "list[float]":
     return out
 
 
+def fit(table: Table, recipe: dict) -> "tuple[dict, list[str]]":
+    """The recipe, minus whatever names a column this table does not have —
+    and a sentence for each thing left out. A saved recipe is a starting
+    point, not a contract: a new export with different columns must still
+    rank by what it CAN, instead of refusing outright (Gil, 2026-10-11: "i
+    dont want it stuck on the example i gave you")."""
+    have = set(table.names)
+    notes: "list[str]" = []
+    derived = []
+    for d in recipe.get("derived", []):
+        gone = [c for c in d.get("sum", []) if c not in have]
+        if gone:
+            notes.append(f"Left out the combined column {d.get('label') or d['name']!r}: "
+                         f"this table has no {', '.join(gone)}.")
+        else:
+            derived.append(d)
+    have |= {d["name"] for d in derived}
+    out = dict(recipe, derived=derived)
+    for part, what in (("criteria", "Not ranking by"), ("filters", "Ignored the condition on")):
+        kept = []
+        for c in recipe.get(part, []):
+            if c.get("column") in have:
+                kept.append(c)
+            else:
+                notes.append(f"{what} {c.get('column')!r}: this table has no such column.")
+        out[part] = kept
+    out["show"] = [c for c in recipe.get("show", []) if c in have]
+    if out.get("key") and out["key"] not in table.names:
+        out["key"] = ""
+    return out, notes
+
+
+def best_key(table: Table, numbers: "list", preferred: str = "") -> str:
+    """The column the picture's numbers belong to: the one whose values match
+    the most of them. Asking the person to name it was one more thing to get
+    wrong; the data answers it."""
+    wanted = {_key(n) for n in numbers}
+    best, score = preferred if preferred in table.names else table.names[0], -1
+    for name in table.names:
+        hits = len(wanted & {_key(r.get(name)) for r in table.rows})
+        if hits > score or (hits == score and name == preferred):
+            best, score = name, hits
+    return best
+
+
 def rank(table: Table, recipe: dict, numbers: "list | None" = None) -> dict:
     """{'rows': ranked rows (each with score and per-criterion percentiles),
         'columns': what to show, 'kept': n, 'total': n, 'missing': picture
         numbers with no row in the table}."""
+    recipe, notes = fit(table, recipe)
     _check(table, recipe)
     rows = [dict(r) for r in table.rows]
     for d in recipe.get("derived", []):
         for r in rows:
             r[d["name"]] = sum(number(r.get(c)) or 0.0 for c in d["sum"])
 
-    key = recipe.get("key") or table.names[0]
+    key = (best_key(table, numbers, recipe.get("key") or "") if numbers
+           else recipe.get("key") or table.names[0])
     missing: "list[str]" = []
     if numbers:
         wanted = {_key(n) for n in numbers}
@@ -132,9 +179,16 @@ def rank(table: Table, recipe: dict, numbers: "list | None" = None) -> dict:
 
     labels = dict(table.columns)
     labels.update({d["name"]: d.get("label", d["name"]) for d in recipe.get("derived", [])})
-    show = recipe.get("show") or [key] + [c["column"] for c in criteria]
+    # Every column unless the recipe says otherwise: the key and what it ranks
+    # by first, then the rest of the table in its own order. (Showing only the
+    # key and the criteria hid the very columns you look at to decide —
+    # Gil, 2026-10-11: "why is it only showing 4".)
+    show = recipe.get("show") or list(dict.fromkeys(
+        [key] + [c["column"] for c in criteria]
+        + [d["name"] for d in recipe.get("derived", [])] + table.names))
     return {"columns": [{"name": n, "label": labels.get(n, n)} for n in show if n in labels],
-            "rows": rows, "kept": len(rows), "total": total, "missing": missing, "key": key}
+            "rows": rows, "kept": len(rows), "total": total, "missing": missing, "key": key,
+            "notes": notes}
 
 
 #: The first preset: Gil's migration pick (2026-10-11). More players, more

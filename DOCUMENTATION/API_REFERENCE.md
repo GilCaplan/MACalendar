@@ -342,6 +342,7 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | Method | Path | What it does |
 |---|---|---|
 | `GET` | `/ranker` |  |
+| `POST` | `/ranker/new` | Start over: no table, no numbers. Saved recipes stay. |
 | `POST` | `/ranker/numbers` | Read the numbers in one or more pictures and keep them as the list. |
 | `PUT` | `/ranker/numbers` |  |
 | `DELETE` | `/ranker/presets/<name>` |  |

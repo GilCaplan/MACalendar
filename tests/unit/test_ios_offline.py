@@ -99,8 +99,11 @@ NOT_QUEUEABLE = {
     # holds JSON) and the answer IS the point — a ranking delivered an hour
     # later is for a screen nobody is looking at; the tab says the Mac is away.
     # `rankerUpload` is their multipart transport. The number list and the
-    # recipes are plain overwrites and DO queue.
-    "rankTable", "readRankerNumbers", "rankerUpload",
+    # recipes are plain overwrites and DO queue. `newRankerSearch` forgets the
+    # Mac's table and numbers: replayed whenever the Mac came back, it would
+    # wipe a table sent since (the Mac panel shares the store), and starting a
+    # search needs the Mac anyway — so it fails loudly instead.
+    "rankTable", "readRankerNumbers", "rankerUpload", "newRankerSearch",
 }
 
 MUTATING = re.compile(r'request\(\s*"[^"]*"[^)]*?method:\s*"(POST|PATCH|PUT|DELETE)"', re.S)

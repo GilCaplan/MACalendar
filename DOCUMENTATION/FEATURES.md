@@ -1230,7 +1230,13 @@ screenshot that kept exactly the 30 kingdoms. The picture reader was chosen by
 measurement: Vision read 30 of 30, Tesseract 4 (2 wrong) — one screenshot, a
 probe. Tables and pictures come by drag-and-drop, a file picker, or paste on
 the Mac; on the phone from Files (iCloud Drive, Dropbox, Google Drive…) or
-Photos.
+Photos. The Mac panel (simplified 2026-10-11 after real use) gives the RESULT
+the space: "New search" returns to one big drop area; with a table, compact
+controls sit on top (number line + filter switch, "Rank by" rows, the rest
+under a collapsed "More options"), every column shows by default with a
+"Columns" checklist beside the summary, and the table always keeps room for
+ten rows — a short window scrolls the panel instead. The column the numbers
+match is found from the data (`rank.best_key`), not asked.
 
 ### iOS app & offline queues
 **What:** The full iPhone client — calendar, tasks, voice, review, vocabulary,

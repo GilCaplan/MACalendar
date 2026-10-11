@@ -1,25 +1,32 @@
-"""RankerView — the Mac's Ranker tab: drop a table and/or screenshots, get a ranking.
+"""RankerView — the Mac's Ranker tab: drop a table and screenshots, get a ranking.
 
-Four bands, top to bottom:
+The RESULT TABLE is the point of the panel, so it gets the space. Gil,
+2026-10-11, using the first version for real: "the ranker seems
+overcomplicated", "i cant scroll down to table", "why is it only showing 4" —
+the recipe editor had taken the whole panel and the result was a one-row
+sliver. So, top to bottom:
 
-  INPUT     one drop zone for the whole panel. Any mix of table files
-            (.html .htm .csv .tsv .txt .json) and pictures (.png .jpg .heic
-            …), dragged in, chosen with "Choose files…", or pasted (⌘V / Ctrl+V
-            of an image, a file, or a copied table). A table is read at once
-            (`table.read`); pictures are read in a background thread
-            (`ocr.numbers_from_images` compiles its Swift helper the first time,
-            1–4 s) and their numbers become the saved list.
-  NUMBERS   the list as editable text, and a "Filter by these numbers" switch.
-            Off ranks every row but KEEPS the list (`use_numbers` in the store),
-            so switching back on restores it. After a ranking, the numbers with
-            no row in the table are named.
-  RANKING   the recipe (a saved preset): key column, combined columns,
-            conditions, criteria, shown columns. Every change re-ranks, debounced.
-            Dropdowns show a column's LABEL (the fire-emoji "24h" header) and store its NAME
-            ("Burned24h"), as the presets do.
-  RESULT    the ranked rows, sortable by any header (# returns to rank order),
-            per-criterion percentiles in the score's tooltip; Copy (TSV) and
-            Export CSV….
+  TOP BAR   "New search" (forget the table and the numbers, keep the saved
+            rankings), Paste, Choose files…
+  EMPTY     with no table: one big drop area. Any mix of table files
+            (.html .htm .csv .tsv .txt .json) and pictures (.png .jpg .heic …),
+            dragged, chosen or pasted. Pictures and a table together go straight
+            to a ranked result.
+  WORKING   with a table, compact controls:
+              the source line (file · rows · columns);
+              the number list, one editable line, with "Filter by these
+              numbers" (off ranks every row but KEEPS the list). New pictures
+              REPLACE the list; a new table replaces the table;
+              "Rank by": rows of [column] [Higher/Lower] [x] and "+ Add";
+              "More options", collapsed: weights, conditions, combined columns,
+              saved rankings.
+            then the summary, "Columns" (a check per column, all by default),
+            Copy, Export CSV…, any notes, and the result table, which stretches
+            and scrolls inside itself. If the controls ever outgrow the window
+            the whole panel scrolls — the table is never squashed to a sliver.
+
+Which column the numbers match is not asked: `rank.best_key` reads it off the
+data, and the summary names it.
 
 The panel calls `table`, `ocr`, `rank` and `store` directly, as the other Mac
 panels call their stores — never the HTTP routes, which are the phone's door.
@@ -35,7 +42,7 @@ import re
 import threading
 from typing import Callable
 
-from PyQt6.QtCore import QBuffer, QIODevice, QObject, Qt, QTimer, QUrl, pyqtSignal
+from PyQt6.QtCore import QBuffer, QIODevice, QObject, QPoint, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QGuiApplication, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -71,7 +78,10 @@ FILE_FILTER = ("Tables and pictures (*.html *.htm *.csv *.tsv *.txt *.json "
                "Tables (*.html *.htm *.csv *.tsv *.txt *.json);;"
                "Pictures (*.png *.jpg *.jpeg *.heic *.webp *.gif);;All files (*)")
 DEBOUNCE_MS = 250
-_DIRECTION = {"higher": "▲ Higher is better", "lower": "▼ Lower is better"}
+MIN_ROWS = 10                      # the result always shows at least this many
+MISSING_INLINE = 8                 # more missing numbers than this fold behind "show"
+_DIRECTION = {"higher": "▲ Higher", "lower": "▼ Lower"}
+_DROP_TEXT = "Drop screenshots and a table (.html .csv .tsv .json) — or Choose files…"
 
 
 # ---------------------------------------------------------------- pure helpers
@@ -130,33 +140,38 @@ def _palette(dark: bool) -> dict:
 
 def _qss(p: dict) -> str:
     return f"""
+QScrollArea#rk_scroll, QWidget#rk_body {{ background: transparent; border: none; }}
 QLabel#rk_title {{ font-size: 20px; font-weight: 600; }}
 QLabel#rk_muted {{ color: {p['muted']}; }}
+QLabel#rk_note {{ color: {p['muted']}; font-size: 11px; }}
 QLabel#rk_section {{ font-size: 11px; font-weight: 600; color: {p['muted']};
     letter-spacing: 0.5px; }}
 QLabel#rk_error {{ color: {p['bad']}; }}
 QLabel#rk_warn {{ color: {p['accent']}; }}
 QLabel#rk_summary {{ font-weight: 600; }}
-QFrame#rk_drop {{ border: 1px dashed {p['mid']}; border-radius: 8px; background: {p['bg2']}; }}
+QLabel#rk_drop_title {{ font-size: 16px; font-weight: 600; }}
+QFrame#rk_drop {{ border: 2px dashed {p['mid']}; border-radius: 12px; background: {p['bg2']}; }}
 QFrame#rk_drop[hot="true"] {{ border: 2px dashed {p['accent']}; background: {p['soft']}; }}
 QFrame#rk_drop QLabel {{ background: transparent; border: none; }}
 QFrame#rk_box {{ border: 1px solid {p['border']}; border-radius: 8px; background: {p['surface']}; }}
-QFrame#rk_box QLabel {{ background: transparent; border: none; }}
-QFrame#rk_rule {{ background: {p['border']}; border: none; max-height: 1px; min-height: 1px; }}
+QFrame#rk_box[hot="true"] {{ border: 2px dashed {p['accent']}; }}
+QFrame#rk_box QLabel, QFrame#rk_box QCheckBox, QWidget#rk_more {{ background: transparent; border: none; }}
+QPushButton#rk_primary {{ background: {p['accent']}; color: {p['on_accent']}; border: none;
+    border-radius: 6px; padding: 5px 14px; font-weight: 600; }}
 QPushButton#rk_chip {{ padding: 3px 10px; border: 1px solid {p['border']}; border-radius: 4px;
     background: transparent; color: {p['text']}; }}
 QPushButton#rk_chip:hover {{ border-color: {p['accent']}; }}
-QPushButton#rk_chip:checked {{ background: {p['soft']}; border-color: {p['accent']}; }}
 QPushButton#rk_link, QToolButton#rk_link {{ border: none; background: transparent;
     color: {p['muted']}; padding: 0 4px; }}
 QPushButton#rk_link:hover, QToolButton#rk_link:hover {{ color: {p['accent']}; }}
 QPushButton#rk_danger {{ color: {p['bad']}; }}
-QToolButton#rk_toggle {{ border: none; background: transparent; font-size: 14px; font-weight: 600;
-    color: {p['text']}; padding: 0; }}
+QToolButton#rk_toggle {{ border: none; background: transparent; font-weight: 600;
+    color: {p['muted']}; padding: 0; }}
+QToolButton#rk_toggle:hover {{ color: {p['accent']}; }}
 QToolButton#rk_cols {{ border: 1px solid {p['border']}; border-radius: 4px; padding: 3px 8px;
     background: {p['bg2']}; color: {p['text']}; text-align: left; }}
 QPlainTextEdit#rk_numbers {{ font-family: {_styles.MONO_FONT}; background: {p['bg2']};
-    border: 1px solid {p['border']}; border-radius: 4px; padding: 2px 4px; }}
+    border: 1px solid {p['border']}; border-radius: 4px; padding: 0 4px; }}
 QPlainTextEdit#rk_numbers:focus {{ border-color: {p['accent']}; }}
 QLineEdit {{ background: {p['bg2']}; border: 1px solid {p['border']}; border-radius: 4px;
     padding: 3px 6px; }}
@@ -166,6 +181,12 @@ QTableWidget#rk_result {{ background: {p['bg']}; alternate-background-color: {p[
     border: 1px solid {p['border']}; border-radius: 6px; gridline-color: transparent; }}
 QTableWidget#rk_result::item {{ padding: 2px 16px 2px 6px; }}
 QTableWidget#rk_result::item:selected {{ background: {p['soft']}; color: {p['text']}; }}
+QTableWidget#rk_result QScrollBar:horizontal {{ height: 10px; background: transparent; border: none;
+    margin: 2px; }}
+QTableWidget#rk_result QScrollBar::handle:horizontal {{ background: {p['mid']}; border-radius: 4px;
+    min-width: 30px; }}
+QTableWidget#rk_result QScrollBar::add-line:horizontal,
+QTableWidget#rk_result QScrollBar::sub-line:horizontal {{ width: 0; }}
 QTableWidget#rk_result QHeaderView::section {{ background: {p['surface']}; color: {p['muted']};
     border: none; border-bottom: 1px solid {p['border']}; padding: 4px 16px 4px 6px; font-weight: 600; }}
 """
@@ -207,10 +228,13 @@ def _button(text: str, name: str = "", cb: "Callable | None" = None) -> QPushBut
     return b
 
 
-def _rule() -> QFrame:
+def _box(name: str = "rk_box") -> "tuple[QFrame, QVBoxLayout]":
     f = QFrame()
-    f.setObjectName("rk_rule")
-    return f
+    f.setObjectName(name)
+    lay = QVBoxLayout(f)
+    lay.setContentsMargins(12, 8, 12, 8)
+    lay.setSpacing(6)
+    return f, lay
 
 
 class _Item(QTableWidgetItem):
@@ -227,6 +251,18 @@ class _Item(QTableWidgetItem):
         if isinstance(a, (int, float)) != isinstance(b, (int, float)):
             return isinstance(a, (int, float))           # numbers before text
         return str(a).lower() < str(b).lower()
+
+
+class _StayOpenMenu(QMenu):
+    """A menu that stays open after a click, so several columns can be
+    switched on and off in one visit."""
+
+    def mouseReleaseEvent(self, ev):  # noqa: N802
+        act = self.actionAt(ev.position().toPoint())
+        if act is not None and act.isEnabled() and not act.isSeparator():
+            act.trigger()
+            return
+        super().mouseReleaseEvent(ev)
 
 
 class _Bridge(QObject):
@@ -254,9 +290,10 @@ class RankerView(FeaturePanel):
         self._preset = self._data["preset"]
         self._result: "dict | None" = None
         self._display: "list[tuple[str, str]]" = []
+        self._col_actions: dict = {}
+        self._col_order: "list[str]" = []
         self._ocr_job = 0
         self._reading = False
-        self._name_mode = ""                     # "new" | "saveas" while the name bar is open
         self._bridge = _Bridge()
         self._bridge.done.connect(self._numbers_read)
         self._bridge.failed.connect(self._numbers_failed)
@@ -276,113 +313,209 @@ class RankerView(FeaturePanel):
 
     def _build(self) -> None:
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(20, 16, 20, 12)
-        outer.setSpacing(10)
+        outer.setContentsMargins(0, 0, 0, 0)
+        self._scroll = QScrollArea()
+        self._scroll.setObjectName("rk_scroll")
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        outer.addWidget(self._scroll)
+        body = QWidget()
+        body.setObjectName("rk_body")
+        self._scroll.setWidget(body)
+        lay = QVBoxLayout(body)
+        lay.setContentsMargins(20, 14, 20, 12)
+        lay.setSpacing(8)
 
         top = QHBoxLayout()
         top.addWidget(_label("Ranker", "rk_title", wrap=False))
         top.addStretch(1)
+        self._new_search_btn = _button("New search", "rk_primary", self.new_search)
+        self._new_search_btn.setToolTip("Start over with new pictures and a new table. Saved rankings stay.")
         self._paste_btn = _button("Paste", "", self.paste)
-        self._paste_btn.setToolTip("Paste a picture, a file or a copied table (⌘V / Ctrl+V)")
+        self._paste_btn.setToolTip("Paste a picture, a file or a copied table (Cmd+V)")
         self._choose_btn = _button("Choose files…", "", self._choose_files)
-        top.addWidget(self._paste_btn)
-        top.addWidget(self._choose_btn)
-        outer.addLayout(top)
+        for b in (self._paste_btn, self._choose_btn, self._new_search_btn):
+            top.addWidget(b)
+        lay.addLayout(top)
 
-        # INPUT — the drop zone
-        self._drop = QFrame()
-        self._drop.setObjectName("rk_drop")
-        self._drop.setProperty("hot", False)
-        dv = QVBoxLayout(self._drop)
-        dv.setContentsMargins(14, 10, 14, 10)
-        dv.setSpacing(3)
-        self._drop_hint = _label(
-            "Drop a table (.html .csv .tsv .json) and/or screenshots anywhere here — "
-            "or Choose files…, or paste.", "rk_muted")
-        dv.addWidget(self._drop_hint)
-        self._table_lbl = _label("No table yet.", "rk_summary")
-        self._table_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        dv.addWidget(self._table_lbl)
         self._status = _label("", "rk_muted")
         self._status.hide()
-        dv.addWidget(self._status)
+        lay.addWidget(self._status)
+
+        self._build_empty(lay)
+        self._build_work(lay)
+
+    def _build_empty(self, lay: QVBoxLayout) -> None:
+        self._empty = QFrame()
+        self._empty.setObjectName("rk_drop")
+        self._empty.setProperty("hot", False)
+        self._empty.setMinimumHeight(320)
+        ev = QVBoxLayout(self._empty)
+        ev.setContentsMargins(24, 24, 24, 24)
+        ev.setSpacing(12)
+        ev.addStretch(1)
+        self._drop_hint = _label(_DROP_TEXT, "rk_drop_title")
+        self._drop_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ev.addWidget(self._drop_hint)
+        self._empty_numbers = _label("", "rk_warn")
+        self._empty_numbers.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty_numbers.hide()
+        ev.addWidget(self._empty_numbers)
+        row = QHBoxLayout()
+        row.addStretch(1)
+        self._empty_choose_btn = _button("Choose files…", "rk_primary", self._choose_files)
+        self._empty_paste_btn = _button("Paste", "", self.paste)
+        row.addWidget(self._empty_choose_btn)
+        row.addWidget(self._empty_paste_btn)
+        row.addStretch(1)
+        ev.addLayout(row)
         eng = ocr.engine()
         self._engine_lbl = _label(
-            "Reading numbers from pictures needs a Mac (Apple Vision) or Tesseract installed — "
-            "you can type the numbers below instead." if eng == "none"
-            else f"Pictures are read on this machine ({'Apple Vision' if eng == 'vision' else 'Tesseract'}).",
-            "rk_warn" if eng == "none" else "rk_muted")
-        dv.addWidget(self._engine_lbl)
-        outer.addWidget(self._drop)
+            "Reading numbers from pictures needs a Mac (Apple Vision) or Tesseract — "
+            "you can type the numbers after dropping the table." if eng == "none"
+            else "Pictures are read on this Mac; nothing leaves it.",
+            "rk_warn" if eng == "none" else "rk_note")
+        self._engine_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ev.addWidget(self._engine_lbl)
+        ev.addStretch(1)
+        lay.addWidget(self._empty, 1)
 
-        # NUMBERS
-        nums = QFrame()
-        nums.setObjectName("rk_box")
-        nv = QVBoxLayout(nums)
-        nv.setContentsMargins(14, 10, 14, 10)
-        nv.setSpacing(6)
+    def _build_work(self, lay: QVBoxLayout) -> None:
+        self._work = QWidget()
+        wl = QVBoxLayout(self._work)
+        wl.setContentsMargins(0, 0, 0, 0)
+        wl.setSpacing(8)
+
+        # controls: one box, compact
+        self._controls, cv = _box()
+        self._controls.setProperty("hot", False)
+        src = QHBoxLayout()
+        self._table_lbl = _label("", "rk_summary", wrap=False)
+        self._table_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        src.addWidget(self._table_lbl)
+        src.addWidget(_label("· drop new pictures or a table anywhere to replace", "rk_note", wrap=False))
+        src.addStretch(1)
+        cv.addLayout(src)
+
         nrow = QHBoxLayout()
+        nrow.setSpacing(8)
         self._use_box = QCheckBox("Filter by these numbers")
         self._use_box.setObjectName("rk_switch")
         self._use_box.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._use_box.toggled.connect(self._use_toggled)
         nrow.addWidget(self._use_box)
-        self._count_lbl = _label("", "rk_muted", wrap=False)
-        nrow.addWidget(self._count_lbl)
-        nrow.addStretch(1)
-        self._clear_nums_btn = _button("Clear list", "rk_link", self._clear_numbers)
-        nrow.addWidget(self._clear_nums_btn)
-        nv.addLayout(nrow)
         self._numbers_edit = QPlainTextEdit()
         self._numbers_edit.setObjectName("rk_numbers")
         self._numbers_edit.setTabChangesFocus(True)
-        self._numbers_edit.setFixedHeight(52)
-        self._numbers_edit.setPlaceholderText(
-            "Numbers from a picture, or typed: 1172, 153, 209 … — empty ranks every row")
+        self._numbers_edit.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._one_line = self._numbers_edit.fontMetrics().lineSpacing() + 12
+        self._numbers_edit.setFixedHeight(self._one_line)
+        self._numbers_edit.setPlaceholderText("numbers from the pictures, or typed: 1172, 153, 209 — empty ranks every row")
         self._numbers_edit.textChanged.connect(self._numbers_typed)
-        nv.addWidget(self._numbers_edit)
+        nrow.addWidget(self._numbers_edit, 1)
+        self._count_lbl = _label("", "rk_muted", wrap=False)
+        nrow.addWidget(self._count_lbl)
+        self._expand_nums_btn = _button("expand", "rk_link", self._toggle_numbers_height)
+        nrow.addWidget(self._expand_nums_btn)
+        self._clear_nums_btn = _button("clear", "rk_link", self._clear_numbers)
+        nrow.addWidget(self._clear_nums_btn)
+        cv.addLayout(nrow)
+
+        self._rankby_layout = QVBoxLayout()
+        self._rankby_layout.setSpacing(4)
+        cv.addLayout(self._rankby_layout)
+
+        self._more_toggle = QToolButton()
+        self._more_toggle.setObjectName("rk_toggle")
+        self._more_toggle.setCheckable(True)
+        self._more_toggle.setText("▸  More options")
+        self._more_toggle.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._more_toggle.toggled.connect(self._toggle_more)
+        cv.addWidget(self._more_toggle, 0, Qt.AlignmentFlag.AlignLeft)
+        self._more = QWidget()
+        self._more.setObjectName("rk_more")
+        mv = QVBoxLayout(self._more)
+        mv.setContentsMargins(14, 0, 0, 4)
+        mv.setSpacing(4)
+        self._more_layout = QVBoxLayout()
+        self._more_layout.setSpacing(4)
+        mv.addLayout(self._more_layout)
+        self._build_saved(mv)
+        self._more.hide()
+        cv.addWidget(self._more)
+        self._recipe_msg = _label("", "rk_error")
+        self._recipe_msg.hide()
+        cv.addWidget(self._recipe_msg)
+        wl.addWidget(self._controls)
+
+        # result
+        rrow = QHBoxLayout()
+        self._summary = _label("", "rk_summary")
+        self._summary.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self._summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        rrow.addWidget(self._summary, 1)
+        self._missing_btn = _button("show", "rk_link", self._toggle_missing)
+        self._missing_btn.hide()
+        rrow.addWidget(self._missing_btn)
+        self._cols_btn = _button("Columns", "rk_chip", self._open_columns)
+        self._cols_btn.setToolTip("Choose which columns the result shows")
+        self._cols_menu = _StayOpenMenu(self)
+        rrow.addWidget(self._cols_btn)
+        self._copy_btn = _button("Copy", "", self._copy)
+        self._export_btn = _button("Export CSV…", "", self._export)
+        rrow.addWidget(self._copy_btn)
+        rrow.addWidget(self._export_btn)
+        wl.addLayout(rrow)
         self._missing_lbl = _label("", "rk_warn")
         self._missing_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self._missing_lbl.hide()
-        nv.addWidget(self._missing_lbl)
-        outer.addWidget(nums)
+        wl.addWidget(self._missing_lbl)
+        self._notes_lbl = _label("", "rk_note")
+        self._notes_lbl.hide()
+        wl.addWidget(self._notes_lbl)
 
-        # RANKING — the recipe
-        rbox = QFrame()
-        rbox.setObjectName("rk_box")
-        rv = QVBoxLayout(rbox)
-        rv.setContentsMargins(14, 8, 14, 8)
-        rv.setSpacing(6)
+        self._grid = QTableWidget()
+        self._grid.setObjectName("rk_result")
+        self._grid.setAlternatingRowColors(True)
+        self._grid.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self._grid.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self._grid.verticalHeader().hide()
+        self._grid.setShowGrid(False)
+        self._grid.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self._grid.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self._grid.horizontalHeader().setHighlightSections(False)
+        self._grid.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        self._grid.horizontalHeader().setStretchLastSection(False)
+        self._grid.setSortingEnabled(True)
+        self._grid.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._grid.setMinimumHeight(self.min_table_height())
+        wl.addWidget(self._grid, 1)
+        lay.addWidget(self._work, 1)
+
+    def _build_saved(self, mv: QVBoxLayout) -> None:
+        """Saved rankings: load, save, save as, delete — out of the way."""
+        mv.addWidget(_label("SAVED RANKINGS", "rk_section", wrap=False))
         head = QHBoxLayout()
-        self._recipe_toggle = QToolButton()
-        self._recipe_toggle.setObjectName("rk_toggle")
-        self._recipe_toggle.setCheckable(True)
-        self._recipe_toggle.setText("▸  Ranking")
-        self._recipe_toggle.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self._recipe_toggle.toggled.connect(self._toggle_recipe)
-        head.addWidget(self._recipe_toggle)
         self._preset_combo = QComboBox()
-        self._preset_combo.setMinimumWidth(260)
+        self._preset_combo.setMinimumWidth(220)
         self._preset_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self._preset_combo.currentIndexChanged.connect(lambda _i: self._preset_chosen())
         head.addWidget(self._preset_combo)
         self._dirty_lbl = _label("", "rk_warn", wrap=False)
         head.addWidget(self._dirty_lbl)
-        head.addStretch(1)
-        self._new_btn = _button("New", "", lambda: self._open_name_bar("new"))
         self._save_btn = _button("Save", "", self._save_preset)
-        self._saveas_btn = _button("Save as…", "", lambda: self._open_name_bar("saveas"))
+        self._saveas_btn = _button("Save as…", "", self._open_name_bar)
         self._delete_btn = _button("Delete", "", self._ask_delete)
-        for b in (self._new_btn, self._save_btn, self._saveas_btn, self._delete_btn):
+        for b in (self._save_btn, self._saveas_btn, self._delete_btn):
             head.addWidget(b)
-        rv.addLayout(head)
+        head.addStretch(1)
+        mv.addLayout(head)
 
-        # name bar (New / Save as) and delete confirmation, in the panel
         self._name_bar = QWidget()
         nb = QHBoxLayout(self._name_bar)
         nb.setContentsMargins(0, 0, 0, 0)
-        self._name_caption = _label("Name:", "rk_muted", wrap=False)
-        nb.addWidget(self._name_caption)
+        nb.addWidget(_label("Save as:", "rk_muted", wrap=False))
         self._name_edit = QLineEdit()
         self._name_edit.returnPressed.connect(self._name_ok)
         nb.addWidget(self._name_edit, 1)
@@ -391,7 +524,7 @@ class RankerView(FeaturePanel):
         nb.addWidget(self._name_ok_btn)
         nb.addWidget(self._name_cancel_btn)
         self._name_bar.hide()
-        rv.addWidget(self._name_bar)
+        mv.addWidget(self._name_bar)
 
         self._confirm_bar = QWidget()
         cb = QHBoxLayout(self._confirm_bar)
@@ -403,53 +536,18 @@ class RankerView(FeaturePanel):
         cb.addWidget(self._confirm_btn)
         cb.addWidget(self._confirm_cancel_btn)
         self._confirm_bar.hide()
-        rv.addWidget(self._confirm_bar)
-        self._recipe_msg = _label("", "rk_error")
-        self._recipe_msg.hide()
-        rv.addWidget(self._recipe_msg)
+        mv.addWidget(self._confirm_bar)
 
-        self._recipe_scroll = QScrollArea()
-        self._recipe_scroll.setWidgetResizable(True)
-        self._recipe_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._recipe_scroll.setMaximumHeight(340)
-        self._recipe_body = QWidget()
-        self._recipe_layout = QVBoxLayout(self._recipe_body)
-        self._recipe_layout.setContentsMargins(0, 4, 6, 4)
-        self._recipe_layout.setSpacing(4)
-        self._recipe_scroll.setWidget(self._recipe_body)
-        self._recipe_scroll.hide()
-        rv.addWidget(self._recipe_scroll)
-        outer.addWidget(rbox)
-
-        # RESULT
-        rrow = QHBoxLayout()
-        self._summary = _label("", "rk_summary")
-        self._summary.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-        rrow.addWidget(self._summary, 1)
-        self._copy_btn = _button("Copy", "", self._copy)
-        self._export_btn = _button("Export CSV…", "", self._export)
-        rrow.addWidget(self._copy_btn)
-        rrow.addWidget(self._export_btn)
-        outer.addLayout(rrow)
-
-        self._grid = QTableWidget()
-        self._grid.setObjectName("rk_result")
-        self._grid.setAlternatingRowColors(True)
-        self._grid.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self._grid.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self._grid.verticalHeader().hide()
-        self._grid.setShowGrid(False)
-        self._grid.horizontalHeader().setHighlightSections(False)
-        self._grid.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        self._grid.horizontalHeader().setStretchLastSection(False)
-        self._grid.setSortingEnabled(True)
-        outer.addWidget(self._grid, 1)
+    def min_table_height(self) -> int:
+        """Room for the header and MIN_ROWS rows."""
+        row = self._grid.verticalHeader().defaultSectionSize() if hasattr(self, "_grid") else 30
+        return self.fontMetrics().height() + 16 + MIN_ROWS * row + 4
 
     # ------------------------------------------------------------ contract
 
     def reload(self) -> None:
-        """Re-read presets, the number list and the remembered table; re-rank.
-        An unsaved edit to the open recipe survives a reload of the same preset."""
+        """Re-read saved rankings, the number list and the remembered table; re-rank.
+        An unsaved edit to the open ranking survives a reload of the same one."""
         self._data = store.load()
         name = self._data["preset"]
         if name not in self._data["presets"]:
@@ -488,6 +586,29 @@ class RankerView(FeaturePanel):
         super().showEvent(ev)
         QTimer.singleShot(0, self.reload)
 
+    # ------------------------------------------------------------ new search
+
+    def new_search(self) -> None:
+        """Forget the table and the numbers; keep the saved rankings. The open
+        ranking goes back to its saved form."""
+        self._ocr_job += 1                       # a picture still being read is dropped
+        self._reading = False
+        self._data = store.new_search()
+        self._table, self._filename = None, ""
+        self._numbers, self._use_numbers = [], True
+        if self._preset in self._data["presets"]:
+            self._recipe = copy.deepcopy(self._data["presets"][self._preset])
+        self._show_numbers()
+        self._use_box.blockSignals(True)
+        self._use_box.setChecked(True)
+        self._use_box.blockSignals(False)
+        self._say("")
+        self._close_bars()
+        self._fill_presets()
+        self._show_table_status()
+        self._rebuild_editor()
+        self._rank()
+
     # ------------------------------------------------------------ input
 
     def dragEnterEvent(self, ev):  # noqa: N802
@@ -511,8 +632,9 @@ class RankerView(FeaturePanel):
             ev.acceptProposedAction()
 
     def _set_hot(self, on: bool) -> None:
-        self._drop.setProperty("hot", on)
-        _repolish(self._drop)
+        for w in (self._empty, self._controls):
+            w.setProperty("hot", on)
+            _repolish(w)
 
     def take_mime(self, md) -> bool:
         """What a drop and a paste both do with what arrived: files by their
@@ -557,8 +679,7 @@ class RankerView(FeaturePanel):
     def take_files(self, paths: "list[str]") -> None:
         tables, pictures = [], []
         for p in paths:
-            low = p.lower()
-            (pictures if low.endswith(IMAGE_EXT) else tables).append(p)
+            (pictures if p.lower().endswith(IMAGE_EXT) else tables).append(p)
         for p in tables:                           # one table at a time: the last one wins
             try:
                 with open(p, "rb") as f:
@@ -582,7 +703,7 @@ class RankerView(FeaturePanel):
         self.take_mime(QGuiApplication.clipboard().mimeData())
 
     def _choose_files(self) -> None:
-        paths, _f = QFileDialog.getOpenFileNames(self, "Choose a table and/or pictures", "", FILE_FILTER)
+        paths, _f = QFileDialog.getOpenFileNames(self, "Choose a table and pictures", "", FILE_FILTER)
         if paths:
             self.take_files(list(paths))
 
@@ -600,11 +721,15 @@ class RankerView(FeaturePanel):
         self._rank()
 
     def _show_table_status(self) -> None:
-        if self._table is None:
-            self._table_lbl.setText("No table yet.")
-        else:
+        has = self._table is not None
+        self._empty.setVisible(not has)
+        self._work.setVisible(has)
+        if has:
             self._table_lbl.setText(f"{self._filename} · {len(self._table.rows)} rows · "
                                     f"{len(self._table.columns)} columns")
+        n = len(self._numbers)
+        self._empty_numbers.setText(f"{n} number{'s' if n != 1 else ''} ready — now drop the table.")
+        self._empty_numbers.setVisible(not has and n > 0)
 
     def _say(self, text: str, *, error: bool = False) -> None:
         self._status.setObjectName("rk_error" if error else "rk_muted")
@@ -636,10 +761,10 @@ class RankerView(FeaturePanel):
             return                                 # a newer picture superseded this one
         self._reading = False
         if not found:
-            self._say("No numbers found in that picture — type them below.", error=True)
+            self._say("No numbers found in the pictures — type them in the number line.", error=True)
             return
-        self._say(f"Found {len(found)} numbers in the picture.")
-        self._set_numbers([int(n) for n in found], use=True)
+        self._say(f"Found {len(found)} numbers in the pictures.")
+        self._set_numbers([int(n) for n in found], use=True)     # REPLACES the list
 
     def _numbers_failed(self, job: int, msg: str) -> None:
         if job != self._ocr_job:
@@ -659,7 +784,8 @@ class RankerView(FeaturePanel):
             self._use_box.blockSignals(True)
             self._use_box.setChecked(use)
             self._use_box.blockSignals(False)
-        store.update(**fields)
+        self._data = store.update(**fields)
+        self._show_table_status()
         self._rank()
 
     def _show_numbers(self) -> None:
@@ -674,15 +800,22 @@ class RankerView(FeaturePanel):
     def _clear_numbers(self) -> None:
         self._set_numbers([])
 
+    def _toggle_numbers_height(self) -> None:
+        tall = self._numbers_edit.height() > self._one_line
+        self._numbers_edit.setFixedHeight(self._one_line if tall else self._one_line * 4)
+        self._numbers_edit.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff if tall else Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._expand_nums_btn.setText("expand" if tall else "fold")
+
     def _use_toggled(self, on: bool) -> None:
         self._use_numbers = on
-        store.update(use_numbers=on)
+        self._data = store.update(use_numbers=on)
         self._rank()
 
     def _active_numbers(self) -> "list[int]":
         return list(self._numbers) if self._use_numbers else []
 
-    # ------------------------------------------------------------ presets
+    # ------------------------------------------------------------ saved rankings
 
     def _fill_presets(self) -> None:
         self._preset_combo.blockSignals(True)
@@ -700,7 +833,7 @@ class RankerView(FeaturePanel):
         return saved is not None and _norm(saved) != _norm(self._recipe)
 
     def _update_dirty(self) -> None:
-        self._dirty_lbl.setText("• edited" if self._dirty() else "")
+        self._dirty_lbl.setText("edited" if self._dirty() else "")
 
     def _preset_chosen(self) -> None:
         name = self._preset_combo.currentData()
@@ -711,7 +844,6 @@ class RankerView(FeaturePanel):
         self._data = store.update(preset=name)
         self._close_bars()
         self._rebuild_editor()
-        self._update_dirty()
         self._rank()
 
     def _recipe_error(self, text: str) -> None:
@@ -720,9 +852,6 @@ class RankerView(FeaturePanel):
 
     def _save_preset(self, name: "str | None" = None) -> None:
         name = name or self._preset
-        if not self._recipe.get("criteria"):
-            self._recipe_error("A recipe needs at least one thing to rank by — add a criterion first.")
-            return
         recipe = copy.deepcopy(self._recipe)
         recipe["name"] = name
         presets = dict(self._data["presets"])
@@ -733,11 +862,9 @@ class RankerView(FeaturePanel):
         self._close_bars()
         self._fill_presets()
 
-    def _open_name_bar(self, mode: str) -> None:
+    def _open_name_bar(self) -> None:
         self._confirm_bar.hide()
-        self._name_mode = mode
-        self._name_caption.setText("New recipe:" if mode == "new" else "Save as:")
-        self._name_edit.setText("" if mode == "new" else f"{self._preset} (copy)")
+        self._name_edit.setText(f"{self._preset} (copy)")
         self._name_bar.show()
         self._name_edit.setFocus()
         self._name_edit.selectAll()
@@ -745,40 +872,16 @@ class RankerView(FeaturePanel):
     def _name_ok(self) -> None:
         name = self._name_edit.text().strip()
         if not name:
-            self._recipe_error("Give the recipe a name.")
+            self._recipe_error("Give the ranking a name.")
             return
-        if self._name_mode == "new":
-            if name in self._data["presets"]:
-                self._recipe_error(f"There is already a recipe called {name!r}.")
-                return
-            self._recipe = self._blank_recipe(name)
-            self._preset = name
-            presets = dict(self._data["presets"])
-            presets[name] = copy.deepcopy(self._recipe)
-            self._data = store.update(presets=presets, preset=name)
-            self._recipe_error("")
-            self._close_bars()
-            self._fill_presets()
-            self._recipe_toggle.setChecked(True)
-            self._rebuild_editor()
-            self._rank()
-        else:
-            self._save_preset(name)
-
-    def _blank_recipe(self, name: str) -> dict:
-        cols = self._table.names if self._table else []
-        key = cols[0] if cols else ""
-        numeric = [c for c in cols[1:] if self._table and
-                   any(table.number(r.get(c)) is not None for r in self._table.rows[:20])]
-        crit = [{"column": numeric[0], "better": "higher", "weight": 1}] if numeric else []
-        return {"name": name, "key": key, "derived": [], "filters": [], "criteria": crit, "show": []}
+        self._save_preset(name)
 
     def _ask_delete(self) -> None:
         if len(self._data["presets"]) <= 1:
-            self._recipe_error("Keep at least one recipe — edit this one instead.")
+            self._recipe_error("Keep at least one saved ranking — edit this one instead.")
             return
         self._name_bar.hide()
-        self._confirm_lbl.setText(f"Delete the recipe {self._preset!r}? This cannot be undone.")
+        self._confirm_lbl.setText(f"Delete the saved ranking {self._preset!r}? This cannot be undone.")
         self._confirm_bar.show()
 
     def _delete_preset(self) -> None:
@@ -798,13 +901,12 @@ class RankerView(FeaturePanel):
     def _close_bars(self) -> None:
         self._name_bar.hide()
         self._confirm_bar.hide()
-        self._name_mode = ""
 
     # ------------------------------------------------------------ recipe editor
 
-    def _toggle_recipe(self, on: bool) -> None:
-        self._recipe_toggle.setText(("▾" if on else "▸") + "  Ranking")
-        self._recipe_scroll.setVisible(on)
+    def _toggle_more(self, on: bool) -> None:
+        self._more_toggle.setText(("▾" if on else "▸") + "  More options")
+        self._more.setVisible(on)
 
     def _columns(self) -> "list[tuple[str, str]]":
         """(name, label) choices: the table's columns, then the combined ones."""
@@ -822,20 +924,23 @@ class RankerView(FeaturePanel):
     def _column_combo(self, selected: str, cols: "list[tuple[str, str]]", on_change) -> QComboBox:
         box = QComboBox()
         box.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        box.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         for n, l in cols:
-            box.addItem(l if l == n else f"{l}  ({n})", n)
+            box.addItem(l, n)
+            if l != n:
+                box.setItemData(box.count() - 1, n, Qt.ItemDataRole.ToolTipRole)
         if selected and box.findData(selected) < 0:
-            box.addItem(f"{selected}  (not in this table)", selected)
-        i = box.findData(selected)
-        box.setCurrentIndex(max(i, 0))
+            box.addItem(f"{selected} (not in this table)", selected)
+        box.setCurrentIndex(max(box.findData(selected), 0))
         box.currentIndexChanged.connect(lambda _i: on_change(box.currentData()))
         return box
 
     def _columns_menu_button(self, chosen: "list[str]", cols, on_change, empty_text: str) -> QToolButton:
+        """For a combined column's parts: a checklist of the table's columns."""
         btn = QToolButton()
         btn.setObjectName("rk_cols")
         btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        menu = QMenu(btn)
+        menu = _StayOpenMenu(btn)
         state = list(chosen)
         labels = dict(cols)
 
@@ -854,7 +959,7 @@ class RankerView(FeaturePanel):
             on_change(list(state))
 
         for n, l in cols:
-            act = menu.addAction(l if l == n else f"{l}  ({n})")
+            act = menu.addAction(l)
             act.setCheckable(True)
             act.setChecked(n in state)
             act.toggled.connect(lambda on, n=n: flip(n, on))
@@ -868,55 +973,86 @@ class RankerView(FeaturePanel):
         return b
 
     def _rebuild_editor(self) -> None:
-        lay = self._recipe_layout
+        self._rebuild_rank_by()
+        self._rebuild_more()
+        self._update_dirty()
+
+    def _rebuild_rank_by(self) -> None:
+        lay = self._rankby_layout
+        _clear(lay)
+        cols = self._columns()
+        self._criterion_rows = []
+        crit = self._recipe.get("criteria", [])
+        for i, c in enumerate(crit):
+            row = QHBoxLayout()
+            row.setSpacing(6)
+            cap = _label("Rank by" if i == 0 else "then", "rk_muted", wrap=False)
+            cap.setFixedWidth(56)
+            row.addWidget(cap)
+            combo = self._column_combo(c["column"], cols, lambda v, i=i: self._edit_list("criteria", i, "column", v))
+            combo.setMinimumWidth(180)
+            row.addWidget(combo)
+            dirb = _button(_DIRECTION.get(c.get("better"), _DIRECTION["higher"]), "rk_chip")
+            dirb.setToolTip("Which is better — click to flip")
+            dirb.clicked.connect(lambda _=False, i=i: self._flip_direction(i))
+            dirb.setMinimumWidth(90)
+            row.addWidget(dirb)
+            rm = self._remove_btn(lambda i=i: self._remove("criteria", i))
+            row.addWidget(rm)
+            row.addStretch(1)
+            lay.addLayout(row)
+            self._criterion_rows.append({"column": combo, "direction": dirb, "remove": rm})
+        row = QHBoxLayout()
+        row.setSpacing(6)
+        if not crit:
+            cap = _label("Rank by", "rk_muted", wrap=False)
+            cap.setFixedWidth(56)
+            row.addWidget(cap)
+        else:
+            row.addSpacing(62)
+        self._add_criterion_btn = _button("+ Add", "rk_link", self._add_criterion)
+        self._add_criterion_btn.setToolTip("Rank by another column")
+        row.addWidget(self._add_criterion_btn)
+        if not crit:
+            row.addWidget(_label("nothing yet — the table's own order", "rk_note", wrap=False))
+        row.addStretch(1)
+        lay.addLayout(row)
+
+    def _rebuild_more(self) -> None:
+        lay = self._more_layout
         _clear(lay)
         r = self._recipe
         cols = self._columns()
         table_cols = list(self._table.columns) if self._table else []
+        labels = dict(cols)
 
-        # key
+        # weights
+        lay.addWidget(_label("WEIGHTS", "rk_section", wrap=False))
+        self._weight_spins = []
         row = QHBoxLayout()
-        row.addWidget(_label("Numbers match the column", "rk_muted", wrap=False))
-        self._key_combo = self._column_combo(r.get("key") or (table_cols[0][0] if table_cols else ""),
-                                             table_cols, lambda v: self._edit("key", v))
-        row.addWidget(self._key_combo)
-        row.addStretch(1)
-        lay.addLayout(row)
-
-        # criteria
-        lay.addWidget(_label("RANK BY", "rk_section", wrap=False))
-        self._criterion_rows = []
+        row.setSpacing(6)
+        if not r.get("criteria"):
+            row.addWidget(_label("Add a Rank-by column first.", "rk_note", wrap=False))
         for i, c in enumerate(r.get("criteria", [])):
-            row = QHBoxLayout()
-            combo = self._column_combo(c["column"], cols, lambda v, i=i: self._edit_list("criteria", i, "column", v))
-            combo.setMinimumWidth(240)
-            row.addWidget(combo)
-            dirb = _button(_DIRECTION.get(c.get("better"), _DIRECTION["higher"]), "rk_chip")
-            dirb.setToolTip("Click to flip")
-            dirb.clicked.connect(lambda _=False, i=i: self._flip_direction(i))
-            dirb.setMinimumWidth(150)
-            row.addWidget(dirb)
-            row.addWidget(_label("weight", "rk_muted", wrap=False))
+            row.addWidget(_label(labels.get(c["column"], c["column"]), "rk_muted", wrap=False))
             spin = QSpinBox()
             spin.setRange(0, 10)
             spin.setValue(int(round(float(c.get("weight", 1)))))
             spin.valueChanged.connect(lambda v, i=i: self._edit_list("criteria", i, "weight", v))
             row.addWidget(spin)
-            rm = self._remove_btn(lambda i=i: self._remove("criteria", i))
-            row.addWidget(rm)
-            row.addStretch(1)
-            lay.addLayout(row)
-            self._criterion_rows.append({"column": combo, "direction": dirb, "weight": spin, "remove": rm})
-        self._add_criterion_btn = _button("+ Add criterion", "rk_link", self._add_criterion)
-        lay.addWidget(self._add_criterion_btn, 0, Qt.AlignmentFlag.AlignLeft)
+            row.addSpacing(10)
+            self._weight_spins.append(spin)
+        row.addStretch(1)
+        lay.addLayout(row)
 
         # conditions
         lay.addWidget(_label("ONLY ROWS WHERE", "rk_section", wrap=False))
+        self._filter_rows = []
         for i, f in enumerate(r.get("filters", [])):
             row = QHBoxLayout()
             fcombo = self._column_combo(f["column"], cols,
                                         lambda v, i=i: self._edit_list("filters", i, "column", v))
-            fcombo.setMinimumWidth(240)
+            fcombo.setMinimumWidth(180)
             row.addWidget(fcombo)
             op = QComboBox()
             op.addItems(list(ranking.OPS))
@@ -924,13 +1060,15 @@ class RankerView(FeaturePanel):
             op.currentTextChanged.connect(lambda v, i=i: self._edit_list("filters", i, "op", v))
             row.addWidget(op)
             val = QLineEdit(str(f.get("value", "")))
-            val.setFixedWidth(120)
+            val.setFixedWidth(110)
             val.textEdited.connect(lambda v, i=i: self._edit_list("filters", i, "value", v))
             row.addWidget(val)
             row.addWidget(self._remove_btn(lambda i=i: self._remove("filters", i)))
             row.addStretch(1)
             lay.addLayout(row)
-        lay.addWidget(_button("+ Add condition", "rk_link", self._add_filter), 0, Qt.AlignmentFlag.AlignLeft)
+            self._filter_rows.append({"column": fcombo, "op": op, "value": val})
+        self._add_filter_btn = _button("+ Add condition", "rk_link", self._add_filter)
+        lay.addWidget(self._add_filter_btn, 0, Qt.AlignmentFlag.AlignLeft)
 
         # combined columns
         lay.addWidget(_label("COMBINED COLUMNS (a sum of others)", "rk_section", wrap=False))
@@ -938,7 +1076,7 @@ class RankerView(FeaturePanel):
             row = QHBoxLayout()
             name = QLineEdit(d.get("name", ""))
             name.setPlaceholderText("name")
-            name.setFixedWidth(130)
+            name.setFixedWidth(120)
             name.editingFinished.connect(lambda i=i, w=name: self._rename_derived(i, w.text().strip()))
             row.addWidget(name)
             lab = QLineEdit(d.get("label", ""))
@@ -953,18 +1091,8 @@ class RankerView(FeaturePanel):
             row.addWidget(self._remove_btn(lambda i=i: self._remove("derived", i)))
             row.addStretch(1)
             lay.addLayout(row)
-        lay.addWidget(_button("+ Add combined column", "rk_link", self._add_derived), 0, Qt.AlignmentFlag.AlignLeft)
-
-        # shown columns
-        row = QHBoxLayout()
-        row.addWidget(_label("Show", "rk_muted", wrap=False))
-        row.addWidget(self._columns_menu_button(
-            r.get("show", []), cols, lambda v: self._edit("show", v),
-            "the key and the criteria"))
-        row.addStretch(1)
-        lay.addLayout(row)
-        lay.addStretch(1)
-        self._update_dirty()
+        self._add_derived_btn = _button("+ Add combined column", "rk_link", self._add_derived)
+        lay.addWidget(self._add_derived_btn, 0, Qt.AlignmentFlag.AlignLeft)
 
     def _edit(self, field: str, value) -> None:
         self._recipe[field] = value
@@ -974,6 +1102,8 @@ class RankerView(FeaturePanel):
         items = self._recipe.setdefault(field, [])
         if 0 <= i < len(items):
             items[i][key] = value
+            if field == "criteria" and key == "column":
+                QTimer.singleShot(0, self._rebuild_more)     # the weight's caption
             self._changed()
 
     def _flip_direction(self, i: int) -> None:
@@ -1013,22 +1143,25 @@ class RankerView(FeaturePanel):
         QTimer.singleShot(0, self._rebuild_editor)
         self._changed()
 
-    def _first_numeric(self) -> str:
-        cols = self._columns()
-        key = self._recipe.get("key")
-        for n, _l in cols:
-            if n != key:
+    def _next_column(self) -> str:
+        """A column not yet ranked by, numeric if there is one."""
+        used = {c["column"] for c in self._recipe.get("criteria", [])}
+        key = (self._result or {}).get("key") or self._recipe.get("key")
+        cols = [n for n, _l in self._columns() if n not in used and n != key]
+        rows = self._table.rows[:20] if self._table else []
+        for n in cols:
+            if any(table.number(r.get(n)) is not None for r in rows):
                 return n
-        return cols[0][0] if cols else ""
+        return cols[0] if cols else (self._columns()[0][0] if self._columns() else "")
 
     def _add_criterion(self) -> None:
         self._recipe.setdefault("criteria", []).append(
-            {"column": self._first_numeric(), "better": "higher", "weight": 1})
+            {"column": self._next_column(), "better": "higher", "weight": 1})
         self._rebuild_editor()
         self._changed()
 
     def _add_filter(self) -> None:
-        self._recipe.setdefault("filters", []).append({"column": self._first_numeric(), "op": "<=", "value": "1"})
+        self._recipe.setdefault("filters", []).append({"column": self._next_column(), "op": "<=", "value": "1"})
         self._rebuild_editor()
         self._changed()
 
@@ -1048,10 +1181,81 @@ class RankerView(FeaturePanel):
 
     def _commit_and_rank(self) -> None:
         """The debounce's end: keep the typed number list, then rank."""
-        stored = self._data.get("numbers") or []
-        if self._numbers != stored:
+        if self._numbers != (self._data.get("numbers") or []):
             self._data = store.update(numbers=self._numbers)
         self._rank()
+
+    # ------------------------------------------------------------ which columns show
+
+    def _all_columns(self) -> "list[str]":
+        """Every column the result can show, in the order it shows them."""
+        if self._table is None:
+            return []
+        key = (self._result or {}).get("key") or self._recipe.get("key") or self._table.names[0]
+        r = self._recipe_for_rank()
+        return list(dict.fromkeys([key] + [c["column"] for c in r.get("criteria", [])]
+                                  + [d["name"] for d in r.get("derived", [])] + self._table.names))
+
+    def _shown(self) -> "set[str]":
+        show = [s for s in self._recipe.get("show", []) if s in self._col_order]
+        return set(show) if show else set(self._col_order)
+
+    def _set_show(self, names: "set[str]") -> None:
+        if not names:
+            return
+        ordered = [n for n in self._col_order if n in names]
+        self._recipe["show"] = [] if len(ordered) == len(self._col_order) else ordered
+        self._update_dirty()
+        self._rank()
+
+    def _toggle_column(self, name: str, on: bool) -> None:
+        shown = self._shown()
+        (shown.add if on else shown.discard)(name)
+        if not shown:                              # never none at all
+            self._sync_column_checks()
+            return
+        self._set_show(shown)
+
+    def _show_all(self) -> None:
+        self._set_show(set(self._col_order))
+
+    def _show_key_only(self) -> None:
+        if self._col_order:
+            self._set_show({self._col_order[0]})
+
+    def _refresh_columns_menu(self) -> None:
+        order = self._all_columns()
+        if order != self._col_order and not self._cols_menu.isVisible():
+            self._col_order = order
+            m = self._cols_menu
+            m.clear()
+            self._show_all_act = m.addAction("Show all")
+            self._show_all_act.triggered.connect(lambda _=False: self._show_all())
+            self._key_only_act = m.addAction("Show none except the key")
+            self._key_only_act.triggered.connect(lambda _=False: self._show_key_only())
+            m.addSeparator()
+            labels = dict(self._columns())
+            self._col_actions = {}
+            for n in order:
+                act = m.addAction(labels.get(n, n))
+                act.setCheckable(True)
+                act.toggled.connect(lambda on, n=n: self._toggle_column(n, on))
+                self._col_actions[n] = act
+        self._sync_column_checks()
+
+    def _sync_column_checks(self) -> None:
+        shown = self._shown()
+        for n, act in self._col_actions.items():
+            act.blockSignals(True)
+            act.setChecked(n in shown)
+            act.blockSignals(False)
+        total = len(self._col_order)
+        k = len([n for n in self._col_order if n in shown])
+        self._cols_btn.setText(f"Columns: all {total} ▾" if k == total else f"Columns: {k} of {total} ▾")
+
+    def _open_columns(self) -> None:
+        self._refresh_columns_menu()
+        self._cols_menu.popup(self._cols_btn.mapToGlobal(QPoint(0, self._cols_btn.height())))
 
     # ------------------------------------------------------------ rank + result
 
@@ -1059,12 +1263,15 @@ class RankerView(FeaturePanel):
         self._debounce.stop()
         n = len(self._numbers)
         self._count_lbl.setText(f"{n} number{'s' if n != 1 else ''}" + ("" if self._use_numbers or not n
-                                                                          else " · not filtering"))
+                                                                          else " · off"))
+        self._expand_nums_btn.setVisible(n > 20)
+        self._clear_nums_btn.setVisible(n > 0)
         if self._table is None:
             self._result = None
             self._fill_grid()
-            self._summary.setText("Drop a table to rank it.")
-            self._missing_lbl.hide()
+            self._summary.setText("")
+            self._show_missing([])
+            self._show_notes([])
             return
         try:
             res = ranking.rank(self._table, self._recipe_for_rank(), self._active_numbers())
@@ -1073,39 +1280,49 @@ class RankerView(FeaturePanel):
             self._fill_grid()
             self._summary.setText("")
             self._recipe_error(str(e))
-            self._missing_lbl.hide()
+            self._show_missing([])
+            self._show_notes([])
             return
         self._result = res
         self._recipe_error("")
+        self._refresh_columns_menu()
         self._fill_grid()
-        key = res.get("key") or ""
-        noun = f"{key.lower()}s" if key.isalpha() and not key.lower().endswith("s") else "rows"
-        text = f"Ranked {res['kept']} of {res['total']} {noun}"
+        parts = [f"Ranked {res['kept']} of {len(self._table.rows)} rows"]
         if self._active_numbers():
-            text += f" (filtered by {len(self._active_numbers())} numbers, from {len(self._table.rows)} in the table)"
+            parts.append(f"matched numbers on {self._label_of(res.get('key') or '')}")
         if res["kept"] < res["total"]:
-            text += f" — {res['total'] - res['kept']} failed a condition"
-        self._summary.setText(text)
+            parts.append(f"{res['total'] - res['kept']} failed a condition")
         miss = res.get("missing") or []
         if miss:
-            are = "isn't" if len(miss) == 1 else "aren't"
-            self._missing_lbl.setText(f"{len(miss)} of these {are} in the table: {', '.join(miss)}")
-            self._missing_lbl.show()
-        else:
+            noun = "number" if len(miss) == 1 else "numbers"
+            parts.append(f"{len(miss)} {noun} not in the table"
+                         + (": " + ", ".join(miss) if len(miss) <= MISSING_INLINE else ""))
+        self._summary.setText(" · ".join(parts))
+        self._show_missing(miss if len(miss) > MISSING_INLINE else [])
+        self._show_notes(res.get("notes") or [])
+
+    def _show_missing(self, miss: "list[str]") -> None:
+        self._missing_lbl.setText(", ".join(miss))
+        self._missing_btn.setVisible(bool(miss))
+        if not miss:
             self._missing_lbl.hide()
+        self._missing_btn.setText("hide" if self._missing_lbl.isVisible() else "show")
+
+    def _toggle_missing(self) -> None:
+        self._missing_lbl.setVisible(not self._missing_lbl.isVisible())
+        self._missing_btn.setText("hide" if self._missing_lbl.isVisible() else "show")
+
+    def _show_notes(self, notes: "list[str]") -> None:
+        self._notes_lbl.setText("\n".join(notes))
+        self._notes_lbl.setVisible(bool(notes))
 
     def _recipe_for_rank(self) -> dict:
         """The recipe as the ranker wants it: half-built rows left out, so an
-        edit in progress does not blank the result."""
+        edit in progress does not blank the result. What names a column this
+        table lacks is left for `rank.fit`, which says so in `notes`."""
         r = copy.deepcopy(self._recipe)
         r["derived"] = [d for d in r.get("derived", []) if d.get("name") and d.get("sum")]
-        names = set(self._table.names) | {d["name"] for d in r["derived"]} if self._table else set()
-        r["filters"] = [f for f in r.get("filters", []) if str(f.get("value", "")).strip()
-                        and f.get("column") in names]
-        r["criteria"] = [c for c in r.get("criteria", []) if c.get("column") in names]
-        r["show"] = [s for s in r.get("show", []) if s in names]
-        if r.get("key") and self._table and r["key"] not in self._table.names:
-            r["key"] = self._table.names[0]
+        r["filters"] = [f for f in r.get("filters", []) if str(f.get("value", "")).strip()]
         return r
 
     def _fill_grid(self) -> None:
@@ -1119,49 +1336,46 @@ class RankerView(FeaturePanel):
             self._display = []
             return
         display = [(c["name"], c["label"]) for c in res["columns"]]
-        have = {n for n, _ in display}
-        labels = dict(self._columns())
-        for c in self._recipe_for_rank().get("criteria", []):
-            if c["column"] not in have:
-                display.append((c["column"], labels.get(c["column"], c["column"])))
-                have.add(c["column"])
         self._display = display
-        g.setColumnCount(2 + len(display))
-        g.setHorizontalHeaderLabels(["#", "Score"] + [l for _n, l in display])
+        criteria = self._recipe_for_rank().get("criteria", [])
+        scored = bool(res["rows"] and res["rows"][0].get("_parts"))
+        lead = ["#", "Score"] if scored else ["#"]
+        g.setColumnCount(len(lead) + len(display))
+        g.setHorizontalHeaderLabels(lead + [l for _n, l in display])
         rows = res["rows"]
         right = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         numeric = [all(table.number(r.get(n)) is not None for r in rows[:50] if r.get(n) not in (None, ""))
                    for n, _l in display]
-        for c in (0, 1):
+        for c in range(len(lead)):
             g.horizontalHeaderItem(c).setTextAlignment(right)
+        off = len(lead)
         for j, (n, l) in enumerate(display):
-            hi = g.horizontalHeaderItem(2 + j)
+            hi = g.horizontalHeaderItem(off + j)
             if hi is not None:
                 hi.setTextAlignment(right if numeric[j] else left)
                 if l != n:
                     hi.setToolTip(n)
         g.setRowCount(len(rows))
-        crit_labels = {c["column"]: labels.get(c["column"], c["column"])
-                       for c in self._recipe_for_rank().get("criteria", [])}
+        labels = dict(self._columns())
+        crit_labels = {c["column"]: labels.get(c["column"], c["column"]) for c in criteria}
         for i, row in enumerate(rows):
             rank_item = _Item(str(row["_rank"]), row["_rank"])
             rank_item.setTextAlignment(right)
             g.setItem(i, 0, rank_item)
-            score = _Item(f"{row['_score']:.1f}", row["_score"])
-            score.setTextAlignment(right)
-            parts = row.get("_parts") or {}
-            if parts:
-                score.setToolTip("Percentile per criterion (100 = best):\n" + "\n".join(
-                    f"  {crit_labels.get(k, k)}: {v:.0f}" for k, v in parts.items()))
-            g.setItem(i, 1, score)
+            if scored:
+                score = _Item(f"{row['_score']:.1f}", row["_score"])
+                score.setTextAlignment(right)
+                score.setToolTip("Percentile per Rank-by column (100 = best):\n" + "\n".join(
+                    f"  {crit_labels.get(k, k)}: {v:.0f}" for k, v in (row.get("_parts") or {}).items()))
+                g.setItem(i, 1, score)
             for j, (n, l) in enumerate(display):
                 v = row.get(n)
                 num = table.number(v) if v is not None and not (isinstance(v, str) and not v.strip()) else None
                 it = _Item(format_value(v, n, l), num if num is not None else str(v if v is not None else ""))
                 if num is not None:
                     it.setTextAlignment(right)
-                g.setItem(i, 2 + j, it)
+                g.setItem(i, off + j, it)
         g.setSortingEnabled(True)
         g.sortItems(0, Qt.SortOrder.AscendingOrder)
 

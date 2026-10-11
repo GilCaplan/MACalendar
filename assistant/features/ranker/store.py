@@ -18,7 +18,6 @@ import json
 import os
 import threading
 
-from assistant.features.ranker.rank import MIGRATION
 
 DEFAULT_PATH = os.path.expanduser("~/.assistant_tools/ranker.json")
 _lock = threading.Lock()
@@ -29,9 +28,15 @@ def store_path() -> str:
     return paths.resolve(os.environ.get("MACALENDAR_RANKER") or DEFAULT_PATH)
 
 
+#: What a first use starts with: nothing to rank by yet, the table's own
+#: columns to pick from. (It used to start on the migration recipe, which tied
+#: every new table to one example.)
+BLANK_RECIPE = {"name": "My ranking", "key": "", "derived": [], "filters": [], "criteria": [], "show": []}
+
+
 def _blank() -> dict:
-    return {"presets": {MIGRATION["name"]: copy.deepcopy(MIGRATION)},
-            "preset": MIGRATION["name"], "numbers": [], "use_numbers": True,
+    return {"presets": {BLANK_RECIPE["name"]: copy.deepcopy(BLANK_RECIPE)},
+            "preset": BLANK_RECIPE["name"], "numbers": [], "use_numbers": True,
             "last_table": None}
 
 
@@ -63,3 +68,8 @@ def update(**fields) -> dict:
     data.update(fields)
     save(data)
     return data
+
+
+def new_search() -> dict:
+    """Forget the table and the numbers; keep the saved recipes."""
+    return update(numbers=[], use_numbers=True, last_table=None)
