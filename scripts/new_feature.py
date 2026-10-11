@@ -104,6 +104,7 @@ class {cls}(Feature):
     name = "{a.name}"
     label = "{a.label}"
     icon = "{a.icon}"
+    mac_icon = "{a.mac_icon}"
     order = {a.order}
     pinned = False
     default_visible = True
@@ -297,7 +298,10 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("name", help="lowercase identity: config key, URL, both clients")
     ap.add_argument("--label", required=True)
-    ap.add_argument("--icon", required=True, help="SF Symbol name")
+    ap.add_argument("--icon", required=True, help="SF Symbol name (the phone's tab bar)")
+    ap.add_argument("--mac-icon", default="list",
+                    help="the Mac sidebar's drawing, a name in assistant/calendar_ui/icons "
+                         "(draw new ones in ../GraphicsLibrary, then scripts/sync_icons.py --add)")
     ap.add_argument("--order", type=int, required=True, help="sparse slot, unused (see CONVENTION.md)")
     ap.add_argument("--store", help="file name of this tab's own per-user store, e.g. recipes.db")
     ap.add_argument("--no-mac", action="store_true", help="no Mac panel (phone only)")

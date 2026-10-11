@@ -1192,6 +1192,20 @@ Re-importing keeps progress on every card whose content did not change (tags,
 page and explanation are not part of a card's identity). The phone caches every
 set and its pictures and builds rounds locally, so it studies offline; reviews
 carry the instant they happened and queue through `APIClient.mutate`.
+A set leaves the phone only when it is DELETED (here, or on the Mac — `GET
+/flashcards` lists deletes by id, and ids are never reused); an unreachable
+Mac, an empty answer or an error never removes anything. Archive (subjects and
+sets, both devices, queued offline) hides from the library and the study picker
+and keeps cards, pictures and progress; archived items wait in a folded
+"Archived" section with Unarchive and Delete. Subjects fold to their header
+(remembered per subject) and rename from the header menu.
+On the Mac, every subject header and set row has a "⋯" menu (also on
+right-click): **Archive** keeps everything but takes the set — or a subject
+and all its sets — out of the list, the header counts and the round, into an
+"Archived (N)" section at the bottom (collapsed) whose rows offer Unarchive
+and Delete; Delete always asks. A subject folds to its header (the fold is
+remembered per subject in the Mac's UI-state QSettings, never in the store),
+and double-clicking its name renames it.
 
 ### Ranker
 **What:** A tool tab (2026-10-11): give it a table and, optionally, a

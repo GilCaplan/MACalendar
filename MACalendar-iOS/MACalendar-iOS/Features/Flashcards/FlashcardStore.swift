@@ -132,8 +132,11 @@ final class FlashcardStore: ObservableObject {
 
     // MARK: - Refresh from the Mac
 
-    /// Pull the library and every set whose cards changed, and their pictures.
-    /// Never empties the cache: with the Mac away the tab keeps what it had.
+    /// Pull the library and every set whose cards changed, and their pictures,
+    /// and MERGE them into the phone's copy (`mergeLibrary`). Once a set is on
+    /// the phone it stays there, studiable with no Mac, until somebody deletes
+    /// it — here, or on the Mac (`deleted` in the answer). An unreachable Mac,
+    /// a refusal, an unreadable reply or an empty library removes nothing.
     func refresh(api: APIClient) async {
         guard !isRefreshing else { return }
         isRefreshing = true
@@ -147,53 +150,39 @@ final class FlashcardStore: ObservableObject {
 
         _ = await api.flashcardInbox()
 
-        let fresh: [FlashSubject]
+        let lib: FlashLibrary
         do {
-            fresh = try await api.flashcardLibrary()
+            lib = try await api.flashcardLibrary()
         } catch {
+            // Unreachable, refused, or a reply this app could not decode:
+            // nothing is taken off the phone.
             unreachableReason = Self.sentence(for: error)
             return
         }
         reachedMac = true
         unreachableReason = nil
 
-        // Keep what was made here and has not reached the Mac yet.
         let pendingTemps = queuedTempIDs
-        var merged = fresh
-        for local in subjects where local.id < 0 && pendingTemps.contains(local.id) {
-            merged.append(local)
-        }
-        for local in subjects {
-            for s in local.sets where s.id < 0 && pendingTemps.contains(s.id) {
-                if let i = merged.firstIndex(where: { $0.id == s.subjectId }) {
-                    if !merged[i].sets.contains(where: { $0.id == s.id }) { merged[i].sets.append(s) }
-                }
-            }
-        }
-        if stillQueued {
-            // The Mac has not seen our changes yet: keep local names for rows
-            // that exist on both sides rather than flicker back.
-            for (si, sub) in merged.enumerated() {
-                if let mine = subjects.first(where: { $0.id == sub.id }) { merged[si].name = mine.name }
-                for (i, s) in sub.sets.enumerated() {
-                    if let local = summary(s.id) { merged[si].sets[i].name = local.name }
-                }
-            }
-        }
-        let known = Set(merged.flatMap { $0.sets.map(\.id) })
-        let previous = Dictionary(uniqueKeysWithValues: allSets.map { ($0.id, $0) })
-        subjects = merged.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        let plan = Self.mergeLibrary(cached: subjects, fresh: lib.subjects,
+                                     deleted: lib.deleted ?? FlashDeleted(),
+                                     pendingTemps: pendingTemps, keepLocalEdits: stillQueued)
+        let previous = Dictionary(allSets.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        subjects = plan.subjects
 
-        // Sets gone from the Mac are gone here too.
-        for id in sets.keys where !known.contains(id) {
+        // A set leaves the phone ONLY because it was deleted — here (deleteSet)
+        // or on the Mac, which lists it in `deleted`. One merely missing from
+        // the answer stays, cards, progress, pictures and all.
+        for id in plan.removeSets {
             sets[id] = nil
             saveSet(id)
-            try? FileManager.default.removeItem(at: root.appendingPathComponent("media/\(id)"))
+            removeMedia(id)
         }
 
+        let fromMac = Set(lib.subjects.flatMap { $0.sets.map(\.id) })
+        let merged = plan.subjects
         // Download a set's cards when it is new to us, edited on the Mac, or
         // its counts disagree with ours (reviews made on the Mac).
-        for summary in merged.flatMap(\.sets) where summary.id > 0 {
+        for summary in merged.flatMap(\.sets) where summary.id > 0 && fromMac.contains(summary.id) {
             let cached = sets[summary.id]
             let mineCounts = previous[summary.id]
             let stale = cached == nil
@@ -208,6 +197,84 @@ final class FlashcardStore: ObservableObject {
         }
         recount()
         saveLibrary()
+    }
+
+    /// What a refresh does to the library, decided from data alone.
+    ///
+    /// - A subject or set the Mac sent replaces ours with the same id.
+    /// - One we hold that the Mac did NOT send stays, unless the Mac lists it
+    ///   in `deleted` (a set of a deleted subject counts as deleted).
+    /// - A placeholder (negative id) stays while its create is still queued;
+    ///   one whose create is no longer queued was cancelled and goes.
+    /// - While our own writes are still queued, our names and archive flags
+    ///   win over the Mac's, so a rename or an archive does not flicker back.
+    ///
+    /// `removeSets` is every cached set to drop, with its pictures: exactly the
+    /// deleted ones plus cancelled placeholders. An empty answer removes nothing.
+    struct LibraryMerge {
+        var subjects: [FlashSubject]
+        var removeSets: Set<Int>
+    }
+
+    nonisolated static func mergeLibrary(cached: [FlashSubject], fresh: [FlashSubject],
+                                         deleted: FlashDeleted, pendingTemps: Set<Int>,
+                                         keepLocalEdits: Bool) -> LibraryMerge {
+        let goneSubjects = Set(deleted.subjects.map(\.id))
+        var goneSets = Set(deleted.sets.map(\.id))
+        for sub in cached where goneSubjects.contains(sub.id) {
+            goneSets.formUnion(sub.sets.map(\.id))
+        }
+        func alive(_ id: Int, gone: Set<Int>) -> Bool {
+            if gone.contains(id) { return false }
+            return id > 0 || pendingTemps.contains(id)
+        }
+
+        var merged = fresh.filter { !goneSubjects.contains($0.id) }
+        for i in merged.indices { merged[i].sets.removeAll { goneSets.contains($0.id) } }
+
+        // Subjects we hold that the Mac did not send: kept, empty for now —
+        // their sets are put back below with everyone else's.
+        let sent = Set(merged.map(\.id))
+        for local in cached where !sent.contains(local.id) && alive(local.id, gone: goneSubjects) {
+            var kept = local
+            kept.sets = []
+            merged.append(kept)
+        }
+
+        // Sets we hold that the Mac did not send, under the subject they were in.
+        let placed = Set(merged.flatMap { $0.sets.map(\.id) })
+        for local in cached {
+            for s in local.sets where !placed.contains(s.id) && alive(s.id, gone: goneSets) {
+                if let i = merged.firstIndex(where: { $0.id == local.id }) {
+                    merged[i].sets.append(s)
+                }
+            }
+        }
+
+        if keepLocalEdits {
+            let mineSubjects = Dictionary(cached.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            let mineSets = Dictionary(cached.flatMap(\.sets).map { ($0.id, $0) },
+                                      uniquingKeysWith: { a, _ in a })
+            for si in merged.indices {
+                if let mine = mineSubjects[merged[si].id] {
+                    merged[si].name = mine.name
+                    merged[si].archived = mine.archived
+                }
+                for i in merged[si].sets.indices {
+                    if let mine = mineSets[merged[si].sets[i].id] {
+                        merged[si].sets[i].name = mine.name
+                        merged[si].sets[i].archived = mine.archived
+                    }
+                }
+            }
+        }
+
+        // Cancelled placeholders: made here, never reached the Mac, no longer queued.
+        let kept = Set(merged.flatMap { $0.sets.map(\.id) })
+        let cancelled = Set(cached.flatMap { $0.sets.map(\.id) }
+            .filter { $0 < 0 && !kept.contains($0) && !pendingTemps.contains($0) })
+        let sorted = merged.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        return LibraryMerge(subjects: sorted, removeSets: goneSets.union(cancelled))
     }
 
     /// The Mac's set, with two things of ours kept: progress written LATER than
@@ -398,6 +465,8 @@ final class FlashcardStore: ObservableObject {
     }
 
     func renameSubject(_ id: Int, to name: String, api: APIClient) async -> String? {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return "A subject needs a name." }
         guard let i = subjects.firstIndex(where: { $0.id == id }) else { return nil }
         let old = subjects[i].name
         subjects[i].name = name
@@ -410,10 +479,60 @@ final class FlashcardStore: ObservableObject {
         }
     }
 
+    // MARK: - Archive (a flag: cards, pictures and progress all stay)
+
+    /// Archived subjects, and live subjects whose own sets were archived.
+    var activeSubjects: [FlashSubject] {
+        subjects.filter { !$0.archived }.map { sub in
+            var s = sub
+            s.sets = sub.sets.filter { !$0.archived }
+            return s
+        }
+    }
+
+    /// The sets the library shows and a round may be built from.
+    var activeSets: [FlashSetSummary] { activeSubjects.flatMap(\.sets) }
+
+    var archivedSubjects: [FlashSubject] { subjects.filter(\.archived) }
+
+    /// Sets archived one by one, inside subjects that are not archived (a set
+    /// of an archived subject goes with its subject's row).
+    var archivedSets: [FlashSetSummary] {
+        subjects.filter { !$0.archived }.flatMap { $0.sets.filter(\.archived) }
+    }
+
+    /// nil when it stands (done, or queued); otherwise the Mac's refusal.
+    func archiveSubject(_ id: Int, _ on: Bool, api: APIClient) async -> String? {
+        guard let i = subjects.firstIndex(where: { $0.id == id }) else { return nil }
+        let old = subjects[i].archived
+        subjects[i].archived = on
+        saveLibrary()
+        do { try await api.archiveFlashSubject(id, archived: on); return nil }
+        catch {
+            if let j = subjects.firstIndex(where: { $0.id == id }) { subjects[j].archived = old }
+            saveLibrary()
+            return Self.sentence(for: error)
+        }
+    }
+
+    func archiveSet(_ id: Int, _ on: Bool, api: APIClient) async -> String? {
+        let old = summary(id)?.archived ?? false
+        setArchivedFlag(id, on)
+        do { try await api.archiveFlashSet(id, archived: on); return nil }
+        catch { setArchivedFlag(id, old); return Self.sentence(for: error) }
+    }
+
+    private func setArchivedFlag(_ id: Int, _ on: Bool) {
+        for si in subjects.indices {
+            if let i = subjects[si].sets.firstIndex(where: { $0.id == id }) { subjects[si].sets[i].archived = on }
+        }
+        saveLibrary()
+    }
+
     func deleteSubject(_ id: Int, api: APIClient) async -> String? {
         guard let sub = subjects.first(where: { $0.id == id }) else { return nil }
         subjects.removeAll { $0.id == id }
-        for s in sub.sets { sets[s.id] = nil; saveSet(s.id) }
+        for s in sub.sets { sets[s.id] = nil; saveSet(s.id); removeMedia(s.id) }
         saveLibrary()
         do { try await api.deleteFlashSubject(id); return nil }
         catch { await refresh(api: api); return Self.sentence(for: error) }
@@ -494,7 +613,13 @@ final class FlashcardStore: ObservableObject {
         for si in subjects.indices { subjects[si].sets.removeAll { $0.id == id } }
         sets[id] = nil
         saveSet(id)
+        removeMedia(id)
         saveLibrary()
+    }
+
+    private func removeMedia(_ setId: Int) {
+        try? FileManager.default.removeItem(at: root.appendingPathComponent("media/\(setId)"))
+        images = images.filter { !$0.key.hasPrefix("\(setId)/") }
     }
 
     // MARK: - Writes: cards

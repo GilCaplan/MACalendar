@@ -11,6 +11,7 @@ class TimerFeature(Feature):
     name = "timer"
     label = "Timer"
     icon = "timer"
+    mac_icon = "stopwatch"
     order = 40
     pinned = False
     default_visible = True

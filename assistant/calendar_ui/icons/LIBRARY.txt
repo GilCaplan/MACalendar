@@ -51,6 +51,7 @@ envelope
 flag
 flag_israel
 flame
+flashcards
 flowers
 folder
 frame
@@ -109,6 +110,7 @@ plate
 pray
 pumpkin
 rainbow
+ranking
 receipt
 record
 refresh

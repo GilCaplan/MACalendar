@@ -2,9 +2,9 @@
 
 | route | what |
 |---|---|
-| `GET /flashcards` | subjects → sets, with card / due counts |
+| `GET /flashcards` | subjects → sets (with `archived`, card / due counts), and `deleted`: what was deleted, by id |
 | `GET /flashcards/format` | FORMAT.md: the set-file contract, for an agent to read |
-| `POST /flashcards/subjects` `PATCH/DELETE /flashcards/subjects/<id>` | subjects |
+| `POST /flashcards/subjects` `PATCH/DELETE /flashcards/subjects/<id>` | subjects; PATCH takes `name` and/or `archived` |
 | `POST /flashcards/sets` `GET/PATCH/DELETE /flashcards/sets/<id>` | sets; GET carries every card + progress |
 | `GET /flashcards/sets/<id>/export` | the set as a set file (YAML), to edit and re-import |
 | `POST /flashcards/sets/<id>/cards` `PATCH/DELETE /flashcards/cards/<id>` | one card at a time (the editors) |
@@ -57,7 +57,8 @@ def _handle(e):
 
 @blueprint.get("/flashcards")
 def library():
-    return jsonify({"subjects": _store().library()})
+    store = _store()
+    return jsonify({"subjects": store.library(), "deleted": store.deleted()})
 
 
 @blueprint.get("/flashcards/format")
@@ -78,7 +79,12 @@ def create_subject():
 
 @blueprint.patch("/flashcards/subjects/<int:sid>")
 def rename_subject(sid: int):
-    _store().rename_subject(sid, str(_body().get("name") or ""))
+    """Rename and/or archive: `{name}`, `{archived: true|false}`."""
+    d, store = _body(), _store()
+    if "archived" in d:
+        store.set_archived("subject", sid, bool(d["archived"]))
+    if d.get("name") is not None or "archived" not in d:
+        store.rename_subject(sid, str(d.get("name") or ""))
     return jsonify({"id": sid})
 
 

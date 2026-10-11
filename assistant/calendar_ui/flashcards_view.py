@@ -2,10 +2,15 @@
 
 Three pages in one stack, and an editor dialog:
 
-  LIBRARY   subjects (collapsible) -> sets with a checkbox, card / due counts
+  LIBRARY   subjects (collapsible, remembered per subject in the Mac's UI
+            state) -> sets with a checkbox, card / due counts
             and a thin seen-progress bar; study options (mode, card types,
             round size) and a Study button that says how many cards the round
             will hold; Import…, New subject, New set; the agent INBOX path.
+            Every subject header and set row has a "⋯" menu, also on
+            right-click: Archive takes it out of the list and the round (kept
+            whole, under "Archived (N)" at the bottom, collapsed), Delete asks
+            first. Double-click a subject's name to rename it.
   STUDY     one card at a time, drawn per type from `FlashcardStore.study()`'s
             queue entries. Self-graded types end on Again / Hard / Good / Easy
             with the next interval on each button; mc and order mark
@@ -316,6 +321,34 @@ def _button(text: str, name: str = "", cb: "Callable | None" = None, *, focus: b
     return b
 
 
+def _ui_state():
+    """Which subjects are folded shut — window chrome, per machine, so it
+    lives in the same QSettings as the settings dialog's folds (redirected by
+    MACALENDAR_UI_STATE), never in the flashcards store the phone syncs."""
+    from assistant.calendar_ui.settings_dialog import _ui_state as state
+    return state()
+
+
+_COLLAPSED_KEY = "flashcards/collapsed_subjects"
+
+
+def _load_collapsed() -> set:
+    try:
+        raw = _ui_state().value(_COLLAPSED_KEY, "", type=str) or ""
+        return {int(x) for x in raw.split(",") if x.strip().lstrip("-").isdigit()}
+    except Exception:                               # noqa: BLE001
+        return set()
+
+
+def _save_collapsed(ids: set) -> None:
+    try:
+        st = _ui_state()
+        st.setValue(_COLLAPSED_KEY, ",".join(str(i) for i in sorted(ids)))
+        st.sync()
+    except Exception:                               # noqa: BLE001
+        pass
+
+
 def _rule() -> QFrame:
     f = QFrame()
     f.setObjectName("fc_rule")
@@ -526,6 +559,17 @@ class _SetRow(QWidget):
         super().mouseReleaseEvent(ev)
 
 
+class _SubjectName(QLabel):
+    """A subject header's name: double-click renames it."""
+
+    double_clicked = pyqtSignal()
+
+    def mouseDoubleClickEvent(self, ev):  # noqa: N802
+        if ev.button() == Qt.MouseButton.LeftButton:
+            self.double_clicked.emit()
+        super().mouseDoubleClickEvent(ev)
+
+
 class _StudyPage(QWidget):
     """The study page takes the keyboard: Space and 1-8 go to the view."""
 
@@ -553,7 +597,9 @@ class FlashcardsView(FeaturePanel):
         self._dark = dark
         self._library: list = []
         self._selected: set = set()
-        self._collapsed: set = set()
+        self._collapsed: set = _load_collapsed()   # subject ids folded shut
+        self._archived_open = False                # the Archived section
+        self._archived_box: Optional[QWidget] = None
         self._set_boxes: dict = {}
         self._set_dir: dict = {}
         self._rng = random.Random()
@@ -840,14 +886,31 @@ class FlashcardsView(FeaturePanel):
         _clear(self._lib_layout)
         self._set_boxes = {}
         self._set_dir = {}
-        alive = {s["id"] for sub in self._library for s in sub["sets"]}
+        self._archived_box = None
+        # The main list: live subjects with their live sets. An archived
+        # subject takes ALL its sets with it; an archived set leaves its
+        # (live) subject's list and counts. Neither can be ticked into a round.
+        active, arch_subjects, arch_sets = [], [], []
+        for sub in self._library:
+            if sub.get("archived"):
+                arch_subjects.append(sub)
+                continue
+            live = [s for s in sub["sets"] if not s.get("archived")]
+            arch_sets += [dict(s, subject=sub["name"]) for s in sub["sets"] if s.get("archived")]
+            active.append(dict(sub, sets=live))
+        alive = {s["id"] for sub in active for s in sub["sets"]}
         self._selected &= alive
-        if not self._library:
+        if not active:
             self._lib_layout.addWidget(_label(
                 "No flashcards yet. Import a set file, make a set by hand, or have an agent "
-                "drop one into the inbox below.", "fc_muted"))
-        for sub in self._library:
+                "drop one into the inbox below." if not self._library else
+                "Everything is archived — unarchive a set or subject below to study it.",
+                "fc_muted"))
+        for sub in active:
             self._lib_layout.addWidget(self._subject_block(sub))
+        if arch_subjects or arch_sets:
+            self._archived_box = self._archived_section(arch_subjects, arch_sets)
+            self._lib_layout.addWidget(self._archived_box)
         self._lib_layout.addStretch(1)
         QTimer.singleShot(0, lambda: self._lib_scroll.verticalScrollBar().setValue(scroll))
         self._options_changed()
@@ -864,25 +927,38 @@ class FlashcardsView(FeaturePanel):
         tog.setObjectName("fc_toggle")
         tog.setArrowType(Qt.ArrowType.RightArrow if collapsed else Qt.ArrowType.DownArrow)
         tog.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        tog.setToolTip("Collapse / expand")
         head.addWidget(tog)
-        name = _label(sub["name"], "fc_subject", wrap=False)
+        name = _SubjectName(sub["name"])
+        name.setObjectName("fc_subject")
+        name.setToolTip("Double-click to rename · right-click for more")
         name.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         name.customContextMenuRequested.connect(
             lambda pos, s=sub, w=name: self._subject_menu(s, w.mapToGlobal(pos)))
+        name.double_clicked.connect(lambda s=sub: self._rename_subject(s))
         head.addWidget(name)
         n_cards = sum(s["cards"] for s in sub["sets"])
         n_due = sum(s["due"] for s in sub["sets"])
-        info = f"{len(sub['sets'])} sets · {n_cards} cards" + (f" · {n_due} due" if n_due else "")
+        n_sets = len(sub["sets"])
+        info = (f"{n_sets} set{'' if n_sets == 1 else 's'} · {n_cards} cards"
+                + (f" · {n_due} due" if n_due else ""))
         head.addWidget(_label(info, "fc_muted", wrap=False))
         head.addStretch(1)
         ids = [s["id"] for s in sub["sets"]]
         head.addWidget(_button("all", "fc_link", lambda i=ids: self._select_ids(i, True)))
         head.addWidget(_button("none", "fc_link", lambda i=ids: self._select_ids(i, False)))
         more = _button("⋯", "fc_link")
+        more.setToolTip("Subject options")
         more.clicked.connect(lambda _=False, s=sub, b=more: self._subject_menu(
             s, b.mapToGlobal(b.rect().bottomLeft())))
         head.addWidget(more)
-        v.addLayout(head)
+        head_w = QWidget()
+        head_w.setLayout(head)
+        head.setContentsMargins(0, 0, 0, 0)
+        head_w.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        head_w.customContextMenuRequested.connect(
+            lambda pos, s=sub, w=head_w: self._subject_menu(s, w.mapToGlobal(pos)))
+        v.addWidget(head_w)
         rows = QWidget()
         rv = QVBoxLayout(rows)
         rv.setContentsMargins(22, 2, 0, 0)
@@ -893,14 +969,89 @@ class FlashcardsView(FeaturePanel):
             rv.addWidget(self._set_row(s))
         rows.setVisible(not collapsed)
         v.addWidget(rows)
+        box.toggle_btn = tog
+        box.rows = rows
+        box.name_label = name
+        box.more_btn = more
 
         def toggle():
-            hide = rows.isVisible()
+            hide = sub["id"] not in self._collapsed
             rows.setVisible(not hide)
             tog.setArrowType(Qt.ArrowType.RightArrow if hide else Qt.ArrowType.DownArrow)
             (self._collapsed.add if hide else self._collapsed.discard)(sub["id"])
+            _save_collapsed(self._collapsed)
         tog.clicked.connect(lambda _=False: toggle())
         return box
+
+    def _archived_section(self, subjects: list, sets: list) -> QWidget:
+        """'Archived (N)' at the bottom, collapsed by default: what was put
+        away, whole, with Unarchive and Delete on each row."""
+        box = QWidget()
+        v = QVBoxLayout(box)
+        v.setContentsMargins(0, 16, 0, 4)
+        v.setSpacing(0)
+        head = QHBoxLayout()
+        head.setSpacing(6)
+        tog = QToolButton()
+        tog.setObjectName("fc_toggle")
+        tog.setArrowType(Qt.ArrowType.DownArrow if self._archived_open else Qt.ArrowType.RightArrow)
+        tog.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        head.addWidget(tog)
+        n = len(subjects) + len(sets)
+        title = _label(f"Archived ({n})", "fc_muted", wrap=False)
+        head.addWidget(title)
+        head.addStretch(1)
+        v.addLayout(head)
+        rows = QWidget()
+        rv = QVBoxLayout(rows)
+        rv.setContentsMargins(22, 2, 0, 0)
+        rv.setSpacing(0)
+        box.rows = {}
+        for sub in subjects:
+            n_sets = len(sub["sets"])
+            n_cards = sum(s["cards"] for s in sub["sets"])
+            r = self._archived_row(
+                sub["name"], f"subject · {n_sets} set{'' if n_sets == 1 else 's'} · {n_cards} cards",
+                lambda where, s=sub: self._subject_menu(s, where))
+            box.rows[("subject", sub["id"])] = r
+            rv.addWidget(r)
+        for s in sets:
+            r = self._archived_row(s["name"], f"in {s['subject']} · {s['cards']} cards",
+                                   lambda where, st=s: self._set_menu(st, where))
+            box.rows[("set", s["id"])] = r
+            rv.addWidget(r)
+        rows.setVisible(self._archived_open)
+        v.addWidget(rows)
+        box.toggle_btn = tog
+        box.body = rows
+        box.title = title
+
+        def toggle():
+            self._archived_open = not self._archived_open
+            rows.setVisible(self._archived_open)
+            tog.setArrowType(Qt.ArrowType.DownArrow if self._archived_open
+                             else Qt.ArrowType.RightArrow)
+        tog.clicked.connect(lambda _=False: toggle())
+        return box
+
+    def _archived_row(self, name: str, info: str, menu: Callable) -> QWidget:
+        row = QWidget()
+        row.setObjectName("fc_setrow")
+        row.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        h = QHBoxLayout(row)
+        h.setContentsMargins(4, 4, 4, 4)
+        h.setSpacing(12)
+        h.addWidget(_label(name, "", wrap=False))
+        h.addWidget(_label(info, "fc_muted", wrap=False))
+        h.addStretch(1)
+        more = _button("⋯", "fc_link")
+        more.setToolTip("Unarchive or delete")
+        more.clicked.connect(lambda _=False, b=more: menu(b.mapToGlobal(b.rect().bottomLeft())))
+        h.addWidget(more)
+        row.more_btn = more
+        row.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        row.customContextMenuRequested.connect(lambda pos, w=row: menu(w.mapToGlobal(pos)))
+        return row
 
     def _set_row(self, s: dict) -> QWidget:
         row = _SetRow()
@@ -938,6 +1089,8 @@ class FlashcardsView(FeaturePanel):
         more.clicked.connect(lambda _=False, st=s, b=more: self._set_menu(
             st, b.mapToGlobal(b.rect().bottomLeft())))
         h.addWidget(more)
+        more.setToolTip("Set options")
+        row.more_btn = more
         row.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         row.customContextMenuRequested.connect(
             lambda pos, st=s, w=row: self._set_menu(st, w.mapToGlobal(pos)))
@@ -1001,21 +1154,45 @@ class FlashcardsView(FeaturePanel):
 
     def _set_menu(self, s: dict, where) -> None:
         m = QMenu(self)
+        if s.get("archived"):
+            m.addAction("Unarchive", lambda: self._archive("set", s, False))
+            m.addSeparator()
+            m.addAction("Delete…", lambda: self._delete_set(s))
+            m.exec(where)
+            return
         m.addAction("Edit cards…", lambda: self._edit_set(s["id"]))
         m.addAction("Rename…", lambda: self._rename_set(s))
         m.addAction("Export…", lambda: self._export_set(s))
         m.addSeparator()
         m.addAction("Reset progress…", lambda: self._reset_set(s))
+        m.addAction("Archive", lambda: self._archive("set", s, True))
         m.addAction("Delete…", lambda: self._delete_set(s))
         m.exec(where)
 
     def _subject_menu(self, sub: dict, where) -> None:
         m = QMenu(self)
+        if sub.get("archived"):
+            m.addAction("Unarchive subject", lambda: self._archive("subject", sub, False))
+            m.addSeparator()
+            m.addAction("Delete subject…", lambda: self._delete_subject(sub))
+            m.exec(where)
+            return
         m.addAction("New set here…", lambda: self._new_set(sub["name"]))
         m.addAction("Rename subject…", lambda: self._rename_subject(sub))
         m.addSeparator()
+        m.addAction("Archive subject", lambda: self._archive("subject", sub, True))
         m.addAction("Delete subject…", lambda: self._delete_subject(sub))
         m.exec(where)
+
+    def _archive(self, kind: str, obj: dict, archived: bool) -> None:
+        try:
+            self._store.set_archived(kind, obj["id"], archived)
+        except Exception as e:                      # noqa: BLE001
+            self._inform("Archive", str(e), error=True)
+        else:
+            verb = "Archived" if archived else "Unarchived"
+            self._status.setText(f"{verb} {obj['name']}")
+        self._rebuild_library()
 
     # dialogs (methods so tests can answer them)
 
@@ -1131,7 +1308,7 @@ class FlashcardsView(FeaturePanel):
         self._rebuild_library()
 
     def _new_set(self, subject: str = "") -> None:
-        dlg = NewSetDialog([s["name"] for s in self._library], subject, self)
+        dlg = NewSetDialog([s["name"] for s in self._library if not s.get("archived")], subject, self)
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
         subj, name, direction = dlg.values()
@@ -1160,12 +1337,12 @@ class FlashcardsView(FeaturePanel):
 
     def _rename_subject(self, sub: dict) -> None:
         name = self._ask_text("Rename subject", "Subject name:", sub["name"])
-        if not name:
+        if not name or name == sub["name"]:
             return
         try:
             self._store.rename_subject(sub["id"], name)
         except Exception as e:                      # noqa: BLE001
-            self._inform("Rename", str(e), error=True)
+            self._inform("Rename subject", f"Couldn't rename “{sub['name']}”: {e}", error=True)
         self._rebuild_library()
 
     def _export_set(self, s: dict) -> None:
@@ -1212,7 +1389,10 @@ class FlashcardsView(FeaturePanel):
             self._rebuild_library()
 
     def _delete_subject(self, sub: dict) -> None:
-        if self._confirm("Delete subject", f"Delete “{sub['name']}” and all {len(sub['sets'])} of "
+        # every set, archived ones included — the block's own list hides those
+        full = next((x for x in self._library if x["id"] == sub["id"]), sub)
+        n = len(full["sets"])
+        if self._confirm("Delete subject", f"Delete “{sub['name']}” and all {n} of "
                          "its sets? This cannot be undone."):
             self._store.delete_subject(sub["id"])
             self._rebuild_library()

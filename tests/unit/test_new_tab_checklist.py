@@ -84,6 +84,17 @@ def test_every_mac_panel_names_its_feature():
             f"{m.group(1)}.{m.group(2)} must set feature_name = {f.name!r}")
 
 
+def test_every_mac_panel_has_a_drawn_sidebar_icon():
+    """A feature without `mac_icon` got a bare dot that sat off the line in the
+    sidebar (Flashcards and Ranker, 2026-10-11)."""
+    from assistant.calendar_ui import icons
+    for f in registry.all_features():
+        if f.has_mac_panel:
+            assert f.mac_icon and icons.exists(f.mac_icon), (
+                f"{f.name}: set mac_icon to a drawing in assistant/calendar_ui/icons "
+                "(scripts/sync_icons.py --add <name> after drawing it in ../GraphicsLibrary)")
+
+
 def test_every_swift_file_is_in_the_xcode_project():
     """A .swift file under a target's folder that the project does not compile
     is invisible: the build succeeds without it. `scripts/xcode_add.py` adds one."""

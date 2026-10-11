@@ -68,6 +68,12 @@ class Feature(ABC):
     #: would import PyQt6 into it just to answer a question about a boolean.
     #: Teach is iOS-only; Jude's Mac surface is a separate window, not a panel.
     has_mac_panel: bool = True
+    #: The Mac sidebar's drawing: a name in `calendar_ui/icons` (GraphicsLibrary,
+    #: `scripts/sync_icons.py --add`). Declared here, with the feature, because a
+    #: separate map in `window.py` is the list new tabs forgot — Flashcards and
+    #: Ranker shipped as bare dots that also sat off the line (Gil, 2026-10-11).
+    #: `icon` above is the phone's SF Symbol.
+    mac_icon: str = ""
 
     # -- visibility ------------------------------------------------------
 

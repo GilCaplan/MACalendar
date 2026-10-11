@@ -24,6 +24,8 @@ struct FlashcardsView: View {
     @AppStorage("flashcards.mode") private var modeRaw = StudyMode.smart.rawValue
     @AppStorage("flashcards.size") private var roundSize = 20
     @AppStorage("flashcards.types") private var typesRaw = ""
+    /// Subjects minimised to their header, by id ("3,7,12"), on this phone only.
+    @AppStorage("flashcards.collapsed") private var collapsedRaw = ""
 
     @State private var session: StudySession?
     @State private var editing: EditTarget?
@@ -38,11 +40,12 @@ struct FlashcardsView: View {
     @State private var confirmDeleteSubject: FlashSubject?
     @State private var confirmReset: FlashSetSummary?
     @State private var refusal: String?
+    @State private var showArchived = false
 
     private var mode: StudyMode { StudyMode(rawValue: modeRaw) ?? .smart }
     private var selected: Set<Int> {
         Set(selectedRaw.split(separator: ",").compactMap { Int($0) })
-            .intersection(store.allSets.map(\.id))
+            .intersection(store.activeSets.map(\.id))
     }
     private var types: Set<String> {
         Set(typesRaw.split(separator: ",").map(String.init))
@@ -105,7 +108,8 @@ struct FlashcardsView: View {
         .confirmationDialog("Delete this subject?", isPresented: Binding(
             get: { confirmDeleteSubject != nil }, set: { if !$0 { confirmDeleteSubject = nil } }),
             titleVisibility: .visible, presenting: confirmDeleteSubject) { sub in
-            Button("Delete \(sub.name) and its \(sub.sets.count) sets", role: .destructive) {
+            let n = store.subjects.first { $0.id == sub.id }?.sets.count ?? sub.sets.count
+            Button("Delete \(sub.name) and its \(n) \(n == 1 ? "set" : "sets")", role: .destructive) {
                 Task { refusal = await store.deleteSubject(sub.id, api: api) }
             }
         }
@@ -130,20 +134,25 @@ struct FlashcardsView: View {
     // MARK: - Content
 
     @ViewBuilder private var content: some View {
-        if store.allSets.isEmpty {
+        if store.allSets.isEmpty && store.archivedSubjects.isEmpty {
             emptyState
         } else {
             List {
-                ForEach(store.subjects) { subject in
+                ForEach(store.activeSubjects) { subject in
                     Section {
-                        if subject.sets.isEmpty {
-                            Text("No sets yet — New set adds one.")
-                                .font(.footnote).foregroundColor(.secondary)
+                        if !isCollapsed(subject.id) {
+                            if subject.sets.isEmpty {
+                                Text(hasArchivedSets(subject.id)
+                                     ? "Every set here is archived — they are under Archived below."
+                                     : "No sets yet — New set adds one.")
+                                    .font(.footnote).foregroundColor(.secondary)
+                            }
+                            ForEach(subject.sets) { s in setRow(s) }
                         }
-                        ForEach(subject.sets) { s in setRow(s) }
                     } header: { subjectHeader(subject) }
                 }
                 studySection
+                archivedSection
             }
             .listStyle(.insetGrouped)
             .refreshable { await store.refresh(api: api) }
@@ -189,10 +198,28 @@ struct FlashcardsView: View {
     private func subjectHeader(_ subject: FlashSubject) -> some View {
         let ids = subject.sets.map(\.id)
         let all = !ids.isEmpty && Set(ids).isSubset(of: selected)
-        return HStack {
-            Text(subject.name)
+        let collapsed = isCollapsed(subject.id)
+        return HStack(spacing: 6) {
+            Button { toggleCollapsed(subject.id) } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .rotationEffect(.degrees(collapsed ? 0 : 90))
+                    Text(subject.name)
+                    if collapsed {
+                        Text(countLine(subject))
+                            .textCase(nil)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(subject.name), \(collapsed ? "collapsed" : "expanded"), \(countLine(subject))")
+            .accessibilityHint(collapsed ? "Shows the subject's sets" : "Hides the subject's sets")
+            .accessibilityIdentifier("flashcards-collapse-\(subject.name)")
             Spacer()
-            if !ids.isEmpty {
+            if !ids.isEmpty && !collapsed {
                 Button(all ? "None" : "All") {
                     for id in ids { select(id, on: !all) }
                 }
@@ -200,15 +227,33 @@ struct FlashcardsView: View {
                 .foregroundColor(settings.accentColor)
                 .accessibilityIdentifier("flashcards-select-\(subject.name)")
             }
-            Menu {
-                Button { renameText = subject.name; renaming = .subject(subject.id) } label: {
-                    Label("Rename", systemImage: "pencil")
-                }
-                Button(role: .destructive) { confirmDeleteSubject = subject } label: {
-                    Label("Delete subject", systemImage: "trash")
-                }
-            } label: { Image(systemName: "ellipsis").padding(.leading, 6) }
+            Menu { subjectActions(subject) } label: {
+                Image(systemName: "ellipsis.circle").padding(.leading, 6)
+            }
+            .accessibilityLabel("\(subject.name) options")
+            .accessibilityIdentifier("flashcards-subject-menu-\(subject.name)")
         }
+        .contextMenu { subjectActions(subject) }
+    }
+
+    /// The subject header's menu, and the same on a long press of the header.
+    @ViewBuilder private func subjectActions(_ subject: FlashSubject) -> some View {
+        Button { renameText = subject.name; renaming = .subject(subject.id) } label: {
+            Label("Rename subject…", systemImage: "pencil")
+        }
+        Button { archiveSubject(subject.id, true) } label: {
+            Label("Archive subject", systemImage: "archivebox")
+        }
+        Button(role: .destructive) { confirmDeleteSubject = subject } label: {
+            Label("Delete subject…", systemImage: "trash")
+        }
+    }
+
+    /// "3 sets · 120 cards" — what a minimised subject still says about itself.
+    private func countLine(_ subject: FlashSubject) -> String {
+        let n = subject.sets.count
+        let cards = subject.sets.reduce(0) { $0 + $1.cards }
+        return "\(n) \(n == 1 ? "set" : "sets") · \(cards) \(cards == 1 ? "card" : "cards")"
     }
 
     private func setRow(_ s: FlashSetSummary) -> some View {
@@ -245,11 +290,107 @@ struct FlashcardsView: View {
             Button { editing = EditTarget(id: s.id) } label: { Label("Edit cards", systemImage: "square.and.pencil") }
             Button { renameText = s.name; renaming = .set(s.id) } label: { Label("Rename", systemImage: "pencil") }
             Button { confirmReset = s } label: { Label("Reset progress", systemImage: "arrow.counterclockwise") }
-            Button(role: .destructive) { confirmDelete = s } label: { Label("Delete", systemImage: "trash") }
+            Button { archiveSet(s.id, true) } label: { Label("Archive", systemImage: "archivebox") }
+            Button(role: .destructive) { confirmDelete = s } label: { Label("Delete…", systemImage: "trash") }
         }
-        .swipeActions(edge: .trailing) {
+        // Not `role: .destructive`: that role removes the row before the
+        // confirmation has been answered.
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button { confirmDelete = s } label: { Label("Delete", systemImage: "trash") }
+                .tint(.red)
+            Button { archiveSet(s.id, true) } label: { Label("Archive", systemImage: "archivebox") }
+                .tint(.indigo)
+        }
+        .swipeActions(edge: .leading) {
             Button { editing = EditTarget(id: s.id) } label: { Label("Edit", systemImage: "square.and.pencil") }
                 .tint(.gray)
+        }
+    }
+
+    // MARK: - Archived
+
+    /// Archived subjects and sets, at the bottom, folded away until asked for.
+    /// Nothing in them is lost — unarchive puts a set back with its progress.
+    @ViewBuilder private var archivedSection: some View {
+        let subs = store.archivedSubjects
+        let sets = store.archivedSets
+        let count = subs.count + sets.count
+        if count > 0 {
+            Section {
+                Button { withAnimation { showArchived.toggle() } } label: {
+                    HStack {
+                        Image(systemName: "archivebox").foregroundColor(.secondary)
+                        Text("Archived").foregroundColor(.primary)
+                        Spacer()
+                        Text("\(count)").foregroundColor(.secondary)
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.secondary)
+                            .rotationEffect(.degrees(showArchived ? 90 : 0))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("flashcards-archived")
+                if showArchived {
+                    ForEach(subs) { sub in archivedSubjectRow(sub) }
+                    ForEach(sets) { s in archivedSetRow(s) }
+                }
+            } footer: {
+                if showArchived {
+                    Text("Archived sets keep their cards and progress; they are left out of the library and of study until unarchived.")
+                }
+            }
+        }
+    }
+
+    private func archivedSubjectRow(_ sub: FlashSubject) -> some View {
+        HStack {
+            Image(systemName: "folder").foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(sub.name).foregroundColor(.primary)
+                Text("Subject · \(countLine(sub))").font(.caption).foregroundColor(.secondary)
+            }
+            Spacer()
+            Menu {
+                Button { archiveSubject(sub.id, false) } label: { Label("Unarchive", systemImage: "tray.and.arrow.up") }
+                Button(role: .destructive) { confirmDeleteSubject = sub } label: { Label("Delete subject…", systemImage: "trash") }
+            } label: { Image(systemName: "ellipsis.circle") }
+            .accessibilityLabel("\(sub.name) options")
+        }
+        .accessibilityIdentifier("flashcards-archived-subject-\(sub.name)")
+        .contextMenu {
+            Button { archiveSubject(sub.id, false) } label: { Label("Unarchive", systemImage: "tray.and.arrow.up") }
+            Button(role: .destructive) { confirmDeleteSubject = sub } label: { Label("Delete subject…", systemImage: "trash") }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button { confirmDeleteSubject = sub } label: { Label("Delete", systemImage: "trash") }.tint(.red)
+            Button { archiveSubject(sub.id, false) } label: { Label("Unarchive", systemImage: "tray.and.arrow.up") }.tint(.indigo)
+        }
+    }
+
+    private func archivedSetRow(_ s: FlashSetSummary) -> some View {
+        HStack {
+            Image(systemName: "rectangle.on.rectangle").foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(s.name).foregroundColor(.primary)
+                Text("\(store.subjectName(of: s.id)) · \(s.cards) cards").font(.caption).foregroundColor(.secondary)
+            }
+            Spacer()
+            Menu {
+                Button { archiveSet(s.id, false) } label: { Label("Unarchive", systemImage: "tray.and.arrow.up") }
+                Button(role: .destructive) { confirmDelete = s } label: { Label("Delete…", systemImage: "trash") }
+            } label: { Image(systemName: "ellipsis.circle") }
+            .accessibilityLabel("\(s.name) options")
+        }
+        .accessibilityIdentifier("flashcards-archived-set-\(s.name)")
+        .contextMenu {
+            Button { archiveSet(s.id, false) } label: { Label("Unarchive", systemImage: "tray.and.arrow.up") }
+            Button(role: .destructive) { confirmDelete = s } label: { Label("Delete…", systemImage: "trash") }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button { confirmDelete = s } label: { Label("Delete", systemImage: "trash") }.tint(.red)
+            Button { archiveSet(s.id, false) } label: { Label("Unarchive", systemImage: "tray.and.arrow.up") }.tint(.indigo)
         }
     }
 
@@ -363,6 +504,31 @@ struct FlashcardsView: View {
         selectedRaw = s.sorted().map(String.init).joined(separator: ",")
     }
 
+    private func archiveSet(_ id: Int, _ on: Bool) {
+        if on { select(id, on: false) }
+        Task { refusal = await store.archiveSet(id, on, api: api) }
+    }
+
+    private func archiveSubject(_ id: Int, _ on: Bool) {
+        Task { refusal = await store.archiveSubject(id, on, api: api) }
+    }
+
+    private func hasArchivedSets(_ subjectId: Int) -> Bool {
+        store.subjects.first { $0.id == subjectId }?.sets.contains(where: \.archived) ?? false
+    }
+
+    private var collapsed: Set<Int> {
+        Set(collapsedRaw.split(separator: ",").compactMap { Int($0) })
+    }
+
+    private func isCollapsed(_ subjectId: Int) -> Bool { collapsed.contains(subjectId) }
+
+    private func toggleCollapsed(_ subjectId: Int) {
+        var c = collapsed
+        if c.contains(subjectId) { c.remove(subjectId) } else { c.insert(subjectId) }
+        withAnimation { collapsedRaw = c.sorted().map(String.init).joined(separator: ",") }
+    }
+
     private func toggleType(_ t: String) {
         var s = types
         if s.contains(t) { s.remove(t) } else { s.insert(t) }
@@ -463,10 +629,10 @@ struct NewSetSheet: View {
                         .accessibilityIdentifier("flashcards-new-set-name")
                 }
                 Section("Subject") {
-                    if !store.subjects.isEmpty {
+                    if !store.activeSubjects.isEmpty {
                         Picker("Subject", selection: $subjectId) {
                             Text("New subject…").tag(Int?.none)
-                            ForEach(store.subjects) { s in Text(s.name).tag(Optional(s.id)) }
+                            ForEach(store.activeSubjects) { s in Text(s.name).tag(Optional(s.id)) }
                         }
                     }
                     if subjectId == nil {
@@ -497,7 +663,7 @@ struct NewSetSheet: View {
                                   || (subjectId == nil && newSubject.trimmingCharacters(in: .whitespaces).isEmpty))
                 }
             }
-            .onAppear { if subjectId == nil { subjectId = store.subjects.first?.id } }
+            .onAppear { if subjectId == nil { subjectId = store.activeSubjects.first?.id } }
         }
     }
 

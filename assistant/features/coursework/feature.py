@@ -11,6 +11,7 @@ class CourseworkFeature(Feature):
     name = "coursework"
     label = "Coursework"
     icon = "graduationcap"
+    mac_icon = "graduation"
     order = 20
     pinned = False
     default_visible = True

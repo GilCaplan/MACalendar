@@ -15,6 +15,7 @@ class TeachFeature(Feature):
     name = "teach"
     label = "Teach"
     icon = "brain.head.profile"
+    mac_icon = "idea"
     order = 50
     pinned = False
     has_mac_panel = False
