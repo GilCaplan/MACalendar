@@ -1391,6 +1391,8 @@ class LocalStore: ObservableObject {
         // the next fetch brought the real row down beside it, and any edit made
         // in between replayed against an id the Mac never issued.
         CourseStore.shared.remapTemporaryID(tempID, to: realID)
+        // Flashcards keeps its own cache too (a set or card made on the train).
+        FlashcardStore.shared.remapTemporaryID(tempID, to: realID)
         persist()
     }
 }

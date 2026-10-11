@@ -92,6 +92,11 @@ enum FeatureRegistry {
         Feature(name: "coursework", label: "Coursework", icon: "graduationcap",
                 order: 20,
                 make: { AnyView(CourseworkView()) }),
+        // Studied offline from the phone's own copy of every set
+        // (FlashcardStore); answers queue for the Mac like any write.
+        Feature(name: "flashcards", label: "Flashcards",
+                icon: "rectangle.on.rectangle.angled", order: 25,
+                make: { AnyView(FlashcardsView()) }),
         Feature(name: "workout", label: "Workout",
                 icon: "figure.strengthtraining.traditional", order: 30,
                 make: { AnyView(WorkoutView()) }),

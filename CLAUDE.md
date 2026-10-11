@@ -229,6 +229,8 @@ the rest:
     MACALENDAR_MODEL_HOSTS / _HELPER_TOKENS / _HOST_STATE / _LOGS
                                model helpers (Q70): tokens for OTHER machines,
                                who may use this one's model, its role, the log
+    MACALENDAR_FLASHCARDS      the decks and the review history (2026-10-11) —
+                               a suite grading cards reschedules real exam prep
 
 The feedback file is the one to be careful with: it holds the user's own
 CORRECTIONS, which are the only non-circular label source this project has, so
