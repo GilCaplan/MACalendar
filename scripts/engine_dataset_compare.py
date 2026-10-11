@@ -66,7 +66,7 @@ from assistant.common.scratch_env import scratch_env
 WORKTREE = pathlib.Path(__file__).resolve().parents[1]
 # The dataset is first-class: `dataset/` in this tree (inputs committed,
 # baseline dbs gitignored and local). The fallback that used to sit here —
-# "/Users/USER/Desktop/Personal_Projects/MACalendar", the dataset owner's
+# an absolute path into the dataset owner's home folder, their
 # original checkout, kept "until the merge migrates it" — outlived the merge
 # and became a hardcoded path to one person's laptop. It resolved to nothing on
 # any other machine and said nothing about it, which is the failure mode

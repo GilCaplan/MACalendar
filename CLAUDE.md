@@ -210,7 +210,10 @@ writing junk into either quietly degrades the assistant.
 they are for stay in `~/.assistant_tools`. A set file goes in the inbox, never
 the checkout; docs, tests and examples use neutral facts; and a commit message
 does not say what the material is either. `.gitignore` refuses set files, decks,
-PDFs and the flashcard stores, but it cannot catch a sentence.
+PDFs and the flashcard stores, but it cannot catch a sentence. Nor a path into
+this Mac: no `/Users/<name>/` or real user id in any tracked file, logs and
+comments included (`test_no_personal_paths.py`) — write `~`, a placeholder, or
+resolve it at run time.
 
 Every store honours an environment override, and `tests/conftest.py` points
 all four at a scratch directory *before* importing anything from `assistant`
