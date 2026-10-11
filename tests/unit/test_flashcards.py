@@ -147,11 +147,11 @@ def test_zip_import_carries_pictures(store, tmp_path):
 
 
 def test_multi_set_file_and_hebrew_direction(store):
-    out = store.import_doc({"subject": "הכנה לקצונה", "lang": "he", "sets": [
-        {"set": "שער 1", "cards": BASIC[:2]}, {"set": "שער 2", "cards": BASIC[2:]}]})
+    out = store.import_doc({"subject": "היסטוריה", "lang": "he", "sets": [
+        {"set": "פרק 1", "cards": BASIC[:2]}, {"set": "פרק 2", "cards": BASIC[2:]}]})
     assert len(out) == 2
     [subject] = store.library()
-    assert subject["name"] == "הכנה לקצונה"
+    assert subject["name"] == "היסטוריה"
     assert {s["dir"] for s in subject["sets"]} == {"rtl"}
     assert sum(s["cards"] for s in subject["sets"]) == 5
 
