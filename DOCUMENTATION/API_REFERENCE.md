@@ -337,6 +337,17 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `DELETE` | `/flashcards/subjects/<int:sid>` |  |
 | `PATCH` | `/flashcards/subjects/<int:sid>` |  |
 
+## /ranker
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/ranker` |  |
+| `POST` | `/ranker/numbers` | Read the numbers in one or more pictures and keep them as the list. |
+| `PUT` | `/ranker/numbers` |  |
+| `DELETE` | `/ranker/presets/<name>` |  |
+| `PUT` | `/ranker/presets/<name>` |  |
+| `POST` | `/ranker/rank` | Rank a table by a recipe, narrowed to the picture's numbers when there are any. |
+
 ## /todos
 
 | Method | Path | What it does |

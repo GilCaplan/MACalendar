@@ -103,6 +103,11 @@ enum FeatureRegistry {
         Feature(name: "timer", label: "Timer", icon: "timer",
                 order: 40,
                 make: { AnyView(TimerView()) }),
+        // Ranking runs on the Mac (one reader for HTML/CSV, one recipe engine);
+        // the phone picks the files and shows the answer.
+        Feature(name: "ranker", label: "Ranker", icon: "list.number",
+                order: 45, needsMac: true,
+                make: { AnyView(RankerView()) }),
         Feature(name: "teach", label: "Teach", icon: "brain.head.profile",
                 order: 50, needsMac: true,
                 make: { AnyView(LabelGameView()) }),

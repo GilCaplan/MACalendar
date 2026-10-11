@@ -1,0 +1,636 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=yes"><title>Migration - 2.2B, 3 Scrolls, 434 Kingdoms</title><style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#f2f2f7;
+--surface:#fff;
+--text:#1c1c1e;
+--text-secondary:#3a3a3c;
+--text-tertiary:#48484a;
+--accent:#007aff;
+--accent-hover:#0051d5;
+--border:#d1d1d6;
+--hover-bg:#f5f5f7;
+--shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+--shadow-md:0 2px 8px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.06);
+--radius:8px;
+--radius-lg:12px
+}
+@media(prefers-color-scheme:dark){
+:root{
+--bg:#1c1c1e;
+--surface:#2c2c2e;
+--text:#f2f2f7;
+--text-secondary:#aeaeb2;
+--text-tertiary:#8e8e93;
+--border:#38383a;
+--hover-bg:#3a3a3c;
+--shadow:0 1px 3px rgba(0,0,0,.3),0 1px 2px rgba(0,0,0,.2);
+--shadow-md:0 2px 8px rgba(0,0,0,.4),0 1px 3px rgba(0,0,0,.3)
+}
+}
+body{
+font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',system-ui,sans-serif;
+background:var(--bg);
+color:var(--text);
+line-height:1.5;
+-webkit-font-smoothing:antialiased;
+padding:16px;
+font-size:15px;
+-webkit-text-size-adjust:100%
+}
+.wrapper{
+max-width:1400px;
+margin:0 auto
+}
+.header{
+margin-bottom:20px
+}
+h1{
+font-size:28px;
+font-weight:700;
+color:var(--text);
+letter-spacing:-.01em
+}
+.toolbar{
+display:flex;
+gap:12px;
+margin-bottom:16px;
+flex-wrap:wrap;
+align-items:center
+}
+.search-box{
+position:relative;
+flex:1;
+min-width:200px;
+max-width:400px
+}
+.search-box .icon{
+position:absolute;
+left:12px;
+top:50%;
+transform:translateY(-50%);
+width:16px;
+height:16px;
+stroke:var(--text-tertiary);
+fill:none;
+stroke-width:2.5;
+stroke-linecap:round;
+pointer-events:none
+}
+#globalSearch{
+width:100%;
+padding:9px 12px 9px 36px;
+background:var(--surface);
+border:1px solid var(--border);
+border-radius:var(--radius);
+font-size:15px;
+color:var(--text);
+transition:all .2s ease;
+outline:none
+}
+#globalSearch:focus{
+border-color:var(--accent);
+box-shadow:0 0 0 3px rgba(0,122,255,.12)
+}
+.toolbar-actions{
+display:flex;
+gap:8px
+}
+button,.page-btn{
+display:inline-flex;
+align-items:center;
+gap:6px;
+padding:9px 16px;
+font-size:15px;
+font-weight:500;
+border-radius:var(--radius);
+border:none;
+cursor:pointer;
+transition:all .2s ease;
+outline:none;
+white-space:nowrap
+}
+button .icon,.page-btn .icon{
+width:16px;
+height:16px;
+stroke:currentColor;
+fill:none;
+stroke-width:2.5;
+stroke-linecap:round;
+stroke-linejoin:round;
+flex-shrink:0
+}
+.btn-primary{
+background:var(--accent);
+color:#fff
+}
+.btn-primary:hover:not(:disabled){
+background:var(--accent-hover);
+transform:translateY(-1px);
+box-shadow:0 3px 12px rgba(0,122,255,.25)
+}
+.btn-primary:active:not(:disabled){
+transform:translateY(0)
+}
+.btn-secondary{
+background:var(--surface);
+color:var(--text);
+border:1px solid var(--border)
+}
+.btn-secondary:hover:not(:disabled){
+background:var(--hover-bg)
+}
+button:disabled,.page-btn:disabled{
+opacity:.4;
+cursor:not-allowed
+}
+#rowsPerPage{
+padding:9px 32px 9px 12px;
+background:var(--surface) url(data:image/svg+xml,%3Csvg%20width=%2710%27%20height=%276%27%20viewBox=%270%200%2010%206%27%20xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cpath%20d=%27M1%201L5%205L9%201%27%20stroke=%27%238e8e93%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%20fill=%27none%27/%3E%3C/svg%3E) no-repeat right 10px center;
+border:1px solid var(--border);
+border-radius:var(--radius);
+font-size:15px;
+color:var(--text);
+cursor:pointer;
+appearance:none;
+outline:none;
+transition:all .2s ease
+}
+#rowsPerPage:hover{
+border-color:var(--accent)
+}
+.table-card{
+background:var(--surface);
+border-radius:var(--radius-lg);
+overflow:hidden;
+box-shadow:var(--shadow-md);
+border:1px solid var(--border);
+margin-bottom:16px
+}
+.table-scroll{
+overflow-x:auto;
+-webkit-overflow-scrolling:touch
+}
+table{
+width:100%;
+border-collapse:collapse;
+min-width:600px
+}
+thead{
+position:sticky;
+top:0;
+z-index:10;
+background:var(--surface);
+backdrop-filter:blur(10px);
+-webkit-backdrop-filter:blur(10px)
+}
+th{
+text-align:left;
+font-weight:600;
+font-size:12px;
+color:var(--text-secondary);
+text-transform:uppercase;
+letter-spacing:.5px;
+padding:12px 16px;
+border-bottom:1px solid var(--border);
+cursor:pointer;
+user-select:none;
+-webkit-user-select:none;
+transition:background .15s ease;
+white-space:nowrap
+}
+th:active{
+background:var(--hover-bg)
+}
+th span{
+display:inline-flex;
+align-items:center;
+gap:6px
+}
+.sort{
+font-size:12px;
+color:var(--accent);
+min-width:10px;
+font-weight:600
+}
+.filter-row th{
+padding:8px 16px;
+background:var(--hover-bg);
+cursor:default;
+border-bottom:1px solid var(--border)
+}
+.filter-row th:active{
+background:var(--hover-bg)
+}
+.col-filter{
+width:100%;
+padding:6px 10px;
+background:var(--surface);
+border:1px solid var(--border);
+border-radius:6px;
+font-size:13px;
+color:var(--text);
+transition:all .2s ease;
+outline:none
+}
+.col-filter:focus{
+border-color:var(--accent);
+box-shadow:0 0 0 2px rgba(0,122,255,.1)
+}
+td{
+padding:10px 16px;
+border-bottom:1px solid var(--border);
+font-size:14px;
+color:var(--text);
+white-space:nowrap;
+overflow:hidden;
+text-overflow:ellipsis;
+max-width:300px
+}
+tbody tr{
+transition:background .15s ease
+}
+tbody tr:hover{
+background:var(--hover-bg)
+}
+tbody tr:last-child td{
+border-bottom:none
+}
+.footer{
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:12px 16px;
+background:var(--surface);
+border-radius:var(--radius-lg);
+border:1px solid var(--border);
+box-shadow:var(--shadow);
+gap:16px;
+flex-wrap:wrap
+}
+.info{
+font-size:13px;
+color:var(--text-secondary);
+font-weight:500
+}
+.pagination{
+display:flex;
+gap:6px;
+align-items:center
+}
+.page-btn{
+padding:8px;
+background:var(--surface);
+border:1px solid var(--border);
+border-radius:6px;
+min-width:36px;
+min-height:36px;
+justify-content:center
+}
+.page-btn:hover:not(:disabled){
+background:var(--hover-bg)
+}
+.page-btn:active:not(:disabled){
+transform:scale(.95)
+}
+.page-num{
+min-width:60px;
+text-align:center;
+font-size:14px;
+font-weight:600;
+color:var(--text-secondary);
+padding:0 8px
+}
+@media(max-width:768px){
+body{
+padding:12px 8px
+}
+h1{
+font-size:24px;
+margin-bottom:4px
+}
+.toolbar{
+flex-direction:column;
+align-items:stretch;
+gap:10px
+}
+.search-box{
+max-width:none;
+order:1
+}
+.toolbar-actions{
+order:2;
+width:100%;
+gap:8px
+}
+.toolbar-actions button{
+flex:1;
+justify-content:center;
+padding:10px 12px;
+font-size:14px
+}
+.btn-text{
+display:inline
+}
+#rowsPerPage{
+order:3;
+width:100%
+}
+table{
+font-size:13px
+}
+th{
+padding:10px 12px;
+font-size:11px;
+min-width:80px
+}
+.sort{
+font-size:11px
+}
+.col-filter{
+font-size:12px;
+padding:6px 8px
+}
+td{
+padding:10px 12px;
+font-size:13px;
+max-width:200px
+}
+.footer{
+flex-direction:column;
+align-items:stretch;
+gap:12px;
+padding:12px
+}
+.info{
+text-align:center;
+order:2;
+font-size:12px
+}
+.pagination{
+order:1;
+justify-content:center
+}
+.page-btn{
+min-width:40px;
+min-height:40px
+}
+}
+@media(max-width:480px){
+h1{
+font-size:22px
+}
+.toolbar-actions button{
+font-size:13px;
+padding:9px 10px
+}
+button .icon{
+width:15px;
+height:15px
+}
+.page-num{
+min-width:50px;
+font-size:13px;
+padding:0 6px
+}
+.page-btn{
+min-width:36px;
+min-height:36px;
+padding:6px
+}
+.page-btn .icon{
+width:14px;
+height:14px
+}
+table{
+min-width:500px;
+font-size:12px
+}
+th{
+padding:8px 10px;
+font-size:10px;
+min-width:70px
+}
+td{
+padding:8px 10px;
+font-size:12px;
+max-width:150px
+}
+.col-filter{
+padding:5px 6px;
+font-size:11px
+}
+}
+@media(min-width:1024px){
+.table-scroll::-webkit-scrollbar{
+height:8px
+}
+.table-scroll::-webkit-scrollbar-track{
+background:var(--hover-bg);
+border-radius:4px
+}
+.table-scroll::-webkit-scrollbar-thumb{
+background:var(--border);
+border-radius:4px
+}
+.table-scroll::-webkit-scrollbar-thumb:hover{
+background:var(--text-tertiary)
+}
+}
+</style></head><body><div class="wrapper"><div class="header"><h1>Migration - 2.2B, 3 Scrolls, 434 Kingdoms</h1></div><div class="toolbar"><div class="search-box"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input type="text" id="globalSearch" placeholder="Search"></div><div class="toolbar-actions"><button class="btn-secondary" onclick="clearAllFilters()"><svg class="icon" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg><span class="btn-text">Clear</span></button><button class="btn-primary" onclick="exportToCSV()"><svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg><span class="btn-text">Export</span></button></div><select id="rowsPerPage" onchange="changeRowsPerPage()"><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option><option value="-1">All</option></select></div><div class="table-card"><div class="table-scroll"><table><thead><tr><th data-column="Kingdom" data-type="numeric"><span>K</span><span class="sort"></span></th><th data-column="PlayerRank" data-type="numeric"><span>Your Rank</span><span class="sort"></span></th><th data-column="Players" data-type="numeric"><span>Players</span><span class="sort"></span></th><th data-column="Top50Power" data-type="string"><span>Top50</span><span class="sort"></span></th><th data-column="ScrollsRequired" data-type="numeric"><span>Scrolls</span><span class="sort"></span></th><th data-column="InactivePercent" data-type="numeric"><span>😴 %</span><span class="sort"></span></th><th data-column="Shields24h" data-type="numeric"><span>🛡 24h</span><span class="sort"></span></th><th data-column="Burned24h" data-type="numeric"><span>🔥 24h</span><span class="sort"></span></th><th data-column="Blessed50" data-type="numeric"><span>✨50+</span><span class="sort"></span></th><th data-column="Blessed100" data-type="numeric"><span>✨100+</span><span class="sort"></span></th><th data-column="Blessed150" data-type="numeric"><span>✨150+</span><span class="sort"></span></th><th data-column="Stars150" data-type="numeric"><span>⭐150+</span><span class="sort"></span></th><th data-column="Stars200" data-type="numeric"><span>⭐200+</span><span class="sort"></span></th><th data-column="Stars250" data-type="numeric"><span>⭐250+</span><span class="sort"></span></th></tr><tr class="filter-row"><th><input type="text" class="col-filter" data-column="Kingdom" placeholder="Filter"></th><th><input type="text" class="col-filter" data-column="PlayerRank" placeholder="Filter"></th><th><input type="text" class="col-filter" data-column="Players" placeholder="Filter"></th><th><input type="text" class="col-filter" data-column="Top50Power" placeholder="Filter"></th><th><input type="text" class="col-filter" data-column="ScrollsRequired" placeholder="Filter"></th><th><input type="text" class="col-filter" data-column="InactivePercent" placeholder="Filter"></th><th><input type="text" class="col-filter" data-column="Shields24h" placeholder="Filter"></th><th><input type="text" class="col-filter" data-column="Burned24h" placeholder="Filter"></th><th><input type="text" class="col-filter" data-column="Blessed50" placeholder="Filter"></th><th><input type="text" class="col-filter" data-column="Blessed100" placeholder="Filter"></th><th><input type="text" class="col-filter" data-column="Blessed150" placeholder="Filter"></th><th><input type="text" class="col-filter" data-column="Stars150" placeholder="Filter"></th><th><input type="text" class="col-filter" data-column="Stars200" placeholder="Filter"></th><th><input type="text" class="col-filter" data-column="Stars250" placeholder="Filter"></th></tr></thead><tbody><tr><td data-value="1" data-raw="1">1</td><td data-value="859" data-raw="859">859</td><td data-value="4574" data-raw="4574">4574</td><td data-value="3.62B" data-raw="0">3.62B</td><td data-value="1" data-raw="1">1</td><td data-value="10" data-raw="10.013117790222168">10</td><td data-value="293" data-raw="293">293</td><td data-value="1559" data-raw="1559">1559</td><td data-value="19" data-raw="19">19</td><td data-value="8" data-raw="8">8</td><td data-value="8" data-raw="8">8</td><td data-value="12" data-raw="12">12</td><td data-value="2" data-raw="2">2</td><td data-value="11" data-raw="11">11</td></tr><tr><td data-value="711" data-raw="711">711</td><td data-value="54" data-raw="54">54</td><td data-value="799" data-raw="799">799</td><td data-value="2.28B" data-raw="0">2.28B</td><td data-value="1" data-raw="1">1</td><td data-value="19" data-raw="18.52315330505371">19</td><td data-value="94" data-raw="94">94</td><td data-value="75" data-raw="75">75</td><td data-value="1" data-raw="1">1</td><td data-value="3" data-raw="3">3</td><td data-value="0" data-raw="0">0</td><td data-value="1" data-raw="1">1</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="708" data-raw="708">708</td><td data-value="126" data-raw="126">126</td><td data-value="1182" data-raw="1182">1182</td><td data-value="3.17B" data-raw="0">3.17B</td><td data-value="1" data-raw="1">1</td><td data-value="8" data-raw="7.529610633850098">8</td><td data-value="86" data-raw="86">86</td><td data-value="162" data-raw="162">162</td><td data-value="4" data-raw="4">4</td><td data-value="2" data-raw="2">2</td><td data-value="5" data-raw="5">5</td><td data-value="1" data-raw="1">1</td><td data-value="3" data-raw="3">3</td><td data-value="4" data-raw="4">4</td></tr><tr><td data-value="707" data-raw="707">707</td><td data-value="84" data-raw="84">84</td><td data-value="974" data-raw="974">974</td><td data-value="2.45B" data-raw="0">2.45B</td><td data-value="1" data-raw="1">1</td><td data-value="20" data-raw="20.02053451538086">20</td><td data-value="21" data-raw="21">21</td><td data-value="87" data-raw="87">87</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="702" data-raw="702">702</td><td data-value="303" data-raw="303">303</td><td data-value="1057" data-raw="1057">1057</td><td data-value="3.49B" data-raw="0">3.49B</td><td data-value="1" data-raw="1">1</td><td data-value="10" data-raw="9.933774948120117">10</td><td data-value="36" data-raw="36">36</td><td data-value="303" data-raw="303">303</td><td data-value="4" data-raw="4">4</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="3" data-raw="3">3</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="701" data-raw="701">701</td><td data-value="206" data-raw="206">206</td><td data-value="2132" data-raw="2132">2132</td><td data-value="3.31B" data-raw="0">3.31B</td><td data-value="1" data-raw="1">1</td><td data-value="12" data-raw="11.726078987121582">12</td><td data-value="176" data-raw="176">176</td><td data-value="381" data-raw="381">381</td><td data-value="9" data-raw="9">9</td><td data-value="6" data-raw="6">6</td><td data-value="9" data-raw="9">9</td><td data-value="3" data-raw="3">3</td><td data-value="4" data-raw="4">4</td><td data-value="8" data-raw="8">8</td></tr><tr><td data-value="700" data-raw="700">700</td><td data-value="99" data-raw="99">99</td><td data-value="1145" data-raw="1145">1145</td><td data-value="2.6B" data-raw="0">2.6B</td><td data-value="1" data-raw="1">1</td><td data-value="9" data-raw="9.082969665527344">9</td><td data-value="63" data-raw="63">63</td><td data-value="502" data-raw="502">502</td><td data-value="1" data-raw="1">1</td><td data-value="1" data-raw="1">1</td><td data-value="1" data-raw="1">1</td><td data-value="2" data-raw="2">2</td><td data-value="2" data-raw="2">2</td><td data-value="1" data-raw="1">1</td></tr><tr><td data-value="699" data-raw="699">699</td><td data-value="146" data-raw="146">146</td><td data-value="840" data-raw="840">840</td><td data-value="2.55B" data-raw="0">2.55B</td><td data-value="1" data-raw="1">1</td><td data-value="9" data-raw="9.047618865966797">9</td><td data-value="117" data-raw="117">117</td><td data-value="148" data-raw="148">148</td><td data-value="14" data-raw="14">14</td><td data-value="4" data-raw="4">4</td><td data-value="3" data-raw="3">3</td><td data-value="2" data-raw="2">2</td><td data-value="3" data-raw="3">3</td><td data-value="6" data-raw="6">6</td></tr><tr><td data-value="698" data-raw="698">698</td><td data-value="105" data-raw="105">105</td><td data-value="376" data-raw="376">376</td><td data-value="2.49B" data-raw="0">2.49B</td><td data-value="1" data-raw="1">1</td><td data-value="27" data-raw="27.393617630004883">27</td><td data-value="18" data-raw="18">18</td><td data-value="9" data-raw="9">9</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="696" data-raw="696">696</td><td data-value="61" data-raw="61">61</td><td data-value="590" data-raw="590">590</td><td data-value="2.44B" data-raw="0">2.44B</td><td data-value="1" data-raw="1">1</td><td data-value="23" data-raw="22.711864471435547">23</td><td data-value="63" data-raw="63">63</td><td data-value="87" data-raw="87">87</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="713" data-raw="713">713</td><td data-value="65" data-raw="65">65</td><td data-value="1109" data-raw="1109">1109</td><td data-value="2.35B" data-raw="0">2.35B</td><td data-value="1" data-raw="1">1</td><td data-value="15" data-raw="14.878268241882324">15</td><td data-value="71" data-raw="71">71</td><td data-value="281" data-raw="281">281</td><td data-value="4" data-raw="4">4</td><td data-value="7" data-raw="7">7</td><td data-value="3" data-raw="3">3</td><td data-value="7" data-raw="7">7</td><td data-value="1" data-raw="1">1</td><td data-value="4" data-raw="4">4</td></tr><tr><td data-value="681" data-raw="681">681</td><td data-value="70" data-raw="70">70</td><td data-value="657" data-raw="657">657</td><td data-value="2.37B" data-raw="0">2.37B</td><td data-value="1" data-raw="1">1</td><td data-value="14" data-raw="14.459665298461914">14</td><td data-value="11" data-raw="11">11</td><td data-value="101" data-raw="101">101</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="678" data-raw="678">678</td><td data-value="137" data-raw="137">137</td><td data-value="1420" data-raw="1420">1420</td><td data-value="2.98B" data-raw="0">2.98B</td><td data-value="1" data-raw="1">1</td><td data-value="24" data-raw="24.225351333618164">24</td><td data-value="25" data-raw="25">25</td><td data-value="109" data-raw="109">109</td><td data-value="5" data-raw="5">5</td><td data-value="1" data-raw="1">1</td><td data-value="5" data-raw="5">5</td><td data-value="3" data-raw="3">3</td><td data-value="2" data-raw="2">2</td><td data-value="5" data-raw="5">5</td></tr><tr><td data-value="671" data-raw="671">671</td><td data-value="127" data-raw="127">127</td><td data-value="655" data-raw="655">655</td><td data-value="3B" data-raw="0">3B</td><td data-value="1" data-raw="1">1</td><td data-value="18" data-raw="18.473281860351562">18</td><td data-value="54" data-raw="54">54</td><td data-value="110" data-raw="110">110</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="670" data-raw="670">670</td><td data-value="71" data-raw="71">71</td><td data-value="1118" data-raw="1118">1118</td><td data-value="2.51B" data-raw="0">2.51B</td><td data-value="1" data-raw="1">1</td><td data-value="13" data-raw="13.327370643615723">13</td><td data-value="114" data-raw="114">114</td><td data-value="283" data-raw="283">283</td><td data-value="2" data-raw="2">2</td><td data-value="2" data-raw="2">2</td><td data-value="0" data-raw="0">0</td><td data-value="1" data-raw="1">1</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="666" data-raw="666">666</td><td data-value="208" data-raw="208">208</td><td data-value="2092" data-raw="2092">2092</td><td data-value="2.73B" data-raw="0">2.73B</td><td data-value="1" data-raw="1">1</td><td data-value="10" data-raw="10.133843421936035">10</td><td data-value="179" data-raw="179">179</td><td data-value="433" data-raw="433">433</td><td data-value="10" data-raw="10">10</td><td data-value="2" data-raw="2">2</td><td data-value="2" data-raw="2">2</td><td data-value="2" data-raw="2">2</td><td data-value="0" data-raw="0">0</td><td data-value="3" data-raw="3">3</td></tr><tr><td data-value="663" data-raw="663">663</td><td data-value="55" data-raw="55">55</td><td data-value="823" data-raw="823">823</td><td data-value="2.25B" data-raw="0">2.25B</td><td data-value="1" data-raw="1">1</td><td data-value="13" data-raw="13.365735054016113">13</td><td data-value="121" data-raw="121">121</td><td data-value="281" data-raw="281">281</td><td data-value="5" data-raw="5">5</td><td data-value="2" data-raw="2">2</td><td data-value="0" data-raw="0">0</td><td data-value="1" data-raw="1">1</td><td data-value="4" data-raw="4">4</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="661" data-raw="661">661</td><td data-value="119" data-raw="119">119</td><td data-value="653" data-raw="653">653</td><td data-value="2.54B" data-raw="0">2.54B</td><td data-value="1" data-raw="1">1</td><td data-value="19" data-raw="18.683002471923828">19</td><td data-value="33" data-raw="33">33</td><td data-value="144" data-raw="144">144</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="660" data-raw="660">660</td><td data-value="118" data-raw="118">118</td><td data-value="825" data-raw="825">825</td><td data-value="2.42B" data-raw="0">2.42B</td><td data-value="1" data-raw="1">1</td><td data-value="17" data-raw="17.090909957885742">17</td><td data-value="42" data-raw="42">42</td><td data-value="49" data-raw="49">49</td><td data-value="0" data-raw="0">0</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td><td data-value="1" data-raw="1">1</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="652" data-raw="652">652</td><td data-value="217" data-raw="217">217</td><td data-value="819" data-raw="819">819</td><td data-value="2.75B" data-raw="0">2.75B</td><td data-value="1" data-raw="1">1</td><td data-value="7" data-raw="7.203907012939453">7</td><td data-value="63" data-raw="63">63</td><td data-value="484" data-raw="484">484</td><td data-value="4" data-raw="4">4</td><td data-value="2" data-raw="2">2</td><td data-value="0" data-raw="0">0</td><td data-value="1" data-raw="1">1</td><td data-value="1" data-raw="1">1</td><td data-value="1" data-raw="1">1</td></tr><tr><td data-value="651" data-raw="651">651</td><td data-value="153" data-raw="153">153</td><td data-value="1682" data-raw="1682">1682</td><td data-value="2.54B" data-raw="0">2.54B</td><td data-value="1" data-raw="1">1</td><td data-value="11" data-raw="10.820451736450195">11</td><td data-value="209" data-raw="209">209</td><td data-value="678" data-raw="678">678</td><td data-value="5" data-raw="5">5</td><td data-value="2" data-raw="2">2</td><td data-value="1" data-raw="1">1</td><td data-value="2" data-raw="2">2</td><td data-value="3" data-raw="3">3</td><td data-value="2" data-raw="2">2</td></tr><tr><td data-value="679" data-raw="679">679</td><td data-value="60" data-raw="60">60</td><td data-value="573" data-raw="573">573</td><td data-value="2.39B" data-raw="0">2.39B</td><td data-value="1" data-raw="1">1</td><td data-value="29" data-raw="29.144851684570312">29</td><td data-value="35" data-raw="35">35</td><td data-value="40" data-raw="40">40</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="650" data-raw="650">650</td><td data-value="86" data-raw="86">86</td><td data-value="740" data-raw="740">740</td><td data-value="2.34B" data-raw="0">2.34B</td><td data-value="1" data-raw="1">1</td><td data-value="15" data-raw="15">15</td><td data-value="47" data-raw="47">47</td><td data-value="136" data-raw="136">136</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="715" data-raw="715">715</td><td data-value="117" data-raw="117">117</td><td data-value="693" data-raw="693">693</td><td data-value="2.83B" data-raw="0">2.83B</td><td data-value="1" data-raw="1">1</td><td data-value="14" data-raw="13.852813720703125">14</td><td data-value="34" data-raw="34">34</td><td data-value="75" data-raw="75">75</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="720" data-raw="720">720</td><td data-value="182" data-raw="182">182</td><td data-value="811" data-raw="811">811</td><td data-value="3.02B" data-raw="0">3.02B</td><td data-value="1" data-raw="1">1</td><td data-value="12" data-raw="11.960542678833008">12</td><td data-value="57" data-raw="57">57</td><td data-value="105" data-raw="105">105</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="767" data-raw="767">767</td><td data-value="57" data-raw="57">57</td><td data-value="897" data-raw="897">897</td><td data-value="2.31B" data-raw="0">2.31B</td><td data-value="1" data-raw="1">1</td><td data-value="11" data-raw="11.25975513458252">11</td><td data-value="75" data-raw="75">75</td><td data-value="310" data-raw="310">310</td><td data-value="3" data-raw="3">3</td><td data-value="3" data-raw="3">3</td><td data-value="0" data-raw="0">0</td><td data-value="2" data-raw="2">2</td><td data-value="2" data-raw="2">2</td><td data-value="3" data-raw="3">3</td></tr><tr><td data-value="765" data-raw="765">765</td><td data-value="61" data-raw="61">61</td><td data-value="789" data-raw="789">789</td><td data-value="2.46B" data-raw="0">2.46B</td><td data-value="1" data-raw="1">1</td><td data-value="20" data-raw="20.025348663330078">20</td><td data-value="30" data-raw="30">30</td><td data-value="146" data-raw="146">146</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="760" data-raw="760">760</td><td data-value="146" data-raw="146">146</td><td data-value="890" data-raw="890">890</td><td data-value="2.95B" data-raw="0">2.95B</td><td data-value="1" data-raw="1">1</td><td data-value="23" data-raw="22.808988571166992">23</td><td data-value="20" data-raw="20">20</td><td data-value="118" data-raw="118">118</td><td data-value="2" data-raw="2">2</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td><td data-value="1" data-raw="1">1</td></tr><tr><td data-value="759" data-raw="759">759</td><td data-value="98" data-raw="98">98</td><td data-value="633" data-raw="633">633</td><td data-value="2.67B" data-raw="0">2.67B</td><td data-value="1" data-raw="1">1</td><td data-value="26" data-raw="25.90837287902832">26</td><td data-value="16" data-raw="16">16</td><td data-value="52" data-raw="52">52</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="757" data-raw="757">757</td><td data-value="292" data-raw="292">292</td><td data-value="1764" data-raw="1764">1764</td><td data-value="3.01B" data-raw="0">3.01B</td><td data-value="1" data-raw="1">1</td><td data-value="13" data-raw="13.321995735168457">13</td><td data-value="274" data-raw="274">274</td><td data-value="268" data-raw="268">268</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="1" data-raw="1">1</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="755" data-raw="755">755</td><td data-value="52" data-raw="52">52</td><td data-value="676" data-raw="676">676</td><td data-value="2.21B" data-raw="0">2.21B</td><td data-value="1" data-raw="1">1</td><td data-value="16" data-raw="16.42011833190918">16</td><td data-value="37" data-raw="37">37</td><td data-value="361" data-raw="361">361</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="753" data-raw="753">753</td><td data-value="58" data-raw="58">58</td><td data-value="1036" data-raw="1036">1036</td><td data-value="2.24B" data-raw="0">2.24B</td><td data-value="1" data-raw="1">1</td><td data-value="11" data-raw="11.196910858154297">11</td><td data-value="98" data-raw="98">98</td><td data-value="184" data-raw="184">184</td><td data-value="3" data-raw="3">3</td><td data-value="4" data-raw="4">4</td><td data-value="1" data-raw="1">1</td><td data-value="2" data-raw="2">2</td><td data-value="2" data-raw="2">2</td><td data-value="3" data-raw="3">3</td></tr><tr><td data-value="749" data-raw="749">749</td><td data-value="63" data-raw="63">63</td><td data-value="907" data-raw="907">907</td><td data-value="2.32B" data-raw="0">2.32B</td><td data-value="1" data-raw="1">1</td><td data-value="30" data-raw="29.658214569091797">30</td><td data-value="17" data-raw="17">17</td><td data-value="82" data-raw="82">82</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="1" data-raw="1">1</td></tr><tr><td data-value="747" data-raw="747">747</td><td data-value="74" data-raw="74">74</td><td data-value="579" data-raw="579">579</td><td data-value="2.33B" data-raw="0">2.33B</td><td data-value="1" data-raw="1">1</td><td data-value="18" data-raw="18.30742645263672">18</td><td data-value="23" data-raw="23">23</td><td data-value="138" data-raw="138">138</td><td data-value="1" data-raw="1">1</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="2" data-raw="2">2</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="718" data-raw="718">718</td><td data-value="61" data-raw="61">61</td><td data-value="1131" data-raw="1131">1131</td><td data-value="2.38B" data-raw="0">2.38B</td><td data-value="1" data-raw="1">1</td><td data-value="36" data-raw="35.63218307495117">36</td><td data-value="60" data-raw="60">60</td><td data-value="309" data-raw="309">309</td><td data-value="0" data-raw="0">0</td><td data-value="1" data-raw="1">1</td><td data-value="1" data-raw="1">1</td><td data-value="2" data-raw="2">2</td><td data-value="0" data-raw="0">0</td><td data-value="2" data-raw="2">2</td></tr><tr><td data-value="746" data-raw="746">746</td><td data-value="219" data-raw="219">219</td><td data-value="754" data-raw="754">754</td><td data-value="3.09B" data-raw="0">3.09B</td><td data-value="1" data-raw="1">1</td><td data-value="22" data-raw="21.883289337158203">22</td><td data-value="23" data-raw="23">23</td><td data-value="105" data-raw="105">105</td><td data-value="2" data-raw="2">2</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td><td data-value="3" data-raw="3">3</td><td data-value="0" data-raw="0">0</td><td data-value="1" data-raw="1">1</td></tr><tr><td data-value="742" data-raw="742">742</td><td data-value="53" data-raw="53">53</td><td data-value="894" data-raw="894">894</td><td data-value="2.24B" data-raw="0">2.24B</td><td data-value="1" data-raw="1">1</td><td data-value="19" data-raw="19.01565933227539">19</td><td data-value="58" data-raw="58">58</td><td data-value="158" data-raw="158">158</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="740" data-raw="740">740</td><td data-value="170" data-raw="170">170</td><td data-value="1051" data-raw="1051">1051</td><td data-value="2.86B" data-raw="0">2.86B</td><td data-value="1" data-raw="1">1</td><td data-value="14" data-raw="13.796384811401367">14</td><td data-value="99" data-raw="99">99</td><td data-value="297" data-raw="297">297</td><td data-value="5" data-raw="5">5</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td></tr><tr><td data-value="739" data-raw="739">739</td><td data-value="71" data-raw="71">71</td><td data-value="648" data-raw="648">648</td><td data-value="2.44B" data-raw="0">2.44B</td><td data-value="1" data-raw="1">1</td><td data-value="11" data-raw="11.265432357788086">11</td><td data-value="92" data-raw="92">92</td><td data-value="136" data-raw="136">136</td><td data-value="2" data-raw="2">2</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="1" data-raw="1">1</td></tr><tr><td data-value="738" data-raw="738">738</td><td data-value="63" data-raw="63">63</td><td data-value="738" data-raw="738">738</td><td data-value="2.31B" data-raw="0">2.31B</td><td data-value="1" data-raw="1">1</td><td data-value="22" data-raw="22.49322509765625">22</td><td data-value="34" data-raw="34">34</td><td data-value="69" data-raw="69">69</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="0" data-raw="0">0</td><td data-value="1" data-raw="1">1</td><td data-value="0" data-raw="0">0</td></tr></tbody></table></div></div><div class="footer"><span class="info" id="info"></span><div class="pagination"><button class="page-btn" onclick="firstPage()" id="firstBtn" aria-label="First"><svg class="icon" viewBox="0 0 24 24"><path d="M11 19l-7-7 7-7M18 19l-7-7 7-7"/></svg></button><button class="page-btn" onclick="previousPage()" id="prevBtn" aria-label="Previous"><svg class="icon" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><span id="pageNum" class="page-num"></span><button class="page-btn" onclick="nextPage()" id="nextBtn" aria-label="Next"><svg class="icon" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button><button class="page-btn" onclick="lastPage()" id="lastBtn" aria-label="Last"><svg class="icon" viewBox="0 0 24 24"><path d="M13 5l7 7-7 7M6 5l7 7-7 7"/></svg></button></div></div></div><script>
+    let p=1,r=25,sc=null,sd='asc',all=[],flt=[],to,initialized=false;
+    const q=s=>document.querySelector(s),qa=s=>document.querySelectorAll(s),tb=()=>q('tbody');
+
+    document.addEventListener('DOMContentLoaded',()=>{
+    all=Array.from(tb().querySelectorAll('tr'));
+    flt=[...all];
+    q('#globalSearch').addEventListener('input',debounce(gs,300));
+    qa('.col-filter').forEach(i=>i.addEventListener('input',debounce(cf,300)));
+
+    qa('th[data-column]').forEach(h=>{
+    const col=h.getAttribute('data-column');
+    h.onclick=function(e){
+    e.preventDefault();
+    sortTable(col);
+    };
+    h.style.cursor='pointer';
+    h.style.webkitUserSelect='none';
+    h.style.userSelect='none';
+    });
+
+    upd();
+    initialized=true;
+    setTimeout(()=>{
+        if(all.length>0){
+            sortTable('ScrollsRequired');
+            if('asc'==='desc')sortTable('ScrollsRequired');
+        }
+    },200);
+    });
+
+    function debounce(f,d){return function(...a){clearTimeout(to);to=setTimeout(()=>f.apply(this,a),d)}}
+    function gs(e){
+    const t=e.target.value.toLowerCase();
+    if(!t){flt=[...all];p=1;upd();return}
+    flt=all.filter(r=>r.textContent.toLowerCase().includes(t));
+    p=1;upd();
+    }
+    function cf(){
+    const filters={};
+    qa('.col-filter').forEach(i=>{
+    const c=i.getAttribute('data-column'),v=i.value;
+    if(v)filters[c]=v;
+    });
+    if(Object.keys(filters).length===0){flt=[...all];p=1;upd();return}
+    const headers=Array.from(qa('th[data-column]'));
+    flt=all.filter(r=>{
+    const cells=r.querySelectorAll('td');
+    for(let col in filters){
+    const idx=headers.findIndex(h=>h.getAttribute('data-column')===col);
+    if(idx<0||idx>=cells.length)continue;
+    const cellText=cells[idx].textContent.trim();
+    const cellRaw=parseFloat(cells[idx].getAttribute('data-raw'))||0;
+    const filter=filters[col].trim();
+    if(!matchFilter(cellText,cellRaw,filter))return false;
+    }
+    return true;
+    });
+    p=1;upd();
+    }
+    function matchFilter(text,raw,filter){
+    const lower=text.toLowerCase();
+    const filterLower=filter.toLowerCase();
+    if(filter.startsWith('>=')){
+    const val=parseFloat(filter.slice(2));
+    return !isNaN(val)&&raw>=val;
+    }
+    if(filter.startsWith('<=')){
+    const val=parseFloat(filter.slice(2));
+    return !isNaN(val)&&raw<=val;
+    }
+    if(filter.startsWith('>')){
+    const val=parseFloat(filter.slice(1));
+    return !isNaN(val)&&raw>val;
+    }
+    if(filter.startsWith('<')){
+    const val=parseFloat(filter.slice(1));
+    return !isNaN(val)&&raw<val;
+    }
+    if(filter.startsWith('!=')||filter.startsWith('<>')){
+    const val=filter.slice(2).toLowerCase();
+    return lower!==val;
+    }
+    if(filter.startsWith('=')){
+    const val=filter.slice(1).toLowerCase();
+    return lower===val;
+    }
+    if(filter.startsWith('!')){
+    const val=filter.slice(1).toLowerCase();
+    return !lower.includes(val);
+    }
+    if(filter.startsWith('^')){
+    const val=filter.slice(1).toLowerCase();
+    return lower.startsWith(val);
+    }
+    if(filter.startsWith('$')){
+    const val=filter.slice(1).toLowerCase();
+    return lower.endsWith(val);
+    }
+    if(filter.includes('..')){
+    const parts=filter.split('..');
+    const min=parseFloat(parts[0]);
+    const max=parseFloat(parts[1]);
+    if(!isNaN(min)&&!isNaN(max))return raw>=min&&raw<=max;
+    }
+    if(filter.includes('-')&&!filter.startsWith('-')){
+    const parts=filter.split('-');
+    if(parts.length===2){
+    const min=parseFloat(parts[0]);
+    const max=parseFloat(parts[1]);
+    if(!isNaN(min)&&!isNaN(max))return raw>=min&&raw<=max;
+    }
+    }
+    if(filter.includes('|')){
+    const parts=filter.split('|').map(p=>p.trim().toLowerCase());
+    return parts.some(p=>lower.includes(p));
+    }
+    return lower.includes(filterLower);
+    }
+    function clearAllFilters(){
+    q('#globalSearch').value='';
+    qa('.col-filter').forEach(i=>i.value='');
+    flt=[...all];p=1;upd();
+    }
+    function sortTable(c){
+    const h=Array.from(qa('th[data-column]'));
+    const hd=h.find(x=>x.getAttribute('data-column')===c);
+    if(!hd)return;
+    const i=h.indexOf(hd);
+    const t=hd.getAttribute('data-type');
+    if(sc===c)sd=sd==='asc'?'desc':'asc';
+    else{sc=c;sd='asc'}
+    flt.sort((a,b)=>{
+    const ac=a.querySelectorAll('td'),bc=b.querySelectorAll('td');
+    if(i>=ac.length||i>=bc.length)return 0;
+    const ar=parseFloat(ac[i].getAttribute('data-raw'))||0;
+    const br=parseFloat(bc[i].getAttribute('data-raw'))||0;
+    let cmp=0;
+    if(t==='numeric'||t==='datetime')cmp=ar-br;
+    else{
+    const av=ac[i].getAttribute('data-value')||'';
+    const bv=bc[i].getAttribute('data-value')||'';
+    cmp=av.localeCompare(bv);
+    }
+    return sd==='asc'?cmp:-cmp;
+    });
+    usi();upd();
+    }
+    function usi(){
+    qa('.sort').forEach(i=>i.textContent='');
+    if(sc){
+    const h=q(`th[data-column='${sc}']`);
+    if(h&&h.querySelector('.sort'))h.querySelector('.sort').textContent=sd==='asc'?'↑':'↓';
+    }
+    }
+    function upd(){
+    const t=tb(),f=document.createDocumentFragment();
+    t.innerHTML='';
+    const s=r===-1?0:(p-1)*r;
+    const e=r===-1?flt.length:s+r;
+    const pr=flt.slice(s,e);
+    pr.forEach(x=>f.appendChild(x.cloneNode(true)));
+    t.appendChild(f);
+    upi();
+    }
+    function upi(){
+    const tp=r===-1?1:Math.ceil(flt.length/r);
+    const s=flt.length===0?0:(r===-1?1:(p-1)*r+1);
+    const e=r===-1?flt.length:Math.min(p*r,flt.length);
+    q('#info').textContent=`${s}–${e} of ${flt.length}`;
+    q('#pageNum').textContent=`${p} / ${tp}`;
+    const d=(b,c)=>q(b).disabled=c;
+    d('#firstBtn',p===1||r===-1);
+    d('#prevBtn',p===1||r===-1);
+    d('#nextBtn',p>=tp||r===-1);
+    d('#lastBtn',p>=tp||r===-1);
+    }
+    function changeRowsPerPage(){r=parseInt(q('#rowsPerPage').value);p=1;upd()}
+    function firstPage(){p=1;upd()}
+    function previousPage(){if(p>1){p--;upd()}}
+    function nextPage(){const tp=Math.ceil(flt.length/r);if(p<tp){p++;upd()}}
+    function lastPage(){p=Math.ceil(flt.length/r);upd()}
+    function exportToCSV(){
+    const h=Array.from(qa('th[data-column]')).map(t=>t.querySelector('span').childNodes[0].textContent.trim());
+    const rs=flt.map(r=>Array.from(r.querySelectorAll('td')).map(td=>{
+    let v=td.textContent;
+    if(v.includes(',')||v.includes('"')||v.includes('\n'))v='"'+v.replace(/"/g,'""')+'"';
+    return v;
+    }).join(','));
+    const csv=[h.join(','),...rs].join('\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const link=document.createElement('a');
+    link.href=URL.createObjectURL(blob);
+    link.download='export.csv';
+    link.click();
+    }
+    </script></body></html>

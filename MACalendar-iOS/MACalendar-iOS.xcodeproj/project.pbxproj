@@ -149,6 +149,7 @@
 		AE0001090000000000000000 /* HebrewCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0001080000000000000000 /* HebrewCalendar.swift */; };
 		AE0003010000000000000000 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AE0003000000000000000000 /* PrivacyInfo.xcprivacy */; };
 		AE0003030000000000000000 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AE0003020000000000000000 /* PrivacyInfo.xcprivacy */; };
+		AB4BE12AA39408248D353476 /* RankerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAE037B6C040B5DA31E6D8CB /* RankerView.swift */; };
 		/* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -300,6 +301,7 @@
 		AE0001080000000000000000 /* HebrewCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HebrewCalendar.swift; sourceTree = "<group>"; };
 		AE0003000000000000000000 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AE0003020000000000000000 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		BAE037B6C040B5DA31E6D8CB /* RankerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankerView.swift; sourceTree = "<group>"; };
 		/* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
@@ -553,6 +555,7 @@
 				AA0000FC000000000000F005 /* Timer */,
 				AA0000FC000000000000F006 /* Teach */,
 				AA0000090000000000000F1A /* Jude */,
+				CA2E6940E91EA65CC78C5BE8 /* Ranker */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -680,6 +683,14 @@
 				AE0001000000000000000000 /* LocalEngine.swift */,
 			);
 			path = Engine;
+			sourceTree = "<group>";
+		};
+		CA2E6940E91EA65CC78C5BE8 /* Ranker */ = {
+			isa = PBXGroup;
+			children = (
+				BAE037B6C040B5DA31E6D8CB /* RankerView.swift */,
+			);
+			path = Ranker;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -930,6 +941,7 @@
 				AA00001E000000000000001A /* WorkoutStatsView.swift in Sources */,
 				AA0000FA000000000000F002 /* FeatureRegistry.swift in Sources */,
 				AA0000FB000000000000F002 /* CalendarTabView.swift in Sources */,
+				AB4BE12AA39408248D353476 /* RankerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
