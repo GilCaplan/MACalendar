@@ -267,7 +267,10 @@ final class JudeConversation: ObservableObject {
         guard let pivot, let chatId, let api else { self.pivot = nil; return }
         let topic = pivot.candidate
         self.pivot = nil
-        Task { try? await api.judeSetTopic(chatId, topic: topic) }
+        Task {
+            do { try await api.judeSetTopic(chatId, topic: topic) }
+            catch { api.announceRefusal(error, doing: "set this chat's topic") }
+        }
     }
 
     func dismissPivot() { pivot = nil }

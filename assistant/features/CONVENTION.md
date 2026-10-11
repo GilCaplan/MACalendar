@@ -73,33 +73,66 @@ mechanism, not a special case in the tab bar.
 
 ## Adding one
 
-### 1. A folder and a declaration
+**Start with the scaffold.** It writes every file and every registration line,
+refuses a taken name or `order`, and prints what is left:
 
-```
-assistant/features/<name>/
-  __init__.py
-  feature.py       the Feature subclass
-  routes.py        its Flask blueprint (optional)
-  panel.py         its Mac FeaturePanel (optional)
-```
+    python scripts/new_feature.py recipes --label Recipes --icon fork.knife --order 35
+    #   --store recipes.db   the tab keeps its own per-user file
+    #   --no-mac / --no-ios  one platform only (Teach is phone-only)
+    #   --dry-run            show the writes, make none
 
-```python
-class ThingFeature(Feature):
-    name = "thing"          # identity everywhere: config key, URL, both clients
-    label = "Thing"
-    icon = "hammer"         # SF Symbol, for the phone's tab bar
-    order = 70              # SPARSE — see below
-    pinned = False
-    default_visible = True
+Then build the tab inside the folders it made. Flashcards
+(`assistant/features/flashcards/`) is the worked example of a full one: its
+own store, routes, a Mac panel, a phone tab that studies offline, and an
+`extension APIClient` of its own calls.
 
-    def blueprint(self):
-        from assistant.features.thing.routes import blueprint
-        return blueprint
+### The checklist
 
-    def panel(self):
-        from assistant.features.thing.panel import ThingPanel
-        return ThingPanel
-```
+Each step either the scaffold does, or a test goes red naming it. Nothing here
+relies on remembering.
+
+- [ ] **Feature folder** — `assistant/features/<name>/`: `feature.py` (the
+  `Feature` subclass), `routes.py` (its blueprint), `__init__.py`. *Scaffold.*
+- [ ] **Registry line** — the import and the tuple entry in `registry.py`, the
+  only file under `features/` that learns names. *Scaffold;
+  `test_features.py` checks names and orders are unique and in order.*
+- [ ] **Mac panel** — `assistant/calendar_ui/<name>_view.py`, a `FeaturePanel`
+  with `feature_name`, `reload`, `apply_theme`, `apply_ui_config`. The window
+  builds it from the registry: no `window.py` edit. *Scaffold;
+  `test_new_tab_checklist.py` checks `feature_name`.*
+- [ ] **iOS tab** — `Features/<Name>/<Name>View.swift` and one entry in
+  `FeatureRegistry.swift` with the same `name` and `order`. *Scaffold;
+  `test_features.py` holds the two registries equal.*
+- [ ] **Xcode project** — every new `.swift` file added to `project.pbxproj`
+  with `python scripts/xcode_add.py <paths>` (four entries per file by hand
+  otherwise). *Scaffold for its own files; `test_new_tab_checklist.py` fails
+  for any Swift file under a target folder the project does not compile.*
+- [ ] **Store redirect** — a tab with its own file reads it from a
+  `MACALENDAR_<NAME>` override, resolved per user through `users.paths.resolve`,
+  and that variable is in `tests/conftest.py`, `scratch_env.STORES` and
+  CLAUDE.md's store list. *Scaffold with `--store`; `test_new_tab_checklist.py`
+  fails for a variable read under the feature's folder and missing from any
+  of the three.*
+- [ ] **Tests** — `tests/unit/test_<name>.py`; a Mac panel's UI tests click
+  real controls (`QTest.mouseClick`), they do not call handlers. *Scaffold
+  starts it.*
+- [ ] **API reference** — `python -m scripts.gen_api_reference` after adding a
+  route. It also rewrites the endpoint count on the published architecture
+  page, which `test_artifact_claims.py` checks. *Scaffold runs it once; run it
+  again after your routes.*
+- [ ] **Offline writes** — every phone write goes through `APIClient.mutate`
+  (queued when the Mac is away), creates carry a `client_token`, and a write
+  whose replay would be WRONG goes in `test_ios_offline.py`'s `NOT_QUEUEABLE`
+  with its reason — and then fails loudly, never behind a `try?`. Put the
+  tab's calls in an `extension APIClient` in its own folder; the rule reads
+  every such file. *`test_ios_offline.py`.*
+- [ ] **FEATURES.md entry** — a row in the table and a `###` section: what,
+  where, how. *`test_new_tab_checklist.py` fails until the label is in the
+  table.*
+
+When the tab is done: the feature's tests, `test_features.py`,
+`test_new_tab_checklist.py`, `test_ios_offline.py`, the iOS build, then the
+full `scripts/run_tests.sh` with `PYTHON=./.venv/bin/python`.
 
 **`order` is sparse (0, 10, 20, …) on purpose.** Sequential numbers mean
 inserting a feature between two others renumbers every one after it, which is
@@ -110,35 +143,13 @@ meaningless.
 was left as a hole; the string is the same token the API, the config, the
 registry and both clients already share.
 
-### 2. One line in the registry
-
-Add it to the tuple in `registry.all_features()`. That is the only file under
-`features/` that learns your name — `base` stays generic, which is what makes
-the next feature cheap.
-
-### 3. Both clients
-
-Each declares the feature locally (offline-first, see above) and reads
-visibility from `GET /features`. `mac: false` in the manifest is a legitimate
-answer — Teach is iOS-only — and the manifest says so rather than making a
-client guess.
-
-On the phone that declaration is one entry in
-`MACalendar-iOS/MACalendar-iOS/Features/FeatureRegistry.swift` — same `name`,
-same `order` — plus a folder under `Features/` holding the tab's own files.
-Everything downstream (the tab bar, the layer stack, the bounce-off when a
-visible tab is switched off, the Settings toggles) is a loop over that list,
-so nothing else on iOS learns the new name. Visibility lives in
-`FeatureVisibility`, cached in `UserDefaults` and seeded once from the old
-`show*Tab` keys; a toggle applies locally first and queues its PATCH when the
-Mac is away.
-
-On the Mac a panel is a row in the **sidebar's section list**
-(`CalendarWindow._build_sidebar_nav`, 2026-09-28 — it used to be one more
-button in the toolbar), and Settings › Tabs offers a switch for every
-non-pinned feature with a Mac panel, drawn from the registry. Account is the
-most recent example: `assistant/features/account/` + `calendar_ui/account_panel.py`
-+ one iOS registry entry.
+**`mac: false` in the manifest is a legitimate answer** — Teach is iOS-only —
+and the manifest says so rather than making a client guess. Everything
+downstream on both platforms (the tab bar, the layer stack, the bounce-off
+when a visible tab is switched off, the Settings toggles) is a loop over the
+registry, so nothing else learns the new name. Visibility lives in
+`FeatureVisibility` on the phone, cached in `UserDefaults`; a toggle applies
+locally first and queues its PATCH when the Mac is away.
 
 ## Things that will bite
 

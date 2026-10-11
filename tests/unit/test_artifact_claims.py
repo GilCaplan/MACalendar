@@ -309,18 +309,15 @@ def test_the_endpoint_and_action_counts_on_the_summary_page(all_prose):
     # TWO globs, not one: an integration's routes.py sits at
     # `assistant/<name>/routes.py`, a feature's one level deeper at
     # `assistant/features/<name>/routes.py`, and `*` does not cross a slash.
-    sources = [(ROOT / "assistant" / "api" / "server.py").read_text()]
-    sources += [p.read_text() for p in ROOT.glob("assistant/*/routes.py")]
-    sources += [p.read_text() for p in ROOT.glob("assistant/features/*/routes.py")]
-    endpoints = sum(
-        len(re.findall(r"@(?:app|blueprint)\.(?:get|post|patch|delete|put)\(", src))
-        for src in sources)
+    from scripts.gen_api_reference import endpoint_count
+    endpoints = endpoint_count()
     actions = len(_loaded_registry())
     for name, text in all_prose.items():
         if "Endpoints" not in text:
             continue
         assert re.search(rf"Endpoints\s+{endpoints}\b", text), (
-            f"{name} miscounts the endpoints; there are {endpoints}")
+            f"{name} miscounts the endpoints; there are {endpoints} — "
+            "run `python -m scripts.gen_api_reference`, which rewrites it")
         assert re.search(rf"Actions\s+{actions}\b", text), (
             f"{name} miscounts the actions; there are {actions}")
 
