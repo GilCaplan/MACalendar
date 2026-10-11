@@ -195,9 +195,12 @@ extension APIClient {
     /// That is why the banner does not block the stream — and why it is not
     /// queued: it answers a prompt the Mac raised, and one raised before the
     /// Mac went away is stale by the time it comes back.
+    /// Queued when the Mac is away: setting a topic is a plain overwrite, so a
+    /// late replay says what you chose. (It used to be a bare request behind a
+    /// `try?`, so a topic picked offline was dropped and nobody was told.)
     func judeSetTopic(_ chatId: String, topic: String) async throws {
-        _ = try await request("/jude/chats/\(judeEscape(chatId))/topic",
-                              method: "PUT", body: ["topic": topic])
+        _ = try await mutate("/jude/chats/\(judeEscape(chatId))/topic",
+                             method: "PUT", body: ["topic": topic])
     }
 
     /// Chat ids come from Jude's own store and have never contained anything

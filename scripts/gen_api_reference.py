@@ -5,6 +5,11 @@ cannot drift from the code. Run after adding endpoints:
 
     python -m scripts.gen_api_reference
 
+It also rewrites the "Endpoints" figure on the published architecture page
+(`DOCUMENTATION/artifacts/architecture.html`), which `test_artifact_claims`
+holds to `endpoint_count()`. That number used to be typed by hand, so every
+new tab's routes turned the build red until someone remembered the page.
+
 SEVERAL SOURCES, not one. `server.py` holds the voice, vocab, memory, config
 and observance routes, but an INTEGRATION (assistant/integrations/CONVENTION.md)
 and a FEATURE (assistant/features/CONVENTION.md) each register their own on a
@@ -55,11 +60,42 @@ def _url_prefix(tree: ast.Module) -> str:
     return ""
 
 
+ARCHITECTURE = os.path.join(ROOT, "DOCUMENTATION", "artifacts", "architecture.html")
+
+
+def endpoint_count() -> int:
+    """Route DECORATORS across server.py and every blueprint — the figure the
+    architecture page quotes. (Not the reference's row count: a `route()` with
+    several methods is one decorator and several rows.)"""
+    import glob
+    import re
+    files = [os.path.join(ROOT, "assistant", "api", "server.py")]
+    files += sorted(glob.glob(os.path.join(ROOT, "assistant", "*", "routes.py")))
+    files += sorted(glob.glob(os.path.join(ROOT, "assistant", "features", "*", "routes.py")))
+    pat = re.compile(r"@(?:app|blueprint)\.(?:get|post|patch|delete|put)\(")
+    return sum(len(pat.findall(open(f, encoding="utf-8").read())) for f in files)
+
+
+def _write_architecture_count() -> None:
+    import re
+    with open(ARCHITECTURE, encoding="utf-8") as f:
+        html = f.read()
+    n = endpoint_count()
+    new, hits = re.subn(r"(<dt>Endpoints</dt><dd>)\d+(</dd>)", rf"\g<1>{n}\g<2>", html)
+    if hits != 1:
+        raise SystemExit(f"architecture.html: expected one Endpoints figure, found {hits}")
+    if new != html:
+        with open(ARCHITECTURE, "w", encoding="utf-8") as f:
+            f.write(new)
+    print(f"{n} route decorators → {os.path.relpath(ARCHITECTURE, ROOT)}")
+
+
 def main() -> None:
     groups: "OrderedDict[str, list[tuple[str, str, str]]]" = OrderedDict()
     for src in _sources():
         _collect(ast.parse(open(src, encoding="utf-8").read()), groups)
     _write(groups)
+    _write_architecture_count()
 
 
 def _collect(tree, groups) -> None:

@@ -291,7 +291,10 @@ Adding a tab used to mean three hand-synced lists on iOS and five wiring sites
 in `window.py`, and they had already drifted — Timer had no bounce-off handler,
 so hiding it left a blank screen, and `window.py`'s DB-change poll reloaded
 Tasks and Timer while **Coursework and Workout went stale until restart**.
-`assistant/features/CONVENTION.md` is how to add one; the Mac contract is
+`assistant/features/CONVENTION.md` is how to add one — start with
+`scripts/new_feature.py` (every file and registration line; its checklist is
+held by `test_new_tab_checklist.py`, and Swift files go into the Xcode project
+with `scripts/xcode_add.py`, never by hand). The Mac contract is
 `calendar_ui/feature_panel.py` (`reload` / `apply_theme` / `apply_ui_config`,
 and `reload` is the verb — two panels called it `refresh` and were the only
 ones the window ever refreshed).

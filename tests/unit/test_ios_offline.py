@@ -86,6 +86,15 @@ NOT_QUEUEABLE = {
     # second subscription. Two-way and removing a feed DO queue.
     "startCalendarConnect", "completeGoogleConnect", "disconnectCalendar",
     "syncCalendarsNow", "saveCalendarClientID", "addCalendarSubscription",
+    # Occasions (Q74) are checked by the Mac — a date it cannot read, a name
+    # already taken — and the editor stays open to show that sentence, or
+    # "Your Mac isn't reachable — try again when it is." Replayed later, a
+    # refusal would land with the editor long closed. They fail LOUDLY instead.
+    "saveOccasion", "deleteOccasion",
+    # Flashcards. The inbox asks the Mac to read ITS OWN folder — nothing of the
+    # phone's to deliver. Import and picture upload send a FILE, and the queue
+    # holds JSON; both say in a sentence that they need the Mac.
+    "flashcardInbox", "uploadFlashMedia", "importFlashcards", "uploadFile",
 }
 
 MUTATING = re.compile(r'request\(\s*"[^"]*"[^)]*?method:\s*"(POST|PATCH|PUT|DELETE)"', re.S)
@@ -105,7 +114,35 @@ def client_src():
     return ios_source("APIClient.swift")
 
 
-def test_every_mutating_call_is_queued_or_declared_unqueueable(client_src):
+def _api_sources() -> "dict[str, str]":
+    """APIClient.swift and EVERY file that extends it. A tab's own calls live in
+    its folder (`extension APIClient` in `Features/<Tab>/`); checking only
+    APIClient.swift meant each new tab's writes were unchecked until somebody
+    remembered to add a test for that one file — which is what Flashcards did."""
+    from tests.unit._ios_sources import IOS_ROOT
+    out = {}
+    for path in sorted((IOS_ROOT / "MACalendar-iOS").rglob("*.swift")):
+        src = path.read_text(encoding="utf-8")
+        if path.name == "APIClient.swift" or "extension APIClient" in src:
+            out[path.name] = src
+    return out
+
+
+def test_every_mutating_call_is_queued_or_declared_unqueueable():
+    offenders = []
+    for fname, src in _api_sources().items():
+        offenders += [f"{fname}: {o}" for o in _offenders(src)]
+    assert not offenders, (
+        "these writes are lost when the Mac is away — queue them (APIClient.mutate), "
+        "or add them to NOT_QUEUEABLE with a reason:\n  " + "\n  ".join(sorted(offenders)))
+
+
+def test_the_rule_reaches_files_beyond_apiclient():
+    names = set(_api_sources())
+    assert "APIClient.swift" in names and len(names) > 1, names
+
+
+def _offenders(client_src: str) -> "list[str]":
     offenders = []
     for name, body in _methods(client_src):
         if not MUTATING.search(body):
@@ -117,9 +154,7 @@ def test_every_mutating_call_is_queued_or_declared_unqueueable(client_src):
             continue
         paths = re.findall(r'request\(\s*"([^"]*)"', body)
         offenders.append(f"{name}  ({', '.join(sorted(set(paths)))})")
-    assert not offenders, (
-        "these writes are lost when the Mac is away — queue them, or add them "
-        "to NOT_QUEUEABLE with a reason:\n  " + "\n  ".join(sorted(offenders)))
+    return offenders
 
 
 def test_the_coursework_paths_are_actually_queued(client_src):
@@ -392,26 +427,6 @@ def test_the_queue_is_readable_before_it_is_editable():
 # Flashcards keeps its calls in its own folder (Features/Flashcards/), like
 # Jude — which the checks above, reading APIClient.swift only, cannot see.
 # ---------------------------------------------------------------------------
-
-#: The flashcard calls that do not queue, each with its reason (the file's
-#: header says the same): the inbox asks the Mac to read ITS OWN folder, and the
-#: two uploads send a FILE whose answer is needed now — the queue holds JSON.
-FLASHCARDS_NOT_QUEUEABLE = {"flashcardInbox", "uploadFlashMedia", "importFlashcards", "uploadFile"}
-
-
-def test_every_flashcard_write_is_queued_or_declared():
-    src = ios_source("FlashcardAPI.swift")
-    offenders, writes = [], 0
-    for name, body in _methods(src):
-        if name in FLASHCARDS_NOT_QUEUEABLE:
-            continue
-        if MUTATING.search(body):
-            offenders.append(name)
-        if re.search(r"\bmutate\(", body):
-            writes += 1
-    assert not offenders, f"flashcard writes that bypass mutate(): {offenders}"
-    assert writes >= 10, "the flashcard writes no longer go through mutate()"
-
 
 def test_flashcard_creates_and_reviews_carry_a_token():
     """A review replayed from the queue must not count twice, and a set made
