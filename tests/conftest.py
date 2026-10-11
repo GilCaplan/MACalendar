@@ -143,7 +143,9 @@ for _var, _name in (("MACALENDAR_DB", "calendar.db"),
                     # Flashcards (2026-10-11): the decks and the review history
                     # are what you studied — a suite grading cards into the real
                     # store would reschedule your exam prep.
-                    ("MACALENDAR_FLASHCARDS", "flashcards.db")):
+                    ("MACALENDAR_FLASHCARDS", "flashcards.db"),
+                    # the Ranker tab's own file.
+                    ("MACALENDAR_RANKER", "ranker.json")):
     _os.environ.setdefault(_var, _os.path.join(_SCRATCH, _name))
 
 # config.yaml is WRITTEN, not just read: `PATCH /features/<name>` persists tab

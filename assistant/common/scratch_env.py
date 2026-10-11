@@ -48,6 +48,7 @@ STORES: "dict[str, tuple[str, str]]" = {
     "SESSIONS": ("MACALENDAR_SESSIONS", "sessions.json"),
     "SESSION_FILE": ("MACALENDAR_SESSION_FILE", "session.json"),
     "FLASHCARDS": ("MACALENDAR_FLASHCARDS", "flashcards.db"),
+    "RANKER": ("MACALENDAR_RANKER", "ranker.json"),
 }
 
 #: setdefault, not set — a board pins threads without stomping a caller's own

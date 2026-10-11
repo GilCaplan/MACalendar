@@ -271,6 +271,7 @@ built when it reaches the Mac.
 | UI | [How it runs: Mac + phone, or phone only](#how-it-runs--mac--phone-or-phone-only) | a setup guide in the phone's Settings; a phone-only mode with no Mac and no offline banner | `SetupGuideView.swift`, `DefaultRules.swift` |
 | hybrid | [Coursework](#coursework) | courses + assignments tab | db `courses*`, `CourseworkView` |
 | hybrid | [Flashcards](#flashcards) | subjects → sets → cards, seven card types, study one set / some / all mixed, FSRS review; cards made by hand, imported, or dropped in by an agent | `assistant/features/flashcards/`, `flashcards_view.py`, `Features/Flashcards/` |
+| hybrid | [Ranker](#ranker) | rank any table (HTML / CSV / TSV / JSON) by a saved recipe, narrowed to the numbers read from a screenshot; first recipe: picking a kingdom to migrate to | `assistant/features/ranker/`, `ranker_view.py`, `Features/Ranker/` |
 | hybrid | [Jude](#jude--the-judaic-study-assistant) | Torah/Talmud/halacha study assistant — a separate repo, hosted as an integration | `assistant/jude/`, `assistant/integrations/`, `MACalendar-iOS/.../Jude/` |
 | hybrid | [iOS app & offline](#ios-app--offline-queues) | full client, 3 offline queues, Tailscale | `MACalendar-iOS/` |
 | hybrid | [Health CLI & heartbeats](#heartbeats--the-health-cli) | `assistant doctor`, 6 layers | `cli.py`, `heartbeat.py` |
@@ -1191,6 +1192,31 @@ Re-importing keeps progress on every card whose content did not change (tags,
 page and explanation are not part of a card's identity). The phone caches every
 set and its pictures and builds rounds locally, so it studies offline; reviews
 carry the instant they happened and queue through `APIClient.mutate`.
+
+### Ranker
+**What:** A tool tab (2026-10-11): give it a table and, optionally, a
+screenshot, and it ranks the table's rows. The screenshot's numbers narrow the
+rows to the ones on screen (the kingdoms in your migration district); an empty
+list means every row. First recipe, Gil's migration pick: more players, more
+castles burned in the last day, fewer strong players (✨ blessed + ⭐ stars).
+**Where:** `assistant/features/ranker/` — `table.py` (reads the first table
+of an HTML page, or CSV / TSV / JSON; prefers a cell's precise `data-raw`
+when it agrees with what is shown; reads `3.62B`), `ocr.py` +
+`vision_numbers.swift` (Apple Vision, on this machine; Tesseract where there
+is no Vision), `rank.py` (recipes), `store.py` (`ranker.json`, override
+`MACALENDAR_RANKER`: recipes, the number list, the last table), `routes.py`
+(`/ranker*`); Mac `calendar_ui/ranker_view.py`; iOS `Features/Ranker/`.
+**How:** A recipe is derived columns (sums), conditions, and criteria — a
+column, higher or lower is better, a weight. The score is a weighted average
+of each criterion's PERCENTILE among the candidates, so scale does not matter
+and each row shows why it ranked where it did. Numbers count only when a piece
+of recognised text is nothing but numbers (`#1172`), which drops the stray
+ones a game screen carries ("Ruling Guild: #1169", timers); on the first real
+screenshot that kept exactly the 30 kingdoms. The picture reader was chosen by
+measurement: Vision read 30 of 30, Tesseract 4 (2 wrong) — one screenshot, a
+probe. Tables and pictures come by drag-and-drop, a file picker, or paste on
+the Mac; on the phone from Files (iCloud Drive, Dropbox, Google Drive…) or
+Photos.
 
 ### iOS app & offline queues
 **What:** The full iPhone client — calendar, tasks, voice, review, vocabulary,
