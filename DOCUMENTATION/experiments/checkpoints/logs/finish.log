@@ -20,7 +20,7 @@ CHECKPOINT SWEEP — same rows, same scorer, same machine, today
 same data across all checkpoints: 537dcfbc4dbd:300
 
 pre-engine-v2                300/300 ok · wall 4457.8s
-    assistant from: /Users/USER/Desktop/Personal_Projects/MACalendar-checkpoints/pre-engine-v2/assistant/__init__.py
+    assistant from: <projects>/MACalendar-checkpoints/pre-engine-v2/assistant/__init__.py
     complex    n=150  p50 17584ms  p95 24777ms
     simple     n=150  p50 13961ms  p95 20841ms
     parse paths: error=37, hybrid=46, llm=158, rule=59
@@ -38,7 +38,7 @@ pre-engine-v2                300/300 ok · wall 4457.8s
     persona spread: 34.0 – 68.0 (34.0 pt)
 
 fast-lane-pre-integration    300/300 ok · wall 5035.6s
-    assistant from: /Users/USER/Desktop/Personal_Projects/MACalendar-checkpoints/fast-lane-pre-integration/assistant/__init__.py
+    assistant from: <projects>/MACalendar-checkpoints/fast-lane-pre-integration/assistant/__init__.py
     complex    n=150  p50 17268ms  p95 59266ms
     simple     n=150  p50 7889ms  p95 44436ms
     parse paths: deep=249, fast=51
@@ -56,7 +56,7 @@ fast-lane-pre-integration    300/300 ok · wall 5035.6s
     persona spread: 74.0 – 86.0 (12.0 pt)
 
 fastrule-v1                  300/300 ok · wall 4011.6s
-    assistant from: /Users/USER/Desktop/Personal_Projects/MACalendar-checkpoints/fastrule-v1/assistant/__init__.py
+    assistant from: <projects>/MACalendar-checkpoints/fastrule-v1/assistant/__init__.py
     complex    n=150  p50 15894ms  p95 31489ms
     simple     n=150  p50 7335ms  p95 32535ms
     parse paths: deep=248, fast=52
@@ -74,7 +74,7 @@ fastrule-v1                  300/300 ok · wall 4011.6s
     persona spread: 78.0 – 90.0 (12.0 pt)
 
 decompose-validate-v1        300/300 ok · wall 2846.1s
-    assistant from: /Users/USER/Desktop/Personal_Projects/MACalendar-checkpoints/decompose-validate-v1/assistant/__init__.py
+    assistant from: <projects>/MACalendar-checkpoints/decompose-validate-v1/assistant/__init__.py
     complex    n=150  p50 12710ms  p95 20548ms
     simple     n=150  p50 6511ms  p95 17561ms
     parse paths: deep=240, fast=60
@@ -92,7 +92,7 @@ decompose-validate-v1        300/300 ok · wall 2846.1s
     persona spread: 62.0 – 88.0 (26.0 pt)
 
 main                         300/300 ok · wall 2794.0s
-    assistant from: /Users/USER/Desktop/Personal_Projects/MACalendar/assistant/__init__.py
+    assistant from: <projects>/MACalendar/assistant/__init__.py
     complex    n=150  p50 12592ms  p95 19585ms
     simple     n=150  p50 6652ms  p95 16840ms
     parse paths: deep=240, fast=60
@@ -109,8 +109,8 @@ main                         300/300 ok · wall 2794.0s
     uni_student  n=50   raw  74.0 · adj     - · garbage   0.0 · collapse     - · p50 8166.5ms p95 15585ms
     persona spread: 66.0 – 92.0 (26.0 pt)
 
-wrote /Users/USER/Desktop/Personal_Projects/MACalendar/DOCUMENTATION/experiments/checkpoints/sweep-20260912T1140.json
-sandboxes kept at /Users/USER/Desktop/Personal_Projects/MACalendar-checkpoints/_sweepwork/personas
+wrote <projects>/MACalendar/DOCUMENTATION/experiments/checkpoints/sweep-20260912T1140.json
+sandboxes kept at <projects>/MACalendar-checkpoints/_sweepwork/personas
 sandbox clean — 4 real store(s) unchanged
 ### personas exit: 0 ###
 Sat Sep 12 11:40:29 EDT 2026
