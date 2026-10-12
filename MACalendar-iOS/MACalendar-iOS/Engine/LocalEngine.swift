@@ -80,7 +80,8 @@ enum LocalEngine {
     static func read(_ said: String, now: Date = Date(), calendar: Calendar = .current) -> Reading {
         var cal = calendar
         cal.firstWeekday = 1
-        let raw = said.replacingOccurrences(of: #"\s+[—–]\s+|\s+--\s+"#, with: ". ", options: .regularExpression)
+        let raw = peelStopWords(said)
+            .replacingOccurrences(of: #"\s+[—–]\s+|\s+--\s+"#, with: ". ", options: .regularExpression)
             // a title's full stop is not a sentence's: "Dr. Smith", "St. Mary's"
             .replacingOccurrences(of: #"\b(Dr|Mr|Mrs|Ms|Mx|Prof|St|Jr|Sr|Mt|Ave|vs|approx|e\.g|i\.e)\.(?=\s)"#, with: "$1",
                                   options: [.regularExpression, .caseInsensitive])
@@ -92,6 +93,45 @@ enum LocalEngine {
         }
         let understood = !actions.isEmpty && actions.allSatisfy { $0.op != .other }
         return Reading(actions: actions, understood: understood)
+    }
+
+    // MARK: - Stop words
+
+    /// The words that END a recording — `ingest/repair.py`'s
+    /// `_BUILTIN_STOP_PATTERNS`, the same list in the same order. They are not
+    /// content: the Mac peels them off every command before reading it, and
+    /// the phone's reader did not, so a command heard on the phone ("Buy milk.
+    /// Execute.") was read with "execute" still in it (Gil, 2026-10-12: "it
+    /// doesn't cut it off like it does with the laptop"). "done" stays when it
+    /// IS the command ("mark it as done", "the report is done").
+    static let stopPatterns = [
+        #"\bset\s+events?\b"#,
+        #"\bexecute\b"#,
+        #"\bxq\b"#,
+        #"(?<!\bas\s)(?<!\bis\s)(?<!\bit's\s)(?<!\bthat's\s)\bdone\b"#,
+        #"\bstop\b"#,
+        #"\bsubmit\b"#,
+        #"\bconfirm\b"#,
+        #"\bthat'?s?\s+it\b"#,
+        #"\bok\s+go\b"#,
+    ]
+    static let stopRegex = try! NSRegularExpression(
+        pattern: #"[\s,.!?]*(?:"# + stopPatterns.joined(separator: "|") + #")[\s,.!?]*$"#,
+        options: [.caseInsensitive])
+
+    /// Every trailing stop word off, not just the last ("add milk, done,
+    /// execute"), like `_peel_stop_keywords`. Apple's recogniser writes a
+    /// curly apostrophe ("it’s done"), which the guards spell straight.
+    static func peelStopWords(_ said: String) -> String {
+        var cur = said.replacingOccurrences(of: "’", with: "'").trimmingCharacters(in: .whitespacesAndNewlines)
+        var prev = ""
+        while cur != prev {
+            prev = cur
+            cur = stopRegex.stringByReplacingMatches(in: cur, range: NSRange(cur.startIndex..., in: cur),
+                                                     withTemplate: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return cur
     }
 
     // MARK: - Normalising and splitting
