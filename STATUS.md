@@ -184,12 +184,41 @@ Mac got them (Q79); Settings groups fold on both apps, starting closed (Q80);
 **"now" is the present minute** and **words that name a time** are one table
 with personal entries (Q81, Q82) — measured on all 11,700 corpus rows, only
 fixes changed, no board line moved; and "call X at 8pm" no longer goes to
-tomorrow after 9 AM. Numbers per
+tomorrow after 9 AM. On 2026-10-09 → 10-12 (app side): tasks edit in
+place and move Today ⇄ General on the phone; a live mic-level meter on both
+apps (four styles each, Settings ▸ Voice; Mac default bars, phone default
+card); theme, accent and Hebrew-calendar display are per device (Q89);
+the Flashcards and Ranker tabs; **Ranker ranks on the phone with no Mac**,
+the Mac only syncs (Q90); flashcards carry English beside the Hebrew and a
+copy button (Q91); Ranker inputs and study material are gitignored. Numbers per
 cycle:
 `assistant/engine/fastrule/experiments/RESULTS.md`,
 `assistant/engine/llmjudge/experiments/RESULTS.md`, and the commit messages.
 
 ## Next
+
+**Waiting on Gil's Mac (prepped, nothing to write — say the word):**
+run from a Claude session ON the Mac (Desktop app, or `claude remote-control`
+in the checkout), which can reach the apps; a cloud session cannot.
+
+1. **Update and restart:** `git pull` on `main`; the API reloads itself;
+   restart the GUI and the HUD; build the phone app in Xcode and install it
+   (`xcrun devicectl device install app`, phone on the Mac's Wi-Fi). The
+   Swift merged on 2026-10-12 (Ranker on the phone — PR #33; flashcards
+   English and copy — PR #34) has NEVER been compiled: no Swift toolchain in
+   the cloud, no iOS job in CI, so the first Xcode build is its first check.
+2. **Flashcards English:** `python scripts/flashcards_english.py export`
+   (→ `~/Desktop/flashcards-english.json`), translate (add `en`, change
+   nothing else), `… apply <file>`; progress is kept.
+3. **Old branches:** 36 are fully merged; the cloud session's git proxy
+   refuses deletes. `git fetch --prune origin && git branch -r --merged
+   origin/main | grep -v -E 'origin/(main|HEAD)' | sed 's#origin/##' | xargs
+   git push origin --delete`. Keep `tips-on-ios` (1,156 commits not on main)
+   until checked.
+4. **Open questions for Gil:** TestFlight (needs the paid Apple Developer
+   Program; would let the phone update without the Mac, builds last 90 days
+   instead of 7); whether `tests/fixtures/ranker/migration_3scrolls.html`
+   (a real game export, player names removed) should become synthetic.
 
 **App side (while the engine is paused):** the 2026-09-30 order of play is
 answered (DEVQA Q83) and built on 2026-10-01 — compact density, the Mac's
@@ -239,7 +268,8 @@ a week (40) and one look at the photo path on a real phone's camera roll.
 
 - The API reloads itself; the calendar GUI and the thinking HUD do not — restart
   them by hand. The phone needs a reinstall.
-- `pytest tests/` is the whole suite (what CI runs); the integration folder
+- `scripts/run_tests.sh` is what CI runs (`pytest tests/`, each Qt file in
+  its own process); the integration folder
   talks to the real model when Ollama is up (`tests/integration/conftest.py`).
   `python -m assistant.cli doctor` checks the running stack.
 - One model-loading job at a time; never edit files under `assistant/` while a
