@@ -6,8 +6,13 @@ overcomplicated", "i cant scroll down to table", "why is it only showing 4" —
 the recipe editor had taken the whole panel and the result was a one-row
 sliver. So, top to bottom:
 
-  TOP BAR   "New search" (forget the table and the numbers, keep the saved
-            rankings), Paste, Choose files…
+  TOP BAR   "History (N)", "New search" (the search on screen goes to
+            History, keep the saved rankings), Paste, Choose files…
+  HISTORY   folded until asked for (Gil, 2026-10-12: "make it easy to
+            archive, delete history"): each past search — its table,
+            numbers and ranking — with Open, Archive / Unarchive and Delete
+            (asked twice); archived ones behind "Show archived". The phone
+            files its own and the two sync (`store.py`).
   EMPTY     with no table: one big drop area. Any mix of table files
             (.html .htm .csv .tsv .txt .json) and pictures (.png .jpg .heic …),
             dragged, chosen or pasted. Pictures and a table together go straight
@@ -39,6 +44,7 @@ import csv
 import io
 import os
 import re
+import datetime as _dt
 import threading
 from typing import Callable
 
@@ -330,6 +336,13 @@ class RankerView(FeaturePanel):
         top = QHBoxLayout()
         top.addWidget(_label("Ranker", "rk_title", wrap=False))
         top.addStretch(1)
+        self._history_btn = QToolButton()
+        self._history_btn.setObjectName("rk_cols")
+        self._history_btn.setCheckable(True)
+        self._history_btn.setText("History")
+        self._history_btn.setToolTip("Past searches: open, archive or delete them")
+        self._history_btn.toggled.connect(lambda on: self._toggle_history(on))
+        top.addWidget(self._history_btn)
         self._new_search_btn = _button("New search", "rk_primary", self.new_search)
         self._new_search_btn.setToolTip("Start over with new pictures and a new table. Saved rankings stay.")
         self._paste_btn = _button("Paste", "", self.paste)
@@ -343,9 +356,26 @@ class RankerView(FeaturePanel):
         self._status.hide()
         lay.addWidget(self._status)
 
+        self._build_history(lay)
         self._build_empty(lay)
         self._build_work(lay)
 
+    def _build_history(self, lay: QVBoxLayout) -> None:
+        self._history_box, hv = _box()
+        head = QHBoxLayout()
+        head.addWidget(_label("Past searches", "rk_section", wrap=False))
+        head.addStretch(1)
+        self._show_archived = QCheckBox("Show archived")
+        self._show_archived.toggled.connect(lambda _on: self._fill_history())
+        head.addWidget(self._show_archived)
+        hv.addLayout(head)
+        self._history_list = QVBoxLayout()
+        self._history_list.setSpacing(4)
+        hv.addLayout(self._history_list)
+        self._history_box.hide()
+        self._history_rows: "dict[str, dict]" = {}
+        self._confirm_delete: "str | None" = None
+        lay.addWidget(self._history_box)
     def _build_empty(self, lay: QVBoxLayout) -> None:
         self._empty = QFrame()
         self._empty.setObjectName("rk_drop")
@@ -573,6 +603,7 @@ class RankerView(FeaturePanel):
         self._show_table_status()
         self._rebuild_editor()
         self._rank()
+        self._fill_history()
 
     def apply_theme(self, dark: bool) -> None:
         self._dark = dark
@@ -608,6 +639,85 @@ class RankerView(FeaturePanel):
         self._show_table_status()
         self._rebuild_editor()
         self._rank()
+        self._fill_history()
+
+    # ------------------------------------------------------------ history
+
+    def _toggle_history(self, on: bool) -> None:
+        self._history_box.setVisible(on)
+        if on:
+            self._fill_history()
+
+    def _fill_history(self) -> None:
+        hist = self._data.get("history") or []
+        live = [e for e in hist if not e.get("archived")]
+        archived = len(hist) - len(live)
+        self._history_btn.setText(f"History ({len(live)})" if hist else "History")
+        self._show_archived.setText(f"Show archived ({archived})")
+        self._show_archived.setVisible(archived > 0)
+        if not self._history_box.isVisible():
+            return
+        _clear(self._history_list)
+        self._history_rows = {}
+        shown = hist if self._show_archived.isChecked() else live
+        if not shown:
+            self._history_list.addWidget(_label(
+                "Nothing yet — a search is kept here when you start a new one or drop a different table.",
+                "rk_muted"))
+            return
+        for e in shown:
+            self._history_list.addWidget(self._history_row(e))
+
+    def _history_row(self, e: dict) -> QWidget:
+        w = QWidget()
+        row = QHBoxLayout(w)
+        row.setContentsMargins(0, 0, 0, 0)
+        rows = len((e.get("table") or {}).get("rows") or [])
+        nums = len(e.get("numbers") or [])
+        d = _dt.datetime.fromtimestamp(float(e.get("saved_at") or 0))
+        when = f"{d.day} {d:%b %H:%M}"
+        bits = [f"{rows} rows"] + ([f"{nums} numbers"] if nums else []) + ([e["preset"]] if e.get("preset") else [])
+        text = f"{e.get('name') or e.get('filename')} · {' · '.join(bits)} · {when}"
+        lab = _label(text, "rk_muted" if e.get("archived") else "", wrap=False)
+        lab.setToolTip(text)
+        row.addWidget(lab, 1)
+        hid = e["id"]
+        open_btn = _button("Open", "rk_chip", lambda: self._open_history(hid))
+        arch_btn = _button("Unarchive" if e.get("archived") else "Archive", "rk_chip",
+                           lambda: self._archive_history(hid, not e.get("archived")))
+        del_btn = _button("Delete", "rk_danger", lambda: self._delete_history(hid))
+        for b in (open_btn, arch_btn, del_btn):
+            row.addWidget(b)
+        self._history_rows[hid] = {"open": open_btn, "archive": arch_btn, "delete": del_btn, "label": lab}
+        return w
+
+    def _open_history(self, hid: str) -> None:
+        if store.history_open(hid) is None:
+            self._say("That search is no longer kept.", error=True)
+            return
+        self._confirm_delete = None
+        self.reload()
+        self._recipe = copy.deepcopy(self._data["presets"][self._data["preset"]])
+        self._rebuild_editor()
+        self._rank()
+
+    def _archive_history(self, hid: str, on: bool) -> None:
+        data = store.history_set(hid, archived=on)
+        if data is not None:
+            self._data = data
+        self._fill_history()
+
+    def _delete_history(self, hid: str) -> None:
+        """Asked twice: the first click turns the button into "Delete for good"."""
+        if self._confirm_delete != hid:
+            self._confirm_delete = hid
+            b = self._history_rows.get(hid, {}).get("delete")
+            if b is not None:
+                b.setText("Delete for good")
+            return
+        self._confirm_delete = None
+        self._data = store.history_delete(hid)
+        self._fill_history()
 
     # ------------------------------------------------------------ input
 
@@ -714,7 +824,8 @@ class RankerView(FeaturePanel):
             self._say(f"{name}: {e}", error=True)
             return
         self._table, self._filename = t, name
-        store.update(last_table={"filename": name, **t.to_json()})
+        self._data = store.update(last_table={"filename": name, **t.to_json()})
+        self._fill_history()
         self._say("")
         self._show_table_status()
         self._rebuild_editor()

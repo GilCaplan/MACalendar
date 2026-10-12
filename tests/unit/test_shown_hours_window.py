@@ -58,13 +58,13 @@ def test_changing_the_setting_applies_at_once(app):
     w.close()
 
 
-def test_picking_the_hours_in_settings_and_saving_shows_them(app):
+def test_picking_the_hours_in_settings_and_saving_shows_them(app, monkeypatch):
     """The whole path a person takes: Settings ▸ Appearance, the two menus,
     Save Config — through the real dialog on the real window, with clicks."""
     import os
-    from PyQt6.QtCore import Qt, QTimer
+    from PyQt6.QtCore import Qt
     from PyQt6.QtTest import QTest
-    from PyQt6.QtWidgets import QApplication, QComboBox, QPushButton
+    from assistant.calendar_ui import settings_dialog
     from assistant.calendar_ui.settings_dialog import open_settings
     from assistant.calendar_ui.window import CalendarWindow
     w = CalendarWindow(config=load_config().model_copy(deep=True))
@@ -80,35 +80,20 @@ def test_picking_the_hours_in_settings_and_saving_shows_them(app):
     w._pipeline = _Pipeline()
     seen = {}
 
-    def _go():
-        # THE Settings dialog, asked of Qt — not found by walking every
-        # top-level window: that walk touched a window an earlier test in this
-        # file had left behind, and a freed one segfaulted CI (2026-09-30, and
-        # again on PR #20, 2026-10-10, inside the walk). The modal Qt hands
-        # back is live; the same lookup the other Settings tests drive with
-        # (test_event_defaults_ui._drive), which has held on CI.
-        from PyQt6 import sip
-        dlg = QApplication.activeModalWidget()
-        if dlg is not None and (sip.isdeleted(dlg) or not dlg.isVisible()
-                                or dlg.objectName() != "settings_dialog"
-                                or dlg.findChild(QComboBox, "hours_from") is None):
-            dlg = None
-        if dlg is None:
-            seen["tries"] = seen.get("tries", 0) + 1
-            if seen["tries"] < 300:
-                QTimer.singleShot(10, _go)
-            return
+    def _go(dlg):
+        # The dialog itself, handed over by open_settings (ON_OPEN) — not found
+        # by asking Qt for the active modal widget and walking it, which
+        # segfaulted Linux CI inside the walk three times (2026-09-30, PR #20,
+        # PR #36).
         try:
-            a, b = dlg.findChild(QComboBox, "hours_from"), dlg.findChild(QComboBox, "hours_to")
-            a.setCurrentIndex(a.findData(7))
-            b.setCurrentIndex(b.findData(24))
-            save = dlg.save_button
-            QTest.mouseClick(save, Qt.MouseButton.LeftButton)
+            dlg.hours_from_combo.setCurrentIndex(dlg.hours_from_combo.findData(7))
+            dlg.hours_to_combo.setCurrentIndex(dlg.hours_to_combo.findData(24))
+            QTest.mouseClick(dlg.save_button, Qt.MouseButton.LeftButton)
             seen["ok"] = True
         finally:
             if dlg.isVisible():
                 dlg.reject()
-    QTimer.singleShot(0, _go)
+    monkeypatch.setattr(settings_dialog, "ON_OPEN", _go)
     open_settings(w)
     _settle(app)
     assert seen.get("ok"), "the dialog never came up"

@@ -19,13 +19,13 @@ pytest.importorskip("PyQt6")
 from PyQt6.QtCore import QMimeData, Qt, QUrl  # noqa: E402
 from PyQt6.QtGui import QImage  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
-from PyQt6.QtWidgets import QApplication, QFileDialog  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QFileDialog, QLabel  # noqa: E402
 
 from assistant.calendar_ui import ranker_view  # noqa: E402
 from assistant.calendar_ui.ranker_view import RankerView, format_value, parse_numbers  # noqa: E402
 from assistant.features.ranker import ocr, store, table  # noqa: E402
 
-FIX = pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "ranker" / "migration_3scrolls.html"
+FIX = pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "ranker" / "kingdoms_synthetic.html"
 LEFT = Qt.MouseButton.LeftButton
 DEBOUNCE = ranker_view.DEBOUNCE_MS + 150
 
@@ -476,3 +476,56 @@ def test_copy_puts_the_visible_result_on_the_clipboard(view, qapp):
     _click(view._copy_btn)
     lines = QApplication.clipboard().text().splitlines()
     assert len(lines) == 41 and lines[0].startswith("#\tK\t")
+
+
+# ---------------------------------------------------------------- history
+
+def _csv(tmp_path, name, rows):
+    p = tmp_path / name
+    p.write_text("K,Players\n" + "".join(f"{k},{v}\n" for k, v in rows))
+    return p
+
+
+def test_history_keeps_past_searches_to_open_archive_and_delete(view, qapp, tmp_path):
+    """Gil, 2026-10-12: "make it easy to archive, delete history". Driven by
+    clicks: two searches, the first comes back from History, then it is
+    archived out of the list, shown again, and deleted (asked twice)."""
+    a = _csv(tmp_path, "first.csv", [(1, 10), (2, 20)])
+    b = _csv(tmp_path, "second.csv", [(7, 70)])
+    _drop_files(view, a)
+    _type_numbers(view, qapp, "1")
+    _click(view._new_search_btn)
+    assert view._history_btn.text() == "History (1)"
+    _drop_files(view, b)
+
+    _click(view._history_btn)
+    assert view._history_box.isVisible()
+    [hid] = view._history_rows
+    assert view._history_rows[hid]["label"].text().startswith("first.csv · 2 rows · 1 numbers")
+
+    _click(view._history_rows[hid]["open"])                        # back to the first search
+    assert view._filename == "first.csv" and view._numbers == [1]
+    assert view._grid.rowCount() == 1                              # filtered to kingdom 1
+    assert view._history_btn.text() == "History (2)"               # second.csv was filed too
+    [other] = [h for h in view._history_rows if h != hid]
+    assert view._history_rows[other]["label"].text().startswith("second.csv")
+
+    _click(view._history_rows[other]["archive"])
+    assert other not in view._history_rows and view._show_archived.isVisible()
+    assert view._history_btn.text() == "History (1)"
+    _click(view._show_archived)
+    assert view._history_rows[other]["archive"].text() == "Unarchive"
+
+    delete = view._history_rows[other]["delete"]
+    _click(delete)
+    assert delete.text() == "Delete for good"                      # asked once more
+    assert other in [e["id"] for e in store.load()["history"]]
+    _click(delete)
+    assert other not in [e["id"] for e in store.load()["history"]]
+    assert other in store.load()["deleted_history"]
+
+
+def test_history_starts_folded_and_says_what_it_is_for(view, qapp):
+    assert not view._history_box.isVisible() and view._history_btn.text() == "History"
+    _click(view._history_btn)
+    assert any("kept here" in t for t in [w.text() for w in view._history_box.findChildren(QLabel)])

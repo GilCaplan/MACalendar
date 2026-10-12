@@ -16,6 +16,14 @@ import Foundation
 /// last chosen, here or there. The TABLE goes by its stamp (`table_at`, when it
 /// was chosen or cleared): whichever device chose later wins, so a table read
 /// on the Mac shows up here and one read here is not undone by an older one.
+///
+/// HISTORY (Gil, 2026-10-12: "make it easy to archive, delete history"): a
+/// search is filed in `history` when it is finished — New search, or a
+/// different table — with its table, numbers and ranking, under an id this
+/// phone mints, and sent whole to the Mac (`PUT /ranker/history/<id>`). Mac
+/// entries are pulled in on `sync`; an id deleted on either side is dropped
+/// on both (`deleted`), never sent back. Reopening an entry and moving on
+/// updates it rather than filing a copy (`fromHistory`).
 @MainActor
 final class RankerStore: ObservableObject {
     static let shared = RankerStore()
@@ -26,6 +34,12 @@ final class RankerStore: ObservableObject {
     @Published private(set) var useNumbers = true
     @Published private(set) var table: RankerTable?
     @Published private(set) var tableName: String?
+    /// Past searches, newest first.
+    @Published private(set) var history: [RankerHistoryEntry] = []
+    /// Ids deleted (here or on the Mac), so neither sends one back.
+    private var deletedHistory: [String] = []
+    /// The past search on screen, when it was reopened from history.
+    private(set) var fromHistory: String?
     /// When the table was chosen or cleared (seconds since 1970) — the sync's tiebreak.
     private(set) var tableAt: Double = 0
 
@@ -59,6 +73,9 @@ final class RankerStore: ObservableObject {
         table = RankerTable(json: o["table"])
         tableName = o["filename"] as? String
         tableAt = (o["table_at"] as? NSNumber)?.doubleValue ?? 0
+        history = (o["history"] as? [Any] ?? []).compactMap(RankerHistoryEntry.init(json:))
+        deletedHistory = o["deleted_history"] as? [String] ?? []
+        fromHistory = o["from_history"] as? String
     }
 
     private func save() {
@@ -66,6 +83,9 @@ final class RankerStore: ObservableObject {
                                 "numbers": numbers, "use_numbers": useNumbers, "table_at": tableAt]
         if let table { o["table"] = table.json }
         if let tableName { o["filename"] = tableName }
+        o["history"] = history.map(\.json)
+        o["deleted_history"] = deletedHistory
+        if let fromHistory { o["from_history"] = fromHistory }
         if let data = try? JSONSerialization.data(withJSONObject: o) {
             try? data.write(to: url, options: .atomic)
         }
@@ -88,8 +108,13 @@ final class RankerStore: ObservableObject {
         let t = try await Task.detached(priority: .userInitiated) {
             try RankerTableReader.read(filename: file.filename, data: file.data)
         }.value
+        if let old = table, tableName != file.filename
+            || !(old.json as NSDictionary).isEqual(to: t.json) {
+            fileCurrent(api: api)                         // a different table: keep the old search
+        }
         table = t
         tableName = file.filename
+        fromHistory = nil
         tableAt = Date().timeIntervalSince1970
         save()
         supersede("/ranker/table")
@@ -115,8 +140,11 @@ final class RankerStore: ObservableObject {
         Task { try? await api.setRankerNumbers(n, useNumbers: u) }
     }
 
-    /// Start over: no table, no numbers; saved rankings stay.
+    /// Start over: no table, no numbers; the search goes to history, saved
+    /// rankings stay.
     func newSearch(api: APIClient) {
+        fileCurrent(api: api)
+        fromHistory = nil
         table = nil
         tableName = nil
         tableAt = Date().timeIntervalSince1970
@@ -168,12 +196,107 @@ final class RankerStore: ObservableObject {
         }
     }
 
+    // MARK: - History
+
+    /// File the search on screen (nothing without a table). A search reopened
+    /// from history updates its own entry and moves it to the top.
+    private func fileCurrent(api: APIClient) {
+        guard let table, !table.rows.isEmpty else { return }
+        var e: RankerHistoryEntry
+        if let fid = fromHistory, let i = history.firstIndex(where: { $0.id == fid }) {
+            e = history.remove(at: i)
+        } else {
+            e = RankerHistoryEntry(id: UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased(),
+                                   name: tableName ?? "table")
+        }
+        e.filename = tableName ?? "table"
+        e.table = table
+        e.rowCount = table.rows.count
+        e.numbers = numbers
+        e.useNumbers = useNumbers
+        e.preset = preset
+        e.savedAt = Date().timeIntervalSince1970
+        history.insert(e, at: 0)
+        save()
+        supersede("/ranker/history/\(e.id)")
+        let entry = e
+        Task { try? await api.putRankerHistory(entry) }
+    }
+
+    /// Make a past search the one on screen; the current one is filed first.
+    /// nil when done, or why not (its rows are on the Mac and it is away).
+    func open(_ id: String, api: APIClient) async -> String? {
+        guard var e = history.first(where: { $0.id == id }) else { return "That search is no longer kept." }
+        if e.table == nil {
+            guard let full = try? await api.rankerHistoryEntry(id), full.table != nil else {
+                return "This search's table is on your Mac — open it again when the Mac is reachable."
+            }
+            e.table = full.table
+            e.rowCount = full.rowCount
+            if let i = history.firstIndex(where: { $0.id == id }) { history[i].table = full.table }
+        }
+        if fromHistory != id { fileCurrent(api: api) }
+        table = e.table
+        tableName = e.filename
+        if presets.contains(where: { $0.name == e.preset }) { preset = e.preset }
+        fromHistory = id
+        tableAt = Date().timeIntervalSince1970
+        setNumbers(e.numbers, useNumbers: e.useNumbers, api: api)      // saves
+        supersede("/ranker/table")
+        let (t, name, at) = (table, tableName, tableAt)
+        Task { try? await api.setRankerTable(t, filename: name, at: at, fromHistory: id) }
+        return nil
+    }
+
+    func setArchived(_ id: String, _ on: Bool, api: APIClient) {
+        guard let i = history.firstIndex(where: { $0.id == id }) else { return }
+        history[i].archived = on
+        save()
+        supersede("/ranker/history/\(id)", method: "PATCH")
+        Task { try? await api.setRankerHistoryArchived(id, on) }
+    }
+
+    /// Forget a past search here and on the Mac, for good.
+    func deleteHistory(_ id: String, api: APIClient) {
+        history.removeAll { $0.id == id }
+        deletedHistory = Array((deletedHistory.filter { $0 != id } + [id]).suffix(500))
+        if fromHistory == id { fromHistory = nil }
+        save()
+        supersede("/ranker/history/\(id)")
+        supersede("/ranker/history/\(id)", method: "PATCH")
+        Task { try? await api.deleteRankerHistory(id) }
+    }
+
+    /// Past searches the Mac has that this phone does not are pulled in whole;
+    /// ones deleted on the Mac go; archive state follows the Mac unless a
+    /// change made here is still on its way.
+    private func syncHistory(api: APIClient) async {
+        guard let h = try? await api.rankerHistory() else { return }
+        let gone = Set(h.deleted)
+        history.removeAll { gone.contains($0.id) }
+        deletedHistory = Array(Set(deletedHistory).union(gone)).suffix(500).map { $0 }
+        let mine = Set(deletedHistory)
+        for s in h.entries where !mine.contains(s.id) {
+            if let i = history.firstIndex(where: { $0.id == s.id }) {
+                if !pending("/ranker/history/\(s.id)") {
+                    history[i].archived = s.archived
+                    history[i].name = s.name
+                }
+            } else if let full = try? await api.rankerHistoryEntry(s.id) {
+                history.append(full)
+            }
+        }
+        history.sort { $0.savedAt > $1.savedAt }
+        save()
+    }
+
     // MARK: - Sync
 
     /// Bring this phone in step with the Mac, when it answers. Never needed
     /// for ranking; quiet when the Mac is away.
     func sync(api: APIClient) async {
         guard let o = try? await api.rankerOverview() else { return }
+        await syncHistory(api: api)
         if !pending("/ranker/numbers") && !pending("/ranker/presets") {
             adopt(o, numbersToo: true)
         }
@@ -211,8 +334,8 @@ final class RankerStore: ObservableObject {
     }
 
     /// Drop a queued overwrite of `path` that a newer one is about to replace.
-    private func supersede(_ path: String) {
-        for change in LocalStore.shared.allPending() where change.method == "PUT" && change.path == path {
+    private func supersede(_ path: String, method: String = "PUT") {
+        for change in LocalStore.shared.allPending() where change.method == method && change.path == path {
             LocalStore.shared.removePending(change.id)
         }
     }

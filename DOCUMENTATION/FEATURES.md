@@ -1269,6 +1269,16 @@ the filter switch and the last table go to it as queued overwrites
 pull on the tab takes anything newer from it. A table carries `table_at`
 (when it was chosen or cleared), so whichever device chose later wins and a
 replay that arrives late changes nothing.
+**History** (DEVQA Q92, 2026-10-12): a finished search — New search, or a
+different table replacing the one on screen — is kept with its table, numbers
+and ranking. "History (N)" on the Mac and the clock button on the phone list
+them newest first: Open puts one back on screen (and moving on updates that
+entry instead of filing a copy), Archive moves it out of the list into
+"Archived" and back, Delete asks once more and is final on both devices
+(deleted ids are remembered so neither sends one back). Each device files its
+own searches and sends them whole (`PUT /ranker/history/<id>`); the phone pulls
+the Mac's on sync. The test fixture is invented numbers — real exports never
+go in the repo.
 
 ### iOS app & offline queues
 **What:** The full iPhone client — calendar, tasks, voice, review, vocabulary,

@@ -10,6 +10,12 @@
 | `PUT /ranker/table` | `{table: {filename, columns, rows} or null, table_at}` — a table the phone read; older than the one kept, it is ignored |
 | `POST /ranker/rank` | rank: multipart `table` (.html/.csv/.tsv/.json) and/or `image`s, plus `recipe` (JSON) or `preset`, `numbers`, `use_numbers` (the filter switch); any of them left out uses the saved one |
 | `PUT /ranker/presets/<name>` `DELETE /ranker/presets/<name>` | save / remove a recipe |
+| `GET /ranker/history` | past searches, newest first, without their rows, and the ids deleted |
+| `GET /ranker/history/<id>` | one past search, every row |
+| `PUT /ranker/history/<id>` | a past search filed on the phone, whole; a deleted id is ignored |
+| `PATCH /ranker/history/<id>` | `{archived?, name?}` |
+| `DELETE /ranker/history/<id>` | forget it (remembered as deleted) |
+| `POST /ranker/history/<id>/open` | make it the search on screen; the current one is filed first |
 
 HTTP only. Reading tables is `table.py`, choosing numbers `ocr.py`, ranking
 `rank.py` — the Mac panel calls those directly. The phone has its own copy of
@@ -122,7 +128,12 @@ def set_table():
     data = store.load()
     if at and at < float(data.get("table_at") or 0):
         return jsonify({**_summary(data), "ignored": True})
-    data = store.update(last_table=t, **({"table_at": at} if at else {}))
+    # The phone files its own history (PUT /ranker/history/<id>), so a table
+    # it sends never files the Mac's copy of the same search a second time.
+    fields = {"last_table": t, **({"table_at": at} if at else {})}
+    if isinstance(body.get("from_history"), str) or body.get("from_history") is None:
+        fields["from_history"] = body.get("from_history")
+    data = store.update(archive=False, **fields)
     return jsonify(_summary(data))
 
 
@@ -137,7 +148,11 @@ def rank_table():
     f = request.files.get("table")
     if f is not None:
         t = table.read(f.filename or "table", f.read())
-        data["last_table"] = {"filename": f.filename, **t.to_json()}
+        new = {"filename": f.filename, **t.to_json()}
+        if not store._same_table(data.get("last_table"), new):
+            store.snapshot(data)
+            data["from_history"] = None
+        data["last_table"] = new
         data["table_at"] = time.time()
     elif data.get("last_table"):
         lt = data["last_table"]
@@ -200,4 +215,74 @@ def delete_preset(name: str):
     if data["preset"] == name:
         data["preset"] = next(iter(data["presets"]))
     store.save(data)
+    return jsonify(_summary(data))
+
+
+# ---------------------------------------------------------------- history
+
+@blueprint.get("/ranker/history")
+def history():
+    data = store.load()
+    return jsonify({"entries": [store.summary(e) for e in data.get("history", [])],
+                    "deleted": data.get("deleted_history", []),
+                    "current": data.get("from_history")})
+
+
+@blueprint.get("/ranker/history/<hid>")
+def history_entry(hid: str):
+    e = store.history_get(store.load(), hid)
+    if e is None:
+        return _bad("No such past search.", 404)
+    return jsonify(e)
+
+
+@blueprint.put("/ranker/history/<hid>")
+def history_put(hid: str):
+    """A past search the phone filed, sent whole. Idempotent, so it can queue."""
+    e = request.get_json(silent=True) or {}
+    t = e.get("table")
+    if (not isinstance(t, dict) or not isinstance(t.get("columns"), list)
+            or not isinstance(t.get("rows"), list)):
+        return _bad("A past search carries its table: {columns, rows}.")
+    try:
+        nums = [int(n) for n in e.get("numbers") or []]
+        saved_at = float(e.get("saved_at") or time.time())
+    except (TypeError, ValueError):
+        return _bad("numbers are whole numbers and saved_at is seconds since the epoch.")
+    entry = {"id": hid, "name": str(e.get("name") or e.get("filename") or "table"),
+             "filename": str(e.get("filename") or "table"),
+             "table": {"columns": t["columns"], "rows": t["rows"]}, "numbers": nums,
+             "use_numbers": bool(e.get("use_numbers", True)), "preset": str(e.get("preset") or ""),
+             "saved_at": saved_at, "archived": bool(e.get("archived", False))}
+    _data, kept = store.history_put(entry)
+    return jsonify({"id": hid, "kept": kept})
+
+
+@blueprint.patch("/ranker/history/<hid>")
+def history_patch(hid: str):
+    body = request.get_json(silent=True) or {}
+    fields = {}
+    if isinstance(body.get("archived"), bool):
+        fields["archived"] = body["archived"]
+    if isinstance(body.get("name"), str) and body["name"].strip():
+        fields["name"] = body["name"].strip()
+    if not fields:
+        return _bad("Send {archived: true|false} and/or {name: \"...\"}.")
+    data = store.history_set(hid, **fields)
+    if data is None:
+        return _bad("No such past search.", 404)
+    return jsonify(store.summary(store.history_get(data, hid)))
+
+
+@blueprint.delete("/ranker/history/<hid>")
+def history_delete(hid: str):
+    store.history_delete(hid)
+    return jsonify({"id": hid, "deleted": True})
+
+
+@blueprint.post("/ranker/history/<hid>/open")
+def history_open(hid: str):
+    data = store.history_open(hid)
+    if data is None:
+        return _bad("No such past search.", 404)
     return jsonify(_summary(data))

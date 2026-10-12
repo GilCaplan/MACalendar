@@ -1,8 +1,8 @@
 """Ranker: read a table, read a picture's numbers, rank by a recipe.
 
-The table fixture is 40 rows of a real migration export (no player names);
-the picture is DRAWN here — the real screenshot carries guild and player names
-and stays out of the repo.
+The table fixture is 40 rows of INVENTED numbers in the shape of a game's
+migration export (Gil, 2026-10-12: his real data never goes on GitHub); the
+picture is DRAWN here — real screenshots stay out of the repo too.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from flask import Flask
 from assistant.features import registry
 from assistant.features.ranker import ocr, rank, table
 
-FIX = pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "ranker" / "migration_3scrolls.html"
+FIX = pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "ranker" / "kingdoms_synthetic.html"
 
 
 def test_ranker_is_registered():
@@ -38,9 +38,9 @@ def test_the_migration_export_reads_with_its_names_labels_and_precision(migratio
     assert migration.names[:3] == ["Kingdom", "PlayerRank", "Players"]
     assert migration.label("Burned24h") == "🔥 24h"
     first = migration.rows[0]
-    assert first["Kingdom"] == 1 and first["Players"] == 4574
-    assert first["InactivePercent"] == pytest.approx(10.013117790222168)   # data-raw, not the shown 10
-    assert first["Top50Power"] == pytest.approx(3.62e9)                    # shown 3.62B beats data-raw 0
+    assert first["Kingdom"] == 1 and first["Players"] == 3210
+    assert first["InactivePercent"] == pytest.approx(12.487123794555664)   # data-raw, not the shown 12
+    assert first["Top50Power"] == pytest.approx(2.75e9)                    # shown 2.75B beats data-raw 0
 
 
 @pytest.mark.parametrize("text,value", [("3.62B", 3.62e9), ("850M", 8.5e8), ("1,234", 1234),
@@ -255,3 +255,76 @@ def test_a_table_chosen_on_the_mac_is_stamped(tmp_path, monkeypatch):
     data = store.update(last_table={"filename": "a.csv", "columns": [], "rows": []})
     assert data["table_at"] > before
     assert store.new_search()["table_at"] >= data["table_at"]
+
+
+# ---------------------------------------------------------------- history
+
+T1 = {"filename": "a.csv", "columns": [{"name": "K", "label": "K"}], "rows": [{"K": 1.0}, {"K": 2.0}]}
+T2 = {"filename": "b.csv", "columns": [{"name": "K", "label": "K"}], "rows": [{"K": 9.0}]}
+
+
+def test_a_finished_search_is_kept_in_history(tmp_path, monkeypatch):
+    """Gil, 2026-10-12: past searches are kept, to reopen, archive or delete.
+    A New search or a different table files the one on screen; the same table
+    sent again does not."""
+    from assistant.features.ranker import store
+    monkeypatch.setenv("MACALENDAR_RANKER", str(tmp_path / "ranker.json"))
+    store.update(last_table=T1, numbers=[1])
+    store.update(last_table=dict(T1))                       # same table: nothing filed
+    assert store.load()["history"] == []
+    data = store.update(last_table=T2)                      # a different one: T1 filed
+    [e] = data["history"]
+    assert e["filename"] == "a.csv" and e["numbers"] == [1] and e["table"]["rows"] == T1["rows"]
+    assert not e["archived"]
+    data = store.new_search()                               # T2 filed too, newest first
+    assert [h["filename"] for h in data["history"]] == ["b.csv", "a.csv"]
+    assert data["last_table"] is None
+
+
+def test_reopening_a_past_search_updates_it_instead_of_copying(tmp_path, monkeypatch):
+    from assistant.features.ranker import store
+    monkeypatch.setenv("MACALENDAR_RANKER", str(tmp_path / "ranker.json"))
+    store.update(last_table=T1, numbers=[1])
+    store.new_search()
+    hid = store.load()["history"][0]["id"]
+    data = store.history_open(hid)
+    assert data["last_table"]["rows"] == T1["rows"] and data["numbers"] == [1]
+    store.update(numbers=[1, 2])
+    data = store.new_search()                               # back in history, once, updated
+    assert len(data["history"]) == 1 and data["history"][0]["numbers"] == [1, 2]
+
+
+def test_history_over_http_archive_delete_and_the_phones_own(client):
+    client.put("/ranker/table", json={"table": T1, "table_at": 1.0})
+    client.post("/ranker/new")
+    [e] = client.get("/ranker/history").json["entries"]
+    assert e["rows"] == 2 and "table" not in e                # the list carries no rows
+    hid = e["id"]
+    assert client.get(f"/ranker/history/{hid}").json["table"]["rows"] == T1["rows"]
+    assert client.patch(f"/ranker/history/{hid}", json={"archived": True}).json["archived"] is True
+    assert client.patch(f"/ranker/history/{hid}", json={}).status_code == 400
+    assert client.patch("/ranker/history/nope", json={"archived": True}).status_code == 404
+
+    phone = {"name": "b.csv", "filename": "b.csv", "table": {"columns": T2["columns"], "rows": T2["rows"]},
+             "numbers": [9], "use_numbers": True, "preset": "My ranking", "saved_at": 5.0}
+    assert client.put("/ranker/history/phone1", json=phone).json["kept"] is True
+    assert client.put("/ranker/history/phone1", json=phone).json["kept"] is True   # replay: idempotent
+    assert [x["id"] for x in client.get("/ranker/history").json["entries"]].count("phone1") == 1
+
+    assert client.delete("/ranker/history/phone1").json["deleted"] is True
+    assert client.delete("/ranker/history/phone1").status_code == 200              # twice is fine
+    listed = client.get("/ranker/history").json
+    assert "phone1" in listed["deleted"] and all(x["id"] != "phone1" for x in listed["entries"])
+    assert client.put("/ranker/history/phone1", json=phone).json["kept"] is False  # not brought back
+
+    opened = client.post(f"/ranker/history/{hid}/open").json
+    assert opened["table"]["rows"] == 2
+    assert client.post("/ranker/history/nope/open").status_code == 404
+
+
+def test_a_table_from_the_phone_does_not_file_a_second_copy(client):
+    """The phone files its own history entry, so the Mac must not file the same
+    search again when the phone's next table arrives."""
+    client.put("/ranker/table", json={"table": T1, "table_at": 1.0})
+    client.put("/ranker/table", json={"table": T2, "table_at": 2.0})
+    assert client.get("/ranker/history").json["entries"] == []

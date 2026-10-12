@@ -29,6 +29,7 @@ from assistant.calendar_ui.settings_dialog import open_settings, _ui_state  # no
 from assistant.config import (                                       # noqa: E402
     AudioConfig, HebrewCalendarConfig, NLUConfig, UIConfig,
 )
+from tests.unit._settings_driver import drive_settings  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -109,19 +110,8 @@ class _Window(QWidget):
 
 
 def _drive(interact, failures):
-    def _go():
-        from PyQt6 import sip as _sip   # a stale wrapper segfaulted Linux CI (TASKS 53)
-        dlg = QApplication.activeModalWidget()
-        if dlg is None or _sip.isdeleted(dlg) or not dlg.isVisible() or dlg.objectName() != "settings_dialog":
-            QTimer.singleShot(10, _go)
-            return
-        try:
-            interact(dlg)
-        except Exception as e:               # noqa: BLE001 — re-raised below
-            failures.append(e)
-        finally:
-            dlg.reject()
-    QTimer.singleShot(0, _go)
+    """The real dialog, handed over by `open_settings` (`_settings_driver`)."""
+    drive_settings(interact, failures, always_close=True)
 
 
 def _header(dlg, name: str) -> QToolButton:
