@@ -28,6 +28,7 @@ from assistant.calendar_ui.settings_dialog import open_settings      # noqa: E40
 from assistant.config import (                                       # noqa: E402
     AudioConfig, HebrewCalendarConfig, NLUConfig, UIConfig,
 )
+from tests.unit._settings_driver import drive_settings  # noqa: E402
 
 SAMPLE = """\
 # hand-written config — comments must survive a save
@@ -108,24 +109,8 @@ class _Window(QWidget):
 
 
 def _drive(interact, failures):
-    """Run real interaction against the modal once it is up.
-
-    A failure inside the Qt callback would otherwise leave the dialog's
-    exec() spinning forever — so it is recorded and the dialog closed, and
-    the test re-raises it afterwards.
-    """
-    def _go():
-        from PyQt6 import sip as _sip   # a stale wrapper segfaulted Linux CI (TASKS 53)
-        dlg = QApplication.activeModalWidget()
-        if dlg is None or _sip.isdeleted(dlg) or not dlg.isVisible() or dlg.objectName() != "settings_dialog":                      # not up yet — try again
-            QTimer.singleShot(10, _go)
-            return
-        try:
-            interact(dlg)
-        except Exception as e:               # noqa: BLE001 — re-raised below
-            failures.append(e)
-            dlg.reject()
-    QTimer.singleShot(0, _go)
+    """The real dialog, handed over by `open_settings` (`_settings_driver`)."""
+    drive_settings(interact, failures)
 
 
 def _click(widget):

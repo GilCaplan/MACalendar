@@ -37,6 +37,7 @@ from assistant.actions.calendar import categories as cat             # noqa: E40
 from assistant.config import (                                       # noqa: E402
     AudioConfig, EventsConfig, HebrewCalendarConfig, NLUConfig, NotificationsConfig, UIConfig,
 )
+from tests.unit._settings_driver import drive_settings  # noqa: E402
 
 _REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -148,21 +149,8 @@ class _Window(QWidget):
 
 
 def _drive(interact, failures):
-    def _go():
-        # The SETTINGS dialog, alive and shown — not whatever modal is up. A
-        # stale wrapper here is what Linux CI segfaulted on (TASKS 53).
-        from PyQt6 import sip
-        dlg = QApplication.activeModalWidget()
-        if dlg is None or sip.isdeleted(dlg) or not dlg.isVisible() \
-                or dlg.objectName() != "settings_dialog":
-            QTimer.singleShot(10, _go)
-            return
-        try:
-            interact(dlg)
-        except Exception as e:               # noqa: BLE001 — re-raised below
-            failures.append(e)
-            dlg.reject()
-    QTimer.singleShot(0, _go)
+    """The real dialog, handed over by `open_settings` (`_settings_driver`)."""
+    drive_settings(interact, failures)
 
 
 def _open_events_section(dlg) -> None:

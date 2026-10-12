@@ -18,7 +18,7 @@ import os
 import re
 import subprocess
 
-from PyQt6.QtCore import QDate, QSettings, QSize, Qt
+from PyQt6.QtCore import QDate, QSettings, QSize, Qt, QTimer
 from PyQt6.QtGui import QColor, QPainter, QPixmap
 from PyQt6.QtWidgets import (
     QAbstractItemView, QCheckBox, QColorDialog, QComboBox, QDateEdit, QDialog, QFormLayout, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSpinBox, QToolButton, QVBoxLayout, QWidget,
@@ -135,6 +135,14 @@ def _folded_at_start() -> "set[str]":
     if start == "last":
         return set(filter(None, state.value("settings/folded", "", type=str).split("|")))
     return set()
+
+
+#: A test's way in: called with the dialog the moment it is up, before the
+#: modal loop waits for a person. Tests used to find the dialog by asking Qt
+#: for the active modal widget and walking it, and that segfaulted Linux CI
+#: inside the walk again and again (2026-09-30, PR #20, PR #36): a reference
+#: handed over cannot be stale. Always None in the running app.
+ON_OPEN = None
 
 
 def open_settings(self) -> None:
@@ -1604,6 +1612,7 @@ def open_settings(self) -> None:
     # intermittent segfault on Linux CI (TASKS 53) — a stale wrapper for a
     # Qt-owned widget, read mid-walk. A direct reference walks nothing.
     dialog.save_button = save_btn
+    dialog.hours_from_combo, dialog.hours_to_combo = hours_from_combo, hours_to_combo
 
     def _jewish_all(on: bool) -> None:
         """The Jewish calendar switch: every part of it at once."""
@@ -1817,6 +1826,9 @@ def open_settings(self) -> None:
     btn_layout.setContentsMargins(18, 10, 18, 14)
     outer.addLayout(btn_layout)
 
+    if ON_OPEN is not None:
+        hook = ON_OPEN
+        QTimer.singleShot(0, lambda: hook(dialog))
     dialog.exec()
 
 

@@ -335,6 +335,17 @@ def reset_context_memory():
 
 
 @pytest.fixture(autouse=True)
+def reset_settings_hook():
+    """`settings_dialog.ON_OPEN` is module-level: a test that armed it and then
+    failed before opening Settings must not hand the NEXT test's dialog to its
+    interaction. Only touched when the (Qt) module is already loaded."""
+    yield
+    mod = sys.modules.get("assistant.calendar_ui.settings_dialog")
+    if mod is not None:
+        mod.ON_OPEN = None
+
+
+@pytest.fixture(autouse=True)
 def reset_voice_receipts():
     """The run-once store is module-level: two tests posting the same fake
     recording would otherwise get the first test's stored answer."""

@@ -47,6 +47,7 @@ from assistant.actions.calendar import categories as categories_mod  # noqa: E40
 from assistant.calendar_ui.settings_dialog import open_settings      # noqa: E402
 from assistant.config import load_config                             # noqa: E402
 from assistant.tts.speaker import Speaker                            # noqa: E402
+from tests.unit._settings_driver import drive_settings  # noqa: E402
 
 # A faithful trim of the live config.yaml: the sections it HAS, and none of the
 # three it does not. Anything the dialog reads out of notifications/observance/
@@ -222,19 +223,8 @@ class _Window(QWidget):
 
 
 def _drive(interact, failures):
-    """Run interaction against the modal once it is up (see the sibling suites)."""
-    def _go():
-        from PyQt6 import sip as _sip   # a stale wrapper segfaulted Linux CI (TASKS 53)
-        dlg = QApplication.activeModalWidget()
-        if dlg is None or _sip.isdeleted(dlg) or not dlg.isVisible() or dlg.objectName() != "settings_dialog":
-            QTimer.singleShot(10, _go)
-            return
-        try:
-            interact(dlg)
-        except Exception as e:                # noqa: BLE001 — re-raised below
-            failures.append(e)
-            dlg.reject()
-    QTimer.singleShot(0, _go)
+    """The real dialog, handed over by `open_settings` (`_settings_driver`)."""
+    drive_settings(interact, failures)
 
 
 def _click(widget):
