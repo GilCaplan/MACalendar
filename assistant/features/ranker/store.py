@@ -9,6 +9,11 @@ The number list is the picture's answer as the person EDITED it: an empty list
 means "no filter", which is how the filter is switched off. `use_numbers` is
 the Mac panel's on/off switch: off ranks as if the list were empty but keeps
 it, so switching back on restores it.
+
+`table_at` is when the last table was set or cleared (seconds since the
+epoch), so the phone — which reads tables itself and syncs them here — can
+tell whose table is newer, and a queued write replayed late cannot replace a
+table chosen after it.
 """
 
 from __future__ import annotations
@@ -17,6 +22,7 @@ import copy
 import json
 import os
 import threading
+import time
 
 
 DEFAULT_PATH = os.path.expanduser("~/.assistant_tools/ranker.json")
@@ -37,7 +43,7 @@ BLANK_RECIPE = {"name": "My ranking", "key": "", "derived": [], "filters": [], "
 def _blank() -> dict:
     return {"presets": {BLANK_RECIPE["name"]: copy.deepcopy(BLANK_RECIPE)},
             "preset": BLANK_RECIPE["name"], "numbers": [], "use_numbers": True,
-            "last_table": None}
+            "last_table": None, "table_at": 0.0}
 
 
 def load() -> dict:
@@ -64,6 +70,8 @@ def save(data: dict) -> None:
 
 
 def update(**fields) -> dict:
+    if "last_table" in fields and "table_at" not in fields:
+        fields["table_at"] = time.time()
     data = load()
     data.update(fields)
     save(data)
