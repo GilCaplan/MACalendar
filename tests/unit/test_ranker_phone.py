@@ -71,6 +71,32 @@ def test_the_tab_sends_no_file_and_never_waits_for_the_mac_to_rank():
 
 def test_every_write_to_the_mac_queues():
     """Each call the tab makes to the Mac is a `mutate` (queued offline) or a read."""
-    for name in ("setRankerNumbers", "setRankerTable", "saveRankerPreset", "deleteRankerPreset"):
+    for name in ("setRankerNumbers", "setRankerTable", "saveRankerPreset", "deleteRankerPreset",
+                 "putRankerHistory", "setRankerHistoryArchived", "deleteRankerHistory"):
         body = API.split(f"func {name}(", 1)[1].split("\n    }\n", 1)[0]
         assert "mutate(" in body, name
+
+
+def _func(src: str, name: str) -> str:
+    return src.split(f"func {name}(", 1)[1].split("\n    }\n", 1)[0]
+
+
+def test_the_phone_keeps_past_searches_and_syncs_them():
+    """Gil, 2026-10-12: past searches kept, to reopen, archive or delete — on
+    the phone too, in step with the Mac."""
+    # a finished search is filed: New search, and a different table
+    assert "fileCurrent(api: api)" in _func(STORE, "newSearch")
+    assert "fileCurrent(api: api)" in _func(STORE, "readTable")
+    # filed whole to the Mac, reopened, archived and deleted through queued writes
+    assert "putRankerHistory" in _func(STORE, "fileCurrent")
+    assert "setRankerHistoryArchived" in _func(STORE, "setArchived")
+    delete = _func(STORE, "deleteHistory")
+    assert "deleteRankerHistory" in delete and "deletedHistory" in delete
+    # what the Mac deleted goes here too, and nothing deleted is pulled back
+    sync = _func(STORE, "syncHistory")
+    assert "gone.contains" in sync and "!mine.contains" in sync
+    # it survives a restart
+    assert 'o["history"]' in STORE and 'o["deleted_history"]' in STORE
+    # the sheet: open, archive and delete — the last asked first
+    assert "struct RankerHistorySheet" in VIEW and "confirmationDialog" in VIEW
+    assert 'accessibilityIdentifier("ranker-history")' in VIEW

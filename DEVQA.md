@@ -1,3 +1,14 @@
+- **2026-10-12 — Q92 (RANKER KEEPS PAST SEARCHES; REAL DATA STAYS OFF GITHUB)**,
+  Gil: *"My real data … shouldn't be uploaded to GitHub, but you can upload it
+  to the phone app. That should be there. And should make it easy to archive,
+  delete history."* Asked which history, he chose both: **Ranker keeps past
+  searches** (open / archive / delete on the phone and the Mac, synced, a
+  delete final on both) and **scrub GitHub's history** of the real export.
+  The test fixture became invented numbers in the same shape
+  (`kingdoms_synthetic.html`); the rewrite of history needs a force-push from
+  the Mac and GitHub Support for PR refs — STATUS "Waiting on Gil's Mac" has
+  the commands.
+
 - **2026-10-12 — Q91 (FLASHCARDS: ENGLISH BESIDE THE HEBREW)**, Gil, on a
   Hebrew card mid-review: *"an additional english explanation to the hebrew,
   for the input side of the prompt card … it can be minimized and optional

@@ -40,16 +40,53 @@ extension APIClient {
                          body: ["numbers": numbers, "use_numbers": useNumbers]) != nil
     }
 
-    /// The table this phone read (nil: a new search), stamped with when.
+    /// The table this phone read (nil: a new search), stamped with when, and
+    /// the past search it was reopened from, if any.
     @discardableResult
-    func setRankerTable(_ table: RankerTable?, filename: String?, at: Double) async throws -> Bool {
+    func setRankerTable(_ table: RankerTable?, filename: String?, at: Double,
+                        fromHistory: String? = nil) async throws -> Bool {
         var t: Any = NSNull()
         if let table {
             var o = table.json
             o["filename"] = filename ?? "table"
             t = o
         }
-        return try await mutate("/ranker/table", method: "PUT", body: ["table": t, "table_at": at]) != nil
+        return try await mutate("/ranker/table", method: "PUT",
+                                body: ["table": t, "table_at": at,
+                                       "from_history": fromHistory.map { $0 as Any } ?? NSNull()]) != nil
+    }
+
+    // -- history: past searches (each write an idempotent overwrite) ---
+
+    /// The Mac's past searches (no rows) and the ids deleted there.
+    func rankerHistory() async throws -> (entries: [RankerHistoryEntry], deleted: [String]) {
+        let o = try Self.rankerObject(try await request("/ranker/history"))
+        return ((o["entries"] as? [Any] ?? []).compactMap(RankerHistoryEntry.init(json:)),
+                o["deleted"] as? [String] ?? [])
+    }
+
+    /// One past search with every row.
+    func rankerHistoryEntry(_ id: String) async throws -> RankerHistoryEntry? {
+        RankerHistoryEntry(json: try Self.rankerObject(
+            try await request("/ranker/history/\(Self.rankerSegment(id))")))
+    }
+
+    /// A past search filed on this phone, sent whole.
+    @discardableResult
+    func putRankerHistory(_ entry: RankerHistoryEntry) async throws -> Bool {
+        try await mutate("/ranker/history/\(Self.rankerSegment(entry.id))", method: "PUT",
+                         body: entry.json) != nil
+    }
+
+    @discardableResult
+    func setRankerHistoryArchived(_ id: String, _ archived: Bool) async throws -> Bool {
+        try await mutate("/ranker/history/\(Self.rankerSegment(id))", method: "PATCH",
+                         body: ["archived": archived]) != nil
+    }
+
+    @discardableResult
+    func deleteRankerHistory(_ id: String) async throws -> Bool {
+        try await mutate("/ranker/history/\(Self.rankerSegment(id))", method: "DELETE") != nil
     }
 
     /// Save a recipe under its name. nil when the Mac was away and it queued.

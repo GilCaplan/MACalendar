@@ -47,6 +47,7 @@ struct RankerView: View {
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var editingRecipe = false
     @State private var choosingColumns = false
+    @State private var showingHistory = false
     @State private var newNumbers = ""
     @State private var expanded: Set<Int> = []
 
@@ -83,6 +84,11 @@ struct RankerView: View {
         }
         .sheet(isPresented: $editingRecipe) { recipeSheet }
         .sheet(isPresented: $choosingColumns) { columnsSheet }
+        .sheet(isPresented: $showingHistory) {
+            RankerHistorySheet(onOpen: { id in await openPast(id) })
+                .environmentObject(settings)
+                .environmentObject(api)
+        }
         .alert("Couldn't do that", isPresented: Binding(
             get: { refusal != nil }, set: { if !$0 { refusal = nil } })) {
             Button("OK", role: .cancel) {}
@@ -490,6 +496,9 @@ struct RankerView: View {
             if busy != nil { ProgressView() }
         }
         ToolbarItemGroup(placement: .navigationBarTrailing) {
+            Button { showingHistory = true } label: { Image(systemName: "clock.arrow.circlepath") }
+                .accessibilityLabel("History")
+                .accessibilityIdentifier("ranker-history")
             Button { newSearch() } label: {
                 Label("New search", systemImage: "plus.magnifyingglass")
             }
@@ -524,6 +533,18 @@ struct RankerView: View {
         stagedImages = []
         expanded = []
         newNumbers = ""
+    }
+
+    /// A past search back on screen. nil when done, or why not.
+    private func openPast(_ id: String) async -> String? {
+        if let why = await store.open(id, api: api) { return why }
+        result = nil
+        working = nil
+        stagedTable = nil
+        stagedImages = []
+        expanded = []
+        rerank()
+        return nil
     }
 
     /// Draw what this phone has, then ask the Mac for anything newer.
@@ -721,5 +742,111 @@ struct RankerColumnsSheet: View {
             }
         }
         .tint(settings.accentColor)
+    }
+}
+
+// MARK: - History
+//
+// Past searches (Gil, 2026-10-12: "make it easy to archive, delete history"):
+// newest first, each with its file, size, numbers and when. Tap to open it
+// again; swipe to archive (out of the list, into "Archived" at the bottom) or
+// delete, which asks first — it is gone from the Mac too.
+
+struct RankerHistorySheet: View {
+    @EnvironmentObject var api: APIClient
+    @EnvironmentObject var settings: AppSettings
+    @ObservedObject private var store = RankerStore.shared
+    @Environment(\.dismiss) private var dismiss
+
+    let onOpen: (String) async -> String?
+
+    @State private var showArchived = false
+    @State private var confirmDelete: RankerHistoryEntry?
+    @State private var refusal: String?
+
+    private var live: [RankerHistoryEntry] { store.history.filter { !$0.archived } }
+    private var archived: [RankerHistoryEntry] { store.history.filter(\.archived) }
+
+    var body: some View {
+        StackNavigation {
+            List {
+                if store.history.isEmpty {
+                    Text("Nothing yet — a search is kept here when you start a new one or pick a different table.")
+                        .foregroundColor(.secondary)
+                        .accessibilityIdentifier("ranker-history-empty")
+                }
+                if !live.isEmpty {
+                    Section { ForEach(live) { row($0) } }
+                }
+                if !archived.isEmpty {
+                    Section {
+                        if showArchived { ForEach(archived) { row($0) } }
+                    } header: {
+                        Button {
+                            withAnimation { showArchived.toggle() }
+                        } label: {
+                            HStack {
+                                Text("Archived (\(archived.count))")
+                                Spacer()
+                                Image(systemName: showArchived ? "chevron.down" : "chevron.right")
+                            }
+                        }
+                        .accessibilityIdentifier("ranker-history-archived")
+                    }
+                }
+            }
+            .navigationTitle("History")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            }
+            .refreshable { await store.sync(api: api) }
+            .confirmationDialog("Delete this search?", isPresented: Binding(
+                get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } }),
+                                titleVisibility: .visible, presenting: confirmDelete) { e in
+                Button("Delete", role: .destructive) { store.deleteHistory(e.id, api: api) }
+            } message: { e in
+                Text("\(e.name) will be gone from this phone and your Mac.")
+            }
+            .alert("Couldn't open it", isPresented: Binding(
+                get: { refusal != nil }, set: { if !$0 { refusal = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: { Text(refusal ?? "") }
+        }
+        .tint(settings.accentColor)
+    }
+
+    private func row(_ e: RankerHistoryEntry) -> some View {
+        Button {
+            Task {
+                if let why = await onOpen(e.id) { refusal = why } else { dismiss() }
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(e.name).font(.headline).foregroundColor(.primary).lineLimit(1)
+                    if store.fromHistory == e.id {
+                        Text("open").font(.caption2.weight(.semibold)).foregroundColor(settings.accentColor)
+                    }
+                }
+                Text(e.subtitle).font(.caption).foregroundColor(.secondary)
+            }
+        }
+        .accessibilityIdentifier("ranker-history-row")
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) { confirmDelete = e } label: { Label("Delete", systemImage: "trash") }
+            Button { store.setArchived(e.id, !e.archived, api: api) } label: {
+                Label(e.archived ? "Unarchive" : "Archive",
+                      systemImage: e.archived ? "tray.and.arrow.up" : "archivebox")
+            }
+            .tint(.orange)
+        }
+        .contextMenu {
+            Button { store.setArchived(e.id, !e.archived, api: api) } label: {
+                Label(e.archived ? "Unarchive" : "Archive",
+                      systemImage: e.archived ? "tray.and.arrow.up" : "archivebox")
+            }
+            Button(role: .destructive) { confirmDelete = e } label: { Label("Delete", systemImage: "trash") }
+        }
     }
 }

@@ -342,6 +342,12 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | Method | Path | What it does |
 |---|---|---|
 | `GET` | `/ranker` |  |
+| `GET` | `/ranker/history` |  |
+| `DELETE` | `/ranker/history/<hid>` |  |
+| `GET` | `/ranker/history/<hid>` |  |
+| `PATCH` | `/ranker/history/<hid>` |  |
+| `PUT` | `/ranker/history/<hid>` | A past search the phone filed, sent whole. Idempotent, so it can queue. |
+| `POST` | `/ranker/history/<hid>/open` |  |
 | `POST` | `/ranker/new` | Start over: no table, no numbers. Saved recipes stay. |
 | `POST` | `/ranker/numbers` | Read the numbers in one or more pictures and keep them as the list. |
 | `PUT` | `/ranker/numbers` | The number list as edited, and (optionally) the filter switch. |

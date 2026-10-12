@@ -294,3 +294,66 @@ struct RankerUpload: Identifiable {
     var data: Data
     var mime: String
 }
+
+/// One past search (`store.py` HISTORY): its table, numbers, the filter switch
+/// and the ranking it used. The Mac's list (`GET /ranker/history`) sends no
+/// rows — `table` is nil until the whole entry is fetched — so `rowCount`
+/// carries the size either way.
+struct RankerHistoryEntry: Identifiable {
+    var id: String
+    var name: String
+    var filename: String
+    var table: RankerTable?
+    var rowCount: Int
+    var numbers: [Int]
+    var useNumbers: Bool
+    var preset: String
+    var savedAt: Double
+    var archived: Bool
+
+    init(id: String, name: String) {
+        self.id = id
+        self.name = name
+        filename = name
+        rowCount = 0
+        numbers = []
+        useNumbers = true
+        preset = ""
+        savedAt = Date().timeIntervalSince1970
+        archived = false
+    }
+
+    init?(json: Any?) {
+        guard let o = json as? [String: Any], let id = o["id"] as? String else { return nil }
+        self.id = id
+        filename = o["filename"] as? String ?? "table"
+        name = o["name"] as? String ?? filename
+        table = RankerTable(json: o["table"])
+        rowCount = table?.rows.count ?? (o["rows"] as? NSNumber)?.intValue ?? 0
+        numbers = RankerOverview.ints(o["numbers"])
+        useNumbers = o["use_numbers"] as? Bool ?? true
+        preset = o["preset"] as? String ?? ""
+        savedAt = (o["saved_at"] as? NSNumber)?.doubleValue ?? 0
+        archived = o["archived"] as? Bool ?? false
+    }
+
+    /// Whole, with its table — what this phone saves and sends.
+    var json: [String: Any] {
+        var o: [String: Any] = ["id": id, "name": name, "filename": filename, "numbers": numbers,
+                                "use_numbers": useNumbers, "preset": preset, "saved_at": savedAt,
+                                "archived": archived, "rows": rowCount]
+        if let table { o["table"] = table.json }
+        return o
+    }
+
+    /// "40 rows · 12 numbers · 12 Oct 10:43".
+    var subtitle: String {
+        var bits = ["\(rowCount) rows"]
+        if !numbers.isEmpty { bits.append("\(numbers.count) numbers") }
+        if !preset.isEmpty { bits.append(preset) }
+        let f = DateFormatter()
+        f.dateFormat = "d MMM HH:mm"
+        bits.append(f.string(from: Date(timeIntervalSince1970: savedAt)))
+        return bits.joined(separator: " · ")
+    }
+}

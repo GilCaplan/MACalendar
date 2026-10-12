@@ -215,10 +215,23 @@ in the checkout), which can reach the apps; a cloud session cannot.
    origin/main | grep -v -E 'origin/(main|HEAD)' | sed 's#origin/##' | xargs
    git push origin --delete`. Keep `tips-on-ios` (1,156 commits not on main)
    until checked.
-4. **Open questions for Gil:** TestFlight (needs the paid Apple Developer
-   Program; would let the phone update without the Mac, builds last 90 days
-   instead of 7); whether `tests/fixtures/ranker/migration_3scrolls.html`
-   (a real game export, player names removed) should become synthetic.
+4. **Ranker: your real export into the app, out of GitHub's history** (Gil,
+   2026-10-12: "my real data … shouldn't be uploaded to GitHub, but you can
+   upload it to the phone app"). The repo's test file is invented numbers
+   now (`tests/fixtures/ranker/kingdoms_synthetic.html`); the real export
+   (`tests/fixtures/ranker/migration_3scrolls.html`) is gone from `main` but
+   still in old commits. In order:
+   1. Keep a copy and give it to Ranker: `git show 94c120f3:tests/fixtures/ranker/migration_3scrolls.html
+      > ~/Desktop/kingdoms.html`, drop it on the Mac's Ranker tab; the phone
+      gets it by sync (and keeps it in History).
+   2. Rewrite history without it — this changes every commit id, so close
+      other sessions and worktrees first:
+      `brew install git-filter-repo && git clone --mirror https://github.com/GilCaplan/MACalendar.git /tmp/scrub && cd /tmp/scrub && git filter-repo --invert-paths --path tests/fixtures/ranker/migration_3scrolls.html && git remote add origin https://github.com/GilCaplan/MACalendar.git && git push --force --all origin && git push --force --tags origin`
+   3. Re-clone the working checkouts (old ones still hold the file).
+   4. GitHub keeps pull-request refs it will not let anyone overwrite (PRs
+      #27, #29, #33 touched the file): ask GitHub Support to purge cached
+      views and PR refs for the repo, or the file stays reachable from them.
+5. **Open question:** TestFlight — parked by Gil (2026-10-12).
 
 **App side (while the engine is paused):** the 2026-09-30 order of play is
 answered (DEVQA Q83) and built on 2026-10-01 — compact density, the Mac's
