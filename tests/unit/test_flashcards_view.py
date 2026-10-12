@@ -19,7 +19,7 @@ pytest.importorskip("PyQt6")
 
 from PyQt6.QtCore import QPoint, Qt  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
-from PyQt6.QtWidgets import QApplication, QCheckBox, QLabel, QMenu  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QCheckBox, QLabel, QMenu, QToolButton  # noqa: E402
 
 from assistant.calendar_ui.flashcards_view import (  # noqa: E402
     FlashcardsView, SetEditorDialog, Tile, missing_words)
@@ -609,3 +609,82 @@ def test_rename_subject_by_menu_and_double_click_with_a_readable_error(store, qa
     QTest.mouseDClick(_subject_block(view, "Hebrew").name_label, LEFT)
     QApplication.processEvents()
     assert sorted(s["name"] for s in store.library()) == ["Español", "Ivrit"]
+
+
+# ---------------------------------------------------------------- English (`en`)
+
+HE = [{"type": "basic", "front": "מה צבע הערכה?", "back": "ירוק", "explain": "כך כתוב",
+       "en": {"front": "What colour is the kit?", "back": "Green", "explain": "So it says"}}]
+
+
+def test_english_is_folded_under_the_question_and_shown_under_the_answer(store, qapp):
+    """Gil, 2026-10-12: on a Hebrew card, the English of the question can be
+    opened (and stays folded until it is); the English of the answer sits
+    right under the answer."""
+    sid = store.import_doc(_doc(HE, set_="He", lang="he"))[0]["set_id"]
+    view = _view(store, qapp)
+    _start(view, [sid])
+    toggle = view._face.findChild(QToolButton, "fc_english_toggle")
+    assert toggle is not None and toggle.text() == "English"
+    assert "What colour is the kit?" not in _labels(view._face)        # folded
+    _click(toggle)
+    assert "What colour is the kit?" in _labels(view._face)
+    assert view._cur["english_prompt"].layoutDirection() == Qt.LayoutDirection.LeftToRight
+
+    _click(view._action_btn)                                             # Show answer
+    assert view._cur["answer_lbl"].text() == "ירוק"
+    shown = _labels(view._face)
+    assert "Green" in shown and "So it says" in shown
+    assert shown.index("Green") == shown.index("ירוק") + 1               # straight under it
+
+    # opened once, it stays open for the next card (and the next session)
+    view2 = _view(store, qapp)
+    _start(view2, [sid])
+    assert "What colour is the kit?" in _labels(view2._face)
+
+
+def test_a_card_without_english_shows_no_toggle(store, qapp):
+    sid = store.import_doc(_doc(BASIC[:1], set_="A"))[0]["set_id"]
+    view = _view(store, qapp)
+    _start(view, [sid])
+    assert view._face.findChild(QToolButton, "fc_english_toggle") is None
+
+
+def test_editing_a_card_keeps_its_english(store, qapp):
+    sid = store.import_doc(_doc(HE, set_="He", lang="he"))[0]["set_id"]
+    dlg = SetEditorDialog(store, sid)
+    dlg.show()
+    qapp.processEvents()
+    dlg.list.setCurrentRow(0)
+    qapp.processEvents()
+    QTest.keyClicks(dlg.tags, "colours")
+    _click(dlg.save_btn)
+    card = store.get_set(sid)["cards"][0]
+    assert card["tags"] == ["colours"] and card["en"]["back"] == "Green"
+
+
+def test_copy_buttons_copy_the_question_and_the_answer(store, qapp):
+    """Gil, 2026-10-12: a copy button at the bottom right of the question and
+    of the answer — to paste the Hebrew into a translator, say."""
+    sid = store.import_doc(_doc(HE, set_="He", lang="he"))[0]["set_id"]
+    view = _view(store, qapp)
+    _start(view, [sid])
+    copy_q = view._face.findChild(QToolButton, "fc_copy_prompt")
+    _click(copy_q)
+    assert QApplication.clipboard().text() == "מה צבע הערכה?"
+    assert copy_q.text() == "Copied"
+    assert view._face.findChild(QToolButton, "fc_copy_answer") is None   # not before the answer
+    _click(view._action_btn)
+    _click(view._face.findChild(QToolButton, "fc_copy_answer"))
+    assert QApplication.clipboard().text() == "ירוק"
+
+
+def test_a_card_without_english_still_has_copy(store, qapp):
+    sid = store.import_doc(_doc(MC[:1], set_="M"))[0]["set_id"]
+    view = _view(store, qapp)
+    _start(view, [sid])
+    _click(view._face.findChild(QToolButton, "fc_copy_prompt"))
+    assert QApplication.clipboard().text().startswith("m0\n")
+    _click(_tile(view, "right"))
+    _click(view._face.findChild(QToolButton, "fc_copy_answer"))
+    assert QApplication.clipboard().text() == "right"

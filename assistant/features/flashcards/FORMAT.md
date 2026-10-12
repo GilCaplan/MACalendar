@@ -40,9 +40,26 @@ JSON with the same keys works everywhere YAML does.
 ## Card types
 
 Every card may also carry `tags` (list of words), `page` (where in the source),
-`explain` (shown after answering) and `note`. Those four are NOT part of a
-card's identity: changing them keeps your progress. Changing anything else
+`explain` (shown after answering), `note` and `en`. Those five are NOT part of
+a card's identity: changing them keeps your progress. Changing anything else
 makes it a new card.
+
+**`en` — the card in English**, for a set written in another language. It
+mirrors the card's own fields: text for text (`front`, `back`, `text`,
+`question`, `answer`, `prompt`, `explain`, `note`) and a list item for item
+(`choices`, `steps`, `labels` — one English string per label). The question
+side offers it folded away ("English"); the answer side shows it under the
+answer. Only fields the card has may be translated; a cloze's English marks
+the same `{{gaps}}` or none.
+
+```yaml
+lang: he
+cards:
+  - type: basic
+    front: "מה צבע ערכת חבישה סטרילית?"
+    back: ירוק
+    en: {front: "What colour is a sterile dressing pack?", back: Green}
+```
 
 ```yaml
 cards:

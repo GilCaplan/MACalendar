@@ -22,9 +22,16 @@ import re
 TYPES = ("basic", "image", "cloze", "mc", "order", "typed", "occlusion")
 
 #: Fields a card may carry whatever its type. None of them is part of the
-#: card's IDENTITY (`key()`), so fixing a typo in an explanation or retagging
-#: keeps your progress on it.
-COMMON = ("tags", "page", "explain", "note")
+#: card's IDENTITY (`key()`), so fixing a typo in an explanation, retagging or
+#: adding a translation keeps your progress on it.
+COMMON = ("tags", "page", "explain", "note", "en")
+
+#: `en` — the card in English, beside a card written in another language
+#: (Gil, 2026-10-12, studying a Hebrew set: an English line under the Hebrew,
+#: folded away on the question side, shown under the answer). It mirrors the
+#: card's own words field by field; a list mirrors its list item by item.
+EN_TEXT = ("front", "back", "text", "question", "answer", "prompt", "explain", "note")
+EN_LISTS = {"choices": "choices", "steps": "steps", "labels": "labels"}
 
 REQUIRED = {
     "basic": ("front", "back"),
@@ -150,6 +157,58 @@ def normalise(card: dict, where: str = "card") -> dict:
     for f in ("explain", "note"):
         if card.get(f):
             out[f] = str(card[f]).strip()
+    if card.get("en"):
+        out["en"] = _english(card["en"], out, where)
+    return out
+
+
+def _english(en, card: dict, where: str) -> dict:
+    """`en` checked against the card it translates: only fields the card has,
+    text for text, and a list as long as the card's own."""
+    w = f"{where} en"
+    if not isinstance(en, dict):
+        raise CardError(f"{w}: the English is a mapping of the card's fields, e.g. {{front: ..., back: ...}}.")
+    out: dict = {}
+    for k, v in en.items():
+        if k in EN_TEXT:
+            if k not in card:
+                raise CardError(f"{w}: this card has no {k!r} to translate.")
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                v = str(v)
+            if not isinstance(v, str):
+                raise CardError(f"{w}: {k!r} must be text.")
+            if v.strip():
+                out[k] = v.strip()
+        elif k in EN_LISTS:
+            own = card.get(k)
+            if not isinstance(own, list):
+                raise CardError(f"{w}: this card has no {k!r} to translate.")
+            if not isinstance(v, list) or len(v) != len(own):
+                raise CardError(f"{w}: {k!r} must list {len(own)} translations, one per item, in order.")
+            out[k] = [str(x).strip() for x in v]
+        else:
+            raise CardError(f"{w}: unknown field {k!r}.")
+    if "text" in out and card.get("type") == "cloze" \
+            and len(CLOZE.findall(out["text"])) not in (0, len(CLOZE.findall(card["text"]))):
+        raise CardError(f"{w}: the English cloze must mark the same number of {{{{gaps}}}} "
+                        "as the card, or none.")
+    return out
+
+
+def english_that_fits(en: dict, card: dict) -> dict:
+    """The parts of `en` that still fit `card` after it was edited — a field
+    it no longer has, or a list whose length changed, is dropped rather than
+    refusing the edit."""
+    try:
+        base = normalise({k: v for k, v in card.items() if k != "en"})
+    except CardError:
+        return dict(en)          # the card itself is wrong; normalise will say so
+    out = {}
+    for k, v in (en or {}).items():
+        try:
+            out.update(_english({k: v}, base, "card"))
+        except CardError:
+            pass
     return out
 
 

@@ -349,6 +349,114 @@ def _save_collapsed(ids: set) -> None:
         pass
 
 
+def _alive(widget) -> bool:
+    """False once Qt has deleted the widget (the card moved on)."""
+    try:
+        from PyQt6 import sip
+        return not sip.isdeleted(widget)
+    except Exception:                               # noqa: BLE001
+        return False
+
+
+_ENGLISH_KEY = "flashcards/english_open"
+
+
+def _english_open() -> bool:
+    """Whether the question's English is unfolded — remembered per machine,
+    so someone who always wants it opens it once."""
+    try:
+        return bool(_ui_state().value(_ENGLISH_KEY, False, type=bool))
+    except Exception:                               # noqa: BLE001
+        return False
+
+
+def _save_english_open(on: bool) -> None:
+    try:
+        st = _ui_state()
+        st.setValue(_ENGLISH_KEY, bool(on))
+        st.sync()
+    except Exception:                               # noqa: BLE001
+        pass
+
+
+def english_prompt(card: dict, item: str) -> "str | None":
+    """The question in English (`en`, Gil 2026-10-12), or None. A cloze's
+    English without gaps would give the answer away, so it waits."""
+    en = card.get("en") or {}
+    kind, rev = card["type"], item == "rev"
+    if kind in ("basic", "image"):
+        return en.get("back" if rev else "front")
+    if kind == "cloze":
+        t = en.get("text")
+        if not t or not cardformat.CLOZE.search(t):
+            return None
+        return cloze_text(t, int(item[1:]) if item.startswith("c") else 0, revealed=False, rich=False)
+    if kind == "mc":
+        return en.get("question")
+    if kind in ("order", "occlusion"):
+        return en.get("prompt")
+    if kind == "typed":
+        return en.get("front")
+    return None
+
+
+def prompt_line(card: dict, item: str) -> str:
+    """The question as plain text — what the copy button copies."""
+    kind, rev = card["type"], item == "rev"
+    if kind in ("basic", "image"):
+        return (card.get("back") if rev else card.get("front")) or ""
+    if kind == "cloze":
+        return cloze_text(card["text"], int(item[1:]) if item.startswith("c") else 0,
+                          revealed=False, rich=False)
+    if kind == "mc":
+        return card["question"] + "\n" + "\n".join(card["choices"])
+    if kind == "order":
+        return card["prompt"] + "\n" + "\n".join(card["steps"])
+    return card.get("front") or card.get("prompt") or ""
+
+
+def answer_line(card: dict, item: str) -> str:
+    """The answer as plain text — what the answer's copy button copies."""
+    kind, rev = card["type"], item == "rev"
+    if kind == "basic":
+        return card["front"] if rev else card["back"]
+    if kind == "image":
+        return "" if rev else card["back"]
+    if kind == "cloze":
+        return cardformat.CLOZE.sub(lambda m: m.group(1), card["text"])
+    if kind in ("mc", "typed"):
+        return card["answer"]
+    if kind == "order":
+        return "\n".join(card["steps"])
+    if kind == "occlusion" and item.startswith("l"):
+        i = int(item[1:])
+        return card["labels"][i]["text"] if i < len(card["labels"]) else ""
+    return ""
+
+
+def english_answer(card: dict, item: str) -> "str | None":
+    """The answer in English, shown straight under the answer."""
+    en = card.get("en") or {}
+    kind, rev = card["type"], item == "rev"
+    if kind == "basic":
+        return en.get("front" if rev else "back")
+    if kind == "image":
+        return None if rev else en.get("back")
+    if kind == "cloze":
+        t = en.get("text")
+        if not t:
+            return None
+        return cardformat.CLOZE.sub(lambda m: m.group(1), t)
+    if kind in ("mc", "typed"):
+        return en.get("answer")
+    if kind == "order":
+        return " → ".join(en["steps"]) if en.get("steps") else None
+    if kind == "occlusion" and item.startswith("l"):
+        labels, i = en.get("labels") or [], int(item[1:])
+        return labels[i] if i < len(labels) else None
+    return None
+
+
 def _rule() -> QFrame:
     f = QFrame()
     f.setObjectName("fc_rule")
@@ -1473,6 +1581,76 @@ class FlashcardsView(FeaturePanel):
         self._face_layout.addWidget(lab)
         return lab
 
+    def _english(self, text: str, px: int = 16) -> QLabel:
+        """A line of English: left to right whatever the card's direction."""
+        lab = self._text(text, px, name="fc_muted")
+        lab.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        lab.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        return lab
+
+    def _copy_button(self, text: str, name: str) -> QToolButton:
+        """Copies a card's own words (Gil, 2026-10-12: "a copy option … at the
+        bottom right"), and says so for a moment."""
+        b = QToolButton()
+        b.setObjectName(name)
+        b.setText("Copy")
+        b.setToolTip("Copy the text")
+        b.setAutoRaise(True)
+        b.setCursor(Qt.CursorShape.PointingHandCursor)
+        b.setEnabled(bool(text))
+
+        def copy():
+            QApplication.clipboard().setText(text)
+            b.setText("Copied")
+            QTimer.singleShot(1200, lambda: _alive(b) and b.setText("Copy"))
+        b.clicked.connect(lambda _=False: copy())
+        return b
+
+    def _english_prompt(self) -> None:
+        """Under the question: an "English" toggle on the left when the card
+        has English (its text folded under it), and Copy on the right."""
+        e = self._cur["entry"]
+        text = english_prompt(e["card"], e["item"])
+        row = QHBoxLayout()
+        row.setDirection(QHBoxLayout.Direction.LeftToRight)
+        if text:
+            self._english_toggle(row, text)
+        row.addStretch(1)
+        row.addWidget(self._copy_button(prompt_line(e["card"], e["item"]), "fc_copy_prompt"))
+        self._face_layout.insertLayout(self._face_layout.count() - (1 if text else 0), row)
+
+    def _english_toggle(self, row: QHBoxLayout, text: str) -> None:
+        btn = QToolButton()
+        btn.setObjectName("fc_english_toggle")
+        btn.setCheckable(True)
+        btn.setChecked(_english_open())
+        btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        btn.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        btn.setAutoRaise(True)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        row.addWidget(btn)
+        lab = self._english(text, 17)
+
+        def show(on: bool) -> None:
+            btn.setArrowType(Qt.ArrowType.DownArrow if on else Qt.ArrowType.RightArrow)
+            btn.setText("English")
+            lab.setVisible(on)
+        btn.toggled.connect(lambda on: (show(on), _save_english_open(on)))
+        show(btn.isChecked())
+        self._cur["english_prompt"] = lab
+
+    def _english_answer(self) -> None:
+        """Under the answer: its English, and Copy at the bottom right."""
+        e = self._cur["entry"]
+        text = english_answer(e["card"], e["item"])
+        if text:
+            self._cur["english_answer"] = self._english(text, 18)
+        row = QHBoxLayout()
+        row.setDirection(QHBoxLayout.Direction.LeftToRight)
+        row.addStretch(1)
+        row.addWidget(self._copy_button(answer_line(e["card"], e["item"]), "fc_copy_answer"))
+        self._face_layout.addLayout(row)
+
     def _set_action(self, text: str, cb: Callable, enabled: bool = True) -> None:
         self._cur["action"] = cb
         self._action_btn.setText(text)
@@ -1504,6 +1682,10 @@ class FlashcardsView(FeaturePanel):
         if bits:
             self._face_layout.addWidget(_rule())
             self._text("\n".join(bits), 15, name="fc_muted")
+        en = card.get("en") or {}
+        english = [en[k] for k in ("explain", "note") if en.get(k)]
+        if english:
+            self._english("\n".join(english), 15)
         if card.get("page") not in (None, ""):
             self._text(f"p. {card['page']}", 13, name="fc_muted")
 
@@ -1539,11 +1721,13 @@ class FlashcardsView(FeaturePanel):
         card = e["card"]
         q, a = (card["back"], card["front"]) if e["item"] == "rev" else (card["front"], card["back"])
         self._text(q, 24)
+        self._english_prompt()
         self._set_action("Show answer", lambda: self._reveal_basic(a))
 
     def _reveal_basic(self, answer: str) -> None:
         self._face_layout.addWidget(_rule())
         self._cur["answer_lbl"] = self._text(answer, 22, bold=True, name="fc_reveal")
+        self._english_answer()
         self._show_extra()
         self._show_grades()
 
@@ -1552,6 +1736,7 @@ class FlashcardsView(FeaturePanel):
         path = self._store.media_path(e["set_id"], card["image"])
         if e["item"] == "rev":
             self._text(card["back"], 24)
+            self._english_prompt()
 
             def reveal():
                 self._face_layout.addWidget(_rule())
@@ -1564,6 +1749,7 @@ class FlashcardsView(FeaturePanel):
             return
         if card.get("front"):
             self._text(card["front"], 20)
+            self._english_prompt()
         self._add_canvas(path, max_h=360)
         self._set_action("Show answer", lambda: self._reveal_basic(card["back"]))
 
@@ -1571,9 +1757,11 @@ class FlashcardsView(FeaturePanel):
         card = e["card"]
         n = int(e["item"][1:]) if e["item"].startswith("c") else 0
         lab = self._text(cloze_text(card["text"], n, revealed=False, accent=self._pal["accent"]), 24, rich=True)
+        self._english_prompt()
 
         def reveal():
             lab.setText(cloze_text(card["text"], n, revealed=True, accent=self._pal["accent"]))
+            self._english_answer()
             self._show_extra()
             self._show_grades()
         self._set_action("Show answer", reveal)
@@ -1581,6 +1769,7 @@ class FlashcardsView(FeaturePanel):
     def _render_mc(self, e: dict) -> None:
         card = e["card"]
         self._text(card["question"], 22)
+        self._english_prompt()
         choices = list(card["choices"])
         self._rng.shuffle(choices)
         tiles = []
@@ -1610,6 +1799,7 @@ class FlashcardsView(FeaturePanel):
                 t.set_state("wrong")
             else:
                 t.set_state("off")
+        self._english_answer()
         self._show_extra()
         self._set_action("Continue", lambda: self._grade(3 if right else 1))
         self._study_page.setFocus()
@@ -1617,6 +1807,7 @@ class FlashcardsView(FeaturePanel):
     def _render_order(self, e: dict) -> None:
         card = e["card"]
         self._text(card["prompt"], 22)
+        self._english_prompt()
         steps = list(card["steps"])
         while len(steps) > 1 and steps == card["steps"]:
             self._rng.shuffle(steps)
@@ -1676,6 +1867,7 @@ class FlashcardsView(FeaturePanel):
                 t = Tile(s, str(i + 1), rtl=self._rtl(), px=16)
                 t.set_clickable(False)
                 self._face_layout.addWidget(t)
+        self._english_answer()
         self._show_extra()
         self._cur["order_right"] = right
         self._set_action("Continue", lambda: self._grade(3 if right else 1))
@@ -1684,6 +1876,7 @@ class FlashcardsView(FeaturePanel):
     def _render_typed(self, e: dict) -> None:
         card = e["card"]
         self._text(card["front"], 22)
+        self._english_prompt()
         ed = QPlainTextEdit()
         _card_font(ed, 18)
         ed.setMinimumHeight(160)
@@ -1715,6 +1908,7 @@ class FlashcardsView(FeaturePanel):
         self._text(f"{words - miss} of {words} words" + (" — the missing ones are marked" if miss else ""),
                    13, name="fc_muted")
         self._cur["answer_lbl"] = self._text("".join(out), 19, rich=True)
+        self._english_answer()
         self._show_extra()
         self._show_grades()
 
@@ -1723,6 +1917,7 @@ class FlashcardsView(FeaturePanel):
         path = self._store.media_path(e["set_id"], card["image"])
         one = e["item"].startswith("l")
         self._text(card.get("prompt") or ("Name the hidden label" if one else "Name every hidden label"), 20)
+        self._english_prompt()
         canvas = self._add_canvas(path, card["labels"], "one" if one else "all")
         if one:
             canvas.target = int(e["item"][1:])
@@ -1733,6 +1928,7 @@ class FlashcardsView(FeaturePanel):
                 canvas.update()
                 self._cur["answer_lbl"] = self._text(card["labels"][canvas.target]["text"], 24,
                                                      bold=True, name="fc_reveal")
+                self._english_answer()
                 self._show_extra()
                 self._show_grades()
             self._set_action("Show answer", reveal)
@@ -2438,6 +2634,8 @@ class SetEditorDialog(QDialog):
         self.tags.setText(", ".join(card.get("tags", [])))
         self.page.setText(str(card.get("page", "")))
         self.explain.setPlainText(card.get("explain", ""))
+        # Not edited here, but never dropped by an edit either.
+        self._kept = {k: card[k] for k in ("en", "note") if card.get(k)}
         self.error.clear()
         self.mode_lbl.setText(f"Editing card {row + 1} of {len(self._cards)}")
 
@@ -2451,6 +2649,7 @@ class SetEditorDialog(QDialog):
         self.tags.clear()
         self.page.clear()
         self.explain.clear()
+        self._kept = {}
         self.error.clear()
         self.mode_lbl.setText("New card")
 
@@ -2464,6 +2663,14 @@ class SetEditorDialog(QDialog):
             card["page"] = int(page) if page.isdigit() else page
         if self.explain.toPlainText().strip():
             card["explain"] = self.explain.toPlainText()
+        if self.editing_id is not None:
+            kept = getattr(self, "_kept", {})
+            if kept.get("note"):
+                card["note"] = kept["note"]
+            if kept.get("en"):
+                card["en"] = cardformat.english_that_fits(kept["en"], card)
+                if not card["en"]:
+                    del card["en"]
         return card
 
     def save(self) -> None:

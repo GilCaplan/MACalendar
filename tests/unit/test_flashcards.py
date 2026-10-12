@@ -77,6 +77,56 @@ def test_bad_cards_are_refused_with_a_sentence(card, needle):
         cardformat.normalise(card)
 
 
+def test_english_mirrors_the_card_and_is_not_its_identity():
+    """Gil, 2026-10-12: an English line beside a Hebrew card. Adding it must
+    not cost the progress already made on the card."""
+    he = {"type": "basic", "front": "שאלה", "back": "תשובה", "explain": "הסבר"}
+    en = dict(he, en={"front": "Question", "back": "Answer", "explain": "Why"})
+    clean = cardformat.normalise(en)
+    assert clean["en"] == {"front": "Question", "back": "Answer", "explain": "Why"}
+    assert cardformat.key(clean) == cardformat.key(cardformat.normalise(he))
+    mc = cardformat.normalise({"type": "mc", "question": "ש", "choices": ["א", "ב"], "answer": "א",
+                               "en": {"question": "Q", "choices": ["A", "B"], "answer": "A"}})
+    assert mc["en"]["choices"] == ["A", "B"]
+    cloze = {"type": "cloze", "text": "{{א}} ו{{ב}}", "en": {"text": "{{A}} and {{B}}"}}
+    assert cardformat.normalise(cloze)["en"]["text"] == "{{A}} and {{B}}"
+
+
+@pytest.mark.parametrize("en,needle", [
+    ({"question": "Q"}, "no 'question'"),
+    ({"front": ["x"]}, "must be text"),
+    ({"back": "A", "colour": "red"}, "unknown field"),
+    ("Question", "mapping"),
+])
+def test_english_that_does_not_fit_the_card_is_refused(en, needle):
+    with pytest.raises(cardformat.CardError, match=re.escape(needle)):
+        cardformat.normalise({"type": "basic", "front": "ש", "back": "ת", "en": en})
+
+
+def test_english_lists_and_gaps_must_line_up():
+    with pytest.raises(cardformat.CardError, match="must list 2"):
+        cardformat.normalise({"type": "order", "prompt": "p", "steps": ["a", "b"],
+                              "en": {"steps": ["only one"]}})
+    with pytest.raises(cardformat.CardError, match="same number"):
+        cardformat.normalise({"type": "cloze", "text": "{{a}} {{b}}", "en": {"text": "{{A}} only"}})
+
+
+def test_reimporting_with_english_keeps_progress(store):
+    """How English reaches cards already being studied: export the set, add
+    `en` to each card, import it again — progress stays."""
+    [r] = store.import_doc(_doc(BASIC))
+    sid = r["set_id"]
+    store.review(store.get_set(sid)["cards"][0]["id"], "", 3)
+    doc = store.export_doc(sid)
+    for c in doc["cards"]:
+        c["en"] = {"front": c["front"].upper(), "back": c["back"].upper()}
+    [r2] = store.import_doc(doc)
+    assert (r2["added"], r2["removed"]) == (0, 0)
+    card = store.get_set(sid)["cards"][0]
+    assert card["en"] == {"front": "Q0", "back": "A0"}
+    assert card["progress"][""]["reps"] == 1
+
+
 def test_study_items_split_what_is_remembered_separately():
     assert cardformat.items({"type": "cloze", "text": "{{a}} and {{b}}"}) == ["c0", "c1"]
     occ = {"type": "occlusion", "image": "m", "labels": [{"text": "x", "box": [0, 0, 1, 1]}] * 3}
