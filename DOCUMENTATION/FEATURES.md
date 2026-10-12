@@ -1210,6 +1210,25 @@ and Delete; Delete always asks. A subject folds to its header (the fold is
 remembered per subject in the Mac's UI-state QSettings, never in the store),
 and double-clicking its name renames it.
 
+**English beside the Hebrew** (DEVQA Q91, 2026-10-12): a card may carry `en`,
+its own words in English field by field (FORMAT.md). On the question side the
+English sits folded under an "English" toggle — opened once, it stays open
+(phone `@AppStorage`, Mac UI-state QSettings); on the answer side it is shown
+straight under the answer, and under the explanation. `en` is not part of a
+card's identity, so adding it keeps progress, and an edit on either device
+keeps whatever of it still fits the card. Existing sets get theirs with
+`scripts/flashcards_english.py export` (every card lacking English, to a file
+outside the repo), a translation pass that adds `en` and changes nothing else,
+and `apply` (checked, refused if a card changed, then into the inbox).
+**Copy** (2026-10-12): a copy button sits at the bottom right of the question
+and, once shown, of the answer, on both devices — it copies the card's own
+words (for a translator, a note), and ticks for a moment to say it did.
+**Private by construction:** study material never enters the repo — the
+stores live in `~/.assistant_tools`, and `.gitignore` refuses set files,
+inbox/media folders, the translation round-trip file
+(`flashcards-english*.json`) and PDFs; `test_no_personal_data_leaked.py`
+names sample paths that must stay ignored.
+
 ### Ranker
 **What:** A tool tab (2026-10-11): give it a table and, optionally, a
 screenshot, and it ranks the table's rows. The screenshot's numbers narrow the

@@ -133,6 +133,42 @@ struct FlashLabel: Codable, Equatable, Hashable {
     }
 }
 
+/// The card in English, beside a card written in another language (`en` in
+/// FORMAT.md; Gil, 2026-10-12). It mirrors the card's own fields: text for
+/// text, and a list item for item (`labels` is one string per label).
+struct FlashEnglish: Codable, Equatable {
+    var front: String?
+    var back: String?
+    var text: String?
+    var question: String?
+    var answer: String?
+    var prompt: String?
+    var explain: String?
+    var note: String?
+    var choices: [String]?
+    var steps: [String]?
+    var labels: [String]?
+
+    /// What a card's `body` carries back to the Mac: only what still fits the
+    /// card as edited — a field it still has, a list as long as its own — so
+    /// an edit is never refused for a translation that went stale.
+    func body(for card: [String: Any]) -> [String: Any]? {
+        var e: [String: Any] = [:]
+        for (k, v) in [("front", front), ("back", back), ("text", text), ("question", question),
+                       ("answer", answer), ("prompt", prompt), ("explain", explain), ("note", note)] {
+            if let v, !v.isEmpty, card[k] != nil { e[k] = v }
+        }
+        for (k, v) in [("choices", choices), ("steps", steps), ("labels", labels)] {
+            if let v, let own = card[k] as? [Any], own.count == v.count { e[k] = v }
+        }
+        if let t = e["text"] as? String, let own = card["text"] as? String {
+            let n = Cloze.gaps(t).count
+            if n != 0 && n != Cloze.gaps(own).count { e["text"] = nil }
+        }
+        return e.isEmpty ? nil : e
+    }
+}
+
 /// One card, any type. The fields are a union of FORMAT.md's table — a card
 /// carries only the ones its type uses, and `body` writes back exactly those,
 /// because the Mac refuses an unknown or misplaced field rather than ignoring it.
@@ -156,12 +192,13 @@ struct FlashCard: Codable, Identifiable, Equatable {
     var page: String?
     var explain: String?
     var note: String?
+    var en: FlashEnglish?
     var items: [String]
     var progress: [String: FlashProgress]
 
     enum CodingKeys: String, CodingKey {
         case id, position, type, front, back, image, text, question, choices, answer
-        case prompt, steps, labels, ask, tags, page, explain, note, items, progress
+        case prompt, steps, labels, ask, tags, page, explain, note, en, items, progress
         case bothWays = "both_ways"
     }
 
@@ -192,6 +229,7 @@ struct FlashCard: Codable, Identifiable, Equatable {
         page = Self.text(c, .page)
         explain = Self.text(c, .explain)
         note = Self.text(c, .note)
+        en = try? c.decodeIfPresent(FlashEnglish.self, forKey: .en)
         items = []
         progress = try c.decodeIfPresent([String: FlashProgress].self, forKey: .progress) ?? [:]
         items = try c.decodeIfPresent([String].self, forKey: .items) ?? Self.computeItems(self)
@@ -250,6 +288,7 @@ struct FlashCard: Codable, Identifiable, Equatable {
         }
         if let tags, !tags.isEmpty { b["tags"] = tags }
         put("page", page); put("explain", explain); put("note", note)
+        if let e = en?.body(for: b) { b["en"] = e }
         return b
     }
 

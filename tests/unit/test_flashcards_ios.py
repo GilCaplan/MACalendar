@@ -103,3 +103,32 @@ def test_subjects_can_be_renamed_minimised_and_archived_from_the_header():
     assert '@AppStorage("flashcards.collapsed")' in view
     header = _body(view, "private func subjectHeader(")
     assert "toggleCollapsed(subject.id)" in header and "countLine(subject)" in header
+
+
+def test_the_phone_shows_english_folded_on_the_question_and_open_on_the_answer():
+    """DEVQA Q91. The phone decodes `en`, folds the question's English behind
+    a remembered toggle, shows the answer's straight under the answer, and an
+    edit carries back only what still fits the card."""
+    models = ios_source("FlashcardModels.swift")
+    study = ios_source("FlashcardStudyView.swift")
+    fields = set(re.findall(r"var (\w+): (?:String|\[String\])\?", _body(models, "struct FlashEnglish")))
+    from assistant.features.flashcards import cardformat
+    assert fields == set(cardformat.EN_TEXT) | set(cardformat.EN_LISTS)
+    assert "case prompt, steps, labels, ask, tags, page, explain, note, en," in models
+    assert 'if let e = en?.body(for: b) { b["en"] = e }' in models
+    assert '@AppStorage("flashcardsEnglishOpen")' in study
+    # every kind of card offers the question's English, and the self-graded
+    # ones show the answer's once revealed
+    assert study.count("promptEnglish\n") >= 8
+    assert study.count("answerEnglish") >= 6           # five uses and the declaration
+
+
+def test_the_phone_copies_the_question_and_the_answer():
+    """Gil, 2026-10-12: a copy button at the bottom right of both texts."""
+    study = ios_source("FlashcardStudyView.swift")
+    assert "UIPasteboard.general.string = text" in _body(study, "struct CopyButton")
+    assert "CopyButton(text: Self.promptLine(entry))" in _body(study, "private var promptEnglish")
+    assert "CopyButton(text: Self.answerLine(entry))" in _body(study, "private var answerEnglish")
+    # the row is laid out left-to-right, so "bottom right" stays right on a Hebrew card
+    assert ".environment(\\.layoutDirection, .leftToRight)" in _body(study, "private var answerEnglish")
+    assert "if picked != nil { answerEnglish }" in study and "if checked { answerEnglish }" in study

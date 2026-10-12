@@ -1,3 +1,20 @@
+- **2026-10-12 — Q91 (FLASHCARDS: ENGLISH BESIDE THE HEBREW)**, Gil, on a
+  Hebrew card mid-review: *"an additional english explanation to the hebrew,
+  for the input side of the prompt card … it can be minimized and optional
+  to see the English, but in the answer, just have them below the Hebrew
+  answer … you're gonna have to translate for the card"*. A card's English
+  is `en`, mirroring its fields (FORMAT.md), outside its identity so progress
+  is kept. Question side: folded "English" toggle, remembered per device.
+  Answer side: the English right under the answer and the explanation.
+  Translation is done once per set and stored, never at study time (the
+  assistant stays offline): `scripts/flashcards_english.py` exports the cards
+  lacking it and re-imports the translated file through the inbox.
+  Same day: *"add a copy option to the both text … at the bottom right"* —
+  a copy button under the question and the answer, phone and Mac. And
+  *"make sure … private info such as flashcard content or images from
+  ranker tab are not uploaded to github"*: `.gitignore` now also refuses
+  Ranker inputs (screenshots, `IMG_*`, `.heic`, tables at the repo root,
+  `ranker.json`), pinned by `test_no_personal_data_leaked.py`.
 - **2026-10-12 — Q90 (RANKER RANKS ON THE PHONE; THE MAC ONLY SYNCS)**, Gil,
   on a Ranker tab that said "Ranking runs on your Mac — it isn't reachable
   right now": *"Ranking shouldnt be dependent on the os server… just sync

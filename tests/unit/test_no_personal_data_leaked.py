@@ -72,3 +72,29 @@ def test_personal_data_path_is_not_tracked(in_git_repo, path):
         f"content it holds. Run `git rm --cached {path}` (the file itself is "
         f"untouched on disk) and confirm it's in .gitignore before committing "
         f"anything else.")
+
+
+#: Where a Flashcards set or a Ranker input would land if someone dropped it
+#: into the checkout to try something (Gil, 2026-10-12: "make sure private info
+#: such as flashcard content or images from ranker tab are not uploaded to
+#: github"). Each must be ignored; none may be tracked.
+STUDY_AND_RANKER_SAMPLES = (
+    "flashcards_inbox/set.yaml", "flashcards_media/1/images/map.jpg",
+    "flashcards.db", "biology.flashcards.yaml", "decks/set.json", "study/notes.pdf",
+    "flashcards-english.json",
+    "ranker.json", "ranker/table.html", "kingdoms.ranker.csv",
+    "Screenshot 2026-10-12 at 10.43.00.png", "IMG_1234.PNG", "IMG_1234.HEIC", "photo.heic",
+    "export.html", "kingdoms.csv", "stats.tsv", "shot.png", "shot.jpg",
+)
+
+
+@pytest.mark.parametrize("path", STUDY_AND_RANKER_SAMPLES)
+def test_study_material_and_ranker_inputs_are_ignored(in_git_repo, path):
+    assert _git("check-ignore", "-q", "--no-index", path).returncode == 0, (
+        f"{path} is not ignored — a flashcard set or a Ranker screenshot/table "
+        f"dropped there would be published with the next commit.")
+
+
+def test_no_study_material_or_ranker_input_is_tracked(in_git_repo):
+    tracked = _git("ls-files", "-ci", "--exclude-standard").stdout.split()
+    assert not tracked, f"tracked although .gitignore covers them: {tracked}"

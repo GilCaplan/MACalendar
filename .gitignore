@@ -132,3 +132,26 @@ flashcards*.db*
 /decks/
 /study/
 *.pdf
+
+# Ranker inputs are personal too: the screenshots it reads and the tables it
+# ranks (game exports, spreadsheets) live in ~/.assistant_tools/ranker.json and
+# on the phone, never here. A picture or export dropped into the checkout to
+# try something must not ride along in a commit (the repo is public).
+# The one committed fixture, tests/fixtures/ranker/, is stripped of names.
+ranker.json
+/ranker/
+*.ranker.*
+Screenshot*.png
+Screen Shot*.png
+IMG_*.*
+*.heic
+*.HEIC
+/*.png
+/*.jpg
+/*.jpeg
+/*.csv
+/*.tsv
+/*.html
+# The flashcards translation round trip (scripts/flashcards_english.py) — a
+# whole library's study material in one file.
+flashcards-english*.json

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - A study round
 //
@@ -214,6 +215,9 @@ struct CardFace: View {
     @State private var typed = ""
     // occlusion, all at once
     @State private var opened: Set<Int> = []
+    /// The question's English, folded away until asked for; remembered, so
+    /// someone who always wants it open opens it once (Gil, 2026-10-12).
+    @AppStorage("flashcardsEnglishOpen") private var englishOpen = false
 
     private var card: FlashCard { entry.card }
 
@@ -267,7 +271,9 @@ struct CardFace: View {
     private var notes: some View {
         VStack(alignment: .leading, spacing: 4) {
             if let e = card.explain { Text(e) }
+            if let e = card.en?.explain { EnglishLine(text: e) }
             if let n = card.note { Text(n).foregroundColor(.secondary) }
+            if let n = card.en?.note { EnglishLine(text: n) }
             if let p = card.page { Text("Page \(p)").foregroundColor(.secondary) }
         }
         .font(.callout)
@@ -298,6 +304,7 @@ struct CardFace: View {
                 .font(.title2.weight(.semibold))
                 .multilineTextAlignment(.leading)
                 .accessibilityIdentifier("flashcards-prompt")
+            promptEnglish
             if revealed {
                 Divider()
                 Text((rev ? card.front : card.back) ?? "")
@@ -305,6 +312,7 @@ struct CardFace: View {
                     .foregroundColor(accent)
                     .multilineTextAlignment(.leading)
                     .accessibilityIdentifier("flashcards-answer")
+                answerEnglish
             }
         }
     }
@@ -313,6 +321,7 @@ struct CardFace: View {
         let rev = entry.item == "rev"
         if rev {
             Text(card.back ?? "").font(.title2.weight(.semibold))
+            promptEnglish
             Text("Picture it, then show the answer.").font(.footnote).foregroundColor(.secondary)
             if revealed, let path = card.image {
                 FlashPicture(setId: entry.setId, path: path)
@@ -325,9 +334,11 @@ struct CardFace: View {
                     .frame(maxHeight: 360)
             }
             Text(card.front ?? "What is this?").font(.title3.weight(.semibold))
+            promptEnglish
             if revealed {
                 Text(card.back ?? "").font(.title3).foregroundColor(accent)
                     .accessibilityIdentifier("flashcards-answer")
+                answerEnglish
             }
         }
     }
@@ -335,10 +346,14 @@ struct CardFace: View {
     private var clozeIndex: Int { Int(entry.item.dropFirst()) ?? 0 }
 
     private var cloze: some View {
-        clozeText(card.text ?? "", hide: clozeIndex)
-            .font(.title3)
-            .multilineTextAlignment(.leading)
-            .accessibilityIdentifier("flashcards-prompt")
+        VStack(alignment: .leading, spacing: 12) {
+            clozeText(card.text ?? "", hide: clozeIndex)
+                .font(.title3)
+                .multilineTextAlignment(.leading)
+                .accessibilityIdentifier("flashcards-prompt")
+            promptEnglish
+            if revealed { answerEnglish }
+        }
     }
 
     /// The cloze with gap `hide` blanked (or, once revealed, shown in the
@@ -367,6 +382,7 @@ struct CardFace: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(card.question ?? "").font(.title3.weight(.semibold))
                 .accessibilityIdentifier("flashcards-prompt")
+            promptEnglish
             ForEach(choices, id: \.self) { choice in
                 let isAnswer = choice == card.answer
                 let isPicked = choice == picked
@@ -375,7 +391,12 @@ struct CardFace: View {
                     picked = choice
                 } label: {
                     HStack {
-                        Text(choice).multilineTextAlignment(.leading)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(choice).multilineTextAlignment(.leading)
+                            if englishOpen || picked != nil, let e = english(of: choice, in: card.choices, card.en?.choices) {
+                                EnglishLine(text: e)
+                            }
+                        }
                         Spacer()
                         if picked != nil && isAnswer { Image(systemName: "checkmark.circle.fill") }
                         else if isPicked { Image(systemName: "xmark.circle.fill") }
@@ -393,6 +414,7 @@ struct CardFace: View {
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("flashcards-choice")
             }
+            if picked != nil { answerEnglish }
         }
     }
 
@@ -401,11 +423,15 @@ struct CardFace: View {
         return VStack(alignment: .leading, spacing: 12) {
             Text(card.prompt ?? "Put these in order").font(.title3.weight(.semibold))
                 .accessibilityIdentifier("flashcards-prompt")
+            promptEnglish
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(Array(placed.enumerated()), id: \.offset) { pos, step in
                     HStack(alignment: .top) {
                         Text("\(pos + 1).").monospacedDigit().foregroundColor(.secondary)
-                        Text(steps[step])
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(steps[step])
+                            if englishOpen || checked, let e = card.en?.steps, step < e.count { EnglishLine(text: e[step]) }
+                        }
                         Spacer()
                         if checked {
                             Image(systemName: step == pos ? "checkmark.circle.fill" : "xmark.circle.fill")
@@ -426,7 +452,10 @@ struct CardFace: View {
                         pool.removeAll { $0 == step }
                         placed.append(step)
                     } label: {
-                        Text(steps[step])
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(steps[step])
+                            if englishOpen, let e = card.en?.steps, step < e.count { EnglishLine(text: e[step]) }
+                        }
                             .padding(10)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .overlay(RoundedRectangle(cornerRadius: Theme.radiusSM)
@@ -440,9 +469,13 @@ struct CardFace: View {
                 Divider()
                 Text("The right order").font(.headline)
                 ForEach(Array(steps.enumerated()), id: \.offset) { i, s in
-                    Text("\(i + 1). \(s)").foregroundColor(accent)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(i + 1). \(s)").foregroundColor(accent)
+                        if let e = card.en?.steps, i < e.count { EnglishLine(text: e[i]) }
+                    }
                 }
             }
+            if checked { answerEnglish }
         }
     }
 
@@ -450,6 +483,7 @@ struct CardFace: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(card.front ?? "").font(.title3.weight(.semibold))
                 .accessibilityIdentifier("flashcards-prompt")
+            promptEnglish
             if !revealed {
                 TextEditor(text: $typed)
                     .frame(minHeight: 140)
@@ -475,6 +509,7 @@ struct CardFace: View {
                 }
                 .font(.body)
                 .accessibilityIdentifier("flashcards-answer")
+                answerEnglish
             }
         }
     }
@@ -493,6 +528,7 @@ struct CardFace: View {
             Text(card.prompt ?? (one != nil ? "Name the highlighted label" : "Name every hidden label"))
                 .font(.headline)
                 .accessibilityIdentifier("flashcards-prompt")
+            promptEnglish
             if let path = card.image {
                 ZoomableContainer {
                     FlashPicture(setId: entry.setId, path: path) { size in
@@ -508,6 +544,7 @@ struct CardFace: View {
             if let one, revealed, one < labels.count {
                 Text(labels[one].text).font(.title3.weight(.semibold)).foregroundColor(accent)
                     .accessibilityIdentifier("flashcards-answer")
+                answerEnglish
             }
             if one == nil && !allOpen {
                 Text("Tap a box to reveal it — \(opened.count) of \(labels.count) shown.")
@@ -520,6 +557,95 @@ struct CardFace: View {
     }
 
     private var allOpen: Bool { opened.count >= (card.labels?.count ?? 0) }
+
+    // MARK: English (`en`)
+
+    /// Under the question: the folded "English" toggle on the left when the
+    /// card has English (opened with a tap, and left open for the next card),
+    /// and a copy button on the right (Gil, 2026-10-12: "a copy option … at
+    /// the bottom right").
+    private var promptEnglish: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                if englishPrompt != nil {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) { englishOpen.toggle() }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: englishOpen ? "chevron.down" : "chevron.right")
+                                .font(.caption2.weight(.semibold))
+                            Text("English").font(.caption.weight(.semibold))
+                        }
+                        .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("flashcards-english-toggle")
+                }
+                Spacer()
+                CopyButton(text: Self.promptLine(entry))
+                    .accessibilityIdentifier("flashcards-copy-prompt")
+            }
+            .environment(\.layoutDirection, .leftToRight)
+            if englishOpen, let e = englishPrompt {
+                EnglishLine(text: e, prominent: true)
+                    .accessibilityIdentifier("flashcards-english-prompt")
+            }
+        }
+    }
+
+    /// Under the answer: its English, and a copy button at the bottom right.
+    private var answerEnglish: some View {
+        HStack(alignment: .top, spacing: 8) {
+            if let e = englishAnswer {
+                EnglishLine(text: e, prominent: true)
+                    .accessibilityIdentifier("flashcards-english-answer")
+            } else {
+                Spacer()
+            }
+            CopyButton(text: Self.answerLine(entry))
+                .accessibilityIdentifier("flashcards-copy-answer")
+        }
+        .environment(\.layoutDirection, .leftToRight)
+    }
+
+    private var englishPrompt: String? {
+        guard let e = card.en else { return nil }
+        let rev = entry.item == "rev"
+        switch card.type {
+        case "basic", "image": return rev ? e.back : e.front
+        case "cloze":
+            // An English sentence without gaps would give the answer away.
+            guard let t = e.text, !Cloze.gaps(t).isEmpty else { return nil }
+            return Cloze.masked(t, hide: clozeIndex)
+        case "mc": return e.question
+        case "order", "occlusion": return e.prompt
+        case "typed": return e.front
+        default: return nil
+        }
+    }
+
+    private var englishAnswer: String? {
+        guard let e = card.en else { return nil }
+        let rev = entry.item == "rev"
+        switch card.type {
+        case "basic": return rev ? e.front : e.back
+        case "image": return rev ? nil : e.back
+        case "cloze":
+            guard let t = e.text else { return nil }
+            return Cloze.masked(t, hide: clozeIndex, reveal: true)
+        case "typed": return e.answer
+        case "occlusion":
+            guard let i = labelIndex, let l = e.labels, i < l.count else { return nil }
+            return l[i]
+        default: return nil
+        }
+    }
+
+    /// A choice's English: the same place in `en.choices` as it holds in the card's.
+    private func english(of choice: String, in own: [String]?, _ en: [String]?) -> String? {
+        guard let own, let en, let i = own.firstIndex(of: choice), i < en.count else { return nil }
+        return en[i]
+    }
 
     // MARK: Controls
 
@@ -647,5 +773,45 @@ struct CardFace: View {
             return labels.map(\.text).joined(separator: ", ")
         default: return ""
         }
+    }
+}
+
+/// One line of English under Hebrew (or any right-to-left text): always
+/// left-to-right, quieter than the card's own words.
+struct EnglishLine: View {
+    let text: String
+    var prominent = false
+
+    var body: some View {
+        Text(text)
+            .font(prominent ? .body : .footnote)
+            .foregroundColor(.secondary)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .environment(\.layoutDirection, .leftToRight)
+    }
+}
+
+/// Copies a card's own words, to paste into a translator or a note. Shows a
+/// tick for a moment so a tap is seen to have done something.
+struct CopyButton: View {
+    let text: String
+    @State private var copied = false
+
+    var body: some View {
+        Button {
+            UIPasteboard.general.string = text
+            copied = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { copied = false }
+        } label: {
+            Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                .font(.footnote)
+                .foregroundColor(copied ? .green : .secondary)
+                .frame(width: 32, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(text.isEmpty)
+        .accessibilityLabel(copied ? "Copied" : "Copy")
     }
 }
