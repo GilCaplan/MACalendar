@@ -112,3 +112,20 @@ def test_moves_ticks_and_questions(engine):
     q = one(engine("what do i have tomorrow"))
     assert (q["op"], q["date"]) == ("query", "2026-10-03")
     assert one(engine("when is my next appointment with Dr. Smith?"))["op"] == "query"
+
+
+@pytest.mark.parametrize("said, title", [
+    ("Buy milk. Execute.", "Buy milk"),                 # Apple's recogniser writes it like this
+    ("buy milk execute", "buy milk"),
+    ("buy milk, done, execute", "buy milk"),            # every trailing one, not just the last
+    ("dentist tomorrow at 3 submit", "dentist"),
+])
+def test_the_word_that_ended_the_recording_is_not_read(engine, said, title):
+    """Gil, 2026-10-12: on the phone, "execute" was not cut off the way the Mac
+    cuts it — the phone's reader took it as part of the command."""
+    assert one(engine(said))["title"] == title
+
+
+def test_done_that_is_the_command_stays(engine):
+    a = one(engine("mark pay rent as done"))
+    assert a["op"] == "complete"

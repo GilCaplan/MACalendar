@@ -182,7 +182,9 @@ enum OfflineReader {
     /// Read one command. nil when the model is unavailable or fails — the
     /// command then simply waits for the Mac, exactly as before.
     static func read(_ text: String, now: Date = Date()) async -> OfflineReading? {
-        let said = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Without the word that ended the recording ("…, execute"), as the
+        // Mac's ingest reads it — never a title's last word.
+        let said = LocalEngine.peelStopWords(text)
         guard !said.isEmpty else { return nil }
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {

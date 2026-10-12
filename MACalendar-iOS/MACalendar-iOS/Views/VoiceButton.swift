@@ -550,8 +550,11 @@ struct VoiceButton: View {
         }
         finishing = true
         Task { @MainActor in
-            // The phone's own transcript, its last words settled (≤1.2 s).
-            let phone = await recorder.heardText(timeout: settings.transcribeOnPhone ? 1.2 : 0)
+            // The phone's own transcript, its last words settled (≤1.2 s),
+            // without the stop word that ended it — the Mac's GUI strips its
+            // transcript the same way before it sends (`strip_stop_keyword`).
+            let phone = LocalEngine.peelStopWords(
+                await recorder.heardText(timeout: settings.transcribeOnPhone ? 1.2 : 0))
             finishing = false
             guard status == .recording else { return }      // discarded while it settled
             finishRecording(audioData, heard: settings.transcribeOnPhone ? phone : "", phone: phone)

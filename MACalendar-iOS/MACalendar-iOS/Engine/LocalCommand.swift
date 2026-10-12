@@ -40,6 +40,7 @@ enum LocalCommand {
                                detail: reading.actions.map(describe).joined(separator: " · "),
                                ms: Int(Date().timeIntervalSince(t0) * 1000), atMs: 0, ok: reading.understood))
         // Nothing the rules could read: Apple's model, creates only (Q66).
+        // (Both readers peel the stop word that ended the recording.)
         if !reading.understood, OfflineReader.isAvailable, let fm = await OfflineReader.read(text, now: now) {
             let creates = fm.items.filter { $0.kind != "other" && !$0.title.isEmpty }.map { item -> LocalEngine.Action in
                 var a = LocalEngine.Action(op: .create, kind: item.kind == "event" ? .event : .todo, title: item.title)
