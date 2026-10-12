@@ -5,17 +5,24 @@
 | `GET /ranker` | recipes, the current one, the saved number list, the last table's columns |
 | `POST /ranker/numbers` | pictures (multipart `image`, repeatable) -> their unique numbers, saved as the list |
 | `POST /ranker/new` | start a new search: forget the table and the numbers, keep recipes |
-| `PUT /ranker/numbers` | `{numbers: [...]}` — the list as edited; `[]` switches the filter off |
+| `PUT /ranker/numbers` | `{numbers: [...], use_numbers?}` — the list as edited, and the filter switch |
+| `GET /ranker/table` | the last table, every row (the phone syncs it) |
+| `PUT /ranker/table` | `{table: {filename, columns, rows} or null, table_at}` — a table the phone read; older than the one kept, it is ignored |
 | `POST /ranker/rank` | rank: multipart `table` (.html/.csv/.tsv/.json) and/or `image`s, plus `recipe` (JSON) or `preset`, `numbers`, `use_numbers` (the filter switch); any of them left out uses the saved one |
 | `PUT /ranker/presets/<name>` `DELETE /ranker/presets/<name>` | save / remove a recipe |
 
 HTTP only. Reading tables is `table.py`, choosing numbers `ocr.py`, ranking
-`rank.py` — the Mac panel calls those directly, the phone through here.
+`rank.py` — the Mac panel calls those directly. The phone has its own copy of
+all three (`Features/Ranker/RankerEngine.swift`) and ranks with no Mac at all
+(Gil, 2026-10-12: "Ranking shouldnt be dependent on the os server… just
+sync"); it uses these routes to keep the recipes, the number list and the last
+table the same on both.
 """
 
 from __future__ import annotations
 
 import json
+import time
 
 from flask import Blueprint, jsonify, request
 
@@ -40,6 +47,7 @@ def _summary(data: dict) -> dict:
     return {"presets": list(data["presets"].values()), "preset": data["preset"],
             "numbers": data["numbers"], "use_numbers": data.get("use_numbers", True),
             "engine": ocr.engine(),
+            "table_at": data.get("table_at", 0.0),
             "table": {"filename": last.get("filename"), "rows": len(last.get("rows", [])),
                       "columns": last.get("columns", [])} if last else None}
 
@@ -68,15 +76,54 @@ def new_search():
 
 @blueprint.put("/ranker/numbers")
 def set_numbers():
-    raw = (request.get_json(silent=True) or {}).get("numbers")
+    """The number list as edited, and (optionally) the filter switch."""
+    body = request.get_json(silent=True) or {}
+    raw = body.get("numbers")
     if not isinstance(raw, list):
         return _bad("Send {numbers: [...]}; an empty list switches the filter off.")
     try:
         nums = [int(str(n).strip().lstrip("#")) for n in raw if str(n).strip()]
     except ValueError:
         return _bad("Every entry in numbers must be a whole number.")
-    store.update(numbers=nums)
-    return jsonify({"numbers": nums})
+    fields = {"numbers": nums}
+    if isinstance(body.get("use_numbers"), bool):
+        fields["use_numbers"] = body["use_numbers"]
+    data = store.update(**fields)
+    return jsonify({"numbers": nums, "use_numbers": data.get("use_numbers", True)})
+
+
+@blueprint.get("/ranker/table")
+def last_table():
+    """The last table with every row, for the phone to rank with."""
+    data = store.load()
+    return jsonify({"table": data.get("last_table"), "table_at": data.get("table_at", 0.0)})
+
+
+@blueprint.put("/ranker/table")
+def set_table():
+    """A table the phone read (or `null`: it started a new search). Stamped
+    with when the phone chose it, so a write queued offline and replayed
+    after a newer table was chosen on either device changes nothing."""
+    body = request.get_json(silent=True) or {}
+    if "table" not in body:
+        return _bad("Send {table: {filename, columns, rows} or null, table_at}.")
+    t = body["table"]
+    if t is not None:
+        if (not isinstance(t, dict) or not isinstance(t.get("columns"), list)
+                or not isinstance(t.get("rows"), list)
+                or not all(isinstance(c, dict) and isinstance(c.get("name"), str) for c in t["columns"])
+                or not all(isinstance(r, dict) for r in t["rows"])):
+            return _bad("A table is {filename, columns: [{name, label}], rows: [{name: value}]}.")
+        t = {"filename": t.get("filename"), "columns": t["columns"], "rows": t["rows"]}
+    try:
+        at = float(body.get("table_at") or 0)
+    except (TypeError, ValueError):
+        return _bad("table_at is seconds since the epoch.")
+    data = store.load()
+    if at and at < float(data.get("table_at") or 0):
+        return jsonify({**_summary(data), "ignored": True})
+    data = store.update(last_table=t, **({"table_at": at} if at else {}))
+    return jsonify(_summary(data))
 
 
 @blueprint.post("/ranker/rank")
@@ -91,6 +138,7 @@ def rank_table():
     if f is not None:
         t = table.read(f.filename or "table", f.read())
         data["last_table"] = {"filename": f.filename, **t.to_json()}
+        data["table_at"] = time.time()
     elif data.get("last_table"):
         lt = data["last_table"]
         t = table.Table([(c["name"], c["label"]) for c in lt["columns"]], lt["rows"])

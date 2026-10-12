@@ -208,3 +208,50 @@ def test_http_round_trip(client):
     assert fresh["numbers"] == [] and fresh["table"] is None and len(fresh["presets"]) == 1
     assert client.post("/ranker/rank", json={}).status_code == 400            # nothing to rank yet
     assert client.post("/ranker/numbers").status_code == 400
+
+
+def test_the_phone_syncs_its_table_and_a_late_replay_changes_nothing(client):
+    """The phone reads tables itself and ranks with no Mac (Gil, 2026-10-12:
+    "Ranking shouldnt be dependent on the os server… just sync"). It sends the
+    table it read as JSON, stamped with when it was chosen; a write queued
+    offline and replayed after a newer table was chosen is ignored."""
+    assert client.get("/ranker/table").json == {"table": None, "table_at": 0.0}
+    t = {"filename": "k.csv", "columns": [{"name": "Kingdom", "label": "Kingdom"},
+                                         {"name": "Players", "label": "Players"}],
+         "rows": [{"Kingdom": 1.0, "Players": 30.0}, {"Kingdom": 2.0, "Players": 10.0}]}
+    put = client.put("/ranker/table", json={"table": t, "table_at": 2000.0})
+    assert put.status_code == 200 and put.json["table"]["rows"] == 2 and put.json["table_at"] == 2000.0
+    assert client.get("/ranker/table").json["table"] == t
+    # the Mac ranks the phone's table without being sent a file
+    ranked = client.post("/ranker/rank", json={
+        "recipe": {"criteria": [{"column": "Players", "better": "higher", "weight": 1}]}}).json
+    assert [r["Kingdom"] for r in ranked["rows"]] == [1.0, 2.0]
+
+    stale = client.put("/ranker/table", json={"table": None, "table_at": 1000.0})
+    assert stale.status_code == 200 and stale.json["ignored"] is True
+    assert client.get("/ranker/table").json["table"] == t                   # still there
+
+    cleared = client.put("/ranker/table", json={"table": None, "table_at": 3000.0}).json
+    assert cleared["table"] is None and cleared["table_at"] == 3000.0
+    assert client.put("/ranker/table", json={"table": {"rows": "x"}}).status_code == 400
+    assert client.put("/ranker/table", json={}).status_code == 400
+
+
+def test_the_filter_switch_travels_with_the_number_list(client):
+    r = client.put("/ranker/numbers", json={"numbers": [5, 6], "use_numbers": False}).json
+    assert r == {"numbers": [5, 6], "use_numbers": False}
+    o = client.get("/ranker").json
+    assert o["numbers"] == [5, 6] and o["use_numbers"] is False
+    # without the switch, the list alone changes and the switch stays
+    assert client.put("/ranker/numbers", json={"numbers": [7]}).json["use_numbers"] is False
+
+
+def test_a_table_chosen_on_the_mac_is_stamped(tmp_path, monkeypatch):
+    """The Mac panel writes the store directly; its table must carry a stamp
+    newer than the phone's, or the phone would never take it."""
+    from assistant.features.ranker import store
+    monkeypatch.setenv("MACALENDAR_RANKER", str(tmp_path / "ranker.json"))
+    before = store.load()["table_at"]
+    data = store.update(last_table={"filename": "a.csv", "columns": [], "rows": []})
+    assert data["table_at"] > before
+    assert store.new_search()["table_at"] >= data["table_at"]

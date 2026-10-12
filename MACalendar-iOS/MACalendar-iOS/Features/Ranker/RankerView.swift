@@ -10,28 +10,31 @@ import UniformTypeIdentifiers
 // through their providers) and, optionally, SCREENSHOTS whose numbers narrow
 // it (from Photos, Files or the clipboard). Pick both, press Rank once, and
 // the answer comes back; new pictures REPLACE the number list and a new table
-// replaces the old one. "New search" (toolbar) makes the Mac forget both, so
-// no search is stuck on the last one. The Mac keeps the last table, so tuning
-// the recipe afterwards re-ranks without sending it again. Ranking runs on the
-// Mac — the backend is `assistant/features/ranker/` — so with the Mac away
-// the tab says so.
+// replaces the old one. "New search" (toolbar) forgets both, so no search is
+// stuck on the last one.
+//
+// Everything happens ON THE PHONE (Gil, 2026-10-12: "Ranking shouldnt be
+// dependent on the os server… just sync"): the table is read, the pictures'
+// numbers are read by Apple Vision and the rows are ranked here
+// (`RankerEngine.swift`), so the tab works with no Mac at all. `RankerStore`
+// keeps the recipes, the list and the last table, and syncs them with the Mac
+// panel when the Mac is there.
 
 struct RankerView: View {
     @EnvironmentObject var api: APIClient
     @EnvironmentObject var settings: AppSettings
+    @ObservedObject private var store = RankerStore.shared
 
-    /// "Only these numbers" — the Mac's own switch (`use_numbers`), shared
-    /// with the Mac panel so the two stay in step. Off ranks every row and
-    /// KEEPS the saved list, so switching it back on restores it.
-    @State private var onlyNumbers = true
-    /// The saved list, as the Mac last said (the picture's answer as edited).
-    @State private var numbers: [Int] = []
+    /// "Only these numbers" — off ranks every row and KEEPS the list, so
+    /// switching it back on restores it. Shared with the Mac panel by sync.
+    private var onlyNumbers: Bool { store.useNumbers }
+    /// The list: the pictures' answer as edited.
+    private var numbers: [Int] { store.numbers }
 
-    @State private var overview: RankerOverview?
     @State private var result: RankerResult?
-    /// A recipe applied before there was a table to rank: used by the first rank.
-    @State private var pendingRecipe: RankerRecipe?
-    @State private var unreachable: String?
+    /// A recipe applied but not saved (a Columns switch included); nil means
+    /// the current saved one.
+    @State private var working: RankerRecipe?
     @State private var busy: String?
     @State private var refusal: String?
 
@@ -51,18 +54,14 @@ struct RankerView: View {
 
     private static let tableTypes: [UTType] = [.html, .commaSeparatedText, .tabSeparatedText, .plainText, .json]
 
-    private func setNumbers(_ list: [Int]) {
-        var seen = Set<Int>()
-        numbers = list.filter { seen.insert($0).inserted }
+    private func setNumbers(_ list: [Int], useNumbers: Bool? = nil) {
+        store.setNumbers(list, useNumbers: useNumbers ?? store.useNumbers, api: api)
+        rerank()
     }
 
-    private var hasTable: Bool { stagedTable != nil || overview?.hasTable == true || result != nil }
+    private var hasTable: Bool { stagedTable != nil || store.table != nil }
 
-    private var currentRecipe: RankerRecipe? {
-        if let r = result?.recipe ?? pendingRecipe { return r }
-        guard let o = overview else { return nil }
-        return o.presets.first { $0.name == o.preset } ?? o.presets.first
-    }
+    private var currentRecipe: RankerRecipe? { working ?? store.current }
 
     var body: some View {
         StackNavigation {
@@ -92,44 +91,19 @@ struct RankerView: View {
 
     // MARK: - Content
 
-    @ViewBuilder private var content: some View {
-        if overview == nil, let why = unreachable {
-            unreachableState(why)
-        } else if overview == nil {
-            ProgressView("Asking your Mac…")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            List {
-                if hasTable {
-                    inputsSection
-                    numbersSection
-                    resultSection
-                } else {
-                    startCard
-                }
+    /// Never waits on the Mac: what this phone has is drawn at once, and a
+    /// pull asks the Mac for anything newer.
+    private var content: some View {
+        List {
+            if hasTable {
+                inputsSection
+                numbersSection
+                resultSection
+            } else {
+                startCard
             }
-            .listStyle(.insetGrouped)
-            .refreshable { if hasTable { await rank() } else { await load() } }
         }
-    }
-
-    private func unreachableState(_ why: String) -> some View {
-        ScrollView {
-            VStack(spacing: 14) {
-                Image(systemName: "list.number")
-                    .font(.system(size: 48))
-                    .foregroundColor(.secondary)
-                Text(why)
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
-                    .accessibilityIdentifier("ranker-empty")
-                Button("Try again") { Task { await load() } }
-                    .buttonStyle(.bordered)
-                    .tint(settings.accentColor)
-            }
-            .padding(24)
-            .frame(maxWidth: .infinity)
-        }
+        .listStyle(.insetGrouped)
         .refreshable { await load() }
     }
 
@@ -163,10 +137,6 @@ struct RankerView: View {
             }
             goButton
             busyRow
-        } footer: {
-            if overview?.engine == "none" {
-                Text("Your Mac has no way to read pictures yet (it needs Xcode's command-line tools or Tesseract), so only the table will be used.")
-            }
         }
     }
 
@@ -174,8 +144,8 @@ struct RankerView: View {
 
     private var inputsSection: some View {
         Section {
-            if stagedTable == nil, let o = overview, o.hasTable {
-                Label("\(o.tableName ?? "Table") · \(o.tableRows) rows", systemImage: "tablecells")
+            if stagedTable == nil, let t = store.table {
+                Label("\(store.tableName ?? "Table") · \(t.rows.count) rows", systemImage: "tablecells")
                     .font(.subheadline)
                     .lineLimit(1)
             }
@@ -186,11 +156,7 @@ struct RankerView: View {
         } header: {
             Text("Inputs")
         } footer: {
-            if overview?.engine == "none" {
-                Text("Your Mac has no way to read pictures yet (it needs Xcode's command-line tools or Tesseract), so only the table will be used.")
-            } else {
-                Text("A new table replaces this one; new pictures replace the numbers.")
-            }
+            Text("A new table replaces this one; new pictures replace the numbers.")
         }
     }
 
@@ -200,7 +166,7 @@ struct RankerView: View {
                 importKind = .table
                 importing = true
             } label: {
-                Label(prominent || stagedTable != nil || overview?.hasTable != true ? "Table" : "New table",
+                Label(prominent || stagedTable != nil || store.table == nil ? "Table" : "New table",
                       systemImage: "tablecells")
                     .frame(maxWidth: prominent ? .infinity : nil)
             }
@@ -288,10 +254,7 @@ struct RankerView: View {
         Section {
             Toggle("Only these numbers", isOn: Binding(
                 get: { onlyNumbers },
-                set: { on in
-                    onlyNumbers = on
-                    Task { await numbersChanged(listEdited: false) }
-                }))
+                set: { on in setNumbers(numbers, useNumbers: on) }))
             .tint(settings.accentColor)
             .accessibilityIdentifier("ranker-only-numbers")
 
@@ -320,10 +283,7 @@ struct RankerView: View {
                 Text("Numbers")
                 Spacer()
                 if !numbers.isEmpty {
-                    Button("Clear") {
-                        setNumbers([])
-                        Task { await numbersChanged() }
-                    }
+                    Button("Clear") { setNumbers([]) }
                     .font(.caption.weight(.semibold))
                     .foregroundColor(settings.accentColor)
                 }
@@ -340,7 +300,6 @@ struct RankerView: View {
             Text("\(n)").monospacedDigit()
             Button {
                 setNumbers(numbers.filter { $0 != n })
-                Task { await numbersChanged() }
             } label: { Image(systemName: "xmark").font(.caption2.weight(.bold)) }
             .buttonStyle(.plain)
             .accessibilityLabel("Remove \(n)")
@@ -487,7 +446,7 @@ struct RankerView: View {
 
     // MARK: Columns
 
-    /// Every column a result can show, in the Mac's order: the key, what it
+    /// Every column a result can show, in `rank.py`'s order: the key, what it
     /// ranks by, the sums it makes, then the rest of the table.
     private func allColumns(_ r: RankerResult) -> [RankerColumn] {
         var names = [r.key] + (r.recipe?.criteria.map(\.column) ?? [])
@@ -504,17 +463,16 @@ struct RankerView: View {
         return show.isEmpty ? all : all.filter { show.contains($0.name) }
     }
 
-    /// The Columns sheet's switches write the recipe's `show` straight into
-    /// the result, so the rows change at once; the next rank and a Save carry
-    /// it to the Mac. Empty means every column.
+    /// The Columns sheet's switches change the recipe's `show` and re-rank,
+    /// so the rows change at once; a Save keeps it (and syncs it to the Mac).
+    /// Empty means every column.
     private var showBinding: Binding<[String]> {
-        Binding(get: { result?.recipe?.show ?? [] },
+        Binding(get: { currentRecipe?.show ?? [] },
                 set: { names in
-                    guard var r = result else { return }
-                    var recipe = r.recipe ?? currentRecipe ?? RankerRecipe(name: "My ranking")
+                    var recipe = currentRecipe ?? RankerStore.blank
                     recipe.show = names
-                    r.recipe = recipe
-                    result = r
+                    working = recipe
+                    rerank()
                 })
     }
 
@@ -532,13 +490,12 @@ struct RankerView: View {
             if busy != nil { ProgressView() }
         }
         ToolbarItemGroup(placement: .navigationBarTrailing) {
-            Button { Task { await newSearch() } } label: {
+            Button { newSearch() } label: {
                 Label("New search", systemImage: "plus.magnifyingglass")
             }
-            .disabled(overview == nil || busy != nil)
+            .disabled(busy != nil || (store.table == nil && numbers.isEmpty && stagedTable == nil && stagedImages.isEmpty))
             .accessibilityIdentifier("ranker-new")
             Button { editingRecipe = true } label: { Image(systemName: "slider.horizontal.3") }
-                .disabled(overview == nil)
                 .accessibilityLabel("Rank by")
                 .accessibilityIdentifier("ranker-recipe")
         }
@@ -546,12 +503,10 @@ struct RankerView: View {
 
     private var recipeSheet: some View {
         RankerRecipeView(
-            recipe: currentRecipe ?? RankerRecipe(name: "My ranking"),
-            presets: overview?.presets ?? [],
-            tableColumns: result?.tableColumns ?? overview?.tableColumns ?? [],
-            onApply: { recipe in
-                if hasTable { Task { await rank(recipe: recipe) } } else { pendingRecipe = recipe }
-            },
+            recipe: currentRecipe ?? RankerStore.blank,
+            presets: store.presets,
+            tableColumns: store.table?.columns ?? [],
+            onApply: { recipe in apply(recipe) },
             onSave: { recipe in await savePreset(recipe) },
             onDelete: { name in await deletePreset(name) })
         .environmentObject(settings)
@@ -559,113 +514,70 @@ struct RankerView: View {
 
     // MARK: - Actions
 
-    /// Start over: the Mac forgets the table and the numbers (saved rankings
-    /// stay), and the tab is back to its one card. Needs the Mac — queued, a
-    /// reset would land later on whatever was sent in between.
-    private func newSearch() async {
-        busy = "Starting a new search…"
-        defer { busy = nil }
-        do {
-            let o = try await api.newRankerSearch()
-            overview = o
-            result = nil
-            pendingRecipe = nil
-            stagedTable = nil
-            stagedImages = []
-            expanded = []
-            newNumbers = ""
-            setNumbers(o.numbers)
-            onlyNumbers = o.useNumbers
-        } catch {
-            refusal = sentence(for: error)
-        }
+    /// Start over: no table, no numbers (saved rankings stay), and the tab is
+    /// back to its one card. Synced to the Mac like any other change.
+    private func newSearch() {
+        store.newSearch(api: api)
+        result = nil
+        working = nil
+        stagedTable = nil
+        stagedImages = []
+        expanded = []
+        newNumbers = ""
     }
 
+    /// Draw what this phone has, then ask the Mac for anything newer.
     private func load() async {
-        do {
-            let o = try await api.rankerOverview()
-            overview = o
-            unreachable = nil
-            setNumbers(o.numbers)
-            onlyNumbers = o.useNumbers
-            if result == nil, o.hasTable { await rank() }
-        } catch {
-            unreachable = sentence(for: error)
-        }
+        rerank()
+        await store.sync(api: api)
+        rerank()
     }
 
-    /// Send what is staged: pictures alone are read for their numbers; with a
-    /// table (staged, or the Mac's last one) everything is ranked in one go.
+    /// Read what is staged — the table, the pictures' numbers — here on the
+    /// phone, then rank.
     private func go() async {
-        if stagedTable == nil && !hasTable {
-            await readNumbers()
-        } else {
-            await rank()
-        }
-    }
-
-    private func readNumbers() async {
-        guard !stagedImages.isEmpty else { return }
-        busy = "Reading the numbers in \(stagedImages.count == 1 ? "the picture" : "\(stagedImages.count) pictures")…"
-        defer { busy = nil }
         do {
-            let found = try await api.readRankerNumbers(images: stagedImages)
-            stagedImages = []
-            setNumbers(found)
-            onlyNumbers = true
-            if found.isEmpty { refusal = "No numbers found in that picture." }
-        } catch {
-            refusal = sentence(for: error)
-        }
-    }
-
-    /// Rank with what is staged, else the Mac's last table; `recipe` when the
-    /// sheet applied one, else the one on screen. A recipe unchanged since it
-    /// was saved goes by NAME, so the Mac's current ranking follows the
-    /// phone's; an edited one (a Columns switch included) goes whole.
-    private func rank(recipe: RankerRecipe? = nil) async {
-        let images = stagedImages
-        busy = images.isEmpty ? "Ranking…" : "Reading the pictures and ranking…"
-        defer { busy = nil }
-        let current = recipe ?? currentRecipe
-        let saved = current.flatMap { c in overview?.presets.first { $0.name == c.name } }
-        let byName = current != nil && saved?.signature == current?.signature
-        do {
-            let r = try await api.rankTable(
-                table: stagedTable, images: images,
-                numbers: images.isEmpty ? numbers : nil,
-                useNumbers: images.isEmpty ? onlyNumbers : true,
-                preset: byName ? current?.name : (current == nil ? overview?.preset : nil),
-                recipe: byName ? nil : current)
-            result = r
-            pendingRecipe = nil
-            expanded = []
-            stagedTable = nil
-            stagedImages = []
-            setNumbers(r.numbers)
-            onlyNumbers = r.useNumbers
-            if var o = overview {
-                o.tableColumns = r.tableColumns
-                if let f = r.recipe, o.presets.contains(where: { $0.name == f.name }) { o.preset = f.name }
-                overview = o
+            if let t = stagedTable {
+                busy = "Reading \(t.filename)…"
+                try await store.readTable(t, api: api)
+                stagedTable = nil
+                working = nil
+            }
+            if !stagedImages.isEmpty {
+                busy = "Reading the numbers in \(stagedImages.count == 1 ? "the picture" : "\(stagedImages.count) pictures")…"
+                let found = try await store.readNumbers(stagedImages, api: api)
+                stagedImages = []
+                if found.isEmpty { refusal = "No numbers found in that picture." }
             }
         } catch {
             refusal = sentence(for: error)
         }
+        busy = nil
+        expanded = []
+        rerank()
     }
 
-    /// The list or the switch changed: re-rank if there is a table (the rank
-    /// carries both the list and `use_numbers`). With no table yet only the
-    /// LIST is sent — a plain overwrite, queued when the Mac is away; the
-    /// switch rides on the first rank. Never `[]` for "off": that would erase
-    /// the list the switch exists to keep.
-    private func numbersChanged(listEdited: Bool = true) async {
-        if hasTable && overview != nil {
-            await rank()
-        } else if listEdited {
-            do { try await api.setRankerNumbers(numbers) }
-            catch { refusal = sentence(for: error) }
+    /// Rank again with what is on screen. Instant: it all happens here.
+    private func rerank() {
+        do {
+            result = try store.rank(currentRecipe)
+        } catch {
+            result = nil
+            refusal = sentence(for: error)
         }
+    }
+
+    /// The sheet's Apply: a saved ranking unchanged is CHOSEN (and stays
+    /// chosen); anything else is used as it is until it is saved.
+    private func apply(_ recipe: RankerRecipe) {
+        if let saved = store.presets.first(where: { $0.name == recipe.name }),
+           saved.signature == recipe.signature {
+            store.choose(recipe.name)
+            working = nil
+        } else {
+            working = recipe
+        }
+        rerank()
     }
 
     private func addTyped() {
@@ -674,50 +586,27 @@ struct RankerView: View {
             .compactMap { Int($0) }
         newNumbers = ""
         guard !found.isEmpty else { return }
-        setNumbers(numbers + found)
-        onlyNumbers = true
-        Task { await numbersChanged() }
+        setNumbers(numbers + found, useNumbers: true)
     }
 
     private func savePreset(_ recipe: RankerRecipe) async -> String? {
-        do {
-            if let o = try await api.saveRankerPreset(recipe) {
-                overview = o
-            } else if var o = overview {
-                // Queued: show it saved here; the Mac takes it when it is back.
-                o.presets.removeAll { $0.name == recipe.name }
-                o.presets.append(recipe)
-                o.preset = recipe.name
-                overview = o
-            }
-            if hasTable { await rank(recipe: recipe) }
-            return nil
-        } catch {
-            return sentence(for: error)
-        }
+        if let why = await store.savePreset(recipe, api: api) { return why }
+        working = nil
+        rerank()
+        return nil
     }
 
     private func deletePreset(_ name: String) async -> String? {
-        do {
-            if let o = try await api.deleteRankerPreset(name) {
-                overview = o
-            } else if var o = overview {
-                o.presets.removeAll { $0.name == name }
-                if o.preset == name { o.preset = o.presets.first?.name ?? "" }
-                overview = o
-            }
-            if result?.recipe?.name == name { result?.recipe = nil }
-            if hasTable { await rank() }
-            return nil
-        } catch {
-            return sentence(for: error)
-        }
+        if let why = await store.deletePreset(name, api: api) { return why }
+        if working?.name == name { working = nil }
+        rerank()
+        return nil
     }
 
     // MARK: Picking
 
-    /// A pick REPLACES what was staged: new pictures are a new number list
-    /// (the Mac replaces its list with theirs too), a new table a new table.
+    /// A pick REPLACES what was staged: new pictures are a new number list,
+    /// a new table a new table.
     private func pickedFiles(_ picked: Result<[URL], Error>) {
         guard case .success(let urls) = picked else { return }
         if importKind == .images, !urls.isEmpty { stagedImages = [] }
@@ -764,8 +653,8 @@ struct RankerView: View {
         }
     }
 
-    /// Photos may be HEIC, which the Mac's readers need not take; a PNG keeps
-    /// a screenshot's digits sharp, so that is what goes.
+    /// Photos may be HEIC; a PNG keeps a screenshot's digits sharp and opens
+    /// everywhere, so that is what is kept.
     private func stagePicture(_ raw: Data) {
         let n = stagedImages.count + 1
         if let img = UIImage(data: raw), let png = img.pngData() {
@@ -776,14 +665,8 @@ struct RankerView: View {
     }
 
     private func sentence(for error: Error) -> String {
-        if let e = error as? APIError {
-            switch e {
-            case .badURL: return "Ranking runs on your Mac — set its address in Settings first."
-            case .offline: return "Ranking runs on your Mac — it isn't reachable right now."
-            case .serverError: return e.serverSentence ?? "Your Mac answered with something this app could not read."
-            }
-        }
-        return error.localizedDescription
+        if let r = error as? RankerRefusal { return r.sentence }
+        return RankerStore.sentence(error)
     }
 }
 

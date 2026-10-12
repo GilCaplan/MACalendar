@@ -2,9 +2,11 @@ import Foundation
 
 // MARK: - Ranker's shapes
 //
-// The Mac's answers are `assistant/features/ranker/routes.py` (documented at
-// its top) and a recipe is `rank.py`'s: key, derived, filters, criteria, show
-// (the columns a ranking shows; empty means every one).
+// A recipe is `rank.py`'s: key, derived, filters, criteria, show (the columns
+// a ranking shows; empty means every one). A result is what `RankerMath.rank`
+// makes on this phone — the same shape `POST /ranker/rank` answers with on the
+// Mac. The overview is `GET /ranker`, which the phone syncs with
+// (`RankerStore`).
 // Read with JSONSerialization rather than Codable because a table's cells are
 // numbers OR words, and a condition's value is either — the same column can
 // hold `3.62B` read as a number and `—` kept as text.
@@ -176,6 +178,13 @@ struct RankedRow: Identifiable {
     let parts: [String: Double]
     var id: Int { rank }
 
+    init(rank: Int, score: Double, cells: [String: RankerCell], parts: [String: Double]) {
+        self.rank = rank
+        self.score = score
+        self.cells = cells
+        self.parts = parts
+    }
+
     init(json: [String: Any]) {
         rank = (json["_rank"] as? NSNumber)?.intValue ?? 0
         score = (json["_score"] as? NSNumber)?.doubleValue ?? 0
@@ -190,7 +199,7 @@ struct RankedRow: Identifiable {
     }
 }
 
-/// `POST /ranker/rank`'s answer.
+/// A ranking: `RankerMath.rank` on this phone, `POST /ranker/rank` on the Mac.
 struct RankerResult {
     var columns: [RankerColumn]
     var rows: [RankedRow]
@@ -206,6 +215,22 @@ struct RankerResult {
     var useNumbers: Bool
     var tableColumns: [RankerColumn]
     var recipe: RankerRecipe?
+
+    init(columns: [RankerColumn], rows: [RankedRow], kept: Int, total: Int, missing: [String],
+         key: String, notes: [String], numbers: [Int], useNumbers: Bool,
+         tableColumns: [RankerColumn], recipe: RankerRecipe?) {
+        self.columns = columns
+        self.rows = rows
+        self.kept = kept
+        self.total = total
+        self.missing = missing
+        self.key = key
+        self.notes = notes
+        self.numbers = numbers
+        self.useNumbers = useNumbers
+        self.tableColumns = tableColumns
+        self.recipe = recipe
+    }
 
     init(json o: [String: Any]) {
         columns = (o["columns"] as? [Any] ?? []).compactMap(RankerColumn.init(json:))
@@ -235,6 +260,8 @@ struct RankerOverview {
     var tableName: String?
     var tableRows: Int
     var tableColumns: [RankerColumn]
+    /// When the Mac's table was set or cleared — whose table is newer.
+    var tableAt: Double
 
     var hasTable: Bool { !tableColumns.isEmpty }
 
@@ -248,6 +275,7 @@ struct RankerOverview {
         tableName = t?["filename"] as? String
         tableRows = (t?["rows"] as? NSNumber)?.intValue ?? 0
         tableColumns = (t?["columns"] as? [Any] ?? []).compactMap(RankerColumn.init(json:))
+        tableAt = (o["table_at"] as? NSNumber)?.doubleValue ?? 0
     }
 
     static func ints(_ any: Any?) -> [Int] {
@@ -259,7 +287,7 @@ struct RankerOverview {
     }
 }
 
-/// A file on its way to the Mac: a table or a picture.
+/// A file picked on the phone: a table or a picture.
 struct RankerUpload: Identifiable {
     let id = UUID()
     var filename: String

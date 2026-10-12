@@ -1,8 +1,8 @@
 import XCTest
 
-/// The Ranker tab with no Mac: ranking runs on the Mac, so the tab must say
-/// so in a sentence rather than draw an empty screen
-/// (`assistant/features/CONVENTION.md`). Port 59999 has nothing on it.
+/// The Ranker tab with no Mac: it ranks on the phone, so it must open on its
+/// start card — what to add and how — not on "your Mac isn't reachable"
+/// (Gil, 2026-10-12). Port 59999 has nothing on it.
 final class RankerUITests: XCTestCase {
 
     override func setUp() { continueAfterFailure = false }
@@ -27,8 +27,9 @@ final class RankerUITests: XCTestCase {
         let sentence = app.staticTexts["ranker-empty"].firstMatch
         XCTAssertTrue(sentence.waitForExistence(timeout: 15), "the tab says nothing")
         let text = sentence.label
-        XCTAssertTrue(text.contains("Mac") || text.contains("table"),
-                      "the sentence should say what is going on: \(text)")
+        XCTAssertTrue(text.contains("table"), "the start card should say what to add: \(text)")
+        XCTAssertFalse(text.contains("reachable"), "the tab must not need the Mac: \(text)")
+        XCTAssertTrue(app.buttons["ranker-table"].firstMatch.exists, "no way to pick a table")
 
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "ranker-empty"

@@ -154,6 +154,8 @@
 		4F0057EC5E58F1A66E74F1A2 /* RankerModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADA08DD7B4420439B7D909CC /* RankerModels.swift */; };
 		135421C46A8B662E6B1F6A41 /* RankerRecipeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CB5E6903CE04A18B9142587 /* RankerRecipeView.swift */; };
 		C86065A97F713243BBF384D3 /* RankerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28A383E0B96550A2588CC847 /* RankerUITests.swift */; };
+		A5167AC0EEA5BBA184D38C2D /* RankerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0769C750C0D30943A11D674 /* RankerEngine.swift */; };
+		0BD1A50E08BF047389CF1F14 /* RankerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 190C3AFD04537462C0379672 /* RankerStore.swift */; };
 		/* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -310,6 +312,8 @@
 		ADA08DD7B4420439B7D909CC /* RankerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankerModels.swift; sourceTree = "<group>"; };
 		7CB5E6903CE04A18B9142587 /* RankerRecipeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankerRecipeView.swift; sourceTree = "<group>"; };
 		28A383E0B96550A2588CC847 /* RankerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankerUITests.swift; sourceTree = "<group>"; };
+		F0769C750C0D30943A11D674 /* RankerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankerEngine.swift; sourceTree = "<group>"; };
+		190C3AFD04537462C0379672 /* RankerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankerStore.swift; sourceTree = "<group>"; };
 		/* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
@@ -701,6 +705,8 @@
 				B7C35AA6096043B7049A6C0C /* RankerAPI.swift */,
 				ADA08DD7B4420439B7D909CC /* RankerModels.swift */,
 				7CB5E6903CE04A18B9142587 /* RankerRecipeView.swift */,
+				F0769C750C0D30943A11D674 /* RankerEngine.swift */,
+				190C3AFD04537462C0379672 /* RankerStore.swift */,
 			);
 			path = Ranker;
 			sourceTree = "<group>";
@@ -957,6 +963,8 @@
 				EC4A7E5081AD911E1CEAFB10 /* RankerAPI.swift in Sources */,
 				4F0057EC5E58F1A66E74F1A2 /* RankerModels.swift in Sources */,
 				135421C46A8B662E6B1F6A41 /* RankerRecipeView.swift in Sources */,
+				A5167AC0EEA5BBA184D38C2D /* RankerEngine.swift in Sources */,
+				0BD1A50E08BF047389CF1F14 /* RankerStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
