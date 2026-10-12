@@ -95,15 +95,9 @@ NOT_QUEUEABLE = {
     # phone's to deliver. Import and picture upload send a FILE, and the queue
     # holds JSON; both say in a sentence that they need the Mac.
     "flashcardInbox", "uploadFlashMedia", "importFlashcards", "uploadFile",
-    # Ranker. Ranking and reading a screenshot's numbers send FILES (the queue
-    # holds JSON) and the answer IS the point — a ranking delivered an hour
-    # later is for a screen nobody is looking at; the tab says the Mac is away.
-    # `rankerUpload` is their multipart transport. The number list and the
-    # recipes are plain overwrites and DO queue. `newRankerSearch` forgets the
-    # Mac's table and numbers: replayed whenever the Mac came back, it would
-    # wipe a table sent since (the Mac panel shares the store), and starting a
-    # search needs the Mac anyway — so it fails loudly instead.
-    "rankTable", "readRankerNumbers", "rankerUpload", "newRankerSearch",
+    # (Ranker has none: the phone ranks by itself, and every write it sends
+    # the Mac — the list, a recipe, the table, a new search — is an overwrite
+    # that queues; a stale table replay is ignored by its stamp.)
 }
 
 MUTATING = re.compile(r'request\(\s*"[^"]*"[^)]*?method:\s*"(POST|PATCH|PUT|DELETE)"', re.S)

@@ -344,10 +344,12 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `GET` | `/ranker` |  |
 | `POST` | `/ranker/new` | Start over: no table, no numbers. Saved recipes stay. |
 | `POST` | `/ranker/numbers` | Read the numbers in one or more pictures and keep them as the list. |
-| `PUT` | `/ranker/numbers` |  |
+| `PUT` | `/ranker/numbers` | The number list as edited, and (optionally) the filter switch. |
 | `DELETE` | `/ranker/presets/<name>` |  |
 | `PUT` | `/ranker/presets/<name>` |  |
 | `POST` | `/ranker/rank` | Rank a table by a recipe, narrowed to the picture's numbers when there are any. |
+| `GET` | `/ranker/table` | The last table with every row, for the phone to rank with. |
+| `PUT` | `/ranker/table` | A table the phone read (or `null`: it started a new search). Stamped |
 
 ## /todos
 

@@ -6,7 +6,7 @@ import SwiftUI
 // column of THIS table, Higher or Lower — and "+ Add". Everything else waits
 // under "More options": how much each column counts, conditions a row must
 // meet, and the saved rankings (load / save / delete). The column the
-// picture's numbers match is not asked: the Mac picks it from the data.
+// picture's numbers match is not asked: it is found from the data.
 // Apply re-ranks with this recipe without saving it; Save keeps it under its
 // name (`PUT /ranker/presets/<name>`). The recipe's `show` (the columns a
 // ranking shows) rides along untouched — the Columns control sets it.

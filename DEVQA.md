@@ -15,6 +15,19 @@
   ranker tab are not uploaded to github"*: `.gitignore` now also refuses
   Ranker inputs (screenshots, `IMG_*`, `.heic`, tables at the repo root,
   `ranker.json`), pinned by `test_no_personal_data_leaked.py`.
+- **2026-10-12 — Q90 (RANKER RANKS ON THE PHONE; THE MAC ONLY SYNCS)**, Gil,
+  on a Ranker tab that said "Ranking runs on your Mac — it isn't reachable
+  right now": *"Ranking shouldnt be dependent on the os server… just sync
+  otherwise should work on phone according to original specs i gave"* — the
+  same rule as Q87, for a tab. The phone reads the table (`.html` / CSV /
+  TSV / JSON), reads the screenshot's numbers with Apple Vision and ranks,
+  all by itself (`Features/Ranker/RankerEngine.swift`, a port of `table.py`,
+  `rank.py` and `ocr.py`), and keeps its state in `RankerStore`. The Mac is
+  where the recipes, the number list, the filter switch and the last table
+  are kept in step with the Mac panel: every write is a queued overwrite, and
+  a table carries `table_at` so the newer table wins and a late replay
+  changes nothing. No Ranker call is `NOT_QUEUEABLE` any more.
+  `tests/unit/test_ranker_phone.py` pins the rules the two copies share.
 
 - **2026-10-10 — Q89 (EACH SCREEN'S LOOK IS ITS OWN; THE ASSISTANT IS SHARED)**,
   Gil: *"it's separate and independent between the Mac and the iOS, right?

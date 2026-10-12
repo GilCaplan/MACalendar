@@ -1241,7 +1241,9 @@ when it agrees with what is shown; reads `3.62B`), `ocr.py` +
 `vision_numbers.swift` (Apple Vision, on this machine; Tesseract where there
 is no Vision), `rank.py` (recipes), `store.py` (`ranker.json`, override
 `MACALENDAR_RANKER`: recipes, the number list, the last table), `routes.py`
-(`/ranker*`); Mac `calendar_ui/ranker_view.py`; iOS `Features/Ranker/`.
+(`/ranker*`); Mac `calendar_ui/ranker_view.py`; iOS `Features/Ranker/` —
+`RankerEngine.swift` (the phone's own port of the table reader, the ranking
+and the picture reader) and `RankerStore.swift` (its state, synced).
 **How:** A recipe is derived columns (sums), conditions, and criteria — a
 column, higher or lower is better, a weight. The score is a weighted average
 of each criterion's PERCENTILE among the candidates, so scale does not matter
@@ -1259,6 +1261,14 @@ under a collapsed "More options"), every column shows by default with a
 "Columns" checklist beside the summary, and the table always keeps room for
 ten rows — a short window scrolls the panel instead. The column the numbers
 match is found from the data (`rank.best_key`), not asked.
+**The phone needs no Mac** (DEVQA Q90, 2026-10-12): it reads the table,
+reads the pictures with Apple Vision and ranks on the phone, so the tab works
+on a train. The Mac only keeps the two in step: the recipes, the number list,
+the filter switch and the last table go to it as queued overwrites
+(`PUT /ranker/numbers`, `/ranker/presets/<name>`, `/ranker/table`), and a
+pull on the tab takes anything newer from it. A table carries `table_at`
+(when it was chosen or cleared), so whichever device chose later wins and a
+replay that arrives late changes nothing.
 
 ### iOS app & offline queues
 **What:** The full iPhone client — calendar, tasks, voice, review, vocabulary,
