@@ -201,20 +201,22 @@ cycle:
 run from a Claude session ON the Mac (Desktop app, or `claude remote-control`
 in the checkout), which can reach the apps; a cloud session cannot.
 
-1. **Update and restart:** `git pull` on `main`; the API reloads itself;
-   restart the GUI and the HUD; build the phone app in Xcode and install it
-   (`xcrun devicectl device install app`, phone on the Mac's Wi-Fi). The
-   Swift merged on 2026-10-12 (Ranker on the phone — PR #33; flashcards
-   English and copy — PR #34) has NEVER been compiled: no Swift toolchain in
-   the cloud, no iOS job in CI, so the first Xcode build is its first check.
-2. **Flashcards English:** `python scripts/flashcards_english.py export`
-   (→ `~/Desktop/flashcards-english.json`), translate (add `en`, change
-   nothing else), `… apply <file>`; progress is kept.
-3. **Old branches:** 36 are fully merged; the cloud session's git proxy
-   refuses deletes. `git fetch --prune origin && git branch -r --merged
+1. **Update and restart — DONE 2026-10-14.** Pulled to PR #37; the GUI and
+   HUD restarted on the new code; the phone app built clean in `xcodebuild`
+   (the first compile of PRs #33/#34's Swift) and was installed with
+   `xcrun devicectl`. Not yet confirmed running on the phone: it dropped off
+   Wi-Fi right after the install. Xcode's "Thread 1: signal SIGKILL" at
+   `dyld`/`lldb_image_notifier` is the debugger launch being killed (locked
+   phone / slow Wi-Fi attach), not an app crash — open it from the home screen.
+2. **Flashcards English — DONE 2026-10-14.** All 2,295 cards in 14 sets have
+   `en`; every set re-imported with 0 added / 0 removed, so progress is kept,
+   and a fresh `export` reports 0 cards left.
+3. **Old branches:** 40 are fully merged (2026-10-14); the cloud session's git
+   proxy refuses deletes, and the Mac session's auto mode refused them too —
+   Gil runs it. `git fetch --prune origin && git branch -r --merged
    origin/main | grep -v -E 'origin/(main|HEAD)' | sed 's#origin/##' | xargs
-   git push origin --delete`. Keep `tips-on-ios` (1,156 commits not on main)
-   until checked.
+   git push origin --delete`. `tips-on-ios` is fully merged now
+   (0 commits not on main), so it goes too.
 4. **Ranker: your real export into the app, out of GitHub's history** (Gil,
    2026-10-12: "my real data … shouldn't be uploaded to GitHub, but you can
    upload it to the phone app"). The repo's test file is invented numbers
