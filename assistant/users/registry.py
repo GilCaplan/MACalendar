@@ -35,6 +35,7 @@ import json
 import os
 import re
 import secrets
+import tempfile
 import threading
 import time
 from typing import Any
@@ -101,8 +102,10 @@ def save(data: dict) -> None:
     _guard(path)
     with _lock:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        tmp = path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
+        # Its own temp file, never a shared `path + ".tmp"`: two processes
+        # saving at once wrote into one and corrupted sessions.json that way.
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".users.", suffix=".tmp")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, sort_keys=True)
         os.chmod(tmp, 0o600)
         os.replace(tmp, path)

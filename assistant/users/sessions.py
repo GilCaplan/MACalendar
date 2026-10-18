@@ -16,13 +16,19 @@ whose CALENDAR — two different questions (USERS_PLAN.md §C).
 """
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import hashlib
 import json
+import logging
 import os
 import secrets
+import tempfile
 import threading
 import time
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 #: The default when the admin has chosen nothing: a sign-in lasts until you
 #: sign out, the admin signs you out, or the password changes. Gil, 2026-09-28:
@@ -42,6 +48,28 @@ _TOUCH_EVERY_S = 3600
 
 _DEFAULT = os.path.expanduser("~/.assistant_tools/sessions.json")
 _lock = threading.RLock()
+
+
+@contextlib.contextmanager
+def _locked():
+    """One writer at a time ACROSS PROCESSES, not only threads.
+
+    The GUI, the HUD and the API all resolve sessions, and `resolve()` writes
+    (it drops expired sessions and refreshes `last_seen`). With only a thread
+    lock, two processes saving at once shared one `.tmp` file and left a stray
+    byte at the end of `sessions.json` (2026-10-18: it ended in `}}`); the file
+    then failed to parse, every token looked unknown, and every request from a
+    logged-in client was a 401 — the Mac's voice commands among them."""
+    with _lock:
+        p = path() + ".lock"
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        fd = os.open(p, os.O_CREAT | os.O_RDWR, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+            os.close(fd)
 
 
 def path() -> str:
@@ -65,27 +93,48 @@ def _load() -> dict:
     _guard(p)
     try:
         with open(p, encoding="utf-8") as f:
-            data = json.load(f)
-        return data if isinstance(data, dict) else {}
-    except (OSError, ValueError):
+            text = f.read()
+    except OSError:
         return {}
+    try:
+        data = json.loads(text)
+    except ValueError:
+        # Keep the logins a damaged file still holds rather than signing
+        # everyone out: take the first complete JSON object and say so.
+        try:
+            data, end = json.JSONDecoder().raw_decode(text.lstrip())
+            log.warning("sessions.json had %d stray byte(s) after its JSON; "
+                        "recovered %d session(s)", len(text.lstrip()) - end,
+                        len(data) if isinstance(data, dict) else 0)
+        except ValueError:
+            log.error("sessions.json is unreadable; treating it as empty")
+            return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _save(data: dict) -> None:
     p = path()
     _guard(p)
-    os.makedirs(os.path.dirname(p), exist_ok=True)
-    tmp = p + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=1, sort_keys=True)
-    os.chmod(tmp, 0o600)
-    os.replace(tmp, p)
+    d = os.path.dirname(p)
+    os.makedirs(d, exist_ok=True)
+    # A temp file of its own: a shared `p + ".tmp"` is what two processes
+    # wrote into at once (see `_locked`).
+    fd, tmp = tempfile.mkstemp(dir=d, prefix=".sessions.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=1, sort_keys=True)
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, p)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.remove(tmp)
+        raise
 
 
 def issue(user_id: str, device_id: str = "", source: str = "", label: str = "") -> str:
     token = secrets.token_urlsafe(32)
     now = time.time()
-    with _lock:
+    with _locked():
         data = _load()
         data[_key(token)] = {"user_id": user_id, "device_id": device_id or "",
                              "source": source or "", "label": label or "",
@@ -102,7 +151,7 @@ def resolve(token: "str | None") -> "dict | None":
     from assistant.users import registry
     k = _key(token)
     now = time.time()
-    with _lock:
+    with _locked():
         data = _load()
         rec = data.get(k)
         if rec is None:
@@ -123,7 +172,7 @@ def resolve(token: "str | None") -> "dict | None":
 
 
 def revoke(token: str) -> bool:
-    with _lock:
+    with _locked():
         data = _load()
         if data.pop(_key(token), None) is None:
             return False
@@ -135,7 +184,7 @@ def revoke_user(user_id: str, keep: "str | None" = None) -> int:
     """Sign `user_id` out everywhere — except the session `keep`, when given
     (the device that just changed its own password stays signed in)."""
     keep_k = _key(keep) if keep else None
-    with _lock:
+    with _locked():
         data = _load()
         gone = [k for k, r in data.items() if r["user_id"] == user_id and k != keep_k]
         for k in gone:
