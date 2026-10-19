@@ -237,6 +237,7 @@ def _ios_features():
             "order": int(re.search(r"order:\s*(\d+)", chunk).group(1)),
             "pinned": "pinned: true" in chunk,
             "default_visible": "defaultVisible: false" not in chunk,
+            "per_device": "perDevice: true" in chunk,
         }
     return out
 
@@ -255,7 +256,11 @@ def test_the_ios_registry_declares_the_same_features():
         assert declared["label"] == f.label, name
         assert declared["icon"] == f.icon, name
         assert declared["pinned"] == f.pinned, name
-        assert declared["default_visible"] == f.default_visible, name
+        # A per-device tab (Jude: a tab here, its own app on the Mac) is the
+        # phone's own choice, so its default may differ; every other one is
+        # one switch shared by both machines and must start the same.
+        if not declared["per_device"]:
+            assert declared["default_visible"] == f.default_visible, name
 
 
 def test_the_phone_never_offers_a_pinned_feature_as_a_toggle():
@@ -367,3 +372,29 @@ def test_the_visibility_merge_has_no_suspension_point_in_its_critical_section():
     assert not between, (
         "an await sits between reading the visibility map and writing it back: "
         f"{between} — a toggle made during the fetch can now be clobbered")
+
+
+
+def test_jude_is_a_tab_on_the_phone_and_its_switch_is_the_phones():
+    """Gil, 2026-10-19: "Why doesnt ios app show jude as option on the ios its a
+    tab … and on macos its two seperate apps". It was off by default, and the
+    shared visibility map let the Mac's own Jude switch (its sidebar row; Jude
+    is a separate app there) hide the phone's tab."""
+    from tests.unit._ios_sources import ios_source
+    jude = _ios_features()["jude"]
+    assert jude["default_visible"] and jude["per_device"]
+    swift = ios_source("FeatureRegistry.swift")
+    refresh = swift[swift.index("    func refresh(api: APIClient) async {"):]
+    assert "!feature.perDevice" in refresh.split("\n    }\n", 1)[0]     # never adopted
+    setter = swift[swift.index("    func set(_ feature: Feature"):].split("\n    }\n", 1)[0]
+    assert setter.index("if feature.perDevice { return }") < setter.index("setFeatureVisible")
+    # an old value adopted from the Mac is dropped once, so the default applies
+    assert 'stored.removeValue(forKey: feature.name)' in swift
+
+
+def test_ranker_is_offered_on_a_phone_with_no_mac():
+    """It ranks on the phone (DEVQA Q90), so "This phone only" keeps it."""
+    from tests.unit._ios_sources import ios_source
+    swift = ios_source("FeatureRegistry.swift")
+    ranker = swift.split('Feature(name: "ranker"', 1)[1].split("Feature(name:", 1)[0]
+    assert "needsMac: true" not in ranker
