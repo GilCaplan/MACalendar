@@ -8,6 +8,11 @@
   on by default with a Mac paired; a value adopted before is dropped once.
   Every other tab stays one shared switch. Same change: Ranker no longer
   hides on a phone with no Mac — it ranks on the phone (Q90).
+  Then, with a screenshot of a Tabs page listing four tabs: *"it doesnt
+  even give jude as an option in the first place"* — the phone was on "This
+  phone only", where tabs that need a Mac were dropped from Settings without
+  a word. They now show there greyed, with "Needs your Mac — Settings ▸ How
+  it runs ▸ Mac + phone."
 
 - **2026-10-12 — Q92 (RANKER KEEPS PAST SEARCHES; REAL DATA STAYS OFF GITHUB)**,
   Gil: *"My real data … shouldn't be uploaded to GitHub, but you can upload it

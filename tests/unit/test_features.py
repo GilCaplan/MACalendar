@@ -398,3 +398,17 @@ def test_ranker_is_offered_on_a_phone_with_no_mac():
     swift = ios_source("FeatureRegistry.swift")
     ranker = swift.split('Feature(name: "ranker"', 1)[1].split("Feature(name:", 1)[0]
     assert "needsMac: true" not in ranker
+
+
+
+def test_on_this_phone_only_the_mac_tabs_are_shown_greyed_not_hidden():
+    """Gil, 2026-10-19, on a phone set to "This phone only": "it doesnt even
+    give jude as an option in the first place". The Tabs page dropped every
+    tab that needs a Mac without a word; now they show, disabled, with how to
+    get them."""
+    from tests.unit._ios_sources import ios_source
+    page = ios_source("SettingsView.swift").split("private var tabsPage: some View {", 1)[1]
+    page = page.split("\n    private var ", 1)[0]
+    assert "if FeatureRegistry.phoneOnly {" in page
+    assert "$0.needsMac && !$0.pinned" in page and ".disabled(true)" in page
+    assert "How it runs" in page
