@@ -43,3 +43,28 @@ def test_a_reload_before_the_mac_answers_does_not_bring_the_row_back():
 def test_the_cache_can_archive_and_remove():
     for fn in ("setTimerArchived", "setCounterArchived", "removeTimer", "removeCounter"):
         assert f"func {fn}(" in STORE and "persist()" in _func(STORE, f"func {fn}(")
+
+
+CLIENT = ios_source("APIClient.swift")
+
+
+def test_a_timer_made_without_the_mac_is_on_the_tab_at_once():
+    """Gil, 2026-10-19: "I also made a new timer and it didn't save on tab".
+    The create was queued but never shown — and on "This phone only" the queue
+    never replays, so it never appeared at all."""
+    for fn, insert, cache in (("createTimer", "insertTimer", "cacheTimers"),
+                              ("createCounter", "insertCounter", "cacheCounters")):
+        body = _func(CLIENT, f"func {fn}(")
+        offline = body.split("catch APIError.offline, APIError.badURL {", 1)[1]
+        assert f"LocalStore.shared.{insert}(" in offline, fn
+        assert '"_temp_id": local.id' in offline, fn            # the replay can remap it
+        assert f"LocalStore.shared.{cache}(" in body, fn         # online: shown before the reload
+
+
+def test_the_placeholder_becomes_the_macs_row_and_never_a_twin():
+    remap = _func(STORE, "func remapTemporaryID(")
+    for rows in ("timers", "counters"):
+        assert f"{rows}.contains(where: {{ $0.id == realID }})" in remap, rows
+        assert f"{rows}.removeAll {{ $0.id == tempID }}" in remap, rows
+    # placeholders survive a restart without colliding
+    assert "timers.map { $0.id }" in STORE.split("let negIDs", 1)[1][:200]

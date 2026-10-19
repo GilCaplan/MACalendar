@@ -1911,8 +1911,29 @@ class APIClient: ObservableObject {
         // Stamped here, not at the call site: a token added by whoever builds
         // the dictionary is a token somebody eventually forgets.
         let body = body.merging(["client_token": UUID().uuidString]) { a, _ in a }
-        do { _ = try await mutate("/timers", method: "POST", body: body); return true }
-        catch { announceRefusal(error, doing: "add that timer"); return false }
+        do {
+            let data = try await request("/timers", method: "POST", body: body)
+            // On the tab straight away, not only after the next reload.
+            if let t = try? JSONDecoder().decode(WorkTimer.self, from: data) {
+                LocalStore.shared.cacheTimers([t])
+            }
+            return true
+        } catch APIError.offline, APIError.badURL {
+            // Not sent: shown here under a placeholder until the Mac takes it.
+            // Before, it was queued but never shown — and on a phone with no
+            // Mac the queue never replays, so the timer never appeared.
+            let local = LocalStore.shared.insertTimer(
+                title: (body["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Untitled Timer",
+                hourlyRate: body["hourly_rate"] as? Double ?? 0,
+                color: body["color"] as? String ?? "#1a6fc4",
+                currency: body["currency"] as? String ?? "ILS",
+                maxSessionMinutes: body["max_session_minutes"] as? Int ?? 0)
+            LocalStore.shared.enqueue(method: "POST", path: "/timers",
+                                      body: body.merging(["_temp_id": local.id]) { a, _ in a })
+            return true
+        } catch {
+            announceRefusal(error, doing: "add that timer"); return false
+        }
     }
     func updateTimer(_ id: Int, _ body: [String: Any]) async { await mutateOrTell("/timers/\(id)", method: "PATCH", body: body) }
     func deleteTimer(_ id: Int) async { await mutateOrTell("/timers/\(id)", method: "DELETE") }
@@ -1977,8 +1998,24 @@ class APIClient: ObservableObject {
     @discardableResult
     func createCounter(_ body: [String: Any]) async -> Bool {
         let body = body.merging(["client_token": UUID().uuidString]) { a, _ in a }
-        do { _ = try await mutate("/counters", method: "POST", body: body); return true }
-        catch { announceRefusal(error, doing: "add that counter"); return false }
+        do {
+            let data = try await request("/counters", method: "POST", body: body)
+            if let c = try? JSONDecoder().decode(TallyCounter.self, from: data) {
+                LocalStore.shared.cacheCounters([c])
+            }
+            return true
+        } catch APIError.offline, APIError.badURL {
+            let local = LocalStore.shared.insertCounter(
+                title: (body["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Untitled Counter",
+                pricePerUnit: body["price_per_unit"] as? Double ?? 0,
+                currency: body["currency"] as? String ?? "ILS",
+                color: body["color"] as? String ?? "#1a6fc4")
+            LocalStore.shared.enqueue(method: "POST", path: "/counters",
+                                      body: body.merging(["_temp_id": local.id]) { a, _ in a })
+            return true
+        } catch {
+            announceRefusal(error, doing: "add that counter"); return false
+        }
     }
     func updateCounter(_ id: Int, _ body: [String: Any]) async { await mutateOrTell("/counters/\(id)", method: "PATCH", body: body) }
     func deleteCounter(_ id: Int) async { await mutateOrTell("/counters/\(id)", method: "DELETE") }
