@@ -1,3 +1,19 @@
+- **2026-10-19 — Q93 (JUDE IS A TAB ON THE PHONE, ITS OWN APP ON THE MAC)**,
+  Gil: *"Why doesnt ios app show jude as option on the ios its a tab (code
+  exists) and on macos its two seperate apps"*. Two causes: the phone's tab
+  shipped off, and tab visibility is ONE map the phone adopts from the Mac —
+  where `features.jude` is the Mac's own sidebar row, off because Jude runs
+  as a separate app there. Now the phone's Jude switch is per-device
+  (`Feature.perDevice`: never adopted from `GET /features`, never pushed) and
+  on by default with a Mac paired; a value adopted before is dropped once.
+  Every other tab stays one shared switch. Same change: Ranker no longer
+  hides on a phone with no Mac — it ranks on the phone (Q90).
+  Then, with a screenshot of a Tabs page listing four tabs: *"it doesnt
+  even give jude as an option in the first place"* — the phone was on "This
+  phone only", where tabs that need a Mac were dropped from Settings without
+  a word. They now show there greyed, with "Needs your Mac — Settings ▸ How
+  it runs ▸ Mac + phone."
+
 - **2026-10-12 — Q92 (RANKER KEEPS PAST SEARCHES; REAL DATA STAYS OFF GITHUB)**,
   Gil: *"My real data … shouldn't be uploaded to GitHub, but you can upload it
   to the phone app. That should be there. And should make it easy to archive,
