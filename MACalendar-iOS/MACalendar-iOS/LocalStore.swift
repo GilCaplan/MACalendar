@@ -438,6 +438,33 @@ class LocalStore: ObservableObject {
         persist()
     }
 
+    /// Archive / unarchive or delete in the cache at the tap, like the start
+    /// and the press above. They used to wait for the Mac's answer and a full
+    /// reload, which over the tailnet is seconds, and with the Mac away the
+    /// row never moved at all while the write sat in the queue (Gil,
+    /// 2026-10-19: "Archive on timer tab either slow or not working").
+    func setTimerArchived(_ id: Int, _ archived: Bool) {
+        guard let i = timers.firstIndex(where: { $0.id == id }) else { return }
+        timers[i].archived = archived ? 1 : 0
+        persist()
+    }
+
+    func setCounterArchived(_ id: Int, _ archived: Bool) {
+        guard let i = counters.firstIndex(where: { $0.id == id }) else { return }
+        counters[i].archived = archived ? 1 : 0
+        persist()
+    }
+
+    func removeTimer(_ id: Int) {
+        timers.removeAll { $0.id == id }
+        persist()
+    }
+
+    func removeCounter(_ id: Int) {
+        counters.removeAll { $0.id == id }
+        persist()
+    }
+
     func allTimers(includeArchived: Bool = false) -> [WorkTimer] {
         includeArchived ? timers : timers.filter { $0.archived == 0 }
     }
