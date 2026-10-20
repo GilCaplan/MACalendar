@@ -275,7 +275,8 @@ class LocalStore: ObservableObject {
         pending  = (try? d.decode([PendingChange].self, from: Data(contentsOf: url("mc_pending.json"))))  ?? []
         pendingCount = pending.count
         // Prevent temp-ID collisions after a restart: start below the lowest existing negative ID.
-        let negIDs = events.map { $0.id }.filter { $0 < 0 } + todos.map { $0.id }.filter { $0 < 0 }
+        let negIDs = (events.map { $0.id } + todos.map { $0.id } + timers.map { $0.id }
+                      + counters.map { $0.id }).filter { $0 < 0 }
         nextTemp = (negIDs.min().map { $0 - 1 }) ?? -1
         sweepLive(atLaunch: true)
         loadVoice()
@@ -390,14 +391,14 @@ class LocalStore: ObservableObject {
     /// do nothing. Merging by id keeps an archived row once it has been seen,
     /// and the fresh copy still wins for anything in this answer.
     func cacheTimers(_ fresh: [WorkTimer]) {
-        var byID = Dictionary(uniqueKeysWithValues: timers.map { ($0.id, $0) })
+        var byID = Dictionary(timers.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         for t in fresh { byID[t.id] = t }
         timers = byID.values.sorted { $0.id < $1.id }
         persist()
     }
 
     func cacheCounters(_ fresh: [TallyCounter]) {
-        var byID = Dictionary(uniqueKeysWithValues: counters.map { ($0.id, $0) })
+        var byID = Dictionary(counters.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         for c in fresh { byID[c.id] = c }
         counters = byID.values.sorted { $0.id < $1.id }
         persist()
@@ -437,6 +438,59 @@ class LocalStore: ObservableObject {
         timers[i].todaySeconds += elapsed
         timers[i].sessionCount += 1
         timers[i].earnings = ((timers[i].totalSeconds / 3600) * timers[i].hourlyRate * 100).rounded() / 100
+        persist()
+    }
+
+    /// Archive / unarchive or delete in the cache at the tap, like the start
+    /// and the press above. They used to wait for the Mac's answer and a full
+    /// reload, which over the tailnet is seconds, and with the Mac away the
+    /// row never moved at all while the write sat in the queue (Gil,
+    /// 2026-10-19: "Archive on timer tab either slow or not working").
+    /// A timer made while the Mac cannot hear, under a placeholder id, so it
+    /// is on the tab at once — and on a phone with no Mac at all, ever (Gil,
+    /// 2026-10-19: "I also made a new timer and it didn't save on tab"). The
+    /// queued create carries the placeholder as `_temp_id`, and the Mac's id
+    /// replaces it when it replays (`remapTemporaryID`).
+    func insertTimer(title: String, hourlyRate: Double, color: String, currency: String,
+                     maxSessionMinutes: Int) -> WorkTimer {
+        let t = WorkTimer(id: nextTemp, title: title, hourlyRate: hourlyRate, color: color,
+                          currency: currency, timerType: "work", maxSessionMinutes: maxSessionMinutes,
+                          archived: 0, running: nil, totalSeconds: 0, todaySeconds: 0,
+                          sessionCount: 0, earnings: 0)
+        nextTemp -= 1
+        timers.append(t)
+        persist()
+        return t
+    }
+
+    func insertCounter(title: String, pricePerUnit: Double, currency: String, color: String) -> TallyCounter {
+        let c = TallyCounter(id: nextTemp, title: title, pricePerUnit: pricePerUnit, currency: currency,
+                             color: color, archived: 0, count: 0, totalCount: 0, todayCount: 0, payout: 0)
+        nextTemp -= 1
+        counters.append(c)
+        persist()
+        return c
+    }
+
+    func setTimerArchived(_ id: Int, _ archived: Bool) {
+        guard let i = timers.firstIndex(where: { $0.id == id }) else { return }
+        timers[i].archived = archived ? 1 : 0
+        persist()
+    }
+
+    func setCounterArchived(_ id: Int, _ archived: Bool) {
+        guard let i = counters.firstIndex(where: { $0.id == id }) else { return }
+        counters[i].archived = archived ? 1 : 0
+        persist()
+    }
+
+    func removeTimer(_ id: Int) {
+        timers.removeAll { $0.id == id }
+        persist()
+    }
+
+    func removeCounter(_ id: Int) {
+        counters.removeAll { $0.id == id }
         persist()
     }
 
@@ -1387,6 +1441,19 @@ class LocalStore: ObservableObject {
         }
         for (i, t) in todos.enumerated() where t.id == tempID { todos[i].id = realID }
         for (i, e) in events.enumerated() where e.id == tempID { events[i].id = realID }
+        // Timers and counters made offline. A fetch can land the Mac's row
+        // before this runs; then the placeholder simply goes, so one id is
+        // never held by two rows.
+        if timers.contains(where: { $0.id == realID }) {
+            timers.removeAll { $0.id == tempID }
+        } else {
+            for (i, t) in timers.enumerated() where t.id == tempID { timers[i].id = realID }
+        }
+        if counters.contains(where: { $0.id == realID }) {
+            counters.removeAll { $0.id == tempID }
+        } else {
+            for (i, c) in counters.enumerated() where c.id == tempID { counters[i].id = realID }
+        }
         // Coursework keeps its own cache and mints its own placeholders, and
         // nothing else knows about `mc_courses.json` — so it has to be told.
         // Without this a course created offline kept its placeholder for ever:
