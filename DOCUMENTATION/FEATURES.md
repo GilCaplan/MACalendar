@@ -1140,6 +1140,18 @@ key, and the server translates Jude's SSE into the NDJSON every client already
 renders for `/voice/stream`, so Jude's own port never leaves the machine and no
 client learns a second protocol.
 
+**History and follow-ups** (Gil, 2026-10-20). Every turn is kept in
+`jude_chats.db` on the Mac (`assistant/jude/history.py`, per user, outside the
+checkout) whatever wrote the answer, so History reopens a conversation with its
+answers and sources on the phone and in the Mac window, and you keep chatting
+in it. A follow-up is answered **from the conversation's own sources** with no
+new search (`followup.py` on the Mac; on the phone when it writes the answer);
+"Search for new sources" (phone) / "New search" (Mac) asks Jude afresh.
+The phone keeps its own copy of the list and of every chat it has opened
+(`JudeCache` in `JudeClient.swift`, in the user's `LocalStore` folder), so
+History opens at the tap and refreshes behind it; an unreachable Mac is a line
+above the composer, never a screen over the conversation.
+
 **Answered on the phone** (Gil, 2026-10-11, option A). The composer's
 "Answer on" switch (Mac / iPhone, per device, Mac by default) lets the phone
 write the answer with Apple's on-device model. The library cannot move

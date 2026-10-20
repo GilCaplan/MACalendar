@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
-    QHBoxLayout, QLabel, QPushButton, QSizePolicy, QSlider, QTextEdit,
+    QCheckBox, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QSlider, QTextEdit,
     QVBoxLayout, QWidget,
 )
 
@@ -90,6 +90,14 @@ class Composer(QWidget):
         self._k.valueChanged.connect(lambda v: self._k_value.setText(str(v)))
         k_lay.addWidget(self._k_value)
         controls.addWidget(self._k_group)
+        # A follow-up is answered from this conversation's sources
+        # (`assistant/jude/followup.py`); this asks for fresh ones, once.
+        self._new_search = QCheckBox("New search")
+        self._new_search.setToolTip("Off: a follow-up uses the sources already found. "
+                                    "On: search again for this question.")
+        self._new_search.setStyleSheet(f"color:{theme.text2}; font-size:11px;")
+        self._new_search.setEnabled(False)
+        controls.addWidget(self._new_search)
         controls.addStretch(1)
 
         self._lang_buttons = {}
@@ -142,6 +150,19 @@ class Composer(QWidget):
             button.setProperty("active", "true" if key == self._lang else "false")
             button.style().unpolish(button)
             button.style().polish(button)
+
+    @property
+    def new_search(self) -> bool:
+        return self._new_search.isChecked()
+
+    def set_follow_up(self, open_chat: bool) -> None:
+        """Only a conversation has sources to follow up on; a new chat searches."""
+        self._new_search.setEnabled(open_chat)
+        if not open_chat:
+            self._new_search.setChecked(False)
+
+    def clear_new_search(self) -> None:
+        self._new_search.setChecked(False)
 
     def set_top_k_visible(self, visible: bool) -> None:
         """Sources mode ignores it — the count comes from the router's source

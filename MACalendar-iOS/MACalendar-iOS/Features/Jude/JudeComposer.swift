@@ -12,6 +12,10 @@ struct JudeComposer: View {
     @Binding var mode: String
     @Binding var lang: String
     @Binding var topK: Double
+    /// Follow-ups use this conversation's sources; this asks for fresh ones.
+    @Binding var newSearch: Bool
+    /// A chat with sources is open, so there is something to follow up on.
+    let canFollowUp: Bool
     let isBusy: Bool
     let onSend: () -> Void
 
@@ -39,6 +43,16 @@ struct JudeComposer: View {
             .disabled(isBusy)
 
             options
+
+            if canFollowUp && mode != "sources" {
+                Toggle(isOn: $newSearch) {
+                    Text(newSearch ? "Search for new sources" : "Follow up on these sources")
+                        .font(.caption)
+                }
+                .tint(settings.accentColor)
+                .disabled(isBusy)
+                .accessibilityIdentifier("jude-new-search")
+            }
 
             disclaimerRow
 
@@ -107,6 +121,7 @@ struct JudeComposer: View {
     }
 
     private var placeholder: String {
+        if canFollowUp && !newSearch && mode != "sources" { return "Ask a follow-up…" }
         switch mode {
         case "study": return "A sugya or topic to study…"
         case "sources": return "What to find sources on…"

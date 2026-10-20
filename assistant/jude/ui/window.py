@@ -198,6 +198,7 @@ class JudeWindow(QMainWindow):
     def new_chat(self) -> None:
         self._stream.abort()
         self._chat_id = None
+        self._composer.set_follow_up(False)
         self._meta = {}
         self._title.setText("Ask Jude")
         self._badge.hide()
@@ -209,6 +210,7 @@ class JudeWindow(QMainWindow):
     def _open_chat(self, chat_id: str, title: str) -> None:
         self._stream.abort()          # its tokens must not land in this history
         self._chat_id = chat_id
+        self._composer.set_follow_up(True)
         self._title.setText(title or "Conversation")
         self._badge.hide()
         self._sidebar.set_active(chat_id)
@@ -262,7 +264,9 @@ class JudeWindow(QMainWindow):
         self._stream.ask(self._config, prompt=prompt, chat_id=self._chat_id,
                          mode=self._sidebar.mode, lang=self._composer.lang,
                          top_k=self._composer.top_k,
-                         skip_clarification=skip_clarification)
+                         skip_clarification=skip_clarification,
+                         search=self._composer.new_search)
+        self._composer.clear_new_search()
 
     def _set_busy(self, busy: bool) -> None:
         self._busy = busy
@@ -288,6 +292,8 @@ class JudeWindow(QMainWindow):
         new_chat = not self._chat_id and meta.get("chat_id")
         if meta.get("chat_id"):
             self._chat_id = meta["chat_id"]
+        if meta.get("sources"):
+            self._composer.set_follow_up(True)        # now there is something to follow up on
         if new_chat:
             self._title.setText(self._prompt[:55])
             self._reload_chats()

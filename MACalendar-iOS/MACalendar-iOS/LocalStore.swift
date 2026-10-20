@@ -198,7 +198,9 @@ class LocalStore: ObservableObject {
     /// Where this person's offline copy lives: `Documents/users/<id>/` once
     /// someone has signed in (DEVQA Q65 — each person's calendar is their own,
     /// on a shared phone too), the top of `Documents/` before users existed.
-    private var dir: URL = LocalStore.folder(for: LocalStore.storedUserID())
+    /// This user's folder. Readable so a surface with its own files (Jude's
+    /// History copy) keeps them per user too, and switches with `switchUser`.
+    private(set) var dir: URL = LocalStore.folder(for: LocalStore.storedUserID())
 
     private init() { load() }
 

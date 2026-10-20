@@ -98,8 +98,14 @@ serve.
 
 ```json
 {"prompt":"…","chat_id":null,"mode":"qa|study|sources",
- "lang":"en|he","top_k":25,"skip_clarification":false}
+ "lang":"en|he","top_k":25,"skip_clarification":false,"search":false}
 ```
+
+`search` matters only for a follow-up: in a chat whose turns found sources,
+the question is answered **from those sources and the conversation**, with no
+new search (`followup.py`, one model call through `model_protocol.route_post`,
+Jude's own model). `search: true` sends it to Jude as a fresh ask. The stream
+is in Jude's own event shapes, with `meta.mode` = `"followup"`.
 
 | event | payload | client must |
 |---|---|---|
@@ -125,9 +131,20 @@ Mishnah → Talmud → Rambam → Shulchan Arukh) and are cited first.
 
 A **step** (for the trace): `{module, duration_ms, result{…}}`.
 
-**Other routes.** `GET /jude/chats` → `[{id, title, mode, created_at, user}]`.
-`GET /jude/chats/<id>/history` → `[{role, content, …}]`.
+**Other routes.** `GET /jude/chats` → `[{id, title, mode, created_at, updated_at?}]`.
+`GET /jude/chats/<id>/history` → `[{role, content, sources?, kind?, by?}]`.
+`POST /jude/chats/<id>/answer` `{question, answer}` — an answer the phone wrote.
 `DELETE /jude/chats/<id>`. `PUT /jude/chats/<id>/topic` `{topic}`.
+
+**History is kept on our side** (`history.py`, `jude_chats.db` per user in
+`~/.assistant_tools`, override `MACALENDAR_JUDE_CHATS`; 2026-10-20). Jude saves
+a turn only when it wrote the answer and its stream ran to the end, so a
+clarification, a `sources` request — how the phone asks when it writes the
+answer itself — or a cut stream left a titled chat with no messages, and
+History opened onto an empty page. Now `/jude/chat` records every turn as it
+streams past (tokens, `meta` sources, a clarification's question), the phone
+posts the answers it writes, and both routes above read our store first —
+Jude's own list and history are the fallback for chats from before it.
 
 **Sefaria links.** Strip surrounding brackets; split off the trailing section;
 `Book Name` → `Book_Name`, `1:2:3` → `1.2.3`, giving

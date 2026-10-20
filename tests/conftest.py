@@ -145,7 +145,11 @@ for _var, _name in (("MACALENDAR_DB", "calendar.db"),
                     # store would reschedule your exam prep.
                     ("MACALENDAR_FLASHCARDS", "flashcards.db"),
                     # the Ranker tab's own file.
-                    ("MACALENDAR_RANKER", "ranker.json")):
+                    ("MACALENDAR_RANKER", "ranker.json"),
+                    # Jude's conversations (2026-10-20): what you asked it and
+                    # what it answered — a suite recording turns into the real
+                    # store would put test questions in your History.
+                    ("MACALENDAR_JUDE_CHATS", "jude_chats.db")):
     _os.environ.setdefault(_var, _os.path.join(_SCRATCH, _name))
 
 # config.yaml is WRITTEN, not just read: `PATCH /features/<name>` persists tab
