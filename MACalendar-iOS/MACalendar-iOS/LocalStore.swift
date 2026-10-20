@@ -454,6 +454,22 @@ class LocalStore: ObservableObject {
     /// every total from the presses it holds. Its answer is the one that
     /// lands. `payout` is derived here the same way the Mac derives it
     /// (`count × price_per_unit`) so the two agree while offline.
+    /// Archive (or unarchive) in the cache, so the row leaves the list at the
+    /// tap. Offline, the PATCH only queued and the cached copy still said
+    /// `archived: 0`, so the reload drew the row straight back — archiving
+    /// looked broken until the Mac was reached.
+    func setArchived(timer id: Int, _ archived: Int) {
+        guard let i = timers.firstIndex(where: { $0.id == id }) else { return }
+        timers[i].archived = archived
+        persist()
+    }
+
+    func setArchived(counter id: Int, _ archived: Int) {
+        guard let i = counters.firstIndex(where: { $0.id == id }) else { return }
+        counters[i].archived = archived
+        persist()
+    }
+
     func bumpCounter(_ id: Int, delta: Int) {
         guard let i = counters.firstIndex(where: { $0.id == id }) else { return }
         counters[i].count += delta

@@ -1914,7 +1914,10 @@ class APIClient: ObservableObject {
         do { _ = try await mutate("/timers", method: "POST", body: body); return true }
         catch { announceRefusal(error, doing: "add that timer"); return false }
     }
-    func updateTimer(_ id: Int, _ body: [String: Any]) async { await mutateOrTell("/timers/\(id)", method: "PATCH", body: body) }
+    func updateTimer(_ id: Int, _ body: [String: Any]) async {
+        if let a = body["archived"] as? Int { LocalStore.shared.setArchived(timer: id, a) }
+        await mutateOrTell("/timers/\(id)", method: "PATCH", body: body)
+    }
     func deleteTimer(_ id: Int) async { await mutateOrTell("/timers/\(id)", method: "DELETE") }
 
     // The clock's instants come from the PHONE, not from `now()` on the Mac.
@@ -1980,7 +1983,10 @@ class APIClient: ObservableObject {
         do { _ = try await mutate("/counters", method: "POST", body: body); return true }
         catch { announceRefusal(error, doing: "add that counter"); return false }
     }
-    func updateCounter(_ id: Int, _ body: [String: Any]) async { await mutateOrTell("/counters/\(id)", method: "PATCH", body: body) }
+    func updateCounter(_ id: Int, _ body: [String: Any]) async {
+        if let a = body["archived"] as? Int { LocalStore.shared.setArchived(counter: id, a) }
+        await mutateOrTell("/counters/\(id)", method: "PATCH", body: body)
+    }
     func deleteCounter(_ id: Int) async { await mutateOrTell("/counters/\(id)", method: "DELETE") }
 
     /// A tap, carrying the moment it happened: a counter's `today_count` is

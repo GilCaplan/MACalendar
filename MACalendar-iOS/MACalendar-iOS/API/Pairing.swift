@@ -78,6 +78,10 @@ final class PairingCenter: ObservableObject {
         let moved = base != api.base
         settings.serverURL = base
         if !link.key.isEmpty { settings.apiKey = link.key }
+        // Pairing IS choosing the Mac. Setting only `serverEnabled` left a
+        // phone that began "on this iPhone" still `phoneOnly`, which hides
+        // every tab that needs the Mac (Jude) — paired, reachable, and stuck.
+        settings.phoneOnly = false
         settings.serverEnabled = true
         if !link.code.isEmpty {
             if let err = await api.pair(code: link.code) {
