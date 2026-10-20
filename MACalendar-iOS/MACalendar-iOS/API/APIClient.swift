@@ -1915,8 +1915,17 @@ class APIClient: ObservableObject {
         catch { announceRefusal(error, doing: "add that timer"); return false }
     }
     func updateTimer(_ id: Int, _ body: [String: Any]) async {
-        if let a = body["archived"] as? Int { LocalStore.shared.setArchived(timer: id, a) }
-        await mutateOrTell("/timers/\(id)", method: "PATCH", body: body)
+        // Archive at the tap (offline the PATCH only queues), and undo it if
+        // the Mac answers NO — else the row is drawn in the wrong list for good.
+        guard let a = body["archived"] as? Int else {
+            return await mutateOrTell("/timers/\(id)", method: "PATCH", body: body)
+        }
+        LocalStore.shared.setArchived(timer: id, a)
+        do { _ = try await mutate("/timers/\(id)", method: "PATCH", body: body) }
+        catch {
+            LocalStore.shared.setArchived(timer: id, a == 1 ? 0 : 1)
+            announceRefusal(error, doing: "PATCH /timers/\(id)")
+        }
     }
     func deleteTimer(_ id: Int) async { await mutateOrTell("/timers/\(id)", method: "DELETE") }
 
@@ -1984,8 +1993,17 @@ class APIClient: ObservableObject {
         catch { announceRefusal(error, doing: "add that counter"); return false }
     }
     func updateCounter(_ id: Int, _ body: [String: Any]) async {
-        if let a = body["archived"] as? Int { LocalStore.shared.setArchived(counter: id, a) }
-        await mutateOrTell("/counters/\(id)", method: "PATCH", body: body)
+        // Archive at the tap (offline the PATCH only queues), and undo it if
+        // the Mac answers NO — else the row is drawn in the wrong list for good.
+        guard let a = body["archived"] as? Int else {
+            return await mutateOrTell("/counters/\(id)", method: "PATCH", body: body)
+        }
+        LocalStore.shared.setArchived(counter: id, a)
+        do { _ = try await mutate("/counters/\(id)", method: "PATCH", body: body) }
+        catch {
+            LocalStore.shared.setArchived(counter: id, a == 1 ? 0 : 1)
+            announceRefusal(error, doing: "PATCH /counters/\(id)")
+        }
     }
     func deleteCounter(_ id: Int) async { await mutateOrTell("/counters/\(id)", method: "DELETE") }
 

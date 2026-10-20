@@ -36,8 +36,17 @@ class AppSettings: ObservableObject {
     /// queued exactly as it is when the Mac is asleep — the difference is that
     /// this is a CHOICE, so the app stops probing, stops waiting, and stops
     /// reporting an unreachable Mac as a problem.
+    ///
+    /// Turning it ON leaves "this phone only": connecting a Mac — the Settings
+    /// switch, a typed address, pairing — is choosing one. Only `phoneOnly`
+    /// was ever cleared by the How-it-runs picker, so a phone that began "on
+    /// this iPhone" and was connected any other way stayed phone-only: Jude
+    /// hidden, every command read locally, the Mac reachable and unused.
     @Published var serverEnabled: Bool {
-        didSet { UserDefaults.standard.set(serverEnabled, forKey: "serverEnabled") }
+        didSet {
+            UserDefaults.standard.set(serverEnabled, forKey: "serverEnabled")
+            if serverEnabled && phoneOnly { phoneOnly = false }
+        }
     }
 
     @Published var serverURL: String {
