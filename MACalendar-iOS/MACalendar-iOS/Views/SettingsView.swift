@@ -759,6 +759,23 @@ struct SettingsView: View {
                                 }
                                 .accessibilityIdentifier("feature-toggle-\(feature.name)")
                             }
+                            // On "This phone only" the tabs that need a Mac are
+                            // not offered — shown greyed with why, so they do not
+                            // simply vanish (Gil, 2026-10-19: "it doesnt even give
+                            // jude as an option in the first place").
+                            if FeatureRegistry.phoneOnly {
+                                ForEach(FeatureRegistry.all.filter { $0.needsMac && !$0.pinned }) { feature in
+                                    Toggle(isOn: .constant(false)) {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("Show \(feature.label) Tab")
+                                            Text("Needs your Mac — Settings ▸ How it runs ▸ Mac + phone.")
+                                                .font(.caption).foregroundColor(.secondary)
+                                        }
+                                    }
+                                    .disabled(true)
+                                    .accessibilityIdentifier("feature-needs-mac-\(feature.name)")
+                                }
+                            }
                             // The Mac refusing a change is not the same as the
                             // Mac being away: a switch that springs back with no
                             // explanation reads as a bug, so its sentence shows.

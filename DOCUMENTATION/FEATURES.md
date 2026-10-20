@@ -1116,8 +1116,11 @@ checkout is found and started (`integration.py`), the `/jude/*` blueprint
 (`routes.py`), the standalone Mac app (`app.py` + `ui/`, 📖 in the calendar
 toolbar, `Jude.app` built by `build_app.sh`), and the map
 (`ARCHITECTURE.md`, which also carries the wire contract both clients build
-against). The iOS tab is `MACalendar-iOS/MACalendar-iOS/Features/Jude/` (Settings, off
-by default). Config: `jude:` in config.yaml.
+against). The iOS tab is `MACalendar-iOS/MACalendar-iOS/Features/Jude/` — ON by
+default with a Mac paired, and its switch is the phone's alone (`perDevice`,
+DEVQA Q93): on the Mac Jude is its own app, so the Mac's `features.jude` (its
+sidebar row, off by default) is never copied to the phone. Config: `jude:` in
+config.yaml.
 **How:** It is the first **integration** — an external app this assistant
 hosts, gates and proxies without absorbing it. The generic half is
 `assistant/integrations/` (`CONVENTION.md` is how to add another).

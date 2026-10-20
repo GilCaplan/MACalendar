@@ -56,6 +56,14 @@ struct Feature: Identifiable {
     /// Q85) it is neither shown nor offered — a tab that can only say "needs
     /// your Mac" is not a feature there.
     let needsMac: Bool
+    /// This phone's own choice, never the Mac's: not adopted from `GET
+    /// /features` and not pushed to it. Jude is a tab here and a separate app
+    /// on the Mac (Gil, 2026-10-19: "on the ios its a tab … and on macos its
+    /// two seperate apps"), so the Mac's `features.jude` — whether its own
+    /// sidebar shows Jude — says nothing about whether this phone wants it,
+    /// and adopting it is what kept the tab hidden. Its default may differ
+    /// from the Mac's for the same reason.
+    let perDevice: Bool
     /// The tab's content. `AnyView` because the seven have nothing in common
     /// but being views, and the shell must not learn which is which.
     let make: () -> AnyView
@@ -64,7 +72,8 @@ struct Feature: Identifiable {
 
     init(name: String, label: String, icon: String, order: Int,
          pinned: Bool = false, defaultVisible: Bool = true,
-         note: String? = nil, needsMac: Bool = false, make: @escaping () -> AnyView) {
+         note: String? = nil, needsMac: Bool = false, perDevice: Bool = false,
+         make: @escaping () -> AnyView) {
         self.name = name
         self.label = label
         self.icon = icon
@@ -73,6 +82,7 @@ struct Feature: Identifiable {
         self.defaultVisible = defaultVisible
         self.note = note
         self.needsMac = needsMac
+        self.perDevice = perDevice
         self.make = make
     }
 }
@@ -103,22 +113,22 @@ enum FeatureRegistry {
         Feature(name: "timer", label: "Timer", icon: "timer",
                 order: 40,
                 make: { AnyView(TimerView()) }),
-        // Ranking runs on the Mac (one reader for HTML/CSV, one recipe engine);
-        // the phone picks the files and shows the answer.
+        // Ranks on the phone itself (DEVQA Q90); the Mac only syncs.
         Feature(name: "ranker", label: "Ranker", icon: "list.number",
-                order: 45, needsMac: true,
+                order: 45,
                 make: { AnyView(RankerView()) }),
         Feature(name: "teach", label: "Teach", icon: "brain.head.profile",
                 order: 50, needsMac: true,
                 make: { AnyView(LabelGameView()) }),
-        // Off by default: Jude is a separate repository that has to be cloned
-        // on the Mac, and a tab that can only say "not installed" is not a
-        // feature. assistant/jude/ARCHITECTURE.md.
+        // A tab on the phone, ON by default with a Mac paired; on the Mac it
+        // is a separate app, so its switch is this phone's alone (perDevice).
+        // The tab says how to install Jude on the Mac if it isn't.
+        // assistant/jude/ARCHITECTURE.md.
         Feature(name: "jude", label: "Jude", icon: "books.vertical",
-                order: 60, defaultVisible: false,
+                order: 60,
                 note: "Ask about Torah, Talmud and halacha. Needs Jude "
                     + "installed on your Mac — the tab says how if it isn't.",
-                needsMac: true,
+                needsMac: true, perDevice: true,
                 make: { AnyView(JudeView()) }),
         // The admin's dashboard, or a person's own account page (DEVQA Q65).
         // A Settings switch like the others; hiding it hides no control —
@@ -186,6 +196,17 @@ final class FeatureVisibility: ObservableObject {
                 stored[feature.name] = legacy
             }
         }
+        // A per-device feature's stored value may be one adopted from the
+        // Mac before it was per-device (Jude, hidden by the Mac's own switch
+        // for its sidebar): dropped once, so the phone's default applies and
+        // the switch is the phone's from then on.
+        for feature in FeatureRegistry.all where feature.perDevice {
+            let key = "featurePerDevice." + feature.name
+            if !UserDefaults.standard.bool(forKey: key) {
+                stored.removeValue(forKey: feature.name)
+                UserDefaults.standard.set(true, forKey: key)
+            }
+        }
         map = stored
         persist()
     }
@@ -231,6 +252,7 @@ final class FeatureVisibility: ObservableObject {
         map[feature.name] = on
         persist()
         lastRefusal = nil
+        if feature.perDevice { return }          // this phone's choice only
         Task { [weak self] in
             do {
                 _ = try await api.setFeatureVisible(feature.name, on)
@@ -282,7 +304,7 @@ final class FeatureVisibility: ObservableObject {
 
         for manifest in manifests where !waiting.contains(manifest.name) {
             guard let feature = FeatureRegistry.get(manifest.name),
-                  !feature.pinned else { continue }
+                  !feature.pinned, !feature.perDevice else { continue }
             if manifest.explicit {
                 updated[manifest.name] = manifest.visible
             } else if let mine = map[manifest.name], mine != manifest.visible {
