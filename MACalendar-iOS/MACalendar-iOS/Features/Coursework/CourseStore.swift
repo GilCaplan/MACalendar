@@ -54,15 +54,18 @@ class CourseStore: ObservableObject {
 
     // MARK: - Cache (called after successful API fetch)
 
+    /// Placeholders the answer does not already hold. Offline, `api.courses()`
+    /// answers FROM this store — placeholders included — so keeping every
+    /// placeholder on top doubled each one on every refresh (2026-10-21 audit).
     func cacheCourses(_ fresh: [Course]) {
-        let local = courses.filter { $0.id < 0 }
-        courses = local + fresh
+        let ids = Set(fresh.map(\.id))
+        courses = courses.filter { $0.id < 0 && !ids.contains($0.id) } + fresh
         persist()
     }
 
     func cacheAllAssignments(_ fresh: [Assignment]) {
-        let local = assignments.filter { $0.id < 0 }
-        assignments = local + fresh
+        let ids = Set(fresh.map(\.id))
+        assignments = assignments.filter { $0.id < 0 && !ids.contains($0.id) } + fresh
         persist()
     }
 
