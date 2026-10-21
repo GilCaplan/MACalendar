@@ -2,6 +2,8 @@ import SwiftUI
 
 struct DayView: View {
     var date: Date
+    /// Bumped by every load(); only the newest one's answer is drawn.
+    @State private var loadGeneration = 0
     @EnvironmentObject var api: APIClient
     @EnvironmentObject var settings: AppSettings
     @State private var events: [CalendarEvent] = []
@@ -178,6 +180,9 @@ struct DayView: View {
             .onChange(of: settings.hoursFrom) { _ in proxy.scrollTo("top", anchor: .top) }
             .onAppear {
                 proxy.scrollTo("top", anchor: .top)
+                // The phone's copy first: the day used to stay empty until
+                // the network answered, on every first appear.
+                events = LocalStore.shared.eventsForDate(DateFormatter.isoDay.string(from: date))
                 load()
             }
             .onChange(of: date) { _ in
@@ -214,10 +219,16 @@ struct DayView: View {
 
     private func load() {
         let targetDate = date          // capture before entering the Task
+        loadGeneration += 1
+        let mine = loadGeneration
         Task {
-            let fresh = (try? await api.eventsForDay(targetDate)) ?? []
-            // Guard against a stale response overwriting a newer date's events.
-            if date == targetDate {
+            let fresh = (try? await api.eventsForDay(targetDate))
+                ?? LocalStore.shared.eventsForDate(DateFormatter.isoDay.string(from: targetDate))
+            // Only the newest load draws. `date == targetDate` could not guard
+            // this: `date` is a plain property of the struct copy that started
+            // the Task, so it always equalled targetDate and a slow answer for
+            // an earlier day overwrote the day on screen.
+            if mine == loadGeneration {
                 events = fresh
             }
         }

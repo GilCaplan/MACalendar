@@ -855,7 +855,7 @@ class APIClient: ObservableObject {
 
         let store = LocalStore.shared
         store.cacheEvents(snap.events, from: snap.window.start, to: snap.window.end)
-        store.cacheTodos(snap.todos)
+        store.cacheTodos(snap.todos, list: nil, includesCompleted: false)   // the bootstrap sends open ones
         store.cacheTags(snap.tags)
         store.cacheHolidays(snap.holidays, from: snap.window.start, to: snap.window.end)
         if let holy = snap.holyWindows { store.cacheHolyWindows(holy) }
@@ -1002,7 +1002,8 @@ class APIClient: ObservableObject {
         do {
             let data  = try await request("/todos?list=\(list)&include_completed=\(includeCompleted)")
             let items = try decode([Todo].self, from: data)
-            LocalStore.shared.cacheTodos(items)
+            LocalStore.shared.cacheTodos(items, list: list == "all" ? nil : list,
+                                         includesCompleted: includeCompleted)
             return items
         } catch APIError.offline, APIError.badURL {
             let l = list == "all" ? nil : list

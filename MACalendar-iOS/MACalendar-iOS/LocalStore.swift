@@ -1008,10 +1008,21 @@ class LocalStore: ObservableObject {
 
     // MARK: - Todos
 
-    func cacheTodos(_ fresh: [Todo]) {
+    /// `list` (nil = every list) and `includesCompleted` say what the fetch
+    /// could have returned; only cached rows inside that are settled by it.
+    /// Replacing everything meant a fetch without completed tasks wiped them
+    /// all from the phone's copy, and one list's fetch wiped the others.
+    func cacheTodos(_ fresh: [Todo], list: String? = nil, includesCompleted: Bool = true) {
         let arrived = Set(fresh.map { "\($0.title)|\($0.list)" })
         let local = todos.filter { $0.id < 0 && !arrived.contains("\($0.title)|\($0.list)") }
-        todos = local + fresh
+        let outside = todos.filter {
+            $0.id > 0 && ((list != nil && $0.list != list) || (!includesCompleted && $0.completed != 0))
+        }
+        // A row with an edit still queued keeps the phone's version until replay.
+        let mine = Dictionary(todos.filter { $0.id > 0 && hasQueuedWrite("/todos", $0.id) }.map { ($0.id, $0) },
+                              uniquingKeysWith: { a, _ in a })
+        let freshIDs = Set(fresh.map(\.id))
+        todos = local + outside.filter { !freshIDs.contains($0.id) } + fresh.map { mine[$0.id] ?? $0 }
         persist()
     }
 
