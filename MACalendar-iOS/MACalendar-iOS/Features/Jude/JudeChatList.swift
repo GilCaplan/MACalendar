@@ -19,9 +19,9 @@ struct JudeChatList: View {
     @EnvironmentObject var settings: AppSettings
     @Environment(\.dismiss) private var dismiss
 
-    @State private var chats: [JudeChatSummary] = JudeCache.chats()
+    @State private var chats: [JudeChatSummary] = []
     /// Only when there is no copy to show — a refresh behind a list is silent.
-    @State private var loading = JudeCache.chats().isEmpty
+    @State private var loading = true
 
     var body: some View {
         StackNavigation {
@@ -48,6 +48,13 @@ struct JudeChatList: View {
                         .accessibilityLabel("New conversation")
                 }
             }
+        }
+        // The copy once, as the sheet appears — not in the property
+        // initialisers, which SwiftUI runs on every rebuild of this struct
+        // (two disk reads and decodes each time the parent re-rendered).
+        .onAppear {
+            if chats.isEmpty { chats = JudeCache.chats() }
+            loading = chats.isEmpty
         }
         .task { await reload() }
     }

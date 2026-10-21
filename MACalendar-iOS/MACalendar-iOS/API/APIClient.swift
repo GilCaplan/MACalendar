@@ -342,6 +342,29 @@ class APIClient: ObservableObject {
     ///
     /// `tests/unit/test_ios_offline.py` fails the build for a mutating request
     /// that goes around this without a stated reason.
+    /// A GET that remembers its last answer — for a screen with no store of
+    /// its own (timer sessions, counter presses and payouts, Vocabulary,
+    /// Lexicon, Event colours, Tips, Review). With the Mac away, the last
+    /// answer comes back instead of an error page or "No words yet" (Gil,
+    /// 2026-10-21: "everything that is historically there should be there").
+    /// Kept per person, beside the calendar's copy; only "not answered" falls
+    /// back — a Mac that answered and refused is still an error.
+    func rememberedGET(_ path: String) async throws -> Data {
+        let name = String(path.map { $0.isLetter || $0.isNumber ? $0 : "_" }) + ".json"
+        let file = LocalStore.shared.featureFolder("answers").appendingPathComponent(name)
+        do {
+            let data = try await request(path)
+            try? data.write(to: file, options: .atomic)
+            return data
+        } catch APIError.offline(let why) {
+            if let kept = try? Data(contentsOf: file) { return kept }
+            throw APIError.offline(why)
+        } catch APIError.badURL {
+            if let kept = try? Data(contentsOf: file) { return kept }
+            throw APIError.badURL
+        }
+    }
+
     @discardableResult
     func mutate(_ path: String, method: String, body: [String: Any]? = nil) async throws -> Data? {
         do {
@@ -855,7 +878,7 @@ class APIClient: ObservableObject {
 
         let store = LocalStore.shared
         store.cacheEvents(snap.events, from: snap.window.start, to: snap.window.end)
-        store.cacheTodos(snap.todos)
+        store.cacheTodos(snap.todos, list: nil, includesCompleted: false)   // the bootstrap sends open ones
         store.cacheTags(snap.tags)
         store.cacheHolidays(snap.holidays, from: snap.window.start, to: snap.window.end)
         if let holy = snap.holyWindows { store.cacheHolyWindows(holy) }
@@ -1002,7 +1025,8 @@ class APIClient: ObservableObject {
         do {
             let data  = try await request("/todos?list=\(list)&include_completed=\(includeCompleted)")
             let items = try decode([Todo].self, from: data)
-            LocalStore.shared.cacheTodos(items)
+            LocalStore.shared.cacheTodos(items, list: list == "all" ? nil : list,
+                                         includesCompleted: includeCompleted)
             return items
         } catch APIError.offline, APIError.badURL {
             let l = list == "all" ? nil : list
@@ -1843,7 +1867,7 @@ class APIClient: ObservableObject {
     }
 
     func vocab() async throws -> VocabState {
-        try decode(VocabState.self, from: try await request("/vocab"))
+        try decode(VocabState.self, from: try await rememberedGET("/vocab"))
     }
 
     // The vocabulary is hand-curated and irreplaceable — nothing regenerates a
@@ -1920,7 +1944,7 @@ class APIClient: ObservableObject {
 
     /// The phrasing tips (Settings → Assistant → How to Talk to Me).
     func tips() async throws -> TipsPayload {
-        try decode(TipsPayload.self, from: try await request("/tips"))
+        try decode(TipsPayload.self, from: try await rememberedGET("/tips"))
     }
 
     /// Word packs only, onboarding left as it is (Settings ▸ Occasions'
@@ -1946,7 +1970,7 @@ class APIClient: ObservableObject {
     // MARK: - Command memory feedback
 
     func unreviewedCommands(limit: Int = 30) async throws -> [MemoryExample] {
-        try decode(UnreviewedResponse.self, from: try await request("/memory/unreviewed?limit=\(limit)")).examples
+        try decode(UnreviewedResponse.self, from: try await rememberedGET("/memory/unreviewed?limit=\(limit)")).examples
     }
 
     func unreviewedCount() async -> Int {
@@ -2053,7 +2077,7 @@ class APIClient: ObservableObject {
                            body: ["end_time": Self.stamp(now)])
     }
     func timerSessions(_ id: Int) async throws -> [TimerSession] {
-        try decode(TimerSessionsResponse.self, from: try await request("/timers/\(id)/sessions")).sessions
+        try decode(TimerSessionsResponse.self, from: try await rememberedGET("/timers/\(id)/sessions")).sessions
     }
     func deleteTimerSession(_ id: Int) async { await mutateOrTell("/timer_sessions/\(id)", method: "DELETE") }
 
@@ -2129,7 +2153,7 @@ class APIClient: ObservableObject {
     /// Every tap on this counter, newest first. The server has served this
     /// since counters existed; nothing on the phone asked for it.
     func counterPresses(_ id: Int) async -> [CounterPress] {
-        guard let data = try? await request("/counters/\(id)/presses"),
+        guard let data = try? await rememberedGET("/counters/\(id)/presses"),
               let r = try? JSONDecoder().decode(CounterPressesResponse.self, from: data)
         else { return [] }
         return r.presses
@@ -2137,7 +2161,7 @@ class APIClient: ObservableObject {
 
     /// Every cash-out on this counter.
     func counterPayouts(_ id: Int) async -> [CounterPayout] {
-        guard let data = try? await request("/counters/\(id)/payouts"),
+        guard let data = try? await rememberedGET("/counters/\(id)/payouts"),
               let r = try? JSONDecoder().decode(CounterPayoutsResponse.self, from: data)
         else { return [] }
         return r.payouts
@@ -2327,7 +2351,7 @@ class APIClient: ObservableObject {
     // MARK: - Event categories
 
     func categories() async throws -> [EventCategory] {
-        let cats = try decode(CategoriesResponse.self, from: try await request("/categories")).categories
+        let cats = try decode(CategoriesResponse.self, from: try await rememberedGET("/categories")).categories
         // Each category's own default length rides along; cache it for the
         // event editor (DEVQA Q51).
         EventDefaults.remember(categories: cats)
@@ -2577,7 +2601,7 @@ extension APIClient {
 
     /// The editable word lists, with what the code ships and what you added.
     func lexicon() async throws -> LexiconState {
-        try decode(LexiconState.self, from: try await request("/lexicon"))
+        try decode(LexiconState.self, from: try await rememberedGET("/lexicon"))
     }
 
     /// Add one of your own words. Additive only — the Mac refuses to remove a

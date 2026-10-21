@@ -30,7 +30,8 @@ final class FlashcardStore: ObservableObject {
     /// Why the last refresh got nothing — shown when there is no cache to draw.
     @Published private(set) var unreachableReason: String?
 
-    private let root: URL
+    /// This person's `flashcards/` folder, not the shared top of Documents.
+    private var root: URL { LocalStore.shared.featureFolder("flashcards") }
     private var images: [String: UIImage] = [:]
 
     /// Placeholder ids below every other store's (LocalStore counts down from
@@ -40,11 +41,10 @@ final class FlashcardStore: ObservableObject {
     private var nextTemp = tempBase - 1
 
     private init() {
-        root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("flashcards", isDirectory: true)
-        try? FileManager.default.createDirectory(at: root.appendingPathComponent("sets"),
-                                                 withIntermediateDirectories: true)
         load()
+        NotificationCenter.default.addObserver(forName: .localStoreUserChanged, object: nil, queue: .main) { _ in
+            Task { @MainActor in FlashcardStore.shared.load() }
+        }
     }
 
     // MARK: - Disk
@@ -56,6 +56,11 @@ final class FlashcardStore: ObservableObject {
     }
 
     private func load() {
+        try? FileManager.default.createDirectory(at: root.appendingPathComponent("sets"),
+                                                 withIntermediateDirectories: true)
+        // From scratch: on a change of user nothing of the last person's may stay.
+        subjects = []
+        sets = [:]
         let d = JSONDecoder()
         if let data = try? Data(contentsOf: libraryURL),
            let lib = try? d.decode([FlashSubject].self, from: data) {

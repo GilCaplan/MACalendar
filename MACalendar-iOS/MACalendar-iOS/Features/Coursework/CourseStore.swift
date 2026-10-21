@@ -17,8 +17,9 @@ class CourseStore: ObservableObject {
     @Published private(set) var courses:     [Course]    = []
     @Published private(set) var assignments: [Assignment] = []
 
-    private let dir = FileManager.default
-        .urls(for: .documentDirectory, in: .userDomainMask)[0]
+    /// This person's folder (`LocalStore.featureFolder`), not the shared top of
+    /// Documents. The file names are unchanged.
+    private var dir: URL { LocalStore.shared.dir }
 
     /// Placeholder ids live BELOW LocalStore's, never among them.
     ///
@@ -30,7 +31,12 @@ class CourseStore: ObservableObject {
     private static let tempBase = -1_000_000
     private var nextTemp = tempBase - 1
 
-    private init() { load() }
+    private init() {
+        load()
+        NotificationCenter.default.addObserver(forName: .localStoreUserChanged, object: nil, queue: .main) { _ in
+            Task { @MainActor in CourseStore.shared.load() }
+        }
+    }
 
     private func url(_ name: String) -> URL { dir.appendingPathComponent(name) }
 

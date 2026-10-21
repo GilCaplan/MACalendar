@@ -202,7 +202,57 @@ class LocalStore: ObservableObject {
     /// History copy) keeps them per user too, and switches with `switchUser`.
     private(set) var dir: URL = LocalStore.folder(for: LocalStore.storedUserID())
 
-    private init() { load() }
+    private init() {
+        load()
+        claimFeatureFilesIfOwner()
+    }
+
+    /// A tab that keeps its own files (Coursework, Workout, Flashcards,
+    /// Ranker) keeps them HERE, in this person's folder, and reloads on
+    /// `.localStoreUserChanged`. They used to sit at the top of Documents,
+    /// shared by everyone who signed in on the phone — a second person saw
+    /// the first one's courses, workouts and flashcards (2026-10-21 audit).
+    func featureFolder(_ name: String) -> URL {
+        let f = dir.appendingPathComponent(name, isDirectory: true)
+        try? FileManager.default.createDirectory(at: f, withIntermediateDirectories: true)
+        return f
+    }
+
+    /// The feature stores' files from before they were per user. Only the
+    /// person who owns the phone's old cache (the admin who claimed it) takes
+    /// them, as with the calendar's own files.
+    private static let legacyFeatureItems = ["flashcards", "ranker", "mc_courses.json",
+                                             "mc_assignments.json", "wo_exercises.json",
+                                             "wo_templates.json", "wo_sessions.json", "wo_live.json"]
+
+    /// Once, for the person already signed in when this shipped: `switchUser`
+    /// only claims on a CHANGE of user, and the owner is not changing.
+    private func claimFeatureFilesIfOwner() {
+        guard let me = Self.storedUserID(), !me.isEmpty,
+              UserDefaults.standard.string(forKey: "macalendar.cache_owner") == me else { return }
+        Self.claimLegacyFeatureFiles(into: dir)
+    }
+
+    /// Move each item in; a FILE replaces an older copy already there (the
+    /// calendar's claim moved mc_courses.json in once, and the store kept
+    /// writing the top-level one after), a folder never overwrites one.
+    private static func claimLegacyFeatureFiles(into target: URL) {
+        let fm = FileManager.default
+        for name in legacyFeatureItems {
+            let src = documents.appendingPathComponent(name)
+            let dst = target.appendingPathComponent(name)
+            var isDir: ObjCBool = false
+            guard fm.fileExists(atPath: src.path, isDirectory: &isDir) else { continue }
+            if fm.fileExists(atPath: dst.path) {
+                guard !isDir.boolValue,
+                      let s = (try? fm.attributesOfItem(atPath: src.path))?[.modificationDate] as? Date,
+                      let d = (try? fm.attributesOfItem(atPath: dst.path))?[.modificationDate] as? Date,
+                      s > d else { continue }
+                try? fm.removeItem(at: dst)
+            }
+            try? fm.moveItem(at: src, to: dst)
+        }
+    }
 
     private static var documents: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -238,11 +288,13 @@ class LocalStore: ObservableObject {
             let owner = UserDefaults.standard.string(forKey: "macalendar.cache_owner")
             if owner == nil || owner == userID {
                 Self.claimLegacyCache(into: target)
+                Self.claimLegacyFeatureFiles(into: target)
                 UserDefaults.standard.set(userID, forKey: "macalendar.cache_owner")
             }
         }
         dir = target
         load()
+        NotificationCenter.default.post(name: .localStoreUserChanged, object: nil)
     }
 
     /// Move the pre-users cache files from the top of Documents into `target`
@@ -308,10 +360,20 @@ class LocalStore: ObservableObject {
     ///   round trip. A burst of taps now collapses into one write instead of
     ///   one per tap.
     func persist() {
-        pendingCount = pending.count
-        try? JSONEncoder().encode(pending).write(to: url("mc_pending.json"))
+        // Only on a change: `pendingCount` is @Published (every subscriber
+        // re-renders on a write, equal or not), and most persists — a cache
+        // refresh, a tick — leave the queue exactly as it was.
+        if pendingCount != pending.count { pendingCount = pending.count }
+        if let data = try? JSONEncoder().encode(pending), data != lastPendingWritten {
+            try? data.write(to: url("mc_pending.json"), options: .atomic)
+            lastPendingWritten = data
+        }
         scheduleCacheWrite()
     }
+
+    /// What `mc_pending.json` holds now, so an unchanged queue is not
+    /// rewritten on the main thread by every persist.
+    private var lastPendingWritten: Data?
 
     /// Coalesce the caches into a single write, shortly, somewhere else.
     ///
@@ -348,16 +410,19 @@ class LocalStore: ObservableObject {
         let counters: [TallyCounter]
         let dir: URL
 
+        /// Atomic: the background write and `flushCachesNow` (on the app going
+        /// to the background) can overlap, and two writers on one plain file
+        /// could leave it torn — a cache that decodes as nothing next launch.
         func write() {
             let e = JSONEncoder()
-            try? e.encode(events).write(to:   dir.appendingPathComponent("mc_events.json"))
-            try? e.encode(todos).write(to:    dir.appendingPathComponent("mc_todos.json"))
-            try? e.encode(tags).write(to:     dir.appendingPathComponent("mc_tags.json"))
-            try? e.encode(holidays).write(to: dir.appendingPathComponent("mc_holidays.json"))
-            try? e.encode(holy).write(to:     dir.appendingPathComponent("mc_holy_windows.json"))
-            try? e.encode(digests).write(to:  dir.appendingPathComponent("mc_digests.json"))
-            try? e.encode(timers).write(to:   dir.appendingPathComponent("mc_timers.json"))
-            try? e.encode(counters).write(to: dir.appendingPathComponent("mc_counters.json"))
+            try? e.encode(events).write(to:   dir.appendingPathComponent("mc_events.json"), options: .atomic)
+            try? e.encode(todos).write(to:    dir.appendingPathComponent("mc_todos.json"), options: .atomic)
+            try? e.encode(tags).write(to:     dir.appendingPathComponent("mc_tags.json"), options: .atomic)
+            try? e.encode(holidays).write(to: dir.appendingPathComponent("mc_holidays.json"), options: .atomic)
+            try? e.encode(holy).write(to:     dir.appendingPathComponent("mc_holy_windows.json"), options: .atomic)
+            try? e.encode(digests).write(to:  dir.appendingPathComponent("mc_digests.json"), options: .atomic)
+            try? e.encode(timers).write(to:   dir.appendingPathComponent("mc_timers.json"), options: .atomic)
+            try? e.encode(counters).write(to: dir.appendingPathComponent("mc_counters.json"), options: .atomic)
         }
     }
 
@@ -956,10 +1021,21 @@ class LocalStore: ObservableObject {
 
     // MARK: - Todos
 
-    func cacheTodos(_ fresh: [Todo]) {
+    /// `list` (nil = every list) and `includesCompleted` say what the fetch
+    /// could have returned; only cached rows inside that are settled by it.
+    /// Replacing everything meant a fetch without completed tasks wiped them
+    /// all from the phone's copy, and one list's fetch wiped the others.
+    func cacheTodos(_ fresh: [Todo], list: String? = nil, includesCompleted: Bool = true) {
         let arrived = Set(fresh.map { "\($0.title)|\($0.list)" })
         let local = todos.filter { $0.id < 0 && !arrived.contains("\($0.title)|\($0.list)") }
-        todos = local + fresh
+        let outside = todos.filter {
+            $0.id > 0 && ((list != nil && $0.list != list) || (!includesCompleted && $0.completed != 0))
+        }
+        // A row with an edit still queued keeps the phone's version until replay.
+        let mine = Dictionary(todos.filter { $0.id > 0 && hasQueuedWrite("/todos", $0.id) }.map { ($0.id, $0) },
+                              uniquingKeysWith: { a, _ in a })
+        let freshIDs = Set(fresh.map(\.id))
+        todos = local + outside.filter { !freshIDs.contains($0.id) } + fresh.map { mine[$0.id] ?? $0 }
         persist()
     }
 
@@ -1542,4 +1618,11 @@ extension DateFormatter {
         f.dateFormat = "HH:mm"
         return f
     }()
+}
+
+
+extension Notification.Name {
+    /// Posted after `LocalStore.switchUser`: a feature store reloads from the
+    /// new person's folder.
+    static let localStoreUserChanged = Notification.Name("LocalStore.userChanged")
 }
