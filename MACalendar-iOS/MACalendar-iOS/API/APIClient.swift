@@ -105,6 +105,10 @@ class APIClient: ObservableObject {
     private var offlineBackoff: TimeInterval = 0
     private static let probePaths: Set<String> = ["/health", "/changes"]
     private static let maxBackoff: TimeInterval = 20
+    /// For a route where the Mac thinks before answering — a voice command
+    /// (an LLM parse can take a minute behind a busy model), a retrain, an
+    /// import. The voice uploads already allowed 120 s; typed commands got 5.
+    static let thinkingTimeout: TimeInterval = 120
 
     /// Whether the Mac was reachable when this app last ran.
     ///
@@ -142,6 +146,41 @@ class APIClient: ObservableObject {
         offlineBackoff = min(max(2, offlineBackoff * 2), Self.maxBackoff)
         offlineUntil = Date().addingTimeInterval(offlineBackoff)
         UserDefaults.standard.set(false, forKey: Self.reachableKey)
+    }
+
+    /// The Mac answered. ONE place for it: the voice and Jude streams used to
+    /// set `isOnline` themselves and skip both halves of coming back.
+    ///
+    /// On the way back from offline, the parked writes go FIRST and the tabs
+    /// refresh after. Refreshing first drew the Mac's old rows over edits
+    /// still in the queue — they snapped back, then forward again on replay.
+    func markReachable() {
+        noteReachable()
+        guard !isOnline else { return }
+        isOnline = true
+        Task { [weak self] in
+            guard let self else { return }
+            _ = await self.syncPending()
+            await self.syncPendingVoice()
+            self.requestRefresh()
+        }
+    }
+
+    /// The Mac could not be reached — a transport failure, not an answer.
+    func markUnreachable(_ reason: String) {
+        noteUnreachable()
+        if isOnline { isOnline = false }
+        if lastError != reason { lastError = reason }
+    }
+
+    /// Not a fact about the Mac: the CALLER went away. A SwiftUI `.task`
+    /// cancelled because its view left (a sheet closed, a row scrolled off, a
+    /// debounced field typed into) throws this from URLSession, and counting
+    /// it as "unreachable" flashed the offline banner, armed the breaker and
+    /// set off a full reload storm when the next poll flipped it back (Gil,
+    /// 2026-10-21: "it shouldn't be flashing").
+    static func isCancellation(_ error: Error) -> Bool {
+        error is CancellationError || (error as? URLError)?.code == .cancelled
     }
 
     /// Start where we left off. Called once, from `init`.
@@ -183,8 +222,12 @@ class APIClient: ObservableObject {
         return url
     }
 
+    /// `timeout` is for a route where the Mac THINKS before answering (a
+    /// voice command, a retrain, an import): five seconds is the right leash
+    /// for "is the Mac there", and the wrong one for "has it finished". A
+    /// long request that times out says nothing about reachability.
     func request(_ path: String, method: String = "GET",
-                 body: [String: Any]? = nil) async throws -> Data {
+                 body: [String: Any]? = nil, timeout: TimeInterval? = nil) async throws -> Data {
         if PhonePreview.current != nil { throw APIError.offline("read on this phone; the Mac reads it too") }
         let isPlaceholder = base.contains("x.x.x") || base.contains("100.x")
         guard !base.isEmpty, !isPlaceholder, let url = URL(string: base + path) else {
@@ -220,7 +263,7 @@ class APIClient: ObservableObject {
            !["/auth/login", "/auth/me", "/health", "/devices/enroll", "/devices/pair"].contains(bare) {
             throw APIError.serverError("{\"error\": \"sign in first\", \"code\": 401}")
         }
-        var req = URLRequest(url: url, timeoutInterval: isOnline ? 5 : 3)
+        var req = URLRequest(url: url, timeoutInterval: timeout ?? (isOnline ? 5 : 3))
         req.httpMethod = method
         authorize(&req)
         if let body {
@@ -228,7 +271,15 @@ class APIClient: ObservableObject {
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
         }
         do {
-            let (data, resp) = try await URLSession.shared.data(for: req)
+            let (data, resp): (Data, URLResponse)
+            do {
+                (data, resp) = try await URLSession.shared.data(for: req)
+            } catch let e as URLError where e.code == .networkConnectionLost {
+                // -1005 is the radio changing hands (Wi-Fi to cellular, a
+                // tailnet re-key), not the Mac leaving: once more before
+                // believing it.
+                (data, resp) = try await URLSession.shared.data(for: req)
+            }
             guard let http = resp as? HTTPURLResponse,
                   (200...299).contains(http.statusCode) else {
                 let msg = String(data: data, encoding: .utf8) ?? "Unknown error"
@@ -239,31 +290,19 @@ class APIClient: ObservableObject {
                 }
                 throw APIError.serverError(msg)
             }
-            noteReachable()
-            // Only assign when it actually changes: these are @Published, so a
-            // redundant write still republishes and re-renders every subscriber.
-            // With /changes polled every 2 s, blind assignment meant a full
-            // re-render twice a second-and-a-half for as long as the Mac was away.
-            if !isOnline {
-                isOnline = true
-                requestRefresh()
-                // The Mac just came back. Flush anything parked while it was away
-                // now, rather than on the next 30 s tick — a command you spoke
-                // minutes ago should run the moment it can, not up to a minute later.
-                Task { [weak self] in
-                    _ = await self?.syncPending()
-                    await self?.syncPendingVoice()
-                }
-            }
+            markReachable()
             return data
         } catch let err as APIError {
             throw err
+        } catch where Self.isCancellation(error) {
+            throw CancellationError()
+        } catch let err as URLError where err.code == .timedOut && timeout != nil {
+            // A long request ran out of time: the Mac may be busy thinking,
+            // which is not the same as gone. The fast requests decide that.
+            throw APIError.offline(err.localizedDescription)
         } catch {
             // URLError / network unreachable — keep the real reason for Settings › Test Connection
-            noteUnreachable()
-            if isOnline { isOnline = false }
-            let reason = "\(url.absoluteString): \(error.localizedDescription)"
-            if lastError != reason { lastError = reason }
+            markUnreachable("\(url.absoluteString): \(error.localizedDescription)")
             throw APIError.offline(error.localizedDescription)
         }
     }
@@ -311,6 +350,7 @@ class APIClient: ObservableObject {
     /// of.
     func mutateOrTell(_ path: String, method: String, body: [String: Any]? = nil) async {
         do { _ = try await mutate(path, method: method, body: body) }
+        catch where Self.isCancellation(error) { return }
         catch { announceRefusal(error, doing: "\(method) \(path)") }
     }
 
@@ -321,6 +361,8 @@ class APIClient: ObservableObject {
     /// banner for a user who is looking at the app, a notification for one who
     /// is not — the same pair `syncPending` uses for a 409.
     func announceRefusal(_ error: Error, doing what: String) {
+        // A cancelled write was not refused — nobody said no.
+        if Self.isCancellation(error) { return }
         let sentence = (error as? APIError)?.serverSentence ?? error.localizedDescription
         lastError = "\(what): \(sentence)"
         lastRefusal = "Couldn't \(what) — \(sentence)"
@@ -649,7 +691,7 @@ class APIClient: ObservableObject {
     /// arrived — so this can legitimately report "kept the old one".
     func retrainLabels(kind: String = "event") async throws -> String {
         let data = try await request("/labels/retrain", method: "POST",
-                                     body: ["kind": kind])
+                                     body: ["kind": kind], timeout: Self.thinkingTimeout)
         let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let result = obj?["result"] as? [String: Any]
         if result == nil { return "Nothing new to learn from yet." }
@@ -1355,7 +1397,7 @@ class APIClient: ObservableObject {
            let obj = try? JSONSerialization.jsonObject(with: offlineReading) {
             body["offline_reading"] = obj
         }
-        let data = try await request("/voice/text", method: "POST", body: body)
+        let data = try await request("/voice/text", method: "POST", body: body, timeout: Self.thinkingTimeout)
         return try decode(VoiceResponse.self, from: data)
     }
 
@@ -1498,7 +1540,8 @@ class APIClient: ObservableObject {
     /// twice is safe, so a double-tapped Add creates once.
     func confirmCreate(token: String, accept: Bool) async throws -> ConfirmResponse {
         let data = try await request("/voice/confirm", method: "POST",
-                                     body: ["confirm_token": token, "accept": accept])
+                                     body: ["confirm_token": token, "accept": accept],
+                                     timeout: Self.thinkingTimeout)
         return try decode(ConfirmResponse.self, from: data)
     }
 
@@ -1554,7 +1597,7 @@ class APIClient: ObservableObject {
         req.httpBody = body
         do {
             let (data, resp) = try await URLSession.shared.data(for: req)
-            isOnline = true
+            markReachable()
             // The Mac answered — that alone doesn't mean the command ran; an
             // unhandled exception in the engine reaches here as a non-2xx,
             // non-JSON body (Flask's default error page), which would
@@ -1577,8 +1620,10 @@ class APIClient: ObservableObject {
             // is not proof the Mac is gone; leave `isOnline` alone and let the
             // small, fast requests decide reachability.
             throw APIError.offline(err.localizedDescription)
+        } catch where Self.isCancellation(error) {
+            throw CancellationError()
         } catch {
-            isOnline = false
+            markUnreachable(error.localizedDescription)
             throw APIError.offline(error.localizedDescription)
         }
     }
@@ -1668,7 +1713,7 @@ class APIClient: ObservableObject {
             guard let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
                 throw APIError.serverError("HTTP error")
             }
-            isOnline = true
+            markReachable()
             var final: VoiceResponse?
             for try await line in bytes.lines {
                 guard let data = line.data(using: .utf8),
@@ -1684,8 +1729,14 @@ class APIClient: ObservableObject {
             return final
         } catch let err as APIError {
             throw err
+        } catch where Self.isCancellation(error) {
+            throw CancellationError()
+        } catch let err as URLError where err.code == .timedOut {
+            // Same rule as sendAudio: a long command timing out is the Mac
+            // thinking, not the Mac gone.
+            throw APIError.offline(err.localizedDescription)
         } catch {
-            isOnline = false
+            markUnreachable(error.localizedDescription)
             throw APIError.offline(error.localizedDescription)
         }
     }
@@ -1823,7 +1874,7 @@ class APIClient: ObservableObject {
         if let text { body["text"] = text }
         if let source { body["source"] = source }
         if let names { body["names"] = names }
-        return try decode(VocabImportResult.self, from: try await request("/vocab/import", method: "POST", body: body)).candidates
+        return try decode(VocabImportResult.self, from: try await request("/vocab/import", method: "POST", body: body, timeout: Self.thinkingTimeout)).candidates
     }
 
     func vocabAddWords(_ words: [String]) async throws {
@@ -2287,7 +2338,7 @@ class APIClient: ObservableObject {
     }
 
     func recolorEvents(force: Bool) async -> Int? {
-        guard let data = try? await request("/categories/recolor" + (force ? "?force=1" : ""), method: "POST", body: [:]),
+        guard let data = try? await request("/categories/recolor" + (force ? "?force=1" : ""), method: "POST", body: [:], timeout: Self.thinkingTimeout),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         return obj["updated"] as? Int
     }

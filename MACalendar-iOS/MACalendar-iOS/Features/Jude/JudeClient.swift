@@ -147,8 +147,7 @@ extension APIClient {
                     as? [String: Any]
                 throw APIError.serverError((parsed?["error"] as? String) ?? detail)
             }
-            isOnline = true
-            noteReachable()
+            markReachable()
             let decoder = JSONDecoder()
             for try await line in bytes.lines {
                 guard !line.isEmpty, let data = line.data(using: .utf8),
@@ -158,13 +157,14 @@ extension APIClient {
             }
         } catch let err as APIError {
             throw err
+        } catch where Self.isCancellation(error) {
+            throw CancellationError()
         } catch {
             if answered {
                 throw APIError.serverError("Jude's answer stopped arriving — "
                                            + error.localizedDescription)
             }
-            isOnline = false
-            noteUnreachable()
+            markUnreachable(error.localizedDescription)
             throw APIError.offline(error.localizedDescription)
         }
     }
