@@ -166,6 +166,10 @@ struct LabelGameView: View {
     // MARK: - actions
 
     private func load() async {
+        // A batch still being worked through is kept: the tab used to fetch a
+        // new one every time it appeared — losing your place — and on a miss
+        // it replaced cards already on screen with the "unreachable" page.
+        if !items.isEmpty && index < items.count { return }
         loading = true; error = nil
         do {
             let batch = try await api.labelQueue(kind: "event", n: 20)
@@ -174,8 +178,12 @@ struct LabelGameView: View {
             remaining = batch.remaining
             labelledTotal = batch.labelled
             index = 0
+        } catch where APIClient.isCancellation(error) {
+            // The tab went away mid-load; nothing to say.
         } catch {
-            self.error = "Your Mac isn't reachable, so there's nothing to teach right now."
+            if items.isEmpty {
+                self.error = "Your Mac isn't reachable, so there's nothing to teach right now."
+            }
         }
         loading = false
     }

@@ -83,7 +83,7 @@ _TODO_MIGRATIONS = [
 #:
 #: `todos` is absent because it already has one. `events` has its own.
 _IDEMPOTENT_TABLES = ("courses", "assignments", "timers", "counters",
-                      "timer_sessions", "counter_presses")
+                      "timer_sessions", "counter_presses", "events")
 
 
 # Known tag names (so user-created tags persist even when no todo uses them).

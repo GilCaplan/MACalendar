@@ -389,7 +389,16 @@ struct CalendarTabView: View {
         Task { await loadMonth() }
     }
 
+    /// Bumped by every loadMonth(); only the newest one's answers are drawn.
+    @State private var monthLoadGeneration = 0
+
     private func loadMonth() async {
+        // One navigation starts several overlapping loads (an explicit Task
+        // plus onChange of the viewed date); only the newest may draw, or an
+        // older month's answer landing last overwrote the month on screen.
+        monthLoadGeneration += 1
+        let mine = monthLoadGeneration
+        func current() -> Bool { mine == monthLoadGeneration }
         let year  = Calendar.current.component(.year,  from: nav.viewedDate)
         let month = Calendar.current.component(.month, from: nav.viewedDate)
 
@@ -446,16 +455,21 @@ struct CalendarTabView: View {
         async let holyResult: [HolyWindow] = showHoly
             ? api.holyWindows(start: holyFrom, end: holyTo, israel: israel) : []
 
-        monthEvents = await eventsResult
+        let events = await eventsResult
+        guard current() else { return }
+        monthEvents = events
         loadingMonth = false
         // Occasions: the cache at once, then the Mac's answer (Q73). A week
         // either side, for the week view at a month's edge.
         monthOccasions = OccasionCache.shared.between(
             ISO8601DateFormatter.yyyyMMdd.string(from: holyFrom),
             ISO8601DateFormatter.yyyyMMdd.string(from: holyTo))
-        monthOccasions = await api.occasionBanners(start: holyFrom, end: holyTo)
-        if let p = await api.occasions() { countdowns = p.countdowns }
+        let banners = await api.occasionBanners(start: holyFrom, end: holyTo)
+        guard current() else { return }
+        monthOccasions = banners
+        if let p = await api.occasions(), current() { countdowns = p.countdowns }
         let fresh = await holidaysResult
+        guard current() else { return }
         // An empty answer from an unreachable Mac must not wipe the cached
         // list off the screen; showHolidays == false already cleared it above.
         if showHolidays == false || !fresh.isEmpty || monthHolidays.isEmpty {
@@ -464,7 +478,9 @@ struct CalendarTabView: View {
         // `holyWindows` already falls back to the cache itself, so its answer
         // is always the best there is — including [] when nothing is known,
         // which draws no line rather than a guessed one.
-        monthHolyWindows = showHoly ? await holyResult : []
+        let holy = showHoly ? await holyResult : []
+        guard current() else { return }
+        monthHolyWindows = holy
     }
 
     private func fetchHolidays(showHolidays: Bool, start: Date, end: Date, israel: Bool) async -> [Holiday] {

@@ -354,12 +354,24 @@ class AccountPanel(FeaturePanel):
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         root.addWidget(self._scroll)
-        self.reload()
+        self.reload(force=True)
 
     # -- the contract -----------------------------------------------------------
 
-    def reload(self) -> None:
-        """Rebuilt, not refreshed: who is signed in decides what the page is."""
+    def reload(self, force: bool = False) -> None:
+        """Rebuilt, not refreshed: who is signed in decides what the page is.
+
+        But only when something it SHOWS changed. The window calls every
+        panel's reload on each calendar-DB change (the phone ticking a task,
+        starting a timer), and this page — people, devices, you — replaced
+        itself wholesale each time: it flickered, lost its scroll position and
+        any half-typed field, for a change it does not display. Its own
+        buttons pass `force`.
+        """
+        sig = self._signature()
+        if not force and sig == getattr(self, "_built_for", None):
+            return
+        self._built_for = sig
         self.me = users.current()
         me = registry.get(self.me) if (self.me and registry.exists()) else None
         self.is_admin = bool(me and me.get("role") == "admin")
@@ -386,9 +398,25 @@ class AccountPanel(FeaturePanel):
         self._scroll.setWidget(page)
         self._attach_info()
 
+    @staticmethod
+    def _signature() -> str:
+        """What this page draws from: who is signed in, the user registry, and
+        the signed-in devices (`sessions.list_for`) — without `last_seen`,
+        which moves on every request and would rebuild as often as before."""
+        import json as _json
+        try:
+            reg = registry.load() if registry.exists() else {}
+        except Exception:                   # noqa: BLE001 — a bad read rebuilds, it does not crash
+            reg = {"unreadable": True}
+        try:
+            live = [{k: v for k, v in r.items() if k != "last_seen"} for r in sessions.list_for()]
+        except Exception:                   # noqa: BLE001
+            live = []
+        return _json.dumps([users.current(), reg, live], sort_keys=True, default=str)
+
     def apply_theme(self, dark: bool) -> None:
         self._dark = dark
-        self.reload()
+        self.reload(force=True)
 
     # -- the page ---------------------------------------------------------------
 

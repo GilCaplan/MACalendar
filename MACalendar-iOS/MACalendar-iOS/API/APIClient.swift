@@ -918,10 +918,21 @@ class APIClient: ObservableObject {
 
     func createEvent(_ fields: [String: Any]) async throws -> Int {
         burstRefresh(seconds: 10)
+        // Stamped once, so a replay of this create is recognised as the same
+        // one (POST /events is idempotent on it) rather than booked twice.
+        let fields = fields.merging(["client_token": UUID().uuidString]) { a, _ in a }
         do {
             let data = try await request("/events", method: "POST", body: fields)
             let obj  = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-            return obj?["id"] as? Int ?? 0
+            let id = obj?["id"] as? Int ?? 0
+            // Into the phone's copy now, under the Mac's id — the calendar
+            // used to repaint without it until the next GET landed.
+            // A series is the Mac's to expand into rows; only a one-off goes in.
+            if id > 0, ((fields["recurrence"] as? String) ?? "").isEmpty {
+                let local = LocalStore.shared.insertEvent(fields)
+                LocalStore.shared.remapTemporaryID(local.id, to: id)
+            }
+            return id
         } catch APIError.offline, APIError.badURL {
             let local = LocalStore.shared.insertEvent(fields)
             // Carry the placeholder id so syncPending can repoint anything queued
@@ -937,6 +948,7 @@ class APIClient: ObservableObject {
         burstRefresh(seconds: 10)
         do {
             _ = try await request("/events/\(id)", method: "PATCH", body: fields)
+            LocalStore.shared.patchEvent(id, fields: fields)   // the copy shows it now, not at the next GET
         } catch APIError.offline, APIError.badURL {
             LocalStore.shared.patchEvent(id, fields: fields)   // keep local cache current
             // Record which version this edit was made from. If the same event is
