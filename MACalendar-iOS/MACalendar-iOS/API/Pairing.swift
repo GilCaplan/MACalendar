@@ -76,11 +76,23 @@ final class PairingCenter: ObservableObject {
             return
         }
         let moved = base != api.base
+        // What to put back if the Mac refuses the code: a failed pairing must
+        // leave the phone as it was, not half-switched to a Mac it never
+        // enrolled with.
+        let before = (url: settings.serverURL, key: settings.apiKey,
+                      enabled: settings.serverEnabled, phoneOnly: settings.phoneOnly)
         settings.serverURL = base
         if !link.key.isEmpty { settings.apiKey = link.key }
+        // Pairing IS choosing the Mac — this also leaves "this phone only"
+        // (serverEnabled's didSet), which hid every needsMac tab (Jude) on a
+        // phone that began "on this iPhone" and was later paired.
         settings.serverEnabled = true
         if !link.code.isEmpty {
             if let err = await api.pair(code: link.code) {
+                settings.serverURL = before.url
+                settings.apiKey = before.key
+                settings.phoneOnly = before.phoneOnly
+                settings.serverEnabled = before.enabled
                 state = .failed(err)
                 return
             }

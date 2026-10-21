@@ -42,6 +42,9 @@ struct JudeStatus: Decodable, Equatable {
     var cloud: Bool = false
     var gated: Bool = false
     var priority: String = ""
+    /// True when this came FROM the Mac. A status the phone built itself says
+    /// the Mac could not be asked — a passing state, not a verdict on Jude.
+    var fromMac: Bool = false
 
     enum CodingKeys: String, CodingKey {
         case name, label, enabled, installed, running, ready, path, port
@@ -70,6 +73,7 @@ struct JudeStatus: Decodable, Equatable {
         cloud = flag(.cloud)
         gated = flag(.gated)
         priority = str(.priority)
+        fromMac = true
     }
 
     /// For the locally-built "your Mac isn't reachable" status.
@@ -86,6 +90,19 @@ struct JudeStatus: Decodable, Equatable {
 /// sources and every source links back to Sefaria, which is what makes an
 /// answer checkable rather than something to take on faith — so the phone
 /// shows them rather than just the prose.
+/// A source back in Jude's own key names — how the phone sends the sources a
+/// follow-up was answered from, so the Mac's History keeps them with it.
+extension JudeSource {
+    var wire: [String: Any] {
+        var d: [String: Any] = ["ref": ref, "book": book, "category": category,
+                                "en_text": enText, "he_text": heText]
+        if let score { d["score"] = score }
+        if let isPrimary { d["is_primary"] = isPrimary }
+        if !plannedCategory.isEmpty { d["planned_category"] = plannedCategory }
+        return d
+    }
+}
+
 struct JudeSource: Decodable, Identifiable {
     var ref: String
     var book: String = ""
@@ -438,15 +455,38 @@ struct JudeHistoryMessage: Decodable, Identifiable {
     var role: String = ""
     var content: String = ""
     var sources: [JudeSource] = []
+    /// "answer" · "clarification" · "followup", and "mac" · "phone" — sent by
+    /// the Mac's own history store; absent from chats only Jude kept.
+    var kind: String = ""
+    var by: String = ""
+    var mode: String = ""
+    /// A clarification Jude asked, with its options' prompts — so a reopened
+    /// chat can still be answered from the card. Absent for anything else.
+    var clarification: Clarification?
     let id = UUID()
 
-    enum CodingKeys: String, CodingKey { case role, content, sources }
+    struct Clarification: Decodable {
+        var question: String = ""
+        var options: [JudeClarificationOption] = []
+        enum CodingKeys: String, CodingKey { case question, options }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            question = (try? c.decode(String.self, forKey: .question)) ?? ""
+            options = (try? c.decode([JudeClarificationOption].self, forKey: .options)) ?? []
+        }
+    }
+
+    enum CodingKeys: String, CodingKey { case role, content, sources, kind, by, mode, clarification }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         role = (try? c.decode(String.self, forKey: .role)) ?? ""
         content = (try? c.decode(String.self, forKey: .content)) ?? ""
         sources = (try? c.decode([JudeSource].self, forKey: .sources)) ?? []
+        kind = (try? c.decode(String.self, forKey: .kind)) ?? ""
+        by = (try? c.decode(String.self, forKey: .by)) ?? ""
+        mode = (try? c.decode(String.self, forKey: .mode)) ?? ""
+        clarification = try? c.decode(Clarification.self, forKey: .clarification)
     }
 }
 

@@ -43,7 +43,8 @@ class ChatStream(QObject):
         self._generation = 0
 
     def ask(self, config, *, prompt: str, chat_id: "str | None", mode: str,
-            lang: str, top_k: int, skip_clarification: bool = False) -> None:
+            lang: str, top_k: int, skip_clarification: bool = False,
+            search: bool = False) -> None:
         self._generation += 1
         generation = self._generation
         body = {
@@ -53,6 +54,8 @@ class ChatStream(QObject):
             "lang": lang,
             "top_k": int(top_k),
             "skip_clarification": bool(skip_clarification),
+            "search": bool(search),
+            "source": "mac",            # a person at the Mac: live priority
         }
         threading.Thread(target=self._work, args=(config, body, generation),
                          daemon=True, name="jude-ask").start()

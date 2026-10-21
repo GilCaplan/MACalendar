@@ -198,7 +198,9 @@ class LocalStore: ObservableObject {
     /// Where this person's offline copy lives: `Documents/users/<id>/` once
     /// someone has signed in (DEVQA Q65 — each person's calendar is their own,
     /// on a shared phone too), the top of `Documents/` before users existed.
-    private var dir: URL = LocalStore.folder(for: LocalStore.storedUserID())
+    /// This user's folder. Readable so a surface with its own files (Jude's
+    /// History copy) keeps them per user too, and switches with `switchUser`.
+    private(set) var dir: URL = LocalStore.folder(for: LocalStore.storedUserID())
 
     private init() { load() }
 
@@ -273,7 +275,8 @@ class LocalStore: ObservableObject {
         pending  = (try? d.decode([PendingChange].self, from: Data(contentsOf: url("mc_pending.json"))))  ?? []
         pendingCount = pending.count
         // Prevent temp-ID collisions after a restart: start below the lowest existing negative ID.
-        let negIDs = events.map { $0.id }.filter { $0 < 0 } + todos.map { $0.id }.filter { $0 < 0 }
+        let negIDs = (events.map { $0.id } + todos.map { $0.id } + timers.map { $0.id }
+                      + counters.map { $0.id }).filter { $0 < 0 }
         nextTemp = (negIDs.min().map { $0 - 1 }) ?? -1
         sweepLive(atLaunch: true)
         loadVoice()
@@ -387,18 +390,53 @@ class LocalStore: ObservableObject {
     /// filtered a list that had never contained one, so the switch appeared to
     /// do nothing. Merging by id keeps an archived row once it has been seen,
     /// and the fresh copy still wins for anything in this answer.
-    func cacheTimers(_ fresh: [WorkTimer]) {
-        var byID = Dictionary(uniqueKeysWithValues: timers.map { ($0.id, $0) })
+    ///
+    /// But merge-only never let go: a timer archived or deleted ON THE MAC
+    /// stayed active in this copy and came back every time the phone was
+    /// offline. So a WHOLE list (`listed`) also settles what it left out —
+    /// gone from the active list means archived (or deleted; the archived
+    /// list will tell), gone from the full list means deleted. Placeholder
+    /// rows and rows with a write still queued are this phone's news, and
+    /// are kept as they are.
+    enum Listed { case active, all }
+
+    func cacheTimers(_ fresh: [WorkTimer], listed: Listed? = nil) {
+        var byID = Dictionary(timers.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         for t in fresh { byID[t.id] = t }
+        if let listed {
+            let seen = Set(fresh.map(\.id))
+            for (id, t) in byID where id > 0 && !seen.contains(id) && !hasQueuedWrite("/timers", id) {
+                switch listed {
+                case .active: if t.archived == 0 { byID[id]?.archived = 1 }
+                case .all: byID[id] = nil
+                }
+            }
+        }
         timers = byID.values.sorted { $0.id < $1.id }
         persist()
     }
 
-    func cacheCounters(_ fresh: [TallyCounter]) {
-        var byID = Dictionary(uniqueKeysWithValues: counters.map { ($0.id, $0) })
+    func cacheCounters(_ fresh: [TallyCounter], listed: Listed? = nil) {
+        var byID = Dictionary(counters.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         for c in fresh { byID[c.id] = c }
+        if let listed {
+            let seen = Set(fresh.map(\.id))
+            for (id, c) in byID where id > 0 && !seen.contains(id) && !hasQueuedWrite("/counters", id) {
+                switch listed {
+                case .active: if c.archived == 0 { byID[id]?.archived = 1 }
+                case .all: byID[id] = nil
+                }
+            }
+        }
         counters = byID.values.sorted { $0.id < $1.id }
         persist()
+    }
+
+    /// A write for `<collection>/<id>` (or below it) still waiting to replay.
+    /// Whole segments only: `/timers/1` must not match `/timers/12`.
+    func hasQueuedWrite(_ collection: String, _ id: Int) -> Bool {
+        let path = "\(collection)/\(id)"
+        return pending.contains { $0.path == path || $0.path.hasPrefix(path + "/") || $0.path.hasPrefix(path + "?") }
     }
 
     /// Start a timer in the cache, so the clock runs from the moment of the tap.
@@ -435,6 +473,59 @@ class LocalStore: ObservableObject {
         timers[i].todaySeconds += elapsed
         timers[i].sessionCount += 1
         timers[i].earnings = ((timers[i].totalSeconds / 3600) * timers[i].hourlyRate * 100).rounded() / 100
+        persist()
+    }
+
+    /// Archive / unarchive or delete in the cache at the tap, like the start
+    /// and the press above. They used to wait for the Mac's answer and a full
+    /// reload, which over the tailnet is seconds, and with the Mac away the
+    /// row never moved at all while the write sat in the queue (Gil,
+    /// 2026-10-19: "Archive on timer tab either slow or not working").
+    /// A timer made while the Mac cannot hear, under a placeholder id, so it
+    /// is on the tab at once — and on a phone with no Mac at all, ever (Gil,
+    /// 2026-10-19: "I also made a new timer and it didn't save on tab"). The
+    /// queued create carries the placeholder as `_temp_id`, and the Mac's id
+    /// replaces it when it replays (`remapTemporaryID`).
+    func insertTimer(title: String, hourlyRate: Double, color: String, currency: String,
+                     maxSessionMinutes: Int) -> WorkTimer {
+        let t = WorkTimer(id: nextTemp, title: title, hourlyRate: hourlyRate, color: color,
+                          currency: currency, timerType: "work", maxSessionMinutes: maxSessionMinutes,
+                          archived: 0, running: nil, totalSeconds: 0, todaySeconds: 0,
+                          sessionCount: 0, earnings: 0)
+        nextTemp -= 1
+        timers.append(t)
+        persist()
+        return t
+    }
+
+    func insertCounter(title: String, pricePerUnit: Double, currency: String, color: String) -> TallyCounter {
+        let c = TallyCounter(id: nextTemp, title: title, pricePerUnit: pricePerUnit, currency: currency,
+                             color: color, archived: 0, count: 0, totalCount: 0, todayCount: 0, payout: 0)
+        nextTemp -= 1
+        counters.append(c)
+        persist()
+        return c
+    }
+
+    func setTimerArchived(_ id: Int, _ archived: Bool) {
+        guard let i = timers.firstIndex(where: { $0.id == id }) else { return }
+        timers[i].archived = archived ? 1 : 0
+        persist()
+    }
+
+    func setCounterArchived(_ id: Int, _ archived: Bool) {
+        guard let i = counters.firstIndex(where: { $0.id == id }) else { return }
+        counters[i].archived = archived ? 1 : 0
+        persist()
+    }
+
+    func removeTimer(_ id: Int) {
+        timers.removeAll { $0.id == id }
+        persist()
+    }
+
+    func removeCounter(_ id: Int) {
+        counters.removeAll { $0.id == id }
         persist()
     }
 
@@ -540,7 +631,12 @@ class LocalStore: ObservableObject {
 
     // MARK: - Events
 
-    func cacheEvents(_ fresh: [CalendarEvent]) {
+    /// `from...to` (yyyy-MM-dd) is the window the fetch covered: only cached
+    /// rows inside it are replaced. Replacing EVERYTHING meant the phone's copy
+    /// only ever held the last day, week or month looked at — open one month
+    /// and every other month was gone offline. With no window (a caller that
+    /// cannot say) the old whole replace stands.
+    func cacheEvents(_ fresh: [CalendarEvent], from: String? = nil, to: String? = nil) {
         // Keep items created offline that the Mac hasn't got yet — but drop any
         // whose twin is already in the fresh data, or they show up twice for
         // ever: once as the local placeholder, once as the Mac's copy.
@@ -548,7 +644,18 @@ class LocalStore: ObservableObject {
         let local = events.filter {
             $0.id < 0 && !arrived.contains("\($0.title)|\($0.date)|\($0.startTime)")
         }
-        events = local + fresh
+        let outside: [CalendarEvent]
+        if let from, let to {
+            outside = events.filter { $0.id > 0 && ($0.date < from || $0.date > to) }
+        } else {
+            outside = []
+        }
+        // A row with an edit still queued is the phone's news: keep its copy
+        // over the Mac's, or the refresh drew the old version until replay.
+        let mine = Dictionary(events.filter { $0.id > 0 && hasQueuedWrite("/events", $0.id) }.map { ($0.id, $0) },
+                              uniquingKeysWith: { a, _ in a })
+        let incoming = fresh.map { mine[$0.id] ?? $0 }
+        events = local + outside + incoming
         persist()
         // Fresh payloads carry fresh notify_at verdicts — re-mirror them into
         // the pending local notifications. Debounced and idempotent, so the
@@ -1291,7 +1398,7 @@ class LocalStore: ObservableObject {
             for other in pending where other.id != id {
                 // Anything addressed to the placeholder, or carrying it as a
                 // parent (an assignment queued under an unsynced course).
-                if other.path.contains("/\(temp)") {
+                if Self.replacingSegment(of: other.path, temp, with: temp) != nil {
                     doomed.insert(other.id)
                 } else if let d = other.bodyJSON,
                           let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
@@ -1357,12 +1464,23 @@ class LocalStore: ObservableObject {
     /// create is replayed the Mac assigns a real id, and the queued action
     /// 404s forever: the change is silently lost AND (since the sync loop stops
     /// at the first failure) it blocks everything queued behind it.
+    /// `path` with every WHOLE segment equal to `id` replaced — or nil when it
+    /// has none. A substring match on "/-1" also hit "/-12" and "/-1000001"
+    /// (a CourseStore placeholder), so one sync re-addressed another row's
+    /// queued write to the wrong id.
+    static func replacingSegment(of path: String, _ id: Int, with new: Int) -> String? {
+        let (route, query) = path.firstIndex(of: "?").map { (String(path[..<$0]), String(path[$0...])) } ?? (path, "")
+        var parts = route.components(separatedBy: "/")
+        var hit = false
+        for i in parts.indices where parts[i] == String(id) { parts[i] = String(new); hit = true }
+        return hit ? parts.joined(separator: "/") + query : nil
+    }
+
     func remapTemporaryID(_ tempID: Int, to realID: Int) {
         guard tempID < 0 else { return }
         for (i, change) in pending.enumerated() {
-            guard change.path.contains("/\(tempID)") else { continue }
-            pending[i] = change.replacingPath(
-                change.path.replacingOccurrences(of: "/\(tempID)", with: "/\(realID)"))
+            guard let moved = Self.replacingSegment(of: change.path, tempID, with: realID) else { continue }
+            pending[i] = change.replacingPath(moved)
         }
         // A placeholder also travels INSIDE a queued body: an assignment added
         // to a course that has not synced yet carries `course_id: -1000001`,
@@ -1385,6 +1503,19 @@ class LocalStore: ObservableObject {
         }
         for (i, t) in todos.enumerated() where t.id == tempID { todos[i].id = realID }
         for (i, e) in events.enumerated() where e.id == tempID { events[i].id = realID }
+        // Timers and counters made offline. A fetch can land the Mac's row
+        // before this runs; then the placeholder simply goes, so one id is
+        // never held by two rows.
+        if timers.contains(where: { $0.id == realID }) {
+            timers.removeAll { $0.id == tempID }
+        } else {
+            for (i, t) in timers.enumerated() where t.id == tempID { timers[i].id = realID }
+        }
+        if counters.contains(where: { $0.id == realID }) {
+            counters.removeAll { $0.id == tempID }
+        } else {
+            for (i, c) in counters.enumerated() where c.id == tempID { counters[i].id = realID }
+        }
         // Coursework keeps its own cache and mints its own placeholders, and
         // nothing else knows about `mc_courses.json` — so it has to be told.
         // Without this a course created offline kept its placeholder for ever:

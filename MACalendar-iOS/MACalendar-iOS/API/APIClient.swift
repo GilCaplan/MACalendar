@@ -105,6 +105,10 @@ class APIClient: ObservableObject {
     private var offlineBackoff: TimeInterval = 0
     private static let probePaths: Set<String> = ["/health", "/changes"]
     private static let maxBackoff: TimeInterval = 20
+    /// For a route where the Mac thinks before answering — a voice command
+    /// (an LLM parse can take a minute behind a busy model), a retrain, an
+    /// import. The voice uploads already allowed 120 s; typed commands got 5.
+    static let thinkingTimeout: TimeInterval = 120
 
     /// Whether the Mac was reachable when this app last ran.
     ///
@@ -143,6 +147,50 @@ class APIClient: ObservableObject {
         offlineUntil = Date().addingTimeInterval(offlineBackoff)
         UserDefaults.standard.set(false, forKey: Self.reachableKey)
     }
+
+    /// The Mac answered. ONE place for it: the voice and Jude streams used to
+    /// set `isOnline` themselves and skip both halves of coming back.
+    ///
+    /// On the way back from offline, the parked writes go FIRST and the tabs
+    /// refresh after. Refreshing first drew the Mac's old rows over edits
+    /// still in the queue — they snapped back, then forward again on replay.
+    func markReachable() {
+        noteReachable()
+        guard !isOnline else { return }
+        isOnline = true
+        Task { [weak self] in
+            guard let self else { return }
+            _ = await self.syncPending()
+            await self.syncPendingVoice()
+            self.requestRefresh()
+        }
+    }
+
+    /// The Mac could not be reached — a transport failure, not an answer.
+    func markUnreachable(_ reason: String) {
+        noteUnreachable()
+        if isOnline { isOnline = false }
+        if lastError != reason { lastError = reason }
+    }
+
+    /// Not a fact about the Mac: the CALLER went away. A SwiftUI `.task`
+    /// cancelled because its view left (a sheet closed, a row scrolled off, a
+    /// debounced field typed into) throws this from URLSession, and counting
+    /// it as "unreachable" flashed the offline banner, armed the breaker and
+    /// set off a full reload storm when the next poll flipped it back (Gil,
+    /// 2026-10-21: "it shouldn't be flashing").
+    static func isCancellation(_ error: Error) -> Bool {
+        if case APIError.offline(let why) = error, why == cancelledReason { return true }
+        return error is CancellationError || (error as? URLError)?.code == .cancelled
+    }
+
+    /// What a cancelled request throws: `.offline` — "the Mac was not
+    /// answered" — so every read's fallback to the phone's copy still catches
+    /// it (a bare CancellationError slipped past them and `?? []` blanked the
+    /// screen), but thrown WITHOUT touching reachability. `mutate` refuses to
+    /// queue it (see there), and `isCancellation` recognises it.
+    static let cancelledReason = "cancelled — the screen that asked went away"
+    static var cancelled: APIError { .offline(cancelledReason) }
 
     /// Start where we left off. Called once, from `init`.
     ///
@@ -183,8 +231,12 @@ class APIClient: ObservableObject {
         return url
     }
 
+    /// `timeout` is for a route where the Mac THINKS before answering (a
+    /// voice command, a retrain, an import): five seconds is the right leash
+    /// for "is the Mac there", and the wrong one for "has it finished". A
+    /// long request that times out says nothing about reachability.
     func request(_ path: String, method: String = "GET",
-                 body: [String: Any]? = nil) async throws -> Data {
+                 body: [String: Any]? = nil, timeout: TimeInterval? = nil) async throws -> Data {
         if PhonePreview.current != nil { throw APIError.offline("read on this phone; the Mac reads it too") }
         let isPlaceholder = base.contains("x.x.x") || base.contains("100.x")
         guard !base.isEmpty, !isPlaceholder, let url = URL(string: base + path) else {
@@ -220,7 +272,7 @@ class APIClient: ObservableObject {
            !["/auth/login", "/auth/me", "/health", "/devices/enroll", "/devices/pair"].contains(bare) {
             throw APIError.serverError("{\"error\": \"sign in first\", \"code\": 401}")
         }
-        var req = URLRequest(url: url, timeoutInterval: isOnline ? 5 : 3)
+        var req = URLRequest(url: url, timeoutInterval: timeout ?? (isOnline ? 5 : 3))
         req.httpMethod = method
         authorize(&req)
         if let body {
@@ -228,7 +280,15 @@ class APIClient: ObservableObject {
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
         }
         do {
-            let (data, resp) = try await URLSession.shared.data(for: req)
+            let (data, resp): (Data, URLResponse)
+            do {
+                (data, resp) = try await URLSession.shared.data(for: req)
+            } catch let e as URLError where e.code == .networkConnectionLost {
+                // -1005 is the radio changing hands (Wi-Fi to cellular, a
+                // tailnet re-key), not the Mac leaving: once more before
+                // believing it.
+                (data, resp) = try await URLSession.shared.data(for: req)
+            }
             guard let http = resp as? HTTPURLResponse,
                   (200...299).contains(http.statusCode) else {
                 let msg = String(data: data, encoding: .utf8) ?? "Unknown error"
@@ -239,31 +299,19 @@ class APIClient: ObservableObject {
                 }
                 throw APIError.serverError(msg)
             }
-            noteReachable()
-            // Only assign when it actually changes: these are @Published, so a
-            // redundant write still republishes and re-renders every subscriber.
-            // With /changes polled every 2 s, blind assignment meant a full
-            // re-render twice a second-and-a-half for as long as the Mac was away.
-            if !isOnline {
-                isOnline = true
-                requestRefresh()
-                // The Mac just came back. Flush anything parked while it was away
-                // now, rather than on the next 30 s tick — a command you spoke
-                // minutes ago should run the moment it can, not up to a minute later.
-                Task { [weak self] in
-                    _ = await self?.syncPending()
-                    await self?.syncPendingVoice()
-                }
-            }
+            markReachable()
             return data
         } catch let err as APIError {
             throw err
+        } catch where Self.isCancellation(error) {
+            throw Self.cancelled
+        } catch let err as URLError where err.code == .timedOut && timeout != nil {
+            // A long request ran out of time: the Mac may be busy thinking,
+            // which is not the same as gone. The fast requests decide that.
+            throw APIError.offline(err.localizedDescription)
         } catch {
             // URLError / network unreachable — keep the real reason for Settings › Test Connection
-            noteUnreachable()
-            if isOnline { isOnline = false }
-            let reason = "\(url.absoluteString): \(error.localizedDescription)"
-            if lastError != reason { lastError = reason }
+            markUnreachable("\(url.absoluteString): \(error.localizedDescription)")
             throw APIError.offline(error.localizedDescription)
         }
     }
@@ -298,6 +346,10 @@ class APIClient: ObservableObject {
     func mutate(_ path: String, method: String, body: [String: Any]? = nil) async throws -> Data? {
         do {
             return try await request(path, method: method, body: body)
+        } catch APIError.offline(let why) where why == Self.cancelledReason {
+            // The task was cancelled mid-request: it may already have reached
+            // the Mac, and a replay would do it twice. Not queued, not refused.
+            throw CancellationError()
         } catch APIError.offline, APIError.badURL {
             LocalStore.shared.enqueue(method: method, path: path, body: body)
             return nil
@@ -311,6 +363,7 @@ class APIClient: ObservableObject {
     /// of.
     func mutateOrTell(_ path: String, method: String, body: [String: Any]? = nil) async {
         do { _ = try await mutate(path, method: method, body: body) }
+        catch where Self.isCancellation(error) { return }
         catch { announceRefusal(error, doing: "\(method) \(path)") }
     }
 
@@ -321,6 +374,8 @@ class APIClient: ObservableObject {
     /// banner for a user who is looking at the app, a notification for one who
     /// is not — the same pair `syncPending` uses for a 409.
     func announceRefusal(_ error: Error, doing what: String) {
+        // A cancelled write was not refused — nobody said no.
+        if Self.isCancellation(error) { return }
         let sentence = (error as? APIError)?.serverSentence ?? error.localizedDescription
         lastError = "\(what): \(sentence)"
         lastRefusal = "Couldn't \(what) — \(sentence)"
@@ -374,8 +429,17 @@ class APIClient: ObservableObject {
 
                 LocalStore.shared.removePending(change.id)
                 synced += 1
-            } catch APIError.offline {
-                break        // the Mac is away again — keep the rest for later
+            } catch APIError.offline, APIError.badURL {
+                break        // the Mac is away again (or unset) — keep the rest for later
+            } catch where Self.isCancellation(error) {
+                break        // nobody refused it; try again next time
+            } catch APIError.serverError(let detail) where detail.contains("\"code\": 401")
+                                                        || detail.contains("sign in first")
+                                                        || detail.contains("login required") {
+                // Not a refusal of THIS change — nobody is signed in yet. The
+                // queue is what that person did offline; dropping it item by
+                // item (the catch-all below) lost all of it at sign-in.
+                break
             } catch APIError.serverError(let detail) where detail.contains("\"code\": 409")
                                                         || detail.contains("\"code\":409") {
                 // The same event was changed on the Mac while we were away. The
@@ -649,7 +713,7 @@ class APIClient: ObservableObject {
     /// arrived — so this can legitimately report "kept the old one".
     func retrainLabels(kind: String = "event") async throws -> String {
         let data = try await request("/labels/retrain", method: "POST",
-                                     body: ["kind": kind])
+                                     body: ["kind": kind], timeout: Self.thinkingTimeout)
         let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let result = obj?["result"] as? [String: Any]
         if result == nil { return "Nothing new to learn from yet." }
@@ -678,7 +742,7 @@ class APIClient: ObservableObject {
         do {
             let data   = try await request("/events?date=\(d)")
             let events = try decode([CalendarEvent].self, from: data)
-            LocalStore.shared.cacheEvents(events)
+            LocalStore.shared.cacheEvents(events, from: d, to: d)
             return events
         } catch APIError.offline, APIError.badURL {
             return LocalStore.shared.eventsForDate(d)
@@ -689,7 +753,8 @@ class APIClient: ObservableObject {
         do {
             let data   = try await request("/events?year=\(year)&month=\(month)")
             let events = try decode([CalendarEvent].self, from: data)
-            LocalStore.shared.cacheEvents(events)
+            let first = String(format: "%04d-%02d-01", year, month)
+            LocalStore.shared.cacheEvents(events, from: first, to: String(format: "%04d-%02d-31", year, month))
             return events
         } catch APIError.offline, APIError.badURL {
             return LocalStore.shared.eventsForMonth(year, month)
@@ -701,7 +766,9 @@ class APIClient: ObservableObject {
         do {
             let data   = try await request("/events?week_start=\(d)")
             let events = try decode([CalendarEvent].self, from: data)
-            LocalStore.shared.cacheEvents(events)
+            let end = Calendar.current.date(byAdding: .day, value: 6, to: start).map {
+                ISO8601DateFormatter.yyyyMMdd.string(from: $0) } ?? d
+            LocalStore.shared.cacheEvents(events, from: d, to: end)
             return events
         } catch APIError.offline, APIError.badURL {
             return LocalStore.shared.eventsForWeek(startStr: d)
@@ -787,7 +854,7 @@ class APIClient: ObservableObject {
         else { return nil }
 
         let store = LocalStore.shared
-        store.cacheEvents(snap.events)
+        store.cacheEvents(snap.events, from: snap.window.start, to: snap.window.end)
         store.cacheTodos(snap.todos)
         store.cacheTags(snap.tags)
         store.cacheHolidays(snap.holidays, from: snap.window.start, to: snap.window.end)
@@ -1248,7 +1315,15 @@ class APIClient: ObservableObject {
         do {
             let data = try await request("/workout/sessions" + qs)
             let items = try JSONDecoder.workout.decode([WorkoutSession].self, from: data)
-            WorkoutStore.shared.cacheSessions(items)
+            // What this answer could have held: a full page reaches back only
+            // to its oldest row; a date range only its own days.
+            let oldest = (limit != nil && items.count >= (limit ?? 0)) ? items.map(\.startedAt).min() : nil
+            let f = ISO8601DateFormatter.yyyyMMdd
+            let from = startDate.flatMap { f.date(from: $0) }
+            let to = endDate.flatMap { f.date(from: $0) }.map { $0.addingTimeInterval(86_400) }
+            WorkoutStore.shared.cacheSessions(items) { d in
+                (oldest.map { d >= $0 } ?? true) && (from.map { d >= $0 } ?? true) && (to.map { d < $0 } ?? true)
+            }
             return items
         } catch APIError.offline, APIError.badURL {
             return WorkoutStore.shared.sessions
@@ -1355,7 +1430,7 @@ class APIClient: ObservableObject {
            let obj = try? JSONSerialization.jsonObject(with: offlineReading) {
             body["offline_reading"] = obj
         }
-        let data = try await request("/voice/text", method: "POST", body: body)
+        let data = try await request("/voice/text", method: "POST", body: body, timeout: Self.thinkingTimeout)
         return try decode(VoiceResponse.self, from: data)
     }
 
@@ -1498,7 +1573,8 @@ class APIClient: ObservableObject {
     /// twice is safe, so a double-tapped Add creates once.
     func confirmCreate(token: String, accept: Bool) async throws -> ConfirmResponse {
         let data = try await request("/voice/confirm", method: "POST",
-                                     body: ["confirm_token": token, "accept": accept])
+                                     body: ["confirm_token": token, "accept": accept],
+                                     timeout: Self.thinkingTimeout)
         return try decode(ConfirmResponse.self, from: data)
     }
 
@@ -1554,7 +1630,7 @@ class APIClient: ObservableObject {
         req.httpBody = body
         do {
             let (data, resp) = try await URLSession.shared.data(for: req)
-            isOnline = true
+            markReachable()
             // The Mac answered — that alone doesn't mean the command ran; an
             // unhandled exception in the engine reaches here as a non-2xx,
             // non-JSON body (Flask's default error page), which would
@@ -1577,8 +1653,10 @@ class APIClient: ObservableObject {
             // is not proof the Mac is gone; leave `isOnline` alone and let the
             // small, fast requests decide reachability.
             throw APIError.offline(err.localizedDescription)
+        } catch where Self.isCancellation(error) {
+            throw Self.cancelled
         } catch {
-            isOnline = false
+            markUnreachable(error.localizedDescription)
             throw APIError.offline(error.localizedDescription)
         }
     }
@@ -1668,7 +1746,7 @@ class APIClient: ObservableObject {
             guard let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
                 throw APIError.serverError("HTTP error")
             }
-            isOnline = true
+            markReachable()
             var final: VoiceResponse?
             for try await line in bytes.lines {
                 guard let data = line.data(using: .utf8),
@@ -1684,8 +1762,14 @@ class APIClient: ObservableObject {
             return final
         } catch let err as APIError {
             throw err
+        } catch where Self.isCancellation(error) {
+            throw Self.cancelled
+        } catch let err as URLError where err.code == .timedOut {
+            // Same rule as sendAudio: a long command timing out is the Mac
+            // thinking, not the Mac gone.
+            throw APIError.offline(err.localizedDescription)
         } catch {
-            isOnline = false
+            markUnreachable(error.localizedDescription)
             throw APIError.offline(error.localizedDescription)
         }
     }
@@ -1823,7 +1907,7 @@ class APIClient: ObservableObject {
         if let text { body["text"] = text }
         if let source { body["source"] = source }
         if let names { body["names"] = names }
-        return try decode(VocabImportResult.self, from: try await request("/vocab/import", method: "POST", body: body)).candidates
+        return try decode(VocabImportResult.self, from: try await request("/vocab/import", method: "POST", body: body, timeout: Self.thinkingTimeout)).candidates
     }
 
     func vocabAddWords(_ words: [String]) async throws {
@@ -1897,7 +1981,7 @@ class APIClient: ObservableObject {
         do {
             let items = try decode(TimersResponse.self,
                                    from: try await request("/timers" + (archived ? "?archived=1" : ""))).timers
-            LocalStore.shared.cacheTimers(items)
+            LocalStore.shared.cacheTimers(items, listed: archived ? .all : .active)
             return items
         } catch APIError.offline, APIError.badURL {
             return LocalStore.shared.allTimers(includeArchived: archived)
@@ -1911,8 +1995,29 @@ class APIClient: ObservableObject {
         // Stamped here, not at the call site: a token added by whoever builds
         // the dictionary is a token somebody eventually forgets.
         let body = body.merging(["client_token": UUID().uuidString]) { a, _ in a }
-        do { _ = try await mutate("/timers", method: "POST", body: body); return true }
-        catch { announceRefusal(error, doing: "add that timer"); return false }
+        do {
+            let data = try await request("/timers", method: "POST", body: body)
+            // On the tab straight away, not only after the next reload.
+            if let t = try? JSONDecoder().decode(WorkTimer.self, from: data) {
+                LocalStore.shared.cacheTimers([t])
+            }
+            return true
+        } catch APIError.offline, APIError.badURL {
+            // Not sent: shown here under a placeholder until the Mac takes it.
+            // Before, it was queued but never shown — and on a phone with no
+            // Mac the queue never replays, so the timer never appeared.
+            let local = LocalStore.shared.insertTimer(
+                title: (body["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Untitled Timer",
+                hourlyRate: body["hourly_rate"] as? Double ?? 0,
+                color: body["color"] as? String ?? "#1a6fc4",
+                currency: body["currency"] as? String ?? "ILS",
+                maxSessionMinutes: body["max_session_minutes"] as? Int ?? 0)
+            LocalStore.shared.enqueue(method: "POST", path: "/timers",
+                                      body: body.merging(["_temp_id": local.id]) { a, _ in a })
+            return true
+        } catch {
+            announceRefusal(error, doing: "add that timer"); return false
+        }
     }
     func updateTimer(_ id: Int, _ body: [String: Any]) async { await mutateOrTell("/timers/\(id)", method: "PATCH", body: body) }
     func deleteTimer(_ id: Int) async { await mutateOrTell("/timers/\(id)", method: "DELETE") }
@@ -1968,7 +2073,7 @@ class APIClient: ObservableObject {
         do {
             let items = try decode(CountersResponse.self,
                                    from: try await request("/counters" + (archived ? "?archived=1" : ""))).counters
-            LocalStore.shared.cacheCounters(items)
+            LocalStore.shared.cacheCounters(items, listed: archived ? .all : .active)
             return items
         } catch APIError.offline, APIError.badURL {
             return LocalStore.shared.allCounters(includeArchived: archived)
@@ -1977,8 +2082,24 @@ class APIClient: ObservableObject {
     @discardableResult
     func createCounter(_ body: [String: Any]) async -> Bool {
         let body = body.merging(["client_token": UUID().uuidString]) { a, _ in a }
-        do { _ = try await mutate("/counters", method: "POST", body: body); return true }
-        catch { announceRefusal(error, doing: "add that counter"); return false }
+        do {
+            let data = try await request("/counters", method: "POST", body: body)
+            if let c = try? JSONDecoder().decode(TallyCounter.self, from: data) {
+                LocalStore.shared.cacheCounters([c])
+            }
+            return true
+        } catch APIError.offline, APIError.badURL {
+            let local = LocalStore.shared.insertCounter(
+                title: (body["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Untitled Counter",
+                pricePerUnit: body["price_per_unit"] as? Double ?? 0,
+                currency: body["currency"] as? String ?? "ILS",
+                color: body["color"] as? String ?? "#1a6fc4")
+            LocalStore.shared.enqueue(method: "POST", path: "/counters",
+                                      body: body.merging(["_temp_id": local.id]) { a, _ in a })
+            return true
+        } catch {
+            announceRefusal(error, doing: "add that counter"); return false
+        }
     }
     func updateCounter(_ id: Int, _ body: [String: Any]) async { await mutateOrTell("/counters/\(id)", method: "PATCH", body: body) }
     func deleteCounter(_ id: Int) async { await mutateOrTell("/counters/\(id)", method: "DELETE") }
@@ -2250,7 +2371,7 @@ class APIClient: ObservableObject {
     }
 
     func recolorEvents(force: Bool) async -> Int? {
-        guard let data = try? await request("/categories/recolor" + (force ? "?force=1" : ""), method: "POST", body: [:]),
+        guard let data = try? await request("/categories/recolor" + (force ? "?force=1" : ""), method: "POST", body: [:], timeout: Self.thinkingTimeout),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         return obj["updated"] as? Int
     }

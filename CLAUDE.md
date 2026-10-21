@@ -242,6 +242,7 @@ the rest:
     MACALENDAR_FLASHCARDS      the decks and the review history (2026-10-11) —
                                a suite grading cards reschedules real exam prep
     MACALENDAR_RANKER          the Ranker tab's own store
+    MACALENDAR_JUDE_CHATS      what you asked Jude and what it answered
 
 The feedback file is the one to be careful with: it holds the user's own
 CORRECTIONS, which are the only non-circular label source this project has, so

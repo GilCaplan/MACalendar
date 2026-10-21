@@ -83,6 +83,11 @@ final class JudeConversation: ObservableObject {
     @Published var stage: String = ""
     @Published var asking = false
     @Published var pivot: JudePivot?
+    /// Opening a chat this phone has no copy of yet.
+    @Published var loadingHistory = false
+    /// Bumped by every open and every question, so a slow History answer
+    /// never overwrites what the user has done since it was asked for.
+    private var generation = 0
 
     /// Set once by `bind(_:)`. It cannot be an init argument: this object is
     /// a `@StateObject`, which SwiftUI builds before the environment exists,
@@ -102,6 +107,10 @@ final class JudeConversation: ObservableObject {
 
     func newChat() {
         cancelFlusher()
+        generation += 1
+        loadingHistory = false
+        asking = false
+        buffer = ""
         turns = []
         chatId = nil
         chatTitle = ""
@@ -109,50 +118,105 @@ final class JudeConversation: ObservableObject {
         pivot = nil
     }
 
-    /// Load a past conversation. History arrives as a flat list of messages;
-    /// they pair back into turns in order, and an assistant message with no
-    /// question before it (it happens after a delete) still gets a turn rather
-    /// than being dropped.
+    /// Open a past conversation — from the phone's copy at once, then the Mac's.
     func open(_ chat: JudeChatSummary) async {
         guard let api else { return }
         cancelFlusher()
-        turns = []
+        generation += 1
+        let mine = generation
+        asking = false
+        buffer = ""
         chatId = chat.id
         chatTitle = chat.title
         stage = ""
         pivot = nil
+        // The phone's copy first, so the conversation is on screen at the tap
+        // (`JudeCache`); the Mac's answer replaces it when it lands. A chat
+        // never opened here shows "Opening…" rather than a blank page.
+        if let kept = JudeCache.history(chat.id) {
+            turns = Self.turns(from: kept, mode: chat.mode)
+            loadingHistory = false
+        } else {
+            turns = []
+            loadingHistory = true
+        }
         do {
             let messages = try await api.judeHistory(chat.id)
-            var pending: JudeTurn?
-            for message in messages {
-                if message.role == "user" {
-                    if let pending { turns.append(pending) }
-                    pending = JudeTurn(question: message.content, mode: chat.mode,
-                                       streaming: false)
-                } else {
-                    var turn = pending ?? JudeTurn(question: "", mode: chat.mode,
-                                                   streaming: false)
-                    turn.answer = message.content
-                    turn.sources = message.sources
-                    turns.append(turn)
-                    pending = nil
-                }
+            // Another chat opened, or a question asked, while this was in
+            // flight: what is on screen now is newer than this answer.
+            guard mine == generation else { return }
+            let fresh = Self.turns(from: messages, mode: chat.mode)
+            if fresh.map(\.question) != turns.map(\.question) || fresh.map(\.answer) != turns.map(\.answer) {
+                turns = fresh
             }
-            if let pending { turns.append(pending) }
         } catch {
-            turns = [JudeTurn(question: chat.title, streaming: false,
-                              error: "Couldn't load this conversation: "
-                                     + error.localizedDescription)]
+            if mine == generation && turns.isEmpty {
+                turns = [JudeTurn(question: chat.title, streaming: false,
+                                  error: "Couldn't load this conversation: "
+                                         + error.localizedDescription)]
+            }
         }
+        if mine == generation { loadingHistory = false }
+    }
+
+    /// History arrives as a flat list of messages; they pair back into turns
+    /// in order, and an assistant message with no question before it (it
+    /// happens after a delete) still gets a turn rather than being dropped.
+    static func turns(from messages: [JudeHistoryMessage], mode: String) -> [JudeTurn] {
+        var out: [JudeTurn] = []
+        var pending: JudeTurn?
+        for message in messages {
+            if message.role == "user" {
+                if let pending { out.append(pending) }
+                pending = JudeTurn(question: message.content, mode: mode, streaming: false)
+            } else {
+                var turn = pending ?? JudeTurn(question: "", mode: mode, streaming: false)
+                turn.sources = message.sources
+                // The turn's own mode when the Mac's store sent one: a chat
+                // the phone began is filed as "sources", but each answer in
+                // it was asked as Q&A.
+                if !message.mode.isEmpty { turn.mode = message.mode }
+                if message.kind == "followup" { turn.mode = "followup" }
+                turn.answeredOnPhone = message.by == "phone"
+                if message.kind == "clarification", let c = message.clarification {
+                    // Back into a card, so it can still be answered rather
+                    // than read as if it were Jude's answer.
+                    turn.clarification = JudeClarification(
+                        question: c.question.isEmpty ? "Did you mean one of these?" : c.question,
+                        options: c.options, originalPrompt: turn.question)
+                } else {
+                    turn.answer = message.content
+                }
+                out.append(turn)
+                pending = nil
+            }
+        }
+        if let pending { out.append(pending) }
+        return out
+    }
+
+    /// The sources this conversation is about — the latest turn that found any.
+    /// A follow-up is answered from these unless a new search is asked for.
+    var conversationSources: [JudeSource] {
+        turns.last(where: { !$0.sources.isEmpty })?.sources ?? []
     }
 
     func ask(_ prompt: String, mode: String, lang: String, topK: Int,
-             skipClarification: Bool = false, onPhone: Bool = false) {
+             skipClarification: Bool = false, onPhone: Bool = false, newSearch: Bool = false) {
         guard let api, !asking else { return }
+        generation += 1
+        loadingHistory = false
         // On this phone: the Mac only finds the sources (Jude's own "sources"
         // mode); the answer is written here. "Sources" asked for is the same
         // request either way — there is nothing to write.
         let writeHere = onPhone && mode != "sources"
+        // A follow-up written here needs nothing from the Mac at all: the
+        // sources are the ones already on screen (Gil, 2026-10-20 — "the chat
+        // back is just the chat conversation and the existing sources").
+        // Never for the answer to a clarification — Jude asked, so Jude hears it.
+        let answeringJude = skipClarification || turns.last?.clarification != nil
+        let reuse = writeHere && !newSearch && !answeringJude && chatId != nil ? conversationSources : []
+        let context = reuse.isEmpty ? "" : followUpContext()
         asking = true
         stage = ""
         buffer = ""
@@ -161,17 +225,47 @@ final class JudeConversation: ObservableObject {
         if chatTitle.isEmpty { chatTitle = String(prompt.prefix(55)) }
         startFlusher(index)
 
+        let mine = generation
+        let askedIn = chatId
         Task {
+            // Everything below writes into turns[index] of THIS conversation.
+            // Opening another chat or starting a new one mid-answer bumps
+            // `generation`; from then on this answer belongs to History (the
+            // Mac keeps it — see `judeSync`), not to the screen.
+            @MainActor func here() -> Bool { mine == self.generation && index < self.turns.count }
             do {
-                try await api.judeAsk(prompt, chatId: self.chatId, mode: writeHere ? "sources" : mode,
-                                      lang: lang, topK: topK,
-                                      skipClarification: skipClarification) { event in
-                    self.apply(event, to: index, originalPrompt: prompt)
+                if !reuse.isEmpty {
+                    self.turns[index].sources = reuse
+                    try await self.writeOnPhone(context + prompt, mode: "followup", lang: lang, index: index)
+                } else {
+                    try await api.judeAsk(prompt, chatId: askedIn, mode: writeHere ? "sources" : mode,
+                                          lang: lang, topK: topK,
+                                          skipClarification: skipClarification,
+                                          search: newSearch) { event in
+                        guard here() else { return }
+                        self.apply(event, to: index, originalPrompt: prompt)
+                    }
+                    if writeHere && here() {
+                        try await self.writeOnPhone(prompt, mode: mode, lang: lang, index: index)
+                    }
                 }
-                if writeHere { try await self.writeOnPhone(prompt, mode: mode, lang: lang, index: index) }
+                // Written here, so the Mac has not seen it: send it to be kept,
+                // or History on either device would show the question unanswered.
+                if writeHere, here(), let id = self.chatId {
+                    self.flush(into: index)
+                    if !self.turns[index].answer.isEmpty {
+                        await api.judeSaveAnswer(chatId: id, question: prompt, answer: self.turns[index].answer,
+                                                 mode: reuse.isEmpty ? mode : "followup",
+                                                 sources: reuse.isEmpty ? nil : reuse,
+                                                 followUp: !reuse.isEmpty)
+                    }
+                }
             } catch {
-                self.turns[index].error = error.localizedDescription
+                if here() { self.turns[index].error = error.localizedDescription }
             }
+            // The phone's copy of History learns this turn either way.
+            Task { await api.judeSync() }
+            guard here() else { return }
             // The connection can drop before `done`; flush whatever arrived
             // rather than losing the last fraction of a second of an answer
             // that took a minute and a half to produce.
@@ -186,6 +280,14 @@ final class JudeConversation: ObservableObject {
         }
     }
 
+    /// The last two exchanges, so a phone-written follow-up knows what "it" is.
+    private func followUpContext() -> String {
+        let earlier = turns.filter { !$0.answer.isEmpty }.suffix(2)
+        guard !earlier.isEmpty else { return "" }
+        let lines = earlier.map { "Q: \($0.question)\nA: \(String($0.answer.prefix(600)))" }
+        return "Earlier in this conversation:\n" + lines.joined(separator: "\n\n") + "\n\nFollow-up: "
+    }
+
     /// The answer, written by Apple's model from the sources the Mac found —
     /// into the same buffer the Mac's tokens fill, so the view is the same.
     private func writeOnPhone(_ prompt: String, mode: String, lang: String, index: Int) async throws {
@@ -198,10 +300,13 @@ final class JudeConversation: ObservableObject {
         }
         stage = "Writing the answer on this phone…"
         let started = Date()
+        let mine = generation
         try await JudeOnDevice.answer(question: prompt, sources: turns[index].sources,
                                       lang: lang) { piece in
+            guard mine == self.generation else { return }   // another chat is on screen now
             self.buffer += piece
         }
+        guard mine == generation, index < turns.count else { return }
         turns[index].answeredOnPhone = true
         turns[index].steps.append(JudeStep(module: "On this phone",
                                            durationMs: Date().timeIntervalSince(started) * 1000))
@@ -323,6 +428,8 @@ struct JudeView: View {
     @State private var lang = "en"
     @State private var topK: Double = 25
     @State private var showChats = false
+    /// "Search again" for the next follow-up only; it resets after sending.
+    @State private var newSearch = false
     /// Asking out loud. The recording goes to the Mac to be transcribed and
     /// comes back as text in the field — Jude is asked only when you press send.
     @StateObject private var recorder = VoiceRecorder()
@@ -332,13 +439,20 @@ struct JudeView: View {
     var body: some View {
         StackNavigation {
             VStack(spacing: 0) {
-                if let status, !status.ready {
+                // The whole screen only when the MAC says Jude cannot work here
+                // (not installed, switched off). An unreachable Mac is a line
+                // above the composer: the conversation and History stay usable
+                // — covering them made a brief miss look like History lagging.
+                if let status, !status.ready, status.fromMac {
                     unavailable(status)
                 } else {
                     conversation
                     if let pivot = chat.pivot { pivotBanner(pivot) }
+                    if let status, !status.ready, !status.fromMac { offlineLine(status) }
                     Divider()
                     JudeComposer(draft: $draft, mode: $mode, lang: $lang, topK: $topK,
+                                 newSearch: $newSearch,
+                                 canFollowUp: chat.chatId != nil && !chat.conversationSources.isEmpty,
                                  isBusy: chat.asking, onSend: send,
                                  recorder: recorder, isTranscribing: transcribing,
                                  onDictate: dictate)
@@ -373,6 +487,10 @@ struct JudeView: View {
                          onNew: { chat.newChat() })
         }
         .onAppear { chat.bind(api) }
+        // Catch the phone's copy of History up with the Mac, behind the screen.
+        .task { await api.judeSync() }
+        // "Search for new sources" belongs to the chat it was set in.
+        .onChange(of: chat.chatId) { _ in newSearch = false }
         .task {
             status = await api.judeStatus()
         }
@@ -387,7 +505,13 @@ struct JudeView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 20) {
-                    if chat.turns.isEmpty { welcome }
+                    if chat.turns.isEmpty && chat.loadingHistory {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text("Opening conversation…").font(.footnote).foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity).padding(.top, 40)
+                    } else if chat.turns.isEmpty { welcome }
                     ForEach(chat.turns) { turn in
                         turnView(turn).id(turn.id)
                     }
@@ -419,6 +543,8 @@ struct JudeView: View {
                 badge(turn.poolBadge, icon: "text.book.closed", tint: .secondary)
             } else if turn.mode == "sources" {
                 badge("Sources only", icon: "list.bullet.rectangle", tint: .secondary)
+            } else if turn.mode == "followup" {
+                badge("From this conversation's sources", icon: "arrow.uturn.backward", tint: .secondary)
             }
             if turn.answeredOnPhone {
                 badge("Answered on this phone", icon: "iphone", tint: .secondary)
@@ -646,6 +772,23 @@ struct JudeView: View {
     /// nothing else: a second explanation guessed at on the phone would
     /// eventually contradict the real one.
     @ViewBuilder
+    /// The Mac could not be asked just now. Past conversations still open from
+    /// the phone's copy; only a new question needs the Mac.
+    private func offlineLine(_ status: JudeStatus) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "wifi.exclamationmark").font(.caption)
+            Text("Can't reach your Mac right now — History still opens; asking needs the Mac.")
+                .font(.caption2)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+            Button("Retry") { Task { self.status = await api.judeStatus() } }
+                .font(.caption2.weight(.semibold))
+        }
+        .foregroundColor(.secondary)
+        .padding(.horizontal, 12).padding(.vertical, 6)
+        .accessibilityIdentifier("jude-offline-line")
+    }
+
     private func unavailable(_ status: JudeStatus) -> some View {
         VStack(spacing: 14) {
             Spacer()
@@ -707,6 +850,8 @@ struct JudeView: View {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty, !chat.asking else { return }
         draft = ""
-        chat.ask(prompt, mode: mode, lang: lang, topK: Int(topK), onPhone: answerOnPhone)
+        chat.ask(prompt, mode: mode, lang: lang, topK: Int(topK), onPhone: answerOnPhone,
+                 newSearch: newSearch)
+        newSearch = false
     }
 }

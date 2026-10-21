@@ -82,6 +82,7 @@ extension APIClient {
                  lang: String = "en",
                  topK: Int = 25,
                  skipClarification: Bool = false,
+                 search: Bool = false,
                  onEvent: @escaping (JudeEvent) -> Void) async throws {
         guard !base.isEmpty, let url = URL(string: base + "/jude/chat") else {
             throw APIError.badURL
@@ -91,8 +92,14 @@ extension APIClient {
         var body: [String: Any] = [
             "prompt": prompt, "mode": mode, "lang": lang,
             "top_k": topK, "skip_clarification": skipClarification,
+            // Who is asking — a person on a phone, so the Mac answers a
+            // follow-up at LIVE priority rather than behind a board.
+            "source": "ios",
         ]
         if let chatId { body["chat_id"] = chatId }
+        // A follow-up is answered from the chat's own sources unless this is
+        // set (`assistant/jude/followup.py`); a new chat searches regardless.
+        if search { body["search"] = true }
 
         // Generous: five model calls per question, and synthesis alone is
         // 30–90 s on a local model. The first token is not the first thing
@@ -140,8 +147,7 @@ extension APIClient {
                     as? [String: Any]
                 throw APIError.serverError((parsed?["error"] as? String) ?? detail)
             }
-            isOnline = true
-            noteReachable()
+            markReachable()
             let decoder = JSONDecoder()
             for try await line in bytes.lines {
                 guard !line.isEmpty, let data = line.data(using: .utf8),
@@ -151,13 +157,14 @@ extension APIClient {
             }
         } catch let err as APIError {
             throw err
+        } catch where Self.isCancellation(error) {
+            throw Self.cancelled
         } catch {
             if answered {
                 throw APIError.serverError("Jude's answer stopped arriving — "
                                            + error.localizedDescription)
             }
-            isOnline = false
-            noteUnreachable()
+            markUnreachable(error.localizedDescription)
             throw APIError.offline(error.localizedDescription)
         }
     }
@@ -167,18 +174,68 @@ extension APIClient {
     /// Returns an empty list rather than throwing when the Mac is away: the
     /// chat list is a sheet you opened to browse, and an alert about
     /// reachability there says nothing the tab header is not already saying.
+    ///
+    /// Kept on the phone as well (`JudeCache`): the list draws from the copy at
+    /// once and this refreshes it. With the Mac away it answers from the copy.
     func judeChats() async -> [JudeChatSummary] {
         guard let data = try? await request("/jude/chats"),
               let list = try? JSONDecoder().decode([JudeChatSummary].self, from: data)
-        else { return [] }
+        else { return JudeCache.chats() }
+        JudeCache.save(data, as: JudeCache.listFile)
         return list
     }
 
     /// One conversation's messages, oldest first — user and assistant
-    /// alternating, which is how the view pairs them back into turns.
+    /// alternating, which is how the view pairs them back into turns. The
+    /// answer is kept on the phone; with the Mac away the kept copy is
+    /// returned instead, and only a chat never opened here can fail.
     func judeHistory(_ chatId: String) async throws -> [JudeHistoryMessage] {
-        let data = try await request("/jude/chats/\(judeEscape(chatId))/history")
-        return try JSONDecoder().decode([JudeHistoryMessage].self, from: data)
+        do {
+            let data = try await request("/jude/chats/\(judeEscape(chatId))/history")
+            let messages = try JSONDecoder().decode([JudeHistoryMessage].self, from: data)
+            JudeCache.save(data, as: JudeCache.historyFile(chatId))
+            return messages
+        } catch {
+            if let kept = JudeCache.history(chatId) { return kept }
+            throw error
+        }
+    }
+
+    /// Bring the phone's copy of History up to date with the Mac's
+    /// `jude_chats.db`: every chat changed since the last sync, messages and
+    /// all, and every chat deleted there. So History holds EVERY conversation
+    /// — not only the ones opened on this phone — and new turns from either
+    /// device arrive without opening anything. Silent: with the Mac away the
+    /// copy simply stays as it is.
+    func judeSync() async {
+        let since = JudeCache.syncMarker
+        // "+" in "+00:00" must be encoded, or the server reads a space.
+        var allowed = CharacterSet.urlQueryAllowed
+        allowed.remove(charactersIn: "+&=")
+        let query = since.isEmpty ? "" : "?since=" + (since.addingPercentEncoding(withAllowedCharacters: allowed) ?? "")
+        guard let data = try? await request("/jude/sync" + query),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        for chat in obj["chats"] as? [[String: Any]] ?? [] {
+            guard let id = chat["id"] as? String, let messages = chat["messages"] as? [Any],
+                  let body = try? JSONSerialization.data(withJSONObject: messages) else { continue }
+            JudeCache.save(body, as: JudeCache.historyFile(id))
+        }
+        for id in obj["deleted"] as? [String] ?? [] { JudeCache.forget(id) }
+        if let next = obj["next"] as? String { JudeCache.syncMarker = next }
+        _ = await judeChats()                    // and the list, in the same breath
+    }
+
+    /// Keep an answer this phone wrote, so History has it on the Mac and here.
+    /// Queued when the Mac is away, like any other write.
+    func judeSaveAnswer(chatId: String, question: String, answer: String,
+                        mode: String, sources: [JudeSource]? = nil, followUp: Bool = false) async {
+        var body: [String: Any] = ["question": question, "answer": answer, "mode": mode,
+                                   "kind": followUp ? "followup" : "answer"]
+        // Only a follow-up the Mac never saw needs its sources sent: for any
+        // other answer the Mac recorded them as it found them.
+        if let sources { body["sources"] = sources.map(\.wire) }
+        _ = try? await mutate("/jude/chats/\(judeEscape(chatId))/answer", method: "POST", body: body)
+        await judeSync()
     }
 
     /// Forget a conversation on the Mac. Queued when it is away, like every
@@ -186,6 +243,7 @@ extension APIClient {
     /// one place rather than per surface.
     func judeDeleteChat(_ chatId: String) async throws {
         try await mutate("/jude/chats/\(judeEscape(chatId))", method: "DELETE")
+        JudeCache.forget(chatId)
     }
 
     /// Confirm a topic pivot — the answer to the `topic_pivot` banner.
@@ -255,5 +313,67 @@ extension APIClient {
         }
         struct Reply: Codable { let text: String }
         return (try JSONDecoder().decode(Reply.self, from: data)).text
+    }
+}
+
+
+// MARK: - The phone's copy of History
+
+/// Jude's conversations as the Mac last sent them, kept on the phone.
+///
+/// There used to be no copy, on purpose ("a cached list of titles you cannot
+/// open is a menu for a closed kitchen"). But every open of History waited on
+/// the network, then drew a blank page while the conversation loaded, and a
+/// brief miss had the tab saying the Mac was unreachable — History felt like
+/// it lagged behind a connection wall (Gil, 2026-10-20: "the history should be
+/// able to go through without any issues"). Now the list and every chat you
+/// have opened are kept, so both draw at once and refresh behind; asking a
+/// NEW question is still the Mac's.
+///
+/// The Mac's own JSON, byte for byte, one file per chat in the user's
+/// `LocalStore` folder — so it decodes with the same types, and a different
+/// user signing in sees their own.
+@MainActor
+enum JudeCache {
+    static let listFile = "chats.json"
+    static func historyFile(_ chatId: String) -> String {
+        "chat-" + chatId.filter { $0.isLetter || $0.isNumber || $0 == "-" } + ".json"
+    }
+
+    private static var folder: URL {
+        let f = LocalStore.shared.dir.appendingPathComponent("jude", isDirectory: true)
+        try? FileManager.default.createDirectory(at: f, withIntermediateDirectories: true)
+        return f
+    }
+
+    /// The `next` from the last sync — where the following one starts.
+    static var syncMarker: String {
+        get { (try? String(contentsOf: folder.appendingPathComponent("sync-marker.txt"), encoding: .utf8)) ?? "" }
+        set { try? newValue.write(to: folder.appendingPathComponent("sync-marker.txt"), atomically: true, encoding: .utf8) }
+    }
+
+    static func save(_ data: Data, as name: String) {
+        try? data.write(to: folder.appendingPathComponent(name), options: .atomic)
+    }
+
+    static func chats() -> [JudeChatSummary] {
+        guard let data = try? Data(contentsOf: folder.appendingPathComponent(listFile)) else { return [] }
+        return (try? JSONDecoder().decode([JudeChatSummary].self, from: data)) ?? []
+    }
+
+    static func history(_ chatId: String) -> [JudeHistoryMessage]? {
+        guard let data = try? Data(contentsOf: folder.appendingPathComponent(historyFile(chatId))) else { return nil }
+        return try? JSONDecoder().decode([JudeHistoryMessage].self, from: data)
+    }
+
+    /// A deleted chat leaves the copy too — the list as well as its file, so it
+    /// does not reappear while the Mac is away.
+    static func forget(_ chatId: String) {
+        try? FileManager.default.removeItem(at: folder.appendingPathComponent(historyFile(chatId)))
+        let url = folder.appendingPathComponent(listFile)
+        guard let data = try? Data(contentsOf: url),
+              var list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return }
+        list.removeAll { "\($0["id"] ?? "")" == chatId }
+        if let out = try? JSONSerialization.data(withJSONObject: list) { try? out.write(to: url, options: .atomic) }
     }
 }

@@ -7,9 +7,9 @@ import SwiftUI
 /// — history is something you reach for occasionally, so it is a toolbar
 /// button away rather than permanently costing a third of the width.
 ///
-/// There is no offline copy of this list, deliberately. The conversations live
-/// on the Mac beside the corpus that produced them; a cached list of titles
-/// you cannot open is a menu for a closed kitchen.
+/// Drawn from the phone's copy (`JudeCache`) the moment it opens and refreshed
+/// behind it, so History never waits on the network or shows a spinner over a
+/// list it already has; every chat opened before opens with the Mac away too.
 struct JudeChatList: View {
     let currentChatId: String?
     let onOpen: (JudeChatSummary) -> Void
@@ -19,8 +19,9 @@ struct JudeChatList: View {
     @EnvironmentObject var settings: AppSettings
     @Environment(\.dismiss) private var dismiss
 
-    @State private var chats: [JudeChatSummary] = []
-    @State private var loading = true
+    @State private var chats: [JudeChatSummary] = JudeCache.chats()
+    /// Only when there is no copy to show — a refresh behind a list is silent.
+    @State private var loading = JudeCache.chats().isEmpty
 
     var body: some View {
         StackNavigation {
@@ -96,8 +97,9 @@ struct JudeChatList: View {
     }
 
     private func reload() async {
-        loading = true
-        chats = await api.judeChats()
+        await api.judeSync()
+        let fresh = await api.judeChats()
+        if !fresh.isEmpty || chats.isEmpty { chats = fresh }
         loading = false
     }
 

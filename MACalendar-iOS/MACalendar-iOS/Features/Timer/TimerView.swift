@@ -188,7 +188,14 @@ struct TimerView: View {
     @State private var editingCounter: TallyCounter?
     @State private var detailCounter: TallyCounter?
     @State private var error: String?
+    /// Archives and deletes made here that the Mac may not have answered yet:
+    /// applied over every reload until their write is done, so the 3-second
+    /// poll does not bring a row back that was just swiped away.
+    @State private var pendingTimers: [Int: Change] = [:]
+    @State private var pendingCounters: [Int: Change] = [:]
     @State private var now = Date()
+
+    private enum Change { case archived(Bool), deleted }
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -201,8 +208,8 @@ struct TimerView: View {
                             TimerRow(timer: t, now: now) { await toggle(t) }
                         }
                         .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) { Task { await api.deleteTimer(t.id); await load() } } label: { Label("Delete", systemImage: "trash") }
-                            Button { Task { await api.updateTimer(t.id, ["archived": t.archived == 1 ? 0 : 1]); await load() } } label: {
+                            Button(role: .destructive) { change(timer: t.id, .deleted) } label: { Label("Delete", systemImage: "trash") }
+                            Button { change(timer: t.id, .archived(t.archived != 1)) } label: {
                                 Label(t.archived == 1 ? "Unarchive" : "Archive", systemImage: "archivebox")
                             }.tint(.orange)
                             Button { editingTimer = t } label: { Label("Edit", systemImage: "pencil") }
@@ -242,8 +249,8 @@ struct TimerView: View {
                                    onCashOut: { Task { await api.cashOutCounter(c.id); await load() } },
                                    onOpen: { detailCounter = c })
                         .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) { Task { await api.deleteCounter(c.id); await load() } } label: { Label("Delete", systemImage: "trash") }
-                            Button { Task { await api.updateCounter(c.id, ["archived": c.archived == 1 ? 0 : 1]); await load() } } label: {
+                            Button(role: .destructive) { change(counter: c.id, .deleted) } label: { Label("Delete", systemImage: "trash") }
+                            Button { change(counter: c.id, .archived(c.archived != 1)) } label: {
                                 Label(c.archived == 1 ? "Unarchive" : "Archive", systemImage: "archivebox")
                             }.tint(.orange)
                             Button { editingCounter = c } label: { Label("Edit", systemImage: "pencil") }
@@ -280,6 +287,15 @@ struct TimerView: View {
                 if Int(d.timeIntervalSince1970) % every == 0 { Task { await load() } }
             }
             .onChange(of: showArchived) { _ in Task { await load() } }
+            // Draw from the phone's copy whenever it changes: a start, stop or
+            // ＋ updates LocalStore at the tap, but these rows used to wait for
+            // the POST and a full GET before they moved.
+            .onReceive(LocalStore.shared.$timers) { all in
+                timers = applyPending(Self.newestFirst(all), pendingTimers, archived: \.archived)
+            }
+            .onReceive(LocalStore.shared.$counters) { all in
+                counters = applyPending(Self.newestFirst(all), pendingCounters, archived: \.archived)
+            }
             .onReceive(api.$refreshTick) { _ in Task { await load() } }
         }
     }
@@ -299,11 +315,73 @@ struct TimerView: View {
         do {
             async let t = api.timers(archived: showArchived)
             async let c = api.counters(archived: showArchived)
-            timers = try await t; counters = try await c; error = nil
+            let freshTimers = try await t
+            let freshCounters = try await c
+            timers = applyPending(freshTimers, pendingTimers, archived: \.archived)
+            counters = applyPending(freshCounters, pendingCounters, archived: \.archived)
+            error = nil
         } catch {
             if error is CancellationError || (error as? URLError)?.code == .cancelled { return }
             self.error = "Couldn't reach the Mac: \(error.localizedDescription)"
         }
+    }
+
+    /// Archive, unarchive or delete: on screen and in the cache AT THE TAP,
+    /// then the Mac (queued if it is away). Waiting for its answer and a full
+    /// reload first is what made Archive look slow, or dead with the Mac away.
+    private func change(timer id: Int, _ change: Change) {
+        pendingTimers[id] = change
+        switch change {
+        case .deleted: LocalStore.shared.removeTimer(id)
+        case .archived(let on): LocalStore.shared.setTimerArchived(id, on)
+        }
+        timers = applyPending(timers, pendingTimers, archived: \.archived)
+        Task {
+            switch change {
+            case .deleted: await api.deleteTimer(id)
+            case .archived(let on): await api.updateTimer(id, ["archived": on ? 1 : 0])
+            }
+            pendingTimers[id] = nil
+            await load()
+        }
+    }
+
+    private func change(counter id: Int, _ change: Change) {
+        pendingCounters[id] = change
+        switch change {
+        case .deleted: LocalStore.shared.removeCounter(id)
+        case .archived(let on): LocalStore.shared.setCounterArchived(id, on)
+        }
+        counters = applyPending(counters, pendingCounters, archived: \.archived)
+        Task {
+            switch change {
+            case .deleted: await api.deleteCounter(id)
+            case .archived(let on): await api.updateCounter(id, ["archived": on ? 1 : 0])
+            }
+            pendingCounters[id] = nil
+            await load()
+        }
+    }
+
+    /// The list as it should look with the changes still on their way: deleted
+    /// rows gone, archived ones flagged — and hidden unless "Show archived".
+    private func applyPending<T: Identifiable>(_ rows: [T], _ pending: [Int: Change],
+                                               archived: WritableKeyPath<T, Int>) -> [T] where T.ID == Int {
+        rows.compactMap { row in
+            var r = row
+            switch pending[r.id] {
+            case .deleted?: return nil
+            case .archived(let on)?: r[keyPath: archived] = on ? 1 : 0
+            case nil: break
+            }
+            return (r[keyPath: archived] == 1 && !showArchived) ? nil : r
+        }
+    }
+
+    /// The Mac's order (newest first), so a row does not jump when its answer
+    /// lands; placeholders made offline are the newest of all.
+    static func newestFirst<T: Identifiable>(_ rows: [T]) -> [T] where T.ID == Int {
+        rows.sorted { a, b in (a.id < 0) != (b.id < 0) ? a.id < 0 : abs(a.id) > abs(b.id) }
     }
 
     private func toggle(_ t: WorkTimer) async {

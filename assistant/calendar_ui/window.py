@@ -1594,6 +1594,11 @@ class CalendarWindow(QMainWindow):
             return
         if m != self._db_mtime:
             self._db_mtime = m
+            # Our OWN last write left exactly this mtime: nothing arrived from
+            # another process, and the view already shows it.
+            from assistant.db import own_write_mtime
+            if own_write_mtime(self._db.path) == m:
+                return
             self.reload_panels()
             self.refresh_calendar()
 

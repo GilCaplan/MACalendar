@@ -3,8 +3,8 @@ import UniformTypeIdentifiers
 
 // MARK: - The Flashcards tab: the library
 //
-// Subjects as sections, sets as rows you tick; below them, how to study the
-// ticked ones. Drawn from `FlashcardStore`'s cache first and refreshed from
+// How to study the ticked sets on top; below it, subjects as sections and sets
+// as rows you tick. Drawn from `FlashcardStore`'s cache first and refreshed from
 // the Mac behind it, so it opens with the Mac away. The backend is
 // `assistant/features/flashcards/`; FORMAT.md there is the set-file contract.
 
@@ -138,6 +138,9 @@ struct FlashcardsView: View {
             emptyState
         } else {
             List {
+                // Study first: the ticked sets persist, so most visits are
+                // "tap Study" — it was below every subject, a scroll away.
+                studySection
                 ForEach(store.activeSubjects) { subject in
                     Section {
                         if !isCollapsed(subject.id) {
@@ -151,7 +154,6 @@ struct FlashcardsView: View {
                         }
                     } header: { subjectHeader(subject) }
                 }
-                studySection
                 archivedSection
             }
             .listStyle(.insetGrouped)
@@ -402,7 +404,15 @@ struct FlashcardsView: View {
                                 limit: roundSize == 0 ? nil : roundSize)
         let present = store.types(in: ids)
         let missing = ids.filter { !store.isCached($0) }.count
+        let allIds = store.activeSets.map(\.id)
         return Section {
+            Toggle("Pick all", isOn: Binding(
+                get: { !allIds.isEmpty && Set(allIds).isSubset(of: selected) },
+                set: { on in for id in allIds { select(id, on: on) } }))
+                .tint(settings.accentColor)
+                .disabled(allIds.isEmpty)
+                .accessibilityIdentifier("flashcards-pick-all")
+
             Picker("Mode", selection: $modeRaw) {
                 ForEach(StudyMode.allCases) { m in Text(m.label).tag(m.rawValue) }
             }

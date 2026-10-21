@@ -150,11 +150,13 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | Method | Path | What it does |
 |---|---|---|
 | `POST` | `/jude/chat` | Ask Jude a question; stream the answer back as NDJSON. |
-| `GET` | `/jude/chats` | List past conversations, newest first. |
-| `DELETE` | `/jude/chats/<chat_id>` | Forget one conversation. |
-| `GET` | `/jude/chats/<chat_id>/history` | Every message in one conversation. |
+| `GET` | `/jude/chats` | Past conversations, newest first: ours, then any only Jude has. |
+| `DELETE` | `/jude/chats/<chat_id>` | Forget one conversation — here for good, and in Jude when it is up. |
+| `POST` | `/jude/chats/<chat_id>/answer` | An answer the PHONE wrote (from sources the Mac found), so it is kept too. |
+| `GET` | `/jude/chats/<chat_id>/history` | Every message in one conversation — ours, adopting Jude's copy first. |
 | `PUT` | `/jude/chats/<chat_id>/topic` | Confirm a topic pivot. |
 | `GET` | `/jude/status` | Never an error — a client draws whatever this says. |
+| `GET` | `/jude/sync` | What the phone's copy of History needs to catch up, in one call. |
 
 ## /magic
 

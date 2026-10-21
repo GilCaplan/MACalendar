@@ -787,6 +787,27 @@ def _is_meal(title: str, description: str = "") -> bool:
     return any(w in text for w in _MEAL_WORDS)
 
 
+
+#: path -> the file's mtime right after THIS process last wrote it. The GUI
+#: polls the file's mtime to notice writes from the API server (the phone);
+#: without this it could not tell its own writes from the phone's, so every
+#: note autosave, tick, rename, timer start or counter press reloaded every
+#: panel and the calendar a few seconds later — the window flashed under the
+#: user's hands (2026-10-21 audit).
+_OWN_WRITES: "dict[str, float]" = {}
+
+
+def _note_own_write(path: str) -> None:
+    try:
+        _OWN_WRITES[os.path.abspath(path)] = os.path.getmtime(path)
+    except OSError:
+        pass
+
+
+def own_write_mtime(path: str) -> "float | None":
+    """The mtime this process's own last write left on `path`, if any."""
+    return _OWN_WRITES.get(os.path.abspath(path))
+
 class CalendarDB:
     """Thread-safe SQLite calendar event store."""
 
@@ -1086,7 +1107,10 @@ class CalendarDB:
         conn.row_factory = sqlite3.Row
         try:
             yield conn
+            changed = conn.total_changes
             conn.commit()
+            if changed:
+                _note_own_write(self.path)
         finally:
             conn.close()
 
