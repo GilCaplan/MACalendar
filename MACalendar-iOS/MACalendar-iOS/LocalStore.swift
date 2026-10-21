@@ -202,7 +202,57 @@ class LocalStore: ObservableObject {
     /// History copy) keeps them per user too, and switches with `switchUser`.
     private(set) var dir: URL = LocalStore.folder(for: LocalStore.storedUserID())
 
-    private init() { load() }
+    private init() {
+        load()
+        claimFeatureFilesIfOwner()
+    }
+
+    /// A tab that keeps its own files (Coursework, Workout, Flashcards,
+    /// Ranker) keeps them HERE, in this person's folder, and reloads on
+    /// `.localStoreUserChanged`. They used to sit at the top of Documents,
+    /// shared by everyone who signed in on the phone — a second person saw
+    /// the first one's courses, workouts and flashcards (2026-10-21 audit).
+    func featureFolder(_ name: String) -> URL {
+        let f = dir.appendingPathComponent(name, isDirectory: true)
+        try? FileManager.default.createDirectory(at: f, withIntermediateDirectories: true)
+        return f
+    }
+
+    /// The feature stores' files from before they were per user. Only the
+    /// person who owns the phone's old cache (the admin who claimed it) takes
+    /// them, as with the calendar's own files.
+    private static let legacyFeatureItems = ["flashcards", "ranker", "mc_courses.json",
+                                             "mc_assignments.json", "wo_exercises.json",
+                                             "wo_templates.json", "wo_sessions.json", "wo_live.json"]
+
+    /// Once, for the person already signed in when this shipped: `switchUser`
+    /// only claims on a CHANGE of user, and the owner is not changing.
+    private func claimFeatureFilesIfOwner() {
+        guard let me = Self.storedUserID(), !me.isEmpty,
+              UserDefaults.standard.string(forKey: "macalendar.cache_owner") == me else { return }
+        Self.claimLegacyFeatureFiles(into: dir)
+    }
+
+    /// Move each item in; a FILE replaces an older copy already there (the
+    /// calendar's claim moved mc_courses.json in once, and the store kept
+    /// writing the top-level one after), a folder never overwrites one.
+    private static func claimLegacyFeatureFiles(into target: URL) {
+        let fm = FileManager.default
+        for name in legacyFeatureItems {
+            let src = documents.appendingPathComponent(name)
+            let dst = target.appendingPathComponent(name)
+            var isDir: ObjCBool = false
+            guard fm.fileExists(atPath: src.path, isDirectory: &isDir) else { continue }
+            if fm.fileExists(atPath: dst.path) {
+                guard !isDir.boolValue,
+                      let s = (try? fm.attributesOfItem(atPath: src.path))?[.modificationDate] as? Date,
+                      let d = (try? fm.attributesOfItem(atPath: dst.path))?[.modificationDate] as? Date,
+                      s > d else { continue }
+                try? fm.removeItem(at: dst)
+            }
+            try? fm.moveItem(at: src, to: dst)
+        }
+    }
 
     private static var documents: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -238,11 +288,13 @@ class LocalStore: ObservableObject {
             let owner = UserDefaults.standard.string(forKey: "macalendar.cache_owner")
             if owner == nil || owner == userID {
                 Self.claimLegacyCache(into: target)
+                Self.claimLegacyFeatureFiles(into: target)
                 UserDefaults.standard.set(userID, forKey: "macalendar.cache_owner")
             }
         }
         dir = target
         load()
+        NotificationCenter.default.post(name: .localStoreUserChanged, object: nil)
     }
 
     /// Move the pre-users cache files from the top of Documents into `target`
@@ -1542,4 +1594,11 @@ extension DateFormatter {
         f.dateFormat = "HH:mm"
         return f
     }()
+}
+
+
+extension Notification.Name {
+    /// Posted after `LocalStore.switchUser`: a feature store reloads from the
+    /// new person's folder.
+    static let localStoreUserChanged = Notification.Name("LocalStore.userChanged")
 }

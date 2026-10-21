@@ -26,10 +26,15 @@ class WorkoutStore: ObservableObject {
     /// — excluded from the normal template list until approved.
     var drafts: [WorkoutTemplate] { templates.filter { $0.isDraft } }
 
-    private let dir = FileManager.default
-        .urls(for: .documentDirectory, in: .userDomainMask)[0]
+    /// This person's folder, not the shared top of Documents.
+    private var dir: URL { LocalStore.shared.dir }
 
-    private init() { load() }
+    private init() {
+        load()
+        NotificationCenter.default.addObserver(forName: .localStoreUserChanged, object: nil, queue: .main) { _ in
+            Task { @MainActor in WorkoutStore.shared.load() }
+        }
+    }
 
     // MARK: - Persistence
 

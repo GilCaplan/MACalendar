@@ -46,13 +46,20 @@ final class RankerStore: ObservableObject {
     /// `store.BLANK_RECIPE`: nothing to rank by yet, the table's own order.
     static let blank = RankerRecipe(name: "My ranking")
 
-    private let url: URL
+    /// This person's `ranker/` folder, not the shared top of Documents.
+    private var url: URL { LocalStore.shared.featureFolder("ranker").appendingPathComponent("state.json") }
 
     private init() {
-        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ranker", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        url = dir.appendingPathComponent("state.json")
+        load()
+        NotificationCenter.default.addObserver(forName: .localStoreUserChanged, object: nil, queue: .main) { _ in
+            Task { @MainActor in RankerStore.shared.reloadForUser() }
+        }
+    }
+
+    /// A different person: their saved recipes, or the blank one.
+    func reloadForUser() {
+        presets = [Self.blank]
+        preset = Self.blank.name
         load()
     }
 
