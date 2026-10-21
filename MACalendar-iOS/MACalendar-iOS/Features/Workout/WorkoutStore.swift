@@ -124,11 +124,17 @@ class WorkoutStore: ObservableObject {
         persistCatalog()
     }
 
-    func cacheSessions(_ fresh: [WorkoutSession]) {
+    /// `covers` says which sessions the fetch could have returned: only cached
+    /// ones it covers are settled by it. A `limit=50` page used to REPLACE the
+    /// whole history, so the phone lost every workout older than the newest
+    /// fifty — history and stats shrank on each refresh.
+    func cacheSessions(_ fresh: [WorkoutSession], covers: (Date) -> Bool = { _ in true }) {
         let pendingIds = idsWithPendingWrites(pathPrefix: "/workout/sessions")
         let freshIds = Set(fresh.map { $0.id })
-        let keepLocal = sessions.filter { pendingIds.contains($0.id) && !freshIds.contains($0.id) }
-        sessions = fresh + keepLocal
+        let keepLocal = sessions.filter {
+            !freshIds.contains($0.id) && (pendingIds.contains($0.id) || !covers($0.startedAt))
+        }
+        sessions = (fresh + keepLocal).sorted { $0.startedAt > $1.startedAt }
         persistSessions()
     }
 

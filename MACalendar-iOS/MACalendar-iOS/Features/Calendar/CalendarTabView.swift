@@ -438,7 +438,10 @@ struct CalendarTabView: View {
         defer { EggWaits.shared.end(wait) }
         // Independent requests — run concurrently instead of paying the sum
         // of both latencies on every month navigation.
-        async let eventsResult: [CalendarEvent] = (try? await api.eventsForMonth(year: year, month: month)) ?? []
+        // A failed refresh (a 5xx, a decode error) keeps what the phone has
+        // rather than blanking the month on screen.
+        async let eventsResult: [CalendarEvent] = (try? await api.eventsForMonth(year: year, month: month))
+            ?? LocalStore.shared.eventsForMonth(year, month)
         async let holidaysResult: [Holiday] = fetchHolidays(showHolidays: showHolidays, start: start, end: end, israel: israel)
         async let holyResult: [HolyWindow] = showHoly
             ? api.holyWindows(start: holyFrom, end: holyTo, israel: israel) : []

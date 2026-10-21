@@ -158,7 +158,7 @@ extension APIClient {
         } catch let err as APIError {
             throw err
         } catch where Self.isCancellation(error) {
-            throw CancellationError()
+            throw Self.cancelled
         } catch {
             if answered {
                 throw APIError.serverError("Jude's answer stopped arriving — "

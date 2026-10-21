@@ -180,8 +180,17 @@ class APIClient: ObservableObject {
     /// set off a full reload storm when the next poll flipped it back (Gil,
     /// 2026-10-21: "it shouldn't be flashing").
     static func isCancellation(_ error: Error) -> Bool {
-        error is CancellationError || (error as? URLError)?.code == .cancelled
+        if case APIError.offline(let why) = error, why == cancelledReason { return true }
+        return error is CancellationError || (error as? URLError)?.code == .cancelled
     }
+
+    /// What a cancelled request throws: `.offline` — "the Mac was not
+    /// answered" — so every read's fallback to the phone's copy still catches
+    /// it (a bare CancellationError slipped past them and `?? []` blanked the
+    /// screen), but thrown WITHOUT touching reachability. `mutate` refuses to
+    /// queue it (see there), and `isCancellation` recognises it.
+    static let cancelledReason = "cancelled — the screen that asked went away"
+    static var cancelled: APIError { .offline(cancelledReason) }
 
     /// Start where we left off. Called once, from `init`.
     ///
@@ -295,7 +304,7 @@ class APIClient: ObservableObject {
         } catch let err as APIError {
             throw err
         } catch where Self.isCancellation(error) {
-            throw CancellationError()
+            throw Self.cancelled
         } catch let err as URLError where err.code == .timedOut && timeout != nil {
             // A long request ran out of time: the Mac may be busy thinking,
             // which is not the same as gone. The fast requests decide that.
@@ -337,6 +346,10 @@ class APIClient: ObservableObject {
     func mutate(_ path: String, method: String, body: [String: Any]? = nil) async throws -> Data? {
         do {
             return try await request(path, method: method, body: body)
+        } catch APIError.offline(let why) where why == Self.cancelledReason {
+            // The task was cancelled mid-request: it may already have reached
+            // the Mac, and a replay would do it twice. Not queued, not refused.
+            throw CancellationError()
         } catch APIError.offline, APIError.badURL {
             LocalStore.shared.enqueue(method: method, path: path, body: body)
             return nil
@@ -1302,7 +1315,15 @@ class APIClient: ObservableObject {
         do {
             let data = try await request("/workout/sessions" + qs)
             let items = try JSONDecoder.workout.decode([WorkoutSession].self, from: data)
-            WorkoutStore.shared.cacheSessions(items)
+            // What this answer could have held: a full page reaches back only
+            // to its oldest row; a date range only its own days.
+            let oldest = (limit != nil && items.count >= (limit ?? 0)) ? items.map(\.startedAt).min() : nil
+            let f = ISO8601DateFormatter.yyyyMMdd
+            let from = startDate.flatMap { f.date(from: $0) }
+            let to = endDate.flatMap { f.date(from: $0) }.map { $0.addingTimeInterval(86_400) }
+            WorkoutStore.shared.cacheSessions(items) { d in
+                (oldest.map { d >= $0 } ?? true) && (from.map { d >= $0 } ?? true) && (to.map { d < $0 } ?? true)
+            }
             return items
         } catch APIError.offline, APIError.badURL {
             return WorkoutStore.shared.sessions
@@ -1633,7 +1654,7 @@ class APIClient: ObservableObject {
             // small, fast requests decide reachability.
             throw APIError.offline(err.localizedDescription)
         } catch where Self.isCancellation(error) {
-            throw CancellationError()
+            throw Self.cancelled
         } catch {
             markUnreachable(error.localizedDescription)
             throw APIError.offline(error.localizedDescription)
@@ -1742,7 +1763,7 @@ class APIClient: ObservableObject {
         } catch let err as APIError {
             throw err
         } catch where Self.isCancellation(error) {
-            throw CancellationError()
+            throw Self.cancelled
         } catch let err as URLError where err.code == .timedOut {
             // Same rule as sendAudio: a long command timing out is the Mac
             // thinking, not the Mac gone.
