@@ -1948,7 +1948,7 @@ class APIClient: ObservableObject {
         do {
             let items = try decode(TimersResponse.self,
                                    from: try await request("/timers" + (archived ? "?archived=1" : ""))).timers
-            LocalStore.shared.cacheTimers(items)
+            LocalStore.shared.cacheTimers(items, listed: archived ? .all : .active)
             return items
         } catch APIError.offline, APIError.badURL {
             return LocalStore.shared.allTimers(includeArchived: archived)
@@ -2040,7 +2040,7 @@ class APIClient: ObservableObject {
         do {
             let items = try decode(CountersResponse.self,
                                    from: try await request("/counters" + (archived ? "?archived=1" : ""))).counters
-            LocalStore.shared.cacheCounters(items)
+            LocalStore.shared.cacheCounters(items, listed: archived ? .all : .active)
             return items
         } catch APIError.offline, APIError.badURL {
             return LocalStore.shared.allCounters(includeArchived: archived)

@@ -1477,6 +1477,18 @@ class TimerCard(QWidget):
         if self._expanded:
             self._sessions_panel.tick()
 
+    def sync_from(self, timer: dict) -> None:
+        """Take a fresh row from a reload, and re-read the sessions behind it.
+
+        The tab's reload used to add and remove cards only: a card that stayed
+        kept its old row and its cached sessions, so a start, stop, rename or
+        archive made on the PHONE never showed here until a restart (a running
+        clock only re-read while it believed itself running).
+        """
+        self._timer = timer
+        self._invalidate_cache()
+        self.tick()
+
     def reload_timer(self) -> None:
         """Reload timer metadata from DB (after an edit)."""
         timers = self._db.get_timers(include_archived=True)
@@ -2142,6 +2154,14 @@ class CounterCard(QWidget):
             self._presses_panel.reload()
         if self._payouts_expanded:
             self._payouts_panel.reload()
+
+    def sync_from(self, counter: dict) -> None:
+        """Take a fresh row from a reload and re-read its presses — the same
+        hole as `TimerCard.sync_from`: presses and payouts made on the phone
+        never reached a card that already existed."""
+        self._counter = counter
+        self._invalidate_cache()
+        self.refresh()
 
     def reload_counter(self) -> None:
         """Reload counter metadata from DB (after an edit)."""
@@ -2857,9 +2877,11 @@ class TimerView(FeaturePanel):
                 card.setParent(None)
                 card.deleteLater()
 
-        # Add cards for new timers (insert before the stretch)
+        # Add cards for new timers (insert before the stretch); refresh the rest.
         for i, t in enumerate(timers):
-            if t["id"] not in self._cards:
+            if t["id"] in self._cards:
+                self._cards[t["id"]].sync_from(t)
+            else:
                 card = TimerCard(t, self._db, self)
                 card.changed.connect(self._update_summary)
                 card.delete_requested.connect(self._on_card_deleted)
@@ -2876,10 +2898,13 @@ class TimerView(FeaturePanel):
             if cid not in counter_ids:
                 card = self._counter_cards.pop(cid)
                 self._counters_layout.removeWidget(card)
+                card.setParent(None)          # no ghost until deleteLater runs (as timers)
                 card.deleteLater()
 
         for i, c in enumerate(counters):
-            if c["id"] not in self._counter_cards:
+            if c["id"] in self._counter_cards:
+                self._counter_cards[c["id"]].sync_from(c)
+            else:
                 card = CounterCard(c, self._db, self)
                 card.changed.connect(self._update_summary)
                 card.delete_requested.connect(self._on_counter_card_deleted)

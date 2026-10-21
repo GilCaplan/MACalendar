@@ -390,18 +390,53 @@ class LocalStore: ObservableObject {
     /// filtered a list that had never contained one, so the switch appeared to
     /// do nothing. Merging by id keeps an archived row once it has been seen,
     /// and the fresh copy still wins for anything in this answer.
-    func cacheTimers(_ fresh: [WorkTimer]) {
+    ///
+    /// But merge-only never let go: a timer archived or deleted ON THE MAC
+    /// stayed active in this copy and came back every time the phone was
+    /// offline. So a WHOLE list (`listed`) also settles what it left out —
+    /// gone from the active list means archived (or deleted; the archived
+    /// list will tell), gone from the full list means deleted. Placeholder
+    /// rows and rows with a write still queued are this phone's news, and
+    /// are kept as they are.
+    enum Listed { case active, all }
+
+    func cacheTimers(_ fresh: [WorkTimer], listed: Listed? = nil) {
         var byID = Dictionary(timers.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         for t in fresh { byID[t.id] = t }
+        if let listed {
+            let seen = Set(fresh.map(\.id))
+            for (id, t) in byID where id > 0 && !seen.contains(id) && !hasQueuedWrite("/timers", id) {
+                switch listed {
+                case .active: if t.archived == 0 { byID[id]?.archived = 1 }
+                case .all: byID[id] = nil
+                }
+            }
+        }
         timers = byID.values.sorted { $0.id < $1.id }
         persist()
     }
 
-    func cacheCounters(_ fresh: [TallyCounter]) {
+    func cacheCounters(_ fresh: [TallyCounter], listed: Listed? = nil) {
         var byID = Dictionary(counters.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         for c in fresh { byID[c.id] = c }
+        if let listed {
+            let seen = Set(fresh.map(\.id))
+            for (id, c) in byID where id > 0 && !seen.contains(id) && !hasQueuedWrite("/counters", id) {
+                switch listed {
+                case .active: if c.archived == 0 { byID[id]?.archived = 1 }
+                case .all: byID[id] = nil
+                }
+            }
+        }
         counters = byID.values.sorted { $0.id < $1.id }
         persist()
+    }
+
+    /// A write for `<collection>/<id>` (or below it) still waiting to replay.
+    /// Whole segments only: `/timers/1` must not match `/timers/12`.
+    func hasQueuedWrite(_ collection: String, _ id: Int) -> Bool {
+        let path = "\(collection)/\(id)"
+        return pending.contains { $0.path == path || $0.path.hasPrefix(path + "/") || $0.path.hasPrefix(path + "?") }
     }
 
     /// Start a timer in the cache, so the clock runs from the moment of the tap.

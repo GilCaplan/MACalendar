@@ -287,6 +287,15 @@ struct TimerView: View {
                 if Int(d.timeIntervalSince1970) % every == 0 { Task { await load() } }
             }
             .onChange(of: showArchived) { _ in Task { await load() } }
+            // Draw from the phone's copy whenever it changes: a start, stop or
+            // ＋ updates LocalStore at the tap, but these rows used to wait for
+            // the POST and a full GET before they moved.
+            .onReceive(LocalStore.shared.$timers) { all in
+                timers = applyPending(Self.newestFirst(all), pendingTimers, archived: \.archived)
+            }
+            .onReceive(LocalStore.shared.$counters) { all in
+                counters = applyPending(Self.newestFirst(all), pendingCounters, archived: \.archived)
+            }
             .onReceive(api.$refreshTick) { _ in Task { await load() } }
         }
     }
@@ -367,6 +376,12 @@ struct TimerView: View {
             }
             return (r[keyPath: archived] == 1 && !showArchived) ? nil : r
         }
+    }
+
+    /// The Mac's order (newest first), so a row does not jump when its answer
+    /// lands; placeholders made offline are the newest of all.
+    static func newestFirst<T: Identifiable>(_ rows: [T]) -> [T] where T.ID == Int {
+        rows.sorted { a, b in (a.id < 0) != (b.id < 0) ? a.id < 0 : abs(a.id) > abs(b.id) }
     }
 
     private func toggle(_ t: WorkTimer) async {
