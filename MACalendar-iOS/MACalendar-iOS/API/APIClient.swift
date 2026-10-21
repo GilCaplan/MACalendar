@@ -416,8 +416,17 @@ class APIClient: ObservableObject {
 
                 LocalStore.shared.removePending(change.id)
                 synced += 1
-            } catch APIError.offline {
-                break        // the Mac is away again — keep the rest for later
+            } catch APIError.offline, APIError.badURL {
+                break        // the Mac is away again (or unset) — keep the rest for later
+            } catch where Self.isCancellation(error) {
+                break        // nobody refused it; try again next time
+            } catch APIError.serverError(let detail) where detail.contains("\"code\": 401")
+                                                        || detail.contains("sign in first")
+                                                        || detail.contains("login required") {
+                // Not a refusal of THIS change — nobody is signed in yet. The
+                // queue is what that person did offline; dropping it item by
+                // item (the catch-all below) lost all of it at sign-in.
+                break
             } catch APIError.serverError(let detail) where detail.contains("\"code\": 409")
                                                         || detail.contains("\"code\":409") {
                 // The same event was changed on the Mac while we were away. The
@@ -720,7 +729,7 @@ class APIClient: ObservableObject {
         do {
             let data   = try await request("/events?date=\(d)")
             let events = try decode([CalendarEvent].self, from: data)
-            LocalStore.shared.cacheEvents(events)
+            LocalStore.shared.cacheEvents(events, from: d, to: d)
             return events
         } catch APIError.offline, APIError.badURL {
             return LocalStore.shared.eventsForDate(d)
@@ -731,7 +740,8 @@ class APIClient: ObservableObject {
         do {
             let data   = try await request("/events?year=\(year)&month=\(month)")
             let events = try decode([CalendarEvent].self, from: data)
-            LocalStore.shared.cacheEvents(events)
+            let first = String(format: "%04d-%02d-01", year, month)
+            LocalStore.shared.cacheEvents(events, from: first, to: String(format: "%04d-%02d-31", year, month))
             return events
         } catch APIError.offline, APIError.badURL {
             return LocalStore.shared.eventsForMonth(year, month)
@@ -743,7 +753,9 @@ class APIClient: ObservableObject {
         do {
             let data   = try await request("/events?week_start=\(d)")
             let events = try decode([CalendarEvent].self, from: data)
-            LocalStore.shared.cacheEvents(events)
+            let end = Calendar.current.date(byAdding: .day, value: 6, to: start).map {
+                ISO8601DateFormatter.yyyyMMdd.string(from: $0) } ?? d
+            LocalStore.shared.cacheEvents(events, from: d, to: end)
             return events
         } catch APIError.offline, APIError.badURL {
             return LocalStore.shared.eventsForWeek(startStr: d)
@@ -829,7 +841,7 @@ class APIClient: ObservableObject {
         else { return nil }
 
         let store = LocalStore.shared
-        store.cacheEvents(snap.events)
+        store.cacheEvents(snap.events, from: snap.window.start, to: snap.window.end)
         store.cacheTodos(snap.todos)
         store.cacheTags(snap.tags)
         store.cacheHolidays(snap.holidays, from: snap.window.start, to: snap.window.end)

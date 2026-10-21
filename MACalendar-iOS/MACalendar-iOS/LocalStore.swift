@@ -631,7 +631,12 @@ class LocalStore: ObservableObject {
 
     // MARK: - Events
 
-    func cacheEvents(_ fresh: [CalendarEvent]) {
+    /// `from...to` (yyyy-MM-dd) is the window the fetch covered: only cached
+    /// rows inside it are replaced. Replacing EVERYTHING meant the phone's copy
+    /// only ever held the last day, week or month looked at — open one month
+    /// and every other month was gone offline. With no window (a caller that
+    /// cannot say) the old whole replace stands.
+    func cacheEvents(_ fresh: [CalendarEvent], from: String? = nil, to: String? = nil) {
         // Keep items created offline that the Mac hasn't got yet — but drop any
         // whose twin is already in the fresh data, or they show up twice for
         // ever: once as the local placeholder, once as the Mac's copy.
@@ -639,7 +644,18 @@ class LocalStore: ObservableObject {
         let local = events.filter {
             $0.id < 0 && !arrived.contains("\($0.title)|\($0.date)|\($0.startTime)")
         }
-        events = local + fresh
+        let outside: [CalendarEvent]
+        if let from, let to {
+            outside = events.filter { $0.id > 0 && ($0.date < from || $0.date > to) }
+        } else {
+            outside = []
+        }
+        // A row with an edit still queued is the phone's news: keep its copy
+        // over the Mac's, or the refresh drew the old version until replay.
+        let mine = Dictionary(events.filter { $0.id > 0 && hasQueuedWrite("/events", $0.id) }.map { ($0.id, $0) },
+                              uniquingKeysWith: { a, _ in a })
+        let incoming = fresh.map { mine[$0.id] ?? $0 }
+        events = local + outside + incoming
         persist()
         // Fresh payloads carry fresh notify_at verdicts — re-mirror them into
         // the pending local notifications. Debounced and idempotent, so the
@@ -1382,7 +1398,7 @@ class LocalStore: ObservableObject {
             for other in pending where other.id != id {
                 // Anything addressed to the placeholder, or carrying it as a
                 // parent (an assignment queued under an unsynced course).
-                if other.path.contains("/\(temp)") {
+                if Self.replacingSegment(of: other.path, temp, with: temp) != nil {
                     doomed.insert(other.id)
                 } else if let d = other.bodyJSON,
                           let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
@@ -1448,12 +1464,23 @@ class LocalStore: ObservableObject {
     /// create is replayed the Mac assigns a real id, and the queued action
     /// 404s forever: the change is silently lost AND (since the sync loop stops
     /// at the first failure) it blocks everything queued behind it.
+    /// `path` with every WHOLE segment equal to `id` replaced — or nil when it
+    /// has none. A substring match on "/-1" also hit "/-12" and "/-1000001"
+    /// (a CourseStore placeholder), so one sync re-addressed another row's
+    /// queued write to the wrong id.
+    static func replacingSegment(of path: String, _ id: Int, with new: Int) -> String? {
+        let (route, query) = path.firstIndex(of: "?").map { (String(path[..<$0]), String(path[$0...])) } ?? (path, "")
+        var parts = route.components(separatedBy: "/")
+        var hit = false
+        for i in parts.indices where parts[i] == String(id) { parts[i] = String(new); hit = true }
+        return hit ? parts.joined(separator: "/") + query : nil
+    }
+
     func remapTemporaryID(_ tempID: Int, to realID: Int) {
         guard tempID < 0 else { return }
         for (i, change) in pending.enumerated() {
-            guard change.path.contains("/\(tempID)") else { continue }
-            pending[i] = change.replacingPath(
-                change.path.replacingOccurrences(of: "/\(tempID)", with: "/\(realID)"))
+            guard let moved = Self.replacingSegment(of: change.path, tempID, with: realID) else { continue }
+            pending[i] = change.replacingPath(moved)
         }
         // A placeholder also travels INSIDE a queued body: an assignment added
         // to a course that has not synced yet carries `course_id: -1000001`,
