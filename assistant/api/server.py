@@ -109,7 +109,14 @@ def create_event_from_body(data: dict) -> "tuple[dict, int]":
     missing = required - data.keys()
     if missing:
         return {"error": f"Missing fields: {missing}", "code": 400}, 400
-    return {"id": get_db().create_event_from_dict(data)}, 201
+    # Idempotent on `client_token`, like timers and to-dos: the phone queues a
+    # create whose reply it never got (a 5 s timeout, a lost connection) and
+    # replays it — which booked the same event twice whenever the first one
+    # HAD reached the Mac (2026-10-21 audit).
+    from assistant.features.idempotency import idempotent_create
+    db = get_db()
+    fields = {k: v for k, v in data.items() if k not in ("client_token", "_temp_id")}
+    return idempotent_create("events", data, lambda: db.create_event_from_dict(fields), db=db)
 
 
 def create_todo_from_body(data: dict) -> "tuple[dict, int]":

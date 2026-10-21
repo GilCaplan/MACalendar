@@ -531,6 +531,11 @@ struct TasksView: View {
         let list  = newTaskList
         let newTags = effectiveAutoTags
         newTaskTitle = ""
+        // On the list at the tap. Online it used to appear only after the POST
+        // AND a full reload — a pause long enough to type it twice. The reload
+        // after the create replaces this stand-in with the Mac's row.
+        todos.append(Todo(id: Int.min + todos.count, title: title, list: list,
+                          completed: 0, priority: "none", dueDate: "", tags: newTags))
         Task {
             _ = try? await api.createTodo(title: title, list: list, tags: newTags)
             load()
@@ -569,10 +574,9 @@ struct TasksView: View {
     }
 
     private func delete(_ todo: Todo) {
-        Task {
-            try? await api.deleteTodo(id: todo.id)
-            todos.removeAll { $0.id == todo.id }
-        }
+        // Off the list at the tap, not after the DELETE returns.
+        todos.removeAll { $0.id == todo.id }
+        Task { try? await api.deleteTodo(id: todo.id) }
     }
 
     private func deleteTasks(list: String, at offsets: IndexSet) {
