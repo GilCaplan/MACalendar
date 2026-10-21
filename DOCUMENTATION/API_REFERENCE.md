@@ -156,6 +156,7 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `GET` | `/jude/chats/<chat_id>/history` | Every message in one conversation — ours, adopting Jude's copy first. |
 | `PUT` | `/jude/chats/<chat_id>/topic` | Confirm a topic pivot. |
 | `GET` | `/jude/status` | Never an error — a client draws whatever this says. |
+| `GET` | `/jude/sync` | What the phone's copy of History needs to catch up, in one call. |
 
 ## /magic
 

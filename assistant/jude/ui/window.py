@@ -117,6 +117,11 @@ class JudeWindow(QMainWindow):
                   activated=self.new_chat)
 
         self._transcript.show_empty_state()
+        # Status misses in a row: ONE failed poll (the API restarting under
+        # --reload) used to grey the composer and print "Couldn't reach the
+        # assistant" over the window until the next poll, 6 s later.
+        self._status_misses = 0
+        self._chats_loaded = False
         self._poll = QTimer(self)
         self._poll.setInterval(STATUS_POLL_MS)
         self._poll.timeout.connect(self._refresh_status)
@@ -156,6 +161,9 @@ class JudeWindow(QMainWindow):
                           self._on_status, self._on_status_error, timeout=6)
 
     def _on_status(self, status) -> None:
+        self._status_misses = 0
+        if not self._chats_loaded:
+            self._reload_chats()          # the first load failed; the API is back
         status = status if isinstance(status, dict) else {}
         self._ready = bool(status.get("ready"))
         self._composer.set_enabled(self._ready)
@@ -181,7 +189,11 @@ class JudeWindow(QMainWindow):
 
     def _on_status_error(self, message: str) -> None:
         # /jude/status never errors when the API is up, so a failure here is
-        # the API being down — which the reason sentence cannot describe.
+        # the API being down — which the reason sentence cannot describe. Said
+        # only on the second miss in a row: one is a restart, not an outage.
+        self._status_misses += 1
+        if self._status_misses < 2:
+            return
         self._ready = False
         self._composer.set_enabled(False)
         self._status.setText(message)
@@ -189,11 +201,15 @@ class JudeWindow(QMainWindow):
     # --------------------------------------------------------------- chats
 
     def _reload_chats(self) -> None:
-        client.call_async(
-            self, self._config, "GET", "/jude/chats",
-            lambda chats: self._sidebar.set_chats(
-                chats if isinstance(chats, list) else [], self._chat_id),
-            lambda message: logger.info("chat list unavailable: %s", message))
+        def loaded(chats) -> None:
+            self._chats_loaded = True
+            self._sidebar.set_chats(chats if isinstance(chats, list) else [], self._chat_id)
+
+        def failed(message: str) -> None:
+            self._chats_loaded = False    # the next good status poll asks again
+            logger.info("chat list unavailable: %s", message)
+
+        client.call_async(self, self._config, "GET", "/jude/chats", loaded, failed)
 
     def new_chat(self) -> None:
         self._stream.abort()
@@ -216,8 +232,19 @@ class JudeWindow(QMainWindow):
         self._sidebar.set_active(chat_id)
         self._transcript.clear()
         self._set_busy(False)
+        # Only the reply for the chat still on screen is drawn: clicking two
+        # chats quickly, or New chat, used to paint the slower reply into the
+        # wrong conversation.
+        def render(messages, wanted=chat_id) -> None:
+            if self._chat_id == wanted:
+                self._render_history(messages)
+
+        def failed(message: str, wanted=chat_id) -> None:
+            if self._chat_id == wanted:
+                self._transcript.add_error(message)
+
         client.call_async(self, self._config, "GET", f"/jude/chats/{chat_id}/history",
-                          self._render_history, self._transcript.add_error)
+                          render, failed)
 
     def _render_history(self, messages) -> None:
         for message in messages if isinstance(messages, list) else []:

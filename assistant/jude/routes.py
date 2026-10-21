@@ -133,14 +133,40 @@ def _json_of(r):
         return None, status
 
 
-def _adopt(store, chat_id: str) -> None:
+def _adopt(store, chat_id: str, summary: "dict | None" = None) -> None:
     """Copy a chat only Jude kept into our store before it gains a turn here —
-    or History would show only what was said after this store existed."""
+    or History would show only what was said after this store existed.
+    `summary` is the chat's row from Jude's list, when known: its title,
+    mode and creation time are kept."""
     if store.has(chat_id) or store.is_hidden(chat_id) or not _jude_running():
         return
     data, status = _json_of(proxy.call(_jude(), f"/api/chats/{chat_id}/history"))
     if status == 200 and isinstance(data, list):
-        store.adopt(chat_id, data)
+        s = summary or {}
+        store.adopt(chat_id, data, title=str(s.get("title") or ""),
+                    mode=str(s.get("mode") or "qa"), created_at=str(s.get("created_at") or ""))
+
+
+#: Jude chats already found to hold no messages, so a sync does not ask for
+#: their history again on every call. Per process; a restart asks once more.
+_EMPTY_IN_JUDE: set = set()
+
+
+def _adopt_all(store) -> None:
+    """Every chat Jude kept and we have not, copied in once — so the phone's
+    copy of History holds them all, not only the ones opened since."""
+    if not _jude_running():
+        return
+    data, status = _json_of(proxy.call(_jude(), f"/api/chats?user={OWNER}"))
+    if status != 200 or not isinstance(data, list):
+        return
+    for c in data:
+        cid = str(c.get("id") or "") if isinstance(c, dict) else ""
+        if not cid or cid in _EMPTY_IN_JUDE or store.has(cid) or store.is_hidden(cid):
+            continue
+        _adopt(store, cid, c)
+        if not store.has(cid):
+            _EMPTY_IN_JUDE.add(cid)
 
 
 def _followup(store, chat_id: str, prompt: str, sources: list, lang: str, source: str):
@@ -186,57 +212,71 @@ def _recording(resp, store, prompt: str, mode: str, chat_id: "str | None"):
     turn = {"chat_id": chat_id, "answer": [], "sources": [], "kind": "answer", "mode": mode,
             "done": False, "error": False, "extra": {}}
 
+    def take(line) -> None:
+        try:
+            ev = _json.loads(line if isinstance(line, str) else line.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            return
+        kind = ev.get("type")
+        if ev.get("chat_id"):
+            turn["chat_id"] = ev["chat_id"]
+        if kind == "token":
+            turn["answer"].append(str(ev.get("text") or ""))
+        elif kind == "meta":
+            turn["sources"] = list(ev.get("sources") or [])
+            turn["mode"] = ev.get("mode") or mode
+        elif kind == "tool_call":
+            turn["sources"].extend(ev.get("new_sources") or [])
+        elif kind == "clarification":
+            # Options are {label, prompt} — or a bare string from an
+            # older Jude. The text is what History reads; `extra` is
+            # what lets a reopened card still be answered.
+            opts = [o if isinstance(o, dict) else {"label": str(o), "prompt": str(o)}
+                    for o in ev.get("options") or []]
+            question = str(ev.get("question") or "")
+            turn["kind"] = "clarification"
+            turn["answer"] = [question + "".join(f"\n- {o.get('label', '')}" for o in opts)]
+            turn["extra"] = {"clarification": {"question": question, "options": opts}}
+        elif kind == "done":
+            turn["done"] = True
+        elif kind == "error":
+            turn["error"] = True
+
+    def keep() -> None:
+        if turn["kind"] == "answer" and (turn["error"] or not turn["done"]):
+            turn["kind"] = "incomplete"
+        if not turn["chat_id"]:
+            return
+        try:
+            store.record(turn["chat_id"], prompt, "".join(turn["answer"]),
+                         sources=turn["sources"], mode=turn["mode"], kind=turn["kind"],
+                         extra=turn["extra"])
+        except Exception as e:      # noqa: BLE001 — the answer was delivered; say why it was not kept
+            import logging
+            logging.getLogger(__name__).warning("jude: could not keep the turn: %s", e)
+
+    def finish_unread() -> None:
+        # The phone left mid-answer (backgrounded, switched chats): Jude goes
+        # on writing anyway, so read the rest here and keep the WHOLE answer
+        # rather than the half that had arrived — History is where it will be
+        # read now.
+        try:
+            for line in upstream:
+                take(line)
+        except Exception:                # noqa: BLE001 — keep what did arrive
+            pass
+        keep()
+
     def tap():
         try:
             for line in upstream:
+                take(line)
                 yield line
-                try:
-                    ev = _json.loads(line if isinstance(line, str) else line.decode("utf-8"))
-                except (ValueError, UnicodeDecodeError):
-                    continue
-                kind = ev.get("type")
-                if ev.get("chat_id"):
-                    turn["chat_id"] = ev["chat_id"]
-                if kind == "token":
-                    turn["answer"].append(str(ev.get("text") or ""))
-                elif kind == "meta":
-                    turn["sources"] = list(ev.get("sources") or [])
-                    turn["mode"] = ev.get("mode") or mode
-                elif kind == "tool_call":
-                    turn["sources"].extend(ev.get("new_sources") or [])
-                elif kind == "clarification":
-                    # Options are {label, prompt} — or a bare string from an
-                    # older Jude. The text is what History reads; `extra` is
-                    # what lets a reopened card still be answered.
-                    opts = [o if isinstance(o, dict) else {"label": str(o), "prompt": str(o)}
-                            for o in ev.get("options") or []]
-                    question = str(ev.get("question") or "")
-                    turn["kind"] = "clarification"
-                    turn["answer"] = [question + "".join(f"\n- {o.get('label', '')}" for o in opts)]
-                    turn["extra"] = {"clarification": {"question": question, "options": opts}}
-                elif kind == "done":
-                    turn["done"] = True
-                elif kind == "error":
-                    turn["error"] = True
-        finally:
-            # A client that left closes THIS generator; close the one under it
-            # too, so the upstream read stops rather than running on unread.
-            close = getattr(upstream, "close", None)
-            if close:
-                try:
-                    close()
-                except Exception:        # noqa: BLE001
-                    pass
-            if turn["kind"] == "answer" and (turn["error"] or not turn["done"]):
-                turn["kind"] = "incomplete"
-            if turn["chat_id"]:
-                try:
-                    store.record(turn["chat_id"], prompt, "".join(turn["answer"]),
-                                 sources=turn["sources"], mode=turn["mode"], kind=turn["kind"],
-                                 extra=turn["extra"])
-                except Exception as e:      # noqa: BLE001 — the answer was delivered; say why it was not kept
-                    import logging
-                    logging.getLogger(__name__).warning("jude: could not keep the turn: %s", e)
+        except GeneratorExit:
+            import threading
+            threading.Thread(target=finish_unread, daemon=True, name="jude-finish").start()
+            raise
+        keep()
 
     resp.response = tap()
     return resp
@@ -271,9 +311,31 @@ def chat_history(chat_id: str):
     _adopt(store, chat_id)
     if store.has(chat_id):
         return jsonify(store.messages(chat_id))
-    if store.is_hidden(chat_id):
-        return jsonify([])
-    return proxy.call(_jude(), f"/api/chats/{chat_id}/history")
+    # Not here, and Jude is stopped (or it is deleted): asking would START
+    # Jude and hold the page for up to two minutes for a chat with nothing
+    # in it — a chat with messages was adopted above, or by `/sync`.
+    return jsonify([])
+
+
+@blueprint.get("/sync")
+def sync():
+    """What the phone's copy of History needs to catch up, in one call.
+
+    `?since=<iso>` → `{chats: [{id, title, mode, created_at, updated_at,
+    messages}], deleted: [ids], next: <iso>}` — every chat changed after
+    `since` (all of them when absent), and every chat deleted here. `next`
+    is the newest change returned, the `since` for the call after; taken
+    from the rows rather than the clock, so a write landing mid-call is
+    picked up next time instead of skipped.
+    """
+    store = _history()
+    _adopt_all(store)
+    # An unencoded "+00:00" arrives as " 00:00" — and then every chat
+    # compares as changed, every call. Put the plus back.
+    since = (request.args.get("since") or "").replace(" ", "+")
+    changed = store.changed_since(since)
+    nxt = max([since] + [c["updated_at"] for c in changed])
+    return jsonify({"chats": changed, "deleted": sorted(store.hidden_ids()), "next": nxt})
 
 
 @blueprint.post("/chats/<chat_id>/answer")

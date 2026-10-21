@@ -201,6 +201,30 @@ extension APIClient {
         }
     }
 
+    /// Bring the phone's copy of History up to date with the Mac's
+    /// `jude_chats.db`: every chat changed since the last sync, messages and
+    /// all, and every chat deleted there. So History holds EVERY conversation
+    /// — not only the ones opened on this phone — and new turns from either
+    /// device arrive without opening anything. Silent: with the Mac away the
+    /// copy simply stays as it is.
+    func judeSync() async {
+        let since = JudeCache.syncMarker
+        // "+" in "+00:00" must be encoded, or the server reads a space.
+        var allowed = CharacterSet.urlQueryAllowed
+        allowed.remove(charactersIn: "+&=")
+        let query = since.isEmpty ? "" : "?since=" + (since.addingPercentEncoding(withAllowedCharacters: allowed) ?? "")
+        guard let data = try? await request("/jude/sync" + query),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        for chat in obj["chats"] as? [[String: Any]] ?? [] {
+            guard let id = chat["id"] as? String, let messages = chat["messages"] as? [Any],
+                  let body = try? JSONSerialization.data(withJSONObject: messages) else { continue }
+            JudeCache.save(body, as: JudeCache.historyFile(id))
+        }
+        for id in obj["deleted"] as? [String] ?? [] { JudeCache.forget(id) }
+        if let next = obj["next"] as? String { JudeCache.syncMarker = next }
+        _ = await judeChats()                    // and the list, in the same breath
+    }
+
     /// Keep an answer this phone wrote, so History has it on the Mac and here.
     /// Queued when the Mac is away, like any other write.
     func judeSaveAnswer(chatId: String, question: String, answer: String,
@@ -211,6 +235,7 @@ extension APIClient {
         // other answer the Mac recorded them as it found them.
         if let sources { body["sources"] = sources.map(\.wire) }
         _ = try? await mutate("/jude/chats/\(judeEscape(chatId))/answer", method: "POST", body: body)
+        await judeSync()
     }
 
     /// Forget a conversation on the Mac. Queued when it is away, like every
@@ -319,6 +344,12 @@ enum JudeCache {
         let f = LocalStore.shared.dir.appendingPathComponent("jude", isDirectory: true)
         try? FileManager.default.createDirectory(at: f, withIntermediateDirectories: true)
         return f
+    }
+
+    /// The `next` from the last sync — where the following one starts.
+    static var syncMarker: String {
+        get { (try? String(contentsOf: folder.appendingPathComponent("sync-marker.txt"), encoding: .utf8)) ?? "" }
+        set { try? newValue.write(to: folder.appendingPathComponent("sync-marker.txt"), atomically: true, encoding: .utf8) }
     }
 
     static func save(_ data: Data, as name: String) {

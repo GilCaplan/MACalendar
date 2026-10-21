@@ -97,6 +97,7 @@ struct JudeChatList: View {
     }
 
     private func reload() async {
+        await api.judeSync()
         let fresh = await api.judeChats()
         if !fresh.isEmpty || chats.isEmpty { chats = fresh }
         loading = false

@@ -169,32 +169,52 @@ class JudeHistory:
         with self._conn() as c:
             return {r["id"] for r in c.execute("SELECT id FROM hidden")}
 
-    def adopt(self, chat_id: str, messages: list, *, title: str = "", mode: str = "qa") -> int:
+    def adopt(self, chat_id: str, messages: list, *, title: str = "", mode: str = "qa",
+              created_at: str = "") -> int:
         """Copy a chat Jude kept into this store, once, before it gains a new turn.
 
         `messages` is Jude's `/history` shape. A chat already here, or deleted
-        here, is left alone. Returns how many turns were copied.
+        here, is left alone. One transaction — a crash halfway must not leave
+        half a chat that `has()` then treats as the whole one — keeping Jude's
+        title and creation time rather than stamping it as made now. Returns
+        how many turns were copied.
         """
         if not chat_id or self.has(chat_id) or self.is_hidden(chat_id):
             return 0
-        pending, n = None, 0
+        rows, pending = [], None
         for m in messages or []:
             if not isinstance(m, dict):
                 continue
             if m.get("role") == "user":
                 if pending is not None:
-                    self.record(chat_id, pending, "", mode=mode, kind="incomplete"); n += 1
+                    rows.append((pending, "", [], "incomplete"))
                 pending = str(m.get("content") or "")
             else:
-                self.record(chat_id, pending or "", str(m.get("content") or ""),
-                            sources=m.get("sources") or [], mode=mode); n += 1
+                rows.append((pending or "", str(m.get("content") or ""), m.get("sources") or [], "answer"))
                 pending = None
         if pending is not None:
-            self.record(chat_id, pending, "", mode=mode, kind="incomplete"); n += 1
-        if n and title:
-            with self._conn() as c:
-                c.execute("UPDATE chats SET title = ? WHERE id = ?", (title, chat_id))
-        return n
+            rows.append((pending, "", [], "incomplete"))
+        if not rows:
+            return 0
+        when = created_at or _now()
+        name = (title or rows[0][0]).strip()[:55]
+        with self._conn() as c:
+            c.execute("INSERT OR IGNORE INTO chats (id, title, mode, created_at, updated_at) "
+                      "VALUES (?, ?, ?, ?, ?)", (chat_id, name, mode, when, when))
+            c.executemany(
+                "INSERT INTO turns (chat_id, question, answer, sources, mode, kind, by, extra, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, 'mac', '{}', ?)",
+                [(chat_id, q, a, json.dumps(src, ensure_ascii=False), mode, k, when) for q, a, src, k in rows])
+        return len(rows)
+
+    def changed_since(self, since: str = "") -> list:
+        """Every chat updated after `since` (ISO time; "" = all), with its
+        messages — what the phone's copy needs to catch up in one call."""
+        with self._conn() as c:
+            rows = c.execute("SELECT * FROM chats WHERE updated_at > ? ORDER BY updated_at",
+                             (since or "",)).fetchall()
+        return [{"id": r["id"], "title": r["title"], "mode": r["mode"], "created_at": r["created_at"],
+                 "updated_at": r["updated_at"], "messages": self.messages(r["id"])} for r in rows]
 
     # -- reading -------------------------------------------------------------
 

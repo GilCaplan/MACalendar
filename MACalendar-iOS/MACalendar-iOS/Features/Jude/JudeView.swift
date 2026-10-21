@@ -109,6 +109,8 @@ final class JudeConversation: ObservableObject {
         cancelFlusher()
         generation += 1
         loadingHistory = false
+        asking = false
+        buffer = ""
         turns = []
         chatId = nil
         chatTitle = ""
@@ -122,6 +124,8 @@ final class JudeConversation: ObservableObject {
         cancelFlusher()
         generation += 1
         let mine = generation
+        asking = false
+        buffer = ""
         chatId = chat.id
         chatTitle = chat.title
         stage = ""
@@ -221,23 +225,33 @@ final class JudeConversation: ObservableObject {
         if chatTitle.isEmpty { chatTitle = String(prompt.prefix(55)) }
         startFlusher(index)
 
+        let mine = generation
+        let askedIn = chatId
         Task {
+            // Everything below writes into turns[index] of THIS conversation.
+            // Opening another chat or starting a new one mid-answer bumps
+            // `generation`; from then on this answer belongs to History (the
+            // Mac keeps it — see `judeSync`), not to the screen.
+            @MainActor func here() -> Bool { mine == self.generation && index < self.turns.count }
             do {
                 if !reuse.isEmpty {
                     self.turns[index].sources = reuse
                     try await self.writeOnPhone(context + prompt, mode: "followup", lang: lang, index: index)
                 } else {
-                    try await api.judeAsk(prompt, chatId: self.chatId, mode: writeHere ? "sources" : mode,
+                    try await api.judeAsk(prompt, chatId: askedIn, mode: writeHere ? "sources" : mode,
                                           lang: lang, topK: topK,
                                           skipClarification: skipClarification,
                                           search: newSearch) { event in
+                        guard here() else { return }
                         self.apply(event, to: index, originalPrompt: prompt)
                     }
-                    if writeHere { try await self.writeOnPhone(prompt, mode: mode, lang: lang, index: index) }
+                    if writeHere && here() {
+                        try await self.writeOnPhone(prompt, mode: mode, lang: lang, index: index)
+                    }
                 }
                 // Written here, so the Mac has not seen it: send it to be kept,
                 // or History on either device would show the question unanswered.
-                if writeHere, let id = self.chatId {
+                if writeHere, here(), let id = self.chatId {
                     self.flush(into: index)
                     if !self.turns[index].answer.isEmpty {
                         await api.judeSaveAnswer(chatId: id, question: prompt, answer: self.turns[index].answer,
@@ -247,8 +261,11 @@ final class JudeConversation: ObservableObject {
                     }
                 }
             } catch {
-                self.turns[index].error = error.localizedDescription
+                if here() { self.turns[index].error = error.localizedDescription }
             }
+            // The phone's copy of History learns this turn either way.
+            Task { await api.judeSync() }
+            guard here() else { return }
             // The connection can drop before `done`; flush whatever arrived
             // rather than losing the last fraction of a second of an answer
             // that took a minute and a half to produce.
@@ -283,10 +300,13 @@ final class JudeConversation: ObservableObject {
         }
         stage = "Writing the answer on this phone…"
         let started = Date()
+        let mine = generation
         try await JudeOnDevice.answer(question: prompt, sources: turns[index].sources,
                                       lang: lang) { piece in
+            guard mine == self.generation else { return }   // another chat is on screen now
             self.buffer += piece
         }
+        guard mine == generation, index < turns.count else { return }
         turns[index].answeredOnPhone = true
         turns[index].steps.append(JudeStep(module: "On this phone",
                                            durationMs: Date().timeIntervalSince(started) * 1000))
@@ -467,6 +487,8 @@ struct JudeView: View {
                          onNew: { chat.newChat() })
         }
         .onAppear { chat.bind(api) }
+        // Catch the phone's copy of History up with the Mac, behind the screen.
+        .task { await api.judeSync() }
         // "Search for new sources" belongs to the chat it was set in.
         .onChange(of: chat.chatId) { _ in newSearch = false }
         .task {

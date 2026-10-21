@@ -344,3 +344,54 @@ def test_a_store_made_before_extra_gains_the_column(tmp_path):
     store = JudeHistory(path)
     store.record("c1", "q", "a")
     assert store.turns("c1")[0]["extra"] == {}
+
+
+# -- the phone's copy, and answers outliving the phone (2026-10-21) -------------
+
+def test_sync_returns_what_changed_and_what_was_deleted(client, store, monkeypatch):
+    monkeypatch.setattr(routes, "_jude_running", lambda: False)
+    store.record("c1", "q1", "a1", sources=SOURCES)
+    first = client.get("/jude/sync").get_json()
+    assert [c["id"] for c in first["chats"]] == ["c1"]
+    assert first["chats"][0]["messages"][1]["content"] == "a1"
+    # Nothing new since `next`...
+    assert client.get(f"/jude/sync?since={first['next']}").get_json()["chats"] == []
+    # ...until a turn lands or a chat is deleted.
+    store.record("c2", "q2", "a2")
+    store.delete("c1")
+    later = client.get(f"/jude/sync?since={first['next']}").get_json()
+    assert [c["id"] for c in later["chats"]] == ["c2"] and "c1" in later["deleted"]
+
+
+def test_history_does_not_start_a_stopped_jude(client, store, monkeypatch):
+    monkeypatch.setattr(routes, "_jude_running", lambda: False)
+    monkeypatch.setattr(routes.proxy, "call", lambda *a, **k: pytest.fail("started Jude"))
+    assert client.get("/jude/chats/unknown/history").get_json() == []
+
+
+def test_adopt_keeps_judes_title_and_time_in_one_go(store):
+    n = store.adopt("old", [{"role": "user", "content": "q1"}, {"role": "assistant", "content": "a1"}],
+                    title="Jude's title", created_at="2026-09-01T00:00:00+00:00")
+    assert n == 1
+    chat = store.chats()[0]
+    assert chat["title"] == "Jude's title" and chat["created_at"].startswith("2026-09-01")
+
+
+def test_an_answer_the_phone_left_is_finished_and_kept(store, monkeypatch):
+    """The phone backgrounds mid-answer: Jude goes on, and History gets ALL of it."""
+    import time as _t
+    monkeypatch.setattr(routes, "_jude", lambda: _FakeJude())
+    resp = routes._recording(_ndjson(
+        {"type": "meta", "chat_id": "c6", "sources": SOURCES},
+        {"type": "token", "text": "first half, "},
+        {"type": "token", "text": "second half"},
+        {"type": "done"}), store, "q", "qa", None)
+    it = iter(resp.response)
+    next(it)                                   # the client reads one line...
+    it.close()                                 # ...and leaves
+    for _ in range(50):
+        if store.turns("c6"):
+            break
+        _t.sleep(0.02)
+    t = store.turns("c6")[0]
+    assert t["answer"] == "first half, second half" and t["kind"] == "answer"
