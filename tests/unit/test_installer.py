@@ -288,6 +288,53 @@ def test_linux_desktop_icons_are_a_second_copy_of_the_menu_entries(inst, tmp_pat
     assert "/.local/share/applications/macalendar.desktop" in plan
 
 
+def _spec_argv(value: str) -> list[str]:
+    """Read an Exec= value back the way the desktop-entry spec says to:
+    string escapes first, then double-quoted arguments with \\" \\` \\$ \\\\."""
+    value = value.replace("\\\\", "\\")
+    args, cur, quoted, i = [], "", False, 0
+    while i < len(value):
+        ch = value[i]
+        if quoted and ch == "\\" and i + 1 < len(value):
+            cur += value[i + 1]
+            i += 2
+            continue
+        if ch == '"':
+            quoted = not quoted
+        elif ch == " " and not quoted:
+            args.append(cur)
+            cur = ""
+        else:
+            cur += ch
+        i += 1
+    return args + [cur]
+
+
+def test_linux_entries_follow_the_desktop_entry_spec(inst, tmp_path):
+    """Single quotes and && are reserved in Exec=; GNOME may refuse such an
+    entry. Every argument is double-quoted, reads back to what was meant,
+    and each entry has an icon."""
+    import shutil
+    import subprocess
+    repo, py = tmp_path / "My Repo", tmp_path / "My Repo" / ".venv" / "bin" / "python"
+    entries = inst.desktop_entries(repo, py, "primary", False)
+    assert set(entries) == {"macalendar.desktop", "macalendar-server.desktop", "macalendar-hud.desktop"}
+    for name, text in entries.items():
+        fields = dict(line.split("=", 1) for line in text.splitlines()[1:])
+        assert "'" not in fields["Exec"], name
+        assert fields["Icon"] and fields["Path"] == str(repo), name
+        if shutil.which("desktop-file-validate"):
+            f = tmp_path / name
+            f.write_text(text)
+            r = subprocess.run(["desktop-file-validate", str(f)], capture_output=True, text=True)
+            assert "error" not in r.stdout + r.stderr, r.stdout + r.stderr
+    server = dict(l.split("=", 1) for l in entries["macalendar-server.desktop"].splitlines()[1:])
+    assert _spec_argv(server["Exec"]) == [str(py), "-m", "assistant.host"]
+    cal = dict(l.split("=", 1) for l in entries["macalendar.desktop"].splitlines()[1:])
+    argv = _spec_argv(cal["Exec"])
+    assert argv[:2] == ["sh", "-c"] and f'exec "{py}" -m assistant.main' in argv[2]
+
+
 def test_windows_desktop_shortcuts_when_asked(inst, tmp_path):
     plan = _plan(inst, tmp_path, "Windows", "--no-model", "--desktop-icons", "yes")
     assert sum("GetFolderPath('Desktop')" in step for step in plan) == 3
