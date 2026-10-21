@@ -360,10 +360,20 @@ class LocalStore: ObservableObject {
     ///   round trip. A burst of taps now collapses into one write instead of
     ///   one per tap.
     func persist() {
-        pendingCount = pending.count
-        try? JSONEncoder().encode(pending).write(to: url("mc_pending.json"))
+        // Only on a change: `pendingCount` is @Published (every subscriber
+        // re-renders on a write, equal or not), and most persists — a cache
+        // refresh, a tick — leave the queue exactly as it was.
+        if pendingCount != pending.count { pendingCount = pending.count }
+        if let data = try? JSONEncoder().encode(pending), data != lastPendingWritten {
+            try? data.write(to: url("mc_pending.json"), options: .atomic)
+            lastPendingWritten = data
+        }
         scheduleCacheWrite()
     }
+
+    /// What `mc_pending.json` holds now, so an unchanged queue is not
+    /// rewritten on the main thread by every persist.
+    private var lastPendingWritten: Data?
 
     /// Coalesce the caches into a single write, shortly, somewhere else.
     ///
@@ -400,16 +410,19 @@ class LocalStore: ObservableObject {
         let counters: [TallyCounter]
         let dir: URL
 
+        /// Atomic: the background write and `flushCachesNow` (on the app going
+        /// to the background) can overlap, and two writers on one plain file
+        /// could leave it torn — a cache that decodes as nothing next launch.
         func write() {
             let e = JSONEncoder()
-            try? e.encode(events).write(to:   dir.appendingPathComponent("mc_events.json"))
-            try? e.encode(todos).write(to:    dir.appendingPathComponent("mc_todos.json"))
-            try? e.encode(tags).write(to:     dir.appendingPathComponent("mc_tags.json"))
-            try? e.encode(holidays).write(to: dir.appendingPathComponent("mc_holidays.json"))
-            try? e.encode(holy).write(to:     dir.appendingPathComponent("mc_holy_windows.json"))
-            try? e.encode(digests).write(to:  dir.appendingPathComponent("mc_digests.json"))
-            try? e.encode(timers).write(to:   dir.appendingPathComponent("mc_timers.json"))
-            try? e.encode(counters).write(to: dir.appendingPathComponent("mc_counters.json"))
+            try? e.encode(events).write(to:   dir.appendingPathComponent("mc_events.json"), options: .atomic)
+            try? e.encode(todos).write(to:    dir.appendingPathComponent("mc_todos.json"), options: .atomic)
+            try? e.encode(tags).write(to:     dir.appendingPathComponent("mc_tags.json"), options: .atomic)
+            try? e.encode(holidays).write(to: dir.appendingPathComponent("mc_holidays.json"), options: .atomic)
+            try? e.encode(holy).write(to:     dir.appendingPathComponent("mc_holy_windows.json"), options: .atomic)
+            try? e.encode(digests).write(to:  dir.appendingPathComponent("mc_digests.json"), options: .atomic)
+            try? e.encode(timers).write(to:   dir.appendingPathComponent("mc_timers.json"), options: .atomic)
+            try? e.encode(counters).write(to: dir.appendingPathComponent("mc_counters.json"), options: .atomic)
         }
     }
 

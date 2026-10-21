@@ -55,9 +55,24 @@ class WorkoutStore: ObservableObject {
     }
 
     private func persistSessions() {
-        let e = JSONEncoder()
-        try? e.encode(sessions).write(to: url("wo_sessions.json"))
+        sessionsWrite?.cancel()
+        try? JSONEncoder().encode(sessions).write(to: url("wo_sessions.json"), options: .atomic)
     }
+
+    /// The same, after a pause and off the main thread — for edits that arrive
+    /// per keystroke (notes) or per tap (set steppers). Encoding and writing
+    /// the WHOLE history on the main actor for each one was the lag.
+    private func persistSessionsSoon() {
+        let snapshot = sessions
+        let file = url("wo_sessions.json")
+        sessionsWrite?.cancel()
+        sessionsWrite = Task.detached(priority: .utility) {
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            if Task.isCancelled { return }
+            try? JSONEncoder().encode(snapshot).write(to: file, options: .atomic)
+        }
+    }
+    private var sessionsWrite: Task<Void, Never>?
 
     /// Called on every mutation of the in-progress session so a kill/resume
     /// (or background/foreground cycle) never loses state.
@@ -218,7 +233,7 @@ class WorkoutStore: ObservableObject {
     func updateSession(_ session: WorkoutSession) {
         guard let i = sessions.firstIndex(where: { $0.id == session.id }) else { return }
         sessions[i] = session
-        persistSessions()
+        persistSessionsSoon()
         guard let api else { return }
         sessionSyncTask?.cancel()
         sessionSyncTask = Task {
