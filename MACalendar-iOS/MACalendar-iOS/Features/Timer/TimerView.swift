@@ -508,7 +508,7 @@ private struct CounterRow: View {
             }
         }
         .padding(.vertical, 4)
-        .confirmationDialog("Cash out \(counter.count) × \(TimerFormat.money(counter.pricePerUnit, counter.currency)) = \(TimerFormat.money(counter.payout, counter.currency))?",
+        .confirmationDialog("Cash out \(counter.count) for \(TimerFormat.money(counter.payout, counter.currency))?",
                             isPresented: $confirmCashOut, titleVisibility: .visible) {
             Button("Cash out and start a new cycle") { onCashOut() }
         }

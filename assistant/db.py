@@ -259,9 +259,28 @@ CREATE TABLE IF NOT EXISTS counter_presses (
     delta       INTEGER NOT NULL DEFAULT 1,
     label       TEXT    NOT NULL DEFAULT '',
     pressed_at  TEXT    NOT NULL,
-    created_at  TEXT    NOT NULL
+    created_at  TEXT    NOT NULL,
+    amount      REAL
 )
 """
+
+# `amount` is what ONE press is worth when it is not the counter's usual
+# price — a carpool that cost 5 instead of the usual 7.5. NULL means "the
+# counter's price", read at the time the total is computed, so changing the
+# rate still reprices every ordinary press as it always did.
+_COUNTER_PRESS_MIGRATIONS = [
+    "ALTER TABLE counter_presses ADD COLUMN amount REAL",
+]
+
+
+def counter_press_amount(press: dict, price_per_unit: float) -> float:
+    """What one press adds to its counter's payout: its own `amount` when it
+    has one (signed by its delta), else `delta × price_per_unit`."""
+    delta = int(press.get("delta") or 0)
+    amount = press.get("amount")
+    if amount is not None:
+        return float(amount) if delta >= 0 else -float(amount)
+    return delta * float(price_per_unit or 0)
 
 # A "cash out" closes the counter's current tally cycle: it snapshots the
 # net count for that cycle (so later press edits/deletes never retroactively
@@ -860,6 +879,13 @@ class CalendarDB:
             conn.execute(_CREATE_TIMER_SESSIONS_TABLE)
             conn.execute(_CREATE_COUNTERS_TABLE)
             conn.execute(_CREATE_COUNTER_PRESSES_TABLE)
+            existing_cp = {r[1] for r in conn.execute("PRAGMA table_info(counter_presses)")}
+            for stmt in _COUNTER_PRESS_MIGRATIONS:
+                if stmt.split("ADD COLUMN")[1].strip().split()[0] not in existing_cp:
+                    try:
+                        conn.execute(stmt)
+                    except sqlite3.OperationalError:
+                        pass
             conn.execute(_CREATE_COUNTER_PAYOUTS_TABLE)
             conn.execute(_CREATE_COURSES_TABLE)
             conn.execute(_CREATE_ASSIGNMENTS_TABLE)
@@ -2651,13 +2677,18 @@ class CalendarDB:
         delta: int = 1,
         label: str = "",
         pressed_at: Optional[str] = None,
+        amount: Optional[float] = None,
     ) -> int:
-        """Log a single +/- tap on a counter. Returns new row id."""
+        """Log a single +/- tap on a counter. Returns new row id.
+
+        `amount` overrides the counter's price for this one press (None = the
+        usual price)."""
         now = datetime.datetime.now().astimezone().isoformat()
         with self._conn() as conn:
             cur = conn.execute(
-                "INSERT INTO counter_presses (counter_id, delta, label, pressed_at, created_at) VALUES (?, ?, ?, ?, ?)",
-                (counter_id, delta, label, pressed_at or now, now),
+                "INSERT INTO counter_presses (counter_id, delta, label, pressed_at, created_at, amount) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (counter_id, delta, label, pressed_at or now, now, amount),
             )
             return cur.lastrowid
 
@@ -2672,7 +2703,7 @@ class CalendarDB:
 
     def update_counter_press(self, press_id: int, **kwargs) -> None:
         """Update allowed fields on a counter press."""
-        allowed = {"delta", "label", "pressed_at"}
+        allowed = {"delta", "label", "pressed_at", "amount"}
         fields = {k: v for k, v in kwargs.items() if k in allowed}
         if not fields:
             return
