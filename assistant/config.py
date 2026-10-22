@@ -549,6 +549,17 @@ class CalendarSyncConfig(BaseModel):
     interval_minutes: int = 15
 
 
+class SyncConfig(BaseModel):
+    """This machine as a REPLICA of another MACalendar server (the hub):
+    it keeps its own file — so it works with the hub away — and sends every
+    change to the hub and takes the hub's (assistant/sync/ARCHITECTURE.md).
+    Empty `hub` = this machine is its own server, as before."""
+    hub: str = ""                 # e.g. "http://100.x.y.z:8080"
+    api_key: str = ""             # the hub's `api.key`, if it set one
+    replica_name: str = ""        # how the hub names this machine; default: the hostname
+    pull_seconds: float = 3.0     # how often to ask the hub what changed
+
+
 class GoogleCalendarConfig(BaseModel):
     """Google Calendar two-way sync. OFF until credentials exist: with no
     Desktop client JSON at `client_secret_path` and no `ios_client_id`, every
@@ -581,6 +592,7 @@ class AppConfig(BaseModel):
     claude: ClaudeConfig = ClaudeConfig()
     microsoft: Optional[MicrosoftConfig] = None
     calendar_sync: CalendarSyncConfig = CalendarSyncConfig()
+    sync: SyncConfig = SyncConfig()
     google_calendar: GoogleCalendarConfig = GoogleCalendarConfig()
     confirmation_level: int = 1
     # Background LLM re-check of rule-parser results. OFF by default: across four

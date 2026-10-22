@@ -145,7 +145,9 @@ def start_background() -> bool:
                 from assistant import users as _users
                 for uid in _users.each_user():
                     with _users.bind(uid):
-                        if cfg.calendar_sync.enabled and _has_sources():
+                        # A replica takes the hub's imports; importing here too
+                        # would book every external event twice.
+                        if cfg.calendar_sync.enabled and not cfg.sync.hub and _has_sources():
                             sync_now(config=cfg)
             except Exception as e:  # noqa: BLE001 — the loop must outlive any one failure
                 logger.warning("Calendar sync loop error: %s", e)

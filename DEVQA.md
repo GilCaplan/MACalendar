@@ -1,3 +1,18 @@
+- **2026-10-22 — Q94 (THE PC IS THE HUB; THE MAC KEEPS A SYNCED COPY)**,
+  Gil, after the phone and the Mac disagreed on a counter: *"the main server
+  is on the pc now"*, *"all devices should be synchronized... local back up in
+  each, then sync when possible at reasonable pace or after something is
+  updated a request is sent"*. Chosen from three (Mac stays the hub; the Mac
+  window talks to the PC with no copy of its own; **the PC is the hub and the
+  Mac syncs**): the third. The phone already kept a copy and queued; the Mac
+  window wrote its own file and nothing carried it anywhere. Built as
+  `assistant/sync/` — triggers log every write, the Mac pushes within a
+  second and pulls every few seconds, a renumbered id follows its children —
+  with `sync.hub` in the Mac's config. Asked what to do with the two copies
+  already apart: **send the Mac's extras to the PC** (`python -m
+  assistant.sync reconcile`), rows changed on both keep the PC's. First
+  version syncs `calendar.db` for the default user only.
+
 - **2026-10-19 — Q93 (JUDE IS A TAB ON THE PHONE, ITS OWN APP ON THE MAC)**,
   Gil: *"Why doesnt ios app show jude as option on the ios its a tab (code
   exists) and on macos its two seperate apps"*. Two causes: the phone's tab
