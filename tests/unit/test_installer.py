@@ -344,13 +344,13 @@ def test_a_tray_quits_only_for_its_own_install():
         def quit(self):
             calls.append("quit")
 
-        def show_pairing(self):
-            calls.append("pair")
+        def show_restart(self):              # a second click on the app
+            calls.append("restart")
     mine = Path(tray.__file__).resolve().parents[3]
     tray._on_message(H(), f"quit {mine}".encode())
     tray._on_message(H(), b"quit /somewhere/else")
     tray._on_message(H(), b"pair")
-    assert calls == ["quit", "pair"]
+    assert calls == ["quit", "restart"]
 
 
 @pytest.fixture

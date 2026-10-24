@@ -261,3 +261,145 @@ def test_show_card_starts_the_hud_when_it_is_not_running(tray, monkeypatch):
     monkeypatch.setattr(tray_mod, "HUD_INSTANCE", "macalendar-hud-test-nobody")
     tray.show_card()
     assert started and started[0][-2:] == ["assistant.thinking_hud", "--show"]
+
+
+# -- a click on the icon restarts the brain (Gil, 2026-10-24) ----------------
+
+def _wait_for(cond, ms=3000):
+    waited = 0
+    while not cond() and waited < ms:
+        QTest.qWait(20)
+        waited += 20
+    return cond()
+
+
+def test_restart_restarts_on_the_port_shown(qapp):
+    from assistant.host.restart_dialog import RestartDialog
+    asked, saved = [], []
+    d = RestartDialog(port=8080, restart=lambda p: asked.append(p) or "restarted",
+                      save_port=lambda p: saved.append(p) or True)
+    QTest.mouseClick(d.restart_btn, Qt.MouseButton.LeftButton)
+    assert _wait_for(lambda: "Restarted" in d.status.text())
+    assert asked == [8080] and saved == [], "same port: config.yaml is left alone"
+
+
+def test_a_new_port_is_saved_before_the_restart_and_warns_about_phones(qapp):
+    from assistant.host.restart_dialog import RestartDialog
+    order = []
+    d = RestartDialog(port=8080, restart=lambda p: order.append(("restart", p)) or "",
+                      save_port=lambda p: order.append(("save", p)) or True)
+    d.port.clear()
+    QTest.keyClicks(d.port, "8181")
+    assert not d.port_note.isHidden() and "pair again" in d.port_note.text()
+    QTest.mouseClick(d.restart_btn, Qt.MouseButton.LeftButton)
+    assert _wait_for(lambda: "8181" in d.status.text())
+    assert order == [("save", 8181), ("restart", 8181)]
+
+
+def test_default_puts_8080_back(qapp):
+    from assistant.host.restart_dialog import RestartDialog
+    d = RestartDialog(port=9000, restart=lambda p: "", save_port=lambda p: True)
+    QTest.mouseClick(d.default_btn, Qt.MouseButton.LeftButton)
+    assert d.port.value() == 8080
+
+
+def test_a_failed_restart_says_why_and_puts_the_old_port_back(qapp):
+    from assistant.host.restart_dialog import RestartDialog
+    saved = []
+
+    def boom(_p):
+        raise RuntimeError("The brain runs as the service x.service, which fixes --port 8080.")
+    d = RestartDialog(port=8080, restart=boom, save_port=lambda p: saved.append(p) or True)
+    d.port.setValue(8181)
+    QTest.mouseClick(d.restart_btn, Qt.MouseButton.LeftButton)
+    assert _wait_for(lambda: "fixes --port" in d.status.text())
+    assert saved == [8181, 8080], "no client may be left pointed at a dead port"
+    assert d.port.value() == 8080 and d.restart_btn.isEnabled()
+
+
+def test_the_qr_is_one_button_away(qapp):
+    from assistant.host.restart_dialog import RestartDialog
+    paired = []
+    d = RestartDialog(port=8080, restart=lambda p: "", save_port=lambda p: True,
+                      pair=lambda: paired.append(1))
+    d.show()
+    QTest.mouseClick(d.pair_btn, Qt.MouseButton.LeftButton)
+    assert paired == [1]
+
+
+def test_a_second_click_on_the_app_offers_the_restart(tray, monkeypatch):
+    from assistant.host import tray as tray_mod
+    shown = []
+    monkeypatch.setattr(tray_mod.HostTray, "show_restart", lambda self: shown.append(1))
+    tray_mod._on_message(tray, b"pair")
+    assert shown == [1]
+    assert "Restart the brain…" in [a.text() for a in tray.menu.actions()]
+
+
+def test_a_helper_has_no_brain_to_restart(tray, monkeypatch):
+    from assistant.host import role as role_mod
+    tray.role = role_mod.HELPER
+    tray.show_restart()
+    assert getattr(tray, "shown", 0) == 1 and tray._restart_win is None
+
+
+def test_the_systemd_service_is_found_from_the_cgroup(tmp_path):
+    d = tmp_path / "42"
+    d.mkdir()
+    (d / "cgroup").write_text(
+        "0::/user.slice/user-1000.slice/user@1000.service/app.slice/macalendar-brain.service\n")
+    assert supervisor.systemd_unit(42, proc=tmp_path) == "macalendar-brain.service"
+    (d / "cgroup").write_text(
+        "0::/user.slice/user-1000.slice/user@1000.service/app.slice/app-gnome-x-5.scope\n")
+    assert supervisor.systemd_unit(42, proc=tmp_path) is None, "a terminal's, not a service's"
+    assert supervisor.systemd_unit(43, proc=tmp_path) is None
+
+
+def test_a_service_is_restarted_through_systemctl_not_killed(monkeypatch, tmp_path):
+    """Restart=always brings a killed API back at once, on the old code."""
+    ran, killed = [], []
+    monkeypatch.setattr(supervisor, "listener_pids", lambda port: [7])
+    monkeypatch.setattr(supervisor, "systemd_unit", lambda pid: "brain.service")
+    monkeypatch.setattr(supervisor, "pinned_port", lambda unit: None)
+    monkeypatch.setattr(supervisor.os, "kill", lambda *a: killed.append(a))
+    monkeypatch.setattr(supervisor.subprocess, "run",
+                        lambda cmd, **k: ran.append(cmd) or type("R", (), {"returncode": 0})())
+    s = supervisor.Stack(port=8080, log_dir=tmp_path)
+    assert s.restart_api(8181) == "restarted brain.service"
+    assert ran == [["systemctl", "--user", "restart", "brain.service"]] and killed == []
+    assert s.port == 8181
+
+
+def test_a_service_that_pins_its_port_is_not_moved_silently(monkeypatch, tmp_path):
+    ran = []
+    monkeypatch.setattr(supervisor, "listener_pids", lambda port: [7])
+    monkeypatch.setattr(supervisor, "systemd_unit", lambda pid: "brain.service")
+    monkeypatch.setattr(supervisor, "pinned_port", lambda unit: 8080)
+    monkeypatch.setattr(supervisor.subprocess, "run", lambda cmd, **k: ran.append(cmd))
+    s = supervisor.Stack(port=8080, log_dir=tmp_path)
+    with pytest.raises(RuntimeError, match="fixes --port 8080"):
+        s.restart_api(8181)
+    assert ran == [] and s.port == 8080
+
+
+def test_an_api_from_elsewhere_is_stopped_and_started_again(monkeypatch, tmp_path):
+    up = {8080: True}
+    killed, popen = [], []
+    monkeypatch.setattr(supervisor, "listener_pids", lambda port: [7] if up.get(port) else [])
+    monkeypatch.setattr(supervisor, "systemd_unit", lambda pid: None)
+    monkeypatch.setattr(supervisor, "ollama_path", lambda: None)
+    monkeypatch.setattr(supervisor, "port_open", lambda port, host="127.0.0.1": up.get(port, False))
+
+    def kill(pid, sig):
+        killed.append(pid)
+        up[8080] = False
+    monkeypatch.setattr(supervisor.os, "kill", kill)
+    monkeypatch.setattr(supervisor.subprocess, "Popen", lambda cmd, **k: popen.append(cmd))
+    s = supervisor.Stack(port=8080, log_dir=tmp_path)
+    assert s.restart_api() == "restarted"
+    assert killed == [7] and popen and popen[0][popen[0].index("--port") + 1] == "8080"
+
+
+def test_the_server_reads_its_port_from_config(monkeypatch, tmp_path):
+    monkeypatch.setattr(supervisor, "configured_port", lambda: 9123)
+    assert supervisor.Stack(log_dir=tmp_path).port == 9123
