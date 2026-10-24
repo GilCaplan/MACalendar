@@ -199,6 +199,14 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 |---|---|---|
 | `POST` | `/pair/start` | A fresh one-time code and the link a QR code shows. |
 
+## /sync
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/sync/bootstrap` | Everything a client needs to draw itself, in ONE round trip. |
+| `GET` | `/sync/pull` |  |
+| `POST` | `/sync/push` |  |
+
 ## /auth
 
 | Method | Path | What it does |
@@ -280,12 +288,6 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | Method | Path | What it does |
 |---|---|---|
 | `GET` | `/search` | Substring search over events and tasks for the toolbar/search UIs. |
-
-## /sync
-
-| Method | Path | What it does |
-|---|---|---|
-| `GET` | `/sync/bootstrap` | Everything a client needs to draw itself, in ONE round trip. |
 
 ## /holidays
 
@@ -427,7 +429,7 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `PATCH` | `/counters/<int:cid>` |  |
 | `POST` | `/counters/<int:cid>/cashout` |  |
 | `GET` | `/counters/<int:cid>/payouts` |  |
-| `POST` | `/counters/<int:cid>/press` | One tap. `pressed_at` optional — WHEN it was tapped, if not now. |
+| `POST` | `/counters/<int:cid>/press` | One tap. `pressed_at` optional — WHEN it was tapped, if not now; |
 | `GET` | `/counters/<int:cid>/presses` |  |
 
 ## /counter_presses

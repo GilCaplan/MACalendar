@@ -1806,6 +1806,14 @@ def create_app() -> Flask:
     from assistant.calendar_sync import routes as _calendar_sync
     _calendar_sync.register(app, background=not _no_bg and not _is_reload_watcher)
 
+    # Replication (assistant/sync/): `/sync/*` makes this server a hub other
+    # machines can keep a copy of; `sync.hub` in config makes it a replica of one.
+    from assistant.sync import routes as _sync_routes
+    _sync_routes.register(app)
+    if not _no_bg and not _is_reload_watcher:
+        from assistant.sync import replica as _replica
+        _replica.start_background(load_config())
+
     @app.get("/calendar_sources")
     def calendar_sources_list():
         return jsonify(get_db().get_calendar_sources())

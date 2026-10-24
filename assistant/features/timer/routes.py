@@ -30,6 +30,7 @@ import datetime
 
 from flask import Blueprint, jsonify, request
 
+from assistant.db import counter_press_amount
 from assistant.features.idempotency import idempotent_create
 
 blueprint = Blueprint("timer", __name__)
@@ -248,7 +249,8 @@ def _counter_out(db, c: dict) -> dict:
     out["total_count"] = sum(int(p["delta"]) for p in presses)
     out["today_count"] = sum(int(p["delta"]) for p in presses if p["pressed_at"][:10] == today)
     out["cycle_started_at"] = cycle
-    out["payout"] = round(out["count"] * float(c.get("price_per_unit") or 0), 2)
+    price = float(c.get("price_per_unit") or 0)
+    out["payout"] = round(sum(counter_press_amount(p, price) for p in in_cycle), 2)
     return out
 
 
@@ -291,7 +293,8 @@ def counters_delete(cid: int):
 
 @blueprint.post("/counters/<int:cid>/press")
 def counters_press(cid: int):
-    """One tap. `pressed_at` optional — WHEN it was tapped, if not now.
+    """One tap. `pressed_at` optional — WHEN it was tapped, if not now;
+    `amount` optional — what this one press is worth, if not the counter's price.
 
     `today_count` buckets presses by this timestamp, so a tap made before
     midnight and replayed from the phone's offline queue after it would land on
@@ -299,8 +302,10 @@ def counters_press(cid: int):
     """
     b = request.get_json(silent=True) or {}
     db = get_db()
+    amount = b.get("amount")
     db.create_counter_press(cid, delta=int(b.get("delta") or 1), label=str(b.get("label") or ""),
-                            pressed_at=str(b.get("pressed_at") or "").strip() or None)
+                            pressed_at=str(b.get("pressed_at") or "").strip() or None,
+                            amount=abs(float(amount)) if amount is not None else None)
     return jsonify(_counter_out(db, next(x for x in db.get_counters(include_archived=True) if x["id"] == cid)))
 
 

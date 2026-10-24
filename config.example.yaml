@@ -320,6 +320,19 @@ calendar_sync:
   enabled: true
   interval_minutes: 15
 
+# Another MACalendar server holds the main copy (the hub) and this machine
+# keeps a synced copy of its own: every change is sent within a second, the
+# hub's are fetched every `pull_seconds`, and it all keeps working offline.
+# Leave `hub` empty when this machine IS the server. First time:
+#   python -m assistant.sync reconcile          (shows the merge)
+#   python -m assistant.sync reconcile --apply  (makes it)
+# A replica does not run calendar_sync: the hub imports, and the import arrives here.
+sync:
+  hub: ""
+  api_key: ""
+  replica_name: ""
+  pull_seconds: 3
+
 # Google Calendar two-way. Off until a client exists - see CALENDAR_SYNC.md.
 google_calendar:
   client_secret_path: "~/.assistant_tools/google_client_secret.json"  # Desktop client JSON (Mac sign-in)

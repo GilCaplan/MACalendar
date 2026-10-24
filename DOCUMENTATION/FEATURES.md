@@ -846,11 +846,28 @@ running session's length from the total. `TimerFormat.isoDate` now truncates
 the fraction and tolerates a naive stamp (the Mac's "Log past time…" writes
 one), so old servers still work.
 
+### Sync between computers — the PC as hub, a copy on the Mac
+**What:** One computer (the PC) holds the main copy; the Mac keeps its own
+synced copy, so its window and voice keep working with the PC away. A change
+on the Mac reaches the PC within about a second, the PC's (and the phone's)
+reach the Mac within a few. DEVQA Q94.
+**Where:** `assistant/sync/` (ARCHITECTURE.md); `GET /sync/pull`,
+`POST /sync/push`; `sync:` in config.yaml; `python -m assistant.sync
+status | reconcile [--apply]`.
+**How:** SQLite triggers log every write to `_sync_log`; the Mac's API runs
+the push/pull loop. Not yet: flashcards, memory, vocabulary, categories, Jude
+chats, and users other than the default one.
+
 ### Counters
 **What:** Tap-counters with press history and payout tracking.
 **Where:** db `counters`, `counter_presses`, `counter_payouts`; API
 `/counters*`.
-**How:** Same local-first pattern as timers.
+**How:** Same local-first pattern as timers. A press may carry its own
+`amount` (the Mac card's `+₪` button asks for it, pre-filled with the price;
+`POST /counters/<id>/press {"amount": 5}`), so one ride that cost 5 on a 7.5
+counter is logged as 5. The payout is the sum of each press's worth —
+`assistant.db.counter_press_amount` — not `count × price`; a press with no
+amount still follows the counter's current price.
 
 ### Suggest words — more words for a magic word
 **What:** On a magic word's page (and for a new one made from a photo),
