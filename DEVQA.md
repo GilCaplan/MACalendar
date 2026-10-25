@@ -1,3 +1,20 @@
+- **2026-10-25 — Q95 (A TO-DO THE ASSISTANT MAKES IS GENERAL UNLESS IT IS
+  FOR TODAY)**, Gil: *"when todo tasks are made with assistant, they should
+  always be "general" unless explicilty said for today or tied to a task which
+  is today."* Today was the default on every reader — the rule parser, the
+  model's schema ("Default: 'today'") — and the resolver's date floor stamped
+  an undated to-do due TODAY on both tracks, so "renew the passport" landed on
+  Today with a due date nobody said. Now `rule_parser.todo_list_for` decides
+  and `decompose_validate`'s `_rule_todo_list_by_day` applies it on both
+  tracks: Today when the words say today / tonight / this morning, afternoon
+  or evening, or the due day is today or past; a later due day is General and
+  keeps its day; "general", "someday", "backlog" are General; no day said is
+  General with NO due date (the floor is dropped). A new list stays Q33's.
+  To-dos made by hand keep `todo.default_list`; a to-do filed for an event
+  keeps the event's day. The phone's offline reader follows (`LocalEngine`:
+  Today only for a day said that is today or past) — its "tonight" with no
+  day still reads General there, unmeasured.
+
 - **2026-10-22 — Q94 (THE PC IS THE HUB; THE MAC KEEPS A SYNCED COPY)**,
   Gil, after the phone and the Mac disagreed on a counter: *"the main server
   is on the pc now"*, *"all devices should be synchronized... local back up in

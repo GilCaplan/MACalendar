@@ -650,7 +650,13 @@ enum LocalEngine {
         } else {
             a.date = span.date            // a to-do's due date, if a day was said
             if a.list == nil {
-                a.list = (span.date == nil || span.date == DateParse.iso(now, cal)) ? "today" : "general"
+                // Today only when the day said is today (or gone by); no day
+                // said is General (Q95), as on the Mac.
+                if let d = span.date, d <= DateParse.iso(now, cal) {
+                    a.list = "today"
+                } else {
+                    a.list = "general"
+                }
             }
         }
         return a

@@ -564,6 +564,55 @@ def _rule_a_new_list_goes_to_general(state, cfg, item, pairs) -> bool:
     return False          # a field fix, not a reason to stop reading the item
 
 
+def _rule_todo_list_by_day(state, item, intent, today) -> None:
+    """A to-do goes on TODAY only when its words say today or it is due today;
+    everything else is GENERAL (Gil, 2026-10-25, DEVQA Q95).
+
+    Both tracks pass here once the due day is settled, so the model's habit
+    of answering "today" (its schema used to say so) cannot put "renew the
+    passport" on the day's list. A NEW LIST is Q33's, below.
+
+    THE FLOOR IS NOT A DUE DAY. Segmentation writes "today" into an item's
+    time as a placeholder and the resolver dates an undated item today, so
+    "add milk to my list" came out due today — and therefore on Today — on
+    both tracks. A due date of today that no word said is dropped."""
+    from assistant.engine.decompose_validate import resolve as _resolve
+    from assistant.intent.rule_parser import _NEW_LIST_RE, _SAYS_TODAY_RE, todo_list_for
+
+    if _NEW_LIST_RE.match((item.text or "").strip()):
+        return
+    due = getattr(intent, "due_date", None)
+    source = getattr(item, "source", "") or ""
+    was = getattr(intent, "list_name", None)
+    if state.parse_path == "fast" and not source:
+        # One of several fast items: its text is only its title, so the words
+        # it was said with are not here — the rule parser read them off the
+        # full span, with `todo_list_for`, and its list is the evidence.
+        said_today = was == "today"
+        spoke_day = said_today
+        words = ""
+    else:
+        words = " ".join(p for p in (source, item.text or "") if p)
+        said_today = bool(_SAYS_TODAY_RE.search(words))
+        spoke_day = said_today or _resolve.resolve_date(words, today) is not None
+    if due and str(due)[:10] == today.isoformat() and not spoke_day:
+        intent.due_date = None
+        state.add_fix("validate", "todo_list_by_day", str(due), "",
+                      note="no day was said: not due today")
+        due = None
+    if words:
+        want = todo_list_for(words, due, today)
+    elif due:
+        want = "general" if was == "general" else todo_list_for("", due, today)
+    else:
+        want = "today" if said_today else "general"
+    if was == want:
+        return
+    intent.list_name = want
+    state.add_fix("validate", "todo_list_by_day", was or "", want,
+                  note="today only when said or due today")
+
+
 def _rule_bare_hour_asks_first(state, cfg, item, pairs) -> bool:
     """A bare 7 or 8 with nothing to say which half of the day: ASK (Gil,
     2026-09-20, DEVQA Q28).

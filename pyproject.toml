@@ -42,6 +42,10 @@ dependencies = [
 mlx = ["mlx-whisper>=0.4"]   # Whisper on Apple Silicon GPU (stt_engine: "mlx")
 nlp = [
     "spacy>=3.7,<4.0",
+    # preshed 3.0.14 (2026-10-25) breaks spaCy 3.8's tokenizer on load:
+    # "OverflowError: Python int too large to convert to C ssize_t" in
+    # Tokenizer._flush_specials — every spaCy test went red in CI overnight.
+    "preshed<3.0.14",
     "recognizers-text-date-time>=1.0.2a0",
     # recognizers-text-date-time imports emoji.UNICODE_EMOJI, removed in emoji 2.0
     # (Aug 2021). Without this pin, a fresh resolve silently breaks date parsing:
@@ -58,6 +62,10 @@ dev = [
     "pytest-mock",
     "pytest-cov",
     "spacy>=3.7,<4.0",
+    # preshed 3.0.14 (2026-10-25) breaks spaCy 3.8's tokenizer on load:
+    # "OverflowError: Python int too large to convert to C ssize_t" in
+    # Tokenizer._flush_specials — every spaCy test went red in CI overnight.
+    "preshed<3.0.14",
     "recognizers-text-date-time>=1.0.2a0",
     "emoji<2.0",
     "soundfile>=0.12",  # tests/audio/ — macOS-only STT round-trip tests

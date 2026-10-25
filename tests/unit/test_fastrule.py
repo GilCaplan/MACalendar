@@ -405,10 +405,11 @@ def test_a_new_list_creates_a_general_todo_named_for_its_contents(fastrule):
         assert intent.list_name == "general", intent.list_name
     # nothing to name it by: the generic-title veto, not a list called 'please'
     assert not fastrule.run("Create a new list, please").committed
-    # an item FOR a list is not the making of one, and stays on Today
+    # an item FOR a list is not the making of one: it is an ordinary to-do,
+    # and one that says no day is General (DEVQA Q95), not Today
     r = fastrule.run("add milk to the new list")
     assert r.committed and r.intents[0][1].titles == ["milk"]
-    assert r.intents[0][1].list_name == "today"
+    assert r.intents[0][1].list_name == "general"
 
 
 def test_a_bare_seven_is_asked_about_and_otherwise_read_as_pm(registry_with_real_actions):

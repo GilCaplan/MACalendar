@@ -618,11 +618,65 @@ def test_a_new_list_goes_to_general_on_the_deep_path_too():
         lists = [getattr(i.intent, "list_name", None) for i in st.items
                  if i.intent is not None and i.action == "create_todo"]
         assert lists and all(v == "general" for v in lists), lists
-        # an item FOR an existing list is not the making of one
+        # an item FOR an existing list is not the making of one — and with no
+        # day said it is General (DEVQA Q95), not Today
         st2 = EngineState(raw_text="add milk to my list", text="add milk to my list")
         engine.Engine().parse(st2, cfg)
         assert [getattr(i.intent, "list_name", None) for i in st2.items
-                if i.intent is not None] == ["today"]
+                if i.intent is not None] == ["general"]
+
+
+# --- which list a to-do goes on (DEVQA Q95) ------------------------------------
+
+def _todo_lists(text):
+    """(list, due) per to-do, through whichever track the product takes."""
+    import assistant.engine as engine
+    from assistant.engine.fastrule import fast_track
+    cfg = engine.load_config()
+    st = EngineState(raw_text=text, text=text)
+    if fast_track.fast_propose(st, cfg):
+        validate.run_objects(st, cfg)
+    else:
+        st = EngineState(raw_text=text, text=text)
+        engine.Engine().parse(st, cfg)
+    return [(i.intent.list_name, i.intent.due_date or None) for i in st.items
+            if i.intent is not None and i.action == "create_todo"]
+
+
+@pytest.mark.parametrize("text,want", [
+    # no day said: General, and not due today either — the date floor was
+    # stamping today on every to-do, which is what put them all on Today
+    ("buy a new charger", [("general", None)]),
+    ("renew the passport", [("general", None)]),
+    ("add milk to my list", [("general", None)]),
+    ("add bread to the general list", [("general", None)]),
+    # today said, or due today: Today
+    ("buy milk today", [("today", "2026-10-25")]),
+    ("water the plants tonight", [("today", "2026-10-25")]),
+    # a later day is General, and keeps its day
+    ("pay rent on friday", [("general", "2026-10-30")]),
+    # each to-do by its own words, not its neighbour's
+    ("buy milk today and renew the passport",
+     [("today", "2026-10-25"), ("general", None)]),
+])
+def test_a_todo_is_general_unless_it_is_for_today(text, want):
+    """Gil, 2026-10-25: assistant-made to-dos "should always be general unless
+    explicitly said for today or tied to a task which is today"."""
+    from assistant.intent import rule_parser as RP
+    from freezegun import freeze_time
+    RP._ensure_nlp(); RP._ensure_dt()
+    with freeze_time("2026-10-25 10:00:00"):
+        assert _todo_lists(text) == want
+
+
+def test_the_list_rule_reads_the_due_day_first():
+    from assistant.intent.rule_parser import todo_list_for
+    today = dt.date(2026, 10, 25)
+    assert todo_list_for("read today's paper", "2026-10-26", today) == "general"
+    assert todo_list_for("finish the report", "2026-10-24", today) == "today"   # overdue
+    assert todo_list_for("do laundry later today", None, today) == "today"
+    assert todo_list_for("do laundry later", None, today) == "general"
+    assert todo_list_for("someday learn piano today", None, today) == "general"
 
 
 # --- series default end (DEVQA Q57) -------------------------------------------
