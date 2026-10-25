@@ -868,7 +868,8 @@ chats, and users other than the default one.
 **Where:** db `counters`, `counter_presses`, `counter_payouts`; API
 `/counters*`.
 **How:** Same local-first pattern as timers. A press may carry its own
-`amount` (the Mac card's `+₪` button asks for it, pre-filled with the price;
+`amount` (the `+₪` button on the Mac card and the phone's counter row asks
+for it, pre-filled with the price; the phone's press history shows it;
 `POST /counters/<id>/press {"amount": 5}`), so one ride that cost 5 on a 7.5
 counter is logged as 5. The payout is the sum of each press's worth —
 `assistant.db.counter_press_amount` — not `count × price`; a press with no

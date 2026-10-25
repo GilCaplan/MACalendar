@@ -2143,15 +2143,20 @@ class APIClient: ObservableObject {
     /// A tap, carrying the moment it happened: a counter's `today_count` is
     /// bucketed by that timestamp, so a press made before midnight and replayed
     /// after would otherwise be counted on the wrong day.
-    func pressCounter(_ id: Int, delta: Int) async {
+    /// `amount`: what this one press is worth when it is not the counter's
+    /// price — the carpool that cost 5, not the usual 7.5. nil sends none, and
+    /// the Mac reads the price when it totals, so a later rate change still
+    /// reprices ordinary presses.
+    func pressCounter(_ id: Int, delta: Int, amount: Double? = nil) async {
         // Optimistic FIRST, so ＋ moves the number at the moment of the tap
         // rather than a round trip later — and at all when the Mac is away.
         // Reported as "＋ does nothing offline": the press was being queued
         // correctly the whole time, but the tab had no cached count to apply
         // it to, so nothing moved and the button looked dead.
-        LocalStore.shared.bumpCounter(id, delta: delta)
-        await mutateOrTell("/counters/\(id)/press", method: "POST",
-                           body: ["delta": delta, "pressed_at": Self.stamp()])
+        LocalStore.shared.bumpCounter(id, delta: delta, amount: amount)
+        var body: [String: Any] = ["delta": delta, "pressed_at": Self.stamp()]
+        if let amount { body["amount"] = amount }
+        await mutateOrTell("/counters/\(id)/press", method: "POST", body: body)
     }
 
     /// Bank the current cycle, stamped with the moment it was asked for. The
