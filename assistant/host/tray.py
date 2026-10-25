@@ -90,6 +90,7 @@ class HostTray(QObject):
         self.stack = stack or Stack()
         self.state: dict = {}
         self._dialog = None
+        self._restart_win = None
         self._servers_win = None
         self.role = role_mod.get()
         self.helper = None
@@ -111,6 +112,8 @@ class HostTray(QObject):
         self.menu.addSeparator()
         self.pair_act = self.menu.addAction("Pair a phone or tablet…")
         self.pair_act.triggered.connect(lambda: self.show_pairing())
+        self.restart_act = self.menu.addAction("Restart the brain…")
+        self.restart_act.triggered.connect(lambda: self.show_restart())
         self.servers_act = self.menu.addAction("Servers & logs…")
         self.servers_act.triggered.connect(lambda: self.show_servers())
         self.menu.addSeparator()
@@ -213,6 +216,7 @@ class HostTray(QObject):
             self._apply_helper_status(st)
             return
         self.pair_act.setVisible(True)
+        self.restart_act.setVisible(True)
         self.servers_act.setText("Servers & logs…")
         up = bool(st.get("api"))
         if up:
@@ -250,6 +254,7 @@ class HostTray(QObject):
         self.devices_act.setText("Not used by a primary yet" if n == 0 else
                                  f"Used by {n} primar{'ies' if n != 1 else 'y'}")
         self.pair_act.setVisible(False)
+        self.restart_act.setVisible(False)
         self.servers_act.setText("Helper code & log…")
         self._show_setup(st)
         self.tray.setToolTip("MACalendar Server — " + self.status_act.text().split(None, 1)[-1])
@@ -289,6 +294,32 @@ class HostTray(QObject):
         self._dialog.show()
         self._dialog.raise_()
         self._dialog.activateWindow()
+
+    def show_restart(self) -> None:
+        """Restart the brain, optionally on another port — a click on the
+        icon. A helper runs no brain, so its click is the pairing one."""
+        if self.role == role_mod.HELPER:
+            self.show_pairing()
+            return
+        from assistant.host.restart_dialog import RestartDialog
+        if self._restart_win is not None and self._restart_win.isVisible():
+            self._restart_win.raise_()
+            self._restart_win.activateWindow()
+            return
+
+        def restart(port: int) -> str:
+            how = self.stack.restart_api(port)
+            self._started = ["api"]          # the menu says "Starting…" until it answers
+            return how
+        self._restart_win = RestartDialog(port=self.stack.port, restart=restart,
+                                          pair=lambda: self.show_pairing())
+        self._restart_win.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        self._restart_win.finished.connect(lambda _r: setattr(self, "_restart_win", None))
+        self._restart_win.finished_restart.connect(lambda _ok, _m: self.poller.poll())
+        _bring_forward()
+        self._restart_win.show()
+        self._restart_win.raise_()
+        self._restart_win.activateWindow()
 
     def show_servers(self) -> None:
         """Servers & logs (primary) or the helper's code and log (helper)."""
@@ -356,7 +387,8 @@ class HostTray(QObject):
 def _on_message(host, data: bytes) -> None:
     """``quit <folder>`` — the installer updating the install in <folder>:
     quit only if this server runs from there (the folder that holds this
-    checkout). Anything else is a second click on the app: show the QR."""
+    checkout). Anything else is a second click on the app: offer to restart
+    the brain (Gil, 2026-10-24), the QR one button away in that window."""
     text = data.decode(errors="replace").strip()
     if text == "quit" or text.startswith("quit "):
         from pathlib import Path
@@ -365,7 +397,7 @@ def _on_message(host, data: bytes) -> None:
         if not target or Path(target).resolve() == mine:
             host.quit()
         return
-    host.show_pairing()
+    host.show_restart()
 
 
 def _jude_enabled() -> bool:
@@ -417,7 +449,7 @@ def main() -> None:
     app.setApplicationName("MACalendar Server")
     app.setQuitOnLastWindowClosed(False)
 
-    # Already running? Ask it to show the QR and leave.
+    # Already running? Ask it to offer the restart (and the QR) and leave.
     probe = QLocalSocket()
     probe.connectToServer(INSTANCE)
     if probe.waitForConnected(300):

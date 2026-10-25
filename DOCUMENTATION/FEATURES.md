@@ -129,7 +129,12 @@ where the server can be reached and how many devices have joined. A phone
 joins without an address: on the same Wi-Fi it is listed on the phone's
 Settings ▸ Your Mac (one tap), and anywhere it scans a QR code with the
 Camera. The first time the server is up with nothing joined, the QR opens by
-itself. DEVQA Q69.
+itself. DEVQA Q69. Clicking the app while it runs (or its menu ▸ Restart the
+brain…) restarts the brain so it loads the newest code, with the port to
+listen on (config.yaml `api.port`, default 8080, which every client reads);
+the QR is a button in that window. A brain run by a systemd user service is
+restarted through `systemctl`, since `Restart=always` would bring a killed
+one straight back on the old code.
 
 **Where.** `assistant/pairing/` (addresses, one-time codes, the
 `macalendar://pair` link and QR, the Bonjour announcement, the routes

@@ -58,7 +58,9 @@ def main() -> None:
     parser.add_argument("--lan", action="store_true", help="Bind to 0.0.0.0 (same Wi-Fi access)")
     parser.add_argument("--tailscale", action="store_true", help="Bind to 0.0.0.0 and print Tailscale IP")
     parser.add_argument("--host", default=None, help="Override bind host explicitly")
-    parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--port", type=int, default=None,
+                        help="Default: config.yaml's api.port (8080), the port every "
+                             "client reads — so changing it there moves the whole stack.")
     parser.add_argument("--debug", action="store_true",
                         help="Werkzeug debugger AND reloader. Loopback binds only — "
                              "the debugger is a remote shell to anyone who can reach it.")
@@ -66,6 +68,9 @@ def main() -> None:
                         help="Restart the server when a source file changes. Safe to use "
                              "with --tailscale: this is the reloader without the debugger.")
     args = parser.parse_args()
+    if args.port is None:
+        from assistant.host.supervisor import configured_port
+        args.port = configured_port()
 
     host = args.host or ("0.0.0.0" if (args.lan or args.tailscale) else "127.0.0.1")
 

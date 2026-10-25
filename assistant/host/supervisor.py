@@ -54,6 +54,62 @@ def port_open(port: int, host: str = "127.0.0.1") -> bool:
         return s.connect_ex((host, port)) == 0
 
 
+def configured_port() -> int:
+    """config.yaml's ``api.port`` — the port every client already reads (the
+    calendar, the HUD, Jude's tab), so the Server and the API read it too."""
+    try:
+        from assistant.config import load_config
+        return int(load_config().api.port)
+    except Exception:
+        return 8080
+
+
+def listener_pids(port: int) -> list[int]:
+    """The processes listening on ``port`` — more than one under --reload,
+    where the watcher hands its socket to the child it restarts."""
+    if platform.system() == "Windows":
+        out = subprocess.run(["netstat", "-ano", "-p", "TCP"],
+                             capture_output=True, text=True).stdout
+        return sorted({int(cols[-1]) for cols in (ln.split() for ln in out.splitlines())
+                       if len(cols) >= 5 and cols[1].endswith(f":{port}")
+                       and cols[3] == "LISTENING"})
+    try:
+        out = subprocess.run(["lsof", "-t", f"-iTCP:{port}", "-sTCP:LISTEN"],
+                             capture_output=True, text=True).stdout
+    except FileNotFoundError:
+        return []
+    return sorted({int(p) for p in out.split() if p.isdigit()})
+
+
+def systemd_unit(pid: int, proc: Path = Path("/proc")) -> str | None:
+    """The systemd USER service ``pid`` runs under, if any. Such a service
+    restarts the API the moment anyone else stops it (Restart=always), so a
+    restart has to go through systemctl or it races the old code back in
+    (2026-10-24: the update's first restart came back on the old version)."""
+    try:
+        lines = (proc / str(pid) / "cgroup").read_text().splitlines()
+    except OSError:
+        return None
+    for ln in lines:
+        parts = ln.rsplit(":", 1)[-1].split("/")
+        if any(p.startswith("user@") for p in parts) and parts[-1].endswith(".service") \
+                and not parts[-1].startswith("user@"):
+            return parts[-1]
+    return None
+
+
+def pinned_port(unit: str) -> int | None:
+    """The ``--port`` a service's command line fixes, if it fixes one."""
+    out = subprocess.run(["systemctl", "--user", "show", "-p", "ExecStart", "--value", unit],
+                         capture_output=True, text=True).stdout.split()
+    for i, word in enumerate(out):
+        if word == "--port" and i + 1 < len(out) and out[i + 1].isdigit():
+            return int(out[i + 1])
+        if word.startswith("--port="):
+            return int(word.split("=", 1)[1])
+    return None
+
+
 def _get(url: str, timeout: float = 3.0, headers: dict | None = None):
     req = urllib.request.Request(url, headers=headers or {})
     with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -86,8 +142,8 @@ def model_ready(name: str | None = None) -> bool | None:
 class Stack:
     """The children this app started, and the log they write to."""
 
-    def __init__(self, port: int = 8080, log_dir: Path | None = None):
-        self.port = port
+    def __init__(self, port: int | None = None, log_dir: Path | None = None):
+        self.port = port if port is not None else configured_port()
         self.log_dir = log_dir or Path.home() / ".assistant_tools"
         self.started: dict[str, subprocess.Popen] = {}
         self.pull: subprocess.Popen | None = None
@@ -125,6 +181,45 @@ class Stack:
                 proc.wait(timeout=8)
             except subprocess.TimeoutExpired:
                 proc.kill()
+
+    def restart_api(self, port: int | None = None) -> str:
+        """Restart the brain, on ``port`` if given — asked for by a click on
+        the Server's icon, so unlike ``stop`` it restarts an API this app did
+        NOT start too: the one a systemd service runs, or a Terminal's.
+        Returns how; raises RuntimeError with a sentence for the person."""
+        new = port or self.port
+        pids = listener_pids(self.port)
+        unit = next((u for u in map(systemd_unit, pids) if u), None)
+        if unit:
+            pinned = pinned_port(unit)
+            if pinned is not None and pinned != new:
+                raise RuntimeError(
+                    f"The brain runs as the service {unit}, which fixes --port {pinned}. "
+                    f"Remove --port from its ExecStart (it then reads config.yaml) "
+                    f"to move it to {new}.")
+            done = subprocess.run(["systemctl", "--user", "restart", unit],
+                                  capture_output=True, text=True)
+            if done.returncode != 0:
+                raise RuntimeError(f"systemctl couldn't restart {unit}: "
+                                   f"{(done.stderr or done.stdout).strip()}")
+            self.port = new
+            return f"restarted {unit}"
+        self.stop_api()
+        import signal as _signal
+        for pid in listener_pids(self.port):    # a Terminal's, or a reloader's child
+            try:
+                os.kill(pid, _signal.SIGTERM)
+            except OSError:
+                pass
+        import time
+        deadline = time.monotonic() + 10
+        while port_open(self.port) and time.monotonic() < deadline:
+            time.sleep(0.25)
+        if port_open(self.port):
+            raise RuntimeError(f"The brain on port {self.port} didn't stop.")
+        self.port = new
+        self.start(api=True)
+        return "restarted"
 
     def stop(self) -> None:
         """Stop only what this app started, API first (it talks to ollama)."""
