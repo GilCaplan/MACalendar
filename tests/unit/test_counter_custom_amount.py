@@ -91,3 +91,19 @@ def test_the_mac_button_asks_and_adds_that_amount(qapp, tmp_path, monkeypatch):
     assert card.current_count() == 2
     assert card._payout_lbl.text() == "₪12.50"
     assert db.get_counter_presses(cid)[-1]["amount"] == 5.0
+
+
+def test_the_phone_offers_it_too():
+    """The Mac got `+₪` on 2026-10-22 and the phone did not, so a ride at its
+    own price could only be logged from the Mac (reported 2026-10-25). The
+    phone's row asks for an amount, sends it with the press, moves its offline
+    preview by it, and shows it in the press history."""
+    from tests.unit._ios_sources import ios_source
+    view = ios_source("TimerView.swift")
+    api = ios_source("APIClient.swift")
+    store = ios_source("LocalStore.swift")
+    assert 'Text("+\\(symbol)")' in view and "onPress(1, v)" in view
+    assert "var amount: Double?" in view and "case id, delta, label, amount" in view
+    assert 'body["amount"] = amount' in api
+    assert "bumpCounter(id, delta: delta, amount: amount)" in api
+    assert "func bumpCounter(_ id: Int, delta: Int, amount: Double? = nil)" in store

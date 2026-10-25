@@ -81,9 +81,11 @@ struct CounterPress: Codable, Identifiable, Equatable {
     var delta: Int
     var label: String
     var pressedAt: String
+    /// Its own price, when it was not the counter's usual one; nil = usual.
+    var amount: Double?
 
     enum CodingKeys: String, CodingKey {
-        case id, delta, label
+        case id, delta, label, amount
         case pressedAt = "pressed_at"
     }
 }
@@ -116,9 +118,11 @@ enum TimerFormat {
         return t >= 3600 ? String(format: "%d:%02d:%02d", t / 3600, (t / 60) % 60, t % 60)
                          : String(format: "%02d:%02d", t / 60, t % 60)
     }
+    static func symbol(_ cur: String) -> String {
+        ["ILS": "₪", "USD": "$", "EUR": "€", "GBP": "£"][cur] ?? cur + " "
+    }
     static func money(_ v: Double, _ cur: String) -> String {
-        let sym = ["ILS": "₪", "USD": "$", "EUR": "€", "GBP": "£"][cur] ?? cur + " "
-        return sym + String(format: v == v.rounded() ? "%.0f" : "%.2f", v)
+        symbol(cur) + String(format: v == v.rounded() ? "%.0f" : "%.2f", v)
     }
     /// Parse a timestamp the Mac wrote. Harder than it looks, and getting it
     /// wrong is why the phone's timers did not tick.
@@ -245,7 +249,8 @@ struct TimerView: View {
                 Section(counters.isEmpty ? "Counters — none yet" : "Counters") {
                     ForEach(counters) { c in
                         CounterRow(counter: c,
-                                   onPress: { d in Task { await api.pressCounter(c.id, delta: d); await load() } },
+                                   onPress: { d, amount in
+                                       Task { await api.pressCounter(c.id, delta: d, amount: amount); await load() } },
                                    onCashOut: { Task { await api.cashOutCounter(c.id); await load() } },
                                    onOpen: { detailCounter = c })
                         .swipeActions(edge: .trailing) {
@@ -469,10 +474,18 @@ private struct TimerRow: View {
 
 private struct CounterRow: View {
     let counter: TallyCounter
-    let onPress: (Int) -> Void
+    /// (delta, amount): amount is nil for a press at the usual price.
+    let onPress: (Int, Double?) -> Void
     let onCashOut: () -> Void
     var onOpen: (() -> Void)? = nil
     @State private var confirmCashOut = false
+    @State private var askAmount = false
+    @State private var amountText = ""
+
+    private var symbol: String { TimerFormat.symbol(counter.currency).trimmingCharacters(in: .whitespaces) }
+    /// What the Mac's card shows too: a counter with no rate still owes the
+    /// presses made at an amount of their own.
+    private var priced: Bool { counter.pricePerUnit > 0 || counter.payout != 0 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -481,7 +494,7 @@ private struct CounterRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(counter.title).font(.headline)
                     Text("today \(counter.todayCount) · all time \(counter.totalCount)" +
-                         (counter.pricePerUnit > 0 ? " · owed \(TimerFormat.money(counter.payout, counter.currency))" : ""))
+                         (priced ? " · owed \(TimerFormat.money(counter.payout, counter.currency))" : ""))
                         .font(.caption).foregroundColor(.secondary)
                 }
                 Spacer()
@@ -498,16 +511,33 @@ private struct CounterRow: View {
                 }
             }
             HStack(spacing: 10) {
-                Button { onPress(-1) } label: { Image(systemName: "minus").frame(maxWidth: .infinity).frame(height: 36) }
+                Button { onPress(-1, nil) } label: { Image(systemName: "minus").frame(maxWidth: .infinity).frame(height: 36) }
                     .buttonStyle(.bordered).tint(.secondary)
-                Button { onPress(1) } label: { Image(systemName: "plus").frame(maxWidth: .infinity).frame(height: 36) }
+                Button { onPress(1, nil) } label: { Image(systemName: "plus").frame(maxWidth: .infinity).frame(height: 36) }
                     .buttonStyle(.borderedProminent)
-                if counter.pricePerUnit > 0 {
+                // The Mac card's `+₪`: one press at an amount typed in, pre-filled
+                // with the usual price.
+                Button {
+                    amountText = counter.pricePerUnit > 0 ? String(format: "%g", counter.pricePerUnit) : ""
+                    askAmount = true
+                } label: { Text("+\(symbol)").frame(height: 36).padding(.horizontal, 4) }
+                    .buttonStyle(.bordered)
+                    .accessibilityLabel("Add one at a different amount")
+                if priced {
                     Button("Cash out") { confirmCashOut = true }.buttonStyle(.bordered).tint(.orange).disabled(counter.count == 0)
                 }
             }
         }
         .padding(.vertical, 4)
+        .alert("Add at amount", isPresented: $askAmount) {
+            TextField("Amount", text: $amountText).keyboardType(.decimalPad)
+            Button("Add") {
+                if let v = Double(amountText.replacingOccurrences(of: ",", with: ".")), v >= 0 { onPress(1, v) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Amount (\(symbol)) for this one")
+        }
         .confirmationDialog("Cash out \(counter.count) for \(TimerFormat.money(counter.payout, counter.currency))?",
                             isPresented: $confirmCashOut, titleVisibility: .visible) {
             Button("Cash out and start a new cycle") { onCashOut() }
@@ -787,6 +817,8 @@ struct CounterDetailSheet: View {
                     LabeledContent("Count", value: "\(counter.count)")
                     if counter.pricePerUnit > 0 {
                         LabeledContent("Rate", value: TimerFormat.money(counter.pricePerUnit, counter.currency) + " each")
+                    }
+                    if counter.pricePerUnit > 0 || counter.payout != 0 {
                         LabeledContent("Owed", value: TimerFormat.money(counter.payout, counter.currency))
                     }
                     LabeledContent("Today", value: "\(counter.todayCount)")
@@ -820,6 +852,9 @@ struct CounterDetailSheet: View {
                                 .font(.body.weight(.semibold)).monospacedDigit()
                                 .foregroundColor(press.delta > 0 ? .primary : .secondary)
                                 .frame(width: 40, alignment: .leading)
+                            if let amount = press.amount {
+                                Text(TimerFormat.money(amount, counter.currency)).font(.subheadline.weight(.medium))
+                            }
                             if !press.label.isEmpty {
                                 Text(press.label).font(.subheadline)
                             }
