@@ -863,6 +863,21 @@ status | reconcile [--apply]`.
 the push/pull loop. Not yet: flashcards, memory, vocabulary, categories, Jude
 chats, and users other than the default one.
 
+### The Mac as backup server — while the PC is away
+**What:** When the phone cannot reach the PC, it switches to the Mac, which
+reads its commands and takes the calendar's changes (events, to-dos, timers,
+counters, coursework, workouts) and passes them on when the PC is back. The
+phone switches back once the PC answers and the Mac has sent it everything.
+Flashcards, Jude, vocabulary and other one-machine stores wait on the phone.
+DEVQA Q96.
+**Where:** iOS `APIClient.swift` ("The backup server"), Settings ▸ Your Mac
+("Use your Mac when the main server is off", an optional address);
+`GET /sync/replicas`, `GET /sync/status`; `sync.port` in config.yaml.
+**How:** the Mac tells the PC its addresses on every pull and the phone asks
+the PC for them, so nothing has to be typed once the PC runs this version.
+Only a Mac that has synced at least once stands in, and only for the default
+user, with no sign-in sent. Held by `tests/unit/test_backup_server.py`.
+
 ### Counters
 **What:** Tap-counters with press history and payout tracking.
 **Where:** db `counters`, `counter_presses`, `counter_payouts`; API

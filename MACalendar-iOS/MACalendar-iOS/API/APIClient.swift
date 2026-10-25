@@ -66,8 +66,10 @@ class APIClient: ObservableObject {
         if !settings.apiKey.isEmpty {
             req.setValue(settings.apiKey, forHTTPHeaderField: "X-API-Key")
         }
+        // Not to the backup: a sign-in is the main server's, the Mac would
+        // answer it "login required", and that answer signs this phone out.
         let token = UserSession.token
-        if !token.isEmpty {
+        if !token.isEmpty && !onBackup {
             req.setValue(token, forHTTPHeaderField: "X-Session-Token")
         }
     }
@@ -156,6 +158,7 @@ class APIClient: ObservableObject {
     /// still in the queue — they snapped back, then forward again on replay.
     func markReachable() {
         noteReachable()
+        backupAfterSuccess()
         guard !isOnline else { return }
         isOnline = true
         Task { [weak self] in
@@ -171,6 +174,153 @@ class APIClient: ObservableObject {
         noteUnreachable()
         if isOnline { isOnline = false }
         if lastError != reason { lastError = reason }
+        backupAfterFailure()
+    }
+
+    // MARK: - The backup server (DEVQA Q96)
+    //
+    // Gil, 2026-10-25: *"when pc is off mac is fine to do"*. The PC is the hub
+    // (Q94); the Mac keeps a synced copy of its calendar file. While the PC
+    // cannot be reached, the Mac stands in: it reads commands (Q87's "behind
+    // the scenes" check) and takes the calendar's writes, and its sync carries
+    // them to the PC when it is back. Three rules keep that from forking the
+    // data:
+    //
+    //  * Only a REAL copy stands in: `/sync/status` must say replica, synced
+    //    at least once. A Mac that never reconciled holds a calendar of its own.
+    //  * Only what replication carries (`backupServes`). Flashcards, Ranker,
+    //    vocabulary, Jude and the user registry are one machine's; written on
+    //    the Mac they would never reach the PC, so they wait on the phone.
+    //  * Hand back only once the Mac has sent the PC everything (`pending` 0):
+    //    before that the PC lacks rows this phone already shows, and its list
+    //    would read them as deleted.
+
+    /// True while the backup is standing in for the main server.
+    @Published private(set) var onBackup = false
+    private(set) var backupBase = ""
+    private var backupChecking = false
+    private var lastBackupTry = Date.distantPast
+    private var lastPrimaryCheck = Date.distantPast
+    private var lastReplicaLearn = Date.distantPast
+
+    /// What the backup may serve: the calendar file it keeps in step with the
+    /// hub, and the brain that reads a command into it. An allow-list on
+    /// purpose — a route nobody listed waits on the phone, which is safe; a
+    /// deny-list would let a forgotten one write to a copy that never syncs.
+    static let backupReadWrite = ["/events", "/todos", "/tags", "/timers", "/timer_sessions", "/counters",
+                                  "/counter_presses", "/courses", "/assignments", "/workout",
+                                  "/voice", "/offline", "/pending"]
+    /// Read there, written only on the main server (each has a store of its own).
+    static let backupReadOnly = ["/health", "/changes", "/sync", "/search", "/holidays", "/digest",
+                                 "/observance", "/categories", "/event_defaults", "/features", "/tips",
+                                 "/occasions"]
+    static let backupHoldsReason = "waiting for the main server — your Mac stands in for the calendar only"
+
+    nonisolated static func backupServes(_ path: String, method: String) -> Bool {
+        let bare = String(path.prefix(while: { $0 != "?" }))
+        func under(_ prefixes: [String]) -> Bool { prefixes.contains { bare == $0 || bare.hasPrefix($0 + "/") } }
+        return under(backupReadWrite) || (method == "GET" && under(backupReadOnly))
+    }
+
+    /// Typed in Settings, else what the hub last said its replica answers on.
+    var backupCandidates: [String] {
+        let typed = Self.normalized(settings.backupServerURL)
+        let list = typed.isEmpty ? settings.learnedBackupURLs.map(Self.normalized) : [typed]
+        return list.filter { !$0.isEmpty && $0 != primaryBase }
+    }
+
+    /// Replication carries the hub's DEFAULT user's calendar, and the Mac
+    /// cannot honour a sign-in the PC issued — so the backup serves nobody
+    /// signed in, or the admin (who IS the default user), and no one else.
+    private var backupAllowed: Bool {
+        guard settings.useBackupServer, settings.serverEnabled, !settings.phoneOnly else { return false }
+        if let u = UserSession.shared.user, !u.isAdmin { return false }
+        return !backupCandidates.isEmpty
+    }
+
+    private func backupAfterFailure() {
+        if onBackup {
+            // The backup has gone too: back to the main server, paced by the
+            // breaker the caller just armed.
+            onBackup = false
+            return
+        }
+        guard backupAllowed, !backupChecking, Date().timeIntervalSince(lastBackupTry) > 10 else { return }
+        backupChecking = true
+        lastBackupTry = Date()
+        let candidates = backupCandidates, key = settings.apiKey
+        Task { [weak self] in
+            var found: String?
+            for url in candidates {
+                if let s = await Self.replicaStatus(url, key: key), s.isReplica, s.cursor != nil {
+                    found = url
+                    break
+                }
+            }
+            guard let self else { return }
+            self.backupChecking = false
+            // The main server may have answered while we looked.
+            guard let found, !self.isOnline, !self.onBackup else { return }
+            self.backupBase = found
+            self.onBackup = true
+            self.offlineUntil = .distantPast
+            _ = try? await self.health()     // an answer flushes the queue and refreshes
+        }
+    }
+
+    private func backupAfterSuccess() {
+        guard onBackup else { learnBackupIfDue(); return }
+        guard !backupChecking, Date().timeIntervalSince(lastPrimaryCheck) > 15 else { return }
+        backupChecking = true
+        lastPrimaryCheck = Date()
+        let primary = primaryBase, backup = backupBase, key = settings.apiKey
+        Task { [weak self] in
+            let back = await Self.answers(primary)
+            // Unreachable backup (nil) hands back too: nothing more can come from it.
+            let status = back ? await Self.replicaStatus(backup, key: key) : nil
+            guard let self else { return }
+            self.backupChecking = false
+            guard back, self.onBackup else { return }
+            if let status, !(status.ok && status.pending == 0) { return }   // still sending the PC our writes
+            self.onBackup = false
+            self.isOnline = false            // so the next answer flushes the queue and refreshes
+            _ = try? await self.health()
+        }
+    }
+
+    /// Ask the main server, now and then, where its replica is.
+    private func learnBackupIfDue() {
+        guard settings.useBackupServer, Date().timeIntervalSince(lastReplicaLearn) > 600 else { return }
+        lastReplicaLearn = Date()
+        Task { [weak self] in
+            // A hub from before Q96 has no such route: the typed address is all there is.
+            guard let self, let data = try? await self.request("/sync/replicas"),
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let urls = (obj["replicas"] as? [[String: Any]])?.first?["urls"] as? [String],
+                  !urls.isEmpty, urls != self.settings.learnedBackupURLs else { return }
+            self.settings.learnedBackupURLs = urls
+        }
+    }
+
+    struct ReplicaStatus { let isReplica: Bool; let cursor: Int?; let ok: Bool; let pending: Int }
+
+    /// `/sync/status` with no sign-in: the backup does not know this phone's.
+    nonisolated static func replicaStatus(_ base: String, key: String) async -> ReplicaStatus? {
+        guard let url = URL(string: base + "/sync/status") else { return nil }
+        var req = URLRequest(url: url, timeoutInterval: 3)
+        if !key.isEmpty { req.setValue(key, forHTTPHeaderField: "X-API-Key") }
+        guard let (data, resp) = try? await URLSession.shared.data(for: req),
+              (resp as? HTTPURLResponse)?.statusCode == 200,
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        return ReplicaStatus(isReplica: obj["role"] as? String == "replica", cursor: obj["cursor"] as? Int,
+                             ok: obj["ok"] as? Bool ?? false, pending: obj["pending"] as? Int ?? 0)
+    }
+
+    nonisolated static func answers(_ base: String) async -> Bool {
+        guard let url = URL(string: base + "/health") else { return false }
+        let req = URLRequest(url: url, timeoutInterval: 3)
+        guard let (_, resp) = try? await URLSession.shared.data(for: req) else { return false }
+        return (resp as? HTTPURLResponse)?.statusCode == 200
     }
 
     /// Not a fact about the Mac: the CALLER went away. A SwiftUI `.task`
@@ -219,7 +369,14 @@ class APIClient: ObservableObject {
     /// "100.x.x.x", "100.x.x.x:8080", "http://100.x.x.x:8080/", or a Tailscale
     /// MagicDNS name like "my-mac" — and always yields http://host:port.
     var base: String {
-        var url = settings.serverURL
+        onBackup && !backupBase.isEmpty ? backupBase : primaryBase
+    }
+
+    /// The main server's address, whoever is standing in for it.
+    var primaryBase: String { Self.normalized(settings.serverURL) }
+
+    static func normalized(_ raw: String) -> String {
+        var url = raw
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: .init(charactersIn: "/"))
         guard !url.isEmpty else { return "" }
@@ -238,6 +395,7 @@ class APIClient: ObservableObject {
     func request(_ path: String, method: String = "GET",
                  body: [String: Any]? = nil, timeout: TimeInterval? = nil) async throws -> Data {
         if PhonePreview.current != nil { throw APIError.offline("read on this phone; the Mac reads it too") }
+        if onBackup && !Self.backupServes(path, method: method) { throw APIError.offline(Self.backupHoldsReason) }
         let isPlaceholder = base.contains("x.x.x") || base.contains("100.x")
         guard !base.isEmpty, !isPlaceholder, let url = URL(string: base + path) else {
             throw APIError.badURL
@@ -294,7 +452,7 @@ class APIClient: ObservableObject {
                 let msg = String(data: data, encoding: .utf8) ?? "Unknown error"
                 // The session is gone (signed out elsewhere, password reset,
                 // 90 days idle): ask for sign-in rather than fail quietly.
-                if (resp as? HTTPURLResponse)?.statusCode == 401, msg.contains("login required") {
+                if (resp as? HTTPURLResponse)?.statusCode == 401, msg.contains("login required"), !onBackup {
                     UserSession.shared.unauthorized()
                 }
                 throw APIError.serverError(msg)
@@ -433,7 +591,11 @@ class APIClient: ObservableObject {
         var synced = 0
         // Re-read the queue each pass: replaying a create rewrites the paths of
         // later entries that still point at its temporary offline id.
-        while let change = LocalStore.shared.allPending().first {
+        // While the backup stands in, writes it cannot take (a flashcard, a
+        // vocabulary word) are stepped over, not stopped at: they wait for the
+        // main server, and the calendar writes behind them go now.
+        while let change = LocalStore.shared.allPending().first(where: {
+            !onBackup || Self.backupServes($0.path, method: $0.method) }) {
             do {
                 var body: [String: Any]? = nil
                 if let data = change.bodyJSON {
@@ -1474,7 +1636,7 @@ class APIClient: ObservableObject {
     /// a switch (`UserSession.switchTo`). Best effort: an unreachable Mac just
     /// keeps the old sign-in until it expires or is signed out from Account.
     func endSession(token: String) async {
-        guard let url = URL(string: base + "/auth/logout") else { return }
+        guard let url = URL(string: primaryBase + "/auth/logout") else { return }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")

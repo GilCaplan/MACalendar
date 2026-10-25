@@ -18,6 +18,7 @@ import sqlite3
 import threading
 import time
 from typing import Callable
+from urllib.parse import quote
 
 from assistant.sync import changelog as cl
 
@@ -28,10 +29,13 @@ BATCH = 500
 
 
 class Replica:
-    def __init__(self, path: str, name: str, transport: Transport):
+    def __init__(self, path: str, name: str, transport: Transport, urls: "list[str] | None" = None):
         self.path = path
         self.name = name
         self.transport = transport
+        #: Where a phone can reach this machine; told to the hub on every pull,
+        #: so the hub can offer it as the phone's backup (DEVQA Q96).
+        self.urls = list(urls or [])
 
     # ------------------------------------------------------------------
     def _conn(self) -> sqlite3.Connection:
@@ -103,7 +107,8 @@ class Replica:
         n = 0
         while True:
             since = self.cursor()
-            q = f"/sync/pull?replica={self.name}" + (f"&since={since}" if since is not None else "")
+            q = f"/sync/pull?replica={quote(self.name)}" + (f"&since={since}" if since is not None else "")
+            q += "".join(f"&url={quote(u, safe='')}" for u in self.urls)
             reply = self.transport("GET", q, None)
             n += self._apply(reply)
             if not reply.get("more"):
@@ -281,14 +286,22 @@ def start_background(cfg) -> bool:
         from assistant.config import load_config
         from assistant.db import get_db
         import socket
+        from assistant.pairing.addresses import candidate_urls
         backoff, last_pull = 1.0, 0.0
+        urls, urls_at = [], 0.0
         while True:
             c = load_config()
             if not c.sync.hub:
                 time.sleep(5)
                 continue
+            if time.time() - urls_at > 300:     # addresses change (Wi-Fi, tailnet); asking costs a CLI call
+                try:
+                    urls = candidate_urls(int(c.sync.port or 8080))
+                except Exception:  # noqa: BLE001 — no address is no reason to stop syncing
+                    urls = []
+                urls_at = time.time()
             rep = Replica(get_db().path, c.sync.replica_name or socket.gethostname(),
-                          http_transport(c.sync.hub, c.sync.api_key))
+                          http_transport(c.sync.hub, c.sync.api_key), urls=urls)
             status["hub"] = c.sync.hub
             try:
                 if rep.cursor() is None:

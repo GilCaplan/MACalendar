@@ -332,6 +332,8 @@ sync:
   api_key: ""
   replica_name: ""
   pull_seconds: 3
+  port: 8080          # this machine's API port, in the addresses it tells the hub: a phone
+                      # uses this machine while the hub is away (DEVQA Q96)
 
 # Google Calendar two-way. Off until a client exists - see CALENDAR_SYNC.md.
 google_calendar:

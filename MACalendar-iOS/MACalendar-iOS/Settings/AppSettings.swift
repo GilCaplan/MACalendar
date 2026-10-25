@@ -52,6 +52,19 @@ class AppSettings: ObservableObject {
     @Published var serverURL: String {
         didSet { UserDefaults.standard.set(serverURL, forKey: "serverURL") }
     }
+    /// The backup (DEVQA Q96): while `serverURL` cannot be reached, a server
+    /// that keeps a synced copy of it — the Mac, with the PC as the hub —
+    /// stands in for the calendar. Typed here; when empty, the addresses the
+    /// hub reported for its replica (`learnedBackupURLs`) are used.
+    @Published var backupServerURL: String {
+        didSet { UserDefaults.standard.set(backupServerURL, forKey: "backupServerURL") }
+    }
+    @Published var learnedBackupURLs: [String] {
+        didSet { UserDefaults.standard.set(learnedBackupURLs, forKey: "learnedBackupURLs") }
+    }
+    @Published var useBackupServer: Bool {
+        didSet { UserDefaults.standard.set(useBackupServer, forKey: "useBackupServer") }
+    }
     @Published var apiKey: String {
         didSet { UserDefaults.standard.set(apiKey, forKey: "apiKey") }
     }
@@ -379,6 +392,10 @@ class AppSettings: ObservableObject {
         self.serverURL = UserDefaults.standard.string(forKey: "serverURL")
             ?? Self.defaultServerURL
         self.apiKey    = UserDefaults.standard.string(forKey: "apiKey") ?? ""
+        self.backupServerURL = UserDefaults.standard.string(forKey: "backupServerURL") ?? ""
+        self.learnedBackupURLs = UserDefaults.standard.stringArray(forKey: "learnedBackupURLs") ?? []
+        self.useBackupServer = UserDefaults.standard.object(forKey: "useBackupServer") == nil
+            ? true : UserDefaults.standard.bool(forKey: "useBackupServer")
         self.phoneOnly = UserDefaults.standard.bool(forKey: "phoneOnly")
         self.readOnPhoneFirst = UserDefaults.standard.object(forKey: "readOnPhoneFirst") == nil
             ? true : UserDefaults.standard.bool(forKey: "readOnPhoneFirst")

@@ -206,6 +206,8 @@ All endpoints are served by the Mac at `http://<tailscale-ip>:8080`; the iOS app
 | `GET` | `/sync/bootstrap` | Everything a client needs to draw itself, in ONE round trip. |
 | `GET` | `/sync/pull` |  |
 | `POST` | `/sync/push` |  |
+| `GET` | `/sync/replicas` |  |
+| `GET` | `/sync/status` | What a phone asks before standing a replica in for its hub, and before |
 
 ## /auth
 
