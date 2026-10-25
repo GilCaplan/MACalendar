@@ -1747,7 +1747,7 @@
       view: "system", tag: "the thesis", name: "the brain", rl: "◆ one brain", title: "One brain",
       z: [352, 256, 1.9],
       sum: `<p>One process understands and executes everything. The host's own window and every attached surface are thin clients &mdash; <strong>none of them contains a parser</strong>.</p>
-    <p class="figs">16 actions · 10 of them reachable by rule alone · eighteen named rules · a test suite</p>`,
+    <p class="figs">16 actions · 10 of them reachable by rule alone · nineteen named rules · a test suite</p>`,
       more: `<h3>How one command becomes an answer</h3>
     <p>Read straight through for the story; the engine view has each component's own mechanics.</p>
     <ol>
@@ -1766,7 +1766,7 @@
       each of those into atomic pieces.</li>
       <li><strong>Read each piece.</strong> Every atomic piece goes back to FastRule first; the model is
       asked only about the pieces the rules could not read, grounded on that piece's own words.</li>
-      <li><strong>Check the fields.</strong> Eighteen named rules run on the finished objects &mdash; and
+      <li><strong>Check the fields.</strong> Nineteen named rules run on the finished objects &mdash; and
       the observance gate, on what the assistant itself books.</li>
       <li><strong>Save what is ready.</strong> On a live command, whatever the rules built and the judge
       has no complaint about is saved before the model reads the rest, so the first events appear in
@@ -2843,9 +2843,9 @@ series_id   NULL
     the rest of the command still runs.</p>`
     },
     validateobj: {
-      view: "engine", tag: "stage 3 · the object pass", name: "the field rules", rl: "3″ field rules", title: "The eighteen named rules",
+      view: "engine", tag: "stage 3 · the object pass", name: "the field rules", rl: "3″ field rules", title: "The nineteen named rules",
       z: [820, 82, 2.0],
-      sum: `<p>Eighteen named rules run in a fixed order on the finished objects — each with a name, its own test, and its own line in the trace when it fires.</p>
+      sum: `<p>Nineteen named rules run in a fixed order on the finished objects — each with a name, its own test, and its own line in the trace when it fires.</p>
     <p class="figs">no model involved · every applied fix is shown under its name</p>`,
       more: `<div class="tblwrap"><table>
       <tr><th>what it catches</th><th>the ruling</th></tr>
@@ -2858,6 +2858,7 @@ series_id   NULL
       <tr><td>&ldquo;remove X from my list&rdquo; parsed as a new task</td><td>a remove instruction is the delete it says, never a row</td></tr>
       <tr><td>&ldquo;does my daughter have a recital?&rdquo;</td><td>a question asks; it does not create</td></tr>
       <tr><td>&ldquo;should I add yoga tomorrow?&rdquo;</td><td>neither created nor dropped &mdash; offered, and it waits</td></tr>
+      <tr><td>a to-do with no day, like &ldquo;renew the passport&rdquo;</td><td>it goes on General; Today only when you say today (or tonight, this evening) or it is due today</td></tr>
       <tr><td>&ldquo;the one you just made&rdquo;</td><td>resolved as a reference, never guessed as a title</td></tr>
       <tr><td>a repeating event with no end said</td><td>it stops after a default for its cadence &mdash; daily 2 weeks, weekly 8, monthly 12 months, yearly 10 years, each a setting &mdash; and the reply says it is the default</td></tr>
       <tr><td>a booked event longer than the configured cap (4 hours, default)</td><td>clipped from the end &mdash; only an end the assistant itself supplied; an end you said, and a whole-day block, are kept</td></tr>

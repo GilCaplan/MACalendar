@@ -278,6 +278,7 @@ def run_objects(state: EngineState, cfg) -> EngineState:
                 continue
             carried_day = _resolve_onto_intent(state, item, intent, today,
                                                carried_day)
+            _obj._rule_todo_list_by_day(state, item, intent, today)
 
     _obj._rule_question_creates_nothing(state, cfg, pairs)
     _obj._rule_question_mutates_nothing(state, cfg, pairs)
