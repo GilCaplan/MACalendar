@@ -143,3 +143,46 @@ def test_pulled_rows_are_not_sent_back(synced):
     hub.post("/counters", json={"title": "From the phone"})
     rep.pull()
     assert rep.pending() == 0
+
+
+# ----------------------------------------------------------------------
+# The Mac as the phone's backup while the hub is away (DEVQA Q96)
+# ----------------------------------------------------------------------
+
+def test_the_hub_learns_where_a_replica_is_from_its_pull(hub, tmp_path):
+    db = CalendarDB(str(tmp_path / "mac.db"))
+    rep = Replica(db.path, "mac", _transport(hub), urls=["http://100.1.2.3:8080", "http://192.168.1.5:8080"])
+    rep.pull()
+    got = hub.get("/sync/replicas").get_json()["replicas"]
+    assert [(r["name"], r["urls"]) for r in got] == [("mac", ["http://100.1.2.3:8080", "http://192.168.1.5:8080"])]
+
+
+def test_a_pull_without_addresses_keeps_the_last_ones(hub, tmp_path):
+    """An older replica, or one whose addresses could not be read this time,
+    must not erase where the phone can find it."""
+    db = CalendarDB(str(tmp_path / "mac.db"))
+    Replica(db.path, "mac", _transport(hub), urls=["http://100.1.2.3:8080"]).pull()
+    Replica(db.path, "mac", _transport(hub)).pull()
+    assert hub.get("/sync/replicas").get_json()["replicas"][0]["urls"] == ["http://100.1.2.3:8080"]
+
+
+def test_a_replica_long_unheard_is_not_offered(hub):
+    from assistant.db import get_db
+    from assistant.sync import hub as _hub
+    conn = cl.connect(get_db().path)
+    _hub.note_replica(conn, "old-mac", ["http://100.9.9.9:8080"])
+    assert _hub.replicas(conn, now=__import__("time").time() + 8 * 86400) == []
+
+
+def test_status_says_hub_or_how_far_behind_the_replica_is(hub, monkeypatch):
+    assert hub.get("/sync/status").get_json() == {"role": "hub"}
+
+    from assistant import config as _config
+    cfg = _config.load_config()
+    monkeypatch.setattr(cfg.sync, "hub", "http://100.94.0.1:8080")
+    monkeypatch.setattr(_config, "load_config", lambda *a, **k: cfg)
+    s = hub.get("/sync/status").get_json()
+    # Never synced: a phone must not stand this copy in for the calendar.
+    assert s["role"] == "replica" and s["cursor"] is None
+    hub.post("/todos", json={"title": "written while standing in"})
+    assert hub.get("/sync/status").get_json()["pending"] >= 1

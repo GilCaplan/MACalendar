@@ -558,6 +558,8 @@ class SyncConfig(BaseModel):
     api_key: str = ""             # the hub's `api.key`, if it set one
     replica_name: str = ""        # how the hub names this machine; default: the hostname
     pull_seconds: float = 3.0     # how often to ask the hub what changed
+    port: int = 8080              # this machine's API port, in the addresses it tells the hub —
+                                  # the phone's way back to it when the hub is away (DEVQA Q96)
 
 
 class GoogleCalendarConfig(BaseModel):

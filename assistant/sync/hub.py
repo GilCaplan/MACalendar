@@ -7,13 +7,41 @@ under the replica's name, so the log can skip them on the way out.
 """
 from __future__ import annotations
 
+import json
 import sqlite3
+import time
 
 from assistant.sync import changelog as cl
 
 PAGE = 2000
 #: How long the hub keeps its log. A replica away longer re-reads everything.
 KEEP_DAYS = 30
+#: Where each replica said it can be reached. `_sync` keeps it out of
+#: replication, like the log: it is a fact about this hub's replicas.
+REPLICAS = "_sync_replicas"
+#: A replica not heard from in this long is not offered as a backup.
+REPLICA_FRESH_DAYS = 7
+
+
+def note_replica(conn: sqlite3.Connection, name: str, urls: "list[str]") -> None:
+    """Remember where `name` is, from its own pull (DEVQA Q96): a phone asks
+    the hub for this while the hub is up, and uses that address while it is
+    not. A pull with no addresses (an older replica) leaves the record alone."""
+    conn.execute(f"CREATE TABLE IF NOT EXISTS {REPLICAS} ("
+                 "name TEXT PRIMARY KEY, urls TEXT NOT NULL, seen REAL NOT NULL)")
+    if urls:
+        conn.execute(f"INSERT INTO {REPLICAS}(name, urls, seen) VALUES (?, ?, ?) "
+                     "ON CONFLICT(name) DO UPDATE SET urls = excluded.urls, seen = excluded.seen",
+                     (name, json.dumps(urls), time.time()))
+
+
+def replicas(conn: sqlite3.Connection, now: "float | None" = None) -> "list[dict]":
+    """Replicas heard from lately, most recent first."""
+    conn.execute(f"CREATE TABLE IF NOT EXISTS {REPLICAS} ("
+                 "name TEXT PRIMARY KEY, urls TEXT NOT NULL, seen REAL NOT NULL)")
+    cutoff = (now or time.time()) - REPLICA_FRESH_DAYS * 86400
+    return [{"name": r["name"], "urls": json.loads(r["urls"]), "seen": r["seen"]}
+            for r in conn.execute(f"SELECT * FROM {REPLICAS} WHERE seen >= ? ORDER BY seen DESC", (cutoff,))]
 
 
 def pull(conn: sqlite3.Connection, since: "int | None", replica: str) -> dict:

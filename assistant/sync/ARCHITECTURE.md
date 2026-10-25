@@ -34,6 +34,28 @@ The log is STATE-based: whoever reads an entry reads the row as it is now.
 - **Push before pull, always.** A row edited here and not yet sent is skipped
   by a pull: the local edit goes up next and wins.
 
+## When the hub is away: the Mac stands in (DEVQA Q96)
+
+The phone keeps a second address. While the hub does not answer, it switches
+to a replica and talks to it exactly as it talks to the hub; the replica's
+triggers queue what it is sent, and its loop carries it up when the hub is
+back. The phone decides everything (`APIClient.swift`, "The backup server"):
+
+- **Where:** typed in Settings ▸ Your Mac, or learned from the hub —
+  every pull carries the replica's addresses (`&url=`, from
+  `pairing.addresses.candidate_urls`, port `sync.port`), and
+  `GET /sync/replicas` lists them (`_sync_replicas`, never replicated).
+- **Whether:** `GET /sync/status` on the replica must say `replica` with a
+  `cursor` — a file that never reconciled is not the hub's calendar.
+- **What:** only routes whose data replication carries (`backupServes`).
+  Anything else — flashcards, Jude, vocabulary, the user registry — waits in
+  the phone's queue for the hub, stepped over rather than blocking the
+  calendar writes behind it.
+- **Back:** when the hub answers again AND the replica reports `ok` with
+  `pending` 0. Before that the hub lacks rows the phone already shows.
+- **Who:** the default user only (the one calendar replicated), with no
+  sign-in sent — the replica does not know the hub's sessions.
+
 ## Ids
 
 Both sides number rows the same way, so a row the Mac makes offline and one

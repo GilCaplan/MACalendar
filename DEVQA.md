@@ -1,3 +1,28 @@
+- **2026-10-25 — Q96 (THE MAC STANDS IN WHILE THE PC IS AWAY)**, Gil, asked
+  whether the Mac is the backup when the PC is off (it was not: the phone
+  had one address, and with the PC away it worked from its own copy until the
+  PC returned): *"yes when pc is off mac is fine to do"*. Revises Q94's "the
+  phone talks to the hub": the phone keeps a BACKUP address — typed in
+  Settings ▸ Your Mac, or learned from the PC (`GET /sync/replicas`; the Mac
+  sends its addresses with every pull) — and when the PC does not answer it
+  switches to the Mac, which reads commands (Q87's check behind the phone)
+  and takes the calendar's writes, then passes them on through its sync.
+  Three rules, all on the phone (`APIClient`, "The backup server"): only a
+  real copy stands in (`/sync/status`: a replica that has synced at least
+  once); only what replication carries is sent there (`backupServes`, an
+  allow-list: events, to-dos, timers, counters, coursework, workouts, the
+  voice routes — flashcards, Ranker, vocabulary, Jude and the user registry
+  wait on the phone, because a write to them on the Mac would never reach the
+  PC); and it hands back only when the PC answers AND the Mac reports nothing
+  left to send, so the PC already holds every row the phone made through the
+  Mac. The Mac serves the default user only — the one calendar replication
+  carries — so a phone signed in as anyone else does not switch, and no
+  sign-in is sent there (the Mac would answer a PC session "login required",
+  which signs the phone out). Not covered: a split where the PC is up but
+  this phone cannot reach it while another device writes to it — two rows
+  can then take one id, the Mac renumbers its own on reconnect, and the
+  phone's copy of the old id is stale until its next refresh.
+
 - **2026-10-25 — Q95 (A TO-DO THE ASSISTANT MAKES IS GENERAL UNLESS IT IS
   FOR TODAY)**, Gil: *"when todo tasks are made with assistant, they should
   always be "general" unless explicilty said for today or tied to a task which

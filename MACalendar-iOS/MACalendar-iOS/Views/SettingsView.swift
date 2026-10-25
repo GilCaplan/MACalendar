@@ -323,6 +323,11 @@ struct SettingsView: View {
                         .animation(.easeInOut(duration: 0.2), value: settings.serverEnabled)
 
                         Divider().padding(.vertical, 4)
+                        BackupServerSection()
+                            .disabled(!settings.serverEnabled)
+                            .opacity(settings.serverEnabled ? 1 : 0.35)
+
+                        Divider().padding(.vertical, 4)
 
                         Toggle(isOn: $settings.serverEnabled) {
                             // Pulled out of the inline `Text(cond ? a : b)`: the
@@ -1374,6 +1379,45 @@ private struct SettingsIcon: View {
 }
 
 
+// MARK: - The backup server (Settings ▸ Your Mac, DEVQA Q96)
+
+/// When the main server (the PC) is away, a machine keeping a synced copy of
+/// it (the Mac) stands in. Its own view, not rows in `serverPage`: that body
+/// is already at the edge of SwiftUI's type-checking budget.
+private struct BackupServerSection: View {
+    @EnvironmentObject var settings: AppSettings
+    @EnvironmentObject var api: APIClient
+
+    private var learned: String {
+        settings.learnedBackupURLs.first.map { "Found from the main server: \($0)" }
+            ?? "Leave empty to use the one the main server reports."
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle(isOn: $settings.useBackupServer) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Use your Mac when the main server is off").font(.subheadline.weight(.semibold))
+                    Text("Your Mac keeps a synced copy. It reads commands and takes the calendar's "
+                         + "changes, then hands them on when the main server is back.")
+                        .font(.caption).foregroundColor(.secondary)
+                }
+            }
+            if settings.useBackupServer {
+                TextField("Backup address (optional)", text: $settings.backupServerURL)
+                    .keyboardType(.URL)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .padding(10)
+                    .background(Color(.systemBackground))
+                    .cornerRadius(8)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(.separator), lineWidth: 1))
+                Text(learned).font(.caption).foregroundColor(.secondary)
+            }
+        }
+    }
+}
+
 // MARK: - Live connection status (Settings ▸ Your Mac)
 
 /// The connection, the writes waiting to sync and the voice commands waiting
@@ -1388,11 +1432,12 @@ private struct ConnectionStatusCard: View {
     @Binding var showQueue: Bool
     @State private var showVoiceQueue = false
 
-    private enum Link { case phoneOnly, off, connected, unreachable }
+    private enum Link { case phoneOnly, off, connected, backup, unreachable }
 
     private var state: Link {
         if settings.phoneOnly { return .phoneOnly }
         if !settings.serverEnabled { return .off }
+        if api.onBackup && api.isOnline { return .backup }
         return api.isOnline ? .connected : .unreachable
     }
 
@@ -1401,6 +1446,7 @@ private struct ConnectionStatusCard: View {
         case .phoneOnly:   return "This phone runs on its own"
         case .off:         return "Connection switched off"
         case .connected:   return "Connected to your Mac"
+        case .backup:      return "Main server away — using your Mac"
         case .unreachable: return "Your Mac can't be reached"
         }
     }
@@ -1410,6 +1456,8 @@ private struct ConnectionStatusCard: View {
         case .phoneOnly:   return "No Mac to sync with."
         case .off:         return "Changes stay on this phone until you switch it back on."
         case .connected:   return "Everything you change goes to your Mac right away."
+        case .backup:      return "The calendar, to-dos, timers and commands go through your Mac, which passes "
+                                + "them on. Flashcards, Jude and the rest wait for the main server."
         case .unreachable: return "Working offline — changes are saved here and sync when it's back."
         }
     }
@@ -1417,6 +1465,7 @@ private struct ConnectionStatusCard: View {
     private var colour: Color {
         switch state {
         case .connected:   return .green
+        case .backup:      return .blue
         case .unreachable: return .orange
         case .off, .phoneOnly: return .secondary
         }
