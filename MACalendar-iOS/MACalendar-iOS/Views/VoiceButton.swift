@@ -340,6 +340,9 @@ struct VoiceButton: View {
         .onChange(of: settings.speakReplies) { on in
             if !on { player.stop() }
         }
+        .onChange(of: status) { now in
+            EggWaits.shared.commandCapsule = now == .thinking && settings.showThinking
+        }
         .onChange(of: showThinking) { open in
             if open {
                 EggWaits.shared.end(eggWait); eggWait = nil
@@ -629,6 +632,14 @@ struct VoiceButton: View {
     /// the reasoning it was waiting on (Gil, 2026-10-06: "remove wheel of
     /// death showing on the whole screen when panel showing reasoning").
     /// Closing the panel mid-command brings the loader back (see .onChange).
+    /// The panel records every command but OPENS only when asked to: a sheet
+    /// rising over the screen on every command got in the way (Gil,
+    /// 2026-10-27: "the review panel is kind of annoying … it just keeps
+    /// showing"). The "Thinking… N steps" capsule above the mic opens it.
+    private func openPanelIfAsked() {
+        if settings.showThinking && settings.autoOpenThinking { showThinking = true }
+    }
+
     private func beginScreenWaitUnlessPanel() {
         guard !showThinking, eggWait == nil else { return }
         eggWait = EggWaits.shared.begin()
@@ -669,7 +680,7 @@ struct VoiceButton: View {
                                 ms: 0, atMs: 0, ok: true)
                     : TraceStep(stage: "stt", title: "Heard on your phone",
                                 detail: heard + captureNote, ms: 0, atMs: 0, ok: true)]
-                showThinking = true
+                openPanelIfAsked()
             }
             beginScreenWaitUnlessPanel()
             let sentAt = Date()
@@ -742,7 +753,7 @@ struct VoiceButton: View {
         EggWaits.shared.end(eggWait); eggWait = nil
         if settings.showThinking {
             steps = [TraceStep(stage: "stt", title: "Typed", detail: t, ms: 0, atMs: 0, ok: true)]
-            showThinking = true
+            openPanelIfAsked()
         }
         beginScreenWaitUnlessPanel()
         let me = UUID()
@@ -805,7 +816,7 @@ struct VoiceButton: View {
         steps = []
         finished = false
         lastResponse = nil
-        if settings.showThinking { showThinking = true }
+        openPanelIfAsked()
         Task { @MainActor in
             let preview = PhonePreview()
             let out = await PhonePreview.$current.withValue(preview) {
@@ -924,7 +935,7 @@ struct VoiceButton: View {
         finished = false
         lastResponse = nil
         eggPlayed = EggStore.shared.heard(said, bare: false)
-        if settings.showThinking { showThinking = true }
+        openPanelIfAsked()
         Task { @MainActor in
             let out = await LocalCommand.run(said, api: api)
             steps = out.steps
@@ -1162,7 +1173,7 @@ struct VoiceButton: View {
             steps.append(TraceStep(stage: "vocab", title: "Using your edit",
                                    detail: corrected, ms: 0,
                                    atMs: steps.last?.atMs ?? 0, ok: true))
-            showThinking = true
+            openPanelIfAsked()
         }
         Task {
             do {

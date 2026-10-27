@@ -252,6 +252,12 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(showThinking, forKey: "showThinking") }
     }
 
+    /// Open the thinking panel by itself on every command. Off by default:
+    /// the timeline is still recorded and one tap on the capsule opens it.
+    @Published var autoOpenThinking: Bool {
+        didSet { UserDefaults.standard.set(autoOpenThinking, forKey: "autoOpenThinking") }
+    }
+
     // Read the assistant's reply aloud (mirrors the Mac's tts.mute).
     @Published var speakReplies: Bool {
         didSet { UserDefaults.standard.set(speakReplies, forKey: "speakReplies") }
@@ -387,6 +393,7 @@ class AppSettings: ObservableObject {
             ? true : UserDefaults.standard.bool(forKey: "agendaCardEnabled")
         self.showThinking = UserDefaults.standard.object(forKey: "showThinking") == nil
             ? true : UserDefaults.standard.bool(forKey: "showThinking")
+        self.autoOpenThinking = UserDefaults.standard.bool(forKey: "autoOpenThinking")
         self.serverEnabled = UserDefaults.standard.object(forKey: "serverEnabled") == nil
             ? true : UserDefaults.standard.bool(forKey: "serverEnabled")
         self.serverURL = UserDefaults.standard.string(forKey: "serverURL")

@@ -863,6 +863,14 @@ struct SettingsView: View {
                                         .font(.caption).foregroundColor(.secondary)
                                 }
                             }
+                            Toggle(isOn: $settings.autoOpenThinking) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Open it on every command")
+                                    Text("Off: tap “Thinking…” above the mic to see it")
+                                        .font(.caption).foregroundColor(.secondary)
+                                }
+                            }
+                            .disabled(!settings.showThinking)
                         }
                         .padding(.vertical, 4)
             }
