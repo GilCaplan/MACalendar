@@ -1003,6 +1003,10 @@ the progress for a command, so NO wait takes the screen over it
 (`EggWaits.panelOpen`) — the calendar's reload during a command, slow because
 the Mac is busy with that command, was the one that kept showing. Closing the
 panel mid-command brings the loader back.
+Since 2026-10-27 the thinking panel opens on a TAP of the "Thinking…" capsule
+above the mic, not by itself on every command (Settings ▸ Voice ▸ "Open it on
+every command" brings that back), and while a command's capsule shows, the
+stuck screen stays down too (`EggWaits.commandCapsule`).
 Built in Settings ▸ Easter egg ▸ Loading screen: six styles (hamster wheel,
 wheel of friends, spin, bounce, pulse, parade), up to four objects, trail,
 speed, the ring and its colour, the threshold and the line; a live preview,
