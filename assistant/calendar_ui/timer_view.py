@@ -1271,7 +1271,7 @@ class SessionsPanel(QWidget):
     def _add_manual_session(self) -> None:
         now = datetime.datetime.now()
         one_hour_ago = now - datetime.timedelta(hours=1)
-        fake = {
+        draft = {
             "id": -1,
             "timer_id": self._timer_id,
             "title": "",
@@ -1279,7 +1279,7 @@ class SessionsPanel(QWidget):
             "end_time": now.isoformat(),
             "notes": "",
         }
-        dlg = SessionEditDialog(self, session=fake)
+        dlg = SessionEditDialog(self, session=draft)
         if dlg.exec():
             sid = self._db.create_timer_session(
                 self._timer_id,
@@ -1830,8 +1830,8 @@ class PressesPanel(QWidget):
             self.reload()
 
     def _add_manual_press(self) -> None:
-        fake = {"id": -1, "counter_id": self._counter_id, "delta": 1, "label": "", "pressed_at": datetime.datetime.now().isoformat()}
-        dlg = PressEditDialog(self, press=fake, currency=self._currency)
+        draft = {"id": -1, "counter_id": self._counter_id, "delta": 1, "label": "", "pressed_at": datetime.datetime.now().isoformat()}
+        dlg = PressEditDialog(self, press=draft, currency=self._currency)
         if dlg.exec():
             self._db.create_counter_press(
                 self._counter_id,

@@ -15,7 +15,6 @@ Three things can be true of a personal word, and they behave differently:
 """
 from __future__ import annotations
 
-import json
 
 import pytest
 

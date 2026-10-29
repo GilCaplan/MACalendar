@@ -33,9 +33,3 @@ class Theme:
         self.radius_sm = s.RADIUS_SM
         self.radius_md = s.RADIUS_MD
         self.radius_lg = s.RADIUS_LG
-
-    def soft_accent(self) -> str:
-        """The accent at low alpha — a tint, for a surface that must read as
-        "cited" without competing with the answer text next to it."""
-        r, g, b = _styles._hex_to_rgb(self.accent)
-        return f"rgba({r},{g},{b},{0.16 if self.dark else 0.13})"

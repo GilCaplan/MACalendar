@@ -15,19 +15,16 @@ files actually contain — see tests/unit/test_settings_real_shapes.py.
 from __future__ import annotations
 
 import os
-import re
-import subprocess
 
 from PyQt6.QtCore import QDate, QSettings, QSize, Qt, QTimer
 from PyQt6.QtGui import QColor, QPainter, QPixmap
 from PyQt6.QtWidgets import (
-    QAbstractItemView, QCheckBox, QColorDialog, QComboBox, QDateEdit, QDialog, QFormLayout, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSpinBox, QToolButton, QVBoxLayout, QWidget,
+    QAbstractItemView, QCheckBox, QColorDialog, QComboBox, QDateEdit, QDialog, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPushButton, QSizePolicy, QSpinBox, QToolButton, QVBoxLayout, QWidget,
 )
 
 
 from assistant.calendar_ui import icons
 from assistant.calendar_ui import styles as _styles
-from assistant.calendar_ui.dialog_utils import install_enter_confirms
 from assistant.calendar_ui.styles import GRAY_TEXT
 
 # The "Personal" grey, used when a category's own colour is missing or unparseable.
@@ -149,7 +146,7 @@ def open_settings(self) -> None:
     if not self._pipeline:
         return
 
-    from PyQt6.QtWidgets import QFormLayout, QFrame, QGroupBox, QScrollArea
+    from PyQt6.QtWidgets import QFormLayout, QFrame, QScrollArea
 
     dialog = QDialog(self)
     dialog.setObjectName("settings_dialog")

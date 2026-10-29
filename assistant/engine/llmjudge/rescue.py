@@ -75,7 +75,6 @@ def _event_fallback(text: str):
     if not m:
         return None
     noun = next(g for g in m.groups() if g)
-    import datetime as _dt
     from assistant.intent.rule_parser import _extract_temporal
     t = _extract_temporal(text, _clock.today())
     if not (t.get("date") or t.get("start_time")):

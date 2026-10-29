@@ -1,6 +1,6 @@
 """Unit tests for the confirmation handler."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 

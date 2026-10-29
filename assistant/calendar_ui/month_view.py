@@ -7,7 +7,7 @@ import datetime
 import logging
 from typing import List, Optional
 
-from PyQt6.QtCore import Qt, QMimeData, QByteArray, QPoint, pyqtSignal
+from PyQt6.QtCore import Qt, QMimeData, QByteArray, pyqtSignal
 from PyQt6.QtGui import QColor, QDrag, QPainter, QPen, QPixmap, QBrush
 from PyQt6.QtWidgets import (
     QGridLayout,
@@ -322,11 +322,6 @@ class DayCell(QWidget):
 
     def load_holidays(self, holidays: List[dict]) -> None:
         self._holidays = holidays
-        self._render_pills()
-
-    def load_occasions(self, banners: List[dict]) -> None:
-        """Birthdays, anniversaries, parasha … (assistant/occasions, Q73)."""
-        self._occasions = banners
         self._render_pills()
 
     def _render_pills(self) -> None:

@@ -1,6 +1,5 @@
 """Unit tests for the ActionRegistry."""
 
-import json
 
 import pytest
 

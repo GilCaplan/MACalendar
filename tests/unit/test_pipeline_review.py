@@ -13,7 +13,6 @@ from __future__ import annotations
 import queue
 import threading
 import time
-from typing import Any
 
 import pytest
 

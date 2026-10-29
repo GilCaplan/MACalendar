@@ -22,7 +22,7 @@ import datetime
 import os
 import re
 import sqlite3
-from typing import Generator, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from assistant.calendar_ui.styles import BLUE
 

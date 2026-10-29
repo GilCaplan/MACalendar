@@ -18,7 +18,6 @@ import datetime as _dt
 import re
 
 from assistant.engine.decompose_validate.text_helpers import spoken_times
-from assistant.engine.state import EngineState
 
 from assistant.common.wordlists import WEEKDAY_ABBR_INDEX as _WEEKDAY_WORDS  # noqa: E402
 from assistant import clock as _clock  # the moment the command was SAID

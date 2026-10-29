@@ -50,7 +50,6 @@ synthesis for no reason at all.
 from __future__ import annotations
 
 import logging
-import os
 import threading
 import urllib.error
 import urllib.request

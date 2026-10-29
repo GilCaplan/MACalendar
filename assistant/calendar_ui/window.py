@@ -9,7 +9,6 @@ import logging
 import os
 import queue
 import threading
-import time
 from typing import Optional
 
 
@@ -28,15 +27,9 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QSplitter,
     QStackedWidget,
-    QToolBar,
     QVBoxLayout,
     QWidget,
     QDialog,
-    QCheckBox,
-    QColorDialog,
-    QComboBox,
-    QSpinBox,
-    QGridLayout,
     QLineEdit,
 )
 
@@ -889,7 +882,7 @@ class CalendarWindow(QMainWindow):
         # Show the icon for what the mode will switch TO — drawn, like the gear
         # and the mic (toolbar_icons), so the row reads as one set.
         from PyQt6.QtCore import QSize
-        from assistant.calendar_ui.toolbar_icons import glyph_icon, mic_icon
+        from assistant.calendar_ui.toolbar_icons import mic_icon
         ink = _styles.D_GRAY_TEXT if self._dark else GRAY_TEXT
         self._theme_btn.setText("")
         self._theme_btn.setIcon(icons.icon("sun" if self._dark else "moon", ink, 16))

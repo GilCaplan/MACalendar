@@ -10,7 +10,6 @@ messy and not so nice to look at"), held in place.
 """
 from __future__ import annotations
 
-import datetime
 
 import pytest
 

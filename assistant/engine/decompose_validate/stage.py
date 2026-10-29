@@ -35,7 +35,6 @@ The original is kept in `retired/decompose-validate-v1/`.
 from __future__ import annotations
 
 import datetime as dt
-import datetime as _dt
 
 from assistant.engine.decompose_validate import checks as _checks
 from assistant.engine.decompose_validate import decompose as _decompose

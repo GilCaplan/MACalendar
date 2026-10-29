@@ -15,7 +15,6 @@ a test, each in its own interpreter.
 """
 from __future__ import annotations
 
-import os
 import pathlib
 import re
 import subprocess

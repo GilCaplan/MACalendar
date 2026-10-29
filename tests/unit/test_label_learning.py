@@ -8,7 +8,6 @@ quietly got worse — so each one is pinned.
 from __future__ import annotations
 
 import json
-import pathlib
 
 import pytest
 

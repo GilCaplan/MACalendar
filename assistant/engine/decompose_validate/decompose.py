@@ -20,7 +20,6 @@ Deterministic reuse, no LLM here yet:
 
 from __future__ import annotations
 
-import re
 
 from assistant.engine.state import EngineState, Item
 

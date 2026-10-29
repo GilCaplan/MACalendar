@@ -8,7 +8,6 @@ density. Rendered both ways and looked at before this shipped.
 """
 from __future__ import annotations
 
-import copy
 import datetime
 
 import pytest

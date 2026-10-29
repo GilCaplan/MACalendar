@@ -55,8 +55,6 @@ import os
 import pathlib
 import shutil
 import sqlite3
-import statistics
-import sys
 import time
 
 from assistant.common.scratch_env import scratch_env

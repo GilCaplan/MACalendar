@@ -45,7 +45,6 @@ from __future__ import annotations
 import re
 
 from assistant.engine.llmjudge import findings as F
-from assistant.engine.llmjudge import render
 from assistant.engine.llmjudge.verdict import tokens as _tokens
 
 #: Function words a rewrite may use even though they carry no content.

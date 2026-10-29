@@ -469,23 +469,6 @@ Kept unwired with the whole curve, because the curve is the useful part.
     return False
 
 
-def _shares_subject(said: str, title: str) -> bool:
-    """Do the model's produced name and the object's title name the same thing?
-
-    Content-word overlap with the same four-character stemming every other
-    grounding test here uses, and the same stop list — so the shared VERB in
-    "buy groceries" vs "buy milk" cannot make them agree, which is the whole
-    case this is here to separate.
-    """
-    def words(t: str) -> set:
-        return {w[:4] for w in tokens(t)
-                if len(w) > 2 and w not in _TITLE_STOP}
-    a, b = words(said), words(title)
-    if not a or not b:
-        return True                   # nothing to compare: judged elsewhere
-    return bool(a & b)
-
-
 def slot_came_from_words(item, raw_text: str) -> bool:
     """Was this item's WHEN resolved from something the speaker said?
 

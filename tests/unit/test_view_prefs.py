@@ -117,7 +117,8 @@ def test_agenda_rows_follow_the_clock(qapp):
                     reason="needs the Swift compiler")
 def test_the_phone_starts_the_week_where_the_mac_does(tmp_path):
     """The phone's CalendarPrefs, compiled as it ships, against view_prefs."""
-    import pathlib, re, subprocess
+    import pathlib
+    import subprocess
     root = pathlib.Path(__file__).resolve().parents[2]
     src = (root / "MACalendar-iOS/MACalendar-iOS/Settings/AppSettings.swift").read_text()
     enum = src[src.index("enum CalendarPrefs"):]

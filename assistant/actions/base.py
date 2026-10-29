@@ -8,7 +8,6 @@ from pydantic import BaseModel
 
 class BaseIntent(BaseModel):
     """Every action defines a BaseIntent subclass with its own fields."""
-    pass
 
 
 class BaseAction(ABC):

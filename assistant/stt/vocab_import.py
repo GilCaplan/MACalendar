@@ -15,7 +15,6 @@ English dictionary (transliterated Hebrew: "yalla", "bagrut", "beseder").
 
 from __future__ import annotations
 
-import os
 import re
 from collections import Counter
 from typing import Any

@@ -32,7 +32,6 @@ import pathlib
 import re
 import sqlite3
 import statistics
-import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 EXP_DIR = ROOT / "DOCUMENTATION" / "experiments" / "memory_scaling"

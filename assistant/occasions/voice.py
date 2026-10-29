@@ -22,7 +22,6 @@ words as said.
 
 from __future__ import annotations
 
-import datetime
 import re
 
 _KIND = {"birthday": "birthday", "bday": "birthday", "b-day": "birthday",

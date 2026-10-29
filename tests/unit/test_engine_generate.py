@@ -127,7 +127,6 @@ class _StubParser:
 
 
 def _fast(monkeypatch, cfg, text, intents):
-    from types import SimpleNamespace
     from assistant.engine import llm as _llm
     monkeypatch.setattr(_llm, "get_rule_parser", lambda: _StubParser(intents))
     st = EngineState(raw_text=text, text=text)

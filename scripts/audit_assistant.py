@@ -24,7 +24,6 @@ import datetime as dt
 import json
 import os
 import random
-import statistics
 import sys
 import time
 
@@ -554,7 +553,7 @@ def stage_ms_get(trace, stage):
 
 def run_audio(client, db, cases) -> list[dict]:
     """Synthesize a few commands with macOS `say` and push them through Whisper + vocab."""
-    import io, subprocess, wave
+    import subprocess
     out = []
     voices = ["Daniel", "Samantha", "Karen"]
     for i, case in enumerate(cases):

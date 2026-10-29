@@ -34,7 +34,6 @@ from __future__ import annotations
 
 import argparse
 import collections
-import copy
 import datetime as _dt
 import os
 import pathlib

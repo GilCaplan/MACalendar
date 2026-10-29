@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import datetime as dt
 import io
-import json
 import pathlib
 import re
 import zipfile

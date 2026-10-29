@@ -17,7 +17,6 @@ nonsense and the third pointed the wrong way.
 """
 from __future__ import annotations
 
-import json
 import time
 
 import pytest
