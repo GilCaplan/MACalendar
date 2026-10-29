@@ -244,7 +244,9 @@ struct ContentView: View {
                 .buttonStyle(.plain)
             }
 
-            if unreviewed >= 5 && !calendarFullScreen {
+            // Only when asked for (Settings ▸ Review commands): on by default
+            // it cluttered every tab with a count that only grew.
+            if settings.reviewReminder && unreviewed >= 5 && !calendarFullScreen {
                 Button { showReview = true } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.bubble")

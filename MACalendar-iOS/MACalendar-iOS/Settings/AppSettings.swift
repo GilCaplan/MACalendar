@@ -122,6 +122,14 @@ class AppSettings: ObservableObject {
     @Published var weekFitsAll: Bool {
         didSet { UserDefaults.standard.set(weekFitsAll, forKey: "weekFitsAll") }
     }
+    /// The "N voice commands to review" strip across the top of every tab.
+    /// Off by default: it sat there once five commands had no verdict and
+    /// its number only grew (Gil, 2026-10-29: "the thing where thumbs up or
+    /// down whether answer was good and it adds up" — "clutters and gets in
+    /// the way"). The count stays on Settings ▸ Review commands.
+    @Published var reviewReminder: Bool {
+        didSet { UserDefaults.standard.set(reviewReminder, forKey: "reviewReminder") }
+    }
     /// Where the sideways-scrolling Week lands when it opens or moves to
     /// another week: "busy" (the days with events, near today — default),
     /// "start" (the week's first day) or "end" (its last). It always opened
@@ -390,6 +398,7 @@ class AppSettings: ObservableObject {
         self.transcribeOnPhone = UserDefaults.standard.object(forKey: "transcribeOnPhone") == nil
             ? true : UserDefaults.standard.bool(forKey: "transcribeOnPhone")
         self.weekFitsAll = UserDefaults.standard.bool(forKey: "weekFitsAll")
+        self.reviewReminder = UserDefaults.standard.bool(forKey: "reviewReminder")
         let landing = UserDefaults.standard.string(forKey: "weekScrollStart") ?? "busy"
         self.weekScrollStart = ["busy", "start", "end"].contains(landing) ? landing : "busy"
         self.judeAnswerOnPhone = UserDefaults.standard.bool(forKey: "judeAnswerOnPhone")
