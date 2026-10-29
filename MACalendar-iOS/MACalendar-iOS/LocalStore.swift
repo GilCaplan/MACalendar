@@ -1,4 +1,5 @@
 import Foundation
+import os
 import WidgetKit
 
 // A write operation that couldn't reach the server and needs to be replayed.
@@ -283,7 +284,7 @@ class LocalStore: ObservableObject {
         guard target.standardizedFileURL != dir.standardizedFileURL else { return }
         flushCachesNow()
         persistVoice()
-        try? JSONEncoder().encode(pending).write(to: url("mc_pending.json"))
+        if let data = try? JSONEncoder().encode(pending) { _ = writePending(data) }
         if let userID, !userID.isEmpty, mayClaimLegacy {
             let owner = UserDefaults.standard.string(forKey: "macalendar.cache_owner")
             if owner == nil || owner == userID {
@@ -364,11 +365,29 @@ class LocalStore: ObservableObject {
         // re-renders on a write, equal or not), and most persists — a cache
         // refresh, a tick — leave the queue exactly as it was.
         if pendingCount != pending.count { pendingCount = pending.count }
-        if let data = try? JSONEncoder().encode(pending), data != lastPendingWritten {
-            try? data.write(to: url("mc_pending.json"), options: .atomic)
+        if let data = try? JSONEncoder().encode(pending), data != lastPendingWritten,
+           writePending(data) {
             lastPendingWritten = data
         }
         scheduleCacheWrite()
+    }
+
+    private static let log = Logger(subsystem: "com.macalendar.app", category: "LocalStore")
+
+    /// The queue of changes not yet on the Mac, written whole and atomically.
+    /// A failure is logged and reported, so `persist` tries again on the next
+    /// call. Before (2026-10-29 review): `try?` swallowed it, marked the bytes
+    /// as written anyway, and the switch-user save was not atomic, so a
+    /// queued change could be lost without a trace.
+    @discardableResult
+    private func writePending(_ data: Data) -> Bool {
+        do {
+            try data.write(to: url("mc_pending.json"), options: .atomic)
+            return true
+        } catch {
+            Self.log.error("Could not save the queue of unsent changes: \(error.localizedDescription, privacy: .public)")
+            return false
+        }
     }
 
     /// What `mc_pending.json` holds now, so an unchanged queue is not

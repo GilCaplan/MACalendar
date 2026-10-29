@@ -46,9 +46,12 @@ helpers are the only way in and each stamps its own.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import pathlib
 import time
+
+logger = logging.getLogger(__name__)
 
 #: Outside the repo, like every other personal store, and env-overridable so
 #: tests and boards never touch the real one (CLAUDE.md).
@@ -81,7 +84,9 @@ def _append(row: dict) -> None:
         with _feedback_path().open("a") as fh:
             fh.write(json.dumps(row, sort_keys=True) + "\n")
     except Exception:
-        pass          # collecting training data must never break a user action
+        # Collecting training data must never break a user action, but a lost
+        # correction is lost training data: say so.
+        logger.warning("Could not save a label correction", exc_info=True)
 
 
 def record_category(title: str, was: "str | None", now: str,
@@ -180,7 +185,7 @@ def mark_trained(kind: str, n_gold: int) -> None:
     try:
         _marker(kind).write_text(str(n_gold))
     except Exception:
-        pass
+        logger.debug("Could not write the %s trained marker", kind, exc_info=True)
 
 
 def should_retrain(kind: str) -> bool:

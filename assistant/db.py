@@ -5,6 +5,7 @@ from __future__ import annotations
 import calendar
 import datetime
 import json
+import logging
 import os
 import sqlite3
 import threading
@@ -13,6 +14,8 @@ from contextlib import contextmanager
 from typing import Generator, List, Optional
 
 from assistant.actions.calendar.intent import CalendarIntent
+
+logger = logging.getLogger(__name__)
 
 # Repeating events skip Shabbat and yom tov. The rest of this project is
 # already observance-aware — the training planner will not put a run on
@@ -613,7 +616,8 @@ def _memory_feedback(record_type: str, record_id: int, feedback: str,
         from assistant.intent.memory import get_memory
         get_memory().feedback_for_record(record_type, record_id, feedback, changed)
     except Exception:
-        pass
+        logger.warning("Could not pass %s feedback on %s %s to the command memory",
+                       feedback, record_type, record_id, exc_info=True)
 
 
 #: THE "NO COLOUR CHOSEN" MARKERS — a caller passing one of these is saying
@@ -671,7 +675,7 @@ def auto_category_and_color(conn: sqlite3.Connection, title: str, date: str, sta
                 from assistant.engine.label import model as _lm
                 cat, _who = _lm.category_for(title, cat, _lc("config.yaml"))
             except Exception:
-                pass
+                logger.debug("Fitted category model unavailable", exc_info=True)
         if color not in _AUTO_COLORS and not category:
             return cat, color                      # explicit user colour wins
         if color not in _AUTO_COLORS and category:
@@ -1395,7 +1399,8 @@ class CalendarDB:
                     _fb.record_category(data["title"], guess, str(data["category"]),
                                         origin=_fb.EXPLICIT)
                 except Exception:
-                    pass
+                    logger.warning("Could not record the category chosen for %r",
+                                   data.get("title"), exc_info=True)
 
             if recurrence:
                 # `category` travels with the colour: the instances used to be
@@ -1603,7 +1608,8 @@ class CalendarDB:
                 _fb.record_tags(row.get("title", ""), row.get("tags"),
                                 list(fields["tags"] or []), origin=_fb.CORRECTION)
         except Exception:
-            pass
+            logger.warning("Could not record a label correction on %s %s",
+                           kind, row_id, exc_info=True)
 
     def update_event(self, event_id: int, **fields) -> None:
         if "category" in fields:
