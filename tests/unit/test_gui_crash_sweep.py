@@ -70,7 +70,7 @@ def quarantine(monkeypatch):
     # and failed. Do it here, for real, before Popen is replaced.
     try:
         import sounddevice  # noqa: F401
-    except OSError:
+    except Exception:       # OSError, or PortAudioError with no audio host
         pass
     import subprocess
     import webbrowser

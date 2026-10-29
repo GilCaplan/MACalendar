@@ -138,6 +138,11 @@ class TodoConfig(BaseModel):
     duplicate_window_seconds: int = 120
 
 
+# The longest fade delay the HUD honours (ui.thinking_hide_after_sec): a
+# hand-edited huge value would overflow QTimer's int. Settings' box spans it.
+THINKING_HIDE_MAX_SEC = 3600.0
+
+
 class UIConfig(BaseModel):
     # The view the calendar window opens on (Settings → Appearance). Week by
     # default (Gil, 2026-09-24); the phone keeps its own choice.
@@ -174,6 +179,11 @@ class UIConfig(BaseModel):
     # runs (the Mac twin of iOS Settings › Voice › Show assistant thinking).
     # The HUD is its own app — assistant.thinking_hud — and re-reads this.
     show_thinking: bool = True
+    # Seconds the HUD stays up after a command finishes, then it fades away
+    # by itself; 0 = stay until closed (the old behaviour). It stays while the
+    # pointer is over it, and for a result that needs you (an error, a word to
+    # fix, a question, a queued command, a Revert).
+    thinking_hide_after_sec: float = 6     # at most THINKING_HIDE_MAX_SEC
     # Which screen corner the thinking HUD parks itself in (until you drag it).
     thinking_corner: Literal["bottom-right", "bottom-left", "top-right", "top-left"] = "bottom-right"
 
@@ -549,6 +559,19 @@ class CalendarSyncConfig(BaseModel):
     interval_minutes: int = 15
 
 
+class SyncConfig(BaseModel):
+    """This machine as a REPLICA of another MACalendar server (the hub):
+    it keeps its own file — so it works with the hub away — and sends every
+    change to the hub and takes the hub's (assistant/sync/ARCHITECTURE.md).
+    Empty `hub` = this machine is its own server, as before."""
+    hub: str = ""                 # e.g. "http://100.x.y.z:8080"
+    api_key: str = ""             # the hub's `api.key`, if it set one
+    replica_name: str = ""        # how the hub names this machine; default: the hostname
+    pull_seconds: float = 3.0     # how often to ask the hub what changed
+    port: int = 8080              # this machine's API port, in the addresses it tells the hub —
+                                  # the phone's way back to it when the hub is away (DEVQA Q96)
+
+
 class GoogleCalendarConfig(BaseModel):
     """Google Calendar two-way sync. OFF until credentials exist: with no
     Desktop client JSON at `client_secret_path` and no `ios_client_id`, every
@@ -581,6 +604,7 @@ class AppConfig(BaseModel):
     claude: ClaudeConfig = ClaudeConfig()
     microsoft: Optional[MicrosoftConfig] = None
     calendar_sync: CalendarSyncConfig = CalendarSyncConfig()
+    sync: SyncConfig = SyncConfig()
     google_calendar: GoogleCalendarConfig = GoogleCalendarConfig()
     confirmation_level: int = 1
     # Background LLM re-check of rule-parser results. OFF by default: across four

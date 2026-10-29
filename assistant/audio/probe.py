@@ -77,9 +77,13 @@ def probe_audio(force: bool = False) -> AudioDeviceProfile:
 
 
 def _run_probe() -> AudioDeviceProfile:
-    import sounddevice as sd
-
     profile = AudioDeviceProfile()
+    try:
+        import sounddevice as sd
+    except Exception as exc:   # no PortAudio, or an audio host that cannot start
+        profile.permission_ok = False
+        profile.warnings.append(f"No audio system: {exc}")
+        return profile
 
     # --- 1. Get device info ---
     try:

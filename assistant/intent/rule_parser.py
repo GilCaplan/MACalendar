@@ -494,6 +494,25 @@ _TODO_SIGNALS = frozenset({
 #: "tonight", "this morning/afternoon/evening" — a part of TODAY.
 _PART_OF_TODAY_RE = re.compile(r"\b(?:tonight|this\s+(?:morning|afternoon|evening))\b", re.I)
 
+_GENERAL_LIST_RE = re.compile(r"\b(?:general|someday|backlog)\b", re.I)
+_SAYS_TODAY_RE = re.compile(r"\b(?:today(?:'s)?|tonight|this\s+(?:morning|afternoon|evening))\b", re.I)
+
+
+def todo_list_for(text: str, due_date, today=None) -> str:
+    """Which list an assistant-made to-do goes on (Gil, 2026-10-25, DEVQA
+    Q95): GENERAL, unless the words say today or it is due today.
+
+    Today used to be the default, so "buy a new charger" and "renew the
+    passport" filled the day's list with things nobody meant for today. A due
+    day decides when there is one — on or before today is Today, later is
+    General — so "read today's paper tomorrow" is not Today."""
+    if _GENERAL_LIST_RE.search(text or ""):
+        return "general"
+    if due_date:
+        today = (today or _clock.today()).isoformat()
+        return "today" if str(due_date)[:10] <= today else "general"
+    return "today" if _SAYS_TODAY_RE.search(text or "") else "general"
+
 _SCOPE_PHRASES: list[tuple[str, str]] = [
     ("this week", "week"),
     ("next week", "week"),
@@ -3576,12 +3595,8 @@ def _fill_slots(span, action_name: str, temporal: dict, current_view: str) -> di
             # wrongly (an afternoon chore booked as a 09:00 event, a Monday
             # series "starting tonight" begun on a Wednesday).
             slots["due_date"] = _clock.today().isoformat()
-        # Detect list_name from explicit "general" / "someday" keywords in span
         span_lower = span.text.lower()
-        if re.search(r"\b(general|someday|later|backlog)\b", span_lower):
-            slots["list_name"] = "general"
-        else:
-            slots["list_name"] = "today"
+        slots["list_name"] = todo_list_for(span.text, slots.get("due_date"))
         # Extract priority from keywords ("urgent", "high priority", etc.)
         for pattern, level in _PRIORITY_KEYWORDS:
             if pattern.search(span_lower):

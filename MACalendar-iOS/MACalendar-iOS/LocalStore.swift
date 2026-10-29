@@ -608,14 +608,20 @@ class LocalStore: ObservableObject {
     /// This is a PREVIEW, not a second source of truth: the queued press
     /// carries its own `pressed_at`, and when it replays the Mac recomputes
     /// every total from the presses it holds. Its answer is the one that
-    /// lands. `payout` is derived here the same way the Mac derives it
-    /// (`count × price_per_unit`) so the two agree while offline.
-    func bumpCounter(_ id: Int, delta: Int) {
+    /// lands. `payout` MOVES by this press's worth rather than being
+    /// recomputed as `count × price_per_unit`: a press made on the Mac at its
+    /// own amount (5 instead of the usual 7.5) is already inside the Mac's
+    /// figure, and recomputing would wipe it out.
+    ///
+    /// `amount` is a press at its own price (the `+₪` button), signed by the
+    /// delta the way `db.counter_press_amount` signs it; nil is the usual price.
+    func bumpCounter(_ id: Int, delta: Int, amount: Double? = nil) {
         guard let i = counters.firstIndex(where: { $0.id == id }) else { return }
         counters[i].count += delta
         counters[i].totalCount += delta
         counters[i].todayCount += delta
-        counters[i].payout = (Double(counters[i].count) * counters[i].pricePerUnit * 100).rounded() / 100
+        let worth = amount.map { delta >= 0 ? $0 : -$0 } ?? Double(delta) * counters[i].pricePerUnit
+        counters[i].payout = ((counters[i].payout + worth) * 100).rounded() / 100
         persist()
     }
 

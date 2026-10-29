@@ -204,7 +204,7 @@ def _to_intents(objects: list, today) -> list:
                 # count-correctness reads len(titles) either way.
                 pairs.append(("create_todo", CreateTodoIntent(
                     titles=[title],
-                    list_name=(o.get("list_name") or "today"),
+                    list_name=(o.get("list_name") or "general"),
                     priority=(o.get("priority") or "none"),
                     due_date=_iso(o.get("due_date"), today),
                     tags=[])))

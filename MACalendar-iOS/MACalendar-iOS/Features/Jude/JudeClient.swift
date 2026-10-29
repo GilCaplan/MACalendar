@@ -88,6 +88,9 @@ extension APIClient {
             throw APIError.badURL
         }
         if isBackingOff { throw APIError.offline("the Mac was unreachable a moment ago") }
+        // Jude's chats are one machine's: a question asked of the backup would
+        // be answered into a history the main server never sees (DEVQA Q96).
+        if onBackup { throw APIError.offline(Self.backupHoldsReason) }
 
         var body: [String: Any] = [
             "prompt": prompt, "mode": mode, "lang": lang,

@@ -129,7 +129,12 @@ where the server can be reached and how many devices have joined. A phone
 joins without an address: on the same Wi-Fi it is listed on the phone's
 Settings ▸ Your Mac (one tap), and anywhere it scans a QR code with the
 Camera. The first time the server is up with nothing joined, the QR opens by
-itself. DEVQA Q69.
+itself. DEVQA Q69. Clicking the app while it runs (or its menu ▸ Restart the
+brain…) restarts the brain so it loads the newest code, with the port to
+listen on (config.yaml `api.port`, default 8080, which every client reads);
+the QR is a button in that window. A brain run by a systemd user service is
+restarted through `systemctl`, since `Restart=always` would bring a killed
+one straight back on the old code.
 
 **Where.** `assistant/pairing/` (addresses, one-time codes, the
 `macalendar://pair` link and QR, the Bonjour announcement, the routes
@@ -626,6 +631,13 @@ every command ever run.
 trace source `assistant/trace.py` + `trace_bus.py`
 (`~/.assistant_tools/trace_bus.jsonl`); iOS `ThinkingView` in
 `Views/ThinkingView.swift` (moved out of `VocabularyView.swift` 2026-09-06).
+**It gets out of the way** (2026-10-29, Gil: *"the review panel kinda clutters
+and gets in the way"*). Mac: the card fades away `ui.thinking_hide_after_sec`
+(6 s; Settings ▸ Assistant ▸ "Fade it away"; 0 = never) after a command
+finishes, but not while the pointer is on it and not when the result needs you
+(an error, a word to fix, a question, a queued command, a Revert). Fading is
+not closing, so the next command brings it back. Phone (2026-10-27): the sheet
+opens on a tap of the "Thinking…" capsule, not by itself.
 **Launching it** (2026-09-14): `MACalendar HUD.app` → `launch_hud.sh` →
 `python -m assistant.thinking_hud --show`, rebuilt by `scripts/build_hud_app.sh`.
 Two traps live there. (1) The card is invisible until a command arrives, so
@@ -784,6 +796,12 @@ delete or complete (`context_memory.note_touched`), the commit step links it
 `assistant/intent/review.py` (`unreviewed`, `resolve`, and the sheet's rules
 — `rows_for`, `ops_for`, `gold`, `plan`, `apply` — which the phone mirrors in
 `FixObject`/`CorrectionSheet`).
+**No nagging strip** (2026-10-29, Gil: *"the thing where thumbs up or down
+whether answer was good and it adds up"* — *"clutters and gets in the way"*):
+the phone's "N voice commands to review" strip across the top of every tab is
+off by default; the count stays on Settings ▸ Review commands, and "Remind me
+at the top of the screen" there brings the strip back
+(`AppSettings.reviewReminder`).
 **How:** Recorded per item (per-item attribution). Few-shot injection exists
 but ships k=0 — measured to hurt the engine; the record feeds calibration
 (TASKS row 57) and future fast-rule mining instead. Since 2026-09-22 a stored
@@ -846,11 +864,44 @@ running session's length from the total. `TimerFormat.isoDate` now truncates
 the fraction and tolerates a naive stamp (the Mac's "Log past time…" writes
 one), so old servers still work.
 
+### Sync between computers — the PC as hub, a copy on the Mac
+**What:** One computer (the PC) holds the main copy; the Mac keeps its own
+synced copy, so its window and voice keep working with the PC away. A change
+on the Mac reaches the PC within about a second, the PC's (and the phone's)
+reach the Mac within a few. DEVQA Q94.
+**Where:** `assistant/sync/` (ARCHITECTURE.md); `GET /sync/pull`,
+`POST /sync/push`; `sync:` in config.yaml; `python -m assistant.sync
+status | reconcile [--apply]`.
+**How:** SQLite triggers log every write to `_sync_log`; the Mac's API runs
+the push/pull loop. Not yet: flashcards, memory, vocabulary, categories, Jude
+chats, and users other than the default one.
+
+### The Mac as backup server — while the PC is away
+**What:** When the phone cannot reach the PC, it switches to the Mac, which
+reads its commands and takes the calendar's changes (events, to-dos, timers,
+counters, coursework, workouts) and passes them on when the PC is back. The
+phone switches back once the PC answers and the Mac has sent it everything.
+Flashcards, Jude, vocabulary and other one-machine stores wait on the phone.
+DEVQA Q96.
+**Where:** iOS `APIClient.swift` ("The backup server"), Settings ▸ Your Mac
+("Use your Mac when the main server is off", an optional address);
+`GET /sync/replicas`, `GET /sync/status`; `sync.port` in config.yaml.
+**How:** the Mac tells the PC its addresses on every pull and the phone asks
+the PC for them, so nothing has to be typed once the PC runs this version.
+Only a Mac that has synced at least once stands in, and only for the default
+user, with no sign-in sent. Held by `tests/unit/test_backup_server.py`.
+
 ### Counters
 **What:** Tap-counters with press history and payout tracking.
 **Where:** db `counters`, `counter_presses`, `counter_payouts`; API
 `/counters*`.
-**How:** Same local-first pattern as timers.
+**How:** Same local-first pattern as timers. A press may carry its own
+`amount` (the `+₪` button on the Mac card and the phone's counter row asks
+for it, pre-filled with the price; the phone's press history shows it;
+`POST /counters/<id>/press {"amount": 5}`), so one ride that cost 5 on a 7.5
+counter is logged as 5. The payout is the sum of each press's worth —
+`assistant.db.counter_press_amount` — not `count × price`; a press with no
+amount still follows the counter's current price.
 
 ### Suggest words — more words for a magic word
 **What:** On a magic word's page (and for a new one made from a photo),
@@ -965,6 +1016,10 @@ the progress for a command, so NO wait takes the screen over it
 (`EggWaits.panelOpen`) — the calendar's reload during a command, slow because
 the Mac is busy with that command, was the one that kept showing. Closing the
 panel mid-command brings the loader back.
+Since 2026-10-27 the thinking panel opens on a TAP of the "Thinking…" capsule
+above the mic, not by itself on every command (Settings ▸ Voice ▸ "Open it on
+every command" brings that back), and while a command's capsule shows, the
+stuck screen stays down too (`EggWaits.commandCapsule`).
 Built in Settings ▸ Easter egg ▸ Loading screen: six styles (hamster wheel,
 wheel of friends, spin, bounce, pulse, parade), up to four objects, trail,
 speed, the ring and its colour, the threshold and the line; a live preview,
@@ -2061,6 +2116,14 @@ line).
 **Where:** iOS `CalendarTabView` (`CalendarFocus`), `ContentView`, `WeekView`
 (`daysInView`, judged by the view's own shape), `AppSettings.weekFitsAll`;
 `CalendarTitlesUITests` rotates the simulator and checks the layout.
+**Where the 3-day week opens** (2026-10-29, Gil: *"when it scrolls all the way
+to the left, to like Sunday, you don't really see anything"*): Settings ▸
+Calendar ▸ "Week opens on" — **Busiest days** (default: the stretch with the
+most events, keeping today in view when today has any, nearest today among
+equals), **Start of week** or **End of week**. It applies on opening the week
+and on moving to another one; a tap on a day inside the week still brings that
+day into view. `CalendarPrefs.weekLanding`, `AppSettings.weekScrollStart`;
+`tests/unit/test_ios_week_landing.py` mirrors the rule.
 
 ### Events: categories, colours & binder stacking
 **You can set it in the event editor, and that teaches the labeller**

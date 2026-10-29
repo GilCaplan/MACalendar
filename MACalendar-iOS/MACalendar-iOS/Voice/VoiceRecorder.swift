@@ -103,6 +103,13 @@ class VoiceRecorder: NSObject, ObservableObject {
     /// What was heard before an "Add more" resumed the take: the recogniser
     /// restarts with the mic, so its words would otherwise start over.
     private var heardBefore = ""
+    /// Segments of THIS take the recogniser has already moved on from. On
+    /// device, after a pause it can start a new segment and report only that —
+    /// so a take over ~30 s came back as its last sentence and the command
+    /// lost its beginning (Gil, 2026-10-27: "when I record for … over 30
+    /// seconds, it only seems to capture … the last part").
+    private var segmentsDone = ""
+    private var lastPartial = ""
     /// The recogniser has given its last word for this take (or failed).
     private var heardFinal = false
     private var heardWaiters: [CheckedContinuation<Void, Never>] = []
@@ -123,6 +130,7 @@ class VoiceRecorder: NSObject, ObservableObject {
 
     func start(resume: Bool = false) {
         heardBefore = resume ? liveText : ""
+        segmentsDone = ""; lastPartial = ""
         heardFinal = false
         if !resume {
             pcm = Data(); liveText = ""
@@ -301,7 +309,12 @@ class VoiceRecorder: NSObject, ObservableObject {
     // MARK: - Internals
 
     private func handlePartial(_ text: String) {
-        liveText = heardBefore.isEmpty ? text : heardBefore + " " + text
+        // A partial that starts over is a new segment: keep the one before.
+        if Self.startsOver(from: lastPartial, to: text) {
+            segmentsDone = Self.joined(segmentsDone, lastPartial)
+        }
+        lastPartial = text
+        liveText = Self.joined(Self.joined(heardBefore, segmentsDone), text)
         guard stopWordsEnabled, !stopping else { return }
         let words = text.lowercased().replacingOccurrences(of: "[^a-z' ]", with: " ", options: .regularExpression)
             .split(separator: " ").map(String.init)
@@ -315,6 +328,26 @@ class VoiceRecorder: NSObject, ObservableObject {
                 autoStop(reason: .stopWord)
             }
         }
+    }
+
+    /// True when `new` is not the recogniser revising `old` but beginning a
+    /// fresh segment: far shorter, or shorter and opening with other words.
+    /// A partial normally only grows (or rewords its last words), so neither
+    /// happens inside one segment.
+    nonisolated static func startsOver(from old: String, to new: String) -> Bool {
+        func words(_ s: String) -> [String] {
+            s.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber && $0 != "'" }).map(String.init)
+        }
+        let o = words(old), n = words(new)
+        guard o.count >= 3, !n.isEmpty else { return false }
+        if n.count * 2 < o.count { return true }
+        return n.count < o.count && !o.prefix(2).elementsEqual(n.prefix(2))
+    }
+
+    nonisolated static func joined(_ a: String, _ b: String) -> String {
+        let a = a.trimmingCharacters(in: .whitespacesAndNewlines)
+        let b = b.trimmingCharacters(in: .whitespacesAndNewlines)
+        return a.isEmpty ? b : (b.isEmpty ? a : a + " " + b)
     }
 
     private func autoStop(reason: StopReason) {

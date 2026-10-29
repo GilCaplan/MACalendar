@@ -52,6 +52,19 @@ class AppSettings: ObservableObject {
     @Published var serverURL: String {
         didSet { UserDefaults.standard.set(serverURL, forKey: "serverURL") }
     }
+    /// The backup (DEVQA Q96): while `serverURL` cannot be reached, a server
+    /// that keeps a synced copy of it — the Mac, with the PC as the hub —
+    /// stands in for the calendar. Typed here; when empty, the addresses the
+    /// hub reported for its replica (`learnedBackupURLs`) are used.
+    @Published var backupServerURL: String {
+        didSet { UserDefaults.standard.set(backupServerURL, forKey: "backupServerURL") }
+    }
+    @Published var learnedBackupURLs: [String] {
+        didSet { UserDefaults.standard.set(learnedBackupURLs, forKey: "learnedBackupURLs") }
+    }
+    @Published var useBackupServer: Bool {
+        didSet { UserDefaults.standard.set(useBackupServer, forKey: "useBackupServer") }
+    }
     @Published var apiKey: String {
         didSet { UserDefaults.standard.set(apiKey, forKey: "apiKey") }
     }
@@ -108,6 +121,23 @@ class AppSettings: ObservableObject {
     /// fits all seven — the screen is wide enough.
     @Published var weekFitsAll: Bool {
         didSet { UserDefaults.standard.set(weekFitsAll, forKey: "weekFitsAll") }
+    }
+    /// The "N voice commands to review" strip across the top of every tab.
+    /// Off by default: it sat there once five commands had no verdict and
+    /// its number only grew (Gil, 2026-10-29: "the thing where thumbs up or
+    /// down whether answer was good and it adds up" — "clutters and gets in
+    /// the way"). The count stays on Settings ▸ Review commands.
+    @Published var reviewReminder: Bool {
+        didSet { UserDefaults.standard.set(reviewReminder, forKey: "reviewReminder") }
+    }
+    /// Where the sideways-scrolling Week lands when it opens or moves to
+    /// another week: "busy" (the days with events, near today — default),
+    /// "start" (the week's first day) or "end" (its last). It always opened
+    /// on the first day, often an empty Sunday (Gil, 2026-10-29: "when it
+    /// scrolls all the way to the left, to like Sunday, you don't really see
+    /// anything"). CalendarPrefs.weekLanding picks the column.
+    @Published var weekScrollStart: String {
+        didSet { UserDefaults.standard.set(weekScrollStart, forKey: "weekScrollStart") }
     }
     /// Jude's answers written on this phone by Apple's model, from sources
     /// the Mac finds (JudeOnDevice) — or by the Mac, as before (default).
@@ -239,6 +269,12 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(showThinking, forKey: "showThinking") }
     }
 
+    /// Open the thinking panel by itself on every command. Off by default:
+    /// the timeline is still recorded and one tap on the capsule opens it.
+    @Published var autoOpenThinking: Bool {
+        didSet { UserDefaults.standard.set(autoOpenThinking, forKey: "autoOpenThinking") }
+    }
+
     // Read the assistant's reply aloud (mirrors the Mac's tts.mute).
     @Published var speakReplies: Bool {
         didSet { UserDefaults.standard.set(speakReplies, forKey: "speakReplies") }
@@ -362,6 +398,9 @@ class AppSettings: ObservableObject {
         self.transcribeOnPhone = UserDefaults.standard.object(forKey: "transcribeOnPhone") == nil
             ? true : UserDefaults.standard.bool(forKey: "transcribeOnPhone")
         self.weekFitsAll = UserDefaults.standard.bool(forKey: "weekFitsAll")
+        self.reviewReminder = UserDefaults.standard.bool(forKey: "reviewReminder")
+        let landing = UserDefaults.standard.string(forKey: "weekScrollStart") ?? "busy"
+        self.weekScrollStart = ["busy", "start", "end"].contains(landing) ? landing : "busy"
         self.judeAnswerOnPhone = UserDefaults.standard.bool(forKey: "judeAnswerOnPhone")
         let visual = UserDefaults.standard.string(forKey: "micVisual") ?? "card"
         self.micVisual = AppSettings.micVisuals.contains { $0.id == visual } ? visual : "card"
@@ -374,11 +413,16 @@ class AppSettings: ObservableObject {
             ? true : UserDefaults.standard.bool(forKey: "agendaCardEnabled")
         self.showThinking = UserDefaults.standard.object(forKey: "showThinking") == nil
             ? true : UserDefaults.standard.bool(forKey: "showThinking")
+        self.autoOpenThinking = UserDefaults.standard.bool(forKey: "autoOpenThinking")
         self.serverEnabled = UserDefaults.standard.object(forKey: "serverEnabled") == nil
             ? true : UserDefaults.standard.bool(forKey: "serverEnabled")
         self.serverURL = UserDefaults.standard.string(forKey: "serverURL")
             ?? Self.defaultServerURL
         self.apiKey    = UserDefaults.standard.string(forKey: "apiKey") ?? ""
+        self.backupServerURL = UserDefaults.standard.string(forKey: "backupServerURL") ?? ""
+        self.learnedBackupURLs = UserDefaults.standard.stringArray(forKey: "learnedBackupURLs") ?? []
+        self.useBackupServer = UserDefaults.standard.object(forKey: "useBackupServer") == nil
+            ? true : UserDefaults.standard.bool(forKey: "useBackupServer")
         self.phoneOnly = UserDefaults.standard.bool(forKey: "phoneOnly")
         self.readOnPhoneFirst = UserDefaults.standard.object(forKey: "readOnPhoneFirst") == nil
             ? true : UserDefaults.standard.bool(forKey: "readOnPhoneFirst")
@@ -594,6 +638,40 @@ enum CalendarPrefs {
         let wd = cal.component(.weekday, from: date)           // 1 = Sunday … 7 = Saturday
         let back = mondayFirst ? (wd + 5) % 7 : wd - 1
         return cal.date(byAdding: .day, value: -back, to: cal.startOfDay(for: date)) ?? date
+    }
+
+    /// The first column the sideways Week shows (Settings ▸ Appearance ▸
+    /// "Week opens on"). `counts` is events per column, `today` today's column
+    /// if it is in this week, `visible` how many whole columns fit.
+    /// "busy": the stretch with the most events, preferring one holding
+    /// today when today has events and, among equals, the one nearest today,
+    /// then the earliest. Nothing booked: today with the day before it, as
+    /// before, or the week's start. Mirrored in tests/unit/test_ios_week_landing.py.
+    static func weekLanding(mode: String, counts: [Int], today: Int?, visible: Int) -> Int {
+        let last = Swift.max(0, counts.count - Swift.max(1, visible))
+        switch mode {
+        case "start": return 0
+        case "end": return last
+        default: break
+        }
+        let w = Swift.max(1, visible)
+        func load(_ s: Int) -> Int { counts[s..<Swift.min(counts.count, s + w)].reduce(0, +) }
+        func holds(_ s: Int, _ t: Int) -> Bool { s <= t && t < s + w }
+        var starts = Array(0...last)
+        if let t = today, counts.indices.contains(t), counts[t] > 0 {
+            starts = starts.filter { holds($0, t) }
+        }
+        guard let most = starts.map(load).max(), most > 0 else {
+            return today.map { Swift.min(last, Swift.max(0, $0 - 1)) } ?? 0
+        }
+        // Among equals: nearest today, then today second from the left (the
+        // day before it for context), then the earliest.
+        func key(_ s: Int) -> (Int, Int, Int) {
+            guard let t = today else { return (0, 0, s) }
+            let away = holds(s, t) ? 0 : Swift.min(abs(s - t), abs(s + w - 1 - t))
+            return (away, abs(s - (t - 1)), s)
+        }
+        return starts.filter { load($0) == most }.min { key($0) < key($1) } ?? 0
     }
 
     /// Weekday names in display order.

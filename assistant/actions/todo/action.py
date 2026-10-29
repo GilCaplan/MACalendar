@@ -176,8 +176,9 @@ class CreateTodoAction(BaseAction):
                 "type": "string",
                 "enum": ["today", "general"],
                 "description": (
-                    "Which list to add to. Default: 'today'. "
-                    "Use 'general' if user says 'add to general list', 'someday', or no time context."
+                    "Which list to add to. Default: 'general'. "
+                    "Use 'today' only if the user says today / tonight / this "
+                    "morning, afternoon or evening, or the task is due today."
                 ),
             },
             "priority": {

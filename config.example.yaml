@@ -203,6 +203,8 @@ ui:
   show_thinking: true       # show the assistant's stage-by-stage thinking HUD while a command runs.
                             # The HUD is a separate always-on-top app (assistant.thinking_hud),
                             # started by Launch Calendar.command; it re-reads this while running.
+  thinking_hide_after_sec: 6   # the HUD fades away this long after a command finishes
+                               # (stays while hovered, or when the result needs you); 0 = stay until closed
   thinking_corner: "bottom-right"   # which screen corner it parks in until you drag it:
                             # bottom-right | bottom-left | top-right | top-left
 
@@ -319,6 +321,21 @@ jude:
 calendar_sync:
   enabled: true
   interval_minutes: 15
+
+# Another MACalendar server holds the main copy (the hub) and this machine
+# keeps a synced copy of its own: every change is sent within a second, the
+# hub's are fetched every `pull_seconds`, and it all keeps working offline.
+# Leave `hub` empty when this machine IS the server. First time:
+#   python -m assistant.sync reconcile          (shows the merge)
+#   python -m assistant.sync reconcile --apply  (makes it)
+# A replica does not run calendar_sync: the hub imports, and the import arrives here.
+sync:
+  hub: ""
+  api_key: ""
+  replica_name: ""
+  pull_seconds: 3
+  port: 8080          # this machine's API port, in the addresses it tells the hub: a phone
+                      # uses this machine while the hub is away (DEVQA Q96)
 
 # Google Calendar two-way. Off until a client exists - see CALENDAR_SYNC.md.
 google_calendar:

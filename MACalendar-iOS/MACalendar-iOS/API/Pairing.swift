@@ -75,7 +75,7 @@ final class PairingCenter: ObservableObject {
                             + "Wi-Fi, or that Tailscale is on, and that MACalendar Server is running.")
             return
         }
-        let moved = base != api.base
+        let moved = base != api.primaryBase
         // What to put back if the Mac refuses the code: a failed pairing must
         // leave the phone as it was, not half-switched to a Mac it never
         // enrolled with.
@@ -231,7 +231,7 @@ struct NearbyServers: View {
                         Spacer()
                         if case let .working(name) = center.state, name == s.name {
                             ProgressView()
-                        } else if s.urls.contains(api.base) {
+                        } else if s.urls.contains(api.primaryBase) {
                             Image(systemName: "checkmark").foregroundColor(settings.accentColor)
                         }
                     }

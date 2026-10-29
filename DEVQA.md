@@ -1,3 +1,60 @@
+- **2026-10-25 — Q96 (THE MAC STANDS IN WHILE THE PC IS AWAY)**, Gil, asked
+  whether the Mac is the backup when the PC is off (it was not: the phone
+  had one address, and with the PC away it worked from its own copy until the
+  PC returned): *"yes when pc is off mac is fine to do"*. Revises Q94's "the
+  phone talks to the hub": the phone keeps a BACKUP address — typed in
+  Settings ▸ Your Mac, or learned from the PC (`GET /sync/replicas`; the Mac
+  sends its addresses with every pull) — and when the PC does not answer it
+  switches to the Mac, which reads commands (Q87's check behind the phone)
+  and takes the calendar's writes, then passes them on through its sync.
+  Three rules, all on the phone (`APIClient`, "The backup server"): only a
+  real copy stands in (`/sync/status`: a replica that has synced at least
+  once); only what replication carries is sent there (`backupServes`, an
+  allow-list: events, to-dos, timers, counters, coursework, workouts, the
+  voice routes — flashcards, Ranker, vocabulary, Jude and the user registry
+  wait on the phone, because a write to them on the Mac would never reach the
+  PC); and it hands back only when the PC answers AND the Mac reports nothing
+  left to send, so the PC already holds every row the phone made through the
+  Mac. The Mac serves the default user only — the one calendar replication
+  carries — so a phone signed in as anyone else does not switch, and no
+  sign-in is sent there (the Mac would answer a PC session "login required",
+  which signs the phone out). Not covered: a split where the PC is up but
+  this phone cannot reach it while another device writes to it — two rows
+  can then take one id, the Mac renumbers its own on reconnect, and the
+  phone's copy of the old id is stale until its next refresh.
+
+- **2026-10-25 — Q95 (A TO-DO THE ASSISTANT MAKES IS GENERAL UNLESS IT IS
+  FOR TODAY)**, Gil: *"when todo tasks are made with assistant, they should
+  always be "general" unless explicilty said for today or tied to a task which
+  is today."* Today was the default on every reader — the rule parser, the
+  model's schema ("Default: 'today'") — and the resolver's date floor stamped
+  an undated to-do due TODAY on both tracks, so "renew the passport" landed on
+  Today with a due date nobody said. Now `rule_parser.todo_list_for` decides
+  and `decompose_validate`'s `_rule_todo_list_by_day` applies it on both
+  tracks: Today when the words say today / tonight / this morning, afternoon
+  or evening, or the due day is today or past; a later due day is General and
+  keeps its day; "general", "someday", "backlog" are General; no day said is
+  General with NO due date (the floor is dropped). A new list stays Q33's.
+  To-dos made by hand keep `todo.default_list`; a to-do filed for an event
+  keeps the event's day. The phone's offline reader follows (`LocalEngine`:
+  Today only for a day said that is today or past) — its "tonight" with no
+  day still reads General there, unmeasured.
+
+- **2026-10-22 — Q94 (THE PC IS THE HUB; THE MAC KEEPS A SYNCED COPY)**,
+  Gil, after the phone and the Mac disagreed on a counter: *"the main server
+  is on the pc now"*, *"all devices should be synchronized... local back up in
+  each, then sync when possible at reasonable pace or after something is
+  updated a request is sent"*. Chosen from three (Mac stays the hub; the Mac
+  window talks to the PC with no copy of its own; **the PC is the hub and the
+  Mac syncs**): the third. The phone already kept a copy and queued; the Mac
+  window wrote its own file and nothing carried it anywhere. Built as
+  `assistant/sync/` — triggers log every write, the Mac pushes within a
+  second and pulls every few seconds, a renumbered id follows its children —
+  with `sync.hub` in the Mac's config. Asked what to do with the two copies
+  already apart: **send the Mac's extras to the PC** (`python -m
+  assistant.sync reconcile`), rows changed on both keep the PC's. First
+  version syncs `calendar.db` for the default user only.
+
 - **2026-10-19 — Q93 (JUDE IS A TAB ON THE PHONE, ITS OWN APP ON THE MAC)**,
   Gil: *"Why doesnt ios app show jude as option on the ios its a tab (code
   exists) and on macos its two seperate apps"*. Two causes: the phone's tab

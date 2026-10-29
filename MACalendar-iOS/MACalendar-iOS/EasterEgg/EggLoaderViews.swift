@@ -64,6 +64,11 @@ final class EggWaits: ObservableObject {
     /// showed over the panel was the CALENDAR's reload, slow because the Mac
     /// was busy with the very command the panel was showing.
     @Published var panelOpen = false
+    /// A voice command is running with its "Thinking… N steps" capsule above
+    /// the mic. The panel opens on a tap now (2026-10-27), so the capsule is
+    /// the command's progress, and the stuck screen stays down for the same
+    /// reason it does over the open panel.
+    @Published var commandCapsule = false
 
     @discardableResult
     func begin() -> UUID {
@@ -90,7 +95,7 @@ struct EggWaitOverlay: View {
             let cfg = store.settings.loader
             let demo = (waits.demoUntil ?? .distantPast) > tl.date
             let stuck = cfg.enabled && cfg.stuckAfter > 0 && !cfg.objects.isEmpty
-                && !waits.panelOpen
+                && !waits.panelOpen && !waits.commandCapsule
                 && (waits.oldest.map { tl.date.timeIntervalSince($0) >= cfg.stuckAfter } ?? false)
             if stuck || demo {
                 ZStack {

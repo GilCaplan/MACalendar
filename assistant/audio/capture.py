@@ -5,7 +5,19 @@ import threading
 from typing import Callable, List, Optional
 
 import numpy as np
-import sounddevice as sd
+
+try:
+    import sounddevice as sd
+except Exception as _exc:   # OSError: no PortAudio; PortAudioError: no audio host
+    # PortAudio starts its audio hosts on import, and a host that cannot reach
+    # its server (PulseAudio on a headless Linux box — CI's runner image,
+    # 2026-10-29) raised here and took down everything that imports the
+    # pipeline, the calendar window included. No audio is no microphone, not
+    # no calendar: recording says why instead.
+    sd = None
+    _SD_ERROR: Optional[BaseException] = _exc
+else:
+    _SD_ERROR = None
 
 from assistant.audio.probe import WHISPER_RATE, probe_audio
 from assistant.config import AudioConfig
@@ -75,6 +87,8 @@ class AudioCapture:
 
         Returns: float32 numpy array at WHISPER_RATE (16 kHz), shape (N,).
         """
+        if sd is None:
+            raise AudioCaptureError(f"The microphone is unavailable: {_SD_ERROR}")
         if not self._profile.permission_ok:
             raise AudioCaptureError(
                 "Microphone access denied. "

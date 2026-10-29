@@ -51,7 +51,7 @@ from PyQt6.QtWidgets import (
     QColorDialog,
 )
 
-from assistant.db import CalendarDB
+from assistant.db import CalendarDB, counter_press_amount
 import assistant.calendar_ui.styles as _styles
 from assistant.calendar_ui.dialog_utils import install_enter_confirms
 
@@ -232,11 +232,17 @@ def _presses_total(presses: list[dict]) -> int:
     return sum(p.get("delta", 0) for p in presses)
 
 
-def _fmt_payout(count: int, price_per_unit: float, currency: str = "ILS") -> str:
-    if price_per_unit <= 0:
+def _presses_amount(presses: list[dict], price_per_unit: float) -> float:
+    """What a list of presses is worth: each press's own amount, or the price."""
+    return sum(counter_press_amount(p, price_per_unit) for p in presses)
+
+
+def _fmt_payout(presses: list[dict], price_per_unit: float, currency: str = "ILS") -> str:
+    """The payout label, or "" for a counter with no price and no priced press."""
+    if price_per_unit <= 0 and not any(p.get("amount") is not None for p in presses):
         return ""
     symbol = _currency_symbol(currency)
-    return f"{symbol}{count * price_per_unit:,.2f}"
+    return f"{symbol}{_presses_amount(presses, price_per_unit):,.2f}"
 
 
 def _parse_dt_aware(iso: str) -> datetime.datetime:
@@ -617,7 +623,7 @@ class CounterDialog(QDialog):
 class PressEditDialog(QDialog):
     """Edit a single counter press: label, +/- direction, and when it happened."""
 
-    def __init__(self, parent=None, *, press: dict):
+    def __init__(self, parent=None, *, press: dict, currency: str = _DEFAULT_CURRENCY):
         super().__init__(parent)
         self.setWindowTitle("Edit Press")
         self.setMinimumWidth(340)
@@ -637,6 +643,15 @@ class PressEditDialog(QDialog):
         self._sign_box.addItem("− (subtract)", -1)
         self._sign_box.setCurrentIndex(0 if press.get("delta", 1) >= 0 else 1)
         form.addRow("Direction:", self._sign_box)
+
+        # 0 reads "Usual price": the press falls back to the counter's rate.
+        self._amount_spin = QDoubleSpinBox()
+        self._amount_spin.setRange(0, 9_999_999)
+        self._amount_spin.setDecimals(2)
+        self._amount_spin.setPrefix(f"{_currency_symbol(currency)} ")
+        self._amount_spin.setSpecialValueText("Usual price")
+        self._amount_spin.setValue(press.get("amount") or 0.0)
+        form.addRow("Amount:", self._amount_spin)
 
         when_raw = press.get("pressed_at")
         when_dt = datetime.datetime.fromisoformat(when_raw) if when_raw else datetime.datetime.now()
@@ -664,6 +679,10 @@ class PressEditDialog(QDialog):
         return self._sign_box.currentData()
 
     @property
+    def result_amount(self) -> Optional[float]:
+        return self._amount_spin.value() or None
+
+    @property
     def result_pressed_at(self) -> str:
         return self._when_edit.dateTime().toPyDateTime().isoformat()
 
@@ -675,12 +694,12 @@ class PressEditDialog(QDialog):
 class CashOutDialog(QDialog):
     """Log a payout for a counter's current tally cycle.
 
-    Shows the read-only cycle count, an editable amount (pre-filled from
-    count × price_per_unit when a rate is set), a date, and an optional
-    note. Mirrors PressEditDialog's structure/styling.
+    Shows the read-only cycle count, an editable amount (pre-filled with
+    what the cycle's presses are worth), a date, and an optional note.
+    Mirrors PressEditDialog's structure/styling.
     """
 
-    def __init__(self, parent=None, *, count: int, price_per_unit: float = 0.0, currency: str = _DEFAULT_CURRENCY):
+    def __init__(self, parent=None, *, count: int, amount: float = 0.0, currency: str = _DEFAULT_CURRENCY):
         super().__init__(parent)
         self.setWindowTitle("Cash Out")
         self.setMinimumWidth(340)
@@ -702,7 +721,7 @@ class CashOutDialog(QDialog):
         self._amount_spin.setRange(0, 9_999_999)
         self._amount_spin.setDecimals(2)
         self._amount_spin.setPrefix(f"{symbol} ")
-        self._amount_spin.setValue(round(count * price_per_unit, 2) if price_per_unit > 0 else 0.0)
+        self._amount_spin.setValue(round(max(amount, 0.0), 2))
         form.addRow("Amount:", self._amount_spin)
 
         self._when_edit = QDateTimeEdit(datetime.datetime.now())
@@ -1657,9 +1676,10 @@ class PressRow(QWidget):
     delete_requested = pyqtSignal(int)   # press_id
     edit_requested = pyqtSignal(int)     # press_id
 
-    def __init__(self, press: dict, parent=None):
+    def __init__(self, press: dict, parent=None, currency: str = _DEFAULT_CURRENCY):
         super().__init__(parent)
         self._press = press
+        self._currency = currency
         self._build()
 
     def _build(self) -> None:
@@ -1712,7 +1732,10 @@ class PressRow(QWidget):
             self._sign_lbl.setText(str(delta))
             self._sign_lbl.setStyleSheet(f"color: {live};")
         self._when_lbl.setText(_fmt_press_when(press["pressed_at"]))
-        self._label_lbl.setText(press.get("label") or "—")
+        label = press.get("label") or "—"
+        if press.get("amount") is not None:
+            label = f"{_currency_symbol(self._currency)}{press['amount']:,.2f} · {label}"
+        self._label_lbl.setText(label)
 
 
 # ---------------------------------------------------------------------------
@@ -1724,10 +1747,11 @@ class PressesPanel(QWidget):
 
     presses_changed = pyqtSignal()
 
-    def __init__(self, counter_id: int, db: CalendarDB, parent=None):
+    def __init__(self, counter_id: int, db: CalendarDB, parent=None, currency: str = _DEFAULT_CURRENCY):
         super().__init__(parent)
         self._counter_id = counter_id
         self._db = db
+        self._currency = currency
         self._press_rows: dict[int, PressRow] = {}
 
         outer = QVBoxLayout(self)
@@ -1769,7 +1793,7 @@ class PressesPanel(QWidget):
             return
 
         for p in presses:
-            row = PressRow(p, self)
+            row = PressRow(p, self, currency=self._currency)
             row.delete_requested.connect(self._on_delete)
             row.edit_requested.connect(self._on_edit)
             self._press_rows[p["id"]] = row
@@ -1793,26 +1817,28 @@ class PressesPanel(QWidget):
         press = next((p for p in presses if p["id"] == press_id), None)
         if not press:
             return
-        dlg = PressEditDialog(self, press=press)
+        dlg = PressEditDialog(self, press=press, currency=self._currency)
         if dlg.exec():
             self._db.update_counter_press(
                 press_id,
                 label=dlg.result_label,
                 delta=dlg.result_delta,
                 pressed_at=dlg.result_pressed_at,
+                amount=dlg.result_amount,
             )
             self.presses_changed.emit()
             self.reload()
 
     def _add_manual_press(self) -> None:
         fake = {"id": -1, "counter_id": self._counter_id, "delta": 1, "label": "", "pressed_at": datetime.datetime.now().isoformat()}
-        dlg = PressEditDialog(self, press=fake)
+        dlg = PressEditDialog(self, press=fake, currency=self._currency)
         if dlg.exec():
             self._db.create_counter_press(
                 self._counter_id,
                 delta=dlg.result_delta,
                 label=dlg.result_label,
                 pressed_at=dlg.result_pressed_at,
+                amount=dlg.result_amount,
             )
             self.presses_changed.emit()
             self.reload()
@@ -2082,6 +2108,16 @@ class CounterCard(QWidget):
         self._plus_btn.clicked.connect(lambda: self._on_press(1))
         header.addWidget(self._plus_btn)
 
+        # + at an amount typed in, for the press that wasn't the usual price
+        self._plus_amount_btn = QPushButton()
+        self._plus_amount_btn.setObjectName("flat")
+        self._plus_amount_btn.setFixedHeight(28)
+        self._plus_amount_btn.setMinimumWidth(36)
+        self._plus_amount_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._plus_amount_btn.setToolTip("Add one at a different amount")
+        self._plus_amount_btn.clicked.connect(self._on_press_amount)
+        header.addWidget(self._plus_amount_btn)
+
         self._payouts_btn = QPushButton()
         from assistant.calendar_ui import icons as _icons
         self._payouts_btn.setIcon(_icons.icon("receipt", None, 16))
@@ -2110,7 +2146,8 @@ class CounterCard(QWidget):
 
         card_layout.addLayout(header)
 
-        self._presses_panel = PressesPanel(self._counter["id"], self._db, card)
+        self._presses_panel = PressesPanel(self._counter["id"], self._db, card,
+                                           currency=self._counter.get("currency", _DEFAULT_CURRENCY))
         self._presses_panel.presses_changed.connect(self.changed.emit)
         self._presses_panel.presses_changed.connect(self._invalidate_cache)
         self._presses_panel.presses_changed.connect(self.refresh)
@@ -2146,7 +2183,10 @@ class CounterCard(QWidget):
         self._title_lbl.setText(self._counter["title"])
         self._count_lbl.setText(f"{count:,}")
 
-        payout = _fmt_payout(count, self._counter.get("price_per_unit", 0), self._counter.get("currency", _DEFAULT_CURRENCY))
+        currency = self._counter.get("currency", _DEFAULT_CURRENCY)
+        self._plus_amount_btn.setText(f"+{_currency_symbol(currency)}")
+        self._presses_panel._currency = currency
+        payout = _fmt_payout(cycle_presses, self._counter.get("price_per_unit", 0), currency)
         self._payout_lbl.setText(payout)
         self._payout_lbl.setVisible(bool(payout))
 
@@ -2180,11 +2220,22 @@ class CounterCard(QWidget):
         return _presses_total(_presses_since(self._cached_presses, self._cycle_start()))
 
     # ------------------------------------------------------------------
-    def _on_press(self, delta: int) -> None:
-        self._db.create_counter_press(self._counter["id"], delta=delta)
+    def _on_press(self, delta: int, amount: Optional[float] = None) -> None:
+        self._db.create_counter_press(self._counter["id"], delta=delta, amount=amount)
         self._invalidate_cache()
         self.refresh()
         self.changed.emit()
+
+    def _on_press_amount(self) -> None:
+        """+1 at an amount typed in — the carpool that cost 5, not the usual 7.5."""
+        from PyQt6.QtWidgets import QInputDialog
+        price = float(self._counter.get("price_per_unit") or 0)
+        symbol = _currency_symbol(self._counter.get("currency", _DEFAULT_CURRENCY))
+        amount, ok = QInputDialog.getDouble(
+            self, "Add at amount", f"Amount ({symbol}) for this one:",
+            price, 0, 9_999_999, 2)
+        if ok:
+            self._on_press(1, amount=amount)
 
     def _toggle_expand(self) -> None:
         self._expanded = not self._expanded
@@ -2229,7 +2280,10 @@ class CounterCard(QWidget):
         count = self.current_count()
         price = self._counter.get("price_per_unit", 0)
         currency = self._counter.get("currency", _DEFAULT_CURRENCY)
-        dlg = CashOutDialog(self, count=count, price_per_unit=price, currency=currency)
+        if self._cached_presses is None:
+            self._cached_presses = self._db.get_counter_presses(self._counter["id"])
+        amount = _presses_amount(_presses_since(self._cached_presses, self._cycle_start()), price)
+        dlg = CashOutDialog(self, count=count, amount=amount, currency=currency)
         if dlg.exec():
             self._db.create_counter_payout(
                 self._counter["id"],
@@ -2989,9 +3043,9 @@ class TimerView(FeaturePanel):
                     p_date = ""
                 if p_date == today:
                     total_count_today += p.get("delta", 0)
-                    if price > 0:
+                    if price > 0 or p.get("amount") is not None:
                         earn_by_currency[currency] = (
-                            earn_by_currency.get(currency, 0.0) + p.get("delta", 0) * price
+                            earn_by_currency.get(currency, 0.0) + counter_press_amount(p, price)
                         )
 
         parts = [f"Today: {_fmt_duration(total_secs)}"]
