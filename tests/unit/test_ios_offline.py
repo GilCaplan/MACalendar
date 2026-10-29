@@ -349,7 +349,9 @@ def test_the_pending_queue_is_written_immediately_and_the_caches_are_not():
     store = ios_source("LocalStore.swift")
     body = store[store.index("    func persist() {"):]
     body = body[:body.index("\n    }")]
-    assert "mc_pending.json" in body, "the queue is no longer written synchronously"
+    assert "writePending(" in body, "the queue is no longer written synchronously"
+    helper = store[store.index("private func writePending("):]
+    assert "mc_pending.json" in helper[:helper.index("\n    }")]
     for cache in ("mc_events.json", "mc_todos.json", "mc_holidays.json"):
         assert cache not in body, (
             f"{cache} is still written on the main actor on every mutation")
@@ -448,3 +450,23 @@ def test_flashcard_placeholders_are_remapped():
     remap = re.search(r"func remapTemporaryID.*?\n    \}", store, re.S).group(0)
     assert "FlashcardStore" in remap, (
         "FlashcardStore mints placeholder ids that nothing repoints on reconnect")
+
+
+def test_a_failed_queue_write_is_logged_retried_and_never_torn():
+    """The queue of unsent changes is the one file that is not a cache.
+
+    `try?` used to swallow a failed write, mark the bytes as written anyway (so
+    the next persist skipped them), and the switch-user save was not atomic:
+    a change queued offline could vanish without a trace (2026-10-29 review).
+    """
+    store = ios_source("LocalStore.swift")
+    helper = store[store.index("private func writePending("):]
+    helper = helper[:helper.index("\n    }\n")]
+    assert 'options: .atomic' in helper
+    assert "Self.log.error(" in helper and "return false" in helper
+    # marked written only when the write succeeded
+    persist = store[store.index("    func persist() {"):]
+    persist = persist[:persist.index("\n    }")]
+    assert "writePending(data) {" in persist and "lastPendingWritten = data" in persist
+    # no other write of the queue bypasses the helper
+    assert store.count('write(to: url("mc_pending.json")') == 1

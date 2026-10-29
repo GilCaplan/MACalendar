@@ -15,9 +15,12 @@ editor and the setting asks for one, as advisory `uncertain_words` otherwise.
 
 from __future__ import annotations
 
+import logging
 import re
 
 from assistant.engine.state import EngineState
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Stop keywords ("execute", "done" …) end a recording; they are not content.
@@ -343,7 +346,8 @@ def learn_from_edit(original: str, edited: str, source: str = "test") -> list:
                     get_vocab().add_alias(wrong, right)
                     pairs.append((wrong, right))
                 except Exception:
-                    pass
+                    logger.warning("Could not learn the alias %r -> %r", wrong, right,
+                                   exc_info=True)
             continue
         if (i2 - i1) != (j2 - j1):
             continue                      # only clean word-for-word swaps teach
@@ -381,6 +385,8 @@ def learn_from_edit(original: str, edited: str, source: str = "test") -> list:
                 get_vocab().add_alias(wrong, right)
                 pairs.append((wrong, right))
             except Exception:
+                logger.warning("Could not learn the alias %r -> %r", wrong, right,
+                               exc_info=True)
                 continue
     return pairs
 
@@ -416,6 +422,7 @@ def confirm_unchanged(text: str) -> list:
                 get_vocab().add_word(word)
                 promoted.append(word)
             except Exception:
+                logger.warning("Could not add %r to the vocabulary", word, exc_info=True)
                 continue
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -424,5 +431,5 @@ def confirm_unchanged(text: str) -> list:
             json.dump(counts, f, ensure_ascii=False, indent=1)
         os.replace(tmp, path)
     except Exception:
-        pass
+        logger.warning("Could not save the word confirm counts to %s", path, exc_info=True)
     return promoted
