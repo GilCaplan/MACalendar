@@ -796,6 +796,12 @@ delete or complete (`context_memory.note_touched`), the commit step links it
 `assistant/intent/review.py` (`unreviewed`, `resolve`, and the sheet's rules
 — `rows_for`, `ops_for`, `gold`, `plan`, `apply` — which the phone mirrors in
 `FixObject`/`CorrectionSheet`).
+**No nagging strip** (2026-10-29, Gil: *"the thing where thumbs up or down
+whether answer was good and it adds up"* — *"clutters and gets in the way"*):
+the phone's "N voice commands to review" strip across the top of every tab is
+off by default; the count stays on Settings ▸ Review commands, and "Remind me
+at the top of the screen" there brings the strip back
+(`AppSettings.reviewReminder`).
 **How:** Recorded per item (per-item attribution). Few-shot injection exists
 but ships k=0 — measured to hurt the engine; the record feeds calibration
 (TASKS row 57) and future fast-rule mining instead. Since 2026-09-22 a stored
