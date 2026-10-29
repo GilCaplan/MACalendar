@@ -2103,6 +2103,14 @@ line).
 **Where:** iOS `CalendarTabView` (`CalendarFocus`), `ContentView`, `WeekView`
 (`daysInView`, judged by the view's own shape), `AppSettings.weekFitsAll`;
 `CalendarTitlesUITests` rotates the simulator and checks the layout.
+**Where the 3-day week opens** (2026-10-29, Gil: *"when it scrolls all the way
+to the left, to like Sunday, you don't really see anything"*): Settings ▸
+Calendar ▸ "Week opens on" — **Busiest days** (default: the stretch with the
+most events, keeping today in view when today has any, nearest today among
+equals), **Start of week** or **End of week**. It applies on opening the week
+and on moving to another one; a tap on a day inside the week still brings that
+day into view. `CalendarPrefs.weekLanding`, `AppSettings.weekScrollStart`;
+`tests/unit/test_ios_week_landing.py` mirrors the rule.
 
 ### Events: categories, colours & binder stacking
 **You can set it in the event editor, and that teaches the labeller**

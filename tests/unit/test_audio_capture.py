@@ -18,6 +18,27 @@ def _config(**kwargs) -> AudioConfig:
     return AudioConfig(**defaults)
 
 
+@pytest.fixture(autouse=True)
+def _audio_library(monkeypatch):
+    """These tests mock the library's stream, so they need its module even on
+    a machine whose PortAudio cannot start: CI's runner fails it on import
+    (2026-10-29, "PulseAudio_Initialize: Can't connect to server"), and
+    capture.sd is None there. A stand-in with the three names capture uses
+    takes its place, both in capture and under "sounddevice" for the patches.
+    """
+    import sys
+    import types
+    from assistant.audio import capture
+    if capture.sd is not None:
+        return
+    stand_in = types.ModuleType("sounddevice")
+    stand_in.PortAudioError = type("PortAudioError", (Exception,), {})
+    stand_in.InputStream = MagicMock(side_effect=stand_in.PortAudioError("no audio system"))
+    stand_in._terminate = stand_in._initialize = lambda: None
+    monkeypatch.setitem(sys.modules, "sounddevice", stand_in)
+    monkeypatch.setattr(capture, "sd", stand_in)
+
+
 def _mock_working_probe(monkeypatch) -> None:
     """AudioCapture.__init__ calls probe_audio(), which does a real hardware
     mic probe — always failing permission_ok on a CI runner with no

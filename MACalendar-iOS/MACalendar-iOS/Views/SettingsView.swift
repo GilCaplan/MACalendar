@@ -424,6 +424,19 @@ struct SettingsView: View {
                                 Text("With the phone upright. Turned sideways, the week always shows all 7 days, full screen.")
                                     .font(.caption).foregroundColor(.secondary)
                             }
+                            VStack(alignment: .leading, spacing: 6) {
+                                Label("Week opens on", systemImage: "arrow.left.and.right")
+                                Picker("Week opens on", selection: $settings.weekScrollStart) {
+                                    Text("Busiest days").tag("busy")
+                                    Text("Start of week").tag("start")
+                                    Text("End of week").tag("end")
+                                }
+                                .pickerStyle(.segmented)
+                                .accessibilityIdentifier("week-opens-picker")
+                                .disabled(settings.weekFitsAll)
+                                Text("Where the 3-day week scrolls to when you open it or change week. Busiest days: the days with events, nearest today.")
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
                             Toggle(isOn: $settings.clock24) {
                                 Label("24-hour clock", systemImage: "clock")
                             }

@@ -122,6 +122,15 @@ class AppSettings: ObservableObject {
     @Published var weekFitsAll: Bool {
         didSet { UserDefaults.standard.set(weekFitsAll, forKey: "weekFitsAll") }
     }
+    /// Where the sideways-scrolling Week lands when it opens or moves to
+    /// another week: "busy" (the days with events, near today — default),
+    /// "start" (the week's first day) or "end" (its last). It always opened
+    /// on the first day, often an empty Sunday (Gil, 2026-10-29: "when it
+    /// scrolls all the way to the left, to like Sunday, you don't really see
+    /// anything"). CalendarPrefs.weekLanding picks the column.
+    @Published var weekScrollStart: String {
+        didSet { UserDefaults.standard.set(weekScrollStart, forKey: "weekScrollStart") }
+    }
     /// Jude's answers written on this phone by Apple's model, from sources
     /// the Mac finds (JudeOnDevice) — or by the Mac, as before (default).
     @Published var judeAnswerOnPhone: Bool {
@@ -381,6 +390,8 @@ class AppSettings: ObservableObject {
         self.transcribeOnPhone = UserDefaults.standard.object(forKey: "transcribeOnPhone") == nil
             ? true : UserDefaults.standard.bool(forKey: "transcribeOnPhone")
         self.weekFitsAll = UserDefaults.standard.bool(forKey: "weekFitsAll")
+        let landing = UserDefaults.standard.string(forKey: "weekScrollStart") ?? "busy"
+        self.weekScrollStart = ["busy", "start", "end"].contains(landing) ? landing : "busy"
         self.judeAnswerOnPhone = UserDefaults.standard.bool(forKey: "judeAnswerOnPhone")
         let visual = UserDefaults.standard.string(forKey: "micVisual") ?? "card"
         self.micVisual = AppSettings.micVisuals.contains { $0.id == visual } ? visual : "card"
@@ -618,6 +629,40 @@ enum CalendarPrefs {
         let wd = cal.component(.weekday, from: date)           // 1 = Sunday … 7 = Saturday
         let back = mondayFirst ? (wd + 5) % 7 : wd - 1
         return cal.date(byAdding: .day, value: -back, to: cal.startOfDay(for: date)) ?? date
+    }
+
+    /// The first column the sideways Week shows (Settings ▸ Appearance ▸
+    /// "Week opens on"). `counts` is events per column, `today` today's column
+    /// if it is in this week, `visible` how many whole columns fit.
+    /// "busy": the stretch with the most events, preferring one holding
+    /// today when today has events and, among equals, the one nearest today,
+    /// then the earliest. Nothing booked: today with the day before it, as
+    /// before, or the week's start. Mirrored in tests/unit/test_ios_week_landing.py.
+    static func weekLanding(mode: String, counts: [Int], today: Int?, visible: Int) -> Int {
+        let last = Swift.max(0, counts.count - Swift.max(1, visible))
+        switch mode {
+        case "start": return 0
+        case "end": return last
+        default: break
+        }
+        let w = Swift.max(1, visible)
+        func load(_ s: Int) -> Int { counts[s..<Swift.min(counts.count, s + w)].reduce(0, +) }
+        func holds(_ s: Int, _ t: Int) -> Bool { s <= t && t < s + w }
+        var starts = Array(0...last)
+        if let t = today, counts.indices.contains(t), counts[t] > 0 {
+            starts = starts.filter { holds($0, t) }
+        }
+        guard let most = starts.map(load).max(), most > 0 else {
+            return today.map { Swift.min(last, Swift.max(0, $0 - 1)) } ?? 0
+        }
+        // Among equals: nearest today, then today second from the left (the
+        // day before it for context), then the earliest.
+        func key(_ s: Int) -> (Int, Int, Int) {
+            guard let t = today else { return (0, 0, s) }
+            let away = holds(s, t) ? 0 : Swift.min(abs(s - t), abs(s + w - 1 - t))
+            return (away, abs(s - (t - 1)), s)
+        }
+        return starts.filter { load($0) == most }.min { key($0) < key($1) } ?? 0
     }
 
     /// Weekday names in display order.
