@@ -28,150 +28,18 @@ struct SettingsView: View {
 
     @ObservedObject private var store = LocalStore.shared
     @State private var showQueue = false
+    @State private var query = ""
 
 
     var body: some View {
         StackNavigation {
             List {
-                // Your account first: who this phone is signed in as.
-                if let u = UserSession.shared.user {
-                    Section {
-                        NavigationLink { AccountView() } label: {
-                            HStack(spacing: 12) {
-                                ZStack {
-                                    Circle().fill(Color(hex: u.color) ?? .gray)
-                                    Text(String(u.displayName.prefix(1)).uppercased())
-                                        .font(.headline).foregroundColor(.white)
-                                }
-                                .frame(width: 40, height: 40)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(u.displayName).font(.headline)
-                                    Text("Account, password & sharing\(u.isAdmin ? " · admin" : "")")
-                                        .font(.caption).foregroundColor(.secondary)
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-                }
-
-                Section {
-                  if fold.isOpen("Calendar") {
-                    row("Appearance", "paintbrush", .orange, appearanceSummary) { appearancePage }
-                    row("Events", "clock", .blue, eventsSummary) { eventsPage }
-                    row("Hebrew & Shabbat", "calendar.badge.clock", .indigo, hebrewSummary) { hebrewPage }
-                    row("Occasions", "gift", .pink, "Birthdays, yahrzeits…") { OccasionsSettingsView() }
-                    row("Event colours", "paintpalette", .pink, "Categories") { CategoriesView() }
-                    row("Connected calendars", "calendar.badge.plus", .green, "Google, Outlook") {
-                        ConnectedCalendarsView()
-                    }
-                  }
-                } header: { FoldHeader("Calendar") }
-
-                Section {
-                  if fold.isOpen("Notifications & tabs") {
-                    row("Notifications", "bell.badge", .red,
-                        settings.remindersEnabled ? "Morning summary on" : "Off") { notificationsPage }
-                    row("Tabs", "square.grid.2x2", .teal, tabsSummary) { tabsPage }
-                  }
-                } header: { FoldHeader("Notifications & tabs") }
-
-                if fold.isOpen("Assistant") {
-                Section {
-                    // The switch (Gil, 2026-09-29): off, nothing said or typed
-                    // is acted on — here or on the Mac. The Mac keeps it.
-                    Toggle(isOn: Binding(
-                        get: { api.assistantEnabled },
-                        set: { on in
-                            Task { assistantNote = await api.setAssistant(on) }
-                        })) {
-                        HStack {
-                            SettingsIcon("sparkles", .purple)
-                            Text("Assistant")
-                        }
-                    }
-                    .onAppear { Task { _ = try? await api.health() } }
-                    if let assistantNote {
-                        Text(assistantNote).font(.caption).foregroundColor(.red)
-                    }
-                } header: {
-                    FoldHeader("Assistant")
-                } footer: {
-                    Text(api.assistantEnabled
-                         ? "On: speak or type commands here and on your Mac."
-                         : "Off: nothing you say or type is acted on, here or on your Mac. "
-                           + "Your calendar and to-dos work as usual.")
-                }
-                Section {
-                    NavigationLink { AssistantReviewView() } label: {
-                        HStack {
-                            SettingsIcon("checkmark.bubble", .purple)
-                            Text("Review commands")
-                            Spacer()
-                            if unreviewed > 0 {
-                                Text("\(unreviewed)")
-                                    .font(.caption.weight(.semibold))
-                                    .padding(.horizontal, 7).padding(.vertical, 2)
-                                    .background(settings.accentColor.opacity(0.2))
-                                    .foregroundColor(settings.accentColor)
-                                    .clipShape(Capsule())
-                            }
-                        }
-                    }
-                    Toggle(isOn: $settings.reviewReminder) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Remind me at the top of the screen")
-                            Text("A strip on every tab once 5 commands are waiting for a thumbs up or down")
-                                .font(.caption).foregroundColor(.secondary)
-                        }
-                    }
-                    .accessibilityIdentifier("review-reminder-toggle")
-                    row("Voice & recording", "waveform", .purple, voiceSummary) { voicePage }
-                    row("Vocabulary", "character.book.closed", .purple, "Names & words") { VocabularyView() }
-                    row("How I say things", "text.book.closed", .purple, "Words it acts on") { LexiconView() }
-                    row("How to talk to me", "lightbulb", .yellow, "Tips") { TipsView() }
-                    TitleEmojiPicker()
-                }
-                } else {
-                    Section {} header: { FoldHeader("Assistant") }
-                }
-
-                Section {
-                  if fold.isOpen("Connection") {
-                    row("How it runs", "switch.2", .blue, settings.phoneOnly ? "This phone only" : "Mac + phone") {
-                        SetupGuideView()
-                    }
-                    row("Your Mac", "desktopcomputer", .gray, connectionSummary) { serverPage }
-                    row("Servers & logs", "server.rack", .gray, "Model helpers") { ServersView() }
-                    if store.pendingCount > 0 {
-                        Button { showQueue = true } label: {
-                            HStack {
-                                SettingsIcon("tray.full", .orange)
-                                Text("\(store.pendingCount) change\(store.pendingCount == 1 ? "" : "s") waiting to sync")
-                                    .foregroundColor(.primary)
-                                Spacer()
-                                Image(systemName: "chevron.right").font(.caption).foregroundColor(.secondary)
-                            }
-                        }
-                        .accessibilityIdentifier("pending-queue-link")
-                    }
-                  }
-                } header: { FoldHeader("Connection") }
-
-                Section {
-                  if fold.isOpen("Just for fun") {
-                    row("Easter egg", "wand.and.stars", .pink,
-                        EggStore.shared.settings.enabled ? "Magic words on" : "Off") { EggSettingsView() }
-                  }
-                } header: { FoldHeader("Just for fun") }
-
-                Section {
-                  if fold.isOpen("About") {
-                    HStack { Text("Version"); Spacer(); Text("1.0").foregroundColor(.secondary) }
-                    Link("GitHub", destination: URL(string: "https://github.com/GilCaplan/MACalendar")!)
-                  }
-                } header: { FoldHeader("About") }
+                if searching { searchResults } else { mainList }
             }
+            // Always shown: iOS's default hides it until the list is pulled
+            // down, and a search bar nobody sees finds nothing.
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
+                        prompt: "Search settings")
             .listStyle(.insetGrouped)
             .sheet(isPresented: $showQueue) { PendingQueueView() }
             .navigationTitle("Settings")
@@ -208,6 +76,207 @@ struct SettingsView: View {
                     }
                 }
             }
+        }
+    }
+
+    /// Every row and section of the Settings root — shown whenever the search
+    /// bar is empty.
+    @ViewBuilder private var mainList: some View {
+            // Your account first: who this phone is signed in as.
+            if let u = UserSession.shared.user {
+                Section {
+                    NavigationLink { AccountView() } label: {
+                        HStack(spacing: 12) {
+                            ZStack {
+                                Circle().fill(Color(hex: u.color) ?? .gray)
+                                Text(String(u.displayName.prefix(1)).uppercased())
+                                    .font(.headline).foregroundColor(.white)
+                            }
+                            .frame(width: 40, height: 40)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(u.displayName).font(.headline)
+                                Text("Account, password & sharing\(u.isAdmin ? " · admin" : "")")
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+
+            Section {
+              if fold.isOpen("Calendar") {
+                row("Appearance", "paintbrush", .orange, appearanceSummary) { appearancePage }
+                row("Events", "clock", .blue, eventsSummary) { eventsPage }
+                row("Hebrew & Shabbat", "calendar.badge.clock", .indigo, hebrewSummary) { hebrewPage }
+                row("Occasions", "gift", .pink, "Birthdays, yahrzeits…") { OccasionsSettingsView() }
+                row("Event colours", "paintpalette", .pink, "Categories") { CategoriesView() }
+                row("Connected calendars", "calendar.badge.plus", .green, "Google, Outlook") {
+                    ConnectedCalendarsView()
+                }
+              }
+            } header: { FoldHeader("Calendar") }
+
+            Section {
+              if fold.isOpen("Notifications & tabs") {
+                row("Notifications", "bell.badge", .red,
+                    settings.remindersEnabled ? "Morning summary on" : "Off") { notificationsPage }
+                row("Tabs", "square.grid.2x2", .teal, tabsSummary) { tabsPage }
+              }
+            } header: { FoldHeader("Notifications & tabs") }
+
+            if fold.isOpen("Assistant") {
+            Section {
+                // The switch (Gil, 2026-09-29): off, nothing said or typed
+                // is acted on — here or on the Mac. The Mac keeps it.
+                Toggle(isOn: Binding(
+                    get: { api.assistantEnabled },
+                    set: { on in
+                        Task { assistantNote = await api.setAssistant(on) }
+                    })) {
+                    HStack {
+                        SettingsIcon("sparkles", .purple)
+                        Text("Assistant")
+                    }
+                }
+                .onAppear { Task { _ = try? await api.health() } }
+                if let assistantNote {
+                    Text(assistantNote).font(.caption).foregroundColor(.red)
+                }
+            } header: {
+                FoldHeader("Assistant")
+            } footer: {
+                Text(api.assistantEnabled
+                     ? "On: speak or type commands here and on your Mac."
+                     : "Off: nothing you say or type is acted on, here or on your Mac. "
+                       + "Your calendar and to-dos work as usual.")
+            }
+            Section {
+                NavigationLink { AssistantReviewView() } label: {
+                    HStack {
+                        SettingsIcon("checkmark.bubble", .purple)
+                        Text("Review commands")
+                        Spacer()
+                        if unreviewed > 0 {
+                            Text("\(unreviewed)")
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 7).padding(.vertical, 2)
+                                .background(settings.accentColor.opacity(0.2))
+                                .foregroundColor(settings.accentColor)
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+                Toggle(isOn: $settings.reviewReminder) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Remind me at the top of the screen")
+                        Text("A strip on every tab once 5 commands are waiting for a thumbs up or down")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                }
+                .accessibilityIdentifier("review-reminder-toggle")
+                row("Voice & recording", "waveform", .purple, voiceSummary) { voicePage }
+                row("Vocabulary", "character.book.closed", .purple, "Names & words") { VocabularyView() }
+                row("How I say things", "text.book.closed", .purple, "Words it acts on") { LexiconView() }
+                row("How to talk to me", "lightbulb", .yellow, "Tips") { TipsView() }
+                TitleEmojiPicker()
+            }
+            } else {
+                Section {} header: { FoldHeader("Assistant") }
+            }
+
+            Section {
+              if fold.isOpen("Connection") {
+                row("How it runs", "switch.2", .blue, settings.phoneOnly ? "This phone only" : "Mac + phone") {
+                    SetupGuideView()
+                }
+                row("Your Mac", "desktopcomputer", .gray, connectionSummary) { serverPage }
+                row("Servers & logs", "server.rack", .gray, "Model helpers") { ServersView() }
+                if store.pendingCount > 0 {
+                    Button { showQueue = true } label: {
+                        HStack {
+                            SettingsIcon("tray.full", .orange)
+                            Text("\(store.pendingCount) change\(store.pendingCount == 1 ? "" : "s") waiting to sync")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption).foregroundColor(.secondary)
+                        }
+                    }
+                    .accessibilityIdentifier("pending-queue-link")
+                }
+              }
+            } header: { FoldHeader("Connection") }
+
+            Section {
+              if fold.isOpen("Just for fun") {
+                row("Easter egg", "wand.and.stars", .pink,
+                    EggStore.shared.settings.enabled ? "Magic words on" : "Off") { EggSettingsView() }
+              }
+            } header: { FoldHeader("Just for fun") }
+
+            Section {
+              if fold.isOpen("About") {
+                HStack { Text("Version"); Spacer(); Text("1.0").foregroundColor(.secondary) }
+                Link("GitHub", destination: URL(string: "https://github.com/GilCaplan/MACalendar")!)
+              }
+            } header: { FoldHeader("About") }
+    }
+
+    // MARK: - Search
+    //
+    // Gil, 2026-10-29: "in settings add a search bar to find things". The
+    // root is a list of pages, so a word like "dark" or "backup" names a
+    // control two taps deep. `SettingsSearch.index` lists every control by
+    // the words on it, and a hit opens the page that holds it.
+
+    private var searching: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    @ViewBuilder private var searchResults: some View {
+        let hits = SettingsSearch.hits(for: query,
+                                       tabs: FeatureRegistry.togglable.map(\.label),
+                                       signedIn: UserSession.shared.user != nil)
+        if hits.isEmpty {
+            Section {
+                Text("No settings match “\(query.trimmingCharacters(in: .whitespaces))”")
+                    .foregroundColor(.secondary)
+            }
+        } else {
+            Section {
+                ForEach(hits) { hit in
+                    NavigationLink { destination(hit.page) } label: {
+                        HStack {
+                            SettingsIcon(hit.page.icon, hit.page.tint)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(hit.title)
+                                Text(hit.page.name).font(.caption).foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private func destination(_ page: SettingsSearch.Page) -> some View {
+        switch page {
+        case .appearance:    appearancePage
+        case .events:        eventsPage
+        case .hebrew:        hebrewPage
+        case .occasions:     OccasionsSettingsView()
+        case .colours:       CategoriesView()
+        case .calendars:     ConnectedCalendarsView()
+        case .notifications: notificationsPage
+        case .tabs:          tabsPage
+        case .voice:         voicePage
+        case .review:        AssistantReviewView()
+        case .vocabulary:    VocabularyView()
+        case .lexicon:       LexiconView()
+        case .tips:          TipsView()
+        case .howItRuns:     SetupGuideView()
+        case .yourMac:       serverPage
+        case .servers:       ServersView()
+        case .egg:           EggSettingsView()
+        case .account:       AccountView()
         }
     }
 
@@ -1574,5 +1643,168 @@ private struct ConnectionStatusCard: View {
             }
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - The settings search index
+
+/// What the search bar in Settings finds: every control, by the words on it
+/// and the words a person might use for it, and the page that holds it.
+/// `tests/unit/test_ios_settings_search.py` holds it to the Settings root —
+/// every page a row opens can be found, and every entry opens a real page.
+enum SettingsSearch {
+    enum Page: CaseIterable {
+        case appearance, events, hebrew, occasions, colours, calendars, notifications, tabs
+        case voice, review, vocabulary, lexicon, tips, howItRuns, yourMac, servers, egg, account
+
+        var name: String {
+            switch self {
+            case .appearance: return "Appearance"
+            case .events: return "Events"
+            case .hebrew: return "Hebrew & Shabbat"
+            case .occasions: return "Occasions"
+            case .colours: return "Event colours"
+            case .calendars: return "Connected calendars"
+            case .notifications: return "Notifications"
+            case .tabs: return "Tabs"
+            case .voice: return "Voice & recording"
+            case .review: return "Review commands"
+            case .vocabulary: return "Vocabulary"
+            case .lexicon: return "How I say things"
+            case .tips: return "How to talk to me"
+            case .howItRuns: return "How it runs"
+            case .yourMac: return "Your Mac"
+            case .servers: return "Servers & logs"
+            case .egg: return "Easter egg"
+            case .account: return "Account"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .appearance: return "paintbrush"
+            case .events: return "clock"
+            case .hebrew: return "calendar.badge.clock"
+            case .occasions: return "gift"
+            case .colours: return "paintpalette"
+            case .calendars: return "calendar.badge.plus"
+            case .notifications: return "bell.badge"
+            case .tabs: return "square.grid.2x2"
+            case .voice: return "waveform"
+            case .review: return "checkmark.bubble"
+            case .vocabulary: return "character.book.closed"
+            case .lexicon: return "text.book.closed"
+            case .tips: return "lightbulb"
+            case .howItRuns: return "switch.2"
+            case .yourMac: return "desktopcomputer"
+            case .servers: return "server.rack"
+            case .egg: return "wand.and.stars"
+            case .account: return "person.crop.circle"
+            }
+        }
+
+        var tint: Color {
+            switch self {
+            case .appearance: return .orange
+            case .events: return .blue
+            case .hebrew: return .indigo
+            case .occasions, .colours, .egg: return .pink
+            case .calendars: return .green
+            case .notifications: return .red
+            case .tabs: return .teal
+            case .voice, .review, .vocabulary, .lexicon: return .purple
+            case .tips: return .yellow
+            case .howItRuns: return .blue
+            case .yourMac, .servers, .account: return .gray
+            }
+        }
+    }
+
+    struct Hit: Identifiable {
+        let title: String
+        let page: Page
+        var id: String { "\(page.name)/\(title)" }
+    }
+
+    /// (what the control is called, the page it is on, other words for it).
+    static let index: [(String, Page, String)] = [
+        ("Appearance", .appearance, "look style display"),
+        ("Theme", .appearance, "light dark mode night"),
+        ("Accent colour", .appearance, "color tint highlight"),
+        ("Open calendar on", .appearance, "default view start month week day"),
+        ("Week starts on", .appearance, "sunday monday first day"),
+        ("Week shows", .appearance, "3 days 7 days seven three swipe"),
+        ("Week opens on", .appearance, "busiest days scroll start end of week"),
+        ("24-hour clock", .appearance, "time format am pm military"),
+        ("Settings sections start", .appearance, "folded open collapse expand"),
+        ("Show hours", .appearance, "visible hours from to day week range"),
+        ("Font sizes", .appearance, "text size month week day tasks bigger smaller"),
+
+        ("Events", .events, "event defaults"),
+        ("Default length", .events, "event duration minutes how long"),
+        ("Gap between chained events", .events, "chain break spacing minutes"),
+        ("Repeating events stop after", .events, "recurring series end default repeat"),
+
+        ("Hebrew & Shabbat", .hebrew, "jewish calendar"),
+        ("Show dates as", .hebrew, "hebrew english both jewish dates"),
+        ("Jewish / Israeli holidays", .hebrew, "chagim yom tov holidays chag"),
+        ("Israel holiday schedule", .hebrew, "diaspora israel"),
+        ("Shabbat & yom tov times", .hebrew, "candle lighting havdalah begin end sundown zmanim"),
+        ("Sundown follows this device", .hebrew, "location sunset place"),
+        ("Keep assistant events off Shabbat", .hebrew, "observance booking engine yom tov"),
+
+        ("Occasions", .occasions, "birthday birthdays yahrzeit anniversary"),
+        ("Event colours", .colours, "categories category colors"),
+        ("Connected calendars", .calendars, "google outlook ics import sync accounts"),
+
+        ("Notifications", .notifications, "alerts reminders"),
+        ("Morning summary", .notifications, "daily digest reminders morning"),
+        ("Show today's agenda", .notifications, "agenda today now"),
+        ("Agenda on the lock screen", .notifications, "lock screen live activity card"),
+        ("Quiet on Shabbat & chagim", .notifications, "silence mute shabbat chag"),
+        ("Allow notifications", .notifications, "permission ios notifications off"),
+
+        ("Tabs", .tabs, "show hide tab bar sections"),
+
+        ("Voice & recording", .voice, "microphone mic voice"),
+        ("Speak replies aloud", .voice, "tts talk back read out sound"),
+        ("Voice", .voice, "tts samantha daniel karen accent speaker"),
+        ("Transcribe on this phone", .voice, "speech to text whisper dictation"),
+        ("Stop on “execute”", .voice, "execute keyword end recording"),
+        ("Ask before sending", .voice, "redo add more confirm"),
+        ("Stop automatically after silence", .voice, "auto-stop silence seconds"),
+        ("Show assistant thinking", .voice, "thinking panel log steps"),
+
+        ("Review commands", .review, "assistant history feedback approve flag"),
+        ("Vocabulary", .vocabulary, "names words corrections spelling"),
+        ("How I say things", .lexicon, "phrases lexicon words it acts on magic"),
+        ("How to talk to me", .tips, "tips examples help"),
+
+        ("How it runs", .howItRuns, "phone only mac mode setup offline"),
+        ("Your Mac", .yourMac, "server address connect pair qr scan tailscale connection"),
+        ("API key", .yourMac, "key password server"),
+        ("Test connection", .yourMac, "check reachable ping"),
+        ("Use your Mac when the main server is off", .yourMac, "backup server pc fallback"),
+        ("Servers & logs", .servers, "model helpers ollama logs"),
+
+        ("Easter egg", .egg, "magic words fun"),
+        ("Account", .account, "password sign out log out sharing profile photo user"),
+    ]
+
+    /// Every word typed must appear somewhere in an entry; matches on the
+    /// control's own name come first.
+    static func hits(for query: String, tabs: [String], signedIn: Bool) -> [Hit] {
+        let words = query.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
+        guard !words.isEmpty else { return [] }
+        // A tab is found by its name: "timer" finds "Timer tab".
+        let all = index + tabs.map { ("\($0) tab", Page.tabs, "show hide") }
+        var byName: [Hit] = [], byWord: [Hit] = []
+        for (title, page, extra) in all where signedIn || page != .account {
+            let hay = "\(title) \(page.name) \(extra)".lowercased()
+            guard words.allSatisfy({ hay.contains($0) }) else { continue }
+            let hit = Hit(title: title, page: page)
+            if words.allSatisfy({ title.lowercased().contains($0) }) { byName.append(hit) } else { byWord.append(hit) }
+        }
+        return byName + byWord
     }
 }
