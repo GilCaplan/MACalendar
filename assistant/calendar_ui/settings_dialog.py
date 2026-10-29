@@ -1482,8 +1482,29 @@ def open_settings(self) -> None:
     thinking_row.addStretch(1)
     assistant.addLayout(thinking_row)
 
+    # It fades away this long after a command (0 = stays until closed), so it
+    # stops cluttering the screen (Gil, 2026-10-29).
+    thinking_hide_row = QHBoxLayout()
+    thinking_hide_row.addSpacing(20)
+    thinking_hide_row.addWidget(QLabel("Fade it away"))
+    thinking_hide_spin = QSpinBox()
+    thinking_hide_spin.setObjectName("thinking_hide_spin")
+    thinking_hide_spin.setRange(0, 120)
+    thinking_hide_spin.setSuffix(" s")
+    thinking_hide_spin.setSpecialValueText("never")
+    thinking_hide_spin.setValue(int(getattr(self._config.ui, "thinking_hide_after_sec", 6)))
+    thinking_hide_spin.setToolTip(
+        "How long the card stays after a command finishes. It stays while\n"
+        "the pointer is on it, and when the result needs you (an error, a\n"
+        "word to fix, a question, a queued command, a Revert).")
+    thinking_hide_row.addWidget(thinking_hide_spin)
+    thinking_hide_row.addWidget(QLabel("after a command finishes"))
+    thinking_hide_row.addStretch(1)
+    assistant.addLayout(thinking_hide_row)
+
     def _thinking_toggled(on: bool) -> None:
         thinking_corner_combo.setEnabled(on)
+        thinking_hide_spin.setEnabled(on)
     thinking_cb.toggled.connect(_thinking_toggled)
     _thinking_toggled(thinking_cb.isChecked())
 
@@ -1691,7 +1712,8 @@ def open_settings(self) -> None:
                        "show_workout": _tab_shown("workout"),
                        "show_timer": _tab_shown("timer"),
                        "show_thinking": thinking_cb.isChecked(),
-                       "thinking_corner": thinking_corner_combo.currentData()},
+                       "thinking_corner": thinking_corner_combo.currentData(),
+                       "thinking_hide_after_sec": thinking_hide_spin.value()},
                 "audio": {"review_before_send": review_cb.isChecked(),
                           "review_seconds": review_spin.value(),
                           "stop_phrases": raw_phrases,

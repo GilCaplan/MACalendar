@@ -943,3 +943,99 @@ def test_clicking_a_clipped_note_opens_it(hud):
     QTest.mouseClick(label, Qt.MouseButton.LeftButton)   # and closes again
     app.processEvents()
     assert label.is_clipped()
+
+
+# ---------------------------------------------------------------------------
+# It fades away after a command (Gil, 2026-10-29: "the review panel kinda
+# clutters and gets in the way") — but not while you are on it, and not over
+# a result that asks something of you.
+# ---------------------------------------------------------------------------
+
+def _fast_fade(widget, secs=0.05):
+    from types import SimpleNamespace
+    widget._config = SimpleNamespace(ui=SimpleNamespace(show_thinking=True,
+                                                        thinking_hide_after_sec=secs))
+
+
+def _wait(ms=250):
+    from PyQt6.QtTest import QTest
+    QTest.qWait(ms)
+
+
+def test_it_fades_away_after_a_command_and_comes_back_for_the_next(hud, bus):
+    widget, reader, _ = hud
+    _fast_fade(widget)
+    bus.publish("iPhone", [_step()], {"message": "Added"})
+    reader.poll()
+    assert widget.isVisible()
+    _wait()
+    assert not widget.isVisible()
+
+    # Fading is not closing: the next command shows it again.
+    run = bus.publish_begin("Mac")
+    reader.poll()
+    assert widget.isVisible()
+    _wait()
+    assert widget.isVisible(), "it must not fade while the command is still running"
+    bus.publish_result(run, {"message": "ok"})
+    reader.poll()
+    _wait()
+    assert not widget.isVisible()
+
+
+def test_it_stays_while_the_pointer_is_on_it(hud, bus):
+    widget, reader, _ = hud
+    _fast_fade(widget)
+    bus.publish("iPhone", [_step()], {"message": "Added"})
+    reader.poll()
+    widget.enterEvent(_enter_event())
+    _wait()
+    assert widget.isVisible()
+    widget.leaveEvent(_leave_event())
+    _wait()
+    assert not widget.isVisible()
+
+
+@pytest.mark.parametrize("result", [
+    {"parse": "error", "message": "Something went wrong"},
+    {"parse": "needs_edit", "message": "Which word?"},
+    {"parse": "confirm_create", "message": "Add it?"},
+    {"pending_id": 7, "message": "Queued"},
+])
+def test_a_result_that_needs_you_stays(hud, bus, result):
+    widget, reader, _ = hud
+    _fast_fade(widget)
+    bus.publish("iPhone", [_step()], result)
+    reader.poll()
+    _wait()
+    assert widget.isVisible()
+
+
+def test_a_revert_from_the_background_check_stays(hud, bus):
+    widget, reader, _ = hud
+    _fast_fade(widget, secs=0.15)
+    run = bus.publish_begin("Mac")
+    bus.publish_result(run, {"message": "ok"})
+    reader.poll()
+    bus.publish_step(run, {**_step("verify", "Removed a duplicate"),
+                           "data": {"revert": [{"op": "restore", "id": 1}]}})
+    reader.poll()
+    _wait(400)
+    assert widget.isVisible()
+
+
+def test_zero_keeps_it_until_closed(hud, bus):
+    widget, reader, _ = hud
+    _fast_fade(widget, secs=0)
+    bus.publish("iPhone", [_step()], {"message": "Added"})
+    reader.poll()
+    _wait()
+    assert widget.isVisible()
+
+
+def test_the_setting_is_mirrored_in_the_example_config():
+    from pathlib import Path
+    from assistant.config import UIConfig
+    assert UIConfig().thinking_hide_after_sec == 6
+    example = (Path(__file__).resolve().parents[2] / "config.example.yaml").read_text()
+    assert "thinking_hide_after_sec: 6" in example

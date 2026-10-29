@@ -14,8 +14,13 @@ the same `ThinkingPanel` widget the calendar app used to embed, so the Mac's
 timeline and the iPhone's stay identical.
 
 Behaviour: it appears by itself when a command starts, fills in live, and
-stays until you close it — a trace you glanced away from is still there when
-you look back. Closing hides it until the next command; right-click quits.
+fades away a few seconds after it finishes (`ui.thinking_hide_after_sec`, 6 by
+default; 0 keeps it until closed). It stays while the pointer is over it and
+when the result needs you — an error, a word to fix, a question, a queued
+command, a Revert — because a card that stayed after every command cluttered
+the screen (Gil, 2026-10-29: "the review panel kinda clutters and gets in the
+way"). The menu bar's Show thinking card brings it back with its history.
+Closing hides it until reopened; right-click quits.
 """
 
 from __future__ import annotations
@@ -170,10 +175,60 @@ class ThinkingHUD(QWidget):
         self._fade.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.setWindowOpacity(IDLE_OPACITY)
 
+        # Fades the card away a while after a command finishes (see the
+        # module docstring); stopped by a new command and by the pointer.
+        self._auto_hide = QTimer(self)
+        self._auto_hide.setSingleShot(True)
+        self._auto_hide.timeout.connect(self._hide_if_idle)
+        self._hold = False              # the result on screen needs the user
+
         self._fit()
         self.hide()
 
     # ------------------------------------------------------------- presence
+
+    #: A result with any of these is left on screen: it asks something of
+    #: the user, and a card that fades away would hide the question.
+    NEEDS_YOU = ("error", "needs_edit", "confirm_create")
+
+    def _hide_after_sec(self) -> float:
+        ui = getattr(self._config, "ui", None)
+        try:
+            return max(0.0, float(getattr(ui, "thinking_hide_after_sec", 6)))
+        except (TypeError, ValueError):
+            return 6.0
+
+    def _on_result(self, res: dict) -> None:
+        """A command's result is on the card: arm the fade, or hold it."""
+        self._hold = (res.get("parse") in self.NEEDS_YOU or bool(res.get("pending_id"))
+                      or bool(res.get("error")))
+        self._arm_auto_hide()
+
+    def _on_begin(self) -> None:
+        self._auto_hide.stop()
+        self._hold = False
+
+    def _on_step(self, step: dict) -> None:
+        """A step after the result is the background check speaking."""
+        if (step.get("data") or {}).get("revert"):
+            self._hold = True           # a Revert waits for the user
+            self._auto_hide.stop()
+        elif self.panel._finished:
+            self._arm_auto_hide()
+
+    def _arm_auto_hide(self) -> None:
+        secs = self._hide_after_sec()
+        if secs <= 0 or self._hold or not self.isVisible():
+            self._auto_hide.stop()
+            return
+        self._auto_hide.start(int(secs * 1000))
+
+    def _hide_if_idle(self) -> None:
+        if self.underMouse():
+            return                      # leaveEvent re-arms it
+        # Not _on_panel_closed: fading is not closing, so the next command
+        # brings the card back.
+        self.hide()
 
     def _follow_every_space(self) -> None:
         """Show on every Space, including over another app's full-screen window.
@@ -243,10 +298,13 @@ class ThinkingHUD(QWidget):
 
     def enterEvent(self, event):            # noqa: N802 - Qt naming
         self._fade_to(HOVER_OPACITY)
+        self._auto_hide.stop()
         super().enterEvent(event)
 
     def leaveEvent(self, event):            # noqa: N802 - Qt naming
         self._fade_to(IDLE_OPACITY)
+        if self.panel._finished:
+            self._arm_auto_hide()
         super().leaveEvent(event)
 
     # ----------------------------------------------------------- geometry
@@ -360,7 +418,9 @@ class ThinkingHUD(QWidget):
                 self.panel.add_boundary(b)
             self.panel.finish(res)
             self._start(run)
+            self._on_result(res)
         elif kind == "begin":
+            self._on_begin()
             self.panel.begin(source=entry.get("source") or "Mac")
             self._start(run)
         elif kind == "step":
@@ -369,7 +429,9 @@ class ThinkingHUD(QWidget):
             if run != self._current_run:
                 self.panel.begin(source=entry.get("source") or "Mac")
                 self._start(run)
-            self.panel.add_step(entry.get("step") or {})
+            step = entry.get("step") or {}
+            self.panel.add_step(step)
+            self._on_step(step)
         elif kind == "boundary":
             # Same tolerance as a step: a trim between the producer's begin and
             # our poll can leave us seeing a boundary for a run we never opened.
@@ -383,6 +445,7 @@ class ThinkingHUD(QWidget):
                 if res.get("transcript"):
                     self.panel.set_input(res["transcript"])
                 self.panel.finish(res)
+                self._on_result(res)
 
     def _start(self, run: str | None) -> None:
         """A new run has begun. Appear only if appearing is warranted.

@@ -174,6 +174,11 @@ class UIConfig(BaseModel):
     # runs (the Mac twin of iOS Settings › Voice › Show assistant thinking).
     # The HUD is its own app — assistant.thinking_hud — and re-reads this.
     show_thinking: bool = True
+    # Seconds the HUD stays up after a command finishes, then it fades away
+    # by itself; 0 = stay until closed (the old behaviour). It stays while the
+    # pointer is over it, and for a result that needs you (an error, a word to
+    # fix, a question, a queued command, a Revert).
+    thinking_hide_after_sec: float = 6
     # Which screen corner the thinking HUD parks itself in (until you drag it).
     thinking_corner: Literal["bottom-right", "bottom-left", "top-right", "top-left"] = "bottom-right"
 
