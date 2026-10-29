@@ -537,23 +537,39 @@ class Installer:
 
 # -- per-platform pieces (pure, so they are tested) ------------------------------
 
+def desktop_exec(*argv: str) -> str:
+    """An Exec= value the desktop-entry spec accepts. Single quotes and a bare
+    `&&` are reserved characters there, so GNOME may refuse to launch the
+    entry (it did, 2026-10-22). Each argument goes in double quotes with ` $ " \\
+    escaped, then every backslash is doubled: the spec applies its string
+    escapes before its quoting rule."""
+    def arg(a: str) -> str:
+        quoted = "".join("\\" + ch if ch in '"`$\\' else ch for ch in a)
+        return '"' + quoted.replace("\\", "\\\\") + '"'
+    return " ".join(arg(a) for a in argv)
+
+
 def desktop_entries(repo: Path, py: Path, role: str, with_jude: bool) -> dict[str, str]:
-    """Linux applications-menu entries."""
-    def entry(name, comment, cmd):
+    """Linux applications-menu entries. Path= sets the folder, so no `cd`."""
+    icon = repo / "MACalendar-iOS" / "MACalendar-iOS" / "Assets.xcassets" / "AppIcon.appiconset" / "AppIcon-1024.png"
+    hud_icon = repo / "assistant" / "calendar_ui" / "assets" / "hud_icon.png"
+
+    def entry(name, comment, exec_, icon_path=icon):
         return ("[Desktop Entry]\nType=Application\n"
                 f"Name={name}\nComment={comment}\n"
-                f"Exec=sh -c 'cd \"{repo}\" && {cmd}'\nPath={repo}\n"
+                f"Exec={exec_}\nPath={repo}\nIcon={icon_path}\n"
                 "Terminal=false\nCategories=Office;Calendar;\n")
     out = {"macalendar-server.desktop": entry(
         "MACalendar Server", "The assistant's brain, in the system tray",
-        f'"{py}" -m assistant.host')}
+        desktop_exec(str(py), "-m", "assistant.host"))}
     if role == "primary":
         out["macalendar.desktop"] = entry(
             "MACalendar", "Your calendar",
-            f'("{py}" -m assistant.host --background &) ; exec "{py}" -m assistant.main')
+            desktop_exec("sh", "-c", f'("{py}" -m assistant.host --background &) ; '
+                                     f'exec "{py}" -m assistant.main'))
         out["macalendar-hud.desktop"] = entry(
             "MACalendar HUD", "The floating thinking card",
-            f'exec "{py}" -m assistant.thinking_hud')
+            desktop_exec(str(py), "-m", "assistant.thinking_hud"), hud_icon)
     return out
 
 
