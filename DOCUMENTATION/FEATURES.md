@@ -631,6 +631,13 @@ every command ever run.
 trace source `assistant/trace.py` + `trace_bus.py`
 (`~/.assistant_tools/trace_bus.jsonl`); iOS `ThinkingView` in
 `Views/ThinkingView.swift` (moved out of `VocabularyView.swift` 2026-09-06).
+**It gets out of the way** (2026-10-29, Gil: *"the review panel kinda clutters
+and gets in the way"*). Mac: the card fades away `ui.thinking_hide_after_sec`
+(6 s; Settings ▸ Assistant ▸ "Fade it away"; 0 = never) after a command
+finishes, but not while the pointer is on it and not when the result needs you
+(an error, a word to fix, a question, a queued command, a Revert). Fading is
+not closing, so the next command brings it back. Phone (2026-10-27): the sheet
+opens on a tap of the "Thinking…" capsule, not by itself.
 **Launching it** (2026-09-14): `MACalendar HUD.app` → `launch_hud.sh` →
 `python -m assistant.thinking_hud --show`, rebuilt by `scripts/build_hud_app.sh`.
 Two traps live there. (1) The card is invisible until a command arrives, so

@@ -203,6 +203,8 @@ ui:
   show_thinking: true       # show the assistant's stage-by-stage thinking HUD while a command runs.
                             # The HUD is a separate always-on-top app (assistant.thinking_hud),
                             # started by Launch Calendar.command; it re-reads this while running.
+  thinking_hide_after_sec: 6   # the HUD fades away this long after a command finishes
+                               # (stays while hovered, or when the result needs you); 0 = stay until closed
   thinking_corner: "bottom-right"   # which screen corner it parks in until you drag it:
                             # bottom-right | bottom-left | top-right | top-left
 

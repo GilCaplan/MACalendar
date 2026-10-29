@@ -1482,8 +1482,37 @@ def open_settings(self) -> None:
     thinking_row.addStretch(1)
     assistant.addLayout(thinking_row)
 
+    # It fades away this long after a command (0 = stays until closed), so it
+    # stops cluttering the screen (Gil, 2026-10-29).
+    thinking_hide_row = QHBoxLayout()
+    thinking_hide_row.addSpacing(20)
+    thinking_hide_row.addWidget(QLabel("Fade it away"))
+    # A float box over the HUD's whole range, so opening and saving Settings
+    # never rewrites a hand-set value (2.5 s, 300 s) to what an int box holds.
+    from PyQt6.QtWidgets import QDoubleSpinBox
+    from assistant.config import THINKING_HIDE_MAX_SEC
+    thinking_hide_spin = QDoubleSpinBox()
+    thinking_hide_spin.setObjectName("thinking_hide_spin")
+    thinking_hide_spin.setDecimals(1)
+    thinking_hide_spin.setRange(0, THINKING_HIDE_MAX_SEC)
+    thinking_hide_spin.setSuffix(" s")
+    thinking_hide_spin.setSpecialValueText("never")
+    try:
+        thinking_hide_spin.setValue(float(getattr(self._config.ui, "thinking_hide_after_sec", 6)))
+    except (TypeError, ValueError):
+        thinking_hide_spin.setValue(6)
+    thinking_hide_spin.setToolTip(
+        "How long the card stays after a command finishes. It stays while\n"
+        "the pointer is on it, and when the result needs you (an error, a\n"
+        "word to fix, a question, a queued command, a Revert).")
+    thinking_hide_row.addWidget(thinking_hide_spin)
+    thinking_hide_row.addWidget(QLabel("after a command finishes"))
+    thinking_hide_row.addStretch(1)
+    assistant.addLayout(thinking_hide_row)
+
     def _thinking_toggled(on: bool) -> None:
         thinking_corner_combo.setEnabled(on)
+        thinking_hide_spin.setEnabled(on)
     thinking_cb.toggled.connect(_thinking_toggled)
     _thinking_toggled(thinking_cb.isChecked())
 
@@ -1691,7 +1720,8 @@ def open_settings(self) -> None:
                        "show_workout": _tab_shown("workout"),
                        "show_timer": _tab_shown("timer"),
                        "show_thinking": thinking_cb.isChecked(),
-                       "thinking_corner": thinking_corner_combo.currentData()},
+                       "thinking_corner": thinking_corner_combo.currentData(),
+                       "thinking_hide_after_sec": thinking_hide_spin.value()},
                 "audio": {"review_before_send": review_cb.isChecked(),
                           "review_seconds": review_spin.value(),
                           "stop_phrases": raw_phrases,
