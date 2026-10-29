@@ -128,8 +128,17 @@ struct WeekView: View {
                                         }
                                     }
                                 }
-                                .onAppear { showSelected(days) }
-                                .onChange(of: selectedDate) { _ in showSelected(days) }
+                                .onAppear { land(days, visible: daysInView(outer.size)) }
+                                .onChange(of: selectedDate) { _ in
+                                    if weekDays.first != landedWeek { land(days, visible: daysInView(outer.size)) }
+                                    else { showSelected(days) }
+                                }
+                                // The week's events arrive after it is drawn: a landing
+                                // made on an empty week is made again once they do.
+                                .onChange(of: weekCounts) { _ in
+                                    if !landedOnEvents { land(days, visible: daysInView(outer.size)) }
+                                }
+                                .onChange(of: settings.weekScrollStart) { _ in land(days, visible: daysInView(outer.size)) }
                             }
                         }
                         // the 24-hour canvas, seen through a window on the shown hours
@@ -154,6 +163,24 @@ struct WeekView: View {
             }
         }
         .onReceive(timer) { d in now = d }
+    }
+
+    @State private var landedWeek: Date?
+    @State private var landedOnEvents = false
+    private var weekCounts: [Int] { weekDays.map { eventsForDay($0).count } }
+
+    /// Opening the week, or moving to another one: land where Settings ▸
+    /// Appearance ▸ "Week opens on" says (CalendarPrefs.weekLanding). A tap
+    /// on a day inside the same week still brings that day into view.
+    private func land(_ days: ScrollViewProxy, visible: CGFloat) {
+        guard visible < 7 else { return }                 // all seven fit: nothing to scroll
+        let counts = weekCounts
+        let today = weekDays.firstIndex { Calendar.current.isDateInToday($0) }
+        let i = CalendarPrefs.weekLanding(mode: settings.weekScrollStart, counts: counts,
+                                          today: today, visible: Int(visible))
+        landedWeek = weekDays.first
+        landedOnEvents = counts.contains { $0 > 0 }
+        DispatchQueue.main.async { days.scrollTo(i, anchor: .leading) }
     }
 
     /// The selected day in view, with the day before it for context.
