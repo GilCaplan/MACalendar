@@ -211,9 +211,10 @@ in the checkout), which can reach the apps; a cloud session cannot.
 2. **Flashcards English — DONE 2026-10-14.** All 2,295 cards in 14 sets have
    `en`; every set re-imported with 0 added / 0 removed, so progress is kept,
    and a fresh `export` reports 0 cards left.
-3. **Old branches:** 40 are fully merged (2026-10-14); the cloud session's git
-   proxy refuses deletes, and the Mac session's auto mode refused them too —
-   Gil runs it. `git fetch --prune origin && git branch -r --merged
+3. **Old branches:** 57 are fully merged (re-checked 2026-10-29 against the
+   full history; PRs #53 and #45 merged that day, so their branches go too).
+   The cloud session's git proxy refuses deletes (still true 2026-10-29), and
+   the Mac session's auto mode refused them too — Gil runs it. `git fetch --prune origin && git branch -r --merged
    origin/main | grep -v -E 'origin/(main|HEAD)' | sed 's#origin/##' | xargs
    git push origin --delete`. `tips-on-ios` is fully merged now
    (0 commits not on main), so it goes too.

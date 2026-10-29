@@ -2328,3 +2328,12 @@ now"*):
 55. ~~**The phone works alone; App Store readiness**~~ — **built 2026-10-02**
     (DEVQA Q85; FEATURES.md "The phone on its own"; DOCUMENTATION/APP_STORE.md
     for what is left — the developer account and listing are Gil's).
+
+### Filed 2026-10-29, from a full-stack design review (Gil: "make sure code design is clean and compartmentalized and logged where relevant")
+
+Fixed in the same pass: the HUD fade's ten review findings and the result card's `KeyError` on doubted words (PR #53); lost-data writes now logged (label corrections, vocabulary aliases, command-memory feedback, the History record, the HUD reader); the phone's offline queue written atomically, retried after a failed write, and logged (`LocalStore.writePending`). The layer rules hold: no parsing in `pipeline.py` or `server.py` (their only regexes clean a device id and spot the stop word), and no integration route reaches the engine. Left open, because each is a structural change (no design changes without Gil):
+
+56. **Stages import each other's helpers.** `decompose_validate` uses `segmentation.fastseg`'s `find_time_refs` and kind lexicon (5 files); `fastrule` uses `decompose_validate.resolve` and `llmjudge.gatekeeper`; `llmjudge.rescue` uses `fastrule.build`. These are helper imports, not one stage running another, but "never reach into another stage" is the rule. Fix: move the shared helpers into one module that every stage imports (e.g. `assistant/engine/common/`).
+57. **`engine.label.title_icons` is used by feature routes and the Mac Settings** (`features/calendar`, `features/tasks`, `settings_dialog`, `view_prefs`). It is a lexicon, not the label stage. Fix: same as 56; a lexicon module outside the stage folder.
+58. **About 70 broad `except: pass` blocks remain** (the data-losing ones are logged now). They guard best-effort extras such as icons, Cocoa calls and caches, which is fine, but none of them leaves a trace. Fix: a `logger.debug(..., exc_info=True)` sweep, one module at a time.
+59. **`LiveActivityManager.swift` logs with `print`** (5 calls) beside its own `Logger`. Fix: route them through the `Logger`.

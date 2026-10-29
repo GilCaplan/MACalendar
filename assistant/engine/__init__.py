@@ -429,7 +429,7 @@ class Engine(Component):
                     from assistant.engine import boundary as _b
                     _b.emit_fast(state)
                 except Exception:
-                    pass
+                    logger.debug("Could not publish the fast-track boundary", exc_info=True)
                 # The confirm gate, on THIS branch too (Gil, 2026-09-17). It
                 # lived only on the deep side, so a fast row could not ask
                 # anything — and the row that most needs to ask is a fast one:
@@ -1510,7 +1510,7 @@ def _log_nlu(state: EngineState, action_names: list, failure: str = "") -> None:
             daemon=True,
         ).start()
     except Exception:
-        pass
+        logger.warning("Could not record the command in memory", exc_info=True)
 
 
 def _mine_reformulations(state: EngineState, cfg) -> None:
@@ -1574,4 +1574,5 @@ def _publish(state: EngineState, resp: dict, trace_run: "str | None") -> None:
         trace_bus.publish(state.trace.source if state.trace else state.source,
                           resp.get("trace") or [], payload, run=trace_run)
     except Exception:
-        pass
+        # The card's History would silently miss this command.
+        logger.warning("Could not write the command to the trace bus", exc_info=True)
