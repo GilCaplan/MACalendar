@@ -1204,9 +1204,12 @@ class _ResultCard(QFrame):
             f" border-radius: {_styles.RADIUS_MD}px; }}"
         )
         for lbl, role in self._labels:
-            color = {"text": theme.text, "text2": theme.text2,
+            # "muted" is the fix-a-word note under the chips. It had no entry
+            # here, so a result with any doubted word raised KeyError and the
+            # card dropped the whole command (found 2026-10-29).
+            color = {"text": theme.text, "text2": theme.text2, "muted": theme.text2,
                      "green": theme.green, "orange": theme.orange}[role]
-            size = "font-size: 11px;" if role == "text2" else ""
+            size = "font-size: 11px;" if role in ("text2", "muted") else ""
             lbl.setStyleSheet(f"color: {color}; border: none; {size}")
         for chip in self._chips:
             chip.apply_theme(theme)
